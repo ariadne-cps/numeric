@@ -28,6 +28,7 @@
 #include <iomanip>
 #include <cassert>
 #include <limits>
+#include <charconv>
 
 
 
@@ -325,20 +326,22 @@ OutputStream& operator<<=(OutputStream& os, FloatDP const& x) {
 }
 
 InputStream& operator>>(InputStream& is, FloatDP& x) {
-#if defined(_MSC_VER)
-    auto old_rnd=FloatDP::get_rounding_mode();
-    FloatDP::set_rounding_to_nearest();
-    try {
-        double r; is >> r; x.dbl=r;
-    } catch (...) {
-        FloatDP::set_rounding_mode(old_rnd);
-        throw;
+    std::string str;
+    is >> str;
+    if (!is) { return is; }
+
+    const char* first=str.data();
+    const char* last=first+str.size();
+    if (first!=last && *first=='+') { ++first; }
+
+    double r=0.0;
+    auto result=std::from_chars(first,last,r,std::chars_format::general);
+    if (result.ec!=std::errc() || result.ptr!=last) {
+        is.setstate(std::ios::failbit);
+        return is;
     }
-    FloatDP::set_rounding_mode(old_rnd);
+    x.dbl=r;
     return is;
-#else
-    double r; is >> r; x.dbl=r; return is;
-#endif
 }
 
 Nat FloatDP::output_places=16;

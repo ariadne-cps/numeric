@@ -573,24 +573,6 @@ double atan_rnd_series(double x) {
 }
 
 double atan_rnd(double x) {
-#if defined(_MSC_VER)
-    mpfr_rnd_t rnd=MPFR_RNDN;
-    switch(get_builtin_rounding_mode()) {
-        case ROUND_DOWNWARD: rnd=MPFR_RNDD; break;
-        case ROUND_UPWARD: rnd=MPFR_RNDU; break;
-        case ROUND_TOWARD_ZERO: rnd=MPFR_RNDZ; break;
-        case ROUND_TO_NEAREST: default: rnd=MPFR_RNDN; break;
-    }
-    mpfr_t mx,my;
-    mpfr_init2(mx,std::numeric_limits<double>::digits);
-    mpfr_init2(my,std::numeric_limits<double>::digits);
-    mpfr_set_d(mx,x,MPFR_RNDN);
-    mpfr_atan(my,mx,rnd);
-    double result=mpfr_get_d(my,rnd);
-    mpfr_clear(my);
-    mpfr_clear(mx);
-    return result;
-#else
     // use range reduction
     // atan(-x) = -atan(x)
     // atan(1/x) = pi/2 - atan(x) for x>0
@@ -628,8 +610,6 @@ double atan_rnd(double x) {
         a=a+(-pi_opp())/6;
     }
     return a + atan_rnd_series(x);
-
-#endif
 }
 
 double asin_rnd(double x) {
