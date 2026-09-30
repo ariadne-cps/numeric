@@ -69,10 +69,6 @@ Approximation<FloatMP> pow(Approximation<FloatMP> const& x, Integer const& z) {
 
 
 
-template class NumberWrapper<Integer>;
-template class NumberWrapper<Dyadic>;
-template class NumberWrapper<Rational>;
-template class NumberWrapper<Real>;
 
 ExactDouble::operator ExactNumber() const { return Dyadic(*this).operator ExactNumber(); }
 Integer::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Integer>(*this)); }
@@ -87,12 +83,6 @@ FloatDPBall NumberInterface::_get(MetricTag p, DoublePrecision pr) const { retur
 FloatMPBall NumberInterface::_get(MetricTag p, MultiplePrecision pr) const { return this->_get(p,pr,pr); }
 
 
-template class NumberWrapper<FloatDPApproximation>;
-template class NumberWrapper<FloatDPLowerBound>;
-template class NumberWrapper<FloatDPUpperBound>;
-template class NumberWrapper<FloatDPBounds>;
-template class NumberWrapper<FloatDPBall>;
-template class NumberWrapper<FloatDP>;
 
 DyadicBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<DyadicBounds>(*this)); }
 DecimalBounds::operator ValidatedNumber() const { return RationalBounds(*this).operator ValidatedNumber(); }
@@ -110,12 +100,6 @@ FloatDP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Flo
 template<> FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDP>(cast_exact(*this))); }
 template<> FloatMPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatMP>(cast_exact(*this))); }
 
-template class NumberWrapper<FloatMPApproximation>;
-template class NumberWrapper<FloatMPLowerBound>;
-template class NumberWrapper<FloatMPUpperBound>;
-template class NumberWrapper<FloatMPBounds>;
-template class NumberWrapper<FloatMPBall>;
-template class NumberWrapper<FloatMP>;
 
 template<> FloatMPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatMPApproximation>(*this)); }
 //template<> FloatMPLowerBound::operator ValidatedLowerNumber() const { return ValidatedLowerNumber(new NumberWrapper<FloatMPLowerBound>(*this)); }

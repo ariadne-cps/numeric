@@ -35,11 +35,23 @@ template<> OutputStream& Operations<FloatBall<MultiplePrecision>>::_write(Output
 
 
 template class Ball<FloatDP,FloatDP>;
-template class Operations<Ball<FloatDP,FloatDP>>;
+template Ball<FloatDP,FloatDP> Operations<Ball<FloatDP,FloatDP>>::_trunc(Ball<FloatDP,FloatDP> const&);
+template Ball<FloatDP,FloatDP> Operations<Ball<FloatDP,FloatDP>>::_trunc(Ball<FloatDP,FloatDP> const&, Nat);
+template Integer Operations<Ball<FloatDP,FloatDP>>::_cast_integer(Ball<FloatDP,FloatDP> const&);
+template InputStream& Operations<Ball<FloatDP,FloatDP>>::_read(InputStream&, Ball<FloatDP,FloatDP>&);
+template OutputStream& Operations<Ball<FloatDP,FloatDP>>::_write(OutputStream&, Ball<FloatDP,FloatDP> const&);
 template class Ball<FloatMP,FloatDP>;
-template class Operations<Ball<FloatMP,FloatDP>>;
+template Ball<FloatMP,FloatDP> Operations<Ball<FloatMP,FloatDP>>::_trunc(Ball<FloatMP,FloatDP> const&);
+template Ball<FloatMP,FloatDP> Operations<Ball<FloatMP,FloatDP>>::_trunc(Ball<FloatMP,FloatDP> const&, Nat);
+template Integer Operations<Ball<FloatMP,FloatDP>>::_cast_integer(Ball<FloatMP,FloatDP> const&);
+template InputStream& Operations<Ball<FloatMP,FloatDP>>::_read(InputStream&, Ball<FloatMP,FloatDP>&);
+template OutputStream& Operations<Ball<FloatMP,FloatDP>>::_write(OutputStream&, Ball<FloatMP,FloatDP> const&);
 template class Ball<FloatMP,FloatMP>;
-template class Operations<Ball<FloatMP,FloatMP>>;
+template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&);
+template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&, Nat);
+template Integer Operations<Ball<FloatMP,FloatMP>>::_cast_integer(Ball<FloatMP,FloatMP> const&);
+template InputStream& Operations<Ball<FloatMP,FloatMP>>::_read(InputStream&, Ball<FloatMP,FloatMP>&);
+template OutputStream& Operations<Ball<FloatMP,FloatMP>>::_write(OutputStream&, Ball<FloatMP,FloatMP> const&);
 
 template<> String class_name<Ball<FloatDP>>() { return "FloatDPBall"; }
 template<> String class_name<Ball<FloatMP,FloatDP>>() { return "FloatMDPBall"; }

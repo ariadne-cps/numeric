@@ -40,9 +40,41 @@ template<> auto Operations<FloatBounds<DoublePrecision>>::_write(OutputStream& o
 template<> auto Operations<FloatBounds<MultiplePrecision>>::_write(OutputStream& os, const FloatBounds<MultiplePrecision>& x) -> OutputStream&;
 
 template class Bounds<FloatDP>;
-template class Operations<Bounds<FloatDP>>;
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_pi(DoublePrecision);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sin(Bounds<FloatDP> const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_cos(Bounds<FloatDP> const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_tan(Bounds<FloatDP> const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_trunc(Bounds<FloatDP> const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_trunc(Bounds<FloatDP> const&, Nat);
+template Integer Operations<Bounds<FloatDP>>::_cast_integer(Bounds<FloatDP> const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_add(Bounds<FloatDP> const&, FloatDP const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_add(FloatDP const&, Bounds<FloatDP> const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sub(Bounds<FloatDP> const&, FloatDP const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sub(FloatDP const&, Bounds<FloatDP> const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(Bounds<FloatDP> const&, FloatDP const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(FloatDP const&, Bounds<FloatDP> const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(Bounds<FloatDP> const&, FloatDP const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(FloatDP const&, Bounds<FloatDP> const&);
+template OutputStream& Operations<Bounds<FloatDP>>::_write(OutputStream&, Bounds<FloatDP> const&);
+template InputStream& Operations<Bounds<FloatDP>>::_read(InputStream&, Bounds<FloatDP>&);
 template class Bounds<FloatMP>;
-template class Operations<Bounds<FloatMP>>;
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_pi(MultiplePrecision);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sin(Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_cos(Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_tan(Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(Bounds<FloatMP> const&, Nat);
+template Integer Operations<Bounds<FloatMP>>::_cast_integer(Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(Bounds<FloatMP> const&, FloatMP const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(FloatMP const&, Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(Bounds<FloatMP> const&, FloatMP const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(FloatMP const&, Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(Bounds<FloatMP> const&, FloatMP const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(FloatMP const&, Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(Bounds<FloatMP> const&, FloatMP const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(FloatMP const&, Bounds<FloatMP> const&);
+template OutputStream& Operations<Bounds<FloatMP>>::_write(OutputStream&, Bounds<FloatMP> const&);
+template InputStream& Operations<Bounds<FloatMP>>::_read(InputStream&, Bounds<FloatMP>&);
 
 template<> String class_name<Bounds<FloatDP>>() { return "FloatDPBounds"; }
 template<> String class_name<Bounds<FloatMP>>() { return "FloatMPBounds"; }
