@@ -67,8 +67,8 @@ class Dyadic
 //    template<class W> requires BaseOf<WriterInterface<Dyadic>,W> static Void set_default_writer(W w) {
 //        _default_writer=std::make_shared<W>(std::move(w)); }
 //    static Void set_default_writer(Writer<Dyadic> w) { _default_writer=w.managed_pointer(); }
-    static Void set_default_writer(Writer<Dyadic> w) { _default_writer=w; }
-    static Writer<Dyadic> default_writer() { return _default_writer; }
+    static Void set_default_writer(Writer<Dyadic> w);
+    static Writer<Dyadic> default_writer();
   public:
     mpf_t _mpf;
   public:
