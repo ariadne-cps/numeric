@@ -32,6 +32,7 @@
 #include "foundation/logical.decl.hpp"
 #include "number.decl.hpp"
 #include "float.decl.hpp"
+#include "upper_number.hpp"
 
 #include "positive.hpp"
 

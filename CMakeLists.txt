@@ -44,6 +44,17 @@ target_link_libraries(numeric INTERFACE
     MPFR::MPFR
 )
 
+if(MSVC)
+    target_compile_options(numeric INTERFACE
+        /wd4099
+        /wd4146
+        /wd4244
+        /wd4250
+        /wd4267
+        /wd4996
+    )
+endif()
+
 add_subdirectory(src)
 target_link_libraries(NUMERIC_SRC PRIVATE numeric)
 

@@ -34,6 +34,8 @@
 #include "number.decl.hpp"
 #include "float.decl.hpp"
 #include "arithmetic.hpp"
+#include "dyadic.hpp"
+#include "rational.hpp"
 
 #include "operators.hpp"
 
