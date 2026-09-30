@@ -474,7 +474,7 @@ template<class F> class Bounds
         else { return operator/(Bounds<F>(y1,x2.precision()),x2); } }
 */
   public:
-    static Nat output_places;
+    inline static Nat output_places = 8;
     //! %Set the number of output places used to display the number. DEPRECATED
     static Void set_output_places(Nat p) { output_places=p; }
   private: public:
@@ -559,8 +559,6 @@ template<class F> class Positive<Bounds<F>> : public Bounds<F>
 template<class F> inline PositiveBounds<F> cast_positive(Bounds<F> const& x) {
     return PositiveBounds<F>(x); }
 
-template<> Nat Bounds<FloatDP>::output_places;
-template<> Nat Bounds<FloatMP>::output_places;
 
 
 template<class F> class Operations<Bounds<F>> {

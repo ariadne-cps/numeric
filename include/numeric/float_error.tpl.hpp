@@ -34,7 +34,6 @@
 
 namespace Ariadne {
 
-template<class F> Nat Error<F>::output_places = 3;
 
 template<class F> Error<F>::Error(PositiveBounds<F> const& x)
     : _e(x._u) { }

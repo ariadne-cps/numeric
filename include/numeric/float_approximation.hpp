@@ -270,7 +270,7 @@ template<class F> class Approximation
         char c; is >> c; assert(c=='~'); is >> x._a; is >> c; assert(c=='~'); return is; } //!< Read from an input stream.
     //!@}
   public:
-    static Nat output_places;
+    inline static Nat output_places = 4;
     //! <p/>
     static Void set_output_places(Nat p) { output_places=p; }
     //! <p/>
@@ -339,8 +339,6 @@ template<class F> class Positive<Approximation<F>> : public Approximation<F>
 template<class F> inline PositiveApproximation<F> cast_positive(Approximation<F> const& x) {
     return PositiveApproximation<F>(x); }
 
-template<> Nat Approximation<FloatDP>::output_places;
-template<> Nat Approximation<FloatMP>::output_places;
 
 }
 

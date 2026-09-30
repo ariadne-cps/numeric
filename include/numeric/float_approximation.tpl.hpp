@@ -37,7 +37,6 @@
 
 namespace Ariadne {
 
-template<class F> Nat Approximation<F>::output_places = 4;
 
 template<class F> Approximation<F>::Approximation(LowerBound<F> const& x) : Approximation<F>(x.raw()) { }
 template<class F> Approximation<F>::Approximation(UpperBound<F> const& x) : Approximation<F>(x.raw()) { }

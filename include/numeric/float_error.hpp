@@ -214,7 +214,7 @@ template<class F> class Error
         is >> xu; x=Error<F>(xu); return is; } //!< Read from an input stream.
     //!@}
   public:
-    static Nat output_places;
+    inline static Nat output_places = 3;
     //! Set the number of decimal places used for the output. DEPRECATED
     static Void set_output_places(Nat p) { output_places=p; }
 };
@@ -222,8 +222,6 @@ template<class F> class Error
 template<class PR> Error(ValidatedUpperNumber, PR) -> Error<RawFloatType<PR>>;
 template<class F> Error(F) -> Error<F>;
 
-template<> Nat Error<FloatDP>::output_places;
-template<> Nat Error<FloatMP>::output_places;
 
 
 }

@@ -42,7 +42,6 @@ namespace Ariadne {
 
 int abslog10floor(double x);
 
-template<class F> Nat Bounds<F>::output_places=8;
 
 template<class F> Bounds<F>::Bounds(LowerBound<F> const& lower, UpperBound<F> const& upper) : Bounds<F>(lower.raw(),upper.raw()) { }
 
