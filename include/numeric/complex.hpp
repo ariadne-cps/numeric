@@ -247,11 +247,7 @@ template<class X> class Complex
 
     //!@{
     //! Operations based on the metric structure.
-#ifdef _MSC_VER
     friend Positive<X> dist(Complex<X> const& z1, Complex<X> const& z2) { return cast_positive(abs(sub(z1,z2))); }
-#else
-    friend Positive<X> dist(Complex<X> const& z1, Complex<X> const& z2) { return abs(sub(z1,z2)); }
-#endif
         //< The distance |\a r <sub>1</sub>-\a r <sub>2</sub>| between \a r<sub>1</sub> and \a r<sub>2</sub>.
     //!@}
 
