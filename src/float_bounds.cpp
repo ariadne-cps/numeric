@@ -39,7 +39,12 @@ FloatMP midpoint(Bounds<FloatMP> const& x) { return x.value(); } // DEPRECATED
 template<> auto Operations<FloatBounds<DoublePrecision>>::_write(OutputStream& os, const FloatBounds<DoublePrecision>& x) -> OutputStream&;
 template<> auto Operations<FloatBounds<MultiplePrecision>>::_write(OutputStream& os, const FloatBounds<MultiplePrecision>& x) -> OutputStream&;
 
+template<> Bounds<FloatDP>::Bounds(Real const&, DoublePrecision);
+template<> Bounds<FloatDP>::operator ValidatedNumber() const;
+template<> Bounds<FloatMP>::operator ValidatedNumber() const;
+
 template class Bounds<FloatDP>;
+template Nat Bounds<FloatDP>::output_places;
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_pi(DoublePrecision);
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sin(Bounds<FloatDP> const&);
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_cos(Bounds<FloatDP> const&);
@@ -57,6 +62,7 @@ template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(Bounds<FloatDP> const
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(FloatDP const&, Bounds<FloatDP> const&);
 template InputStream& Operations<Bounds<FloatDP>>::_read(InputStream&, Bounds<FloatDP>&);
 template class Bounds<FloatMP>;
+template Nat Bounds<FloatMP>::output_places;
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_pi(MultiplePrecision);
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sin(Bounds<FloatMP> const&);
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_cos(Bounds<FloatMP> const&);

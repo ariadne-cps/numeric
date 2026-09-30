@@ -32,9 +32,14 @@
 
 namespace Ariadne {
 
+template<> Error<FloatDP>::operator ValidatedErrorNumber() const;
+template<> Error<FloatMP>::operator ValidatedErrorNumber() const;
+
 template class Error<FloatDP>;
+template Nat Error<FloatDP>::output_places;
 template class Operations<Error<FloatDP>>;
 template class Error<FloatMP>;
+template Nat Error<FloatMP>::output_places;
 template class Operations<Error<FloatMP>>;
 
 template<> String class_name<Error<FloatDP>>() { return "FloatDPError"; }

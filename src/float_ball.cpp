@@ -25,14 +25,15 @@
 #include "float_ball.hpp"
 #include "float_ball.tpl.hpp"
 
-#include "float_bounds.tpl.hpp" //< FIXME: Needed for log10floor
-
 namespace Ariadne {
+
+Int abslog10floor(FloatMP const&);
 
 template<> OutputStream& Operations<FloatBall<DoublePrecision>>::_write(OutputStream& os, FloatBall<DoublePrecision> const& x);
 template<> OutputStream& Operations<FloatBall<MultiplePrecision,DoublePrecision>>::_write(OutputStream& os, FloatBall<MultiplePrecision,DoublePrecision> const& x);
 template<> OutputStream& Operations<FloatBall<MultiplePrecision>>::_write(OutputStream& os, FloatBall<MultiplePrecision> const& x);
 
+template<> Ball<FloatDP,FloatDP>::Ball(Real const&, DoublePrecision);
 
 template class Ball<FloatDP,FloatDP>;
 template Ball<FloatDP,FloatDP> Operations<Ball<FloatDP,FloatDP>>::_trunc(Ball<FloatDP,FloatDP> const&);
