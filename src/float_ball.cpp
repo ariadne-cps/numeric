@@ -27,7 +27,7 @@
 
 namespace Ariadne {
 
-Int abslog10floor(FloatMP const&);
+int abslog10floor(double);
 
 template<> OutputStream& Operations<FloatBall<DoublePrecision>>::_write(OutputStream& os, FloatBall<DoublePrecision> const& x);
 template<> OutputStream& Operations<FloatBall<MultiplePrecision,DoublePrecision>>::_write(OutputStream& os, FloatBall<MultiplePrecision,DoublePrecision> const& x);

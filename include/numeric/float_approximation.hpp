@@ -339,8 +339,8 @@ template<class F> class Positive<Approximation<F>> : public Approximation<F>
 template<class F> inline PositiveApproximation<F> cast_positive(Approximation<F> const& x) {
     return PositiveApproximation<F>(x); }
 
-extern template Ariadne::Nat Ariadne::Approximation<Ariadne::FloatDP>::output_places;
-extern template Ariadne::Nat Ariadne::Approximation<Ariadne::FloatMP>::output_places;
+template<> Nat Approximation<FloatDP>::output_places;
+template<> Nat Approximation<FloatMP>::output_places;
 
 }
 

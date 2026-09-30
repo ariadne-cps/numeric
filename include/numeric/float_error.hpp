@@ -222,8 +222,8 @@ template<class F> class Error
 template<class PR> Error(ValidatedUpperNumber, PR) -> Error<RawFloatType<PR>>;
 template<class F> Error(F) -> Error<F>;
 
-extern template Ariadne::Nat Ariadne::Error<Ariadne::FloatDP>::output_places;
-extern template Ariadne::Nat Ariadne::Error<Ariadne::FloatMP>::output_places;
+template<> Nat Error<FloatDP>::output_places;
+template<> Nat Error<FloatMP>::output_places;
 
 
 }

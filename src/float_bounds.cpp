@@ -43,8 +43,8 @@ template<> Bounds<FloatDP>::Bounds(Real const&, DoublePrecision);
 template<> Bounds<FloatDP>::operator ValidatedNumber() const;
 template<> Bounds<FloatMP>::operator ValidatedNumber() const;
 
+template<> Nat Bounds<FloatDP>::output_places = 8;
 template class Bounds<FloatDP>;
-template Nat Bounds<FloatDP>::output_places;
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_pi(DoublePrecision);
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sin(Bounds<FloatDP> const&);
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_cos(Bounds<FloatDP> const&);
@@ -61,8 +61,8 @@ template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(FloatDP const&, Bound
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(Bounds<FloatDP> const&, FloatDP const&);
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(FloatDP const&, Bounds<FloatDP> const&);
 template InputStream& Operations<Bounds<FloatDP>>::_read(InputStream&, Bounds<FloatDP>&);
+template<> Nat Bounds<FloatMP>::output_places = 8;
 template class Bounds<FloatMP>;
-template Nat Bounds<FloatMP>::output_places;
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_pi(MultiplePrecision);
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sin(Bounds<FloatMP> const&);
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_cos(Bounds<FloatMP> const&);
