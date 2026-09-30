@@ -379,11 +379,7 @@ public:
         return x1._v==x2._v && x1._e==x2._e; }
         //! Tests is \a x1 is a valid approximation for \a x2 i.e. if \a x2 is within the error of the centre value of \a x1.
     friend Bool models(Ball<F,FE> const& x1, F const& x2) {
-#ifdef _MSC_VER
         return x1.lower_raw()<=x2 && x2<=x1.upper_raw();
-#else
-        return x1._l<=x2._v && x1._u >= x2._v;
-#endif
     }
     //! Tests is \a x1 and \a x2 are consistent with being a model of the same value i.e. they intersect.
     friend Bool consistent(Ball<F,FE> const& x1, Ball<F,FE> const& x2) {
