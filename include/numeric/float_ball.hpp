@@ -544,6 +544,10 @@ template<class F, class FE> struct Operations<Ball<F,FE>> {
         return x*rec(y);
     }
 
+    static Ball<F,FE> _fma(Ball<F,FE> const& x, Ball<F,FE> const& y, Ball<F,FE> const& z) {
+        return _add(_mul(x,y),z);
+    }
+
     static Ball<F,FE> _add(F const& x, F const& y, PRE pre) {
         auto rv=add(near,x,y);
         auto ru=add(up,x,y);

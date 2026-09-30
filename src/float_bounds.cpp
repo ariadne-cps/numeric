@@ -55,7 +55,6 @@ template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(Bounds<FloatDP> const
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(FloatDP const&, Bounds<FloatDP> const&);
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(Bounds<FloatDP> const&, FloatDP const&);
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(FloatDP const&, Bounds<FloatDP> const&);
-template OutputStream& Operations<Bounds<FloatDP>>::_write(OutputStream&, Bounds<FloatDP> const&);
 template InputStream& Operations<Bounds<FloatDP>>::_read(InputStream&, Bounds<FloatDP>&);
 template class Bounds<FloatMP>;
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_pi(MultiplePrecision);
@@ -73,7 +72,6 @@ template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(Bounds<FloatMP> const
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(FloatMP const&, Bounds<FloatMP> const&);
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(Bounds<FloatMP> const&, FloatMP const&);
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(FloatMP const&, Bounds<FloatMP> const&);
-template OutputStream& Operations<Bounds<FloatMP>>::_write(OutputStream&, Bounds<FloatMP> const&);
 template InputStream& Operations<Bounds<FloatMP>>::_read(InputStream&, Bounds<FloatMP>&);
 
 template<> String class_name<Bounds<FloatDP>>() { return "FloatDPBounds"; }
@@ -103,7 +101,6 @@ OutputStream& write_bounds_with_error_places(OutputStream& os, const FloatMP& l,
     String lstr=print(l,plcs,MPFR_RNDD);
     String ustr=print(u,plcs,MPFR_RNDU);
     auto lcstr=lstr.c_str();
-    auto ucstr=ustr.c_str();
     size_t cpl=0;
     if((l>=0)==(u>=0) && abslog10floor(l)==abslog10floor(u)) {
         while(lcstr[cpl]!='\0' && lcstr[cpl]==ustr[cpl]) { ++cpl; }
