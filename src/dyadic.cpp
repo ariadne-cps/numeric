@@ -411,6 +411,8 @@ Boolean lt(Dyadic const& x1, Dyadic const& x2) {
 }
 
 Writer<Dyadic> Dyadic::_default_writer(new DecimalWriter());
+Void Dyadic::set_default_writer(Writer<Dyadic> w) { _default_writer=w; }
+Writer<Dyadic> Dyadic::default_writer() { return _default_writer; }
 
 OutputStream& operator<<(OutputStream& os, Dyadic const& x) {
     return os << Dyadic::_default_writer(x);
