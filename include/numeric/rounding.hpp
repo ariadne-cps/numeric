@@ -33,7 +33,9 @@
 #include <iosfwd>
 #include "utility/typedefs.hpp"
 
-#if defined __GNUC__ && ( defined __i386__ || defined __x86_64 || defined _M_IX86 || defined _M_X86 || defined __arm__ || defined __aarch64__ )
+#if defined _MSC_VER && defined _M_X64
+    #define ARIADNE_SSE_ROUNDING
+#elif defined __GNUC__ && ( defined __i386__ || defined __x86_64 || defined _M_IX86 || defined _M_X86 || defined __arm__ || defined __aarch64__ )
     #if ( defined __SSE_MATH__ &&  defined __SSE2__ )
         #define ARIADNE_SSE_ROUNDING
     #elif ( defined __i386__ || defined __x86_64 || defined _M_IX86 || defined _M_X86) && (__GNUC__ >= 5 || ( __GNUC__ == 4 && __GNUC_MINOR__ >= 3 ))
@@ -58,7 +60,7 @@
 
 namespace Ariadne {
 
-typedef __uint16_t rounding_mode_t;
+typedef std::uint16_t rounding_mode_t;
 
 const rounding_mode_t ROUND_TO_NEAREST  = _MM_ROUND_NEAREST;
 const rounding_mode_t ROUND_DOWNWARD    = _MM_ROUND_DOWN;
