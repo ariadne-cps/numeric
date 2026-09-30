@@ -326,9 +326,43 @@ OutputStream& operator<<=(OutputStream& os, FloatDP const& x) {
 }
 
 InputStream& operator>>(InputStream& is, FloatDP& x) {
-    std::string str;
-    is >> str;
+    is >> std::ws;
     if (!is) { return is; }
+
+    std::string str;
+    int c=is.peek();
+    if (c=='+' || c=='-') { str.push_back(static_cast<char>(is.get())); c=is.peek(); }
+
+    Bool have_digits=false;
+    while (c>='0' && c<='9') {
+        have_digits=true;
+        str.push_back(static_cast<char>(is.get()));
+        c=is.peek();
+    }
+    if (c=='.') {
+        str.push_back(static_cast<char>(is.get()));
+        c=is.peek();
+        while (c>='0' && c<='9') {
+            have_digits=true;
+            str.push_back(static_cast<char>(is.get()));
+            c=is.peek();
+        }
+    }
+
+    if (!have_digits) { is.setstate(std::ios::failbit); return is; }
+
+    if (c=='e' || c=='E') {
+        str.push_back(static_cast<char>(is.get()));
+        c=is.peek();
+        if (c=='+' || c=='-') { str.push_back(static_cast<char>(is.get())); c=is.peek(); }
+        Bool have_exponent_digits=false;
+        while (c>='0' && c<='9') {
+            have_exponent_digits=true;
+            str.push_back(static_cast<char>(is.get()));
+            c=is.peek();
+        }
+        if (!have_exponent_digits) { is.setstate(std::ios::failbit); return is; }
+    }
 
     const char* first=str.data();
     const char* last=first+str.size();
