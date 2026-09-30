@@ -209,7 +209,7 @@ TestRounded<FLT>::test_concept()
 template<class FLT> Void
 TestRounded<FLT>::test_class()
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
     // Construct from an Int
     ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f1,(2,precision));
     ARIADNE_TEST_EQUALS(f1,2);
@@ -294,7 +294,7 @@ TestRounded<FLT>::test_conversion_from_to()
 template<class FLT> Void
 TestRounded<FLT>::test_comparison()
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
 
     ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f0,(3.00_x,precision));
     ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f1,(1.25_x,precision));
@@ -345,7 +345,7 @@ TestRounded<FLT>::test_comparison()
 template<class FLT> Void
 TestRounded<FLT>::test_arithmetic()
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
 
     static bool full_precision_warning = false;
     RoundedFloatType::set_rounding_to_nearest();
@@ -518,7 +518,7 @@ TestRounded<FLT>::test_arithmetic()
 template<class FLT> Void
 TestRounded<FLT>::test_function()
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
 
     cout << setprecision(20);
 

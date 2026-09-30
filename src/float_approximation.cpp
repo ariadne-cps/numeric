@@ -34,8 +34,6 @@ template<> Approximation<FloatDP>::Approximation(Real const&, DoublePrecision);
 template<> Approximation<FloatDP>::operator ApproximateNumber() const;
 template<> Approximation<FloatMP>::operator ApproximateNumber() const;
 
-template<> Nat Approximation<FloatDP>::output_places = 4;
-template<> Nat Approximation<FloatMP>::output_places = 4;
 template class Approximation<FloatDP>;
 template class Approximation<FloatMP>;
 

@@ -218,7 +218,7 @@ TestFloatRounding<PR>::test_concept()
 template<class PR> Void
 TestFloatRounding<PR>::test_class()
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
     // Construct from an Int
     ARIADNE_TEST_CONSTRUCT(Float,f1,(2,precision));
     ARIADNE_TEST_EQUALS(f1,2);
@@ -404,7 +404,7 @@ TestFloatRounding<MultiplePrecision>::test_conversion_between()
 template<class PR> Void
 TestFloatRounding<PR>::test_stream()
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
 
     stringstream ss("1.25 -2.25 42 2.375e1 2.35e1");
     Float f1(precision),f2(precision),f3(precision),f4(precision),f5(precision);
@@ -445,7 +445,7 @@ TestFloatRounding<PR>::test_stream()
 template<class PR> Void
 TestFloatRounding<PR>::test_comparison()
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
 
     ARIADNE_TEST_CONSTRUCT(Float,f0,(3.00_x,precision));
     ARIADNE_TEST_CONSTRUCT(Float,f1,(1.25_x,precision));
@@ -606,7 +606,7 @@ TestFloatRounding<PR>::test_double_rounding()
 template<class PR> Void
 TestFloatRounding<PR>::test_arithmetic()
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
 
 /*
     static bool full_precision_warning = false;
@@ -789,7 +789,7 @@ TestFloatRounding<PR>::test_arithmetic()
 template<class PR> Void
 TestFloatRounding<PR>::test_function()
 {
-    cout << __PRETTY_FUNCTION__ << endl;
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
 
     cout << setprecision(20);
 
