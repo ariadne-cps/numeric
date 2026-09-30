@@ -136,7 +136,11 @@ void TestReal::test_constructors() {
     ARIADNE_TEST_CONSTRUCT(Real,xz,(1));
     ARIADNE_TEST_EQUALS(xz.compute(eff).get(),1);
     ARIADNE_TEST_CONSTRUCT(Real,xe,(1.5_exact));
-    ARIADNE_TEST_EQUALS(xe.compute(eff).get(),1.5_dy);
+    std::cout << "before xe.compute(eff).get()" << std::endl;
+    auto xe_bounds = xe.compute(eff).get();
+    std::cout << "after xe.compute(eff).get()" << std::endl;
+    ARIADNE_TEST_EQUALS(xe_bounds,1.5_dy);
+    std::cout << "after xe equality" << std::endl;
     ARIADNE_TEST_CONSTRUCT(Real,xn,(1.1_q));
     ARIADNE_TEST_COMPARE(Rational(xn.lower().compute(eff).get().raw()),<,Rational(11,10));
     ARIADNE_TEST_COMPARE(Rational(xn.upper().compute(eff).get().raw()),>,Rational(11,10));
