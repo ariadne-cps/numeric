@@ -25,8 +25,9 @@ jobs:
         $rev = git -C C:/vcpkg rev-parse HEAD
         "VCPKG_REV=$rev" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-    - name: Cache vcpkg binaries
-      uses: actions/cache@v4
+    - name: Restore vcpkg binary cache
+      id: vcpkg-cache
+      uses: actions/cache/restore@v4
       with:
         path: ${{ github.workspace }}/.vcpkg-cache
         key: vcpkg-windows-release-${{ env.VCPKG_REV }}-${{ hashFiles('cmake/triplets/x64-windows-release.cmake') }}
@@ -36,14 +37,21 @@ jobs:
     - name: Install GMP and MPFR with vcpkg
       shell: pwsh
       run: |
-        & C:/vcpkg/vcpkg.exe install gmp:x64-windows-release mpfr:x64-windows-release --overlay-triplets="$env:GITHUB_WORKSPACE/cmake/triplets"
+        & C:/vcpkg/vcpkg.exe install gmp:x64-windows-release mpfr:x64-windows-release --host-triplet=x64-windows-release --overlay-triplets="$env:GITHUB_WORKSPACE/cmake/triplets"
+
+    - name: Save vcpkg binary cache
+      if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ github.workspace }}/.vcpkg-cache
+        key: vcpkg-windows-release-${{ env.VCPKG_REV }}-${{ hashFiles('cmake/triplets/x64-windows-release.cmake') }}
 
     - name: Create Build Environment
       run: cmake -E make_directory ${{ runner.workspace }}/build
 
     - name: Configure CMake
       working-directory: ${{ runner.workspace }}/build
-      run: cmake $env:GITHUB_WORKSPACE -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_OVERLAY_TRIPLETS=$env:GITHUB_WORKSPACE/cmake/triplets -DWARNINGS_AS_ERRORS=ON
+      run: cmake $env:GITHUB_WORKSPACE -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DVCPKG_OVERLAY_TRIPLETS=$env:GITHUB_WORKSPACE/cmake/triplets -DWARNINGS_AS_ERRORS=ON
 
     - name: Build
       working-directory: ${{ runner.workspace }}/build
