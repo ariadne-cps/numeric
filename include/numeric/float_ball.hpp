@@ -340,10 +340,12 @@ public:
         return Ball<F,FE>(round(x.lower_raw()),round(x.upper_raw())); }
     //! Round outward by 1 ulp. i.e. increase the error.
     friend Ball<F,FE> widen(Ball<F,FE> const& x) {
-        const F m=std::numeric_limits<float>::min(); return Ball<F,FE>(sub(down,x._l,m),add(up,x._u,m)); }
+        const F m=F::min(x.precision());
+        return Ball<F,FE>(Bounds<F>(sub(down,x.lower_raw(),m),add(up,x.upper_raw(),m))); }
     //! Round inward by 1 ulp. i.e. decrease the error.
     friend Ball<F,FE> narrow(Ball<F,FE> const& x) {
-        const F m=std::numeric_limits<float>::min(); return Ball<F,FE>(add(up,x._l,m),add(down,x._u,m)); }
+        const F m=F::min(x.precision());
+        return Ball<F,FE>(Bounds<F>(add(up,x.lower_raw(),m),add(down,x.upper_raw(),m))); }
     //! Truncate to lower precision.
     friend Ball<F,FE> trunc(Ball<F,FE> const& x) {
         return Operations<Ball<F,FE>>::_trunc(x); }
