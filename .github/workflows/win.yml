@@ -1,0 +1,37 @@
+name: Windows
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    name: Windows 2025 [Release]
+    runs-on: windows-2025
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install GMP and MPFR with vcpkg
+      shell: pwsh
+      run: |
+        & C:/vcpkg/vcpkg.exe install gmp:x64-windows mpfr:x64-windows
+
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{ runner.workspace }}/build
+
+    - name: Configure CMake
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake $env:GITHUB_WORKSPACE -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -DWARNINGS_AS_ERRORS=ON
+
+    - name: Build
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --build . --parallel --config Release
+
+    - name: Test
+      working-directory: ${{ runner.workspace }}/build
+      run: ctest -C Release --output-on-failure
