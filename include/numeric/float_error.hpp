@@ -207,7 +207,12 @@ template<class F> class Error
     friend OutputStream& operator<<(OutputStream& os, Error<F> const& x) {
         return write(os,x.raw(),DecimalPrecision{Error<F>::output_places},upward); } //!< Write to an output stream.
     friend InputStream& operator>>(InputStream& is, Error<F>& x) {
-        UpperBound<F> xu; is >> xu; x=Error<F>(xu); return is; } //!< Read from an input stream.
+#ifdef _MSC_VER
+        UpperBound<F> xu(x.precision());
+#else
+        UpperBound<F> xu;
+#endif
+        is >> xu; x=Error<F>(xu); return is; } //!< Read from an input stream.
     //!@}
   public:
     static Nat output_places;

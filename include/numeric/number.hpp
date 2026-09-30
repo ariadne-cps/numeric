@@ -133,6 +133,12 @@ template<class P> class Number
     template<class PR> using ResultFloatType = FloatType<Weaker<P,ValidatedTag>,PR>;
 
     template<class X> static const bool IsGettableAs = ANumber<X> and WeakerThan<typename X::Paradigm,P> and (not Same<typename X::Paradigm,ExactTag>);
+#ifdef _MSC_VER
+    template<class X> static Number<ParadigmTag<X>> _convert_via_number(X const& x) {
+        using StrongNumber = Number<ParadigmTag<X>>;
+        return x.operator StrongNumber();
+    }
+#endif
   public:
     typedef NumberInterface Interface;
     typedef P Paradigm;
@@ -155,12 +161,21 @@ template<class P> class Number
     template<ConvertibleBuiltinFloatingPointToNumber<P> X> Number(const X& x) : Number(Dyadic(x)) { }
 
     // Construct from a type which is convertible to Real.
-    template<ConvertibleViaRealToNumber<P> X> Number(X const & x) : Number(static_cast<Number<ParadigmTag<X>>>(x)) { }
+#ifdef _MSC_VER
+    template<ConvertibleViaRealToNumber<P> X> Number(X const & x) : Number(_convert_via_number(x)) { }
+#else
+    template<ConvertibleViaRealToNumber<P> X> Number(X const & x) : Number(x.operator Number<ParadigmTag<X>>()) { }
+#endif
 
     // Construct from a type which is convertible to another Number type.
     // TODO: Decide conversion characteristics from concrete type to Number<P>
+#ifdef _MSC_VER
     template<ConvertibleViaNumberToNumber<P> X>
-        explicit Number(X const & x) : Number(static_cast<Number<ParadigmTag<X>>>(x)) { }
+        explicit Number(X const & x) : Number(_convert_via_number(x)) { }
+#else
+    template<ConvertibleViaNumberToNumber<P> X>
+        explicit Number(X const & x) : Number(x.operator Number<ParadigmTag<X>>()) { }
+#endif
 
     //! \brief Get the value of the number as a double-precision floating-point type
     ResultFloatType<DoublePrecision> get(DoublePrecision const& prec) const { return this->ref()._get(P(),prec); }
