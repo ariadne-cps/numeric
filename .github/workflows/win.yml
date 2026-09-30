@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-2025
 
     env:
-      VCPKG_BINARY_SOURCES: "clear;files,${{ runner.workspace }}/vcpkg-cache,readwrite"
+      VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite"
 
     steps:
     - uses: actions/checkout@v3
@@ -28,7 +28,7 @@ jobs:
     - name: Cache vcpkg binaries
       uses: actions/cache@v4
       with:
-        path: ${{ runner.workspace }}/vcpkg-cache
+        path: ${{ github.workspace }}/.vcpkg-cache
         key: vcpkg-windows-release-${{ env.VCPKG_REV }}-${{ hashFiles('cmake/triplets/x64-windows-release.cmake') }}
         restore-keys: |
           vcpkg-windows-release-${{ env.VCPKG_REV }}-
