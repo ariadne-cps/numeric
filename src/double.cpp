@@ -573,6 +573,19 @@ double atan_rnd_series(double x) {
 }
 
 double atan_rnd(double x) {
+    // Use odd symmetry for negative arguments.  Directed rounding reverses
+    // under exact negation: an upper bound for atan(-x) is the negation of
+    // a lower bound for atan(x), and conversely.
+    if (x<0.0) {
+        rounding_mode_t rnd=get_builtin_rounding_mode();
+        rounding_mode_t positive_rnd=rnd;
+        if (rnd==ROUND_UPWARD || rnd==ROUND_TOWARD_ZERO) { positive_rnd=ROUND_DOWNWARD; }
+        else if (rnd==ROUND_DOWNWARD) { positive_rnd=ROUND_UPWARD; }
+        set_builtin_rounding_mode(positive_rnd);
+        double r=-atan_rnd(-x);
+        set_builtin_rounding_mode(rnd);
+        return r;
+    }
     // use range reduction
     // atan(-x) = -atan(x)
     // atan(1/x) = pi/2 - atan(x) for x>0
