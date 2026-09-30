@@ -247,7 +247,7 @@ template<class X> class Complex
 
     //!@{
     //! Operations based on the metric structure.
-    friend Positive<X> dist(Complex<X> const& z1, Complex<X> const& z2) { return abs(sub(z1,z2)); }
+    friend ModulusType<X> dist(Complex<X> const& z1, Complex<X> const& z2) { return abs(sub(z1,z2)); }
         //< The distance |\a r <sub>1</sub>-\a r <sub>2</sub>| between \a r<sub>1</sub> and \a r<sub>2</sub>.
     //!@}
 

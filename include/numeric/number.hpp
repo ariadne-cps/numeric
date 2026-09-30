@@ -155,12 +155,12 @@ template<class P> class Number
     template<ConvertibleBuiltinFloatingPointToNumber<P> X> Number(const X& x) : Number(Dyadic(x)) { }
 
     // Construct from a type which is convertible to Real.
-    template<ConvertibleViaRealToNumber<P> X> Number(X const & x) : Number(x.operator Number<ParadigmTag<X>>()) { }
+    template<ConvertibleViaRealToNumber<P> X> Number(X const & x) : Number(static_cast<Number<ParadigmTag<X>>>(x)) { }
 
     // Construct from a type which is convertible to another Number type.
     // TODO: Decide conversion characteristics from concrete type to Number<P>
     template<ConvertibleViaNumberToNumber<P> X>
-        explicit Number(X const & x) : Number(x.operator Number<ParadigmTag<X>>()) { }
+        explicit Number(X const & x) : Number(static_cast<Number<ParadigmTag<X>>>(x)) { }
 
     //! \brief Get the value of the number as a double-precision floating-point type
     ResultFloatType<DoublePrecision> get(DoublePrecision const& prec) const { return this->ref()._get(P(),prec); }

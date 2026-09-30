@@ -51,6 +51,8 @@ if(MSVC)
         /wd4244
         /wd4250
         /wd4267
+        /wd4661
+        /wd4702
         /wd4996
     )
 endif()
