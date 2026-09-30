@@ -21,3 +21,7 @@ add_library(NUMERIC_SRC OBJECT
     concepts.cpp
     logical_sequence.cpp
 )
+
+target_include_directories(NUMERIC_SRC PRIVATE
+    ${PROJECT_SOURCE_DIR}/include/numeric
+)
