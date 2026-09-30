@@ -55,7 +55,7 @@ jobs:
 
     - name: Build
       working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel --config Release
+      run: cmake --build . --parallel 1 --config Release
 
     - name: Test
       working-directory: ${{ runner.workspace }}/build
