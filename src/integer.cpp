@@ -323,7 +323,7 @@ template<> String class_name<Integer>() { return "Integer"; }
 template<> String class_name<Natural>() { return "Natural"; }
 
 Int log2floor(Natural const& z) {
-    return mpz_sizeinbase(z._mpz,2)-1;
+    return static_cast<Int>(mpz_sizeinbase(z._mpz,2)-1);
 }
 
 OutputStream& operator<<(OutputStream& os, Sign s) {

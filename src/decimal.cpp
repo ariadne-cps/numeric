@@ -210,7 +210,7 @@ Decimal::Decimal(double x)
     while(y<1.0) { y*=10; exp-=1; }
     while(y>=1.0) { y/=10; exp+=1; }
     // Now 0.1<=y<1.0; and |x| = y*10^exp
-    long int n=std::round(y/acc); // An approximation of y*10^sf
+    long int n=std::lround(y/acc); // An approximation of y*10^sf
     exp-=static_cast<Int>(sf);
     double re=std::fabs(y-n*acc); // The error of n/10^sf
 

@@ -156,7 +156,7 @@ Dyadic::Dyadic(TwoExp const& w) : Dyadic(1u) {
 Dyadic::Dyadic(String const& str)
 {
     mpf_t _mpf_tmp;
-    mp_bitcnt_t prec=std::ceil(3+str.size()*3.322265625);
+    mp_bitcnt_t prec=static_cast<mp_bitcnt_t>(std::ceil(3+str.size()*3.322265625));
     mpf_init2(_mpf_tmp,prec);
     int fail = mpf_set_str(_mpf_tmp,str.c_str(),10);
     if (fail!=0) {

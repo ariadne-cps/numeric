@@ -57,7 +57,7 @@ OutputStream& write_bounds_with_error_places(OutputStream& os, const FloatMP& l,
     using std::max; using std::min;
     if(l==0.0_x && u==0.0_x) { return os << "0.0[:]"; }
 
-    int precplc=min(l.precision(),u.precision())/log2ten;
+    int precplc=static_cast<int>(min(l.precision(),u.precision())/log2ten);
     FloatMP wdth=sub(up,u,l);
     FloatMP mag=max(neg(l),u);
     int log10wdth=max(abslog10floor(wdth),std::numeric_limits<int>::min()+static_cast<int>(errplc));
@@ -78,15 +78,13 @@ OutputStream& write_bounds_with_error_places(OutputStream& os, const FloatMP& l,
 
     }
 
-    char ocstr[1024];
-    ocstr[0]='\0';
-    strncat(ocstr,lcstr,cpl);
-    strcat(ocstr,"[");
-    strcat(ocstr,lcstr+cpl);
-    strcat(ocstr,":");
-    strcat(ocstr,ucstr+cpl);
-    strcat(ocstr,"]");
-    return os << ocstr;
+    String ostr=lstr.substr(0,cpl);
+    ostr += "[";
+    ostr += lstr.substr(cpl);
+    ostr += ":";
+    ostr += ustr.substr(cpl);
+    ostr += "]";
+    return os << ostr;
 }
 
 } //namespace

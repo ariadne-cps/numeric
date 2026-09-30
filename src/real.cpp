@@ -224,11 +224,11 @@ template<> struct RealLimit<Real> : RealBase {
   public:
     RealLimit(Sequence<Real> const& seq) : _seq(seq) { }
     virtual DyadicBounds _compute_get(Effort eff) const {
-        Nat n = eff.work()+1u; return _seq[n].compute_get(eff).pm(Dyadic(two^(-n))); }
+        Nat n = eff.work()+1u; return _seq[n].compute_get(eff).pm(Dyadic(two^(-static_cast<Int>(n)))); }
     virtual FloatDPBounds _compute_get(Effort eff, DoublePrecision pr) const {
-        Nat n = eff.work()+1u; return _seq[n].compute_get(eff,pr)+(FloatDPBounds(-(two^(-n)),+two^(-n),pr)); }
+        Nat n = eff.work()+1u; return _seq[n].compute_get(eff,pr)+(FloatDPBounds(-(two^(-static_cast<Int>(n))),+two^(-static_cast<Int>(n)),pr)); }
     virtual FloatMPBounds _compute_get(Effort eff, MultiplePrecision pr) const {
-        Nat n = eff.work()+1u; return _seq[n].compute_get(eff,pr)+FloatMPBounds(-(two^(-n)),+two^(-n),pr); }
+        Nat n = eff.work()+1u; return _seq[n].compute_get(eff,pr)+FloatMPBounds(-(two^(-static_cast<Int>(n))),+two^(-static_cast<Int>(n)),pr); }
     virtual OutputStream& _write(OutputStream& os) const {
         return os << "{" << _seq[0u] << ", " << _seq[1u] << ", " <<_seq[2u] << ", ... }"; }
 };
@@ -238,7 +238,7 @@ template<> struct RealLimit<Dyadic> : RealBase {
   public:
     RealLimit(Sequence<Dyadic> const& seq) : _seq(seq) { }
     virtual DyadicBounds _compute_get(Effort eff) const {
-        Nat n=eff.work()+1u; return DyadicBounds(_seq[n]-(two^(-n)),_seq[n]+(two^(-n))); }
+        Nat n=eff.work()+1u; return DyadicBounds(_seq[n]-(two^(-static_cast<Int>(n))),_seq[n]+(two^(-static_cast<Int>(n)))); }
     virtual FloatDPBounds _compute_get(Effort eff, DoublePrecision pr) const {
         return this->_compute(eff).get(pr); }
     virtual FloatMPBounds _compute_get(Effort eff, MultiplePrecision pr) const {
