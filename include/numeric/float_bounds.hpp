@@ -322,23 +322,14 @@ template<class F> class Bounds
         return is_nan(x._l) || is_nan(x._u); }
     //! Tests whether \a x is a model of zero.
     friend auto is_zero(Bounds<F> const& x) -> LogicalType<ValidatedTag> {
-#ifdef _MSC_VER
         F const zero=nul(x.lower_raw());
         if(x.lower_raw()>zero || x.upper_raw()<zero) { return false; }
         else if(x.lower_raw()==zero && x.upper_raw()==zero) { return true; }
-#else
-        if(x.lower_raw()>0.0 || x.upper_raw()<0.0) { return false; }
-        else if(x.lower_raw()==0.0 && x.upper_raw()==0.0) { return true; }
-#endif
         else { return indeterminate; } }
     //! Tests whether \a x is a model of a positive number. Returns \c true if the lower bound is positive, \c false if the upper bound is strictly negative, and \c indeterminate otherwise.
     friend auto is_positive(Bounds<F> const& x) -> LogicalType<ValidatedTag> {
-#ifdef _MSC_VER
         F const zero=nul(x.lower_raw());
         if(x.lower_raw()>=zero) { return true; } else if(x.upper_raw()<zero) { return false; } else { return indeterminate; }
-#else
-        if(x.lower_raw()>=0.0) { return true; } else if(x.upper_raw()<0.0) { return false; } else { return indeterminate; }
-#endif
     } //!< <p/>
     //!@}
 
