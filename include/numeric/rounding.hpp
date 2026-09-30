@@ -33,6 +33,8 @@
 #include <iosfwd>
 #include "utility/typedefs.hpp"
 
+#define ARIADNE_C99_ROUNDING
+
 #include <cfenv>
 
 namespace Ariadne {
