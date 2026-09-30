@@ -337,7 +337,7 @@ public:
 
     //! Round lower and upper bounds to nearest integer values.
     friend Ball<F,FE> round(Ball<F,FE> const& x) {
-        return Ball<F,FE>(round(x.lower_raw()),round(x.upper_raw())); }
+        return Ball<F,FE>(Bounds<F>(round(x.lower_raw()),round(x.upper_raw())),x.error_precision()); }
     //! Round outward by 1 ulp. i.e. increase the error.
     friend Ball<F,FE> widen(Ball<F,FE> const& x) {
         const F m=F::min(x.precision());

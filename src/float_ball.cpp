@@ -101,7 +101,8 @@ template<> OutputStream& Operations<FloatBall<MultiplePrecision>>::_write(Output
     ostr += "[";
     ostr += vstr.substr(cpl);
     ostr += pmstr;
-    ostr += estr.substr(cpl);
+    const size_t ecpl=std::min(cpl,estr.size());
+    ostr += estr.substr(ecpl);
     ostr += hlfstr;
     ostr += "]";
     return os << ostr;
