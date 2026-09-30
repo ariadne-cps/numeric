@@ -362,12 +362,14 @@ public:
         return is_nan(x._v) || is_nan(x._e); }
     //! Tests whether \a x is a model of zero.
     friend auto is_zero(Ball<F,FE> const& x) -> LogicalType<ValidatedTag> {
-        if(x.lower_raw()>0.0 || x.upper_raw()<0.0) { return false; }
-        else if(x.lower_raw()==0.0 && x.upper_raw()==0.0) { return true; }
+        F const zero=nul(x.lower_raw());
+        if(x.lower_raw()>zero || x.upper_raw()<zero) { return false; }
+        else if(x.lower_raw()==zero && x.upper_raw()==zero) { return true; }
         else { return indeterminate; } }
     //! Tests whether \a x is a model of a positive number.
     friend auto is_positive(Ball<F,FE> const& x) -> LogicalType<ValidatedTag> {
-        if(x.lower_raw()>=0.0) { return true; } else if(x.upper_raw()<0.0) { return false; } else { return indeterminate; } }
+        F const zero=nul(x.lower_raw());
+        if(x.lower_raw()>=zero) { return true; } else if(x.upper_raw()<zero) { return false; } else { return indeterminate; } }
     //!@}
 
 

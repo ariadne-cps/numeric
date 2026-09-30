@@ -44,6 +44,7 @@
 #include "float_factory.hpp"
 
 #include "float_upper_bound.hpp"
+#include "float_lower_bound.hpp"
 
 namespace Ariadne {
 

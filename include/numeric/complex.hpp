@@ -66,6 +66,12 @@ template<class X> inline auto atan2(X const& x, X const& y) -> decltype(atan(y/x
     else { ARIADNE_THROW(std::runtime_error,"atan2(x,y)","x="<<x<<" and y="<<y<<" could both be zero."); }
 }
 
+namespace Detail {
+template<class X> decltype(auto) complex_mig(X const& re, X const& im) {
+    return cast_positive(sqrt(add(sqr(mig(re)),sqr(mig(im)))));
+}
+} // namespace Detail
+
 class DefineComplexOperations {
     template<class X1, class X2> friend Complex<SumType<X1,X2>>  add(Complex<X1> const& z1, Complex<X2> const& z2) {
         return Complex<SumType<X1,X2>> (z1._re+z2._re,z1._im+z2._im); } //!< \brief Sum \a z1+z2.
@@ -240,7 +246,7 @@ template<class X> class Complex
     //! \name Special complex number functions
     friend ModulusType<X> abs(Complex<X> const& z) { return z.modulus(); }
     friend decltype(auto) mag(Complex<X> const& z) { return cast_positive(sqrt(add(sqr(mag(z._re)),sqr(mag(z._im))))); } //!< Maximum possible absolute value \a |r|.
-    friend decltype(auto) mig(Complex<X> const& z) { return cast_positive(sqrt(add(sqr(mig(z._re)),sqr(mig(z._im))))); } //!< Minimum possible absolute value \a |r|.
+    friend decltype(auto) mig(Complex<X> const& z) { return Detail::complex_mig(z._re,z._im); } //!< Minimum possible absolute value \a |r|.
     friend ArgumentType<X> arg(Complex<X> const& z) { return z.argument(); }
     friend Complex<X> conj(Complex<X> const& z) { return Complex<X>(z._re,-z._im); }
     //!@}

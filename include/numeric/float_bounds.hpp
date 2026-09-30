@@ -299,10 +299,10 @@ template<class F> class Bounds
         return Bounds<F>(round(x.lower_raw()),round(x.upper_raw())); }
     //! Round outward by 1 ulp.
     friend Bounds<F> widen(Bounds<F> const& x) {
-        const F m=std::numeric_limits<float>::min(); return Bounds<F>(sub(down,x._l,m),add(up,x._u,m)); }
+        const F m=F::min(x.precision()); return Bounds<F>(sub(down,x._l,m),add(up,x._u,m)); }
     //! Round inward by 1 ulp.
     friend Bounds<F> narrow(Bounds<F> const& x) {
-        const F m=std::numeric_limits<float>::min(); return Bounds<F>(add(up,x._l,m),add(down,x._u,m)); }
+        const F m=F::min(x.precision()); return Bounds<F>(add(up,x._l,m),add(down,x._u,m)); }
     //! Truncate to lower precision.
     friend Bounds<F> trunc(Bounds<F> const& x) {
         return Operations<Bounds<F>>::_trunc(x); }
