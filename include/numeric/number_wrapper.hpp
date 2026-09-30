@@ -177,7 +177,25 @@ inline Integer make_unsigned(Natural px) {
 
 template<class R, class X> inline R _concrete_apply(UnaryElementaryOperator op, X const& x) {
     static_assert(Same<R,NumberInterface*>);
-    return op.accept([&x](auto _op){return _make_number_wrapper(make_unsigned(_op(x)));});
+    switch(op.code()) {
+        case OperatorCode::NUL: return _make_number_wrapper(make_unsigned(Nul()(x)));
+        case OperatorCode::POS: return _make_number_wrapper(make_unsigned(Pos()(x)));
+        case OperatorCode::NEG: return _make_number_wrapper(make_unsigned(Neg()(x)));
+        case OperatorCode::SQR: return _make_number_wrapper(make_unsigned(Sqr()(x)));
+        case OperatorCode::HLF: return _make_number_wrapper(make_unsigned(Hlf()(x)));
+        case OperatorCode::REC: return _make_number_wrapper(make_unsigned(Rec()(x)));
+        case OperatorCode::SQRT: return _make_number_wrapper(make_unsigned(Sqrt()(x)));
+        case OperatorCode::EXP: return _make_number_wrapper(make_unsigned(Exp()(x)));
+        case OperatorCode::LOG: return _make_number_wrapper(make_unsigned(Log()(x)));
+        case OperatorCode::SIN: return _make_number_wrapper(make_unsigned(Sin()(x)));
+        case OperatorCode::COS: return _make_number_wrapper(make_unsigned(Cos()(x)));
+        case OperatorCode::TAN: return _make_number_wrapper(make_unsigned(Tan()(x)));
+        case OperatorCode::ASIN: return _make_number_wrapper(make_unsigned(Asin()(x)));
+        case OperatorCode::ACOS: return _make_number_wrapper(make_unsigned(Acos()(x)));
+        case OperatorCode::ATAN: return _make_number_wrapper(make_unsigned(Atan()(x)));
+        case OperatorCode::ABS: return _make_number_wrapper(make_unsigned(Abs()(x)));
+        default: ARIADNE_THROW(DispatchException,"_concrete_apply(UnaryElementaryOperator,X const&)","Unsupported unary operator "<<op);
+    }
 }
 
 template<class R, class X1, class X2> inline R _concrete_apply(BinaryElementaryOperator op, X1 const& x1, X2 const& x2) {

@@ -81,7 +81,8 @@ template<class F> class Error
     explicit Error(F const& e) : _e(e) { ARIADNE_PRECONDITION_MSG(!(this->_e<0),"e="<<*this); }
     //! Treat the natural number \a m as an upper-bound for an error, represented with precision \a pr.
     template<BuiltinUnsignedIntegral M> Error(M m, PR pr) : _e(m,pr) { }
-    explicit Error(UpperBound<F> const& x) : Error(x._u) { }
+    explicit Error(UpperBound<F> const& x) : _e(x._u) {
+        ARIADNE_PRECONDITION_MSG(!(this->_e<0),"e="<<*this); }
     //! Treat \a y as an upper-bound for an error, represented with precision \a pr.
     //! \pre Requires that \a y is not definitely strictly negative.
     explicit Error(ValidatedUpperNumber const& y, PR pr) : Error(UpperBound<F>(y,pr)) { }
