@@ -62,7 +62,7 @@ template<> OutputStream& Operations<FloatBall<MultiplePrecision>>::_write(Output
     Nat errplc = static_cast<Nat>(FloatError<MultiplePrecision>::output_places);
     Nat log10err = static_cast<Nat>(abslog10floor(edbl));
     Nat dgtserr = errplc-(log10err+1);
-    Nat dgtsval = (x.value()==0) ? dgtserr : std::floor((x.value().precision()+1-x.value().exponent())/log2ten);
+    Nat dgtsval = (x.value()==0) ? dgtserr : static_cast<Nat>(std::floor((x.value().precision()+1-x.value().exponent())/log2ten));
     Nat dgts = std::max(std::min(dgtsval,dgtserr),errplc);
     if(edbl==0.0) { dgts = dgtsval; }
 
@@ -87,20 +87,15 @@ template<> OutputStream& Operations<FloatBall<MultiplePrecision>>::_write(Output
     }
 
 
-    // Chop and catenate strings
-    static const size_t buf_sz = 1024;
-    char ocstr[buf_sz];
-    ocstr[0]='\0';
-    std::strncat(ocstr,vcstr,cpl);
-    std::strcat(ocstr,"[");
-    std::strcat(ocstr,vcstr+cpl);
-    std::strcat(ocstr,pmstr);
-    std::strcat(ocstr,ecstr+cpl);
-    std::strcat(ocstr,hlfstr);
-    std::strcat(ocstr,"]");
-    return os << ocstr;
-
-    return os << x.value() << "\u00b1" << x.error();
+    // Chop and concatenate strings
+    String ostr=vstr.substr(0,cpl);
+    ostr += "[";
+    ostr += vstr.substr(cpl);
+    ostr += pmstr;
+    ostr += estr.substr(cpl);
+    ostr += hlfstr;
+    ostr += "]";
+    return os << ostr;
 }
 
 

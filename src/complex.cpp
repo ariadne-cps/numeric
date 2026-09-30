@@ -43,13 +43,5 @@ namespace Constants {
 const Complex<Integer> i = Complex<Integer>(0,1);
 }
 
-//template class Complex<Rational>;
-template class Complex<Real>;
-//template class Complex<FloatDPBall>;
-template class Complex<FloatDPBounds>;
-template class Complex<FloatDPApproximation>;
-//template class Complex<FloatMPBall>;
-template class Complex<FloatMPBounds>;
-template class Complex<FloatMPApproximation>;
 
 } // namespace Ariadne

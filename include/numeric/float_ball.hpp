@@ -40,6 +40,7 @@
 #include "float_operations.hpp"
 #include "float_traits.hpp"
 #include "float_factory.hpp"
+#include "float_bounds.hpp"
 
 namespace Ariadne {
 
@@ -461,6 +462,9 @@ template<class F, class FE> struct Operations<Ball<F,FE>> {
         if constexpr (SameAs<F,FE>) { return e; }
         else if constexpr (DefaultConstructible<PRE>) { return FE(e,up,PRE()); }
     }
+
+    static Ball<F,FE> _trunc(Ball<F,FE> const& x);
+    static Ball<F,FE> _trunc(Ball<F,FE> const& x, Nat n);
 
     static Ball<F,FE> _nul(Ball<F,FE> const& x) {
         return Ball<F,FE>(nul(x._v),nul(x._e));

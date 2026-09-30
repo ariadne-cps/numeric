@@ -493,16 +493,15 @@ Int abslog10floor(FloatMP const& x)
 String print(const mpfr_t x, int fdgts, mpfr_rnd_t rnd) {
     // fdgts is the number of places allocated for the fractional part
     char fmt[16];
-    std::strcpy(fmt,"%.");
-    std::snprintf(fmt+2, 14, "%d", fdgts);
-    std::strcat(fmt,"R*f");
+    std::snprintf(fmt,sizeof(fmt),"%%.%dR*f",fdgts);
     static const uint buf_size=1024;
     char cstr[buf_size];
     // uint buf_size = zdgts+fdgts+8;
     mpfr_snprintf(cstr,buf_size,fmt,rnd,x);
-    if(fdgts==0) { std::strcat(cstr,"."); }
-    cstr[1023]='\0';
-    return String(cstr);
+    cstr[buf_size-1]='\0';
+    String result(cstr);
+    if(fdgts==0) { result += "."; }
+    return result;
 }
 
 String print(const mpfr_t x, int, int fdgts, mpfr_rnd_t rnd) {
@@ -528,7 +527,7 @@ String print(FloatMP const& x, DecimalPlaces plcs, RoundingModeMP rnd) {
 String FloatMP::literal() const {
     static const double log2ten = 3.3219280948873621816;
     StringStream ss;
-    DecimalPlaces plcs(std::max((int)this->precision()-(int)this->exponent(),0)/log2ten+1);
+    DecimalPlaces plcs(static_cast<Nat>(std::max((int)this->precision()-(int)this->exponent(),0)/log2ten+1));
     ss << print(*this,plcs,FloatMP::get_rounding_mode());
     return ss.str();
 }
@@ -536,7 +535,7 @@ String FloatMP::literal() const {
 String FloatMP::literal(RoundingModeMP rnd) const {
     StringStream ss;
     static const double log2ten = 3.3219280948873621816;
-    DecimalPrecision dgts(this->precision()/log2ten+3);
+    DecimalPrecision dgts(static_cast<Nat>(this->precision()/log2ten+3));
     write(ss, *this, dgts, rnd);
     return ss.str();
 }
@@ -551,11 +550,11 @@ OutputStream& write(OutputStream& os, FloatMP const& x, DecimalPrecision figs, R
 
 OutputStream& repr(OutputStream& os, FloatMP const& x) {
     static const double log2ten = 3.3219280948873621817;
-    return os << print(x,DecimalPlaces(std::max((int)x.precision()-(int)x.exponent(),0)/log2ten+1),FloatMP::get_rounding_mode());
+    return os << print(x,DecimalPlaces(static_cast<Nat>(std::max((int)x.precision()-(int)x.exponent(),0)/log2ten+1)),FloatMP::get_rounding_mode());
 }
 OutputStream& repr(OutputStream& os, FloatMP const& x, RoundingModeMP rnd) {
     static const double log2ten = 3.3219280948873621817;
-    DecimalPrecision dgts(x.precision()/log2ten+3);
+    DecimalPrecision dgts(static_cast<Nat>(x.precision()/log2ten+3));
     return write(os, x, dgts, rnd);
 }
 
@@ -569,17 +568,17 @@ OutputStream& operator<<=(OutputStream& os, FloatMP const& x) {
 }
 
 InputStream& operator>>(InputStream& is, FloatMP& x) {
-    char c;
+    int c;
     std::string str;
     c=is.get();
     while( c==' ' or c=='\t' or c=='\n' ) {
         c=is.get();
     }
     while( (c>='0' and c<='9') or c=='+' or c=='-' or c=='.' or c=='e' ) {
-        str.push_back(c);
+        str.push_back(static_cast<char>(c));
         c=is.get();
     }
-    is.putback(c);
+    if(c!=std::char_traits<char>::eof()) { is.putback(static_cast<char>(c)); }
     mpfr_set_str(x._mpfr,str.c_str(),0,MPFR_RNDN);
     return is;
 }

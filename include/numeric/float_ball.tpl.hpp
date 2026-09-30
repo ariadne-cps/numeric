@@ -92,6 +92,14 @@ template<class F, class FE> F const Ball<F,FE>::value() const { return F(this->_
 template<class F, class FE> Error<FE> const Ball<F,FE>::error() const { return Error<FE>(this->_e); }
 
 
+template<class F, class FE> Ball<F,FE> Operations<Ball<F,FE>>::_trunc(Ball<F,FE> const& x) {
+    return Ball<F,FE>(trunc(Bounds<F>(x.lower_raw(),x.upper_raw())));
+}
+
+template<class F, class FE> Ball<F,FE> Operations<Ball<F,FE>>::_trunc(Ball<F,FE> const& x, Nat n) {
+    return Ball<F,FE>(trunc(Bounds<F>(x.lower_raw(),x.upper_raw()),n));
+}
+
 template<class F, class FE> Integer Operations<Ball<F,FE>>::_cast_integer(Ball<F,FE> const& x) {
     Dyadic w=static_cast<Dyadic>(x.value_raw());
     Integer r=round(w);
