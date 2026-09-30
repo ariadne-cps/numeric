@@ -36,6 +36,7 @@
 #include "numeric/float.decl.hpp"
 
 #include "numeric/arithmetic.hpp"
+#include "numeric/api.hpp"
 
 namespace Ariadne {
 
@@ -64,8 +65,8 @@ template<class X> class ConvergentSequence;
 template<class X> class FastCauchySequence;
 
 //! \ingroup NumericModule
-extern const Real pi;
-extern const Real infinity;
+extern ARIADNE_NUMERIC_API const Real pi;
+extern ARIADNE_NUMERIC_API const Real infinity;
 
 class RealInterface;
 

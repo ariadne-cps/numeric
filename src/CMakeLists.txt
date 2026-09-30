@@ -26,6 +26,8 @@ target_include_directories(NUMERIC_SRC PRIVATE
     ${PROJECT_SOURCE_DIR}/include/numeric
 )
 
+target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_NUMERIC_BUILD)
+
 if(MSVC)
     target_compile_options(NUMERIC_SRC PRIVATE /bigobj)
 endif()

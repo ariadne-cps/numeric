@@ -30,6 +30,8 @@
 #ifndef ARIADNE_COMPLEX_HPP
 #define ARIADNE_COMPLEX_HPP
 
+#include "numeric/api.hpp"
+
 
 namespace Ariadne {
 
@@ -274,7 +276,7 @@ template<class X> class Complex
 };
 
 namespace Constants {
-    extern const Complex<Integer> i;
+    extern ARIADNE_NUMERIC_API const Complex<Integer> i;
 }
 
 } // namespace Ariadne
