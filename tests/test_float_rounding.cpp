@@ -451,9 +451,9 @@ TestFloatRounding<PR>::test_stream()
     if constexpr (std::is_same_v<PR,DoublePrecision>) {
         typename Float::RoundingModeType old_rnd=Float::get_rounding_mode();
         auto test_rounding_independent_parse = [&]() {
-            stringstream rounded("1.25");
+            stringstream input_stream("1.25");
             Float fr(precision);
-            rounded >> fr;
+            input_stream >> fr;
             ARIADNE_TEST_EQUALS(fr,1.25_x);
         };
 
