@@ -7,5 +7,4 @@ foreach(BENCHMARK ${BENCHMARKS})
     target_link_libraries(${BENCHMARK} PRIVATE ariadne-numeric numeric GMP::GMP)
 endforeach()
 
-add_custom_target(benchmarks)
 add_dependencies(benchmarks ${BENCHMARKS})
