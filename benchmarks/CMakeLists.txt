@@ -1,0 +1,10 @@
+set(BENCHMARKS
+    benchmark_arithmetic
+)
+
+foreach(BENCHMARK ${BENCHMARKS})
+    add_executable(${BENCHMARK} ${BENCHMARK}.cpp)
+    target_link_libraries(${BENCHMARK} PRIVATE ariadne-numeric numeric GMP::GMP)
+endforeach()
+
+add_dependencies(benchmarks ${BENCHMARKS})
