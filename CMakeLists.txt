@@ -72,11 +72,6 @@ setup_standalone_project_tests(
         "${PROJECT_SOURCE_DIR}/src"
 )
 
-find_library(GMPXX_LIBRARY NAMES gmpxx)
-if(NOT GMPXX_LIBRARY)
-    message(FATAL_ERROR "Unable to find GMP C++ library (gmpxx)")
-endif()
-
 add_subdirectory(benchmarks EXCLUDE_FROM_ALL)
 
 add_custom_target(everything)

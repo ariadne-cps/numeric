@@ -4,7 +4,7 @@ set(BENCHMARKS
 
 foreach(BENCHMARK ${BENCHMARKS})
     add_executable(${BENCHMARK} ${BENCHMARK}.cpp)
-    target_link_libraries(${BENCHMARK} PRIVATE ariadne-numeric numeric GMP::GMP ${GMPXX_LIBRARY})
+    target_link_libraries(${BENCHMARK} PRIVATE ariadne-numeric numeric GMP::GMP)
 endforeach()
 
 add_custom_target(benchmarks)

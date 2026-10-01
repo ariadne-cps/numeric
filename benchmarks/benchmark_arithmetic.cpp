@@ -33,7 +33,7 @@
 #include "utility/stopwatch.hpp"
 #include "numeric/rounding.hpp"
 
-#include <gmpxx.h>
+#include <gmp.h>
 
 using namespace Ariadne;
 
@@ -52,7 +52,7 @@ double rndm() {
 }
 
 Void dot_lu_rat(double& l, double& u, SizeType n, const double* x, const double* y);
-Void dot_md_rat(mpq_class& m, SizeType n, const double* x, const double* y);
+Void dot_md_rat(mpq_t m, SizeType n, const double* x, const double* y);
 Void dot_lu_std(double& l, double& u, SizeType n, const double* x, const double* y);
 Void dot_lu_opp(double& l, double& u, SizeType n, const double* x, const double* y);
 Void dot_lu_ivl(double& l, double& u, SizeType n, const double* x, const double* y);
@@ -66,6 +66,36 @@ Void add_mr_csy(double& e, SizeType n, double* r, const double* x, const double*
 
 Void scal_mr_std(double& e, SizeType n, double* r, const double* x, const double& c);
 Void scal_mr_csy(double& e, SizeType n, double* r, const double* x, const double& c);
+
+double rational_error(double x, mpq_srcptr exact) {
+    mpq_t error;
+    mpq_init(error);
+    mpq_set_d(error,x);
+    mpq_sub(error,error,exact);
+    if(mpq_sgn(error)<0) {
+        mpq_neg(error,error);
+    }
+    const double result=mpq_get_d(error);
+    mpq_clear(error);
+    return result;
+}
+
+Bool rational_contains(double x, double radius, mpq_srcptr exact) {
+    mpq_t error;
+    mpq_t bound;
+    mpq_inits(error,bound,nullptr);
+
+    mpq_set_d(error,x);
+    mpq_sub(error,error,exact);
+    if(mpq_sgn(error)<0) {
+        mpq_neg(error,error);
+    }
+    mpq_set_d(bound,radius);
+
+    const Bool result=(mpq_cmp(error,bound)<=0);
+    mpq_clears(error,bound,nullptr);
+    return result;
+}
 
 
 Void benchmark_dot(SizeType n, SizeType nn) {
@@ -86,7 +116,9 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     std::cout<<"lu_rat:        e="<<(qu-ql)/2<<" l="<<ql<<" u="<<qu<<std::endl;
     assert(ql<=qu);
 
-    mpq_class qm=0;
+    mpq_t qm;
+    mpq_init(qm);
+    mpq_set_ui(qm,0u,1u);
     dot_md_rat(qm,n,x.data(),y.data());
 
     sw.restart();
@@ -132,8 +164,8 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     sw.click();
     t=static_cast<double>(sw.duration().count());
     std::cout<<"mr_std: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<" m="<<m<<" e="<<mpq_class(abs(mpq_class(m)-qm)).get_d()<<std::endl;
-    assert(abs(mpq_class(m)-qm)<=r);
+             <<" r="<<r<<" m="<<m<<" e="<<rational_error(m,qm)<<std::endl;
+    assert(rational_contains(m,r,qm));
 
     sw.restart();
     for(SizeType i=0; i!=nn; ++i) {
@@ -143,8 +175,8 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     sw.click();
     t=static_cast<double>(sw.duration().count());
     std::cout<<"mr_mid: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<" m="<<m<<" e="<<mpq_class(abs(mpq_class(m)-qm)).get_d()<<std::endl;
-    assert(abs(mpq_class(m)-qm)<=r);
+             <<" r="<<r<<" m="<<m<<" e="<<rational_error(m,qm)<<std::endl;
+    assert(rational_contains(m,r,qm));
 
     sw.restart();
     for(SizeType i=0; i!=nn; ++i) {
@@ -154,8 +186,10 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     sw.click();
     t=static_cast<double>(sw.duration().count());
     std::cout<<"mr_csy: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<" m="<<m<<" e="<<mpq_class(abs(mpq_class(m)-qm)).get_d()<<std::endl;
-    assert(abs(mpq_class(m)-qm)<=r);
+             <<" r="<<r<<" m="<<m<<" e="<<rational_error(m,qm)<<std::endl;
+    assert(rational_contains(m,r,qm));
+
+    mpq_clear(qm);
 }
 
 
@@ -293,41 +327,67 @@ Int main(Int argc, const char* argv[]) {
 Void dot_lu_rat(double& l, double& u, SizeType n, const double* x, const double* y) {
     set_builtin_rounding_to_nearest();
     assert(l==u);
-    mpq_class r=l;
+
+    mpq_t exact;
+    mpq_t xq;
+    mpq_t yq;
+    mpq_t product;
+    mpq_t candidate;
+    mpq_inits(exact,xq,yq,product,candidate,nullptr);
+
+    mpq_set_d(exact,l);
     for(SizeType i=0; i!=n; ++i) {
-        r+=mpq_class(x[i])*mpq_class(y[i]);
+        mpq_set_d(xq,x[i]);
+        mpq_set_d(yq,y[i]);
+        mpq_mul(product,xq,yq);
+        mpq_add(exact,exact,product);
     }
-    //mpf_class::set_precision(128);
-    //std::cerr<<"r="<<r<<"~"<<mpf_class(r)<<"\n";
-    mpq_class a(r.get_d());
-    double d=a.get_d();
-    assert(mpq_class(d)==a);
-    assert(d==a);
-    double e=std::abs(d)*(eps/16);
+
+    const double d=mpq_get_d(exact);
+    const double e=std::abs(d)*(eps/16);
     assert(e>0);
+
     l=d;
     Int m=0;
-    while(l<r) {
+    mpq_set_d(candidate,l);
+    while(mpq_cmp(candidate,exact)<0) {
         ++m;
-        l=d+m*e;
+        l=d+static_cast<double>(m)*e;
+        mpq_set_d(candidate,l);
     }
-    while(l>r) {
+    while(mpq_cmp(candidate,exact)>0) {
         --m;
-        l=d+m*e;
+        l=d+static_cast<double>(m)*e;
+        mpq_set_d(candidate,l);
     }
     ++m;
-    u=d+m*e;
+    u=d+static_cast<double>(m)*e;
 
-    assert(mpq_class(l)<=r);
-    assert(mpq_class(u)>=r);
+    mpq_set_d(candidate,l);
+    assert(mpq_cmp(candidate,exact)<=0);
+    mpq_set_d(candidate,u);
+    assert(mpq_cmp(candidate,exact)>=0);
+
+    mpq_clears(exact,xq,yq,product,candidate,nullptr);
 }
 
 
-Void dot_md_rat(mpq_class& m, SizeType n, const double* x, const double* y) {
+Void dot_md_rat(mpq_t m, SizeType n, const double* x, const double* y) {
     set_builtin_rounding_to_nearest();
+
+    mpq_t xq;
+    mpq_t yq;
+    mpq_t product;
+    mpq_inits(xq,yq,product,nullptr);
+
     for(SizeType i=0; i!=n; ++i) {
-        m+=mpq_class(x[i])*mpq_class(y[i]);
+        mpq_set_d(xq,x[i]);
+        mpq_set_d(yq,y[i]);
+        mpq_mul(product,xq,yq);
+        mpq_add(m,m,product);
     }
+
+    mpq_clears(xq,yq,product,nullptr);
 }
 
 Void dot_lu_ivl(double& l, double& u, SizeType n, const double* x, const double* y) {
