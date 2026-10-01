@@ -127,6 +127,7 @@ Void benchmark_dot(Int n, Int nn) {
     mpq_class qm=0;
     dot_md_rat(qm,n,x,y);
 
+    sw.restart();
     for(Int i=0; i!=nn; ++i) {
         l=0; u=0;
         dot_lu_std(l,u,n,x,y);
@@ -310,78 +311,42 @@ Void test_rounding(volatile double p, volatile double q)
 }
 
 Int main(Int argc, const char* argv[]) {
-    std::cout<<std::setprecision(20);
-    std::cerr<<std::setprecision(20);
-    //srand((unsigned)time(0));
+    std::cout << std::setprecision(20);
+    std::cerr << std::setprecision(20);
 
-    Int n=(1<<10);
-    Int nn=(1<<12);
-    if(argc>1) {
-        n=(1<<atoi(argv[1]));
-    }
-    if(argc>2) {
-        nn=(1<<atoi(argv[2]));
-    }
-    std::cout<<"\nTries="<<n<<"\nVector size="<<nn<<"\n"<<std::endl;
+    Int vector_size = (1 << 10);
+    Int repetitions = (1 << 12);
+    Int runs = 1;
 
-    benchmark_scal(n,nn);
-    benchmark_add(n,nn);
-    benchmark_dot(n,nn);
+    if (argc > 1) {
+        vector_size = (1 << atoi(argv[1]));
+    }
+    if (argc > 2) {
+        repetitions = (1 << atoi(argv[2]));
+    }
+    if (argc > 3) {
+        runs = atoi(argv[3]);
+    }
+
+    std::cout << "\nVector size=" << vector_size
+              << "\nRepetitions=" << repetitions
+              << "\nRuns=" << runs << "\n" << std::endl;
+
+    for (Int run = 1; run <= runs; ++run) {
+        std::cout << "=== Run " << run << "/" << runs << " ===" << std::endl;
+
+        Stopwatch<Milliseconds> sw;
+
+        benchmark_scal(vector_size, repetitions);
+        benchmark_add(vector_size, repetitions);
+        benchmark_dot(vector_size, repetitions);
+
+        sw.click();
+        std::cout << "run_total: t(ms)=" << sw.duration().count() << "\n" << std::endl;
+    }
+
     return 0;
-
-    double* x=new double[n];
-    double* y=new double[n];
-    double* z=new double[n];
-
-    for(Int i=0; i!=n; ++i) {
-        x[i]=rndm();
-        y[i]=rndm();
-        z[i]=rndm();
-    }
-
-    double* w=new double[n];
-    double* v=new double[n];
-    for(Int i=0; i!=n; ++i) {
-        v[i]=z[i];
-        w[i]=z[i];
-    }
-
-    Int nnn=std::min(n,4);
-    for(Int i=0; i!=nnn; ++i) {
-        set_builtin_rounding_downward();
-        double r=add_rnd(x[i],y[i]);
-        std::cerr<<"add_rnd_down: x="<<x[i]<<" y="<<y[i]<<" r="<<r<<"\n";
-        set_builtin_rounding_upward();
-        double o=add_opp(x[i],y[i]);
-        std::cerr<<"add_opp_up:   x="<<x[i]<<" y="<<y[i]<<" r="<<o<<"\n";
-        assert(r==o);
-    }
-    set_builtin_rounding_to_nearest();
-
-    for(Int i=0; i!=nnn; ++i) {
-        std::cerr<<"x="<<x[i]<<" y="<<y[i]<<" z="<<z[i]<<"\n";
-        set_builtin_rounding_downward();
-        acc_rnd(z[i],x[i],y[i]);
-        set_builtin_rounding_upward();
-        acc_opp(w[i],x[i],y[i]);
-        std::cerr<<" r="<<z[i]<<" o="<<w[i]<<"\n\n\n";
-        assert(z[i]==w[i]);
-    }
-    set_builtin_rounding_to_nearest();
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 Void dot_lu_rat(double& l, double& u, SizeType n, const double* x, const double* y) {
