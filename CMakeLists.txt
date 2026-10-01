@@ -79,6 +79,13 @@ endif()
 
 add_subdirectory(benchmarks EXCLUDE_FROM_ALL)
 
+add_custom_target(everything)
+add_dependencies(everything
+    ariadne-numeric
+    tests
+    benchmarks
+)
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     get_target_property(FOUNDATION_SOURCE_DIR foundation SOURCE_DIR)
     get_target_property(UTILITY_SOURCE_DIR utility SOURCE_DIR)
