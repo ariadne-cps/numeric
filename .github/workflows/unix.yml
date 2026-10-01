@@ -58,3 +58,19 @@ jobs:
     - name: Test
       working-directory: ${{ runner.workspace }}/build
       run: ctest -j $($NPROC) --output-on-failure
+
+    - name: Install Ariadne Numeric
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --install . --prefix ${{ runner.workspace }}/install
+
+    - name: Prepare Numeric Tutorial
+      run: cmake -E copy_directory $GITHUB_WORKSPACE/tutorials/tutorial_numeric ${{ runner.workspace }}/tutorial_numeric
+
+    - name: Check Numeric Tutorial
+      working-directory: ${{ runner.workspace }}/tutorial_numeric
+      run: |
+        cmake -S . -B build -DCMAKE_PREFIX_PATH=${{ runner.workspace }}/install -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -G Ninja
+        cmake --build build --parallel $($NPROC)
+        export LD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${LD_LIBRARY_PATH:-}
+        export DYLD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${DYLD_LIBRARY_PATH:-}
+        ./build/tutorial_numeric

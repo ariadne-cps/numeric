@@ -60,3 +60,20 @@ jobs:
     - name: Test
       working-directory: ${{ runner.workspace }}/build
       run: ctest -C Release -V --timeout 5
+
+    - name: Install Ariadne Numeric
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --install . --config Release --prefix "${{ runner.workspace }}/install"
+
+    - name: Prepare Numeric Tutorial
+      shell: pwsh
+      run: cmake -E copy_directory "$env:GITHUB_WORKSPACE/tutorials/tutorial_numeric" "${{ runner.workspace }}/tutorial_numeric"
+
+    - name: Check Numeric Tutorial
+      shell: pwsh
+      working-directory: ${{ runner.workspace }}/tutorial_numeric
+      run: |
+        cmake -S . -B build -DCMAKE_PREFIX_PATH="${{ runner.workspace }}/install" -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DVCPKG_OVERLAY_TRIPLETS=$env:GITHUB_WORKSPACE/cmake/triplets -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
+        cmake --build build --parallel --config Release
+        $env:PATH = "${{ runner.workspace }}\install\bin;C:\vcpkg\installed\x64-windows-release\bin;$env:PATH"
+        & ".\build\Release\tutorial_numeric.exe"
