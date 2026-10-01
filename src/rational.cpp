@@ -33,7 +33,7 @@
 #include "utility/typedefs.hpp"
 
 #include "rational.hpp"
-#include "foundation/logical.hpp"
+#include "paradigm/logical.hpp"
 #include "number.hpp"
 #include "builtin.hpp"
 #include "integer.hpp"

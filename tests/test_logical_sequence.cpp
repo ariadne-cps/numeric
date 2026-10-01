@@ -4,7 +4,7 @@
  *  Copyright  2026  Ariadne contributors
  *
  ****************************************************************************/
-#include "foundation/logical.hpp"
+#include "paradigm/logical.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/sequence.hpp"
 #include "numeric/logical_sequence.hpp"

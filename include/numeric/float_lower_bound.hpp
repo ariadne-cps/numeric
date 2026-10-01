@@ -29,7 +29,7 @@
 #ifndef FLOAT_LOWER_BOUND_H
 #define FLOAT_LOWER_BOUND_H
 
-#include "foundation/logical.decl.hpp"
+#include "paradigm/logical.decl.hpp"
 #include "number.decl.hpp"
 #include "float.decl.hpp"
 

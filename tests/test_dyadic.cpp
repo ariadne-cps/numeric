@@ -30,7 +30,7 @@
 #include "numeric/builtin.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/decimal.hpp"
-#include "foundation/logical.hpp"
+#include "paradigm/logical.hpp"
 
 #include <iomanip>
 

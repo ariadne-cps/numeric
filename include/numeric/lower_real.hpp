@@ -36,11 +36,11 @@
 #include "utility/pointer.hpp"
 #include "utility/handle.hpp"
 
-#include "foundation/logical.decl.hpp"
+#include "paradigm/logical.decl.hpp"
 #include "numeric/number.decl.hpp"
 #include "numeric/float.decl.hpp"
 
-#include "foundation/paradigm.hpp"
+#include "paradigm/paradigm.hpp"
 #include "numeric/arithmetic.hpp"
 #include "numeric/sequence.hpp"
 

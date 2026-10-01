@@ -6,7 +6,7 @@
  ****************************************************************************/
 #ifndef ARIADNE_NUMERIC_LOGICAL_SEQUENCE_HPP
 #define ARIADNE_NUMERIC_LOGICAL_SEQUENCE_HPP
-#include "foundation/logical.hpp"
+#include "paradigm/logical.hpp"
 namespace Ariadne {
 template<class X> class Sequence;
 LowerKleenean disjunction(Sequence<LowerKleenean> const&);

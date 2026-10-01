@@ -28,7 +28,7 @@
 
 #include "float_ball.hpp"
 
-#include "foundation/logical.hpp"
+#include "paradigm/logical.hpp"
 
 #include "integer.hpp"
 #include "dyadic.hpp"

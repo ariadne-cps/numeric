@@ -27,7 +27,7 @@
  */
 
 #include "utility/typedefs.hpp"
-#include "foundation/paradigm.hpp"
+#include "paradigm/paradigm.hpp"
 
 #ifndef ARIADNE_FLOAT_DECL_HPP
 #define ARIADNE_FLOAT_DECL_HPP

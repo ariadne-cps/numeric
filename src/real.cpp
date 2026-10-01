@@ -29,7 +29,7 @@
 #include "utility/module.hpp"
 #include "numeric/operators.hpp"
 
-#include "foundation/logical.hpp"
+#include "paradigm/logical.hpp"
 #include "reals.hpp"
 #include "integer.hpp"
 #include "rational.hpp"

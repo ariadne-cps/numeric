@@ -32,7 +32,7 @@
 #include "utility/macros.hpp"
 #include "utility/metaprogramming.hpp"
 
-#include "foundation/logical.decl.hpp"
+#include "paradigm/logical.decl.hpp"
 #include "number.decl.hpp"
 #include "float.decl.hpp"
 

@@ -27,13 +27,13 @@
  */
 
 #include "utility/module.hpp"
-#include "foundation/paradigm.hpp"
+#include "paradigm/paradigm.hpp"
 
 #include "casts.hpp"
 #include "number.hpp"
 #include "lower_number.hpp"
 #include "upper_number.hpp"
-#include "foundation/logical.hpp"
+#include "paradigm/logical.hpp"
 #include "integer.hpp"
 #include "decimal.hpp"
 #include "dyadic.hpp"

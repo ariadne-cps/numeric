@@ -32,7 +32,7 @@
 #include <iostream>
 #include <cassert>
 
-#include "foundation/logical.decl.hpp"
+#include "paradigm/logical.decl.hpp"
 #include "number.decl.hpp"
 
 #include "utility/variant.hpp"

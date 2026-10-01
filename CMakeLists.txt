@@ -19,7 +19,7 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
     require_same_dependency_commit(Configuration
         REFERENCES
             "${PROJECT_SOURCE_DIR}|submodules/configuration"
-            "${PROJECT_SOURCE_DIR}/submodules/foundation|submodules/configuration"
+            "${PROJECT_SOURCE_DIR}/submodules/paradigm|submodules/configuration"
     )
 endif()
 
@@ -29,7 +29,7 @@ find_package(MPFR REQUIRED)
 
 include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/include)
 
-if(NOT TARGET foundation)
+if(NOT TARGET paradigm)
     add_subdirectory(submodules)
 endif()
 
@@ -39,7 +39,7 @@ target_include_directories(numeric INTERFACE
     $<INSTALL_INTERFACE:include/ariadne-numeric>
 )
 target_link_libraries(numeric INTERFACE
-    foundation
+    paradigm
     GMP::GMP
     MPFR::MPFR
 )
@@ -57,7 +57,7 @@ setup_project_library(
     TARGET ariadne-numeric
     OBJECTS
         NUMERIC_SRC
-        FOUNDATION_SRC
+        PARADIGM_SRC
         UTILITY_SRC
     LINK_LIBRARIES
         numeric
@@ -73,7 +73,7 @@ setup_standalone_project_tests(
 )
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    get_target_property(FOUNDATION_SOURCE_DIR foundation SOURCE_DIR)
+    get_target_property(PARADIGM_SOURCE_DIR paradigm SOURCE_DIR)
     get_target_property(UTILITY_SOURCE_DIR utility SOURCE_DIR)
 
     install(FILES "${PROJECT_SOURCE_DIR}/include/ariadne-numeric.hpp"
@@ -82,7 +82,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/numeric"
         DESTINATION include/ariadne-numeric
     )
-    install(DIRECTORY "${FOUNDATION_SOURCE_DIR}/include/foundation"
+    install(DIRECTORY "${PARADIGM_SOURCE_DIR}/include/paradigm"
         DESTINATION include/ariadne-numeric
     )
     install(DIRECTORY "${UTILITY_SOURCE_DIR}/include/utility"
