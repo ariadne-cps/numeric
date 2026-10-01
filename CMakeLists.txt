@@ -76,6 +76,9 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     get_target_property(FOUNDATION_SOURCE_DIR foundation SOURCE_DIR)
     get_target_property(UTILITY_SOURCE_DIR utility SOURCE_DIR)
 
+    install(FILES "${PROJECT_SOURCE_DIR}/include/ariadne-numeric.hpp"
+        DESTINATION include/ariadne-numeric
+    )
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/numeric"
         DESTINATION include/ariadne-numeric
     )
