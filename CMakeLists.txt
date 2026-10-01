@@ -72,6 +72,13 @@ setup_standalone_project_tests(
         "${PROJECT_SOURCE_DIR}/src"
 )
 
+find_library(GMPXX_LIBRARY NAMES gmpxx)
+if(NOT GMPXX_LIBRARY)
+    message(FATAL_ERROR "Unable to find GMP C++ library (gmpxx)")
+endif()
+
+add_subdirectory(benchmarks EXCLUDE_FROM_ALL)
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     get_target_property(FOUNDATION_SOURCE_DIR foundation SOURCE_DIR)
     get_target_property(UTILITY_SOURCE_DIR utility SOURCE_DIR)
