@@ -28,11 +28,9 @@
 #include <cstdlib>
 #include <algorithm>
 
-#include "utility/typedefs.hpp"
 #include "utility/stopwatch.hpp"
-#include "numeric/floatdp.hpp"
+#include "numeric/rounding.hpp"
 
-#include <fenv.h>
 #include <gmpxx.h>
 
 using namespace Ariadne;
@@ -40,9 +38,6 @@ using namespace Ariadne;
 // Machine epsilon, approximately 2.2e-16;
 const double eps=1./(1<<26)/(1<<26);
 
-inline Void set_round_up() { FloatDP::set_rounding_upward(); }
-inline Void set_round_down() { FloatDP::set_rounding_downward(); }
-inline Void set_round_nearest() { FloatDP::set_rounding_to_nearest(); }
 
 double rndm() {
     double w=double(1<<16)*(1<<15);
@@ -217,7 +212,7 @@ Void benchmark_add(Int n, Int nn) {
 
     double r=0;
 
-    boost::timer tm; double t=0;
+    Stopwatch<Microseconds> sw; double t=0;
 
     sw.restart();
     for(Int i=0; i!=nn; ++i) {
@@ -263,7 +258,7 @@ Void benchmark_add(Int n, Int nn) {
 
     double r=0;
 
-    boost::timer tm; double t=0;
+    Stopwatch<Microseconds> sw; double t=0;
 
     sw.restart();
     for(Int i=0; i!=nn; ++i) {
@@ -290,30 +285,28 @@ Void benchmark_add(Int n, Int nn) {
 Void test_rounding(volatile double p, volatile double q)
 {
     std::cout<<"Testing correct rounding\n";
-    rounding_mode_t fcw=get_control_word();
-    std::cout<<"Initial control word="<<fcw<<"\n";
-    rounding_mode_t rnd=FloatDP::get_rounding_mode();
+    BuiltinRoundingModeType rnd=get_builtin_rounding_mode();
     std::cout<<"Initial rounding mode="<<rnd<<"\n";
 
-    set_round_up();
-    std::cout<<"Up rounding mode="<<FloatDP::get_rounding_mode()<<"\n";
+    set_builtin_rounding_upward();
+    std::cout<<"Up rounding mode="<<get_builtin_rounding_mode()<<"\n";
     volatile double xu=p/q;
     std::cout<<"  Computed "<<p<<"/"<<q<<"="<<xu<<std::endl;
 
-    set_round_down();
-    std::cout<<"Down rounding mode="<<FloatDP::get_rounding_mode()<<"\n";
+    set_builtin_rounding_downward();
+    std::cout<<"Down rounding mode="<<get_builtin_rounding_mode()<<"\n";
     volatile double xl=p/q;
     std::cout<<"  Computed "<<p<<"/"<<q<<"="<<xl<<std::endl;
 
-    set_round_nearest();
-    std::cout<<"Nearest rounding mode="<<FloatDP::get_rounding_mode()<<"\n";
+    set_builtin_rounding_to_nearest();
+    std::cout<<"Nearest rounding mode="<<get_builtin_rounding_mode()<<"\n";
     volatile double xn=p/q;
     std::cout<<"  Computed "<<p<<"/"<<q<<"="<<xn<<std::endl;
 
     std::cout<<p<<"/"<<q<<" ~ "<<xn<<std::endl;
     std::cout<<xl<<" < "<<p<<"/"<<q<<" < "<<xu<<std::endl;
-    FloatDP::set_rounding_mode(rnd);
-    std::cout<<"Restored rounding mode="<<FloatDP::get_rounding_mode()<<"\n";
+    set_builtin_rounding_mode(rnd);
+    std::cout<<"Restored rounding mode="<<get_builtin_rounding_mode()<<"\n";
 }
 
 Int main(Int argc, const char* argv[]) {
@@ -355,26 +348,26 @@ Int main(Int argc, const char* argv[]) {
 
     Int nnn=std::min(n,4);
     for(Int i=0; i!=nnn; ++i) {
-        FloatDP::set_rounding_mode(round_down);
+        set_builtin_rounding_downward();
         double r=add_rnd(x[i],y[i]);
         std::cerr<<"add_rnd_down: x="<<x[i]<<" y="<<y[i]<<" r="<<r<<"\n";
-        FloatDP::set_rounding_mode(round_up);
+        set_builtin_rounding_upward();
         double o=add_opp(x[i],y[i]);
         std::cerr<<"add_opp_up:   x="<<x[i]<<" y="<<y[i]<<" r="<<o<<"\n";
         assert(r==o);
     }
-    FloatDP::set_rounding_mode(round_nearest);
+    set_builtin_rounding_to_nearest();
 
     for(Int i=0; i!=nnn; ++i) {
         std::cerr<<"x="<<x[i]<<" y="<<y[i]<<" z="<<z[i]<<"\n";
-        FloatDP::set_rounding_mode(round_down);
+        set_builtin_rounding_downward();
         acc_rnd(z[i],x[i],y[i]);
-        FloatDP::set_rounding_mode(round_up);
+        set_builtin_rounding_upward();
         acc_opp(w[i],x[i],y[i]);
         std::cerr<<" r="<<z[i]<<" o="<<w[i]<<"\n\n\n";
         assert(z[i]==w[i]);
     }
-    FloatDP::set_rounding_mode(round_nearest);
+    set_builtin_rounding_to_nearest();
 
 }
 
@@ -392,7 +385,7 @@ Int main(Int argc, const char* argv[]) {
 
 
 Void dot_lu_rat(double& l, double& u, SizeType n, const double* x, const double* y) {
-    FloatDP::set_rounding_mode(round_nearest);
+    set_builtin_rounding_to_nearest();
     assert(l==u);
     mpq_class r=l;
     for(SizeType i=0; i!=n; ++i) {
@@ -425,7 +418,7 @@ Void dot_lu_rat(double& l, double& u, SizeType n, const double* x, const double*
 
 
 Void dot_md_rat(mpq_class& m, SizeType n, const double* x, const double* y) {
-    set_round_nearest();
+    set_builtin_rounding_to_nearest();
     for(SizeType i=0; i!=n; ++i) {
         m+=mpq_class(x[i])*mpq_class(y[i]);
     }
@@ -433,30 +426,30 @@ Void dot_md_rat(mpq_class& m, SizeType n, const double* x, const double* y) {
 
 Void dot_lu_ivl(double& l, double& u, SizeType n, const double* x, const double* y) {
     for(SizeType i=0; i!=n; ++i) {
-        set_round_up();
+        set_builtin_rounding_upward();
         u+=x[i]*y[i];
-        set_round_down();
+        set_builtin_rounding_downward();
         l+=x[i]*y[i];
     }
-    set_round_nearest();
+    set_builtin_rounding_to_nearest();
 }
 
 Void dot_lu_std(double& l, double& u, SizeType n, const double* x, const double* y) {
-    set_round_up();
+    set_builtin_rounding_upward();
     for(SizeType i=0; i!=n; ++i) {
         u+=x[i]*y[i];
         //std::cerr<<" i="<<i<<" u="<<u<<"\n";
     }
-    set_round_down();
+    set_builtin_rounding_downward();
     for(SizeType i=0; i!=n; ++i) {
         l+=x[i]*y[i];
         //std::cerr<<" i="<<i<<" l="<<l<<"\n";
     }
-    set_round_nearest();
+    set_builtin_rounding_to_nearest();
 }
 
 Void dot_lu_opp(double& l, double& u, SizeType n, const double* x, const double* y) {
-    set_round_up();
+    set_builtin_rounding_upward();
     register volatile double uu=u;
     register volatile double ll=-l;
     register volatile double t;
@@ -470,11 +463,11 @@ Void dot_lu_opp(double& l, double& u, SizeType n, const double* x, const double*
     }
     u=uu;
     l=-ll;
-    set_round_nearest();
+    set_builtin_rounding_to_nearest();
 }
 
 Void dot_lu_opp2(double& l, double& u, SizeType n, const double* x, const double* y) {
-    set_round_up();
+    set_builtin_rounding_upward();
     register volatile double t;
     for(SizeType i=0; i!=n; ++i) {
         u+=x[i]*y[i];
@@ -484,7 +477,7 @@ Void dot_lu_opp2(double& l, double& u, SizeType n, const double* x, const double
         l=-t;
         //std::cerr<<" i="<<i<<" l="<<(-l)<<" u="<<u<<"\n";
     }
-    set_round_nearest();
+    set_builtin_rounding_to_nearest();
 }
 
 Void dot_lu_ord(double& l, double& u, SizeType n, const double* x, const double* y) {
@@ -492,21 +485,21 @@ Void dot_lu_ord(double& l, double& u, SizeType n, const double* x, const double*
 }
 
 Void dot_mr_std(double& m, double& r, SizeType n, const double* x, const double* y) {
-    set_round_down();
+    set_builtin_rounding_downward();
     volatile double l=m-r;
     for(SizeType i=0; i!=n; ++i) {
         l+=x[i]*y[i];
     }
-    set_round_up();
+    set_builtin_rounding_upward();
     volatile double u=m+r;
     for(SizeType i=0; i!=n; ++i) {
         u+=x[i]*y[i];
     }
-    set_round_nearest();
+    set_builtin_rounding_to_nearest();
     m=(u+l)/2;
-    set_round_up();
+    set_builtin_rounding_upward();
     r=max(u-m,m-l);
-    set_round_nearest();
+    set_builtin_rounding_to_nearest();
 }
 
 Void dot_mr_mid(double& m, double& r, SizeType n, const double* x, const double* y) {
@@ -514,19 +507,19 @@ Void dot_mr_mid(double& m, double& r, SizeType n, const double* x, const double*
     for(SizeType i=0; i!=n; ++i) {
         a+=x[i]*y[i];
     }
-    set_round_down();
+    set_builtin_rounding_downward();
     volatile double l=m-r;
     for(SizeType i=0; i!=n; ++i) {
         l+=x[i]*y[i];
     }
-    set_round_up();
+    set_builtin_rounding_upward();
     volatile double u=m+r;
     for(SizeType i=0; i!=n; ++i) {
         u+=x[i]*y[i];
     }
     m=a;
     r=r+max(u-m,m-l);
-    set_round_nearest();
+    set_builtin_rounding_to_nearest();
 }
 
 Void dot_mr_csy(double& m, double& r, SizeType n, const double* x, const double* y) {
@@ -547,13 +540,13 @@ Void add_mr_std(double& e, SizeType n, double* r, const double* x, const double*
 {
     for(SizeType i=0; i!=n; ++i) {
         volatile double a=x[i]+y[i];
-        set_round_down();
+        set_builtin_rounding_downward();
         volatile double l=x[i]+y[i];
-        set_round_up();
+        set_builtin_rounding_upward();
         volatile double u=x[i]+y[i];
         r[i]=a;
         e+=(u-l)/2;
-        set_round_nearest();
+        set_builtin_rounding_to_nearest();
     }
 }
 
@@ -563,14 +556,14 @@ Void add_mr_buf(double& e, SizeType n, double* r, const double* x, const double*
     for(SizeType i=0; i!=n; ++i) {
         z[i]=x[i]+y[i];
     }
-    set_round_up();
+    set_builtin_rounding_upward();
     for(SizeType i=0; i!=n; ++i) {
         volatile double u=x[i]+y[i];
         volatile double t=-x[i];
         volatile double ml=t-y[i];
         e+=(u+ml)/2;
     }
-    set_round_nearest();
+    set_builtin_rounding_to_nearest();
     delete[] z;
 }
 
@@ -591,13 +584,13 @@ Void scal_mr_std(double& e, SizeType n, double* r, const double* x, const double
 {
     for(SizeType i=0; i!=n; ++i) {
         volatile double a=x[i]*c;
-        set_round_down();
+        set_builtin_rounding_downward();
         volatile double l=x[i]*c;
-        set_round_up();
+        set_builtin_rounding_upward();
         volatile double u=x[i]*c;
         r[i]=a;
         e+=(u-l)/2;
-        set_round_nearest();
+        set_builtin_rounding_to_nearest();
     }
 }
 
