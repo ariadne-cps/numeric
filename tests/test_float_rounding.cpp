@@ -439,6 +439,14 @@ TestFloatRounding<PR>::test_stream()
         cerr << e.what() << endl;
     }
 
+    stringstream delimited("1.25,2.5");
+    Float fd(precision);
+    char delimiter='\0';
+    delimited >> fd;
+    ARIADNE_TEST_EQUALS(fd,1.25_x);
+    delimited >> delimiter;
+    ARIADNE_TEST_EQUAL(delimiter,',');
+
 }
 
 

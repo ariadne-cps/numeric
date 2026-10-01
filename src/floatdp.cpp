@@ -28,7 +28,8 @@
 #include <iomanip>
 #include <cassert>
 #include <limits>
-#include <charconv>
+#include <locale>
+#include <sstream>
 
 
 
@@ -364,13 +365,12 @@ InputStream& operator>>(InputStream& is, FloatDP& x) {
         if (!have_exponent_digits) { is.setstate(std::ios::failbit); return is; }
     }
 
-    const char* first=str.data();
-    const char* last=first+str.size();
-    if (first!=last && *first=='+') { ++first; }
+    std::istringstream parser(str);
+    parser.imbue(std::locale::classic());
 
     double r=0.0;
-    auto result=std::from_chars(first,last,r,std::chars_format::general);
-    if (result.ec!=std::errc() || result.ptr!=last) {
+    char trailing='\0';
+    if (!(parser >> r) || (parser >> trailing)) {
         is.setstate(std::ios::failbit);
         return is;
     }
