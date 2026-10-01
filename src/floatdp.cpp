@@ -28,6 +28,7 @@
 #include <iomanip>
 #include <cassert>
 #include <limits>
+#include <charconv>
 
 
 
@@ -40,6 +41,10 @@
 #include "numeric/rounding.hpp"
 #include "numeric/floatdp.hpp"
 #include "numeric/floatmp.hpp"
+#include "numeric/rounded_float.hpp"
+#include "numeric/float_approximation.hpp"
+#include "numeric/float_lower_bound.hpp"
+#include "numeric/float_upper_bound.hpp"
 
 #include "numeric/concepts.hpp"
 
@@ -321,7 +326,56 @@ OutputStream& operator<<=(OutputStream& os, FloatDP const& x) {
 }
 
 InputStream& operator>>(InputStream& is, FloatDP& x) {
-    double r; is >> r; x.dbl=r; return is;
+    is >> std::ws;
+    if (!is) { return is; }
+
+    std::string str;
+    int c=is.peek();
+    if (c=='+' || c=='-') { str.push_back(static_cast<char>(is.get())); c=is.peek(); }
+
+    Bool have_digits=false;
+    while (c>='0' && c<='9') {
+        have_digits=true;
+        str.push_back(static_cast<char>(is.get()));
+        c=is.peek();
+    }
+    if (c=='.') {
+        str.push_back(static_cast<char>(is.get()));
+        c=is.peek();
+        while (c>='0' && c<='9') {
+            have_digits=true;
+            str.push_back(static_cast<char>(is.get()));
+            c=is.peek();
+        }
+    }
+
+    if (!have_digits) { is.setstate(std::ios::failbit); return is; }
+
+    if (c=='e' || c=='E') {
+        str.push_back(static_cast<char>(is.get()));
+        c=is.peek();
+        if (c=='+' || c=='-') { str.push_back(static_cast<char>(is.get())); c=is.peek(); }
+        Bool have_exponent_digits=false;
+        while (c>='0' && c<='9') {
+            have_exponent_digits=true;
+            str.push_back(static_cast<char>(is.get()));
+            c=is.peek();
+        }
+        if (!have_exponent_digits) { is.setstate(std::ios::failbit); return is; }
+    }
+
+    const char* first=str.data();
+    const char* last=first+str.size();
+    if (first!=last && *first=='+') { ++first; }
+
+    double r=0.0;
+    auto result=std::from_chars(first,last,r,std::chars_format::general);
+    if (result.ec!=std::errc() || result.ptr!=last) {
+        is.setstate(std::ios::failbit);
+        return is;
+    }
+    x.dbl=r;
+    return is;
 }
 
 Nat FloatDP::output_places=16;
@@ -341,18 +395,8 @@ template<> String class_name<ExactDouble>() { return "ExactDouble"; }
 template<> String class_name<DoublePrecision>() { return "DoublePrecision"; }
 template<> String class_name<FloatDP>() { return "FloatDP"; }
 
-template<class X> class Rounded;
-template<> class Rounded<FloatDP> { public: double dbl; Rounded(Approximation<FloatDP> const&); };
 template<> String class_name<Rounded<FloatDP>>() { return "Rounded<FloatDP>"; }
 
-
-template<class X> class UpperBound { X _u; public: UpperBound(X const& u) : _u(u) { } X const& raw() const { return this->_u; } };
-template<class X> class LowerBound { X _l; public: LowerBound(X const& l) : _l(l) { } X const& raw() const { return this->_l; } };
-template<class X> class Approximation { X _a; public: X const& raw() const { return this->_a; } };
-
-Rounded<FloatDP>::Rounded(Approximation<FloatDP> const& x) : dbl(x.raw().dbl) { }
-
-template<class X> class Positive : public X { public: Positive(X const& x) : X(x) { } };
 Positive<FloatDP> abs(FloatDP x) { return Positive<FloatDP>(FloatDP(std::fabs(x.dbl))); }
 Positive<UpperBound<FloatDP>> mag(FloatDP x) { return Positive<UpperBound<FloatDP>>(abs(x)); }
 Positive<LowerBound<FloatDP>> mig(FloatDP x) { return Positive<LowerBound<FloatDP>>(abs(x)); }

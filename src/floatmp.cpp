@@ -32,6 +32,10 @@
 #include "twoexp.hpp"
 #include "floatmp.hpp"
 #include "floatdp.hpp"
+#include "rounded_float.hpp"
+#include "float_approximation.hpp"
+#include "float_lower_bound.hpp"
+#include "float_upper_bound.hpp"
 #include "dyadic.hpp"
 #include "decimal.hpp"
 #include "rational.hpp"
@@ -903,14 +907,8 @@ Void FloatMP::set_output_places(Nat pl) { output_places=pl; }
 
 
 
-template<class X> class Rounded { public: X _flt; Rounded(Approximation<X> const&); };
 template<> String class_name<Rounded<FloatMP>>() { return "Rounded<FloatMP>"; }
 
-template<class X> class UpperBound { X _u; public: UpperBound(X const& u) : _u(u) { } X const& raw() const { return this->_u; } };
-template<class X> class LowerBound { X _l; public: LowerBound(X const& l) : _l(l) { } X const& raw() const { return this->_l; } };
-template<class X> class Approximation { X _a; public: X const& raw() const { return this->_a; } };
-
-template<class X> class Positive : public X { public: Positive(X const& x) : X(x) { } };
 Positive<FloatMP> abs(FloatMP const& x) {
     FloatMP r(x.precision(),NoInit()); mpfr_abs(r._mpfr,x._mpfr,to_nearest); return Positive<FloatMP>(r); }
 Positive<UpperBound<FloatMP>> mag(FloatMP const& x) { return Positive<UpperBound<FloatMP>>(abs(x)); }
