@@ -92,7 +92,7 @@ jobs:
 
     - name: Check Python Numeric Tutorial
       shell: pwsh
-      working-directory: ${{ github.workspace }}/python/tutorial
+      working-directory: ${{ github.workspace }}/python/tutorials
       run: |
         $env:PYTHONPATH = "${{ runner.workspace }}\build\python\Release"
         python tutorial_numeric.py
