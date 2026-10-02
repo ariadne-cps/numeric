@@ -592,7 +592,7 @@ template<class PR> Void TestFloatBounds<PR>::regression_tests() {
 
     // Tangent intervals that may contain a pole must return the whole-real hull.
     {
-        FloatBoundsType around_half_pi(1.5707_x,1.5709_x,pr);
+        FloatBoundsType around_half_pi(1.5707_pr,1.5709_pr,pr);
         FloatBoundsType tan_around_half_pi=tan(around_half_pi);
         ARIADNE_TEST_EQUAL(tan_around_half_pi.lower_raw(),-inf_);
         ARIADNE_TEST_EQUAL(tan_around_half_pi.upper_raw(),+inf_);
@@ -601,9 +601,9 @@ template<class PR> Void TestFloatBounds<PR>::regression_tests() {
     // Tangent range reduction must remain valid at both pole enclosures,
     // including after translation by one period.
     {
-        FloatBoundsType around_positive_half_pi(1.5707_x,1.5709_x,pr);
-        FloatBoundsType around_negative_half_pi(-1.5709_x,-1.5707_x,pr);
-        FloatBoundsType around_three_half_pi(4.7123_x,4.7125_x,pr);
+        FloatBoundsType around_positive_half_pi(1.5707_pr,1.5709_pr,pr);
+        FloatBoundsType around_negative_half_pi(-1.5709_pr,-1.5707_pr,pr);
+        FloatBoundsType around_three_half_pi(4.7123_pr,4.7125_pr,pr);
 
         FloatBoundsType positive=tan(around_positive_half_pi);
         FloatBoundsType negative=tan(around_negative_half_pi);
