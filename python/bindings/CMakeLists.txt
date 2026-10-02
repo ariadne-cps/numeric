@@ -9,7 +9,7 @@ add_library(pyariadne-numeric-submodule-obj OBJECT
 target_include_directories(pyariadne-numeric-submodule-obj PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${PYTHON_COMMON_SOURCE_DIR}/include"
-    "${PARADIGM_SOURCE_DIR}/python/source"
+    "${PARADIGM_SOURCE_DIR}/python/bindings"
 )
 target_link_libraries(pyariadne-numeric-submodule-obj PRIVATE
     pyariadne-python-common
@@ -21,12 +21,12 @@ if(MSVC)
     target_compile_options(pyariadne-numeric-submodule-obj PRIVATE /bigobj)
 endif()
 
-add_library(pyariadne-numeric-python INTERFACE)
-target_sources(pyariadne-numeric-python INTERFACE
+add_library(pyariadne-numeric INTERFACE)
+target_sources(pyariadne-numeric INTERFACE
     $<TARGET_OBJECTS:pyariadne-numeric-submodule-obj>
 )
-target_link_libraries(pyariadne-numeric-python INTERFACE
-    pyariadne-paradigm-python
+target_link_libraries(pyariadne-numeric INTERFACE
+    pyariadne-paradigm
 )
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)

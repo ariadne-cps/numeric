@@ -12,20 +12,19 @@ if(Python3_FOUND)
     message(STATUS "Python includes:   ${Python3_INCLUDE_DIRS}")
     message(STATUS "Python SOABI:      ${Python3_SOABI}")
 
-    add_subdirectory(source)
+    add_subdirectory(bindings)
 
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-        pybind11_add_module(pyariadne-numeric
+        pybind11_add_module(pyariadne
             $<TARGET_OBJECTS:pyariadne-numeric-module-obj>
             $<TARGET_OBJECTS:UTILITY_SRC>
             $<TARGET_OBJECTS:PARADIGM_SRC>
             $<TARGET_OBJECTS:NUMERIC_SRC>
         )
-        set_target_properties(pyariadne-numeric PROPERTIES OUTPUT_NAME "pyariadne")
-        target_link_libraries(pyariadne-numeric PRIVATE pyariadne-numeric-python numeric)
+        target_link_libraries(pyariadne PRIVATE pyariadne-numeric numeric)
 
-        add_subdirectory(test)
-        add_dependencies(bindings pyariadne-numeric)
+        add_subdirectory(tests)
+        add_dependencies(bindings pyariadne)
     endif()
 else()
     if(PYTHON_ENFORCE_TESTS)
