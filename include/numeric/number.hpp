@@ -205,6 +205,7 @@ template<class P> class Number
     friend Number<P> sin(Number<P> const& y) { return _apply<P>(Sin(),y); } //!< <p/>
     friend Number<P> cos(Number<P> const& y) { return _apply<P>(Cos(),y); } //!< <p/>
     friend Number<P> tan(Number<P> const& y) { return _apply<P>(Tan(),y); } //!< <p/>
+    friend Number<P> tanh(Number<P> const& y) { return _apply<P>(Tanh(),y); } //!< <p/>
     friend Number<P> asin(Number<P> const& y) { return _apply<P>(Asin(),y); } //!< <p/>
     friend Number<P> acos(Number<P> const& y) { return _apply<P>(Acos(),y); } //!< <p/>
     friend Number<P> atan(Number<P> const& y) { return _apply<P>(Atan(),y); } //!< <p/>

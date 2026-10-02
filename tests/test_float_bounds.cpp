@@ -544,6 +544,88 @@ template<class PR> Void TestFloatBounds<PR>::regression_tests() {
         ARIADNE_TEST_ASSERT(cosx.lower_raw()<cosx.upper_raw());
     }
 
+    // Regression test for inverse trigonometric functions at the domain endpoints.
+    // These used to reach sqrt_rnd(-inf) through the asin transformation.
+    {
+        FloatBoundsType minus_one(-1,pr);
+        FloatBoundsType plus_one(1,pr);
+
+        FloatBoundsType asin_minus_one=asin(minus_one);
+        FloatBoundsType asin_plus_one=asin(plus_one);
+        FloatBoundsType acos_minus_one=acos(minus_one);
+        FloatBoundsType acos_plus_one=acos(plus_one);
+
+        ARIADNE_TEST_COMPARE(asin_minus_one.lower_raw(),<,-1.5_pr);
+        ARIADNE_TEST_COMPARE(asin_minus_one.upper_raw(),>,-1.6_pr);
+        ARIADNE_TEST_COMPARE(asin_plus_one.lower_raw(),<,1.6_pr);
+        ARIADNE_TEST_COMPARE(asin_plus_one.upper_raw(),>,1.5_pr);
+        ARIADNE_TEST_COMPARE(acos_minus_one.lower_raw(),<,3.2_pr);
+        ARIADNE_TEST_COMPARE(acos_minus_one.upper_raw(),>,3.1_pr);
+        ARIADNE_TEST_EQUAL(acos_plus_one.lower_raw(),RawFloatType(0,pr));
+        ARIADNE_TEST_EQUAL(acos_plus_one.upper_raw(),RawFloatType(0,pr));
+    }
+
+    // Inverse trigonometric interval evaluation intersects with the real domain [-1,1].
+    {
+        FloatBoundsType below(-2,-2,pr);
+        FloatBoundsType above(2,2,pr);
+        FloatBoundsType crossing_low(-2,0,pr);
+        FloatBoundsType crossing_high(0,2,pr);
+
+        FloatBoundsType asin_below=asin(below);
+        FloatBoundsType asin_above=asin(above);
+        FloatBoundsType acos_below=acos(below);
+        FloatBoundsType acos_above=acos(above);
+
+        ARIADNE_TEST_ASSERT(asin_below.lower_raw()>asin_below.upper_raw());
+        ARIADNE_TEST_ASSERT(asin_above.lower_raw()>asin_above.upper_raw());
+        ARIADNE_TEST_ASSERT(acos_below.lower_raw()>acos_below.upper_raw());
+        ARIADNE_TEST_ASSERT(acos_above.lower_raw()>acos_above.upper_raw());
+
+        FloatBoundsType asin_crossing_low=asin(crossing_low);
+        FloatBoundsType asin_crossing_high=asin(crossing_high);
+        ARIADNE_TEST_ASSERT(asin_crossing_low.lower_raw()<=asin_crossing_low.upper_raw());
+        ARIADNE_TEST_ASSERT(asin_crossing_high.lower_raw()<=asin_crossing_high.upper_raw());
+        ARIADNE_TEST_COMPARE(asin_crossing_low.upper_raw(),>=,RawFloatType(0,pr));
+        ARIADNE_TEST_COMPARE(asin_crossing_high.lower_raw(),<=,RawFloatType(0,pr));
+    }
+
+    // Tangent intervals that may contain a pole must return the whole-real hull.
+    {
+        FloatBoundsType around_half_pi(1.5707_x,1.5709_x,pr);
+        FloatBoundsType tan_around_half_pi=tan(around_half_pi);
+        ARIADNE_TEST_EQUAL(tan_around_half_pi.lower_raw(),-inf_);
+        ARIADNE_TEST_EQUAL(tan_around_half_pi.upper_raw(),+inf_);
+    }
+
+    // Tangent range reduction must remain valid at both pole enclosures,
+    // including after translation by one period.
+    {
+        FloatBoundsType around_positive_half_pi(1.5707_x,1.5709_x,pr);
+        FloatBoundsType around_negative_half_pi(-1.5709_x,-1.5707_x,pr);
+        FloatBoundsType around_three_half_pi(4.7123_x,4.7125_x,pr);
+
+        FloatBoundsType positive=tan(around_positive_half_pi);
+        FloatBoundsType negative=tan(around_negative_half_pi);
+        FloatBoundsType translated=tan(around_three_half_pi);
+
+        ARIADNE_TEST_EQUAL(positive.lower_raw(),-inf_);
+        ARIADNE_TEST_EQUAL(positive.upper_raw(),+inf_);
+        ARIADNE_TEST_EQUAL(negative.lower_raw(),-inf_);
+        ARIADNE_TEST_EQUAL(negative.upper_raw(),+inf_);
+        ARIADNE_TEST_EQUAL(translated.lower_raw(),-inf_);
+        ARIADNE_TEST_EQUAL(translated.upper_raw(),+inf_);
+    }
+
+    // Tangent away from poles remains finite and encloses the endpoint values.
+    {
+        FloatBoundsType x(0.25_x,0.5_x,pr);
+        FloatBoundsType tx=tan(x);
+        ARIADNE_TEST_ASSERT(tx.lower_raw()<=tx.upper_raw());
+        ARIADNE_TEST_COMPARE(tx.lower_raw(),<=,tan(down,RawFloatType(0.25_x,pr)));
+        ARIADNE_TEST_COMPARE(tx.upper_raw(),>=,tan(up,RawFloatType(0.5_x,pr)));
+    }
+
     // Regression test for dividing by interval with lower endpoint -0.0 or upper endpoint +0.0
 
     ARIADNE_TEST_EQUAL((FloatBoundsType(1.0_x,2.0_x,pr)/FloatBoundsType(-0.0_x,1.0_x,pr)).upper_raw(),+inf_);
@@ -551,6 +633,18 @@ template<class PR> Void TestFloatBounds<PR>::regression_tests() {
 
     ARIADNE_TEST_EQUAL(rec(FloatBoundsType(-0.0_x,+1.0_x,pr)).upper_raw(),+inf_);
     ARIADNE_TEST_EQUAL(rec(FloatBoundsType(-1.0_x,+0.0_x,pr)).lower_raw(),-inf_);
+
+    // Reciprocal is undefined on the singleton zero, but intervals crossing
+    // zero retain the whole-real hull of their two defined branches.
+    {
+        FloatBoundsType zero(0,pr);
+        FloatBoundsType crossing(-1,1,pr);
+        FloatBoundsType rec_zero=rec(zero);
+        FloatBoundsType rec_crossing=rec(crossing);
+        ARIADNE_TEST_ASSERT(rec_zero.lower_raw()>rec_zero.upper_raw());
+        ARIADNE_TEST_EQUAL(rec_crossing.lower_raw(),-inf_);
+        ARIADNE_TEST_EQUAL(rec_crossing.upper_raw(),+inf_);
+    }
 }
 
 

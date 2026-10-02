@@ -231,6 +231,8 @@ template<class F, class FE> class Ball
         return Ball<F,FE>(cos(Bounds<F>(x)),x.error_precision()); } //!< <p/>
     friend Ball<F,FE> tan(Ball<F,FE> const& x) {
         return Ball<F,FE>(tan(Bounds<F>(x)),x.error_precision()); } //!< <p/>
+    friend Ball<F,FE> tanh(Ball<F,FE> const& x) {
+        return Ball<F,FE>(tanh(Bounds<F>(x)),x.error_precision()); } //!< <p/>
     friend Ball<F,FE> asin(Ball<F,FE> const& x) {
         return Ball<F,FE>(asin(Bounds<F>(x)),x.error_precision()); } //!< <p/>
     friend Ball<F,FE> acos(Ball<F,FE> const& x) {

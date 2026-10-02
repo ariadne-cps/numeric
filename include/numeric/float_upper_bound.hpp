@@ -175,6 +175,8 @@ template<class F> class UpperBound
     friend Positive<UpperBound<F>> exp(UpperBound<F> const& x); //!< <p/>
     friend UpperBound<F> log(Positive<UpperBound<F>> const& x); //!< <p/>
     friend UpperBound<F> atan(UpperBound<F> const& x); //!< <p/>
+    friend UpperBound<F> tanh(UpperBound<F> const& x) {
+        return UpperBound<F>(tanh(Bounds<F>(x.raw())).upper_raw()); } //!< <p/>
     friend Positive<UpperBound<F>> atan(Positive<UpperBound<F>> const& x); //!< <p/>
     //!@}
 

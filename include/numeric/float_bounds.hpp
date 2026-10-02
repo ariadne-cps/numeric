@@ -217,9 +217,16 @@ template<class F> class Bounds
         else if(x._u<0) { return Bounds<F>(mul(down,x._u,x._u),mul(up,x._l,x._l)); } //!< <p/>
         else { return Bounds<F>(nul(x._l),max(mul(up,x._l,x._l),mul(up,x._u,x._u))); } } //!< <p/>
     friend Bounds<F> rec(Bounds<F> const& x) {
-        if(x._l>0 || x._u<0) {  return Bounds<F>(rec(down,x._u),rec(up,x._l)); } //!< <p/>
-    //ARIADNE_THROW(DivideByZeroException,"FloatBounds rec(FloatBounds x)","x="<<x); //!< <p/>
-        else { F inf_=F::inf(x.precision()); return Bounds<F>(-inf_,+inf_); } } //!< <p/>
+        if(x._l>0 || x._u<0) { return Bounds<F>(rec(down,x._u),rec(up,x._l)); } //!< <p/>
+        if(x._l==0 && x._u==0) {
+            F one(1,x.precision());
+            return Bounds<F>(one,-one);
+        }
+        // The reciprocal image of an interval crossing zero is disconnected;
+        // its interval hull is the whole real line.
+        F inf_=F::inf(x.precision());
+        return Bounds<F>(-inf_,+inf_);
+    } //!< <p/>
 
     friend Bounds<F> add(Bounds<F> const& x1, Bounds<F> const& x2) {
         return Bounds<F>(add(down,x1._l,x2._l),add(up,x1._u,x2._u)); } //!< <p/>
@@ -251,10 +258,42 @@ template<class F> class Bounds
         return Operations<Bounds<F>>::_cos(x); } //!< <p/>
     friend Bounds<F> tan(Bounds<F> const& x) {
         return Operations<Bounds<F>>::_tan(x); } //!< <p/>
+    friend Bounds<F> tanh(Bounds<F> const& x) {
+        F zero(0,x.precision()); F one(1,x.precision()); F two_value(2,x.precision());
+        auto lower_tanh=[&](F const& v) {
+            if(v>=zero) {
+                F e=exp(down,mul(down,two_value,v));
+                return sub(down,one,div(up,two_value,add(down,e,one)));
+            } else {
+                F e=exp(up,mul(up,two_value,neg(v)));
+                return sub(down,div(down,two_value,add(up,e,one)),one);
+            }
+        };
+        auto upper_tanh=[&](F const& v) {
+            if(v>=zero) {
+                F e=exp(up,mul(up,two_value,v));
+                return sub(up,one,div(down,two_value,add(up,e,one)));
+            } else {
+                F e=exp(down,mul(down,two_value,neg(v)));
+                return sub(up,div(up,two_value,add(down,e,one)),one);
+            }
+        };
+        return Bounds<F>(lower_tanh(x.lower_raw()),upper_tanh(x.upper_raw()));
+    } //!< <p/>
     friend Bounds<F> asin(Bounds<F> const& x) {
-        return Bounds<F>(asin(down,x.lower_raw()),asin(up,x.upper_raw())); } //!< <p/>
+        F minus_one(-1,x.precision());
+        F plus_one(1,x.precision());
+        F lower=max(x.lower_raw(),minus_one);
+        F upper=min(x.upper_raw(),plus_one);
+        if(lower>upper) { return Bounds<F>(plus_one,minus_one); }
+        return Bounds<F>(asin(down,lower),asin(up,upper)); } //!< <p/>
     friend Bounds<F> acos(Bounds<F> const& x) {
-        return Bounds<F>(acos(down,x.upper_raw()),acos(up,x.lower_raw())); } //!< <p/>
+        F minus_one(-1,x.precision());
+        F plus_one(1,x.precision());
+        F lower=max(x.lower_raw(),minus_one);
+        F upper=min(x.upper_raw(),plus_one);
+        if(lower>upper) { return Bounds<F>(plus_one,minus_one); }
+        return Bounds<F>(acos(down,upper),acos(up,lower)); } //!< <p/>
     friend Bounds<F> atan(Bounds<F> const& x) {
         return Bounds<F>(atan(down,x._l),atan(up,x._u)); } //!< <p/>
     //!@}
@@ -391,7 +430,7 @@ template<class F> class Bounds
     friend Bounds<F> log(F const& x) { return Bounds<F>{log(down,x),log(up,x)}; }
     friend Bounds<F> sin(F const& x) { return Bounds<F>{sin(down,x),sin(up,x)}; }
     friend Bounds<F> cos(F const& x) { return Bounds<F>{cos(down,x),cos(up,x)}; }
-    friend Bounds<F> tan(F const& x) { return Bounds<F>{tan(down,x),tan(up,x)}; }
+    friend Bounds<F> tan(F const& x) { return tan(Bounds<F>(x)); }
     friend Bounds<F> asin(F const& x) { return Bounds<F>{asin(down,x),asin(up,x)}; }
     friend Bounds<F> acos(F const& x) { return Bounds<F>{acos(down,x),acos(up,x)}; }
     friend Bounds<F> atan(F const& x) { return Bounds<F>{atan(down,x),atan(up,x)}; }
@@ -486,6 +525,10 @@ template<class F> template<class FE> Bounds<F>::Bounds(Ball<F,FE> const& x) : Bo
 template<class FE> inline Bounds<FE> make_bounds(Error<FE> const& e) { return pm(e); }
 FloatDP midpoint(Bounds<FloatDP> const& x); // DEPRECATED
 
+
+template<ARawFloat F> Bounds<F> tanh(F const& x) {
+    return tanh(Bounds<F>(x));
+}
 
 template<class PR> Bounds(ValidatedNumber, PR) -> Bounds<RawFloatType<PR>>;
 template<class PR> Bounds(ValidatedLowerNumber, ValidatedUpperNumber, PR) -> Bounds<RawFloatType<PR>>;

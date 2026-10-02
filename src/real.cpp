@@ -323,6 +323,7 @@ Real log(Real const& x) { return make_real(Log(),x); }
 Real sin(Real const& x) { return make_real(Sin(),x); }
 Real cos(Real const& x) { return make_real(Cos(),x); }
 Real tan(Real const& x) { return make_real(Tan(),x); }
+Real tanh(Real const& x) { return make_real(Tanh(),x); }
 Real asin(Real const& x) { return make_real(Asin(),x); }
 Real acos(Real const& x) { return make_real(Acos(),x); }
 Real atan(Real const& x) { return make_real(Atan(),x); }

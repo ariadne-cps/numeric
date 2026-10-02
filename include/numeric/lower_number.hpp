@@ -105,6 +105,7 @@ template<class P> class LowerNumber
     friend LowerNumber<P> exp(LowerNumber<P> const& y) { return LowerNumber<P>(y.ref()._apply(Exp())); }
     friend LowerNumber<P> log(LowerNumber<P> const& y) { return LowerNumber<P>(y.ref()._apply(Log())); }
     friend LowerNumber<P> atan(LowerNumber<P> const& y) { return LowerNumber<P>(y.ref()._apply(Atan())); }
+    friend LowerNumber<P> tanh(LowerNumber<P> const& y) { return LowerNumber<P>(y.ref()._apply(Tanh())); }
 
     friend LowerNumber<P> max(LowerNumber<P> const& y1, LowerNumber<P> const& y2) { return LowerNumber<P>(y1.ref()._apply(Max(),&y2.ref())); }
     friend LowerNumber<P> min(LowerNumber<P> const& y1, LowerNumber<P> const& y2) { return LowerNumber<P>(y1.ref()._apply(Min(),&y2.ref())); }

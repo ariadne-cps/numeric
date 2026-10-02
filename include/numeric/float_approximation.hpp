@@ -206,6 +206,16 @@ template<class F> class Approximation
         return Approximation<F>(cos(approx,x._a)); } //!< <p/>
     friend Approximation<F> tan(Approximation<F> const& x) {
         return Approximation<F>(tan(approx,x._a)); } //!< <p/>
+    friend Approximation<F> tanh(Approximation<F> const& x) {
+        F zero(0,x.precision()); F one(1,x.precision()); F two_value(2,x.precision());
+        if(x._a>=zero) {
+            F e=exp(approx,mul(approx,two_value,x._a));
+            return Approximation<F>(sub(approx,one,div(approx,two_value,add(approx,e,one))));
+        } else {
+            F e=exp(approx,mul(approx,two_value,neg(x._a)));
+            return Approximation<F>(sub(approx,div(approx,two_value,add(approx,e,one)),one));
+        }
+    } //!< <p/>
     friend Approximation<F> asin(Approximation<F> const& x) {
         return Approximation<F>(asin(approx,x._a)); } //!< <p/>
     friend Approximation<F> acos(Approximation<F> const& x) {
