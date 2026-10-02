@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 project(Numeric VERSION 1.0)
 
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/submodules/configuration/cmake/ProjectOptions.cmake")
     message(FATAL_ERROR
@@ -71,6 +72,10 @@ setup_standalone_project_tests(
         "${PROJECT_SOURCE_DIR}/include"
         "${PROJECT_SOURCE_DIR}/src"
 )
+
+if(BUILD_PYTHON_BINDINGS)
+    add_subdirectory(python)
+endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     get_target_property(PARADIGM_SOURCE_DIR paradigm SOURCE_DIR)
