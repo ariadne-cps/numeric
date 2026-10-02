@@ -63,8 +63,8 @@ Ball<FloatMP,FloatDP> FloatMP::pm(Error<FloatDP> const& e) const { return Ball<F
 template<> OutputStream& Operations<FloatBall<MultiplePrecision>>::_write(OutputStream& os, FloatBall<MultiplePrecision> const& x) {
     // Write based on number of correct digits
     static const double log2ten = 3.3219280948873621817;
-    static const char pmstr[] = "\u00b1";
-    static const char hlfstr[] = "\u00bd";
+    static const char pmstr[] = "\xC2\xB1";
+    static const char hlfstr[] = "\xC2\xBD";
     FloatMP const& v=x.value_raw();
     FloatMP const& e=x.error_raw();
     double edbl=e.get_d();
