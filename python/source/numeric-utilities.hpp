@@ -127,7 +127,10 @@ template<class X, class Y> pybind11::class_<X>& define_mixed_arithmetic(pybind11
     pyclass.def("__sub__", &__sub__<X,Y>, pybind11::is_operator()); pyclass.def("__rsub__", &__rsub__<X,Y>, pybind11::is_operator());
     pyclass.def("__mul__", &__mul__<X,Y>, pybind11::is_operator()); pyclass.def("__rmul__", &__rmul__<X,Y>, pybind11::is_operator());
     if constexpr(CanDivide<X,Y>) pyclass.def(__py_div__, &__div__<X,Y>, pybind11::is_operator());
-    if constexpr(CanDivide<Y,X>) pyclass.def(__py_rdiv__, &__rdiv__<X,Y>, pybind11::is_operator()); return pyclass;
+    if constexpr(CanDivide<Y,X>) {
+        pyclass.def(__py_rdiv__, &__rdiv__<X,Y>, pybind11::is_operator());
+    }
+    return pyclass;
 }
 template<class X> pybind11::class_<X>& define_transcendental(pybind11::module& module, pybind11::class_<X>& pyclass) {
     module.def("nul", &_nul_<X>); module.def("pos", &_pos_<X>); module.def("neg", &_neg_<X>); module.def("sqr", &_sqr_<X>);

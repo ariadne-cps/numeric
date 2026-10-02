@@ -17,6 +17,9 @@ target_link_libraries(pyariadne-numeric-submodule-obj PRIVATE
     numeric
 )
 set_target_properties(pyariadne-numeric-submodule-obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(MSVC)
+    target_compile_options(pyariadne-numeric-submodule-obj PRIVATE /bigobj)
+endif()
 
 add_library(pyariadne-numeric-python INTERFACE)
 target_sources(pyariadne-numeric-python INTERFACE
