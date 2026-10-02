@@ -21,7 +21,7 @@ if(Python3_FOUND)
             $<TARGET_OBJECTS:PARADIGM_SRC>
             $<TARGET_OBJECTS:NUMERIC_SRC>
         )
-        set_target_properties(pyariadne-numeric PROPERTIES OUTPUT_NAME "pyariadne_numeric")
+        set_target_properties(pyariadne-numeric PROPERTIES OUTPUT_NAME "pyariadne")
         target_link_libraries(pyariadne-numeric PRIVATE pyariadne-numeric-python numeric)
 
         add_subdirectory(test)
