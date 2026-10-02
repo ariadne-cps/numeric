@@ -12,6 +12,7 @@
 #include "paradigm-utilities.hpp"
 #include "utility/metaprogramming.hpp"
 #include "utility/typedefs.hpp"
+#include "numeric/declarations.hpp"
 
 namespace Ariadne {
 
