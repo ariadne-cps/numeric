@@ -71,6 +71,12 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: ctest -L python -V --output-on-failure
 
+    - name: Check Python Numeric Tutorial
+      working-directory: ${{ github.workspace }}/python/tutorial
+      env:
+        PYTHONPATH: ${{ runner.workspace }}/build/python
+      run: python tutorial_numeric.py
+
     - name: Install Ariadne Numeric
       working-directory: ${{ runner.workspace }}/build
       run: cmake --install . --prefix ${{ runner.workspace }}/install

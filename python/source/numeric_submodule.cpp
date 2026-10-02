@@ -285,7 +285,7 @@ using pybind11::implicitly_convertible;
 Void export_accuracy(pymodule& module) {
     pybind11::class_<Accuracy> accuracy_class(module,"Accuracy");
     accuracy_class.def(init<Dyadic>());
-    accuracy_class.def(init([](Nat b){return Accuracy(Dyadic(1,b));}),pybind11::kw_only(), pybind11::arg("bips"));
+    accuracy_class.def(init([](Nat b){return Accuracy(Dyadic(1,b));}),pybind11::kw_only(), pybind11::arg("bits"));
     accuracy_class.def("error",&Accuracy::error);
     accuracy_class.def("__str__", &__cstr__<Accuracy>);
     accuracy_class.def("__repr__", &__cstr__<Accuracy>);
@@ -1045,6 +1045,8 @@ template<class PR> void export_float_bounds(pymodule& module)
     float_bounds_class.def(init<ExactDouble,PR>());
     float_bounds_class.def(init<ExactDouble,ExactDouble,PR>());
     float_bounds_class.def(init<ValidatedNumber,PR>());
+    float_bounds_class.def(pybind11::init([](Decimal const& y, PR pr){return FloatBounds<PR>(y,pr);}));
+    float_bounds_class.def(pybind11::init([](Rational const& l, Rational const& u, PR pr){return FloatBounds<PR>(l,u,pr);}));
     float_bounds_class.def(init<Float<PR>>());
     float_bounds_class.def(init<FloatBall<PR>>());
     float_bounds_class.def(init<FloatBounds<PR>>());
