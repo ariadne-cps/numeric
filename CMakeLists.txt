@@ -54,6 +54,12 @@ else()
     target_compile_options(NUMERIC_SRC PRIVATE -frounding-math)
 endif()
 
+ariadne_register_public_headers(
+    TARGET numeric
+    DIRECTORIES "${PROJECT_SOURCE_DIR}/include/numeric"
+    FILES "${PROJECT_SOURCE_DIR}/include/ariadne-numeric.hpp"
+)
+
 setup_project_library(
     TARGET ariadne-numeric
     OBJECTS
@@ -78,19 +84,8 @@ if(BUILD_PYTHON_BINDINGS)
 endif()
 
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    get_target_property(PARADIGM_SOURCE_DIR paradigm SOURCE_DIR)
-    get_target_property(UTILITY_SOURCE_DIR utility SOURCE_DIR)
-
-    install(FILES "${PROJECT_SOURCE_DIR}/include/ariadne-numeric.hpp"
-        DESTINATION include/ariadne-numeric
-    )
-    install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/numeric"
-        DESTINATION include/ariadne-numeric
-    )
-    install(DIRECTORY "${PARADIGM_SOURCE_DIR}/include/paradigm"
-        DESTINATION include/ariadne-numeric
-    )
-    install(DIRECTORY "${UTILITY_SOURCE_DIR}/include/utility"
+    ariadne_install_dependency_bundle(
+        TARGET numeric
         DESTINATION include/ariadne-numeric
     )
 endif()

@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - python-decoupling
+      - decoupled-interval
   pull_request:
 
 env:
@@ -92,3 +93,7 @@ jobs:
       env:
         PYTHONPATH: ${{ runner.workspace }}/build/python
       run: python tutorial_numeric.py
+
+    - name: Verify Final Installation
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --install . --prefix ${{ runner.workspace }}/verify-install
