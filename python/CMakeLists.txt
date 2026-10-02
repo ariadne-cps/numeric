@@ -24,7 +24,7 @@ if(Python3_FOUND)
         set_target_properties(pyariadne-numeric PROPERTIES OUTPUT_NAME "pyariadne_numeric")
         target_link_libraries(pyariadne-numeric PRIVATE pyariadne-numeric-python numeric)
 
-        add_subdirectory(tests)
+        add_subdirectory(test)
         add_dependencies(everything pyariadne-numeric)
     endif()
 else()
