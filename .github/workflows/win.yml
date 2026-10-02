@@ -65,9 +65,13 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: cmake --build . --parallel --config Release --target everything
 
-    - name: Test
+    - name: Test Cxx
       working-directory: ${{ runner.workspace }}/build
-      run: ctest -C Release -V --timeout 30
+      run: ctest -C Release -LE python -V --timeout 30
+
+    - name: Test Python
+      working-directory: ${{ runner.workspace }}/build
+      run: ctest -C Release -L python -V --timeout 30
 
     - name: Install Ariadne Numeric
       working-directory: ${{ runner.workspace }}/build

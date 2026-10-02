@@ -63,9 +63,13 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: cmake --build . --parallel $($NPROC) --target everything
 
-    - name: Test
+    - name: Test Cxx
       working-directory: ${{ runner.workspace }}/build
-      run: ctest -j $($NPROC) --output-on-failure
+      run: ctest -j $($NPROC) -LE python --output-on-failure
+
+    - name: Test Python
+      working-directory: ${{ runner.workspace }}/build
+      run: ctest -L python -V --output-on-failure
 
     - name: Install Ariadne Numeric
       working-directory: ${{ runner.workspace }}/build
