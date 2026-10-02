@@ -59,7 +59,19 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -G Ninja -DWARNINGS_AS_ERRORS=ON -DPYTHON_ENFORCE_TESTS=ON
 
-    - name: Build
+    - name: Build Cxx
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --build . --parallel $($NPROC) --target ariadne-numeric
+
+    - name: Build Paradigm Python
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --build . --parallel $($NPROC) --target pyariadne-paradigm-submodule-obj
+
+    - name: Build Numeric Python
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --build . --parallel $($NPROC) --target pyariadne-numeric
+
+    - name: Build Everything
       working-directory: ${{ runner.workspace }}/build
       run: cmake --build . --parallel $($NPROC) --target everything
 
@@ -67,9 +79,105 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: ctest -j $($NPROC) -LE python --output-on-failure
 
-    - name: Test Python
+    - name: Test Python Generics
       working-directory: ${{ runner.workspace }}/build
-      run: ctest -L python -V --output-on-failure
+      run: ctest -R '^test_python_numeric_generics
+    - name: Install Ariadne Numeric
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --install . --prefix ${{ runner.workspace }}/install
+
+    - name: Prepare Numeric Tutorial
+      run: cmake -E copy_directory $GITHUB_WORKSPACE/tutorials/tutorial_numeric ${{ runner.workspace }}/tutorial_numeric
+
+    - name: Check Numeric Tutorial
+      working-directory: ${{ runner.workspace }}/tutorial_numeric
+      run: |
+        cmake -S . -B build -DCMAKE_PREFIX_PATH=${{ runner.workspace }}/install -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -G Ninja
+        cmake --build build --parallel $($NPROC)
+        export LD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${LD_LIBRARY_PATH:-}
+        export DYLD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${DYLD_LIBRARY_PATH:-}
+        ./build/tutorial_numeric
+ -V --output-on-failure
+
+    - name: Test Python Regression
+      working-directory: ${{ runner.workspace }}/build
+      run: ctest -R '^test_python_numeric_regression
+    - name: Install Ariadne Numeric
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --install . --prefix ${{ runner.workspace }}/install
+
+    - name: Prepare Numeric Tutorial
+      run: cmake -E copy_directory $GITHUB_WORKSPACE/tutorials/tutorial_numeric ${{ runner.workspace }}/tutorial_numeric
+
+    - name: Check Numeric Tutorial
+      working-directory: ${{ runner.workspace }}/tutorial_numeric
+      run: |
+        cmake -S . -B build -DCMAKE_PREFIX_PATH=${{ runner.workspace }}/install -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -G Ninja
+        cmake --build build --parallel $($NPROC)
+        export LD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${LD_LIBRARY_PATH:-}
+        export DYLD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${DYLD_LIBRARY_PATH:-}
+        ./build/tutorial_numeric
+ -V --output-on-failure
+
+    - name: Test Python Algebraic
+      working-directory: ${{ runner.workspace }}/build
+      run: ctest -R '^test_python_numeric_algebraic
+    - name: Install Ariadne Numeric
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --install . --prefix ${{ runner.workspace }}/install
+
+    - name: Prepare Numeric Tutorial
+      run: cmake -E copy_directory $GITHUB_WORKSPACE/tutorials/tutorial_numeric ${{ runner.workspace }}/tutorial_numeric
+
+    - name: Check Numeric Tutorial
+      working-directory: ${{ runner.workspace }}/tutorial_numeric
+      run: |
+        cmake -S . -B build -DCMAKE_PREFIX_PATH=${{ runner.workspace }}/install -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -G Ninja
+        cmake --build build --parallel $($NPROC)
+        export LD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${LD_LIBRARY_PATH:-}
+        export DYLD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${DYLD_LIBRARY_PATH:-}
+        ./build/tutorial_numeric
+ -V --output-on-failure
+
+    - name: Test Python Rounded
+      working-directory: ${{ runner.workspace }}/build
+      run: ctest -R '^test_python_numeric_rounded
+    - name: Install Ariadne Numeric
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --install . --prefix ${{ runner.workspace }}/install
+
+    - name: Prepare Numeric Tutorial
+      run: cmake -E copy_directory $GITHUB_WORKSPACE/tutorials/tutorial_numeric ${{ runner.workspace }}/tutorial_numeric
+
+    - name: Check Numeric Tutorial
+      working-directory: ${{ runner.workspace }}/tutorial_numeric
+      run: |
+        cmake -S . -B build -DCMAKE_PREFIX_PATH=${{ runner.workspace }}/install -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -G Ninja
+        cmake --build build --parallel $($NPROC)
+        export LD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${LD_LIBRARY_PATH:-}
+        export DYLD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${DYLD_LIBRARY_PATH:-}
+        ./build/tutorial_numeric
+ -V --output-on-failure
+
+    - name: Test Python Concrete
+      working-directory: ${{ runner.workspace }}/build
+      run: ctest -R '^test_python_numeric_concrete
+    - name: Install Ariadne Numeric
+      working-directory: ${{ runner.workspace }}/build
+      run: cmake --install . --prefix ${{ runner.workspace }}/install
+
+    - name: Prepare Numeric Tutorial
+      run: cmake -E copy_directory $GITHUB_WORKSPACE/tutorials/tutorial_numeric ${{ runner.workspace }}/tutorial_numeric
+
+    - name: Check Numeric Tutorial
+      working-directory: ${{ runner.workspace }}/tutorial_numeric
+      run: |
+        cmake -S . -B build -DCMAKE_PREFIX_PATH=${{ runner.workspace }}/install -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -G Ninja
+        cmake --build build --parallel $($NPROC)
+        export LD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${LD_LIBRARY_PATH:-}
+        export DYLD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${DYLD_LIBRARY_PATH:-}
+        ./build/tutorial_numeric
+ -V --output-on-failure
 
     - name: Install Ariadne Numeric
       working-directory: ${{ runner.workspace }}/build
