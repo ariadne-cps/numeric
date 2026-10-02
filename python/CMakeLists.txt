@@ -25,7 +25,7 @@ if(Python3_FOUND)
         target_link_libraries(pyariadne-numeric PRIVATE pyariadne-numeric-python numeric)
 
         add_subdirectory(test)
-        add_dependencies(everything pyariadne-numeric)
+        add_dependencies(bindings pyariadne-numeric)
     endif()
 else()
     if(PYTHON_ENFORCE_TESTS)

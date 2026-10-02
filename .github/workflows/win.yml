@@ -61,19 +61,7 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: cmake $env:GITHUB_WORKSPACE -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DVCPKG_OVERLAY_TRIPLETS=$env:GITHUB_WORKSPACE/cmake/triplets -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON -DWARNINGS_AS_ERRORS=ON -DPYTHON_ENFORCE_TESTS=ON
 
-    - name: Build Cxx
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel --config Release --target ariadne-numeric
-
-    - name: Build Paradigm Python
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel --config Release --target pyariadne-paradigm-submodule-obj
-
-    - name: Build Numeric Python
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel --config Release --target pyariadne-numeric
-
-    - name: Build Everything
+    - name: Build
       working-directory: ${{ runner.workspace }}/build
       run: cmake --build . --parallel --config Release --target everything
 

@@ -59,19 +59,7 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -G Ninja -DWARNINGS_AS_ERRORS=ON -DPYTHON_ENFORCE_TESTS=ON
 
-    - name: Build Cxx
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel $($NPROC) --target ariadne-numeric
-
-    - name: Build Paradigm Python
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel $($NPROC) --target pyariadne-paradigm-submodule-obj
-
-    - name: Build Numeric Python
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel $($NPROC) --target pyariadne-numeric
-
-    - name: Build Everything
+    - name: Build
       working-directory: ${{ runner.workspace }}/build
       run: cmake --build . --parallel $($NPROC) --target everything
 
