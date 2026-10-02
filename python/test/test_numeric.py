@@ -318,3 +318,9 @@ def test_concrete():
     check_arithmetic(mx,mx,r=mx)
     check_arithmetic(mx,n,r=mx)
     check_arithmetic(mx,w,r=mx)
+
+
+def test_ball_string_is_utf8():
+    mp = MultiplePrecision(128)
+    ball = FloatMPBall("1.0", "0.1", mp)
+    assert "±" in str(ball)

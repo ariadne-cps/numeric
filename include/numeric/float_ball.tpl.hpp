@@ -109,8 +109,8 @@ template<class F, class FE> Integer Operations<Ball<F,FE>>::_cast_integer(Ball<F
 }
 
 template<class F, class FE> InputStream& Operations<Ball<F,FE>>::_read(InputStream& is, Ball<F,FE>& x) {
-    static const char pmstr[] = "\u00b1";
-    char cpm[3];
+    static const char pmstr[] = "\xC2\xB1";
+    char cpm[3] = {0,0,0};
     F _v(x.precision()); FE _e(x.error_precision());
     auto rnd=F::get_rounding_mode();
     F::set_rounding_to_nearest();
@@ -122,14 +122,14 @@ template<class F, class FE> InputStream& Operations<Ball<F,FE>>::_read(InputStre
     is >> _e;
     FE::set_rounding_mode(rnde);
     ARIADNE_ASSERT(not is.fail());
-    ARIADNE_ASSERT(std::strcmp(cpm,pmstr));
+    ARIADNE_ASSERT(std::strcmp(cpm,pmstr)==0);
     x._v=_v; x._e=_e;
     return is;
 }
 
 
 template<class F, class FE> OutputStream& Operations<Ball<F,FE>>::_write(OutputStream& os, Ball<F,FE> const& x) {
-    return os << x.value() << "\u00b1" << x.error();
+    return os << x.value() << "\xC2\xB1" << x.error();
 }
 
 } // namespace Ariadne

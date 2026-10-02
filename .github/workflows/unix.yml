@@ -63,7 +63,7 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: cmake --build . --parallel $($NPROC) --target everything
 
-    - name: Test Cxx
+    - name: Test C++
       working-directory: ${{ runner.workspace }}/build
       run: ctest -j $($NPROC) -LE python --output-on-failure
 
@@ -71,20 +71,14 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: ctest -L python -V --output-on-failure
 
-    - name: Check Python Numeric Tutorial
-      working-directory: ${{ github.workspace }}/python/tutorial
-      env:
-        PYTHONPATH: ${{ runner.workspace }}/build/python
-      run: python tutorial_numeric.py
-
     - name: Install Ariadne Numeric
       working-directory: ${{ runner.workspace }}/build
       run: cmake --install . --prefix ${{ runner.workspace }}/install
 
-    - name: Prepare Numeric Tutorial
+    - name: Prepare C++ Numeric Tutorial
       run: cmake -E copy_directory $GITHUB_WORKSPACE/tutorials/tutorial_numeric ${{ runner.workspace }}/tutorial_numeric
 
-    - name: Check Numeric Tutorial
+    - name: Check C++ Numeric Tutorial
       working-directory: ${{ runner.workspace }}/tutorial_numeric
       run: |
         cmake -S . -B build -DCMAKE_PREFIX_PATH=${{ runner.workspace }}/install -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -G Ninja
@@ -92,3 +86,9 @@ jobs:
         export LD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${LD_LIBRARY_PATH:-}
         export DYLD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${DYLD_LIBRARY_PATH:-}
         ./build/tutorial_numeric
+
+    - name: Check Python Numeric Tutorial
+      working-directory: ${{ github.workspace }}/python/tutorial
+      env:
+        PYTHONPATH: ${{ runner.workspace }}/build/python
+      run: python tutorial_numeric.py

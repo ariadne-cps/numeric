@@ -65,7 +65,7 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: cmake --build . --parallel --config Release --target everything
 
-    - name: Test Cxx
+    - name: Test C++
       working-directory: ${{ runner.workspace }}/build
       run: ctest -C Release -LE python -V --timeout 30
 
@@ -73,22 +73,15 @@ jobs:
       working-directory: ${{ runner.workspace }}/build
       run: ctest -C Release -L python -V --timeout 30
 
-    - name: Check Python Numeric Tutorial
-      shell: pwsh
-      working-directory: ${{ github.workspace }}/python/tutorial
-      run: |
-        $env:PYTHONPATH = "${{ runner.workspace }}\build\python\Release"
-        python tutorial_numeric.py
-
     - name: Install Ariadne Numeric
       working-directory: ${{ runner.workspace }}/build
       run: cmake --install . --config Release --prefix "${{ runner.workspace }}/install"
 
-    - name: Prepare Numeric Tutorial
+    - name: Prepare C++ Numeric Tutorial
       shell: pwsh
       run: cmake -E copy_directory "$env:GITHUB_WORKSPACE/tutorials/tutorial_numeric" "${{ runner.workspace }}/tutorial_numeric"
 
-    - name: Check Numeric Tutorial
+    - name: Check C++ Numeric Tutorial
       shell: pwsh
       working-directory: ${{ runner.workspace }}/tutorial_numeric
       run: |
@@ -96,3 +89,10 @@ jobs:
         cmake --build build --parallel --config Release
         $env:PATH = "${{ runner.workspace }}\install\bin;C:\vcpkg\installed\x64-windows-release\bin;$env:PATH"
         & ".\build\Release\tutorial_numeric.exe"
+
+    - name: Check Python Numeric Tutorial
+      shell: pwsh
+      working-directory: ${{ github.workspace }}/python/tutorial
+      run: |
+        $env:PYTHONPATH = "${{ runner.workspace }}\build\python\Release"
+        python tutorial_numeric.py
