@@ -540,6 +540,7 @@ void export_numbers(pymodule& module)
     exact_number_class.def(init<ExactNumber>());
     exact_number_class.def("get", (FloatDPBounds(*)(ExactNumber const&, DoublePrecision const&)) &get);
     exact_number_class.def("get", (FloatMPBounds(*)(ExactNumber const&, MultiplePrecision const&)) &get);
+    exact_number_class.def("class_name", &ExactNumber::class_name);
     exact_number_class.def("__str__", &__cstr__<ExactNumber>);
     exact_number_class.def("__repr__", &__repr__<ExactNumber>);
 
@@ -551,6 +552,7 @@ void export_numbers(pymodule& module)
     effective_number_class.def(init<EffectiveNumber>());
     effective_number_class.def("get", (FloatDPBounds(*)(EffectiveNumber const&, DoublePrecision const&)) &get);
     effective_number_class.def("get", (FloatMPBounds(*)(EffectiveNumber const&, MultiplePrecision const&)) &get);
+    effective_number_class.def("class_name", &EffectiveNumber::class_name);
     effective_number_class.def("__str__", &__cstr__<EffectiveNumber>);
     effective_number_class.def("__repr__", &__repr__<EffectiveNumber>);
 
@@ -567,6 +569,7 @@ void export_numbers(pymodule& module)
     validated_number_class.def(init<ValidatedNumber>());
     validated_number_class.def("get", (FloatDPBounds(*)(ValidatedNumber const&, DoublePrecision const&)) &get);
     validated_number_class.def("get", (FloatMPBounds(*)(ValidatedNumber const&, MultiplePrecision const&)) &get);
+    validated_number_class.def("class_name", &ValidatedNumber::class_name);
     validated_number_class.def("__str__", &__cstr__<ValidatedNumber>);
     validated_number_class.def("__repr__", &__repr__<ValidatedNumber>);
 
@@ -580,6 +583,7 @@ void export_numbers(pymodule& module)
     validated_upper_number_class.def(init<ValidatedNumber>());
     validated_upper_number_class.def("get", (FloatDPUpperBound(*)(ValidatedUpperNumber const&, DoublePrecision const&)) &get);
     validated_upper_number_class.def("get", (FloatMPUpperBound(*)(ValidatedUpperNumber const&, MultiplePrecision const&)) &get);
+    validated_upper_number_class.def("class_name", &ValidatedUpperNumber::class_name);
     validated_upper_number_class.def("__str__", &__cstr__<ValidatedUpperNumber>);
     validated_upper_number_class.def("__repr__", &__repr__<ValidatedUpperNumber>);
 
@@ -590,6 +594,7 @@ void export_numbers(pymodule& module)
     validated_lower_number_class.def(init<ValidatedNumber>());
     validated_lower_number_class.def("get", (FloatDPLowerBound(*)(ValidatedLowerNumber const&, DoublePrecision const&)) &get);
     validated_lower_number_class.def("get", (FloatMPLowerBound(*)(ValidatedLowerNumber const&, MultiplePrecision const&)) &get);
+    validated_lower_number_class.def("class_name", &ValidatedLowerNumber::class_name);
     validated_lower_number_class.def("__str__", &__cstr__<ValidatedLowerNumber>);
     validated_lower_number_class.def("__repr__", &__repr__<ValidatedLowerNumber>);
 
@@ -607,6 +612,7 @@ void export_numbers(pymodule& module)
     approximate_number_class.def(init<ApproximateNumber>());
     approximate_number_class.def("get", (FloatDPApproximation(*)(ApproximateNumber const&, DoublePrecision const&)) &get);
     approximate_number_class.def("get", (FloatMPApproximation(*)(ApproximateNumber const&, MultiplePrecision const&)) &get);
+    approximate_number_class.def("class_name", &ApproximateNumber::class_name);
     approximate_number_class.def("__str__", &__cstr__<ApproximateNumber>);
     approximate_number_class.def("__repr__", &__repr__<ApproximateNumber>);
 
