@@ -230,7 +230,33 @@ TestFloat<PR>::test_operations()
     ARIADNE_TEST_SAME(sin(vx),sin(FloatBounds<PR>(vx)));
     ARIADNE_TEST_SAME(cos(vx),cos(FloatBounds<PR>(vx)));
     ARIADNE_TEST_SAME(tan(vx),tan(FloatBounds<PR>(vx)));
+    ARIADNE_TEST_SAME(tanh(vx),tanh(FloatBounds<PR>(vx)));
     ARIADNE_TEST_SAME(atan(vx),atan(FloatBounds<PR>(vx)));
+
+    FloatBoundsType tanh_wide(-100,100,pr);
+    FloatBoundsType tanh_positive(1,2,pr);
+    FloatBoundsType tanh_negative(-2,-1,pr);
+    auto wide_image=tanh(tanh_wide);
+    auto positive_image=tanh(tanh_positive);
+    auto negative_image=tanh(tanh_negative);
+    ARIADNE_TEST_ASSERT(wide_image.lower_raw()>=FloatType(-1,pr));
+    ARIADNE_TEST_ASSERT(wide_image.upper_raw()<=FloatType(1,pr));
+    ARIADNE_TEST_ASSERT(wide_image.lower_raw()<FloatType(0,pr));
+    ARIADNE_TEST_ASSERT(wide_image.upper_raw()>FloatType(0,pr));
+    ARIADNE_TEST_ASSERT(positive_image.lower_raw()>FloatType(0,pr));
+    ARIADNE_TEST_ASSERT(positive_image.upper_raw()<FloatType(1,pr));
+    ARIADNE_TEST_ASSERT(negative_image.lower_raw()>FloatType(-1,pr));
+    ARIADNE_TEST_ASSERT(negative_image.upper_raw()<FloatType(0,pr));
+
+    FloatBallType tanh_ball(FloatBoundsType(-1,1,pr),pre);
+    auto tanh_ball_image=tanh(tanh_ball);
+    ARIADNE_TEST_ASSERT(tanh_ball_image.lower_raw()<=FloatType(0,pr));
+    ARIADNE_TEST_ASSERT(tanh_ball_image.upper_raw()>=FloatType(0,pr));
+
+    FloatLowerBound<PR> tanh_lower(-2,pr);
+    FloatUpperBound<PR> tanh_upper(2,pr);
+    ARIADNE_TEST_ASSERT(tanh(tanh_lower).raw()>FloatType(-1,pr));
+    ARIADNE_TEST_ASSERT(tanh(tanh_upper).raw()<FloatType(1,pr));
 
 //    ARIADNE_TEST_SAME(shft(vx,n),shft(w,n));
 }

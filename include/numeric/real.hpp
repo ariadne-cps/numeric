@@ -208,6 +208,7 @@ class Real
     friend Real sin(Real const& r); //!< The sine of \a r.
     friend Real cos(Real const& r); //!< The cosine of \a r.
     friend Real tan(Real const& r); //!< The tangent of \a r, sin(\a r)/cos(\a r).
+    friend Real tanh(Real const& r); //!< The hyperbolic tangent of \a r.
     friend Real asin(Real const& r); //!< The arc-sine of \a r.
     friend Real acos(Real const& r); //!< The arc-cosine of \a r.
     friend Real atan(Real const& r); //!< The arc-tangent of \a r.

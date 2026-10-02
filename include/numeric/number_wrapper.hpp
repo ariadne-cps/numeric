@@ -65,6 +65,7 @@ Real log(Real const&);
 Real sin(Real const&);
 Real cos(Real const&);
 Real tan(Real const&);
+Real tanh(Real const&);
 Real asin(Real const&);
 Real acos(Real const&);
 Real atan(Real const&);
@@ -76,6 +77,7 @@ Approximation<FloatDP> rec(Approximation<FloatDP> const& x);
 Approximation<FloatDP> sin(Approximation<FloatDP> const& x);
 Approximation<FloatDP> cos(Approximation<FloatDP> const& x);
 Approximation<FloatDP> tan(Approximation<FloatDP> const& x);
+Approximation<FloatDP> tanh(Approximation<FloatDP> const& x);
 Approximation<FloatDP> asin(Approximation<FloatDP> const& x);
 Approximation<FloatDP> acos(Approximation<FloatDP> const& x);
 
@@ -85,6 +87,7 @@ Approximation<FloatMP> rec(Approximation<FloatMP> const& x);
 Approximation<FloatMP> sin(Approximation<FloatMP> const& x);
 Approximation<FloatMP> cos(Approximation<FloatMP> const& x);
 Approximation<FloatMP> tan(Approximation<FloatMP> const& x);
+Approximation<FloatMP> tanh(Approximation<FloatMP> const& x);
 Approximation<FloatMP> asin(Approximation<FloatMP> const& x);
 Approximation<FloatMP> acos(Approximation<FloatMP> const& x);
 
@@ -96,6 +99,7 @@ template<AlgebraicBounds B> B log(B const&) { std::abort(); }
 template<AlgebraicBounds B> B sin(B const&) { std::abort(); }
 template<AlgebraicBounds B> B cos(B const&) { std::abort(); }
 template<AlgebraicBounds B> B tan(B const&) { std::abort(); }
+template<AlgebraicBounds B> B tanh(B const&) { std::abort(); }
 template<AlgebraicBounds B> B asin(B const&) { std::abort(); }
 template<AlgebraicBounds B> B acos(B const&) { std::abort(); }
 template<AlgebraicBounds B> B atan(B const&) { std::abort(); }

@@ -105,6 +105,7 @@ template<class P> class UpperNumber
     friend UpperNumber<P> exp(UpperNumber<P> const& y) { return UpperNumber<P>(y.ref()._apply(Exp())); }
     friend UpperNumber<P> log(UpperNumber<P> const& y) { return UpperNumber<P>(y.ref()._apply(Log())); }
     friend UpperNumber<P> atan(UpperNumber<P> const& y) { return UpperNumber<P>(y.ref()._apply(Atan())); }
+    friend UpperNumber<P> tanh(UpperNumber<P> const& y) { return UpperNumber<P>(y.ref()._apply(Tanh())); }
 
     friend UpperNumber<P> max(UpperNumber<P> const& y1, UpperNumber<P> const& y2) { return UpperNumber<P>(y1.ref()._apply(Max(),&y2.ref())); }
     friend UpperNumber<P> min(UpperNumber<P> const& y1, UpperNumber<P> const& y2) { return UpperNumber<P>(y1.ref()._apply(Min(),&y2.ref())); }

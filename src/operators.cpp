@@ -115,6 +115,7 @@ const char* name(const OperatorCode& op) {
         case OperatorCode::SIN:  return "sin"; break;
         case OperatorCode::COS:  return "cos"; break;
         case OperatorCode::TAN:  return "tan"; break;
+        case OperatorCode::TANH: return "tanh"; break;
         case OperatorCode::ASIN:  return "asin"; break;
         case OperatorCode::ACOS:  return "acos"; break;
         case OperatorCode::ATAN:  return "atan"; break;
@@ -177,7 +178,7 @@ OperatorKind kind(OperatorCode op) {
             return OperatorKind::SCALAR;
         case OperatorCode::POS: case OperatorCode::NEG: case OperatorCode::REC: case OperatorCode::SQR:
         case OperatorCode::SQRT: case OperatorCode::EXP: case OperatorCode::LOG:
-        case OperatorCode::SIN: case OperatorCode::COS: case OperatorCode::TAN: case OperatorCode::ATAN:
+        case OperatorCode::SIN: case OperatorCode::COS: case OperatorCode::TAN: case OperatorCode::TANH: case OperatorCode::ATAN:
         case OperatorCode::ABS:
             return OperatorKind::UNARY;
         case OperatorCode::POW: case OperatorCode::ROOT:

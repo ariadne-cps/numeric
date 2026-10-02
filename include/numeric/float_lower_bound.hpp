@@ -180,6 +180,8 @@ template<class F> class LowerBound
         return LowerBound<F>(log(down,x.raw())); } //!< <p/>
     friend LowerBound<F> atan(LowerBound<F> const& x) {
         return LowerBound<F>(atan(down,x.raw())); } //!< <p/>
+    friend LowerBound<F> tanh(LowerBound<F> const& x) {
+        return LowerBound<F>(tanh(Bounds<F>(x.raw())).lower_raw()); } //!< <p/>
     //!@}
 
     //!@{

@@ -133,6 +133,7 @@ enum class Operator::Code : ComparableEnumerationType {
     VEC,   // Vectorisation operator
     PUSH,
     PULL,
+    TANH,  // Hyperbolic tangent
     EQ=-6,    // Equal
     NEQ=-5,   // Not equal
     GEQ=-4,   // Greater or equal
@@ -377,6 +378,12 @@ struct Tan : OperatorObject<Tan> {
     template<class X> X derivative(const X& a) const { return rec(sqr(cos(a))); }
     template<class X,class D> D derivative(const X& a, const D& d) const { return derivative(a)*d; }
 };
+struct Tanh : OperatorObject<Tanh> {
+    static constexpr OperatorCode code() { return OperatorCode::TANH; } static constexpr OperatorKind kind() { return OperatorKind::UNARY; }
+    template<class A> auto operator()(A&& a) const -> decltype(tanh(a)) { return tanh(a); }
+    template<class X> X derivative(const X& a) const { return 1-sqr(tanh(a)); }
+    template<class X,class D> D derivative(const X& a, const D& d) const { return derivative(a)*d; }
+};
 struct Asin : OperatorObject<Asin> {
     static constexpr OperatorCode code() { return OperatorCode::ASIN; } static constexpr OperatorKind kind() { return OperatorKind::UNARY; }
     template<class A> auto operator()(A&& a) const -> decltype(asin(a)) { return asin(a); }
@@ -462,8 +469,8 @@ struct UnaryLogicalOperator : OperatorVariant<NotOp> { using OperatorVariant::Op
 struct UnaryComparisonOperator : OperatorVariant<Sgn> { using OperatorVariant::OperatorVariant; };
 struct UnaryRingOperator : OperatorVariant<Neg> { using OperatorVariant::OperatorVariant; };
 struct UnaryArithmeticOperator : OperatorVariant<Nul,Pos,Neg,Sqr,Rec> { using OperatorVariant::OperatorVariant; };
-struct UnaryTranscendentalOperator : OperatorVariant<Pos,Neg,Sqr,Hlf,Rec,Sqrt,Exp,Log,Sin,Cos,Tan,Atan> { using OperatorVariant::OperatorVariant; };
-struct UnaryElementaryOperator : OperatorVariant<Nul,Pos,Neg,Sqr,Hlf,Rec,Sqrt,Exp,Log,Sin,Cos,Tan,Asin,Acos,Atan,Abs> {
+struct UnaryTranscendentalOperator : OperatorVariant<Pos,Neg,Sqr,Hlf,Rec,Sqrt,Exp,Log,Sin,Cos,Tan,Tanh,Atan> { using OperatorVariant::OperatorVariant; };
+struct UnaryElementaryOperator : OperatorVariant<Nul,Pos,Neg,Sqr,Hlf,Rec,Sqrt,Exp,Log,Sin,Cos,Tan,Tanh,Asin,Acos,Atan,Abs> {
     using OperatorVariant::OperatorVariant;
     template<class X> decltype(sin(declval<X>())) operator()(X&& x) const { typedef decltype(sin(x)) R;
         return this->accept([&x](auto op){return static_cast<R>(op(std::forward<X>(x)));}); } };
