@@ -29,7 +29,7 @@
 #ifndef ARIADNE_FLOAT_UPPER_BOUND_HPP
 #define ARIADNE_FLOAT_UPPER_BOUND_HPP
 
-#include "paradigm/logical.decl.hpp"
+#include "foundation/logical.decl.hpp"
 #include "number.decl.hpp"
 #include "float.decl.hpp"
 #include "upper_number.hpp"

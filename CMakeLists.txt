@@ -20,7 +20,7 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
     require_same_dependency_commit(Configuration
         REFERENCES
             "${PROJECT_SOURCE_DIR}|submodules/configuration"
-            "${PROJECT_SOURCE_DIR}/submodules/paradigm|submodules/configuration"
+            "${PROJECT_SOURCE_DIR}/submodules/foundation|submodules/configuration"
     )
 endif()
 
@@ -30,7 +30,7 @@ find_package(MPFR REQUIRED)
 
 include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/include)
 
-if(NOT TARGET paradigm)
+if(NOT TARGET foundation)
     add_subdirectory(submodules)
 endif()
 
@@ -40,7 +40,7 @@ target_include_directories(numeric INTERFACE
     $<INSTALL_INTERFACE:include/ariadne-numeric>
 )
 target_link_libraries(numeric INTERFACE
-    paradigm
+    foundation
     GMP::GMP
     MPFR::MPFR
 )
@@ -64,7 +64,7 @@ setup_project_library(
     TARGET ariadne-numeric
     OBJECTS
         NUMERIC_SRC
-        PARADIGM_SRC
+        FOUNDATION_SRC
         UTILITY_SRC
     LINK_LIBRARIES
         numeric

@@ -23,7 +23,7 @@
  */
 
 #include "numeric/integer.hpp"
-#include "paradigm/logical.hpp"
+#include "foundation/logical.hpp"
 #include "utility/string.hpp"
 
 #include <iostream>

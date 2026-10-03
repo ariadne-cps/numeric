@@ -18,7 +18,7 @@ if(Python3_FOUND)
         pybind11_add_module(pyariadne
             $<TARGET_OBJECTS:pyariadne-numeric-module-obj>
             $<TARGET_OBJECTS:UTILITY_SRC>
-            $<TARGET_OBJECTS:PARADIGM_SRC>
+            $<TARGET_OBJECTS:FOUNDATION_SRC>
             $<TARGET_OBJECTS:NUMERIC_SRC>
         )
         target_link_libraries(pyariadne PRIVATE pyariadne-numeric numeric)

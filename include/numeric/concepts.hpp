@@ -29,7 +29,7 @@
 #pragma once
 
 #include "utility/typedefs.hpp"
-#include "paradigm/paradigm.hpp"
+#include "foundation/paradigm.hpp"
 
 #ifndef ARIADNE_NUMERIC_CONCEPTS_HPP
 #define ARIADNE_NUMERIC_CONCEPTS_HPP

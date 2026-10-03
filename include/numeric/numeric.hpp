@@ -32,7 +32,7 @@
 #include "utility/standard.hpp"
 #include "numeric/declarations.hpp"
 
-#include "paradigm/logical.hpp"
+#include "foundation/logical.hpp"
 #include "numeric/builtin.hpp"
 #include "numeric/accuracy.hpp"
 #include "numeric/integer.hpp"

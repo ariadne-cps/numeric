@@ -32,10 +32,10 @@
 #define ARIADNE_NUMBER_HPP
 
 #include "utility/handle.hpp"
-#include "paradigm/paradigm.hpp"
+#include "foundation/paradigm.hpp"
 #include "utility/prototype.hpp"
 
-#include "paradigm/logical.decl.hpp"
+#include "foundation/logical.decl.hpp"
 #include "number.decl.hpp"
 #include "float.decl.hpp"
 

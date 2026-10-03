@@ -23,11 +23,11 @@ Ariadne Numeric is the standalone C++20 numeric layer used by Ariadne. It provid
 
 Numeric depends directly on:
 
-- [ariadne-cps/paradigm](https://github.com/ariadne-cps/paradigm), included as a Git submodule.
+- [ariadne-cps/foundation](https://github.com/ariadne-cps/foundation), included as a Git submodule.
 - [GMP](https://gmplib.org/).
 - [MPFR](https://www.mpfr.org/).
 
-Paradigm provides [ariadne-cps/utility](https://github.com/ariadne-cps/utility) transitively. Build configuration is shared through [ariadne-cps/configuration](https://github.com/ariadne-cps/configuration).
+Foundation provides [ariadne-cps/utility](https://github.com/ariadne-cps/utility) transitively. Build configuration is shared through [ariadne-cps/configuration](https://github.com/ariadne-cps/configuration).
 
 ## Build
 

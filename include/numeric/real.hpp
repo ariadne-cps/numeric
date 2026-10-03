@@ -31,7 +31,7 @@
 
 #include "utility/handle.hpp"
 
-#include "paradigm/logical.decl.hpp"
+#include "foundation/logical.decl.hpp"
 #include "numeric/number.decl.hpp"
 #include "numeric/float.decl.hpp"
 

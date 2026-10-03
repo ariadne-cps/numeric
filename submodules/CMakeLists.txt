@@ -1,3 +1,3 @@
-if(NOT TARGET paradigm)
-    add_subdirectory(paradigm)
+if(NOT TARGET foundation)
+    add_subdirectory(foundation)
 endif()

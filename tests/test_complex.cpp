@@ -24,7 +24,7 @@
 
 #include "utility/module.hpp"
 
-#include "paradigm/logical.hpp"
+#include "foundation/logical.hpp"
 #include "numeric/builtin.hpp"
 #include "numeric/real.hpp"
 

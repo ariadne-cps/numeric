@@ -9,7 +9,7 @@
 #define ARIADNE_PYTHON_NUMERIC_UTILITIES_HPP
 
 #include "utilities.hpp"
-#include "paradigm-utilities.hpp"
+#include "foundation-utilities.hpp"
 #include "utility/metaprogramming.hpp"
 #include "utility/typedefs.hpp"
 #include "numeric/declarations.hpp"
