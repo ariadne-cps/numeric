@@ -25,6 +25,9 @@ add_library(pyariadne-numeric INTERFACE)
 target_sources(pyariadne-numeric INTERFACE
     $<TARGET_OBJECTS:pyariadne-numeric-submodule-obj>
 )
+target_include_directories(pyariadne-numeric INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+)
 target_link_libraries(pyariadne-numeric INTERFACE
     pyariadne-foundation
 )
