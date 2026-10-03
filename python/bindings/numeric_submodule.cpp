@@ -338,6 +338,14 @@ void export_integer(pymodule& module)
     implicitly_convertible<Nat,Natural>();
 }
 
+template<class X> void export_positive_type(pymodule& module)
+{
+    using PX=Positive<X>;
+    pybind11::class_<PX,pybind11::bases<X>> positive_class(module,python_class_name<PX>().c_str());
+    positive_class.def("__str__", &__cstr__<PX>);
+    positive_class.def("__repr__", &__repr__<PX>);
+}
+
 void export_dyadic(pymodule& module)
 {
     pybind11::class_<Dyadic> dyadic_class(module,"Dyadic");
@@ -380,6 +388,8 @@ void export_dyadic(pymodule& module)
     two_exp_class.def("__str__", &__cstr__<TwoExp>);
 
     module.def("cast_exact", [](double d){return Dyadic(ExactDouble(d));});
+
+    export_positive_type<Dyadic>(module);
 }
 
 void export_decimal(pymodule& module)
@@ -406,6 +416,7 @@ void export_decimal(pymodule& module)
     implicitly_convertible<Dyadic,Decimal>();
     implicitly_convertible<ExactDouble,Decimal>();
 
+    export_positive_type<Decimal>(module);
 }
 
 void export_rational(pymodule& module)
@@ -436,6 +447,8 @@ void export_rational(pymodule& module)
     implicitly_convertible<Integer,Rational>();
     implicitly_convertible<Dyadic,Rational>();
     implicitly_convertible<Decimal,Rational>();
+
+    export_positive_type<Rational>(module);
 }
 
 void export_real(pymodule& module)
@@ -951,6 +964,8 @@ template<class PR> void export_float_value(pymodule& module)
     float_class.def("__repr__", &__repr__<Float<PR>>);
 
     //    float_class.def_static("set_output_places",&Float<PR>::set_output_places);
+
+    export_positive_type<Float<PR>>(module);
 }
 
 
@@ -1158,6 +1173,8 @@ template<class PR> void export_float_upper_bound(pymodule& module)
     implicitly_convertible<Float<PR>,FloatUpperBound<PR>>();
     implicitly_convertible<FloatBounds<PR>,FloatUpperBound<PR>>();
     implicitly_convertible<FloatError<PR>,FloatUpperBound<PR>>();
+
+    export_positive_type<FloatUpperBound<PR>>(module);
 }
 
 
@@ -1208,6 +1225,8 @@ template<class PR> void export_float_lower_bound(pymodule& module)
 
     implicitly_convertible<Float<PR>,FloatLowerBound<PR>>();
     implicitly_convertible<FloatBounds<PR>,FloatLowerBound<PR>>();
+
+    export_positive_type<FloatLowerBound<PR>>(module);
 }
 
 
@@ -1258,6 +1277,8 @@ template<class PR> void export_float_approximation(pymodule& module)
 
     module.def("cast_exact",(Float<PR>const&(*)(FloatApproximation<PR> const&)) &cast_exact);
     module.def("cast_exact",(Float<PR>const&(*)(RawFloat<PR> const&)) &cast_exact);
+
+    export_positive_type<FloatApproximation<PR>>(module);
 }
 
 

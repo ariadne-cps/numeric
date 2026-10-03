@@ -209,6 +209,10 @@ def test_algebraic():
     check_arithmetic(q,r,r)
     check_arithmetic(r,r,r)
 
+    # Positive exact numeric results must be registered Python types.
+    assert(type(sqr(w))==DyadicPositive)
+    assert(type(sqr(q))==RationalPositive)
+
 
 def check_rounded(x):
     add(up,x,x); add(down,x,x); add(near,x,x);
