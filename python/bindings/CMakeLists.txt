@@ -27,6 +27,7 @@ target_sources(pyariadne-numeric INTERFACE
 )
 target_include_directories(pyariadne-numeric INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<TARGET_PROPERTY:pyariadne-foundation,INTERFACE_INCLUDE_DIRECTORIES>
 )
 target_link_libraries(pyariadne-numeric INTERFACE
     pyariadne-foundation
