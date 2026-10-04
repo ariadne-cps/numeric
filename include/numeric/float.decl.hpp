@@ -54,6 +54,9 @@ template<class... PRS> class Float;
 using FloatDP=Float<DP>;
 using FloatMP=Float<MP>;
 
+template<> struct CharacteristicsTrait<FloatDP> { typedef DP Type; };
+template<> struct CharacteristicsTrait<FloatMP> { typedef MP Type; };
+
 using DoublePrecisionFloat = FloatDP;
 using MultiplePrecisionFloat = FloatMP;
 

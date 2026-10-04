@@ -43,8 +43,6 @@ template<class F> struct GenericTrait<Bounds<F>> { typedef ValidatedNumber Type;
 template<class F, class FE> struct GenericTrait<Ball<F,FE>> { typedef ValidatedNumber Type; };
 template<class F> struct GenericTrait<Error<F>> { typedef PositiveValidatedUpperNumber Type; };
 
-template<> struct CharacteristicsTrait<FloatDP> { typedef DP Type; };
-template<> struct CharacteristicsTrait<FloatMP> { typedef MP Type; };
 template<class F> struct CharacteristicsTrait<Approximation<F>> { typedef CharacteristicsType<F> Type; };
 template<class F> struct CharacteristicsTrait<LowerBound<F>> { typedef CharacteristicsType<F> Type; };
 template<class F> struct CharacteristicsTrait<UpperBound<F>> { typedef CharacteristicsType<F> Type; };
