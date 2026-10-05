@@ -45,7 +45,7 @@ target_link_libraries(numeric INTERFACE
     MPFR::MPFR
 )
 if(WIN32)
-    target_compile_definitions(numeric INTERFACE ARIADNE_NUMERIC_EMBEDDED)
+    target_compile_definitions(numeric INTERFACE ARIADNE_NUMERIC_STATIC)
 endif()
 
 add_subdirectory(src)
