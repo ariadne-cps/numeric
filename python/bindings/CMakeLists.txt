@@ -20,10 +20,6 @@ target_compile_definitions(pyariadne-numeric-submodule-obj PRIVATE
     ARIADNE_NUMERIC_EMBEDDED
 )
 set_target_properties(pyariadne-numeric-submodule-obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
-if(MSVC)
-    target_compile_options(pyariadne-numeric-submodule-obj PRIVATE /bigobj)
-endif()
-
 add_library(pyariadne-numeric INTERFACE)
 target_sources(pyariadne-numeric INTERFACE
     $<TARGET_OBJECTS:pyariadne-numeric-submodule-obj>

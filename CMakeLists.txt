@@ -44,6 +44,9 @@ target_link_libraries(numeric INTERFACE
     GMP::GMP
     MPFR::MPFR
 )
+if(WIN32)
+    target_compile_definitions(numeric INTERFACE ARIADNE_NUMERIC_EMBEDDED)
+endif()
 
 add_subdirectory(src)
 target_link_libraries(NUMERIC_SRC PRIVATE numeric)
