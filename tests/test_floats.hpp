@@ -54,9 +54,6 @@ template<class F, class FE> Bool models(Ball<F,FE> x, F v) {
     return abs(Dyadic(x.value())-Dyadic(v)) <= Dyadic(x.error_raw()); }
 
 
-template<> String class_name<DoublePrecision>() { return "DoublePrecision"; }
-template<> String class_name<MultiplePrecision>() { return "MultiplePrecision"; }
-
 inline bool same(LogicalValue l1, LogicalValue l2) {
     return static_cast<uchar>(l1) == static_cast<uchar>(l2); }
 inline bool same(ApproximateKleenean ak1, ApproximateKleenean ak2) {

@@ -63,7 +63,6 @@ Rational to_rational(String x) {
 }
 
 Rational operator""_q (const char* str, std::size_t) { return Rational(Decimal(String(str))); }
-Decimal operator""_dec (const char* str, std::size_t) { return Decimal(String(str)); }
 
 //Boolean nondeterministic_greater(Real const& x, Rational const& a, Rational const& b);
 //template<class Q> Boolean nondeterministic_greater(Real const& x, Q a, Q b) { return nondeterministic_greater(x,Rational(a),Rational(b)); }

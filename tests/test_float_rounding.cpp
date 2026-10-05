@@ -38,11 +38,6 @@
 
 #include "utility/test.hpp"
 
-namespace Ariadne {
-template<> String class_name<DoublePrecision>() { return "DoublePrecision"; }
-template<> String class_name<MultiplePrecision>() { return "MultiplePrecision"; }
-}
-
 using namespace std;
 using namespace Ariadne;
 
