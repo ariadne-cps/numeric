@@ -295,6 +295,7 @@ Real::Real(std::uint64_t m, Void*) : Real(Integer(m)) { }
 Real::Real(std::int64_t n, Void*) : Real(Integer(n)) { }
 
 Real::Real() : Real(Integer(0)) { }
+NaiveReal::NaiveReal() : Handle<const Interface>(Real().managed_pointer()) { }
 Real::Real(ExactDouble d) : Real(std::make_shared<RealWrapper<Cnst,ExactDouble>>(d)) { }
 //Real::Real(ExactDouble d) : Real(Dyadic(d)) { }
 Real::Real(Integer const& z) : Real(std::make_shared<RealWrapper<Cnst,Integer>>(z)) { }

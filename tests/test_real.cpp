@@ -132,6 +132,14 @@ void TestReal::test_constructors() {
     ARIADNE_TEST_EQUALS(xv.get(pr),0);
     ARIADNE_TEST_EQUALS(xv.lower().compute(eff).get().raw(),0);
     ARIADNE_TEST_EQUALS(xv.upper().compute(eff).get().raw(),0);
+
+    NaiveReal naive_zero;
+    Real naive_zero_as_real(naive_zero.managed_pointer());
+    ARIADNE_TEST_EQUALS(naive_zero_as_real.get(pr),0);
+
+    PositiveNaiveReal positive_naive_zero;
+    Real positive_naive_zero_as_real(positive_naive_zero.managed_pointer());
+    ARIADNE_TEST_EQUALS(positive_naive_zero_as_real.get(pr),0);
     ARIADNE_TEST_CONSTRUCT(Real,xz,(1));
     ARIADNE_TEST_EQUALS(xz.compute(eff).get(),1);
     ARIADNE_TEST_CONSTRUCT(Real,xe,(1.5_exact));
