@@ -323,6 +323,8 @@ template<> String class_name<Integer>() { return "Integer"; }
 template<> String class_name<Natural>() { return "Natural"; }
 
 Int log2floor(Natural const& z) {
+    // GMP reports one base-2 digit for zero; preserve the documented log2floor(0) == -1 contract.
+    if(z==0) { return -1; }
     return static_cast<Int>(mpz_sizeinbase(z._mpz,2)-1);
 }
 

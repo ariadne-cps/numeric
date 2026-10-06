@@ -219,6 +219,9 @@ void TestInteger::test_small_types() {
     ARIADNE_TEST_EQUALS(natural,Integer(6));
     ARIADNE_TEST_EQUALS(Natural(2u)+Natural(3u),Integer(5));
     ARIADNE_TEST_EQUALS(Natural(2u)*Natural(3u),Integer(6));
+    ARIADNE_TEST_EQUALS(log2floor(Natural(0u)),-1);
+    ARIADNE_TEST_EQUALS(log2floor(Natural(1u)),0);
+    ARIADNE_TEST_EQUALS(log2floor(Natural(8u)),3);
     ARIADNE_TEST_EQUALS(cast_positive(Integer(4)),Integer(4));
 }
 
