@@ -175,8 +175,15 @@ void TestRational::test_arithmetic() {
     ARIADNE_TEST_EQUAL(div(Integer(3),Integer(4)),Rational(3,4));
     ARIADNE_TEST_EQUAL(pow(Integer(2),Int(-3)),Rational(1,8));
 
+    Rational accumulated(3,4);
+    ARIADNE_TEST_EQUAL((accumulated+=Rational(1,4)),Rational(1));
+    ARIADNE_TEST_EQUAL((accumulated-=Rational(1,2)),Rational(1,2));
+    ARIADNE_TEST_EQUAL((accumulated*=Rational(4)),Rational(2));
+    ARIADNE_TEST_EQUAL((accumulated/=Rational(8)),Rational(1,4));
+
     PositiveRational p2=cast_positive(Rational(2));
     PositiveRational p3=cast_positive(Rational(3));
+    ARIADNE_TEST_FAIL(cast_positive(Rational(-1)));
     ARIADNE_TEST_EQUAL(max(Rational(-1),p2),Rational(2));
     ARIADNE_TEST_EQUAL(max(p2,Rational(4)),Rational(4));
     ARIADNE_TEST_EQUAL(max(p2,p3),Rational(3));
@@ -241,6 +248,9 @@ void TestRational::test_infinity() {
     ARIADNE_TEST_ASSERT(is_nan(Rational(ExactDouble(std::numeric_limits<double>::quiet_NaN()))));
 
     ARIADNE_TEST_ASSERT(is_nan(Rational::nan()));
+    ARIADNE_TEST_ASSERT(not is_inf(Rational::nan()));
+    ARIADNE_TEST_ASSERT(not is_zero(Rational(1)));
+    ARIADNE_TEST_ASSERT(not is_zero(Rational::nan()));
     ARIADNE_TEST_ASSERT(is_inf(Rational::inf()));
     ARIADNE_TEST_ASSERT(is_inf(Rational::inf(Sign(+1))));
     ARIADNE_TEST_ASSERT(is_inf(Rational::inf(Sign(-1))));
@@ -343,6 +353,14 @@ void TestRational::test_bounds() {
     RationalBounds n(-3,-2);
     RationalBounds m(-2,3);
 
+    check_bounds(p.pm(1),1,4);
+    ARIADNE_TEST_EQUALS(p.lower(),Rational(2));
+    ARIADNE_TEST_EQUALS(p.upper(),Rational(3));
+    check_bounds(+p,2,3);
+    check_bounds(-p,-3,-2);
+    check_bounds(p+n,-1,1);
+    check_bounds(p-n,4,6);
+
     check_bounds(p*p,4,9);
     check_bounds(p*n,-9,-4);
     check_bounds(p*m,-6,9);
@@ -416,6 +434,25 @@ void TestRational::test_bounds() {
     ARIADNE_TEST_ASSERT(definitely(b>a));
     ARIADNE_TEST_ASSERT(not possibly(a>b));
     ARIADNE_TEST_ASSERT(is_indeterminate(RationalBounds(2,3)>RationalBounds(1,2)));
+
+    RationalBounds left(0,1);
+    RationalBounds right(2,3);
+    RationalBounds containing(-1,4);
+    RationalBounds crossing(1,2);
+    ARIADNE_TEST_ASSERT(inconsistent(right,left));
+    ARIADNE_TEST_ASSERT(inconsistent(left,right));
+    ARIADNE_TEST_ASSERT(not inconsistent(left,crossing));
+
+    ARIADNE_TEST_ASSERT(refines(left,containing));
+    ARIADNE_TEST_ASSERT(not refines(containing,left));
+    ARIADNE_TEST_ASSERT(not refines(RationalBounds(-2,2),RationalBounds(-2,1)));
+
+    check_bounds(refinement(RationalBounds(0,3),RationalBounds(1,4)),1,3);
+    check_bounds(coarsening(RationalBounds(0,3),RationalBounds(1,4)),0,4);
+
+    std::ostringstream bounds_stream;
+    bounds_stream << RationalBounds(1,2);
+    ARIADNE_TEST_EQUALS(bounds_stream.str(),std::string("[1:2]"));
 
     ARIADNE_TEST_EQUALS(class_name<RationalBounds>(),String("RationalBounds"));
 
