@@ -158,6 +158,26 @@ TestDirectedFloats<PR>::test_conversions()
     
     // Test that FloatError can be constructed from NaN
     ARIADNE_TEST_EXECUTE(FloatError<PR>(Float<PR>::nan(precision)));
+
+    FloatLowerBoundType lower_bound(five_thirds,precision);
+    FloatUpperBoundType upper_bound(five_thirds,precision);
+    DyadicLowerBound dyadic_lower_bound(lower_bound);
+    DyadicUpperBound dyadic_upper_bound(upper_bound);
+
+    ARIADNE_TEST_EQUALS(dyadic_lower_bound.raw(),Dyadic(lower_bound.raw()));
+    ARIADNE_TEST_EQUALS(dyadic_upper_bound.raw(),Dyadic(upper_bound.raw()));
+    ARIADNE_TEST_EQUALS(dyadic_lower_bound.get(precision).raw(),lower_bound.raw());
+    ARIADNE_TEST_EQUALS(dyadic_upper_bound.get(precision).raw(),upper_bound.raw());
+
+    if constexpr (Same<PR,DoublePrecision>) {
+        ARIADNE_TEST_EQUALS(class_name<FloatLowerBoundType>(),String("FloatDPLowerBound"));
+        ARIADNE_TEST_EQUALS(class_name<FloatUpperBoundType>(),String("FloatDPUpperBound"));
+        ARIADNE_TEST_EQUALS(class_name<FloatError<PR>>(),String("FloatDPError"));
+    } else {
+        ARIADNE_TEST_EQUALS(class_name<FloatLowerBoundType>(),String("FloatMPLowerBound"));
+        ARIADNE_TEST_EQUALS(class_name<FloatUpperBoundType>(),String("FloatMPUpperBound"));
+        ARIADNE_TEST_EQUALS(class_name<FloatError<PR>>(),String("FloatMPError"));
+    }
 }
 
 template<class PR> Void
