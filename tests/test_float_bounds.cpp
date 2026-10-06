@@ -392,6 +392,14 @@ template<class PR> Void TestFloatBounds<PR>::test_class()
     ARIADNE_TEST_EQUAL(FloatBoundsType(-0.25_x,0.50_x,pr).value(),0.125_x);
     ARIADNE_TEST_EQUAL(FloatBoundsType(-0.25_x,0.50_x,pr).error().raw(),0.375_x)
 
+    FloatBoundsType midpoint_bounds(one_,three_);
+    ARIADNE_TEST_EQUAL(midpoint(midpoint_bounds),two_);
+    if constexpr (Same<PR,DoublePrecision>) {
+        ARIADNE_TEST_EQUALS(class_name<FloatBoundsType>(),String("FloatDPBounds"));
+    } else {
+        ARIADNE_TEST_EQUALS(class_name<FloatBoundsType>(),String("FloatMPBounds"));
+    }
+
     // Tests for inexact operations
     ARIADNE_TEST_EQUAL((FloatBoundsType(-1,2,pr)/3).lower().raw(),div(down,-one_,three_));
     ARIADNE_TEST_EQUAL((FloatBoundsType(-1,2,pr)/3).upper().raw(),div(up,two_,three_));

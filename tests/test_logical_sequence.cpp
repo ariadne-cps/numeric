@@ -21,9 +21,15 @@ Void TestLogicalSequence::test() {
     ARIADNE_TEST_ASSERT(possibly(not some.check(2_eff)));
     ARIADNE_TEST_ASSERT(definitely(some.check(3_eff)));
     ARIADNE_TEST_ASSERT(definitely(some.check(4_eff)));
+    LogicalInterface* some_copy=some.repr().pointer()->_copy();
+    ARIADNE_TEST_ASSERT(some_copy->_check(3_eff)==LogicalValue::TRUE);
+    delete some_copy;
     Sequence<UpperKleenean> upper_seq([](Natural n){return n==2 ? UpperKleenean(false) : UpperKleenean(indeterminate);});
     ARIADNE_TEST_ASSIGN_CONSTRUCT(UpperKleenean, all, conjunction(upper_seq));
     ARIADNE_TEST_ASSERT(possibly(all.check(2_eff)));
     ARIADNE_TEST_ASSERT(not possibly(all.check(3_eff)));
     ARIADNE_TEST_ASSERT(definitely(not all.check(4_eff)));
+    LogicalInterface* all_copy=all.repr().pointer()->_copy();
+    ARIADNE_TEST_ASSERT(all_copy->_check(3_eff)==LogicalValue::FALSE);
+    delete all_copy;
 }

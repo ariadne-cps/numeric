@@ -89,6 +89,27 @@ TestFloatBall<PR,PRE>::test_conversions()
     ARIADNE_TEST_EQUALS(cast_integer(FloatBall<PR,PRE>(FloatBounds<PR>(2,3,precision))),Integer(3));
     ARIADNE_TEST_EQUALS(cast_integer(FloatBall<PR,PRE>(FloatBounds<PR>(2.25_dy,3.25_dy,precision))),Integer(3));
     ARIADNE_TEST_FAIL(cast_integer(FloatBall<PR,PRE>(FloatBounds<PR>(2.625_dy,2.875_dy,precision))));
+
+    RawFloatType value(2,precision);
+    FloatError<PRE> error(1u,error_precision);
+    FloatBallType centred=value.pm(error);
+    ARIADNE_TEST_EQUALS(centred.value_raw(),value);
+    ARIADNE_TEST_EQUALS(centred.error_raw(),RawFloat<PRE>(1,error_precision));
+
+    if constexpr (Same<PR,DoublePrecision>) {
+        ARIADNE_TEST_EQUALS(class_name<FloatBallType>(),String("FloatDPBall"));
+    } else if constexpr (Same<PRE,DoublePrecision>) {
+        ARIADNE_TEST_EQUALS(class_name<FloatBallType>(),String("FloatMDPBall"));
+    } else {
+        ARIADNE_TEST_EQUALS(class_name<FloatBallType>(),String("FloatMPBall"));
+    }
+
+    if constexpr (Same<PR,MultiplePrecision> and Same<PRE,MultiplePrecision>) {
+        FloatBallType zero_with_unit_error(RawFloatType(0,precision),RawFloat<PRE>(1,error_precision));
+        StringStream stream;
+        stream << zero_with_unit_error;
+        ARIADNE_TEST_ASSERT(not stream.str().empty());
+    }
 }
 
 template<class PR, class PRE> Void
