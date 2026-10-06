@@ -258,7 +258,7 @@ void TestRational::test_infinity() {
 }
 
 void TestRational::test_decimal() {
-    ARIADNE_TEST_CONSTRUCT(Decimal,d0,());
+    Decimal d0;
     ARIADNE_TEST_EQUALS(d0,Decimal(0,0u));
     ARIADNE_TEST_CONSTRUCT(Decimal,d1,(23,1u));
     ARIADNE_TEST_CONSTRUCT(Decimal,d2,(-42,2u));
