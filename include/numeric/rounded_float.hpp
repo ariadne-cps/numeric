@@ -100,7 +100,9 @@ template<> class Rounded<FloatDP>
     template<class Y> requires Constructible<FloatType,Y,RoundingModeType,PrecisionType> and (not BuiltinIntegral<Y>)
         Rounded<FloatType> operator=(Y const& y) { return (*this)=FloatType(y,FloatType::get_rounding_mode(),this->precision()); }
 
-    Rounded(Approximation<FloatDP> const& x) : Rounded(reinterpret_cast<FloatDP const&>(x)) { }
+    // Approximation<FloatDP> contains a FloatDP member; it is not a FloatDP base subobject.
+// Reinterpreting the wrapper as FloatDP is not guaranteed by the C++ object model.
+Rounded(Approximation<FloatDP> const& x) : Rounded(x.raw()) { }
     operator Approximation<FloatDP> () const;
 
     double data() const { return this->_flt.dbl; }
@@ -250,9 +252,11 @@ template<class FLT> class Rounded
         Rounded<FloatType> operator=(Y const& y) { this->_flt=FloatType(y,FloatType::get_rounding_mode(),this->precision()); return *this; }
 
     explicit operator FloatType() const { return FloatType(this->_flt); }
-    FloatType raw() const { return FloatType(this->_flt); }
+    FloatType const& raw() const { return this->_flt; }
 
-    Rounded(Approximation<FloatType> const& x) : Rounded(reinterpret_cast<FloatType const&>(x)) { }
+    // Approximation<FloatType> contains a FloatType member; it is not a FloatType base subobject.
+// Reinterpreting the wrapper as FloatType is not guaranteed by the C++ object model.
+Rounded(Approximation<FloatType> const& x) : Rounded(x.raw()) { }
     operator Approximation<FloatType> () const;
 
     // Non-finiteness tests
