@@ -526,13 +526,6 @@ template<class... OPS> Bool are_inverses(OperatorVariant<OPS...> const& ops1, Op
     return ops1.accept([&ops2](auto op1){ return _are_inverses(op1,ops2); });
 }
 
-struct SpecialOperator {
-    enum class Code : char { CNST=(char)OperatorCode::CNST, VAR, IND };
-    operator Operator() const { return Operator(static_cast<Operator::Code>(_code)); }
-    Code code() const { return _code; }
-  private:
-    Code _code;
-};
 class UnaryOperator {
     OperatorCode _op;
   public:
