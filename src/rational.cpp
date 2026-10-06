@@ -62,12 +62,12 @@ template<> class ExtensionOperations<Rational> {
     friend class Rational;
     friend class ExtendedOperations<Rational>;
 
-    static Bool is_nan(Rational const& q) { return Ariadne::is_zero(q.get_den()) && Ariadne::is_zero(q.get_num()); }
-    static Bool is_inf(Rational const& q) { return Ariadne::is_zero(q.get_den()) && !Ariadne::is_zero(q.get_num()); }
-    static Bool is_finite(Rational const& q) { return !Ariadne::is_zero(q.get_den()); }
-    static Bool is_zero(Rational const& q) { return Ariadne::is_zero(q.get_num()) && !Ariadne::is_zero(q.get_den()); }
+    static Bool is_nan(Rational const& q) { return mpz_cmp_si(mpq_denref(q._mpq),0)==0 && mpz_cmp_si(mpq_numref(q._mpq),0)==0; }
+    static Bool is_inf(Rational const& q) { return mpz_cmp_si(mpq_denref(q._mpq),0)==0 && mpz_cmp_si(mpq_numref(q._mpq),0)!=0; }
+    static Bool is_finite(Rational const& q) { return mpz_cmp_si(mpq_denref(q._mpq),0)!=0; }
+    static Bool is_zero(Rational const& q) { return mpz_cmp_si(mpq_numref(q._mpq),0)==0 && mpz_cmp_si(mpq_denref(q._mpq),0)!=0; }
 
-    static Sign sgn(Rational const& q) { return Ariadne::sgn(q.get_num()); }
+    static Sign sgn(Rational const& q) { return static_cast<Sign>(mpz_cmp_si(mpq_numref(q._mpq),0)); }
 
     static Void set_nan(Rational& q) { mpz_set_si(mpq_denref(q._mpq),0); mpz_set_si(mpq_numref(q._mpq),0); }
     static Void set_inf(Rational& q, Sign s) { mpz_set_si(mpq_denref(q._mpq),0); mpz_set_si(mpq_numref(q._mpq),static_cast<Int>(s)); }
