@@ -199,6 +199,33 @@ TestFloat<PR>::test_conversions()
         ARIADNE_TEST_EQUALS(cast_raw(approximate),approximate.raw());
         ARIADNE_TEST_EQUALS(cast_approximate(raw).raw(),raw);
         ARIADNE_TEST_EQUALS(cast_approximate(approximate).raw(),approximate.raw());
+    } else if constexpr (Same<PR,MultiplePrecision>) {
+        MultiplePrecision pr=precision;
+        FloatMP from_string(String("1.25"),pr);
+        ARIADNE_TEST_EQUALS(from_string,Dyadic(5,2u));
+
+        FloatMP source(Dyadic(3,2u),pr);
+        FloatMP from_raw(source.get_mpfr(),RawPtr());
+        ARIADNE_TEST_EQUALS(from_raw,source);
+
+        Dyadic too_wide(Integer(String("18446744073709551617")));
+        ARIADNE_TEST_FAIL(FloatMP(too_wide,MultiplePrecision(64_bits)));
+
+        FloatMP zero(pr);
+        ARIADNE_TEST_ASSERT(is_zero(zero));
+        ARIADNE_TEST_ASSERT(is_inf(FloatMP::inf(pr)));
+        ARIADNE_TEST_ASSERT(is_nan(FloatMP::nan(pr)));
+
+        MultiplePrecision old_default=FloatMP::get_default_precision();
+        FloatMP::set_default_precision(MultiplePrecision(96_bits));
+        ARIADNE_TEST_EQUALS(FloatMP::get_default_precision(),MultiplePrecision(96_bits));
+        FloatMP::set_default_precision(old_default);
+
+        FloatMP resized(Dyadic(3,2u),pr);
+        resized.set_precision(MultiplePrecision(96_bits));
+        ARIADNE_TEST_EQUALS(resized.precision(),MultiplePrecision(96_bits));
+        ARIADNE_TEST_EXECUTE(mpfr_set_si(resized.get_mpfr(),2,MPFR_RNDN));
+        ARIADNE_TEST_EQUALS(resized,Dyadic(2));
     }
 }
 
@@ -326,6 +353,65 @@ TestFloat<PR>::test_operations()
     ARIADNE_TEST_ASSERT(tanh(tanh_upper).raw()<FloatType(1,pr));
 
 //    ARIADNE_TEST_SAME(shft(vx,n),shft(w,n));
+
+    if constexpr (Same<PR,MultiplePrecision>) {
+        MultiplePrecision mpr=precision;
+        FloatMP a(2,mpr);
+        FloatMP b(1,mpr);
+        FloatDP dpa(1,dp);
+        ExactDouble ed(0.5);
+        CurrentRoundingMode current;
+
+        FloatMP::set_rounding_toward_zero();
+        ARIADNE_TEST_EQUALS(nul(current,a),FloatMP(0,mpr));
+        ARIADNE_TEST_EQUALS(hlf(current,a),FloatMP(1,mpr));
+        ARIADNE_TEST_EQUALS(pos(current,a),a);
+        ARIADNE_TEST_EQUALS(neg(current,a),FloatMP(-2,mpr));
+        ARIADNE_TEST_EQUALS(fma(current,a,b,b),FloatMP(3,mpr));
+        ARIADNE_TEST_EQUALS(pow(current,a,Nat(2u)),FloatMP(4,mpr));
+        ARIADNE_TEST_EXECUTE(tan(current,b));
+        ARIADNE_TEST_EXECUTE(asin(current,b));
+        ARIADNE_TEST_EXECUTE(acos(current,b));
+        ARIADNE_TEST_EXECUTE(FloatMP::pi(current,mpr));
+
+        ARIADNE_TEST_EQUALS(add(current,a,dpa),FloatMP(3,mpr));
+        ARIADNE_TEST_EQUALS(sub(current,a,dpa),FloatMP(1,mpr));
+        ARIADNE_TEST_EQUALS(mul(current,a,dpa),FloatMP(2,mpr));
+        ARIADNE_TEST_EQUALS(div(current,a,dpa),FloatMP(2,mpr));
+        ARIADNE_TEST_EQUALS(add(current,dpa,a),FloatMP(3,mpr));
+        ARIADNE_TEST_EQUALS(sub(current,dpa,a),FloatMP(-1,mpr));
+        ARIADNE_TEST_EQUALS(mul(current,dpa,a),FloatMP(2,mpr));
+        ARIADNE_TEST_EQUALS(div(current,dpa,a),FloatMP(Dyadic(1,1u),mpr));
+
+        ARIADNE_TEST_EQUALS(add(current,a,ed),FloatMP(Dyadic(5,1u),mpr));
+        ARIADNE_TEST_EQUALS(sub(current,a,ed),FloatMP(Dyadic(3,1u),mpr));
+        ARIADNE_TEST_EQUALS(mul(current,a,ed),FloatMP(1,mpr));
+        ARIADNE_TEST_EQUALS(div(current,a,ed),FloatMP(4,mpr));
+        ARIADNE_TEST_EQUALS(add(current,ed,a),FloatMP(Dyadic(5,1u),mpr));
+        ARIADNE_TEST_EQUALS(sub(current,ed,a),FloatMP(Dyadic(-3,1u),mpr));
+        ARIADNE_TEST_EQUALS(mul(current,ed,a),FloatMP(1,mpr));
+        ARIADNE_TEST_EQUALS(div(current,ed,a),FloatMP(Dyadic(1,2u),mpr));
+
+        ARIADNE_TEST_EQUALS(abs(MPFR_RNDN,FloatMP(-2,mpr)),FloatMP(2,mpr));
+        ARIADNE_TEST_EQUALS(mag(MPFR_RNDN,FloatMP(-2,mpr)),FloatMP(2,mpr));
+
+        FloatMP inplace(2,mpr);
+        ARIADNE_TEST_EQUALS(iadd(MPFR_RNDN,inplace,FloatMP(1,mpr)),FloatMP(3,mpr));
+        ARIADNE_TEST_EQUALS(isub(MPFR_RNDN,inplace,FloatMP(1,mpr)),FloatMP(2,mpr));
+        ARIADNE_TEST_EQUALS(imul(MPFR_RNDN,inplace,FloatMP(3,mpr)),FloatMP(6,mpr));
+        ARIADNE_TEST_EQUALS(idiv(MPFR_RNDN,inplace,FloatMP(2,mpr)),FloatMP(3,mpr));
+
+        ARIADNE_TEST_ASSERT(not a.literal().empty());
+        ARIADNE_TEST_ASSERT(not a.literal(MPFR_RNDN).empty());
+        std::ostringstream places_stream;
+        write(places_stream,a,DecimalPlaces(3u),MPFR_RNDN);
+        ARIADNE_TEST_ASSERT(not places_stream.str().empty());
+        std::ostringstream repr_stream;
+        repr(repr_stream,a,MPFR_RNDN);
+        ARIADNE_TEST_ASSERT(not repr_stream.str().empty());
+
+        FloatMP::set_rounding_to_nearest();
+    }
 }
 
 template<class PR> Void
@@ -350,6 +436,20 @@ TestFloat<PR>::test_predicates()
     ARIADNE_TEST_EQUALS(cmp(Float<PR>(w,pr),wu),cmp(w,wu));
     ARIADNE_TEST_EQUALS(cmp(Float<PR>(w,pr),ql),cmp(w,ql));
     ARIADNE_TEST_EQUALS(cmp(Float<PR>(w,pr),qu),cmp(w,qu));
+
+    if constexpr (Same<PR,MultiplePrecision>) {
+        FloatMP x(Dyadic(3,1u),pr);
+        ARIADNE_TEST_EQUALS(cmp(Nat(1u),x),Comparison::LESS);
+        ARIADNE_TEST_EQUALS(cmp(Nat(2u),x),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(Nat(3u),FloatMP(3,pr)),Comparison::EQUAL);
+
+        FloatDP dp_low(Dyadic(1),dp);
+        FloatDP dp_equal(Dyadic(3,1u),dp);
+        FloatDP dp_high(Dyadic(2),dp);
+        ARIADNE_TEST_EQUALS(cmp(x,dp_low),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(x,dp_equal),Comparison::EQUAL);
+        ARIADNE_TEST_EQUALS(cmp(x,dp_high),Comparison::LESS);
+    }
 }
 
 
