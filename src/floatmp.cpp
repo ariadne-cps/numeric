@@ -358,10 +358,6 @@ FloatMP next(RoundUpward rnd, FloatMP const& x) { return add(rnd,x,FloatMP::min(
 FloatMP next(RoundDownward rnd, FloatMP const& x) { return sub(rnd,x,FloatMP::min(x.precision())); }
 
 
-FloatMP nul(CurrentRoundingMode, FloatMP const& x) { return nul(FloatMP::get_rounding_mode(),x); }
-FloatMP hlf(CurrentRoundingMode, FloatMP const& x) { return hlf(FloatMP::get_rounding_mode(),x); }
-FloatMP pos(CurrentRoundingMode, FloatMP const& x) { return pos(FloatMP::get_rounding_mode(),x); }
-FloatMP neg(CurrentRoundingMode, FloatMP const& x) { return neg(FloatMP::get_rounding_mode(),x); }
 FloatMP sqr(CurrentRoundingMode, FloatMP const& x) { return sqr(FloatMP::get_rounding_mode(),x); }
 FloatMP rec(CurrentRoundingMode, FloatMP const& x) { return rec(FloatMP::get_rounding_mode(),x); }
 FloatMP add(CurrentRoundingMode, FloatMP const& x1, FloatMP const& x2) { return add(FloatMP::get_rounding_mode(),x1,x2); }

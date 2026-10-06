@@ -363,10 +363,6 @@ TestFloat<PR>::test_operations()
         CurrentRoundingMode current;
 
         FloatMP::set_rounding_toward_zero();
-        ARIADNE_TEST_EQUALS(nul(current,a),FloatMP(0,mpr));
-        ARIADNE_TEST_EQUALS(hlf(current,a),FloatMP(1,mpr));
-        ARIADNE_TEST_EQUALS(pos(current,a),a);
-        ARIADNE_TEST_EQUALS(neg(current,a),FloatMP(-2,mpr));
         ARIADNE_TEST_EQUALS(fma(current,a,b,b),FloatMP(3,mpr));
         ARIADNE_TEST_EQUALS(pow(current,a,Nat(2u)),FloatMP(4,mpr));
         ARIADNE_TEST_EXECUTE(tan(current,b));
