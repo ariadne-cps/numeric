@@ -28,6 +28,8 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <cmath>
+#include <limits>
 
 #include "numeric/builtin.hpp"
 #include "numeric/decimal.hpp"
@@ -43,12 +45,52 @@
 #include "numeric/float_lower_bound.hpp"
 #include "numeric/float_upper_bound.hpp"
 #include "numeric/float_error.hpp"
+#include "numeric/float_literals.hpp"
 
 #include "utility/test.hpp"
 #include "test_floats.hpp"
 
 using namespace Ariadne;
 using namespace std;
+
+Void test_float_literals()
+{
+    FloatDP half(ExactDouble(0.5),dp);
+
+    auto error=0.5_error;
+    auto exact=0.5_exact;
+    auto near_value=0.5_near;
+    auto upper=0.5_upper;
+    auto lower=0.5_lower;
+    auto approximation=0.5_approx;
+
+    ARIADNE_TEST_EQUALS(error.raw(),half);
+    ARIADNE_TEST_EQUALS(exact,half);
+    ARIADNE_TEST_EQUALS(near_value.value_raw(),half);
+    ARIADNE_TEST_EQUALS(near_value.error_raw(),FloatDP(0,dp));
+    ARIADNE_TEST_EQUALS(upper.raw(),half);
+    ARIADNE_TEST_EQUALS(lower.raw(),half);
+    ARIADNE_TEST_EQUALS(approximation.raw(),half);
+
+    if constexpr (std::numeric_limits<long double>::digits > std::numeric_limits<double>::digits) {
+        ARIADNE_TEST_FAIL(operator""_error(0.1L));
+        ARIADNE_TEST_FAIL(operator""_exact(0.1L));
+
+        long double near_input=0.1L;
+        auto near_inexact=operator""_near(near_input);
+        long double near_value_raw=static_cast<long double>(near_inexact.value_raw().get_d());
+        long double near_error_raw=static_cast<long double>(near_inexact.error_raw().get_d());
+        ARIADNE_TEST_ASSERT(std::abs(near_value_raw-near_input)<=near_error_raw);
+
+        long double upper_input=0.3L;
+        auto upper_inexact=operator""_upper(upper_input);
+        ARIADNE_TEST_ASSERT(static_cast<long double>(upper_inexact.raw().get_d())>=upper_input);
+
+        long double lower_input=0.1L;
+        auto lower_inexact=operator""_lower(lower_input);
+        ARIADNE_TEST_ASSERT(static_cast<long double>(lower_inexact.raw().get_d())<=lower_input);
+    }
+}
 
 
 template<class PR>
@@ -290,6 +332,7 @@ Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
+    test_float_literals();
     TestFloat<DoublePrecision>(dp).test();
     TestFloat<MultiplePrecision>(MultiplePrecision(128_bits)).test();
 
