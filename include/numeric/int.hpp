@@ -42,7 +42,7 @@ class Nat32 {
   public:
     Nat32() : _m(0u) { }
     template<BuiltinUnsignedIntegral M> Nat32(M m) : _m(m) { assert(_m==m); }
-    template<BuiltinSignedIntegral N> Nat32(N n) : _m(n) { assert(n>=0); assert((int64_t)_m==n); }
+    template<BuiltinSignedIntegral N> Nat32(N n) : _m(static_cast<uint32_t>(n)) { assert(n>=0); assert((int64_t)_m==n); }
     uint32_t get_ui() const { return _m; }
 };
 
