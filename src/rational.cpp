@@ -663,7 +663,7 @@ RationalBounds pos(RationalBounds const& q) {
 RationalBounds neg(RationalBounds const& q) {
     return RationalBounds(neg(q._u),neg(q._l)); }
 RationalBounds hlf(RationalBounds const& q) {
-    return RationalBounds(hlf(q._u),hlf(q._l)); }
+    return RationalBounds(hlf(q._l),hlf(q._u)); }
 RationalBounds sqr(RationalBounds const& q) {
     return _sqr(RoundExact(),q); }
 RationalBounds rec(RationalBounds const& q) {
@@ -678,13 +678,17 @@ RationalBounds mul(RationalBounds const& q1, RationalBounds const& q2) {
 RationalBounds div(RationalBounds const& q1, RationalBounds const& q2) {
     return _div(RoundExact(),q1,q2); }
 RationalBounds pow(RationalBounds const& q, Nat m) {
-    RationalBounds r = (m%2==0) ? abs(q) : q;  Int n=static_cast<Int>(m); return RationalBounds(pow(q._l,n),pow(q._u,n)); }
+    RationalBounds r = (m%2==0) ? abs(q) : q;
+    Int n=static_cast<Int>(m);
+    return RationalBounds(pow(r._l,n),pow(r._u,n)); }
 RationalBounds pow(RationalBounds const& q, Int n) {
     if(n<0) { return pow(rec(q),Nat(-n)); } else return pow(q,Nat(n));}
 
 static_assert(not Convertible<Int,PositiveRational>);
 RationalBounds abs(RationalBounds const& q) {
-    return RationalBounds(max(min(q._l,-q._u),0),max(-q._l,q._u)); }
+    if(q._l>=0) { return q; }
+    if(q._u<=0) { return RationalBounds(-q._u,-q._l); }
+    return RationalBounds(0,max(-q._l,q._u)); }
 RationalBounds max(RationalBounds const& q1, RationalBounds const& q2) {
     return RationalBounds(max(q1._l,q2._l),max(q1._u,q2._u)); }
 RationalBounds min(RationalBounds const& q1, RationalBounds const& q2) {

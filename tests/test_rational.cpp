@@ -51,6 +51,7 @@ class TestRational
     void test_rounding();
     void test_comparisons();
     void test_infinity();
+    void test_bounds();
 
     void test_decimal();
 
@@ -64,6 +65,7 @@ void TestRational::test()
     ARIADNE_TEST_CALL(test_rounding());
     ARIADNE_TEST_CALL(test_comparisons());
     ARIADNE_TEST_CALL(test_infinity());
+    ARIADNE_TEST_CALL(test_bounds());
 
     ARIADNE_TEST_CALL(test_decimal());
 }
@@ -255,6 +257,92 @@ void TestRational::test_infinity() {
     ARIADNE_TEST_EQUALS(Rational(Dyadic::inf(Sign::POSITIVE)),qinf);
     ARIADNE_TEST_EQUALS(Rational(Dyadic::inf(Sign::NEGATIVE)),qninf);
     ARIADNE_TEST_ASSERT(is_nan(Rational(Dyadic::inf(Sign::ZERO))));
+}
+
+void TestRational::test_bounds() {
+    auto check_bounds=[](RationalBounds const& actual, Rational const& lower, Rational const& upper) {
+        ARIADNE_TEST_EQUALS(actual.lower_raw(),lower);
+        ARIADNE_TEST_EQUALS(actual.upper_raw(),upper);
+    };
+
+    RationalBounds p(2,3);
+    RationalBounds n(-3,-2);
+    RationalBounds m(-2,3);
+
+    check_bounds(p*p,4,9);
+    check_bounds(p*n,-9,-4);
+    check_bounds(p*m,-6,9);
+    check_bounds(n*p,-9,-4);
+    check_bounds(n*n,4,9);
+    check_bounds(n*m,-9,6);
+    check_bounds(m*p,-6,9);
+    check_bounds(m*n,-9,6);
+    check_bounds(m*m,-6,9);
+
+    check_bounds(p/p,Rational(2,3),Rational(3,2));
+    check_bounds(n/p,Rational(-3,2),Rational(-2,3));
+    check_bounds(m/p,Rational(-1),Rational(3,2));
+    check_bounds(p/n,Rational(-3,2),Rational(-2,3));
+    check_bounds(n/n,Rational(2,3),Rational(3,2));
+    check_bounds(m/n,Rational(-3,2),Rational(1));
+    check_bounds(p/m,-Rational::inf(),Rational::inf());
+
+    check_bounds(nul(m),0,0);
+    check_bounds(pos(m),-2,3);
+    check_bounds(neg(m),-3,2);
+    check_bounds(hlf(RationalBounds(2,4)),1,2);
+    check_bounds(sqr(p),4,9);
+    check_bounds(sqr(n),4,9);
+    check_bounds(sqr(m),0,9);
+    check_bounds(rec(p),Rational(1,3),Rational(1,2));
+    check_bounds(rec(n),Rational(-1,2),Rational(-1,3));
+    check_bounds(rec(m),-Rational::inf(),Rational::inf());
+
+    check_bounds(add(p,n),-1,1);
+    check_bounds(sub(p,n),4,6);
+    check_bounds(mul(p,n),-9,-4);
+    check_bounds(div(p,n),Rational(-3,2),Rational(-2,3));
+
+    check_bounds(abs(p),2,3);
+    check_bounds(abs(n),2,3);
+    check_bounds(abs(m),0,3);
+    check_bounds(pow(m,Nat(2u)),0,9);
+    check_bounds(pow(m,Nat(3u)),-8,27);
+    check_bounds(pow(p,Int(-1)),Rational(1,3),Rational(1,2));
+    check_bounds(max(p,n),2,3);
+    check_bounds(min(p,n),-3,-2);
+
+    RationalBounds a(1,2);
+    RationalBounds b(3,4);
+    RationalBounds overlap(1,3);
+    RationalBounds overlap2(2,4);
+    RationalBounds point(2,2);
+
+    ARIADNE_TEST_ASSERT(definitely(point==point));
+    ARIADNE_TEST_ASSERT(not possibly(a==b));
+    ARIADNE_TEST_ASSERT(is_indeterminate(overlap==overlap2));
+
+    ARIADNE_TEST_ASSERT(definitely(a!=b));
+    ARIADNE_TEST_ASSERT(not possibly(point!=point));
+    ARIADNE_TEST_ASSERT(is_indeterminate(overlap!=overlap2));
+
+    ARIADNE_TEST_ASSERT(definitely(a<=b));
+    ARIADNE_TEST_ASSERT(not possibly(b<=a));
+    ARIADNE_TEST_ASSERT(is_indeterminate(overlap<=overlap2));
+
+    ARIADNE_TEST_ASSERT(definitely(b>=a));
+    ARIADNE_TEST_ASSERT(not possibly(a>=b));
+    ARIADNE_TEST_ASSERT(is_indeterminate(overlap>=overlap2));
+
+    ARIADNE_TEST_ASSERT(definitely(a<b));
+    ARIADNE_TEST_ASSERT(not possibly(b<a));
+    ARIADNE_TEST_ASSERT(is_indeterminate(RationalBounds(1,2)<RationalBounds(2,3)));
+
+    ARIADNE_TEST_ASSERT(definitely(b>a));
+    ARIADNE_TEST_ASSERT(not possibly(a>b));
+    ARIADNE_TEST_ASSERT(is_indeterminate(RationalBounds(2,3)>RationalBounds(1,2)));
+
+    ARIADNE_TEST_EQUALS(class_name<RationalBounds>(),String("RationalBounds"));
 }
 
 void TestRational::test_decimal() {
