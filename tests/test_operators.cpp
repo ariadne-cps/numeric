@@ -11,6 +11,7 @@
 #include "numeric/integer.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
+#include "numeric/floatdp.hpp"
 #include "utility/test.hpp"
 
 using namespace Ariadne;
@@ -265,7 +266,11 @@ class TestOperators {
         ARIADNE_TEST_ASSERT(Unequal{}(z1,z2));
 
         ARIADNE_TEST_ASSERT(AndOp{}(true,true));
+        ARIADNE_TEST_ASSERT(!AndOp{}(false,true));
+        ARIADNE_TEST_ASSERT(!AndOp{}(true,false));
         ARIADNE_TEST_ASSERT(OrOp{}(false,true));
+        ARIADNE_TEST_ASSERT(OrOp{}(true,false));
+        ARIADNE_TEST_ASSERT(!OrOp{}(false,false));
         ARIADNE_TEST_ASSERT(XOrOp{}(true,false));
         ARIADNE_TEST_ASSERT(NotOp{}(false));
 
@@ -298,6 +303,13 @@ class TestOperators {
         ARIADNE_TEST_EQUALS(add(z2,z3),Integer(5));
         GradedRingOperator power(Pow{});
         ARIADNE_TEST_EQUALS(power(z2,3u),Integer(8));
+        GradedElementaryOperator elementary_power(Pow{});
+        ARIADNE_TEST_EQUALS(elementary_power(z2,3u),Integer(8));
+
+        FloatDP x(0.25,dp);
+        ARIADNE_TEST_EXECUTE(Tanh{}(x));
+        ARIADNE_TEST_EXECUTE(Asin{}(x));
+        ARIADNE_TEST_EXECUTE(Acos{}(x));
     }
 
     void test_inverses() {
