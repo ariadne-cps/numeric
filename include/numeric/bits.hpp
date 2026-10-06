@@ -39,7 +39,7 @@ namespace Ariadne {
 //! \brief A count of a number of binary digits, usable to define an accuracy or precision specification.
 class Bits {
     unsigned long int _bits;
-    explicit Bits(unsigned long long int bits) : _bits(bits) {
+    explicit Bits(unsigned long long int bits) : _bits(static_cast<unsigned long int>(bits)) {
         assert(static_cast<unsigned long long int>(this->_bits)==bits); }
   public:
     operator unsigned long int () const { return this->_bits; }

@@ -159,7 +159,7 @@ template<> class Float<DP>
     //! \brief Convert from a built-in double-precision floating-point number.
 //    explicit Float(ExactDouble const& x);
 //    explicit Float(double x, DoublePrecision) : dbl(x) { }
-    template<BuiltinIntegral N> Float(N n, DoublePrecision) : dbl(n) { }
+    template<BuiltinIntegral N> Float(N n, DoublePrecision) : dbl(static_cast<double>(n)) { }
     Float(ExactDouble const& x, DoublePrecision);
     Float(TwoExp const& x, DoublePrecision);
     Float(Dyadic const& w, DoublePrecision);
@@ -481,7 +481,7 @@ template<> Int integer_cast<Int,FloatDP>(FloatDP const&);
 struct Float32 {
     float flt;
   public:
-    explicit Float32(FloatDP x, BuiltinRoundingModeType rnd) { set_builtin_rounding_mode(rnd); (volatile float&)flt = (volatile double&)x.dbl; }
+    explicit Float32(FloatDP x, BuiltinRoundingModeType rnd) { set_builtin_rounding_mode(rnd); volatile double value=x.dbl; flt=static_cast<float>(value); }
     explicit operator FloatDP() const;
 };
 

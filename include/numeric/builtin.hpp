@@ -68,7 +68,7 @@ class ApproximateDouble {
     ApproximateDouble(Real const& r0);
     explicit operator double() const { return _d; }
     double get_d() const { return this->_d; }
-    friend ApproximateDouble operator""_a (long double lx) { double x=lx; return ApproximateDouble(x); }
+    friend ApproximateDouble operator""_a (long double lx) { double x=static_cast<double>(lx); return ApproximateDouble(x); }
     friend OutputStream& operator<<(OutputStream& os, ApproximateDouble x) { return os << x._d; }
 
     friend ApproximateDouble nul(ApproximateDouble) { return ApproximateDouble(0.0); }
@@ -120,7 +120,7 @@ class ExactDouble {
     typedef ExactTag Paradigm;
     double get_d() const { return this->_d; }
     ExactDouble() : _d() { }
-    template<BuiltinIntegral N> ExactDouble(N n) : _d(n) { assert(_d==n); }
+    template<BuiltinIntegral N> ExactDouble(N n) : _d(static_cast<double>(n)) { assert(_d==n); }
     template<BuiltinFloatingPoint X> explicit ExactDouble(X const& x) : _d(x) { assert(std::isnan(_d) || (_d==x)); }
     static ExactDouble infinity() { return ExactDouble(std::numeric_limits<double>::infinity()); }
     operator ExactNumber() const;
@@ -145,8 +145,8 @@ class ExactDouble {
     friend Boolean operator<=(ExactDouble const& x1, ExactDouble const& x2) { return x1._d<=x2._d; }
     friend Boolean operator> (ExactDouble const& x1, ExactDouble const& x2) { return x1._d> x2._d; }
     friend Boolean operator< (ExactDouble const& x1, ExactDouble const& x2) { return x1._d< x2._d; }
-    friend ExactDouble operator""_x (long double lx) { double x=lx; ARIADNE_ASSERT_MSG(x==lx,"The value "<<lx<<" should be exactly representable as a double."); return ExactDouble(x); }
-    friend ExactDouble operator""_pr (long double lx) { double x=lx; return ExactDouble(x); }
+    friend ExactDouble operator""_x (long double lx) { double x=static_cast<double>(lx); ARIADNE_ASSERT_MSG(x==lx,"The value "<<lx<<" should be exactly representable as a double."); return ExactDouble(x); }
+    friend ExactDouble operator""_pr (long double lx) { double x=static_cast<double>(lx); return ExactDouble(x); }
     friend OutputStream& operator<<(OutputStream& os, ExactDouble x) { return os << std::setprecision(18) << x.get_d(); }
 };
 
