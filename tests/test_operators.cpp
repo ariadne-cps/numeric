@@ -11,7 +11,7 @@
 #include "numeric/integer.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
-#include "numeric/floatdp.hpp"
+#include "numeric/real.hpp"
 #include "utility/test.hpp"
 
 using namespace Ariadne;
@@ -306,7 +306,7 @@ class TestOperators {
         GradedElementaryOperator elementary_power(Pow{});
         ARIADNE_TEST_EQUALS(elementary_power(z2,3u),Integer(8));
 
-        FloatDP x(0.25,dp);
+        Real x(Rational(1,4));
         ARIADNE_TEST_EXECUTE(Tanh{}(x));
         ARIADNE_TEST_EXECUTE(Asin{}(x));
         ARIADNE_TEST_EXECUTE(Acos{}(x));
