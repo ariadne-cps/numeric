@@ -22,6 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <sstream>
+
 #include "utility/module.hpp"
 
 #include "foundation/logical.hpp"
@@ -140,6 +142,19 @@ void TestReal::test_constructors() {
     PositiveNaiveReal positive_naive_zero;
     Real positive_naive_zero_as_real(positive_naive_zero.managed_pointer());
     ARIADNE_TEST_EQUALS(positive_naive_zero_as_real.get(pr),0);
+
+    PositiveNaiveReal positive_naive_copy(naive_zero);
+    ARIADNE_TEST_EQUALS(Real(positive_naive_copy.managed_pointer()).get(pr),0);
+
+    PositiveReal positive_real_zero;
+    PositiveReal positive_real_one(Real(1));
+    ARIADNE_TEST_EQUALS(positive_real_zero.get(pr),0);
+    ARIADNE_TEST_EQUALS(positive_real_one.get(pr),1);
+
+    ARIADNE_TEST_EXECUTE(PositiveLowerReal(positive_real_one));
+    ARIADNE_TEST_EXECUTE(PositiveLowerReal(Real(1).lower()));
+    ARIADNE_TEST_EXECUTE(PositiveUpperReal(positive_real_one));
+    ARIADNE_TEST_EXECUTE(PositiveUpperReal(Real(1).upper()));
     ARIADNE_TEST_CONSTRUCT(Real,xz,(1));
     ARIADNE_TEST_EQUALS(xz.compute(eff).get(),1);
     ARIADNE_TEST_CONSTRUCT(Real,xe,(1.5_exact));
@@ -292,6 +307,16 @@ void TestReal::test_sequence() {
     std::function<Dyadic(Natural)> wfn([&](Natural n){return 1-Dyadic(1,n);});
     FastCauchySequence<Dyadic> wseq(wfn);
     Real wlim=limit(wseq);
+
+    Sequence<DyadicBounds> bounds_sequence(std::function<DyadicBounds(Natural)>(
+        [](Natural){ return DyadicBounds(Dyadic(1)); }));
+    auto first_bounds=bounds_sequence[Natural(0u)];
+    ARIADNE_TEST_EQUALS(first_bounds.lower_raw(),Dyadic(1));
+    ARIADNE_TEST_EQUALS(first_bounds.upper_raw(),Dyadic(1));
+    SequenceWriter writer(2u);
+    std::ostringstream sequence_stream;
+    sequence_stream << writer(bounds_sequence);
+    ARIADNE_TEST_ASSERT(not sequence_stream.str().empty());
     std::cout<<wlim.compute(Accuracy(256_bits))<<"\n";
 
     std::function<Real(Natural)> rfn([&](Natural n){return exp(Real(-(n+1u)));});

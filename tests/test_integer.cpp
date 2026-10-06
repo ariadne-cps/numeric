@@ -169,6 +169,16 @@ void TestInteger::test_small_types() {
     ARIADNE_TEST_EQUALS(i32.get_si(),int32_t(0));
     ARIADNE_TEST_EQUALS(i64.get_si(),int64_t(0));
 
+    ARIADNE_TEST_EQUALS(Nat32(uint16_t(7)).get_ui(),uint32_t(7));
+    ARIADNE_TEST_EQUALS(Nat32(int16_t(7)).get_ui(),uint32_t(7));
+    ARIADNE_TEST_EQUALS(Nat64(uint32_t(8)).get_ui(),uint64_t(8));
+    ARIADNE_TEST_EQUALS(Nat64(int32_t(8)).get_ui(),uint64_t(8));
+    ARIADNE_TEST_EQUALS(Int32(uint16_t(9)).get_si(),int32_t(9));
+    ARIADNE_TEST_EQUALS(Int32(int16_t(-9)).get_si(),int32_t(-9));
+    ARIADNE_TEST_EQUALS(Int64(uint32_t(10)).get_si(),int64_t(10));
+    ARIADNE_TEST_EQUALS(Int64(uint64_t(11)).get_si(),int64_t(11));
+    ARIADNE_TEST_EQUALS(Int64(int16_t(-10)).get_si(),int64_t(-10));
+
     Bits bits=8_bits;
     ARIADNE_TEST_EQUALS(static_cast<unsigned long int>(bits),8ul);
     std::ostringstream bits_stream;
@@ -199,6 +209,15 @@ void TestInteger::test_small_types() {
     ARIADNE_TEST_EQUALS(comparison_stream.str(),std::string("LESS EQUAL GREATER INCOMPARABLE"));
     std::ostringstream invalid_comparison_stream;
     ARIADNE_TEST_FAIL(invalid_comparison_stream << static_cast<Comparison>(42));
+
+    Natural natural(2u);
+    Natural other(3u);
+    ++natural;
+    natural+=other;
+    ARIADNE_TEST_EQUALS(natural,Integer(6));
+    ARIADNE_TEST_EQUALS(Natural(2u)+Natural(3u),Integer(5));
+    ARIADNE_TEST_EQUALS(Natural(2u)*Natural(3u),Integer(6));
+    ARIADNE_TEST_EQUALS(cast_positive(Integer(4)),Integer(4));
 }
 
 void TestInteger::test_comparisons() {

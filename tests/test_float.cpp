@@ -47,6 +47,7 @@
 #include "numeric/float_error.hpp"
 #include "numeric/float_literals.hpp"
 #include "numeric/positive.hpp"
+#include "numeric/casts.hpp"
 
 #include "utility/test.hpp"
 #include "test_floats.hpp"
@@ -184,6 +185,21 @@ TestFloat<PR>::test_conversions()
 
     Positive<Float<PR>> positive_value(2u,precision);
     ARIADNE_TEST_EQUALS(cast_unsigned(positive_value),Float<PR>(2u,precision));
+
+    FloatError<PR> error(1u,precision);
+    ARIADNE_TEST_EQUALS(cast_exact(error),error.raw());
+
+    FloatApproximation<PR> approximation(2u,precision);
+    ARIADNE_TEST_EQUALS(cast_exact(approximation),approximation.raw());
+
+    if constexpr (Same<PR,DoublePrecision>) {
+        RawFloatDP raw(2u,dp);
+        FloatDPApproximation approximate(2u,dp);
+        ARIADNE_TEST_EQUALS(cast_raw(raw),raw);
+        ARIADNE_TEST_EQUALS(cast_raw(approximate),approximate.raw());
+        ARIADNE_TEST_EQUALS(cast_approximate(raw).raw(),raw);
+        ARIADNE_TEST_EQUALS(cast_approximate(approximate).raw(),approximate.raw());
+    }
 }
 
 template<class PR> Void
