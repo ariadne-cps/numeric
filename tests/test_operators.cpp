@@ -310,6 +310,15 @@ class TestOperators {
         ARIADNE_TEST_EXECUTE(Tanh{}(x));
         ARIADNE_TEST_EXECUTE(Asin{}(x));
         ARIADNE_TEST_EXECUTE(Acos{}(x));
+
+        Sgn sgn_operator;
+        auto sgn_real=static_cast<Kleenean (Sgn::*)(Real const&) const>(&Sgn::operator());
+        Kleenean sign=(sgn_operator.*sgn_real)(Real(Integer(1)));
+        std::ostringstream sign_stream;
+        sign_stream << sign;
+        ARIADNE_TEST_ASSERT(not sign_stream.str().empty());
+        ARIADNE_TEST_ASSERT(definitely(sign.check(Effort(1))));
+
     }
 
     void test_inverses() {
