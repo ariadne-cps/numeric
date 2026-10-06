@@ -338,6 +338,10 @@ Rational div(Rational const& q1, Rational const& q2) {
     Rational r; ExtendedOperations<Rational>::div(r,q1,q2); return r;
 }
 
+Rational div(Integer const& z1, Integer const& z2) {
+    return Rational(z1,z2);
+}
+
 Rational pow(Rational const& q, Nat m) {
     Rational r=1; Rational p=q;
     while(m!=0) { if(m%2==1) { r=r*p; } p=p*p; m/=2; }
@@ -525,61 +529,61 @@ template<class Y> inline decltype(auto) rec(RoundExact, Y const& y) { return rec
 template<class Y1, class Y2> inline decltype(auto) mul(RoundExact, Y1 const& y1, Y2 const& y2) { return y1*y2; }
 template<class Y1, class Y2> inline decltype(auto) div(RoundExact, Y1 const& y1, Y2 const& y2) { return y1/y2; }
 
-template<class RNDUP, class Y> inline auto _mul(RNDUP up, Bounds<Y> const& y1, Bounds<Y> const& y2) -> Bounds<Y>
+template<class RNDUP, class Y> inline auto _mul(RNDUP rnd_up, Bounds<Y> const& y1, Bounds<Y> const& y2) -> Bounds<Y>
 {
-    auto down=opposite(up);
+    auto rnd_down=opposite(rnd_up);
     const Y& y1l=y1.lower_raw(); const Y& y1u=y1.upper_raw();
     const Y& y2l=y2.lower_raw(); const Y& y2u=y2.upper_raw();
     if(y1l>=0) {
         if(y2l>=0) {
-            return Bounds<Y>(mul(down,y1l,y2l),mul(up,y1u,y2u));
+            return Bounds<Y>(mul(rnd_down,y1l,y2l),mul(rnd_up,y1u,y2u));
         } else if(y2u<=0) {
-            return Bounds<Y>(mul(down,y1u,y2l),mul(up,y1l,y2u));
+            return Bounds<Y>(mul(rnd_down,y1u,y2l),mul(rnd_up,y1l,y2u));
         } else {
-            return Bounds<Y>(mul(down,y1u,y2l),mul(up,y1u,y2u));
+            return Bounds<Y>(mul(rnd_down,y1u,y2l),mul(rnd_up,y1u,y2u));
         }
     }
     else if(y1u<=0) {
         if(y2l>=0) {
-            return Bounds<Y>(mul(down,y1l,y2u),mul(up,y1u,y2l));
+            return Bounds<Y>(mul(rnd_down,y1l,y2u),mul(rnd_up,y1u,y2l));
         } else if(y2u<=0) {
-            return Bounds<Y>(mul(down,y1u,y2u),mul(up,y1l,y2l));
+            return Bounds<Y>(mul(rnd_down,y1u,y2u),mul(rnd_up,y1l,y2l));
         } else {
-            return Bounds<Y>(mul(down,y1l,y2u),mul(up,y1l,y2l));
+            return Bounds<Y>(mul(rnd_down,y1l,y2u),mul(rnd_up,y1l,y2l));
         }
     } else {
         if(y2l>=0) {
-            return Bounds<Y>(mul(down,y1l,y2u),mul(up,y1u,y2u));
+            return Bounds<Y>(mul(rnd_down,y1l,y2u),mul(rnd_up,y1u,y2u));
         } else if(y2u<=0) {
-            return Bounds<Y>(mul(down,y1u,y2l),mul(up,y1l,y2l));
+            return Bounds<Y>(mul(rnd_down,y1u,y2l),mul(rnd_up,y1l,y2l));
         } else {
-            return Bounds<Y>(min(mul(down,y1u,y2l),mul(down,y1l,y2u)),max(mul(up,y1l,y2l),mul(up,y1u,y2u)));
+            return Bounds<Y>(min(mul(rnd_down,y1u,y2l),mul(rnd_down,y1l,y2u)),max(mul(rnd_up,y1l,y2l),mul(rnd_up,y1u,y2u)));
         }
     }
 }
 
-template<class RNDUP, class Y> inline auto _div(RNDUP up, Bounds<Y> const& y1, Bounds<Y> const& y2) -> Bounds<Y>
+template<class RNDUP, class Y> inline auto _div(RNDUP rnd_up, Bounds<Y> const& y1, Bounds<Y> const& y2) -> Bounds<Y>
 {
-    auto down=opposite(up);
+    auto rnd_down=opposite(rnd_up);
     const Y& y1l=y1.lower_raw(); const Y& y1u=y1.upper_raw();
     const Y& y2l=y2.lower_raw(); const Y& y2u=y2.upper_raw();
     // IMPORTANT: Need to be careful when one of the bounds is 0, since if y2l=-0.0 and y1u>0, then y2l>=0 but y1u/y2l=-inf
     if(y2l>0) {
         if(y1l>=0) {
-            return Bounds<Y>(div(down,y1l,y2u),div(up,y1u,y2l));
+            return Bounds<Y>(div(rnd_down,y1l,y2u),div(rnd_up,y1u,y2l));
         } else if(y1u<=0) {
-            return Bounds<Y>(div(down,y1l,y2l),div(up,y1u,y2u));
+            return Bounds<Y>(div(rnd_down,y1l,y2l),div(rnd_up,y1u,y2u));
         } else {
-            return Bounds<Y>(div(down,y1l,y2l),div(up,y1u,y2l));
+            return Bounds<Y>(div(rnd_down,y1l,y2l),div(rnd_up,y1u,y2l));
         }
     }
     else if(y2u<0) {
         if(y1l>=0) {
-            return Bounds<Y>(div(down,y1u,y2u),div(up,y1l,y2l));
+            return Bounds<Y>(div(rnd_down,y1u,y2u),div(rnd_up,y1l,y2l));
         } else if(y1u<=0) {
-            return Bounds<Y>(div(down,y1u,y2l),div(up,y1l,y2u));
+            return Bounds<Y>(div(rnd_down,y1u,y2l),div(rnd_up,y1l,y2u));
         } else {
-            return Bounds<Y>(div(down,y1u,y2u),div(up,y1l,y2u));
+            return Bounds<Y>(div(rnd_down,y1u,y2u),div(rnd_up,y1l,y2u));
         }
     }
     else {
@@ -593,23 +597,23 @@ template<class RNDUP, class Y> inline auto _div(RNDUP up, Bounds<Y> const& y1, B
     }
 }
 
-template<class RNDUP, class Y> Bounds<Y> _sqr(RNDUP up, Bounds<Y> const& y) {
-    auto down=opposite(up);
+template<class RNDUP, class Y> Bounds<Y> _sqr(RNDUP rnd_up, Bounds<Y> const& y) {
+    auto rnd_down=opposite(rnd_up);
     const Y& yl=y.lower_raw(); const Y& yu=y.upper_raw();
     if(yl>0) {
-        return Bounds<Y>(sqr(down,yl),sqr(up,yu));
+        return Bounds<Y>(sqr(rnd_down,yl),sqr(rnd_up,yu));
     } else if(yu<0) {
-        return Bounds<Y>(sqr(down,yu),sqr(up,yl));
+        return Bounds<Y>(sqr(rnd_down,yu),sqr(rnd_up,yl));
     } else {
-        return Bounds<Y>(nul(yl),max(sqr(up,yl),sqr(up,yu)));
+        return Bounds<Y>(nul(yl),max(sqr(rnd_up,yl),sqr(rnd_up,yu)));
     }
 }
 
-template<class RNDUP, class Y> Bounds<Y> _rec(RNDUP up, Bounds<Y> const& y) {
-    auto down=opposite(up);
+template<class RNDUP, class Y> Bounds<Y> _rec(RNDUP rnd_up, Bounds<Y> const& y) {
+    auto rnd_down=opposite(rnd_up);
     const Y& yl=y.lower_raw(); const Y& yu=y.upper_raw();
     if(yl>0 || yu<0) {
-        return Bounds<Y>(rec(down,yu),rec(up,yl));
+        return Bounds<Y>(rec(rnd_down,yu),rec(rnd_up,yl));
     } else {
         if constexpr(HasPrecisionType<Y>) {
             auto pr=y.precision();

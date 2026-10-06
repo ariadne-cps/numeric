@@ -155,6 +155,7 @@ void TestRational::test_arithmetic() {
     ARIADNE_TEST_EQUAL(Rational(-4,5)-Rational(-2,7),Rational(-18,35));
     ARIADNE_TEST_EQUAL(Rational(4,5)*Rational(-2,7),Rational(-8,35));
     ARIADNE_TEST_EQUAL(Rational(4,5)/Rational(-2,7),Rational(-14,5));
+    ARIADNE_TEST_EQUAL(div(Integer(3),Integer(4)),Rational(3,4));
 
     PositiveRational p2=cast_positive(Rational(2));
     PositiveRational p3=cast_positive(Rational(3));
