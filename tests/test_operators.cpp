@@ -318,6 +318,9 @@ class TestOperators {
         sign_stream << sign;
         ARIADNE_TEST_ASSERT(not sign_stream.str().empty());
         ARIADNE_TEST_ASSERT(definitely(sign.check(Effort(1))));
+        LogicalInterface* sign_copy=sign.repr().pointer()->_copy();
+        ARIADNE_TEST_ASSERT(sign_copy->_check(Effort(1))==LogicalValue::TRUE);
+        delete sign_copy;
 
     }
 
