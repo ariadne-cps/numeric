@@ -29,9 +29,12 @@
 #include "numeric/dyadic.hpp"
 #include "numeric/decimal.hpp"
 #include "numeric/number.hpp"
+#include "numeric/floatdp.hpp"
+#include "numeric/floatmp.hpp"
 #include "foundation/logical.hpp"
 
 #include <iomanip>
+#include <sstream>
 
 #include "utility/test.hpp"
 
@@ -118,6 +121,33 @@ void TestRational::test_conversions() {
     ARIADNE_TEST_EQUAL(Rational(Integer(-3)),Rational(-3,1));
     ARIADNE_TEST_EQUAL(Rational(Dyadic(-13)),Rational(-13));
     ARIADNE_TEST_EQUAL(Rational(Dyadic(-13,3u)),Rational(-13,8));
+    ARIADNE_TEST_EQUAL(Rational(Int64(int32_t(-7))),Rational(-7));
+
+    FloatDP fdp(Dyadic(5,2u),dp);
+    ARIADNE_TEST_EQUAL(Rational(fdp),Rational(5,4));
+    MultiplePrecision mp(128);
+    FloatMP fmp(Dyadic(5,2u),mp);
+    ARIADNE_TEST_EQUAL(Rational(fmp),Rational(5,4));
+
+    ARIADNE_TEST_EQUAL(Rational(String("7/9")),Rational(7,9));
+    ARIADNE_TEST_FAIL(Rational(String("not-a-rational")));
+
+    mpq_t raw;
+    mpq_init(raw);
+    mpq_set_si(raw,5,6);
+    Rational from_raw(raw);
+    mpq_clear(raw);
+    ARIADNE_TEST_EQUAL(from_raw,Rational(5,6));
+
+    Rational assigned;
+    Rational source(11,13);
+    assigned=source;
+    ARIADNE_TEST_EQUAL(assigned,source);
+
+    std::istringstream input("17/19");
+    Rational streamed;
+    input >> streamed;
+    ARIADNE_TEST_EQUAL(streamed,Rational(17,19));
 }
 
 void TestRational::test_arithmetic() {
@@ -125,6 +155,15 @@ void TestRational::test_arithmetic() {
     ARIADNE_TEST_EQUAL(Rational(-4,5)-Rational(-2,7),Rational(-18,35));
     ARIADNE_TEST_EQUAL(Rational(4,5)*Rational(-2,7),Rational(-8,35));
     ARIADNE_TEST_EQUAL(Rational(4,5)/Rational(-2,7),Rational(-14,5));
+
+    PositiveRational p2=cast_positive(Rational(2));
+    PositiveRational p3=cast_positive(Rational(3));
+    ARIADNE_TEST_EQUAL(max(Rational(-1),p2),Rational(2));
+    ARIADNE_TEST_EQUAL(max(p2,Rational(4)),Rational(4));
+    ARIADNE_TEST_EQUAL(max(p2,p3),Rational(3));
+    ARIADNE_TEST_EQUAL(min(p2,p3),Rational(2));
+    ARIADNE_TEST_EQUAL(mag(Rational(-5,3)),Rational(5,3));
+    ARIADNE_TEST_EQUAL(mig(Rational(-5,3)),Rational(5,3));
 }
 
 void TestRational::test_rounding() {
@@ -159,6 +198,13 @@ void TestRational::test_comparisons() {
     ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-4,5),Rational(-2,7));
     ARIADNE_TEST_BINARY_PREDICATE(operator<,-infinity_value,Rational(18,35));
     ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(18,35),+infinity_value);
+
+    ARIADNE_TEST_EQUALS(cmp(Rational(1),ExactDouble(2)),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(Rational(2),ExactDouble(2)),Comparison::EQUAL);
+    ARIADNE_TEST_EQUALS(cmp(Rational(3),ExactDouble(2)),Comparison::GREATER);
+    ARIADNE_TEST_EQUALS(cmp(Rational(1),ExactDouble::inf()),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(Rational(1),-ExactDouble::inf()),Comparison::GREATER);
+    ARIADNE_TEST_EQUALS(cmp(ExactDouble(2),Rational(1)),Comparison::GREATER);
 }
 
 void TestRational::test_infinity() {
@@ -343,6 +389,25 @@ void TestRational::test_bounds() {
     ARIADNE_TEST_ASSERT(is_indeterminate(RationalBounds(2,3)>RationalBounds(1,2)));
 
     ARIADNE_TEST_EQUALS(class_name<RationalBounds>(),String("RationalBounds"));
+
+    auto check_dyadic=[](DyadicBounds const& actual, Dyadic const& lower, Dyadic const& upper) {
+        ARIADNE_TEST_EQUALS(actual.lower_raw(),lower);
+        ARIADNE_TEST_EQUALS(actual.upper_raw(),upper);
+    };
+    DyadicBounds dpb(Dyadic(2),Dyadic(3));
+    DyadicBounds dnb(Dyadic(-3),Dyadic(-2));
+    DyadicBounds dmb(Dyadic(-2),Dyadic(3));
+    check_dyadic(dpb*dpb,Dyadic(4),Dyadic(9));
+    check_dyadic(dpb*dnb,Dyadic(-9),Dyadic(-4));
+    check_dyadic(dpb*dmb,Dyadic(-6),Dyadic(9));
+    check_dyadic(dnb*dpb,Dyadic(-9),Dyadic(-4));
+    check_dyadic(dnb*dnb,Dyadic(4),Dyadic(9));
+    check_dyadic(dnb*dmb,Dyadic(-9),Dyadic(6));
+    check_dyadic(dmb*dpb,Dyadic(-6),Dyadic(9));
+    check_dyadic(dmb*dnb,Dyadic(-9),Dyadic(6));
+    check_dyadic(dmb*dmb,Dyadic(-6),Dyadic(9));
+    check_dyadic(mul(dpb,dnb),Dyadic(-9),Dyadic(-4));
+    check_dyadic(pow(dmb,Int(3)),Dyadic(-8),Dyadic(27));
 }
 
 void TestRational::test_decimal() {

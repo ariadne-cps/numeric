@@ -38,6 +38,8 @@
 #include "builtin.hpp"
 #include "integer.hpp"
 #include "dyadic.hpp"
+#include "floatdp.hpp"
+#include "floatmp.hpp"
 #include "sign.hpp"
 #include "extended.hpp"
 
@@ -54,10 +56,6 @@ class InvalidRationalLiteralException {
   public:
     InvalidRationalLiteralException(StringType) { }
 };
-
-// Shortened version of raw float classes sufficient for comparison operator
-template<> class Float<DP> { volatile double _dbl; public: double get_d() const { return _dbl; } };
-
 
 
 template<> class ExtensionOperations<Rational> {
@@ -88,7 +86,6 @@ template<> class FiniteOperations<Rational> {
     static Void mul(Rational& r, Rational const& q1, Rational const& q2) { return mpq_mul(r._mpq, q1._mpq, q2._mpq); }
     static Void div(Rational& r, Rational const& q1, Rational const& q2) { return mpq_div(r._mpq, q1._mpq, q2._mpq); }
 
-    static Void pos(Rational& r, Rational const& q) { mpq_set(r._mpq,q._mpq); }
     static Void neg(Rational& r, Rational const& q) { mpq_neg(r._mpq,q._mpq); }
     static Void hlf(Rational& r, Rational const& q) { mpq_div_2exp(r._mpq,q._mpq,1u); }
     static Void sqr(Rational& r, Rational const& q) { mpq_mul(r._mpq,q._mpq,q._mpq); }
@@ -183,7 +180,6 @@ Rational::Rational(ExactDouble const& x) {
 Rational::Rational(FloatDP const& x) : Rational(ExactDouble(x.get_d())) {
 }
 
-template<> class Float<MP> { mpf_t _mpf; public: operator Dyadic() const; };
 Rational::Rational(FloatMP const& x) : Rational(x.operator Dyadic()) {
 }
 
@@ -267,23 +263,6 @@ Rational operator/(Integer const& z1, Integer const& z2) {
 }
 
 
-Rational operator+(Rational& q1, Rational const& q2) {
-    Rational r; ExtendedOperations<Rational>::add(r,q1,q2); return r;
-}
-
-Rational operator-(Rational& q1, Rational const& q2) {
-    Rational r; ExtendedOperations<Rational>::sub(r,q1,q2); return r;
-}
-
-Rational operator*(Rational& q1, Rational const& q2) {
-    Rational r; ExtendedOperations<Rational>::mul(r,q1,q2); return r;
-}
-
-Rational operator/(Rational& q1, Rational const& q2) {
-    Rational r; ExtendedOperations<Rational>::div(r,q1,q2); return r;
-}
-
-
 namespace { Rational const& unsign(PositiveRational const& q) { return q; } }
 
 Rational max(Rational const& q1, Rational const& q2) {
@@ -357,10 +336,6 @@ Rational mul(Rational const& q1, Rational const& q2) {
 
 Rational div(Rational const& q1, Rational const& q2) {
     Rational r; ExtendedOperations<Rational>::div(r,q1,q2); return r;
-}
-
-Rational div(Integer const& z1, Integer const& z2) {
-    return Rational(z1,z2);
 }
 
 Rational pow(Rational const& q, Nat m) {
@@ -462,14 +437,6 @@ Comparison cmp(ExactDouble const& x1, Rational const& q2) {
     return Comparison(-(int)cmp(q2,x1));
 }
 
-Comparison cmp(Rational const& q1, Int const& n2) {
-    return Comparison(mpq_cmp_si(q1._mpq,n2,1));
-}
-
-Comparison cmp(Int const& n1, Rational const& q2) {
-    return Comparison(-(int)cmp(q2,n1));
-}
-
 Rational operator""_q(unsigned long long int n) {
     return Rational(operator""_z(n));
 }
@@ -529,8 +496,11 @@ OutputStream& write(OutputStream& os, mpz_t const z) {
     return os << str;
 }
 
-InputStream& operator>>(InputStream&, Rational&) {
-    ARIADNE_NOT_IMPLEMENTED;
+InputStream& operator>>(InputStream& is, Rational& q) {
+    String token;
+    is >> token;
+    if(is) { q=Rational(token); }
+    return is;
 }
 
 //   mpq_get_str (char *str, mpq_eq1p_t *eq1pptr, Int b, SizeType n, mpq_t op, mpq_rnd_t rnd)
