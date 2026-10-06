@@ -50,7 +50,6 @@ bin(uint8_t n, uint8_t k)
                            // Note that this is shorter than the maximum representable factorial
     if(k>n+1) { ARIADNE_FAIL_MSG("bin("<<n<<","<<k<<")"); }
     if(k==n+1) { return 0; }
-    ARIADNE_ASSERT(k<=n);
     uint32_t r=1;
     for(uint8_t i=1; i<=k; ++i) {
         r*=(n+1u-i);
@@ -78,7 +77,6 @@ bin(uint16_t n, uint16_t k)
                            // Note that this is shorter than the maximum representable factorial
     if(k>n+1) { ARIADNE_FAIL_MSG("bin("<<n<<","<<k<<")"); }
     if(k==n+1) { return 0; }
-    ARIADNE_ASSERT(k<=n);
     uint16_t r=1;
     for(uint16_t i=1; i<=k; ++i) {
         r*=(n+1-i);
@@ -106,7 +104,6 @@ bin(uint32_t n, uint32_t k)
                            // Note that this is shorter than the maximum representable factorial
     if(k>n+1) { ARIADNE_FAIL_MSG("bin("<<n<<","<<k<<")"); }
     if(k==n+1) { return 0; }
-    ARIADNE_ASSERT(k<=n);
     uint32_t r=1;
     for(uint32_t i=1; i<=k; ++i) {
         r*=(n+1-i);
@@ -136,7 +133,6 @@ bin(uint64_t n, uint64_t k)
                            // Note that this is shorter than the maximum representable factorial
     if(k>n+1) { ARIADNE_FAIL_MSG("bin("<<n<<","<<k<<")"); }
     if(k==n+1) { return 0; }
-    ARIADNE_ASSERT(k<=n);
     uint64_t r=1;
     for(uint64_t i=1; i<=k; ++i) {
         r*=(n+1-i);
