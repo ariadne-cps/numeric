@@ -58,7 +58,7 @@ Decimal::Decimal(Integer p, Nat q) : _p(p), _q(q)
 
 Decimal::Decimal(Dyadic const& w)
 {
-    assert(w.exponent()>=0);
+    ARIADNE_PRECONDITION(w.exponent()>=0);
     this->_p=w.mantissa();
     this->_q=static_cast<Nat>(w.exponent());
     Integer five(5);
@@ -203,9 +203,8 @@ Decimal::Decimal(double x)
     exp-=static_cast<Int>(sf);
     double re=std::fabs(y-n*acc); // The error of n/10^sf
 
-    if(std::fabs(re)>=tol) {
+    if(std::fabs(re)>=tol)
         ARIADNE_THROW(std::runtime_error,"Decimal(double)","double-precision floating-point number must have a relative error of "<<tol<<" with respect to its approximation to "<<sf<<" significant figures; number "<<std::setprecision(17)<<x<<" has a relative error of "<<re);
-    }
 
     this->_p=sgn*n;
     if(exp>0) {
@@ -247,7 +246,6 @@ Decimal::Decimal(String const& str)
             ARIADNE_THROW(std::runtime_error,"Decimal(String)","invalid symbol '"<<c<<"' in string literal \""<<str<<"\"");
         } else {
             Int d=(c-'0');
-            assert(0<=d && d<=9);
 
             if(found_decimal_point) {
                 if(d==0) {
