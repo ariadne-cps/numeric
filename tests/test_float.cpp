@@ -46,6 +46,7 @@
 #include "numeric/float_upper_bound.hpp"
 #include "numeric/float_error.hpp"
 #include "numeric/float_literals.hpp"
+#include "numeric/positive.hpp"
 
 #include "utility/test.hpp"
 #include "test_floats.hpp"
@@ -71,6 +72,11 @@ Void test_float_literals()
     ARIADNE_TEST_EQUALS(upper.raw(),half);
     ARIADNE_TEST_EQUALS(lower.raw(),half);
     ARIADNE_TEST_EQUALS(approximation.raw(),half);
+
+    DecimalPlaces places(3u);
+    DecimalPrecision precision(5u);
+    ARIADNE_TEST_EQUALS(static_cast<unsigned int>(places),3u);
+    ARIADNE_TEST_EQUALS(static_cast<unsigned int>(precision),5u);
 
     if constexpr (std::numeric_limits<long double>::digits > std::numeric_limits<double>::digits) {
         ARIADNE_TEST_FAIL(operator""_error(0.1L));
@@ -175,6 +181,9 @@ TestFloat<PR>::test_conversions()
 {
     ARIADNE_TEST_EQUALS(cast_integer(Float<PR>(Dyadic(2),precision)),Integer(2));
     ARIADNE_TEST_FAIL(cast_integer(Float<PR>(Dyadic(7,2u),precision)));
+
+    Positive<Float<PR>> positive_value(2u,precision);
+    ARIADNE_TEST_EQUALS(cast_unsigned(positive_value),Float<PR>(2u,precision));
 }
 
 template<class PR> Void

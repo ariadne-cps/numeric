@@ -23,6 +23,7 @@
  */
 
 #include <iostream>
+#include <sstream>
 
 #include "numeric/rounding.hpp"
 
@@ -60,6 +61,42 @@ void TestRoundingMode::test() const {
         std::cout << "Error: no rounding mode available." << std::endl;
         ++ARIADNE_TEST_FAILURES;
     #endif
+
+    auto original_rounding=get_builtin_rounding_mode();
+
+    set_builtin_rounding_to_nearest();
+    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_TO_NEAREST);
+    set_builtin_rounding_downward();
+    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_DOWNWARD);
+    set_builtin_rounding_upward();
+    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_UPWARD);
+    set_builtin_rounding_toward_zero();
+    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_TOWARD_ZERO);
+    set_builtin_rounding_mode(original_rounding);
+
+    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(downward),ROUND_DOWNWARD);
+    ARIADNE_TEST_EQUALS(static_cast<MPFRRoundingModeType>(downward),MPFR_RNDD);
+    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(to_nearest),ROUND_TO_NEAREST);
+    ARIADNE_TEST_EQUALS(static_cast<MPFRRoundingModeType>(to_nearest),MPFR_RNDN);
+    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(upward),ROUND_UPWARD);
+    ARIADNE_TEST_EQUALS(static_cast<MPFRRoundingModeType>(upward),MPFR_RNDU);
+    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(toward_zero),ROUND_TOWARD_ZERO);
+    ARIADNE_TEST_EQUALS(static_cast<MPFRRoundingModeType>(toward_zero),MPFR_RNDZ);
+    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(approximately),ROUND_TO_NEAREST);
+    ARIADNE_TEST_EQUALS(static_cast<MPFRRoundingModeType>(approximately),MPFR_RNDN);
+
+    Rounding rnd_near(to_nearest);
+    Rounding rnd_down(downward);
+    Rounding rnd_up(upward);
+    Rounding rnd_zero(ROUND_TOWARD_ZERO,MPFR_RNDZ);
+    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_near),ROUND_TO_NEAREST);
+    ARIADNE_TEST_EQUALS(static_cast<MPFRRoundingModeType>(rnd_down),MPFR_RNDD);
+    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_up),ROUND_UPWARD);
+    ARIADNE_TEST_EQUALS(static_cast<MPFRRoundingModeType>(rnd_zero),MPFR_RNDZ);
+
+    std::ostringstream stream;
+    stream << rnd_near << " " << rnd_down << " " << rnd_up;
+    ARIADNE_TEST_EQUALS(stream.str(),std::string("near down up"));
 }
 
 

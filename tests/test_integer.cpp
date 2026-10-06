@@ -23,11 +23,16 @@
  */
 
 #include "numeric/integer.hpp"
+#include "numeric/int.hpp"
+#include "numeric/twoexp.hpp"
+#include "numeric/accuracy.hpp"
+#include "numeric/sign.hpp"
 #include "foundation/logical.hpp"
 #include "utility/string.hpp"
 
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 
 #include "utility/test.hpp"
 
@@ -45,6 +50,7 @@ class TestInteger
     void test_constructors();
     void test_arithmetic();
     void test_comparisons();
+    void test_small_types();
 };
 
 void TestInteger::test()
@@ -53,6 +59,7 @@ void TestInteger::test()
     ARIADNE_TEST_CALL(test_comparisons());
     ARIADNE_TEST_CALL(test_literal());
     ARIADNE_TEST_CALL(test_arithmetic());
+    ARIADNE_TEST_CALL(test_small_types());
 }
 
 void TestInteger::test_concept() {
@@ -150,6 +157,48 @@ void TestInteger::test_arithmetic() {
     ARIADNE_TEST_EQUALS(abs(Integer(-5)),5);
     ARIADNE_TEST_EQUALS(abs(Integer( 0)),0);
     ARIADNE_TEST_EQUALS(abs(Integer(+5)),5);
+}
+
+void TestInteger::test_small_types() {
+    Nat32 n32;
+    Nat64 n64;
+    Int32 i32;
+    Int64 i64;
+    ARIADNE_TEST_EQUALS(n32.get_ui(),uint32_t(0));
+    ARIADNE_TEST_EQUALS(n64.get_ui(),uint64_t(0));
+    ARIADNE_TEST_EQUALS(i32.get_si(),int32_t(0));
+    ARIADNE_TEST_EQUALS(i64.get_si(),int64_t(0));
+
+    Bits bits=8_bits;
+    ARIADNE_TEST_EQUALS(static_cast<unsigned long int>(bits),8ul);
+    std::ostringstream bits_stream;
+    bits_stream << bits;
+    ARIADNE_TEST_EQUALS(bits_stream.str(),std::string("8_bits"));
+
+    Accuracy direct_accuracy(Dyadic(1,8u));
+    ARIADNE_TEST_EQUALS(direct_accuracy.error(),Dyadic(1,8u));
+    ARIADNE_TEST_EQUALS(accuracy(8_bits).error(),Dyadic(1,8u));
+
+    TwoExp p(3);
+    TwoExp from_two(two);
+    ARIADNE_TEST_EQUALS(p.exponent(),3);
+    ARIADNE_TEST_EQUALS(from_two.exponent(),1);
+    ARIADNE_TEST_EQUALS(p.get_d(),8.0);
+    ARIADNE_TEST_EQUALS(rec(p).exponent(),-3);
+    ARIADNE_TEST_EQUALS(Ariadne::exp2(-2).exponent(),-2);
+    ARIADNE_TEST_EQUALS((two^static_cast<Nat>(4)).exponent(),4);
+    ARIADNE_TEST_EQUALS((two^static_cast<Int>(-4)).exponent(),-4);
+    ARIADNE_TEST_EQUALS(pow(two,-5).exponent(),-5);
+
+    ARIADNE_TEST_EQUALS(-Sign::NEGATIVE,Sign::POSITIVE);
+    ARIADNE_TEST_EQUALS(Sign::NEGATIVE*Sign::NEGATIVE,Sign::POSITIVE);
+    ARIADNE_TEST_EQUALS(Sign::NEGATIVE*Sign::POSITIVE,Sign::NEGATIVE);
+
+    std::ostringstream comparison_stream;
+    comparison_stream << LESS << " " << EQUAL << " " << GREATER << " " << INCOMPARABLE;
+    ARIADNE_TEST_EQUALS(comparison_stream.str(),std::string("LESS EQUAL GREATER INCOMPARABLE"));
+    std::ostringstream invalid_comparison_stream;
+    ARIADNE_TEST_FAIL(invalid_comparison_stream << static_cast<Comparison>(42));
 }
 
 void TestInteger::test_comparisons() {
