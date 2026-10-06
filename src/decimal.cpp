@@ -177,23 +177,12 @@ Rational operator/(Decimal const& d1, Decimal const& d2)
 }
 
 Comparison cmp(Integer const& z1, Integer const& z2);
-Boolean eq(Integer const& d1, Integer const& d2);
-Boolean lt(Integer const& d1, Integer const& d2);
 
 Comparison cmp(Decimal const& d1, Decimal const& d2)
 {
     return cmp(d1._p*pow(ten,d2._q),d2._p*pow(ten,d1._q));
 }
 
-Boolean eq(Decimal const& d1, Decimal const& d2)
-{
-    return eq(d1._p*pow(ten,d2._q),d2._p*pow(ten,d1._q));
-}
-
-Boolean lt(Decimal const& d1, Decimal const& d2)
-{
-    return lt(d1._p*pow(ten,d2._q),d2._p*pow(ten,d1._q));
-}
 
 Decimal::Decimal(double x)
 {

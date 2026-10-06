@@ -28,6 +28,7 @@
 #include "numeric/integer.hpp"
 #include "numeric/dyadic.hpp"
 #include "numeric/decimal.hpp"
+#include "numeric/number.hpp"
 #include "foundation/logical.hpp"
 
 #include <iomanip>
@@ -257,10 +258,19 @@ void TestRational::test_infinity() {
 }
 
 void TestRational::test_decimal() {
+    ARIADNE_TEST_CONSTRUCT(Decimal,d0,());
+    ARIADNE_TEST_EQUALS(d0,Decimal(0,0u));
     ARIADNE_TEST_CONSTRUCT(Decimal,d1,(23,1u));
     ARIADNE_TEST_CONSTRUCT(Decimal,d2,(-42,2u));
+    ARIADNE_TEST_EQUALS(7_decimal,Decimal(7,0u));
+    ARIADNE_TEST_EQUALS(8_dec,Decimal(8,0u));
+    ARIADNE_TEST_EQUALS(Decimal(0.0),Decimal(0,0u));
     ARIADNE_TEST_EQUALS(Decimal(-3.14),Decimal(-314,2u));
+    ARIADNE_TEST_EQUALS(Decimal(10000000000.0),Decimal(10000000000_z,0u));
     ARIADNE_TEST_EQUALS(Decimal("-3.14"),Decimal(-314,2u));
+    ARIADNE_TEST_EQUALS(Decimal("+3.14"),Decimal(314,2u));
+    ARIADNE_TEST_FAIL(Decimal("1.2.3"));
+    ARIADNE_TEST_FAIL(Decimal("1a"));
     ARIADNE_TEST_EQUALS(Decimal("3.141592653589793238462643383279"),Decimal(3141592653589793_z,15u)+Decimal(238462643383279_z,30u));
     ARIADNE_TEST_EQUALS(Decimal("3.141592653589793238462643383279"),Decimal("3141592653589793238462643383279"_z,30u));
     ARIADNE_TEST_FAIL(Decimal d(0.33333333333));
@@ -280,6 +290,25 @@ void TestRational::test_decimal() {
     ARIADNE_TEST_EQUAL(Rational(d1-d2),Rational(d1)-Rational(d2));
     ARIADNE_TEST_EQUAL(Rational(d1*d2),Rational(d1)*Rational(d2));
     ARIADNE_TEST_EQUAL(d1/d2,Rational(d1)/Rational(d2));
+    ARIADNE_TEST_EQUAL(Decimal(1,2u)/Decimal(1,1u),Rational(1,10));
+
+    Decimal accumulated(1);
+    accumulated+=Decimal("2.5");
+    ARIADNE_TEST_EQUALS(accumulated,Decimal("3.5"));
+    ARIADNE_TEST_EQUALS(nul(d1),Decimal(0));
+    ARIADNE_TEST_EQUALS(sqr(Decimal("1.5")),Decimal("2.25"));
+    ARIADNE_TEST_EQUALS(hlf(Decimal(24,1u)),Decimal(12,1u));
+    ARIADNE_TEST_EQUALS(hlf(Decimal(3)),Decimal(15,1u));
+    ARIADNE_TEST_EQUALS(abs(Decimal("-2.5")),Decimal("2.5"));
+    ARIADNE_TEST_EQUALS(max(Decimal("-2.5"),Decimal("1.5")),Decimal("1.5"));
+    ARIADNE_TEST_EQUALS(min(Decimal("-2.5"),Decimal("1.5")),Decimal("-2.5"));
+
+    ARIADNE_TEST_EQUALS(Decimal("3.014").literal(),String("3.014"));
+    ARIADNE_TEST_EQUALS(Decimal(3).literal(),String("3."));
+    ARIADNE_TEST_EQUALS(class_name<DecimalBounds>(),String("DecimalBounds"));
+
+    ExactNumber exact_decimal=static_cast<ExactNumber>(Decimal("1.25"));
+    ARIADNE_TEST_EQUALS(exact_decimal.class_name(),String("Rational"));
 }
 
 
