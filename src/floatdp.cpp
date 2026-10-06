@@ -62,6 +62,11 @@ int abslog10floor(double x);
 
 static_assert(not GenericNumber<FloatDP>);
 
+Rounded<FloatDP>::Rounded(Approximation<FloatDP> const& x)
+    : Rounded(x.raw())
+{
+}
+
 FloatDP::Float(ExactDouble const& d, PrecisionType)
     : FloatDP(d.get_d())
 {

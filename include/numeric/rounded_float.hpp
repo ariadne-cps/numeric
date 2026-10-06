@@ -101,8 +101,8 @@ template<> class Rounded<FloatDP>
         Rounded<FloatType> operator=(Y const& y) { return (*this)=FloatType(y,FloatType::get_rounding_mode(),this->precision()); }
 
     // Approximation<FloatDP> contains a FloatDP member; it is not a FloatDP base subobject.
-// Reinterpreting the wrapper as FloatDP is not guaranteed by the C++ object model.
-Rounded(Approximation<FloatDP> const& x) : Rounded(x.raw()) { }
+    // Reinterpreting the wrapper as FloatDP is not guaranteed by the C++ object model.
+    Rounded(Approximation<FloatDP> const& x);
     operator Approximation<FloatDP> () const;
 
     double data() const { return this->_flt.dbl; }
