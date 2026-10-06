@@ -51,6 +51,7 @@ class TestInteger
     void test_arithmetic();
     void test_comparisons();
     void test_small_types();
+    void test_combinatorics();
 };
 
 void TestInteger::test()
@@ -60,6 +61,7 @@ void TestInteger::test()
     ARIADNE_TEST_CALL(test_literal());
     ARIADNE_TEST_CALL(test_arithmetic());
     ARIADNE_TEST_CALL(test_small_types());
+    ARIADNE_TEST_CALL(test_combinatorics());
 }
 
 void TestInteger::test_concept() {
@@ -218,6 +220,44 @@ void TestInteger::test_small_types() {
     ARIADNE_TEST_EQUALS(Natural(2u)+Natural(3u),Integer(5));
     ARIADNE_TEST_EQUALS(Natural(2u)*Natural(3u),Integer(6));
     ARIADNE_TEST_EQUALS(cast_positive(Integer(4)),Integer(4));
+}
+
+void TestInteger::test_combinatorics() {
+    ARIADNE_TEST_EQUALS(fac(uint8_t(0)),uint32_t(1));
+    ARIADNE_TEST_EQUALS(fac(uint8_t(5)),uint32_t(120));
+    ARIADNE_TEST_FAIL(fac(uint8_t(13)));
+    ARIADNE_TEST_EQUALS(bin(uint8_t(5),uint8_t(0)),uint32_t(1));
+    ARIADNE_TEST_EQUALS(bin(uint8_t(5),uint8_t(2)),uint32_t(10));
+    ARIADNE_TEST_EQUALS(bin(uint8_t(5),uint8_t(6)),uint32_t(0));
+    ARIADNE_TEST_FAIL(bin(uint8_t(5),uint8_t(7)));
+    ARIADNE_TEST_FAIL(bin(uint8_t(32),uint8_t(1)));
+
+    ARIADNE_TEST_EQUALS(fac(uint16_t(0)),uint16_t(1));
+    ARIADNE_TEST_EQUALS(fac(uint16_t(5)),uint16_t(120));
+    ARIADNE_TEST_FAIL(fac(uint16_t(9)));
+    ARIADNE_TEST_EQUALS(bin(uint16_t(5),uint16_t(0)),uint16_t(1));
+    ARIADNE_TEST_EQUALS(bin(uint16_t(5),uint16_t(2)),uint16_t(10));
+    ARIADNE_TEST_EQUALS(bin(uint16_t(5),uint16_t(6)),uint16_t(0));
+    ARIADNE_TEST_FAIL(bin(uint16_t(5),uint16_t(7)));
+    ARIADNE_TEST_FAIL(bin(uint16_t(16),uint16_t(1)));
+
+    ARIADNE_TEST_EQUALS(fac(uint32_t(0)),uint32_t(1));
+    ARIADNE_TEST_EQUALS(fac(uint32_t(5)),uint32_t(120));
+    ARIADNE_TEST_FAIL(fac(uint32_t(13)));
+    ARIADNE_TEST_EQUALS(bin(uint32_t(5),uint32_t(0)),uint32_t(1));
+    ARIADNE_TEST_EQUALS(bin(uint32_t(5),uint32_t(2)),uint32_t(10));
+    ARIADNE_TEST_EQUALS(bin(uint32_t(5),uint32_t(6)),uint32_t(0));
+    ARIADNE_TEST_FAIL(bin(uint32_t(5),uint32_t(7)));
+    ARIADNE_TEST_FAIL(bin(uint32_t(31),uint32_t(1)));
+
+    ARIADNE_TEST_EQUALS(fac(uint64_t(0)),uint64_t(1));
+    ARIADNE_TEST_EQUALS(fac(uint64_t(5)),uint64_t(120));
+    ARIADNE_TEST_FAIL(fac(uint64_t(21)));
+    ARIADNE_TEST_EQUALS(bin(uint64_t(5),uint64_t(0)),uint64_t(1));
+    ARIADNE_TEST_EQUALS(bin(uint64_t(5),uint64_t(2)),uint64_t(10));
+    ARIADNE_TEST_EQUALS(bin(uint64_t(5),uint64_t(6)),uint64_t(0));
+    ARIADNE_TEST_FAIL(bin(uint64_t(5),uint64_t(7)));
+    ARIADNE_TEST_FAIL(bin(uint64_t(63),uint64_t(1)));
 }
 
 void TestInteger::test_comparisons() {
