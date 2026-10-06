@@ -151,10 +151,10 @@ void TestReal::test_constructors() {
     ARIADNE_TEST_EQUALS(positive_real_zero.get(pr),0);
     ARIADNE_TEST_EQUALS(positive_real_one.get(pr),1);
 
-    ARIADNE_TEST_EXECUTE(PositiveLowerReal(positive_real_one));
-    ARIADNE_TEST_EXECUTE(PositiveLowerReal(Real(1).lower()));
-    ARIADNE_TEST_EXECUTE(PositiveUpperReal(positive_real_one));
-    ARIADNE_TEST_EXECUTE(PositiveUpperReal(Real(1).upper()));
+    ARIADNE_TEST_EXECUTE(PositiveLowerReal{positive_real_one});
+    ARIADNE_TEST_EXECUTE(PositiveLowerReal{Real(1).lower()});
+    ARIADNE_TEST_EXECUTE(PositiveUpperReal{positive_real_one});
+    ARIADNE_TEST_EXECUTE(PositiveUpperReal{Real(1).upper()});
     ARIADNE_TEST_CONSTRUCT(Real,xz,(1));
     ARIADNE_TEST_EQUALS(xz.compute(eff).get(),1);
     ARIADNE_TEST_CONSTRUCT(Real,xe,(1.5_exact));
