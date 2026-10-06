@@ -253,16 +253,16 @@ class TestOperators {
     }
 
     void test_simple_operations() {
-        Integer one(1);
-        Integer two(2);
-        Integer three(3);
+        Integer z1(1);
+        Integer z2(2);
+        Integer z3(3);
 
-        ARIADNE_TEST_ASSERT(Less{}(one,two));
-        ARIADNE_TEST_ASSERT(Gtr{}(two,one));
-        ARIADNE_TEST_ASSERT(Leq{}(one,one));
-        ARIADNE_TEST_ASSERT(Geq{}(two,one));
-        ARIADNE_TEST_ASSERT(Equal{}(two,two));
-        ARIADNE_TEST_ASSERT(Unequal{}(one,two));
+        ARIADNE_TEST_ASSERT(Less{}(z1,z2));
+        ARIADNE_TEST_ASSERT(Gtr{}(z2,z1));
+        ARIADNE_TEST_ASSERT(Leq{}(z1,z1));
+        ARIADNE_TEST_ASSERT(Geq{}(z2,z1));
+        ARIADNE_TEST_ASSERT(Equal{}(z2,z2));
+        ARIADNE_TEST_ASSERT(Unequal{}(z1,z2));
 
         ARIADNE_TEST_ASSERT(AndOp{}(true,true));
         ARIADNE_TEST_ASSERT(OrOp{}(false,true));
@@ -276,16 +276,16 @@ class TestOperators {
         ARIADNE_TEST_EQUALS(Times{}(2,3),6);
         ARIADNE_TEST_EQUALS(Divides{}(6,3),2);
 
-        ARIADNE_TEST_EQUALS(Add{}(two,three),Integer(5));
-        ARIADNE_TEST_EQUALS(Sub{}(three,two),Integer(1));
-        ARIADNE_TEST_EQUALS(Mul{}(two,three),Integer(6));
-        ARIADNE_TEST_EQUALS(Pow{}(two,3u),Integer(8));
-        ARIADNE_TEST_EQUALS(Nul{}(three),Integer(0));
-        ARIADNE_TEST_EQUALS(Pos{}(three),Integer(3));
-        ARIADNE_TEST_EQUALS(Neg{}(three),Integer(-3));
-        ARIADNE_TEST_EQUALS(Sqr{}(three),Natural(9u));
-        ARIADNE_TEST_EQUALS(Max{}(two,three),Integer(3));
-        ARIADNE_TEST_EQUALS(Min{}(two,three),Integer(2));
+        ARIADNE_TEST_EQUALS(Add{}(z2,z3),Integer(5));
+        ARIADNE_TEST_EQUALS(Sub{}(z3,z2),Integer(1));
+        ARIADNE_TEST_EQUALS(Mul{}(z2,z3),Integer(6));
+        ARIADNE_TEST_EQUALS(Pow{}(z2,3u),Integer(8));
+        ARIADNE_TEST_EQUALS(Nul{}(z3),Integer(0));
+        ARIADNE_TEST_EQUALS(Pos{}(z3),Integer(3));
+        ARIADNE_TEST_EQUALS(Neg{}(z3),Integer(-3));
+        ARIADNE_TEST_EQUALS(Sqr{}(z3),Natural(9u));
+        ARIADNE_TEST_EQUALS(Max{}(z2,z3),Integer(3));
+        ARIADNE_TEST_EQUALS(Min{}(z2,z3),Integer(2));
         ARIADNE_TEST_EQUALS(Abs{}(Integer(-3)),Natural(3u));
         ARIADNE_TEST_EQUALS(Sgn{}(Integer(-3)),Sign::NEGATIVE);
 
@@ -293,11 +293,11 @@ class TestOperators {
         ARIADNE_TEST_EQUALS(Rec{}(Integer(4)),Rational(1,4));
 
         BinaryComparisonOperator less(Less{});
-        ARIADNE_TEST_ASSERT(less(one,two));
+        ARIADNE_TEST_ASSERT(less(z1,z2));
         BinaryRingOperator add(Add{});
-        ARIADNE_TEST_EQUALS(add(two,three),Integer(5));
+        ARIADNE_TEST_EQUALS(add(z2,z3),Integer(5));
         GradedRingOperator power(Pow{});
-        ARIADNE_TEST_EQUALS(power(two,3u),Integer(8));
+        ARIADNE_TEST_EQUALS(power(z2,3u),Integer(8));
     }
 
     void test_inverses() {

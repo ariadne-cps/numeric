@@ -165,7 +165,7 @@ struct GtrZero {}; struct LessZero {};
 
 struct Gtr : ComparisonObject<Gtr> {
     template<class A1, class A2> auto operator()(A1&& a1, A2&& a2) const -> decltype(a1> a2) { return a1 >  a2; }
-    static constexpr OperatorCode code() { return OperatorCode::GT; } OperatorKind kind() { return OperatorKind::COMPARISON; }
+    static constexpr OperatorCode code() { return OperatorCode::GT; } static constexpr OperatorKind kind() { return OperatorKind::COMPARISON; }
 };
 
 struct Less : ComparisonObject<Less> {
