@@ -28,7 +28,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 find_package(GMP REQUIRED)
 find_package(MPFR REQUIRED)
 
-include_directories(SYSTEM ${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/include)
 
 if(NOT TARGET foundation)
     add_subdirectory(submodules)
