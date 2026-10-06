@@ -54,10 +54,6 @@ FloatMP::~Float() {
     mpfr_clear(_mpfr);
 }
 
-FloatMP::Float() {
-    mpfr_init_set_si(_mpfr,0l,get_rounding_mode());
-}
-
 FloatMP::Float(NoInit const&) {
     mpfr_init(_mpfr);
 }
@@ -88,10 +84,8 @@ FloatMP::Float(TwoExp const& t, MultiplePrecision pr) {
 }
 
 FloatMP::Float(Dyadic const& w, MultiplePrecision pr) : FloatMP(w,near,pr) {
-    if (Dyadic(*this)==w || is_nan(w)) {
-    } else {
+    if (Dyadic(*this)!=w && !is_nan(w))
         ARIADNE_THROW(std::runtime_error,"Float(Dyadic)","Dyadic \""<<w<<"\" is not an exact floating-point number with precision " << pr << ".");
-    }
 }
 
 FloatMP::Float(String const& str, MultiplePrecision pr) : FloatMP(Dyadic(str),pr) {
@@ -168,7 +162,7 @@ FloatMP& FloatMP::operator=(const ExactDouble& x) {
 
 FloatMP& FloatMP::operator=(const Dyadic& w) {
     mpfr_set_f(_mpfr,w.get_mpf(),get_rounding_mode());
-    assert(*this==w);
+    ARIADNE_PRECONDITION(*this==w);
     return *this;
 }
 
@@ -557,10 +551,6 @@ OutputStream& operator<<(OutputStream& os, FloatMP const& x) {
     return repr(os,x);
 }
 
-OutputStream& operator<<=(OutputStream& os, FloatMP const& x) {
-    return os << "FloatMP(" << x << ",near," << x.precision() << ")";
-}
-
 InputStream& operator>>(InputStream& is, FloatMP& x) {
     int c;
     std::string str;
@@ -845,21 +835,6 @@ Boolean operator> (FloatMP const& x1, FloatMP const& x2) {
 
 
 
-FloatMP sqr_rnd(FloatMP const& x) { return sqr(FloatMP::get_rounding_mode(),x); }
-FloatMP add_rnd(FloatMP const& x1, FloatMP const& x2) { return add(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP sub_rnd(FloatMP const& x1, FloatMP const& x2) { return sub(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP mul_rnd(FloatMP const& x1, FloatMP const& x2) { return mul(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP div_rnd(FloatMP const& x1, FloatMP const& x2) { return div(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP pow_rnd(FloatMP const& x, Nat m) { return pow(FloatMP::get_rounding_mode(),x,m); }
-FloatMP pow_rnd(FloatMP const& x, Int n) { return pow(FloatMP::get_rounding_mode(),x,n); }
-FloatMP sqrt_rnd(FloatMP const& x) { return sqrt(FloatMP::get_rounding_mode(),x); }
-FloatMP exp_rnd(FloatMP const& x) { return exp(FloatMP::get_rounding_mode(),x); }
-FloatMP log_rnd(FloatMP const& x) { return log(FloatMP::get_rounding_mode(),x); }
-FloatMP sin_rnd(FloatMP const& x) { return sin(FloatMP::get_rounding_mode(),x); }
-FloatMP cos_rnd(FloatMP const& x) { return cos(FloatMP::get_rounding_mode(),x); }
-FloatMP tan_rnd(FloatMP const& x) { return tan(FloatMP::get_rounding_mode(),x); }
-FloatMP atan_rnd(FloatMP const& x) { return atan(FloatMP::get_rounding_mode(),x); }
-
 FloatMP add_opp(FloatMP const& x, FloatMP const& y);
 FloatMP sub_opp(FloatMP const& x, FloatMP const& y);
 FloatMP mul_opp(FloatMP const& x, FloatMP const& y);
@@ -881,7 +856,7 @@ mpfr_rnd_t to_mpfr_rnd_t(rounding_mode_t rnd) {
         case ROUND_DOWNWARD:    return MPFR_RNDD;
         case ROUND_UPWARD:      return MPFR_RNDU;
         case ROUND_TOWARD_ZERO: return MPFR_RNDZ;
-        default: abort();
+        default: ARIADNE_FAIL_MSG("Invalid built-in rounding mode "<<rnd);
     }
 }
 
@@ -894,9 +869,6 @@ FloatDP::Float(FloatMP const& d, RoundingModeType rnd, PrecisionType) : FloatDP(
 
 template<> String class_name<MultiplePrecision>() { return "MultiplePrecision"; }
 template<> String class_name<FloatMP>() { return "FloatMP"; }
-
-template<class PR> PR make_default_precision();
-template<> MP make_default_precision<MP>() { return FloatMP::get_default_precision(); }
 
 Nat FloatMP::output_places=20; // 64 bits of precision
 Void FloatMP::set_output_places(Nat pl) { output_places=pl; }

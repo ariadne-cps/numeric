@@ -47,6 +47,7 @@
 #include "numeric/float_error.hpp"
 #include "numeric/float_literals.hpp"
 #include "numeric/positive.hpp"
+#include "numeric/rounded_float.hpp"
 #include "numeric/casts.hpp"
 
 #include "utility/test.hpp"
@@ -210,6 +211,11 @@ TestFloat<PR>::test_conversions()
 
         Dyadic too_wide{Integer(String("18446744073709551617"))};
         ARIADNE_TEST_FAIL(FloatMP(too_wide,MultiplePrecision(64_bits)));
+        ARIADNE_TEST_ASSERT(is_nan(FloatMP(Dyadic::nan(),pr)));
+
+        FloatMP exact_assignment(0,MultiplePrecision(64_bits));
+        ARIADNE_TEST_EQUALS((exact_assignment=Dyadic(2)),Dyadic(2));
+        ARIADNE_TEST_FAIL(exact_assignment=too_wide);
 
         FloatMP zero(pr);
         ARIADNE_TEST_ASSERT(is_zero(zero));
@@ -406,6 +412,23 @@ TestFloat<PR>::test_operations()
         repr(repr_stream,a,MPFR_RNDN);
         ARIADNE_TEST_ASSERT(not repr_stream.str().empty());
 
+        ARIADNE_TEST_EQUALS(print(a.get_mpfr(),3,0,MPFR_RNDN),String("2."));
+        ARIADNE_TEST_EQUALS(print(FloatMP::nan(mpr),DecimalPrecision(3u),MPFR_RNDN),String("nan"));
+
+        std::istringstream float_input("\t\n+2.5:");
+        FloatMP parsed(mpr);
+        float_input >> parsed;
+        ARIADNE_TEST_EQUALS(parsed,FloatMP(Dyadic(5,1u),mpr));
+        ARIADNE_TEST_EQUALS(float_input.peek(),static_cast<int>(':'));
+
+        FloatMP::set_output_places(7u);
+        ARIADNE_TEST_EQUALS(FloatMP::output_places,Nat(7u));
+        ARIADNE_TEST_EQUALS(class_name<Rounded<FloatMP>>(),String("Rounded<FloatMP>"));
+
+        ARIADNE_TEST_EXECUTE(FloatDP(a,FloatDP::ROUND_TO_NEAREST,dp));
+        ARIADNE_TEST_EXECUTE(FloatDP(a,FloatDP::ROUND_TOWARD_ZERO,dp));
+        ARIADNE_TEST_FAIL(FloatDP(a,static_cast<FloatDP::RoundingModeType>(0xffffu),dp));
+
         FloatMP::set_rounding_to_nearest();
     }
 }
@@ -435,6 +458,21 @@ TestFloat<PR>::test_predicates()
 
     if constexpr (Same<PR,MultiplePrecision>) {
         FloatMP x(Dyadic(3,1u),pr);
+        FloatMP one(1,pr);
+        FloatMP two(2,pr);
+
+        ARIADNE_TEST_EQUALS(cmp(two,one),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(two,Nat(1u)),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(one,Nat(2u)),Comparison::LESS);
+
+        ARIADNE_TEST_EQUALS(cmp(Int(1),two),Comparison::LESS);
+        ARIADNE_TEST_EQUALS(cmp(Int(2),two),Comparison::EQUAL);
+        ARIADNE_TEST_EQUALS(cmp(Int(3),two),Comparison::GREATER);
+
+        ARIADNE_TEST_EQUALS(cmp(ExactDouble(1.0),two),Comparison::LESS);
+        ARIADNE_TEST_EQUALS(cmp(ExactDouble(2.0),two),Comparison::EQUAL);
+        ARIADNE_TEST_EQUALS(cmp(ExactDouble(3.0),two),Comparison::GREATER);
+
         ARIADNE_TEST_EQUALS(cmp(Nat(1u),x),Comparison::LESS);
         ARIADNE_TEST_EQUALS(cmp(Nat(2u),x),Comparison::GREATER);
         ARIADNE_TEST_EQUALS(cmp(Nat(3u),FloatMP(3,pr)),Comparison::EQUAL);

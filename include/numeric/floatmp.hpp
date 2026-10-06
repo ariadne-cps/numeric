@@ -148,7 +148,6 @@ template<> class Float<MP>
     explicit Float(const mpfr_t, RawPtr const&); //!< Construct from a raw MPFR number. The RawPtr tag is required to prevent converting from 0 as a null-pointer.
 
   private:
-    Float(); //!< <p/>
     explicit Float(double); //!< <p/>
   public:
     explicit Float(PrecisionType); //!< <p/>
@@ -446,20 +445,6 @@ template<> class Float<MP>
     friend Bounds<FloatMP> mul(ExactDouble x1, FloatMP const& x2);
     friend Bounds<FloatMP> div(ExactDouble x1, FloatMP const& x2);
 
-    // Correctly rounded operations
-    friend FloatMP sqr_rnd(FloatMP const& x);
-    friend FloatMP add_rnd(FloatMP const& x1, FloatMP const& x2);
-    friend FloatMP sub_rnd(FloatMP const& x1, FloatMP const& x2);
-    friend FloatMP mul_rnd(FloatMP const& x1, FloatMP const& x2);
-    friend FloatMP div_rnd(FloatMP const& x1, FloatMP const& x2);
-    friend FloatMP pow_rnd(FloatMP const& x, Int n);
-    friend FloatMP sqrt_rnd(FloatMP const& x);
-    friend FloatMP exp_rnd(FloatMP const& x);
-    friend FloatMP log_rnd(FloatMP const& x);
-    friend FloatMP sin_rnd(FloatMP const& x);
-    friend FloatMP cos_rnd(FloatMP const& x);
-    friend FloatMP tan_rnd(FloatMP const& x);
-    friend FloatMP atan_rnd(FloatMP const& x);
   public:
   public:
     friend OutputStream& write(OutputStream& os, FloatMP const& x, DecimalPlaces dgts, RoundingModeMP rnd);
