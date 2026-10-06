@@ -53,7 +53,7 @@ template<class F> inline F const& cast_exact(UpperBound<F> const& x) { return x.
 template<class F> inline F const cast_exact(Bounds<F> const& x) { return cast_exact(Approximation<F>(x)); }
 template<class F, class FE> inline F const& cast_exact(Ball<F,FE> const& x) { return x.value_raw(); }
 template<class F> inline F const& cast_exact(Error<F> const& x) { return x.raw(); }
-template<class F> inline F const& cast_exact(Rounded<F> const& x) { return x.raw(); }
+template<class F> inline F cast_exact(Rounded<F> const& x) { return x.raw(); }
 
 template<class F> inline const Positive<F> cast_exact(const Positive<Bounds<F>>& t) {
     return Positive<F>(cast_exact(static_cast<Bounds<F>const&>(t))); }
