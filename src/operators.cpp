@@ -77,6 +77,7 @@ OutputStream& operator<<(OutputStream& os, const OperatorKind& knd) {
         case OperatorKind::TERNARY: return os << "TERNARY";
         case OperatorKind::SCALAR: return os << "SCALAR";
         case OperatorKind::GRADED: return os << "GRADED";
+        case OperatorKind::PREDICATE: return os << "PREDICATE";
         case OperatorKind::COMPARISON: return os << "COMPARISON";
         default: return os << "UNKNOWN";
     }
@@ -94,12 +95,15 @@ const char* name(const OperatorCode& op) {
         case OperatorCode::SUB:  return "sub"; break;
         case OperatorCode::MUL:  return "mul"; break;
         case OperatorCode::DIV:  return "div"; break;
+        case OperatorCode::FMA:  return "fma"; break;
         case OperatorCode::SADD:  return "sadd"; break;
         case OperatorCode::SSUB:  return "ssub"; break;
         case OperatorCode::SMUL:  return "smul"; break;
         case OperatorCode::SDIV:  return "sdiv"; break;
+        case OperatorCode::SFMA:  return "sfma"; break;
         case OperatorCode::POW:  return "pow"; break;
         case OperatorCode::ROOT:  return "root"; break;
+        case OperatorCode::NUL:  return "nul"; break;
         case OperatorCode::NOT:  return "not"; break;
         case OperatorCode::AND:  return "and"; break;
         case OperatorCode::OR:   return "or"; break;
@@ -120,6 +124,8 @@ const char* name(const OperatorCode& op) {
         case OperatorCode::ACOS:  return "acos"; break;
         case OperatorCode::ATAN:  return "atan"; break;
         case OperatorCode::ITOR:  return "itor"; break;
+        case OperatorCode::GET:  return "get"; break;
+        case OperatorCode::VEC:  return "vec"; break;
         case OperatorCode::PULL: return "pull"; break;
         case OperatorCode::PUSH: return "push"; break;
         case OperatorCode::SGN:  return "sgn"; break;
@@ -130,6 +136,7 @@ const char* name(const OperatorCode& op) {
         case OperatorCode::GT:   return "gt"; break;
         case OperatorCode::LT:   return "lt"; break;
         case OperatorCode::SUBS:   return "subs"; break;
+        case OperatorCode::DISJ: return "disj"; break;
         case OperatorCode::HLF:  return "hlf"; break;
         default: return "UNKNOWN";
     }
@@ -171,23 +178,30 @@ OperatorKind kind(OperatorCode op) {
             return OperatorKind::COORDINATE;
         case OperatorCode::VAR:
             return OperatorKind::VARIABLE;
+        case OperatorCode::GET:
+            return OperatorKind::COORDINATE;
+        case OperatorCode::VEC:
+            return OperatorKind::NULLARY;
         case OperatorCode::ADD: case OperatorCode::SUB: case OperatorCode::MUL: case OperatorCode::DIV:
         case OperatorCode::MAX: case OperatorCode::MIN:
+        case OperatorCode::AND: case OperatorCode::OR: case OperatorCode::XOR: case OperatorCode::IMPL:
             return OperatorKind::BINARY;
+        case OperatorCode::FMA:
+            return OperatorKind::TERNARY;
         case OperatorCode::SADD: case OperatorCode::SSUB: case OperatorCode::SMUL: case OperatorCode::SDIV:
             return OperatorKind::SCALAR;
-        case OperatorCode::POS: case OperatorCode::NEG: case OperatorCode::REC: case OperatorCode::SQR:
-        case OperatorCode::SQRT: case OperatorCode::EXP: case OperatorCode::LOG:
-        case OperatorCode::SIN: case OperatorCode::COS: case OperatorCode::TAN: case OperatorCode::TANH: case OperatorCode::ATAN:
-        case OperatorCode::ABS:
+        case OperatorCode::NUL: case OperatorCode::POS: case OperatorCode::NEG: case OperatorCode::HLF:
+        case OperatorCode::REC: case OperatorCode::SQR: case OperatorCode::SQRT:
+        case OperatorCode::EXP: case OperatorCode::LOG: case OperatorCode::SIN: case OperatorCode::COS:
+        case OperatorCode::TAN: case OperatorCode::TANH: case OperatorCode::ASIN: case OperatorCode::ACOS:
+        case OperatorCode::ATAN: case OperatorCode::ABS: case OperatorCode::ITOR: case OperatorCode::NOT:
             return OperatorKind::UNARY;
         case OperatorCode::POW: case OperatorCode::ROOT:
             return OperatorKind::GRADED;
-        case OperatorCode::AND: case OperatorCode::OR:
-            return OperatorKind::BINARY;
-        case OperatorCode::NOT:
-            return OperatorKind::UNARY;
-        case OperatorCode::EQ: case OperatorCode::NEQ: case OperatorCode::LEQ: case OperatorCode::GEQ: case OperatorCode::LT: case OperatorCode::GT:
+        case OperatorCode::SGN: case OperatorCode::SUBS: case OperatorCode::DISJ:
+            return OperatorKind::PREDICATE;
+        case OperatorCode::EQ: case OperatorCode::NEQ: case OperatorCode::LEQ: case OperatorCode::GEQ:
+        case OperatorCode::LT: case OperatorCode::GT:
             return OperatorKind::COMPARISON;
         default:
             ARIADNE_FAIL_MSG("Cannot deduce kind of operator "<<op);

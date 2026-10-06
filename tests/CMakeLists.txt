@@ -7,6 +7,7 @@ set(UNIT_TESTS
     test_rational
     test_real
     test_number
+    test_operators
     test_rounding_mode
     test_float
     test_float_rounding
