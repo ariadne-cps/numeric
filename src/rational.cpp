@@ -62,14 +62,12 @@ template<> class ExtensionOperations<Rational> {
     friend class Rational;
     friend class ExtendedOperations<Rational>;
 
-    static Bool is_nan(Rational const& q) { return mpz_cmp_si(mpq_denref(q._mpq),0)==0 && mpz_cmp_si(mpq_numref(q._mpq),0)==0; }
-    static Bool is_inf(Rational const& q) { return mpz_cmp_si(mpq_denref(q._mpq),0)==0 && mpz_cmp_si(mpq_numref(q._mpq),0)!=0; }
-    static Bool is_finite(Rational const& q) { return mpz_cmp_si(mpq_denref(q._mpq),0)!=0; }
-    static Bool is_zero(Rational const& q) { return mpz_cmp_si(mpq_numref(q._mpq),0)==0 && mpz_cmp_si(mpq_denref(q._mpq),0)!=0; }
+    static Bool is_nan(Rational const& q) { return Ariadne::is_zero(q.get_den()) && Ariadne::is_zero(q.get_num()); }
+    static Bool is_inf(Rational const& q) { return Ariadne::is_zero(q.get_den()) && !Ariadne::is_zero(q.get_num()); }
+    static Bool is_finite(Rational const& q) { return !Ariadne::is_zero(q.get_den()); }
+    static Bool is_zero(Rational const& q) { return Ariadne::is_zero(q.get_num()) && !Ariadne::is_zero(q.get_den()); }
 
-    static Sign sgn(Rational const& q) {
-        if (is_finite(q)) { return static_cast<Sign>(mpq_cmp_si(q._mpq,0,1)); }
-        else { return static_cast<Sign>(mpz_cmp_si(mpq_numref(q._mpq),0)); } }
+    static Sign sgn(Rational const& q) { return Ariadne::sgn(q.get_num()); }
 
     static Void set_nan(Rational& q) { mpz_set_si(mpq_denref(q._mpq),0); mpz_set_si(mpq_numref(q._mpq),0); }
     static Void set_inf(Rational& q, Sign s) { mpz_set_si(mpq_denref(q._mpq),0); mpz_set_si(mpq_numref(q._mpq),static_cast<Int>(s)); }
@@ -187,9 +185,8 @@ Rational::Rational(const String& str) {
     Int base=10;
     mpq_init(_mpq);
     int fail = mpq_set_str(_mpq,str.c_str(),base);
-    if (fail!=0) {
+    if (fail!=0)
         ARIADNE_THROW(std::runtime_error,"Rational(string)","String \""<<str<<"\" does not have a valid rational number format.");
-    }
     mpq_canonicalize(_mpq);
 }
 
@@ -376,27 +373,27 @@ Rational Rational::nan() {
 }
 
 Bool is_nan(Rational const& q) {
-    return is_zero(q.get_den()) and is_zero(q.get_num());
+    return ExtendedOperations<Rational>::is_nan(q);
 }
 
 Bool is_inf(Rational const& q) {
-    return is_zero(q.get_den()) and not is_zero(q.get_num());
+    return ExtendedOperations<Rational>::is_inf(q);
 }
 
 Bool is_finite(Rational const& q) {
-    return not is_zero(q.get_den());
+    return ExtendedOperations<Rational>::is_finite(q);
 }
 
 Bool is_zero(Rational const& q) {
-    return is_zero(q.get_num()) and not is_zero(q.get_den());
+    return ExtendedOperations<Rational>::is_zero(q);
 }
 
 Sign sgn(Rational const& q) {
-    return sgn(q.get_num());
+    return ExtendedOperations<Rational>::sgn(q);
 }
 
 Integer round(Rational const& q) {
-    assert(is_finite(q));
+    ARIADNE_PRECONDITION(is_finite(q));
 
     Integer num=q.numerator();
     Integer den=q.denominator();
@@ -409,14 +406,14 @@ Integer round(Rational const& q) {
 }
 
 Integer ceil(Rational const& q) {
-    assert(is_finite(q));
+    ARIADNE_PRECONDITION(is_finite(q));
     Integer res;
     mpz_cdiv_q(res._mpz,mpq_numref(q._mpq),mpq_denref(q._mpq));
     return res;
 }
 
 Integer floor(Rational const& q) {
-    assert(is_finite(q));
+    ARIADNE_PRECONDITION(is_finite(q));
     Integer res;
     mpz_fdiv_q(res._mpz,mpq_numref(q._mpq),mpq_denref(q._mpq));
     return res;
@@ -429,7 +426,7 @@ Comparison cmp(Rational const& q1, Rational const& q2) {
 
 Comparison cmp(Rational const& q1, ExactDouble const& x2) {
     double d2=x2.get_d();
-    assert(not std::isnan(d2));
+    ARIADNE_PRECONDITION(not std::isnan(d2));
     if(std::isfinite(d2)) {
         return cmp(q1,Rational(x2));
     } else {
@@ -468,10 +465,9 @@ Rational operator""_q(long double x) {
         t=1/(t-cf[i]);
         if(t>max_cf_coef) { break; }
     }
-    if(i==N) {
+    if(i==N)
         ARIADNE_THROW(InvalidRationalLiteralException,"Rational operator""_q(long double)",
                       "x="<<x<<" is not a sufficiently close approximation to a simple rational number.");
-    }
     // Compute the result from the continued fraction coefficients
     Rational q = Rational(ExactDouble(cf[i]));
     while(i!=0) {
@@ -484,20 +480,17 @@ Rational operator""_q(long double x) {
     //volatile double qd=q.get_d();
     double ae=std::abs((q-xq).get_d());
     double re=ae/std::max(1.0,std::abs(xd));
-    if(re>std::numeric_limits<double>::epsilon()) {
+    if(re>std::numeric_limits<double>::epsilon())
         ARIADNE_THROW(InvalidRationalLiteralException,"Rational operator""_q(long double)",
                       "Rational approximation q="<<q<<" to x="<<x<<"="<<xd<<" has error "<<ae<<" and relative error "<<re<<" while is larger than machine epsilon");
-    }
     mpq_canonicalize(q._mpq);
     return q;
 }
 
 OutputStream& write(OutputStream& os, mpz_t const z) {
-    char str[512];
-    str[511]='\0';
-    mpz_get_str (str, 10, z);
-    assert(str[511]=='\0');
-    return os << str;
+    String str(mpz_sizeinbase(z,10)+2u,'\0');
+    mpz_get_str(str.data(),10,z);
+    return os << str.c_str();
 }
 
 InputStream& operator>>(InputStream& is, Rational& q) {
@@ -512,13 +505,10 @@ InputStream& operator>>(InputStream& is, Rational& q) {
 // i.e., at least maq1(n + 2, 7). The eq1tra two bytes are for a possible minus sign,
 // and for the terminating null character, and the value 7 accounts for -@Inf@ plus the terminating null character.
 OutputStream& operator<<(OutputStream& os, Rational const& q1) {
-    mpz_t num; mpz_t den;
-    mpz_init(num); mpz_init(den);
-    mpq_get_num(num,q1._mpq);
-    mpq_get_den(den,q1._mpq);
-    write(os,num);
-    if(mpz_cmp_si(den,1)!=0) { os << "/"; write(os,den); }
-    mpz_clear(num); mpz_clear(den);
+    Integer num=q1.get_num();
+    Integer den=q1.get_den();
+    os << num;
+    if(den!=Integer(1)) { os << "/" << den; }
     return os;
 }
 
@@ -693,7 +683,7 @@ DyadicBounds mul(DyadicBounds const& w1, DyadicBounds const& w2) {
     return _mul(RoundExact(),w1,w2); }
 
     DyadicBounds pow(DyadicBounds const& w, Int n) {
-    assert(n>=0);
+    ARIADNE_PRECONDITION(n>=0);
     return pow(w,static_cast<Nat>(n)); }
 
 static_assert(Field<Rational>);
