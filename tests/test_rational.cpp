@@ -277,7 +277,7 @@ void TestRational::test_decimal() {
     ARIADNE_TEST_FAIL(Decimal d(0.33333333333));
     ARIADNE_TEST_EQUALS(Decimal(Dyadic(7,3u)),Decimal(875,3u));
     ARIADNE_TEST_EQUALS(Decimal(Dyadic(140,1u)),Decimal(70,0u));
-    ARIADNE_TEST_FAIL(Decimal(Dyadic::inf()));
+    ARIADNE_TEST_FAIL(static_cast<void>(Decimal(Dyadic::inf())));
     ARIADNE_TEST_EQUALS(Decimal("-3.14"),Decimal(-314,2u));
     ARIADNE_TEST_EQUALS(Decimal("-3.1400"),Decimal(-314,2u));
     ARIADNE_TEST_EQUALS(Decimal("-0.0031400"),Decimal(-314,5u));
