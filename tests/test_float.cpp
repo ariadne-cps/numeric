@@ -208,7 +208,7 @@ TestFloat<PR>::test_conversions()
         FloatMP from_raw(source.get_mpfr(),RawPtr());
         ARIADNE_TEST_EQUALS(from_raw,source);
 
-        Dyadic too_wide(Integer(String("18446744073709551617")));
+        Dyadic too_wide{Integer(String("18446744073709551617"))};
         ARIADNE_TEST_FAIL(FloatMP(too_wide,MultiplePrecision(64_bits)));
 
         FloatMP zero(pr);
