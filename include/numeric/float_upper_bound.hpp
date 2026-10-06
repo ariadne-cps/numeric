@@ -246,7 +246,6 @@ template<class F> class UpperBound
     friend UpperBound<F> operator/(UpperBound<F> const& x1, Positive<F> const& x2) {
         return UpperBound<F>(div(up,x1.raw(),x2)); }
   private: public:
-    static Nat output_places;
     RawType _u;
 };
 

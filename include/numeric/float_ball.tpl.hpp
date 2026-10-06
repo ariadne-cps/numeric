@@ -91,6 +91,9 @@ template<class F, class FE> UpperBound<F> const Ball<F,FE>::upper() const { retu
 template<class F, class FE> F const Ball<F,FE>::value() const { return F(this->_v); }
 template<class F, class FE> Error<FE> const Ball<F,FE>::error() const { return Error<FE>(this->_e); }
 
+template<class F, class FE> Ball<F,FE> Ball<F,FE>::pm(Error<FE> const& e) const {
+    return Ball<F,FE>(this->_v,add(up,this->_e,e.raw())); }
+
 
 template<class F, class FE> Ball<F,FE> Operations<Ball<F,FE>>::_trunc(Ball<F,FE> const& x) {
     return Ball<F,FE>(trunc(Bounds<F>(x.lower_raw(),x.upper_raw())));

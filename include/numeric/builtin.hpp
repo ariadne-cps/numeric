@@ -121,7 +121,7 @@ class ExactDouble {
     double get_d() const { return this->_d; }
     ExactDouble() : _d() { }
     template<BuiltinIntegral N> ExactDouble(N n) : _d(static_cast<double>(n)) { assert(_d==n); }
-    template<BuiltinFloatingPoint X> explicit ExactDouble(X const& x) : _d(x) { assert(std::isnan(_d) || (_d==x)); }
+    template<BuiltinFloatingPoint X> explicit ExactDouble(X const& x) : _d(static_cast<double>(x)) { assert(std::isnan(_d) || (_d==x)); }
     static ExactDouble infinity() { return ExactDouble(std::numeric_limits<double>::infinity()); }
     operator ExactNumber() const;
     friend ExactDouble nul(ExactDouble) { return ExactDouble(0.0); }

@@ -251,7 +251,6 @@ template<class F> class LowerBound
     friend LowerBound<F> operator/(LowerBound<F> const& x1, Positive<F> const& x2) {
         return LowerBound<F>(div(down,x1.raw(),x2)); }
   private: public:
-    static Nat output_places;
     RawType _l;
 };
 

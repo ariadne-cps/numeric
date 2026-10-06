@@ -96,6 +96,10 @@ TestFloatBall<PR,PRE>::test_conversions()
     ARIADNE_TEST_EQUALS(centred.value_raw(),value);
     ARIADNE_TEST_EQUALS(centred.error_raw(),RawFloat<PRE>(1,error_precision));
 
+    FloatBallType widened=centred.pm(error);
+    ARIADNE_TEST_EQUALS(widened.value_raw(),value);
+    ARIADNE_TEST_EQUALS(widened.error_raw(),RawFloat<PRE>(2,error_precision));
+
     if constexpr (Same<PR,DoublePrecision>) {
         ARIADNE_TEST_EQUALS(class_name<FloatBallType>(),String("FloatDPBall"));
     } else if constexpr (Same<PRE,DoublePrecision>) {

@@ -492,15 +492,25 @@ template<class X> class NumberGetterMixin : public virtual NumberInterface {
 };
 
 template<class X> class NumberMixin
-    : public ElementaryBinaryNumberOperationsMixin<X>
-    , public ElementaryUnaryNumberOperationsMixin<X>
-    , public ElementaryGradedNumberOperationsMixin<X>
-    , public ElementaryBinaryNumberDispatcherMixin<X>
-    , public ComparisonBinaryNumberOperationsMixin<X>
+    : public ElementaryBinaryNumberDispatcherMixin<X>
     , public ComparisonBinaryNumberDispatcherMixin<X>
     , public NumberGetterMixin<X>
 {
+    X const& _value() const { return NumberGetterMixin<X>::_cast(*this); }
   public:
+    NumberInterface* _apply(UnaryElementaryOperator op) const override {
+        return _concrete_apply<NumberInterface*>(op,_value()); }
+    NumberInterface* _apply(BinaryElementaryOperator op, NumberInterface const* other) const override {
+        return Ariadne::_apply<NumberInterface*,X>(_value(),op,static_cast<NumberInterface const*>(this),other); }
+    NumberInterface* _rapply(BinaryElementaryOperator op, NumberInterface const* other) const override {
+        return Ariadne::_rapply<NumberInterface*,X>(_value(),op,static_cast<NumberInterface const*>(this),other); }
+    NumberInterface* _apply(GradedElementaryOperator op, Int n) const override {
+        return _make_number_wrapper(op(_value(),n)); }
+    LogicalInterface* _apply(BinaryComparisonOperator op, NumberInterface const* other) const override {
+        return Ariadne::_apply<LogicalInterface*,X>(_value(),op,static_cast<NumberInterface const*>(this),other); }
+    LogicalInterface* _rapply(BinaryComparisonOperator op, NumberInterface const* other) const override {
+        return Ariadne::_rapply<LogicalInterface*,X>(_value(),op,static_cast<NumberInterface const*>(this),other); }
+
     operator X const& () const { return static_cast<NumberWrapper<X>const&>(*this); }
     operator X& () { return static_cast<NumberWrapper<X>&>(*this); }
 };
