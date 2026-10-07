@@ -205,8 +205,7 @@ template<class R, class X1, class X2> inline R _concrete_apply_max_or_min(Binary
     if (op.code()==BinaryElementaryOperator(Max()).code()) { return _make_number_wrapper(max(x1,x2)); }
     else if (op.code()==BinaryElementaryOperator(Min()).code()) { return _make_number_wrapper(min(x1,x2)); }
     String yc1=class_name<X1>(); String yc2=class_name<X2>();
-    ARIADNE_THROW(DispatchException,op<<"(Number y1, Number y2) with y1="<<x1<<", y2="<<x2,"No dispatch for "<<op<<"("<<yc1<<", "<<yc2<<")");
-}
+    ARIADNE_THROW(DispatchException,op<<"(Number y1, Number y2) with y1="<<x1<<", y2="<<x2,"No dispatch for "<<op<<"("<<yc1<<", "<<yc2<<")"); }
 
 // FIXME: Prefer symbolic dispatch
 template<class R, ARawFloat F> inline R _concrete_apply(BinaryElementaryOperator op, F const& x1, F const& x2) {
@@ -226,12 +225,10 @@ template<class R, ARawFloat F> inline R _concrete_apply(BinaryElementaryOperator
 }
 template<class R, ARawFloat F> inline R _concrete_apply(BinaryElementaryOperator op, F const& x1, Rational const& q2) {
     String yc1=class_name<F>(); String yc2=class_name<Rational>();
-    ARIADNE_THROW(DispatchException,op<<"(Number y1, Number y2) with y1="<<x1<<", y2="<<q2,"No dispatch for "<<op<<"("<<yc1<<", "<<yc2<<")");
-}
+    ARIADNE_THROW(DispatchException,op<<"(Number y1, Number y2) with y1="<<x1<<", y2="<<q2,"No dispatch for "<<op<<"("<<yc1<<", "<<yc2<<")"); }
 template<class R, ARawFloat F> inline R _concrete_apply(BinaryElementaryOperator op, Rational const& q1, F const& x2) {
     String yc1=class_name<Rational>(); String yc2=class_name<F>();
-    ARIADNE_THROW(DispatchException,op<<"(Number y1, Number y2) with y1="<<q1<<", y2="<<x2,"No dispatch for "<<op<<"("<<yc1<<", "<<yc2<<")");
-}
+    ARIADNE_THROW(DispatchException,op<<"(Number y1, Number y2) with y1="<<q1<<", y2="<<x2,"No dispatch for "<<op<<"("<<yc1<<", "<<yc2<<")"); }
 
 
 
@@ -379,8 +376,7 @@ template<class Y, class F, class FE> class ComparisonBinaryNumberDispatcherMixin
 
 inline LogicalInterface* make_symbolic(BinaryComparisonOperator op, NumberInterface const* yp1, NumberInterface const* yp2) {
     String yc1=yp1->_class_name(); String yc2=yp2->_class_name();
-    ARIADNE_THROW(DispatchException,op<<"(Number y1, Number y2) with y1="<<*yp1<<", y2="<<*yp2,"No dispatch for "<<op<<"("<<yc1<<", "<<yc2<<")");
-}
+    ARIADNE_THROW(DispatchException,op<<"(Number y1, Number y2) with y1="<<*yp1<<", y2="<<*yp2,"No dispatch for "<<op<<"("<<yc1<<", "<<yc2<<")"); }
 
 template<class OP> inline NumberInterface* make_symbolic(OP op, NumberInterface const* yp1, NumberInterface const* yp2) {
 //    Handle<NumberInterface> y1(const_cast<NumberInterface*>(yp1)->shared_from_this());

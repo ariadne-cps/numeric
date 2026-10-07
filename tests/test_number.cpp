@@ -279,12 +279,13 @@ TestNumbers::test_misc()
     ExactNumber mixed_dp(FloatDP(1,dp));
     ExactNumber mixed_mp(FloatMP(2,mp));
     ARIADNE_TEST_THROWS(add(mixed_dp,mixed_mp),DispatchException);
-    ARIADNE_TEST_THROWS(mixed_dp<mixed_mp,DispatchException);
+    ARIADNE_TEST_THROWS((void)(mixed_dp<mixed_mp),DispatchException);
 
     ApproximateNumber unsupported_conversion(FloatDPApproximation(1u,dp));
     ARIADNE_TEST_THROWS(unsupported_conversion.ref()._get_q(),ParadigmError);
     ARIADNE_TEST_THROWS(unsupported_conversion.ref()._get(OrderTag(),dp),ParadigmError);
-    ARIADNE_TEST_THROWS(unsupported_conversion.ref()._get(MetricTag(),dp,dp),ParadigmError);
+    NumberWrapper<FloatDPApproximation> unsupported_wrapper(FloatDPApproximation(1u,dp));
+    ARIADNE_TEST_THROWS(unsupported_wrapper._get(MetricTag(),dp,dp),ParadigmError);
 
     std::ostringstream interface_stream;
     interface_stream << integer_one.ref();
