@@ -303,6 +303,7 @@ TestFloatBounds<PR>::test_conversions()
     ARIADNE_TEST_EQUALS(cast_integer(FloatBounds<PR>(Dyadic(5,2u),Dyadic(2),pr)),Integer(2));
     ARIADNE_TEST_EQUALS(cast_integer(FloatBounds<PR>(Dyadic(7,2u),Dyadic(9,2u),pr)),Integer(2));
     ARIADNE_TEST_FAIL(cast_integer(FloatBounds<PR>(Dyadic(9,2u),Dyadic(11,2u),pr)));
+    ARIADNE_TEST_FAIL(cast_integer(FloatBoundsType(-0.75_x,-0.625_x,pr)));
 }
 
 
@@ -541,6 +542,31 @@ template<class PR> Void TestFloatBounds<PR>::test_input()
     // ARIADNE_TEST_COMPARE(x.upper_raw(),>,Rational(3,5))
     if(not(x.lower_raw()<=Rational(2,5) and x.upper_raw()>=Rational(3,5))) {
         ARIADNE_TEST_WARN("FloatType<BoundedTag,"<<class_name<PR>()<<"> string constructor returns an approximate interval, not an outwardly rounded interval.");
+    }
+
+    {
+        stringstream alternate("(1.0:2.0) [1.0;2.0]");
+        alternate >> x;
+        ARIADNE_TEST_ASSERT(not alternate.fail());
+        alternate >> x;
+        ARIADNE_TEST_ASSERT(not alternate.fail());
+    }
+
+    {
+        stringstream invalid_left("{1.0:2.0]");
+        ARIADNE_TEST_FAIL(invalid_left >> x);
+    }
+    {
+        stringstream invalid_middle("[1.0|2.0]");
+        ARIADNE_TEST_FAIL(invalid_middle >> x);
+    }
+    {
+        stringstream invalid_right("[1.0:2.0}");
+        ARIADNE_TEST_FAIL(invalid_right >> x);
+    }
+    {
+        stringstream invalid_number("[x:2.0]");
+        ARIADNE_TEST_FAIL(invalid_number >> x);
     }
 }
 
