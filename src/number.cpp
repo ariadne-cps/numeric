@@ -55,21 +55,6 @@
 
 namespace Ariadne {
 
-using NumberHandle = Handle<NumberInterface>;
-
-
-// Define declared Approximation operations
-// FIXME: Remove this, or consistently add pow(..., Integer) operations
-Approximation<FloatDP> pow(Approximation<FloatDP> const& x, Integer const& z) {
-    Int n=z.get_si(); ARIADNE_ASSERT(n==z); return Approximation<FloatDP>(pow(approx,x._a,n)); }
-Approximation<FloatMP> pow(Approximation<FloatMP> const& x, Integer const& z) {
-    Int n=z.get_si(); ARIADNE_ASSERT(n==z); return Approximation<FloatMP>(pow(approx,x._a,n)); }
-
-
-
-
-
-
 ExactDouble::operator ExactNumber() const { return Dyadic(*this).operator ExactNumber(); }
 Integer::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Integer>(*this)); }
 Dyadic::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Dyadic>(*this)); }
@@ -112,13 +97,6 @@ ExactNumber cast_exact(ValidatedUpperNumber const& y) { return ExactNumber(y.han
 ExactNumber cast_exact(ValidatedLowerNumber const& y) { return ExactNumber(y.handle()); }
 
 
-template<> String class_name<NumberHandle>() { return "NumberHandle"; }
-
-//inline Bool refines(Number<UpperTag> const& y1, Number<UpperTag> const& y2) {
-//    return y1.get(dp).raw() <= y2.get(dp).raw(); }
-
-PositiveValidatedUpperNumber mag(PositiveValidatedUpperNumber const& y) {
-    return y; }
 
 
 template<> String class_name<ApproximateNumber>() { return "ApproximateNumber"; }

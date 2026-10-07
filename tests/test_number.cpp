@@ -26,10 +26,12 @@
 #include "numeric/dyadic.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/number.hpp"
+#include "numeric/number_wrapper.hpp"
 #include "numeric/upper_number.hpp"
 #include "numeric/lower_number.hpp"
 
 #include "numeric/floatdp.hpp"
+#include "numeric/floatmp.hpp"
 #include "numeric/float_ball.hpp"
 #include "numeric/float_bounds.hpp"
 #include "numeric/float_upper_bound.hpp"
@@ -38,6 +40,8 @@
 #include "numeric/float_error.hpp"
 
 #include "utility/test.hpp"
+
+#include <sstream>
 
 using namespace std;
 using namespace Ariadne;
@@ -218,6 +222,80 @@ TestNumbers::test_misc()
     ARIADNE_TEST_ASSIGN(yl,xl+xl);
     ARIADNE_TEST_ASSIGN_CONSTRUCT(ValidatedLowerNumber,z,yl);
     ARIADNE_TEST_ASSIGN(z,yl+yl);
+
+    MultiplePrecision mp(128);
+
+    DyadicBounds dyadic_bounds(Dyadic(1),Dyadic(2));
+    ValidatedNumber dyadic_number=dyadic_bounds.operator ValidatedNumber();
+    ARIADNE_TEST_EQUALS(dyadic_number.class_name(),String("DyadicBounds"));
+
+    FloatDPError dp_error(1u,dp);
+    ValidatedErrorNumber dp_error_number=dp_error.operator ValidatedErrorNumber();
+    ARIADNE_TEST_EQUALS(dp_error_number.class_name(),String("FloatDP"));
+
+    FloatMPError mp_error(1u,mp);
+    ValidatedErrorNumber mp_error_number=mp_error.operator ValidatedErrorNumber();
+    ARIADNE_TEST_EQUALS(mp_error_number.class_name(),String("FloatMP"));
+
+    FloatMPApproximation mp_approximation(2u,mp);
+    ApproximateNumber approximation_number=mp_approximation.operator ApproximateNumber();
+    ARIADNE_TEST_EQUALS(approximation_number.class_name(),String("FloatMPApproximation"));
+
+    FloatMPBounds mp_bounds(2u,mp);
+    ValidatedNumber mp_bounds_number=mp_bounds.operator ValidatedNumber();
+    ARIADNE_TEST_EQUALS(mp_bounds_number.class_name(),String("FloatMPBounds"));
+
+    ValidatedUpperNumber upper_dyadic(Dyadic(2));
+    ValidatedLowerNumber lower_dyadic(Dyadic(2));
+    ARIADNE_TEST_EQUALS(cast_exact(upper_dyadic).class_name(),String("Dyadic"));
+    ARIADNE_TEST_EQUALS(cast_exact(lower_dyadic).class_name(),String("Dyadic"));
+
+    ValidatedNumber metric_number(Real(Rational(3,5)));
+    ARIADNE_TEST_EXECUTE(metric_number.ref()._get(MetricTag(),dp));
+    ARIADNE_TEST_EXECUTE(metric_number.ref()._get(MetricTag(),mp));
+
+    ExactNumber integer_one(Integer(1));
+    ExactNumber integer_two(Integer(2));
+    ExactNumber float_one(FloatDP(1,dp));
+    ExactNumber float_two(FloatDP(2,dp));
+
+    ARIADNE_TEST_ASSERT(Ariadne::extract<Integer>(&integer_one.ref())!=nullptr);
+    ARIADNE_TEST_ASSERT(Ariadne::extract<FloatDP>(&integer_one.ref())==nullptr);
+    ARIADNE_TEST_EQUALS(integer_one.ref()._get_q(),Rational(1));
+
+    ARIADNE_TEST_EQUALS(cmp(float_one.ref(),float_two.ref()),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(float_one.ref(),integer_two.ref()),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(integer_one.ref(),float_two.ref()),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(integer_one.ref(),integer_two.ref()),Comparison::LESS);
+
+    std::ostringstream interface_stream;
+    interface_stream << integer_one.ref();
+    ARIADNE_TEST_ASSERT(not interface_stream.str().empty());
+
+    std::ostringstream paradigm_stream;
+    paradigm_stream << ParadigmCode::EXACT << ParadigmCode::VALIDATED
+                    << ParadigmCode::APPROXIMATE << ParadigmCode::EFFECTIVE;
+    ARIADNE_TEST_EQUALS(paradigm_stream.str(),String("EXACTVALIDATEDAPPROXIMATEUNKNOWN"));
+
+    NumberWrapper<Integer> integer_wrapper(Integer(3));
+    NumberInterface* copied=integer_wrapper._copy();
+    ARIADNE_TEST_EQUALS(copied->_class_name(),String("Integer"));
+    delete copied;
+    NumberInterface* moved=integer_wrapper._move();
+    ARIADNE_TEST_EQUALS(moved->_class_name(),String("Integer"));
+    delete moved;
+
+    ARIADNE_TEST_EXECUTE(pow(integer_one,Int(3)));
+    ARIADNE_TEST_EXECUTE(abs(ExactNumber(Integer(-2))));
+    ARIADNE_TEST_EXECUTE(abs(ExactNumber(Dyadic(-2))));
+    ARIADNE_TEST_EXECUTE(abs(EffectiveNumber(Real(-2))));
+
+    ValidatedLowerNumber positive_dyadic(Dyadic(1));
+    ARIADNE_TEST_ASSERT(definitely(positive_dyadic > ValidatedLowerNumber::Zero{}));
+    ValidatedLowerNumber positive_float(FloatDPLowerBound(1u,dp));
+    ARIADNE_TEST_ASSERT(definitely(positive_float > ValidatedLowerNumber::Zero{}));
+    EffectiveLowerNumber positive_real(Real(1));
+    ARIADNE_TEST_ASSERT(definitely(positive_real > EffectiveLowerNumber::Zero{}));
 }
 
 template<class Y> class TestNumber
