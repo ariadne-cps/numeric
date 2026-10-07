@@ -400,6 +400,12 @@ void TestReal::test_comparison() {
     ARIADNE_TEST_ASSERT(definitely(named_less.check(effort)));
     ARIADNE_TEST_ASSERT(definitely(not named_sign.check(effort)));
 
+    auto* sign_copy=named_sign.repr().pointer()->_copy();
+    ARIADNE_TEST_EQUALS(
+        static_cast<int>(sign_copy->_check(effort)),
+        static_cast<int>(named_sign.repr().check(effort)));
+    delete sign_copy;
+
     std::ostringstream logical_stream;
     logical_stream << named_equal << " " << named_less << " " << named_sign;
     ARIADNE_TEST_ASSERT(not logical_stream.str().empty());
