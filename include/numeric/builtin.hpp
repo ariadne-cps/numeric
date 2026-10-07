@@ -137,10 +137,10 @@ class ExactDouble {
     typedef ExactTag Paradigm;
     double get_d() const { return this->_d; }
     ExactDouble() : _d() { }
-    template<BuiltinIntegral N> ExactDouble(N n) : _d() {
-        if constexpr (std::is_signed_v<N>) { _d=_checked_signed(static_cast<long long>(n)); }
-        else { _d=_checked_unsigned(static_cast<unsigned long long>(n)); }
-    }
+    template<BuiltinIntegral N> requires std::is_signed_v<N>
+    ExactDouble(N n) : _d(_checked_signed(static_cast<long long>(n))) { }
+    template<BuiltinIntegral N> requires (!std::is_signed_v<N>)
+    ExactDouble(N n) : _d(_checked_unsigned(static_cast<unsigned long long>(n))) { }
     template<BuiltinFloatingPoint X> explicit ExactDouble(X const& x) : _d(_checked_floating(static_cast<long double>(x))) { }
     static ExactDouble infinity() { return ExactDouble(std::numeric_limits<double>::infinity()); }
     operator ExactNumber() const;
