@@ -55,9 +55,9 @@ constexpr bool check_float_rounding_concept()
         sub(near,x,y); sub(down,x,y); sub(up,x,y);
         mul(near,x,y); mul(down,x,y); mul(up,x,y);
         div(near,x,y); div(down,x,y); div(up,x,y);
-        sqr(near,x); rec(near,x); sqrt(near,x); exp(near,x); log(near,x);
-        sin(near,x); cos(near,x); tan(near,x); asin(near,x); acos(near,x); atan(near,x);
-        pow(near,x,n); pow(near,x,m);
+        sqr(approx,x); rec(approx,x); sqrt(approx,x); exp(approx,x); log(approx,x);
+        sin(approx,x); cos(approx,x); tan(approx,x); asin(approx,x); acos(approx,x); atan(approx,x);
+        pow(approx,x,n); pow(approx,x,m);
         +x; -x; x+y; x-y; x*y; x/y; x-=y; x*=y; x/=y;
         F::set_rounding_to_nearest(); F::set_rounding_downward(); F::set_rounding_upward(); F::set_rounding_toward_zero();
         F::get_rounding_mode(); x.precision();

@@ -51,13 +51,14 @@ namespace {
 template<class X>
 constexpr bool check_concept()
 {
-    return requires(X x, Complex<X> z) {
+    return requires(X x, Complex<X> z, Complex<X> w) {
         Complex<X>(x); Complex<X>(x,x);
-        z=+z; z=-z; z=z+z; z=z-z; z=z*z; z=z/z;
-        z=pow(z,2u); z=pow(z,2);
-        z=sqr(z); z=rec(z); z=sqrt(z);
-        z=exp(z); z=log(z);
-        z=sin(z); z=cos(z); z=tan(z);
+        +z; -z; z+w; z-w; z*w; z/w;
+        add(z,w); sub(z,w); mul(z,w); div(z,w);
+        sqr(z); rec(z); pow(z,2); pow(z,2u);
+        sqrt(z); exp(z); log(z);
+        abs(z); mag(z); mig(z); arg(z); conj(z); dist(z,w);
+        z==w; z!=w;
     };
 }
 
