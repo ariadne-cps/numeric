@@ -71,7 +71,6 @@ template<class F> class Error
     Error(PositiveBounds<F> const& x);
     //! Convert from a positive upper bound \a x on the value to be used to represent an error-bound.
     Error(PositiveUpperBound<F> const& x) : _e(x._u) { }
-    operator PositiveUpperBound<F> () const { return PositiveUpperBound<F>(this->_e); }
   public:
     explicit Error(PR const& pr) : _e(pr) { }
     //! Treat \a a as an upper-bound for an error.
