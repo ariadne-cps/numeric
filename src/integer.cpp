@@ -237,7 +237,7 @@ Bool is_finite(Integer const&) {
 }
 
 Bool is_zero(Integer const& z) {
-    return mpz_cmp_si(z._mpz,0)==0;
+    return sgn(z)==Sign::ZERO;
 }
 
 Sign sgn(Integer const& z) {
@@ -247,10 +247,6 @@ Sign sgn(Integer const& z) {
 Comparison cmp(Integer const& z1, Integer const& z2) {
     auto c=mpz_cmp(z1._mpz,z2._mpz);
     return c==0 ? Comparison::EQUAL : (c>0?Comparison::GREATER:Comparison::LESS);
-}
-
-Comparison cmp(Integer const& z1, Int const& n2) {
-    return Comparison(mpz_cmp_si(z1._mpz,n2));
 }
 
 Boolean eq(Integer const& z1, Integer const& z2) {

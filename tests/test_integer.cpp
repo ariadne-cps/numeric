@@ -183,6 +183,10 @@ void TestInteger::test_arithmetic() {
     ARIADNE_TEST_ASSERT(is_finite(Integer(1)));
     ARIADNE_TEST_ASSERT(is_zero(Integer(0)));
     ARIADNE_TEST_ASSERT(not is_zero(Integer(1)));
+    ARIADNE_TEST_ASSERT(not is_zero(Integer(-1)));
+    ARIADNE_TEST_EQUALS(sgn(Integer(-1)),Sign::NEGATIVE);
+    ARIADNE_TEST_EQUALS(sgn(Integer(0)),Sign::ZERO);
+    ARIADNE_TEST_EQUALS(sgn(Integer(1)),Sign::POSITIVE);
 
     ARIADNE_TEST_EQUALS(cmp(Integer(2),Integer(3)),Comparison::LESS);
     ARIADNE_TEST_EQUALS(cmp(Integer(3),Integer(3)),Comparison::EQUAL);
