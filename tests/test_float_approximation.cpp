@@ -126,6 +126,13 @@ TestFloatApproximation<PR>::test_conversions()
     ARIADNE_TEST_EQUALS(cast_integer(FloatApproximation<PR>(Dyadic(2),pr)),Integer(2));
     ARIADNE_TEST_EQUALS(cast_integer(FloatApproximation<PR>(Dyadic(3,1u),pr)),Integer(2));
     ARIADNE_TEST_EQUALS(cast_integer(FloatApproximation<PR>(Dyadic(7,2u),pr)),Integer(2));
+
+    FloatLowerBound<PR> lower(Dyadic(5,2u),pr);
+    FloatUpperBound<PR> upper(Dyadic(5,2u),pr);
+    FloatError<PR> error(1u,pr);
+    ARIADNE_TEST_EQUALS(FloatApproximation<PR>(lower).raw(),lower.raw());
+    ARIADNE_TEST_EQUALS(FloatApproximation<PR>(upper).raw(),upper.raw());
+    ARIADNE_TEST_EQUALS(FloatApproximation<PR>(error).raw(),error.raw());
 }
 
 template<class PR> Void
