@@ -195,10 +195,10 @@ class PositiveUpperReal : public UpperReal
     PositiveLowerReal div(PositiveLowerReal const&, PositiveUpperReal const&);
 };
 
-PositiveLowerReal rec(PositiveUpperReal pur);
-PositiveUpperReal add(PositiveUpperReal pur1, PositiveUpperReal pur2);
-PositiveUpperReal mul(PositiveUpperReal pur1, PositiveUpperReal pur2);
-PositiveUpperReal div(PositiveUpperReal pur1, PositiveLowerReal plr2);
+PositiveLowerReal rec(PositiveUpperReal const& pur);
+PositiveUpperReal add(PositiveUpperReal const& pur1, PositiveUpperReal const& pur2);
+PositiveUpperReal mul(PositiveUpperReal const& pur1, PositiveUpperReal const& pur2);
+PositiveUpperReal div(PositiveUpperReal const& pur1, PositiveLowerReal const& plr2);
 
 
 class ValidatedUpperReal

@@ -211,8 +211,8 @@ void TestReal::test_constructors() {
     ARIADNE_TEST_EXECUTE(Real(Rational(5,4)));
     ARIADNE_TEST_EXECUTE(Real(EffectiveNumber(2)));
     FloatDP deprecated_float(1,pr);
-    ARIADNE_TEST_EXECUTE(Real(deprecated_float));
-    ARIADNE_TEST_EXECUTE(Real(deprecated_float));
+    ARIADNE_TEST_EXECUTE((Real{deprecated_float}));
+    ARIADNE_TEST_EXECUTE((Real{deprecated_float}));
     ARIADNE_TEST_CONSTRUCT(Real,xe,(1.5_exact));
     std::cout << "before xe.compute(eff).get()" << std::endl;
     auto xe_bounds = xe.compute(eff).get();
@@ -270,13 +270,13 @@ void TestReal::test_arithmetic() {
 void TestReal::test_directed() {
     Effort eff(4u);
     MultiplePrecision mp(128_bits);
-    Real two=2;
-    Real three=3;
+    Real two_real=2;
+    Real three_real=3;
 
-    LowerReal ltwo(two);
-    LowerReal lthree(three);
-    UpperReal utwo(two);
-    UpperReal uthree(three);
+    LowerReal ltwo(two_real);
+    LowerReal lthree(three_real);
+    UpperReal utwo(two_real);
+    UpperReal uthree(three_real);
 
     ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff));
     ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff,dp));
@@ -291,19 +291,19 @@ void TestReal::test_directed() {
 
     ARIADNE_TEST_EXECUTE(max(ltwo,lthree).compute_get(eff));
     ARIADNE_TEST_EXECUTE(min(ltwo,lthree).compute_get(eff));
-    ARIADNE_TEST_EXECUTE(min(ltwo,three).compute_get(eff));
-    ARIADNE_TEST_EXECUTE(min(two,lthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(min(ltwo,three_real).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(min(two_real,lthree).compute_get(eff));
     ARIADNE_TEST_EXECUTE(max(utwo,uthree).compute_get(eff));
-    ARIADNE_TEST_EXECUTE(max(utwo,three).compute_get(eff));
-    ARIADNE_TEST_EXECUTE(max(two,uthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(max(utwo,three_real).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(max(two_real,uthree).compute_get(eff));
     ARIADNE_TEST_EXECUTE(min(utwo,uthree).compute_get(eff));
     ARIADNE_TEST_EXECUTE(neg(utwo).compute_get(eff));
     ARIADNE_TEST_EXECUTE(neg(ltwo).compute_get(eff));
     ARIADNE_TEST_EXECUTE(add(ltwo,lthree).compute_get(eff));
     ARIADNE_TEST_EXECUTE(add(utwo,uthree).compute_get(eff));
 
-    PositiveReal ptwo(two);
-    PositiveReal pthree(three);
+    PositiveReal ptwo(two_real);
+    PositiveReal pthree(three_real);
     ARIADNE_TEST_EXECUTE(ptwo.compute_get(eff));
     ARIADNE_TEST_EXECUTE(max(ptwo,pthree).compute_get(eff));
     ARIADNE_TEST_EXECUTE(min(ptwo,pthree).compute_get(eff));

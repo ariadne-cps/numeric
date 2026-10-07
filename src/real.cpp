@@ -613,23 +613,23 @@ PositiveReal mul(PositiveReal const& pr1, PositiveReal const& pr2) { return cast
 PositiveReal div(PositiveReal const& pr1, PositiveReal const& pr2) { return cast_positive(div(make_signed(pr1),make_signed(pr2))); }
 PositiveReal rec(PositiveReal const& pr) { return cast_positive(rec(make_signed(pr))); }
 
-PositiveUpperReal rec(PositiveLowerReal plr) { return cast_positive(rec(cast_real(plr))); }
-PositiveLowerReal rec(PositiveUpperReal pur) { return cast_positive(rec(cast_real(pur))); }
-PositiveLowerReal add(PositiveLowerReal plr1, PositiveLowerReal plr2) { return cast_positive(add(cast_real(plr1),cast_real(plr2))); }
-PositiveUpperReal add(PositiveUpperReal pur1, PositiveUpperReal pur2) { return cast_positive(add(cast_real(pur1),cast_real(pur2))); }
-PositiveLowerReal mul(PositiveLowerReal plr1, PositiveLowerReal plr2) { return cast_positive(mul(cast_real(plr1),cast_real(plr2))); }
-PositiveUpperReal mul(PositiveUpperReal pur1, PositiveUpperReal pur2) { return cast_positive(mul(cast_real(pur1),cast_real(pur2))); }
-PositiveLowerReal div(PositiveLowerReal plr1, PositiveUpperReal pur2) { return cast_positive(div(cast_real(plr1),cast_real(pur2))); }
-PositiveUpperReal div(PositiveUpperReal pur1, PositiveLowerReal plr2) { return cast_positive(div(cast_real(pur1),cast_real(plr2))); }
+PositiveUpperReal rec(PositiveLowerReal const& plr) { return cast_positive(rec(cast_real(plr))); }
+PositiveLowerReal rec(PositiveUpperReal const& pur) { return cast_positive(rec(cast_real(pur))); }
+PositiveLowerReal add(PositiveLowerReal const& plr1, PositiveLowerReal const& plr2) { return cast_positive(add(cast_real(plr1),cast_real(plr2))); }
+PositiveUpperReal add(PositiveUpperReal const& pur1, PositiveUpperReal const& pur2) { return cast_positive(add(cast_real(pur1),cast_real(pur2))); }
+PositiveLowerReal mul(PositiveLowerReal const& plr1, PositiveLowerReal const& plr2) { return cast_positive(mul(cast_real(plr1),cast_real(plr2))); }
+PositiveUpperReal mul(PositiveUpperReal const& pur1, PositiveUpperReal const& pur2) { return cast_positive(mul(cast_real(pur1),cast_real(pur2))); }
+PositiveLowerReal div(PositiveLowerReal const& plr1, PositiveUpperReal const& pur2) { return cast_positive(div(cast_real(plr1),cast_real(pur2))); }
+PositiveUpperReal div(PositiveUpperReal const& pur1, PositiveLowerReal const& plr2) { return cast_positive(div(cast_real(pur1),cast_real(plr2))); }
 
-LowerReal mul(LowerReal lr1, PositiveReal pr2) { return mul(cast_real(lr1),make_signed(pr2)); }
-UpperReal mul(UpperReal ur1, PositiveReal pr2) { return mul(cast_real(ur1),make_signed(pr2)); }
-LowerReal mul(PositiveReal pr1, LowerReal lr2) { return mul(make_signed(pr1),cast_real(lr2)); }
-UpperReal mul(PositiveReal pr1, UpperReal ur2) { return mul(make_signed(pr1),cast_real(ur2)); }
-LowerReal div(LowerReal lr1, PositiveReal pr2) { return div(cast_real(lr1),make_signed(pr2)); }
-UpperReal div(UpperReal ur1, PositiveReal pr2) { return div(cast_real(ur1),make_signed(pr2)); }
-LowerReal div(PositiveReal pr1, UpperReal ur2) { return div(make_signed(pr1),cast_real(ur2)); }
-UpperReal div(PositiveReal pr1, LowerReal lr2) { return div(make_signed(pr1),cast_real(lr2)); }
+LowerReal mul(LowerReal const& lr1, PositiveReal const& pr2) { return mul(cast_real(lr1),make_signed(pr2)); }
+UpperReal mul(UpperReal const& ur1, PositiveReal const& pr2) { return mul(cast_real(ur1),make_signed(pr2)); }
+LowerReal mul(PositiveReal const& pr1, LowerReal const& lr2) { return mul(make_signed(pr1),cast_real(lr2)); }
+UpperReal mul(PositiveReal const& pr1, UpperReal const& ur2) { return mul(make_signed(pr1),cast_real(ur2)); }
+LowerReal div(LowerReal const& lr1, PositiveReal const& pr2) { return div(cast_real(lr1),make_signed(pr2)); }
+UpperReal div(UpperReal const& ur1, PositiveReal const& pr2) { return div(cast_real(ur1),make_signed(pr2)); }
+LowerReal div(PositiveReal const& pr1, UpperReal const& ur2) { return div(make_signed(pr1),cast_real(ur2)); }
+UpperReal div(PositiveReal const& pr1, LowerReal const& lr2) { return div(make_signed(pr1),cast_real(lr2)); }
 
 
 static_assert(Constructible<FloatDP,Dyadic,FloatDP::RoundingModeType,FloatDP::PrecisionType>);

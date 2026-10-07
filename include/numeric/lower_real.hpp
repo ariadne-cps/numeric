@@ -195,10 +195,10 @@ class PositiveLowerReal : public LowerReal
     PositiveUpperReal div(PositiveUpperReal const&, PositiveLowerReal const&);
 };
 
-PositiveUpperReal rec(PositiveLowerReal plr);
-PositiveLowerReal add(PositiveLowerReal plr1, PositiveLowerReal plr2);
-PositiveLowerReal mul(PositiveLowerReal plr1, PositiveLowerReal plr2);
-PositiveLowerReal div(PositiveLowerReal plr1, PositiveUpperReal pur2);
+PositiveUpperReal rec(PositiveLowerReal const& plr);
+PositiveLowerReal add(PositiveLowerReal const& plr1, PositiveLowerReal const& plr2);
+PositiveLowerReal mul(PositiveLowerReal const& plr1, PositiveLowerReal const& plr2);
+PositiveLowerReal div(PositiveLowerReal const& plr1, PositiveUpperReal const& pur2);
 
 class ValidatedLowerReal
     : public Handle<const ValidatedRealInterface>
