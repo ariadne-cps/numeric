@@ -88,11 +88,15 @@ void test_float_error(typename F::PrecisionType pr)
     E from_generic_upper(generic_upper,pr);
     ARIADNE_TEST_EQUALS(from_generic_upper.raw(),F(2,pr));
 
-    PositiveUpperBound<F>& mutable_upper=from_upper;
-    ARIADNE_TEST_EQUALS(mutable_upper.raw(),F(2,pr));
+    PositiveUpperBound<F> converted_upper=from_upper;
+    ARIADNE_TEST_EQUALS(converted_upper.raw(),F(2,pr));
     E const& const_from_upper=from_upper;
-    PositiveUpperBound<F> const& const_upper=const_from_upper;
+    PositiveUpperBound<F> const_upper=const_from_upper;
     ARIADNE_TEST_EQUALS(const_upper.raw(),F(2,pr));
+
+    E assigned_natural(pr);
+    assigned_natural=Nat(2u);
+    ARIADNE_TEST_EQUALS(assigned_natural.raw(),F(2,pr));
 
     E from_exact(ExactDouble(2),pr);
     E from_twoexp(TwoExp(1),pr);

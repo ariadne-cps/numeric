@@ -71,8 +71,7 @@ template<class F> class Error
     Error(PositiveBounds<F> const& x);
     //! Convert from a positive upper bound \a x on the value to be used to represent an error-bound.
     Error(PositiveUpperBound<F> const& x) : _e(x._u) { }
-    operator PositiveUpperBound<F> const& () const { return reinterpret_cast<PositiveUpperBound<F>const&>(*this); }
-    operator PositiveUpperBound<F>& () { return reinterpret_cast<PositiveUpperBound<F>&>(*this); }
+    operator PositiveUpperBound<F> () const { return PositiveUpperBound<F>(this->_e); }
   public:
     explicit Error(PR const& pr) : _e(pr) { }
     //! Treat \a a as an upper-bound for an error.
@@ -89,8 +88,8 @@ template<class F> class Error
     explicit Error(const ExactDouble& d, PR pr) : Error(UpperBound<F>(d,pr)) { }
     explicit Error(const TwoExp& t, PR pr) : Error(UpperBound<F>(t,pr)) { }
     //! Assign from the natural number \a m, keeping the same precision.
-    template<BuiltinUnsignedIntegral M> Error<F>& operator=(Nat m) {
-        reinterpret_cast<UpperBound<F>&>(*this)=m; return *this; }
+    template<BuiltinUnsignedIntegral M> Error<F>& operator=(M m) {
+        this->_e=F(m,this->precision()); return *this; }
     //! Assign from the generic error bound \a y, keeping the same precision.
     Error<F>& operator=(ValidatedErrorNumber y);
     operator ValidatedErrorNumber() const;
