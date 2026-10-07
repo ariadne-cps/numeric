@@ -80,6 +80,7 @@ Approximation<FloatDP> tan(Approximation<FloatDP> const& x);
 Approximation<FloatDP> tanh(Approximation<FloatDP> const& x);
 Approximation<FloatDP> asin(Approximation<FloatDP> const& x);
 Approximation<FloatDP> acos(Approximation<FloatDP> const& x);
+Approximation<FloatDP> pow(Approximation<FloatDP> const& x, Integer const& z);
 
 Approximation<FloatMP> div(Approximation<FloatMP> const& x1, Approximation<FloatMP> const& x2);
 Approximation<FloatMP> sqr(Approximation<FloatMP> const& x);
@@ -90,19 +91,30 @@ Approximation<FloatMP> tan(Approximation<FloatMP> const& x);
 Approximation<FloatMP> tanh(Approximation<FloatMP> const& x);
 Approximation<FloatMP> asin(Approximation<FloatMP> const& x);
 Approximation<FloatMP> acos(Approximation<FloatMP> const& x);
+Approximation<FloatMP> pow(Approximation<FloatMP> const& x, Integer const& z);
 
 // Declare fallbacks for use by Dyadic/RationalBounds
 template<class B> concept AlgebraicBounds = SameAs<B,DyadicBounds> || SameAs<B,DecimalBounds> || SameAs<B,RationalBounds>;
-template<AlgebraicBounds B> B sqrt(B const&) { std::abort(); }
-template<AlgebraicBounds B> B exp(B const&) { std::abort(); }
-template<AlgebraicBounds B> B log(B const&) { std::abort(); }
-template<AlgebraicBounds B> B sin(B const&) { std::abort(); }
-template<AlgebraicBounds B> B cos(B const&) { std::abort(); }
-template<AlgebraicBounds B> B tan(B const&) { std::abort(); }
-template<AlgebraicBounds B> B tanh(B const&) { std::abort(); }
-template<AlgebraicBounds B> B asin(B const&) { std::abort(); }
-template<AlgebraicBounds B> B acos(B const&) { std::abort(); }
-template<AlgebraicBounds B> B atan(B const&) { std::abort(); }
+template<AlgebraicBounds B> B sqrt(B const& x) {
+    ARIADNE_THROW(DispatchException,"sqrt(AlgebraicBounds)","Unsupported operation sqrt("<<x<<")"); }
+template<AlgebraicBounds B> B exp(B const& x) {
+    ARIADNE_THROW(DispatchException,"exp(AlgebraicBounds)","Unsupported operation exp("<<x<<")"); }
+template<AlgebraicBounds B> B log(B const& x) {
+    ARIADNE_THROW(DispatchException,"log(AlgebraicBounds)","Unsupported operation log("<<x<<")"); }
+template<AlgebraicBounds B> B sin(B const& x) {
+    ARIADNE_THROW(DispatchException,"sin(AlgebraicBounds)","Unsupported operation sin("<<x<<")"); }
+template<AlgebraicBounds B> B cos(B const& x) {
+    ARIADNE_THROW(DispatchException,"cos(AlgebraicBounds)","Unsupported operation cos("<<x<<")"); }
+template<AlgebraicBounds B> B tan(B const& x) {
+    ARIADNE_THROW(DispatchException,"tan(AlgebraicBounds)","Unsupported operation tan("<<x<<")"); }
+template<AlgebraicBounds B> B tanh(B const& x) {
+    ARIADNE_THROW(DispatchException,"tanh(AlgebraicBounds)","Unsupported operation tanh("<<x<<")"); }
+template<AlgebraicBounds B> B asin(B const& x) {
+    ARIADNE_THROW(DispatchException,"asin(AlgebraicBounds)","Unsupported operation asin("<<x<<")"); }
+template<AlgebraicBounds B> B acos(B const& x) {
+    ARIADNE_THROW(DispatchException,"acos(AlgebraicBounds)","Unsupported operation acos("<<x<<")"); }
+template<AlgebraicBounds B> B atan(B const& x) {
+    ARIADNE_THROW(DispatchException,"atan(AlgebraicBounds)","Unsupported operation atan("<<x<<")"); }
 template<AlgebraicBounds B> ValidatedKleenean operator>(B const& y1, Int n2) { return y1 > B(n2); }
 
 class NumberInterface;
@@ -194,6 +206,7 @@ template<class R, class X> inline R _concrete_apply(UnaryElementaryOperator op, 
         case OperatorCode::SIN: return _make_number_wrapper(make_unsigned(Sin()(x)));
         case OperatorCode::COS: return _make_number_wrapper(make_unsigned(Cos()(x)));
         case OperatorCode::TAN: return _make_number_wrapper(make_unsigned(Tan()(x)));
+        case OperatorCode::TANH: return _make_number_wrapper(make_unsigned(Tanh()(x)));
         case OperatorCode::ASIN: return _make_number_wrapper(make_unsigned(Asin()(x)));
         case OperatorCode::ACOS: return _make_number_wrapper(make_unsigned(Acos()(x)));
         case OperatorCode::ATAN: return _make_number_wrapper(make_unsigned(Atan()(x)));

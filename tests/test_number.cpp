@@ -205,6 +205,13 @@ TestNumbers::test_operations()
     ARIADNE_TEST_PRINT(max(ExactNumber(Dyadic(1)),ExactNumber(FloatDP(2,dp))));
     ARIADNE_TEST_PRINT(max(ExactNumber(FloatDP(1,dp)),ExactNumber(Dyadic(2))));
 
+    ARIADNE_TEST_PRINT(min(ExactNumber(1),ExactNumber(2)));
+    ARIADNE_TEST_PRINT(min(ExactNumber(FloatDP(1,dp)),ExactNumber(FloatDP(2,dp))));
+    ARIADNE_TEST_PRINT(min(ExactNumber(1),ExactNumber(FloatDP(2,dp))));
+    ARIADNE_TEST_PRINT(min(ExactNumber(FloatDP(1,dp)),ExactNumber(2)));
+    ARIADNE_TEST_PRINT(min(ExactNumber(Dyadic(1)),ExactNumber(FloatDP(2,dp))));
+    ARIADNE_TEST_PRINT(min(ExactNumber(FloatDP(1,dp)),ExactNumber(Dyadic(2))));
+
 }
 
 
@@ -296,6 +303,60 @@ TestNumbers::test_misc()
     ARIADNE_TEST_ASSERT(definitely(positive_float > ValidatedLowerNumber::Zero{}));
     EffectiveLowerNumber positive_real(Real(1));
     ARIADNE_TEST_ASSERT(definitely(positive_real > EffectiveLowerNumber::Zero{}));
+
+    FloatDPApproximation dp_approximation(2u,dp);
+    ARIADNE_TEST_EXECUTE(pow(dp_approximation,Integer(3)));
+    FloatMPApproximation mp_power_approximation(2u,mp);
+    ARIADNE_TEST_EXECUTE(pow(mp_power_approximation,Integer(3)));
+    Integer huge_power{String("9223372036854775808")};
+    ARIADNE_TEST_FAIL(pow(dp_approximation,huge_power));
+    ARIADNE_TEST_FAIL(pow(mp_power_approximation,huge_power));
+
+    ExactNumber unary(Integer(1));
+    ARIADNE_TEST_EXECUTE(nul(unary));
+    ARIADNE_TEST_EXECUTE(pos(unary));
+    ARIADNE_TEST_EXECUTE(neg(unary));
+    ARIADNE_TEST_EXECUTE(sqr(unary));
+    ARIADNE_TEST_EXECUTE(hlf(unary));
+    ARIADNE_TEST_EXECUTE(rec(unary));
+    ARIADNE_TEST_EXECUTE(sqrt(unary));
+    ARIADNE_TEST_EXECUTE(exp(unary));
+    ARIADNE_TEST_EXECUTE(log(unary));
+    ARIADNE_TEST_EXECUTE(sin(unary));
+    ARIADNE_TEST_EXECUTE(cos(unary));
+    ARIADNE_TEST_EXECUTE(tan(unary));
+    ARIADNE_TEST_EXECUTE(tanh(unary));
+    ARIADNE_TEST_EXECUTE(asin(unary));
+    ARIADNE_TEST_EXECUTE(acos(unary));
+    ARIADNE_TEST_EXECUTE(atan(unary));
+    ARIADNE_TEST_EXECUTE(abs(unary));
+
+    DyadicBounds algebraic_dyadic(Dyadic(1),Dyadic(2));
+    RationalBounds algebraic_rational(Rational(1),Rational(2));
+    ARIADNE_TEST_ASSERT(definitely(algebraic_dyadic>0));
+    ARIADNE_TEST_ASSERT(definitely(algebraic_rational>0));
+    ValidatedNumber dyadic_dispatch=algebraic_dyadic.operator ValidatedNumber();
+    ValidatedNumber rational_dispatch=algebraic_rational.operator ValidatedNumber();
+    ARIADNE_TEST_THROWS(sqrt(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(exp(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(log(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(sin(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(cos(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(tan(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(tanh(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(asin(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(acos(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(atan(dyadic_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(sqrt(rational_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(exp(rational_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(log(rational_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(sin(rational_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(cos(rational_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(tan(rational_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(tanh(rational_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(asin(rational_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(acos(rational_dispatch),DispatchException);
+    ARIADNE_TEST_THROWS(atan(rational_dispatch),DispatchException);
 }
 
 template<class Y> class TestNumber
