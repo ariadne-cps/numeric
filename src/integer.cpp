@@ -265,9 +265,7 @@ Boolean lt(Integer const& z1, Integer const& z2) {
 String Integer::literal() const {
     SizeType output_buffer_size=mpz_sizeinbase(this->_mpz,10)+2;
     char* cstr=new char[output_buffer_size];
-    cstr[output_buffer_size-1]='\0';
     mpz_get_str (cstr, 10, this->_mpz);
-    ARIADNE_ASSERT(cstr[output_buffer_size-1]=='\0');
     String str(cstr);
     delete[] cstr;
     return str;
