@@ -55,6 +55,18 @@
 
 namespace Ariadne {
 
+// Required by graded dispatch on directed floating-point bounds.
+Approximation<FloatDP> pow(Approximation<FloatDP> const& x, Integer const& z) {
+    Int n=z.get_si();
+    ARIADNE_PRECONDITION(n==z);
+    return Approximation<FloatDP>(pow(approx,x._a,n));
+}
+Approximation<FloatMP> pow(Approximation<FloatMP> const& x, Integer const& z) {
+    Int n=z.get_si();
+    ARIADNE_PRECONDITION(n==z);
+    return Approximation<FloatMP>(pow(approx,x._a,n));
+}
+
 ExactDouble::operator ExactNumber() const { return Dyadic(*this).operator ExactNumber(); }
 Integer::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Integer>(*this)); }
 Dyadic::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Dyadic>(*this)); }
