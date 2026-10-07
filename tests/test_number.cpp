@@ -65,17 +65,17 @@ constexpr bool check_number_concept()
     };
 }
 
-template<class Y>
+template<class L, class U>
 constexpr bool check_directed_number_concept()
 {
-    using NY=NegationType<Y>;
-    return Same<NegationType<NY>,Y> and requires(Y y, NY ny) {
-        y=+y; ny=-y; y=-ny;
-        y=y+y; y=y-ny; y+=y; y+=ny;
-        y=add(y,y); y=sub(y,ny); ny=sub(ny,y);
-        y=sqrt(y); y=exp(y); y=log(y); y=tan(y);
-        y==ny; y!=ny; y<ny; y>ny;
-        ny==y; ny!=y; ny<y; ny>y;
+    return requires(L l, L l2, U u, U u2) {
+        +l; -l; +u; -u;
+        l+l2; l-u; u+u2; u-l;
+        l+=l2; l-=u; u+=u2; u-=l;
+        add(l,l2); sub(l,u); add(u,u2); sub(u,l);
+        sqrt(l); exp(l); log(l); atan(l); max(l,l2); min(l,l2);
+        sqrt(u); exp(u); log(u); atan(u); max(u,u2); min(u,u2);
+        l==u; l!=u; l<u; l>u; u==l; u!=l; u<l; u>l;
     };
 }
 
@@ -83,10 +83,8 @@ static_assert(check_number_concept<ApproximateNumber>());
 static_assert(check_number_concept<ValidatedNumber>());
 static_assert(check_number_concept<EffectiveNumber>());
 static_assert(check_number_concept<ExactNumber>());
-static_assert(check_directed_number_concept<ValidatedLowerNumber>());
-static_assert(check_directed_number_concept<ValidatedUpperNumber>());
-static_assert(check_directed_number_concept<EffectiveLowerNumber>());
-static_assert(check_directed_number_concept<EffectiveUpperNumber>());
+static_assert(check_directed_number_concept<ValidatedLowerNumber,ValidatedUpperNumber>());
+static_assert(check_directed_number_concept<EffectiveLowerNumber,EffectiveUpperNumber>());
 
 } // namespace
 
@@ -106,6 +104,7 @@ class TestNumbers
 {
   public:
     Void test();
+    Void test_operations();
     Void test_dyadic_behaviour();
     Void test_float_value_behaviour();
     Void test_misc();

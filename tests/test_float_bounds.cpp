@@ -53,18 +53,16 @@ namespace {
 template<class PR>
 constexpr bool check_float_bounds_concept()
 {
-    using R=RawFloat<PR>; using B=FloatBounds<PR>; using E=Float<PR>;
-    return requires(Nat m, Int n, double d, E x, R a, R b, B vx, B rx) {
-        B(); B(n); B(m); B(d); B(x); B(vx); B(n,n); B(m,m); B(d,d); B(a,b); B(n,m); B(m,d); B(d,n);
-        rx=n; rx=m; rx=x; rx=vx;
-        rx=nul(vx); rx=pos(vx); rx=neg(vx); rx=hlf(vx); rx=sqr(vx); rx=rec(vx);
-        rx=operator+(x,x); rx=operator+(x,vx); rx=operator+(vx,x); rx=operator+(vx,vx);
-        rx=operator-(x,x); rx=operator-(x,vx); rx=operator-(vx,x); rx=operator-(vx,vx);
-        rx=operator*(x,x); rx=operator*(x,vx); rx=operator*(vx,x); rx=operator*(vx,vx);
-        rx=operator/(x,x); rx=operator/(x,vx); rx=operator/(vx,x); rx=operator/(vx,vx);
-        rx=add(x,x); rx=add(vx,vx); rx=sub(x,x); rx=sub(vx,vx); rx=mul(x,x); rx=mul(vx,vx); rx=div(x,x); rx=div(vx,vx);
-        rx=pow(x,m); rx=pow(x,n); rx=max(vx,vx); rx=min(vx,vx); rx=abs(vx);
-        rx=sqrt(vx); rx=exp(vx); rx=log(vx); rx=sin(vx); rx=cos(vx); rx=tan(vx); rx=atan(vx);
+    using R=RawFloat<PR>; using B=FloatBounds<PR>;
+    return requires(PR pr, Nat m, Int n, R a, R b, B x, B y) {
+        B(pr); B(n,pr); B(m,pr); B(a); B(a,b); B(n,m,pr);
+        x=a; x=y;
+        nul(x); pos(x); neg(x); hlf(x); sqr(x); rec(x);
+        +x; -x; x+y; x-y; x*y; x/y;
+        add(x,y); sub(x,y); mul(x,y); div(x,y); pow(x,m); pow(x,n);
+        max(x,y); min(x,y); abs(x);
+        sqrt(x); exp(x); log(x); sin(x); cos(x); tan(x); atan(x);
+        x.precision(); x.lower_raw(); x.upper_raw();
     };
 }
 
@@ -565,7 +563,7 @@ template<class PR> Void TestFloatBounds<PR>::test_aliasing() {
     FloatValueType ex2(1.5_x,pr);
     FloatValueType ex3(2.25_x,pr);
 
-    FloatBoundsType vx1;
+    FloatBoundsType vx1(pr);
     FloatBoundsType vx2(1.5_x,2.25_x,pr);
     FloatBoundsType vx3(3.125_x,4.0625_x,pr);
 

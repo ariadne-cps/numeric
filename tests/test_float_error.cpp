@@ -129,7 +129,11 @@ void test_float_error(typename F::PrecisionType pr)
     StringStream negative_input("-1");
     ARIADNE_TEST_FAIL(Operations<E>::_read(negative_input,parsed));
 
-    ARIADNE_TEST_EQUALS(class_name<E>(),Same<F,FloatDP> ? String("FloatDPError") : String("FloatMPError"));
+    if constexpr (Same<F,FloatDP>) {
+        ARIADNE_TEST_EQUALS(class_name<E>(),String("FloatDPError"));
+    } else {
+        ARIADNE_TEST_EQUALS(class_name<E>(),String("FloatMPError"));
+    }
 }
 
 } // namespace
