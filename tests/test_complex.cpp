@@ -155,6 +155,9 @@ template<class X> void TestComplex<X>::test_transcendental() {
     ARIADNE_TEST_WITHIN(log(exp(x))+2*pi*i,x,tol);
     ARIADNE_TEST_WITHIN(exp(log(x)),x,tol);
 
+    auto minimum_abs=mig(x);
+    ARIADNE_TEST_EQUALS(minimum_abs.raw(),FloatDP(5,dp));
+
     ARIADNE_TEST_ASSERT(possibly(sqrt(Complex<X>(4*_one))==2.0_dy));
     ARIADNE_TEST_ASSERT(possibly(log(Complex<X>(1*_one))==0.0_dy));
     ARIADNE_TEST_ASSERT(possibly(exp(Complex<X>(0*_one))==1.0_dy));

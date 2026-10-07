@@ -80,6 +80,20 @@ void test_float_error(typename F::PrecisionType pr)
     E from_upper(upper_two);
     ARIADNE_TEST_EQUALS(from_upper.raw(),F(2,pr));
 
+    PositiveBounds<F> positive_bounds(F(1,pr),F(2,pr));
+    E from_bounds(positive_bounds);
+    ARIADNE_TEST_EQUALS(from_bounds.raw(),F(2,pr));
+
+    ValidatedUpperNumber generic_upper=upper_two;
+    E from_generic_upper(generic_upper,pr);
+    ARIADNE_TEST_EQUALS(from_generic_upper.raw(),F(2,pr));
+
+    PositiveUpperBound<F>& mutable_upper=from_upper;
+    ARIADNE_TEST_EQUALS(mutable_upper.raw(),F(2,pr));
+    E const& const_from_upper=from_upper;
+    PositiveUpperBound<F> const& const_upper=const_from_upper;
+    ARIADNE_TEST_EQUALS(const_upper.raw(),F(2,pr));
+
     E from_exact(ExactDouble(2),pr);
     E from_twoexp(TwoExp(1),pr);
     ARIADNE_TEST_EQUALS(from_exact.raw(),F(2,pr));
@@ -139,6 +153,10 @@ void test_float_error(typename F::PrecisionType pr)
     Operations<E>::_write(stream,two);
     ARIADNE_TEST_ASSERT(not stream.str().empty());
 
+    StringStream direct_output;
+    direct_output << two;
+    ARIADNE_TEST_ASSERT(not direct_output.str().empty());
+
     StringStream positive_input("2");
     E parsed(pr);
     Operations<E>::_read(positive_input,parsed);
@@ -150,6 +168,19 @@ void test_float_error(typename F::PrecisionType pr)
 
     StringStream negative_input("-1");
     ARIADNE_TEST_FAIL(Operations<E>::_read(negative_input,parsed));
+
+    StringStream direct_negative_input("-1");
+    ARIADNE_TEST_FAIL(direct_negative_input >> parsed);
+
+    StringStream failed_input;
+    failed_input.setstate(std::ios::badbit);
+    Operations<E>::_read(failed_input,parsed);
+    ARIADNE_TEST_ASSERT(failed_input.bad());
+
+    StringStream direct_failed_input;
+    direct_failed_input.setstate(std::ios::badbit);
+    direct_failed_input >> parsed;
+    ARIADNE_TEST_ASSERT(direct_failed_input.bad());
 
     if constexpr (Same<F,FloatDP>) {
         ARIADNE_TEST_EQUALS(class_name<E>(),String("FloatDPError"));
