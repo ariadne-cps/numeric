@@ -561,7 +561,11 @@ InputStream& operator>>(InputStream& is, FloatMP& x) {
         str.push_back(static_cast<char>(c));
         c=is.get();
     }
-    if(c!=std::char_traits<char>::eof()) { is.putback(static_cast<char>(c)); }
+    if(c!=std::char_traits<char>::eof()) {
+        is.putback(static_cast<char>(c));
+    } else {
+        is.clear(is.rdstate() & ~std::ios::failbit);
+    }
     mpfr_set_str(x._mpfr,str.c_str(),0,MPFR_RNDN);
     return is;
 }

@@ -365,6 +365,13 @@ TestFloatRounding<PR>::test_stream()
     delimited >> delimiter;
     ARIADNE_TEST_EQUAL(delimiter,',');
 
+    stringstream terminal("2");
+    Float terminal_value(precision);
+    terminal >> terminal_value;
+    ARIADNE_TEST_EQUALS(terminal_value,2);
+    ARIADNE_TEST_ASSERT(terminal.eof());
+    ARIADNE_TEST_ASSERT(not terminal.fail());
+
     if constexpr (std::is_same_v<PR,DoublePrecision>) {
         typename Float::RoundingModeType old_rnd=Float::get_rounding_mode();
         auto test_rounding_independent_parse = [&]() {
