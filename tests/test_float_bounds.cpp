@@ -87,6 +87,7 @@ class TestFloatBounds
     inline FloatBoundsType make_float_bounds(ExactDouble l, ExactDouble u) { return FloatBoundsType(l,u,pr); }
 
     Void test_constructors();
+    Void test_header_api();
     Void test_conversions();
     Void test_input();
     Void test_class();
@@ -108,6 +109,7 @@ template<class PR> Void
 TestFloatBounds<PR>::test()
 {
     ARIADNE_TEST_CALL(test_constructors());
+    ARIADNE_TEST_CALL(test_header_api());
     ARIADNE_TEST_CALL(test_input());
     ARIADNE_TEST_CALL(test_class());
     ARIADNE_TEST_CALL(test_conversions());
@@ -122,6 +124,55 @@ TestFloatBounds<PR>::test()
     ARIADNE_TEST_CALL(test_monotone_functions());
     ARIADNE_TEST_CALL(test_trigonometric_functions());
     ARIADNE_TEST_CALL(regression_tests());
+}
+
+template<class PR> Void
+TestFloatBounds<PR>::test_header_api()
+{
+    Decimal decimal_one(String("1.0"));
+    Decimal decimal_two(String("2.0"));
+    FloatBoundsType decimal_bounds(decimal_one,decimal_two,pr);
+    ARIADNE_TEST_SAME(decimal_bounds,FloatBoundsType(1,2,pr));
+
+    FloatBoundsType twoexp_bounds(TwoExp(1),pr);
+    ARIADNE_TEST_SAME(twoexp_bounds,FloatBoundsType(2,pr));
+
+    RawFloatType raw_one(1,pr);
+    FloatBoundsType assigned(pr);
+    assigned=raw_one;
+    ARIADNE_TEST_SAME(assigned,FloatBoundsType(1,pr));
+
+    FloatBoundsType source(1,2,pr);
+    ValidatedNumber generic=source.generic();
+    assigned=generic;
+    ARIADNE_TEST_SAME(assigned,source);
+
+    FloatBoundsType created=source.create(generic);
+    ARIADNE_TEST_SAME(created,source);
+
+    ARIADNE_TEST_EQUALS(source.characteristics(),pr);
+    ARIADNE_TEST_EXECUTE(source.generic());
+
+    ARIADNE_TEST_SAME(sqr(FloatBoundsType(-2,-1,pr)),FloatBoundsType(1,4,pr));
+    ARIADNE_TEST_SAME(sqr(FloatBoundsType(-2,1,pr)),FloatBoundsType(0,4,pr));
+
+    ARIADNE_TEST_ASSERT(is_indeterminate(eq(FloatBoundsType(0,2,pr),FloatBoundsType(1,3,pr))));
+
+    RawFloatType raw_zero(0,pr);
+    ARIADNE_TEST_SAME(asin(raw_zero),FloatBoundsType(0,pr));
+    ARIADNE_TEST_SAME(acos(raw_one),FloatBoundsType(0,pr));
+
+    FloatBoundsType point(raw_one);
+    ARIADNE_TEST_ASSERT(not possibly(point!=raw_one));
+    ARIADNE_TEST_ASSERT(definitely(point<=raw_one));
+    ARIADNE_TEST_ASSERT(definitely(point>=raw_one));
+
+    ARIADNE_TEST_ASSERT(definitely(raw_one==point));
+    ARIADNE_TEST_ASSERT(not possibly(raw_one!=point));
+    ARIADNE_TEST_ASSERT(not possibly(raw_one<point));
+    ARIADNE_TEST_ASSERT(not possibly(raw_one>point));
+    ARIADNE_TEST_ASSERT(definitely(raw_one<=point));
+    ARIADNE_TEST_ASSERT(definitely(raw_one>=point));
 }
 
 template<class PR> Void
