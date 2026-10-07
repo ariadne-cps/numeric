@@ -95,6 +95,7 @@ template<class X> void TestComplex<X>::test_conversions() {
 }
 
 template<class X> void TestComplex<X>::test_constructors() {
+    ARIADNE_TEST_EXECUTE(Positive<Real>(Real(1)));
 /*
     ARIADNE_TEST_CONSTRUCT(ComplexType,zz,);
     ARIADNE_TEST_EQUALS(zz.get(dp),0);
@@ -158,6 +159,7 @@ template<class X> void TestComplex<X>::test_polar() {
     Dyadic tol=16*eps;
     X zero=nul(_one);
     Complex<X> i=Complex<X>(zero,_one);
+    ARIADNE_TEST_FAIL(atan2(zero,zero));
     ARIADNE_TEST_WITHIN(arg(exp(-3*i)),-3,tol);
     ARIADNE_TEST_WITHIN(arg(exp(-2*i)),-2,tol);
     ARIADNE_TEST_WITHIN(arg(exp(-1*i)),-1,tol);
