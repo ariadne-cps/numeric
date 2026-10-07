@@ -450,6 +450,10 @@ TestFloat<PR>::test_operations()
         FloatDP downward_value(downward_target,FloatDP::ROUND_DOWNWARD,dp);
         ARIADNE_TEST_ASSERT(Dyadic(downward_value)<=downward_target);
 
+        Dyadic negative_downward_target=-Dyadic(1)-Dyadic(3,54u);
+        FloatDP negative_downward_value(negative_downward_target,FloatDP::ROUND_DOWNWARD,dp);
+        ARIADNE_TEST_ASSERT(Dyadic(negative_downward_value)<=negative_downward_target);
+
         ARIADNE_TEST_EXECUTE(FloatDP::pi(FloatDP::ROUND_UPWARD,dp));
         ARIADNE_TEST_EXECUTE(FloatDP::pi(FloatDP::ROUND_DOWNWARD,dp));
         ARIADNE_TEST_EXECUTE(FloatDP::pi(FloatDP::ROUND_TO_NEAREST,dp));
