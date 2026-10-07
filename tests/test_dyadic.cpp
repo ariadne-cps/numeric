@@ -300,7 +300,9 @@ void TestDyadic::test_ball() {
     ARIADNE_TEST_EQUALS((uncertain-exact).value_raw(),Dyadic(1));
     ARIADNE_TEST_EQUALS((exact*uncertain).value_raw(),Dyadic(6));
     ARIADNE_TEST_EQUALS(abs(DyadicBall(Dyadic(-3),Dyadic(1))).value_raw(),Dyadic(3));
-    ARIADNE_TEST_EQUALS(abs(DyadicBall(Dyadic(0),Dyadic(2))).value_raw(),Dyadic(2));
+    DyadicBall crossing_abs=abs(DyadicBall(Dyadic(0),Dyadic(2)));
+    ARIADNE_TEST_EQUALS(crossing_abs.value_raw(),Dyadic(1));
+    ARIADNE_TEST_EQUALS(crossing_abs.error_raw(),Dyadic(1));
 
     ARIADNE_TEST_ASSERT(definitely(DyadicBall(Dyadic(1),Dyadic(0)) < DyadicBall(Dyadic(3),Dyadic(0))));
     ARIADNE_TEST_ASSERT(definitely(!(DyadicBall(Dyadic(3),Dyadic(0)) < DyadicBall(Dyadic(1),Dyadic(0)))));

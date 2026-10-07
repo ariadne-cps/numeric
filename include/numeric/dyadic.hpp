@@ -306,7 +306,7 @@ template<> class Bounds<Dyadic> {
     friend Bounds<Dyadic> pos(Bounds<Dyadic> const& w) {
         return Bounds<Dyadic>(pos(w._l),pos(w._u)); }
     friend Bounds<Dyadic> neg(Bounds<Dyadic> const& w) {
-        return Bounds<Dyadic>(neg(w._l),neg(w._u)); }
+        return Bounds<Dyadic>(neg(w._u),neg(w._l)); }
     friend Bounds<Dyadic> sqr(Bounds<Dyadic> const& w) {
         if(w._l>0) { return Bounds<Dyadic>(sqr(w._l),sqr(w._u)); }
         else if(w._u<0) { return Bounds<Dyadic>(sqr(w._u),sqr(w._l)); }
