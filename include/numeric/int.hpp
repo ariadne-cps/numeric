@@ -39,38 +39,61 @@ namespace Ariadne {
 
 class Nat32 {
     uint32_t _m;
+    static uint32_t _checked_unsigned(uint64_t m) {
+        ARIADNE_PRECONDITION(m<=std::numeric_limits<uint32_t>::max());
+        return static_cast<uint32_t>(m);
+    }
+    static uint32_t _checked_signed(int64_t n) {
+        ARIADNE_PRECONDITION(static_cast<uint64_t>(n)<=std::numeric_limits<uint32_t>::max());
+        return static_cast<uint32_t>(n);
+    }
   public:
     Nat32() : _m(0u) { }
-    template<BuiltinUnsignedIntegral M> Nat32(M m) : _m(m) { assert(_m==m); }
-    template<BuiltinSignedIntegral N> Nat32(N n) : _m(static_cast<uint32_t>(n)) { assert(n>=0); assert((int64_t)_m==n); }
+    template<BuiltinUnsignedIntegral M> Nat32(M m) : _m(_checked_unsigned(static_cast<uint64_t>(m))) { }
+    template<BuiltinSignedIntegral N> Nat32(N n) : _m(_checked_signed(static_cast<int64_t>(n))) { }
     uint32_t get_ui() const { return _m; }
 };
 
 class Nat64 {
     uint64_t _m;
+    static uint64_t _checked_signed(int64_t n) {
+        ARIADNE_PRECONDITION(n>=0);
+        return static_cast<uint64_t>(n);
+    }
   public:
     Nat64() : _m(0u) { }
-    template<BuiltinUnsignedIntegral M> Nat64(M m) : _m(m) { assert(_m==m); }
-    template<BuiltinSignedIntegral N> Nat64(N n) : _m(static_cast<uint64_t>(n)) { assert(n>=0); assert((int64_t)_m==n);
-        assert(uint64_t(int64_t(_m))==_m); }
+    template<BuiltinUnsignedIntegral M> Nat64(M m) : _m(static_cast<uint64_t>(m)) { }
+    template<BuiltinSignedIntegral N> Nat64(N n) : _m(_checked_signed(static_cast<int64_t>(n))) { }
     uint64_t get_ui() const { return _m; }
 };
 
 class Int32 {
     int32_t _n;
+    static int32_t _checked_unsigned(uint64_t m) {
+        ARIADNE_PRECONDITION(m<=static_cast<uint64_t>(std::numeric_limits<int32_t>::max()));
+        return static_cast<int32_t>(m);
+    }
+    static int32_t _checked_signed(int64_t n) {
+        ARIADNE_PRECONDITION((n>=std::numeric_limits<int32_t>::min()) & (n<=std::numeric_limits<int32_t>::max()));
+        return static_cast<int32_t>(n);
+    }
   public:
     Int32() : _n(0) { }
-    template<BuiltinUnsignedIntegral M> Int32(M m) : _n(static_cast<int32_t>(m)) { assert(_n>=0); assert((uint32_t)_n==m); }
-    template<BuiltinSignedIntegral N> Int32(N n) : _n(n) { assert(_n==n); }
+    template<BuiltinUnsignedIntegral M> Int32(M m) : _n(_checked_unsigned(static_cast<uint64_t>(m))) { }
+    template<BuiltinSignedIntegral N> Int32(N n) : _n(_checked_signed(static_cast<int64_t>(n))) { }
     int32_t get_si() const { return _n; }
 };
 
 class Int64 {
     int64_t _n;
+    static int64_t _checked_unsigned(uint64_t m) {
+        ARIADNE_PRECONDITION(m<=static_cast<uint64_t>(std::numeric_limits<int64_t>::max()));
+        return static_cast<int64_t>(m);
+    }
   public:
     Int64() : _n(0) { }
-    template<BuiltinUnsignedIntegral M> Int64(M m) : _n(static_cast<int64_t>(m)) { assert(_n>=0); assert((uint64_t)_n==m); }
-    template<BuiltinSignedIntegral N> Int64(N n) : _n(n) { assert(_n==n); }
+    template<BuiltinUnsignedIntegral M> Int64(M m) : _n(_checked_unsigned(static_cast<uint64_t>(m))) { }
+    template<BuiltinSignedIntegral N> Int64(N n) : _n(static_cast<int64_t>(n)) { }
     int64_t get_si() const { return _n; }
 };
 

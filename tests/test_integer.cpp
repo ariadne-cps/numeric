@@ -181,6 +181,15 @@ void TestInteger::test_small_types() {
     ARIADNE_TEST_EQUALS(Int64(uint64_t(11)).get_si(),int64_t(11));
     ARIADNE_TEST_EQUALS(Int64(int16_t(-10)).get_si(),int64_t(-10));
 
+    ARIADNE_TEST_FAIL(Nat32(uint64_t(4294967296ULL)));
+    ARIADNE_TEST_FAIL(Nat32(int64_t(-1)));
+    ARIADNE_TEST_FAIL(Nat32(int64_t(4294967296LL)));
+    ARIADNE_TEST_FAIL(Nat64(int64_t(-1)));
+    ARIADNE_TEST_FAIL(Int32(uint64_t(2147483648ULL)));
+    ARIADNE_TEST_FAIL(Int32(int64_t(-2147483649LL)));
+    ARIADNE_TEST_FAIL(Int32(int64_t(2147483648LL)));
+    ARIADNE_TEST_FAIL(Int64(uint64_t(9223372036854775808ULL)));
+
     Bits bits=8_bits;
     ARIADNE_TEST_EQUALS(static_cast<unsigned long int>(bits),8ul);
     std::ostringstream bits_stream;
