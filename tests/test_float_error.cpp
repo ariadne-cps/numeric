@@ -65,12 +65,12 @@ void test_float_error(typename F::PrecisionType pr)
 
     E zero(pr);
     E one(1u,pr);
-    E two(2u,pr);
+    E two_error(2u,pr);
 
     ARIADNE_TEST_EQUALS(zero.raw(),F(0,pr));
     ARIADNE_TEST_EQUALS(one.raw(),F(1,pr));
-    ARIADNE_TEST_EQUALS(two.precision(),pr);
-    ARIADNE_TEST_EQUALS(two.characteristics(),pr);
+    ARIADNE_TEST_EQUALS(two_error.precision(),pr);
+    ARIADNE_TEST_EQUALS(two_error.characteristics(),pr);
 
     Positive<F> positive_two(F(2,pr));
     E from_positive(positive_two);
@@ -99,62 +99,62 @@ void test_float_error(typename F::PrecisionType pr)
     ARIADNE_TEST_EQUALS(from_exact.raw(),F(2,pr));
     ARIADNE_TEST_EQUALS(from_twoexp.raw(),F(2,pr));
 
-    ARIADNE_TEST_EQUALS((one+two).raw(),F(3,pr));
-    ARIADNE_TEST_EQUALS((two*two).raw(),F(4,pr));
+    ARIADNE_TEST_EQUALS((one+two_error).raw(),F(3,pr));
+    ARIADNE_TEST_EQUALS((two_error*two_error).raw(),F(4,pr));
 
     E accumulated=one;
-    accumulated+=two;
+    accumulated+=two_error;
     ARIADNE_TEST_EQUALS(accumulated.raw(),F(3,pr));
-    accumulated*=two;
+    accumulated*=two_error;
     ARIADNE_TEST_EQUALS(accumulated.raw(),F(6,pr));
 
-    ARIADNE_TEST_EQUALS((+two).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS((-two).raw(),F(-2,pr));
+    ARIADNE_TEST_EQUALS((+two_error).raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS((-two_error).raw(),F(-2,pr));
 
-    auto symmetric=pm(two);
+    auto symmetric=pm(two_error);
     ARIADNE_TEST_EQUALS(symmetric.lower_raw(),F(-2,pr));
     ARIADNE_TEST_EQUALS(symmetric.upper_raw(),F(2,pr));
 
-    ARIADNE_TEST_EQUALS(nul(two).raw(),F(0,pr));
-    ARIADNE_TEST_EQUALS(pos(two).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(neg(two).raw(),F(-2,pr));
-    ARIADNE_TEST_EQUALS(add(one,two).raw(),F(3,pr));
-    ARIADNE_TEST_EQUALS(mul(two,two).raw(),F(4,pr));
-    ARIADNE_TEST_EQUALS(sqr(two).raw(),F(4,pr));
-    ARIADNE_TEST_EQUALS(pow(two,Nat(3u)).raw(),F(8,pr));
-    ARIADNE_TEST_EQUALS(fma(two,two,one).raw(),F(5,pr));
+    ARIADNE_TEST_EQUALS(nul(two_error).raw(),F(0,pr));
+    ARIADNE_TEST_EQUALS(pos(two_error).raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS(neg(two_error).raw(),F(-2,pr));
+    ARIADNE_TEST_EQUALS(add(one,two_error).raw(),F(3,pr));
+    ARIADNE_TEST_EQUALS(mul(two_error,two_error).raw(),F(4,pr));
+    ARIADNE_TEST_EQUALS(sqr(two_error).raw(),F(4,pr));
+    ARIADNE_TEST_EQUALS(pow(two_error,Nat(3u)).raw(),F(8,pr));
+    ARIADNE_TEST_EQUALS(fma(two_error,two_error,one).raw(),F(5,pr));
 
     ARIADNE_TEST_EQUALS(sqrt(E(4u,pr)).raw(),F(2,pr));
     ARIADNE_TEST_EQUALS(exp(zero).raw(),F(1,pr));
     ARIADNE_TEST_EQUALS(log(one).raw(),F(0,pr));
 
-    ARIADNE_TEST_EQUALS(max(one,two).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(min(one,two).raw(),F(1,pr));
-    ARIADNE_TEST_EQUALS(abs(two).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(mag(two).raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS(max(one,two_error).raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS(min(one,two_error).raw(),F(1,pr));
+    ARIADNE_TEST_EQUALS(abs(two_error).raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS(mag(two_error).raw(),F(2,pr));
 
-    ARIADNE_TEST_EQUALS((two+Nat(3u)).raw(),F(5,pr));
-    ARIADNE_TEST_EQUALS((Nat(3u)+two).raw(),F(5,pr));
-    ARIADNE_TEST_EQUALS((two*Nat(3u)).raw(),F(6,pr));
-    ARIADNE_TEST_EQUALS((Nat(3u)*two).raw(),F(6,pr));
-    ARIADNE_TEST_EQUALS((two/Nat(2u)).raw(),F(1,pr));
+    ARIADNE_TEST_EQUALS((two_error+Nat(3u)).raw(),F(5,pr));
+    ARIADNE_TEST_EQUALS((Nat(3u)+two_error).raw(),F(5,pr));
+    ARIADNE_TEST_EQUALS((two_error*Nat(3u)).raw(),F(6,pr));
+    ARIADNE_TEST_EQUALS((Nat(3u)*two_error).raw(),F(6,pr));
+    ARIADNE_TEST_EQUALS((two_error/Nat(2u)).raw(),F(1,pr));
 
     ARIADNE_TEST_ASSERT(same(one,E(1u,pr)));
-    ARIADNE_TEST_ASSERT(not same(one,two));
-    ARIADNE_TEST_ASSERT(refines(one,two));
-    ARIADNE_TEST_EQUALS(refinement(one,two).raw(),F(1,pr));
+    ARIADNE_TEST_ASSERT(not same(one,two_error));
+    ARIADNE_TEST_ASSERT(refines(one,two_error));
+    ARIADNE_TEST_EQUALS(refinement(one,two_error).raw(),F(1,pr));
 
-    ValidatedErrorNumber generic=two.generic();
+    ValidatedErrorNumber generic=two_error.generic();
     E assigned(pr);
     assigned=generic;
     ARIADNE_TEST_EQUALS(assigned.raw(),F(2,pr));
 
     StringStream stream;
-    Operations<E>::_write(stream,two);
+    Operations<E>::_write(stream,two_error);
     ARIADNE_TEST_ASSERT(not stream.str().empty());
 
     StringStream direct_output;
-    direct_output << two;
+    direct_output << two_error;
     ARIADNE_TEST_ASSERT(not direct_output.str().empty());
 
     StringStream positive_input("2");
