@@ -31,6 +31,7 @@
 #define ARIADNE_SIGN_HPP
 
 #include <iosfwd>
+#include "utility/typedefs.hpp"
 #include "utility/macros.hpp"
 
 namespace Ariadne {
