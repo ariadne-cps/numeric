@@ -66,7 +66,6 @@ template<> class ExtensionOperations<Dyadic> {
     static Void set_nan(Dyadic& x) { x._mpf[0]._mp_size=0; x._mpf[0]._mp_exp=nan_flag; }
     static Void set_inf(Dyadic& x, Sign s) { x._mpf[0]._mp_size=0;
         x._mpf[0]._mp_exp = (s==Sign::ZERO ? nan_flag : s==Sign::POSITIVE ? +1 : -1); }
-    static Void set_zero(Dyadic& x) { mpf_set_si(x._mpf,0); }
 };
 
 template<> class FiniteOperations<Dyadic> {
@@ -77,11 +76,9 @@ template<> class FiniteOperations<Dyadic> {
     static Void add(Dyadic& r, Dyadic const& x1, Dyadic const& x2) { return mpf_add(r._mpf, x1._mpf, x2._mpf); }
     static Void sub(Dyadic& r, Dyadic const& x1, Dyadic const& x2) { return mpf_sub(r._mpf, x1._mpf, x2._mpf); }
     static Void mul(Dyadic& r, Dyadic const& x1, Dyadic const& x2) { return mpf_mul(r._mpf, x1._mpf, x2._mpf); }
-    static Void div(Dyadic& r, Dyadic const& x1, Dyadic const& x2) { return mpf_div(r._mpf, x1._mpf, x2._mpf); }
 
     static Void neg(Dyadic& r, Dyadic const& x) { mpf_neg(r._mpf,x._mpf); }
     static Void hlf(Dyadic& r, Dyadic const& x) { mpf_div_2exp(r._mpf,x._mpf,1u); }
-    static Void rec(Dyadic&, Dyadic const&) { assert(false); }
     static Void pow(Dyadic& r, Dyadic const& x, Nat m) { return mpf_pow_ui(r._mpf, x._mpf, m); }
 
     static Void max(Dyadic& r, Dyadic const& x1, Dyadic const& x2) {
@@ -112,7 +109,7 @@ Dyadic::Dyadic(mpf_t mpf) {
 }
 
 Dyadic::Dyadic(Integer const& p, Natural q) {
-    ARIADNE_ASSERT(q.get_si()==q);
+    ARIADNE_PRECONDITION(q.get_si()==q);
     mpf_init2(_mpf,maximum_precision);
     mpf_set_z(_mpf,p._mpz);
     mpf_div_2exp(_mpf,_mpf,static_cast<mp_bitcnt_t>(q.get_si()));
@@ -158,15 +155,13 @@ Dyadic::Dyadic(String const& str)
     mp_bitcnt_t prec=static_cast<mp_bitcnt_t>(std::ceil(3+str.size()*3.322265625));
     mpf_init2(_mpf_tmp,prec);
     int fail = mpf_set_str(_mpf_tmp,str.c_str(),10);
-    if (fail!=0) {
+    if (fail!=0)
         ARIADNE_THROW(std::runtime_error,"Dyadic(string)","String \""<<str<<"\" does not have a valid dyadic number format.");
-    }
     mpf_init2(_mpf,maximum_precision);
     mpf_set(_mpf,_mpf_tmp);
 
-    if (Decimal(*this)!=Decimal(str)) {
+    if (Decimal(*this)!=Decimal(str))
         ARIADNE_THROW(std::runtime_error,"Dyadic(string)","String \""<<str<<"\" does not represent an exact dyadic number.");
-    }
 }
 
 Dyadic::Dyadic(const Dyadic& x) {

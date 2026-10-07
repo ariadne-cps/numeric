@@ -79,6 +79,7 @@ void TestDyadic::test_concept() {
 
     w=+w; w=-w;
     w=w+w; w=w-w; w=w*w;
+    w=1; w+=Dyadic(2); ARIADNE_TEST_EQUALS(w,Dyadic(3));
 
     w=w+n; w=w-n; w=w*n;
     w=n+w; w=n-w; w=n*w;
@@ -173,6 +174,9 @@ void TestDyadic::test_conversions() {
     ARIADNE_TEST_EQUAL(Dyadic(Integer(-3)),Dyadic(-3,0u));
     ARIADNE_TEST_EQUAL(Dyadic(Dyadic(-13)),Dyadic(-13));
     ARIADNE_TEST_EQUAL(Dyadic(Dyadic(-13,3u)),Dyadic(-13,3u));
+    Natural huge_exponent{Integer{String("9223372036854775808")}};
+    ARIADNE_TEST_FAIL((Dyadic{Integer(1),huge_exponent}));
+    ARIADNE_TEST_FAIL((PositiveDyadic{Dyadic(-1)}));
 
     ARIADNE_TEST_EQUAL(round(Dyadic(-11,2u)),Integer(-3));
     ARIADNE_TEST_EQUAL(round(Dyadic(-10,2u)),Integer(-3));
