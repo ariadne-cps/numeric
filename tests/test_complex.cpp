@@ -52,7 +52,7 @@ template<class X>
 constexpr bool check_concept()
 {
     return requires(X x, Complex<X> z) {
-        Complex<X>(); Complex<X>(x); Complex<X>(x,x);
+        Complex<X>(x); Complex<X>(x,x);
         z=+z; z=-z; z=z+z; z=z-z; z=z*z; z=z/z;
         z=pow(z,2u); z=pow(z,2);
         z=sqr(z); z=rec(z); z=sqrt(z);

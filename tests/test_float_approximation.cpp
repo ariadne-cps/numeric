@@ -49,18 +49,17 @@ namespace {
 template<class PR>
 constexpr bool check_float_approximation_concept()
 {
-    using PRE=DoublePrecision;
     using A=FloatApproximation<PR>;
-    return requires(PR pr, PRE pre, Nat m, Int n, double ad, ExactDouble ed, Integer z, Dyadic w, Rational q, A ax, A rx) {
-        A(0u,pr); A(0,pr); A(0.0,pr); A(Integer(0),pr); A(Dyadic(0),pr); A(Rational(0),pr);
-        rx=A(RawFloat<PR>(pr)); rx=A(Float<PR>(pr)); A(FloatBall<PR,PRE>(pr,pre)); A(FloatBounds<PR>(pr));
-        rx=A(FloatUpperBound<PR>(pr)); rx=A(FloatLowerBound<PR>(pr)); rx=A(A(pr));
-        rx=m; rx=n; rx=ad; rx=ed; rx=z; rx=w; rx=q;
-        rx=nul(ax); rx=pos(ax); rx=neg(ax); rx=hlf(ax); rx=sqr(ax); rx=rec(ax);
-        rx=operator+(ax); rx=operator-(ax); rx=operator+(ax,ax); rx=operator-(ax,ax); rx=operator*(ax,ax); rx=operator/(ax,ax);
-        rx=add(ax,ax); rx=sub(ax,ax); rx=mul(ax,ax); rx=div(ax,ax); rx=pow(ax,m); rx=pow(ax,n);
-        rx=max(ax,ax); rx=min(ax,ax); rx=abs(ax);
-        rx=sqrt(ax); rx=exp(ax); rx=log(ax); rx=sin(ax); rx=cos(ax); rx=tan(ax); rx=atan(ax);
+    using F=RawFloat<PR>;
+    return requires(PR pr, Nat m, Int n, double d, Integer z, Dyadic w, Rational q, A x, A y, F f) {
+        A(pr); A(0u,pr); A(0,pr); A(d,pr); A(z,pr); A(w,pr); A(q,pr); A(f);
+        x=m; x=n; x=d; x=z; x=w; x=q; x=f;
+        +x; -x; x+y; x-y; x*y; x/y; x+=y; x-=y; x*=y; x/=y;
+        nul(x); pos(x); neg(x); hlf(x); sqr(x); rec(x);
+        add(x,y); sub(x,y); mul(x,y); div(x,y); pow(x,m); pow(x,n);
+        max(x,y); min(x,y); abs(x);
+        sqrt(x); exp(x); log(x); sin(x); cos(x); tan(x); atan(x);
+        x.precision(); x.characteristics(); x.raw(); x.generic();
     };
 }
 
