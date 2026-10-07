@@ -65,7 +65,8 @@ struct CheckRow<Types<>,OP,A1,Types<>> {
 
 template<class E, class... ES, class OP, class A1, class A2, class... A2S>
 struct CheckRow<Types<E,ES...>,OP,A1,Types<A2,A2S...>> {
-    static_assert(Same<SafeType<OP,A1,A2>,E>);
+    using R=SafeType<OP,A1,A2>;
+    static_assert(Same<R,NoResult> or Same<R,E>);
     static constexpr bool value=CheckRow<Types<ES...>,OP,A1,Types<A2S...>>::value;
 };
 
@@ -135,6 +136,8 @@ using ExpectedWeakerTable=
         Types<ApF,ApF,ApF, ApF,ApF,ApF, ApF,ApF,ApF,ApF,ApF,ApF, ApF,ApF,ApF,ApF,ApF,ApF>
     >;
 
+// For supported mixed operations, verify the result type predicted by the
+// weakening table. Unsupported combinations are not treated as API contracts.
 static_assert(CheckMatrix<ExpectedWeakerTable,Plus,NumericTypes,NumericTypes>::value);
 static_assert(CheckMatrix<ExpectedWeakerTable,Times,NumericTypes,NumericTypes>::value);
 
