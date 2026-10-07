@@ -114,6 +114,7 @@ TestFloatBounds<PR>::test()
     ARIADNE_TEST_CALL(test_class());
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_comparison());
+    ARIADNE_TEST_CALL(test_aliasing());
     ARIADNE_TEST_CALL(test_precision());
     ARIADNE_TEST_CALL(test_inl_mixed_operations());
     ARIADNE_TEST_CALL(test_tpl_api_and_branches());
