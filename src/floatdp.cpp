@@ -81,10 +81,7 @@ FloatDP::Float(TwoExp const& t, PrecisionType)
 FloatDP::Float(Dyadic const& w, PrecisionType)
     : FloatDP(w.get_d())
 {
-    if (Dyadic(*this)==w || is_nan(w)) {
-    } else {
-        ARIADNE_THROW(std::runtime_error,"Float(Dyadic)","Dyadic \""<<w<<"\" is not an exact double-precision floating-point number.");
-    }
+    ARIADNE_PRECONDITION(Dyadic(*this)==w || is_nan(w));
 }
 
 FloatDP::Float(String const& str, PrecisionType pr)
@@ -153,11 +150,10 @@ FloatDP& FloatDP::operator=(ExactDouble const& x) {
 FloatDP& FloatDP::operator=(Dyadic const& w) {
     if (is_finite(w)) {
         this->dbl=mpf_get_d(w.get_mpf());
-        assert(*this==w);
+        ARIADNE_PRECONDITION(*this==w);
     } else if (is_nan(w)) {
         *this=FloatDP::nan(this->precision());
     } else {
-        assert(is_inf(w));
         *this=FloatDP::inf(sgn(w),this->precision());
     }
     return *this;
@@ -212,17 +208,10 @@ FloatDP atan_rnd(FloatDP x)
 }
 
 FloatDP FloatDP::pi(BuiltinRoundingModeType rnd, DoublePrecision) {
-    switch(rnd) {
-        case FloatDP::ROUND_UPWARD: return FloatDP(_pi_up);
-        case FloatDP::ROUND_DOWNWARD: return FloatDP(_pi_down);
-        case FloatDP::ROUND_TO_NEAREST: return FloatDP(_pi_near);
-        default: assert(false); return FloatDP(_pi_near);
-    }
-}
-
-Int abslog10floor(FloatDP const& x)
-{
-    return abslog10floor(x.get_d());
+    ARIADNE_PRECONDITION(rnd==ROUND_TO_NEAREST || rnd==ROUND_UPWARD || rnd==ROUND_DOWNWARD);
+    if(rnd==ROUND_UPWARD) { return FloatDP(_pi_up); }
+    if(rnd==ROUND_DOWNWARD) { return FloatDP(_pi_down); }
+    return FloatDP(_pi_near);
 }
 
 FloatDP::RoundingModeType FloatDP::get_rounding_mode() { return Ariadne::get_builtin_rounding_mode(); }
@@ -286,7 +275,7 @@ OutputStream& write(OutputStream& os, FloatMP const& x, DecimalPlaces plcs, MPFR
 OutputStream& write(OutputStream& os, FloatMP const& x, DecimalPrecision figs, MPFRRoundingModeType rnd);
 
 MPFRRoundingModeType to_mpfr_rounding_mode(BuiltinRoundingModeType rnd) {
-    assert(rnd==ROUND_TO_NEAREST || rnd==ROUND_UPWARD || rnd==ROUND_DOWNWARD);
+    ARIADNE_PRECONDITION(rnd==ROUND_TO_NEAREST || rnd==ROUND_UPWARD || rnd==ROUND_DOWNWARD);
     return (rnd==FloatDP::ROUND_TO_NEAREST) ? FloatMP::ROUND_TO_NEAREST
                : (rnd==FloatDP::ROUND_DOWNWARD) ? FloatMP::ROUND_DOWNWARD : FloatMP::ROUND_UPWARD;
 }
@@ -325,10 +314,6 @@ OutputStream& repr(OutputStream& os, FloatDP const& x, BuiltinRoundingModeType r
 
 OutputStream& operator<<(OutputStream& os, FloatDP const& x) {
     return repr(os,x);
-}
-
-OutputStream& operator<<=(OutputStream& os, FloatDP const& x) {
-    return os << "FloatDP(" << x << ",near," << x.precision() << ")";
 }
 
 InputStream& operator>>(InputStream& is, FloatDP& x) {
@@ -392,9 +377,6 @@ InputStream& operator>>(InputStream& is, FloatDP& x) {
 
 Nat FloatDP::output_places=16;
 Void FloatDP::set_output_places(Nat pl) { output_places=pl; }
-
-template<class PR> PR make_default_precision();
-template<> DP make_default_precision<DP>() { return dp; }
 
 Float32::operator FloatDP() const { return FloatDP(cast_exact((double)this->flt),dp); }
 
