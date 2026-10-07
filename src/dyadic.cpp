@@ -79,7 +79,6 @@ template<> class FiniteOperations<Dyadic> {
     static Void mul(Dyadic& r, Dyadic const& x1, Dyadic const& x2) { return mpf_mul(r._mpf, x1._mpf, x2._mpf); }
     static Void div(Dyadic& r, Dyadic const& x1, Dyadic const& x2) { return mpf_div(r._mpf, x1._mpf, x2._mpf); }
 
-    static Void pos(Dyadic& r, Dyadic const& x) { mpf_set(r._mpf,x._mpf); }
     static Void neg(Dyadic& r, Dyadic const& x) { mpf_neg(r._mpf,x._mpf); }
     static Void hlf(Dyadic& r, Dyadic const& x) { mpf_div_2exp(r._mpf,x._mpf,1u); }
     static Void rec(Dyadic&, Dyadic const&) { assert(false); }
@@ -279,20 +278,12 @@ OutputStream& operator<<(OutputStream& os, TwoExp w) {
     return os << "2^" <<  w.exponent();
 }
 
-Dyadic operator+(Dyadic& x1, Dyadic const& x2) {
-    Dyadic r; ExtendedOperations<Dyadic>::add(r,x1,x2); return r;
-}
-
-Dyadic operator-(Dyadic& x1, Dyadic const& x2) {
-    Dyadic r; ExtendedOperations<Dyadic>::sub(r,x1,x2); return r;
-}
-
 Dyadic operator*(Dyadic& x1, Dyadic const& x2) {
     Dyadic r; ExtendedOperations<Dyadic>::mul(r,x1,x2); return r;
 }
 
 Integer round(Dyadic const& x) {
-    assert(is_finite(x));
+    ARIADNE_PRECONDITION(is_finite(x));
     Integer z;
     Dyadic y=x;
     mpf_mul_2exp(y._mpf,y._mpf,1u);
@@ -308,7 +299,7 @@ Integer round(Dyadic const& x) {
 }
 
 Integer floor(Dyadic const& x) {
-    assert(is_finite(x));
+    ARIADNE_PRECONDITION(is_finite(x));
     Integer z;
     Dyadic y(x);
     mpf_floor(y._mpf,y._mpf);
@@ -317,7 +308,7 @@ Integer floor(Dyadic const& x) {
 }
 
 Integer ceil(Dyadic const& x) {
-    assert(is_finite(x));
+    ARIADNE_PRECONDITION(is_finite(x));
     Integer z;
     Dyadic y(x);
     mpf_ceil(y._mpf,y._mpf);
@@ -390,10 +381,6 @@ Dyadic max(Dyadic const& x1,Dyadic const& x2) {
 
 Comparison cmp(Dyadic const& x1, Dyadic const& x2) {
     return ExtendedOperations<Dyadic>::cmp(x1,x2);
-}
-
-Comparison cmp(Dyadic const& x1, Int const& n2) {
-    return ExtendedOperations<Dyadic>::cmp(x1,n2);
 }
 
 Comparison cmp(Integer const& z1, Int const& n2);
@@ -492,7 +479,6 @@ Dyadic make_dyadic(unsigned long long int n) {
     unsigned long long int q = n / m;
     unsigned long long int r = n % m;
     unsigned int rem = static_cast<unsigned int>(r);
-    assert(n==q*m+r);
     if(q==0) {
         return Dyadic(rem);
     } else {
