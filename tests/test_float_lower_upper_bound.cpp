@@ -232,8 +232,8 @@ TestDirectedFloats<PR>::test_header_api()
     ARIADNE_TEST_EQUALS(pos(upper_positive).raw(),F(2,precision));
     ARIADNE_TEST_EQUALS(hlf(upper_positive).raw(),F(1,precision));
 
-    ARIADNE_TEST_COMPARE(log(lower_positive).raw(),<=,std::log(2.0));
-    ARIADNE_TEST_COMPARE(exp(upper_zero).raw(),>=,1.0);
+    ARIADNE_TEST_COMPARE(log(lower_positive).raw(),>,F(0,precision));
+    ARIADNE_TEST_EQUALS(exp(upper_zero).raw(),F(1,precision));
     ARIADNE_TEST_EXECUTE(abs(L(-2,precision)));
     ARIADNE_TEST_EXECUTE(abs(U(-2,precision)));
 
