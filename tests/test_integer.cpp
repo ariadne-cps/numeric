@@ -39,13 +39,36 @@
 using namespace std;
 using namespace Ariadne;
 
+namespace {
+
+constexpr bool check_concept()
+{
+    return requires(unsigned int m, unsigned long int lm, int n, long int ln, Integer z, Integer z2, Boolean b) {
+        z=Integer(); z=Integer(m); z=Integer(lm); z=Integer(n); z=Integer(ln); z=Integer(z);
+        z2=Integer();
+        z=m; z=lm; z=n; z=ln; z=z2;
+        z=+z; z=-z;
+        z=z+z; z=z-z; z=z*z;
+        z=z+n; z=z-n; z=z*n;
+        z=n+z; z=n-z; z=n*z;
+        z=1_z; z=-1_z;
+        b=(z==z); b=(z!=z); b=(z<=z); b=(z>=z); b=(z<z); b=(z>z);
+        b=(z==n); b=(z!=n); b=(z<=n); b=(z>=n); b=(z<n); b=(z>n);
+        b=(n==z); b=(n!=z); b=(n<=z); b=(n>=z); b=(n<z); b=(n>z);
+    };
+}
+
+static_assert(check_concept());
+
+} // namespace
+
+
 
 class TestInteger
 {
   public:
     void test();
   private:
-    void test_concept();
     void test_literal();
     void test_constructors();
     void test_arithmetic();
@@ -56,7 +79,6 @@ class TestInteger
 
 void TestInteger::test()
 {
-    ARIADNE_TEST_CALL(test_concept());
     ARIADNE_TEST_CALL(test_constructors());
     ARIADNE_TEST_CALL(test_comparisons());
     ARIADNE_TEST_CALL(test_literal());
@@ -64,27 +86,6 @@ void TestInteger::test()
     ARIADNE_TEST_CALL(test_small_types());
     ARIADNE_TEST_CALL(test_combinatorics());
 }
-
-void TestInteger::test_concept() {
-    unsigned int m=1; unsigned long int lm=1; int n=-2; long int ln=-2;
-    Integer z,z2; Boolean b;
-
-    z=Integer(); z=Integer(m); z=Integer(lm); z=Integer(n); z=Integer(ln); z=Integer(z);
-    z2=Integer();
-    z=m; z=lm; z=n; z=ln; z=z2;
-
-    z=+z; z=-z;
-    z=z+z; z=z-z; z=z*z;
-    z=z+n; z=z-n; z=z*n;
-    z=n+z; z=n-z; z=n*z;
-
-    z=1_z; z=-1_z;
-
-    b=(z==z); b=(z!=z); b=(z<=z); b=(z>=z); b=(z<z); b=(z>z);
-    b=(z==n); b=(z!=n); b=(z<=n); b=(z>=n); b=(z<n); b=(z>n);
-    b=(n==z); b=(n!=z); b=(n<=z); b=(n>=z); b=(n<z); b=(n>z);
-}
-
 
 void TestInteger::test_literal() {
     ARIADNE_TEST_CONSTRUCT(Integer,z,(3_z));

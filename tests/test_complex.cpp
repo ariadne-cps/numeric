@@ -46,6 +46,26 @@
 
 using namespace Ariadne;
 
+namespace {
+
+template<class X>
+constexpr bool check_concept()
+{
+    return requires(X x, Complex<X> z) {
+        Complex<X>(); Complex<X>(x); Complex<X>(x,x);
+        z=+z; z=-z; z=z+z; z=z-z; z=z*z; z=z/z;
+        z=pow(z,2u); z=pow(z,2);
+        z=sqr(z); z=rec(z); z=sqrt(z);
+        z=exp(z); z=log(z);
+        z=sin(z); z=cos(z); z=tan(z);
+    };
+}
+
+static_assert(check_concept<FloatDPBounds>());
+
+} // namespace
+
+
 template<class X> class TestComplex
 {
     X _one;
@@ -54,7 +74,6 @@ template<class X> class TestComplex
     TestComplex(X const& one) : _one(one) { }
     void test();
   private:
-    void test_concept();
     void test_constructors();
     void test_conversions();
     void test_arithmetic();
@@ -72,18 +91,6 @@ template<class X> void TestComplex<X>::test()
     ARIADNE_TEST_CALL(test_transcendental());
     ARIADNE_TEST_CALL(test_polar());
     ARIADNE_TEST_CALL(test_comparison());
-}
-
-template<class X> void TestComplex<X>::test_concept() {
-    X* xp; X& x=*xp;
-    Complex<X> z;
-    x=Complex<X>(); x=Complex<X>(x);
-    x=Complex<X>(x,x);
-    z=+z; z=-z; z=z+z; z=z-z; z=z*z; z=z/z;
-    z=pow(z,2u); z=pow(z,2);
-    z=sqr(z); z=rec(z); z=sqrt(z);
-    z=ezp(z); z=log(z);
-    z=sin(z); z=cos(z); z=tan(z);
 }
 
 template<class X> void TestComplex<X>::test_conversions() {

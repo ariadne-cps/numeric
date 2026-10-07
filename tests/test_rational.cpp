@@ -41,13 +41,46 @@
 using namespace std;
 using namespace Ariadne;
 
+namespace {
+
+constexpr bool check_concept()
+{
+    return requires(unsigned int m, unsigned long int lm, int n, long int ln, Integer z, Dyadic w, Rational q, Rational q2, Boolean b) {
+        q=Rational(); q=Rational(m); q=Rational(lm); q=Rational(n); q=Rational(ln); q=Rational(z); q=Rational(q);
+        q2=Rational();
+        q=m; q=lm; q=n; q=ln; q=z; q=q2;
+        q=+q; q=-q;
+        q=q+q; q=q-q; q=q*q; q=q/q;
+        q=q+n; q=q-n; q=q*n; q=q/n;
+        q=n+q; q=n-q; q=n*q; q=n/q;
+        q=q+z; q=q-z; q=q*z; q=q/z;
+        q=z+q; q=z-q; q=z*q; q=z/q;
+        q=q+w; q=q-w; q=q*w; q=q/w;
+        q=w+q; q=w-q; q=w*q; q=w/q;
+        q=max(q,q); q=min(q,q); q=abs(q);
+        q=pos(q); q=neg(q); q=sqr(q); q=rec(q);
+        q=1.5_q; q=3/2_q; q=-1.3_q;
+        b=(q==q); b=(q!=q); b=(q<=q); b=(q>=q); b=(q<q); b=(q>q);
+        b=(q==n); b=(q!=n); b=(q<=n); b=(q>=n); b=(q<n); b=(q>n);
+        b=(n==q); b=(n!=q); b=(n<=q); b=(n>=q); b=(n<q); b=(n>q);
+        b=(q==z); b=(q!=z); b=(q<=z); b=(q>=z); b=(q<z); b=(q>z);
+        b=(z==q); b=(z!=q); b=(z<=q); b=(z>=q); b=(z<q); b=(z>q);
+        b=(q==w); b=(q!=w); b=(q<=w); b=(q>=w); b=(q<w); b=(q>w);
+        b=(w==q); b=(w!=q); b=(w<=q); b=(w>=q); b=(w<q); b=(w>q);
+    };
+}
+
+static_assert(check_concept());
+
+} // namespace
+
+
 
 class TestRational
 {
   public:
     void test();
   private:
-    void test_concept();
     void test_literal();
     void test_conversions();
     void test_arithmetic();
@@ -71,38 +104,6 @@ void TestRational::test()
     ARIADNE_TEST_CALL(test_bounds());
 
     ARIADNE_TEST_CALL(test_decimal());
-}
-
-void TestRational::test_concept() {
-    unsigned int m=1; unsigned long int lm=1; int n=-2; long int ln=-2; Integer z=-5; Dyadic w=z;
-    Rational q, q2; Boolean b;
-
-    q=Rational(); q=Rational(m); q=Rational(lm); q=Rational(n); q=Rational(ln); q=Rational(z); q=Rational(z);
-    q2=Rational();
-    q=m; q=lm; q=n; q=ln; q=z; q=q2;
-
-    q=+q; q=-q;
-    q=q+q; q=q-q; q=q*q; q=q/q;
-
-    q=q+n; q=q-n; q=q*n; q=q/n;
-    q=n+q; q=n-q; q=n*q; q=n/q;
-    q=q+z; q=q-z; q=q*z; q=q/z;
-    q=z+q; q=z-q; q=z*q; q=z/q;
-    q=q+w; q=q-w; q=q*w; q=q/w;
-    q=w+q; q=w-q; q=w*q; q=w/q;
-
-    q=max(q,q); q=min(q,q); q=abs(q);
-    q=pos(q); q=neg(q); q=sqr(q); q=rec(q);
-
-    q=1.5_q; q=3/2_q; q=-1.3_q;
-
-    b=(q==q); b=(q!=q); b=(q<=q); b=(q>=q); b=(q<q); b=(q>q);
-    b=(q==n); b=(q!=n); b=(q<=n); b=(q>=n); b=(q<n); b=(q>n);
-    b=(n==q); b=(n!=q); b=(n<=q); b=(n>=q); b=(n<q); b=(n>q);
-    b=(q==z); b=(q!=z); b=(q<=z); b=(q>=z); b=(q<z); b=(q>z);
-    b=(z==q); b=(z!=q); b=(z<=q); b=(z>=q); b=(z<q); b=(z>q);
-    b=(q==w); b=(q!=w); b=(q<=w); b=(q>=w); b=(q<w); b=(q>w);
-    b=(w==q); b=(w!=q); b=(w<=q); b=(w>=q); b=(w<q); b=(w>q);
 }
 
 void TestRational::test_literal() {

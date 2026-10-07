@@ -46,6 +46,51 @@
 using namespace std;
 using namespace Ariadne;
 
+namespace {
+
+template<class Y>
+constexpr bool check_number_concept()
+{
+    return requires(Int n, Y y, Y y2) {
+        y=Y(2); y=3; Y(1);
+        y=y+y; y=y-y; y=y*y; y=y/y;
+        y+=y2; y-=y2; y*=y2; y/=y2;
+        y=abs(y); y=max(y,y); y=min(y,y);
+        y=add(y,y); y=sub(y,y); y=mul(y,y); y=div(y,y);
+        y=sqrt(y); y=exp(y); y=log(y); y=atan(y);
+        y=pos(y); y=neg(y); y=sqr(y); y=rec(y);
+        y=sin(y); y=cos(y); y=tan(y);
+        y==y; y!=y; y<=y; y>=y; y<y; y>y;
+        y==n; y!=n; y<=n; y>=n; y<n; y>n;
+    };
+}
+
+template<class Y>
+constexpr bool check_directed_number_concept()
+{
+    using NY=NegationType<Y>;
+    return Same<NegationType<NY>,Y> and requires(Y y, NY ny) {
+        y=+y; ny=-y; y=-ny;
+        y=y+y; y=y-ny; y+=y; y+=ny;
+        y=add(y,y); y=sub(y,ny); ny=sub(ny,y);
+        y=sqrt(y); y=exp(y); y=log(y); y=tan(y);
+        y==ny; y!=ny; y<ny; y>ny;
+        ny==y; ny!=y; ny<y; ny>y;
+    };
+}
+
+static_assert(check_number_concept<ApproximateNumber>());
+static_assert(check_number_concept<ValidatedNumber>());
+static_assert(check_number_concept<EffectiveNumber>());
+static_assert(check_number_concept<ExactNumber>());
+static_assert(check_directed_number_concept<ValidatedLowerNumber>());
+static_assert(check_directed_number_concept<ValidatedUpperNumber>());
+static_assert(check_directed_number_concept<EffectiveLowerNumber>());
+static_assert(check_directed_number_concept<EffectiveUpperNumber>());
+
+} // namespace
+
+
 
 template<class F, class FE> Bool models(Ball<F,FE> const& x, Rational const& q) {
     return abs(Dyadic(x.value().raw())-q)<=Dyadic(x.error().raw()); }
@@ -379,7 +424,6 @@ template<class Y> class TestNumber
   public:
     Void test();
   private:
-    Void test_concept();
     Void test_class();
     Void test_get();
     Void test_operations();
@@ -395,28 +439,6 @@ TestNumber<Y>::test()
     ARIADNE_TEST_CALL(test_get());
     ARIADNE_TEST_CALL(test_comparisons());
 }
-
-template<class Y> Void
-TestNumber<Y>::test_concept()
-{
-    Int n;
-    Y y;
-    y=Y(2);
-    y=3;
-    Y y2(1);
-
-    y=y+y; y=y-y; y=y*y; y=y/y;
-    y+=y2; y-=y2; y*=y2; y/=y2;
-    y=abs(y); y=max(y,y); y=min(y,y);
-    y=add(y,y); y=sub(y,y); y=mul(y,y); y=div(y,y);
-    y=sqrt(y); y=exp(y); y=log(y); y=atan(y);
-    y=pos(y); y=neg(y); y=sqr(y); y=rec(y);
-    y=sin(y); y=cos(y); y=tan(y);
-
-    y==y; y!=y; y<=y; y>=y; y<y; y>y;
-    y==n; y!=n; y<=n; y>=n; y<n; y>n;
-}
-
 
 template<class Y> void test_number_get() {
     Rational q=3/5_q;
@@ -597,21 +619,6 @@ template<class Y> Void
 TestDirectedNumber<Y>::test() {
     test_operations();
 }
-
-template<class Y> Void
-TestDirectedNumber<Y>::test_concept() {
-    static_assert(Same<NegationType<NegationType<Y>>,Y>);
-    typedef NegationType<Y> NY;
-    Y y; NY ny;
-    y=+y; ny=-y; y=-ny;
-    y=y+y; y=y-ny; y+=y; y+=ny;
-    y=add(y,y); y=sub(y,ny); ny=sub(ny,y);
-    y=sqrt(y); y=exp(y); y=log(y); y=tan(y);
-
-    y==ny; y!=ny; y<ny; y>ny;
-    ny==y; ny!=y; ny<y; ny>y;
-}
-
 
 template<class Y> Void
 TestDirectedNumber<Y>::test_operations() {

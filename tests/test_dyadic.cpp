@@ -41,13 +41,43 @@
 using namespace std;
 using namespace Ariadne;
 
+namespace {
+
+constexpr bool check_concept()
+{
+    return requires(unsigned int m, unsigned long int lm, int n, long int ln, Integer z, Dyadic w, Dyadic w2, Boolean b) {
+        w=Dyadic(); w=Dyadic(m); w=Dyadic(lm); w=Dyadic(n); w=Dyadic(ln); w=Dyadic(z); w=Dyadic(w);
+        w2=Dyadic();
+        w=m; w=lm; w=n; w=ln; w=z; w=w2;
+        w=+w; w=-w;
+        w=w+w; w=w-w; w=w*w;
+        w=1; w+=Dyadic(2);
+        w=w+n; w=w-n; w=w*n;
+        w=n+w; w=n-w; w=n*w;
+        w=w+z; w=w-z; w=w*z;
+        w=z+w; w=z-w; w=z*w;
+        w=max(w,w); w=min(w,w); w=abs(w);
+        w=pos(w); w=neg(w); w=sqr(w); w=hlf(w);
+        w=1.5_q2; w=1.5_dy; w=1.5_dyadic;
+        b=(w==w); b=(w!=w); b=(w<=w); b=(w>=w); b=(w<w); b=(w>w);
+        b=(w==n); b=(w!=n); b=(w<=n); b=(w>=n); b=(w<n); b=(w>n);
+        b=(n==w); b=(n!=w); b=(n<=w); b=(n>=w); b=(n<w); b=(n>w);
+        b=(w==z); b=(w!=z); b=(w<=z); b=(w>=z); b=(w<z); b=(w>z);
+        b=(z==w); b=(z!=w); b=(z<=w); b=(z>=w); b=(z<w); b=(z>w);
+    };
+}
+
+static_assert(check_concept());
+
+} // namespace
+
+
 
 class TestDyadic
 {
   public:
     void test();
   private:
-    void test_concept();
     void test_literal();
     void test_conversions();
     void test_arithmetic();
@@ -59,7 +89,6 @@ class TestDyadic
 
 void TestDyadic::test()
 {
-    ARIADNE_TEST_CALL(test_concept());
     ARIADNE_TEST_CALL(test_literal());
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_arithmetic());
@@ -67,35 +96,6 @@ void TestDyadic::test()
     ARIADNE_TEST_CALL(test_ball());
     ARIADNE_TEST_CALL(test_comparisons());
     ARIADNE_TEST_CALL(test_infinity());
-}
-
-void TestDyadic::test_concept() {
-    unsigned int m=1; unsigned long int lm=1; int n=-2; long int ln=-2; Integer z=-5;
-    Dyadic w, w2; Boolean b;
-
-    w=Dyadic(); w=Dyadic(m); w=Dyadic(lm); w=Dyadic(n); w=Dyadic(ln); w=Dyadic(z); w=Dyadic(z);
-    w2=Dyadic();
-    w=m; w=lm; w=n; w=ln; w=z; w=w2;
-
-    w=+w; w=-w;
-    w=w+w; w=w-w; w=w*w;
-    w=1; w+=Dyadic(2); ARIADNE_TEST_EQUALS(w,Dyadic(3));
-
-    w=w+n; w=w-n; w=w*n;
-    w=n+w; w=n-w; w=n*w;
-    w=w+z; w=w-z; w=w*z;
-    w=z+w; w=z-w; w=z*w;
-
-    w=max(w,w); w=min(w,w); w=abs(w);
-    w=pos(w); w=neg(w); w=sqr(w); w=hlf(w);
-
-    w=1.5_q2; w=1.5_dy; w=1.5_dyadic;
-
-    b=(w==w); b=(w!=w); b=(w<=w); b=(w>=w); b=(w<w); b=(w>w);
-    b=(w==n); b=(w!=n); b=(w<=n); b=(w>=n); b=(w<n); b=(w>n);
-    b=(n==w); b=(n!=w); b=(n<=w); b=(n>=w); b=(n<w); b=(n>w);
-    b=(w==z); b=(w!=z); b=(w<=z); b=(w>=z); b=(w<z); b=(w>z);
-    b=(z==w); b=(z!=w); b=(z<=w); b=(z>=w); b=(z<w); b=(z>w);
 }
 
 const Writer<Dyadic> fraction_write=FractionWriter();
@@ -207,6 +207,9 @@ void TestDyadic::test_conversions() {
 }
 
 void TestDyadic::test_arithmetic() {
+    Dyadic accumulated=1;
+    accumulated+=Dyadic(2);
+    ARIADNE_TEST_EQUALS(accumulated,Dyadic(3));
     ARIADNE_TEST_EQUAL(Dyadic(3,2u)+Dyadic(-5,3u),Dyadic(1,3u));
     ARIADNE_TEST_EQUAL(Dyadic(3,2u)-Dyadic(-5,3u),Dyadic(11,3u));
     ARIADNE_TEST_EQUAL(Dyadic(3,2u)*Dyadic(-5,3u),Dyadic(-15,5u));
