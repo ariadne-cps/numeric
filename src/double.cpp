@@ -280,7 +280,7 @@ double sin_rnd(double x) {
     if(q<-4) { q+=8; } if(q>=4) { q-=8; }
     volatile double n=-std::floor(x/_two_pi_approx+0.5);
 
-    volatile double y,w,s;
+    volatile double y,w;
 
     // Set to true if sin is decreasing so we want opposite rounding
     Bool want_opposite=(q<-2||q>=2);
@@ -331,7 +331,6 @@ double neg_rec_opp(double x) { volatile double t=1.0/x; return -t; }
 double cos_rnd(double x) {
     const double pi_rnd=Ariadne::pi_rnd();
     const double pi_opp=Ariadne::pi_opp();
-    const double half_pi_rnd=pi_rnd/2;
 
     if(x==0.0) { return 1.0; }
 
