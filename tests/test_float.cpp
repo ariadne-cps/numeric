@@ -412,6 +412,7 @@ TestFloat<PR>::test_operations()
         repr(repr_stream,a,MPFR_RNDN);
         ARIADNE_TEST_ASSERT(not repr_stream.str().empty());
 
+        ARIADNE_TEST_EQUALS(print(a,DecimalPlaces(0u),MPFR_RNDN),String("2."));
         ARIADNE_TEST_EQUALS(print(FloatMP::nan(mpr),DecimalPrecision(3u),MPFR_RNDN),String("nan"));
 
         std::istringstream float_input("\t\n+2.5:");
