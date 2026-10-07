@@ -31,6 +31,7 @@
 #include "numeric/builtin.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/decimal.hpp"
+#include "numeric/rational.hpp"
 #include "foundation/logical.hpp"
 
 #include <iomanip>
@@ -273,10 +274,10 @@ void TestDyadic::test_bounds() {
     ARIADNE_TEST_EQUALS(upper_from_bounds.raw(),Dyadic(3));
     ARIADNE_TEST_EQUALS(approximation.raw(),Dyadic(2));
     ARIADNE_TEST_EXECUTE(std::cout<<lower<<" "<<upper);
-    ARIADNE_TEST_EXECUTE(PositiveDyadicBounds(positive));
-    ARIADNE_TEST_EXECUTE(PositiveDyadicLowerBound(lower));
-    ARIADNE_TEST_EXECUTE(PositiveDyadicUpperBound(upper));
-    ARIADNE_TEST_EXECUTE(PositiveDyadicApproximation(approximation));
+    ARIADNE_TEST_EXECUTE((PositiveDyadicBounds{positive}));
+    ARIADNE_TEST_EXECUTE((PositiveDyadicLowerBound{lower}));
+    ARIADNE_TEST_EXECUTE((PositiveDyadicUpperBound{upper}));
+    ARIADNE_TEST_EXECUTE((PositiveDyadicApproximation{approximation}));
     ARIADNE_TEST_EXECUTE(std::cout<<positive);
 }
 
