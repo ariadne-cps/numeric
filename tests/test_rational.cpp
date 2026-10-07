@@ -24,6 +24,7 @@
 
 
 #include "numeric/rational.hpp"
+#include "numeric/extended.hpp"
 #include "numeric/builtin.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/dyadic.hpp"
@@ -341,6 +342,41 @@ void TestRational::test_infinity() {
     ARIADNE_TEST_EQUALS(Rational(Dyadic::inf(Sign::POSITIVE)),qinf);
     ARIADNE_TEST_EQUALS(Rational(Dyadic::inf(Sign::NEGATIVE)),qninf);
     ARIADNE_TEST_ASSERT(is_nan(Rational(Dyadic::inf(Sign::ZERO))));
+
+    ARIADNE_TEST_EQUALS(cmp(1,1),Comparison::EQUAL);
+    ARIADNE_TEST_EQUALS(cmp(1,2),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(2,1),Comparison::GREATER);
+
+    ARIADNE_TEST_ASSERT(is_nan(Rational::nan()+Rational(2)));
+    ARIADNE_TEST_ASSERT(is_nan(Rational(2)+Rational::nan()));
+    ARIADNE_TEST_ASSERT(is_nan(Rational::nan()+Rational::nan()));
+    ARIADNE_TEST_EQUALS(Rational(-2)+Rational::inf(),Rational::inf());
+
+    ARIADNE_TEST_EQUALS(Rational::inf()-Rational(2),Rational::inf());
+    ARIADNE_TEST_EQUALS(Rational::inf()-(-Rational::inf()),Rational::inf());
+    ARIADNE_TEST_ASSERT(is_nan(Rational::nan()-Rational(2)));
+
+    ARIADNE_TEST_ASSERT(is_inf(sqr(Rational::inf())));
+    ARIADNE_TEST_ASSERT(is_nan(sqr(Rational::nan())));
+    ARIADNE_TEST_ASSERT(is_nan(rec(Rational::nan())));
+
+    ARIADNE_TEST_ASSERT(is_nan(min(Rational::nan(),Rational(0))));
+    ARIADNE_TEST_ASSERT(is_nan(min(Rational(0),Rational::nan())));
+    ARIADNE_TEST_EQUALS(min(Rational::inf(Sign::NEGATIVE),Rational(2)),Rational::inf(Sign::NEGATIVE));
+    ARIADNE_TEST_EQUALS(min(Rational(2),Rational::inf(Sign::NEGATIVE)),Rational::inf(Sign::NEGATIVE));
+    ARIADNE_TEST_EQUALS(min(Rational::inf(Sign::POSITIVE),Rational(2)),Rational(2));
+    ARIADNE_TEST_EQUALS(min(Rational(2),Rational::inf(Sign::POSITIVE)),Rational(2));
+
+    ARIADNE_TEST_ASSERT(not eq(Rational(0),Rational::inf()));
+    ARIADNE_TEST_ASSERT(not eq(Rational::inf(),Rational(0)));
+    ARIADNE_TEST_ASSERT(not eq(Rational::nan(),Rational::nan()));
+    ARIADNE_TEST_ASSERT(not eq(Rational::inf(),Rational::nan()));
+
+    ARIADNE_TEST_EQUALS(cmp(Rational::nan(),Rational(0)),Comparison::INCOMPARABLE);
+    ARIADNE_TEST_EQUALS(cmp(Rational(0),Rational::nan()),Comparison::INCOMPARABLE);
+    ARIADNE_TEST_EQUALS(cmp(Rational::inf(),Rational::nan()),Comparison::INCOMPARABLE);
+    ARIADNE_TEST_EQUALS(cmp(Rational::inf(),-Rational::inf()),Comparison::GREATER);
+    ARIADNE_TEST_EQUALS(cmp(-Rational::inf(),Rational::inf()),Comparison::LESS);
 }
 
 void TestRational::test_bounds() {
