@@ -290,9 +290,9 @@ Integer operator""_z(const char* str, std::size_t) {
 }
 
 
-template<> inline String class_name<uint>() { return "uint"; }
+template<> String class_name<uint>() { return "uint"; }
 
-template<> inline String class_name<int>() { return "int"; }
+template<> String class_name<int>() { return "int"; }
 
 template<> String class_name<Integer>() { return "Integer"; }
 

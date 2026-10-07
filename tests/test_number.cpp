@@ -342,6 +342,9 @@ TestNumbers::test_misc()
     ARIADNE_TEST_EXECUTE(acos(unary));
     ARIADNE_TEST_EXECUTE(atan(unary));
     ARIADNE_TEST_EXECUTE(abs(unary));
+    ARIADNE_TEST_THROWS(
+        unary.ref()._apply(UnaryElementaryOperator(OperatorCode::ADD)),
+        DispatchException);
 
     DyadicBounds algebraic_dyadic(Dyadic(1),Dyadic(2));
     RationalBounds algebraic_rational(Rational(1),Rational(2));
