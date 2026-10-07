@@ -223,6 +223,8 @@ void TestInteger::test_small_types() {
     ARIADNE_TEST_EQUALS(log2floor(Natural(1u)),0);
     ARIADNE_TEST_EQUALS(log2floor(Natural(8u)),3);
     ARIADNE_TEST_EQUALS(cast_positive(Integer(4)),Integer(4));
+    ARIADNE_TEST_FAIL(Positive<Integer>(Integer(-1)));
+    ARIADNE_TEST_FAIL(Natural(Integer(-1)));
 }
 
 void TestInteger::test_combinatorics() {

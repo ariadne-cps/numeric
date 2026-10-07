@@ -33,9 +33,8 @@
 
 #include "numeric/gmp.hpp"
 
-#include <cassert>
-
 #include "utility/typedefs.hpp"
+#include "utility/macros.hpp"
 #include "utility/metaprogramming.hpp"
 #include "numeric/sign.hpp"
 #include "foundation/logical.hpp"
@@ -184,7 +183,7 @@ template<> class Positive<Integer> : public Integer {
     Positive() : Integer() { }
     template<BuiltinUnsignedIntegral M> Positive(M m) : Integer(m) { }
     Positive(int n) = delete;
-    explicit Positive(Integer const& z) : Integer(z) { assert(z>=0); }
+    explicit Positive(Integer const& z) : Integer(z) { ARIADNE_PRECONDITION(z>=0); }
 };
 
 //! \brief A positive integer.
@@ -193,7 +192,7 @@ class Natural : public Positive<Integer> {
     Natural() : Positive<Integer>() { }
     template<BuiltinUnsignedIntegral M> Natural(M m) : Positive<Integer>(m) { }
     Natural(int n) = delete;
-    explicit Natural(Integer const& z) : Positive<Integer>(z) { assert(z>=Integer(0)); }
+    explicit Natural(Integer const& z) : Positive<Integer>(z) { }
     friend Natural& operator++(Natural& n) { ++static_cast<Integer&>(n); return n; }
     friend Natural& operator+=(Natural& n1, Natural const& n2) { static_cast<Integer&>(n1)+=n2; return n1; }
     friend Natural operator+(Natural const& n1, Natural const& n2) { return Natural(static_cast<Integer const&>(n1)+static_cast<Integer const&>(n2)); }

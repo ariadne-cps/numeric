@@ -31,7 +31,7 @@
 
 #include <iosfwd>
 #include "utility/typedefs.hpp"
-#include <cassert>
+#include "utility/macros.hpp"
 
 namespace Ariadne {
 
@@ -40,7 +40,10 @@ namespace Ariadne {
 class Bits {
     unsigned long int _bits;
     explicit Bits(unsigned long long int bits) : _bits(static_cast<unsigned long int>(bits)) {
-        assert(static_cast<unsigned long long int>(this->_bits)==bits); }
+        if constexpr (sizeof(unsigned long int) < sizeof(unsigned long long int)) {
+            ARIADNE_PRECONDITION(static_cast<unsigned long long int>(this->_bits)==bits);
+        }
+    }
   public:
     operator unsigned long int () const { return this->_bits; }
     friend Bits operator""_bits (unsigned long long int);
