@@ -34,6 +34,7 @@
 #include "numeric/rational.hpp"
 #include "numeric/float.decl.hpp"
 #include "numeric/float_approximation.hpp"
+#include "numeric/float_bounds.hpp"
 #include "numeric/float_lower_bound.hpp"
 #include "numeric/float_upper_bound.hpp"
 #include "numeric/float_error.hpp"
@@ -83,6 +84,7 @@ class TestFloatApproximation
     TestFloatApproximation(PR prec) : precision(prec) { };
     Void test();
   private:
+    Void test_header_api();
     Void test_conversions();
     Void test_arithmetic();
     Void test_comparison();
@@ -92,9 +94,85 @@ class TestFloatApproximation
 template<class PR> Void
 TestFloatApproximation<PR>::test()
 {
+    ARIADNE_TEST_CALL(test_header_api());
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_arithmetic());
     ARIADNE_TEST_CALL(test_comparison());
+}
+
+template<class PR> Void
+TestFloatApproximation<PR>::test_header_api()
+{
+    using F=RawFloat<PR>;
+    using A=FloatApproximation<PR>;
+
+    PR pr=precision;
+
+    A zero(pr);
+    ARIADNE_TEST_EQUALS(zero.raw(),F(0,pr));
+
+    A from_approximate_double(ApproximateDouble(1.5),pr);
+    ARIADNE_TEST_EQUALS(from_approximate_double.get_d(),1.5);
+
+    A from_exact_double(ExactDouble(1.0),pr);
+    A from_twoexp(TwoExp(1),pr);
+    A from_integer(Integer(1),pr);
+    A from_decimal(Decimal(String("1.5")),pr);
+    ARIADNE_TEST_EQUALS(from_exact_double.raw(),F(1,pr));
+    ARIADNE_TEST_EQUALS(from_twoexp.raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS(from_integer.raw(),F(1,pr));
+    ARIADNE_TEST_EQUALS(from_decimal.get_d(),1.5);
+
+    A copied(from_integer,pr);
+    ARIADNE_TEST_EQUALS(copied.raw(),from_integer.raw());
+
+    if constexpr (Same<PR,DoublePrecision>) {
+        FloatMPApproximation other(1,MultiplePrecision(128_bits));
+        A cross(other,pr);
+        ARIADNE_TEST_EQUALS(cross.raw(),F(1,pr));
+    } else {
+        FloatDPApproximation other(1,dp);
+        A cross(other,pr);
+        ARIADNE_TEST_EQUALS(cross.raw(),F(1,pr));
+    }
+
+    FloatLowerBound<PR> lower(1,pr);
+    FloatUpperBound<PR> upper(1,pr);
+    FloatBounds<PR> bounds(1,1,pr);
+    F raw_one(1,pr);
+
+    A assigned(pr);
+    assigned=lower;
+    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+    assigned=upper;
+    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+    assigned=bounds;
+    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+    assigned=raw_one;
+    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+
+    ApproximateNumber generic=assigned.generic();
+    assigned=generic;
+    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+
+    A created=assigned.create(generic);
+    ARIADNE_TEST_EQUALS(created.raw(),F(1,pr));
+
+    ARIADNE_TEST_EQUALS(assigned.characteristics(),pr);
+    F raw_copy=static_cast<F>(assigned);
+    ARIADNE_TEST_EQUALS(raw_copy,F(1,pr));
+    ApproximateDouble approximate_double=static_cast<ApproximateDouble>(assigned);
+    ARIADNE_TEST_EQUALS(approximate_double.get_d(),1.0);
+    ARIADNE_TEST_EQUALS(assigned.get_d(),1.0);
+
+    A positive(1,pr);
+    A negative(-1,pr);
+    ARIADNE_TEST_ASSERT(tanh(positive).raw()>F(0,pr));
+    ARIADNE_TEST_ASSERT(tanh(negative).raw()<F(0,pr));
+    ARIADNE_TEST_EQUALS(asin(zero).raw(),F(0,pr));
+    ARIADNE_TEST_EQUALS(acos(A(1,pr)).raw(),F(0,pr));
+
+    ARIADNE_TEST_SAME(assigned.pm(zero),assigned);
 }
 
 template<class PR> Void
