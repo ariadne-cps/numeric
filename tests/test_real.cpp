@@ -88,6 +88,7 @@ class TestReal
     void test_constructors();
     void test_conversions();
     void test_arithmetic();
+    void test_directed();
     void test_transcendental();
     void test_comparison();
     void test_rounding();
@@ -102,6 +103,7 @@ void TestReal::test()
     ARIADNE_TEST_CALL(test_constructors());
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_arithmetic());
+    ARIADNE_TEST_CALL(test_directed());
     ARIADNE_TEST_CALL(test_transcendental());
     ARIADNE_TEST_CALL(test_comparison());
     ARIADNE_TEST_CALL(test_rounding());
@@ -148,6 +150,12 @@ void TestReal::test_conversions() {
     ARIADNE_TEST_EQUALS(one.get_d(),1.0);
     ARIADNE_TEST_EQUALS(one.compute_using(dp).lower_raw(),FloatDP(1,dp));
     ARIADNE_TEST_EQUALS(one.compute_using(mp).lower_raw(),FloatMP(1,mp));
+
+    ARIADNE_TEST_EXECUTE(FloatDPBall(one,dp));
+    ARIADNE_TEST_EXECUTE(FloatDPBounds(one,dp));
+    ARIADNE_TEST_EXECUTE(FloatDPUpperBound(one,dp));
+    ARIADNE_TEST_EXECUTE(FloatDPLowerBound(one,dp));
+    ARIADNE_TEST_EXECUTE(FloatDPApproximation(one,dp));
 
     DyadicBounds dyadic_bounds(Dyadic(1),Dyadic(2));
     ARIADNE_TEST_EQUALS(dyadic_bounds.get(dp).lower_raw(),FloatDP(1,dp));
@@ -196,6 +204,15 @@ void TestReal::test_constructors() {
     ARIADNE_TEST_EXECUTE(PositiveUpperReal{Real(1).upper()});
     ARIADNE_TEST_CONSTRUCT(Real,xz,(1));
     ARIADNE_TEST_EQUALS(xz.compute(eff).get(),1);
+    ARIADNE_TEST_EXECUTE(Real(std::uint64_t(2)));
+    ARIADNE_TEST_EXECUTE(Real(std::int64_t(-2)));
+    ARIADNE_TEST_EXECUTE(Real(Dyadic(3,1u)));
+    ARIADNE_TEST_EXECUTE(Real(Decimal("1.25")));
+    ARIADNE_TEST_EXECUTE(Real(Rational(5,4)));
+    ARIADNE_TEST_EXECUTE(Real(EffectiveNumber(2)));
+    FloatDP deprecated_float(1,pr);
+    ARIADNE_TEST_EXECUTE(Real(deprecated_float));
+    ARIADNE_TEST_EXECUTE(Real(deprecated_float));
     ARIADNE_TEST_CONSTRUCT(Real,xe,(1.5_exact));
     std::cout << "before xe.compute(eff).get()" << std::endl;
     auto xe_bounds = xe.compute(eff).get();
@@ -242,6 +259,94 @@ void TestReal::test_arithmetic() {
     ARIADNE_TEST_EQUALS(hlf(x),1.25_dy);
     ARIADNE_TEST_EQUALS(sqr(x),6.25_dy);
     ARIADNE_TEST_EQUALS(rec(y),0.25_dy);
+    ARIADNE_TEST_EQUALS(nul(x),0.0_dy);
+    ARIADNE_TEST_ASSERT(same(Real(2),Real(2)));
+    ARIADNE_TEST_ASSERT(not same(Real(2),Real(3)));
+    ARIADNE_TEST_EXECUTE(mag(Real(-2)).compute_get(Effort(4u)));
+    ARIADNE_TEST_EXECUTE(mag(Real(-2),dp));
+    ARIADNE_TEST_EXECUTE(dist(Real(2),Real(3)).compute_get(Effort(4u)));
+}
+
+void TestReal::test_directed() {
+    Effort eff(4u);
+    MultiplePrecision mp(128_bits);
+    Real two=2;
+    Real three=3;
+
+    LowerReal ltwo(two);
+    LowerReal lthree(three);
+    UpperReal utwo(two);
+    UpperReal uthree(three);
+
+    ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff));
+    ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff,dp));
+    ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff,mp));
+    ARIADNE_TEST_EXECUTE(utwo.compute_get(eff));
+    ARIADNE_TEST_EXECUTE(utwo.compute_get(eff,dp));
+    ARIADNE_TEST_EXECUTE(utwo.compute_get(eff,mp));
+
+    std::ostringstream directed_stream;
+    directed_stream << ltwo << " " << utwo;
+    ARIADNE_TEST_ASSERT(not directed_stream.str().empty());
+
+    ARIADNE_TEST_EXECUTE(max(ltwo,lthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(min(ltwo,lthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(min(ltwo,three).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(min(two,lthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(max(utwo,uthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(max(utwo,three).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(max(two,uthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(min(utwo,uthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(neg(utwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(neg(ltwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(add(ltwo,lthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(add(utwo,uthree).compute_get(eff));
+
+    PositiveReal ptwo(two);
+    PositiveReal pthree(three);
+    ARIADNE_TEST_EXECUTE(ptwo.compute_get(eff));
+    ARIADNE_TEST_EXECUTE(max(ptwo,pthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(min(ptwo,pthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(add(ptwo,pthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(mul(ptwo,pthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(div(ptwo,pthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(rec(ptwo).compute_get(eff));
+
+    PositiveLowerReal pltwo(ptwo);
+    PositiveLowerReal plthree(pthree);
+    PositiveUpperReal putwo(ptwo);
+    PositiveUpperReal puthree(pthree);
+    ARIADNE_TEST_EXECUTE(pltwo.compute_get(eff));
+    ARIADNE_TEST_EXECUTE(putwo.compute_get(eff));
+    ARIADNE_TEST_EXECUTE(rec(pltwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(rec(putwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(add(pltwo,plthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(add(putwo,puthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(mul(pltwo,plthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(mul(putwo,puthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(div(pltwo,puthree).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(div(putwo,plthree).compute_get(eff));
+
+    ARIADNE_TEST_EXECUTE(mul(ltwo,ptwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(mul(utwo,ptwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(mul(ptwo,ltwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(mul(ptwo,utwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(div(ltwo,ptwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(div(utwo,ptwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(div(ptwo,utwo).compute_get(eff));
+    ARIADNE_TEST_EXECUTE(div(ptwo,ltwo).compute_get(eff));
+
+    ValidatedLowerReal validated_lower{DyadicLowerBound{Dyadic(2)}};
+    ARIADNE_TEST_EXECUTE(validated_lower.get());
+    ARIADNE_TEST_EXECUTE(validated_lower.get(dp));
+    ARIADNE_TEST_EXECUTE(validated_lower.get(mp));
+    ValidatedUpperReal validated_upper{DyadicUpperBound{Dyadic(2)}};
+    ARIADNE_TEST_EXECUTE(validated_upper.get());
+    ARIADNE_TEST_EXECUTE(validated_upper.get(dp));
+    ARIADNE_TEST_EXECUTE(validated_upper.get(mp));
+    std::ostringstream validated_stream;
+    validated_stream << validated_lower << " " << validated_upper;
+    ARIADNE_TEST_ASSERT(not validated_stream.str().empty());
 }
 
 void TestReal::test_transcendental() {
@@ -410,6 +515,7 @@ void TestReal::test_sequence() {
     ARIADNE_TEST_ASSERT(abs(rlim.compute(Accuracy(256_bits)).get())<Dyadic(1,256u));
     ARIADNE_TEST_ASSERT(nondeterministic_greater(pi_,3.0_dec,3.1_dec));
     ARIADNE_TEST_ASSERT(not nondeterministic_greater(pi_,3.2_dec,3.3_dec));
+    ARIADNE_TEST_FAIL(nondeterministic_greater(pi_,Rational(1),Rational(1)));
     ARIADNE_TEST_PRINT(nondeterministic_greater(pi_,"3.1415926535897932"_dec,"3.1415926535897937"_dec));
     ARIADNE_TEST_PRINT(nondeterministic_greater(pi_,"3.1415926535897932"_dec,"3.1415926535897933"_dec));
 
@@ -431,6 +537,7 @@ void TestReal::test_sequence() {
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).compute(Effort(12u)));
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).compute(Effort(20u)));
     ARIADNE_TEST_PRINT(when({x<=0,-x},{x>=0,+x}).compute(Effort(20u)));
+    ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(dp));
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(precision(192_bits)));
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(precision(320_bits)));
     ARIADNE_TEST_COMPARE(when({x>=0,+x},{x<=0,1+x}).compute(Effort(20u)),>=,0.5_x);

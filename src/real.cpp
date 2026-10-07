@@ -332,22 +332,20 @@ Real when(Case<UpperKleenean,Real> const& c1, Case<UpperKleenean,Real> const& c2
     return Real(std::make_shared<WhenRealExpression>(c1,c2)); }
 
 DyadicBounds WhenRealExpression::_compute_get(Effort eff) const {
-    while (true) {
-        ValidatedUpperKleenean cp1=_p1.check(eff);
-        ValidatedUpperKleenean cp2=_p2.check(eff);
+    ValidatedUpperKleenean cp1=_p1.check(eff);
+    ValidatedUpperKleenean cp2=_p2.check(eff);
 
-        ARIADNE_ASSERT_MSG(possibly(cp1) or possibly(cp2),"Unsatisfiable when-expression "<<*this);
-        if(not possibly(cp1)) { return _r2.compute_get(eff); }
-        if(not possibly(cp2)) { return _r1.compute_get(eff); }
+    ARIADNE_ASSERT_MSG(possibly(cp1) or possibly(cp2),"Unsatisfiable when-expression "<<*this);
+    if(not possibly(cp1)) { return _r2.compute_get(eff); }
+    if(not possibly(cp2)) { return _r1.compute_get(eff); }
 
-        ValidatedReal vr1=_r1.compute(eff);
-        ValidatedReal vr2=_r2.compute(eff);
+    ValidatedReal vr1=_r1.compute(eff);
+    ValidatedReal vr2=_r2.compute(eff);
 
-        DyadicBounds w1=vr1.get();
-        DyadicBounds w2=vr2.get();
+    DyadicBounds w1=vr1.get();
+    DyadicBounds w2=vr2.get();
 
-        return coarsening(w1,w2);
-    }
+    return coarsening(w1,w2);
 }
 
 OutputStream& WhenRealExpression::_write(OutputStream& os) const {
@@ -360,11 +358,11 @@ OutputStream& WhenRealExpression::_write(OutputStream& os) const {
 Boolean nondeterministic_greater(Real const& r, Rational const& a, Rational const& b) {
     ARIADNE_PRECONDITION(a<b);
     Effort eff(0);
-    while(true) {
-        DyadicBounds x=r.compute_get(eff);
-        if(x.lower_raw()>a) { return true; } else if(x.upper_raw()<b) { return false; }
-        ++eff;
-    }
+refine:
+    DyadicBounds x=r.compute_get(eff);
+    if(x.lower_raw()>a) { return true; } else if(x.upper_raw()<b) { return false; }
+    ++eff;
+    goto refine;
 /*
     DoublePrecision dp;
     FloatDPBounds x0=r.get(dp);
@@ -614,8 +612,6 @@ PositiveReal add(PositiveReal const& pr1, PositiveReal const& pr2) { return cast
 PositiveReal mul(PositiveReal const& pr1, PositiveReal const& pr2) { return cast_positive(mul(make_signed(pr1),make_signed(pr2))); }
 PositiveReal div(PositiveReal const& pr1, PositiveReal const& pr2) { return cast_positive(div(make_signed(pr1),make_signed(pr2))); }
 PositiveReal rec(PositiveReal const& pr) { return cast_positive(rec(make_signed(pr))); }
-PositiveReal sqrt(PositiveReal const& pr) { return cast_positive(sqrt(make_signed(pr))); }
-PositiveReal atan(PositiveReal const& pr) { return cast_positive(atan(make_signed(pr))); }
 
 PositiveUpperReal rec(PositiveLowerReal plr) { return cast_positive(rec(cast_real(plr))); }
 PositiveLowerReal rec(PositiveUpperReal pur) { return cast_positive(rec(cast_real(pur))); }
