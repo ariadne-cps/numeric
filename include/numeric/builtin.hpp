@@ -30,6 +30,7 @@
 #define ARIADNE_BUILTIN_HPP
 
 #include <cassert>
+#include <cfloat>
 #include <cmath>
 #include <iostream>
 #include <iomanip>
@@ -128,11 +129,13 @@ class ExactDouble {
         ARIADNE_PRECONDITION(static_cast<unsigned long long>(d)==n);
         return d;
     }
-    static double _checked_floating(long double x) {
+#if LDBL_MANT_DIG > DBL_MANT_DIG
+    static double _checked_long_double(long double x) {
         double d=static_cast<double>(x);
         ARIADNE_PRECONDITION(std::isnan(d) || static_cast<long double>(d)==x);
         return d;
     }
+#endif
   public:
     typedef ExactTag Paradigm;
     double get_d() const { return this->_d; }
@@ -141,7 +144,13 @@ class ExactDouble {
     ExactDouble(N n) : _d(_checked_signed(static_cast<long long>(n))) { }
     template<BuiltinIntegral N> requires (!std::is_signed_v<N>)
     ExactDouble(N n) : _d(_checked_unsigned(static_cast<unsigned long long>(n))) { }
-    template<BuiltinFloatingPoint X> explicit ExactDouble(X const& x) : _d(_checked_floating(static_cast<long double>(x))) { }
+    explicit ExactDouble(float x) : _d(static_cast<double>(x)) { }
+    explicit ExactDouble(double x) : _d(x) { }
+#if LDBL_MANT_DIG > DBL_MANT_DIG
+    explicit ExactDouble(long double x) : _d(_checked_long_double(x)) { }
+#else
+    explicit ExactDouble(long double x) : _d(static_cast<double>(x)) { }
+#endif
     static ExactDouble infinity() { return ExactDouble(std::numeric_limits<double>::infinity()); }
     operator ExactNumber() const;
     friend ExactDouble nul(ExactDouble) { return ExactDouble(0.0); }
@@ -165,7 +174,7 @@ class ExactDouble {
     friend Boolean operator<=(ExactDouble const& x1, ExactDouble const& x2) { return x1._d<=x2._d; }
     friend Boolean operator> (ExactDouble const& x1, ExactDouble const& x2) { return x1._d> x2._d; }
     friend Boolean operator< (ExactDouble const& x1, ExactDouble const& x2) { return x1._d< x2._d; }
-    friend ExactDouble operator""_x (long double lx) { return ExactDouble(_checked_floating(lx)); }
+    friend ExactDouble operator""_x (long double lx) { return ExactDouble(lx); }
     friend ExactDouble operator""_pr (long double lx) { double x=static_cast<double>(lx); return ExactDouble(x); }
     friend OutputStream& operator<<(OutputStream& os, ExactDouble x) { return os << std::setprecision(18) << x.get_d(); }
 };
