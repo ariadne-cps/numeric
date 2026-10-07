@@ -104,12 +104,6 @@ ValidatedReal RealBase::_compute(Accuracy accuracy) const {
     return ValidatedReal(res);
 }
 
-struct RealWrapperBase : RealBase {
-    virtual DyadicBounds _compute_get(Effort eff) const override = 0;
-    virtual FloatDPBounds _compute_get(Effort eff, DoublePrecision pr) const override { return this->_compute(eff).get(pr); }
-    virtual FloatMPBounds _compute_get(Effort eff, MultiplePrecision pr) const override { return this->_compute(eff).get(pr); }
-};
-
 MultiplePrecision precision(Nat pr) { return MultiplePrecision(pr); }
 
 static const Nat PRECISION_PER_UNIT_EFFORT=16;
@@ -196,16 +190,6 @@ template<class X> struct RealWrapper<Cnst,X> : RealExpressionBase, FloatDPBounds
     virtual OutputStream& _write(OutputStream& os) const { return os << this->_c; }
 };
 
-template<> struct RealWrapper<Cnst,FloatDPBounds> : RealExpressionBase, FloatDPBounds {
-    typedef FloatDPBounds X;
-  public:
-    RealWrapper(X const& x) : FloatDPBounds(x,dp) { }
-    virtual DyadicBounds _compute_get(Effort) const { return DyadicBounds(static_cast<FloatDPBounds const&>(*this)); }
-    virtual FloatDPBounds _compute_get(Effort, DoublePrecision) const { return static_cast<FloatDPBounds const&>(*this); }
-    virtual FloatMPBounds _compute_get(Effort, MultiplePrecision pr) const { return FloatMPBounds(*this,pr); }
-    virtual OutputStream& _write(OutputStream& os) const { return os << static_cast<FloatDPBounds const&>(*this); }
-};
-
 template<> struct RealWrapper<Cnst,EffectiveNumber> : RealExpressionBase, FloatDPBounds {
     typedef EffectiveNumber X;
     X _c;
@@ -269,14 +253,6 @@ Real::Real(SharedPointer<const Interface> p) : Handle<const Interface> (p) { }
 
 Real::Real(ConvergentSequence<DyadicBounds> const& seq) : Real(std::make_shared<RealLimit<DyadicBounds>>(seq)) { }
 Real::Real(FastCauchySequence<Dyadic> const& seq) : Real(std::make_shared<RealLimit<Dyadic>>(seq)) { }
-
-ValidatedNegatedSierpinskian operator==(Real const& x1, Int64 n2);
-ValidatedSierpinskian operator!=(Real const& x1, Int64 n2);
-Kleenean operator< (Real const& x1, Int64 n2);
-Kleenean operator> (Real const& x1, Int64 n2);
-Kleenean operator<=(Real const& x1, Int64 n2);
-Kleenean operator>=(Real const& x1, Int64 n2);
-
 
 UpperReal Real::upper() const { return UpperReal(this->_ptr); }
 LowerReal Real::lower() const { return LowerReal(this->_ptr); }
@@ -371,7 +347,6 @@ DyadicBounds WhenRealExpression::_compute_get(Effort eff) const {
         DyadicBounds w2=vr2.get();
 
         return coarsening(w1,w2);
-        ++eff;
     }
 }
 
@@ -479,13 +454,6 @@ Quasidecidable operator<=(Real const& x1, Real const& x2) { return make_logical<
 Quasidecidable operator>=(Real const& x1, Real const& x2) { return make_logical<Kleenean>(Geq(),x1,x2); }
 
 Kleenean sgn(Real const& x) { return make_logical<Kleenean>(Sgn(),x); }
-
-ValidatedNegatedSierpinskian operator==(Real const&, Int64) { ARIADNE_NOT_IMPLEMENTED; }
-ValidatedSierpinskian operator!=(Real const&, Int64) { ARIADNE_NOT_IMPLEMENTED; }
-Kleenean operator< (Real const&, Int64) { ARIADNE_NOT_IMPLEMENTED; }
-Kleenean operator> (Real const&, Int64) { ARIADNE_NOT_IMPLEMENTED; }
-Kleenean operator<=(Real const&, Int64) { ARIADNE_NOT_IMPLEMENTED; }
-Kleenean operator>=(Real const&, Int64) { ARIADNE_NOT_IMPLEMENTED; }
 
 Integer round(Real const& r) {
     DyadicBounds wb=r.compute(Accuracy(1_bits)).get();

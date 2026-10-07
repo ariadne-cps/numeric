@@ -23,6 +23,7 @@
  */
 
 #include <sstream>
+#include <vector>
 
 #include "utility/module.hpp"
 
@@ -97,6 +98,7 @@ class TestReal
 void TestReal::test()
 {
     FloatDPApproximation::set_output_places(18);
+    ARIADNE_TEST_CALL(test_concept());
     ARIADNE_TEST_CALL(test_constructors());
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_arithmetic());
@@ -108,23 +110,60 @@ void TestReal::test()
 }
 
 void TestReal::test_concept() {
-    Real x,y;
-    x=Real(); x=Real(1); x=Real(1.0_x);
-    x=Real(1);
-    y=+x; y=-x; y=x+x; y=x-x; y=x*x; y=x/x;
-    y=pow(x,2u); y=pow(x,2);
-    y=sqr(x); y=rec(x); y=sqrt(x);
-    y=exp(x); y=log(x);
-    y=sin(x); y=cos(x); y=tan(x);
+    Effort eff(8u);
+    MultiplePrecision mp(128_bits);
+    Real x=Real(1)/2;
+    Real y=Real(2);
+
+    std::vector<Real> expressions{
+        +x, -x,
+        add(x,y), sub(x,y), mul(x,y), div(x,y),
+        pow(x,2u), pow(x,-2),
+        pos(x), neg(x), hlf(x), sqr(x), rec(x),
+        sqrt(x), exp(x), log(x),
+        sin(x), cos(x), tan(x), tanh(x),
+        asin(x), acos(x), atan(x),
+        abs(x), max(x,y), min(x,y)
+    };
+
+    for (Real const& expression : expressions) {
+        FloatDPBounds dp_bounds=expression.compute_get(eff,dp);
+        FloatMPBounds mp_bounds=expression.compute_get(eff,mp);
+        ARIADNE_TEST_ASSERT(dp_bounds.lower_raw()<=dp_bounds.upper_raw());
+        ARIADNE_TEST_ASSERT(mp_bounds.lower_raw()<=mp_bounds.upper_raw());
+
+        std::ostringstream expression_stream;
+        expression_stream << expression;
+        ARIADNE_TEST_ASSERT(not expression_stream.str().empty());
+    }
 }
 
 void TestReal::test_conversions() {
     Real one=1;
     Real pi_=4*atan(one);
+    MultiplePrecision mp(128_bits);
     auto pi_dp=pi_.get(dp);
-//    auto pi_mp=pi(MultiplePrecision(2_bits));
     ARIADNE_TEST_PRINT(pi_dp);
-//    ARIADNE_TEST_PRINT(pi_mp);
+
+    ARIADNE_TEST_EQUALS(one.get_d(),1.0);
+    ARIADNE_TEST_EQUALS(one.compute_using(dp).lower_raw(),FloatDP(1,dp));
+    ARIADNE_TEST_EQUALS(one.compute_using(mp).lower_raw(),FloatMP(1,mp));
+
+    DyadicBounds dyadic_bounds(Dyadic(1),Dyadic(2));
+    ARIADNE_TEST_EQUALS(dyadic_bounds.get(dp).lower_raw(),FloatDP(1,dp));
+    ARIADNE_TEST_EQUALS(dyadic_bounds.get(dp).upper_raw(),FloatDP(2,dp));
+    ARIADNE_TEST_EQUALS(dyadic_bounds.get(mp).lower_raw(),FloatMP(1,mp));
+    ARIADNE_TEST_EQUALS(dyadic_bounds.get(mp).upper_raw(),FloatMP(2,mp));
+
+    std::ostringstream accuracy_stream;
+    accuracy_stream << Accuracy(8_bits);
+    ARIADNE_TEST_ASSERT(not accuracy_stream.str().empty());
+
+    ARIADNE_TEST_EQUALS(class_name<Real>(),String("Real"));
+    ARIADNE_TEST_EQUALS(class_name<PositiveReal>(),String("PositiveReal"));
+
+    ApproximateDouble approximate_one(one);
+    ARIADNE_TEST_EQUALS(approximate_one.get_d(),1.0);
 }
 
 void TestReal::test_constructors() {
@@ -244,6 +283,21 @@ void TestReal::test_comparison() {
 
     Rational zero=0;
     ARIADNE_TEST_ASSERT(check(e*log(pi)-pi<zero,effort));
+
+    ARIADNE_TEST_EQUALS(check_sgn(Real(1),effort),true);
+    ARIADNE_TEST_EQUALS(check_sgn(Real(-1),effort),false);
+    ARIADNE_TEST_UNARY_PREDICATE(is_indeterminate,check_sgn(Real(0),effort));
+
+    auto named_equal=eq(Real(1),Real(1));
+    auto named_less=lt(Real(1),Real(2));
+    auto named_sign=sgn(Real(-1));
+    ARIADNE_TEST_ASSERT(possibly(named_equal.check(effort)));
+    ARIADNE_TEST_ASSERT(definitely(named_less.check(effort)));
+    ARIADNE_TEST_ASSERT(definitely(not named_sign.check(effort)));
+
+    std::ostringstream logical_stream;
+    logical_stream << named_equal << " " << named_less << " " << named_sign;
+    ARIADNE_TEST_ASSERT(not logical_stream.str().empty());
 }
 
 
@@ -307,6 +361,15 @@ void TestReal::test_sequence() {
     std::function<Dyadic(Natural)> wfn([&](Natural n){return 1-Dyadic(1,n);});
     FastCauchySequence<Dyadic> wseq(wfn);
     Real wlim=limit(wseq);
+    Real wdirect(wseq);
+    MultiplePrecision mp(128_bits);
+    ARIADNE_TEST_EXECUTE(wlim.compute_get(Effort(4u),dp));
+    ARIADNE_TEST_EXECUTE(wlim.compute_get(Effort(4u),mp));
+    ARIADNE_TEST_EXECUTE(wdirect.compute_get(Effort(4u),dp));
+    ARIADNE_TEST_EXECUTE(wdirect.compute_get(Effort(4u),mp));
+    std::ostringstream dyadic_limit_stream;
+    dyadic_limit_stream << wdirect;
+    ARIADNE_TEST_ASSERT(not dyadic_limit_stream.str().empty());
 
     Sequence<DyadicBounds> bounds_sequence(std::function<DyadicBounds(Natural)>(
         [](Natural){ return DyadicBounds(Dyadic(1)); }));
@@ -317,11 +380,26 @@ void TestReal::test_sequence() {
     std::ostringstream sequence_stream;
     sequence_stream << writer(bounds_sequence);
     ARIADNE_TEST_ASSERT(not sequence_stream.str().empty());
+
+    ConvergentSequence<DyadicBounds> convergent_bounds(bounds_sequence);
+    Real bounds_limit(convergent_bounds);
+    ARIADNE_TEST_EXECUTE(bounds_limit.compute_get(Effort(2u)));
+    ARIADNE_TEST_EXECUTE(bounds_limit.compute_get(Effort(2u),dp));
+    ARIADNE_TEST_EXECUTE(bounds_limit.compute_get(Effort(2u),mp));
+    std::ostringstream bounds_limit_stream;
+    bounds_limit_stream << bounds_limit;
+    ARIADNE_TEST_ASSERT(not bounds_limit_stream.str().empty());
+
     std::cout<<wlim.compute(Accuracy(256_bits))<<"\n";
 
     std::function<Real(Natural)> rfn([&](Natural n){return exp(Real(-(n+1u)));});
     FastCauchySequence<Real> rseq(rfn);
     Real rlim=limit(rseq);
+    ARIADNE_TEST_EXECUTE(rlim.compute_get(Effort(4u),dp));
+    ARIADNE_TEST_EXECUTE(rlim.compute_get(Effort(4u),mp));
+    std::ostringstream real_limit_stream;
+    real_limit_stream << rlim;
+    ARIADNE_TEST_ASSERT(not real_limit_stream.str().empty());
 
     ARIADNE_TEST_ASSERT(abs(rlim.compute(Accuracy(256_bits)).get())<Dyadic(1,256u));
 
@@ -352,6 +430,7 @@ void TestReal::test_sequence() {
 //    ARIADNE_TEST_PRINT(unify(x>=0,+x,x<=0,-x));
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).compute(Effort(12u)));
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).compute(Effort(20u)));
+    ARIADNE_TEST_PRINT(when({x<=0,-x},{x>=0,+x}).compute(Effort(20u)));
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(precision(192_bits)));
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(precision(320_bits)));
     ARIADNE_TEST_COMPARE(when({x>=0,+x},{x<=0,1+x}).compute(Effort(20u)),>=,0.5_x);
