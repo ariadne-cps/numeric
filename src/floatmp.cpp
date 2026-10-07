@@ -59,7 +59,7 @@ FloatMP::Float(NoInit const&) {
 }
 
 FloatMP::Float(const mpfr_t x, RawPtr const&) : FloatMP(NoInit()) {
-    mpfr_set_prec(this->_mpfr,mpfr_get_prec(x));
+    mpfr_set_prec(this->_mpfr,(mpfr_get_prec)(x));
     mpfr_set(this->_mpfr,x,MPFR_RNDN);
 }
 
@@ -84,7 +84,7 @@ FloatMP::Float(TwoExp const& t, MultiplePrecision pr) {
 }
 
 FloatMP::Float(Dyadic const& w, MultiplePrecision pr) : FloatMP(w,near,pr) {
-    if (Dyadic(*this)!=w && !is_nan(w))
+    if (cmp(Dyadic(*this),w)!=Comparison::EQUAL && !is_nan(w))
         ARIADNE_THROW(std::runtime_error,"Float(Dyadic)","Dyadic \""<<w<<"\" is not an exact floating-point number with precision " << pr << ".");
 }
 
@@ -145,7 +145,7 @@ FloatMP::Float(FloatMP const& x, RoundingModeType rnd, MultiplePrecision pr) {
 }
 
 FloatMP::Float(const FloatMP& x) {
-    mpfr_init2(_mpfr,mpfr_get_prec(x._mpfr));
+    mpfr_init2(_mpfr,(mpfr_get_prec)(x._mpfr));
     mpfr_set(_mpfr,x._mpfr,get_rounding_mode());
 }
 
@@ -260,11 +260,11 @@ Void FloatMP::set_precision(MultiplePrecision pr) {
 }
 
 FloatMP::ExponentType FloatMP::exponent() const {
-    return mpfr_get_exp(this->_mpfr);
+    return (mpfr_get_exp)(this->_mpfr);
 }
 
 FloatMP::PrecisionType FloatMP::precision() const {
-    return PrecisionType(mpfr_get_prec(this->_mpfr));
+    return PrecisionType((mpfr_get_prec)(this->_mpfr));
 }
 
 double FloatMP::get_d() const {
@@ -326,7 +326,7 @@ FloatMP FloatMP::max(MultiplePrecision pr) {
     mpfr_exp_t emax=mpfr_get_emax();
     FloatMP x(2,pr);
     x=sub(down,x,FloatMP::min(pr));
-    ARIADNE_ASSERT(x<2);
+
     FloatMP e(pr);
     mpfr_set_ui_2exp(e._mpfr,1u,(emax-1),to_nearest);
     return mul(to_nearest,e,x);
