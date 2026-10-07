@@ -213,11 +213,11 @@ TestRounded<FLT>::test_header_api()
 {
     RoundedFloatType::set_rounding_to_nearest();
 
-    RoundedFloatType two(2,precision);
+    RoundedFloatType two_value(2,precision);
     RoundedFloatType four(4,precision);
     RoundedFloatType quotient=four;
-    quotient/=two;
-    ARIADNE_TEST_EQUALS(quotient,two);
+    quotient/=two_value;
+    ARIADNE_TEST_EQUALS(quotient,two_value);
 
     if constexpr (Same<FloatType,FloatDP>) {
         auto saved_rounding=RoundedFloatType::get_rounding_mode();

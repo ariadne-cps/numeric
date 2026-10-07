@@ -141,7 +141,7 @@ template<> class Rounded<FloatDP>
     friend Rounded<FloatDP> tanh(Rounded<FloatDP> x) {
         Rounded<FloatDP> one(1,x.precision());
         Rounded<FloatDP> two_value(2,x.precision());
-        if(definitely(x>=0)) {
+        if(x._flt.dbl>=0.0) {
             Rounded<FloatDP> e=exp(two_value*x);
             return one-two_value/(e+one);
         } else {
