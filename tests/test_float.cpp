@@ -32,6 +32,7 @@
 #include <limits>
 
 #include "numeric/builtin.hpp"
+#include "numeric/double.hpp"
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/number.hpp"
@@ -663,11 +664,45 @@ TestFloat<PR>::test_predicates()
 }
 
 
+Void test_double_runtime()
+{
+    set_default_builtin_rounding();
+    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_UPWARD);
+    set_builtin_rounding_to_nearest();
+
+    ARIADNE_TEST_ASSERT(texp(1.0)>2.7 && texp(1.0)<2.8);
+    ARIADNE_TEST_EQUALS(add_opp(1.0,2.0),3.0);
+    ARIADNE_TEST_EQUALS(neg_rec_rnd(2.0),-0.5);
+    ARIADNE_TEST_EQUALS(neg_rec_opp(2.0),-0.5);
+
+    ARIADNE_TEST_EQUALS(pow_rnd(-2.0,Int(-2)),0.25);
+    ARIADNE_TEST_FAIL(pow_rnd(0.0,Int(-1)));
+    ARIADNE_TEST_EQUALS(sqrt_rnd(0.0),0.0);
+    ARIADNE_TEST_FAIL(sqrt_rnd(-1.0));
+    ARIADNE_TEST_ASSERT(std::isinf(log_rnd(0.0)));
+    ARIADNE_TEST_ASSERT(std::signbit(log_rnd(0.0)));
+    ARIADNE_TEST_FAIL(log_rnd(-1.0));
+    ARIADNE_TEST_FAIL(atan_rnd_series(0.5));
+
+    set_builtin_rounding_toward_zero();
+    ARIADNE_TEST_EXECUTE(pi_rnd());
+    ARIADNE_TEST_EXECUTE(pi_opp());
+    set_builtin_rounding_to_nearest();
+
+    const double sin_inputs[] = {-2.8,-2.0,-1.2,-0.5,0.1,1.0,1.7,2.5};
+    for(double x : sin_inputs) {
+        ARIADNE_TEST_ASSERT(std::abs(sin_rnd(x)-std::sin(x))<1e-12);
+    }
+
+    ARIADNE_TEST_ASSERT(std::abs(cos_rnd(0.1)-std::cos(0.1))<1e-12);
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
     test_float_literals();
+    test_double_runtime();
     TestFloat<DoublePrecision>(dp).test();
     TestFloat<MultiplePrecision>(MultiplePrecision(128_bits)).test();
 

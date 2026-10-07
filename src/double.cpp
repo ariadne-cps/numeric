@@ -114,7 +114,7 @@ double pow_rnd(double x, Nat m)
 double pow_rnd(double x, Int n)
 {
     if(n>=0) { return pow_rnd(x,Nat(n)); }
-    ARIADNE_ASSERT(x!=0.0);
+    ARIADNE_PRECONDITION(x!=0.0);
     if(x>0.0 || (n%2==-1)) { volatile double r=1.0/x; return pow_rnd(r,Nat(-n)); }
     else { volatile double r=-1.0/x; return pow_rnd(r,Nat(-n)); }
 }
@@ -122,7 +122,7 @@ double pow_rnd(double x, Int n)
 double sqrt_rnd(double x)
 {
     // long int c[]={ 0, 6, -360, 15120, -604800, 23950080, -946218790, 37362124800 };
-    ARIADNE_ASSERT_MSG(x>=0, " x = "<<x);
+    ARIADNE_PRECONDITION(x>=0.0);
 
     if(x==0.0) { return 0.0; }
     Int n; volatile double y,a,b;
@@ -211,7 +211,7 @@ double exp_rnd(double x)
 double log_rnd(double x) {
     static const long long int c[12]={ 1LL, 3LL, 5LL, 7LL, 9LL, 11LL, 13LL, 15LL, 17LL, 19LL, 21LL, 23LL };
 
-    ARIADNE_ASSERT_MSG(x>=0.0,"log(x): x="<<x);
+    ARIADNE_PRECONDITION(x>=0.0);
     // Write x=2^ny with 1/sqrt(2) <= y <= sqrt(2)
     // Write log(y)=log(1+z)-log(1-z) where z=(y-1)/(y+1) and y=(1+z)/(1-z),
     // Note that y is monotone increasing in z (and vice-versa)
@@ -223,7 +223,7 @@ double log_rnd(double x) {
     // Note that if z<0 (corresponding to y<1) then we need to use
     // opposite rounding to compute s and w.
 
-    if(x==0.0) { return std::numeric_limits<double>::infinity(); }
+    if(x==0.0) { return -std::numeric_limits<double>::infinity(); }
     if(x==1.0) { return 0.0; }
 
     Int n;
@@ -293,22 +293,16 @@ double sin_rnd(double x) {
     assert(-_two_pi_approx<=y && y<=_two_pi_approx);
 
 
-    switch(q) {
-    case -4: { w = -y - 2*half_pi_opp; w=-w; s=neg_sin_rnd_series(w); break; }
-    case -3: { w = -y - 1*half_pi_rnd; w=+w; s=neg_cos_rnd_series(w); break; }
-    case -2: { w = +y + 1*half_pi_rnd; w=+w; s=neg_cos_rnd_series(w); break; }
-    case -1: { w = +y + 0*half_pi_opp; w=-w; s=neg_sin_rnd_series(w); break; }
-    case +0: { w = +y + 0*half_pi_opp; w=+w; s=pos_sin_rnd_series(w); break; }
-    case +1: { w = +y - 1*half_pi_opp; w=-w; s=pos_cos_rnd_series(w); break; }
-    case +2: { w = -y + 1*half_pi_rnd; w=-w; s=pos_cos_rnd_series(w); break; }
-    case +3: { w = -y + 2*half_pi_rnd; w=+w; s=pos_sin_rnd_series(w); break; }
-    default: { s=0; assert(false); }
-    }
-
-    return s;
+    if(q==-4) { w = -y - 2*half_pi_opp; w=-w; return neg_sin_rnd_series(w); }
+    if(q==-3) { w = -y - 1*half_pi_rnd; w=+w; return neg_cos_rnd_series(w); }
+    if(q==-2) { w = +y + 1*half_pi_rnd; w=+w; return neg_cos_rnd_series(w); }
+    if(q==-1) { w = +y + 0*half_pi_opp; w=-w; return neg_sin_rnd_series(w); }
+    if(q== 0) { w = +y + 0*half_pi_opp; w=+w; return pos_sin_rnd_series(w); }
+    if(q==+1) { w = +y - 1*half_pi_opp; w=-w; return pos_cos_rnd_series(w); }
+    if(q==+2) { w = -y + 1*half_pi_rnd; w=-w; return pos_cos_rnd_series(w); }
+    w = -y + 2*half_pi_rnd; w=+w;
+    return pos_sin_rnd_series(w);
 }
-
-inline double max(double x1, double x2) { return std::max(x1,x2); }
 
 double nul_rnd(double) { return 0.0; }
 double pos_rnd(double x) { return +x; }
@@ -378,42 +372,18 @@ double cos_rnd(double x) {
     Int q = (long int)(std::floor(y/_quarter_pi_approx)) % 8;
     assert(q<=4);
 
-    volatile double w,c;
+    volatile double w;
     if(q==0) {
         w=y;
-        c=pos_cos_rnd_series(w);
-    } else if(q==1 || q==2) {
+        return pos_cos_rnd_series(w);
+    }
+    if(q<=2) {
         w=sub_rnd(pi_rnd/2,y);
-        if(w>=0.0) { c=pos_sin_rnd_series(w); }
-        else { c=neg_sin_rnd_series(-w); }
-    } else if(q==3 || q==4) {
-        w=sub_opp(pi_opp,y);
-        c=neg_cos_rnd_series(w);
-    } else {
-        w=0;c=0;
-        assert(false);
+        if(w>=0.0) { return pos_sin_rnd_series(w); }
+        return neg_sin_rnd_series(-w);
     }
-
-    return c;
-
-
-
-    volatile double z=0.0;
-
-    ARIADNE_ASSERT(-_two_pi_approx<=y && y<=_two_pi_approx);
-    switch(q) {
-    case -4: { w = +y + 2*half_pi_rnd; w=+w; w=max(w,z); c=neg_cos_rnd_series(w); break; }
-    case -3: { w = +y + 1*half_pi_rnd; w=-w; w=max(w,z); c=neg_sin_rnd_series(w); break; }
-    case -2: { w = +y + 1*half_pi_rnd; w=+w; w=max(w,z); c=pos_sin_rnd_series(w); break; }
-    case -1: { w = +y + 0*half_pi_rnd; w=-w; w=max(w,z); c=pos_cos_rnd_series(w); break; }
-    case +0: { w = -y + 0*half_pi_rnd; w=-w; w=max(w,z); c=pos_cos_rnd_series(w); break; }
-    case +1: { w = -y + 1*half_pi_rnd; w=+w; w=max(w,z); c=pos_sin_rnd_series(w); break; }
-    case +2: { w = -y + 1*half_pi_rnd; w=-w; w=max(w,z); c=neg_sin_rnd_series(w); break; }
-    case +3: { w = -y + 2*half_pi_rnd; w=+w; w=max(w,z); c=neg_cos_rnd_series(w); break; }
-    default: { assert(false); }
-    }
-
-    return c;
+    w=sub_opp(pi_opp,y);
+    return neg_cos_rnd_series(w);
 }
 
 
@@ -556,7 +526,7 @@ double tan_rnd_series(double x) {
 double atan_rnd_series(double x) {
     // atan(x) = \sum_{n=0}^{\infty} (-1)^n/(2n+1) x^{2n+1}
     // Relative trunctation error less than machine epsilon if |x|<=0.375 (this is not a tight bound)
-    assert(std::abs(x)<0.5);
+    ARIADNE_PRECONDITION(std::abs(x)<0.5);
     static const long long int c[19]={ 1LL, -3LL, 5LL, -7LL, 9LL, -11LL, 13LL, -15LL, 17LL, -19LL, 21LL, -23LL, 25LL, -27LL, 29LL, -31LL, 33LL, -35LL, 37LL };
 
     volatile double s,w,r;
