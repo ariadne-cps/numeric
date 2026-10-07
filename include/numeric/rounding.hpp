@@ -223,9 +223,10 @@ void set_builtin_rounding_upward();
 //! \brief Set the rounding mode to towards-zero rounding. \ingroup NumericModule
 void set_builtin_rounding_toward_zero();
 
+#endif
+
 //! \brief Set the rounding mode to the expected default rounding mode.
 void set_default_builtin_rounding();
-#endif
 
 //! \brief The rounding mode type used for multiple-precision floating-point objects such as FloatMP. \ingroup NumericModule
 typedef mpfr_rnd_t MPFRRoundingModeType;
