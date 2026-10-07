@@ -203,6 +203,8 @@ TestFloat<PR>::test_conversions()
 
         ARIADNE_TEST_EXECUTE((RoundedFloatDP{approximate}));
         ARIADNE_TEST_EQUALS(FloatDP(String("1.25"),dp),Dyadic(5,2u));
+        ARIADNE_TEST_EQUALS(FloatDP(TwoExp(10),dp),Dyadic(TwoExp(10)));
+        ARIADNE_TEST_FAIL((FloatDP{TwoExp(1024),dp}));
 
         Dyadic too_precise{Integer(String("9007199254740993"))};
         ARIADNE_TEST_FAIL((FloatDP{too_precise,dp}));

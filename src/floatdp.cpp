@@ -75,7 +75,7 @@ FloatDP::Float(ExactDouble const& d, PrecisionType)
 FloatDP::Float(TwoExp const& t, PrecisionType)
     : FloatDP(std::ldexp(1.0,t.exponent()))
 {
-    ARIADNE_ASSERT(Dyadic(*this)==Dyadic(t));
+    ARIADNE_PRECONDITION(Dyadic(*this)==Dyadic(t));
 }
 
 FloatDP::Float(Dyadic const& w, PrecisionType)
