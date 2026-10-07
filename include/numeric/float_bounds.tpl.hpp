@@ -75,7 +75,7 @@ template<class F> auto Operations<Bounds<F>>::_sin(Bounds<F> const& x) -> Bounds
 }
 
 template<class F> auto Operations<Bounds<F>>::_cos(Bounds<F> const& x) -> Bounds<F> {
-    ARIADNE_ASSERT(x.lower_raw()<=x.upper_raw());
+    ARIADNE_PRECONDITION(x.lower_raw()<=x.upper_raw());
     typename F::RoundingModeType rnd = F::get_rounding_mode();
     PR prec=x.precision();
 
@@ -87,9 +87,6 @@ template<class F> auto Operations<Bounds<F>>::_cos(Bounds<F> const& x) -> Bounds
     F n(round(div(near,x.value_raw(),(two_pi_val.value_raw()))));
     Bounds<F> y=x-2*(n*pi_val);
 
-    ARIADNE_ASSERT(y.lower_raw()<=pi_val.upper_raw());
-    ARIADNE_ASSERT(y.upper_raw()>=-pi_val.upper_raw());
-
     F rl(prec),ru(prec);
     if(y.lower_raw()<=-pi_val.lower_raw()) {
         if(y.upper_raw()<=0.0_x) { rl=-one; ru=cos(up,y.upper_raw()); }
@@ -98,12 +95,9 @@ template<class F> auto Operations<Bounds<F>>::_cos(Bounds<F> const& x) -> Bounds
         if(y.upper_raw()<=0.0_x) { rl=cos(down,y.lower_raw()); ru=cos(up,y.upper_raw()); }
         else if(y.upper_raw()<=pi_val.lower_raw()) { rl=cos(down,max(-y.lower_raw(),y.upper_raw())); ru=+one; }
         else { rl=-one; ru=+one; }
-    } else if(y.lower_raw()<=pi_val.upper_raw()) {
-        if(y.upper_raw()<=pi_val.lower_raw()) { rl=cos(down,y.upper_raw()); ru=cos(up,y.lower_raw()); }
-        else if(y.upper_raw()<=two_pi_val.lower_raw()) { rl=-one; ru=cos(up,min(y.lower_raw(),sub(down,two_pi_val.lower_raw(),y.upper_raw()))); }
-        else { rl=-one; ru=+one; }
     } else {
-        assert(false);
+        if(y.upper_raw()<=pi_val.lower_raw()) { rl=cos(down,y.upper_raw()); ru=cos(up,y.lower_raw()); }
+        else { rl=-one; ru=cos(up,min(y.lower_raw(),sub(down,two_pi_val.lower_raw(),y.upper_raw()))); }
     }
 
     F::set_rounding_mode(rnd);
@@ -111,7 +105,7 @@ template<class F> auto Operations<Bounds<F>>::_cos(Bounds<F> const& x) -> Bounds
 }
 
 template<class F> auto Operations<Bounds<F>>::_tan(Bounds<F> const& x) -> Bounds<F> {
-    ARIADNE_ASSERT(x.lower_raw()<=x.upper_raw());
+    ARIADNE_PRECONDITION(x.lower_raw()<=x.upper_raw());
     return sin(x)/cos(x);
 }
 
@@ -126,7 +120,6 @@ template<class F> auto Operations<Bounds<F>>::_trunc(Bounds<F> const& x) -> Boun
     volatile float tl=static_cast<float>(xl);
     if(tl>xl) { F::set_rounding_downward(); tl=tl-fm; }
     F::set_rounding_mode(rm);
-    assert(tl<=xl); assert(tu>=xu);
     return Bounds<F>(ExactDouble(tl),ExactDouble(tu),x.precision());
 }
 

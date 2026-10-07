@@ -39,6 +39,8 @@
 #include "numeric/float_lower_bound.hpp"
 #include "numeric/float_upper_bound.hpp"
 #include "numeric/float_error.hpp"
+#include "numeric/lower_number.hpp"
+#include "numeric/upper_number.hpp"
 
 #include "utility/test.hpp"
 #include "test_floats.hpp"
@@ -68,6 +70,7 @@ class TestFloatBounds
     Void test_comparison();
     Void test_precision();
     Void test_inl_mixed_operations();
+    Void test_tpl_api_and_branches();
     Void test_correct_rounded_arithmetic();
     Void test_accurate_rounded_arithmetic();
     Void test_exact_rounded_arithmetic();
@@ -88,6 +91,7 @@ TestFloatBounds<PR>::test()
     ARIADNE_TEST_CALL(test_comparison());
     ARIADNE_TEST_CALL(test_precision());
     ARIADNE_TEST_CALL(test_inl_mixed_operations());
+    ARIADNE_TEST_CALL(test_tpl_api_and_branches());
     ARIADNE_TEST_CALL(test_correct_rounded_arithmetic());
     ARIADNE_TEST_CALL(test_accurate_rounded_arithmetic());
     ARIADNE_TEST_CALL(test_exact_rounded_arithmetic());
@@ -250,6 +254,45 @@ TestFloatBounds<PR>::test_inl_mixed_operations()
     ARIADNE_TEST_ASSERT(is_inf(divided_by_crossing.upper_raw()));
     ARIADNE_TEST_ASSERT(divided_by_crossing.lower_raw()<zero);
     ARIADNE_TEST_ASSERT(divided_by_crossing.upper_raw()>zero);
+}
+
+template<class PR> Void
+TestFloatBounds<PR>::test_tpl_api_and_branches()
+{
+    FloatLowerBound<PR> concrete_lower(-1,pr);
+    FloatUpperBound<PR> concrete_upper(2,pr);
+    ValidatedLowerNumber generic_lower(concrete_lower);
+    ValidatedUpperNumber generic_upper(concrete_upper);
+
+    FloatBoundsType mixed_upper(concrete_lower,generic_upper);
+    FloatBoundsType mixed_lower(generic_lower,concrete_upper);
+    ARIADNE_TEST_COMPARE(mixed_upper.lower_raw(),<=,RawFloatType(-1,pr));
+    ARIADNE_TEST_COMPARE(mixed_upper.upper_raw(),>=,RawFloatType(2,pr));
+    ARIADNE_TEST_COMPARE(mixed_lower.lower_raw(),<=,RawFloatType(-1,pr));
+    ARIADNE_TEST_COMPARE(mixed_lower.upper_raw(),>=,RawFloatType(2,pr));
+
+    FloatBoundsType base(-1,2,pr);
+    FloatError<PR> error(1u,pr);
+    FloatBoundsType widened=base.pm(error);
+    ARIADNE_TEST_COMPARE(widened.lower_raw(),<=,RawFloatType(-2,pr));
+    ARIADNE_TEST_COMPARE(widened.upper_raw(),>=,RawFloatType(3,pr));
+
+    ARIADNE_TEST_EXECUTE(trunc(FloatBoundsType(1,1,pr)));
+    Dyadic delta(1,30u);
+    FloatBoundsType inexact(Dyadic(1)-delta,Dyadic(1)+delta,pr);
+    FloatBoundsType truncated=trunc(inexact);
+    ARIADNE_TEST_COMPARE(truncated.lower_raw(),<=,inexact.lower_raw());
+    ARIADNE_TEST_COMPARE(truncated.upper_raw(),>=,inexact.upper_raw());
+    ARIADNE_TEST_EXECUTE(trunc(inexact,Nat(40u)));
+
+    ARIADNE_TEST_SAME(cos(FloatBoundsType(-10,10,pr)),FloatBoundsType(-1,1,pr));
+    ARIADNE_TEST_EXECUTE(cos(FloatBoundsType(-3.2_q,0.2_q,pr)));
+    ARIADNE_TEST_EXECUTE(cos(FloatBoundsType(-0.2_q,3.2_q,pr)));
+    ARIADNE_TEST_EXECUTE(cos(FloatBoundsType(1.0_q,4.0_q,pr)));
+
+    FloatBoundsType empty(2,1,pr);
+    ARIADNE_TEST_FAIL(cos(empty));
+    ARIADNE_TEST_FAIL(tan(empty));
 }
 
 template<class PR> Void
