@@ -37,7 +37,6 @@
 namespace Ariadne {
 
 Comparison cmp(Integer const& z1, Integer const& z2);
-Integer make_integer(unsigned long long int n);
 
 Integer::~Integer() {
     mpz_clear(_mpz);
@@ -68,7 +67,6 @@ Integer::Integer(Nat64 m) {
     unsigned long long int lrem = larg % lmax;
     unsigned int rem = static_cast<unsigned int>(lrem);
     unsigned int quot = static_cast<unsigned int>(lquot);
-    ARIADNE_ASSERT(larg==lquot*lmax+lrem);
     mpz_set_ui(_mpz,rem);
     if(lquot!=0) {
         *this += Integer(quot)*zmax;
@@ -225,14 +223,6 @@ Natural abs(Integer const& z) {
     return r;
 }
 
-Natural max(Natural const& z1,Natural const& z2) {
-    return (z1>z2)?z1:z2;
-}
-
-Natural min(Natural const& z1,Natural const& z2) {
-    return (z1<z2)?z1:z2;
-}
-
 
 Bool is_nan(Integer const&) {
     return false;
@@ -289,20 +279,6 @@ String Integer::literal() const {
 
 OutputStream& operator<<(OutputStream& os, Integer const& z) {
     return os << z.literal();
-}
-
-Integer make_integer(unsigned long long int n) {
-    static const unsigned int max=std::numeric_limits<Int>::max();
-    static const unsigned long long int m=max;
-    unsigned long long int q = n / m;
-    unsigned long long int r = n % m;
-    unsigned int rem = static_cast<unsigned int>(r);
-    ARIADNE_ASSERT(n==q*m+r);
-    if(q==0) {
-        return Integer(rem);
-    } else {
-        return make_integer(q)*Integer(max)+Integer(rem);
-    }
 }
 
 Integer operator""_z(unsigned long long int n) {

@@ -56,6 +56,7 @@ class TestInteger
 
 void TestInteger::test()
 {
+    ARIADNE_TEST_CALL(test_concept());
     ARIADNE_TEST_CALL(test_constructors());
     ARIADNE_TEST_CALL(test_comparisons());
     ARIADNE_TEST_CALL(test_literal());
@@ -137,6 +138,17 @@ void TestInteger::test_constructors() {
     ARIADNE_TEST_EQUALS(z3,zum*zum+zum);
     ARIADNE_TEST_CONSTRUCT(Integer,z4,(lln*lln+lln));
     ARIADNE_TEST_EQUALS(z4,zn*zn+zn);
+
+    ARIADNE_TEST_EQUALS(Integer(Nat32(7)),Integer(7));
+    mpz_t raw;
+    mpz_init_set_si(raw,-17);
+    ARIADNE_TEST_EQUALS(Integer(raw),Integer(-17));
+    mpz_clear(raw);
+
+    Integer assigned(1);
+    Integer source(9);
+    assigned=source;
+    ARIADNE_TEST_EQUALS(assigned,Integer(9));
 }
 
 void TestInteger::test_arithmetic() {
@@ -159,6 +171,22 @@ void TestInteger::test_arithmetic() {
     ARIADNE_TEST_EQUALS(abs(Integer(-5)),5);
     ARIADNE_TEST_EQUALS(abs(Integer( 0)),0);
     ARIADNE_TEST_EQUALS(abs(Integer(+5)),5);
+
+    Integer mutable_value(5);
+    --mutable_value;
+    ARIADNE_TEST_EQUALS(mutable_value,Integer(4));
+    mutable_value-=Integer(3);
+    ARIADNE_TEST_EQUALS(mutable_value,Integer(1));
+
+    ARIADNE_TEST_ASSERT(not is_nan(Integer(1)));
+    ARIADNE_TEST_ASSERT(not is_inf(Integer(1)));
+    ARIADNE_TEST_ASSERT(is_finite(Integer(1)));
+    ARIADNE_TEST_ASSERT(is_zero(Integer(0)));
+    ARIADNE_TEST_ASSERT(not is_zero(Integer(1)));
+
+    ARIADNE_TEST_EQUALS(cmp(Integer(2),Integer(3)),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(Integer(3),Integer(3)),Comparison::EQUAL);
+    ARIADNE_TEST_EQUALS(cmp(Integer(4),Integer(3)),Comparison::GREATER);
 }
 
 void TestInteger::test_small_types() {
@@ -214,6 +242,15 @@ void TestInteger::test_small_types() {
     ARIADNE_TEST_EQUALS(-Sign::NEGATIVE,Sign::POSITIVE);
     ARIADNE_TEST_EQUALS(Sign::NEGATIVE*Sign::NEGATIVE,Sign::POSITIVE);
     ARIADNE_TEST_EQUALS(Sign::NEGATIVE*Sign::POSITIVE,Sign::NEGATIVE);
+
+    ARIADNE_TEST_EQUALS(class_name<uint>(),String("uint"));
+    ARIADNE_TEST_EQUALS(class_name<int>(),String("int"));
+    ARIADNE_TEST_EQUALS(class_name<Integer>(),String("Integer"));
+    ARIADNE_TEST_EQUALS(class_name<Natural>(),String("Natural"));
+
+    std::ostringstream sign_stream;
+    sign_stream << Sign::ZERO << " " << Sign::NEGATIVE << " " << Sign::POSITIVE;
+    ARIADNE_TEST_EQUALS(sign_stream.str(),std::string("ZERO NEGATIVE POSITIVE"));
 
     std::ostringstream comparison_stream;
     comparison_stream << LESS << " " << EQUAL << " " << GREATER << " " << INCOMPARABLE;
