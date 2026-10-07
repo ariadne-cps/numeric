@@ -144,6 +144,10 @@ void test_float_error(typename F::PrecisionType pr)
     Operations<E>::_read(positive_input,parsed);
     ARIADNE_TEST_EQUALS(parsed.raw(),F(2,pr));
 
+    StringStream direct_input("3");
+    direct_input >> parsed;
+    ARIADNE_TEST_EQUALS(parsed.raw(),F(3,pr));
+
     StringStream negative_input("-1");
     ARIADNE_TEST_FAIL(Operations<E>::_read(negative_input,parsed));
 

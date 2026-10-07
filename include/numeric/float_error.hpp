@@ -210,8 +210,14 @@ template<class F> class Error
     friend OutputStream& operator<<(OutputStream& os, Error<F> const& x) {
         return write(os,x.raw(),DecimalPrecision{Error<F>::output_places},upward); } //!< Write to an output stream.
     friend InputStream& operator>>(InputStream& is, Error<F>& x) {
-        UpperBound<F> xu(x.precision());
-        is >> xu; x=Error<F>(xu); return is; } //!< Read from an input stream.
+        F e(x.precision());
+        is >> e;
+        if(!is) { return is; }
+        if(e<0) {
+            ARIADNE_THROW(std::runtime_error,"operator>>(InputStream&,Error<F>&)","negative error bound "<<e);
+        }
+        x.raw()=e;
+        return is; } //!< Read from an input stream.
     //!@}
   public:
     inline static Nat output_places = 3;

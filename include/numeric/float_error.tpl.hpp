@@ -54,12 +54,13 @@ template<class F> struct Operations<Error<F>> {
         return write(os,x.raw(),DecimalPrecision{Error<F>::output_places},upward);
     }
     static InputStream& _read(InputStream& is, Error<F>& x) {
-        UpperBound<F> xu(x.precision());
-        is >> xu;
-        if(xu.raw()<0) {
-            ARIADNE_THROW(std::runtime_error,"operator>>(InputStream&,Error<F>&)","negative error bound "<<xu);
+        F e(x.precision());
+        is >> e;
+        if(!is) { return is; }
+        if(e<0) {
+            ARIADNE_THROW(std::runtime_error,"operator>>(InputStream&,Error<F>&)","negative error bound "<<e);
         }
-        x.raw()=xu.raw();
+        x.raw()=e;
         return is;
     }
 };
