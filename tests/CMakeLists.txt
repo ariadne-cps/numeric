@@ -5,6 +5,7 @@ set(UNIT_TESTS
     test_integer
     test_dyadic
     test_rational
+    test_extended
     test_real
     test_number
     test_operators
