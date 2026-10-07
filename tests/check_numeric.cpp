@@ -33,6 +33,8 @@
 #include "numeric/rational.hpp"
 #include "numeric/real.hpp"
 #include "numeric/number.hpp"
+#include "numeric/lower_number.hpp"
+#include "numeric/upper_number.hpp"
 #include "numeric/floats.hpp"
 #include "numeric/floatdp.hpp"
 #include "numeric/floatmp.hpp"
@@ -81,6 +83,44 @@ template<class Row, class... Rows, class OP, class A1, class... A1S, class A2s>
 struct CheckMatrix<Types<Row,Rows...>,OP,Types<A1,A1S...>,A2s> {
     static_assert(CheckRow<Row,OP,A1,A2s>::value);
     static constexpr bool value=CheckMatrix<Types<Rows...>,OP,Types<A1S...>,A2s>::value;
+};
+
+template<class OP, class A1, class A2>
+constexpr bool symmetric_result_type()
+{
+    using R12=SafeType<OP,A1,A2>;
+    using R21=SafeType<OP,A2,A1>;
+    if constexpr (Same<R12,NoResult> or Same<R21,NoResult>) {
+        return Same<R12,NoResult> and Same<R21,NoResult>;
+    } else {
+        return Same<R12,R21>;
+    }
+}
+
+template<class OP, class A1, class A2s> struct CheckSymmetricRow;
+
+template<class OP, class A1>
+struct CheckSymmetricRow<OP,A1,Types<>> {
+    static constexpr bool value=true;
+};
+
+template<class OP, class A1, class A2, class... A2S>
+struct CheckSymmetricRow<OP,A1,Types<A2,A2S...>> {
+    static_assert(symmetric_result_type<OP,A1,A2>());
+    static constexpr bool value=CheckSymmetricRow<OP,A1,Types<A2S...>>::value;
+};
+
+template<class OP, class A1s, class A2s> struct CheckSymmetricMatrix;
+
+template<class OP, class A2s>
+struct CheckSymmetricMatrix<OP,Types<>,A2s> {
+    static constexpr bool value=true;
+};
+
+template<class OP, class A1, class... A1S, class A2s>
+struct CheckSymmetricMatrix<OP,Types<A1,A1S...>,A2s> {
+    static_assert(CheckSymmetricRow<OP,A1,A2s>::value);
+    static constexpr bool value=CheckSymmetricMatrix<OP,Types<A1S...>,A2s>::value;
 };
 
 using B=bool;
@@ -136,10 +176,21 @@ using ExpectedWeakerTable=
         Types<ApF,ApF,ApF, ApF,ApF,ApF, ApF,ApF,ApF,ApF,ApF,ApF, ApF,ApF,ApF,ApF,ApF,ApF>
     >;
 
-// For supported mixed operations, verify the result type predicted by the
-// weakening table. Unsupported combinations are not treated as API contracts.
+// Addition follows the weakening table. Unsupported combinations are not
+// treated as API contracts.
 static_assert(CheckMatrix<ExpectedWeakerTable,Plus,NumericTypes,NumericTypes>::value);
-static_assert(CheckMatrix<ExpectedWeakerTable,Times,NumericTypes,NumericTypes>::value);
+
+// Multiplication is commutative, but directed result types depend on sign
+// information and therefore do not follow the addition weakening table.
+static_assert(CheckSymmetricMatrix<Times,NumericTypes,NumericTypes>::value);
+
+static_assert(Same<SafeType<Times,Int,UpF>,ApF>);
+static_assert(Same<SafeType<Times,Int,LoF>,ApF>);
+static_assert(Same<SafeType<Times,Z,UpF>,ApF>);
+static_assert(Same<SafeType<Times,Q,LoF>,ApF>);
+static_assert(Same<SafeType<Times,R,ExN>,ApN>);
+static_assert(Same<SafeType<Times,BoF,BoF>,BoF>);
+static_assert(Same<SafeType<Times,MeF,BoF>,VaF>);
 
 // Conversion contracts that are part of the current public API.
 static_assert(Convertible<Nat,Z>);
