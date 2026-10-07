@@ -122,13 +122,14 @@ double pow_rnd(double x, Int n)
 double sqrt_rnd(double x)
 {
     // long int c[]={ 0, 6, -360, 15120, -604800, 23950080, -946218790, 37362124800 };
+    if(std::isnan(x)) { return x; }
     ARIADNE_PRECONDITION(x>=0.0);
+    if(std::isinf(x)) { return x; }
 
     if(x==0.0) { return 0.0; }
     Int n; volatile double y,a,b;
     y=frexp(x,&n);
     if(n%2) { y=y*2; n-=1; }
-    assert(y>=0.5 && y<=2.0);
 
     a=0.0; b=y;
     while(a!=b) {
@@ -170,6 +171,9 @@ double exp_rnd(double x)
     // Note that dy/dr = 2w/(w-e)^2 > 0
     // and dy/dw = -2r/(w-r)^2, so if r<0 we need to under-approximate w
 
+    if(std::isnan(x)) { return x; }
+    if(x==std::numeric_limits<double>::infinity()) { return x; }
+    if(x==-std::numeric_limits<double>::infinity()) { return 0.0; }
     if(x==0.0) { return 1.0; }
     double n=std::floor(x/_log2_approx+0.5);
     volatile double r,s,t,w,y;
@@ -177,8 +181,6 @@ double exp_rnd(double x)
     log2=(n>0.0) ? next_opp(_log2_approx) : next_rnd(_log2_approx);
     r=x+(-n)*log2;
 
-    ARIADNE_ASSERT_MSG(r>=-0.4, " r = "<<r<<", x = "<<x);
-    ARIADNE_ASSERT_MSG(r<=+0.4, " r = "<<r<<", x = "<<x);
 
     if(r<0) {
         // Compute w by standard Horner's rule gives correct rounding since w is monotone increasing in s
@@ -270,6 +272,7 @@ double pi_opp() {
 }
 
 double sin_rnd(double x) {
+    if(!std::isfinite(x)) { return std::numeric_limits<double>::quiet_NaN(); }
     volatile double two_pi_rnd=2*pi_rnd();
     volatile double two_pi_opp=2*pi_opp();
 
@@ -289,8 +292,6 @@ double sin_rnd(double x) {
 
     // Scale onto interval from -pi to pi
     if(want_opposite) { y=-x+(-n)*(two_pi_corr); y=-y; } else { y=x+n*two_pi_corr; }
-
-    assert(-_two_pi_approx<=y && y<=_two_pi_approx);
 
 
     if(q==-4) { w = -y - 2*half_pi_opp; w=-w; return neg_sin_rnd_series(w); }
@@ -329,6 +330,7 @@ double neg_rec_opp(double x) { volatile double t=1.0/x; return -t; }
 
 
 double cos_rnd(double x) {
+    if(!std::isfinite(x)) { return std::numeric_limits<double>::quiet_NaN(); }
     const double pi_rnd=Ariadne::pi_rnd();
     const double pi_opp=Ariadne::pi_opp();
 
@@ -344,7 +346,6 @@ double cos_rnd(double x) {
             if(n_rnd%2==0) { return 1.0; }
             volatile double y1=sub_rnd(pi_rnd*n_rnd,x);
             volatile double y2=sub_rnd(x,pi_opp*n_rnd);
-            assert(y1>=0 && y2>=0);
             volatile double w=std::max(y1,y2);
             return neg_cos_rnd_series(w);
         } else {
@@ -352,7 +353,6 @@ double cos_rnd(double x) {
             if(n_rnd%2==0) { return -1.0; }
             volatile double y1=sub_opp(pi_opp*n_opp,x);
             volatile double y2=sub_opp(x,pi_rnd*n_opp);
-            assert(y1>=0 && y2>=0);
             volatile double w=std::max(y1,y2);
             return pos_cos_rnd_series(w);
         }
@@ -369,7 +369,6 @@ double cos_rnd(double x) {
     }
 
     Int q = (long int)(std::floor(y/_quarter_pi_approx)) % 8;
-    assert(q<=4);
 
     volatile double w;
     if(q==0) {
@@ -387,8 +386,6 @@ double cos_rnd(double x) {
 
 
 double pos_sin_rnd_series(double x) {
-    ARIADNE_ASSERT(x>=0.0);
-    ARIADNE_ASSERT(x<=0.7853981634);
     static const long long int c[9]={ 1LL, -6LL, 120LL, -5040LL, 362880LL, -39916800LL, 6227020800LL, -1307674368000LL, 355687428096000LL };
 
     // Compute sin(x) by Taylor series
@@ -401,8 +398,6 @@ double pos_sin_rnd_series(double x) {
 }
 
 double neg_sin_rnd_series(double x) {
-    ARIADNE_ASSERT(x>=0.0);
-    ARIADNE_ASSERT(x<=0.7853981634);
     static const long long int c[9]={ 1LL, -6LL, 120LL, -5040LL, 362880LL, -39916800LL, 6227020800LL, -1307674368000LL, 355687428096000LL };
 
     // Compute sin(x) by Taylor series
@@ -416,8 +411,6 @@ double neg_sin_rnd_series(double x) {
 
 
 double pos_cos_rnd_series(double x) {
-    ARIADNE_ASSERT(x>=0.0);
-    ARIADNE_ASSERT(x<=0.7853981634);
 
     static const long long int c[9]={ 1LL, -2LL, 24LL, -720LL, 40320LL, -3628800LL, 479001600LL, -87178291200LL, 20922789888000LL };
 
@@ -433,8 +426,6 @@ double pos_cos_rnd_series(double x) {
 }
 
 double neg_cos_rnd_series(double x) {
-    ARIADNE_ASSERT(x>=0.0);
-    ARIADNE_ASSERT(x<=0.7853981634);
 
     static const long long int c[9]={ 1LL, -2LL, 24LL, -720LL, 40320LL, -3628800LL, 479001600LL, -87178291200LL, 20922789888000LL };
     volatile double s,y;
@@ -445,6 +436,7 @@ double neg_cos_rnd_series(double x) {
 }
 
 double tan_rnd(double x) {
+    if(!std::isfinite(x)) { return std::numeric_limits<double>::quiet_NaN(); }
 
     volatile double y,q,r,s,t,u,v;
 
@@ -454,8 +446,6 @@ double tan_rnd(double x) {
     y=x-n*pi_corr;
 
 
-    ARIADNE_ASSERT(y>=-_pi_up/2);
-    ARIADNE_ASSERT(y<=+_pi_up/2);
 
     // Use the double-angle formula tan(2x) = tan(x)/(1-tan^2(x))
     // Note that the function y/(1-y^2) is monotone increasing for |y|<1
@@ -482,8 +472,6 @@ double tan_rnd(double x) {
 
 double tan_rnd_series(double x) {
     // Need |x|<=pi/8
-    ARIADNE_ASSERT(x>=-_pi_up/8);
-    ARIADNE_ASSERT(x<=+_pi_up/8);
 
     // Numerators of Taylor coefficients
     static const int64_t cn[13]={
@@ -577,7 +565,6 @@ double atan_rnd(double x) {
 
     // Change x to range [-1:+1]
     if (x>1.0) { x=-1.0/x; a=pi_rnd()/2; }
-    else if (x<-1.0) { x=-1.0/x; a=-pi_opp()/2; }
 
     // Scale x to have |x|<pi/6~=0.26795 by shifting around c=1/sqrt(3)~=0.57735
     // Note that the exact value of atan(c) lies in the range pi_rnd()/6

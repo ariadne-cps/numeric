@@ -676,9 +676,18 @@ Void test_double_runtime()
     ARIADNE_TEST_EQUALS(neg_rec_opp(2.0),-0.5);
 
     ARIADNE_TEST_EQUALS(pow_rnd(-2.0,Int(-2)),0.25);
+    ARIADNE_TEST_EQUALS(pow_rnd(-2.0,Nat(2u)),4.0);
     ARIADNE_TEST_FAIL(pow_rnd(0.0,Int(-1)));
+
+    const double inf=std::numeric_limits<double>::infinity();
+    const double nan=std::numeric_limits<double>::quiet_NaN();
+    ARIADNE_TEST_ASSERT(std::isnan(sqrt_rnd(nan)));
+    ARIADNE_TEST_ASSERT(std::isinf(sqrt_rnd(inf)));
     ARIADNE_TEST_EQUALS(sqrt_rnd(0.0),0.0);
     ARIADNE_TEST_FAIL(sqrt_rnd(-1.0));
+    ARIADNE_TEST_ASSERT(std::isnan(exp_rnd(nan)));
+    ARIADNE_TEST_ASSERT(std::isinf(exp_rnd(inf)));
+    ARIADNE_TEST_EQUALS(exp_rnd(-inf),0.0);
     ARIADNE_TEST_ASSERT(std::isinf(log_rnd(0.0)));
     ARIADNE_TEST_ASSERT(std::signbit(log_rnd(0.0)));
     ARIADNE_TEST_FAIL(log_rnd(-1.0));
@@ -689,12 +698,21 @@ Void test_double_runtime()
     ARIADNE_TEST_EXECUTE(pi_opp());
     set_builtin_rounding_to_nearest();
 
-    const double sin_inputs[] = {-2.8,-2.0,-1.2,-0.5,0.1,1.0,1.7,2.5};
+    const double sin_inputs[] = {-4.0,-2.8,-2.0,-1.2,-0.5,0.1,1.0,1.7,2.5,4.0};
     for(double x : sin_inputs) {
         ARIADNE_TEST_ASSERT(std::abs(sin_rnd(x)-std::sin(x))<1e-12);
     }
+    ARIADNE_TEST_ASSERT(std::isnan(sin_rnd(inf)));
 
     ARIADNE_TEST_ASSERT(std::abs(cos_rnd(0.1)-std::cos(0.1))<1e-12);
+    ARIADNE_TEST_ASSERT(std::isnan(cos_rnd(inf)));
+
+    ARIADNE_TEST_ASSERT(std::abs(tan_rnd(-4.0)-std::tan(-4.0))<1e-11);
+    ARIADNE_TEST_ASSERT(std::isnan(tan_rnd(inf)));
+
+    set_builtin_rounding_toward_zero();
+    ARIADNE_TEST_EXECUTE(atan_rnd(-0.5));
+    set_builtin_rounding_to_nearest();
 }
 
 Int main() {
