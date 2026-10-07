@@ -95,6 +95,7 @@ class TestDirectedFloats
     Void test();
   private:
     Void test_precision();
+    Void test_header_api();
     Void test_conversions();
     Void test_validation();
     Void test_rounded_arithmetic();
@@ -105,6 +106,7 @@ template<class PR> Void
 TestDirectedFloats<PR>::test()
 {
     ARIADNE_TEST_CALL(test_precision());
+    ARIADNE_TEST_CALL(test_header_api());
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_validation());
     ARIADNE_TEST_CALL(test_rounded_arithmetic());
@@ -124,6 +126,125 @@ TestDirectedFloats<PR>::test_precision()
     ARIADNE_TEST_EQUALS((lx/2u).precision(),precision);
     ARIADNE_TEST_EQUALS((lx+2).precision(),precision);
     ARIADNE_TEST_EQUALS((lx-2).precision(),precision);
+}
+
+template<class PR> Void
+TestDirectedFloats<PR>::test_header_api()
+{
+    using F=Float<PR>;
+    using L=FloatLowerBoundType;
+    using U=FloatUpperBoundType;
+
+    L lower_zero(precision);
+    U upper_zero(precision);
+    ARIADNE_TEST_EQUALS(lower_zero.raw(),F(0,precision));
+    ARIADNE_TEST_EQUALS(upper_zero.raw(),F(0,precision));
+
+    L lower_twoexp(TwoExp(1),precision);
+    U upper_twoexp(TwoExp(1),precision);
+    ARIADNE_TEST_EQUALS(lower_twoexp.raw(),F(2,precision));
+    ARIADNE_TEST_EQUALS(upper_twoexp.raw(),F(2,precision));
+
+    L lower_integer(Integer(2),precision);
+    U upper_integer(Integer(2),precision);
+    ARIADNE_TEST_EQUALS(lower_integer.raw(),F(2,precision));
+    ARIADNE_TEST_EQUALS(upper_integer.raw(),F(2,precision));
+
+    Decimal decimal(String("1.5"));
+    L lower_decimal(decimal,precision);
+    U upper_decimal(decimal,precision);
+    ARIADNE_TEST_COMPARE(lower_decimal.raw(),<=,Rational(3,2));
+    ARIADNE_TEST_COMPARE(upper_decimal.raw(),>=,Rational(3,2));
+
+    F raw_two(2,precision);
+    L lower_from_raw(raw_two,precision);
+    U upper_from_raw(raw_two,precision);
+    ARIADNE_TEST_EQUALS(lower_from_raw.raw(),raw_two);
+    ARIADNE_TEST_EQUALS(upper_from_raw.raw(),raw_two);
+
+    FloatBoundsType bounds(1,2,precision);
+    L lower_from_bounds(bounds,precision);
+    U upper_from_bounds(bounds,precision);
+    ARIADNE_TEST_EQUALS(lower_from_bounds.raw(),bounds.lower_raw());
+    ARIADNE_TEST_EQUALS(upper_from_bounds.raw(),bounds.upper_raw());
+
+    L lower_assigned(precision);
+    lower_assigned=raw_two;
+    ARIADNE_TEST_EQUALS(lower_assigned.raw(),raw_two);
+    lower_assigned=bounds;
+    ARIADNE_TEST_EQUALS(lower_assigned.raw(),bounds.lower_raw());
+
+    U upper_assigned(precision);
+    upper_assigned=raw_two;
+    ARIADNE_TEST_EQUALS(upper_assigned.raw(),raw_two);
+    upper_assigned=bounds;
+    ARIADNE_TEST_EQUALS(upper_assigned.raw(),bounds.upper_raw());
+
+    ValidatedLowerNumber generic_lower=L(Rational(4,3),precision);
+    ValidatedUpperNumber generic_upper=U(Rational(5,3),precision);
+
+    lower_assigned=generic_lower;
+    upper_assigned=generic_upper;
+    ARIADNE_TEST_EQUALS(lower_assigned.precision(),precision);
+    ARIADNE_TEST_EQUALS(upper_assigned.precision(),precision);
+
+    L lower_created=lower_assigned.create(generic_lower);
+    U upper_created=upper_assigned.create(generic_upper);
+    U upper_from_lower=lower_assigned.create(generic_upper);
+    L lower_from_upper=upper_assigned.create(generic_lower);
+    ARIADNE_TEST_EQUALS(lower_created.precision(),precision);
+    ARIADNE_TEST_EQUALS(upper_created.precision(),precision);
+    ARIADNE_TEST_EQUALS(upper_from_lower.precision(),precision);
+    ARIADNE_TEST_EQUALS(lower_from_upper.precision(),precision);
+
+    ARIADNE_TEST_EXECUTE(lower_assigned.generic());
+    ARIADNE_TEST_EXECUTE(upper_assigned.generic());
+    ARIADNE_TEST_EQUALS(lower_assigned.characteristics(),precision);
+    ARIADNE_TEST_EQUALS(upper_assigned.characteristics(),precision);
+    ARIADNE_TEST_EXECUTE(lower_assigned.get_d());
+    ARIADNE_TEST_EXECUTE(upper_assigned.get_d());
+
+    FloatBallType ball(F(2,precision),F(1,precision));
+    L lower_from_ball(ball);
+    U upper_from_ball(ball);
+    ARIADNE_TEST_EQUALS(lower_from_ball.raw(),F(1,precision));
+    ARIADNE_TEST_EQUALS(upper_from_ball.raw(),F(3,precision));
+
+    FloatError<PR> error(1u,precision);
+    U upper_from_error(error);
+    ARIADNE_TEST_EQUALS(upper_from_error.raw(),F(1,precision));
+
+    if constexpr (Same<PR,MultiplePrecision>) {
+        FloatDPLowerBound lower_dp(1,dp);
+        FloatDPUpperBound upper_dp(1,dp);
+        L lower_cross(lower_dp,precision);
+        U upper_cross(upper_dp,precision);
+        ARIADNE_TEST_EQUALS(lower_cross.raw(),F(1,precision));
+        ARIADNE_TEST_EQUALS(upper_cross.raw(),F(1,precision));
+    }
+
+    L lower_positive(2,precision);
+    U upper_positive(2,precision);
+    ARIADNE_TEST_EQUALS(nul(lower_positive).raw(),F(0,precision));
+    ARIADNE_TEST_EQUALS(pos(lower_positive).raw(),F(2,precision));
+    ARIADNE_TEST_EQUALS(hlf(lower_positive).raw(),F(1,precision));
+    ARIADNE_TEST_EQUALS(nul(upper_positive).raw(),F(0,precision));
+    ARIADNE_TEST_EQUALS(pos(upper_positive).raw(),F(2,precision));
+    ARIADNE_TEST_EQUALS(hlf(upper_positive).raw(),F(1,precision));
+
+    ARIADNE_TEST_COMPARE(log(lower_positive).raw(),<=,std::log(2.0));
+    ARIADNE_TEST_COMPARE(exp(upper_zero).raw(),>=,1.0);
+    ARIADNE_TEST_EXECUTE(abs(L(-2,precision)));
+    ARIADNE_TEST_EXECUTE(abs(U(-2,precision)));
+
+    L lower_above(2,precision);
+    U upper_below(1,precision);
+    L lower_below(1,precision);
+    U upper_above(2,precision);
+    ARIADNE_TEST_EXECUTE(eq(lower_above,upper_below));
+    ARIADNE_TEST_EXECUTE(eq(lower_below,upper_above));
+    ARIADNE_TEST_EXECUTE(eq(upper_below,lower_above));
+    ARIADNE_TEST_EXECUTE(eq(upper_above,lower_below));
 }
 
 template<class PR> Void
