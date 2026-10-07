@@ -32,5 +32,8 @@ foreach(TEST ${UNIT_TESTS})
     endif()
 endforeach()
 
+add_library(check_numeric OBJECT check_numeric.cpp)
+target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
+
 add_custom_target(tests)
-add_dependencies(tests ${UNIT_TESTS})
+add_dependencies(tests ${UNIT_TESTS} check_numeric)
