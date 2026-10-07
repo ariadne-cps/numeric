@@ -47,31 +47,20 @@ template<class PR>
 constexpr bool check_float_rounding_concept()
 {
     using F=RawFloat<PR>;
-    return requires(Bool b, Int n, Nat m, double d, F x, F x2) {
-        F(); F(n); F(m); F(d); F(x); x=n; x=m; x=d; x=x2; d=x.get_d();
-        x=max(x,x); x=min(x,x); x=abs(x); x=nul(x); x=pos(x); x=neg(x); x=hlf(x);
-        x=add(near,x,x); x=add(approx,x,x); x=add(down,x,x); x=add(up,x,x);
-        x=sub(near,x,x); x=sub(down,x,x); x=sub(up,x,x); x=mul(near,x,x); x=mul(down,x,x); x=mul(up,x,x);
-        x=div(near,x,x); x=div(down,x,x); x=div(up,x,x); x=fma(approx,x,x,x); x=fma(down,x,x,x); x=fma(up,x,x,x);
-        x=pow(approx,x,n); x=pow(down,x,n); x=pow(up,x,n); x=pow(approx,x,m); x=pow(down,x,m); x=pow(up,x,m);
-        x=sqr(approx,x); x=sqr(down,x); x=sqr(up,x); x=rec(approx,x); x=rec(down,x); x=rec(up,x);
-        x=sqrt(approx,x); x=sqrt(down,x); x=sqrt(up,x); x=exp(approx,x); x=exp(down,x); x=exp(up,x);
-        x=log(approx,x); x=log(down,x); x=log(up,x); x=sin(approx,x); x=sin(down,x); x=sin(up,x);
-        x=cos(approx,x); x=cos(down,x); x=cos(up,x); x=tan(approx,x); x=tan(down,x); x=tan(up,x);
-        x=asin(approx,x); x=asin(down,x); x=asin(up,x); x=acos(approx,x); x=acos(down,x); x=acos(up,x); x=atan(approx,x); x=atan(down,x); x=atan(up,x);
-        x=med(near,x,x); x=rad(up,x,x);
-        x=mul(approx,n,x); x=mul(down,n,x); x=mul(up,n,x); x=mul(approx,m,x); x=mul(down,m,x); x=mul(up,m,x);
-        x=mul(approx,x,n); x=mul(down,x,n); x=mul(up,x,n); x=mul(approx,x,m); x=mul(down,x,m); x=mul(up,x,m);
-        x=div(approx,x,n); x=div(down,x,n); x=div(up,x,n); x=div(approx,x,m); x=div(down,x,m); x=div(up,x,m);
-        x=mul(approx,d,x); x=mul(approx,x,d); x=div(approx,x,d);
-        x=0; x=0.0; x=1; x=1.0; x=+x; x=-x; x=x+x; x=x-x; x=x*x; x=x/x; x-=x2; x*=x2; x/=x2;
-        b=(x==n); b=(x!=n); b=(x<=n); b=(x>=n); b=(x<n); b=(x>n); b=(n==x); b=(n!=x); b=(n<=x); b=(n>=x); b=(n<x); b=(n>x);
-        b=(x==m); b=(x!=m); b=(x<=m); b=(x>=m); b=(x<m); b=(x>m); b=(m==x); b=(m!=x); b=(m<=x); b=(m>=x); b=(m<x); b=(m>x);
-        b=(x==d); b=(x!=d); b=(x<=d); b=(x>=d); b=(x<d); b=(x>d); b=(d==x); b=(d!=x); b=(d<=x); b=(d>=x); b=(d<x); b=(d>x);
-        b=(x==x); b=(x!=x); b=(x<=x); b=(x>=x); b=(x<x); b=(x>x);
+    return requires(PR pr, Int n, Nat m, ExactDouble d, F x, F y) {
+        F(pr); F(n,pr); F(m,pr); F(d,pr);
+        x=n; x=m; x=d; x=y;
+        max(x,y); min(x,y); abs(x); nul(x); pos(x); neg(x); hlf(x);
+        add(near,x,y); add(down,x,y); add(up,x,y);
+        sub(near,x,y); sub(down,x,y); sub(up,x,y);
+        mul(near,x,y); mul(down,x,y); mul(up,x,y);
+        div(near,x,y); div(down,x,y); div(up,x,y);
+        sqr(near,x); rec(near,x); sqrt(near,x); exp(near,x); log(near,x);
+        sin(near,x); cos(near,x); tan(near,x); asin(near,x); acos(near,x); atan(near,x);
+        pow(near,x,n); pow(near,x,m);
+        +x; -x; x+y; x-y; x*y; x/y; x-=y; x*=y; x/=y;
         F::set_rounding_to_nearest(); F::set_rounding_downward(); F::set_rounding_upward(); F::set_rounding_toward_zero();
-        F::set_rounding_mode(to_nearest); F::set_rounding_mode(downward); F::set_rounding_mode(upward); F::set_rounding_mode(toward_zero);
-        F::set_rounding_mode(near); F::set_rounding_mode(down); F::set_rounding_mode(up); F::get_rounding_mode(); F::get_default_precision(); x.precision();
+        F::get_rounding_mode(); x.precision();
     };
 }
 

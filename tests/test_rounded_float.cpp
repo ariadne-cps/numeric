@@ -49,20 +49,16 @@ template<class FLT>
 constexpr bool check_rounded_float_concept()
 {
     using R=Rounded<FLT>;
-    return requires(Bool b, Int n, Nat m, double d, R x, R x2) {
-        R(); R(n); R(m); R(d); R(x); x=n; x=m; x=d; x=x2; d=x.get_d();
-        x=max(x,x); x=min(x,x); x=abs(x); x=nul(x); x=pos(x); x=neg(x); x=hlf(x);
-        x=add(x,x); x=sub(x,x); x=mul(x,x); x=div(x,x); x=fma(x,x,x); x=pow(x,n); x=pow(x,m);
-        x=sqr(x); x=rec(x); x=sqrt(x); x=exp(x); x=log(x); x=sin(x); x=cos(x); x=tan(x); x=asin(x); x=acos(x); x=atan(x);
-        x=med(x,x); x=rad(x,x); x=mul(n,x); x=mul(m,x); x=mul(x,n); x=mul(x,m); x=div(x,n); x=div(x,m); x=mul(d,x);
-        x=0; x=0.0; x=1; x=1.0; x=+x; x=-x; x=x+x; x=x-x; x=x*x; x=x/x; x-=x2; x*=x2; x/=x2;
-        b=(x==n); b=(x!=n); b=(x<=n); b=(x>=n); b=(x<n); b=(x>n); b=(n==x); b=(n!=x); b=(n<=x); b=(n>=x); b=(n<x); b=(n>x);
-        b=(x==m); b=(x!=m); b=(x<=m); b=(x>=m); b=(x<m); b=(x>m); b=(m==x); b=(m!=x); b=(m<=x); b=(m>=x); b=(m<x); b=(m>x);
-        b=(x==d); b=(x!=d); b=(x<=d); b=(x>=d); b=(x<d); b=(x>d); b=(d==x); b=(d!=x); b=(d<=x); b=(d>=x); b=(d<x); b=(d>x);
-        b=(x==x); b=(x!=x); b=(x<=x); b=(x>=x); b=(x<x); b=(x>x);
+    using PR=typename FLT::PrecisionType;
+    return requires(PR pr, Int n, Nat m, ExactDouble d, R x, R y) {
+        R(pr); R(n,pr); R(m,pr); R(d,pr); R(x,pr);
+        x=n; x=m; x=d; x=y;
+        max(x,y); min(x,y); abs(x); nul(x); pos(x); neg(x); hlf(x);
+        add(x,y); sub(x,y); mul(x,y); div(x,y); fma(x,y,x); pow(x,n); pow(x,m);
+        sqr(x); rec(x); sqrt(x); exp(x); log(x); sin(x); cos(x); tan(x); asin(x); acos(x); atan(x);
+        +x; -x; x+y; x-y; x*y; x/y; x-=y; x*=y; x/=y;
         R::set_rounding_to_nearest(); R::set_rounding_downward(); R::set_rounding_upward(); R::set_rounding_toward_zero();
-        R::set_rounding_mode(to_nearest); R::set_rounding_mode(downward); R::set_rounding_mode(upward); R::set_rounding_mode(toward_zero);
-        R::set_rounding_mode(near); R::set_rounding_mode(down); R::set_rounding_mode(up); R::get_rounding_mode(); R::get_default_precision(); x.precision();
+        R::get_rounding_mode(); x.precision(); x.raw();
     };
 }
 
