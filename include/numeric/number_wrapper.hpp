@@ -211,7 +211,7 @@ template<class R, class X> inline R _concrete_apply(UnaryElementaryOperator op, 
         case OperatorCode::ACOS: return _make_number_wrapper(make_unsigned(Acos()(x)));
         case OperatorCode::ATAN: return _make_number_wrapper(make_unsigned(Atan()(x)));
         case OperatorCode::ABS: return _make_number_wrapper(make_unsigned(Abs()(x)));
-        default: ARIADNE_THROW(DispatchException,"_concrete_apply(UnaryElementaryOperator,X const&)","Unsupported unary operator "<<op);
+        default: ARIADNE_THROW(DispatchException,"_concrete_apply(UnaryElementaryOperator,X const&)","Unsupported unary operator code "<<op.code());
     }
 }
 
