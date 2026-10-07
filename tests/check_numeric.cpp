@@ -47,7 +47,6 @@ Rational rec(Nat); Rational rec(Int); Dbl rec(Dbl);
 
 #include "utility/test.hpp"
 #include "utility.hpp"
-#include "check_numeric.hpp"
 
 using namespace std;
 using namespace Ariadne;
