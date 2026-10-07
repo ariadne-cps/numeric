@@ -497,8 +497,17 @@ TestFloat<PR>::test_operations()
         dp_exp >> parsed;
         ARIADNE_TEST_EQUALS(parsed,FloatDP(2000,dp));
 
+        std::istringstream dp_exp_delimited("2e3:");
+        dp_exp_delimited >> parsed;
+        ARIADNE_TEST_EQUALS(parsed,FloatDP(2000,dp));
+        ARIADNE_TEST_EQUALS(dp_exp_delimited.peek(),static_cast<int>(':'));
+
         std::istringstream dp_exp_negative("2e-3");
         ARIADNE_TEST_EXECUTE(dp_exp_negative >> parsed);
+
+        std::istringstream dp_overflow("1e9999");
+        ARIADNE_TEST_EXECUTE(dp_overflow >> parsed);
+        ARIADNE_TEST_ASSERT(dp_overflow.fail());
 
         std::istringstream dp_no_digits(".");
         ARIADNE_TEST_EXECUTE(dp_no_digits >> parsed);

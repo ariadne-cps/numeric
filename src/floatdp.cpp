@@ -359,15 +359,13 @@ InputStream& operator>>(InputStream& is, FloatDP& x) {
     parser.imbue(std::locale::classic());
 
     double r=0.0;
-    char trailing='\0';
 
     FloatDP::RoundingModeType old_rnd=FloatDP::get_rounding_mode();
     FloatDP::set_rounding_to_nearest();
     Bool parse_failed=not static_cast<Bool>(parser >> r);
-    Bool has_trailing=not parse_failed && static_cast<Bool>(parser >> trailing);
     FloatDP::set_rounding_mode(old_rnd);
 
-    if (parse_failed || has_trailing) {
+    if (parse_failed) {
         is.setstate(std::ios::failbit);
         return is;
     }
