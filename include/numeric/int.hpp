@@ -29,7 +29,8 @@
 #ifndef ARIADNE_INT_HPP
 #define ARIADNE_INT_HPP
 
-#include <cassert>
+#include <limits>
+#include "utility/macros.hpp"
 #include "numeric/concepts.hpp"
 
 namespace Ariadne {
