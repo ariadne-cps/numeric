@@ -56,6 +56,7 @@ class TestRounded
     Void test();
   private:
     Void test_concept();
+    Void test_header_api();
     Void test_class();
     Void test_conversion_from_to();
     Void test_comparison();
@@ -87,6 +88,7 @@ TestRounded<FLT>::TestRounded(PR pr)
 template<class FLT> Void
 TestRounded<FLT>::test()
 {
+    ARIADNE_TEST_CALL(test_header_api());
     ARIADNE_TEST_CALL(test_class());
     ARIADNE_TEST_CALL(test_conversion_from_to());
     ARIADNE_TEST_CALL(test_comparison());
@@ -203,6 +205,84 @@ TestRounded<FLT>::test_concept()
     pr=x.precision();
     x.set_precision(pr);
 
+}
+
+
+template<class FLT> Void
+TestRounded<FLT>::test_header_api()
+{
+    RoundedFloatType::set_rounding_to_nearest();
+
+    RoundedFloatType two(2,precision);
+    RoundedFloatType four(4,precision);
+    RoundedFloatType quotient=four;
+    quotient/=two;
+    ARIADNE_TEST_EQUALS(quotient,two);
+
+    if constexpr (Same<FloatType,FloatDP>) {
+        auto saved_rounding=RoundedFloatType::get_rounding_mode();
+        ARIADNE_TEST_EXECUTE(RoundedFloatType::set_rounding_toward_zero());
+        ARIADNE_TEST_EXECUTE(RoundedFloatType::set_rounding_mode(saved_rounding));
+
+        FloatDP raw_two(2,dp);
+        RoundedFloatType from_raw_precision(raw_two,dp);
+        ARIADNE_TEST_EQUALS(from_raw_precision,ExactDouble(2));
+
+        RoundedFloatType assigned(0,dp);
+        ARIADNE_TEST_EXECUTE(assigned=raw_two);
+        ARIADNE_TEST_EQUALS(assigned,ExactDouble(2));
+
+        FloatDP raw_copy=static_cast<FloatDP>(assigned);
+        ARIADNE_TEST_EQUALS(raw_copy,raw_two);
+        ARIADNE_TEST_EQUALS(assigned.precision(),dp);
+        ARIADNE_TEST_EQUALS(assigned.characteristics(),dp);
+
+        RoundedFloatType nan_value(FloatDP::nan(dp));
+        ARIADNE_TEST_ASSERT(is_nan(nan_value));
+
+        RoundedFloatType positive(0.5_x,dp);
+        RoundedFloatType negative(-0.5_x,dp);
+        RoundedFloatType one(1,dp);
+
+        ARIADNE_TEST_EXECUTE(round(positive));
+        ARIADNE_TEST_EXECUTE(nul(positive));
+        ARIADNE_TEST_EXECUTE(pos(positive));
+        ARIADNE_TEST_EXECUTE(rec(positive));
+        ARIADNE_TEST_EXECUTE(fma(positive,one,one));
+        ARIADNE_TEST_EXECUTE(tan(positive));
+        ARIADNE_TEST_EXECUTE(tanh(positive));
+        ARIADNE_TEST_EXECUTE(tanh(negative));
+        ARIADNE_TEST_EXECUTE(asin(positive));
+        ARIADNE_TEST_EXECUTE(acos(positive));
+        ARIADNE_TEST_EXECUTE(mag(negative));
+        ARIADNE_TEST_EXECUTE(mig(negative));
+
+        ARIADNE_TEST_EXECUTE(positive+one);
+        ARIADNE_TEST_EXECUTE(positive*one);
+
+        RoundedFloatType compound(2,dp);
+        ARIADNE_TEST_EXECUTE(compound+=one);
+        ARIADNE_TEST_EXECUTE(compound-=one);
+        ARIADNE_TEST_EXECUTE(compound*=one);
+
+        ExactDouble exact_one(1);
+        ARIADNE_TEST_EXECUTE(positive+exact_one);
+        ARIADNE_TEST_EXECUTE(positive-exact_one);
+        ARIADNE_TEST_EXECUTE(exact_one+positive);
+        ARIADNE_TEST_EXECUTE(exact_one-positive);
+
+        ARIADNE_TEST_EXECUTE(compound+=exact_one);
+        ARIADNE_TEST_EXECUTE(compound-=exact_one);
+        ARIADNE_TEST_EXECUTE(compound*=exact_one);
+        ARIADNE_TEST_EXECUTE(compound/=exact_one);
+
+        ARIADNE_TEST_EXECUTE(max(positive,exact_one));
+        ARIADNE_TEST_EXECUTE(min(positive,exact_one));
+        ARIADNE_TEST_EXECUTE(max(exact_one,positive));
+        ARIADNE_TEST_EXECUTE(min(exact_one,positive));
+
+        ARIADNE_TEST_ASSERT(same(positive,RoundedFloatType(0.5_x,dp)));
+    }
 }
 
 
