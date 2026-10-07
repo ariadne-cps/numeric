@@ -66,6 +66,13 @@ template<class F, class FE> Ball<F,FE>::Ball(Ball<F,FE> const& x, PR pr)
     F d = (this->_v>=x._v) ? sub(up,this->_v,x._v) : sub(up,x._v,this->_v); _e=add(up,_e,_make_error<FE>(d));
 }
 
+template<class F, class FE> Ball<F,FE>::Ball(Ball<F,FE> const& x, PR pr, PRE pre)
+    : _v(x._v,near,pr), _e(x._e,up,pre)
+{
+    F d = (this->_v>=x._v) ? sub(up,this->_v,x._v) : sub(up,x._v,this->_v);
+    _e=add(up,_e,_make_error<FE>(d,pre));
+}
+
 template<class F, class FE> Ball<F,FE>::Ball(ExactDouble const& d, PR pr) : _v(d,pr), _e(0,_error_precision<PRE>(pr)) {}
 template<class F, class FE> Ball<F,FE>::Ball(TwoExp const& t, PR pr) : _v(t,pr), _e(0u,_error_precision<PRE>(pr)) {}
 template<class F, class FE> Ball<F,FE>::Ball(Integer const& z, PR pr) : _v(z,near,pr), _e(abs(Dyadic(_v)-z),up,_error_precision<PRE>(pr)) {}

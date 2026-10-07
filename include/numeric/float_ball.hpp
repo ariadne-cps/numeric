@@ -105,6 +105,7 @@ template<class F, class FE> class Ball
         Ball(const Rational& q, PR pr);
         Ball(const Real& r, PR pr);
         Ball(const Ball<F,FE>& x, PR pr);
+        Ball(const Ball<F,FE>& x, PR pr, PRE pre);
     Ball(const ValidatedNumber& y, PR pr);
 
     // FIXME: Constructors for other types
