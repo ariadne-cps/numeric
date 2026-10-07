@@ -108,7 +108,6 @@ class TestNumbers
     Void test();
     Void test_dyadic_behaviour();
     Void test_float_value_behaviour();
-    Void test_operations();
     Void test_misc();
 };
 

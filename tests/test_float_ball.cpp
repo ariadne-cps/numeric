@@ -67,11 +67,9 @@ class TestFloatBall
     Void test();
   private:
     using TestFloats<PR>::to_rational;
-    Void test_concept();
     Void test_header_api();
     Void test_precision();
     Void test_conversions();
-    Void test_validation();
     Void test_rounded_arithmetic();
 };
 
