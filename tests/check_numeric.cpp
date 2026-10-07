@@ -22,10 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <type_traits>
 #include <utility>
 
 #include "foundation/logical.hpp"
-#include "utility.hpp"
 
 #include "numeric/concepts.hpp"
 #include "numeric/operators.hpp"
@@ -42,6 +42,19 @@ using namespace Ariadne;
 namespace {
 
 template<class... TS> struct Types { };
+
+struct NoResult { };
+
+template<class OP, class A1, class A2, class=void>
+struct SafeTypeTrait { using Type=NoResult; };
+
+template<class OP, class A1, class A2>
+struct SafeTypeTrait<OP,A1,A2,std::void_t<decltype(OP()(std::declval<A1>(),std::declval<A2>()))>> {
+    using Type=decltype(OP()(std::declval<A1>(),std::declval<A2>()));
+};
+
+template<class OP, class A1, class A2>
+using SafeType=typename SafeTypeTrait<OP,A1,A2>::Type;
 
 template<class Expected, class OP, class A1, class A2s> struct CheckRow;
 
