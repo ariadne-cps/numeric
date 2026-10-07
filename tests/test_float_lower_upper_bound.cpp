@@ -266,6 +266,68 @@ TestDirectedFloats<PR>::test_conversions()
     ARIADNE_TEST_COMPARE(FloatUpperBoundType(five_thirds,precision).raw(),>=,five_thirds);
     ARIADNE_TEST_COMPARE(FloatUpperBoundType(neg_five_thirds,precision).raw(),>=,neg_five_thirds);
 
+    FloatLowerBoundType lower_zero(precision);
+    FloatUpperBoundType upper_zero(precision);
+    ARIADNE_TEST_EQUALS(lower_zero.raw(),FloatValueType(0,precision));
+    ARIADNE_TEST_EQUALS(upper_zero.raw(),FloatValueType(0,precision));
+
+    FloatLowerBoundType lower_twoexp(TwoExp(1),precision);
+    FloatUpperBoundType upper_twoexp(TwoExp(1),precision);
+    ARIADNE_TEST_EQUALS(lower_twoexp.raw(),FloatValueType(2,precision));
+    ARIADNE_TEST_EQUALS(upper_twoexp.raw(),FloatValueType(2,precision));
+
+    FloatLowerBoundType lower_integer(Integer(2),precision);
+    FloatUpperBoundType upper_integer(Integer(2),precision);
+    ARIADNE_TEST_EQUALS(lower_integer.raw(),FloatValueType(2,precision));
+    ARIADNE_TEST_EQUALS(upper_integer.raw(),FloatValueType(2,precision));
+
+    Decimal decimal_two(String("2.0"));
+    FloatLowerBoundType lower_decimal(decimal_two,precision);
+    FloatUpperBoundType upper_decimal(decimal_two,precision);
+    ARIADNE_TEST_EQUALS(lower_decimal.raw(),FloatValueType(2,precision));
+    ARIADNE_TEST_EQUALS(upper_decimal.raw(),FloatValueType(2,precision));
+
+    FloatValueType raw_two(2,precision);
+    FloatLowerBoundType lower_raw(raw_two,precision);
+    FloatUpperBoundType upper_raw(raw_two,precision);
+    ARIADNE_TEST_EQUALS(lower_raw.raw(),raw_two);
+    ARIADNE_TEST_EQUALS(upper_raw.raw(),raw_two);
+
+    FloatBoundsType enclosing(1,2,precision);
+    FloatLowerBoundType lower_assigned(precision);
+    FloatUpperBoundType upper_assigned(precision);
+    lower_assigned=raw_two;
+    upper_assigned=raw_two;
+    ARIADNE_TEST_EQUALS(lower_assigned.raw(),raw_two);
+    ARIADNE_TEST_EQUALS(upper_assigned.raw(),raw_two);
+    lower_assigned=enclosing;
+    upper_assigned=enclosing;
+    ARIADNE_TEST_EQUALS(lower_assigned.raw(),enclosing.lower_raw());
+    ARIADNE_TEST_EQUALS(upper_assigned.raw(),enclosing.upper_raw());
+
+    ValidatedLowerNumber generic_lower=lower_bound.generic();
+    ValidatedUpperNumber generic_upper=upper_bound.generic();
+    lower_assigned=generic_lower;
+    upper_assigned=generic_upper;
+    ARIADNE_TEST_EQUALS(lower_assigned.raw(),lower_bound.raw());
+    ARIADNE_TEST_EQUALS(upper_assigned.raw(),upper_bound.raw());
+    ARIADNE_TEST_EQUALS(lower_bound.create(generic_lower).raw(),lower_bound.raw());
+    ARIADNE_TEST_EQUALS(upper_bound.create(generic_upper).raw(),upper_bound.raw());
+    ARIADNE_TEST_EQUALS(lower_bound.create(generic_upper).precision(),precision);
+    ARIADNE_TEST_EQUALS(upper_bound.create(generic_lower).precision(),precision);
+
+    ARIADNE_TEST_EQUALS(lower_bound.characteristics(),precision);
+    ARIADNE_TEST_EQUALS(upper_bound.characteristics(),precision);
+    ARIADNE_TEST_EQUALS(FloatLowerBoundType(2,precision).get_d(),2.0);
+    ARIADNE_TEST_EQUALS(FloatUpperBoundType(2,precision).get_d(),2.0);
+
+    FloatBallType ball_two(Rational(2),precision);
+    ARIADNE_TEST_EQUALS(FloatLowerBoundType(ball_two).raw(),ball_two.lower_raw());
+    ARIADNE_TEST_EQUALS(FloatUpperBoundType(ball_two).raw(),ball_two.upper_raw());
+
+    FloatError<PR> error_two(2u,precision);
+    ARIADNE_TEST_EQUALS(FloatUpperBoundType(error_two).raw(),FloatValueType(2,precision));
+
     ARIADNE_TEST_EQUALS(cast_integer(FloatUpperBound<PR>(Dyadic(5,2u),precision)),Integer(2));
     ARIADNE_TEST_EQUALS(cast_integer(FloatLowerBound<PR>(Dyadic(11,2u),precision)),Integer(2));
     
@@ -316,6 +378,21 @@ TestDirectedFloats<PR>::test_rounded_arithmetic() {
     ARIADNE_TEST_COMPARE((PositiveFloatUpperBoundType(third,precision)*PositiveFloatUpperBoundType(fifth,precision)).raw(),>=,third*fifth);
     ARIADNE_TEST_COMPARE((PositiveFloatLowerBoundType(third,precision)/PositiveFloatUpperBoundType(fifth,precision)).raw(),<=,third/fifth);
     ARIADNE_TEST_COMPARE((PositiveFloatUpperBoundType(third,precision)/PositiveFloatLowerBoundType(fifth,precision)).raw(),>=,third/fifth);
+
+    FloatLowerBoundType lower_one(1,precision);
+    FloatUpperBoundType upper_one(1,precision);
+    FloatLowerBoundType lower_two(2,precision);
+    FloatUpperBoundType upper_two(2,precision);
+    ARIADNE_TEST_EQUALS(nul(lower_two).raw(),FloatValueType(0,precision));
+    ARIADNE_TEST_EQUALS(nul(upper_two).raw(),FloatValueType(0,precision));
+    ARIADNE_TEST_EQUALS(pos(lower_two).raw(),FloatValueType(2,precision));
+    ARIADNE_TEST_EQUALS(pos(upper_two).raw(),FloatValueType(2,precision));
+    ARIADNE_TEST_EQUALS(hlf(lower_two).raw(),FloatValueType(1,precision));
+    ARIADNE_TEST_EQUALS(hlf(upper_two).raw(),FloatValueType(1,precision));
+    ARIADNE_TEST_EQUALS(log(lower_one).raw(),FloatValueType(0,precision));
+    ARIADNE_TEST_EQUALS(exp(upper_zero).raw(),FloatValueType(1,precision));
+    ARIADNE_TEST_EQUALS(abs(FloatLowerBoundType(-2,precision)).raw(),FloatValueType(2,precision));
+    ARIADNE_TEST_EQUALS(abs(FloatUpperBoundType(-2,precision)).raw(),FloatValueType(2,precision));
 }
 
 template<class PR> Void
@@ -332,6 +409,18 @@ TestDirectedFloats<PR>::test_comparison() {
         ARIADNE_TEST_ASSERT(definitely(5u*third <= 2u));
         ARIADNE_TEST_ASSERT(possibly(3u*third > 1u));
         ARIADNE_TEST_ASSERT(possibly(3u*third >= 1u));
+    }
+
+    {
+        FloatLowerBoundType lower_one(1,pr);
+        FloatLowerBoundType lower_two(2,pr);
+        FloatUpperBoundType upper_one(1,pr);
+        FloatUpperBoundType upper_two(2,pr);
+
+        ARIADNE_TEST_ASSERT(not possibly(eq(lower_two,upper_one)));
+        ARIADNE_TEST_ASSERT(is_indeterminate(eq(lower_one,upper_two)));
+        ARIADNE_TEST_ASSERT(not possibly(eq(upper_one,lower_two)));
+        ARIADNE_TEST_ASSERT(is_indeterminate(eq(upper_two,lower_one)));
     }
 
     {
