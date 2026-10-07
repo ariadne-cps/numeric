@@ -48,6 +48,32 @@
 using namespace Ariadne;
 using namespace std;
 
+namespace {
+
+template<class PR>
+constexpr bool check_float_bounds_concept()
+{
+    using R=RawFloat<PR>; using B=FloatBounds<PR>; using E=Float<PR>;
+    return requires(Nat m, Int n, double d, E x, R a, R b, B vx, B rx) {
+        B(); B(n); B(m); B(d); B(x); B(vx); B(n,n); B(m,m); B(d,d); B(a,b); B(n,m); B(m,d); B(d,n);
+        rx=n; rx=m; rx=x; rx=vx;
+        rx=nul(vx); rx=pos(vx); rx=neg(vx); rx=hlf(vx); rx=sqr(vx); rx=rec(vx);
+        rx=operator+(x,x); rx=operator+(x,vx); rx=operator+(vx,x); rx=operator+(vx,vx);
+        rx=operator-(x,x); rx=operator-(x,vx); rx=operator-(vx,x); rx=operator-(vx,vx);
+        rx=operator*(x,x); rx=operator*(x,vx); rx=operator*(vx,x); rx=operator*(vx,vx);
+        rx=operator/(x,x); rx=operator/(x,vx); rx=operator/(vx,x); rx=operator/(vx,vx);
+        rx=add(x,x); rx=add(vx,vx); rx=sub(x,x); rx=sub(vx,vx); rx=mul(x,x); rx=mul(vx,vx); rx=div(x,x); rx=div(vx,vx);
+        rx=pow(x,m); rx=pow(x,n); rx=max(vx,vx); rx=min(vx,vx); rx=abs(vx);
+        rx=sqrt(vx); rx=exp(vx); rx=log(vx); rx=sin(vx); rx=cos(vx); rx=tan(vx); rx=atan(vx);
+    };
+}
+
+static_assert(check_float_bounds_concept<DoublePrecision>());
+static_assert(check_float_bounds_concept<MultiplePrecision>());
+
+} // namespace
+
+
 template<class PR>
 class TestFloatBounds
 {
@@ -62,7 +88,6 @@ class TestFloatBounds
   private:
     inline FloatBoundsType make_float_bounds(ExactDouble l, ExactDouble u) { return FloatBoundsType(l,u,pr); }
 
-    Void test_concept();
     Void test_constructors();
     Void test_conversions();
     Void test_input();
@@ -98,56 +123,6 @@ TestFloatBounds<PR>::test()
     ARIADNE_TEST_CALL(test_monotone_functions());
     ARIADNE_TEST_CALL(test_trigonometric_functions());
     ARIADNE_TEST_CALL(regression_tests());
-}
-
-template<class PR> Void
-TestFloatBounds<PR>::test_concept()
-{
-    FloatBoundsType::set_output_places(17);
-
-    Nat m=1;
-    Int n=1;
-    double d=1;
-    FloatValueType x(1);
-    RawFloatType a,b;
-    FloatBoundsType vx(1);
-    FloatBoundsType rx(1);
-
-    // Constructors
-    rx=FloatBoundsType(); rx=FloatBoundsType(n); rx=FloatBoundsType(m); rx=FloatBoundsType(d); rx=FloatBoundsType(x); rx=FloatBoundsType(vx);
-    rx=FloatBoundsType(n,n); rx=FloatBoundsType(m,m); rx=FloatBoundsType(d,d); rx=FloatBoundsType(a,b);
-    rx=FloatBoundsType(n,m); rx=FloatBoundsType(m,d); rx=FloatBoundsType(d,n);
-//
-    // Assignment
-    rx=n; rx=m; rx=x; rx=vx;
-
-    // ExactTag operations
-    rx=nul(vx); rx=pos(vx); rx=neg(vx); rx=hlf(vx); rx=sqr(vx); rx=rec(vx);
-
-    rx=operator+(x,x); rx=operator+(x,vx); rx=operator+(vx,x); rx=operator+(vx,vx);
-    rx=operator-(x,x); rx=operator-(x,vx); rx=operator-(vx,x); rx=operator-(vx,vx);
-    rx=operator*(x,x); rx=operator*(x,vx); rx=operator*(vx,x); rx=operator*(vx,vx);
-    rx=operator/(x,x); rx=operator/(x,vx); rx=operator/(vx,x); rx=operator/(vx,vx);
-
-    // Arithmetic
-    rx=add(x,x); rx=add(vx,vx);
-    rx=sub(x,x); rx=sub(vx,vx);
-    rx=mul(x,x); rx=mul(vx,vx);
-    rx=div(x,x); rx=div(vx,vx);
-    rx=pow(x,m); rx=pow(x,m);
-    rx=pow(x,n); rx=pow(x,n);
-
-    // Order
-    rx=max(vx,vx); rx=min(vx,vx); rx=abs(vx);
-
-    // Transcendental functions
-    rx=sqrt(vx);
-    rx=exp(vx);
-    rx=log(vx);
-    rx=sin(vx);
-    rx=cos(vx);
-    rx=tan(vx);
-    rx=atan(vx);
 }
 
 template<class PR> Void

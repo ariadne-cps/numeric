@@ -41,6 +41,46 @@
 using namespace std;
 using namespace Ariadne;
 
+namespace {
+
+template<class PR>
+constexpr bool check_float_rounding_concept()
+{
+    using F=RawFloat<PR>;
+    return requires(Bool b, Int n, Nat m, double d, F x, F x2) {
+        F(); F(n); F(m); F(d); F(x); x=n; x=m; x=d; x=x2; d=x.get_d();
+        x=max(x,x); x=min(x,x); x=abs(x); x=nul(x); x=pos(x); x=neg(x); x=hlf(x);
+        x=add(near,x,x); x=add(approx,x,x); x=add(down,x,x); x=add(up,x,x);
+        x=sub(near,x,x); x=sub(down,x,x); x=sub(up,x,x); x=mul(near,x,x); x=mul(down,x,x); x=mul(up,x,x);
+        x=div(near,x,x); x=div(down,x,x); x=div(up,x,x); x=fma(approx,x,x,x); x=fma(down,x,x,x); x=fma(up,x,x,x);
+        x=pow(approx,x,n); x=pow(down,x,n); x=pow(up,x,n); x=pow(approx,x,m); x=pow(down,x,m); x=pow(up,x,m);
+        x=sqr(approx,x); x=sqr(down,x); x=sqr(up,x); x=rec(approx,x); x=rec(down,x); x=rec(up,x);
+        x=sqrt(approx,x); x=sqrt(down,x); x=sqrt(up,x); x=exp(approx,x); x=exp(down,x); x=exp(up,x);
+        x=log(approx,x); x=log(down,x); x=log(up,x); x=sin(approx,x); x=sin(down,x); x=sin(up,x);
+        x=cos(approx,x); x=cos(down,x); x=cos(up,x); x=tan(approx,x); x=tan(down,x); x=tan(up,x);
+        x=asin(approx,x); x=asin(down,x); x=asin(up,x); x=acos(approx,x); x=acos(down,x); x=acos(up,x); x=atan(approx,x); x=atan(down,x); x=atan(up,x);
+        x=med(near,x,x); x=rad(up,x,x);
+        x=mul(approx,n,x); x=mul(down,n,x); x=mul(up,n,x); x=mul(approx,m,x); x=mul(down,m,x); x=mul(up,m,x);
+        x=mul(approx,x,n); x=mul(down,x,n); x=mul(up,x,n); x=mul(approx,x,m); x=mul(down,x,m); x=mul(up,x,m);
+        x=div(approx,x,n); x=div(down,x,n); x=div(up,x,n); x=div(approx,x,m); x=div(down,x,m); x=div(up,x,m);
+        x=mul(approx,d,x); x=mul(approx,x,d); x=div(approx,x,d);
+        x=0; x=0.0; x=1; x=1.0; x=+x; x=-x; x=x+x; x=x-x; x=x*x; x=x/x; x-=x2; x*=x2; x/=x2;
+        b=(x==n); b=(x!=n); b=(x<=n); b=(x>=n); b=(x<n); b=(x>n); b=(n==x); b=(n!=x); b=(n<=x); b=(n>=x); b=(n<x); b=(n>x);
+        b=(x==m); b=(x!=m); b=(x<=m); b=(x>=m); b=(x<m); b=(x>m); b=(m==x); b=(m!=x); b=(m<=x); b=(m>=x); b=(m<x); b=(m>x);
+        b=(x==d); b=(x!=d); b=(x<=d); b=(x>=d); b=(x<d); b=(x>d); b=(d==x); b=(d!=x); b=(d<=x); b=(d>=x); b=(d<x); b=(d>x);
+        b=(x==x); b=(x!=x); b=(x<=x); b=(x>=x); b=(x<x); b=(x>x);
+        F::set_rounding_to_nearest(); F::set_rounding_downward(); F::set_rounding_upward(); F::set_rounding_toward_zero();
+        F::set_rounding_mode(to_nearest); F::set_rounding_mode(downward); F::set_rounding_mode(upward); F::set_rounding_mode(toward_zero);
+        F::set_rounding_mode(near); F::set_rounding_mode(down); F::set_rounding_mode(up); F::get_rounding_mode(); F::get_default_precision(); x.precision();
+    };
+}
+
+static_assert(check_float_rounding_concept<DoublePrecision>());
+static_assert(check_float_rounding_concept<MultiplePrecision>());
+
+} // namespace
+
+
 template<class PR>
 class TestFloatRounding
 {
@@ -51,7 +91,6 @@ class TestFloatRounding
     TestFloatRounding(PR prec);
     Void test();
   private:
-    Void test_concept();
     Void test_class();
     Void test_limits();
     Void test_conversion_from_to();
@@ -105,112 +144,6 @@ TestFloatRounding<PR>::test()
 
 // Test that the type implements all operations of
 // the Float concept without testing correctness
-template<class PR> Void
-TestFloatRounding<PR>::test_concept()
-{
-    Bool b=true; if (not b) return; // To avoid compiler warning
-    Int n=1;
-    Nat m=1;
-    double d=1;
-    Float x=1, x2=1;
-
-    // Constructors
-    x=Float(); x=Float(n); x=Float(m); x=Float(d); x=Float(x);
-
-    // Assignment
-    x=n; x=m; x=d; x=x2;
-
-    // Conversion
-    d=x.get_d();
-
-    // Maximum and minimum and absolute value
-    x=max(x,x); x=min(x,x); x=abs(x);
-
-
-    // ExactTag operations
-    x=nul(x); x=pos(x); x=neg(x); x=hlf(x);
-
-    // Rounded arithmetic operations
-    x=add(near,x,x); x=add(approx,x,x); x=add(down,x,x); x=add(up,x,x); // x=add_chop(x,x);
-    x=sub(near,x,x); x=add(approx,x,x); x=sub(down,x,x); x=sub(up,x,x); // x=sub_chop(x,x);
-    x=mul(near,x,x); x=add(approx,x,x); x=mul(down,x,x); x=mul(up,x,x); // x=mul_chop(x,x);
-    x=div(near,x,x); x=add(approx,x,x); x=div(down,x,x); x=div(up,x,x); // x=div_chop(x,x);
-    x=fma(approx,x,x,x); x=fma(down,x,x,x); x=fma(up,x,x,x);
-    x=pow(approx,x,n); x=pow(down,x,n); x=pow(up,x,n); // x=pow_chop(x,n);
-    x=pow(approx,x,m); x=pow(down,x,m); x=pow(up,x,m); // x=pow_chop(x,m);
-
-    // Non-exact operations
-    x=sqr(approx,x); x=sqr(down,x); x=sqr(up,x); // x=sqr_chop(x);
-    x=rec(approx,x); x=rec(down,x); x=rec(up,x); // x=rec_chop(x);
-    x=sqrt(approx,x); x=sqrt(down,x); x=sqrt(up,x); // x=sqrt_chop(x);
-    x=exp(approx,x); x=exp(down,x); x=exp(up,x); // x=exp_chop(x);
-    x=log(approx,x); x=log(down,x); x=log(up,x); // x=log_chop(x);
-    x=sin(approx,x); x=sin(down,x); x=sin(up,x); // x=sin_chop(x);
-    x=cos(approx,x); x=cos(down,x); x=cos(up,x); // x=cos_chop(x);
-    x=tan(approx,x); x=tan(down,x); x=tan(up,x); // x=tan_chop(x);
-    x=asin(approx,x); x=asin(down,x); x=asin(up,x); // x=asin_chop(x);
-    x=acos(approx,x); x=acos(down,x); x=acos(up,x); // x=acos_chop(x);
-    x=atan(approx,x); x=atan(down,x); x=atan(up,x); // x=atan_chop(x);
-
-    x=med(near,x,x); x=rad(up,x,x);
-
-    // Mixed Float/Int arithmetic
-    x=mul(approx,n,x); x=mul(down,n,x); x=mul(up,n,x); // x=mul_chop(n,x);
-    x=mul(approx,m,x); x=mul(down,m,x); x=mul(up,m,x); // x=mul_chop(m,x);
-    x=mul(approx,x,n); x=mul(down,x,n); x=mul(up,x,n); // x=mul_chop(x,n);
-    x=mul(approx,x,m); x=mul(down,x,m); x=mul(up,x,m); // x=mul_chop(x,m);
-    x=div(approx,x,n); x=div(down,x,n); x=div(up,x,n); // x=div_chop(x,n);
-    x=div(approx,x,m); x=div(down,x,m); x=div(up,x,m); // x=div_chop(x,m);
-
-    // Mixed Float/double arithmetic
-    x=mul(approx,d,x); x=mul(approx,x,d); x=div(approx,x,d);
-
-    // Reset x to zero
-    x=0; x=0.0;
-
-    // Reset x to 1
-    x=1; x=1.0;
-
-    // Operators in rounding mode
-    x=+x; x=-x;
-    x=x+x; x=x-x; x=x*x; x=x/x;
-    x+x; x-=x2; x*=x2; x/=x2;
-
-    // Comparisons
-    b=(x==n); b=(x!=n); b=(x<=n); b=(x>=n); b=(x<n); b=(x>n);
-    b=(n==x); b=(n!=x); b=(n<=x); b=(n>=x); b=(n<x); b=(n>x);
-    b=(x==m); b=(x!=m); b=(x<=m); b=(x>=m); b=(x<m); b=(x>m);
-    b=(m==x); b=(m!=x); b=(m<=x); b=(m>=x); b=(m<x); b=(m>x);
-    b=(x==d); b=(x!=d); b=(x<=d); b=(x>=d); b=(x<d); b=(x>d);
-    b=(d==x); b=(d!=x); b=(d<=x); b=(d>=x); b=(d<x); b=(d>x);
-    b=(x==x); b=(x!=x); b=(x<=x); b=(x>=x); b=(x<x); b=(x>x);
-
-    // Rounding mode
-    Float::set_rounding_to_nearest();
-    Float::set_rounding_downward();
-    Float::set_rounding_upward();
-    Float::set_rounding_toward_zero();
-
-    Float::set_rounding_mode(to_nearest);
-    Float::set_rounding_mode(downward);
-    Float::set_rounding_mode(upward);
-    Float::set_rounding_mode(toward_zero);
-
-    Float::set_rounding_mode(near);
-    Float::set_rounding_mode(down);
-    Float::set_rounding_mode(up);
-
-    typename Float::RoundingModeType rnd=Float::get_rounding_mode();
-    Float::set_rounding_mode(rnd);
-
-    // DoublePrecision
-    typename Float::PrecisionType pr=Float::get_default_precision();
-    pr=x.precision();
-    x.set_precision(pr);
-
-}
-
-
 template<class PR> Void
 TestFloatRounding<PR>::test_class()
 {

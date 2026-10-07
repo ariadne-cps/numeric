@@ -43,6 +43,35 @@
 using namespace std;
 using namespace Ariadne;
 
+namespace {
+
+template<class FLT>
+constexpr bool check_rounded_float_concept()
+{
+    using R=Rounded<FLT>;
+    return requires(Bool b, Int n, Nat m, double d, R x, R x2) {
+        R(); R(n); R(m); R(d); R(x); x=n; x=m; x=d; x=x2; d=x.get_d();
+        x=max(x,x); x=min(x,x); x=abs(x); x=nul(x); x=pos(x); x=neg(x); x=hlf(x);
+        x=add(x,x); x=sub(x,x); x=mul(x,x); x=div(x,x); x=fma(x,x,x); x=pow(x,n); x=pow(x,m);
+        x=sqr(x); x=rec(x); x=sqrt(x); x=exp(x); x=log(x); x=sin(x); x=cos(x); x=tan(x); x=asin(x); x=acos(x); x=atan(x);
+        x=med(x,x); x=rad(x,x); x=mul(n,x); x=mul(m,x); x=mul(x,n); x=mul(x,m); x=div(x,n); x=div(x,m); x=mul(d,x);
+        x=0; x=0.0; x=1; x=1.0; x=+x; x=-x; x=x+x; x=x-x; x=x*x; x=x/x; x-=x2; x*=x2; x/=x2;
+        b=(x==n); b=(x!=n); b=(x<=n); b=(x>=n); b=(x<n); b=(x>n); b=(n==x); b=(n!=x); b=(n<=x); b=(n>=x); b=(n<x); b=(n>x);
+        b=(x==m); b=(x!=m); b=(x<=m); b=(x>=m); b=(x<m); b=(x>m); b=(m==x); b=(m!=x); b=(m<=x); b=(m>=x); b=(m<x); b=(m>x);
+        b=(x==d); b=(x!=d); b=(x<=d); b=(x>=d); b=(x<d); b=(x>d); b=(d==x); b=(d!=x); b=(d<=x); b=(d>=x); b=(d<x); b=(d>x);
+        b=(x==x); b=(x!=x); b=(x<=x); b=(x>=x); b=(x<x); b=(x>x);
+        R::set_rounding_to_nearest(); R::set_rounding_downward(); R::set_rounding_upward(); R::set_rounding_toward_zero();
+        R::set_rounding_mode(to_nearest); R::set_rounding_mode(downward); R::set_rounding_mode(upward); R::set_rounding_mode(toward_zero);
+        R::set_rounding_mode(near); R::set_rounding_mode(down); R::set_rounding_mode(up); R::get_rounding_mode(); R::get_default_precision(); x.precision();
+    };
+}
+
+static_assert(check_rounded_float_concept<FloatDP>());
+static_assert(check_rounded_float_concept<FloatMP>());
+
+} // namespace
+
+
 template<class FLT>
 class TestRounded
 {
@@ -55,7 +84,6 @@ class TestRounded
     TestRounded(PR prec);
     Void test();
   private:
-    Void test_concept();
     Void test_header_api();
     Void test_class();
     Void test_conversion_from_to();
@@ -102,112 +130,6 @@ TestRounded<FLT>::test()
 
 // Test that the type implements all operations of
 // the RoundedFloatType concept without testing correctness
-template<class FLT> Void
-TestRounded<FLT>::test_concept()
-{
-    Bool b=true; if (not b) return; // To avoid compiler warning
-    Int n=1;
-    Nat m=1;
-    double d=1;
-    RoundedFloatType x=1, x2=1;
-
-    // Constructors
-    x=RoundedFloatType(); x=RoundedFloatType(n); x=RoundedFloatType(m); x=RoundedFloatType(d); x=RoundedFloatType(x);
-
-    // Assignment
-    x=n; x=m; x=d; x=x2;
-
-    // Conversion
-    d=x.get_d();
-
-    // Maximum and minimum and absolute value
-    x=max(x,x); x=min(x,x); x=abs(x);
-
-
-    // ExactTag operations
-    x=nul(x); x=pos(x); x=neg(x); x=hlf(x);
-
-    // Rounded arithmetic operations
-    x=add(x,x);
-    x=sub(x,x);
-    x=mul(x,x);
-    x=div(x,x);
-    x=fma(x,x,x);
-    x=pow(x,n);
-    x=pow(x,m);
-
-    // Non-exact operations
-    x=sqr(x);
-    x=rec(x);
-    x=sqrt(x);
-    x=exp(x);
-    x=log(x);
-    x=sin(x);
-    x=cos(x);
-    x=tan(x);
-    x=asin(x);
-    x=acos(x);
-    x=atan(x);
-
-    x=med(x,x); x=rad(x,x);
-
-    // Mixed RoundedFloatType/Int arithmetic
-    x=mul(n,x);
-    x=mul(m,x);
-    x=mul(x,n);
-    x=mul(x,m);
-    x=div(x,n);
-    x=div(x,m);
-
-    // Mixed RoundedFloatType/double arithmetic
-    x=mul(d,x);
-
-    // Reset x to zero
-    x=0; x=0.0;
-
-    // Reset x to 1
-    x=1; x=1.0;
-
-    // Operators in rounding mode
-    x=+x; x=-x;
-    x=x+x; x=x-x; x=x*x; x=x/x;
-    x+x; x-=x2; x*=x2; x/=x2;
-
-    // Comparisons
-    b=(x==n); b=(x!=n); b=(x<=n); b=(x>=n); b=(x<n); b=(x>n);
-    b=(n==x); b=(n!=x); b=(n<=x); b=(n>=x); b=(n<x); b=(n>x);
-    b=(x==m); b=(x!=m); b=(x<=m); b=(x>=m); b=(x<m); b=(x>m);
-    b=(m==x); b=(m!=x); b=(m<=x); b=(m>=x); b=(m<x); b=(m>x);
-    b=(x==d); b=(x!=d); b=(x<=d); b=(x>=d); b=(x<d); b=(x>d);
-    b=(d==x); b=(d!=x); b=(d<=x); b=(d>=x); b=(d<x); b=(d>x);
-    b=(x==x); b=(x!=x); b=(x<=x); b=(x>=x); b=(x<x); b=(x>x);
-
-    // Rounded mode
-    RoundedFloatType::set_rounding_to_nearest();
-    RoundedFloatType::set_rounding_downward();
-    RoundedFloatType::set_rounding_upward();
-    RoundedFloatType::set_rounding_toward_zero();
-
-    RoundedFloatType::set_rounding_mode(to_nearest);
-    RoundedFloatType::set_rounding_mode(downward);
-    RoundedFloatType::set_rounding_mode(upward);
-    RoundedFloatType::set_rounding_mode(toward_zero);
-
-    RoundedFloatType::set_rounding_mode(near);
-    RoundedFloatType::set_rounding_mode(down);
-    RoundedFloatType::set_rounding_mode(up);
-
-    typename RoundedFloatType::RoundedModeType rnd=RoundedFloatType::get_rounding_mode();
-    RoundedFloatType::set_rounding_mode(rnd);
-
-    // DoublePrecision
-    typename RoundedFloatType::PrecisionType pr=RoundedFloatType::get_default_precision();
-    pr=x.precision();
-    x.set_precision(pr);
-
-}
-
-
 template<class FLT> Void
 TestRounded<FLT>::test_header_api()
 {

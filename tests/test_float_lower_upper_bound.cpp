@@ -43,6 +43,37 @@
 using namespace Ariadne;
 using namespace std;
 
+namespace {
+
+template<class PR>
+constexpr bool check_directed_float_concept()
+{
+    using A=FloatApproximation<PR>; using L=FloatLowerBound<PR>; using U=FloatUpperBound<PR>; using E=Float<PR>;
+    using PL=PositiveFloatLowerBound<PR>; using PU=PositiveFloatUpperBound<PR>;
+    return requires(Nat m, A ax, L lx, U ux, E ex, PL plx, PU pux) {
+        lx=+lx; lx=-ux; lx=lx+lx; lx=lx-ux; lx=lx*m; lx=lx/m;
+        ex=nul(lx); lx=pos(lx); lx=neg(ux); lx=hlf(lx); lx=add(lx,lx); lx=sub(lx,ux);
+        lx=sqrt(lx); lx=exp(lx); lx=log(lx); lx=atan(lx); lx=max(lx,lx); lx=min(lx,lx);
+        plx=+plx; plx=plx+plx; plx=plx*plx; plx=plx/pux; plx=plx/m;
+        plx=nul(plx); plx=pos(plx); plx=hlf(plx); plx=sqr(plx); plx=rec(pux);
+        plx=add(plx,plx); plx=mul(plx,plx); plx=div(plx,pux); plx=sqrt(plx); plx=exp(lx); lx=log(plx); plx=atan(plx);
+        plx=max(plx,plx); plx=max(plx,lx); plx=max(lx,plx); plx=min(plx,plx);
+        ux=+ux; ux=-lx; ux=ux+ux; ux=ux-lx; ux=ux*m; ux=ux/m;
+        ex=nul(ux); ux=pos(ux); ux=neg(lx); ux=hlf(ux); ux=add(ux,ux); ux=sub(ux,lx);
+        ux=sqrt(ux); ux=exp(ux); ux=log(ux); ux=max(ux,ux); ux=min(ux,ux);
+        pux=+pux; pux=pux+pux; pux=pux*pux; pux=pux/plx; pux=pux/m;
+        pux=nul(pux); pux=pos(pux); pux=hlf(pux); pux=sqr(pux); pux=rec(plx);
+        pux=add(pux,pux); pux=mul(pux,pux); pux=div(pux,plx); pux=sqrt(pux); pux=exp(lx); lx=log(pux); pux=atan(pux);
+        pux=max(pux,pux); pux=max(pux,lx); pux=max(lx,pux); pux=min(pux,pux);
+    };
+}
+
+static_assert(check_directed_float_concept<DoublePrecision>());
+static_assert(check_directed_float_concept<MultiplePrecision>());
+
+} // namespace
+
+
 template<class PR>
 class TestDirectedFloats
     : public TestFloats<PR>
@@ -63,7 +94,6 @@ class TestDirectedFloats
     TestDirectedFloats(PR prec) : precision(prec) { };
     Void test();
   private:
-    Void test_concept();
     Void test_precision();
     Void test_conversions();
     Void test_validation();
@@ -79,44 +109,6 @@ TestDirectedFloats<PR>::test()
     ARIADNE_TEST_CALL(test_validation());
     ARIADNE_TEST_CALL(test_rounded_arithmetic());
     ARIADNE_TEST_CALL(test_comparison());
-}
-
-template<class PR> Void
-TestDirectedFloats<PR>::test_concept()
-{
-    Nat m;
-    FloatApproximationType ax(1);
-    FloatLowerBoundType lx(1);
-    FloatUpperBoundType ux(1);
-    FloatValueType ex(1);
-
-    PositiveFloatLowerBoundType plx(1u);
-    PositiveFloatUpperBoundType pux(1u);
-
-    lx=+lx; lx=-ux; lx=lx+lx; lx=lx-ux; lx=lx*m; lx=lx/m;
-    ex=nul(lx); lx=pos(lx); lx=neg(ux); lx=hlf(lx);
-    lx=add(lx,lx); lx=sub(lx,ux);
-    lx=sqrt(lx); lx=exp(lx); lx=log(lx); lx=atan(lx);
-    lx=max(lx,lx); lx=min(lx,lx);
-
-    plx=+plx; plx=plx+plx; plx=plx*plx; plx=plx/pux; plx=plx/m;
-    plx=nul(plx); plx=pos(plx); plx=hlf(plx); plx=sqr(plx); plx=rec(pux);
-    plx=add(plx,plx); plx=mul(plx,plx); plx=div(plx,pux);
-    plx=sqrt(plx); plx=exp(lx); lx=log(plx); plx=atan(plx);
-    plx=max(plx,plx); plx=max(plx,lx); plx=max(lx,plx); plx=min(plx,plx);
-
-
-    ux=+ux; ux=-lx; ux=ux+ux; ux=ux-lx; ux=ux*m; ux=ux/m;
-    ex=nul(ux); ux=pos(ux); ux=neg(lx); ux=hlf(ux);
-    ux=add(ux,ux); ux=sub(ux,lx);
-    ux=sqrt(ux); ux=exp(ux); ux=log(ux);
-    ux=max(ux,ux); ux=min(ux,ux);
-
-    pux=+pux; pux=pux+pux; pux=pux*pux; pux=pux/plx; pux=pux/m;
-    pux=nul(pux); pux=pos(pux); pux=hlf(pux); pux=sqr(pux); pux=rec(plx);
-    pux=add(pux,pux); pux=mul(pux,pux); pux=div(pux,plx);
-    pux=sqrt(pux); pux=exp(lx); lx=log(pux); pux=atan(pux);
-    pux=max(pux,pux); pux=max(pux,lx); pux=max(lx,pux); pux=min(pux,pux);
 }
 
 template<class PR> Void

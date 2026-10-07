@@ -57,6 +57,36 @@
 using namespace Ariadne;
 using namespace std;
 
+namespace {
+
+template<class PR>
+constexpr bool check_float_concept()
+{
+    using PRE=DoublePrecision;
+    using RawFloatType=RawFloat<PR>;
+    using FloatType=Float<PR>;
+    using FloatBoundsType=FloatBounds<PR>;
+    return requires(PR pr, PRE pre, Boolean b, Nat m, Int n, Integer z, Dyadic w, ExactDouble d, TwoExp t,
+                    RawFloatType f, FloatType vx, FloatType rx, FloatBoundsType rbx, FloatBall<PR,PRE> rmx) {
+        FloatType(m,pr); FloatType(n,pr); FloatType(z,pr); FloatType(w,pr); FloatType(d,pr); FloatType(t,pr); FloatType(pr); FloatType(f);
+        rx=m; rx=n; rx=z; rx=w; rx=d; rx=t;
+        rx=operator+(vx); rx=operator-(vx); rx=t*vx; rx=vx*t; rx=vx/t;
+        rbx=operator+(vx,vx); rbx=operator-(vx,vx); rbx=operator*(vx,vx); rbx=operator/(vx,vx);
+        rx=nul(vx); rx=pos(vx); rx=neg(vx); rx=hlf(vx); rx=mul(vx,t); rx=div(vx,t);
+        rmx=add(vx,vx,pre); rmx=sub(vx,vx,pre); rmx=mul(vx,vx,pre); rmx=div(vx,vx,pre);
+        rbx=add(vx,vx); rbx=sub(vx,vx); rbx=mul(vx,vx); rbx=div(vx,vx);
+        rbx=sqr(vx); rbx=rec(vx); rbx=pow(vx,m); rbx=pow(vx,n);
+        rx=max(vx,vx); rx=min(vx,vx); rx=abs(vx);
+        b=(vx==vx); b=(vx!=vx); b=(vx<=vx); b=(vx>=vx); b=(vx<vx); b=(vx>vx);
+    };
+}
+
+static_assert(check_float_concept<DoublePrecision>());
+static_assert(check_float_concept<MultiplePrecision>());
+
+} // namespace
+
+
 Void test_float_literals()
 {
     FloatDP half(ExactDouble(0.5),dp);
@@ -116,7 +146,6 @@ class TestFloat
     TestFloat(PR prec) : precision(prec) { }
     Void test();
   private:
-    Void test_concept();
     Void test_conversions();
     Void test_operations();
     Void test_predicates();
@@ -128,55 +157,6 @@ TestFloat<PR>::test()
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_operations());
     ARIADNE_TEST_CALL(test_predicates());
-}
-
-template<class PR> Void
-TestFloat<PR>::test_concept()
-{
-    Float<DoublePrecision>::set_output_places(17);
-
-    PR pr=precision;
-    PRE pre;
-
-    Boolean b;
-    Nat m=1u;
-    Int n=1;
-    Integer z=1;
-    Dyadic w=1;
-    ExactDouble d(1.0);
-    TwoExp t(0);
-    RawFloatType f(pr);
-    FloatType vx(pr);
-    FloatType rx(pr);
-    FloatBoundsType rbx(pr);
-
-    // Constructors
-    rx=FloatType(m,pr); rx=FloatType(n,pr); rx=FloatType(z,pr); rx=FloatType(w,pr);
-    rx=FloatType(d,pr); rx=FloatType(t,pr);
-    rx=FloatType(pr); rx=FloatType(f);
-
-    // Assignment
-    rx=m; rx=n; rx=z; rx=w; rx=d; rx=t;
-
-    // Arithmetic operators
-    rx=operator+(vx); rx=operator-(vx); rx=t*vx; rx=vx*t; rx=vx/t;
-    rbx=operator+(vx,vx); rbx=operator-(vx,vx); rbx=operator*(vx,vx); rbx=operator/(vx,vx);
-
-    // Exact operations
-    rx=nul(vx); rx=pos(vx); rx=neg(vx); rx=hlf(vx);
-    rx=mul(vx,t); rx=div(vx,t);
-
-    FloatBall<PR,PRE> rmx=add(vx,vx,pre); rmx=sub(vx,vx,pre); rmx=mul(vx,vx,pre); rmx=div(vx,vx,pre);
-
-    // Arithmetic
-    rbx=add(vx,vx); rbx=sub(vx,vx); rbx=mul(vx,vx); rbx=div(vx,vx);
-    rbx=sqr(vx); rbx=rec(vx); rbx=pow(vx,m); rbx=pow(vx,n);
-
-    // Order
-    rx=max(vx,vx); rx=min(vx,vx); rx=abs(vx);
-
-    // Comparisons
-    b=(vx==vx); b=(vx!=vx); b=(vx<=vx); b=(vx>=vx); b=(vx< vx); b=(vx> vx);
 }
 
 template<class PR> Void
