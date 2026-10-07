@@ -116,12 +116,32 @@ inline ApproximateDouble operator""_a (long double lx);
 //! indicating that the stored value is the \em exact value of a real quantity.
 class ExactDouble {
     double _d;
+    static double _checked_signed(long long n) {
+        double d=static_cast<double>(n);
+        ARIADNE_PRECONDITION(d<std::ldexp(1.0,63));
+        ARIADNE_PRECONDITION(static_cast<long long>(d)==n);
+        return d;
+    }
+    static double _checked_unsigned(unsigned long long n) {
+        double d=static_cast<double>(n);
+        ARIADNE_PRECONDITION(d<std::ldexp(1.0,64));
+        ARIADNE_PRECONDITION(static_cast<unsigned long long>(d)==n);
+        return d;
+    }
+    static double _checked_floating(long double x) {
+        double d=static_cast<double>(x);
+        ARIADNE_PRECONDITION(std::isnan(d) || static_cast<long double>(d)==x);
+        return d;
+    }
   public:
     typedef ExactTag Paradigm;
     double get_d() const { return this->_d; }
     ExactDouble() : _d() { }
-    template<BuiltinIntegral N> ExactDouble(N n) : _d(static_cast<double>(n)) { assert(_d==n); }
-    template<BuiltinFloatingPoint X> explicit ExactDouble(X const& x) : _d(static_cast<double>(x)) { assert(std::isnan(_d) || (_d==x)); }
+    template<BuiltinIntegral N> ExactDouble(N n) : _d() {
+        if constexpr (std::is_signed_v<N>) { _d=_checked_signed(static_cast<long long>(n)); }
+        else { _d=_checked_unsigned(static_cast<unsigned long long>(n)); }
+    }
+    template<BuiltinFloatingPoint X> explicit ExactDouble(X const& x) : _d(_checked_floating(static_cast<long double>(x))) { }
     static ExactDouble infinity() { return ExactDouble(std::numeric_limits<double>::infinity()); }
     operator ExactNumber() const;
     friend ExactDouble nul(ExactDouble) { return ExactDouble(0.0); }
@@ -145,7 +165,7 @@ class ExactDouble {
     friend Boolean operator<=(ExactDouble const& x1, ExactDouble const& x2) { return x1._d<=x2._d; }
     friend Boolean operator> (ExactDouble const& x1, ExactDouble const& x2) { return x1._d> x2._d; }
     friend Boolean operator< (ExactDouble const& x1, ExactDouble const& x2) { return x1._d< x2._d; }
-    friend ExactDouble operator""_x (long double lx) { double x=static_cast<double>(lx); ARIADNE_ASSERT_MSG(x==lx,"The value "<<lx<<" should be exactly representable as a double."); return ExactDouble(x); }
+    friend ExactDouble operator""_x (long double lx) { return ExactDouble(_checked_floating(lx)); }
     friend ExactDouble operator""_pr (long double lx) { double x=static_cast<double>(lx); return ExactDouble(x); }
     friend OutputStream& operator<<(OutputStream& os, ExactDouble x) { return os << std::setprecision(18) << x.get_d(); }
 };

@@ -664,6 +664,116 @@ TestFloat<PR>::test_predicates()
 }
 
 
+Void test_builtin_runtime()
+{
+    ApproximateDouble default_approximation;
+    ApproximateDouble a(2.0);
+    ApproximateDouble b(-3.0);
+    ApproximateDouble literal=1.25_a;
+    ARIADNE_TEST_EQUALS(default_approximation.get_d(),0.0);
+    ARIADNE_TEST_EQUALS(static_cast<double>(a),2.0);
+    ARIADNE_TEST_EQUALS(literal.get_d(),1.25);
+
+    std::ostringstream approximate_stream;
+    approximate_stream << a;
+    ARIADNE_TEST_ASSERT(not approximate_stream.str().empty());
+
+    ARIADNE_TEST_EQUALS(nul(a).get_d(),0.0);
+    ARIADNE_TEST_EQUALS(pos(a).get_d(),2.0);
+    ARIADNE_TEST_EQUALS(neg(a).get_d(),-2.0);
+    ARIADNE_TEST_EQUALS(add(a,b).get_d(),-1.0);
+    ARIADNE_TEST_EQUALS(sub(a,b).get_d(),5.0);
+    ARIADNE_TEST_EQUALS(mul(a,b).get_d(),-6.0);
+    ARIADNE_TEST_EQUALS(div(a,b).get_d(),-2.0/3.0);
+
+    ARIADNE_TEST_EQUALS(abs(a).get_d(),2.0);
+    ARIADNE_TEST_EQUALS(abs(b).get_d(),3.0);
+    ARIADNE_TEST_EQUALS(max(a,b).get_d(),2.0);
+    ARIADNE_TEST_EQUALS(max(b,a).get_d(),2.0);
+    ARIADNE_TEST_EQUALS(min(a,b).get_d(),-3.0);
+    ARIADNE_TEST_EQUALS(min(b,a).get_d(),-3.0);
+    ARIADNE_TEST_EQUALS(mag(b).get_d(),3.0);
+    ARIADNE_TEST_EQUALS(mig(b).get_d(),3.0);
+
+    ARIADNE_TEST_EQUALS((+a).get_d(),2.0);
+    ARIADNE_TEST_EQUALS((-a).get_d(),-2.0);
+    ARIADNE_TEST_EQUALS((a+b).get_d(),-1.0);
+    ARIADNE_TEST_EQUALS((a-b).get_d(),5.0);
+    ARIADNE_TEST_EQUALS((a*b).get_d(),-6.0);
+    ARIADNE_TEST_EQUALS((a/b).get_d(),-2.0/3.0);
+    ARIADNE_TEST_EQUALS((a*TwoExp(2)).get_d(),8.0);
+    ARIADNE_TEST_EQUALS((a/TwoExp(1)).get_d(),1.0);
+
+    ApproximateDouble inplace(8.0);
+    inplace+=ApproximateDouble(2.0);
+    ARIADNE_TEST_EQUALS(inplace.get_d(),10.0);
+    inplace-=ApproximateDouble(3.0);
+    ARIADNE_TEST_EQUALS(inplace.get_d(),7.0);
+    inplace*=ApproximateDouble(2.0);
+    ARIADNE_TEST_EQUALS(inplace.get_d(),14.0);
+    inplace/=ApproximateDouble(7.0);
+    ARIADNE_TEST_EQUALS(inplace.get_d(),2.0);
+
+    ARIADNE_TEST_ASSERT(same(a,ApproximateDouble(2.0)));
+    ARIADNE_TEST_ASSERT(not same(a,b));
+    ARIADNE_TEST_SAME(a==ApproximateDouble(2.0),ApproximateKleenean(true));
+    ARIADNE_TEST_SAME(a!=b,ApproximateKleenean(true));
+    ARIADNE_TEST_SAME(a>b,ApproximateKleenean(true));
+    ARIADNE_TEST_SAME(b<a,ApproximateKleenean(true));
+    ARIADNE_TEST_SAME(a>=ApproximateDouble(2.0),ApproximateKleenean(true));
+    ARIADNE_TEST_SAME(b<=a,ApproximateKleenean(true));
+
+    ExactDouble exact_default;
+    ExactDouble exact_two(2);
+    ExactDouble exact_three(3u);
+    ExactDouble exact_signed_ll(4LL);
+    ExactDouble exact_unsigned_ll(5ULL);
+    ARIADNE_TEST_EQUALS(exact_default.get_d(),0.0);
+    ARIADNE_TEST_EQUALS(exact_two.get_d(),2.0);
+    ARIADNE_TEST_EQUALS(exact_three.get_d(),3.0);
+    ARIADNE_TEST_EQUALS(exact_signed_ll.get_d(),4.0);
+    ARIADNE_TEST_EQUALS(exact_unsigned_ll.get_d(),5.0);
+
+    ARIADNE_TEST_FAIL((ExactDouble{9007199254740993LL}));
+    ARIADNE_TEST_FAIL((ExactDouble{std::numeric_limits<long long>::max()}));
+    ARIADNE_TEST_FAIL((ExactDouble{9007199254740993ULL}));
+    ARIADNE_TEST_FAIL((ExactDouble{std::numeric_limits<unsigned long long>::max()}));
+
+    ExactDouble exact_nan(std::numeric_limits<double>::quiet_NaN());
+    ARIADNE_TEST_ASSERT(std::isnan(exact_nan.get_d()));
+    if constexpr (std::numeric_limits<long double>::digits > std::numeric_limits<double>::digits) {
+        ARIADNE_TEST_FAIL((ExactDouble{0.1L}));
+        ARIADNE_TEST_FAIL(exact(0.1L));
+    }
+
+    ARIADNE_TEST_ASSERT(std::isinf(ExactDouble::infinity().get_d()));
+    ARIADNE_TEST_ASSERT(std::isinf(ExactDouble::inf().get_d()));
+    ARIADNE_TEST_ASSERT(std::isnan(ExactDouble::nan().get_d()));
+    ARIADNE_TEST_EQUALS(nul(exact_two).get_d(),0.0);
+    ARIADNE_TEST_EQUALS(abs(ExactDouble(-2)).get_d(),2.0);
+    ARIADNE_TEST_ASSERT(is_finite(exact_two));
+    ARIADNE_TEST_ASSERT(not is_finite(ExactDouble::inf()));
+
+    ARIADNE_TEST_EQUALS((ExactDouble(2)*TwoExp(3)).get_d(),16.0);
+    ARIADNE_TEST_EQUALS((ExactDouble(2)/TwoExp(1)).get_d(),1.0);
+    ARIADNE_TEST_EQUALS(cmp(ExactDouble(2),ExactDouble(2)),Comparison::EQUAL);
+    ARIADNE_TEST_EQUALS(cmp(ExactDouble(1),ExactDouble(2)),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(ExactDouble(3),ExactDouble(2)),Comparison::GREATER);
+
+    ARIADNE_TEST_ASSERT(ExactDouble(2)==ExactDouble(2));
+    ARIADNE_TEST_ASSERT(ExactDouble(2)!=ExactDouble(3));
+    ARIADNE_TEST_ASSERT(ExactDouble(3)>=ExactDouble(2));
+    ARIADNE_TEST_ASSERT(ExactDouble(2)<=ExactDouble(3));
+    ARIADNE_TEST_ASSERT(ExactDouble(3)>ExactDouble(2));
+    ARIADNE_TEST_ASSERT(ExactDouble(2)<ExactDouble(3));
+
+    ARIADNE_TEST_EQUALS(exact(0.625L).get_d(),0.625);
+    ARIADNE_TEST_EQUALS(cast_exact(ApproximateDouble(1.5)).get_d(),1.5);
+    ARIADNE_TEST_EQUALS(cast_positive(ExactDouble(2)).get_d(),2.0);
+    ARIADNE_TEST_EQUALS(Positive<ExactDouble>(ExactDouble(3)).get_d(),3.0);
+    ARIADNE_TEST_EQUALS(ApproximateDouble(ExactDouble(1.25)).get_d(),1.25);
+}
+
 Void test_double_runtime()
 {
     set_default_builtin_rounding();
@@ -720,6 +830,7 @@ Int main() {
     std::cerr<<std::setprecision(20);
     
     test_float_literals();
+    test_builtin_runtime();
     test_double_runtime();
     TestFloat<DoublePrecision>(dp).test();
     TestFloat<MultiplePrecision>(MultiplePrecision(128_bits)).test();
