@@ -79,12 +79,33 @@ Rational operator""_q (const char* str, std::size_t) { return Rational(Decimal(S
 using namespace std;
 using namespace Ariadne;
 
+namespace {
+
+constexpr bool check_real_concept()
+{
+    return requires(Real x, Real y, Nat m, Int n) {
+        +x; -x;
+        add(x,y); sub(x,y); mul(x,y); div(x,y);
+        pow(x,m); pow(x,n);
+        pos(x); neg(x); hlf(x); sqr(x); rec(x);
+        sqrt(x); exp(x); log(x);
+        sin(x); cos(x); tan(x); tanh(x);
+        asin(x); acos(x); atan(x);
+        abs(x); max(x,y); min(x,y);
+    };
+}
+
+static_assert(check_real_concept());
+
+} // namespace
+
+
 class TestReal
 {
   public:
     void test();
   private:
-    void test_concept();
+    void test_expression_evaluation();
     void test_constructors();
     void test_conversions();
     void test_arithmetic();
@@ -99,7 +120,7 @@ class TestReal
 void TestReal::test()
 {
     FloatDPApproximation::set_output_places(18);
-    ARIADNE_TEST_CALL(test_concept());
+    ARIADNE_TEST_CALL(test_expression_evaluation());
     ARIADNE_TEST_CALL(test_constructors());
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_arithmetic());
@@ -111,7 +132,7 @@ void TestReal::test()
     ARIADNE_TEST_CALL(test_sequence());
 }
 
-void TestReal::test_concept() {
+void TestReal::test_expression_evaluation() {
     Effort eff(8u);
     MultiplePrecision mp(128_bits);
     Real x=Real(1)/2;
