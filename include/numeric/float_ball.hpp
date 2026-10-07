@@ -641,7 +641,7 @@ template<class F, class FE> struct Operations<Ball<F,FE>> {
         return hlf((x1+x2)-abs(x1-x2));
     }
 
-    static Error<F> _mag(Ball<F,FE> const& x) {
+    static PositiveUpperBound<F> _mag(Ball<F,FE> const& x) {
         return PositiveUpperBound<F>(add(up,abs(x._v),x._e));
     }
 
