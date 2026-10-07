@@ -67,6 +67,7 @@ class TestFloatBounds
     Void test_class();
     Void test_comparison();
     Void test_precision();
+    Void test_inl_mixed_operations();
     Void test_correct_rounded_arithmetic();
     Void test_accurate_rounded_arithmetic();
     Void test_exact_rounded_arithmetic();
@@ -86,6 +87,7 @@ TestFloatBounds<PR>::test()
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_comparison());
     ARIADNE_TEST_CALL(test_precision());
+    ARIADNE_TEST_CALL(test_inl_mixed_operations());
     ARIADNE_TEST_CALL(test_correct_rounded_arithmetic());
     ARIADNE_TEST_CALL(test_accurate_rounded_arithmetic());
     ARIADNE_TEST_CALL(test_exact_rounded_arithmetic());
@@ -176,6 +178,78 @@ TestFloatBounds<PR>::test_precision()
 
     ARIADNE_TEST_EQUALS(abs(FloatBoundsType(-1,2,pr)).lower().precision(),pr);
 
+}
+
+template<class PR> Void
+TestFloatBounds<PR>::test_inl_mixed_operations()
+{
+    FloatBoundsType x(-2,3,pr);
+    RawFloatType positive(2,pr);
+    RawFloatType negative(-2,pr);
+    RawFloatType zero(0,pr);
+
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_add(x,positive),
+        FloatBoundsType(0,5,pr));
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_add(positive,x),
+        FloatBoundsType(0,5,pr));
+
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_sub(x,positive),
+        FloatBoundsType(-4,1,pr));
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_sub(positive,x),
+        FloatBoundsType(-1,4,pr));
+
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_mul(x,positive),
+        FloatBoundsType(-4,6,pr));
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_mul(x,negative),
+        FloatBoundsType(-6,4,pr));
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_mul(positive,x),
+        FloatBoundsType(-4,6,pr));
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_mul(negative,x),
+        FloatBoundsType(-6,4,pr));
+
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_div(x,positive),
+        FloatBoundsType(-1,1.5_x,pr));
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_div(x,negative),
+        FloatBoundsType(-1.5_x,1,pr));
+
+    auto divided_by_zero=Operations<FloatBoundsType>::_div(x,zero);
+    ARIADNE_TEST_ASSERT(is_inf(divided_by_zero.lower_raw()));
+    ARIADNE_TEST_ASSERT(is_inf(divided_by_zero.upper_raw()));
+    ARIADNE_TEST_ASSERT(divided_by_zero.lower_raw()<zero);
+    ARIADNE_TEST_ASSERT(divided_by_zero.upper_raw()>zero);
+
+    FloatBoundsType positive_denominator(1,4,pr);
+    FloatBoundsType negative_denominator(-4,-1,pr);
+    FloatBoundsType crossing_zero(-1,1,pr);
+
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_div(positive,positive_denominator),
+        FloatBoundsType(0.5_x,2,pr));
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_div(negative,positive_denominator),
+        FloatBoundsType(-2,-0.5_x,pr));
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_div(positive,negative_denominator),
+        FloatBoundsType(-2,-0.5_x,pr));
+    ARIADNE_TEST_SAME(
+        Operations<FloatBoundsType>::_div(negative,negative_denominator),
+        FloatBoundsType(0.5_x,2,pr));
+
+    auto divided_by_crossing=Operations<FloatBoundsType>::_div(positive,crossing_zero);
+    ARIADNE_TEST_ASSERT(is_inf(divided_by_crossing.lower_raw()));
+    ARIADNE_TEST_ASSERT(is_inf(divided_by_crossing.upper_raw()));
+    ARIADNE_TEST_ASSERT(divided_by_crossing.lower_raw()<zero);
+    ARIADNE_TEST_ASSERT(divided_by_crossing.upper_raw()>zero);
 }
 
 template<class PR> Void
