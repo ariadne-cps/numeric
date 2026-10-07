@@ -32,6 +32,8 @@
 #include "numeric/builtin.hpp"
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
+#include "numeric/number.hpp"
+#include "numeric/real.hpp"
 #include "numeric/float.decl.hpp"
 
 #include "numeric/float_ball.hpp"
@@ -66,6 +68,7 @@ class TestFloatBall
   private:
     using TestFloats<PR>::to_rational;
     Void test_concept();
+    Void test_header_api();
     Void test_precision();
     Void test_conversions();
     Void test_validation();
@@ -75,9 +78,92 @@ class TestFloatBall
 template<class PR, class PRE> Void
 TestFloatBall<PR,PRE>::test()
 {
+    ARIADNE_TEST_CALL(test_header_api());
     ARIADNE_TEST_CALL(test_precision());
     ARIADNE_TEST_CALL(test_conversions());
     ARIADNE_TEST_CALL(test_rounded_arithmetic());
+}
+
+template<class PR, class PRE> Void
+TestFloatBall<PR,PRE>::test_header_api()
+{
+    RawFloatType raw_one(1,precision);
+    RawFloatType raw_two(2,precision);
+    RawFloatType raw_half(Dyadic(1,1u),precision);
+    RawFloat<PRE> raw_error_one(1,error_precision);
+
+    FloatBallType by_precision(precision);
+    FloatBallType by_precisions(precision,error_precision);
+    typename FloatBallType::CharacteristicsType characteristics_pair(precision,error_precision);
+    FloatBallType by_characteristics(characteristics_pair);
+    FloatBallType by_raw(raw_one);
+
+    ARIADNE_TEST_EQUALS(by_precision.value_raw(),RawFloatType(0,precision));
+    ARIADNE_TEST_EQUALS(by_precisions.error_raw(),RawFloat<PRE>(0,error_precision));
+    ARIADNE_TEST_EQUALS(by_characteristics.value_raw(),RawFloatType(0,precision));
+    ARIADNE_TEST_EQUALS(by_raw.value_raw(),raw_one);
+
+    ValidatedNumber validated=by_raw.operator ValidatedNumber();
+    FloatBallType assigned(precision,error_precision);
+    assigned=validated;
+    ARIADNE_TEST_EXECUTE(by_raw.create(validated));
+    ARIADNE_TEST_EXECUTE(by_raw.generic());
+
+    ARIADNE_TEST_EQUALS(by_raw.get_d(),1.0);
+    auto characteristics=by_raw.characteristics();
+    ARIADNE_TEST_EQUALS(std::get<0>(characteristics),precision);
+    ARIADNE_TEST_EQUALS(std::get<1>(characteristics),error_precision);
+
+    ARIADNE_TEST_EXECUTE(nul(by_raw));
+    ARIADNE_TEST_EXECUTE(pos(by_raw));
+    ARIADNE_TEST_EXECUTE(neg(by_raw));
+    ARIADNE_TEST_EXECUTE(tanh(by_raw));
+
+    FloatBallType trigonometric(raw_half);
+    ARIADNE_TEST_EXECUTE(asin(trigonometric));
+    ARIADNE_TEST_EXECUTE(acos(trigonometric));
+
+    FloatBallType other(raw_two);
+    ARIADNE_TEST_EXECUTE(eq(by_raw,other));
+    ARIADNE_TEST_EXECUTE(lt(by_raw,other));
+
+    ARIADNE_TEST_EXECUTE(add(by_raw,raw_two));
+    ARIADNE_TEST_EXECUTE(sub(by_raw,raw_two));
+    ARIADNE_TEST_EXECUTE(mul(by_raw,raw_two));
+    ARIADNE_TEST_EXECUTE(div(by_raw,raw_two));
+    ARIADNE_TEST_EXECUTE(add(raw_two,by_raw));
+    ARIADNE_TEST_EXECUTE(sub(raw_two,by_raw));
+    ARIADNE_TEST_EXECUTE(mul(raw_two,by_raw));
+    ARIADNE_TEST_EXECUTE(div(raw_two,by_raw));
+
+    ARIADNE_TEST_EXECUTE(max(by_raw,raw_two));
+    ARIADNE_TEST_EXECUTE(min(by_raw,raw_two));
+    ARIADNE_TEST_EXECUTE(max(raw_two,by_raw));
+    ARIADNE_TEST_EXECUTE(min(raw_two,by_raw));
+
+    ARIADNE_TEST_EXECUTE((void)(by_raw==raw_one));
+    ARIADNE_TEST_EXECUTE((void)(by_raw!=raw_two));
+    ARIADNE_TEST_EXECUTE((void)(by_raw<raw_two));
+    ARIADNE_TEST_EXECUTE((void)(by_raw>RawFloatType(0,precision)));
+    ARIADNE_TEST_EXECUTE((void)(by_raw<=raw_one));
+    ARIADNE_TEST_EXECUTE((void)(by_raw>=raw_one));
+
+    ARIADNE_TEST_EXECUTE((void)(raw_one==by_raw));
+    ARIADNE_TEST_EXECUTE((void)(raw_two!=by_raw));
+    ARIADNE_TEST_EXECUTE((void)(RawFloatType(0,precision)<by_raw));
+    ARIADNE_TEST_EXECUTE((void)(raw_two>by_raw));
+    ARIADNE_TEST_EXECUTE((void)(raw_one<=by_raw));
+    ARIADNE_TEST_EXECUTE((void)(raw_one>=by_raw));
+
+    auto fac=factory(by_raw);
+    ARIADNE_TEST_EXECUTE(fac.create(Real(Rational(1,2))));
+    ARIADNE_TEST_EXECUTE(fac.create(Rational(1,2)));
+    ARIADNE_TEST_EXECUTE(fac.create(Dyadic(1,1u)));
+    ARIADNE_TEST_EXECUTE(fac.create(Integer(1)));
+
+    FloatBallType wide(RawFloatType(0,precision),raw_error_one);
+    auto squared=sqr(wide);
+    ARIADNE_TEST_ASSERT(squared.error_raw()>=RawFloat<PRE>(0,error_precision));
 }
 
 template<class PR, class PRE> Void
