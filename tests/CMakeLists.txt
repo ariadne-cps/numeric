@@ -15,6 +15,7 @@ set(UNIT_TESTS
     test_float_rounding
     test_rounded_float
     test_float_approximation
+    test_float_error
     test_float_lower_upper_bound
     test_float_bounds
     test_float_ball
