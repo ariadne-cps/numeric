@@ -492,12 +492,6 @@ String print(const mpfr_t x, int fdgts, mpfr_rnd_t rnd) {
     return result;
 }
 
-String print(const mpfr_t x, int, int fdgts, mpfr_rnd_t rnd) {
-    // zdgts is the number of places allocated for the integer part (currently unused)
-    // fdgts is the number of places allocated for the fractional part
-    return print(x,fdgts,rnd);
-}
-
 String print(FloatMP const& x, DecimalPrecision figs, RoundingModeMP rnd) {
     if (is_nan(x)) { return "nan"; }
     if (x==0) { return "0."; }

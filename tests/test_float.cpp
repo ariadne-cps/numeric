@@ -412,7 +412,6 @@ TestFloat<PR>::test_operations()
         repr(repr_stream,a,MPFR_RNDN);
         ARIADNE_TEST_ASSERT(not repr_stream.str().empty());
 
-        ARIADNE_TEST_EQUALS(print(a.get_mpfr(),3,0,MPFR_RNDN),String("2."));
         ARIADNE_TEST_EQUALS(print(FloatMP::nan(mpr),DecimalPrecision(3u),MPFR_RNDN),String("nan"));
 
         std::istringstream float_input("\t\n+2.5:");
@@ -459,19 +458,19 @@ TestFloat<PR>::test_predicates()
     if constexpr (Same<PR,MultiplePrecision>) {
         FloatMP x(Dyadic(3,1u),pr);
         FloatMP one(1,pr);
-        FloatMP two(2,pr);
+        FloatMP two_mp(2,pr);
 
-        ARIADNE_TEST_EQUALS(cmp(two,one),Comparison::GREATER);
-        ARIADNE_TEST_EQUALS(cmp(two,Nat(1u)),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(two_mp,one),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(two_mp,Nat(1u)),Comparison::GREATER);
         ARIADNE_TEST_EQUALS(cmp(one,Nat(2u)),Comparison::LESS);
 
-        ARIADNE_TEST_EQUALS(cmp(Int(1),two),Comparison::LESS);
-        ARIADNE_TEST_EQUALS(cmp(Int(2),two),Comparison::EQUAL);
-        ARIADNE_TEST_EQUALS(cmp(Int(3),two),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(Int(1),two_mp),Comparison::LESS);
+        ARIADNE_TEST_EQUALS(cmp(Int(2),two_mp),Comparison::EQUAL);
+        ARIADNE_TEST_EQUALS(cmp(Int(3),two_mp),Comparison::GREATER);
 
-        ARIADNE_TEST_EQUALS(cmp(ExactDouble(1.0),two),Comparison::LESS);
-        ARIADNE_TEST_EQUALS(cmp(ExactDouble(2.0),two),Comparison::EQUAL);
-        ARIADNE_TEST_EQUALS(cmp(ExactDouble(3.0),two),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(ExactDouble(1.0),two_mp),Comparison::LESS);
+        ARIADNE_TEST_EQUALS(cmp(ExactDouble(2.0),two_mp),Comparison::EQUAL);
+        ARIADNE_TEST_EQUALS(cmp(ExactDouble(3.0),two_mp),Comparison::GREATER);
 
         ARIADNE_TEST_EQUALS(cmp(Nat(1u),x),Comparison::LESS);
         ARIADNE_TEST_EQUALS(cmp(Nat(2u),x),Comparison::GREATER);
