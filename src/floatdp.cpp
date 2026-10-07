@@ -94,22 +94,51 @@ FloatDP::Float(Integer const& x, RoundingModeType rnd, PrecisionType pr)
 {
 }
 
-FloatDP::Float(Dyadic const& w, RoundingModeType rnd, PrecisionType)
-    : FloatDP(w.get_d())
-{
+namespace {
+
+double rounded_dyadic_value(Dyadic const& w, BuiltinRoundingModeType rnd) {
+    double d=w.get_d();
     if (is_finite(w)) {
-         RoundingModeType old_rnd=get_rounding_mode();
-         if(rnd==ROUND_UPWARD) {
-             set_rounding_upward();
-             while (Dyadic(dbl)<w) { dbl=dbl+std::numeric_limits<double>::min(); }
-             set_rounding_mode(old_rnd);
-         }
-         if(rnd==ROUND_DOWNWARD) {
-             set_rounding_downward();
-             while (Dyadic(dbl)>w) { dbl=dbl-std::numeric_limits<double>::min(); }
-             set_rounding_mode(old_rnd);
-         }
-     }
+        auto old_rnd=FloatDP::get_rounding_mode();
+        if(rnd==FloatDP::ROUND_UPWARD) {
+            FloatDP::set_rounding_upward();
+            while (Dyadic(d)<w) { d=d+std::numeric_limits<double>::min(); }
+            FloatDP::set_rounding_mode(old_rnd);
+        }
+        if(rnd==FloatDP::ROUND_DOWNWARD) {
+            FloatDP::set_rounding_downward();
+            while (Dyadic(d)>w) { d=d-std::numeric_limits<double>::min(); }
+            FloatDP::set_rounding_mode(old_rnd);
+        }
+    }
+    return d;
+}
+
+inline Rational cast_rational(double d) { return Rational(ExactDouble(d)); }
+
+double rounded_rational_value(Rational const& q, BuiltinRoundingModeType rnd) {
+    double d=q.get_d();
+    if (is_finite(q)) {
+        auto old_rnd=FloatDP::get_rounding_mode();
+        if(rnd==FloatDP::ROUND_UPWARD) {
+            FloatDP::set_rounding_upward();
+            while (cast_rational(d)<q) { d=d+std::numeric_limits<double>::min(); }
+            FloatDP::set_rounding_mode(old_rnd);
+        }
+        if(rnd==FloatDP::ROUND_DOWNWARD) {
+            FloatDP::set_rounding_downward();
+            while (cast_rational(d)>q) { d=d-std::numeric_limits<double>::min(); }
+            FloatDP::set_rounding_mode(old_rnd);
+        }
+    }
+    return d;
+}
+
+} // namespace
+
+FloatDP::Float(Dyadic const& w, RoundingModeType rnd, PrecisionType)
+    : FloatDP(rounded_dyadic_value(w,rnd))
+{
 }
 
 FloatDP::Float(Decimal const& dec, RoundingModeType rnd, PrecisionType pr)
@@ -117,24 +146,9 @@ FloatDP::Float(Decimal const& dec, RoundingModeType rnd, PrecisionType pr)
 {
 }
 
-inline Rational cast_rational(double d) { return Rational(ExactDouble(d)); }
-
 FloatDP::Float(Rational const& q, RoundingModeType rnd, PrecisionType)
-    : FloatDP(q.get_d())
+    : FloatDP(rounded_rational_value(q,rnd))
 {
-    if (is_finite(q)) {
-        RoundingModeType old_rnd=get_rounding_mode();
-        if(rnd==ROUND_UPWARD) {
-            set_rounding_upward();
-            while (cast_rational(dbl)<q) { dbl=dbl+std::numeric_limits<double>::min(); }
-            set_rounding_mode(old_rnd);
-        }
-        if(rnd==ROUND_DOWNWARD) {
-            set_rounding_downward();
-            while (cast_rational(dbl)>q) { dbl=dbl-std::numeric_limits<double>::min(); }
-            set_rounding_mode(old_rnd);
-        }
-    }
 }
 
 FloatDP::Float(FloatDP const& x, RoundingModeType, PrecisionType)
