@@ -44,6 +44,11 @@
 
 namespace Ariadne {
 
+namespace {
+inline mpfr_prec_t raw_mpfr_precision(mpfr_srcptr x) { return x->_mpfr_prec; }
+inline mpfr_exp_t raw_mpfr_exponent(mpfr_srcptr x) { return x->_mpfr_exp; }
+}
+
 // Rule for combining mixed precision
 inline MultiplePrecision cmb(MultiplePrecision pr1, MultiplePrecision pr2) { return min(pr1,pr2); }
 inline MultiplePrecision cmb(MultiplePrecision pr1, MultiplePrecision pr2, MultiplePrecision pr3) { return cmb(cmb(pr1,pr2),pr3); }
@@ -59,7 +64,7 @@ FloatMP::Float(NoInit const&) {
 }
 
 FloatMP::Float(const mpfr_t x, RawPtr const&) : FloatMP(NoInit()) {
-    mpfr_set_prec(this->_mpfr,(mpfr_get_prec)(x));
+    mpfr_set_prec(this->_mpfr,raw_mpfr_precision(x));
     mpfr_set(this->_mpfr,x,MPFR_RNDN);
 }
 
@@ -145,7 +150,7 @@ FloatMP::Float(FloatMP const& x, RoundingModeType rnd, MultiplePrecision pr) {
 }
 
 FloatMP::Float(const FloatMP& x) {
-    mpfr_init2(_mpfr,(mpfr_get_prec)(x._mpfr));
+    mpfr_init2(_mpfr,raw_mpfr_precision(x._mpfr));
     mpfr_set(_mpfr,x._mpfr,get_rounding_mode());
 }
 
@@ -260,11 +265,11 @@ Void FloatMP::set_precision(MultiplePrecision pr) {
 }
 
 FloatMP::ExponentType FloatMP::exponent() const {
-    return (mpfr_get_exp)(this->_mpfr);
+    return raw_mpfr_exponent(this->_mpfr);
 }
 
 FloatMP::PrecisionType FloatMP::precision() const {
-    return PrecisionType((mpfr_get_prec)(this->_mpfr));
+    return PrecisionType(raw_mpfr_precision(this->_mpfr));
 }
 
 double FloatMP::get_d() const {
