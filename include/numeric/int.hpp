@@ -75,7 +75,8 @@ class Int32 {
         return static_cast<int32_t>(m);
     }
     static int32_t _checked_signed(int64_t n) {
-        ARIADNE_PRECONDITION((n>=std::numeric_limits<int32_t>::min()) & (n<=std::numeric_limits<int32_t>::max()));
+        ARIADNE_PRECONDITION(n>=std::numeric_limits<int32_t>::min());
+        ARIADNE_PRECONDITION(n<=std::numeric_limits<int32_t>::max());
         return static_cast<int32_t>(n);
     }
   public:
