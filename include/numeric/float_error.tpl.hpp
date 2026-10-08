@@ -58,8 +58,7 @@ template<class F> struct Operations<Error<F>> {
         is >> e;
         if(!is) { return is; }
         if(e<0) {
-            ARIADNE_THROW(std::runtime_error,"operator>>(InputStream&,Error<F>&)","negative error bound "<<e);
-        }
+            ARIADNE_THROW(std::runtime_error,"operator>>(InputStream&,Error<F>&)","negative error bound "<<e); }
         x.raw()=e;
         return is;
     }
