@@ -63,6 +63,11 @@ void test_float_error(typename F::PrecisionType pr)
 {
     using E=Error<F>;
 
+    Nat saved_output_places=E::output_places;
+    E::set_output_places(4u);
+    ARIADNE_TEST_EQUALS(E::output_places,Nat(4u));
+    E::set_output_places(saved_output_places);
+
     E zero(pr);
     E one(1u,pr);
     E two_error(2u,pr);
