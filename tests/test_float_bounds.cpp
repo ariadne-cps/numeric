@@ -143,6 +143,13 @@ TestFloatBounds<PR>::test_header_api()
     ARIADNE_TEST_SAME(assigned,FloatBoundsType(1,pr));
 
     FloatBoundsType source(1,2,pr);
+
+    if constexpr (Same<PR,MultiplePrecision>) {
+        RawFloatType lower_mismatched(1,MultiplePrecision(64_bits));
+        RawFloatType upper_mismatched(2,MultiplePrecision(128_bits));
+        ARIADNE_TEST_FAIL(FloatBoundsType(lower_mismatched,upper_mismatched));
+    }
+
     ValidatedNumber generic=source.generic();
     assigned=generic;
     ARIADNE_TEST_SAME(assigned,source);

@@ -101,7 +101,8 @@ template<class F> class Bounds
     //! Construct bounds with value \a v.
     Bounds(RawType const& v) : _l(v), _u(v) { }
     //! Construct a lower bound of value \a l and an upper bound of value \a u.
-    explicit Bounds(RawType const& l, RawType const& u) : _l(l), _u(u) { }
+    explicit Bounds(RawType const& l, RawType const& u) : _l(l), _u(u) {
+        ARIADNE_PRECONDITION(_l.precision()==_u.precision()); }
     //! Construct from a lower bound \a lower and an upper bound \a upper.
     Bounds(LowerBound<F> const& lower, UpperBound<F> const& upper);
     Bounds(LowerBound<F> const& lower, ValidatedUpperNumber const& upper);
@@ -164,9 +165,9 @@ template<class F> class Bounds
     double get_d() const { return value_raw().get_d(); }
 
     //! The precision of the floating-point type used.
-    PrecisionType precision() const { ARIADNE_DEBUG_ASSERT(_l.precision()==_u.precision()); return _u.precision(); }
+    PrecisionType precision() const { return _u.precision(); }
     //! The compuational characteristics needed to create the bounds; equivalent to the precision.
-    CharacteristicsType characteristics() const { ARIADNE_DEBUG_ASSERT(_l.precision()==_u.precision()); return _u.precision(); }
+    CharacteristicsType characteristics() const { return _u.precision(); }
     //! Downcast to generic validated bounds.
     GenericType generic() const { return this->operator GenericType(); }
 
