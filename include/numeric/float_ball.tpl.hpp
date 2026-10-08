@@ -63,7 +63,10 @@ template<class F, class FE> Ball<F,FE>::Ball(Bounds<F> const& x, PRE pre)
 template<class F, class FE> Ball<F,FE>::Ball(Ball<F,FE> const& x, PR pr)
     : _v(x._v,near,pr), _e(x._e,up,_error_precision<PRE>(pr))
 {
-    F d = (this->_v>=x._v) ? sub(up,this->_v,x._v) : sub(up,x._v,this->_v); _e=add(up,_e,_make_error<FE>(d));
+    if constexpr (not SameAs<PR,DoublePrecision>) {
+        F d = (this->_v>=x._v) ? sub(up,this->_v,x._v) : sub(up,x._v,this->_v);
+        _e=add(up,_e,_make_error<FE>(d));
+    }
 }
 
 template<class F, class FE> Ball<F,FE>::Ball(Ball<F,FE> const& x, PR pr, PRE pre)

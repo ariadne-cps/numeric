@@ -151,11 +151,22 @@ TestFloatBall<PR,PRE>::test_header_api()
 
     if constexpr (Same<PR,MultiplePrecision>) {
         MultiplePrecision lower_precision(53_bits);
-        FloatBallType source(Rational(1,3),precision);
-        FloatBallType narrowed(source,lower_precision);
-        FloatBallType narrowed_explicit(source,lower_precision,error_precision);
-        ARIADNE_TEST_BINARY_PREDICATE(models,narrowed,Rational(1,3));
-        ARIADNE_TEST_BINARY_PREDICATE(models,narrowed_explicit,Rational(1,3));
+
+        FloatBallType source_down(Rational(1,3),precision);
+        FloatBallType narrowed_down(source_down,lower_precision);
+        FloatBallType narrowed_explicit_down(source_down,lower_precision,error_precision);
+        ARIADNE_TEST_ASSERT(narrowed_down.value_raw()<source_down.value_raw());
+        ARIADNE_TEST_ASSERT(narrowed_explicit_down.value_raw()<source_down.value_raw());
+        ARIADNE_TEST_BINARY_PREDICATE(models,narrowed_down,Rational(1,3));
+        ARIADNE_TEST_BINARY_PREDICATE(models,narrowed_explicit_down,Rational(1,3));
+
+        FloatBallType source_up(Rational(1,5),precision);
+        FloatBallType narrowed_up(source_up,lower_precision);
+        FloatBallType narrowed_explicit_up(source_up,lower_precision,error_precision);
+        ARIADNE_TEST_ASSERT(narrowed_up.value_raw()>source_up.value_raw());
+        ARIADNE_TEST_ASSERT(narrowed_explicit_up.value_raw()>source_up.value_raw());
+        ARIADNE_TEST_BINARY_PREDICATE(models,narrowed_up,Rational(1,5));
+        ARIADNE_TEST_BINARY_PREDICATE(models,narrowed_explicit_up,Rational(1,5));
     }
 
     auto characteristics=by_raw.characteristics();
