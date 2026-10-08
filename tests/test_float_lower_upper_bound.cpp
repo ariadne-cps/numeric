@@ -215,7 +215,7 @@ TestDirectedFloats<PR>::test_header_api()
     ARIADNE_TEST_EQUALS(upper_from_error.raw(),F(1,precision));
 
     U negative_upper(-1,precision);
-    ARIADNE_TEST_FAIL(PositiveFloatUpperBoundType(negative_upper));
+    ARIADNE_TEST_FAIL(PositiveFloatUpperBoundType{negative_upper});
 
     ValidatedUpperNumber generic_negative=negative_upper;
     PositiveValidatedUpperNumber positive_generic_negative(generic_negative);
