@@ -93,14 +93,14 @@ Void test_numeric_casts()
 
     Real real_from_dp=numeric_cast<Real>(dp_two);
     Real real_from_bounds=numeric_cast<Real>(bounds_two);
-    ARIADNE_TEST_BINARY_PREDICATE(models,real_from_dp.get(dp),Integer(2));
-    ARIADNE_TEST_BINARY_PREDICATE(models,real_from_bounds.get(dp),Integer(2));
+    ARIADNE_TEST_BINARY_PREDICATE(models,real_from_dp.get(dp),dp_two);
+    ARIADNE_TEST_BINARY_PREDICATE(models,real_from_bounds.get(dp),dp_two);
 
     FloatDPBall ball_from_real=numeric_cast<FloatDPBall>(real_two);
     FloatDPBounds bounds_from_real=numeric_cast<FloatDPBounds>(real_two);
     FloatDPApproximation approximation_from_real=numeric_cast<FloatDPApproximation>(real_two);
-    ARIADNE_TEST_BINARY_PREDICATE(models,ball_from_real,Integer(2));
-    ARIADNE_TEST_BINARY_PREDICATE(models,bounds_from_real,Integer(2));
+    ARIADNE_TEST_BINARY_PREDICATE(models,ball_from_real,dp_two);
+    ARIADNE_TEST_BINARY_PREDICATE(models,bounds_from_real,dp_two);
     ARIADNE_TEST_EQUALS(approximation_from_real.raw(),dp_two);
 }
 
