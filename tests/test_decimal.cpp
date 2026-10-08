@@ -22,6 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <sstream>
+
 #include "numeric/decimal.hpp"
 #include "numeric/dyadic.hpp"
 #include "numeric/integer.hpp"
@@ -95,6 +97,27 @@ void test_decimal()
     ARIADNE_TEST_EQUALS(abs(Decimal("-2.5")),Decimal("2.5"));
     ARIADNE_TEST_EQUALS(max(Decimal("-2.5"),Decimal("1.5")),Decimal("1.5"));
     ARIADNE_TEST_EQUALS(min(Decimal("-2.5"),Decimal("1.5")),Decimal("-2.5"));
+
+    Decimal comparison_low("1.25");
+    Decimal comparison_high("2.5");
+    ARIADNE_TEST_ASSERT(comparison_low<=comparison_high);
+    ARIADNE_TEST_ASSERT(comparison_high>=comparison_low);
+    ARIADNE_TEST_ASSERT(comparison_high>comparison_low);
+
+    PositiveDecimal positive_default;
+    PositiveDecimal positive_value(Decimal("1.25"));
+    PositiveDecimal positive_cast=cast_positive(Decimal("2.5"));
+    ARIADNE_TEST_EQUALS(positive_default,Decimal(0));
+    ARIADNE_TEST_EQUALS(positive_value,Decimal("1.25"));
+    ARIADNE_TEST_EQUALS(positive_cast,Decimal("2.5"));
+    ARIADNE_TEST_FAIL(PositiveDecimal(Decimal("-1")));
+
+    DecimalBounds point_bounds(Decimal("1.25"));
+    ARIADNE_TEST_EQUALS(point_bounds.lower(),Decimal("1.25"));
+    ARIADNE_TEST_EQUALS(point_bounds.upper(),Decimal("1.25"));
+    std::ostringstream bounds_stream;
+    bounds_stream << point_bounds;
+    ARIADNE_TEST_ASSERT(not bounds_stream.str().empty());
 
     ARIADNE_TEST_EQUALS(Decimal("3.014").literal(),String("3.014"));
     ARIADNE_TEST_EQUALS(Decimal(3).literal(),String("3."));
