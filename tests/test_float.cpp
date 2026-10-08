@@ -216,6 +216,20 @@ TestFloat<PR>::test_conversions()
         ARIADNE_TEST_EQUALS(class_name<Rounded<FloatDP>>(),String("Rounded<FloatDP>"));
     } else if constexpr (Same<PR,MultiplePrecision>) {
         MultiplePrecision pr=precision;
+
+        MultiplePrecision from_dp(dp);
+        ARIADNE_TEST_EQUALS(from_dp.bits(),53u);
+        ARIADNE_TEST_ASSERT(MultiplePrecision(64_bits)<=MultiplePrecision(128_bits));
+
+        std::ostringstream precision_repr;
+        repr(precision_repr,MultiplePrecision(96_bits));
+        ARIADNE_TEST_EQUALS(precision_repr.str(),String("MultiplePrecision(96)"));
+
+        ARIADNE_TEST_EQUALS(multiple_precision(static_cast<mpfr_prec_t>(80)),MultiplePrecision(80_bits));
+        ARIADNE_TEST_EQUALS(multiple_precision(81_bits),MultiplePrecision(81_bits));
+        ARIADNE_TEST_EQUALS(Ariadne::precision(static_cast<mpfr_prec_t>(82)),MultiplePrecision(82_bits));
+        ARIADNE_TEST_EQUALS(Ariadne::mp(static_cast<mpfr_prec_t>(83)),MultiplePrecision(83_bits));
+
         FloatMP from_string(String("1.25"),pr);
         ARIADNE_TEST_EQUALS(from_string,Dyadic(5,2u));
 
@@ -246,6 +260,14 @@ TestFloat<PR>::test_conversions()
         ARIADNE_TEST_EQUALS(resized.precision(),MultiplePrecision(96_bits));
         ARIADNE_TEST_EXECUTE(mpfr_set_si(resized.get_mpfr(),2,MPFR_RNDN));
         ARIADNE_TEST_EQUALS(resized,Dyadic(2));
+
+        FloatMP scaled(3,pr);
+        scaled*=TwoExp(2);
+        ARIADNE_TEST_EQUALS(scaled,Dyadic(12));
+        scaled/=TwoExp(1);
+        ARIADNE_TEST_EQUALS(scaled,Dyadic(6));
+        ARIADNE_TEST_ASSERT(same(scaled,FloatMP(6,pr)));
+        ARIADNE_TEST_EQUALS(integer_cast<Nat>(FloatMP(7u,pr)),Nat(7u));
     }
 }
 
