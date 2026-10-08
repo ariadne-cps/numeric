@@ -288,6 +288,52 @@ TestFloat<PR>::test_operations()
 
     ARIADNE_TEST_EQUALS(vx,w);
 
+    FloatType mixed_float_one(1,pr);
+    Real mixed_real_two(2);
+
+    ARIADNE_TEST_ASSERT(not possibly(mixed_real_two==mixed_float_one));
+    ARIADNE_TEST_ASSERT(definitely(mixed_real_two!=mixed_float_one));
+    ARIADNE_TEST_ASSERT(not possibly(mixed_real_two< mixed_float_one));
+    ARIADNE_TEST_ASSERT(definitely(mixed_real_two> mixed_float_one));
+    ARIADNE_TEST_ASSERT(not possibly(mixed_real_two<=mixed_float_one));
+    ARIADNE_TEST_ASSERT(definitely(mixed_real_two>=mixed_float_one));
+
+    ARIADNE_TEST_ASSERT(not possibly(mixed_float_one==mixed_real_two));
+    ARIADNE_TEST_ASSERT(definitely(mixed_float_one!=mixed_real_two));
+    ARIADNE_TEST_ASSERT(definitely(mixed_float_one< mixed_real_two));
+    ARIADNE_TEST_ASSERT(not possibly(mixed_float_one> mixed_real_two));
+    ARIADNE_TEST_ASSERT(definitely(mixed_float_one<=mixed_real_two));
+    ARIADNE_TEST_ASSERT(not possibly(mixed_float_one>=mixed_real_two));
+
+    FloatBoundsType mixed_three(3,pr);
+    FloatBoundsType mixed_minus_one(-1,pr);
+    FloatBoundsType mixed_two(2,pr);
+    FloatBoundsType mixed_one(1,pr);
+    FloatBoundsType mixed_half(Dyadic(1,1u),pr);
+
+    ARIADNE_TEST_SAME(mixed_float_one+mixed_real_two,mixed_three);
+    ARIADNE_TEST_SAME(mixed_float_one-mixed_real_two,mixed_minus_one);
+    ARIADNE_TEST_SAME(mixed_float_one*mixed_real_two,mixed_two);
+    ARIADNE_TEST_SAME(mixed_float_one/mixed_real_two,mixed_half);
+    ARIADNE_TEST_SAME(mixed_real_two+mixed_float_one,mixed_three);
+    ARIADNE_TEST_SAME(mixed_real_two-mixed_float_one,mixed_one);
+    ARIADNE_TEST_SAME(mixed_real_two*mixed_float_one,mixed_two);
+    ARIADNE_TEST_SAME(mixed_real_two/mixed_float_one,mixed_two);
+
+    ARIADNE_TEST_SAME(add(mixed_float_one,mixed_real_two),mixed_three);
+    ARIADNE_TEST_SAME(sub(mixed_float_one,mixed_real_two),mixed_minus_one);
+    ARIADNE_TEST_SAME(mul(mixed_float_one,mixed_real_two),mixed_two);
+    ARIADNE_TEST_SAME(div(mixed_float_one,mixed_real_two),mixed_half);
+    ARIADNE_TEST_SAME(add(mixed_real_two,mixed_float_one),mixed_three);
+    ARIADNE_TEST_SAME(sub(mixed_real_two,mixed_float_one),mixed_one);
+    ARIADNE_TEST_SAME(mul(mixed_real_two,mixed_float_one),mixed_two);
+    ARIADNE_TEST_SAME(div(mixed_real_two,mixed_float_one),mixed_two);
+
+    ARIADNE_TEST_SAME(max(mixed_float_one,mixed_real_two),mixed_two);
+    ARIADNE_TEST_SAME(min(mixed_float_one,mixed_real_two),mixed_one);
+    ARIADNE_TEST_SAME(max(mixed_real_two,mixed_float_one),mixed_two);
+    ARIADNE_TEST_SAME(min(mixed_real_two,mixed_float_one),mixed_one);
+
     ARIADNE_TEST_EQUALS(FloatType(RawFloatType(1.25_x,pr)),1.25_dy);
 
     ARIADNE_TEST_EQUALS(FloatType(3u,pr),3.0_dy);
