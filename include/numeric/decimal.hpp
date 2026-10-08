@@ -83,10 +83,10 @@ class Decimal
     //! \name Comparison operators
     friend Boolean operator==(Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)==Comparison::EQUAL; } //!< <p/>
     friend Boolean operator!=(Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)!=Comparison::EQUAL; } //!< <p/>
-    friend Boolean operator<=(Decimal const& d1, Decimal const& d2) { return cmp(d2,d1)!=Comparison::GREATER; } //!< <p/>
+    friend Boolean operator<=(Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)!=Comparison::GREATER; } //!< <p/>
     friend Boolean operator>=(Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)!=Comparison::LESS; } //!< <p/>
     friend Boolean operator< (Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)==Comparison::LESS; } //!< <p/>
-    friend Boolean operator> (Decimal const& d1, Decimal const& d2) { return cmp(d2,d1)==Comparison::GREATER; } //!< <p/>
+    friend Boolean operator> (Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)==Comparison::GREATER; } //!< <p/>
     //!@}
 
     //!@{
