@@ -61,9 +61,9 @@ void test_rational_extended()
     ARIADNE_TEST_EQUALS(cmp(pinf,nan),Comparison::INCOMPARABLE);
     ARIADNE_TEST_EQUALS(cmp(pinf,ninf),Comparison::GREATER);
     ARIADNE_TEST_EQUALS(cmp(ninf,pinf),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(ExtendedOperations<Rational>::cmp(nan,Int(0)),Comparison::INCOMPARABLE);
-    ARIADNE_TEST_EQUALS(ExtendedOperations<Rational>::cmp(pinf,Int(0)),Comparison::GREATER);
-    ARIADNE_TEST_EQUALS(ExtendedOperations<Rational>::cmp(ninf,Int(0)),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(nan,Int(0)),Comparison::INCOMPARABLE);
+    ARIADNE_TEST_EQUALS(cmp(pinf,Int(0)),Comparison::GREATER);
+    ARIADNE_TEST_EQUALS(cmp(ninf,Int(0)),Comparison::LESS);
 }
 
 void test_dyadic_extended()
@@ -98,9 +98,9 @@ void test_dyadic_extended()
     ARIADNE_TEST_EQUALS(cmp(pinf,nan),Comparison::INCOMPARABLE);
     ARIADNE_TEST_EQUALS(cmp(pinf,ninf),Comparison::GREATER);
     ARIADNE_TEST_EQUALS(cmp(ninf,pinf),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(ExtendedOperations<Dyadic>::cmp(nan,Int(0)),Comparison::INCOMPARABLE);
-    ARIADNE_TEST_EQUALS(ExtendedOperations<Dyadic>::cmp(pinf,Int(0)),Comparison::GREATER);
-    ARIADNE_TEST_EQUALS(ExtendedOperations<Dyadic>::cmp(ninf,Int(0)),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(nan,Int(0)),Comparison::INCOMPARABLE);
+    ARIADNE_TEST_EQUALS(cmp(pinf,Int(0)),Comparison::GREATER);
+    ARIADNE_TEST_EQUALS(cmp(ninf,Int(0)),Comparison::LESS);
 }
 
 } // namespace
