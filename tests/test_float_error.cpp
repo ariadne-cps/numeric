@@ -85,6 +85,10 @@ void test_float_error(typename F::PrecisionType pr)
     E from_upper(upper_two);
     ARIADNE_TEST_EQUALS(from_upper.raw(),F(2,pr));
 
+    ARIADNE_TEST_FAIL(E(F(-1,pr)));
+    UpperBound<F> negative_upper(F(-1,pr));
+    ARIADNE_TEST_FAIL(E(negative_upper));
+
     PositiveBounds<F> positive_bounds(F(1,pr),F(2,pr));
     E from_bounds(positive_bounds);
     ARIADNE_TEST_EQUALS(from_bounds.raw(),F(2,pr));
