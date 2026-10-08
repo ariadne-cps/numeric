@@ -173,6 +173,29 @@ TestFloatApproximation<PR>::test_header_api()
     ARIADNE_TEST_EQUALS(acos(A(1,pr)).raw(),F(0,pr));
 
     ARIADNE_TEST_SAME(assigned.pm(zero),assigned);
+
+    A generic_two(2,pr);
+    Integer generic_one(1);
+    ARIADNE_TEST_EQUALS(sub(generic_two,generic_one).raw(),F(1,pr));
+    ARIADNE_TEST_EQUALS(mul(generic_two,generic_one).raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS(div(generic_two,generic_one).raw(),F(2,pr));
+
+    ARIADNE_TEST_EQUALS(add(generic_one,generic_two).raw(),F(3,pr));
+    ARIADNE_TEST_EQUALS(sub(generic_one,generic_two).raw(),F(-1,pr));
+    ARIADNE_TEST_EQUALS(mul(generic_one,generic_two).raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS(div(generic_one,generic_two).raw(),F(Dyadic(1,1u),pr));
+
+    ARIADNE_TEST_EQUALS(max(generic_two,generic_one).raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS(min(generic_two,generic_one).raw(),F(1,pr));
+    ARIADNE_TEST_EQUALS(max(generic_one,generic_two).raw(),F(2,pr));
+    ARIADNE_TEST_EQUALS(min(generic_one,generic_two).raw(),F(1,pr));
+
+    ARIADNE_TEST_SAME(generic_two!=generic_one,ApproximateKleenean(true));
+    ARIADNE_TEST_SAME(generic_one==generic_two,ApproximateKleenean(false));
+    ARIADNE_TEST_SAME(generic_one!=generic_two,ApproximateKleenean(true));
+    ARIADNE_TEST_SAME(generic_one<=generic_two,ApproximateKleenean(true));
+    ARIADNE_TEST_SAME(generic_one>=generic_two,ApproximateKleenean(false));
+    ARIADNE_TEST_SAME(generic_one>generic_two,ApproximateKleenean(false));
 }
 
 template<class PR> Void

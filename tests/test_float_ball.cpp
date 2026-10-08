@@ -165,6 +165,18 @@ TestFloatBall<PR,PRE>::test_header_api()
     ARIADNE_TEST_EXECUTE(acos(trigonometric));
 
     FloatBallType other(raw_two);
+
+    FloatBoundsType bounds_one(1,precision);
+    FloatBallType ball_two(raw_two);
+    ARIADNE_TEST_SAME(add(bounds_one,ball_two),FloatBoundsType(3,precision));
+    ARIADNE_TEST_SAME(sub(bounds_one,ball_two),FloatBoundsType(-1,precision));
+    ARIADNE_TEST_SAME(mul(bounds_one,ball_two),FloatBoundsType(2,precision));
+    ARIADNE_TEST_SAME(div(bounds_one,ball_two),FloatBoundsType(Dyadic(1,1u),precision));
+    ARIADNE_TEST_SAME(add(ball_two,bounds_one),FloatBoundsType(3,precision));
+    ARIADNE_TEST_SAME(sub(ball_two,bounds_one),FloatBoundsType(1,precision));
+    ARIADNE_TEST_SAME(mul(ball_two,bounds_one),FloatBoundsType(2,precision));
+    ARIADNE_TEST_SAME(div(ball_two,bounds_one),FloatBoundsType(2,precision));
+
     ARIADNE_TEST_EXECUTE(eq(by_raw,other));
     ARIADNE_TEST_EXECUTE(lt(by_raw,other));
 

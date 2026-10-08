@@ -356,6 +356,7 @@ TestDirectedFloats<PR>::test_comparison() {
         FloatUpperBoundType upper_two(2,pr);
 
         ARIADNE_TEST_ASSERT(not possibly(eq(lower_two,upper_one)));
+        ARIADNE_TEST_ASSERT(definitely(lower_two!=upper_one));
         ARIADNE_TEST_ASSERT(is_indeterminate(eq(lower_one,upper_two)));
         ARIADNE_TEST_ASSERT(not possibly(eq(upper_one,lower_two)));
         ARIADNE_TEST_ASSERT(is_indeterminate(eq(upper_two,lower_one)));
