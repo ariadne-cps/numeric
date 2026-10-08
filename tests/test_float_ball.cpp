@@ -142,6 +142,13 @@ TestFloatBall<PR,PRE>::test_header_api()
     ARIADNE_TEST_EQUALS(parsed.value_raw(),RawFloatType(1,precision));
     ARIADNE_TEST_EQUALS(parsed.error_raw(),RawFloat<PRE>(0,error_precision));
 
+    StringStream incomplete_input;
+    incomplete_input << "1" << "\xC2\xB1";
+    ARIADNE_TEST_FAIL(incomplete_input >> parsed);
+
+    StringStream invalid_separator("1xx0");
+    ARIADNE_TEST_FAIL(invalid_separator >> parsed);
+
     if constexpr (Same<PR,MultiplePrecision>) {
         MultiplePrecision lower_precision(53_bits);
         FloatBallType source(Rational(1,3),precision);
