@@ -214,6 +214,13 @@ TestDirectedFloats<PR>::test_header_api()
     U upper_from_error(error);
     ARIADNE_TEST_EQUALS(upper_from_error.raw(),F(1,precision));
 
+    U negative_upper(-1,precision);
+    ARIADNE_TEST_FAIL(PositiveFloatUpperBoundType(negative_upper));
+
+    ValidatedUpperNumber generic_negative=negative_upper;
+    PositiveValidatedUpperNumber positive_generic_negative(generic_negative);
+    ARIADNE_TEST_FAIL(PositiveFloatUpperBoundType(positive_generic_negative,precision));
+
     if constexpr (Same<PR,MultiplePrecision>) {
         FloatDPLowerBound lower_dp(1,dp);
         FloatDPUpperBound upper_dp(1,dp);
