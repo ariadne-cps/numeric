@@ -96,18 +96,61 @@ TestFloatBall<PR,PRE>::test_header_api()
     FloatBallType by_characteristics(characteristics_pair);
     FloatBallType by_raw(raw_one);
 
+    FloatBallType from_twoexp(TwoExp(1),precision);
+    FloatBallType from_integer(Integer(2),precision);
+    FloatBallType from_dyadic(Dyadic(3,1u),precision);
+    FloatBallType from_decimal(Decimal(String("1.5")),precision);
+    Real real_value(Rational(3,2));
+    FloatBallType from_real(real_value,precision);
+
+    ARIADNE_TEST_EQUALS(from_twoexp.value_raw(),RawFloatType(2,precision));
+    ARIADNE_TEST_EQUALS(from_twoexp.error_raw(),RawFloat<PRE>(0,error_precision));
+    ARIADNE_TEST_EQUALS(from_integer.value_raw(),RawFloatType(2,precision));
+    ARIADNE_TEST_EQUALS(from_dyadic.value_raw(),RawFloatType(Dyadic(3,1u),precision));
+    ARIADNE_TEST_EQUALS(from_decimal.value_raw(),RawFloatType(Dyadic(3,1u),precision));
+    ARIADNE_TEST_BINARY_PREDICATE(models,from_real,Rational(3,2));
+
     ARIADNE_TEST_EQUALS(by_precision.value_raw(),RawFloatType(0,precision));
     ARIADNE_TEST_EQUALS(by_precisions.error_raw(),RawFloat<PRE>(0,error_precision));
     ARIADNE_TEST_EQUALS(by_characteristics.value_raw(),RawFloatType(0,precision));
     ARIADNE_TEST_EQUALS(by_raw.value_raw(),raw_one);
 
     ValidatedNumber validated=by_raw.operator ValidatedNumber();
+    FloatBallType from_validated(validated,precision);
+    ARIADNE_TEST_BINARY_PREDICATE(models,from_validated,Rational(1));
+
     FloatBallType assigned(precision,error_precision);
     assigned=validated;
     ARIADNE_TEST_EXECUTE(by_raw.create(validated));
     ARIADNE_TEST_EXECUTE(by_raw.generic());
 
     ARIADNE_TEST_EQUALS(by_raw.get_d(),1.0);
+
+    FloatBallType interval(raw_two,raw_error_one);
+    ARIADNE_TEST_EQUALS(interval.lower().raw(),RawFloatType(1,precision));
+    ARIADNE_TEST_EQUALS(interval.upper().raw(),RawFloatType(3,precision));
+
+    FloatBallType truncated=trunc(from_integer);
+    FloatBallType truncated_digits=trunc(from_integer,8u);
+    ARIADNE_TEST_BINARY_PREDICATE(models,truncated,Integer(2));
+    ARIADNE_TEST_BINARY_PREDICATE(models,truncated_digits,Integer(2));
+
+    StringStream input;
+    input << "1" << "\xC2\xB1" << "0";
+    FloatBallType parsed(precision,error_precision);
+    input >> parsed;
+    ARIADNE_TEST_EQUALS(parsed.value_raw(),RawFloatType(1,precision));
+    ARIADNE_TEST_EQUALS(parsed.error_raw(),RawFloat<PRE>(0,error_precision));
+
+    if constexpr (Same<PR,MultiplePrecision>) {
+        MultiplePrecision lower_precision(53_bits);
+        FloatBallType source(Rational(1,3),precision);
+        FloatBallType narrowed(source,lower_precision);
+        FloatBallType narrowed_explicit(source,lower_precision,error_precision);
+        ARIADNE_TEST_BINARY_PREDICATE(models,narrowed,Rational(1,3));
+        ARIADNE_TEST_BINARY_PREDICATE(models,narrowed_explicit,Rational(1,3));
+    }
+
     auto characteristics=by_raw.characteristics();
     ARIADNE_TEST_EQUALS(std::get<0>(characteristics),precision);
     ARIADNE_TEST_EQUALS(std::get<1>(characteristics),error_precision);
