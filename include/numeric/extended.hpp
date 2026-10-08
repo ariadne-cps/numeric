@@ -132,17 +132,7 @@ template<class X> class ExtendedOperations {
         } else if(is_finite(x2)) {
             return (int)sgn(x1) > 0 ? Comparison::GREATER : Comparison::LESS;
         } else {
-            return cmp((int)sgn(x1),(int)sgn(x2));
-        }
-    }
-
-    static Comparison cmp(X const& x1, Int const& n2) {
-        if(is_finite(x1)) {
-            return Finite::cmp(x1,n2);
-        } else if(is_nan(x1)) {
-            return Comparison::INCOMPARABLE;
-        } else {
-            return (int)sgn(x1) > 0 ? Comparison::GREATER : Comparison::LESS;
+            return Ariadne::cmp((int)sgn(x1),(int)sgn(x2));
         }
     }
 
