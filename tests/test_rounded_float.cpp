@@ -65,6 +65,45 @@ constexpr bool check_rounded_float_concept()
 static_assert(check_rounded_float_concept<FloatDP>());
 static_assert(check_rounded_float_concept<FloatMP>());
 
+Void test_numeric_casts()
+{
+    FloatDP dp_two(2,dp);
+    MultiplePrecision mp(128_bits);
+    FloatMP mp_two(2,mp);
+    Dyadic dy_two(2);
+    Real real_two(2);
+    FloatDPBounds bounds_two(2,dp);
+    FloatDPApproximation approximation_two(2,dp);
+    double double_two=2.0;
+
+    ARIADNE_TEST_EQUALS(numeric_cast<Int>(dp_two),Int(2));
+    ARIADNE_TEST_EQUALS(numeric_cast<Int>(mp_two),Int(2));
+
+    ARIADNE_TEST_EQUALS(numeric_cast<double>(dp_two),2.0);
+    ARIADNE_TEST_EQUALS(numeric_cast<double>(dy_two),2.0);
+    ARIADNE_TEST_EQUALS(numeric_cast<double>(real_two),2.0);
+    ARIADNE_TEST_EQUALS(numeric_cast<double>(bounds_two),2.0);
+    ARIADNE_TEST_EQUALS(numeric_cast<double>(approximation_two),2.0);
+
+    ARIADNE_TEST_EQUALS(numeric_cast<float>(double_two),2.0f);
+    ARIADNE_TEST_EQUALS(numeric_cast<float>(dp_two),2.0f);
+    ARIADNE_TEST_EQUALS(numeric_cast<float>(real_two),2.0f);
+
+    ARIADNE_TEST_EQUALS(numeric_cast<FloatDP>(dp_two),dp_two);
+
+    Real real_from_dp=numeric_cast<Real>(dp_two);
+    Real real_from_bounds=numeric_cast<Real>(bounds_two);
+    ARIADNE_TEST_BINARY_PREDICATE(models,real_from_dp.get(dp),Integer(2));
+    ARIADNE_TEST_BINARY_PREDICATE(models,real_from_bounds.get(dp),Integer(2));
+
+    FloatDPBall ball_from_real=numeric_cast<FloatDPBall>(real_two);
+    FloatDPBounds bounds_from_real=numeric_cast<FloatDPBounds>(real_two);
+    FloatDPApproximation approximation_from_real=numeric_cast<FloatDPApproximation>(real_two);
+    ARIADNE_TEST_BINARY_PREDICATE(models,ball_from_real,Integer(2));
+    ARIADNE_TEST_BINARY_PREDICATE(models,bounds_from_real,Integer(2));
+    ARIADNE_TEST_EQUALS(approximation_from_real.raw(),dp_two);
+}
+
 } // namespace
 
 
@@ -95,6 +134,8 @@ class TestRounded
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
+
+    ARIADNE_TEST_CALL(test_numeric_casts());
 
     TestRounded<FloatDP>(dp).test();
     TestRounded<FloatMP>(MP(128)).test();
