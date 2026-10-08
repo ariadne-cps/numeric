@@ -233,6 +233,17 @@ TestFloat<PR>::test_conversions()
         FloatMP from_string(String("1.25"),pr);
         ARIADNE_TEST_EQUALS(from_string,Dyadic(5,2u));
 
+        FloatMP parsed(7,pr);
+        std::istringstream empty_input("");
+        ARIADNE_TEST_EXECUTE(empty_input >> parsed);
+        ARIADNE_TEST_ASSERT(empty_input.fail());
+        ARIADNE_TEST_EQUALS(parsed,Dyadic(7));
+
+        std::istringstream invalid_input("2e+");
+        ARIADNE_TEST_EXECUTE(invalid_input >> parsed);
+        ARIADNE_TEST_ASSERT(invalid_input.fail());
+        ARIADNE_TEST_EQUALS(parsed,Dyadic(7));
+
         FloatMP source(Dyadic(3,2u),pr);
         FloatMP from_raw(source.get_mpfr(),RawPtr());
         ARIADNE_TEST_EQUALS(from_raw,source);

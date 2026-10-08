@@ -561,12 +561,22 @@ InputStream& operator>>(InputStream& is, FloatMP& x) {
         str.push_back(static_cast<char>(c));
         c=is.get();
     }
-    if(c!=std::char_traits<char>::eof()) {
+
+    Bool const at_eof=(c==std::char_traits<char>::eof());
+    if(not at_eof) {
         is.putback(static_cast<char>(c));
-    } else {
+    }
+
+    FloatMP parsed(x.precision());
+    if(str.empty() or mpfr_set_str(parsed._mpfr,str.c_str(),0,MPFR_RNDN)!=0) {
+        is.setstate(std::ios::failbit);
+        return is;
+    }
+
+    if(at_eof) {
         is.clear(is.rdstate() & ~std::ios::failbit);
     }
-    mpfr_set_str(x._mpfr,str.c_str(),0,MPFR_RNDN);
+    mpfr_set(x._mpfr,parsed._mpfr,MPFR_RNDN);
     return is;
 }
 
