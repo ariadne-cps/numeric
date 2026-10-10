@@ -65,12 +65,8 @@ ariadne_register_public_headers(
 
 setup_project_library(
     TARGET ariadne-numeric
-    OBJECTS
-        NUMERIC_SRC
-        FOUNDATION_SRC
-        UTILITY_SRC
-    LINK_LIBRARIES
-        numeric
+    OBJECTS NUMERIC_SRC
+    LINK_LIBRARIES numeric
 )
 
 setup_standalone_project_tests(
