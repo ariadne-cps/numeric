@@ -532,42 +532,42 @@ TestFloatRounding<PR>::test_rounding_session()
     Float::set_rounding_mode(down_mode);
     {
         RoundingSession<Float> session;
-        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+        ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==down_mode);
 
         CurrentRoundingMode current=session.set(near);
-        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),near_mode);
+        ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==near_mode);
         ARIADNE_TEST_EQUAL(div(current,one,three),third_near);
 
         current=session.set(near);
-        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),near_mode);
+        ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==near_mode);
         ARIADNE_TEST_EQUAL(div(current,one,three),third_near);
 
         current=session.set(up);
-        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),up_mode);
+        ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==up_mode);
         ARIADNE_TEST_EQUAL(div(current,one,three),third_up);
     }
-    ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+    ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==down_mode);
 
     {
         RoundingSession<Float> session;
         CurrentRoundingMode current=session.set(down);
-        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+        ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==down_mode);
         ARIADNE_TEST_EQUAL(div(current,one,three),third_down);
     }
-    ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+    ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==down_mode);
 
     {
         RoundingSession<Float> outer;
         outer.set(up);
-        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),up_mode);
+        ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==up_mode);
         {
             RoundingSession<Float> inner;
             inner.set(near);
-            ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),near_mode);
+            ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==near_mode);
         }
-        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),up_mode);
+        ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==up_mode);
     }
-    ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+    ARIADNE_TEST_ASSERT(Float::get_rounding_mode()==down_mode);
 
     Float::set_rounding_mode(original);
 }
