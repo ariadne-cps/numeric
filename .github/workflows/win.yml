@@ -15,11 +15,22 @@ jobs:
 
     env:
       VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite"
+      SCCACHE_GHA_ENABLED: "true"
 
     steps:
     - uses: actions/checkout@v3
       with:
         submodules: recursive
+
+    - name: Set up MSVC environment
+      uses: ilammy/msvc-dev-cmd@v1.13.0
+      with:
+        arch: x64
+
+    - name: Set up sccache
+      uses: mozilla-actions/sccache-action@v0.0.11
+      with:
+        version: "v0.18.0"
 
     - uses: actions/setup-python@v5
       with:
@@ -60,23 +71,23 @@ jobs:
 
     - name: Configure CMake
       working-directory: ${{ runner.workspace }}/build
-      run: cmake $env:GITHUB_WORKSPACE -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON -DWARNINGS_AS_ERRORS=ON -DPYTHON_ENFORCE_TESTS=ON
+      run: cmake $env:GITHUB_WORKSPACE -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON -DWARNINGS_AS_ERRORS=ON -DPYTHON_ENFORCE_TESTS=ON
 
     - name: Build
       working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel --config Release --target everything
+      run: cmake --build . --parallel --target everything
 
     - name: Test C++
       working-directory: ${{ runner.workspace }}/build
-      run: ctest -C Release -LE python -V --timeout 30
+      run: ctest -LE python -V --timeout 30
 
     - name: Test Python
       working-directory: ${{ runner.workspace }}/build
-      run: ctest -C Release -L python -V --timeout 30
+      run: ctest -L python -V --timeout 30
 
     - name: Install Ariadne Numeric
       working-directory: ${{ runner.workspace }}/build
-      run: cmake --install . --config Release --prefix "${{ runner.workspace }}/install"
+      run: cmake --install . --prefix "${{ runner.workspace }}/install"
 
     - name: Prepare C++ Numeric Tutorial
       shell: pwsh
@@ -86,18 +97,18 @@ jobs:
       shell: pwsh
       working-directory: ${{ runner.workspace }}/tutorial_numeric
       run: |
-        cmake -S . -B build -DCMAKE_PREFIX_PATH="${{ runner.workspace }}/install" -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
-        cmake --build build --parallel --config Release
+        cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ runner.workspace }}/install" -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
+        cmake --build build --parallel
         $env:PATH = "${{ runner.workspace }}\install\bin;C:\vcpkg\installed\x64-windows-release\bin;$env:PATH"
-        & ".\build\Release\tutorial_numeric.exe"
+        & ".\build\tutorial_numeric.exe"
 
     - name: Check Python Numeric Tutorial
       shell: pwsh
       working-directory: ${{ github.workspace }}/python/tutorials
       run: |
-        $env:PYTHONPATH = "${{ runner.workspace }}\build\python\Release"
+        $env:PYTHONPATH = "${{ runner.workspace }}\build\python"
         python tutorial_numeric.py
 
     - name: Verify Final Installation
       working-directory: ${{ runner.workspace }}/build
-      run: cmake --install . --config Release --prefix "${{ runner.workspace }}/verify-install"
+      run: cmake --install . --prefix "${{ runner.workspace }}/verify-install"
