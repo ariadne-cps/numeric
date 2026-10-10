@@ -287,6 +287,36 @@ const RoundToNearest near = to_nearest; //!< Round exact answer to a nearest rep
 const RoundUpward up = upward; //!< Round exact answer upward to a representable value. Synonymous with \ref upward. \ingroup NumericModule
 const RoundApproximately approx = approximately; //!< Round exact answer to some close representable value, which need not be the nearest. Synonymous with \ref approximately. \ingroup NumericModule
 
+//! \brief Scoped owner of the rounding mode for a batch of operations. \ingroup NumericModule
+//! \details Saves the current rounding mode on construction and restores it on destruction.
+//! Calls to \ref set change the active mode only when it differs from the mode already selected by the session.
+//! The returned \ref CurrentRoundingMode token can be passed to arithmetic operations to use the active mode without
+//! performing a per-operation save/set/restore cycle.
+template<class F> class RoundingSession
+{
+  public:
+    using RoundingModeType = typename F::RoundingModeType;
+  private:
+    RoundingModeType _initial;
+    RoundingModeType _current;
+  public:
+    RoundingSession()
+        : _initial(F::get_rounding_mode()), _current(_initial) { }
+    ~RoundingSession() {
+        if (_current != _initial) { F::set_rounding_mode(_initial); }
+    }
+    RoundingSession(RoundingSession const&) = delete;
+    RoundingSession& operator=(RoundingSession const&) = delete;
+
+    CurrentRoundingMode set(RoundingModeType rnd) {
+        if (rnd != _current) {
+            F::set_rounding_mode(rnd);
+            _current=rnd;
+        }
+        return rounded;
+    }
+};
+
 //!@}
 
 } // namespace Ariadne

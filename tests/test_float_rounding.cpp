@@ -87,6 +87,7 @@ class TestFloatRounding
     Void test_stream();
     Void test_comparison();
     Void test_rounding_mode();
+    Void test_rounding_session();
     Void test_double_rounding();
     Void test_arithmetic();
     Void test_cosine();
@@ -117,6 +118,7 @@ template<class PR> Void
 TestFloatRounding<PR>::test()
 {
     ARIADNE_TEST_CALL(test_rounding_mode());
+    ARIADNE_TEST_CALL(test_rounding_session());
     ARIADNE_TEST_CALL(test_class());
     ARIADNE_TEST_CALL(test_limits());
     ARIADNE_TEST_CALL(test_conversion_from_to());
@@ -506,6 +508,68 @@ TestFloatRounding<PR>::test_rounding_mode()
     } else {
         ARIADNE_TEST_NOTIFY("Performing to-nearest-rounded operation preserves rounding mode for future operations.");
     }
+}
+
+
+template<class PR> Void
+TestFloatRounding<PR>::test_rounding_session()
+{
+    cout << ARIADNE_PRETTY_FUNCTION << endl;
+
+    using RoundingModeType=typename Float::RoundingModeType;
+
+    const RoundingModeType original=Float::get_rounding_mode();
+    const RoundingModeType down_mode=static_cast<RoundingModeType>(down);
+    const RoundingModeType near_mode=static_cast<RoundingModeType>(near);
+    const RoundingModeType up_mode=static_cast<RoundingModeType>(up);
+
+    const Float one(1,precision);
+    const Float three(3,precision);
+    const Float third_near=div(near,one,three);
+    const Float third_up=div(up,one,three);
+    const Float third_down=div(down,one,three);
+
+    Float::set_rounding_mode(down_mode);
+    {
+        RoundingSession<Float> session;
+        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+
+        CurrentRoundingMode current=session.set(near);
+        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),near_mode);
+        ARIADNE_TEST_EQUAL(div(current,one,three),third_near);
+
+        current=session.set(near);
+        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),near_mode);
+        ARIADNE_TEST_EQUAL(div(current,one,three),third_near);
+
+        current=session.set(up);
+        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),up_mode);
+        ARIADNE_TEST_EQUAL(div(current,one,three),third_up);
+    }
+    ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+
+    {
+        RoundingSession<Float> session;
+        CurrentRoundingMode current=session.set(down);
+        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+        ARIADNE_TEST_EQUAL(div(current,one,three),third_down);
+    }
+    ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+
+    {
+        RoundingSession<Float> outer;
+        outer.set(up);
+        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),up_mode);
+        {
+            RoundingSession<Float> inner;
+            inner.set(near);
+            ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),near_mode);
+        }
+        ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),up_mode);
+    }
+    ARIADNE_TEST_EQUALS(Float::get_rounding_mode(),down_mode);
+
+    Float::set_rounding_mode(original);
 }
 
 
