@@ -1,6 +1,6 @@
-[submodule "submodules/configuration"]
-	path = submodules/configuration
+[submodule "ss/configuration"]
+	path = ss/configuration
 	url = https://github.com/ariadne-cps/configuration
-[submodule "submodules/foundation"]
-	path = submodules/foundation
+[submodule "ss/foundation"]
+	path = ss/foundation
 	url = https://github.com/ariadne-cps/foundation
