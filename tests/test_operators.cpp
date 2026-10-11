@@ -12,7 +12,7 @@
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
 #include "numeric/real.hpp"
-#include "utility/test.hpp"
+#include "macro/testing.hpp"
 
 using namespace Ariadne;
 

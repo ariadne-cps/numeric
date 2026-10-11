@@ -29,7 +29,7 @@
 #ifndef ARIADNE_CASTS_HPP
 #define ARIADNE_CASTS_HPP
 
-#include "utility/macros.hpp"
+#include "macro/general.hpp"
 
 #include "number.decl.hpp"
 #include "float.decl.hpp"

@@ -25,7 +25,7 @@
 #include "int.hpp"
 
 #include "utility/stdlib.hpp"
-#include "utility/macros.hpp"
+#include "macro/general.hpp"
 
 #include <cassert>
 #include <limits>

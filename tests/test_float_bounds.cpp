@@ -42,7 +42,7 @@
 #include "numeric/lower_number.hpp"
 #include "numeric/upper_number.hpp"
 
-#include "utility/test.hpp"
+#include "macro/testing.hpp"
 #include "test_floats.hpp"
 
 using namespace Ariadne;

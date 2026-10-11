@@ -8,7 +8,7 @@
 #include "numeric/dyadic.hpp"
 #include "numeric/rational.hpp"
 
-#include "utility/test.hpp"
+#include "macro/testing.hpp"
 
 using namespace Ariadne;
 

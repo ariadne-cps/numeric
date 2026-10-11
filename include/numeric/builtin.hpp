@@ -37,7 +37,7 @@
 #include <limits>
 
 #include "utility/metaprogramming.hpp"
-#include "utility/macros.hpp"
+#include "macro/general.hpp"
 #include "numeric/number.decl.hpp"
 
 #include "foundation/logical.hpp"

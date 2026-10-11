@@ -34,7 +34,7 @@
 #include "numeric/gmp.hpp"
 
 #include "utility/typedefs.hpp"
-#include "utility/macros.hpp"
+#include "macro/general.hpp"
 #include "utility/metaprogramming.hpp"
 #include "numeric/sign.hpp"
 #include "foundation/logical.hpp"

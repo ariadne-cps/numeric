@@ -32,7 +32,7 @@
 
 #include <iosfwd>
 #include "utility/typedefs.hpp"
-#include "utility/macros.hpp"
+#include "macro/general.hpp"
 
 namespace Ariadne {
 

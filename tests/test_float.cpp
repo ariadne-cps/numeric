@@ -51,7 +51,7 @@
 #include "numeric/rounded_float.hpp"
 #include "numeric/casts.hpp"
 
-#include "utility/test.hpp"
+#include "macro/testing.hpp"
 #include "test_floats.hpp"
 
 using namespace Ariadne;

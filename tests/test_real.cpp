@@ -74,7 +74,7 @@ Rational operator""_q (const char* str, std::size_t) { return Rational(Decimal(S
 
 #include "numeric/floats.hpp"
 
-#include "utility/test.hpp"
+#include "macro/testing.hpp"
 
 using namespace std;
 using namespace Ariadne;

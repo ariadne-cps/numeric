@@ -33,7 +33,7 @@
 
 
 
-#include "utility/macros.hpp"
+#include "macro/general.hpp"
 #include "numeric/builtin.hpp"
 #include "numeric/twoexp.hpp"
 #include "numeric/dyadic.hpp"
