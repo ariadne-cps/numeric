@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 project(Numeric VERSION 1.0)
 
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(THREAD_SANITIZER "Enable ThreadSanitizer" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ss/configuration/cmake/ProjectOptions.cmake")
@@ -15,6 +16,18 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/ss/configuration/cmake/ProjectOptions.cmake
 
 require_initialized_submodules()
 setup_project()
+
+if(COVERAGE AND THREAD_SANITIZER)
+    message(FATAL_ERROR "COVERAGE and THREAD_SANITIZER cannot be enabled together.")
+endif()
+
+if(THREAD_SANITIZER AND CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    if(WIN32 OR NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+        message(FATAL_ERROR "ThreadSanitizer requires GCC or Clang on Unix-like systems.")
+    endif()
+    add_compile_options(-fsanitize=thread -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=thread)
+endif()
 
 if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
     require_same_dependency_commit(Configuration
