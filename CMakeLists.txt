@@ -31,9 +31,7 @@ find_package(MPFR REQUIRED)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
-if(NOT TARGET foundation)
-    add_subdirectory(ss)
-endif()
+add_subdirectory(ss)
 
 add_library(numeric INTERFACE)
 target_include_directories(numeric INTERFACE
