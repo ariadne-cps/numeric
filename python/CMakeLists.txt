@@ -12,13 +12,7 @@ if(Python3_FOUND)
     add_subdirectory(bindings)
 
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-        pybind11_add_module(pyariadne
-            $<TARGET_OBJECTS:pyariadne-numeric-entry-obj>
-            $<TARGET_OBJECTS:UTILITY_SRC>
-            $<TARGET_OBJECTS:FOUNDATION_SRC>
-            $<TARGET_OBJECTS:NUMERIC_SRC>
-        )
-        target_link_libraries(pyariadne PRIVATE pyariadne-numeric numeric)
+        ariadne_finalize_python_module(NAME numeric)
 
         add_subdirectory(tests)
         add_dependencies(bindings pyariadne)
