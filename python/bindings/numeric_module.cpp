@@ -16,10 +16,8 @@
 
 #include "pybind11.hpp"
 
-void foundation_module(pybind11::module& module);
 void numeric_submodule(pybind11::module& module);
 
 void numeric_module(pybind11::module& module) {
-    foundation_module(module);
     numeric_submodule(module);
 }
