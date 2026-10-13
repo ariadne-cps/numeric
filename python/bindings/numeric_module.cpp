@@ -1,7 +1,7 @@
 /***************************************************************************
  *            numeric_module.cpp
  *
- *  Copyright  2007-24  Pieter Collins
+ *  Copyright  2007-26  Pieter Collins
  *
  ****************************************************************************/
 
@@ -12,22 +12,14 @@
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
- *
- *  Ariadne is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "pybind11.hpp"
 
-void foundation_submodule(pybind11::module& module);
+void foundation_module(pybind11::module& module);
 void numeric_submodule(pybind11::module& module);
 
-PYBIND11_MODULE(pyariadne, module) {
-    foundation_submodule(module);
+void numeric_module(pybind11::module& module) {
+    foundation_module(module);
     numeric_submodule(module);
 }
