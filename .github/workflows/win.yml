@@ -109,6 +109,6 @@ jobs:
         $env:PYTHONPATH = "${{ runner.workspace }}\build\python"
         python tutorial_numeric.py
 
-    - name: Verify Final Installation
+    - name: Verify Uninstallation
       working-directory: ${{ runner.workspace }}/build
-      run: cmake --install . --prefix "${{ runner.workspace }}/verify-install"
+      run: cmake --build . --target uninstall
