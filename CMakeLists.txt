@@ -5,25 +5,26 @@ project(Numeric VERSION 1.0)
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ss/configuration/cmake/ProjectOptions.cmake")
-    message(FATAL_ERROR
-        "Git submodules are not initialized. "
-        "Run 'git submodule update --init --recursive' before configuring the project.")
+if(NOT TARGET ariadne-configuration)
+    find_package(Git REQUIRED)
+    execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}"
+                    submodule update --init -- ss/configuration
+                    RESULT_VARIABLE _result)
+    if(_result)
+        message(FATAL_ERROR "Cannot initialize configuration submodule")
+    endif()
+    include("${CMAKE_CURRENT_SOURCE_DIR}/ss/configuration/cmake/ProjectOptions.cmake")
 endif()
-
-include("${CMAKE_CURRENT_SOURCE_DIR}/ss/configuration/cmake/ProjectOptions.cmake")
-
-require_initialized_submodules()
-setup_project()
-
 
 if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
     require_same_dependency_commit(Configuration
-        REFERENCES
-            "${PROJECT_SOURCE_DIR}|ss/configuration"
-            "${PROJECT_SOURCE_DIR}/ss/foundation|ss/configuration"
+        CHAINS
+            "configuration"
+            "foundation|configuration"
     )
 endif()
+
+setup_project()
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 find_package(GMP REQUIRED)
