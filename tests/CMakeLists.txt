@@ -14,6 +14,7 @@ set(UNIT_TESTS
     test_float
     test_float_rounding
     test_float_multipleprecision_backends
+    test_floatap_kernel
     test_rounded_float
     test_float_approximation
     test_float_error
