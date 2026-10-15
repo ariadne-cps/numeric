@@ -55,11 +55,35 @@ retaining their MPFR cases. For new tests, prefer one templated test
 body instantiated for both `FloatMP` and `FloatVP`; use
 explicitly native-only assertions only for implementation details.
 
-The comparison script prints FloatVP/MPFR ratios; values above 1
-indicate a slowdown. Benchmark on the same CPU, compiler, flags,
-load and power/frequency conditions; repeat full runs and consider
-allocation counts. No numerical performance claims are made before
-both backends have been measured.
+The dual-backend executable prints all per-operation measurements as
+a machine-readable CSV on **stdout**, and an immediate slowdown summary
+on **stderr** (also shown when stdout is redirected to `dual.csv`).
+A baseline-only executable explicitly says that no slowdown can be
+computed without FloatVP, rather than presenting a misleading number.
+
+The postprocessing script prints a detailed per-operation comparison
+plus the same two summary metrics for every precision and all operations:
+
+```sh
+python3 benchmarks/compare_floatmp_backends.py dual.csv --summary-only
+```
+
+- `geomean_x`: geometric mean of the FloatVP/FloatMP time ratios across
+  distinct (operation, precision) pairs, giving **equal weight** to each.
+- `total_time_x`: sum of FloatVP's median ns/op divided by the sum of
+  FloatMP's median ns/op; this assumes one execution of each benchmark
+  case, and **weights expensive operations more heavily**.
+- `worst_x`: largest observed slowdown, with its operation and precision.
+
+Ratios above 1 indicate slowdown; ratios below 1 indicate a speedup.
+The 'ALL' summary is a synthetic equal-frequency mix of the listed
+operations **not** a prediction of application-wide performance: real
+Ariadne workloads may exercise a different operation mix.
+
+Benchmark on the same CPU, compiler, flags, load and power/frequency
+conditions; repeat full runs and consider allocation counts. No
+numerical performance claims are made before both backends have been
+measured.
 
 ## Correctness requirements still outstanding
 

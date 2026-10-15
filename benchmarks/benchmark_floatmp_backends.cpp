@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
+#include <cmath>
+#include <limits>
+#include <map>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -44,8 +47,16 @@ double median_ns(Operation&& operation, unsigned iterations, unsigned samples) {
     return measurements[samples/2];
 }
 
+struct BenchmarkDatum {
+    std::string backend;
+    std::string operation;
+    unsigned bits;
+    double nanoseconds;
+};
+
 template<class Float>
-void run_backend(char const* backend, unsigned bits, unsigned iterations, unsigned samples) {
+void run_backend(char const* backend, unsigned bits, unsigned iterations,
+                 unsigned samples, std::vector<BenchmarkDatum>& data) {
     using Precision=typename Float::PrecisionType;
     Precision precision = bits==53 ? Precision(53_bits)
                         : bits==128 ? Precision(128_bits)
@@ -66,9 +77,10 @@ void run_backend(char const* backend, unsigned bits, unsigned iterations, unsign
     }
 
     auto report=[&](char const* name,auto&& operation) {
+        const double ns=median_ns(operation,iterations,samples);
+        data.push_back({backend,name,bits,ns});
         std::cout<<backend<<','<<name<<','<<bits<<','<<iterations<<','<<samples<<','
-                 <<std::fixed<<std::setprecision(3)
-                 <<median_ns(operation,iterations,samples)<<'\n';
+                 <<std::fixed<<std::setprecision(6)<<ns<<'\n';
     };
     auto index=[](unsigned i){return i%pool_size;};
     report("construct_rational",[&](unsigned i) {
@@ -99,6 +111,79 @@ void run_backend(char const* backend, unsigned bits, unsigned iterations, unsign
     report("to_rational",[&](unsigned i){return static_cast<Rational>(a[index(i)]);});
 }
 
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
+void print_slowdown_summary(std::vector<BenchmarkDatum> const& data) {
+    struct Aggregate {
+        std::size_t count=0;
+        double logarithmic_sum=0.0;
+        double mpfr_sum=0.0;
+        double floatvp_sum=0.0;
+        double worst_ratio=0.0;
+        std::string worst_operation;
+        unsigned worst_bits=0;
+
+        void add(std::string const& name, unsigned bits, double reference, double candidate) {
+            if (!(std::isfinite(reference) && std::isfinite(candidate))
+                || reference<=0.0 || candidate<=0.0) {
+                throw std::runtime_error("nonpositive/nonfinite benchmark timing");
+            }
+            const double ratio=candidate/reference;
+            ++count;
+            logarithmic_sum+=std::log(ratio);
+            mpfr_sum+=reference;
+            floatvp_sum+=candidate;
+            if (ratio>worst_ratio) {
+                worst_ratio=ratio;
+                worst_operation=name;
+                worst_bits=bits;
+            }
+        }
+        void print(std::string const& name) const {
+            if (count==0 || mpfr_sum<=0.0) {
+                throw std::runtime_error("cannot summarize empty benchmark results");
+            }
+            std::cerr<<std::left<<std::setw(12)<<name
+                     <<" ops="<<std::setw(3)<<count
+                     <<" geomean="<<std::fixed<<std::setprecision(3)
+                     <<std::exp(logarithmic_sum/static_cast<double>(count))<<"x"
+                     <<" total_time="<<floatvp_sum/mpfr_sum<<"x"
+                     <<" worst="<<worst_ratio<<"x ("<<worst_operation
+                     <<", "<<worst_bits<<" bits)\n";
+        }
+    };
+
+    using Key=std::pair<unsigned,std::string>;
+    std::map<Key,double> reference, candidate;
+    for (auto const& datum : data) {
+        auto& collection=datum.backend=="mpfr" ? reference : candidate;
+        if (!collection.emplace(Key{datum.bits,datum.operation},datum.nanoseconds).second) {
+            throw std::runtime_error("duplicate benchmark measurement");
+        }
+    }
+    if (reference.size()!=candidate.size() || reference.empty()) {
+        throw std::runtime_error("FloatVP and FloatMP benchmark rows are not paired");
+    }
+    std::map<unsigned,Aggregate> per_precision;
+    Aggregate overall;
+    for (auto const& [key,reference_ns] : reference) {
+        auto it=candidate.find(key);
+        if (it==candidate.end()) {
+            throw std::runtime_error("FloatVP benchmark operation missing: "+key.second);
+        }
+        auto& precision_summary=per_precision[key.first];
+        precision_summary.add(key.second,key.first,reference_ns,it->second);
+        overall.add(key.second,key.first,reference_ns,it->second);
+    }
+    std::cerr<<"\nFloatVP / FloatMP slowdown (x; >1 means slower):\n";
+    for (auto const& [bits,summary] : per_precision) {
+        summary.print(std::to_string(bits)+" bits");
+    }
+    overall.print("ALL");
+    std::cerr<<"geomean weighs each (operation, precision) equally; "
+                "total_time weights by measured cost.\n";
+}
+#endif
+
 int main(int argc,char** argv) {
     try {
         unsigned iterations=argc>=2 ? static_cast<unsigned>(std::stoul(argv[1])) : 300;
@@ -107,13 +192,20 @@ int main(int argc,char** argv) {
             std::cerr<<"usage: benchmark_floatmp_backends [iterations>0] [odd_samples>=3]\n";
             return 2;
         }
+        std::vector<BenchmarkDatum> measurements;
         std::cout<<"backend,operation,bits,iterations,samples,median_ns\n";
         for (unsigned bits : {53u,128u,256u,1024u}) {
-            run_backend<FloatMP>("mpfr",bits,iterations,samples);
+            run_backend<FloatMP>("mpfr",bits,iterations,samples,measurements);
 #ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
-            run_backend<FloatVP>("floatvp",bits,iterations,samples);
+            run_backend<FloatVP>("floatvp",bits,iterations,samples,measurements);
 #endif
         }
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
+        print_slowdown_summary(measurements);
+#else
+        std::cerr<<"FloatVP slowdown unavailable: BUILD_FLOATVP_COMPARISON is OFF. "
+                    "Only FloatMP reference timings were recorded.\n";
+#endif
     } catch (std::exception const& e) {
         std::cerr<<"benchmark_floatmp_backends: "<<e.what()<<'\n';
         return 1;
