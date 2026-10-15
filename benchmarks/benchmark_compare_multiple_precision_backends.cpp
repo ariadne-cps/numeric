@@ -56,7 +56,7 @@ struct BenchmarkDatum {
 
 template<class Float>
 void run_backend(char const* backend, unsigned bits, unsigned iterations,
-                 unsigned samples, std::vector<BenchmarkDatum>& data) {
+                 unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
     using Precision=typename Float::PrecisionType;
     Precision precision = bits==53 ? Precision(53_bits)
                         : bits==128 ? Precision(128_bits)
@@ -79,8 +79,10 @@ void run_backend(char const* backend, unsigned bits, unsigned iterations,
     auto report=[&](char const* name,auto&& operation) {
         const double ns=median_ns(operation,iterations,samples);
         data.push_back({backend,name,bits,ns});
-        std::cout<<backend<<','<<name<<','<<bits<<','<<iterations<<','<<samples<<','
-                 <<std::fixed<<std::setprecision(6)<<ns<<'\n';
+        if (print_csv) {
+            std::cout<<backend<<','<<name<<','<<bits<<','<<iterations<<','<<samples<<','
+                     <<std::fixed<<std::setprecision(6)<<ns<<'\n';
+        }
     };
     auto index=[](unsigned i){return i%pool_size;};
     report("construct_rational",[&](unsigned i) {
@@ -112,7 +114,8 @@ void run_backend(char const* backend, unsigned bits, unsigned iterations,
 }
 
 #ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
-void print_slowdown_summary(std::vector<BenchmarkDatum> const& data) {
+void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
+                            bool details, double max_slowdown) {
     struct Aggregate {
         std::size_t count=0;
         double logarithmic_sum=0.0;
@@ -165,6 +168,10 @@ void print_slowdown_summary(std::vector<BenchmarkDatum> const& data) {
     }
     std::map<unsigned,Aggregate> per_precision;
     Aggregate overall;
+    if (details) {
+        std::cerr<<"\nFloatVP / FloatMP detailed comparisons:\n"
+                 <<"operation,bits,mpfr_ns,floatvp_ns,slowdown_floatvp_over_mpfr\n";
+    }
     for (auto const& [key,reference_ns] : reference) {
         auto it=candidate.find(key);
         if (it==candidate.end()) {
@@ -173,6 +180,12 @@ void print_slowdown_summary(std::vector<BenchmarkDatum> const& data) {
         auto& precision_summary=per_precision[key.first];
         precision_summary.add(key.second,key.first,reference_ns,it->second);
         overall.add(key.second,key.first,reference_ns,it->second);
+        if (details) {
+            std::cerr<<key.second<<','<<key.first<<','
+                     <<std::fixed<<std::setprecision(6)<<reference_ns<<','
+                     <<it->second<<','<<std::setprecision(3)
+                     <<it->second/reference_ns<<'\n';
+        }
     }
     std::cerr<<"\nFloatVP / FloatMP slowdown (x; >1 means slower):\n";
     for (auto const& [bits,summary] : per_precision) {
@@ -181,33 +194,92 @@ void print_slowdown_summary(std::vector<BenchmarkDatum> const& data) {
     overall.print("ALL");
     std::cerr<<"geomean weighs each (operation, precision) equally; "
                 "total_time weights by measured cost.\n";
+    if (std::isfinite(max_slowdown) && overall.worst_ratio>max_slowdown) {
+        throw std::runtime_error(
+            "FloatVP slowdown exceeds --max-slowdown: "
+            +std::to_string(overall.worst_ratio)+"x > "
+            +std::to_string(max_slowdown)+"x");
+    }
 }
 #endif
 
 int main(int argc,char** argv) {
     try {
-        unsigned iterations=argc>=2 ? static_cast<unsigned>(std::stoul(argv[1])) : 300;
-        unsigned samples=argc>=3 ? static_cast<unsigned>(std::stoul(argv[2])) : 7;
-        if (argc>3 || iterations==0 || samples<3 || samples%2==0) {
-            std::cerr<<"usage: benchmark_floatmp_backends [iterations>0] [odd_samples>=3]\n";
-            return 2;
+        unsigned iterations=300;
+        unsigned samples=7;
+        bool summary_only=false;
+        bool details=false;
+        double max_slowdown=std::numeric_limits<double>::infinity();
+        unsigned positional=0;
+
+        for (int i=1; i<argc; ++i) {
+            const std::string arg(argv[i]);
+            if (arg=="--summary-only") {
+                summary_only=true;
+            } else if (arg=="--details") {
+                details=true;
+            } else if (arg=="--max-slowdown") {
+                if (++i>=argc) {
+                    throw std::invalid_argument("--max-slowdown requires a positive ratio");
+                }
+                const std::string value(argv[i]);
+                std::size_t read=0;
+                max_slowdown=std::stod(value,&read);
+                if (read!=value.size() || !std::isfinite(max_slowdown)
+                    || max_slowdown<=0.0) {
+                    throw std::invalid_argument("--max-slowdown must be positive and finite");
+                }
+            } else if (arg=="--help") {
+                std::cout<<"usage: benchmark_compare_multiple_precision_backends "
+                            "[iterations] [odd_samples] "
+                            "[--summary-only] [--details] [--max-slowdown RATIO]\n";
+                return 0;
+            } else if (arg.starts_with("--")) {
+                throw std::invalid_argument("unknown option: "+arg);
+            } else {
+                std::size_t read=0;
+                unsigned long parsed=std::stoul(arg,&read);
+                if (read!=arg.size() || parsed>std::numeric_limits<unsigned>::max()) {
+                    throw std::invalid_argument("invalid iterations/sample count: "+arg);
+                }
+                if (positional==0) {
+                    iterations=static_cast<unsigned>(parsed);
+                } else if (positional==1) {
+                    samples=static_cast<unsigned>(parsed);
+                } else {
+                    throw std::invalid_argument("too many positional arguments");
+                }
+                ++positional;
+            }
         }
+        if (iterations==0 || samples<3 || samples%2==0) {
+            throw std::invalid_argument("iterations must be positive; samples must be odd and >=3");
+        }
+#ifndef ARIADNE_NUMERIC_ENABLE_FLOATVP
+        if (std::isfinite(max_slowdown)) {
+            throw std::invalid_argument("--max-slowdown requires BUILD_FLOATVP_COMPARISON=ON");
+        }
+#endif
+
         std::vector<BenchmarkDatum> measurements;
-        std::cout<<"backend,operation,bits,iterations,samples,median_ns\n";
+        if (!summary_only) {
+            std::cout<<"backend,operation,bits,iterations,samples,median_ns\n";
+        }
         for (unsigned bits : {53u,128u,256u,1024u}) {
-            run_backend<FloatMP>("mpfr",bits,iterations,samples,measurements);
+            run_backend<FloatMP>("mpfr",bits,iterations,samples,!summary_only,measurements);
 #ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
-            run_backend<FloatVP>("floatvp",bits,iterations,samples,measurements);
+            run_backend<FloatVP>("floatvp",bits,iterations,samples,!summary_only,measurements);
 #endif
         }
 #ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
-        print_slowdown_summary(measurements);
+        print_slowdown_summary(measurements,details,max_slowdown);
 #else
         std::cerr<<"FloatVP slowdown unavailable: BUILD_FLOATVP_COMPARISON is OFF. "
                     "Only FloatMP reference timings were recorded.\n";
 #endif
+        return 0;
     } catch (std::exception const& e) {
-        std::cerr<<"benchmark_floatmp_backends: "<<e.what()<<'\n';
+        std::cerr<<"benchmark_compare_multiple_precision_backends: "<<e.what()<<'\n';
         return 1;
     }
 }
