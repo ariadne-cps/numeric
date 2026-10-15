@@ -2,8 +2,8 @@
 // Same monomorphic test code is instantiated for each implementation: no virtual dispatch.
 #include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
-#include "numeric/floatvp.hpp"
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
+#include "numeric/floatap.hpp"
 #endif
 #include <algorithm>
 #include <chrono>
@@ -113,14 +113,14 @@ void run_backend(char const* backend, unsigned bits, unsigned iterations,
     report("to_rational",[&](unsigned i){return static_cast<Rational>(a[index(i)]);});
 }
 
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
 void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
                             bool details, double max_slowdown) {
     struct Aggregate {
         std::size_t count=0;
         double logarithmic_sum=0.0;
         double mpfr_sum=0.0;
-        double floatvp_sum=0.0;
+        double floatap_sum=0.0;
         double worst_ratio=0.0;
         std::string worst_operation;
         unsigned worst_bits=0;
@@ -134,7 +134,7 @@ void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
             ++count;
             logarithmic_sum+=std::log(ratio);
             mpfr_sum+=reference;
-            floatvp_sum+=candidate;
+            floatap_sum+=candidate;
             if (ratio>worst_ratio) {
                 worst_ratio=ratio;
                 worst_operation=name;
@@ -149,7 +149,7 @@ void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
                      <<" ops="<<std::setw(3)<<count
                      <<" geomean="<<std::fixed<<std::setprecision(3)
                      <<std::exp(logarithmic_sum/static_cast<double>(count))<<"x"
-                     <<" total_time="<<floatvp_sum/mpfr_sum<<"x"
+                     <<" total_time="<<floatap_sum/mpfr_sum<<"x"
                      <<" worst="<<worst_ratio<<"x ("<<worst_operation
                      <<", "<<worst_bits<<" bits)\n";
         }
@@ -164,18 +164,18 @@ void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
         }
     }
     if (reference.size()!=candidate.size() || reference.empty()) {
-        throw std::runtime_error("FloatVP and FloatMP benchmark rows are not paired");
+        throw std::runtime_error("FloatAP and FloatMP benchmark rows are not paired");
     }
     std::map<unsigned,Aggregate> per_precision;
     Aggregate overall;
     if (details) {
-        std::cerr<<"\nFloatVP / FloatMP detailed comparisons:\n"
-                 <<"operation,bits,mpfr_ns,floatvp_ns,slowdown_floatvp_over_mpfr\n";
+        std::cerr<<"\nFloatAP / FloatMP detailed comparisons:\n"
+                 <<"operation,bits,mpfr_ns,floatap_ns,slowdown_floatap_over_mpfr\n";
     }
     for (auto const& [key,reference_ns] : reference) {
         auto it=candidate.find(key);
         if (it==candidate.end()) {
-            throw std::runtime_error("FloatVP benchmark operation missing: "+key.second);
+            throw std::runtime_error("FloatAP benchmark operation missing: "+key.second);
         }
         auto& precision_summary=per_precision[key.first];
         precision_summary.add(key.second,key.first,reference_ns,it->second);
@@ -187,7 +187,7 @@ void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
                      <<it->second/reference_ns<<'\n';
         }
     }
-    std::cerr<<"\nFloatVP / FloatMP slowdown (x; >1 means slower):\n";
+    std::cerr<<"\nFloatAP / FloatMP slowdown (x; >1 means slower):\n";
     for (auto const& [bits,summary] : per_precision) {
         summary.print(std::to_string(bits)+" bits");
     }
@@ -196,7 +196,7 @@ void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
                 "total_time weights by measured cost.\n";
     if (std::isfinite(max_slowdown) && overall.worst_ratio>max_slowdown) {
         throw std::runtime_error(
-            "FloatVP slowdown exceeds --max-slowdown: "
+            "FloatAP slowdown exceeds --max-slowdown: "
             +std::to_string(overall.worst_ratio)+"x > "
             +std::to_string(max_slowdown)+"x");
     }
@@ -255,9 +255,9 @@ int main(int argc,char** argv) {
         if (iterations==0 || samples<3 || samples%2==0) {
             throw std::invalid_argument("iterations must be positive; samples must be odd and >=3");
         }
-#ifndef ARIADNE_NUMERIC_ENABLE_FLOATVP
+#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
         if (std::isfinite(max_slowdown)) {
-            throw std::invalid_argument("--max-slowdown requires BUILD_FLOATVP_COMPARISON=ON");
+            throw std::invalid_argument("--max-slowdown requires BUILD_FLOATAP_COMPARISON=ON");
         }
 #endif
 
@@ -267,14 +267,14 @@ int main(int argc,char** argv) {
         }
         for (unsigned bits : {53u,128u,256u,1024u}) {
             run_backend<FloatMP>("mpfr",bits,iterations,samples,!summary_only,measurements);
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
-            run_backend<FloatVP>("floatvp",bits,iterations,samples,!summary_only,measurements);
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
+            run_backend<FloatAP>("floatap",bits,iterations,samples,!summary_only,measurements);
 #endif
         }
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
         print_slowdown_summary(measurements,details,max_slowdown);
 #else
-        std::cerr<<"FloatVP slowdown unavailable: BUILD_FLOATVP_COMPARISON is OFF. "
+        std::cerr<<"FloatAP slowdown unavailable: BUILD_FLOATAP_COMPARISON is OFF. "
                     "Only FloatMP reference timings were recorded.\n";
 #endif
         return 0;
