@@ -101,12 +101,16 @@ void int64_boundaries() {
     const Rational p = static_cast<Rational>(positive);
     const Rational n = static_cast<Rational>(negative);
     check(mpq_cmp_si(z.get_mpq(), 0, 1) == 0, "int64 zero");
-    check(mpq_cmp_si(p.get_mpq(), std::numeric_limits<std::int64_t>::max(), 1) == 0,
-    "int64 maximum");
-    check(mpq_cmp_si(n.get_mpq(), std::numeric_limits<std::int64_t>::min(), 1) == 0,
-    "int64 minimum");
+    // mpq_cmp_si takes a long, which is 32 bits on 64-bit Windows.
+    // Compare against independently parsed, exact 64-bit values instead.
+    const Rational expected_positive(String("9223372036854775807"));
+    const Rational expected_negative(String("-9223372036854775808"));
+    check(mpq_cmp(p.get_mpq(), expected_positive.get_mpq()) == 0,
+          "int64 maximum");
+    check(mpq_cmp(n.get_mpq(), expected_negative.get_mpq()) == 0,
+          "int64 minimum");
     check(is_zero(z) && !positive.negative() && negative.negative(),
-    "int64 signs");
+          "int64 signs");
 }
 void rational_integration() {
     using namespace Ariadne;

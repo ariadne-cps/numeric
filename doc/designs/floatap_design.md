@@ -342,3 +342,15 @@ testability/design solution is established. The requested **100% function,
 line and branch** coverage is still the final acceptance criterion,
 not a currently achieved measurement. Existing numbers require a fresh
 coverage run after the change.
+
+## Windows MSVC and GMP predicate portability
+
+On Windows x64, C++ `long` is 32 bits, whereas `std::int64_t` is 64 bits.
+The GMP function `mpq_cmp_si` takes a `long`, so passing `INT64_MIN`
+or `INT64_MAX` loses information and triggers MSVC C4244 under `/WX`.
+The boundary tests now compare exact rationals against independently
+parsed decimal values via `mpq_cmp`, without narrowing. The source also
+uses `mpz_cmp_ui(..., 0)` to test nonnegative GMP remainder and
+significand for zero. This is equivalent under the current representation
+invariant, avoiding incidental sign checks from the `mpz_sgn` macro.
+The change requires a new Windows build and coverage run to confirm.
