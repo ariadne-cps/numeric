@@ -29,7 +29,7 @@
 #include <limits>
 #include <stdexcept>
 #include <utility>
-using K=Ariadne::FloatAPKernel;
+using K=Ariadne::FloatAP;
 using R=K::Rounding;
 namespace {
 struct Z{mpz_t z;explicit Z(long n){mpz_init_set_si(z,n);}~Z(){mpz_clear(z);}};
@@ -69,7 +69,7 @@ same(v(-5,4,2,R::upward),v(-1,1,2),"negative upward");
 same(v(-5,4,2,R::toward_zero),v(-1,1,2),"negative toward zero");
 raises<std::invalid_argument>([]{v(5,3,7,static_cast<R>(99));},"invalid rounding");
 raises<std::overflow_error>([]{Z n(7),d(1);K::from_ratio(n.z,d.z,std::numeric_limits<K::Exponent>::max(),2,R::nearest);},"overflow");
-auto x=v(-11,8,8);check(x.precision()==8&&x.exponent()<0&&mpz_sgn(x.significand())>0,"accessors");
+auto x=v(-11,8,8);check(x.precision().bits()==8&&x.exponent()<0&&mpz_sgn(x.significand())>0,"accessors");
 K y=x;same(y,x,"copy");
 K z=K::zero(32);z=x;same(z,x,"assignment");
 K moved(std::move(y));same(moved,x,"move");
