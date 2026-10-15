@@ -23,6 +23,9 @@
  */
 
 #include "numeric/floatap.hpp"
+#include "numeric/integer.hpp"
+#include "numeric/rational.hpp"
+#include <cstdint>
 #include <gmp.h>
 #include <iostream>
 #include <cstddef>
@@ -54,6 +57,37 @@ void precision_tag(){
     check(distinct.bits()==113u,"ArbitraryPrecision arbitrary bit count");
     check(via_bits==via_count,"ArbitraryPrecision equality");
     check(!(via_bits==distinct),"ArbitraryPrecision inequality");
+}
+void rational_integration(){
+    using namespace Ariadne;
+    const ArbitraryPrecision precision(16_bits);
+    const Rational finite(Integer(3),Integer(7));
+    const K nearest(finite,R::nearest,precision);
+    const K downward(finite,R::downward,precision);
+    same(nearest,v(3,7,16,R::nearest),"Rational nearest constructor");
+    same(downward,v(3,7,16,R::downward),"Rational downward constructor");
+    same(K(finite,precision),nearest,"Rational default rounding constructor");
+    check(nearest.get_d()==static_cast<Rational>(nearest).get_d(),
+          "finite FloatAP double conversion");
+
+    same(K(Integer(-19),R::nearest,precision),v(-19),
+         "Integer constructor");
+    same(K(std::int64_t{-42},precision),v(-42),
+         "int64 constructor");
+
+    const K positive_inf(Rational::inf(Sign::POSITIVE),R::nearest,precision);
+    const K negative_inf(Rational::inf(Sign::NEGATIVE),R::nearest,precision);
+    const K not_a_number(Rational::nan(),R::nearest,precision);
+    check(positive_inf.is_inf()&&!positive_inf.negative(),
+          "positive Rational infinity constructor");
+    check(negative_inf.is_inf()&&negative_inf.negative(),
+          "negative Rational infinity constructor");
+    check(not_a_number.is_nan(),"Rational NaN constructor");
+
+    check(mpz_sgn(mpq_denref(static_cast<Rational>(positive_inf).get_mpq()))==0,
+          "positive infinity to Rational");
+    check(mpz_sgn(mpq_denref(static_cast<Rational>(not_a_number).get_mpq()))==0,
+          "NaN to Rational");
 }
 void conversions(){
 raises<std::invalid_argument>([]{K x(1);},"precision");
@@ -182,4 +216,4 @@ same(K::fma(x,p,x,16,R::nearest),x,"fma zero rhs");
 same(K::fma(n,p,n,16,R::nearest),n,"fma signed zero");
 }
 }
-int main(){try{precision_tag();conversions();specials();boundary_cases();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{precision_tag();conversions();rational_integration();specials();boundary_cases();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}
