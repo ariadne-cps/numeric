@@ -13,7 +13,7 @@ set(UNIT_TESTS
     test_rounding_mode
     test_float
     test_float_rounding
-    test_floatmp_backends
+    test_float_multipleprecision_backends
     test_rounded_float
     test_float_approximation
     test_float_error
@@ -36,7 +36,7 @@ foreach(TEST ${UNIT_TESTS})
 endforeach()
 
 if(BUILD_FLOATAP_COMPARISON)
-    foreach(TEST IN ITEMS test_float test_float_rounding test_floatmp_backends)
+    foreach(TEST IN ITEMS test_float test_float_rounding test_float_multipleprecision_backends)
         target_compile_definitions(${TEST} PRIVATE ARIADNE_NUMERIC_ENABLE_FLOATAP)
     endforeach()
 endif()
