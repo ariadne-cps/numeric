@@ -158,3 +158,25 @@ ctest --test-dir build -R '^test_floatap_kernel$' --output-on-failure
 
 The kernel is a prototype using GMP limbs. Comparison with MPFR and
 hard-to-round transcendental validation are still pending.
+
+## Coverage report of 15 October 2026, 21:32
+
+The attached LLVM report `Archivio 74(1).zip` confirms:
+
+| Source | Functions | Lines | Branches |
+| --- | --- | --- | --- |
+| `src/floatap.cpp` | 16/16 (100%) | 118/118 (100%) | 152/154 (98.70%) |
+| `include/numeric/floatap.hpp` | 23/27 (85.19%) | 63/75 (84%) | 19/26 (73.08%) |
+
+The four uncovered header functions are the `ArbitraryPrecision`
+constructors, `bits()` accessor and equality operator. The
+`precision_tag()` checks in `test_floatap_edge_cases` now exercise both
+constructors, equal and unequal instances, and non-power-of-two bit counts.
+The new tests require a fresh coverage run to confirm their effect.
+
+Remaining uncovered kernel paths concern checked exponent arithmetic,
+oversized shifts and integer size limits. Forcing extraordinary memory
+allocation just to exercise platform-specific overflow is not a
+correctness test. Coverage is not evidence of fully correct arithmetic:
+additional independent boundary and MPFR differential checks remain
+necessary.
