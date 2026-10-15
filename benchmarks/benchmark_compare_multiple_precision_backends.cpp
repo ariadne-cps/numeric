@@ -208,7 +208,7 @@ int main(int argc,char** argv) {
         unsigned iterations=300;
         unsigned samples=7;
         bool summary_only=false;
-        bool details=false;
+        [[maybe_unused]] bool details=false;
         double max_slowdown=std::numeric_limits<double>::infinity();
         unsigned positional=0;
 
