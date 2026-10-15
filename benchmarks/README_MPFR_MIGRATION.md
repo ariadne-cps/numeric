@@ -1,15 +1,15 @@
-# FloatVP migration: static coexistence and MPFR performance reference
+# FloatAP migration: static coexistence and MPFR performance reference
 
 The reference remains `FloatMP = Float<MultiplePrecision>` (MPFR).
-The new implementation is named `FloatVP = Float<VariablePrecision>`.
+The new implementation is named `FloatAP = Float<ArbitraryPrecision>`.
 Both are concrete types, distinguished by their precision tags.
 Neither introduces a virtual dispatch, a heap-allocated interface,
 nor a function-pointer switch in scalar arithmetic.
 
-`include/numeric/floatvp.hpp` reserves the new names and declares the
-precision tag. **It does not yet implement Float<VariablePrecision>.**
+`include/numeric/floatap.hpp` reserves the new names and declares the
+precision tag. **It does not yet implement Float<ArbitraryPrecision>.**
 The dual-backend build is intentionally rejected until the native
-implementation source `src/floatvp.cpp` is added. The default tests
+implementation source `src/floatap.cpp` is added. The default tests
 and benchmark executable exercise the MPFR reference baseline.
 
 ## Baseline
@@ -33,30 +33,30 @@ The test verifies exact rational equality of rounded outputs against
 MPFR under nearest, down, up and toward-zero rounding; it does not
 compare via `double` (which would hide errors above 53 bits).
 
-## Dual backend (once FloatVP exists)
+## Dual backend (once FloatAP exists)
 
-Add a definition of `Float<VariablePrecision>`, with the same named
-operations as the MPFR specialization, plus `src/floatvp.cpp`.
+Add a definition of `Float<ArbitraryPrecision>`, with the same named
+operations as the MPFR specialization, plus `src/floatap.cpp`.
 Enable dual compilation in an isolated Release build:
 
 ```sh
 cmake -S . -B build-dual -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_NUMERIC_MIGRATION_BENCHMARKS=ON \
-  -DBUILD_FLOATVP_COMPARISON=ON
+  -DBUILD_FLOATAP_COMPARISON=ON
 cmake --build build-dual --target tests benchmark_compare_multiple_precision_backends
 ctest --test-dir build-dual --output-on-failure
 ./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 > dual.csv
 ```
 
 The existing parameterized `test_float` and `test_float_rounding`
-also instantiate the `VariablePrecision` type in a dual build, while
+also instantiate the `ArbitraryPrecision` type in a dual build, while
 retaining their MPFR cases. For new tests, prefer one templated test
-body instantiated for both `FloatMP` and `FloatVP`; use
+body instantiated for both `FloatMP` and `FloatAP`; use
 explicitly native-only assertions only for implementation details.
 
 ## Slowdown summary entirely in C++
 
-The benchmark calculates its own FloatVP/FloatMP ratios. No Python
+The benchmark calculates its own FloatAP/FloatMP ratios. No Python
 postprocessing step or additional runtime dependency is necessary.
 It writes raw nanoseconds per operation to CSV on **stdout** and
 the per-precision and overall slowdown summary to **stderr**.
@@ -67,7 +67,7 @@ To see **just the summary**, without creating a CSV file:
 ./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 --summary-only
 ```
 
-To print the individual FloatVP/FloatMP ratios as well:
+To print the individual FloatAP/FloatMP ratios as well:
 
 ```sh
 ./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 --summary-only --details
@@ -81,9 +81,9 @@ than, say, 1.50 times the MPFR reference:
 ```
 
 The comparison uses two distinct aggregate metrics:
-- `geomean`: geometric mean of FloatVP/FloatMP time ratios across
+- `geomean`: geometric mean of FloatAP/FloatMP time ratios across
   distinct (operation, precision) pairs, with **equal weight** each.
-- `total_time`: sum of FloatVP median ns/op divided by the sum of
+- `total_time`: sum of FloatAP median ns/op divided by the sum of
   FloatMP median ns/op. This represents **one execution of each
   benchmark case** and weights expensive operations more heavily.
 - `worst`: largest observed slowdown, with its operation and precision.
@@ -94,7 +94,7 @@ prediction of application-wide performance. Real Ariadne workloads
 may execute different operations at different frequencies.
 
 A reference-only build still produces MPFR timing CSV, but explicitly
-reports that no FloatVP slowdown can be computed yet; supplying
+reports that no FloatAP slowdown can be computed yet; supplying
 `--max-slowdown` in such a build is an error.
 
 Benchmark on the same CPU, compiler, flags, load and power/frequency
