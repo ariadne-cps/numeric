@@ -213,3 +213,29 @@ supported type range and bit lengths exceeding 2^63-1. Some of those
 conditions cannot arise with feasible inputs on 64-bit builds; they must
 be distinguished from missing tests, not bypassed merely for coverage.
 The CI report on this commit has not yet been run.
+
+
+## Coverage report of 15 October 2026, 21:51
+
+The attached `Archivio 76(1).zip` reports 100% line/function coverage for
+`src/floatap.cpp` and 153/154 covered branches (99.35%).
+For `include/numeric/floatap.hpp`, coverage is 27/27 functions,
+69/75 lines (92%) and 21/26 branches (80.77%).
+
+A missing branch in `checked_sub` is reachable through a finite,
+normalized `FloatAPKernel` value with exponent `INT64_MIN`.
+`test_floatap_edge_cases` now tests construction of that value, correct
+finite division yielding an exponent near `INT64_MAX`, and exceptional
+cases when exact rational conversion or another division would overflow.
+These cases require only tiny GMP significands, not enormous allocations.
+
+The uncovered source branch inside `if (mpz_sgn(r))` is shown twice
+by LLVM's instrumentation at the same source location. The reported
+zero-count arm may be a duplicate branch region; ordinary exact and
+inexact quotients are already exercised extensively. We do not mutate
+correct arithmetic solely to increase the reported percentage.
+
+The shift-bound and bit-length guards cannot be triggered with feasible
+operands on the current 64-bit target: `mp_bitcnt_t` spans at least the
+entire nonnegative int64 exponent range, and an actual GMP integer with
+more than `INT64_MAX` bits would require unattainable storage.

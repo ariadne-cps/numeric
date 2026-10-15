@@ -69,6 +69,30 @@ void boundary_cases(){
     raises<std::overflow_error>([&] {
         (void)K::from_ratio(one.z,eight.z,minimum,7,R::nearest);
     },"negative exponent overflow");
+    // A finite p=2 number with exponent INT64_MIN can be represented
+    // without ever allocating 2^63 bits. It exercises checked_sub's
+    // INT64_MIN branch through real arithmetic, not a coverage hook.
+    Z two(2);
+    const K tiny=K::from_ratio(two.z,one.z,minimum,2,R::nearest);
+    check(tiny.exponent()==minimum && mpz_cmp_ui(tiny.significand(),2)==0
+          && !tiny.negative(),"smallest exponent representation");
+    raises<std::overflow_error>([&] {
+        Q exact;
+        tiny.to_rational(exact.q);
+    },"exact rational conversion requires unrepresentable shift");
+
+    // 1/(2 * 2^INT64_MIN) = 2^INT64_MAX, represented without huge storage.
+    const K unit=K::from_integer(one.z,2,R::nearest);
+    const K huge=K::div(unit,tiny,2,R::nearest);
+    check(huge.exponent()==maximum-1
+          && mpz_cmp_ui(huge.significand(),2)==0 && !huge.negative(),
+          "division by minimum-exponent number");
+
+    raises<std::overflow_error>([&] {
+        const K twice=K::from_integer(two.z,2,R::nearest);
+        (void)K::div(twice,tiny,2,R::nearest);
+    },"division exponent overflow");
+
     if constexpr (std::numeric_limits<unsigned long>::max() >
                   static_cast<unsigned long>(std::numeric_limits<K::Exponent>::max())) {
         raises<std::invalid_argument>([] {
