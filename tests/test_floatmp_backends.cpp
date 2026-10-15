@@ -77,9 +77,9 @@ void run_backend(char const* backend) {
         if (!(static_cast<Rational>(low)<=lhs && lhs<=static_cast<Rational>(high))) {
             throw std::runtime_error(std::string(backend)+": directed conversion failed to enclose input");
         }
-        F infinity=F::inf(Sign::POSITIVE,precision);
+        F positive_infinity=F::inf(Sign::POSITIVE,precision);
         F not_a_number=F::nan(precision);
-        if (!is_inf(infinity) || !is_nan(not_a_number)) {
+        if (!is_inf(positive_infinity) || !is_nan(not_a_number)) {
             throw std::runtime_error(std::string(backend)+": special-value classification failed");
         }
     }
