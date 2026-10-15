@@ -101,10 +101,15 @@ dependency of native arithmetic.
 
 - The `FloatAP` name/precision tag and dual-backend testing hooks
   are scaffolding, not a production floating-point implementation.
-- A separate GMP-only prototype kernel has been developed and
-  compiled locally, with randomized checks of basic operations.
-  **Do not assume the public `Float<ArbitraryPrecision>` specialization
-  is complete or benchmarkable.**
+- The GMP-only kernel lives in `src/floatap.cpp`, with the internal
+  interface in `include/numeric/detail/floatap_kernel.hpp` and its C++
+  test in `tests/test_floatap_kernel.cpp`. The test covers randomized
+  rational-reference add/sub/mul/div/fma under four rounding modes,
+  plus special values, with 7/53/113/128/256/1024-bit precision.
+  **The public `Float<ArbitraryPrecision>` specialization is NOT complete
+  or benchmarkable.**
+- The kernel is initially exact-integer based; exponent-difference shifts can
+  allocate excessively. This requires optimized guard/sticky-bit arithmetic.
 - The complete public `FloatAP` API, range/error semantics,
   transcendental functions and performance optimization remain work.
 - Until both versions build and run on the same machine, **no actual
@@ -117,3 +122,20 @@ allocation strategy, tests, benchmark methodology, or public names
 change. Do not silently replace `FloatMP`; migration of the public
 alias is a separate, ABI-relevant change after correctness and
 performance review.
+
+## Coverage integration
+
+The internal implementation is compiled into `NUMERIC_SRC` unconditionally;
+`test_floatap_kernel` is in the normal CTest test list, so the CI `coverage`
+target exercises and instruments `src/floatap.cpp`. This does **not**
+mean the public `FloatAP` API is complete: CI still uses MPFR for `FloatMP`.
+
+Build and run the kernel test:
+
+```sh
+cmake --build build --target test_floatap_kernel
+ctest --test-dir build -R '^test_floatap_kernel$' --output-on-failure
+```
+
+The kernel is a prototype using GMP limbs. Comparison with MPFR and
+hard-to-round transcendental validation are still pending.
