@@ -176,11 +176,18 @@ FloatAP::Float(std::int64_t n, PrecisionType pr) : Float(pr) {
 FloatAP::Float(Integer const& n, RoundingModeType mode, PrecisionType pr)
     : Float(from_integer(n.get_mpz(),static_cast<unsigned long>(pr.bits()),mode)) { }
 
+namespace {
+// Rational declares is_nan/is_inf as friend functions: ADL finds them,
+// whereas qualified lookup (Ariadne::is_nan) does not.
+bool rational_is_nan(Rational const& q) { return is_nan(q); }
+bool rational_is_inf(Rational const& q) { return is_inf(q); }
+}
+
 FloatAP::Float(Rational const& q, RoundingModeType mode, PrecisionType pr)
     : Float(pr) {
-    if (Ariadne::is_nan(q)) {
+    if (rational_is_nan(q)) {
         *this=nan(_precision);
-    } else if (Ariadne::is_inf(q)) {
+    } else if (rational_is_inf(q)) {
         *this=infinity(_precision,mpz_sgn(mpq_numref(q.get_mpq()))<0);
     } else {
         *this=from_rational(q.get_mpq(),_precision,mode);
