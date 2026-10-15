@@ -51,6 +51,9 @@
 #include "numeric/rounded_float.hpp"
 #include "numeric/casts.hpp"
 
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATNP
+#include "numeric/floatnp.hpp"
+#endif
 #include "macro/testing.hpp"
 #include "test_floats.hpp"
 
@@ -83,6 +86,9 @@ constexpr bool check_float_concept()
 
 static_assert(check_float_concept<DoublePrecision>());
 static_assert(check_float_concept<MultiplePrecision>());
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATNP
+static_assert(check_float_concept<NativePrecision>());
+#endif
 
 } // namespace
 
@@ -893,6 +899,9 @@ Int main() {
     test_double_runtime();
     TestFloat<DoublePrecision>(dp).test();
     TestFloat<MultiplePrecision>(MultiplePrecision(128_bits)).test();
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATNP
+    TestFloat<NativePrecision>(NativePrecision(128_bits)).test();
+#endif
 
     return ARIADNE_TEST_FAILURES;
 }
