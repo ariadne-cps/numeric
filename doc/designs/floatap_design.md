@@ -102,7 +102,7 @@ dependency of native arithmetic.
 - The `FloatAP` name/precision tag and dual-backend testing hooks
   are scaffolding, not a production floating-point implementation.
 - The GMP-only kernel lives in `src/floatap.cpp`, with the internal
-  interface in `include/numeric/detail/floatap_kernel.hpp` and its C++
+  interface in `include/numeric/floatap.hpp` and its C++
   test in `tests/test_floatap_kernel.cpp`. The test covers randomized
   rational-reference add/sub/mul/div/fma under four rounding modes,
   plus special values, with 7/53/113/128/256/1024-bit precision.
@@ -123,10 +123,29 @@ change. Do not silently replace `FloatMP`; migration of the public
 alias is a separate, ABI-relevant change after correctness and
 performance review.
 
+## Coverage-driven regression tests
+
+The macOS LLVM coverage report dated 2026-10-15 identified untested
+integer conversion, exact halfway rounding, negative denominators,
+invalid rounding modes, exceptional rational conversion, assignment,
+swap, signed zeros, and NaN/infinity arithmetic. These are now exercised
+by the dedicated `test_floatap_edge_cases` C++ executable, alongside
+`test_floatap_kernel` (randomized exact arithmetic).
+
+The implementation is declared in the sole `numeric/floatap.hpp` header;
+there is no `detail` directory and no separate kernel header. The
+prototype `FloatAPKernel` class remains distinguishable from the
+not-yet-implemented public specialization `Float<ArbitraryPrecision>`.
+
+In an isolated Clang/LLVM instrumented build with both C++ test
+executables, `src/floatap.cpp` achieved 100% line coverage and about
+98.7% branch coverage. These figures do not describe the entire Ariadne
+project, and some infeasible platform-dependent overflow branches remain.
+
 ## Coverage integration
 
 The internal implementation is compiled into `NUMERIC_SRC` unconditionally;
-`test_floatap_kernel` is in the normal CTest test list, so the CI `coverage`
+`test_floatap_kernel` and `test_floatap_edge_cases` are in the normal CTest test list, so the CI `coverage`
 target exercises and instruments `src/floatap.cpp`. This does **not**
 mean the public `FloatAP` API is complete: CI still uses MPFR for `FloatMP`.
 
