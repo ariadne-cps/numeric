@@ -29,6 +29,8 @@ FloatAPKernel FloatAPKernel::from_ratio(mpz_srcptr numerator, mpz_srcptr denomin
         case Rounding::downward: increment=result._negative; break;
         case Rounding::upward: increment=!result._negative; break;
         case Rounding::toward_zero: break;
+        default:
+            throw std::invalid_argument("FloatAP unknown rounding mode");
         }
     }
     if (increment) mpz_add_ui(q,q,1);
