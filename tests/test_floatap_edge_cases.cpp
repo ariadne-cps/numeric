@@ -57,6 +57,38 @@ check(K::negate(K::zero(8)).negative(),"negate zero");
 raises<std::domain_error>([]{Q q;K::infinity(16).to_rational(q.q);},"infinite rational");
 raises<std::domain_error>([]{Q q;K::nan(16).to_rational(q.q);},"nan rational");
 }
+// Coverage-driven, but architecturally meaningful boundary behavior:
+ // no enormous integer allocation is needed to exercise checked exponent arithmetic.
+void boundary_cases(){
+    const K::Exponent minimum=std::numeric_limits<K::Exponent>::min();
+    const K::Exponent maximum=std::numeric_limits<K::Exponent>::max();
+    Z seven(7),one(1),eight(8);
+    raises<std::overflow_error>([&] {
+        (void)K::from_ratio(seven.z,one.z,maximum,2,R::nearest);
+    },"positive exponent overflow");
+    raises<std::overflow_error>([&] {
+        (void)K::from_ratio(one.z,eight.z,minimum,7,R::nearest);
+    },"negative exponent overflow");
+    if constexpr (std::numeric_limits<unsigned long>::max() >
+                  static_cast<unsigned long>(std::numeric_limits<K::Exponent>::max())) {
+        raises<std::invalid_argument>([] {
+            (void)K(std::numeric_limits<unsigned long>::max());
+        },"precision too large for exponent");
+    }
+
+    const K nonzero=v(3),positive_zero=K::zero(16);
+    check(!nonzero.is_zero(),"nonzero finite is not zero");
+    check(positive_zero.is_zero(),"positive zero classification");
+    check(!K::nan(16).is_zero(),"NaN is not zero");
+
+    const K positive_infinity=K::infinity(16);
+    const K negative_infinity=K::infinity(16,true);
+    same(K::fma(positive_infinity,nonzero,positive_infinity,16,R::nearest),
+         positive_infinity,"fma positive infinity plus positive infinity");
+    same(K::fma(negative_infinity,nonzero,negative_infinity,16,R::nearest),
+         negative_infinity,"fma negative infinity plus negative infinity");
+}
+
 void specials(){
 auto p=K::zero(16),n=K::zero(16,true),x=v(3),neg=v(-3);
 auto inf=K::infinity(16),minus_inf=K::infinity(16,true),nan=K::nan(16);
@@ -103,4 +135,4 @@ same(K::fma(x,p,x,16,R::nearest),x,"fma zero rhs");
 same(K::fma(n,p,n,16,R::nearest),n,"fma signed zero");
 }
 }
-int main(){try{precision_tag();conversions();specials();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{precision_tag();conversions();specials();boundary_cases();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}

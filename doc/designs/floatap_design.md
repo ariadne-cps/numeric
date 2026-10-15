@@ -196,3 +196,20 @@ and 152/154 branches. The uncovered branch in `fma` involving two
 infinities with the same sign can be tested without artificial inputs;
 one other reported branch is related to the zero-remainder rounding
 path. Coverage alone does not establish correct rounding or stability.
+
+## Follow-up coverage tests (15 October 2026)
+
+The updated `test_floatap_edge_cases` exercises same-sign infinite FMA,
+classification of finite nonzero/zero/NaN, precision validation and
+positive/negative exponent overflow. These represent genuine arithmetic
+contracts, not fabricated coverage hooks.
+
+An isolated Clang coverage run of the equivalent test cases together with
+the randomized tests gave 100% line coverage and 99.35% branch coverage
+for `src/floatap.cpp`, versus 98.70% previously. Header branch coverage
+improved from 73.08% to about 80.77%; the remaining paths include
+`checked_sub` with the minimum signed exponent, shifts outside the
+supported type range and bit lengths exceeding 2^63-1. Some of those
+conditions cannot arise with feasible inputs on 64-bit builds; they must
+be distinguished from missing tests, not bypassed merely for coverage.
+The CI report on this commit has not yet been run.
