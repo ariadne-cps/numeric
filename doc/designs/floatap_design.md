@@ -320,3 +320,25 @@ The remaining unrealistically-large shift/bit-length branches need
 careful review, and cannot be made reachable through ordinary API inputs
 without allocating impossible memory. A final 100% functions/lines/
 branches target is recorded, but no current result is being called 100%.
+
+
+## Coverage report 79 and integer-constructor cleanup (15 October 2026)
+
+The received `Archivio 79.zip` measures:
+- `src/floatap.cpp`: functions 25/25, lines 169/175, branches 192/194.
+- `include/numeric/floatap.hpp`: functions 46/46, lines 109/113, branches 42/46.
+
+The six uncovered source lines belong to the `int64_t` constructor's
+impossible decimal parse failure and its manual cleanup exception path.
+The constructor now imports the binary magnitude using GMP, with RAII
+cleanup and sign treatment that safely handles `INT64_MIN`. This
+eliminates unnecessary string conversion and redundant error handling,
+rather than manufacturing test failures just to boost coverage.
+Tests exercise zero, `INT64_MIN` and `INT64_MAX` as exact rationals.
+
+The remaining header guards reject impractically large shifts and
+significands on 64-bit targets. They are preserved until an appropriate
+testability/design solution is established. The requested **100% function,
+line and branch** coverage is still the final acceptance criterion,
+not a currently achieved measurement. Existing numbers require a fresh
+coverage run after the change.

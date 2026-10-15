@@ -1,7 +1,7 @@
 /***************************************************************************
  *            numeric/floatap.cpp
  *
- *  Copyright  2026  Ariadne contributors
+ *  Copyright  2026  Luca Geretti
  *
  ****************************************************************************/
 
@@ -29,7 +29,6 @@
 #include "numeric/floatap.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/rational.hpp"
-#include <string>
 namespace Ariadne {
 FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
     Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
@@ -156,22 +155,33 @@ FloatAP FloatAP::fma(FloatAP const& a,FloatAP const& b,
 }
 
 
-FloatAP::Float(std::int64_t n, PrecisionType pr) : Float(pr) {
+namespace {
+// A signed 64-bit integer is imported directly, without a decimal
+// intermediate. In particular, INT64_MIN is handled without negating
+// a signed value outside its range.
+FloatAP float_from_int64(std::int64_t n, ArbitraryPrecision precision) {
     mpz_t value;
     mpz_init(value);
-    const std::string decimal=std::to_string(n);
-    if (mpz_set_str(value,decimal.c_str(),10)!=0) {
-        mpz_clear(value);
-        throw std::invalid_argument("FloatAP integer conversion");
+    struct Cleanup {
+        mpz_ptr value;
+        ~Cleanup() { mpz_clear(value); }
+    } cleanup{value};
+
+    std::uint64_t magnitude=static_cast<std::uint64_t>(n);
+    if (n<0) {
+        magnitude=std::uint64_t{0}-magnitude;
     }
-    try {
-        *this=from_integer(value,_precision,ROUND_TO_NEAREST);
-    } catch(...) {
-        mpz_clear(value);
-        throw;
+    mpz_import(value,1,1,sizeof(magnitude),0,0,&magnitude);
+    if (n<0) {
+        mpz_neg(value,value);
     }
-    mpz_clear(value);
+    return FloatAP::from_integer(value,static_cast<unsigned long>(precision.bits()),
+                                 FloatAP::ROUND_TO_NEAREST);
 }
+}
+
+FloatAP::Float(std::int64_t n, PrecisionType pr)
+    : Float(float_from_int64(n,pr)) { }
 
 FloatAP::Float(Integer const& n, RoundingModeType mode, PrecisionType pr)
     : Float(from_integer(n.get_mpz(),static_cast<unsigned long>(pr.bits()),mode)) { }
