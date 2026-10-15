@@ -2,8 +2,8 @@
 // Same monomorphic test code is instantiated for each implementation: no virtual dispatch.
 #include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATNP
-#include "numeric/floatnp.hpp"
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
+#include "numeric/floatvp.hpp"
 #endif
 #include <algorithm>
 #include <chrono>
@@ -110,8 +110,8 @@ int main(int argc,char** argv) {
         std::cout<<"backend,operation,bits,iterations,samples,median_ns\n";
         for (unsigned bits : {53u,128u,256u,1024u}) {
             run_backend<FloatMP>("mpfr",bits,iterations,samples);
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATNP
-            run_backend<FloatNP>("native",bits,iterations,samples);
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
+            run_backend<FloatVP>("floatvp",bits,iterations,samples);
 #endif
         }
     } catch (std::exception const& e) {

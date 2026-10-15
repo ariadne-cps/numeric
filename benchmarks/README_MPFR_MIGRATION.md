@@ -1,15 +1,15 @@
-# FloatNP migration: static coexistence and MPFR performance reference
+# FloatVP migration: static coexistence and MPFR performance reference
 
 The reference remains `FloatMP = Float<MultiplePrecision>` (MPFR).
-The new implementation is named `FloatNP = Float<NativePrecision>`.
+The new implementation is named `FloatVP = Float<VariablePrecision>`.
 Both are concrete types, distinguished by their precision tags.
 Neither introduces a virtual dispatch, a heap-allocated interface,
 nor a function-pointer switch in scalar arithmetic.
 
-`include/numeric/floatnp.hpp` reserves the new names and declares the
-precision tag. **It does not yet implement Float<NativePrecision>.**
+`include/numeric/floatvp.hpp` reserves the new names and declares the
+precision tag. **It does not yet implement Float<VariablePrecision>.**
 The dual-backend build is intentionally rejected until the native
-implementation source `src/floatnp.cpp` is added. The default tests
+implementation source `src/floatvp.cpp` is added. The default tests
 and benchmark executable exercise the MPFR reference baseline.
 
 ## Baseline
@@ -33,16 +33,16 @@ The test verifies exact rational equality of rounded outputs against
 MPFR under nearest, down, up and toward-zero rounding; it does not
 compare via `double` (which would hide errors above 53 bits).
 
-## Dual backend (once FloatNP exists)
+## Dual backend (once FloatVP exists)
 
-Add a definition of `Float<NativePrecision>`, with the same named
-operations as the MPFR specialization, plus `src/floatnp.cpp`.
+Add a definition of `Float<VariablePrecision>`, with the same named
+operations as the MPFR specialization, plus `src/floatvp.cpp`.
 Enable dual compilation in an isolated Release build:
 
 ```sh
 cmake -S . -B build-dual -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_NUMERIC_MIGRATION_BENCHMARKS=ON \
-  -DBUILD_FLOATNP_COMPARISON=ON
+  -DBUILD_FLOATVP_COMPARISON=ON
 cmake --build build-dual --target tests benchmark_floatmp_backends
 ctest --test-dir build-dual --output-on-failure
 ./build-dual/benchmarks/benchmark_floatmp_backends 300 7 > dual.csv
@@ -50,12 +50,12 @@ python3 benchmarks/compare_floatmp_backends.py dual.csv
 ```
 
 The existing parameterized `test_float` and `test_float_rounding`
-also instantiate the `NativePrecision` type in a dual build, while
+also instantiate the `VariablePrecision` type in a dual build, while
 retaining their MPFR cases. For new tests, prefer one templated test
-body instantiated for both `FloatMP` and `FloatNP`; use
+body instantiated for both `FloatMP` and `FloatVP`; use
 explicitly native-only assertions only for implementation details.
 
-The comparison script prints FloatNP/MPFR ratios; values above 1
+The comparison script prints FloatVP/MPFR ratios; values above 1
 indicate a slowdown. Benchmark on the same CPU, compiler, flags,
 load and power/frequency conditions; repeat full runs and consider
 allocation counts. No numerical performance claims are made before
