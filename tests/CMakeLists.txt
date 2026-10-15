@@ -13,6 +13,7 @@ set(UNIT_TESTS
     test_rounding_mode
     test_float
     test_float_rounding
+    test_floatmp_backends
     test_rounded_float
     test_float_approximation
     test_float_error
@@ -33,6 +34,12 @@ foreach(TEST ${UNIT_TESTS})
         )
     endif()
 endforeach()
+
+if(BUILD_FLOATNP_COMPARISON)
+    foreach(TEST IN ITEMS test_float test_float_rounding test_floatmp_backends)
+        target_compile_definitions(${TEST} PRIVATE ARIADNE_NUMERIC_ENABLE_FLOATNP)
+    endforeach()
+endif()
 
 add_library(check_numeric OBJECT check_numeric.cpp)
 target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
