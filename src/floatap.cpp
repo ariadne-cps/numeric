@@ -23,14 +23,17 @@
  */
 
 /*! \file numeric/floatap.cpp
- *  \brief Native arbitrary-precision floating-point arithmetic kernel.
+ *  \brief Native arbitrary-precision floating-point operations.
  */
 
 #include "numeric/floatap.hpp"
+#include "numeric/integer.hpp"
+#include "numeric/rational.hpp"
+#include <string>
 namespace Ariadne {
-FloatAPKernel FloatAPKernel::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
+FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
     Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
-    FloatAPKernel result(precision);
+    FloatAP result(precision);
     if (mpz_sgn(denominator)==0) throw std::domain_error("FloatAP zero denominator");
     if (mpz_sgn(numerator)==0) { result.set_zero(negative_zero); return result; }
     result._negative=(mpz_sgn(numerator)<0)!=(mpz_sgn(denominator)<0);
@@ -67,15 +70,15 @@ FloatAPKernel FloatAPKernel::from_ratio(mpz_srcptr numerator, mpz_srcptr denomin
     }
     mpz_set(result._significand,q); return result;
 }
-FloatAPKernel FloatAPKernel::from_integer(mpz_srcptr n,unsigned long p,Rounding mode) {
+FloatAP FloatAP::from_integer(mpz_srcptr n,unsigned long p,Rounding mode) {
     mpz_t one;mpz_init_set_ui(one,1);
     struct Cleanup{mpz_ptr z;~Cleanup(){mpz_clear(z);}} cleanup{one};
     return from_ratio(n,one,0,p,mode);
 }
-FloatAPKernel FloatAPKernel::from_rational(mpq_srcptr r,unsigned long p,Rounding mode) {
+FloatAP FloatAP::from_rational(mpq_srcptr r,unsigned long p,Rounding mode) {
     return from_ratio(mpq_numref(r),mpq_denref(r),0,p,mode);
 }
-void FloatAPKernel::to_rational(mpq_ptr out) const {
+void FloatAP::to_rational(mpq_ptr out) const {
     if(!is_finite()) throw std::domain_error("FloatAP nonfinite to Rational");
     mpz_set(mpq_numref(out),_significand);
     if(_negative) mpz_neg(mpq_numref(out),mpq_numref(out));
@@ -84,11 +87,11 @@ void FloatAPKernel::to_rational(mpq_ptr out) const {
     if(_exponent<0) mpz_mul_2exp(mpq_denref(out),mpq_denref(out),shift_amount(checked_sub(0,_exponent)));
     mpq_canonicalize(out);
 }
-FloatAPKernel FloatAPKernel::negate(FloatAPKernel x) {
+FloatAP FloatAP::negate(FloatAP x) {
     if(!x.is_nan()) x._negative=!x._negative;
     return x;
 }
-FloatAPKernel FloatAPKernel::add(FloatAPKernel const& a,FloatAPKernel const& b,
+FloatAP FloatAP::add(FloatAP const& a,FloatAP const& b,
     unsigned long p,Rounding mode) {
     if(a.is_nan()||b.is_nan()) return nan(p);
     if(a.is_inf()||b.is_inf()) {
@@ -106,9 +109,9 @@ FloatAPKernel FloatAPKernel::add(FloatAPKernel const& a,FloatAPKernel const& b,
     mpz_add(sum,x,y);mpz_set_ui(one,1);
     return from_ratio(sum,one,low,p,mode,mode==Rounding::downward);
 }
-FloatAPKernel FloatAPKernel::sub(FloatAPKernel const& a,FloatAPKernel const& b,
+FloatAP FloatAP::sub(FloatAP const& a,FloatAP const& b,
     unsigned long p,Rounding mode) {return add(a,negate(b),p,mode);}
-FloatAPKernel FloatAPKernel::mul(FloatAPKernel const& a,FloatAPKernel const& b,
+FloatAP FloatAP::mul(FloatAP const& a,FloatAP const& b,
     unsigned long p,Rounding mode) {
     if(a.is_nan()||b.is_nan()||(a.is_inf()&&b.is_zero())||(a.is_zero()&&b.is_inf())) return nan(p);
     const bool neg=a._negative!=b._negative;
@@ -121,7 +124,7 @@ FloatAPKernel FloatAPKernel::mul(FloatAPKernel const& a,FloatAPKernel const& b,
     mpz_set_ui(one,1);
     return from_ratio(n,one,checked_add(a._exponent,b._exponent),p,mode);
 }
-FloatAPKernel FloatAPKernel::div(FloatAPKernel const& a,FloatAPKernel const& b,
+FloatAP FloatAP::div(FloatAP const& a,FloatAP const& b,
     unsigned long p,Rounding mode) {
     if(a.is_nan()||b.is_nan()||(a.is_zero()&&b.is_zero())||(a.is_inf()&&b.is_inf())) return nan(p);
     const bool neg=a._negative!=b._negative;
@@ -132,8 +135,8 @@ FloatAPKernel FloatAPKernel::div(FloatAPKernel const& a,FloatAPKernel const& b,
     if(neg) mpz_neg(n,n);
     return from_ratio(n,b._significand,checked_sub(a._exponent,b._exponent),p,mode);
 }
-FloatAPKernel FloatAPKernel::fma(FloatAPKernel const& a,FloatAPKernel const& b,
-    FloatAPKernel const& c,unsigned long p,Rounding mode) {
+FloatAP FloatAP::fma(FloatAP const& a,FloatAP const& b,
+    FloatAP const& c,unsigned long p,Rounding mode) {
     if(a.is_nan()||b.is_nan()||c.is_nan()||(a.is_zero()&&b.is_inf())||(a.is_inf()&&b.is_zero())) return nan(p);
     const bool neg=a._negative!=b._negative;
     if(a.is_inf()||b.is_inf()) {
@@ -145,10 +148,74 @@ FloatAPKernel FloatAPKernel::fma(FloatAPKernel const& a,FloatAPKernel const& b,
     mpz_t product;mpz_init(product);
     struct Cleanup{mpz_ptr z;~Cleanup(){mpz_clear(z);}} cleanup{product};
     mpz_mul(product,a._significand,b._significand);
-    FloatAPKernel exact(static_cast<unsigned long>(mpz_sizeinbase(product,2)));
+    FloatAP exact(static_cast<unsigned long>(mpz_sizeinbase(product,2)));
     mpz_set(exact._significand,product);
     exact._negative=neg;
     exact._exponent=checked_add(a._exponent,b._exponent);
     return add(exact,c,p,mode);
 }
+
+
+FloatAP::Float(std::int64_t n, PrecisionType pr) : Float(pr) {
+    mpz_t value;
+    mpz_init(value);
+    const std::string decimal=std::to_string(n);
+    if (mpz_set_str(value,decimal.c_str(),10)!=0) {
+        mpz_clear(value);
+        throw std::invalid_argument("FloatAP integer conversion");
+    }
+    try {
+        *this=from_integer(value,_precision,ROUND_TO_NEAREST);
+    } catch(...) {
+        mpz_clear(value);
+        throw;
+    }
+    mpz_clear(value);
+}
+
+FloatAP::Float(Integer const& n, RoundingModeType mode, PrecisionType pr)
+    : Float(from_integer(n.get_mpz(),static_cast<unsigned long>(pr.bits()),mode)) { }
+
+FloatAP::Float(Rational const& q, RoundingModeType mode, PrecisionType pr)
+    : Float(pr) {
+    if (Ariadne::is_nan(q)) {
+        *this=nan(_precision);
+    } else if (Ariadne::is_inf(q)) {
+        *this=infinity(_precision,mpz_sgn(mpq_numref(q.get_mpq()))<0);
+    } else {
+        *this=from_rational(q.get_mpq(),_precision,mode);
+    }
+}
+
+FloatAP::operator Rational() const {
+    if (is_nan()) return Rational::nan();
+    if (is_inf()) return Rational::inf(negative()?Sign::NEGATIVE:Sign::POSITIVE);
+    Rational q;
+    to_rational(q._mpq);
+    return q;
+}
+
+double FloatAP::get_d() const {
+    return static_cast<Rational>(*this).get_d();
+}
+
+Comparison cmp(FloatAP const& a, FloatAP const& b) {
+    if (a.is_nan()||b.is_nan()) return Comparison::INCOMPARABLE;
+    if (a.is_inf()||b.is_inf()) {
+        if (a.is_inf()&&b.is_inf()) {
+            return a.negative()==b.negative()?Comparison::EQUAL:
+                (a.negative()?Comparison::LESS:Comparison::GREATER);
+        }
+        return a.is_inf()?(a.negative()?Comparison::LESS:Comparison::GREATER):
+                          (b.negative()?Comparison::GREATER:Comparison::LESS);
+    }
+    mpq_t x,y;
+    mpq_inits(x,y,nullptr);
+    struct Cleanup { mpq_ptr x,y; ~Cleanup(){mpq_clears(x,y,nullptr);} } cleanup{x,y};
+    a.to_rational(x);
+    b.to_rational(y);
+    const int order=mpq_cmp(x,y);
+    return order<0?Comparison::LESS:(order>0?Comparison::GREATER:Comparison::EQUAL);
+}
+
 } // namespace Ariadne

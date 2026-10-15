@@ -134,7 +134,7 @@ by the dedicated `test_floatap_edge_cases` C++ executable, alongside
 
 The implementation is declared in the sole `numeric/floatap.hpp` header;
 there is no `detail` directory and no separate kernel header. The
-prototype `FloatAPKernel` class remains distinguishable from the
+public `FloatAP` class remains distinguishable from the
 not-yet-implemented public specialization `Float<ArbitraryPrecision>`.
 
 In an isolated Clang/LLVM instrumented build with both C++ test
@@ -223,7 +223,7 @@ For `include/numeric/floatap.hpp`, coverage is 27/27 functions,
 69/75 lines (92%) and 21/26 branches (80.77%).
 
 A missing branch in `checked_sub` is reachable through a finite,
-normalized `FloatAPKernel` value with exponent `INT64_MIN`.
+normalized `FloatAP` value with exponent `INT64_MIN`.
 `test_floatap_edge_cases` now tests construction of that value, correct
 finite division yielding an exponent near `INT64_MAX`, and exceptional
 cases when exact rational conversion or another division would overflow.
@@ -281,3 +281,17 @@ The realistic kernel correctness tests and coverage pass are now ready
 for the next development stage. This does **not** certify the unimplemented
 public `Float<ArbitraryPrecision>` interface or correctly rounded
 transcendental functions.
+
+## Direct class integration (October 2026)
+
+The temporary kernel class was removed. `Float<ArbitraryPrecision>` now
+owns GMP significand storage, precision, exponent, sign and special-value
+state directly; `FloatAP` aliases the specialization. The existing tests
+exercise its elementary arithmetic methods and special values without a
+wrapper. Public constructors for integers/rationals, exact rational
+conversion and comparisons have been introduced. They are not yet a
+complete replacement for the `FloatMP` interface: transcendental
+functions, advanced rounding session controls and optimized extreme
+exponent comparisons are outstanding. The old coverage numbers describe
+the pre-refactor kernel, so a fresh report is required. Final goal remains
+100% line, function and branch coverage without weakening safety checks.

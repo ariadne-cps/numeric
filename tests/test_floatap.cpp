@@ -22,15 +22,15 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// GMP-only FloatAP kernel tests: exact rational oracle, no MPFR required.
+// GMP-only FloatAP tests: exact rational oracle, no MPFR required.
 #include "numeric/floatap.hpp"
 #include <gmp.h>
 #include <iostream>
 #include <stdexcept>
 #include <random>
-using Ariadne::FloatAPKernel;
+using Ariadne::FloatAP;
 namespace {
-using R=FloatAPKernel::Rounding;
+using R=FloatAP::Rounding;
 struct Q {
     mpq_t value;
     Q() {mpq_init(value);}
@@ -39,7 +39,7 @@ struct Q {
     Q& operator=(Q const&)=delete;
 };
 void expect(bool test,char const* msg) {if(!test)throw std::runtime_error(msg);}
-void equal(FloatAPKernel const& x,FloatAPKernel const& y,char const* msg) {
+void equal(FloatAP const& x,FloatAP const& y,char const* msg) {
     expect(x.kind()==y.kind(),msg);
     if(!x.is_finite()) {expect(x.negative()==y.negative(),msg);return;}
     Q a,b;x.to_rational(a.value);y.to_rational(b.value);
@@ -61,33 +61,33 @@ void test_rounding() {
                 static_cast<unsigned long>(engine()%300+1));
             mpq_canonicalize(a.value);mpq_canonicalize(b.value);mpq_canonicalize(c.value);
             for(R mode:modes) {
-                auto fa=FloatAPKernel::from_rational(a.value,p,mode);
-                auto fb=FloatAPKernel::from_rational(b.value,p,mode);
-                auto fc=FloatAPKernel::from_rational(c.value,p,mode);
+                auto fa=FloatAP::from_rational(a.value,p,mode);
+                auto fb=FloatAP::from_rational(b.value,p,mode);
+                auto fc=FloatAP::from_rational(c.value,p,mode);
                 fa.to_rational(x.value);fb.to_rational(y.value);fc.to_rational(z.value);
-                auto check=[&](FloatAPKernel const& computed,mpq_srcptr exact,char const* message){
-                    auto reference=FloatAPKernel::from_rational(exact,p,mode);
+                auto check=[&](FloatAP const& computed,mpq_srcptr exact,char const* message){
+                    auto reference=FloatAP::from_rational(exact,p,mode);
                     equal(computed,reference,message);
                 };
                 mpq_add(oracle.value,x.value,y.value);
-                check(FloatAPKernel::add(fa,fb,p,mode),oracle.value,"add");
+                check(FloatAP::add(fa,fb,p,mode),oracle.value,"add");
                 mpq_sub(oracle.value,x.value,y.value);
-                check(FloatAPKernel::sub(fa,fb,p,mode),oracle.value,"sub");
+                check(FloatAP::sub(fa,fb,p,mode),oracle.value,"sub");
                 mpq_mul(oracle.value,x.value,y.value);
-                check(FloatAPKernel::mul(fa,fb,p,mode),oracle.value,"mul");
+                check(FloatAP::mul(fa,fb,p,mode),oracle.value,"mul");
                 if(mpq_sgn(y.value)!=0) {
                     mpq_div(oracle.value,x.value,y.value);
-                    check(FloatAPKernel::div(fa,fb,p,mode),oracle.value,"div");
+                    check(FloatAP::div(fa,fb,p,mode),oracle.value,"div");
                 }
                 mpq_mul(oracle.value,x.value,y.value);
                 mpq_add(oracle.value,oracle.value,z.value);
-                check(FloatAPKernel::fma(fa,fb,fc,p,mode),oracle.value,"fma");
+                check(FloatAP::fma(fa,fb,fc,p,mode),oracle.value,"fma");
             }
         }
     }
 }
 void test_special() {
-    using K=FloatAPKernel;
+    using K=FloatAP;
     auto plus=K::zero(64),minus=K::zero(64,true);
     auto inf=K::infinity(64),ninf=K::infinity(64,true),nan=K::nan(64);
     expect(plus.is_zero()&&!plus.negative(),"positive zero");
@@ -109,9 +109,9 @@ int main() {
     try {
         test_special();
         test_rounding();
-        std::cout<<"FloatAP kernel: 3000 randomized inputs x four rounding modes OK\n";
+        std::cout<<"FloatAP: 3000 randomized inputs x four rounding modes OK\n";
     } catch(std::exception const& e) {
-        std::cerr<<"FloatAP kernel test FAILED: "<<e.what()<<'\n';
+        std::cerr<<"FloatAP test FAILED: "<<e.what()<<'\n';
         return 1;
     }
 }
