@@ -68,7 +68,7 @@ Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
         mpz_tdiv_qr(q, r, n, w);
     }
     bool increment = false;
-    if (mpz_sgn(r)) {
+    if (mpz_cmp_ui(r, 0) != 0) {
         switch (mode) {
             case Rounding::nearest:
             mpz_mul_2exp(r, r, 1);
