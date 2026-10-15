@@ -2,6 +2,7 @@
 #include "numeric/floatap.hpp"
 #include <gmp.h>
 #include <iostream>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -19,6 +20,17 @@ if(a.is_nan())return;
 check(a.negative()==b.negative(),m);
 if(!a.is_finite())return;
 Q x,y;a.to_rational(x.q);b.to_rational(y.q);check(mpq_cmp(x.q,y.q)==0,m);
+}
+void precision_tag(){
+    using namespace Ariadne;
+    const ArbitraryPrecision via_bits(53_bits);
+    const ArbitraryPrecision via_count(std::size_t{53});
+    const ArbitraryPrecision distinct(113_bits);
+    check(via_bits.bits()==53u,"ArbitraryPrecision Bits constructor");
+    check(via_count.bits()==53u,"ArbitraryPrecision size_t constructor");
+    check(distinct.bits()==113u,"ArbitraryPrecision arbitrary bit count");
+    check(via_bits==via_count,"ArbitraryPrecision equality");
+    check(!(via_bits==distinct),"ArbitraryPrecision inequality");
 }
 void conversions(){
 raises<std::invalid_argument>([]{K x(1);},"precision");
@@ -91,4 +103,4 @@ same(K::fma(x,p,x,16,R::nearest),x,"fma zero rhs");
 same(K::fma(n,p,n,16,R::nearest),n,"fma signed zero");
 }
 }
-int main(){try{conversions();specials();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{precision_tag();conversions();specials();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}
