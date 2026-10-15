@@ -239,3 +239,45 @@ The shift-bound and bit-length guards cannot be triggered with feasible
 operands on the current 64-bit target: `mp_bitcnt_t` spans at least the
 entire nonnegative int64 exponent range, and an actual GMP integer with
 more than `INT64_MAX` bits would require unattainable storage.
+
+
+## Coverage report of 15 October 2026, 21:59 (Archivio 77)
+
+Source-based LLVM coverage from the provided archive:
+
+| Source | Functions | Lines | Regions | Branches |
+| --- | --- | --- | --- | --- |
+| `src/floatap.cpp` | 16/16 (100%) | 118/118 (100%) | 254/255 (99.61%) | 153/154 (99.35%) |
+| `include/numeric/floatap.hpp` | 27/27 (100%) | 71/75 (94.67%) | 74/77 (96.10%) | 22/26 (84.62%) |
+
+This confirms the `INT64_MIN` tests added previously increased
+header coverage from 69/75 to 71/75 lines, and from 21/26 to
+22/26 branches. The uncovered locations have been inspected in the
+LLVM-generated HTML and `branches.txt`:
+
+- `floatap.hpp:64-66` — `shift_amount()` throws for negative values
+  or values exceeding `mp_bitcnt_t`. Its callers pass nonnegative
+  checked exponent differences. On the 64-bit target `mp_bitcnt_t`
+  can represent the full nonnegative signed-int64 range, so neither
+  exception arm has a feasible caller through the tested API.
+- `floatap.hpp:71-73` — `bit_length()` would throw only if a GMP
+  integer had more than `INT64_MAX` binary digits. Such an operand
+  is not practicable in memory. These are the **only four uncovered
+  executable header lines**.
+- `floatap.hpp:114` — two coverage records for the same `is_zero()`
+  expression show the zero case absent in one instrumented instance
+  but present **40 times** in another. This is not an untested
+  arithmetic case: zero classification is exercised.
+- `floatap.cpp:23` — two coverage records exist for the same
+  `if (mpz_sgn(r))` expression. One reports 0 true hits; the other
+  reports approximately **134,000 true** and **21,700 false** hits.
+  The true/false cases of the implemented rounding condition are
+  demonstrably covered; the missing record appears to be a
+  multi-instance instrumentation artifact.
+
+**Decision:** Keep these safety checks and do not introduce impossible
+huge operands or weaken invariants to satisfy instrumentation counters.
+The realistic kernel correctness tests and coverage pass are now ready
+for the next development stage. This does **not** certify the unimplemented
+public `Float<ArbitraryPrecision>` interface or correctly rounded
+transcendental functions.
