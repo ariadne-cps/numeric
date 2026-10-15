@@ -103,7 +103,7 @@ dependency of native arithmetic.
   are scaffolding, not a production floating-point implementation.
 - The GMP-only kernel lives in `src/floatap.cpp`, with the internal
   interface in `include/numeric/floatap.hpp` and its C++
-  test in `tests/test_floatap_kernel.cpp`. The test covers randomized
+  test in `tests/test_floatap.cpp`. The test covers randomized
   rational-reference add/sub/mul/div/fma under four rounding modes,
   plus special values, with 7/53/113/128/256/1024-bit precision.
   **The public `Float<ArbitraryPrecision>` specialization is NOT complete
@@ -130,7 +130,7 @@ integer conversion, exact halfway rounding, negative denominators,
 invalid rounding modes, exceptional rational conversion, assignment,
 swap, signed zeros, and NaN/infinity arithmetic. These are now exercised
 by the dedicated `test_floatap_edge_cases` C++ executable, alongside
-`test_floatap_kernel` (randomized exact arithmetic).
+`test_floatap` (randomized exact arithmetic).
 
 The implementation is declared in the sole `numeric/floatap.hpp` header;
 there is no `detail` directory and no separate kernel header. The
@@ -145,15 +145,15 @@ project, and some infeasible platform-dependent overflow branches remain.
 ## Coverage integration
 
 The internal implementation is compiled into `NUMERIC_SRC` unconditionally;
-`test_floatap_kernel` and `test_floatap_edge_cases` are in the normal CTest test list, so the CI `coverage`
+`test_floatap` and `test_floatap_edge_cases` are in the normal CTest test list, so the CI `coverage`
 target exercises and instruments `src/floatap.cpp`. This does **not**
 mean the public `FloatAP` API is complete: CI still uses MPFR for `FloatMP`.
 
 Build and run the kernel test:
 
 ```sh
-cmake --build build --target test_floatap_kernel
-ctest --test-dir build -R '^test_floatap_kernel$' --output-on-failure
+cmake --build build --target test_floatap
+ctest --test-dir build -R '^test_floatap$' --output-on-failure
 ```
 
 The kernel is a prototype using GMP limbs. Comparison with MPFR and
@@ -180,3 +180,19 @@ allocation just to exercise platform-specific overflow is not a
 correctness test. Coverage is not evidence of fully correct arithmetic:
 additional independent boundary and MPFR differential checks remain
 necessary.
+
+## Coverage report of 15 October 2026, 21:37
+
+The next uploaded coverage report, `Archivio 75(1).zip`, confirms
+that the new precision-tag tests cover all 27/27 functions in
+`include/numeric/floatap.hpp`. Header lines improved from 63/75
+(84%) to 69/75 (92%), while branch coverage stayed at 19/26
+(73.08%). The remaining six uncovered header lines are checks for
+exceptional 64-bit exponent/shift and huge-operand bounds that are
+unreachable or resource-intensive via the ordinary public kernel API.
+
+`src/floatap.cpp` remains 118/118 covered lines, 16/16 functions,
+and 152/154 branches. The uncovered branch in `fma` involving two
+infinities with the same sign can be tested without artificial inputs;
+one other reported branch is related to the zero-remainder rounding
+path. Coverage alone does not establish correct rounding or stability.
