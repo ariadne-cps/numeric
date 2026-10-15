@@ -1,6 +1,6 @@
 // Part of Ariadne Numeric. GPL-3.0-or-later.
-#include "numeric/detail/floatap_kernel.hpp"
-namespace Ariadne::detail {
+#include "numeric/floatap.hpp"
+namespace Ariadne {
 FloatAPKernel FloatAPKernel::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
     Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
     FloatAPKernel result(precision);
@@ -124,4 +124,4 @@ FloatAPKernel FloatAPKernel::fma(FloatAPKernel const& a,FloatAPKernel const& b,
     exact._exponent=checked_add(a._exponent,b._exponent);
     return add(exact,c,p,mode);
 }
-} // namespace Ariadne::detail
+} // namespace Ariadne

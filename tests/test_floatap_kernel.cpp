@@ -1,11 +1,11 @@
 // Part of Ariadne Numeric. GPL-3.0-or-later.
 // GMP-only FloatAP kernel tests: exact rational oracle, no MPFR required.
-#include "numeric/detail/floatap_kernel.hpp"
+#include "numeric/floatap.hpp"
 #include <gmp.h>
 #include <iostream>
 #include <stdexcept>
 #include <random>
-using Ariadne::detail::FloatAPKernel;
+using Ariadne::FloatAPKernel;
 namespace {
 using R=FloatAPKernel::Rounding;
 struct Q {
