@@ -17,9 +17,9 @@ and benchmark executable exercise the MPFR reference baseline.
 ```sh
 cmake -S . -B build-mpfr -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_NUMERIC_MIGRATION_BENCHMARKS=ON
-cmake --build build-mpfr --target test_floatmp_backends benchmark_floatmp_backends
+cmake --build build-mpfr --target test_floatmp_backends benchmark_compare_multiple_precision_backends
 ctest --test-dir build-mpfr -R '^test_floatmp_backends$' --output-on-failure
-./build-mpfr/benchmarks/benchmark_floatmp_backends 300 7 > mpfr_baseline.csv
+./build-mpfr/benchmarks/benchmark_compare_multiple_precision_backends 300 7 > mpfr_baseline.csv
 ```
 
 The benchmark runs 53, 128, 256 and 1024-bit cases. It reports
@@ -43,10 +43,9 @@ Enable dual compilation in an isolated Release build:
 cmake -S . -B build-dual -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_NUMERIC_MIGRATION_BENCHMARKS=ON \
   -DBUILD_FLOATVP_COMPARISON=ON
-cmake --build build-dual --target tests benchmark_floatmp_backends
+cmake --build build-dual --target tests benchmark_compare_multiple_precision_backends
 ctest --test-dir build-dual --output-on-failure
-./build-dual/benchmarks/benchmark_floatmp_backends 300 7 > dual.csv
-python3 benchmarks/compare_floatmp_backends.py dual.csv
+./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 > dual.csv
 ```
 
 The existing parameterized `test_float` and `test_float_rounding`
@@ -55,30 +54,48 @@ retaining their MPFR cases. For new tests, prefer one templated test
 body instantiated for both `FloatMP` and `FloatVP`; use
 explicitly native-only assertions only for implementation details.
 
-The dual-backend executable prints all per-operation measurements as
-a machine-readable CSV on **stdout**, and an immediate slowdown summary
-on **stderr** (also shown when stdout is redirected to `dual.csv`).
-A baseline-only executable explicitly says that no slowdown can be
-computed without FloatVP, rather than presenting a misleading number.
+## Slowdown summary entirely in C++
 
-The postprocessing script prints a detailed per-operation comparison
-plus the same two summary metrics for every precision and all operations:
+The benchmark calculates its own FloatVP/FloatMP ratios. No Python
+postprocessing step or additional runtime dependency is necessary.
+It writes raw nanoseconds per operation to CSV on **stdout** and
+the per-precision and overall slowdown summary to **stderr**.
+
+To see **just the summary**, without creating a CSV file:
 
 ```sh
-python3 benchmarks/compare_floatmp_backends.py dual.csv --summary-only
+./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 --summary-only
 ```
 
-- `geomean_x`: geometric mean of the FloatVP/FloatMP time ratios across
-  distinct (operation, precision) pairs, giving **equal weight** to each.
-- `total_time_x`: sum of FloatVP's median ns/op divided by the sum of
-  FloatMP's median ns/op; this assumes one execution of each benchmark
-  case, and **weights expensive operations more heavily**.
-- `worst_x`: largest observed slowdown, with its operation and precision.
+To print the individual FloatVP/FloatMP ratios as well:
+
+```sh
+./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 --summary-only --details
+```
+
+To fail the process if **any** (operation, precision) runs slower
+than, say, 1.50 times the MPFR reference:
+
+```sh
+./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 --summary-only --max-slowdown 1.50
+```
+
+The comparison uses two distinct aggregate metrics:
+- `geomean`: geometric mean of FloatVP/FloatMP time ratios across
+  distinct (operation, precision) pairs, with **equal weight** each.
+- `total_time`: sum of FloatVP median ns/op divided by the sum of
+  FloatMP median ns/op. This represents **one execution of each
+  benchmark case** and weights expensive operations more heavily.
+- `worst`: largest observed slowdown, with its operation and precision.
 
 Ratios above 1 indicate slowdown; ratios below 1 indicate a speedup.
-The 'ALL' summary is a synthetic equal-frequency mix of the listed
-operations **not** a prediction of application-wide performance: real
-Ariadne workloads may exercise a different operation mix.
+The 'ALL' summary is a synthetic equal-frequency workload, **not** a
+prediction of application-wide performance. Real Ariadne workloads
+may execute different operations at different frequencies.
+
+A reference-only build still produces MPFR timing CSV, but explicitly
+reports that no FloatVP slowdown can be computed yet; supplying
+`--max-slowdown` in such a build is an error.
 
 Benchmark on the same CPU, compiler, flags, load and power/frequency
 conditions; repeat full runs and consider allocation counts. No

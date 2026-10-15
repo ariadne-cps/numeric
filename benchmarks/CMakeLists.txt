@@ -1,6 +1,6 @@
 set(BENCHMARKS
     benchmark_arithmetic
-    benchmark_floatmp_backends
+    benchmark_compare_multiple_precision_backends
 )
 
 if(NOT TARGET benchmarks)
@@ -13,6 +13,6 @@ foreach(BENCHMARK ${BENCHMARKS})
 endforeach()
 
 if(BUILD_FLOATVP_COMPARISON)
-    target_compile_definitions(benchmark_floatmp_backends PRIVATE ARIADNE_NUMERIC_ENABLE_FLOATVP)
+    target_compile_definitions(benchmark_compare_multiple_precision_backends PRIVATE ARIADNE_NUMERIC_ENABLE_FLOATVP)
 endif()
 add_dependencies(benchmarks ${BENCHMARKS})
