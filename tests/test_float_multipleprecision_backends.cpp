@@ -1,7 +1,7 @@
 /***************************************************************************
  *            test_float_multipleprecision_backends.cpp
  *
- *  Copyright  2026  Ariadne contributors
+ *  Copyright  2026  Luca Geretti
  *
  ****************************************************************************/
 

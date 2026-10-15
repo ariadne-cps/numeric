@@ -1,7 +1,7 @@
 /***************************************************************************
  *            test_floatap_edge_cases.cpp
  *
- *  Copyright  2026  Ariadne contributors
+ *  Copyright  2026  Luca Geretti
  *
  ****************************************************************************/
 
@@ -57,6 +57,23 @@ void precision_tag(){
     check(distinct.bits()==113u,"ArbitraryPrecision arbitrary bit count");
     check(via_bits==via_count,"ArbitraryPrecision equality");
     check(!(via_bits==distinct),"ArbitraryPrecision inequality");
+}
+void int64_boundaries(){
+    using namespace Ariadne;
+    const ArbitraryPrecision precision(64_bits);
+    const K zero(std::int64_t{0},precision);
+    const K positive(std::numeric_limits<std::int64_t>::max(),precision);
+    const K negative(std::numeric_limits<std::int64_t>::min(),precision);
+    const Rational z=static_cast<Rational>(zero);
+    const Rational p=static_cast<Rational>(positive);
+    const Rational n=static_cast<Rational>(negative);
+    check(mpq_cmp_si(z.get_mpq(),0,1)==0,"int64 zero");
+    check(mpq_cmp_si(p.get_mpq(),std::numeric_limits<std::int64_t>::max(),1)==0,
+          "int64 maximum");
+    check(mpq_cmp_si(n.get_mpq(),std::numeric_limits<std::int64_t>::min(),1)==0,
+          "int64 minimum");
+    check(z.is_zero()&&!positive.negative()&&negative.negative(),
+          "int64 signs");
 }
 void rational_integration(){
     using namespace Ariadne;
@@ -302,4 +319,4 @@ same(K::fma(x,p,x,16,R::nearest),x,"fma zero rhs");
 same(K::fma(n,p,n,16,R::nearest),n,"fma signed zero");
 }
 }
-int main(){try{precision_tag();conversions();rational_integration();specials();boundary_cases();public_comparisons();public_rounding();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{precision_tag();conversions();int64_boundaries();rational_integration();specials();boundary_cases();public_comparisons();public_rounding();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}
