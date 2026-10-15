@@ -17,8 +17,8 @@ and benchmark executable exercise the MPFR reference baseline.
 ```sh
 cmake -S . -B build-mpfr -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_PYTHON_BINDINGS=OFF -DBUILD_NUMERIC_MIGRATION_BENCHMARKS=ON
-cmake --build build-mpfr --target test_floatmp_backends benchmark_compare_multiple_precision_backends
-ctest --test-dir build-mpfr -R '^test_floatmp_backends$' --output-on-failure
+cmake --build build-mpfr --target test_float_multipleprecision_backends benchmark_compare_multiple_precision_backends
+ctest --test-dir build-mpfr -R '^test_float_multipleprecision_backends$' --output-on-failure
 ./build-mpfr/benchmarks/benchmark_compare_multiple_precision_backends 300 7 > mpfr_baseline.csv
 ```
 
