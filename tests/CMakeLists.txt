@@ -35,9 +35,9 @@ foreach(TEST ${UNIT_TESTS})
     endif()
 endforeach()
 
-if(BUILD_FLOATNP_COMPARISON)
+if(BUILD_FLOATVP_COMPARISON)
     foreach(TEST IN ITEMS test_float test_float_rounding test_floatmp_backends)
-        target_compile_definitions(${TEST} PRIVATE ARIADNE_NUMERIC_ENABLE_FLOATNP)
+        target_compile_definitions(${TEST} PRIVATE ARIADNE_NUMERIC_ENABLE_FLOATVP)
     endforeach()
 endif()
 

@@ -2,8 +2,8 @@
 // Shared differential conformance test; MPFR is the oracle, not a runtime backend.
 #include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATNP
-#include "numeric/floatnp.hpp"
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
+#include "numeric/floatvp.hpp"
 #endif
 #include <iostream>
 #include <sstream>
@@ -88,8 +88,8 @@ void run_backend(char const* backend) {
 int main() {
     try {
         run_backend<FloatMP>("mpfr");
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATNP
-        run_backend<FloatNP>("native");
+#ifdef ARIADNE_NUMERIC_ENABLE_FLOATVP
+        run_backend<FloatVP>("native");
 #endif
         std::cout<<"float multiprecision backend conformance OK\n";
         return 0;
