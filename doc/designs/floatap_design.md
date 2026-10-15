@@ -295,3 +295,28 @@ functions, advanced rounding session controls and optimized extreme
 exponent comparisons are outstanding. The old coverage numbers describe
 the pre-refactor kernel, so a fresh report is required. Final goal remains
 100% line, function and branch coverage without weakening safety checks.
+
+
+## Coverage report 78 (15 October 2026, 22:27)
+
+After replacing `FloatAPKernel` with `Float<ArbitraryPrecision>`, the
+uploaded `Archivio 78(1).zip` reports:
+
+| File | Functions | Lines | Branches |
+| --- | --- | --- | --- |
+| `src/floatap.cpp` | 23/25 (92.00%) | 150/175 (85.71%) | 165/194 (85.05%) |
+| `include/numeric/floatap.hpp` | 29/46 (63.04%) | 73/113 (64.60%) | 22/46 (47.83%) |
+
+This is an expected coverage drop from adding API entry points, not
+evidence that earlier randomized arithmetic tests ceased running. The
+new `public_comparisons()` and `public_rounding()` C++ tests exercise
+ordered and unordered `cmp`, all six comparison operators, ADL-visible
+value classifiers, precision-tag NaN/infinity constructors, and explicit
+rounded add/sub/mul/div/fma with both operand precision orderings.
+The numbers above describe the **incoming** report, not coverage after
+this change. The next report must confirm actual changes.
+
+The remaining unrealistically-large shift/bit-length branches need
+careful review, and cannot be made reachable through ordinary API inputs
+without allocating impossible memory. A final 100% functions/lines/
+branches target is recorded, but no current result is being called 100%.

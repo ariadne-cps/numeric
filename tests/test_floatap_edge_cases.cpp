@@ -89,6 +89,92 @@ void rational_integration(){
     check(mpz_sgn(mpq_denref(static_cast<Rational>(not_a_number).get_mpq()))==0,
           "NaN to Rational");
 }
+
+void public_comparisons(){
+    using namespace Ariadne;
+    using Ariadne::Comparison;
+    using Ariadne::Sign;
+    const ArbitraryPrecision precision(16_bits);
+    const K low=v(-3);
+    const K mid=v(0);
+    const K high=v(5);
+    const K positive_inf=K::inf(Sign::POSITIVE,precision);
+    const K negative_inf=K::inf(Sign::NEGATIVE,precision);
+    const K not_a_number=K::nan(precision);
+
+    // All three finite comparison outcomes, and both unordered orders.
+    check(cmp(low,mid)==Comparison::LESS,"finite comparison less");
+    check(cmp(mid,mid)==Comparison::EQUAL,"finite comparison equal");
+    check(cmp(high,mid)==Comparison::GREATER,"finite comparison greater");
+    check(cmp(not_a_number,mid)==Comparison::INCOMPARABLE,"NaN left comparison");
+    check(cmp(mid,not_a_number)==Comparison::INCOMPARABLE,"NaN right comparison");
+
+    // Both infinities, equal infinities, finite/infinite comparisons.
+    check(cmp(positive_inf,positive_inf)==Comparison::EQUAL,"+inf equals +inf");
+    check(cmp(negative_inf,negative_inf)==Comparison::EQUAL,"-inf equals -inf");
+    check(cmp(negative_inf,positive_inf)==Comparison::LESS,"-inf below +inf");
+    check(cmp(positive_inf,negative_inf)==Comparison::GREATER,"+inf above -inf");
+    check(cmp(positive_inf,high)==Comparison::GREATER,"+inf above finite");
+    check(cmp(negative_inf,high)==Comparison::LESS,"-inf below finite");
+    check(cmp(high,positive_inf)==Comparison::LESS,"finite below +inf");
+    check(cmp(high,negative_inf)==Comparison::GREATER,"finite above -inf");
+
+    // Operators must keep NaN unordered, and agree on all ordered cases.
+    check(mid==mid && !(mid!=mid),"equal operators");
+    check(low!=high && !(low==high),"unequal operators");
+    check(low<mid && !(high<mid),"less operators");
+    check(high>mid && !(low>mid),"greater operators");
+    check(low<=mid && mid<=mid && !(high<=mid),"less-or-equal operators");
+    check(high>=mid && mid>=mid && !(low>=mid),"greater-or-equal operators");
+    check(!(not_a_number==mid) && not_a_number!=mid,"NaN equality operators");
+    check(!(not_a_number<mid) && !(not_a_number>mid),"NaN strict ordering");
+    check(!(not_a_number<=mid) && !(not_a_number>=mid),"NaN inclusive ordering");
+    check(!(mid<=not_a_number) && !(mid>=not_a_number),"NaN right operand");
+
+    // ADL-visible free classifiers and precision-tag constructors.
+    check(is_nan(not_a_number) && !is_nan(mid),"public NaN classification");
+    check(is_inf(positive_inf) && !is_inf(mid),"public infinity classification");
+    check(is_finite(mid) && !is_finite(positive_inf),"public finite classification");
+    check(is_zero(mid) && !is_zero(low),"public zero classification");
+    check(positive_inf.precision().bits()==16u && not_a_number.precision().bits()==16u,
+          "precision-tag special constructors");
+    check(static_cast<Rational>(negative_inf).get_d()<0.0,
+          "negative infinity rational conversion");
+}
+
+void public_rounding(){
+    const K seven_bits=v(1,3,7,R::nearest);
+    const K thirteen_bits=v(2,3,13,R::nearest);
+    const K eleven_bits=v(1,5,11,R::nearest);
+    const R mode=R::downward;
+
+    // Same kernels, different precision order: the result must use the
+    // lower requested precision without dynamic backend dispatch.
+    const auto check_pair=[&](K const& a,K const& b,unsigned long bits) {
+        const auto verify=[&](K const& actual,K const& expected,char const* name) {
+            same(actual,expected,name);
+            check(actual.precision().bits()==bits,"public operation result precision");
+        };
+        verify(add(mode,a,b),K::add(a,b,bits,mode),"public add");
+        verify(sub(mode,a,b),K::sub(a,b,bits,mode),"public sub");
+        verify(mul(mode,a,b),K::mul(a,b,bits,mode),"public mul");
+        verify(div(mode,a,b),K::div(a,b,bits,mode),"public div");
+    };
+    check_pair(seven_bits,thirteen_bits,7);
+    check_pair(thirteen_bits,seven_bits,7);
+
+    // The ternary precision is the minimum of all three input precisions.
+    const auto verify_fma=[&](K const& a,K const& b,K const& c,unsigned long bits) {
+        const K actual=fma(mode,a,b,c);
+        same(actual,K::fma(a,b,c,bits,mode),"public fused multiply-add");
+        check(actual.precision().bits()==bits,"public FMA result precision");
+    };
+    verify_fma(seven_bits,thirteen_bits,eleven_bits,7);
+    verify_fma(thirteen_bits,eleven_bits,seven_bits,7);
+    verify_fma(thirteen_bits,seven_bits,eleven_bits,7);
+    verify_fma(eleven_bits,thirteen_bits,thirteen_bits,11);
+}
+
 void conversions(){
 raises<std::invalid_argument>([]{K x(1);},"precision");
 raises<std::domain_error>([]{v(1,0);},"denominator");
@@ -216,4 +302,4 @@ same(K::fma(x,p,x,16,R::nearest),x,"fma zero rhs");
 same(K::fma(n,p,n,16,R::nearest),n,"fma signed zero");
 }
 }
-int main(){try{precision_tag();conversions();rational_integration();specials();boundary_cases();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(){try{precision_tag();conversions();rational_integration();specials();boundary_cases();public_comparisons();public_rounding();std::cout<<"FloatAP edge cases OK\n";return 0;}catch(std::exception const& e){std::cerr<<e.what()<<'\n';return 1;}}
