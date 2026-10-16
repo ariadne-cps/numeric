@@ -706,3 +706,39 @@ binary-splitting / faster convergence, and caching reusable constants
 such as pi (without sacrificing rounding correctness).
 No post-change benchmark improvement or full coverage is claimed
 until verified by a fresh build and run.
+
+
+## Broad precision-regression suite and GCC namespace portability (16 October 2026)
+
+The uploaded coverage report 86 shows that the earlier 100% goal is not
+yet achieved after the transcendental implementation. In LLVM's report,
+the fields are functions, regions, lines, and branches respectively:
+
+| File | Functions | Lines | Branches |
+| --- | --- | --- | --- |
+| `src/floatap.cpp` | 31/33 | 446/480 | 267/290 |
+| `src/floatap_exp_log.cpp` | 27/27 | 113/136 | 39/58 |
+| `src/floatap_trigonometric.cpp` | 43/43 | 189/219 | 94/122 |
+| `include/numeric/floatap.hpp` | 47/47 | 113/113 | 40/40 |
+
+A dedicated `test_floatap_precision` executable covers precisions
+2, 7, 24, 53, 113, 256, and 1024 bits for elementary operations under
+all four rounding modes, with independently constructed exact-rational
+answers. It also checks selected transcendental results at 7, 24, 53,
+and 113 bits for ordered directed rounding and exact identities. These
+tests are native FloatAP tests, not FloatMP dependency tests. Directed
+rounding ordering alone is *not* a proof of correctly rounded
+transcendentals; more independent reference vectors remain necessary.
+
+On GCC 13 with `-Wshadow -Werror`, nested enumerators `downward`,
+`upward`, `toward_zero` and `infinity` conflict with similarly
+named Ariadne namespace variables when the FloatMP header is present.
+The enum class values are renamed to `ToNearest`, `Downward`,
+`Upward`, `TowardZero` and `Finite`, `Infinity`, `NaN`.
+The public `ROUND_*` constants retain their names and behavior.
+The change is a source API rename for clients who used the nested
+enumerators directly; benchmark calls through `ROUND_*` are unaffected.
+
+The full CI build and a fresh coverage report are required to
+validate this expanded test suite and renaming. The final 100%
+coverage and full-precision correctness targets remain outstanding.
