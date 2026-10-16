@@ -36,9 +36,8 @@
 #include "numeric/numeric.hpp"
 #include "numeric/dyadic.hpp"
 
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
 #include "numeric/floatap.hpp"
-#endif
+
 #include "macro/testing.hpp"
 
 using namespace std;
@@ -69,9 +68,8 @@ constexpr bool check_float_rounding_concept()
 
 static_assert(check_float_rounding_concept<DoublePrecision>());
 static_assert(check_float_rounding_concept<MultiplePrecision>());
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
 static_assert(check_float_rounding_concept<ArbitraryPrecision>());
-#endif
+
 
 } // namespace
 
@@ -109,10 +107,9 @@ Int main() {
     ARIADNE_TEST_CLASS(FloatDP,TestFloatRounding<DoublePrecision>(dp));
     ARIADNE_TEST_CLASS(FloatMP,TestFloatRounding<MultiplePrecision>(MultiplePrecision(64_bits)));
     ARIADNE_TEST_CLASS(FloatMP,TestFloatRounding<MultiplePrecision>(MultiplePrecision(192_bits)));
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
     ARIADNE_TEST_CLASS(FloatAP,TestFloatRounding<ArbitraryPrecision>(ArbitraryPrecision(64_bits)));
     ARIADNE_TEST_CLASS(FloatAP,TestFloatRounding<ArbitraryPrecision>(ArbitraryPrecision(192_bits)));
-#endif
+
 
     return ARIADNE_TEST_FAILURES;
 }
@@ -331,7 +328,6 @@ TestFloatRounding<MultiplePrecision>::test_conversion_between()
     ARIADNE_TEST_EQUALS(xdp1,xmp1);
 }
 
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
 template<> Void
 TestFloatRounding<ArbitraryPrecision>::test_conversion_between()
 {
@@ -339,7 +335,7 @@ TestFloatRounding<ArbitraryPrecision>::test_conversion_between()
     const FloatAP converted(source,ArbitraryPrecision(100_bits));
     ARIADNE_TEST_EQUALS(converted.get_d(),source.get_d());
 }
-#endif
+
 
 template<class PR> Void
 TestFloatRounding<PR>::test_stream()
