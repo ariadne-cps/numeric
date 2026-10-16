@@ -38,6 +38,7 @@
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <type_traits>
 
@@ -199,7 +200,7 @@ template<> class Float<ArbitraryPrecision> {
     Float(std::int64_t n, PrecisionType precision);
     Float(ExactDouble const& n, PrecisionType precision);
     Float(Dyadic const& n, PrecisionType precision);
-    explicit Float(String const& value, PrecisionType precision);
+    explicit Float(std::string const& value, PrecisionType precision);
     Float(TwoExp const& n, PrecisionType precision);
     Float(FloatDP const& n, PrecisionType precision);
     Float(FloatAP const& n, PrecisionType precision);

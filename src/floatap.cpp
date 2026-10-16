@@ -35,7 +35,6 @@
 #include "numeric/rounding.hpp"
 #include "numeric/positive.hpp"
 #include "numeric/decimal.hpp"
-#include "numeric/float_bounds.hpp"
 #include <istream>
 #include <ostream>
 #include <string>
@@ -401,7 +400,7 @@ FloatAP::Float(Dyadic const& value, PrecisionType precision)
     // Unlike the explicitly rounded constructor, this conversion must be
     // exact. In particular, a Dyadic with more significant bits than the
     // requested precision cannot be silently rounded.
-    if (!is_nan(value) && cmp(*this, Rational(value)) != Comparison::EQUAL) {
+    if (!this->is_nan() && cmp(*this, Rational(value)) != Comparison::EQUAL) {
         throw std::runtime_error("FloatAP: Dyadic is not exactly representable at the requested precision");
     }
 }
@@ -409,7 +408,7 @@ FloatAP::Float(Dyadic const& value, PrecisionType precision)
 FloatAP::Float(TwoExp const& value, PrecisionType precision)
     : Float(Dyadic(value), precision) { }
 
-FloatAP::Float(String const& value, PrecisionType precision)
+FloatAP::Float(std::string const& value, PrecisionType precision)
     : Float(Dyadic(value), precision) { }
 
 FloatAP::Float(ExactDouble const& value, RoundingModeType mode,
@@ -523,36 +522,8 @@ FloatAP& operator/=(FloatAP& x, TwoExp const& t) {
     return x = x / t;
 }
 
-// Raw Float arithmetic without an explicit mode produces outward
-// enclosures, just as the FloatMP API does.
-Bounds<FloatAP> add(FloatAP const& a, FloatAP const& b) {
-    return Bounds<FloatAP>(add(down,a,b), add(up,a,b));
-}
-Bounds<FloatAP> sub(FloatAP const& a, FloatAP const& b) {
-    return Bounds<FloatAP>(sub(down,a,b), sub(up,a,b));
-}
-Bounds<FloatAP> mul(FloatAP const& a, FloatAP const& b) {
-    return Bounds<FloatAP>(mul(down,a,b), mul(up,a,b));
-}
-Bounds<FloatAP> div(FloatAP const& a, FloatAP const& b) {
-    return Bounds<FloatAP>(div(down,a,b), div(up,a,b));
-}
-Bounds<FloatAP> operator+(FloatAP const& a, FloatAP const& b) { return add(a,b); }
-Bounds<FloatAP> operator-(FloatAP const& a, FloatAP const& b) { return sub(a,b); }
-Bounds<FloatAP> operator*(FloatAP const& a, FloatAP const& b) { return mul(a,b); }
-Bounds<FloatAP> operator/(FloatAP const& a, FloatAP const& b) { return div(a,b); }
-Bounds<FloatAP> sqr(FloatAP const& x) {
-    return Bounds<FloatAP>(sqr(down,x), sqr(up,x));
-}
-Bounds<FloatAP> rec(FloatAP const& x) {
-    return Bounds<FloatAP>(rec(down,x), rec(up,x));
-}
-Bounds<FloatAP> pow(FloatAP const& x, Nat n) {
-    return Bounds<FloatAP>(pow(down,x,n), pow(up,x,n));
-}
-Bounds<FloatAP> pow(FloatAP const& x, Int n) {
-    return Bounds<FloatAP>(pow(down,x,n), pow(up,x,n));
-}
+// Outward-rounded FloatAP operations are defined by Bounds<F> in
+// float_bounds.hpp; do not define an independent competing overload here.
 FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& x, Int exponent) {
     if (exponent >= 0) {
         return pow(mode, x, static_cast<Nat>(exponent));
