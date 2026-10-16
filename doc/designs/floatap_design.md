@@ -1517,3 +1517,62 @@ and cache are simpler, conservative improvements. More
 aggressive log argument tables and rectangular splitting
 remain possible future steps, after this regression.
 
+## Arithmetic optimization: integer-denominator rounding (16 October 2026)
+
+**Motivation:** the newest benchmark shows `FloatAP` still approximately
+5x slower than MPFR on 53-bit addition, and 4.7x slower on 53-bit
+multiplication, despite the fixed-point transcendental improvements.
+Both arithmetic kernels assemble an **exact binary integer** and
+invoke the general `from_ratio(numerator,denominator,scale,precision,mode)`
+routine with `denominator = 1`. Previously, that routine allocated
+five additional temporary GMP integers, normalized the rational and
+performed a general quotient/remainder division.
+
+**Decision and invariant:** detect the **positive unit denominator**
+in `FloatAP::from_ratio`, and round the signed integer significand
+directly. Copy its magnitude into the output `mpz_t`; use the exact
+integer bit length to calculate the normalized binary exponent and
+required shift. If the integer has fewer than the requested precision
+bits, left-shift it exactly. Otherwise, inspect the discarded bit
+pattern with `mpz_tstbit` and `mpz_scan1`, truncate directly with
+`mpz_tdiv_q_2exp`, and increment for the requested mode when
+necessary. Nearest uses **ties-to-even**: increment for a guard bit
+and either nonzero lower discarded bits or an odd retained LSB.
+Directed modes increment only for a nonzero discarded portion and
+the appropriate result sign. If increment creates a carry beyond
+the target precision, shift the significand right one bit and
+increment the stored exponent.
+
+The exact stored value remains
+`(-1)^negative * significand * 2^exponent`. Preserve signed-zero
+handling, overflow-checked exponent arithmetic, the original
+general-rational division path (for genuine nonunit denominators),
+all four rounding modes and all special-value handling. This is a
+**single fast path**, not a change to the public `FloatAP` API.
+
+**Verification before publication:** a standalone native GMP C++
+harness compared the new integer-specialized path with the old
+general denominator-one routine in **318,400 directed-rounding cases**,
+covering precision from 2 to 2048 bits, significand lengths below,
+at and above the target, signed operands, rounding carries, and all
+four modes. Both normalized significand and exponent matched.
+The Ariadne rounding suite additionally receives exact FloatAP vs
+FloatMP comparisons at 7/53/128/256/1024 bits, checking integer
+construction, add/sub/mul/fma under all four rounding modes. Neither
+the harness nor the additional tests imply that full CI has passed.
+
+**Performance status:** the reference benchmark provided on
+16 October 2026 measured 53-bit `add_nearest` at 346.39 ns for
+FloatAP versus 74.45 ns for MPFR, and 53-bit `mul_nearest` at
+294.03 ns versus 67.22 ns. At 1024 bits `add_nearest` took
+392.36 ns versus 70.55 ns, and `mul_nearest` 472.50 ns versus
+177.22 ns. These measurements are **before** this change.
+A same-host post-change benchmark is needed to quantify the
+benefit and detect any new bottlenecks.
+
+**Next options:** avoid constructing a temporary unit denominator
+even at the call sites, and specialize ordinary direct limb addition
+and multiplication where profiling justifies the complexity. This
+fast path does not change rational-based transcendental enclosures
+or borrow rounding logic from MPFR.
+

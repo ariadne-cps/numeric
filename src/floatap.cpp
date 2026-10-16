@@ -63,6 +63,54 @@ Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
         return result;
     }
     result._negative =(mpz_sgn(numerator) < 0) !=(mpz_sgn(denominator) < 0);
+
+    // Addition, multiplication and fused operations pass a binary integer
+    // over a denominator of one. Round its bits directly: general rational
+    // normalization and GMP quotient/remainder division are unnecessary.
+    if (mpz_cmp_ui(denominator, 1ul) == 0) {
+        const Exponent shift = checked_sub(bit_length(numerator),
+                                           static_cast<Exponent>(precision));
+        result._exponent = checked_add(scale, shift);
+        mpz_abs(result._significand, numerator);
+        if (shift <= 0) {
+            mpz_mul_2exp(result._significand, result._significand,
+                         shift_amount(checked_sub(0, shift)));
+            return result;
+        }
+
+        const mp_bitcnt_t dropped = shift_amount(shift);
+        const bool inexact = mpz_scan1(result._significand, 0u) < dropped;
+        bool increment = false;
+        if (inexact) {
+            switch (mode.value()) {
+                case Rounding::ToNearest:
+                    increment = mpz_tstbit(result._significand, dropped - 1u) != 0 &&
+                        (mpz_tstbit(result._significand, dropped) != 0 ||
+                         mpz_scan1(result._significand, 0u) < dropped - 1u);
+                    break;
+                case Rounding::Downward:
+                    increment = result._negative;
+                    break;
+                case Rounding::Upward:
+                    increment = !result._negative;
+                    break;
+                case Rounding::TowardZero:
+                    break;
+                default:
+                    throw std::invalid_argument("FloatAP unknown rounding mode");
+            }
+        }
+        mpz_tdiv_q_2exp(result._significand, result._significand, dropped);
+        if (increment) {
+            mpz_add_ui(result._significand, result._significand, 1u);
+        }
+        if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
+            mpz_tdiv_q_2exp(result._significand, result._significand, 1u);
+            result._exponent = checked_add(result._exponent, 1);
+        }
+        return result;
+    }
+
     mpz_t n, d, q, r, w;
     mpz_inits(n, d, q, r, w, nullptr);
     struct Cleanup {

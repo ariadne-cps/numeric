@@ -389,6 +389,51 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Differential checks for direct binary-integer rounding.
+            // Construct values just above and below precision boundaries,
+            // including both signs and significand-carry cases.
+            for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Integer power_of_two=pow(Integer(2),Nat(ap.bits()));
+                const Integer values[]={
+                    power_of_two+Integer(1),power_of_two-Integer(1),
+                    -power_of_two-Integer(1),-power_of_two+Integer(1),
+                    Integer(3),Integer(-3)
+                };
+                for (Integer const& exact : values) {
+                    const auto check=[&](auto ap_mode,auto mp_mode) {
+                        const FloatAP a(exact,ap_mode,ap);
+                        const FloatMP m(exact,mp_mode,mp);
+                        ARIADNE_TEST_EQUALS(static_cast<Rational>(a),
+                                            static_cast<Rational>(m));
+
+                        const FloatAP b(-3,ap);
+                        const FloatMP n(-3,mp);
+                        const FloatAP c(1,ap);
+                        const FloatMP o(1,mp);
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(add(ap_mode,a,b)),
+                            static_cast<Rational>(add(mp_mode,m,n)));
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(sub(ap_mode,a,b)),
+                            static_cast<Rational>(sub(mp_mode,m,n)));
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(mul(ap_mode,a,b)),
+                            static_cast<Rational>(mul(mp_mode,m,n)));
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(fma(ap_mode,a,b,c)),
+                            static_cast<Rational>(fma(mp_mode,m,n,o)));
+                    };
+                    check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                    check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                    check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                    check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Differential oracle for certified sine/cosine rounding.
             // All inputs are exact dyadics; comparison is exact at the
             // same target precision, in all four rounding modes.
