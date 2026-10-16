@@ -169,7 +169,7 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
         return fma(Float::ROUND_TO_NEAREST, a[index(i)], b[index(i)], a[index(i)]);
     }
     );
-    // Functions not implemented by FloatAP stay in the MPFR-only baseline.
+    // Operations shared by both concrete backends are timed identically.
     report("sqrt_nearest",[& ](unsigned i) {
         return sqrt(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
