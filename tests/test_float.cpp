@@ -262,6 +262,39 @@ TestFloat<PR>::test_conversions()
         ARIADNE_TEST_EQUALS(integer_cast<Nat>(FloatType(7u,pr)),Nat(7u));
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // The FloatDP conversion must preserve IEEE exceptional values,
+            // including the sign of zero, without converting them to Rational.
+            ARIADNE_TEST_ASSERT(std::isnan(FloatDP(FloatType::nan(pr),
+                FloatDP::ROUND_TO_NEAREST,dp).get_d()));
+
+            const FloatDP positive_infinity(FloatType::inf(Sign::POSITIVE,pr),
+                FloatDP::ROUND_TO_NEAREST,dp);
+            const FloatDP negative_infinity(FloatType::inf(Sign::NEGATIVE,pr),
+                FloatDP::ROUND_TO_NEAREST,dp);
+            ARIADNE_TEST_ASSERT(std::isinf(positive_infinity.get_d()));
+            ARIADNE_TEST_ASSERT(not std::signbit(positive_infinity.get_d()));
+            ARIADNE_TEST_ASSERT(std::isinf(negative_infinity.get_d()));
+            ARIADNE_TEST_ASSERT(std::signbit(negative_infinity.get_d()));
+
+            const FloatType negative_zero=FloatType::zero(
+                static_cast<unsigned long>(pr.bits()),true);
+            const FloatType positive_zero=FloatType::zero(
+                static_cast<unsigned long>(pr.bits()));
+            const FloatDP converted_negative_zero(negative_zero,FloatDP::ROUND_TO_NEAREST,dp);
+            const FloatDP converted_positive_zero(positive_zero,FloatDP::ROUND_TO_NEAREST,dp);
+            ARIADNE_TEST_ASSERT(converted_negative_zero.get_d()==0.0);
+            ARIADNE_TEST_ASSERT(std::signbit(converted_negative_zero.get_d()));
+            ARIADNE_TEST_ASSERT(converted_positive_zero.get_d()==0.0);
+            ARIADNE_TEST_ASSERT(not std::signbit(converted_positive_zero.get_d()));
+
+            const FloatType third(Rational(1,3),FloatType::ROUND_TO_NEAREST,pr);
+            ARIADNE_TEST_EQUALS(FloatDP(third,FloatDP::ROUND_DOWNWARD,dp),
+                FloatDP(static_cast<Rational>(third),FloatDP::ROUND_DOWNWARD,dp));
+            ARIADNE_TEST_EQUALS(FloatDP(third,FloatDP::ROUND_UPWARD,dp),
+                FloatDP(static_cast<Rational>(third),FloatDP::ROUND_UPWARD,dp));
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Verify the concrete FloatAP wrapper specializations, including
             // rigorous enclosure when converting from generic real numbers.
             ARIADNE_TEST_EQUALS(class_name<Bounds<FloatAP>>(),String("FloatAPBounds"));
