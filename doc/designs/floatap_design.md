@@ -855,3 +855,26 @@ suite before those implementation changes would introduce a known
 build failure, not meaningful test coverage. Implement the missing
 APIs in production sources, then instantiate the unchanged legacy
 suites unconditionally and confirm them by actual CI.
+
+
+## Historical Float test activation (16 October 2026)
+
+The existing `tests/test_float.cpp` and
+`tests/test_float_rounding.cpp` instantiate their **original**
+`TestFloat<ArbitraryPrecision>` and
+`TestFloatRounding<ArbitraryPrecision>` templates unconditionally,
+with all `ARIADNE_TEST_*` assertions untouched. The former
+`ARIADNE_NUMERIC_ENABLE_FLOATAP` test guards are removed, including
+the previously guarded cross-precision conversion specialization.
+`FloatAP` is registered as an `ARawFloat` in `float.decl.hpp`
+so the existing Ariadne generic floating-point abstractions can
+participate in overload resolution.
+
+This change **enables the historical suites but does not establish
+that they compile or pass**. Notably, the native backend still lacks
+some of the existing FloatDP/FloatMP contract: conversions and
+assignments, round-tag overloads, bounds/ball operations, parsing,
+minimum/maximum exponent semantics, and several transcendental
+helpers. Each missing API must be implemented rather than excluding
+or weakening a test. The full build and CI results are the criterion
+for completing this integration.
