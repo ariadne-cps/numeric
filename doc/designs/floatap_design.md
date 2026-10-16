@@ -2187,3 +2187,26 @@ and after each precision group so long benchmark runs are not silent;
 the formatted result table and aggregate slowdown are emitted after
 all requested groups complete. The timed operations and sample
 aggregation are unchanged.
+
+## Benchmark command-line parsing via Utility (16 October 2026)
+
+Numeric benchmarks use the shared Ariadne `utility/command_line_interface.hpp`
+API, matching `ariadne-cps/integration`: `CommandLineInterface`,
+`CommandLineContribution`, `make_valued_argument_parser` and
+`make_unvalued_argument_parser`. The former ad hoc per-benchmark argument
+scanning was removed. Numeric's existing foundation -> utility dependency
+provides both the interface and its compiled implementation; no new
+dependency or private copy of the command-line parser is introduced.
+
+The common `benchmarks/benchmark_command_line.hpp` adapter translates
+the previous positional invocations (comparison: iterations, samples;
+arithmetic: vector exponent, repetition exponent, runs) into named arguments
+before calling the same parser. The adapter does not parse values and cannot
+bypass normal CLI validation or duplicate-option detection. `--help` and
+`-h` use the built-in CLI help, as in integration, including its built-in
+diagnostics. Explicit options are `--iterations/-i`, `--samples/-s`,
+`--bits/-b`, `--summary-only`, `--details`, `--max-slowdown`,
+`--vector-exponent/-v`, `--repetition-exponent/-e`, and `--runs/-r`
+(as relevant to each executable). Invalid values are rejected before any
+measurements run. Measurement reports continue to use the Ariadne logger,
+not CSV or standard output.

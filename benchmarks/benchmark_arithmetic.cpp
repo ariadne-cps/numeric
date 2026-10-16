@@ -33,6 +33,7 @@
 #include "utility/stopwatch.hpp"
 #include "numeric/rounding.hpp"
 #include "logging/logging.hpp"
+#include "benchmark_command_line.hpp"
 #include <stdexcept>
 #include <string>
 
@@ -278,55 +279,64 @@ Void benchmark_add(SizeType n, SizeType nn) {
 }
 
 
+
+struct ArithmeticBenchmarkSelection {
+    SizeType vector_exponent=10u;
+    SizeType repetition_exponent=12u;
+    SizeType runs=1u;
+};
+
+List<ArgumentParser> make_arithmetic_argument_parsers(ArithmeticBenchmarkSelection& selection) {
+    List<ArgumentParser> parsers;
+    parsers.append(make_valued_argument_parser(
+        "v","vector-exponent","Log2 of vector size (nonnegative)",
+        [&selection](String const& value) -> VoidFunction {
+            const SizeType exponent=BenchmarkCommandLine::parse_unsigned<SizeType>(value);
+            if(exponent>=std::numeric_limits<SizeType>::digits) {
+                throw std::invalid_argument("vector exponent out of range");
+            }
+            return [&selection,exponent] { selection.vector_exponent=exponent; };
+        }));
+
+    parsers.append(make_valued_argument_parser(
+        "e","repetition-exponent","Log2 of repetition count (nonnegative)",
+        [&selection](String const& value) -> VoidFunction {
+            const SizeType exponent=BenchmarkCommandLine::parse_unsigned<SizeType>(value);
+            if(exponent>=std::numeric_limits<SizeType>::digits) {
+                throw std::invalid_argument("repetition exponent out of range");
+            }
+            return [&selection,exponent] { selection.repetition_exponent=exponent; };
+        }));
+
+    parsers.append(make_valued_argument_parser(
+        "r","runs","Number of benchmark runs (positive)",
+        [&selection](String const& value) -> VoidFunction {
+            const SizeType runs=BenchmarkCommandLine::parse_unsigned<SizeType>(value);
+            if(runs==0u) throw std::invalid_argument("runs must be positive");
+            return [&selection,runs] { selection.runs=runs; };
+        }));
+    return parsers;
+}
+
 Int main(Int argc, const char* argv[]) {
     Logger::instance().configuration().set_verbosity(1u);
     try {
-        SizeType vector_exponent=10u;
-        SizeType repetition_exponent=12u;
-        SizeType runs=1u;
-        unsigned positional=0u;
+        ArithmeticBenchmarkSelection selection;
+        CommandLineInterface command_line;
+        command_line.add(CommandLineContribution(
+            "numeric-arithmetic-benchmark",
+            make_arithmetic_argument_parsers(selection)));
 
-        const auto parse_count=[](std::string const& text) -> SizeType {
-            std::size_t used=0u;
-            const unsigned long value=std::stoul(text,&used);
-            if(used!=text.size() || value>std::numeric_limits<SizeType>::max()) {
-                throw std::invalid_argument("Invalid nonnegative integer: "+text);
-            }
-            return static_cast<SizeType>(value);
-        };
-
-        for(Int i=1; i<argc; ++i) {
-            const std::string argument(argv[i]);
-            if(argument=="--help") {
-                LOGGING_PRINTLN("Usage: benchmark_arithmetic "
-                    "[vector_exponent] [repetition_exponent] [runs] "
-                    "[--vector-exponent N] [--repetition-exponent N] [--runs N]")
-                return 0;
-            }
-            if(argument=="--vector-exponent" || argument=="--repetition-exponent"
-               || argument=="--runs") {
-                if(++i>=argc) throw std::invalid_argument(argument+" requires a value");
-                const SizeType value=parse_count(argv[i]);
-                if(argument=="--vector-exponent") vector_exponent=value;
-                else if(argument=="--repetition-exponent") repetition_exponent=value;
-                else runs=value;
-            } else if(argument.starts_with("--")) {
-                throw std::invalid_argument("Unknown option: "+argument);
-            } else {
-                const SizeType value=parse_count(argument);
-                if(positional==0u) vector_exponent=value;
-                else if(positional==1u) repetition_exponent=value;
-                else if(positional==2u) runs=value;
-                else throw std::invalid_argument("Too many positional arguments");
-                ++positional;
-            }
+        const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
+            argc,argv,{"vector-exponent","repetition-exponent","runs"},
+            {"--vector-exponent","-v","--repetition-exponent","-e","--runs","-r"});
+        if (!command_line.acquire(arguments)) {
+            return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
         }
 
-        if(vector_exponent>=std::numeric_limits<SizeType>::digits ||
-           repetition_exponent>=std::numeric_limits<SizeType>::digits) {
-            throw std::invalid_argument("Vector or repetition exponent is too large");
-        }
-        if(runs==0u) throw std::invalid_argument("Runs must be positive");
+        const SizeType vector_exponent=selection.vector_exponent;
+        const SizeType repetition_exponent=selection.repetition_exponent;
+        const SizeType runs=selection.runs;
 
         const SizeType vector_size=SizeType{1} << vector_exponent;
         const SizeType repetitions=SizeType{1} << repetition_exponent;

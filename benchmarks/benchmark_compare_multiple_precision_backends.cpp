@@ -27,6 +27,7 @@
 #include "numeric/floatap.hpp"
 #include "numeric/rational.hpp"
 #include "logging/logging.hpp"
+#include "benchmark_command_line.hpp"
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
@@ -350,97 +351,104 @@ bool details, double max_slowdown) {
     }
 }
 
-int main(int argc, char* * argv) {
+
+struct ComparisonBenchmarkSelection {
+    unsigned iterations=300u;
+    unsigned samples=7u;
+    std::vector<unsigned> precisions{53u,128u,256u,1024u};
+    bool summary_only=false;
+    bool details=false;
+    double max_slowdown=std::numeric_limits<double>::infinity();
+};
+
+List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelection& selection) {
+    List<ArgumentParser> parsers;
+
+    parsers.append(make_valued_argument_parser(
+        "i","iterations","Number of operations in each measured sample (positive)",
+        [&selection](String const& value) -> VoidFunction {
+            const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
+            if(count==0u) throw std::invalid_argument("iterations must be positive");
+            return [&selection,count] { selection.iterations=count; };
+        }));
+
+    parsers.append(make_valued_argument_parser(
+        "s","samples","Odd number of samples, at least three",
+        [&selection](String const& value) -> VoidFunction {
+            const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
+            if(count<3u || count%2u==0u) throw std::invalid_argument("invalid sample count");
+            return [&selection,count] { selection.samples=count; };
+        }));
+
+    parsers.append(make_valued_argument_parser(
+        "b","bits","Comma-separated precisions (53,128,256,1024)",
+        [&selection](String const& value) -> VoidFunction {
+            const std::string text(value);
+            if(text.empty() || text.back()==',') throw std::invalid_argument("invalid precision list");
+            std::vector<unsigned> parsed;
+            std::istringstream input(text);
+            std::string token;
+            while(std::getline(input,token,',')) {
+                const unsigned bits=BenchmarkCommandLine::parse_unsigned<unsigned>(String(token));
+                if(bits!=53u && bits!=128u && bits!=256u && bits!=1024u) {
+                    throw std::invalid_argument("unsupported precision");
+                }
+                if(std::find(parsed.begin(),parsed.end(),bits)!=parsed.end()) {
+                    throw std::invalid_argument("duplicate precision");
+                }
+                parsed.push_back(bits);
+            }
+            if(parsed.empty()) throw std::invalid_argument("empty precision list");
+            return [&selection,parsed] { selection.precisions=parsed; };
+        }));
+
+    parsers.append(make_unvalued_argument_parser(
+        "","summary-only","Print only aggregate slowdowns",
+        [&selection] { selection.summary_only=true; }));
+
+    parsers.append(make_unvalued_argument_parser(
+        "","details","Print each matched MPFR/FloatAP slowdown",
+        [&selection] { selection.details=true; }));
+
+    parsers.append(make_valued_argument_parser(
+        "","max-slowdown","Fail if worst FloatAP/MPFR slowdown exceeds this ratio",
+        [&selection](String const& value) -> VoidFunction {
+            const std::string text(value);
+            std::size_t used=0u;
+            const double ratio=std::stod(text,&used);
+            if(used!=text.size() || !std::isfinite(ratio) || ratio<=0.0) {
+                throw std::invalid_argument("invalid positive slowdown ratio");
+            }
+            return [&selection,ratio] { selection.max_slowdown=ratio; };
+        }));
+
+    return parsers;
+}
+
+int main(int argc, const char* argv[]) {
     // Verbosity defaults to 0, which mutes all LOGGING_PRINTLN calls.
     // Follow the integration benchmarks and enable level-1 reports.
     Logger::instance().configuration().set_verbosity(1u);
     try {
-        unsigned iterations = 300;
-        unsigned samples = 7;
-        bool summary_only = false;
-        bool details = false;
-        std::vector<unsigned> precisions {53u,128u,256u,1024u};
-        double max_slowdown = std::numeric_limits<double>::infinity();
-        unsigned positional = 0;
+        ComparisonBenchmarkSelection selection;
+        CommandLineInterface command_line;
+        command_line.add(CommandLineContribution(
+            "numeric-multiple-precision-benchmark",
+            make_comparison_argument_parsers(selection)));
 
-        for (int i = 1; i < argc;++i) {
-            const std::string arg(argv[i]);
-            if (arg == "--iterations" || arg == "--samples" || arg == "--bits") {
-                if (++i >= argc) throw std::invalid_argument(arg + " requires a value");
-                const std::string value(argv[i]);
-                if (arg == "--bits") {
-                    precisions.clear();
-                    std::istringstream input(value);
-                    std::string token;
-                    while (std::getline(input,token,',')) {
-                        std::size_t consumed=0;
-                        const unsigned long bits=std::stoul(token,&consumed);
-                        if (consumed!=token.size() || (bits!=53u && bits!=128u && bits!=256u && bits!=1024u)) {
-                            throw std::invalid_argument("--bits supports 53,128,256,1024");
-                        }
-                        if (std::find(precisions.begin(),precisions.end(),static_cast<unsigned>(bits))!=precisions.end()) {
-                            throw std::invalid_argument("duplicate --bits precision");
-                        }
-                        precisions.push_back(static_cast<unsigned>(bits));
-                    }
-                    if (precisions.empty()) throw std::invalid_argument("--bits requires precisions");
-                } else {
-                    std::size_t consumed=0;
-                    const unsigned long parsed=std::stoul(value,&consumed);
-                    if (consumed!=value.size() || parsed>std::numeric_limits<unsigned>::max()) {
-                        throw std::invalid_argument("invalid count: " + value);
-                    }
-                    if (arg == "--iterations") iterations=static_cast<unsigned>(parsed);
-                    else samples=static_cast<unsigned>(parsed);
-                }
-            }
-            else if (arg == "--summary-only") {
-                summary_only = true;
-            }
-            else if (arg == "--details") {
-                details = true;
-            }
-            else if (arg == "--max-slowdown") {
-                if (++i >= argc) {
-                    throw std::invalid_argument("--max-slowdown requires a positive ratio");
-                }
-                const std::string value(argv[i]);
-                std::size_t read = 0;
-                max_slowdown = std::stod(value,& read);
-                if (read != value.size() || !std::isfinite(max_slowdown)
-                || max_slowdown <= 0.0) {
-                    throw std::invalid_argument("--max-slowdown must be positive and finite");
-                }
-            }
-            else if (arg == "--help") {
-                LOGGING_PRINTLN("Usage: benchmark_compare_multiple_precision_backends "
-                    "[iterations] [odd_samples] [--iterations N] [--samples ODD_N] "
-                    "[--bits 53,128,256,1024] [--summary-only] [--details] "
-                    "[--max-slowdown RATIO]")
-                return 0;
-            }
-            else if (arg.starts_with("--")) {
-                throw std::invalid_argument("unknown option: " + arg);
-            } else {
-                std::size_t read = 0;
-                unsigned long parsed = std::stoul(arg,& read);
-                if (read != arg.size() || parsed > std::numeric_limits<unsigned>::max()) {
-                    throw std::invalid_argument("invalid iterations/sample count: " + arg);
-                }
-                if (positional == 0) {
-                    iterations = static_cast<unsigned>(parsed);
-                }
-                else if (positional == 1) {
-                    samples = static_cast<unsigned>(parsed);
-                } else {
-                    throw std::invalid_argument("too many positional arguments");
-                }
-                ++positional;
-            }
+        const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
+            argc,argv,{"iterations","samples"},
+            {"--iterations","-i","--samples","-s","--bits","-b","--max-slowdown"});
+        if (!command_line.acquire(arguments)) {
+            return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
         }
-        if (iterations == 0 || samples < 3 || samples % 2 == 0) {
-            throw std::invalid_argument("iterations must be positive; samples must be odd and >=3");
-        }
+
+        const unsigned iterations=selection.iterations;
+        const unsigned samples=selection.samples;
+        const auto& precisions=selection.precisions;
+        const bool summary_only=selection.summary_only;
+        const bool details=selection.details;
+        const double max_slowdown=selection.max_slowdown;
 
         LOGGING_PRINTLN("FloatMP / FloatAP benchmark - running "
                         << precisions.size() << " precision groups")
