@@ -1571,30 +1571,93 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
     }
 }
 
-// For |x| <= 1/2, the remainder of the alternating atan series is
-// bounded by the first omitted term. Its sign can be ignored because
-// we enclose the answer symmetrically.
+// Evaluate atan(x) for |x| <= 1/2 as an alternating Taylor series.
+// All intermediates are GMP fixed-point integers: rounding each positive
+// power and each term outward yields an enclosure of the partial sum.
+// The alternating remainder has the sign of the first omitted term and
+// magnitude bounded by that term. No GMP rational is allocated per term.
 Interval small_atan(Fraction const& x, unsigned long work) {
-    const Fraction square = x * x;
-    const Fraction limit = tolerance(work);
-    Fraction power(x);
-    Fraction sum;
+    if (x.sign() == 0) {
+        return point(Fraction{});
+    }
 
-    for (unsigned long n = 0; ; ++n) {
-        if (n > static_cast<unsigned long>(std::numeric_limits<long>::max() / 4)) {
-            throw std::overflow_error("FloatAP arctangent series index");
+    const Fraction magnitude = absolute(x);
+    const unsigned long max_terms = work / 2ul + 4ul;
+    const unsigned long guard =
+        32ul + static_cast<unsigned long>(std::bit_width(max_terms));
+    if (work > std::numeric_limits<unsigned long>::max() - guard) {
+        throw std::overflow_error("FloatAP arctangent work precision overflow");
+    }
+    const unsigned long fixed_bits = work + guard;
+    if (static_cast<std::uintmax_t>(fixed_bits) >
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+        throw std::overflow_error("FloatAP arctangent GMP shift overflow");
+    }
+
+    mpz_t scaled, xlo, xhi, square_lo, square_hi, power_lo, power_hi;
+    mpz_t sum_lo, sum_hi, term, tail, limit;
+    mpz_inits(scaled, xlo, xhi, square_lo, square_hi, power_lo, power_hi,
+              sum_lo, sum_hi, term, tail, limit, nullptr);
+    struct Cleanup {
+        mpz_ptr a,b,c,d,e,f,g,h,i,j,k,l;
+        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,i,j,k,l,nullptr); }
+    } cleanup{scaled,xlo,xhi,square_lo,square_hi,power_lo,power_hi,
+              sum_lo,sum_hi,term,tail,limit};
+
+    mpz_mul_2exp(scaled, mpq_numref(magnitude.raw()),
+                 static_cast<mp_bitcnt_t>(fixed_bits));
+    mpz_fdiv_q(xlo, scaled, mpq_denref(magnitude.raw()));
+    mpz_cdiv_q(xhi, scaled, mpq_denref(magnitude.raw()));
+
+    mpz_mul(square_lo, xlo, xlo);
+    mpz_fdiv_q_2exp(square_lo, square_lo,
+                    static_cast<mp_bitcnt_t>(fixed_bits));
+    mpz_mul(square_hi, xhi, xhi);
+    mpz_cdiv_q_2exp(square_hi, square_hi,
+                    static_cast<mp_bitcnt_t>(fixed_bits));
+    mpz_set(power_lo, xlo);
+    mpz_set(power_hi, xhi);
+
+    mpz_set_ui(limit, 1ul);
+    mpz_mul_2exp(limit, limit, static_cast<mp_bitcnt_t>(guard));
+
+    for (unsigned long n = 0; n < max_terms; ++n) {
+        const unsigned long divisor = 2ul * n + 1ul;
+        if (n % 2ul == 0ul) {
+            mpz_fdiv_q_ui(term, power_lo, divisor);
+            mpz_add(sum_lo, sum_lo, term);
+            mpz_cdiv_q_ui(term, power_hi, divisor);
+            mpz_add(sum_hi, sum_hi, term);
+        } else {
+            mpz_cdiv_q_ui(term, power_hi, divisor);
+            mpz_sub(sum_lo, sum_lo, term);
+            mpz_fdiv_q_ui(term, power_lo, divisor);
+            mpz_sub(sum_hi, sum_hi, term);
         }
 
-        const long index = static_cast<long>(n);
-        const Fraction term = power / Fraction(2 * index + 1);
-        sum = n % 2 == 0 ? sum + term : sum - term;
-        power = power * square;
+        mpz_mul(power_lo, power_lo, square_lo);
+        mpz_fdiv_q_2exp(power_lo, power_lo,
+                        static_cast<mp_bitcnt_t>(fixed_bits));
+        mpz_mul(power_hi, power_hi, square_hi);
+        mpz_cdiv_q_2exp(power_hi, power_hi,
+                        static_cast<mp_bitcnt_t>(fixed_bits));
 
-        const Fraction error = absolute(power / Fraction(2 * index + 3));
-        if (compare(error, limit) < 0) {
-            return enclosure(sum, error);
+        // The exact remainder has the sign of term n+1 and is bounded
+        // by |x|^(2n+3)/(2n+3). power_hi encloses its numerator.
+        mpz_cdiv_q_ui(tail, power_hi, 2ul * n + 3ul);
+        if (mpz_cmp(tail, limit) <= 0 || n + 1ul == max_terms) {
+            if (n % 2ul == 0ul) {
+                mpz_sub(sum_lo, sum_lo, tail);
+            } else {
+                mpz_add(sum_hi, sum_hi, tail);
+            }
+            const Interval positive{Fraction(sum_lo, fixed_bits),
+                                    Fraction(sum_hi, fixed_bits)};
+            return x.sign() < 0
+                ? negative(positive) : positive;
         }
     }
+    throw std::logic_error("FloatAP arctangent series did not terminate");
 }
 
 Interval pi_interval(unsigned long work) {
