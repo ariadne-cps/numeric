@@ -39,6 +39,7 @@
 #include "numeric/decimal.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
@@ -1356,25 +1357,70 @@ Interval exp_interval(Fraction x, unsigned long work) {
 }
 
 // For |z| <= 1/3, log((1+z)/(1-z)) = 2 sum z^(2n+1)/(2n+1).
-// The tail is bounded by 4*|z^(2n+3)|/(2n+3).
+// Instead of growing exact rational denominators at every term, evaluate
+// the series in fixed-point arithmetic with outward-rounded GMP integers.
+// The first N terms are enclosed term by term. Since |z| <= 1/3,
+// the remaining tail is at most (9/4)*3^(-2N-1), strictly below
+// 2^(-work) for N = floor(work/3)+4.
 Interval log_series(Fraction const& z, unsigned long work) {
-    Fraction power(z);
-    Fraction sum;
-    const Fraction square = z * z;
-    const Fraction limit = tolerance(work);
-    for (unsigned long n = 0; ; ++n) {
-        if (n >= (static_cast<unsigned long>(std::numeric_limits<long>::max()) - 3) / 2) {
-            throw std::overflow_error("FloatAP logarithm series index");
-        }
-        const long denominator = static_cast<long>(2 * n + 1);
-        sum = sum + power / Fraction(denominator);
-        power = power * square;
-        const Fraction error = Fraction(4) * absolute(power) /
-                               Fraction(denominator + 2);
-        if (compare(error, limit) < 0) {
-            return enclosure(Fraction(2) * sum, error);
-        }
+    if (z.sign() == 0) {
+        return {Fraction{}, Fraction{}};
     }
+
+    const unsigned long terms = work / 3ul + 4ul;
+    const unsigned long guard = 32ul + static_cast<unsigned long>(std::bit_width(terms));
+    if (work > std::numeric_limits<unsigned long>::max() - guard) {
+        throw std::overflow_error("FloatAP logarithm work precision overflow");
+    }
+    const unsigned long fixed_bits = work + guard;
+
+    mpz_t numerator, zlo, zhi, square_lo, square_hi, power_lo, power_hi;
+    mpz_t sum_lo, sum_hi, quotient, tail;
+    mpz_inits(numerator, zlo, zhi, square_lo, square_hi, power_lo, power_hi,
+              sum_lo, sum_hi, quotient, tail, nullptr);
+    struct Cleanup {
+        mpz_ptr a,b,c,d,e,f,g,h,i,j,k;
+        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,i,j,k,nullptr); }
+    } cleanup{numerator,zlo,zhi,square_lo,square_hi,power_lo,power_hi,
+              sum_lo,sum_hi,quotient,tail};
+
+    const Fraction magnitude = absolute(z);
+    mpz_mul_2exp(numerator, mpq_numref(magnitude.raw()), fixed_bits);
+    mpz_fdiv_q(zlo, numerator, mpq_denref(magnitude.raw()));
+    mpz_cdiv_q(zhi, numerator, mpq_denref(magnitude.raw()));
+
+    mpz_mul(square_lo, zlo, zlo);
+    mpz_fdiv_q_2exp(square_lo, square_lo, fixed_bits);
+    mpz_mul(square_hi, zhi, zhi);
+    mpz_cdiv_q_2exp(square_hi, square_hi, fixed_bits);
+    mpz_set(power_lo, zlo);
+    mpz_set(power_hi, zhi);
+
+    for (unsigned long n = 0; n < terms; ++n) {
+        const unsigned long divisor = 2ul * n + 1ul;
+        mpz_fdiv_q_ui(quotient, power_lo, divisor);
+        mpz_add(sum_lo, sum_lo, quotient);
+        mpz_cdiv_q_ui(quotient, power_hi, divisor);
+        mpz_add(sum_hi, sum_hi, quotient);
+
+        mpz_mul(power_lo, power_lo, square_lo);
+        mpz_fdiv_q_2exp(power_lo, power_lo, fixed_bits);
+        mpz_mul(power_hi, power_hi, square_hi);
+        mpz_cdiv_q_2exp(power_hi, power_hi, fixed_bits);
+    }
+
+    // Multiply by two, then add the certified bound for the omitted tail.
+    mpz_mul_2exp(sum_lo, sum_lo, 1);
+    mpz_mul_2exp(sum_hi, sum_hi, 1);
+    mpz_set_ui(tail, 1);
+    mpz_mul_2exp(tail, tail, fixed_bits - work);
+    mpz_add(sum_hi, sum_hi, tail);
+
+    const Interval positive{Fraction(sum_lo, fixed_bits),
+                            Fraction(sum_hi, fixed_bits)};
+    return z.sign() < 0
+        ? Interval{Fraction{} - positive.upper, Fraction{} - positive.lower}
+        : positive;
 }
 
 Interval log_interval(Fraction x, unsigned long work) {
