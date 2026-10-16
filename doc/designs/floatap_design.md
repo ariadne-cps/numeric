@@ -801,3 +801,36 @@ constructor was replaced with a `Dyadic` constructed from
 `TestFloat<ArbitraryPrecision>` and
 `TestFloatRounding<ArbitraryPrecision>` parity checks are still
 outstanding; the new helpers alone do not establish API parity.
+
+
+## Two incorrect regression expectations exposed by CTest (16 October 2026)
+
+The first build with the new compatibility checks completed compilation,
+but `test_float` failed because `rec(5/4)` was compared for *exact*
+equality to `4/5`. This rational has an infinite binary expansion, so
+no finite-precision FloatAP result can equal it exactly. The original
+test now checks all four rounding modes against exact Rational
+inequalities: downward < 4/5 < upward, toward-zero equals downward for
+this positive result, and nearest equals upward since the upper
+representable neighbor is closer to 4/5.
+
+The new precision test also expected `sqrt(9) = 3` at just two
+significand bits. At this precision, the input **9 first rounds** to
+8 in nearest, downward and toward-zero modes, and to 12 in upward
+mode. Thus `sqrt(8)` rounds to 3 in nearest and 2 in downward or
+toward-zero mode, whereas `sqrt(12)` rounds to 4 in upward mode.
+The test checks each of these exact mode-specific expectations,
+retains `sqrt(9) = 3` only when 9 is exactly representable (four or
+more bits), and verifies `sqrt(4) = 2` across every tested precision.
+Additional exact Rational square inequalities independently enclose
+`sqrt(2)`.
+
+Neither correction changes production numerical algorithms or deletes
+a meaningful behavioral test. Both distinguish a test expectation
+error from an implementation bug. Full Ariadne CTest and updated coverage
+are pending after this commit.
+
+The mode-specific two-bit expectations and nearest rounding for
+`rec(5/4)` at 128 bits were checked independently with a small C++/GMP
+arithmetic program. That check is not a full Ariadne compile or CTest
+run. The regression is pending CI validation.
