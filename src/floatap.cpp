@@ -74,7 +74,7 @@ Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
     }
     bool increment = false;
     if (mpz_size(r) != 0) {
-        switch (mode) {
+        switch (mode.value()) {
             case Rounding::ToNearest:
             mpz_mul_2exp(r, r, 1);
             increment = mpz_cmp(r, w) > 0 || (mpz_cmp(r, w) == 0 && mpz_odd_p(q));
@@ -265,7 +265,7 @@ FloatAP::RoundingModeType FloatAP::get_rounding_mode() noexcept {
 }
 
 void FloatAP::set_rounding_mode(RoundingModeType mode) {
-    switch (mode) {
+    switch (mode.value()) {
         case Rounding::ToNearest:
         case Rounding::Downward:
         case Rounding::Upward:
@@ -283,7 +283,7 @@ FloatAP::Rounding::Rounding(RoundUpward const&) noexcept : _value(Upward) { }
 FloatAP::Rounding::Rounding(RoundTowardZero const&) noexcept : _value(TowardZero) { }
 FloatAP::Rounding::Rounding(RoundApproximately const&) noexcept : _value(ToNearest) { }
 FloatAP::Rounding::Rounding(CurrentRoundingMode const&) noexcept
-    : _value(static_cast<Value>(FloatAP::get_rounding_mode())) { }
+    : _value(FloatAP::get_rounding_mode().value()) { }
 
 FloatAP::Float(FloatDP const& value, PrecisionType precision)
     : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
@@ -601,7 +601,7 @@ FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
 
     bool increment = false;
     if (mpz_size(remainder) != 0) {
-        switch (mode) {
+        switch (mode.value()) {
             case FloatAP::Rounding::ToNearest:
                 // sqrt(scaled) > root+1/2 iff 4*scaled > (2*root+1)^2.
                 // Equality is impossible: the left side is divisible

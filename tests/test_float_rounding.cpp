@@ -328,11 +328,11 @@ TestFloatRounding<PR>::test_conversion_between()
     // The corresponding DoublePrecision-specific conversion test is
     // specialized above; both arbitrary-precision backends share this one.
     const FloatDP source(Rational(1,3),upward,DoublePrecision());
-    const Float<PR> converted(source,PR(100_bits));
+    const Float converted(source,PR(100_bits));
     ARIADNE_TEST_EQUALS(converted,source);
 
     const FloatDP exact_source(1.25_x,dp);
-    const Float<PR> exact_converted(exact_source,PR(100_bits));
+    const Float exact_converted(exact_source,PR(100_bits));
     ARIADNE_TEST_EQUALS(exact_converted,exact_source);
 }
 

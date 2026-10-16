@@ -950,3 +950,35 @@ input parsing, certain mixed operations, and round-tag helpers. The
 original tests should continue to expose these as compile failures
 until the production API is implemented. Do not restore gated or
 weakened assertions for an artificially green regression.
+
+
+## Compiler diagnostics after consolidation (16 October 2026)
+
+The 3595-line macOS Clang build log revealed a common blocking
+regression in the native `Rounding` wrapper: in-class constant
+initialization of the wrapper's four `ROUND_*` objects was rejected by
+Clang and GCC before the nested wrapper class was complete. The
+wrapper also exposed implicit conversion to its underlying enum and
+an equality operator taking two wrappers; these created ambiguous
+equality expressions in `floatap.cpp`.
+
+The first targeted fix declares the four class constants inside
+`FloatAP` and defines them as inline `constexpr` after the class
+definition. It replaces the implicit enum conversion with explicit
+`value()` access, used by the native kernels' switches; equality
+against enum values is then unambiguous. Forward declarations of
+Ariadne's rounding tags use the matching `struct` keyword, avoiding
+cross-platform mismatched-tag diagnostics.
+
+The historical rounding suite additionally had an accidental use
+of `Float<PR>` inside a member method already declaring `using
+Float=RawFloat<PR>`; in this name lookup context the spelling is
+invalid. The conversion tests now use the established alias `Float`
+without changing what they assert.
+
+The attached log also reports missing `FloatAP` production APIs
+(string construction/parsing, default precision, exponent limits,
+in-place operations, generic float concepts, and others). These
+remaining diagnostics are not resolved by this targeted compilation
+fix. Both original float test suites remain enabled without
+suppressing assertions. A complete project rebuild is still required.
