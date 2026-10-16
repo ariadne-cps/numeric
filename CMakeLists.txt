@@ -4,7 +4,6 @@ project(Numeric VERSION 1.0)
 
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
-option(BUILD_NUMERIC_MIGRATION_BENCHMARKS "Build reproducible MPFR/FloatAP benchmarks" OFF)
 option(BUILD_FLOATAP_COMPARISON "Build FloatAP alongside MPFR for comparative tests" OFF)
 if(NOT TARGET ariadne-configuration)
     find_package(Git REQUIRED)
@@ -72,9 +71,7 @@ setup_project_library(
     LINK_LIBRARIES numeric
 )
 
-if(BUILD_NUMERIC_MIGRATION_BENCHMARKS)
-    add_subdirectory(benchmarks)
-endif()
+# The configuration framework registers benchmarks from setup_standalone_project_tests().
 
 setup_standalone_project_tests(
     TARGET ariadne-numeric
