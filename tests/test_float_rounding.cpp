@@ -96,6 +96,7 @@ class TestFloatRounding
     Void test_arithmetic();
     Void test_cosine();
     Void test_arctan();
+    Void test_precision_regressions();
     Void test_function();
 };
 
@@ -137,6 +138,7 @@ TestFloatRounding<PR>::test()
     ARIADNE_TEST_CALL(test_function());
     ARIADNE_TEST_CALL(test_cosine());
     ARIADNE_TEST_CALL(test_arctan());
+    ARIADNE_TEST_CALL(test_precision_regressions());
 }
 
 
@@ -320,20 +322,137 @@ TestFloatRounding<DoublePrecision>::test_conversion_between()
     ARIADNE_TEST_COMPARE(xdp2,>,xdp1);
 }
 
-template<> Void
-TestFloatRounding<MultiplePrecision>::test_conversion_between()
+template<class PR> Void
+TestFloatRounding<PR>::test_conversion_between()
 {
-    FloatDP xdp1(Rational(1,3),upward,DoublePrecision());
-    FloatMP xmp1(xdp1,MultiplePrecision(100_bits));
-    ARIADNE_TEST_EQUALS(xdp1,xmp1);
+    // The corresponding DoublePrecision-specific conversion test is
+    // specialized above; both arbitrary-precision backends share this one.
+    const FloatDP source(Rational(1,3),upward,DoublePrecision());
+    const Float<PR> converted(source,PR(100_bits));
+    ARIADNE_TEST_EQUALS(converted,source);
+
+    const FloatDP exact_source(1.25_x,dp);
+    const Float<PR> exact_converted(exact_source,PR(100_bits));
+    ARIADNE_TEST_EQUALS(exact_converted,exact_source);
 }
 
-template<> Void
-TestFloatRounding<ArbitraryPrecision>::test_conversion_between()
+template<class PR> Void
+TestFloatRounding<PR>::test_precision_regressions()
 {
-    const FloatDP source(1.25_x,dp);
-    const FloatAP converted(source,ArbitraryPrecision(100_bits));
-    ARIADNE_TEST_EQUALS(converted.get_d(),source.get_d());
+    // These checks replace the separate FloatAP precision tests and use
+    // exactly the same floating-point API for FloatMP and FloatAP.
+    if constexpr (!Same<PR,DoublePrecision>) {
+        using F=Float<PR>;
+        for (Bits bits : {2_bits,7_bits,24_bits,53_bits,113_bits,256_bits,1024_bits}) {
+            const PR pr(bits);
+            for (auto mode : {F::ROUND_TO_NEAREST,F::ROUND_DOWNWARD,
+                              F::ROUND_UPWARD,F::ROUND_TOWARD_ZERO}) {
+                const F x(Rational(17,13),mode,pr);
+                const F y(Rational(-11,19),mode,pr);
+                const Rational a=static_cast<Rational>(x);
+                const Rational b=static_cast<Rational>(y);
+                const auto check=[&](F const& actual,Rational const& exact) {
+                    ARIADNE_TEST_EQUALS(actual,F(exact,mode,pr));
+                };
+                check(add(mode,x,y),a+b);
+                check(sub(mode,x,y),a-b);
+                check(mul(mode,x,y),a*b);
+                check(div(mode,x,y),a/b);
+                check(fma(mode,x,y,x),a*b+a);
+                check(pow(mode,x,Nat(7u)),a*a*a*a*a*a*a);
+
+                ARIADNE_TEST_EQUALS(sqrt(mode,F(4,pr)),F(2,pr));
+                if (bits>=4_bits) {
+                    ARIADNE_TEST_EQUALS(sqrt(mode,F(9,pr)),F(3,pr));
+                } else {
+                    // At two bits, 9 rounds to 8 except in upward mode,
+                    // where it rounds to 12, before sqrt is evaluated.
+                    const F rounded_nine(Rational(9),mode,pr);
+                    const bool upward=mode==F::ROUND_UPWARD;
+                    ARIADNE_TEST_EQUALS(static_cast<Rational>(rounded_nine),
+                                        Rational(upward?12:8));
+                    const Int expected=upward?4:
+                        (mode==F::ROUND_TO_NEAREST?3:2);
+                    ARIADNE_TEST_EQUALS(sqrt(mode,rounded_nine),F(expected,pr));
+                }
+
+                const F two(2,pr);
+                const Rational root_lower=static_cast<Rational>(
+                    sqrt(F::ROUND_DOWNWARD,two));
+                const Rational root_upper=static_cast<Rational>(
+                    sqrt(F::ROUND_UPWARD,two));
+                ARIADNE_TEST_ASSERT(root_lower*root_lower<=Rational(2));
+                ARIADNE_TEST_ASSERT(root_upper*root_upper>=Rational(2));
+            }
+        }
+
+        // Transcendental directed-rounding checks at multiple precisions.
+        // Exact mathematical identities supplement these enclosures.
+        for (Bits bits : {7_bits,24_bits,53_bits,113_bits}) {
+            const PR pr(bits);
+            const F quarter(Dyadic(1,2u),pr);
+            const F negative_quarter(Dyadic(-1,2u),pr);
+            const F one(1,pr);
+            const F two(2,pr);
+            const auto enclosure=[&](auto operation,F const& x) {
+                const F lower=operation(F::ROUND_DOWNWARD,x);
+                const F upper=operation(F::ROUND_UPWARD,x);
+                const F nearest=operation(F::ROUND_TO_NEAREST,x);
+                const F toward_zero=operation(F::ROUND_TOWARD_ZERO,x);
+                ARIADNE_TEST_ASSERT(lower<=nearest && nearest<=upper);
+                ARIADNE_TEST_ASSERT(lower<=toward_zero && toward_zero<=upper);
+            };
+            enclosure([](auto mode,auto const& x){return sqrt(mode,x);},two);
+            enclosure([](auto mode,auto const& x){return exp(mode,x);},quarter);
+            enclosure([](auto mode,auto const& x){return exp(mode,x);},negative_quarter);
+            enclosure([](auto mode,auto const& x){return log(mode,x);},two);
+            enclosure([](auto mode,auto const& x){return sin(mode,x);},quarter);
+            enclosure([](auto mode,auto const& x){return cos(mode,x);},negative_quarter);
+            enclosure([](auto mode,auto const& x){return tan(mode,x);},quarter);
+            enclosure([](auto mode,auto const& x){return atan(mode,x);},negative_quarter);
+            enclosure([](auto mode,auto const& x){return asin(mode,x);},quarter);
+            enclosure([](auto mode,auto const& x){return acos(mode,x);},quarter);
+            ARIADNE_TEST_ASSERT(F::pi(F::ROUND_DOWNWARD,pr)<=
+                                F::pi(F::ROUND_TO_NEAREST,pr));
+            ARIADNE_TEST_ASSERT(F::pi(F::ROUND_TO_NEAREST,pr)<=
+                                F::pi(F::ROUND_UPWARD,pr));
+            ARIADNE_TEST_EQUALS(exp(F::ROUND_TO_NEAREST,F(0,pr)),one);
+            ARIADNE_TEST_EQUALS(log(F::ROUND_TO_NEAREST,one),F(0,pr));
+            ARIADNE_TEST_EQUALS(sin(F::ROUND_TO_NEAREST,F(0,pr)),F(0,pr));
+            ARIADNE_TEST_EQUALS(cos(F::ROUND_TO_NEAREST,F(0,pr)),one);
+        }
+
+        // A deterministic comparison oracle with varied binary scales.
+        unsigned long state=0xC0A4E5u;
+        for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
+            const PR pr(bits);
+            for (unsigned i=0;i<300u;++i) {
+                state=state*1664525u+1013904223u;
+                const long na=static_cast<long>(state%200001u)-100000L;
+                state=state*1664525u+1013904223u;
+                const long nb=static_cast<long>(state%200001u)-100000L;
+                const unsigned sa=(i*17u)%200u;
+                const unsigned sb=(i*29u)%200u;
+                const Rational a=Rational(na)/Rational(Dyadic(TwoExp(static_cast<Int>(sa))));
+                const Rational b=Rational(nb)/Rational(Dyadic(TwoExp(static_cast<Int>(sb))));
+                const F fa(a,F::ROUND_TO_NEAREST,pr);
+                const F fb(b,F::ROUND_TO_NEAREST,pr);
+                const Rational exact_a=static_cast<Rational>(fa);
+                const Rational exact_b=static_cast<Rational>(fb);
+                ARIADNE_TEST_EQUALS(cmp(fa,fb),cmp(exact_a,exact_b));
+            }
+        }
+
+        const PR pr(53_bits);
+        const F positive_zero(0,pr);
+        const F negative_zero=neg(positive_zero);
+        ARIADNE_TEST_EQUALS(cmp(positive_zero,negative_zero),Comparison::EQUAL);
+        ARIADNE_TEST_ASSERT(is_nan(add(near,F::inf(Sign::POSITIVE,pr),
+                                       F::inf(Sign::NEGATIVE,pr))));
+        ARIADNE_TEST_ASSERT(is_nan(mul(near,F(0,pr),
+                                       F::inf(Sign::POSITIVE,pr))));
+        ARIADNE_TEST_ASSERT(is_nan(div(near,F(0,pr),F(0,pr))));
+    }
 }
 
 
