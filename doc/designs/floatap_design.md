@@ -420,3 +420,43 @@ This is a correctness-driven simplification, not a blanket removal of
 checks to satisfy coverage. The next full CI report must verify the
 updated totals on macOS and Windows. The goal remains 100% for
 functions, lines, and branches across the completed FloatAP implementation.
+
+
+## First comparable benchmark slice (16 October 2026)
+
+`BUILD_FLOATAP_COMPARISON=ON` now enables direct, monomorphic
+`FloatAP`/MPFR comparison for **only the implemented common API**:
+rational construction, copying, comparison, directed add/sub/mul/div,
+fused multiply-add, conversion to double and exact rational conversion.
+These run at 53, 128, 256 and 1024 bits and use the same operand pool
+for each backend. The C++ benchmark emits per-operation timings and
+geometric-mean/weighted slowdown. MPFR's transcendental, square-root
+and power benchmarks are retained in the MPFR-only configuration.
+
+The differential conformance test similarly compares the two backends
+on exact rational results for elementary arithmetic and four rounding
+modes. The generic full-`FloatMP` test suites are not enabled for
+`FloatAP` until the advanced operations exist. No shim calls MPFR
+from `FloatAP`, and there is no dynamic backend dispatch.
+
+The initial native implementation still uses exact GMP integers,
+may allocate large temporaries and may be slower than MPFR. This
+benchmark is a baseline for optimization, **not a claim of parity
+for transcendentals or the entire floating-point interface**.
+
+Build:
+
+```sh
+cmake -S . -B build-dual -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_PYTHON_BINDINGS=OFF \
+    -DBUILD_NUMERIC_MIGRATION_BENCHMARKS=ON \
+    -DBUILD_FLOATAP_COMPARISON=ON
+cmake --build build-dual --target benchmark_compare_multiple_precision_backends test_float_multipleprecision_backends
+ctest --test-dir build-dual -R '^test_float_multipleprecision_backends$' --output-on-failure
+./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 --summary-only
+```
+
+The dual configuration is not yet verified against the full Ariadne
+CMake environment by this development session; CMake must not compile
+`src/floatap.cpp` twice. After building, recheck all coverage metrics
+because every added source branch must eventually be covered.

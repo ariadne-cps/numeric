@@ -38,9 +38,11 @@ foreach(TEST ${UNIT_TESTS})
 endforeach()
 
 if(BUILD_FLOATAP_COMPARISON)
-    foreach(TEST IN ITEMS test_float test_float_rounding test_float_multipleprecision_backends)
-        target_compile_definitions(${TEST} PRIVATE ARIADNE_NUMERIC_ENABLE_FLOATAP)
-    endforeach()
+    # The generic FloatAP tests require the full FloatMP API, including
+    # transcendental functions. Enable the differential elementary test now;
+    # extend the generic suites when those operations are implemented.
+    target_compile_definitions(test_float_multipleprecision_backends
+        PRIVATE ARIADNE_NUMERIC_ENABLE_FLOATAP)
 endif()
 
 add_library(check_numeric OBJECT check_numeric.cpp)
