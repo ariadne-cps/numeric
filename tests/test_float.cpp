@@ -336,8 +336,8 @@ TestFloat<PR>::test_conversions()
             }
 
             const B division_negative=div(positive,negative);
-            ARIADNE_TEST_ASSERT(division_negative.lower_raw()<=FloatType(-1,2u,pr));
-            ARIADNE_TEST_ASSERT(division_negative.upper_raw()>=FloatType(-1,4u,pr));
+            ARIADNE_TEST_ASSERT(division_negative.lower_raw()<=FloatType(Dyadic(-1,1u),pr));
+            ARIADNE_TEST_ASSERT(division_negative.upper_raw()>=FloatType(Dyadic(-1,2u),pr));
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
