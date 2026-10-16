@@ -219,21 +219,11 @@ unsigned samples, std::vector<BenchmarkDatum>& data) {
     );
 }
 
-// Logging is used for human-readable reports. Raw CSV remains on stdout,
-// without logger prefixes, so it can be consumed by automated tools.
+// All reports use the Ariadne logger, following the integration benchmarks.
 void print_results(std::vector<BenchmarkDatum> const& data,
                    unsigned iterations, unsigned samples,
-                   bool csv, bool summary_only) {
+                   bool summary_only) {
     if (summary_only) return;
-    if (csv) {
-        std::cout << "backend,operation,bits,iterations,samples,median_ns\n";
-        for (auto const& datum : data) {
-            std::cout << datum.backend << ',' << datum.operation << ','
-                      << datum.bits << ',' << iterations << ',' << samples << ','
-                      << std::fixed << std::setprecision(6) << datum.nanoseconds << '\n';
-        }
-        return;
-    }
 
     constexpr int backend_width=10;
     constexpr int operation_width=24;
@@ -263,7 +253,7 @@ void print_results(std::vector<BenchmarkDatum> const& data,
 }
 
 void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
-bool details, double max_slowdown, bool csv) {
+bool details, double max_slowdown) {
     struct Aggregate {
         std::size_t count = 0;
         double logarithmic_sum = 0.0;
@@ -289,8 +279,7 @@ bool details, double max_slowdown, bool csv) {
                 worst_bits = bits;
             }
         }
-        void print(std::string const& name, bool csv) const {
-            if (csv) return;
+        void print(std::string const& name) const {
             if (count == 0 || mpfr_sum <= 0.0) {
                 throw std::runtime_error("cannot summarize empty benchmark results");
             }
@@ -317,7 +306,7 @@ bool details, double max_slowdown, bool csv) {
     }
     std::map< unsigned, Aggregate > per_precision;
     Aggregate overall;
-    if (details && !csv) {
+    if (details) {
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Detailed comparisons (FloatAP / MPFR)")
         LOGGING_PRINTLN(std::string(79u,'-'))
@@ -334,7 +323,7 @@ bool details, double max_slowdown, bool csv) {
         auto& precision_summary = per_precision[key.first];
         precision_summary.add(key.second, key.first, reference_ns, it->second);
         overall.add(key.second, key.first, reference_ns, it->second);
-        if (details && !csv) {
+        if (details) {
             LOGGING_PRINTLN(std::left << std::setw(24) << key.second
                             << std::setw(8) << key.first
                             << std::setw(16) << std::fixed << std::setprecision(3)
@@ -342,21 +331,17 @@ bool details, double max_slowdown, bool csv) {
                             << std::setprecision(3) << it->second / reference_ns << "x")
         }
     }
-    if (!csv) {
-        LOGGING_PRINTLN(" ")
-        LOGGING_PRINTLN(std::string(78u, '='))
-        LOGGING_PRINTLN("FloatAP / FloatMP slowdown (x; >1 means slower)")
-        LOGGING_PRINTLN(std::string(78u, '-'))
-    }
+    LOGGING_PRINTLN(" ")
+    LOGGING_PRINTLN(std::string(78u, '='))
+    LOGGING_PRINTLN("FloatAP / FloatMP slowdown (x; >1 means slower)")
+    LOGGING_PRINTLN(std::string(78u, '-'))
     for (auto const& [bits, summary] : per_precision) {
-        summary.print(std::to_string(bits) + " bits",csv);
+        summary.print(std::to_string(bits) + " bits");
     }
-    overall.print("ALL",csv);
-    if (!csv) {
-        LOGGING_PRINTLN(std::string(78u, '='))
-        LOGGING_PRINTLN("geomean weighs each (operation, precision) equally; "
-                        "total_time weights by measured cost.")
-    }
+    overall.print("ALL");
+    LOGGING_PRINTLN(std::string(78u, '='))
+    LOGGING_PRINTLN("geomean weighs each (operation, precision) equally; "
+                    "total_time weights by measured cost.")
     if (std::isfinite(max_slowdown) && overall.worst_ratio > max_slowdown) {
         throw std::runtime_error(
         "FloatAP slowdown exceeds --max-slowdown: "
@@ -366,25 +351,21 @@ bool details, double max_slowdown, bool csv) {
 }
 
 int main(int argc, char* * argv) {
+    // Verbosity defaults to 0, which mutes all LOGGING_PRINTLN calls.
+    // Follow the integration benchmarks and enable level-1 reports.
+    Logger::instance().configuration().set_verbosity(1u);
     try {
         unsigned iterations = 300;
         unsigned samples = 7;
         bool summary_only = false;
         bool details = false;
-        bool csv = false;
         std::vector<unsigned> precisions {53u,128u,256u,1024u};
         double max_slowdown = std::numeric_limits<double>::infinity();
         unsigned positional = 0;
 
         for (int i = 1; i < argc;++i) {
             const std::string arg(argv[i]);
-            if (arg == "--csv" || arg == "--format=csv") {
-                csv = true;
-            }
-            else if (arg == "--format=table") {
-                csv = false;
-            }
-            else if (arg == "--iterations" || arg == "--samples" || arg == "--bits") {
+            if (arg == "--iterations" || arg == "--samples" || arg == "--bits") {
                 if (++i >= argc) throw std::invalid_argument(arg + " requires a value");
                 const std::string value(argv[i]);
                 if (arg == "--bits") {
@@ -432,10 +413,10 @@ int main(int argc, char* * argv) {
                 }
             }
             else if (arg == "--help") {
-                std::cout << "usage: benchmark_compare_multiple_precision_backends "
-                "[iterations] [odd_samples] [--iterations N] [--samples ODD_N] "
-                "[--bits 53,128,256,1024] [--csv|--format=table|--format=csv] "
-                "[--summary-only] [--details] [--max-slowdown RATIO]\n";
+                LOGGING_PRINTLN("Usage: benchmark_compare_multiple_precision_backends "
+                    "[iterations] [odd_samples] [--iterations N] [--samples ODD_N] "
+                    "[--bits 53,128,256,1024] [--summary-only] [--details] "
+                    "[--max-slowdown RATIO]")
                 return 0;
             }
             else if (arg.starts_with("--")) {
@@ -461,22 +442,24 @@ int main(int argc, char* * argv) {
             throw std::invalid_argument("iterations must be positive; samples must be odd and >=3");
         }
 
+        LOGGING_PRINTLN("FloatMP / FloatAP benchmark - running "
+                        << precisions.size() << " precision groups")
+        LOGGING_PRINTLN("Iterations: " << iterations << "  |  Samples: " << samples)
+        LOGGING_PRINTLN(std::string(78u, '='))
         std::vector<BenchmarkDatum> measurements;
         for (unsigned bits : precisions) {
+            LOGGING_PRINTLN("Measuring " << bits << " bits ...")
             run_backend<FloatMP>("mpfr",bits,iterations,samples,measurements);
             run_backend<FloatAP>("floatap",bits,iterations,samples,measurements);
+            LOGGING_PRINTLN("Completed " << bits << " bits")
+            LOGGING_PRINTLN(std::string(78u, '-'))
         }
-        print_results(measurements,iterations,samples,csv,summary_only);
-        // A clean CSV stream contains no human-readable summary or log prefixes.
-        if (!csv) print_slowdown_summary(measurements,details,max_slowdown,csv);
-        else if (std::isfinite(max_slowdown)) {
-            // Apply the slowdown threshold even when only CSV was requested.
-            print_slowdown_summary(measurements,false,max_slowdown,csv);
-        }
+        print_results(measurements,iterations,samples,summary_only);
+        print_slowdown_summary(measurements,details,max_slowdown);
         return 0;
     }
     catch (std::exception const& e) {
-        std::cerr << "benchmark_compare_multiple_precision_backends: " << e.what() << '\n';
+        LOGGING_PRINTLN("benchmark_compare_multiple_precision_backends: " << e.what())
         return 1;
     }
 }
