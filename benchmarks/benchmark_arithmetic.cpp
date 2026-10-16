@@ -32,6 +32,9 @@
 
 #include "utility/stopwatch.hpp"
 #include "numeric/rounding.hpp"
+#include "logging/logging.hpp"
+#include <stdexcept>
+#include <string>
 
 #include <gmp.h>
 
@@ -113,7 +116,7 @@ Void benchmark_dot(SizeType n, SizeType nn) {
 
     double ql=0; double qu=0;
     dot_lu_rat(ql,qu,n,x.data(),y.data());
-    std::cout<<"lu_rat:        e="<<(qu-ql)/2<<" l="<<ql<<" u="<<qu<<std::endl;
+    LOGGING_PRINTLN("lu_rat:        e="<<(qu-ql)/2<<" l="<<ql<<" u="<<qu)
     assert(ql<=qu);
 
     mpq_t qm;
@@ -128,8 +131,8 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"lu_std: t(us)="<<std::setprecision(5)<<t
-             <<std::setprecision(20)<<" e="<<(u-l)/2<<" l="<<l<<" u="<<u<<std::endl;
+    LOGGING_PRINTLN("lu_std: t(us)="<<std::setprecision(5)<<t
+             <<std::setprecision(20)<<" e="<<(u-l)/2<<" l="<<l<<" u="<<u)
     assert(l<=ql && qu<=u);
 
     sw.restart();
@@ -139,8 +142,8 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"lu_opp: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" e="<<(u-l)/2<<" l="<<l<<" u="<<u<<std::endl;
+    LOGGING_PRINTLN("lu_opp: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" e="<<(u-l)/2<<" l="<<l<<" u="<<u)
     assert(l<=ql && qu<=u);
 
     sw.restart();
@@ -150,8 +153,8 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"lu_ivl: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" e="<<(u-l)/2<<" l="<<l<<" u="<<u<<std::endl;
+    LOGGING_PRINTLN("lu_ivl: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" e="<<(u-l)/2<<" l="<<l<<" u="<<u)
     assert(l<=ql && qu<=u);
 
 
@@ -163,8 +166,8 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"mr_std: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<" m="<<m<<" e="<<rational_error(m,qm)<<std::endl;
+    LOGGING_PRINTLN("mr_std: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" r="<<r<<" m="<<m<<" e="<<rational_error(m,qm))
     assert(rational_contains(m,r,qm));
 
     sw.restart();
@@ -174,8 +177,8 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"mr_mid: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<" m="<<m<<" e="<<rational_error(m,qm)<<std::endl;
+    LOGGING_PRINTLN("mr_mid: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" r="<<r<<" m="<<m<<" e="<<rational_error(m,qm))
     assert(rational_contains(m,r,qm));
 
     sw.restart();
@@ -185,8 +188,8 @@ Void benchmark_dot(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"mr_csy: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<" m="<<m<<" e="<<rational_error(m,qm)<<std::endl;
+    LOGGING_PRINTLN("mr_csy: t(us)="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" r="<<r<<" m="<<m<<" e="<<rational_error(m,qm))
     assert(rational_contains(m,r,qm));
 
     mpq_clear(qm);
@@ -214,8 +217,8 @@ Void benchmark_add(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"add_mr_std: t="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<std::endl;
+    LOGGING_PRINTLN("add_mr_std: t="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" r="<<r)
 
     sw.restart();
     for(SizeType i=0; i!=nn; ++i) {
@@ -224,8 +227,8 @@ Void benchmark_add(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"add_mr_buf: t="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<std::endl;
+    LOGGING_PRINTLN("add_mr_buf: t="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" r="<<r)
 
     sw.restart();
     for(SizeType i=0; i!=nn; ++i) {
@@ -234,8 +237,8 @@ Void benchmark_add(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"add_mr_csy: t="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<std::endl;
+    LOGGING_PRINTLN("add_mr_csy: t="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" r="<<r)
 }
 
 
@@ -260,8 +263,8 @@ Void benchmark_add(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"scal_mr_std: t="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<std::endl;
+    LOGGING_PRINTLN("scal_mr_std: t="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" r="<<r)
 
     sw.restart();
     for(SizeType i=0; i!=nn; ++i) {
@@ -270,59 +273,95 @@ Void benchmark_add(SizeType n, SizeType nn) {
     }
     sw.click();
     t=static_cast<double>(sw.duration().count());
-    std::cout<<"scal_mr_csy: t="<<std::setprecision(5)<<t<<std::setprecision(20)
-             <<" r="<<r<<std::endl;
+    LOGGING_PRINTLN("scal_mr_csy: t="<<std::setprecision(5)<<t<<std::setprecision(20)
+             <<" r="<<r)
 }
 
 
 Int main(Int argc, const char* argv[]) {
-    std::cout << std::setprecision(20);
-    std::cerr << std::setprecision(20);
+    try {
+        SizeType vector_exponent=10u;
+        SizeType repetition_exponent=12u;
+        SizeType runs=1u;
+        unsigned positional=0u;
 
-    SizeType vector_size = (SizeType{1} << 10u);
-    SizeType repetitions = (SizeType{1} << 12u);
-    SizeType runs = 1u;
+        const auto parse_count=[](std::string const& text) -> SizeType {
+            std::size_t used=0u;
+            const unsigned long value=std::stoul(text,&used);
+            if(used!=text.size() || value>std::numeric_limits<SizeType>::max()) {
+                throw std::invalid_argument("Invalid nonnegative integer: "+text);
+            }
+            return static_cast<SizeType>(value);
+        };
 
-    if (argc > 1) {
-        const auto exponent = std::strtoul(argv[1], nullptr, 10);
-        if (exponent >= static_cast<unsigned long>(std::numeric_limits<SizeType>::digits)) {
-            std::cerr << "Vector-size exponent is too large" << std::endl;
-            return 1;
+        for(Int i=1; i<argc; ++i) {
+            const std::string argument(argv[i]);
+            if(argument=="--help") {
+                LOGGING_PRINTLN("Usage: benchmark_arithmetic "
+                    "[vector_exponent] [repetition_exponent] [runs] "
+                    "[--vector-exponent N] [--repetition-exponent N] [--runs N]")
+                return 0;
+            }
+            if(argument=="--vector-exponent" || argument=="--repetition-exponent"
+               || argument=="--runs") {
+                if(++i>=argc) throw std::invalid_argument(argument+" requires a value");
+                const SizeType value=parse_count(argv[i]);
+                if(argument=="--vector-exponent") vector_exponent=value;
+                else if(argument=="--repetition-exponent") repetition_exponent=value;
+                else runs=value;
+            } else if(argument.starts_with("--")) {
+                throw std::invalid_argument("Unknown option: "+argument);
+            } else {
+                const SizeType value=parse_count(argument);
+                if(positional==0u) vector_exponent=value;
+                else if(positional==1u) repetition_exponent=value;
+                else if(positional==2u) runs=value;
+                else throw std::invalid_argument("Too many positional arguments");
+                ++positional;
+            }
         }
-        vector_size = (SizeType{1} << exponent);
-    }
-    if (argc > 2) {
-        const auto exponent = std::strtoul(argv[2], nullptr, 10);
-        if (exponent >= static_cast<unsigned long>(std::numeric_limits<SizeType>::digits)) {
-            std::cerr << "Repetition exponent is too large" << std::endl;
-            return 1;
+
+        if(vector_exponent>=std::numeric_limits<SizeType>::digits ||
+           repetition_exponent>=std::numeric_limits<SizeType>::digits) {
+            throw std::invalid_argument("Vector or repetition exponent is too large");
         }
-        repetitions = (SizeType{1} << exponent);
+        if(runs==0u) throw std::invalid_argument("Runs must be positive");
+
+        const SizeType vector_size=SizeType{1} << vector_exponent;
+        const SizeType repetitions=SizeType{1} << repetition_exponent;
+        LOGGING_PRINTLN(std::string(78u,'='))
+        LOGGING_PRINTLN("Arithmetic benchmark")
+        LOGGING_PRINTLN("Vector size: " << vector_size
+                        << "  |  Repetitions: " << repetitions
+                        << "  |  Runs: " << runs)
+        LOGGING_PRINTLN(std::string(78u,'='))
+
+        for(SizeType run=1u; run<=runs; ++run) {
+            LOGGING_PRINTLN(" ")
+            LOGGING_PRINTLN("Run " << run << "/" << runs)
+            LOGGING_PRINTLN(std::string(78u,'-'))
+
+            Stopwatch<Milliseconds> sw;
+            LOGGING_PRINTLN("Scalar operations")
+            benchmark_scal(vector_size,repetitions);
+            LOGGING_PRINTLN(std::string(78u,'-'))
+            LOGGING_PRINTLN("Vector addition")
+            benchmark_add(vector_size,repetitions);
+            LOGGING_PRINTLN(std::string(78u,'-'))
+            LOGGING_PRINTLN("Dot products")
+            benchmark_dot(vector_size,repetitions);
+
+            sw.click();
+            LOGGING_PRINTLN(std::string(78u,'-'))
+            LOGGING_PRINTLN("Run total: " << sw.duration().count() << " ms")
+            LOGGING_PRINTLN(std::string(78u,'='))
+        }
+        return 0;
+    } catch(std::exception const& e) {
+        std::cerr << "benchmark_arithmetic: " << e.what() << '\n';
+        return 1;
     }
-    if (argc > 3) {
-        runs = static_cast<SizeType>(std::strtoul(argv[3], nullptr, 10));
-    }
-
-    std::cout << "\nVector size=" << vector_size
-              << "\nRepetitions=" << repetitions
-              << "\nRuns=" << runs << "\n" << std::endl;
-
-    for (SizeType run = 1u; run <= runs; ++run) {
-        std::cout << "=== Run " << run << "/" << runs << " ===" << std::endl;
-
-        Stopwatch<Milliseconds> sw;
-
-        benchmark_scal(vector_size, repetitions);
-        benchmark_add(vector_size, repetitions);
-        benchmark_dot(vector_size, repetitions);
-
-        sw.click();
-        std::cout << "run_total: t(ms)=" << sw.duration().count() << "\n" << std::endl;
-    }
-
-    return 0;
 }
-
 
 Void dot_lu_rat(double& l, double& u, SizeType n, const double* x, const double* y) {
     set_builtin_rounding_to_nearest();

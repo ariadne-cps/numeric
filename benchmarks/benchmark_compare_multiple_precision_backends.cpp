@@ -26,6 +26,7 @@
 #include "numeric/floatmp.hpp"
 #include "numeric/floatap.hpp"
 #include "numeric/rational.hpp"
+#include "logging/logging.hpp"
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
@@ -33,6 +34,8 @@
 #include <limits>
 #include <map>
 #include <iostream>
+#include <sstream>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -78,7 +81,7 @@ struct BenchmarkDatum {
 
 template< class Float >
 void run_backend(char const* backend, unsigned bits, unsigned iterations,
-unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
+unsigned samples, std::vector<BenchmarkDatum>& data) {
     using Precision = typename Float::PrecisionType;
     Precision precision = bits == 53 ? Precision(53_bits)
     : bits == 128 ? Precision(128_bits)
@@ -103,10 +106,7 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
     auto report =[& ](char const* name, auto && operation) {
         const double ns = median_ns(operation, iterations, samples);
         data.push_back( { backend, name, bits, ns });
-        if (print_csv) {
-            std::cout << backend << ',' << name << ',' << bits << ',' << iterations << ',' << samples << ','
-            << std::fixed << std::setprecision(6) << ns << '\n';
-        }
+
     };
     auto index =[](unsigned i) {
         return i % pool_size;
@@ -219,8 +219,51 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
     );
 }
 
+// Logging is used for human-readable reports. Raw CSV remains on stdout,
+// without logger prefixes, so it can be consumed by automated tools.
+void print_results(std::vector<BenchmarkDatum> const& data,
+                   unsigned iterations, unsigned samples,
+                   bool csv, bool summary_only) {
+    if (summary_only) return;
+    if (csv) {
+        std::cout << "backend,operation,bits,iterations,samples,median_ns\n";
+        for (auto const& datum : data) {
+            std::cout << datum.backend << ',' << datum.operation << ','
+                      << datum.bits << ',' << iterations << ',' << samples << ','
+                      << std::fixed << std::setprecision(6) << datum.nanoseconds << '\n';
+        }
+        return;
+    }
+
+    constexpr int backend_width=10;
+    constexpr int operation_width=24;
+    constexpr int timing_width=15;
+    constexpr int table_width=backend_width+operation_width+timing_width+12;
+    LOGGING_PRINTLN("FloatMP / FloatAP benchmark | iterations=" << iterations
+                    << " | samples=" << samples)
+    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '='))
+    LOGGING_PRINTLN(std::left << std::setw(backend_width) << "Backend"
+                    << "  " << std::setw(operation_width) << "Operation"
+                    << "  " << std::setw(6) << "Bits"
+                    << "  " << std::right << std::setw(timing_width) << "Median (ns)")
+    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '-'))
+    unsigned previous_bits=0;
+    for (auto const& datum : data) {
+        if (previous_bits != 0u && previous_bits != datum.bits) {
+            LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '-'))
+        }
+        previous_bits=datum.bits;
+        LOGGING_PRINTLN(std::left << std::setw(backend_width) << datum.backend
+                        << "  " << std::setw(operation_width) << datum.operation
+                        << "  " << std::setw(6) << datum.bits
+                        << "  " << std::right << std::setw(timing_width)
+                        << std::fixed << std::setprecision(3) << datum.nanoseconds)
+    }
+    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '='))
+}
+
 void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
-bool details, double max_slowdown) {
+bool details, double max_slowdown, bool csv) {
     struct Aggregate {
         std::size_t count = 0;
         double logarithmic_sum = 0.0;
@@ -246,17 +289,18 @@ bool details, double max_slowdown) {
                 worst_bits = bits;
             }
         }
-        void print(std::string const& name) const {
+        void print(std::string const& name, bool csv) const {
+            if (csv) return;
             if (count == 0 || mpfr_sum <= 0.0) {
                 throw std::runtime_error("cannot summarize empty benchmark results");
             }
-            std::cerr << std::left << std::setw(12) << name
-            << " ops=" << std::setw(3) << count
-            << " geomean=" << std::fixed << std::setprecision(3)
-            << std::exp(logarithmic_sum / static_cast<double>(count)) << "x"
-            << " total_time=" << floatap_sum / mpfr_sum << "x"
-            << " worst=" << worst_ratio << "x (" << worst_operation
-            << ", " << worst_bits << " bits)\n";
+            LOGGING_PRINTLN(std::left << std::setw(12) << name
+                << "  ops=" << std::setw(3) << count
+                << "  geomean=" << std::fixed << std::setprecision(3)
+                << std::exp(logarithmic_sum / static_cast<double>(count)) << "x"
+                << "  total_time=" << floatap_sum / mpfr_sum << "x"
+                << "  worst=" << worst_ratio << "x (" << worst_operation
+                << ", " << worst_bits << " bits)")
         }
     };
 
@@ -274,8 +318,13 @@ bool details, double max_slowdown) {
     std::map< unsigned, Aggregate > per_precision;
     Aggregate overall;
     if (details) {
-        std::cerr << "\nFloatAP / FloatMP detailed comparisons:\n"
-        << "operation,bits,mpfr_ns,floatap_ns,slowdown_floatap_over_mpfr\n";
+        LOGGING_PRINTLN(" ")
+        LOGGING_PRINTLN("Detailed comparisons (FloatAP / MPFR)")
+        LOGGING_PRINTLN(std::string(79u,'-'))
+        LOGGING_PRINTLN(std::left << std::setw(24) << "Operation"
+                        << std::setw(8) << "Bits"
+                        << std::setw(16) << "MPFR (ns)"
+                        << std::setw(16) << "FloatAP (ns)" << "Slowdown")
     }
     for (auto const& [key, reference_ns] : reference) {
         auto it = candidate.find(key);
@@ -286,19 +335,28 @@ bool details, double max_slowdown) {
         precision_summary.add(key.second, key.first, reference_ns, it->second);
         overall.add(key.second, key.first, reference_ns, it->second);
         if (details) {
-            std::cerr << key.second << ',' << key.first << ','
-            << std::fixed << std::setprecision(6) << reference_ns << ','
-            << it->second << ',' << std::setprecision(3)
-            << it->second / reference_ns << '\n';
+            LOGGING_PRINTLN(std::left << std::setw(24) << key.second
+                            << std::setw(8) << key.first
+                            << std::setw(16) << std::fixed << std::setprecision(3)
+                            << reference_ns << std::setw(16) << it->second
+                            << std::setprecision(3) << it->second / reference_ns << "x")
         }
     }
-    std::cerr << "\nFloatAP / FloatMP slowdown (x; >1 means slower):\n";
-    for (auto const& [bits, summary] : per_precision) {
-        summary.print(std::to_string(bits) + " bits");
+    if (!csv) {
+        LOGGING_PRINTLN(" ")
+        LOGGING_PRINTLN(std::string(78u, '='))
+        LOGGING_PRINTLN("FloatAP / FloatMP slowdown (x; >1 means slower)")
+        LOGGING_PRINTLN(std::string(78u, '-'))
     }
-    overall.print("ALL");
-    std::cerr << "geomean weighs each (operation, precision) equally; "
-    "total_time weights by measured cost.\n";
+    for (auto const& [bits, summary] : per_precision) {
+        summary.print(std::to_string(bits) + " bits",csv);
+    }
+    overall.print("ALL",csv);
+    if (!csv) {
+        LOGGING_PRINTLN(std::string(78u, '='))
+        LOGGING_PRINTLN("geomean weighs each (operation, precision) equally; "
+                        "total_time weights by measured cost.")
+    }
     if (std::isfinite(max_slowdown) && overall.worst_ratio > max_slowdown) {
         throw std::runtime_error(
         "FloatAP slowdown exceeds --max-slowdown: "
@@ -312,13 +370,50 @@ int main(int argc, char* * argv) {
         unsigned iterations = 300;
         unsigned samples = 7;
         bool summary_only = false;
-        [[maybe_unused]] bool details = false;
+        bool details = false;
+        bool csv = false;
+        std::vector<unsigned> precisions {53u,128u,256u,1024u};
         double max_slowdown = std::numeric_limits<double>::infinity();
         unsigned positional = 0;
 
         for (int i = 1; i < argc;++i) {
             const std::string arg(argv[i]);
-            if (arg == "--summary-only") {
+            if (arg == "--csv" || arg == "--format=csv") {
+                csv = true;
+            }
+            else if (arg == "--format=table") {
+                csv = false;
+            }
+            else if (arg == "--iterations" || arg == "--samples" || arg == "--bits") {
+                if (++i >= argc) throw std::invalid_argument(arg + " requires a value");
+                const std::string value(argv[i]);
+                if (arg == "--bits") {
+                    precisions.clear();
+                    std::istringstream input(value);
+                    std::string token;
+                    while (std::getline(input,token,',')) {
+                        std::size_t consumed=0;
+                        const unsigned long bits=std::stoul(token,&consumed);
+                        if (consumed!=token.size() || (bits!=53u && bits!=128u && bits!=256u && bits!=1024u)) {
+                            throw std::invalid_argument("--bits supports 53,128,256,1024");
+                        }
+                        if (std::find(precisions.begin(),precisions.end(),static_cast<unsigned>(bits))!=precisions.end()) {
+                            throw std::invalid_argument("duplicate --bits precision");
+                        }
+                        precisions.push_back(static_cast<unsigned>(bits));
+                    }
+                    if (precisions.empty()) throw std::invalid_argument("--bits requires precisions");
+                } else {
+                    std::size_t consumed=0;
+                    const unsigned long parsed=std::stoul(value,&consumed);
+                    if (consumed!=value.size() || parsed>std::numeric_limits<unsigned>::max()) {
+                        throw std::invalid_argument("invalid count: " + value);
+                    }
+                    if (arg == "--iterations") iterations=static_cast<unsigned>(parsed);
+                    else samples=static_cast<unsigned>(parsed);
+                }
+            }
+            else if (arg == "--summary-only") {
                 summary_only = true;
             }
             else if (arg == "--details") {
@@ -338,7 +433,8 @@ int main(int argc, char* * argv) {
             }
             else if (arg == "--help") {
                 std::cout << "usage: benchmark_compare_multiple_precision_backends "
-                "[iterations] [odd_samples] "
+                "[iterations] [odd_samples] [--iterations N] [--samples ODD_N] "
+                "[--bits 53,128,256,1024] [--csv|--format=table|--format=csv] "
                 "[--summary-only] [--details] [--max-slowdown RATIO]\n";
                 return 0;
             }
@@ -366,14 +462,17 @@ int main(int argc, char* * argv) {
         }
 
         std::vector<BenchmarkDatum> measurements;
-        if (!summary_only) {
-            std::cout << "backend,operation,bits,iterations,samples,median_ns\n";
+        for (unsigned bits : precisions) {
+            run_backend<FloatMP>("mpfr",bits,iterations,samples,measurements);
+            run_backend<FloatAP>("floatap",bits,iterations,samples,measurements);
         }
-        for (unsigned bits : { 53u, 128u, 256u, 1024u }) {
-            run_backend < FloatMP >("mpfr", bits, iterations, samples, !summary_only, measurements);
-            run_backend<FloatAP>("floatap", bits, iterations, samples, !summary_only, measurements);
+        print_results(measurements,iterations,samples,csv,summary_only);
+        // A clean CSV stream contains no human-readable summary or log prefixes.
+        if (!csv) print_slowdown_summary(measurements,details,max_slowdown,csv);
+        else if (std::isfinite(max_slowdown)) {
+            // Apply the slowdown threshold even when only CSV was requested.
+            print_slowdown_summary(measurements,false,max_slowdown,csv);
         }
-        print_slowdown_summary(measurements, details, max_slowdown);
         return 0;
     }
     catch (std::exception const& e) {

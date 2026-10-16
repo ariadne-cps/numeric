@@ -2118,3 +2118,57 @@ gaps and signed zero. CI and the same-environment benchmark
 must verify the integrated implementation before attributing
 an end-to-end speedup.
 
+## Logging integration and benchmark reporting (16 October 2026)
+
+**Dependency:** add `ariadne-cps/logging` under `ss/logging` as a
+Git submodule. The pinned logging revision is
+`3df461f6aabe6e87eb7cabfbabc5e93e0f5be87c`.
+Reuse the existing `utility` dependency, with identical
+upstream revisions of `configuration` and `utility` across
+the numeric/foundation/logging submodule graph. The CMake
+benchmark targets link to `ariadne-logging` and `logging`;
+the numeric library's public API does **not** acquire a
+logging dependency.
+
+**Output conventions:** human-readable benchmark output uses
+`LOGGING_PRINTLN` with aligned columns, wide separators,
+and whitespace between precision groups and benchmark
+phases, in the style of the integration project's benchmarks.
+For the FloatAP/MPFR comparison, table output is the default.
+Machine-readable CSV is retained behind `--csv` or
+`--format=csv`, with the same column names as before and
+without logger prefixes or mixed summary data.
+The median-of-samples measurement procedure and existing
+FloatAP/MPFR comparison arithmetic are unchanged.
+
+**Command-line configuration:** comparison benchmark accepts
+the old positional `iterations odd_samples` arguments as
+well as `--iterations N`, `--samples N`,
+`--bits 53,128,256,1024`, `--summary-only`,
+`--details`, and `--max-slowdown RATIO`.
+The arithmetic benchmark accepts the existing positional
+exponents and runs plus `--vector-exponent N`,
+`--repetition-exponent N`, and `--runs N`, including
+`--help`. Defaults remain backward compatible.
+The CSV option is intended for scripted performance
+regressions and spreadsheet comparison.
+
+**Independent functional failure exposed by the supplied CI
+logs:** the previous large-exponent-gap shortcut in the new
+shared `add_sub` kernel produced wrong directed subtraction
+results versus MPFR (in `test_precision_regressions`).
+Remove the shortcut and always compute the exact signed
+integer before performing the **single final rounding**.
+The differential tests remain intact, so this fixes the
+production implementation, not the test expectations.
+A conservative exact path is preferable to a faster but
+numerically incorrect shortcut; later optimizations must
+prove directed-rounding behavior over large exponent gaps.
+
+**Verification requirements:** the uploaded Release logs
+compiled successfully on Linux GCC, Linux Clang and AppleClang
+but failed the FloatAP/MPFR subtraction differential checks.
+The ThreadSanitizer build completed, but a full TSAN test
+outcome was not established. Neither post-fix correctness nor
+logging-integrated CMake builds are claimed until CI completes.
+
