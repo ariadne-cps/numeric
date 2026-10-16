@@ -652,6 +652,71 @@ FloatAP abs(FloatAP::RoundingModeType, FloatAP const& x) {
     return x.negative() ? neg(x) : x;
 }
 
+FloatAP mag(FloatAP::RoundingModeType mode, FloatAP const& x) {
+    return abs(mode, x);
+}
+FloatAP& iadd(FloatAP::RoundingModeType mode, FloatAP& a, FloatAP const& b) {
+    return a = FloatAP::add(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
+}
+FloatAP& isub(FloatAP::RoundingModeType mode, FloatAP& a, FloatAP const& b) {
+    return a = FloatAP::sub(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
+}
+FloatAP& imul(FloatAP::RoundingModeType mode, FloatAP& a, FloatAP const& b) {
+    return a = FloatAP::mul(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
+}
+FloatAP& idiv(FloatAP::RoundingModeType mode, FloatAP& a, FloatAP const& b) {
+    return a = FloatAP::div(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
+}
+FloatAP add(FloatAP::RoundingModeType mode, FloatAP const& a, FloatDP const& b) {
+    return FloatAP(Rational(a) + Rational(b), mode, a.precision());
+}
+FloatAP add(FloatAP::RoundingModeType mode, FloatDP const& a, FloatAP const& b) {
+    return FloatAP(Rational(a) + Rational(b), mode, b.precision());
+}
+FloatAP sub(FloatAP::RoundingModeType mode, FloatAP const& a, FloatDP const& b) {
+    return FloatAP(Rational(a) - Rational(b), mode, a.precision());
+}
+FloatAP sub(FloatAP::RoundingModeType mode, FloatDP const& a, FloatAP const& b) {
+    return FloatAP(Rational(a) - Rational(b), mode, b.precision());
+}
+FloatAP mul(FloatAP::RoundingModeType mode, FloatAP const& a, FloatDP const& b) {
+    return FloatAP(Rational(a) * Rational(b), mode, a.precision());
+}
+FloatAP mul(FloatAP::RoundingModeType mode, FloatDP const& a, FloatAP const& b) {
+    return FloatAP(Rational(a) * Rational(b), mode, b.precision());
+}
+FloatAP div(FloatAP::RoundingModeType mode, FloatAP const& a, FloatDP const& b) {
+    return FloatAP(Rational(a) / Rational(b), mode, a.precision());
+}
+FloatAP div(FloatAP::RoundingModeType mode, FloatDP const& a, FloatAP const& b) {
+    return FloatAP(Rational(a) / Rational(b), mode, b.precision());
+}
+FloatAP add(FloatAP::RoundingModeType mode, FloatAP const& a, ExactDouble const& b) {
+    return FloatAP(Rational(a) + Rational(b), mode, a.precision());
+}
+FloatAP add(FloatAP::RoundingModeType mode, ExactDouble const& a, FloatAP const& b) {
+    return FloatAP(Rational(a) + Rational(b), mode, b.precision());
+}
+FloatAP sub(FloatAP::RoundingModeType mode, FloatAP const& a, ExactDouble const& b) {
+    return FloatAP(Rational(a) - Rational(b), mode, a.precision());
+}
+FloatAP sub(FloatAP::RoundingModeType mode, ExactDouble const& a, FloatAP const& b) {
+    return FloatAP(Rational(a) - Rational(b), mode, b.precision());
+}
+FloatAP mul(FloatAP::RoundingModeType mode, FloatAP const& a, ExactDouble const& b) {
+    return FloatAP(Rational(a) * Rational(b), mode, a.precision());
+}
+FloatAP mul(FloatAP::RoundingModeType mode, ExactDouble const& a, FloatAP const& b) {
+    return FloatAP(Rational(a) * Rational(b), mode, b.precision());
+}
+FloatAP div(FloatAP::RoundingModeType mode, FloatAP const& a, ExactDouble const& b) {
+    return FloatAP(Rational(a) / Rational(b), mode, a.precision());
+}
+FloatAP div(FloatAP::RoundingModeType mode, ExactDouble const& a, FloatAP const& b) {
+    return FloatAP(Rational(a) / Rational(b), mode, b.precision());
+}
+
+
 FloatAP operator*(TwoExp const& t, FloatAP const& x) {
     return shft(x, t.exponent());
 }
