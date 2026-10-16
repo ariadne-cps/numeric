@@ -70,17 +70,17 @@ Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
     bool increment = false;
     if (mpz_size(r) != 0) {
         switch (mode) {
-            case Rounding::nearest:
+            case Rounding::ToNearest:
             mpz_mul_2exp(r, r, 1);
             increment = mpz_cmp(r, w) > 0 || (mpz_cmp(r, w) == 0 && mpz_odd_p(q));
             break;
-            case Rounding::downward:
+            case Rounding::Downward:
             increment = result._negative;
             break;
-            case Rounding::upward:
+            case Rounding::Upward:
             increment = !result._negative;
             break;
-            case Rounding::toward_zero:
+            case Rounding::TowardZero:
             break;
             default:
             throw std::invalid_argument("FloatAP unknown rounding mode");
@@ -130,7 +130,7 @@ unsigned long p, Rounding mode) {
         if (a.is_inf() && b.is_inf() && a._negative != b._negative) return nan(p);
         return infinity(p, a.is_inf() ? a._negative : b._negative);
     }
-    if (a.is_zero() && b.is_zero()) return zero(p, a._negative == b._negative ? a._negative : mode == Rounding::downward);
+    if (a.is_zero() && b.is_zero()) return zero(p, a._negative == b._negative ? a._negative : mode == Rounding::Downward);
     const Exponent low = a._exponent < b._exponent ? a._exponent : b._exponent;
     mpz_t x, y, sum, one;
     mpz_inits(x, y, sum, one, nullptr);
@@ -147,7 +147,7 @@ unsigned long p, Rounding mode) {
     if (b._negative) mpz_neg(y, y);
     mpz_add(sum, x, y);
     mpz_set_ui(one, 1);
-    return from_ratio(sum, one, low, p, mode, mode == Rounding::downward);
+    return from_ratio(sum, one, low, p, mode, mode == Rounding::Downward);
 }
 FloatAP FloatAP::sub(FloatAP const& a, FloatAP const& b,
 unsigned long p, Rounding mode) {
@@ -431,7 +431,7 @@ FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
     bool increment = false;
     if (mpz_size(remainder) != 0) {
         switch (mode) {
-            case FloatAP::Rounding::nearest:
+            case FloatAP::Rounding::ToNearest:
                 // sqrt(scaled) > root+1/2 iff 4*scaled > (2*root+1)^2.
                 // Equality is impossible: the left side is divisible
                 // by four, while the right side is odd.
@@ -441,11 +441,11 @@ FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
                 mpz_mul_2exp(scaled, scaled, 2);
                 increment = mpz_cmp(scaled, threshold) > 0;
                 break;
-            case FloatAP::Rounding::upward:
+            case FloatAP::Rounding::Upward:
                 increment = true;
                 break;
-            case FloatAP::Rounding::downward:
-            case FloatAP::Rounding::toward_zero:
+            case FloatAP::Rounding::Downward:
+            case FloatAP::Rounding::TowardZero:
                 break;
             default:
                 throw std::invalid_argument("FloatAP unknown square-root rounding mode");

@@ -58,7 +58,7 @@ void equal(FloatAP const& x, FloatAP const& y, char const* msg) {
     if (x.is_zero()) expect(x.negative() == y.negative(), msg);
 }
 void test_rounding() {
-    const R modes[] = { R::nearest, R::downward, R::upward, R::toward_zero };
+    const R modes[] = { R::ToNearest, R::Downward, R::Upward, R::TowardZero };
     std::mt19937_64 engine(0x5A17ACEu);
     for (unsigned p : { 7u, 53u, 113u, 128u, 256u, 1024u }) {
         for (unsigned i = 0; i < 500;++i) {
@@ -124,8 +124,8 @@ void test_comparison_against_exact_rationals() {
                          mpq_denref(rational_b.value), shift_b);
             mpq_canonicalize(rational_a.value);
             mpq_canonicalize(rational_b.value);
-            const FloatAP a = FloatAP::from_rational(rational_a.value, precision, R::nearest);
-            const FloatAP b = FloatAP::from_rational(rational_b.value, precision, R::nearest);
+            const FloatAP a = FloatAP::from_rational(rational_a.value, precision, R::ToNearest);
+            const FloatAP b = FloatAP::from_rational(rational_b.value, precision, R::ToNearest);
             a.to_rational(exact_a.value);
             b.to_rational(exact_b.value);
             const int oracle = mpq_cmp(exact_a.value, exact_b.value);
@@ -142,7 +142,7 @@ void test_comparison_against_exact_rationals() {
            "signed zeros compare equal");
     Q exact_one;
     mpq_set_ui(exact_one.value, 1, 1);
-    const FloatAP one = FloatAP::from_rational(exact_one.value, 53, R::nearest);
+    const FloatAP one = FloatAP::from_rational(exact_one.value, 53, R::ToNearest);
     expect(cmp(one, one) == Ariadne::Comparison::EQUAL, "equal operands");
 }
 void test_special() {
@@ -151,14 +151,14 @@ void test_special() {
     auto inf = K::infinity(64), ninf = K::infinity(64, true), nan = K::nan(64);
     expect(plus.is_zero() && !plus.negative(), "positive zero");
     expect(minus.is_zero() && minus.negative(), "negative zero");
-    expect(K::add(minus, minus, 64, R::nearest).negative(), "signed zero addition");
-    expect(K::add(plus, minus, 64, R::downward).negative(), "downward zero");
-    expect(K::mul(minus, inf, 64, R::nearest).is_nan(), "0 times infinity");
-    expect(K::add(inf, ninf, 64, R::nearest).is_nan(), "opposite infinities");
-    expect(K::div(plus, plus, 64, R::nearest).is_nan(), "0/0");
-    expect(K::div(inf, inf, 64, R::nearest).is_nan(), "inf/inf");
-    expect(K::add(nan, plus, 64, R::nearest).is_nan(), "NaN propagation");
-    expect(K::div(inf, minus, 64, R::nearest).negative(), "signed infinity");
+    expect(K::add(minus, minus, 64, R::ToNearest).negative(), "signed zero addition");
+    expect(K::add(plus, minus, 64, R::Downward).negative(), "downward zero");
+    expect(K::mul(minus, inf, 64, R::ToNearest).is_nan(), "0 times infinity");
+    expect(K::add(inf, ninf, 64, R::ToNearest).is_nan(), "opposite infinities");
+    expect(K::div(plus, plus, 64, R::ToNearest).is_nan(), "0/0");
+    expect(K::div(inf, inf, 64, R::ToNearest).is_nan(), "inf/inf");
+    expect(K::add(nan, plus, 64, R::ToNearest).is_nan(), "NaN propagation");
+    expect(K::div(inf, minus, 64, R::ToNearest).negative(), "signed infinity");
     bool rejected = false;
     try {
         K(1);

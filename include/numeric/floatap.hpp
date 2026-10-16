@@ -84,16 +84,16 @@ using FloatAP = Float<ArbitraryPrecision>;
 template<> class Float<ArbitraryPrecision> {
   public:
     enum class Rounding {
-        nearest, downward, upward, toward_zero
+        ToNearest, Downward, Upward, TowardZero
     };
     using PrecisionType = ArbitraryPrecision;
     using RoundingModeType = Rounding;
-    static constexpr RoundingModeType ROUND_TO_NEAREST = Rounding::nearest;
-    static constexpr RoundingModeType ROUND_DOWNWARD = Rounding::downward;
-    static constexpr RoundingModeType ROUND_UPWARD = Rounding::upward;
-    static constexpr RoundingModeType ROUND_TOWARD_ZERO = Rounding::toward_zero;
+    static constexpr RoundingModeType ROUND_TO_NEAREST = Rounding::ToNearest;
+    static constexpr RoundingModeType ROUND_DOWNWARD = Rounding::Downward;
+    static constexpr RoundingModeType ROUND_UPWARD = Rounding::Upward;
+    static constexpr RoundingModeType ROUND_TOWARD_ZERO = Rounding::TowardZero;
     enum class Kind {
-        finite, infinity, nan
+        Finite, Infinity, NaN
     };
     using Exponent = std::int64_t;
 
@@ -101,7 +101,7 @@ template<> class Float<ArbitraryPrecision> {
     mpz_t _significand;
     unsigned long _precision;
     Exponent _exponent = 0;
-    Kind _kind = Kind::finite;
+    Kind _kind = Kind::Finite;
     bool _negative = false;
 
     static Exponent checked_add(Exponent a, Exponent b) {
@@ -134,7 +134,7 @@ template<> class Float<ArbitraryPrecision> {
         return floatap_exponent_from_bit_length(mpz_sizeinbase(x, 2));
     }
     void set_zero(bool negative) {
-        _kind = Kind::finite;
+        _kind = Kind::Finite;
         _negative = negative;
         _exponent = 0;
         mpz_set_ui(_significand, 0);
@@ -198,16 +198,16 @@ template<> class Float<ArbitraryPrecision> {
         return _negative;
     }
     bool is_zero() const noexcept {
-        return _kind == Kind::finite && mpz_size(_significand) == 0;
+        return _kind == Kind::Finite && mpz_size(_significand) == 0;
     }
     bool is_finite() const noexcept {
-        return _kind == Kind::finite;
+        return _kind == Kind::Finite;
     }
     bool is_inf() const noexcept {
-        return _kind == Kind::infinity;
+        return _kind == Kind::Infinity;
     }
     bool is_nan() const noexcept {
-        return _kind == Kind::nan;
+        return _kind == Kind::NaN;
     }
 
     static FloatAP zero(unsigned long p, bool negative = false) {
@@ -217,13 +217,13 @@ template<> class Float<ArbitraryPrecision> {
     }
     static FloatAP infinity(unsigned long p, bool negative = false) {
         FloatAP z(p);
-        z._kind = Kind::infinity;
+        z._kind = Kind::Infinity;
         z._negative = negative;
         return z;
     }
     static FloatAP nan(unsigned long p) {
         FloatAP z(p);
-        z._kind = Kind::nan;
+        z._kind = Kind::NaN;
         return z;
     }
     static FloatAP inf(Sign sign, PrecisionType p) {

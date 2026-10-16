@@ -16,6 +16,7 @@ set(UNIT_TESTS
     test_floatmp_conformance
     test_floatap
     test_floatap_edge_cases
+    test_floatap_precision
     test_rounded_float
     test_float_approximation
     test_float_error

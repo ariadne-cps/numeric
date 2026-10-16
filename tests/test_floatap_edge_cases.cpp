@@ -66,7 +66,7 @@ template< class E, class F > void raises(F f, char const* m) {
     }
     check(ok, m);
 }
-K v(long a, long b = 1, unsigned long p = 16, R r = R::nearest) {
+K v(long a, long b = 1, unsigned long p = 16, R r = R::ToNearest) {
     Z n(a), d(b);
     return K::from_ratio(n.z, d.z, 0, p, r);
 }
@@ -133,22 +133,22 @@ void rational_integration() {
     using namespace Ariadne;
     const ArbitraryPrecision precision(16_bits);
     const Rational finite(Integer(3), Integer(7));
-    const K nearest(finite, R::nearest, precision);
-    const K downward(finite, R::downward, precision);
-    same(nearest, v(3, 7, 16, R::nearest), "Rational nearest constructor");
-    same(downward, v(3, 7, 16, R::downward), "Rational downward constructor");
+    const K nearest(finite, R::ToNearest, precision);
+    const K downward(finite, R::Downward, precision);
+    same(nearest, v(3, 7, 16, R::ToNearest), "Rational nearest constructor");
+    same(downward, v(3, 7, 16, R::Downward), "Rational downward constructor");
     same(K(finite, precision), nearest, "Rational default rounding constructor");
     check(nearest.get_d() == static_cast<Rational>(nearest).get_d(),
     "finite FloatAP double conversion");
 
-    same(K(Integer(-19), R::nearest, precision), v(-19),
+    same(K(Integer(-19), R::ToNearest, precision), v(-19),
     "Integer constructor");
     same(K(std::int64_t { - 42 }, precision), v(-42),
     "int64 constructor");
 
-    const K positive_inf(Rational::inf(Sign::POSITIVE), R::nearest, precision);
-    const K negative_inf(Rational::inf(Sign::NEGATIVE), R::nearest, precision);
-    const K not_a_number(Rational::nan(), R::nearest, precision);
+    const K positive_inf(Rational::inf(Sign::POSITIVE), R::ToNearest, precision);
+    const K negative_inf(Rational::inf(Sign::NEGATIVE), R::ToNearest, precision);
+    const K not_a_number(Rational::nan(), R::ToNearest, precision);
     check(positive_inf.is_inf() && !positive_inf.negative(),
     "positive Rational infinity constructor");
     check(negative_inf.is_inf() && negative_inf.negative(),
@@ -222,45 +222,45 @@ void trigonometric_functions() {
     const K negative_infinity = K::infinity(16, true);
     const K nan = K::nan(16);
 
-    same(sin(R::nearest, zero), zero, "sin positive zero");
-    same(sin(R::nearest, negative_zero), negative_zero, "sin negative zero");
-    same(cos(R::nearest, zero), one, "cos zero");
-    same(tan(R::nearest, negative_zero), negative_zero, "tan negative zero");
-    same(atan(R::nearest, negative_zero), negative_zero, "atan negative zero");
-    same(asin(R::nearest, negative_zero), negative_zero, "asin negative zero");
-    same(acos(R::nearest, one), zero, "acos one");
-    check(is_nan(sin(R::nearest, infinity)), "sin infinity is NaN");
-    check(is_nan(cos(R::nearest, infinity)), "cos infinity is NaN");
-    check(is_nan(tan(R::nearest, infinity)), "tan infinity is NaN");
-    check(is_nan(asin(R::nearest, v(2))), "asin domain");
-    check(is_nan(acos(R::nearest, v(-2))), "acos domain");
-    check(is_nan(asin(R::nearest, infinity)), "asin infinity is NaN");
-    check(is_nan(acos(R::nearest, infinity)), "acos infinity is NaN");
-    check(is_nan(atan(R::nearest, nan)), "atan NaN");
+    same(sin(R::ToNearest, zero), zero, "sin positive zero");
+    same(sin(R::ToNearest, negative_zero), negative_zero, "sin negative zero");
+    same(cos(R::ToNearest, zero), one, "cos zero");
+    same(tan(R::ToNearest, negative_zero), negative_zero, "tan negative zero");
+    same(atan(R::ToNearest, negative_zero), negative_zero, "atan negative zero");
+    same(asin(R::ToNearest, negative_zero), negative_zero, "asin negative zero");
+    same(acos(R::ToNearest, one), zero, "acos one");
+    check(is_nan(sin(R::ToNearest, infinity)), "sin infinity is NaN");
+    check(is_nan(cos(R::ToNearest, infinity)), "cos infinity is NaN");
+    check(is_nan(tan(R::ToNearest, infinity)), "tan infinity is NaN");
+    check(is_nan(asin(R::ToNearest, v(2))), "asin domain");
+    check(is_nan(acos(R::ToNearest, v(-2))), "acos domain");
+    check(is_nan(asin(R::ToNearest, infinity)), "asin infinity is NaN");
+    check(is_nan(acos(R::ToNearest, infinity)), "acos infinity is NaN");
+    check(is_nan(atan(R::ToNearest, nan)), "atan NaN");
 
-    const K positive_half_pi = atan(R::nearest, infinity);
-    const K negative_half_pi = atan(R::nearest, negative_infinity);
+    const K positive_half_pi = atan(R::ToNearest, infinity);
+    const K negative_half_pi = atan(R::ToNearest, negative_infinity);
     check(positive_half_pi.negative() == false, "atan positive infinity sign");
     check(negative_half_pi.negative(), "atan negative infinity sign");
 
-    same(acos(R::nearest, minus_one), K::pi(R::nearest, Ariadne::ArbitraryPrecision(std::size_t{16})),
+    same(acos(R::ToNearest, minus_one), K::pi(R::ToNearest, Ariadne::ArbitraryPrecision(std::size_t{16})),
          "acos minus one");
-    same(asin(R::nearest, one), positive_half_pi, "asin one");
+    same(asin(R::ToNearest, one), positive_half_pi, "asin one");
 
-    check(sin(R::downward, one) <= sin(R::upward, one),
+    check(sin(R::Downward, one) <= sin(R::Upward, one),
           "sin directed rounding");
-    check(cos(R::downward, one) <= cos(R::upward, one),
+    check(cos(R::Downward, one) <= cos(R::Upward, one),
           "cos directed rounding");
-    check(tan(R::downward, one) <= tan(R::upward, one),
+    check(tan(R::Downward, one) <= tan(R::Upward, one),
           "tan directed rounding");
-    check(atan(R::downward, one) <= atan(R::upward, one),
+    check(atan(R::Downward, one) <= atan(R::Upward, one),
           "atan directed rounding");
-    check(asin(R::downward, v(1, 2)) <= asin(R::upward, v(1, 2)),
+    check(asin(R::Downward, v(1, 2)) <= asin(R::Upward, v(1, 2)),
           "asin directed rounding");
-    check(acos(R::downward, v(1, 2)) <= acos(R::upward, v(1, 2)),
+    check(acos(R::Downward, v(1, 2)) <= acos(R::Upward, v(1, 2)),
           "acos directed rounding");
-    check(K::pi(R::downward, Ariadne::ArbitraryPrecision(std::size_t{16})) <=
-          K::pi(R::upward, Ariadne::ArbitraryPrecision(std::size_t{16})),
+    check(K::pi(R::Downward, Ariadne::ArbitraryPrecision(std::size_t{16})) <=
+          K::pi(R::Upward, Ariadne::ArbitraryPrecision(std::size_t{16})),
           "pi directed rounding");
 }
 
@@ -272,70 +272,70 @@ void elementary_functions() {
     const K negative_zero = K::zero(16, true);
     const K infinity = K::infinity(16);
 
-    same(sqrt(R::nearest, four), two, "exact square root");
-    same(sqrt(R::nearest, positive_zero), positive_zero, "sqrt positive zero");
-    same(sqrt(R::nearest, negative_zero), negative_zero, "sqrt negative zero");
-    same(sqrt(R::nearest, infinity), infinity, "sqrt infinity");
-    check(sqrt(R::nearest, negative).is_nan(), "negative square root");
-    check(sqrt(R::nearest, K::nan(16)).is_nan(), "NaN square root");
+    same(sqrt(R::ToNearest, four), two, "exact square root");
+    same(sqrt(R::ToNearest, positive_zero), positive_zero, "sqrt positive zero");
+    same(sqrt(R::ToNearest, negative_zero), negative_zero, "sqrt negative zero");
+    same(sqrt(R::ToNearest, infinity), infinity, "sqrt infinity");
+    check(sqrt(R::ToNearest, negative).is_nan(), "negative square root");
+    check(sqrt(R::ToNearest, K::nan(16)).is_nan(), "NaN square root");
 
-    const K down = sqrt(R::downward, two);
-    const K up = sqrt(R::upward, two);
+    const K down = sqrt(R::Downward, two);
+    const K up = sqrt(R::Upward, two);
     check(down <= up, "sqrt directed rounding");
-    same(pow(R::nearest, negative, Ariadne::Nat(3u)), v(-8), "odd integer power");
-    same(pow(R::nearest, negative, Ariadne::Nat(4u)), v(16), "even integer power");
-    same(pow(R::nearest, negative, Ariadne::Nat(0u)), v(1), "zero exponent");
-    check(pow(R::nearest, K::nan(16), Ariadne::Nat(2u)).is_nan(),
+    same(pow(R::ToNearest, negative, Ariadne::Nat(3u)), v(-8), "odd integer power");
+    same(pow(R::ToNearest, negative, Ariadne::Nat(4u)), v(16), "even integer power");
+    same(pow(R::ToNearest, negative, Ariadne::Nat(0u)), v(1), "zero exponent");
+    check(pow(R::ToNearest, K::nan(16), Ariadne::Nat(2u)).is_nan(),
           "NaN integer power");
-    check(pow(R::nearest, infinity, Ariadne::Nat(2u)).is_inf(),
+    check(pow(R::ToNearest, infinity, Ariadne::Nat(2u)).is_inf(),
           "infinite integer power");
-    same(pow(R::nearest, negative_zero, Ariadne::Nat(3u)), negative_zero,
+    same(pow(R::ToNearest, negative_zero, Ariadne::Nat(3u)), negative_zero,
          "signed zero integer power");
-    same(pow(R::nearest, negative_zero, Ariadne::Nat(2u)), positive_zero,
+    same(pow(R::ToNearest, negative_zero, Ariadne::Nat(2u)), positive_zero,
          "even power of negative zero");
-    same(pow(R::nearest, K::infinity(16, true), Ariadne::Nat(3u)),
+    same(pow(R::ToNearest, K::infinity(16, true), Ariadne::Nat(3u)),
          K::infinity(16, true), "odd power of negative infinity");
-    same(pow(R::nearest, K::infinity(16, true), Ariadne::Nat(2u)),
+    same(pow(R::ToNearest, K::infinity(16, true), Ariadne::Nat(2u)),
          infinity, "even power of negative infinity");
-    same(pow(R::nearest, positive_zero, Ariadne::Nat(5u)), positive_zero,
+    same(pow(R::ToNearest, positive_zero, Ariadne::Nat(5u)), positive_zero,
          "positive zero integer power");
-    same(pow(R::nearest, infinity, Ariadne::Nat(3u)), infinity,
+    same(pow(R::ToNearest, infinity, Ariadne::Nat(3u)), infinity,
          "positive infinity integer power");
-    const K downward = sqrt(R::downward, v(3));
-    const K nearest = sqrt(R::nearest, v(3));
-    const K upward = sqrt(R::upward, v(3));
+    const K downward = sqrt(R::Downward, v(3));
+    const K nearest = sqrt(R::ToNearest, v(3));
+    const K upward = sqrt(R::Upward, v(3));
     check(downward <= nearest && nearest <= upward,
           "sqrt mode ordering");
     const K square = v(9);
-    same(sqrt(R::toward_zero, square), v(3), "sqrt exact toward zero");
-    same(sqrt(R::upward, square), v(3), "sqrt exact upward");
-    same(exp(R::nearest, K::zero(16)), v(1), "exp zero");
-    same(exp(R::upward, K::zero(16, true)), v(1), "exp negative zero");
-    same(exp(R::nearest, K::infinity(16, true)), positive_zero, "exp negative infinity");
-    same(exp(R::nearest, infinity), infinity, "exp positive infinity");
-    check(exp(R::nearest, K::nan(16)).is_nan(), "exp NaN");
-    same(log(R::nearest, v(1)), positive_zero, "log one");
-    same(log(R::nearest, positive_zero), K::infinity(16, true), "log zero");
-    same(log(R::nearest, infinity), infinity, "log infinity");
-    check(log(R::nearest, negative).is_nan(), "log negative");
-    check(log(R::nearest, K::nan(16)).is_nan(), "log NaN");
-    check(exp(R::downward, v(1)) <= exp(R::upward, v(1)), "exp directed rounding");
-    check(log(R::downward, v(2)) <= log(R::upward, v(2)), "log directed rounding");
-    check(log(R::downward, v(1, 2)) <= log(R::upward, v(1, 2)),
+    same(sqrt(R::TowardZero, square), v(3), "sqrt exact toward zero");
+    same(sqrt(R::Upward, square), v(3), "sqrt exact upward");
+    same(exp(R::ToNearest, K::zero(16)), v(1), "exp zero");
+    same(exp(R::Upward, K::zero(16, true)), v(1), "exp negative zero");
+    same(exp(R::ToNearest, K::infinity(16, true)), positive_zero, "exp negative infinity");
+    same(exp(R::ToNearest, infinity), infinity, "exp positive infinity");
+    check(exp(R::ToNearest, K::nan(16)).is_nan(), "exp NaN");
+    same(log(R::ToNearest, v(1)), positive_zero, "log one");
+    same(log(R::ToNearest, positive_zero), K::infinity(16, true), "log zero");
+    same(log(R::ToNearest, infinity), infinity, "log infinity");
+    check(log(R::ToNearest, negative).is_nan(), "log negative");
+    check(log(R::ToNearest, K::nan(16)).is_nan(), "log NaN");
+    check(exp(R::Downward, v(1)) <= exp(R::Upward, v(1)), "exp directed rounding");
+    check(log(R::Downward, v(2)) <= log(R::Upward, v(2)), "log directed rounding");
+    check(log(R::Downward, v(1, 2)) <= log(R::Upward, v(1, 2)),
           "log argument below one");
 
     // sqrt(255) at eight bits is below 16. The upward rounding of its
     // significand produces a carry, which must renormalize the exponent.
     const K nearly_square = v(255, 1, 8);
-    same(sqrt(R::nearest, nearly_square), v(255, 16, 8),
+    same(sqrt(R::ToNearest, nearly_square), v(255, 16, 8),
          "sqrt nearest below significand carry");
-    same(sqrt(R::upward, nearly_square), v(16, 1, 8),
+    same(sqrt(R::Upward, nearly_square), v(16, 1, 8),
          "sqrt upward significand carry");
-    same(sqrt(R::downward, nearly_square), v(255, 16, 8),
+    same(sqrt(R::Downward, nearly_square), v(255, 16, 8),
          "sqrt downward below significand carry");
 
     // Toward zero agrees with downward rounding for a positive root.
-    same(sqrt(R::toward_zero, two), sqrt(R::downward, two),
+    same(sqrt(R::TowardZero, two), sqrt(R::Downward, two),
          "sqrt toward zero inexact");
 
     // Invalid rounding modes are rejected rather than silently guessed.
@@ -346,10 +346,10 @@ void elementary_functions() {
 }
 
 void public_rounding() {
-    const K seven_bits = v(1, 3, 7, R::nearest);
-    const K thirteen_bits = v(2, 3, 13, R::nearest);
-    const K eleven_bits = v(1, 5, 11, R::nearest);
-    const R mode = R::downward;
+    const K seven_bits = v(1, 3, 7, R::ToNearest);
+    const K thirteen_bits = v(2, 3, 13, R::ToNearest);
+    const K eleven_bits = v(1, 5, 11, R::ToNearest);
+    const R mode = R::Downward;
 
     // Same kernels, different precision order: the result must use the
     // lower requested precision without dynamic backend dispatch.
@@ -388,18 +388,18 @@ void conversions() {
     same(v(2,-3), v(-2, 3), "signed denominator");
     same(v(-2,-3), v(2, 3), "both negative");
     Z i(-129);
-    same(K::from_integer(i.z, 7, R::downward), v(-129, 1, 7, R::downward), "integer");
+    same(K::from_integer(i.z, 7, R::Downward), v(-129, 1, 7, R::Downward), "integer");
     same(v(5, 4, 2), v(1, 1, 2), "nearest even low");
     same(v(7, 4, 2), v(2, 1, 2), "nearest even high");
-    same(v(5, 4, 2, R::upward), v(3, 2, 2), "round up");
-    same(v(-5, 4, 2, R::downward), v(-3, 2, 2), "negative downward");
-    same(v(-5, 4, 2, R::upward), v(-1, 1, 2), "negative upward");
-    same(v(-5, 4, 2, R::toward_zero), v(-1, 1, 2), "negative toward zero");
+    same(v(5, 4, 2, R::Upward), v(3, 2, 2), "round up");
+    same(v(-5, 4, 2, R::Downward), v(-3, 2, 2), "negative downward");
+    same(v(-5, 4, 2, R::Upward), v(-1, 1, 2), "negative upward");
+    same(v(-5, 4, 2, R::TowardZero), v(-1, 1, 2), "negative toward zero");
     raises < std::invalid_argument >([] {
         v(5, 3, 7, static_cast<R>(99));
     }, "invalid rounding");
     raises < std::overflow_error >([] {
-        Z n(7), d(1); K::from_ratio(n.z, d.z, std::numeric_limits<K::Exponent>::max(), 2, R::nearest);
+        Z n(7), d(1); K::from_ratio(n.z, d.z, std::numeric_limits<K::Exponent>::max(), 2, R::ToNearest);
     }, "overflow");
     auto x = v(-11, 8, 8);
     check(x.precision().bits() == 8 && x.exponent() < 0 && mpz_sgn(x.significand()) > 0, "accessors");
@@ -432,16 +432,16 @@ void boundary_cases() {
     const K::Exponent maximum = std::numeric_limits<K::Exponent>::max();
     Z seven(7), one(1), eight(8);
     raises < std::overflow_error >([& ] {
-        (void) K::from_ratio(seven.z, one.z, maximum, 2, R::nearest);
+        (void) K::from_ratio(seven.z, one.z, maximum, 2, R::ToNearest);
     }, "positive exponent overflow");
     raises < std::overflow_error >([& ] {
-        (void) K::from_ratio(one.z, eight.z, minimum, 7, R::nearest);
+        (void) K::from_ratio(one.z, eight.z, minimum, 7, R::ToNearest);
     }, "negative exponent overflow");
     // A finite p=2 number with exponent INT64_MIN can be represented
     // without ever allocating 2^63 bits. It exercises checked_sub's
     // INT64_MIN branch through real arithmetic, not a coverage hook.
     Z two(2);
-    const K tiny = K::from_ratio(two.z, one.z, minimum, 2, R::nearest);
+    const K tiny = K::from_ratio(two.z, one.z, minimum, 2, R::ToNearest);
     check(tiny.exponent() == minimum && mpz_cmp_ui(tiny.significand(), 2) == 0
     && !tiny.negative(), "smallest exponent representation");
     raises < std::overflow_error >([& ] {
@@ -450,15 +450,15 @@ void boundary_cases() {
     }, "exact rational conversion requires unrepresentable shift");
 
     // 1/(2 * 2^INT64_MIN) = 2^INT64_MAX, represented without huge storage.
-    const K unit = K::from_integer(one.z, 2, R::nearest);
-    const K huge = K::div(unit, tiny, 2, R::nearest);
+    const K unit = K::from_integer(one.z, 2, R::ToNearest);
+    const K huge = K::div(unit, tiny, 2, R::ToNearest);
     check(huge.exponent() == maximum - 1
     && mpz_cmp_ui(huge.significand(), 2) == 0 && !huge.negative(),
     "division by minimum-exponent number");
 
     raises < std::overflow_error >([& ] {
-        const K twice = K::from_integer(two.z, 2, R::nearest);
-        (void) K::div(twice, tiny, 2, R::nearest);
+        const K twice = K::from_integer(two.z, 2, R::ToNearest);
+        (void) K::div(twice, tiny, 2, R::ToNearest);
     }, "division exponent overflow");
 
     if constexpr(std::numeric_limits<unsigned long>::max() >
@@ -475,9 +475,9 @@ void boundary_cases() {
 
     const K positive_infinity = K::infinity(16);
     const K negative_infinity = K::infinity(16, true);
-    same(K::fma(positive_infinity, nonzero, positive_infinity, 16, R::nearest),
+    same(K::fma(positive_infinity, nonzero, positive_infinity, 16, R::ToNearest),
     positive_infinity, "fma positive infinity plus positive infinity");
-    same(K::fma(negative_infinity, nonzero, negative_infinity, 16, R::nearest),
+    same(K::fma(negative_infinity, nonzero, negative_infinity, 16, R::ToNearest),
     negative_infinity, "fma negative infinity plus negative infinity");
 }
 
@@ -487,44 +487,44 @@ void specials() {
     check(p.is_finite() && !p.is_inf() && !p.is_nan(), "finite classification");
     check(inf.is_inf() && !inf.is_zero(), "inf classification");
     check(nan.is_nan() && !nan.is_finite(), "nan classification");
-    check(K::add(nan, x, 16, R::nearest).is_nan(), "add lhs nan");
-    check(K::add(x, nan, 16, R::nearest).is_nan(), "add rhs nan");
-    same(K::add(inf, x, 16, R::nearest), inf, "add inf lhs");
-    same(K::add(x, minus_inf, 16, R::nearest), minus_inf, "add inf rhs");
-    same(K::add(inf, inf, 16, R::nearest), inf, "add inf inf");
-    check(K::add(inf, minus_inf, 16, R::nearest).is_nan(), "infinity cancellation");
-    same(K::add(n, n, 16, R::nearest), n, "negative zero");
-    same(K::add(p, n, 16, R::downward), n, "downward zero");
-    same(K::add(x, neg, 16, R::downward), n, "negative cancellation zero");
-    same(K::add(x, neg, 16, R::upward), p, "positive cancellation zero");
-    check(K::mul(nan, x, 16, R::nearest).is_nan(), "mul lhs nan");
-    check(K::mul(x, nan, 16, R::nearest).is_nan(), "mul rhs nan");
-    check(K::mul(inf, p, 16, R::nearest).is_nan(), "infinity times zero");
-    check(K::mul(p, inf, 16, R::nearest).is_nan(), "zero times infinity");
-    same(K::mul(inf, neg, 16, R::nearest), minus_inf, "mul inf");
-    same(K::mul(neg, inf, 16, R::nearest), minus_inf, "mul inf rhs");
-    same(K::mul(n, x, 16, R::nearest), n, "mul negative zero");
-    same(K::mul(x, n, 16, R::nearest), n, "mul rhs zero");
-    check(K::div(nan, x, 16, R::nearest).is_nan(), "div lhs nan");
-    check(K::div(x, nan, 16, R::nearest).is_nan(), "div rhs nan");
-    check(K::div(p, n, 16, R::nearest).is_nan(), "0/0");
-    check(K::div(inf, minus_inf, 16, R::nearest).is_nan(), "inf/inf");
-    same(K::div(x, n, 16, R::nearest), minus_inf, "finite / negative zero");
-    same(K::div(minus_inf, x, 16, R::nearest), minus_inf, "infinity/finite");
-    same(K::div(n, x, 16, R::nearest), n, "zero/finite");
-    same(K::div(x, minus_inf, 16, R::nearest), n, "finite/infinity");
-    check(K::fma(nan, x, x, 16, R::nearest).is_nan(), "fma lhs nan");
-    check(K::fma(x, nan, x, 16, R::nearest).is_nan(), "fma rhs nan");
-    check(K::fma(x, x, nan, 16, R::nearest).is_nan(), "fma addend nan");
-    check(K::fma(p, inf, x, 16, R::nearest).is_nan(), "fma zero infinity");
-    check(K::fma(inf, p, x, 16, R::nearest).is_nan(), "fma infinity zero");
-    check(K::fma(inf, x, minus_inf, 16, R::nearest).is_nan(), "fma inf cancellation");
-    same(K::fma(inf, x, x, 16, R::nearest), inf, "fma inf lhs");
-    same(K::fma(x, inf, x, 16, R::nearest), inf, "fma inf rhs");
-    same(K::fma(x, x, minus_inf, 16, R::nearest), minus_inf, "fma infinite addend");
-    same(K::fma(p, x, x, 16, R::nearest), x, "fma zero lhs");
-    same(K::fma(x, p, x, 16, R::nearest), x, "fma zero rhs");
-    same(K::fma(n, p, n, 16, R::nearest), n, "fma signed zero");
+    check(K::add(nan, x, 16, R::ToNearest).is_nan(), "add lhs nan");
+    check(K::add(x, nan, 16, R::ToNearest).is_nan(), "add rhs nan");
+    same(K::add(inf, x, 16, R::ToNearest), inf, "add inf lhs");
+    same(K::add(x, minus_inf, 16, R::ToNearest), minus_inf, "add inf rhs");
+    same(K::add(inf, inf, 16, R::ToNearest), inf, "add inf inf");
+    check(K::add(inf, minus_inf, 16, R::ToNearest).is_nan(), "infinity cancellation");
+    same(K::add(n, n, 16, R::ToNearest), n, "negative zero");
+    same(K::add(p, n, 16, R::Downward), n, "downward zero");
+    same(K::add(x, neg, 16, R::Downward), n, "negative cancellation zero");
+    same(K::add(x, neg, 16, R::Upward), p, "positive cancellation zero");
+    check(K::mul(nan, x, 16, R::ToNearest).is_nan(), "mul lhs nan");
+    check(K::mul(x, nan, 16, R::ToNearest).is_nan(), "mul rhs nan");
+    check(K::mul(inf, p, 16, R::ToNearest).is_nan(), "infinity times zero");
+    check(K::mul(p, inf, 16, R::ToNearest).is_nan(), "zero times infinity");
+    same(K::mul(inf, neg, 16, R::ToNearest), minus_inf, "mul inf");
+    same(K::mul(neg, inf, 16, R::ToNearest), minus_inf, "mul inf rhs");
+    same(K::mul(n, x, 16, R::ToNearest), n, "mul negative zero");
+    same(K::mul(x, n, 16, R::ToNearest), n, "mul rhs zero");
+    check(K::div(nan, x, 16, R::ToNearest).is_nan(), "div lhs nan");
+    check(K::div(x, nan, 16, R::ToNearest).is_nan(), "div rhs nan");
+    check(K::div(p, n, 16, R::ToNearest).is_nan(), "0/0");
+    check(K::div(inf, minus_inf, 16, R::ToNearest).is_nan(), "inf/inf");
+    same(K::div(x, n, 16, R::ToNearest), minus_inf, "finite / negative zero");
+    same(K::div(minus_inf, x, 16, R::ToNearest), minus_inf, "infinity/finite");
+    same(K::div(n, x, 16, R::ToNearest), n, "zero/finite");
+    same(K::div(x, minus_inf, 16, R::ToNearest), n, "finite/infinity");
+    check(K::fma(nan, x, x, 16, R::ToNearest).is_nan(), "fma lhs nan");
+    check(K::fma(x, nan, x, 16, R::ToNearest).is_nan(), "fma rhs nan");
+    check(K::fma(x, x, nan, 16, R::ToNearest).is_nan(), "fma addend nan");
+    check(K::fma(p, inf, x, 16, R::ToNearest).is_nan(), "fma zero infinity");
+    check(K::fma(inf, p, x, 16, R::ToNearest).is_nan(), "fma infinity zero");
+    check(K::fma(inf, x, minus_inf, 16, R::ToNearest).is_nan(), "fma inf cancellation");
+    same(K::fma(inf, x, x, 16, R::ToNearest), inf, "fma inf lhs");
+    same(K::fma(x, inf, x, 16, R::ToNearest), inf, "fma inf rhs");
+    same(K::fma(x, x, minus_inf, 16, R::ToNearest), minus_inf, "fma infinite addend");
+    same(K::fma(p, x, x, 16, R::ToNearest), x, "fma zero lhs");
+    same(K::fma(x, p, x, 16, R::ToNearest), x, "fma zero rhs");
+    same(K::fma(n, p, n, 16, R::ToNearest), n, "fma signed zero");
 }
 }
 int main() {
