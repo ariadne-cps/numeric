@@ -83,7 +83,7 @@ struct Interval {
 };
 
 Fraction abs_fraction(Fraction const& x) {
-    return x.sign() < 0 ? Fraction(0) - x : x;
+    return x.sign() < 0 ? Fraction{} - x : x;
 }
 
 Fraction epsilon(unsigned long bits) {
@@ -141,7 +141,7 @@ Interval exp_interval(Fraction x, unsigned long work) {
 // The tail is bounded by 4*|z^(2n+3)|/(2n+3).
 Interval log_series(Fraction const& z, unsigned long work) {
     Fraction power(z);
-    Fraction sum(0);
+    Fraction sum;
     const Fraction square = z * z;
     const Fraction limit = epsilon(work);
     for (unsigned long n = 0; ; ++n) {
