@@ -652,7 +652,7 @@ TestFloat<PR>::test_operations()
         ARIADNE_TEST_EQUALS(print(a,DecimalPlaces(0u),nearest),String("2."));
         ARIADNE_TEST_EQUALS(print(FloatType::nan(pr),DecimalPrecision(3u),nearest),String("nan"));
 
-        std::istringstream float_input("\\t\\n+2.5:");
+        std::istringstream float_input("\t\n+2.5:");
         FloatType parsed(pr);
         float_input >> parsed;
         ARIADNE_TEST_EQUALS(parsed,FloatType(Dyadic(5,1u),pr));
