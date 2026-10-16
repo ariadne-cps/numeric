@@ -354,3 +354,39 @@ uses `mpz_cmp_ui(..., 0)` to test nonnegative GMP remainder and
 significand for zero. This is equivalent under the current representation
 invariant, avoiding incidental sign checks from the `mpz_sgn` macro.
 The change requires a new Windows build and coverage run to confirm.
+
+
+## Coverage report 81 (16 October 2026, 09:43)
+
+The uploaded `Archivio 81(1).zip` contains the following LLVM coverage
+figures for the FloatAP files:
+
+| Source | Functions | Regions | Lines | Branches |
+| --- | --- | --- | --- | --- |
+| `src/floatap.cpp` | 27/27 (100%) | 265/265 (100%) | 337/340 (99.12%) | 196/197 (99.49%) |
+| `include/numeric/floatap.hpp` | 46/46 (100%) | 162/166 (97.59%) | 119/124 (95.97%) | 43/47 (91.49%) |
+
+**Important:** The table columns follow LLVM's output order: functions,
+regions, lines, branches. Both files have 100% function coverage.
+The source has 100% region coverage but still **three uncovered lines**
+within a macro expansion; the exact meaning of the counters is determined
+from the LLVM HTML, not the previous summary table.
+
+The last missing source branch is an internal implementation path in
+`mpz_cmp_ui(remainder, 0)`. Likewise, `is_zero()` in the header
+has a duplicate macro expansion branch. Both the zero and nonzero
+conditions are already exercised by the tests. They are changed to
+`mpz_size(value)` tests, which are equally exact for GMP zero
+classification and have no internal signed-comparison branch. The
+operation is O(1); it reads the number of limbs. A small Clang
+coverage instrumented C++ program confirms both zero/nonzero outcomes
+and compilation with warnings as errors. CI coverage on the updated
+repository is pending.
+
+Remaining uncovered header lines correspond to the exception guards in
+`shift_amount` and `bit_length`. Their safety checks are preserved:
+negative/oversized shifts and integers with more than `INT64_MAX` bits
+cannot be produced by normal tested paths on 64-bit macOS. Achieving
+100% functions/lines/branches must never require weakening these guards
+or allocating impossible operands. A separate design review for testing
+the checked conversions will be needed.

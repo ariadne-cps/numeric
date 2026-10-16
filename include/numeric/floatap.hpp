@@ -183,7 +183,7 @@ template<> class Float<ArbitraryPrecision> {
         return _negative;
     }
     bool is_zero() const noexcept {
-        return _kind == Kind::finite && mpz_cmp_ui(_significand, 0) == 0;
+        return _kind == Kind::finite && mpz_size(_significand) == 0;
     }
     bool is_finite() const noexcept {
         return _kind == Kind::finite;
