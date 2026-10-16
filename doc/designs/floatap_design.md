@@ -775,3 +775,29 @@ existing FloatDP/FloatMP assertions remain in place. These checks are
 `TestFloatRounding<ArbitraryPrecision>` instantiations still require
 more production APIs. No test is marked passed merely because its
 instantiation is not yet enabled.
+
+
+## Correcting class-scope lookup in rounded helper methods (16 October 2026)
+
+The first API-parity block introduced inline hidden friends
+`sqr(mode,x)`, `rec(mode,x)`, `med(mode,a,b)`, and
+`rad(mode,a,b)`. The original unqualified calls to
+`mul(mode,...)`, `div(mode,...)`, `add(mode,...)`, and
+`sub(mode,...)` mistakenly resolved to class-static implementation
+functions, which require four parameters, rather than to the desired
+namespace-scope hidden friends. The error prevented compilation of
+every translation unit including `floatap.hpp`.
+
+These helpers now explicitly invoke the class-static four-parameter
+kernels with the appropriate destination precision and rounding mode.
+For mixed-precision operands, `med` and `rad` retain the minimum
+operand precision used by the public three-argument arithmetic friends.
+All original tests remain unchanged; the Ariadne-macro compatibility
+checks in `test_float.cpp` are extended for the four helpers.
+
+In the same new test block, the invalid two-integer `Dyadic`
+constructor was replaced with a `Dyadic` constructed from
+`ExactDouble(1.25)`. Full build and the historical templated
+`TestFloat<ArbitraryPrecision>` and
+`TestFloatRounding<ArbitraryPrecision>` parity checks are still
+outstanding; the new helpers alone do not establish API parity.

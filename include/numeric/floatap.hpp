@@ -293,16 +293,21 @@ template<> class Float<ArbitraryPrecision> {
     friend FloatAP max(FloatAP const& a, FloatAP const& b) { return a < b ? b : a; }
     friend FloatAP min(FloatAP const& a, FloatAP const& b) { return a < b ? a : b; }
     friend FloatAP sqr(RoundingModeType mode, FloatAP const& x) {
-        return mul(mode, x, x);
+        return FloatAP::mul(x, x, x._precision, mode);
     }
     friend FloatAP rec(RoundingModeType mode, FloatAP const& x) {
-        return div(mode, FloatAP(std::int64_t{1}, x.precision()), x);
+        const FloatAP one(std::int64_t{1}, x.precision());
+        return FloatAP::div(one, x, x._precision, mode);
     }
     friend FloatAP med(RoundingModeType mode, FloatAP const& a, FloatAP const& b) {
-        return hlf(add(mode, a, b));
+        const unsigned long precision = a._precision < b._precision
+            ? a._precision : b._precision;
+        return hlf(FloatAP::add(a, b, precision, mode));
     }
     friend FloatAP rad(RoundingModeType mode, FloatAP const& a, FloatAP const& b) {
-        return hlf(sub(mode, b, a));
+        const unsigned long precision = a._precision < b._precision
+            ? a._precision : b._precision;
+        return hlf(FloatAP::sub(b, a, precision, mode));
     }
     friend bool operator==(FloatAP const& a, FloatAP const& b) {
         return cmp(a, b) == Comparison::EQUAL;

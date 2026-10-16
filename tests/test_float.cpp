@@ -893,20 +893,31 @@ Void test_floatap_compatibility()
     // Run native FloatAP compatibility checks in the established test suite,
     // using the same Ariadne assertion macros as FloatMP.
     const ArbitraryPrecision precision(128_bits);
-    const Dyadic exact_value(5,2u);
+    const Dyadic exact_value(ExactDouble(1.25));
     const FloatAP value(exact_value,precision);
 
     ARIADNE_TEST_EQUALS(static_cast<Rational>(value),Rational(exact_value));
     ARIADNE_TEST_EQUALS(static_cast<Rational>(FloatAP(ExactDouble(1.25),precision)),
-                        Rational(5,4));
+                        Rational(Integer(5),Integer(4)));
     ARIADNE_TEST_EQUALS(static_cast<Rational>(FloatAP(TwoExp(3),precision)),
                         Rational(8));
 
     ARIADNE_TEST_EQUALS(static_cast<Rational>(shft(value,Int(2))),Rational(5));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(hlf(value)),Rational(5,8));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(-value),Rational(-5,4));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(neg(value)),Rational(-5,4));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(pos(value)),Rational(5,4));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(hlf(value)),Rational(Integer(5),Integer(8)));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(-value),Rational(Integer(-5),Integer(4)));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(neg(value)),Rational(Integer(-5),Integer(4)));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(pos(value)),Rational(Integer(5),Integer(4)));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(sqr(FloatAP::ROUND_TO_NEAREST,value)),
+                        Rational(Integer(25),Integer(16)));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(rec(FloatAP::ROUND_TO_NEAREST,value)),
+                        Rational(Integer(4),Integer(5)));
+    const FloatAP other(ExactDouble(0.75),precision);
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(
+                            med(FloatAP::ROUND_TO_NEAREST,value,other)),
+                        Rational(1));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(
+                            rad(FloatAP::ROUND_TO_NEAREST,other,value)),
+                        Rational(Integer(1),Integer(4)));
 
     FloatAP resized(value);
     resized.set_precision(ArbitraryPrecision(53_bits));
