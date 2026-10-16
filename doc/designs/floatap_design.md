@@ -2172,3 +2172,18 @@ The ThreadSanitizer build completed, but a full TSAN test
 outcome was not established. Neither post-fix correctness nor
 logging-integrated CMake builds are claimed until CI completes.
 
+## Benchmark reporting via the Ariadne logger (16 October 2026)
+
+Following `ariadne-cps/integration`, both numeric benchmarks explicitly
+set `Logger::instance().configuration().set_verbosity(1u)` on entry:
+logging defaults to verbosity zero, which suppresses every
+`LOGGING_PRINTLN` call. All comparison measurements, headings,
+separators, progress notifications, slowdown summaries, help and error
+messages now pass through the logger. **There is no CSV mode**: the
+previous `--csv` and `--format=csv` options and the direct
+`std::cout` output have been removed. This requirement supersedes the
+earlier CSV-output design recorded above. Progress is reported before
+and after each precision group so long benchmark runs are not silent;
+the formatted result table and aggregate slowdown are emitted after
+all requested groups complete. The timed operations and sample
+aggregation are unchanged.

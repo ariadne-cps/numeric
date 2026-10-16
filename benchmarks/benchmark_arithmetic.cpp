@@ -279,6 +279,7 @@ Void benchmark_add(SizeType n, SizeType nn) {
 
 
 Int main(Int argc, const char* argv[]) {
+    Logger::instance().configuration().set_verbosity(1u);
     try {
         SizeType vector_exponent=10u;
         SizeType repetition_exponent=12u;
@@ -358,7 +359,7 @@ Int main(Int argc, const char* argv[]) {
         }
         return 0;
     } catch(std::exception const& e) {
-        std::cerr << "benchmark_arithmetic: " << e.what() << '\n';
+        LOGGING_PRINTLN("benchmark_arithmetic: " << e.what())
         return 1;
     }
 }
