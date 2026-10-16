@@ -342,7 +342,7 @@ TestFloatRounding<PR>::test_precision_regressions()
     // These checks replace the separate FloatAP precision tests and use
     // exactly the same floating-point API for FloatMP and FloatAP.
     if constexpr (!Same<PR,DoublePrecision>) {
-        using F=Float<PR>;
+        using F=RawFloat<PR>;
         for (Bits bits : {2_bits,7_bits,24_bits,53_bits,113_bits,256_bits,1024_bits}) {
             const PR pr(bits);
             for (auto mode : {F::ROUND_TO_NEAREST,F::ROUND_DOWNWARD,
