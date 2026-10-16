@@ -9,7 +9,7 @@ endif()
 
 foreach(BENCHMARK ${BENCHMARKS})
     add_executable(${BENCHMARK} ${BENCHMARK}.cpp)
-    target_link_libraries(${BENCHMARK} PRIVATE ariadne-numeric numeric GMP::GMP)
+    target_link_libraries(${BENCHMARK} PRIVATE ariadne-numeric numeric GMP::GMP ariadne-logging logging)
 endforeach()
 
 add_dependencies(benchmarks ${BENCHMARKS})
