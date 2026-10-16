@@ -416,6 +416,39 @@ TestFloatRounding<PR>::test_precision_regressions()
             }
         }
 
+        if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Check log range-reduction boundaries, cancellation near 1,
+            // cached log(2) enclosures and all directed rounding modes
+            // against the exact MPFR result at the same binary input.
+            for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Rational epsilon(Dyadic(1,40u));
+                const Rational inputs[] = {
+                    Rational(1,2), Rational(3,4), Rational(3,2),
+                    Rational(2), Rational(1,8), Rational(8),
+                    Rational(1) - epsilon, Rational(1) + epsilon,
+                    Rational(3,4) - epsilon, Rational(3,4) + epsilon,
+                    Rational(3,2) - epsilon, Rational(3,2) + epsilon,
+                    Rational(1,2) + epsilon
+                };
+                for (Rational const& input : inputs) {
+                    const FloatAP ap_input(input,FloatAP::ROUND_TO_NEAREST,ap);
+                    const FloatMP mp_input(static_cast<Rational>(ap_input),
+                                           FloatMP::ROUND_TO_NEAREST,mp);
+                    const auto check=[&](auto ap_mode,auto mp_mode) {
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(log(ap_mode,ap_input)),
+                            static_cast<Rational>(log(mp_mode,mp_input)));
+                    };
+                    check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                    check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                    check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                    check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                }
+            }
+        }
+
         // Transcendental directed-rounding checks at multiple precisions.
         // Exact mathematical identities supplement these enclosures.
         for (Bits bits : {7_bits,24_bits,53_bits,113_bits}) {
