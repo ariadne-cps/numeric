@@ -461,6 +461,42 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Differential checks for the one-evaluation asin enclosure
+            // and the acos path sharing it. Test both endpoint choices,
+            // values close to +/-1, zero, and all four rounding modes.
+            for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Rational epsilon(Dyadic(1,40u));
+                const Rational inputs[] = {
+                    Rational(0), Rational(1,64), Rational(-1,64),
+                    Rational(1,2), Rational(-1,2),
+                    Rational(3,4), Rational(-3,4),
+                    Rational(7,8), Rational(-7,8),
+                    Rational(1) - epsilon, epsilon - Rational(1),
+                    Rational(1), Rational(-1)
+                };
+                for (Rational const& input : inputs) {
+                    const FloatAP a(input,FloatAP::ROUND_TO_NEAREST,ap);
+                    const FloatMP m(static_cast<Rational>(a),
+                                    FloatMP::ROUND_TO_NEAREST,mp);
+                    const auto compare_inverse=[&](auto ap_mode,auto mp_mode) {
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(asin(ap_mode,a)),
+                            static_cast<Rational>(asin(mp_mode,m)));
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(acos(ap_mode,a)),
+                            static_cast<Rational>(acos(mp_mode,m)));
+                    };
+                    compare_inverse(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                    compare_inverse(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                    compare_inverse(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                    compare_inverse(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Differential oracle for certified sine/cosine rounding.
             // All inputs are exact dyadics; comparison is exact at the
             // same target precision, in all four rounding modes.
