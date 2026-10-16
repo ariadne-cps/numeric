@@ -27,6 +27,7 @@
 
 #include "floatdp.hpp"
 #include "floatmp.hpp"
+#include "floatap.hpp"
 
 namespace Ariadne {
 
@@ -38,9 +39,14 @@ UpperBound<FloatMP> UpperBound<Dyadic>::get(MultiplePrecision pr) const { return
 template<> UpperBound<FloatDP>::UpperBound(Real const&, DoublePrecision);
 
 template class UpperBound<FloatDP>;
+template<> UpperBound<FloatAP>::UpperBound(ValidatedUpperNumber const& y, ArbitraryPrecision pr)
+    : UpperBound<FloatAP>(static_cast<Dyadic>(y.get(MultiplePrecision(pr.bits())).raw()),pr) { }
+
 template class UpperBound<FloatMP>;
+template class UpperBound<FloatAP>;
 
 template<> String class_name<UpperBound<FloatDP>>() { return "FloatDPUpperBound"; }
 template<> String class_name<UpperBound<FloatMP>>() { return "FloatMPUpperBound"; }
+template<> String class_name<UpperBound<FloatAP>>() { return "FloatAPUpperBound"; }
 
 } // namespace Ariadne
