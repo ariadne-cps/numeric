@@ -238,6 +238,11 @@ TestFloatRounding<PR>::test_limits()
         const ArbitraryPrecision wider(precision.bits()*2u);
         FloatAP wide_tiny=FloatAP::min(wider);
         const FloatAP wide_high(max,wider);
+        // Rescaling FloatAP at INT64_MAX must not construct a gigantic Rational.
+        ARIADNE_TEST_ASSERT(wide_high.precision()==wider);
+        ARIADNE_TEST_ASSERT(wide_high==max);
+        ARIADNE_TEST_ASSERT(FloatAP(wide_high,precision)==max);
+        ARIADNE_TEST_ASSERT(FloatAP(-max,wider)==-wide_high);
         ARIADNE_TEST_ASSERT(iadd(up,wide_tiny,max)==next(up,wide_high));
     }
 

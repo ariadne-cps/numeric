@@ -2270,3 +2270,35 @@ rounding, including halfway and endpoint significands and cases where the
 requested result precision exceeds the dominant operand precision. This is not a
 full Ariadne build, and no new CI pass or coverage percentage is claimed
 until the published commit is tested on the requested branch.
+
+## Native-precision FloatAP rescaling at extreme exponents (16 October 2026)
+
+**CI follow-up:** the attached `logs_105616396908.zip` for PR #28
+(checkout merge `11c9323` incorporating `f1c78c18`) shows that the
+original `add(up,max,min)==inf_` regression and all other new
+far-exponent arithmetic checks now pass. Nevertheless,
+`test_float_rounding` fails on AppleClang 21, GCC 13, Clang 16 and
+ThreadSanitizer. The TSAN stack identifies GMP's
+`__gmp_overflow_in_mpz -> __gmpz_mul_2exp` via
+`FloatAP::to_rational()`, `operator Rational()`, and
+`FloatAP(FloatAP const&, RoundingModeType, ArbitraryPrecision)`.
+The triggering expression is `FloatAP wide_high(max,wider)` in the
+new historical limits test. This is a production bug, not an invalid
+test expectation: exponent `INT64_MAX` must not be expanded into a
+`Rational` merely to change FloatAP precision.
+
+**Design fix:** when the precision is unchanged, copy the representation;
+otherwise handle nonfinite/signed-zero values directly and rescale a
+finite significand using `from_ratio(signed_significand, 1,
+original_exponent, target_precision, rounding_mode)`. GMP now works
+only with the existing bounded significand and its destination-precision
+rounding bits rather than allocating `2^INT64_MAX` limbs. Using a
+signed significand retains directed-rounding behavior for negative
+operands. Keep the existing exponent representability checks.
+
+**Regression:** extend `test_limits()` to verify exact widening and
+narrowing at `INT64_MAX`, preservation of sign, and the already present
+in-place wider-precision addition. Tests compare FloatAP values directly;
+they do not convert extreme values to Rational for their assertions.
+The incoming logs are not a successful test report. A fresh build,
+CI execution and coverage report for the published correction are needed.

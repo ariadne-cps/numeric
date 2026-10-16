@@ -431,13 +431,31 @@ FloatAP::Float(FloatAP const& value, PrecisionType precision)
     : Float(value, ROUND_TO_NEAREST, precision) { }
 
 FloatAP::Float(FloatAP const& value, RoundingModeType mode, PrecisionType precision)
-    : Float(static_cast<Rational>(value), mode, precision) {
+    : Float(precision) {
+    if (value._precision == _precision) {
+        *this = value;
+        return;
+    }
     if (value.is_nan()) {
         *this = nan(precision);
     } else if (value.is_inf()) {
         *this = infinity(static_cast<unsigned long>(precision.bits()), value.negative());
     } else if (value.is_zero()) {
         *this = zero(static_cast<unsigned long>(precision.bits()), value.negative());
+    } else {
+        // Rescale the existing binary significand without materializing
+        // significand * 2^exponent as an enormous Rational. This is
+        // essential at the native exponent limits.
+        mpz_t numerator, one;
+        mpz_init_set(numerator, value._significand);
+        mpz_init_set_ui(one, 1u);
+        struct Cleanup {
+            mpz_ptr a, b;
+            ~Cleanup() { mpz_clears(a, b, nullptr); }
+        } cleanup{numerator, one};
+        if (value._negative) mpz_neg(numerator, numerator);
+        *this = from_ratio(numerator, one, value._exponent,
+                           static_cast<unsigned long>(precision.bits()), mode);
     }
 }
 
