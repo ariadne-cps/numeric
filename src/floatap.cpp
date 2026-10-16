@@ -310,7 +310,9 @@ FloatAP& FloatAP::operator=(Integer const& n) {
 }
 
 FloatAP& FloatAP::operator=(Dyadic const& n) {
-    return *this = FloatAP(n, get_rounding_mode(), precision());
+    // Preserve the exact-assignment contract of FloatMP. Constructing the
+    // replacement first also leaves *this unchanged if it is inexact.
+    return *this = FloatAP(n, precision());
 }
 
 FloatAP& FloatAP::operator=(TwoExp const& n) {
@@ -380,7 +382,14 @@ FloatAP::Float(ExactDouble const& value, PrecisionType precision)
     : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
 
 FloatAP::Float(Dyadic const& value, PrecisionType precision)
-    : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
+    : Float(Rational(value), ROUND_TO_NEAREST, precision) {
+    // Unlike the explicitly rounded constructor, this conversion must be
+    // exact. In particular, a Dyadic with more significant bits than the
+    // requested precision cannot be silently rounded.
+    if (!is_nan(value) && cmp(*this, Rational(value)) != Comparison::EQUAL) {
+        throw std::runtime_error("FloatAP: Dyadic is not exactly representable at the requested precision");
+    }
+}
 
 FloatAP::Float(TwoExp const& value, PrecisionType precision)
     : Float(Dyadic(value), precision) { }
