@@ -936,6 +936,44 @@ TestFloatRounding<PR>::test_comparison()
     ARIADNE_TEST_ASSERT(f1>=q2); ARIADNE_TEST_ASSERT(!(f1< q2));
     ARIADNE_TEST_ASSERT(f2==q2); ARIADNE_TEST_ASSERT(!(f2!=q2));
 
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        // Exercise the public Rational-left comparison API in all three
+        // ordered outcomes, not merely the FloatAP-left overloads.
+        const Rational equal(-5,4);
+        const Rational lower(-9,4);
+        const Rational higher(5,4);
+
+        ARIADNE_TEST_ASSERT(equal==f2);
+        ARIADNE_TEST_ASSERT(!(equal!=f2));
+        ARIADNE_TEST_ASSERT(!(equal< f2));
+        ARIADNE_TEST_ASSERT(!(equal> f2));
+        ARIADNE_TEST_ASSERT(equal<=f2);
+        ARIADNE_TEST_ASSERT(equal>=f2);
+
+        ARIADNE_TEST_ASSERT(!(lower==f2));
+        ARIADNE_TEST_ASSERT(lower!=f2);
+        ARIADNE_TEST_ASSERT(lower< f2);
+        ARIADNE_TEST_ASSERT(!(lower> f2));
+        ARIADNE_TEST_ASSERT(lower<=f2);
+        ARIADNE_TEST_ASSERT(!(lower>=f2));
+
+        ARIADNE_TEST_ASSERT(!(higher==f2));
+        ARIADNE_TEST_ASSERT(higher!=f2);
+        ARIADNE_TEST_ASSERT(!(higher< f2));
+        ARIADNE_TEST_ASSERT(higher> f2);
+        ARIADNE_TEST_ASSERT(!(higher<=f2));
+        ARIADNE_TEST_ASSERT(higher>=f2);
+
+        // Both directions must reject unordered operands before trying
+        // to materialize a nonfinite Rational from the FloatAP value.
+        const FloatAP ap_nan=FloatAP::nan(precision);
+        const Rational rational_nan=Rational::nan();
+        ARIADNE_TEST_ASSERT(cmp(equal,ap_nan)==Comparison::INCOMPARABLE);
+        ARIADNE_TEST_ASSERT(cmp(rational_nan,f2)==Comparison::INCOMPARABLE);
+        ARIADNE_TEST_ASSERT(cmp(ap_nan,equal)==Comparison::INCOMPARABLE);
+        ARIADNE_TEST_ASSERT(cmp(f2,rational_nan)==Comparison::INCOMPARABLE);
+    }
+
 }
 
 template<class PR> Void
