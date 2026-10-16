@@ -317,12 +317,12 @@ TestFloatBounds<PR>::test_tpl_api_and_branches()
     ARIADNE_TEST_COMPARE(truncated.upper_raw(),>=,inexact.upper_raw());
     ARIADNE_TEST_EXECUTE(trunc(inexact,Nat(40u)));
 
-    // A zero interval has a special, exact stream representation.
-    // Verify the actual result, rather than merely executing _write.
+    // The DP and MP bounds stream specializations represent the zero
+    // interval as 0.0[:], distinct from the generic Bounds<F> formatter.
     {
         std::ostringstream zero_output;
         zero_output << FloatBoundsType(0,pr);
-        ARIADNE_TEST_EQUALS(zero_output.str(),String("{0.:0.}"));
+        ARIADNE_TEST_EQUALS(zero_output.str(),String("0.0[:]"));
     }
 
     // The endpoints meet, but the two intervals are not equal singleton
