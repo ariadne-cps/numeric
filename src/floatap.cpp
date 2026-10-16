@@ -33,6 +33,8 @@
 #include "numeric/double.hpp"
 #include "numeric/floatdp.hpp"
 #include "numeric/rounding.hpp"
+#include "numeric/positive.hpp"
+#include <istream>
 #include <ostream>
 namespace Ariadne {
 FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
@@ -258,10 +260,20 @@ FloatAP::Float(std::int64_t n, PrecisionType pr)
 namespace {
 thread_local FloatAP::RoundingModeType floatap_current_rounding =
     FloatAP::ROUND_TO_NEAREST;
+thread_local std::size_t floatap_default_precision = 53;
 }
 
 FloatAP::RoundingModeType FloatAP::get_rounding_mode() noexcept {
     return floatap_current_rounding;
+}
+
+FloatAP::PrecisionType FloatAP::get_default_precision() {
+    return PrecisionType(floatap_default_precision);
+}
+
+void FloatAP::set_default_precision(PrecisionType precision) {
+    const FloatAP validated(precision);
+    floatap_default_precision = validated.precision().bits();
 }
 
 void FloatAP::set_rounding_mode(RoundingModeType mode) {
@@ -394,6 +406,9 @@ FloatAP::Float(Dyadic const& value, PrecisionType precision)
 FloatAP::Float(TwoExp const& value, PrecisionType precision)
     : Float(Dyadic(value), precision) { }
 
+FloatAP::Float(String const& value, PrecisionType precision)
+    : Float(Dyadic(value), precision) { }
+
 FloatAP::Float(ExactDouble const& value, RoundingModeType mode,
                PrecisionType precision)
     : Float(Rational(value), mode, precision) { }
@@ -419,6 +434,57 @@ void FloatAP::set_precision(PrecisionType precision) {
 
 OutputStream& operator<<(OutputStream& os, FloatAP const& value) {
     return os << static_cast<Rational>(value);
+}
+
+Positive<FloatAP> abs(FloatAP const& x) {
+    return cast_positive(x.negative() ? neg(x) : x);
+}
+
+FloatAP abs(FloatAP::RoundingModeType, FloatAP const& x) {
+    return x.negative() ? neg(x) : x;
+}
+
+FloatAP operator*(TwoExp const& t, FloatAP const& x) {
+    return shft(x, t.exponent());
+}
+FloatAP operator*(FloatAP const& x, TwoExp const& t) {
+    return shft(x, t.exponent());
+}
+FloatAP operator/(FloatAP const& x, TwoExp const& t) {
+    return shft(x, -t.exponent());
+}
+FloatAP& operator*=(FloatAP& x, TwoExp const& t) {
+    return x = x * t;
+}
+FloatAP& operator/=(FloatAP& x, TwoExp const& t) {
+    return x = x / t;
+}
+
+Comparison cmp(FloatAP const& a, FloatDP const& b) {
+    return cmp(a, Rational(b));
+}
+Comparison cmp(FloatDP const& a, FloatAP const& b) {
+    return cmp(Rational(a), b);
+}
+bool operator==(FloatAP const& a, FloatDP const& b) { return cmp(a,b)==Comparison::EQUAL; }
+bool operator!=(FloatAP const& a, FloatDP const& b) { return cmp(a,b)!=Comparison::EQUAL; }
+bool operator< (FloatAP const& a, FloatDP const& b) { return cmp(a,b)==Comparison::LESS; }
+bool operator> (FloatAP const& a, FloatDP const& b) { return cmp(a,b)==Comparison::GREATER; }
+bool operator<=(FloatAP const& a, FloatDP const& b) {
+    auto c=cmp(a,b); return c==Comparison::LESS || c==Comparison::EQUAL;
+}
+bool operator>=(FloatAP const& a, FloatDP const& b) {
+    auto c=cmp(a,b); return c==Comparison::GREATER || c==Comparison::EQUAL;
+}
+bool operator==(FloatDP const& a, FloatAP const& b) { return cmp(a,b)==Comparison::EQUAL; }
+bool operator!=(FloatDP const& a, FloatAP const& b) { return cmp(a,b)!=Comparison::EQUAL; }
+bool operator< (FloatDP const& a, FloatAP const& b) { return cmp(a,b)==Comparison::LESS; }
+bool operator> (FloatDP const& a, FloatAP const& b) { return cmp(a,b)==Comparison::GREATER; }
+bool operator<=(FloatDP const& a, FloatAP const& b) {
+    auto c=cmp(a,b); return c==Comparison::LESS || c==Comparison::EQUAL;
+}
+bool operator>=(FloatDP const& a, FloatAP const& b) {
+    auto c=cmp(a,b); return c==Comparison::GREATER || c==Comparison::EQUAL;
 }
 
 FloatAP shft(FloatAP const& value, Int amount) {

@@ -80,6 +80,12 @@ class ArbitraryPrecision {
     std::size_t bits() const noexcept {
         return _bits;
     }
+    friend OutputStream& operator<<(OutputStream& os, ArbitraryPrecision p) {
+        return os << "ap(" << p.bits() << ")";
+    }
+    friend OutputStream& repr(OutputStream& os, ArbitraryPrecision p) {
+        return os << "ArbitraryPrecision(" << p.bits() << ")";
+    }
     friend bool operator==(ArbitraryPrecision a, ArbitraryPrecision b) noexcept {
         return a._bits == b._bits;
     }
@@ -193,6 +199,7 @@ template<> class Float<ArbitraryPrecision> {
     Float(std::int64_t n, PrecisionType precision);
     Float(ExactDouble const& n, PrecisionType precision);
     Float(Dyadic const& n, PrecisionType precision);
+    explicit Float(String const& value, PrecisionType precision);
     Float(TwoExp const& n, PrecisionType precision);
     Float(FloatDP const& n, PrecisionType precision);
     Float(FloatAP const& n, PrecisionType precision);
@@ -253,6 +260,8 @@ template<> class Float<ArbitraryPrecision> {
     static void set_rounding_downward() { set_rounding_mode(ROUND_DOWNWARD); }
     static void set_rounding_upward() { set_rounding_mode(ROUND_UPWARD); }
     static void set_rounding_toward_zero() { set_rounding_mode(ROUND_TOWARD_ZERO); }
+    static PrecisionType get_default_precision();
+    static void set_default_precision(PrecisionType precision);
     void set_precision(PrecisionType precision);
     FloatAP const& raw() const noexcept { return *this; }
     FloatAP& raw() noexcept { return *this; }
@@ -302,7 +311,10 @@ template<> class Float<ArbitraryPrecision> {
         return z;
     }
     static FloatAP inf(Sign sign, PrecisionType p) {
-        return infinity(static_cast<unsigned long>(p.bits()), sign == Sign::NEGATIVE);
+        return sign == Sign::ZERO ? nan(p) : infinity(static_cast<unsigned long>(p.bits()), sign == Sign::NEGATIVE);
+    }
+    static FloatAP inf(PrecisionType p) {
+        return infinity(static_cast<unsigned long>(p.bits()));
     }
     static FloatAP nan(PrecisionType p) {
         return nan(static_cast<unsigned long>(p.bits()));
@@ -323,6 +335,20 @@ template<> class Float<ArbitraryPrecision> {
     friend Comparison cmp(FloatAP const& a, FloatAP const& b);
     friend Comparison cmp(FloatAP const& a, Rational const& b);
     friend Comparison cmp(Rational const& a, FloatAP const& b);
+    friend Comparison cmp(FloatAP const& a, FloatDP const& b);
+    friend Comparison cmp(FloatDP const& a, FloatAP const& b);
+    friend bool operator==(FloatAP const& a, FloatDP const& b);
+    friend bool operator!=(FloatAP const& a, FloatDP const& b);
+    friend bool operator<(FloatAP const& a, FloatDP const& b);
+    friend bool operator>(FloatAP const& a, FloatDP const& b);
+    friend bool operator<=(FloatAP const& a, FloatDP const& b);
+    friend bool operator>=(FloatAP const& a, FloatDP const& b);
+    friend bool operator==(FloatDP const& a, FloatAP const& b);
+    friend bool operator!=(FloatDP const& a, FloatAP const& b);
+    friend bool operator<(FloatDP const& a, FloatAP const& b);
+    friend bool operator>(FloatDP const& a, FloatAP const& b);
+    friend bool operator<=(FloatDP const& a, FloatAP const& b);
+    friend bool operator>=(FloatDP const& a, FloatAP const& b);
     friend Integer cast_integer(FloatAP const& value);
     friend bool operator==(FloatAP const& a, Rational const& b) {
         return cmp(a, b) == Comparison::EQUAL;
@@ -365,6 +391,15 @@ template<> class Float<ArbitraryPrecision> {
         return c == Comparison::GREATER || c == Comparison::EQUAL;
     }
     friend OutputStream& operator<<(OutputStream& os, FloatAP const& x);
+    friend InputStream& operator>>(InputStream& is, FloatAP& x);
+    friend bool same(FloatAP const& a, FloatAP const& b) { return a == b; }
+    friend Positive<FloatAP> abs(FloatAP const& x);
+    friend FloatAP abs(RoundingModeType, FloatAP const& x);
+    friend FloatAP operator*(TwoExp const& t, FloatAP const& x);
+    friend FloatAP operator*(FloatAP const& x, TwoExp const& t);
+    friend FloatAP operator/(FloatAP const& x, TwoExp const& t);
+    friend FloatAP& operator*=(FloatAP& x, TwoExp const& t);
+    friend FloatAP& operator/=(FloatAP& x, TwoExp const& t);
     friend FloatAP operator+(FloatAP const& x) { return x; }
     friend FloatAP operator-(FloatAP const& x) { return negate(x); }
     friend FloatAP nul(FloatAP const& x) { return zero(x._precision); }
