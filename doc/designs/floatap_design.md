@@ -1079,6 +1079,29 @@ they are **not** measurements of `8eb5c97`. Retain the original
 same-backend, same-input and same-rounding benchmark methodology,
 and validate output equivalence before claiming an optimization.
 
+**First post-change benchmark (16 October 2026).** These are user-supplied
+same-workload median timings with 300 iterations and seven samples.
+The log speedup is computed against the preceding supplied baseline;
+the MPFR comparisons use the contemporaneous new run:
+
+| Bits | Old FloatAP log (ns) | New FloatAP log (ns) | Speedup | New MPFR log (ns) | Remaining slowdown |
+|---|---:|---:|---:|---:|---:|
+| 53 | 232180.14 | 3870.00 | 60.0x | 657.50 | 5.9x |
+| 128 | 2309173.75 | 6245.14 | 369.8x | 1520.56 | 4.1x |
+| 256 | 24007044.58 | 10135.28 | 2368.7x | 2609.31 | 3.9x |
+
+The baseline FloatAP `atan` times remain approximately 237687 ns
+at 53 bits and 2262583 ns at 128 bits; `asin`/`acos` remain even
+more expensive. These were **not** modified by the logarithm change.
+No speedup should be inferred for other functions from this table.
+
+**Cross-platform correction:** commit `aa31f47` guards the series
+index in `exp_series` by explicitly comparing unsigned indices to
+a safely converted signed maximum minus one; this avoids MSVC
+C4389 under `/WX` and ensures that `n+1` can be converted to
+`long`. The compile and regression result of this commit must
+still be confirmed on Windows.
+
 **Next investigations:** replace `small_atan` and the
 `asin`/`acos` dependency chain with rigorously bounded fixed-point
 methods; examine Machin/pi caching, fast angle reduction and
