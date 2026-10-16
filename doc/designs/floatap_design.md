@@ -1093,6 +1093,7 @@ the MPFR comparisons use the contemporaneous new run:
 The baseline FloatAP `atan` times remain approximately 237687 ns
 at 53 bits and 2262583 ns at 128 bits; `asin`/`acos` remain even
 more expensive. These were **not** modified by the logarithm change.
+The subsequent fixed-point arctangent decision is recorded below.
 No speedup should be inferred for other functions from this table.
 
 **Cross-platform correction:** commit `aa31f47` guards the series
@@ -1109,4 +1110,74 @@ rectangular/binary splitting; then optimize the ordinary arithmetic
 kernel's GMP allocations and repeated `from_ratio` path.
 Every future algorithmic change must update this decision record
 with its proof obligations, measurements, and regressions.
+
+## Performance redesign: certified fixed-point arctangent (16 October 2026)
+
+**Change:** `src/floatap.cpp` function `small_atan`. Following the
+successful fixed-point logarithm redesign, replace the previous
+`mpq_t` Taylor sum, which repeatedly constructed and reduced exact
+rational terms, with fixed-point GMP integer lower and upper bounds.
+
+**Contract and scope:** for `|x| <= 1/2`, including the Machin
+arguments `1/5` and `1/239`, evaluate
+
+```text
+atan(x) = x - x^3/3 + x^5/5 - ...
+```
+
+using the magnitude `|x|` with `B = work + 32 + bit_width(N)`
+fractional bits, where `N = floor(work/2) + 4` is an iteration
+bound. Form `floor(|x| 2^B)` and `ceil(|x| 2^B)` once, then
+propagate both bounds through the squared argument and odd powers
+using GMP fixed-point multiplication with outward truncation.
+For each positive term, take the floor and ceiling of the scaled
+power divided by its odd denominator. Alternate subtraction and
+addition in **opposite directions** so that cancellation never
+narrows the enclosure spuriously.
+
+**Certified alternating remainder:** after accumulating terms
+`n = 0, ..., k`, the exact tail has the sign of term `k+1`,
+and its magnitude is bounded by
+`|x|^(2k+3)/(2k+3)`. The algorithm obtains a conservative scaled
+integer upper bound from the upper power and uses it to widen
+**only the appropriate endpoint**. It stops early when the bound
+is at most `2^(-work)`, or after `N` terms with the actual
+certified tail (even if this still exceeds the target width).
+The sign of a negative argument is restored by negating and
+reversing the endpoints. Integer outward rounding guarantees
+inclusion independently of the number of guard bits; the guard
+precision serves efficiency, not correctness.
+
+The existing `certified` refinement loop remains unchanged: it
+returns only after both enclosure endpoints round identically in
+the requested rounding mode. Thus the change is compatible with
+the four rounding modes and does not forward numerical work to MPFR.
+
+**Expected propagation:** `pi_interval` uses two calls to
+`small_atan` in Machin's identity; `atan_interval` uses it
+after argument reduction; `asin_interval` calls `atan_interval`
+twice on the endpoints of its rational square-root enclosure;
+`acos` depends on `asin` and `pi`. All therefore benefit
+without changing their identities. This update does **not**
+accelerate the rational Taylor evaluation of `exp`, `sin`,
+or `cos`, and does not cache `pi`.
+
+**Pre-commit verification:** a standalone arithmetic check compared
+the enclosing interval against high-precision arctangent values
+for 208 rational arguments, including `+/-1/2`, `1/5`,
+`1/239`, and very small values, with work precision 32, 53,
+85, 128, 256, and 512 bits. This is an algorithm-level
+cross-check, **not** a complete Ariadne build or MPFR differential
+regression. Numerical speedup and the final cross-platform
+regression remain to be measured.
+
+**Literature and next steps:** Arb documents fixed-point Taylor
+arctangent evaluation, table-based argument reduction, and
+rectangular splitting at low/medium precision; see
+https://arblib.org/arb.html and the MPFR algorithm notes at
+https://www.mpfr.org/algo.html. Investigate reducing transformed
+arguments to below `1/16`, caching certified Machin constants
+at appropriate working precision, and rectangular/binary splitting
+when iteration cost dominates. Retain hard-to-round and all-mode
+differential comparisons as acceptance criteria.
 
