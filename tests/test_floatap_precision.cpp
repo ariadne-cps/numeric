@@ -98,9 +98,51 @@ void test_exact_arithmetic() {
             check(pow(mode, x, Nat(7u)),
                   a * a * a * a * a * a * a, "pow exact-rational oracle");
 
-            const FloatAP square = number(9, 1, bits);
-            require(sqrt(mode, square) == number(3, 1, bits),
-                    "sqrt exact square");
+            // 4 and sqrt(4) = 2 are exactly representable at every
+            // tested precision, including the minimum of two bits.
+            const FloatAP square = number(4, 1, bits);
+            require(sqrt(mode, square) == number(2, 1, bits),
+                    "sqrt exact square at every precision");
+
+            if (bits >= 4u) {
+                // 9 requires four significant binary digits. Only
+                // test sqrt(9) = 3 after verifying that 9 is exact.
+                const FloatAP nine = number(9, 1, bits);
+                require(static_cast<Rational>(nine) == Rational(9),
+                        "sqrt input 9 exactly represented");
+                require(sqrt(mode, nine) == number(3, 1, bits),
+                        "sqrt exact square nine");
+            } else {
+                // At two bits, 9 rounds to 8 with nearest, downward
+                // and toward-zero, but to 12 with upward. Thus sqrt is
+                // applied to either 8 or 12, not to exact 9.
+                const FloatAP rounded_nine = number(9, 1, bits, mode);
+                const bool upward = mode == FloatAP::ROUND_UPWARD;
+                require(static_cast<Rational>(rounded_nine) ==
+                        Rational(upward ? 12 : 8),
+                        "two-bit input 9 rounding by mode");
+                // sqrt(8) rounds to 2 (downward/toward-zero) or 3
+                // (nearest). sqrt(12) rounds upward to 4.
+                const long expected = upward ? 4L :
+                    (mode == FloatAP::ROUND_TO_NEAREST ? 3L : 2L);
+                require(sqrt(mode, rounded_nine) == number(expected, 1, bits),
+                        "sqrt of two-bit rounded square");
+            }
+
+            // Independent exact inequalities test an inexact square
+            // root without constructing its result with FloatAP.
+            const FloatAP two = number(2, 1, bits);
+            const Rational sqrt_down = static_cast<Rational>(
+                sqrt(FloatAP::ROUND_DOWNWARD, two));
+            const Rational sqrt_up = static_cast<Rational>(
+                sqrt(FloatAP::ROUND_UPWARD, two));
+            require(sqrt_down * sqrt_down <= Rational(2),
+                    "sqrt downward square bound");
+            require(sqrt_up * sqrt_up >= Rational(2),
+                    "sqrt upward square bound");
+            require(sqrt(FloatAP::ROUND_DOWNWARD, two) <= sqrt(mode, two) &&
+                    sqrt(mode, two) <= sqrt(FloatAP::ROUND_UPWARD, two),
+                    "sqrt rounding mode enclosure");
         }
     }
 }
