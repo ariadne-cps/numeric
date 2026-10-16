@@ -878,3 +878,35 @@ minimum/maximum exponent semantics, and several transcendental
 helpers. Each missing API must be implemented rather than excluding
 or weakening a test. The full build and CI results are the criterion
 for completing this integration.
+
+
+## First compilation failures with the historical suites (16 October 2026)
+
+The user-supplied Clang/macOS build log shows that enabling the unmodified
+`TestFloat<ArbitraryPrecision>` and
+`TestFloatRounding<ArbitraryPrecision>` template instantiations reveals
+genuine missing production interfaces. Among the first errors are:
+rounding tags (`down`, `up`, `near`, `approx`, `rounded`) not
+convertible to FloatAP's private rounding abstraction; missing
+constructors from `FloatDP` and from `FloatAP` at a different precision;
+missing exact comparisons with `Dyadic` and `Rational`, integer
+casting, assignments, and `operator Dyadic`. Compiler diagnostics are
+truncated to 20 errors per translation unit, so the full remaining
+interface gap is not yet known.
+
+The first integration pass introduces a small FloatAP-specific rounding
+value type that accepts Ariadne's existing tag classes while retaining
+the native GMP kernel's four rounding choices. Current-rounding tokens
+read the thread-local rounding state; explicit rounding-tag operations
+do not change it. It also adds exact cross-precision constructors,
+`FloatDP` conversion, assignments, exact cross-type comparisons and
+integer/Dyadic casts. Dyadic conversion uses a sufficiently precise
+GMP `mpf_t`, not `double`, so finite large or high-precision values
+remain exact.
+
+The existing tests and CMake selection remain untouched. This pass
+is deliberately limited to the compile errors actually identified;
+it does **not** claim that the full historical tests compile or pass.
+Later diagnostics will likely involve the still-missing validated
+bounds/ball operations and float exponent-range API. No test gates
+or weakened assertions were reintroduced.
