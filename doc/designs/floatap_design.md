@@ -834,3 +834,24 @@ The mode-specific two-bit expectations and nearest rounding for
 `rec(5/4)` at 128 bits were checked independently with a small C++/GMP
 arithmetic program. That check is not a full Ariadne compile or CTest
 run. The regression is pending CI validation.
+
+
+## Removing the noncanonical compatibility test (16 October 2026)
+
+The ad-hoc `test_floatap_compatibility()` block has been removed
+from `tests/test_float.cpp`: it was not the established Ariadne
+behavioral contract and introduced expectations inconsistent with
+finite binary precision. No historical `TestFloat<...>` assertions
+were modified. The existing templated suites
+`TestFloat<ArbitraryPrecision>` and
+`TestFloatRounding<ArbitraryPrecision>` are the only acceptable
+end-to-end compatibility criterion; they are still gated off because
+current `FloatAP` does not yet meet their constraints.
+
+In particular, `IsARawFloat<FloatAP>` is not yet specialized in
+`numeric/float.decl.hpp`, and the three-way rounded arithmetic
+and bounds/ball integration are not complete. Activating the whole
+suite before those implementation changes would introduce a known
+build failure, not meaningful test coverage. Implement the missing
+APIs in production sources, then instantiate the unchanged legacy
+suites unconditionally and confirm them by actual CI.

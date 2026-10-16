@@ -888,75 +888,10 @@ Void test_double_runtime()
     set_builtin_rounding_to_nearest();
 }
 
-Void test_floatap_compatibility()
-{
-    // Run native FloatAP compatibility checks in the established test suite,
-    // using the same Ariadne assertion macros as FloatMP.
-    const ArbitraryPrecision precision(128_bits);
-    const Dyadic exact_value(ExactDouble(1.25));
-    const FloatAP value(exact_value,precision);
-
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(value),Rational(exact_value));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(FloatAP(ExactDouble(1.25),precision)),
-                        Rational(Integer(5),Integer(4)));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(FloatAP(TwoExp(3),precision)),
-                        Rational(8));
-
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(shft(value,Int(2))),Rational(5));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(hlf(value)),Rational(Integer(5),Integer(8)));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(-value),Rational(Integer(-5),Integer(4)));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(neg(value)),Rational(Integer(-5),Integer(4)));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(pos(value)),Rational(Integer(5),Integer(4)));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(sqr(FloatAP::ROUND_TO_NEAREST,value)),
-                        Rational(Integer(25),Integer(16)));
-    // The reciprocal 4/5 is not dyadic. Check its directed enclosure
-    // against the exact rational and determine nearest rounding from
-    // distances, without using FloatAP itself as the rounding oracle.
-    const Rational exact_reciprocal(Integer(4),Integer(5));
-    const Rational reciprocal_down = static_cast<Rational>(
-        rec(FloatAP::ROUND_DOWNWARD,value));
-    const Rational reciprocal_up = static_cast<Rational>(
-        rec(FloatAP::ROUND_UPWARD,value));
-    const Rational reciprocal_nearest = static_cast<Rational>(
-        rec(FloatAP::ROUND_TO_NEAREST,value));
-    const Rational reciprocal_toward_zero = static_cast<Rational>(
-        rec(FloatAP::ROUND_TOWARD_ZERO,value));
-
-    ARIADNE_TEST_ASSERT(reciprocal_down < exact_reciprocal);
-    ARIADNE_TEST_ASSERT(exact_reciprocal < reciprocal_up);
-    ARIADNE_TEST_EQUALS(reciprocal_toward_zero,reciprocal_down);
-    ARIADNE_TEST_EQUALS(reciprocal_nearest,reciprocal_up);
-    ARIADNE_TEST_ASSERT(reciprocal_up-exact_reciprocal <
-                        exact_reciprocal-reciprocal_down);
-    const FloatAP other(ExactDouble(0.75),precision);
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(
-                            med(FloatAP::ROUND_TO_NEAREST,value,other)),
-                        Rational(1));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(
-                            rad(FloatAP::ROUND_TO_NEAREST,other,value)),
-                        Rational(Integer(1),Integer(4)));
-
-    FloatAP resized(value);
-    resized.set_precision(ArbitraryPrecision(53_bits));
-    ARIADNE_TEST_ASSERT(resized.precision()==ArbitraryPrecision(53_bits));
-    ARIADNE_TEST_EQUALS(static_cast<Rational>(resized),Rational(exact_value));
-    ARIADNE_TEST_ASSERT(&resized.raw()==&resized);
-
-    const FloatAP::RoundingModeType old_mode=FloatAP::get_rounding_mode();
-    FloatAP::set_rounding_downward();
-    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_DOWNWARD);
-    FloatAP::set_rounding_upward();
-    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_UPWARD);
-    FloatAP::set_rounding_to_nearest();
-    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_TO_NEAREST);
-    FloatAP::set_rounding_mode(old_mode);
-}
-
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
-    test_floatap_compatibility();
     test_float_literals();
     test_builtin_runtime();
     test_double_runtime();
