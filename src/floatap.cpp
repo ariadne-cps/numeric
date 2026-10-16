@@ -290,28 +290,101 @@ double FloatAP::get_d() const {
 }
 
 Comparison cmp(FloatAP const& a, FloatAP const& b) {
-    if (a.is_nan() || b.is_nan()) return Comparison::INCOMPARABLE;
+    if (a.is_nan() || b.is_nan()) {
+        return Comparison::INCOMPARABLE;
+    }
     if (a.is_inf() || b.is_inf()) {
         if (a.is_inf() && b.is_inf()) {
             return a.negative() == b.negative() ? Comparison::EQUAL :
-            (a.negative() ? Comparison::LESS : Comparison::GREATER);
+                   (a.negative() ? Comparison::LESS : Comparison::GREATER);
         }
-        return a.is_inf() ?(a.negative() ? Comparison::LESS : Comparison::GREATER) :
-        (b.negative() ? Comparison::GREATER : Comparison::LESS);
+        return a.is_inf() ? (a.negative() ? Comparison::LESS : Comparison::GREATER) :
+               (b.negative() ? Comparison::GREATER : Comparison::LESS);
     }
-    mpq_t x, y;
-    mpq_inits(x, y, nullptr);
-    struct Cleanup {
-        mpq_ptr x, y;
-        ~Cleanup() {
-            mpq_clears(x, y, nullptr);
+
+    // Signed zeros compare equal, independent of their stored sign.
+    if (a.is_zero() || b.is_zero()) {
+        if (a.is_zero() && b.is_zero()) {
+            return Comparison::EQUAL;
+        }
+        if (a.is_zero()) {
+            return b.negative() ? Comparison::GREATER : Comparison::LESS;
+        }
+        return a.negative() ? Comparison::LESS : Comparison::GREATER;
+    }
+
+    if (a._negative != b._negative) {
+        return a._negative ? Comparison::LESS : Comparison::GREATER;
+    }
+
+    // Compare significand * 2^exponent directly. A different most
+    // significant binary position decides the order without allocating
+    // any GMP temporaries or constructing Rational values.
+    int magnitude = 0;
+    if (a._exponent == b._exponent) {
+        magnitude = mpz_cmp(a._significand, b._significand);
+    } else {
+        const std::size_t a_bits = mpz_sizeinbase(a._significand, 2);
+        const std::size_t b_bits = mpz_sizeinbase(b._significand, 2);
+
+        if (a._exponent > b._exponent) {
+            // Unsigned subtraction also handles a signed exponent gap
+            // larger than INT64_MAX without undefined behavior.
+            const std::uint64_t gap =
+                static_cast<std::uint64_t>(a._exponent) -
+                static_cast<std::uint64_t>(b._exponent);
+
+            if (a_bits >= b_bits || gap > b_bits - a_bits) {
+                magnitude = 1;
+            } else if (gap < b_bits - a_bits) {
+                magnitude = -1;
+            } else {
+                // The leading positions coincide. Shift the smaller
+                // representation right; the discarded bits break ties.
+                mpz_t truncated;
+                mpz_init(truncated);
+                struct Cleanup {
+                    mpz_ptr value;
+                    ~Cleanup() { mpz_clear(value); }
+                } cleanup{truncated};
+                const auto shift = static_cast<mp_bitcnt_t>(gap);
+                mpz_tdiv_q_2exp(truncated, b._significand, shift);
+                magnitude = mpz_cmp(a._significand, truncated);
+                if (magnitude == 0 && !mpz_divisible_2exp_p(b._significand, shift)) {
+                    magnitude = -1;
+                }
+            }
+        } else {
+            const std::uint64_t gap =
+                static_cast<std::uint64_t>(b._exponent) -
+                static_cast<std::uint64_t>(a._exponent);
+
+            if (b_bits >= a_bits || gap > a_bits - b_bits) {
+                magnitude = -1;
+            } else if (gap < a_bits - b_bits) {
+                magnitude = 1;
+            } else {
+                mpz_t truncated;
+                mpz_init(truncated);
+                struct Cleanup {
+                    mpz_ptr value;
+                    ~Cleanup() { mpz_clear(value); }
+                } cleanup{truncated};
+                const auto shift = static_cast<mp_bitcnt_t>(gap);
+                mpz_tdiv_q_2exp(truncated, a._significand, shift);
+                magnitude = mpz_cmp(truncated, b._significand);
+                if (magnitude == 0 && !mpz_divisible_2exp_p(a._significand, shift)) {
+                    magnitude = 1;
+                }
+            }
         }
     }
-    cleanup { x, y };
-    a.to_rational(x);
-    b.to_rational(y);
-    const int order = mpq_cmp(x, y);
-    return order < 0 ? Comparison::LESS :(order > 0 ? Comparison::GREATER : Comparison::EQUAL);
+
+    if (a._negative) {
+        magnitude = -magnitude;
+    }
+    return magnitude < 0 ? Comparison::LESS :
+           (magnitude > 0 ? Comparison::GREATER : Comparison::EQUAL);
 }
 
 // The normalized significand has precisely p bits. After scaling it
