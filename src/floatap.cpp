@@ -1550,20 +1550,62 @@ Interval exp_series(Fraction const& x, unsigned long work) {
 }
 
 Interval exp_interval(Fraction x, unsigned long work) {
+    // Reduce more aggressively when greater precision makes the
+    // exponential Taylor series expensive. Fixed-point reconstruction
+    // keeps the size of subsequent square intermediates bounded.
+    const unsigned long reduction_bits = std::min(
+        16ul, std::max(6ul, work / 32ul));
+    const Fraction reduction_limit =
+        Fraction(1L) / Fraction(static_cast<long>(1ul << reduction_bits));
+
     unsigned halvings = 0;
-    while (compare(absolute(x), Fraction(1) / Fraction(2)) > 0) {
-        if (++halvings > 2048) {
+    while (compare(absolute(x), reduction_limit) > 0) {
+        if (++halvings > 2048u) {
             throw std::overflow_error("FloatAP exp argument range");
         }
-        x = x / Fraction(2);
+        x = x / Fraction(2L);
     }
-    Interval interval = exp_series(x, work + halvings + 8);
-    for (unsigned i = 0; i < halvings; ++i) {
-        // exp(x) is positive, so endpoint multiplication is monotone.
-        interval = {interval.lower * interval.lower,
-                    interval.upper * interval.upper};
+    if (work > std::numeric_limits<unsigned long>::max() -
+                    static_cast<unsigned long>(halvings) - 64ul) {
+        throw std::overflow_error("FloatAP exponential reconstruction precision overflow");
     }
-    return interval;
+    const unsigned long reduced_work = work + halvings + 8ul;
+    Interval interval = exp_series(x, reduced_work);
+    if (halvings == 0u) {
+        return interval;
+    }
+
+    // The series endpoints are certified positive rationals. Convert them
+    // to directed B-bit fixed-point integers once, then square without
+    // letting their exact rational denominators double at each step.
+    const unsigned long fixed_bits = work + halvings + 64ul;
+    if (static_cast<std::uintmax_t>(fixed_bits) >
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+        throw std::overflow_error("FloatAP exponential reconstruction GMP shift overflow");
+    }
+    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(fixed_bits);
+    mpz_t numerator, lower, upper;
+    mpz_inits(numerator, lower, upper, nullptr);
+    struct Cleanup {
+        mpz_ptr a, b, c;
+        ~Cleanup() { mpz_clears(a, b, c, nullptr); }
+    } cleanup{numerator, lower, upper};
+
+    mpz_mul_2exp(numerator, mpq_numref(interval.lower.raw()), shift);
+    mpz_fdiv_q(lower, numerator, mpq_denref(interval.lower.raw()));
+    mpz_mul_2exp(numerator, mpq_numref(interval.upper.raw()), shift);
+    mpz_cdiv_q(upper, numerator, mpq_denref(interval.upper.raw()));
+
+    // Squaring is increasing on positive reals: floor lower, ceil upper.
+    // With B >= work + halvings + 64, accumulated rounding errors are
+    // tiny, but correctness relies only on outward bounds, not that size.
+    for (unsigned i = 0u; i < halvings; ++i) {
+        mpz_mul(lower, lower, lower);
+        mpz_fdiv_q_2exp(lower, lower, shift);
+        mpz_mul(upper, upper, upper);
+        mpz_cdiv_q_2exp(upper, upper, shift);
+    }
+    return {Fraction(lower, fixed_bits), Fraction(upper, fixed_bits)};
 }
 
 // For |z| <= 1/3, log((1+z)/(1-z)) = 2 sum z^(2n+1)/(2n+1).
