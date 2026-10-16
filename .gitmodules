@@ -4,3 +4,6 @@
 [submodule "ss/foundation"]
 	path = ss/foundation
 	url = https://github.com/ariadne-cps/foundation
+[submodule "ss/logging"]
+	path = ss/logging
+	url = https://github.com/ariadne-cps/logging
