@@ -213,6 +213,57 @@ void public_comparisons() {
     "negative infinity rational conversion");
 }
 
+void trigonometric_functions() {
+    const K zero = K::zero(16);
+    const K negative_zero = K::zero(16, true);
+    const K one = v(1);
+    const K minus_one = v(-1);
+    const K infinity = K::infinity(16);
+    const K negative_infinity = K::infinity(16, true);
+    const K nan = K::nan(16);
+
+    same(sin(R::nearest, zero), zero, "sin positive zero");
+    same(sin(R::nearest, negative_zero), negative_zero, "sin negative zero");
+    same(cos(R::nearest, zero), one, "cos zero");
+    same(tan(R::nearest, negative_zero), negative_zero, "tan negative zero");
+    same(atan(R::nearest, negative_zero), negative_zero, "atan negative zero");
+    same(asin(R::nearest, negative_zero), negative_zero, "asin negative zero");
+    same(acos(R::nearest, one), zero, "acos one");
+    check(is_nan(sin(R::nearest, infinity)), "sin infinity is NaN");
+    check(is_nan(cos(R::nearest, infinity)), "cos infinity is NaN");
+    check(is_nan(tan(R::nearest, infinity)), "tan infinity is NaN");
+    check(is_nan(asin(R::nearest, v(2))), "asin domain");
+    check(is_nan(acos(R::nearest, v(-2))), "acos domain");
+    check(is_nan(asin(R::nearest, infinity)), "asin infinity is NaN");
+    check(is_nan(acos(R::nearest, infinity)), "acos infinity is NaN");
+    check(is_nan(atan(R::nearest, nan)), "atan NaN");
+
+    const K positive_half_pi = atan(R::nearest, infinity);
+    const K negative_half_pi = atan(R::nearest, negative_infinity);
+    check(positive_half_pi.negative() == false, "atan positive infinity sign");
+    check(negative_half_pi.negative(), "atan negative infinity sign");
+
+    same(acos(R::nearest, minus_one), K::pi(R::nearest, Ariadne::ArbitraryPrecision(16_bits)),
+         "acos minus one");
+    same(asin(R::nearest, one), positive_half_pi, "asin one");
+
+    check(sin(R::downward, one) <= sin(R::upward, one),
+          "sin directed rounding");
+    check(cos(R::downward, one) <= cos(R::upward, one),
+          "cos directed rounding");
+    check(tan(R::downward, one) <= tan(R::upward, one),
+          "tan directed rounding");
+    check(atan(R::downward, one) <= atan(R::upward, one),
+          "atan directed rounding");
+    check(asin(R::downward, v(1, 2)) <= asin(R::upward, v(1, 2)),
+          "asin directed rounding");
+    check(acos(R::downward, v(1, 2)) <= acos(R::upward, v(1, 2)),
+          "acos directed rounding");
+    check(K::pi(R::downward, Ariadne::ArbitraryPrecision(16_bits)) <=
+          K::pi(R::upward, Ariadne::ArbitraryPrecision(16_bits)),
+          "pi directed rounding");
+}
+
 void elementary_functions() {
     const K two = v(2);
     const K four = v(4);
@@ -488,6 +539,7 @@ int main() {
         public_comparisons();
         public_rounding();
         elementary_functions();
+        trigonometric_functions();
         std::cout << "FloatAP edge cases OK\n";
         return 0;
     }
