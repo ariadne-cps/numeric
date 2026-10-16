@@ -101,6 +101,50 @@ void test_rounding() {
         }
     }
 }
+void test_comparison_against_exact_rationals() {
+    std::mt19937_64 engine(0xC0A4E5u);
+    for (unsigned precision : {7u, 53u, 128u, 256u, 1024u}) {
+        for (unsigned i = 0; i < 600; ++i) {
+            const long numerator_a = static_cast<long>(engine() % 200001u) - 100000L;
+            const long numerator_b = static_cast<long>(engine() % 200001u) - 100000L;
+            Q rational_a, rational_b, exact_a, exact_b;
+            mpq_set_si(rational_a.value, numerator_a, 1u);
+            mpq_set_si(rational_b.value, numerator_b, 1u);
+            mpq_canonicalize(rational_a.value);
+            mpq_canonicalize(rational_b.value);
+
+            // Different scales exercise leading-bit comparisons, discarded
+            // low bits, signed zeros, and equal values with different
+            // significand/exponent representations.
+            const unsigned shift_a = static_cast<unsigned>(engine() % 200u);
+            const unsigned shift_b = static_cast<unsigned>(engine() % 200u);
+            mpz_mul_2exp(mpq_denref(rational_a.value),
+                         mpq_denref(rational_a.value), shift_a);
+            mpz_mul_2exp(mpq_denref(rational_b.value),
+                         mpq_denref(rational_b.value), shift_b);
+            mpq_canonicalize(rational_a.value);
+            mpq_canonicalize(rational_b.value);
+            const FloatAP a = FloatAP::from_rational(rational_a.value, precision, R::nearest);
+            const FloatAP b = FloatAP::from_rational(rational_b.value, precision, R::nearest);
+            a.to_rational(exact_a.value);
+            b.to_rational(exact_b.value);
+            const int oracle = mpq_cmp(exact_a.value, exact_b.value);
+            const auto result = cmp(a, b);
+            expect((oracle < 0 && result == Ariadne::Comparison::LESS) ||
+                   (oracle == 0 && result == Ariadne::Comparison::EQUAL) ||
+                   (oracle > 0 && result == Ariadne::Comparison::GREATER),
+                   "direct comparison differs from exact rational oracle");
+        }
+    }
+    const FloatAP zero = FloatAP::zero(53);
+    const FloatAP negative_zero = FloatAP::zero(53, true);
+    expect(cmp(zero, negative_zero) == Ariadne::Comparison::EQUAL,
+           "signed zeros compare equal");
+    Q exact_one;
+    mpq_set_ui(exact_one.value, 1, 1);
+    const FloatAP one = FloatAP::from_rational(exact_one.value, 53, R::nearest);
+    expect(cmp(one, one) == Ariadne::Comparison::EQUAL, "equal operands");
+}
 void test_special() {
     using K = FloatAP;
     auto plus = K::zero(64), minus = K::zero(64, true);
@@ -129,6 +173,7 @@ int main() {
     try {
         test_special();
         test_rounding();
+        test_comparison_against_exact_rationals();
         std::cout << "FloatAP: 3000 randomized inputs x four rounding modes OK\n";
     }
     catch (std::exception const& e) {

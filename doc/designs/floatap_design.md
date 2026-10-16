@@ -671,3 +671,38 @@ unqualified `16_bits` literals were fixed by explicitly constructing
 `ArbitraryPrecision(std::size_t{16})`. Missing default handling for
 new `half_pi` and `negative_half_pi` switch cases in
 `floatap_trigonometric.cpp` was fixed as well.
+
+
+## Benchmark-driven optimization: direct binary comparison (16 October 2026)
+
+The initial benchmark at 53 bits measures `cmp` at roughly 194 ns
+for FloatAP versus 12 ns for FloatMP (about 16x), and at 256 bits
+roughly 307 ns versus 12 ns (about 26x). The previous implementation
+converted both operands to GMP rationals and compared their canonical
+numerators and denominators. This is unnecessary because FloatAP
+stores signed binary significands and exponents directly.
+
+The optimized comparison now classifies NaN/infinities/signed zeros,
+compares signs, then compares the most significant binary positions
+from the significand bit lengths and exponents. Matching positions
+are resolved by truncating the lower-exponent significand and
+examining any discarded nonzero low bits; otherwise no GMP temporary
+is required. The exponent-gap calculation uses unsigned subtraction,
+avoiding signed overflow across the full int64 range, and large
+exponent gaps never trigger enormous shifts. The result is inverted
+for negative operands. This is independent of MPFR and does not
+convert to `Rational`.
+
+An independent GMP rational oracle test compares thousands of
+randomized mixed-sign, mixed-scale, mixed-precision operands against
+the new direct comparator, including signed zeros and equality.
+
+This addresses one measurable overhead only. The remaining large
+slowdowns in `exp`, `log`, `atan`, `asin` and `acos` come
+primarily from full-precision `mpq_t` operations within each Taylor
+series iteration. The next optimization stage should use bounded
+fixed-point `mpz_t` arithmetic with certified interval error,
+binary-splitting / faster convergence, and caching reusable constants
+such as pi (without sacrificing rounding correctness).
+No post-change benchmark improvement or full coverage is claimed
+until verified by a fresh build and run.
