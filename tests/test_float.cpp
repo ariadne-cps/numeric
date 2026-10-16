@@ -325,6 +325,13 @@ TestFloat<PR>::test_conversions()
             ARIADNE_TEST_ASSERT(not possibly(eq(singleton,other_singleton)));
             ARIADNE_TEST_ASSERT(not definitely(eq(positive,crossing)));
             ARIADNE_TEST_ASSERT(possibly(eq(positive,crossing)));
+            // Touching intervals are consistent but not identical singletons.
+            // This exercises the false outcome of the second conjunct in
+            // Bounds<F>::eq for the FloatAP instantiation.
+            const B touching_left(1,2,pr);
+            const B touching_right(0,1,pr);
+            ARIADNE_TEST_ASSERT(possibly(eq(touching_left,touching_right)));
+            ARIADNE_TEST_ASSERT(not definitely(eq(touching_left,touching_right)));
             ARIADNE_TEST_ASSERT(not possibly(eq(negative,positive)));
             ARIADNE_TEST_ASSERT(not same(positive,negative));
             ARIADNE_TEST_ASSERT(not same(positive,B(1,3,pr)));
