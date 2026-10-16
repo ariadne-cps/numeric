@@ -39,6 +39,7 @@
 #include <limits>
 #include <stdexcept>
 #include <utility>
+#include <type_traits>
 
 namespace Ariadne {
 
@@ -47,6 +48,12 @@ class Rational;
 class Dyadic;
 class ExactDouble;
 class TwoExp;
+class RoundDownward;
+class RoundUpward;
+class RoundToNearest;
+class RoundTowardZero;
+class RoundApproximately;
+struct CurrentRoundingMode;
 
 
 // A size_t bit count is not necessarily representable by the signed
@@ -99,8 +106,23 @@ using FloatAP = Float<ArbitraryPrecision>;
 // with precisely precision significant bits. GMP is temporary limb storage.
 template<> class Float<ArbitraryPrecision> {
   public:
-    enum class Rounding {
-        ToNearest, Downward, Upward, TowardZero
+    // A value type rather than an enum: Ariadne's rounding tags convert
+    // directly to it, without making the GMP kernel depend on MPFR.
+    class Rounding {
+      public:
+        enum Value { ToNearest, Downward, Upward, TowardZero };
+      private:
+        Value _value;
+      public:
+        constexpr Rounding(Value value) noexcept : _value(value) { }
+        Rounding(RoundToNearest const&) noexcept;
+        Rounding(RoundDownward const&) noexcept;
+        Rounding(RoundUpward const&) noexcept;
+        Rounding(RoundTowardZero const&) noexcept;
+        Rounding(RoundApproximately const&) noexcept;
+        Rounding(CurrentRoundingMode const&) noexcept;
+        constexpr operator Value() const noexcept { return _value; }
+        friend constexpr bool operator==(Rounding const&, Rounding const&) = default;
     };
     using Paradigm = ExactTag;
     using NumericType = FloatAP;
@@ -172,6 +194,10 @@ template<> class Float<ArbitraryPrecision> {
     Float(ExactDouble const& n, PrecisionType precision);
     Float(Dyadic const& n, PrecisionType precision);
     Float(TwoExp const& n, PrecisionType precision);
+    Float(FloatDP const& n, PrecisionType precision);
+    Float(FloatAP const& n, PrecisionType precision);
+    Float(FloatAP const& n, RoundingModeType mode, PrecisionType precision);
+    Float(FloatDP const& n, RoundingModeType mode, PrecisionType precision);
     Float(ExactDouble const& n, RoundingModeType mode, PrecisionType precision);
     Float(Dyadic const& n, RoundingModeType mode, PrecisionType precision);
     Float(Integer const& n, PrecisionType precision)
@@ -183,6 +209,7 @@ template<> class Float<ArbitraryPrecision> {
     : Float(n, ROUND_TO_NEAREST, precision) {
     }
     explicit operator Rational() const;
+    explicit operator Dyadic() const;
     double get_d() const;
     ~Float() {
         mpz_clear(_significand);
@@ -198,7 +225,19 @@ template<> class Float<ArbitraryPrecision> {
     }
     FloatAP& operator=(FloatAP x) noexcept {
         swap(x);
-        return* this;
+        return *this;
+    }
+    FloatAP& operator=(Integer const& n);
+    FloatAP& operator=(Dyadic const& n);
+    FloatAP& operator=(TwoExp const& n);
+    FloatAP& operator=(ExactDouble const& n);
+    FloatAP& assign_unsigned(std::uint64_t n);
+    template<BuiltinIntegral N> FloatAP& operator=(N n) {
+        if constexpr (std::is_signed_v<N>) {
+            return *this = FloatAP(static_cast<std::int64_t>(n), precision());
+        } else {
+            return assign_unsigned(static_cast<std::uint64_t>(n));
+        }
     }
     void swap(FloatAP& x) noexcept {
         mpz_swap(_significand, x._significand);
@@ -282,6 +321,49 @@ template<> class Float<ArbitraryPrecision> {
         return x.is_zero();
     }
     friend Comparison cmp(FloatAP const& a, FloatAP const& b);
+    friend Comparison cmp(FloatAP const& a, Rational const& b);
+    friend Comparison cmp(Rational const& a, FloatAP const& b);
+    friend Integer cast_integer(FloatAP const& value);
+    friend bool operator==(FloatAP const& a, Rational const& b) {
+        return cmp(a, b) == Comparison::EQUAL;
+    }
+    friend bool operator!=(FloatAP const& a, Rational const& b) {
+        return cmp(a, b) != Comparison::EQUAL;
+    }
+    friend bool operator<(FloatAP const& a, Rational const& b) {
+        return cmp(a, b) == Comparison::LESS;
+    }
+    friend bool operator>(FloatAP const& a, Rational const& b) {
+        return cmp(a, b) == Comparison::GREATER;
+    }
+    friend bool operator<=(FloatAP const& a, Rational const& b) {
+        const Comparison c = cmp(a, b);
+        return c == Comparison::LESS || c == Comparison::EQUAL;
+    }
+    friend bool operator>=(FloatAP const& a, Rational const& b) {
+        const Comparison c = cmp(a, b);
+        return c == Comparison::GREATER || c == Comparison::EQUAL;
+    }
+    friend bool operator==(Rational const& a, FloatAP const& b) {
+        return cmp(a, b) == Comparison::EQUAL;
+    }
+    friend bool operator!=(Rational const& a, FloatAP const& b) {
+        return cmp(a, b) != Comparison::EQUAL;
+    }
+    friend bool operator<(Rational const& a, FloatAP const& b) {
+        return cmp(a, b) == Comparison::LESS;
+    }
+    friend bool operator>(Rational const& a, FloatAP const& b) {
+        return cmp(a, b) == Comparison::GREATER;
+    }
+    friend bool operator<=(Rational const& a, FloatAP const& b) {
+        const Comparison c = cmp(a, b);
+        return c == Comparison::LESS || c == Comparison::EQUAL;
+    }
+    friend bool operator>=(Rational const& a, FloatAP const& b) {
+        const Comparison c = cmp(a, b);
+        return c == Comparison::GREATER || c == Comparison::EQUAL;
+    }
     friend OutputStream& operator<<(OutputStream& os, FloatAP const& x);
     friend FloatAP operator+(FloatAP const& x) { return x; }
     friend FloatAP operator-(FloatAP const& x) { return negate(x); }

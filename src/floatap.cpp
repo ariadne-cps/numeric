@@ -31,6 +31,8 @@
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
 #include "numeric/double.hpp"
+#include "numeric/floatdp.hpp"
+#include "numeric/rounding.hpp"
 #include <ostream>
 namespace Ariadne {
 FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
@@ -273,6 +275,105 @@ void FloatAP::set_rounding_mode(RoundingModeType mode) {
         default:
             throw std::invalid_argument("FloatAP unknown rounding mode");
     }
+}
+
+FloatAP::Rounding::Rounding(RoundToNearest const&) noexcept : _value(ToNearest) { }
+FloatAP::Rounding::Rounding(RoundDownward const&) noexcept : _value(Downward) { }
+FloatAP::Rounding::Rounding(RoundUpward const&) noexcept : _value(Upward) { }
+FloatAP::Rounding::Rounding(RoundTowardZero const&) noexcept : _value(TowardZero) { }
+FloatAP::Rounding::Rounding(RoundApproximately const&) noexcept : _value(ToNearest) { }
+FloatAP::Rounding::Rounding(CurrentRoundingMode const&) noexcept
+    : _value(static_cast<Value>(FloatAP::get_rounding_mode())) { }
+
+FloatAP::Float(FloatDP const& value, PrecisionType precision)
+    : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
+
+FloatAP::Float(FloatDP const& value, RoundingModeType mode, PrecisionType precision)
+    : Float(Rational(value), mode, precision) { }
+
+FloatAP::Float(FloatAP const& value, PrecisionType precision)
+    : Float(value, ROUND_TO_NEAREST, precision) { }
+
+FloatAP::Float(FloatAP const& value, RoundingModeType mode, PrecisionType precision)
+    : Float(static_cast<Rational>(value), mode, precision) {
+    if (value.is_nan()) {
+        *this = nan(precision);
+    } else if (value.is_inf()) {
+        *this = infinity(static_cast<unsigned long>(precision.bits()), value.negative());
+    } else if (value.is_zero()) {
+        *this = zero(static_cast<unsigned long>(precision.bits()), value.negative());
+    }
+}
+
+FloatAP& FloatAP::operator=(Integer const& n) {
+    return *this = FloatAP(n, get_rounding_mode(), precision());
+}
+
+FloatAP& FloatAP::operator=(Dyadic const& n) {
+    return *this = FloatAP(n, get_rounding_mode(), precision());
+}
+
+FloatAP& FloatAP::operator=(TwoExp const& n) {
+    return *this = FloatAP(n, precision());
+}
+
+FloatAP& FloatAP::operator=(ExactDouble const& n) {
+    return *this = FloatAP(n, get_rounding_mode(), precision());
+}
+
+FloatAP& FloatAP::assign_unsigned(std::uint64_t n) {
+    return *this = FloatAP(Integer(n), get_rounding_mode(), precision());
+}
+
+FloatAP::operator Dyadic() const {
+    if (is_nan()) {
+        return Dyadic::nan();
+    }
+    if (is_inf()) {
+        return Dyadic::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
+    }
+    mpf_t exact;
+    mpf_init2(exact, static_cast<mp_bitcnt_t>(_precision));
+    struct Cleanup {
+        mpf_ptr value;
+        ~Cleanup() { mpf_clear(value); }
+    } cleanup{exact};
+    mpf_set_z(exact, _significand);
+    if (_exponent >= 0) {
+        mpf_mul_2exp(exact, exact, shift_amount(_exponent));
+    } else {
+        mpf_div_2exp(exact, exact, shift_amount(checked_sub(0, _exponent)));
+    }
+    if (_negative) {
+        mpf_neg(exact, exact);
+    }
+    return Dyadic(exact);
+}
+
+Integer cast_integer(FloatAP const& value) {
+    if (!value.is_finite()) {
+        throw std::domain_error("FloatAP cannot cast a nonfinite value to Integer");
+    }
+    const Rational exact = static_cast<Rational>(value);
+    mpq_srcptr q = exact.get_mpq();
+    if (mpz_cmp_ui(mpq_denref(q), 1u) != 0) {
+        throw std::domain_error("FloatAP is not an integer");
+    }
+    return Integer(mpq_numref(q));
+}
+
+Comparison cmp(FloatAP const& a, Rational const& b) {
+    if (a.is_nan() || is_nan(b)) {
+        return Comparison::INCOMPARABLE;
+    }
+    return cmp(static_cast<Rational>(a), b);
+}
+
+Comparison cmp(Rational const& a, FloatAP const& b) {
+    if (b.is_nan() || is_nan(a)) {
+        return Comparison::INCOMPARABLE;
+    }
+    return cmp(a, static_cast<Rational>(b));
 }
 
 FloatAP::Float(ExactDouble const& value, PrecisionType precision)
