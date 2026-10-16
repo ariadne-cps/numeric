@@ -487,3 +487,32 @@ measurements cannot yet be described as the complete set requested.
 
 Coverage must be re-established for the newly added functions; the
 previous 100% result covered the earlier implementation only.
+
+
+## Coverage 83 and exact square-root algorithm (16 October 2026)
+
+The uploaded `Archivio 83(1).zip` shows `floatap.hpp` at 100%
+functions (47/47), lines (113/113) and branches (40/40). For
+`src/floatap.cpp`, functions are 35/35 (100%), lines 402/406
+(99.01%), and branches 220/228 (96.49%). The uncovered cases arise
+principally from the first iterative implementation of `sqrt` and
+additional special-value combinations in `pow`.
+
+The iterative rational enclosure square root was replaced with direct
+`mpz_sqrtrem` on a suitably shifted positive normalized significand.
+Its remainder gives exact information about whether the root is integral;
+nearest-even is decided by comparing `4*N` with `(2*q+1)^2`. The
+midpoint equality cannot occur for integral `N`, since the right side
+is odd. Upward increments for nonzero remainder, while downward and
+toward-zero truncate; any significand carry is normalized. Exponent
+halving uses mathematical floor and checked integer arithmetic. Signed
+zero, infinity, NaN and negative input cases remain explicit.
+
+An independent standalone C++ GMP property harness executed 237,000
+normalization and directed-enclosure cases across 2..80-bit precision.
+It is not a substitute for the complete Ariadne build or full MPFR
+differential regression. The previous arbitrary 2048-bit iteration
+limit, convergence failure and excessive precision guard are no
+longer part of the algorithm. Edge tests now include multiple rounding
+modes and signed special-value cases. The full coverage result must
+be regenerated for this updated version.

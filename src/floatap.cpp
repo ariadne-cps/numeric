@@ -314,76 +314,82 @@ Comparison cmp(FloatAP const& a, FloatAP const& b) {
     return order < 0 ? Comparison::LESS :(order > 0 ? Comparison::GREATER : Comparison::EQUAL);
 }
 
-namespace {
-
-// Choose an integer enclosure for sqrt(value) at a binary scale. The
-// enclosure is certified by integer floor division and integer sqrt.
-FloatAP rounded_square_root(FloatAP::RoundingModeType mode,
-                             FloatAP const& value) {
+// The normalized significand has precisely p bits. After scaling it
+// by p-1 or p binary positions, its integer square root also has p
+// bits. The integer remainder determines the exact rounding direction.
+// This avoids adaptive approximations and any artificial iteration cap.
+FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
     const unsigned long bits = static_cast<unsigned long>(value.precision().bits());
-    if (value.is_nan() || value.negative() && !value.is_zero()) {
+    if (value.is_nan() || (value.negative() && !value.is_zero())) {
         return FloatAP::nan(bits);
     }
     if (value.is_inf() || value.is_zero()) {
         return value;
     }
 
-    mpq_t rational;
-    mpq_init(rational);
-    struct RationalCleanup {
-        mpq_ptr value;
-        ~RationalCleanup() { mpq_clear(value); }
-    } cleanup{rational};
-    value.to_rational(rational);
+    const unsigned long offset = bits - 1;
+    const bool odd_exponent = value._exponent % 2 != 0;
+    const bool odd_magnitude = (offset % 2 != 0) != odd_exponent;
+    const unsigned long shift = offset + (odd_magnitude ? 1ul : 0ul);
 
-    // Increase the certified enclosure until its endpoints round equally.
-    // The cap is a resource guard, never a guessed fallback result.
-    for (unsigned extra = 32; extra <= 2048; extra *= 2) {
-        if (bits > std::numeric_limits<unsigned>::max() - extra) {
-            throw std::overflow_error("FloatAP square-root precision too large");
-        }
-        const unsigned long work = bits + extra;
-        mpz_t numerator, quotient, root, square, upper;
-        mpz_inits(numerator, quotient, root, square, upper, nullptr);
-        struct IntegerCleanup {
-            mpz_ptr a, b, c, d, e;
-            ~IntegerCleanup() { mpz_clears(a, b, c, d, e, nullptr); }
-        } ints{numerator, quotient, root, square, upper};
+    // Compute floor((exponent + p - 1)/2) without overflowing int64_t
+    // and with mathematical floor rather than truncation toward zero.
+    const FloatAP::Exponent half_exponent =
+        value._exponent / 2 - ((value._exponent < 0 && odd_exponent) ? 1 : 0);
+    FloatAP::Exponent result_exponent = FloatAP::checked_add(
+        half_exponent, static_cast<FloatAP::Exponent>(offset / 2));
+    if (odd_exponent && offset % 2 != 0) {
+        result_exponent = FloatAP::checked_add(result_exponent, 1);
+    }
+    result_exponent = FloatAP::checked_sub(
+        result_exponent, static_cast<FloatAP::Exponent>(offset));
 
-        mpz_mul_2exp(numerator, mpq_numref(rational), 2 * work);
-        mpz_fdiv_q(quotient, numerator, mpq_denref(rational));
-        mpz_sqrt(root, quotient);
+    mpz_t scaled, root, remainder, threshold;
+    mpz_inits(scaled, root, remainder, threshold, nullptr);
+    struct Cleanup {
+        mpz_ptr a, b, c, d;
+        ~Cleanup() { mpz_clears(a, b, c, d, nullptr); }
+    } cleanup{scaled, root, remainder, threshold};
 
-        mpz_mul(square, root, root);
-        mpz_mul(square, square, mpq_denref(rational));
-        const bool is_exact = mpz_cmp(square, numerator) == 0;
-        mpz_set(upper, root);
-        if (!is_exact) {
-            mpz_add_ui(upper, upper, 1);
-        }
+    mpz_mul_2exp(scaled, value._significand,
+                 FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift)));
+    mpz_sqrtrem(root, remainder, scaled);
 
-        // Both rational bounds share denominator 2^work.
-        mpz_t denominator;
-        mpz_init_set_ui(denominator, 1);
-        struct DenominatorCleanup {
-            mpz_ptr p;
-            ~DenominatorCleanup() { mpz_clear(p); }
-        } denominator_cleanup{denominator};
-        mpz_mul_2exp(denominator, denominator, work);
-
-        const FloatAP low = FloatAP::from_ratio(root, denominator, 0, bits, mode);
-        const FloatAP high = FloatAP::from_ratio(upper, denominator, 0, bits, mode);
-        if (low == high) {
-            return low;
+    bool increment = false;
+    if (mpz_size(remainder) != 0) {
+        switch (mode) {
+            case FloatAP::Rounding::nearest:
+                // sqrt(scaled) > root+1/2 iff 4*scaled > (2*root+1)^2.
+                // Equality is impossible: the left side is divisible
+                // by four, while the right side is odd.
+                mpz_mul_2exp(threshold, root, 1);
+                mpz_add_ui(threshold, threshold, 1);
+                mpz_mul(threshold, threshold, threshold);
+                mpz_mul_2exp(scaled, scaled, 2);
+                increment = mpz_cmp(scaled, threshold) > 0;
+                break;
+            case FloatAP::Rounding::upward:
+                increment = true;
+                break;
+            case FloatAP::Rounding::downward:
+            case FloatAP::Rounding::toward_zero:
+                break;
+            default:
+                throw std::invalid_argument("FloatAP unknown square-root rounding mode");
         }
     }
-    throw std::runtime_error("FloatAP square-root rounding did not converge");
-}
+    if (increment) {
+        mpz_add_ui(root, root, 1);
+    }
+    if (mpz_sizeinbase(root, 2) > bits) {
+        mpz_tdiv_q_2exp(root, root, 1);
+        result_exponent = FloatAP::checked_add(result_exponent, 1);
+    }
 
-} // namespace
-
-FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
-    return rounded_square_root(mode, value);
+    FloatAP result(bits);
+    mpz_set(result._significand, root);
+    result._exponent = result_exponent;
+    return result;
 }
 
 FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& value, Nat exponent) {

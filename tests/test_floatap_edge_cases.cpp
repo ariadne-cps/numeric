@@ -240,6 +240,24 @@ void elementary_functions() {
           "infinite integer power");
     same(pow(R::nearest, negative_zero, Ariadne::Nat(3u)), negative_zero,
          "signed zero integer power");
+    same(pow(R::nearest, negative_zero, Ariadne::Nat(2u)), positive_zero,
+         "even power of negative zero");
+    same(pow(R::nearest, K::infinity(16, true), Ariadne::Nat(3u)),
+         K::infinity(16, true), "odd power of negative infinity");
+    same(pow(R::nearest, K::infinity(16, true), Ariadne::Nat(2u)),
+         infinity, "even power of negative infinity");
+    same(pow(R::nearest, positive_zero, Ariadne::Nat(5u)), positive_zero,
+         "positive zero integer power");
+    same(pow(R::nearest, infinity, Ariadne::Nat(3u)), infinity,
+         "positive infinity integer power");
+    const K downward = sqrt(R::downward, v(3));
+    const K nearest = sqrt(R::nearest, v(3));
+    const K upward = sqrt(R::upward, v(3));
+    check(downward <= nearest && nearest <= upward,
+          "sqrt mode ordering");
+    const K square = v(9);
+    same(sqrt(R::toward_zero, square), v(3), "sqrt exact toward zero");
+    same(sqrt(R::upward, square), v(3), "sqrt exact upward");
 }
 
 void public_rounding() {
