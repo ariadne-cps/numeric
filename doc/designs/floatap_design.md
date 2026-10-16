@@ -460,3 +460,30 @@ The dual configuration is not yet verified against the full Ariadne
 CMake environment by this development session; CMake must not compile
 `src/floatap.cpp` twice. After building, recheck all coverage metrics
 because every added source branch must eventually be covered.
+
+
+## Native square root and integer powers (16 October 2026)
+
+After the preceding all-green 100% test and coverage report, the next
+implementation block introduces native `sqrt(rounding_mode, FloatAP)`
+and `pow(rounding_mode, FloatAP, Nat)`:
+
+- `sqrt` constructs exact dyadic lower/upper bounds using GMP integer
+  division and `mpz_sqrt`. It increases working precision until both
+  certified endpoints round identically to the destination format.
+  It never uses MPFR or an unverified `double` result. A bounded
+  resource guard throws rather than returning an uncertain result.
+- `pow` computes the exact numerator and denominator powers with GMP
+  and rounds the resulting rational once; zero/infinity/NaN and signed
+  zero have explicit cases.
+
+These two operations are included in the dual-backend differential
+test and benchmark slice alongside elementary arithmetic. More
+advanced transcendentals (`exp`, `log`, trigonometric functions, π)
+are **not implemented or benchmark-comparable yet**. The
+`BUILD_FLOATAP_COMPARISON` option remains temporary until those
+native implementations and tests exist. Consequently benchmark
+measurements cannot yet be described as the complete set requested.
+
+Coverage must be re-established for the newly added functions; the
+previous 100% result covered the earlier implementation only.

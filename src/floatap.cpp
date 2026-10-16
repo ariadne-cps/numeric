@@ -314,6 +314,114 @@ Comparison cmp(FloatAP const& a, FloatAP const& b) {
     return order < 0 ? Comparison::LESS :(order > 0 ? Comparison::GREATER : Comparison::EQUAL);
 }
 
+namespace {
+
+// Choose an integer enclosure for sqrt(value) at a binary scale. The
+// enclosure is certified by integer floor division and integer sqrt.
+FloatAP rounded_square_root(FloatAP::RoundingModeType mode,
+                             FloatAP const& value) {
+    const unsigned long bits = static_cast<unsigned long>(value.precision().bits());
+    if (value.is_nan() || value.negative() && !value.is_zero()) {
+        return FloatAP::nan(bits);
+    }
+    if (value.is_inf() || value.is_zero()) {
+        return value;
+    }
+
+    mpq_t rational;
+    mpq_init(rational);
+    struct RationalCleanup {
+        mpq_ptr value;
+        ~RationalCleanup() { mpq_clear(value); }
+    } cleanup{rational};
+    value.to_rational(rational);
+
+    // Increase the certified enclosure until its endpoints round equally.
+    // The cap is a resource guard, never a guessed fallback result.
+    for (unsigned extra = 32; extra <= 2048; extra *= 2) {
+        if (bits > std::numeric_limits<unsigned>::max() - extra) {
+            throw std::overflow_error("FloatAP square-root precision too large");
+        }
+        const unsigned long work = bits + extra;
+        mpz_t numerator, quotient, root, square, upper;
+        mpz_inits(numerator, quotient, root, square, upper, nullptr);
+        struct IntegerCleanup {
+            mpz_ptr a, b, c, d, e;
+            ~IntegerCleanup() { mpz_clears(a, b, c, d, e, nullptr); }
+        } ints{numerator, quotient, root, square, upper};
+
+        mpz_mul_2exp(numerator, mpq_numref(rational), 2 * work);
+        mpz_fdiv_q(quotient, numerator, mpq_denref(rational));
+        mpz_sqrt(root, quotient);
+
+        mpz_mul(square, root, root);
+        mpz_mul(square, square, mpq_denref(rational));
+        const bool is_exact = mpz_cmp(square, numerator) == 0;
+        mpz_set(upper, root);
+        if (!is_exact) {
+            mpz_add_ui(upper, upper, 1);
+        }
+
+        // Both rational bounds share denominator 2^work.
+        mpz_t denominator;
+        mpz_init_set_ui(denominator, 1);
+        struct DenominatorCleanup {
+            mpz_ptr p;
+            ~DenominatorCleanup() { mpz_clear(p); }
+        } denominator_cleanup{denominator};
+        mpz_mul_2exp(denominator, denominator, work);
+
+        const FloatAP low = FloatAP::from_ratio(root, denominator, 0, bits, mode);
+        const FloatAP high = FloatAP::from_ratio(upper, denominator, 0, bits, mode);
+        if (low == high) {
+            return low;
+        }
+    }
+    throw std::runtime_error("FloatAP square-root rounding did not converge");
+}
+
+} // namespace
+
+FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
+    return rounded_square_root(mode, value);
+}
+
+FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& value, Nat exponent) {
+    const unsigned long bits = static_cast<unsigned long>(value.precision().bits());
+    const unsigned long degree = static_cast<unsigned long>(exponent);
+    if (degree == 0) {
+        return FloatAP(std::int64_t{1}, value.precision());
+    }
+    if (value.is_nan()) {
+        return FloatAP::nan(bits);
+    }
+    if (value.is_inf()) {
+        return FloatAP::infinity(bits, value.negative() && (degree % 2 != 0));
+    }
+    if (value.is_zero()) {
+        return FloatAP::zero(bits, value.negative() && (degree % 2 != 0));
+    }
+
+    mpq_t exact;
+    mpq_init(exact);
+    struct RationalCleanup {
+        mpq_ptr value;
+        ~RationalCleanup() { mpq_clear(value); }
+    } cleanup{exact};
+    value.to_rational(exact);
+
+    mpz_t numerator, denominator;
+    mpz_inits(numerator, denominator, nullptr);
+    struct IntegerCleanup {
+        mpz_ptr a, b;
+        ~IntegerCleanup() { mpz_clears(a, b, nullptr); }
+    } ints{numerator, denominator};
+
+    mpz_pow_ui(numerator, mpq_numref(exact), degree);
+    mpz_pow_ui(denominator, mpq_denref(exact), degree);
+    return FloatAP::from_ratio(numerator, denominator, 0, bits, mode);
+}
+
 }
 // namespace Ariadne
 
