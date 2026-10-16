@@ -34,8 +34,10 @@
 #include "numeric/floatdp.hpp"
 #include "numeric/rounding.hpp"
 #include "numeric/positive.hpp"
+#include "numeric/decimal.hpp"
 #include <istream>
 #include <ostream>
+#include <string>
 namespace Ariadne {
 FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
 Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
@@ -434,6 +436,60 @@ void FloatAP::set_precision(PrecisionType precision) {
 
 OutputStream& operator<<(OutputStream& os, FloatAP const& value) {
     return os << static_cast<Rational>(value);
+}
+
+InputStream& operator>>(InputStream& is, FloatAP& value) {
+    // Follow FloatMP's token boundaries, leaving punctuation for the caller.
+    std::string token;
+    int c = is.get();
+    while (c == ' ' || c == '\t' || c == '\n') {
+        c = is.get();
+    }
+    while ((c >= '0' && c <= '9') || c == '+' || c == '-' ||
+           c == '.' || c == 'e' || c == 'E') {
+        token.push_back(static_cast<char>(c));
+        c = is.get();
+    }
+    const bool at_eof = c == std::char_traits<char>::eof();
+    if (!at_eof) {
+        is.putback(static_cast<char>(c));
+    }
+
+    try {
+        const std::size_t exponent_start = token.find_first_of("eE");
+        const String mantissa = token.substr(0, exponent_start);
+        bool has_digit = false;
+        for (char digit : mantissa) {
+            if (digit >= '0' && digit <= '9') {
+                has_digit = true;
+                break;
+            }
+        }
+        if (!has_digit) {
+            throw std::invalid_argument("FloatAP invalid decimal literal");
+        }
+        Rational exact = static_cast<Rational>(Decimal(mantissa));
+        if (exponent_start != std::string::npos) {
+            const std::string suffix = token.substr(exponent_start + 1);
+            std::size_t parsed = 0;
+            const int exponent = std::stoi(suffix, &parsed);
+            if (parsed != suffix.size()) {
+                throw std::invalid_argument("FloatAP invalid decimal exponent");
+            }
+            exact *= pow(Rational(10), static_cast<Int>(exponent));
+        }
+        // Input is rounded once from its exact decimal value, independently
+        // of the mutable arithmetic rounding mode.
+        FloatAP parsed(exact, FloatAP::ROUND_TO_NEAREST, value.precision());
+        value = std::move(parsed);
+    } catch (const std::exception&) {
+        is.setstate(std::ios::failbit);
+        return is;
+    }
+    if (at_eof) {
+        is.clear(is.rdstate() & ~std::ios::failbit);
+    }
+    return is;
 }
 
 Positive<FloatAP> abs(FloatAP const& x) {
