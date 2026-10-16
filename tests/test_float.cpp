@@ -295,6 +295,12 @@ TestFloat<PR>::test_conversions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Exercise the generic Bounds<FloatAP> formatter, which differs
+            // from the specialized DP/MP stream representation.
+            std::ostringstream ap_zero_stream;
+            ap_zero_stream << Bounds<FloatAP>(0,pr);
+            ARIADNE_TEST_EQUALS(ap_zero_stream.str(),String("{0.:0.}"));
+
             // Verify sign-sensitive interval arithmetic in the FloatAP
             // specialization, including all endpoint sign combinations.
             using B=Bounds<FloatAP>;
