@@ -471,7 +471,9 @@ TestFloatRounding<PR>::test_precision_regressions()
                      {Dyadic(1,2u),Dyadic(-1,2u),Dyadic(3,2u),
                       Dyadic(-3,2u),Dyadic(5,1u),Dyadic(-5,1u),
                       Dyadic(7,1u),Dyadic(-7,1u),Dyadic(2,1u),Dyadic(-2,1u),
-                      Dyadic(7,3u),Dyadic(-7,3u)}) {
+                      Dyadic(7,3u),Dyadic(-7,3u),
+                      Dyadic(1023,10u),Dyadic(-1023,10u),
+                      Dyadic(1,64u),Dyadic(-1,64u)}) {
                     const FloatAP a(argument,ap);
                     const FloatMP m(argument,mp);
                     const auto compare_trigonometric=[&](auto ap_mode,auto mp_mode) {

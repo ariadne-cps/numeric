@@ -1853,8 +1853,12 @@ enum class TrigOutputs { sine, cosine, both };
 std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
                                                unsigned long work,
                                                TrigOutputs outputs) {
+    // When both outputs are needed, compute only the sine series and
+    // derive positive cosine by sqrt(1 - sin^2) at fixed-point scale.
+    // This is valid for the reduced argument |x| <= 1.
+    const bool derive_cosine = outputs == TrigOutputs::both;
     const bool compute_sine = outputs != TrigOutputs::cosine;
-    const bool compute_cosine = outputs != TrigOutputs::sine;
+    const bool compute_cosine = outputs == TrigOutputs::cosine;
     if (x.sign() == 0) {
         return {point(Fraction{}), point(Fraction(1L))};
     }
@@ -1983,11 +1987,47 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
                 }
             }
 
+            if (derive_cosine) {
+                // On 0 < |x| <= 1, 0 <= sin(|x|) < 1 and cos(|x|)>0.
+                // Clamp the outward sine interval to this exact range.
+                // For an integer scale Q=2^B:
+                // floor(sqrt(Q^2 - S_hi^2)) <= Q*cos(|x|)
+                //                       <= ceil(sqrt(Q^2 - S_lo^2)).
+                // GMP's integer sqrt and sqrtrem provide the endpoints
+                // without computing any transcendental approximations.
+                mpz_set_ui(scaled, 1ul);
+                mpz_mul_2exp(scaled, scaled, shift);
+                mpz_set(sine_term_lo, sine_sum_lo);
+                mpz_set(sine_term_hi, sine_sum_hi);
+                if (mpz_sgn(sine_term_lo) < 0) {
+                    mpz_set_ui(sine_term_lo, 0ul);
+                }
+                if (mpz_cmp(sine_term_hi, scaled) > 0) {
+                    mpz_set(sine_term_hi, scaled);
+                }
+                if (mpz_cmp(sine_term_lo, sine_term_hi) > 0) {
+                    throw std::logic_error("FloatAP invalid certified sine bounds");
+                }
+
+                mpz_mul(cosine_term_lo, scaled, scaled);
+                mpz_mul(cosine_term_hi, sine_term_hi, sine_term_hi);
+                mpz_sub(cosine_term_lo, cosine_term_lo, cosine_term_hi);
+                mpz_sqrt(cosine_sum_lo, cosine_term_lo);
+
+                mpz_mul(cosine_term_lo, scaled, scaled);
+                mpz_mul(cosine_term_hi, sine_term_lo, sine_term_lo);
+                mpz_sub(cosine_term_lo, cosine_term_lo, cosine_term_hi);
+                mpz_sqrtrem(cosine_sum_hi, cosine_term_hi, cosine_term_lo);
+                if (mpz_sgn(cosine_term_hi) != 0) {
+                    mpz_add_ui(cosine_sum_hi, cosine_sum_hi, 1ul);
+                }
+            }
+
             Interval sine = compute_sine
                 ? Interval{Fraction(sine_sum_lo, fixed_bits),
                            Fraction(sine_sum_hi, fixed_bits)}
                 : point(Fraction{});
-            Interval cosine = compute_cosine
+            Interval cosine = compute_cosine || derive_cosine
                 ? Interval{Fraction(cosine_sum_lo, fixed_bits),
                            Fraction(cosine_sum_hi, fixed_bits)}
                 : point(Fraction{});

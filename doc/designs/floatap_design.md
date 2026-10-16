@@ -1761,3 +1761,77 @@ reduction and endpoint conversion. FLINT/Arb implements
 aggressive argument reduction:
 https://flintlib.org/doc/arb.html .
 
+## Trigonometric performance: derive cosine from a certified sine interval (16 October 2026)
+
+**Benchmark motivation:** the latest same-run 1024-bit median for
+`tan_nearest` is 49.82 us versus 6.68 us for MPFR (7.46x).
+Although the preceding selective-Taylor change roughly halved
+the time of separate `sin` and `cos`, tangent still requested
+**both** complete fixed-point Taylor recurrences.
+
+**State of the art:** FLINT/Arb's `sin_cos.c` deliberately computes
+only sine and derives cosine by an integer square root when the
+Taylor term count is sufficiently large; see the code path described
+as "Compute cos(a) from sin(a) using a square root" in
+https://fossies.org/linux/flint/src/arb/sin_cos.c and the
+`_arb_sin_cos_taylor_rs` `sinonly` option documented at
+https://flintlib.org/doc/arb.html . The technique is especially
+attractive for rigorous fixed-point arithmetic.
+
+**Decision:** for the **private** `TrigOutputs::both` mode,
+evaluate only the certified sine recurrence; obtain a certified
+cosine enclosure using `cos(a)=sqrt(1-sin(a)^2)`.
+This is valid for the already reduced argument `|a|<=1`,
+where sine is nonnegative and cosine is strictly positive.
+Individual sine-only and cosine-only calls keep their current
+selective Taylor implementations. All reduction/double-angle
+and tangent callers retain their original interfaces and
+continue requesting both results where needed.
+
+**Exactly directed integer-square-root enclosure:** let the
+fixed-point scale be `Q=2^B`, and let the original outward
+sine enclosure be `[Slo/Q, Shi/Q]` for `sin(|a|)`.
+Intersect the bounds with the proven `[0,1]` range,
+giving integer endpoints `0<=L<=U<=Q`. Since
+`sqrt(1-s^2)` decreases on `[0,1]`, the exact cosine
+obeys
+
+```text
+floor(sqrt(Q^2 - U^2))/Q <= cos(a) <=
+ceil(sqrt(Q^2 - L^2))/Q.
+```
+
+Compute both radicands **exactly in GMP integers**.
+Use `mpz_sqrt` for the lower root and `mpz_sqrtrem`
+for the upper root, incrementing the upper result only
+when the integer remainder is nonzero. Thus the new
+interval uses only exact integer operations, introduces
+no additional unquantified error, and cannot silently
+truncate cosine. Negative arguments negate only sine;
+cosine remains even. The existing correctly-rounded
+`certified` refinement is unchanged in every rounding
+mode. The same procedure also applies before existing
+double-angle reconstruction for larger arguments.
+
+**Independent verification:** 7,344 cosine enclosures were
+checked at eight fixed-point precisions (7, 24, 53, 113,
+128, 256, 512, 1024 bits) against high-precision
+`mpmath.cos` values, including input zero, one, 7/8,
+1023/1024, tiny arguments, 300 random arguments in
+`[0,1]` per precision and three choices of endpoint
+slack. All intervals contained the reference value.
+This validates the cosine-reconstruction inequality,
+not the full C++ numerical kernel. The shared Ariadne
+differential tests now include positive and negative
+inputs near 1, very small arguments, arguments requiring
+double-angle reconstruction, all four rounding modes,
+and 53, 128, 256, 1024-bit target precisions.
+
+**Acceptance:** rerun the complete C++ and MPFR differential
+suites and measure the benchmark on the same hardware.
+The expected improvement concerns `tan` and trigonometric
+calculations requiring both outputs. The separate
+`cos_nearest` kernel is not changed by this optimization,
+and no improvement is claimed until measured. The
+mathematical guarantee does not depend on performance.
+
