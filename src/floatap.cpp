@@ -510,6 +510,12 @@ FloatAP operator*(FloatAP const& x, TwoExp const& t) {
 FloatAP operator/(FloatAP const& x, TwoExp const& t) {
     return shft(x, -t.exponent());
 }
+FloatAP mul(FloatAP const& x, TwoExp const& t) {
+    return shft(x, t.exponent());
+}
+FloatAP div(FloatAP const& x, TwoExp const& t) {
+    return shft(x, -t.exponent());
+}
 FloatAP& operator*=(FloatAP& x, TwoExp const& t) {
     return x = x * t;
 }

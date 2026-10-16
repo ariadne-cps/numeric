@@ -316,6 +316,13 @@ template<> class Float<ArbitraryPrecision> {
     static FloatAP inf(PrecisionType p) {
         return infinity(static_cast<unsigned long>(p.bits()));
     }
+    // Unit in the last place at 1, with the selected significand width.
+    static FloatAP eps(PrecisionType p) {
+        FloatAP value(std::int64_t{1}, p);
+        value._exponent = checked_sub(value._exponent,
+                                      static_cast<Exponent>(p.bits() - 1));
+        return value;
+    }
     static FloatAP nan(PrecisionType p) {
         return nan(static_cast<unsigned long>(p.bits()));
     }
@@ -398,6 +405,8 @@ template<> class Float<ArbitraryPrecision> {
     friend FloatAP operator*(TwoExp const& t, FloatAP const& x);
     friend FloatAP operator*(FloatAP const& x, TwoExp const& t);
     friend FloatAP operator/(FloatAP const& x, TwoExp const& t);
+    friend FloatAP mul(FloatAP const& x, TwoExp const& t);
+    friend FloatAP div(FloatAP const& x, TwoExp const& t);
     friend FloatAP& operator*=(FloatAP& x, TwoExp const& t);
     friend FloatAP& operator/=(FloatAP& x, TwoExp const& t);
     friend Bounds<FloatAP> operator+(FloatAP const& a, FloatAP const& b);
