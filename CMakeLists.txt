@@ -6,10 +6,6 @@ option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 option(BUILD_NUMERIC_MIGRATION_BENCHMARKS "Build reproducible MPFR/FloatAP benchmarks" OFF)
 option(BUILD_FLOATAP_COMPARISON "Build FloatAP alongside MPFR for comparative tests" OFF)
-if(BUILD_FLOATAP_COMPARISON AND NOT EXISTS "${PROJECT_SOURCE_DIR}/src/floatap.cpp")
-    message(FATAL_ERROR "FloatAP comparison requested, but src/floatap.cpp has not been implemented yet")
-endif()
-
 if(NOT TARGET ariadne-configuration)
     find_package(Git REQUIRED)
     execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -54,9 +50,8 @@ if(WIN32)
 endif()
 
 add_subdirectory(src)
-if(BUILD_FLOATAP_COMPARISON)
-    target_sources(NUMERIC_SRC PRIVATE src/floatap.cpp)
-endif()
+# src/CMakeLists.txt already compiles floatap.cpp in NUMERIC_SRC.
+# BUILD_FLOATAP_COMPARISON controls only the dual-backend test and benchmark.
 target_link_libraries(NUMERIC_SRC PRIVATE numeric)
 
 if(MSVC)

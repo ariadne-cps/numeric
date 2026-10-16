@@ -169,6 +169,8 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
         return fma(Float::ROUND_TO_NEAREST, a[index(i)], b[index(i)], a[index(i)]);
     }
     );
+    // Functions not implemented by FloatAP stay in the MPFR-only baseline.
+#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
     report("sqrt_nearest",[& ](unsigned i) {
         return sqrt(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
@@ -201,6 +203,7 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
         return pow(Float::ROUND_TO_NEAREST, a[index(i)], Nat(7u));
     }
     );
+#endif
     report("to_double",[& ](unsigned i) {
         return a[index(i)].get_d();
     }

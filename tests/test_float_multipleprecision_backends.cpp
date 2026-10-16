@@ -67,6 +67,7 @@ Rational const& lhs, Rational const& rhs) {
     verify(backend, bits, "mul", mul(mode, x, y), mul(reference_mode, reference_x, reference_y));
     verify(backend, bits, "div", div(mode, x, y), div(reference_mode, reference_x, reference_y));
     verify(backend, bits, "fma", fma(mode, x, y, x), fma(reference_mode, reference_x, reference_y, reference_x));
+#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
     verify(backend, bits, "sqrt", sqrt(mode, x), sqrt(reference_mode, reference_x));
     verify(backend, bits, "exp", exp(mode, x), exp(reference_mode, reference_x));
     verify(backend, bits, "log", log(mode, x), log(reference_mode, reference_x));
@@ -78,6 +79,7 @@ Rational const& lhs, Rational const& rhs) {
     verify(backend, bits, "atan", atan(mode, x), atan(reference_mode, reference_x));
     verify(backend, bits, "pow_7", pow(mode, x, Nat(7u)), pow(reference_mode, reference_x, Nat(7u)));
     verify(backend, bits, "pi", F::pi(mode, precision), FloatMP::pi(reference_mode, oracle_precision));
+#endif
 }
 
 template< class F >
@@ -112,7 +114,7 @@ int main() {
     try {
         run_backend < FloatMP >("mpfr");
 #ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
-        run_backend < FloatAP >("native");
+        run_backend < FloatAP >("floatap");
 #endif
         std::cout << "float multiprecision backend conformance OK\n";
         return 0;
