@@ -557,6 +557,10 @@ template<> class Float<ArbitraryPrecision> {
     FloatAP const& c, unsigned long precision, Rounding mode);
 };
 
+template<class R, class A> R integer_cast(A const& value);
+template<> inline Int integer_cast(const FloatAP& x) { return static_cast<Int>(x.get_d()); }
+template<> inline Nat integer_cast(const FloatAP& x) { return static_cast<Nat>(x.get_d()); }
+
 inline constexpr FloatAP::RoundingModeType FloatAP::ROUND_TO_NEAREST =
     FloatAP::Rounding::ToNearest;
 inline constexpr FloatAP::RoundingModeType FloatAP::ROUND_DOWNWARD =

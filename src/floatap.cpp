@@ -588,6 +588,66 @@ FloatAP next(RoundDownward, FloatAP const& x) {
     return r;
 }
 
+// Integral rounding uses the exact GMP significand and binary exponent.
+// It does not convert an extreme exponent into an enormous Rational.
+FloatAP floor(FloatAP const& x) {
+    if (!x.is_finite() || x.is_zero() || x._exponent >= 0) return x;
+    const std::uint64_t shift = std::uint64_t{0} -
+        static_cast<std::uint64_t>(x._exponent);
+    if (shift >= mpz_sizeinbase(x._significand, 2)) {
+        return FloatAP(x._negative ? std::int64_t{-1} : std::int64_t{0}, x.precision());
+    }
+    mpz_t integer;
+    mpz_init(integer);
+    struct Cleanup { mpz_ptr p; ~Cleanup() { mpz_clear(p); } } cleanup{integer};
+    const auto k = FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift));
+    if (x._negative) {
+        mpz_cdiv_q_2exp(integer, x._significand, k);
+        mpz_neg(integer, integer);
+    } else {
+        mpz_fdiv_q_2exp(integer, x._significand, k);
+    }
+    return FloatAP::from_integer(integer, x._precision, FloatAP::ROUND_TO_NEAREST);
+}
+FloatAP ceil(FloatAP const& x) {
+    if (!x.is_finite() || x.is_zero() || x._exponent >= 0) return x;
+    const std::uint64_t shift = std::uint64_t{0} -
+        static_cast<std::uint64_t>(x._exponent);
+    if (shift >= mpz_sizeinbase(x._significand, 2)) {
+        return FloatAP(x._negative ? std::int64_t{0} : std::int64_t{1}, x.precision());
+    }
+    mpz_t integer;
+    mpz_init(integer);
+    struct Cleanup { mpz_ptr p; ~Cleanup() { mpz_clear(p); } } cleanup{integer};
+    const auto k = FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift));
+    if (x._negative) {
+        mpz_fdiv_q_2exp(integer, x._significand, k);
+        mpz_neg(integer, integer);
+    } else {
+        mpz_cdiv_q_2exp(integer, x._significand, k);
+    }
+    return FloatAP::from_integer(integer, x._precision, FloatAP::ROUND_TO_NEAREST);
+}
+FloatAP round(FloatAP const& x) {
+    if (!x.is_finite() || x.is_zero() || x._exponent >= 0) return x;
+    const std::uint64_t shift = std::uint64_t{0} -
+        static_cast<std::uint64_t>(x._exponent);
+    const std::size_t bits = mpz_sizeinbase(x._significand, 2);
+    if (shift > bits) return FloatAP::zero(x._precision, x._negative);
+    mpz_t integer;
+    mpz_init(integer);
+    struct Cleanup { mpz_ptr p; ~Cleanup() { mpz_clear(p); } } cleanup{integer};
+    const auto k = FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift));
+    mpz_tdiv_q_2exp(integer, x._significand, k);
+    // mpfr_round uses nearest integer with halfway cases away from zero.
+    if (mpz_tstbit(x._significand, k-1) != 0) {
+        mpz_add_ui(integer, integer, 1);
+    }
+    if (x._negative) mpz_neg(integer, integer);
+    if (mpz_sgn(integer) == 0) return FloatAP::zero(x._precision, x._negative);
+    return FloatAP::from_integer(integer, x._precision, FloatAP::ROUND_TO_NEAREST);
+}
+
 FloatAP abs(FloatAP::RoundingModeType, FloatAP const& x) {
     return x.negative() ? neg(x) : x;
 }
