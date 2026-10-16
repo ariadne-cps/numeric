@@ -24,6 +24,7 @@
 
 #include "float_ball.hpp"
 #include "float_ball.tpl.hpp"
+#include "floatap.hpp"
 
 namespace Ariadne {
 
@@ -45,6 +46,13 @@ template Ball<FloatMP,FloatDP> Operations<Ball<FloatMP,FloatDP>>::_trunc(Ball<Fl
 template Ball<FloatMP,FloatDP> Operations<Ball<FloatMP,FloatDP>>::_trunc(Ball<FloatMP,FloatDP> const&, Nat);
 template Integer Operations<Ball<FloatMP,FloatDP>>::_cast_integer(Ball<FloatMP,FloatDP> const&);
 template InputStream& Operations<Ball<FloatMP,FloatDP>>::_read(InputStream&, Ball<FloatMP,FloatDP>&);
+// Explicit instantiations for the FloatAP centre with double-precision error.
+template Ball<FloatAP,FloatDP>::Ball(Bounds<FloatAP> const&, DoublePrecision);
+template Ball<FloatAP,FloatDP>::Ball(Dyadic const&, ArbitraryPrecision, DoublePrecision);
+template FloatAP const Ball<FloatAP,FloatDP>::value() const;
+template OutputStream& Operations<Ball<FloatAP,FloatDP>>::_write(
+    OutputStream&, Ball<FloatAP,FloatDP> const&);
+
 template class Ball<FloatMP,FloatMP>;
 template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&);
 template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&, Nat);

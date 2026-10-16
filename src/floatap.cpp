@@ -1142,6 +1142,10 @@ FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& value, Nat exponent) 
     return FloatAP::from_ratio(numerator, denominator, 0, bits, mode);
 }
 
+template<> String class_name<ArbitraryPrecision>() { return "ArbitraryPrecision"; }
+template<> String class_name<FloatAP>() { return "FloatAP"; }
+template<> String class_name<Rounded<FloatAP>>() { return "Rounded<FloatAP>"; }
+
 }
 // namespace Ariadne
 
