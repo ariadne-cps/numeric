@@ -503,7 +503,7 @@ std::string decimal_fixed(FloatAP const& x, unsigned int places,
         if(increase) mpz_add_ui(quotient,quotient,1);
     }
     const std::size_t capacity=mpz_sizeinbase(quotient,10)+2;
-    std::string digits(capacity,'\\0');
+    std::string digits(capacity,'\0');
     mpz_get_str(digits.data(),10,quotient);
     digits.resize(std::char_traits<char>::length(digits.c_str()));
     if(places>0) {
