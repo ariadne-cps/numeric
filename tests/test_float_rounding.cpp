@@ -442,7 +442,7 @@ TestFloatRounding<PR>::test_precision_regressions()
                 const MultiplePrecision mp(bits);
                 for (Dyadic const& argument :
                      {Dyadic(1,2u),Dyadic(-1,2u),Dyadic(3,2u),
-                      Dyadic(-3,2u),Dyadic(5,1u)}) {
+                      Dyadic(-3,2u),Dyadic(5,1u),Dyadic(-5,1u),Dyadic(7,1u),Dyadic(-7,1u)}) {
                     const FloatAP a(argument,ap);
                     const FloatMP m(argument,mp);
                     const auto compare_trigonometric=[&](auto ap_mode,auto mp_mode) {
@@ -452,6 +452,9 @@ TestFloatRounding<PR>::test_precision_regressions()
                         ARIADNE_TEST_EQUALS(
                             static_cast<Rational>(cos(ap_mode,a)),
                             static_cast<Rational>(cos(mp_mode,m)));
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(tan(ap_mode,a)),
+                            static_cast<Rational>(tan(mp_mode,m)));
                     };
                     compare_trigonometric(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
                     compare_trigonometric(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);

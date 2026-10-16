@@ -1576,3 +1576,47 @@ and multiplication where profiling justifies the complexity. This
 fast path does not change rational-based transcendental enclosures
 or borrow rounding logic from MPFR.
 
+## Interval quotient optimization: sign-aware extrema (16 October 2026)
+
+The benchmark after integer-denominator rounding showed 1024-bit
+`tan_nearest` at 61.61 us versus 6.72 us for MPFR (9.17x).
+The original certified trigonometric interval division built two
+rational reciprocals and four rational cross-products, then selected
+their minimum and maximum, even though endpoint signs determine the
+extrema in advance.
+
+**Decision:** preserve exact rational enclosures, but choose the
+extremal endpoint pair using the signs of both intervals. For a
+positive denominator `[c,d]` and numerator `[a,b]`, return
+`[a/d,b/c]` if `a>=0`, `[a/c,b/d]` if `b<=0`,
+and `[a/c,b/c]` if the numerator straddles zero. For a
+negative denominator, return `[b/d,a/c]`, `[b/c,a/d]`,
+or `[b/d,a/d]` for the same three numerator cases.
+The computation now requires only **two exact rational divisions**,
+rather than two reciprocals and four cross-products.
+
+The old domain check is unchanged: a denominator touching or
+straddling zero is rejected. This matters for tangent poles.
+Because the two selected quotients are exactly the minimum and
+maximum of all four endpoint combinations, no rounding or
+enclosure quality is sacrificed. The improvement also applies
+to other certified trigonometric paths using interval division,
+including arcsine.
+
+**Validation:** an independent exact-arithmetic enumeration checked
+240,426 valid interval configurations over rational endpoints,
+including negative denominators and numerators crossing zero;
+the optimized pair matched the old four-candidate extrema in
+every case. The shared rounding tests now additionally compare
+`FloatAP::tan` with `FloatMP::tan` at 53, 128, 256, and
+1024 bits in all four rounding modes. Negative arguments and
+arguments with negative cosine are explicitly included.
+
+**Performance status:** the benchmark values above precede this
+change; a new run is needed to measure actual speedup and detect
+any trade-offs. FLINT/Arb's interval arithmetic design remains
+a useful reference for rigorous error propagation:
+https://flintlib.org/doc/arb.html . Further performance work
+should profile the exact-rational endpoint construction and
+conversion overhead before undertaking more intrusive changes.
+
