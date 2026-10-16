@@ -1469,13 +1469,19 @@ Fraction rational_argument(FloatAP const& x) {
 
 namespace FloatAPExpLogDetail {
 
-// Evaluate exp on |x| <= 1/2 with outward-rounded fixed-point GMP
-// integers. Taylor terms for exp(|x|) are positive; the omitted tail is
-// at most twice the first omitted term. For x < 0, take the reciprocal
-// of the positive enclosure, exchanging its endpoints.
+// Evaluate exp on |x| <= 1/2 with a single downward-rounded
+// fixed-point Taylor recurrence. Let Q=2^B, a=floor(Q*|x|),
+// t_0=Q, t_n=floor(t_(n-1)*a/(Q*n)), and T_n=Q*|x|^n/n!.
+// As |x| <= 1/2, T_n - t_n < 6 for every n >= 1:
+// the recurrence error satisfies e_n < e_(n-1)/(2*n)+2/n+1.
+// After summing through n, the omitted exponential tail is at
+// most T_n <= t_n+6, so the complete result is enclosed by
+// [sum(t_i), sum(t_i)+t_n+6*(n+1)] / Q. This avoids a second
+// rounded recurrence without relying on unproved negligible errors.
+// For negative x take the reciprocal, reversing endpoints.
 Interval exp_series(Fraction const& x, unsigned long work) {
     if (x.sign() == 0) {
-        return {Fraction(1), Fraction(1)};
+        return {Fraction(1L), Fraction(1L)};
     }
 
     const Fraction magnitude = absolute(x);
@@ -1492,58 +1498,47 @@ Interval exp_series(Fraction const& x, unsigned long work) {
     }
     const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(fixed_bits);
 
-    mpz_t scaled, argument_lo, argument_hi, term_lo, term_hi;
-    mpz_t sum_lo, sum_hi, next_hi, remainder, threshold;
-    mpz_inits(scaled, argument_lo, argument_hi, term_lo, term_hi,
-              sum_lo, sum_hi, next_hi, remainder, threshold, nullptr);
+    mpz_t numerator, argument, term, sum_lower, sum_upper, threshold;
+    mpz_inits(numerator, argument, term, sum_lower, sum_upper, threshold, nullptr);
     struct Cleanup {
-        mpz_ptr a,b,c,d,e,f,g,h,i,j;
-        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,i,j,nullptr); }
-    } cleanup{scaled,argument_lo,argument_hi,term_lo,term_hi,
-              sum_lo,sum_hi,next_hi,remainder,threshold};
+        mpz_ptr a, b, c, d, e, f;
+        ~Cleanup() { mpz_clears(a, b, c, d, e, f, nullptr); }
+    } cleanup{numerator, argument, term, sum_lower, sum_upper, threshold};
 
-    mpz_mul_2exp(scaled, mpq_numref(magnitude.raw()), shift);
-    mpz_fdiv_q(argument_lo, scaled, mpq_denref(magnitude.raw()));
-    mpz_cdiv_q(argument_hi, scaled, mpq_denref(magnitude.raw()));
+    mpz_mul_2exp(numerator, mpq_numref(magnitude.raw()), shift);
+    mpz_fdiv_q(argument, numerator, mpq_denref(magnitude.raw()));
 
-    mpz_set_ui(term_lo, 1ul);
-    mpz_mul_2exp(term_lo, term_lo, shift);
-    mpz_set(term_hi, term_lo);
-    mpz_set(sum_lo, term_lo);
-    mpz_set(sum_hi, term_hi);
+    mpz_set_ui(term, 1ul);
+    mpz_mul_2exp(term, term, shift);
+    mpz_set(sum_lower, term);
 
     mpz_set_ui(threshold, 1ul);
     mpz_mul_2exp(threshold, threshold, static_cast<mp_bitcnt_t>(guard));
 
     for (unsigned long n = 1ul; n <= max_terms; ++n) {
-        // Division by 2^B and then by n, with floor/ceiling on the
-        // respective endpoints, encloses the exact nth Taylor term.
-        mpz_mul(term_lo, term_lo, argument_lo);
-        mpz_fdiv_q_2exp(term_lo, term_lo, shift);
-        mpz_fdiv_q_ui(term_lo, term_lo, n);
+        // floor(floor(y/Q)/n) == floor(y/(Q*n)) for nonnegative y.
+        mpz_mul(term, term, argument);
+        mpz_fdiv_q_2exp(term, term, shift);
+        mpz_fdiv_q_ui(term, term, n);
+        mpz_add(sum_lower, sum_lower, term);
 
-        mpz_mul(term_hi, term_hi, argument_hi);
-        mpz_cdiv_q_2exp(term_hi, term_hi, shift);
-        mpz_cdiv_q_ui(term_hi, term_hi, n);
+        if (mpz_cmp(term, threshold) <= 0 || n == max_terms) {
+            // 6*n bounds the accumulated downward-rounding error;
+            // t_n+6 bounds the complete positive omitted tail.
+            mpz_set(sum_upper, sum_lower);
+            mpz_add(sum_upper, sum_upper, term);
+            mpz_set_ui(numerator, n);
+            mpz_add_ui(numerator, numerator, 1ul);
+            mpz_mul_ui(numerator, numerator, 6ul);
+            mpz_add(sum_upper, sum_upper, numerator);
 
-        mpz_add(sum_lo, sum_lo, term_lo);
-        mpz_add(sum_hi, sum_hi, term_hi);
-
-        // The omitted positive tail is bounded by twice term (n+1).
-        mpz_mul(next_hi, term_hi, argument_hi);
-        mpz_cdiv_q_2exp(next_hi, next_hi, shift);
-        mpz_cdiv_q_ui(next_hi, next_hi, n + 1ul);
-        mpz_mul_2exp(remainder, next_hi, 1ul);
-
-        if (mpz_cmp(remainder, threshold) <= 0 || n == max_terms) {
-            mpz_add(sum_hi, sum_hi, remainder);
-            const Interval positive{Fraction(sum_lo, fixed_bits),
-                                    Fraction(sum_hi, fixed_bits)};
+            const Interval positive{Fraction(sum_lower, fixed_bits),
+                                    Fraction(sum_upper, fixed_bits)};
             if (x.sign() > 0) {
                 return positive;
             }
-            return {Fraction(1) / positive.upper,
-                    Fraction(1) / positive.lower};
+            return {Fraction(1L) / positive.upper,
+                    Fraction(1L) / positive.lower};
         }
     }
     throw std::logic_error("FloatAP exponential series did not terminate");

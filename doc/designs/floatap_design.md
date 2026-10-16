@@ -1897,3 +1897,81 @@ are required before any speedup is claimed. More extensive
 changes to `atan` argument reduction remain a separate,
 higher-risk opportunity.
 
+## Exponential optimization: single certified fixed-point Taylor recurrence (16 October 2026)
+
+**Bottleneck:** the 16 October benchmark after the one-atan optimization
+showed FloatAP `exp_nearest` taking 5.37 us at 128 bits versus 1.04 us
+for MPFR (5.15x), and 28.34 us at 1024 bits versus 6.42 us
+(4.42x). The previous `exp_series` evaluated independent lower
+and upper Taylor-term recurrences with two GMP big-integer products,
+directed shifts, and divisions per term, as well as another upper
+multiplication/division to bound the first omitted term.
+
+**Decision:** compute only the downward-rounded positive Taylor
+recurrence at fixed-point scale `Q=2^B`, with
+`B=work+32+bit_width(floor(work/2)+64)`.
+For `0 <= x <= 1/2`, define
+`a=floor(Q*x)`, `t_0=Q`, and
+`t_n=floor(t_(n-1)*a/(Q*n))`.
+Every `t_n` is a lower bound for the exact scaled Taylor term
+`T_n=Q*x^n/n!`; the two successive GMP floor operations are
+equivalent to the single floor in this definition.
+
+**Rigorous bound for *all* intermediate rounding errors:**
+Write `e_n=T_n-t_n`. Because `0 <= Q*x-a < 1` and
+`t_(n-1) <= Q*exp(x) < 2Q`,
+the recurrence satisfies
+
+```text
+0 <= e_n < e_(n-1)*x/n + t_(n-1)/(Q*n) + 1
+          < e_(n-1)/(2*n) + 2/n + 1.
+```
+
+Since `e_0=0`, induction gives `e_n<6` for **every**
+`n>=1`, independently of target precision or Taylor length.
+After including `n` terms, their aggregate downward error
+is less than `6*n`. Furthermore, for `x<=1/2`,
+the complete omitted tail satisfies
+`sum_{k>n} T_k <= 2*T_(n+1) <= T_n <= t_n+6`.
+Consequently, with `S=sum_{k=0}^n t_k`, the entire exact
+exponential satisfies
+
+```text
+S / Q <= exp(x) <= (S + t_n + 6*(n+1)) / Q.
+```
+
+The upper bound is constructed in exact GMP integers; computing
+`6*(n+1)` with GMP also avoids native unsigned overflow.
+Termination uses `t_n <= 2^(B-work)` or the existing
+conservative maximum-terms limit. All certified endpoint
+rounding and extra-precision refinement stay unchanged.
+Negative inputs use `exp(-x)=1/exp(x)` with swapped rational
+interval endpoints. The subsequent bounded fixed-point
+squaring reconstruction, introduced earlier, is unaffected.
+
+**Independent verification:** a standalone compiled GMP C++ harness
+tested 360 positive and negative rational arguments with precisions
+53, 128, 256, and 1024 bits, comparing the resulting rational
+intervals against lower/upper exact rational Taylor bounds. All
+360 certificates enclosed the reference. The proof above provides
+the general guarantee, not the finite test count. Additional
+Ariadne differential tests compare FloatAP and FloatMP `exp`
+for small arguments, plus inputs close to unity, at each of the
+four target precisions and all four rounding modes.
+
+**Prototype benchmark (not the Ariadne benchmark):** on the local
+Linux GMP harness with a benchmark-like input near 1/2 and 32
+extra working bits, the single-recurrence exponential completed
+in approximately 2.57 us at 128 bits and 17.1 us at 1024 bits.
+The earlier two-recurrence benchmark measured approximately
+4.1 us at 128 bits and over 30 us at 1024 bits. Cross-run
+differences are not controlled; evaluate the final outcome
+using the same-host FloatAP/MPFR benchmark and full CI.
+
+**Scope:** this is an algebraic interval bound, not a heuristic
+or an MPFR-dependent shortcut. The additional interval width is
+deliberately conservative; the existing certified loop retries
+at higher work precision if both endpoints do not round to
+the same target value. No special-value semantics, public API,
+or functional test expectations are relaxed.
+
