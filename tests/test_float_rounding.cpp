@@ -500,9 +500,12 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Differential oracle for certified sine/cosine rounding.
-            // All inputs are exact dyadics; comparison is exact at the
-            // same target precision, in all four rounding modes.
+            // Differential oracle for single-recurrence certified
+            // sine/cosine/tangent rounding (including cosine reconstructed
+            // from sine). All inputs are exact dyadics; compare their
+            // rounded values exactly in all four rounding modes.
+            // Include arguments on either side of the |x|=1 reduction
+            // boundary, nearly-one values, and very small magnitudes.
             for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
                 const MultiplePrecision mp(bits);
@@ -512,7 +515,10 @@ TestFloatRounding<PR>::test_precision_regressions()
                       Dyadic(7,1u),Dyadic(-7,1u),Dyadic(2,1u),Dyadic(-2,1u),
                       Dyadic(7,3u),Dyadic(-7,3u),
                       Dyadic(1023,10u),Dyadic(-1023,10u),
-                      Dyadic(1,64u),Dyadic(-1,64u)}) {
+                      Dyadic(31,5u),Dyadic(-31,5u),
+                      Dyadic(17,4u),Dyadic(-17,4u),
+                      Dyadic(1,64u),Dyadic(-1,64u),
+                      Dyadic(1,128u),Dyadic(-1,128u)}) {
                     const FloatAP a(argument,ap);
                     const FloatMP m(argument,mp);
                     const auto compare_trigonometric=[&](auto ap_mode,auto mp_mode) {
