@@ -2302,3 +2302,40 @@ in-place wider-precision addition. Tests compare FloatAP values directly;
 they do not convert extreme values to Rational for their assertions.
 The incoming logs are not a successful test report. A fresh build,
 CI execution and coverage report for the published correction are needed.
+
+## Coverage 91: Rational-left FloatAP comparisons (16 October 2026)
+
+**Incoming baseline:** The user-supplied `Archivio 91.zip` is the
+source-based LLVM coverage report for the `remove-mpfr` work.
+It reports for `src/floatap.cpp`: 181/199 functions, 1476/1753 lines,
+695/978 branches; for `include/numeric/floatap.hpp`: 84/102 functions,
+197/252 lines and 56/110 branches. The related Coverage workflow #358
+at `d2a0e0d0` is green, but does not assert complete coverage.
+Regions are secondary and not the acceptance criterion.
+
+**Observed, per-source gap:** In `include/numeric/floatap.hpp`, all
+six `Rational`-left comparison overloads (`==`, `!=`, `<`, `>`,
+`<=`, `>=`, lines 417-436 of this baseline) have zero execution
+counts. Both outcomes of both branch records at lines 431 and 435
+also have zero counts. By contrast, `FloatAP`-left comparisons already
+run. In `src/floatap.cpp`, the unordered return path of both
+`cmp(FloatAP,Rational)` and `cmp(Rational,FloatAP)` is also unexecuted
+(the conditions have false counts but no true counts).
+
+**Classification and hypothesis:** These are reachable public operations,
+not impossible implementation branches or compiler-only artifacts.
+Testing finite rational operands strictly below, equal to and strictly
+above the FloatAP operand exercises the six left-hand overloads and both
+short-circuit outcomes of `<=` and `>=`. Testing a NaN on either
+side of each `cmp` verifies the unordered outcome without converting
+nonfinite values to exact rationals.
+
+**Test-only intervention:** Extend the existing
+`TestFloatRounding<ArbitraryPrecision>::test_comparison()` with
+explicit observable assertions for each ordered outcome and for the
+four operand-order/NaN combinations. Do not change production arithmetic,
+weaken expectations, or add arbitrary template instantiations.
+The next user-supplied coverage report must establish actual changes
+in official per-file counters and confirm the report's base commit.
+No new coverage improvement or new CI success is claimed for this change
+until measured. This is the first coverage hypothesis for Archive 91.
