@@ -35,6 +35,7 @@
 #include "numeric/rounding.hpp"
 #include "numeric/positive.hpp"
 #include "numeric/decimal.hpp"
+#include "numeric/float_bounds.hpp"
 #include <istream>
 #include <ostream>
 #include <string>
@@ -514,6 +515,51 @@ FloatAP& operator*=(FloatAP& x, TwoExp const& t) {
 }
 FloatAP& operator/=(FloatAP& x, TwoExp const& t) {
     return x = x / t;
+}
+
+// Raw Float arithmetic without an explicit mode produces outward
+// enclosures, just as the FloatMP API does.
+Bounds<FloatAP> add(FloatAP const& a, FloatAP const& b) {
+    return Bounds<FloatAP>(add(down,a,b), add(up,a,b));
+}
+Bounds<FloatAP> sub(FloatAP const& a, FloatAP const& b) {
+    return Bounds<FloatAP>(sub(down,a,b), sub(up,a,b));
+}
+Bounds<FloatAP> mul(FloatAP const& a, FloatAP const& b) {
+    return Bounds<FloatAP>(mul(down,a,b), mul(up,a,b));
+}
+Bounds<FloatAP> div(FloatAP const& a, FloatAP const& b) {
+    return Bounds<FloatAP>(div(down,a,b), div(up,a,b));
+}
+Bounds<FloatAP> operator+(FloatAP const& a, FloatAP const& b) { return add(a,b); }
+Bounds<FloatAP> operator-(FloatAP const& a, FloatAP const& b) { return sub(a,b); }
+Bounds<FloatAP> operator*(FloatAP const& a, FloatAP const& b) { return mul(a,b); }
+Bounds<FloatAP> operator/(FloatAP const& a, FloatAP const& b) { return div(a,b); }
+Bounds<FloatAP> sqr(FloatAP const& x) {
+    return Bounds<FloatAP>(sqr(down,x), sqr(up,x));
+}
+Bounds<FloatAP> rec(FloatAP const& x) {
+    return Bounds<FloatAP>(rec(down,x), rec(up,x));
+}
+Bounds<FloatAP> pow(FloatAP const& x, Nat n) {
+    return Bounds<FloatAP>(pow(down,x,n), pow(up,x,n));
+}
+Bounds<FloatAP> pow(FloatAP const& x, Int n) {
+    return Bounds<FloatAP>(pow(down,x,n), pow(up,x,n));
+}
+FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& x, Int exponent) {
+    if (exponent >= 0) {
+        return pow(mode, x, static_cast<Nat>(exponent));
+    }
+    const auto bits = static_cast<unsigned long>(x.precision().bits());
+    const bool odd = (exponent % 2) != 0;
+    if (x.is_nan()) return FloatAP::nan(bits);
+    if (x.is_inf()) return FloatAP::zero(bits, x.negative() && odd);
+    if (x.is_zero()) return FloatAP::infinity(bits, x.negative() && odd);
+    // The reciprocal of a rounded power need not be correctly rounded:
+    // compute the exact rational power, then round once.
+    const Rational exact = pow(static_cast<Rational>(x), exponent);
+    return FloatAP(exact, mode, x.precision());
 }
 
 Comparison cmp(FloatAP const& a, FloatDP const& b) {
