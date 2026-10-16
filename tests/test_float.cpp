@@ -352,7 +352,7 @@ TestFloat<PR>::test_conversions()
             ARIADNE_TEST_ASSERT(cmp(real_enclosure.lower_raw(),exact_third)!=Comparison::GREATER);
             ARIADNE_TEST_ASSERT(cmp(real_enclosure.upper_raw(),exact_third)!=Comparison::LESS);
 
-            const MultiplePrecision mp_precision(pr.bits());
+            const MultiplePrecision mp_precision(static_cast<mpfr_prec_t>(pr.bits()));
             const LowerBound<FloatMP> mp_lower(exact_third,mp_precision);
             const UpperBound<FloatMP> mp_upper(exact_third,mp_precision);
             const ValidatedLowerNumber validated_lower=mp_lower;
