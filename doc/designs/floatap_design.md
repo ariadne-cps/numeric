@@ -1975,3 +1975,110 @@ at higher work precision if both endpoints do not round to
 the same target value. No special-value semantics, public API,
 or functional test expectations are relaxed.
 
+## Trigonometric optimization: one certified fixed-point recurrence (16 October 2026)
+
+**Measured motivation (pre-change):** the 16 October benchmark after
+the exponential single-recurrence optimization reported `sin_nearest`
+at 1024 bits as 22.49 us (MPFR 5.90 us), `cos_nearest` as
+22.16 us (MPFR 4.79 us), and `tan_nearest` as 30.70 us
+(MPFR 6.47 us). FloatAP's sin/cos Taylor kernel still calculated
+both lower and upper outward-rounded sequences of positive term
+magnitudes, performing two big-integer products and two divisions
+for every Taylor term. The existing tangent path already avoids
+evaluating cosine's Taylor series, reconstructing positive cosine
+from a certified sine interval using integer square roots.
+
+**Decision:** compute only a **downward-rounded fixed-point
+recurrence** for the positive magnitudes of the alternating
+sine or cosine Taylor terms at the reduced argument `|x|<=1`.
+Let `Q=2^B`, `a=floor(Q*|x|)`,
+`b=floor(a*a/Q)`, and
+
+```text
+t_0 = a                 for sine
+t_0 = Q                 for cosine
+t_(n+1) = floor(t_n*b/(Q*d_n)),
+d_n = (2n+2)(2n+3)      for sine,
+d_n = (2n+1)(2n+2)      for cosine.
+```
+
+The two sequential GMP divisions by `Q` and `d_n` implement
+the same floor as the combined rational quotient because all
+intermediate quantities are nonnegative. The remaining
+alternating sum uses the standard `+,-,+,-` signs of sine
+and cosine. For a tangent request, compute only the sine
+recurrence; reconstruct cosine with the existing exact integer
+square-root bounds. Negative inputs negate only the resulting
+sine interval. The existing halving/double-angle mechanism is
+unchanged.
+
+**Certification proof:** let `T_n` be the exact positive Taylor
+term scaled by `Q`, and `e_n=T_n-t_n`. The initial error
+is less than one for sine and zero for cosine. Since
+`|x|<=1` and `a=floor(Q*|x|)`, we have
+
+```text
+0 <= Q*x^2 - b < 3,
+0 <= t_n <= T_n <= Q,
+0 <= e_(n+1) < e_n/d_n + 3/d_n + 1.
+```
+
+Every `d_n>=2`, so induction yields `0<=e_n<8`
+for all `n`. After accumulating `n+1` terms with
+alternating signs, the difference between the exact partial
+sum and the integer sum `S_n` is bounded in magnitude by
+`8*(n+1)` fixed-point units. The alternating-series
+remainder has the sign of the **first omitted term** and
+magnitude at most `T_(n+1)<t_(n+1)+8`. Consequently,
+with `E=8*(n+1)` and `R=t_(n+1)+8`,
+
+```text
+n even: [S_n - E - R, S_n + E] / Q
+n odd:  [S_n - E,     S_n + E + R] / Q
+```
+
+contains the exact sine or cosine of the positive reduced
+argument, regardless of when the adaptive series terminates.
+All error budgets use GMP integer arithmetic and avoid
+native integer overflow. For a tangent request, intersect
+the positive-sine enclosure with the mathematically known
+`[0,1]` range and compute the cosine bounds as
+
+```text
+floor(sqrt(Q^2-U^2))/Q <= cos(x) <=
+ceil(sqrt(Q^2-L^2))/Q.
+```
+
+This retains correct rounding in all modes via the existing
+endpoint-agreement refinement. Certification does not rely
+on testing or on a heuristic estimate of discarded bits.
+
+**Independent numerical checks:** a Python exact-integer and
+`mpmath` harness tested 160 nonzero arguments at each of
+8, 53, 128, 256, and 1024 working bits, for a total of
+**800 argument/precision combinations**. Both sine and
+cosine enclosures contained the high-precision reference
+values in all cases. The cosine-from-sine integer-square-root
+reconstruction also enclosed the reference for all cases.
+Arguments included +/-1, +/-1023/1024, +/-1/2, random
+rationals across [-1,1], and values as tiny as +/-2^-1050.
+These finite tests corroborate the mathematical argument;
+they are not a replacement for the proof.
+
+**Ariadne regression:** the shared differential suite
+compares sine, cosine, and tangent from FloatAP and MPFR
+at 53, 128, 256, and 1024 bits in all four rounding modes.
+New arguments include +/-31/32, +/-17/16 and +/-2^-128.
+The test also exercises the separately rounded cosine
+series and the sine-derived cosine path. No previous
+expectations were relaxed.
+
+**Performance:** all timings above are a **pre-change**
+baseline. The new kernel removes half of each active
+fixed-point Taylor term recurrence and associated GMP
+division work; however, actual impact must be measured
+in the same-host benchmark after CI passes. If the
+remaining bottleneck is factorial division or GMP
+allocation overhead, additional improvements should
+be driven by profiling rather than assumptions.
+
