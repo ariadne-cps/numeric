@@ -51,9 +51,7 @@
 #include "numeric/rounded_float.hpp"
 #include "numeric/casts.hpp"
 
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
 #include "numeric/floatap.hpp"
-#endif
 #include "macro/testing.hpp"
 #include "test_floats.hpp"
 
@@ -890,10 +888,47 @@ Void test_double_runtime()
     set_builtin_rounding_to_nearest();
 }
 
+Void test_floatap_compatibility()
+{
+    // Run native FloatAP compatibility checks in the established test suite,
+    // using the same Ariadne assertion macros as FloatMP.
+    const ArbitraryPrecision precision(128_bits);
+    const Dyadic exact_value(5,2u);
+    const FloatAP value(exact_value,precision);
+
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(value),Rational(exact_value));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(FloatAP(ExactDouble(1.25),precision)),
+                        Rational(5,4));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(FloatAP(TwoExp(3),precision)),
+                        Rational(8));
+
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(shft(value,Int(2))),Rational(5));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(hlf(value)),Rational(5,8));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(-value),Rational(-5,4));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(neg(value)),Rational(-5,4));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(pos(value)),Rational(5,4));
+
+    FloatAP resized(value);
+    resized.set_precision(ArbitraryPrecision(53_bits));
+    ARIADNE_TEST_ASSERT(resized.precision()==ArbitraryPrecision(53_bits));
+    ARIADNE_TEST_EQUALS(static_cast<Rational>(resized),Rational(exact_value));
+    ARIADNE_TEST_ASSERT(&resized.raw()==&resized);
+
+    const FloatAP::RoundingModeType old_mode=FloatAP::get_rounding_mode();
+    FloatAP::set_rounding_downward();
+    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_DOWNWARD);
+    FloatAP::set_rounding_upward();
+    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_UPWARD);
+    FloatAP::set_rounding_to_nearest();
+    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_TO_NEAREST);
+    FloatAP::set_rounding_mode(old_mode);
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
+    test_floatap_compatibility();
     test_float_literals();
     test_builtin_runtime();
     test_double_runtime();

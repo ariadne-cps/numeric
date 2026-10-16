@@ -44,6 +44,10 @@ namespace Ariadne {
 
 class Integer;
 class Rational;
+class Dyadic;
+class ExactDouble;
+class TwoExp;
+
 
 // A size_t bit count is not necessarily representable by the signed
 // exponent. Keep the narrowing check testable without allocating an
@@ -72,6 +76,18 @@ class ArbitraryPrecision {
     friend bool operator==(ArbitraryPrecision a, ArbitraryPrecision b) noexcept {
         return a._bits == b._bits;
     }
+    friend bool operator<(ArbitraryPrecision a, ArbitraryPrecision b) noexcept {
+        return a._bits < b._bits;
+    }
+    friend bool operator<=(ArbitraryPrecision a, ArbitraryPrecision b) noexcept {
+        return a._bits <= b._bits;
+    }
+    friend bool operator>(ArbitraryPrecision a, ArbitraryPrecision b) noexcept {
+        return b < a;
+    }
+    friend bool operator>=(ArbitraryPrecision a, ArbitraryPrecision b) noexcept {
+        return b <= a;
+    }
 };
 
 // The public native arbitrary-precision type. The API is growing; elementary
@@ -86,6 +102,8 @@ template<> class Float<ArbitraryPrecision> {
     enum class Rounding {
         ToNearest, Downward, Upward, TowardZero
     };
+    using Paradigm = ExactTag;
+    using NumericType = FloatAP;
     using PrecisionType = ArbitraryPrecision;
     using RoundingModeType = Rounding;
     static constexpr RoundingModeType ROUND_TO_NEAREST = Rounding::ToNearest;
@@ -151,6 +169,14 @@ template<> class Float<ArbitraryPrecision> {
     : Float(static_cast<unsigned long>(precision.bits())) {
     }
     Float(std::int64_t n, PrecisionType precision);
+    Float(ExactDouble const& n, PrecisionType precision);
+    Float(Dyadic const& n, PrecisionType precision);
+    Float(TwoExp const& n, PrecisionType precision);
+    Float(ExactDouble const& n, RoundingModeType mode, PrecisionType precision);
+    Float(Dyadic const& n, RoundingModeType mode, PrecisionType precision);
+    Float(Integer const& n, PrecisionType precision)
+        : Float(n, ROUND_TO_NEAREST, precision) { }
+
     Float(Integer const& n, RoundingModeType mode, PrecisionType precision);
     Float(Rational const& n, RoundingModeType mode, PrecisionType precision);
     explicit Float(Rational const& n, PrecisionType precision)
@@ -181,6 +207,16 @@ template<> class Float<ArbitraryPrecision> {
         std::swap(_kind, x._kind);
         std::swap(_negative, x._negative);
     }
+
+    static RoundingModeType get_rounding_mode() noexcept;
+    static void set_rounding_mode(RoundingModeType mode);
+    static void set_rounding_to_nearest() { set_rounding_mode(ROUND_TO_NEAREST); }
+    static void set_rounding_downward() { set_rounding_mode(ROUND_DOWNWARD); }
+    static void set_rounding_upward() { set_rounding_mode(ROUND_UPWARD); }
+    static void set_rounding_toward_zero() { set_rounding_mode(ROUND_TOWARD_ZERO); }
+    void set_precision(PrecisionType precision);
+    FloatAP const& raw() const noexcept { return *this; }
+    FloatAP& raw() noexcept { return *this; }
 
     PrecisionType precision() const noexcept {
         return PrecisionType(_precision);
@@ -246,6 +282,28 @@ template<> class Float<ArbitraryPrecision> {
         return x.is_zero();
     }
     friend Comparison cmp(FloatAP const& a, FloatAP const& b);
+    friend OutputStream& operator<<(OutputStream& os, FloatAP const& x);
+    friend FloatAP operator+(FloatAP const& x) { return x; }
+    friend FloatAP operator-(FloatAP const& x) { return negate(x); }
+    friend FloatAP nul(FloatAP const& x) { return zero(x._precision); }
+    friend FloatAP pos(FloatAP const& x) { return x; }
+    friend FloatAP neg(FloatAP const& x) { return negate(x); }
+    friend FloatAP shft(FloatAP const& x, Int amount);
+    friend FloatAP hlf(FloatAP const& x) { return shft(x, Int(-1)); }
+    friend FloatAP max(FloatAP const& a, FloatAP const& b) { return a < b ? b : a; }
+    friend FloatAP min(FloatAP const& a, FloatAP const& b) { return a < b ? a : b; }
+    friend FloatAP sqr(RoundingModeType mode, FloatAP const& x) {
+        return mul(mode, x, x);
+    }
+    friend FloatAP rec(RoundingModeType mode, FloatAP const& x) {
+        return div(mode, FloatAP(std::int64_t{1}, x.precision()), x);
+    }
+    friend FloatAP med(RoundingModeType mode, FloatAP const& a, FloatAP const& b) {
+        return hlf(add(mode, a, b));
+    }
+    friend FloatAP rad(RoundingModeType mode, FloatAP const& a, FloatAP const& b) {
+        return hlf(sub(mode, b, a));
+    }
     friend bool operator==(FloatAP const& a, FloatAP const& b) {
         return cmp(a, b) == Comparison::EQUAL;
     }
