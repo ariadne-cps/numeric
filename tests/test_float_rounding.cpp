@@ -456,7 +456,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // converted to Rational; every cached copy must agree.
             for (Bits bits : {53_bits,256_bits,7_bits,1024_bits,128_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(static_cast<mpfr_prec_t>(bits.get()));
+                const MultiplePrecision mp(static_cast<mpfr_prec_t>(ap.bits()));
                 const auto check_pi=[&](auto ap_mode,auto mp_mode) {
                     const FloatAP first=FloatAP::pi(ap_mode,ap);
                     const FloatAP repeated=FloatAP::pi(ap_mode,ap);
