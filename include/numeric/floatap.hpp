@@ -327,6 +327,21 @@ template<> class Float<ArbitraryPrecision> {
     static FloatAP nan(PrecisionType p) {
         return nan(static_cast<unsigned long>(p.bits()));
     }
+    // Exponent range comes from the signed native exponent representation.
+    // No subnormal significands are supported by this kernel.
+    static FloatAP min(PrecisionType p) {
+        FloatAP result(p);
+        mpz_setbit(result._significand, static_cast<mp_bitcnt_t>(p.bits()-1));
+        result._exponent = std::numeric_limits<Exponent>::min();
+        return result;
+    }
+    static FloatAP max(PrecisionType p) {
+        FloatAP result(p);
+        mpz_setbit(result._significand, static_cast<mp_bitcnt_t>(p.bits()));
+        mpz_sub_ui(result._significand, result._significand, 1);
+        result._exponent = std::numeric_limits<Exponent>::max();
+        return result;
+    }
 
     friend bool is_nan(FloatAP const& x) noexcept {
         return x.is_nan();
@@ -402,7 +417,14 @@ template<> class Float<ArbitraryPrecision> {
     friend InputStream& operator>>(InputStream& is, FloatAP& x);
     friend bool same(FloatAP const& a, FloatAP const& b) { return a == b; }
     friend Positive<FloatAP> abs(FloatAP const& x);
+    friend PositiveUpperBound<FloatAP> mag(FloatAP const& x);
+    friend PositiveLowerBound<FloatAP> mig(FloatAP const& x);
     friend FloatAP abs(RoundingModeType, FloatAP const& x);
+    friend FloatAP next(RoundUpward, FloatAP const& x);
+    friend FloatAP next(RoundDownward, FloatAP const& x);
+    friend FloatAP floor(FloatAP const& x);
+    friend FloatAP ceil(FloatAP const& x);
+    friend FloatAP round(FloatAP const& x);
     friend FloatAP operator*(TwoExp const& t, FloatAP const& x);
     friend FloatAP operator*(FloatAP const& x, TwoExp const& t);
     friend FloatAP operator/(FloatAP const& x, TwoExp const& t);
@@ -422,6 +444,17 @@ template<> class Float<ArbitraryPrecision> {
     friend Bounds<FloatAP> rec(FloatAP const& x);
     friend Bounds<FloatAP> pow(FloatAP const& x, Nat n);
     friend Bounds<FloatAP> pow(FloatAP const& x, Int n);
+    // Definitions of the outward-rounded overloads are provided by
+    // Bounds<FloatAP> (float_bounds.hpp), not duplicated in FloatAP.
+    friend Bounds<FloatAP> sqrt(FloatAP const& x);
+    friend Bounds<FloatAP> exp(FloatAP const& x);
+    friend Bounds<FloatAP> log(FloatAP const& x);
+    friend Bounds<FloatAP> sin(FloatAP const& x);
+    friend Bounds<FloatAP> cos(FloatAP const& x);
+    friend Bounds<FloatAP> tan(FloatAP const& x);
+    friend Bounds<FloatAP> asin(FloatAP const& x);
+    friend Bounds<FloatAP> acos(FloatAP const& x);
+    friend Bounds<FloatAP> atan(FloatAP const& x);
     friend FloatAP pow(RoundingModeType mode, FloatAP const& x, Int exponent);
     friend FloatAP operator+(FloatAP const& x) { return x; }
     friend FloatAP operator-(FloatAP const& x) { return negate(x); }
