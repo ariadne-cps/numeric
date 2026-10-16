@@ -317,7 +317,7 @@ bool details, double max_slowdown, bool csv) {
     }
     std::map< unsigned, Aggregate > per_precision;
     Aggregate overall;
-    if (details) {
+    if (details && !csv) {
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Detailed comparisons (FloatAP / MPFR)")
         LOGGING_PRINTLN(std::string(79u,'-'))
@@ -334,7 +334,7 @@ bool details, double max_slowdown, bool csv) {
         auto& precision_summary = per_precision[key.first];
         precision_summary.add(key.second, key.first, reference_ns, it->second);
         overall.add(key.second, key.first, reference_ns, it->second);
-        if (details) {
+        if (details && !csv) {
             LOGGING_PRINTLN(std::left << std::setw(24) << key.second
                             << std::setw(8) << key.first
                             << std::setw(16) << std::fixed << std::setprecision(3)
