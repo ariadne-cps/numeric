@@ -37,14 +37,6 @@ foreach(TEST ${UNIT_TESTS})
     endif()
 endforeach()
 
-if(BUILD_FLOATAP_COMPARISON)
-    # The generic FloatAP tests require the full FloatMP API, including
-    # transcendental functions. Enable the differential elementary test now;
-    # extend the generic suites when those operations are implemented.
-    target_compile_definitions(test_float_multipleprecision_backends
-        PRIVATE ARIADNE_NUMERIC_ENABLE_FLOATAP)
-endif()
-
 add_library(check_numeric OBJECT check_numeric.cpp)
 target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
 

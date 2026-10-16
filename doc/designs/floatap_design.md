@@ -567,3 +567,43 @@ four rounding modes and the benchmark includes both operations.
 `sin`, `cos`, `tan`, `atan`, `asin`, `acos` and `pi` remain
 missing, so the dual-backend opt-in must not yet be removed. Newly added
 branches will need a fresh coverage report.
+
+
+## Permanent dual-backend benchmark configuration (16 October 2026)
+
+The benchmark infrastructure is now **unconditional**: both
+`FloatMP` and `FloatAP` are compiled, timed and subjected to
+differential checks in every standalone build. No CMake variables
+`BUILD_FLOATAP_COMPARISON` or
+`BUILD_NUMERIC_MIGRATION_BENCHMARKS`, and no
+`ARIADNE_NUMERIC_ENABLE_FLOATAP` preprocessor macro, are used by
+the benchmark or the dedicated differential test. The configuration
+submodule registers `benchmarks/` once.
+
+The C++20 compile-time `HasTrigonometricOperations<FloatAP>`
+capability check is a **temporary completeness gate**, not a
+build-configuration flag. Until native `sin`, `cos`, `tan` and
+`atan` exist, the benchmark measures both implementations on
+the same common operation set (including `sqrt`, `exp`,
+`log`, and integer `pow`), and emits a diagnostic explaining that
+the complete trigonometric comparison is not yet available.
+When those native signatures exist, the benchmark automatically
+includes the operations for **both** backends. The differential
+test uses the analogous `HasAdvancedFunctions` check for
+`sin`, `cos`, `tan`, `asin`, `acos`, `atan`, and π.
+
+This change does not claim that missing transcendental functions
+have been implemented. No dummy implementations or MPFR forwarding
+have been introduced into `FloatAP`.
+
+Typical build, without any benchmark/comparison option:
+
+```sh
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release --target benchmark_compare_multiple_precision_backends test_float_multipleprecision_backends
+ctest --test-dir build-release -R '^test_float_multipleprecision_backends$' --output-on-failure
+./build-release/benchmarks/benchmark_compare_multiple_precision_backends 300 7 --summary-only
+```
+
+Historical references to build flags in earlier sections describe
+prior states of this development branch, not the current build contract.

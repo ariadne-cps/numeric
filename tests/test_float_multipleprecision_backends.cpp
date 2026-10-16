@@ -24,16 +24,30 @@
 
 // Shared differential conformance test; MPFR is the oracle, not a runtime backend.
 #include "numeric/floatmp.hpp"
-#include "numeric/rational.hpp"
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
 #include "numeric/floatap.hpp"
-#endif
+#include "numeric/rational.hpp"
+#include <concepts>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 
 using namespace Ariadne;
+
+template<class F>
+concept HasAdvancedFunctions = requires(typename F::RoundingModeType mode,
+                                        typename F::PrecisionType precision,
+                                        F const& x) {
+    { sin(mode, x) } -> std::same_as<F>;
+    { cos(mode, x) } -> std::same_as<F>;
+    { tan(mode, x) } -> std::same_as<F>;
+    { asin(mode, x) } -> std::same_as<F>;
+    { acos(mode, x) } -> std::same_as<F>;
+    { atan(mode, x) } -> std::same_as<F>;
+    { F::pi(mode, precision) } -> std::same_as<F>;
+};
+
+static_assert(HasAdvancedFunctions<FloatMP>);
 
 template< class F >
 void verify(char const* backend, unsigned bits, char const* op,
@@ -71,15 +85,15 @@ Rational const& lhs, Rational const& rhs) {
     verify(backend, bits, "sqrt", sqrt(mode, x), sqrt(reference_mode, reference_x));
     verify(backend, bits, "exp", exp(mode, x), exp(reference_mode, reference_x));
     verify(backend, bits, "log", log(mode, x), log(reference_mode, reference_x));
-#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
-    verify(backend, bits, "sin", sin(mode, x), sin(reference_mode, reference_x));
+    if constexpr (HasAdvancedFunctions<F>) {
+        verify(backend, bits, "sin", sin(mode, x), sin(reference_mode, reference_x));
     verify(backend, bits, "cos", cos(mode, x), cos(reference_mode, reference_x));
     verify(backend, bits, "tan", tan(mode, x), tan(reference_mode, reference_x));
     verify(backend, bits, "asin", asin(mode, x), asin(reference_mode, reference_x));
     verify(backend, bits, "acos", acos(mode, x), acos(reference_mode, reference_x));
     verify(backend, bits, "atan", atan(mode, x), atan(reference_mode, reference_x));
     verify(backend, bits, "pi", F::pi(mode, precision), FloatMP::pi(reference_mode, oracle_precision));
-#endif
+    }
 }
 
 template< class F >
@@ -112,10 +126,8 @@ void run_backend(char const* backend) {
 
 int main() {
     try {
-        run_backend < FloatMP >("mpfr");
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
-        run_backend < FloatAP >("floatap");
-#endif
+        run_backend<FloatMP>("mpfr");
+        run_backend<FloatAP>("floatap");
         std::cout << "float multiprecision backend conformance OK\n";
         return 0;
     }

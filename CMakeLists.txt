@@ -4,7 +4,6 @@ project(Numeric VERSION 1.0)
 
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
-option(BUILD_FLOATAP_COMPARISON "Build FloatAP alongside MPFR for comparative tests" OFF)
 if(NOT TARGET ariadne-configuration)
     find_package(Git REQUIRED)
     execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -49,8 +48,6 @@ if(WIN32)
 endif()
 
 add_subdirectory(src)
-# src/CMakeLists.txt already compiles floatap.cpp in NUMERIC_SRC.
-# BUILD_FLOATAP_COMPARISON controls only the dual-backend test and benchmark.
 target_link_libraries(NUMERIC_SRC PRIVATE numeric)
 
 if(MSVC)
@@ -71,7 +68,7 @@ setup_project_library(
     LINK_LIBRARIES numeric
 )
 
-# The configuration framework registers benchmarks from setup_standalone_project_tests().
+# Benchmarks are registered by setup_standalone_project_tests().
 
 setup_standalone_project_tests(
     TARGET ariadne-numeric
