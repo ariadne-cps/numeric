@@ -243,7 +243,7 @@ void trigonometric_functions() {
     check(positive_half_pi.negative() == false, "atan positive infinity sign");
     check(negative_half_pi.negative(), "atan negative infinity sign");
 
-    same(acos(R::nearest, minus_one), K::pi(R::nearest, Ariadne::ArbitraryPrecision(16_bits)),
+    same(acos(R::nearest, minus_one), K::pi(R::nearest, Ariadne::ArbitraryPrecision(std::size_t{16})),
          "acos minus one");
     same(asin(R::nearest, one), positive_half_pi, "asin one");
 
@@ -259,8 +259,8 @@ void trigonometric_functions() {
           "asin directed rounding");
     check(acos(R::downward, v(1, 2)) <= acos(R::upward, v(1, 2)),
           "acos directed rounding");
-    check(K::pi(R::downward, Ariadne::ArbitraryPrecision(16_bits)) <=
-          K::pi(R::upward, Ariadne::ArbitraryPrecision(16_bits)),
+    check(K::pi(R::downward, Ariadne::ArbitraryPrecision(std::size_t{16})) <=
+          K::pi(R::upward, Ariadne::ArbitraryPrecision(std::size_t{16})),
           "pi directed rounding");
 }
 

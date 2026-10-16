@@ -372,8 +372,9 @@ Interval evaluate(Function function, Fraction const& x, unsigned long work) {
             return divide(pi_interval(work), point(Fraction(2L)));
         case Function::negative_half_pi:
             return negative(divide(pi_interval(work), point(Fraction(2L))));
+        default:
+            throw std::invalid_argument("FloatAP unknown trigonometric function");
     }
-    throw std::invalid_argument("FloatAP unknown trigonometric function");
 }
 
 // A result is returned only when all real values in its certified
@@ -434,6 +435,9 @@ FloatAP unary(Function function, FloatAP::RoundingModeType mode,
             case Function::arccosine:
                 return certified(Function::arccosine, Fraction{}, mode, x.precision());
             case Function::pi:
+            case Function::half_pi:
+            case Function::negative_half_pi:
+            default:
                 break;
         }
     }
