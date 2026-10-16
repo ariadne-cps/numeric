@@ -368,19 +368,19 @@ TestFloatRounding<PR>::test_precision_regressions()
                     // At two bits, 9 rounds to 8 except in upward mode,
                     // where it rounds to 12, before sqrt is evaluated.
                     const F rounded_nine(Rational(9),mode,pr);
-                    const bool upward=mode==F::ROUND_UPWARD;
+                    const bool round_upward=mode==F::ROUND_UPWARD;
                     ARIADNE_TEST_EQUALS(static_cast<Rational>(rounded_nine),
-                                        Rational(upward?12:8));
-                    const Int expected=upward?4:
+                                        Rational(round_upward?12:8));
+                    const Int expected=round_upward?4:
                         (mode==F::ROUND_TO_NEAREST?3:2);
                     ARIADNE_TEST_EQUALS(sqrt(mode,rounded_nine),F(expected,pr));
                 }
 
-                const F two(2,pr);
+                const F two_value(2,pr);
                 const Rational root_lower=static_cast<Rational>(
-                    sqrt(F::ROUND_DOWNWARD,two));
+                    sqrt(F::ROUND_DOWNWARD,two_value));
                 const Rational root_upper=static_cast<Rational>(
-                    sqrt(F::ROUND_UPWARD,two));
+                    sqrt(F::ROUND_UPWARD,two_value));
                 ARIADNE_TEST_ASSERT(root_lower*root_lower<=Rational(2));
                 ARIADNE_TEST_ASSERT(root_upper*root_upper>=Rational(2));
             }
@@ -393,19 +393,19 @@ TestFloatRounding<PR>::test_precision_regressions()
             const F quarter(Dyadic(1,2u),pr);
             const F negative_quarter(Dyadic(-1,2u),pr);
             const F one(1,pr);
-            const F two(2,pr);
+            const F two_value(2,pr);
             const auto enclosure=[&](auto operation,F const& x) {
                 const F lower=operation(F::ROUND_DOWNWARD,x);
                 const F upper=operation(F::ROUND_UPWARD,x);
                 const F nearest=operation(F::ROUND_TO_NEAREST,x);
-                const F toward_zero=operation(F::ROUND_TOWARD_ZERO,x);
+                const F toward_zero_result=operation(F::ROUND_TOWARD_ZERO,x);
                 ARIADNE_TEST_ASSERT(lower<=nearest && nearest<=upper);
-                ARIADNE_TEST_ASSERT(lower<=toward_zero && toward_zero<=upper);
+                ARIADNE_TEST_ASSERT(lower<=toward_zero_result && toward_zero_result<=upper);
             };
-            enclosure([](auto mode,auto const& x){return sqrt(mode,x);},two);
+            enclosure([](auto mode,auto const& x){return sqrt(mode,x);},two_value);
             enclosure([](auto mode,auto const& x){return exp(mode,x);},quarter);
             enclosure([](auto mode,auto const& x){return exp(mode,x);},negative_quarter);
-            enclosure([](auto mode,auto const& x){return log(mode,x);},two);
+            enclosure([](auto mode,auto const& x){return log(mode,x);},two_value);
             enclosure([](auto mode,auto const& x){return sin(mode,x);},quarter);
             enclosure([](auto mode,auto const& x){return cos(mode,x);},negative_quarter);
             enclosure([](auto mode,auto const& x){return tan(mode,x);},quarter);

@@ -219,7 +219,6 @@ TestFloat<PR>::test_conversions()
         ARIADNE_TEST_EQUALS(class_name<Rounded<FloatDP>>(),String("Rounded<FloatDP>"));
     } else if constexpr (Same<PR,MultiplePrecision> || Same<PR,ArbitraryPrecision>) {
         PR pr=precision;
-        using FloatType=Float<PR>;
 
         ARIADNE_TEST_ASSERT(PR(64_bits)<=PR(128_bits));
 
@@ -599,8 +598,6 @@ TestFloat<PR>::test_operations()
     }
 
     if constexpr (Same<PR,MultiplePrecision> || Same<PR,ArbitraryPrecision>) {
-        PR pr=precision;
-        using FloatType=Float<PR>;
         FloatType a(2,pr);
         FloatType b(1,pr);
         FloatDP dpa(1,dp);
