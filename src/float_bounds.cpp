@@ -41,6 +41,10 @@ template<> auto Operations<FloatBounds<DoublePrecision>>::_write(OutputStream& o
 template<> auto Operations<FloatBounds<MultiplePrecision>>::_write(OutputStream& os, const FloatBounds<MultiplePrecision>& x) -> OutputStream&;
 
 template<> Bounds<FloatDP>::Bounds(Real const&, DoublePrecision);
+template<> Bounds<FloatAP>::Bounds(Real const& value, ArbitraryPrecision pr)
+    : Bounds<FloatAP>(
+        static_cast<Dyadic>(value.get(MultiplePrecision(pr.bits())).lower_raw()),
+        static_cast<Dyadic>(value.get(MultiplePrecision(pr.bits())).upper_raw()),pr) { }
 template<> Bounds<FloatDP>::operator ValidatedNumber() const;
 template<> Bounds<FloatMP>::operator ValidatedNumber() const;
 
