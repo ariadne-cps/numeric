@@ -22,7 +22,9 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <bit>
 #include <cassert>
+#include <cstdint>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -471,6 +473,63 @@ TestFloatRounding<PR>::test_precision_regressions()
                 check_pi(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
                 check_pi(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
             }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
+            // FloatAP::get_d must round the stored exact binary value like
+            // FloatMP::get_d in all four modes, including ties, subnormals,
+            // exponent extremes and negative zero.
+            const auto previous_ap=FloatAP::get_rounding_mode();
+            const auto previous_mp=FloatMP::get_rounding_mode();
+            for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(static_cast<mpfr_prec_t>(ap.bits()));
+                const FloatAP one(1,ap);
+                const FloatAP negative_one(-1,ap);
+                const FloatAP tie_even(Integer(String("9007199254740993")),ap);
+                const FloatAP tie_odd(Integer(String("9007199254740995")),ap);
+                const FloatAP near_overflow(
+                    Integer(String("18014398509481983")),ap);
+                const FloatAP values[]={
+                    one,negative_one,
+                    FloatAP(Rational(1,3),FloatAP::ROUND_TO_NEAREST,ap),
+                    FloatAP(Rational(-17,13),FloatAP::ROUND_TO_NEAREST,ap),
+                    tie_even,tie_odd,
+                    shft(one,Int(-1200)),shft(negative_one,Int(-1200)),
+                    shft(one,Int(-1076)),shft(one,Int(-1075)),
+                    shft(negative_one,Int(-1075)),
+                    shft(one,Int(-1074)),shft(one,Int(-1022)),
+                    shft(one,Int(1023)),shft(one,Int(1024)),
+                    shft(negative_one,Int(1024)),
+                    shft(near_overflow,Int(970))
+                };
+                const auto check=[&](auto ap_mode,auto mp_mode) {
+                    FloatAP::set_rounding_mode(ap_mode);
+                    FloatMP::set_rounding_mode(mp_mode);
+                    for (FloatAP const& value : values) {
+                        const FloatMP oracle(static_cast<Rational>(value),
+                                             FloatMP::ROUND_TO_NEAREST,mp);
+                        ARIADNE_TEST_EQUALS(
+                            std::bit_cast<std::uint64_t>(value.get_d()),
+                            std::bit_cast<std::uint64_t>(oracle.get_d()));
+                    }
+                };
+                check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+
+                const FloatAP negative_zero=FloatAP::zero(
+                    static_cast<unsigned long>(ap.bits()),true);
+                const FloatAP positive_zero=FloatAP::zero(
+                    static_cast<unsigned long>(ap.bits()));
+                ARIADNE_TEST_ASSERT(std::signbit(negative_zero.get_d()));
+                ARIADNE_TEST_ASSERT(not std::signbit(positive_zero.get_d()));
+                ARIADNE_TEST_ASSERT(std::isnan(FloatAP::nan(ap).get_d()));
+                ARIADNE_TEST_ASSERT(std::isinf(FloatAP::inf(ap).get_d()));
+            }
+            FloatAP::set_rounding_mode(previous_ap);
+            FloatMP::set_rounding_mode(previous_mp);
         }
 
         // A deterministic comparison oracle with varied binary scales.
