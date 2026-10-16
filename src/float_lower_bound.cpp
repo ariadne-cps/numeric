@@ -43,7 +43,6 @@ template<> LowerBound<FloatAP>::LowerBound(ValidatedLowerNumber const& y, Arbitr
     : LowerBound<FloatAP>(static_cast<Dyadic>(y.get(MultiplePrecision(pr.bits())).raw()),pr) { }
 
 template class LowerBound<FloatMP>;
-template class LowerBound<FloatAP>;
 
 template<> String class_name<LowerBound<FloatDP>>() { return "FloatDPLowerBound"; }
 template<> String class_name<LowerBound<FloatMP>>() { return "FloatMPLowerBound"; }
