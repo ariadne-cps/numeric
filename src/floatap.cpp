@@ -37,14 +37,21 @@
 #include "numeric/float_upper_bound.hpp"
 #include "numeric/float_lower_bound.hpp"
 #include "numeric/decimal.hpp"
+
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <iomanip>
-#include <sstream>
 #include <istream>
+#include <limits>
 #include <ostream>
+#include <sstream>
+#include <stdexcept>
 #include <string>
+#include <utility>
+
 namespace Ariadne {
+
 FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
 Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
     FloatAP result(precision);
@@ -110,6 +117,7 @@ Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
     mpz_set(result._significand, q);
     return result;
 }
+
 FloatAP FloatAP::from_integer(mpz_srcptr n, unsigned long p, Rounding mode) {
     mpz_t one;
     mpz_init_set_ui(one, 1);
@@ -122,9 +130,11 @@ FloatAP FloatAP::from_integer(mpz_srcptr n, unsigned long p, Rounding mode) {
     cleanup { one };
     return from_ratio(n, one, 0, p, mode);
 }
+
 FloatAP FloatAP::from_rational(mpq_srcptr r, unsigned long p, Rounding mode) {
     return from_ratio(mpq_numref(r), mpq_denref(r), 0, p, mode);
 }
+
 void FloatAP::to_rational(mpq_ptr out) const {
     if (!is_finite()) throw std::domain_error("FloatAP nonfinite to Rational");
     mpz_set(mpq_numref(out), _significand);
@@ -134,10 +144,12 @@ void FloatAP::to_rational(mpq_ptr out) const {
     if (_exponent < 0) mpz_mul_2exp(mpq_denref(out), mpq_denref(out), shift_amount(checked_sub(0, _exponent)));
     mpq_canonicalize(out);
 }
+
 FloatAP FloatAP::negate(FloatAP x) {
     if (!x.is_nan()) x._negative = !x._negative;
     return x;
 }
+
 FloatAP FloatAP::add(FloatAP const& a, FloatAP const& b,
 unsigned long p, Rounding mode) {
     if (a.is_nan() || b.is_nan()) return nan(p);
@@ -185,10 +197,12 @@ unsigned long p, Rounding mode) {
     mpz_set_ui(one, 1);
     return from_ratio(sum, one, low, p, mode, mode == Rounding::Downward);
 }
+
 FloatAP FloatAP::sub(FloatAP const& a, FloatAP const& b,
 unsigned long p, Rounding mode) {
     return add(a, negate(b), p, mode);
 }
+
 FloatAP FloatAP::mul(FloatAP const& a, FloatAP const& b,
 unsigned long p, Rounding mode) {
     if (a.is_nan() || b.is_nan() || (a.is_inf() && b.is_zero()) || (a.is_zero() && b.is_inf())) return nan(p);
@@ -209,6 +223,7 @@ unsigned long p, Rounding mode) {
     mpz_set_ui(one, 1);
     return from_ratio(n, one, checked_add(a._exponent, b._exponent), p, mode);
 }
+
 FloatAP FloatAP::div(FloatAP const& a, FloatAP const& b,
 unsigned long p, Rounding mode) {
     if (a.is_nan() || b.is_nan() || (a.is_zero() && b.is_zero()) || (a.is_inf() && b.is_inf())) return nan(p);
@@ -227,6 +242,7 @@ unsigned long p, Rounding mode) {
     if (neg) mpz_neg(n, n);
     return from_ratio(n, b._significand, checked_sub(a._exponent, b._exponent), p, mode);
 }
+
 FloatAP FloatAP::fma(FloatAP const& a, FloatAP const& b,
 FloatAP const& c, unsigned long p, Rounding mode) {
     if (a.is_nan() || b.is_nan() || c.is_nan() || (a.is_zero() && b.is_inf()) || (a.is_inf() && b.is_zero())) return nan(p);
@@ -518,6 +534,7 @@ std::string decimal_fixed(FloatAP const& x, unsigned int places,
 std::string print(FloatAP const& x, DecimalPlaces places, FloatAP::RoundingModeType mode) {
     return decimal_fixed(x,static_cast<unsigned int>(places),mode);
 }
+
 std::string print(FloatAP const& x, DecimalPrecision figures, FloatAP::RoundingModeType mode) {
     if(!x.is_finite() || x.is_zero()) return decimal_fixed(x,0,mode);
     const double absolute=std::fabs(x.get_d());
@@ -535,21 +552,27 @@ std::string print(FloatAP const& x, DecimalPrecision figures, FloatAP::RoundingM
     const long long places=static_cast<long long>(static_cast<unsigned int>(figures))-1-magnitude;
     return decimal_fixed(x,places>0?static_cast<unsigned int>(places):0u,mode);
 }
+
 OutputStream& write(OutputStream& out, FloatAP const& x, DecimalPlaces places, FloatAP::RoundingModeType mode) {
     return out<<print(x,places,mode);
 }
+
 OutputStream& write(OutputStream& out, FloatAP const& x, DecimalPrecision figures, FloatAP::RoundingModeType mode) {
     return out<<print(x,figures,mode);
 }
+
 OutputStream& repr(OutputStream& out, FloatAP const& x, FloatAP::RoundingModeType mode) {
     return write(out,x,DecimalPrecision(static_cast<Nat>(x.precision().bits()/3+4)),mode);
 }
+
 OutputStream& repr(OutputStream& out, FloatAP const& x) {
     return repr(out,x,FloatAP::get_rounding_mode());
 }
+
 std::string FloatAP::literal() const {
     return literal(get_rounding_mode());
 }
+
 std::string FloatAP::literal(RoundingModeType mode) const {
     std::ostringstream out;
     repr(out,*this,mode);
@@ -617,9 +640,11 @@ InputStream& operator>>(InputStream& is, FloatAP& value) {
 Positive<FloatAP> abs(FloatAP const& x) {
     return cast_positive(x.negative() ? neg(x) : x);
 }
+
 PositiveUpperBound<FloatAP> mag(FloatAP const& x) {
     return PositiveUpperBound<FloatAP>(abs(x));
 }
+
 PositiveLowerBound<FloatAP> mig(FloatAP const& x) {
     return PositiveLowerBound<FloatAP>(abs(x));
 }
@@ -656,6 +681,7 @@ FloatAP next(RoundUpward, FloatAP const& x) {
     }
     return r;
 }
+
 FloatAP next(RoundDownward, FloatAP const& x) {
     if (x.is_nan() || (x.is_inf() && x.negative())) return x;
     if (x.is_inf()) return FloatAP::max(x.precision());
@@ -708,6 +734,7 @@ FloatAP floor(FloatAP const& x) {
     }
     return FloatAP::from_integer(integer, x._precision, FloatAP::ROUND_TO_NEAREST);
 }
+
 FloatAP ceil(FloatAP const& x) {
     if (!x.is_finite() || x.is_zero() || x._exponent >= 0) return x;
     const std::uint64_t shift = std::uint64_t{0} -
@@ -727,6 +754,7 @@ FloatAP ceil(FloatAP const& x) {
     }
     return FloatAP::from_integer(integer, x._precision, FloatAP::ROUND_TO_NEAREST);
 }
+
 FloatAP round(FloatAP const& x) {
     if (!x.is_finite() || x.is_zero() || x._exponent >= 0) return x;
     const std::uint64_t shift = std::uint64_t{0} -
@@ -754,63 +782,83 @@ FloatAP abs(FloatAP::RoundingModeType, FloatAP const& x) {
 FloatAP mag(FloatAP::RoundingModeType mode, FloatAP const& x) {
     return abs(mode, x);
 }
+
 FloatAP& iadd(FloatAP::RoundingModeType mode, FloatAP& a, FloatAP const& b) {
     return a = FloatAP::add(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
 }
+
 FloatAP& isub(FloatAP::RoundingModeType mode, FloatAP& a, FloatAP const& b) {
     return a = FloatAP::sub(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
 }
+
 FloatAP& imul(FloatAP::RoundingModeType mode, FloatAP& a, FloatAP const& b) {
     return a = FloatAP::mul(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
 }
+
 FloatAP& idiv(FloatAP::RoundingModeType mode, FloatAP& a, FloatAP const& b) {
     return a = FloatAP::div(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
 }
+
 FloatAP add(FloatAP::RoundingModeType mode, FloatAP const& a, FloatDP const& b) {
     return FloatAP(Rational(a) + Rational(b), mode, a.precision());
 }
+
 FloatAP add(FloatAP::RoundingModeType mode, FloatDP const& a, FloatAP const& b) {
     return FloatAP(Rational(a) + Rational(b), mode, b.precision());
 }
+
 FloatAP sub(FloatAP::RoundingModeType mode, FloatAP const& a, FloatDP const& b) {
     return FloatAP(Rational(a) - Rational(b), mode, a.precision());
 }
+
 FloatAP sub(FloatAP::RoundingModeType mode, FloatDP const& a, FloatAP const& b) {
     return FloatAP(Rational(a) - Rational(b), mode, b.precision());
 }
+
 FloatAP mul(FloatAP::RoundingModeType mode, FloatAP const& a, FloatDP const& b) {
     return FloatAP(Rational(a) * Rational(b), mode, a.precision());
 }
+
 FloatAP mul(FloatAP::RoundingModeType mode, FloatDP const& a, FloatAP const& b) {
     return FloatAP(Rational(a) * Rational(b), mode, b.precision());
 }
+
 FloatAP div(FloatAP::RoundingModeType mode, FloatAP const& a, FloatDP const& b) {
     return FloatAP(Rational(a) / Rational(b), mode, a.precision());
 }
+
 FloatAP div(FloatAP::RoundingModeType mode, FloatDP const& a, FloatAP const& b) {
     return FloatAP(Rational(a) / Rational(b), mode, b.precision());
 }
+
 FloatAP add(FloatAP::RoundingModeType mode, FloatAP const& a, ExactDouble const& b) {
     return FloatAP(Rational(a) + Rational(b), mode, a.precision());
 }
+
 FloatAP add(FloatAP::RoundingModeType mode, ExactDouble const& a, FloatAP const& b) {
     return FloatAP(Rational(a) + Rational(b), mode, b.precision());
 }
+
 FloatAP sub(FloatAP::RoundingModeType mode, FloatAP const& a, ExactDouble const& b) {
     return FloatAP(Rational(a) - Rational(b), mode, a.precision());
 }
+
 FloatAP sub(FloatAP::RoundingModeType mode, ExactDouble const& a, FloatAP const& b) {
     return FloatAP(Rational(a) - Rational(b), mode, b.precision());
 }
+
 FloatAP mul(FloatAP::RoundingModeType mode, FloatAP const& a, ExactDouble const& b) {
     return FloatAP(Rational(a) * Rational(b), mode, a.precision());
 }
+
 FloatAP mul(FloatAP::RoundingModeType mode, ExactDouble const& a, FloatAP const& b) {
     return FloatAP(Rational(a) * Rational(b), mode, b.precision());
 }
+
 FloatAP div(FloatAP::RoundingModeType mode, FloatAP const& a, ExactDouble const& b) {
     return FloatAP(Rational(a) / Rational(b), mode, a.precision());
 }
+
 FloatAP div(FloatAP::RoundingModeType mode, ExactDouble const& a, FloatAP const& b) {
     return FloatAP(Rational(a) / Rational(b), mode, b.precision());
 }
@@ -819,21 +867,27 @@ FloatAP div(FloatAP::RoundingModeType mode, ExactDouble const& a, FloatAP const&
 FloatAP operator*(TwoExp const& t, FloatAP const& x) {
     return shft(x, t.exponent());
 }
+
 FloatAP operator*(FloatAP const& x, TwoExp const& t) {
     return shft(x, t.exponent());
 }
+
 FloatAP operator/(FloatAP const& x, TwoExp const& t) {
     return shft(x, -t.exponent());
 }
+
 FloatAP mul(FloatAP const& x, TwoExp const& t) {
     return shft(x, t.exponent());
 }
+
 FloatAP div(FloatAP const& x, TwoExp const& t) {
     return shft(x, -t.exponent());
 }
+
 FloatAP& operator*=(FloatAP& x, TwoExp const& t) {
     return x = x * t;
 }
+
 FloatAP& operator/=(FloatAP& x, TwoExp const& t) {
     return x = x / t;
 }
@@ -858,9 +912,11 @@ FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& x, Int exponent) {
 Comparison cmp(FloatAP const& a, FloatDP const& b) {
     return cmp(a, Rational(b));
 }
+
 Comparison cmp(FloatDP const& a, FloatAP const& b) {
     return cmp(Rational(a), b);
 }
+
 bool operator==(FloatAP const& a, FloatDP const& b) { return cmp(a,b)==Comparison::EQUAL; }
 bool operator!=(FloatAP const& a, FloatDP const& b) { return cmp(a,b)!=Comparison::EQUAL; }
 bool operator< (FloatAP const& a, FloatDP const& b) { return cmp(a,b)==Comparison::LESS; }
@@ -868,9 +924,11 @@ bool operator> (FloatAP const& a, FloatDP const& b) { return cmp(a,b)==Compariso
 bool operator<=(FloatAP const& a, FloatDP const& b) {
     auto c=cmp(a,b); return c==Comparison::LESS || c==Comparison::EQUAL;
 }
+
 bool operator>=(FloatAP const& a, FloatDP const& b) {
     auto c=cmp(a,b); return c==Comparison::GREATER || c==Comparison::EQUAL;
 }
+
 bool operator==(FloatDP const& a, FloatAP const& b) { return cmp(a,b)==Comparison::EQUAL; }
 bool operator!=(FloatDP const& a, FloatAP const& b) { return cmp(a,b)!=Comparison::EQUAL; }
 bool operator< (FloatDP const& a, FloatAP const& b) { return cmp(a,b)==Comparison::LESS; }
@@ -878,6 +936,7 @@ bool operator> (FloatDP const& a, FloatAP const& b) { return cmp(a,b)==Compariso
 bool operator<=(FloatDP const& a, FloatAP const& b) {
     auto c=cmp(a,b); return c==Comparison::LESS || c==Comparison::EQUAL;
 }
+
 bool operator>=(FloatDP const& a, FloatAP const& b) {
     auto c=cmp(a,b); return c==Comparison::GREATER || c==Comparison::EQUAL;
 }
@@ -901,6 +960,7 @@ namespace {
 bool rational_is_nan(Rational const& q) {
     return is_nan(q);
 }
+
 bool rational_is_inf(Rational const& q) {
     return is_inf(q);
 }
@@ -1146,6 +1206,631 @@ template<> String class_name<ArbitraryPrecision>() { return "ArbitraryPrecision"
 template<> String class_name<FloatAP>() { return "FloatAP"; }
 template<> String class_name<Rounded<FloatAP>>() { return "Rounded<FloatAP>"; }
 
-}
-// namespace Ariadne
 
+// Exact rational intervals shared by certified transcendental operations.
+namespace {
+
+class Fraction {
+    mpq_t _value;
+
+public:
+    Fraction() {
+        mpq_init(_value);
+    }
+
+    explicit Fraction(long integer) : Fraction() {
+        mpq_set_si(_value, integer, 1);
+    }
+
+    explicit Fraction(mpq_srcptr rational) : Fraction() {
+        mpq_set(_value, rational);
+    }
+
+    Fraction(mpz_srcptr numerator, unsigned long denominator_bits) : Fraction() {
+        mpz_set(mpq_numref(_value), numerator);
+        mpz_set_ui(mpq_denref(_value), 1);
+        mpz_mul_2exp(mpq_denref(_value), mpq_denref(_value), denominator_bits);
+        mpq_canonicalize(_value);
+    }
+
+    Fraction(Fraction const& other) : Fraction(other._value) { }
+
+    Fraction(Fraction&& other) noexcept : Fraction() {
+        mpq_swap(_value, other._value);
+    }
+
+    ~Fraction() {
+        mpq_clear(_value);
+    }
+
+    Fraction& operator=(Fraction other) noexcept {
+        mpq_swap(_value, other._value);
+        return *this;
+    }
+
+    mpq_srcptr raw() const noexcept {
+        return _value;
+    }
+
+    int sign() const noexcept {
+        return mpq_sgn(_value);
+    }
+
+    friend int compare(Fraction const& a, Fraction const& b) {
+        return mpq_cmp(a._value, b._value);
+    }
+
+    friend Fraction operator+(Fraction const& a, Fraction const& b) {
+        Fraction result;
+        mpq_add(result._value, a._value, b._value);
+        return result;
+    }
+
+    friend Fraction operator-(Fraction const& a, Fraction const& b) {
+        Fraction result;
+        mpq_sub(result._value, a._value, b._value);
+        return result;
+    }
+
+    friend Fraction operator*(Fraction const& a, Fraction const& b) {
+        Fraction result;
+        mpq_mul(result._value, a._value, b._value);
+        return result;
+    }
+
+    friend Fraction operator/(Fraction const& a, Fraction const& b) {
+        if (b.sign() == 0) {
+            throw std::domain_error("FloatAP zero rational denominator");
+        }
+        Fraction result;
+        mpq_div(result._value, a._value, b._value);
+        return result;
+    }
+};
+
+struct Interval {
+    Fraction lower;
+    Fraction upper;
+};
+
+Fraction absolute(Fraction const& x) {
+    return x.sign() < 0 ? Fraction{} - x : x;
+}
+
+Interval enclosure(Fraction const& value, Fraction const& error) {
+    return {value - error, value + error};
+}
+
+Fraction tolerance(unsigned long bits) {
+    mpz_t one;
+    mpz_init_set_ui(one, 1);
+    const Fraction result(one, bits);
+    mpz_clear(one);
+    return result;
+}
+
+Fraction rational_argument(FloatAP const& x) {
+    const Rational rational = static_cast<Rational>(x);
+    return Fraction(rational.get_mpq());
+}
+
+namespace FloatAPExpLogDetail {
+
+// All approximations are exact GMP rationals; MPFR is never called.
+
+// For |x| <= 1/2 the exponential tail after term n is at most
+// twice the absolute value of the next term.
+Interval exp_series(Fraction const& x, unsigned long work) {
+    Fraction term(1);
+    Fraction sum(1);
+    const Fraction limit = tolerance(work);
+    for (unsigned long n = 1; ; ++n) {
+        if (n == std::numeric_limits<long>::max()) {
+            throw std::overflow_error("FloatAP exponential series index");
+        }
+        term = term * x / Fraction(static_cast<long>(n));
+        sum = sum + term;
+        const Fraction next = term * x / Fraction(static_cast<long>(n + 1));
+        const Fraction error = Fraction(2) * absolute(next);
+        if (compare(error, limit) < 0) {
+            return enclosure(sum, error);
+        }
+    }
+}
+
+Interval exp_interval(Fraction x, unsigned long work) {
+    unsigned halvings = 0;
+    while (compare(absolute(x), Fraction(1) / Fraction(2)) > 0) {
+        if (++halvings > 2048) {
+            throw std::overflow_error("FloatAP exp argument range");
+        }
+        x = x / Fraction(2);
+    }
+    Interval interval = exp_series(x, work + halvings + 8);
+    for (unsigned i = 0; i < halvings; ++i) {
+        // exp(x) is positive, so endpoint multiplication is monotone.
+        interval = {interval.lower * interval.lower,
+                    interval.upper * interval.upper};
+    }
+    return interval;
+}
+
+// For |z| <= 1/3, log((1+z)/(1-z)) = 2 sum z^(2n+1)/(2n+1).
+// The tail is bounded by 4*|z^(2n+3)|/(2n+3).
+Interval log_series(Fraction const& z, unsigned long work) {
+    Fraction power(z);
+    Fraction sum;
+    const Fraction square = z * z;
+    const Fraction limit = tolerance(work);
+    for (unsigned long n = 0; ; ++n) {
+        if (n >= (static_cast<unsigned long>(std::numeric_limits<long>::max()) - 3) / 2) {
+            throw std::overflow_error("FloatAP logarithm series index");
+        }
+        const long denominator = static_cast<long>(2 * n + 1);
+        sum = sum + power / Fraction(denominator);
+        power = power * square;
+        const Fraction error = Fraction(4) * absolute(power) /
+                               Fraction(denominator + 2);
+        if (compare(error, limit) < 0) {
+            return enclosure(Fraction(2) * sum, error);
+        }
+    }
+}
+
+Interval log_interval(Fraction x, unsigned long work) {
+    long power = 0;
+    while (compare(x, Fraction(2)) > 0) {
+        if (++power > 2048) {
+            throw std::overflow_error("FloatAP log argument range");
+        }
+        x = x / Fraction(2);
+    }
+    while (compare(x, Fraction(1) / Fraction(2)) < 0) {
+        if (--power < -2048) {
+            throw std::overflow_error("FloatAP log argument range");
+        }
+        x = x * Fraction(2);
+    }
+    const Fraction z = (x - Fraction(1)) / (x + Fraction(1));
+    Interval result = log_series(z, work);
+    if (power != 0) {
+        const Interval ln2 = log_series(Fraction(1) / Fraction(3), work);
+        const Fraction count(power < 0 ? -power : power);
+        if (power > 0) {
+            result = {result.lower + count * ln2.lower,
+                      result.upper + count * ln2.upper};
+        } else {
+            result = {result.lower - count * ln2.upper,
+                      result.upper - count * ln2.lower};
+        }
+    }
+    return result;
+}
+
+template<class Evaluate>
+FloatAP certified(Evaluate evaluate, FloatAP::RoundingModeType mode,
+                  FloatAP::PrecisionType precision) {
+    const unsigned long bits = static_cast<unsigned long>(precision.bits());
+    unsigned long extra = 32;
+    for (;;) {
+        if (extra > std::numeric_limits<unsigned long>::max() - bits - 16) {
+            throw std::overflow_error("FloatAP certified precision overflow");
+        }
+        const Interval interval = evaluate(bits + extra);
+        const FloatAP lower = FloatAP::from_rational(interval.lower.raw(), bits, mode);
+        const FloatAP upper = FloatAP::from_rational(interval.upper.raw(), bits, mode);
+        if (lower == upper) {
+            return lower;
+        }
+        if (extra > std::numeric_limits<unsigned long>::max() / 2) {
+            throw std::overflow_error("FloatAP certified refinement overflow");
+        }
+        extra *= 2;
+    }
+}
+
+} // namespace FloatAPExpLogDetail
+
+namespace FloatAPTrigonometricDetail {
+
+// Arithmetic on these fractions is exact. The approximation error is
+// represented only by the endpoints of Interval, never by floating point.
+
+Interval point(Fraction const& value) {
+    return {value, value};
+}
+
+Interval add(Interval const& a, Interval const& b) {
+    return {a.lower + b.lower, a.upper + b.upper};
+}
+
+Interval subtract(Interval const& a, Interval const& b) {
+    return {a.lower - b.upper, a.upper - b.lower};
+}
+
+Interval negative(Interval const& value) {
+    return {Fraction{} - value.upper, Fraction{} - value.lower};
+}
+
+Interval multiply(Interval const& a, Interval const& b) {
+    const Fraction candidates[4] = {
+        a.lower * b.lower, a.lower * b.upper,
+        a.upper * b.lower, a.upper * b.upper
+    };
+    Fraction lower(candidates[0]);
+    Fraction upper(candidates[0]);
+    for (unsigned i = 1; i < 4; ++i) {
+        if (compare(candidates[i], lower) < 0) {
+            lower = candidates[i];
+        }
+        if (compare(candidates[i], upper) > 0) {
+            upper = candidates[i];
+        }
+    }
+    return {std::move(lower), std::move(upper)};
+}
+
+Interval divide(Interval const& numerator, Interval const& denominator) {
+    if (denominator.lower.sign() <= 0 && denominator.upper.sign() >= 0) {
+        throw std::domain_error("FloatAP trigonometric interval crosses a pole");
+    }
+    const Interval reciprocal = {
+        Fraction(1L) / denominator.upper,
+        Fraction(1L) / denominator.lower
+    };
+    return multiply(numerator, reciprocal);
+}
+
+// For |x| <= 1, both sin and cos Taylor terms decrease in magnitude.
+// The absolute value of the first omitted term bounds the entire
+// alternating remainder; using a symmetric enclosure also handles x<0.
+std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
+                                               unsigned long work) {
+    const Fraction square = x * x;
+    const Fraction limit = tolerance(work);
+    Fraction sine_term(x);
+    Fraction cosine_term(1L);
+    Fraction sine_sum;
+    Fraction cosine_sum;
+
+    for (unsigned long n = 0; ; ++n) {
+        if (n > static_cast<unsigned long>(std::numeric_limits<long>::max() / 4)) {
+            throw std::overflow_error("FloatAP trigonometric series index");
+        }
+
+        if (n % 2 == 0) {
+            sine_sum = sine_sum + sine_term;
+            cosine_sum = cosine_sum + cosine_term;
+        } else {
+            sine_sum = sine_sum - sine_term;
+            cosine_sum = cosine_sum - cosine_term;
+        }
+
+        const long index = static_cast<long>(n);
+        sine_term = sine_term * square /
+                    Fraction((2 * index + 2) * (2 * index + 3));
+        cosine_term = cosine_term * square /
+                      Fraction((2 * index + 1) * (2 * index + 2));
+
+        if (compare(absolute(sine_term), limit) < 0 &&
+            compare(absolute(cosine_term), limit) < 0) {
+            return {
+                enclosure(sine_sum, absolute(sine_term)),
+                enclosure(cosine_sum, absolute(cosine_term))
+            };
+        }
+    }
+}
+
+// For |x| <= 1/2, the remainder of the alternating atan series is
+// bounded by the first omitted term. Its sign can be ignored because
+// we enclose the answer symmetrically.
+Interval small_atan(Fraction const& x, unsigned long work) {
+    const Fraction square = x * x;
+    const Fraction limit = tolerance(work);
+    Fraction power(x);
+    Fraction sum;
+
+    for (unsigned long n = 0; ; ++n) {
+        if (n > static_cast<unsigned long>(std::numeric_limits<long>::max() / 4)) {
+            throw std::overflow_error("FloatAP arctangent series index");
+        }
+
+        const long index = static_cast<long>(n);
+        const Fraction term = power / Fraction(2 * index + 1);
+        sum = n % 2 == 0 ? sum + term : sum - term;
+        power = power * square;
+
+        const Fraction error = absolute(power / Fraction(2 * index + 3));
+        if (compare(error, limit) < 0) {
+            return enclosure(sum, error);
+        }
+    }
+}
+
+Interval pi_interval(unsigned long work) {
+    // Machin: pi = 16 atan(1/5) - 4 atan(1/239).
+    const Interval a = small_atan(Fraction(1L) / Fraction(5L), work);
+    const Interval b = small_atan(Fraction(1L) / Fraction(239L), work);
+    return subtract(multiply(point(Fraction(16L)), a),
+                    multiply(point(Fraction(4L)), b));
+}
+
+Interval atan_interval(Fraction const& x, unsigned long work) {
+    const Fraction half = Fraction(1L) / Fraction(2L);
+    if (compare(absolute(x), half) <= 0) {
+        return small_atan(x, work);
+    }
+    if (x.sign() < 0) {
+        return negative(atan_interval(Fraction{} - x, work));
+    }
+
+    const Interval quarter_pi = divide(pi_interval(work), point(Fraction(4L)));
+    if (compare(x, Fraction(2L)) <= 0) {
+        // atan(x) = pi/4 + atan((x-1)/(x+1)), |argument| <= 1/3.
+        const Fraction reduced = (x - Fraction(1L)) / (x + Fraction(1L));
+        return add(quarter_pi, small_atan(reduced, work));
+    }
+    // atan(x) = pi/2 - atan(1/x) for x > 2.
+    return subtract(multiply(point(Fraction(2L)), quarter_pi),
+                    small_atan(Fraction(1L) / x, work));
+}
+
+std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
+                                                   unsigned long work) {
+    unsigned halvings = 0;
+    while (compare(absolute(x), Fraction(1L)) > 0) {
+        if (++halvings > 4096u) {
+            throw std::overflow_error("FloatAP trigonometric argument too large");
+        }
+        x = x / Fraction(2L);
+    }
+
+    auto results = small_sine_cosine(x, work + halvings + 16u);
+    for (unsigned n = 0; n < halvings; ++n) {
+        const Interval sine = multiply(point(Fraction(2L)),
+                                       multiply(results.first, results.second));
+        const Interval cosine = subtract(multiply(results.second, results.second),
+                                          multiply(results.first, results.first));
+        results = {sine, cosine};
+    }
+    return results;
+}
+
+Interval square_root_interval(Fraction const& x, unsigned long work) {
+    if (x.sign() < 0) {
+        throw std::domain_error("FloatAP inverse trigonometric domain");
+    }
+    if (x.sign() == 0) {
+        return point(Fraction{});
+    }
+    if (work > std::numeric_limits<mp_bitcnt_t>::max() / 2u) {
+        throw std::overflow_error("FloatAP radical precision too large");
+    }
+
+    mpz_t scaled, quotient, root, squared;
+    mpz_inits(scaled, quotient, root, squared, nullptr);
+    struct Cleanup {
+        mpz_ptr a, b, c, d;
+        ~Cleanup() { mpz_clears(a, b, c, d, nullptr); }
+    } cleanup{scaled, quotient, root, squared};
+
+    mpz_mul_2exp(scaled, mpq_numref(x.raw()), 2u * work);
+    mpz_fdiv_q(quotient, scaled, mpq_denref(x.raw()));
+    mpz_sqrt(root, quotient);
+    const Fraction lower(root, work);
+
+    mpz_mul(squared, root, root);
+    mpz_mul(squared, squared, mpq_denref(x.raw()));
+    if (mpz_cmp(squared, scaled) == 0) {
+        return point(lower);
+    }
+
+    mpz_add_ui(root, root, 1u);
+    return {lower, Fraction(root, work)};
+}
+
+Interval asin_interval(Fraction const& x, unsigned long work) {
+    // asin(x) = 2 atan(x / (1 + sqrt(1-x*x))).
+    // Unlike atan(x/sqrt(1-x*x)), the denominator remains >= 1.
+    const Interval radical = square_root_interval(
+        Fraction(1L) - x * x, work);
+    const Interval denominator = add(point(Fraction(1L)), radical);
+    const Interval argument = divide(point(x), denominator);
+    const Interval left = atan_interval(argument.lower, work);
+    const Interval right = atan_interval(argument.upper, work);
+    return {Fraction(2L) * left.lower, Fraction(2L) * right.upper};
+}
+
+enum class Function {
+    sine, cosine, tangent, arctangent, arcsine, arccosine,
+    pi, half_pi, negative_half_pi
+};
+
+Interval evaluate(Function function, Fraction const& x, unsigned long work) {
+    switch (function) {
+        case Function::sine:
+            return sine_cosine_intervals(x, work).first;
+        case Function::cosine:
+            return sine_cosine_intervals(x, work).second;
+        case Function::tangent: {
+            const auto [sine, cosine] = sine_cosine_intervals(x, work);
+            return divide(sine, cosine);
+        }
+        case Function::arctangent:
+            return atan_interval(x, work);
+        case Function::arcsine:
+            return asin_interval(x, work);
+        case Function::arccosine:
+            return subtract(divide(pi_interval(work), point(Fraction(2L))),
+                            asin_interval(x, work));
+        case Function::pi:
+            return pi_interval(work);
+        case Function::half_pi:
+            return divide(pi_interval(work), point(Fraction(2L)));
+        case Function::negative_half_pi:
+            return negative(divide(pi_interval(work), point(Fraction(2L))));
+        default:
+            throw std::invalid_argument("FloatAP unknown trigonometric function");
+    }
+}
+
+// A result is returned only when all real values in its certified
+// enclosure round to exactly the same FloatAP. This includes directed
+// rounding and correctly handles the nearest-even halfway boundaries.
+FloatAP certified(Function function, Fraction const& x,
+                  FloatAP::RoundingModeType mode, FloatAP::PrecisionType precision) {
+    const unsigned long bits = static_cast<unsigned long>(precision.bits());
+    unsigned long extra = 32u;
+    for (;;) {
+        if (extra > std::numeric_limits<unsigned long>::max() - bits - 32u) {
+            throw std::overflow_error("FloatAP trigonometric precision too large");
+        }
+
+        const Interval bounds = evaluate(function, x, bits + extra);
+        const FloatAP low = FloatAP::from_rational(bounds.lower.raw(), bits, mode);
+        const FloatAP high = FloatAP::from_rational(bounds.upper.raw(), bits, mode);
+        if (low == high) {
+            return low;
+        }
+
+        if (extra > std::numeric_limits<unsigned long>::max() / 2u) {
+            throw std::overflow_error("FloatAP trigonometric refinement overflow");
+        }
+        extra *= 2u;
+    }
+}
+
+FloatAP unary(Function function, FloatAP::RoundingModeType mode,
+              FloatAP const& x) {
+    const unsigned long bits = static_cast<unsigned long>(x.precision().bits());
+    if (x.is_nan()) {
+        return FloatAP::nan(bits);
+    }
+
+    if (x.is_inf()) {
+        if (function == Function::arctangent) {
+            return certified(x.negative() ? Function::negative_half_pi :
+                           Function::half_pi, Fraction{}, mode, x.precision());
+        }
+        return FloatAP::nan(bits);
+    }
+
+    if (x.is_zero()) {
+        switch (function) {
+            case Function::sine:
+            case Function::tangent:
+            case Function::arctangent:
+            case Function::arcsine:
+                return FloatAP::zero(bits, x.negative());
+            case Function::cosine:
+                return FloatAP(std::int64_t{1}, x.precision());
+            case Function::arccosine:
+                return certified(Function::arccosine, Fraction{}, mode, x.precision());
+            case Function::pi:
+            case Function::half_pi:
+            case Function::negative_half_pi:
+            default:
+                break;
+        }
+    }
+
+    const Fraction argument = rational_argument(x);
+    if (function == Function::arcsine || function == Function::arccosine) {
+        if (compare(absolute(argument), Fraction(1L)) > 0) {
+            return FloatAP::nan(bits);
+        }
+        if (compare(argument, Fraction(1L)) == 0) {
+            if (function == Function::arccosine) {
+                return FloatAP::zero(bits);
+            }
+            return certified(Function::half_pi, Fraction{}, mode, x.precision());
+        }
+        if (compare(argument, Fraction(-1L)) == 0) {
+            return certified(function == Function::arcsine ?
+                             Function::negative_half_pi : Function::pi,
+                             Fraction{}, mode, x.precision());
+        }
+    }
+    return certified(function, argument, mode, x.precision());
+}
+
+} // namespace FloatAPTrigonometricDetail
+
+} // namespace
+
+FloatAP exp(FloatAP::RoundingModeType mode, FloatAP const& x) {
+    using namespace FloatAPExpLogDetail;
+    const unsigned long bits = static_cast<unsigned long>(x.precision().bits());
+    if (x.is_nan()) {
+        return FloatAP::nan(bits);
+    }
+    if (x.is_inf()) {
+        return x.negative() ? FloatAP::zero(bits) : FloatAP::infinity(bits);
+    }
+    if (x.is_zero()) {
+        return FloatAP(std::int64_t{1}, x.precision());
+    }
+    const Fraction input = exact_argument(x);
+    return certified([&](unsigned long work) {
+        return exp_interval(input, work);
+    }, mode, x.precision());
+}
+
+FloatAP log(FloatAP::RoundingModeType mode, FloatAP const& x) {
+    using namespace FloatAPExpLogDetail;
+    const unsigned long bits = static_cast<unsigned long>(x.precision().bits());
+    if (x.is_nan() || (x.negative() && !x.is_zero())) {
+        return FloatAP::nan(bits);
+    }
+    if (x.is_zero()) {
+        return FloatAP::infinity(bits, true);
+    }
+    if (x.is_inf()) {
+        return FloatAP::infinity(bits);
+    }
+    const Fraction input = exact_argument(x);
+    if (compare(input, Fraction(1)) == 0) {
+        return FloatAP::zero(bits);
+    }
+    return certified([&](unsigned long work) {
+        return log_interval(input, work);
+    }, mode, x.precision());
+}
+
+FloatAP sin(FloatAP::RoundingModeType mode, FloatAP const& x) {
+    using namespace FloatAPTrigonometricDetail;
+    return unary(Function::sine, mode, x);
+}
+
+FloatAP cos(FloatAP::RoundingModeType mode, FloatAP const& x) {
+    using namespace FloatAPTrigonometricDetail;
+    return unary(Function::cosine, mode, x);
+}
+
+FloatAP tan(FloatAP::RoundingModeType mode, FloatAP const& x) {
+    using namespace FloatAPTrigonometricDetail;
+    return unary(Function::tangent, mode, x);
+}
+
+FloatAP atan(FloatAP::RoundingModeType mode, FloatAP const& x) {
+    using namespace FloatAPTrigonometricDetail;
+    return unary(Function::arctangent, mode, x);
+}
+
+FloatAP asin(FloatAP::RoundingModeType mode, FloatAP const& x) {
+    using namespace FloatAPTrigonometricDetail;
+    return unary(Function::arcsine, mode, x);
+}
+
+FloatAP acos(FloatAP::RoundingModeType mode, FloatAP const& x) {
+    using namespace FloatAPTrigonometricDetail;
+    return unary(Function::arccosine, mode, x);
+}
+
+FloatAP Float<ArbitraryPrecision>::pi(RoundingModeType mode, PrecisionType precision) {
+    using namespace FloatAPTrigonometricDetail;
+    return certified(Function::pi, Fraction{}, mode, precision);
+}
+
+} // namespace Ariadne
