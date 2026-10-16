@@ -1801,12 +1801,18 @@ Interval divide(Interval const& numerator, Interval const& denominator) {
 }
 
 // For |x| <= 1, the positive magnitudes of both sine and cosine
-// Taylor terms decrease monotonically. Evaluate both series together
+// Taylor terms decrease monotonically. Evaluate only the required series
 // using outward-rounded fixed-point GMP integers: no mpq_t intermediates
 // are allocated in the loop. The first omitted alternating term bounds
-// the exact remainder on one side of the partial sum.
+// the exact remainder on one side of the partial sum. A single-output
+// request avoids the unused Taylor recurrence entirely.
+enum class TrigOutputs { sine, cosine, both };
+
 std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
-                                               unsigned long work) {
+                                               unsigned long work,
+                                               TrigOutputs outputs) {
+    const bool compute_sine = outputs != TrigOutputs::cosine;
+    const bool compute_cosine = outputs != TrigOutputs::sine;
     if (x.sign() == 0) {
         return {point(Fraction{}), point(Fraction(1L))};
     }
@@ -1847,26 +1853,38 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
     mpz_mul(square_hi, argument_hi, argument_hi);
     mpz_cdiv_q_2exp(square_hi, square_hi, shift);
 
-    mpz_set(sine_term_lo, argument_lo);
-    mpz_set(sine_term_hi, argument_hi);
-    mpz_set_ui(cosine_term_lo, 1ul);
-    mpz_mul_2exp(cosine_term_lo, cosine_term_lo, shift);
-    mpz_set(cosine_term_hi, cosine_term_lo);
+    if (compute_sine) {
+        mpz_set(sine_term_lo, argument_lo);
+        mpz_set(sine_term_hi, argument_hi);
+    }
+    if (compute_cosine) {
+        mpz_set_ui(cosine_term_lo, 1ul);
+        mpz_mul_2exp(cosine_term_lo, cosine_term_lo, shift);
+        mpz_set(cosine_term_hi, cosine_term_lo);
+    }
 
     mpz_set_ui(threshold, 1ul);
     mpz_mul_2exp(threshold, threshold, static_cast<mp_bitcnt_t>(guard));
 
     for (unsigned long n = 0; n < max_terms; ++n) {
         if (n % 2ul == 0ul) {
-            mpz_add(sine_sum_lo, sine_sum_lo, sine_term_lo);
-            mpz_add(sine_sum_hi, sine_sum_hi, sine_term_hi);
-            mpz_add(cosine_sum_lo, cosine_sum_lo, cosine_term_lo);
-            mpz_add(cosine_sum_hi, cosine_sum_hi, cosine_term_hi);
+            if (compute_sine) {
+                mpz_add(sine_sum_lo, sine_sum_lo, sine_term_lo);
+                mpz_add(sine_sum_hi, sine_sum_hi, sine_term_hi);
+            }
+            if (compute_cosine) {
+                mpz_add(cosine_sum_lo, cosine_sum_lo, cosine_term_lo);
+                mpz_add(cosine_sum_hi, cosine_sum_hi, cosine_term_hi);
+            }
         } else {
-            mpz_sub(sine_sum_lo, sine_sum_lo, sine_term_hi);
-            mpz_sub(sine_sum_hi, sine_sum_hi, sine_term_lo);
-            mpz_sub(cosine_sum_lo, cosine_sum_lo, cosine_term_hi);
-            mpz_sub(cosine_sum_hi, cosine_sum_hi, cosine_term_lo);
+            if (compute_sine) {
+                mpz_sub(sine_sum_lo, sine_sum_lo, sine_term_hi);
+                mpz_sub(sine_sum_hi, sine_sum_hi, sine_term_lo);
+            }
+            if (compute_cosine) {
+                mpz_sub(cosine_sum_lo, cosine_sum_lo, cosine_term_hi);
+                mpz_sub(cosine_sum_hi, cosine_sum_hi, cosine_term_lo);
+            }
         }
 
         if (n > (std::numeric_limits<unsigned long>::max() - 3ul) / 2ul) {
@@ -1883,38 +1901,55 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         const unsigned long cosine_divisor = a * b;
         const unsigned long sine_divisor = b * c;
 
-        mpz_mul(sine_term_lo, sine_term_lo, square_lo);
-        mpz_fdiv_q_2exp(sine_term_lo, sine_term_lo, shift);
-        mpz_fdiv_q_ui(sine_term_lo, sine_term_lo, sine_divisor);
-        mpz_mul(sine_term_hi, sine_term_hi, square_hi);
-        mpz_cdiv_q_2exp(sine_term_hi, sine_term_hi, shift);
-        mpz_cdiv_q_ui(sine_term_hi, sine_term_hi, sine_divisor);
+        if (compute_sine) {
+            mpz_mul(sine_term_lo, sine_term_lo, square_lo);
+            mpz_fdiv_q_2exp(sine_term_lo, sine_term_lo, shift);
+            mpz_fdiv_q_ui(sine_term_lo, sine_term_lo, sine_divisor);
+            mpz_mul(sine_term_hi, sine_term_hi, square_hi);
+            mpz_cdiv_q_2exp(sine_term_hi, sine_term_hi, shift);
+            mpz_cdiv_q_ui(sine_term_hi, sine_term_hi, sine_divisor);
+        }
 
-        mpz_mul(cosine_term_lo, cosine_term_lo, square_lo);
-        mpz_fdiv_q_2exp(cosine_term_lo, cosine_term_lo, shift);
-        mpz_fdiv_q_ui(cosine_term_lo, cosine_term_lo, cosine_divisor);
-        mpz_mul(cosine_term_hi, cosine_term_hi, square_hi);
-        mpz_cdiv_q_2exp(cosine_term_hi, cosine_term_hi, shift);
-        mpz_cdiv_q_ui(cosine_term_hi, cosine_term_hi, cosine_divisor);
+        if (compute_cosine) {
+            mpz_mul(cosine_term_lo, cosine_term_lo, square_lo);
+            mpz_fdiv_q_2exp(cosine_term_lo, cosine_term_lo, shift);
+            mpz_fdiv_q_ui(cosine_term_lo, cosine_term_lo, cosine_divisor);
+            mpz_mul(cosine_term_hi, cosine_term_hi, square_hi);
+            mpz_cdiv_q_2exp(cosine_term_hi, cosine_term_hi, shift);
+            mpz_cdiv_q_ui(cosine_term_hi, cosine_term_hi, cosine_divisor);
+        }
 
-        if ((mpz_cmp(sine_term_hi, threshold) <= 0 &&
-             mpz_cmp(cosine_term_hi, threshold) <= 0) ||
+        if (((!compute_sine || mpz_cmp(sine_term_hi, threshold) <= 0) &&
+             (!compute_cosine || mpz_cmp(cosine_term_hi, threshold) <= 0)) ||
             n + 1ul == max_terms) {
             // If the last included term was positive, the omitted
-            // alternating tail is negative, and conversely.
+            // alternating tail is negative, and conversely. Only the
+            // requested result needs an interval; the other is unused.
             if (n % 2ul == 0ul) {
-                mpz_sub(sine_sum_lo, sine_sum_lo, sine_term_hi);
-                mpz_sub(cosine_sum_lo, cosine_sum_lo, cosine_term_hi);
+                if (compute_sine) {
+                    mpz_sub(sine_sum_lo, sine_sum_lo, sine_term_hi);
+                }
+                if (compute_cosine) {
+                    mpz_sub(cosine_sum_lo, cosine_sum_lo, cosine_term_hi);
+                }
             } else {
-                mpz_add(sine_sum_hi, sine_sum_hi, sine_term_hi);
-                mpz_add(cosine_sum_hi, cosine_sum_hi, cosine_term_hi);
+                if (compute_sine) {
+                    mpz_add(sine_sum_hi, sine_sum_hi, sine_term_hi);
+                }
+                if (compute_cosine) {
+                    mpz_add(cosine_sum_hi, cosine_sum_hi, cosine_term_hi);
+                }
             }
 
-            Interval sine{Fraction(sine_sum_lo, fixed_bits),
-                          Fraction(sine_sum_hi, fixed_bits)};
-            Interval cosine{Fraction(cosine_sum_lo, fixed_bits),
-                            Fraction(cosine_sum_hi, fixed_bits)};
-            if (x.sign() < 0) {
+            Interval sine = compute_sine
+                ? Interval{Fraction(sine_sum_lo, fixed_bits),
+                           Fraction(sine_sum_hi, fixed_bits)}
+                : point(Fraction{});
+            Interval cosine = compute_cosine
+                ? Interval{Fraction(cosine_sum_lo, fixed_bits),
+                           Fraction(cosine_sum_hi, fixed_bits)}
+                : point(Fraction{});
+            if (compute_sine && x.sign() < 0) {
                 sine = negative(sine);
             }
             return {std::move(sine), std::move(cosine)};
@@ -2056,7 +2091,8 @@ Interval atan_interval(Fraction const& x, unsigned long work) {
 }
 
 std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
-                                                   unsigned long work) {
+                                                   unsigned long work,
+                                                   TrigOutputs outputs) {
     unsigned halvings = 0;
     while (compare(absolute(x), Fraction(1L)) > 0) {
         if (++halvings > 4096u) {
@@ -2065,7 +2101,10 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
         x = x / Fraction(2L);
     }
 
-    auto results = small_sine_cosine(x, work + halvings + 16u);
+    // Double-angle reconstruction needs BOTH values, regardless of
+    // which function the caller eventually requests.
+    const TrigOutputs kernel_outputs = halvings == 0u ? outputs : TrigOutputs::both;
+    auto results = small_sine_cosine(x, work + halvings + 16u, kernel_outputs);
     for (unsigned n = 0; n < halvings; ++n) {
         const Interval sine = multiply(point(Fraction(2L)),
                                        multiply(results.first, results.second));
@@ -2129,11 +2168,11 @@ enum class Function {
 Interval evaluate(Function function, Fraction const& x, unsigned long work) {
     switch (function) {
         case Function::sine:
-            return sine_cosine_intervals(x, work).first;
+            return sine_cosine_intervals(x, work, TrigOutputs::sine).first;
         case Function::cosine:
-            return sine_cosine_intervals(x, work).second;
+            return sine_cosine_intervals(x, work, TrigOutputs::cosine).second;
         case Function::tangent: {
-            const auto [sine, cosine] = sine_cosine_intervals(x, work);
+            const auto [sine, cosine] = sine_cosine_intervals(x, work, TrigOutputs::both);
             return divide(sine, cosine);
         }
         case Function::arctangent:

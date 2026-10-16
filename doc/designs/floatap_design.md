@@ -1620,3 +1620,67 @@ https://flintlib.org/doc/arb.html . Further performance work
 should profile the exact-rational endpoint construction and
 conversion overhead before undertaking more intrusive changes.
 
+## Selective fixed-point trigonometric evaluation (16 October 2026)
+
+**Observed bottleneck:** the latest benchmark reports 1024-bit
+`cos_nearest` at 41.82 us versus 4.84 us for MPFR (8.63x),
+and `sin_nearest` at 41.92 us versus 5.90 us (7.11x).
+`tan_nearest` is 49.41 us versus 6.53 us (7.56x).
+The fixed-point Taylor kernel previously evaluated both the sine
+and cosine recurrence on every call, even when the public request
+only required one result. Each unused recurrence performed two
+GMP multiplications, shifts, directed divisions and accumulator
+updates per iteration.
+
+**Decision:** add a private `TrigOutputs` selector to the
+fixed-point kernel and propagate it from the trigonometric
+evaluation dispatcher. When the reduced argument is already
+in `[-1,1]`, a request for `sin` skips the entire cosine
+Taylor recurrence, and vice versa. This avoids building an
+unused series and converting its interval endpoints to
+rationals. For `tan`, always evaluate both functions.
+If the original argument requires one or more halvings,
+**both** series remain necessary: the double-angle identities
+`sin(2x) = 2 sin(x) cos(x)` and
+`cos(2x) = cos(x)^2 - sin(x)^2` must be propagated
+using certified intervals. No change is made to the
+existing argument-reduction threshold or identities.
+
+**Certification:** the active recurrence retains its original
+outward-rounded GMP fixed-point endpoints and the alternating
+Taylor remainder bound. The stopping condition only consults
+the bounds of the requested series (or both when necessary).
+Thus a single-output evaluation may finish sooner without
+changing the mathematical enclosure guarantee.
+The unrequested element of the private return pair is a
+placeholder and **must not** be used by callers; the public
+dispatcher accesses only the requested result. The
+double-angle and tangent paths always request both intervals.
+No rounding mode or public interface is changed.
+
+**Regression:** extend the differential sine/cosine/tangent
+suite comparing FloatAP with MPFR at 53, 128, 256, and
+1024 bits under all four rounding modes. New arguments
+include exactly +1/-1 and +7/8/-7/8, in addition to values
+above 1 and negative-cosine cases. These tests exercise both
+the selective and joint kernel paths; correctness of the
+rounded results is the acceptance criterion.
+
+**Measurements:** the reported 41.82 us cosine and 41.92 us
+sine at 1024 bits are the **pre-change** reference. The
+latest benchmark was collected under visibly different
+timing conditions from the preceding run (for example,
+the MPFR comparison microbenchmark changed substantially).
+Do not attribute inter-run changes exclusively to
+algorithmic modifications without same-environment controls.
+Rebenchmark identical inputs, including `tan`, and
+measure cold and warm cases before recording any speedup.
+
+**Relation to the state of the art:** FLINT/Arb explicitly
+supports evaluating sine alone or both sine and cosine in
+its rectangular-splitting Taylor kernel (the `sinonly`
+option). See https://flintlib.org/doc/arb.html .
+The present change removes clearly unnecessary computations;
+it does not yet implement rectangular splitting, advanced
+argument reduction, or limb-level intermediate reuse.
+
