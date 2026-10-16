@@ -607,3 +607,49 @@ ctest --test-dir build-release -R '^test_float_multipleprecision_backends$' --ou
 
 Historical references to build flags in earlier sections describe
 prior states of this development branch, not the current build contract.
+
+
+## Complete native trigonometric interface and unconditional comparison (16 October 2026)
+
+The native `Float<ArbitraryPrecision>` specialization now implements the
+entire set of operations requested by the comparison benchmark:
+`sin`, `cos`, `tan`, `atan`, `asin`, `acos`, and `pi`, in
+addition to the existing `sqrt`, `exp`, `log`, `pow`, elementary
+arithmetic, conversions and comparisons. Their definitions live in
+`src/floatap_trigonometric.cpp`, not in an MPFR wrapper. The benchmarks
+and differential tests no longer have temporary capability gates:
+they instantiate **both** backends and exercise the full operation set.
+
+Native trigonometry uses GMP rational enclosures and certified remainders:
+- Taylor series for sine and cosine on `[-1, 1]`, with error bounded by
+  the first omitted alternating term. Larger arguments are halved and
+  reconstructed by double-angle identities with interval arithmetic.
+- Arctangent is reduced to `[-1/2, 1/2]` with the exact identities
+  `atan(x) = pi/4 + atan((x-1)/(x+1))` and
+  `atan(x) = pi/2 - atan(1/x)`; each reduced series has a rigorously
+  bounded alternating remainder.
+- Pi uses Machin's identity
+  `pi = 16 atan(1/5) - 4 atan(1/239)`.
+- Inverse sine uses `asin(x) = 2 atan(x/(1+sqrt(1-x^2)))`, where
+  the rational square-root interval is computed by integer division
+  and `mpz_sqrt`. Inverse cosine uses `pi/2 - asin(x)`.
+- Tangent divides certified sine/cosine intervals, explicitly rejecting
+  an unresolved denominator enclosure containing zero.
+
+For every finite nontrivial input, the implementation increases its
+internal precision until **both** endpoints round to the same FloatAP
+under the requested mode. No approximate final result is accepted if
+the enclosure straddles a rounding boundary. Domain errors and special
+values are treated explicitly; `atan(±inf)`, `asin(±1)`, and
+`acos(-1)` use the same certified pi/2 or pi enclosures, not large
+finite surrogates. Resource guards may throw for extremely large inputs
+rather than return uncertified values.
+
+This initial algorithm is correctness-oriented, with expensive rational
+temporaries and an adaptive precision loop. It is not optimized for
+benchmark speed, and does not promise termination for every theoretical
+hard-to-round input. Full Ariadne CI compilation and MPFR differential
+testing are required **before performance numbers can be trusted**.
+The previously achieved 100% coverage applies only to the earlier
+implementation; all newly introduced functions, lines and branches must
+be covered in subsequent reports.

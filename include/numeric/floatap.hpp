@@ -291,6 +291,13 @@ template<> class Float<ArbitraryPrecision> {
     friend FloatAP pow(RoundingModeType mode, FloatAP const& x, Nat exponent);
     friend FloatAP exp(RoundingModeType mode, FloatAP const& x);
     friend FloatAP log(RoundingModeType mode, FloatAP const& x);
+    friend FloatAP sin(RoundingModeType mode, FloatAP const& x);
+    friend FloatAP cos(RoundingModeType mode, FloatAP const& x);
+    friend FloatAP tan(RoundingModeType mode, FloatAP const& x);
+    friend FloatAP atan(RoundingModeType mode, FloatAP const& x);
+    friend FloatAP asin(RoundingModeType mode, FloatAP const& x);
+    friend FloatAP acos(RoundingModeType mode, FloatAP const& x);
+    static FloatAP pi(RoundingModeType mode, PrecisionType precision);
 
     // Round signed numerator/positive denominator * 2^scale with one rounding.
     static FloatAP from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,

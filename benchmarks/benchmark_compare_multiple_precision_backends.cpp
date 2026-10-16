@@ -24,10 +24,8 @@
 
 // Same monomorphic test code is instantiated for each implementation: no virtual dispatch.
 #include "numeric/floatmp.hpp"
-#include "numeric/rational.hpp"
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
 #include "numeric/floatap.hpp"
-#endif
+#include "numeric/rational.hpp"
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
@@ -182,7 +180,6 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
         return log(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
-#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
     report("sin_nearest",[& ](unsigned i) {
         return sin(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
@@ -199,7 +196,15 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
         return atan(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
-#endif
+    report("asin_nearest", [&](unsigned i) {
+        return asin(Float::ROUND_TO_NEAREST, a[index(i)]);
+    });
+    report("acos_nearest", [&](unsigned i) {
+        return acos(Float::ROUND_TO_NEAREST, a[index(i)]);
+    });
+    report("pi_nearest", [&](unsigned) {
+        return Float::pi(Float::ROUND_TO_NEAREST, precision);
+    });
     report("pow7_nearest",[& ](unsigned i) {
         return pow(Float::ROUND_TO_NEAREST, a[index(i)], Nat(7u));
     }
@@ -214,7 +219,6 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
     );
 }
 
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
 void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
 bool details, double max_slowdown) {
     struct Aggregate {
@@ -302,7 +306,6 @@ bool details, double max_slowdown) {
         + std::to_string(max_slowdown) + "x");
     }
 }
-#endif
 
 int main(int argc, char* * argv) {
     try {
@@ -361,11 +364,6 @@ int main(int argc, char* * argv) {
         if (iterations == 0 || samples < 3 || samples % 2 == 0) {
             throw std::invalid_argument("iterations must be positive; samples must be odd and >=3");
         }
-#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
-        if (std::isfinite(max_slowdown)) {
-            throw std::invalid_argument("--max-slowdown requires BUILD_FLOATAP_COMPARISON=ON");
-        }
-#endif
 
         std::vector<BenchmarkDatum> measurements;
         if (!summary_only) {
@@ -373,16 +371,9 @@ int main(int argc, char* * argv) {
         }
         for (unsigned bits : { 53u, 128u, 256u, 1024u }) {
             run_backend < FloatMP >("mpfr", bits, iterations, samples, !summary_only, measurements);
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
-            run_backend < FloatAP >("floatap", bits, iterations, samples, !summary_only, measurements);
-#endif
+            run_backend<FloatAP>("floatap", bits, iterations, samples, !summary_only, measurements);
         }
-#ifdef ARIADNE_NUMERIC_ENABLE_FLOATAP
         print_slowdown_summary(measurements, details, max_slowdown);
-#else
-        std::cerr << "FloatAP slowdown unavailable: BUILD_FLOATAP_COMPARISON is OFF. "
-        "Only FloatMP reference timings were recorded.\n";
-#endif
         return 0;
     }
     catch (std::exception const& e) {
