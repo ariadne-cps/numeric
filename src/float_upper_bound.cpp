@@ -43,7 +43,6 @@ template<> UpperBound<FloatAP>::UpperBound(ValidatedUpperNumber const& y, Arbitr
     : UpperBound<FloatAP>(static_cast<Dyadic>(y.get(MultiplePrecision(pr.bits())).raw()),pr) { }
 
 template class UpperBound<FloatMP>;
-template class UpperBound<FloatAP>;
 
 template<> String class_name<UpperBound<FloatDP>>() { return "FloatDPUpperBound"; }
 template<> String class_name<UpperBound<FloatMP>>() { return "FloatMPUpperBound"; }
