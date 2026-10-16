@@ -1771,11 +1771,33 @@ Interval divide(Interval const& numerator, Interval const& denominator) {
     if (denominator.lower.sign() <= 0 && denominator.upper.sign() >= 0) {
         throw std::domain_error("FloatAP trigonometric interval crosses a pole");
     }
-    const Interval reciprocal = {
-        Fraction(1L) / denominator.upper,
-        Fraction(1L) / denominator.lower
-    };
-    return multiply(numerator, reciprocal);
+
+    // Monotonicity and endpoint signs identify the extrema. Only two
+    // exact rational divisions are needed instead of two reciprocals
+    // and four interval cross-products.
+    if (denominator.lower.sign() > 0) {
+        if (numerator.lower.sign() >= 0) {
+            return {numerator.lower / denominator.upper,
+                    numerator.upper / denominator.lower};
+        }
+        if (numerator.upper.sign() <= 0) {
+            return {numerator.lower / denominator.lower,
+                    numerator.upper / denominator.upper};
+        }
+        return {numerator.lower / denominator.lower,
+                numerator.upper / denominator.lower};
+    }
+
+    if (numerator.lower.sign() >= 0) {
+        return {numerator.upper / denominator.upper,
+                numerator.lower / denominator.lower};
+    }
+    if (numerator.upper.sign() <= 0) {
+        return {numerator.upper / denominator.lower,
+                numerator.lower / denominator.upper};
+    }
+    return {numerator.upper / denominator.upper,
+            numerator.lower / denominator.upper};
 }
 
 // For |x| <= 1, the positive magnitudes of both sine and cosine
