@@ -400,6 +400,19 @@ template<> class Float<ArbitraryPrecision> {
     friend FloatAP operator/(FloatAP const& x, TwoExp const& t);
     friend FloatAP& operator*=(FloatAP& x, TwoExp const& t);
     friend FloatAP& operator/=(FloatAP& x, TwoExp const& t);
+    friend Bounds<FloatAP> operator+(FloatAP const& a, FloatAP const& b);
+    friend Bounds<FloatAP> operator-(FloatAP const& a, FloatAP const& b);
+    friend Bounds<FloatAP> operator*(FloatAP const& a, FloatAP const& b);
+    friend Bounds<FloatAP> operator/(FloatAP const& a, FloatAP const& b);
+    friend Bounds<FloatAP> add(FloatAP const& a, FloatAP const& b);
+    friend Bounds<FloatAP> sub(FloatAP const& a, FloatAP const& b);
+    friend Bounds<FloatAP> mul(FloatAP const& a, FloatAP const& b);
+    friend Bounds<FloatAP> div(FloatAP const& a, FloatAP const& b);
+    friend Bounds<FloatAP> sqr(FloatAP const& x);
+    friend Bounds<FloatAP> rec(FloatAP const& x);
+    friend Bounds<FloatAP> pow(FloatAP const& x, Nat n);
+    friend Bounds<FloatAP> pow(FloatAP const& x, Int n);
+    friend FloatAP pow(RoundingModeType mode, FloatAP const& x, Int exponent);
     friend FloatAP operator+(FloatAP const& x) { return x; }
     friend FloatAP operator-(FloatAP const& x) { return negate(x); }
     friend FloatAP nul(FloatAP const& x) { return zero(x._precision); }
