@@ -1326,7 +1326,10 @@ Interval exp_series(Fraction const& x, unsigned long work) {
     Fraction sum(1);
     const Fraction limit = tolerance(work);
     for (unsigned long n = 1; ; ++n) {
-        if (n == std::numeric_limits<long>::max()) {
+        // Both n and n+1 are converted to long for the series terms.
+        // Guard before conversion; unsigned long and long have different
+        // ranges even on platforms where they have equal width (MSVC).
+        if (n >= static_cast<unsigned long>(std::numeric_limits<long>::max()) - 1ul) {
             throw std::overflow_error("FloatAP exponential series index");
         }
         term = term * x / Fraction(static_cast<long>(n));
