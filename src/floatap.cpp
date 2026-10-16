@@ -224,26 +224,9 @@ unsigned long p, Rounding mode, bool subtract) {
     if (a.is_zero()) return FloatAP(subtract ? negate(b) : b, mode, PrecisionType(p));
     if (b.is_zero()) return FloatAP(a, mode, PrecisionType(p));
 
-    // Keep the exact exponent-gap shortcut, using effective operand signs.
-    if (a._precision == p && b._precision == p && a._exponent != b._exponent) {
-        const bool a_dominates = a._exponent > b._exponent;
-        FloatAP const& dominant = a_dominates ? a : b;
-        FloatAP const& smaller = a_dominates ? b : a;
-        const bool smaller_negative = a_dominates ? b_negative : a._negative;
-        const bool dominant_negative = a_dominates ? a._negative : b_negative;
-        const std::uint64_t gap = static_cast<std::uint64_t>(dominant._exponent) -
-                                  static_cast<std::uint64_t>(smaller._exponent);
-        if (gap > static_cast<std::uint64_t>(p) + 2u) {
-            FloatAP signed_dominant = (!a_dominates && subtract) ? negate(dominant) : dominant;
-            if (mode == Rounding::Upward && !smaller_negative) return next(up, signed_dominant);
-            if (mode == Rounding::Downward && smaller_negative) return next(down, signed_dominant);
-            if (mode == Rounding::TowardZero && dominant_negative != smaller_negative) {
-                return dominant_negative ? next(up, signed_dominant) : next(down, signed_dominant);
-            }
-            return signed_dominant;
-        }
-    }
-
+    // Always combine the exact aligned integers before rounding. The former
+    // exponent-gap shortcut could skip a required directed rounding step
+    // for opposite-sign subtraction; preserve the full MPFR contract.
     // The smaller-exponent operand is already aligned. Shift just the
     // other unsigned magnitude, add/subtract, then apply its signedness.
     const bool a_high = a._exponent >= b._exponent;
