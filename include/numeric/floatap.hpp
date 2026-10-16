@@ -228,6 +228,16 @@ template<> class Float<ArbitraryPrecision> {
     explicit operator Rational() const;
     explicit operator Dyadic() const;
     double get_d() const;
+    std::string literal() const;
+    std::string literal(RoundingModeType mode) const;
+    static Nat output_places;
+    static void set_output_places(Nat places);
+    friend std::string print(FloatAP const& x, DecimalPlaces places, RoundingModeType mode);
+    friend std::string print(FloatAP const& x, DecimalPrecision figures, RoundingModeType mode);
+    friend OutputStream& write(OutputStream& out, FloatAP const& x, DecimalPlaces places, RoundingModeType mode);
+    friend OutputStream& write(OutputStream& out, FloatAP const& x, DecimalPrecision figures, RoundingModeType mode);
+    friend OutputStream& repr(OutputStream& out, FloatAP const& x, RoundingModeType mode);
+    friend OutputStream& repr(OutputStream& out, FloatAP const& x);
     ~Float() {
         mpz_clear(_significand);
     }

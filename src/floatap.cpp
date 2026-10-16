@@ -37,6 +37,10 @@
 #include "numeric/float_upper_bound.hpp"
 #include "numeric/float_lower_bound.hpp"
 #include "numeric/decimal.hpp"
+#include <algorithm>
+#include <cmath>
+#include <iomanip>
+#include <sstream>
 #include <istream>
 #include <ostream>
 #include <string>
@@ -455,6 +459,101 @@ void FloatAP::set_precision(PrecisionType precision) {
     } else {
         *this = FloatAP(static_cast<Rational>(*this), ROUND_TO_NEAREST, precision);
     }
+}
+
+
+Nat FloatAP::output_places=20;
+void FloatAP::set_output_places(Nat places) { output_places=places; }
+
+namespace {
+// Format an exact binary rational to fixed decimal places using integer
+// division and a single correctly directed decimal rounding step.
+std::string decimal_fixed(FloatAP const& x, unsigned int places,
+                          FloatAP::RoundingModeType mode) {
+    if (x.is_nan()) return "nan";
+    if (x.is_inf()) return x.negative() ? "-inf" : "inf";
+    const Rational rational=static_cast<Rational>(x);
+    mpq_srcptr q=rational.get_mpq();
+    mpz_t numerator,denominator,scale,quotient,remainder;
+    mpz_inits(numerator,denominator,scale,quotient,remainder,nullptr);
+    struct Clear {
+        mpz_ptr a,b,c,d,e;
+        ~Clear(){mpz_clears(a,b,c,d,e,nullptr);}
+    } clear{numerator,denominator,scale,quotient,remainder};
+    const bool neg=x.negative();
+    mpz_abs(numerator,mpq_numref(q));
+    mpz_set(denominator,mpq_denref(q));
+    mpz_ui_pow_ui(scale,10ul,static_cast<unsigned long>(places));
+    mpz_mul(numerator,numerator,scale);
+    mpz_tdiv_qr(quotient,remainder,numerator,denominator);
+    if (mpz_sgn(remainder)!=0) {
+        bool increase=false;
+        switch(mode.value()) {
+            case FloatAP::Rounding::ToNearest: {
+                mpz_mul_ui(remainder,remainder,2u);
+                const int order=mpz_cmp(remainder,denominator);
+                increase=order>0 || (order==0 && mpz_odd_p(quotient));
+                break;
+            }
+            case FloatAP::Rounding::Downward: increase=neg; break;
+            case FloatAP::Rounding::Upward: increase=!neg; break;
+            case FloatAP::Rounding::TowardZero: break;
+            default: throw std::invalid_argument("Invalid FloatAP decimal rounding mode");
+        }
+        if(increase) mpz_add_ui(quotient,quotient,1);
+    }
+    const std::size_t capacity=mpz_sizeinbase(quotient,10)+2;
+    std::string digits(capacity,'\\0');
+    mpz_get_str(digits.data(),10,quotient);
+    digits.resize(std::char_traits<char>::length(digits.c_str()));
+    if(places>0) {
+        if(digits.size()<=places) digits.insert(0,places+1-digits.size(),'0');
+        digits.insert(digits.size()-places,1,'.');
+    } else digits.push_back('.');
+    if(neg) digits.insert(digits.begin(),'-');
+    return digits;
+}
+}
+
+std::string print(FloatAP const& x, DecimalPlaces places, FloatAP::RoundingModeType mode) {
+    return decimal_fixed(x,static_cast<unsigned int>(places),mode);
+}
+std::string print(FloatAP const& x, DecimalPrecision figures, FloatAP::RoundingModeType mode) {
+    if(!x.is_finite() || x.is_zero()) return decimal_fixed(x,0,mode);
+    const double absolute=std::fabs(x.get_d());
+    // DecimalPrecision is a count of significant figures rather than places.
+    // For values outside the range of double, derive the base-10 exponent
+    // from the full integer significand and binary exponent.
+    int magnitude=0;
+    if(std::isfinite(absolute) && absolute>0) {
+        magnitude=static_cast<int>(std::floor(std::log10(absolute)));
+    } else {
+        const double estimated=(static_cast<double>(mpz_sizeinbase(x.significand(),2))-1.0
+                               +static_cast<double>(x.exponent()))*0.3010299956639812;
+        magnitude=static_cast<int>(std::floor(estimated));
+    }
+    const long long places=static_cast<long long>(static_cast<unsigned int>(figures))-1-magnitude;
+    return decimal_fixed(x,places>0?static_cast<unsigned int>(places):0u,mode);
+}
+OutputStream& write(OutputStream& out, FloatAP const& x, DecimalPlaces places, FloatAP::RoundingModeType mode) {
+    return out<<print(x,places,mode);
+}
+OutputStream& write(OutputStream& out, FloatAP const& x, DecimalPrecision figures, FloatAP::RoundingModeType mode) {
+    return out<<print(x,figures,mode);
+}
+OutputStream& repr(OutputStream& out, FloatAP const& x, FloatAP::RoundingModeType mode) {
+    return write(out,x,DecimalPrecision(static_cast<Nat>(x.precision().bits()/3+4)),mode);
+}
+OutputStream& repr(OutputStream& out, FloatAP const& x) {
+    return repr(out,x,FloatAP::get_rounding_mode());
+}
+std::string FloatAP::literal() const {
+    return literal(get_rounding_mode());
+}
+std::string FloatAP::literal(RoundingModeType mode) const {
+    std::ostringstream out;
+    repr(out,*this,mode);
+    return out.str();
 }
 
 OutputStream& operator<<(OutputStream& os, FloatAP const& value) {
