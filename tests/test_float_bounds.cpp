@@ -317,6 +317,23 @@ TestFloatBounds<PR>::test_tpl_api_and_branches()
     ARIADNE_TEST_COMPARE(truncated.upper_raw(),>=,inexact.upper_raw());
     ARIADNE_TEST_EXECUTE(trunc(inexact,Nat(40u)));
 
+    // A zero interval has a special, exact stream representation.
+    // Verify the actual result, rather than merely executing _write.
+    {
+        std::ostringstream zero_output;
+        zero_output << FloatBoundsType(0,pr);
+        ARIADNE_TEST_EQUALS(zero_output.str(),String("{0.:0.}"));
+    }
+
+    // The endpoints meet, but the two intervals are not equal singleton
+    // intervals: the second equality in eq() must evaluate to false.
+    {
+        FloatBoundsType left(1,2,pr);
+        FloatBoundsType right(0,1,pr);
+        ARIADNE_TEST_ASSERT(possibly(eq(left,right)));
+        ARIADNE_TEST_ASSERT(not definitely(eq(left,right)));
+    }
+
     ARIADNE_TEST_SAME(cos(FloatBoundsType(-10,10,pr)),FloatBoundsType(-1,1,pr));
     ARIADNE_TEST_EXECUTE(cos(FloatBoundsType(-3.2_q,0.2_q,pr)));
     ARIADNE_TEST_EXECUTE(cos(FloatBoundsType(-0.2_q,3.2_q,pr)));
