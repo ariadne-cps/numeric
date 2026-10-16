@@ -34,6 +34,8 @@
 #include "numeric/floatdp.hpp"
 #include "numeric/rounding.hpp"
 #include "numeric/positive.hpp"
+#include "numeric/float_upper_bound.hpp"
+#include "numeric/float_lower_bound.hpp"
 #include "numeric/decimal.hpp"
 #include <istream>
 #include <ostream>
@@ -140,6 +142,27 @@ unsigned long p, Rounding mode) {
         return infinity(p, a.is_inf() ? a._negative : b._negative);
     }
     if (a.is_zero() && b.is_zero()) return zero(p, a._negative == b._negative ? a._negative : mode == Rounding::Downward);
+    if (a.is_zero()) return FloatAP(b, mode, PrecisionType(p));
+    if (b.is_zero()) return FloatAP(a, mode, PrecisionType(p));
+    // For equal-precision normalized operands separated by more than
+    // p+2 binary positions, the small addend cannot affect nearest-even.
+    // A directed result only differs by one representable step. This
+    // avoids allocating an impossible exponent-gap-sized GMP integer.
+    if (a._precision == p && b._precision == p && a._exponent != b._exponent) {
+        FloatAP const& dominant = a._exponent > b._exponent ? a : b;
+        FloatAP const& smaller = a._exponent > b._exponent ? b : a;
+        const std::uint64_t gap =
+            static_cast<std::uint64_t>(dominant._exponent) -
+            static_cast<std::uint64_t>(smaller._exponent);
+        if (gap > static_cast<std::uint64_t>(p) + 2u) {
+            if (mode == Rounding::Upward && !smaller._negative) return next(up, dominant);
+            if (mode == Rounding::Downward && smaller._negative) return next(down, dominant);
+            if (mode == Rounding::TowardZero && dominant._negative != smaller._negative) {
+                return dominant._negative ? next(up, dominant) : next(down, dominant);
+            }
+            return dominant;
+        }
+    }
     const Exponent low = a._exponent < b._exponent ? a._exponent : b._exponent;
     mpz_t x, y, sum, one;
     mpz_inits(x, y, sum, one, nullptr);
@@ -494,6 +517,75 @@ InputStream& operator>>(InputStream& is, FloatAP& value) {
 
 Positive<FloatAP> abs(FloatAP const& x) {
     return cast_positive(x.negative() ? neg(x) : x);
+}
+PositiveUpperBound<FloatAP> mag(FloatAP const& x) {
+    return PositiveUpperBound<FloatAP>(abs(x));
+}
+PositiveLowerBound<FloatAP> mig(FloatAP const& x) {
+    return PositiveLowerBound<FloatAP>(abs(x));
+}
+
+// The immediate neighbors are computed on the p-bit integer significand;
+// the exponent only changes on a carry or at a power-of-two boundary.
+FloatAP next(RoundUpward, FloatAP const& x) {
+    if (x.is_nan() || (x.is_inf() && !x.negative())) return x;
+    if (x.is_inf()) return neg(FloatAP::max(x.precision()));
+    if (x.is_zero()) return FloatAP::min(x.precision());
+    FloatAP r(x);
+    const bool all_ones = mpz_popcount(r._significand) == r._precision;
+    const bool first = mpz_popcount(r._significand) == 1;
+    if (r._negative) {
+        if (first) {
+            if (r._exponent == std::numeric_limits<FloatAP::Exponent>::min()) {
+                return FloatAP::zero(r._precision, true);
+            }
+            mpz_setbit(r._significand, static_cast<mp_bitcnt_t>(r._precision));
+            mpz_sub_ui(r._significand, r._significand, 1);
+            --r._exponent;
+        } else {
+            mpz_sub_ui(r._significand, r._significand, 1);
+        }
+    } else if (all_ones) {
+        if (r._exponent == std::numeric_limits<FloatAP::Exponent>::max()) {
+            return FloatAP::inf(r.precision());
+        }
+        mpz_set_ui(r._significand, 0);
+        mpz_setbit(r._significand, static_cast<mp_bitcnt_t>(r._precision-1));
+        ++r._exponent;
+    } else {
+        mpz_add_ui(r._significand, r._significand, 1);
+    }
+    return r;
+}
+FloatAP next(RoundDownward, FloatAP const& x) {
+    if (x.is_nan() || (x.is_inf() && x.negative())) return x;
+    if (x.is_inf()) return FloatAP::max(x.precision());
+    if (x.is_zero()) return neg(FloatAP::min(x.precision()));
+    FloatAP r(x);
+    const bool all_ones = mpz_popcount(r._significand) == r._precision;
+    const bool first = mpz_popcount(r._significand) == 1;
+    if (r._negative) {
+        if (all_ones) {
+            if (r._exponent == std::numeric_limits<FloatAP::Exponent>::max()) {
+                return FloatAP::inf(Sign::NEGATIVE, r.precision());
+            }
+            mpz_set_ui(r._significand, 0);
+            mpz_setbit(r._significand, static_cast<mp_bitcnt_t>(r._precision-1));
+            ++r._exponent;
+        } else {
+            mpz_add_ui(r._significand, r._significand, 1);
+        }
+    } else if (first) {
+        if (r._exponent == std::numeric_limits<FloatAP::Exponent>::min()) {
+            return FloatAP::zero(r._precision);
+        }
+        mpz_setbit(r._significand, static_cast<mp_bitcnt_t>(r._precision));
+        mpz_sub_ui(r._significand, r._significand, 1);
+        --r._exponent;
+    } else {
+        mpz_sub_ui(r._significand, r._significand, 1);
+    }
+    return r;
 }
 
 FloatAP abs(FloatAP::RoundingModeType, FloatAP const& x) {
