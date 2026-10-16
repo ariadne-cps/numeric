@@ -69,9 +69,9 @@ Rational const& lhs, Rational const& rhs) {
     verify(backend, bits, "fma", fma(mode, x, y, x), fma(reference_mode, reference_x, reference_y, reference_x));
     verify(backend, bits, "pow_7", pow(mode, x, Nat(7u)), pow(reference_mode, reference_x, Nat(7u)));
     verify(backend, bits, "sqrt", sqrt(mode, x), sqrt(reference_mode, reference_x));
-#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
     verify(backend, bits, "exp", exp(mode, x), exp(reference_mode, reference_x));
     verify(backend, bits, "log", log(mode, x), log(reference_mode, reference_x));
+#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
     verify(backend, bits, "sin", sin(mode, x), sin(reference_mode, reference_x));
     verify(backend, bits, "cos", cos(mode, x), cos(reference_mode, reference_x));
     verify(backend, bits, "tan", tan(mode, x), tan(reference_mode, reference_x));

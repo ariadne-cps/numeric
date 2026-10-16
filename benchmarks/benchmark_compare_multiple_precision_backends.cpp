@@ -174,7 +174,6 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
         return sqrt(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
-#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
     report("exp_nearest",[& ](unsigned i) {
         return exp(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
@@ -183,6 +182,7 @@ unsigned samples, bool print_csv, std::vector<BenchmarkDatum>& data) {
         return log(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
+#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
     report("sin_nearest",[& ](unsigned i) {
         return sin(Float::ROUND_TO_NEAREST, a[index(i)]);
     }

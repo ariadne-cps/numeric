@@ -12,6 +12,7 @@ add_library(NUMERIC_SRC OBJECT
     floatdp.cpp
     floatmp.cpp
     floatap.cpp
+    floatap_exp_log.cpp
     float_approximation.cpp
     float_lower_bound.cpp
     float_upper_bound.cpp
