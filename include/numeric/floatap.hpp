@@ -87,6 +87,12 @@ class ArbitraryPrecision {
     friend OutputStream& repr(OutputStream& os, ArbitraryPrecision p) {
         return os << "ArbitraryPrecision(" << p.bits() << ")";
     }
+    friend ArbitraryPrecision min(ArbitraryPrecision a, ArbitraryPrecision b) noexcept {
+        return a._bits <= b._bits ? a : b;
+    }
+    friend ArbitraryPrecision max(ArbitraryPrecision a, ArbitraryPrecision b) noexcept {
+        return a._bits >= b._bits ? a : b;
+    }
     friend bool operator==(ArbitraryPrecision a, ArbitraryPrecision b) noexcept {
         return a._bits == b._bits;
     }
@@ -212,6 +218,9 @@ template<> class Float<ArbitraryPrecision> {
         : Float(n, ROUND_TO_NEAREST, precision) { }
 
     Float(Integer const& n, RoundingModeType mode, PrecisionType precision);
+    template<BuiltinIntegral N>
+    Float(N n, RoundingModeType mode, PrecisionType precision)
+        : Float(Integer(n), mode, precision) { }
     Float(Rational const& n, RoundingModeType mode, PrecisionType precision);
     explicit Float(Rational const& n, PrecisionType precision)
     : Float(n, ROUND_TO_NEAREST, precision) {
@@ -486,6 +495,22 @@ template<> class Float<ArbitraryPrecision> {
     friend FloatAP hlf(FloatAP const& x) { return shft(x, Int(-1)); }
     friend FloatAP max(FloatAP const& a, FloatAP const& b) { return a < b ? b : a; }
     friend FloatAP min(FloatAP const& a, FloatAP const& b) { return a < b ? a : b; }
+    friend FloatAP max(RoundingModeType mode, FloatAP const& a, FloatAP const& b) {
+        const PrecisionType p(a._precision < b._precision ? a._precision : b._precision);
+        if (a.is_nan() && b.is_nan()) return nan(p);
+        if (a.is_nan()) return FloatAP(b,mode,p);
+        if (b.is_nan()) return FloatAP(a,mode,p);
+        if (a.is_zero() && b.is_zero()) return zero(static_cast<unsigned long>(p.bits()), a._negative && b._negative);
+        return FloatAP(a < b ? b : a,mode,p);
+    }
+    friend FloatAP min(RoundingModeType mode, FloatAP const& a, FloatAP const& b) {
+        const PrecisionType p(a._precision < b._precision ? a._precision : b._precision);
+        if (a.is_nan() && b.is_nan()) return nan(p);
+        if (a.is_nan()) return FloatAP(b,mode,p);
+        if (b.is_nan()) return FloatAP(a,mode,p);
+        if (a.is_zero() && b.is_zero()) return zero(static_cast<unsigned long>(p.bits()), a._negative || b._negative);
+        return FloatAP(a < b ? a : b,mode,p);
+    }
     friend FloatAP sqr(RoundingModeType mode, FloatAP const& x) {
         return FloatAP::mul(x, x, x._precision, mode);
     }
