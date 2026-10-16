@@ -375,6 +375,8 @@ template<> class Float<ArbitraryPrecision> {
         return x.is_zero();
     }
     friend Comparison cmp(FloatAP const& a, FloatAP const& b);
+    friend bool eq(FloatAP const& a, FloatAP const& b) { return a == b; }
+    friend bool lt(FloatAP const& a, FloatAP const& b) { return a < b; }
     friend Comparison cmp(FloatAP const& a, Rational const& b);
     friend Comparison cmp(Rational const& a, FloatAP const& b);
     friend Comparison cmp(FloatAP const& a, FloatDP const& b);
