@@ -45,6 +45,7 @@
 #include <iomanip>
 #include <istream>
 #include <limits>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <stdexcept>
@@ -1298,18 +1299,6 @@ Fraction absolute(Fraction const& x) {
     return x.sign() < 0 ? Fraction{} - x : x;
 }
 
-Interval enclosure(Fraction const& value, Fraction const& error) {
-    return {value - error, value + error};
-}
-
-Fraction tolerance(unsigned long bits) {
-    mpz_t one;
-    mpz_init_set_ui(one, 1);
-    const Fraction result(one, bits);
-    mpz_clear(one);
-    return result;
-}
-
 Fraction rational_argument(FloatAP const& x) {
     const Rational rational = static_cast<Rational>(x);
     return Fraction(rational.get_mpq());
@@ -1798,11 +1787,26 @@ Interval small_atan(Fraction const& x, unsigned long work) {
 }
 
 Interval pi_interval(unsigned long work) {
+    // Keep a single certified enclosure per thread, at the greatest
+    // requested work precision. A tighter enclosure is always valid
+    // for a smaller work request, independently of rounding mode.
+    struct Cache {
+        unsigned long work = 0;
+        std::optional<Interval> value;
+    };
+    static thread_local Cache cache;
+    if (cache.value && cache.work >= work) {
+        return *cache.value;
+    }
+
     // Machin: pi = 16 atan(1/5) - 4 atan(1/239).
     const Interval a = small_atan(Fraction(1L) / Fraction(5L), work);
     const Interval b = small_atan(Fraction(1L) / Fraction(239L), work);
-    return subtract(multiply(point(Fraction(16L)), a),
-                    multiply(point(Fraction(4L)), b));
+    const Interval result = subtract(multiply(point(Fraction(16L)), a),
+                                     multiply(point(Fraction(4L)), b));
+    cache.value = result;
+    cache.work = work;
+    return result;
 }
 
 Interval atan_interval(Fraction const& x, unsigned long work) {
@@ -2079,7 +2083,36 @@ FloatAP acos(FloatAP::RoundingModeType mode, FloatAP const& x) {
 
 FloatAP Float<ArbitraryPrecision>::pi(RoundingModeType mode, PrecisionType precision) {
     using namespace FloatAPTrigonometricDetail;
-    return certified(Function::pi, Fraction{}, mode, precision);
+    unsigned index;
+    switch (mode.value()) {
+        case Rounding::ToNearest: index = 0u; break;
+        case Rounding::Downward: index = 1u; break;
+        case Rounding::Upward: index = 2u; break;
+        case Rounding::TowardZero: index = 3u; break;
+        default: throw std::invalid_argument("Invalid FloatAP pi rounding mode");
+    }
+
+    // Unlike the certified interval cache, the rounded result is specific
+    // to BOTH target precision and rounding mode. Keep four values for
+    // the most recently used precision per thread; no global lock, no
+    // dependence on a mutable default rounding mode.
+    struct Cache {
+        unsigned long bits = 0;
+        std::optional<FloatAP> rounded[4];
+    };
+    static thread_local Cache cache;
+    const unsigned long bits = static_cast<unsigned long>(precision.bits());
+    if (cache.bits != bits) {
+        for (auto& entry : cache.rounded) {
+            entry.reset();
+        }
+        cache.bits = bits;
+    }
+    auto& entry = cache.rounded[index];
+    if (!entry) {
+        entry.emplace(certified(Function::pi, Fraction{}, mode, precision));
+    }
+    return *entry;
 }
 
 } // namespace Ariadne

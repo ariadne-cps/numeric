@@ -1324,3 +1324,64 @@ the next priorities are certified constant caching (especially
 rational interval temporaries during double-angle formulas,
 and limb-level arithmetic fast paths.
 
+
+## Performance redesign: cached certified pi (16 October 2026)
+
+**Benchmark motivation:** after fixed-point sine/cosine, `pi_nearest`
+became the largest *relative* discrepancy: repeated calls to
+`FloatAP::pi` took approximately 5.9, 8.2, 12.7, and **84.3 us**
+at 53, 128, 256, and 1024 bits, versus 49, 49, 50, and
+51 ns for MPFR, respectively. The benchmark calls `pi`
+300 times per sample after warm-up, so it measures a **hot
+constant**, not one-off computation. MPFR caches its pi
+constant; see https://www.mpfr.org/mpfr-current/mpfr.html
+(section on memory handling) and `src/const_pi.c`.
+FLINT's Arb `arb_const_pi` also caches constants:
+https://flintlib.org/doc/arb.html .
+
+**Decision:** implement two independent, bounded **thread-local**
+caches, without delegating any numeric work to MPFR:
+
+1. `FloatAPTrigonometricDetail::pi_interval(work)` retains the
+   most recently constructed certified Machin interval at the
+   **largest requested work precision** on each thread. It may
+   safely return a tighter interval when a caller subsequently
+   requests fewer bits. `atan_interval` and `acos` also use
+   this shared interval, avoiding redundant evaluations.
+2. `FloatAP::pi(mode, precision)` retains the already correctly
+   rounded `FloatAP` value keyed by the **exact requested
+   precision and rounding mode** (four cache slots for the
+   most recently requested precision). Returning a copy
+   preserves value semantics. A different precision invalidates
+   the four slots; each rounding mode has its own entry.
+
+**Safety and correctness:** no cached approximation is treated
+as exact pi. The interval cache contains lower/upper rationals
+that are certified by the existing Machin series and interval
+arithmetic; the rounded-value cache is populated **only after**
+the existing endpoint-agreement refinement certifies the requested
+rounding mode. A higher-precision interval is a valid enclosure
+for a lower-precision request. Thread-local state avoids races
+and cross-thread mutations, with memory bounded by one interval
+and four rounded values **per thread** (largest attained interval
+precision may grow). Both caches are independent of the mutable
+default rounding mode. Invalid rounding modes are rejected
+before indexing the slots.
+
+**Testing:** the shared float rounding suite now interleaves
+53, 256, 7, 1024, 128, and 53 bits; it requests pi in all
+four modes and compares the exact rational value with the
+corresponding `FloatMP` result. A repeated same-key call
+tests the hot cache. The existing `atan`/`asin`/`acos`
+tests also exercise pi-dependent paths.
+
+**Benchmark interpretation:** the next repeated-pi benchmark
+should speed up markedly, but that result measures **cache
+hits**. Measure first-call cost separately if relevant, as
+well as mixed precision, concurrency, and allocation overhead.
+The current benchmark timings are pre-cache baseline only.
+All-mode numerical equivalence and CI must pass before
+the cache is considered validated. Future work should speed
+cold pi generation (e.g. Brent-Salamin/AGM) when profiling
+demonstrates a need.
+

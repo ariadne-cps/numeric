@@ -450,6 +450,29 @@ TestFloatRounding<PR>::test_precision_regressions()
             ARIADNE_TEST_EQUALS(cos(F::ROUND_TO_NEAREST,F(0,pr)),one);
         }
 
+        if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Exercise cold and warm pi-cache paths, switching precisions
+            // and rounding modes. The oracle is the exact MPFR result
+            // converted to Rational; every cached copy must agree.
+            for (Bits bits : {53_bits,256_bits,7_bits,1024_bits,128_bits,53_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(static_cast<mpfr_prec_t>(bits.get()));
+                const auto check_pi=[&](auto ap_mode,auto mp_mode) {
+                    const FloatAP first=FloatAP::pi(ap_mode,ap);
+                    const FloatAP repeated=FloatAP::pi(ap_mode,ap);
+                    const FloatMP reference=FloatMP::pi(mp_mode,mp);
+                    ARIADNE_TEST_EQUALS(static_cast<Rational>(first),
+                                        static_cast<Rational>(reference));
+                    ARIADNE_TEST_SAME(first,repeated);
+                };
+                check_pi(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                check_pi(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                check_pi(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                check_pi(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                check_pi(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+            }
+        }
+
         // A deterministic comparison oracle with varied binary scales.
         unsigned long state=0xC0A4E5u;
         for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
