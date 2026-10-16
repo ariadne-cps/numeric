@@ -33,6 +33,7 @@
 #include "utility/stopwatch.hpp"
 #include "numeric/rounding.hpp"
 #include "logging/logging.hpp"
+#include "logging/command_line.hpp"
 #include "benchmark_command_line.hpp"
 #include <stdexcept>
 #include <string>
@@ -289,7 +290,7 @@ struct ArithmeticBenchmarkSelection {
 List<ArgumentParser> make_arithmetic_argument_parsers(ArithmeticBenchmarkSelection& selection) {
     List<ArgumentParser> parsers;
     parsers.append(make_valued_argument_parser(
-        "v","vector-exponent","Log2 of vector size (nonnegative)",
+        "x","vector-exponent","Log2 of vector size (nonnegative)",
         [&selection](String const& value) -> VoidFunction {
             const SizeType exponent=BenchmarkCommandLine::parse_unsigned<SizeType>(value);
             if(exponent>=std::numeric_limits<SizeType>::digits) {
@@ -319,17 +320,19 @@ List<ArgumentParser> make_arithmetic_argument_parsers(ArithmeticBenchmarkSelecti
 }
 
 Int main(Int argc, const char* argv[]) {
-    Logger::instance().configuration().set_verbosity(1u);
+    BenchmarkCommandLine::initialize_logging();
     try {
         ArithmeticBenchmarkSelection selection;
         CommandLineInterface command_line;
+        command_line.add(logging_command_line());
         command_line.add(CommandLineContribution(
             "numeric-arithmetic-benchmark",
             make_arithmetic_argument_parsers(selection)));
 
         const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
             argc,argv,{"vector-exponent","repetition-exponent","runs"},
-            {"--vector-exponent","-v","--repetition-exponent","-e","--runs","-r"});
+            {"--vector-exponent","-x","--repetition-exponent","-e","--runs","-r",
+             "--scheduler","-s","--theme","-t","--verbosity","-v"});
         if (!command_line.acquire(arguments)) {
             return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
         }

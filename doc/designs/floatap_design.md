@@ -2210,3 +2210,22 @@ diagnostics. Explicit options are `--iterations/-i`, `--samples/-s`,
 (as relevant to each executable). Invalid values are rejected before any
 measurements run. Measurement reports continue to use the Ariadne logger,
 not CSV or standard output.
+
+## Built-in logging CLI options (16 October 2026)
+
+Both benchmarks now add the upstream `logging_command_line()` contribution
+from `logging/command_line.hpp` to the common Ariadne
+`CommandLineInterface`, as the kernel CLI does. Consequently `--scheduler/-s`
+(immediate, blocking, nonblocking), `--theme/-t` (none, light, dark), and
+`--verbosity/-v` are available and appear in standard `--help` output.
+The benchmark-specific short names have been made non-conflicting:
+comparison samples use `-n`, arithmetic vector exponent uses `-x`.
+The long option names are unchanged. The argument normalization adapter
+preserves logging option values, including `--scheduler immediate`.
+
+The logging scheduler requires an attached thread registry when changed;
+standalone numeric benchmarks attach a long-lived registry that reports
+no additional application threads, then set the default report verbosity
+of 1 before CLI acquisition. The logging contribution can override this
+with `--verbosity 0` to mute reports. The numeric library itself has no
+logging dependency; this concerns the benchmark executables only.

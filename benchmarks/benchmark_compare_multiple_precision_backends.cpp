@@ -27,6 +27,7 @@
 #include "numeric/floatap.hpp"
 #include "numeric/rational.hpp"
 #include "logging/logging.hpp"
+#include "logging/command_line.hpp"
 #include "benchmark_command_line.hpp"
 #include <algorithm>
 #include <chrono>
@@ -373,7 +374,7 @@ List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelecti
         }));
 
     parsers.append(make_valued_argument_parser(
-        "s","samples","Odd number of samples, at least three",
+        "n","samples","Odd number of samples, at least three",
         [&selection](String const& value) -> VoidFunction {
             const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
             if(count<3u || count%2u==0u) throw std::invalid_argument("invalid sample count");
@@ -428,17 +429,19 @@ List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelecti
 int main(int argc, const char* argv[]) {
     // Verbosity defaults to 0, which mutes all LOGGING_PRINTLN calls.
     // Follow the integration benchmarks and enable level-1 reports.
-    Logger::instance().configuration().set_verbosity(1u);
+    BenchmarkCommandLine::initialize_logging();
     try {
         ComparisonBenchmarkSelection selection;
         CommandLineInterface command_line;
+        command_line.add(logging_command_line());
         command_line.add(CommandLineContribution(
             "numeric-multiple-precision-benchmark",
             make_comparison_argument_parsers(selection)));
 
         const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
             argc,argv,{"iterations","samples"},
-            {"--iterations","-i","--samples","-s","--bits","-b","--max-slowdown"});
+            {"--iterations","-i","--samples","-n","--bits","-b","--max-slowdown",
+             "--scheduler","-s","--theme","-t","--verbosity","-v"});
         if (!command_line.acquire(arguments)) {
             return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
         }
