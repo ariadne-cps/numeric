@@ -295,6 +295,52 @@ TestFloat<PR>::test_conversions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Verify sign-sensitive interval arithmetic in the FloatAP
+            // specialization, including all endpoint sign combinations.
+            using B=Bounds<FloatAP>;
+            const B positive(1,2,pr);
+            const B negative(-4,-2,pr);
+            const B crossing(-2,3,pr);
+            const B singleton(2,pr);
+            const B another_singleton(2,pr);
+            const B other_singleton(3,pr);
+
+            const B positive_square=sqr(positive);
+            const B negative_square=sqr(negative);
+            const B crossing_square=sqr(crossing);
+            ARIADNE_TEST_EQUALS(positive_square.lower_raw(),FloatType(1,pr));
+            ARIADNE_TEST_EQUALS(positive_square.upper_raw(),FloatType(4,pr));
+            ARIADNE_TEST_EQUALS(negative_square.lower_raw(),FloatType(4,pr));
+            ARIADNE_TEST_EQUALS(negative_square.upper_raw(),FloatType(16,pr));
+            ARIADNE_TEST_EQUALS(crossing_square.lower_raw(),FloatType(0,pr));
+            ARIADNE_TEST_EQUALS(crossing_square.upper_raw(),FloatType(9,pr));
+
+            ARIADNE_TEST_ASSERT(definitely(eq(singleton,another_singleton)));
+            ARIADNE_TEST_ASSERT(not possibly(eq(singleton,other_singleton)));
+            ARIADNE_TEST_ASSERT(not definitely(eq(positive,crossing)));
+            ARIADNE_TEST_ASSERT(possibly(eq(positive,crossing)));
+            ARIADNE_TEST_ASSERT(not possibly(eq(negative,positive)));
+            ARIADNE_TEST_ASSERT(not same(positive,negative));
+            ARIADNE_TEST_ASSERT(not same(positive,B(1,3,pr)));
+
+            const B products[]={
+                mul(positive,positive),mul(positive,negative),mul(positive,crossing),
+                mul(negative,positive),mul(negative,negative),mul(negative,crossing),
+                mul(crossing,positive),mul(crossing,negative),mul(crossing,crossing)
+            };
+            const Int lower[]={1,-8,-4,-8,4,-12,-4,-12,-6};
+            const Int upper[]={4,-2,6,-2,16,8,6,8,9};
+            for (Nat i=0u; i<9u; ++i) {
+                ARIADNE_TEST_EQUALS(products[i].lower_raw(),FloatType(lower[i],pr));
+                ARIADNE_TEST_EQUALS(products[i].upper_raw(),FloatType(upper[i],pr));
+            }
+
+            const B division_negative=div(positive,negative);
+            ARIADNE_TEST_ASSERT(division_negative.lower_raw()<=FloatType(-1,2u,pr));
+            ARIADNE_TEST_ASSERT(division_negative.upper_raw()>=FloatType(-1,4u,pr));
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Verify the concrete FloatAP wrapper specializations, including
             // rigorous enclosure when converting from generic real numbers.
             ARIADNE_TEST_EQUALS(class_name<Bounds<FloatAP>>(),String("FloatAPBounds"));
