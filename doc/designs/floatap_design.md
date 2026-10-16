@@ -742,3 +742,36 @@ enumerators directly; benchmark calls through `ROUND_*` are unaffected.
 The full CI build and a fresh coverage report are required to
 validate this expanded test suite and renaming. The final 100%
 coverage and full-precision correctness targets remain outstanding.
+
+
+## Reusing the existing Ariadne Float test suites (16 October 2026)
+
+The authoritative behavioral contract for the MPFR replacement is the
+unchanged, macro-based `tests/test_float.cpp` and
+`tests/test_float_rounding.cpp` (`ARIADNE_TEST_*`). New, smaller
+FloatAP-only tests supplement these suites but are **not substitutes**
+for instantiating the historical `TestFloat<ArbitraryPrecision>` and
+`TestFloatRounding<ArbitraryPrecision>` classes. The existing
+`ARIADNE_NUMERIC_ENABLE_FLOATAP` guards in those legacy files cannot
+simply be enabled yet: the native specialization still lacks some
+constructors, global rounding-mode overloads, mixed arithmetic,
+`RawFloat` registration, bounds/balls, and conversion/streaming APIs.
+Do not remove or skip assertions to obtain a green test run.
+
+The first API-compatibility block introduces exact conversions from
+`Dyadic`, `ExactDouble`, and `TwoExp`, mutable precision with
+round-to-nearest semantics, raw access, a thread-local current rounding
+mode, stream insertion, exponent shifts and elementary unary helpers.
+These methods exist to satisfy contracts already expected by Ariadne,
+not as special test shims. They require compilation and regression
+verification on macOS, Ubuntu, and Windows. The historical tests have
+**not yet been enabled**; the complete API parity task remains open.
+
+The shared `test_float.cpp` now also contains direct
+`ARIADNE_TEST_*` checks for this first compatibility block. All
+existing FloatDP/FloatMP assertions remain in place. These checks are
+**not** presented as full test parity: the generic
+`TestFloat<ArbitraryPrecision>` and
+`TestFloatRounding<ArbitraryPrecision>` instantiations still require
+more production APIs. No test is marked passed merely because its
+instantiation is not yet enabled.

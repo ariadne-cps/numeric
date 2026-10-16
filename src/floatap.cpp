@@ -29,6 +29,9 @@
 #include "numeric/floatap.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/rational.hpp"
+#include "numeric/dyadic.hpp"
+#include "numeric/double.hpp"
+#include <ostream>
 namespace Ariadne {
 FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
 Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
@@ -248,6 +251,73 @@ FloatAP float_from_int64(std::int64_t n, ArbitraryPrecision precision) {
 
 FloatAP::Float(std::int64_t n, PrecisionType pr)
 : Float(float_from_int64(n, pr)) {
+}
+
+namespace {
+thread_local FloatAP::RoundingModeType floatap_current_rounding =
+    FloatAP::ROUND_TO_NEAREST;
+}
+
+FloatAP::RoundingModeType FloatAP::get_rounding_mode() noexcept {
+    return floatap_current_rounding;
+}
+
+void FloatAP::set_rounding_mode(RoundingModeType mode) {
+    switch (mode) {
+        case Rounding::ToNearest:
+        case Rounding::Downward:
+        case Rounding::Upward:
+        case Rounding::TowardZero:
+            floatap_current_rounding = mode;
+            return;
+        default:
+            throw std::invalid_argument("FloatAP unknown rounding mode");
+    }
+}
+
+FloatAP::Float(ExactDouble const& value, PrecisionType precision)
+    : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
+
+FloatAP::Float(Dyadic const& value, PrecisionType precision)
+    : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
+
+FloatAP::Float(TwoExp const& value, PrecisionType precision)
+    : Float(Dyadic(value), precision) { }
+
+FloatAP::Float(ExactDouble const& value, RoundingModeType mode,
+               PrecisionType precision)
+    : Float(Rational(value), mode, precision) { }
+
+FloatAP::Float(Dyadic const& value, RoundingModeType mode,
+               PrecisionType precision)
+    : Float(Rational(value), mode, precision) { }
+
+void FloatAP::set_precision(PrecisionType precision) {
+    if (precision.bits() == _precision) {
+        return;
+    }
+    if (is_nan()) {
+        *this = nan(precision);
+    } else if (is_inf()) {
+        *this = infinity(static_cast<unsigned long>(precision.bits()), _negative);
+    } else if (is_zero()) {
+        *this = zero(static_cast<unsigned long>(precision.bits()), _negative);
+    } else {
+        *this = FloatAP(static_cast<Rational>(*this), ROUND_TO_NEAREST, precision);
+    }
+}
+
+OutputStream& operator<<(OutputStream& os, FloatAP const& value) {
+    return os << static_cast<Rational>(value);
+}
+
+FloatAP shft(FloatAP const& value, Int amount) {
+    FloatAP result(value);
+    if (result.is_finite() && !result.is_zero()) {
+        result._exponent = FloatAP::checked_add(
+            result._exponent, static_cast<FloatAP::Exponent>(amount));
+    }
+    return result;
 }
 
 FloatAP::Float(Integer const& n, RoundingModeType mode, PrecisionType pr)
