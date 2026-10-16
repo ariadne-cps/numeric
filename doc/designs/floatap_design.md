@@ -390,3 +390,33 @@ cannot be produced by normal tested paths on 64-bit macOS. Achieving
 100% functions/lines/branches must never require weakening these guards
 or allocating impossible operands. A separate design review for testing
 the checked conversions will be needed.
+
+
+## Review of coverage 82 and meaningful bounds checks (16 October 2026)
+
+The attached `Archivio 82(1).zip` reports:
+
+| File | Functions | Lines | Branches |
+| --- | --- | --- | --- |
+| `src/floatap.cpp` | 27/27 (100%) | 333/333 (100%) | 194/194 (100%) |
+| `include/numeric/floatap.hpp` | 46/46 (100%) | 115/117 (98.29%) | 41/44 (93.18%) |
+
+The three remaining header branches all concern `shift_amount()` or
+`bit_length()`. Their safety arguments are **not** interchangeable:
+
+- The shift helper is called with nonnegative values as an invariant of
+  the arithmetic and checked exponent differences. The negative-input
+  check was redundant. The check that the nonnegative shift fits
+  `mp_bitcnt_t` matters only when that type has fewer value bits than
+  the signed exponent. It is now conditional at compile time.
+- GMP's `mpz_sizeinbase` yields an unsigned `size_t` length. On 64-bit
+  targets this value can exceed `INT64_MAX` in type semantics even
+  though allocating an actual integer that large is unrealistic.
+  The narrowing protection remains and is extracted into
+  `floatap_exponent_from_bit_length(size_t)`, exercised directly by C++
+  boundary tests without allocating a giant GMP integer.
+
+This is a correctness-driven simplification, not a blanket removal of
+checks to satisfy coverage. The next full CI report must verify the
+updated totals on macOS and Windows. The goal remains 100% for
+functions, lines, and branches across the completed FloatAP implementation.

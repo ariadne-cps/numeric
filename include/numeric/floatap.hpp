@@ -45,6 +45,19 @@ namespace Ariadne {
 class Integer;
 class Rational;
 
+// A size_t bit count is not necessarily representable by the signed
+// exponent. Keep the narrowing check testable without allocating an
+// infeasibly large GMP integer.
+inline std::int64_t floatap_exponent_from_bit_length(std::size_t bit_count) {
+    if constexpr (std::numeric_limits<std::size_t>::digits >
+                  std::numeric_limits<std::int64_t>::digits) {
+        if (bit_count > static_cast<std::size_t>(std::numeric_limits<std::int64_t>::max())) {
+            throw std::overflow_error("FloatAP operand too large");
+        }
+    }
+    return static_cast<std::int64_t>(bit_count);
+}
+
 // The precision tag is deliberately independent of MPFR types.
 class ArbitraryPrecision {
     std::size_t _bits;
@@ -106,17 +119,19 @@ template<> class Float<ArbitraryPrecision> {
         return checked_add(a,- b);
     }
     static mp_bitcnt_t shift_amount(Exponent n) {
-        if (n < 0 || static_cast<std::uint64_t>(n) > std::numeric_limits<mp_bitcnt_t>::max()) {
-            throw std::overflow_error("FloatAP shift out of range");
+        // All callers pass a nonnegative shift, enforced by their branches
+        // and by checked_sub(). Only narrower GMP bit-count types need a
+        // representability check (notably possible on Windows).
+        if constexpr (std::numeric_limits<mp_bitcnt_t>::digits <
+                      std::numeric_limits<Exponent>::digits) {
+            if (static_cast<std::uint64_t>(n) > std::numeric_limits<mp_bitcnt_t>::max()) {
+                throw std::overflow_error("FloatAP shift out of range");
+            }
         }
         return static_cast<mp_bitcnt_t>(n);
     }
     static Exponent bit_length(mpz_srcptr x) {
-        const auto length = mpz_sizeinbase(x, 2);
-        if (length > static_cast<std::uint64_t>(std::numeric_limits<Exponent>::max())) {
-            throw std::overflow_error("FloatAP operand too large");
-        }
-        return static_cast<Exponent>(length);
+        return floatap_exponent_from_bit_length(mpz_sizeinbase(x, 2));
     }
     void set_zero(bool negative) {
         _kind = Kind::finite;
