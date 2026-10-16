@@ -1237,3 +1237,90 @@ aggressive reduction of small exponential arguments:
 https://flintlib.org/doc/arb.html . No MPFR function is called
 by the new native code.
 
+
+## Performance redesign: certified simultaneous sine and cosine (16 October 2026)
+
+**Implementation:** `src/floatap.cpp`, `small_sine_cosine`.
+Replace the rational GMP Taylor iteration by a **single pair of
+outward-rounded fixed-point integer series** for both functions. The
+previous `mpq_t` approach created and normalized exact fractions
+at every step, causing a steep increase in cost with precision.
+
+**Series and argument domain:** the current argument-halving path
+reduces to `|x| <= 1` before invoking the kernel. Evaluate the
+positive magnitudes of both Taylor series simultaneously:
+
+```text
+sin(a) = sum(k >= 0) (-1)^k a^(2k+1)/(2k+1)!
+cos(a) = sum(k >= 0) (-1)^k a^(2k)/(2k)!,   0 <= a <= 1
+```
+
+Use a binary fixed-point scale `Q = 2^B`, with
+`N = floor(work/2)+48` and `B = work+32+bit_width(N)`.
+Enclose `a = |x|` by floor/ceiling integers and its square
+by directed integer multiplication and division by `Q`.
+Maintain **both** lower/upper bounds for the nonnegative sine
+and cosine term magnitudes; generate successive terms by the
+factor `a^2 / ((2k+2)(2k+3))` and
+`a^2 / ((2k+1)(2k+2))`, respectively, always rounding outward.
+The loop accumulates signed terms using the proper opposite
+endpoints for subtraction. The only rational conversions happen
+at the end, not in the Taylor loop.
+
+**Error certification:** for `0 <= a <= 1`, each of the
+alternating sine and cosine series has monotonically decreasing
+positive term magnitudes. Following term `k`, the exact
+remaining tail has the sign of term `k+1` and its absolute
+value does not exceed the **first omitted term**. The upper
+fixed-point bound of that term therefore widens only the
+appropriate endpoint of each interval. Stop once both first
+omitted upper bounds are at most `2^(-work)` (or at
+the conservative maximum, still including the actual
+enclosure of the remainder). For negative arguments, negate and
+swap the sine endpoints; cosine is even. A zero argument
+returns the exact pairs `(0,1)`.
+
+The original argument-halving, double-angle interval propagation,
+`tan = sin/cos` enclosure, all four rounding modes, and
+endpoint-agreement refinement remain unchanged. The algorithm
+is still native GMP, **without MPFR calls**. It handles
+`|x| > 1` via the existing reduction, although large
+argument reduction remains an important independent limitation.
+
+**Validation:** a standalone exact-rational/fixed-point
+implementation was checked on **219 rational arguments**, at
+work precisions 8, 32, 53, 85, 128, 256, 512, 1024 bits,
+against high-precision sine and cosine references; all
+intervals contained their reference results. This is a useful
+check of the interval recurrence, not a substitute for the
+Ariadne regression suite. New C++ regression cases compare
+`FloatAP` with `FloatMP` on dyadic inputs, including
+negative and reduced arguments, in **all four rounding modes**
+at 53, 128, 256 and 1024 bits.
+
+**Performance baseline (user benchmark before this change):**
+
+| Bits | FloatAP sin (ns) | MPFR sin (ns) | FloatAP cos (ns) | MPFR cos (ns) |
+|---|---:|---:|---:|---:|
+| 53 | 19531.67 | 704.44 | 19196.11 | 521.67 |
+| 128 | 66202.36 | 1061.67 | 64755.83 | 691.11 |
+| 256 | 252700.97 | 1541.53 | 251945.56 | 1150.14 |
+| 1024 | 11626473.33 | 6159.58 | 11562120.00 | 4843.89 |
+
+These are **pre-change measurements**, not demonstrated
+speedups. The outer `tan` operation was 28.94 ms at
+1024 bits versus 6.77 us for MPFR, motivating the
+joint kernel. Rebenchmark identical inputs and verify
+bit-exact results under every rounding mode before
+claiming the optimization is accepted.
+
+**State of the art and next steps:** FLINT/Arb provides
+a pair of fixed-point Taylor kernels and a rectangular-splitting
+variant, as well as higher-performance argument reduction:
+https://flintlib.org/doc/arb.html .
+Once these fixed-point series are validated and benchmarked,
+the next priorities are certified constant caching (especially
+`pi`), improved reduction for large arguments, fewer
+rational interval temporaries during double-angle formulas,
+and limb-level arithmetic fast paths.
+

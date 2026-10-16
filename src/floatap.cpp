@@ -1585,45 +1585,127 @@ Interval divide(Interval const& numerator, Interval const& denominator) {
     return multiply(numerator, reciprocal);
 }
 
-// For |x| <= 1, both sin and cos Taylor terms decrease in magnitude.
-// The absolute value of the first omitted term bounds the entire
-// alternating remainder; using a symmetric enclosure also handles x<0.
+// For |x| <= 1, the positive magnitudes of both sine and cosine
+// Taylor terms decrease monotonically. Evaluate both series together
+// using outward-rounded fixed-point GMP integers: no mpq_t intermediates
+// are allocated in the loop. The first omitted alternating term bounds
+// the exact remainder on one side of the partial sum.
 std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
                                                unsigned long work) {
-    const Fraction square = x * x;
-    const Fraction limit = tolerance(work);
-    Fraction sine_term(x);
-    Fraction cosine_term(1L);
-    Fraction sine_sum;
-    Fraction cosine_sum;
+    if (x.sign() == 0) {
+        return {point(Fraction{}), point(Fraction(1L))};
+    }
 
-    for (unsigned long n = 0; ; ++n) {
-        if (n > static_cast<unsigned long>(std::numeric_limits<long>::max() / 4)) {
-            throw std::overflow_error("FloatAP trigonometric series index");
-        }
+    const Fraction magnitude = absolute(x);
+    const unsigned long max_terms = work / 2ul + 48ul;
+    const unsigned long guard =
+        32ul + static_cast<unsigned long>(std::bit_width(max_terms));
+    if (work > std::numeric_limits<unsigned long>::max() - guard) {
+        throw std::overflow_error("FloatAP sine/cosine work precision overflow");
+    }
+    const unsigned long fixed_bits = work + guard;
+    if (static_cast<std::uintmax_t>(fixed_bits) >
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+        throw std::overflow_error("FloatAP sine/cosine GMP shift overflow");
+    }
+    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(fixed_bits);
 
-        if (n % 2 == 0) {
-            sine_sum = sine_sum + sine_term;
-            cosine_sum = cosine_sum + cosine_term;
+    mpz_t scaled, argument_lo, argument_hi, square_lo, square_hi;
+    mpz_t sine_term_lo, sine_term_hi, cosine_term_lo, cosine_term_hi;
+    mpz_t sine_sum_lo, sine_sum_hi, cosine_sum_lo, cosine_sum_hi, threshold;
+    mpz_inits(scaled, argument_lo, argument_hi, square_lo, square_hi,
+              sine_term_lo, sine_term_hi, cosine_term_lo, cosine_term_hi,
+              sine_sum_lo, sine_sum_hi, cosine_sum_lo, cosine_sum_hi,
+              threshold, nullptr);
+    struct Cleanup {
+        mpz_ptr a,b,c,d,e,f,g,h,i,j,k,l,m,n;
+        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,i,j,k,l,m,n,nullptr); }
+    } cleanup{scaled,argument_lo,argument_hi,square_lo,square_hi,
+              sine_term_lo,sine_term_hi,cosine_term_lo,cosine_term_hi,
+              sine_sum_lo,sine_sum_hi,cosine_sum_lo,cosine_sum_hi,threshold};
+
+    mpz_mul_2exp(scaled, mpq_numref(magnitude.raw()), shift);
+    mpz_fdiv_q(argument_lo, scaled, mpq_denref(magnitude.raw()));
+    mpz_cdiv_q(argument_hi, scaled, mpq_denref(magnitude.raw()));
+    mpz_mul(square_lo, argument_lo, argument_lo);
+    mpz_fdiv_q_2exp(square_lo, square_lo, shift);
+    mpz_mul(square_hi, argument_hi, argument_hi);
+    mpz_cdiv_q_2exp(square_hi, square_hi, shift);
+
+    mpz_set(sine_term_lo, argument_lo);
+    mpz_set(sine_term_hi, argument_hi);
+    mpz_set_ui(cosine_term_lo, 1ul);
+    mpz_mul_2exp(cosine_term_lo, cosine_term_lo, shift);
+    mpz_set(cosine_term_hi, cosine_term_lo);
+
+    mpz_set_ui(threshold, 1ul);
+    mpz_mul_2exp(threshold, threshold, static_cast<mp_bitcnt_t>(guard));
+
+    for (unsigned long n = 0; n < max_terms; ++n) {
+        if (n % 2ul == 0ul) {
+            mpz_add(sine_sum_lo, sine_sum_lo, sine_term_lo);
+            mpz_add(sine_sum_hi, sine_sum_hi, sine_term_hi);
+            mpz_add(cosine_sum_lo, cosine_sum_lo, cosine_term_lo);
+            mpz_add(cosine_sum_hi, cosine_sum_hi, cosine_term_hi);
         } else {
-            sine_sum = sine_sum - sine_term;
-            cosine_sum = cosine_sum - cosine_term;
+            mpz_sub(sine_sum_lo, sine_sum_lo, sine_term_hi);
+            mpz_sub(sine_sum_hi, sine_sum_hi, sine_term_lo);
+            mpz_sub(cosine_sum_lo, cosine_sum_lo, cosine_term_hi);
+            mpz_sub(cosine_sum_hi, cosine_sum_hi, cosine_term_lo);
         }
 
-        const long index = static_cast<long>(n);
-        sine_term = sine_term * square /
-                    Fraction((2 * index + 2) * (2 * index + 3));
-        cosine_term = cosine_term * square /
-                      Fraction((2 * index + 1) * (2 * index + 2));
+        if (n > (std::numeric_limits<unsigned long>::max() - 3ul) / 2ul) {
+            throw std::overflow_error("FloatAP sine/cosine series index");
+        }
+        const unsigned long twice_n = 2ul * n;
+        const unsigned long a = twice_n + 1ul;
+        const unsigned long b = twice_n + 2ul;
+        const unsigned long c = twice_n + 3ul;
+        if (a > std::numeric_limits<unsigned long>::max() / b ||
+            b > std::numeric_limits<unsigned long>::max() / c) {
+            throw std::overflow_error("FloatAP sine/cosine factorial overflow");
+        }
+        const unsigned long cosine_divisor = a * b;
+        const unsigned long sine_divisor = b * c;
 
-        if (compare(absolute(sine_term), limit) < 0 &&
-            compare(absolute(cosine_term), limit) < 0) {
-            return {
-                enclosure(sine_sum, absolute(sine_term)),
-                enclosure(cosine_sum, absolute(cosine_term))
-            };
+        mpz_mul(sine_term_lo, sine_term_lo, square_lo);
+        mpz_fdiv_q_2exp(sine_term_lo, sine_term_lo, shift);
+        mpz_fdiv_q_ui(sine_term_lo, sine_term_lo, sine_divisor);
+        mpz_mul(sine_term_hi, sine_term_hi, square_hi);
+        mpz_cdiv_q_2exp(sine_term_hi, sine_term_hi, shift);
+        mpz_cdiv_q_ui(sine_term_hi, sine_term_hi, sine_divisor);
+
+        mpz_mul(cosine_term_lo, cosine_term_lo, square_lo);
+        mpz_fdiv_q_2exp(cosine_term_lo, cosine_term_lo, shift);
+        mpz_fdiv_q_ui(cosine_term_lo, cosine_term_lo, cosine_divisor);
+        mpz_mul(cosine_term_hi, cosine_term_hi, square_hi);
+        mpz_cdiv_q_2exp(cosine_term_hi, cosine_term_hi, shift);
+        mpz_cdiv_q_ui(cosine_term_hi, cosine_term_hi, cosine_divisor);
+
+        if ((mpz_cmp(sine_term_hi, threshold) <= 0 &&
+             mpz_cmp(cosine_term_hi, threshold) <= 0) ||
+            n + 1ul == max_terms) {
+            // If the last included term was positive, the omitted
+            // alternating tail is negative, and conversely.
+            if (n % 2ul == 0ul) {
+                mpz_sub(sine_sum_lo, sine_sum_lo, sine_term_hi);
+                mpz_sub(cosine_sum_lo, cosine_sum_lo, cosine_term_hi);
+            } else {
+                mpz_add(sine_sum_hi, sine_sum_hi, sine_term_hi);
+                mpz_add(cosine_sum_hi, cosine_sum_hi, cosine_term_hi);
+            }
+
+            Interval sine{Fraction(sine_sum_lo, fixed_bits),
+                          Fraction(sine_sum_hi, fixed_bits)};
+            Interval cosine{Fraction(cosine_sum_lo, fixed_bits),
+                            Fraction(cosine_sum_hi, fixed_bits)};
+            if (x.sign() < 0) {
+                sine = negative(sine);
+            }
+            return {std::move(sine), std::move(cosine)};
         }
     }
+    throw std::logic_error("FloatAP sine/cosine series did not terminate");
 }
 
 // Evaluate atan(x) for |x| <= 1/2 as an alternating Taylor series.
