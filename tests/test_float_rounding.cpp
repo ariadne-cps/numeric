@@ -434,6 +434,48 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Exact MPFR oracle for cancellation, ties and exponent gaps.
+            for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(static_cast<mpfr_prec_t>(ap.bits()));
+                const FloatAP one(1,ap);
+                const FloatAP fraction(Rational(7,11),FloatAP::ROUND_TO_NEAREST,ap);
+                const FloatAP tiny=shft(one,-static_cast<Int>(ap.bits()));
+                const FloatAP values[]={
+                    one,neg(one),fraction,neg(fraction),
+                    tiny,neg(tiny),shft(one,Int(-200)),
+                    shft(one,Int(200)),shft(one,Int(-1400)),
+                    shft(one,Int(1400))
+                };
+                for (FloatAP const& x : values) {
+                    for (FloatAP const& y : values) {
+                        const FloatMP mx(static_cast<Rational>(x),
+                                         FloatMP::ROUND_TO_NEAREST,mp);
+                        const FloatMP my(static_cast<Rational>(y),
+                                         FloatMP::ROUND_TO_NEAREST,mp);
+                        const auto verify=[&](auto am,auto mm) {
+                            ARIADNE_TEST_EQUALS(static_cast<Rational>(add(am,x,y)),
+                                                static_cast<Rational>(add(mm,mx,my)));
+                            ARIADNE_TEST_EQUALS(static_cast<Rational>(sub(am,x,y)),
+                                                static_cast<Rational>(sub(mm,mx,my)));
+                        };
+                        verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                        verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                        verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                        verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    }
+                }
+                const FloatAP z(0,ap);
+                ARIADNE_TEST_ASSERT(sub(FloatAP::ROUND_DOWNWARD,one,one).negative());
+                ARIADNE_TEST_ASSERT(not sub(FloatAP::ROUND_UPWARD,one,one).negative());
+                ARIADNE_TEST_ASSERT(add(FloatAP::ROUND_DOWNWARD,z,neg(z)).negative());
+                ARIADNE_TEST_ASSERT(is_nan(sub(FloatAP::ROUND_TO_NEAREST,
+                    FloatAP::inf(Sign::POSITIVE,ap),
+                    FloatAP::inf(Sign::POSITIVE,ap))));
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Exercise the precision-dependent exp argument reduction and
             // fixed-point squaring reconstruction. Compare every directed
             // result with the exact MPFR oracle on identical binary inputs.
