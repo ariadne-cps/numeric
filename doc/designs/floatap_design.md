@@ -653,3 +653,21 @@ testing are required **before performance numbers can be trusted**.
 The previously achieved 100% coverage applies only to the earlier
 implementation; all newly introduced functions, lines and branches must
 be covered in subsequent reports.
+
+
+## Independent FloatMP and FloatAP test targets (16 October 2026)
+
+The former dual-backend `test_float_multipleprecision_backends` target
+is replaced with `test_floatmp_conformance`, which imports only the
+FloatMP API. The independent `test_floatap` and
+`test_floatap_edge_cases` targets use the native FloatAP and exact
+GMP/Rational references, never `floatmp.hpp` or MPFR. This structure
+allows the FloatMP tests and library backend to be deleted later without
+modifying FloatAP tests. The explicit dual-backend *performance*
+comparison remains the benchmark's responsibility.
+
+Clang compilation failures in `test_floatap_edge_cases.cpp` caused by
+unqualified `16_bits` literals were fixed by explicitly constructing
+`ArbitraryPrecision(std::size_t{16})`. Missing default handling for
+new `half_pi` and `negative_half_pi` switch cases in
+`floatap_trigonometric.cpp` was fixed as well.

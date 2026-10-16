@@ -1,5 +1,5 @@
 /***************************************************************************
- *            test_float_multipleprecision_backends.cpp
+ *            test_floatmp_conformance.cpp
  *
  *  Copyright  2026  Luca Geretti
  *
@@ -24,9 +24,7 @@
 
 // Shared differential conformance test; MPFR is the oracle, not a runtime backend.
 #include "numeric/floatmp.hpp"
-#include "numeric/floatap.hpp"
 #include "numeric/rational.hpp"
-#include <concepts>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -34,7 +32,7 @@
 
 using namespace Ariadne;
 
-template< class F >
+template<class F>
 void verify(char const* backend, unsigned bits, char const* op,
 F const& actual, FloatMP const& expected) {
     // Convert exactly, not via double: the latter loses differences above 53 bits.
@@ -48,7 +46,7 @@ F const& actual, FloatMP const& expected) {
     }
 }
 
-template< class F >
+template<class F>
 void check_mode(char const* backend, unsigned bits,
 typename F::RoundingModeType mode, FloatMP::RoundingModeType reference_mode,
 typename F::PrecisionType precision,
@@ -79,7 +77,7 @@ Rational const& lhs, Rational const& rhs) {
     verify(backend, bits, "pi", F::pi(mode, precision), FloatMP::pi(reference_mode, oracle_precision));
 }
 
-template< class F >
+template<class F>
 void run_backend(char const* backend) {
     for (unsigned bits : { 53u, 128u, 256u, 1024u }) {
         using Precision = typename F::PrecisionType;
@@ -110,13 +108,11 @@ void run_backend(char const* backend) {
 int main() {
     try {
         run_backend<FloatMP>("mpfr");
-        run_backend<FloatAP>("floatap");
-        std::cout << "float multiprecision backend conformance OK\n";
+        std::cout << "FloatMP conformance OK\n";
         return 0;
     }
     catch (std::exception const& e) {
-        std::cerr << "float multiprecision backend conformance FAILED: " << e.what() << '\n';
+        std::cerr << "FloatMP conformance FAILED: " << e.what() << '\n';
         return 1;
     }
 }
-

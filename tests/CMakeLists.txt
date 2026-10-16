@@ -13,7 +13,7 @@ set(UNIT_TESTS
     test_rounding_mode
     test_float
     test_float_rounding
-    test_float_multipleprecision_backends
+    test_floatmp_conformance
     test_floatap
     test_floatap_edge_cases
     test_rounded_float
