@@ -48,11 +48,11 @@ class Rational;
 class Dyadic;
 class ExactDouble;
 class TwoExp;
-class RoundDownward;
-class RoundUpward;
-class RoundToNearest;
-class RoundTowardZero;
-class RoundApproximately;
+struct RoundDownward;
+struct RoundUpward;
+struct RoundToNearest;
+struct RoundTowardZero;
+struct RoundApproximately;
 struct CurrentRoundingMode;
 
 
@@ -121,17 +121,17 @@ template<> class Float<ArbitraryPrecision> {
         Rounding(RoundTowardZero const&) noexcept;
         Rounding(RoundApproximately const&) noexcept;
         Rounding(CurrentRoundingMode const&) noexcept;
-        constexpr operator Value() const noexcept { return _value; }
+        constexpr Value value() const noexcept { return _value; }
         friend constexpr bool operator==(Rounding const&, Rounding const&) = default;
     };
     using Paradigm = ExactTag;
     using NumericType = FloatAP;
     using PrecisionType = ArbitraryPrecision;
     using RoundingModeType = Rounding;
-    static constexpr RoundingModeType ROUND_TO_NEAREST = Rounding::ToNearest;
-    static constexpr RoundingModeType ROUND_DOWNWARD = Rounding::Downward;
-    static constexpr RoundingModeType ROUND_UPWARD = Rounding::Upward;
-    static constexpr RoundingModeType ROUND_TOWARD_ZERO = Rounding::TowardZero;
+    static const RoundingModeType ROUND_TO_NEAREST;
+    static const RoundingModeType ROUND_DOWNWARD;
+    static const RoundingModeType ROUND_UPWARD;
+    static const RoundingModeType ROUND_TOWARD_ZERO;
     enum class Kind {
         Finite, Infinity, NaN
     };
@@ -465,6 +465,15 @@ template<> class Float<ArbitraryPrecision> {
     static FloatAP fma(FloatAP const& a, FloatAP const& b,
     FloatAP const& c, unsigned long precision, Rounding mode);
 };
+
+inline constexpr FloatAP::RoundingModeType FloatAP::ROUND_TO_NEAREST =
+    FloatAP::Rounding::ToNearest;
+inline constexpr FloatAP::RoundingModeType FloatAP::ROUND_DOWNWARD =
+    FloatAP::Rounding::Downward;
+inline constexpr FloatAP::RoundingModeType FloatAP::ROUND_UPWARD =
+    FloatAP::Rounding::Upward;
+inline constexpr FloatAP::RoundingModeType FloatAP::ROUND_TOWARD_ZERO =
+    FloatAP::Rounding::TowardZero;
 
 }
 #endif
