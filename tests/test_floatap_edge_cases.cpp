@@ -258,6 +258,20 @@ void elementary_functions() {
     const K square = v(9);
     same(sqrt(R::toward_zero, square), v(3), "sqrt exact toward zero");
     same(sqrt(R::upward, square), v(3), "sqrt exact upward");
+    same(exp(R::nearest, K::zero(16)), v(1), "exp zero");
+    same(exp(R::upward, K::zero(16, true)), v(1), "exp negative zero");
+    same(exp(R::nearest, K::infinity(16, true)), positive_zero, "exp negative infinity");
+    same(exp(R::nearest, infinity), infinity, "exp positive infinity");
+    check(exp(R::nearest, K::nan(16)).is_nan(), "exp NaN");
+    same(log(R::nearest, v(1)), positive_zero, "log one");
+    same(log(R::nearest, positive_zero), K::infinity(16, true), "log zero");
+    same(log(R::nearest, infinity), infinity, "log infinity");
+    check(log(R::nearest, negative).is_nan(), "log negative");
+    check(log(R::nearest, K::nan(16)).is_nan(), "log NaN");
+    check(exp(R::downward, v(1)) <= exp(R::upward, v(1)), "exp directed rounding");
+    check(log(R::downward, v(2)) <= log(R::upward, v(2)), "log directed rounding");
+    check(log(R::downward, v(1, 2)) <= log(R::upward, v(1, 2)),
+          "log argument below one");
 
     // sqrt(255) at eight bits is below 16. The upward rounding of its
     // significand produces a carry, which must renormalize the exponent.

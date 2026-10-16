@@ -289,6 +289,8 @@ template<> class Float<ArbitraryPrecision> {
     // Integer powers are computed exactly, then rounded only once.
     friend FloatAP sqrt(RoundingModeType mode, FloatAP const& x);
     friend FloatAP pow(RoundingModeType mode, FloatAP const& x, Nat exponent);
+    friend FloatAP exp(RoundingModeType mode, FloatAP const& x);
+    friend FloatAP log(RoundingModeType mode, FloatAP const& x);
 
     // Round signed numerator/positive denominator * 2^scale with one rounding.
     static FloatAP from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,

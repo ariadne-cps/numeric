@@ -536,3 +536,34 @@ LLVM counters with zero executions while the corresponding other
 instances already demonstrate both sides (NaN, infinities and signs).
 No production code is altered merely to inflate such duplicate counters.
 A fresh full CI coverage run must confirm the new totals.
+
+
+## Native exp/log with exact rational enclosures (16 October 2026)
+
+The first transcendental block adds native `exp` and `log` in
+`src/floatap_exp_log.cpp`, registered in `NUMERIC_SRC`.
+They do not invoke MPFR and do not use floating-point approximations
+to determine the rounding bit. Taylor sums and their rigorous remainder
+bounds are represented by GMP rationals.
+
+For `exp(x)`, repeatedly halve the argument until `|x| <= 1/2`;
+the Taylor remainder is bounded by twice the first omitted term.
+Positive interval squaring then reverses the argument reduction.
+For `log(x)`, scale the positive argument by powers of two into
+`[1/2,2]` and use the exact atanh series
+`log((1+z)/(1-z)) = 2 sum(z^(2n+1)/(2n+1))` for `|z| <= 1/3`,
+combining an enclosure for `log(2)` when necessary.
+
+Working precision increases until both interval endpoints round to the
+same `FloatAP` at the requested precision and rounding mode. This
+makes the result certifiably correctly rounded whenever the procedure
+terminates. Certain extreme inputs are intentionally rejected by
+resource guards instead of returning an uncertified value. This first
+correctness-oriented implementation allocates large GMP rationals and
+is **not yet performance optimized**.
+
+The differential MPFR oracle test now includes `exp` and `log` for
+four rounding modes and the benchmark includes both operations.
+`sin`, `cos`, `tan`, `atan`, `asin`, `acos` and `pi` remain
+missing, so the dual-backend opt-in must not yet be removed. Newly added
+branches will need a fresh coverage report.
