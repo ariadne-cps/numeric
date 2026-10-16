@@ -261,6 +261,29 @@ TestFloat<PR>::test_conversions()
         ARIADNE_TEST_ASSERT(same(scaled,FloatType(6,pr)));
         ARIADNE_TEST_EQUALS(integer_cast<Nat>(FloatType(7u,pr)),Nat(7u));
 
+        if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Verify the concrete FloatAP wrapper specializations, including
+            // rigorous enclosure when converting from generic real numbers.
+            ARIADNE_TEST_EQUALS(class_name<Bounds<FloatAP>>(),String("FloatAPBounds"));
+            ARIADNE_TEST_EQUALS(class_name<LowerBound<FloatAP>>(),String("FloatAPLowerBound"));
+            ARIADNE_TEST_EQUALS(class_name<UpperBound<FloatAP>>(),String("FloatAPUpperBound"));
+
+            const Rational exact_third(1,3);
+            const Bounds<FloatAP> real_enclosure(Real(exact_third),pr);
+            ARIADNE_TEST_ASSERT(cmp(real_enclosure.lower_raw(),exact_third)!=Comparison::GREATER);
+            ARIADNE_TEST_ASSERT(cmp(real_enclosure.upper_raw(),exact_third)!=Comparison::LESS);
+
+            const MultiplePrecision mp_precision(pr.bits());
+            const LowerBound<FloatMP> mp_lower(exact_third,mp_precision);
+            const UpperBound<FloatMP> mp_upper(exact_third,mp_precision);
+            const ValidatedLowerNumber validated_lower=mp_lower;
+            const ValidatedUpperNumber validated_upper=mp_upper;
+            const LowerBound<FloatAP> ap_lower(validated_lower,pr);
+            const UpperBound<FloatAP> ap_upper(validated_upper,pr);
+            ARIADNE_TEST_ASSERT(cmp(ap_lower.raw(),exact_third)!=Comparison::GREATER);
+            ARIADNE_TEST_ASSERT(cmp(ap_upper.raw(),exact_third)!=Comparison::LESS);
+        }
+
         if constexpr (Same<PR,MultiplePrecision>) {
             MultiplePrecision from_dp(dp);
             ARIADNE_TEST_EQUALS(from_dp.bits(),53u);
