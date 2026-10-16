@@ -1181,3 +1181,59 @@ at appropriate working precision, and rectangular/binary splitting
 when iteration cost dominates. Retain hard-to-round and all-mode
 differential comparisons as acceptance criteria.
 
+
+## Performance redesign: certified fixed-point exponential (16 October 2026)
+
+**Decision:** replace the per-iteration GMP `mpq_t` Taylor sum in
+`FloatAPExpLogDetail::exp_series` by bounded fixed-point `mpz_t`
+arithmetic. Leave the outer argument-halving and interval-squaring
+strategy, special-value handling, all four rounding modes, and the
+`certified` endpoint agreement loop intact.
+
+For `|x| <= 1/2`, compute `exp(|x|)` from its **positive-term**
+series `sum(a^n/n!, n >= 0)` at fixed-point scale
+`Q = 2^B`, with `B = work + 32 + bit_width(N)` and a conservative
+iteration cap `N = floor(work/2)+64`. Enclose `a` once using
+`floor(aQ)` and `ceil(aQ)`, and propagate floor/ceiling bounds
+through each multiplication and division by `n`. The lower and
+upper accumulators enclose the included partial sum. For
+`0 <= a <= 1/2`, the infinite positive tail after term `n`
+is bounded by **twice the first omitted term**
+`2 a^(n+1)/(n+1)!`. The implementation computes an outward-rounded
+upper bound of this next term and adds twice that bound to its
+upper accumulator. It can stop when this certified remainder is
+at most `2^(-work)`; it also stops at the conservative cap using
+the *actual* certified remainder rather than assuming it is small.
+
+For negative input, form the exact reciprocal interval
+`[1/upper, 1/lower]` of the positive result. Positivity makes
+this order reversal sound, and repeated interval squaring after
+argument reduction remains monotone. The final endpoints are
+rounded only by the preexisting certification loop. Consequently,
+fixed-point truncation does **not** reduce the correctness contract;
+the guard bits affect efficiency, not the validity of the enclosure.
+
+**Independent algorithm check:** 209 rational arguments in
+`[-1/2,1/2]`, including `+/-1/2`, tiny arguments and randomized
+fractions, were checked against high-precision reference evaluations
+for `work = 8, 32, 53, 85, 128, 256, 512, 1024`. All
+evaluations were enclosed. This is not a substitute for the C++
+MPFR differential suites or a full cross-platform regression.
+
+**Pre-change benchmark provided by the user:** `exp` takes
+25.08 us at 53 bits, 70.03 us at 128 bits, 250.45 us at
+256 bits, and **11.56 ms at 1024 bits**; MPFR takes
+0.79, 1.12, 1.62 and 6.61 us respectively. These are baseline
+figures measured *before this change*, not achieved speedups.
+A new same-machine C++ benchmark and all-mode MPFR comparisons
+are required before accepting performance claims.
+
+**Follow-up:** apply a jointly evaluated certified fixed-point
+sine/cosine series; then optimize argument reduction and the
+rational interval squaring operations. Arb/FLINT documents
+fixed-point Taylor/rectangular-splitting exponential methods
+(`_arb_exp_taylor_naive`, `_arb_exp_taylor_rs`) and more
+aggressive reduction of small exponential arguments:
+https://flintlib.org/doc/arb.html . No MPFR function is called
+by the new native code.
+

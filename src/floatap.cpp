@@ -1317,29 +1317,84 @@ Fraction rational_argument(FloatAP const& x) {
 
 namespace FloatAPExpLogDetail {
 
-// All approximations are exact GMP rationals; MPFR is never called.
-
-// For |x| <= 1/2 the exponential tail after term n is at most
-// twice the absolute value of the next term.
+// Evaluate exp on |x| <= 1/2 with outward-rounded fixed-point GMP
+// integers. Taylor terms for exp(|x|) are positive; the omitted tail is
+// at most twice the first omitted term. For x < 0, take the reciprocal
+// of the positive enclosure, exchanging its endpoints.
 Interval exp_series(Fraction const& x, unsigned long work) {
-    Fraction term(1);
-    Fraction sum(1);
-    const Fraction limit = tolerance(work);
-    for (unsigned long n = 1; ; ++n) {
-        // Both n and n+1 are converted to long for the series terms.
-        // Guard before conversion; unsigned long and long have different
-        // ranges even on platforms where they have equal width (MSVC).
-        if (n >= static_cast<unsigned long>(std::numeric_limits<long>::max()) - 1ul) {
-            throw std::overflow_error("FloatAP exponential series index");
-        }
-        term = term * x / Fraction(static_cast<long>(n));
-        sum = sum + term;
-        const Fraction next = term * x / Fraction(static_cast<long>(n + 1));
-        const Fraction error = Fraction(2) * absolute(next);
-        if (compare(error, limit) < 0) {
-            return enclosure(sum, error);
+    if (x.sign() == 0) {
+        return {Fraction(1), Fraction(1)};
+    }
+
+    const Fraction magnitude = absolute(x);
+    const unsigned long max_terms = work / 2ul + 64ul;
+    const unsigned long guard =
+        32ul + static_cast<unsigned long>(std::bit_width(max_terms));
+    if (work > std::numeric_limits<unsigned long>::max() - guard) {
+        throw std::overflow_error("FloatAP exponential work precision overflow");
+    }
+    const unsigned long fixed_bits = work + guard;
+    if (static_cast<std::uintmax_t>(fixed_bits) >
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+        throw std::overflow_error("FloatAP exponential GMP shift overflow");
+    }
+    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(fixed_bits);
+
+    mpz_t scaled, argument_lo, argument_hi, term_lo, term_hi;
+    mpz_t sum_lo, sum_hi, next_hi, remainder, threshold;
+    mpz_inits(scaled, argument_lo, argument_hi, term_lo, term_hi,
+              sum_lo, sum_hi, next_hi, remainder, threshold, nullptr);
+    struct Cleanup {
+        mpz_ptr a,b,c,d,e,f,g,h,i,j;
+        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,i,j,nullptr); }
+    } cleanup{scaled,argument_lo,argument_hi,term_lo,term_hi,
+              sum_lo,sum_hi,next_hi,remainder,threshold};
+
+    mpz_mul_2exp(scaled, mpq_numref(magnitude.raw()), shift);
+    mpz_fdiv_q(argument_lo, scaled, mpq_denref(magnitude.raw()));
+    mpz_cdiv_q(argument_hi, scaled, mpq_denref(magnitude.raw()));
+
+    mpz_set_ui(term_lo, 1ul);
+    mpz_mul_2exp(term_lo, term_lo, shift);
+    mpz_set(term_hi, term_lo);
+    mpz_set(sum_lo, term_lo);
+    mpz_set(sum_hi, term_hi);
+
+    mpz_set_ui(threshold, 1ul);
+    mpz_mul_2exp(threshold, threshold, static_cast<mp_bitcnt_t>(guard));
+
+    for (unsigned long n = 1ul; n <= max_terms; ++n) {
+        // Division by 2^B and then by n, with floor/ceiling on the
+        // respective endpoints, encloses the exact nth Taylor term.
+        mpz_mul(term_lo, term_lo, argument_lo);
+        mpz_fdiv_q_2exp(term_lo, term_lo, shift);
+        mpz_fdiv_q_ui(term_lo, term_lo, n);
+
+        mpz_mul(term_hi, term_hi, argument_hi);
+        mpz_cdiv_q_2exp(term_hi, term_hi, shift);
+        mpz_cdiv_q_ui(term_hi, term_hi, n);
+
+        mpz_add(sum_lo, sum_lo, term_lo);
+        mpz_add(sum_hi, sum_hi, term_hi);
+
+        // The omitted positive tail is bounded by twice term (n+1).
+        mpz_mul(next_hi, term_hi, argument_hi);
+        mpz_cdiv_q_2exp(next_hi, next_hi, shift);
+        mpz_cdiv_q_ui(next_hi, next_hi, n + 1ul);
+        mpz_mul_2exp(remainder, next_hi, 1ul);
+
+        if (mpz_cmp(remainder, threshold) <= 0 || n == max_terms) {
+            mpz_add(sum_hi, sum_hi, remainder);
+            const Interval positive{Fraction(sum_lo, fixed_bits),
+                                    Fraction(sum_hi, fixed_bits)};
+            if (x.sign() > 0) {
+                return positive;
+            }
+            return {Fraction(1) / positive.upper,
+                    Fraction(1) / positive.lower};
         }
     }
+    throw std::logic_error("FloatAP exponential series did not terminate");
 }
 
 Interval exp_interval(Fraction x, unsigned long work) {
