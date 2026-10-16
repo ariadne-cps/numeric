@@ -17,7 +17,7 @@ The migration is tracked on branch `remove-mpfr`.
 The name 'arbitrary precision' describes user-selectable significance,
 not an infinite exponent range or necessarily unbounded resource usage.
 
-## Planned representation
+## Representation
 
 A finite nonzero number is represented as
 
@@ -58,26 +58,39 @@ requires one rounding after exact multiply-and-add.
 ## Performance roadmap
 
 The exact-integer baseline is deliberately simple and may allocate
-large temporaries. Optimization must preserve bit-identical directed
-results:
+large temporaries. Optimization must preserve **correctly rounded**
+results under all four supported rounding modes, including difficult
+cases; no optimization may silently weaken the enclosure/certification
+contract.
 
-- Fast path for single- and double-limb significands;
-- preallocated/scratch temporaries to reduce allocations;
-- guard/round/sticky bits for bounded-work alignment when exponents
-  differ greatly (rather than shifting by the entire exponent gap);
-- multiplication/division specialized for fixed requested precision;
-- avoid rational canonicalization in ordinary arithmetic;
-- profile separately at 53, 128, 256 and 1024 bits.
+Priority based on the 16 October 2026 same-host benchmark:
 
-The first implementation should prefer correctness and transparent
-measurements over speculative optimizations.
+1. **Transcendentals first:** replace repeated exact `mpq_t` Taylor
+   operations with fixed-point `mpz_t` series evaluation and explicitly
+   propagated outward errors; accelerate argument reduction and the
+   `atan`/`asin`/`acos` dependency chain.
+2. Evaluate binary/rectangular splitting, reusable certified constants
+   (particularly `pi` and `log(2)`), and efficient argument reduction
+   *after* obtaining reliable per-operation profiles. Reuse must not
+   depend on mutable global rounding state.
+3. Optimize `add`, `mul`, `div`, `fma`, conversion, and comparison
+   using limb-oriented fast paths, bounded exponent alignment,
+   preallocated scratch integers, and fewer temporary allocations.
+4. Profile separately at 53, 128, 256, and 1024 bits, including
+   exceptional, exact, boundary, and hard-to-round cases.
+
+The first fixed-point step for `log` is implemented, but an observed
+speedup is **not** yet established; see the decision record below.
+The long-term intent remains to avoid GMP as well as MPFR in the native
+backend. MPFR is permitted in oracle tests and benchmarks, **not**
+in native `FloatAP` arithmetic.
 
 ## Verification and benchmarks
 
-`benchmark_compare_multiple_precision_backends` is the sole C++
-benchmark executable. It measures both concrete backends and produces
-`FloatAP / FloatMP` ratios when `BUILD_FLOATAP_COMPARISON=ON` and
-the full `FloatAP` class is implemented:
+`benchmark_compare_multiple_precision_backends` is the C++
+dual-backend comparison executable. It exercises both concrete
+backends unconditionally in current builds and reports
+`FloatAP / FloatMP` timings for individual operations:
 
 ```sh
 ./build-dual/benchmarks/benchmark_compare_multiple_precision_backends \
@@ -97,23 +110,34 @@ must be validated against MPFR, including hard-to-round cases.
 The MPFR library remains a *test oracle*, not an implementation
 dependency of native arithmetic.
 
-## Status and limitations
+## Status and limitations (updated 16 October 2026)
 
-- The `FloatAP` name/precision tag and dual-backend testing hooks
-  are scaffolding, not a production floating-point implementation.
-- The GMP-only kernel lives in `src/floatap.cpp`, with the internal
-  interface in `include/numeric/floatap.hpp` and its C++
-  test in `tests/test_floatap.cpp`. The test covers randomized
-  rational-reference add/sub/mul/div/fma under four rounding modes,
-  plus special values, with 7/53/113/128/256/1024-bit precision.
-  **The public `Float<ArbitraryPrecision>` specialization is NOT complete
-  or benchmarkable.**
-- The kernel is initially exact-integer based; exponent-difference shifts can
-  allocate excessively. This requires optimized guard/sticky-bit arithmetic.
-- The complete public `FloatAP` API, range/error semantics,
-  transcendental functions and performance optimization remain work.
-- Until both versions build and run on the same machine, **no actual
-  slowdown number exists**.
+- `FloatAP = Float<ArbitraryPrecision>` is a direct, usable public
+  specialization with native basic arithmetic, conversions, square root,
+  exponential, logarithm, trigonometry and `pi`, along with substantial
+  compatibility with Ariadne's shared Float suites. This is **not**
+  yet a drop-in replacement for every FloatMP application.
+- Implementation now resides in **one translation unit**:
+  `src/floatap.cpp`. The former `floatap_exp_log.cpp` and
+  `floatap_trigonometric.cpp` were merged and removed from CMake.
+  The transcendental code shares one exact `Fraction` and `Interval`
+  representation while retaining function-specific internal namespaces.
+- The original kernel is based on GMP integers; most transcendental
+  series are still based on expensive GMP rational intermediates.
+  The first exception is the new fixed-point `log_series`.
+  Extreme exponents, range conventions, correctness of directed
+  conversions and hard-to-round behavior need continued verification.
+- The dual-backend comparison is already running. Timings supplied on
+  16 October 2026 show approximately **5x** slower basic additions
+  at 53 bits and **352x / 1,488x / 8,987x** slower `log` at
+  53 / 128 / 256 bits **before** the fixed-point change.
+  These are baseline measurements, not a measured improvement.
+- CI for commit `8eb5c97` has succeeded on the listed Linux and
+  macOS configurations, but Windows Release and Codecov checks are
+  failing; full cross-platform validation is **not** complete.
+- Historical sections below describe decisions *at the date made*.
+  A historical statement that an operation was absent or lived in
+  a separate file must not be mistaken for current implementation status.
 
 ## Changing the architecture
 
@@ -982,3 +1006,84 @@ in-place operations, generic float concepts, and others). These
 remaining diagnostics are not resolved by this targeted compilation
 fix. Both original float test suites remain enabled without
 suppressing assertions. A complete project rebuild is still required.
+
+
+## Performance redesign: certified fixed-point logarithm (16 October 2026)
+
+**Change:** `8eb5c97722fa41532174470022cc9cddeae454af`,
+`src/floatap.cpp`. This is the first response to the benchmark
+finding that the GMP-rational transcendental prototype is far slower
+than MPFR. Earlier `log_series` iterations used `mpq_t` for every
+Taylor term and sum; each rational multiplication/addition could
+grow numerator and denominator and require canonicalization.
+
+**Decision:** keep the externally visible `FloatAP` representation,
+all four rounding modes, the certified-enclosure refinement loop,
+and the reduction `x = 2^k y` with `y in [1/2, 2]`. Replace only the
+internal evaluation of
+
+```text
+log((1+z)/(1-z)) = 2 * sum(n=0..infinity) z^(2n+1)/(2n+1)
+z = (y-1)/(y+1), |z| <= 1/3
+```
+
+with **bounded fixed-point GMP integer arithmetic**. Work at
+`B = work + 32 + bit_width(N)` fractional bits with
+`N = floor(work/3) + 4` terms. Enclose the nonnegative magnitude
+`|z|` between directed floor/ceiling scaled integers; maintain
+lower/upper fixed-point enclosures for its odd powers using directed
+squaring, multiplication, and integer division. Sum the nonnegative
+terms with directed division, apply the factor of two, and restore
+the sign by swapping/negating endpoints for negative `z`.
+
+**Remainder argument:** for `|z| <= 1/3`, the omitted part of the
+doubled atanh series after `N` terms is bounded by
+
+```text
+2 * sum(n=N..infinity) |z|^(2n+1)/(2n+1)
+    <= (9/4) * 3^(-2N-1)
+    < 2^(-work), when N = floor(work/3) + 4.
+```
+
+The implementation adds `2^(-work)` to its fixed-point upper
+endpoint; the directed integer operations enclose the included
+terms. A zero argument returns an exact zero enclosure. The outer
+`certified` loop still refines until **both** endpoints round to the
+same requested result, rather than accepting an approximate answer.
+
+**Trade-offs and current limits:** the series is now linear in a
+bounded count of fixed-point steps, rather than manipulating exact
+rational denominators at each step. This does **not** yet add fast
+argument reduction, binary splitting, reuse of `log(2)`, or a
+scratch allocator. The `log_interval` reconstruction still handles
+powers of two and `log(2)` using rational enclosures; other
+transcendentals still use the exact rational prototype. No
+post-change speed ratio is available yet, and the bound/protocol
+must still be stress-tested against MPFR at all rounding modes and
+near rounding boundaries, including cases that trigger refinement.
+
+**Performance baseline supplied before this change** (median ns,
+300 iterations, seven samples, identical benchmark operations):
+
+| Operation | Bits | MPFR (ns) | FloatAP (ns) | FloatAP / MPFR |
+|---|---:|---:|---:|---:|
+| add, nearest | 53 | 69.03 | 335.28 | 4.9x |
+| log, nearest | 53 | 660.28 | 232180.14 | 352x |
+| log, nearest | 128 | 1551.39 | 2309173.75 | 1488x |
+| log, nearest | 256 | 2671.25 | 24007044.58 | 8987x |
+| atan, nearest | 53 | 667.50 | 232492.08 | 348x |
+| atan, nearest | 128 | 2683.61 | 2245674.17 | 837x |
+
+These timings justify prioritizing the transcendental algorithms;
+they are **not** measurements of `8eb5c97`. Retain the original
+same-backend, same-input and same-rounding benchmark methodology,
+and validate output equivalence before claiming an optimization.
+
+**Next investigations:** replace `small_atan` and the
+`asin`/`acos` dependency chain with rigorously bounded fixed-point
+methods; examine Machin/pi caching, fast angle reduction and
+rectangular/binary splitting; then optimize the ordinary arithmetic
+kernel's GMP allocations and repeated `from_ratio` path.
+Every future algorithmic change must update this decision record
+with its proof obligations, measurements, and regressions.
+
