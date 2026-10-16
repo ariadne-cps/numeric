@@ -910,3 +910,43 @@ it does **not** claim that the full historical tests compile or pass.
 Later diagnostics will likely involve the still-missing validated
 bounds/ball operations and float exponent-range API. No test gates
 or weakened assertions were reintroduced.
+
+
+## Consolidation into the original Float test suites (16 October 2026)
+
+`tests/test_float.cpp` now shares its multiple-precision conversion,
+arithmetic and comparison paths with both `MultiplePrecision` and
+`ArbitraryPrecision`: generic operands and expected values use
+`Float<PR>` and `PR`, while actual MPFR-only internals such as
+`get_mpfr()`, `MPFR_RNDN`, raw pointers, built-in MPFR precision
+conversions and MPFR default-precision management remain in explicit
+`Same<PR,MultiplePrecision>` subbranches. The test assertions for
+generic behavior have not been disabled.
+
+`tests/test_float_rounding.cpp` shares the cross-precision conversion
+test using `Float<PR>` for both multi-precision backends. Its original
+templated classes, and every original rounding assertion, remain
+enabled. A `test_precision_regressions()` method using Ariadne's
+`ARIADNE_TEST_*` macros integrates the key tests formerly in
+`test_floatap.cpp`, `test_floatap_edge_cases.cpp`,
+`test_floatap_precision.cpp` and `test_floatmp_conformance.cpp`:
+seven precisions between 2 and 1024 bits, all four rounding modes,
+exact Rational oracles for basic arithmetic and FMA, low-precision
+square-root edge cases, transcendental enclosures and identities,
+varied-scale comparisons and nonfinite values. These tests execute
+for FloatMP **and** FloatAP; they are not fallback FloatAP-specific suites.
+Coverage-only tests of internal implementation details are not
+substitutes for this shared mathematical contract.
+
+The four dedicated test targets and their source files are removed
+from CMake and the branch. The only primary float tests are the
+original `test_float` and `test_float_rounding`, which keep the
+historical DoublePrecision and MultiplePrecision instantiations as well
+as the ArbitraryPrecision instantiations.
+
+This changes the test arrangement but does not assert a passing build:
+`FloatAP` still lacks parts of the historic API, including formatting,
+input parsing, certain mixed operations, and round-tag helpers. The
+original tests should continue to expose these as compile failures
+until the production API is implemented. Do not restore gated or
+weakened assertions for an artificially green regression.
