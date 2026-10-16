@@ -434,6 +434,33 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Exercise the precision-dependent exp argument reduction and
+            // fixed-point squaring reconstruction. Compare every directed
+            // result with the exact MPFR oracle on identical binary inputs.
+            for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                for (Dyadic const& argument :
+                     {Dyadic(1,2u),Dyadic(-1,2u),Dyadic(3,2u),
+                      Dyadic(-3,2u),Dyadic(1,1u),Dyadic(-1,1u),
+                      Dyadic(1,0u),Dyadic(-1,0u),Dyadic(3,0u),
+                      Dyadic(-3,0u),Dyadic(7,0u),Dyadic(-7,0u)}) {
+                    const FloatAP a(argument,ap);
+                    const FloatMP m(argument,mp);
+                    const auto compare_exponential=[&](auto ap_mode,auto mp_mode) {
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(exp(ap_mode,a)),
+                            static_cast<Rational>(exp(mp_mode,m)));
+                    };
+                    compare_exponential(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                    compare_exponential(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                    compare_exponential(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                    compare_exponential(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Differential oracle for certified sine/cosine rounding.
             // All inputs are exact dyadics; comparison is exact at the
             // same target precision, in all four rounding modes.

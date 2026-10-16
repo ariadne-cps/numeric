@@ -1684,3 +1684,80 @@ The present change removes clearly unnecessary computations;
 it does not yet implement rectangular splitting, advanced
 argument reduction, or limb-level intermediate reuse.
 
+
+## Exponential reduction with bounded fixed-point reconstruction (16 October 2026)
+
+**Motivation:** after the selective sine/cosine implementation, the
+user's same-run benchmark reported 1024-bit `exp_nearest` at
+54.97 us for FloatAP and 6.42 us for MPFR (8.57x), the largest
+remaining relative slowdown. At 53 bits, it took 4.66 us versus
+1.66 us. The existing `exp_series` already uses rigorous GMP
+fixed-point Taylor intervals but reduces its argument only to
+`|x| <= 1/2`. More aggressive halving reduces the number of
+series terms, but the old *exact-rational* interval squaring
+doubled the denominator bit length after each squaring. Thus
+simply reducing to `1/2^16` would make reconstruction slower,
+not faster.
+
+**Decision:** select a target `|x| <= 2^(-d)` with
+`d = min(16, max(6, floor(work/32)))`. Compute
+`exp(x/2^k)` using the existing outward-rounded fixed-point
+series with `work + k + 8` working bits. Convert the resulting
+strictly positive rational enclosure once to **B-bit scaled
+integers**, using floor for the lower endpoint and ceiling for
+the upper, with `B = work + k + 64`. Recover `exp(x)` by
+`k` interval squarings in the integer domain:
+
+```text
+L' = floor(L*L / 2^B)
+U' = ceil (U*U / 2^B)
+```
+
+As squaring is monotone for nonnegative operands, the new
+`[L', U']` encloses the exact squared interval. There are no
+growing rational denominators in the reconstruction loop;
+only the two final endpoints become `Fraction` objects.
+The reduction is a general algorithmic choice based on
+requested precision, **not** a branch for benchmark inputs.
+
+**Rounding guarantee:** the reduced exponential series already
+provides an outward certified enclosure. Converting to integers
+rounds outward; every reconstruction step also rounds outward.
+These are closed supersets of the mathematical result regardless
+of whether `B` proves sufficient for a particular hard-to-round
+case. The outer `certified` loop continues increasing precision
+until both endpoints give the same rounded FloatAP value for the
+requested rounding mode. Existing special cases, positive and
+negative inputs, and all four rounding modes retain their
+contracts. Overflow checks guard the working bit count and
+GMP shift conversion.
+
+**Prototype verification:** a standalone GMP C++ program compared
+bounded fixed-point reconstruction with exact rational squaring
+of **the same** certified reduced-series enclosure. On **1,040
+cases** across 53, 128, 256, and 1024 bits, reduction limits
+`1/2`, `1/4`, `1/8`, `1/16`, random rational inputs and
+both signs, the new lower/upper endpoints enclosed the exact
+reference endpoints in every case. This tests reconstruction
+independently, not the full Ariadne build. Differential C++
+tests have also been added for `exp` on positive/negative
+dyadics, in all four modes at those four precisions.
+
+**Prototype performance, not an Ariadne benchmark:** on a Linux
+GMP C++ harness at 1024 working bits and an argument near 1/2,
+the original half-reduced series and exact-rational squaring took
+approximately 78 us; bounded reconstruction with a `1/2^16`
+reduction took approximately 35 us. These figures are
+environment-specific, useful to choose the algorithm, and are
+**not** asserted to be the speedup of the committed code.
+At 53 bits, aggressive reduction has a weaker benefit, hence
+the precision-dependent reduction schedule.
+
+**Further improvements:** optimize `exp` with rectangular
+splitting or bit-burst at sufficiently high precision, and
+profile fixed-point series iterations separately from argument
+reduction and endpoint conversion. FLINT/Arb implements
+`_arb_exp_taylor_naive`, `_arb_exp_taylor_rs`, and more
+aggressive argument reduction:
+https://flintlib.org/doc/arb.html .
+
