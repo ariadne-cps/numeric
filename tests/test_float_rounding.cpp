@@ -223,6 +223,24 @@ TestFloatRounding<PR>::test_limits()
     ARIADNE_TEST_ASSERT(add(down,inf_,min)==inf_);
     ARIADNE_TEST_ASSERT(add(up,max,min)==inf_);
 
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        // The AP exponent gap spans the entire signed 64-bit range.
+        // Directed rounding must respond to the tiny operand's sign.
+        ARIADNE_TEST_ASSERT(add(near,max,min)==max);
+        ARIADNE_TEST_ASSERT(add(down,max,min)==max);
+        ARIADNE_TEST_ASSERT(add(up,max,-min)==max);
+        ARIADNE_TEST_ASSERT(add(down,max,-min)==next(down,max));
+        ARIADNE_TEST_ASSERT(add(down,-max,-min)==-inf_);
+        ARIADNE_TEST_ASSERT(add(up,-max,-min)==-max);
+        ARIADNE_TEST_ASSERT(add(up,-max,min)==next(up,-max));
+        // In-place addition retains the destination precision even when
+        // the dominant source operand has fewer significant bits.
+        const ArbitraryPrecision wider(precision.bits()*2u);
+        FloatAP wide_tiny=FloatAP::min(wider);
+        const FloatAP wide_high(max,wider);
+        ARIADNE_TEST_ASSERT(iadd(up,wide_tiny,max)==next(up,wide_high));
+    }
+
     ARIADNE_TEST_ASSERT(is_nan(zinf));
     ARIADNE_TEST_EQUAL(pinf,inf_);
     ARIADNE_TEST_EQUAL(ninf,-inf_);

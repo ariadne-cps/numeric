@@ -2229,3 +2229,44 @@ no additional application threads, then set the default report verbosity
 of 1 before CLI acquisition. The logging contribution can override this
 with `--verbosity 0` to mute reports. The numeric library itself has no
 logging dependency; this concerns the benchmark executables only.
+
+## Signed-exponent-gap arithmetic at the native range limits (16 October 2026)
+
+**Observed regression:** the user-supplied CI logs for PR #28 at
+`3ffefc11` report `test_float_rounding` failing in both
+`TestFloatRounding<ArbitraryPrecision>` instantiations (64 and 192 bits)
+on Linux GCC 13, Clang 16, AppleClang 21, and Linux ThreadSanitizer.
+The existing assertion `add(up,max,min)==inf_` throws
+`FloatAP exponent overflow` instead. `FloatAP::max` and
+`FloatAP::min` use `INT64_MAX` and `INT64_MIN` respectively;
+subtracting their exponents in the exact-addition alignment exceeds
+the signed exponent type before numeric rounding occurs.
+
+**Design:** keep exact GMP alignment for ordinary exponent gaps.
+When the unsigned, overflow-safe difference of two exponents exceeds
+the sum of both significand widths, the destination precision, and two
+bits, the smaller operand
+cannot cross any noncoincident rounding boundary at the public result
+precision (which may be the destination precision for in-place addition).
+Its sign alone
+selects the appropriate side of an exactly representable value or a
+tie. Instead of making a GMP integer with billions of bits, substitute
+a signed one-bit perturbation `2^(-high_precision-result_precision-2)` relative to the
+larger significand and perform **one** correctly directed rounding via
+`from_ratio` with a power-of-two denominator. Unlike the former
+large-gap shortcut, this preserves both directed results and nearest-even
+tie breaking for opposite-sign operands. A rounded significand carry
+beyond `INT64_MAX` now yields the correctly signed infinity; other
+checked-exponent arithmetic still throws on nonrepresentable exponents.
+
+**Regression:** extend the historical `test_limits()` for FloatAP at
+both 64 and 192 bits, covering positive/negative maximal finite values,
+both signs of the minimum positive finite operand, overflow, adjacent
+finite results, higher-precision in-place addition, and
+round-to-nearest/downward/upward behavior. The
+existing shared assertion remains unchanged. Independent exact
+rational models checked 116,000 comparisons between direct and substituted
+rounding, including halfway and endpoint significands and cases where the
+requested result precision exceeds the dominant operand precision. This is not a
+full Ariadne build, and no new CI pass or coverage percentage is claimed
+until the published commit is tested on the requested branch.

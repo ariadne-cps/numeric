@@ -106,6 +106,10 @@ Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
         }
         if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
             mpz_tdiv_q_2exp(result._significand, result._significand, 1u);
+            // Crossing the maximal finite exponent by a rounded carry yields infinity.
+            if (result._exponent == std::numeric_limits<Exponent>::max()) {
+                return infinity(precision, result._negative);
+            }
             result._exponent = checked_add(result._exponent, 1);
         }
         return result;
@@ -162,6 +166,10 @@ Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
     result._exponent = checked_add(scale, checked_sub(k, static_cast<Exponent>(precision - 1)));
     if (bit_length(q) > static_cast<Exponent>(precision)) {
         mpz_tdiv_q_2exp(q, q, 1);
+        // Crossing the maximal finite exponent by a rounded carry yields infinity.
+        if (result._exponent == std::numeric_limits<Exponent>::max()) {
+            return infinity(precision, result._negative);
+        }
         result._exponent = checked_add(result._exponent, 1);
     }
     mpz_set(result._significand, q);
@@ -224,21 +232,46 @@ unsigned long p, Rounding mode, bool subtract) {
     if (a.is_zero()) return FloatAP(subtract ? negate(b) : b, mode, PrecisionType(p));
     if (b.is_zero()) return FloatAP(a, mode, PrecisionType(p));
 
-    // Always combine the exact aligned integers before rounding. The former
-    // exponent-gap shortcut could skip a required directed rounding step
-    // for opposite-sign subtraction; preserve the full MPFR contract.
-    // The smaller-exponent operand is already aligned. Shift just the
-    // other unsigned magnitude, add/subtract, then apply its signedness.
+    // Align the exact integers for ordinary gaps; for immense gaps use
+    // a rigorously small, signed sticky term before a single rounding.
+    // Unlike the old approximation shortcut, this preserves directed
+    // subtraction and ties, including when the tiny operand opposes the
+    // large operand.
     const bool a_high = a._exponent >= b._exponent;
     FloatAP const& high = a_high ? a : b;
     FloatAP const& low = a_high ? b : a;
     const bool high_negative = a_high ? a._negative : b_negative;
+    const bool low_negative = a_high ? b_negative : a._negative;
+    // Unsigned subtraction handles even INT64_MAX - INT64_MIN exactly.
+    const std::uint64_t gap = static_cast<std::uint64_t>(high._exponent) -
+                              static_cast<std::uint64_t>(low._exponent);
+    // This conservative gap bound places the smaller operand below all
+    // noncoincident rounding boundaries even when p > high.precision.
+    const std::uint64_t high_bits = static_cast<std::uint64_t>(high._precision);
+    const std::uint64_t low_bits = static_cast<std::uint64_t>(low._precision);
+    const bool far_apart = gap > high_bits && gap - high_bits > low_bits &&
+        gap - high_bits - low_bits > static_cast<std::uint64_t>(p) + 2u;
     mpz_t exact, one;
     mpz_inits(exact, one, nullptr);
     struct Cleanup {
         mpz_ptr a, b;
         ~Cleanup() { mpz_clears(a, b, nullptr); }
     } cleanup{exact, one};
+    if (far_apart) {
+        // A one-bit sticky perturbation of the same sign preserves the
+        // side of exact values and halfway ties in all rounding modes.
+        // Avoid constructing an integer with an enormous exponent gap.
+        const Exponent padding = checked_add(
+            checked_add(static_cast<Exponent>(high._precision),
+                        static_cast<Exponent>(p)), 2);
+        mpz_mul_2exp(exact, high._significand, shift_amount(padding));
+        if (high_negative) mpz_neg(exact, exact);
+        if (low_negative) mpz_sub_ui(exact, exact, 1u);
+        else mpz_add_ui(exact, exact, 1u);
+        mpz_set_ui(one, 1u);
+        mpz_mul_2exp(one, one, shift_amount(padding));
+        return from_ratio(exact, one, high._exponent, p, mode);
+    }
     mpz_mul_2exp(exact, high._significand,
                  shift_amount(checked_sub(high._exponent, low._exponent)));
     if (a._negative == b_negative) mpz_add(exact, exact, low._significand);
