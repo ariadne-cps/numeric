@@ -26,6 +26,7 @@
 #define ARIADNE_NUMERIC_BENCHMARK_COMMAND_LINE_HPP
 
 #include "utility/command_line_interface.hpp"
+#include "logging/logging.hpp"
 
 #include <algorithm>
 #include <initializer_list>
@@ -37,6 +38,23 @@
 #include <string_view>
 
 namespace Ariadne::BenchmarkCommandLine {
+
+// Logging scheduler switches require a thread registry. The benchmarks are
+// single-threaded and do not register extra application threads.
+class BenchmarkThreadRegistry : public ThreadRegistryInterface {
+  public:
+    Bool has_threads_registered() const override { return false; }
+};
+
+inline void initialize_logging() {
+    static BenchmarkThreadRegistry registry;
+    auto& logger=Logger::instance();
+    if (!logger.has_thread_registry_attached()) {
+        logger.attach_thread_registry(&registry);
+    }
+    logger.configuration().set_verbosity(1u);
+}
+
 
 // Parse while acquiring the argument, so the standard Ariadne CLI reports
 // malformed values using its normal InvalidArgumentValueException mechanism.
