@@ -80,6 +80,23 @@ void same(K const& a, K const& b, char const* m) {
     b.to_rational(y.q);
     check(mpq_cmp(x.q, y.q) == 0, m);
 }
+void exponent_bit_length_boundaries() {
+    using Ariadne::floatap_exponent_from_bit_length;
+    const auto maximum = std::numeric_limits<std::int64_t>::max();
+
+    check(floatap_exponent_from_bit_length(0u) == 0, "zero bit length");
+    check(floatap_exponent_from_bit_length(64u) == 64, "ordinary bit length");
+    check(floatap_exponent_from_bit_length(static_cast<std::size_t>(maximum)) == maximum,
+          "maximum representable bit length");
+
+    if constexpr (std::numeric_limits<std::size_t>::digits >
+                  std::numeric_limits<std::int64_t>::digits) {
+        raises<std::overflow_error>([&] {
+            (void)floatap_exponent_from_bit_length(static_cast<std::size_t>(maximum) + 1u);
+        }, "bit length above signed exponent range");
+    }
+}
+
 void precision_tag() {
     using namespace Ariadne;
     const ArbitraryPrecision via_bits(53_bits);
@@ -381,6 +398,7 @@ void specials() {
 int main() {
     try {
         precision_tag();
+        exponent_bit_length_boundaries();
         conversions();
         int64_boundaries();
         rational_integration();
