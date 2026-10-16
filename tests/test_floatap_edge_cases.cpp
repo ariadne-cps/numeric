@@ -258,6 +258,26 @@ void elementary_functions() {
     const K square = v(9);
     same(sqrt(R::toward_zero, square), v(3), "sqrt exact toward zero");
     same(sqrt(R::upward, square), v(3), "sqrt exact upward");
+
+    // sqrt(255) at eight bits is below 16. The upward rounding of its
+    // significand produces a carry, which must renormalize the exponent.
+    const K nearly_square = v(255, 1, 8);
+    same(sqrt(R::nearest, nearly_square), v(255, 16, 8),
+         "sqrt nearest below significand carry");
+    same(sqrt(R::upward, nearly_square), v(16, 1, 8),
+         "sqrt upward significand carry");
+    same(sqrt(R::downward, nearly_square), v(255, 16, 8),
+         "sqrt downward below significand carry");
+
+    // Toward zero agrees with downward rounding for a positive root.
+    same(sqrt(R::toward_zero, two), sqrt(R::downward, two),
+         "sqrt toward zero inexact");
+
+    // Invalid rounding modes are rejected rather than silently guessed.
+    raises<std::invalid_argument>([] {
+        (void)sqrt(static_cast<R>(99), v(2));
+    }, "sqrt invalid rounding mode");
+
 }
 
 void public_rounding() {
