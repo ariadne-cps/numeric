@@ -1558,6 +1558,19 @@ Interval log_series(Fraction const& z, unsigned long work) {
     mpz_set(power_lo, zlo);
     mpz_set(power_hi, zhi);
 
+    // For |z| <= 1/3 the remaining doubled series after N terms is
+    // at most (9/4)*|z|^(2N+1). The upper fixed-point odd power is
+    // outward rounded, so three times that upper bound is a safe
+    // integer enclosure of the entire tail. Stop as soon as the
+    // *actual* argument converges, not after a worst-case term count.
+    mpz_t threshold;
+    mpz_init_set_ui(threshold, 1ul);
+    struct ThresholdCleanup {
+        mpz_ptr value;
+        ~ThresholdCleanup() { mpz_clear(value); }
+    } threshold_cleanup{threshold};
+    mpz_mul_2exp(threshold, threshold, fixed_bits - work);
+
     for (unsigned long n = 0; n < terms; ++n) {
         const unsigned long divisor = 2ul * n + 1ul;
         mpz_fdiv_q_ui(quotient, power_lo, divisor);
@@ -1569,13 +1582,17 @@ Interval log_series(Fraction const& z, unsigned long work) {
         mpz_fdiv_q_2exp(power_lo, power_lo, fixed_bits);
         mpz_mul(power_hi, power_hi, square_hi);
         mpz_cdiv_q_2exp(power_hi, power_hi, fixed_bits);
+
+        mpz_mul_ui(tail, power_hi, 3ul);
+        if (mpz_cmp(tail, threshold) <= 0 || n + 1ul == terms) {
+            break;
+        }
     }
 
-    // Multiply by two, then add the certified bound for the omitted tail.
+    // The partial sum contains only positive magnitudes; negate and
+    // reverse the interval for an originally negative argument.
     mpz_mul_2exp(sum_lo, sum_lo, 1);
     mpz_mul_2exp(sum_hi, sum_hi, 1);
-    mpz_set_ui(tail, 1);
-    mpz_mul_2exp(tail, tail, fixed_bits - work);
     mpz_add(sum_hi, sum_hi, tail);
 
     const Interval positive{Fraction(sum_lo, fixed_bits),
@@ -1585,24 +1602,48 @@ Interval log_series(Fraction const& z, unsigned long work) {
         : positive;
 }
 
+Interval log2_interval(unsigned long work) {
+    // An enclosure computed at higher working precision remains valid
+    // for all lower-precision requests. This cache contains an interval,
+    // not a rounded scalar, and is independent of the rounding mode.
+    struct Cache {
+        unsigned long work = 0;
+        std::optional<Interval> value;
+    };
+    static thread_local Cache cache;
+    if (cache.value && cache.work >= work) {
+        return *cache.value;
+    }
+
+    const Interval result = log_series(Fraction(1L) / Fraction(3L), work);
+    cache.value = result;
+    cache.work = work;
+    return result;
+}
+
 Interval log_interval(Fraction x, unsigned long work) {
     long power = 0;
-    while (compare(x, Fraction(2)) > 0) {
+    const Fraction lower_limit = Fraction(3L) / Fraction(4L);
+    const Fraction upper_limit = Fraction(3L) / Fraction(2L);
+    // Reduce to [3/4,3/2], where |(x-1)/(x+1)| <= 1/5.
+    // This also moves numbers near a power of two close to 1,
+    // permitting the fixed-point series to terminate very early.
+    while (compare(x, upper_limit) > 0) {
         if (++power > 2048) {
             throw std::overflow_error("FloatAP log argument range");
         }
-        x = x / Fraction(2);
+        x = x / Fraction(2L);
     }
-    while (compare(x, Fraction(1) / Fraction(2)) < 0) {
+    while (compare(x, lower_limit) < 0) {
         if (--power < -2048) {
             throw std::overflow_error("FloatAP log argument range");
         }
-        x = x * Fraction(2);
+        x = x * Fraction(2L);
     }
-    const Fraction z = (x - Fraction(1)) / (x + Fraction(1));
+    const Fraction z = (x - Fraction(1L)) / (x + Fraction(1L));
     Interval result = log_series(z, work);
     if (power != 0) {
-        const Interval ln2 = log_series(Fraction(1) / Fraction(3), work);
+        const Interval ln2 = log2_interval(work);
         const Fraction count(power < 0 ? -power : power);
         if (power > 0) {
             result = {result.lower + count * ln2.lower,

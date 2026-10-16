@@ -1451,3 +1451,69 @@ Reference: GNU GMP manual, integer conversion functions
 (`mpz_get_d_2exp`), https://gmplib.org/manual/Converting-Integers;
 GNU MPFR manual, `mpfr_get_d`, https://mpfr.org/mpfr-current/mpfr.html .
 
+## Performance redesign: adaptive log series and log2 cache (16 October 2026)
+
+**Evidence:** in the benchmark supplied after the direct `get_d()`
+optimization, `FloatAP::log` at 1024 bits took 81.06 us versus
+8.53 us for MPFR (9.51x), making it the worst relative case.
+The benchmark's rational inputs are near `1/2`, so the old
+reduction interval `[1/2,2]` left them near `1/2` and the
+series argument `z=(x-1)/(x+1)` near `-1/3`. The previous
+fixed-point implementation always evaluated `floor(work/3)+4`
+terms, even for inputs whose transformed argument was tiny.
+
+**Decisions:**
+
+1. Normalize `x=2^k y` into **`3/4 <= y <= 3/2`**.
+   Consequently `z=(y-1)/(y+1)` lies in `[-1/7,1/5]`.
+   Inputs close to powers of two now have a very small `z`,
+   reducing the work needed for the Taylor series.
+2. At the end of each iteration, `power_hi` is an outward-rounded
+   fixed-point upper bound for `|z|^(2N+1)`, where `N`
+   terms have been included. Since `|z| <= 1/3` both for
+   the reduced main input and for `log(2) = 2 atanh(1/3)`,
+   the positive doubled tail obeys
+   `tail <= (9/4)|z|^(2N+1) <= 3*power_hi/2^B`.
+   Stop as soon as `3*power_hi <= 2^(B-work)`, or at
+   the original conservative maximum count. Add the
+   **actual certified tail bound** to the upper endpoint;
+   no assumption of negligible error is required.
+   The signed result uses interval negation and reversal.
+3. Keep the highest-work **certified interval** for
+   `log(2)` in a bounded, thread-local cache. It is valid
+   for subsequent lower-work requests without changing its
+   interval endpoints. Cache entries are independent of
+   rounding mode; the existing `certified` loop still
+   performs the final correctly rounded conversion.
+   This is not a cache of approximate scalar values.
+
+**Correctness invariants:** the fixed-point term and power
+bounds are always outward-rounded. Early termination uses
+an analytic bound on the complete omitted tail, including
+the factor of two in `log((1+z)/(1-z))`. Neither the
+normalization nor constant caching changes the exact
+identity `log(x)=log(y)+k*log(2)`. The constant is never
+treated as exact. The same monotone endpoint arithmetic
+continues to support all four rounding modes.
+
+**Regression added:** a differential oracle test compares
+all four rounded modes of `FloatAP` against `FloatMP`
+at 53, 128, 256, and 1024 bits, using exact binary inputs
+near 1/2, 3/4, 1, 3/2 and 2, and small/large powers of two.
+This is a test addition, not a claim that the CI has passed.
+
+**Performance status:** the stated times are the *pre-change*
+baseline. Future measurements must distinguish cold versus
+warm `log(2)` and mixed-precision calls; expected hot
+speedups must not be presented as measured results. This
+targets both series complexity and redundant evaluation
+of the same transcendental constant.
+
+**State-of-the-art context:** FLINT/Arb uses table-based log
+argument reduction and fixed-point Taylor evaluation via
+rectangular splitting for low/medium precision:
+https://flintlib.org/doc/arb.html . The present reduction
+and cache are simpler, conservative improvements. More
+aggressive log argument tables and rectangular splitting
+remain possible future steps, after this regression.
+
