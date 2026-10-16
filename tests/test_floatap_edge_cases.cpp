@@ -213,6 +213,35 @@ void public_comparisons() {
     "negative infinity rational conversion");
 }
 
+void elementary_functions() {
+    const K two = v(2);
+    const K four = v(4);
+    const K negative = v(-2);
+    const K positive_zero = K::zero(16);
+    const K negative_zero = K::zero(16, true);
+    const K infinity = K::infinity(16);
+
+    same(sqrt(R::nearest, four), two, "exact square root");
+    same(sqrt(R::nearest, positive_zero), positive_zero, "sqrt positive zero");
+    same(sqrt(R::nearest, negative_zero), negative_zero, "sqrt negative zero");
+    same(sqrt(R::nearest, infinity), infinity, "sqrt infinity");
+    check(sqrt(R::nearest, negative).is_nan(), "negative square root");
+    check(sqrt(R::nearest, K::nan(16)).is_nan(), "NaN square root");
+
+    const K down = sqrt(R::downward, two);
+    const K up = sqrt(R::upward, two);
+    check(down <= up, "sqrt directed rounding");
+    same(pow(R::nearest, negative, Ariadne::Nat(3u)), v(-8), "odd integer power");
+    same(pow(R::nearest, negative, Ariadne::Nat(4u)), v(16), "even integer power");
+    same(pow(R::nearest, negative, Ariadne::Nat(0u)), v(1), "zero exponent");
+    check(pow(R::nearest, K::nan(16), Ariadne::Nat(2u)).is_nan(),
+          "NaN integer power");
+    check(pow(R::nearest, infinity, Ariadne::Nat(2u)).is_inf(),
+          "infinite integer power");
+    same(pow(R::nearest, negative_zero, Ariadne::Nat(3u)), negative_zero,
+         "signed zero integer power");
+}
+
 void public_rounding() {
     const K seven_bits = v(1, 3, 7, R::nearest);
     const K thirteen_bits = v(2, 3, 13, R::nearest);
@@ -406,6 +435,7 @@ int main() {
         boundary_cases();
         public_comparisons();
         public_rounding();
+        elementary_functions();
         std::cout << "FloatAP edge cases OK\n";
         return 0;
     }

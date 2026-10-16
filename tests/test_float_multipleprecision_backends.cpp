@@ -67,8 +67,9 @@ Rational const& lhs, Rational const& rhs) {
     verify(backend, bits, "mul", mul(mode, x, y), mul(reference_mode, reference_x, reference_y));
     verify(backend, bits, "div", div(mode, x, y), div(reference_mode, reference_x, reference_y));
     verify(backend, bits, "fma", fma(mode, x, y, x), fma(reference_mode, reference_x, reference_y, reference_x));
-#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
+    verify(backend, bits, "pow_7", pow(mode, x, Nat(7u)), pow(reference_mode, reference_x, Nat(7u)));
     verify(backend, bits, "sqrt", sqrt(mode, x), sqrt(reference_mode, reference_x));
+#ifndef ARIADNE_NUMERIC_ENABLE_FLOATAP
     verify(backend, bits, "exp", exp(mode, x), exp(reference_mode, reference_x));
     verify(backend, bits, "log", log(mode, x), log(reference_mode, reference_x));
     verify(backend, bits, "sin", sin(mode, x), sin(reference_mode, reference_x));
@@ -77,7 +78,6 @@ Rational const& lhs, Rational const& rhs) {
     verify(backend, bits, "asin", asin(mode, x), asin(reference_mode, reference_x));
     verify(backend, bits, "acos", acos(mode, x), acos(reference_mode, reference_x));
     verify(backend, bits, "atan", atan(mode, x), atan(reference_mode, reference_x));
-    verify(backend, bits, "pow_7", pow(mode, x, Nat(7u)), pow(reference_mode, reference_x, Nat(7u)));
     verify(backend, bits, "pi", F::pi(mode, precision), FloatMP::pi(reference_mode, oracle_precision));
 #endif
 }

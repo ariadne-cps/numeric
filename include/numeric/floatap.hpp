@@ -285,6 +285,11 @@ template<> class Float<ArbitraryPrecision> {
         return fma(a, b, c, p < c._precision ? p : c._precision, mode);
     }
 
+    // Square root is rounded from an exact integer-square-root enclosure.
+    // Integer powers are computed exactly, then rounded only once.
+    friend FloatAP sqrt(RoundingModeType mode, FloatAP const& x);
+    friend FloatAP pow(RoundingModeType mode, FloatAP const& x, Nat exponent);
+
     // Round signed numerator/positive denominator * 2^scale with one rounding.
     static FloatAP from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
     Exponent scale, unsigned long precision,
