@@ -1385,3 +1385,69 @@ the cache is considered validated. Future work should speed
 cold pi generation (e.g. Brent-Salamin/AGM) when profiling
 demonstrates a need.
 
+## Performance redesign: direct FloatAP-to-double conversion (16 October 2026)
+
+**Measured motivation:** after the certified pi cache, `to_double`
+was the worst relative benchmark: 136 ns at 53 bits and 324 ns
+at 1024 bits, versus 18 ns for MPFR at both precisions
+(approximately 7.5x and 17.8x slower). The earlier
+`FloatAP::get_d()` constructed a full `Rational` and called
+GMP `mpq_get_d`: for negative binary exponents this allocates
+a power-of-two denominator and canonicalizes an exact rational
+that is not otherwise needed.
+
+**Decision:** convert the native positive GMP significand and
+signed binary exponent directly to a hardware `double`. GMP
+`mpz_get_d_2exp` extracts a normalized, **truncated**
+double significand with at most 53 significant bits without
+building a quotient or denominator. The original stored
+significand remains available for exact guard, tie, parity,
+and sticky-bit tests via `mpz_tstbit`/`mpz_scan1`. The
+converter supports nearest-even, upward, downward, and
+toward-zero using the **current FloatAP rounding mode**.
+This corrects the earlier semantic discrepancy: the former
+`Rational::get_d()`/GMP `mpq_get_d` always truncated
+toward zero, while `FloatMP::get_d()` calls MPFR with
+the current rounding mode.
+
+**Boundary correctness:** determine the binary exponent from
+the exact stored significant-bit count, guarding signed overflow.
+For normal doubles, compute the 53-bit integer significand
+and scale by an exact power of two. For subnormal doubles,
+discard the additional bits below the `2^-1074` quantum;
+ties are rounded to even, including the half-min-subnormal
+case. A carry out of the significand adjusts the exponent or
+causes overflow; directed modes return the finite maximum
+where appropriate rather than indiscriminately returning
+infinity. A nonzero underflow rounds to signed zero or the
+minimum subnormal according to the direction. NaN,
+signed infinity, and signed zero are handled without GMP
+conversions. All finite results are exactly representable
+scalings, avoiding a second rounding in `ldexp`.
+
+**Independent verification:** the integer-extraction and
+rounding recurrence was compiled with GMP and compared
+against an exact GMP rational oracle on **54,880 cases**,
+spanning 14 significand widths from 2 to 1024 bits,
+14 exponent categories (including subnormals and normal
+boundaries), positive/negative values, and all four modes.
+Each compared the full 64-bit double representation. This
+is a standalone algorithm check, not a complete C++/MPFR
+regression. The Ariadne rounding suite now additionally
+compares against actual `FloatMP::get_d()`, including
+large finite values and cases that overflow `double`.
+The benchmark speedup remains to be measured.
+
+**Contract and follow-up:** the new implementation uses only GMP
+for significand inspection; no MPFR arithmetic is introduced.
+The mode-aware numerical behavior is an intentional
+compatibility correction and must be validated against the
+shared regression suite under all rounding modes. Benchmark
+normal, subnormal, overflow, and exact-conversion workloads
+separately; do not infer cold or worst-case latency from the
+normal-input microbenchmark alone.
+
+Reference: GNU GMP manual, integer conversion functions
+(`mpz_get_d_2exp`), https://gmplib.org/manual/Converting-Integers;
+GNU MPFR manual, `mpfr_get_d`, https://mpfr.org/mpfr-current/mpfr.html .
+

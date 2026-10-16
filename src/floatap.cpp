@@ -989,7 +989,122 @@ FloatAP::operator Rational() const {
 }
 
 double FloatAP::get_d() const {
-    return static_cast<Rational>(* this).get_d();
+    // FloatAP stores an exact binary significand and an exponent. Converting
+    // through Rational builds/canonicalizes a potentially enormous 2^k
+    // denominator and also silently truncates rather than respecting the
+    // active rounding mode. Extract 53 leading bits directly from GMP.
+    if (is_nan()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (is_inf()) {
+        const double infinity = std::numeric_limits<double>::infinity();
+        return _negative ? -infinity : infinity;
+    }
+    if (is_zero()) {
+        return _negative ? -0.0 : 0.0;
+    }
+
+    constexpr Exponent digits = std::numeric_limits<double>::digits;
+    constexpr Exponent largest = std::numeric_limits<double>::max_exponent - 1;
+    constexpr Exponent min_normal = std::numeric_limits<double>::min_exponent - 1;
+    constexpr Exponent min_subnormal = min_normal - digits + 1;
+    const Rounding::Value mode = get_rounding_mode().value();
+    const auto signed_value = [this](double value) {
+        return _negative ? -value : value;
+    };
+    const auto rounds_away = [this,mode]() {
+        return mode == Rounding::ToNearest ||
+               (mode == Rounding::Upward && !_negative) ||
+               (mode == Rounding::Downward && _negative);
+    };
+
+    // The finite significand is positive and has at most _precision bits,
+    // which itself fits Exponent by construction.
+    const Exponent top = static_cast<Exponent>(mpz_sizeinbase(_significand, 2) - 1u);
+    if (_exponent > 0 && top > std::numeric_limits<Exponent>::max() - _exponent) {
+        return signed_value(rounds_away() ?
+                            std::numeric_limits<double>::infinity() :
+                            std::numeric_limits<double>::max());
+    }
+    const Exponent highest = _exponent + top;
+    if (highest > largest) {
+        return signed_value(rounds_away() ?
+                            std::numeric_limits<double>::infinity() :
+                            std::numeric_limits<double>::max());
+    }
+    if (highest < min_subnormal - 1) {
+        const bool directed_away = (mode == Rounding::Upward && !_negative) ||
+                                   (mode == Rounding::Downward && _negative);
+        return signed_value(directed_away ?
+                            std::numeric_limits<double>::denorm_min() : 0.0);
+    }
+
+    // GMP truncates this normalized 53-bit significand, regardless of the
+    // stored precision. The conversion and scaling to an integer are exact.
+    long unused_exponent = 0;
+    const double leading_fraction = mpz_get_d_2exp(&unused_exponent, _significand);
+    const std::uint64_t leading = static_cast<std::uint64_t>(
+        std::ldexp(leading_fraction, static_cast<int>(digits)));
+    const Exponent subnormal_shift = highest < min_normal
+                                    ? min_normal - highest : 0;
+    std::uint64_t mantissa = leading >> static_cast<unsigned>(subnormal_shift);
+
+    // The original significand bits below this cut decide every rounding
+    // mode, including IEEE halfway ties and the transition to subnormals.
+    const Exponent discarded = top - (digits - 1) + subnormal_shift;
+    if (discarded > 0) {
+        if (static_cast<std::uintmax_t>(discarded) >
+            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+            throw std::overflow_error("FloatAP conversion shift exceeds GMP limit");
+        }
+        const mp_bitcnt_t dropped = static_cast<mp_bitcnt_t>(discarded);
+        bool increment = false;
+        switch (mode) {
+            case Rounding::ToNearest:
+                increment = mpz_tstbit(_significand, dropped - 1u) != 0 &&
+                    ((mantissa & 1u) != 0u ||
+                     mpz_scan1(_significand, 0u) < dropped - 1u);
+                break;
+            case Rounding::Downward:
+                increment = _negative &&
+                    mpz_scan1(_significand, 0u) < dropped;
+                break;
+            case Rounding::Upward:
+                increment = !_negative &&
+                    mpz_scan1(_significand, 0u) < dropped;
+                break;
+            case Rounding::TowardZero:
+                break;
+            default:
+                throw std::invalid_argument("FloatAP unknown double conversion mode");
+        }
+        if (increment) {
+            ++mantissa;
+        }
+    }
+
+    if (highest >= min_normal) {
+        // A carry may move the leading bit into the next exponent, or
+        // overflow the largest finite double after rounding.
+        if (mantissa == (std::uint64_t{1} << digits)) {
+            mantissa >>= 1u;
+            if (highest == largest) {
+                return signed_value(rounds_away() ?
+                                    std::numeric_limits<double>::infinity() :
+                                    std::numeric_limits<double>::max());
+            }
+            return signed_value(std::ldexp(
+                static_cast<double>(mantissa),
+                static_cast<int>(highest - digits + 2)));
+        }
+        return signed_value(std::ldexp(
+            static_cast<double>(mantissa),
+            static_cast<int>(highest - digits + 1)));
+    }
+    // Integer multiples of the least subnormal are exactly representable.
+    // mantissa == 2^52 also correctly produces the minimum normal double.
+    return signed_value(std::ldexp(
+        static_cast<double>(mantissa), static_cast<int>(min_subnormal)));
 }
 
 Comparison cmp(FloatAP const& a, FloatAP const& b) {
