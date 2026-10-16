@@ -2237,9 +2237,22 @@ Interval asin_interval(Fraction const& x, unsigned long work) {
         Fraction(1L) - x * x, work);
     const Interval denominator = add(point(Fraction(1L)), radical);
     const Interval argument = divide(point(x), denominator);
-    const Interval left = atan_interval(argument.lower, work);
+
+    // atan is monotone and globally 1-Lipschitz:
+    // 0 <= atan(b)-atan(a) <= b-a for a<=b, because
+    // atan'(t)=1/(1+t*t) is between zero and one.
+    // Evaluating one endpoint, plus the exact input interval width,
+    // avoids a second certified arctangent evaluation. Choose the
+    // endpoint nearer to zero to reduce its Taylor-series work.
+    const Fraction width = argument.upper - argument.lower;
+    if (compare(absolute(argument.lower), absolute(argument.upper)) <= 0) {
+        const Interval left = atan_interval(argument.lower, work);
+        return {Fraction(2L) * left.lower,
+                Fraction(2L) * (left.upper + width)};
+    }
     const Interval right = atan_interval(argument.upper, work);
-    return {Fraction(2L) * left.lower, Fraction(2L) * right.upper};
+    return {Fraction(2L) * (right.lower - width),
+            Fraction(2L) * right.upper};
 }
 
 enum class Function {

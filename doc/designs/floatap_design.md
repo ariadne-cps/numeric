@@ -1835,3 +1835,65 @@ calculations requiring both outputs. The separate
 and no improvement is claimed until measured. The
 mathematical guarantee does not depend on performance.
 
+
+## Inverse trigonometric optimization: single arctangent enclosure (16 October 2026)
+
+**Benchmark motivation:** after the certified cosine-from-sine
+optimization, the largest remaining relative slowdown was
+`acos_nearest` at 1024 bits: **156.70 us** for FloatAP
+versus **23.42 us** for MPFR (6.69x). At the same
+precision, `asin_nearest` took 155.04 us versus 23.40 us.
+The common `asin_interval` routine obtained an interval
+for `z=x/(1+sqrt(1-x^2))` and computed `atan(z.lower)`
+**and** `atan(z.upper)` separately with the certified
+fixed-point arctangent series. The endpoints differ by only
+the previous outward square-root uncertainty, so the second
+arctangent is largely redundant.
+
+**Decision:** replace the two independent arctangent calls with
+**one** certified arctangent interval and an exact rational
+width correction. For the certified transformed interval
+`a <= z <= b`, with `w=b-a >= 0`, the arctangent is
+monotone and globally **1-Lipschitz** because
+`0 < atan'(t) = 1/(1+t^2) <= 1`. Therefore, given
+`atan(a) in [L,U]`, all exact values of `atan(z)`
+lie in `[L,U+w]`. Alternatively, from `atan(b) in [L,U]`,
+all values lie in `[L-w,U]`. Select the endpoint with the
+smaller absolute value, which is cheaper for the alternating
+arctangent Taylor series, then double both interval endpoints
+to obtain the rigorous enclosure for `asin(x)`.
+
+**Mathematical and numerical invariants:** no approximation is
+substituted for an exact input endpoint. All widths and bound
+enlargements use GMP rational arithmetic with no rounding.
+The derivative bound holds for **all real inputs**, so it is
+also valid for negative `x` and near both ends of the
+arcsine domain. The prior domain checks, signed behavior
+and correctly-rounded final certification remain unchanged.
+`acos(x)=pi/2-asin(x)` automatically benefits from the same
+change; its `pi` interval remains certified and cached.
+
+**Verification:** an independent 425-decimal-digit mpmath
+check exercised **7,464** rational intervals across widths
+corresponding to 7, 24, 53, 128, 256, and 1024 bits, with
+both endpoint choices and positive/negative inputs. The
+new intervals contained arctangent at each endpoint and at
+the midpoint in all cases. This is numerical corroboration;
+the rigorous guarantee follows from the analytic derivative
+bound, not from finite testing. The shared C++ rounding suite
+also now compares FloatAP `asin` and `acos` with MPFR at
+53, 128, 256, and 1024 bits, using inputs near +/-1, zero,
+both signs, and all four rounding modes.
+
+**Expected performance:** this eliminates one arctangent
+series evaluation from each ordinary `asin`/`acos` call.
+The width correction introduces a small number of exact
+rational operations and may very occasionally require more
+working precision in the existing certified endpoint-agreement
+loop; correctness is independent of the extra iterations.
+The measurements above are **before** the optimization.
+A same-environment post-change benchmark and a full CI pass
+are required before any speedup is claimed. More extensive
+changes to `atan` argument reduction remain a separate,
+higher-risk opportunity.
+
