@@ -1771,7 +1771,7 @@ FloatAP exp(FloatAP::RoundingModeType mode, FloatAP const& x) {
     if (x.is_zero()) {
         return FloatAP(std::int64_t{1}, x.precision());
     }
-    const Fraction input = exact_argument(x);
+    const Fraction input = rational_argument(x);
     return certified([&](unsigned long work) {
         return exp_interval(input, work);
     }, mode, x.precision());
@@ -1789,7 +1789,7 @@ FloatAP log(FloatAP::RoundingModeType mode, FloatAP const& x) {
     if (x.is_inf()) {
         return FloatAP::infinity(bits);
     }
-    const Fraction input = exact_argument(x);
+    const Fraction input = rational_argument(x);
     if (compare(input, Fraction(1)) == 0) {
         return FloatAP::zero(bits);
     }
