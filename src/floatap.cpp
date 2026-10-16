@@ -202,55 +202,68 @@ FloatAP FloatAP::negate(FloatAP x) {
 
 FloatAP FloatAP::add(FloatAP const& a, FloatAP const& b,
 unsigned long p, Rounding mode) {
-    if (a.is_nan() || b.is_nan()) return nan(p);
-    if (a.is_inf() || b.is_inf()) {
-        if (a.is_inf() && b.is_inf() && a._negative != b._negative) return nan(p);
-        return infinity(p, a.is_inf() ? a._negative : b._negative);
-    }
-    if (a.is_zero() && b.is_zero()) return zero(p, a._negative == b._negative ? a._negative : mode == Rounding::Downward);
-    if (a.is_zero()) return FloatAP(b, mode, PrecisionType(p));
-    if (b.is_zero()) return FloatAP(a, mode, PrecisionType(p));
-    // For equal-precision normalized operands separated by more than
-    // p+2 binary positions, the small addend cannot affect nearest-even.
-    // A directed result only differs by one representable step. This
-    // avoids allocating an impossible exponent-gap-sized GMP integer.
-    if (a._precision == p && b._precision == p && a._exponent != b._exponent) {
-        FloatAP const& dominant = a._exponent > b._exponent ? a : b;
-        FloatAP const& smaller = a._exponent > b._exponent ? b : a;
-        const std::uint64_t gap =
-            static_cast<std::uint64_t>(dominant._exponent) -
-            static_cast<std::uint64_t>(smaller._exponent);
-        if (gap > static_cast<std::uint64_t>(p) + 2u) {
-            if (mode == Rounding::Upward && !smaller._negative) return next(up, dominant);
-            if (mode == Rounding::Downward && smaller._negative) return next(down, dominant);
-            if (mode == Rounding::TowardZero && dominant._negative != smaller._negative) {
-                return dominant._negative ? next(up, dominant) : next(down, dominant);
-            }
-            return dominant;
-        }
-    }
-    const Exponent low = a._exponent < b._exponent ? a._exponent : b._exponent;
-    mpz_t x, y, sum, one;
-    mpz_inits(x, y, sum, one, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b, c, d;
-        ~Cleanup() {
-            mpz_clears(a, b, c, d, nullptr);
-        }
-    }
-    cleanup { x, y, sum, one };
-    mpz_mul_2exp(x, a._significand, shift_amount(checked_sub(a._exponent, low)));
-    mpz_mul_2exp(y, b._significand, shift_amount(checked_sub(b._exponent, low)));
-    if (a._negative) mpz_neg(x, x);
-    if (b._negative) mpz_neg(y, y);
-    mpz_add(sum, x, y);
-    mpz_set_ui(one, 1);
-    return from_ratio(sum, one, low, p, mode, mode == Rounding::Downward);
+    return add_sub(a, b, p, mode, false);
 }
 
 FloatAP FloatAP::sub(FloatAP const& a, FloatAP const& b,
 unsigned long p, Rounding mode) {
-    return add(a, negate(b), p, mode);
+    return add_sub(a, b, p, mode, true);
+}
+
+FloatAP FloatAP::add_sub(FloatAP const& a, FloatAP const& b,
+unsigned long p, Rounding mode, bool subtract) {
+    const bool b_negative = b._negative != subtract;
+    if (a.is_nan() || b.is_nan()) return nan(p);
+    if (a.is_inf() || b.is_inf()) {
+        if (a.is_inf() && b.is_inf() && a._negative != b_negative) return nan(p);
+        return infinity(p, a.is_inf() ? a._negative : b_negative);
+    }
+    if (a.is_zero() && b.is_zero()) {
+        return zero(p, a._negative == b_negative ? a._negative : mode == Rounding::Downward);
+    }
+    if (a.is_zero()) return FloatAP(subtract ? negate(b) : b, mode, PrecisionType(p));
+    if (b.is_zero()) return FloatAP(a, mode, PrecisionType(p));
+
+    // Keep the exact exponent-gap shortcut, using effective operand signs.
+    if (a._precision == p && b._precision == p && a._exponent != b._exponent) {
+        const bool a_dominates = a._exponent > b._exponent;
+        FloatAP const& dominant = a_dominates ? a : b;
+        FloatAP const& smaller = a_dominates ? b : a;
+        const bool smaller_negative = a_dominates ? b_negative : a._negative;
+        const bool dominant_negative = a_dominates ? a._negative : b_negative;
+        const std::uint64_t gap = static_cast<std::uint64_t>(dominant._exponent) -
+                                  static_cast<std::uint64_t>(smaller._exponent);
+        if (gap > static_cast<std::uint64_t>(p) + 2u) {
+            FloatAP signed_dominant = (!a_dominates && subtract) ? negate(dominant) : dominant;
+            if (mode == Rounding::Upward && !smaller_negative) return next(up, signed_dominant);
+            if (mode == Rounding::Downward && smaller_negative) return next(down, signed_dominant);
+            if (mode == Rounding::TowardZero && dominant_negative != smaller_negative) {
+                return dominant_negative ? next(up, signed_dominant) : next(down, signed_dominant);
+            }
+            return signed_dominant;
+        }
+    }
+
+    // The smaller-exponent operand is already aligned. Shift just the
+    // other unsigned magnitude, add/subtract, then apply its signedness.
+    const bool a_high = a._exponent >= b._exponent;
+    FloatAP const& high = a_high ? a : b;
+    FloatAP const& low = a_high ? b : a;
+    const bool high_negative = a_high ? a._negative : b_negative;
+    mpz_t exact, one;
+    mpz_inits(exact, one, nullptr);
+    struct Cleanup {
+        mpz_ptr a, b;
+        ~Cleanup() { mpz_clears(a, b, nullptr); }
+    } cleanup{exact, one};
+    mpz_mul_2exp(exact, high._significand,
+                 shift_amount(checked_sub(high._exponent, low._exponent)));
+    if (a._negative == b_negative) mpz_add(exact, exact, low._significand);
+    else mpz_sub(exact, exact, low._significand);
+    if (high_negative) mpz_neg(exact, exact);
+    mpz_set_ui(one, 1ul);
+    return from_ratio(exact, one, low._exponent, p, mode,
+                      mode == Rounding::Downward);
 }
 
 FloatAP FloatAP::mul(FloatAP const& a, FloatAP const& b,

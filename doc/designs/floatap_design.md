@@ -2082,3 +2082,39 @@ remaining bottleneck is factorial division or GMP
 allocation overhead, additional improvements should
 be driven by profiling rather than assumptions.
 
+## Shared GMP kernel for addition and subtraction (16 October 2026)
+
+**Motivation:** the preceding same-run benchmark measured FloatAP
+`sub_nearest` at 170.14 ns versus MPFR 40.00 ns at 256 bits.
+The old implementation copied and negated the second operand
+before calling add; add then aligned two independent signed GMP
+temporaries. This caused unnecessary allocations, copying and
+sign changes.
+
+**Design decision:** represent subtraction as a logical inversion
+of the sign bit of the second operand, sharing the `add_sub`
+kernel. Select the operand with larger binary exponent and
+shift only its positive significand down to the smaller exponent.
+Then perform a single GMP `mpz_add` or `mpz_sub` on unsigned
+magnitudes and apply the effective sign of the larger-exponent
+operand. The resulting integer numerator and binary scale are
+algebraically identical to the former algorithm. The existing
+exact normalization, nearest-even and directed rounding in
+`from_ratio` are unchanged, including signed cancellation zero.
+The exponent-gap fast path uses effective (possibly inverted)
+operand signs. NaN, infinity and zero handling remains explicit.
+
+**Standalone validation:** 200,000 pseudorandom signed GMP integer
+alignments with variable exponent differences and significand
+sizes up to 1024 bits exactly matched the previous kernel.
+On the same Linux executable, the isolated GMP alignment
+microbenchmark decreased from 41-45 ns to 11-12 ns per call.
+This is **not** an Ariadne benchmark and excludes final rounding.
+
+**Regression:** expand FloatAP-versus-MPFR exact-result testing
+for add and sub across 7, 53, 128, 256, and 1024 bits,
+all four rounding modes, both signs, cancellation, exponent
+gaps and signed zero. CI and the same-environment benchmark
+must verify the integrated implementation before attributing
+an end-to-end speedup.
+

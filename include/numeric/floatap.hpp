@@ -602,6 +602,8 @@ template<> class Float<ArbitraryPrecision> {
     // Exact conversion, not an approximation to double.
     void to_rational(mpq_ptr out) const;
     static FloatAP negate(FloatAP x);
+    static FloatAP add_sub(FloatAP const& a, FloatAP const& b,
+    unsigned long precision, Rounding mode, bool subtract);
     static FloatAP add(FloatAP const& a, FloatAP const& b,
     unsigned long precision, Rounding mode);
     static FloatAP sub(FloatAP const& a, FloatAP const& b,
