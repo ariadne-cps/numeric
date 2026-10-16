@@ -516,3 +516,23 @@ limit, convergence failure and excessive precision guard are no
 longer part of the algorithm. Edge tests now include multiple rounding
 modes and signed special-value cases. The full coverage result must
 be regenerated for this updated version.
+
+
+## Coverage report 84 (16 October 2026, 10:58)
+
+The uploaded `Archivio 84(1).zip` reports full function coverage for
+`FloatAP`. `include/numeric/floatap.hpp` reaches 47/47 functions,
+113/113 lines and 40/40 branches. The new `src/floatap.cpp` has
+32/32 functions, 356/361 lines and 241/246 branches covered.
+
+The missing executable lines are the invalid square-root rounding-mode
+exception and the significand carry normalization. The new edge-case
+tests exercise both, together with inexact rounding toward zero. In
+particular, sqrt(255) at eight bits rounds upward to 16, necessitating
+the carry and exponent normalization; the precise boundary was verified
+with a standalone C++/GMP integer-square-root check. Three additional
+uncovered branch records in the Rational constructor were duplicated
+LLVM counters with zero executions while the corresponding other
+instances already demonstrate both sides (NaN, infinities and signs).
+No production code is altered merely to inflate such duplicate counters.
+A fresh full CI coverage run must confirm the new totals.
