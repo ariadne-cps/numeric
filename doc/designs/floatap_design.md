@@ -4235,3 +4235,7 @@ battery, NOT to infer correctly rounded transcendental
 equivalence from performance alone. Preserve existing tests
 and require Windows/Unix/Coverage CI. The preexisting FloatAP
 design/performance journal remains the source of truth.
+
+## FloatDP benchmark: omit redundant ALL row (17 October 2026)
+
+The FloatAP/FloatDP benchmark is limited to binary64/53-bit precision, so its `53 bits` summary already represents every one of the 27 operation ratios. Remove the redundant `ALL` summary row **only** from `benchmark_compare_double_precision_backends.cpp`. Retain the aggregated slowdown accumulator for `--max-slowdown` validation and keep all 27 timing rows, CLI flags and the 1000-iteration/11-sample defaults unchanged. The separate FloatAP/FloatMP benchmark still measures 53/128/256/1024 bits and continues to print its useful cross-precision `ALL` row. This is an output-only change; no numerical backend, operation or measurement method is modified.

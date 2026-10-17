@@ -166,7 +166,6 @@ bool details, double max_slowdown) {
     for (auto const& [bits, summary] : per_precision) {
         summary.print(std::to_string(bits) + " bits");
     }
-    overall.print("ALL");
     LOGGING_PRINTLN(std::string(78u, '='))
     LOGGING_PRINTLN("geomean weighs each (operation, precision) equally; "
                     "total_time weights by measured cost.")
