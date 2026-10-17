@@ -746,6 +746,43 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Tangent-centered enclosure at +/-1/2. Vary precision order
+            // to check cache reuse and upgrades. Include values on both
+            // sides of the exact |delta| <= 2^-ceil(work/2) threshold;
+            // every result must match the correctly rounded MPFR oracle.
+            for (Bits bits : {53_bits,7_bits,256_bits,128_bits,1024_bits,53_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Nat offset_denominator_power(static_cast<unsigned long>(ap.bits()) / 2ul + 16ul);
+                const Rational step(Integer(1),pow(Integer(2),offset_denominator_power));
+                const Rational half(1,2);
+                const Rational values[]={
+                    half, half-step, half+step,
+                    half-Rational(2)*step, half+Rational(2)*step,
+                    half-Rational(8)*step, half+Rational(8)*step,
+                    Rational(1,4), Rational(3,4)
+                };
+                for (Rational const& magnitude : values) {
+                    for (Int sign : {Int(-1),Int(1)}) {
+                        const Rational exact = sign < 0 ? -magnitude : magnitude;
+                        const FloatAP a(exact,FloatAP::ROUND_TO_NEAREST,ap);
+                        const FloatMP oracle(static_cast<Rational>(a),
+                                             FloatMP::ROUND_TO_NEAREST,mp);
+                        const auto verify=[&](auto am,auto mm) {
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(tan(am,a)),
+                                static_cast<Rational>(tan(mm,oracle)));
+                        };
+                        verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                        verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                        verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                        verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    }
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // The single-sqrt cosine enclosure is used by tangent for
             // |x|<=1. Check both signs, low precision and reconstruction
             // across |x|=1 against the correctly rounded MPFR result.
