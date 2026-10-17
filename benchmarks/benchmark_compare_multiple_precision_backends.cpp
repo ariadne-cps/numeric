@@ -235,6 +235,8 @@ void assert_same(CheckedValue const& mpfr, CheckedValue const& ap,
             case CheckedValue::Kind::binary64:
                 same = mpfr.binary64 == ap.binary64;
                 break;
+            default:
+                throw std::logic_error("unknown checked benchmark result kind");
         }
     }
     if (!same) {

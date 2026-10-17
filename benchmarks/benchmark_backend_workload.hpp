@@ -91,13 +91,19 @@ template<class Float> struct BackendPool {
         a.reserve(pool_size);
         b.reserve(pool_size);
         const Integer base = pow(Integer(2), Nat(bits));
+        // emplace_back perfectly forwards arguments as references.
+        // Passing FloatDP::ROUND_TO_NEAREST directly would ODR-use its
+        // static const integral member (no separate linked definition).
+        // Pass a locally materialized mode value instead.
+        const typename Float::RoundingModeType nearest_mode =
+            Float::ROUND_TO_NEAREST;
         for (unsigned i = 0; i < pool_size; ++i) {
             exact_a.emplace_back(base + Integer(13u + 2u*i),
                                  2*base + Integer(17u + 3u*i));
             exact_b.emplace_back(base + Integer(31u + 5u*i),
                                  3*base + Integer(19u + 7u*i));
-            a.emplace_back(exact_a.back(),Float::ROUND_TO_NEAREST,precision);
-            b.emplace_back(exact_b.back(),Float::ROUND_TO_NEAREST,precision);
+            a.emplace_back(exact_a.back(),nearest_mode,precision);
+            b.emplace_back(exact_b.back(),nearest_mode,precision);
         }
     }
 };
