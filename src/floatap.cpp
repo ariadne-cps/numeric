@@ -2136,6 +2136,118 @@ std::pair<Interval, Interval> const& half_trigonometric_intervals(unsigned long 
     return *cache.bounds;
 }
 
+// The cached half-angle sine/cosine endpoints are certified rationals.
+// Convert each one OUTWARD to a shared dyadic scale once per thread and
+// work-precision upgrade, then perform the local Taylor enclosure using
+// integer significands rather than generic rational arithmetic.
+std::pair<Interval, Interval> centered_trigonometric_dyadic(
+    Fraction const& argument, Fraction const& offset,
+    unsigned long work, TrigOutputs output) {
+    struct Cache {
+        unsigned long work = 0;
+        unsigned long bits = 0;
+        mpz_t sine_lower, sine_upper, cosine_lower, cosine_upper;
+        Cache() {
+            mpz_inits(sine_lower, sine_upper, cosine_lower, cosine_upper, nullptr);
+        }
+        ~Cache() {
+            mpz_clears(sine_lower, sine_upper, cosine_lower, cosine_upper, nullptr);
+        }
+        Cache(Cache const&) = delete;
+        Cache& operator=(Cache const&) = delete;
+    };
+    static thread_local Cache fixed_center;
+
+    if (fixed_center.work < work) {
+        if (work > std::numeric_limits<unsigned long>::max() - 32ul) {
+            throw std::overflow_error("FloatAP centered fixed-point precision overflow");
+        }
+        const unsigned long target_bits = work + 16ul;
+        const auto& [sine, cosine] =
+            half_trigonometric_intervals(work + 32ul);
+
+        mpz_t numerator_shifted;
+        mpz_init(numerator_shifted);
+        struct Cleanup {
+            mpz_ptr value;
+            ~Cleanup() { mpz_clear(value); }
+        } cleanup{numerator_shifted};
+        const auto assign_outward = [&](mpz_ptr destination, Fraction const& value,
+                                        bool upward) {
+            mpz_mul_2exp(numerator_shifted, mpq_numref(value.raw()),
+                         static_cast<mp_bitcnt_t>(target_bits));
+            if (upward) {
+                mpz_cdiv_q(destination, numerator_shifted, mpq_denref(value.raw()));
+            } else {
+                mpz_fdiv_q(destination, numerator_shifted, mpq_denref(value.raw()));
+            }
+        };
+        assign_outward(fixed_center.sine_lower, sine.lower, false);
+        assign_outward(fixed_center.sine_upper, sine.upper, true);
+        assign_outward(fixed_center.cosine_lower, cosine.lower, false);
+        assign_outward(fixed_center.cosine_upper, cosine.upper, true);
+        fixed_center.bits = target_bits;
+        fixed_center.work = work;
+    }
+
+    // The caller established a dyadic offset, with positive canonical
+    // denominator 2^k, and |offset| <= 2^-ceil(work/2).
+    const mp_bitcnt_t shift = mpz_scan1(mpq_denref(offset.raw()), 0u);
+    mpz_srcptr delta_numerator = mpq_numref(offset.raw());
+
+    mpz_t term_lower, term_upper, result_lower, result_upper, remainder;
+    mpz_inits(term_lower, term_upper, result_lower, result_upper, remainder, nullptr);
+    struct TermsCleanup {
+        mpz_ptr a, b, c, d, e;
+        ~TermsCleanup() { mpz_clears(a, b, c, d, e, nullptr); }
+    } terms_cleanup{term_lower,term_upper,result_lower,result_upper,remainder};
+
+    // Taylor: |R|<=offset^2/2<=2^(-work-1). At the cached scale
+    // Q=2^bits this is exactly <=2^(bits-work-1) integer units.
+    const unsigned long remaining_bits = fixed_center.bits - work - 1ul;
+    mpz_set_ui(remainder, 1ul);
+    mpz_mul_2exp(remainder, remainder,
+                 static_cast<mp_bitcnt_t>(remaining_bits));
+
+    const auto mul_outward = [&](mpz_srcptr coefficient_lower,
+                                 mpz_srcptr coefficient_upper) {
+        const bool nonnegative = mpz_sgn(delta_numerator) >= 0;
+        mpz_mul(term_lower,
+                nonnegative ? coefficient_lower : coefficient_upper,
+                delta_numerator);
+        mpz_fdiv_q_2exp(term_lower, term_lower, shift);
+        mpz_mul(term_upper,
+                nonnegative ? coefficient_upper : coefficient_lower,
+                delta_numerator);
+        mpz_cdiv_q_2exp(term_upper, term_upper, shift);
+    };
+
+    Interval sine_result = point(Fraction{});
+    Interval cosine_result = point(Fraction{});
+    if (output != TrigOutputs::cosine) {
+        // sin(1/2+d) = S + C*d + R, |R|<=d^2/2.
+        mul_outward(fixed_center.cosine_lower, fixed_center.cosine_upper);
+        mpz_add(result_lower, fixed_center.sine_lower, term_lower);
+        mpz_sub(result_lower, result_lower, remainder);
+        mpz_add(result_upper, fixed_center.sine_upper, term_upper);
+        mpz_add(result_upper, result_upper, remainder);
+        sine_result = {Fraction(result_lower, fixed_center.bits),
+                       Fraction(result_upper, fixed_center.bits)};
+        if (argument.sign() < 0) sine_result = negative(sine_result);
+    }
+    if (output != TrigOutputs::sine) {
+        // cos(1/2+d) = C - S*d + R, |R|<=d^2/2.
+        mul_outward(fixed_center.sine_lower, fixed_center.sine_upper);
+        mpz_sub(result_lower, fixed_center.cosine_lower, term_upper);
+        mpz_sub(result_lower, result_lower, remainder);
+        mpz_sub(result_upper, fixed_center.cosine_upper, term_lower);
+        mpz_add(result_upper, result_upper, remainder);
+        cosine_result = {Fraction(result_lower, fixed_center.bits),
+                         Fraction(result_upper, fixed_center.bits)};
+    }
+    return {std::move(sine_result), std::move(cosine_result)};
+}
+
 // For finite delta, test |delta| <= 2^(-ceil(work/2)) using exact
 // integer arithmetic. Then delta^2/2 <= 2^(-work-1) (work even)
 // or even smaller (work odd), so a first-order Taylor enclosure
@@ -2345,11 +2457,17 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
     // leaves large rational denominators for the final division and
     // loses much more than it saves. Keep the dyadic Taylor/one-root
     // path for that case at every precision.
-    if (halvings == 0u && work >= 256ul &&
+    if (halvings == 0u && work >= 128ul &&
         outputs != TrigOutputs::both) {
         const Fraction half = Fraction(1L) / Fraction(2L);
         const Fraction delta = absolute(x) - half;
         if (sufficiently_near_half(delta, work)) {
+            // A FloatAP input is dyadic. Use a single cached integer
+            // scale and outward-directed GMP shifts instead of creating
+            // general rational intermediate products every time.
+            if (mpz_popcount(mpq_denref(delta.raw())) == 1u) {
+                return centered_trigonometric_dyadic(x, delta, work, outputs);
+            }
             if (work > std::numeric_limits<unsigned long>::max() - 16ul) {
                 throw std::overflow_error("FloatAP centered trigonometric precision overflow");
             }

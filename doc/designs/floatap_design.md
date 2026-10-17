@@ -3346,3 +3346,118 @@ flags. Expect a major reduction in `tan_nearest`, but
 no actual speedup is claimed until measured. Quantify
 all 108 ratios and inspect any shifts in the worst case;
 the hard objective remains worst <2x with geomean near 1x.
+
+## Benchmark 20:19 and dyadic fixed-point centered sin/cos endpoints (17 October 2026)
+
+**User-measured result:** `Markdown incollato(20261017-201956).md`,
+1000 iterations, 11 median samples, warmed-up and unloaded same host.
+Compare solely with the immediately preceding
+`Markdown incollato(20261017-200644).md` at `5555f262`.
+The new report measures the certified centered tangent cache
+introduced at `4ae35e8c`; all 108 operation/precision pairs are
+present. The new latest baseline is:
+
+| Statistic | Before 4ae35e8c | After 4ae35e8c |
+| --- | ---: | ---: |
+| FloatAP/FloatMP geometric mean | 1.300768x | **1.234574x** |
+| Total-time ratio | 1.419272x | **1.294434x** |
+| Worst-case | 3.702x (tan@128) | **3.613x (cos@128)** |
+| Pairs >=2x | 34/108 | **31/108** |
+| Pairs >=3x | 8/108 | **7/108** |
+
+The new tangent kernel delivered dramatic reductions in
+absolute FloatAP `tan_nearest` time:
+53 bits 2518.917->1415.083 ns (-43.8%, ratio 1.732x);
+128 bits 3478.375->1759.375 ns (-49.4%, ratio 1.805x);
+256 bits 4744.625->1879.917 ns (-60.4%, ratio 1.347x);
+1024 bits 17037.167->3169.375 ns (-81.4%, ratio **0.553x**).
+All four tangent ratios are now <2. The benchmark shift
+also exposes `cos_nearest` at 128 bits (3.613x) as the
+new worst; `exp_nearest` at 128 bits is 3.272x,
+`acos_nearest` at 53 bits 3.255x, `atan_nearest`
+at 53 bits 3.165x, and `pow7_nearest` at 53 bits 3.103x.
+The aggregate objective worst <2x is NOT attained.
+GitHub Unix run 39066193945, Windows run 39066193956,
+and Coverage run 39066193962 all ultimately succeeded
+for commit `4ae35e8c` (status verified during this intervention).
+
+**Performance source inspection:** The 128-bit cosine still
+takes the direct fixed-point Taylor kernel: the old
+centered sin/cos cache was enabled only for `work>=256`,
+while the initial requested work is `precision+32=160`.
+Earlier use of exact GMP `Fraction` arithmetic to center
+cosine at this precision had only marginal benefit.
+The expensive path performs exact dyadic-rational
+multiplications, endpoint additions, repeated canonicalization
+and construction. The latest tangent optimization demonstrated
+that a cache of *outward-rounded dyadic integer* endpoints
+can avoid this overhead.
+
+**New proposed local kernel:** For `y=|x|=1/2+d` and
+`|d|<=2^-ceil(work/2)`, use the unchanged certified Taylor
+bounds
+`sin(y) in S+C*d+[-d²/2,+d²/2]` and
+`cos(y) in C-S*d+[-d²/2,+d²/2]`.
+On a canonical dyadic `d=n/2^k`, quantize cached
+certified half-angle intervals outward to a common
+`Q=2^(work+16)` using floor/ceiling integer division.
+Store four scaled center endpoints per thread and
+upgrade them only when `work` increases. Evaluate
+`Q*C*d` and `Q*S*d` with signed GMP integer
+multiplication and directed floor/ceiling shifts by k,
+choosing reversed coefficient endpoints when n<0.
+Since `|d|<=2^-ceil(work/2)`,
+`d²/2 <= 2^(-work-1)`; at this scale a
+conservative certified remainder is the exact integer
+`2^(Q_bits-work-1)`. Add/subtract it outward.
+Construct each final interval endpoint as a dyadic
+`Fraction(scaled_integer,Q_bits)`. Negative inputs
+negate the sine interval, cosine remains even.
+This is a rigorous entire-neighborhood enclosure:
+there is NO weakening of the rounded-endpoint
+agreement test. Keep the previous exact-rational
+centered code for non-dyadic offsets and the old
+general Taylor kernel for all other inputs.
+Do not affect the `TrigOutputs::both` path
+or the separately cached centered tangent kernel.
+
+**Dispatch:** Lower the single-output centered-kernel
+threshold from `work>=256` to `work>=128`,
+thereby exercising it at 128-bit target precision
+(initial `work=160`) while leaving 53-bit
+(initial `work=85`) on the older, measured-faster path.
+The 96/128/192/224/256/1024-bit regressions
+cover the threshold and precision-cache upgrades.
+The threshold is solely a performance hypothesis,
+not a change of function semantics.
+
+**Independent checks (not a substitute for Ariadne CI):**
+A high-precision Python/mpmath dyadic fixed-point
+model checked 1260 combinations across working
+precisions 85,128,160,224,256,288,1056;
+both sine and cosine outward intervals contained
+the high-precision evaluation for signed dyadic
+offsets. The mathematical Taylor bound above
+provides the proof, not these finite samples.
+A standalone GCC/GMP microbenchmark comparing
+the local rational and integer endpoint routines,
+including GMP allocations and final rational
+canonicalization, measured 550 vs 250 ns at
+work=160, 567 vs 272 ns at work=288, and
+1014 vs 444 ns at work=1056, for ~2.1-2.3x
+local-kernel speedups on the runner. These are NOT
+end-to-end FloatAP results and were not measured
+on the user's macOS benchmark host.
+
+**Validation and review:** No prior test is relaxed.
+Require Unix, Windows and Coverage CI, including
+all four rounding modes and cache-upgrade order,
+before claiming correctness on supported platforms.
+Require a new 1000x11 benchmark on the same
+unloaded host; compare all 108 ratios and
+FloatAP absolute medians, especially cos/sin at
+128,256,1024 and prior-fast tangent. If the
+global maximum does not improve or 1024-bit
+sin/cos regress, re-evaluate or revert this
+isolated change. Do not mistake the standalone
+microbenchmark for an official improvement.
