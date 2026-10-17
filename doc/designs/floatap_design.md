@@ -4759,3 +4759,73 @@ Before calling any <2x outcome stable,
 repeat cases with narrow margins, including
 sqrt@53 and add_nearest@1024, and isolate
 MPFR div_nearest@53.
+
+## P2 phase 1: portable small-limb exact division at <=64 bits (17 October 2026)
+
+**Implementation.** New internal `src/floatap_small_division.hpp`
+defines fixed-capacity unsigned integers in 32-bit little-endian
+limbs. It provides bit length, compare, shifts, increment and a
+Knuth-style normalized quotient/remainder implementation with
+a 64/32 single-divisor-limb fast path. It uses only standard C++20
+`uint32_t`/`uint64_t` and stack arrays; NO MPFR, GMP or mandatory
+`__int128` is involved in the integer arithmetic. The only GMP
+bridge, `import_small_magnitude`, extracts up to 64 bits of
+magnitudes from existing `mpz_t` storage on both 32- and
+64-bit GMP limb configurations. Results are imported into the
+final `FloatAP::_significand` once. Every other configuration
+retains the original exact GMP division. No FloatAP public API,
+precision semantics or benchmark workload is changed.
+
+The `from_ratio` dispatch is deliberately restricted to
+`precision <= 64`, numerators and denominators with <=64-bit
+magnitudes and supported GMP limb layouts. Exact binary magnitude
+normalization is followed by aligned integer division, remainder
+comparison (including nearest-even parity ties), sign-aware
+directed rounding and a single carry adjustment. The original
+checked exponent combination with the dyadic scale remains
+in force. If the fast path is inapplicable or scratch capacity
+is insufficient, the existing GMP path remains the fallback;
+zero/one denominator special handling is unchanged.
+
+**Why not enable 128-bit here?** The pure 32-bit-limb prototype
+passed local quotient/remainder and rounding tests up to
+128-bit inputs, but isolated Linux x86-64 timing with the
+same workload shape indicated ~80 ns versus ~135-165 ns
+for an existing-GMP-style 53-bit nearest/directed ratio,
+whereas at 128 bits it was ~190-215 ns versus
+~178-208 ns for the GMP-style path. These microbenchmarks
+include harness-side allocation/rounding and are NOT
+a full library performance result or the user's Apple-host
+1000x11 benchmark. Activating 128 bits before proving a
+faster algorithm would risk regressions in the worst area.
+The portable primitive may be reused in a faster wide-limb
+implementation (or on future GMP-free storage), but 128-bit
+dispatch stays unchanged in this commit.
+
+**Independent arithmetic validation:** Standalone locally
+compiled C++20/GMP oracle test passed 300000 random
+full multi-limb divrem cases, 100000 random shifts,
+and 500000 positive/negative ratio roundings at
+7/24/53/113/128 bits, across all four rounding modes,
+including varied operand-length ratios. These exercise
+the shared pure header and integration-equivalent
+normalization/rounding algorithm. The committed canonical
+`test_float_rounding` suite further compares the AP
+result to MPFR at 7,53,64,128,256 bits with 32
+nontrivial input pairs, both signs, all four modes,
+both Rational construction and FloatAP division on
+identical rounded inputs. Previous tests remain intact.
+
+**Release/performance gate:** This is a P2 *partial*
+implementation, not completion of 128/256-bit division
+specialization. Require Unix/Windows/Coverage success
+(including compiler warning-as-error checks) and a
+same-host unloaded 1000x11 user report before claiming
+a FloatAP timing benefit. Inspect 53-bit division and
+Rational construction absolute times, 128-bit division
+for stability, all 108 AP/MPFR ratios, per-precision
+geomean/total and worst; compare against the 21:44
+P1 repeat. The future P2 wide-limb kernel should
+remain GMP-independent and must *earn* its 128-bit
+dispatch with isolated measurements, not optimistic
+extrapolation.

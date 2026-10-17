@@ -496,6 +496,51 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Portable small-limb quotient/remainder, with strict
+            // MPFR differential checks on the identical rounded inputs.
+            // 7/53/64 exercise small and capacity-boundary cases;
+            // 128/256 ensure the unchanged GMP fallback still works.
+            for (Bits bits : {7_bits,53_bits,64_bits,128_bits,256_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Integer base = pow(Integer(2),Nat(ap.bits()));
+                for (unsigned i = 0; i < 32u; ++i) {
+                    const Integer numerator=base+Integer(13u+2u*i);
+                    const Integer denominator=2*base+Integer(17u+3u*i);
+                    const Rational exact(numerator,denominator);
+                    const Rational divisor(
+                        base+Integer(31u+5u*i),
+                        3*base+Integer(19u+7u*i));
+                    for (Int sign : {Int(-1),Int(1)}) {
+                        const Rational signed_exact=sign<0 ? -exact : exact;
+                        const FloatAP input(signed_exact,
+                            FloatAP::ROUND_TO_NEAREST,ap);
+                        const FloatAP other(divisor,
+                            FloatAP::ROUND_TO_NEAREST,ap);
+                        const FloatMP mp_input(
+                            static_cast<Rational>(input),
+                            FloatMP::ROUND_TO_NEAREST,mp);
+                        const FloatMP mp_other(
+                            static_cast<Rational>(other),
+                            FloatMP::ROUND_TO_NEAREST,mp);
+                        const auto check=[&](auto am,auto mm) {
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(FloatAP(signed_exact,am,ap)),
+                                static_cast<Rational>(FloatMP(signed_exact,mm,mp)));
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(div(am,input,other)),
+                                static_cast<Rational>(div(mm,mp_input,mp_other)));
+                        };
+                        check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                        check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                        check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                        check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    }
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // The general non-unit-denominator path of from_ratio()
             // must round both signs correctly for division and Rational
             // construction, including exact and inexact quotients.
