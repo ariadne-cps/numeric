@@ -2442,3 +2442,61 @@ in the already-fast operations. The hypothesis predicts improvement
 primarily in add/sub/mul; no result or attainment of <2x is claimed
 until measured. Treat transcendental, division, and square root as
 separate follow-up algorithmic work, not as effects of this change.
+
+## Warmed-up benchmark and non-unit quotient storage (17 October 2026)
+
+**Benchmark replacement:** The user provided a further same-machine
+measurement `Markdown incollato(20261017-190359).md` after the prior
+warm-up run `Markdown incollato(20261017-190253).md`. This latest
+report is the performance reference for subsequent improvements.
+It measures 27 operations x 4 precisions, 300 iterations and 7
+samples. Previous tables remain historical, not calibration targets.
+
+| Bits | New geometric mean | New time-weighted ratio | Worst case |
+| --- | ---: | ---: | --- |
+| 53 | 1.202x | 2.088x | 3.851x (`atan_nearest`) |
+| 128 | 1.938x | 2.857x | 4.290x (`exp_nearest`) |
+| 256 | 1.600x | 2.013x | 3.674x (`exp_nearest`) |
+| 1024 | 1.471x | 2.948x | 3.663x (`acos_nearest`) |
+| ALL | **1.530x** | **2.698x** | **4.290x** |
+
+Across 108 operation/precision pairs, **45** remain >=2x and
+**18** are >=3x (computed from reported median times). Compared to
+the 19:02 warmed-up measurement, the geometric mean decreased from
+1.816x to 1.530x and 15 additional cases fell below 2x; however,
+the worst-case ratio remained above 4x. Notable FloatAP absolute
+changes: 53-bit `add_nearest` 127.223->62.780 ns, `sub_nearest`
+125.557->51.667 ns, 128-bit `mul_nearest` 76.250->37.363 ns,
+256-bit `sub_nearest` 118.887->53.333 ns, and 1024-bit
+`add_nearest` 100.557->63.057 ns. These results are consistent with
+the direct-GMP-result refactor `5bbfd92e` but neither report records
+an exact measured commit, and CPU frequency/warm-up effects also
+altered MPFR timings. Do not treat the differences as a controlled
+performance attribution. The current success criterion remains all
+108 ratios **strictly below 2x** with mean as close to 1x as feasible.
+
+**Next targeted bottleneck:** Even after the arithmetic refactor,
+`div_down` and `div_nearest` at 128 bits remain approximately
+4.006x and 3.858x slower than FloatMP. The general `from_ratio`
+path (nonunit denominator) previously made separate GMP
+absolute-value copies of numerator and denominator and a temporary
+quotient, then copied that quotient into the return value. Unlike
+the denominator=1 path, division still used five GMP temporaries.
+The new nonunit path reuses positive operands directly, builds an
+absolute-value scratch only for a negative operand, computes the
+quotient directly in `result._significand`, and compares the exact
+remainder against the active divisor. Both quotient normalization,
+nearest-even tie handling, directed rounding and exponent carry
+checks remain algebraically identical. The same behavior applies
+to Rational construction and signed division; negative denominators
+remain supported at the internal helper level.
+
+**Differential regression:** Extend the historical shared
+FloatAP-vs-FloatMP precision regression with both operand signs,
+denominators 3/7/16 (inexact and exact), precisions 7,53,128,256,1024,
+and all four rounding modes, testing both division and Rational
+construction against MPFR. This does not relax any old assertion.
+CI and the next same-host benchmark must verify both correctness
+and any actual speedup. No performance delta is claimed for this
+nonunit-quotient change before measurement. Follow-up needs separate
+work on exp, acos/asin, and general trigonometric certification.

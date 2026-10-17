@@ -122,64 +122,76 @@ Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
         return result;
     }
 
-    mpz_t n, d, q, r, w;
-    mpz_inits(n, d, q, r, w, nullptr);
+    // Non-unit denominator: reuse input magnitudes whenever already
+    // positive. The quotient is produced directly in the final FloatAP
+    // significand, while GMP needs only the remainder and aligned scratch.
+    mpz_t abs_n, abs_d, remainder, scratch;
+    mpz_inits(abs_n, abs_d, remainder, scratch, nullptr);
     struct Cleanup {
-        mpz_ptr a, b, c, d, e;
-        ~Cleanup() {
-            mpz_clears(a, b, c, d, e, nullptr);
-        }
+        mpz_ptr a, b, c, d;
+        ~Cleanup() { mpz_clears(a, b, c, d, nullptr); }
+    } cleanup{abs_n, abs_d, remainder, scratch};
+    mpz_srcptr n = numerator;
+    mpz_srcptr d = denominator;
+    if (mpz_sgn(numerator) < 0) {
+        mpz_abs(abs_n, numerator);
+        n = abs_n;
     }
-    cleanup { n, d, q, r, w };
-    mpz_abs(n, numerator);
-    mpz_abs(d, denominator);
+    if (mpz_sgn(denominator) < 0) {
+        mpz_abs(abs_d, denominator);
+        d = abs_d;
+    }
+
     Exponent k = checked_sub(bit_length(n), bit_length(d));
     if (k >= 0) {
-        mpz_mul_2exp(w, d, shift_amount(k));
-        if (mpz_cmp(n, w) < 0) k = checked_sub(k, 1);
+        mpz_mul_2exp(scratch, d, shift_amount(k));
+        if (mpz_cmp(n, scratch) < 0) k = checked_sub(k, 1);
     } else {
-        mpz_mul_2exp(w, n, shift_amount(checked_sub(0, k)));
-        if (mpz_cmp(w, d) < 0) k = checked_sub(k, 1);
+        mpz_mul_2exp(scratch, n, shift_amount(checked_sub(0, k)));
+        if (mpz_cmp(scratch, d) < 0) k = checked_sub(k, 1);
     }
+
     const Exponent shift = checked_sub(static_cast<Exponent>(precision - 1), k);
+    mpz_srcptr divisor = d;
     if (shift >= 0) {
-        mpz_mul_2exp(w, n, shift_amount(shift));
-        mpz_tdiv_qr(q, r, w, d);
-        mpz_set(w, d);
+        mpz_mul_2exp(scratch, n, shift_amount(shift));
+        mpz_tdiv_qr(result._significand, remainder, scratch, d);
     } else {
-        mpz_mul_2exp(w, d, shift_amount(checked_sub(0, shift)));
-        mpz_tdiv_qr(q, r, n, w);
+        mpz_mul_2exp(scratch, d, shift_amount(checked_sub(0, shift)));
+        divisor = scratch;
+        mpz_tdiv_qr(result._significand, remainder, n, scratch);
     }
+
     bool increment = false;
-    if (mpz_size(r) != 0) {
+    if (mpz_size(remainder) != 0) {
         switch (mode.value()) {
             case Rounding::ToNearest:
-            mpz_mul_2exp(r, r, 1);
-            increment = mpz_cmp(r, w) > 0 || (mpz_cmp(r, w) == 0 && mpz_odd_p(q));
-            break;
+                mpz_mul_2exp(remainder, remainder, 1);
+                increment = mpz_cmp(remainder, divisor) > 0 ||
+                    (mpz_cmp(remainder, divisor) == 0 &&
+                     mpz_odd_p(result._significand));
+                break;
             case Rounding::Downward:
-            increment = result._negative;
-            break;
+                increment = result._negative;
+                break;
             case Rounding::Upward:
-            increment = !result._negative;
-            break;
+                increment = !result._negative;
+                break;
             case Rounding::TowardZero:
-            break;
+                break;
             default:
-            throw std::invalid_argument("FloatAP unknown rounding mode");
+                throw std::invalid_argument("FloatAP unknown rounding mode");
         }
     }
-    if (increment) mpz_add_ui(q, q, 1);
+    if (increment) mpz_add_ui(result._significand, result._significand, 1);
     result._exponent = checked_add(scale, checked_sub(k, static_cast<Exponent>(precision - 1)));
-    if (bit_length(q) > static_cast<Exponent>(precision)) {
-        mpz_tdiv_q_2exp(q, q, 1);
-        // Crossing the maximal finite exponent by a rounded carry yields infinity.
+    if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
+        mpz_tdiv_q_2exp(result._significand, result._significand, 1);
         if (result._exponent == std::numeric_limits<Exponent>::max()) {
             return infinity(precision, result._negative);
         }
         result._exponent = checked_add(result._exponent, 1);
     }
-    mpz_set(result._significand, q);
     return result;
 }
 
