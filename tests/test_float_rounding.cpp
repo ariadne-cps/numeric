@@ -412,6 +412,76 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Fixed exact dyadic literals, independently generated from
+            // rigorous rational enclosures; no MPFR, FloatAP conversion
+            // or FloatAP arithmetic is used to derive the expectations.
+            // For each row the nearest-even mantissa M has exponent e;
+            // down/up use M plus their separately certified integer delta.
+            struct CertifiedLiteral {
+                char const* operation;
+                unsigned bits;
+                Int exponent;
+                char const* nearest_mantissa;
+                Int down_offset;
+                Int up_offset;
+            };
+            static const CertifiedLiteral expected[] = {
+                {"sqrt2",128u,-127,
+                 "240615969168004511545033772477625056927",0,1},
+                {"sqrt2",256u,-255,
+                 "81877371507464127617551201542979628307507432471243237061821853600756754782485",0,1},
+                {"sqrt2",1024u,-1023,
+                 "127116100615364628366052028422228385109549339363277773668712774121205113882836385245579298214279956427891394679477132134293915806934836260631367995992135823438869876926245592272026536661973063905698010856540683205419763801114347235341470756348731874877833367845541044116835881896947807071342075615375081392715",-1,0},
+                {"exp_half",128u,-127,
+                 "280515388193368458015406427511040113881",-1,0},
+                {"exp_half",256u,-255,
+                 "95454440252185294983886966005124823429889078541787437355320193447306720442726",0,1},
+                {"exp_half",1024u,-1023,
+                 "148194745481954716082317888363455823456070480866279839338113084411204029676709818203132581631311711177728819167258549487238671063611984378104029593810429844208825070153844097581609333789019814401213030206345714196895102345447040710261659875317126576627766610707108418090765348768199197232529394147236509021090",-1,0},
+                {"log2",128u,-128,
+                 "235865763225513294137944142764154484399",0,1},
+                {"log2",256u,-256,
+                 "80260960185991308862233904206310070533990667611589946606122867505419956976172",-1,0},
+                {"log2",1024u,-1024,
+                 "124606592794178379834942157015327973260725777549818548919889062160856542278503538017240508556319343545235776417566655832902220557522478644110217075261513836839396089380897954160502582582011535456352891435689181660887803024528449058262732172678320723819450786384318433514902743298912695256684345870847729194438",0,1},
+                {"pi",128u,-126,
+                 "267257146016241686964920093290467695825",0,1},
+                {"pi",256u,-254,
+                 "90942894222941581070058735694432465663348344332098107489693037779484723616546",0,1},
+                {"pi",1024u,-1022,
+                 "141190488647306426951497947939679424974931379369199690146440126562466409291619758234410430492087736172907390888290563508264155720409054555597508847013932624303633293809435642998784554044791800749147419391451534200559935013628202594044220234864921212360009141120460241474543779193546148756924903705307226952602",0,1}
+            };
+            for (auto const& row : expected) {
+                const ArbitraryPrecision p(Bits(row.bits));
+                const Integer mantissa(String(row.nearest_mantissa));
+                const Integer denominator=pow(Integer(2),Nat(-row.exponent));
+                const auto exact=[&](Int delta) {
+                    return Rational(mantissa+Integer(delta),denominator);
+                };
+                const FloatAP operand_half(Rational(1,2),p);
+                const FloatAP operand_two(2,p);
+                const auto evaluate=[&](auto mode) -> FloatAP {
+                    if (std::string(row.operation)=="sqrt2") return sqrt(mode,operand_two);
+                    if (std::string(row.operation)=="exp_half") return exp(mode,operand_half);
+                    if (std::string(row.operation)=="log2") return log(mode,operand_two);
+                    return FloatAP::pi(mode,p);
+                };
+                const FloatAP nearest=evaluate(FloatAP::ROUND_TO_NEAREST);
+                const FloatAP lower=evaluate(FloatAP::ROUND_DOWNWARD);
+                const FloatAP upper=evaluate(FloatAP::ROUND_UPWARD);
+                const FloatAP zero=evaluate(FloatAP::ROUND_TOWARD_ZERO);
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(nearest),exact(0));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(lower),exact(row.down_offset));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(upper),exact(row.up_offset));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(zero),exact(row.down_offset));
+                ARIADNE_TEST_EQUALS(nearest.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(lower.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(upper.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(zero.precision().bits(),row.bits);
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Integer square-root remainder controls nearest rounding:
             // probe exact roots, both sides of rounding boundaries,
             // carry near binary powers, scale parity and wide exponent

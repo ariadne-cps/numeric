@@ -4925,3 +4925,37 @@ The user supplied the actual macOS AppleClang -Werror diagnostic from P2:
 casts of the [0,32] count to `std::size_t` and `unsigned` fix those
 specific errors without changing any integer operation or rounding.
 Verify Unix, macOS, Windows and Coverage before claiming overall CI green.
+
+## Independent correctly-rounded literal oracles (17 October 2026)
+
+The precision regression now includes **fixed exact expected dyadic
+literals**, not values computed by FloatMP or by FloatAP. Twelve
+rows cover `sqrt(2)`, `exp(1/2)`, `log(2)` and `pi` at
+128, 256 and 1024 bits. Each row contains the exact nearest-even
+integer significand and binary exponent plus independently certified
+integer offsets for downward and upward rounding (toward zero equals
+downward for these positive values). The test checks exact Rational
+equality for all four modes as well as reported result precision.
+
+The source constants were generated offline using Python's standard
+library `fractions.Fraction` and integer arithmetic ONLY:
+`sqrt(2)` by floor integer square root of `2*2^(2*1300)`;
+`exp(1/2)` by a positive Taylor series with an explicit geometric
+tail bound after decreasing terms; `log(2)` by the positive atanh
+series `2*atanh(1/3)` with a bounded remainder; `pi` from the
+Machin identity `16*atan(1/5)-4*atan(1/239)`, using rational
+alternating-series bounds. Each lower and upper rational endpoint,
+rounded separately by an independently implemented integer
+quotient/remainder nearest-even and directed rounding routine,
+yielded the SAME target dyadic literal at 128, 256 and 1024 bits.
+Thus the constants assert the expected mathematically correctly
+rounded result for the chosen arguments; they are NOT merely
+comparisons with MPFR, p-bit significand width, or assertions
+that an answer lies between directed endpoints.
+
+This is strong but finite coverage, not a proof of universal correct
+rounding for all transcendental inputs. The previously existing
+MPFR differential tests remain valuable auxiliary regression checks,
+without constituting the source of truth for these fixed oracles.
+The benchmark still lacks a numerical preflight and no benchmark
+performance number is affected by this test-only addition.
