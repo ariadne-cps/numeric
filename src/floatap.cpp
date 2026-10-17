@@ -1977,6 +1977,46 @@ Interval exp_half_centered_or_general(Fraction const& input,
             base.upper * multiplier + remainder};
 }
 
+// Certified log close to 1/2, analogous to the centered exp route.
+// For x=1/2+delta with |delta|<=2^-ceil(work/2), work>=4,
+// x lies in [1/4,3/4] and |log''(x)|=1/x^2<=16.
+// Consequently log(x)=-log(2)+2*delta+R, |R|<=8*delta^2.
+// Cache an outward interval of -log(2); the exact rational slope
+// costs no extra certified constant. Other arguments use log_interval.
+Interval log_half_centered_or_general(Fraction const& input,
+                                     unsigned long work) {
+    const Fraction delta = input - Fraction(1L) / Fraction(2L);
+    if (!exp_inside_half_window(delta, work)) {
+        return log_interval(input, work);
+    }
+
+    struct Cache {
+        unsigned long work = 0;
+        std::optional<Interval> negative_log_two;
+    };
+    static thread_local Cache cache;
+    if (!cache.negative_log_two || cache.work < work) {
+        if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
+            throw std::overflow_error("FloatAP centered log precision overflow");
+        }
+        const Interval certified_log_two = log2_interval(work + 40ul);
+        const Interval negative_center{
+            Fraction{} - certified_log_two.upper,
+            Fraction{} - certified_log_two.lower
+        };
+        // The helper rounds interval endpoints outward by exact GMP
+        // floor/ceiling, including for negative values.
+        cache.negative_log_two = exp_outward_dyadic(
+            negative_center, work + 24ul);
+        cache.work = work;
+    }
+
+    const Fraction linear_term = Fraction(2L) * delta;
+    const Fraction maximum_remainder = Fraction(8L) * delta * delta;
+    return {cache.negative_log_two->lower + linear_term - maximum_remainder,
+            cache.negative_log_two->upper + linear_term + maximum_remainder};
+}
+
 template<class Evaluate>
 FloatAP certified(Evaluate evaluate, FloatAP::RoundingModeType mode,
                   FloatAP::PrecisionType precision) {
@@ -3077,7 +3117,7 @@ FloatAP log(FloatAP::RoundingModeType mode, FloatAP const& x) {
         return FloatAP::zero(bits);
     }
     return certified([&](unsigned long work) {
-        return log_interval(input, work);
+        return log_half_centered_or_general(input, work);
     }, mode, x.precision());
 }
 

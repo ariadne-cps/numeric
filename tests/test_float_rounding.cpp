@@ -658,6 +658,52 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Certified centered logarithm around +1/2. Probe signed
+            // offsets, the exact work-precision cutoff, and the general
+            // fallback outside that cutoff. Use identical rounded
+            // FloatAP/MPFR inputs and all four rounding directions.
+            for (Bits bits : {53_bits,7_bits,128_bits,256_bits,
+                              1024_bits,53_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Nat ulp_power(static_cast<Nat>(ap.bits()));
+                const Rational ulp(Integer(1),pow(Integer(2),ulp_power));
+                const Nat cutoff_power(static_cast<Nat>(
+                    (static_cast<unsigned long>(ap.bits())+33ul)/2ul));
+                const Rational cutoff(Integer(1),pow(Integer(2),cutoff_power));
+                const Rational values[]={
+                    Rational(1,2), Rational(1,2)-ulp,
+                    Rational(1,2)+ulp,
+                    Rational(1,2)-Rational(4)*ulp,
+                    Rational(1,2)+Rational(4)*ulp,
+                    Rational(1,2)-cutoff,
+                    Rational(1,2)+cutoff,
+                    Rational(1,2)-Rational(2)*cutoff,
+                    Rational(1,2)+Rational(2)*cutoff,
+                    Rational(1,4),Rational(3,4),
+                    Rational(1,3),Rational(2,3),
+                    Rational(1),Rational(2)
+                };
+                for (Rational const& exact : values) {
+                    const FloatAP ap_input(exact,
+                        FloatAP::ROUND_TO_NEAREST,ap);
+                    const FloatMP mp_input(
+                        static_cast<Rational>(ap_input),
+                        FloatMP::ROUND_TO_NEAREST,mp);
+                    const auto check=[&](auto ap_mode,auto mp_mode) {
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(log(ap_mode,ap_input)),
+                            static_cast<Rational>(log(mp_mode,mp_input)));
+                    };
+                    check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                    check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                    check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                    check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Exponential certified Taylor center at BOTH +/-1/2.
             // Check the exact window boundary, one step outside it,
             // all four directions, very low precision, high-precision
