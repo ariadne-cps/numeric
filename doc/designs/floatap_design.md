@@ -3742,3 +3742,149 @@ A new warmed-up, unloaded same-host 1000x11 benchmark
 is needed before reporting *any* new speedup. The
 global target remains worst strict <2x for all
 108 cases and geomean approaching 1x.
+
+## Benchmark 20:43 and next general certified-center candidates (17 October 2026)
+
+**User-supplied benchmark:** `Markdown incollato(20261017-204344).md`
+is the 1000-iteration/11-sample warm benchmark on the same host,
+following `ecc13dcc`. The matching pre-`ecc13dcc`
+baseline is `Markdown incollato(20261017-202844).md`.
+Each run measures 27 operations at 53,128,256,1024 bits,
+108 FloatAP/FloatMP pairs.
+
+| Statistic | 20:28 baseline | 20:43 with centered asin/acos |
+| --- | ---: | ---: |
+| Geomean AP/MP | 1.237x | **1.090x** |
+| Time-weighted AP/MP | 1.282x | **0.591x** |
+| Worst ratio | 3.446x (acos@53) | **3.335x (exp@128)** |
+| Cases >=2x | 34/108 | **25/108** |
+| Cases >=3x | 6/108 | **6/108** |
+| Geomean at 1024 bits | 0.992x | **0.809x** |
+
+**Measured local inverse-trig gains** in absolute FloatAP runtime:
+
+| Bits | asin before -> after (ns) | acos before -> after (ns) |
+| --- | --- | --- |
+| 53 | 3727.209 -> 1658.833 | 4431.208 -> 1667.458 |
+| 128 | 5080.542 -> 2081.750 | 5844.000 -> 1984.834 |
+| 256 | 7800.833 -> 2071.458 | 8662.667 -> 2071.833 |
+| 1024 | 40680.791 -> 3453.292 | 42136.875 -> 3451.417 |
+
+The single largest relative improvements (approx. 12x) were
+at 1024 bits. Crucially, this benchmark pools 32 values
+near 1/2; it demonstrates strong speed on that input
+distribution, **not** an all-domain speedup. All certified
+local paths must maintain mathematically proven bounds,
+exact rounding, and the previous general fallback.
+
+**Outstanding AP/MP slowdowns >=3x (2026-10-17 20:43):**
+`exp_nearest`@128 3.335x;
+`pow7_nearest`@53 3.332x;
+`cos_nearest`@53 3.229x;
+`atan_nearest`@53 3.151x;
+`log_nearest`@53 3.050x;
+`div_up`@128 3.011x.
+These set sensible engineering priorities beyond global
+geomean, since the hard objective remains every ratio <2x.
+
+**Next certified-center candidate 1: exp near +/-1/2.**
+For `x=c+delta`, `c=+/-1/2`,
+`|delta|<=2^-ceil(work/2)`, `work>=4`,
+the entire segment lies inside [-3/4,3/4].
+`exp(x) = E_c*(1+delta)+R`,
+`E_c=exp(c)`. Since `exp''(t)=exp(t)<=exp(3/4)<3`,
+Taylor gives the conservative rigorously outward remainder
+`|R|<=2*delta^2`. Compute the certified center
+`E_+=exp_interval(1/2,work+40)` using the unchanged
+general algorithm, and `E_-=1/E_+` using monotone
+endpoint reversal. Cache outward dyadic enclosures
+at `work+24` per thread and precision upgrade.
+For each call, `1+delta>=3/4>0` permits just two
+interval-endpoint products plus the remainder. Keep the
+current range-reduced Taylor/squaring path for all other
+inputs. This targets the current worst at 128 bits and
+exp outliers at 256 and 1024 bits without weakening
+the rounded-endpoint agreement rule.
+
+**Candidate 2: log near +1/2.** The existing `log2_interval`
+already caches an outward interval for ln2.
+For `x=1/2+delta` in [1/4,3/4],
+`log(x)=-ln2+2*delta+R`. As
+`|log''(t)|=1/t^2<=16`, the certified remainder is
+`|R|<=8*delta^2`. Reuse the cached certified ln2
+(or an outward dyadic endpoint cache) and return directly
+without reconstructing `z=(x-1)/(x+1)` or evaluating
+the general log series. Keep all the old cases outside
+the local neighborhood and preserve the existing
+NaN/negative/zero/one/infinity behavior. This directly
+targets `log_nearest`@53 (3.05x).
+
+**Candidate 3: atan near +/-1/2.** Reuse the already
+certified cached `atan(1/2)` interval. The derivative
+`atan'(1/2)=4/5` is EXACT rational, with no second
+nontrivial constant to compute.
+`atan(1/2+delta)=atan(1/2)+(4/5)*delta+R`.
+On [1/4,3/4],
+`|atan''(t)|=2t/(1+t*t)^2<=3/2`,
+so `|R|<=delta^2` is a certified bound.
+Apply oddness on negative arguments and retain the
+existing Möbius argument reduction elsewhere.
+This could remove fraction reduction and a tiny
+Taylor kernel from `atan_nearest`@53 (3.15x).
+
+**Other avenues:**
+- The new integer/dyadic centered sin/cos path is only
+  enabled at work>=128. A controlled small-precision
+  crossover experiment may assess activating it at
+  the initial 53-bit work=85, where cos@53 is 3.23x.
+  The old *fraction-based* small-precision centered
+  path regressed, so activation must not be assumed
+  faster without measured isolated comparisons.
+- `pow(mode,x,Nat)` still converts the finite dyadic
+  operand to a generic Rational, exponentiates both its
+  numerator and denominator, then divides and rounds.
+  Instead directly compute `mpz_pow_ui` on the exact
+  nonnegative significand, multiply the binary exponent
+  by the integer degree with checked overflow, retain
+  the odd-power sign bit, and call the existing
+  `round_scaled_integer` ONCE. This removes unnecessary
+  large denominator/exact-rational work without
+  intermediate rounding. Carefully test exponent range,
+  signed zero/infinity/NaN, degree 0/1 and sign, every
+  rounding mode, and values near round-to-even ties.
+  This is a complementary **architectural** optimization,
+  not a Taylor-center trick. It targets pow7@53=3.332x.
+- Division@128, compare@1024 and exp outside center
+  require independent profiling and input-distribution
+  testing; avoid replacing rigorous one-round behavior
+  with successive rounded operations.
+
+**Verification and release gate:** A standalone 4000-bit
+mpmath check validated the local exp/log Taylor remainder
+inequalities on 105 cases at work=39,85,160,288,1056,
+both exp center signs, and positive log offsets.
+The *proof* is the global second-derivative bound, not
+the numerical probe. An implementation of exp/log
+centered paths with a shared exact GMP offset predicate,
+outward dyadic caches, and matching MPFR differential
+tests for signs, local inclusion thresholds, 7/53/128/
+256/1024 bits and four modes has been prepared as
+UNMERGED candidate source/test blobs. Do not claim any
+benchmark benefit or CI success for this candidate.
+
+**Blocking issue:** `ecc13dcc` passes GitHub Unix
+(run 39067889123) and Coverage (run 39067889148),
+but its Windows 2025 [Release] run 39067889104
+(job 117499230326) FAILED at **Build step 13**.
+The GitHub connector cannot retrieve the detailed MSVC
+compiler log, so no exact Windows root cause is established.
+Do not stack the independent exp/log candidate on top of
+an unresolved Windows build failure or suppress /WX.
+Obtain the Windows compiler diagnostic, fix the actual
+cause, verify all three workflows, then introduce
+the candidates in separately measurable commits.
+Separately, Codecov patch check on ecc13dcc reported
+79.60% diff coverage versus a 99.20% threshold; this
+is not the same as the successful Coverage workflow,
+and tests must be extended semantically rather than
+adjusted just to make a metric pass.
