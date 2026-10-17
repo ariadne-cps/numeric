@@ -700,6 +700,49 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Local certified sin/cos Taylor bounds near +/-1/2, including
+            // very small representable offsets, the exact center and
+            // arguments outside the fast path. Test all directed modes
+            // and use identical binary inputs for the MPFR oracle.
+            for (Bits bits : {53_bits,7_bits,128_bits,1024_bits,256_bits,53_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Rational unit(Integer(1),
+                    pow(Integer(2),Nat(ap.bits())));
+                const Rational half(1,2);
+                const Rational nearby[]={
+                    half, half-unit, half+unit,
+                    half-Rational(8)*unit, half+Rational(8)*unit,
+                    Rational(3,8),Rational(5,8),Rational(1,4),
+                    Rational(3,4)
+                };
+                for (Rational const& positive : nearby) {
+                    for (Int sign : {Int(-1),Int(1)}) {
+                        const Rational value=sign<0 ? -positive : positive;
+                        const FloatAP a(value,FloatAP::ROUND_TO_NEAREST,ap);
+                        const FloatMP m(static_cast<Rational>(a),
+                                        FloatMP::ROUND_TO_NEAREST,mp);
+                        const auto verify=[&](auto am,auto mm) {
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(sin(am,a)),
+                                static_cast<Rational>(sin(mm,m)));
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(cos(am,a)),
+                                static_cast<Rational>(cos(mm,m)));
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(tan(am,a)),
+                                static_cast<Rational>(tan(mm,m)));
+                        };
+                        verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                        verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                        verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                        verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    }
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // The single-sqrt cosine enclosure is used by tangent for
             // |x|<=1. Check both signs, low precision and reconstruction
             // across |x|=1 against the correctly rounded MPFR result.

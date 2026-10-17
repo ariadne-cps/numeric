@@ -2995,3 +2995,84 @@ and the final equality-of-rounded-endpoints criterion is
 unchanged. The next CI and warmed-up 1000x11 benchmark must
 validate the precision-sensitive dispatch and any performance
 claim; do not attribute a speedup to this patch in advance.
+
+## Benchmark 19:54: validated 1000x11 baseline and centered sine/cosine trial (17 October 2026)
+
+**Latest usable baseline:** `Markdown incollato(20261017-195459).md`
+is the user's rerun on the same warmed-up machine with the CPU no
+longer occupied by Coverage. It is the valid **after-`e9eeb095`**
+measurement (1000 iterations, 11 samples, 27 operations at each of
+53/128/256/1024 bits). **Discard** the immediately preceding
+`Markdown incollato(20261017-195337).md` for quantitative performance
+decisions: Coverage was simultaneously using the CPU, as the user
+explicitly confirmed. The valid pre-`e9eeb095` comparator is the
+19:48:56 1000x11 measurement.
+
+| Aggregate | 19:48 before | 19:54 after |
+| --- | ---: | ---: |
+| Geomean FloatAP/FloatMP | 1.351x | **1.375x** |
+| Time-weighted ratio | 1.580x | **1.541x** |
+| Worst slowdown | 4.043x (acos 53) | **3.538x (cos 128)** |
+| Ratios >=2x | 36/108 | **44/108** |
+| Ratios >=3x | 13/108 | **13/108** |
+
+`asin` FloatAP median reductions versus 19:48 were
+22.4%, 17.7%, 12.3% at 53/128/256 bits (2.6% slower at 1024);
+`acos` decreased 19.1%, 16.7%, 10.9% (5.4% slower at 1024).
+The intended precision-aware atan dispatch recovered the earlier
+inverse-trig regressions at the low/medium precisions without losing
+the massive 1024-bit atan improvement (~2.57 us vs 24.30 us for MPFR).
+Different reference MPFR timings, notably at 53 bits, still move the
+ratios: monitor absolute FloatAP time and both backends.
+**Unix, Windows and Coverage on `e9eeb095` are all green.**
+
+**Next bottleneck:** cos@128 remains 3.538x, tan@128 3.507x,
+tan@256 3.357x and log@53 3.333x. All are much larger than
+the 2x worst-case target. The current trigonometric kernel
+evaluates the sine/cosine Taylor series around zero on the
+benchmark's 32 arguments clustering near 1/2; for tangent,
+it derives cosine from sine via one exact integer root.
+The new approach exploits a *general mathematical neighborhood*
+of +/-1/2, never matching preselected benchmark indices.
+
+**Certified local sine/cosine transformation:** Store certified
+intervals `S = sin(1/2)`, `C = cos(1/2)` in a thread-local cache,
+recomputing them when greater precision is requested. For
+`y=|x|=1/2+d`, Taylor's theorem and the global bounds
+`|sin''(t)|<=1`, `|cos''(t)|<=1` give
+
+    sin(y) in S + C*d + [-d*d/2,+d*d/2]
+    cos(y) in C - S*d + [-d*d/2,+d*d/2].
+
+Each interval operation is performed with exact GMP rational
+arithmetic, including sign-aware multiplication by d.
+For a requested work precision `work`, take the shortcut
+only when `|d|<=2^-ceil(work/2)` and there were no previous
+halvings. Then `d*d/2<=2^(-work-1)`; center enclosures are
+computed at `work+16` and certified, so the local error is
+smaller than the requested work unit. For other inputs, and
+whenever certified refinement increases work sufficiently that
+the condition no longer holds, use the old kernel unchanged.
+For negative x, sine is odd and cosine even. Crucially, this
+is an *outward* interval, not an approximation rounded to the
+requested result. No correct-rounding criterion is relaxed.
+
+**Independent check and limits:** A standalone rational-bound
+test of the linearized intervals over 600 near-center positive
+and negative deviations at 53/128/256/1024-bit scales enclosed
+365-digit mpmath references for both sin and cos. The guarantee
+comes from Taylor's theorem, not the numerical sample. No end-to-end
+speedup is claimed for the shortcut. It may make low-precision
+operations slower due to exact-rational overhead; the next 1000x11
+benchmark must test all 108 cases and the per-operation absolute
+timings before accepting it. A bad result warrants rollback.
+
+**Regression matrix:** Add FloatAP/FloatMP differential sin/cos/tan
+checks around +/-1/2 at step widths matching the precision, plus
+farther neighbors and out-of-fast-path values, using
+7/53/128/256/1024 bits and all four rounding modes. Revisit a
+precision after updating the cache to check its reuse.
+Keep the historical tests and one-root tangent implementation.
+Run Unix, Windows and Coverage CI for this commit before relying
+on it. The global target remains worst strictly <2x and geomean
+approaching 1x.

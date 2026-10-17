@@ -2110,6 +2110,51 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
     return {std::move(sine), std::move(cosine)};
 }
 
+// Multiply an interval by a signed exact scalar without evaluating four
+// products. This is used in the centered trigonometric enclosure.
+Interval multiply_by_fraction(Interval const& input, Fraction const& scalar) {
+    if (scalar.sign() >= 0) {
+        return {input.lower * scalar, input.upper * scalar};
+    }
+    return {input.upper * scalar, input.lower * scalar};
+}
+
+// Cache certified enclosures of sin(1/2) and cos(1/2), rather than
+// rounded scalars. The same (or tighter) intervals are valid for every
+// later request of no greater working precision on this thread.
+std::pair<Interval, Interval> const& half_trigonometric_intervals(unsigned long work) {
+    struct Cache {
+        unsigned long work = 0;
+        std::optional<std::pair<Interval, Interval>> bounds;
+    };
+    static thread_local Cache cache;
+    if (!cache.bounds || cache.work < work) {
+        cache.bounds = small_sine_cosine(
+            Fraction(1L) / Fraction(2L), work, TrigOutputs::both);
+        cache.work = work;
+    }
+    return *cache.bounds;
+}
+
+// For finite delta, test |delta| <= 2^(-ceil(work/2)) using exact
+// integer arithmetic. Then delta^2/2 <= 2^(-work-1) (work even)
+// or even smaller (work odd), so a first-order Taylor enclosure
+// has a certified remainder below one bit at the requested work.
+bool sufficiently_near_half(Fraction const& delta, unsigned long work) {
+    const unsigned long half_work = work / 2ul + work % 2ul;
+    if (static_cast<std::uintmax_t>(half_work) >
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+        return false;
+    }
+    mpz_t scaled;
+    mpz_init(scaled);
+    mpz_abs(scaled, mpq_numref(delta.raw()));
+    mpz_mul_2exp(scaled, scaled, static_cast<mp_bitcnt_t>(half_work));
+    const bool near = mpz_cmp(scaled, mpq_denref(delta.raw())) <= 0;
+    mpz_clear(scaled);
+    return near;
+}
+
 // Evaluate atan(x) for |x| <= 1/2 as an alternating Taylor series.
 // All intermediates are GMP fixed-point integers: rounding each positive
 // power and each term outward yields an enclosure of the partial sum.
@@ -2287,6 +2332,40 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
             throw std::overflow_error("FloatAP trigonometric argument too large");
         }
         x.halve();
+    }
+
+    // For an argument very close to 1/2, use a cached certified
+    // sin(1/2), cos(1/2) and the Taylor remainder bound
+    // |f(1/2+d)-f(1/2)-f'(1/2)*d| <= d*d/2 for f=sin,cos.
+    // This is valid for EVERY real argument, not merely binary inputs.
+    // If d is not tiny relative to work, use the original Taylor kernel.
+    if (halvings == 0u) {
+        const Fraction half = Fraction(1L) / Fraction(2L);
+        const Fraction delta = absolute(x) - half;
+        if (sufficiently_near_half(delta, work)) {
+            if (work > std::numeric_limits<unsigned long>::max() - 16ul) {
+                throw std::overflow_error("FloatAP centered trigonometric precision overflow");
+            }
+            const auto& [center_sine, center_cosine] =
+                half_trigonometric_intervals(work + 16ul);
+            const Fraction remainder = (delta * delta) / Fraction(2L);
+            Interval sine = point(Fraction{});
+            Interval cosine = point(Fraction{});
+
+            if (outputs != TrigOutputs::cosine) {
+                sine = add(center_sine, multiply_by_fraction(center_cosine, delta));
+                sine.lower = sine.lower - remainder;
+                sine.upper = sine.upper + remainder;
+                if (x.sign() < 0) sine = negative(sine);
+            }
+            if (outputs != TrigOutputs::sine) {
+                cosine = subtract(center_cosine,
+                                  multiply_by_fraction(center_sine, delta));
+                cosine.lower = cosine.lower - remainder;
+                cosine.upper = cosine.upper + remainder;
+            }
+            return {std::move(sine), std::move(cosine)};
+        }
     }
 
     // Double-angle reconstruction needs BOTH values, regardless of
