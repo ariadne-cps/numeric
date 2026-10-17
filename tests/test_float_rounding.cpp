@@ -443,6 +443,36 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // A dyadic Rational uses the direct binary-significand path.
+            // Exercise both signs and exact/tie cases against FloatMP.
+            for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Integer power=pow(Integer(2),Nat(ap.bits()));
+                const Integer numerators[]={
+                    power-Integer(1), power+Integer(1),
+                    Integer(1)-power, -power-Integer(1)
+                };
+                for (unsigned shift : {1u,7u,31u,130u}) {
+                    const Integer denominator=pow(Integer(2),Nat(shift));
+                    for (Integer const& numerator : numerators) {
+                        const Rational exact(numerator,denominator);
+                        const auto check=[&](auto am,auto mm) {
+                            const FloatAP result(exact,am,ap);
+                            const FloatMP oracle(exact,mm,mp);
+                            ARIADNE_TEST_EQUALS(static_cast<Rational>(result),
+                                                static_cast<Rational>(oracle));
+                        };
+                        check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                        check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                        check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                        check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    }
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Differential checks for direct binary-integer rounding.
             // Construct values just above and below precision boundaries,
             // including both signs and significand-carry cases.

@@ -2500,3 +2500,63 @@ CI and the next same-host benchmark must verify both correctness
 and any actual speedup. No performance delta is claimed for this
 nonunit-quotient change before measurement. Follow-up needs separate
 work on exp, acos/asin, and general trigonometric certification.
+
+## Benchmark 19:08 and dyadic certified-arithmetic fast path (17 October 2026)
+
+**New reference:** the warmed-up user report `Markdown incollato(20261017-190811).md`
+replaces the 19:03 measurement for subsequent experiments. It has
+27 operations at 53/128/256/1024 bits, each measured at 300 iterations
+and seven samples. Ratios (FloatAP / FloatMP) are:
+
+| Bits | Geomean | Time-weighted | Worst |
+| --- | ---: | ---: | --- |
+| 53 | 1.134x | 2.001x | 3.799x (`atan_nearest`) |
+| 128 | 1.852x | 2.717x | 4.019x (`exp_nearest`) |
+| 256 | 1.532x | 1.967x | 3.601x (`exp_nearest`) |
+| 1024 | 1.438x | 2.936x | 3.653x (`acos_nearest`) |
+| ALL | **1.467x** | **2.661x** | **4.019x** |
+
+Across all 108 pairs, 42 ratios are >=2x, 13 >=3x and 1 >=4x.
+The 19:03 report had 1.530x geomean, 2.698x total-time ratio,
+4.290x worst, 45 ratios >=2x and 18 >=3x. Selected FloatAP division
+improvements: nearest at 53 bits 231.250 -> 176.803 ns; at 128 bits
+229.860 -> 188.057 ns; at 1024 bits 365.000 -> 312.917 ns.
+53-bit construction from rational 314.167 -> 226.390 ns.
+These observations are consistent with the nonunit-rational change
+in `c2a0db3d`, but neither report independently records the
+measured commit; CPU warm-up/frequency and MPFR variation also matter.
+
+**Cross-cutting optimization:** Certified endpoints returned by
+exp/log/trigonometric algorithms are often exact dyadic rationals.
+Previously `FloatAP::from_rational` treated their denominator as
+general and performed GMP quotient/remainder. For a canonical
+dyadic `n/2^k`, the same exact value is `n * 2^-k`, so
+detect the single-set-bit denominator and reuse the
+already-tested `round_scaled_integer` path for the signed
+integer numerator and scale `-k`. A shift larger than the
+representable Exponent falls back to the existing path.
+The existing nearest-even, directed rounding, carry-overflow and
+special-value contracts are unchanged; non-dyadic denominators
+still use the general division implementation.
+
+**Argument reduction:** Repeated `x = x / Fraction(2)` in
+`exp_interval`, `log_interval`, and `sine_cosine_intervals`
+creates temporary rationals and invokes general division.
+Replace only these operations with a new in-place
+`Fraction::halve()` that uses `mpq_div_2exp`. It is exact,
+including negative inputs, and leaves all argument thresholds,
+Taylor recurrences, certified error bounds and reconstruction
+formulas unchanged. A standalone GMP harness compared 961 canonical
+signed rational cases divided by powers of two to denominator scaling,
+confirming identical exact fractions. Standalone exploration of
+different exponential reduction limits yielded workload-dependent
+results, so the reduction thresholds remain unchanged.
+
+**Semantic regression:** New FloatAP/FloatMP directed-rounding
+checks exercise dyadics with numerator immediately above or below
+a precision boundary, both signs, denominator shifts 1/7/31/130,
+precision 7/53/128/256/1024, and all four modes. The existing
+shared differential exp/log/trigonometric suite must pass.
+Full CI and a fresh 300x7 benchmark on the warmed-up user's machine
+are required before accepting a measured speedup. None is claimed.
+Global target: worst <2x, geomean approaching 1x.
