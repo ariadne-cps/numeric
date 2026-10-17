@@ -2339,3 +2339,51 @@ The next user-supplied coverage report must establish actual changes
 in official per-file counters and confirm the report's base commit.
 No new coverage improvement or new CI success is claimed for this change
 until measured. This is the first coverage hypothesis for Archive 91.
+
+## Coverage report 92 and FloatAP/FloatDP mixed comparisons (17 October 2026)
+
+**Baseline and measured delta:** The user-supplied `Archivio 92.zip`
+contains the LLVM coverage report following `02fca0f4`.
+The published `remove-mpfr` branch remains at that commit before this
+new intervention. The official per-file counters are:
+
+| File | Archive 91 functions / lines / branches | Archive 92 functions / lines / branches |
+| --- | --- | --- |
+| `src/floatap.cpp` | 181/199, 1476/1753, 695/978 | 181/199, 1478/1753, 699/978 |
+| `include/numeric/floatap.hpp` | 84/102, 197/252, 56/110 | 90/102, 207/252, 64/110 |
+
+Thus the preceding Rational-left comparison intervention added six
+covered functions, twelve covered lines and twelve covered branch
+outcomes across the two files. Archive 92's per-line records show
+`floatap.hpp:417-436` executing six times per operator; at lines
+431 and 435 both true and false outcomes are now covered on both
+short-circuit comparisons. The unordered paths in the two
+FloatAP/Rational `cmp` functions account for the source delta.
+A green CI is not a 100% coverage claim.
+
+**Next per-symbol gap:** Archive 92's `src/floatap.cpp` records show
+the dedicated `cmp(FloatDP, FloatAP)` function unexecuted at
+lines 1013-1015; of the twelve mixed-comparison operators at
+1017-1039, only `operator==(FloatAP,FloatDP)` has executions (four).
+The four compound `<=`/`>=` expressions at 1022, 1026, 1034,
+1038 therefore contain eight branch records with zero true/false
+counts. The corresponding `FloatAP`-left `cmp` function does run,
+but that does not exercise the other public operators.
+
+**Classification and targeted test:** These are valid public,
+statically distinguished overloads, not impossible invariants.
+In the existing `test_comparison()` function, only for
+`ArbitraryPrecision`, compare a FloatAP holding -1.25 against
+FloatDP values -2.25, -1.25 and +1.25. Exercise all six operator
+families in both operand orders and assert their mathematical truth
+values in each of the three ordered outcomes. The operands are exact
+in binary, so the test has no rounding-dependent assumptions.
+The predicted effect is execution of eleven previously unused
+mixed-operator functions and `cmp(FloatDP,FloatAP)`, plus true and
+false outcomes for all eight short-circuit branch records.
+The actual aggregate effect must be verified in the next LLVM report;
+no coverage improvement or new CI success is claimed yet.
+
+**Delivery rule:** The only source modification is to the test;
+no FloatAP production code or shared assertions have been weakened.
+Keep the journal and test together on `remove-mpfr`.
