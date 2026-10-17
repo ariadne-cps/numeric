@@ -595,10 +595,12 @@ template<> class Float<ArbitraryPrecision> {
     friend FloatAP acos(RoundingModeType mode, FloatAP const& x);
     static FloatAP pi(RoundingModeType mode, PrecisionType precision);
 
-    // Round signed numerator/positive denominator * 2^scale with one rounding.
+    // Round signed numerator/denominator * 2^scale exactly once; invert_sign
+    // applies the separate operand-sign bit without copying a GMP integer.
     static FloatAP from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
     Exponent scale, unsigned long precision,
-    Rounding mode, bool negative_zero = false);
+    Rounding mode, bool negative_zero = false,
+    bool invert_sign = false);
     static FloatAP from_integer(mpz_srcptr n, unsigned long precision, Rounding mode);
     static FloatAP from_rational(mpq_srcptr value, unsigned long precision, Rounding mode);
     // Exact conversion, not an approximation to double.

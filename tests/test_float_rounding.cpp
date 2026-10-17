@@ -419,7 +419,8 @@ TestFloatRounding<PR>::test_precision_regressions()
                 const ArbitraryPrecision ap(bits);
                 const MultiplePrecision mp(bits);
                 for (Int numerator : {Int(-17),Int(-3),Int(1),Int(17)}) {
-                    for (Int denominator : {Int(3),Int(7),Int(16)}) {
+                    for (Int denominator : {Int(-16),Int(-7),Int(-3),
+                                            Int(3),Int(7),Int(16)}) {
                         const FloatAP a(numerator,ap);
                         const FloatAP b(denominator,ap);
                         const FloatMP ma(numerator,mp);

@@ -105,14 +105,16 @@ void FloatAP::round_scaled_integer(FloatAP& result, Exponent scale, Rounding mod
 }
 
 FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
-Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
+Exponent scale, unsigned long precision, Rounding mode,
+bool negative_zero, bool invert_sign) {
     FloatAP result(precision);
     if (mpz_sgn(denominator) == 0) throw std::domain_error("FloatAP zero denominator");
     if (mpz_sgn(numerator) == 0) {
         result.set_zero(negative_zero);
         return result;
     }
-    result._negative =(mpz_sgn(numerator) < 0) !=(mpz_sgn(denominator) < 0);
+    result._negative = ((mpz_sgn(numerator) < 0) !=
+                        (mpz_sgn(denominator) < 0)) != invert_sign;
 
     // General rational normalization and division are unnecessary when
     // the denominator is one. Round the existing magnitude in-place.
@@ -348,17 +350,12 @@ unsigned long p, Rounding mode) {
     const bool neg = a._negative != b._negative;
     if (a.is_inf() || b.is_zero()) return infinity(p, neg);
     if (a.is_zero() || b.is_inf()) return zero(p, neg);
-    mpz_t n;
-    mpz_init_set(n, a._significand);
-    struct Cleanup {
-        mpz_ptr z;
-        ~Cleanup() {
-            mpz_clear(z);
-        }
-    }
-    cleanup { n };
-    if (neg) mpz_neg(n, n);
-    return from_ratio(n, b._significand, checked_sub(a._exponent, b._exponent), p, mode);
+    // Sign is metadata. The two significands are positive, immutable
+    // GMP integers; do not allocate, copy or negate the numerator merely
+    // to pass it to the exact quotient-and-remainder rounding kernel.
+    return from_ratio(a._significand, b._significand,
+                      checked_sub(a._exponent, b._exponent), p, mode,
+                      false, neg);
 }
 
 FloatAP FloatAP::fma(FloatAP const& a, FloatAP const& b,
