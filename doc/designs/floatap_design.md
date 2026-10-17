@@ -5516,3 +5516,78 @@ independent hard-to-round/domain-diverse
 literals before extending an optimized
 shortcut. Keep the exact benchmark
 post-timing equality verifier enabled.
+
+## P4 phase 3: fixed-point certified centered atan near +/-1/2 (18 October 2026)
+
+**Motivation.** The 22:34 benchmark after P4 phase 2 showed
+`atan_nearest`@53 = 1329.750 ns, versus MPFR 549.792 ns
+(2.419x), the worst remaining 53-bit ratio; it also contributed
+about 780 ns to the 53-bit weighted-time excess.
+The existing `centered_atan_half_interval` already uses
+`atan(1/2)` and a certified first-order Taylor enclosure,
+but it computes the linear term `4*delta/5`, remainder
+`delta*delta` and endpoint additions in full rational arithmetic
+on every invocation.
+
+**Change.** Keep the same exact neighborhood gate
+`|delta| <= 2^-ceil(work/2)`, work >=4, and the same
+mathematically certified half-center interval. Cache
+outward integer bounds of `atan(1/2)` on scale
+`Q=2^(work+24)` (upgrading the thread-local cache only
+when greater work precision is requested). For dyadic
+`delta=n/2^k` with k <= scale_bits+2, obtain the
+exact *outward* fixed-point linear-term bounds using
+`floor(n*2^(scale_bits+2-k)/5)` and
+`ceil(n*2^(scale_bits+2-k)/5)`, including for negative n.
+Bound the quadratic Taylor remainder by the integer
+`2^(scale_bits-work)`, as
+`|R| <= delta^2 <= 2^-work` follows rigorously from
+the preexisting neighborhood test and the second-derivative
+bound on [1/4,3/4]. Add/subtract these certified
+integer bounds, then convert the two final integer
+endpoints to dyadic Fraction objects. Preserve the
+original exact rational implementation as fallback
+when the denominator is not a power of two or its
+scale exceeds the cached fixed-point capacity.
+Return the negated enclosure for negative x, exactly
+as before; do not approximate the center with a
+rounded floating scalar.
+
+The new arithmetic uses GMP's existing integer operations,
+but no new MPFR dependency or new public API. For eventual
+GMP removal, the arithmetic is designed as quotient by
+small unsigned 5, exact shifts and directed integer
+rounding: a portable limb implementation can replace
+the temporary GMP bridge later.
+
+**Independent mathematical oracle tests.** 16 fixed exact
+dyadic result literals now cover atan(+/-[1/2 +/- 2^-(p-3)])
+for p=53,128,256,1024 and nearest-even, downward, upward,
+toward-zero modes, including signed directed rounding.
+Expected values were computed offline using only Python
+`fractions.Fraction` and integer operations, NOT FloatAP
+or MPFR. The certified rational enclosure for atan(1/2)
+comes from an alternating Taylor sum (terms through
+n=599 give the lower bound; including n=600 gives
+the upper bound, interval width < 2^-1200).
+The exact angle-addition identity
+`atan(y)=atan(1/2)+atan((2*y-1)/(y+2))` reduces
+each offset to a tiny rational r. The alternating
+bound between `r` and `r-r^3/3` provides exact
+lower/upper rational bounds for the small correction.
+Each pair of rational endpoints was independently
+rounded to all four target modes using integer quotient,
+remainder and parity; the endpoints agreed on every
+literal. Test comparisons are exact Rational equalities,
+not comparisons to MPFR or coarse tolerances. Existing
+domain-diverse tests and benchmark 3456-result post-timing
+verifier are unchanged.
+
+**Performance/acceptance gate.** No user-host timing
+has yet been obtained for this P4 phase 3 change.
+Unix, Windows and Coverage must pass first.
+Then rerun the exact 1000x11 four-precision
+benchmark and confirm 256 input / 3456 result
+equality, plus absolute atan time and all per-precision
+worst/geomean/total ratios. No CMake/Windows build
+settings or benchmark workload are changed.

@@ -586,6 +586,65 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Independent mathematically certified exact dyadic literals
+            // of atan(+-1/2 +- 2^-(p-3)). No MPFR or FloatAP is used
+            // to derive the expected mantissas or directed offsets.
+            struct AtanExpected {
+                unsigned bits, offset_bits;
+                Int offset_sign;
+                bool negative_input;
+                Int exponent;
+                char const* nearest_mantissa;
+                Int down_offset, up_offset, zero_offset;
+            };
+            static const AtanExpected expected[] = {
+                {53u,50u,-1,false,-54,"8352332796508995",-1,0,-1},
+                {53u,50u,-1,true,-54,"-8352332796508995",0,1,1},
+                {53u,50u,1,false,-54,"8352332796509020",0,1,0},
+                {53u,50u,1,true,-54,"-8352332796509020",-1,0,0},
+                {128u,125u,-1,false,-129,"315542211616056235508655905213297364215",-1,0,-1},
+                {128u,125u,-1,true,-129,"-315542211616056235508655905213297364215",0,1,1},
+                {128u,125u,1,false,-129,"315542211616056235508655905213297364240",0,1,0},
+                {128u,125u,1,true,-129,"-315542211616056235508655905213297364240",-1,0,0},
+                {256u,253u,-1,false,-257,"107373450632179258931464468992502143670939545571605869416383036103061999339261",0,1,0},
+                {256u,253u,-1,true,-257,"-107373450632179258931464468992502143670939545571605869416383036103061999339261",-1,0,0},
+                {256u,253u,1,false,-257,"107373450632179258931464468992502143670939545571605869416383036103061999339287",-1,0,-1},
+                {256u,253u,1,true,-257,"-107373450632179258931464468992502143670939545571605869416383036103061999339287",0,1,1},
+                {1024u,1021u,-1,false,-1025,"166699224739215292881125319598038346462953795978162326636292450871431032119258242184401154484764005946607347345377978929188361233397565402058863543332761952867976377120522096751547155783154721876987164034590575540231000736940058769795865598096281237086736548576233083171219137660006199486594544307781066487450",0,1,0},
+                {1024u,1021u,-1,true,-1025,"-166699224739215292881125319598038346462953795978162326636292450871431032119258242184401154484764005946607347345377978929188361233397565402058863543332761952867976377120522096751547155783154721876987164034590575540231000736940058769795865598096281237086736548576233083171219137660006199486594544307781066487450",-1,0,0},
+                {1024u,1021u,1,false,-1025,"166699224739215292881125319598038346462953795978162326636292450871431032119258242184401154484764005946607347345377978929188361233397565402058863543332761952867976377120522096751547155783154721876987164034590575540231000736940058769795865598096281237086736548576233083171219137660006199486594544307781066487476",-1,0,-1},
+                {1024u,1021u,1,true,-1025,"-166699224739215292881125319598038346462953795978162326636292450871431032119258242184401154484764005946607347345377978929188361233397565402058863543332761952867976377120522096751547155783154721876987164034590575540231000736940058769795865598096281237086736548576233083171219137660006199486594544307781066487476",0,1,1}
+            };
+            for (auto const& row : expected) {
+                const ArbitraryPrecision p{static_cast<std::size_t>(row.bits)};
+                const Rational delta(Integer(1),
+                                     pow(Integer(2),Nat(row.offset_bits)));
+                const Rational y=Rational(1,2) +
+                    (row.offset_sign<0 ? -delta : delta);
+                const Rational input=row.negative_input ? -y : y;
+                const FloatAP argument(input,FloatAP::ROUND_TO_NEAREST,p);
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(argument),input);
+                const Integer mantissa(String(row.nearest_mantissa));
+                const Integer denominator=pow(Integer(2),Nat(-row.exponent));
+                const auto target=[&](Int offset) {
+                    return Rational(mantissa+Integer(offset),denominator);
+                };
+                const FloatAP near=atan(FloatAP::ROUND_TO_NEAREST,argument);
+                const FloatAP down=atan(FloatAP::ROUND_DOWNWARD,argument);
+                const FloatAP up=atan(FloatAP::ROUND_UPWARD,argument);
+                const FloatAP zero=atan(FloatAP::ROUND_TOWARD_ZERO,argument);
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(near),target(0));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(down),target(row.down_offset));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(up),target(row.up_offset));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(zero),target(row.zero_offset));
+                ARIADNE_TEST_EQUALS(near.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(down.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(up.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(zero.precision().bits(),row.bits);
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Integer square-root remainder controls nearest rounding:
             // probe exact roots, both sides of rounding boundaries,
             // carry near binary powers, scale parity and wide exponent
