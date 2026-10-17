@@ -60,13 +60,14 @@ struct BenchmarkDatum {
     double nanoseconds;
 };
 
-template< class Float >
-void run_backend(char const* backend, unsigned bits, unsigned iterations,
-unsigned samples, std::vector<BenchmarkDatum>& data) {
+// Both the timer and its post-measurement numerical checker use the
+// *same* input construction and the *same* 27 operation callables.
+// A new operation cannot silently enter only one of the two paths.
+template<class Float> struct BackendPool {
     using Precision = typename Float::PrecisionType;
-    // FloatDP has fixed binary64 precision and no Bits constructor.
-    // FloatAP/FloatMP keep the exact original precision mapping.
-    const Precision precision = [&]() {
+    static constexpr unsigned pool_size = 32u;
+
+    static Precision precision_at(unsigned bits) {
         if constexpr (std::is_same_v<Precision,DoublePrecision>) {
             if (bits != 53u) {
                 throw std::invalid_argument("FloatDP is fixed to 53 bits");
@@ -78,32 +79,37 @@ unsigned samples, std::vector<BenchmarkDatum>& data) {
                  : bits == 256u ? Precision(256_bits)
                                 : Precision(1024_bits);
         }
-    }();
-    constexpr unsigned pool_size = 32;
-    std::vector<Rational> exact_a, exact_b;
-    std::vector<Float> a, b;
-    exact_a.reserve(pool_size);
-    exact_b.reserve(pool_size);
-    a.reserve(pool_size);
-    b.reserve(pool_size);
-
-    // Nontrivial significands: avoid benchmarking only exact small integers.
-    const Integer base = pow(Integer(2), Nat(bits));
-    for (unsigned i = 0; i < pool_size;++i) {
-        exact_a.emplace_back(base + Integer(13u + 2u* i), 2* base + Integer(17u + 3u* i));
-        exact_b.emplace_back(base + Integer(31u + 5u* i), 3* base + Integer(19u + 7u* i));
-        a.emplace_back(exact_a.back(), Float::ROUND_TO_NEAREST, precision);
-        b.emplace_back(exact_b.back(), Float::ROUND_TO_NEAREST, precision);
     }
 
-    auto report =[& ](char const* name, auto && operation) {
-        const double ns = median_ns(operation, iterations, samples);
-        data.push_back( { backend, name, bits, ns });
+    Precision precision;
+    std::vector<Rational> exact_a, exact_b;
+    std::vector<Float> a, b;
 
-    };
-    auto index =[](unsigned i) {
-        return i % pool_size;
-    };
+    explicit BackendPool(unsigned bits) : precision(precision_at(bits)) {
+        exact_a.reserve(pool_size);
+        exact_b.reserve(pool_size);
+        a.reserve(pool_size);
+        b.reserve(pool_size);
+        const Integer base = pow(Integer(2), Nat(bits));
+        for (unsigned i = 0; i < pool_size; ++i) {
+            exact_a.emplace_back(base + Integer(13u + 2u*i),
+                                 2*base + Integer(17u + 3u*i));
+            exact_b.emplace_back(base + Integer(31u + 5u*i),
+                                 3*base + Integer(19u + 7u*i));
+            a.emplace_back(exact_a.back(),Float::ROUND_TO_NEAREST,precision);
+            b.emplace_back(exact_b.back(),Float::ROUND_TO_NEAREST,precision);
+        }
+    }
+};
+
+template<class Float, class Visit>
+void for_each_backend_operation(BackendPool<Float> const& pool, Visit&& report) {
+    constexpr unsigned pool_size = BackendPool<Float>::pool_size;
+    auto const& precision = pool.precision;
+    auto const& exact_a = pool.exact_a;
+    auto const& a = pool.a;
+    auto const& b = pool.b;
+    auto index = [](unsigned i) { return i % pool_size; };
     report("construct_rational",[& ](unsigned i) {
         return Float(exact_a[index(i)], Float::ROUND_TO_NEAREST, precision);
     }
@@ -210,6 +216,17 @@ unsigned samples, std::vector<BenchmarkDatum>& data) {
         return static_cast<Rational>(a[index(i)]);
     }
     );
+}
+
+template<class Float>
+void run_backend(char const* backend, unsigned bits, unsigned iterations,
+                 unsigned samples, std::vector<BenchmarkDatum>& data) {
+    const BackendPool<Float> pool(bits);
+    auto report = [&](char const* name, auto&& operation) {
+        const double ns = median_ns(operation, iterations, samples);
+        data.push_back({backend,name,bits,ns});
+    };
+    for_each_backend_operation(pool,report);
 }
 
 

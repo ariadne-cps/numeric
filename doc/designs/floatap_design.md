@@ -5258,3 +5258,59 @@ workload before accepting small geometric/worst
 margin changes. This entry changes **only**
 the design journal; it does not alter test
 workloads or numerical kernels.
+
+## Final post-timing correctness check in the FloatMP/FloatAP benchmark (18 October 2026)
+
+**Motivation and contract.** The timing benchmark previously
+did NOT compare calculated numbers. As requested, it now
+reruns the precise same workload **after completing all timing
+loops** and asserts exact result agreement, *before* printing
+aggregate slowdown ratios or accepting `--max-slowdown`.
+There is no validation code inside `median_ns`, so the timing
+samples themselves have no additional comparisons, allocations
+or exact-rational conversions.
+
+**No workload drift:** `benchmarks/benchmark_backend_workload.hpp`
+defines one `BackendPool<Float>` constructor (same 32 exact
+Rational pairs and same nearest-rounded backend input
+construction) and one `for_each_backend_operation` visitor
+(same 27 operation names and lambda definitions). Both
+the original `run_backend` timing and the new verifier call
+these helpers. The unchanged median warmup and 1000x11
+default iteration/sample settings remain in effect.
+FloatDP/FloatAP shares the same visitor and input pool;
+it must continue to compile and benchmark unchanged.
+
+**Exact comparisons:** On each selected 53/128/256/1024-bit
+precision the verifier compares all 32 pairs of constructed
+inputs and 27*32 operation results. The default four-precision
+run therefore makes **256 paired input value checks and 3456
+paired operation-result checks**. Finite float results,
+including `construct_rational`, copy, arithmetic,
+transcendentals and `pi`, are compared using exact
+`Rational` values; `to_rational` also compares exactly.
+`compare` uses the returned comparison outcome directly.
+`to_double` compares all 64 bits of IEEE binary64 via
+`std::bit_cast<uint64_t>`, not an epsilon tolerance.
+The precision of every returned FloatMP/FloatAP object
+is checked against the requested precision.
+First mismatch throws with precision, operation,
+input index and, where applicable, both exact values
+or double bit patterns. Successful execution logs a
+clear numerical PASS and retains the original report.
+
+**Scope/limitations:** This agreement checks the exact
+measured *input pool* and the specific nearest/down/up
+operation modes present in the 27-op battery. It is
+additional differential evidence, NOT an independent
+oracle for mathematical correct rounding. The hard-coded
+independently certified expected dyadic literals at
+53/128/256/1024 bits, plus boundary/property tests,
+remain necessary. Other domains, extreme exponents,
+special values and unexercised rounding modes require
+separate semantic tests. The verifier currently runs
+once at the end of a timing invocation, not within
+the timed loop, to avoid changing performance results.
+CI/build and the user's benchmark run must validate
+the refactor; no timing advantage is claimed from
+this instrumentation.

@@ -30,6 +30,8 @@
 #include "logging/command_line.hpp"
 #include "benchmark_command_line.hpp"
 #include <algorithm>
+#include <bit>
+#include <type_traits>
 #include <chrono>
 #include <iomanip>
 #include <cmath>
@@ -179,6 +181,147 @@ bool details, double max_slowdown) {
 }
 
 
+// This verification is deliberately performed only AFTER ALL stopwatch
+// measurements. Comparing output values inside median_ns would contaminate
+// the operation timings, particularly for transcendental functions.
+// The independent expected-literal tests remain the correctness oracle:
+// MPFR agreement alone is additional evidence, not a mathematical proof.
+namespace {
+struct CheckedValue {
+    enum class Kind { exact_rational, comparison, binary64 };
+    Kind kind = Kind::exact_rational;
+    Rational exact;
+    Comparison relation = Comparison::EQUAL;
+    std::uint64_t binary64 = 0u;
+};
+
+template<class Value>
+CheckedValue normalize_checked(Value const& value, unsigned bits,
+                               char const* name, unsigned index) {
+    CheckedValue result;
+    if constexpr (std::is_same_v<Value,Comparison>) {
+        result.kind = CheckedValue::Kind::comparison;
+        result.relation = value;
+    } else if constexpr (std::is_same_v<Value,double>) {
+        result.kind = CheckedValue::Kind::binary64;
+        result.binary64 = std::bit_cast<std::uint64_t>(value);
+    } else {
+        if constexpr (std::is_same_v<Value,FloatMP> ||
+                      std::is_same_v<Value,FloatAP>) {
+            if (static_cast<unsigned>(value.precision().bits()) != bits) {
+                std::ostringstream error;
+                error << "unexpected output precision: " << bits
+                      << " bits, " << name << ", input " << index;
+                throw std::runtime_error(error.str());
+            }
+        }
+        // Conversion to Rational is *exact* (no double, no tolerance).
+        result.exact = static_cast<Rational>(value);
+    }
+    return result;
+}
+
+void assert_same(CheckedValue const& mpfr, CheckedValue const& ap,
+                 unsigned bits, std::string const& operation, unsigned index) {
+    bool same = mpfr.kind == ap.kind;
+    if (same) {
+        switch (mpfr.kind) {
+            case CheckedValue::Kind::exact_rational:
+                same = mpfr.exact == ap.exact;
+                break;
+            case CheckedValue::Kind::comparison:
+                same = mpfr.relation == ap.relation;
+                break;
+            case CheckedValue::Kind::binary64:
+                same = mpfr.binary64 == ap.binary64;
+                break;
+        }
+    }
+    if (!same) {
+        std::ostringstream error;
+        error << "FloatMP/FloatAP value mismatch at " << bits
+              << " bits, operation " << operation << ", input " << index;
+        if (mpfr.kind == CheckedValue::Kind::exact_rational &&
+            ap.kind == CheckedValue::Kind::exact_rational) {
+            error << ": MPFR=" << mpfr.exact << "; FloatAP=" << ap.exact;
+        } else if (mpfr.kind == CheckedValue::Kind::binary64 &&
+                   ap.kind == CheckedValue::Kind::binary64) {
+            error << ": MPFR double bits=0x" << std::hex << mpfr.binary64
+                  << "; FloatAP double bits=0x" << ap.binary64;
+        } else if (mpfr.kind == CheckedValue::Kind::comparison &&
+                   ap.kind == CheckedValue::Kind::comparison) {
+            error << ": comparison outcomes differ";
+        } else {
+            error << ": result kinds differ";
+        }
+        throw std::runtime_error(error.str());
+    }
+}
+} // namespace
+
+void verify_benchmark_values(std::vector<unsigned> const& precisions) {
+    constexpr unsigned count = BackendPool<FloatMP>::pool_size;
+    std::size_t verified_inputs = 0;
+    std::size_t verified_operations = 0;
+    for (unsigned bits : precisions) {
+        // These use EXACTLY the same rational pool constructor as timing.
+        const BackendPool<FloatMP> reference(bits);
+        const BackendPool<FloatAP> candidate(bits);
+        for (unsigned i = 0; i < count; ++i) {
+            if (reference.exact_a[i] != candidate.exact_a[i] ||
+                reference.exact_b[i] != candidate.exact_b[i]) {
+                throw std::runtime_error("benchmark exact input pools diverge");
+            }
+            assert_same(normalize_checked(reference.a[i],bits,"input_a",i),
+                        normalize_checked(candidate.a[i],bits,"input_a",i),
+                        bits,"input_a",i);
+            assert_same(normalize_checked(reference.b[i],bits,"input_b",i),
+                        normalize_checked(candidate.b[i],bits,"input_b",i),
+                        bits,"input_b",i);
+            verified_inputs += 2u;
+        }
+
+        // Compare each of the 27 operation definitions at ALL 32 indices;
+        // never test only the first benchmark input or merely compare times.
+        std::map<std::string,std::vector<CheckedValue>> expected;
+        for_each_backend_operation(reference,[&](char const* name, auto&& operation) {
+            auto [it, inserted] = expected.try_emplace(name);
+            if (!inserted) {
+                throw std::runtime_error(std::string("duplicate operation: ")+name);
+            }
+            auto& outputs = it->second;
+            outputs.reserve(count);
+            for (unsigned i = 0; i < count; ++i) {
+                outputs.push_back(normalize_checked(operation(i),bits,name,i));
+            }
+        });
+        std::size_t operations_this_precision = 0;
+        for_each_backend_operation(candidate,[&](char const* name, auto&& operation) {
+            const auto found = expected.find(name);
+            if (found == expected.end() || found->second.size() != count) {
+                throw std::runtime_error(std::string("missing MPFR operation: ")+name);
+            }
+            for (unsigned i = 0; i < count; ++i) {
+                assert_same(found->second[i],
+                            normalize_checked(operation(i),bits,name,i),
+                            bits,name,i);
+                ++verified_operations;
+            }
+            ++operations_this_precision;
+        });
+        if (operations_this_precision != expected.size() ||
+            operations_this_precision != 27u) {
+            throw std::runtime_error("benchmark operation count changed");
+        }
+    }
+    LOGGING_PRINTLN("Numerical verification PASS: "
+                    << verified_inputs << " paired inputs and "
+                    << verified_operations
+                    << " paired operation results (exact values, "
+                       "comparison outcomes and binary64 bits).")
+}
+
+
 struct ComparisonBenchmarkSelection {
     unsigned iterations=1000u;
     unsigned samples=11u;
@@ -292,6 +435,9 @@ int main(int argc, const char* argv[]) {
             LOGGING_PRINTLN(std::string(78u, '-'))
         }
         print_results(measurements,iterations,samples,summary_only);
+        // No correctness work is performed inside median_ns. Check all
+        // outputs before publishing the aggregate slowdown conclusions.
+        verify_benchmark_values(precisions);
         print_slowdown_summary(measurements,details,max_slowdown);
         return 0;
     }
