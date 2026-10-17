@@ -92,7 +92,7 @@ bool import_small_magnitude(mpz_srcptr input,
 bool small_rounded_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
                          unsigned long precision, bool negative,
                          FloatAP::Rounding rounding,
-                         FloatAPSmallDivision::Unsigned& rounded,
+                         FloatAPSmallDivision::Unsigned& rounded_significand,
                          FloatAP::Exponent& exponent) {
     namespace Small = FloatAPSmallDivision;
     Small::Unsigned n, d, temporary, top, bottom, quotient, remainder;
@@ -155,7 +155,7 @@ bool small_rounded_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
         quotient = reduced;
         ++exponent;
     }
-    rounded = quotient;
+    rounded_significand = quotient;
     return true;
 }
 } // namespace
