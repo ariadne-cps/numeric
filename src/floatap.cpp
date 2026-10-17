@@ -1645,6 +1645,13 @@ public:
         mpq_set(_value, rational);
     }
 
+    // Write the exact dyadic FloatAP value into the owned mpq_t directly.
+    // This avoids allocating/canonicalizing a separate Rational and then
+    // deep-copying its numerator and denominator into another mpq_t.
+    explicit Fraction(FloatAP const& binary) : Fraction() {
+        binary.to_rational(_value);
+    }
+
     Fraction(mpz_srcptr numerator, unsigned long denominator_bits) : Fraction() {
         mpz_set(mpq_numref(_value), numerator);
         mpz_set_ui(mpq_denref(_value), 1);
@@ -1723,8 +1730,7 @@ Fraction absolute(Fraction const& x) {
 }
 
 Fraction rational_argument(FloatAP const& x) {
-    const Rational rational = static_cast<Rational>(x);
-    return Fraction(rational.get_mpq());
+    return Fraction(x);
 }
 
 namespace FloatAPExpLogDetail {

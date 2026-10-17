@@ -5106,3 +5106,44 @@ hard-to-round/transcendental domains and
 add a correctness preflight to the benchmark
 outside all timed regions. No kernel or test
 source is modified by this journal-only entry.
+
+## P4 phase 1: remove duplicate exact-rational argument materialization (18 October 2026)
+
+**Change.** The shared transcendental input adapter previously performed
+`FloatAP -> Rational -> Fraction`: `FloatAP::operator Rational()`
+allocates/canonicalizes an `mpq_t`, after which `Fraction(mpq_srcptr)`
+allocates another pair of GMP integers and copies the numerator and
+denominator. A new `Fraction(FloatAP const&)` instead calls the existing
+`FloatAP::to_rational(mpq_ptr)` once into the owned `mpq_t`.
+`rational_argument()` uses this constructor, eliminating one rational
+instance and its deep copy for **exp, log, sin, cos, tan, atan, asin,
+acos**, without changing the exact dyadic value, the interval
+algorithms or the certified Ziv-refinement criterion.
+This remains an incremental allocation improvement, NOT the complete
+GMP-independent interval backend; the new code adds no GMP calls or
+persistent dependencies beyond those already used by FloatAP.
+
+**Independent expected-literal extension.** The shared
+`test_float_rounding` suite also checks explicit dyadic integer
+significands for `sin(1/2)` and `cos(1/2)`, at 53, 128, 256, and
+1024 bits in all four rounding modes. Expected values were generated
+offline, without MPFR or FloatAP: exact `fractions.Fraction` terms
+of the alternating sine/cosine Taylor series at x=1/2, with the
+first omitted signed term as the rigorous interval bound.
+For each result and rounding mode, **both rational interval endpoints
+independently round to the same dyadic literal** using exact
+quotient/remainder and nearest-even parity. All values are compared
+exactly as rationals; tests do not accept loose tolerances,
+rounding-direction containment alone, or arbitrary zero padding.
+The direct-argument change also remains subject to the unchanged
+existing MPFR differential and domain-diverse suites.
+
+**Acceptance gate.** The source/expectations have not been timed
+on the user's benchmark host yet. Check Unix, Windows, Coverage and
+all literal oracles first, then repeat the canonical unchanged
+1000x11 benchmark at 53/128/256/1024 bits. Examine absolute
+times (particularly 53-bit cos/sin/atan/tan and 128-bit cases)
+and report all geomean/total/worst ratios. A CI pass proves only
+the exercised cases, not correctness over every transcendental input.
+Do not claim a speedup or prematurely dispatch centered algorithms
+at lower work precision without an A/B measurement.
