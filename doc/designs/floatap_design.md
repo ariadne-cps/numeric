@@ -3539,3 +3539,102 @@ change as correct and faster. Predict fewer GMP allocations
 and copies, especially for signed division, but DO NOT
 claim a measured division speedup yet. The user objective
 remains every worst-case <2x and geometric mean near 1x.
+
+## Benchmark 20:28: division mixed results and Windows Build blocker (17 October 2026)
+
+**Benchmark identity:** `Markdown incollato(20261017-202844).md`
+is the latest user-provided warmed-up, same-host 1000-iteration,
+11-sample report, following `89d93735`. Compare it only to the
+20:25:37 1000x11 report measured before that commit. Each contains
+27 operations at 53,128,256,1024 bits (108 operation/precision
+pairs).
+
+| Metric | 20:25 prior | 20:28 current |
+| --- | ---: | ---: |
+| Geometric mean AP/MP | 1.212040x | **1.237244x** |
+| Total-time ratio | 1.248318x | **1.281647x** |
+| Worst slowdown | 3.364x (`div_up`, 128) | **3.446x (`acos`, 53)** |
+| Cases >=2x | 32/108 | **34/108** |
+| Cases >=3x | 9/108 | **6/108** |
+| Cases >=4x | 0/108 | **0/108** |
+
+**Direct division observations:** The sign-metadata refactor in
+`89d93735` removed a GMP numerator copy. Its FloatAP
+absolute timings improved in 10/12 division/precision pairs.
+In nanoseconds (before -> after):
+- 53 bits: nearest 122.208 -> 114.000 (-6.7%);
+  downward 95.625 -> 79.625 (-16.7%);
+  upward 97.500 -> 81.959 (-15.9%).
+- 128 bits: nearest 181.541 -> 168.709 (-7.1%);
+  downward 133.958 -> 137.625 (+2.7%);
+  upward 146.333 -> 140.417 (-4.0%).
+- 256 bits: nearest 213.041 -> 206.459 (-3.1%);
+  downward 162.458 -> 167.208 (+2.9%);
+  upward 177.209 -> 170.334 (-3.9%).
+- 1024 bits: nearest 313.625 -> 292.250 (-6.8%);
+  downward 275.042 -> 266.708 (-3.0%);
+  upward 276.750 -> 268.541 (-3.0%).
+
+The 128-bit ratios for nearest/downward/upward improve to
+2.754x/2.799x/2.888x, but all remain above the 2x objective.
+The modest regression in overall aggregates involves timing
+variation across operations not changed by this commit, so
+it does not establish a causal global slowdown. Retain the
+sign-plumbing optimization pending a repeated controlled run.
+High-priority 20:28 ratios also include
+`atan_nearest`@53 3.426x, `exp_nearest`@128 3.297x,
+`pow7_nearest`@53 3.279x, `log_nearest`@53 3.252x,
+and `cos_nearest`@53 3.236x.
+
+**CI blocker:** Both `04e1b6f3` and `89d93735`
+pass Unix and Coverage but FAIL Windows 2025 Release at
+GitHub Actions **Build** step 13:
+`04e1b6f3` Windows run 39066603660, job 117495485037;
+`89d93735` Windows run 39066824427, job 117496125176.
+The last confirmed fully green numerical commit was
+`4ae35e8c`. These observations locate the first failure
+to the fixed-point centered sin/cos change or its tests in
+`04e1b6f3`, not the later division sign refactor.
+The available connector does not expose the MSVC diagnostic.
+Do NOT assert the exact root cause, suppress warnings,
+or weaken the tests without that diagnostic.
+
+**Potential next algorithmic direction (NOT merged):**
+The current `asin_interval` evaluates
+`sqrt(1-x*x)`, a rational interval division and
+`atan`, and `acos` subtracts the result from
+`pi/2`. For inputs very near +/-1/2, exact center
+identities can bypass this chain:
+`asin(1/2)=pi/6`, `acos(1/2)=pi/3`,
+`acos(-1/2)=2*pi/3`, and the slope magnitude is
+`D=2/sqrt(3)`. For `y=|x|=1/2+delta`
+with `|delta|<=2^-ceil(work/2)` and work>=39,
+the entire segment lies inside [1/4,3/4], where
+`|asin''(y)|=y/(1-y*y)^(3/2)<=24/7<4`.
+Thus `|R|<=2*delta*delta`, giving certified
+`asin(y) in pi/6+D*delta +/-2*delta*delta`,
+`acos(y) in pi/3-D*delta +/-2*delta*delta`,
+and `acos(-y) in 2*pi/3+D*delta +/-2*delta*delta`.
+For negative asin use oddness. Cached outward dyadic
+intervals at work+24, sourced from existing certified pi
+and sqrt3 routines at work+40, could make per-input
+cost low. The general evaluator would remain the
+fallback for all other values. A 500-digit independent
+mpmath probe checked 1500 signed evaluations with only
+numerical-evaluation tolerance; the analytic derivative
+bound, not that sample, supplies the proof. A candidate
+implementation and differential-test changes were prepared
+but deliberately **NOT committed** because the parent
+Windows Build remains broken. This avoids stacking an
+independent feature over an unvalidated platform baseline.
+
+**Next acceptance gate:** Obtain the Windows Build diagnostic
+for run 39066824427 (and if necessary 39066603660),
+classify the actual MSVC error, and restore a passing
+Unix/Windows/Coverage matrix first. Only then introduce
+the centered asin/acos experiment, with precision/boundary/
+sign/directed-rounding differential tests and a controlled
+new 1000x11 benchmark. The numerical target is unchanged:
+worst AP/MP strictly <2x over all 108 pairs with
+geometric mean approaching 1x; never trade away exact
+rounding or historical test coverage to meet that target.
