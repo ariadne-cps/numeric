@@ -1830,6 +1830,110 @@ Interval log_interval(Fraction x, unsigned long work) {
     return result;
 }
 
+// Certified half-centered exponential shortcut. The sign-dependent
+// constants are cached as rigorous outward DYADIC enclosures, not
+// approximations rounded in a caller-selected mode. The general
+// exp_interval remains the fallback everywhere outside the window.
+bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
+    // |delta| <= 2^(-ceil(work/2)), with work>=4 guaranteeing the
+    // entire segment around +/-1/2 lies inside [-3/4,3/4].
+    if (work < 4ul) return false;
+    const unsigned long cutoff_bits = work / 2ul + work % 2ul;
+    if (static_cast<std::uintmax_t>(cutoff_bits) >
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+        return false;
+    }
+    mpz_t scaled_absolute_offset;
+    mpz_init(scaled_absolute_offset);
+    mpz_abs(scaled_absolute_offset, mpq_numref(delta.raw()));
+    mpz_mul_2exp(scaled_absolute_offset, scaled_absolute_offset,
+                 static_cast<mp_bitcnt_t>(cutoff_bits));
+    const bool inside_center_window =
+        mpz_cmp(scaled_absolute_offset, mpq_denref(delta.raw())) <= 0;
+    mpz_clear(scaled_absolute_offset);
+    return inside_center_window;
+}
+
+Interval exp_outward_dyadic(Interval const& bounds,
+                            unsigned long denominator_bits) {
+    if (static_cast<std::uintmax_t>(denominator_bits) >
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+        throw std::overflow_error("FloatAP cached exponential shift overflow");
+    }
+    const mp_bitcnt_t scale = static_cast<mp_bitcnt_t>(denominator_bits);
+    mpz_t scaled_numerator, endpoint_lower, endpoint_upper;
+    mpz_inits(scaled_numerator, endpoint_lower, endpoint_upper, nullptr);
+    struct Cleanup {
+        mpz_ptr a, b, c;
+        ~Cleanup() { mpz_clears(a, b, c, nullptr); }
+    } cleanup{scaled_numerator, endpoint_lower, endpoint_upper};
+
+    mpz_mul_2exp(scaled_numerator, mpq_numref(bounds.lower.raw()), scale);
+    mpz_fdiv_q(endpoint_lower, scaled_numerator,
+               mpq_denref(bounds.lower.raw()));
+    mpz_mul_2exp(scaled_numerator, mpq_numref(bounds.upper.raw()), scale);
+    mpz_cdiv_q(endpoint_upper, scaled_numerator,
+               mpq_denref(bounds.upper.raw()));
+    return {Fraction(endpoint_lower, denominator_bits),
+            Fraction(endpoint_upper, denominator_bits)};
+}
+
+struct ExponentialHalfCenters {
+    Interval positive;
+    Interval negative;
+};
+
+ExponentialHalfCenters const& exponential_half_centers(unsigned long work) {
+    struct Cache {
+        unsigned long work = 0;
+        std::optional<ExponentialHalfCenters> enclosure;
+    };
+    static thread_local Cache cache;
+    if (!cache.enclosure || cache.work < work) {
+        if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
+            throw std::overflow_error("FloatAP exponential half precision overflow");
+        }
+        const Fraction half = Fraction(1L) / Fraction(2L);
+        const Interval positive = exp_interval(half, work + 40ul);
+        // Both bounds are strictly positive, so reciprocity reverses
+        // their order and yields an exact interval for exp(-1/2).
+        const Interval negative{
+            Fraction(1L) / positive.upper,
+            Fraction(1L) / positive.lower
+        };
+        ExponentialHalfCenters fresh{
+            exp_outward_dyadic(positive, work + 24ul),
+            exp_outward_dyadic(negative, work + 24ul)
+        };
+        cache.enclosure = std::move(fresh);
+        cache.work = work;
+    }
+    return *cache.enclosure;
+}
+
+Interval exp_half_centered_or_general(Fraction const& input,
+                                     unsigned long work) {
+    const Fraction half = Fraction(1L) / Fraction(2L);
+    const Fraction center = input.sign() < 0 ? Fraction{} - half : half;
+    const Fraction delta = input - center;
+    if (!exp_inside_half_window(delta, work)) {
+        return exp_interval(input, work);
+    }
+
+    // exp(center+delta)=exp(center)*(1+delta)+R.
+    // On the segment [-3/4,3/4], |exp''(t)| < e < 3,
+    // hence Taylor gives |R| < 3*delta^2/2 <= 2*delta^2.
+    // 1+delta >= 3/4 is positive, so endpoint multiplication
+    // preserves order. All operations below use exact rationals.
+    const auto& cache = exponential_half_centers(work);
+    const Interval& base = input.sign() < 0
+        ? cache.negative : cache.positive;
+    const Fraction multiplier = Fraction(1L) + delta;
+    const Fraction remainder = Fraction(2L) * delta * delta;
+    return {base.lower * multiplier - remainder,
+            base.upper * multiplier + remainder};
+}
+
 template<class Evaluate>
 FloatAP certified(Evaluate evaluate, FloatAP::RoundingModeType mode,
                   FloatAP::PrecisionType precision) {
@@ -2872,7 +2976,7 @@ FloatAP exp(FloatAP::RoundingModeType mode, FloatAP const& x) {
     }
     const Fraction input = rational_argument(x);
     return certified([&](unsigned long work) {
-        return exp_interval(input, work);
+        return exp_half_centered_or_general(input, work);
     }, mode, x.precision());
 }
 
