@@ -4582,3 +4582,36 @@ This does not require or introduce any additional GMP API.
 a complete CI run and same-host benchmark must be checked before
 claiming correctness on Unix/Windows or any measured speedup.
 The 21:31 benchmark above remains the last measured baseline.
+
+## P1 implemented: sqrt remainder-based nearest rounding (17 October 2026)
+
+For the exact integer square root `mpz_sqrtrem(root,remainder,scaled)`
+with `scaled=root*root+remainder`, the old nearest-rounding
+criterion `4*scaled>(2*root+1)^2` simplifies algebraically to
+`4*remainder>4*root+1`. Since both values are integers,
+this is equivalent to `remainder>root` (the half-integer
+tie is impossible). The nearest branch now uses a direct
+`mpz_cmp(remainder,root)`: no temporary threshold, threshold
+square, or quadrupled `scaled`. The zero-remainder case,
+directed rounding, result carry, exponent checks, sign and
+special values are unchanged. The scratch allocations shrink
+from four to three initialized `mpz_t` objects.
+
+A separate integer model checked the old/new predicates on
+about 60,000 root/remainder boundary samples as a sanity check;
+the algebra above, not the sample count, provides the proof.
+The shared precision regression adds FloatAP/MPFR differential
+sqrt tests at 7,53,128,256,1024 bits and in nearest-even,
+downward, upward and toward-zero modes. Inputs include exact
+squares, non-squares, low-scale fractions, both sides of
+1 and 4 and large positive/negative exponent shifts. The
+reference evaluates the exact same rounded FloatAP input.
+
+**Validation state at authoring:** code and regression added
+as an independent P1 commit after the P0 commit.
+Unix/Windows/Coverage status must be checked and a new
+unloaded same-host 1000x11 measurement performed before
+attributing any speedup. The original 21:31 benchmark is
+still the performance baseline. No MPFR or GMP dependency
+has been added; the long-term independent-limb design
+remains the intended route for P2/P3.

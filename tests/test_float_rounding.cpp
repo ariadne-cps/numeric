@@ -412,6 +412,48 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Integer square-root remainder controls nearest rounding:
+            // probe exact roots, both sides of rounding boundaries,
+            // carry near binary powers, scale parity and wide exponent
+            // shifts. Compare the same rounded AP input with MPFR in all
+            // four rounding modes, without changing earlier tests.
+            for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Rational step(Integer(1),
+                                    pow(Integer(2),Nat(ap.bits())));
+                const Rational exact_values[]={
+                    Rational(1),Rational(2),Rational(3),Rational(4),
+                    Rational(5),Rational(9),Rational(15,16),
+                    Rational(17,16),Rational(1,4),Rational(9,16),
+                    Rational(1)-step,Rational(1)+step,
+                    Rational(4)-step,Rational(4)+step
+                };
+                const auto check=[&](FloatAP const& input) {
+                    const FloatMP reference_input(
+                        static_cast<Rational>(input),
+                        FloatMP::ROUND_TO_NEAREST,mp);
+                    const auto check_mode=[&](auto am,auto mm) {
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(sqrt(am,input)),
+                            static_cast<Rational>(sqrt(mm,reference_input)));
+                    };
+                    check_mode(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                    check_mode(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                    check_mode(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                    check_mode(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                };
+                for (Rational const& value : exact_values) {
+                    check(FloatAP(value,FloatAP::ROUND_TO_NEAREST,ap));
+                }
+                const FloatAP scale_source(Rational(5,4),ap);
+                for (Int shift : {Int(-2000),Int(-127),Int(127),Int(2000)}) {
+                    check(shft(scale_source,shift));
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Equal-precision normalized values with distinct exponents:
             // compare against exact Rational ordering, including negative
             // values, reversal, same-exponent cases and mixed precision.
