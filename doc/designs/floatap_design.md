@@ -3665,3 +3665,80 @@ worst 3.446x (acos@53), 34/108 cases >=2x.
 No performance speedup is claimed for this identifier
 rename. The future certified asin/acos center expansion
 remains a separate unmerged design idea.
+
+## Certified half-centered inverse trigonometric fast path (17 October 2026)
+
+**Verified green starting point.** Commit `86901ead` passed Unix
+(run 39067423601), Windows (run 39067423650), and Coverage
+(run 39067423654). The MSVC C4459 issue from the local
+`upward` lambda parameter is resolved without relaxing /WX.
+The latest user-measured warmed-up, unloaded same-host 1000x11
+benchmark is `Markdown incollato(20261017-202844).md` (after
+`89d93735`, before this change):
+geomean **1.237x**, weighted **1.282x**, worst
+**3.446x (acos_nearest@53)**, and **34/108 >=2x**.
+At 53 bits, FloatAP asin/acos take
+3727.209/4431.208 ns versus MPFR 1339.375/1285.875 ns.
+At 1024 bits they take about 40.7/42.1 us, despite the
+fast centered atan kernel. The existing general
+`asin_interval` computes a certified
+`sqrt(1-x*x)`, divides two rational intervals, and
+evaluates atan of one quotient endpoint; `acos`
+also subtracts from certified `pi/2`. These operations
+remain appropriate outside a small well-defined neighborhood.
+
+**New mathematical reduction, applicable to any real input
+in the neighborhood (not benchmark-index matching).** For
+`y=|x|=1/2+d`, and
+`|d|<=2^-ceil(work/2)`, work>=4,
+the entire segment from 1/2 to y lies in [1/4,3/4].
+On this segment
+`|asin''(t)|=t/(1-t*t)^(3/2) <24/7<4`:
+`t<=3/4`, `1-t*t>=7/16`, and
+`sqrt(1-t*t)>1/2`. Thus Taylor's theorem gives the
+**rigorous outward remainder** `|R|<=2*d*d`.
+The exact center identities and derivative are
+`asin(1/2)=pi/6`, `acos(1/2)=pi/3`,
+`acos(-1/2)=2*pi/3` and
+`D=asin'(1/2)=2/sqrt(3)`. Accordingly,
+`asin(y) in pi/6 + D*d +/-2*d*d`,
+`asin(-y)=-asin(y)`,
+`acos(y) in pi/3 - D*d +/-2*d*d`, and
+`acos(-y) in 2*pi/3 + D*d +/-2*d*d`.
+All interval operations preserve exact outward bounds.
+Outside the precision-dependent neighborhood, the old
+general inverse-trigonometric logic remains unchanged.
+
+**Implementation:** Compute certified `pi` at work+40
+and `sqrt(3)` at work+40 once per thread/cache-precision
+upgrade. Form exact intervals for `pi/6`, `pi/3`,
+`2*pi/3` and `2/sqrt(3)` (positive denominator).
+Quantize these four endpoint pairs **outward** to dyadics
+at work+24 using the existing `outward_dyadic_interval`
+helper, not ordinary rounded floats. A cached interval
+computed at higher precision remains valid for lower
+work. Per call, multiply the certified slope interval
+by the exact signed offset, add/subtract the certified
+center, then widen both endpoints by exactly
+`2*d*d`. Only accept a final FloatAP result when
+*both* outward endpoints round to the same result
+in the selected mode; otherwise refine work as before.
+No MPFR dependency is added to production code.
+The general arcsine/arccosine paths, NaN/domain/pole
+handling, signed zero and existing external APIs
+are left unchanged.
+
+**Tests and acceptance:** Extend the existing FloatAP/
+FloatMP differential suite (do not remove other cases)
+at precisions 7,53,128,256,1024, and revisit 53
+after a higher-precision cache update. For each
+precision check both signs, exact +/-1/2 and several
+ULP-scale offsets, plus out-of-neighborhood points
+1/4,3/4,1/3,2/3. Check both asin and acos, nearest,
+downward, upward and toward-zero using the *same rounded
+FloatAP input* as the MPFR oracle. All 3 CI workflows
+must succeed, including MSVC /WX on Windows.
+A new warmed-up, unloaded same-host 1000x11 benchmark
+is needed before reporting *any* new speedup. The
+global target remains worst strict <2x for all
+108 cases and geomean approaching 1x.

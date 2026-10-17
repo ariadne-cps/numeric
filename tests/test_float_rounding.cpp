@@ -591,6 +591,61 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Certified arcsine/arccosine local Taylor enclosures at
+            // both signs of 1/2. Vary the precision order to exercise
+            // cache growth and subsequent reuse. Use precisely the
+            // rounded FloatAP input with the MPFR reference, including
+            // fallback points outside the local neighborhood.
+            for (Bits bits : {53_bits,7_bits,128_bits,256_bits,
+                              1024_bits,53_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Nat offset_power(ap.bits());
+                const Rational ulp(Integer(1),
+                                   pow(Integer(2),offset_power));
+                // Initial work is bits+32: exercise the exact centered
+                // inclusion threshold as well as the fallback exterior.
+                const Nat threshold_power(
+                    (static_cast<unsigned long>(ap.bits())+33ul)/2ul);
+                const Rational threshold_offset(
+                    Integer(1),pow(Integer(2),threshold_power));
+                const Rational magnitudes[] = {
+                    Rational(1,2), Rational(1,2)-ulp, Rational(1,2)+ulp,
+                    Rational(1,2)-Rational(4)*ulp,
+                    Rational(1,2)+Rational(4)*ulp,
+                    Rational(1,2)-threshold_offset,
+                    Rational(1,2)+threshold_offset,
+                    Rational(1,2)-Rational(2)*threshold_offset,
+                    Rational(1,2)+Rational(2)*threshold_offset,
+                    Rational(1,4), Rational(3,4),
+                    Rational(1,3), Rational(2,3)
+                };
+                for (Rational const& magnitude : magnitudes) {
+                    for (Int input_sign : {Int(-1),Int(1)}) {
+                        const Rational signed_value =
+                            input_sign<0 ? -magnitude : magnitude;
+                        const FloatAP ap_input(signed_value,
+                            FloatAP::ROUND_TO_NEAREST,ap);
+                        const FloatMP mp_input(static_cast<Rational>(ap_input),
+                            FloatMP::ROUND_TO_NEAREST,mp);
+                        const auto check=[&](auto ap_mode,auto mp_mode) {
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(asin(ap_mode,ap_input)),
+                                static_cast<Rational>(asin(mp_mode,mp_input)));
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(acos(ap_mode,ap_input)),
+                                static_cast<Rational>(acos(mp_mode,mp_input)));
+                        };
+                        check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                        check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                        check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                        check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    }
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Single-recurrence atan certification: test the transitions
             // at |x|=1/2 and |x|=2, small arguments, and both signs.
             // The oracle uses precisely the FloatAP input value.
