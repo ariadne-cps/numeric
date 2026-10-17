@@ -3638,3 +3638,30 @@ new 1000x11 benchmark. The numerical target is unchanged:
 worst AP/MP strictly <2x over all 108 pairs with
 geometric mean approaching 1x; never trade away exact
 rounding or historical test coverage to meet that target.
+
+## MSVC C4459 fix for dyadic centered sin/cos (17 October 2026)
+
+User-provided Windows 2025 Release build log for `89d93735`
+(also failing on `04e1b6f3`) conclusively identifies:
+`src/floatap.cpp(2173): warning C4459: declaration of 'upward'
+hides global declaration`, referring to
+`Ariadne::upward` in `include/numeric/rounding.hpp:280`.
+Because the build uses `/W4 /WX`, the warning causes
+`error C2220` and stops the Build step. This is a
+**name-shadowing compiler failure**, not evidence of
+incorrect numerical rounding.
+
+Rename only the Boolean lambda parameter in
+`centered_trigonometric_dyadic` from `upward` to
+`round_toward_positive_infinity`, and the corresponding
+conditional. All exact GMP arithmetic, outward-directed
+integer rounding, selected endpoints, tests, and other
+numerical algorithms are unchanged. Keep MSVC `/WX`
+enabled. The new Windows CI, alongside Unix and Coverage,
+must pass before all-platform acceptance. The latest
+unloaded 1000x11 performance baseline remains the user
+20:28 report: geomean 1.237x, total-time 1.282x,
+worst 3.446x (acos@53), 34/108 cases >=2x.
+No performance speedup is claimed for this identifier
+rename. The future certified asin/acos center expansion
+remains a separate unmerged design idea.

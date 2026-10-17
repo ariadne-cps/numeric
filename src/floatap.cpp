@@ -2170,10 +2170,10 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
             ~Cleanup() { mpz_clear(value); }
         } cleanup{numerator_shifted};
         const auto assign_outward = [&](mpz_ptr destination, Fraction const& value,
-                                        bool upward) {
+                                        bool round_toward_positive_infinity) {
             mpz_mul_2exp(numerator_shifted, mpq_numref(value.raw()),
                          static_cast<mp_bitcnt_t>(target_bits));
-            if (upward) {
+            if (round_toward_positive_infinity) {
                 mpz_cdiv_q(destination, numerator_shifted, mpq_denref(value.raw()));
             } else {
                 mpz_fdiv_q(destination, numerator_shifted, mpq_denref(value.raw()));
