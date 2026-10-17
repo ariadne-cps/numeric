@@ -412,6 +412,48 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Equal-precision normalized values with distinct exponents:
+            // compare against exact Rational ordering, including negative
+            // values, reversal, same-exponent cases and mixed precision.
+            // The min/max comparisons exercise the int64 exponent limits
+            // without materializing impossibly large Rational values.
+            for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const FloatAP low(Rational(3,4),ap);
+                const FloatAP high(Rational(9,8),ap);
+                const FloatAP same_exp_a(Rational(5,4),ap);
+                const FloatAP same_exp_b(Rational(7,4),ap);
+                const FloatAP operands[]={
+                    low,high,neg(low),neg(high),
+                    same_exp_a,same_exp_b,neg(same_exp_a),neg(same_exp_b)
+                };
+                const auto check=[&](FloatAP const& lhs,FloatAP const& rhs) {
+                    ARIADNE_TEST_ASSERT(
+                        cmp(lhs,rhs)==cmp(static_cast<Rational>(lhs),
+                                          static_cast<Rational>(rhs)));
+                };
+                for (FloatAP const& lhs : operands) {
+                    for (FloatAP const& rhs : operands) {
+                        check(lhs,rhs);
+                    }
+                }
+
+                const FloatAP other_precision(Rational(5,4),
+                                              ArbitraryPrecision(24_bits));
+                check(same_exp_a,other_precision);
+                check(other_precision,high);
+                check(high,other_precision);
+
+                const FloatAP smallest=FloatAP::min(ap);
+                const FloatAP largest=FloatAP::max(ap);
+                ARIADNE_TEST_ASSERT(largest>smallest);
+                ARIADNE_TEST_ASSERT(neg(largest)<neg(smallest));
+                ARIADNE_TEST_ASSERT(largest>neg(largest));
+                ARIADNE_TEST_ASSERT(smallest>neg(smallest));
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // The general non-unit-denominator path of from_ratio()
             // must round both signs correctly for division and Rational
             // construction, including exact and inexact quotients.

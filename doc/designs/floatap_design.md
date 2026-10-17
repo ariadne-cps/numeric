@@ -4561,3 +4561,24 @@ addition: none of P0-P4 is merged, no source
 regressions are altered, and no new CI or
 benchmark speedups are claimed for proposed changes.
 
+## P0 implemented: normalized equal-precision comparison (17 October 2026)
+
+The implementation of `cmp(FloatAP,FloatAP)` now returns immediately
+when both finite nonzero operands have matching precision but distinct
+binary exponents. A normalized positive significand always occupies
+exactly its declared precision in bits, so exponent order is magnitude
+order for equal precision; an already-checked negative sign reverses it.
+Special values, signed zeros, opposite-sign operands, equal exponents
+and mixed precisions retain their existing paths.
+
+Regression tests in the canonical `test_float_rounding` suite compare
+FloatAP ordering with exact Rational ordering across all pairings of
+positive/negative same- and differing-exponent values at
+7/53/128/256/1024 bits, together with reversed mixed-precision
+comparisons and comparisons at extreme representable exponents.
+This does not require or introduce any additional GMP API.
+
+**Validation state at authoring:** source/tests reviewed and committed;
+a complete CI run and same-host benchmark must be checked before
+claiming correctness on Unix/Windows or any measured speedup.
+The 21:31 benchmark above remains the last measured baseline.

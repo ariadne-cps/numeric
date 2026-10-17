@@ -1266,6 +1266,15 @@ Comparison cmp(FloatAP const& a, FloatAP const& b) {
         return a._negative ? Comparison::LESS : Comparison::GREATER;
     }
 
+    // Nonzero normalized operands of equal precision have the same
+    // significand bit-length. Their exponents alone decide magnitude
+    // whenever they differ, regardless of the significand values.
+    // This avoids GMP size/shift work on the common equal-precision case.
+    if (a._precision == b._precision && a._exponent != b._exponent) {
+        const bool greater = (a._exponent > b._exponent) != a._negative;
+        return greater ? Comparison::GREATER : Comparison::LESS;
+    }
+
     // Compare significand * 2^exponent directly. A different most
     // significant binary position decides the order without allocating
     // any GMP temporaries or constructing Rational values.
