@@ -5314,3 +5314,31 @@ the timed loop, to avoid changing performance results.
 CI/build and the user's benchmark run must validate
 the refactor; no timing advantage is claimed from
 this instrumentation.
+
+## Fix benchmark refactor linkage and switch diagnostics (17 October 2026)
+
+**Actual diagnostic:** In the shared `BackendPool<FloatDP>` constructor,
+`std::vector<FloatDP>::emplace_back(exact,FloatDP::ROUND_TO_NEAREST,precision)`
+passes the rounding constant through a forwarding reference.
+This ODR-uses `FloatDP::ROUND_TO_NEAREST`, an in-class initialized
+static const integral member without an out-of-class definition, and
+caused an undefined symbol at link time on Apple arm64.
+The constructor now materializes the same value in a local
+`Float::RoundingModeType` and passes that variable to both
+`emplace_back` calls. This preserves all 32 exact input rationals,
+input rounding, precision, and the 27-operation timed workload,
+while removing the unintended static-member reference.
+The independent MP/DP backends still share the same template.
+
+**Compiler warning:** The new `CheckedValue::Kind` switch now has
+an explicit throwing default to satisfy `-Wswitch-default` and to
+reject any invalid kind. It does not relax the exact Rational,
+comparison-outcome, binary64-bit, or precision checks.
+
+**Validation gate:** Verify that both benchmark executables link
+on AppleClang/MSVC/GCC, and that the Unix, Windows and Coverage
+workflows succeed. Neither fix changes numerical kernels or
+the expected dyadic literals. The end-of-benchmark numerical
+comparison must be exercised by actually running the benchmark:
+successful compilation alone is not proof it passes the 3456
+operation comparisons.
