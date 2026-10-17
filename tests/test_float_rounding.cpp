@@ -700,6 +700,46 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Dyadic fixed-point centered sine/cosine: finite values
+            // strictly on either side of the cache/guard threshold,
+            // including 96/128/192/224/256/1024 bits and all modes.
+            // A second pass at 128 bits checks a tighter cache reused
+            // at a lower requested working precision.
+            for (Bits bits : {96_bits,128_bits,192_bits,224_bits,
+                              256_bits,1024_bits,128_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Nat offset_power(static_cast<unsigned long>(ap.bits())/2ul+16ul);
+                const Rational small_offset(Integer(1),pow(Integer(2),offset_power));
+                for (Rational const& magnitude : {
+                        Rational(1,2),Rational(1,2)-small_offset,
+                        Rational(1,2)+small_offset,
+                        Rational(1,2)-Rational(2)*small_offset,
+                        Rational(1,2)+Rational(2)*small_offset,
+                        Rational(1,4),Rational(3,4)}) {
+                    for (Int sign : {Int(-1),Int(1)}) {
+                        const FloatAP a(sign < 0 ? -magnitude : magnitude,
+                                        FloatAP::ROUND_TO_NEAREST,ap);
+                        const FloatMP oracle(static_cast<Rational>(a),
+                                             FloatMP::ROUND_TO_NEAREST,mp);
+                        const auto verify=[&](auto am,auto mm) {
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(sin(am,a)),
+                                static_cast<Rational>(sin(mm,oracle)));
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(cos(am,a)),
+                                static_cast<Rational>(cos(mm,oracle)));
+                        };
+                        verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                        verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                        verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                        verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    }
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Local certified sin/cos Taylor bounds near +/-1/2, including
             // very small representable offsets, the exact center and
             // arguments outside the fast path. Test all directed modes
