@@ -704,7 +704,10 @@ TestFloatRounding<PR>::test_precision_regressions()
             // very small representable offsets, the exact center and
             // arguments outside the fast path. Test all directed modes
             // and use identical binary inputs for the MPFR oracle.
-            for (Bits bits : {53_bits,7_bits,128_bits,1024_bits,256_bits,53_bits}) {
+            // Include precisions on either side of the work>=256
+            // performance dispatch, without changing the oracle.
+            for (Bits bits : {53_bits,7_bits,128_bits,192_bits,224_bits,
+                              256_bits,384_bits,1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
                 const MultiplePrecision mp(bits);
                 const Rational unit(Integer(1),

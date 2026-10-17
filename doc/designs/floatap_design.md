@@ -3076,3 +3076,73 @@ Keep the historical tests and one-root tangent implementation.
 Run Unix, Windows and Coverage CI for this commit before relying
 on it. The global target remains worst strictly <2x and geomean
 approaching 1x.
+
+## Benchmark 20:00: isolate the centered trigonometric fast path (17 October 2026)
+
+**Measured report:** `Markdown incollato(20261017-200024).md`
+is the user's new same-host 1000-iteration, 11-sample benchmark
+after `4c75d3a7`, compared with the valid 19:54:59 report
+before `4c75d3a7`. The prior 19:53 run remains invalid for
+comparison because concurrent Coverage occupied the CPU.
+
+| Aggregate metric | Before 4c75d3a7 | After 4c75d3a7 |
+| --- | ---: | ---: |
+| Geometric mean (108 ratios) | 1.375x | **1.300x** |
+| Total-time ratio | 1.541x | **1.455x** |
+| Worst-case ratio | 3.538x (cos@128) | **4.934x (tan@128)** |
+| Ratios >=2x | 44/108 | **35/108** |
+| Ratios >=3x | 13/108 | **13/108** |
+
+**Direct FloatAP timing effects of 4c75d3a7:**
+
+| Precision | sin_nearest | cos_nearest | tan_nearest |
+| --- | ---: | ---: | ---: |
+| 53 | +21.3% | +12.0% | **+36.1%** |
+| 128 | +5.9% | -0.9% | **+34.0%** |
+| 256 | **-14.3%** | **-18.0%** | **+30.4%** |
+| 1024 | **-67.5%** | **-67.9%** | -1.8% |
+
+A negative percentage means a faster absolute FloatAP time.
+The local cached sin/cos enclosure therefore provides a major
+high-precision benefit, but the `TrigOutputs::both` tangent
+path is an unacceptable regression. The likely reason is that
+combining cached dyadic enclosures with a small exact rational
+`delta` and the exact `delta^2/2` remainder enlarges
+intermediate denominators. `tan` divides two such endpoints
+as general GMP rationals, whereas the previous full Taylor
+kernel delivered compact fixed-point dyadics and used one
+integer square root for cosine. This is a source-grounded
+performance hypothesis, not yet a per-function profiler
+trace. On the measured host, the effect is clearly negative
+for tangent from 53 to 256 bits.
+
+**Targeted follow-up:** Keep the certified centered
+sin/cos fast path ONLY when `halvings==0`,
+`work>=256` and a single result (`sine` or `cosine`)
+is requested. For `TrigOutputs::both`, retain the
+previous Taylor kernel and one-root cosine construction
+at every precision; this both prevents expensive local
+rational interval division and preserves the same behavior
+for trigonometric double-angle reconstruction. The
+`work>=256` threshold avoids small-precision cache/rational
+overhead and corresponds approximately to precision
+>=224 bits at the initial 32-guard-bit call. These
+thresholds affect only computational cost, never output
+semantics or certification. All existing certified bounds
+and final rounded-endpoint equality rules are unchanged.
+
+**Acceptance:** The performance hypothesis predicts
+preserving most of the 256/1024-bit sin/cos benefit while
+returning tangent to roughly the pre-`4c75d3a7`
+timings (subject to machine variation). Never claim
+the predicted measurements as facts until a new
+warmed-up, unloaded, same-machine 1000x11 report is
+available. In the differential rounding test matrix,
+include widths 192 and 224 bits around the dispatch
+crossover, retaining all existing precisions, signs and
+four rounding modes. The previous tests are not weakened.
+Confirm Unix, Windows and Coverage CI for the follow-up
+commit. Later, optimize tangent independently, potentially
+by outward rounding its interval endpoints to compact
+dyadics before exact division, subject to a rigorous
+error-width analysis and an isolated microbenchmark.
