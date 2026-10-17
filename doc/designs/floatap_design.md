@@ -2699,3 +2699,72 @@ warmed-up 300x7 benchmark on the user's machine to this
 19:22 report. The numerical and performance outcome of this
 new commit is not yet established in Ariadne. Global objective:
 worst strictly <2x, with geometric mean near 1x.
+
+## Controlled 1000x11 tan benchmark, CI failure and rollback (17 October 2026)
+
+**Measurement protocol:** The user explicitly identified
+`Markdown incollato(20261017-192803).md` as the benchmark of the code
+**before** `368348c0`, namely `bd412a26` if the checkout was clean,
+and `Markdown incollato(20261017-192855).md` as the benchmark
+**after** the one-root cosine change. Both reports use the same
+machine and `iterations=1000, samples=11`. This new 1000x11
+pre-change report supersedes older 300x7 runs as the benchmark
+baseline; do not compare these protocols to attribute performance
+changes. Neither report embeds its own commit SHA, so the precise
+code identities are provided by the user rather than machine-verified.
+
+| Metric (all 108 pairs) | Before 368348c0 | After 368348c0 |
+| --- | ---: | ---: |
+| Geometric mean FloatAP / FloatMP | 1.389544x | 1.388666x |
+| Total-time FloatAP / FloatMP | 1.811418x | 1.817842x |
+| Worst ratio | 4.666x (atan, 53 bits) | 4.742x (atan, 53 bits) |
+| Ratios >= 2x | 36/108 | 36/108 |
+| Ratios >= 3x | 13/108 | 13/108 |
+| Ratios >= 4x | 1/108 | 1/108 |
+
+**Measured `tan_nearest` per precision:**
+
+| Bits | FloatAP ns before -> after | FloatAP reduction | Slowdown before -> after |
+| --- | --- | ---: | --- |
+| 53 | 2592.750 -> 2537.250 | 2.14% | 3.300x -> 3.236x |
+| 128 | 3524.166 -> 3420.083 | 2.95% | 3.737x -> 3.385x |
+| 256 | 4785.541 -> 4671.333 | 2.39% | 3.339x -> 3.299x |
+| 1024 | 18061.542 -> 17363.250 | 3.87% | 3.175x -> 3.029x |
+
+The 128-bit ratio improvement is partly due to FloatMP itself
+slowing from 943.167 to 1010.375 ns (+7.13%). The absolute
+FloatAP gain is ~3%, not ~9%. The 53-bit atan worst ratio
+worsened 4.666x -> 4.742x; this is outside the modified
+kernel and is not evidence that the one-root code caused it.
+These observations fall far short of the global worst <2x goal.
+
+**CI blocker:** GitHub Actions for `368348c0`
+(Unix workflow run `39062535889`, Windows
+`39062535867`, Coverage `39062535783`) all finished
+**failure** on 17 October 2026. The failing steps were
+`Test C++`, `Test`, and `Build, Test and Generate Code Coverage`,
+respectively, across macOS, Linux GCC/Clang/TSAN, and Windows.
+GitHub Actions for its parent `bd412a26` had succeeded
+on Unix, Windows and Coverage. This establishes a regression
+in the new change set, although the available GitHub connector
+does not expose the detailed failing assertions or full job logs.
+Do not misdiagnose the exact test or assert a confirmed root cause
+without that evidence.
+
+**Engineering decision:** Revert **both** implementation and tests
+introduced by `368348c0`, restoring the last CI-green
+`bd412a26` file contents for `src/floatap.cpp` and
+`tests/test_float_rounding.cpp`. Retain this journal,
+the recorded 1000x11 before/after performance experiment,
+and the one-root mathematical exploration as *rejected pending
+debugging*, not as accepted code. The restored tree has
+the same numerical implementation as the pre-change benchmark.
+A new CI run of the rollback commit is still required before
+claiming it passes.
+
+**Next priority:** a measurable algorithmic speedup rather than
+a marginal hot-path micro-optimization: `atan` at 53 bits
+remains worst at 4.666x, followed by `tan` 128 bits
+at 3.737x (pre-change). Investigate with targeted profiling,
+preserve certified rounding and the full old tests, and
+repeat the same warmed-up 1000x11 protocol for comparisons.
