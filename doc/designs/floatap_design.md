@@ -5591,3 +5591,19 @@ benchmark and confirm 256 input / 3456 result
 equality, plus absolute atan time and all per-precision
 worst/geomean/total ratios. No CMake/Windows build
 settings or benchmark workload are changed.
+
+## P4 phase 3 build repair: avoid rounding-name shadowing (17 October 2026)
+
+The user supplied an AppleClang `-Wshadow -Werror` build failure in
+`tests/test_float_rounding.cpp` (lines 632-634 after commit
+`c5e77c19`). The 16 newly added independently certified atan literal
+cases declared local variables `near`, `down`, `up`, which shadow
+namespace-scope `Ariadne::near`, `Ariadne::down`,
+`Ariadne::up` in `numeric/rounding.hpp`. Rename the local
+results to `nearest_result`, `downward_result`,
+`upward_result`, and `toward_zero_result`. The exact expected
+literals, mathematical comparisons, number of cases and modes, and
+numerical implementation are unchanged. This addresses the supplied
+compiler diagnostic only; full Unix/Windows/Coverage success and the
+post-timing benchmark result verification still need confirmation.
+The newly created future `remove-gmp` branch is not modified.

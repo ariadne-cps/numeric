@@ -629,18 +629,18 @@ TestFloatRounding<PR>::test_precision_regressions()
                 const auto target=[&](Int offset) {
                     return Rational(mantissa+Integer(offset),denominator);
                 };
-                const FloatAP near=atan(FloatAP::ROUND_TO_NEAREST,argument);
-                const FloatAP down=atan(FloatAP::ROUND_DOWNWARD,argument);
-                const FloatAP up=atan(FloatAP::ROUND_UPWARD,argument);
-                const FloatAP zero=atan(FloatAP::ROUND_TOWARD_ZERO,argument);
-                ARIADNE_TEST_EQUALS(static_cast<Rational>(near),target(0));
-                ARIADNE_TEST_EQUALS(static_cast<Rational>(down),target(row.down_offset));
-                ARIADNE_TEST_EQUALS(static_cast<Rational>(up),target(row.up_offset));
-                ARIADNE_TEST_EQUALS(static_cast<Rational>(zero),target(row.zero_offset));
-                ARIADNE_TEST_EQUALS(near.precision().bits(),row.bits);
-                ARIADNE_TEST_EQUALS(down.precision().bits(),row.bits);
-                ARIADNE_TEST_EQUALS(up.precision().bits(),row.bits);
-                ARIADNE_TEST_EQUALS(zero.precision().bits(),row.bits);
+                const FloatAP nearest_result=atan(FloatAP::ROUND_TO_NEAREST,argument);
+                const FloatAP downward_result=atan(FloatAP::ROUND_DOWNWARD,argument);
+                const FloatAP upward_result=atan(FloatAP::ROUND_UPWARD,argument);
+                const FloatAP toward_zero_result=atan(FloatAP::ROUND_TOWARD_ZERO,argument);
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(nearest_result),target(0));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(downward_result),target(row.down_offset));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(upward_result),target(row.up_offset));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(toward_zero_result),target(row.zero_offset));
+                ARIADNE_TEST_EQUALS(nearest_result.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(downward_result.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(upward_result.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(toward_zero_result.precision().bits(),row.bits);
             }
         }
 
