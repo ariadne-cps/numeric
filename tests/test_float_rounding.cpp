@@ -972,6 +972,57 @@ TestFloatRounding<PR>::test_comparison()
         ARIADNE_TEST_ASSERT(cmp(rational_nan,f2)==Comparison::INCOMPARABLE);
         ARIADNE_TEST_ASSERT(cmp(ap_nan,equal)==Comparison::INCOMPARABLE);
         ARIADNE_TEST_ASSERT(cmp(f2,rational_nan)==Comparison::INCOMPARABLE);
+
+        // Compare FloatAP and FloatDP directly in both operand orders.
+        // -1.25 and the two neighbors used below are exactly representable
+        // by both backends, so expected order does not depend on rounding.
+        const FloatDP dp_equal(-1.25_x,dp);
+        const FloatDP dp_lower(-2.25_x,dp);
+        const FloatDP dp_higher(1.25_x,dp);
+
+        // FloatAP on the left: equal, less, greater.
+        ARIADNE_TEST_ASSERT(f2==dp_equal);
+        ARIADNE_TEST_ASSERT(!(f2!=dp_equal));
+        ARIADNE_TEST_ASSERT(!(f2<dp_equal));
+        ARIADNE_TEST_ASSERT(!(f2>dp_equal));
+        ARIADNE_TEST_ASSERT(f2<=dp_equal);
+        ARIADNE_TEST_ASSERT(f2>=dp_equal);
+
+        ARIADNE_TEST_ASSERT(!(f2==dp_lower));
+        ARIADNE_TEST_ASSERT(f2!=dp_lower);
+        ARIADNE_TEST_ASSERT(!(f2<dp_lower));
+        ARIADNE_TEST_ASSERT(f2>dp_lower);
+        ARIADNE_TEST_ASSERT(!(f2<=dp_lower));
+        ARIADNE_TEST_ASSERT(f2>=dp_lower);
+
+        ARIADNE_TEST_ASSERT(!(f2==dp_higher));
+        ARIADNE_TEST_ASSERT(f2!=dp_higher);
+        ARIADNE_TEST_ASSERT(f2<dp_higher);
+        ARIADNE_TEST_ASSERT(!(f2>dp_higher));
+        ARIADNE_TEST_ASSERT(f2<=dp_higher);
+        ARIADNE_TEST_ASSERT(!(f2>=dp_higher));
+
+        // FloatDP on the left: exercise the distinct mixed overloads.
+        ARIADNE_TEST_ASSERT(dp_equal==f2);
+        ARIADNE_TEST_ASSERT(!(dp_equal!=f2));
+        ARIADNE_TEST_ASSERT(!(dp_equal<f2));
+        ARIADNE_TEST_ASSERT(!(dp_equal>f2));
+        ARIADNE_TEST_ASSERT(dp_equal<=f2);
+        ARIADNE_TEST_ASSERT(dp_equal>=f2);
+
+        ARIADNE_TEST_ASSERT(!(dp_lower==f2));
+        ARIADNE_TEST_ASSERT(dp_lower!=f2);
+        ARIADNE_TEST_ASSERT(dp_lower<f2);
+        ARIADNE_TEST_ASSERT(!(dp_lower>f2));
+        ARIADNE_TEST_ASSERT(dp_lower<=f2);
+        ARIADNE_TEST_ASSERT(!(dp_lower>=f2));
+
+        ARIADNE_TEST_ASSERT(!(dp_higher==f2));
+        ARIADNE_TEST_ASSERT(dp_higher!=f2);
+        ARIADNE_TEST_ASSERT(!(dp_higher<f2));
+        ARIADNE_TEST_ASSERT(dp_higher>f2);
+        ARIADNE_TEST_ASSERT(!(dp_higher<=f2));
+        ARIADNE_TEST_ASSERT(dp_higher>=f2);
     }
 
 }
