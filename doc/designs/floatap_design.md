@@ -5411,3 +5411,108 @@ The subsequently accessible user-pasted `Markdown incollato(20261017-222901).md`
 At 53 bits FloatAP sine changes 1283.709 -> 1299.417 ns and cosine 1362.916 -> 1407.333 ns between these two timing-only runs, despite no further mathematical kernel edit in that interval. MPFR cosine varies 459.458 -> 444.500 ns. These numbers **must not** be interpreted as the performance of the next centered sine/cosine threshold adjustment, which has no user benchmark yet. At 128 bits overall weighted ratio 1.043x is a further marginal improvement but still fails <1x. 1024-bit meets all three constraints on the supplied measurement; 256-bit worst still exceeds 2x.
 
 As separately checked, commit `94c3cce1` (benchmark linking repair) passed Unix and Coverage; Windows workflow 39075150674 is recorded as FAILURE. We do not have the Windows failure diagnostic and must not claim it was green. A later commit `a8290e20` has Unix/Windows/Coverage workflows started but was still pending at time of this journal entry. The Windows error, if still present, requires diagnosis before considering P4 phase 2 portable. Further benchmark comparisons must preserve correct rounding and all exact expected literals.
+
+## P4 phase 2: first measured 53-bit centered sin/cos improvement (17 October 2026, 22:34)
+
+**Measured source:** User-supplied `Markdown incollato(20261017-223420).md`,
+1000 iterations, 11 samples, 27 operations at each of 53, 128,
+256 and 1024 bits. Compared to `Markdown incollato(20261017-222901).md`
+taken before centered-trigonometric dispatch threshold was lowered
+from 128 to 64 work bits (implementation commit `a8290e20`).
+The latest source journal commit `104f9f02` does not alter arithmetic.
+The new report explicitly prints:
+
+```
+Numerical verification PASS: 256 paired inputs and 3456 paired
+operation results (exact values, comparison outcomes and binary64 bits).
+```
+
+This confirms exact FloatAP/FloatMP agreement on the complete
+*benchmarked input pool*, not universally correct rounding.
+Independently certified dyadic expected-literal tests for sin/cos
+near +1/2 and -1/2, at 53/128/256/1024 bits in all four
+rounding modes, remain part of the regression suite.
+
+**Targeted 53-bit gain in absolute FloatAP latency:**
+
+| Operation | 22:29 ns (pre-P4 phase 2) | 22:34 ns (post-P4 phase 2) | Change | AP/MPFR at 22:34 |
+| --- | ---: | ---: | ---: | ---: |
+| sin_nearest | 1299.417 | 1009.458 | -22.31% | 1.450x |
+| cos_nearest | 1407.333 | 1010.875 | -28.17% | 2.203x |
+| tan_nearest | 1440.541 | 1437.167 | -0.23% | 1.801x |
+| atan_nearest | 1331.541 | 1329.750 | -0.13% | 2.419x |
+
+The sum of sine and cosine medians improves by
+686.417 ns; the full 53-bit sum of 27 FloatAP
+medians improves by 666.544 ns, from 11843.751
+to 11177.207 ns (-5.63%). Thus the intended
+kernels explain essentially all the absolute AP
+saving, with the other operations net +19.873 ns.
+The corresponding 53-bit MPFR sum changes from
+8214.874 to 8403.711 ns (+188.837 ns).
+The improvement in the *relative* total ratio
+therefore reflects both real FloatAP savings and
+between-run MPFR drift. The speedup is measured
+on this concentrated near-1/2 workload and should
+not be extrapolated to arbitrary trig arguments.
+
+| Bits | P4 phase 1 -> phase 2 geomean AP/MPFR | P4 phase 1 -> phase 2 total | P4 phase 2 worst | Phase 2 >=2x count |
+| --- | --- | --- | --- | ---: |
+| 53 | 0.883x -> **0.835x** | 1.442x -> **1.330x** | 2.419x atan_nearest | 2 |
+| 128 | 1.260x -> **1.239x** | 1.043x -> 1.068x | 2.969x div_up | 8 |
+| 256 | 0.980x -> **0.946x** | 0.558x -> **0.547x** | 2.101x div_nearest | 2 |
+| 1024 | 0.724x -> 0.725x | 0.244x -> 0.245x | 1.940x add_nearest | 0 |
+| ALL | 0.943x -> **0.918x** | 0.438x -> **0.434x** | 2.969x div_up | 12 |
+
+53-bit cosine slowdown is substantially reduced
+from 3.166x to 2.203x but remains above the
+strict 2x ceiling; atan is now worst at 2.419x.
+The 53-bit absolute excess over MPFR summed over
+all 27 operations is still +2773.496 ns
+(11177.207 - 8403.711). The most important
+remaining positive excesses include atan
+(+779.958 ns), tangent (+639.042 ns),
+cosine (+552.084 ns), logarithm (+415.250 ns),
+acos (+373.583 ns), asin (+307.499 ns)
+and sine (+313.458 ns). Thus reaching <1x
+weighted total at 53 bits needs broader
+certified-kernel improvements, not another
+tiny arithmetic primitive optimization.
+
+128-bit total becomes 1.068x in this run,
+versus 1.043x immediately before; absolute
+FloatAP total rises from 13595.208 to
+13860.167 ns (+264.959 ns), chiefly from
+asin/acos/tan timing changes, NOT the changed
+53-bit centered trig dispatch. No persistent
+128-bit regression is established from one run.
+256-bit worst remains above 2x, though only
+two division modes exceed the threshold.
+1024 bits passes all three current performance
+goals for this run (worst 1.940x).
+
+**CI:** GitHub Actions for source commit
+`a8290e20` (Unix 39075450493,
+Windows 39075450467, Coverage 39075450477)
+all finished SUCCESS. The immediately
+following journal-only commit `104f9f02`
+also completed Unix 39075496983, Windows
+39075496973 and Coverage 39075496977
+SUCCESS. As requested by the user,
+the unrelated proposed Windows Ninja
+link-pool/CMake workaround was **not applied**.
+This entry changes only design documentation,
+and no new performance numbers are claimed
+without an additional host benchmark.
+
+**Next algorithmic target:** 53-bit
+`atan` (largest remaining worst ratio and
+large absolute excess); then investigate the
+certified `tan` path and fixed-point rounding
+from certified endpoints. For 128-bit worst
+ratio, retain separate work on portable
+division and exact add/sub. Expand
+independent hard-to-round/domain-diverse
+literals before extending an optimized
+shortcut. Keep the exact benchmark
+post-timing equality verifier enabled.
