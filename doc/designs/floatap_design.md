@@ -2768,3 +2768,56 @@ remains worst at 4.666x, followed by `tan` 128 bits
 at 3.737x (pre-change). Investigate with targeted profiling,
 preserve certified rounding and the full old tests, and
 repeat the same warmed-up 1000x11 protocol for comparisons.
+
+## Postmortem: one-root tangent CI failure is a test fixture error (17 October 2026)
+
+**New evidence:** The user provided `logs_105860848323.zip` with the
+full failing GitHub Actions logs for `368348c0`. Unix GCC 13,
+Clang 16, AppleClang 21 and ThreadSanitizer all report one failing
+C++ executable, `test_float_rounding` (18 of 19 CTest entries pass).
+They identify the same exception inside `test_precision_regressions()`:
+
+```
+FloatAP: Dyadic is not exactly representable at the requested precision
+tests/test_float_rounding.cpp:143: calling test_precision_regressions()
+```
+
+**Root cause (test fixture, not proven RTL/production error):**
+The tangent regression introduced by `368348c0` iterates precisions
+`{7,53,128,256,1024}` and includes
+`Dyadic(1023,10u)`, `Dyadic(1025,10u)` as well as values near
+the `|x|=1` reconstruction boundary. Its construction expression
+`FloatAP a(argument,ap)` requests **exact** representation of
+each dyadic input. Values with 10 or more significant bits cannot
+be represented exactly with a 7-bit FloatAP significand; the
+constructor correctly throws. This is not evidence that the
+one-root cosine enclosure violated its mathematics, and the
+reported historical `atan` slowdown was unrelated to this path.
+The earlier rollback to `9ed3a462` was conservative given the
+absence of logs, but its generic description of a production
+regression is superseded by this diagnosed test-fixture failure.
+
+**Corrected test:** Restore the *same* one-root production
+implementation from `368348c0`, restore its full tangent test
+matrix (no removal of values or precisions), but explicitly
+round the dyadic input using
+`FloatAP a(Rational(argument), FloatAP::ROUND_TO_NEAREST, ap)`.
+Construct the MPFR oracle from `static_cast<Rational>(a)`
+at the identical precision. All four rounding modes of the
+`tan` operation remain tested, independent of this input
+pre-rounding. Do not change the exact `Dyadic` constructor
+contract or weaken any original differential assertions.
+
+**Performance evidence and decision:** Controlled same-host
+1000-iteration, 11-sample benchmark before/after `368348c0`
+found 2.1%, 3.0%, 2.4%, 3.9% faster FloatAP tangent at
+53/128/256/1024 bits, respectively. That is a modest real
+optimization, not a solution to the worst-case threshold;
+geometric mean 1.390x -> 1.389x, aggregate total ratio
+1.811x -> 1.818x, worst 4.666x -> 4.742x due to `atan`
+53-bit variation. Reintroducing the one-root optimization is
+justified **only if the corrected tests pass CI**. Keep all
+historical tests and the high-precision rounding contracts
+intact. On failure distinguish implementation error, test
+fixture and CI/environment before another rollback.
+This corrective commit does not establish CI success yet.
