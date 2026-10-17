@@ -4959,3 +4959,14 @@ MPFR differential tests remain valuable auxiliary regression checks,
 without constituting the source of truth for these fixed oracles.
 The benchmark still lacks a numerical preflight and no benchmark
 performance number is affected by this test-only addition.
+
+## Compile repair of independent expected-literal tests (17 October 2026)
+
+The 128/256/1024-bit hard-coded exact dyadic literal regression was
+initially written with `Bits(row.bits)`, but `Bits(unsigned long
+long)` is deliberately private: only the `_bits` literal factory
+may instantiate this tag. The public `ArbitraryPrecision(std::size_t)`
+constructor explicitly supports dynamic precision counts. Construct
+`ArbitraryPrecision p{static_cast<std::size_t>(row.bits)}` instead.
+No expected mantissa, rounding offset, case or comparison changes.
+Full CI pass must be confirmed before calling the test valid.
