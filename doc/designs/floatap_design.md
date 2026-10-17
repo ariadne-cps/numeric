@@ -4829,3 +4829,89 @@ P1 repeat. The future P2 wide-limb kernel should
 remain GMP-independent and must *earn* its 128-bit
 dispatch with isolated measurements, not optimistic
 extrapolation.
+
+## Correctness audit of the performance comparison (17 October 2026)
+
+**Critical measurement limitation identified in source review.**
+The current `benchmarks/benchmark_backend_workload.hpp`
+constructs 32 exact Rational inputs independently as FloatMP and FloatAP
+at nominal precision 53/128/256/1024 bits. The `report` lambda
+only calls `median_ns`; each operation's return value is kept
+alive but never numerically compared with the other backend.
+`benchmark_compare_multiple_precision_backends.cpp` pairs only
+the **timing** records. Consequently all previous speed ratios,
+including the 21:44 P1 repeat, are **timing-only evidence**,
+NOT confirmation that every benchmark operation computes the
+same correctly rounded numerical value. Nor do they prove
+that the nominal target precision is achieved on all inputs.
+
+**Distinguish representation from mathematical accuracy.** The
+FloatAP invariant is a p-bit normalized integer significand for
+finite nonzero values, along with a signed power-of-two exponent.
+This representation alone does not guarantee p bits of accuracy:
+a low-accuracy result padded with trailing zeros might also have
+a p-bit representation. For transcendental functions, the
+certified-enclosure/Ziv-refinement algorithm *is intended* to
+guarantee correctly rounded p-bit results IF every computed
+interval really encloses the mathematical value and the rational
+endpoint rounding is correct. These premises require independent
+validation. Existing differential FloatAP-vs-MPFR tests in
+`tests/test_float_rounding.cpp` include multiple precisions,
+rounding modes and boundary cases, but are not an exhaustive
+oracle for every benchmark input, every operation or the whole
+real domain.
+
+**Mandatory next validation gate, before further optimization.**
+Introduce a correctness preflight into
+`benchmark_compare_multiple_precision_backends`, reusing
+the exact same shared workload's operations and 32 inputs.
+Outside ALL timed regions, compare at each requested precision:
+
+- All 32 converted `a` and `b` input values across backends
+  as exact dyadic `Rational` values.
+- For every one of the 27 operation names and 32 input indices,
+  require exact numerical equality between independently
+  evaluated FloatAP and FloatMP results. Float outputs compare
+  through exact `Rational` conversions (no conversion to
+  `double` and no tolerance); comparison outcomes compare
+  directly; `to_double` compares the exact binary64 bit
+  patterns, including sign bits; `to_rational` compares exactly.
+- Assert the requested precision in both floating backends and
+  the p-bit significand normalization for each nonzero finite
+  FloatAP output. This is a structural invariant check,
+  *not* a substitute for numerical agreement.
+- Fail explicitly with precision, operation, input index,
+  rounding mode and exact differing values. No benchmark
+  slowdown aggregates are valid on a failed preflight.
+- Run the preflight *before* measurements, preferably in
+  a separate phase for BOTH backends, and ensure all expensive
+  conversions/checks lie outside `median_ns`. Preserve the
+  1000x11/27-operation timing workload, one warm-up sample and
+  the independent FloatDP-vs-FloatAP speed benchmark.
+- Keep the complete four-mode differential test suite and extend
+  domain-diverse/hard-rounding tests independently of the
+  32-element benchmark pool; a successful benchmark preflight
+  establishes equality only on that finite pool.
+
+There are 27 * 32 * 4 = 3456 operation/precision/index
+comparisons, plus 2 * 32 * 4 = 256 input comparisons,
+before any special-value or adversarial expansion.
+This numerical preflight is REQUIRED before treating
+<1x or <2x performance objectives as meaningful
+correct-rounding comparisons.
+
+**Independent CI blocker on P2.** As checked after commit
+`4e23c5db`, Unix run 39072784107 (GCC/Clang/macOS
+and sanitizer jobs), Windows run 39072784090, and
+Coverage run 39072784093 all have conclusion FAILURE,
+with the named Build step failing. The GitHub connector
+does not expose the detailed build diagnostic through
+its allowed job-log endpoints, so the exact compiler
+error is NOT known. Do not guess a root cause or claim
+P2 functional correctness, portability or speedup.
+Resolve the actual compiler diagnostics first, rerun
+Unix/Windows/Coverage and separately review Codecov
+patch coverage. P0/P1 precede this failed P2 commit
+and were green. The validator design above is not yet
+implemented: this journal change makes no new source,
+test or benchmark performance claims.
