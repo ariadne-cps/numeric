@@ -2737,6 +2737,37 @@ Interval outward_dyadic_interval(Interval const& input, unsigned long bits) {
     return {Fraction(lower, bits), Fraction(upper, bits)};
 }
 
+// Certified linearization of atan around 1/2, for signed inputs.
+// Cache an OUTWARD interval of atan(1/2), never a rounded scalar.
+// For |delta|<=2^-ceil(work/2) and work>=4, y=|x|=1/2+delta
+// lies inside [1/4,3/4]. There
+// |atan''(y)|=2*y/(1+y*y)^2 <= 3/2, hence |R|<=delta^2.
+// The derivative 4/5 is an EXACT rational, not a second cache.
+Interval centered_atan_half_interval(Fraction const& input,
+                                     Fraction const& delta,
+                                     unsigned long work) {
+    struct Cache {
+        unsigned long work = 0;
+        std::optional<Interval> center;
+    };
+    static thread_local Cache center_cache;
+    if (!center_cache.center || center_cache.work < work) {
+        if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
+            throw std::overflow_error("FloatAP centered atan precision overflow");
+        }
+        center_cache.center = outward_dyadic_interval(
+            atan_half_interval(work + 40ul), work + 24ul);
+        center_cache.work = work;
+    }
+    const Fraction linear = Fraction(4L) * delta / Fraction(5L);
+    const Fraction remainder = delta * delta;
+    const Interval positive{
+        center_cache.center->lower + linear - remainder,
+        center_cache.center->upper + linear + remainder
+    };
+    return input.sign() < 0 ? negative(positive) : positive;
+}
+
 struct TangentHalfEnclosures {
     Interval tangent;
     Interval derivative;
@@ -2891,8 +2922,14 @@ Interval evaluate(Function function, Fraction const& x, unsigned long work) {
                 sine_cosine_intervals(x, work, TrigOutputs::both);
             return divide(sine, cosine);
         }
-        case Function::arctangent:
+        case Function::arctangent: {
+            const Fraction delta = absolute(x) -
+                Fraction(1L) / Fraction(2L);
+            if (work >= 4ul && sufficiently_near_half(delta, work)) {
+                return centered_atan_half_interval(x, delta, work);
+            }
             return atan_interval(x, work);
+        }
         case Function::arcsine: {
             const Fraction offset = absolute(x) -
                 Fraction(1L) / Fraction(2L);
