@@ -186,6 +186,8 @@ template<> class Float<ArbitraryPrecision> {
     static Exponent bit_length(mpz_srcptr x) {
         return floatap_exponent_from_bit_length(mpz_sizeinbase(x, 2));
     }
+    // Normalize and round an already-owned nonzero positive significand.
+    static void round_scaled_integer(FloatAP& result, Exponent scale, Rounding mode);
     void set_zero(bool negative) {
         _kind = Kind::Finite;
         _negative = negative;

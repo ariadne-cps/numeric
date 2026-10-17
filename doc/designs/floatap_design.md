@@ -2387,3 +2387,58 @@ no coverage improvement or new CI success is claimed yet.
 **Delivery rule:** The only source modification is to the test;
 no FloatAP production code or shared assertions have been weakened.
 Keep the journal and test together on `remove-mpfr`.
+
+## New-machine performance baseline and direct GMP result rounding (17 October 2026)
+
+**Reference:** the user changed benchmark machines; therefore the
+provided `Markdown incollato(20261017-185756).md` is the ONLY
+performance baseline for this optimization cycle. It contains
+300 iterations and 7 timed samples per operation at 53, 128, 256,
+and 1024 bits, with 27 operation classes per precision. The total
+108-point geometric-mean slowdown is **2.160x**, time-weighted ratio
+**2.771x**, and worst case **7.367x** (`atan_nearest`, 53 bits).
+70 of 108 ratios are >=2x. The required aspirational target is a
+global worst-case FloatAP/FloatMP ratio **strictly below 2x** with
+geometric mean as close as possible to 1x. All before/after timings
+must be collected on the same host, Release configuration, inputs,
+iterations and sample count. Older machine timings are not comparable.
+
+**Evidence and bottleneck:** FloatAP's add/sub kernel previously
+constructed two independent GMP temporaries (`exact` and `one`),
+aligned and combined them, then invoked `from_ratio(exact,1,...)`,
+which allocated its own FloatAP and copied the exact integer a
+second time into the result significand. The multiplication kernel
+followed the same pattern. On the new machine, `sub_nearest` is
+4.11x, 4.73x, 4.40x, 3.85x slower at the four precisions.
+Nearest addition is 2.68x, 3.68x, 3.21x, 3.42x; nearest
+multiplication is 2.79x, 2.15x, 1.64x, 1.41x.
+The old general-rational path is not needed for these exact binary
+integer intermediates.
+
+**Optimization hypothesis:** split the existing integer-denominator
+rounding into `round_scaled_integer(FloatAP&,Exponent,Rounding)`.
+This helper works directly on a nonzero, already-owned positive GMP
+significand, with its sign stored as a separate bit; it retains
+the same guard/sticky/tie-to-even checks and checked exponent arithmetic.
+`from_ratio(n,1,...)` calls this same helper after copying the
+numerator exactly once, preserving all other call sites.
+`add_sub` and `mul` instead construct the output first, do the
+GMP accumulation directly inside its significand and round in-place,
+eliminating the extra `mpz_t` temporaries and one integer copy.
+The very-large-exponent signed-sticky branch remains unchanged.
+Exact cancellation preserves the pre-existing signed-zero rule
+(downward yields negative zero). For opposite-sign additions, the
+sign is adjusted if the subtraction of magnitudes underflows.
+NaN/infinity/zero cases, exception checks and precision propagation
+are untouched.
+
+**Validation requirements:** existing differential FloatAP-versus-MPFR
+tests at 7, 53, 128, 256 and 1024 bits cover all four rounding modes,
+including exact cancellation and far exponent gaps.
+Rebuild the full project and run all affected tests/CI before accepting
+this production refactor. Use a fresh same-machine 300x7 benchmark to
+record per-operation and aggregate deltas, including possible regressions
+in the already-fast operations. The hypothesis predicts improvement
+primarily in add/sub/mul; no result or attainment of <2x is claimed
+until measured. Treat transcendental, division, and square root as
+separate follow-up algorithmic work, not as effects of this change.
