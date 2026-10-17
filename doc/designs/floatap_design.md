@@ -4615,3 +4615,147 @@ attributing any speedup. The original 21:31 benchmark is
 still the performance baseline. No MPFR or GMP dependency
 has been added; the long-term independent-limb design
 remains the intended route for P2/P3.
+
+## P0/P1 benchmark evaluation and independent P1 re-run (17 October 2026)
+
+**Measured reports and identification:** The original
+`Markdown incollato(20261017-213109).md` precedes P0.
+`Markdown incollato(20261017-214146).md` is the first full
+1000-iteration, 11-sample report after P0 commit `d9e9b348`.
+`Markdown incollato (2).md` is the initial analogous report
+after P1 commit `bb38b4b1`.
+The independent repeat after P1 is
+`Markdown incollato(20261017-214445).md`. These are
+user-supplied, not benchmarks run by this journal change.
+All four contain 27 operations per precision at
+53/128/256/1024 bits, paired FloatAP and MPFR timings.
+Do not change the workload to target particular ratios.
+
+| Bits | Metric | Before P0 | After P0 | First P1 | Repeat P1 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 53 | geomean AP/MP | 0.961x | 0.932x | 0.974x | 0.937x |
+| 53 | total AP/MP | 1.481x | 1.460x | 1.486x | 1.462x |
+| 53 | worst AP/MP | 3.163x cos | 3.020x cos | 3.179x cos | 3.343x div_nearest |
+| 128 | geomean AP/MP | 1.332x | 1.279x | 1.336x | 1.299x |
+| 128 | total AP/MP | 1.120x | 1.087x | 1.301x | 1.138x |
+| 128 | worst AP/MP | 2.902x div_nearest | 2.895x div_up | 2.984x div_up | 2.930x div_up |
+| 256 | geomean AP/MP | 1.035x | 1.015x | 1.011x | 1.012x |
+| 256 | total AP/MP | 0.579x | 0.588x | 0.573x | 0.588x |
+| 256 | worst AP/MP | 2.275x div_nearest | 2.228x div_up | 2.443x div_up | 2.192x div_nearest |
+| 1024 | geomean AP/MP | 0.759x | 0.755x | 0.754x | 0.739x |
+| 1024 | total AP/MP | 0.250x | 0.252x | 0.251x | 0.248x |
+| 1024 | worst AP/MP | 2.104x compare | 1.975x add_nearest | 1.974x add_down | 2.024x add_nearest |
+| ALL | geomean AP/MP | 1.001x | 0.977x | 0.998x | 0.977x |
+| ALL | total AP/MP | 0.451x | 0.455x | 0.467x | 0.451x |
+
+The AP/MP ratios >=2x per precision are, in this
+same run order:
+53: 3/3/4/3; 128: 10/9/10/8;
+256: 6/4/6/3; 1024: 1/0/0/1;
+ALL: 20/16/20/15. The second P1 run therefore has
+15 of 108 pairs >=2x, but the stable <2x target is
+not achieved. In particular, the 1024-bit worst
+moves from just under to just over 2x, showing why
+a small-margin pass should not be treated as robust.
+
+**P0 and P1 intended kernels have independently
+clear latency improvement, unlike aggregate variation.**
+FloatAP `compare` before P0 -> first P0,
+in ns: 53 4.958->2.750; 128 5.083->2.792;
+256 5.333->2.750; 1024 5.083->2.959,
+decreases of 41.8-48.4%. These gains persist
+after P1: in the repeated P1 run, compare takes
+2.750, 2.792, 2.750, 2.750 ns respectively.
+The FloatAP `sqrt_nearest` latency after P0 ->
+first P1 -> repeated P1, ns:
+53 138.959->100.167->97.833,
+128 203.083->133.292->127.125,
+256 244.292->165.000->161.917,
+1024 514.708->362.750->334.250.
+The P1 repeat ratios for sqrt are
+53 1.995x, 128 1.343x, 256 1.438x,
+1024 1.210x. At 53, 1.995x is a
+*borderline single-run pass*; the initial P1
+run was 2.343x because the MPFR reference
+time differed. Preserve both observations.
+
+**The suspicious 128-bit `log`/`sin` slowdown is
+not reproduced.** Their FloatAP medians (ns):
+
+| Operation @128 | After P0 | First P1 | Repeat P1 |
+| --- | ---: | ---: | ---: |
+| log_nearest | 1430.042 | 3205.166 | 1439.041 |
+| sin_nearest | 1259.709 | 1831.708 | 1236.875 |
+
+The initial P1 run had a 2389.334 ns rise
+in the sum of all 27 FloatAP @128 medians;
+log (+1775.124 ns) and sin (+571.999 ns)
+explained 98.2% of it despite neither kernel
+being changed by P1. The repeat puts the
+FloatAP sum back near the post-P0 baseline:
+P0 14068.414 ns; first P1 16457.748 ns;
+repeat P1 14084.247 ns. Thus the 128-bit
+aggregate 1.301x to 1.138x recovery has
+a concrete explanation in non-reproduced
+log/sin outliers. It does not identify their
+root cause; CPU load, clock and cache effects,
+or measurement noise remain unverified hypotheses.
+The P0 128-bit MPFR sum was 12945.249 ns
+versus 12371.458 ns on P1 repeat, so even
+with roughly equal absolute FloatAP total,
+the relative total ratio changed from 1.087x
+to 1.138x because the reference backend
+timings changed. Never attribute this
+difference automatically to P1.
+
+**Additional single-run comparator anomaly @53.**
+The P1 repeat global worst is
+`div_nearest`@53 = 108.792 / 32.542
+= 3.343x. The MPFR division median of
+32.542 ns is unusually low compared to
+the before-P0, P0, and initial P1
+MPFR medians 60.167, 60.167 and
+59.667 ns respectively. FloatAP division,
+by contrast, was 109.875, 109.875,
+97.709 and 108.792 ns across the
+four runs. This mismatch may be
+measurement noise or benchmark effects,
+NOT proven speed regression. Under the
+ordinary ~60 ns MPFR reference, the
+observed 108.792 ns would be ~1.81x.
+Do not simply discard the recorded 3.343x:
+repeat the 53-bit MPFR/FloatAP division
+measurement until the reference discrepancy
+is understood, retaining raw absolute times.
+
+**Verified CI status.** Both implementation
+commits passed Unix, Windows and Coverage:
+P0 `d9e9b348`: Unix 39071901197,
+Windows 39071901178, Coverage 39071901183;
+P1 `bb38b4b1`: Unix 39071981314,
+Windows 39071981324, Coverage 39071981337.
+The separate Codecov patch status has
+not been verified here. These benchmark
+comparisons are not application-wide
+performance claims, and MPFR is still
+used as differential oracle / benchmark
+rather than as native FloatAP arithmetic.
+
+**Decision:** Keep P0 and P1. Neither of
+the anomalous 128-bit log/sin results
+reappeared, and the target operation
+latencies improve. Do not alter or roll
+back correctly rounded source code
+to chase unisolated benchmark variance.
+P2 (portable, GMP-independent interface
+for small-limb division and exact
+quotient/remainder) is still the next
+important architectural optimization,
+especially for 128 and 256 bits. P4
+(dyadic fixed-point certification to reduce
+rational allocations) remains important
+for the 53-bit time-total objective.
+Before calling any <2x outcome stable,
+repeat cases with narrow margins, including
+sqrt@53 and add_nearest@1024, and isolate
+MPFR div_nearest@53.
