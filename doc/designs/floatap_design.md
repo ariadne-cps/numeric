@@ -2,7 +2,10 @@
 
 This is the living design and user manual for the **experimental** `FloatAP`
 backend. Keep this document synchronized with every implementation change.
-The migration is tracked on branch `remove-mpfr`.
+The historical MPFR-removal work is tracked on `remove-mpfr`. The
+GMP-free continuation is tracked on `remove-gmp`; see
+[`integer_rational_design.md`](integer_rational_design.md) for the shared
+unsigned limb core and the `Integer`/`Rational` migration.
 
 ## Names and coexistence
 
@@ -5607,3 +5610,23 @@ numerical implementation are unchanged. This addresses the supplied
 compiler diagnostic only; full Unix/Windows/Coverage success and the
 post-timing benchmark result verification still need confirmation.
 The newly created future `remove-gmp` branch is not modified.
+
+## Companion GMP-free core design (18 October 2026)
+
+This journal is retained as the authority for FloatAP precision,
+correct rounding, independently certified literals and per-precision
+performance. On branch `remove-gmp`, it is maintained **alongside**
+[`integer_rational_design.md`](integer_rational_design.md), which
+owns the shared `BigUnsigned`, signed `Integer`, finite/extended
+`Rational`, the transition away from `mpz_t`/`mpq_t`, and planned
+Integer-vs-`mpz_t` and Rational-vs-`mpq_t` benchmarks. The branch
+was forked from the all-green `remove-mpfr` commit `9823a3b1`.
+
+Shared-limb changes that alter FloatAP behavior, runtime cost,
+rounding certification, or its benchmark must update **both journals
+in the same commit**. GMP and MPFR may remain in testing/benchmark
+backends during the migration; no GMP-independent FloatAP status is
+claimed until its production representation and algorithms cease to
+call GMP. Preserve the 1000x11 FloatMP/FloatAP workload, exact
+post-timing equality verification, and all existing independent
+mathematical literal tests.
