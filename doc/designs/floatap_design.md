@@ -4006,3 +4006,90 @@ without tuning solely to the 32-value benchmark pool.
 The separately proven local log and atan reductions
 and integer-power refactor remain future *independent*
 experiments, not part of this commit.
+
+## Benchmark 20:58 and exact integer-significand pow optimization (17 October 2026)
+
+**Latest controlled baseline:** `Markdown incollato(20261017-205819).md`
+was measured on the same host with the established 1000 iterations,
+11 median samples, 27 operations and four precisions (53,128,256,
+1024 bits), immediately after commit `1d5adf8c`.
+Compare with the preceding valid benchmark
+`Markdown incollato(20261017-204344).md` after `ecc13dcc`.
+The 19:53 benchmark with simultaneous coverage remains excluded.
+
+| Aggregate | 20:43 before exp | 20:58 after exp |
+| --- | ---: | ---: |
+| Geomean FloatAP/FloatMP | 1.090x | **1.063x** |
+| Total-time ratio | 0.591x | **0.492x** |
+| Worst slowdown | 3.335x (exp@128) | **3.302x (pow7@53)** |
+| Geomean, 1024 bits | 0.809x | **0.765x** |
+
+**Measured FloatAP exponential gains:**
+53 bits: 1979.417->1101.333 ns (-44.4%),
+128 bits: 2872.625->1387.375 ns (-51.7%),
+256 bits: 3678.167->1478.625 ns (-59.8%),
+1024 bits: 12275.709->2591.083 ns (-78.9%).
+The centered exponential therefore achieved the predicted
+strong improvement *on this near-1/2 workload*.
+At 1024 bits, exp FloatAP/FloatMP=2591.083/5563.042
+=0.466x. The worst-case now occurs in integer power:
+pow7@53 262.916/79.625=3.302x; the next high ratios
+include div_up@128 132.875/47.375=2.805x,
+div_nearest@128 170.459/63.291=2.693x and
+sqrt@53 144.916/49.125=2.950x.
+The user hard objective all 108 ratios <2x is NOT met.
+Keep measuring all operations, not only the improved exp.
+
+**Starting CI:** GitHub Unix run `39068877587`, Windows run
+`39068876991`, and Coverage run `39068877551` all
+completed successfully on `1d5adf8c`. The 20:58 report is
+the last measured baseline before the present power change.
+
+**New architectural power path:** A FloatAP finite nonzero value
+is represented exactly as
+`(-1)^negative * significand * 2^exponent` with nonnegative
+GMP integer significand. Thus an integer power n>=0 has exact
+magnitude `significand^n * 2^(exponent*n)` and sign
+`negative && (n odd)`. There is no need to build a generic
+GMP `mpq_t`, canonicalize a huge dyadic denominator, compute
+numerator and denominator powers separately, and pass their
+quotient to `from_ratio`. Instead, take a single
+`mpz_pow_ui` of the stored significand; use exponentiation
+by doubling with `checked_add` to calculate exponent*n
+without signed overflow; then call the existing
+`round_scaled_integer` once. This has the same exact
+mathematical input to the single rounding step as the old
+rational division. For n=1 return the existing FloatAP
+value unchanged. Keep the entire original rational path
+as a fallback only if the intermediate exponent product
+does not fit Exponent: its normalization can exceptionally
+cancel an enormous negative intermediate exponent,
+so changing that case to an overflow exception would be
+a semantic regression. Preserve the previous ordering
+of n=0, NaN, infinity and signed-zero checks.
+
+**Tests:** Extend FloatAP/FloatMP differential checks
+over 7/53/128/256/1024 bits; both signs; diverse exact
+fractional and integer inputs; powers
+0,1,2,3,7,8,13,31; nearest and all three directed
+rounding modes; all MPFR oracle values derive from
+the already rounded binary FloatAP operand.
+Add separate explicit signed-zero, signed-infinity,
+NaN and exponent-zero assertions. Do not modify any
+previous test. A preexisting round-to-even test covers
+integer powers indirectly; new cases increase semantic
+coverage for exact vs inexact results and directed
+rounding on both signs.
+
+**Next validation:** The change is algorithmic and
+has not yet been benchmarked or passed CI. Require Unix,
+Windows and Coverage success (and review the distinct
+Codecov patch status), then another unloaded same-machine
+1000x11 report comparing all 108 ratios, absolute
+FloatAP and MPFR medians and the new global worst.
+The power optimization is general to any finite input,
+not a shortcut keyed to the benchmark's 32 near-half
+arguments. If a latency improvement comes with changed
+rounding behavior, treat that as a bug rather than
+removing or tailoring the failing test. Other planned
+log/atan-centered optimizations remain independent.

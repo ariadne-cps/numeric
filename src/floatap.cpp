@@ -1430,6 +1430,49 @@ FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& value, Nat exponent) 
         return FloatAP::zero(bits, value.negative() && (degree % 2 != 0));
     }
 
+    // The operand is exactly sign * significand * 2^exponent.
+    // A nonnegative integer power therefore has an exact integer
+    // significand and a binary scale. Round ONCE, after powering:
+    // multiplying already-rounded Floats would introduce double rounding.
+    if (degree == 1ul) {
+        return value;
+    }
+
+    // Calculate exponent*degree with checked binary multiplication.
+    // Exception: the unnormalized product may exceed Exponent even when
+    // normalization cancels it (e.g. very large powers of exact one).
+    // Preserve the old general rational path in that rare situation.
+    FloatAP::Exponent product_scale = 0;
+    FloatAP::Exponent doubled_scale = value._exponent;
+    unsigned long remaining_degree = degree;
+    bool scale_overflow = false;
+    try {
+        while (remaining_degree != 0ul) {
+            if ((remaining_degree & 1ul) != 0ul) {
+                product_scale = FloatAP::checked_add(
+                    product_scale, doubled_scale);
+            }
+            remaining_degree >>= 1u;
+            if (remaining_degree != 0ul) {
+                doubled_scale = FloatAP::checked_add(
+                    doubled_scale, doubled_scale);
+            }
+        }
+    } catch (std::overflow_error const&) {
+        scale_overflow = true;
+    }
+
+    if (!scale_overflow) {
+        FloatAP result(bits);
+        result._negative = value._negative && ((degree & 1ul) != 0ul);
+        mpz_pow_ui(result._significand, value._significand, degree);
+        FloatAP::round_scaled_integer(result, product_scale, mode);
+        return result;
+    }
+
+    // Rare normalization-cancellation/scale-overflow fallback:
+    // retain the original exact rational computation, including its
+    // exception and rounding behavior.
     mpq_t exact;
     mpq_init(exact);
     struct RationalCleanup {

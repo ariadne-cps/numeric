@@ -591,6 +591,73 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // One-round integer power directly from the exact binary
+            // significand. Compare with the MPFR oracle on the same
+            // rounded input, for mixed degrees, both signs, every
+            // directed mode, and low to high precision.
+            for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                const Rational magnitudes[] = {
+                    Rational(0),Rational(1),Rational(1,2),
+                    Rational(3,4),Rational(17,16),Rational(5,3),
+                    Rational(3),Rational(131,128)
+                };
+                for (Rational const& magnitude : magnitudes) {
+                    for (Int sign_factor : {Int(-1),Int(1)}) {
+                        const Rational signed_input =
+                            sign_factor < 0 ? -magnitude : magnitude;
+                        const FloatAP ap_input(
+                            signed_input,FloatAP::ROUND_TO_NEAREST,ap);
+                        const FloatMP mp_input(
+                            static_cast<Rational>(ap_input),
+                            FloatMP::ROUND_TO_NEAREST,mp);
+                        for (Nat power : {Nat(0u),Nat(1u),Nat(2u),
+                                          Nat(3u),Nat(7u),Nat(8u),
+                                          Nat(13u),Nat(31u)}) {
+                            const auto check=[&](auto ap_mode,auto mp_mode) {
+                                ARIADNE_TEST_EQUALS(
+                                    static_cast<Rational>(
+                                        pow(ap_mode,ap_input,power)),
+                                    static_cast<Rational>(
+                                        pow(mp_mode,mp_input,power)));
+                            };
+                            check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                            check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                            check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                            check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                        }
+                    }
+                }
+            }
+
+            // Signed zero, infinities and NaN follow the preexisting
+            // IEEE-style special-case rules; 0th power stays one.
+            const ArbitraryPrecision ap(53_bits);
+            const FloatAP minus_zero=FloatAP::zero(53ul,true);
+            const FloatAP minus_infinity=
+                FloatAP::inf(Sign::NEGATIVE,ap);
+            const FloatAP plus_infinity=
+                FloatAP::inf(Sign::POSITIVE,ap);
+            ARIADNE_TEST_ASSERT(
+                pow(FloatAP::ROUND_TO_NEAREST,minus_zero,Nat(7u)).negative());
+            ARIADNE_TEST_ASSERT(
+                not pow(FloatAP::ROUND_TO_NEAREST,minus_zero,Nat(8u)).negative());
+            ARIADNE_TEST_ASSERT(
+                pow(FloatAP::ROUND_TO_NEAREST,minus_infinity,Nat(7u)).negative());
+            ARIADNE_TEST_ASSERT(
+                not pow(FloatAP::ROUND_TO_NEAREST,minus_infinity,Nat(8u)).negative());
+            ARIADNE_TEST_EQUALS(
+                pow(FloatAP::ROUND_TO_NEAREST,plus_infinity,Nat(0u)),
+                FloatAP(1,ap));
+            ARIADNE_TEST_EQUALS(
+                pow(FloatAP::ROUND_TO_NEAREST,FloatAP::nan(ap),Nat(0u)),
+                FloatAP(1,ap));
+            ARIADNE_TEST_ASSERT(is_nan(
+                pow(FloatAP::ROUND_TO_NEAREST,FloatAP::nan(ap),Nat(7u))));
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Exponential certified Taylor center at BOTH +/-1/2.
             // Check the exact window boundary, one step outside it,
             // all four directions, very low precision, high-precision
