@@ -600,7 +600,7 @@ TestFloatRounding<PR>::test_precision_regressions()
                               1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
                 const MultiplePrecision mp(bits);
-                const Nat offset_power(ap.bits());
+                const Nat offset_power(static_cast<Nat>(ap.bits()));
                 const Rational ulp(Integer(1),
                                    pow(Integer(2),offset_power));
                 // Initial work is bits+32: exercise the exact centered

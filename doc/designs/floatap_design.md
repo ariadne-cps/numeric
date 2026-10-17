@@ -3888,3 +3888,39 @@ Separately, Codecov patch check on ecc13dcc reported
 is not the same as the successful Coverage workflow,
 and tests must be extended semantically rather than
 adjusted just to make a metric pass.
+
+## Windows MSVC C4267 fix in inverse-trig regression tests (17 October 2026)
+
+**Confirmed compiler diagnostic** supplied for GitHub Actions
+Windows 2025 Release run 39067889104 (commit `ecc13dcc`):
+`tests/test_float_rounding.cpp(603)`, error C2220,
+warning C4267: initializing `const Ariadne::Nat`
+from `size_t` may lose data. The build uses MSVC /W4 /WX,
+so this warning stops compilation. This identifies the
+concrete Windows failure that was previously documented
+without accessible compiler logs. It is unrelated to
+FloatAP arithmetic or the certified inverse-trig bounds.
+
+**Minimal portable test fix:** Explicitly convert the
+known small, fixed precision values with
+`const Nat offset_power(static_cast<Nat>(ap.bits()));`.
+The regression matrix is unchanged: 7,53,128,256,1024
+bits, plus a repeat at 53 to exercise cache reuse.
+The power is fed into the same exact Integer(2)^Nat
+ULP construction; no existing test is removed or weakened.
+A source search found only this `const Nat` initialization
+directly from `ap.bits()` in the test source.
+
+**Validation:** The previously merged `ecc13dcc` passed
+Unix and Coverage, and failed Windows only during Build.
+A fresh full Unix/Windows/Coverage matrix must be
+verified for this commit before considering the
+centered asin/acos optimization green on all platforms.
+Codecov patch coverage is a separate status and must
+be assessed via semantic test coverage, not metric hacks.
+The performance baseline remains the user's 20:43
+1000-iteration/11-sample benchmark: geomean 1.090x,
+time-weighted 0.591x and worst 3.335x (exp@128).
+Do not infer a new speedup from a test-only type correction.
+The independently planned exp/log certified-center work
+remains unmerged until the new CI is validated.
