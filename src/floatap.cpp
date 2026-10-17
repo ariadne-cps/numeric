@@ -1375,12 +1375,12 @@ FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
     result_exponent = FloatAP::checked_sub(
         result_exponent, static_cast<FloatAP::Exponent>(offset));
 
-    mpz_t scaled, root, remainder, threshold;
-    mpz_inits(scaled, root, remainder, threshold, nullptr);
+    mpz_t scaled, root, remainder;
+    mpz_inits(scaled, root, remainder, nullptr);
     struct Cleanup {
-        mpz_ptr a, b, c, d;
-        ~Cleanup() { mpz_clears(a, b, c, d, nullptr); }
-    } cleanup{scaled, root, remainder, threshold};
+        mpz_ptr a, b, c;
+        ~Cleanup() { mpz_clears(a, b, c, nullptr); }
+    } cleanup{scaled, root, remainder};
 
     mpz_mul_2exp(scaled, value._significand,
                  FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift)));
@@ -1390,14 +1390,11 @@ FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
     if (mpz_size(remainder) != 0) {
         switch (mode.value()) {
             case FloatAP::Rounding::ToNearest:
-                // sqrt(scaled) > root+1/2 iff 4*scaled > (2*root+1)^2.
-                // Equality is impossible: the left side is divisible
-                // by four, while the right side is odd.
-                mpz_mul_2exp(threshold, root, 1);
-                mpz_add_ui(threshold, threshold, 1);
-                mpz_mul(threshold, threshold, threshold);
-                mpz_mul_2exp(scaled, scaled, 2);
-                increment = mpz_cmp(scaled, threshold) > 0;
+                // scaled = root*root + remainder from mpz_sqrtrem.
+                // sqrt(scaled) > root+1/2 iff 4*remainder > 4*root+1.
+                // Both are integers, so this is exactly remainder > root;
+                // equality at the half-integer cannot occur.
+                increment = mpz_cmp(remainder, root) > 0;
                 break;
             case FloatAP::Rounding::Upward:
                 increment = true;
