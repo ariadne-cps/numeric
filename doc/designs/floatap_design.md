@@ -3146,3 +3146,70 @@ commit. Later, optimize tangent independently, potentially
 by outward rounding its interval endpoints to compact
 dyadics before exact division, subject to a rigorous
 error-width analysis and an isolated microbenchmark.
+
+## Benchmark 20:06 and unresolved Windows compile failure (17 October 2026)
+
+**Controlled performance measurement:** User-supplied
+`Markdown incollato(20261017-200644).md` is the first
+1000-iteration/11-sample benchmark after `5116d004`;
+the comparator is `Markdown incollato(20261017-200024).md`
+for its direct parent `4c75d3a7`, on the user's warmed-up
+machine. The earlier concurrent-coverage 19:53 run is invalid
+for performance comparisons. Values are FloatAP/FloatMP
+slowdowns on the same 108 operation/precision pairs.
+
+| Measure | 20:00 parent | 20:06 current |
+| --- | ---: | ---: |
+| Geometric mean | 1.299815x | **1.300768x** |
+| Time-weighted total | 1.454818x | **1.419272x** |
+| Worst observed ratio | 4.934x (tan@128) | **3.702x (tan@128)** |
+| Slowdowns >=2x | 35/108 | **34/108** |
+| Slowdowns >=3x | 13/108 | **8/108** |
+| Slowdowns >=4x | 3/108 | **0/108** |
+
+**Measured tangent recovery (FloatAP absolute median):**
+
+| Precision | Before ns | After ns | AP runtime change |
+| --- | ---: | ---: | ---: |
+| 53 bits | 3431.209 | 2518.917 | **-26.6%** |
+| 128 bits | 4714.917 | 3478.375 | **-26.2%** |
+| 256 bits | 6289.458 | 4744.625 | **-24.6%** |
+| 1024 bits | 17708.375 | 17037.167 | **-3.8%** |
+
+As intended, limiting the centered sin/cos cache to *single*
+outputs and `work>=256` removes nearly all of tangent's
+earlier slowdown at 53/128/256 bits. The high-precision
+single-output advantage remains: at 1024 bits, FloatAP
+`sin_nearest` is 3362.792 ns versus 5271.625 ns for MPFR
+(0.638x), and `cos_nearest` is 3358.250 ns versus 4260.667 ns
+(0.788x). Most low/medium single-output timing changes are
+small; exact percentages depend on per-backend timing drift.
+The 20:06 performance report is the new reference for
+subsequent numeric optimization, pending platform validation.
+
+**CI blocking issue discovered in follow-up:** GitHub Actions
+for `5116d004`: Unix run `39065259290` succeeded,
+Coverage run `39065259252` succeeded, but Windows run
+`39065259277` failed **during Build** (Windows 2025 Release,
+job 117491463543, step 13). The *parent* `4c75d3a7`
+also failed during Windows Build (run `39064807829`,
+job 117490109874, step 13); the preceding `e9eeb095`
+was green on Unix, Windows and Coverage. Therefore the
+portability/compilation failure first appears with the
+centered trigonometric code or tests introduced in
+`4c75d3a7`, not with the filtering change in `5116d004`.
+Detailed MSVC diagnostics are not available through the
+current GitHub connector (run-level log endpoint empty;
+job-level logs and check annotations are not exposed).
+**Do not claim an identified Windows root cause or infer
+a mathematical failure** from the Build result. The new
+optimization remains pending Windows validation.
+
+**Next action:** obtain the Windows Build diagnostic,
+fix the underlying portable C++ issue without changing the
+certified rounding contracts, verify all three workflows,
+then resume profiling `tan` at 128/256 bits and
+`cos` at 128 bits. Do not stack another speculative
+numeric optimization on top of an unresolved failing
+platform build. Distinguish GitHub Coverage workflow
+success from separate Codecov PR patch thresholds.
