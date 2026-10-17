@@ -4970,3 +4970,17 @@ constructor explicitly supports dynamic precision counts. Construct
 `ArbitraryPrecision p{static_cast<std::size_t>(row.bits)}` instead.
 No expected mantissa, rounding offset, case or comparison changes.
 Full CI pass must be confirmed before calling the test valid.
+
+## P2 compiler portability follow-up: GMP signed limb indices (17 October 2026)
+
+GCC 13 with `-Wsign-conversion -Werror` reported that
+`mpz_getlimbn(input,i/2u)` passes `std::size_t` to the signed
+GMP index type `mp_size_t`. The same latent diagnostic exists in
+the 32-bit GMP-limb branch `mpz_getlimbn(input,i)`. Both call sites
+now use explicit `static_cast<mp_size_t>` on the index. In this
+adapter `bits <= 64`, so `words <= 2`, `i < words` and the
+indices are always 0 or 1, making the conversion lossless on all
+supported GMP platforms. No division algorithm, rounding branch,
+correctness oracle, expected literal or timed workload is changed.
+This is a diagnostic-specific source fix: verify that the post-fix
+Unix/Windows/Coverage CI passes before claiming portability.

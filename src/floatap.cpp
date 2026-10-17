@@ -70,11 +70,13 @@ bool import_small_magnitude(mpz_srcptr input,
 #if GMP_NUMB_BITS == 64
     for (std::size_t i = 0; i < words; ++i) {
         result.limb[i] = static_cast<std::uint32_t>(
-            mpz_getlimbn(input,i/2u) >> (32u * (i%2u)));
+            mpz_getlimbn(input,static_cast<mp_size_t>(i/2u)) >>
+            (32u * (i%2u)));
     }
 #elif GMP_NUMB_BITS == 32
     for (std::size_t i = 0; i < words; ++i) {
-        result.limb[i] = static_cast<std::uint32_t>(mpz_getlimbn(input,i));
+        result.limb[i] = static_cast<std::uint32_t>(
+            mpz_getlimbn(input,static_cast<mp_size_t>(i)));
     }
 #else
     return false; // unchanged GMP fallback for other limb layouts
