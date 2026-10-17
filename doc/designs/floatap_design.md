@@ -2924,3 +2924,74 @@ collect a same-machine, same-build, fully warmed-up benchmark with
 strictly below 2x and geomean near 1x. No improvement is claimed
 until the new benchmark is measured; if regressions occur, classify
 implementation, test and environment causes explicitly.
+
+## Benchmark 19:48: atan acceleration and inverse-trigonometric regression (17 October 2026)
+
+**Incoming measurement:** `Markdown incollato(20261017-194856).md`
+is the first warmed-up 1000-iteration/11-sample benchmark after
+`53f00b55`. Its pre-change comparator is
+`Markdown incollato(20261017-192855).md` (same protocol and host).
+
+| Metric (108 operation/precision pairs) | Before | After |
+| --- | ---: | ---: |
+| Geometric mean FloatAP/FloatMP | 1.389x | **1.351x** |
+| Time-weighted FloatAP/FloatMP | 1.818x | **1.580x** |
+| Worst | 4.742x atan@53 | **4.043x acos@53** |
+| Ratios >=2x | 36/108 | **36/108** |
+| Ratios >=3x | 13/108 | **13/108** |
+
+The new half-centered `atan` reduction is highly effective for
+standalone `atan_nearest`: FloatAP times at 53/128/256/1024 bits
+changed from 2601.000/3792.208/5639.750/36879.416 ns to
+1718.750/2080.542/2223.834/2572.000 ns, reductions of
+33.9%/45.1%/60.6%/93.0%. FloatAP atan is now faster than MPFR
+at 128, 256 and 1024 bits for these benchmark operands.
+
+**Unacceptable unintended costs:** `asin` became slower by
+27.8%/24.0%/16.0% at 53/128/256 bits, and `acos` by
+23.4%/22.1%/14.2%; both improve slightly at 1024 bits.
+The latest global worst is therefore `acos` at 53 bits.
+Unix, Windows and Coverage CI on `53f00b55` all passed, so
+this is a measured performance regression, not a known
+numerical-correctness failure.
+
+**Root-cause hypothesis:** `asin(x)=2*atan(x/(1+sqrt(1-x*x)))`
+passes an argument close to `2-sqrt(3)=0.267949...` for
+`x` near 1/2, the current 32-input benchmark pool. The
+centered atan identity activates for this argument because
+`1/4 < 2-sqrt(3) < 1/3`. A standalone GMP fixed-point
+iteration probe compared the direct kernel and the centered
+reduced kernel at 53/128/256/1024 bits (using work=bits+32):
+direct requires 22/42/76/278 iterations, whereas the
+centered reduced kernel needs 19/35/63/231. The savings
+at moderate work precision are insufficient to compensate
+for interval-cache combination, extra fraction arithmetic
+and certified-constant handling; at 1024 bits, the saved
+iterations outweigh the overhead. This is a strong inference
+from source and measurements, not an instrumented per-function
+profile.
+
+**Next hypothesis: precision-sensitive crossover.** Prefer the
+existing direct certified Taylor kernel for `|x|<1/3`
+when `work<=512` bits, retaining the current `|x|<1/4`
+direct region for higher work precision. In the centered
+region `[1/3,5/7]`, the transformed argument lies in
+`[-1/7,3/19]`, narrower than before. The standalone atan
+benchmark operands near 1/2 stay on the fast centered branch
+at every precision. `asin`/`acos` operands near 1/2
+should return to the direct branch at moderate precision,
+without special-casing the benchmark or changing certified
+interval semantics. The 512-bit crossover is a performance
+hypothesis to be validated, not a numerical threshold.
+
+**Regression:** Extend the existing FloatAP-versus-FloatMP
+atan checks to either side of 1/3, retaining 1/4, 1/2 and
+5/7 boundaries and all four rounding modes, signed inputs,
+and multi-precision cache ordering. Add signed inverse-
+trigonometric checks immediately around 1/2 to the existing
+asin/acos suite. No previous assertions are removed.
+All extrema are still computed as outward-certified intervals
+and the final equality-of-rounded-endpoints criterion is
+unchanged. The next CI and warmed-up 1000x11 benchmark must
+validate the precision-sensitive dispatch and any performance
+claim; do not attribute a speedup to this patch in advance.
