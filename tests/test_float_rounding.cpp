@@ -452,7 +452,7 @@ TestFloatRounding<PR>::test_precision_regressions()
                  "141190488647306426951497947939679424974931379369199690146440126562466409291619758234410430492087736172907390888290563508264155720409054555597508847013932624303633293809435642998784554044791800749147419391451534200559935013628202594044220234864921212360009141120460241474543779193546148756924903705307226952602",0,1}
             };
             for (auto const& row : expected) {
-                const ArbitraryPrecision p(Bits(row.bits));
+                const ArbitraryPrecision p{Bits(row.bits)};
                 const Integer mantissa(String(row.nearest_mantissa));
                 const Integer denominator=pow(Integer(2),Nat(-row.exponent));
                 const auto exact=[&](Int delta) {
