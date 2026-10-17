@@ -4093,3 +4093,98 @@ arguments. If a latency improvement comes with changed
 rounding behavior, treat that as a bug rather than
 removing or tailoring the failing test. Other planned
 log/atan-centered optimizations remain independent.
+
+## Benchmark 21:01 and certified half-centered atan (17 October 2026)
+
+**New measured 1000x11 baseline:** User-supplied
+`Markdown incollato(20261017-210150).md` is the unloaded warmed-up
+same-host report after commit `aa2b61c8`, versus
+`Markdown incollato(20261017-205819).md` before it.
+All 108 FloatAP/FloatMP operation/precision pairs are present
+(27 operations at 53,128,256,1024 bits).
+
+| Statistic | 20:58 pre-pow | 21:01 post-pow |
+| --- | ---: | ---: |
+| Geometric mean AP/MP | 1.063x | **1.024x** |
+| Time-weighted total ratio | 0.492x | **0.488x** |
+| Worst slowdown | 3.302x (pow7@53) | **3.257x (atan@53)** |
+| 53-bit geometric mean | 1.046x | **0.972x** |
+| Cases >=2x | count not recorded here | **27/108** |
+
+**Direct measured power latency (FloatAP ns):**
+
+| Precision | 20:58 | 21:01 | Reduction | 21:01 AP/MP |
+| --- | ---: | ---: | ---: | ---: |
+| 53 | 262.916 | 60.250 | -77.1% | 0.735x |
+| 128 | 392.042 | 97.292 | -75.2% | 0.421x |
+| 256 | 476.750 | 152.917 | -67.9% | 0.341x |
+| 1024 | 1912.417 | 1408.000 | -26.4% | 0.385x |
+
+This verifies substantial speedups on the tested
+`pow7` workload, without changing the single-round
+contract. Do not generalize the timings to all exponents.
+The measured worst cases are now `atan_nearest`@53
+1772.750/544.333=3.257x, `log_nearest`@53
+2088.208/643.833=3.243x, `cos_nearest`@53
+1470.292/454.417=3.236x, `div_up`@128
+146.291/46.041=3.177x, and `sqrt_nearest`@53
+146.459/49.500=2.959x. The 27 ratios >=2x
+split 4/12/8/3 across 53/128/256/1024 bits.
+The global acceptance goal worst strictly <2x
+is NOT yet met. Unix and Coverage workflows for
+`aa2b61c8` passed; Windows was still in progress
+when this follow-up was prepared.
+
+**Certified local atan improvement (independent change).**
+For `y=|x|=1/2+delta` with
+`|delta|<=2^-ceil(work/2)` and `work>=4`,
+the entire Taylor segment lies in [1/4,3/4],
+where `atan'(1/2)=4/5` exactly and
+`|atan''(t)|=2t/(1+t*t)^2<=3/2`.
+Taylor's theorem gives the rigorous
+`atan(y) in atan(1/2)+(4/5)*delta+[-delta^2,+delta^2]`.
+For negative inputs, use oddness and reverse bounds.
+This works for *any* input in a mathematical neighborhood,
+not just the benchmark's sequence, and the old
+argument reduction/Taylor and infinity paths remain
+the fallbacks elsewhere.
+
+**Interval cache and rounding:** Reuse the existing
+`atan_half_interval` certified core at `work+40`,
+then quantize its endpoints OUTWARD to a dyadic scale
+`work+24`. Cache those enclosures thread-locally,
+upgrading work as needed. The per-call linear term
+`(4/5)*delta` and `delta^2` remainder are computed
+as exact GMP rationals. The `certified` loop still
+accepts a result only if BOTH bounds round to the
+same value in the selected rounding mode; otherwise
+it increases work. This is an independent first
+implementation with a likely strong speedup on
+near-half inputs but no measured benefit yet.
+Check if exact rational operations dominate at
+53 bits before attempting an integer-only variant.
+
+**Regression:** Append MPFR differential comparisons
+at 7,53,128,256,1024 bits and revisit 53 after
+a cache precision upgrade. Cover both signs, exact
+1/2, +/-1 or 4 input ulps, exact initial-work
+threshold and +/-2x threshold (the old general
+fallback), and wider inputs 1/4,3/4,5/7,1/3,
+2/3,1,2. Compare the identical rounded FloatAP
+input and all four modes, preserving every old test.
+No failure scenarios are removed or altered to
+make CI pass.
+
+**Acceptance:** Require Unix/Windows/Coverage success
+on the new commit plus an unloaded warmed-up
+1000-iteration/11-sample benchmark on the same
+machine. Report all 108 ratios, FloatAP absolute
+timings, geomean, weighted ratio and worst ratio;
+revert/adjust if the small-precision rational
+kernel increases latency. Future isolated
+opportunities include cached certified log around
+1/2, smaller-work fixed-point sin/cos, and
+128-bit division/compare/add paths. A green
+Coverage workflow is NOT the same as the
+Codecov patch coverage check, which should be
+reviewed separately.
