@@ -4334,3 +4334,230 @@ The global target remains all 108 ratios <2x and a
 geomean approaching 1x. Re-evaluate the center
 if its 53-bit cost does not beat the general
 log path, especially outside the benchmark pool.
+## Benchmark 21:31 and MPFR/GMP-independent optimization priorities (17 October 2026)
+
+**Baseline and provenance.** The user-supplied
+`Markdown incollato(20261017-213109).md` contains the subsequent
+same-machine FloatAP/FloatMP 1000-iteration/11-sample medians for
+27 operations at 53, 128, 256 and 1024 significand bits.
+It follows `20187a89` (certified log around 1/2); the immediately
+preceding 21:11 benchmark is recorded in the previous section.
+The 21:31 times are external measured results, not a benchmark rerun
+performed by this document-only change.
+
+| Bits | Geomean AP/MP | Total time AP/MP | Worst AP/MP | Pairs >=2x |
+| --- | ---: | ---: | --- | ---: |
+| 53 | 0.961x | 1.481x | cos_nearest 3.163x | 3/27 |
+| 128 | 1.332x | 1.120x | div_nearest 2.902x | 10/27 |
+| 256 | 1.035x | 0.579x | div_nearest 2.275x | 6/27 |
+| 1024 | 0.759x | 0.250x | compare 2.104x | 1/27 |
+| ALL | **1.001x** | **0.451x** | **cos_nearest@53 3.163x** | **20/108** |
+
+The measured sum of per-operation medians (AP vs MPFR, ns):
+53: 12229.165 vs 8256.917; 128: 14633.414 vs 13068.625;
+256: 15394.955 vs 26570.290; 1024: 25717.373 vs 102807.790.
+The preceding 21:11 global geomean/total/worst were 1.014x,
+0.483x and 3.181x (log@53); this run improves them to 1.001x,
+0.451x and 3.163x (cos@53). Ratios >=2x remain 20/108,
+but their distribution moves from 4/10/5/1 to 3/10/6/1.
+In particular, log@53 drops from 2109.875 ns at 21:11 to
+1102.541 ns (approximately 47.7% less AP time) and from
+3.181x to 1.675x. This is consistent with the new
+half-centered log dispatch, not isolated causal proof for
+all operation changes between benchmark runs.
+
+**New acceptance contract.** The objective is simultaneously
+(1) every individual AP/MPFR median ratio strictly below 2x,
+(2) geometric mean strictly below 1x **at each precision**,
+and (3) ratio of the sum of the 27 AP medians to the sum of
+the same MPFR medians strictly below 1x **at each precision**.
+The global aggregates are additional diagnostics, not
+substitutes for the per-precision constraints. This release
+still fails (1) at all precisions, (2) at 128 and 256 bits,
+and (3) at 53 and 128 bits. No performance improvement may
+sacrifice correctly rounded results in nearest-even, downward,
+upward or toward-zero mode.
+
+**Performance budgets and impact of previous work.**
+At 53 bits the net excess is 3972.248 ns; only 850.79 ns
+would be saved by capping the current >=2x outliers at
+exactly 2x, so reaching the total-time goal requires another
+3121.46 ns of savings beyond that (slightly more for strict
+inequalities). The six sin/cos/tan/atan/asin/acos cases alone
+contribute a net +3899.3 ns; exp+log another +568.3 ns,
+offset by faster nontranscendental operations. At 128 bits,
+the net excess is 1564.789 ns; correcting only the >=2x
+ratios to 2x saves about 279.91 ns, still leaving 1284.88 ns.
+The 128-bit excess is distributed across trigonometry
+(+570.2 ns), exp/log (+761.4 ns) and basic arithmetic
+including sqrt (+578.7 ns), offset by faster conversions
+and other operations. Thus improving only the worst-ratio
+division will not fix the 128-bit total-time objective.
+
+**Historically high-leverage commits, with attribution limits.**
+The comparable new-host cycle started at a 300x7 baseline
+of geomean 2.160x, total 2.771x, worst 7.367x and 70/108
+pairs >=2x (documented at 18:57). This is evidence of the
+direction of progress, NOT a controlled 300x7 to 1000x11
+speedup measurement. The direct-result rounding series
+(`5bbfd92e`, `c2a0db3d`, `aa2b61c8`) removes intermediate
+copies/denominator work; the 19:03 benchmark showed reductions
+in add/sub/mul, though that comparison was not perfectly
+commit-isolated. The fixed-point elementary kernels and
+cached constants (16 October series of commits) chiefly
+address the former multi-microsecond transcendental bottleneck.
+The certified centered asin/acos change (`ecc13dcc`) has
+stronger direct before/after evidence at 20:28 versus 20:43:
+asin@1024 40680.791 -> 3453.292 ns and acos@1024
+42136.875 -> 3451.417 ns, on this near-half workload.
+The direct integer power change (`aa2b61c8`) reduced
+pow7@53 262.916 -> 60.250 ns and pow7@128
+392.042 -> 97.292 ns in the recorded 20:58/21:01
+measurements. The centered atan change (`3a4993da`)
+reduced atan@53 1772.750 -> 1353.792 ns in the
+21:01/21:11 reports. The subsequent centered log change
+(`20187a89`) has the measured reduction above.
+These are workload-local observations; do not generalize
+center optimizations to arbitrary arguments without
+an independent corpus.
+
+**Proposed optimization sequence (NOT implemented here).**
+
+1. **P0 — remove trivial comparison overhead.** In
+   `cmp(FloatAP,FloatAP)` the input significands are
+   normalized to exactly their declared bit precision.
+   After special values, signed zeros and signs have been
+   checked, if the precisions agree but the binary exponents
+   differ, the exponent order alone determines positive
+   magnitude order. This allows an allocation-free return
+   before the current `mpz_sizeinbase`/shift machinery.
+   Keep the generic differing-precision and equal-exponent
+   paths. Test signs, equal/different precision, extreme
+   exponent gaps and exact equal magnitudes. Current
+   compare ratios are 2.140x@128, 2.245x@256 and
+   2.104x@1024, albeit only ~2.7-3.0 ns excess each.
+   This is an inexpensive worst-case-ratio improvement,
+   not an important total-time fix. It makes less
+   reliance on GMP, rather than more.
+
+2. **P1 — remove exact-square threshold construction in sqrt.**
+   For `mpz_sqrtrem(root,remainder,scaled)`, write
+   `scaled=root^2+remainder` with integer
+   `0<=remainder<=2*root`. In nearest-even mode, the
+   existing condition
+   `4*scaled > (2*root+1)^2` is exactly equivalent
+   to `remainder > root` because the remainder and
+   root are integers and equality at the half-integer
+   threshold is impossible. The current code constructs
+   `threshold`, doubles and increments the root,
+   squares it, shifts `scaled`, and compares; replace
+   just that branch with the integer remainder/root
+   comparison, without touching directed rounding or
+   normalization. Verify the identity and MPFR differential
+   behavior at 7/53/128/256/1024 bits, rounding modes,
+   exact squares, small/large exponents and carry.
+   The four-limb scratch allocation and the integer
+   square itself still need profiling. Present sqrt ratios:
+   2.828x@53, 1.948x@128, 2.039x@256 and 1.738x@1024.
+   This is a simple, generic speed opportunity before
+   considering a replacement integer-root algorithm.
+
+3. **P2 — division on one/two machine limbs.** The
+   `FloatAP::from_ratio` non-unit path is still
+   generic GMP: four initialized scratch integers,
+   normalization shifts, `mpz_tdiv_qr`, remainder
+   comparisons and result finalization. Measured division
+   at 128 is 176.791/60.917=2.902x nearest,
+   126.584/44.083=2.871x downward, and
+   128.458/44.625=2.879x upward; all three at
+   256 bits also exceed 2x. Design a portable fixed
+   one-/two-limb quotient/remainder kernel with exact
+   guard, remainder, ties-to-even, signed directed rounding
+   and exponent carry. A 53-bit division may need up to a
+   128-bit intermediate; 128-bit division may need a
+   four-limb numerator. Do not require GCC/Clang
+   `__int128` on MSVC: use portable limb algorithms or
+   conditional accelerated primitives plus portable tests.
+   Keep the large-precision fallback while designing the
+   limb API to outlive GMP. Avoid another GMP-only
+   micro-optimization as the primary architectural fix.
+
+4. **P3 — shared small-limb storage for add/sub/FMA and
+   construction.** At 128 bits, add nearest/down/up are
+   2.209x/2.321x/2.475x, sub 2.239x, FMA 2.106x;
+   at 256 bits FMA is 2.004x. `add_sub` still creates
+   a general `mpz_t` result and performs full alignment,
+   while `fma` produces a scratch `product`, copies it
+   into a temporary exact FloatAP, then calls `add`.
+   Replace per-call heap allocation for <=1/2/4 limbs
+   with inline significand and stack scratch capacity.
+   Construct a single exact product-plus-addend accumulator
+   and round once; DO NOT compute separately rounded
+   multiply followed by add. Refactor behind reusable
+   unsigned-integer limb helpers (shifts, add/sub,
+   mul, divrem, sticky/guard, bit length), not new
+   GMP-specific APIs. Preserve mixed precision, cancellation,
+   signed zero, huge exponent gaps and FMA semantics.
+   An eventual full GMP removal should reuse this work.
+
+5. **P4 — reduce rational/interval overhead in the
+   certified transcendental hot paths.** The 32 inputs
+   in `benchmark_backend_workload.hpp` are specifically
+   near 1/2 (operand a) and 1/3 (operand b), with
+   almost all transcendental tests operating on a.
+   They naturally exercise the exact half-centered
+   caches and do not represent arbitrary-domain costs.
+   The 53-bit trig entry work is 85 bits
+   (`bits+32`), whereas `sine_cosine_intervals`
+   currently enables the dyadic center optimization
+   only for `work>=128` and single-output calls.
+   Therefore cos@53 (1441.791 vs 455.833 ns, 3.163x)
+   and sin@53 (1339.541 vs 674.125 ns, 1.987x)
+   still use the general Taylor kernel initially.
+   Experiment with a measured crossover at 53 bits,
+   but DO NOT reenable the earlier slower fractional
+   centered path blindly. At 128 bits the center path
+   already exists, yet cos is 2.184x, so dispatch
+   threshold alone cannot be the full solution.
+   The broader bottleneck is repeated conversion
+   `FloatAP -> Rational -> Fraction`, creation of
+   rational intervals, and two independent
+   `FloatAP::from_rational` conversions in `certified`.
+   Introduce a read-only dyadic significand/exponent
+   view, outward fixed-point interval endpoints,
+   and direct agreement-to-rounded-result from those
+   endpoints. Use precomputed certified constants,
+   preserve Ziv-style refinement and all four modes,
+   and retain the general correctly rounded evaluator.
+   The same design should accelerate cos, atan, tan,
+   exp/log and near-half inverse trigonometry without
+   baking 1/2 into the architecture.
+
+**Performance methodology and correctness gates.**
+Keep the canonical 27-operation/4-precision 1000x11
+report and record absolute AP and MPFR times as well
+as all 108 ratios. Benchmark operations on the same
+unloaded Release host; pair repeated A/B runs or
+alternate backend order to detect frequency, cache
+and thermal drift. Instrument heap allocations,
+temporary integer sizes, Ziv refinement counts,
+cached-center hits, time spent in rational
+conversion and exact division versus kernel work.
+Add an independent domain-diverse corpus (signs,
+large/small exponents, away from 1/2, hard-to-round
+cases, both cold and warm certified constants);
+never redefine the existing 27-operation corpus
+just to obtain favorable ratios. A 53-bit FloatDP
+comparison is a separate speed reference, not
+a correct-rounding oracle for every libm function.
+
+The implementation branch at `20187a89` had successful
+Unix, Windows and Coverage workflow runs
+39070083926, 39070083947 and 39070083939.
+A passing Coverage workflow does not itself
+certify the separate Codecov patch-coverage status.
+This section is a **design/analysis-only** journal
+addition: none of P0-P4 is merged, no source
+regressions are altered, and no new CI or
+benchmark speedups are claimed for proposed changes.
+
