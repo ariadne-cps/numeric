@@ -37,6 +37,7 @@
 #include "numeric/float_upper_bound.hpp"
 #include "numeric/float_lower_bound.hpp"
 #include "numeric/decimal.hpp"
+#include "floatap_small_division.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -53,6 +54,109 @@
 #include <utility>
 
 namespace Ariadne {
+
+
+namespace {
+// The adapter is deliberately the only GMP-aware part of the new kernel.
+// GMP's limbs contain the absolute magnitude even for negative integers;
+// the sign is handled by FloatAP metadata independently.
+bool import_small_magnitude(mpz_srcptr input,
+                            FloatAPSmallDivision::Unsigned& result) {
+    const std::size_t bits = mpz_sizeinbase(input,2);
+    if (bits > 64u || mpz_sgn(input) == 0) return false;
+    const std::size_t words = (bits+31u)/32u;
+    result = {};
+    result.size = words;
+#if GMP_NUMB_BITS == 64
+    for (std::size_t i = 0; i < words; ++i) {
+        result.limb[i] = static_cast<std::uint32_t>(
+            mpz_getlimbn(input,i/2u) >> (32u * (i%2u)));
+    }
+#elif GMP_NUMB_BITS == 32
+    for (std::size_t i = 0; i < words; ++i) {
+        result.limb[i] = static_cast<std::uint32_t>(mpz_getlimbn(input,i));
+    }
+#else
+    return false; // unchanged GMP fallback for other limb layouts
+#endif
+    result.trim();
+    return true;
+}
+
+// Exactly round an unscaled ratio of <=64-bit magnitudes into a
+// <=64-bit significand. The adapter above and output import below
+// are the only GMP dependencies; division and rounding use local limbs.
+// Return false rather than risking insufficient scratch capacity.
+bool small_rounded_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
+                         unsigned long precision, bool negative,
+                         FloatAP::Rounding rounding,
+                         FloatAPSmallDivision::Unsigned& rounded,
+                         FloatAP::Exponent& exponent) {
+    namespace Small = FloatAPSmallDivision;
+    Small::Unsigned n, d, temporary, top, bottom, quotient, remainder;
+    if (!import_small_magnitude(numerator,n) ||
+        !import_small_magnitude(denominator,d)) return false;
+
+    // k = floor(log2(n/d)); ensure comparison is exact even across
+    // powers of two and in the signed-exponent rounding boundary cases.
+    auto k = static_cast<FloatAP::Exponent>(Small::bit_length(n)) -
+             static_cast<FloatAP::Exponent>(Small::bit_length(d));
+    if (k >= 0) {
+        if (!Small::shift_left(d,static_cast<std::size_t>(k),temporary))
+            return false;
+        if (Small::compare(n,temporary) < 0) --k;
+    } else {
+        if (!Small::shift_left(n,static_cast<std::size_t>(-k),temporary))
+            return false;
+        if (Small::compare(temporary,d) < 0) --k;
+    }
+    const auto shift = static_cast<FloatAP::Exponent>(precision-1u) - k;
+    if (shift >= 0) {
+        if (!Small::shift_left(n,static_cast<std::size_t>(shift),top))
+            return false;
+        bottom = d;
+    } else {
+        top = n;
+        if (!Small::shift_left(d,static_cast<std::size_t>(-shift),bottom))
+            return false;
+    }
+    if (!Small::divrem(top,bottom,quotient,remainder)) return false;
+
+    bool increment = false;
+    if (remainder.size != 0u) {
+        switch (rounding.value()) {
+            case FloatAP::Rounding::ToNearest: {
+                Small::Unsigned twice;
+                if (!Small::shift_left(remainder,1u,twice)) return false;
+                const int comparison = Small::compare(twice,bottom);
+                increment = comparison > 0 ||
+                    (comparison == 0 && (quotient.limb[0] & 1u) != 0u);
+                break;
+            }
+            case FloatAP::Rounding::Downward:
+                increment = negative;
+                break;
+            case FloatAP::Rounding::Upward:
+                increment = !negative;
+                break;
+            case FloatAP::Rounding::TowardZero:
+                break;
+            default:
+                return false;
+        }
+    }
+    if (increment && !Small::increment(quotient)) return false;
+    exponent = k - static_cast<FloatAP::Exponent>(precision-1u);
+    if (Small::bit_length(quotient) > precision) {
+        Small::Unsigned reduced;
+        Small::shift_right(quotient,1u,reduced);
+        quotient = reduced;
+        ++exponent;
+    }
+    rounded = quotient;
+    return true;
+}
+} // namespace
 
 // Round an already-populated, nonzero positive GMP significand in-place.
 // Keeping the destination as the accumulator avoids extra mpz allocations
@@ -124,9 +228,25 @@ bool negative_zero, bool invert_sign) {
         return result;
     }
 
-    // Non-unit denominator: reuse input magnitudes whenever already
-    // positive. The quotient is produced directly in the final FloatAP
-    // significand, while GMP needs only the remainder and aligned scratch.
+    // Use the exact allocation-free, 32-bit-limb quotient/remainder
+    // kernel only where isolated measurements show a benefit. At 128
+    // bits the portable prototype is slower than GMP: keep its existing
+    // path until a better cross-platform wide-limb algorithm is proven.
+    if (precision <= 64ul) {
+        FloatAPSmallDivision::Unsigned quotient;
+        Exponent quotient_exponent = 0;
+        if (small_rounded_ratio(numerator, denominator, precision,
+                                result._negative, mode,
+                                quotient, quotient_exponent)) {
+            mpz_import(result._significand,quotient.size,-1,
+                       sizeof(std::uint32_t),0,0,quotient.limb.data());
+            result._exponent = checked_add(scale,quotient_exponent);
+            return result;
+        }
+    }
+
+    // General GMP fallback for larger operands and precision.
+    // Keep exact quotient/remainder rounding unchanged.
     mpz_t abs_n, abs_d, remainder, scratch;
     mpz_inits(abs_n, abs_d, remainder, scratch, nullptr);
     struct Cleanup {
