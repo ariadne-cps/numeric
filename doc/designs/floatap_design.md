@@ -5395,3 +5395,19 @@ The most recent independently attached report in this
 conversation is still `Markdown incollato(20261017-222054).md`;
 the user's message "Ultimo risultato" did not provide
 a new accessible benchmark attachment at commit time.
+
+## Post-comparison benchmark: exact value agreement and measured ratios (17 October 2026, 22:29)
+
+The subsequently accessible user-pasted `Markdown incollato(20261017-222901).md` contains an actual **numerical verification PASS**: 256 paired input values and 3456 paired operation results, including exact dyadic Rational equality, comparison outcomes, and 64-bit double conversion bit patterns. This is the first explicitly logged success of the new checker on the canonical 4-precision, 27-operation, 32-input 1000x11 workload. It confirms agreement **on those inputs**; it does not replace the fixed independently certified mathematical literal oracles or establish correctness on all inputs. Its measurements precede P4 phase 2 commit `a8290e20`, whose focused 53-bit centered trig optimization was committed separately after this report was produced.
+
+| Precision | 22:20 P4 geomean -> 22:29 | 22:20 total -> 22:29 | 22:29 worst |
+| --- | --- | --- | --- |
+| 53 | 0.941x -> 0.883x | 1.431x -> 1.442x | cos_nearest 3.166x |
+| 128 | 1.271x -> 1.260x | 1.068x -> 1.043x | div_up 3.098x |
+| 256 | 0.984x -> 0.980x | 0.551x -> 0.558x | div_up 2.245x |
+| 1024 | 0.733x -> 0.724x | 0.244x -> 0.244x | add_down 1.966x |
+| ALL | 0.964x -> 0.943x | 0.436x -> 0.438x | cos_nearest 3.166x |
+
+At 53 bits FloatAP sine changes 1283.709 -> 1299.417 ns and cosine 1362.916 -> 1407.333 ns between these two timing-only runs, despite no further mathematical kernel edit in that interval. MPFR cosine varies 459.458 -> 444.500 ns. These numbers **must not** be interpreted as the performance of the next centered sine/cosine threshold adjustment, which has no user benchmark yet. At 128 bits overall weighted ratio 1.043x is a further marginal improvement but still fails <1x. 1024-bit meets all three constraints on the supplied measurement; 256-bit worst still exceeds 2x.
+
+As separately checked, commit `94c3cce1` (benchmark linking repair) passed Unix and Coverage; Windows workflow 39075150674 is recorded as FAILURE. We do not have the Windows failure diagnostic and must not claim it was green. A later commit `a8290e20` has Unix/Windows/Coverage workflows started but was still pending at time of this journal entry. The Windows error, if still present, requires diagnosis before considering P4 phase 2 portable. Further benchmark comparisons must preserve correct rounding and all exact expected literals.
