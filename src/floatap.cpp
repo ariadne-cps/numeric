@@ -2649,6 +2649,82 @@ Interval centered_tangent_interval(Fraction const& x,
     return x.sign() < 0 ? negative(result) : result;
 }
 
+// For y=|x| close to 1/2, the inverse-trigonometric functions admit
+// a certified local enclosure: asin(1/2+d)=pi/6 + (2/sqrt(3))*d + R,
+// |R|<=2*d*d. This avoids the radical, rational quotient and atan
+// sequence of the general inverse-trigonometric implementation.
+// Cache OUTWARD enclosures, never rounded center values.
+struct InverseHalfEnclosures {
+    Interval arcsine_half;
+    Interval arccosine_positive_half;
+    Interval arccosine_negative_half;
+    Interval slope_half;
+};
+
+InverseHalfEnclosures const& inverse_half_enclosures(unsigned long work) {
+    struct Cache {
+        unsigned long work = 0;
+        std::optional<InverseHalfEnclosures> bounds;
+    };
+    static thread_local Cache center_cache;
+    if (!center_cache.bounds || center_cache.work < work) {
+        if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
+            throw std::overflow_error("FloatAP inverse-half precision overflow");
+        }
+        const unsigned long dyadic_bits = work + 24ul;
+        const Interval certified_pi = pi_interval(work + 40ul);
+        const Interval asin_half_bounds =
+            divide(certified_pi, point(Fraction(6L)));
+        const Interval acos_positive_bounds =
+            divide(certified_pi, point(Fraction(3L)));
+        const Interval acos_negative_bounds =
+            multiply(point(Fraction(2L)), acos_positive_bounds);
+        const Interval certified_sqrt_three =
+            square_root_interval(Fraction(3L), work + 40ul);
+        const Interval slope_bounds =
+            divide(point(Fraction(2L)), certified_sqrt_three);
+        center_cache.bounds = InverseHalfEnclosures{
+            outward_dyadic_interval(asin_half_bounds, dyadic_bits),
+            outward_dyadic_interval(acos_positive_bounds, dyadic_bits),
+            outward_dyadic_interval(acos_negative_bounds, dyadic_bits),
+            outward_dyadic_interval(slope_bounds, dyadic_bits)
+        };
+        center_cache.work = work;
+    }
+    return *center_cache.bounds;
+}
+
+// When |d|<=2^-ceil(work/2) and work>=4, y=1/2+d is in
+// [1/4,3/4]. There asin''(y)=y/(1-y*y)^(3/2) <24/7<4:
+// y<=3/4, 1-y*y>=7/16 and sqrt(1-y*y)>1/2.
+// Taylor's theorem gives |R| <= 2*d*d, for BOTH asin and
+// acos. Use oddness of asin and acos(-y)=pi-acos(y).
+Interval centered_inverse_half_interval(Fraction const& input,
+                                        Fraction const& offset,
+                                        unsigned long work,
+                                        bool evaluate_arccosine) {
+    const auto& cached = inverse_half_enclosures(work);
+    const Interval linear_term_interval =
+        multiply_by_fraction(cached.slope_half, offset);
+
+    Interval enclosure;
+    if (!evaluate_arccosine) {
+        enclosure = add(cached.arcsine_half, linear_term_interval);
+    } else if (input.sign() >= 0) {
+        enclosure = subtract(cached.arccosine_positive_half,
+                             linear_term_interval);
+    } else {
+        enclosure = add(cached.arccosine_negative_half,
+                        linear_term_interval);
+    }
+
+    const Fraction maximum_remainder = Fraction(2L) * offset * offset;
+    enclosure.lower = enclosure.lower - maximum_remainder;
+    enclosure.upper = enclosure.upper + maximum_remainder;
+    return (!evaluate_arccosine && input.sign() < 0)
+        ? negative(enclosure) : enclosure;
+}
+
 Interval evaluate(Function function, Fraction const& x, unsigned long work) {
     switch (function) {
         case Function::sine:
@@ -2670,11 +2746,23 @@ Interval evaluate(Function function, Fraction const& x, unsigned long work) {
         }
         case Function::arctangent:
             return atan_interval(x, work);
-        case Function::arcsine:
+        case Function::arcsine: {
+            const Fraction offset = absolute(x) -
+                Fraction(1L) / Fraction(2L);
+            if (work >= 4ul && sufficiently_near_half(offset, work)) {
+                return centered_inverse_half_interval(x, offset, work, false);
+            }
             return asin_interval(x, work);
-        case Function::arccosine:
+        }
+        case Function::arccosine: {
+            const Fraction offset = absolute(x) -
+                Fraction(1L) / Fraction(2L);
+            if (work >= 4ul && sufficiently_near_half(offset, work)) {
+                return centered_inverse_half_interval(x, offset, work, true);
+            }
             return subtract(divide(pi_interval(work), point(Fraction(2L))),
                             asin_interval(x, work));
+        }
         case Function::pi:
             return pi_interval(work);
         case Function::half_pi:
