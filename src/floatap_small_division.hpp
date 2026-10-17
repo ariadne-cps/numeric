@@ -26,7 +26,8 @@ struct Unsigned {
 
 inline std::size_t bit_length(Unsigned const& x) noexcept {
     return x.size == 0 ? 0 :
-        32 * (x.size-1) + 32 - std::countl_zero(x.limb[x.size-1]);
+        32 * (x.size-1) + 32 -
+        static_cast<std::size_t>(std::countl_zero(x.limb[x.size-1]));
 }
 
 inline int compare(Unsigned const& a, Unsigned const& b) noexcept {
@@ -111,7 +112,7 @@ inline bool divrem(Unsigned const& dividend, Unsigned const& divisor,
         return true;
     }
     const unsigned normalization =
-        std::countl_zero(divisor.limb[divisor.size-1]);
+        static_cast<unsigned>(std::countl_zero(divisor.limb[divisor.size-1]));
     Unsigned v, u;
     if (!shift_left(divisor, normalization, v) ||
         !shift_left(dividend, normalization, u)) return false;
