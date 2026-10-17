@@ -2770,12 +2770,13 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
     // |f(1/2+d)-f(1/2)-f'(1/2)*d| <= d*d/2 for f=sin,cos.
     // This is valid for EVERY real argument, not merely binary inputs.
     // If d is not tiny relative to work, use the original Taylor kernel.
-    // At modest precision the extra exact-rational operations cost more
-    // than direct Taylor. For tangent, evaluating BOTH local intervals
-    // leaves large rational denominators for the final division and
-    // loses much more than it saves. Keep the dyadic Taylor/one-root
-    // path for that case at every precision.
-    if (halvings == 0u && work >= 128ul &&
+    // The *dyadic fixed-point* centered path is cheap even at 53-bit
+    // target precision (85-bit initial work), once its rigorous cached
+    // center is initialized. Keep the original exact neighborhood check
+    // and Taylor fallback. Tangent needs BOTH intervals and retains its
+    // separate certified path: the cached path is for standalone
+    // sine/cosine only.
+    if (halvings == 0u && work >= 64ul &&
         outputs != TrigOutputs::both) {
         const Fraction half = Fraction(1L) / Fraction(2L);
         const Fraction delta = absolute(x) - half;

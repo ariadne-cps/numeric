@@ -495,6 +495,96 @@ TestFloatRounding<PR>::test_precision_regressions()
             }
         }
 
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Independent exact dyadic oracle values around +/-1/2:
+            // both rational Taylor enclosure endpoints were rounded
+            // offline to the SAME target literal for every mode.
+            // This is not an MPFR oracle and not a FloatAP-derived
+            // expectation. Check both signs and both sides of 1/2.
+            struct NearHalfTrigLiteral {
+                char const* function;
+                unsigned bits;
+                unsigned offset_bits;
+                Int offset_sign;
+                bool negative_input;
+                Int exponent;
+                char const* nearest_mantissa;
+                Int down_offset;
+                Int up_offset;
+                Int zero_offset;
+            };
+            static const NearHalfTrigLiteral expected[] = {
+                {"sin",53u,50u,-1,false,-54,"8636562708039138",-1,0,-1},
+                {"cos",53u,50u,-1,false,-53,"7904560997432659",0,1,0},
+                {"sin",53u,50u,-1,true,-54,"-8636562708039138",0,1,1},
+                {"cos",53u,50u,-1,true,-53,"7904560997432659",0,1,0},
+                {"sin",53u,50u,1,false,-54,"8636562708039166",-1,0,-1},
+                {"cos",53u,50u,1,false,-53,"7904560997432652",-1,0,-1},
+                {"sin",53u,50u,1,true,-54,"-8636562708039166",0,1,1},
+                {"cos",53u,50u,1,true,-53,"7904560997432652",-1,0,-1},
+                {"sin",128u,125u,-1,false,-129,"326280114077167906689097124699132648229",0,1,0},
+                {"cos",128u,125u,-1,false,-128,"298625871328596996571466326832836172169",0,1,0},
+                {"sin",128u,125u,-1,true,-129,"-326280114077167906689097124699132648229",-1,0,0},
+                {"cos",128u,125u,-1,true,-128,"298625871328596996571466326832836172169",0,1,0},
+                {"sin",128u,125u,1,false,-129,"326280114077167906689097124699132648257",0,1,0},
+                {"cos",128u,125u,1,false,-128,"298625871328596996571466326832836172162",-1,0,-1},
+                {"sin",128u,125u,1,true,-129,"-326280114077167906689097124699132648257",-1,0,0},
+                {"cos",128u,125u,1,true,-128,"298625871328596996571466326832836172162",-1,0,-1},
+                {"sin",256u,253u,-1,false,-257,"111027369497412508784314791148902648293994217576031053546226341313477387335298",-1,0,-1},
+                {"cos",256u,253u,-1,false,-256,"101617118319522600545601981648807607350213579319835970884288805016705398675948",-1,0,-1},
+                {"sin",256u,253u,-1,true,-257,"-111027369497412508784314791148902648293994217576031053546226341313477387335298",0,1,1},
+                {"cos",256u,253u,-1,true,-256,"101617118319522600545601981648807607350213579319835970884288805016705398675948",-1,0,-1},
+                {"sin",256u,253u,1,false,-257,"111027369497412508784314791148902648293994217576031053546226341313477387335326",-1,0,-1},
+                {"cos",256u,253u,1,false,-256,"101617118319522600545601981648807607350213579319835970884288805016705398675940",0,1,0},
+                {"sin",256u,253u,1,true,-257,"-111027369497412508784314791148902648293994217576031053546226341313477387335326",0,1,1},
+                {"cos",256u,253u,1,true,-256,"101617118319522600545601981648807607350213579319835970884288805016705398675940",0,1,0},
+                {"sin",1024u,1021u,-1,false,-1025,"172371999885288789128716840567144047953759349476369256334737458968483142997910650916441548737119101143602980846427532337793230109910643907421443819149435799871037387373869579663640966923121927526805195778868067048300347801194629542755640128151062422101982536195161049560508328652059747480969032691608841231610",-1,0,-1},
+                {"cos",1024u,1021u,-1,false,-1024,"157762414678520649592707644765600265788274071390691627946472084316739856684105644928097150639079359415661197561565092641738842940635149605067256924545601776964818603475456673753501326513258696538222222055589487086313973209608156611433960402938690734994439009100183662423673858021971513755127657214343043463505",0,1,0},
+                {"sin",1024u,1021u,-1,true,-1025,"-172371999885288789128716840567144047953759349476369256334737458968483142997910650916441548737119101143602980846427532337793230109910643907421443819149435799871037387373869579663640966923121927526805195778868067048300347801194629542755640128151062422101982536195161049560508328652059747480969032691608841231610",0,1,1},
+                {"cos",1024u,1021u,-1,true,-1024,"157762414678520649592707644765600265788274071390691627946472084316739856684105644928097150639079359415661197561565092641738842940635149605067256924545601776964818603475456673753501326513258696538222222055589487086313973209608156611433960402938690734994439009100183662423673858021971513755127657214343043463505",0,1,0},
+                {"sin",1024u,1021u,1,false,-1025,"172371999885288789128716840567144047953759349476369256334737458968483142997910650916441548737119101143602980846427532337793230109910643907421443819149435799871037387373869579663640966923121927526805195778868067048300347801194629542755640128151062422101982536195161049560508328652059747480969032691608841231638",-1,0,-1},
+                {"cos",1024u,1021u,1,false,-1024,"157762414678520649592707644765600265788274071390691627946472084316739856684105644928097150639079359415661197561565092641738842940635149605067256924545601776964818603475456673753501326513258696538222222055589487086313973209608156611433960402938690734994439009100183662423673858021971513755127657214343043463497",0,1,0},
+                {"sin",1024u,1021u,1,true,-1025,"-172371999885288789128716840567144047953759349476369256334737458968483142997910650916441548737119101143602980846427532337793230109910643907421443819149435799871037387373869579663640966923121927526805195778868067048300347801194629542755640128151062422101982536195161049560508328652059747480969032691608841231638",0,1,1},
+                {"cos",1024u,1021u,1,true,-1024,"157762414678520649592707644765600265788274071390691627946472084316739856684105644928097150639079359415661197561565092641738842940635149605067256924545601776964818603475456673753501326513258696538222222055589487086313973209608156611433960402938690734994439009100183662423673858021971513755127657214343043463497",0,1,0}
+            };
+            for (auto const& row : expected) {
+                const ArbitraryPrecision p{static_cast<std::size_t>(row.bits)};
+                const Rational delta(Integer(1),
+                    pow(Integer(2),Nat(row.offset_bits)));
+                const Rational positive = Rational(1,2) +
+                    (row.offset_sign < 0 ? -delta : delta);
+                const Rational exact_input =
+                    row.negative_input ? -positive : positive;
+                const FloatAP argument(exact_input,FloatAP::ROUND_TO_NEAREST,p);
+                // All selected dyadic arguments are p-bit representable:
+                // the checked function must not see a different input.
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(argument),exact_input);
+                const Integer mantissa(String(row.nearest_mantissa));
+                const Integer denominator =
+                    pow(Integer(2),Nat(-row.exponent));
+                const auto exact = [&](Int offset) {
+                    return Rational(mantissa+Integer(offset),denominator);
+                };
+                const auto evaluate = [&](auto mode) {
+                    return std::string(row.function) == "sin"
+                        ? sin(mode,argument) : cos(mode,argument);
+                };
+                const FloatAP nearest=evaluate(FloatAP::ROUND_TO_NEAREST);
+                const FloatAP lower=evaluate(FloatAP::ROUND_DOWNWARD);
+                const FloatAP upper=evaluate(FloatAP::ROUND_UPWARD);
+                const FloatAP zero=evaluate(FloatAP::ROUND_TOWARD_ZERO);
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(nearest),exact(0));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(lower),exact(row.down_offset));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(upper),exact(row.up_offset));
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(zero),exact(row.zero_offset));
+                ARIADNE_TEST_EQUALS(nearest.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(lower.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(upper.precision().bits(),row.bits);
+                ARIADNE_TEST_EQUALS(zero.precision().bits(),row.bits);
+            }
+        }
+
         if constexpr (Same<PR,ArbitraryPrecision>) {
             // Integer square-root remainder controls nearest rounding:
             // probe exact roots, both sides of rounding boundaries,

@@ -5342,3 +5342,56 @@ the expected dyadic literals. The end-of-benchmark numerical
 comparison must be exercised by actually running the benchmark:
 successful compilation alone is not proof it passes the 3456
 operation comparisons.
+
+## P4 phase 2: certify and enable centered sin/cos at 53 bits (18 October 2026)
+
+**Motivation:** P4 phase 1 removed unnecessary Rational materialization
+from all eight transcendental functions. The 22:20 report still has
+53-bit cosine about 2.97x MPFR, with an AP absolute median of ~1363 ns.
+The existing centered half-angle dyadic algorithm was only enabled
+when `work >= 128`; the first 53-bit refinement requests `work=85`
+(`bits + 32`) and therefore *always* fell back to a full sine/cosine
+Taylor series, even for dyadic arguments within 2^(-43) of 1/2.
+
+**Change:** Lower the guard for the already-existing standalone
+sine/cosine centered optimization from `work >= 128` to
+`work >= 64`. No formula, truncation bound, rounding decision,
+certified interval or fallback is weakened. The rigorous
+`|delta| <= 2^(-ceil(work/2))` test is unchanged, so only arguments
+very near +/-1/2 enter the cached outward-dyadic Taylor
+linearization. Values outside this window, inputs requiring
+argument halving, and tangent (which needs both results and its
+separate certified path) still execute their original algorithms.
+Cache entries are always outward intervals, never a rounded
+approximation. This is a *precision-independent mathematical*
+special case, not a shortcut returning a cached low-accuracy
+floating number.
+
+**Independent oracle coverage:** A new static set of **32**
+mathematically certified dyadic literal entries checks sin/cos
+on both sides of +/-1/2 at 53/128/256/1024 bits, all
+four rounding modes, including sign-dependent directed
+rounding and exactly representable arguments. These
+expectations were produced offline using rational-arithmetic
+alternating Taylor series with the exact first omitted
+term as a rigorous bound. At every precision and mode,
+rounding both interval endpoints independently produced
+the same integer mantissa/exponent. Every test checks exact
+Rational equality to that fixed literal and verifies the
+requested precision. Both the existing half-center literal
+suite and the unchanged MPFR differential test suite remain.
+
+**Release gate and caveats:** CI must pass Unix, Windows and
+Coverage, and the 1000x11 benchmark's new 3456-result
+post-timing equality verification must pass. Then compare
+actual absolute sine and cosine latency at 53 bits with
+the 22:20 report and assess all four per-precision
+geomean/total/worst values. The improvement is expected
+but not yet measured. Because the benchmark inputs
+concentrate near 1/2, retain separate tests for
+non-centered inputs and do not infer general-purpose
+trigonometric gains outside the certified window.
+The most recent independently attached report in this
+conversation is still `Markdown incollato(20261017-222054).md`;
+the user's message "Ultimo risultato" did not provide
+a new accessible benchmark attachment at commit time.
