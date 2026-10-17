@@ -3213,3 +3213,43 @@ then resume profiling `tan` at 128/256 bits and
 numeric optimization on top of an unresolved failing
 platform build. Distinguish GitHub Coverage workflow
 success from separate Codecov PR patch thresholds.
+
+## Windows MSVC C4459 shadowing fix (17 October 2026)
+
+**Confirmed root cause:** User-supplied Windows 2025 [Release] build
+diagnostic for `5116d004`, `src/floatap.cpp:2153`:
+
+```
+error C2220: the following warning is treated as an error
+warning C4459: declaration of 'near' hides global declaration
+include/numeric/rounding.hpp(286): note: see declaration of 'Ariadne::near'
+```
+
+**Classification:** C++ portability / compiler warning promoted to
+an error by the existing `/W4 /WX /permissive-` flags, **not** an
+arithmetic or rounding failure. The local variable in
+`sufficiently_near_half` was introduced by the centered
+sin/cos fast path in `4c75d3a7` and persisted through
+`5116d004`; both commits failed Windows at the Build step.
+Other GitHub Unix and Coverage workflows on `5116d004`
+passed. Earlier inability to identify the root cause was due to
+missing detailed Windows logs; this new diagnostic supersedes it.
+
+**Minimal fix:** Rename local `const bool near` to
+`const bool within_half_threshold` and update the corresponding
+return. The boolean expression, cleanup, certified enclosures,
+dispatch, tests, compiler warning settings and numeric behavior
+remain **byte-for-byte identical** apart from the local name and
+line wrapping. Do not suppress C4459, relax `/WX`, or change
+production mathematics to satisfy the compiler.
+
+**Verification:** The modified source contains no
+`const bool near` at the affected site; the exact new
+identifier and return were checked against the source before
+publishing. A new Windows 2025 [Release] build on this commit,
+as well as Unix and Coverage, are required before claiming
+all-platform success. The last performance baseline remains the
+valid `Markdown incollato(20261017-200644).md` (1000x11):
+geomean 1.301x, time-weighted 1.419x, worst 3.702x
+(`tan_nearest` 128 bits), 34/108 ratios >=2x. Renaming a
+local variable does not establish any new speedup.

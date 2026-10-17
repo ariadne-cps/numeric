@@ -2150,9 +2150,10 @@ bool sufficiently_near_half(Fraction const& delta, unsigned long work) {
     mpz_init(scaled);
     mpz_abs(scaled, mpq_numref(delta.raw()));
     mpz_mul_2exp(scaled, scaled, static_cast<mp_bitcnt_t>(half_work));
-    const bool near = mpz_cmp(scaled, mpq_denref(delta.raw())) <= 0;
+    const bool within_half_threshold =
+        mpz_cmp(scaled, mpq_denref(delta.raw())) <= 0;
     mpz_clear(scaled);
-    return near;
+    return within_half_threshold;
 }
 
 // Evaluate atan(x) for |x| <= 1/2 as an alternating Taylor series.
