@@ -2065,21 +2065,40 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
             throw std::logic_error("FloatAP invalid certified sine bounds");
         }
 
-        // floor(sqrt(Q^2-U^2)) <= Q*cos(|x|)
-        //                       <= ceil(sqrt(Q^2-L^2)).
-        // Compute the upper endpoint first to preserve the sine lower
-        // bound until both radicands have been constructed.
-        mpz_mul(scratch, scaled, scaled);
-        mpz_mul(term, lower, lower);
-        mpz_sub(term, scratch, term);
-        mpz_sqrtrem(sum, tail, term);
-        if (mpz_sgn(tail) != 0) {
-            mpz_add_ui(sum, sum, 1ul);
+        // For 0<=L<=sin(|x|)*Q<=U<=8Q/9, let
+        // f(s)=sqrt(Q^2-s^2). Because |f'(s)|=s/f(s)<=8/sqrt(17)<2
+        // on [0,8Q/9], f(L)-f(U)<=2(U-L).
+        // Thus just ONE downward integer square root of Q^2-U^2
+        // certifies both cosine endpoints: C_lo=floor(f(U)),
+        // C_hi=C_lo+1+2(U-L). An alternative exact two-root path
+        // handles any overly wide sine interval outside the bound.
+        mpz_mul_ui(scratch, upper, 9ul);
+        mpz_mul_ui(term, scaled, 8ul);
+        if (mpz_cmp(scratch, term) <= 0) {
+            mpz_mul(scratch, scaled, scaled);
+            mpz_mul(term, upper, upper);
+            mpz_sub(term, scratch, term);
+            mpz_sqrt(sum, term);
+            mpz_sub(tail, upper, lower);
+            mpz_mul_2exp(tail, tail, 1u);
+            mpz_add_ui(tail, tail, 1u);
+            mpz_add(scratch, sum, tail);
+            mpz_set(lower, sum);
+            mpz_set(upper, scratch);
+        } else {
+            // Conservative general fallback: two exact integer roots.
+            mpz_mul(scratch, scaled, scaled);
+            mpz_mul(term, lower, lower);
+            mpz_sub(term, scratch, term);
+            mpz_sqrtrem(sum, tail, term);
+            if (mpz_sgn(tail) != 0) {
+                mpz_add_ui(sum, sum, 1ul);
+            }
+            mpz_mul(term, upper, upper);
+            mpz_sub(term, scratch, term);
+            mpz_sqrt(lower, term);
+            mpz_set(upper, sum);
         }
-        mpz_mul(term, upper, upper);
-        mpz_sub(term, scratch, term);
-        mpz_sqrt(lower, term);
-        mpz_set(upper, sum);
 
         cosine = {Fraction(lower, fixed_bits),
                   Fraction(upper, fixed_bits)};
