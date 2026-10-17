@@ -5147,3 +5147,114 @@ and report all geomean/total/worst ratios. A CI pass proves only
 the exercised cases, not correctness over every transcendental input.
 Do not claim a speedup or prematurely dispatch centered algorithms
 at lower work precision without an A/B measurement.
+
+## P4 phase 1, first same-host 1000x11 measurement (17 October 2026, 22:20)
+
+**Source and reproducibility.** User-supplied
+`Markdown incollato(20261017-222054).md` reports
+27 operations, 53/128/256/1024 bits, 1000 iterations and
+11 median samples per backend. It follows P4 commit
+`72659ca7` (one exact FloatAP-to-Fraction materialization,
+without intermediate Rational deep copy), and is compared
+to the immediately preceding P2 measurement
+`Markdown incollato(20261017-221453).md`
+(implementation `272b6f59`). The report is a measured
+timing comparison, **not a check of benchmark outputs**.
+The independent literal-oracle tests are a separate
+functional correctness gate.
+
+| Bits | P2 -> P4 geomean AP/MPFR | P2 -> P4 total AP/MPFR | P2 -> P4 worst | P2 -> P4 count >=2x |
+| --- | --- | --- | --- | --- |
+| 53 | 0.860x -> 0.941x | 1.436x -> 1.431x | cos 3.714x -> cos 2.966x | 3 -> 2 |
+| 128 | 1.268x -> 1.271x | 1.117x -> 1.068x | div_down 2.902x -> div_nearest 2.907x | 7 -> 9 |
+| 256 | 0.999x -> 0.984x | 0.579x -> 0.551x | div_nearest 2.185x -> div_down 2.262x | 4 -> 4 |
+| 1024 | 0.723x -> 0.733x | 0.251x -> 0.244x | add_nearest 1.940x -> add_up 1.964x | 0 -> 0 |
+| ALL | 0.942x -> 0.964x | 0.454x -> 0.436x | cos 3.714x -> cos 2.966x | 14 -> 15 |
+
+**All eight affected transcendental kernels become faster in
+absolute FloatAP time at all four precisions** (32 of 32
+operation/precision comparisons in this first report):
+
+| Function | 53 bits change | 128 bits change | 256 bits change | 1024 bits change |
+| --- | ---: | ---: | ---: | ---: |
+| exp | -6.1% | -6.9% | -6.2% | -4.3% |
+| log | -9.1% | -5.7% | -5.7% | -4.8% |
+| sin | -5.4% | -5.5% | -8.0% | -6.2% |
+| cos | -5.5% | -5.3% | -6.2% | -4.6% |
+| tan | -6.7% | -8.1% | -4.7% | -4.6% |
+| atan | -5.0% | -9.0% | -4.6% | -3.0% |
+| asin | -5.6% | -10.0% | -4.5% | -2.9% |
+| acos | -4.0% | -6.4% | -4.3% | -4.1% |
+
+Sum of the *eight affected* FloatAP medians, P2 -> P4:
+53: 11244.584 -> 10593.750 ns (-5.79%);
+128: 12951.665 -> 12003.666 ns (-7.32%);
+256: 13760.958 -> 13027.045 ns (-5.33%);
+1024: 21012.999 -> 20148.415 ns (-4.11%).
+The remaining 19 AP medians in aggregate are approximately
++1.34%, -2.47%, -1.78%, +0.14% respectively.
+This affected/unaffected contrast is consistent with the
+removed rational deep copy reducing fixed overhead; it
+is *evidence*, not a controlled statistical proof of
+causality from a single run.
+
+The sums of all 27 AP medians P2 -> P4 are:
+53 12184.251 -> 11546.002 ns (-5.24%);
+128 14489.835 -> 13503.831 ns (-6.80%);
+256 15557.417 -> 14791.462 ns (-4.92%);
+1024 25162.207 -> 24303.540 ns (-3.41%).
+The corresponding MPFR sums move:
+53 8485.290 -> 8070.458 ns (-4.89%);
+128 12969.626 -> 12638.169 ns (-2.56%);
+256 26888.127 -> 26834.337 ns (-0.20%);
+1024 100051.712 -> 99486.874 ns (-0.56%).
+Thus worsening 53/128/1024 geometric ratios does NOT
+mean the transcendental AP kernels grew slower.
+
+**Worst-ratio interpretation:** At 53 bits
+cos falls 1442.250 -> 1362.916 ns in AP (-5.5%),
+while MPFR rises 388.333 -> 459.458 ns (+18.3%).
+Consequently the large ratio drop
+3.714x -> 2.966x is not solely attributable to
+P4. The current >2x 53-bit cases are cos 2.966x
+and atan 2.385x. At 128 bits the >2x cases
+include all three divisions (2.863-2.907x),
+add nearest/down/up (2.309-2.392x), sub nearest
+2.267x, cos 2.293x and construct_rational
+1.625x is **not** >2x; 9 measured operations
+total are >=2x. At 256 bits the ratios >=2x
+include all three divisions (2.160-2.262x)
+and add_nearest 2.021x. At 1024 bits all
+27 ratios are <2x, though add_up 1.964x is
+near the boundary.
+
+**Remaining absolute deficits:** FloatAP total
+minus MPFR total after P4 is +3475.544 ns at
+53 bits and +865.662 ns at 128 bits; at 256
+and 1024 bits the totals favor FloatAP.
+The direct Rational-copy removal helps but
+cannot by itself achieve the 53-bit <1x total
+objective. The next P4 changes should target
+the certified interval representation and
+decision-to-round paths, measuring the
+cost of `Fraction` endpoint construction,
+exact-rational arithmetic, cached half-center
+operations, and two independent endpoint
+`FloatAP::from_rational` calls per refinement.
+Keep outward enclosure proofs and independent
+exact literal expectations: do not replace them
+with less accurate fixed-precision approximations.
+For 128-bit worst ratios, a separate portable
+wide-limb P2 division algorithm and arithmetic
+add/sub optimization are still necessary.
+
+**CI status when recorded:** For `72659ca7`,
+Unix run 39074633880 SUCCESS and Coverage
+39074633895 SUCCESS; Windows 39074633860 was
+still IN PROGRESS on last check. No claim of
+all-three-green or separate Codecov patch
+coverage is made. Re-run the same-host 1000x11
+workload before accepting small geometric/worst
+margin changes. This entry changes **only**
+the design journal; it does not alter test
+workloads or numerical kernels.
