@@ -54,6 +54,56 @@
 
 namespace Ariadne {
 
+// Round an already-populated, nonzero positive GMP significand in-place.
+// Keeping the destination as the accumulator avoids extra mpz allocations
+// and signed-integer copies in add_sub() and mul(). The sign is stored
+// separately, and the rounding logic is shared with from_ratio(n,1,...).
+void FloatAP::round_scaled_integer(FloatAP& result, Exponent scale, Rounding mode) {
+    const auto precision = result._precision;
+    const Exponent shift = checked_sub(bit_length(result._significand),
+                                       static_cast<Exponent>(precision));
+    result._exponent = checked_add(scale, shift);
+    if (shift <= 0) {
+        mpz_mul_2exp(result._significand, result._significand,
+                     shift_amount(checked_sub(0, shift)));
+        return;
+    }
+
+    const mp_bitcnt_t dropped = shift_amount(shift);
+    const bool inexact = mpz_scan1(result._significand, 0u) < dropped;
+    bool increment = false;
+    if (inexact) {
+        switch (mode.value()) {
+            case Rounding::ToNearest:
+                increment = mpz_tstbit(result._significand, dropped - 1u) != 0 &&
+                    (mpz_tstbit(result._significand, dropped) != 0 ||
+                     mpz_scan1(result._significand, 0u) < dropped - 1u);
+                break;
+            case Rounding::Downward:
+                increment = result._negative;
+                break;
+            case Rounding::Upward:
+                increment = !result._negative;
+                break;
+            case Rounding::TowardZero:
+                break;
+            default:
+                throw std::invalid_argument("FloatAP unknown rounding mode");
+        }
+    }
+    mpz_tdiv_q_2exp(result._significand, result._significand, dropped);
+    if (increment) mpz_add_ui(result._significand, result._significand, 1u);
+    if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
+        mpz_tdiv_q_2exp(result._significand, result._significand, 1u);
+        // Crossing the maximal finite exponent by a rounded carry yields infinity.
+        if (result._exponent == std::numeric_limits<Exponent>::max()) {
+            result = infinity(precision, result._negative);
+            return;
+        }
+        result._exponent = checked_add(result._exponent, 1);
+    }
+}
+
 FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
 Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
     FloatAP result(precision);
@@ -64,54 +114,11 @@ Exponent scale, unsigned long precision, Rounding mode, bool negative_zero) {
     }
     result._negative =(mpz_sgn(numerator) < 0) !=(mpz_sgn(denominator) < 0);
 
-    // Addition, multiplication and fused operations pass a binary integer
-    // over a denominator of one. Round its bits directly: general rational
-    // normalization and GMP quotient/remainder division are unnecessary.
+    // General rational normalization and division are unnecessary when
+    // the denominator is one. Round the existing magnitude in-place.
     if (mpz_cmp_ui(denominator, 1ul) == 0) {
-        const Exponent shift = checked_sub(bit_length(numerator),
-                                           static_cast<Exponent>(precision));
-        result._exponent = checked_add(scale, shift);
         mpz_abs(result._significand, numerator);
-        if (shift <= 0) {
-            mpz_mul_2exp(result._significand, result._significand,
-                         shift_amount(checked_sub(0, shift)));
-            return result;
-        }
-
-        const mp_bitcnt_t dropped = shift_amount(shift);
-        const bool inexact = mpz_scan1(result._significand, 0u) < dropped;
-        bool increment = false;
-        if (inexact) {
-            switch (mode.value()) {
-                case Rounding::ToNearest:
-                    increment = mpz_tstbit(result._significand, dropped - 1u) != 0 &&
-                        (mpz_tstbit(result._significand, dropped) != 0 ||
-                         mpz_scan1(result._significand, 0u) < dropped - 1u);
-                    break;
-                case Rounding::Downward:
-                    increment = result._negative;
-                    break;
-                case Rounding::Upward:
-                    increment = !result._negative;
-                    break;
-                case Rounding::TowardZero:
-                    break;
-                default:
-                    throw std::invalid_argument("FloatAP unknown rounding mode");
-            }
-        }
-        mpz_tdiv_q_2exp(result._significand, result._significand, dropped);
-        if (increment) {
-            mpz_add_ui(result._significand, result._significand, 1u);
-        }
-        if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
-            mpz_tdiv_q_2exp(result._significand, result._significand, 1u);
-            // Crossing the maximal finite exponent by a rounded carry yields infinity.
-            if (result._exponent == std::numeric_limits<Exponent>::max()) {
-                return infinity(precision, result._negative);
-            }
-            result._exponent = checked_add(result._exponent, 1);
-        }
+        round_scaled_integer(result, scale, mode);
         return result;
     }
 
@@ -251,16 +258,14 @@ unsigned long p, Rounding mode, bool subtract) {
     const std::uint64_t low_bits = static_cast<std::uint64_t>(low._precision);
     const bool far_apart = gap > high_bits && gap - high_bits > low_bits &&
         gap - high_bits - low_bits > static_cast<std::uint64_t>(p) + 2u;
-    mpz_t exact, one;
-    mpz_inits(exact, one, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b;
-        ~Cleanup() { mpz_clears(a, b, nullptr); }
-    } cleanup{exact, one};
     if (far_apart) {
-        // A one-bit sticky perturbation of the same sign preserves the
-        // side of exact values and halfway ties in all rounding modes.
-        // Avoid constructing an integer with an enormous exponent gap.
+        // Keep the certified signed-sticky path for enormous exponent gaps.
+        mpz_t exact, one;
+        mpz_inits(exact, one, nullptr);
+        struct Cleanup {
+            mpz_ptr a, b;
+            ~Cleanup() { mpz_clears(a, b, nullptr); }
+        } cleanup{exact, one};
         const Exponent padding = checked_add(
             checked_add(static_cast<Exponent>(high._precision),
                         static_cast<Exponent>(p)), 2);
@@ -272,14 +277,28 @@ unsigned long p, Rounding mode, bool subtract) {
         mpz_mul_2exp(one, one, shift_amount(padding));
         return from_ratio(exact, one, high._exponent, p, mode);
     }
-    mpz_mul_2exp(exact, high._significand,
+
+    // For ordinary gaps, accumulate directly into the returned value.
+    // The unshifted input significands are positive; sign is metadata.
+    FloatAP result(p);
+    result._negative = high_negative;
+    mpz_mul_2exp(result._significand, high._significand,
                  shift_amount(checked_sub(high._exponent, low._exponent)));
-    if (a._negative == b_negative) mpz_add(exact, exact, low._significand);
-    else mpz_sub(exact, exact, low._significand);
-    if (high_negative) mpz_neg(exact, exact);
-    mpz_set_ui(one, 1ul);
-    return from_ratio(exact, one, low._exponent, p, mode,
-                      mode == Rounding::Downward);
+    if (a._negative == b_negative) {
+        mpz_add(result._significand, result._significand, low._significand);
+    } else {
+        mpz_sub(result._significand, result._significand, low._significand);
+        if (mpz_sgn(result._significand) < 0) {
+            mpz_neg(result._significand, result._significand);
+            result._negative = !result._negative;
+        }
+    }
+    if (mpz_size(result._significand) == 0) {
+        result.set_zero(mode == Rounding::Downward);
+        return result;
+    }
+    round_scaled_integer(result, low._exponent, mode);
+    return result;
 }
 
 FloatAP FloatAP::mul(FloatAP const& a, FloatAP const& b,
@@ -288,19 +307,11 @@ unsigned long p, Rounding mode) {
     const bool neg = a._negative != b._negative;
     if (a.is_inf() || b.is_inf()) return infinity(p, neg);
     if (a.is_zero() || b.is_zero()) return zero(p, neg);
-    mpz_t n, one;
-    mpz_inits(n, one, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b;
-        ~Cleanup() {
-            mpz_clears(a, b, nullptr);
-        }
-    }
-    cleanup { n, one };
-    mpz_mul(n, a._significand, b._significand);
-    if (neg) mpz_neg(n, n);
-    mpz_set_ui(one, 1);
-    return from_ratio(n, one, checked_add(a._exponent, b._exponent), p, mode);
+    FloatAP result(p);
+    result._negative = neg;
+    mpz_mul(result._significand, a._significand, b._significand);
+    round_scaled_integer(result, checked_add(a._exponent, b._exponent), mode);
+    return result;
 }
 
 FloatAP FloatAP::div(FloatAP const& a, FloatAP const& b,
