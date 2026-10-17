@@ -2113,68 +2113,70 @@ Interval small_atan(Fraction const& x, unsigned long work) {
         static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
         throw std::overflow_error("FloatAP arctangent GMP shift overflow");
     }
+    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(fixed_bits);
 
-    mpz_t scaled, xlo, xhi, square_lo, square_hi, power_lo, power_hi;
-    mpz_t sum_lo, sum_hi, term, tail, limit;
-    mpz_inits(scaled, xlo, xhi, square_lo, square_hi, power_lo, power_hi,
-              sum_lo, sum_hi, term, tail, limit, nullptr);
+    mpz_t scaled, argument, square, power, sum, term, tail, error;
+    mpz_inits(scaled, argument, square, power, sum, term, tail, error, nullptr);
     struct Cleanup {
-        mpz_ptr a,b,c,d,e,f,g,h,i,j,k,l;
-        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,i,j,k,l,nullptr); }
-    } cleanup{scaled,xlo,xhi,square_lo,square_hi,power_lo,power_hi,
-              sum_lo,sum_hi,term,tail,limit};
+        mpz_ptr a,b,c,d,e,f,g,h;
+        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,nullptr); }
+    } cleanup{scaled,argument,square,power,sum,term,tail,error};
 
-    mpz_mul_2exp(scaled, mpq_numref(magnitude.raw()),
-                 static_cast<mp_bitcnt_t>(fixed_bits));
-    mpz_fdiv_q(xlo, scaled, mpq_denref(magnitude.raw()));
-    mpz_cdiv_q(xhi, scaled, mpq_denref(magnitude.raw()));
+    // Let Q=2^fixed_bits, a=floor(Q*|x|) and b=floor(a*a/Q).
+    // For |x|<=1/2, 0<=Q*x*x-b<2 and a<=Q*x.
+    mpz_mul_2exp(scaled, mpq_numref(magnitude.raw()), shift);
+    mpz_fdiv_q(argument, scaled, mpq_denref(magnitude.raw()));
+    mpz_mul(square, argument, argument);
+    mpz_fdiv_q_2exp(square, square, shift);
+    mpz_set(power, argument);
+    mpz_set_ui(sum, 0ul);
 
-    mpz_mul(square_lo, xlo, xlo);
-    mpz_fdiv_q_2exp(square_lo, square_lo,
-                    static_cast<mp_bitcnt_t>(fixed_bits));
-    mpz_mul(square_hi, xhi, xhi);
-    mpz_cdiv_q_2exp(square_hi, square_hi,
-                    static_cast<mp_bitcnt_t>(fixed_bits));
-    mpz_set(power_lo, xlo);
-    mpz_set(power_hi, xhi);
-
-    mpz_set_ui(limit, 1ul);
+    // p_n=floor(p_(n-1)*b/Q), p_0=a. If P_n=Q*|x|^(2n+1),
+    // e_n=P_n-p_n obeys e_0<1 and e_(n+1)<e_n/4+2,
+    // so 0<=e_n<4 for every n. Consequently each downward-rounded
+    // Taylor term p_n/(2n+1) differs from the exact scaled term by
+    // less than 5 integer units, independently of n. The first
+    // omitted alternating term is bounded by p_(n+1)+4 units.
+    // One recurrence therefore certifies BOTH endpoints: no need for
+    // separate upward and downward powers, squares and divisions.
+    mpz_t limit;
+    mpz_init_set_ui(limit, 1ul);
+    struct LimitCleanup {
+        mpz_ptr value;
+        ~LimitCleanup() { mpz_clear(value); }
+    } limit_cleanup{limit};
     mpz_mul_2exp(limit, limit, static_cast<mp_bitcnt_t>(guard));
 
     for (unsigned long n = 0; n < max_terms; ++n) {
         const unsigned long divisor = 2ul * n + 1ul;
-        if (n % 2ul == 0ul) {
-            mpz_fdiv_q_ui(term, power_lo, divisor);
-            mpz_add(sum_lo, sum_lo, term);
-            mpz_cdiv_q_ui(term, power_hi, divisor);
-            mpz_add(sum_hi, sum_hi, term);
-        } else {
-            mpz_cdiv_q_ui(term, power_hi, divisor);
-            mpz_sub(sum_lo, sum_lo, term);
-            mpz_fdiv_q_ui(term, power_lo, divisor);
-            mpz_sub(sum_hi, sum_hi, term);
-        }
+        mpz_fdiv_q_ui(term, power, divisor);
+        if (n % 2ul == 0ul) mpz_add(sum, sum, term);
+        else mpz_sub(sum, sum, term);
 
-        mpz_mul(power_lo, power_lo, square_lo);
-        mpz_fdiv_q_2exp(power_lo, power_lo,
-                        static_cast<mp_bitcnt_t>(fixed_bits));
-        mpz_mul(power_hi, power_hi, square_hi);
-        mpz_cdiv_q_2exp(power_hi, power_hi,
-                        static_cast<mp_bitcnt_t>(fixed_bits));
+        mpz_mul(power, power, square);
+        mpz_fdiv_q_2exp(power, power, shift);
 
-        // The exact remainder has the sign of term n+1 and is bounded
-        // by |x|^(2n+3)/(2n+3). power_hi encloses its numerator.
-        mpz_cdiv_q_ui(tail, power_hi, 2ul * n + 3ul);
-        if (mpz_cmp(tail, limit) <= 0 || n + 1ul == max_terms) {
-            if (n % 2ul == 0ul) {
-                mpz_sub(sum_lo, sum_lo, tail);
-            } else {
-                mpz_add(sum_hi, sum_hi, tail);
-            }
-            const Interval positive{Fraction(sum_lo, fixed_bits),
-                                    Fraction(sum_hi, fixed_bits)};
-            return x.sign() < 0
-                ? negative(positive) : positive;
+        if (mpz_cmp(power, limit) <= 0 || n + 1ul == max_terms) {
+            // All n+1 term errors together have magnitude <5*(n+1).
+            // The next term is the alternating-series remainder bound.
+            mpz_set_ui(error, n);
+            mpz_add_ui(error, error, 1ul);
+            mpz_mul_ui(error, error, 5ul);
+            mpz_t lower, upper;
+            mpz_inits(lower, upper, nullptr);
+            struct EndpointCleanup {
+                mpz_ptr a, b;
+                ~EndpointCleanup() { mpz_clears(a, b, nullptr); }
+            } endpoint_cleanup{lower, upper};
+            mpz_sub(lower, sum, error);
+            mpz_add(upper, sum, error);
+            mpz_add_ui(tail, power, 4ul);
+            if (n % 2ul == 0ul) mpz_sub(lower, lower, tail);
+            else mpz_add(upper, upper, tail);
+
+            const Interval positive{Fraction(lower, fixed_bits),
+                                    Fraction(upper, fixed_bits)};
+            return x.sign() < 0 ? negative(positive) : positive;
         }
     }
     throw std::logic_error("FloatAP arctangent series did not terminate");

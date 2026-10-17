@@ -2560,3 +2560,71 @@ shared differential exp/log/trigonometric suite must pass.
 Full CI and a fresh 300x7 benchmark on the warmed-up user's machine
 are required before accepting a measured speedup. None is claimed.
 Global target: worst <2x, geomean approaching 1x.
+
+## Benchmark 19:16 and one-recurrence arctangent (17 October 2026)
+
+**New benchmark:** `Markdown incollato(20261017-191618).md`, same new
+machine, 300 iterations, seven samples and four precision groups.
+Latest result: geomean **1.463x**, time-weighted **2.617x**, worst
+**4.121x** (`atan_nearest`, 53 bits). By precision: 53 bits
+1.204x / 2.143x / worst 4.121x; 128 bits 1.753x / 2.631x /
+worst 3.924x (`tan_nearest`); 256 bits 1.506x / 1.880x /
+worst 3.574x (`tan_nearest`); 1024 bits 1.441x / 2.871x /
+worst 3.612x (`acos_nearest`), where each row lists geomean,
+time-weighted, and worst. Out of 108 points **49** are >=2x,
+**11** >=3x, and **1** >=4x; the prior 19:08 report had 42,
+13, and 1 respectively. Aggregate geomean and weighted ratio
+improved very slightly from 1.467x and 2.661x, but the global
+worst worsened from 4.019x. The dyadic/halving change in
+`f93538c3` is consistent with a reduction in measured
+`exp_nearest` FloatAP time by 25%, 17%, 20% and 14%
+at 53/128/256/1024 bits respectively; benchmark metadata does
+not include measured commit identity. Unix and Coverage CI for
+`f93538c3` passed at this inspection; Windows was still running.
+
+**Next measured bottleneck:** `atan_nearest` at 53 bits costs
+3555.277 ns against 862.780 ns for MPFR (4.121x). The
+previous `small_atan` maintained upper and lower fixed-point
+power recurrences separately, requiring two independent GMP
+multiplications and directed shifts for each Taylor term.
+The same kernel is used by atan, pi interval computation,
+and inverse-trigonometric functions.
+
+**Certified single-recurrence replacement:** for `|x|<=1/2`,
+set `Q=2^B`, `a=floor(Q|x|)`, `b=floor(a*a/Q)`,
+`p_0=a`, and `p_(n+1)=floor(p_n*b/Q)`.
+Let `P_n=Q|x|^(2n+1)`, `e_n=P_n-p_n`. Since
+`0<=Q*x*x-b<2` and `p_n/Q<=|x|<=1/2`,
+`0<=e_(n+1)<e_n/4+2` with `e_0<1`, and thus
+`0<=e_n<4` for all n. The exact scaled Taylor term
+`P_n/(2n+1)` exceeds the truncated integer
+`floor(p_n/(2n+1))` by less than 5 units. Therefore an
+alternating partial sum of n+1 such integer terms differs
+from the exact corresponding sum by at most `5*(n+1)`.
+The complete alternating tail has the sign of the next
+term and magnitude at most `P_(n+1)/(2n+3)`,
+which is below `p_(n+1)+4`. Subtract/add the
+term-error bound to both endpoints and the tail to the
+appropriate endpoint depending on parity. Divide endpoints
+by Q. For negative x, negate and reverse the endpoints.
+These are rigorous inequalities, not heuristic truncation
+error estimates; the original guard bits and stopping rule
+are retained.
+
+**Independent check:** 595 pseudo-random and boundary rational
+arguments across work=48,85,160,288,1056 were compared
+against high-precision mpmath evaluations; every generated
+interval enclosed the numerical reference. This is numerical
+support, NOT a formal proof of containment; the inequalities
+above establish mathematical correctness. A standalone GMP
+microbenchmark has not been used to claim a speedup.
+
+**Ariadne regression:** compare the fully rounded FloatAP
+and FloatMP values for atan at 7/53/128/256/1024 bits in
+all four rounding modes, both signs, very small arguments
+and values around the 1/2 and 2 argument-reduction thresholds,
+without altering existing transcendental tests.
+The new single-recursion algorithm and test expectations
+must pass Unix, Windows and Coverage CI. The performance
+effect awaits a fresh same-host benchmark: neither a
+<2x worst ratio nor a new speedup is claimed yet.
