@@ -39,6 +39,7 @@ class TwoExp;
 
 class DoublePrecision;
 class MultiplePrecision;
+class ArbitraryPrecision;
 
 using DP = DoublePrecision;
 using MP = MultiplePrecision;
@@ -53,6 +54,7 @@ template<class X> class Positive;
 template<class... PRS> class Float;
 using FloatDP=Float<DP>;
 using FloatMP=Float<MP>;
+using FloatAP=Float<ArbitraryPrecision>;
 
 using DoublePrecisionFloat = FloatDP;
 using MultiplePrecisionFloat = FloatMP;
@@ -63,6 +65,7 @@ using RawFloatMP = FloatMP;
 template<class F> struct IsARawFloat { static const bool value = false; };
 template<> struct IsARawFloat<FloatDP> { static const bool value = true; };
 template<> struct IsARawFloat<FloatMP> { static const bool value = true; };
+template<> struct IsARawFloat<FloatAP> { static const bool value = true; };
 template<class F> concept ARawFloat = IsARawFloat<F>::value;
 
 #ifdef DOXYGEN

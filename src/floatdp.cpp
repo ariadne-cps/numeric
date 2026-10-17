@@ -42,6 +42,7 @@
 #include "numeric/rounding.hpp"
 #include "numeric/floatdp.hpp"
 #include "numeric/floatmp.hpp"
+#include "numeric/floatap.hpp"
 #include "numeric/rounded_float.hpp"
 #include "numeric/float_approximation.hpp"
 #include "numeric/float_lower_bound.hpp"
@@ -148,6 +149,17 @@ FloatDP::Float(Decimal const& dec, RoundingModeType rnd, PrecisionType pr)
 
 FloatDP::Float(Rational const& q, RoundingModeType rnd, PrecisionType)
     : FloatDP(rounded_rational_value(q,rnd))
+{
+}
+
+// Convert the exact FloatAP value directly at double precision with the
+// requested rounding. Preserve the non-finite cases and signed zero, which
+// are not faithfully represented by ordinary finite rational arithmetic.
+FloatDP::Float(FloatAP const& value, RoundingModeType rnd, PrecisionType pr)
+    : FloatDP(value.is_nan() ? FloatDP::nan(pr)
+              : value.is_inf() ? FloatDP::inf(value.negative() ? Sign::NEGATIVE : Sign::POSITIVE,pr)
+              : value.is_zero() ? FloatDP(ExactDouble(value.negative() ? -0.0 : 0.0),pr)
+              : FloatDP(static_cast<Rational>(value),rnd,pr))
 {
 }
 
