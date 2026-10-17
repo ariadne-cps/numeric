@@ -3253,3 +3253,96 @@ valid `Markdown incollato(20261017-200644).md` (1000x11):
 geomean 1.301x, time-weighted 1.419x, worst 3.702x
 (`tan_nearest` 128 bits), 34/108 ratios >=2x. Renaming a
 local variable does not establish any new speedup.
+
+## Cached certified tan(1/2) with local tangent evaluation (17 October 2026)
+
+**Starting state:** `5555f262`, which passed all three GitHub Actions
+workflows (Unix run 39065677444, Windows run 39065677386, Coverage
+run 39065677381). The user-confirmed valid 1000-iteration/11-sample
+baseline is `Markdown incollato(20261017-200644).md`, taken after
+`5116d004` and before this new change:
+
+| All 108 operation/precision pairs | Current |
+| --- | ---: |
+| Geometric mean FloatAP/FloatMP | **1.301x** |
+| Time-weighted ratio | **1.419x** |
+| Worst slowdown | **3.702x** (`tan_nearest` at 128 bits) |
+| Slowdowns >=2x | **34/108** |
+| Slowdowns >=3x | **8/108** |
+
+`tan_nearest` FloatAP times are 2518.917/3478.375/4744.625/
+17037.167 ns at 53/128/256/1024 bits, compared with FloatMP
+817.000/939.542/1436.209/5716.167 ns. Another significant
+outlier is `cos_nearest` at 128 bits (3.660x).
+Earlier attempts to compute tangent from local cached sine and
+cosine independently caused ~25-35% slowdown at low/medium
+precisions because their general rational endpoints were
+divided exactly on every call. The verified `5116d004`
+therefore restricts the local sine/cosine path to
+single-output functions. This tangent improvement is
+**independent** of that route.
+
+**New, general identity for values very near 1/2:** Let
+`y=|x|=1/2+delta` and `T=tan(1/2)`. Then by Taylor's
+theorem,
+`tan(y)=T+(1+T^2)*delta+R`. For
+`|delta|<=2^-ceil(work/2)` with `work>=32`,
+`y in [1/4,3/4]`. Over that interval
+`|sin(y)|<=3/4` and
+`cos(y)>=1-y*y/2>=23/32>1/2`.
+Consequently `0<=tan(y)<=3/2`,
+`sec(y)^2<=4`, and
+`|tan''(y)|=|2 tan(y) sec(y)^2|<=12`.
+Therefore the rigorous remainder bound is
+`|R|<=6 delta^2`. Negative arguments use oddness,
+with reversed endpoints. This is not a heuristic
+approximation; it certifies an entire open neighborhood
+around the center and is independent of benchmark inputs.
+
+**Cached certified endpoint construction:** The existing
+`half_trigonometric_intervals(work+48)` gives proven sine
+and cosine enclosures at `1/2`, both with positive cosine.
+Perform their exact interval division once per thread and
+precision upgrade to enclose `T`. Quantize both endpoints
+**outward** to dyadics with denominator `2^(work+32)`
+using `mpz_fdiv_q` for the lower endpoint and
+`mpz_cdiv_q` for the upper endpoint. Cache both T and the
+outward-rounded derivative interval
+`[1+T.lower^2, 1+T.upper^2]`; its monotonicity is valid
+because `T>0`. The resulting per-call operations are
+limited to cached exact dyadic additions/multiplications
+by delta and the explicit rational remainder interval.
+No division of separately reconstructed sine/cosine
+intervals occurs on repeated calls. A precision upgrade
+recomputes the cache; a tighter cached interval is valid
+for lower work precisions. The existing `certified` loop
+still compares BOTH outward endpoints rounded in the
+requested mode and refines if they differ. Outside the
+neighborhood, retain all existing trigonometric paths
+and exception contracts, including pole detection.
+
+**Independent numerical check:** An external Python
+fraction-arithmetic + mpmath model tested 1,550
+containments across 7/53/128/256/1024 bits and both
+signs, checking interval enclosure at the requested
+working precision. The proof is the derivative bound
+above, not the finite numerical sample. The repository
+C++ suite and Windows CI have not yet been run for this
+new commit.
+
+**Differential tests:** Extend the existing FloatAP/FloatMP
+regression to check tangent at both signs, center, points
+inside/outside the precision threshold and values
+outside the local fast path for 7/53/128/256/1024 bits
+and all four rounding modes; use identical rounded
+FloatAP inputs for the MPFR oracle. Revisit 53 bits
+after a 1024-bit cache upgrade to test reuse. No old
+tests or rounding conditions are relaxed.
+
+**Acceptance:** Require Unix, Windows and Coverage success.
+Rebenchmark on the user's warmed-up unloaded host with
+1000 iterations, 11 samples, same input pool and Release
+flags. Expect a major reduction in `tan_nearest`, but
+no actual speedup is claimed until measured. Quantify
+all 108 ratios and inspect any shifts in the worst case;
+the hard objective remains worst <2x with geomean near 1x.

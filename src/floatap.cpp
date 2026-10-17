@@ -2452,6 +2452,88 @@ enum class Function {
     pi, half_pi, negative_half_pi
 };
 
+// Replace exact division in repeated near-half tangent evaluations with
+// dyadic outward endpoints. The initial general division is computed only
+// on a cache miss or when the requested work precision increases.
+Interval outward_dyadic_interval(Interval const& input, unsigned long bits) {
+    if (static_cast<std::uintmax_t>(bits) >
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+        throw std::overflow_error("FloatAP dyadic tangent interval shift overflow");
+    }
+    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(bits);
+    mpz_t scaled, lower, upper;
+    mpz_inits(scaled, lower, upper, nullptr);
+    struct Cleanup {
+        mpz_ptr a, b, c;
+        ~Cleanup() { mpz_clears(a, b, c, nullptr); }
+    } cleanup{scaled, lower, upper};
+
+    mpz_mul_2exp(scaled, mpq_numref(input.lower.raw()), shift);
+    mpz_fdiv_q(lower, scaled, mpq_denref(input.lower.raw()));
+    mpz_mul_2exp(scaled, mpq_numref(input.upper.raw()), shift);
+    mpz_cdiv_q(upper, scaled, mpq_denref(input.upper.raw()));
+    return {Fraction(lower, bits), Fraction(upper, bits)};
+}
+
+struct TangentHalfEnclosures {
+    Interval tangent;
+    Interval derivative;
+};
+
+// Compute an interval for tan(1/2) from the existing certified
+// sine/cosine kernel and round its endpoints OUTWARD to dyadics.
+// Because tan(1/2)>0, the derivative 1+tan(1/2)^2 is monotone
+// in the cached interval. Quantize the derivative outward too.
+TangentHalfEnclosures const& tangent_half_enclosures(unsigned long work) {
+    struct Cache {
+        unsigned long work = 0;
+        std::optional<TangentHalfEnclosures> enclosures;
+    };
+    static thread_local Cache cache;
+    if (!cache.enclosures || cache.work < work) {
+        if (work > std::numeric_limits<unsigned long>::max() - 48ul) {
+            throw std::overflow_error("FloatAP tangent cache work precision overflow");
+        }
+        const unsigned long target_bits = work + 32ul;
+        const auto& [sine, cosine] = half_trigonometric_intervals(work + 48ul);
+        const Interval tangent_ratio_bounds = divide(sine, cosine);
+        const Interval cached_tangent_bounds = outward_dyadic_interval(tangent_ratio_bounds, target_bits);
+        if (cached_tangent_bounds.lower.sign() <= 0) {
+            throw std::logic_error("FloatAP invalid cached tangent enclosure");
+        }
+        const Interval raw_derivative{
+            Fraction(1L) + cached_tangent_bounds.lower * cached_tangent_bounds.lower,
+            Fraction(1L) + cached_tangent_bounds.upper * cached_tangent_bounds.upper
+        };
+        TangentHalfEnclosures fresh_enclosures{
+            cached_tangent_bounds,
+            outward_dyadic_interval(raw_derivative, target_bits)
+        };
+        cache.enclosures = std::move(fresh_enclosures);
+        cache.work = work;
+    }
+    return *cache.enclosures;
+}
+
+// On |x-1/2| <= 2^-ceil(work/2), Taylor's theorem gives
+// tan(x) = T + (1+T^2)*delta + R, |R|<=6*delta^2.
+// Indeed x stays in [1/4,3/4]; here |sin(x)|<=3/4 and
+// cos(x)>=1-x*x/2 >= 23/32 > 1/2, hence |tan(x)|<=3/2,
+// sec(x)^2<=4, |tan''(x)|=|2*tan(x)*sec(x)^2|<=12.
+// Interval arithmetic with cached dyadic T and T' therefore
+// gives certified bounds for any sign and rounding mode.
+Interval centered_tangent_interval(Fraction const& x,
+                                   Fraction const& delta,
+                                   unsigned long work) {
+    const auto& cache = tangent_half_enclosures(work);
+    Interval result = add(cache.tangent,
+                          multiply_by_fraction(cache.derivative, delta));
+    const Fraction remainder = Fraction(6L) * delta * delta;
+    result.lower = result.lower - remainder;
+    result.upper = result.upper + remainder;
+    return x.sign() < 0 ? negative(result) : result;
+}
+
 Interval evaluate(Function function, Fraction const& x, unsigned long work) {
     switch (function) {
         case Function::sine:
@@ -2459,7 +2541,16 @@ Interval evaluate(Function function, Fraction const& x, unsigned long work) {
         case Function::cosine:
             return sine_cosine_intervals(x, work, TrigOutputs::cosine).second;
         case Function::tangent: {
-            const auto [sine, cosine] = sine_cosine_intervals(x, work, TrigOutputs::both);
+            // Short-circuit repeated near-half evaluations without
+            // recomputing sin/cos and dividing two non-dyadic intervals.
+            // Outside this exact precision-dependent neighborhood, retain
+            // the complete general-purpose certified path and pole checks.
+            const Fraction delta = absolute(x) - Fraction(1L) / Fraction(2L);
+            if (sufficiently_near_half(delta, work)) {
+                return centered_tangent_interval(x, delta, work);
+            }
+            const auto [sine, cosine] =
+                sine_cosine_intervals(x, work, TrigOutputs::both);
             return divide(sine, cosine);
         }
         case Function::arctangent:
