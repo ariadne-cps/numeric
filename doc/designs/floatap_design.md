@@ -4239,3 +4239,98 @@ design/performance journal remains the source of truth.
 ## FloatDP benchmark: omit redundant ALL row (17 October 2026)
 
 The FloatAP/FloatDP benchmark is limited to binary64/53-bit precision, so its `53 bits` summary already represents every one of the 27 operation ratios. Remove the redundant `ALL` summary row **only** from `benchmark_compare_double_precision_backends.cpp`. Retain the aggregated slowdown accumulator for `--max-slowdown` validation and keep all 27 timing rows, CLI flags and the 1000-iteration/11-sample defaults unchanged. The separate FloatAP/FloatMP benchmark still measures 53/128/256/1024 bits and continues to print its useful cross-precision `ALL` row. This is an output-only change; no numerical backend, operation or measurement method is modified.
+
+## Benchmark 21:11 and certified half-centered log optimization (17 October 2026)
+
+**User report:** `Markdown incollato(20261017-211153).md`
+is a 1000-iteration/11-sample full benchmark of the existing
+27 FloatAP/FloatMP operations at 53/128/256/1024 bits.
+The previous comparable 21:01 report is
+`Markdown incollato(20261017-210150).md`.
+
+| Metric | 21:01 before centered atan | 21:11 after centered atan |
+| --- | ---: | ---: |
+| Geometric mean, 108 FloatAP/FloatMP pairs | 1.024x | **1.014x** |
+| Total-time AP/MP ratio | 0.488x | **0.483x** |
+| Worst slowdown | 3.257x (atan@53) | **3.181x (log@53)** |
+| Pairs >=2x | 27/108 | **20/108** |
+
+The 20 pairs >=2x split across precisions as 4 at 53,
+10 at 128, 5 at 256 and 1 at 1024 bits. The 53-bit
+`atan_nearest` median decreased 1772.750->1353.792 ns
+(~23.6% faster) and its slowdown fell to 2.505x.
+The present worst is `log_nearest`@53:
+FloatAP **2109.875 ns**, FloatMP **663.375 ns**,
+ratio **3.181x**. Other 53-bit outliers are
+`cos_nearest` 3.073x and `sqrt_nearest` 2.836x.
+The worst at 128 is `div_up` 3.164x, at 256
+`div_nearest` 2.220x, and at 1024
+`compare` 2.190x. The time-weighted 0.483x
+ratio is for the synthetic benchmark operation
+distribution, not a general application-wide claim.
+
+**Release status:** Commit `3a4993da` introducing the
+centered atan algorithm was green on Unix (run
+39069436882), Windows (39069436958), Coverage
+(39069436892). Commit `1513659f` adding the separate
+FloatAP/FloatDP benchmark was likewise green on all
+three workflows (Unix 39069736274, Windows
+39069736273, Coverage 39069736336).
+At the start of this log work, the next output-only
+commit `f6b19da7` was still executing all 3 CI
+workflows. No output or correctness claim about it is
+made beyond the source changes.
+
+**New certified logarithm reduction:** For positive
+`x=1/2+delta`, require `work>=4` and
+`|delta|<=2^-ceil(work/2)` using the already proven
+exact GMP predicate `exp_inside_half_window`.
+Then x and the entire segment from 1/2 to x lie in
+[1/4,3/4]. Taylor's theorem with
+`log'(1/2)=2` (EXACT) and
+`|log''(t)|=1/t^2<=16` proves
+`log(x)=-log(2)+2*delta+R`,
+`|R|<=8*delta*delta`.
+The constant -log(2) comes from the already existing
+certified thread-local cache `log2_interval(work+40)`,
+which computes an interval using the proven
+`log_series(1/3)` kernel. Negate and reverse its
+endpoints and round them OUTWARD to dyadics at
+`work+24` using `exp_outward_dyadic` (which
+performs floor for the lower endpoint and ceiling
+for the upper endpoint, including negatives).
+Cache the result thread-locally, upgrading whenever
+work increases. Computing the per-call linear term
+and the exact symmetric Taylor remainder requires
+no series, argument scaling, or rational
+Mobius reduction. On arguments outside this exact
+neighborhood, preserve `log_interval` unchanged.
+No other operation (including exp, atan, pow, sin,
+cos or the comparison benchmark) changes.
+
+**Rounding and regression:** The main certified loop
+still compares both outward bounds in the requested
+rounding mode and refines work whenever needed.
+No intermediate result is rounded to a FloatAP.
+Keep the existing NaN, sign/domain, signed-zero,
+infinity and exact-log(1)=0 branches unchanged.
+Add FloatAP/FloatMP differential checks around the
+exact center, +/-1/4 ULP patterns, both sides of the
+work-dependent inclusion cutoff, and fallback
+1/4,3/4,1/3,2/3,1,2 at precision
+7/53/128/256/1024 bits. All nearest/down/up/
+toward-zero modes are retained and 53-bit cache
+reuse is checked after a 1024-bit upgrade.
+No existing test is removed or weakened.
+
+**Acceptance:** The mathematical remainder proof
+guarantees enclosure; the differential tests and
+new GitHub Unix/Windows/Coverage CI must additionally
+validate implementation portability and historical
+correctness. DO NOT claim any runtime benefit until
+another same-host idle-CPU warmed-up 1000x11 report
+compares all 108 pairs with the 21:11 baseline.
+The global target remains all 108 ratios <2x and a
+geomean approaching 1x. Re-evaluate the center
+if its 53-bit cost does not beat the general
+log path, especially outside the benchmark pool.
