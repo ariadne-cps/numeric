@@ -4915,3 +4915,13 @@ patch coverage. P0/P1 precede this failed P2 commit
 and were green. The validator design above is not yet
 implemented: this journal change makes no new source,
 test or benchmark performance claims.
+
+## P2 compile repair: countl_zero signedness (17 October 2026)
+
+The user supplied the actual macOS AppleClang -Werror diagnostic from P2:
+`std::countl_zero(uint32_t)` returns `int`, producing two
+`-Wsign-conversion` failures in `src/floatap_small_division.hpp`:
+`bit_length` and the division normalizing shift. Explicit, range-safe
+casts of the [0,32] count to `std::size_t` and `unsigned` fix those
+specific errors without changing any integer operation or rounding.
+Verify Unix, macOS, Windows and Coverage before claiming overall CI green.
