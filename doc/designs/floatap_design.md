@@ -3924,3 +3924,85 @@ time-weighted 0.591x and worst 3.335x (exp@128).
 Do not infer a new speedup from a test-only type correction.
 The independently planned exp/log certified-center work
 remains unmerged until the new CI is validated.
+
+## Certified centered exponential near +/-1/2 (17 October 2026)
+
+**Validated starting commit:** `f75a4548`, which passed
+GitHub Unix run `39068524458`, Windows run `39068524529`,
+and Coverage run `39068524358`. The MSVC C4267 test-only
+narrowing issue is resolved without weakening `/WX`.
+The most recent measured benchmark is
+`Markdown incollato(20261017-204344).md`, 1000 iterations,
+11 samples on the same unloaded host:
+AP/MP geometric mean **1.090x**, time-weighted **0.591x**,
+worst **3.335x** (`exp_nearest` at 128 bits), and
+**25/108** operation/precision ratios >=2x. In that report
+FloatAP `exp_nearest` absolute medians at
+53/128/256/1024 bits are 1979.417, 2872.625, 3678.167,
+12275.709 ns respectively; matching FloatMP medians are
+1063.625, 861.416, 1387.875, 6127.000 ns.
+This is the **pre-optimization** benchmark, not an outcome.
+
+**Certification proof:** For `x=c+delta` with
+`c` exactly +1/2 or -1/2, take the local route only when
+`work>=4` and `|delta|<=2^-ceil(work/2)`.
+Then `|delta|<=1/4`, so the entire segment from c
+to x lies in [-3/4,3/4]. Here
+`exp''(t)=exp(t)<=exp(3/4)<e<3`.
+Taylor's theorem therefore gives
+`exp(c+delta)=E_c*(1+delta)+R` with
+`|R|<=2*delta*delta`; this uses the exact center
+derivative `exp'(c)=E_c`.
+Because `1+delta>=3/4>0`, multiplying a certified
+interval of E_c by 1+delta preserves endpoint order.
+Then subtract/add `2*delta^2` from/to the result.
+The condition is checked with exact GMP integer
+comparison, with overflow-safe `mp_bitcnt_t` handling.
+Inputs outside this mathematically defined window
+retain the exact prior `exp_interval` algorithm;
+it does not key on benchmark array position.
+
+**Certified caching:** One thread-local cache per work
+precision maximum holds BOTH `E_+=exp(1/2)` and
+`E_-=exp(-1/2)` intervals. At a cache miss/precision
+increase, evaluate existing certified
+`exp_interval(1/2,work+40)`; the negative center is
+the exact outward reciprocal interval
+`[1/E_+.upper,1/E_+.lower]`.
+Convert both intervals to dyadic endpoints at
+`work+24` using exact outward GMP floor/ceiling,
+including negative-value handling in the helper.
+Cache enclosures, **never caller-rounded constants**:
+all four rounding modes share a thread-safe local
+cache. If work decreases, use the tighter existing
+bounds. The enclosing `certified` refinement loop
+still requires both endpoints to round to the same
+target result, otherwise it increases precision.
+No approximation or different rounding criterion
+is introduced.
+
+**Regression matrix:** Add FloatAP/FloatMP differential
+tests for exact shared input values around both
++1/2 and -1/2 at bits 7,53,128,256,1024, with
+53 revisited after a high-precision cache upgrade.
+Exercise +/- one ULP, +/- four ULPs, the exact
+`2^-ceil(work/2)` window boundary and +/- twice
+the boundary, and fallback values 1/4, 3/4, 1/3,
+2/3, 1, 2. Preserve tests for all four rounding
+modes and all earlier scenarios.
+No previous test assertions are removed.
+
+**Measurement and acceptance:** This commit isolates
+exponential optimization only: `log`, `atan`,
+`pow` and trigonometric kernels are unchanged.
+Do not claim any speedup until Unix/Windows/Coverage
+CI pass and a same-machine, CPU-idle, warmed-up
+1000/11 benchmark reports all 108 cases.
+Track both AP and MP absolute medians, overall
+geomean, time-weighted ratio, worst pair and >=2x.
+If newly expensive cache startup dominates
+short-lived workloads, investigate that separately
+without tuning solely to the 32-value benchmark pool.
+The separately proven local log and atan reductions
+and integer-power refactor remain future *independent*
+experiments, not part of this commit.
