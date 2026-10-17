@@ -3461,3 +3461,81 @@ global maximum does not improve or 1024-bit
 sin/cos regress, re-evaluate or revert this
 isolated change. Do not mistake the standalone
 microbenchmark for an official improvement.
+
+## Benchmark 20:25 and signed division without GMP numerator copying (17 October 2026)
+
+**New 1000x11 warmed-up baseline:** user-supplied
+`Markdown incollato(20261017-202537).md` is the first full measurement
+after the cached fixed-point centered sine/cosine optimization
+`04e1b6f3`, compared against
+`Markdown incollato(20261017-201956).md` before that commit.
+All 108 operation/precision pairs are included. The results are:
+
+| Statistic | Before | After |
+| --- | ---: | ---: |
+| Geometric mean FloatAP/FloatMP | 1.235x | **1.212x** |
+| Total-time ratio | 1.294x | **1.248x** |
+| Worst-case | 3.613x (cos@128) | **3.364x (div_up@128)** |
+| Cases >=2x | 31/108 | **32/108** |
+
+**Measured sin/cos FloatAP times (ns):**
+
+| Bits | sin before -> after | cos before -> after |
+| --- | --- | --- |
+| 53 | 1321.167 -> 1384.834 | 1408.458 -> 1454.750 |
+| 128 | 1852.541 -> 1275.292 | 1928.292 -> 1269.500 |
+| 256 | 2098.375 -> 1350.292 | 2092.459 -> 1345.791 |
+| 1024 | 3434.209 -> 1499.209 | 3349.917 -> 1500.417 |
+
+The 128/256/1024-bit sine and cosine gains range from
+approximately 31% to 56% in absolute FloatAP time, consistent
+with the fixed-point centered interval path. The 53-bit
+initial work precision is below its dispatch threshold,
+so the 3-5% slower reported times at that precision
+cannot be directly attributed to the new path. At 1024 bits,
+the absolute FloatAP/FloatMP ratios for sine and cosine are
+0.284x and 0.355x. Tangent remains below 2x at all four
+precisions. The remaining slowdowns >=2x number 32 (53:8,
+128:13, 256:9, 1024:2). New top outliers are
+`div_up` 128 bits 146.333/43.500=3.364x,
+`acos_nearest` 53 bits 4150.417/1263.292=3.285x,
+`atan_nearest` 53 bits 1783.625/548.917=3.249x,
+`exp_nearest` 128 bits 2812.208/881.459=3.190x
+and `div_down` 128 bits 133.958/43.042=3.112x.
+At inspection of `04e1b6f3`, Unix and Coverage
+workflow runs `39066603650` and `39066603557`
+had passed; Windows run `39066603660` was still running.
+Check Windows before claiming three-platform success.
+
+**Next cross-cutting optimization:** `FloatAP::div` has separate
+sign metadata in both operands and strictly nonnegative stored
+significands. Nonetheless it previously allocated a fresh
+`mpz_t`, copied `a._significand`, and negated this copy
+if the result was negative. It then passed the temporary to
+`from_ratio`, which may allocate another absolute magnitude.
+Eliminate the copy by letting the existing private
+`from_ratio` helper accept a defaulted `invert_sign`
+boolean (default false for EVERY unchanged call site).
+Compute the result sign from numerator and denominator signs,
+then XOR with `invert_sign`. Pass the original immutable
+positive significands directly from `div` with
+`invert_sign = a._negative != b._negative`. The entire
+quotient, remainder, exact nearest-even and directed rounding,
+exponent normalization, exceptional operand handling and
+signed zero cases are left unchanged. This is internal
+API plumbing, not a new division algorithm or an external
+signature change. The bit-exact behavior follows from
+moving the sign operation from integer magnitude to
+metadata before the same existing rounding operation.
+
+**Regression and measurement:** Existing FloatAP-vs-FloatMP
+rational construction/division tests span precisions
+7,53,128,256,1024 and all four rounding modes. Expand
+the signed-divisor matrix from {3,7,16} to
+{-16,-7,-3,3,7,16}, preserving every existing test.
+The generated C++ CI and a new unloaded same-machine
+1000x11 benchmark are needed before accepting the
+change as correct and faster. Predict fewer GMP allocations
+and copies, especially for signed division, but DO NOT
+claim a measured division speedup yet. The user objective
+remains every worst-case <2x and geometric mean near 1x.
