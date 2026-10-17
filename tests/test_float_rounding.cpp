@@ -412,6 +412,37 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // The general non-unit-denominator path of from_ratio()
+            // must round both signs correctly for division and Rational
+            // construction, including exact and inexact quotients.
+            for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                for (Int numerator : {Int(-17),Int(-3),Int(1),Int(17)}) {
+                    for (Int denominator : {Int(3),Int(7),Int(16)}) {
+                        const FloatAP a(numerator,ap);
+                        const FloatAP b(denominator,ap);
+                        const FloatMP ma(numerator,mp);
+                        const FloatMP mb(denominator,mp);
+                        const Rational ratio(numerator,denominator);
+                        const auto check=[&](auto ap_mode,auto mp_mode) {
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(div(ap_mode,a,b)),
+                                static_cast<Rational>(div(mp_mode,ma,mb)));
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(FloatAP(ratio,ap_mode,ap)),
+                                static_cast<Rational>(FloatMP(ratio,mp_mode,mp)));
+                        };
+                        check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                        check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                        check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                        check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    }
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Differential checks for direct binary-integer rounding.
             // Construct values just above and below precision boundaries,
             // including both signs and significand-carry cases.
