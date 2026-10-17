@@ -631,7 +631,8 @@ TestFloatRounding<PR>::test_precision_regressions()
             const Rational values[]={
                 Rational(0),Rational(1,8),
                 Rational(1,4)-epsilon,Rational(1,4),Rational(1,4)+epsilon,
-                Rational(1,3),Rational(1,2)-epsilon,
+                Rational(1,3)-epsilon,Rational(1,3),Rational(1,3)+epsilon,
+                Rational(1,2)-epsilon,
                 Rational(1,2)-tiny,Rational(1,2),
                 Rational(1,2)+tiny,Rational(1,2)+epsilon,
                 Rational(5,7)-epsilon,Rational(5,7),Rational(5,7)+epsilon,
@@ -671,6 +672,8 @@ TestFloatRounding<PR>::test_precision_regressions()
                 const Rational inputs[] = {
                     Rational(0), Rational(1,64), Rational(-1,64),
                     Rational(1,2), Rational(-1,2),
+                    Rational(1,2)-epsilon, Rational(1,2)+epsilon,
+                    epsilon-Rational(1,2), -Rational(1,2)-epsilon,
                     Rational(3,4), Rational(-3,4),
                     Rational(7,8), Rational(-7,8),
                     Rational(1) - epsilon, epsilon - Rational(1),

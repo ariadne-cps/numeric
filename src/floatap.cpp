@@ -2243,9 +2243,13 @@ Interval atan_half_interval(unsigned long work) {
 }
 
 Interval atan_interval(Fraction const& x, unsigned long work) {
-    const Fraction quarter = Fraction(1L) / Fraction(4L);
-    // Direct Taylor is cheaper than reducing a very small argument.
-    if (compare(absolute(x), quarter) < 0) {
+    // The centered branch has additional certified-constant and rational
+    // reduction costs. At moderate precision the direct Taylor kernel is
+    // faster for small arguments (notably asin's argument near 2-sqrt(3)).
+    // At high precision the saved Taylor iterations justify that overhead.
+    const Fraction direct_limit = work <= 512ul
+        ? Fraction(1L) / Fraction(3L) : Fraction(1L) / Fraction(4L);
+    if (compare(absolute(x), direct_limit) < 0) {
         return small_atan(x, work);
     }
     if (x.sign() < 0) {
