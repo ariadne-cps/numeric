@@ -2919,27 +2919,112 @@ Interval outward_dyadic_interval(Interval const& input, unsigned long bits) {
 // |atan''(y)|=2*y/(1+y*y)^2 <= 3/2, hence |R|<=delta^2.
 // The derivative 4/5 is an EXACT rational, not a second cache.
 Interval centered_atan_half_interval(Fraction const& input,
-                                     Fraction const& delta,
-                                     unsigned long work) {
+                                      Fraction const& delta,
+                                      unsigned long work) {
+    // All FloatAP arguments are dyadic. For a sufficiently small delta,
+    // evaluate the linear correction (4/5)*delta and the certified
+    // quadratic error with integer significands on a cached binary
+    // scale. No rational multiplication/division is needed per call.
+    // The generic exact-rational branch remains as a fallback.
+    const auto rational_fallback = [&]() {
+        struct Cache {
+            unsigned long work = 0;
+            std::optional<Interval> center;
+        };
+        static thread_local Cache cached_rational;
+        if (!cached_rational.center || cached_rational.work < work) {
+            if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
+                throw std::overflow_error("FloatAP centered atan precision overflow");
+            }
+            cached_rational.center = outward_dyadic_interval(
+                atan_half_interval(work + 40ul), work + 24ul);
+            cached_rational.work = work;
+        }
+        const Fraction linear = Fraction(4L) * delta / Fraction(5L);
+        const Fraction remainder = delta * delta;
+        const Interval positive{
+            cached_rational.center->lower + linear - remainder,
+            cached_rational.center->upper + linear + remainder
+        };
+        return input.sign() < 0 ? negative(positive) : positive;
+    };
+
+    if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
+        throw std::overflow_error("FloatAP centered atan precision overflow");
+    }
+    const unsigned long bits = work + 24ul;
+    if (static_cast<std::uintmax_t>(bits + 2ul) >
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+        mpz_popcount(mpq_denref(delta.raw())) != 1u) {
+        return rational_fallback();
+    }
+    const mp_bitcnt_t delta_shift =
+        mpz_scan1(mpq_denref(delta.raw()), 0u);
+    if (delta_shift > static_cast<mp_bitcnt_t>(bits + 2ul)) {
+        return rational_fallback();
+    }
+
     struct Cache {
         unsigned long work = 0;
-        std::optional<Interval> center;
+        unsigned long bits = 0;
+        mpz_t lower, upper;
+        Cache() { mpz_inits(lower, upper, nullptr); }
+        ~Cache() { mpz_clears(lower, upper, nullptr); }
+        Cache(Cache const&) = delete;
+        Cache& operator=(Cache const&) = delete;
     };
-    static thread_local Cache center_cache;
-    if (!center_cache.center || center_cache.work < work) {
-        if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
-            throw std::overflow_error("FloatAP centered atan precision overflow");
-        }
-        center_cache.center = outward_dyadic_interval(
-            atan_half_interval(work + 40ul), work + 24ul);
-        center_cache.work = work;
+    static thread_local Cache centered;
+    if (centered.work < work) {
+        const Interval certified_center = atan_half_interval(work + 40ul);
+        mpz_t scaled;
+        mpz_init(scaled);
+        struct ScaledCleanup {
+            mpz_ptr value;
+            ~ScaledCleanup() { mpz_clear(value); }
+        } scaled_cleanup{scaled};
+        mpz_mul_2exp(scaled, mpq_numref(certified_center.lower.raw()),
+                     static_cast<mp_bitcnt_t>(bits));
+        mpz_fdiv_q(centered.lower, scaled,
+                   mpq_denref(certified_center.lower.raw()));
+        mpz_mul_2exp(scaled, mpq_numref(certified_center.upper.raw()),
+                     static_cast<mp_bitcnt_t>(bits));
+        mpz_cdiv_q(centered.upper, scaled,
+                   mpq_denref(certified_center.upper.raw()));
+        centered.bits = bits;
+        centered.work = work;
     }
-    const Fraction linear = Fraction(4L) * delta / Fraction(5L);
-    const Fraction remainder = delta * delta;
-    const Interval positive{
-        center_cache.center->lower + linear - remainder,
-        center_cache.center->upper + linear + remainder
-    };
+
+    mpz_t scaled, linear_lower, linear_upper, lower, upper, remainder;
+    mpz_inits(scaled, linear_lower, linear_upper, lower, upper, remainder,
+              nullptr);
+    struct Cleanup {
+        mpz_ptr a,b,c,d,e,f;
+        ~Cleanup() { mpz_clears(a,b,c,d,e,f,nullptr); }
+    } cleanup{scaled,linear_lower,linear_upper,lower,upper,remainder};
+
+    // delta = n / 2^k. At scale Q=2^centered.bits,
+    // (4/5)*delta*Q = n*2^(centered.bits+2-k)/5 exactly.
+    // Directed integer quotients give rigorous linear endpoints,
+    // including negative deltas.
+    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(
+        centered.bits + 2ul) - delta_shift;
+    mpz_mul_2exp(scaled, mpq_numref(delta.raw()), shift);
+    mpz_fdiv_q_ui(linear_lower, scaled, 5ul);
+    mpz_cdiv_q_ui(linear_upper, scaled, 5ul);
+
+    // |atan''(y)|<=3/2 on [1/4,3/4], so
+    // |R| <= delta^2 <= 2^-work for the checked neighborhood.
+    // On the cached (possibly tighter) binary scale, 2^-work
+    // corresponds exactly to 2^(centered.bits-work) integer units.
+    mpz_set_ui(remainder, 1ul);
+    mpz_mul_2exp(remainder, remainder, static_cast<mp_bitcnt_t>(
+        centered.bits - work));
+    mpz_add(lower, centered.lower, linear_lower);
+    mpz_sub(lower, lower, remainder);
+    mpz_add(upper, centered.upper, linear_upper);
+    mpz_add(upper, upper, remainder);
+    const Interval positive{Fraction(lower, centered.bits),
+                            Fraction(upper, centered.bits)};
     return input.sign() < 0 ? negative(positive) : positive;
 }
 
