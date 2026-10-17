@@ -78,6 +78,44 @@ callers first. During transition, an explicit GMP adapter can support
 legacy clients, but it must not live on native computational hot paths.
 Never silently change public behavior or invalidate existing users.
 
+## Source-file style and documentation contract
+
+All new and substantially modified C++ files must **follow the existing
+Ariadne conventions**, using adjacent `numeric` sources as templates,
+rather than introducing a separate formatting style. The concrete
+reference files are `include/numeric/integer.hpp`,
+`include/numeric/rational.hpp`, `src/integer.cpp`,
+`src/rational.cpp` and `tests/test_integer.cpp`.
+
+- **File header and license:** reproduce the Ariadne banner with
+  `numeric/<filename>` (or the corresponding test filename),
+  the full existing GPLv3-or-later notice and correct, non-invented
+  attribution. Do not use the short experimental header from
+  `src/floatap_small_division.hpp` as the template for a new
+  reusable core file.
+- **Documentation:** follow the project's `/*! \\file ... * \\brief ... */`
+  and `//! \\ingroup NumericModule` / `//! \\brief` / `//! \\sa`
+  conventions for public interfaces. Explain arithmetic invariants,
+  aliasing, preconditions, quotient/remainder conventions, precision
+  and directed-rounding guarantees where necessary, without
+  duplicating obvious statements.
+- **Layout:** respect Ariadne's include ordering/grouping, header
+  guards, `namespace Ariadne`, class access-label indentation,
+  declaration layout, blank lines, braces, and whitespace as used
+  in the most relevant neighboring files. Use the existing naming
+  conventions; do not run a repository-wide reformatter or create
+  gratuitous unrelated diffs.
+- **Tests:** follow the existing `TestInteger` /`TestRational`
+  organization and `ARIADNE_TEST_*` macros. Separate fixed
+  independent expected values from secondary GMP differential
+  checks; preserve the full existing suites.
+- **Review gate:** before each new file is committed, compare its
+  banner, includes, documentation, naming, indentation and
+  whitespace against the closest existing Ariadne counterpart.
+  Treat warnings-as-errors on GCC, Clang/AppleClang and MSVC as
+  part of the normal acceptance gate. Do not alter CMake/Windows
+  build behavior merely to work around unrelated transient failures.
+
 ## Architecture and ownership
 
 ```text
