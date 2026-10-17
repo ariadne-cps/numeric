@@ -658,37 +658,6 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // The single-sqrt cosine enclosure is used by tangent for
-            // |x|<=1. Check both signs, low precision and reconstruction
-            // across |x|=1 against the correctly rounded MPFR result.
-            for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
-                const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
-                for (Dyadic const& argument :
-                     {Dyadic(1,64u),Dyadic(-1,64u),
-                      Dyadic(1,1u),Dyadic(-1,1u),
-                      Dyadic(3,2u),Dyadic(-3,2u),
-                      Dyadic(1023,10u),Dyadic(-1023,10u),
-                      Dyadic(1,0u),Dyadic(-1,0u),
-                      Dyadic(1025,10u),Dyadic(-1025,10u),
-                      Dyadic(3,1u),Dyadic(-3,1u)}) {
-                    const FloatAP a(argument,ap);
-                    const FloatMP m(static_cast<Rational>(a),
-                                    FloatMP::ROUND_TO_NEAREST,mp);
-                    const auto check_tangent=[&](auto ap_mode,auto mp_mode) {
-                        ARIADNE_TEST_EQUALS(
-                            static_cast<Rational>(tan(ap_mode,a)),
-                            static_cast<Rational>(tan(mp_mode,m)));
-                    };
-                    check_tangent(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                    check_tangent(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                    check_tangent(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                    check_tangent(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
-                }
-            }
-        }
-
-        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Differential oracle for single-recurrence certified
             // sine/cosine/tangent rounding (including cosine reconstructed
             // from sine). All inputs are exact dyadics; compare their
