@@ -2848,3 +2848,79 @@ additional performance benefit from the test-only correction.
 The next performance work must target much larger gains on
 `atan` 53-bit and `tan`/`cos` at 128 bits while preserving
 MPFR differential tests and all four rounding modes.
+
+## Certified atan(1/2)-centered argument reduction (17 October 2026)
+
+**Starting point:** CI-green source at `b1602707` (same numerical
+implementation as `b3a5522d`). The latest user-supplied benchmark
+is `Markdown incollato(20261017-192855).md`, using 1000 iterations,
+11 samples on the warmed-up new machine. It reports 108 paired
+observations, geomean **1.389x**, time-weighted **1.818x**, worst
+**4.742x** (`atan_nearest`, 53 bits) and 36 ratios >=2x.
+This is the pre-intervention baseline; no new timing is yet available.
+
+**Why the current atan algorithm is expensive:** The benchmark's
+32 rational operands at each precision are
+`(2^bits + 13 + 2*i) / (2*2^bits + 17 + 3*i)`,
+rounded to the target FloatAP/FloatMP format. They cluster just
+*above* 1/2. The previous `atan_interval` switches at 1/2 to
+`atan(x) = pi/4 + atan((x-1)/(x+1))`; the reduced argument
+is near -1/3. An independent GMP implementation of the existing
+fixed-point recurrence found 27, 50, 91, 333 Taylor steps
+for the 32 exact benchmark operands at 53,128,256,1024 bits,
+respectively (work=bits+32), even after pi is cached.
+Centering instead at 1/2 reduces these to **one step each**.
+These are recurrence iteration counts, not end-to-end timings.
+
+**General exact transformation:** For positive
+`x in [1/4,5/7]`,
+`atan(x) = atan(1/2) + atan((2*x-1)/(x+2))`.
+The reduced argument is monotone in x, taking values in
+`[-2/9,3/19]`, hence safely within the domain `|r|<=1/2`
+of the existing certified single-recurrence Taylor kernel.
+The atan addition identity has no branch ambiguity for
+positive x in the chosen interval. For negative x use oddness,
+negating and reversing the certified interval. Values with
+`|x|<1/4` use the prior direct Taylor series; positive
+`x>5/7` uses the unchanged pi/4 or pi/2 reduction.
+All interval operations remain exact.
+
+**Certified reusable constant:** Add `atan_half_interval(work)`
+with a `thread_local` cache of the *interval*, not a rounded value,
+recomputing only if the requested work precision exceeds the cached
+precision. Its endpoints are obtained from the already validated
+`small_atan(1/2,work)` kernel; reusing a higher-precision enclosure
+at lower precisions is always safe. Summing both certified intervals
+preserves outward bounds. The outer `certified` loop retains
+exactly the previous test: rounded lower and upper endpoints must
+agree in the requested mode, otherwise increase work precision.
+This preserves correctly rounded results and all four modes,
+including ties, directed rounding and NaN/infinity handling.
+
+**Independent checks:** A GMP C++ harness verified 50,000 exact
+rational reduction identities (including the boundaries), and
+the bound on the reduced magnitude. A separate GMP C++ probe
+reproduced the 32 benchmark arguments and old-versus-new Taylor
+iteration counts at all four advertised precisions.
+Neither check replaces an end-to-end Ariadne build or a controlled
+performance benchmark.
+
+**Ariadne regression:** Extend the historical shared
+`test_precision_regressions()` for `ArbitraryPrecision`
+with operands just below, equal to and just above 1/4,
+1/2 and 5/7, plus low magnitudes and the existing reduction
+region; both signs; six requested precision steps
+(53,7,128,1024,256,53) to exercise a cache upgrade and
+reuse; and all four IEEE rounding modes. Construct FloatAP
+inputs via explicit rounding to avoid violating the exact Dyadic
+constructor, then give the MPFR oracle the identical binary input.
+The existing sine/cosine/tan/asin/acos and pi tests remain unchanged.
+
+**Acceptance:** Validate Unix, Windows and Coverage CI, then
+collect a same-machine, same-build, fully warmed-up benchmark with
+1000 iterations and 11 samples; compare all 108 ratios, especially
+`atan_nearest` 53/128/256/1024 and derived
+`asin`/`acos`. The aspirational global target is worst
+strictly below 2x and geomean near 1x. No improvement is claimed
+until the new benchmark is measured; if regressions occur, classify
+implementation, test and environment causes explicitly.
