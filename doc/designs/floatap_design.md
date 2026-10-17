@@ -4988,3 +4988,121 @@ Unix/Windows/Coverage CI passes before claiming portability.
 ## P2 Windows compiler repair: shadowed Ariadne rounding name (17 October 2026)
 
 MSVC 14.51 with `/W4 /WX` reported C4459 in `src/floatap.cpp`: the `small_rounded_ratio` output argument `rounded` shadows the existing namespace-level `Ariadne::rounded` declaration (`include/numeric/rounding.hpp`). The output parameter has been renamed to `rounded_significand`, including its assignment, without touching calling syntax, algorithm, expected results, or the fallback. This is a source-level diagnostic correction, **not evidence that Windows or the full CI is green** until the next workflow completes.
+
+## P2 first full green CI and new-host 1000x11 performance (17 October 2026, 22:14)
+
+**Source and validity.** The user-provided
+`Markdown incollato(20261017-221453).md` is the first
+1000-iteration, 11-sample report after the P2 small-limb division
+change (`4e23c5db`) and the subsequent compiler/portability fixes,
+with final implementation HEAD `272b6f59`. Its timing measurements
+are from the user's benchmark host, not an execution here.
+The immediately preceding baseline is the *repeated P1* report
+`Markdown incollato(20261017-214445).md`, with HEAD `bb38b4b1`
+(no P2 fast path). Same four precisions, 27 workloads per precision,
+both backends and original exact-rational input generator.
+
+**Build/test gate now green:** Verified directly from GitHub Actions:
+Unix 39074145329 SUCCESS, Windows 39074145320 SUCCESS,
+Coverage 39074145321 SUCCESS, all at commit `272b6f59`.
+These runs include the committed, fixed literal-oracle tests
+for `sqrt(2)`, `exp(1/2)`, `log(2)` and `pi` at
+128/256/1024 bits; a green test run is evidence for those
+particular cases and the other test-suite cases, not a
+universal mathematical proof. Separate Codecov patch status
+is not asserted. The benchmark still compares **timings** only:
+it does not compare output values on all 32 inputs per operation.
+
+| Bits | P1 repeat geomean | P2 geomean | P1 repeat total | P2 total | P1 repeat worst | P2 worst | P2 ratios >=2x |
+| --- | ---: | ---: | ---: | ---: | --- | --- | ---: |
+| 53 | 0.937x | **0.860x** | 1.462x | **1.436x** | 3.343x div_nearest | 3.714x cos | 3 |
+| 128 | 1.299x | **1.268x** | 1.138x | **1.117x** | 2.930x div_up | 2.902x div_down | 7 |
+| 256 | 1.012x | **0.999x** | 0.588x | **0.579x** | 2.192x div_nearest | 2.185x div_nearest | 4 |
+| 1024 | 0.739x | **0.723x** | **0.248x** | 0.251x | 2.024x add_nearest | **1.940x add_nearest** | 0 |
+| ALL | 0.977x | **0.942x** | 0.451x | 0.454x | 3.343x div_nearest | 3.714x cos | 14 |
+
+The first post-P2 report satisfies all three constraints at
+1024 bits. At 256 bits, the geomean 0.999x has an
+approximately 0.1% margin: this is a *borderline*
+single-run pass, not yet a stable achievement. At
+128 bits neither mean nor total target is achieved;
+at 53 bits the total is still substantially too slow.
+At 53/128/256 bits individual operations remain >=2x.
+
+**P2 intended-path timings (FloatAP, nanoseconds):**
+
+| 53-bit operation | P1 repeat ns | P2 ns | Change | P2 AP/MPFR ratio |
+| --- | ---: | ---: | ---: | ---: |
+| construct_rational | 157.625 | 123.667 | -21.5% | 0.488x |
+| div_nearest | 108.792 | 78.709 | -27.7% | 1.114x |
+| div_down | 74.958 | 74.750 | -0.3% | 1.133x |
+| div_up | 82.625 | 74.083 | -10.3% | 1.110x |
+
+The elapsed-time reductions in construction and nearest
+division are evidence of the P2 small-limb dispatch
+helping those measured paths. It does **not** provide
+a consistent ~30% improvement to all division modes.
+At 53 bits the earlier anomalously low MPFR nearest
+division timing of 32.542 ns recovers to 70.625 ns,
+removing the spurious 3.343x worst; the actual FloatAP
+nearest division also improves independently.
+There is no new 128/256/1024 fast-path dispatch:
+the changes to ratios at those precisions should
+not be assigned to P2. In particular the 128-bit
+division ratios after P2 remain
+2.794x nearest, 2.902x downward, 2.869x upward,
+and at 256 bits
+2.185x nearest, 2.043x downward, 2.059x upward.
+
+**Do not confuse ratio changes with AP regressions.**
+At 53 bits, `cos_nearest` changes only 1427.084 ->
+1442.250 ns (+1.1%) for FloatAP, but the MPFR time
+drops 463.417 -> 388.333 ns (-16.2%). Hence its
+ratio rises 3.079x -> 3.714x largely due to the
+reference variation, not a comparably large AP slowdown.
+The new 53-bit `sin_nearest` is 2.011x and
+`atan_nearest` 2.462x. The newly observed
+AP total summed across all operations at 53 bits
+*increases* 11939.789 -> 12184.251 ns; MPFR
+increases even more, 8164.170 -> 8485.290 ns.
+Accordingly the improved **relative** total ratio
+1.462x -> 1.436x does not mean absolute AP total
+fell. The 128-bit log/sin outlier of the first P1
+report does not recur in the new run (log 1438.625,
+sin 1280.458 ns). Retain raw absolute measurements
+and rerun near-threshold cases.
+
+**Priority by absolute target budget.** At 53 bits
+the sum of individual AP medians exceeds MPFR
+by 3698.961 ns. `cos`, `atan`, `sin`, `tan`
+alone account for excesses of approximately
+1053.917, 808.750, 681.959 and 662.875 ns,
+respectively (total +3207.501 ns). Reducing
+these *certified transcendental* costs is essential
+to meeting the <1x **total** objective at 53 bits.
+At 128 bits the excess is +1520.209 ns, led by
+`tan` (+793.166), `cos` (+705.458),
+`sin` (+531.083), `exp` (+508.458)
+and `log` (+222.834), although faster atan,
+asin and acos partly offset these. Meanwhile
+division remains the clear short-latency
+worst-ratio issue at both 128 and 256 bits.
+
+**Next work, contingent on the correctness gate.**
+Keep the original P2 <=64-bit fast path and
+portable GMP-free unsigned-limb kernel.
+Do not raise the 128-bit fast-path threshold:
+the earlier isolated 32-bit-limb prototype was
+not faster than GMP there. Design a better
+portable wide-limb algorithm with fallback and
+measure it before dispatching. In parallel,
+the P4 fixed-point interval/certified-rounding
+work for 53 and 128 bits is now more important
+for *total-time* acceptance than additional
+53-bit division micro-optimizations. Preserve
+the independent exact expected-literal test
+approach for correctly rounded results, extend
+hard-to-round/transcendental domains and
+add a correctness preflight to the benchmark
+outside all timed regions. No kernel or test
+source is modified by this journal-only entry.
