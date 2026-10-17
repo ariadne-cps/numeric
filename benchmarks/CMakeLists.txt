@@ -1,6 +1,7 @@
 set(BENCHMARKS
     benchmark_arithmetic
     benchmark_compare_multiple_precision_backends
+    benchmark_compare_double_precision_backends
 )
 
 if(NOT TARGET benchmarks)
