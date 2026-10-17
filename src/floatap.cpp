@@ -209,7 +209,23 @@ FloatAP FloatAP::from_integer(mpz_srcptr n, unsigned long p, Rounding mode) {
 }
 
 FloatAP FloatAP::from_rational(mpq_srcptr r, unsigned long p, Rounding mode) {
-    return from_ratio(mpq_numref(r), mpq_denref(r), 0, p, mode);
+    // Dyadic rationals can be rounded as integer significands without a
+    // general GMP quotient/remainder division. Both paths are exact.
+    mpz_srcptr denominator = mpq_denref(r);
+    if (mpz_popcount(denominator) == 1u) {
+        const mp_bitcnt_t power = mpz_scan1(denominator, 0u);
+        if (static_cast<std::uintmax_t>(power) <=
+            static_cast<std::uintmax_t>(std::numeric_limits<Exponent>::max())) {
+            FloatAP result(p);
+            mpz_srcptr numerator = mpq_numref(r);
+            if (mpz_sgn(numerator) == 0) return result;
+            result._negative = mpz_sgn(numerator) < 0;
+            mpz_abs(result._significand, numerator);
+            round_scaled_integer(result, -static_cast<Exponent>(power), mode);
+            return result;
+        }
+    }
+    return from_ratio(mpq_numref(r), denominator, 0, p, mode);
 }
 
 void FloatAP::to_rational(mpq_ptr out) const {
@@ -1487,6 +1503,12 @@ public:
         return _value;
     }
 
+    // Avoid a temporary Fraction and general rational division when
+    // reducing an argument by an exact factor of two.
+    void halve() {
+        mpq_div_2exp(_value, _value, 1u);
+    }
+
     int sign() const noexcept {
         return mpq_sgn(_value);
     }
@@ -1628,7 +1650,7 @@ Interval exp_interval(Fraction x, unsigned long work) {
         if (++halvings > 2048u) {
             throw std::overflow_error("FloatAP exp argument range");
         }
-        x = x / Fraction(2L);
+        x.halve();
     }
     if (work > std::numeric_limits<unsigned long>::max() -
                     static_cast<unsigned long>(halvings) - 64ul) {
@@ -1787,7 +1809,7 @@ Interval log_interval(Fraction x, unsigned long work) {
         if (++power > 2048) {
             throw std::overflow_error("FloatAP log argument range");
         }
-        x = x / Fraction(2L);
+        x.halve();
     }
     while (compare(x, lower_limit) < 0) {
         if (--power < -2048) {
@@ -2209,7 +2231,7 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
         if (++halvings > 4096u) {
             throw std::overflow_error("FloatAP trigonometric argument too large");
         }
-        x = x / Fraction(2L);
+        x.halve();
     }
 
     // Double-angle reconstruction needs BOTH values, regardless of
