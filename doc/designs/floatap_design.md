@@ -4984,3 +4984,7 @@ supported GMP platforms. No division algorithm, rounding branch,
 correctness oracle, expected literal or timed workload is changed.
 This is a diagnostic-specific source fix: verify that the post-fix
 Unix/Windows/Coverage CI passes before claiming portability.
+
+## P2 Windows compiler repair: shadowed Ariadne rounding name (17 October 2026)
+
+MSVC 14.51 with `/W4 /WX` reported C4459 in `src/floatap.cpp`: the `small_rounded_ratio` output argument `rounded` shadows the existing namespace-level `Ariadne::rounded` declaration (`include/numeric/rounding.hpp`). The output parameter has been renamed to `rounded_significand`, including its assignment, without touching calling syntax, algorithm, expected results, or the fallback. This is a source-level diagnostic correction, **not evidence that Windows or the full CI is green** until the next workflow completes.
