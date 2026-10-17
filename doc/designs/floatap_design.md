@@ -2628,3 +2628,74 @@ The new single-recursion algorithm and test expectations
 must pass Unix, Windows and Coverage CI. The performance
 effect awaits a fresh same-host benchmark: neither a
 <2x worst ratio nor a new speedup is claimed yet.
+
+## Benchmark 19:22 and one-root certified cosine for tangent (17 October 2026)
+
+**Latest warmed-up same-machine measurement:** `Markdown incollato(20261017-192212).md`,
+300 iterations, 7 samples, 27 operations at 53/128/256/1024 bits.
+This report replaces 19:16 as the performance reference for subsequent
+work. The 108-pair geometric mean is **1.398x** (previous 1.463x);
+time-weighted ratio is **1.805x** (previous 2.617x); global worst is
+**3.719x**, `tan_nearest` at 128 bits (previous 4.121x).
+42/108 ratios remain >=2x and 10/108 >=3x, versus 49 and 11
+previously. By precision (geomean, time-weighted, worst):
+53 (1.145x,1.963x,3.292x atan), 128 (1.765x,2.293x,3.719x tan),
+256 (1.440x,1.496x,3.561x tan), 1024
+(1.314x,1.806x,3.138x tan). Measurements do not embed an exact
+code revision, so do not claim an isolated causal attribution.
+Comparing the 19:16 and 19:22 FloatAP times suggests the
+single-recurrence atan change greatly helped atan (19-52%),
+asin (13-47%) and acos (14-46%). Unix and Coverage on
+`bd412a26` succeeded; Windows was in progress on inspection.
+
+**Discarded optimization:** A fast tangent ratio computed by
+outward-rounded integer division of dyadic rational endpoints
+was investigated first. An independent GMP harness verified its
+enclosure across 120,000 random dyadic interval divisions.
+However, native GMP microbenchmarks showed that it was slower
+than the existing exact `mpq_div`, particularly at 1024 bits
+(roughly 462ns versus 141ns for one representative ratio).
+No such dyadic-quotient shortcut was merged.
+
+**Next targeted kernel:** `small_sine_cosine(...,both)` is used
+by `tan` and by double-angle reconstruction. It currently computes
+both cosine bounds from two large integer square roots, even when
+the sine enclosure is very tight.
+
+**Certified one-root construction:** Let `Q=2^fixed_bits` and
+`[L,U]` be the already certified scaled sine magnitude interval,
+clamped to `[0,Q]`. For `U<=8Q/9`, define
+`f(s)=sqrt(Q^2-s^2)`. Its derivative magnitude satisfies
+`|f'(s)|=s/sqrt(Q^2-s^2) <= 8/sqrt(17) < 2`
+on `[0,U]`. Therefore
+`f(U) <= Q*cos(|x|) <= f(L) <= f(U)+2*(U-L)`.
+With `c=floor(f(U))`, the integer interval
+`[c, c+1+2*(U-L)]` rigorously encloses `Q*cos(|x|)`,
+including exact-square cases. It needs only one `mpz_sqrt`
+rather than two square roots and a remainder. When
+`U>8Q/9`, keep the original exact two-root construction.
+The guard is an exact GMP integer comparison (9U<=8Q),
+not a floating-point heuristic. Sine, tangent pole handling,
+rounding decisions, Taylor error bounds and argument reduction
+are unchanged. This is an *outward* enclosure, never an
+uncertified cosine approximation.
+
+**Independent check:** A standalone native GMP harness generated
+80,000 integer sine intervals at scales corresponding to
+53,128,256,1024 bits, including near-sin(1) values, and verified
+the new cosine interval always contains the previous exact
+two-root interval; the lower endpoints agreed. In that
+isolated harness, computing the cosine bounds was roughly
+1.5-2x faster with one root. This is not an end-to-end
+Ariadne speedup claim.
+
+**Regression and acceptance:** Extend FloatAP-vs-FloatMP tangent
+differential rounding tests for both signs, small arguments,
+values at or near |x|=1 and beyond (double-angle reconstruction),
+precisions 7/53/128/256/1024, and all four rounding modes.
+No historical test or exception contract was weakened.
+Run Unix, Windows and Coverage CI, then compare a fresh
+warmed-up 300x7 benchmark on the user's machine to this
+19:22 report. The numerical and performance outcome of this
+new commit is not yet established in Ariadne. Global objective:
+worst strictly <2x, with geometric mean near 1x.
