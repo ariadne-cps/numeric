@@ -2821,3 +2821,30 @@ historical tests and the high-precision rounding contracts
 intact. On failure distinguish implementation error, test
 fixture and CI/environment before another rollback.
 This corrective commit does not establish CI success yet.
+
+## CI confirmation for corrected tangent regression (17 October 2026)
+
+The corrective commit `b3a5522da833ab7db4bd37347f7cf1d3e49e5ba7`
+restored the one-root cosine kernel with the original full tangent
+differential regression matrix, changing only the test fixture to
+explicitly round dyadic inputs before constructing FloatAP.
+**All three GitHub Actions workflows for this exact commit passed**
+on 17 October 2026:
+- Unix: run 39063273221 — success.
+- Windows: run 39063273235 — success.
+- Coverage: run 39063273251 — success.
+
+This validates the correction against the supported CI matrix.
+The prior failure at `368348c0` was due to requesting exact
+construction of dyadics that exceed 7-bit precision; the
+one-root implementation is retained. No production code was
+changed between `368348c0` and `b3a5522d`, so the user-supplied
+post-one-root `1000 iterations / 11 samples` benchmark at 19:28:55
+remains the latest performance reference: geomean **1.389x**,
+time-weighted **1.818x**, worst **4.742x** (`atan_nearest`,
+53 bits), 36/108 ratios >=2x. The earlier 19:28:03 report is
+the corresponding pre-one-root baseline. Do not infer any
+additional performance benefit from the test-only correction.
+The next performance work must target much larger gains on
+`atan` 53-bit and `tan`/`cos` at 128 bits while preserving
+MPFR differential tests and all four rounding modes.
