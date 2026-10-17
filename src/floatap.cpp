@@ -2224,13 +2224,43 @@ Interval pi_interval(unsigned long work) {
     return result;
 }
 
+// An interval for atan(1/2) computed at greater working precision
+// remains certified for lower precision requests. Cache the enclosure,
+// never a rounded scalar, so all four rounding modes share the result.
+Interval atan_half_interval(unsigned long work) {
+    struct Cache {
+        unsigned long work = 0;
+        std::optional<Interval> value;
+    };
+    static thread_local Cache cache;
+    if (cache.value && cache.work >= work) {
+        return *cache.value;
+    }
+    const Interval result = small_atan(Fraction(1L) / Fraction(2L), work);
+    cache.value = result;
+    cache.work = work;
+    return result;
+}
+
 Interval atan_interval(Fraction const& x, unsigned long work) {
-    const Fraction half = Fraction(1L) / Fraction(2L);
-    if (compare(absolute(x), half) <= 0) {
+    const Fraction quarter = Fraction(1L) / Fraction(4L);
+    // Direct Taylor is cheaper than reducing a very small argument.
+    if (compare(absolute(x), quarter) < 0) {
         return small_atan(x, work);
     }
     if (x.sign() < 0) {
         return negative(atan_interval(Fraction{} - x, work));
+    }
+
+    const Fraction half_center_limit = Fraction(5L) / Fraction(7L);
+    if (compare(x, half_center_limit) <= 0) {
+        // atan(x) = atan(1/2) + atan((2*x-1)/(x+2)).
+        // On [1/4,5/7] the second argument lies in [-2/9,3/19].
+        // For x near 1/2 it is tiny, so one Taylor iteration often
+        // replaces dozens or hundreds. Both intervals are certified.
+        const Fraction reduced = (Fraction(2L) * x - Fraction(1L)) /
+                                 (x + Fraction(2L));
+        return add(atan_half_interval(work), small_atan(reduced, work));
     }
 
     const Interval quarter_pi = divide(pi_interval(work), point(Fraction(4L)));
