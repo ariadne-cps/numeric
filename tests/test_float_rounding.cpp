@@ -590,6 +590,38 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
+            // Single-recurrence atan certification: test the transitions
+            // at |x|=1/2 and |x|=2, small arguments, and both signs.
+            // The oracle uses precisely the FloatAP input value.
+            for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
+                const ArbitraryPrecision ap(bits);
+                const MultiplePrecision mp(bits);
+                for (Dyadic const& argument :
+                     {Dyadic(1,64u),Dyadic(-1,64u),
+                      Dyadic(255,9u),Dyadic(-255,9u),
+                      Dyadic(1,1u),Dyadic(-1,1u),
+                      Dyadic(257,9u),Dyadic(-257,9u),
+                      Dyadic(1,0u),Dyadic(-1,0u),
+                      Dyadic(1023,9u),Dyadic(-1023,9u),
+                      Dyadic(2,0u),Dyadic(-2,0u),
+                      Dyadic(1025,9u),Dyadic(-1025,9u)}) {
+                    const FloatAP a(Rational(argument),FloatAP::ROUND_TO_NEAREST,ap);
+                    const FloatMP m(static_cast<Rational>(a),
+                                    FloatMP::ROUND_TO_NEAREST,mp);
+                    const auto check_atan=[&](auto ap_mode,auto mp_mode) {
+                        ARIADNE_TEST_EQUALS(
+                            static_cast<Rational>(atan(ap_mode,a)),
+                            static_cast<Rational>(atan(mp_mode,m)));
+                    };
+                    check_atan(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                    check_atan(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                    check_atan(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                    check_atan(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                }
+            }
+        }
+
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             // Differential checks for the one-evaluation asin enclosure
             // and the acos path sharing it. Test both endpoint choices,
             // values close to +/-1, zero, and all four rounding modes.
