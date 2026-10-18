@@ -27,6 +27,7 @@
  */
 
 #include "floatap_native_unsigned.hpp"
+#include "floatap_native_ratio.hpp"
 #include "macro/testing.hpp"
 
 #include <gmp.h>
@@ -163,8 +164,53 @@ void test_arithmetic_differential() {
 
 } // namespace
 
+
+void test_ratio_oracles() {
+    for (unsigned long bits : {2ul,53ul,128ul,1024ul,1100ul,1536ul}) {
+        const Unsigned numerator(1u),denominator(3u);
+        for (bool negative : {false,true}) {
+            for (auto mode : {RatioRounding::NearestEven,
+                              RatioRounding::Downward,
+                              RatioRounding::Upward,
+                              RatioRounding::TowardZero}) {
+                const auto result=round_ratio(numerator,denominator,bits,negative,mode);
+                const Unsigned lower=divrem(
+                    shift_left(numerator,static_cast<std::size_t>(bits+1ul)),
+                    denominator).first;
+                // 1/3 lies in [1/4,1/2): k=-2, exponent=-p-1.
+                // The quotient is floor(2^(p+1)/3); its discarded
+                // fraction is 1/3 or 2/3, so ties never occur.
+                const auto quotient=divrem(
+                    shift_left(Unsigned(1u),static_cast<std::size_t>(bits+1ul)),
+                    Unsigned(3u));
+                const bool round_up=mode==RatioRounding::NearestEven
+                    ? compare(shift_left(quotient.second,1u),Unsigned(3u))>0
+                    : mode==RatioRounding::Downward ? negative
+                    : mode==RatioRounding::Upward ? !negative : false;
+                const Unsigned expected=round_up
+                    ? add(lower,Unsigned(1u)) : lower;
+                ARIADNE_TEST_ASSERT(result.significand==expected);
+                ARIADNE_TEST_ASSERT(result.exponent==
+                                    -static_cast<std::int64_t>(bits)-1);
+                ARIADNE_TEST_ASSERT(!result.carry);
+            }
+        }
+    }
+    // Exact half-integer quotients: ties must round to even.
+    const auto even=round_ratio(Unsigned(5u),Unsigned(4u),2u,false,
+                                RatioRounding::NearestEven);
+    ARIADNE_TEST_ASSERT(even.significand==Unsigned(2u));
+    ARIADNE_TEST_ASSERT(even.exponent==-1);
+    const auto odd=round_ratio(Unsigned(7u),Unsigned(4u),2u,false,
+                               RatioRounding::NearestEven);
+    ARIADNE_TEST_ASSERT(odd.significand==Unsigned(2u));
+    ARIADNE_TEST_ASSERT(odd.exponent==0);
+    ARIADNE_TEST_ASSERT(odd.carry);
+}
+
 int main() {
     ARIADNE_TEST_CALL(test_small_oracles());
+    ARIADNE_TEST_CALL(test_ratio_oracles());
     ARIADNE_TEST_CALL(test_arithmetic_differential());
     return ARIADNE_TEST_FAILURES;
 }
