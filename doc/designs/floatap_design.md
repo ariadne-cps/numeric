@@ -7496,3 +7496,8 @@ The complete user-run GCC x86-64 balanced-operand sweep of Karatsuba recursion c
 ### B9 ARM64 fused kernel experiment (18 October 2026)
 
 ARM64 receives an explicit native fused `BigUnsigned::mul_into_fused` kernel, built in `src/big_unsigned_arm64.cpp` using baseline AArch64 multiply-high and fused 128-bit C++ arithmetic. The native ARM64 kernel is initially benchmark-only: `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY` defaults OFF until real macOS ARM64 benchmark evidence; ON explicitly selects it for production evaluation. Existing GMP differential multiplication tests exercise the native forced fused path, `--include-fused` is accepted on ARM64, x86-only candidates remain x86-only. GCC x86-64 production selection and FloatAP are unchanged. Details and validation conditions are in `integer_rational_design.md`.
+
+
+### B9 Apple Silicon ARM64 integrated measurement (18 October 2026)
+
+The user measured the native ARM64 fused kernel with production dispatch still **portable** (CMake option OFF) and 20,000x31 original benchmarks. At 256/1024/2048 bits `prealloc_selected` took 26.977/349.917/1379.546 ns; explicit `prealloc_fused` took 16.592/180.819/802.565 ns (1.63x/1.94x/1.72x faster). GMP reused-output took 13.463/95.004/312.606 ns. The 128-bit GMP reused-output measurement appeared unusually high and merits rerun. This is a real user macOS integrated BigUnsigned measurement, **not** proof of FloatAP performance. The next experiment is a correctness-tested ARM64 CMake-option-ON build to measure actual selected owning behavior. See `integer_rational_design.md` for full rows, caveats and gates. No ARM64 default or FloatAP code change yet.
