@@ -6715,3 +6715,82 @@ diagnoses this pattern; rename the inner accumulator to
 correction and leaves all arithmetic and tests unchanged.
 CI must confirm the diagnosis; do not claim GCC passing
 before its check succeeds.
+
+## G5: end-to-end division-stage feasibility study (18 October 2026)
+
+**Status: diagnostic experiment, not a new algorithmic change in
+production.** Following the 20000x31 ARM64 result at `efc8293`,
+where 1024-bit absolute FloatAP medians remained 949.810 ns
+(`construct_rational`), 881.790 ns (`div_nearest`),
+803.321 ns (`div_down`), 842.252 ns (`div_up`) against
+the original 508.450, 292.404, 255.475, and 260.046 ns,
+stop loop-level micro-optimization. Compiler- and
+end-to-end-aware algorithm selection is now required.
+
+A standalone C++20/GMP simulation on x86-64 reproduces
+the general *shape* of the benchmark's 64 deterministic
+rational input pairs and paired significand divisions.
+It implements fused native 64-bit Knuth limbs, tests
+integer quotient and remainder exactly against GMP
+for every case, and compares nine medians of 10000
+operations. At 1024 bits, GCC 14.2 kernel-only division
+takes 400.9 ns for rational inputs and 418.7 ns for
+significand inputs; full simulated native operations
+take 541.6 and 517.5 ns, vs. GMP simulations
+393.7 and 293.4 ns. Clang 17 kernel-only results
+are 355.9 and 424.6 ns; full native results
+448.4 and 509.7 ns, vs. GMP 395.6 and
+302.1 ns. Each operand pair's GMP export cost is
+about 48-54 ns, considerably less than the cost of
+native division itself in these simulations.
+These experiments **do not measure built FloatAP**,
+have an extra materialized numerator shift compared
+with `divrem_wide`, and are on x86-64, not Apple
+ARM64. Do not compare their absolute ns to
+the frozen 20000x31 Mac baseline. Stage measurements
+overlap and are not additive.
+
+**Literature-based algorithmic candidate.** MPFR
+`src/mulders.c` implements short approximate
+division with proven output error bounds: its
+documented high-quotient bound is
+`-2(n-1) < N/D - Q <= 4` under the algorithm's
+normalization/units. MPFR `src/div.c` attempts
+this approach only above `MPFR_DIV_THRESHOLD`,
+then falls back to full integer division when
+certification is inconclusive. Sources:
+https://fossies.org/linux/mpfr/src/mulders.c
+and https://fossies.org/linux/mpfr/src/div.c .
+Also see Harvey and Zimmermann,
+*Short Division of Long Integers*, ARITH-20 2011.
+
+**Next experiment (separate from production):**
+build a portable C++20 short-division prototype
+with rigorously derived integer bounds on its own
+approximate quotient. Form an exact enclosing
+interval for the quotient at the target precision
+plus guard bits and use the specified rounding mode
+on *both* endpoints; accept the result only when
+they agree. For nearest-even, preserve parity and
+exact-halfway semantics; for directed modes,
+preserve inexactness and sign. Fall back to
+existing exact `divrem_wide` otherwise.
+Record certificate success fraction, exact fallback
+rate, end-to-end time including preparation and
+correction, and exact oracle conformance on dense,
+sparse, and adversarial cases. Short division is a
+candidate, not an assumed win at 128-1024 bits.
+Separately study tuned basecase quotient-digit
+estimation, and measure Burnikel-Ziegler/Newton
+crossovers only when justified by operand size.
+No new GMP paths, platform-specific implementation
+or independently owned FloatAP code.
+
+**Gate:** keep `efc8293` as production
+reference until an independently validated
+algorithmic improvement appears. No speculative
+production edits or changed benchmark inputs.
+Only a trustworthy idle Apple ARM64 run at
+20000 iterations / 31 samples can establish
+baseline recovery. Flag widespread controls
+regressions and stop for user feedback.
