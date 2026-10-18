@@ -56,9 +56,16 @@ endforeach()
 add_library(check_numeric OBJECT check_numeric.cpp)
 target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
 
+# ThreadSanitizer builds the default ALL target rather than the
+# custom tests target. Ensure each registered benchmark smoke test has
+# a corresponding executable in both build paths.
+add_custom_target(benchmark_smoke_executables ALL
+    DEPENDS
+        benchmark_compare_integer_backends
+        benchmark_compare_rational_backends
+        benchmark_integer
+        benchmark_rational
+)
+
 add_custom_target(tests)
-add_dependencies(tests ${UNIT_TESTS} check_numeric
-    benchmark_compare_integer_backends
-    benchmark_compare_rational_backends
-    benchmark_integer
-    benchmark_rational)
+add_dependencies(tests ${UNIT_TESTS} check_numeric benchmark_smoke_executables)

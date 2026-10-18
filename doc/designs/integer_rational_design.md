@@ -625,3 +625,29 @@ or operation times, and avoids relying on an all-target
 build in Coverage. Re-run Unix/Windows/Coverage and
 distinguish any remaining sanitizer failures; no
 all-green claim is warranted until observed.
+
+### G0b ThreadSanitizer: build smoke targets with default ALL (18 October 2026)
+
+The supplied ThreadSanitizer CTest output from build `build-tsan`
+shows **all 19 numerical tests passing**, followed by four
+`smoke_benchmark_*` tests marked `Not Run` because their
+benchmark executables do not exist. This is definitively a
+missing-build-target failure, not a numerical comparison
+failure or detected data race. The workflow calls
+`cmake --build . --parallel 2` (default `ALL` target)
+before `ctest --output-on-failure`, whereas the previous
+commit only attached these executables to the *custom*
+`tests` target; the two build roots are different.
+
+The solution is a single `benchmark_smoke_executables ALL`
+custom CMake target, depending on exactly the four
+registered benchmark binaries. The `tests` target also
+explicitly depends on it. Hence both TSAN's default build
+and Coverage's `tests`-based build produce all executables
+that CTest needs. This does **not** remove the smoke tests,
+skip TSAN, touch numerical code, change benchmark inputs or
+affect the Release performance workload. The preceding
+`24e4a290` commit is confirmed Coverage and Windows green,
+but Unix remains red from TSAN due to missing binaries.
+The current change must pass Unix/GCC/Clang/macOS,
+Windows and Coverage before claiming completion.
