@@ -6022,3 +6022,63 @@ and critical division/rational cases, with explicit monitoring of
 beneficial, revert rather than carry an unmeasured capacity choice.
 Continue optimizing this GMP-free ratio path before moving to a
 different GMP removal milestone.
+
+## G1 portability decision: defer architecture-specific division optimization (18 October 2026)
+
+**Decision requested by project owner.** Do **not** introduce an
+ARM64-only or x86-only performance path while restoring the GMP-free
+FloatAP ratio/division implementation to the frozen baseline.
+Specifically, the proposed Apple ARM64-only preinverted
+quotient-digit dispatch has **not been merged**, and must not be
+added as a separate algorithm merely to improve Mac timing.
+Keep the same high-level division/rounding algorithm across
+architectures. Compiler-feature fallbacks already required for
+portability (e.g. the portable 32-bit limb divider when a native
+128-bit intermediate type is unavailable) are a different concern
+from microarchitecture-targeted tuning; document their impact.
+
+**Why.** A universal source algorithm alone cannot prove parity
+of speed between ARM64 and x86_64. Benchmark both architectures
+with the *same deterministic workload* and identical precision
+groups before making performance claims. The supplied historical
+baseline and subsequent measurements are from the same Mac;
+there is **no comparable historical x86_64 baseline supplied**.
+Do not compare absolute nanosecond figures across hosts.
+Collect an x86_64 FloatMP/FloatAP baseline and record machine,
+compiler, optimization flags, GMP/MPFR versions and commit SHA;
+then evaluate subsequent portable changes against the frozen
+same-host reference on each architecture.
+
+**Acceptance gate before another GMP removal milestone:**
+1. At 53, 128, 256 and 1024 bits, every operation affected by
+   the current GMP-free ratio/division transition (at minimum
+   `construct_rational`, `div_nearest`, `div_down`,
+   `div_up`) must reach or beat the frozen same-Mac FloatAP
+   absolute median, allowing only explicitly measured noise.
+   Overall geomean or time-weighted slowdown alone does not
+   satisfy the gate; track FloatMP ratios and unaffected operations
+   as safeguards.
+2. Preserve all rounding modes, exact quotient/remainder,
+   special-value behavior, 256-input/3456-result benchmark
+   verification, public regression tests and cross-platform CI.
+3. The same portable implementation should be benchmarked on
+   x86_64 as well as ARM64, with a separately recorded local
+   x86_64 baseline and explicit analysis of any architecture gap.
+   Missing x86 measurements must be reported, not inferred from
+   Mac results.
+
+**Next algorithm priorities (proposals, not implementations).**
+Profile ratio scaling, `Unsigned` normalization/import/export,
+quotient digit estimation, multiply-subtract, and allocation
+overheads. Explore architecture-neutral normalization and rounding
+that avoid unnecessary full-size quotient/remainder materialization;
+consider reciprocal estimation only if applied to *both* x86_64
+and ARM64 and proven beneficial in the targeted precision bands.
+Prefer size/precision-based algorithm selection over CPU-target
+selection. Avoid extra code paths without clear, reproducible
+cross-platform evidence.
+
+**Status:** The 16-limb experiment at `9343c309` remains the branch
+head before this documentation-only decision. The supplied Mac
+benchmark has not reached the gate, especially at 1024 bits.
+No new division performance optimization is introduced here.
