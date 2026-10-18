@@ -447,7 +447,7 @@ bool BigUnsigned::has_x86_64_multiply() noexcept {
 }
 
 bool BigUnsigned::selected_multiply_uses_fused() noexcept {
-#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) || defined(ARIADNE_BIG_UNSIGNED_ARM64)
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
     return true;
 #else
     return false;
@@ -499,8 +499,12 @@ void BigUnsigned::mul_low_into_schoolbook(
 }
 
 void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
-#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) || defined(ARIADNE_BIG_UNSIGNED_ARM64)
-    // GCC x86-64 and native ARM64 select the same compiler-wide algorithm.
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64)
+    // Apple Silicon measurements and native GMP differential tests validate
+    // the explicit carry-chain path; fused remains available for comparison.
+    BigUnsignedDetail::mul_low_into_carry_arm64(a,b,output);
+#elif defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
+    // GCC x86-64 continues to select the shared unsigned __int128 kernel.
     multiply_limbs_fused(a,b,output);
 #else
     mul_low_into_schoolbook(a,b,output);
