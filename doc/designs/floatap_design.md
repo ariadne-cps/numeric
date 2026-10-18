@@ -6339,3 +6339,50 @@ Do not advance to any other GMP-free substitution
 until `construct_rational` and all `div_*` reach or
 beat the baseline at each precision; an aggregate
 geomean alone cannot meet this criterion.
+
+## Stable benchmark defaults: 20000 iterations and 31 samples (18 October 2026)
+
+**User-requested benchmark-only configuration change.** Increase the
+default measured iterations per sample from `1000` to `20000`
+and the number of measured samples from `11` to `31`, in all
+six backend comparison / exact arithmetic benchmark executables:
+`benchmark_compare_multiple_precision_backends`,
+`benchmark_compare_double_precision_backends`,
+`benchmark_compare_integer_backends`,
+`benchmark_compare_rational_backends`,
+`benchmark_integer`, and `benchmark_rational`.
+Their defaults are declared in the respective two floating
+comparison sources and the shared exact arithmetic report header.
+Explicit `--iterations/-i` and `--samples/-n` arguments,
+including historical positional arguments, continue to override
+these defaults. This change does **not** alter workloads,
+operands, operation lists, arithmetic algorithms, reference
+backends, verification, or reported median computation.
+The prior `1000 11` results remain historical records and
+should not be directly used as the performance baseline for
+new default runs.
+
+**Rebased Apple ARM64 baseline.** The user has measured three
+commits on the same host with the new `20000 31` settings:
+the beginning-of-branch baseline, previous `bfe1426`,
+and current `ba2ef1a`. The reports passed numerical
+verification (256 paired inputs, 3456 paired results).
+The 1024-bit FloatAP `div_nearest` absolute median
+was 292.404 ns (baseline), 945.806 ns (previous), and
+893.652 ns (current); `construct_rational` was
+508.450 ns, 1198.633 ns, and 1157.854 ns respectively.
+The corresponding all-operation FloatAP/FloatMP slowdown
+geomeans were 1.060x, 1.109x, and 1.100x.
+The latest optimization improved the affected cases
+but **did not reach** the required absolute baseline.
+Before acting on unusual reports, compare independent
+FloatMP control timings and unaffected FloatAP operations;
+significant widespread control regressions may indicate
+host contention and should trigger a user check **before
+further code changes**.
+
+**Acceptance gate unchanged:** match or beat the measured
+`20000 31` baseline at every affected operation/precision
+before proceeding to another GMP-free substitution. Measure
+on idle Apple ARM64 first; investigate x86-specific
+performance afterward. Do not loosen numerical oracles.

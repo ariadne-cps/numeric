@@ -179,8 +179,8 @@ bool details, double max_slowdown) {
 
 
 struct ComparisonBenchmarkSelection {
-    unsigned iterations=1000u;
-    unsigned samples=11u;
+    unsigned iterations=20000u;
+    unsigned samples=31u;
     std::vector<unsigned> precisions{53u};
     bool summary_only=false;
     bool details=false;
