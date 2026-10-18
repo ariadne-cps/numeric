@@ -6873,3 +6873,111 @@ Avoid implementing the rejected low-limb
 truncation in production. Keep the
 original frozen 20000x31 ARM64 baseline
 and CPU-noise sentinel gates unchanged.
+
+## Architectural reset: independently implemented algorithms, not engines (18 October 2026)
+
+**User constraint.** No integration or source-code copying from external
+multiprecision engines (GMP/MPFR/Arb/FLINT or equivalents) as replacements
+for FloatAP. Mathematical algorithms and published techniques may be
+studied and independently implemented, subject to appropriate checks for
+any patent or other applicable intellectual-property constraints.
+A software license attached to an existing implementation must not
+be mistaken for a restriction on a mathematical idea, nor does citing
+a paper authorize verbatim copying of its pseudocode or source.
+Preserve FloatMP as reference, not an implementation dependency for FloatAP.
+All FloatAP-specific implementation remains inside its existing class
+and source files; no new engines or independently owned helpers.
+
+**Reject incremental search.** The 1024-bit FloatAP division baseline
+gap still exceeds 3x after several standalone kernel trials. Small
+(roughly 3-10 percent) or compiler-specific changes to quotient-digit
+estimation, including the independently tried 3-by-2 preinverse
+candidate, are not the acceptance target. Do not keep running tiny
+GCC/Clang optimization comparisons when they cannot plausibly
+recover the required full-operation baseline. No G7 arithmetic
+production integration.
+
+**Promising GENERAL-PURPOSE mathematics from published literature.**
+Fredrik Johansson, *Efficient implementation of elementary functions
+in the medium-precision range*, ARITH 22 (2015),
+https://arxiv.org/abs/1410.7176 ,
+studies 53 through about 4096-bit exp, sin, cos, log and atan using
+low-overhead *fixed-point* operations, functional-equation / table
+argument reduction and Smith-style **rectangular splitting**, with
+multiple Taylor denominators combined into single-word operations.
+The paper's approximately 3x (cos) to 30x (atan) maximum
+speedups are versus MPFR **3.1.2 in 2015**, and the implementation
+uses GMP mpn; neither these old benchmark numbers nor its
+license-covered source code may be transplanted into FloatAP.
+This demonstrates a portable *algorithm family* worth independently
+investigating, not a predicted gain for our existing atan which
+already has input-centered special cases and certified bounds.
+
+Rectangular splitting reduces the number of full-precision
+multiplications needed for an N-term suitable series from
+O(N) to O(sqrt(N)), exchanging them for cheaper
+single-limb operations. For example, at a reduced
+atan argument |x|<=1/16 and about 1024 output bits,
+a direct alternating Taylor series may require
+roughly 128 terms; rectangular splitting reduces
+the order of magnitude of full multiplications,
+although initialization, argument reduction,
+tables, and rigorous error bounds must be counted.
+The same mathematical core can serve atan, exp,
+log via atanh, sin and cos. Larger precision may
+justify **binary splitting and bit-burst** with
+functional-equation argument decomposition,
+while modern computer arithmetic provides
+Karatsuba/Toom/reciprocal methods for big operands.
+Source: Brent & Zimmermann, *Modern Computer
+Arithmetic*, Cambridge 2010,
+https://arxiv.org/abs/1004.4710 .
+For bit-burst atan see
+https://fredrikj.net/blog/2014/12/faster-high-precision-arctangents/ .
+
+**Where FloatAP is today.** Its general
+`FloatAPTrigonometricDetail::small_atan` already
+computes an outwardly certified fixed-point
+Taylor sum, but obtains limbs and operations
+through GMP `mpz_t` objects and updates
+powers/terms successively. `Fraction` uses
+`mpq_t`, and the interval/refinement wrappers
+are already mathematically rigorous. The project
+should not discard that correctness logic or
+assume published Arb-to-MPFR speedups apply
+to FloatAP's already optimized centered atan
+case. The major architectural candidate is a
+**single native, size-adaptive fixed-point limb
+substrate** (multiplication, squaring, truncation,
+scaled add/sub, single-limb scaling, exact
+outward error accounting) internal to FloatAP,
+plus a reusable certified rectangular-splitting
+series evaluator. This targets multiple
+functions together instead of individually
+patching division, atan and exp.
+
+**Acceptance before production integration.**
+Derive fresh, independent formulas and error
+bounds; prototype one representative general
+(not specially centered) atan/exp workload
+at 53/128/256/1024 bits, with full
+argument reduction + evaluation + round
+certification + allocation included.
+Compare against existing FloatAP public
+results, FloatMP differential controls
+and independent rational interval oracles,
+including all rounding modes and hard-to-round
+boundary cases. Only integrate if improvement
+is **substantial and repeatable on full
+operations** while preserving correctness;
+otherwise leave production code unchanged.
+Table contents, if introduced, must be
+independently generated and certified, not
+copied. The existing mandatory
+20,000-iteration / 31-sample idle-ARM64
+baseline gate on construct_rational,
+div_nearest/down/up at 53/128/256/1024
+bits remains in force before other GMP
+substitutions. If unaffected controls
+show significant regressions, stop for
+user feedback before coding or committing.
