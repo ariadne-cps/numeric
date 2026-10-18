@@ -6431,3 +6431,58 @@ controls for CPU contention before acting.
 Require absolute baseline recovery for every
 construct_rational and div_nearest/down/up precision
 before attempting any additional GMP substitution.
+
+## G3: separate sparse/dense Knuth subtract loops (18 October 2026)
+
+**Motivation.** User-supplied, comparable Apple ARM64 20000x31
+benchmarks for the G2 sparse-divisor fast path (`9e5ff09`)
+versus `ba2ef1a` showed that sparse
+`construct_rational` at 1024 bits improved from
+1157.854 ns to 997.198 ns (13.9% faster), whereas
+the dense FloatAP divisions regressed:
+`div_nearest` 893.652 to 939.519 ns,
+`div_down` 829.712 to 871.923 ns and
+`div_up` 870.975 to 914.373 ns (approximately
+5% slower). FloatMP and unaffected FloatAP timing
+controls were stable; all 3456 numerical checks passed.
+The G2 implementation tested the runtime `sparse_divisor`
+flag on every inner-loop limb, even for dense divisors.
+
+**Change.** In the existing private
+`FloatAP::divrem_wide` method, move the runtime
+sparse/dense decision to the quotient-digit level.
+Use one local C++20 templated lambda instantiated
+as two independent inner loops. `if constexpr (Sparse)`
+compile-time-elides all zero-limb condition checks
+from the dense specialization; the sparse version
+retains the exact G2 zero-product/borrow optimization.
+A shared body preserves exact product carry, subtraction
+borrow, quotient correction, addback and remainder
+behavior. No changes to thresholds, divisor
+normalization, GMP adapters, rounding modes, work
+inputs, public types, or any other arithmetic paths.
+This is fully architecture-independent and stays
+within the existing `FloatAP` class source.
+
+**Verification.** The existing FloatAP regression
+cases for both sparse and dense ratios across limb
+boundaries, signed inputs, four rounding modes,
+and independent exact mathematical oracles are
+unchanged. Repository CI and an independent
+Apple ARM64 `20000 31` benchmark are required
+before accepting any performance claim for G3.
+The goal is to keep G2's `construct_rational`
+benefit and recover its roughly 5% division
+regression, not to claim recovery of the original
+baseline.
+
+**Frozen acceptance gate.** The original `20000 31`
+Apple ARM64 baseline still must be matched or
+beaten in **absolute median ns** for all of
+`construct_rational`, `div_nearest`,
+`div_down`, and `div_up` at each precision
+53, 128, 256, 1024 bits before any additional
+GMP-free substitution. Check FloatMP and
+unchanged FloatAP controls for anomalous
+CPU contention and stop for user feedback if
+those show widespread regressions.
