@@ -774,6 +774,44 @@ inline std::size_t ratio_shift_amount(std::int64_t shift) {
     return static_cast<std::size_t>(shift);
 }
 
+// Compare a positive magnitude shifted left by an arbitrary bit count
+// with another unsigned magnitude. Compute the shifted words on demand:
+// creating an intermediate shifted Unsigned here used to allocate and
+// copy up to an entire large numerator/denominator before every divide.
+inline int compare_shifted(Unsigned const& magnitude,std::size_t shift,
+                           Unsigned const& reference) noexcept {
+    if (shift==0u) { return compare(magnitude,reference); }
+    if (magnitude.is_zero()) {
+        return reference.is_zero() ? 0 : -1;
+    }
+    const std::size_t bits=magnitude.bit_length();
+    if (shift>std::numeric_limits<std::size_t>::max()-bits) {
+        return 1;
+    }
+    const std::size_t shifted_bits=bits+shift;
+    if (shifted_bits!=reference.bit_length()) {
+        return shifted_bits<reference.bit_length() ? -1 : 1;
+    }
+    const std::size_t words=shift/32u;
+    const unsigned small=static_cast<unsigned>(shift%32u);
+    for (std::size_t offset=reference.size(); offset!=0u; --offset) {
+        const std::size_t i=offset-1u;
+        Unsigned::Limb shifted_word=0u;
+        if (i>=words) {
+            const std::size_t j=i-words;
+            shifted_word=small==0u ? magnitude.word(j) :
+                static_cast<Unsigned::Limb>(
+                    (std::uint64_t{magnitude.word(j)}<<small) |
+                    (j==0u ? 0u : magnitude.word(j-1u)>>(32u-small)));
+        }
+        const Unsigned::Limb actual=reference.word(i);
+        if (shifted_word!=actual) {
+            return shifted_word<actual ? -1 : 1;
+        }
+    }
+    return 0;
+}
+
 // Return a normalized p-bit rounded significand and a binary exponent.
 // The inputs must be strictly positive. The result represents
 // n/d rounded at precision p, with the sign used only for directed
@@ -791,9 +829,9 @@ inline RoundedRatio round_ratio(Unsigned const& n,Unsigned const& d,
     std::int64_t k=ratio_checked_sub(ratio_checked_bit_length(n),
                                      ratio_checked_bit_length(d));
     if (k>=0) {
-        if (compare(n,shift_left(d,ratio_shift_amount(k)))<0) { --k; }
+        if (compare_shifted(d,ratio_shift_amount(k),n)>0) { --k; }
     } else {
-        if (compare(shift_left(n,ratio_shift_amount(ratio_checked_sub(0,k))),d)<0) {
+        if (compare_shifted(n,ratio_shift_amount(ratio_checked_sub(0,k)),d)<0) {
             --k;
         }
     }
