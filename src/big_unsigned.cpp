@@ -36,6 +36,22 @@
 
 namespace Ariadne {
 
+BigUnsigned::MutableLimbView BigUnsigned::Scratch::acquire(std::size_t count) {
+    if (count <= inline_capacity) {
+        std::fill_n(_inline_limbs.data(),count,Limb{0});
+        return {_inline_limbs.data(),count};
+    }
+
+    // A new request reuses existing vector capacity whenever possible.
+    _heap.resize(count);
+    std::fill(_heap.begin(),_heap.end(),Limb{0});
+    return {_heap.data(),count};
+}
+
+std::size_t BigUnsigned::Scratch::capacity() const noexcept {
+    return std::max(inline_capacity,_heap.capacity());
+}
+
 BigUnsigned::BigUnsigned(Limb value) noexcept {
     _inline_limbs[0] = value;
     _size = value != 0u ? 1u : 0u;
@@ -93,7 +109,7 @@ void BigUnsigned::normalize() noexcept {
     }
 }
 
-std::span<BigUnsigned::Limb const> BigUnsigned::limbs() const noexcept {
+BigUnsigned::LimbView BigUnsigned::limbs() const noexcept {
     return _size <= inline_capacity
         ? std::span<Limb const>(_inline_limbs.data(),_size)
         : std::span<Limb const>(_heap.data(),_size);
@@ -101,6 +117,10 @@ std::span<BigUnsigned::Limb const> BigUnsigned::limbs() const noexcept {
 
 BigUnsigned::Limb BigUnsigned::limb(std::size_t index) const noexcept {
     return index < _size ? limbs()[index] : 0u;
+}
+
+void BigUnsigned::assign(LimbView digits) {
+    set_limbs(digits);
 }
 
 void BigUnsigned::set_limbs(std::span<Limb const> digits) {
@@ -157,56 +177,76 @@ int compare(BigUnsigned const& a, BigUnsigned const& b) noexcept {
     return 0;
 }
 
-BigUnsigned add(BigUnsigned const& a, BigUnsigned const& b) {
-    const std::size_t size = std::max(a._size,b._size);
+BigUnsigned::Limb BigUnsigned::add_into(
+        LimbView a,LimbView b,MutableLimbView output)
+{
+    const std::size_t count = std::max(a.size(),b.size());
+    if (output.size() < count) {
+        throw std::length_error("BigUnsigned add_into output too small");
+    }
 
-    if (size == std::numeric_limits<std::size_t>::max()) {
+    Limb carry = 0u;
+    for (std::size_t i=0u; i<count; ++i) {
+        const Limb left = i<a.size() ? a[i] : 0u;
+        const Limb right = i<b.size() ? b[i] : 0u;
+        const Limb sum = left+right;
+        const Limb value = sum+carry;
+
+        carry = static_cast<Limb>(sum<left || value<sum);
+        output[i] = value;
+    }
+
+    std::fill(output.subspan(count).begin(),output.end(),Limb{0});
+    return carry;
+}
+
+BigUnsigned::Limb BigUnsigned::sub_into(
+        LimbView a,LimbView b,MutableLimbView output)
+{
+    const std::size_t count = std::max(a.size(),b.size());
+    if (output.size() < count) {
+        throw std::length_error("BigUnsigned sub_into output too small");
+    }
+
+    Limb borrow = 0u;
+    for (std::size_t i=0u; i<count; ++i) {
+        const Limb left = i<a.size() ? a[i] : 0u;
+        const Limb right = i<b.size() ? b[i] : 0u;
+        const Limb difference = left-right;
+        const Limb value = difference-borrow;
+
+        borrow = static_cast<Limb>(left<right || difference<borrow);
+        output[i] = value;
+    }
+
+    std::fill(output.subspan(count).begin(),output.end(),Limb{0});
+    return borrow;
+}
+
+BigUnsigned add(BigUnsigned const& a, BigUnsigned const& b) {
+    const std::size_t count = std::max(a._size,b._size);
+    if (count == std::numeric_limits<std::size_t>::max()) {
         throw std::length_error("BigUnsigned addition size overflow");
     }
 
     BigUnsigned result;
-    result.resize_for_result(size+1u);
-    auto* digits = result.mutable_data();
-
-    BigUnsigned::Limb carry = 0u;
-    for (std::size_t i=0u; i<size; ++i) {
-        const auto left = a.limb(i);
-        const auto right = b.limb(i);
-        const auto sum = left+right;
-        const auto value = sum+carry;
-
-        carry = static_cast<BigUnsigned::Limb>(sum<left || value<sum);
-        digits[i] = value;
-    }
-
-    digits[size] = carry;
+    result.resize_for_result(count+1u);
+    auto out = BigUnsigned::MutableLimbView(result.mutable_data(),count+1u);
+    out[count] = BigUnsigned::add_into(a.limbs(),b.limbs(),out.first(count));
     result.normalize();
-
     return result;
 }
 
 BigUnsigned sub(BigUnsigned const& a, BigUnsigned const& b) {
-    if (compare(a,b) < 0) {
+    if (compare(a,b)<0) {
         throw std::underflow_error("BigUnsigned negative result");
     }
 
     BigUnsigned result;
     result.resize_for_result(a._size);
-    auto* digits = result.mutable_data();
-
-    BigUnsigned::Limb borrow = 0u;
-    for (std::size_t i=0u; i<a._size; ++i) {
-        const auto left = a.limb(i);
-        const auto right = b.limb(i);
-        const auto difference = left-right;
-        const auto value = difference-borrow;
-
-        borrow = static_cast<BigUnsigned::Limb>(left<right || difference<borrow);
-        digits[i] = value;
-    }
-
+    const auto out = BigUnsigned::MutableLimbView(result.mutable_data(),a._size);
+    (void)BigUnsigned::sub_into(a.limbs(),b.limbs(),out);
     result.normalize();
-
     return result;
 }
 
@@ -292,12 +332,14 @@ std::pair<std::uint64_t,std::uint64_t> multiply_wide(
 }
 
 // Compute the product modulo 2^(64*out.size()), storing only low limbs.
-// The destination must be distinct from both source spans and zeroed.
+// The destination must be distinct from both source spans; kernel zeroes it.
 // At each step the carry is below 2^64: (B-1)^2 + 2(B-1) = B^2-1.
 void multiply_limbs(std::span<std::uint64_t const> a,
                     std::span<std::uint64_t const> b,
                     std::span<std::uint64_t> out) noexcept
 {
+    std::fill(out.begin(),out.end(),std::uint64_t{0});
+
     for (std::size_t i=0u; i<a.size() && i<out.size(); ++i) {
         std::uint64_t carry = 0u;
         const std::size_t terms = std::min(b.size(),out.size()-i);
@@ -322,6 +364,10 @@ void multiply_limbs(std::span<std::uint64_t const> a,
 
 } // namespace
 
+void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
+    multiply_limbs(a,b,output);
+}
+
 BigUnsigned mul_low(BigUnsigned const& a,BigUnsigned const& b,
                     std::size_t limb_count)
 {
@@ -336,8 +382,9 @@ BigUnsigned mul_low(BigUnsigned const& a,BigUnsigned const& b,
     const std::size_t result_size = std::min(limb_count,a._size+b._size);
     BigUnsigned result;
     result.resize_for_result(result_size);
-    multiply_limbs(a.limbs(),b.limbs(),
-                   std::span<BigUnsigned::Limb>(result.mutable_data(),result_size));
+    BigUnsigned::mul_low_into(
+        a.limbs(),b.limbs(),
+        BigUnsigned::MutableLimbView(result.mutable_data(),result_size));
     result.normalize();
     return result;
 }

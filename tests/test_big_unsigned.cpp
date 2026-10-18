@@ -24,6 +24,7 @@
 
 #include "numeric/big_unsigned.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <limits>
@@ -68,6 +69,7 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_boundaries());
         ARIADNE_TEST_CALL(test_randomized());
         ARIADNE_TEST_CALL(test_multiplication());
+        ARIADNE_TEST_CALL(test_views_and_scratch());
     }
 
   private:
@@ -75,6 +77,7 @@ class TestBigUnsigned
     void test_boundaries();
     void test_randomized();
     void test_multiplication();
+    void test_views_and_scratch();
 };
 
 void TestBigUnsigned::test_storage()
@@ -193,6 +196,97 @@ void TestBigUnsigned::test_multiplication()
         mpz_fdiv_r_2exp(t.value,c.value,
                         static_cast<mp_bitcnt_t>(64u*low_limbs));
         check_against_gmp(mul_low(x,y,low_limbs),t.value);
+    }
+}
+
+void TestBigUnsigned::test_views_and_scratch()
+{
+    const auto max = std::numeric_limits<std::uint64_t>::max();
+    BigUnsigned::Scratch scratch;
+    ARIADNE_TEST_ASSERT(scratch.capacity() >= 16u);
+
+    auto short_view = scratch.acquire(4u);
+    for (auto limb : short_view) {
+        ARIADNE_TEST_ASSERT(limb == 0u);
+    }
+    short_view[0] = 11u;
+    BigUnsigned x;
+    x.assign(short_view);
+    ARIADNE_TEST_ASSERT(x.size() == 1u);
+    ARIADNE_TEST_ASSERT(x.limb(0) == 11u);
+
+    auto heap_view = scratch.acquire(35u);
+    ARIADNE_TEST_ASSERT(scratch.capacity() >= 35u);
+    for (std::size_t i=0u; i<heap_view.size(); ++i) {
+        heap_view[i] = max;
+    }
+    x.assign(heap_view);
+    ARIADNE_TEST_ASSERT(x.size() == 35u);
+    const auto* old_heap = heap_view.data();
+    heap_view = scratch.acquire(25u);
+    ARIADNE_TEST_ASSERT(heap_view.data() == old_heap);
+    for (auto limb : heap_view) {
+        ARIADNE_TEST_ASSERT(limb == 0u);
+    }
+
+    x.assign(x.limbs());
+    ARIADNE_TEST_ASSERT(x.size() == 35u);
+    x.assign(x.limbs().subspan(3u,2u));
+    ARIADNE_TEST_ASSERT(x.size() == 2u);
+    x.assign(x.limbs().first(1u));
+    ARIADNE_TEST_ASSERT(x.size() == 1u);
+
+    GmpInteger aa,bb,expected;
+    BigUnsigned::Scratch output;
+    std::mt19937_64 engine(0xB22B22ULL);
+    static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 65u*64u);
+    for (unsigned repetition=0u; repetition<5000u; ++repetition) {
+        const std::size_t n = engine()%28u;
+        const std::size_t m = engine()%28u;
+        std::array<std::uint64_t,28> da{},db{};
+        for (std::size_t i=0u; i<n; ++i) da[i] = engine();
+        for (std::size_t i=0u; i<m; ++i) db[i] = engine();
+        if (repetition%7u == 0u) {
+            for (std::size_t i=0u; i<n; ++i) da[i] = max;
+        }
+        if (repetition%11u == 0u) {
+            for (std::size_t i=0u; i<m; ++i) db[i] = max;
+        }
+        const BigUnsigned lhs(std::span(da.data(),n));
+        const BigUnsigned rhs(std::span(db.data(),m));
+        mpz_import(aa.value,n,-1,8,0,0,da.data());
+        mpz_import(bb.value,m,-1,8,0,0,db.data());
+
+        const std::size_t count = std::max(lhs.size(),rhs.size());
+        auto sum_view = output.acquire(count+2u);
+        const auto carry = BigUnsigned::add_into(
+            lhs.limbs(),rhs.limbs(),sum_view.first(count));
+        sum_view[count] = carry;
+        ARIADNE_TEST_ASSERT(sum_view[count+1u] == 0u);
+        mpz_add(expected.value,aa.value,bb.value);
+        check_against_gmp(BigUnsigned(sum_view),expected.value);
+
+        auto difference_view = output.acquire(count+1u);
+        const auto borrow = BigUnsigned::sub_into(
+            lhs.limbs(),rhs.limbs(),difference_view);
+        ARIADNE_TEST_ASSERT(difference_view[count] == 0u);
+        if (mpz_cmp(aa.value,bb.value) >= 0) {
+            ARIADNE_TEST_ASSERT(borrow == 0u);
+            mpz_sub(expected.value,aa.value,bb.value);
+            check_against_gmp(BigUnsigned(difference_view),expected.value);
+        } else if (count != 0u) {
+            ARIADNE_TEST_ASSERT(borrow == 1u);
+        }
+
+        const std::size_t low = repetition%5u==0u ? 0u :
+            repetition%5u==1u ? 1u : repetition%5u==2u ? 4u :
+            repetition%5u==3u ? 15u : engine()%65u;
+        auto product_view = output.acquire(low);
+        BigUnsigned::mul_low_into(lhs.limbs(),rhs.limbs(),product_view);
+        mpz_mul(expected.value,aa.value,bb.value);
+        mpz_fdiv_r_2exp(expected.value,expected.value,
+                        static_cast<mp_bitcnt_t>(64u*low));
+        check_against_gmp(BigUnsigned(product_view),expected.value);
     }
 }
 

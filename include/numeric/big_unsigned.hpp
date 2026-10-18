@@ -45,6 +45,20 @@ class BigUnsigned
   public:
     using Limb = std::uint64_t;
     static constexpr std::size_t inline_capacity = 4u;
+    using LimbView = std::span<Limb const>;
+    using MutableLimbView = std::span<Limb>;
+
+    //! Reusable, independently owned, zeroed temporary limb storage.
+    //! Every acquire invalidates the previous view; not thread-shared.
+    class Scratch {
+        static constexpr std::size_t inline_capacity = 16u;
+        std::array<Limb,inline_capacity> _inline_limbs{};
+        std::vector<Limb> _heap;
+
+      public:
+        MutableLimbView acquire(std::size_t count);
+        std::size_t capacity() const noexcept;
+    };
 
   private:
     std::array<Limb,inline_capacity> _inline_limbs{};
@@ -68,7 +82,22 @@ class BigUnsigned
 
     std::size_t size() const noexcept { return _size; }
     bool is_zero() const noexcept { return _size == 0u; }
-    std::span<Limb const> limbs() const noexcept;
+    LimbView limbs() const noexcept;
+    //! Replace this magnitude with the canonical value of a limb view.
+    //! Self-referential views are supported, including subspans.
+    void assign(LimbView digits);
+
+    //! Allocation-free exact limb kernels; inputs and output must be disjoint.
+    //! Result is written to the first max(a.size(),b.size()) limbs;
+    //! higher destination limbs are zero; the return value is carry (0 or 1).
+    static Limb add_into(LimbView a,LimbView b,MutableLimbView output);
+    //! Unsigned subtraction modulo 2^(64*output.size()) when output
+    //! is large enough for all input limbs. Returns borrow (0 or 1).
+    //! Inputs and output must be disjoint.
+    static Limb sub_into(LimbView a,LimbView b,MutableLimbView output);
+    //! Product modulo 2^(64*output.size()); output is fully overwritten.
+    //! Inputs and output must be disjoint. No intermediate allocation.
+    static void mul_low_into(LimbView a,LimbView b,MutableLimbView output);
     Limb limb(std::size_t index) const noexcept;
     std::size_t bit_length() const noexcept;
     void swap(BigUnsigned& other) noexcept;
