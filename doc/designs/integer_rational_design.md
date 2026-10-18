@@ -1372,3 +1372,20 @@ Carry vs selected fused same-run speedups: 1.268x (256), 1.166x (1024), 1.395x (
 **Change:** On all supported ARM64 GCC/Clang/AppleClang native builds, `BigUnsigned::mul_low_into` and therefore `mul_into` and owning `mul` select the existing explicit ARMv8-A `MUL/UMULH/ADDS/ADC` carry-chain implementation unconditionally. No CMake options or extra translation units are created. The shared portable `mul_into_portable` and common `mul_into_fused` remain available for comparisons. `selected_multiply_uses_fused()` is now **false on ARM64**, correctly indicating that selected is no longer the shared fused kernel; benchmark output reads `selected kernel=ARM64 carry` based on native architecture availability. The ARM64 regression test asserts selection metadata and the full existing GMP comparisons exercise the selected carry implementation. The GCC x86-64 fused selection, Clang/MSVC x86-64 B3 fallback, and other architecture portable fallback are unchanged.
 
 **Remaining validation:** GitHub Actions for this *new selector commit* must complete; reported macOS `ctest` passed on the previous implementation where carry was explicitly forced, so the selected-path switch itself still needs a fresh local `ctest` and owning `new_selected` benchmark against `new_mpz` after the new commit is rebuilt. Performance is not assumed to carry over mechanically from preallocated forced calls; compare to same-host historical baselines. Full end-to-end FloatAP performance remains unmeasured.
+
+
+### B10.2 Apple Silicon production carry dispatch benchmark (18 October 2026)
+
+**Source.** The user compiled the B10.2 ARM64 selected-carry build and ran `benchmark_big_unsigned_multiply --include-arm64-carry --include-fused --include-new-mpz -t dark` (20,000 iterations, 31 samples, original five sizes). The banner confirmed `native available=true | selected kernel=ARM64 carry`. User-reported median times in nanoseconds:
+
+| Bits | portable | selected ARM64 carry | GMP reused | new_selected (owning) | common fused forced | new_mpz owning | ARM64 carry forced |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 53 | 18.619 | 13.735 | 7.156 | 11.325 | 10.842 | 22.762 | 9.423 |
+| 128 | 13.971 | 12.144 | 9.467 | 11.037 | 11.029 | 23.485 | 10.846 |
+| 256 | 26.979 | 16.617 | 13.146 | 33.354 | 16.594 | 26.758 | 16.621 |
+| 1024 | 350.731 | 154.312 | 94.854 | 172.594 | 183.508 | 109.221 | 154.731 |
+| 2048 | 1376.983 | 574.690 | 313.325 | 605.933 | 802.894 | 336.690 | 571.248 |
+
+**Owning speedups verified against the previous fused-selected user run (separate invocations):** at 1024 bits, 202.990 -> 172.594 ns (1.176x speedup, ~15.0% less time); at 2048 bits, 836.858 -> 605.933 ns (1.381x, ~27.6% less time). The tiny widths 53/128/256 bits have no robust owning performance trend. With equal result lifecycle, `new_selected / new_mpz` is 0.498x, 0.470x, 1.247x, 1.580x and 1.800x at the five sizes, respectively; reported geometric mean 0.963x, but sum-of-times ratio 1.608x (large costs matter). Reused-output selected / reused GMP geomean 1.562x; forced ARM64 carry / reused GMP geomean 1.415x. At 256, 1024 and 2048 bits, selected and forced carry are nearly identical, verifying the new dispatch. At 53 and 128 bits, selected appears slower than forced carry by about 46% and 12%; because their arithmetic implementation is the same this is a call-path, optimizer, benchmark-order or timing issue to investigate, **not** evidence of two different algorithms. Forced fused remains available as a performance control.
+
+**Validation state:** The user earlier reported macOS ARM64 `ctest` green with the carry kernel explicitly forced, prior to the B10.2 production selector change. No separate local macOS CTest result has yet been reported for this post-promotion build; benchmark's correctness oracle is not a replacement for full CTest. Unix/Windows/Coverage CI statuses should be inspected for this new commit. Both design journals are updated for the measured owning promotion. No extra translation units or performance CMake toggles. Does not demonstrate an end-to-end FloatAP speedup.
