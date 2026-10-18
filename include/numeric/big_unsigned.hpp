@@ -127,8 +127,19 @@ class BigUnsigned
     //! Experimental full fused product; same size and aliasing contracts
     //! as mul_into. Does not affect the production kernel selector.
     static void mul_into_fused(LimbView a,LimbView b,MutableLimbView output);
+    //! Force the B3 x86-64 row-schoolbook reference chosen before B6.
+    //! On unsupported architectures, uses the C++20 portable reference.
+    //! Product is exact modulo 2^(64*output.size()); no overlap allowed.
+    static void mul_low_into_schoolbook(
+        LimbView a,LimbView b,MutableLimbView output);
+    //! Force B3 full-product selection using caller-owned output storage.
+    static void mul_into_schoolbook(
+        LimbView a,LimbView b,MutableLimbView output);
     //! Whether an architecture-specific multiplication kernel was built.
     static bool has_native_multiply() noexcept;
+    //! Whether the production selector uses fused multiply accumulation.
+    //! True only on x86-64 GCC builds with fused selection enabled.
+    static bool selected_multiply_uses_fused() noexcept;
     Limb limb(std::size_t index) const noexcept;
     std::size_t bit_length() const noexcept;
     void swap(BigUnsigned& other) noexcept;
