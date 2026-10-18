@@ -346,6 +346,99 @@ The `Rational` facade should not gain speed by
 skipping a required canonicalization that raw GMP
 actually performs; compare equivalent semantics.
 
+### G0b benchmark scaffolding: Integer, Rational, and absolute timings
+
+**Implemented before replacing the GMP wrappers.** Four C++20
+executables share one workload header
+(`benchmarks/benchmark_exact_arithmetic_workload.hpp`) and one
+report/argument-parsing header
+(`benchmarks/benchmark_exact_arithmetic_report.hpp`):
+
+| Executable | What is timed | Reference |
+| --- | --- | --- |
+| `benchmark_compare_integer_backends` | native `Integer` and raw `mpz_t` | GMP C `mpz_*` |
+| `benchmark_compare_rational_backends` | native `Rational` and raw `mpq_t` | GMP C `mpq_*` |
+| `benchmark_integer` | native `Integer` only | absolute nanoseconds |
+| `benchmark_rational` | native `Rational` only | absolute nanoseconds |
+
+They follow the existing FloatAP comparison's defaults:
+`--iterations 1000`, `--samples 11`, `--bits
+53,128,256,1024` and 32 deterministic input pairs at each
+operand size. Other positive bit sizes (e.g. 32, 64,
+4096) can be supplied with `--bits`. They support
+`--summary-only`, `--details`, standard Ariadne logging,
+and comparison-only `--max-slowdown`. The timer uses
+`steady_clock`, one unrecorded warm-up sample, an odd-sample
+median, and keep-alive barriers, exactly like FloatAP.
+Individual rows include operation, size and median ns;
+comparisons report geomean, total-time ratio and worst
+ratio for each size and all sizes. Absolute benchmarks
+report operation times and sums of medians.
+
+`Integer` battery: **12 operations** — decimal
+construction, copy, compare, negate, add, sub, mul,
+square, quotient, remainder, cube and decimal output.
+The raw GMP path uses `mpz_*` directly; until the
+Integer replacement, quotient and remainder match
+the legacy wrappers' *distinct* GMP quotient modes
+for a fair baseline. Document/change the signed
+division contract later rather than masking
+differences in this benchmark.
+
+`Rational` battery: **15 operations** — fraction
+construction (including normalization), copy,
+compare, negate, add, sub, mul, div, square,
+reciprocal, numerator, denominator, floor, ceil
+and conversion to binary64. The GMP reference
+uses `mpq_*` and `mpz_*` directly, and includes
+`mpq_canonicalize` on construction. Both backends
+receive the same exact numerator/denominator
+specifications. Alternating operand signs and
+shared factors test costs of canonicalization and
+signed operations; special `NaN`/±inf cases remain
+in separate semantic tests because raw GMP
+`mpq_*` does not provide Ariadne's extended
+rational arithmetic contract.
+
+Comparison executables rerun the **exact same
+shared operations after all timed regions** and
+check 32 pairs of inputs and every operation
+result at every selected size. The default four
+size groups imply 256 paired input comparisons
+per executable, and **1536 Integer** or
+**1920 Rational** paired operation results.
+Exact values are compared as normalized decimal
+integer or numerator/denominator strings;
+binary64 is compared by its full 64-bit pattern.
+Failures report operation, bit size, index, and
+the differing values. These are differential
+regression checks, **not independent proof** of
+correctness; the separately planned fixed
+mathematical expected-value test suites remain
+essential.
+
+The two benchmark backends currently use GMP
+internally on **both sides**: the new comparison
+reveals wrapper overhead only, not the future
+GMP-free performance. GMP remains a permitted
+dependency in these benchmark executables.
+The native benchmark functions are explicitly
+separate from their reference callbacks; both
+include ordinary return-object construction and
+destruction as in the FloatAP harness. To assess
+pure arithmetic-kernel cost later, add separate
+documented in-place microbenchmarks instead of
+pretending that the existing facade timings
+measure naked GMP kernel calls.
+
+Run four CTest smoke commands with reduced
+iterations/samples and the 53-bit group, then
+the complete 1000x11 cross-size performance run
+on a fixed host. **No performance claims until
+the CI and user's measurement are observed.**
+The FloatAP benchmark, its input workload,
+and its numerical oracle remain unchanged.
+
 ### CI and metric gates
 
 Run Unix/GCC+Clang/macOS, Windows/MSVC and Coverage,
@@ -496,3 +589,17 @@ FloatAP worst/geomean/total changes, Integer
 and Rational operation timings as available,
 known regressions, and next action. Never claim
 CI/performance results before observing them.
+
+### G0b implementation log — benchmarks introduced (18 October 2026)
+
+Added four independent executables and shared workload/report
+helpers while leaving current Integer, Rational and FloatAP
+implementation untouched. The Integer GMP comparator calls
+`mpz_*`, and Rational GMP comparator calls `mpq_*`,
+not the Ariadne wrapper types. Aggregate and absolute
+timings are separated; numerical agreement is verified
+after the timing loops. CMake registers all targets and
+four lightweight CTest smoke tests. The initial commit
+only introduces benchmark infrastructure: green CI,
+successful smoke tests and same-host 1000x11 numbers
+must be checked and recorded separately.
