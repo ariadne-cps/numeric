@@ -364,6 +364,59 @@ TestFloatRounding<PR>::test_conversion_between()
 template<class PR> Void
 TestFloatRounding<PR>::test_precision_regressions()
 {
+    // Exercise the native non-dyadic ratio path through the public FloatAP
+    // API; the expected 1/3 mantissas follow exactly from integer division
+    // of 2^(p+1) by three, independently of FloatMP and FloatAP.
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        for (Bits bits : {1100_bits,1536_bits}) {
+            const ArbitraryPrecision p(bits);
+            const MultiplePrecision mp(bits);
+            const Integer scale=pow(Integer(2),Nat(p.bits()+1u));
+            const Integer floor_mantissa=quot(scale,Integer(3));
+            const Integer rem_mantissa=rem(scale,Integer(3));
+            const bool nearest_increment=rem_mantissa*2>3;
+            for (bool negative_input : {false,true}) {
+                const Rational input=negative_input ? Rational(-1,3)
+                                                     : Rational(1,3);
+                const auto check=[&](FloatAP::RoundingModeType ap_mode,
+                                     FloatMP::RoundingModeType mp_mode,
+                                     bool increment) {
+                    const Integer magnitude=floor_mantissa+
+                                             Integer(increment ? 1 : 0);
+                    const Rational expected(negative_input ? -magnitude : magnitude,
+                                             scale);
+                    const FloatAP native(input,ap_mode,p);
+                    const FloatMP reference(input,mp_mode,mp);
+                    ARIADNE_TEST_EQUALS(static_cast<Rational>(native),expected);
+                    ARIADNE_TEST_EQUALS(static_cast<Rational>(native),
+                                        static_cast<Rational>(reference));
+                };
+                check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST,
+                      nearest_increment);
+                check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD,
+                      negative_input);
+                check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD,
+                      !negative_input);
+                check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO,
+                      false);
+            }
+
+            // This non-dyadic pair forces multiprecision quotient/remainder.
+            const Rational large_ratio(
+                pow(Integer(2),Nat(1800u))+Integer(7),
+                pow(Integer(2),Nat(1500u))+Integer(11));
+            const auto verify=[&](auto ap_mode,auto mp_mode) {
+                const FloatAP native(large_ratio,ap_mode,p);
+                const FloatMP reference(large_ratio,mp_mode,mp);
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(native),
+                                    static_cast<Rational>(reference));
+            };
+            verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+            verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+            verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+            verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+        }
+    }
     // These checks replace the separate FloatAP precision tests and use
     // exactly the same floating-point API for FloatMP and FloatAP.
     if constexpr (!Same<PR,DoublePrecision>) {

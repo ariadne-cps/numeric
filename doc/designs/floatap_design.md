@@ -5713,3 +5713,27 @@ verified before broadening the replacement. Exact unsigned ratio
 oracles cover 1/3 at 2,53,128,1024,1100,1536 bits in four modes
 and both signs, plus half-way nearest-even carry cases. The core
 has no GMP references; conversion adapters do, temporarily.
+## FloatAP-first consolidation: implementation in floatap.cpp (18 October 2026)
+
+At the user's direction, the experimental unsigned arithmetic and
+correctly-rounded rational division are **implementation details of
+`floatap.cpp`**, not separate headers or an additional public numeric
+type. Consolidated the old `floatap_small_division.hpp`,
+`floatap_native_unsigned.hpp` and `floatap_native_ratio.hpp`
+into private translation-unit namespaces, and deleted the three
+standalone headers. `floatap.hpp` remains the sole FloatAP API/header.
+This is a structural correction preparing for a direct future
+replacement of `_significand` and the remaining GMP calls.
+
+Removed `test_floatap_native_unsigned.cpp`, which depended on the
+private representation, from the test tree and CTest. Added
+mathematically expected results for ±1/3 at 1100/1536 bits and all
+four rounding modes, plus FloatMP comparisons for wide non-dyadic
+operands, to `test_float_rounding.cpp`. These exercise FloatAP's
+*public* API and avoid coupling the test suite to the internals.
+The 53/128/256/1024-bit benchmark remains unchanged, and all
+four Integer/Rational benchmarks remain separate from CTest.
+The earlier 645b2ed9 changes failed compilation on all CI
+platforms, so CI validation is required for this consolidation
+before extending the native implementation. No claim of total
+GMP independence is made.
