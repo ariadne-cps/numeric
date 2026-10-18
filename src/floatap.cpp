@@ -688,35 +688,37 @@ std::pair<FloatAP::Unsigned,FloatAP::Unsigned> FloatAP::divrem_wide(
         sparse_divisor=(nonzero<=maximum_nonzero);
     }
 
-    // One body for the exact Knuth subtract step, instantiated as
-    // distinct sparse/dense loops at compile time. In the dense case
-    // if constexpr removes all zero-limb tests from the inner loop.
+    // An mpn_submul_1-style recurrence in two independently compiled
+    // sparse/dense inner loops. In the dense case if constexpr removes
+    // all zero-limb tests from the fused multiply/subtract loop.
     const auto subtract_quotient_digit=
         [&]<bool Sparse>(std::size_t j,WideUInt estimate)
-            -> std::pair<std::uint64_t,std::uint64_t>
+            -> std::uint64_t
     {
-        std::uint64_t product_carry=0u,borrow=0u;
+        // Fused mpn_submul_1-style recurrence: carry includes BOTH the
+        // multiplication carry and the subtraction borrow. For one limb:
+        //   product = digit * divisor_limb + carry
+        //   destination -= low(product)
+        //   carry = high(product) + (old_destination < low(product)).
+        // This removes the separate 128-bit subtraction and borrow chain.
+        // The carry fits in 64 bits: when high(product) == 2^64-1,
+        // low(product) is necessarily zero, so no borrow can increase it.
+        const std::uint64_t digit=static_cast<std::uint64_t>(estimate);
+        std::uint64_t carry=0u;
         for (std::size_t i=0u; i<n; ++i) {
             if constexpr (Sparse) {
-                // Preserve subtraction borrow across zero-product limbs.
-                if (v[i]==0u && product_carry==0u) {
-                    if (borrow!=0u) {
-                        const std::uint64_t old=u[j+i];
-                        u[j+i]=old-1u;
-                        borrow=static_cast<std::uint64_t>(old==0u);
-                    }
-                    continue;
-                }
+                // Zero times digit plus zero combined carry leaves
+                // the dividend limb unchanged, including the borrow.
+                if (v[i]==0u && carry==0u) { continue; }
             }
-            const WideUInt product=estimate*v[i]+product_carry;
-            product_carry=static_cast<std::uint64_t>(product>>64u);
-            const WideUInt subtraction=
-                static_cast<std::uint64_t>(product)+WideUInt(borrow);
+            const WideUInt product=WideUInt(digit)*v[i]+carry;
+            const std::uint64_t low=static_cast<std::uint64_t>(product);
             const std::uint64_t old=u[j+i];
-            borrow=old<subtraction ? 1u : 0u;
-            u[j+i]=static_cast<std::uint64_t>(WideUInt(old)-subtraction);
+            u[j+i]=old-low;
+            carry=static_cast<std::uint64_t>(product>>64u)+
+                static_cast<std::uint64_t>(old<low);
         }
-        return {product_carry,borrow};
+        return carry;
     };
 
     // The inverse costs one full-width division per operand pair.
@@ -758,10 +760,9 @@ std::pair<FloatAP::Unsigned,FloatAP::Unsigned> FloatAP::divrem_wide(
 
         // Choose between two separately instantiated inner loops once
         // per quotient digit. Dense inputs pay no sparse-limb checks.
-        const auto [product_carry,borrow]=sparse_divisor
+        const std::uint64_t final_subtraction=sparse_divisor
             ? subtract_quotient_digit.template operator()<true>(j,estimate)
             : subtract_quotient_digit.template operator()<false>(j,estimate);
-        const WideUInt final_subtraction=WideUInt(product_carry)+borrow;
         const bool overestimate=u[j+n]<final_subtraction;
         u[j+n]=static_cast<std::uint64_t>(
             WideUInt(u[j+n])-final_subtraction);

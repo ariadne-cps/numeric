@@ -6635,3 +6635,68 @@ No further GMP-free substitutions until that gate passes.
 **Scope of this note:** research and algorithm selection only.
 No production source modifications, claimed ARM64 speedups
 or widened benchmark coverage are introduced here.
+
+## G4: fused multiply/subtract carry recurrence (18 October 2026)
+
+**Algorithmic improvement.** After researching GNU MP's
+`mpn_submul_1` primitive, replace the two separate
+product-carry and subtract-borrow chains in
+`FloatAP::divrem_wide` with one exact limb recurrence:
+`product = digit * divisor_limb + carry`,
+`result_limb = old_limb - low(product)`, and
+`carry = high(product) + (old_limb < low(product))`.
+The returned carry is directly subtracted from the
+top dividend limb, followed by the unchanged Knuth
+quotient correction/add-back. This is not a
+mere sparse-data shortcut: every quotient-digit
+multiply/subtract on every wide dense divisor benefits.
+The mathematical invariant is that the incoming carry
+equals the prior high product word plus the prior
+subtraction borrow. No information is lost by merging
+them. The carry fits a 64-bit word: its maximum high
+product word B-1 is attainable only with product low
+word zero, which precludes a subtraction borrow.
+Sparse and dense versions remain separate compile-time
+specializations inside the existing private FloatAP
+method; in sparse mode a zero divisor limb is skipped
+only if the *combined* carry equals zero.
+No architecture-specific code, new production
+files, changed public API, or GMP calls are added.
+
+**Independent pre-integration experiments.**
+A standalone division kernel implemented the identical
+combined carry recurrence and passed 100000
+deterministic randomized exact quotient/remainder
+comparisons with GMP `mpz_tdiv_qr`, including
+dense and sparse divisors at varying limb lengths.
+The same kernel passed 100000 randomized divisions
+under Clang AddressSanitizer + UndefinedBehaviorSanitizer.
+Kernel-only dense 1024-bit x86-64 GCC -O3
+experiment: approximately 1225.71 ns before
+and 498.47 ns after (2.46x faster).
+Clang -O3: approximately 774.40 ns before
+and 552.57 ns after (1.40x faster).
+These isolated results are **not** the public
+FloatAP benchmark nor evidence of Apple ARM64
+parity. The existing exact tests and checks
+remain, plus additional FloatAP/FloatMP
+differential ratios across 65-1536 bits,
+both signs, inverse operands, and all rounding
+modes, emphasizing limb/carry boundaries.
+See GNU MP 6.3.0 Low-level Functions manual:
+https://gmplib.org/manual/Low_002dlevel-Functions ,
+especially `mpn_submul_1`, whose documented
+output is the product high word plus
+borrow-out from the subtraction.
+
+**Acceptance gate.** Check Linux/macOS/Windows CI;
+run unchanged 20000x31 benchmark on idle Mac
+ARM64. Compare absolute medians against the
+beginning-of-branch frozen 20000x31 baseline
+for construct_rational and div_nearest/down/up
+at 53/128/256/1024 bits. Examine FloatMP
+and untouched FloatAP controls first, flag
+wide environmental regressions and await
+user feedback before further code changes.
+Do not consider GMP-free migration at parity
+until *all* these cases meet baseline.
