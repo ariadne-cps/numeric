@@ -6700,3 +6700,18 @@ wide environmental regressions and await
 user feedback before further code changes.
 Do not consider GMP-free migration at parity
 until *all* these cases meet baseline.
+
+### G4 GCC build fix (18 October 2026)
+
+The initial G4 commit `28f1068` passed Clang Linux Release,
+AppleClang macOS Release/Coverage, Clang ThreadSanitizer and
+Windows Release but failed both GCC 13 Release and GCC 13
+Coverage at the build step with warnings-as-errors enabled.
+The local fused-submul lambda had introduced a
+`carry` variable inside `divrem_wide` where an outer
+`carry` variable already existed. GCC with `-Wshadow`
+diagnoses this pattern; rename the inner accumulator to
+`submul_carry` consistently. This is an identifier-only
+correction and leaves all arithmetic and tests unchanged.
+CI must confirm the diagnosis; do not claim GCC passing
+before its check succeeds.
