@@ -102,6 +102,7 @@ struct MultiplicationDatum {
     double prealloc_fused_ns=0.0; // 0 means the experiment was disabled
     double prealloc_schoolbook_ns=0.0; // 0 means the experiment was disabled
     double new_mpz_ns=0.0; // 0 means the experiment was disabled
+    double prealloc_karatsuba_ns=0.0; // 0 means the experiment was disabled
 };
 
 struct MultiplicationSelection {
@@ -114,6 +115,7 @@ struct MultiplicationSelection {
     bool include_fused=false;
     bool include_schoolbook=false;
     bool include_new_mpz=false;
+    bool include_karatsuba=false;
     double max_slowdown=std::numeric_limits<double>::infinity();
 };
 
@@ -177,6 +179,10 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
         "","include-new-mpz",
         "Include GMP multiplication with new result allocation and release",
         [&selection] { selection.include_new_mpz=true; }));
+    parsers.append(make_unvalued_argument_parser(
+        "","include-karatsuba",
+        "Include experimental Karatsuba with reusable preallocated scratch",
+        [&selection] { selection.include_karatsuba=true; }));
     parsers.append(make_valued_argument_parser(
         "","max-slowdown","Fail if worst prealloc_selected/GMP slowdown exceeds this ratio",
         [&selection](String const& value) -> VoidFunction {
@@ -193,7 +199,8 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
 
 MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
                             bool include_comba,bool include_fused,
-                            bool include_schoolbook,bool include_new_mpz)
+                            bool include_schoolbook,bool include_new_mpz,
+                            bool include_karatsuba)
 {
     std::mt19937_64 engine(0xB3B3B3ULL+bits);
     const std::size_t n=(bits+63u)/64u;
@@ -211,6 +218,11 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
     BigUnsigned::Scratch scratch;
     const auto result_size = a.size()+b.size();
     auto output=scratch.acquire(result_size);
+    BigUnsigned::Scratch karatsuba_workspace;
+    const auto karatsuba_work=include_karatsuba
+        ? karatsuba_workspace.acquire(
+            BigUnsigned::karatsuba_scratch_limbs(a.size(),b.size()))
+        : BigUnsigned::MutableLimbView{};
     GmpInteger ga,gb,gr;
     import_gmp(ga.value,a);
     import_gmp(gb.value,b);
@@ -230,6 +242,11 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
     }
     if (include_schoolbook) {
         BigUnsigned::mul_into_schoolbook(a.limbs(),b.limbs(),output);
+        verify_gmp(BigUnsigned(output),gr.value);
+    }
+    if (include_karatsuba) {
+        BigUnsigned::mul_into_karatsuba(
+            a.limbs(),b.limbs(),output,karatsuba_work);
         verify_gmp(BigUnsigned(output),gr.value);
     }
     if (include_new_mpz) {
@@ -287,6 +304,15 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
             if (mpz_sgn(result.value)==0) std::abort();
         },iterations,samples);
     }
+    // Karatsuba is measured last and only when explicitly requested.
+    // All buffers (including recursive scratch) were allocated above.
+    double karatsuba=0.0;
+    if (include_karatsuba) {
+        karatsuba=median_ns([&] {
+            BigUnsigned::mul_into_karatsuba(
+                a.limbs(),b.limbs(),output,karatsuba_work);
+        },iterations,samples);
+    }
     // Verify after timing as well, with no exact checks inside timed code.
     verify_gmp(BigUnsigned(output),gr.value);
     verify_gmp(mul(a,b),gr.value);
@@ -297,7 +323,8 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
             throw std::runtime_error("GMP new-result multiplication mismatch");
         }
     }
-    return {bits,portable,native,raw,owned,comba,fused,schoolbook,new_mpz};
+    return {bits,portable,native,raw,owned,comba,fused,schoolbook,
+            new_mpz,karatsuba};
 }
 
 void print_measurements(std::vector<MultiplicationDatum> const& data,
@@ -336,6 +363,9 @@ void print_measurements(std::vector<MultiplicationDatum> const& data,
         }
         if (row.new_mpz_ns>0.0) {
             print_row("new_mpz",row.new_mpz_ns);
+        }
+        if (row.prealloc_karatsuba_ns>0.0) {
+            print_row("prealloc_karatsuba",row.prealloc_karatsuba_ns);
         }
         LOGGING_PRINTLN(std::string(79u,'-'))
     }
@@ -384,7 +414,7 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
                      bool details,double max_slowdown)
 {
     MultiplicationAggregate portable,selected,owned,comba,fused,schoolbook;
-    MultiplicationAggregate new_mpz,owned_vs_new_mpz;
+    MultiplicationAggregate new_mpz,owned_vs_new_mpz,karatsuba;
     if (details) {
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Detailed comparisons (candidate / GMP)")
@@ -412,6 +442,10 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
             owned_vs_new_mpz.add(
                 row.bits,row.new_mpz_ns,row.new_selected_ns);
         }
+        if (row.prealloc_karatsuba_ns>0.0) {
+            karatsuba.add(
+                row.bits,row.gmp_ns,row.prealloc_karatsuba_ns);
+        }
         if (details) {
             const auto print_detail=[&](char const* backend,double candidate) {
                 LOGGING_PRINTLN(std::left << std::setw(18) << backend
@@ -436,6 +470,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
             if (row.new_mpz_ns>0.0) {
                 print_detail("new_mpz",row.new_mpz_ns);
             }
+            if (row.prealloc_karatsuba_ns>0.0) {
+                print_detail("prealloc_karatsuba",row.prealloc_karatsuba_ns);
+            }
         }
     }
     LOGGING_PRINTLN(" ")
@@ -456,6 +493,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
     }
     if (new_mpz.count!=0u) {
         new_mpz.print("new_mpz");
+    }
+    if (karatsuba.count!=0u) {
+        karatsuba.print("prealloc_karatsuba");
     }
     LOGGING_PRINTLN(std::string(79u,'='))
     if (owned_vs_new_mpz.count!=0u) {
@@ -521,7 +561,8 @@ int main(int argc,const char* argv[])
                                    selection.include_comba,
                                    selection.include_fused,
                                    selection.include_schoolbook,
-                                   selection.include_new_mpz));
+                                   selection.include_new_mpz,
+                                   selection.include_karatsuba));
             LOGGING_PRINTLN("Completed " << bits << " bits")
         }
         print_measurements(data,selection.iterations,selection.samples,

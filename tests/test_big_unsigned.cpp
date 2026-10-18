@@ -297,6 +297,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     const auto max = std::numeric_limits<std::uint64_t>::max();
     std::mt19937_64 engine(0xB3B3B3ULL);
     BigUnsigned::Scratch scratch;
+    BigUnsigned::Scratch karatsuba_workspace;
     GmpInteger a,b,expected,rounded;
     static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 64u*80u);
 
@@ -353,6 +354,16 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_gmp(BigUnsigned(selected),expected.value);
 
+        const auto needed=BigUnsigned::karatsuba_scratch_limbs(
+            lhs.size(),rhs.size());
+        auto work=karatsuba_workspace.acquire(needed);
+        selected=scratch.acquire(length);
+        BigUnsigned::mul_into_karatsuba(
+            lhs.limbs(),rhs.limbs(),selected,work);
+        ARIADNE_TEST_ASSERT(std::equal(
+            selected.begin(),selected.end(),selected_copy.begin()));
+        check_against_gmp(BigUnsigned(selected),expected.value);
+
         const std::size_t low = repetition%5u==0u ? 0u :
             repetition%5u==1u ? 1u : repetition%5u==2u ? 4u :
             repetition%5u==3u ? 5u : engine()%80u;
@@ -396,6 +407,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     bool comba_threw = false;
     bool fused_threw = false;
     bool schoolbook_threw = false;
+    bool karatsuba_threw = false;
     ARIADNE_TEST_ASSERT(
         !BigUnsigned::selected_multiply_uses_fused()
         || BigUnsigned::has_native_multiply());
@@ -424,8 +436,65 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     } catch (std::length_error const&) {
         schoolbook_threw = true;
     }
+    try {
+        BigUnsigned::mul_into_karatsuba(one,one,too_short,{});
+    } catch (std::length_error const&) {
+        karatsuba_threw = true;
+    }
     ARIADNE_TEST_ASSERT(selected_threw && portable_threw &&
-                        comba_threw && fused_threw && schoolbook_threw);
+                        comba_threw && fused_threw && schoolbook_threw &&
+                        karatsuba_threw);
+
+    // Missing recursive scratch must fail before altering output.
+    const std::array<std::uint64_t,17> long_ones{
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    };
+    std::array<std::uint64_t,34> guarded;
+    guarded.fill(max);
+    ARIADNE_TEST_ASSERT(
+        BigUnsigned::karatsuba_scratch_limbs(17u,17u)>0u);
+    bool scratch_threw=false;
+    try {
+        BigUnsigned::mul_into_karatsuba(
+            long_ones,long_ones,guarded,{});
+    } catch (std::length_error const&) {
+        scratch_threw=true;
+    }
+    ARIADNE_TEST_ASSERT(scratch_threw);
+    for (auto value: guarded) {
+        ARIADNE_TEST_ASSERT(value==max);
+    }
+
+    // B8 needs coverage beyond the B3/B6 38-limb randomized range.
+    std::mt19937_64 wider_engine(0xB8B8B8ULL);
+    for (unsigned repetition=0u; repetition<700u; ++repetition) {
+        const std::size_t n=repetition%7u==0u ? 128u :
+                            9u+wider_engine()%95u;
+        const std::size_t m=repetition%11u==0u ? 1u :
+                            9u+wider_engine()%95u;
+        std::array<std::uint64_t,128> da{},db{};
+        for (std::size_t i=0u;i<n;++i) da[i]=wider_engine();
+        for (std::size_t i=0u;i<m;++i) db[i]=wider_engine();
+        if (repetition%13u==0u) std::fill_n(da.begin(),n,max);
+        if (repetition%17u==0u) std::fill_n(db.begin(),m,max);
+        if (repetition%19u==0u) std::fill_n(da.begin(),n,0u);
+        if (repetition%23u==0u) std::fill_n(db.begin(),m,0u);
+        const BigUnsigned lhs(std::span(da.data(),n));
+        const BigUnsigned rhs(std::span(db.data(),m));
+        mpz_import(a.value,n,-1,8,0,0,da.data());
+        mpz_import(b.value,m,-1,8,0,0,db.data());
+        mpz_mul(expected.value,a.value,b.value);
+        auto result=scratch.acquire(lhs.size()+rhs.size()+2u);
+        auto work=karatsuba_workspace.acquire(
+            BigUnsigned::karatsuba_scratch_limbs(
+                lhs.size(),rhs.size()));
+        BigUnsigned::mul_into_karatsuba(
+            lhs.limbs(),rhs.limbs(),result,work);
+        check_against_gmp(BigUnsigned(result),expected.value);
+        for (std::size_t i=lhs.size()+rhs.size();i<result.size();++i) {
+            ARIADNE_TEST_ASSERT(result[i]==0u);
+        }
+    }
 }
 
 void TestBigUnsigned::test_randomized()
