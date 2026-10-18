@@ -43,36 +43,6 @@ namespace Ariadne::BigUnsignedDetail {
 
 using Limb = BigUnsigned::Limb;
 
-// Exact radix-B schoolbook, B=2^64. Each iteration calculates
-// a[i]*b[j] + output[i+j] + carry, bounded above by B^2-1:
-// (B-1)^2 + 2*(B-1) = B^2-1. Hence unsigned 128-bit is sufficient.
-// ARMv8-A has baseline 64-bit MUL and UMULH; compiler lowering, not
-// hand-written assembly, determines the emitted instruction sequence.
-// The resulting output is exact modulo 2^(64*output.size()).
-// Input/output may not overlap. All output limbs are overwritten.
-// No allocation, scratch memory, optional ISA features, or runtime CPUID.
-void mul_low_into_fused_arm64(BigUnsigned::LimbView a,
-                              BigUnsigned::LimbView b,
-                              BigUnsigned::MutableLimbView output) noexcept
-{
-    __extension__ using Wide = unsigned __int128;
-    std::fill(output.begin(),output.end(),Limb{0});
-    for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
-        Limb carry=0u;
-        const std::size_t terms=std::min(b.size(),output.size()-i);
-        for (std::size_t j=0u; j<terms; ++j) {
-            const Wide total=static_cast<Wide>(a[i])*b[j]
-                             +output[i+j]+carry;
-            output[i+j]=static_cast<Limb>(total);
-            carry=static_cast<Limb>(total>>64u);
-        }
-        if (i+terms<output.size()) {
-            output[i+terms]=carry;
-        }
-    }
-}
-
-
 // Experimental ARMv8-A row-schoolbook with explicit two-carry handling.
 // Unlike the selected __int128 implementation, inline assembly fixes the
 // sequence: MUL, UMULH, two ADDS/ADC pairs per product. Performance is

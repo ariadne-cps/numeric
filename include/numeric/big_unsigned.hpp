@@ -118,14 +118,13 @@ class BigUnsigned
     //! has a.size()+b.size() limbs for nonempty inputs; does not allocate.
     //! Overlap with either input is forbidden; extra limbs are zeroed.
     static void mul_into_comba(LimbView a,LimbView b,MutableLimbView output);
-    //! Explicit fused 128-bit accumulation schoolbook kernel for
-    //! x86-64 and AArch64 GCC/Clang/AppleClang builds. On x86-64 MSVC
-    //! uses B3 native schoolbook; elsewhere uses the C++20 reference.
-    //! Native availability does not imply selected dispatch on ARM64.
+    //! Shared fused 128-bit accumulation schoolbook for GCC/Clang x86-64
+    //! and ARM64. MSVC x86-64 retains the native B3 schoolbook fallback;
+    //! other architectures retain the portable C++20 reference.
     //! Output is disjoint from inputs and fully overwritten; computes the
     //! exact product modulo 2^(64*output.size()) without allocation.
     static void mul_low_into_fused(LimbView a,LimbView b,MutableLimbView output);
-    //! Experimental full fused product; same size and aliasing contracts
+    //! Explicit full fused product; same size and aliasing contracts
     //! as mul_into. Does not affect the production kernel selector.
     static void mul_into_fused(LimbView a,LimbView b,MutableLimbView output);
     //! Experimental explicit ARM64 MUL/UMULH/ADDS/ADC carry-chain
@@ -167,8 +166,8 @@ class BigUnsigned
     //! Scratch size for a caller-selected Karatsuba recursion cutoff.
     static std::size_t karatsuba_scratch_limbs(
         std::size_t a_limbs,std::size_t b_limbs,std::size_t cutoff);
-    //! Whether a native x86-64 or ARM64 wide-multiplication kernel was built.
-    //! On ARM64 the native fused kernel can be forced without selecting it.
+    //! Whether a supported x86-64 or ARM64 native kernel was built.
+    //! ARM64 selects the common fused kernel by default.
     static bool has_native_multiply() noexcept;
     //! Whether the ARM64 native fused/carry-chain kernels were built.
     static bool has_arm64_multiply() noexcept;

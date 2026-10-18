@@ -4,7 +4,6 @@ add_library(NUMERIC_SRC OBJECT
     double.cpp
     integer.cpp
     big_unsigned.cpp
-    big_unsigned_karatsuba.cpp
     dyadic.cpp
     decimal.cpp
     rational.cpp
@@ -50,9 +49,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
     endif()
 endif()
 
-# Native ARM64 fused multiplication. User-run Apple Silicon benchmarks and
-# the macOS test suite support selecting it by default. GCC/Clang/AppleClang
-# lower unsigned __int128 to baseline AArch64 MUL/UMULH instructions.
+# ARM64 architecture source now contains only the explicit carry-chain
+# specialization. The selected wide fused kernel lives in big_unsigned.cpp.
 # Unsupported architectures/compilers keep the portable C++20 kernel.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$"
         AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
