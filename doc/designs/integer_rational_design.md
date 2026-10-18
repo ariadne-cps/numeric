@@ -759,3 +759,17 @@ public GMP interface, underlying `mpz_t` storage and
 certified interval `mpq_t` remain until incremental
 migration. This entry describes the initial isolated
 kernel only, not completion of GMP removal.
+### Migration priority refinement — one FloatAP source pair (18 October 2026)
+
+The user explicitly requires only `floatap.hpp` and `floatap.cpp`
+for FloatAP, not a separate header per arithmetic algorithm.
+All unsigned kernels and quotient/remainder rounding have been
+moved into `floatap.cpp`, with no changes to the public header.
+Future GMP removal should directly refactor the existing FloatAP
+representation and implementation, retaining FloatMP as a
+differential reference and independent fixed-answer rounding
+tests. Do not build a temporary compatibility layer or factor
+out code for Integer/Rational before measuring an actual need.
+Private implementation tests have been replaced with tests of
+the FloatAP public mathematical behavior, under CTest.
+Benchmark targets remain separate.
