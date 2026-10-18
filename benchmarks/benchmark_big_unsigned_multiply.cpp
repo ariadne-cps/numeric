@@ -99,6 +99,7 @@ struct MultiplicationDatum {
     double gmp_ns;
     double new_selected_ns;
     double prealloc_comba_ns=0.0; // 0 means the experiment was disabled
+    double prealloc_fused_ns=0.0; // 0 means the experiment was disabled
 };
 
 struct MultiplicationSelection {
@@ -108,6 +109,7 @@ struct MultiplicationSelection {
     bool summary_only=false;
     bool details=false;
     bool include_comba=false;
+    bool include_fused=false;
     double max_slowdown=std::numeric_limits<double>::infinity();
 };
 
@@ -161,6 +163,9 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
     parsers.append(make_unvalued_argument_parser(
         "","include-comba","Include experimental x86-64 prealloc_comba kernel",
         [&selection] { selection.include_comba=true; }));
+    parsers.append(make_unvalued_argument_parser(
+        "","include-fused","Include experimental x86-64 prealloc_fused kernel",
+        [&selection] { selection.include_fused=true; }));
     parsers.append(make_valued_argument_parser(
         "","max-slowdown","Fail if worst prealloc_selected/GMP slowdown exceeds this ratio",
         [&selection](String const& value) -> VoidFunction {
@@ -176,7 +181,7 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
 }
 
 MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
-                            bool include_comba)
+                            bool include_comba,bool include_fused)
 {
     std::mt19937_64 engine(0xB3B3B3ULL+bits);
     const std::size_t n=(bits+63u)/64u;
@@ -207,6 +212,10 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
         BigUnsigned::mul_into_comba(a.limbs(),b.limbs(),output);
         verify_gmp(BigUnsigned(output),gr.value);
     }
+    if (include_fused) {
+        BigUnsigned::mul_into_fused(a.limbs(),b.limbs(),output);
+        verify_gmp(BigUnsigned(output),gr.value);
+    }
 
     const auto portable=median_ns([&] {
         BigUnsigned::mul_into_portable(a.limbs(),b.limbs(),output);
@@ -229,10 +238,18 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
             BigUnsigned::mul_into_comba(a.limbs(),b.limbs(),output);
         },iterations,samples);
     }
+    // The optional fused kernel comes after the frozen B3 measurements
+    // (and after optional Comba); all default timings are unchanged.
+    double fused=0.0;
+    if (include_fused) {
+        fused=median_ns([&] {
+            BigUnsigned::mul_into_fused(a.limbs(),b.limbs(),output);
+        },iterations,samples);
+    }
     // Verify after timing as well, with no exact checks inside timed code.
     verify_gmp(BigUnsigned(output),gr.value);
     verify_gmp(mul(a,b),gr.value);
-    return {bits,portable,native,raw,owned,comba};
+    return {bits,portable,native,raw,owned,comba,fused};
 }
 
 void print_measurements(std::vector<MultiplicationDatum> const& data,
@@ -262,6 +279,9 @@ void print_measurements(std::vector<MultiplicationDatum> const& data,
         print_row("new_selected",row.new_selected_ns);
         if (row.prealloc_comba_ns>0.0) {
             print_row("prealloc_comba",row.prealloc_comba_ns);
+        }
+        if (row.prealloc_fused_ns>0.0) {
+            print_row("prealloc_fused",row.prealloc_fused_ns);
         }
         LOGGING_PRINTLN(std::string(79u,'-'))
     }
@@ -309,7 +329,7 @@ struct MultiplicationAggregate {
 void print_slowdowns(std::vector<MultiplicationDatum> const& data,
                      bool details,double max_slowdown)
 {
-    MultiplicationAggregate portable,selected,owned,comba;
+    MultiplicationAggregate portable,selected,owned,comba,fused;
     if (details) {
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Detailed comparisons (candidate / GMP)")
@@ -326,6 +346,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
         if (row.prealloc_comba_ns>0.0) {
             comba.add(row.bits,row.gmp_ns,row.prealloc_comba_ns);
         }
+        if (row.prealloc_fused_ns>0.0) {
+            fused.add(row.bits,row.gmp_ns,row.prealloc_fused_ns);
+        }
         if (details) {
             const auto print_detail=[&](char const* backend,double candidate) {
                 LOGGING_PRINTLN(std::left << std::setw(18) << backend
@@ -341,6 +364,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
             if (row.prealloc_comba_ns>0.0) {
                 print_detail("prealloc_comba",row.prealloc_comba_ns);
             }
+            if (row.prealloc_fused_ns>0.0) {
+                print_detail("prealloc_fused",row.prealloc_fused_ns);
+            }
         }
     }
     LOGGING_PRINTLN(" ")
@@ -352,6 +378,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
     owned.print("new_selected");
     if (comba.count!=0u) {
         comba.print("prealloc_comba");
+    }
+    if (fused.count!=0u) {
+        fused.print("prealloc_fused");
     }
     LOGGING_PRINTLN(std::string(79u,'='))
     LOGGING_PRINTLN("geomean weights each operand size equally; "
@@ -386,10 +415,10 @@ int main(int argc,const char* argv[])
         if (!command_line.acquire(arguments)) {
             return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
         }
-        if (selection.include_comba &&
+        if ((selection.include_comba || selection.include_fused) &&
                 !BigUnsigned::has_native_multiply()) {
             throw std::invalid_argument(
-                "--include-comba requires an x86-64 native kernel build");
+                "--include-comba and --include-fused require an x86-64 native kernel build");
         }
         LOGGING_PRINTLN("BigUnsigned multiplication - running "
                         << selection.sizes.size() << " operand-size groups"
@@ -403,7 +432,8 @@ int main(int argc,const char* argv[])
         for (unsigned bits : selection.sizes) {
             LOGGING_PRINTLN("Measuring " << bits << " bits ...")
             data.push_back(measure(bits,selection.iterations,selection.samples,
-                                   selection.include_comba));
+                                   selection.include_comba,
+                                   selection.include_fused));
             LOGGING_PRINTLN("Completed " << bits << " bits")
         }
         print_measurements(data,selection.iterations,selection.samples,

@@ -118,6 +118,15 @@ class BigUnsigned
     //! has a.size()+b.size() limbs for nonempty inputs; does not allocate.
     //! Overlap with either input is forbidden; extra limbs are zeroed.
     static void mul_into_comba(LimbView a,LimbView b,MutableLimbView output);
+    //! Experimental fused 128-bit accumulation schoolbook kernel, available
+    //! on x86-64 GCC/Clang including AppleClang. Else uses the B3
+    //! architecture-selected or portable reference implementation.
+    //! Output is disjoint from inputs and fully overwritten; computes the
+    //! exact product modulo 2^(64*output.size()) without allocation.
+    static void mul_low_into_fused(LimbView a,LimbView b,MutableLimbView output);
+    //! Experimental full fused product; same size and aliasing contracts
+    //! as mul_into. Does not affect the production kernel selector.
+    static void mul_into_fused(LimbView a,LimbView b,MutableLimbView output);
     //! Whether an architecture-specific multiplication kernel was built.
     static bool has_native_multiply() noexcept;
     Limb limb(std::size_t index) const noexcept;
