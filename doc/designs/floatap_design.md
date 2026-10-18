@@ -7,6 +7,32 @@ GMP-free continuation is tracked on `remove-gmp`; see
 [`integer_rational_design.md`](integer_rational_design.md) for the shared
 unsigned limb core and the `Integer`/`Rational` migration.
 
+## Active implementation policy — architecture-specific substrate (18 October 2026)
+
+**CURRENT, superseding earlier architecture-neutrality restrictions
+ONLY for the internal native multiprecision substrate:**
+independently developed, explicitly documented ARM64/AArch64 and
+x86-64 fast paths are now **permitted**. Keep a fully correct
+portable C++20 implementation and test it as a first-class
+reference, not merely as a rarely compiled fallback.
+This is the user's deliberate exception to the original
+"no hardware-architecture-specific implementation" rule
+recorded earlier in this journal. Earlier historical
+commit notes remain historical, not current prohibitions.
+
+No third-party multiprecision engine may be integrated or copied.
+All FloatAP-specific implementation belongs in existing
+`FloatAP` source/header files, with internal or nested
+components owned by that class; no independent engine, public
+backend type, or new FloatAP-specific production file.
+The optimization boundary is **limb primitives**, not
+architecture-dependent floating-point semantics: one exact
+mathematical and rounding contract for all implementations.
+Architecture-specific code must pass the detailed documentation,
+dispatch, correctness, and performance requirements in
+"Architecture-specific limb kernels: mandatory engineering
+contract" later in this document.
+
 ## Names and coexistence
 
 - **`FloatMP = Float<MultiplePrecision>`**: existing MPFR reference.
@@ -7072,3 +7098,186 @@ no new production files are introduced. The
 previous 20000x31 ARM64 gate for
 construct_rational and the three division
 rounding modes remains binding.
+
+## Architecture-specific limb kernels: mandatory engineering contract
+### Decision and scope (18 October 2026)
+
+The user explicitly authorized separately tuned **ARM64/AArch64**
+and **x86-64** implementations for the native multiprecision
+substrate, with especially clear documentation. This supersedes
+earlier implementation notes that prohibited CPU-specific
+code; it **does not** authorize an external arithmetic engine
+or weaken any correctness or performance requirement.
+
+**Separation of layers.** Public FloatAP representation,
+special values, signed exponent handling, exception behavior,
+IEEE-directed rounding and exact-certification rules remain
+architecture-independent. Only private low-level limb
+operations may differ by ISA. Candidate operations include
+full-width 64x64->128 multiplication, multiply-add/subtract
+with incoming/outgoing carries, add-with-carry,
+subtract-with-borrow, shifts, normalization, short/long
+multiplication, squaring, and later division and
+fixed-point interval operations. These are prospective
+candidates, not implemented features.
+
+**Portable reference.** Each optimized primitive MUST have
+a portable C++20 implementation with specified operand
+limb ordering, widths, integer overflow/wrap semantics,
+carry/borrow outputs and normalized-result invariants.
+Retain the portable implementation as an always-buildable,
+directly testable baseline. An ARM64/x86 optimized kernel
+must implement the **identical mathematical contract**,
+including aliasing restrictions, zero lengths, exact
+overlap behavior, scratch ownership, and error cases.
+Never create two floating-point rounding specifications.
+
+**ISA-specific exploration, not premature assumptions:**
+- ARM64/AArch64: evaluate `MUL`/`UMULH` for the low/high
+  halves of a 64x64 product and `ADCS`/`SBCS`
+  where carrying arithmetic benefits. Verify exact
+  instruction semantics and emitted assembly against
+  authoritative ISA documentation before enabling.
+- x86-64: evaluate baseline integer `MUL`/`ADC`/
+  `SBB` and optional BMI2 `MULX` and ADX
+  `ADCX`/`ADOX`. BMI2 and ADX are separate
+  CPU capabilities and MUST NOT be assumed for
+  generic x86-64 or based solely on CPU vendor/name.
+- SIMD/NEON/AVX, inline assembly and compiler intrinsics
+  are possible only where a real end-to-end advantage
+  is demonstrated and the contract remains rigorous.
+  Do not assume vectorization speeds carry-dependent
+  arithmetic. Review compiler support and possible
+  calling-convention constraints separately for
+  GCC, Clang/AppleClang and MSVC.
+- Other CPUs, unsupported compilers and unsupported
+  feature combinations MUST select the portable path.
+
+### Architecture dispatch and portability rules
+
+**Document every supported feature and selection mechanism.**
+Prefer compile-time dispatch where the target flags and ABI
+guarantee the instructions are available. Optional x86-64
+features require reliable feature detection or a
+properly isolated feature-target build plus compatible
+runtime selection; mere architecture detection is not
+feature detection. If runtime selection is used, cache
+the immutable decision rather than adding repeated
+CPUID checks in inner loops. Do not introduce virtual
+backend interfaces or per-scalar dynamic dispatch.
+Provide a test-controllable way to force the portable
+path and individual supported optimized paths.
+No unsupported ISA instruction may execute on a
+fallback CPU. Explain minimum supported macOS/Windows/
+Linux configurations, compiler flags and link/build
+constraints, and how unsupported targets behave.
+
+**Keep code ownership unchanged.** Place all FloatAP
+implementations in `include/numeric/floatap.hpp`
+and/or `src/floatap.cpp`, inside the existing
+class or its private/nested helpers; do not create
+separate namespace-owned numeric engines, additional
+production files, or duplicate arithmetic stacks.
+`FloatMP` remains untouched and acts as the
+reference/control. The current `mpz_t` owning
+significand remains until a later, separately
+validated migration decision.
+
+### REQUIRED per-kernel documentation record
+
+Each architecture-specific kernel MUST have a
+clear section **in this journal**, a matching
+nearby source comment explaining assumptions,
+and a concise table comparing it with the
+portable reference. Record **all** of the following:
+
+1. **Kernel identifier and use sites:** semantic
+   contract, calls, exact inputs/outputs, little-
+   endian *limb order* independent of byte order,
+   limb width and edge cases.
+2. **Architectures and features:** ARM64 or x86-64,
+   baseline/optional instruction sets, required
+   compiler versions if any, intrinsics or assembly,
+   flags and runtime detection. Explain why every
+   selected instruction is legal on the target.
+3. **Proof obligations:** carry/borrow recurrence,
+   maximum accumulator bounds, overflow behavior,
+   exact quotient/remainder or product invariants,
+   conditions for addback, rounding certification,
+   permitted source/destination aliasing, scratch
+   initialization and lifetime.
+4. **Storage behavior:** temporary buffer layout,
+   stack/heap ownership, alignment, maximum sizes,
+   in-place cases, failure handling, thread safety,
+   and exception guarantees.
+5. **Dispatch:** exact selection predicate and
+   fallback path, what happens on unsupported
+   instruction sets and how to force each path
+   in testing; no hidden performance switches
+   based on benchmark operand identities.
+6. **Correctness evidence:** independent arithmetic
+   oracle, exhaustive small cases where feasible,
+   randomized/adversarial carry/borrow and
+   limb-boundary tests, every FloatAP rounding
+   mode and pathological arguments, ASan/UBSan,
+   relevant Windows/Linux/macOS CI configurations.
+   Verify bit-identical results across paths.
+7. **Performance evidence:** host CPU model,
+   OS and compiler/version/flags, selected ISA
+   path, warmed-up and otherwise controlled run,
+   sample counts, absolute ns (not only ratios),
+   setup/import/export/certification overhead,
+   sizes and data distributions, portable-vs-
+   optimized AND original frozen ARM64 baseline.
+   Explain crossover thresholds and regressions
+   rather than hiding weak cases in a geomean.
+8. **Maintenance:** limitations, fallback
+   guarantees, tests that fail when variants
+   disagree, links to authoritative ISA/algorithm
+   sources, journal section and commit that
+   introduced the implementation. Do not copy
+   external library source or instruction
+   sequences blindly; independently derive
+   and explain the implementation.
+
+### Implementation sequence and acceptance gates
+
+Build the common limb representation, allocation
+and scratch-buffer discipline **first** and retain
+a portable, provable arithmetic reference.
+Implement/test one end-to-end meaningful
+ARM64 and x86-64 kernel family, starting with
+high-product + fused multiply/subtract and
+small/medium multiplication. Only then assess
+adaptive multiplication (e.g. Karatsuba) and
+division/rounded fixed-point operations using
+complete FloatAP workloads. Choose different
+crossover thresholds per architecture **only if
+documented and backed by repeatable measurements**.
+Do not multiply code paths without substantial,
+full-operation benefit.
+
+The strict existing benchmark gate is unchanged:
+on an idle Apple ARM64 host, 20000 iterations,
+31 samples, verify stable FloatMP and untouched
+FloatAP controls before comparing **absolute**
+FloatAP median ns for `construct_rational`,
+`div_nearest`, `div_down`, `div_up` at
+53, 128, 256, 1024 bits to the original baseline.
+Do not accept small improvements that leave
+the large baseline gap untouched. Significant
+broad control regressions require STOP and
+user input before any further code changes.
+No further GMP operation removal until that
+gate passes. Once the architecture-aware
+substrate is validated, transcendental
+algorithms can reuse it without introducing
+a second multiprecision engine.
+
+**Documentation rule is a merge/commit gate:**
+no ARM64/x86-64 optimized production code may
+be published without updating this document
+in the same change and supplying its complete
+per-kernel record. The present commit changes
+**documentation only**: no architecture-specific
+implementation is claimed yet.
