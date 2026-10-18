@@ -6386,3 +6386,48 @@ further code changes**.
 before proceeding to another GMP-free substitution. Measure
 on idle Apple ARM64 first; investigate x86-specific
 performance afterward. Do not loosen numerical oracles.
+
+## G2: sparse divisor products in FloatAP wide division (18 October 2026)
+
+**Problem and scope.** The 20000-iteration, 31-sample Mac ARM64
+baseline still outperforms native FloatAP quotient/remainder at
+128/256/1024 bits. Many large rationals have sparse divisors
+(e.g. 2^(p+1)+small) after normalization. The existing Knuth
+64-bit quotient-digit loop multiplies every divisor limb even
+when the limb and pending product carry are zero.
+
+**Change.** Inside the existing private FloatAP::divrem_wide
+method, select the sparse algorithm when the normalized
+divisor contains at least eight 64-bit limbs and at most
+one third are nonzero. In that case, when the divisor
+limb and multiplication carry both equal zero, skip the
+128-bit product and propagate any subtraction borrow
+by decrementing the dividend limb; its borrow continues
+iff its old value was zero. The general loop, quotient
+estimate, corrections, add-back and rounding remain
+unchanged. This is data-size and sparseness based,
+not architecture-specific. No other GMP paths changed.
+
+**Validation before integration.** A standalone C++20
+64-bit Knuth division implementation with the identical
+sparse check and borrow handling matched GMP
+mpz_tdiv_qr on 100000 deterministic randomized cases,
+with both dense and sparse divisors. Clang ASan+UBSan
+on the same random cases passed. Synthetic, x86-64
+GCC -O3 sparse 1024-bit divisor kernel-only timing
+decreased from 1177.04 to 544.21 ns, and at
+2048 bits from 4318.08 to 1649.24 ns. These are
+not Ariadne or ARM64 measurements; dense cases
+showed no systematic improvement. Added public
+FloatAP/FloatMP regression tests for sparse ratios,
+positive/negative inputs, four rounding modes,
+and 128/256/1024/1536-bit precision.
+
+**Acceptance criterion unchanged.** Run CI on
+macOS/Linux/Windows and the unchanged benchmark
+with 20000 iterations and 31 samples on idle
+Apple ARM64. Check FloatMP and unaffected FloatAP
+controls for CPU contention before acting.
+Require absolute baseline recovery for every
+construct_rational and div_nearest/down/up precision
+before attempting any additional GMP substitution.

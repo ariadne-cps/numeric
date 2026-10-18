@@ -675,6 +675,19 @@ std::pair<FloatAP::Unsigned,FloatAP::Unsigned> FloatAP::divrem_wide(
 
     constexpr std::uint64_t max_word=
         std::numeric_limits<std::uint64_t>::max();
+
+    // Skip identically zero quotient-digit products for sufficiently
+    // sparse divisors. Stop the detection scan early for dense divisors.
+    bool sparse_divisor=false;
+    if (n>=8u) {
+        const std::size_t maximum_nonzero=n/3u;
+        std::size_t nonzero=0u;
+        for (std::size_t i=0u; i<n && nonzero<=maximum_nonzero; ++i) {
+            nonzero+=static_cast<std::size_t>(v[i]!=0u);
+        }
+        sparse_divisor=(nonzero<=maximum_nonzero);
+    }
+
     // The inverse costs one full-width division per operand pair.
     // Select it only for long enough quotients to amortize that cost;
     // the threshold is based on operand size, never on CPU type.
@@ -714,6 +727,16 @@ std::pair<FloatAP::Unsigned,FloatAP::Unsigned> FloatAP::divrem_wide(
 
         std::uint64_t product_carry=0u,borrow=0u;
         for (std::size_t i=0u; i<n; ++i) {
+            // A zero divisor limb and a zero multiplication carry
+            // leave only the pending borrow to propagate.
+            if (sparse_divisor && v[i]==0u && product_carry==0u) {
+                if (borrow!=0u) {
+                    const std::uint64_t old=u[j+i];
+                    u[j+i]=old-1u;
+                    borrow=static_cast<std::uint64_t>(old==0u);
+                }
+                continue;
+            }
             const WideUInt product=estimate*v[i]+product_carry;
             product_carry=static_cast<std::uint64_t>(product>>64u);
             const WideUInt subtraction=

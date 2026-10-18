@@ -485,6 +485,33 @@ TestFloatRounding<PR>::test_precision_regressions()
             }
         }
     }
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        // Sparse multi-limb denominators remain sparse after Knuth
+        // normalization; verify exact rounding for each sign and mode.
+        for (Bits bits : {128_bits,256_bits,1024_bits,1536_bits}) {
+            const ArbitraryPrecision p(bits);
+            const MultiplePrecision mp(bits);
+            const Integer power=pow(Integer(2),Nat(p.bits()));
+            for (Int offset : {Int(1),Int(17),Int(257)}) {
+                const Rational positive_ratio(
+                    power+Integer(offset),2*power+Integer(offset+2));
+                for (bool negative_input : {false,true}) {
+                    const Rational input=negative_input
+                        ? -positive_ratio : positive_ratio;
+                    const auto verify=[&](auto ap_mode,auto mp_mode) {
+                        const FloatAP candidate(input,ap_mode,p);
+                        const FloatMP reference(input,mp_mode,mp);
+                        ARIADNE_TEST_EQUALS(static_cast<Rational>(candidate),
+                                            static_cast<Rational>(reference));
+                    };
+                    verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                    verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
+                    verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
+                    verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                }
+            }
+        }
+    }
     // These checks replace the separate FloatAP precision tests and use
     // exactly the same floating-point API for FloatMP and FloatAP.
     if constexpr (!Same<PR,DoublePrecision>) {
