@@ -346,6 +346,12 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_gmp(BigUnsigned(selected),expected.value);
 
+        selected = scratch.acquire(length);
+        BigUnsigned::mul_into_arm64_carry(lhs.limbs(),rhs.limbs(),selected);
+        ARIADNE_TEST_ASSERT(std::equal(
+            selected.begin(),selected.end(),selected_copy.begin()));
+        check_against_gmp(BigUnsigned(selected),expected.value);
+
         // Explicit B3 schoolbook remains available even if the
         // selected kernel changes on GCC x86-64.
         selected = scratch.acquire(length);
@@ -393,6 +399,13 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         check_against_gmp(BigUnsigned(selected),rounded.value);
 
         selected=scratch.acquire(low);
+        BigUnsigned::mul_low_into_arm64_carry(
+            lhs.limbs(),rhs.limbs(),selected);
+        ARIADNE_TEST_ASSERT(std::equal(
+            selected.begin(),selected.end(),low_copy.begin()));
+        check_against_gmp(BigUnsigned(selected),rounded.value);
+
+        selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_schoolbook(
             lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
@@ -407,6 +420,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     bool comba_threw = false;
     bool fused_threw = false;
     bool schoolbook_threw = false;
+    bool carry_threw = false;
     bool karatsuba_threw = false;
     ARIADNE_TEST_ASSERT(
         !BigUnsigned::selected_multiply_uses_fused()
@@ -436,6 +450,11 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         fused_threw = true;
     }
     try {
+        BigUnsigned::mul_into_arm64_carry(one,one,too_short);
+    } catch (std::length_error const&) {
+        carry_threw = true;
+    }
+    try {
         BigUnsigned::mul_into_schoolbook(one,one,too_short);
     } catch (std::length_error const&) {
         schoolbook_threw = true;
@@ -446,7 +465,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         karatsuba_threw = true;
     }
     ARIADNE_TEST_ASSERT(selected_threw && portable_threw &&
-                        comba_threw && fused_threw && schoolbook_threw &&
+                        comba_threw && fused_threw && carry_threw && schoolbook_threw &&
                         karatsuba_threw);
 
     // Missing recursive scratch must fail before altering output.

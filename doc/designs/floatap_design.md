@@ -7511,3 +7511,8 @@ With `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY=ON`, the user verified that `sel
 ### B9.1: native ARM64 fused kernel is the default without a toggle (18 October 2026)
 
 Following user-confirmed green macOS ARM64 project tests and integrated owning/preallocated speedups, the ARM64 fused BigUnsigned multiply becomes the unconditional native default on supported GNU/Clang/AppleClang builds. The original `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY` CMake option and `ARIADNE_BIG_UNSIGNED_ARM64_FUSED` selection macro are removed entirely. The historical B9 OFF/ON sections above are superseded, but the explicitly callable portable reference remains. x86-64 dispatch and FloatAP source code are unchanged; the shared BigUnsigned improvement does not establish a FloatAP end-to-end performance win.
+
+
+### B10 ARM64 carry-chain candidate (18 October 2026)
+
+BigUnsigned adds an experimental explicit carry-chain ARM64 kernel, exposed to the integrated benchmark with `--include-arm64-carry`, leaving selected fused ARM64 and FloatAP code unchanged. GMP oracle coverage extended; no production promotion or FloatAP speedup is claimed. Details in `integer_rational_design.md`.
