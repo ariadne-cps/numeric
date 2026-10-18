@@ -128,6 +128,14 @@ class BigUnsigned
     //! Experimental full fused product; same size and aliasing contracts
     //! as mul_into. Does not affect the production kernel selector.
     static void mul_into_fused(LimbView a,LimbView b,MutableLimbView output);
+    //! Experimental explicit ARM64 MUL/UMULH/ADDS/ADC carry-chain
+    //! schoolbook. On other architectures uses the portable reference.
+    //! No allocation, no aliasing and no production selector change.
+    static void mul_low_into_arm64_carry(
+        LimbView a,LimbView b,MutableLimbView output);
+    //! Exact full-product ARM64 carry-chain experiment.
+    static void mul_into_arm64_carry(
+        LimbView a,LimbView b,MutableLimbView output);
     //! Force the B3 x86-64 row-schoolbook reference chosen before B6.
     //! On unsupported architectures, uses the C++20 portable reference.
     //! Product is exact modulo 2^(64*output.size()); no overlap allowed.
@@ -162,6 +170,8 @@ class BigUnsigned
     //! Whether a native x86-64 or ARM64 wide-multiplication kernel was built.
     //! On ARM64 the native fused kernel can be forced without selecting it.
     static bool has_native_multiply() noexcept;
+    //! Whether the ARM64 native fused/carry-chain kernels were built.
+    static bool has_arm64_multiply() noexcept;
     //! Whether the x86-64 native schoolbook/Comba kernels were built.
     static bool has_x86_64_multiply() noexcept;
     //! Whether the production selector uses fused multiply accumulation.
