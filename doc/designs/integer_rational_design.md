@@ -1091,3 +1091,11 @@ Do not make performance claims for `BigUnsigned`
 from this legacy Integer dataset. No arithmetic
 or benchmark implementation changes were made
 as part of this documentation entry.
+
+### BigUnsigned B1: portable full and truncated multiplication (18 October 2026)
+
+Implemented in the common numeric substrate, not FloatAP: `mul(a,b)` computes the exact nonnegative product; `square(a)` is currently `mul(a,a)`; `mul_low(a,b,k)` computes the product modulo `2^(64*k)` without calculating higher limbs. Inputs are immutable, output canonical; overlarge sizes raise `std::length_error`. No GMP or `__int128` in production.
+
+**Arithmetic proof:** break 64-bit factors into 32-bit halves, form four 32x32 products, then combine their high/low halves with a bounded middle sum to obtain exact 128-bit `high:low`. In row multiplication with radix `B=2^64`, the next-limb carry arises from the high product plus two overflow bits from accumulating the existing destination limb, low product and prior carry. The full combined sum is bounded by `(B-1)^2 + 2(B-1) = B^2-1`; therefore the next carry fits 64 bits. `mul_low` ignores contributions with `i+j>=k`, so its modular result is exact. The destination is zero-initialized and disjoint from source spans.
+
+**Tests:** 20,000 stand-alone random GMP-differential comparisons, GCC 14.2, Clang 17, and Clang ASan/UBSan passed. The integrated CTest adds 6,000 more deterministic randomized pairs, including all-one and zero limbs, varying sizes up to 34 limbs, low truncation to 0/1/4/5 or random limb lengths, full product, square and commutativity. The standalone sanitizer harness was corrected to call `mpz_clears`, after which leak checks passed. The project CI must still validate MSVC and complete CTest. No performance improvement is claimed; a specialized fast square, in-place views, scratch reuse and ARM64/x86-64 kernels remain future work. The existing Integer and FloatAP 20,000x31 benchmarks are unchanged.

@@ -7448,3 +7448,7 @@ Whitespace in the new files is brought closer
 to Ariadne style. This is not a new arithmetic
 algorithm or performance claim; see
 `integer_rational_design.md` for diagnostics.
+
+### Shared BigUnsigned B1 multiply contract (18 October 2026)
+
+Portable `BigUnsigned::mul`, `mul_low`, and `square` are available to the eventual FloatAP migration without linking external GMP in this shared arithmetic module. `mul_low` returns the exact low `k` 64-bit limbs, not an approximation or a rounded FloatAP result. `square` currently reuses `mul`. No FloatAP production code or frozen benchmark inputs have changed. The carry bound, independent GMP test oracle and B1 testing are documented in `integer_rational_design.md`.
