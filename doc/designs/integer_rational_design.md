@@ -903,3 +903,54 @@ to the mandatory per-kernel journal and ISA requirements
 in `floatap_design.md`; there is currently no
 specialization to document. Neither benchmarks nor
 the frozen ARM64 20,000x31 FloatAP workload was changed.
+
+### Authorized conditional ARM64/x86-64 source split (18 October 2026)
+
+The user explicitly approved the **exact future filenames**
+`src/big_unsigned_arm64.cpp` and
+`src/big_unsigned_x86-64.cpp` **if and when** distinct
+architecture-specific implementations are justified.
+These files are **not part of phase B0**, do not exist
+yet and must not be created as empty placeholders.
+
+`include/numeric/big_unsigned.hpp` remains the
+single architecture-neutral interface.
+`src/big_unsigned.cpp` owns the portable C++20
+reference implementation, storage, normalization and
+any architecture-neutral selection logic.
+Genuinely ARM64/AArch64-specific low-level kernels
+may eventually live in `src/big_unsigned_arm64.cpp`;
+genuinely x86-64-specific low-level kernels may
+eventually live in `src/big_unsigned_x86-64.cpp`.
+The hyphen in `x86-64` is intentional in this
+approved filename. No third-party arithmetic
+engine and no duplicated floating-point semantics.
+
+**Split criterion.** Create a dedicated source
+file only when a first kernel using native ISA
+instructions demonstrates a meaningful advantage
+under a reproducible, full-operation workload
+and its portable equivalent has passing
+bit-exact differential tests. Document separately:
+contract and carry bounds, instruction/CPU-feature
+requirements, compiler flags, runtime/compile-time
+dispatch and portable fallback, aliasing and scratch
+lifetime, test forcing of each path, ISA-appropriate
+CI and sanitizers, benchmark host/compiler, absolute
+timings, and operation-level crossover.
+Architecture files must be compiled only on
+supported targets; generic builds including
+Windows/MSVC must continue to build through
+portable fallbacks. No unguarded instruction
+assumptions. The per-kernel documentation belongs
+in this journal and in `floatap_design.md`
+with the same source change.
+
+**Current validation note.** The original B0
+commit `be34905` passed Unix and macOS CI jobs
+but its Windows Release job failed during **Build**,
+before tests. The precise MSVC diagnostic has not
+yet been verified; this documentation-only
+approval does not resolve the Windows failure.
+Do not call phase B0 cross-platform validated
+until Windows passes.

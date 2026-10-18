@@ -7419,3 +7419,22 @@ kernels have **not** been implemented yet.
 The authoritative storage and arithmetic
 contracts for phase B0 are recorded in
 `integer_rational_design.md`.
+
+### Approved conditional architecture files (18 October 2026)
+
+The user approves, **when separate implementations
+become warranted**, the exact filenames
+`src/big_unsigned_arm64.cpp` and
+`src/big_unsigned_x86-64.cpp`. The portable
+reference stays in `src/big_unsigned.cpp`,
+with the common `BigUnsigned` API in
+`include/numeric/big_unsigned.hpp`.
+Neither CPU-specific file is currently created.
+Their eventual introduction requires the
+full per-kernel documentation, independent
+testing and meaningful end-to-end performance
+evidence specified in the contract above.
+The same generic kernels remain available
+to `FloatAP`, `Integer` and `Rational`;
+no parallel FloatAP-only engine is authorized.
+This naming decision makes no functional change.
