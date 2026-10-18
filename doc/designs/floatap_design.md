@@ -6981,3 +6981,94 @@ bits remains in force before other GMP
 substitutions. If unaffected controls
 show significant regressions, stop for
 user feedback before coding or committing.
+
+## G8: independent, certified rectangular-splitting atan prototype (18 October 2026)
+
+**Result: mathematically verified, but REJECTED for production.**
+An independent stand-alone C++20 implementation was constructed
+without copying or integrating a third-party multiprecision engine.
+The candidate implements base-2^32 native unsigned integers,
+fixed-point intervals with outward floor/ceiling arithmetic, and
+rectangular splitting for general `atan(x)` where
+`0 < |x| <= 1/2`. GMP and MPFR are used only inside an
+explicitly separate reference/test harness; they are not called by
+the candidate algorithm. No FloatAP production code was changed.
+
+**Certificate.** With `t=x^2`, `y=x^4`,
+`P_N = sum(y^k/(4k+1))`, `M_N = sum(y^k/(4k+3))` for
+`0<=k<N`,
+`atan(x) = x*(P_N-t*M_N)+R` with
+`0<=R<=x^(4N+1)/(4N+1)` for nonnegative x up to 1/2.
+All fixed-point interval multiplications, scalar divisions
+and subtractions round outward; `4N*r>=W+8`
+for an integer `r>=1` satisfying `x<=2^-r` bounds
+the omitted tail by one unit of the `W`-bit fixed-point
+scale. At a requested precision and rounding mode, the
+result is accepted only if both interval endpoints round
+to the same significand/exponent; otherwise the working
+precision doubles. Oddness handles negative arguments.
+Rectangular grouping by roughly `sqrt(N)` reduces
+full multiprecision interval multiplications from 544
+to 54 at 1024 bits for input 1/3; scalar divisions
+remain 540 per evaluation.
+
+**Correctness:** 112 deterministic inputs (100 randomized
+fractions), 53/128/256/1024 bits, positive and
+negative signs, all four rounding modes:
+**3584 certified and exactly matching MPFR reference
+results**, with the native direct-series implementation
+independently agreeing. Clang AddressSanitizer and
+UndefinedBehaviorSanitizer passed the same 3584 cases.
+Scope is restricted to finite nonzero arguments of
+magnitude at most 1/2; this is not a FloatAP public
+test-suite replacement.
+
+**Paired cost, including input scaling, fixed-point
+interval propagation, allocations, and certification.**
+A stand-alone GCC -O3 x86-64 run used 31 interleaved
+and order-rotated median samples of 32 calls per
+candidate. At p=1024 and x=1/3:
+native direct Taylor 1222.6 microseconds;
+native rectangular splitting 339.5 microseconds;
+a GMP fixed-point Taylor comparator mirroring the
+existing `FloatAP::small_atan` recurrence 64.1
+microseconds. At 53,128,256 bits for the same
+argument, native rectangular vs existing-style
+comparator was respectively 10.9/1.57,
+18.6/2.87 and 33.9/5.86 microseconds.
+For p=1024, x=1/2 it was 360.1/110.5
+microseconds, while existing FloatAP additionally
+has a centered cached atan(1/2) fast path.
+The standalone GMP comparator is **not**
+a built FloatAP end-to-end benchmark; no raw
+timings here may be compared with the frozen
+Apple ARM64 20000x31 performance baseline.
+
+**Conclusion.** The 2-4x relative improvement
+against our *own naive native direct-series kernel*
+is misleading: this independently implemented
+rectangular approach is roughly 3-7x slower
+than the existing-style fixed-point comparator
+at the precisions of interest. The bottleneck
+is the unspecialized heap-allocated native
+multiprecision limb substrate, not merely
+the number of Taylor terms. Johansson's
+large historical performance gains combine
+argument-reduction tables, efficient low-level
+integer multiplication and rectangular splitting;
+rectangular splitting alone does not reproduce
+those wins. Reject this production integration
+and avoid further 5-10 percent micro-tuning.
+A different, substantially more efficient common
+native arithmetic architecture would need to
+prove broad **actual FloatAP operation-level**
+wins before any implementation attempt proceeds.
+
+The source and detailed repeatable report were
+delivered as conversation artifacts
+`floatap_rectangular_atan_prototype_20261018.cpp`
+and `floatap_rectangular_atan_report_20261018.md`;
+no new production files are introduced. The
+previous 20000x31 ARM64 gate for
+construct_rational and the three division
+rounding modes remains binding.
