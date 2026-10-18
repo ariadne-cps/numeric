@@ -980,3 +980,23 @@ claiming the fix is verified; GCC/Clang
 regressions must also be checked. No
 architecture-specific kernels or FloatAP
 arithmetic changes are introduced.
+
+### BigUnsigned B0 Windows GMP-test bit-count fix (18 October 2026)
+
+MSVC 14.51.36231, compiled with `/W4 /WX`, exposed
+C4267 errors in `test_big_unsigned.cpp` at the two
+test-only GMP calls `mpz_mul_2exp` and
+`mpz_fdiv_q_2exp`. Their shift parameter is
+`mp_bitcnt_t`, which can be 32-bit on Windows,
+whereas the randomized native shift was held in
+64-bit `std::size_t`. The fix keeps
+`std::size_t` for the `BigUnsigned` API, verifies
+at compile time that `mp_bitcnt_t` can represent
+the maximum tested shift of 1029 bits, and
+makes the conversion to `mp_bitcnt_t` explicit
+**only when invoking the GMP test oracle**.
+No warning is disabled or demoted, no
+test distribution/case coverage changes, and
+no production `BigUnsigned` code is modified.
+Revalidate the Windows Build and CTest alongside
+the existing Linux and macOS checks.

@@ -140,6 +140,11 @@ void TestBigUnsigned::test_randomized()
 {
     std::mt19937_64 engine(0xBA17B00DULL);
     GmpInteger a,b,c;
+
+    // The tested shift is at most 1029 bits, even when GMP uses 32-bit
+    // mp_bitcnt_t (notably with 64-bit size_t on Windows/MSVC).
+    static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 1029u);
+
     for (unsigned repetition=0; repetition<10000u; ++repetition) {
         const std::size_t n = engine()%20u;
         const std::size_t m = engine()%20u;
@@ -162,9 +167,12 @@ void TestBigUnsigned::test_randomized()
             check_against_gmp(sub(x,y),c.value);
         }
         const std::size_t bits = engine()%1030u;
-        mpz_mul_2exp(c.value,a.value,bits);
+        const auto gmp_bits = static_cast<mp_bitcnt_t>(bits);
+
+        mpz_mul_2exp(c.value,a.value,gmp_bits);
         check_against_gmp(shift_left(x,bits),c.value);
-        mpz_fdiv_q_2exp(c.value,a.value,bits);
+
+        mpz_fdiv_q_2exp(c.value,a.value,gmp_bits);
         check_against_gmp(shift_right(x,bits),c.value);
     }
 }
