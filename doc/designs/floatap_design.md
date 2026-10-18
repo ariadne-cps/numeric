@@ -21,13 +21,23 @@ recorded earlier in this journal. Earlier historical
 commit notes remain historical, not current prohibitions.
 
 No third-party multiprecision engine may be integrated or copied.
-All FloatAP-specific implementation belongs in existing
-`FloatAP` source/header files, with internal or nested
-components owned by that class; no independent engine, public
-backend type, or new FloatAP-specific production file.
-The optimization boundary is **limb primitives**, not
-architecture-dependent floating-point semantics: one exact
-mathematical and rounding contract for all implementations.
+**The low-level unsigned limb substrate is SHARED** across
+the future GMP-free `Integer` (replacing `mpz_t`),
+`Rational` (replacing `mpq_t`) and `FloatAP`:
+it belongs to the common internal numeric arithmetic layer
+described in `integer_rational_design.md`, NOT solely
+inside `FloatAP`. Shared generic primitives may have
+their own properly documented internal source files.
+**Only FloatAP-specific** representation, rounding,
+fixed-point certification and floating-point algorithms
+must stay inside the existing `FloatAP` class and its
+`floatap.hpp`/`floatap.cpp` implementation.
+No independent third-party engine, public backend abstraction,
+or duplicated FloatAP-specific source files.
+The optimization boundary is **shared limb primitives**,
+not architecture-dependent floating-point semantics:
+one exact mathematical and rounding contract for all
+implementations.
 Architecture-specific code must pass the detailed documentation,
 dispatch, correctness, and performance requirements in
 "Architecture-specific limb kernels: mandatory engineering
@@ -7172,16 +7182,24 @@ fallback CPU. Explain minimum supported macOS/Windows/
 Linux configurations, compiler flags and link/build
 constraints, and how unsupported targets behave.
 
-**Keep code ownership unchanged.** Place all FloatAP
-implementations in `include/numeric/floatap.hpp`
-and/or `src/floatap.cpp`, inside the existing
-class or its private/nested helpers; do not create
-separate namespace-owned numeric engines, additional
-production files, or duplicate arithmetic stacks.
-`FloatMP` remains untouched and acts as the
-reference/control. The current `mpz_t` owning
-significand remains until a later, separately
-validated migration decision.
+**One shared arithmetic ownership layer.** Place reusable
+unsigned magnitudes, owning storage, limb views, scratch,
+portable arithmetic and the optional ARM64/x86-64
+primitives in the **internal shared numeric core**,
+for eventual consumption by `Integer`, `Rational`
+and `FloatAP`. Such genuinely generic code is
+**not FloatAP-specific**, and may use new internal
+source/header files following Ariadne conventions.
+Do not create multiple private multiprecision engines.
+Keep FloatAP-specific representation, IEEE rounding,
+dyadic interval certification and transcendental
+algorithms inside `include/numeric/floatap.hpp`
+and/or `src/floatap.cpp`, within the existing
+class/private implementation. Avoid the generic
+`Rational` canonicalization cost on FloatAP hot paths.
+`FloatMP` remains untouched as the reference/control.
+The current `mpz_t` owning significand remains
+until a separately validated migration decision.
 
 ### REQUIRED per-kernel documentation record
 
@@ -7281,3 +7299,34 @@ in the same change and supplying its complete
 per-kernel record. The present commit changes
 **documentation only**: no architecture-specific
 implementation is claimed yet.
+
+### Shared-core clarification (18 October 2026)
+
+The user's new instruction explicitly requires that ARM64/x86-64
+kernels and the common multiprecision storage be reusable for
+replacing both `mpz_t` and `mpq_t`. The active architecture is
+
+```text
+             native unsigned arithmetic core
+        (portable + ARM64/x86-64 limb implementations)
+                   /       |       \
+            Integer     Rational    FloatAP
+            signed      exact       significand /
+            integer     fraction    certified dyadics
+```
+
+`Rational` uses signed integers, exact numerator/denominator,
+GCD and canonicalization; `FloatAP` uses the low-level
+unsigned operations directly with its own exponent and
+rounding rules. SIMD/assembly tuning does not alter
+signed-integer division conventions, exact fraction
+normalization or FloatAP rounding. This clarification
+**supersedes** the earlier restriction confining all
+primitive development to the FloatAP source pair.
+That restriction continues to apply to
+**FloatAP-specific** code only. The user has not
+requested immediate production migration of
+`Integer`/`Rational`; the initial performance
+and correctness target remains FloatAP. Shared-core
+changes update this journal and
+`integer_rational_design.md` in the same commit.
