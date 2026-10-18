@@ -5695,3 +5695,21 @@ Rename the private array field consistently from `_inline` to
 cases, benchmark workload, public interface or rounding behavior
 is changed. Recheck Unix, Windows and Coverage before claiming
 portable build success.
+
+## G1 FloatAP-native exact ratio path above 1024 bits (18 October 2026)
+
+The newly introduced `floatap_native_ratio.hpp` implements GMP-free
+quotient/remainder rounding for strictly positive unsigned magnitudes,
+with correct nearest-even and directed modes, explicit binary exponent,
+and a separate carry flag to preserve FloatAP's max-exponent infinity
+behavior. `floatap.cpp` now imports legacy GMP values to
+`FloatAPNative::Unsigned` and exports the rounded significand only
+at its boundary, and **executes the native exact ratio calculation
+when precision > 1024 bits**. The standard 53/128/256/1024-bit
+benchmark paths and all other GMP-backed FloatAP operations remain
+unchanged. This is a first integration milestone, **not yet removal
+of GMP from FloatAP**; tests and same-host performance must be
+verified before broadening the replacement. Exact unsigned ratio
+oracles cover 1/3 at 2,53,128,1024,1100,1536 bits in four modes
+and both signs, plus half-way nearest-even carry cases. The core
+has no GMP references; conversion adapters do, temporarily.

@@ -38,6 +38,7 @@
 #include "numeric/float_lower_bound.hpp"
 #include "numeric/decimal.hpp"
 #include "floatap_small_division.hpp"
+#include "floatap_native_ratio.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -158,6 +159,43 @@ bool small_rounded_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
     rounded_significand = quotient;
     return true;
 }
+
+// The legacy FloatAP object still owns a GMP significand. For larger
+// precision ratios, only import/export at this boundary use GMP.
+// The exact quotient, remainder and rounding decision use native limbs.
+FloatAPNative::Unsigned import_native_magnitude(mpz_srcptr value) {
+    FloatAPNative::Unsigned result;
+    if (mpz_sgn(value)==0) { return result; }
+    const std::size_t bits=mpz_sizeinbase(value,2);
+    const std::size_t words=bits/32u+static_cast<std::size_t>(bits%32u!=0u);
+    result.resize(words);
+    std::size_t exported=0u;
+    mpz_export(const_cast<std::uint32_t*>(result.data()),&exported,-1,
+               sizeof(std::uint32_t),0,0,value);
+    result.resize(exported);
+    result.trim();
+    return result;
+}
+
+void export_native_magnitude(mpz_ptr destination,
+                             FloatAPNative::Unsigned const& value) {
+    mpz_import(destination,value.size(),-1,sizeof(std::uint32_t),0,0,value.data());
+}
+
+FloatAPNative::RatioRounding native_rounding(FloatAP::Rounding mode) {
+    switch (mode.value()) {
+        case FloatAP::Rounding::ToNearest:
+            return FloatAPNative::RatioRounding::NearestEven;
+        case FloatAP::Rounding::Downward:
+            return FloatAPNative::RatioRounding::Downward;
+        case FloatAP::Rounding::Upward:
+            return FloatAPNative::RatioRounding::Upward;
+        case FloatAP::Rounding::TowardZero:
+            return FloatAPNative::RatioRounding::TowardZero;
+        default:
+            throw std::invalid_argument("FloatAP unknown rounding mode");
+    }
+}
 } // namespace
 
 // Round an already-populated, nonzero positive GMP significand in-place.
@@ -245,6 +283,25 @@ bool negative_zero, bool invert_sign) {
             result._exponent = checked_add(scale,quotient_exponent);
             return result;
         }
+    }
+
+    // Initially enable the native unsigned quotient/remainder path only
+    // above the four standard benchmark precision groups. Once same-host
+    // measurements justify its costs it can replace the smaller GMP paths.
+    if (precision > 1024ul) {
+        FloatAPNative::Unsigned native_n=import_native_magnitude(numerator);
+        FloatAPNative::Unsigned native_d=import_native_magnitude(denominator);
+        const auto rounded=FloatAPNative::round_ratio(
+            native_n,native_d,precision,result._negative,native_rounding(mode));
+        export_native_magnitude(result._significand,rounded.significand);
+        result._exponent=checked_add(scale,rounded.exponent);
+        if (rounded.carry) {
+            if (result._exponent==std::numeric_limits<Exponent>::max()) {
+                return infinity(precision,result._negative);
+            }
+            result._exponent=checked_add(result._exponent,1);
+        }
+        return result;
     }
 
     // General GMP fallback for larger operands and precision.
