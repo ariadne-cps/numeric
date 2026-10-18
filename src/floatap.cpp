@@ -876,93 +876,22 @@ bool negative_zero, bool invert_sign) {
         }
     }
 
-    // Initially enable the native unsigned quotient/remainder path only
-    // above the four standard benchmark precision groups. Once same-host
-    // measurements justify its costs it can replace the smaller GMP paths.
-    if (precision > 1024ul) {
-        FloatAPNative::Unsigned native_n=import_native_magnitude(numerator);
-        FloatAPNative::Unsigned native_d=import_native_magnitude(denominator);
-        const auto rounded_ratio=FloatAPNative::round_ratio(
-            native_n,native_d,precision,result._negative,native_rounding(mode));
-        export_native_magnitude(result._significand,rounded_ratio.significand);
-        result._exponent=checked_add(scale,rounded_ratio.exponent);
-        if (rounded_ratio.carry) {
-            if (result._exponent==std::numeric_limits<Exponent>::max()) {
-                return infinity(precision,result._negative);
-            }
-            result._exponent=checked_add(result._exponent,1);
+    // Exact quotient and remainder at every precision now use our native
+    // unsigned limbs. The separate <=64-bit path above remains the
+    // allocation-free specialization where its input bounds are satisfied.
+    // GMP is temporarily used only to import/export the surrounding
+    // FloatAP and Integer/Rational representations.
+    const FloatAPNative::Unsigned native_n=import_native_magnitude(numerator);
+    const FloatAPNative::Unsigned native_d=import_native_magnitude(denominator);
+    const auto rounded_ratio=FloatAPNative::round_ratio(
+        native_n,native_d,precision,result._negative,native_rounding(mode));
+    export_native_magnitude(result._significand,rounded_ratio.significand);
+    result._exponent=checked_add(scale,rounded_ratio.exponent);
+    if (rounded_ratio.carry) {
+        if (result._exponent==std::numeric_limits<Exponent>::max()) {
+            return infinity(precision,result._negative);
         }
-        return result;
-    }
-
-    // General GMP fallback for larger operands and precision.
-    // Keep exact quotient/remainder rounding unchanged.
-    mpz_t abs_n, abs_d, remainder, scratch;
-    mpz_inits(abs_n, abs_d, remainder, scratch, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b, c, d;
-        ~Cleanup() { mpz_clears(a, b, c, d, nullptr); }
-    } cleanup{abs_n, abs_d, remainder, scratch};
-    mpz_srcptr n = numerator;
-    mpz_srcptr d = denominator;
-    if (mpz_sgn(numerator) < 0) {
-        mpz_abs(abs_n, numerator);
-        n = abs_n;
-    }
-    if (mpz_sgn(denominator) < 0) {
-        mpz_abs(abs_d, denominator);
-        d = abs_d;
-    }
-
-    Exponent k = checked_sub(bit_length(n), bit_length(d));
-    if (k >= 0) {
-        mpz_mul_2exp(scratch, d, shift_amount(k));
-        if (mpz_cmp(n, scratch) < 0) k = checked_sub(k, 1);
-    } else {
-        mpz_mul_2exp(scratch, n, shift_amount(checked_sub(0, k)));
-        if (mpz_cmp(scratch, d) < 0) k = checked_sub(k, 1);
-    }
-
-    const Exponent shift = checked_sub(static_cast<Exponent>(precision - 1), k);
-    mpz_srcptr divisor = d;
-    if (shift >= 0) {
-        mpz_mul_2exp(scratch, n, shift_amount(shift));
-        mpz_tdiv_qr(result._significand, remainder, scratch, d);
-    } else {
-        mpz_mul_2exp(scratch, d, shift_amount(checked_sub(0, shift)));
-        divisor = scratch;
-        mpz_tdiv_qr(result._significand, remainder, n, scratch);
-    }
-
-    bool increment = false;
-    if (mpz_size(remainder) != 0) {
-        switch (mode.value()) {
-            case Rounding::ToNearest:
-                mpz_mul_2exp(remainder, remainder, 1);
-                increment = mpz_cmp(remainder, divisor) > 0 ||
-                    (mpz_cmp(remainder, divisor) == 0 &&
-                     mpz_odd_p(result._significand));
-                break;
-            case Rounding::Downward:
-                increment = result._negative;
-                break;
-            case Rounding::Upward:
-                increment = !result._negative;
-                break;
-            case Rounding::TowardZero:
-                break;
-            default:
-                throw std::invalid_argument("FloatAP unknown rounding mode");
-        }
-    }
-    if (increment) mpz_add_ui(result._significand, result._significand, 1);
-    result._exponent = checked_add(scale, checked_sub(k, static_cast<Exponent>(precision - 1)));
-    if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
-        mpz_tdiv_q_2exp(result._significand, result._significand, 1);
-        if (result._exponent == std::numeric_limits<Exponent>::max()) {
-            return infinity(precision, result._negative);
-        }
-        result._exponent = checked_add(result._exponent, 1);
+        result._exponent=checked_add(result._exponent,1);
     }
     return result;
 }

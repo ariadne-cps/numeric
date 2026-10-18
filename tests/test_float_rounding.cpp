@@ -368,7 +368,10 @@ TestFloatRounding<PR>::test_precision_regressions()
     // API; the expected 1/3 mantissas follow exactly from integer division
     // of 2^(p+1) by three, independently of FloatMP and FloatAP.
     if constexpr (Same<PR,ArbitraryPrecision>) {
-        for (Bits bits : {1100_bits,1536_bits}) {
+        for (Bits bits : {2_bits,7_bits,31_bits,32_bits,33_bits,53_bits,
+                          64_bits,65_bits,127_bits,128_bits,129_bits,
+                          255_bits,256_bits,257_bits,1023_bits,1024_bits,
+                          1100_bits,1536_bits}) {
             const ArbitraryPrecision p(bits);
             const MultiplePrecision mp(bits);
             const Integer scale=pow(Integer(2),Nat(p.bits()+1u));
@@ -415,6 +418,41 @@ TestFloatRounding<PR>::test_precision_regressions()
             verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
             verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
             verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+        }
+    }
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        // Exact halfway cases at p=2 (ties to even) and the signed
+        // directed-rounding counterparts. All literals are independent
+        // of both floating-point backends.
+        const ArbitraryPrecision p(2_bits);
+        const MultiplePrecision mp(2_bits);
+        for (Rational const& input : {Rational(5,4),Rational(7,4),
+                                     Rational(-5,4),Rational(-7,4)}) {
+            const Rational nearest_expected=
+                input==Rational(5,4) ? Rational(1) :
+                input==Rational(7,4) ? Rational(2) :
+                input==Rational(-5,4) ? Rational(-1) : Rational(-2);
+            const auto check=[&](FloatAP::RoundingModeType ap_mode,
+                                 FloatMP::RoundingModeType mp_mode,
+                                 Rational const& exact) {
+                const FloatAP candidate(input,ap_mode,p);
+                const FloatMP reference(input,mp_mode,mp);
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(candidate),exact);
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(candidate),
+                                    static_cast<Rational>(reference));
+            };
+            check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST,
+                  nearest_expected);
+            const Rational lower=input==Rational(5,4) ? Rational(1) :
+                input==Rational(7,4) ? Rational(3,2) :
+                input==Rational(-5,4) ? Rational(-3,2) : Rational(-2);
+            const Rational upper=input==Rational(5,4) ? Rational(3,2) :
+                input==Rational(7,4) ? Rational(2) :
+                input==Rational(-5,4) ? Rational(-1) : Rational(-3,2);
+            check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD,lower);
+            check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD,upper);
+            check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO,
+                  input<0 ? upper : lower);
         }
     }
     // These checks replace the separate FloatAP precision tests and use
