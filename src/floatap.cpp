@@ -544,24 +544,37 @@ namespace FloatAPNative {
 #if defined(__SIZEOF_INT128__)
 __extension__ typedef unsigned __int128 WideUInt;
 
-inline std::vector<std::uint64_t> pack_wide(Unsigned const& value) {
-    std::vector<std::uint64_t> limbs((value.size()+1u)/2u);
-    for (std::size_t i=0u; i<limbs.size(); ++i) {
-        limbs[i]=std::uint64_t{value.word(2u*i)} |
-                 (std::uint64_t{value.word(2u*i+1u)} << 32u);
-    }
-    while (!limbs.empty() && limbs.back()==0u) { limbs.pop_back(); }
-    return limbs;
-}
+// The wide divider previously allocated six dynamic word buffers per call.
+// Keep normalized divisor, dividend and quotient in small local scratch
+// buffers, spilling to dynamic storage for arbitrarily large inputs.
+class WideScratch {
+    static constexpr std::size_t inline_capacity=64u;
+    std::array<std::uint64_t,inline_capacity> _small{};
+    std::vector<std::uint64_t> _large;
+    std::uint64_t* _data;
 
-inline Unsigned unpack_wide(std::vector<std::uint64_t> const& limbs) {
-    if (limbs.size()>std::numeric_limits<std::size_t>::max()/2u) {
+  public:
+    explicit WideScratch(std::size_t count)
+        : _large(count>inline_capacity ? count : 0u,0u),
+          _data(count>inline_capacity ? _large.data() : _small.data()) { }
+    WideScratch(WideScratch const&)=delete;
+    WideScratch& operator=(WideScratch const&)=delete;
+
+    std::uint64_t& operator[](std::size_t i) noexcept { return _data[i]; }
+    std::uint64_t const& operator[](std::size_t i) const noexcept {
+        return _data[i];
+    }
+    std::uint64_t const* data() const noexcept { return _data; }
+};
+
+inline Unsigned unpack_wide(std::uint64_t const* limbs,std::size_t count) {
+    if (count>std::numeric_limits<std::size_t>::max()/2u) {
         throw std::overflow_error("FloatAP wide division size overflow");
     }
     Unsigned result;
-    result.resize(limbs.size()*2u);
+    result.resize(count*2u);
     std::uint32_t* const words=result.data();
-    for (std::size_t i=0u; i<limbs.size(); ++i) {
+    for (std::size_t i=0u; i<count; ++i) {
         words[2u*i]=static_cast<std::uint32_t>(limbs[i]);
         words[2u*i+1u]=static_cast<std::uint32_t>(limbs[i]>>32u);
     }
@@ -570,45 +583,47 @@ inline Unsigned unpack_wide(std::vector<std::uint64_t> const& limbs) {
 }
 
 // Base-2^64 Knuth algorithm D with exact quotient-digit corrections.
-// Dividing by a large denominator is where the portable 32-bit path
-// was notably slower than GMP. Keep all inputs immutable and compute
-// the exact remainder for nearest-even and directed rounding.
+// Import directly into normalized buffers; reuse the dividend buffer
+// for the denormalized remainder. No GMP or shared mutable scratch.
 inline std::pair<Unsigned,Unsigned> divrem_wide(
         Unsigned const& dividend,Unsigned const& divisor)
 {
     if (divisor.size()<4u) { return divrem(dividend,divisor); }
     if (compare(dividend,divisor)<0) { return {{},dividend}; }
 
-    std::vector<std::uint64_t> a=pack_wide(dividend);
-    std::vector<std::uint64_t> b=pack_wide(divisor);
-    const unsigned normalization=static_cast<unsigned>(
-        std::countl_zero(b.back()));
-    std::vector<std::uint64_t> v(b.size(),0u);
-    std::vector<std::uint64_t> u(a.size()+1u,0u);
-
-    if (normalization!=0u) {
-        std::uint64_t carry=0u;
-        for (std::size_t i=0u; i<b.size(); ++i) {
-            v[i]=(b[i]<<normalization)|carry;
-            carry=b[i]>>(64u-normalization);
-        }
-        carry=0u;
-        for (std::size_t i=0u; i<a.size(); ++i) {
-            u[i]=(a[i]<<normalization)|carry;
-            carry=a[i]>>(64u-normalization);
-        }
-        u[a.size()]=carry;
-    } else {
-        std::copy(b.begin(),b.end(),v.begin());
-        std::copy(a.begin(),a.end(),u.begin());
+    const std::size_t a_size=dividend.size()/2u+dividend.size()%2u;
+    const std::size_t n=divisor.size()/2u+divisor.size()%2u;
+    if (a_size==std::numeric_limits<std::size_t>::max()) {
+        throw std::overflow_error("FloatAP wide division size overflow");
     }
+    const std::size_t m=a_size-n;
+    WideScratch v(n),u(a_size+1u),q(m+1u);
+    const unsigned normalization=static_cast<unsigned>(std::countl_zero(
+        std::uint64_t{divisor.word(2u*(n-1u))} |
+        (std::uint64_t{divisor.word(2u*(n-1u)+1u)}<<32u)));
 
-    const std::size_t n=v.size();
-    const std::size_t m=a.size()-n;
-    std::vector<std::uint64_t> q(m+1u,0u);
+    std::uint64_t carry=0u;
+    for (std::size_t i=0u; i<n; ++i) {
+        const std::uint64_t original=
+            std::uint64_t{divisor.word(2u*i)} |
+            (std::uint64_t{divisor.word(2u*i+1u)}<<32u);
+        v[i]=normalization==0u ? original :
+            (original<<normalization)|carry;
+        if (normalization!=0u) { carry=original>>(64u-normalization); }
+    }
+    carry=0u;
+    for (std::size_t i=0u; i<a_size; ++i) {
+        const std::uint64_t original=
+            std::uint64_t{dividend.word(2u*i)} |
+            (std::uint64_t{dividend.word(2u*i+1u)}<<32u);
+        u[i]=normalization==0u ? original :
+            (original<<normalization)|carry;
+        if (normalization!=0u) { carry=original>>(64u-normalization); }
+    }
+    u[a_size]=carry;
+
     constexpr std::uint64_t max_word=
         std::numeric_limits<std::uint64_t>::max();
-
     for (std::size_t offset=m+1u; offset!=0u; --offset) {
         const std::size_t j=offset-1u;
         const WideUInt top=(WideUInt(u[j+n])<<64u)|u[j+n-1u];
@@ -625,17 +640,17 @@ inline std::pair<Unsigned,Unsigned> divrem_wide(
             estimated_remainder+=v[n-1u];
         }
 
-        std::uint64_t carry=0u,borrow=0u;
+        std::uint64_t product_carry=0u,borrow=0u;
         for (std::size_t i=0u; i<n; ++i) {
-            const WideUInt product=estimate*v[i]+carry;
-            carry=static_cast<std::uint64_t>(product>>64u);
+            const WideUInt product=estimate*v[i]+product_carry;
+            product_carry=static_cast<std::uint64_t>(product>>64u);
             const WideUInt subtraction=
                 static_cast<std::uint64_t>(product)+WideUInt(borrow);
             const std::uint64_t old=u[j+i];
             borrow=old<subtraction ? 1u : 0u;
             u[j+i]=static_cast<std::uint64_t>(WideUInt(old)-subtraction);
         }
-        const WideUInt final_subtraction=WideUInt(carry)+borrow;
+        const WideUInt final_subtraction=WideUInt(product_carry)+borrow;
         const bool overestimate=u[j+n]<final_subtraction;
         u[j+n]=static_cast<std::uint64_t>(
             WideUInt(u[j+n])-final_subtraction);
@@ -652,13 +667,14 @@ inline std::pair<Unsigned,Unsigned> divrem_wide(
         q[j]=static_cast<std::uint64_t>(estimate);
     }
 
-    std::vector<std::uint64_t> remainder(n,0u);
-    for (std::size_t i=0u; i<n; ++i) {
-        remainder[i]=normalization==0u ? u[i] :
-            (u[i]>>normalization)|
-            (u[i+1u]<<(64u-normalization));
+    // Ascending iteration does not modify u[i+1] before it is read.
+    if (normalization!=0u) {
+        for (std::size_t i=0u; i<n; ++i) {
+            u[i]=(u[i]>>normalization)|
+                 (u[i+1u]<<(64u-normalization));
+        }
     }
-    return {unpack_wide(q),unpack_wide(remainder)};
+    return {unpack_wide(q.data(),m+1u),unpack_wide(u.data(),n)};
 }
 #endif
 
