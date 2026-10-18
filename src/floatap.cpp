@@ -882,11 +882,11 @@ bool negative_zero, bool invert_sign) {
     if (precision > 1024ul) {
         FloatAPNative::Unsigned native_n=import_native_magnitude(numerator);
         FloatAPNative::Unsigned native_d=import_native_magnitude(denominator);
-        const auto rounded=FloatAPNative::round_ratio(
+        const auto rounded_ratio=FloatAPNative::round_ratio(
             native_n,native_d,precision,result._negative,native_rounding(mode));
-        export_native_magnitude(result._significand,rounded.significand);
-        result._exponent=checked_add(scale,rounded.exponent);
-        if (rounded.carry) {
+        export_native_magnitude(result._significand,rounded_ratio.significand);
+        result._exponent=checked_add(scale,rounded_ratio.exponent);
+        if (rounded_ratio.carry) {
             if (result._exponent==std::numeric_limits<Exponent>::max()) {
                 return infinity(precision,result._negative);
             }

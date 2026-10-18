@@ -5737,3 +5737,15 @@ The earlier 645b2ed9 changes failed compilation on all CI
 platforms, so CI validation is required for this consolidation
 before extending the native implementation. No claim of total
 GMP independence is made.
+
+## G1 FloatAP native-ratio AppleClang Wshadow fix (18 October 2026)
+
+At commit `a1ece3e3`, macOS AppleClang 21 with `-Wshadow -Werror`
+reports that the local result variable `rounded` in
+`src/floatap.cpp` (inside the precision > 1024 native ratio path)
+shadows namespace-scope `Ariadne::rounded` declared by
+`numeric/rounding.hpp`. Rename that local result to
+`rounded_ratio` and update its three accesses. No changes to
+the ratio algorithm, rounding modes, exponent carry, expected test
+values, precision thresholds, or benchmark workloads. The fix needs
+Unix, Windows and Coverage validation before further migration.
