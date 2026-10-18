@@ -223,726 +223,6 @@ bool FloatAP::small_divrem(SmallUnsigned const& dividend, SmallUnsigned const& d
     return true;
 }
 
-// FloatAP native limb implementation; private to FloatAP.
-// This type is private to FloatAP: it is not a proposed Integer/Rational
-// facade. Little-endian 32-bit limbs keep all products within uint64_t
-// on GCC, Clang and MSVC without compiler-specific wide integers.
-//
-// The first sixteen limbs are inline: the native ratio path frequently
-// creates 128-256 bit temporaries that otherwise require heap allocations.
-// Larger magnitudes retain the unrestricted dynamic buffer.
-class FloatAP::Unsigned {
-  public:
-    using Limb = std::uint32_t;
-    static constexpr std::size_t inline_capacity = 16u;
-    static constexpr std::uint64_t base = std::uint64_t{1} << 32;
-
-  private:
-    std::array<Limb,inline_capacity> _small_limbs{};
-    std::vector<Limb> _large;
-    std::size_t _size = 0u;
-
-    Limb* mutable_data() noexcept {
-        return _size <= inline_capacity ? _small_limbs.data() : _large.data();
-    }
-
-  public:
-    Unsigned() = default;
-
-    explicit Unsigned(std::uint64_t value) {
-        _small_limbs[0] = static_cast<Limb>(value);
-        _small_limbs[1] = static_cast<Limb>(value >> 32);
-        _size = _small_limbs[1] != 0u ? 2u : (_small_limbs[0] != 0u ? 1u : 0u);
-    }
-
-    std::size_t size() const noexcept { return _size; }
-    bool is_zero() const noexcept { return _size == 0u; }
-
-    Limb* data() noexcept { return mutable_data(); }
-
-    Limb const* data() const noexcept {
-        return _size <= inline_capacity ? _small_limbs.data() : _large.data();
-    }
-
-    Limb word(std::size_t index) const noexcept {
-        return index < _size ? data()[index] : 0u;
-    }
-
-    // Resize is also used for scratch buffers. The caller must trim()
-    // any newly written leading zero limbs before comparison/return.
-    void resize(std::size_t size) {
-        if (size <= inline_capacity) {
-            if (_size > inline_capacity) {
-                std::copy_n(_large.data(),size,_small_limbs.data());
-                _large.clear();
-            } else if (size > _size) {
-                std::fill(_small_limbs.begin()+static_cast<std::ptrdiff_t>(_size),
-                          _small_limbs.begin()+static_cast<std::ptrdiff_t>(size),0u);
-            }
-        } else if (_size <= inline_capacity) {
-            _large.assign(size,0u);
-            std::copy_n(_small_limbs.data(),_size,_large.data());
-        } else {
-            _large.resize(size,0u);
-        }
-        _size = size;
-    }
-
-    void trim() noexcept {
-        Limb const* const words = data();
-        std::size_t trimmed = _size;
-        while (trimmed != 0u && words[trimmed-1u] == 0u) { --trimmed; }
-        if (_size > inline_capacity && trimmed <= inline_capacity) {
-            std::copy_n(_large.data(),trimmed,_small_limbs.data());
-            _large.clear();
-        }
-        _size = trimmed;
-    }
-
-    void set_word(std::size_t index,Limb value) {
-        if (index >= _size) {
-            if (value == 0u) { return; }
-            if (index == std::numeric_limits<std::size_t>::max()) {
-                throw std::overflow_error("FloatAP native limb index overflow");
-            }
-            resize(index+1u);
-        }
-        mutable_data()[index] = value;
-        trim();
-    }
-
-    void set_bit(std::size_t bit) {
-        const std::size_t index=bit/32u;
-        if (index >= _size) { resize(index+1u); }
-        mutable_data()[index] |= Limb{1} << static_cast<unsigned>(bit%32u);
-    }
-
-    bool bit(std::size_t bit) const noexcept {
-        const std::size_t index=bit/32u;
-        return index < _size &&
-            ((word(index) >> static_cast<unsigned>(bit%32u)) & 1u) != 0u;
-    }
-
-    std::size_t bit_length() const noexcept {
-        return _size == 0u ? 0u :
-            32u*(_size-1u) + 32u -
-            static_cast<std::size_t>(std::countl_zero(word(_size-1u)));
-    }
-
-    friend int compare(Unsigned const& a,Unsigned const& b) noexcept {
-        if (a._size != b._size) { return a._size < b._size ? -1 : 1; }
-        for (std::size_t i=a._size; i!=0u; --i) {
-            if (a.word(i-1u) != b.word(i-1u)) {
-                return a.word(i-1u) < b.word(i-1u) ? -1 : 1;
-            }
-        }
-        return 0;
-    }
-
-    friend bool operator==(Unsigned const& a,Unsigned const& b) noexcept {
-        return compare(a,b)==0;
-    }
-
-    static Unsigned add_unsigned(Unsigned const& a,Unsigned const& b) {
-        const std::size_t size=std::max(a.size(),b.size());
-        if (size==std::numeric_limits<std::size_t>::max()) {
-            throw std::overflow_error("FloatAP native addition size overflow");
-        }
-        Unsigned result;
-        result.resize(size+1u);
-        std::uint64_t carry=0u;
-        for (std::size_t i=0u; i<size; ++i) {
-            const std::uint64_t sum=std::uint64_t{a.word(i)}+
-                                    b.word(i)+carry;
-            result.mutable_data()[i]=static_cast<Limb>(sum);
-            carry=sum >> 32;
-        }
-        result.mutable_data()[size]=static_cast<Limb>(carry);
-        result.trim();
-        return result;
-    }
-
-    // Unsigned subtraction requires a >= b. It never wraps at zero.
-    friend Unsigned sub(Unsigned const& a,Unsigned const& b) {
-        if (compare(a,b)<0) {
-            throw std::domain_error("FloatAP native unsigned underflow");
-        }
-        Unsigned result;
-        result.resize(a.size());
-        std::uint64_t borrow=0u;
-        for (std::size_t i=0u; i<a.size(); ++i) {
-            const std::uint64_t subtraction=std::uint64_t{b.word(i)}+borrow;
-            const std::uint64_t ai=a.word(i);
-            result.mutable_data()[i]=static_cast<Limb>(ai-subtraction);
-            borrow=ai<subtraction ? 1u : 0u;
-        }
-        result.trim();
-        return result;
-    }
-
-    friend Unsigned shift_left(Unsigned const& value,std::size_t bits) {
-        if (value.is_zero()) { return {}; }
-        const std::size_t words=bits/32u;
-        if (words >= std::numeric_limits<std::size_t>::max()-value.size()-1u) {
-            throw std::overflow_error("FloatAP native shift size overflow");
-        }
-        Unsigned result;
-        result.resize(value.size()+words+1u);
-        const unsigned small=static_cast<unsigned>(bits%32u);
-        std::uint64_t carry=0u;
-        for (std::size_t i=0u; i<value.size(); ++i) {
-            const std::uint64_t next=(std::uint64_t{value.word(i)}<<small)|carry;
-            result.mutable_data()[i+words]=static_cast<Limb>(next);
-            carry=next >> 32;
-        }
-        result.mutable_data()[value.size()+words]=static_cast<Limb>(carry);
-        result.trim();
-        return result;
-    }
-
-    friend Unsigned shift_right(Unsigned const& value,std::size_t bits) {
-        const std::size_t words=bits/32u;
-        if (value.size()<=words) { return {}; }
-        const unsigned small=static_cast<unsigned>(bits%32u);
-        Unsigned result;
-        result.resize(value.size()-words);
-        for (std::size_t i=0u; i<result.size(); ++i) {
-            const std::uint32_t low=value.word(i+words);
-            result.mutable_data()[i]=small == 0u ? low :
-                static_cast<Limb>((low >> small) |
-                    (std::uint64_t{value.word(i+words+1u)} << (32u-small)));
-        }
-        result.trim();
-        return result;
-    }
-
-    friend Unsigned mul(Unsigned const& a,Unsigned const& b) {
-        if (a.is_zero() || b.is_zero()) { return {}; }
-        if (a.size()>std::numeric_limits<std::size_t>::max()-b.size()) {
-            throw std::overflow_error("FloatAP native product size overflow");
-        }
-        Unsigned result;
-        result.resize(a.size()+b.size());
-        for (std::size_t i=0u; i<a.size(); ++i) {
-            std::uint64_t carry=0u;
-            for (std::size_t j=0u; j<b.size(); ++j) {
-                const std::uint64_t product=std::uint64_t{a.word(i)}*b.word(j)
-                    +result.mutable_data()[i+j]+carry;
-                result.mutable_data()[i+j]=static_cast<Limb>(product);
-                carry=product >> 32;
-            }
-            result.mutable_data()[i+b.size()]=static_cast<Limb>(carry);
-        }
-        result.trim();
-        return result;
-    }
-
-    // Exact base-2^32 Knuth division. Output satisfies a = q*b+r,
-    // with 0 <= r < b. Invalid zero divisors throw; all inputs stay
-    // unchanged. Only standard 64-bit intermediate products are needed.
-    friend std::pair<Unsigned,Unsigned> divrem(
-            Unsigned const& a,Unsigned const& b)
-    {
-        if (b.is_zero()) {
-            throw std::domain_error("FloatAP native divide by zero");
-        }
-        if (compare(a,b)<0) { return {{},a}; }
-        if (b.size()==1u) {
-            Unsigned q;
-            q.resize(a.size());
-            std::uint64_t r=0u;
-            for (std::size_t i=a.size(); i!=0u; --i) {
-                const std::uint64_t part=(r<<32)|a.word(i-1u);
-                q.mutable_data()[i-1u]=static_cast<Limb>(part/b.word(0u));
-                r=part%b.word(0u);
-            }
-            q.trim();
-            return {std::move(q),Unsigned(r)};
-        }
-        const unsigned normalize=static_cast<unsigned>(
-            std::countl_zero(b.word(b.size()-1u)));
-        Unsigned v=shift_left(b,normalize);
-        Unsigned u=shift_left(a,normalize);
-        const std::size_t n=v.size();
-        const std::size_t m=u.size()-n;
-        if (u.size()==std::numeric_limits<std::size_t>::max()) {
-            throw std::overflow_error("FloatAP native division size overflow");
-        }
-        u.resize(u.size()+1u);
-        Unsigned q;
-        q.resize(m+1u);
-        Limb* const u_words=u.mutable_data();
-        Limb* const q_words=q.mutable_data();
-        for (std::size_t offset=m+1u; offset!=0u; --offset) {
-            const std::size_t j=offset-1u;
-            const std::uint64_t top=u_words[j+n];
-            const std::uint64_t next=u_words[j+n-1u];
-            std::uint64_t estimate,estimate_remainder;
-            if (top>=v.word(n-1u)) {
-                estimate=base-1u;
-                estimate_remainder=next+v.word(n-1u);
-            } else {
-                const std::uint64_t numerator=(top<<32)|next;
-                estimate=numerator/v.word(n-1u);
-                estimate_remainder=numerator%v.word(n-1u);
-            }
-            while (estimate_remainder<base &&
-                   estimate*v.word(n-2u)>
-                   estimate_remainder*base+u_words[j+n-2u]) {
-                --estimate;
-                estimate_remainder+=v.word(n-1u);
-            }
-            std::uint64_t carry=0u,borrow=0u;
-            for (std::size_t i=0u; i<n; ++i) {
-                const std::uint64_t product=estimate*v.word(i)+carry;
-                carry=product>>32;
-                const std::uint64_t subtract=(product&(base-1u))+borrow;
-                borrow=u_words[j+i]<subtract ? 1u : 0u;
-                u_words[j+i]=static_cast<Limb>(
-                    std::uint64_t{u_words[j+i]}-subtract);
-            }
-            const std::uint64_t last=carry+borrow;
-            const bool overestimate=u_words[j+n]<last;
-            u_words[j+n]=static_cast<Limb>(
-                std::uint64_t{u_words[j+n]}-last);
-            if (overestimate) {
-                --estimate;
-                std::uint64_t addition_carry=0u;
-                for (std::size_t i=0u; i<n; ++i) {
-                    const std::uint64_t sum=std::uint64_t{u_words[j+i]}+
-                                            v.word(i)+addition_carry;
-                    u_words[j+i]=static_cast<Limb>(sum);
-                    addition_carry=sum>>32;
-                }
-                u_words[j+n]+=static_cast<Limb>(addition_carry);
-            }
-            q_words[j]=static_cast<Limb>(estimate);
-        }
-        q.trim();
-        Unsigned normalized_remainder;
-        normalized_remainder.resize(n);
-        for (std::size_t i=0u; i<n; ++i) {
-            normalized_remainder.mutable_data()[i]=u_words[i];
-        }
-        normalized_remainder.trim();
-        return {std::move(q),shift_right(normalized_remainder,normalize)};
-    }
-};
-
-// On GCC/Clang we can halve the quotient digit count using 64-bit
-// limbs and a 128-bit temporary product. MSVC retains the entirely
-// portable 32-bit Knuth division above. This internal specialization
-// changes neither the owning FloatAP type nor its rounding contract.
-#if defined(__SIZEOF_INT128__)
-__extension__ typedef unsigned __int128 WideUInt;
-
-// The wide divider previously allocated six dynamic word buffers per call.
-// Keep normalized divisor, dividend and quotient in small local scratch
-// buffers, spilling to dynamic storage for arbitrarily large inputs.
-class FloatAP::WideScratch {
-    static constexpr std::size_t inline_capacity=64u;
-    std::array<std::uint64_t,inline_capacity> _small{};
-    std::vector<std::uint64_t> _large;
-    std::uint64_t* _data;
-
-  public:
-    explicit WideScratch(std::size_t count)
-        : _large(count>inline_capacity ? count : 0u,0u),
-          _data(count>inline_capacity ? _large.data() : _small.data()) { }
-    WideScratch(WideScratch const&)=delete;
-    WideScratch& operator=(WideScratch const&)=delete;
-
-    std::uint64_t& operator[](std::size_t i) noexcept { return _data[i]; }
-    std::uint64_t const& operator[](std::size_t i) const noexcept {
-        return _data[i];
-    }
-    std::uint64_t const* data() const noexcept { return _data; }
-};
-
-// Exact 128/64 quotient digit using a precomputed inverse of the
-// normalized (top bit set) divisor. Valid when high < divisor.
-// Unlike repeated 128/64 division, the per-digit work consists only
-// of 64-bit products, adds and at most two corrections. Both GCC
-// and Clang use this same path irrespective of the target CPU.
-std::pair<std::uint64_t,std::uint64_t> FloatAP::divrem_preinverted_digit(
-        std::uint64_t high,std::uint64_t low,
-        std::uint64_t divisor,std::uint64_t inverse) noexcept {
-    const WideUInt product=WideUInt(high)*inverse;
-    const WideUInt sum=WideUInt(static_cast<std::uint64_t>(product))+low;
-    std::uint64_t quotient=static_cast<std::uint64_t>(product>>64u)+high+
-        1u+static_cast<std::uint64_t>(sum>>64u);
-    std::uint64_t remainder=low-quotient*divisor;
-    if (remainder>static_cast<std::uint64_t>(sum)) {
-        --quotient;
-        remainder+=divisor;
-    }
-    if (remainder>=divisor) {
-        remainder-=divisor;
-        ++quotient;
-    }
-    return {quotient,remainder};
-}
-
-FloatAP::Unsigned FloatAP::unpack_wide(std::uint64_t const* limbs,std::size_t count) {
-    if (count>std::numeric_limits<std::size_t>::max()/2u) {
-        throw std::overflow_error("FloatAP wide division size overflow");
-    }
-    Unsigned result;
-    result.resize(count*2u);
-    std::uint32_t* const words=result.data();
-    for (std::size_t i=0u; i<count; ++i) {
-        words[2u*i]=static_cast<std::uint32_t>(limbs[i]);
-        words[2u*i+1u]=static_cast<std::uint32_t>(limbs[i]>>32u);
-    }
-    result.trim();
-    return result;
-}
-
-// Base-2^64 Knuth algorithm D with exact quotient-digit corrections.
-// Import directly into normalized buffers; reuse the dividend buffer
-// for the denormalized remainder. No GMP or shared mutable scratch.
-std::pair<FloatAP::Unsigned,FloatAP::Unsigned> FloatAP::divrem_wide(
-        Unsigned const& dividend,Unsigned const& divisor,
-        std::size_t numerator_shift)
-{
-    // Ratio rounding guarantees (dividend << numerator_shift) >= divisor.
-    // Short divisors keep the existing 32-bit exact fallback.
-    if (divisor.size()<4u) {
-        return divrem(numerator_shift==0u ?
-                      dividend : shift_left(dividend,numerator_shift),divisor);
-    }
-    if (numerator_shift==0u && compare(dividend,divisor)<0) {
-        return {{},dividend};
-    }
-    if (numerator_shift>
-        std::numeric_limits<std::size_t>::max()-dividend.bit_length()) {
-        throw std::overflow_error("FloatAP wide shifted dividend overflow");
-    }
-    const std::size_t total_bits=dividend.bit_length()+numerator_shift;
-    const std::size_t a_size=total_bits/64u+
-        static_cast<std::size_t>(total_bits%64u!=0u);
-    const std::size_t n=divisor.size()/2u+divisor.size()%2u;
-    if (a_size==std::numeric_limits<std::size_t>::max()) {
-        throw std::overflow_error("FloatAP wide division size overflow");
-    }
-    const std::size_t m=a_size-n;
-    WideScratch v(n),u(a_size+1u),q(m+1u);
-    const unsigned normalization=static_cast<unsigned>(std::countl_zero(
-        std::uint64_t{divisor.word(2u*(n-1u))} |
-        (std::uint64_t{divisor.word(2u*(n-1u)+1u)}<<32u)));
-
-    std::uint64_t carry=0u;
-    for (std::size_t i=0u; i<n; ++i) {
-        const std::uint64_t original=
-            std::uint64_t{divisor.word(2u*i)} |
-            (std::uint64_t{divisor.word(2u*i+1u)}<<32u);
-        v[i]=normalization==0u ? original :
-            (original<<normalization)|carry;
-        if (normalization!=0u) { carry=original>>(64u-normalization); }
-    }
-    if (numerator_shift==0u) {
-        carry=0u;
-        for (std::size_t i=0u; i<a_size; ++i) {
-            const std::uint64_t original=
-                std::uint64_t{dividend.word(2u*i)} |
-                (std::uint64_t{dividend.word(2u*i+1u)}<<32u);
-            u[i]=normalization==0u ? original :
-                (original<<normalization)|carry;
-            if (normalization!=0u) { carry=original>>(64u-normalization); }
-        }
-        u[a_size]=carry;
-    } else {
-        // Materialize (dividend << numerator_shift) * 2^normalization
-        // directly inside the normalized division buffer. Previously
-        // we allocated a shifted Unsigned, then packed it into u.
-        const std::size_t source_words=dividend.size()/2u+
-            dividend.size()%2u;
-        const unsigned total_shift=
-            static_cast<unsigned>(numerator_shift%64u)+normalization;
-        const std::size_t word_offset=numerator_shift/64u+
-            static_cast<std::size_t>(total_shift/64u);
-        const unsigned bit_offset=total_shift%64u;
-        for (std::size_t i=0u; i<source_words; ++i) {
-            const std::uint64_t original=
-                std::uint64_t{dividend.word(2u*i)} |
-                (std::uint64_t{dividend.word(2u*i+1u)}<<32u);
-            u[word_offset+i]|=original<<bit_offset;
-            if (bit_offset!=0u) {
-                u[word_offset+i+1u]|=original>>(64u-bit_offset);
-            }
-        }
-    }
-
-    constexpr std::uint64_t max_word=
-        std::numeric_limits<std::uint64_t>::max();
-
-    // Skip identically zero quotient-digit products for sufficiently
-    // sparse divisors. Stop the detection scan early for dense divisors.
-    bool sparse_divisor=false;
-    if (n>=8u) {
-        const std::size_t maximum_nonzero=n/3u;
-        std::size_t nonzero=0u;
-        for (std::size_t i=0u; i<n && nonzero<=maximum_nonzero; ++i) {
-            nonzero+=static_cast<std::size_t>(v[i]!=0u);
-        }
-        sparse_divisor=(nonzero<=maximum_nonzero);
-    }
-
-    // An mpn_submul_1-style recurrence in two independently compiled
-    // sparse/dense inner loops. In the dense case if constexpr removes
-    // all zero-limb tests from the fused multiply/subtract loop.
-    const auto subtract_quotient_digit=
-        [&]<bool Sparse>(std::size_t j,WideUInt estimate)
-            -> std::uint64_t
-    {
-        // Fused mpn_submul_1-style recurrence: carry includes BOTH the
-        // multiplication carry and the subtraction borrow. For one limb:
-        //   product = digit * divisor_limb + carry
-        //   destination -= low(product)
-        //   carry = high(product) + (old_destination < low(product)).
-        // This removes the separate 128-bit subtraction and borrow chain.
-        // The carry fits in 64 bits: when high(product) == 2^64-1,
-        // low(product) is necessarily zero, so no borrow can increase it.
-        const std::uint64_t digit=static_cast<std::uint64_t>(estimate);
-        std::uint64_t submul_carry=0u;
-        for (std::size_t i=0u; i<n; ++i) {
-            if constexpr (Sparse) {
-                // Zero times digit plus zero combined carry leaves
-                // the dividend limb unchanged, including the borrow.
-                if (v[i]==0u && submul_carry==0u) { continue; }
-            }
-            const WideUInt product=WideUInt(digit)*v[i]+submul_carry;
-            const std::uint64_t low=static_cast<std::uint64_t>(product);
-            const std::uint64_t old=u[j+i];
-            u[j+i]=old-low;
-            submul_carry=static_cast<std::uint64_t>(product>>64u)+
-                static_cast<std::uint64_t>(old<low);
-        }
-        return submul_carry;
-    };
-
-    // The inverse costs one full-width division per operand pair.
-    // Select it only for long enough quotients to amortize that cost;
-    // the threshold is based on operand size, never on CPU type.
-    const bool use_preinverse=(m+1u)>=4u;
-    const std::uint64_t inverse=use_preinverse ?
-        static_cast<std::uint64_t>((~WideUInt{0})/v[n-1u]) : 0u;
-    for (std::size_t offset=m+1u; offset!=0u; --offset) {
-        const std::size_t j=offset-1u;
-        const WideUInt top=(WideUInt(u[j+n])<<64u)|u[j+n-1u];
-        WideUInt estimate,estimated_remainder;
-        if (use_preinverse) {
-            if (u[j+n]>=v[n-1u]) {
-                // Quotient digit would exceed its 64-bit radix:
-                // saturate exactly, then apply Knuth's correction.
-                estimate=max_word;
-                estimated_remainder=top-estimate*v[n-1u];
-            } else {
-                const auto [digit,remainder]=divrem_preinverted_digit(
-                    u[j+n],u[j+n-1u],v[n-1u],inverse);
-                estimate=digit;
-                estimated_remainder=remainder;
-            }
-        } else {
-            estimate=top/v[n-1u];
-            estimated_remainder=top%v[n-1u];
-            if (estimate>max_word) {
-                estimate=max_word;
-                estimated_remainder=top-estimate*v[n-1u];
-            }
-        }
-        while (estimated_remainder<=max_word &&
-               estimate*v[n-2u]>
-                   (estimated_remainder<<64u)+u[j+n-2u]) {
-            --estimate;
-            estimated_remainder+=v[n-1u];
-        }
-
-        // Choose between two separately instantiated inner loops once
-        // per quotient digit. Dense inputs pay no sparse-limb checks.
-        const std::uint64_t final_subtraction=sparse_divisor
-            ? subtract_quotient_digit.template operator()<true>(j,estimate)
-            : subtract_quotient_digit.template operator()<false>(j,estimate);
-        const bool overestimate=u[j+n]<final_subtraction;
-        u[j+n]=static_cast<std::uint64_t>(
-            WideUInt(u[j+n])-final_subtraction);
-        if (overestimate) {
-            --estimate;
-            WideUInt sum=0u;
-            for (std::size_t i=0u; i<n; ++i) {
-                sum=WideUInt(u[j+i])+v[i]+
-                    static_cast<std::uint64_t>(sum>>64u);
-                u[j+i]=static_cast<std::uint64_t>(sum);
-            }
-            u[j+n]+=static_cast<std::uint64_t>(sum>>64u);
-        }
-        q[j]=static_cast<std::uint64_t>(estimate);
-    }
-
-    // Ascending iteration does not modify u[i+1] before it is read.
-    if (normalization!=0u) {
-        for (std::size_t i=0u; i<n; ++i) {
-            u[i]=(u[i]>>normalization)|
-                 (u[i+1u]<<(64u-normalization));
-        }
-    }
-    return {unpack_wide(q.data(),m+1u),unpack_wide(u.data(),n)};
-}
-#endif
-
-// Signedness belongs to the floating-point value; inputs are magnitudes.
-struct FloatAP::RoundedRatio {
-    Unsigned significand;
-    std::int64_t exponent;
-    // A carry out of the requested precision has already been shifted
-    // away. Apply the exponent increment AFTER adding the caller's scale,
-    // so that max-exponent carry can be converted into infinity.
-    bool carry;
-};
-
-std::int64_t FloatAP::ratio_checked_add(std::int64_t a,std::int64_t b) {
-    constexpr auto max=std::numeric_limits<std::int64_t>::max();
-    constexpr auto min=std::numeric_limits<std::int64_t>::min();
-    if ((b>0 && a>max-b) || (b<0 && a<min-b)) {
-        throw std::overflow_error("FloatAP native ratio exponent overflow");
-    }
-    return a+b;
-}
-
-std::int64_t FloatAP::ratio_checked_sub(std::int64_t a,std::int64_t b) {
-    if (b==std::numeric_limits<std::int64_t>::min()) {
-        return ratio_checked_add(
-            ratio_checked_add(a,std::numeric_limits<std::int64_t>::max()),1);
-    }
-    return ratio_checked_add(a,-b);
-}
-
-std::int64_t FloatAP::ratio_checked_bit_length(Unsigned const& value) {
-    if (value.bit_length() >
-        static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
-        throw std::overflow_error("FloatAP native ratio size overflow");
-    }
-    return static_cast<std::int64_t>(value.bit_length());
-}
-
-std::size_t FloatAP::ratio_shift_amount(std::int64_t shift) {
-    if (shift<0) {
-        throw std::logic_error("negative FloatAP native ratio shift");
-    }
-    if constexpr (sizeof(std::size_t)<sizeof(std::uint64_t)) {
-        if (static_cast<std::uint64_t>(shift)>
-            std::numeric_limits<std::size_t>::max()) {
-            throw std::overflow_error("FloatAP native ratio shift overflow");
-        }
-    }
-    return static_cast<std::size_t>(shift);
-}
-
-// Compare a positive magnitude shifted left by an arbitrary bit count
-// with another unsigned magnitude. Compute the shifted words on demand:
-// creating an intermediate shifted Unsigned here used to allocate and
-// copy up to an entire large numerator/denominator before every divide.
-int FloatAP::compare_shifted(Unsigned const& magnitude,std::size_t shift,
-                           Unsigned const& reference) noexcept {
-    if (shift==0u) { return compare(magnitude,reference); }
-    if (magnitude.is_zero()) {
-        return reference.is_zero() ? 0 : -1;
-    }
-    const std::size_t bits=magnitude.bit_length();
-    if (shift>std::numeric_limits<std::size_t>::max()-bits) {
-        return 1;
-    }
-    const std::size_t shifted_bits=bits+shift;
-    if (shifted_bits!=reference.bit_length()) {
-        return shifted_bits<reference.bit_length() ? -1 : 1;
-    }
-    const std::size_t words=shift/32u;
-    const unsigned small=static_cast<unsigned>(shift%32u);
-    for (std::size_t offset=reference.size(); offset!=0u; --offset) {
-        const std::size_t i=offset-1u;
-        Unsigned::Limb shifted_word=0u;
-        if (i>=words) {
-            const std::size_t j=i-words;
-            shifted_word=small==0u ? magnitude.word(j) :
-                static_cast<Unsigned::Limb>(
-                    (std::uint64_t{magnitude.word(j)}<<small) |
-                    (j==0u ? 0u : magnitude.word(j-1u)>>(32u-small)));
-        }
-        const Unsigned::Limb actual=reference.word(i);
-        if (shifted_word!=actual) {
-            return shifted_word<actual ? -1 : 1;
-        }
-    }
-    return 0;
-}
-
-// Return a normalized p-bit rounded significand and a binary exponent.
-// The inputs must be strictly positive. The result represents
-// n/d rounded at precision p, with the sign used only for directed
-// rounding. The caller's external binary scale is not included.
-FloatAP::RoundedRatio FloatAP::round_ratio(Unsigned const& n,Unsigned const& d,
-                                unsigned long precision,bool negative,
-                                RatioRounding mode)
-{
-    if (n.is_zero() || d.is_zero() || precision<2u ||
-        static_cast<std::uint64_t>(precision)>
-            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
-        throw std::invalid_argument("invalid FloatAP native ratio");
-    }
-    const std::int64_t p=static_cast<std::int64_t>(precision);
-    std::int64_t k=ratio_checked_sub(ratio_checked_bit_length(n),
-                                     ratio_checked_bit_length(d));
-    if (k>=0) {
-        if (compare_shifted(d,ratio_shift_amount(k),n)>0) { --k; }
-    } else {
-        if (compare_shifted(n,ratio_shift_amount(ratio_checked_sub(0,k)),d)<0) {
-            --k;
-        }
-    }
-    const std::int64_t shift=ratio_checked_sub(p-1,k);
-    const Unsigned denominator=shift<0 ?
-        shift_left(d,ratio_shift_amount(ratio_checked_sub(0,shift))) : d;
-
-#if defined(__SIZEOF_INT128__)
-    // For nonnegative shifts, fuse dividend scaling with the wide
-    // kernel's normalization: no intermediate native numerator.
-    auto [quotient,remainder]=divrem_wide(
-        n,denominator,shift>=0 ? ratio_shift_amount(shift) : 0u);
-#else
-    const Unsigned numerator=shift>=0 ?
-        shift_left(n,ratio_shift_amount(shift)) : n;
-    auto [quotient,remainder]=divrem(numerator,denominator);
-#endif
-    bool increment=false;
-    if (!remainder.is_zero()) {
-        switch (mode) {
-            case RatioRounding::NearestEven: {
-                const int twice_vs_divisor=
-                    compare(shift_left(remainder,1u),denominator);
-                increment=twice_vs_divisor>0 ||
-                          (twice_vs_divisor==0 && quotient.bit(0u));
-                break;
-            }
-            case RatioRounding::Downward:
-                increment=negative;
-                break;
-            case RatioRounding::Upward:
-                increment=!negative;
-                break;
-            case RatioRounding::TowardZero:
-                break;
-            default:
-                throw std::invalid_argument("unknown FloatAP native rounding mode");
-        }
-    }
-    if (increment) { quotient=Unsigned::add_unsigned(quotient,Unsigned(1u)); }
-    const bool carry=quotient.bit_length()>static_cast<std::size_t>(precision);
-    if (carry) { quotient=shift_right(quotient,1u); }
-    return {std::move(quotient),ratio_checked_sub(k,p-1),carry};
-}
-
-
-
 // The adapter is deliberately the only GMP-aware part of the new kernel.
 // GMP's limbs contain the absolute magnitude even for negative integers;
 // the sign is handled by FloatAP metadata independently.
@@ -1044,43 +324,6 @@ bool FloatAP::small_rounded_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
     return true;
 }
 
-// The legacy FloatAP object still owns a GMP significand. For larger
-// precision ratios, only import/export at this boundary use GMP.
-// The exact quotient, remainder and rounding decision use native limbs.
-FloatAP::Unsigned FloatAP::import_native_magnitude(mpz_srcptr value) {
-    Unsigned result;
-    if (mpz_sgn(value)==0) { return result; }
-    const std::size_t bits=mpz_sizeinbase(value,2);
-    const std::size_t words=bits/32u+static_cast<std::size_t>(bits%32u!=0u);
-    result.resize(words);
-    std::size_t exported=0u;
-    mpz_export(result.data(),&exported,-1,
-               sizeof(std::uint32_t),0,0,value);
-    result.resize(exported);
-    result.trim();
-    return result;
-}
-
-void FloatAP::export_native_magnitude(mpz_ptr destination,
-                             Unsigned const& value) {
-    mpz_import(destination,value.size(),-1,sizeof(std::uint32_t),0,0,value.data());
-}
-
-FloatAP::RatioRounding FloatAP::native_rounding(FloatAP::Rounding mode) {
-    switch (mode.value()) {
-        case FloatAP::Rounding::ToNearest:
-            return RatioRounding::NearestEven;
-        case FloatAP::Rounding::Downward:
-            return RatioRounding::Downward;
-        case FloatAP::Rounding::Upward:
-            return RatioRounding::Upward;
-        case FloatAP::Rounding::TowardZero:
-            return RatioRounding::TowardZero;
-        default:
-            throw std::invalid_argument("FloatAP unknown rounding mode");
-    }
-}
-
 // Round an already-populated, nonzero positive GMP significand in-place.
 // Keeping the destination as the accumulator avoids extra mpz allocations
 // and signed-integer copies in add_sub() and mul(). The sign is stored
@@ -1168,22 +411,74 @@ bool negative_zero, bool invert_sign) {
         }
     }
 
-    // Exact quotient and remainder at every precision now use our native
-    // unsigned limbs. The separate <=64-bit path above remains the
-    // allocation-free specialization where its input bounds are satisfied.
-    // GMP is temporarily used only to import/export the surrounding
-    // FloatAP and Integer/Rational representations.
-    const Unsigned native_n=import_native_magnitude(numerator);
-    const Unsigned native_d=import_native_magnitude(denominator);
-    const auto rounded_ratio=round_ratio(
-        native_n,native_d,precision,result._negative,native_rounding(mode));
-    export_native_magnitude(result._significand,rounded_ratio.significand);
-    result._exponent=checked_add(scale,rounded_ratio.exponent);
-    if (rounded_ratio.carry) {
-        if (result._exponent==std::numeric_limits<Exponent>::max()) {
-            return infinity(precision,result._negative);
+    // General GMP fallback for larger operands and precision.
+    // Keep exact quotient/remainder rounding unchanged.
+    mpz_t abs_n, abs_d, remainder, scratch;
+    mpz_inits(abs_n, abs_d, remainder, scratch, nullptr);
+    struct Cleanup {
+        mpz_ptr a, b, c, d;
+        ~Cleanup() { mpz_clears(a, b, c, d, nullptr); }
+    } cleanup{abs_n, abs_d, remainder, scratch};
+    mpz_srcptr n = numerator;
+    mpz_srcptr d = denominator;
+    if (mpz_sgn(numerator) < 0) {
+        mpz_abs(abs_n, numerator);
+        n = abs_n;
+    }
+    if (mpz_sgn(denominator) < 0) {
+        mpz_abs(abs_d, denominator);
+        d = abs_d;
+    }
+
+    Exponent k = checked_sub(bit_length(n), bit_length(d));
+    if (k >= 0) {
+        mpz_mul_2exp(scratch, d, shift_amount(k));
+        if (mpz_cmp(n, scratch) < 0) k = checked_sub(k, 1);
+    } else {
+        mpz_mul_2exp(scratch, n, shift_amount(checked_sub(0, k)));
+        if (mpz_cmp(scratch, d) < 0) k = checked_sub(k, 1);
+    }
+
+    const Exponent shift = checked_sub(static_cast<Exponent>(precision - 1), k);
+    mpz_srcptr divisor = d;
+    if (shift >= 0) {
+        mpz_mul_2exp(scratch, n, shift_amount(shift));
+        mpz_tdiv_qr(result._significand, remainder, scratch, d);
+    } else {
+        mpz_mul_2exp(scratch, d, shift_amount(checked_sub(0, shift)));
+        divisor = scratch;
+        mpz_tdiv_qr(result._significand, remainder, n, scratch);
+    }
+
+    bool increment = false;
+    if (mpz_size(remainder) != 0) {
+        switch (mode.value()) {
+            case Rounding::ToNearest:
+                mpz_mul_2exp(remainder, remainder, 1);
+                increment = mpz_cmp(remainder, divisor) > 0 ||
+                    (mpz_cmp(remainder, divisor) == 0 &&
+                     mpz_odd_p(result._significand));
+                break;
+            case Rounding::Downward:
+                increment = result._negative;
+                break;
+            case Rounding::Upward:
+                increment = !result._negative;
+                break;
+            case Rounding::TowardZero:
+                break;
+            default:
+                throw std::invalid_argument("FloatAP unknown rounding mode");
         }
-        result._exponent=checked_add(result._exponent,1);
+    }
+    if (increment) mpz_add_ui(result._significand, result._significand, 1);
+    result._exponent = checked_add(scale, checked_sub(k, static_cast<Exponent>(precision - 1)));
+    if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
+        mpz_tdiv_q_2exp(result._significand, result._significand, 1);
+        if (result._exponent == std::numeric_limits<Exponent>::max()) {
+            return infinity(precision, result._negative);
+        }
+        result._exponent = checked_add(result._exponent, 1);
     }
     return result;
 }

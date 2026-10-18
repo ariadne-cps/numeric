@@ -7330,3 +7330,74 @@ requested immediate production migration of
 and correctness target remains FloatAP. Shared-core
 changes update this journal and
 `integer_rational_design.md` in the same commit.
+
+## G9: restore beginning-of-`remove-gmp` ratio division (18 October 2026)
+
+**Decision.** Before implementing the jointly owned and
+architecture-optimized numeric limb substrate, restore exactly
+the original wide-ratio/division execution path from
+`9823a3b127712ee39e44b634dbaba49e50ea0054`,
+the `remove-mpfr` baseline from which `remove-gmp`
+began. The source of truth is that historical
+`FloatAP::from_ratio` function, not a rollback of
+the entire branch. `FloatAP::div` still calls
+`from_ratio` with positive significands and sign metadata.
+
+**Active division policy.** `denominator == 1` continues
+to use the optimized in-place integer rounding.
+For `precision <= 64` and sufficiently small numerator
+and denominator (up to 64 bits), retain the
+original stack-only `SmallUnsigned` divide-and-round
+fast path. For all other nontrivial ratios, use the
+historical signed-magnitude-aware **GMP
+`mpz_tdiv_qr` quotient/remainder** path with exactly
+the original magnitude classification, binary scaling,
+nearest-even tie handling, directed rounding by sign,
+and carry/exponent overflow handling. In particular,
+`construct_rational` and all three division rounding
+modes at 128/256/1024 bits now use the historical
+wide GMP algorithm. 53-bit inputs may use either the
+unchanged small fast path or GMP fallback according
+to their actual magnitudes, as they did originally.
+
+**Code scope and cleanup.** Replace only the
+`FloatAP::from_ratio` implementation with the
+historical function, adapting
+`FloatAPSmallDivision::Unsigned` to the current
+nested private `SmallUnsigned` spelling (the
+initial experimental header has already been
+removed on this branch). Remove the now-unused
+FloatAP-private large `Unsigned`, `RoundedRatio`,
+`WideScratch`, native long division and
+GMP import/export adapters and declarations,
+rather than leaving dead alternate kernels.
+Do not change `FloatAP::div`, special-value
+semantics, `FloatMP`, benchmark code,
+`Integer`/`Rational`, tests, or other FloatAP
+arithmetic/transcendental paths. Existing public
+rounding tests exercising those operations remain
+active. The previous experiments and their
+measurements are retained as historical journal
+entries, **not** descriptions of current code.
+
+**Next phase remains unchanged.** A generic shared
+portable unsigned core with separately documented
+and independently implemented ARM64/x86-64
+specializations will eventually serve
+`FloatAP`, `Integer`, and `Rational`.
+The restored GMP division is temporary; this
+commit makes **no claim of completed GMP removal**.
+
+**Verification gate.** Check all GCC/Clang/
+AppleClang/Windows jobs and numerical oracles,
+then rebuild and measure the unchanged ARM64
+20,000 x 31 suite. A previous reference report
+from the beginning of the branch contained
+1024-bit FloatAP median ns values
+`construct_rational=508.450`,
+`div_nearest=292.404`, `div_down=255.475`,
+`div_up=260.046`. These are historical
+values, not measurements of this rollback.
+If previously untouched FloatMP or FloatAP
+controls regress materially, STOP and request
+user review before further implementation.
