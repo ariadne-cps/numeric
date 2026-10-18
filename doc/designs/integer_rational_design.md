@@ -831,3 +831,75 @@ out code for Integer/Rational before measuring an actual need.
 Private implementation tests have been replaced with tests of
 the FloatAP public mathematical behavior, under CTest.
 Benchmark targets remain separate.
+
+
+### BigUnsigned phase B0 — portable storage and foundation (18 October 2026)
+
+**Implementation introduced**, independently of FloatAP and with no GMP
+dependency in `include/numeric/big_unsigned.hpp` or
+`src/big_unsigned.cpp`, built into `NUMERIC_SRC`. The
+`tests/test_big_unsigned.cpp` CTest target validates it against GMP
+as a **test-only reference**. `FloatAP`, `Integer` and `Rational`
+retain their current production representations; no operations have
+been rewired to use BigUnsigned. FloatMP is unchanged.
+
+**Storage contract.** Nonnegative exact values are stored as a
+little-endian sequence of 64-bit unsigned limbs; each represents a
+coefficient of `(2^64)^i`. Zero is the empty sequence.
+The highest stored limb is always nonzero for nonzero values.
+Four limbs (256 bits) fit in the value's inline buffer;
+larger values use dynamically sized contiguous storage.
+`size()` returns the number of significant limbs,
+`limb(i)` returns zero beyond that length,
+`limbs()` exposes a read-only, invalidated-on-mutation
+span. Constructor normalization strips upper zero limbs.
+All normalizing mutations switch back to inline storage
+if at most four limbs remain. Copy owns independent storage;
+move leaves the source as zero, and `swap` swaps all
+representation fields. Array/vector storage is intentionally
+independent of GMP limb types and platform byte order.
+
+**Portable operations now implemented:**
+`compare` returns -1/0/+1;
+`add` and `sub` compute exact nonnegative magnitudes
+with carry and borrow limited to 0 or 1;
+`sub` throws `std::underflow_error` if the
+result would be negative. `shift_left` computes
+exact multiplication by `2^k` and checks representable
+result-size overflow; `shift_right` is exact
+floor division by `2^k`. All operations return
+owning values and leave input values unchanged.
+No CPU-specific intrinsics, inline assembly or
+runtime ISA dispatch are present yet.
+
+**Cost and deliberate limits.** Allocations are avoided for
+the common result range of at most four limbs, including
+the **normalization of carry-free add/shift results**
+that provisionally require an extra limb. Data for
+larger values uses standard contiguous vector storage.
+Storage operations are foundation code, **not yet
+competitive GMP replacement**. Still to be implemented:
+writable limb views and external scratch, in-place
+arithmetic, multiplication and squaring, exact
+division/remainder, small-divisor APIs and GCD;
+only then test optional ARM64 and x86-64 variants.
+This phase makes no performance claims.
+
+**Verification.** GCC and Clang C++20 with strict
+`-Wall -Wextra -Wshadow -Wconversion -Werror -pedantic`
+both compile and pass the same deterministic
+10,000-case GMP-differential test covering
+add/sub/compare, normalization and both shifts
+up to 1029 bits on operands with up to 20 limbs;
+Clang AddressSanitizer and UndefinedBehaviorSanitizer
+pass the same cases. The actual repository CTest
+must also pass in CI before calling the change
+fully integrated across platforms. These standalone
+runs used a minimal local macro shim so they are
+not a substitute for repository CMake/CTest.
+
+**Architecture specific code** remains strictly subject
+to the mandatory per-kernel journal and ISA requirements
+in `floatap_design.md`; there is currently no
+specialization to document. Neither benchmarks nor
+the frozen ARM64 20,000x31 FloatAP workload was changed.
