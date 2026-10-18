@@ -1,5 +1,6 @@
 set(BENCHMARKS
     benchmark_arithmetic
+    benchmark_big_unsigned_multiply
     benchmark_compare_multiple_precision_backends
     benchmark_compare_double_precision_backends
     benchmark_compare_integer_backends

@@ -97,7 +97,19 @@ class BigUnsigned
     static Limb sub_into(LimbView a,LimbView b,MutableLimbView output);
     //! Product modulo 2^(64*output.size()); output is fully overwritten.
     //! Inputs and output must be disjoint. No intermediate allocation.
+    //! Uses the selected architecture kernel when it is available.
     static void mul_low_into(LimbView a,LimbView b,MutableLimbView output);
+    //! Identical modular product using only portable C++20 arithmetic.
+    //! Exposed to allow direct differential tests and fair benchmarks.
+    static void mul_low_into_portable(LimbView a,LimbView b,MutableLimbView output);
+    //! Exact full product in caller storage; output must have at least
+    //! a.size()+b.size() limbs for nonempty operands. Extra limbs are zeroed.
+    //! Both input views must be disjoint from output. No allocations.
+    static void mul_into(LimbView a,LimbView b,MutableLimbView output);
+    //! Full product using the explicitly selected portable reference.
+    static void mul_into_portable(LimbView a,LimbView b,MutableLimbView output);
+    //! Whether an architecture-specific multiplication kernel was built.
+    static bool has_native_multiply() noexcept;
     Limb limb(std::size_t index) const noexcept;
     std::size_t bit_length() const noexcept;
     void swap(BigUnsigned& other) noexcept;

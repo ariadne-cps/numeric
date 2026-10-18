@@ -7456,3 +7456,8 @@ Portable `BigUnsigned::mul`, `mul_low`, and `square` are available to the eventu
 ### BigUnsigned B2 low-level reusable buffers (18 October 2026)
 
 The shared core now defines non-owning read-only/writable 64-bit limb views, per-instance reusable scratch, and `add_into`, `sub_into`, `mul_low_into` kernels for disjoint buffer inputs/outputs. `assign` supports self-referential limb subspans with canonical normalization. Scratch acquisitions invalidate earlier views and zero the acquired range. FloatAP code and its existing GMP wide division are unchanged; the detailed contracts and GMP-based tests live in `integer_rational_design.md`. No ISA specializations are implemented in B2.
+
+
+### BigUnsigned B3: optional x86-64 wide products (18 October 2026)
+
+The shared unsigned limb layer adds full-product `mul_into` and explicitly callable portable `mul_into_portable`/`mul_low_into_portable` entry points. A separately compiled `src/big_unsigned_x86-64.cpp` may use baseline x86-64 wide multiplication (conditional GNU/Clang 128-bit unsigned type or MSVC `_umul128`), while `src/big_unsigned.cpp` retains the correct portable four-32x32 reference. Both compute the same exact schoolbook result, support modular low truncation, prohibit output/source overlap and allocate no workspace. No BMI2/ADX assumption or runtime ISA probing is introduced. The x86 code is compiled only for supported CPU/compiler pairs; other targets automatically use portable C++20. Explicit portable entry points make forced-path differential tests possible, without modifying FloatAP. No ARM64 kernel or FloatAP end-to-end improvement is claimed. Design proof, testing record, historic preallocated-kernel timings and validation gate are in `integer_rational_design.md`.

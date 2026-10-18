@@ -36,6 +36,14 @@
 
 namespace Ariadne {
 
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64)
+namespace BigUnsignedDetail {
+void mul_low_into_x86_64(BigUnsigned::LimbView a,
+                         BigUnsigned::LimbView b,
+                         BigUnsigned::MutableLimbView output) noexcept;
+} // namespace BigUnsignedDetail
+#endif
+
 BigUnsigned::MutableLimbView BigUnsigned::Scratch::acquire(std::size_t count) {
     if (count <= inline_capacity) {
         std::fill_n(_inline_limbs.data(),count,Limb{0});
@@ -364,8 +372,59 @@ void multiply_limbs(std::span<std::uint64_t const> a,
 
 } // namespace
 
-void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
+void BigUnsigned::mul_low_into_portable(
+        LimbView a,LimbView b,MutableLimbView output)
+{
     multiply_limbs(a,b,output);
+}
+
+bool BigUnsigned::has_native_multiply() noexcept {
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64)
+    return true;
+#else
+    return false;
+#endif
+}
+
+void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64)
+    // One-limb cases avoid the out-of-line optimized kernel call.
+    // All x86-64 baseline processors support integer 64x64 multiplication.
+    if (a.size() >= 2u && b.size() >= 2u) {
+        BigUnsignedDetail::mul_low_into_x86_64(a,b,output);
+        return;
+    }
+#endif
+    mul_low_into_portable(a,b,output);
+}
+
+namespace {
+
+void check_full_product_size(
+        BigUnsigned::LimbView a,BigUnsigned::LimbView b,
+        BigUnsigned::MutableLimbView output)
+{
+    if (a.empty() || b.empty()) {
+        return;
+    }
+    if (a.size() > std::numeric_limits<std::size_t>::max()-b.size()
+            || output.size() < a.size()+b.size()) {
+        throw std::length_error("BigUnsigned mul_into output too small");
+    }
+}
+
+} // namespace
+
+void BigUnsigned::mul_into(LimbView a,LimbView b,MutableLimbView output) {
+    check_full_product_size(a,b,output);
+    mul_low_into(a,b,output);
+}
+
+void BigUnsigned::mul_into_portable(
+        LimbView a,LimbView b,MutableLimbView output)
+{
+    check_full_product_size(a,b,output);
+    mul_low_into_portable(a,b,output);
 }
 
 BigUnsigned mul_low(BigUnsigned const& a,BigUnsigned const& b,
@@ -399,7 +458,13 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
         throw std::length_error("BigUnsigned product size overflow");
     }
 
-    return mul_low(a,b,a._size+b._size);
+    BigUnsigned result;
+    result.resize_for_result(a._size+b._size);
+    BigUnsigned::mul_into(
+        a.limbs(),b.limbs(),
+        BigUnsigned::MutableLimbView(result.mutable_data(),a._size+b._size));
+    result.normalize();
+    return result;
 }
 
 BigUnsigned square(BigUnsigned const& a)
