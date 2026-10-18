@@ -23,14 +23,20 @@
  */
 
 #include "numeric/big_unsigned.hpp"
+#include "benchmark_command_line.hpp"
+#include "logging/command_line.hpp"
+#include "logging/logging.hpp"
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
-#include <iostream>
+#include <limits>
+#include <sstream>
+#include <string>
 #include <random>
 #include <stdexcept>
 #include <vector>
@@ -38,7 +44,7 @@
 
 namespace {
 
-using Ariadne::BigUnsigned;
+using namespace Ariadne;
 using Clock = std::chrono::steady_clock;
 
 struct GmpInteger {
@@ -86,7 +92,85 @@ void verify_gmp(BigUnsigned const& actual,mpz_srcptr expected)
     }
 }
 
-void measure(unsigned bits,unsigned iterations,unsigned samples)
+struct MultiplicationDatum {
+    unsigned bits;
+    double portable_ns;
+    double selected_ns;
+    double gmp_ns;
+    double owned_ns;
+};
+
+struct MultiplicationSelection {
+    unsigned iterations=20000u;
+    unsigned samples=31u;
+    std::vector<unsigned> sizes{53u,128u,256u,1024u,2048u};
+    bool summary_only=false;
+    bool details=false;
+    double max_slowdown=std::numeric_limits<double>::infinity();
+};
+
+List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
+{
+    List<ArgumentParser> parsers;
+    parsers.append(make_valued_argument_parser(
+        "i","iterations","Number of operations in each measured sample (positive)",
+        [&selection](String const& value) -> VoidFunction {
+            const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
+            if (count==0u) { throw std::invalid_argument("iterations must be positive"); }
+            return [&selection,count] { selection.iterations=count; };
+        }));
+    parsers.append(make_valued_argument_parser(
+        "n","samples","Odd number of samples, at least three",
+        [&selection](String const& value) -> VoidFunction {
+            const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
+            if (count<3u || count%2u==0u) {
+                throw std::invalid_argument("invalid sample count");
+            }
+            return [&selection,count] { selection.samples=count; };
+        }));
+    parsers.append(make_valued_argument_parser(
+        "b","bits","Comma-separated operand sizes in bits (positive)",
+        [&selection](String const& value) -> VoidFunction {
+            const std::string text(value);
+            if (text.empty() || text.back()==',') {
+                throw std::invalid_argument("invalid size list");
+            }
+            std::vector<unsigned> parsed;
+            std::istringstream input(text);
+            std::string token;
+            while (std::getline(input,token,',')) {
+                const unsigned bits=
+                    BenchmarkCommandLine::parse_unsigned<unsigned>(String(token));
+                if (bits==0u ||
+                    std::find(parsed.begin(),parsed.end(),bits)!=parsed.end()) {
+                    throw std::invalid_argument("invalid or duplicate operand size");
+                }
+                parsed.push_back(bits);
+            }
+            if (parsed.empty()) { throw std::invalid_argument("empty size list"); }
+            return [&selection,parsed] { selection.sizes=parsed; };
+        }));
+    parsers.append(make_unvalued_argument_parser(
+        "","summary-only","Print only aggregate slowdown statistics",
+        [&selection] { selection.summary_only=true; }));
+    parsers.append(make_unvalued_argument_parser(
+        "","details","Print per-size portable/selected/owned ratios to GMP",
+        [&selection] { selection.details=true; }));
+    parsers.append(make_valued_argument_parser(
+        "","max-slowdown","Fail if worst selected/GMP slowdown exceeds this ratio",
+        [&selection](String const& value) -> VoidFunction {
+            const std::string text(value);
+            std::size_t used=0u;
+            const double ratio=std::stod(text,&used);
+            if (used!=text.size() || !std::isfinite(ratio) || ratio<=0.0) {
+                throw std::invalid_argument("invalid positive slowdown ratio");
+            }
+            return [&selection,ratio] { selection.max_slowdown=ratio; };
+        }));
+    return parsers;
+}
+
+MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples)
 {
     std::mt19937_64 engine(0xB3B3B3ULL+bits);
     const std::size_t n=(bits+63u)/64u;
@@ -130,38 +214,168 @@ void measure(unsigned bits,unsigned iterations,unsigned samples)
     // Verify after timing as well, with no exact checks inside timed code.
     verify_gmp(BigUnsigned(output),gr.value);
     verify_gmp(mul(a,b),gr.value);
-    std::cout << std::setw(5) << bits
-              << std::setw(16) << portable
-              << std::setw(16) << native
-              << std::setw(16) << raw
-              << std::setw(16) << owned
-              << std::setw(14) << native/raw
-              << '\n';
+    return {bits,portable,native,raw,owned};
+}
+
+void print_measurements(std::vector<MultiplicationDatum> const& data,
+                        unsigned iterations,unsigned samples,bool summary_only)
+{
+    if (summary_only) { return; }
+    LOGGING_PRINTLN("BigUnsigned multiplication benchmark | iterations="
+                    << iterations << " | samples=" << samples)
+    LOGGING_PRINTLN(std::string(79u,'='))
+    LOGGING_PRINTLN(std::left << std::setw(10) << "Backend"
+                    << "  " << std::setw(24) << "Operation"
+                    << "  " << std::setw(6) << "Bits"
+                    << "  " << std::right << std::setw(15) << "Median (ns)")
+    LOGGING_PRINTLN(std::string(79u,'-'))
+    for (auto const& row : data) {
+        const auto print_row=[&](char const* backend,double nanoseconds) {
+            LOGGING_PRINTLN(std::left << std::setw(10) << backend
+                            << "  " << std::setw(24) << "multiply"
+                            << "  " << std::setw(6) << row.bits
+                            << "  " << std::right << std::setw(15)
+                            << std::fixed << std::setprecision(3)
+                            << nanoseconds)
+        };
+        print_row("portable",row.portable_ns);
+        print_row("selected",row.selected_ns);
+        print_row("mpz",row.gmp_ns);
+        print_row("owned",row.owned_ns);
+        LOGGING_PRINTLN(std::string(79u,'-'))
+    }
+    LOGGING_PRINTLN(std::string(79u,'='))
+}
+
+struct MultiplicationAggregate {
+    std::size_t count=0u;
+    double log_sum=0.0;
+    double reference_sum=0.0;
+    double candidate_sum=0.0;
+    double worst_ratio=0.0;
+    unsigned worst_bits=0u;
+
+    void add(unsigned bits,double reference,double candidate) {
+        if (!std::isfinite(reference) || !std::isfinite(candidate)
+            || reference<=0.0 || candidate<=0.0) {
+            throw std::runtime_error("nonpositive or nonfinite multiply timing");
+        }
+        const double ratio=candidate/reference;
+        ++count;
+        log_sum+=std::log(ratio);
+        reference_sum+=reference;
+        candidate_sum+=candidate;
+        if (ratio>worst_ratio) {
+            worst_ratio=ratio;
+            worst_bits=bits;
+        }
+    }
+
+    void print(char const* name) const {
+        if (count==0u || reference_sum<=0.0) {
+            throw std::runtime_error("empty multiplication benchmark aggregate");
+        }
+        LOGGING_PRINTLN(std::left << std::setw(12) << name
+                        << "  ops=" << std::setw(3) << count
+                        << "  geomean=" << std::fixed << std::setprecision(3)
+                        << std::exp(log_sum/static_cast<double>(count)) << "x"
+                        << "  total_time=" << candidate_sum/reference_sum << "x"
+                        << "  worst=" << worst_ratio << "x ("
+                        << worst_bits << " bits)")
+    }
+};
+
+void print_slowdowns(std::vector<MultiplicationDatum> const& data,
+                     bool details,double max_slowdown)
+{
+    MultiplicationAggregate portable,selected,owned;
+    if (details) {
+        LOGGING_PRINTLN(" ")
+        LOGGING_PRINTLN("Detailed comparisons (candidate / GMP)")
+        LOGGING_PRINTLN(std::string(79u,'-'))
+        LOGGING_PRINTLN(std::left << std::setw(12) << "Backend"
+                        << std::setw(8) << "Bits"
+                        << std::setw(16) << "GMP (ns)"
+                        << std::setw(16) << "Native (ns)" << "Slowdown")
+    }
+    for (auto const& row : data) {
+        portable.add(row.bits,row.gmp_ns,row.portable_ns);
+        selected.add(row.bits,row.gmp_ns,row.selected_ns);
+        owned.add(row.bits,row.gmp_ns,row.owned_ns);
+        if (details) {
+            const auto print_detail=[&](char const* backend,double candidate) {
+                LOGGING_PRINTLN(std::left << std::setw(12) << backend
+                                << std::setw(8) << row.bits
+                                << std::setw(16) << std::fixed
+                                << std::setprecision(3) << row.gmp_ns
+                                << std::setw(16) << candidate
+                                << candidate/row.gmp_ns << "x")
+            };
+            print_detail("portable",row.portable_ns);
+            print_detail("selected",row.selected_ns);
+            print_detail("owned",row.owned_ns);
+        }
+    }
+    LOGGING_PRINTLN(" ")
+    LOGGING_PRINTLN(std::string(79u,'='))
+    LOGGING_PRINTLN("BigUnsigned multiplication / GMP slowdown (x; >1 means slower)")
+    LOGGING_PRINTLN(std::string(79u,'-'))
+    portable.print("portable");
+    selected.print("selected");
+    owned.print("owned");
+    LOGGING_PRINTLN(std::string(79u,'='))
+    LOGGING_PRINTLN("geomean weights each operand size equally; "
+                    "total_time weights by measured cost.")
+    if (std::isfinite(max_slowdown) &&
+        selected.worst_ratio>max_slowdown) {
+        throw std::runtime_error(
+            "selected slowdown exceeds --max-slowdown: "+
+            std::to_string(selected.worst_ratio)+"x > "+
+            std::to_string(max_slowdown)+"x");
+    }
 }
 
 } // namespace
 
-int main(int argc,char** argv)
+int main(int argc,const char* argv[])
 {
+    BenchmarkCommandLine::initialize_logging();
     try {
-        const unsigned iterations = argc>1
-            ? static_cast<unsigned>(std::stoul(argv[1])) : 20000u;
-        const unsigned samples = argc>2
-            ? static_cast<unsigned>(std::stoul(argv[2])) : 31u;
-        if (iterations==0u || samples==0u) {
-            throw std::invalid_argument("iterations and samples must be positive");
+        MultiplicationSelection selection;
+        CommandLineInterface command_line;
+        command_line.add(logging_command_line());
+        command_line.add(CommandLineContribution(
+            "numeric-big-unsigned-multiplication",
+            multiplication_parsers(selection)));
+
+        const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
+            argc,argv,{"iterations","samples"},
+            {"--iterations","-i","--samples","-n","--bits","-b",
+             "--max-slowdown","--scheduler","-s","--theme","-t",
+             "--verbosity","-v"});
+        if (!command_line.acquire(arguments)) {
+            return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
         }
-        std::cout << "BigUnsigned multiplication; native available="
-                  << BigUnsigned::has_native_multiply()
-                  << "; iterations=" << iterations
-                  << "; samples=" << samples << '\n';
-        std::cout << "bits portable_ns selected_ns gmp_mpz_ns owned_ns selected/GMP\n";
-        for (unsigned bits: {53u,128u,256u,1024u,2048u}) {
-            measure(bits,iterations,samples);
+        LOGGING_PRINTLN("BigUnsigned multiplication - running "
+                        << selection.sizes.size() << " operand-size groups"
+                        << " | native available="
+                        << BigUnsigned::has_native_multiply())
+        LOGGING_PRINTLN("Iterations: " << selection.iterations
+                        << "  |  Samples: " << selection.samples)
+
+        std::vector<MultiplicationDatum> data;
+        data.reserve(selection.sizes.size());
+        for (unsigned bits : selection.sizes) {
+            LOGGING_PRINTLN("Measuring " << bits << " bits ...")
+            data.push_back(measure(bits,selection.iterations,selection.samples));
+            LOGGING_PRINTLN("Completed " << bits << " bits")
         }
+        print_measurements(data,selection.iterations,selection.samples,
+                           selection.summary_only);
+        print_slowdowns(data,selection.details,selection.max_slowdown);
+        return 0;
     } catch (std::exception const& error) {
-        std::cerr << error.what() << '\n';
-        return EXIT_FAILURE;
+        LOGGING_PRINTLN("benchmark_big_unsigned_multiply: " << error.what())
+        return 1;
     }
-    return EXIT_SUCCESS;
 }
