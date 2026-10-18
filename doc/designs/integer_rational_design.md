@@ -740,3 +740,22 @@ affect the Release performance workload. The preceding
 but Unix remains red from TSAN due to missing binaries.
 The current change must pass Unix/GCC/Clang/macOS,
 Windows and Coverage before claiming completion.
+
+### G1 priority change — FloatAP before Integer/Rational (18 October 2026)
+
+The user has explicitly prioritized finishing the GMP-free
+implementation of **FloatAP** before doing any `Integer` and
+`Rational` replacement or refactoring for code reuse.
+The previously recommended shared unsigned foundation
+and G1a `BigUnsigned` facade are therefore **not an
+immediate milestone**. The `FloatAPNative::Unsigned`
+type in `src/floatap_native_unsigned.hpp` is deliberately
+private to FloatAP; its correctness and FloatAP performance
+are more important than premature reuse. The new
+`test_floatap_native_unsigned` is a real functional CTest
+test, distinct from the four benchmark executables
+which must never be registered with CTest. FloatAP's
+public GMP interface, underlying `mpz_t` storage and
+certified interval `mpq_t` remain until incremental
+migration. This entry describes the initial isolated
+kernel only, not completion of GMP removal.
