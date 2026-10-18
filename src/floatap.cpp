@@ -704,21 +704,21 @@ std::pair<FloatAP::Unsigned,FloatAP::Unsigned> FloatAP::divrem_wide(
         // The carry fits in 64 bits: when high(product) == 2^64-1,
         // low(product) is necessarily zero, so no borrow can increase it.
         const std::uint64_t digit=static_cast<std::uint64_t>(estimate);
-        std::uint64_t carry=0u;
+        std::uint64_t submul_carry=0u;
         for (std::size_t i=0u; i<n; ++i) {
             if constexpr (Sparse) {
                 // Zero times digit plus zero combined carry leaves
                 // the dividend limb unchanged, including the borrow.
-                if (v[i]==0u && carry==0u) { continue; }
+                if (v[i]==0u && submul_carry==0u) { continue; }
             }
-            const WideUInt product=WideUInt(digit)*v[i]+carry;
+            const WideUInt product=WideUInt(digit)*v[i]+submul_carry;
             const std::uint64_t low=static_cast<std::uint64_t>(product);
             const std::uint64_t old=u[j+i];
             u[j+i]=old-low;
-            carry=static_cast<std::uint64_t>(product>>64u)+
+            submul_carry=static_cast<std::uint64_t>(product>>64u)+
                 static_cast<std::uint64_t>(old<low);
         }
-        return carry;
+        return submul_carry;
     };
 
     // The inverse costs one full-width division per operand pair.
