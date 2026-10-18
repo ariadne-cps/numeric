@@ -7452,3 +7452,7 @@ algorithm or performance claim; see
 ### Shared BigUnsigned B1 multiply contract (18 October 2026)
 
 Portable `BigUnsigned::mul`, `mul_low`, and `square` are available to the eventual FloatAP migration without linking external GMP in this shared arithmetic module. `mul_low` returns the exact low `k` 64-bit limbs, not an approximation or a rounded FloatAP result. `square` currently reuses `mul`. No FloatAP production code or frozen benchmark inputs have changed. The carry bound, independent GMP test oracle and B1 testing are documented in `integer_rational_design.md`.
+
+### BigUnsigned B2 low-level reusable buffers (18 October 2026)
+
+The shared core now defines non-owning read-only/writable 64-bit limb views, per-instance reusable scratch, and `add_into`, `sub_into`, `mul_low_into` kernels for disjoint buffer inputs/outputs. `assign` supports self-referential limb subspans with canonical normalization. Scratch acquisitions invalidate earlier views and zero the acquired range. FloatAP code and its existing GMP wide division are unchanged; the detailed contracts and GMP-based tests live in `integer_rational_design.md`. No ISA specializations are implemented in B2.
