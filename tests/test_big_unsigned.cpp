@@ -70,6 +70,7 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_randomized());
         ARIADNE_TEST_CALL(test_multiplication());
         ARIADNE_TEST_CALL(test_views_and_scratch());
+        ARIADNE_TEST_CALL(test_multiply_kernel_paths());
     }
 
   private:
@@ -78,6 +79,7 @@ class TestBigUnsigned
     void test_randomized();
     void test_multiplication();
     void test_views_and_scratch();
+    void test_multiply_kernel_paths();
 };
 
 void TestBigUnsigned::test_storage()
@@ -288,6 +290,79 @@ void TestBigUnsigned::test_views_and_scratch()
                         static_cast<mp_bitcnt_t>(64u*low));
         check_against_gmp(BigUnsigned(product_view),expected.value);
     }
+}
+
+void TestBigUnsigned::test_multiply_kernel_paths()
+{
+    const auto max = std::numeric_limits<std::uint64_t>::max();
+    std::mt19937_64 engine(0xB3B3B3ULL);
+    BigUnsigned::Scratch scratch;
+    GmpInteger a,b,expected,rounded;
+    static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 64u*80u);
+
+    // Multiple writes reuse the same result space; both implementations
+    // must overwrite all digits, including untouched high destinations.
+    for (unsigned repetition=0u; repetition<6000u; ++repetition) {
+        const std::size_t n = engine()%38u;
+        const std::size_t m = engine()%38u;
+        std::array<std::uint64_t,38> da{},db{};
+        for (std::size_t i=0u; i<n; ++i) da[i] = engine();
+        for (std::size_t i=0u; i<m; ++i) db[i] = engine();
+        if (repetition%7u==0u) std::fill_n(da.begin(),n,max);
+        if (repetition%11u==0u) std::fill_n(db.begin(),m,max);
+        if (repetition%13u==0u) std::fill_n(da.begin(),n,0u);
+        if (repetition%17u==0u) std::fill_n(db.begin(),m,0u);
+        const BigUnsigned lhs(std::span(da.data(),n));
+        const BigUnsigned rhs(std::span(db.data(),m));
+        mpz_import(a.value,n,-1,8,0,0,da.data());
+        mpz_import(b.value,m,-1,8,0,0,db.data());
+        mpz_mul(expected.value,a.value,b.value);
+
+        const std::size_t length = lhs.size()+rhs.size()+2u;
+        auto selected = scratch.acquire(length);
+        BigUnsigned::mul_into(lhs.limbs(),rhs.limbs(),selected);
+        check_against_gmp(BigUnsigned(selected),expected.value);
+        const auto selected_copy = std::vector<std::uint64_t>(
+            selected.begin(),selected.end());
+
+        selected = scratch.acquire(length);
+        BigUnsigned::mul_into_portable(lhs.limbs(),rhs.limbs(),selected);
+        ARIADNE_TEST_ASSERT(std::equal(
+            selected.begin(),selected.end(),selected_copy.begin()));
+        check_against_gmp(BigUnsigned(selected),expected.value);
+
+        const std::size_t low = repetition%5u==0u ? 0u :
+            repetition%5u==1u ? 1u : repetition%5u==2u ? 4u :
+            repetition%5u==3u ? 5u : engine()%80u;
+        selected = scratch.acquire(low);
+        BigUnsigned::mul_low_into(lhs.limbs(),rhs.limbs(),selected);
+        const auto low_copy = std::vector<std::uint64_t>(
+            selected.begin(),selected.end());
+        mpz_fdiv_r_2exp(rounded.value,expected.value,
+                        static_cast<mp_bitcnt_t>(64u*low));
+        check_against_gmp(BigUnsigned(selected),rounded.value);
+        selected = scratch.acquire(low);
+        BigUnsigned::mul_low_into_portable(
+            lhs.limbs(),rhs.limbs(),selected);
+        ARIADNE_TEST_ASSERT(std::equal(
+            selected.begin(),selected.end(),low_copy.begin()));
+    }
+
+    const std::array<std::uint64_t,1> one{1u};
+    std::array<std::uint64_t,1> too_short{};
+    bool selected_threw = false;
+    bool portable_threw = false;
+    try {
+        BigUnsigned::mul_into(one,one,too_short);
+    } catch (std::length_error const&) {
+        selected_threw = true;
+    }
+    try {
+        BigUnsigned::mul_into_portable(one,one,too_short);
+    } catch (std::length_error const&) {
+        portable_threw = true;
+    }
+    ARIADNE_TEST_ASSERT(selected_threw && portable_threw);
 }
 
 void TestBigUnsigned::test_randomized()
