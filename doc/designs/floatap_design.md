@@ -5937,3 +5937,88 @@ native 64-bit owning significands on measured evidence.
 Do not proceed to a different GMP-free substitution until this
 division gate has been assessed, or a quantified exception is
 documented.
+
+## G1 capacity tuning after same-Mac scratch optimization benchmark (18 October 2026)
+
+**Measured checkpoint supplied by the user.** Commit
+`a944c9814aba106b40e7f9bc55dc1571cd7c0d91` (three local
+wide-division scratch buffers instead of six heap buffers) has now
+been measured with the unchanged `1000 11` benchmark. It passes
+verification of 256 paired inputs and 3456 operation results.
+The following are **FloatAP absolute medians in nanoseconds**;
+the first column is the previously supplied better baseline,
+the second is its worse pre-scratch successor `8f488f5`,
+and the third is the measured `a944c981` result.
+
+| Operation | Bits | Baseline | Pre-scratch | Scratch optimized |
+| --- | ---: | ---: | ---: | ---: |
+| div_up | 128 | 129.375 | 339.625 | 246.417 |
+| div_up | 256 | 154.083 | 467.250 | 384.042 |
+| div_up | 1024 | 256.875 | 1188.334 | 1094.542 |
+| div_nearest | 1024 | 289.375 | 1226.667 | 1121.958 |
+| construct_rational | 128 | 266.959 | 535.916 | 444.000 |
+| construct_rational | 256 | 291.583 | 598.375 | 511.042 |
+| construct_rational | 1024 | 484.375 | 1203.500 | 1086.209 |
+| ALL geomean slowdown | -- | 0.912x | 1.010x | 0.985x |
+| ALL cost-weighted slowdown | -- | 0.407x | 0.448x | 0.437x |
+| ALL worst slowdown | -- | 2.994x | 7.471x | 6.580x |
+
+These measurements demonstrate a real recovery, **not** restoration
+of baseline. Large division and rational construction are still the
+dominant *regressed* operations at 128/256/1024 bits; elementary
+functions mostly remain close to their earlier medians.
+Checks for `a944c981`: Windows release, AppleClang/macOS release
+and coverage, GCC/Clang/Linux release and coverage, and Linux
+ThreadSanitizer reported success; Codecov project and patch checks
+reported failure (do not silently describe the entire CI as green).
+
+**Next isolated change: native `Unsigned` inline capacity 4 -> 16.**
+The old four 32-bit inline limbs cover only up to 128-bit magnitudes.
+Normalizing and shifting the numerator in `round_ratio` frequently
+increases the number of words, triggering allocation even when the
+original inputs are small. Raise only the private inline capacity
+to sixteen 32-bit limbs (512 bits); preserve `_large` for all
+other sizes. All arithmetic, rounding decisions, exponent handling,
+portable 32-bit Knuth division and 64-bit wide division are unchanged.
+
+**Exploratory same-host kernel-adapter microprobe, not Ariadne.**
+A locally compiled synthetic `Unsigned`-plus-GMP-import/export
+probe ran repeatable 120,000-iteration cases and indicated
+(with substantial platform/workload limitations):
+
+| Input bits | Four inline limbs | Sixteen inline limbs | Sixty-four inline limbs |
+| --- | ---: | ---: | ---: |
+| 53 | 138.79 ns | 111.09 ns | 127.98 ns |
+| 128 | 165.59 ns | 134.88 ns | 158.45 ns |
+| 256 | 242.71 ns | 216.25 ns | 201.07 ns |
+| 1024 | 619.96 ns | 645.10 ns | 602.62 ns |
+
+This probe is **not a complete `round_ratio` test or performance
+claim**; especially at 1024 bits, the sixteen-limb choice may
+regress performance. Sixteen is a deliberately smaller and more
+conservative first experiment for 53/128/256, avoiding wide-object
+copy overhead. Re-run the identical MacBook 1000x11 public benchmark
+before keeping or adjusting the capacity.
+
+**Additional algorithm investigation not integrated:** a
+normalized-leading-limb reciprocal computed once per wide division
+can replace many 128/64 estimates by products and small corrections,
+as in Granlund-Montgomery preinversion. An independent C++/GMP
+prototype matched 80,000 full quotient/remainder cases and
+10,000,000 isolated quotient digit cases. Isolated x86 timings
+favored preinversion for large quotients only, and penalized
+128-bit divisors. This remains a **candidate for a separately
+measured follow-up**, not part of this change. The Apple arm64
+behavior may differ because compiler-rt implements 128/64
+division in software; reference:
+https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/builtins/udivmodti4.c
+and Granlund & Montgomery (PLDI 1994):
+https://doi.org/10.1145/178243.178249
+
+**Gate:** obtain standard CTest/CI results, then per-operation
+same-Mac timing. Accept only improvements in reproducible aggregate
+and critical division/rational cases, with explicit monitoring of
+53-bit latency and 1024-bit regressions. If sixteen limbs is not
+beneficial, revert rather than carry an unmeasured capacity choice.
+Continue optimizing this GMP-free ratio path before moving to a
+different GMP removal milestone.

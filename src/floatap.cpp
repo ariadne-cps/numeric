@@ -233,12 +233,13 @@ namespace FloatAPNative {
 // facade. Little-endian 32-bit limbs keep all products within uint64_t
 // on GCC, Clang and MSVC without compiler-specific wide integers.
 //
-// The first four limbs are inline. A dynamic buffer is used only when
-// the normalized magnitude exceeds the inline capacity.
+// The first sixteen limbs are inline: the native ratio path frequently
+// creates 128-256 bit temporaries that otherwise require heap allocations.
+// Larger magnitudes retain the unrestricted dynamic buffer.
 class Unsigned {
   public:
     using Limb = std::uint32_t;
-    static constexpr std::size_t inline_capacity = 4u;
+    static constexpr std::size_t inline_capacity = 16u;
     static constexpr std::uint64_t base = std::uint64_t{1} << 32;
 
   private:
