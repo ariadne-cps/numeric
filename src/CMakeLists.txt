@@ -31,8 +31,8 @@ target_include_directories(NUMERIC_SRC PRIVATE
 
 target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_NUMERIC_BUILD)
 
-# The optional x86-64 kernel uses baseline 64x64 multiplication only.
-# Other architectures and unsupported toolchains use the C++20 reference.
+# Architecture kernels use baseline 64x64 multiplication only.
+# Unsupported architecture/compiler combinations keep the C++20 reference.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
         AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang|MSVC)$")
     target_sources(NUMERIC_SRC PRIVATE big_unsigned_x86-64.cpp)
@@ -47,5 +47,21 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
             AND NUMERIC_BIG_UNSIGNED_GCC_FUSED_MULTIPLY)
         target_compile_definitions(NUMERIC_SRC PRIVATE
             ARIADNE_BIG_UNSIGNED_GCC_FUSED=1)
+    endif()
+endif()
+
+# Experimental Apple Silicon/Linux AArch64 fused multiply. AppleClang/Clang
+# and GNU support unsigned __int128, lowered to baseline AArch64 MUL/UMULH.
+# Keep the portable production selector until same-host benchmarks establish
+# a speedup; the forced mul_into_fused entry point is always available here.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$"
+        AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+    target_sources(NUMERIC_SRC PRIVATE big_unsigned_arm64.cpp)
+    target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_BIG_UNSIGNED_ARM64=1)
+    option(NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY
+           "Select fused BigUnsigned multiplication on ARM64 (experimental)" OFF)
+    if(NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY)
+        target_compile_definitions(NUMERIC_SRC PRIVATE
+            ARIADNE_BIG_UNSIGNED_ARM64_FUSED=1)
     endif()
 endif()

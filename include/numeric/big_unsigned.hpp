@@ -118,9 +118,10 @@ class BigUnsigned
     //! has a.size()+b.size() limbs for nonempty inputs; does not allocate.
     //! Overlap with either input is forbidden; extra limbs are zeroed.
     static void mul_into_comba(LimbView a,LimbView b,MutableLimbView output);
-    //! Experimental fused 128-bit accumulation schoolbook kernel, available
-    //! on x86-64 GCC/Clang including AppleClang. Else uses the B3
-    //! architecture-selected or portable reference implementation.
+    //! Experimental fused 128-bit accumulation schoolbook kernel for
+    //! x86-64 and AArch64 GCC/Clang/AppleClang builds. On x86-64 MSVC
+    //! uses B3 native schoolbook; elsewhere uses the C++20 reference.
+    //! Native availability does not imply selected dispatch on ARM64.
     //! Output is disjoint from inputs and fully overwritten; computes the
     //! exact product modulo 2^(64*output.size()) without allocation.
     static void mul_low_into_fused(LimbView a,LimbView b,MutableLimbView output);
@@ -158,10 +159,13 @@ class BigUnsigned
     //! Scratch size for a caller-selected Karatsuba recursion cutoff.
     static std::size_t karatsuba_scratch_limbs(
         std::size_t a_limbs,std::size_t b_limbs,std::size_t cutoff);
-    //! Whether an architecture-specific multiplication kernel was built.
+    //! Whether a native x86-64 or ARM64 wide-multiplication kernel was built.
+    //! On ARM64 the native fused kernel can be forced without selecting it.
     static bool has_native_multiply() noexcept;
+    //! Whether the x86-64 native schoolbook/Comba kernels were built.
+    static bool has_x86_64_multiply() noexcept;
     //! Whether the production selector uses fused multiply accumulation.
-    //! True only on x86-64 GCC builds with fused selection enabled.
+    //! GCC x86-64 defaults ON; ARM64 requires an explicit CMake opt-in.
     static bool selected_multiply_uses_fused() noexcept;
     Limb limb(std::size_t index) const noexcept;
     std::size_t bit_length() const noexcept;
