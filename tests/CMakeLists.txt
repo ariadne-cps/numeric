@@ -57,4 +57,8 @@ add_library(check_numeric OBJECT check_numeric.cpp)
 target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
 
 add_custom_target(tests)
-add_dependencies(tests ${UNIT_TESTS} check_numeric)
+add_dependencies(tests ${UNIT_TESTS} check_numeric
+    benchmark_compare_integer_backends
+    benchmark_compare_rational_backends
+    benchmark_integer
+    benchmark_rational)

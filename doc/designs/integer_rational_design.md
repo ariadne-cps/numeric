@@ -603,3 +603,25 @@ four lightweight CTest smoke tests. The initial commit
 only introduces benchmark infrastructure: green CI,
 successful smoke tests and same-host 1000x11 numbers
 must be checked and recorded separately.
+
+### G0b follow-up — ensure CTest benchmark executables are built by coverage (18 October 2026)
+
+The first new benchmark commit `f0a60f78` compiled and
+passed the Release pipelines on GCC 13, Clang 16,
+AppleClang 21 and Windows. Both Coverage jobs, however,
+failed in their combined build/test phase, and the
+Unix ThreadSanitizer job failed at Test. The connector
+exposes failure *steps* but not full job logs, so the
+specific failure message is **not yet established**.
+
+The Coverage target builds a project-defined tests
+target, which originally depended only on the
+unit-test executables. Four new CTest smoke tests invoke
+the new benchmark executables, so those executables
+must be built whenever the `tests` target is built.
+Add four explicit benchmark target dependencies to
+`tests`. This does not change any benchmark code
+or operation times, and avoids relying on an all-target
+build in Coverage. Re-run Unix/Windows/Coverage and
+distinguish any remaining sanitizer failures; no
+all-green claim is warranted until observed.
