@@ -392,6 +392,14 @@ bool BigUnsigned::has_native_multiply() noexcept {
 #endif
 }
 
+bool BigUnsigned::selected_multiply_uses_fused() noexcept {
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
+    return true;
+#else
+    return false;
+#endif
+}
+
 void BigUnsigned::mul_low_into_comba(
         LimbView a,LimbView b,MutableLimbView output)
 {
@@ -412,16 +420,28 @@ void BigUnsigned::mul_low_into_fused(
 #endif
 }
 
-void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
+void BigUnsigned::mul_low_into_schoolbook(
+        LimbView a,LimbView b,MutableLimbView output)
+{
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
-    // One-limb cases avoid the out-of-line optimized kernel call.
-    // All x86-64 baseline processors support integer 64x64 multiplication.
+    // Reproduce the B3 selected behavior, including its one-limb
+    // portable fallback, to preserve a strict A/B control.
     if (a.size() >= 2u && b.size() >= 2u) {
         BigUnsignedDetail::mul_low_into_x86_64(a,b,output);
         return;
     }
 #endif
     mul_low_into_portable(a,b,output);
+}
+
+void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
+    // Only GCC x86-64 has a demonstrated integrated gain. Clang and
+    // MSVC retain the original B3 production selection.
+    BigUnsignedDetail::mul_low_into_fused_x86_64(a,b,output);
+#else
+    mul_low_into_schoolbook(a,b,output);
+#endif
 }
 
 namespace {
@@ -465,6 +485,13 @@ void BigUnsigned::mul_into_fused(
 {
     check_full_product_size(a,b,output);
     mul_low_into_fused(a,b,output);
+}
+
+void BigUnsigned::mul_into_schoolbook(
+        LimbView a,LimbView b,MutableLimbView output)
+{
+    check_full_product_size(a,b,output);
+    mul_low_into_schoolbook(a,b,output);
 }
 
 BigUnsigned mul_low(BigUnsigned const& a,BigUnsigned const& b,

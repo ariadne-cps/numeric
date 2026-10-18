@@ -36,4 +36,15 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
         AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang|MSVC)$")
     target_sources(NUMERIC_SRC PRIVATE big_unsigned_x86-64.cpp)
     target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_BIG_UNSIGNED_X86_64=1)
+    # The fused 128-bit accumulator is compiler-sensitive: the same
+    # algorithm was faster with GCC 14 and not consistently with Clang.
+    # Keep the B3 schoolbook selector on Clang/AppleClang/MSVC and allow
+    # a same-host GCC control build by setting this option to OFF.
+    option(NUMERIC_BIG_UNSIGNED_GCC_FUSED_MULTIPLY
+           "Select fused 128-bit BigUnsigned multiplication on x86-64 GCC" ON)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+            AND NUMERIC_BIG_UNSIGNED_GCC_FUSED_MULTIPLY)
+        target_compile_definitions(NUMERIC_SRC PRIVATE
+            ARIADNE_BIG_UNSIGNED_GCC_FUSED=1)
+    endif()
 endif()
