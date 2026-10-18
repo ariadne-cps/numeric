@@ -1120,3 +1120,20 @@ Local deterministic differential verification: 5,000 additional GMP-oracle rando
 **Verification.** The original B2 GMP-differential suite is preserved. Added 6,000 deterministic GMP-oracle product cases across zero, all-ones, unequal lengths, inline/heap boundaries and oversized destinations. The selected and explicitly portable kernels are compared word-for-word for full and low products; output overwrite, scratch reuse and insufficient full-buffer exception are exercised. A matching isolated x86-64 algorithm probe passed 45,736 edge/random cases with GCC 14.2, Clang 17, and Clang ASan/UBSan. These local checks are **not** a substitute for the project's full CMake/CTest and Windows/MSVC/Apple ARM64 validation.
 
 **Performance and acceptance.** Previously reported x86-64 preallocated-output 20,000x31 microbenchmark medians (GCC 14.2, -O3) were portable/optimized: 53 bit 10.29/10.30 ns, 128 bit 17.97/16.14 ns, 256 bit 57.78/32.27 ns, 1024 bit 877.04/386.57 ns, 2048 bit 3576.64/1558.36 ns; these are **user-provided prior-session measurements**, not new measurements of this integration. In particular, 1024-bit speedup was 2.27x in a kernel-only comparison. The optimized path is not claimed faster end-to-end than GMP, and ARM64 has no optimized implementation or validated timing yet. Before using B3 as a FloatAP replacement, measure same-host absolute arithmetic times, portable/native/GMP and whole public FloatAP operations at 53/128/256/1024 bits; preserve all existing frozen 20,000x31 comparisons and numerical oracles. No adaptive performance crossover is claimed from these results. The source paths are `src/big_unsigned.cpp` and `src/big_unsigned_x86-64.cpp`; these reference kernels must continue to agree bit-for-bit. ISA reference: x86-64 baseline unsigned `MUL` (Intel SDM); MSVC `_umul128` compiler intrinsic contract. No third-party arithmetic source was copied.
+
+
+### BigUnsigned B3: first integrated Ubuntu x86-64 benchmark and CLI alignment (18 October 2026)
+
+**User-reported result, B3 commit `f8e56dc`.** On Ubuntu x86-64, `benchmark_big_unsigned_multiply` ran with 20,000 iterations and 31 median samples; the selected x86-64 path was active. Timings are nanoseconds per operation, with the originally frozen deterministic operand construction:
+
+| Bits | Portable into | Selected into | Direct GMP `mpz_mul` | Owning `BigUnsigned::mul` | Selected / GMP |
+|---|---:|---:|---:|---:|---:|
+| 53 | 14.8784 | 15.189 | 7.8989 | 30.5604 | 1.92293x |
+| 128 | 24.0364 | 20.1557 | 9.72135 | 35.493 | 2.07334x |
+| 256 | 61.653 | 28.863 | 17.3753 | 58.2633 | 1.66116x |
+| 1024 | 593.563 | 319.858 | 136.202 | 349.82 | 2.3484x |
+| 2048 | 2317.65 | 1239.11 | 437.547 | 1254.69 | 2.83195x |
+
+The selected kernel is faster than the portable reference at 128 bits and above (about 1.86x at 1024 bits) but remains **slower than raw GMP at every measured size** (2.348x at 1024 bits). `BigUnsigned::mul` additionally includes owning-result costs, whereas the direct GMP destination can reuse its allocation. These numbers come from the user's completed benchmark report, not a new assistant-side run, and do not establish ARM64 performance.
+
+**Reporting-only follow-up.** Align the standalone multiplication benchmark with the other Numeric benchmarks' `CommandLineInterface` and logging format: named `--iterations/-i`, `--samples/-n`, `--bits/-b`, `--summary-only`, `--details`, `--max-slowdown` (selected/GMP), standard logging/help switches, and the legacy positional iteration/sample form. Defaults remain 20,000 / 31 and operand sizes 53/128/256/1024/2048 bits. The resulting table reports backend, operation, bits, and median ns; aggregate comparisons report equally weighted geometric mean, sum-of-medians ratio and worst slowdown separately for portable, selected and owning operations. The operation pool, deterministic inputs, warm-up, median definition, measurement order, and before/after GMP correctness checks are unchanged. Only argument handling and presentation differ. Tests and benchmarks remain separate.
