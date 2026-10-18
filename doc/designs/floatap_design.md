@@ -7401,3 +7401,21 @@ values, not measurements of this rollback.
 If previously untouched FloatMP or FloatAP
 controls regress materially, STOP and request
 user review before further implementation.
+
+## BigUnsigned B0 cross-reference (18 October 2026)
+
+The common portable `BigUnsigned` class and first
+`compare`/`add`/`sub`/shift methods have been added
+in `include/numeric/big_unsigned.hpp` and
+`src/big_unsigned.cpp` with independent CTest
+and GMP test oracle. This is the shared
+`Integer`/`Rational`/`FloatAP` substrate,
+not an additional FloatAP-specific engine.
+**No FloatAP code paths changed.** Its current
+GMP wide-ratio division and the original
+20,000x31 ARM64 performance acceptance gate
+are unchanged; ARM64 and x86-64 optimized
+kernels have **not** been implemented yet.
+The authoritative storage and arithmetic
+contracts for phase B0 are recorded in
+`integer_rational_design.md`.

@@ -3,6 +3,7 @@ add_library(NUMERIC_SRC OBJECT
     int.cpp
     double.cpp
     integer.cpp
+    big_unsigned.cpp
     dyadic.cpp
     decimal.cpp
     rational.cpp
