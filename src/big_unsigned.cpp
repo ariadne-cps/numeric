@@ -44,6 +44,9 @@ void mul_low_into_x86_64(BigUnsigned::LimbView a,
 void mul_low_into_comba_x86_64(BigUnsigned::LimbView a,
                                BigUnsigned::LimbView b,
                                BigUnsigned::MutableLimbView output) noexcept;
+void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
+                               BigUnsigned::LimbView b,
+                               BigUnsigned::MutableLimbView output) noexcept;
 } // namespace BigUnsignedDetail
 #endif
 
@@ -438,6 +441,15 @@ bool BigUnsigned::has_arm64_multiply() noexcept {
 #endif
 }
 
+bool BigUnsigned::has_x86_64_carry_multiply() noexcept {
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__x86_64__) \
+    && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool BigUnsigned::has_x86_64_multiply() noexcept {
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
     return true;
@@ -479,6 +491,16 @@ void BigUnsigned::mul_low_into_arm64_carry(
 {
 #if defined(ARIADNE_BIG_UNSIGNED_ARM64)
     BigUnsignedDetail::mul_low_into_carry_arm64(a,b,output);
+#else
+    mul_low_into_portable(a,b,output);
+#endif
+}
+
+void BigUnsigned::mul_low_into_x86_64_carry(
+        LimbView a,LimbView b,MutableLimbView output)
+{
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64)
+    BigUnsignedDetail::mul_low_into_carry_x86_64(a,b,output);
 #else
     mul_low_into_portable(a,b,output);
 #endif
@@ -538,6 +560,13 @@ void BigUnsigned::mul_into_arm64_carry(
 {
     check_full_product_size(a,b,output);
     mul_low_into_arm64_carry(a,b,output);
+}
+
+void BigUnsigned::mul_into_x86_64_carry(
+        LimbView a,LimbView b,MutableLimbView output)
+{
+    check_full_product_size(a,b,output);
+    mul_low_into_x86_64_carry(a,b,output);
 }
 
 void BigUnsigned::mul_into_portable(

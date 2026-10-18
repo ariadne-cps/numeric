@@ -104,6 +104,7 @@ struct MultiplicationDatum {
     double new_mpz_ns=0.0; // 0 means the experiment was disabled
     double prealloc_karatsuba_ns=0.0; // 0 means the experiment was disabled
     double prealloc_arm64_carry_ns=0.0;
+    double prealloc_x86_64_carry_ns=0.0;
 };
 
 struct MultiplicationSelection {
@@ -118,6 +119,7 @@ struct MultiplicationSelection {
     bool include_new_mpz=false;
     bool include_karatsuba=false;
     bool include_arm64_carry=false;
+    bool include_x86_64_carry=false;
     unsigned karatsuba_cutoff=8u;
     bool karatsuba_cutoff_explicit=false;
     double max_slowdown=std::numeric_limits<double>::infinity();
@@ -180,6 +182,10 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
         "","include-arm64-carry","Measure the selected ARM64 explicit carry-chain kernel",
         [&selection] { selection.include_arm64_carry=true; }));
     parsers.append(make_unvalued_argument_parser(
+        "","include-x86-64-carry",
+        "Include experimental GNU/Clang x86-64 MULQ/ADCQ carry-chain kernel",
+        [&selection] { selection.include_x86_64_carry=true; }));
+    parsers.append(make_unvalued_argument_parser(
         "","include-schoolbook","Include forced B3 prealloc_schoolbook kernel",
         [&selection] { selection.include_schoolbook=true; }));
     parsers.append(make_unvalued_argument_parser(
@@ -222,7 +228,8 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
                             bool include_comba,bool include_fused,
                             bool include_schoolbook,bool include_new_mpz,
                             bool include_karatsuba,unsigned karatsuba_cutoff,
-                            bool include_arm64_carry)
+                            bool include_arm64_carry,
+                            bool include_x86_64_carry)
 {
     std::mt19937_64 engine(0xB3B3B3ULL+bits);
     const std::size_t n=(bits+63u)/64u;
@@ -282,6 +289,10 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
 
     if (include_arm64_carry) {
         BigUnsigned::mul_into_arm64_carry(a.limbs(),b.limbs(),output);
+        verify_gmp(BigUnsigned(output),gr.value);
+    }
+    if (include_x86_64_carry) {
+        BigUnsigned::mul_into_x86_64_carry(a.limbs(),b.limbs(),output);
         verify_gmp(BigUnsigned(output),gr.value);
     }
     const auto portable=median_ns([&] {
@@ -346,6 +357,14 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
             BigUnsigned::mul_into_arm64_carry(a.limbs(),b.limbs(),output);
         },iterations,samples);
     }
+    // Opt-in x86-64 candidate is appended after all existing modes.
+    double x86_64_carry=0.0;
+    if (include_x86_64_carry) {
+        x86_64_carry=median_ns([&] {
+            BigUnsigned::mul_into_x86_64_carry(
+                a.limbs(),b.limbs(),output);
+        },iterations,samples);
+    }
     // Verify after timing as well, with no exact checks inside timed code.
     verify_gmp(BigUnsigned(output),gr.value);
     verify_gmp(mul(a,b),gr.value);
@@ -357,7 +376,7 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
         }
     }
     return {bits,portable,native,raw,owned,comba,fused,schoolbook,
-            new_mpz,karatsuba,arm64_carry};
+            new_mpz,karatsuba,arm64_carry,x86_64_carry};
 }
 
 void print_measurements(std::vector<MultiplicationDatum> const& data,
@@ -402,6 +421,9 @@ void print_measurements(std::vector<MultiplicationDatum> const& data,
         }
         if (row.prealloc_arm64_carry_ns>0.0) {
             print_row("prealloc_arm64_carry",row.prealloc_arm64_carry_ns);
+        }
+        if (row.prealloc_x86_64_carry_ns>0.0) {
+            print_row("prealloc_x86_64_carry",row.prealloc_x86_64_carry_ns);
         }
         LOGGING_PRINTLN(std::string(79u,'-'))
     }
@@ -451,6 +473,7 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
 {
     MultiplicationAggregate portable,selected,owned,comba,fused,schoolbook;
     MultiplicationAggregate new_mpz,owned_vs_new_mpz,karatsuba,arm64_carry;
+    MultiplicationAggregate x86_64_carry;
     if (details) {
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Detailed comparisons (candidate / GMP)")
@@ -485,6 +508,10 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
         if (row.prealloc_arm64_carry_ns>0.0) {
             arm64_carry.add(row.bits,row.gmp_ns,row.prealloc_arm64_carry_ns);
         }
+        if (row.prealloc_x86_64_carry_ns>0.0) {
+            x86_64_carry.add(
+                row.bits,row.gmp_ns,row.prealloc_x86_64_carry_ns);
+        }
         if (details) {
             const auto print_detail=[&](char const* backend,double candidate) {
                 LOGGING_PRINTLN(std::left << std::setw(18) << backend
@@ -515,6 +542,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
             if (row.prealloc_arm64_carry_ns>0.0) {
                 print_detail("prealloc_arm64_carry",row.prealloc_arm64_carry_ns);
             }
+            if (row.prealloc_x86_64_carry_ns>0.0) {
+                print_detail("prealloc_x86_64_carry",row.prealloc_x86_64_carry_ns);
+            }
         }
     }
     LOGGING_PRINTLN(" ")
@@ -541,6 +571,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
     }
     if (arm64_carry.count!=0u) {
         arm64_carry.print("prealloc_arm64_carry");
+    }
+    if (x86_64_carry.count!=0u) {
+        x86_64_carry.print("prealloc_x86_64_carry");
     }
     LOGGING_PRINTLN(std::string(79u,'='))
     if (owned_vs_new_mpz.count!=0u) {
@@ -587,6 +620,11 @@ int main(int argc,const char* argv[])
             throw std::invalid_argument(
                 "--include-fused requires an x86-64 or ARM64 native build");
         }
+        if (selection.include_x86_64_carry &&
+                !BigUnsigned::has_x86_64_carry_multiply()) {
+            throw std::invalid_argument(
+                "--include-x86-64-carry requires GNU/Clang x86-64");
+        }
         if (selection.include_arm64_carry &&
                 !BigUnsigned::has_arm64_multiply()) {
             throw std::invalid_argument(
@@ -630,7 +668,8 @@ int main(int argc,const char* argv[])
                                    selection.include_new_mpz,
                                    selection.include_karatsuba,
                                    selection.karatsuba_cutoff,
-                                   selection.include_arm64_carry));
+                                   selection.include_arm64_carry,
+                                   selection.include_x86_64_carry));
             LOGGING_PRINTLN("Completed " << bits << " bits")
         }
         print_measurements(data,selection.iterations,selection.samples,

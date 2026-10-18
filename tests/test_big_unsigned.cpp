@@ -352,6 +352,15 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_gmp(BigUnsigned(selected),expected.value);
 
+        // The explicit x86-64 carry-chain uses the same GMP oracle,
+        // including all-ones, empty, asymmetric and reused output cases.
+        selected=scratch.acquire(length);
+        BigUnsigned::mul_into_x86_64_carry(
+            lhs.limbs(),rhs.limbs(),selected);
+        ARIADNE_TEST_ASSERT(std::equal(
+            selected.begin(),selected.end(),selected_copy.begin()));
+        check_against_gmp(BigUnsigned(selected),expected.value);
+
         // Explicit B3 schoolbook remains available even if the
         // selected kernel changes on GCC x86-64.
         selected = scratch.acquire(length);
@@ -406,6 +415,13 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         check_against_gmp(BigUnsigned(selected),rounded.value);
 
         selected=scratch.acquire(low);
+        BigUnsigned::mul_low_into_x86_64_carry(
+            lhs.limbs(),rhs.limbs(),selected);
+        ARIADNE_TEST_ASSERT(std::equal(
+            selected.begin(),selected.end(),low_copy.begin()));
+        check_against_gmp(BigUnsigned(selected),rounded.value);
+
+        selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_schoolbook(
             lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
@@ -421,10 +437,14 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     bool fused_threw = false;
     bool schoolbook_threw = false;
     bool carry_threw = false;
+    bool x86_carry_threw = false;
     bool karatsuba_threw = false;
     ARIADNE_TEST_ASSERT(
         !BigUnsigned::selected_multiply_uses_fused()
         || BigUnsigned::has_native_multiply());
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    ARIADNE_TEST_ASSERT(BigUnsigned::has_x86_64_carry_multiply());
+#endif
 #if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
     // Native ARM64 uses the specialized carry-chain, not common fused.
     ARIADNE_TEST_ASSERT(BigUnsigned::has_arm64_multiply());
@@ -456,6 +476,11 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         carry_threw = true;
     }
     try {
+        BigUnsigned::mul_into_x86_64_carry(one,one,too_short);
+    } catch (std::length_error const&) {
+        x86_carry_threw = true;
+    }
+    try {
         BigUnsigned::mul_into_schoolbook(one,one,too_short);
     } catch (std::length_error const&) {
         schoolbook_threw = true;
@@ -466,7 +491,8 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         karatsuba_threw = true;
     }
     ARIADNE_TEST_ASSERT(selected_threw && portable_threw &&
-                        comba_threw && fused_threw && carry_threw && schoolbook_threw &&
+                        comba_threw && fused_threw && carry_threw &&
+                        x86_carry_threw && schoolbook_threw &&
                         karatsuba_threw);
 
     // Missing recursive scratch must fail before altering output.
