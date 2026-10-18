@@ -7526,3 +7526,8 @@ Karatsuba (including recursion, workspaces and cutoff APIs) is moved into `src/b
 ### B10.1 Apple Silicon ARM64 explicit carry results (18 October 2026)
 
 In the user-run integrated benchmark following source-layout consolidation, the ARM64 carry-chain candidate (`--include-arm64-carry`) measured 154.744 ns at 1024 bits and 571.048 ns at 2048 bits, versus selected fused 182.898 ns and 806.990 ns within the same run (1.18x and 1.41x throughput improvement). Reused-result GMP measured 95.062/320.725 ns. The selected owning BigUnsigned path is still fused; these numbers do **not** measure the effect of switching the public owning path or FloatAP end-to-end performance. Native macOS differential CTest on B10.1 is pending; the ARM64 dispatch remains unchanged. The exact data and acceptance gate are in `integer_rational_design.md`.
+
+
+### Second B10.1 Apple Silicon carry benchmark (18 October 2026)
+
+In the user-run 256/1024/2048/4096-bit integrated BigUnsigned benchmark, the explicit ARM64 carry kernel took 17.831/153.998/570.777/2263.667 ns versus fused selected 22.617/179.512/796.533/3673.671 ns in the same run. The 1024/2048-bit speedups were reproduced across two user runs; the 256-bit result varied, and 4096 bits newly showed a 1.62x throughput gain versus the currently selected fused kernel. GMP reused-destination at 4096 bits took 986.669 ns. These results do not imply FloatAP end-to-end speedup and do not yet justify dispatch promotion without a reported native macOS ARM64 GMP-oracle CTest. No FloatAP source or production dispatch was modified. See `integer_rational_design.md` for the full measurements.
