@@ -101,6 +101,7 @@ struct MultiplicationDatum {
     double prealloc_comba_ns=0.0; // 0 means the experiment was disabled
     double prealloc_fused_ns=0.0; // 0 means the experiment was disabled
     double prealloc_schoolbook_ns=0.0; // 0 means the experiment was disabled
+    double new_mpz_ns=0.0; // 0 means the experiment was disabled
 };
 
 struct MultiplicationSelection {
@@ -112,6 +113,7 @@ struct MultiplicationSelection {
     bool include_comba=false;
     bool include_fused=false;
     bool include_schoolbook=false;
+    bool include_new_mpz=false;
     double max_slowdown=std::numeric_limits<double>::infinity();
 };
 
@@ -171,6 +173,10 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
     parsers.append(make_unvalued_argument_parser(
         "","include-schoolbook","Include forced B3 prealloc_schoolbook kernel",
         [&selection] { selection.include_schoolbook=true; }));
+    parsers.append(make_unvalued_argument_parser(
+        "","include-new-mpz",
+        "Include GMP multiplication with new result allocation and release",
+        [&selection] { selection.include_new_mpz=true; }));
     parsers.append(make_valued_argument_parser(
         "","max-slowdown","Fail if worst prealloc_selected/GMP slowdown exceeds this ratio",
         [&selection](String const& value) -> VoidFunction {
@@ -187,7 +193,7 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
 
 MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
                             bool include_comba,bool include_fused,
-                            bool include_schoolbook)
+                            bool include_schoolbook,bool include_new_mpz)
 {
     std::mt19937_64 engine(0xB3B3B3ULL+bits);
     const std::size_t n=(bits+63u)/64u;
@@ -226,6 +232,13 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
         BigUnsigned::mul_into_schoolbook(a.limbs(),b.limbs(),output);
         verify_gmp(BigUnsigned(output),gr.value);
     }
+    if (include_new_mpz) {
+        GmpInteger fresh;
+        mpz_mul(fresh.value,ga.value,gb.value);
+        if (mpz_cmp(fresh.value,gr.value)!=0) {
+            throw std::runtime_error("GMP new-result multiplication mismatch");
+        }
+    }
 
     const auto portable=median_ns([&] {
         BigUnsigned::mul_into_portable(a.limbs(),b.limbs(),output);
@@ -262,10 +275,29 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
             BigUnsigned::mul_into_schoolbook(a.limbs(),b.limbs(),output);
         },iterations,samples);
     }
+    // New GMP destination lifecycle is intentionally opt-in. It includes
+    // mpz_init, mpz_mul and mpz_clear in every timed iteration, unlike the
+    // original "mpz" case that reuses its destination. The nonzero guard
+    // mirrors "new_selected", and no correctness oracle runs in the loop.
+    double new_mpz=0.0;
+    if (include_new_mpz) {
+        new_mpz=median_ns([&] {
+            GmpInteger result;
+            mpz_mul(result.value,ga.value,gb.value);
+            if (mpz_sgn(result.value)==0) std::abort();
+        },iterations,samples);
+    }
     // Verify after timing as well, with no exact checks inside timed code.
     verify_gmp(BigUnsigned(output),gr.value);
     verify_gmp(mul(a,b),gr.value);
-    return {bits,portable,native,raw,owned,comba,fused,schoolbook};
+    if (include_new_mpz) {
+        GmpInteger fresh;
+        mpz_mul(fresh.value,ga.value,gb.value);
+        if (mpz_cmp(fresh.value,gr.value)!=0) {
+            throw std::runtime_error("GMP new-result multiplication mismatch");
+        }
+    }
+    return {bits,portable,native,raw,owned,comba,fused,schoolbook,new_mpz};
 }
 
 void print_measurements(std::vector<MultiplicationDatum> const& data,
@@ -301,6 +333,9 @@ void print_measurements(std::vector<MultiplicationDatum> const& data,
         }
         if (row.prealloc_schoolbook_ns>0.0) {
             print_row("prealloc_schoolbook",row.prealloc_schoolbook_ns);
+        }
+        if (row.new_mpz_ns>0.0) {
+            print_row("new_mpz",row.new_mpz_ns);
         }
         LOGGING_PRINTLN(std::string(79u,'-'))
     }
@@ -349,6 +384,7 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
                      bool details,double max_slowdown)
 {
     MultiplicationAggregate portable,selected,owned,comba,fused,schoolbook;
+    MultiplicationAggregate new_mpz,owned_vs_new_mpz;
     if (details) {
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Detailed comparisons (candidate / GMP)")
@@ -371,6 +407,11 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
         if (row.prealloc_schoolbook_ns>0.0) {
             schoolbook.add(row.bits,row.gmp_ns,row.prealloc_schoolbook_ns);
         }
+        if (row.new_mpz_ns>0.0) {
+            new_mpz.add(row.bits,row.gmp_ns,row.new_mpz_ns);
+            owned_vs_new_mpz.add(
+                row.bits,row.new_mpz_ns,row.new_selected_ns);
+        }
         if (details) {
             const auto print_detail=[&](char const* backend,double candidate) {
                 LOGGING_PRINTLN(std::left << std::setw(18) << backend
@@ -392,6 +433,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
             if (row.prealloc_schoolbook_ns>0.0) {
                 print_detail("prealloc_schoolbook",row.prealloc_schoolbook_ns);
             }
+            if (row.new_mpz_ns>0.0) {
+                print_detail("new_mpz",row.new_mpz_ns);
+            }
         }
     }
     LOGGING_PRINTLN(" ")
@@ -410,7 +454,17 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
     if (schoolbook.count!=0u) {
         schoolbook.print("prealloc_schoolbook");
     }
+    if (new_mpz.count!=0u) {
+        new_mpz.print("new_mpz");
+    }
     LOGGING_PRINTLN(std::string(79u,'='))
+    if (owned_vs_new_mpz.count!=0u) {
+        LOGGING_PRINTLN(" ")
+        LOGGING_PRINTLN("new_selected / new_mpz slowdown (x; both create a result)")
+        LOGGING_PRINTLN(std::string(79u,'-'))
+        owned_vs_new_mpz.print("new_selected");
+        LOGGING_PRINTLN(std::string(79u,'='))
+    }
     LOGGING_PRINTLN("geomean weights each operand size equally; "
                     "total_time weights by measured cost.")
     if (std::isfinite(max_slowdown) &&
@@ -466,7 +520,8 @@ int main(int argc,const char* argv[])
             data.push_back(measure(bits,selection.iterations,selection.samples,
                                    selection.include_comba,
                                    selection.include_fused,
-                                   selection.include_schoolbook));
+                                   selection.include_schoolbook,
+                                   selection.include_new_mpz));
             LOGGING_PRINTLN("Completed " << bits << " bits")
         }
         print_measurements(data,selection.iterations,selection.samples,
