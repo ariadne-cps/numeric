@@ -135,6 +135,20 @@ class BigUnsigned
     //! Force B3 full-product selection using caller-owned output storage.
     static void mul_into_schoolbook(
         LimbView a,LimbView b,MutableLimbView output);
+    //! B8 experimental Karatsuba multiplication (full product only).
+    //! Caller supplies output of at least a.size()+b.size() limbs and
+    //! disjoint scratch obtained from karatsuba_scratch_limbs(). Both
+    //! output and scratch must be disjoint from each input and each other.
+    //! Output is fully overwritten, with extra limbs zeroed. Neither
+    //! this kernel nor its recursive calls allocate. Does NOT change the
+    //! selected production multiply. The base case uses selected schoolbook.
+    static void mul_into_karatsuba(
+        LimbView a,LimbView b,MutableLimbView output,
+        MutableLimbView scratch);
+    //! Required B8 scratch size in 64-bit limbs for given input lengths.
+    //! Returns zero for base cases; may throw on size arithmetic overflow.
+    static std::size_t karatsuba_scratch_limbs(
+        std::size_t a_limbs,std::size_t b_limbs);
     //! Whether an architecture-specific multiplication kernel was built.
     static bool has_native_multiply() noexcept;
     //! Whether the production selector uses fused multiply accumulation.
