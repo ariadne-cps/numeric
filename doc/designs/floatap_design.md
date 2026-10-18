@@ -5844,3 +5844,96 @@ change the numerical workload, precision groups, or
 rounding certification to improve timings. The production
 FloatAP class still stores `mpz_t`; this is only a
 division performance milestone, not complete GMP removal.
+
+## G1 wide-division scratch optimization: one GMP-free path at a time (18 October 2026)
+
+**Scope and checkpoint.** Continue optimizing the already-introduced
+GMP-free `FloatAPNative::round_ratio` / `divrem_wide` path before
+replacing the next FloatAP arithmetic operation. Do not treat removal
+of GMP from the division **kernel** as removal from `FloatAP` as a
+whole: `mpz_t` remains the owning significand, and import/export
+still bridges legacy `Integer` / `Rational`.
+
+**Frozen benchmark comparison supplied by the user (same 1000 iterations,
+11 samples, 27 operations x 4 precisions).** The *better* supplied
+report is the comparison baseline; its SHA was not supplied. The
+*worse* supplied report is attributed to parent commit
+`8f488f593f7e8f5d701cf85c00c9695a5172b457`.
+Do not confuse this baseline with the earlier beginning-of-branch
+baseline 0.951/0.404/2.971 documented above.
+
+| FloatAP measurement | Better baseline | Worse parent commit |
+| --- | ---: | ---: |
+| ALL geomean FloatAP/FloatMP | 0.912x | 1.010x |
+| ALL sum-weighted slowdown | 0.407x | 0.448x |
+| ALL worst slowdown | 2.994x | 7.471x |
+| 128-bit div_up (ns) | 129.375 | 339.625 |
+| 256-bit div_up (ns) | 154.083 | 467.250 |
+| 1024-bit div_up (ns) | 256.875 | 1188.334 |
+| 128-bit construct_rational (ns) | 266.959 | 535.916 |
+| 256-bit construct_rational (ns) | 291.583 | 598.375 |
+| 1024-bit construct_rational (ns) | 484.375 | 1203.500 |
+
+Both reports state PASS on 256 paired inputs and 3456 paired results.
+They do **not** establish that this change restores baseline performance.
+
+**Implementation.** The 64-bit Knuth `divrem_wide` previously built
+packed `a` and `b`, normalized `u` and `v`, and separate
+`q` and remainder dynamic word arrays (six vector objects with
+dynamic buffers for these operand sizes). The optimized implementation
+packs directly into normalized `u` and `v`, uses a single quotient
+buffer, and denormalizes the remainder in place in `u`.
+Each of the three buffers uses 64 inline 64-bit words with vector
+fallback for larger operands. The exact quotient estimation,
+correction, remainder and rounding semantics are unchanged;
+the portable base-2^32 kernel on MSVC is unchanged.
+No new public type or header, global scratch, hidden precision cap
+or GMP dependency is introduced.
+
+**Completed isolated validation (NOT integrated Ariadne validation).**
+Using Clang 17/C++20 `-O3 -Wall -Wextra -Wpedantic` and GMP as
+an independent oracle, a standalone kernel probe passed 35,000
+deterministic randomized exact quotient/remainder comparisons among
+the old kernel, new kernel and `mpz_tdiv_qr`. Input divisors ranged
+from 4 to 259 32-bit words; dividends had 0 to 256 additional
+32-bit words, exercising both inline and dynamic fallback buffers.
+A local x86_64 Linux kernel-only timing run (not the user's Mac)
+observed the following **non-portable and noisy** examples:
+
+| Input family | Old wide kernel (ns) | Reduced-scratch kernel (ns) |
+| --- | ---: | ---: |
+| 128-bit divisor | 120-138 | 65-69 |
+| 256-bit divisor | 147-150 | 93-116 |
+| 1024-bit divisor | 505-516 | 439-473 |
+| 2048-bit divisor | 1294-1363 | 1306-1414 |
+
+These samples are only a reason to try the integration, not a
+FloatAP speedup claim: they exclude the public API, rounding,
+`mpz_import`, `mpz_export`, and real workload distribution.
+No complete CTest/CI or same-host MacBook 1000x11 report has been
+run at this checkpoint. The source change therefore **remains
+unvalidated as a baseline recovery**.
+
+**Rejected alternatives at this checkpoint.** An exploratory
+two-64-bit-division quotient estimator and a normalized single-limb
+reciprocal quotient estimator were each tested against 35,000 GMP
+divisions. Neither was a consistent gain at 1024-4096-bit divisors
+on x86_64, so neither is integrated. Such architecture-sensitive
+tuning needs an Apple arm64 measurement rather than assumptions
+about the compiler's 128/64 division code generation. Relevant
+prior art: GNU MP division algorithms
+(https://gmplib.org/manual/Division-Algorithms.html) and
+the correctly-rounded MPFR benchmark contract
+(https://www.mpfr.org/algo.html).
+
+**Next gate.** Run regular public FloatAP/FloatMP regression, edge,
+rounding and CI tests; then repeat exactly the frozen 1000x11
+MacBook benchmark for the same 53/128/256/1024-bit inputs and
+compare **absolute medians per operation** and geomean/sum/worst
+ratios. If 1024-bit division remains materially below the baseline,
+profile quotient-digit estimation vs. `Unsigned` import/export
+and scratch traffic on Apple arm64; investigate preinversion and
+native 64-bit owning significands on measured evidence.
+Do not proceed to a different GMP-free substitution until this
+division gate has been assessed, or a quantified exception is
+documented.
