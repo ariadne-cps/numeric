@@ -98,6 +98,7 @@ struct MultiplicationDatum {
     double prealloc_selected_ns;
     double gmp_ns;
     double new_selected_ns;
+    double prealloc_comba_ns=0.0; // 0 means the experiment was disabled
 };
 
 struct MultiplicationSelection {
@@ -106,6 +107,7 @@ struct MultiplicationSelection {
     std::vector<unsigned> sizes{53u,128u,256u,1024u,2048u};
     bool summary_only=false;
     bool details=false;
+    bool include_comba=false;
     double max_slowdown=std::numeric_limits<double>::infinity();
 };
 
@@ -154,8 +156,11 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
         "","summary-only","Print only aggregate slowdown statistics",
         [&selection] { selection.summary_only=true; }));
     parsers.append(make_unvalued_argument_parser(
-        "","details","Print per-size portable/selected/owned ratios to GMP",
+        "","details","Print per-size native/GMP slowdown ratios",
         [&selection] { selection.details=true; }));
+    parsers.append(make_unvalued_argument_parser(
+        "","include-comba","Include experimental x86-64 prealloc_comba kernel",
+        [&selection] { selection.include_comba=true; }));
     parsers.append(make_valued_argument_parser(
         "","max-slowdown","Fail if worst prealloc_selected/GMP slowdown exceeds this ratio",
         [&selection](String const& value) -> VoidFunction {
@@ -170,7 +175,8 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
     return parsers;
 }
 
-MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples)
+MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
+                            bool include_comba)
 {
     std::mt19937_64 engine(0xB3B3B3ULL+bits);
     const std::size_t n=(bits+63u)/64u;
@@ -197,6 +203,10 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples)
     BigUnsigned::mul_into(a.limbs(),b.limbs(),output);
     verify_gmp(BigUnsigned(output),gr.value);
     verify_gmp(mul(a,b),gr.value);
+    if (include_comba) {
+        BigUnsigned::mul_into_comba(a.limbs(),b.limbs(),output);
+        verify_gmp(BigUnsigned(output),gr.value);
+    }
 
     const auto portable=median_ns([&] {
         BigUnsigned::mul_into_portable(a.limbs(),b.limbs(),output);
@@ -211,10 +221,18 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples)
         const BigUnsigned product=mul(a,b);
         if (product.is_zero()) std::abort();
     },iterations,samples);
+    // Comba is measured only after the original four B3 measurements,
+    // preserving their order and the meaning of their existing baselines.
+    double comba=0.0;
+    if (include_comba) {
+        comba=median_ns([&] {
+            BigUnsigned::mul_into_comba(a.limbs(),b.limbs(),output);
+        },iterations,samples);
+    }
     // Verify after timing as well, with no exact checks inside timed code.
     verify_gmp(BigUnsigned(output),gr.value);
     verify_gmp(mul(a,b),gr.value);
-    return {bits,portable,native,raw,owned};
+    return {bits,portable,native,raw,owned,comba};
 }
 
 void print_measurements(std::vector<MultiplicationDatum> const& data,
@@ -242,6 +260,9 @@ void print_measurements(std::vector<MultiplicationDatum> const& data,
         print_row("prealloc_selected",row.prealloc_selected_ns);
         print_row("mpz",row.gmp_ns);
         print_row("new_selected",row.new_selected_ns);
+        if (row.prealloc_comba_ns>0.0) {
+            print_row("prealloc_comba",row.prealloc_comba_ns);
+        }
         LOGGING_PRINTLN(std::string(79u,'-'))
     }
     LOGGING_PRINTLN(std::string(79u,'='))
@@ -288,7 +309,7 @@ struct MultiplicationAggregate {
 void print_slowdowns(std::vector<MultiplicationDatum> const& data,
                      bool details,double max_slowdown)
 {
-    MultiplicationAggregate portable,selected,owned;
+    MultiplicationAggregate portable,selected,owned,comba;
     if (details) {
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Detailed comparisons (candidate / GMP)")
@@ -302,6 +323,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
         portable.add(row.bits,row.gmp_ns,row.prealloc_portable_ns);
         selected.add(row.bits,row.gmp_ns,row.prealloc_selected_ns);
         owned.add(row.bits,row.gmp_ns,row.new_selected_ns);
+        if (row.prealloc_comba_ns>0.0) {
+            comba.add(row.bits,row.gmp_ns,row.prealloc_comba_ns);
+        }
         if (details) {
             const auto print_detail=[&](char const* backend,double candidate) {
                 LOGGING_PRINTLN(std::left << std::setw(18) << backend
@@ -314,6 +338,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
             print_detail("prealloc_portable",row.prealloc_portable_ns);
             print_detail("prealloc_selected",row.prealloc_selected_ns);
             print_detail("new_selected",row.new_selected_ns);
+            if (row.prealloc_comba_ns>0.0) {
+                print_detail("prealloc_comba",row.prealloc_comba_ns);
+            }
         }
     }
     LOGGING_PRINTLN(" ")
@@ -323,6 +350,9 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
     portable.print("prealloc_portable");
     selected.print("prealloc_selected");
     owned.print("new_selected");
+    if (comba.count!=0u) {
+        comba.print("prealloc_comba");
+    }
     LOGGING_PRINTLN(std::string(79u,'='))
     LOGGING_PRINTLN("geomean weights each operand size equally; "
                     "total_time weights by measured cost.")
@@ -356,6 +386,11 @@ int main(int argc,const char* argv[])
         if (!command_line.acquire(arguments)) {
             return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
         }
+        if (selection.include_comba &&
+                !BigUnsigned::has_native_multiply()) {
+            throw std::invalid_argument(
+                "--include-comba requires an x86-64 native kernel build");
+        }
         LOGGING_PRINTLN("BigUnsigned multiplication - running "
                         << selection.sizes.size() << " operand-size groups"
                         << " | native available="
@@ -367,7 +402,8 @@ int main(int argc,const char* argv[])
         data.reserve(selection.sizes.size());
         for (unsigned bits : selection.sizes) {
             LOGGING_PRINTLN("Measuring " << bits << " bits ...")
-            data.push_back(measure(bits,selection.iterations,selection.samples));
+            data.push_back(measure(bits,selection.iterations,selection.samples,
+                                   selection.include_comba));
             LOGGING_PRINTLN("Completed " << bits << " bits")
         }
         print_measurements(data,selection.iterations,selection.samples,

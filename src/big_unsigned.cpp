@@ -41,6 +41,9 @@ namespace BigUnsignedDetail {
 void mul_low_into_x86_64(BigUnsigned::LimbView a,
                          BigUnsigned::LimbView b,
                          BigUnsigned::MutableLimbView output) noexcept;
+void mul_low_into_comba_x86_64(BigUnsigned::LimbView a,
+                               BigUnsigned::LimbView b,
+                               BigUnsigned::MutableLimbView output) noexcept;
 } // namespace BigUnsignedDetail
 #endif
 
@@ -386,6 +389,16 @@ bool BigUnsigned::has_native_multiply() noexcept {
 #endif
 }
 
+void BigUnsigned::mul_low_into_comba(
+        LimbView a,LimbView b,MutableLimbView output)
+{
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64)
+    BigUnsignedDetail::mul_low_into_comba_x86_64(a,b,output);
+#else
+    mul_low_into_portable(a,b,output);
+#endif
+}
+
 void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
     // One-limb cases avoid the out-of-line optimized kernel call.
@@ -425,6 +438,13 @@ void BigUnsigned::mul_into_portable(
 {
     check_full_product_size(a,b,output);
     mul_low_into_portable(a,b,output);
+}
+
+void BigUnsigned::mul_into_comba(
+        LimbView a,LimbView b,MutableLimbView output)
+{
+    check_full_product_size(a,b,output);
+    mul_low_into_comba(a,b,output);
 }
 
 BigUnsigned mul_low(BigUnsigned const& a,BigUnsigned const& b,

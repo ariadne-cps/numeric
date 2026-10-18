@@ -331,6 +331,14 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_gmp(BigUnsigned(selected),expected.value);
 
+        // The experimental Comba kernel must match the B3 portable
+        // reference word-for-word, also for oversized full destinations.
+        selected = scratch.acquire(length);
+        BigUnsigned::mul_into_comba(lhs.limbs(),rhs.limbs(),selected);
+        ARIADNE_TEST_ASSERT(std::equal(
+            selected.begin(),selected.end(),selected_copy.begin()));
+        check_against_gmp(BigUnsigned(selected),expected.value);
+
         const std::size_t low = repetition%5u==0u ? 0u :
             repetition%5u==1u ? 1u : repetition%5u==2u ? 4u :
             repetition%5u==3u ? 5u : engine()%80u;
@@ -346,12 +354,19 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
+
+        selected = scratch.acquire(low);
+        BigUnsigned::mul_low_into_comba(lhs.limbs(),rhs.limbs(),selected);
+        ARIADNE_TEST_ASSERT(std::equal(
+            selected.begin(),selected.end(),low_copy.begin()));
+        check_against_gmp(BigUnsigned(selected),rounded.value);
     }
 
     const std::array<std::uint64_t,1> one{1u};
     std::array<std::uint64_t,1> too_short{};
     bool selected_threw = false;
     bool portable_threw = false;
+    bool comba_threw = false;
     try {
         BigUnsigned::mul_into(one,one,too_short);
     } catch (std::length_error const&) {
@@ -362,7 +377,12 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     } catch (std::length_error const&) {
         portable_threw = true;
     }
-    ARIADNE_TEST_ASSERT(selected_threw && portable_threw);
+    try {
+        BigUnsigned::mul_into_comba(one,one,too_short);
+    } catch (std::length_error const&) {
+        comba_threw = true;
+    }
+    ARIADNE_TEST_ASSERT(selected_threw && portable_threw && comba_threw);
 }
 
 void TestBigUnsigned::test_randomized()
