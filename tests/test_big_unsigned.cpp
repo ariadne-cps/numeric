@@ -42,7 +42,7 @@ void check_against_gmp(BigUnsigned const& x, mpz_srcptr expected)
 {
     mpz_t native;
     mpz_init(native);
-    const auto digits=x.limbs();
+    const auto digits = x.limbs();
     mpz_import(native,digits.size(),-1,sizeof(BigUnsigned::Limb),0,0,digits.data());
     ARIADNE_TEST_ASSERT(mpz_cmp(native,expected)==0);
     ARIADNE_TEST_ASSERT(x.is_zero() == (mpz_sgn(native)==0));
@@ -68,6 +68,7 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_boundaries());
         ARIADNE_TEST_CALL(test_randomized());
     }
+
   private:
     void test_storage();
     void test_boundaries();
@@ -80,6 +81,7 @@ void TestBigUnsigned::test_storage()
     ARIADNE_TEST_ASSERT(zero.is_zero());
     ARIADNE_TEST_ASSERT(zero.limbs().empty());
     ARIADNE_TEST_ASSERT(zero.bit_length()==0u);
+
     BigUnsigned one(std::uint64_t{1});
     ARIADNE_TEST_ASSERT(one.limb(0)==1u);
     ARIADNE_TEST_ASSERT(one.limb(500)==0u);
@@ -89,15 +91,19 @@ void TestBigUnsigned::test_storage()
     BigUnsigned long_value(raw);
     ARIADNE_TEST_ASSERT(long_value.size()==5u);
     ARIADNE_TEST_ASSERT(long_value.limb(4)==5u);
+
     BigUnsigned copy(long_value);
     ARIADNE_TEST_ASSERT(compare(copy,long_value)==0);
+
     BigUnsigned moved(std::move(copy));
     ARIADNE_TEST_ASSERT(copy.is_zero());
     ARIADNE_TEST_ASSERT(compare(moved,long_value)==0);
+
     copy=one;
     copy=std::move(moved);
     ARIADNE_TEST_ASSERT(moved.is_zero());
     ARIADNE_TEST_ASSERT(compare(copy,long_value)==0);
+
     zero.swap(copy);
     ARIADNE_TEST_ASSERT(zero.size()==5u);
     ARIADNE_TEST_ASSERT(copy.is_zero());
@@ -119,8 +125,13 @@ void TestBigUnsigned::test_boundaries()
     ARIADNE_TEST_ASSERT(compare(shift_left(one,256u),BigUnsigned(
         std::array<std::uint64_t,5>{0,0,0,0,1}))==0);
     ARIADNE_TEST_ASSERT(compare(shift_right(shift_left(one,63u),63u),one)==0);
-    bool threw=false;
-    try { (void)sub(one,all); } catch (std::underflow_error const&) { threw=true; }
+
+    bool threw = false;
+    try {
+        (void)sub(one,all);
+    } catch (std::underflow_error const&) {
+        threw = true;
+    }
     ARIADNE_TEST_ASSERT(threw);
     ARIADNE_TEST_ASSERT(compare(add(all,BigUnsigned{}),all)==0);
 }
@@ -130,12 +141,13 @@ void TestBigUnsigned::test_randomized()
     std::mt19937_64 engine(0xBA17B00DULL);
     GmpInteger a,b,c;
     for (unsigned repetition=0; repetition<10000u; ++repetition) {
-        const std::size_t n=engine()%20u, m=engine()%20u;
-        std::array<std::uint64_t,20> na{},nb{};
-        for(std::size_t j=0;j<n;++j) na[j]=engine();
-        for(std::size_t j=0;j<m;++j) nb[j]=engine();
-        if (repetition%7u==0u) na.fill(std::numeric_limits<std::uint64_t>::max());
-        if (repetition%11u==0u) nb.fill(0u);
+        const std::size_t n = engine()%20u;
+        const std::size_t m = engine()%20u;
+        std::array<std::uint64_t,20> na{}, nb{};
+        for (std::size_t j=0; j<n; ++j) na[j] = engine();
+        for (std::size_t j=0; j<m; ++j) nb[j] = engine();
+        if (repetition%7u == 0u) na.fill(std::numeric_limits<std::uint64_t>::max());
+        if (repetition%11u == 0u) nb.fill(0u);
         const BigUnsigned x(std::span(na.data(),n));
         const BigUnsigned y(std::span(nb.data(),m));
         mpz_import(a.value,n,-1,8,0,0,na.data());
@@ -145,11 +157,11 @@ void TestBigUnsigned::test_randomized()
             (compare(x,y)>0 && mpz_cmp(a.value,b.value)>0));
         mpz_add(c.value,a.value,b.value);
         check_against_gmp(add(x,y),c.value);
-        if(mpz_cmp(a.value,b.value)>=0) {
+        if (mpz_cmp(a.value,b.value) >= 0) {
             mpz_sub(c.value,a.value,b.value);
             check_against_gmp(sub(x,y),c.value);
         }
-        const std::size_t bits=engine()%1030u;
+        const std::size_t bits = engine()%1030u;
         mpz_mul_2exp(c.value,a.value,bits);
         check_against_gmp(shift_left(x,bits),c.value);
         mpz_fdiv_q_2exp(c.value,a.value,bits);

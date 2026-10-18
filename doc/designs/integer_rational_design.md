@@ -954,3 +954,29 @@ yet been verified; this documentation-only
 approval does not resolve the Windows failure.
 Do not call phase B0 cross-platform validated
 until Windows passes.
+
+### BigUnsigned B0 Windows fix and style (18 October 2026)
+
+The initial `be34905` Windows 2025 Release
+job failed in MSVC 14.51.36231 when parsing
+`BigUnsigned::_inline` in the class declaration.
+The resulting C2226/C2334 and follow-on
+C3409/C2143/C2059 diagnostics point to an
+identifier collision: `_inline` is interpreted
+as a compiler-specific inline keyword/extension.
+The member is renamed everywhere to
+`_inline_limbs` with no change to the
+storage representation, arithmetic algorithms,
+tests, or ABI-visible public methods.
+
+The same maintenance commit expands whitespace,
+blank-line separation and control-flow formatting
+in `src/big_unsigned.cpp` and the dedicated test,
+following neighboring Ariadne numeric sources.
+Existing differential and adversarial tests are
+retained unaltered in their mathematical
+coverage. MSVC/Windows CI must pass before
+claiming the fix is verified; GCC/Clang
+regressions must also be checked. No
+architecture-specific kernels or FloatAP
+arithmetic changes are introduced.

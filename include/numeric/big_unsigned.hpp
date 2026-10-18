@@ -47,7 +47,7 @@ class BigUnsigned
     static constexpr std::size_t inline_capacity = 4u;
 
   private:
-    std::array<Limb,inline_capacity> _inline{};
+    std::array<Limb,inline_capacity> _inline_limbs{};
     std::vector<Limb> _heap;
     std::size_t _size = 0u;
 

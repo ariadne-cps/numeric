@@ -7438,3 +7438,13 @@ The same generic kernels remain available
 to `FloatAP`, `Integer` and `Rational`;
 no parallel FloatAP-only engine is authorized.
 This naming decision makes no functional change.
+
+### B0 portability correction (18 October 2026)
+
+The portable `BigUnsigned` inline-limb member
+is renamed from `_inline` to `_inline_limbs`
+to address MSVC 14.51 parsing failures.
+Whitespace in the new files is brought closer
+to Ariadne style. This is not a new arithmetic
+algorithm or performance claim; see
+`integer_rational_design.md` for diagnostics.
