@@ -7506,3 +7506,8 @@ The user measured the native ARM64 fused kernel with production dispatch still *
 ### B9 ARM64 fused dispatch ON: measured owning gains (18 October 2026)
 
 With `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY=ON`, the user verified that `selected kernel=fused` is reported on Apple Silicon, and that the owning public `new_selected` operation improves relative to the earlier OFF build: 256 bits 44.527 to 32.946 ns, 1024 bits 368.960 to 202.990 ns, 2048 bits 1396.992 to 836.858 ns. Forced/preallocated fused measured 16.592/180.544/802.896 ns at those sizes, and selected preallocated 16.600/180.769/805.240 ns, corroborating the dispatch. The 2048-bit owning GMP `new_mpz` remains faster (336.356 ns). This confirms a shared BigUnsigned improvement on Apple Silicon, **not** a FloatAP end-to-end speedup. macOS ARM64 CTest verification in the option-ON build is still pending; the ARM64 default remains OFF. The full five-size measurements and comparative limitations are in `integer_rational_design.md`.
+
+
+### B9.1: native ARM64 fused kernel is the default without a toggle (18 October 2026)
+
+Following user-confirmed green macOS ARM64 project tests and integrated owning/preallocated speedups, the ARM64 fused BigUnsigned multiply becomes the unconditional native default on supported GNU/Clang/AppleClang builds. The original `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY` CMake option and `ARIADNE_BIG_UNSIGNED_ARM64_FUSED` selection macro are removed entirely. The historical B9 OFF/ON sections above are superseded, but the explicitly callable portable reference remains. x86-64 dispatch and FloatAP source code are unchanged; the shared BigUnsigned improvement does not establish a FloatAP end-to-end performance win.
