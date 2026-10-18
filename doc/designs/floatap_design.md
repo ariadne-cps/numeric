@@ -6486,3 +6486,152 @@ GMP-free substitution. Check FloatMP and
 unchanged FloatAP controls for anomalous
 CPU contention and stop for user feedback if
 those show widespread regressions.
+
+## Architectural division research and revised performance strategy (18 October 2026)
+
+### Why the preceding work is insufficient
+
+On the comparable idle-host Apple ARM64 workload (20000 iterations,
+31 median samples), the beginning-of-branch 1024-bit reference
+FloatAP medians were 508.450 ns for construct_rational,
+292.404 ns for div_nearest, 255.475 ns for div_down and
+260.046 ns for div_up. At G2 (commit 9e5ff09),
+the respective measurements were 997.198 ns,
+939.519 ns, 871.923 ns and 914.373 ns.
+G3 (5a66ee2) currently has no validated ARM64 performance
+report; do not extrapolate its gain.
+The native division remains roughly 3.2 to 3.5 times
+slower than the initial baseline at 1024 bits, regardless
+of small loop-level improvements. Stop optimizing the
+same quadratic kernel incrementally without evidence
+of a viable path to baseline parity.
+
+### Source-informed alternatives
+
+1. **GMP-style short/medium-length pre-inverted schoolbook kernel.**
+   GMP's basecase long division uses a quotient estimate based
+   on normalized high limbs and precomputed inverse, plus a
+   dedicated fused multiply-and-subtract primitive. GMP
+   mpn_tdiv_qr dispatches according to limb-count thresholds:
+   schoolbook below DC_DIV_QR_THRESHOLD, recursive division
+   above it, and blockwise inverse/Barrett only at much
+   larger sizes. Reference: GNU MP 6.3.0 manual,
+   https://gmplib.org/manual/Basecase-Division ,
+   https://gmplib.org/manual/Division-Algorithms ,
+   and https://fossies.org/dox/gmp-6.3.0/mpn_2generic_2tdiv__qr_8c_source.html .
+   Candidate native kernel for 2-32 64-bit limbs: proven
+   3-by-2 quotient estimate/preinverse (including its
+   initialization cost), full-width 64x64 -> 128 multiply,
+   tight fused mulsub with exact carries and add-back,
+   normalization and scratch reused for an entire operation.
+   Inspect compiler-generated assembly first. The current
+   quotient-digit variable has type WideUInt: explicitly
+   verify whether its multiplication by divisor words
+   produces unnecessary 128-bit arithmetic rather than
+   true 64x64->128 word multiplication. A type fix
+   alone is not the architectural goal. Use a C++20
+   implementation inside FloatAP, no target-CPU branches.
+
+2. **MPFR-inspired quotient approximation with certified rounding.**
+   MPFR div.c has fast approximate-quotient paths with
+   proved small error and uses extra exact work when
+   the approximation is too close to a rounding boundary.
+   Source:
+   https://fossies.org/linux/mpfr/src/div.c .
+   Research the representation-specific problem
+   Q=floor((N << shift)/D) for p-bit FloatAP output:
+   compute a candidate Q from high limbs or a reciprocal
+   at p+guard-bit precision, with an explicit *integer*
+   bound on the error. Then obtain a mathematically
+   certified decision using exact residual comparisons
+   R = scaled_N - Q*D or a provably sound sticky/guard
+   test. Correct the candidate until 0 <= R < D.
+   Nearest-even requires comparing 2R to D, including
+   exact ties and parity; directed modes require sign
+   and R!=0. If a short certification is inconclusive,
+   fall back to exact full division; never use a
+   probabilistic rounding assertion or change the
+   existing numerical oracle. Evaluate the cost of
+   rare fallback cases separately. This is a new
+   output-specific algorithm, not another local
+   Knuth-loop tweak.
+
+3. **Burnikel-Ziegler / divide-and-conquer for larger operands.**
+   Dividing 2n by n through recursive blocks reduces
+   complexity using Karatsuba or higher multiplication,
+   but the GMP manual explicitly notes that the
+   crossover is *above* the limb count at which
+   Karatsuba helps. Consequently this must not be
+   presumed faster for the 16-limb divisor typical
+   of 1024-bit FloatAP workloads. References:
+   https://gmplib.org/manual/Divide-and-Conquer-Division ;
+   Burnikel and Ziegler, Fast Recursive Division (1998),
+   https://www.mpi-inf.mpg.de/departments/algorithms-complexity/publications/reports .
+   Prototype and measure crossover with operand length
+   and quotient length, without architecture-specific
+   routing.
+
+4. **Newton reciprocal / blockwise Barrett for high precisions.**
+   GMP's blockwise Barrett computes a reciprocal of a
+   selected divisor segment and uses multiplication
+   to generate quotient blocks. It is reserved for
+   its largest divisions, not automatically for
+   128-1024 bits. Reference:
+   https://gmplib.org/manual/Block_002dWise-Barrett-Division .
+   Research an integer fixed-point reciprocal with
+   controlled error and final exact quotient/remainder
+   correction. Avoid floating heuristics that break
+   exact rounding. Prototype at 1024, 2048, 4096,
+   8192+ bits to measure when the inverse cost is
+   amortized. Use Karatsuba multiplication only when
+   the measured operand-length crossover warrants it.
+
+5. **Data movement and FloatAP adapter costs.**
+   Isolate time in mpz_export for two operands,
+   mpz_import for the result, normalization, reciprocal
+   setup, the quotient-digit kernel, remainder
+   handling and rounding. A GMP-compatible transient
+   read-only representation may remove copies during
+   the migration, but cannot be mistaken for the
+   eventual GMP-free owning significand.
+   Never change the existing FloatAP public type or
+   benchmark workload just to improve measured scores.
+
+### Execution protocol
+
+A. Benchmark these as *independent algorithmic candidates*
+in an isolated harness implementing the same mathematical
+division and rounding contract. Record dense, sparse,
+carry-intensive, exact-quotient, half-way, and adversarial
+inputs at 53/128/256/1024 and beyond. Include operation
+setup/import/export cost, not only kernel throughput.
+Check exact integer quotient/remainder against GMP, and
+public FloatAP/FloatMP results against all existing
+independent mathematical oracles. Sanitizers and platform
+CI are mandatory.
+
+B. First prototype the full **GMP-style 3-by-2 preinverted,
+fused-mulsub basecase** as the realistic short/medium
+competitor. In parallel, evaluate the **certified
+approximate-quotient** design from MPFR. Do not spend
+further commits on single-digit percentage loop tweaks.
+Retain the best exact algorithm per *operand/quotient
+limb-length* threshold once measured on Apple ARM64,
+with platform-independent behavior. BZ and Barrett are
+research candidates for sizes where their setup amortizes.
+
+C. A candidate is not considered successful merely because
+a standalone x86-64 microbenchmark improved. Use the
+unchanged, rebuilt FloatMP/FloatAP 20000x31 suite on
+idle Apple ARM64; use FloatMP and unaffected FloatAP
+operations as noise sentinels. A significant widespread
+control regression invalidates the performance run and
+requires user feedback before further coding. The hard
+gate remains *baseline parity or better in absolute
+median nanoseconds for construct_rational and all three
+division rounding modes at all 53/128/256/1024 bits*.
+No further GMP-free substitutions until that gate passes.
+
+**Scope of this note:** research and algorithm selection only.
+No production source modifications, claimed ARM64 speedups
+or widened benchmark coverage are introduced here.
