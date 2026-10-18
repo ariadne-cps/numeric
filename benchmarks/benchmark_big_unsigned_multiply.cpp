@@ -94,10 +94,10 @@ void verify_gmp(BigUnsigned const& actual,mpz_srcptr expected)
 
 struct MultiplicationDatum {
     unsigned bits;
-    double portable_ns;
-    double selected_ns;
+    double prealloc_portable_ns;
+    double prealloc_selected_ns;
     double gmp_ns;
-    double owned_ns;
+    double new_selected_ns;
 };
 
 struct MultiplicationSelection {
@@ -157,7 +157,7 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
         "","details","Print per-size portable/selected/owned ratios to GMP",
         [&selection] { selection.details=true; }));
     parsers.append(make_valued_argument_parser(
-        "","max-slowdown","Fail if worst selected/GMP slowdown exceeds this ratio",
+        "","max-slowdown","Fail if worst prealloc_selected/GMP slowdown exceeds this ratio",
         [&selection](String const& value) -> VoidFunction {
             const std::string text(value);
             std::size_t used=0u;
@@ -224,24 +224,24 @@ void print_measurements(std::vector<MultiplicationDatum> const& data,
     LOGGING_PRINTLN("BigUnsigned multiplication benchmark | iterations="
                     << iterations << " | samples=" << samples)
     LOGGING_PRINTLN(std::string(79u,'='))
-    LOGGING_PRINTLN(std::left << std::setw(10) << "Backend"
+    LOGGING_PRINTLN(std::left << std::setw(18) << "Backend"
                     << "  " << std::setw(24) << "Operation"
                     << "  " << std::setw(6) << "Bits"
                     << "  " << std::right << std::setw(15) << "Median (ns)")
     LOGGING_PRINTLN(std::string(79u,'-'))
     for (auto const& row : data) {
         const auto print_row=[&](char const* backend,double nanoseconds) {
-            LOGGING_PRINTLN(std::left << std::setw(10) << backend
+            LOGGING_PRINTLN(std::left << std::setw(18) << backend
                             << "  " << std::setw(24) << "multiply"
                             << "  " << std::setw(6) << row.bits
                             << "  " << std::right << std::setw(15)
                             << std::fixed << std::setprecision(3)
                             << nanoseconds)
         };
-        print_row("portable",row.portable_ns);
-        print_row("selected",row.selected_ns);
+        print_row("prealloc_portable",row.prealloc_portable_ns);
+        print_row("prealloc_selected",row.prealloc_selected_ns);
         print_row("mpz",row.gmp_ns);
-        print_row("owned",row.owned_ns);
+        print_row("new_selected",row.new_selected_ns);
         LOGGING_PRINTLN(std::string(79u,'-'))
     }
     LOGGING_PRINTLN(std::string(79u,'='))
@@ -275,7 +275,7 @@ struct MultiplicationAggregate {
         if (count==0u || reference_sum<=0.0) {
             throw std::runtime_error("empty multiplication benchmark aggregate");
         }
-        LOGGING_PRINTLN(std::left << std::setw(12) << name
+        LOGGING_PRINTLN(std::left << std::setw(18) << name
                         << "  ops=" << std::setw(3) << count
                         << "  geomean=" << std::fixed << std::setprecision(3)
                         << std::exp(log_sum/static_cast<double>(count)) << "x"
@@ -293,43 +293,43 @@ void print_slowdowns(std::vector<MultiplicationDatum> const& data,
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Detailed comparisons (candidate / GMP)")
         LOGGING_PRINTLN(std::string(79u,'-'))
-        LOGGING_PRINTLN(std::left << std::setw(12) << "Backend"
+        LOGGING_PRINTLN(std::left << std::setw(18) << "Backend"
                         << std::setw(8) << "Bits"
                         << std::setw(16) << "GMP (ns)"
                         << std::setw(16) << "Native (ns)" << "Slowdown")
     }
     for (auto const& row : data) {
-        portable.add(row.bits,row.gmp_ns,row.portable_ns);
-        selected.add(row.bits,row.gmp_ns,row.selected_ns);
-        owned.add(row.bits,row.gmp_ns,row.owned_ns);
+        portable.add(row.bits,row.gmp_ns,row.prealloc_portable_ns);
+        selected.add(row.bits,row.gmp_ns,row.prealloc_selected_ns);
+        owned.add(row.bits,row.gmp_ns,row.new_selected_ns);
         if (details) {
             const auto print_detail=[&](char const* backend,double candidate) {
-                LOGGING_PRINTLN(std::left << std::setw(12) << backend
+                LOGGING_PRINTLN(std::left << std::setw(18) << backend
                                 << std::setw(8) << row.bits
                                 << std::setw(16) << std::fixed
                                 << std::setprecision(3) << row.gmp_ns
                                 << std::setw(16) << candidate
                                 << candidate/row.gmp_ns << "x")
             };
-            print_detail("portable",row.portable_ns);
-            print_detail("selected",row.selected_ns);
-            print_detail("owned",row.owned_ns);
+            print_detail("prealloc_portable",row.prealloc_portable_ns);
+            print_detail("prealloc_selected",row.prealloc_selected_ns);
+            print_detail("new_selected",row.new_selected_ns);
         }
     }
     LOGGING_PRINTLN(" ")
     LOGGING_PRINTLN(std::string(79u,'='))
     LOGGING_PRINTLN("BigUnsigned multiplication / GMP slowdown (x; >1 means slower)")
     LOGGING_PRINTLN(std::string(79u,'-'))
-    portable.print("portable");
-    selected.print("selected");
-    owned.print("owned");
+    portable.print("prealloc_portable");
+    selected.print("prealloc_selected");
+    owned.print("new_selected");
     LOGGING_PRINTLN(std::string(79u,'='))
     LOGGING_PRINTLN("geomean weights each operand size equally; "
                     "total_time weights by measured cost.")
     if (std::isfinite(max_slowdown) &&
         selected.worst_ratio>max_slowdown) {
         throw std::runtime_error(
-            "selected slowdown exceeds --max-slowdown: "+
+            "prealloc_selected slowdown exceeds --max-slowdown: "+
             std::to_string(selected.worst_ratio)+"x > "+
             std::to_string(max_slowdown)+"x");
     }
