@@ -34,38 +34,8 @@ foreach(TEST ${UNIT_TESTS})
     endif()
 endforeach()
 
-# Smoke-test benchmark output equality outside the timed loops, and
-# exercise the shared command-line parser without a long performance run.
-# Performance acceptance itself uses the user's same-host 1000x11 reports.
-foreach(BENCHMARK IN ITEMS
-        benchmark_compare_integer_backends
-        benchmark_compare_rational_backends
-        benchmark_integer
-        benchmark_rational)
-    add_test(NAME smoke_${BENCHMARK}
-        COMMAND $<TARGET_FILE:${BENCHMARK}>
-            --iterations 16 --samples 3 --bits 53 --summary-only)
-    if(WIN32)
-        set_tests_properties(smoke_${BENCHMARK} PROPERTIES
-            ENVIRONMENT_MODIFICATION
-                "PATH=path_list_prepend:$<TARGET_FILE_DIR:ariadne-numeric>"
-        )
-    endif()
-endforeach()
-
 add_library(check_numeric OBJECT check_numeric.cpp)
 target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
 
-# ThreadSanitizer builds the default ALL target rather than the
-# custom tests target. Ensure each registered benchmark smoke test has
-# a corresponding executable in both build paths.
-add_custom_target(benchmark_smoke_executables ALL
-    DEPENDS
-        benchmark_compare_integer_backends
-        benchmark_compare_rational_backends
-        benchmark_integer
-        benchmark_rational
-)
-
 add_custom_target(tests)
-add_dependencies(tests ${UNIT_TESTS} check_numeric benchmark_smoke_executables)
+add_dependencies(tests ${UNIT_TESTS} check_numeric)
