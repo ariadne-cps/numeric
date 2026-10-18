@@ -484,15 +484,15 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         mpz_import(a.value,n,-1,8,0,0,da.data());
         mpz_import(b.value,m,-1,8,0,0,db.data());
         mpz_mul(expected.value,a.value,b.value);
-        auto result=scratch.acquire(lhs.size()+rhs.size()+2u);
+        auto product_view=scratch.acquire(lhs.size()+rhs.size()+2u);
         auto work=karatsuba_workspace.acquire(
             BigUnsigned::karatsuba_scratch_limbs(
                 lhs.size(),rhs.size()));
         BigUnsigned::mul_into_karatsuba(
-            lhs.limbs(),rhs.limbs(),result,work);
-        check_against_gmp(BigUnsigned(result),expected.value);
-        for (std::size_t i=lhs.size()+rhs.size();i<result.size();++i) {
-            ARIADNE_TEST_ASSERT(result[i]==0u);
+            lhs.limbs(),rhs.limbs(),product_view,work);
+        check_against_gmp(BigUnsigned(product_view),expected.value);
+        for (std::size_t i=lhs.size()+rhs.size();i<product_view.size();++i) {
+            ARIADNE_TEST_ASSERT(product_view[i]==0u);
         }
     }
 }
