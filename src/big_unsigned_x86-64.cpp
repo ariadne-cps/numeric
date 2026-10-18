@@ -152,4 +152,40 @@ void mul_low_into_comba_x86_64(BigUnsigned::LimbView a,
     }
 }
 
+// Experimental x86-64 row-schoolbook kernel using one fused, unsigned
+// 128-bit accumulation per partial product. Unlike the original B3
+// high:low+overflow implementation, this expression gives the compiler
+// complete freedom to lower multiply-and-accumulate into MUL/ADD/ADC.
+// The full intermediate is <= (B-1)^2+2(B-1)=B^2-1 for B=2^64:
+// it never exceeds 128 bits, so both low result and high carry are exact.
+// MSVC x64 lacks an unsigned __int128 expression type and deliberately
+// uses the proven B3 native row kernel instead; on non-x86-64 targets
+// the public experimental entry point uses the C++20 reference.
+// Output is completely overwritten; inputs and output must not overlap.
+// No new ISA requirements (including BMI2/ADX), scratch or allocations.
+void mul_low_into_fused_x86_64(BigUnsigned::LimbView a,
+                               BigUnsigned::LimbView b,
+                               BigUnsigned::MutableLimbView output) noexcept
+{
+#if defined(_MSC_VER) && defined(_M_X64)
+    mul_low_into_x86_64(a,b,output);
+#else
+    __extension__ using Wide = unsigned __int128;
+    std::fill(output.begin(),output.end(),Limb{0});
+    for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
+        Limb carry=0u;
+        const std::size_t terms=std::min(b.size(),output.size()-i);
+        for (std::size_t j=0u; j<terms; ++j) {
+            const Wide total=static_cast<Wide>(a[i])*b[j]
+                             +output[i+j]+carry;
+            output[i+j]=static_cast<Limb>(total);
+            carry=static_cast<Limb>(total>>64u);
+        }
+        if (i+terms<output.size()) {
+            output[i+terms]=carry;
+        }
+    }
+#endif
+}
+
 } // namespace Ariadne::BigUnsignedDetail
