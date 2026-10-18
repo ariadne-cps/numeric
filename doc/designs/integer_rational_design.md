@@ -1000,3 +1000,94 @@ test distribution/case coverage changes, and
 no production `BigUnsigned` code is modified.
 Revalidate the Windows Build and CTest alongside
 the existing Linux and macOS checks.
+
+## Baseline: legacy Integer wrapper versus direct GMP (18 October 2026)
+
+**User-supplied same-run comparison, to freeze BEFORE native Integer
+migration:** `benchmark_compare_integer_backends`, 20,000 iterations,
+31 measured samples, operand sizes 53/128/256/1024 bits. The
+`integer` backend in these numbers is the **existing GMP-backed
+`Ariadne::Integer`**, not the new `BigUnsigned`. The
+`mpz` backend is the test harness's `RawInteger` RAII wrapper
+calling GMP directly. Numerical verification: PASS,
+256 paired inputs, 1536 paired operation results.
+
+Each table cell is **direct GMP ns / existing Integer ns**.
+The benchmark configuration and input distribution are frozen
+for subsequent comparisons; do not change them to improve scores.
+
+| Operation | 53 bit | 128 bit | 256 bit | 1024 bit |
+|---|---:|---:|---:|---:|
+| construct_decimal | 64.402 / 39.773 | 63.800 / 81.585 | 106.315 / 125.775 | 354.738 / 372.910 |
+| copy | 18.521 / 16.554 | 15.885 / 17.267 | 18.492 / 19.990 | 19.590 / 18.798 |
+| compare | 1.902 / 3.700 | 1.729 / 4.008 | 2.281 / 4.625 | 4.377 / 7.275 |
+| negate | 15.412 / 17.985 | 15.110 / 33.092 | 22.996 / 46.098 | 21.767 / 44.823 |
+| add | 21.646 / 34.671 | 18.781 / 48.604 | 26.215 / 51.523 | 28.010 / 55.248 |
+| sub | 20.075 / 33.792 | 20.475 / 48.558 | 24.996 / 50.490 | 28.727 / 53.817 |
+| mul | 17.925 / 32.502 | 21.508 / 36.058 | 26.075 / 40.219 | 100.867 / 114.446 |
+| square | 17.231 / 31.229 | 19.392 / 35.998 | 25.925 / 39.806 | 75.463 / 92.058 |
+| quotient | 24.127 / 29.171 | 29.017 / 31.158 | 39.427 / 41.583 | 45.383 / 47.773 |
+| remainder | 32.365 / 36.679 | 43.362 / 62.083 | 59.237 / 86.723 | 65.858 / 97.388 |
+| pow3 | 20.765 / 47.129 | 30.415 / 55.865 | 43.617 / 68.975 | 287.131 / 316.660 |
+| to_decimal | 45.352 / 46.569 | 89.977 / 106.252 | 133.769 / 149.383 | 671.954 / 696.202 |
+
+| Bits | Geomean Integer/GMP | Sum-of-medians Integer/GMP | Worst |
+|---|---:|---:|---|
+| 53 | 1.346x | 1.234x | 2.270x pow3 |
+| 128 | 1.664x | 1.517x | 2.588x add |
+| 256 | 1.503x | 1.370x | 2.027x compare |
+| 1024 | 1.333x | 1.125x | 2.059x negate |
+| ALL 48 | **1.455x** | **1.231x** | **2.588x add at 128 bits** |
+
+**Verified code-path interpretation (not performance causal proof):**
+
+- `Integer` routes arithmetic through out-of-line C++ functions
+  (`src/integer.cpp`), while the benchmark's direct GMP
+  functions call `mpz_*` in the benchmark translation unit.
+  The extra call boundary and inhibited inlining are plausible
+  fixed-cost overheads, particularly for cheap operations.
+- `Integer::Integer()` performs `mpz_init(_mpz)` followed by
+  `mpz_set_si(_mpz,0)`: the second step is redundant because
+  `mpz_init` already initializes zero. The benchmark's
+  `RawInteger()` calls only `mpz_init`.
+- **Compare is not operation-for-operation equivalent:**
+  `IntegerOperations::compare` uses
+  `a<b ? -1 : b<a ? 1 : 0`, potentially invoking
+  `mpz_cmp` twice via `lt`; `GmpIntegerOperations`
+  invokes `mpz_cmp` exactly once and classifies
+  its result. The 1.7-2.3x comparison gap is
+  compatible with, but not isolated proof of, this difference.
+- `pow3` goes through `pow(a,Nat(3u))` and
+  another C++ wrapper layer, while the raw path
+  calls `mpz_pow_ui(...,3ul)` directly.
+  Decimal output goes through `Integer::literal()`,
+  an owned `new[]` intermediate and `String`;
+  the direct path uses an owned vector and
+  `std::string`. Decimal input is likewise
+  wrapped by a `String` construction.
+- Each timed iteration constructs and destroys the
+  result object in both variants. Since measured
+  times include this lifecycle and call overhead,
+  they do **not** isolate the speed of the
+  underlying multiprecision algorithms.
+  The benchmark measures the *whole public operation*,
+  which remains appropriate for an end-to-end target.
+  Measurements are gathered GMP first and Integer
+  second at each size; validate stability/control
+  before attributing small residual gaps to any
+  individual factor.
+
+**Design implication.** Baseline is 23.1% slower in
+the measured total across all operations and sizes
+(or 45.5% slower in the equally-weighted geomean),
+not uniformly 25% per operation. `BigUnsigned`
+must be benchmarked separately against **raw GMP**,
+with identical mathematical semantics and operand
+distributions, while future native `Integer`
+also needs to beat or match the public-wrapper
+end-to-end baseline. Optimize algorithmic core
+and API/lifetime overhead as separate phenomena.
+Do not make performance claims for `BigUnsigned`
+from this legacy Integer dataset. No arithmetic
+or benchmark implementation changes were made
+as part of this documentation entry.
