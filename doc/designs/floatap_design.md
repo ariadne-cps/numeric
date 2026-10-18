@@ -5793,3 +5793,54 @@ do not claim an improvement without same-host measurements,
 and do not change the benchmark workload to hide a regression.
 CI status and MacBook timing are not yet established
 for this commit.
+
+## G1 wide-limb native division specialization (18 October 2026)
+
+The user's first MacBook 1000x11 report after the all-native
+`from_ratio` conversion (`96d571e4`) verifies the full
+256-input / 3456-result post-timing comparisons but reveals
+material regressions in division. In absolute FloatAP times,
+`div_up` at 128 bits increased from 129 to 289 ns, at
+256 bits from 158 to 435 ns, and at 1024 bits from 244 to
+1654 ns. `construct_rational` similarly slowed because it
+uses the same exact quotient/remainder routine. The ALL
+slowdown worsened from 0.951x geomean / 0.404x weighted
+total / 2.971x worst at the beginning-of-branch MacBook
+baseline to 1.019x / 0.459x / 9.739x. MPFR timing on the
+53-bit group varied materially between runs, so track
+absolute times and per-operation data as well as ratios.
+
+**Follow-up implementation:** keep all arithmetic in
+`floatap.cpp`. On GCC/Clang with compiler-supported 128-bit
+intermediates, dispatch large denominators to a native
+base-2^64 Knuth quotient/remainder loop to halve the
+number of quotient and divisor limbs. It stores exact
+multiplication/subtraction in `unsigned __int128` and
+corrects overestimates before returning an exact quotient
+and remainder. GCC/Clang pedantic warnings are suppressed
+only on the extension typedef; the implementation remains
+portable by preserving the existing base-2^32 fallback
+for MSVC and small denominators. No general-purpose
+`BigUnsigned` class or new header is added.
+
+**Independent validation before integration:** the
+isolated wide division algorithm passed 16,640
+deterministic GMP cross-checks spanning 1–4096-bit
+numerators and 1–2048-bit denominators with exact
+quotient/remainder equality, under strict Clang C++20
+warning flags. A local x86 Linux microprobe gave around
+730 ns for 1024-bit wide divrem; this cannot be
+compared quantitatively with the ARM MacBook benchmark,
+so no MacBook speedup is claimed yet. Add public-API
+FloatAP/FloatMP differential cases for non-dyadic
+53/128/256/1024/1536-bit operands, both signs and all
+four rounding modes; retain independent fixed 1/3 and
+nearest-even tests. Benchmark workload and CTest
+separation are unchanged.
+
+**Next validation:** cross-platform Unix/Windows/Coverage,
+then the identical MacBook 1000x11 comparison. Do not
+change the numerical workload, precision groups, or
+rounding certification to improve timings. The production
+FloatAP class still stores `mpz_t`; this is only a
+division performance milestone, not complete GMP removal.
