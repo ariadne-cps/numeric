@@ -537,6 +537,131 @@ class Unsigned {
 
 namespace FloatAPNative {
 
+// On GCC/Clang we can halve the quotient digit count using 64-bit
+// limbs and a 128-bit temporary product. MSVC retains the entirely
+// portable 32-bit Knuth division above. This internal specialization
+// changes neither the owning FloatAP type nor its rounding contract.
+#if defined(__SIZEOF_INT128__)
+__extension__ typedef unsigned __int128 WideUInt;
+
+inline std::vector<std::uint64_t> pack_wide(Unsigned const& value) {
+    std::vector<std::uint64_t> limbs((value.size()+1u)/2u);
+    for (std::size_t i=0u; i<limbs.size(); ++i) {
+        limbs[i]=std::uint64_t{value.word(2u*i)} |
+                 (std::uint64_t{value.word(2u*i+1u)} << 32u);
+    }
+    while (!limbs.empty() && limbs.back()==0u) { limbs.pop_back(); }
+    return limbs;
+}
+
+inline Unsigned unpack_wide(std::vector<std::uint64_t> const& limbs) {
+    if (limbs.size()>std::numeric_limits<std::size_t>::max()/2u) {
+        throw std::overflow_error("FloatAP wide division size overflow");
+    }
+    Unsigned result;
+    result.resize(limbs.size()*2u);
+    std::uint32_t* const words=result.data();
+    for (std::size_t i=0u; i<limbs.size(); ++i) {
+        words[2u*i]=static_cast<std::uint32_t>(limbs[i]);
+        words[2u*i+1u]=static_cast<std::uint32_t>(limbs[i]>>32u);
+    }
+    result.trim();
+    return result;
+}
+
+// Base-2^64 Knuth algorithm D with exact quotient-digit corrections.
+// Dividing by a large denominator is where the portable 32-bit path
+// was notably slower than GMP. Keep all inputs immutable and compute
+// the exact remainder for nearest-even and directed rounding.
+inline std::pair<Unsigned,Unsigned> divrem_wide(
+        Unsigned const& dividend,Unsigned const& divisor)
+{
+    if (divisor.size()<4u) { return divrem(dividend,divisor); }
+    if (compare(dividend,divisor)<0) { return {{},dividend}; }
+
+    std::vector<std::uint64_t> a=pack_wide(dividend);
+    std::vector<std::uint64_t> b=pack_wide(divisor);
+    const unsigned normalization=static_cast<unsigned>(
+        std::countl_zero(b.back()));
+    std::vector<std::uint64_t> v(b.size(),0u);
+    std::vector<std::uint64_t> u(a.size()+1u,0u);
+
+    if (normalization!=0u) {
+        std::uint64_t carry=0u;
+        for (std::size_t i=0u; i<b.size(); ++i) {
+            v[i]=(b[i]<<normalization)|carry;
+            carry=b[i]>>(64u-normalization);
+        }
+        carry=0u;
+        for (std::size_t i=0u; i<a.size(); ++i) {
+            u[i]=(a[i]<<normalization)|carry;
+            carry=a[i]>>(64u-normalization);
+        }
+        u[a.size()]=carry;
+    } else {
+        std::copy(b.begin(),b.end(),v.begin());
+        std::copy(a.begin(),a.end(),u.begin());
+    }
+
+    const std::size_t n=v.size();
+    const std::size_t m=a.size()-n;
+    std::vector<std::uint64_t> q(m+1u,0u);
+    constexpr std::uint64_t max_word=
+        std::numeric_limits<std::uint64_t>::max();
+
+    for (std::size_t offset=m+1u; offset!=0u; --offset) {
+        const std::size_t j=offset-1u;
+        const WideUInt top=(WideUInt(u[j+n])<<64u)|u[j+n-1u];
+        WideUInt estimate=top/v[n-1u];
+        WideUInt estimated_remainder=top%v[n-1u];
+        if (estimate>max_word) {
+            estimate=max_word;
+            estimated_remainder=top-estimate*v[n-1u];
+        }
+        while (estimated_remainder<=max_word &&
+               estimate*v[n-2u]>
+                   (estimated_remainder<<64u)+u[j+n-2u]) {
+            --estimate;
+            estimated_remainder+=v[n-1u];
+        }
+
+        std::uint64_t carry=0u,borrow=0u;
+        for (std::size_t i=0u; i<n; ++i) {
+            const WideUInt product=estimate*v[i]+carry;
+            carry=static_cast<std::uint64_t>(product>>64u);
+            const WideUInt subtraction=
+                static_cast<std::uint64_t>(product)+WideUInt(borrow);
+            const std::uint64_t old=u[j+i];
+            borrow=old<subtraction ? 1u : 0u;
+            u[j+i]=static_cast<std::uint64_t>(WideUInt(old)-subtraction);
+        }
+        const WideUInt final_subtraction=WideUInt(carry)+borrow;
+        const bool overestimate=u[j+n]<final_subtraction;
+        u[j+n]=static_cast<std::uint64_t>(
+            WideUInt(u[j+n])-final_subtraction);
+        if (overestimate) {
+            --estimate;
+            WideUInt sum=0u;
+            for (std::size_t i=0u; i<n; ++i) {
+                sum=WideUInt(u[j+i])+v[i]+
+                    static_cast<std::uint64_t>(sum>>64u);
+                u[j+i]=static_cast<std::uint64_t>(sum);
+            }
+            u[j+n]+=static_cast<std::uint64_t>(sum>>64u);
+        }
+        q[j]=static_cast<std::uint64_t>(estimate);
+    }
+
+    std::vector<std::uint64_t> remainder(n,0u);
+    for (std::size_t i=0u; i<n; ++i) {
+        remainder[i]=normalization==0u ? u[i] :
+            (u[i]>>normalization)|
+            (u[i+1u]<<(64u-normalization));
+    }
+    return {unpack_wide(q),unpack_wide(remainder)};
+}
+#endif
+
 // Signedness belongs to the floating-point value; inputs are magnitudes.
 enum class RatioRounding { NearestEven, Downward, Upward, TowardZero };
 
@@ -616,7 +741,11 @@ inline RoundedRatio round_ratio(Unsigned const& n,Unsigned const& d,
     const Unsigned denominator=shift<0 ?
         shift_left(d,ratio_shift_amount(ratio_checked_sub(0,shift))) : d;
 
+#if defined(__SIZEOF_INT128__)
+    auto [quotient,remainder]=divrem_wide(numerator,denominator);
+#else
     auto [quotient,remainder]=divrem(numerator,denominator);
+#endif
     bool increment=false;
     if (!remainder.is_zero()) {
         switch (mode) {
