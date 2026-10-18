@@ -7491,3 +7491,8 @@ Integrated Ubuntu B8 results were slower than GCC fused schoolbook at 1024 throu
 ### BigUnsigned B8.1 Ubuntu cutoff measurements (18 October 2026)
 
 The complete user-run GCC x86-64 balanced-operand sweep of Karatsuba recursion cutoffs 8/16/32/64 found **32 limbs** to be the strongest of these candidates: 2629.425 ns versus selected fused 2971.200 ns at 4096 bits, and 8461.684 ns versus selected fused 12257.133 ns at 8192 bits, measured within the same respective runs. At 2048 bits cutoff 32 gave 815.782 versus selected fused 805.034 ns, so a practical crossover is not yet demonstrated below 4096 bits. The original fused production path stays selected, and no FloatAP performance claim or dispatch change follows. Full four-cutoff table, measurements, CI status and limitations are documented in `integer_rational_design.md`.
+
+
+### B9 ARM64 fused kernel experiment (18 October 2026)
+
+ARM64 receives an explicit native fused `BigUnsigned::mul_into_fused` kernel, built in `src/big_unsigned_arm64.cpp` using baseline AArch64 multiply-high and fused 128-bit C++ arithmetic. The native ARM64 kernel is initially benchmark-only: `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY` defaults OFF until real macOS ARM64 benchmark evidence; ON explicitly selects it for production evaluation. Existing GMP differential multiplication tests exercise the native forced fused path, `--include-fused` is accepted on ARM64, x86-only candidates remain x86-only. GCC x86-64 production selection and FloatAP are unchanged. Details and validation conditions are in `integer_rational_design.md`.

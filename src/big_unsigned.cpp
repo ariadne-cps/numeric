@@ -50,6 +50,14 @@ void mul_low_into_fused_x86_64(BigUnsigned::LimbView a,
 } // namespace BigUnsignedDetail
 #endif
 
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64)
+namespace BigUnsignedDetail {
+void mul_low_into_fused_arm64(BigUnsigned::LimbView a,
+                              BigUnsigned::LimbView b,
+                              BigUnsigned::MutableLimbView output) noexcept;
+} // namespace BigUnsignedDetail
+#endif
+
 BigUnsigned::MutableLimbView BigUnsigned::Scratch::acquire(std::size_t count) {
     if (count <= inline_capacity) {
         std::fill_n(_inline_limbs.data(),count,Limb{0});
@@ -385,6 +393,14 @@ void BigUnsigned::mul_low_into_portable(
 }
 
 bool BigUnsigned::has_native_multiply() noexcept {
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) || defined(ARIADNE_BIG_UNSIGNED_ARM64)
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool BigUnsigned::has_x86_64_multiply() noexcept {
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
     return true;
 #else
@@ -393,7 +409,7 @@ bool BigUnsigned::has_native_multiply() noexcept {
 }
 
 bool BigUnsigned::selected_multiply_uses_fused() noexcept {
-#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) || defined(ARIADNE_BIG_UNSIGNED_ARM64_FUSED)
     return true;
 #else
     return false;
@@ -415,6 +431,8 @@ void BigUnsigned::mul_low_into_fused(
 {
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
     BigUnsignedDetail::mul_low_into_fused_x86_64(a,b,output);
+#elif defined(ARIADNE_BIG_UNSIGNED_ARM64)
+    BigUnsignedDetail::mul_low_into_fused_arm64(a,b,output);
 #else
     mul_low_into_portable(a,b,output);
 #endif
@@ -436,9 +454,11 @@ void BigUnsigned::mul_low_into_schoolbook(
 
 void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
-    // Only GCC x86-64 has a demonstrated integrated gain. Clang and
-    // MSVC retain the original B3 production selection.
+    // GCC x86-64's selected fused kernel has measured integrated gains.
     BigUnsignedDetail::mul_low_into_fused_x86_64(a,b,output);
+#elif defined(ARIADNE_BIG_UNSIGNED_ARM64_FUSED)
+    // ARM64 selection is explicit opt-in until native macOS benchmarks.
+    BigUnsignedDetail::mul_low_into_fused_arm64(a,b,output);
 #else
     mul_low_into_schoolbook(a,b,output);
 #endif

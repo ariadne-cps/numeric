@@ -554,11 +554,15 @@ int main(int argc,const char* argv[])
         if (!command_line.acquire(arguments)) {
             return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
         }
-        if ((selection.include_comba || selection.include_fused ||
-                selection.include_schoolbook) &&
+        if (selection.include_fused &&
                 !BigUnsigned::has_native_multiply()) {
             throw std::invalid_argument(
-                "--include-comba, --include-fused and --include-schoolbook require x86-64");
+                "--include-fused requires an x86-64 or ARM64 native build");
+        }
+        if ((selection.include_comba || selection.include_schoolbook) &&
+                !BigUnsigned::has_x86_64_multiply()) {
+            throw std::invalid_argument(
+                "--include-comba and --include-schoolbook require x86-64");
         }
         if (selection.karatsuba_cutoff_explicit &&
                 !selection.include_karatsuba) {
@@ -571,7 +575,8 @@ int main(int argc,const char* argv[])
                         << BigUnsigned::has_native_multiply()
                         << " | selected kernel="
                         << (BigUnsigned::selected_multiply_uses_fused()
-                            ? "fused" : "B3 schoolbook/portable"))
+                            ? "fused" : BigUnsigned::has_x86_64_multiply()
+                                ? "B3 schoolbook/portable" : "portable"))
         LOGGING_PRINTLN("Iterations: " << selection.iterations
                         << "  |  Samples: " << selection.samples)
         if (selection.include_karatsuba) {

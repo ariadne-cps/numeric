@@ -1,0 +1,75 @@
+/***************************************************************************
+ *            numeric/big_unsigned_arm64.cpp
+ *
+ *  Copyright  2026  Ariadne contributors
+ *
+ ****************************************************************************/
+
+/*
+ *  This file is part of Ariadne.
+ *
+ *  Ariadne is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Ariadne is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/*! \file numeric/big_unsigned_arm64.cpp
+ *  \brief Explicit fused schoolbook for AArch64 GCC/Clang/AppleClang.
+ */
+
+#include "numeric/big_unsigned.hpp"
+
+#include <algorithm>
+#include <cstdint>
+
+#if !(defined(__aarch64__) || defined(_M_ARM64))
+#error "The ARM64 multiplication kernel requires an AArch64 target"
+#endif
+
+#if !(defined(__GNUC__) || defined(__clang__))
+#error "The ARM64 multiplication kernel requires GNU or Clang __int128"
+#endif
+
+namespace Ariadne::BigUnsignedDetail {
+
+using Limb = BigUnsigned::Limb;
+
+// Exact radix-B schoolbook, B=2^64. Each iteration calculates
+// a[i]*b[j] + output[i+j] + carry, bounded above by B^2-1:
+// (B-1)^2 + 2*(B-1) = B^2-1. Hence unsigned 128-bit is sufficient.
+// ARMv8-A has baseline 64-bit MUL and UMULH; compiler lowering, not
+// hand-written assembly, determines the emitted instruction sequence.
+// The resulting output is exact modulo 2^(64*output.size()).
+// Input/output may not overlap. All output limbs are overwritten.
+// No allocation, scratch memory, optional ISA features, or runtime CPUID.
+void mul_low_into_fused_arm64(BigUnsigned::LimbView a,
+                              BigUnsigned::LimbView b,
+                              BigUnsigned::MutableLimbView output) noexcept
+{
+    __extension__ using Wide = unsigned __int128;
+    std::fill(output.begin(),output.end(),Limb{0});
+    for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
+        Limb carry=0u;
+        const std::size_t terms=std::min(b.size(),output.size()-i);
+        for (std::size_t j=0u; j<terms; ++j) {
+            const Wide total=static_cast<Wide>(a[i])*b[j]
+                             +output[i+j]+carry;
+            output[i+j]=static_cast<Limb>(total);
+            carry=static_cast<Limb>(total>>64u);
+        }
+        if (i+terms<output.size()) {
+            output[i+terms]=carry;
+        }
+    }
+}
+
+} // namespace Ariadne::BigUnsignedDetail
