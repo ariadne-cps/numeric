@@ -6261,3 +6261,81 @@ ARM64-first, architecture-neutral speed recovery gate,
 particularly for `construct_rational` and `div_*`
 at 128, 256 and 1024 bits. No new GMP-free path before
 those medians have recovered the frozen original baseline.
+
+## G1 fused numerator scaling into wide division scratch (18 October 2026)
+
+**Benchmark checkpoint received after `bfe14262ffc5438acbd73127c4725c430c3225f5`.**
+The same user-supplied 1000-iteration, 11-sample, 27-operation,
+53/128/256/1024-bit ARM64 FloatMP/FloatAP benchmark reports
+PASS on 256 paired inputs and 3456 operation results. Its
+ALL geomean is 1.001x (original better baseline 0.912x),
+ALL weighted slowdown is 0.434x (baseline 0.407x),
+and ALL worst is 5.657x (baseline 2.994x).
+Absolute FloatAP medians at 1024 bits: `div_nearest` 977.625 ns
+(baseline 289.375 ns), `div_up` 935.000 ns (baseline
+256.875 ns), `construct_rational` 1288.291 ns (baseline
+484.375 ns). The checkpoint therefore **fails the recovery gate**.
+FloatMP timing drift shows that small run-to-run absolute
+differences must not be confused with an algorithmic effect.
+At this checkpoint macOS/Linux build-test jobs on `bfe1426`
+succeeded; Windows was in progress at the last check;
+Codecov project and patch checks failed.
+
+**Bottleneck targeted.** Prior `round_ratio` built an
+arbitrarily large `shift_left(n,shift)` temporary, then packed
+that temporary into `divrem_wide`'s normalized `u`
+scratch buffer. For precision 1024, scaling the numerator
+often grows a 1024-bit input to around 2048 bits, so this
+duplicates the significant digits across two objects,
+incurring allocation, initialization, and copy overhead.
+
+**Implementation.** Keep `FloatAP`'s private wide division
+kernel in the existing `src/floatap.cpp` and extend its
+private signature with `numerator_shift`. For nonnegative
+ratio shifts and denominators with at least four 32-bit
+limbs, calculate the normalized dividend directly into
+the existing zero-initialized base-2^64 `WideScratch u` by
+combining the public ratio's numerator shift and the
+divisor's normalization shift. No shifted native numerator
+is allocated or imported twice. The exact base-2^64
+Knuth digit estimate, correction, borrow, quotient,
+denormalized remainder and rounding decisions remain
+unchanged. On small divisors, retain the old portable
+base-2^32 divider with a shifted temporary; on negative
+ratio shifts, shift the denominator as before. Compilers
+without `__SIZEOF_INT128__` retain the complete prior
+division code path. Dispatch depends on data size /
+compiler integer capabilities, never ARM64 versus x86-64.
+
+**Independent isolated validation.** A synthetic C++20
+wide-limb (64-bit) probe implemented this combined
+normalization and compared exact `q,r` against
+`mpz_tdiv_qr` on 100,000 deterministic random input
+pairs, with arbitrary divisor bit-length and shifts
+including shifts not divisible by 64. All passed.
+The same probe passed Clang ASan+UBSan. On the
+available x86-64 host, its unsanitized GCC -O3
+synthetic division results for a 1024-bit divisor
+and approximately 1024-bit quotient were
+old 1109.5 ns vs combined 665.8 ns
+(128 bits 146.1 vs 107.5;
+256 bits 183.7 vs 152.7).
+**These are NOT benchmarked FloatAP or ARM64 timings**:
+the probe uses `std::vector<uint64_t>`, omits
+GMP import/export, construction, precision-aware rounding
+and the real Ariadne benchmark's distributions.
+A large speedup here does not prove the integrated
+FloatAP gate is satisfied.
+
+**Acceptance gate unchanged.** Compile and test on
+macOS, Linux, Windows; verify mathematical edge
+cases (especially shifted division, nearest-even,
+inexact directed rounding, huge precisions) and
+3456 benchmark results. Rerun the unchanged
+1000x11 workload on the same ARM64 machine.
+Retain only if all affected absolute FloatAP medians
+move toward the better original frozen baseline.
+Do not advance to any other GMP-free substitution
+until `construct_rational` and all `div_*` reach or
+beat the baseline at each precision; an aggregate
+geomean alone cannot meet this criterion.
