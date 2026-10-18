@@ -23,7 +23,7 @@
  */
 
 /*! \file numeric/big_unsigned_arm64.cpp
- *  \brief Explicit fused schoolbook for AArch64 GCC/Clang/AppleClang.
+ *  \brief Selected native fused schoolbook for AArch64 GCC/Clang/AppleClang.
  */
 
 #include "numeric/big_unsigned.hpp"

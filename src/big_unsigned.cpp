@@ -409,7 +409,7 @@ bool BigUnsigned::has_x86_64_multiply() noexcept {
 }
 
 bool BigUnsigned::selected_multiply_uses_fused() noexcept {
-#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) || defined(ARIADNE_BIG_UNSIGNED_ARM64_FUSED)
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) || defined(ARIADNE_BIG_UNSIGNED_ARM64)
     return true;
 #else
     return false;
@@ -456,8 +456,8 @@ void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
     // GCC x86-64's selected fused kernel has measured integrated gains.
     BigUnsignedDetail::mul_low_into_fused_x86_64(a,b,output);
-#elif defined(ARIADNE_BIG_UNSIGNED_ARM64_FUSED)
-    // ARM64 selection is explicit opt-in until native macOS benchmarks.
+#elif defined(ARIADNE_BIG_UNSIGNED_ARM64)
+    // Native ARM64 fused multiplication is the selected production kernel.
     BigUnsignedDetail::mul_low_into_fused_arm64(a,b,output);
 #else
     mul_low_into_schoolbook(a,b,output);

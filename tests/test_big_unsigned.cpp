@@ -411,6 +411,10 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     ARIADNE_TEST_ASSERT(
         !BigUnsigned::selected_multiply_uses_fused()
         || BigUnsigned::has_native_multiply());
+#if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+    // Native ARM64 is selected unconditionally when this kernel is built.
+    ARIADNE_TEST_ASSERT(BigUnsigned::selected_multiply_uses_fused());
+#endif
     try {
         BigUnsigned::mul_into(one,one,too_short);
     } catch (std::length_error const&) {

@@ -50,18 +50,12 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
     endif()
 endif()
 
-# Experimental Apple Silicon/Linux AArch64 fused multiply. AppleClang/Clang
-# and GNU support unsigned __int128, lowered to baseline AArch64 MUL/UMULH.
-# Keep the portable production selector until same-host benchmarks establish
-# a speedup; the forced mul_into_fused entry point is always available here.
+# Native ARM64 fused multiplication. User-run Apple Silicon benchmarks and
+# the macOS test suite support selecting it by default. GCC/Clang/AppleClang
+# lower unsigned __int128 to baseline AArch64 MUL/UMULH instructions.
+# Unsupported architectures/compilers keep the portable C++20 kernel.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$"
         AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
     target_sources(NUMERIC_SRC PRIVATE big_unsigned_arm64.cpp)
     target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_BIG_UNSIGNED_ARM64=1)
-    option(NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY
-           "Select fused BigUnsigned multiplication on ARM64 (experimental)" OFF)
-    if(NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY)
-        target_compile_definitions(NUMERIC_SRC PRIVATE
-            ARIADNE_BIG_UNSIGNED_ARM64_FUSED=1)
-    endif()
 endif()
