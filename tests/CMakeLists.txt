@@ -35,6 +35,11 @@ foreach(TEST ${UNIT_TESTS})
     endif()
 endforeach()
 
+# Keep the native FloatAP significand implementation private to src.
+target_include_directories(test_floatap_native_unsigned PRIVATE
+    ${PROJECT_SOURCE_DIR}/src
+)
+
 add_library(check_numeric OBJECT check_numeric.cpp)
 target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
 
