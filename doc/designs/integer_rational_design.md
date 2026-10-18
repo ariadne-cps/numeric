@@ -500,6 +500,71 @@ and MPFR absent; comparison-only benchmarks/tests
 may link both explicitly. Do not remove GMP from
 build configuration while native code still needs it.
 
+## Decision G1 architecture: shared limb kernels, separate ownership (18 October 2026)
+
+**The primary design constraint is FloatAP performance.** Sharing
+the **algorithms and primitive contracts** is encouraged; sharing
+the owning `BigUnsigned` *object and allocation policy* is not
+required. Do not force a generic integer object, dynamic memory
+allocation or rational normalization onto FloatAP hot paths.
+
+Split the implementation into two layers:
+
+1. **Portable low-level limb operations** accepting contiguous
+   little-endian unsigned limb views and caller-owned result/
+   workspace buffers: comparison, bit length, add/sub/carry/borrow,
+   shifts, multiplication, exact divrem and eventually GCD. Define
+   normalization, output size, aliasing rules and scratch-size
+   requirements precisely. Start with portable `uint32_t` limbs
+   and `uint64_t` intermediates; any optional specialization
+   must preserve a working GCC/Clang/MSVC fallback. Do not
+   expose GMP types or allocator behavior in this layer.
+2. **Independent owning representations** using those primitive
+   operations: (a) dynamic, arbitrary-size `BigUnsigned`
+   with inline storage as justified by measurements, eventually
+   backing signed `Integer` and finite/extended `Rational`;
+   (b) FloatAP-specific normalized precision-aware significand
+   and scratch storage, able to bypass a generic heap-allocating
+   object for 53/128-bit fast paths and handle 256/1024+ bits.
+   For rigorous transcendental work, allow specialized dyadic
+   intervals with outward rounding instead of generic fractions.
+
+It is acceptable for FloatAP to contain *measured and documented*
+specialized scalar or short-limb algorithms (including an
+optimized 64-bit case) even if those do not invoke the general
+`BigUnsigned` facade. Do not duplicate a full independent
+arbitrary-size big-integer engine unless cross-backend
+measurements clearly demonstrate a need. The existing 18-limb
+`FloatAPSmallDivision` supplies useful division algorithm
+ideas, but not an owning representation that should simply
+be used unchanged by `Integer`.
+
+**First implementation commit (G1a):** introduce an isolated,
+GMP-free low-level unsigned-limb kernel with fixed-oracle tests
+for zero, carry/borrow, limb boundaries, shifts, comparison
+and multiplication, including longer-than-inline inputs and
+aliasing semantics. Implement `BigUnsigned` ownership on top
+in a second incremental step, without modifying the
+current `Integer`/`Rational`/FloatAP implementations.
+Build functional tests through CTest; keep **all four
+performance benchmarks separate from CTest**, using only
+the dedicated `benchmarks` target. Record CI and benchmark
+outcomes before any FloatAP backend migration.
+
+**Performance acceptance:** for each proposed change
+to FloatAP's storage or arithmetic, compare baseline and
+candidate on the same host, with the unchanged 1000x11
+workload and the post-timing exact result check. Report
+absolute timings and worst/geomean/weighted-total ratios
+*separately* at 53/128/256/1024 bits. Retain certified
+independent expected-result literals for correctness.
+Keep a specialized implementation when the shared
+owning type demonstrably harms performance, while
+preferring shared low-level algorithms where costs
+are equivalent. Do not claim a GMP-free FloatAP simply
+because its helper kernel is GMP-free while the
+significand or interval representations still use GMP.
+
 ## Recommended first implementation milestone: G1a
 
 **Start with an independent unsigned core and its tests, not by
