@@ -116,6 +116,8 @@ struct MultiplicationSelection {
     bool include_schoolbook=false;
     bool include_new_mpz=false;
     bool include_karatsuba=false;
+    unsigned karatsuba_cutoff=8u;
+    bool karatsuba_cutoff_explicit=false;
     double max_slowdown=std::numeric_limits<double>::infinity();
 };
 
@@ -184,6 +186,20 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
         "Include experimental Karatsuba with reusable preallocated scratch",
         [&selection] { selection.include_karatsuba=true; }));
     parsers.append(make_valued_argument_parser(
+        "","karatsuba-cutoff","Karatsuba base-case cutoff in limbs (>=8)",
+        [&selection](String const& value) -> VoidFunction {
+            const unsigned cutoff=
+                BenchmarkCommandLine::parse_unsigned<unsigned>(value);
+            if (cutoff<8u) {
+                throw std::invalid_argument(
+                    "Karatsuba cutoff must be at least 8 limbs");
+            }
+            return [&selection,cutoff] {
+                selection.karatsuba_cutoff=cutoff;
+                selection.karatsuba_cutoff_explicit=true;
+            };
+        }));
+    parsers.append(make_valued_argument_parser(
         "","max-slowdown","Fail if worst prealloc_selected/GMP slowdown exceeds this ratio",
         [&selection](String const& value) -> VoidFunction {
             const std::string text(value);
@@ -200,7 +216,7 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
 MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
                             bool include_comba,bool include_fused,
                             bool include_schoolbook,bool include_new_mpz,
-                            bool include_karatsuba)
+                            bool include_karatsuba,unsigned karatsuba_cutoff)
 {
     std::mt19937_64 engine(0xB3B3B3ULL+bits);
     const std::size_t n=(bits+63u)/64u;
@@ -221,7 +237,8 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
     BigUnsigned::Scratch karatsuba_workspace;
     const auto karatsuba_work=include_karatsuba
         ? karatsuba_workspace.acquire(
-            BigUnsigned::karatsuba_scratch_limbs(a.size(),b.size()))
+            BigUnsigned::karatsuba_scratch_limbs(
+                a.size(),b.size(),karatsuba_cutoff))
         : BigUnsigned::MutableLimbView{};
     GmpInteger ga,gb,gr;
     import_gmp(ga.value,a);
@@ -246,7 +263,7 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
     }
     if (include_karatsuba) {
         BigUnsigned::mul_into_karatsuba(
-            a.limbs(),b.limbs(),output,karatsuba_work);
+            a.limbs(),b.limbs(),output,karatsuba_work,karatsuba_cutoff);
         verify_gmp(BigUnsigned(output),gr.value);
     }
     if (include_new_mpz) {
@@ -310,7 +327,7 @@ MultiplicationDatum measure(unsigned bits,unsigned iterations,unsigned samples,
     if (include_karatsuba) {
         karatsuba=median_ns([&] {
             BigUnsigned::mul_into_karatsuba(
-                a.limbs(),b.limbs(),output,karatsuba_work);
+                a.limbs(),b.limbs(),output,karatsuba_work,karatsuba_cutoff);
         },iterations,samples);
     }
     // Verify after timing as well, with no exact checks inside timed code.
@@ -532,7 +549,7 @@ int main(int argc,const char* argv[])
         const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
             argc,argv,{"iterations","samples"},
             {"--iterations","-i","--samples","-n","--bits","-b",
-             "--max-slowdown","--scheduler","-s","--theme","-t",
+             "--max-slowdown","--karatsuba-cutoff","--scheduler","-s","--theme","-t",
              "--verbosity","-v"});
         if (!command_line.acquire(arguments)) {
             return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
@@ -543,6 +560,11 @@ int main(int argc,const char* argv[])
             throw std::invalid_argument(
                 "--include-comba, --include-fused and --include-schoolbook require x86-64");
         }
+        if (selection.karatsuba_cutoff_explicit &&
+                !selection.include_karatsuba) {
+            throw std::invalid_argument(
+                "--karatsuba-cutoff requires --include-karatsuba");
+        }
         LOGGING_PRINTLN("BigUnsigned multiplication - running "
                         << selection.sizes.size() << " operand-size groups"
                         << " | native available="
@@ -552,6 +574,10 @@ int main(int argc,const char* argv[])
                             ? "fused" : "B3 schoolbook/portable"))
         LOGGING_PRINTLN("Iterations: " << selection.iterations
                         << "  |  Samples: " << selection.samples)
+        if (selection.include_karatsuba) {
+            LOGGING_PRINTLN("Karatsuba cutoff: "
+                            << selection.karatsuba_cutoff << " limbs")
+        }
 
         std::vector<MultiplicationDatum> data;
         data.reserve(selection.sizes.size());
@@ -562,7 +588,8 @@ int main(int argc,const char* argv[])
                                    selection.include_fused,
                                    selection.include_schoolbook,
                                    selection.include_new_mpz,
-                                   selection.include_karatsuba));
+                                   selection.include_karatsuba,
+                                   selection.karatsuba_cutoff));
             LOGGING_PRINTLN("Completed " << bits << " bits")
         }
         print_measurements(data,selection.iterations,selection.samples,

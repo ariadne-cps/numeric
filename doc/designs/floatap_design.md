@@ -7481,3 +7481,8 @@ Following the B5 user-reported integrated Ubuntu results, the shared BigUnsigned
 ### BigUnsigned B8 experimental portable Karatsuba (18 October 2026)
 
 A separate portable C++20 `src/big_unsigned_karatsuba.cpp` provides an **explicit-only** Karatsuba full multiply with caller-owned output and caller-owned reusable scratch; it does not replace GCC x86-64 fused production schoolbook or change any FloatAP code. For `min(n,m)>8` limbs and both upper halves nonempty, split at `floor(max(n,m)/2)`, calculate z0/z2 directly into disjoint result slices and use scratch for two exact half-sums and the cross term `(a0+a1)(b0+b1)-z0-z2`. The scratch recurrence and bounds, no-aliasing/no-internal-allocation contracts, GMP differential tests and benchmark controls are in `integer_rational_design.md`. The optional `--include-karatsuba` reports `prealloc_karatsuba`; isolated GCC/Clang probes found the implementation slower than fused schoolbook through 4096 bits and modestly faster near 8192 bits. No measured performance improvement for FloatAP, Integer or Rational may be inferred. No production selection threshold is enabled.
+
+
+### B8.1: Karatsuba cutoff diagnostic (18 October 2026)
+
+Integrated Ubuntu B8 results were slower than GCC fused schoolbook at 1024 through 8192 bits, with Karatsuba/selected ratios 1.680x, 1.576x, 1.413x and 1.079x. B8.1 adds opt-in recursion cutoff selection (minimum 8, unchanged default 8) and matching workspace sizing, plus --karatsuba-cutoff N with --include-karatsuba. The production selector and FloatAP remain unchanged. See integer_rational_design.md for evidence and test gates.
