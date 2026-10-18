@@ -325,8 +325,8 @@ void verify_benchmark_values(std::vector<unsigned> const& precisions) {
 
 
 struct ComparisonBenchmarkSelection {
-    unsigned iterations=1000u;
-    unsigned samples=11u;
+    unsigned iterations=20000u;
+    unsigned samples=31u;
     std::vector<unsigned> precisions{53u,128u,256u,1024u};
     bool summary_only=false;
     bool details=false;
