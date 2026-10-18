@@ -7541,3 +7541,8 @@ Following two integrated Apple Silicon measurements and user-confirmed native GM
 ### B10.2 measured selected ARM64 carry in public owning BigUnsigned multiply (18 October 2026)
 
 The user benchmarked a newly compiled B10.2 selected ARM64 carry build. Compared with the previous native ARM64 fused dispatch, owning `new_selected` at 1024 bits improved 202.990 to 172.594 ns (~1.18x) and at 2048 bits improved 836.858 to 605.933 ns (~1.38x); the 53/128/256-bit ownership times did not show clear changes. The new owning BigUnsigned/GMP ratios were 1.580x (1024) and 1.800x (2048) with matched result lifecycle. Forced and selected ARM64 carry matched at 256+ bits, supporting the dispatch; unusually different timings at 53/128 bits merit checking benchmark effects. User native macOS GMP differential CTest was green **before** the selected-kernel switch, with carry forced, but has not been reported anew after promotion. This is BigUnsigned-only benchmark evidence and does not demonstrate FloatAP end-to-end performance. Detailed measurements are in `integer_rational_design.md`.
+
+
+### B10.2 selected ARM64 carry validation closed (18 October 2026)
+
+The user confirmed the updated **post-dispatch-change** macOS ARM64 `ctest --output-on-failure` fully green. GitHub Actions Unix/Windows/Coverage on the functional ARM64 carry default commit `d01c505` also completed successfully. These results close the previously pending validation gate for production BigUnsigned ARM64 selected carry. The earlier native owning BigUnsigned benchmark and remaining GMP gap are recorded in `integer_rational_design.md`; no FloatAP end-to-end speedup is claimed.
