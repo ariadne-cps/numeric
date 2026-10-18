@@ -125,6 +125,64 @@ reference files are `include/numeric/integer.hpp`,
   part of the normal acceptance gate. Do not alter CMake/Windows
   build behavior merely to work around unrelated transient failures.
 
+## Current shared-core decision — reusable native substrate (18 October 2026)
+
+**Active policy; supersedes older FloatAP-first isolation notes
+only for genuinely reusable low-level arithmetic.** The user
+requires one native multiprecision substrate reusable in
+`FloatAP`, in the eventual replacement of `mpz_t` inside
+`Integer`, and in the eventual replacement of `mpq_t`
+inside `Rational`. Its portable C++20 reference and
+optional, clearly documented ARM64/AArch64 and x86-64
+kernels are implemented once in the shared internal
+numeric layer, not as copies hidden inside FloatAP.
+Internal core files are allowed and must follow the
+Ariadne banner, style, build and documentation rules
+below. This is **not** authorization to integrate
+an existing third-party arithmetic engine or its
+source. Mathematical ideas may be implemented
+independently.
+
+The generic core owns unsigned limb storage/views,
+buffer reuse, exact add/sub, shifts, multiply,
+square, quotient/remainder and useful fixed-point
+building blocks; all ISA-specific dispatch is here.
+The three layers above it retain their own semantic
+contracts: signed integers and division conventions
+for `Integer`, finite exact ratios/GCD and explicit
+special values for `Rational`, and normalized
+significands/exponents with IEEE-directed certified
+rounding for `FloatAP`. FloatAP hot operations
+must **not** incur generic fraction canonicalization.
+
+**Migration ordering remains selective:** the
+performance gate continues to prioritize FloatAP,
+and `Integer`/`Rational` production types are
+**not** being migrated by this documentation
+decision. Unlike the earlier G1 decision to
+isolate FloatAP's first prototype, new
+cross-cutting limb primitives should now be
+implemented for reuse from the outset.
+FloatAP-specific algorithms, rounding and
+transcendental code remain confined to
+`include/numeric/floatap.hpp` and
+`src/floatap.cpp`; only generic arithmetic
+may be factored into shared core files.
+
+**Per-ISA documentation is mandatory before implementation:**
+every optimized kernel must state its input/output
+mathematical contract, tested ISA requirements,
+feature detection/dispatch, overflow and carry
+proofs, aliasing and scratch layout, portable
+fallback, differential tests and sanitizers,
+measured absolute performance and compiler/host
+details. See the paired
+`floatap_design.md` architecture-specific
+engineering contract. Documentation for shared
+kernels must be updated **here** and in that
+companion journal in the same commit. No
+unverified improvement claims.
+
 ## Architecture and ownership
 
 ```text
