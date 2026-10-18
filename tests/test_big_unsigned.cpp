@@ -453,6 +453,18 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     guarded.fill(max);
     ARIADNE_TEST_ASSERT(
         BigUnsigned::karatsuba_scratch_limbs(17u,17u)>0u);
+    ARIADNE_TEST_ASSERT(
+        BigUnsigned::karatsuba_scratch_limbs(17u,17u,8u) ==
+        BigUnsigned::karatsuba_scratch_limbs(17u,17u));
+    ARIADNE_TEST_ASSERT(
+        BigUnsigned::karatsuba_scratch_limbs(17u,17u,64u)==0u);
+    bool invalid_cutoff_threw=false;
+    try {
+        (void)BigUnsigned::karatsuba_scratch_limbs(17u,17u,7u);
+    } catch (std::invalid_argument const&) {
+        invalid_cutoff_threw=true;
+    }
+    ARIADNE_TEST_ASSERT(invalid_cutoff_threw);
     bool scratch_threw=false;
     try {
         BigUnsigned::mul_into_karatsuba(
@@ -484,15 +496,18 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         mpz_import(a.value,n,-1,8,0,0,da.data());
         mpz_import(b.value,m,-1,8,0,0,db.data());
         mpz_mul(expected.value,a.value,b.value);
-        auto product_view=scratch.acquire(lhs.size()+rhs.size()+2u);
-        auto work=karatsuba_workspace.acquire(
-            BigUnsigned::karatsuba_scratch_limbs(
-                lhs.size(),rhs.size()));
-        BigUnsigned::mul_into_karatsuba(
-            lhs.limbs(),rhs.limbs(),product_view,work);
-        check_against_gmp(BigUnsigned(product_view),expected.value);
-        for (std::size_t i=lhs.size()+rhs.size();i<product_view.size();++i) {
-            ARIADNE_TEST_ASSERT(product_view[i]==0u);
+        for (std::size_t cutoff: {8u,16u,32u,64u}) {
+            auto product_view=scratch.acquire(lhs.size()+rhs.size()+2u);
+            auto work=karatsuba_workspace.acquire(
+                BigUnsigned::karatsuba_scratch_limbs(
+                    lhs.size(),rhs.size(),cutoff));
+            BigUnsigned::mul_into_karatsuba(
+                lhs.limbs(),rhs.limbs(),product_view,work,cutoff);
+            check_against_gmp(BigUnsigned(product_view),expected.value);
+            for (std::size_t i=lhs.size()+rhs.size();
+                    i<product_view.size();++i) {
+                ARIADNE_TEST_ASSERT(product_view[i]==0u);
+            }
         }
     }
 }

@@ -149,6 +149,15 @@ class BigUnsigned
     //! Returns zero for base cases; may throw on size arithmetic overflow.
     static std::size_t karatsuba_scratch_limbs(
         std::size_t a_limbs,std::size_t b_limbs);
+    //! Explicit B8.1 variant with a caller-selected recursion cutoff
+    //! (minimum 8 limbs); below cutoff uses current selected schoolbook.
+    //! Scratch must be computed using the SAME cutoff. No global state.
+    static void mul_into_karatsuba(
+        LimbView a,LimbView b,MutableLimbView output,
+        MutableLimbView scratch,std::size_t cutoff);
+    //! Scratch size for a caller-selected Karatsuba recursion cutoff.
+    static std::size_t karatsuba_scratch_limbs(
+        std::size_t a_limbs,std::size_t b_limbs,std::size_t cutoff);
     //! Whether an architecture-specific multiplication kernel was built.
     static bool has_native_multiply() noexcept;
     //! Whether the production selector uses fused multiply accumulation.

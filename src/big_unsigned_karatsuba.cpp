@@ -43,7 +43,8 @@ using Write = BigUnsigned::MutableLimbView;
 
 // This is a recursion cutoff, not a proven performance crossover.
 // Small cases use the current architecture-selected schoolbook kernel.
-constexpr std::size_t karatsuba_base_limbs=8u;
+constexpr std::size_t karatsuba_default_cutoff=8u;
+constexpr std::size_t karatsuba_minimum_cutoff=8u;
 
 std::size_t checked_sum(std::size_t a,std::size_t b)
 {
@@ -53,19 +54,21 @@ std::size_t checked_sum(std::size_t a,std::size_t b)
     return a+b;
 }
 
-bool should_split(std::size_t a,std::size_t b) noexcept
+bool should_split(std::size_t a,std::size_t b,
+                  std::size_t cutoff) noexcept
 {
     const std::size_t half=std::max(a,b)/2u;
-    return std::min(a,b)>karatsuba_base_limbs
+    return std::min(a,b)>cutoff
         && a>half && b>half;
 }
 
 // Exact recursion-frame bound: sumA, sumB, cross product, plus the
 // maximum of the three sequential recursive calls' workspaces.
 // No nested frame overlaps the live parent sums or cross product.
-std::size_t karatsuba_workspace(std::size_t a,std::size_t b)
+std::size_t karatsuba_workspace(
+        std::size_t a,std::size_t b,std::size_t cutoff)
 {
-    if (!should_split(a,b)) {
+    if (!should_split(a,b,cutoff)) {
         return 0u;
     }
 
@@ -80,9 +83,9 @@ std::size_t karatsuba_workspace(std::size_t a,std::size_t b)
     const std::size_t frame=checked_sum(pair,pair);
 
     const std::size_t nested=std::max({
-        karatsuba_workspace(a0,b0),
-        karatsuba_workspace(a1,b1),
-        karatsuba_workspace(sa,sb)
+        karatsuba_workspace(a0,b0,cutoff),
+        karatsuba_workspace(a1,b1,cutoff),
+        karatsuba_workspace(sa,sb,cutoff)
     });
     return checked_sum(frame,nested);
 }
@@ -147,9 +150,11 @@ void add_shifted(Write output,Read term)
 // output.size()==a.size()+b.size(); scratch size is precomputed.
 // z0 and z2 occupy disjoint output slices, so no extra result buffer
 // is required for either of them. Only sums and cross term use scratch.
-void karatsuba_recursive(Read a,Read b,Write output,Write scratch)
+void karatsuba_recursive(
+        Read a,Read b,Write output,Write scratch,
+        std::size_t cutoff)
 {
-    if (!should_split(a.size(),b.size())) {
+    if (!should_split(a.size(),b.size(),cutoff)) {
         BigUnsigned::mul_low_into(a,b,output);
         return;
     }
@@ -162,9 +167,10 @@ void karatsuba_recursive(Read a,Read b,Write output,Write scratch)
     const Read b1=b.subspan(b0.size());
 
     karatsuba_recursive(
-        a0,b0,output.first(a0.size()+b0.size()),scratch);
+        a0,b0,output.first(a0.size()+b0.size()),scratch,cutoff);
     karatsuba_recursive(
-        a1,b1,output.subspan(2u*half,a1.size()+b1.size()),scratch);
+        a1,b1,output.subspan(2u*half,a1.size()+b1.size()),
+        scratch,cutoff);
 
     const std::size_t sa=std::max(a0.size(),a1.size())+1u;
     const std::size_t sb=std::max(b0.size(),b1.size())+1u;
@@ -177,7 +183,7 @@ void karatsuba_recursive(Read a,Read b,Write output,Write scratch)
 
     sum_halves(a0,a1,sum_a);
     sum_halves(b0,b1,sum_b);
-    karatsuba_recursive(sum_a,sum_b,cross,nested);
+    karatsuba_recursive(sum_a,sum_b,cross,nested,cutoff);
 
     // (a0+a1)(b0+b1)-a0*b0-a1*b1 = a0*b1+a1*b0.
     subtract_in_place(cross,output.first(a0.size()+b0.size()));
@@ -191,14 +197,36 @@ void karatsuba_recursive(Read a,Read b,Write output,Write scratch)
 std::size_t BigUnsigned::karatsuba_scratch_limbs(
         std::size_t a_limbs,std::size_t b_limbs)
 {
+    return karatsuba_scratch_limbs(
+        a_limbs,b_limbs,karatsuba_default_cutoff);
+}
+
+std::size_t BigUnsigned::karatsuba_scratch_limbs(
+        std::size_t a_limbs,std::size_t b_limbs,std::size_t cutoff)
+{
+    if (cutoff<karatsuba_minimum_cutoff) {
+        throw std::invalid_argument("BigUnsigned Karatsuba cutoff must be >= 8");
+    }
     (void)checked_sum(a_limbs,b_limbs);
-    return karatsuba_workspace(a_limbs,b_limbs);
+    return karatsuba_workspace(a_limbs,b_limbs,cutoff);
 }
 
 void BigUnsigned::mul_into_karatsuba(
         LimbView a,LimbView b,
         MutableLimbView output,MutableLimbView scratch)
 {
+    mul_into_karatsuba(
+        a,b,output,scratch,karatsuba_default_cutoff);
+}
+
+void BigUnsigned::mul_into_karatsuba(
+        LimbView a,LimbView b,
+        MutableLimbView output,MutableLimbView scratch,
+        std::size_t cutoff)
+{
+    if (cutoff<karatsuba_minimum_cutoff) {
+        throw std::invalid_argument("BigUnsigned Karatsuba cutoff must be >= 8");
+    }
     if (a.empty() || b.empty()) {
         std::fill(output.begin(),output.end(),Limb{0});
         return;
@@ -208,13 +236,14 @@ void BigUnsigned::mul_into_karatsuba(
     if (output.size()<count) {
         throw std::length_error("BigUnsigned Karatsuba output too small");
     }
-    const std::size_t required=karatsuba_workspace(a.size(),b.size());
+    const std::size_t required=karatsuba_workspace(a.size(),b.size(),cutoff);
     if (scratch.size()<required) {
         throw std::length_error("BigUnsigned Karatsuba scratch too small");
     }
 
     std::fill(output.begin(),output.end(),Limb{0});
-    karatsuba_recursive(a,b,output.first(count),scratch.first(required));
+    karatsuba_recursive(
+        a,b,output.first(count),scratch.first(required),cutoff);
 }
 
 } // namespace Ariadne
