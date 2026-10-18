@@ -19,9 +19,13 @@ is affected. Avoid recording prospective changes as implemented.
 2. Share one portable, tested **unsigned limb arithmetic core**.
    Preserve separate algorithms and storage strategies where needed:
    `FloatAP` must not pay for generic rational canonicalization.
-3. Preserve every existing public mathematical contract, including
-   rounding direction, exceptions, extended rational values, exact
-   conversions, serialization and comparisons.
+3. Preserve the mathematical **correctness** contracts needed by the
+   library (exact values, comparisons, rounding where applicable, and
+   Rational NaN/positive/negative infinity), but **do not preserve**
+   legacy GMP-wrapper implementation details, public GMP fields,
+   constructor/accessor ABI, or unnecessary API quirks. Explicitly
+   decide and test any change in the observable arithmetic contract
+   before adapting the rest of Ariadne.
 4. Target C++20, GCC, Clang/AppleClang and MSVC with warnings-as-errors.
    Do not require `__int128`, GCC-only intrinsics, or platform GMP
    limb layout. Accelerated code can be optional with portable fallback.
@@ -72,11 +76,16 @@ At branch creation:
   libraries and CMake target links for direct/indirect GMP ABI use.
   Do not assume replacing three fields removes GMP from the build.
 
-These exposed `_mpz`/`_mpq` members and get-functions imply a
-**source/ABI compatibility decision**. Inventory internal and external
-callers first. During transition, an explicit GMP adapter can support
-legacy clients, but it must not live on native computational hot paths.
-Never silently change public behavior or invalidate existing users.
+These exposed `_mpz`/`_mpq` fields and GMP constructors/accessors
+are **legacy implementation interfaces, not compatibility requirements**.
+The user has explicitly authorized replacing the wrappers rather than
+preserving their representation or GMP-specific ABI. Inventory and
+migrate callers across Ariadne; a separate, temporary GMP adapter is
+permitted for differential testing and transitional integration only.
+Preserve meaningful mathematical behavior, especially extended
+Rational values, and document changes to division conventions,
+errors and other observable semantics explicitly rather than
+carrying historical artifacts forward by default.
 
 ## Source-file style and documentation contract
 
@@ -203,11 +212,14 @@ limb boundaries, normalization and large shifts.
 
 ## Integer semantic contract
 
-Preserve: constructors/conversions and literals, comparison,
-sign/zero, addition/subtraction, multiplication, square,
-pow, shifts, increment/decrement, quot/rem, casts, string
-and stream IO, overflow/error behavior and higher-level
-number wrappers. In particular inspect current
+The new `Integer` is a fresh signed-magnitude front end backed by
+the shared `BigUnsigned`. Keep its useful mathematical capabilities:
+construction from standard integers and decimal strings, comparisons,
+sign/zero, add/sub/mul, exact square/pow, shifts, increment/decrement,
+well-defined quotient/remainder, checked casts and IO. The exact
+legacy overload set and GMP-shaped storage/constructors/accessors are
+**not requirements**; update internal callers to the new interfaces.
+Before deciding on division semantics, inspect current
 `src/integer.cpp`:
 
 ```cpp
@@ -223,14 +235,14 @@ Integer rem(Integer const& z1, Integer const& z2) {
 }
 ```
 
-These use **different GMP division functions**: do not
-assume `quot` and `rem` automatically obey the usual
-same-mode `a=q*b+r` convention. First document the
-precise observed behavior for negative numerator and
-denominator, then write fixed known-answer tests for
-that existing behavior (or explicitly agree to an API
-correction). Do not change semantics merely to pass
-a generic `divrem` implementation.
+These use **different GMP division functions**. This is a reason
+to define a coherent signed division contract afresh, not a reason
+to perpetuate accidental wrapper behavior. Start by documenting
+current behavior on all sign combinations; then choose one explicit
+quotient/remainder convention and enforce the same identity
+`a=q*b+r` for every test. Record intentional migration changes
+and update consumers/tests. The low-level unsigned `divrem` remains
+exact and independent of the higher-level sign convention.
 
 Check treatment of `Integer` vs `Natural` (including
 zero, signs and conversion preconditions), and negative
@@ -363,16 +375,21 @@ tested `BigUnsigned` internal core; make capacity
 unbounded, add storage and missing operations.
 Do not prematurely switch every implementation.
 
-**G2 — Integer migration:** replace `Integer` and
-related `Natural` internals behind a staged
-adapter, preserving semantics and running
-`Integer` vs `mpz_t` benchmark. Audit public GMP
-field/API compatibility and callers.
+**G2 — Integer replacement:** implement `Integer` and
+related `Natural` interfaces on the GMP-free core,
+without reproducing GMP-specific fields/accessors.
+Migrate internal consumers and run the
+`Integer` vs `mpz_t` benchmark. Preserve
+mathematical correctness, not wrapper ABI; document
+and explicitly test any selected API/semantic changes.
 
-**G3 — Rational migration:** replace `Rational`
-finite and extended representations, preserving
-special values and arithmetic; run `Rational`
-vs `mpq_t` benchmark with real canonicalization.
+**G3 — Rational replacement:** build the finite and
+extended `Rational` type on the new signed/unsigned
+integer core, not on `mpq_t`. Preserve NaN, ±infinity,
+finite exact arithmetic and the mathematical comparison
+contract. Rework callers that relied on GMP fields and
+run `Rational` vs `mpq_t` benchmark with equivalent
+canonicalization.
 
 **G4 — FloatAP migration:** replace `mpz_t`
 significand and GMP `Fraction`/certified interval
@@ -390,6 +407,53 @@ and MPFR absent; comparison-only benchmarks/tests
 may link both explicitly. Do not remove GMP from
 build configuration while native code still needs it.
 
+## Recommended first implementation milestone: G1a
+
+**Start with an independent unsigned core and its tests, not by
+rewriting the public `Integer` or `Rational` wrappers in place.**
+
+1. Freeze a minimal internal contract: canonical zero, unsigned
+   magnitude, little-endian limbs, bit-length, compare, add/sub with
+   carry/borrow, shifts and multiply/square. Set explicit aliasing,
+   overflow/allocation and error contracts; use arithmetic operations
+   on caller-provided scratch or output buffers where appropriate.
+2. Implement a portable `BigUnsigned` storage type with dynamic
+   capacity and a **measured** inline small-value optimization.
+   Use standard C++20 32-bit limb arithmetic as the first fully
+   portable baseline. Keep limb width and SBO capacity as
+   benchmark-guided decisions, not public API commitments.
+3. Introduce deterministic fixed expected-value tests independent
+   of GMP for 0/1, powers-of-two boundaries, carry/borrow chains,
+   aliasing, 32/53/64/128/256/1024+ bits, and stress cases beyond
+   inline capacity. Add randomized differential GMP checks in
+   test-only code. Follow Ariadne's source-header, GPL, Doxygen,
+   indentation and test organization requirements.
+4. Add exact unsigned `divrem`, single-limb division and GCD only
+   once core add/sub/shift/mul invariants and tests are established.
+   Reuse the `FloatAPSmallDivision` long-division *algorithm*
+   after reviewing its fixed-capacity edge cases, but do not
+   elevate the current 18-limb type into a supposedly arbitrary
+   precision implementation.
+5. Add the **benchmark infrastructure** for Integer-vs-`mpz_t`
+   early, separating end-to-end object costs from kernel costs.
+   Exercise the same exact inputs and check correctness after
+   timing. A Rational-vs-`mpq_t` benchmark follows the finite
+   Rational implementation. FloatAP's unchanged 1000x11
+   benchmark is the cross-cutting regression reference.
+6. Only then replace `Integer` with a fresh signed-magnitude
+   facade and migrate call sites, followed by `Rational`
+   (finite fraction plus explicit NaN/±infinity kinds).
+   Once the core is mature, migrate FloatAP's unsigned
+   significand and fixed-point interval paths, retaining
+   exact-rounding certification.
+
+**First commit acceptance:** a self-contained GMP-free unsigned
+core plus substantive fixed-oracle tests, Unix/Windows/Coverage
+passing, **without** changing current `Integer`, `Rational`,
+`FloatAP`, benchmark workloads or build configuration beyond what
+is required to add and exercise the new tests. No speculative
+performance improvement is claimed before same-host measurements.
+
 ## Decision log
 
 ### G0 — Branch creation and design baseline (18 October 2026)
@@ -404,6 +468,22 @@ No new numerical implementation or benchmark
 has yet been added. The FloatAP journal remains
 the performance reference and is to be updated
 in parallel when core changes affect FloatAP.
+
+### G0 clarification — wrapper compatibility is not a goal (18 October 2026)
+
+The user clarified that the current `Integer` and `Rational`
+classes are essentially GMP wrappers and **do not need to be
+preserved** as implementation classes or as GMP-shaped APIs.
+The only explicitly emphasized compatibility requirement is the
+handling of `Rational` NaN and ±infinity, in addition to exact
+mathematical correctness. Consequently the migration can
+replace `mpz_t`/`mpq_t` public fields, GMP constructors and
+accessors, and reorganize the classes. Follow a staged caller
+migration rather than maintaining a permanent compatibility
+facade. Decide quotient/remainder semantics explicitly and
+update consumers as needed. Begin with isolated `BigUnsigned`
+and independent tests before replacing either type; FloatAP
+performance/correct rounding remains the key regression gate.
 
 ### Implementation record template
 
