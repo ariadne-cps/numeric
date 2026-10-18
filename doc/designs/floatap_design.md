@@ -5749,3 +5749,47 @@ shadows namespace-scope `Ariadne::rounded` declared by
 the ratio algorithm, rounding modes, exponent carry, expected test
 values, precision thresholds, or benchmark workloads. The fix needs
 Unix, Windows and Coverage validation before further migration.
+
+## G1 FloatAP native division at all precisions (18 October 2026)
+
+The verified baseline for this step is `ae165e0b`, green on Unix,
+Windows and Coverage. Replaced the generic GMP
+`mpz_tdiv_qr` division and rational rounding fallback in
+`FloatAP::from_ratio` with the GMP-free
+`FloatAPNative::round_ratio` unsigned algorithm for **all** precisions.
+Keep the existing allocation-free `FloatAPSmallDivision` fast path
+for inputs that fit its <=64-bit optimization; its capacity failures
+now fall through to the unrestricted native unsigned algorithm,
+not GMP division. Keep the denominator=1 scaled-integer fast
+path unchanged. GMP `mpz_import`/`mpz_export` still bridge the
+legacy significand and input Integer/Rational representation;
+`FloatAP` is not yet GMP-independent as an object or as a whole.
+
+Extended public-API regression of exactly rounded ±1/3 from
+only 1100/1536 bits to precisions
+2,7,31,32,33,53,64,65,127,128,129,255,256,257,1023,1024,
+1100 and 1536 bits, with four rounding modes and both signs.
+The expected dyadic mantissas come from exact Integer division,
+independently of FloatAP and FloatMP, and results are checked
+against FloatMP. Added explicitly expected 5/4, 7/4,
+-5/4 and -7/4 tie-to-even and directed-rounding cases at
+2 bits, including significand carry. Keep the existing
+independent certification tests, benchmark input workload,
+the 256 input/3456 operation post-timing equality checks
+and all other tests unchanged. Benchmarks stay outside CTest.
+
+**Performance requirement:** collect the unchanged MacBook
+1000x11 FloatMP/FloatAP benchmark and compare each
+operation/precision ratio to the user-provided
+*beginning-of-remove-gmp* MacBook baseline (overall
+geomean 0.951x, total-time 0.404x and worst 2.971x;
+per-precision 53: 0.966/1.266/2.378,
+128: 1.242/1.020/2.971,
+256: 0.960/0.535/2.329,
+1024: 0.711/0.224/2.143, in
+geomean/total/worst order). This change may affect
+native division performance at 53/128/256/1024 bits;
+do not claim an improvement without same-host measurements,
+and do not change the benchmark workload to hide a regression.
+CI status and MacBook timing are not yet established
+for this commit.
