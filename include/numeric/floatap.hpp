@@ -151,6 +151,39 @@ template<> class Float<ArbitraryPrecision> {
     using Exponent = std::int64_t;
 
   private:
+    // Private limb representations and algorithms implemented exclusively
+    // in src/floatap.cpp; no independent FloatAP-native backend or files.
+    struct SmallUnsigned;
+    class Unsigned;
+    class WideScratch;
+    struct RoundedRatio;
+    enum class RatioRounding { NearestEven, Downward, Upward, TowardZero };
+    static std::size_t small_bit_length(SmallUnsigned const&) noexcept;
+    static int small_compare(SmallUnsigned const&,SmallUnsigned const&) noexcept;
+    static bool small_shift_left(SmallUnsigned const&,std::size_t,SmallUnsigned&) noexcept;
+    static void small_shift_right(SmallUnsigned const&,unsigned,SmallUnsigned&) noexcept;
+    static bool small_increment(SmallUnsigned&) noexcept;
+    static bool small_divrem(SmallUnsigned const&,SmallUnsigned const&,
+                             SmallUnsigned&,SmallUnsigned&) noexcept;
+    static bool import_small_magnitude(mpz_srcptr,SmallUnsigned&);
+    static bool small_rounded_ratio(mpz_srcptr,mpz_srcptr,unsigned long,bool,
+                                    Rounding,SmallUnsigned&,Exponent&);
+    static Unsigned import_native_magnitude(mpz_srcptr);
+    static void export_native_magnitude(mpz_ptr,Unsigned const&);
+    static RatioRounding native_rounding(Rounding);
+    static std::int64_t ratio_checked_add(std::int64_t,std::int64_t);
+    static std::int64_t ratio_checked_sub(std::int64_t,std::int64_t);
+    static std::int64_t ratio_checked_bit_length(Unsigned const&);
+    static std::size_t ratio_shift_amount(std::int64_t);
+    static int compare_shifted(Unsigned const&,std::size_t,Unsigned const&) noexcept;
+    static RoundedRatio round_ratio(Unsigned const&,Unsigned const&,
+                                    unsigned long,bool,RatioRounding);
+#if defined(__SIZEOF_INT128__)
+    static std::pair<std::uint64_t,std::uint64_t> divrem_preinverted_digit(
+        std::uint64_t,std::uint64_t,std::uint64_t,std::uint64_t) noexcept;
+    static Unsigned unpack_wide(std::uint64_t const*,std::size_t);
+    static std::pair<Unsigned,Unsigned> divrem_wide(Unsigned const&,Unsigned const&);
+#endif
     mpz_t _significand;
     unsigned long _precision;
     Exponent _exponent = 0;

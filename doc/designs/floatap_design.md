@@ -6220,3 +6220,44 @@ without a material slowdown elsewhere. In particular, the
 1024-bit division and ratio construction require substantially
 more than this memory allocation improvement. Do not
 proceed to another GMP removal substitution yet.
+
+## G1 architectural correction: native arithmetic belongs to FloatAP (18 October 2026)
+
+**User architecture requirement.** All production FloatAP arithmetic
+must be owned by the existing `FloatAP` class
+(`Float<ArbitraryPrecision>`), using only its existing header
+`include/numeric/floatap.hpp` and source `src/floatap.cpp`.
+No parallel `FloatAPNative` or `FloatAPSmallDivision` namespace,
+no extra header or CPP. Private implementation details are allowed,
+but they are private nested types and static member functions,
+not an independently maintained backend.
+
+**Structure-only change.** Transform the two namespace-level
+arithmetic groups into `FloatAP` private implementation members:
+`FloatAP::SmallUnsigned`, `FloatAP::Unsigned`,
+`FloatAP::WideScratch`, `FloatAP::RoundedRatio`,
+`FloatAP::RatioRounding`, and their import/export, bit and
+limb arithmetic, quotient/remainder, and rounding utilities.
+The private types are only forward-declared in
+`include/numeric/floatap.hpp`, with all definitions and
+arithmetic implemented in the existing `src/floatap.cpp`.
+Algorithms, public API, existing benchmark, precision thresholds,
+and rounding semantics are intended to remain unchanged.
+
+**Crucial distinction.** This refactoring does **not** make
+FloatAP wholly GMP-free: the public class still owns
+`mpz_t _significand`, `Integer`/`Rational` conversions
+still import/export GMP magnitudes, and other basic operations
+still execute GMP calls. Do not present namespace removal
+as performance progress or completion of the original migration.
+
+**Validation gate.** Compile on macOS/AppleClang, GCC, Clang,
+MSVC and execute existing public FloatAP tests, rounding
+oracles, sanitizer and benchmark equality checks. This
+is a structural candidate subject to that validation;
+no baseline performance benefit is asserted.
+After structural regression checks, resume the same
+ARM64-first, architecture-neutral speed recovery gate,
+particularly for `construct_rational` and `div_*`
+at 128, 256 and 1024 bits. No new GMP-free path before
+those medians have recovered the frozen original baseline.
