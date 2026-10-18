@@ -6082,3 +6082,70 @@ cross-platform evidence.
 head before this documentation-only decision. The supplied Mac
 benchmark has not reached the gate, especially at 1024 bits.
 No new division performance optimization is introduced here.
+
+## G1 portable preinverted quotient digits, first complete integration candidate (18 October 2026)
+
+**Target and policy.** The project owner requires *at least* reaching
+the frozen better FloatAP baseline for all affected operations at
+53/128/256/1024 bits before moving to any other GMP-free substitution.
+Use ARM64 Mac as the primary benchmarking host until this gate is met;
+only then assess x86-64-specific performance issues. **Do not**
+introduce ARM64-only optimizations: the algorithm and its
+operand-size-based threshold must be the same across CPU families.
+
+**Current measured checkpoint, immediately before this experiment.**
+The unchanged Mac 1000 iterations x 11 samples, 27 operations in four
+precision groups, on `9343c309` reported PASS for 256 inputs and
+3456 operation outputs. The all-operations geomean slowdown was
+0.963x versus a frozen baseline 0.912x; time-weighted slowdown was
+0.435x versus 0.407x; worst slowdown 6.542x versus 2.994x.
+At 1024 bits: `div_nearest` was 1120.750 ns (baseline 289.375),
+`div_up` 1092.833 ns (baseline 256.875), and
+`construct_rational` 1088.583 ns (baseline 484.375).
+The latest benchmark is **not** evidence of baseline recovery.
+
+**Algorithm change, with no architecture-specific dispatch.**
+The existing base-2^64 long divider repeatedly estimates each
+quotient digit by dividing a 128-bit prefix by the normalized
+leading divisor limb. When the quotient has at least four 64-bit
+digits, compute the exact reciprocal
+`floor((2^128-1)/top_divisor_limb)` once, and estimate each digit
+using a high-half multiplication, additions, and two corrections.
+For shorter quotients, retain exact built-in wide division.
+The unusual case where the high dividend limb is at least the
+top divisor limb uses an exactly saturated digit estimate as
+before. Knuth quotient correction, full subtraction, exact
+remainder and all rounding modes are unchanged.
+Both x86-64 and ARM64 take the same branch for identical operands
+when their toolchains support `__int128`, while the longstanding
+base-2^32 fallback remains the portability path elsewhere.
+
+**Local independent verification (Linux x86-64, not a Mac performance
+measurement).** A standalone algorithm probe ran 80,000 deterministic
+complete division cases: both previous and preinverted long
+division returned identical exact quotient/remainder, independently
+checked against GMP `mpz_tdiv_qr` (divisor 128-3840 bits, numerator
+up to 4480 bits). A separate probe tested 3,000,000 normalized
+128/64 digit cases plus 150 hand-picked boundary combinations,
+with exact quotient/remainder matching built-in `__int128`.
+The full-division probe also passed with Clang/ASan+UBSan.
+Standalone (GCC 14 `-O3`) approximate timing with equally sized
+dividend and divisor-plus-quotient bit widths:
+512-bit divisor: old 291 ns, preinverse 259 ns;
+1024-bit divisor: old 800 ns, preinverse 730 ns.
+At 128/256-bit divisors the probes were approximately tied.
+These numbers exclude FloatAP adapters, public rounding, and
+Apple ARM64, so they do **not** demonstrate the requested recovery.
+
+**Pending gates.** Validate integration with cross-platform CI
+and exhaustive FloatAP public tests. Then benchmark
+`1000 11` on the *same ARM64 Mac* with unchanged operands
+and all modes. Compare every affected FloatAP operation against
+the frozen absolute baseline medians, not merely the aggregate.
+If insufficient (especially 1024 bits), profile quotient loop,
+remainder construction, normalization, GMP boundary
+import/export, and investigate a single-pass rounded-quotient
+kernel that avoids materializing a full remainder, while
+retaining correct nearest-even, directed rounding and ties.
+Do not initiate a different GMP-free substitution while this
+baseline gate remains open.

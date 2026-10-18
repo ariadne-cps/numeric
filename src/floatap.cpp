@@ -568,6 +568,30 @@ class WideScratch {
     std::uint64_t const* data() const noexcept { return _data; }
 };
 
+// Exact 128/64 quotient digit using a precomputed inverse of the
+// normalized (top bit set) divisor. Valid when high < divisor.
+// Unlike repeated 128/64 division, the per-digit work consists only
+// of 64-bit products, adds and at most two corrections. Both GCC
+// and Clang use this same path irrespective of the target CPU.
+inline std::pair<std::uint64_t,std::uint64_t> divrem_preinverted_digit(
+        std::uint64_t high,std::uint64_t low,
+        std::uint64_t divisor,std::uint64_t inverse) noexcept {
+    const WideUInt product=WideUInt(high)*inverse;
+    const WideUInt sum=WideUInt(static_cast<std::uint64_t>(product))+low;
+    std::uint64_t quotient=static_cast<std::uint64_t>(product>>64u)+high+
+        1u+static_cast<std::uint64_t>(sum>>64u);
+    std::uint64_t remainder=low-quotient*divisor;
+    if (remainder>static_cast<std::uint64_t>(sum)) {
+        --quotient;
+        remainder+=divisor;
+    }
+    if (remainder>=divisor) {
+        remainder-=divisor;
+        ++quotient;
+    }
+    return {quotient,remainder};
+}
+
 inline Unsigned unpack_wide(std::uint64_t const* limbs,std::size_t count) {
     if (count>std::numeric_limits<std::size_t>::max()/2u) {
         throw std::overflow_error("FloatAP wide division size overflow");
@@ -625,14 +649,35 @@ inline std::pair<Unsigned,Unsigned> divrem_wide(
 
     constexpr std::uint64_t max_word=
         std::numeric_limits<std::uint64_t>::max();
+    // The inverse costs one full-width division per operand pair.
+    // Select it only for long enough quotients to amortize that cost;
+    // the threshold is based on operand size, never on CPU type.
+    const bool use_preinverse=(m+1u)>=4u;
+    const std::uint64_t inverse=use_preinverse ?
+        static_cast<std::uint64_t>((~WideUInt{0})/v[n-1u]) : 0u;
     for (std::size_t offset=m+1u; offset!=0u; --offset) {
         const std::size_t j=offset-1u;
         const WideUInt top=(WideUInt(u[j+n])<<64u)|u[j+n-1u];
-        WideUInt estimate=top/v[n-1u];
-        WideUInt estimated_remainder=top%v[n-1u];
-        if (estimate>max_word) {
-            estimate=max_word;
-            estimated_remainder=top-estimate*v[n-1u];
+        WideUInt estimate,estimated_remainder;
+        if (use_preinverse) {
+            if (u[j+n]>=v[n-1u]) {
+                // Quotient digit would exceed its 64-bit radix:
+                // saturate exactly, then apply Knuth's correction.
+                estimate=max_word;
+                estimated_remainder=top-estimate*v[n-1u];
+            } else {
+                const auto [digit,remainder]=divrem_preinverted_digit(
+                    u[j+n],u[j+n-1u],v[n-1u],inverse);
+                estimate=digit;
+                estimated_remainder=remainder;
+            }
+        } else {
+            estimate=top/v[n-1u];
+            estimated_remainder=top%v[n-1u];
+            if (estimate>max_word) {
+                estimate=max_word;
+                estimated_remainder=top-estimate*v[n-1u];
+            }
         }
         while (estimated_remainder<=max_word &&
                estimate*v[n-2u]>
