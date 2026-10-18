@@ -49,9 +49,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
     endif()
 endif()
 
-# ARM64 architecture source now contains only the explicit carry-chain
-# specialization. The selected wide fused kernel lives in big_unsigned.cpp.
-# Unsupported architectures/compilers keep the portable C++20 kernel.
+# ARM64 selects the explicit MUL/UMULH/ADDS/ADC carry-chain specialization
+# validated by native GMP differential tests and integrated Mac benchmarks.
+# The shared fused kernel remains explicitly callable for A/B measurements;
+# unsupported architectures/compilers use portable C++20 multiplication.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$"
         AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
     target_sources(NUMERIC_SRC PRIVATE big_unsigned_arm64.cpp)

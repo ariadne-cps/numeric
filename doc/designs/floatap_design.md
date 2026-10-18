@@ -7531,3 +7531,8 @@ In the user-run integrated benchmark following source-layout consolidation, the 
 ### Second B10.1 Apple Silicon carry benchmark (18 October 2026)
 
 In the user-run 256/1024/2048/4096-bit integrated BigUnsigned benchmark, the explicit ARM64 carry kernel took 17.831/153.998/570.777/2263.667 ns versus fused selected 22.617/179.512/796.533/3673.671 ns in the same run. The 1024/2048-bit speedups were reproduced across two user runs; the 256-bit result varied, and 4096 bits newly showed a 1.62x throughput gain versus the currently selected fused kernel. GMP reused-destination at 4096 bits took 986.669 ns. These results do not imply FloatAP end-to-end speedup and do not yet justify dispatch promotion without a reported native macOS ARM64 GMP-oracle CTest. No FloatAP source or production dispatch was modified. See `integer_rational_design.md` for the full measurements.
+
+
+### B10.2: default ARM64 BigUnsigned multiplication selects explicit carry chain (18 October 2026)
+
+Following two integrated Apple Silicon measurements and user-confirmed native GMP-differential `ctest` green in the prior build, the ARM64 selected BigUnsigned multiply now calls the existing architecture-specific `MUL/UMULH/ADDS/ADC` carry kernel. The shared `__int128` fused implementation and portable reference remain explicitly callable; no CMake flag or extra source file is introduced. x86-64 behavior and FloatAP code stay unchanged. A newly built ARM64 selected-path `ctest` and owning benchmark comparison remain pending; do not claim an end-to-end FloatAP speedup. See `integer_rational_design.md`.

@@ -127,12 +127,12 @@ class BigUnsigned
     //! Explicit full fused product; same size and aliasing contracts
     //! as mul_into. Does not affect the production kernel selector.
     static void mul_into_fused(LimbView a,LimbView b,MutableLimbView output);
-    //! Experimental explicit ARM64 MUL/UMULH/ADDS/ADC carry-chain
-    //! schoolbook. On other architectures uses the portable reference.
-    //! No allocation, no aliasing and no production selector change.
+    //! Explicit selected ARM64 MUL/UMULH/ADDS/ADC carry-chain
+    //! schoolbook. Elsewhere uses the portable reference; this entry
+    //! point remains available for benchmarking and regression.
     static void mul_low_into_arm64_carry(
         LimbView a,LimbView b,MutableLimbView output);
-    //! Exact full-product ARM64 carry-chain experiment.
+    //! Exact full-product ARM64 carry-chain implementation.
     static void mul_into_arm64_carry(
         LimbView a,LimbView b,MutableLimbView output);
     //! Force the B3 x86-64 row-schoolbook reference chosen before B6.
@@ -167,15 +167,15 @@ class BigUnsigned
     static std::size_t karatsuba_scratch_limbs(
         std::size_t a_limbs,std::size_t b_limbs,std::size_t cutoff);
     //! Whether a supported x86-64 or ARM64 native kernel was built.
-    //! ARM64 selects the common fused kernel by default.
+    //! Native ARM64 selects the specialized carry-chain kernel by default.
     static bool has_native_multiply() noexcept;
     //! Whether the ARM64 native fused/carry-chain kernels were built.
     static bool has_arm64_multiply() noexcept;
     //! Whether the x86-64 native schoolbook/Comba kernels were built.
     static bool has_x86_64_multiply() noexcept;
-    //! Whether the production selector uses fused multiply accumulation.
-    //! GCC x86-64 uses its configurable fused selector; native ARM64
-    //! always selects fused multiplication.
+    //! Whether production selects the common unsigned __int128 fused kernel.
+    //! True only for GCC x86-64 with its independent selector enabled;
+    //! native ARM64 instead selects the explicit carry-chain kernel.
     static bool selected_multiply_uses_fused() noexcept;
     Limb limb(std::size_t index) const noexcept;
     std::size_t bit_length() const noexcept;

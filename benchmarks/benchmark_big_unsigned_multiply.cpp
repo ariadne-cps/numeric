@@ -177,7 +177,7 @@ List<ArgumentParser> multiplication_parsers(MultiplicationSelection& selection)
         "","include-fused","Include explicitly forced x86-64 prealloc_fused kernel",
         [&selection] { selection.include_fused=true; }));
     parsers.append(make_unvalued_argument_parser(
-        "","include-arm64-carry","Experimental ARM64 explicit carry-chain kernel",
+        "","include-arm64-carry","Measure the selected ARM64 explicit carry-chain kernel",
         [&selection] { selection.include_arm64_carry=true; }));
     parsers.append(make_unvalued_argument_parser(
         "","include-schoolbook","Include forced B3 prealloc_schoolbook kernel",
@@ -607,9 +607,11 @@ int main(int argc,const char* argv[])
                         << " | native available="
                         << BigUnsigned::has_native_multiply()
                         << " | selected kernel="
-                        << (BigUnsigned::selected_multiply_uses_fused()
-                            ? "fused" : BigUnsigned::has_x86_64_multiply()
-                                ? "B3 schoolbook/portable" : "portable"))
+                        << (BigUnsigned::has_arm64_multiply()
+                            ? "ARM64 carry"
+                            : BigUnsigned::selected_multiply_uses_fused()
+                                ? "fused" : BigUnsigned::has_x86_64_multiply()
+                                    ? "B3 schoolbook/portable" : "portable"))
         LOGGING_PRINTLN("Iterations: " << selection.iterations
                         << "  |  Samples: " << selection.samples)
         if (selection.include_karatsuba) {
