@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <utility>
 
 #if defined(_MSC_VER) && defined(_M_X64)
@@ -92,6 +93,62 @@ void mul_low_into_x86_64(BigUnsigned::LimbView a,
         if (i+terms < output.size()) {
             output[i+terms] = carry;
         }
+    }
+}
+
+// Experimental column-wise (Comba) schoolbook multiplication in radix 2^64.
+// The 192-bit lo:hi:top accumulator collects the 128-bit partial products
+// for one output column plus the propagated high part of the preceding one.
+// This structure writes each output digit exactly once. The low-word and
+// high-word additions are unsigned, and their overflows extend 'top'.
+// In an actual representable operand view, top is bounded by the number of
+// products in a column; even in the all-ones case it fits a limb.
+// No allocation, global state, BMI2, ADX or alignment beyond uint64_t.
+// Input and output spans must be disjoint, including partial overlap.
+void mul_low_into_comba_x86_64(BigUnsigned::LimbView a,
+                               BigUnsigned::LimbView b,
+                               BigUnsigned::MutableLimbView output) noexcept
+{
+    std::fill(output.begin(),output.end(),Limb{0});
+    if (a.empty() || b.empty()) {
+        return;
+    }
+
+    // The highest nonzero product column is at a.size()+b.size()-2.
+    // Avoid overflow in the size sum even for a truncated operation.
+    const std::size_t columns =
+        a.size()>std::numeric_limits<std::size_t>::max()-b.size()
+        ? output.size()
+        : std::min(output.size(),a.size()+b.size()-1u);
+
+    Limb lo=0u,hi=0u,top=0u;
+    for (std::size_t k=0u; k<columns; ++k) {
+        const std::size_t first=k>=b.size() ? k-b.size()+1u : 0u;
+        const std::size_t last=std::min(k,a.size()-1u);
+        for (std::size_t i=first; i<=last; ++i) {
+            const auto [product_lo,product_hi]=
+                multiply_wide_x86_64(a[i],b[k-i]);
+
+            const Limb next_lo=lo+product_lo;
+            const Limb carry_lo=static_cast<Limb>(next_lo<lo);
+            const Limb next_hi=hi+product_hi;
+            const Limb carry_hi=static_cast<Limb>(next_hi<hi);
+            const Limb high_with_carry=next_hi+carry_lo;
+            const Limb carry_hi_extra=static_cast<Limb>(
+                high_with_carry<next_hi);
+
+            lo=next_lo;
+            hi=high_with_carry;
+            top+=carry_hi+carry_hi_extra;
+        }
+
+        output[k]=lo;
+        lo=hi;
+        hi=top;
+        top=0u;
+    }
+    if (columns<output.size()) {
+        output[columns]=lo;
     }
 }
 

@@ -108,6 +108,16 @@ class BigUnsigned
     static void mul_into(LimbView a,LimbView b,MutableLimbView output);
     //! Full product using the explicitly selected portable reference.
     static void mul_into_portable(LimbView a,LimbView b,MutableLimbView output);
+    //! Experimental column-wise Comba kernel for benchmarking on x86-64.
+    //! On other architectures, uses the portable schoolbook reference.
+    //! Result is the product modulo 2^(64*output.size()) and completely
+    //! overwrites output. Output must be disjoint from both inputs.
+    //! Does not alter the architecture-selected production path.
+    static void mul_low_into_comba(LimbView a,LimbView b,MutableLimbView output);
+    //! Exact full Comba product into caller storage. Checks that output
+    //! has a.size()+b.size() limbs for nonempty inputs; does not allocate.
+    //! Overlap with either input is forbidden; extra limbs are zeroed.
+    static void mul_into_comba(LimbView a,LimbView b,MutableLimbView output);
     //! Whether an architecture-specific multiplication kernel was built.
     static bool has_native_multiply() noexcept;
     Limb limb(std::size_t index) const noexcept;
