@@ -7546,3 +7546,8 @@ The user benchmarked a newly compiled B10.2 selected ARM64 carry build. Compared
 ### B10.2 selected ARM64 carry validation closed (18 October 2026)
 
 The user confirmed the updated **post-dispatch-change** macOS ARM64 `ctest --output-on-failure` fully green. GitHub Actions Unix/Windows/Coverage on the functional ARM64 carry default commit `d01c505` also completed successfully. These results close the previously pending validation gate for production BigUnsigned ARM64 selected carry. The earlier native owning BigUnsigned benchmark and remaining GMP gap are recorded in `integer_rational_design.md`; no FloatAP end-to-end speedup is claimed.
+
+
+### B11 x86-64 explicit carry-chain experiment (18 October 2026)
+
+BigUnsigned adds a **non-production** x86-64 GNU/Clang `MULQ/ADDQ/ADCQ` schoolbook specialization in the existing architecture-specific source file, with a GMP-differential test and opt-in `--include-x86-64-carry` benchmark. MSVC keeps the native B3 fallback and no new file or CMake flag is introduced. GCC x86-64 selected fused, ARM64 selected carry and FloatAP code are unchanged. An isolated GCC/Clang x86-64 correctness check passed 1.5 million random/edge tuples; project-level CI and user Ubuntu integrated measurements are still pending. See `integer_rational_design.md` for algorithm, constraints and acceptance criteria.

@@ -135,6 +135,15 @@ class BigUnsigned
     //! Exact full-product ARM64 carry-chain implementation.
     static void mul_into_arm64_carry(
         LimbView a,LimbView b,MutableLimbView output);
+    //! Experimental x86-64 MULQ/ADDQ/ADCQ carry-chain row schoolbook.
+    //! Native GNU/Clang assembly, MSVC B3 fallback, portable elsewhere.
+    //! Fully overwrites a disjoint output, without scratch allocation.
+    //! Does not change the production dispatch.
+    static void mul_low_into_x86_64_carry(
+        LimbView a,LimbView b,MutableLimbView output);
+    //! Exact full-product counterpart with mul_into's output size contract.
+    static void mul_into_x86_64_carry(
+        LimbView a,LimbView b,MutableLimbView output);
     //! Force the B3 x86-64 row-schoolbook reference chosen before B6.
     //! On unsupported architectures, uses the C++20 portable reference.
     //! Product is exact modulo 2^(64*output.size()); no overlap allowed.
@@ -171,6 +180,8 @@ class BigUnsigned
     static bool has_native_multiply() noexcept;
     //! Whether the ARM64 native fused/carry-chain kernels were built.
     static bool has_arm64_multiply() noexcept;
+    //! Whether GNU/Clang x86-64 inline-assembly carry experiment exists.
+    static bool has_x86_64_carry_multiply() noexcept;
     //! Whether the x86-64 native schoolbook/Comba kernels were built.
     static bool has_x86_64_multiply() noexcept;
     //! Whether production selects the common unsigned __int128 fused kernel.

@@ -152,4 +152,51 @@ void mul_low_into_comba_x86_64(BigUnsigned::LimbView a,
     }
 }
 
+
+
+// Experimental GNU/Clang x86-64 row-schoolbook with explicit carry flags.
+// Equivalent to the selected shared wide-accumulator fused recurrence:
+// total = a[i]*b[j] + output[i+j] + carry, total < 2^128.
+// MULQ writes RDX:RAX; ADDQ/ADCQ propagate each of the two 64-bit
+// additions into the high half. +&a and =&d forbid early-clobber
+// overlap with inputs: incorrect allocation could corrupt a multiplier.
+// No BMI2/ADX, extra scratch, allocations, or runtime CPU detection.
+// Output and input spans must not alias; all output words are overwritten.
+// On MSVC (no GNU inline asm), the existing x86-64 B3 path is reused.
+void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
+                               BigUnsigned::LimbView b,
+                               BigUnsigned::MutableLimbView output) noexcept
+{
+#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__) && !defined(_MSC_VER)
+    std::fill(output.begin(),output.end(),Limb{0});
+    for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
+        const Limb ai=a[i];
+        Limb carry=0u;
+        const std::size_t terms=std::min(b.size(),output.size()-i);
+        for (std::size_t j=0u; j<terms; ++j) {
+            Limb lo=ai,hi;
+            const Limb previous=output[i+j];
+            const Limb bj=b[j];
+            __asm__ volatile(
+                "mulq %[bj]\n\t"
+                "addq %[previous], %%rax\n\t"
+                "adcq $0, %%rdx\n\t"
+                "addq %[carry], %%rax\n\t"
+                "adcq $0, %%rdx\n\t"
+                : "+&a" (lo), "=&d" (hi)
+                : [bj] "r" (bj), [previous] "r" (previous),
+                  [carry] "r" (carry)
+                : "cc");
+            output[i+j]=lo;
+            carry=hi;
+        }
+        if (i+terms<output.size()) {
+            output[i+terms]=carry;
+        }
+    }
+#else
+    mul_low_into_x86_64(a,b,output);
+#endif
+}
+
 } // namespace Ariadne::BigUnsignedDetail
