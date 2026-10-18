@@ -6794,3 +6794,82 @@ Only a trustworthy idle Apple ARM64 run at
 20000 iterations / 31 samples can establish
 baseline recovery. Flag widespread controls
 regressions and stop for user feedback.
+
+## G6: exact-residual truncated-limb division feasibility (18 October 2026)
+
+**Outcome: reject for the original 128–1024-bit performance gate;
+no production changes.** The standalone
+`floatap_exact_residual_short_division_probe.cpp` (research
+artifact retained outside the repository) uses the
+identity `A=q0*D+E` after truncating `t` low
+base-2^64 limbs from both operands. Let
+`A=Ah*B^t+Al`, `D=Dh*B^t+Dl`,
+`(q0,rh)=divrem(Ah,Dh)`. Then reconstruct
+`E=rh*B^t+Al-q0*Dl` with native limbs,
+and recover an exact quotient and remainder:
+for E>=0 add `floor(E/D)` to q0; for E<0
+subtract `ceil((-E)/D)` from q0, with
+the exact appropriately adjusted remainder.
+All `A=QD+R`, `0<=R<D` invariants hold,
+so existing exact rounding can be reused.
+GMP is an isolated test oracle only.
+
+**Verification.** 10000 deterministic random GMP
+quotient/remainder comparisons on GCC -O3,
+10000 on Clang -O3, and 20000 under Clang
+ASan/UBSan (two cut policies per case): PASS.
+All 64 benchmark-shaped rational and 64
+significand-divisor inputs at each of 128,
+256, 1024, 2048, 4096, 8192 bits agreed
+exactly with the existing native divider
+before timing. No claim is made of completed
+public FloatAP tests for this prototype.
+
+**Measurements** (standalone x86-64, medians of
+7 samples x 5000, not Apple ARM64 FloatAP;
+speedup = original fused limb divider / new
+adaptive exact-residual divider):
+at 1024 bits, rational construction
+GCC **0.68x** / Clang **0.73x**;
+significand division GCC **0.45x** /
+Clang **0.42x**. All are significant
+regressions and *not* attributable to
+host CPU noise because comparisons were
+repeated under both compilers and the
+operation-specific pattern is consistent.
+Sparse rational construction at 4096 bits
+GCC **2.58x** / Clang **2.23x** and
+8192 bits GCC **5.94x** / Clang **3.73x**.
+This suggests a possible high-precision
+sparse-data crossover, but does NOT
+justify integration into FloatAP now.
+
+**Literature reconciliation.** MPFR *Algorithms
+and Proofs*, section 3.5.2,
+https://www.mpfr.org/algorithms.pdf ,
+derives `q1-2 < A/D < q1+1` only under
+its exact normalization, which keeps
+the approximate quotient and high divisor
+at the same working precision. Cutting
+the divisor below the p-bit target
+invalidates that small-error assumption.
+MPFR section 3.5.4 and
+https://fossies.org/linux/mpfr/src/div.c
+select Mulders short division only at
+sufficient working size and retain
+exact fallback. A faithful
+certified-rounding implementation must
+carry its own proof and boundaries.
+
+**Next technical priority.** To address
+128–1024-bit dense significand division,
+prototype the full GMP-style 3-by-2
+preinverse quotient-digit estimator and
+fused `submul` with benchmarked scratch
+and conversion overhead. For precision
+far above 1024, separately prototype
+Harvey–Zimmermann/Mulders short division.
+Avoid implementing the rejected low-limb
+truncation in production. Keep the
+original frozen 20000x31 ARM64 baseline
+and CPU-noise sentinel gates unchanged.
