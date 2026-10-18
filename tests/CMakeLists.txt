@@ -13,6 +13,7 @@ set(UNIT_TESTS
     test_rounding_mode
     test_float
     test_float_rounding
+    test_floatap_native_unsigned
     test_rounded_float
     test_float_approximation
     test_float_error

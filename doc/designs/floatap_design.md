@@ -5630,3 +5630,54 @@ claimed until its production representation and algorithms cease to
 call GMP. Preserve the 1000x11 FloatMP/FloatAP workload, exact
 post-timing equality verification, and all existing independent
 mathematical literal tests.
+
+## G1 FloatAP-first: initial native unsigned significand kernel (18 October 2026)
+
+**User priority change:** Complete the GMP removal from **FloatAP first**;
+only afterwards examine whether the implementation can be refactored
+to serve `Integer` and `Rational`. The earlier shared
+`BigUnsigned`-first migration roadmap is **superseded**.
+Do not impose a general-purpose numeric facade or shared allocator
+on FloatAP's critical paths to manufacture reuse.
+
+**Initial isolated implementation:**
+`src/floatap_native_unsigned.hpp` introduces
+`Ariadne::FloatAPNative::Unsigned`, a private, GMP-free
+little-endian unsigned integer with 32-bit limbs, four inline limbs,
+dynamic growth, canonical zero, bit manipulation, bit length,
+comparison, add/sub with carry and borrow, shifts, multiplication,
+and exact base-2^32 long division returning quotient and remainder.
+All arithmetic uses standard `uint32_t`/`uint64_t`, not GMP,
+MPFR or compiler-specific `__int128`. The type has arbitrary
+size rather than the fixed 18-limb ceiling of the earlier
+`FloatAPSmallDivision::Unsigned` optimization.
+This initial version is **not** yet used by FloatAP itself;
+its numerical representation, arithmetic and benchmark performance
+remain unchanged. In particular, FloatAP still stores its
+significand in `mpz_t` and still uses `mpq_t` for certified
+intervals and exact conversions. No GMP-free FloatAP claim.
+
+**Correctness tests:** add the functional CTest target
+`test_floatap_native_unsigned` with fixed independent literal
+oracles (32-bit carry, 64-bit boundary product, shifts, quotient/
+remainder, zero, underflow and >1024-bit growth), plus 120
+deterministic unsigned operand pairs up to 2048 bits cross-checked
+against GMP `mpz_*` for add/sub/mul, multiple shifts and divrem.
+These use a GMP backend **only as a test oracle**, outside
+the header implementation. The test explicitly checks
+`a=q*b+r` and `0<=r<b`. The benchmark targets remain separate
+from CTest. Respect Ariadne GPL headers, test macros and formatting.
+
+**Next stage:** after Unix, Windows and Coverage are green,
+introduce a small, explicit GMP import/export adapter and
+migrate a carefully selected FloatAP hot path to the native
+significand, measuring absolute timing, the 53/128/256/1024-bit
+worst/geomean/sum ratios and exact 3456-result benchmark check.
+For the full removal, FloatAP construction from legacy
+`Integer`/`Rational`, output `Rational` conversions and
+certified transcendental `Fraction` intervals also require
+GMP-free replacements or appropriate boundary adapters.
+The old GMP-backed `Integer` and `Rational` may remain
+temporarily in production outside FloatAP while the FloatAP
+kernel is migrated. Do not conflate source independence
+with removing GMP from every linked object.
