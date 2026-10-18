@@ -7516,3 +7516,8 @@ Following user-confirmed green macOS ARM64 project tests and integrated owning/p
 ### B10 ARM64 carry-chain candidate (18 October 2026)
 
 BigUnsigned adds an experimental explicit carry-chain ARM64 kernel, exposed to the integrated benchmark with `--include-arm64-carry`, leaving selected fused ARM64 and FloatAP code unchanged. GMP oracle coverage extended; no production promotion or FloatAP speedup is claimed. Details in `integer_rational_design.md`.
+
+
+### B10.1: shared BigUnsigned source layout (18 October 2026)
+
+Karatsuba (including recursion, workspaces and cutoff APIs) is moved into `src/big_unsigned.cpp`; the separate `src/big_unsigned_karatsuba.cpp` is removed from disk/build. Fused GCC/Clang `unsigned __int128` schoolbook code formerly duplicated in both x86-64 and ARM64 files is now implemented once in `big_unsigned.cpp`. Only genuinely architecture-specific kernels stay in `big_unsigned_x86-64.cpp` (B3/Comba, MSVC native fallback) and `big_unsigned_arm64.cpp` (explicit carry-chain assembly candidate). This refactor does not intentionally alter production kernel selection, Integer/Rational/FloatAP integration, tests or benchmark semantics; CI and native macOS rerun are still required and performance equivalence must be measured rather than assumed.
