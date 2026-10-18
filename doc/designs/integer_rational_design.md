@@ -1256,3 +1256,19 @@ Ubuntu GCC found an integrated CTest **test-source compilation error**, not evid
 ### B8.1: Karatsuba cutoff experiment (18 October 2026)
 
 The user-reported Ubuntu 20,000-iteration, 31-sample timings show Karatsuba cutoff 8 slower than fused selected at 1024 (346.542 vs 206.249 ns), 2048 (1256.520 vs 797.097 ns), 4096 (4203.549 vs 2975.416 ns), and 8192 bits (13583.344 vs 12589.667 ns). This contradicts the isolated-prototype crossover suggestion; no production promotion is justified. B8.1 adds parameterized scratch sizing and Karatsuba multiplication at cutoff >=8, preserving the original default cutoff 8 and unchanged GCC fused dispatch. --include-karatsuba --karatsuba-cutoff N reports the threshold and compares to GMP and fused at fixed sizes. The widened random GMP oracle covers cutoff 8,16,32,64. Same threshold must be used for sizing and multiplication. No runtime workspace allocations, production changes, or FloatAP changes. The CI still needs to be checked for the new commit.
+
+
+### BigUnsigned B8.1: complete Ubuntu cutoff sweep, 8/16/32/64 (18 October 2026)
+
+**Source:** four user-run integrated Ubuntu GCC x86-64 benchmarks on commit `56453a4`, 20,000 iterations, 31 samples, balanced 1024/2048/4096/8192-bit operands, units ns. Each column is from a *different* benchmark invocation; comparison with selected must use the corresponding run rather than a cross-run baseline.
+
+| Bits | Karatsuba cutoff=8 | cutoff=16 | cutoff=32 | cutoff=64 |
+|---:|---:|---:|---:|---:|
+| 1024 | 357.162 | 218.163 | 215.290 | 215.269 |
+| 2048 | 1293.077 | 881.020 | 815.782 | 829.656 |
+| 4096 | 4346.714 | 2967.023 | 2629.425 | 2985.271 |
+| 8192 | 13940.751 | 9652.585 | 8461.684 | 9178.001 |
+
+Corresponding preallocated selected fused times by cutoff-run (8/16/32/64, ns): 1024 209.197/205.349/205.269/205.131; 2048 761.314/807.764/805.034/820.501; 4096 2966.787/2969.927/2971.200/2969.405; 8192 12464.999/12257.438/12257.133/12255.704. At cutoff=32, compared *within the same run*, Karatsuba is slower by 4.88% (1024) and 1.34% (2048), and faster by 11.50% (4096) and 30.97% (8192). With cutoff=64 the 4096-bit case falls back to nonrecursive selected multiplication (observed 2985.271 vs selected 2969.405 ns), while 8192 bits still benefit from a top-level split (9178.001 vs selected 12255.704 ns). Cutoff 32 is the best measured candidate among these four; 1024-cutoff 32 and 64 results are indistinguishable at this precision.
+
+**Decision:** retain fused B6 production dispatch, retain Karatsuba experimental-only. The crossover is currently bracketed between 2048 and 4096 bits *for this balanced-input GCC x86-64 measurement configuration*, not established as an architecture-general threshold. Repeat same-host runs with alternating ordering and intermediate operand sizes near 2560/3072/3584 bits, and consider asymmetric operand widths before any production change. The range in selected 2048-bit timings (761.314 to 820.501 ns across runs) is a reminder that a single crossover estimate can be noise-sensitive. No empirical evidence for macOS ARM64, Clang or Windows optimization. GitHub Actions Unix, Windows and Coverage all **passed** for B8.1 commit `56453a4`. Test correctness and production paths remain unchanged.

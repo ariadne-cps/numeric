@@ -7486,3 +7486,8 @@ A separate portable C++20 `src/big_unsigned_karatsuba.cpp` provides an **explici
 ### B8.1: Karatsuba cutoff diagnostic (18 October 2026)
 
 Integrated Ubuntu B8 results were slower than GCC fused schoolbook at 1024 through 8192 bits, with Karatsuba/selected ratios 1.680x, 1.576x, 1.413x and 1.079x. B8.1 adds opt-in recursion cutoff selection (minimum 8, unchanged default 8) and matching workspace sizing, plus --karatsuba-cutoff N with --include-karatsuba. The production selector and FloatAP remain unchanged. See integer_rational_design.md for evidence and test gates.
+
+
+### BigUnsigned B8.1 Ubuntu cutoff measurements (18 October 2026)
+
+The complete user-run GCC x86-64 balanced-operand sweep of Karatsuba recursion cutoffs 8/16/32/64 found **32 limbs** to be the strongest of these candidates: 2629.425 ns versus selected fused 2971.200 ns at 4096 bits, and 8461.684 ns versus selected fused 12257.133 ns at 8192 bits, measured within the same respective runs. At 2048 bits cutoff 32 gave 815.782 versus selected fused 805.034 ns, so a practical crossover is not yet demonstrated below 4096 bits. The original fused production path stays selected, and no FloatAP performance claim or dispatch change follows. Full four-cutoff table, measurements, CI status and limitations are documented in `integer_rational_design.md`.
