@@ -6149,3 +6149,74 @@ kernel that avoids materializing a full remainder, while
 retaining correct nearest-even, directed rounding and ties.
 Do not initiate a different GMP-free substitution while this
 baseline gate remains open.
+
+## G1 no-allocation ratio exponent comparison (18 October 2026)
+
+**Frozen performance gate.** Continue optimizing only the existing
+GMP-free native ratio/division kernel until affected absolute FloatAP
+operation medians on ARM64 meet or beat the user's *better* original
+baseline at each precision, within reproducible measurement noise.
+Do not introduce architecture-targeted branches; cross-architecture
+benchmarking is postponed until the ARM64 performance gate is met.
+
+**New user-supplied same-host benchmark for preinversion commit
+`4b517d3b25952cfb32f3cab697d7a2c7ee141f1f`.**
+1000 iterations, 11 samples, 27 operations at 53/128/256/1024 bits;
+numerical verification PASS on 256 input pairs and 3456 results.
+All-geomean FloatAP/FloatMP 0.975x (previous 0.963x,
+better frozen baseline 0.912x); weighted slowdown 0.436x
+(previous 0.435x, baseline 0.407x); worst 5.729x
+(previous 6.542x, baseline 2.994x).
+The preinversion reduced the 1024-bit FloatAP division costs
+by 16.7-18.9% relative to its parent, but the larger benchmark
+still falls substantially short of the original baseline:
+
+| FloatAP operation / bits | Original baseline ns | Previous ns | New report ns |
+| --- | ---: | ---: | ---: |
+| construct_rational / 128 | 266.959 | 294.834 | 300.709 |
+| div_up / 128 | 129.375 | 189.167 | 188.750 |
+| construct_rational / 256 | 291.583 | 396.791 | 407.542 |
+| div_up / 256 | 154.083 | 297.250 | 271.750 |
+| construct_rational / 1024 | 484.375 | 1088.583 | 1178.917 |
+| div_nearest / 1024 | 289.375 | 1120.750 | 933.041 |
+| div_down / 1024 | 260.167 | 1049.959 | 853.250 |
+| div_up / 1024 | 256.875 | 1092.833 | 886.833 |
+
+Do not interpret the 1024-bit `construct_rational` worsening as
+proven solely caused by reciprocal estimation: the supplied
+samples have visible cross-run variability and the FloatMP
+timings drifted too. The change is worth independently measuring.
+
+**This experiment.** In `FloatAPNative::round_ratio`, determining
+`floor(log2(n/d))` compared one input with a newly allocated,
+shifted full-size temporary operand, even though only the
+comparison was needed. Introduce `compare_shifted`, which
+computes the shifted words of the positive operand on demand
+and compares directly against the other operand without
+allocation, copy, or mutation. The logic handles arbitrary
+positive shift lengths, 32-bit word boundaries and equal/
+unequal bit lengths; `shift=0` forwards to `compare`.
+After determining the exponent, quotient/remainder division,
+rounding and the final native/GMP adapter are exactly unchanged.
+No architecture-specific dispatch or public API change.
+
+**Independent local correctness evidence, not integrated tests.**
+A C++20/GMP deterministic randomized probe exercised 140,000
+shifted comparisons with arbitrary shifts and 140,000 complete
+quotient / remainder-rounding status cases, comparing against
+GMP. Both passed. The fused remainder-rounding alternative was
+**not included**: isolated timing was mixed and sometimes
+slower at 1024 bits even though it was correct.
+A vector-limb microprobe suggested shifted comparison is much
+cheaper than materializing a shifted vector (usually ~2 ns
+versus ~15-55 ns for the synthetic cases); this is an *isolated*
+probe, not a FloatAP or ARM64 speed claim.
+
+**Pending gate.** Run full cross-platform compile/test CI.
+Then run unchanged `1000 11` benchmark on the same Apple
+ARM64 host. Keep the experiment only if affected operations
+progress towards their **absolute** original baselines
+without a material slowdown elsewhere. In particular, the
+1024-bit division and ratio construction require substantially
+more than this memory allocation improvement. Do not
+proceed to another GMP removal substitution yet.
