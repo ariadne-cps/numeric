@@ -1137,3 +1137,19 @@ Local deterministic differential verification: 5,000 additional GMP-oracle rando
 The selected kernel is faster than the portable reference at 128 bits and above (about 1.86x at 1024 bits) but remains **slower than raw GMP at every measured size** (2.348x at 1024 bits). `BigUnsigned::mul` additionally includes owning-result costs, whereas the direct GMP destination can reuse its allocation. These numbers come from the user's completed benchmark report, not a new assistant-side run, and do not establish ARM64 performance.
 
 **Reporting-only follow-up.** Align the standalone multiplication benchmark with the other Numeric benchmarks' `CommandLineInterface` and logging format: named `--iterations/-i`, `--samples/-n`, `--bits/-b`, `--summary-only`, `--details`, `--max-slowdown` (selected/GMP), standard logging/help switches, and the legacy positional iteration/sample form. Defaults remain 20,000 / 31 and operand sizes 53/128/256/1024/2048 bits. The resulting table reports backend, operation, bits, and median ns; aggregate comparisons report equally weighted geometric mean, sum-of-medians ratio and worst slowdown separately for portable, selected and owning operations. The operation pool, deterministic inputs, warm-up, median definition, measurement order, and before/after GMP correctness checks are unchanged. Only argument handling and presentation differ. Tests and benchmarks remain separate.
+
+### BigUnsigned B3: Ubuntu x86-64 benchmark after CLI/report integration (18 October 2026)
+
+**User-reported same-host rerun** of the updated benchmark at `f87dcd9`, with the unchanged five deterministic operand sizes, 20,000 iterations and 31 median samples. The selected native x86-64 path was active. Units are median ns per public/kernel call; `mpz_mul` reuses an initialized GMP destination and `owned` constructs the result. These are not performance measurements obtained by the assistant.
+
+| Bits | Portable into (ns) | Selected into (ns) | Raw GMP (ns) | Owned `BigUnsigned::mul` (ns) |
+|---|---:|---:|---:|---:|
+| 53 | 15.190 | 15.189 | 7.899 | 30.526 |
+| 128 | 24.302 | 20.049 | 9.722 | 35.729 |
+| 256 | 62.008 | 28.861 | 17.377 | 58.594 |
+| 1024 | 592.303 | 319.524 | 137.275 | 349.872 |
+| 2048 | 2350.366 | 1295.613 | 440.460 | 1254.717 |
+
+Reported aggregates against direct GMP: portable geomean **3.306x**, sum-of-medians **4.968x**, worst **5.336x** at 2048 bits; selected geomean **2.142x**, sum-of-medians **2.741x**, worst **2.942x** at 2048 bits; owned geomean **3.223x**, sum-of-medians **2.823x**, worst **3.865x** at 53 bits. At 1024 bits the selected kernel is about 1.85x faster than portable yet 2.33x slower than raw GMP; at 2048 bits it is about 1.81x faster than portable yet 2.94x slower than raw GMP. Consequently no competitive-GMP claim is justified by B3.
+
+**Interpretation constraints.** The 2048-bit owning operation appears about 3.2% faster than its nominally cheaper selected direct-output kernel despite owning a result; the measurement order, runtime state and compiler may contribute. Do not assume this reflects an allocation benefit. This benchmark uses one deterministic operand pair per size repeatedly: broaden operand patterns in a **separate diagnostic**, without changing or quietly rebasing this existing workload. Compare kernel output/preallocation, equivalent GMP output reuse and end-to-end owning lifecycles separately. Profile actual instruction-level inner loops before attempting an adaptive algorithm or new ISA optimization. Do not alter the mathematical oracle or report microbenchmark gains as full public-operation gains.
