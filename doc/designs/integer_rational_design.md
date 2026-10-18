@@ -578,6 +578,30 @@ update consumers as needed. Begin with isolated `BigUnsigned`
 and independent tests before replacing either type; FloatAP
 performance/correct rounding remains the key regression gate.
 
+### G0b clarification — keep benchmarks out of CTest (18 October 2026)
+
+**Current design rule (supersedes previous G0b smoke-test integration):**
+CTest and the custom `tests` target contain only functional/unit
+tests and their build prerequisites. Benchmarks are separate
+executables managed solely by `benchmarks/CMakeLists.txt` and
+the `benchmarks` target. Specifically, remove all four
+`smoke_benchmark_*` CTest entries, the special
+`benchmark_smoke_executables ALL` target, and the benchmark
+dependency of the `tests` target. Retain the four named
+benchmark executables and their comparison/absolute data paths.
+
+The earlier G0b journal entries below record the historical
+smoke-test experiment and its CI workarounds; they are no longer
+the intended configuration. A benchmark can still fail by
+throwing on mismatched post-timing outputs **when invoked
+explicitly**. Such verification is part of the benchmarking
+program, not a unit test automatically registered with CTest.
+Performance runs use the same-host standard `1000x11`
+setup unless the user explicitly specifies otherwise.
+No numerical code, input pool, expected result or measured
+operation is modified by this separation. Revalidate the
+ordinary Unix, Windows and Coverage builds after removal.
+
 ### Implementation record template
 
 For every G1+ change record: date, commit,
