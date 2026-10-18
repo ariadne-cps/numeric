@@ -602,12 +602,25 @@ FloatAP::Unsigned FloatAP::unpack_wide(std::uint64_t const* limbs,std::size_t co
 // Import directly into normalized buffers; reuse the dividend buffer
 // for the denormalized remainder. No GMP or shared mutable scratch.
 std::pair<FloatAP::Unsigned,FloatAP::Unsigned> FloatAP::divrem_wide(
-        Unsigned const& dividend,Unsigned const& divisor)
+        Unsigned const& dividend,Unsigned const& divisor,
+        std::size_t numerator_shift)
 {
-    if (divisor.size()<4u) { return divrem(dividend,divisor); }
-    if (compare(dividend,divisor)<0) { return {{},dividend}; }
-
-    const std::size_t a_size=dividend.size()/2u+dividend.size()%2u;
+    // Ratio rounding guarantees (dividend << numerator_shift) >= divisor.
+    // Short divisors keep the existing 32-bit exact fallback.
+    if (divisor.size()<4u) {
+        return divrem(numerator_shift==0u ?
+                      dividend : shift_left(dividend,numerator_shift),divisor);
+    }
+    if (numerator_shift==0u && compare(dividend,divisor)<0) {
+        return {{},dividend};
+    }
+    if (numerator_shift>
+        std::numeric_limits<std::size_t>::max()-dividend.bit_length()) {
+        throw std::overflow_error("FloatAP wide shifted dividend overflow");
+    }
+    const std::size_t total_bits=dividend.bit_length()+numerator_shift;
+    const std::size_t a_size=total_bits/64u+
+        static_cast<std::size_t>(total_bits%64u!=0u);
     const std::size_t n=divisor.size()/2u+divisor.size()%2u;
     if (a_size==std::numeric_limits<std::size_t>::max()) {
         throw std::overflow_error("FloatAP wide division size overflow");
@@ -627,16 +640,38 @@ std::pair<FloatAP::Unsigned,FloatAP::Unsigned> FloatAP::divrem_wide(
             (original<<normalization)|carry;
         if (normalization!=0u) { carry=original>>(64u-normalization); }
     }
-    carry=0u;
-    for (std::size_t i=0u; i<a_size; ++i) {
-        const std::uint64_t original=
-            std::uint64_t{dividend.word(2u*i)} |
-            (std::uint64_t{dividend.word(2u*i+1u)}<<32u);
-        u[i]=normalization==0u ? original :
-            (original<<normalization)|carry;
-        if (normalization!=0u) { carry=original>>(64u-normalization); }
+    if (numerator_shift==0u) {
+        carry=0u;
+        for (std::size_t i=0u; i<a_size; ++i) {
+            const std::uint64_t original=
+                std::uint64_t{dividend.word(2u*i)} |
+                (std::uint64_t{dividend.word(2u*i+1u)}<<32u);
+            u[i]=normalization==0u ? original :
+                (original<<normalization)|carry;
+            if (normalization!=0u) { carry=original>>(64u-normalization); }
+        }
+        u[a_size]=carry;
+    } else {
+        // Materialize (dividend << numerator_shift) * 2^normalization
+        // directly inside the normalized division buffer. Previously
+        // we allocated a shifted Unsigned, then packed it into u.
+        const std::size_t source_words=dividend.size()/2u+
+            dividend.size()%2u;
+        const unsigned total_shift=
+            static_cast<unsigned>(numerator_shift%64u)+normalization;
+        const std::size_t word_offset=numerator_shift/64u+
+            static_cast<std::size_t>(total_shift/64u);
+        const unsigned bit_offset=total_shift%64u;
+        for (std::size_t i=0u; i<source_words; ++i) {
+            const std::uint64_t original=
+                std::uint64_t{dividend.word(2u*i)} |
+                (std::uint64_t{dividend.word(2u*i+1u)}<<32u);
+            u[word_offset+i]|=original<<bit_offset;
+            if (bit_offset!=0u) {
+                u[word_offset+i+1u]|=original>>(64u-bit_offset);
+            }
+        }
     }
-    u[a_size]=carry;
 
     constexpr std::uint64_t max_word=
         std::numeric_limits<std::uint64_t>::max();
@@ -825,14 +860,17 @@ FloatAP::RoundedRatio FloatAP::round_ratio(Unsigned const& n,Unsigned const& d,
         }
     }
     const std::int64_t shift=ratio_checked_sub(p-1,k);
-    const Unsigned numerator=shift>=0 ?
-        shift_left(n,ratio_shift_amount(shift)) : n;
     const Unsigned denominator=shift<0 ?
         shift_left(d,ratio_shift_amount(ratio_checked_sub(0,shift))) : d;
 
 #if defined(__SIZEOF_INT128__)
-    auto [quotient,remainder]=divrem_wide(numerator,denominator);
+    // For nonnegative shifts, fuse dividend scaling with the wide
+    // kernel's normalization: no intermediate native numerator.
+    auto [quotient,remainder]=divrem_wide(
+        n,denominator,shift>=0 ? ratio_shift_amount(shift) : 0u);
 #else
+    const Unsigned numerator=shift>=0 ?
+        shift_left(n,ratio_shift_amount(shift)) : n;
     auto [quotient,remainder]=divrem(numerator,denominator);
 #endif
     bool increment=false;

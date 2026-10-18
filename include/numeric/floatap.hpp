@@ -182,7 +182,8 @@ template<> class Float<ArbitraryPrecision> {
     static std::pair<std::uint64_t,std::uint64_t> divrem_preinverted_digit(
         std::uint64_t,std::uint64_t,std::uint64_t,std::uint64_t) noexcept;
     static Unsigned unpack_wide(std::uint64_t const*,std::size_t);
-    static std::pair<Unsigned,Unsigned> divrem_wide(Unsigned const&,Unsigned const&);
+    static std::pair<Unsigned,Unsigned> divrem_wide(Unsigned const&,Unsigned const&,
+                                                    std::size_t numerator_shift);
 #endif
     mpz_t _significand;
     unsigned long _precision;
