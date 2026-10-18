@@ -54,28 +54,28 @@ class Unsigned {
     static constexpr std::uint64_t base = std::uint64_t{1} << 32;
 
   private:
-    std::array<Limb,inline_capacity> _inline{};
+    std::array<Limb,inline_capacity> _small_limbs{};
     std::vector<Limb> _large;
     std::size_t _size = 0u;
 
     Limb* mutable_data() noexcept {
-        return _size <= inline_capacity ? _inline.data() : _large.data();
+        return _size <= inline_capacity ? _small_limbs.data() : _large.data();
     }
 
   public:
     Unsigned() = default;
 
     explicit Unsigned(std::uint64_t value) {
-        _inline[0] = static_cast<Limb>(value);
-        _inline[1] = static_cast<Limb>(value >> 32);
-        _size = _inline[1] != 0u ? 2u : (_inline[0] != 0u ? 1u : 0u);
+        _small_limbs[0] = static_cast<Limb>(value);
+        _small_limbs[1] = static_cast<Limb>(value >> 32);
+        _size = _small_limbs[1] != 0u ? 2u : (_small_limbs[0] != 0u ? 1u : 0u);
     }
 
     std::size_t size() const noexcept { return _size; }
     bool is_zero() const noexcept { return _size == 0u; }
 
     Limb const* data() const noexcept {
-        return _size <= inline_capacity ? _inline.data() : _large.data();
+        return _size <= inline_capacity ? _small_limbs.data() : _large.data();
     }
 
     Limb word(std::size_t index) const noexcept {
@@ -87,15 +87,15 @@ class Unsigned {
     void resize(std::size_t size) {
         if (size <= inline_capacity) {
             if (_size > inline_capacity) {
-                std::copy_n(_large.data(),size,_inline.data());
+                std::copy_n(_large.data(),size,_small_limbs.data());
                 _large.clear();
             } else if (size > _size) {
-                std::fill(_inline.begin()+static_cast<std::ptrdiff_t>(_size),
-                          _inline.begin()+static_cast<std::ptrdiff_t>(size),0u);
+                std::fill(_small_limbs.begin()+static_cast<std::ptrdiff_t>(_size),
+                          _small_limbs.begin()+static_cast<std::ptrdiff_t>(size),0u);
             }
         } else if (_size <= inline_capacity) {
             _large.assign(size,0u);
-            std::copy_n(_inline.data(),_size,_large.data());
+            std::copy_n(_small_limbs.data(),_size,_large.data());
         } else {
             _large.resize(size,0u);
         }
@@ -107,7 +107,7 @@ class Unsigned {
         std::size_t trimmed = _size;
         while (trimmed != 0u && words[trimmed-1u] == 0u) { --trimmed; }
         if (_size > inline_capacity && trimmed <= inline_capacity) {
-            std::copy_n(_large.data(),trimmed,_inline.data());
+            std::copy_n(_large.data(),trimmed,_small_limbs.data());
             _large.clear();
         }
         _size = trimmed;

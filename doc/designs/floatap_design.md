@@ -5681,3 +5681,17 @@ The old GMP-backed `Integer` and `Rational` may remain
 temporarily in production outside FloatAP while the FloatAP
 kernel is migrated. Do not conflate source independence
 with removing GMP from every linked object.
+## G1 FloatAP-native unsigned MSVC identifier correction (18 October 2026)
+
+The first native unsigned kernel built and passed the Unix and Coverage
+jobs at `dcab9609`, but its Windows/MSVC build failed in
+`src/floatap_native_unsigned.hpp`, starting at the declaration
+`std::array<Limb,inline_capacity> _inline{}` (line 57). Microsoft's
+compiler supports `_inline` as a nonstandard synonym of the
+`inline` keyword; use of that spelling as a field name conflicts
+with the MSVC parser and cascades into errors in the member functions.
+Rename the private array field consistently from `_inline` to
+`_small_limbs`. No arithmetic, layout capacity, algorithm, test
+cases, benchmark workload, public interface or rounding behavior
+is changed. Recheck Unix, Windows and Coverage before claiming
+portable build success.
