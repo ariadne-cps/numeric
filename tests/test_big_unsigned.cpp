@@ -67,12 +67,14 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_storage());
         ARIADNE_TEST_CALL(test_boundaries());
         ARIADNE_TEST_CALL(test_randomized());
+        ARIADNE_TEST_CALL(test_multiplication());
     }
 
   private:
     void test_storage();
     void test_boundaries();
     void test_randomized();
+    void test_multiplication();
 };
 
 void TestBigUnsigned::test_storage()
@@ -134,6 +136,64 @@ void TestBigUnsigned::test_boundaries()
     }
     ARIADNE_TEST_ASSERT(threw);
     ARIADNE_TEST_ASSERT(compare(add(all,BigUnsigned{}),all)==0);
+}
+
+void TestBigUnsigned::test_multiplication()
+{
+    const auto max = std::numeric_limits<std::uint64_t>::max();
+    const BigUnsigned one(std::uint64_t{1});
+    const std::array<std::uint64_t,4> four_max{max,max,max,max};
+    const BigUnsigned four(four_max);
+
+    ARIADNE_TEST_ASSERT(mul_low(four,one,0u).is_zero());
+    ARIADNE_TEST_ASSERT(compare(mul_low(four,one,1u),BigUnsigned(max)) == 0);
+    ARIADNE_TEST_ASSERT(compare(mul(four,one),four) == 0);
+    ARIADNE_TEST_ASSERT(compare(square(one),one) == 0);
+
+    std::mt19937_64 engine(0x1282561024ULL);
+    GmpInteger a,b,c,t;
+
+    static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 64u*80u);
+    for (unsigned repetition=0; repetition<6000u; ++repetition) {
+        const std::size_t n = engine()%34u;
+        const std::size_t m = engine()%34u;
+        std::array<std::uint64_t,34> da{}, db{};
+
+        for (std::size_t j=0u; j<n; ++j) da[j] = engine();
+        for (std::size_t j=0u; j<m; ++j) db[j] = engine();
+        if (repetition%7u == 0u) {
+            for (std::size_t j=0u; j<n; ++j) da[j] = max;
+        }
+        if (repetition%11u == 0u) {
+            for (std::size_t j=0u; j<m; ++j) db[j] = max;
+        }
+        if (repetition%13u == 0u) {
+            for (std::size_t j=0u; j<n; ++j) da[j] = 0u;
+        }
+        if (repetition%17u == 0u) {
+            for (std::size_t j=0u; j<m; ++j) db[j] = 0u;
+        }
+
+        const BigUnsigned x(std::span(da.data(),n));
+        const BigUnsigned y(std::span(db.data(),m));
+        mpz_import(a.value,n,-1,8,0,0,da.data());
+        mpz_import(b.value,m,-1,8,0,0,db.data());
+
+        mpz_mul(c.value,a.value,b.value);
+        check_against_gmp(mul(x,y),c.value);
+        ARIADNE_TEST_ASSERT(compare(mul(x,y),mul(y,x)) == 0);
+
+        mpz_mul(t.value,a.value,a.value);
+        check_against_gmp(square(x),t.value);
+        check_against_gmp(mul(x,x),t.value);
+
+        const std::size_t low_limbs = repetition%5u == 0u ? 0u :
+            repetition%5u == 1u ? 1u : repetition%5u == 2u ? 4u :
+            repetition%5u == 3u ? 5u : engine()%80u;
+        mpz_fdiv_r_2exp(t.value,c.value,
+                        static_cast<mp_bitcnt_t>(64u*low_limbs));
+        check_against_gmp(mul_low(x,y,low_limbs),t.value);
+    }
 }
 
 void TestBigUnsigned::test_randomized()

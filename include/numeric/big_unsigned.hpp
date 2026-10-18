@@ -80,6 +80,16 @@ class BigUnsigned
     friend BigUnsigned add(BigUnsigned const& a, BigUnsigned const& b);
     //! Exact subtraction; throws std::underflow_error if a < b.
     friend BigUnsigned sub(BigUnsigned const& a, BigUnsigned const& b);
+    //! Exact product of two unsigned magnitudes.
+    friend BigUnsigned mul(BigUnsigned const& a, BigUnsigned const& b);
+
+    //! Product modulo 2^(64*limb_count); zero limbs returns zero.
+    friend BigUnsigned mul_low(BigUnsigned const& a, BigUnsigned const& b,
+                               std::size_t limb_count);
+
+    //! Exact square (currently uses the full multiplication kernel).
+    friend BigUnsigned square(BigUnsigned const& a);
+
     //! Exact multiplication by 2^bits (no fixed precision limit).
     friend BigUnsigned shift_left(BigUnsigned const& a, std::size_t bits);
     //! Floor division by 2^bits.
