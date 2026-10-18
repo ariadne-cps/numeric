@@ -4,6 +4,7 @@ add_library(NUMERIC_SRC OBJECT
     double.cpp
     integer.cpp
     big_unsigned.cpp
+    big_unsigned_fallback.cpp
     dyadic.cpp
     decimal.cpp
     rational.cpp
@@ -30,8 +31,9 @@ target_include_directories(NUMERIC_SRC PRIVATE
 
 target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_NUMERIC_BUILD)
 
-# Architecture kernels use baseline 64x64 multiplication only.
-# Unsupported architecture/compiler combinations keep the C++20 reference.
+# The C++20 fallback reference is always compiled for tests/benchmarks.
+# Exactly one native architecture backend is selected when supported;
+# otherwise production dispatch uses only the fallback.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
         AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang|MSVC)$")
     target_sources(NUMERIC_SRC PRIVATE big_unsigned_x86-64.cpp)
@@ -47,13 +49,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
         target_compile_definitions(NUMERIC_SRC PRIVATE
             ARIADNE_BIG_UNSIGNED_GCC_FUSED=1)
     endif()
-endif()
 
 # ARM64 selects the explicit MUL/UMULH/ADDS/ADC carry-chain specialization
 # validated by native GMP differential tests and integrated Mac benchmarks.
-# The shared fused kernel remains explicitly callable for A/B measurements;
-# unsupported architectures/compilers use portable C++20 multiplication.
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$"
+# Shared __int128 fused arithmetic is implemented once in big_unsigned.cpp.
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$"
         AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
     target_sources(NUMERIC_SRC PRIVATE big_unsigned_arm64.cpp)
     target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_BIG_UNSIGNED_ARM64=1)

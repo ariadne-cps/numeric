@@ -23,7 +23,7 @@
  */
 
 /*! \file numeric/big_unsigned.cpp
- *  \brief Shared unsigned limb arithmetic, wide fused multiplication, and Karatsuba.
+ *  \brief Shared unsigned arithmetic, fused multiplication, and Karatsuba.
  */
 
 #include "numeric/big_unsigned.hpp"
@@ -327,63 +327,7 @@ BigUnsigned shift_right(BigUnsigned const& a, std::size_t bits) {
     return result;
 }
 
-// Portable 64x64 -> 128 multiply using only standard 64-bit arithmetic.
-// Represent operands as a1*2^32 + a0 and b1*2^32 + b0.
 namespace {
-
-std::pair<std::uint64_t,std::uint64_t> multiply_wide(
-        std::uint64_t a,std::uint64_t b) noexcept
-{
-    constexpr std::uint64_t mask = 0xffffffffull;
-    const std::uint64_t a0 = a & mask;
-    const std::uint64_t a1 = a >> 32u;
-    const std::uint64_t b0 = b & mask;
-    const std::uint64_t b1 = b >> 32u;
-
-    const std::uint64_t p00 = a0*b0;
-    const std::uint64_t p01 = a0*b1;
-    const std::uint64_t p10 = a1*b0;
-    const std::uint64_t p11 = a1*b1;
-
-    // The middle accumulator is at most 3*(2^32-1), so 64 bits suffice.
-    const std::uint64_t middle = (p00 >> 32u) + (p01 & mask) + (p10 & mask);
-    const std::uint64_t low = (p00 & mask) | (middle << 32u);
-    const std::uint64_t high = p11 + (p01 >> 32u) +
-                               (p10 >> 32u) + (middle >> 32u);
-    return {low,high};
-}
-
-// Compute the product modulo 2^(64*out.size()), storing only low limbs.
-// The destination must be distinct from both source spans; kernel zeroes it.
-// At each step the carry is below 2^64: (B-1)^2 + 2(B-1) = B^2-1.
-void multiply_limbs(std::span<std::uint64_t const> a,
-                    std::span<std::uint64_t const> b,
-                    std::span<std::uint64_t> out) noexcept
-{
-    std::fill(out.begin(),out.end(),std::uint64_t{0});
-
-    for (std::size_t i=0u; i<a.size() && i<out.size(); ++i) {
-        std::uint64_t carry = 0u;
-        const std::size_t terms = std::min(b.size(),out.size()-i);
-
-        for (std::size_t j=0u; j<terms; ++j) {
-            const auto [low,high] = multiply_wide(a[i],b[j]);
-            const std::uint64_t sum = out[i+j]+low;
-            const std::uint64_t overflow1 = static_cast<std::uint64_t>(sum<low);
-            const std::uint64_t result = sum+carry;
-            const std::uint64_t overflow2 = static_cast<std::uint64_t>(result<sum);
-
-            out[i+j] = result;
-            carry = high+overflow1+overflow2;
-        }
-
-        if (i+terms < out.size()) {
-            // No prior row can have written beyond index i+terms-1.
-            out[i+terms] = carry;
-        }
-    }
-}
-
 
 // Compiler-supported wide accumulation, shared by GCC/Clang x86-64 and ARM64.
 // The intermediate is bounded by (B-1)^2+2*(B-1)=B^2-1, B=2^64.
@@ -413,17 +357,11 @@ void multiply_limbs_fused(BigUnsigned::LimbView a,
         }
     }
 #else
-    multiply_limbs(a,b,output);
+    BigUnsigned::mul_low_into_portable(a,b,output);
 #endif
 }
 
 } // namespace
-
-void BigUnsigned::mul_low_into_portable(
-        LimbView a,LimbView b,MutableLimbView output)
-{
-    multiply_limbs(a,b,output);
-}
 
 bool BigUnsigned::has_native_multiply() noexcept {
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64) || defined(ARIADNE_BIG_UNSIGNED_ARM64)

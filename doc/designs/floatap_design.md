@@ -7551,3 +7551,8 @@ The user confirmed the updated **post-dispatch-change** macOS ARM64 `ctest --out
 ### B11 x86-64 explicit carry-chain experiment (18 October 2026)
 
 BigUnsigned adds a **non-production** x86-64 GNU/Clang `MULQ/ADDQ/ADCQ` schoolbook specialization in the existing architecture-specific source file, with a GMP-differential test and opt-in `--include-x86-64-carry` benchmark. MSVC keeps the native B3 fallback and no new file or CMake flag is introduced. GCC x86-64 selected fused, ARM64 selected carry and FloatAP code are unchanged. An isolated GCC/Clang x86-64 correctness check passed 1.5 million random/edge tuples; project-level CI and user Ubuntu integrated measurements are still pending. See `integer_rational_design.md` for algorithm, constraints and acceptance criteria.
+
+
+### B11.1 portable BigUnsigned fallback in dedicated backend source (18 October 2026)
+
+Source layout now uses `big_unsigned_fallback.cpp` for the portable C++20 reference kernel; `big_unsigned_x86-64.cpp` and `big_unsigned_arm64.cpp` remain the sole architecture-specialized sources. `big_unsigned.cpp` retains common BigUnsigned methods, Karatsuba, public dispatch, and the unduplicated GCC/Clang `__int128` fused algorithm shared across native targets. The fallback translation unit is **always compiled** for GMP-differential control and benchmarking, while CMake selects at most one native architecture file. This is strictly organizational: selected x86-64 and ARM64 multiplication dispatch and FloatAP operations are unchanged, no algorithm-specific extra .cpp files or CMake flags. CI and host benchmarks must confirm regression-free behavior.

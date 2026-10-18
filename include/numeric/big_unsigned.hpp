@@ -100,7 +100,8 @@ class BigUnsigned
     //! Uses the selected architecture kernel when it is available.
     static void mul_low_into(LimbView a,LimbView b,MutableLimbView output);
     //! Identical modular product using only portable C++20 arithmetic.
-    //! Exposed to allow direct differential tests and fair benchmarks.
+    //! Implemented in big_unsigned_fallback.cpp, built on every target
+    //! for independent differential tests and fair benchmarks.
     static void mul_low_into_portable(LimbView a,LimbView b,MutableLimbView output);
     //! Exact full product in caller storage; output must have at least
     //! a.size()+b.size() limbs for nonempty operands. Extra limbs are zeroed.
