@@ -373,7 +373,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             const MultiplePrecision mp(bits);
             const Integer scale=pow(Integer(2),Nat(p.bits()+1u));
             const Integer floor_mantissa=quot(scale,Integer(3));
-            const Integer rem_mantissa=rem(scale,Integer(3));
+            const Integer rem_mantissa=scale-3*floor_mantissa;
             const bool nearest_increment=rem_mantissa*2>3;
             for (bool negative_input : {false,true}) {
                 const Rational input=negative_input ? Rational(-1,3)
