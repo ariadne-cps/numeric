@@ -343,7 +343,7 @@ class FloatAP::Unsigned {
         return compare(a,b)==0;
     }
 
-    friend Unsigned add(Unsigned const& a,Unsigned const& b) {
+    static Unsigned add_unsigned(Unsigned const& a,Unsigned const& b) {
         const std::size_t size=std::max(a.size(),b.size());
         if (size==std::numeric_limits<std::size_t>::max()) {
             throw std::overflow_error("FloatAP native addition size overflow");
@@ -857,7 +857,7 @@ FloatAP::RoundedRatio FloatAP::round_ratio(Unsigned const& n,Unsigned const& d,
                 throw std::invalid_argument("unknown FloatAP native rounding mode");
         }
     }
-    if (increment) { quotient=add(quotient,Unsigned(1u)); }
+    if (increment) { quotient=Unsigned::add_unsigned(quotient,Unsigned(1u)); }
     const bool carry=quotient.bit_length()>static_cast<std::size_t>(precision);
     if (carry) { quotient=shift_right(quotient,1u); }
     return {std::move(quotient),ratio_checked_sub(k,p-1),carry};
