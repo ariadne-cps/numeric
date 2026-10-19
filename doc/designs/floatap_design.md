@@ -8095,3 +8095,19 @@ unbalanced cases; see B35 in
 `integer_rational_design.md`. GitHub CI and
 Codecov remain unconsulted by user request.
 
+### B35.1 Clang structured-binding warning fix and CI authorization (19 October 2026)
+
+Clang 16 with `-Werror -Wrange-loop-construct` detected
+a needless copy in B35's newly added structured-binding
+loop over constant limb-size pairs. Use
+`const auto& [n,m]` instead of `const auto [n,m]`
+in that test alone; operands, GMP oracle, iterations,
+arithmetics and benchmarks remain unchanged.
+The user's repeated x86-64 4096-bit integrated
+`Integer::mul` timings of 2752.212/2750.796 ns
+confirm approximately 10.3% gain against B33,
+with numerical verification PASS. User authorization
+permits GitHub Actions CI checks beginning at this
+B35.1 commit. See the B35.1 entry in
+`integer_rational_design.md`.
+

@@ -229,7 +229,7 @@ void TestBigUnsigned::test_multiplication()
     // These tests run on every architecture, including the old
     // unfused/reference multiplication paths.
     std::mt19937_64 karatsuba_selected_engine(0xB35CA7A5ULL);
-    for (const auto [n,m]:
+    for (const auto& [n,m]:
             {std::pair<std::size_t,std::size_t>{63u,63u},
              {63u,64u}, {64u,63u}, {64u,64u}, {64u,65u},
              {65u,64u}, {65u,65u}, {80u,64u}, {96u,64u},

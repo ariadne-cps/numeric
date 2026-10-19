@@ -2795,3 +2795,45 @@ remain outstanding; do not claim an integrated
 speedup from this kernel proxy. GitHub CI and
 Codecov were not consulted by user request.
 
+### B35.1 Clang -Werror regression fix and integrated measurements (19 October 2026)
+
+The project's Clang 16 production test build with
+`-Werror -Wrange-loop-construct` rejected the B35 GMP-oracle
+regression corpus in `tests/test_big_unsigned.cpp`: its
+`for (const auto [n,m]: {std::pair<...>, ...})`
+structured binding makes an unnecessary copy of each constant
+`std::pair`. B35.1 changes **only** that B35 loop to
+`for (const auto& [n,m]: ...)`. The sequence of 14
+size pairs, all 32 variants per pair, 448 GMP products
+in each multiplication direction, expected results,
+arithmetic selection and official benchmarks remain
+unchanged. The user's reported Clang diagnostic is the
+reason for the change; successful CI compilation remains
+to be verified on the new commit.
+
+Two native x86-64 integrated B35 benchmark runs, with
+20,000 iterations and 31 samples, measured 4096-bit
+`Integer::mul` at **2752.212** and **2750.796 ns**.
+B33 on the same architecture had measured
+**3065.983 ns**, so B35's 4096-bit multiplication
+benefit was approximately **10.2-10.3%**, and the
+two B35 measurements differ by 0.05%. B35's
+4096-bit `square` (1830.722/1832.047 ns) and
+`pow3` (8142.558/8146.656 ns) remained stable.
+Both x86-64 runs and the ARM64 B35 benchmark
+reported numerical verification PASS with 768
+paired inputs and 2688 paired operation results.
+Do not infer causality for timing drift in unrelated
+operations. Earlier ARM64 B35 host was Apple M2;
+never compare it directly with the Apple M4 B31.1
+baseline.
+
+At the user's explicit request of 19 October 2026,
+**GitHub Actions CI may be inspected again starting
+with this B35.1 commit**. Prior exclusions of CI
+checks applied to older commits; this permission
+does not itself establish a passing build. Existing
+numeric test coverage and correctness gates are
+preserved, and Codecov status should be described
+separately from compilation and functional CI.
+
