@@ -73,6 +73,13 @@ class BigUnsigned
     void normalize() noexcept;
     void set_limbs(std::span<Limb const> digits);
 
+    // Compile-time modes avoid unneeded outputs during division.
+    // The all-output divrem_into contract remains unchanged.
+    template<bool WantQuotient,bool WantRemainder>
+    static void divrem_selected_into(
+        LimbView a,LimbView b,MutableLimbView quotient,
+        MutableLimbView remainder,MutableLimbView scratch);
+
   public:
     BigUnsigned() = default;
     explicit BigUnsigned(Limb value) noexcept;
@@ -233,6 +240,10 @@ class BigUnsigned
     //! Returns canonical magnitudes, throws domain_error for b=0.
     friend std::pair<BigUnsigned,BigUnsigned> divrem(
         BigUnsigned const& a,BigUnsigned const& b);
+    //! Quotient alone, avoiding storage and normalization of the remainder.
+    friend BigUnsigned quot(BigUnsigned const& a,BigUnsigned const& b);
+    //! Remainder alone, avoiding storage and normalization of the quotient.
+    friend BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b);
     //! Exact product of two unsigned magnitudes.
     friend BigUnsigned mul(BigUnsigned const& a, BigUnsigned const& b);
 

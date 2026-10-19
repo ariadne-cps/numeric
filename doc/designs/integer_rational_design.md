@@ -1804,3 +1804,43 @@ B22 to B21 separately for each platform and especially inspecting
 and any regression in `from_decimal` and other operations.
 Do not optimize or alter the benchmark corpus to manufacture
 improvements. Keep 4096 bits included.
+
+
+### B23 specialized single-output unsigned division (19 October 2026)
+
+Starting with the B22 native decimal formatting baseline, split
+only the *result ownership* of unsigned division while retaining the
+exact normalized radix-2^64 quotient estimation and correction algorithm.
+Inside `BigUnsigned`, a private compile-time-selected
+`divrem_selected_into<WantQuotient,WantRemainder>` shares the same
+normalization, quotient-digit correction, and working scratch. The
+legacy public `divrem_into` and owning `divrem` preserve both output
+buffers, checked public buffer sizes, fail-before-mutation semantics,
+and normalized quotient/remainder.
+
+New native magnitude `quot(BigUnsigned,BigUnsigned)` and
+`rem(BigUnsigned,BigUnsigned)` produce only the requested result.
+The quotient buffer has only `n-m+1` limbs where `n>=m`, rather
+than `n`; remainder-only allocates no quotient object and skips
+all quotient output stores, while quotient-only allocates no
+remainder object and skips final remainder unnormalization.
+For a one-limb divisor, remainder-only consumes digit divisions
+without allocating or storing quotient limbs. A dividend shorter
+than its divisor yields canonical zero quotient or the untouched
+canonical dividend as remainder. Zero divisor still throws.
+All helpers/functions remain inside `namespace Ariadne`.
+`Integer::quot` and `Integer::rem` now call the corresponding
+single-result unsigned primitive, preserving truncation toward zero,
+dividend-signed remainder, and canonical nonnegative zero.
+
+Extend the existing 6000-case random multiprecision GMP oracle by
+verifying both independent owning single-result paths against GMP
+and the original `divrem`, retaining all old tests and adding
+zero/short/single-limb/large-boundary cases and both exception paths.
+Benchmark corpus, public signed Integer behavior, GMP adapters,
+Rational/Dyadic/FloatAP, architecture multiplication kernels and
+B22 decimal formatting are unchanged. This is a targeted isolation
+of output work, not a new division algorithm. Full Unix, Windows,
+Coverage CI and ARM64/x86-64 performance measurements remain pending;
+compare B23 against B22 at all 53..4096-bit widths with 20,000
+iterations and 31 samples. Inspect all 4 quotient/remainder workloads.

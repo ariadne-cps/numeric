@@ -804,6 +804,12 @@ void TestBigUnsigned::test_division()
         const auto [actual_q,actual_r]=divrem(dividend,divisor);
         check_against_gmp(actual_q,q.value);
         check_against_gmp(actual_r,r.value);
+        // Independent single-output paths must match both GMP and the
+        // complete divrem result without using unrequested output objects.
+        check_against_gmp(quot(dividend,divisor),q.value);
+        check_against_gmp(rem(dividend,divisor),r.value);
+        ARIADNE_TEST_ASSERT(compare(quot(dividend,divisor),actual_q)==0);
+        ARIADNE_TEST_ASSERT(compare(rem(dividend,divisor),actual_r)==0);
         ARIADNE_TEST_ASSERT(compare(actual_r,divisor)<0);
         ARIADNE_TEST_ASSERT(
             compare(add(mul(actual_q,divisor),actual_r),dividend)==0);
@@ -856,10 +862,30 @@ void TestBigUnsigned::test_division()
                 dividend_value,divisor_value);
             check_against_gmp(native_q,q.value);
             check_against_gmp(native_r,r.value);
+            check_against_gmp(quot(dividend_value,divisor_value),q.value);
+            check_against_gmp(rem(dividend_value,divisor_value),r.value);
             ARIADNE_TEST_ASSERT(compare(native_r,divisor_value)<0);
             ARIADNE_TEST_ASSERT(compare(
                 add(mul(native_q,divisor_value),native_r),
                 dividend_value)==0);
+        }
+    }
+
+    // Focused zero, short dividend, exact quotient and single-limb
+    // divisor cases; keep both divided-output implementations checked.
+    for (const auto& numerator: {
+            BigUnsigned{},BigUnsigned(std::uint64_t{1}),
+            BigUnsigned(std::array<std::uint64_t,2>{0u,1u}),
+            BigUnsigned(std::array<std::uint64_t,4>{max,max,max,max})}) {
+        for (const auto& denominator: {
+                BigUnsigned(std::uint64_t{1}),BigUnsigned(max),
+                BigUnsigned(std::array<std::uint64_t,2>{max,max}),
+                BigUnsigned(std::array<std::uint64_t,5>{0u,0u,0u,0u,1u})}) {
+            const auto both=divrem(numerator,denominator);
+            ARIADNE_TEST_ASSERT(compare(
+                quot(numerator,denominator),both.first)==0);
+            ARIADNE_TEST_ASSERT(compare(
+                rem(numerator,denominator),both.second)==0);
         }
     }
 
@@ -878,6 +904,12 @@ void TestBigUnsigned::test_division()
     try {
         (void)divrem(BigUnsigned(dividend),zero);
     } catch (std::domain_error const&) { owning_zero_threw=true; }
+    bool quotient_zero_threw=false,remainder_zero_threw=false;
+    try { (void)quot(BigUnsigned(dividend),zero); }
+    catch (std::domain_error const&) { quotient_zero_threw=true; }
+    try { (void)rem(BigUnsigned(dividend),zero); }
+    catch (std::domain_error const&) { remainder_zero_threw=true; }
+    ARIADNE_TEST_ASSERT(quotient_zero_threw && remainder_zero_threw);
     try {
         BigUnsigned::divrem_into(
             dividend,divisor,std::span(qout).first(2u),rout,scratch);
