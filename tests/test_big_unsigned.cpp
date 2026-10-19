@@ -560,6 +560,41 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             }
         }
     }
+
+    // Karatsuba output is prefilled with nonzero data to prove that the
+    // z0/z2 recursion fully overwrites even unbalanced and odd splits.
+    // The scratch guard limbs expose any off-by-one workspace overruns.
+    // Reuse both buffers across cutoffs, including a cutoff with no split.
+    for (auto [n,m]: {std::pair<std::size_t,std::size_t>{17u,17u},
+                       {31u,33u}, {63u,67u}, {79u,80u}, {127u,129u},
+                       {255u,257u}, {1u,180u}, {8u,8u}}) {
+        std::vector<std::uint64_t> da(n,max),db(m,max);
+        for (std::size_t i=0u;i<n;++i) {
+            if (i%5u==1u) da[i]=wider_engine();
+        }
+        for (std::size_t i=0u;i<m;++i) {
+            if (i%7u==2u) db[i]=wider_engine();
+        }
+        mpz_import(a.value,n,-1,8,0,0,da.data());
+        mpz_import(b.value,m,-1,8,0,0,db.data());
+        mpz_mul(expected.value,a.value,b.value);
+        std::vector<std::uint64_t> product(n+m+3u,max);
+        for (std::size_t cutoff: {8u,16u,32u,64u,128u}) {
+            const auto needed=BigUnsigned::karatsuba_scratch_limbs(n,m,cutoff);
+            std::vector<std::uint64_t> guards(needed+2u,max);
+            const auto work=BigUnsigned::MutableLimbView(
+                guards.data()+1u,needed);
+            std::fill(product.begin(),product.end(),max);
+            BigUnsigned::mul_into_karatsuba(da,db,product,work,cutoff);
+            check_against_gmp(BigUnsigned(product),expected.value);
+            for (std::size_t i=n+m;i<product.size();++i) {
+                ARIADNE_TEST_ASSERT(product[i]==0u);
+            }
+            ARIADNE_TEST_ASSERT(guards.front()==max);
+            ARIADNE_TEST_ASSERT(guards.back()==max);
+        }
+    }
+
 }
 
 void TestBigUnsigned::test_randomized()

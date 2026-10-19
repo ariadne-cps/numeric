@@ -671,25 +671,35 @@ void subtract_in_place(Write lhs,Read rhs)
     }
 }
 
-// Accumulate a shifted cross term into the exact full product output.
-// A widened sum-of-halves temporary can have more high zero limbs
-// than fit in the final output; those discarded words must be zero.
+// Accumulate the shifted cross term, touching only limbs affected by
+// term or a propagated carry. In the no-carry case, the remaining output
+// limbs are already correct and need not be read or rewritten.
+// A widened sum-of-halves temporary can extend beyond the destination:
+// every discarded word must still be checked for zero.
 void add_shifted(Write output,Read term)
 {
+    const std::size_t common=std::min(output.size(),term.size());
     Limb carry=0u;
-    for (std::size_t i=0u;i<output.size();++i) {
+    std::size_t i=0u;
+    for (;i<common;++i) {
         const Limb left=output[i];
-        const Limb right=i<term.size() ? term[i] : Limb{0};
+        const Limb right=term[i];
         const Limb sum=left+right;
         const Limb value=sum+carry;
         carry=static_cast<Limb>(sum<left || value<sum);
         output[i]=value;
     }
+    while (carry!=0u && i<output.size()) {
+        const Limb left=output[i];
+        output[i]=left+carry;
+        carry=static_cast<Limb>(output[i]<left);
+        ++i;
+    }
     if (carry!=0u) {
         throw std::logic_error("BigUnsigned Karatsuba output overflow");
     }
-    for (std::size_t i=output.size();i<term.size();++i) {
-        if (term[i]!=0u) {
+    for (std::size_t j=output.size();j<term.size();++j) {
+        if (term[j]!=0u) {
             throw std::logic_error("BigUnsigned Karatsuba nonzero high term");
         }
     }
@@ -707,7 +717,10 @@ void karatsuba_recursive(
         return;
     }
 
-    std::fill(output.begin(),output.end(),Limb{0});
+    // should_split() ensures both operands extend beyond half. Thus
+    // a0.size()==b0.size()==half, z0 occupies [0,2*half) and z2
+    // occupies [2*half,a.size()+b.size()). Their recursive base cases
+    // overwrite every limb; clearing the entire parent is redundant.
     const std::size_t half=std::max(a.size(),b.size())/2u;
     const Read a0=a.first(std::min(a.size(),half));
     const Read b0=b.first(std::min(b.size(),half));
@@ -789,7 +802,9 @@ void BigUnsigned::mul_into_karatsuba(
         throw std::length_error("BigUnsigned Karatsuba scratch too small");
     }
 
-    std::fill(output.begin(),output.end(),Limb{0});
+    // Recursion writes all count result limbs, including its base cases.
+    // Only extra destination words need explicit clearing.
+    std::fill(output.subspan(count).begin(),output.end(),Limb{0});
     karatsuba_recursive(
         a,b,output.first(count),scratch.first(required),cutoff);
 }
