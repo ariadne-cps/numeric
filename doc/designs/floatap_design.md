@@ -8348,3 +8348,18 @@ architecture selection are unchanged. Stage results are explicitly
 non-additive diagnostic proxies, not production call-stack
 percentages. See B44 in integer_rational_design.md. Native timings
 are pending.
+
+
+### B44.1 benchmark report honors standard logging options (19 October 2026)
+
+The standalone `benchmark_integer_decimal_profile` had wired
+`logging_command_line` (including `-t/--theme` and `-v/--verbosity`)
+but mistakenly sent stage reports directly to `std::cout`.
+B44.1 routes normal stage and verification output through
+`LOGGING_PRINTLN` without touching the timings, production code,
+official benchmark, workload, or GMP-oracle checks. The user-supplied
+B44 stage measurements show leaf conversion is the largest replay at
+2048 bits (1649.181 ns of a 2942.338 ns full conversion), whereas
+recursive `divrem` is the largest at 4096 bits (4440.488 ns of
+an 8236.562 ns full conversion). Replays are non-additive.
+See the B44.1 record in `integer_rational_design.md`.
