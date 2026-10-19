@@ -731,13 +731,62 @@ BigUnsigned from_decimal(std::string_view input)
 
 namespace {
 
-// B19's quick base-10^9 division stays the leaf algorithm: it avoids
-// allocating quotient/remainder BigUnsigned objects for small values.
+// B25: on compilers with exact unsigned 128-bit arithmetic, a
+// base-10^18 digit is still smaller than one 64-bit limb. One wide
+// quotient/remainder step per source limb extracts 18 decimal digits,
+// halving the scans of the base-10^9 leaf formatter. Select this
+// only for larger leaves; retain the B19 loop for small magnitudes
+// and as the fallback on all other toolchains (notably MSVC).
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+std::string to_decimal_blocks_wide(BigUnsigned const& value)
+{
+    __extension__ using Wide=unsigned __int128;
+    constexpr BigUnsigned::Limb radix=1000000000000000000ULL;
+    constexpr std::size_t block_width=18u;
+
+    const auto limbs=value.limbs();
+    std::vector<BigUnsigned::Limb> work(limbs.begin(),limbs.end());
+    std::vector<BigUnsigned::Limb> blocks;
+    while (!work.empty()) {
+        BigUnsigned::Limb remainder=0u;
+        for (std::size_t i=work.size();i!=0u;--i) {
+            // remainder < 10^18 and digit < 2^64, so the
+            // numerator is < 10^18 * 2^64 and fits in Wide.
+            const Wide numerator=(static_cast<Wide>(remainder)<<64u)|
+                                  static_cast<Wide>(work[i-1u]);
+            work[i-1u]=static_cast<BigUnsigned::Limb>(numerator/radix);
+            remainder=static_cast<BigUnsigned::Limb>(numerator%radix);
+        }
+        blocks.push_back(remainder);
+        while (!work.empty() && work.back()==0u) {
+            work.pop_back();
+        }
+    }
+
+    std::string result=std::to_string(blocks.back());
+    for (std::size_t i=blocks.size()-1u;i!=0u;--i) {
+        const std::string block=std::to_string(blocks[i-1u]);
+        result.append(block_width-block.size(),'0');
+        result+=block;
+    }
+    return result;
+}
+#endif
+
+// B19's quick base-10^9 division remains the small-value and
+// portable fallback leaf algorithm.
 std::string to_decimal_blocks(BigUnsigned const& value)
 {
     if (value.is_zero()) {
         return "0";
     }
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    // Retain the original path through the 8-limb boundary;
+    // the 18-digit divider is used for >=9 limbs (>=513 bits).
+    if (value.size()>8u) {
+        return to_decimal_blocks_wide(value);
+    }
+#endif
 
     constexpr BigUnsigned::Limb radix=1000000000u;
     constexpr std::size_t block_width=9u;
