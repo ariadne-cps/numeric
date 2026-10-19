@@ -1054,6 +1054,57 @@ void TestBigUnsigned::test_division()
         }
     }
 
+    // B36: equal-size quotients that can be classified from the
+    // most-significant limbs without Knuth normalization. GMP is the
+    // independent oracle for q=0, q=1, q>=2, and boundary ratios.
+    // Exercise all three public division modes via check_fused_division.
+    std::mt19937_64 high_ratio_engine(0xB360A11ULL);
+    for (const std::size_t count:
+            {2u,3u,4u,7u,8u,16u,32u,64u,96u,128u}) {
+        for (unsigned repetition=0u;repetition<128u;++repetition) {
+            std::vector<std::uint64_t> left(count),right(count);
+            for (auto& limb:left) limb=high_ratio_engine();
+            for (auto& limb:right) limb=high_ratio_engine();
+            // These pairs are canonical; low words can be saturated,
+            // sparse or identical regardless of the chosen high ratio.
+            if (repetition%11u==0u) {
+                std::fill(left.begin(),left.end(),max);
+                std::fill(right.begin(),right.end(),max);
+            } else if (repetition%11u==1u) {
+                std::fill(left.begin(),left.end(),0u);
+                std::fill(right.begin(),right.end(),0u);
+            }
+            const std::uint64_t high=std::uint64_t{1}<<63u;
+            switch (repetition%8u) {
+            case 0u: // q=0: strictly smaller top limb.
+                left.back()=high-1u; right.back()=high;
+                break;
+            case 1u: // q=1: strictly greater top, below 2*bh.
+                left.back()=high+123u; right.back()=high;
+                break;
+            case 2u: // q=0 or 1: equal top, B28 path.
+                left.back()=high; right.back()=high;
+                break;
+            case 3u: // q>=2: outside the new fast path.
+                left.back()=high; right.back()=2u;
+                break;
+            case 4u: // q=1 at the largest possible high limb.
+                left.back()=max; right.back()=high;
+                break;
+            case 5u: // boundary ah==2*bh, must use long division.
+                left.back()=high; right.back()=high/2u;
+                break;
+            case 6u: // q=0: top of divisor is saturated.
+                left.back()=high; right.back()=max;
+                break;
+            default: // arbitrary canonical high limbs.
+                left.back()|=1u; right.back()|=1u;
+                break;
+            }
+            check_fused_division(BigUnsigned(left),BigUnsigned(right));
+        }
+    }
+
     // B29: deterministic sparse normalized divisors with long runs
     // of zero limbs. Verify both the sparse and dense selection shapes
     // against GMP through joint, quotient-only and remainder-only modes.

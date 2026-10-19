@@ -2837,3 +2837,66 @@ numeric test coverage and correctness gates are
 preserved, and Codecov status should be described
 separately from compilation and functional CI.
 
+### B36 exact high-limb quotient-0/1 extension (19 October 2026)
+
+After B35.1 cleared Unix and Coverage CI (including Clang 16,
+AppleClang 21 and ThreadSanitizer), the initial Windows run was
+still active and later completed successfully. The user
+explicitly reauthorized checking GitHub Actions CI.
+
+The remaining x86-64 division gap (B35 repeat: 4096-bit
+`quotient` 1243.979 ns vs GMP 362.277 ns and
+`remainder` 1116.712 ns vs GMP 364.261 ns) motivated
+a correctness-first examination of the normalized long-
+division loop. Skipping multiply/subtract for zero quotient
+digits is algebraically valid, but the 4096-bit half-width
+sparse-divisor corpus has no zero digits in its quotient.
+Do not select this candidate to manufacture benchmark speedups.
+
+B36 instead extends the architecture-independent B28
+exact 0-or-1 quotient shortcut for any nonzero canonical
+`n==m>=2` magnitudes with different high limbs:
+if `a.back()<b.back()` then `a<b` and quotient 0,
+remainder a. If `a.back()>b.back()` and
+`a.back()-b.back()<b.back()`, then
+`b<=a<2*b`, giving quotient exactly 1 and remainder
+one full n-limb subtraction. The subtraction's final
+borrow is zero in this branch. The subtraction-free
+quotient-only case directly writes 1; remainder-only
+does not create any quotient. Equal high limbs use
+the existing B28 scan/borrow algorithm with unchanged
+semantics, including a<b determined from lower limbs.
+All other cases use the existing B27/B29 normalized
+digit-estimation, sparse multiply-subtract and correction
+algorithm. The high-limb comparison avoids overflow
+from evaluating `2*b.back()`; no new CPU features,
+allocations, scratch, APIs, build flags or CMake changes
+are required. Shared logic preserves the exact full
+public scratch/output prechecks and tail initialization
+on all code paths.
+
+An independent exact-arithmetic Python stress probe
+verified the high-limb classification against true
+arbitrary-precision integer division on 70,000 random
+equal-length inputs (2..128 limbs): 34,845 zero-quotient
+cases, 17,690 strict high-dominance one-quotient cases,
+and 17,465 fallback cases. This validates the shortcut's
+arithmetic classification, not compiled C++ integration
+or any runtime performance improvement.
+
+Extend production `test_big_unsigned` with 1,280
+deterministic independent GMP-oracle cases, each checked
+via combined, quotient-only and remainder-only paths
+for below/equal/above high limbs, near doubling
+boundaries, all-ones, sparse and arbitrary low words.
+All B28/B29, B35 and earlier cases are retained.
+The official 14-operation benchmark and all its
+operand pools remain unchanged. The half-width divisor
+inputs and B28 equal-high near-equal cases are already
+handled by their previous paths, so do **not** predict
+a substantial benchmark benefit from B36 without
+same-machine integrated measurements. Verify no
+regressions on Apple ARM64 M2 vs M2 and GCC/Clang
+x86-64. GitHub Actions may be checked; Codecov is
+not required to establish numeric correctness.
+

@@ -602,39 +602,54 @@ void BigUnsigned::divrem_selected_into(
     const std::size_t n=a.size();
     const std::size_t m=b.size();
 
-    // B28: equal leading limbs imply 0 <= a/b < 2 for equal-length
-    // normalized magnitudes. Determine the exact quotient (0 or 1)
-    // without normalizing or estimating a quotient digit.
-    // Preserve the checked public scratch requirement even on this path.
-    if (n==m && a.back()==b.back()) {
-        if constexpr (WantRemainder) {
-            // The final borrow determines whether a<b. When a>=b,
-            // this one subtraction already yields the exact remainder.
-            Limb borrow=0u;
-            for (std::size_t i=0u;i<m;++i) {
-                const Limb difference=a[i]-b[i];
-                remainder[i]=difference-borrow;
-                borrow=static_cast<Limb>((a[i]<b[i]) ||
-                                         (difference<borrow));
-            }
-            if (borrow!=0u) {
-                // The quotient is zero, so the remainder is a.
+    // B36: for equal-length canonical operands the high limb can
+    // establish an exact quotient of zero or one without normalization.
+    // If ah<bh, then a<b. If bh<ah<2*bh, then b<=a<2*b.
+    // Test ah-bh<bh without doubling bh (which could overflow).
+    // Equal high limbs retain B28's exact borrow/compare path.
+    // All output and scratch requirements were checked above.
+    if (n==m) {
+        const Limb ah=a.back(),bh=b.back();
+        if (ah<bh) {
+            // Quotient is already zero-initialized.
+            if constexpr (WantRemainder) {
                 std::copy(a.begin(),a.end(),remainder.begin());
             }
-            if constexpr (WantQuotient) {
-                quotient[0u]=static_cast<Limb>(borrow==0u);
-            }
-        } else if constexpr (WantQuotient) {
-            // Quotient-only does not need to construct a remainder.
-            for (std::size_t i=m;i!=0u;--i) {
-                if (a[i-1u]!=b[i-1u]) {
-                    quotient[0u]=static_cast<Limb>(a[i-1u]>b[i-1u]);
-                    return;
+            return;
+        }
+        if (ah==bh || ah-bh<bh) {
+            if constexpr (WantRemainder) {
+                Limb borrow=0u;
+                for (std::size_t i=0u;i<m;++i) {
+                    const Limb difference=a[i]-b[i];
+                    remainder[i]=difference-borrow;
+                    borrow=static_cast<Limb>((a[i]<b[i]) ||
+                                             (difference<borrow));
+                }
+                if (borrow!=0u) {
+                    // Possible only if the high limbs are equal.
+                    std::copy(a.begin(),a.end(),remainder.begin());
+                }
+                if constexpr (WantQuotient) {
+                    quotient[0u]=static_cast<Limb>(borrow==0u);
+                }
+            } else if constexpr (WantQuotient) {
+                if (ah>bh) {
+                    // Strict high-limb dominance proves quotient 1.
+                    quotient[0u]=1u;
+                } else {
+                    // B28: equal high limbs require a lower-limb scan.
+                    for (std::size_t i=m;i!=0u;--i) {
+                        if (a[i-1u]!=b[i-1u]) {
+                            quotient[0u]=static_cast<Limb>(a[i-1u]>b[i-1u]);
+                            return;
+                        }
+                    }
+                    quotient[0u]=1u;
                 }
             }
-            quotient[0u]=1u;
+            return;
         }
-        return;
     }
 
     auto u=scratch.first(n+1u);
