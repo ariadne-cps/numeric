@@ -1285,9 +1285,10 @@ void TestBigUnsigned::test_gcd_decimal()
         check_decimal_boundary(a.value); // one plus power; zero runs
     }
 
-    // B30: exercise the 8/9-limb selector and 10^18 block
-    // carries on x86-64 DIVQ, ARM64 wide division and the portable
-    // radix-10^9 fallback using the same independent GMP oracle.
+    // B30/B30.1: preserve the 8/9-limb boundary and 10^18
+    // decimal carry fixtures against an independent GMP oracle.
+    // ARM64 selects radix 10^18; x86-64 and other targets now
+    // exercise the restored B29 radix-10^9 implementation.
     std::mt19937_64 divq_decimal_engine(0xB300DEC1ULL);
     for (const std::size_t count:
             {8u,9u,10u,12u,16u,17u,32u,64u}) {

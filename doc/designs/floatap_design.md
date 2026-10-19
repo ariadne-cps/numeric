@@ -7919,3 +7919,25 @@ stress test passed GCC and Clang ASan/UBSan; add 128
 focused decimal GMP fixtures while preserving previous
 tests. See B30 in `integer_rational_design.md`.
 GitHub CI and Codecov remain deferred by user request.
+
+### B30.1 restore B29 x86-64 decimal conversion after measured regression (19 October 2026)
+
+B30's official x86-64 native Integer benchmark disproved the
+isolated GNU/Clang DIVQ-radix-10^18 win: 1024/2048/4096-bit
+`to_decimal` regressed from B29's 2247.362/5736.002/14893.242 ns
+to 3715.747/7599.686/18242.587 ns. Numerical verification
+passed on both ARM64 and x86-64, and the unchanged ARM64
+wide-radix path exhibited only small run-to-run differences.
+Because 1024-bit decimal conversion is nonrecursive, the
+x86-64 leaf change itself is sufficient to explain the
+observed regression. B30.1 restores the entire B29
+`src/big_unsigned.cpp` byte-for-byte, thereby restoring
+radix-10^9 output on x86-64 while preserving B25.1 ARM64
+radix-10^18 output, portable/MSVC compatibility, B27-B29
+arithmetic, parsing, APIs and benchmarks. B30's 128 GMP
+decimal regression cases are kept and their architecture
+comment updated. No FloatAP algorithm or representation
+changes. A new integrated B30.1 run is still needed;
+the B29 performance data are historical, not new
+measurements. See B30.1 in `integer_rational_design.md`.
+GitHub CI and Codecov are excluded by user request.
