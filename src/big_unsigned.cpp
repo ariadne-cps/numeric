@@ -35,6 +35,10 @@
 #include <string>
 #include <utility>
 
+#if defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__)
+#include <immintrin.h>
+#endif
+
 namespace Ariadne {
 
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
@@ -335,16 +339,13 @@ BigUnsigned shift_right(BigUnsigned const& a, std::size_t bits) {
     return result;
 }
 
-// Baseline C++20 division for an unsigned (high:low)/divisor digit.
-// Precondition: 0 <= high < divisor and divisor != 0.
-// Every iteration appends one bit to the remainder. A 65th bit is
-// represented by overflow; in that case subtraction is unconditional.
-// Since the pre-subtraction remainder is < 2*divisor, one subtraction
-// is sufficient and the post-subtraction remainder is < divisor.
-// The quotient fits one limb. No ISA-dependent code is used.
+// Divide a 128-bit (high:low) numerator by a nonzero 64-bit divisor.
+// Caller invariant: high < divisor, so the quotient fits one limb.
+// Used for both single-limb division and multiprecision quotient estimates.
 namespace {
 
-std::pair<std::uint64_t,std::uint64_t> divide_wide_portable(
+// Retain the correctness-first, ISA-independent C++20 fallback.
+[[maybe_unused]] std::pair<std::uint64_t,std::uint64_t> divide_wide_portable(
         std::uint64_t high,std::uint64_t low,std::uint64_t divisor) noexcept
 {
     std::uint64_t remainder=high;
@@ -358,6 +359,31 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide_portable(
         }
     }
     return {quotient,remainder};
+}
+
+std::pair<std::uint64_t,std::uint64_t> divide_wide(
+        std::uint64_t high,std::uint64_t low,std::uint64_t divisor) noexcept
+{
+    // Dividing a single 64-bit limb does not require wide arithmetic.
+    if (high==0u) {
+        return {low/divisor,low%divisor};
+    }
+#if defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__)
+    // MSVC x64 intrinsic available since Visual Studio 2019.
+    unsigned __int64 remainder=0u;
+    const unsigned __int64 quotient=_udiv128(
+        high,low,divisor,&remainder);
+    return {quotient,remainder};
+#elif defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    // The extension is supported here; suppress only -Wpedantic.
+    __extension__ using Wide=unsigned __int128;
+    const Wide dividend=(static_cast<Wide>(high)<<64u)|
+                        static_cast<Wide>(low);
+    return {static_cast<std::uint64_t>(dividend/divisor),
+            static_cast<std::uint64_t>(dividend%divisor)};
+#else
+    return divide_wide_portable(high,low,divisor);
+#endif
 }
 
 } // namespace
@@ -374,7 +400,7 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
 
     Limb remainder=0u;
     for (std::size_t i=a.size();i!=0u;--i) {
-        const auto [digit,next]=divide_wide_portable(
+        const auto [digit,next]=divide_wide(
             remainder,a[i-1u],divisor);
         quotient[i-1u]=digit;
         remainder=next;
@@ -487,7 +513,7 @@ void BigUnsigned::divrem_into(
         const Limb low=u[j+m-1u];
         Limb digit=high>=v[m-1u] ?
             std::numeric_limits<Limb>::max() :
-            divide_wide_portable(high,low,v[m-1u]).first;
+            divide_wide(high,low,v[m-1u]).first;
         mul_into(v,LimbView(&digit,1u),product);
         const auto window=LimbView(u.data()+j,m+1u);
         while (greater_fixed(product,window)) {

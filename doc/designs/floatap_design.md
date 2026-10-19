@@ -7663,3 +7663,23 @@ inputs is accurate; all prior comparisons and timed operations
 remain intact. No FloatAP algorithm or architecture-specific kernel
 changes. Cross-platform CI and measured speedups pending; see
 `integer_rational_design.md` B19.2.
+
+
+### B20 shared 128/64 quotient-digit acceleration (19 October 2026)
+
+From the B19.2 ARM64/x86-64 six-size GMP-differential benchmarks,
+nontrivial division is now the dominant common slowdown. B20
+modifies the shared `BigUnsigned` 128/64 helper only: use plain
+64-bit division for `high==0`; direct `unsigned __int128`
+division for GCC/Clang; the MSVC x64 `_udiv128` intrinsic
+with `<immintrin.h>`; and retain the pure C++20 bitwise
+fallback elsewhere. The helper is confined to `namespace
+Ariadne` and serves single-limb division and long-division
+quotient estimation. Keep long division, Integer signed semantics,
+FloatAP algorithms and the benchmark corpus unchanged. Add
+focused GMP oracle boundaries for maximum quotients and all
+64 divisor normalization shifts without removing prior cases.
+An independent GCC/Clang isolated reference check passed
+1,200,252 selected-vs-fallback cases on each compiler.
+Integrated Unix/Windows/Coverage CI, native performance and
+MSVC verification remain pending; consult `integer_rational_design.md`.
