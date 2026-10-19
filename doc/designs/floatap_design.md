@@ -7556,3 +7556,8 @@ BigUnsigned adds a **non-production** x86-64 GNU/Clang `MULQ/ADDQ/ADCQ` schoolbo
 ### B11.1 portable BigUnsigned fallback in dedicated backend source (18 October 2026)
 
 Source layout now uses `big_unsigned_fallback.cpp` for the portable C++20 reference kernel; `big_unsigned_x86-64.cpp` and `big_unsigned_arm64.cpp` remain the sole architecture-specialized sources. `big_unsigned.cpp` retains common BigUnsigned methods, Karatsuba, public dispatch, and the unduplicated GCC/Clang `__int128` fused algorithm shared across native targets. The fallback translation unit is **always compiled** for GMP-differential control and benchmarking, while CMake selects at most one native architecture file. This is strictly organizational: selected x86-64 and ARM64 multiplication dispatch and FloatAP operations are unchanged, no algorithm-specific extra .cpp files or CMake flags. CI and host benchmarks must confirm regression-free behavior.
+
+
+### B11 x86-64 integrated carry benchmark outcome (19 October 2026)
+
+The user benchmarked the B11 opt-in x86-64 `MULQ/ADDQ/ADCQ` multiply against the selected GCC fused kernel on the same Ubuntu machine at 53/128/256/1024/2048/4096 bits (20,000 iterations, 31 samples). Explicit assembly was slower at five widths (the remaining 128-bit case effectively tied), including 939.067 vs 761.449 ns at 2048 bits (+23.3%) and 3156.871 vs 2975.414 ns at 4096 bits (+6.1%). Therefore keep GCC fused selected and explicit x86 carry experimental, without modifying FloatAP. Both the B11 experiment commit and B11.1 three-backend source split passed GitHub Unix/Windows/Coverage CI. Full measurements and caution about owning GMP comparisons are in `integer_rational_design.md`.
