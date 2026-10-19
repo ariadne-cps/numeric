@@ -400,6 +400,25 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
     if (high==0u) {
         return {low/divisor,low%divisor};
     }
+#if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+    // B48: a 32-bit divisor admits an exact 128/32 quotient via
+    // two 64/32 hardware divisions, instead of the compiler's
+    // 128/64 __udivti3 helper on ARM64. Since high<divisor<2^32,
+    // both partial numerators fit 64 bits and the quotient halves
+    // fit 32 bits. The same exact result serves joint, quotient-only
+    // and remainder-only callers. Leave other targets and all
+    // larger divisors on their existing paths.
+    if (divisor<=std::uint64_t{0xffffffffu}) {
+        constexpr std::uint64_t mask=0xffffffffULL;
+        const std::uint64_t upper=(high<<32u)|(low>>32u);
+        const std::uint64_t quotient_high=upper/divisor;
+        const std::uint64_t upper_remainder=upper%divisor;
+        const std::uint64_t lower=
+            (upper_remainder<<32u)|(low&mask);
+        const std::uint64_t quotient_low=lower/divisor;
+        return {(quotient_high<<32u)|quotient_low,lower%divisor};
+    }
+#endif
 #if defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__)
     // MSVC x64 intrinsic available since Visual Studio 2019.
     unsigned __int64 remainder=0u;

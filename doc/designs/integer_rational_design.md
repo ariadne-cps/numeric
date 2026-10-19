@@ -3662,3 +3662,56 @@ The primary target is construct_decimal at 1024 bits, not
 to_decimal; verify no regression at short sizes and on ARM64,
 x86-64, and portable toolchains. B47 integrated CI and native
 Apple M2 measurements are pending.
+
+
+### B48 ARM64 small-divisor fast path in shared divide_wide (19 October 2026)
+
+B47's unchanged official 84-operation Apple M2 Integer/GMP
+benchmark measured native construct_decimal at 1024 bits as
+415.533 ns versus GMP 405.544 ns (1.025x), solving the longstanding
+worst case. The overall total_time changed to 0.981x and geomean
+to 0.755x; correctness passed 768 paired inputs and 2688 operation
+results. The new worst case is quotient at 2048 bits, 271.283 ns
+versus GMP 139.525 ns (1.944x), while remainder at 2048 bits was
+293.979 ns versus GMP 153.952 ns (1.909x).
+The original division-only benchmark pool has 32 fixed pairs:
+16 with small, single-limb divisors, eight with half-width
+divisors and eight near-equal magnitudes. The benchmark and its
+operand pool must remain unchanged.
+
+B48 optimizes the shared low-level divide_wide(high,low,divisor)
+when the existing precondition high<divisor holds and
+divisor<=2^32-1, on native ARM64 GCC/Clang only. Previously the
+unsigned-128 numerator quotient/remainder may call the compiler's
+__udivti3 helper; x86-64 already uses B26's hardware DIVQ.
+Write N=high*2^64+low. Divide
+U=high*2^32+(low>>32) by divisor to obtain the high 32 bits of
+the quotient and remainder rU. Divide
+L=rU*2^32+(low&0xffffffff) to obtain the low 32 quotient bits
+and final remainder. The invariants high<divisor<2^32 and
+rU<divisor imply U<2^64, L<2^64, and both quotient halves fit
+32 bits, so both stages use exact native 64-bit division, never
+a 128-bit arithmetic runtime helper. The high==0 fast path,
+ARM64 larger-divisor existing implementation, x86-64 assembly
+DIVQ, Windows MSVC _udiv128 and portable fallback are unchanged.
+The improvement feeds all three joint, quotient-only and
+remainder-only BigUnsigned division modes, including the ordinary
+one-limb divisors used by Integer's official benchmark. Public
+contracts, scratch, GMP independence and APIs are unchanged.
+
+Standalone C++20 Clang ASan/UBSan checked 1,200,156 exact small
+quotient/remainder pairs against independent unsigned __int128
+division, including saturated quotient, high=0 and divisor 1.
+A Clang 17 AArch64 assembly probe confirmed the two-stage narrow
+implementation emits native UDIV/MSUB and no __udivti3 call;
+the previous wide implementation emitted __udivti3. This is
+assembly verification, not an Apple M2 timing measurement.
+Integrated GMP regression adds 560 divrem_limb/into cases over
+10 dividend sizes and 14 divisors (including the 2^32
+boundary and all-ones), four operand patterns, and another
+336 GMP-differential quotient/remainder/joint cases over eight
+sizes, 14 divisors and three patterns. All original coverage
+and the official 84-operation workload are preserved. Benchmark
+on the same M2 before claiming a B48 speedup; check in particular
+quotient/remainder at 1024, 2048 and 4096 bits, as well as
+to_decimal to detect any unintended ARM64 regression.
