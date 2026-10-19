@@ -3608,3 +3608,57 @@ both 20,000-iteration/31-sample B44 diagnostic and the official
 Integer/GMP comparison on the same Apple M2 before accepting B46
 as a performance improvement. A regression would require revisiting
 or reverting the reciprocal path; no runtime speedup is claimed yet.
+
+
+### B47 lower wide decimal parsing threshold and align input chunks (19 October 2026)
+
+B46's Apple M2 official benchmark passed all 768-input/2688-operation
+comparisons; construct_decimal at 1024 bits was 819.235 ns versus
+GMP's 405.552 ns, giving a 2.020x worst-case slowdown, even though
+to_decimal improved to 609.552 ns at 1024, 2273.581 ns at 2048,
+and 6528.560 ns at 4096. The direct cause is visible in
+BigUnsigned::from_decimal: the B24 unsigned-128 radix-10^18 parser
+was enabled only when input.size()>309, while the benchmark's
+2^1023+offset values have exactly 308 decimal digits. They therefore
+used the B19 slower radix-10^9 two-half-products-per-limb path.
+This behavior is architectural, not a benchmark anomaly.
+
+B47 makes three isolated changes to the existing C++20 parsing path
+on GCC/Clang compilers supporting unsigned __int128:
+(1) select the 18-digit wide radix when the input has >=32 digits;
+(2) pre-reserve ceil(input.size()/18) 64-bit limbs, a conservative
+bound because 10^18<2^64, with overflow-safe size arithmetic;
+(3) consume the first possibly short decimal group first, and then
+use the compile-time constant multiplier 10^18 on every remaining
+group. Carry accumulation stays exact in unsigned 128-bit, without
+floating point, GMP, new dependencies, persistent caches, changes
+to the public API or changes to the benchmark corpus. Inputs shorter
+than 32 digits still use the existing radix-10^9 portable path.
+MSVC and compilers without unsigned __int128 continue to use that
+portable path at all lengths, preserving cross-platform semantics.
+The ASCII validation is unchanged and precedes either implementation.
+
+The isolated Clang x86-64 C++20 proxy (not an M2 or full Integer
+benchmark) measured the 308-digit, 1024-bit input parser at about
+573.9 ns for the old 9-digit path and 263.9 ns for the aligned,
+reserved 18-digit path. At 128/256 bits the corresponding proxy
+was 48.8/100.8 ns (old) versus 33.8/55.9 ns (new). These are
+independent algorithm measurements and do not establish native
+production speedups. A separate standalone C++20 implementation
+of the exact aligned algorithm passed 8400 GMP-differential
+comparisons under Clang ASan/UBSan, spanning 1..4096 decimal digits,
+threshold boundaries, random and adversarial leading zeros, and
+long zero runs. Production regression adds 181 independent GMP
+parse comparisons: 26 decimal lengths x 6 scenarios and 5 bit
+sizes x 5 official-shape values, including lengths 31/32/33 and
+307/308/309/310. Preserve all historical decimal, parse, and
+signed Integer suites; no benchmark source is changed.
+
+As for all prior performance changes, run all Unix/Windows/Coverage
+CI, the official 84-operation Integer/GMP comparison at
+53,128,256,1024,2048,4096 bits, and the B44/B46 diagnostic with
+20000 iterations and 31 samples before claiming a B47 speedup.
+The primary target is construct_decimal at 1024 bits, not
+to_decimal; verify no regression at short sizes and on ARM64,
+x86-64, and portable toolchains. B47 integrated CI and native
+Apple M2 measurements are pending.

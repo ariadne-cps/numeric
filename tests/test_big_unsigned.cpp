@@ -1698,8 +1698,9 @@ void TestBigUnsigned::test_gcd_decimal()
         ARIADNE_TEST_ASSERT(mpz_set_str(a.value,digits.c_str(),10)==0);
         check_against_gmp(parsed,a.value);
     }
-    // B24: long-input radix-10^18 parsing. Probe each side of the
-    // 309/310-digit selector, 18-digit group carry boundaries, and
+    // B24: long-input radix-10^18 parsing. Probe the historical
+    // 309/310-digit boundary (both now wide after B47), 18-digit
+    // group carry boundaries, and
     // lengths beyond the 2048/4096-bit benchmark workloads. GMP
     // parses the ORIGINAL input, not a native formatted roundtrip.
     const auto check_long_parse=[&](std::string const& input) {
@@ -1730,6 +1731,46 @@ void TestBigUnsigned::test_gcd_decimal()
         }
         check_long_parse(alternating);
     }
+    // B47: the wide input path now starts at 32 digits, including
+    // 128-, 256- and 1024-bit benchmark magnitudes. Stress first
+    // short groups, full 18-digit boundaries and both sides of
+    // the old 309/310 threshold against independently parsed GMP.
+    for (const std::size_t length:
+            {16u,17u,18u,19u,31u,32u,33u,35u,36u,37u,38u,
+             39u,40u,53u,54u,55u,76u,77u,78u,79u,
+             307u,308u,309u,310u,311u,617u}) {
+        check_long_parse(std::string(length,'9'));
+        check_long_parse(std::string(length,'0'));
+        check_long_parse("1"+std::string(length-2u,'0')+"1");
+        check_long_parse(std::string(length-1u,'0')+"7");
+        std::string alternating(length,'0');
+        for (std::size_t i=0u;i<length;i+=2u) {
+            alternating[i]='9';
+        }
+        check_long_parse(alternating);
+        std::string random_digits(length,'0');
+        for (auto& digit:random_digits) {
+            digit=static_cast<char>('0'+engine()%10u);
+        }
+        check_long_parse(random_digits);
+    }
+    // B47: exact powers 2^(bits-1) plus offsets, as used by
+    // construct_decimal, checked with GMP independent of the
+    // benchmark; include both signs via the established Integer
+    // benchmark verification.
+    for (const unsigned bits:{128u,256u,1024u,2048u,4096u}) {
+        mpz_set_ui(a.value,1u);
+        mpz_mul_2exp(a.value,a.value,bits-1u);
+        for (const unsigned long offset:{0ul,13ul,31ul,75ul,187ul}) {
+            mpz_add_ui(b.value,a.value,offset);
+            const std::size_t buffer_size=mpz_sizeinbase(b.value,10u)+2u;
+            std::string decimal(buffer_size,'\0');
+            mpz_get_str(decimal.data(),10,b.value);
+            decimal.resize(std::char_traits<char>::length(decimal.c_str()));
+            check_long_parse(decimal);
+        }
+    }
+
     // The long-string fast path must never bypass the shared
     // validation of every ASCII digit (including the final byte).
     for (const std::size_t invalid_position:

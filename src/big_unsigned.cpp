@@ -867,24 +867,38 @@ BigUnsigned from_decimal(std::string_view input)
         }
     }
 
-    // B24: for long strings, group 18 decimal digits per pass and
-    // accumulate an exact 64x60-bit product in an unsigned 128-bit
-    // intermediate. This halves the number of full-limb scans. The
-    // carry is < 10^18, so (2^64-1)*10^18+carry fits in 128 bits.
-    // Keep B19's portable radix-10^9 implementation below unchanged
-    // for <=309 digits and for toolchains without native 128-bit ints.
+    // B47: parsing at 128-bit precision and above benefits from
+    // B24's exact 18-digit unsigned-wide accumulation. B24's >309
+    // digit threshold excluded the 308-digit 1024-bit benchmark
+    // operands, which therefore paid for twice as many 9-digit
+    // passes. Keep the B19 portable radix-10^9 implementation below
+    // for short inputs and targets without native unsigned 128-bit.
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
-    if (input.size()>309u) {
+    if (input.size()>=32u) {
         __extension__ using Wide=unsigned __int128;
         constexpr std::size_t group=18u;
+        constexpr BigUnsigned::Limb full_radix=1000000000000000000ULL;
         std::vector<BigUnsigned::Limb> digits;
+        // ceil(decimal_digits/18) is a safe upper bound on the
+        // required 64-bit limbs: 10^18 < 2^64. No reallocations
+        // are necessary while growing the canonical magnitude.
+        digits.reserve(input.size()/group+
+                       static_cast<std::size_t>(input.size()%group!=0u));
+        // Consume any shorter group first, then multiply by exactly
+        // 10^18 on every remaining full group. This avoids a final
+        // short-radix pass and recomputation of the common radix.
+        const std::size_t first=input.size()%group==0u ?
+            group : input.size()%group;
         std::size_t pos=0u;
         while (pos<input.size()) {
-            const std::size_t count=std::min(group,input.size()-pos);
-            BigUnsigned::Limb radix=1u;
+            const std::size_t count=pos==0u ? first : group;
+            BigUnsigned::Limb radix=full_radix;
+            if (count!=group) {
+                radix=1u;
+                for (std::size_t i=0u;i<count;++i) radix*=10u;
+            }
             BigUnsigned::Limb chunk=0u;
             for (std::size_t i=0u;i<count;++i) {
-                radix*=10u;
                 chunk=chunk*10u+
                     static_cast<BigUnsigned::Limb>(input[pos+i]-'0');
             }
