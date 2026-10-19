@@ -38,6 +38,7 @@
 #include "numeric/builtin.hpp"
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
+#include "numeric/detail/integer_gmp_bridge.hpp"
 #include "numeric/extended.hpp"
 
 #include "numeric/concepts.hpp"
@@ -111,14 +112,16 @@ Dyadic::Dyadic(mpf_t mpf) {
 Dyadic::Dyadic(Integer const& p, Natural q) {
     ARIADNE_PRECONDITION(q.get_si()==q);
     mpf_init2(_mpf,maximum_precision);
-    mpf_set_z(_mpf,p._mpz);
+    GmpIntegerBoundary native(p);
+    mpf_set_z(_mpf,native.value());
     mpf_div_2exp(_mpf,_mpf,static_cast<mp_bitcnt_t>(q.get_si()));
     //if(q>=0) { mpf_div_2exp(_mpf,_mpf,q); } else { mpf_mul_2exp(_mpf,_mpf,-q); }
 }
 
 Dyadic::Dyadic(Integer const& p, Nat q) {
     mpf_init2(_mpf,maximum_precision);
-    mpf_set_z(_mpf,p._mpz);
+    GmpIntegerBoundary native(p);
+    mpf_set_z(_mpf,native.value());
     mpf_div_2exp(_mpf,_mpf,q);
     //if(q>=0) { mpf_div_2exp(_mpf,_mpf,q); } else { mpf_mul_2exp(_mpf,_mpf,-q); }
 }
@@ -140,7 +143,8 @@ Dyadic::Dyadic(ExactDouble const& x) {
 
 Dyadic::Dyadic(Integer const& z) {
     mpf_init2(_mpf,maximum_precision);
-    mpf_set_z(_mpf,z._mpz);
+    GmpIntegerBoundary native(z);
+    mpf_set_z(_mpf,native.value());
 }
 
 Dyadic::Dyadic(TwoExp const& w) : Dyadic(1u) {
@@ -279,7 +283,6 @@ Dyadic operator*(Dyadic& x1, Dyadic const& x2) {
 
 Integer round(Dyadic const& x) {
     ARIADNE_PRECONDITION(is_finite(x));
-    Integer z;
     Dyadic y=x;
     mpf_mul_2exp(y._mpf,y._mpf,1u);
     if(y>=0) {
@@ -289,26 +292,27 @@ Integer round(Dyadic const& x) {
     }
     mpf_div_2exp(y._mpf,y._mpf,1u);
     // mpf_trunc(y._mpf,y._mpf); // Not needed since mpf_set_f truncates
-    mpz_set_f(z._mpz,y._mpf);
-    return z;
+    GmpIntegerBoundary result;
+    mpz_set_f(result.mutable_value(),y._mpf);
+    return result.to_integer();
 }
 
 Integer floor(Dyadic const& x) {
     ARIADNE_PRECONDITION(is_finite(x));
-    Integer z;
     Dyadic y(x);
     mpf_floor(y._mpf,y._mpf);
-    mpz_set_f(z._mpz,y._mpf);
-    return z;
+    GmpIntegerBoundary result;
+    mpz_set_f(result.mutable_value(),y._mpf);
+    return result.to_integer();
 }
 
 Integer ceil(Dyadic const& x) {
     ARIADNE_PRECONDITION(is_finite(x));
-    Integer z;
     Dyadic y(x);
     mpf_ceil(y._mpf,y._mpf);
-    mpz_set_f(z._mpz,y._mpf);
-    return z;
+    GmpIntegerBoundary result;
+    mpz_set_f(result.mutable_value(),y._mpf);
+    return result.to_integer();
 }
 
 

@@ -37,6 +37,7 @@
 #include "number.hpp"
 #include "builtin.hpp"
 #include "integer.hpp"
+#include "numeric/detail/integer_gmp_bridge.hpp"
 #include "dyadic.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
@@ -135,7 +136,8 @@ Rational::Rational(Int n) {
 
 Rational::Rational(Integer const& z) {
     mpq_init(_mpq);
-    mpq_set_z(_mpq,z._mpz);
+    GmpIntegerBoundary value(z);
+    mpq_set_z(_mpq,value.value());
 }
 
 Rational::Rational(Dyadic const& f) {
@@ -152,12 +154,15 @@ Rational::Rational(Dyadic const& f) {
 
 Rational::Rational(Integer const& znum, Integer const& zden) {
     mpq_init(_mpq);
-    mpq_set_den(_mpq,zden._mpz);
-    if(zden==0) {
-        Integer num = (znum==0) ? 0 : (znum>0)?1:-1;
-        mpq_set_num(_mpq,num._mpz);
+    GmpIntegerBoundary denominator(zden);
+    mpq_set_den(_mpq,denominator.value());
+    if (zden==0) {
+        Integer special=(znum==0) ? 0 : (znum>0) ? 1 : -1;
+        GmpIntegerBoundary numerator(special);
+        mpq_set_num(_mpq,numerator.value());
     } else {
-        mpq_set_num(_mpq,znum._mpz);
+        GmpIntegerBoundary numerator(znum);
+        mpq_set_num(_mpq,numerator.value());
         mpq_canonicalize(_mpq);
     }
 }
@@ -235,27 +240,19 @@ double Rational::get_d() const {
 }
 
 Integer Rational::get_num() const {
-    Integer z;
-    mpq_get_num(z._mpz,this->_mpq);
-    return z;
+    return integer_from_gmp(mpq_numref(this->_mpq));
 }
 
 Integer Rational::get_den() const {
-    Integer z;
-    mpq_get_den(z._mpz,this->_mpq);
-    return z;
+    return integer_from_gmp(mpq_denref(this->_mpq));
 }
 
 Integer Rational::numerator() const {
-    Integer z;
-    mpq_get_num(z._mpz,this->_mpq);
-    return z;
+    return integer_from_gmp(mpq_numref(this->_mpq));
 }
 
 Natural Rational::denominator() const {
-    Natural n;
-    mpq_get_den(n._mpz,this->_mpq);
-    return n;
+    return Natural(integer_from_gmp(mpq_denref(this->_mpq)));
 }
 
 Rational operator/(Integer const& z1, Integer const& z2) {
@@ -398,28 +395,33 @@ Sign sgn(Rational const& q) {
 Integer round(Rational const& q) {
     ARIADNE_PRECONDITION(is_finite(q));
 
-    Integer num=q.numerator();
-    Integer den=q.denominator();
-    mpz_mul_2exp(num._mpz,num._mpz,1u);
-    if (num>=0) { mpz_add(num._mpz,num._mpz,den._mpz); } else { mpz_sub(num._mpz,num._mpz,den._mpz); }
-    mpz_mul_2exp(den._mpz,den._mpz,1u);
-    Integer& res=num;
-    mpz_tdiv_q(res._mpz,num._mpz,den._mpz);
-    return res;
+    const Integer num=q.numerator();
+    const Integer den=q.denominator();
+    const Integer doubled=add(num,num);
+    const Integer adjusted=num>=0 ? add(doubled,den) : sub(doubled,den);
+    return quot(adjusted,add(den,den));
 }
 
 Integer ceil(Rational const& q) {
     ARIADNE_PRECONDITION(is_finite(q));
-    Integer res;
-    mpz_cdiv_q(res._mpz,mpq_numref(q._mpq),mpq_denref(q._mpq));
-    return res;
+    const Integer numerator=q.numerator();
+    const Integer denominator=q.denominator();
+    Integer result=quot(numerator,denominator);
+    if (numerator>0 && rem(numerator,denominator)!=0) {
+        ++result;
+    }
+    return result;
 }
 
 Integer floor(Rational const& q) {
     ARIADNE_PRECONDITION(is_finite(q));
-    Integer res;
-    mpz_fdiv_q(res._mpz,mpq_numref(q._mpq),mpq_denref(q._mpq));
-    return res;
+    const Integer numerator=q.numerator();
+    const Integer denominator=q.denominator();
+    Integer result=quot(numerator,denominator);
+    if (numerator<0 && rem(numerator,denominator)!=0) {
+        --result;
+    }
+    return result;
 }
 
 

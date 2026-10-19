@@ -7633,3 +7633,8 @@ for the migration boundaries; B17 CI is pending.
 ### B17.1 clarification: transient SignedInteger test stage (19 October 2026)
 
 Keep B17 `SignedInteger` for cross-platform GMP-differential verification; do not revert it before transferring validated operations to the existing `Integer`. After the direct `Integer` storage and dependency migration, delete the temporary `SignedInteger` header, source, CTest target and dedicated test (migrating coverage into `test_integer.cpp`). The final architecture must expose only the existing `Integer` as the signed multiprecision type; `BigUnsigned` remains its GMP-free magnitude engine. See `integer_rational_design.md` B17.1 for mandatory completion gates.
+
+
+### B18 native Integer replacement without modifying FloatAP arithmetic (19 October 2026)
+
+The existing `Integer` class has been refactored in place to canonical `BigUnsigned` magnitude plus sign, removing its permanent GMP storage. `SignedInteger` stays only as temporary GMP-differential verification and must be deleted once tests/benchmarks validate the migrated Integer. The few dependencies on `Integer::_mpz`/`get_mpz()` in GMP-backed Rational/Dyadic/FloatMP/FloatAP use a narrow internal import/export adapter; these other numeric types retain their own representations and core algorithms. The benchmark's signed quotient/remainder GMP control now uses truncation toward zero to match the coherent Integer division identity. Integrated Unix/Windows/Coverage and benchmarks for B18 are not yet verified. See `integer_rational_design.md` B18 for implementation and testing details.

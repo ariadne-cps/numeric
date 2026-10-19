@@ -31,6 +31,7 @@
 #include "builtin.hpp"
 #include "twoexp.hpp"
 #include "floatmp.hpp"
+#include "numeric/detail/integer_gmp_bridge.hpp"
 #include "floatdp.hpp"
 #include "rounded_float.hpp"
 #include "float_approximation.hpp"
@@ -109,7 +110,8 @@ FloatMP::Float(FloatDP const& x, RoundingModeType rnd, MultiplePrecision pr) {
 
 FloatMP::Float(Integer const& z, RoundingModeType rnd, MultiplePrecision pr) {
     mpfr_init2(_mpfr,pr);
-    mpfr_set_z(_mpfr,z.get_mpz(),rnd);
+    GmpIntegerBoundary native(z);
+    mpfr_set_z(_mpfr,native.value(),rnd);
 }
 
 FloatMP::Float(Dyadic const& w, RoundingModeType rnd, MultiplePrecision pr) {

@@ -23,6 +23,7 @@
  */
 
 #include "numeric/integer.hpp"
+#include "numeric/detail/integer_gmp_bridge.hpp"
 #include "numeric/int.hpp"
 #include "numeric/twoexp.hpp"
 #include "numeric/accuracy.hpp"
@@ -33,6 +34,13 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <cstdint>
+#include <limits>
+#include <random>
+#include <stdexcept>
+#include <string>
+
+#include <gmp.h>
 
 #include "macro/testing.hpp"
 
@@ -75,6 +83,7 @@ class TestInteger
     void test_comparisons();
     void test_small_types();
     void test_combinatorics();
+    void test_native();
 };
 
 void TestInteger::test()
@@ -85,6 +94,7 @@ void TestInteger::test()
     ARIADNE_TEST_CALL(test_arithmetic());
     ARIADNE_TEST_CALL(test_small_types());
     ARIADNE_TEST_CALL(test_combinatorics());
+    ARIADNE_TEST_CALL(test_native());
 }
 
 void TestInteger::test_literal() {
@@ -143,7 +153,7 @@ void TestInteger::test_constructors() {
     ARIADNE_TEST_EQUALS(Integer(Nat32(7)),Integer(7));
     mpz_t raw;
     mpz_init_set_si(raw,-17);
-    ARIADNE_TEST_EQUALS(Integer(raw),Integer(-17));
+    ARIADNE_TEST_EQUALS(integer_from_gmp(raw),Integer(-17));
     mpz_clear(raw);
 
     Integer assigned(1);
@@ -330,6 +340,105 @@ void TestInteger::test_comparisons() {
     ARIADNE_TEST_COMPARE(Integer(2),>=,Integer(-3));
     ARIADNE_TEST_COMPARE(Integer(2),< ,Integer(3));
     ARIADNE_TEST_COMPARE(Integer(2),> ,Integer(-3));
+}
+
+
+void TestInteger::test_native() {
+    const Integer zero(0);
+    const Integer one(1);
+    const Integer minus_one(-1);
+    ARIADNE_TEST_ASSERT(Integer(String("-0")).literal()=="0");
+    ARIADNE_TEST_ASSERT(Integer(String("+00000042")).literal()=="42");
+    ARIADNE_TEST_ASSERT(Integer(String("00000")).literal()=="0");
+    ARIADNE_TEST_ASSERT(Integer(String("18446744073709551616")).literal()
+                        =="18446744073709551616");
+    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::int64_t>::min())
+        .get<std::int64_t>()==std::numeric_limits<std::int64_t>::min());
+    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::uint64_t>::max())
+        .get<std::uint64_t>()==std::numeric_limits<std::uint64_t>::max());
+    ARIADNE_TEST_ASSERT(pow(Integer(0),Nat(0u))==1);
+    ARIADNE_TEST_ASSERT(pow(Integer(-7),Nat(3u))==-343);
+    ARIADNE_TEST_ASSERT(pow(Integer(-7),Nat(4u))==2401);
+    ARIADNE_TEST_ASSERT(sqr(Integer(-13))==169);
+    ARIADNE_TEST_ASSERT(abs(Integer(-13))==13);
+    ARIADNE_TEST_ASSERT(log2floor(Natural(0u))==-1);
+    ARIADNE_TEST_ASSERT(log2floor(Natural(8u))==3);
+    ARIADNE_TEST_ASSERT(quot(Integer(-11),Integer(3))==-3);
+    ARIADNE_TEST_ASSERT(rem(Integer(-11),Integer(3))==-2);
+    ARIADNE_TEST_ASSERT(quot(Integer(11),Integer(-3))==-3);
+    ARIADNE_TEST_ASSERT(rem(Integer(11),Integer(-3))==2);
+
+    for (const char* invalid: {"","-","+","-+1"," 1","1 ","1a","1.0"}) {
+        bool threw=false;
+        try { (void)Integer(String(invalid)); }
+        catch (std::invalid_argument const&) { threw=true; }
+        ARIADNE_TEST_ASSERT(threw);
+    }
+    bool negative_unsigned=false,positive_overflow=false,division_zero=false;
+    try { (void)minus_one.get<std::uint64_t>(); }
+    catch (std::out_of_range const&) { negative_unsigned=true; }
+    try { (void)Integer(String("9223372036854775808")).get<std::int64_t>(); }
+    catch (std::out_of_range const&) { positive_overflow=true; }
+    try { (void)quot(one,zero); }
+    catch (std::domain_error const&) { division_zero=true; }
+    ARIADNE_TEST_ASSERT(negative_unsigned && positive_overflow && division_zero);
+
+    for (const char* a: {"-11","11","-12","12","0"}) {
+        for (const char* b: {"-3","3","-5","5"}) {
+            Integer dividend{String(a)};
+            Integer divisor{String(b)};
+            const Integer quotient=quot(dividend,divisor);
+            const Integer remainder=rem(dividend,divisor);
+            ARIADNE_TEST_ASSERT(dividend==quotient*divisor+remainder);
+            ARIADNE_TEST_ASSERT(abs(remainder)<abs(divisor));
+            ARIADNE_TEST_ASSERT(remainder==0 || sgn(remainder)==sgn(dividend));
+        }
+    }
+
+    struct GMP {
+        mpz_t value;
+        GMP() { mpz_init(value); }
+        ~GMP() { mpz_clear(value); }
+        GMP(GMP const&)=delete;
+        GMP& operator=(GMP const&)=delete;
+    };
+    GMP a,b,expected,quotient,remainder;
+    std::mt19937_64 engine(0x1A7E6EEDULL);
+    for (unsigned repetition=0u;repetition<1700u;++repetition) {
+        std::string lhs=std::to_string(engine());
+        std::string rhs=std::to_string(engine()|std::uint64_t{1});
+        for (unsigned j=0u;j<repetition%7u;++j) {
+            lhs+=std::to_string(engine());
+            rhs+=std::to_string(engine());
+        }
+        if (repetition%2u!=0u) lhs.insert(lhs.begin(),'-');
+        if (repetition%3u!=0u) rhs.insert(rhs.begin(),'-');
+        if (repetition%19u==0u) lhs="0";
+        const Integer x{String(lhs)};
+        const Integer y{String(rhs)};
+        ARIADNE_TEST_ASSERT(mpz_set_str(a.value,lhs.c_str(),10)==0);
+        ARIADNE_TEST_ASSERT(mpz_set_str(b.value,rhs.c_str(),10)==0);
+        mpz_add(expected.value,a.value,b.value);
+        GmpIntegerBoundary sum(x+y);
+        ARIADNE_TEST_ASSERT(mpz_cmp(sum.value(),expected.value)==0);
+        mpz_sub(expected.value,a.value,b.value);
+        GmpIntegerBoundary difference(x-y);
+        ARIADNE_TEST_ASSERT(mpz_cmp(difference.value(),expected.value)==0);
+        mpz_mul(expected.value,a.value,b.value);
+        GmpIntegerBoundary product(x*y);
+        ARIADNE_TEST_ASSERT(mpz_cmp(product.value(),expected.value)==0);
+        mpz_tdiv_qr(quotient.value,remainder.value,a.value,b.value);
+        const Integer q=quot(x,y);
+        const Integer r=rem(x,y);
+        GmpIntegerBoundary native_q(q),native_r(r);
+        ARIADNE_TEST_ASSERT(mpz_cmp(native_q.value(),quotient.value)==0);
+        ARIADNE_TEST_ASSERT(mpz_cmp(native_r.value(),remainder.value)==0);
+        ARIADNE_TEST_ASSERT(q*y+r==x);
+        ARIADNE_TEST_ASSERT(abs(r)<abs(y));
+        const auto converted=integer_from_gmp(a.value);
+        ARIADNE_TEST_ASSERT(converted==x);
+        ARIADNE_TEST_ASSERT(converted.literal()==x.literal());
+    }
 }
 
 int main() {

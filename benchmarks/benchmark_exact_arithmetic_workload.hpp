@@ -312,14 +312,14 @@ struct GmpIntegerOperations {
     }
     static Number quotient(Number const& a,Number const& b) {
         Number result;
-        // Match the current Integer::quot GMP rounding contract.
-        mpz_div(result.value,a.value,b.value);
+        // Native Integer uses truncation toward zero for quotient.
+        mpz_tdiv_q(result.value,a.value,b.value);
         return result;
     }
     static Number remainder(Number const& a,Number const& b) {
         Number result;
-        // Match the current Integer::rem GMP rounding contract.
-        mpz_cdiv_r(result.value,a.value,b.value);
+        // The remainder has the dividend sign, matching Integer.
+        mpz_tdiv_r(result.value,a.value,b.value);
         return result;
     }
     static Number power3(Number const& a) {

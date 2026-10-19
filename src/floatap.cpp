@@ -28,6 +28,7 @@
 
 #include "numeric/floatap.hpp"
 #include "numeric/integer.hpp"
+#include "numeric/detail/integer_gmp_bridge.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
 #include "numeric/double.hpp"
@@ -837,7 +838,7 @@ Integer cast_integer(FloatAP const& value) {
     if (mpz_cmp_ui(mpq_denref(q), 1u) != 0) {
         throw std::domain_error("FloatAP is not an integer");
     }
-    return Integer(mpq_numref(q));
+    return integer_from_gmp(mpq_numref(q));
 }
 
 Comparison cmp(FloatAP const& a, Rational const& b) {
@@ -1370,7 +1371,10 @@ FloatAP shft(FloatAP const& value, Int amount) {
 }
 
 FloatAP::Float(Integer const& n, RoundingModeType mode, PrecisionType pr)
-: Float(from_integer(n.get_mpz(), static_cast<unsigned long>(pr.bits()), mode)) {
+: Float([&]() {
+    GmpIntegerBoundary native(n);
+    return from_integer(native.value(),static_cast<unsigned long>(pr.bits()),mode);
+}()) {
 }
 
 namespace {
