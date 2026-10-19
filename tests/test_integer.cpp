@@ -460,7 +460,11 @@ void TestInteger::test_native() {
                 ARIADNE_TEST_ASSERT(
                     mpz_cmp(assigned_sub.value(),expected.value)==0);
                 Integer aliased=lhs;
-                aliased-=aliased;
+                // B41.1: preserve the exact same-object '-=' test
+                // without Clang's -Wself-assign-overloaded diagnostic.
+                // The const reference denotes 'aliased', not a copy.
+                Integer const& same_object=aliased;
+                aliased-=same_object;
                 ARIADNE_TEST_ASSERT(aliased==0);
                 ARIADNE_TEST_ASSERT(!aliased.negative());
                 if ((sign_mode&1u)!=0u) mpz_neg(a.value,a.value);
