@@ -2219,3 +2219,66 @@ B28 improvement or ARM64 result is claimed. Repeat native six-size,
 14-operation Integer/GMP benchmarks and validate correctness;
 GitHub CI and Codecov are explicitly deferred by user request
 during the temporary GitHub service difficulties.
+
+### B29 selective zero-limb fused subtraction for sparse divisors (19 October 2026)
+
+The B28 six-size ARM64/x86-64 Integer-vs-GMP benchmark confirms
+substantial reductions in trivial quotient/remainder, but general
+x86-64 quotient remains about 3.60x GMP at 4096 bits. Disaggregating
+the **unchanged** 32-pair general division corpus reveals that eight
+half-width divisors of the form `2^(bits/2)+1+i` contain long
+zero-limb runs: their quotient/remainder steps dominate the isolated
+native cost despite accounting for only one quarter of operands.
+This workload is mathematically representative of sparse bignums,
+not a new fixture contrived to score better.
+
+B29 keeps B27's fused normalized long-division recurrence and
+B28's exact equal-leading-limb quotient-0/1 shortcut unchanged.
+The shared product/subtraction helper now has two compile-time
+instantiations. For a zero limb of the normalized divisor, the
+sparse specialization subtracts only the incoming carry/borrow
+from the dividend limb, then propagates the resulting borrow:
+`window[i] -= carry; carry = old < carry`. This is algebraically
+identical to multiplying that zero limb by the current estimated
+quotient digit, including the high-product zero and carry rules.
+The dense specialization retains the exact original multiplication
+code on GCC/Clang `unsigned __int128`, MSVC `_umul128`, and the
+portable 32-bit half-limb fallback.
+
+**Selection occurs once before the quotient-digit loop**, after
+B27 normalization: use the sparse specialization only if the
+divisor has at least eight limbs, there are at least eight quotient
+digits, and at least half its normalized limbs are zero. Instantiate
+the two quotient-digit loops using a C++20 templated lambda; do not
+add a per-digit mode branch to the dense path. This cutoff avoids
+replacing the dense kernel with a branch on each multiplication,
+which performed worse on small or dense divisors in probes.
+The preexisting output and scratch size checks, correction bound,
+public `n+m+1` scratch allocation, signing/rounding boundaries,
+benchmark input pool, six sizes, 14 operation labels, 20000
+iterations and 31 samples are all preserved. No build/CMake flags,
+optional CPU instruction or new public API are introduced.
+
+Exploratory standalone x86-64 AMD EPYC 9V74 C++20 probes replicated
+the B28 arithmetic body with exact GMP reference outputs. On the
+32-pair corpus at 4096 bits, selecting a sparse multiply-subtract
+kernel reduced measured quotient/remainder work by roughly
+10-30% across GCC 14 and Clang 17 runs, while isolated half-width
+sparse-divisor cases often improved by approximately 20-40%.
+Absolute isolated kernel timings are not the official owning
+`Integer` benchmark and can be sensitive to compilation/code
+layout; **no integrated B29 speedup is claimed**. The
+single-limb-preinverse alternative showed benefits only in some
+4096-bit GCC runs and was not incorporated.
+
+An independent standalone differential stress test exercised
+32000 randomized dense and zero-run divisors up to 128 dividend
+limbs, comparing B28 versus the selective B29 path and exact GMP
+for quotient-only, remainder-only and joint operations. GCC -O3
+and Clang 17 AddressSanitizer/UndefinedBehaviorSanitizer runs
+both passed. Preserve all earlier differential suites and add
+1024 deterministic long-zero-run and mixed-density GMP oracle
+cases in the production `test_big_unsigned` with the same
+three output variants. The integrated production test suite and
+native ARM64/x86-64 six-size performance gates remain outstanding;
+CI and Codecov are not being consulted at user request.
