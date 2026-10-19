@@ -2980,3 +2980,76 @@ separate. The user has reauthorized GitHub CI
 inspections; report third-party Codecov statuses
 separately.
 
+### B38 skip exact-zero rows in native ARM64 multiplication and symmetric square (19 October 2026)
+
+The B37 Apple M2 integrated benchmark improved 4096-bit
+`square` from B36's 2298.379 to 1476.506 ns (35.8%) and
+`pow3` from 7303.648 to 6380.048 ns (12.6%). At
+1024/2048 bits, `pow3` improved to 506.440/1667.752 ns.
+All B37 Unix, Windows and Coverage GitHub Actions later
+completed successfully (including AppleClang, Clang 16,
+GCC and ThreadSanitizer). The generic ARM64 product in
+`pow(x,3)` is an unbalanced product of a roughly n-limb
+operand and its roughly 2n-limb square. For values
+containing long zero-limb runs, both the native generic
+schoolbook kernel and B37's symmetric square were
+needlessly executing wide multiplications by exact zero.
+This is a general arithmetic property, not a `pow3`
+or benchmark-operand-specific recognition.
+
+B38 preserves B37's six-instruction
+MUL/UMULH/ADDS/ADC accumulation for each **nonzero**
+outer-limb row but skips the entire row when `a[i]==0`
+in `mul_low_into_carry_arm64`. Since the output is
+zero-filled up front, a skipped row adds exactly zero;
+its final carry slot was never touched by earlier
+rows. The same exact-zero row elimination applies to
+`square_into_symmetric_arm64` for the off-diagonal
+upper triangle. It is safe because slot `output[i+n]`
+is not touched before row i. Doubling and diagonal
+square accumulation still process **all** limbs,
+including those skipped in the off-diagonal step.
+There is no division, dynamic input classification,
+new allocation or new ISA. This also preserves
+full, truncated, oversized-output and asymmetric
+`BigUnsigned::mul_low_into` contracts, including
+the reversed order of the operands; no special
+cases of `Nat(3)` or of the official operand pool
+were introduced. The generic multiplication API,
+`Integer::pow`, x86-64, AppleClang selection,
+CMake build flags and official benchmarks remain
+unchanged. A dense input incurs only an outer-row
+zero comparison, so check actual Apple M2 small and
+dense cases before accepting a performance claim.
+
+A local x86-64 portable C++20 reconstruction of
+the ARM64 generic row-schoolbook recurrence compared
+the unmodified and zero-row-skipping algorithms
+against independent GMP over **16,000** full/low/
+oversized output cases with operands 1..140 limbs,
+random, saturated, alternating sparse and zero.
+All passed. On the same proxy, 64x128-limb sparse
+products reduced the *inner schoolbook work* from
+64 rows to 2 and measured about 6471 -> 249 ns,
+while dense 64x128 results varied by about 1%.
+These are **x86 proxy** results, not actual
+ARM64 or production integrated `pow3` timings.
+A separate 16,000-case GMP check of the exact
+B37 symmetric square recurrence with zero-row
+skipping passed under Clang ASan and UBSan.
+
+The production GMP regression corpus now additionally
+covers 336 mixed dense/sparse and balanced/unbalanced
+unsigned products (both orders), each with six low
+truncation sizes, and 120 signed GMP-oracle `pow3`
+cases on 8..128 limbs. All previously tested
+saturated, no-zero, high/low-boundary, x*=x and
+power cases remain intact. The main Apple M2
+benchmark remains the unchanged 84-pair
+Integer/GMP 31-sample workload. The complete
+production build/CI and B38 same-host integrated
+benchmarks are **pending**; do not attribute
+the x86 proxy's large speedups to Apple Silicon.
+Compare B38 only against B37 on the same Apple M2,
+and use B37 x86-64 as an unchanged-backend control.
+

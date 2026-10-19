@@ -514,6 +514,39 @@ void TestInteger::test_native() {
         }
     }
 
+    // B38: exercise pow3 on general zero-row patterns and both signs.
+    // These are genuine arbitrary-precision powers, not a shortcut
+    // based on the benchmark's particular operand construction.
+    std::mt19937_64 sparse_power_engine(0xB38C03ULL);
+    for (const std::size_t count: {8u,16u,32u,64u,128u}) {
+        for (unsigned repetition=0u;repetition<24u;++repetition) {
+            std::vector<std::uint64_t> digits(count);
+            for (auto& word:digits) word=sparse_power_engine();
+            if (repetition%6u==0u) {
+                std::fill(digits.begin(),digits.end(),0u);
+                digits.back()=std::uint64_t{1}<<63u;
+            } else if (repetition%6u==1u) {
+                std::fill(digits.begin(),digits.end(),0u);
+                digits.front()=13u;
+                digits.back()=std::uint64_t{1}<<63u;
+            } else if (repetition%6u==2u) {
+                for (std::size_t i=0u;i<count;i+=2u) digits[i]=0u;
+            } else if (repetition%6u==3u) {
+                std::fill(digits.begin(),digits.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+            }
+            digits.back()|=std::uint64_t{1}<<63u;
+            mpz_import(a.value,digits.size(),-1,sizeof(std::uint64_t),
+                       0,0,digits.data());
+            if (repetition%2u!=0u) mpz_neg(a.value,a.value);
+            const Integer input=integer_from_gmp(a.value);
+            mpz_pow_ui(expected.value,a.value,3u);
+            const GmpIntegerBoundary native_cube(pow(input,Nat(3u)));
+            ARIADNE_TEST_ASSERT(
+                mpz_cmp(native_cube.value(),expected.value)==0);
+        }
+    }
+
     std::mt19937_64 engine(0x1A7E6EEDULL);
     for (unsigned repetition=0u;repetition<1700u;++repetition) {
         std::string lhs=std::to_string(engine());

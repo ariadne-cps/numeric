@@ -49,6 +49,8 @@ using Limb = BigUnsigned::Limb;
 // demonstrated integrated speedups on Apple Silicon at 1024-4096 bits.
 // The intermediate is bounded by (B-1)^2 + 2(B-1) = B^2-1, B=2^64.
 // Inputs/output cannot overlap. Output is fully overwritten, no allocation.
+// B38 skips exact-zero outer limbs, retaining the dense carry-chain
+// sequence unchanged for every nonzero row (including truncated products).
 void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
                               BigUnsigned::LimbView b,
                               BigUnsigned::MutableLimbView output) noexcept
@@ -56,6 +58,13 @@ void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
     std::fill(output.begin(),output.end(),Limb{0});
     for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
         const Limb ai=a[i];
+        // B38: a zero row contributes no product or carry. Output was
+        // cleared before the loop, and this row's final carry position
+        // has not been visited by any earlier row. Skip every inner
+        // multiplication without changing truncated/full semantics.
+        if (ai==0u) {
+            continue;
+        }
         Limb carry=0u;
         const std::size_t terms=std::min(b.size(),output.size()-i);
         for (std::size_t j=0u; j<terms; ++j) {
@@ -103,6 +112,12 @@ void square_into_symmetric_arm64(BigUnsigned::LimbView a,
     // output[i+n] lies past all columns previously touched by row i.
     for (std::size_t i=0u;i+1u<n;++i) {
         const Limb ai=a[i];
+        // B38: zero off-diagonal rows leave an untouched carry slot
+        // output[i+n]. The later doubling and diagonal accumulation
+        // still execute for every limb, including these zero rows.
+        if (ai==0u) {
+            continue;
+        }
         Limb carry=0u;
         for (std::size_t j=i+1u;j<n;++j) {
             const std::size_t k=i+j;
