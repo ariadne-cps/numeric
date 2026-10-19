@@ -3231,3 +3231,95 @@ dense/sparse benchmarks for B40 are
 pending; do not compare ARM M2 absolute
 timings to any other CPU.
 
+### B41 avoid temporary negation and trim common high limbs in subtraction (19 October 2026)
+
+In the same-M2 B40 31-sample official Integer/GMP benchmark,
+`sub` at 1024/2048/4096 bits measured
+71.156/97.917/159.254 ns versus GMP
+33.467/41.702/57.587 ns, i.e. 2.13x/2.35x/2.77x.
+The signed benchmark operand corpus has
+`a=+/- (2^(bits-1)+13+2*i)` and
+`b=+/- (2^(bits-1)+31+5*i)`, with
+32 deterministic sign combinations. Half of
+the subtractions have opposite signs and
+therefore require a true n-limb **addition**
+of unsigned magnitudes. The other half
+subtract nearly identical n-limb magnitudes
+and produce a small signed result. Treating
+every timed `sub` as a long unsigned borrow
+chain would be technically incorrect.
+
+Before B41, `Integer::sub(z1,z2)` invoked
+`add(z1,neg(z2))`. `neg` produces a new
+owning `Integer` and **copies the entire
+`BigUnsigned` magnitude**, even though
+the signed subtraction only requires
+reading the sign and magnitude of z2.
+B41 performs direct signed-magnitude
+dispatch without materializing this negated
+copy. If signs differ, add magnitudes and
+keep z1's sign; if signs match, compare
+magnitudes, return canonical zero when
+equal, otherwise subtract larger-minus-
+smaller and select z1's sign for larger z1,
+its inverse for larger z2. All four sign
+combinations, zero, x-x and x-=x preserve
+the exact original result and canonical sign.
+
+Unsigned `BigUnsigned::sub(a,b)` formerly
+pre-scanned the full numbers with `compare`,
+allocated `a.size()` output limbs, subtracted
+all limbs using `sub_into`, then normalized
+the entire result. B41 first rejects a shorter
+minuend without allocation. For equal-width
+canonical inputs, it scans from the high limb
+to find the highest **different** position k.
+If no position differs, return zero directly;
+if a[k]<b[k], throw `underflow_error`
+without modifying an operand. Otherwise the
+high equal prefix cancels, and the entire
+nonnegative difference is represented by
+the low k+1 limbs. Allocate precisely that
+result width and call the existing exact
+`sub_into` on only those limbs, then
+normalize. For a strictly longer minuend
+there is no high equal-width prefix, and
+the full-width subtraction remains exact.
+This avoids duplicate whole-number
+comparison within `BigUnsigned::sub`
+and reduces work/allocations for all
+equal-prefix values, not only the benchmark
+pool. Full low-range borrow propagation,
+underflow behavior, canonical-zero and
+output-normalization invariants remain
+preserved. The lower-level public
+`sub_into` signature, bounds checks,
+output-tail clearing and borrow-out behavior
+are not modified. No new ISA,
+platform-specific selection, CMake flags,
+benchmark operands, library dependencies,
+scratch changes or API changes are introduced.
+
+A standalone GMP differential probe of the
+common-prefix subtraction recurrence
+passed **18,000** random and adversarial
+cases on x86-64 under GCC ASan/UBSan,
+including 7,399 correct unsigned underflow
+exceptions. Production tests add 1,536
+unsigned GMP comparisons including reverse
+order and underflow, plus 768 signed GMP
+subtractions across all four sign pairs,
+with `-=` and same-object `x-=x`
+checks. All existing architecture-wide
+and GMP-backed regression scenarios
+remain intact. Note: the production
+tests and full CI are **pending** on
+the B41 commit. The same-M2 integrated
+benchmark must measure B41 versus B40,
+especially `sub` at 1024/2048/4096
+bits, while using `add` and `negate`
+as controls. Avoid claiming a speedup
+before same-host timing data; inspect
+Windows/macOS/Linux CI separately from
+external Codecov.
+
