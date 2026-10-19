@@ -69,6 +69,7 @@ class TestBigUnsigned
     void test() {
         ARIADNE_TEST_CALL(test_storage());
         ARIADNE_TEST_CALL(test_boundaries());
+        ARIADNE_TEST_CALL(test_subtraction_common_prefix());
         ARIADNE_TEST_CALL(test_randomized());
         ARIADNE_TEST_CALL(test_multiplication());
         ARIADNE_TEST_CALL(test_division_limb());
@@ -81,6 +82,7 @@ class TestBigUnsigned
   private:
     void test_storage();
     void test_boundaries();
+    void test_subtraction_common_prefix();
     void test_randomized();
     void test_multiplication();
     void test_division_limb();
@@ -164,6 +166,88 @@ void TestBigUnsigned::test_boundaries()
     ARIADNE_TEST_ASSERT(compare(high,one)>0);
     low_different[63u]=max-1u;
     ARIADNE_TEST_ASSERT(compare(BigUnsigned(low_different),high)<0);
+}
+
+// B41: the highest differing limb determines both unsigned order
+// and the maximum required result width. Exercise common-prefix
+// elimination against an independent GMP oracle in both directions,
+// including underflow, canonical zero, dense inputs and long borrows.
+void TestBigUnsigned::test_subtraction_common_prefix()
+{
+    const auto max=std::numeric_limits<std::uint64_t>::max();
+    std::mt19937_64 engine(0xB41CA11CEULL);
+    GmpInteger a,b,expected;
+    for (const std::size_t count:
+            {0u,1u,2u,7u,8u,16u,31u,32u,63u,64u,65u,128u}) {
+        for (unsigned repetition=0u;repetition<64u;++repetition) {
+            std::vector<std::uint64_t> left(count),right(count);
+            for (auto& word:left) word=engine();
+            for (auto& word:right) word=engine();
+            switch (repetition%9u) {
+            case 0u: // Exact equality: result width zero.
+                right=left;
+                break;
+            case 1u: // Only the lowest word differs.
+                right=left;
+                if (count!=0u) left[0u]=max;
+                break;
+            case 2u: // Opposite ordering in the low word.
+                right=left;
+                if (count!=0u) right[0u]=max;
+                break;
+            case 3u: // Very long equal high prefix.
+                right=left;
+                if (count!=0u) {
+                    left[0u]=max;
+                    right[0u]=0u;
+                }
+                break;
+            case 4u: // Dense, saturated, long carry/borrow chain.
+                std::fill(left.begin(),left.end(),max);
+                std::fill(right.begin(),right.end(),max);
+                if (count!=0u) right.front()=0u;
+                break;
+            case 5u: // Different canonical widths, left shorter.
+                if (count!=0u) left.back()=0u;
+                break;
+            case 6u: // Different canonical widths, right shorter.
+                if (count!=0u) right.back()=0u;
+                break;
+            case 7u: // Two remote nonzero limbs.
+                std::fill(left.begin(),left.end(),0u);
+                std::fill(right.begin(),right.end(),0u);
+                if (count!=0u) {
+                    left.front()=max;
+                    left.back()|=std::uint64_t{1}<<63u;
+                    right.front()=1u;
+                    right.back()|=std::uint64_t{1}<<63u;
+                }
+                break;
+            default: // Independent dense random values.
+                break;
+            }
+            const BigUnsigned lhs(left),rhs(right);
+            mpz_import(a.value,lhs.size(),-1,sizeof(std::uint64_t),
+                       0,0,lhs.limbs().data());
+            mpz_import(b.value,rhs.size(),-1,sizeof(std::uint64_t),
+                       0,0,rhs.limbs().data());
+            const auto verify=[&](BigUnsigned const& first,
+                                  BigUnsigned const& second,
+                                  mpz_srcptr x,mpz_srcptr y) {
+                mpz_sub(expected.value,x,y);
+                if (mpz_sgn(expected.value)<0) {
+                    bool threw=false;
+                    try { (void)sub(first,second); }
+                    catch (std::underflow_error const&) { threw=true; }
+                    ARIADNE_TEST_ASSERT(threw);
+                } else {
+                    check_against_gmp(sub(first,second),expected.value);
+                }
+            };
+            verify(lhs,rhs,a.value,b.value);
+            verify(rhs,lhs,b.value,a.value);
+        }
+    }
 }
 
 void TestBigUnsigned::test_multiplication()

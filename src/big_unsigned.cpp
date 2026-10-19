@@ -278,14 +278,40 @@ BigUnsigned add(BigUnsigned const& a, BigUnsigned const& b) {
 }
 
 BigUnsigned sub(BigUnsigned const& a, BigUnsigned const& b) {
-    if (compare(a,b)<0) {
+    if (a._size<b._size) {
         throw std::underflow_error("BigUnsigned negative result");
     }
 
+    const auto left=a.limbs();
+    const auto right=b.limbs();
+    std::size_t active=a._size;
+
+    // B41: if the canonical operands have equal width, identical
+    // leading limbs cancel exactly. The first different limb decides
+    // the unsigned ordering; the result needs at most 'active' limbs.
+    // This avoids allocating/subtracting dozens of high zero-result
+    // limbs for nearly equal large integers. A dense random pair
+    // generally differs in its first (highest) inspected limb.
+    if (a._size==b._size) {
+        while (active!=0u && left[active-1u]==right[active-1u]) {
+            --active;
+        }
+        if (active==0u) {
+            return BigUnsigned{};
+        }
+        if (left[active-1u]<right[active-1u]) {
+            throw std::underflow_error("BigUnsigned negative result");
+        }
+    }
+
     BigUnsigned result;
-    result.resize_for_result(a._size);
-    const auto out = BigUnsigned::MutableLimbView(result.mutable_data(),a._size);
-    (void)BigUnsigned::sub_into(a.limbs(),b.limbs(),out);
+    result.resize_for_result(active);
+    const auto out=BigUnsigned::MutableLimbView(
+        result.mutable_data(),active);
+    // The high differing limb (or unequal canonical lengths) proves
+    // a>=b, so subtraction cannot borrow out of the active range.
+    (void)BigUnsigned::sub_into(
+        left.first(active),right.first(std::min(active,right.size())),out);
     result.normalize();
     return result;
 }

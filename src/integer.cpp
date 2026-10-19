@@ -168,7 +168,25 @@ Integer add(Integer const& z1, Integer const& z2) {
 }
 
 Integer sub(Integer const& z1, Integer const& z2) {
-    return add(z1,neg(z2));
+    // B41: a-b is performed directly from the signed magnitudes.
+    // The former add(a,neg(b)) materialized a full copy of b before
+    // determining the arithmetic path. Opposite signs add magnitudes,
+    // equal signs subtract their absolute values in the larger-first
+    // order; no temporary negated operand is needed.
+    if (z1._negative!=z2._negative) {
+        return Integer::from_magnitude(
+            add(z1._magnitude,z2._magnitude),z1._negative);
+    }
+    const int comparison=compare(z1._magnitude,z2._magnitude);
+    if (comparison==0) {
+        return Integer{};
+    }
+    if (comparison>0) {
+        return Integer::from_magnitude(
+            sub(z1._magnitude,z2._magnitude),z1._negative);
+    }
+    return Integer::from_magnitude(
+        sub(z2._magnitude,z1._magnitude),!z1._negative);
 }
 
 Integer mul(Integer const& z1, Integer const& z2) {

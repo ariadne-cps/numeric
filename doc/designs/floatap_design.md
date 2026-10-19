@@ -8247,3 +8247,42 @@ Full project CI and same-host M2
 benchmark measurements remain pending;
 see B40 in `integer_rational_design.md`.
 
+### B41 direct signed subtraction and high-prefix cancellation (19 October 2026)
+
+B41 removes the temporary negated
+`Integer` allocation/copy from
+`Integer::sub(a,b)`: direct dispatch on
+operand signs adds unsigned magnitudes
+for differing signs, or subtracts the
+smaller magnitude from the larger for
+matching signs. The resulting signed
+integer is canonical, including zero
+and `x-=x`. Separately,
+`BigUnsigned::sub` removes the equal
+leading-limb prefix for same-width
+operands before allocating and
+subtracting the actual low result
+range. This is exact for arbitrary
+canonical unsigned magnitudes and
+preserves underflow and public
+`sub_into` contracts. In the official
+Integer benchmark, half of signed
+subtractions are actually magnitude
+additions; the other half have
+high-prefix cancellation, explaining
+the optimization split.
+
+No FloatAP, Rational, x86-64/ARM64
+architecture selection, GMP boundary,
+CMake setting, API/ABI or benchmark
+corpus changes are introduced. An
+independent 18,000-case GMP/ASan/UBSan
+subtraction probe passed; production
+regression additions comprise
+1536 unsigned direction checks and
+768 signed sign-pair GMP comparisons
+with assignment/alias checks.
+CI and native performance results are
+pending; see B41 in
+`integer_rational_design.md`.
+
