@@ -1920,3 +1920,57 @@ pending until the commit is validated. Compare B24 vs B23
 using unchanged six sizes, 20,000 iterations, 31 samples;
 pay special attention to `construct_decimal` at 2048 and
 4096 bits and ensure no regressions in `to_decimal` or division.
+
+
+### B25 wide-radix large-leaf decimal formatting (19 October 2026)
+
+Building on B22 balanced decimal formatting and B24's successful
+wide-radix *parsing*, B25 optimizes the leaf formatter inside
+`BigUnsigned::to_decimal`, without changing the B22 split-power
+recursion, quotient/remainder, signed Integer behavior, or benchmarks.
+For magnitudes of **9 limbs or more** on GCC/Clang targets with
+`__SIZEOF_INT128__`, use an unsigned-128-bit 128/64 division by
+the constant `10^18` to process one 64-bit input limb per decimal
+block pass. A 64-bit running remainder is always below `10^18`
+and the combined `(Wide(remainder)<<64) | limb` fits in 128 bits;
+each quotient limb is below `2^64`. Collect 18-digit base-`10^18`
+remainders and pad all nonleading blocks to 18 digits.
+This should reduce scans relative to B19's 9-digit method.
+The original two-64/32-division base-`10^9` algorithm is
+unchanged for **up to 8 limbs** and on compilers without
+native unsigned 128-bit integers, including MSVC.
+The B22 recursive cutoff remains 16 limbs; large values
+therefore gain the wide leaf inside the existing split recursion.
+No public API changes, external dependencies, global caches,
+floating-point estimates, or new architecture-specific assembly.
+
+The implementation's fast-path selection occurs in the existing
+private `to_decimal_blocks` helper; `to_decimal_blocks_wide`
+is an internal helper in the anonymous namespace nested inside
+`namespace Ariadne`. Validate with 50 additional GMP-oracle
+cases at limb sizes 7,8,9,10,15,16,17,32,64,128 including
+binary radix powers, all-ones values, zero gaps, and random
+limb patterns. Each case compares the complete decimal string
+directly against GMP `mpz_get_str` and roundtrips through
+`from_decimal`. Preserve B22's 50 exact decimal-boundary tests,
+B24's 45 long-input parse checks, existing GMP random corpora,
+and the signed Integer suites.
+
+A *separate* C++20 + GMP local probe ran old 9-digit and new
+18-digit leaf loops on 32 exact independent random operands
+for 512 through 8192 bits. Both returned identical decimal
+strings to `mpz_get_str` on all checked inputs. Its x86
+per-value median of nine local repetitions was roughly
+2.74us (9-digit) versus 1.95us (18-digit) at 1024 bits,
+10.37us versus 5.23us at 2048 bits, and 47.26us
+versus 18.32us at 4096 bits; these are **isolated leaf-only
+proxies**, not timings of the repository's optimized B22
+recursive path and not representative of ARM64. They justify
+trying B25 but do not establish actual acceleration.
+The output fast path differs from B24's parsing fast path.
+Retain the exact six-size Integer/GMP benchmark with 20,000
+iterations and 31 samples. Compare B25 with B24 separately
+on native ARM64 and x86-64, particularly `to_decimal` at
+1024/2048/4096 bits, other operations, and aggregation.
+Run Unix/Windows/Coverage CI; all B25 integrated validation
+and production speedups are pending until verified.

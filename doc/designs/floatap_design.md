@@ -7770,3 +7770,22 @@ long malformed-input cases while retaining all existing tests.
 An isolated GCC/Clang/GMP probe passed and suggested possible
 large-input performance gains; integrated CI and native
 two-host benchmarks are pending. See `integer_rational_design.md`.
+
+
+### B25 optional radix-10^18 leaf decimal output (19 October 2026)
+
+The B25 change applies only to `BigUnsigned::to_decimal`:
+on GCC/Clang with exact `unsigned __int128`, leaf values
+of 9 or more 64-bit limbs use repeated 128-bit quotient and
+remainder by the constant `10^18`, emitting 18-digit padded
+blocks. The unmodified portable base-`10^9` implementation
+remains for values of at most 8 limbs and on non-`__int128`
+toolchains such as MSVC. B22 recursive split powers and cutoff,
+B24 decimal parsing, GMP boundary adapters, Integer sign
+semantics, Rational/Dyadic/FloatAP, and the benchmark corpus
+are untouched. Add 50 direct GMP-oracle decimal formatting
+checks across the 8/9-limb selector and large-number boundaries,
+preserving all earlier test coverage. An isolated GMP-validated
+x86 leaf-conversion probe suggested improvements but integrated
+cross-platform CI and native ARM64/x86-64 benchmark results
+are pending. See `integer_rational_design.md` B25.

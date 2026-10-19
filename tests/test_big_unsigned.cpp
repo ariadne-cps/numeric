@@ -1071,6 +1071,36 @@ void TestBigUnsigned::test_gcd_decimal()
         ARIADNE_TEST_ASSERT(
             compare(from_decimal(decimal),native)==0);
     };
+    // B25: independent GMP-oracle regression around the 8/9-limb
+    // radix-10^9 / radix-10^18 selector and at recursive leaf sizes.
+    // Include all-ones carries, powers of the binary limb radix,
+    // long internal zeros and random 64-bit limb patterns.
+    std::mt19937_64 leaf_engine(0xB250C0DEULL);
+    for (const std::size_t count:
+            {7u,8u,9u,10u,15u,16u,17u,32u,64u,128u}) {
+        for (unsigned mode=0u;mode<5u;++mode) {
+            std::vector<std::uint64_t> words(count,0u);
+            if (mode==0u) {
+                words.back()=1u;
+            } else if (mode==1u) {
+                std::fill(words.begin(),words.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+            } else if (mode==2u) {
+                words.front()=1u;
+                words.back()=1u;
+            } else {
+                for (auto& word:words) word=leaf_engine();
+                if (mode==4u) {
+                    for (std::size_t i=1u;i+1u<count;++i) words[i]=0u;
+                }
+                words.back()|=std::uint64_t{1}<<63u;
+            }
+            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
+                       0,0,words.data());
+            check_decimal_boundary(a.value);
+        }
+    }
+
     for (unsigned k=0u;k<=9u;++k) {
         const unsigned long digits=9ul*(1ul<<k);
         mpz_ui_pow_ui(a.value,10ul,digits);
