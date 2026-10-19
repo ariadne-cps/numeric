@@ -613,9 +613,15 @@ void TestBigUnsigned::test_division_limb()
     const auto [one,remainder]=divrem_limb(BigUnsigned(power_of_base),max);
     ARIADNE_TEST_ASSERT(compare(one,BigUnsigned(std::uint64_t{1}))==0);
     ARIADNE_TEST_ASSERT(remainder==1u);
+    // A nonzero high half of the remainder must survive on LLP64 hosts.
+    const std::uint64_t wide_remainder=(std::uint64_t{1}<<40u)+17u;
+    const auto [zero_quotient,wide_rem]=divrem_limb(
+        BigUnsigned(wide_remainder),max);
+    ARIADNE_TEST_ASSERT(zero_quotient.is_zero());
+    ARIADNE_TEST_ASSERT(wide_rem==wide_remainder);
     ARIADNE_TEST_ASSERT(divrem_limb(BigUnsigned{},1u).first.is_zero());
 
-    GmpInteger n,d,q,r,check;
+    GmpInteger n,d,q,r,check,native_remainder;
     std::mt19937_64 engine(0xD1D1D1ULL);
     BigUnsigned::Scratch scratch;
     // Cover zero, all-ones, exact powers of radix, the inline
@@ -648,7 +654,10 @@ void TestBigUnsigned::test_division_limb()
         mpz_tdiv_qr(q.value,r.value,n.value,d.value);
         const auto [actual,rem]=divrem_limb(value,divisor);
         check_against_gmp(actual,q.value);
-        ARIADNE_TEST_ASSERT(rem==mpz_get_ui(r.value));
+        // mpz_get_ui returns unsigned long (32 bits on Windows x64).
+        // Import all 64 bits of the native remainder for an exact oracle.
+        mpz_import(native_remainder.value,1u,-1,sizeof(rem),0,0,&rem);
+        ARIADNE_TEST_ASSERT(mpz_cmp(native_remainder.value,r.value)==0);
 
         auto output=scratch.acquire(value.size()+2u);
         std::fill(output.begin(),output.end(),max);

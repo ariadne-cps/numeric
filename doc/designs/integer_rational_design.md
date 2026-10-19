@@ -1471,3 +1471,24 @@ Per operation, measure `add` and `sub` with preallocated destination buffers vs 
 B14 adds exact arbitrary-length unsigned division by a **single nonzero 64-bit limb**: `BigUnsigned::divrem_limb_into(dividend_view,divisor,quotient_view)` returns a remainder and fully overwrites the quotient view (zeroes extra words), with no heap allocation and a disjoint-views contract. The owning free function `divrem_limb(BigUnsigned const&,Limb)` returns a normalized quotient/remainder pair. Invalid divisor 0 raises `std::domain_error`; too-short quotient raises `std::length_error` before mutating output. The implementation uses a pure C++20 radix-2 bitwise division of the 128-bit remainder/digit pair (no `__int128` or compiler-ISA dependencies), maintaining remainder < divisor each bit, including when a logical 65th bit is set. This is a portable **correctness-first baseline**, not a claimed high-speed alternative to GMP. General multilimbed-divisor division is **not** yet implemented.
 
 Tests: independent exact cases for radix boundary division and zero, 6000 deterministic randomized GMP-differential cases (zero/saturated/powers-of-radix/64-limb dividends, divisor 1, 2, max, high-bit, random), both owning and preallocated outputs, normalization, extra-word zeroing, quotient*divisor+remainder identity, zero-divisor errors and too-small output without modification. The B13 add/sub/compare/shift measured baselines remain as supplied by user; there is no justified microoptimization of them in this commit. After CI and native project tests pass, continue with multi-limb `divrem`, not premature Integer migration.
+
+
+### B14.1 Windows single-limb GMP-oracle width fix (19 October 2026)
+
+The B14 Windows 2025 Release job compiled successfully but `test_big_unsigned`
+failed repeatedly in `test_division_limb` at the oracle assertion
+`rem==mpz_get_ui(r.value)`. On Windows x64 (LLP64), GMP's
+`mpz_get_ui` returns a 32-bit `unsigned long`, whereas the native
+remainder and the single-limb divisor are 64-bit. This was a **test
+oracle truncation**, not evidence of an arithmetic kernel defect.
+
+The test now imports the full native 64-bit remainder using `mpz_import`
+and checks exact GMP equality with `mpz_cmp`. A deterministic case
+also explicitly checks a nonzero remainder above 32 bits. All 6000
+GMP-differential randomized cases, quotient comparisons, output guards,
+normalization, identity checks, and exception cases remain intact.
+No production implementation, kernel selection, API, build flags, or
+benchmarks change. The isolated full-width GMP oracle operation was
+compiled and checked on Linux; this is **not** a Windows or project-level
+CTest result. Re-run Unix, Windows and Coverage CI and report their
+actual outcomes before closing the Windows validation gate.
