@@ -3376,3 +3376,6 @@ full Clang 16 release/TSan and
 all CI remain pending until the
 B41.1 workflows finish.
 
+### B42 single-allocation ARM64 radix-10^18 decimal formatting (19 October 2026)
+
+B41.1 passes all Unix, Windows and Coverage GitHub Actions, including Clang 16 Release and ThreadSanitizer. B41 Apple M2 measurements of `to_decimal` at 1024/2048/4096 bits were 1514.429/3675.169/9434.652 ns; GMP at 4096 bits was 4069.252 ns (2.319x). B42 retains the exact existing recursive splitting and wide 128/64 quotient/remainder algorithm but optimizes formatting of the ARM64 radix-10^18 leaves: the decimal block vector reserves at most two blocks per input limb, then one exactly sized result string is filled using `to_chars` for the leading block and constexpr digit-pair lookup for all nine pairs in each remaining 18-digit block. No per-block `std::to_string` or temporary allocation is used. Other platforms' radix-10^9 path, all arithmetic kernels and the official benchmark are unchanged. A standalone C++20 reconstruction of the wide division and formatter passed 1800 GMP `mpz_get_str` comparisons with Clang ASan/UBSan over 0..256 limbs, including sparse, saturated and zero values. Production regression adds 208 independent GMP decimal cases at 8..256 limbs, including 8/9 and 16/17 dispatch boundaries. B42 production CI and Apple M2 timings are pending.

@@ -932,6 +932,10 @@ std::string to_decimal_blocks_wide(BigUnsigned const& value)
     const auto limbs=value.limbs();
     std::vector<BigUnsigned::Limb> work(limbs.begin(),limbs.end());
     std::vector<BigUnsigned::Limb> blocks;
+    // Two base-10^18 blocks per 64-bit limb are always sufficient.
+    if (limbs.size()<=blocks.max_size()/2u) {
+        blocks.reserve(limbs.size()*2u);
+    }
     while (!work.empty()) {
         BigUnsigned::Limb remainder=0u;
         for (std::size_t i=work.size();i!=0u;--i) {
@@ -948,11 +952,38 @@ std::string to_decimal_blocks_wide(BigUnsigned const& value)
         }
     }
 
-    std::string result=std::to_string(blocks.back());
-    for (std::size_t i=blocks.size()-1u;i!=0u;--i) {
-        const std::string block=std::to_string(blocks[i-1u]);
-        result.append(block_width-block.size(),'0');
-        result+=block;
+    // B42: one exactly sized output and no per-block temporary strings.
+    static constexpr auto digit_pairs=[] {
+        std::array<char,200> table{};
+        for (unsigned p=0u;p<100u;++p) {
+            table[2u*p]=static_cast<char>('0'+p/10u);
+            table[2u*p+1u]=static_cast<char>('0'+p%10u);
+        }
+        return table;
+    }();
+    std::array<char,20> head{};
+    const auto [end,error]=std::to_chars(
+        head.data(),head.data()+head.size(),blocks.back());
+    if (error!=std::errc{}) {
+        throw std::length_error("BigUnsigned decimal head overflow");
+    }
+    const std::size_t top_width=static_cast<std::size_t>(end-head.data());
+    std::string result;
+    if (blocks.size()-1u>(result.max_size()-top_width)/block_width) {
+        throw std::length_error("BigUnsigned decimal output overflow");
+    }
+    result.resize(top_width+(blocks.size()-1u)*block_width);
+    std::copy_n(head.data(),top_width,result.data());
+    char* output=result.data()+result.size();
+    for (std::size_t i=0u;i+1u<blocks.size();++i) {
+        BigUnsigned::Limb block=blocks[i];
+        for (unsigned p=0u;p<block_width/2u;++p) {
+            const unsigned pair=static_cast<unsigned>(block%100u);
+            block/=100u;
+            output-=2u;
+            output[0u]=digit_pairs[2u*pair];
+            output[1u]=digit_pairs[2u*pair+1u];
+        }
     }
     return result;
 }

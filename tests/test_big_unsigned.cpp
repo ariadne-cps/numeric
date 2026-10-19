@@ -1775,6 +1775,45 @@ void TestBigUnsigned::test_gcd_decimal()
         }
     }
 
+    // B42: GMP-oracle regression at the 8/9/16/17-limb wide
+    // decimal formatter boundaries, plus large dense/sparse inputs.
+    std::mt19937_64 b42_engine(0xB42DEC1A7ULL);
+    for (const std::size_t count:
+            {8u,9u,10u,15u,16u,17u,18u,32u,33u,64u,65u,128u,256u}) {
+        for (unsigned mode=0u;mode<16u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& w:words) w=b42_engine();
+            switch (mode%8u) {
+            case 0u: std::fill(words.begin(),words.end(),0u); break;
+            case 1u:
+                std::fill(words.begin(),words.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+                break;
+            case 2u:
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+                break;
+            case 3u:
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u;
+                words.back()=std::uint64_t{1}<<63u;
+                break;
+            case 4u:
+                for (std::size_t i=0u;i<count;i+=2u) words[i]=0u;
+                break;
+            case 5u:
+                std::fill(words.begin(),words.end(),
+                          std::uint64_t{999999999999999999ULL});
+                break;
+            case 6u: words.back()=1u; break;
+            default: break;
+            }
+            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
+                       0,0,words.data());
+            check_decimal_boundary(a.value);
+        }
+    }
+
     // B31: the new pair-wise base-10^9 renderer must preserve every
     // zero-padded two-digit group (00, 01, 09, 10, 99), carry across
     // decimal blocks, and the variable-width most-significant block.
