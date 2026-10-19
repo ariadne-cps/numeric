@@ -327,6 +327,64 @@ BigUnsigned shift_right(BigUnsigned const& a, std::size_t bits) {
     return result;
 }
 
+// Baseline C++20 division for an unsigned (high:low)/divisor digit.
+// Precondition: 0 <= high < divisor and divisor != 0.
+// Every iteration appends one bit to the remainder. A 65th bit is
+// represented by overflow; in that case subtraction is unconditional.
+// Since the pre-subtraction remainder is < 2*divisor, one subtraction
+// is sufficient and the post-subtraction remainder is < divisor.
+// The quotient fits one limb. No ISA-dependent code is used.
+namespace {
+
+std::pair<std::uint64_t,std::uint64_t> divide_wide_portable(
+        std::uint64_t high,std::uint64_t low,std::uint64_t divisor) noexcept
+{
+    std::uint64_t remainder=high;
+    std::uint64_t quotient=0u;
+    for (unsigned bit=64u;bit!=0u;--bit) {
+        const std::uint64_t overflow=remainder>>63u;
+        remainder=(remainder<<1u)|((low>>(bit-1u))&std::uint64_t{1});
+        if (overflow!=0u || remainder>=divisor) {
+            remainder-=divisor;
+            quotient|=std::uint64_t{1}<<(bit-1u);
+        }
+    }
+    return {quotient,remainder};
+}
+
+} // namespace
+
+BigUnsigned::Limb BigUnsigned::divrem_limb_into(
+        LimbView a,Limb divisor,MutableLimbView quotient)
+{
+    if (divisor==0u) {
+        throw std::domain_error("BigUnsigned division by zero");
+    }
+    if (quotient.size()<a.size()) {
+        throw std::length_error("BigUnsigned quotient output too small");
+    }
+
+    Limb remainder=0u;
+    for (std::size_t i=a.size();i!=0u;--i) {
+        const auto [digit,next]=divide_wide_portable(
+            remainder,a[i-1u],divisor);
+        quotient[i-1u]=digit;
+        remainder=next;
+    }
+    std::fill(quotient.subspan(a.size()).begin(),quotient.end(),Limb{0});
+    return remainder;
+}
+
+std::pair<BigUnsigned,BigUnsigned::Limb> divrem_limb(
+        BigUnsigned const& a,BigUnsigned::Limb divisor)
+{
+    BigUnsigned::Scratch scratch;
+    auto digits=scratch.acquire(a.size());
+    const auto remainder=BigUnsigned::divrem_limb_into(
+        a.limbs(),divisor,digits);
+    return {BigUnsigned(digits),remainder};
+}
+
 namespace {
 
 // Compiler-supported wide accumulation, shared by GCC/Clang x86-64 and ARM64.

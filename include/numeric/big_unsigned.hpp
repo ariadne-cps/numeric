@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace Ariadne {
@@ -95,6 +96,14 @@ class BigUnsigned
     //! is large enough for all input limbs. Returns borrow (0 or 1).
     //! Inputs and output must be disjoint.
     static Limb sub_into(LimbView a,LimbView b,MutableLimbView output);
+    //! Divide a nonnegative limb view by a nonzero 64-bit limb.
+    //! The quotient uses caller-owned storage of at least a.size()
+    //! limbs; any extra output limbs are zeroed. Returns the exact
+    //! remainder (< divisor). Source and destination must not overlap.
+    //! Throws on a zero divisor or insufficient destination size.
+    //! This operation has no ISA-specific implementation.
+    static Limb divrem_limb_into(
+        LimbView a,Limb divisor,MutableLimbView quotient);
     //! Product modulo 2^(64*output.size()); output is fully overwritten.
     //! Inputs and output must be disjoint. No intermediate allocation.
     //! Uses the selected architecture kernel when it is available.
@@ -200,6 +209,10 @@ class BigUnsigned
     friend BigUnsigned add(BigUnsigned const& a, BigUnsigned const& b);
     //! Exact subtraction; throws std::underflow_error if a < b.
     friend BigUnsigned sub(BigUnsigned const& a, BigUnsigned const& b);
+    //! Divide by one limb; return normalized quotient and exact remainder.
+    //! Throws std::domain_error for a zero divisor.
+    friend std::pair<BigUnsigned,Limb> divrem_limb(
+        BigUnsigned const& a,Limb divisor);
     //! Exact product of two unsigned magnitudes.
     friend BigUnsigned mul(BigUnsigned const& a, BigUnsigned const& b);
 
