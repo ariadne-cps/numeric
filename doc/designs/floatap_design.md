@@ -8286,3 +8286,25 @@ CI and native performance results are
 pending; see B41 in
 `integer_rational_design.md`.
 
+### B41.1 Clang test-warning fix without arithmetic changes (19 October 2026)
+
+Clang 16 Unix Release and ThreadSanitizer
+failed B41 compilation under `-Werror`
+because the new deliberate aliasing
+test wrote `aliased-=aliased`, triggering
+`-Wself-assign-overloaded`. B41.1
+writes `Integer const& same_object=aliased;`
+and `aliased-=same_object;`, preserving
+the exact self-alias relationship
+and the existing postconditions.
+The shared GMP-independent
+Integer/BigUnsigned source code,
+FloatAP algorithms, benchmark
+and all functional tests remain
+unchanged. Clang 17 locally
+accepted this spelling with
+`-Wself-assign-overloaded -Werror`.
+Full CI on B41.1 is pending; see
+the B41.1 journal entry in
+`integer_rational_design.md`.
+

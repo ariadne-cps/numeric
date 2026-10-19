@@ -3323,3 +3323,56 @@ before same-host timing data; inspect
 Windows/macOS/Linux CI separately from
 external Codecov.
 
+### B41.1 Clang 16 compatibility of same-object subtraction regression (19 October 2026)
+
+The native Apple M2 B41 full 31-sample official
+benchmark confirmed large speedups without changing
+the official workload. B40 -> B41 `sub` at
+1024/2048/4096 bits improved
+71.156 -> 27.744 ns (61.0%),
+97.917 -> 44.462 ns (54.6%) and
+159.254 -> 73.335 ns (54.0%).
+The 84-case geomean Integer/GMP improved
+0.841x -> 0.785x and total_time
+1.312x -> 1.293x; GMP differential
+verification passed (768 paired inputs,
+2688 paired operation results).
+The new largest relative bottleneck is
+`to_decimal` at 4096 bits (9434.652 ns
+versus GMP 4069.252 ns, 2.319x).
+
+B41's Unix CI failed during **compilation**
+on Ubuntu Clang 16 Release and
+ThreadSanitizer at
+`tests/test_integer.cpp:463`, not
+during an arithmetic test:
+`-Werror,-Wself-assign-overloaded`
+diagnosed the intentional
+`aliased-=aliased` regression
+statement. Both macOS AppleClang,
+Ubuntu GCC, GCC/AppleClang Coverage,
+and Windows workflows passed B41.
+This compiler-specific diagnostic
+does not by itself establish an
+arithmetic or sanitizer defect.
+
+B41.1 changes **only** the intentional
+same-object test's spelling to:
+`Integer const& same_object=aliased;`
+followed by `aliased-=same_object;`.
+Both names still reference the exact
+same `Integer` object; the test
+retains its aliasing, canonical-zero
+and nonnegative-sign assertions.
+No source arithmetic, API,
+compiler warning settings,
+test scenarios, workload, oracle,
+scratch contracts, or other
+platform paths change. A local
+Clang 17 `-Wself-assign-overloaded
+-Werror` compilation of the
+same reference-alias idiom passed;
+full Clang 16 release/TSan and
+all CI remain pending until the
+B41.1 workflows finish.
+
