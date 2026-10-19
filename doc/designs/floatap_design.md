@@ -8111,3 +8111,26 @@ permits GitHub Actions CI checks beginning at this
 B35.1 commit. See the B35.1 entry in
 `integer_rational_design.md`.
 
+### B36 equal-length exact quotient-0/1 high-limb shortcut (19 October 2026)
+
+The shared BigUnsigned long division extends the exact
+B28 equal-high-limb fast path: for same-length canonical
+values with `a.high<b.high`, return quotient zero and
+remainder a; with `b.high<a.high<2*b.high`, return
+quotient one and remainder a-b using one subtraction.
+The comparison uses overflow-safe subtraction of
+high limbs. Equal top limbs retain B28 behavior,
+and every other case retains the existing
+architecture-independent B27/B29 normalized division.
+No Integer/Rational/FloatAP semantic change, ABI/API,
+GMP adapter, scratch contract, benchmark workload or
+architecture selection changes. A 70,000-case independent
+big-integer check passed, and 1,280 focused
+GMP-oracle cases for all quotient/remainder public
+modes were added to production tests.
+The integrated performance and suite outcomes
+remain pending on the new commit. The user's
+authorization now permits monitoring GitHub Actions
+CI; note Codecov's external status separately.
+See B36 in `integer_rational_design.md`.
+
