@@ -2456,3 +2456,12 @@ tests and the ARM64/x86-64 integrated benchmark
 remain pending; GitHub CI and Codecov are deliberately
 not consulted at user request.
 
+### B31.1 shadow warning fix (19 October 2026)
+
+Rename the local counter constructing B31's constexpr digit-pair table
+from `value` to `pair_value` to avoid shadowing the
+`BigUnsigned const& value` argument in `to_decimal_blocks`
+under `-Wshadow`. Only an identifier changes: the 100 table
+entries, output bytes, arithmetic, benchmark workload and APIs
+remain identical. No new performance or test results are claimed;
+GitHub CI and Codecov remain unconsulted by user request.
