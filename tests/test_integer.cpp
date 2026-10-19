@@ -84,6 +84,7 @@ class TestInteger
     void test_small_types();
     void test_combinatorics();
     void test_native();
+    void test_signed_regression();
 };
 
 void TestInteger::test()
@@ -95,6 +96,7 @@ void TestInteger::test()
     ARIADNE_TEST_CALL(test_small_types());
     ARIADNE_TEST_CALL(test_combinatorics());
     ARIADNE_TEST_CALL(test_native());
+    ARIADNE_TEST_CALL(test_signed_regression());
 }
 
 void TestInteger::test_literal() {
@@ -439,6 +441,136 @@ void TestInteger::test_native() {
         ARIADNE_TEST_ASSERT(converted==x);
         ARIADNE_TEST_ASSERT(converted.literal()==x.literal());
     }
+}
+
+// Preserve all B17 signed-magnitude regression scenarios on the
+// production Integer type. The earlier B18 differential corpus (1700
+// independent cases) is kept in test_native() above.
+void TestInteger::test_signed_regression() {
+    const Integer zero(0);
+    const Integer one(1);
+    const Integer minus_one(-1);
+    ARIADNE_TEST_ASSERT(sgn(zero)==Sign::ZERO);
+    ARIADNE_TEST_ASSERT(!Integer(String("-0")).negative());
+    ARIADNE_TEST_ASSERT(Integer(String("-00000")).literal()=="0");
+    ARIADNE_TEST_ASSERT(Integer(String("+000123")).literal()=="123");
+    ARIADNE_TEST_ASSERT(Integer::from_magnitude(BigUnsigned{},true)==zero);
+    ARIADNE_TEST_ASSERT(!Integer::from_magnitude(BigUnsigned{},true).negative());
+    ARIADNE_TEST_ASSERT(cmp(one,minus_one)==Comparison::GREATER);
+    ARIADNE_TEST_ASSERT(cmp(minus_one,zero)==Comparison::LESS);
+    ARIADNE_TEST_ASSERT(cmp(zero,zero)==Comparison::EQUAL);
+    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::int64_t>::min())
+        .get<std::int64_t>()==std::numeric_limits<std::int64_t>::min());
+    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::uint64_t>::max())
+        .get<std::uint64_t>()==std::numeric_limits<std::uint64_t>::max());
+    ARIADNE_TEST_ASSERT(pow(zero,Nat(0u)).literal()=="1");
+    ARIADNE_TEST_ASSERT(sqr(Integer(-13))==169);
+    ARIADNE_TEST_ASSERT(quot(Integer(-7),Integer(2))==-3);
+
+    for (const char* invalid: {"","-","+"," 1","1 ","1_0","--1"}) {
+        bool threw=false;
+        try { (void)Integer(String(invalid)); }
+        catch (std::invalid_argument const&) { threw=true; }
+        ARIADNE_TEST_ASSERT(threw);
+    }
+    bool negative_to_unsigned=false,positive_overflow=false;
+    try { (void)minus_one.get<std::uint64_t>(); }
+    catch (std::out_of_range const&) { negative_to_unsigned=true; }
+    try { (void)Integer(String("9223372036854775808"))
+                  .get<std::int64_t>(); }
+    catch (std::out_of_range const&) { positive_overflow=true; }
+    ARIADNE_TEST_ASSERT(negative_to_unsigned && positive_overflow);
+
+    for (const char* left: {"-11","11","-12","12","0"}) {
+        for (const char* right: {"-3","3","-5","5"}) {
+            const Integer a{String(left)},b{String(right)};
+            const Integer q=quot(a,b),r=rem(a,b);
+            ARIADNE_TEST_ASSERT(cmp(q*b+r,a)==Comparison::EQUAL);
+            ARIADNE_TEST_ASSERT(abs(r)<abs(b));
+            ARIADNE_TEST_ASSERT(is_zero(r) || sgn(r)==sgn(a));
+        }
+    }
+
+    struct GMP {
+        mpz_t value;
+        GMP() { mpz_init(value); }
+        ~GMP() { mpz_clear(value); }
+        GMP(GMP const&)=delete;
+        GMP& operator=(GMP const&)=delete;
+    };
+    GMP a,b,expected,quotient,remainder;
+    const auto check=[&](Integer const& actual,mpz_srcptr oracle) {
+        GmpIntegerBoundary converted(actual);
+        ARIADNE_TEST_ASSERT(mpz_cmp(converted.value(),oracle)==0);
+        ARIADNE_TEST_ASSERT(!is_zero(actual) || !actual.negative());
+        ARIADNE_TEST_ASSERT((mpz_sgn(oracle)==0)==is_zero(actual));
+        ARIADNE_TEST_ASSERT((mpz_sgn(oracle)<0)==actual.negative());
+    };
+
+    // Retain the full old 2500-case corpus (seed, digit patterns and
+    // signed divisors) in addition to B18's existing 1700-case suite.
+    std::mt19937_64 engine(0x51C0FFEEULL);
+    for (unsigned rep=0u;rep<2500u;++rep) {
+        std::string ad=std::to_string(engine());
+        std::string bd=std::to_string(engine()|std::uint64_t{1});
+        for (unsigned j=0u;j<rep%8u;++j) {
+            ad+=std::to_string(engine());
+            bd+=std::to_string(engine());
+        }
+        if (rep%2u!=0u) ad.insert(ad.begin(),'-');
+        if (rep%3u!=0u) bd.insert(bd.begin(),'-');
+        if (rep%17u==0u) ad="0";
+
+        const Integer x{String(ad)},y{String(bd)};
+        ARIADNE_TEST_ASSERT(mpz_set_str(a.value,ad.c_str(),10)==0);
+        ARIADNE_TEST_ASSERT(mpz_set_str(b.value,bd.c_str(),10)==0);
+        check(x,a.value);
+        check(y,b.value);
+        mpz_add(expected.value,a.value,b.value);
+        check(x+y,expected.value);
+        mpz_sub(expected.value,a.value,b.value);
+        check(x-y,expected.value);
+        mpz_mul(expected.value,a.value,b.value);
+        check(x*y,expected.value);
+
+        mpz_tdiv_qr(quotient.value,remainder.value,a.value,b.value);
+        const Integer q=quot(x,y),r=rem(x,y);
+        check(q,quotient.value);
+        check(r,remainder.value);
+        ARIADNE_TEST_ASSERT(q*y+r==x);
+        ARIADNE_TEST_ASSERT(abs(r)<abs(y));
+        ARIADNE_TEST_ASSERT(is_zero(r) || sgn(r)==sgn(x));
+
+        const unsigned bits=rep%130u;
+        const BigUnsigned scale=shift_left(
+            BigUnsigned(std::uint64_t{1}),bits);
+        const Integer divisor=Integer::from_magnitude(scale,false);
+
+        // The former temporary signed right shift truncated toward zero,
+        // unlike an arithmetic/floor shift for negative inputs.
+        // Integer has no signed-shift API: verify the same contract
+        // through its native magnitude shift and signed quotient.
+        mpz_tdiv_q_2exp(expected.value,a.value,
+                        static_cast<mp_bitcnt_t>(bits));
+        const Integer shifted_right=Integer::from_magnitude(
+            shift_right(x.magnitude(),bits),x.negative());
+        check(shifted_right,expected.value);
+        check(quot(x,divisor),expected.value);
+
+        // The migrated signed left shift keeps the source sign.
+        mpz_mul_2exp(expected.value,a.value,
+                     static_cast<mp_bitcnt_t>(bits));
+        const Integer shifted_left=Integer::from_magnitude(
+            shift_left(x.magnitude(),bits),x.negative());
+        check(shifted_left,expected.value);
+    }
+
+    bool quotient_zero=false,remainder_zero=false;
+    try { (void)quot(one,zero); }
+    catch (std::domain_error const&) { quotient_zero=true; }
+    try { (void)rem(one,zero); }
+    catch (std::domain_error const&) { remainder_zero=true; }
+    ARIADNE_TEST_ASSERT(quotient_zero && remainder_zero);
 }
 
 int main() {

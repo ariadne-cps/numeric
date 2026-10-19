@@ -4,7 +4,6 @@ set(UNIT_TESTS
     test_logical_sequence
     test_integer
     test_big_unsigned
-    test_signed_integer
     test_dyadic
     test_rational
     test_decimal

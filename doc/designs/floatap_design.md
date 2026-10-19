@@ -7683,3 +7683,21 @@ An independent GCC/Clang isolated reference check passed
 1,200,252 selected-vs-fallback cases on each compiler.
 Integrated Unix/Windows/Coverage CI, native performance and
 MSVC verification remain pending; consult `integer_rational_design.md`.
+
+
+### B21 removal of transient signed-magnitude migration scaffold (19 October 2026)
+
+Following successful B20 cross-platform validation, the B17
+temporary independent signed integer type is retired. Its header,
+implementation and dedicated CTest executable are deleted, with
+their respective CMake source/test registrations removed. Retain
+only the production `Integer` public signed type owning
+`BigUnsigned` magnitude and sign; continue to use the existing
+temporary boundary adapter for still-GMP-backed Rational/Dyadic/
+FloatMP/FloatAP. The historical B17 2500-case GMP-differential
+corpus, boundary and signed shift semantics are moved to the
+production `test_integer`, preserving its B18 1700 independent
+cases. Signed shifts are checked using the shared native magnitude
+shifts plus sign, and GMP; this does not add an `Integer` shift API
+or change FloatAP arithmetic. Project cross-platform CI remains
+pending for B21; see `integer_rational_design.md`.
