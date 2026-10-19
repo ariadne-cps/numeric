@@ -731,13 +731,14 @@ BigUnsigned from_decimal(std::string_view input)
 
 namespace {
 
-// B25: on compilers with exact unsigned 128-bit arithmetic, a
-// base-10^18 digit is still smaller than one 64-bit limb. One wide
-// quotient/remainder step per source limb extracts 18 decimal digits,
-// halving the scans of the base-10^9 leaf formatter. Select this
-// only for larger leaves; retain the B19 loop for small magnitudes
-// and as the fallback on all other toolchains (notably MSVC).
-#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+// B25.1: enable wide-radix decimal output only on native ARM64.
+// Its performance is better on ARM64 but substantially worse on x86-64.
+// Select using the compiler-provided target macro, not a CMake option
+// or a build-specific definition; leave B19's radix-10^9 fallback
+// unchanged for x86-64, MSVC and other targets. The 128-bit division
+// processes 18 decimal digits per quotient/remainder step on ARM64.
+#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+    (defined(__GNUC__) || defined(__clang__))
 std::string to_decimal_blocks_wide(BigUnsigned const& value)
 {
     __extension__ using Wide=unsigned __int128;
@@ -780,7 +781,8 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     if (value.is_zero()) {
         return "0";
     }
-#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+    (defined(__GNUC__) || defined(__clang__))
     // Retain the original path through the 8-limb boundary;
     // the 18-digit divider is used for >=9 limbs (>=513 bits).
     if (value.size()>8u) {

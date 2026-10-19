@@ -7789,3 +7789,21 @@ preserving all earlier test coverage. An isolated GMP-validated
 x86 leaf-conversion probe suggested improvements but integrated
 cross-platform CI and native ARM64/x86-64 benchmark results
 are pending. See `integer_rational_design.md` B25.
+
+
+### B25.1 compiler-native ARM64 decimal-format selector, no CMake flags (19 October 2026)
+
+B25 was beneficial for large `to_decimal` on ARM64, but the
+radix-10^18 128-bit leaf division regressed substantially
+on x86-64. B25.1 gates the B25 implementation using the
+compiler predefined `__aarch64__` target macro plus
+`__SIZEOF_INT128__` and GCC/Clang, retaining the B19
+radix-10^9 path on x86-64, MSVC, other architectures
+and small ARM64 values. This requires **no additions or
+changes to CMake, flags or build definitions**. No
+FloatAP/Rational/Dyadic, GMP adapter, parsing, recursive
+decimal-split or benchmark behavior changes. Add 18
+independent GMP-oracle radix-power boundary cases and
+retain all preceding tests. Cross-platform CI and host
+performance benchmarks for B25.1 remain pending;
+see `integer_rational_design.md`.
