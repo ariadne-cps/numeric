@@ -3507,3 +3507,40 @@ small at both. Measurements are user-provided, not independently
 reproduced; native performance improvement is not claimed.
 B44's Unix, Windows and Coverage GitHub Actions passed; the separate
 Codecov patch/project checks were failing.
+
+
+### B45 remove exact whole-zero divisor limb prefixes (19 October 2026)
+
+The user-supplied B44 4096-bit Apple M2 diagnostic measured production
+to_decimal 8236.562 ns; independently replayed recursive divrem
+4440.488 ns, leaf conversion 3387.277 ns, decimal-power construction
+361.692 ns, and append/padding 50.379 ns. Stage timings are separate
+non-additive proxies, not exact production CPU attribution. At 2048
+bits leaf conversion was the largest measured replay (1649.181 ns).
+
+B45 optimizes general shared BigUnsigned long division for a divisor
+with k>=1 complete zero low limbs. Let B=2^64, a=a_hi*B^k+a_lo
+with 0<=a_lo<B^k, and b=b_hi*B^k. Then the quotient equals
+floor(a_hi/b_hi), and the remainder equals
+(a_hi mod b_hi)*B^k+a_lo. After the original argument-size and
+scratch validations and output initialization, recurse into the
+same selected kernel on the canonical high input limb subspans,
+reusing the existing scratch area. Copy the original low dividend
+limbs into the remainder only when requested. The original
+joint-output, quotient-only and remainder-only results, public
+scratch contract, zero-filled surplus output limbs and no-alias
+requirements are all preserved. This exact optimization skips
+normalization, quotient-digit products and correction work for
+provably zero divisor limbs. Decimal powers 10^(9*2^j) contain
+many such low limbs because of their factor 2^(9*2^j).
+
+Add 504 deterministic GMP-differential shifted-divisor cases
+across sizes 2,3,5,8,16,32,64 limbs and zero-prefix selections,
+checking all three public result modes and guarded output buffers.
+Add 40 GMP division cases using decimal powers 10^72,10^144,
+10^288,10^576 and magnitudes 2^(bits-1)+offset for bits
+2048 and 4096, matching the official benchmark operand family.
+No original tests or official benchmark workloads are changed.
+Both design journals describe the general arithmetic proof.
+Full CI and same-host Apple M2 benchmarking are pending.
+Do not claim an actual B45 speedup until those measurements.
