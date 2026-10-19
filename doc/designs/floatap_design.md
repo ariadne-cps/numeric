@@ -7738,3 +7738,16 @@ benchmark definition or B22 decimal-formatting change. Existing
 GMP-randomized division tests are extended with single-output
 comparisons and boundary checks. Cross-platform CI and measured
 performance remain pending. Details: `integer_rational_design.md`.
+
+
+### B23.1 report label clarification (19 October 2026)
+
+Rename original trivial Integer division benchmark results to
+`quotient_trivial` and `remainder_trivial`; use the canonical
+`quotient` and `remainder` for the additional meaningful
+division workload previously suffixed `_nontrivial`. This alters
+only reporting labels in `benchmark_exact_arithmetic_workload.hpp`,
+not sample inputs, benchmark order, GMP verification, production
+arithmetic or FloatAP. When comparing B23.1 with older reports,
+map both old names to their new counterparts; see
+`integer_rational_design.md`. B23.1 CI remains pending.
