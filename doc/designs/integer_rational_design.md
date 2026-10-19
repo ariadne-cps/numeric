@@ -2335,3 +2335,57 @@ the formatter selection boundary and recursive split.
 Integrated cross-platform test execution and ARM64/x86-64
 production timings remain pending. GitHub CI and Codecov
 are not being consulted by user request.
+
+### B30.1 revert x86-64 wide decimal leaf after integrated regression (19 October 2026)
+
+The official, **unchanged** six-size Integer-vs-direct-GMP benchmark
+has now been run for B30 on ARM64 and x86-64 with 20000 iterations,
+31 samples and all fourteen original operations. Numerical
+verification passed on both hosts (768 paired inputs, 2688 paired
+results per run). It falsifies the promising isolated B30 proxy
+performance result for GNU/Clang x86-64: native
+`Integer::to_decimal` times at 1024, 2048 and 4096 bits worsened
+respectively from B29's **2247.362, 5736.002, 14893.242 ns** to
+B30's **3715.747, 7599.686, 18242.587 ns** (+65.3%, +32.5%,
++22.5%). The all-operation total_time/GMP ratio worsened from
+2.477x to 2.781x. All sizes up to 256 bits use the old formatter
+and were not expected to change. On ARM64, where the code path
+was unchanged, corresponding formatting values were
+**1407.481 -> 1346.456**, **3565.394 -> 3501.423** and
+**9505.252 -> 9339.346 ns**: the small variations do not
+establish a causal speedup.
+
+A key diagnostic is that 1024 bits fits the B22 16-limb
+nonrecursive cutoff, so the pronounced regression is already
+present in B30's x86-64 decimal **leaf** and cannot be blamed
+on recursive division or power construction. The native B29
+base-10^9 path divides 32-bit halves by a fixed radix, which a
+compiler can strength-reduce; B30's `DIVQ` on 10^18 is not
+necessarily cheaper on the user's x86-64 CPU despite halving
+the number of radix blocks. CPU differences and generated code
+may explain the discrepancy with the independent AMD EPYC
+proxy, but the real project benchmark is decisive.
+
+**Decision:** B30.1 restores `src/big_unsigned.cpp` byte-for-byte
+from the proven B29 commit `3d425d8`. Thus on x86-64 the
+original 10^9 block formatter is selected again. ARM64 retains
+B25.1's 10^18 wide-division formatter, and MSVC/portable targets
+retain their original B19 path. All B29 sparse division,
+B28 exact quotient-0/1, B27 fused arithmetic, parsing,
+recursive decimal splitting, public APIs, build flags and
+benchmark inputs remain unchanged. B30's 128 deterministic
+GMP decimal regressions are **retained** because they validate
+both radix-formatting implementations; their comment now
+reflects the actual architecture selection. No performance
+special casing of benchmark inputs is introduced.
+
+The B30 integrated functional benchmark passed prior to
+the revert; B30.1 restores the earlier B29 code, but a new
+integrated run of the B30.1 tree and its unit tests remains
+outstanding. Do not describe the B29 benchmark timings as
+new B30.1 measurements. Future x86-64 decimal experiments
+should profile the actual native formatter's constant-radix
+machine code and the allocation/copying costs, and verify
+performance with the **real** BigUnsigned/Integer end-to-end
+benchmark rather than a GMP-based recursion proxy. CI and
+Codecov remain deliberately unconsulted at user request.
