@@ -7561,3 +7561,8 @@ Source layout now uses `big_unsigned_fallback.cpp` for the portable C++20 refere
 ### B11 x86-64 integrated carry benchmark outcome (19 October 2026)
 
 The user benchmarked the B11 opt-in x86-64 `MULQ/ADDQ/ADCQ` multiply against the selected GCC fused kernel on the same Ubuntu machine at 53/128/256/1024/2048/4096 bits (20,000 iterations, 31 samples). Explicit assembly was slower at five widths (the remaining 128-bit case effectively tied), including 939.067 vs 761.449 ns at 2048 bits (+23.3%) and 3156.871 vs 2975.414 ns at 4096 bits (+6.1%). Therefore keep GCC fused selected and explicit x86 carry experimental, without modifying FloatAP. Both the B11 experiment commit and B11.1 three-backend source split passed GitHub Unix/Windows/Coverage CI. Full measurements and caution about owning GMP comparisons are in `integer_rational_design.md`.
+
+
+### B12 experimental Karatsuba write optimization (19 October 2026)
+
+The existing common-source opt-in Karatsuba kernel was adjusted to avoid redundant output clearing and high-word scanning on shifted cross-term accumulation. Exact arithmetic and public API contracts are unchanged, and new GMP-oracle tests exercise prefilled outputs, odd/asymmetric recursive splits, workspace sentinel guards and cutoffs 8/16/32/64/128. GCC x86-64 fused and native ARM64 carry remain the selected production kernels; FloatAP code and design are not modified. New B12 test/CI and integrated performance measurements remain pending. Full rationale and suggested crossover experiment are in `integer_rational_design.md`.
