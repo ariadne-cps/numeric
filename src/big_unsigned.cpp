@@ -609,26 +609,24 @@ BigUnsigned from_decimal(std::string_view input)
     return BigUnsigned(digits);
 }
 
-std::string to_decimal(BigUnsigned const& value)
+namespace {
+
+// B19's quick base-10^9 division stays the leaf algorithm: it avoids
+// allocating quotient/remainder BigUnsigned objects for small values.
+std::string to_decimal_blocks(BigUnsigned const& value)
 {
     if (value.is_zero()) {
         return "0";
     }
 
-    // Divide in base-10^9 blocks. A local mutable copy permits safe
-    // high-to-low in-place quotient updates without violating the
-    // disjoint-buffer contract of the public divrem_limb_into API.
     constexpr BigUnsigned::Limb radix=1000000000u;
     constexpr std::size_t block_width=9u;
     const auto limbs=value.limbs();
     std::vector<BigUnsigned::Limb> work(limbs.begin(),limbs.end());
     std::vector<unsigned> blocks;
     while (!work.empty()) {
-        // radix < 2^32, so the running remainder fits 32 bits.
-        // Split each 64-bit digit into two 32-bit halves: both
-        // (remainder<<32)|half numerators fit in uint64_t exactly.
-        // This removes the 64-iteration bitwise divider for decimal IO
-        // without __int128, ISA intrinsics or changing public division.
+        // radix < 2^32. Two 64/32 divisions avoid a general 128/64
+        // division, and the per-limb output update is in-place.
         std::uint64_t remainder=0u;
         for (std::size_t i=work.size();i!=0u;--i) {
             const BigUnsigned::Limb digit=work[i-1u];
@@ -654,6 +652,83 @@ std::string to_decimal(BigUnsigned const& value)
         result+=block;
     }
     return result;
+}
+
+// Each power equals 10^(9*2^i); width is its exact number of
+// decimal digits after the split. Computed once per conversion.
+struct DecimalSplitPower {
+    BigUnsigned value;
+    std::size_t width;
+};
+
+constexpr std::size_t decimal_recursive_cutoff_limbs=16u;
+
+std::string to_decimal_recursive(
+        BigUnsigned const& value,
+        std::vector<DecimalSplitPower> const& powers)
+{
+    if (value.size()<=decimal_recursive_cutoff_limbs) {
+        return to_decimal_blocks(value);
+    }
+
+    // Take the largest 10^(9*2^i) no wider than half the input's
+    // bit length; this yields a near-balanced split without a
+    // floating-point estimate of the number of decimal digits.
+    const std::size_t midpoint=value.bit_length()/2u;
+    std::size_t count=powers.size();
+    while (count!=0u && powers[count-1u].value.bit_length()>midpoint) {
+        --count;
+    }
+    if (count==0u) {
+        return to_decimal_blocks(value);
+    }
+
+    auto const& divisor=powers[count-1u];
+    auto [high,low]=divrem(value,divisor.value);
+    std::string result=to_decimal_recursive(high,powers);
+    const std::string suffix=to_decimal_recursive(low,powers);
+    // Since 0 <= low < 10^width, suffix.size() <= width.
+    result.append(divisor.width-suffix.size(),'0');
+    result+=suffix;
+    return result;
+}
+
+} // namespace
+
+std::string to_decimal(BigUnsigned const& value)
+{
+    if (value.is_zero()) {
+        return "0";
+    }
+    if (value.size()<=decimal_recursive_cutoff_limbs) {
+        return to_decimal_blocks(value);
+    }
+
+    // Squaring successive powers of 10^9 costs logarithmically many
+    // products. Each recursive step uses the shared exact divrem;
+    // no GMP boundary conversions, global caches, or ISA assumptions.
+    std::vector<DecimalSplitPower> powers;
+    powers.push_back({BigUnsigned(std::uint64_t{1000000000u}),9u});
+    const std::size_t midpoint=value.bit_length()/2u;
+    while (true) {
+        const auto& last=powers.back();
+        const std::size_t bits=last.value.bit_length();
+        // The square has at least 2*bits-1 bits; avoid the large
+        // unnecessary final square when it cannot fit the midpoint.
+        if (bits>(midpoint+1u)/2u) {
+            break;
+        }
+        if (last.width>std::numeric_limits<std::size_t>::max()/2u) {
+            throw std::length_error("BigUnsigned decimal width overflow");
+        }
+        BigUnsigned squared=square(last.value);
+        if (squared.bit_length()>midpoint) {
+            break;
+        }
+        const std::size_t width=last.width*2u;
+        powers.push_back({std::move(squared),width});
+    }
+    return to_decimal_recursive(value,powers);
 }
 
 namespace {
