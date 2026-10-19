@@ -3053,3 +3053,93 @@ the x86 proxy's large speedups to Apple Silicon.
 Compare B38 only against B37 on the same Apple M2,
 and use B37 x86-64 as an unchanged-backend control.
 
+### B39 adaptive ARM64 dense/sparse schoolbook and selective owning Karatsuba (19 October 2026)
+
+The same-M2 dense benchmark with cutoff-32 Karatsuba
+compared B37 and B38 directly. On 4096-bit dense
+operands, preallocated ARM64 selected schoolbook
+regressed from B37's **2284.963 ns** to B38's
+**2548.485 ns** (+11.5%), whereas the preallocated
+Karatsuba control changed only 1964.965 -> 1972.463 ns
+(+0.4%) and GMP 993.337 -> 992.431 ns. At
+1024/2048 bits, B38's selected times were
+154.600/576.502 ns versus B37 154.896/573.425 ns.
+Karatsuba cutoff 32 was slightly slower than
+selected schoolbook at 1024/2048 bits, but at
+4096 bits it improved B38 preallocated time
+2548.485 -> 1972.463 ns (22.6%) and B37
+2284.963 -> 1964.965 ns (14.0%). The Karatsuba
+control reuses caller-owned scratch, so those
+timings do **not** establish an equally large
+speedup when the owning `mul` allocates scratch.
+
+B39 addresses this with two exact compile-time
+instantiations of the **existing** native ARM64
+MUL/UMULH/ADDS/ADC row-schoolbook recurrence.
+`mul_low_into_carry_arm64_impl<false>` has no
+zero-row guard, matching B37's dense inner loop.
+`...<true>` retains B38's exact-zero-row skip.
+A cheap linear prescan selects the sparse version
+only when at least `max(2,floor(active_rows/8))`
+of the active outer rows are zero; the scan stops
+once that count is reached. For active row counts
+<8 or multipliers <8 limbs, retain the B38 sparse
+implementation without any prescan. In full and
+truncated cases active rows are
+`min(a.size(),output.size())`. No reordered
+operand assumptions, allocations or altered
+alias/scratch/output contracts are introduced.
+
+The B37 symmetric square gets the same template
+separation: the cross-product triangle is dense
+and branch-free unless the zero-row prescan
+selects B38's sparse version; doubling and the
+full diagonal update remain identical on both
+paths. The last input limb is excluded from the
+cross-row density count because it is never an
+outer cross row. The branch only chooses an
+equivalent exact algorithm, not a different
+mathematical result.
+
+On ARM64 only, **owning** `BigUnsigned::mul`
+now dispatches to the existing generic B8
+Karatsuba recurrence (cutoff 32) if both input
+magnitudes have >=64 limbs, are balanced within
+25% of the longer magnitude, and each contains
+no more than floor(length/8) zero limbs. The
+test is early-exit for sparse operands, so the
+two-nonzero-limb 4096-bit official benchmark
+still uses sparse B38, and the approximately
+n x 2n general product inside `pow3` remains
+on the original ARM64 schoolbook path.
+Only this owning path allocates the exact private
+scratch; the preallocated `mul_into` path and
+the public scratch/output contracts do not
+change. Non-ARM64 implementations including
+the existing GCC x86-64 B35 Karatsuba dispatch
+remain unchanged. No specific exponent,
+benchmark input shape, new ISA, CMake option,
+compiler flags, GMP adapter or API changes.
+
+Add 380 GMP-oracle test shapes over 19
+dimension pairs (7..128 limbs), including
+63/64, 64/85 and 64/86 boundaries,
+both multiplication orders, exact zero-row
+density threshold crossings, balanced,
+unbalanced and saturated-high operands,
+plus square and low-truncation verification.
+Preserve all B38 cases, B37 power tests,
+independent GMP-oracle comparison and the
+official 84-result benchmark unmodified.
+Actual native M2 timings of the adaptive
+dense path and of owning Karatsuba, along
+with integrated pow3 results and CI,
+remain **unmeasured on B39**. Compare
+B39 dense 4096-bit `prealloc_selected`
+against B37 2284.963 ns, and new_selected
+against B37 2318.360 ns; do not conflate
+preallocated Karatsuba and owning timing.
+Confirm the sparse 4096-bit `mul`,
+`square` and `pow3` do not regress
+relative to B38 158.777/228.442/565.898 ns.
+

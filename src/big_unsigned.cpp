@@ -1366,6 +1366,43 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
         return result;
     }
 #endif
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
+    defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    // B39: on ARM64, Karatsuba with cutoff 32 beats the dense B37
+    // schoolbook for balanced owning 64-limb products in the user's
+    // independent preallocated benchmark. Allocate private scratch
+    // only when both magnitudes are large, balanced and substantially
+    // dense. Sparse powers/products retain B38's zero-row kernel.
+    const std::size_t smaller=std::min(a._size,b._size);
+    const std::size_t larger=std::max(a._size,b._size);
+    if (smaller>=64u && smaller>=larger-larger/4u) {
+        const auto sufficiently_dense=[](BigUnsigned::LimbView words) {
+            const std::size_t permitted_zeros=words.size()/8u;
+            std::size_t zeros=0u;
+            for (const BigUnsigned::Limb word:words) {
+                if (word==0u && ++zeros>permitted_zeros) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        if (sufficiently_dense(a.limbs()) &&
+                sufficiently_dense(b.limbs())) {
+            constexpr std::size_t karatsuba_cutoff=32u;
+            const std::size_t scratch_limbs=
+                BigUnsigned::karatsuba_scratch_limbs(
+                    a._size,b._size,karatsuba_cutoff);
+            std::vector<BigUnsigned::Limb> scratch(scratch_limbs);
+            BigUnsigned::mul_into_karatsuba(
+                a.limbs(),b.limbs(),
+                BigUnsigned::MutableLimbView(
+                    result.mutable_data(),a._size+b._size),
+                scratch,karatsuba_cutoff);
+            result.normalize();
+            return result;
+        }
+    }
+#endif
 
     BigUnsigned::mul_into(
         a.limbs(),b.limbs(),
