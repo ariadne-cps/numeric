@@ -1492,3 +1492,12 @@ benchmarks change. The isolated full-width GMP oracle operation was
 compiled and checked on Linux; this is **not** a Windows or project-level
 CTest result. Re-run Unix, Windows and Coverage CI and report their
 actual outcomes before closing the Windows validation gate.
+
+
+### B15 common multi-limb unsigned division (19 October 2026)
+
+After the user-confirmed B14.1 Windows green CI, added exact unsigned `divrem` to the shared `src/big_unsigned.cpp`, leaving native multiplication and portable ISA fallback unchanged. Owning `divrem(a,b)` returns canonical nonnegative quotient and remainder satisfying `a=b*q+r`, `r<b`. The no-allocation `divrem_into` accepts pairwise-disjoint canonical limb inputs, output buffers and scratch; it fully overwrites outputs, zeroes extra limbs, validates sizes before mutation, and throws on a zero divisor. For normalized lengths n>=m>=2, `divrem_scratch_limbs` returns n+2*m+2 with checked size arithmetic; other cases need zero scratch.
+
+Algorithm: normalize the multi-limb divisor to set its highest bit, estimate each base-2^64 quotient digit using the existing portable (high:low)/limb division, cap at one limb, compute the full product with the existing selected multiplication kernel, correct the estimate downward while its product exceeds the current dividend window, then subtract and unnormalize the final remainder. For single-limb divisors reuse B14; for smaller dividends return zero quotient and input remainder. No new backend source or ISA assumption is introduced. This is a correctness-first reference, not a performance-parity claim against GMP.
+
+A standalone Linux C++20 algorithm prototype passed 90,000 randomized/adversarial GMP comparisons. Production regression now includes 6000 deterministic GMP quotient/remainder differential cases (owning and caller-buffer paths), fixed zero/small/equal/radix boundary checks, exact identity, nonzero scratch guards, zeroed output tails, zero-divisor and short-buffer failures without mutation, plus scratch-size overflow. **Project CTest and Unix/Windows/Coverage CI are pending** for this commit; the standalone test is not a substitute. Future work: gcd and decimal import/export, then signed-magnitude Integer, only after production validation.

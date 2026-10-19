@@ -385,6 +385,153 @@ std::pair<BigUnsigned,BigUnsigned::Limb> divrem_limb(
     return {BigUnsigned(digits),remainder};
 }
 
+
+std::size_t BigUnsigned::divrem_scratch_limbs(
+        std::size_t dividend_limbs,std::size_t divisor_limbs)
+{
+    if (divisor_limbs<2u || dividend_limbs<divisor_limbs) {
+        return 0u;
+    }
+    const auto max=std::numeric_limits<std::size_t>::max();
+    if (divisor_limbs>(max-2u)/2u ||
+            dividend_limbs>max-(2u*divisor_limbs+2u)) {
+        throw std::length_error("BigUnsigned division scratch size overflow");
+    }
+    // Normalized dividend (n+1), divisor (m), digit product (m+1).
+    return dividend_limbs+2u*divisor_limbs+2u;
+}
+
+namespace {
+
+// Compare equal-width, little-endian unsigned sequences.
+bool greater_fixed(BigUnsigned::LimbView a,BigUnsigned::LimbView b) noexcept
+{
+    for (std::size_t i=a.size();i!=0u;--i) {
+        if (a[i-1u]!=b[i-1u]) {
+            return a[i-1u]>b[i-1u];
+        }
+    }
+    return false;
+}
+
+// Subtract a smaller disjoint unsigned view from a mutable destination.
+void subtract_in_place(BigUnsigned::MutableLimbView destination,
+                       BigUnsigned::LimbView source) noexcept
+{
+    BigUnsigned::Limb borrow=0u;
+    for (std::size_t i=0u;i<destination.size();++i) {
+        const auto left=destination[i];
+        const auto right=i<source.size()?source[i]:BigUnsigned::Limb{0};
+        const auto difference=left-right;
+        destination[i]=difference-borrow;
+        borrow=static_cast<BigUnsigned::Limb>(
+            left<right || difference<borrow);
+    }
+}
+
+} // namespace
+
+void BigUnsigned::divrem_into(
+        LimbView a,LimbView b,MutableLimbView quotient,
+        MutableLimbView remainder,MutableLimbView scratch)
+{
+    if (b.empty()) {
+        throw std::domain_error("BigUnsigned division by zero");
+    }
+    if (quotient.size()<a.size() ||
+            remainder.size()<std::min(a.size(),b.size())) {
+        throw std::length_error("BigUnsigned division output too small");
+    }
+    const auto required=divrem_scratch_limbs(a.size(),b.size());
+    if (scratch.size()<required) {
+        throw std::length_error("BigUnsigned division scratch too small");
+    }
+
+    std::fill(quotient.begin(),quotient.end(),Limb{0});
+    std::fill(remainder.begin(),remainder.end(),Limb{0});
+    if (a.size()<b.size()) {
+        std::copy(a.begin(),a.end(),remainder.begin());
+        return;
+    }
+    if (b.size()==1u) {
+        remainder[0]=divrem_limb_into(a,b[0],quotient);
+        return;
+    }
+
+    const std::size_t n=a.size();
+    const std::size_t m=b.size();
+    auto u=scratch.first(n+1u);
+    auto v=scratch.subspan(n+1u,m);
+    auto product=scratch.subspan(n+1u+m,m+1u);
+
+    // Normalize the divisor's highest bit; keep the dividend carry.
+    const unsigned shift=static_cast<unsigned>(std::countl_zero(b.back()));
+    Limb carry=0u;
+    for (std::size_t i=0u;i<n;++i) {
+        const auto digit=a[i];
+        u[i]=(digit<<shift)|carry;
+        carry=shift==0u?0u:digit>>(64u-shift);
+    }
+    u[n]=carry;
+    carry=0u;
+    for (std::size_t i=0u;i<m;++i) {
+        const auto digit=b[i];
+        v[i]=(digit<<shift)|carry;
+        carry=shift==0u?0u:digit>>(64u-shift);
+    }
+
+    // Radix-2^64 long division: the normalized top-two-limb estimate
+    // bounds the quotient digit from above. Correct its full product
+    // downward before subtracting; at most two corrections are needed.
+    for (std::size_t counter=n-m+1u;counter!=0u;--counter) {
+        const std::size_t j=counter-1u;
+        const Limb high=u[j+m];
+        const Limb low=u[j+m-1u];
+        Limb digit=high>=v[m-1u] ?
+            std::numeric_limits<Limb>::max() :
+            divide_wide_portable(high,low,v[m-1u]).first;
+        mul_into(v,LimbView(&digit,1u),product);
+        const auto window=LimbView(u.data()+j,m+1u);
+        while (greater_fixed(product,window)) {
+            --digit;
+            subtract_in_place(product,v);
+        }
+        subtract_in_place(u.subspan(j,m+1u),product);
+        quotient[j]=digit;
+    }
+
+    // Unnormalize the remainder; it is strictly smaller than b.
+    for (std::size_t i=0u;i<m;++i) {
+        const Limb high=i+1u<m?u[i+1u]:Limb{0};
+        remainder[i]=shift==0u?u[i]:
+            (u[i]>>shift)|(high<<(64u-shift));
+    }
+}
+
+std::pair<BigUnsigned,BigUnsigned> divrem(
+        BigUnsigned const& a,BigUnsigned const& b)
+{
+    if (b.is_zero()) {
+        throw std::domain_error("BigUnsigned division by zero");
+    }
+    BigUnsigned quotient;
+    BigUnsigned remainder;
+    quotient.resize_for_result(a.size());
+    const auto rem_size=std::min(a.size(),b.size());
+    remainder.resize_for_result(rem_size);
+    BigUnsigned::Scratch workspace;
+    const auto scratch=workspace.acquire(
+        BigUnsigned::divrem_scratch_limbs(a.size(),b.size()));
+    BigUnsigned::divrem_into(
+        a.limbs(),b.limbs(),
+        BigUnsigned::MutableLimbView(quotient.mutable_data(),a.size()),
+        BigUnsigned::MutableLimbView(remainder.mutable_data(),rem_size),
+        scratch);
+    quotient.normalize();
+    remainder.normalize();
+    return {std::move(quotient),std::move(remainder)};
+}
+
 namespace {
 
 // Compiler-supported wide accumulation, shared by GCC/Clang x86-64 and ARM64.

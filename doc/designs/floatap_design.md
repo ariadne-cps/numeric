@@ -7594,3 +7594,8 @@ checks remain unchanged. Production `BigUnsigned`, `FloatAP`,
 architecture dispatch and backend source placement remain unchanged.
 Windows and other CI results for this correction are pending. See
 `integer_rational_design.md` for the detailed B14.1 record.
+
+
+### B15 multi-limb shared BigUnsigned division (19 October 2026)
+
+Implemented exact owning and caller-buffer unsigned `divrem` in shared `src/big_unsigned.cpp`, using normalized radix-2^64 quotient-digit estimation with full-product correction, B14 single-limb delegation, and explicit scratch sizing. No change to selected architecture multiplication, portable ISA fallback or FloatAP. Six thousand GMP-differential project test cases and error/buffer regression checks are added. A standalone Linux prototype passed 90,000 GMP comparisons; Windows/Unix/Coverage CI for the integrated changes are pending. See `integer_rational_design.md` B15 for detailed contracts and validation limits.
