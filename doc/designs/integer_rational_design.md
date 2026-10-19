@@ -1501,3 +1501,25 @@ After the user-confirmed B14.1 Windows green CI, added exact unsigned `divrem` t
 Algorithm: normalize the multi-limb divisor to set its highest bit, estimate each base-2^64 quotient digit using the existing portable (high:low)/limb division, cap at one limb, compute the full product with the existing selected multiplication kernel, correct the estimate downward while its product exceeds the current dividend window, then subtract and unnormalize the final remainder. For single-limb divisors reuse B14; for smaller dividends return zero quotient and input remainder. No new backend source or ISA assumption is introduced. This is a correctness-first reference, not a performance-parity claim against GMP.
 
 A standalone Linux C++20 algorithm prototype passed 90,000 randomized/adversarial GMP comparisons. Production regression now includes 6000 deterministic GMP quotient/remainder differential cases (owning and caller-buffer paths), fixed zero/small/equal/radix boundary checks, exact identity, nonzero scratch guards, zeroed output tails, zero-divisor and short-buffer failures without mutation, plus scratch-size overflow. **Project CTest and Unix/Windows/Coverage CI are pending** for this commit; the standalone test is not a substitute. Future work: gcd and decimal import/export, then signed-magnitude Integer, only after production validation.
+
+
+### B15.1 shared subtract helper collision fix (19 October 2026)
+
+B15 failed to compile on AppleClang ARM64 with `-Werror`: the new
+division-local `subtract_in_place(Write,Read) noexcept` conflicted with
+the existing later Karatsuba `subtract_in_place(Write,Read)`, which can
+throw `std::logic_error` if the subtraction's nonnegative precondition
+is violated. Both helpers were in the same unnamed namespace and had
+the same argument types; the exception-specification mismatch caused
+the diagnostic. This is a compile-time regression, **not** evidence
+that the division algorithm returned an incorrect value.
+
+Remove the redundant division-local implementation, declare the shared
+helper before the division routine, and reuse the existing checked
+implementation for both quotient-product subtraction and Karatsuba.
+This preserves division's exact correction loop and its nonnegative
+precondition while keeping the existing borrow guard. No changes to
+API, buffers, ISA selection, CMake flags, GMP oracle, or test coverage.
+The previously described standalone prototype checks do **not** verify
+the integrated B15.1 fix. Re-run Unix/Windows/Coverage CI and host
+CTest before claiming integrated correctness.

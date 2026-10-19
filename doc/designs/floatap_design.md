@@ -7599,3 +7599,15 @@ Windows and other CI results for this correction are pending. See
 ### B15 multi-limb shared BigUnsigned division (19 October 2026)
 
 Implemented exact owning and caller-buffer unsigned `divrem` in shared `src/big_unsigned.cpp`, using normalized radix-2^64 quotient-digit estimation with full-product correction, B14 single-limb delegation, and explicit scratch sizing. No change to selected architecture multiplication, portable ISA fallback or FloatAP. Six thousand GMP-differential project test cases and error/buffer regression checks are added. A standalone Linux prototype passed 90,000 GMP comparisons; Windows/Unix/Coverage CI for the integrated changes are pending. See `integer_rational_design.md` B15 for detailed contracts and validation limits.
+
+
+### B15.1 compile fix: reuse shared checked subtraction (19 October 2026)
+
+B15 introduced a division-local `subtract_in_place` with `noexcept`
+that collided with the existing throwing Karatsuba helper in the same
+anonymous namespace. AppleClang ARM64 diagnosed the mismatched exception
+specifications under `-Werror`. Remove the duplicate and forward-declare
+the existing checked helper for division. Its final-borrow guard remains
+active for both consumers. No arithmetic, FloatAP, ISA dispatch, public
+API, tests or build flags change. B15.1 cross-platform CI is pending;
+see `integer_rational_design.md` for details.
