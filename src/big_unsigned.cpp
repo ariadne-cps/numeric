@@ -191,9 +191,16 @@ int compare(BigUnsigned const& a, BigUnsigned const& b) noexcept {
         return a._size < b._size ? -1 : 1;
     }
 
-    for (std::size_t i=a._size; i!=0u; --i) {
-        if (a.limb(i-1u) != b.limb(i-1u)) {
-            return a.limb(i-1u) < b.limb(i-1u) ? -1 : 1;
+    // Choose inline or heap storage just once per operand. In
+    // particular, avoid repeated limb() bounds/storage checks while
+    // scanning long equal prefixes from the most significant limb.
+    const auto left=a.limbs();
+    const auto right=b.limbs();
+    for (std::size_t i=left.size(); i!=0u; --i) {
+        const auto lhs=left[i-1u];
+        const auto rhs=right[i-1u];
+        if (lhs!=rhs) {
+            return lhs<rhs ? -1 : 1;
         }
     }
 

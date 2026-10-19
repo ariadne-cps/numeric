@@ -7648,3 +7648,18 @@ B18 native ARM64 and x86-64 measurements showed `to_decimal` dominating total ti
 ### B19.1 decimal type alias fix (19 October 2026)
 
 Within `namespace Ariadne`, the free function `to_decimal` must refer to the nested limb alias as `BigUnsigned::Limb`. Corrected two declarations/expressions; algorithms and benchmarks unchanged. CI pending.
+
+
+### B19.2 BigUnsigned comparison access and benchmark count correction (19 October 2026)
+
+Following B19.1 green cross-platform CI and ARM64/x86-64 user
+benchmarks, the shared `BigUnsigned::compare` now chooses its
+inline/heap limb views once and compares direct digits instead of
+repeated `limb()` calls, retaining its exact value ordering and
+`noexcept`. A 64-limb equal-high-prefix regression was added.
+The benchmark's extra 32-pair division-input check was moved outside
+the original 32-element loop so the reported number of distinct
+inputs is accurate; all prior comparisons and timed operations
+remain intact. No FloatAP algorithm or architecture-specific kernel
+changes. Cross-platform CI and measured speedups pending; see
+`integer_rational_design.md` B19.2.
