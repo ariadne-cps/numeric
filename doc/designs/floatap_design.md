@@ -7897,3 +7897,25 @@ tests add 1024 targeted sparse/dense-mixed oracles without removing
 previous fixtures. Isolated x86-64 GCC/Clang profiling indicates
 a benefit for sparse half-width divisors; integrated ARM64/x86-64
 results remain pending. See B29 in `integer_rational_design.md`.
+
+### B30 x86-64 DIVQ-based decimal output for shared BigUnsigned (19 October 2026)
+
+B30 accelerates only the shared `BigUnsigned::to_decimal`
+radix-10^18 leaf formatter on GNU/Clang x86-64, selecting it
+for >=9 limbs using B26's preexisting 128/64 hardware `DIVQ`
+helper, not B25's regression-prone compiler-generated
+`unsigned __int128` division. The 128/64 precondition
+follows from the decimal remainder being strictly below
+10^18. B25.1 ARM64 wide formatting, B19 portable/MSVC
+radix-10^9 formatting and the <=8-limb path remain
+unchanged, as do recursive splitting, FloatAP algorithms,
+Integer/Rational/Dyadic contracts, B29 division, GMP
+adapters, benchmarks, compiler flags and CMake.
+Standalone x86-64 GCC/Clang experiments (including
+a recursive proxy with GMP internal splitting) indicate a
+speedup, but integrated performance is **not** established.
+A 30,000-case independent GMP differential formatter
+stress test passed GCC and Clang ASan/UBSan; add 128
+focused decimal GMP fixtures while preserving previous
+tests. See B30 in `integer_rational_design.md`.
+GitHub CI and Codecov remain deferred by user request.

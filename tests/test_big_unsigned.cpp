@@ -1285,6 +1285,44 @@ void TestBigUnsigned::test_gcd_decimal()
         check_decimal_boundary(a.value); // one plus power; zero runs
     }
 
+    // B30: exercise the 8/9-limb selector and 10^18 block
+    // carries on x86-64 DIVQ, ARM64 wide division and the portable
+    // radix-10^9 fallback using the same independent GMP oracle.
+    std::mt19937_64 divq_decimal_engine(0xB300DEC1ULL);
+    for (const std::size_t count:
+            {8u,9u,10u,12u,16u,17u,32u,64u}) {
+        for (unsigned mode=0u;mode<16u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=divq_decimal_engine();
+            if (mode%8u==0u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u;
+                words.back()=1u;
+            } else if (mode%8u==1u) {
+                std::fill(words.begin(),words.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+            } else if (mode%8u==2u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=1u;
+            } else if (mode%8u==3u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::numeric_limits<std::uint64_t>::max();
+            } else if (mode%8u==4u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u;
+                words.back()=std::uint64_t{1}<<63u;
+            } else if (mode%8u==5u) {
+                for (std::size_t i=1u;i+1u<count;++i) {
+                    words[i]=0u;
+                }
+            }
+            words.back()|=1u;
+            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
+                       0,0,words.data());
+            check_decimal_boundary(a.value);
+        }
+    }
+
     for (unsigned k=0u;k<=9u;++k) {
         const unsigned long digits=9ul*(1ul<<k);
         mpz_ui_pow_ui(a.value,10ul,digits);

@@ -868,17 +868,20 @@ BigUnsigned from_decimal(std::string_view input)
 
 namespace {
 
-// B25.1: enable wide-radix decimal output only on native ARM64.
-// Its performance is better on ARM64 but substantially worse on x86-64.
-// Select using the compiler-provided target macro, not a CMake option
-// or a build-specific definition; leave B19's radix-10^9 fallback
-// unchanged for x86-64, MSVC and other targets. The 128-bit division
-// processes 18 decimal digits per quotient/remainder step on ARM64.
-#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
-    (defined(__GNUC__) || defined(__clang__))
+// B25.1 keeps the measured unsigned-128-bit radix-10^18 path on ARM64.
+// B30 uses B26's hardware DIVQ helper for the same radix on GNU/Clang
+// x86-64, avoiding the slow compiler-generated unsigned-128/64 division
+// that caused B25's x86-64 regression. MSVC and other targets retain
+// B19's base-10^9 portable formatter. No build definitions are needed.
+#if (defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+     (defined(__GNUC__) || defined(__clang__))) || \
+    (defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && \
+     !defined(_MSC_VER))
 std::string to_decimal_blocks_wide(BigUnsigned const& value)
 {
+#if defined(__aarch64__)
     __extension__ using Wide=unsigned __int128;
+#endif
     constexpr BigUnsigned::Limb radix=1000000000000000000ULL;
     constexpr std::size_t block_width=18u;
 
@@ -888,12 +891,20 @@ std::string to_decimal_blocks_wide(BigUnsigned const& value)
     while (!work.empty()) {
         BigUnsigned::Limb remainder=0u;
         for (std::size_t i=work.size();i!=0u;--i) {
-            // remainder < 10^18 and digit < 2^64, so the
-            // numerator is < 10^18 * 2^64 and fits in Wide.
+            // In both variants 0 <= remainder < radix. B26's DIVQ
+            // is therefore safe: RDX < divisor implies a 64-bit
+            // quotient. ARM64 retains B25's exact wide C++ arithmetic.
+#if defined(__x86_64__)
+            const auto [quotient,next]=
+                divide_wide(remainder,work[i-1u],radix);
+            work[i-1u]=quotient;
+            remainder=next;
+#else
             const Wide numerator=(static_cast<Wide>(remainder)<<64u)|
                                   static_cast<Wide>(work[i-1u]);
             work[i-1u]=static_cast<BigUnsigned::Limb>(numerator/radix);
             remainder=static_cast<BigUnsigned::Limb>(numerator%radix);
+#endif
         }
         blocks.push_back(remainder);
         while (!work.empty() && work.back()==0u) {
@@ -918,10 +929,12 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     if (value.is_zero()) {
         return "0";
     }
-#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
-    (defined(__GNUC__) || defined(__clang__))
-    // Retain the original path through the 8-limb boundary;
-    // the 18-digit divider is used for >=9 limbs (>=513 bits).
+#if (defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+     (defined(__GNUC__) || defined(__clang__))) || \
+    (defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && \
+     !defined(_MSC_VER))
+    // Retain B19 through eight limbs. For >=9 limbs (>=513 bits)
+    // select B25.1 ARM64 wide arithmetic or B30 x86-64 DIVQ.
     if (value.size()>8u) {
         return to_decimal_blocks_wide(value);
     }
