@@ -2282,3 +2282,56 @@ cases in the production `test_big_unsigned` with the same
 three output variants. The integrated production test suite and
 native ARM64/x86-64 six-size performance gates remain outstanding;
 CI and Codecov are not being consulted at user request.
+
+### B30 x86-64 radix-10^18 decimal leaves via B26 DIVQ (19 October 2026)
+
+B29's native x86-64 benchmark reports `Integer::to_decimal` at
+approximately 14893 ns versus GMP 4431 ns at 4096 bits (3.36x).
+B25's attempt to divide an unsigned 128-bit numerator by 10^18
+regressed on x86-64 in the integrated benchmark and was disabled
+by B25.1. B30 does **not** restore that implementation: it reuses
+the exact B26 hardware 128/64 `divide_wide` helper, which already
+executes baseline x86-64 `divq` under GNU/Clang. Each decimal
+radix-10^18 quotient step has numerator
+`(remainder << 64) | limb`, where `0 <= remainder < 10^18`;
+hence the hardware `RDX < divisor` precondition holds and both
+the quotient and next remainder are exact 64-bit values.
+
+The leaf formatter `to_decimal_blocks_wide` now selects this
+existing helper only for GNU/Clang x86-64 with at least nine
+64-bit limbs. Preserve B25.1's original `unsigned __int128`
+implementation on ARM64, B19's radix-10^9 implementation
+for up to eight limbs and for MSVC/other architectures, the
+B22 recursive split powers and cutoff of sixteen limbs,
+B24 decimal parsing, B27/B29 division, B28 quotient-0/1,
+all output contracts and all Integer/FloatAP/Rational/Dyadic
+semantics. No additional assembly, new ISA feature, CMake
+change, build definition or public API is introduced.
+
+An isolated x86-64 AMD EPYC 9V74 probe measured
+median leaf times for 16-limb operands of approximately
+2075 -> 1081 ns under GCC 14.2 and 2260 -> 1152 ns under
+Clang 17. A recursive decimal conversion proxy with the
+same B22 power-selection rule but **GMP** for internal
+split divisions measured GCC 4096-bit values around
+10384 -> 6909 ns and Clang values around 11811 -> 6638 ns.
+These are algorithmic proxies, **not** the repository's
+native `Integer::to_decimal` production timing or proof of
+cross-host improvements. They address the prior B25
+leaf-only-versus-integrated discrepancy more thoroughly
+but cannot settle it; require the real six-size 20,000
+iterations/31 samples ARM64 and x86-64 benchmark before
+claiming an integrated benefit. The native comparator and
+benchmark corpus must remain unchanged.
+
+An independent C++20 formatter probe passed 30,000
+direct GMP-oracle cases spanning 1..128 64-bit limbs,
+radix powers, saturated inputs, long runs of zeros,
+and random limb words, with GCC and Clang AddressSanitizer/
+UndefinedBehaviorSanitizer. Preserve all existing decimal
+and integer regression suites and add 128 deterministic
+GMP-oracle cases at 8,9,10,12,16,17,32,64 limbs, including
+the formatter selection boundary and recursive split.
+Integrated cross-platform test execution and ARM64/x86-64
+production timings remain pending. GitHub CI and Codecov
+are not being consulted by user request.
