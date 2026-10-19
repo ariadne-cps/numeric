@@ -2606,3 +2606,64 @@ must not be interpreted as B32 code regressions.
 No ARM64 code path is changed by B33. Neither CI
 nor Codecov was consulted at the user's request.
 
+### B34 alias-dispatch investigation: targeted real-production benchmark (19 October 2026)
+
+The B33 full x86-64 benchmark verified 1024/2048/4096-bit native
+square improvements of approximately 32/39/40% over B32. Its
+generic \`mul\` results at 53/128/256 bits, however, increased by
+approximately 19/13/10% even though B33 changed only a pointer
+identity guard in \`Integer::mul\` and retained the exact pre-B33
+multiplication body for distinct operands.
+
+Tested B33's current identity-first guard against size-first
+reordering, an explicit unlikely branch hint and both combined,
+using alternating-order GCC 14.2 x86-64 stand-alone probes with
+64-bit inline capacity four, the exact fused schoolbook arithmetic
+and the B32 symmetric square recurrence. Measured native
+1/2/4-limb distinct-operation times clustered around
+20/23/44-47 ns; comparing a generic call without an alias guard
+to a call with the B33 guard generally yielded differences
+around 0-1 ns with variable sign. At 8-64 limbs no alternative
+had consistent performance wins across replicates. These
+isolated probes are *not* the complete production Integer
+implementation, so cannot conclusively explain the user's
+5-6 ns small-\`mul\` shifts. They do show that blindly
+reordering the guard or attaching a branch hint lacks a
+credible performance justification. Binary layout or
+inter-run variability remain hypotheses, not established causes.
+
+**Decision:** Preserve B33's current production \`Integer::mul\`
+and symmetric kernel rather than force an unproven B34 dispatch.
+Add a separate, opt-in \`benchmark_integer_alias_dispatch\`
+executable, built against the **same actual NUMERIC_SRC** as
+the official Integer benchmark. The new diagnostic records
+median ns for public \`a*b\` on distinct operands, distinct
+objects with identical values, and same-object \`a*a\`.
+Its references call \`BigUnsigned::mul\` via
+\`Integer::from_magnitude\`, and use the actual B32
+\`BigUnsigned::square\` as a third self-square control.
+Each width uses 32 deterministic operand pairs and signs,
+pre-verifies public/native/reference results against GMP,
+and alternates seven operation-order slots across each
+sample to limit drift. Report the library's actual
+\`selected_multiply_uses_fused()\` selection. This is
+a diagnostic tool **only**; do not alter the established
+14-operation Integer/GMP benchmark or its corpus, timing,
+iteration counts, fairness checks or output.
+
+To run from the same build on x86-64:
+\`./benchmarks/benchmark_integer_alias_dispatch --bits 53,128,256,512,1024,2048,4096 --iterations 20000 --samples 31\`.
+Interpret public/reference differences cautiously because
+they include call structure as well as the alias guard;
+run B32 and B33 builds on the **same CPU**, alternating
+order if possible, for a causal performance conclusion.
+The C++ source and new CMake target were added but a
+full production build and this actual diagnostic have
+not yet been executed by the assistant. All Integer,
+BigUnsigned, Rational, FloatAP implementation paths,
+existing tests and official benchmarks remain untouched.
+B32 ARM64 numbers are Apple M2, B31.1 ARM64 numbers were
+Apple M4; never use cross-machine absolute times as
+evidence of a code regression. CI and Codecov remain
+unconsulted by user request.
+

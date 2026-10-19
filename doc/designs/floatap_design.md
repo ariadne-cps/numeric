@@ -8024,3 +8024,24 @@ benefit has **not yet been measured**. See B33 in
 `integer_rational_design.md`. GitHub CI and Codecov
 remain unconsulted at user request.
 
+### B34 alias-dispatch diagnosis without arithmetic changes (19 October 2026)
+
+The official B33 x86-64 integrated benchmark measured large
+\`square\` improvements via the B32 symmetric kernel, but
+apparently slower generic \`mul\` for 53/128/256 bits.
+Synthetic same-host GCC A/B probes did not reproduce a
+stable gain from guard reordering or branch hints; the
+measured incremental alias guard cost was generally about
+0-1 ns. No algorithmic/ABI/API change is justified.
+Add a separate production-linked GMP-verified executable,
+\`benchmark_integer_alias_dispatch\`, comparing actual
+public Integer multiplication on distinct, equal-but-
+separate and identical objects against explicit generic
+BigUnsigned multiplication and direct square controls.
+Keep the established Integer/GMP benchmark and its corpus
+unchanged. This auxiliary diagnostic has not yet been
+compiled/executed against the repository; cross-platform
+ARM64 Apple M2/M4 timing comparisons remain separate.
+See B34 in \`integer_rational_design.md\`. Neither
+GitHub CI nor Codecov was consulted.
+
