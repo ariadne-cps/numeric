@@ -114,6 +114,9 @@ class BigUnsigned
     static Limb divrem_limb_into(
         LimbView a,Limb divisor,MutableLimbView quotient);
     //! Exact scratch for normalized source views of the supplied lengths.
+    //! For dividend n >= divisor m >= 2, returns n+m+1 limbs:
+    //! normalized dividend (n+1) and normalized divisor (m).
+    //! The B27 fused product-subtraction needs no product buffer.
     //! No scratch is needed for one-limb divisors or shorter dividends.
     //! Throws length_error on size overflow.
     static std::size_t divrem_scratch_limbs(

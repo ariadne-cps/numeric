@@ -2090,3 +2090,74 @@ unchanged operations. Prioritize actual x86-64
 in `quotient_trivial` separately, and confirm ARM64
 stability. CI and integrated performance are pending
 at commit preparation.
+
+
+### B27 fused multiprecision quotient-step subtraction (19 October 2026)
+
+B27 replaces the normalized multi-limb division's separate
+`mul_into(v,qhat,product)`, full product-vs-window comparison,
+product correction and subtraction passes with a **single
+multiply-subtract pass** updating the normalized dividend
+in place. For each divisor limb calculate the exact 64x64
+product plus the incoming high carry, subtract its low limb
+from the partial dividend and accumulate the subtraction
+borrow into the high carry. Subtract the final carry from
+the extra high dividend limb. If this indicates the initial
+quotient estimate was too large, decrement it and add the
+divisor back, propagating the addition carry; repeat only
+when the high limb still denotes a negative result.
+The proven 64-bit normalized quotient estimator can
+overestimate by up to two. No underestimated digit is
+introduced. This is the exact radix-2^64 long division
+recurrence, not a new approximation.
+
+The product/borrow operations use `unsigned __int128`
+on GCC/Clang, MSVC x64 `_umul128` and explicit low-word
+carry handling, and a C++20 half-limb 32-bit product
+fallback on other toolchains. B26's x86-64 `divq` quotient
+estimator and its existing platform fallbacks remain
+unchanged. The architecture-independent fused division
+step uses **no inline assembly** and needs no additional
+compiler flags, CMake edits, ISA extensions or dispatch.
+Quotient-only, remainder-only and joint-output modes
+share the same implementation; B23 ownership and
+signed Integer truncation semantics are unchanged.
+
+The exact public scratch requirement for n dividend limbs
+and m divisor limbs, n>=m>=2, shrinks from
+`n+2*m+2` to **`n+m+1`**, retaining only the
+normalized dividend (n+1) and divisor (m). There is no
+temporary product slice. Required scratch for single-limb
+divisors or dividends smaller than the divisor stays zero.
+All pre-mutation output and scratch checks remain in place.
+Document the new scratch contract in the public header.
+
+A standalone GMP-oracle C++20 division probe checked
+256400 constrained randomized/boundary multi-limb
+divisions using GCC `__int128`; the identical cases
+passed using the pure 32-bit half-product fallback,
+and using Clang `__int128`. Cases covered magnitudes
+up to 128 limbs, 64 distinct normalization shifts,
+saturated limbs, high-zero inputs, near-equal operands,
+and quotients requiring one or two add-back corrections.
+The oracle recorded **7930 two-correction events**
+and no case needing more than two. This validates
+the independent local core algorithm, not yet the
+whole repository build.
+
+Preserve all previous GMP differential tests and add
+two fixed double-correction fixtures discovered by the
+independent stress probe and 2048 deterministic random
+GMP tests exercising the public joint, quotient-only
+and remainder-only division operations, including the
+exact new scratch requirement. The existing 6000
+randomized multiprecision and 64*10 normalization
+cases are left intact. Benchmark corpus, 14 operation
+labels, six widths, 20000 iterations and 31 samples
+must not change. B27 GitHub Unix/Windows/Coverage CI
+and native ARM64/x86-64 integer benchmarks remain
+pending until run, and no integrated performance
+improvement is claimed yet. Compare B27 with B26
+separately on each architecture, especially general
+`quotient` and `remainder`, and check
+`quotient_trivial` for run-to-run noise.
