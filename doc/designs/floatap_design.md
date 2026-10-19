@@ -7566,3 +7566,8 @@ The user benchmarked the B11 opt-in x86-64 `MULQ/ADDQ/ADCQ` multiply against the
 ### B12 experimental Karatsuba write optimization (19 October 2026)
 
 The existing common-source opt-in Karatsuba kernel was adjusted to avoid redundant output clearing and high-word scanning on shifted cross-term accumulation. Exact arithmetic and public API contracts are unchanged, and new GMP-oracle tests exercise prefilled outputs, odd/asymmetric recursive splits, workspace sentinel guards and cutoffs 8/16/32/64/128. GCC x86-64 fused and native ARM64 carry remain the selected production kernels; FloatAP code and design are not modified. New B12 test/CI and integrated performance measurements remain pending. Full rationale and suggested crossover experiment are in `integer_rational_design.md`.
+
+
+### B12 Ubuntu integrated cutoff-32 Karatsuba results (19 October 2026)
+
+The user's post-B12 balanced-operand x86-64 benchmark found opt-in preallocated Karatsuba with cutoff 32 faster than selected GCC fused at 2560/3072/3584/4096/8192 bits, but approximately tied at 2048. At 4096 bits Karatsuba measured 2582.760 ns vs fused 3023.645 ns (14.6% less time), and at 8192 bits 8264.658 vs 12387.829 ns (33.3% less time). CI (Unix, Windows, Coverage) for functional B12 commit `014eedd` passed. The opt-in Karatsuba benchmark excludes scratch allocation/sizing and does not model owning public `mul`; no default dispatch change or end-to-end FloatAP speedup can yet be justified. See `integer_rational_design.md` for complete data and fairness qualification.
