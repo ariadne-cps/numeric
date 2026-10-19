@@ -1644,3 +1644,59 @@ results are **pending**. Next investigate nontrivial division using
 representative quotient sizes, without changing or reducing its GMP
 differential coverage. Keep 4096 available but use
 `--bits 53,128,256,1024,2048` for interim repeats.
+
+
+### B20 selected native 128/64 unsigned division and GMP boundary tests (19 October 2026)
+
+The user's B19.2 native ARM64 and x86-64 six-size Integer-vs-GMP
+benchmarks (53, 128, 256, 1024, 2048, 4096 bits; 20,000 iterations,
+31 samples) both passed exact numerical verification: 768 distinct
+input values and 2688 result values. At 4096 bits, the user measured
+`Integer/GMP` for nontrivial quotient as about 15.56x on ARM64 and
+13.16x on x86-64; the x86-64 `compare` regression was largely removed
+by B19.2. These ratios are empirical baselines, not forecasts.
+
+B20 changes **only** the shared 128/64 digit division selector inside
+`src/big_unsigned.cpp`. The invariant for
+`divide_wide(high,low,divisor)` is `divisor!=0 && high<divisor`,
+so both quotient and remainder fit in 64 bits and
+`0<=remainder<divisor`. If `high==0`, plain C++ 64/64 quotient and
+remainder suffice. With GNU/Clang `__SIZEOF_INT128__` the nontrivial
+path computes `(uint128(high)<<64)|low` and divides directly,
+suppressing only the accepted compiler-extension `-Wpedantic`
+diagnostic; with genuine MSVC x64 it uses the Visual Studio 2019+
+`_udiv128` intrinsic from `<immintrin.h>`. Other compilers and
+architectures retain the unchanged 64-iteration pure-C++20
+`divide_wide_portable` fallback, annotated `[[maybe_unused]]`
+to avoid spurious warnings when native operations are compiled.
+There is no new backend translation unit or ISA assembly, no changes
+to long-division correction / remainder algorithms, no new public
+API and no functions outside `namespace Ariadne`. Both
+`divrem_limb_into` and `divrem_into` call this one selected helper.
+The existing `to_decimal` fast radix-`10^9` path remains unchanged.
+Quotient and remainder at `Integer` level continue to share
+`divrem` and the existing signed truncation convention.
+
+Outside the project, the selected GNU/Clang implementation was
+compiled with GCC and Clang at `-std=c++20 -O3 -Wall -Wextra
+-Wpedantic -Werror` and compared against the original bitwise
+fallback over **1,200,252** exact 128/64 cases per compiler
+(1,200,000 deterministic random cases plus 252 boundary cases),
+all passing. This is an isolated check, not evidence of project
+CI, of MSVC intrinsic correctness or of speedups.
+
+Extend the existing `test_big_unsigned` GMP-differential suite
+without relaxing any previous test: cover eight divisor
+extremes, all-high/low quotient boundaries (including
+`high=divisor-1,low=UINT64_MAX`), 64-bit exact remainders
+on LLP64, plus **all 64 long-division normalization shifts**
+with ten saturated/near-boundary dividend patterns each.
+The previous 6000+6000 random oracle cases and checked
+preallocated-buffer invariants remain untouched. No benchmark
+corpus, timed loops, sizes or special mode switches are changed.
+For the next six-size ARM64 and x86-64 comparisons, use the
+existing `benchmark_compare_integer_backends` executable with
+`--bits 53,128,256,1024,2048,4096 --iterations 20000
+--samples 31`. **Unix, Windows, Coverage CI and native benchmark
+measurements are pending for B20**, so no new performance ratio
+is claimed.

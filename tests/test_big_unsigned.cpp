@@ -692,6 +692,42 @@ void TestBigUnsigned::test_division_limb()
         ARIADNE_TEST_ASSERT(mpz_cmp(check.value,n.value)==0);
     }
 
+    // Target 128/64 single-digit division including the maximum
+    // possible quotient (dividend high word == divisor-1). GMP is the
+    // independent oracle and the remainder comparison preserves all
+    // 64 bits on Windows LLP64.
+    const std::array<std::uint64_t,8> edge_divisors{
+        1u,2u,3u,std::uint64_t{0xffffffffu},
+        std::uint64_t{1}<<32u,std::uint64_t{1}<<63u,
+        max-1u,max};
+    const std::array<std::uint64_t,6> edge_lows{
+        0u,1u,std::uint64_t{0xffffffffu},
+        std::uint64_t{1}<<63u,max-1u,max};
+    for (const std::uint64_t divisor:edge_divisors) {
+        const std::array<std::uint64_t,4> highs{
+            0u,divisor>1u?1u:0u,divisor/2u,divisor-1u};
+        mpz_import(d.value,1u,-1,sizeof(divisor),0,0,&divisor);
+        for (const std::uint64_t high:highs) {
+            for (const std::uint64_t low:edge_lows) {
+                const std::array<std::uint64_t,2> dividend{low,high};
+                const BigUnsigned value(dividend);
+                mpz_import(n.value,dividend.size(),-1,
+                           sizeof(std::uint64_t),0,0,dividend.data());
+                mpz_tdiv_qr(q.value,r.value,n.value,d.value);
+                const auto [native_q,native_r]=divrem_limb(value,divisor);
+                check_against_gmp(native_q,q.value);
+                mpz_import(native_remainder.value,1u,-1,
+                           sizeof(native_r),0,0,&native_r);
+                ARIADNE_TEST_ASSERT(mpz_cmp(native_remainder.value,r.value)==0);
+                ARIADNE_TEST_ASSERT(native_r<divisor);
+                if (high==divisor-1u && low==max) {
+                    ARIADNE_TEST_ASSERT(native_q.limb(0u)==max);
+                    ARIADNE_TEST_ASSERT(native_r==divisor-1u);
+                }
+            }
+        }
+    }
+
     const std::array<std::uint64_t,2> numerator{max,max};
     std::array<std::uint64_t,3> output{max,max,max};
     bool zero_threw=false,owning_zero_threw=false,short_threw=false;
@@ -794,6 +830,37 @@ void TestBigUnsigned::test_division()
         mpz_mul(check.value,q.value,b.value);
         mpz_add(check.value,check.value,r.value);
         ARIADNE_TEST_ASSERT(mpz_cmp(check.value,a.value)==0);
+    }
+
+    // Force all 64 divisor-normalization shifts. Vary the dividend's
+    // top words and saturated bottom words to exercise quotient
+    // estimates, downward corrections and full-width remainders.
+    for (unsigned shift=0u;shift<64u;++shift) {
+        const std::uint64_t top=max>>shift;
+        for (unsigned mode=0u;mode<10u;++mode) {
+            const std::array<std::uint64_t,2> divisor_words{
+                (mode%2u)==0u ? max : std::uint64_t{1},top};
+            const std::array<std::uint64_t,4> dividend_words{
+                (mode%3u)==0u ? max : std::uint64_t{mode+1u},
+                (mode%3u)==1u ? 0u : max,
+                (mode%2u)==0u ? max : std::uint64_t{1},
+                (mode%3u)==2u ? top-1u : top};
+            const BigUnsigned dividend_value(dividend_words);
+            const BigUnsigned divisor_value(divisor_words);
+            mpz_import(a.value,dividend_words.size(),-1,
+                       sizeof(std::uint64_t),0,0,dividend_words.data());
+            mpz_import(b.value,divisor_words.size(),-1,
+                       sizeof(std::uint64_t),0,0,divisor_words.data());
+            mpz_tdiv_qr(q.value,r.value,a.value,b.value);
+            const auto [native_q,native_r]=divrem(
+                dividend_value,divisor_value);
+            check_against_gmp(native_q,q.value);
+            check_against_gmp(native_r,r.value);
+            ARIADNE_TEST_ASSERT(compare(native_r,divisor_value)<0);
+            ARIADNE_TEST_ASSERT(compare(
+                add(mul(native_q,divisor_value),native_r),
+                dividend_value)==0);
+        }
     }
 
     const std::array<std::uint64_t,3> dividend{max,max,max};
