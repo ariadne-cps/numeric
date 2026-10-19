@@ -4,6 +4,7 @@ add_library(NUMERIC_SRC OBJECT
     double.cpp
     integer.cpp
     big_unsigned.cpp
+    signed_integer.cpp
     big_unsigned_fallback.cpp
     dyadic.cpp
     decimal.cpp

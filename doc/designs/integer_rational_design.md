@@ -1532,3 +1532,36 @@ B15.1 Unix, Windows, and Coverage workflows passed at `feb15cc`. B16 adds generi
 The decimal parser consumes up to nine digits per block and multiplies existing radix-2^64 limbs by at most 10^9 using checked 32-bit half-product arithmetic, without a required 128-bit compiler extension. Decimal output repeatedly divides a temporary mutable limb copy by 10^9 using the existing portable wide-limb divider, accumulating and zero-padding nine-digit blocks. Neither operation uses GMP in production or alters architecture dispatch. These are correctness-first baselines, not competitive performance claims.
 
 An isolated Clang C++20 harness with warnings-as-errors passed 5000 native limb-to-decimal GMP round trips, 5000 independent decimal-string GMP comparisons (including 1900-digit cases), 1100 randomized GMP GCD comparisons and rejected malformed ASCII inputs. Added project regression cases against GMP and fixed boundary checks. **Integrated Unix/Windows/Coverage CI remains pending** on this new commit; the isolated harness is not a project-level result. This concludes the planned prerequisite primitive set for the initial signed-magnitude Integer design, but does not constitute Integer migration.
+
+
+### B17 native signed-magnitude foundation, before Integer facade migration (19 October 2026)
+
+B16 CI `3ea38f4` is green on Unix, Windows and Coverage. Directly
+replacing `Integer::_mpz` is not yet isolated: live consumers in
+`rational.cpp`, `dyadic.cpp`, and `floatmp.cpp` use exposed GMP
+members/accessors, while the existing Integer header and constructors
+expose GMP types. A one-commit replacement could break unrelated
+numeric semantics and leave test failures hard to localize.
+
+B17 therefore introduces a separate `SignedInteger` native
+signed-magnitude class in `include/numeric/signed_integer.hpp` and
+`src/signed_integer.cpp`. It contains a canonical `BigUnsigned`
+magnitude and a sign flag, normalizing negative zero. Supported
+operations: signed/unsigned 64-bit construction (including INT64_MIN),
+strict decimal parse/output, sign, comparison, negate, add/sub/mul,
+square, exponentiation by squaring, unsigned-magnitude signed divrem,
+shifts and checked 64-bit extraction. Division is **truncation toward
+zero**, with remainder having the dividend's sign: `a=q*b+r` and
+`abs(r)<abs(b)`, including all sign combinations. Right shift
+truncates toward zero; `pow(0,0)=1`. These are explicit new
+contracts, not accidental preservation of the old mismatched
+`mpz_div` quotient and `mpz_cdiv_r` remainder.
+No implicit GMP storage, arithmetic, or conversions are used.
+
+A separate GMP-differential test target checks independent sign
+boundaries, exact signed identities and random wide operands, including
+the 64-bit minimum, canonical zero, and invalid inputs. Existing
+`Integer`, `Natural`, `Rational`, `FloatAP` and legacy APIs
+are left intact in B17; migrating consumers and replacing the public
+facade are **remaining work**, not completed by introducing this core.
+Full B17 cross-platform project CI remains pending.
