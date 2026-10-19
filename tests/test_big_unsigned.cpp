@@ -223,6 +223,51 @@ void TestBigUnsigned::test_multiplication()
         check_against_gmp(mul_low(x,y,low_limbs),t.value);
     }
 
+    // B35: the owning product must agree with the independent GMP
+    // oracle across the selective 63/64-limb Karatsuba boundary,
+    // odd lengths, near-balanced and strongly unbalanced operands.
+    // These tests run on every architecture, including the old
+    // unfused/reference multiplication paths.
+    std::mt19937_64 karatsuba_selected_engine(0xB35CA7A5ULL);
+    for (const auto [n,m]:
+            {std::pair<std::size_t,std::size_t>{63u,63u},
+             {63u,64u}, {64u,63u}, {64u,64u}, {64u,65u},
+             {65u,64u}, {65u,65u}, {80u,64u}, {96u,64u},
+             {96u,96u}, {128u,64u}, {128u,96u},
+             {96u,128u}, {128u,128u}}) {
+        for (unsigned repetition=0u;repetition<32u;++repetition) {
+            std::vector<std::uint64_t> left(n),right(m);
+            for (auto& word:left) word=karatsuba_selected_engine();
+            for (auto& word:right) word=karatsuba_selected_engine();
+            if (repetition%7u==0u) {
+                std::fill(left.begin(),left.end(),max);
+                std::fill(right.begin(),right.end(),max);
+            } else if (repetition%7u==1u) {
+                std::fill(left.begin(),left.end(),0u);
+                std::fill(right.begin(),right.end(),0u);
+                left.front()=13u;
+                right.front()=31u;
+            } else if (repetition%7u==2u) {
+                for (std::size_t i=1u;i+1u<n;++i) left[i]=0u;
+                for (std::size_t i=1u;i+1u<m;++i) right[i]=0u;
+            } else if (repetition%7u==3u) {
+                for (std::size_t i=0u;i<n;i+=2u) left[i]=0u;
+                for (std::size_t i=0u;i<m;i+=2u) right[i]=0u;
+            }
+            left.back()|=std::uint64_t{1}<<63u;
+            right.back()|=std::uint64_t{1}<<63u;
+
+            const BigUnsigned lhs(left),rhs(right);
+            mpz_import(a.value,n,-1,sizeof(std::uint64_t),
+                       0,0,left.data());
+            mpz_import(b.value,m,-1,sizeof(std::uint64_t),
+                       0,0,right.data());
+            mpz_mul(c.value,a.value,b.value);
+            check_against_gmp(mul(lhs,rhs),c.value);
+            check_against_gmp(mul(rhs,lhs),c.value);
+        }
+    }
+
     // B32: validate the symmetric squaring threshold and large carry
     // chains against GMP; verify mul(x,x) independently remains exact.
     // Include dense/sparse, saturated and exact high-limb boundaries.
