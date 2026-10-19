@@ -1814,6 +1814,25 @@ void TestBigUnsigned::test_gcd_decimal()
         }
     }
 
+    // B43: append-only recursive formatting must preserve the
+    // *entire* fixed-width lower field even when the remainder
+    // itself needs further recursive divisions. GMP independently
+    // supplies the reference, never a native decimal roundtrip.
+    for (const unsigned long digits:
+            {144ul,288ul,576ul,1152ul,2304ul}) {
+        mpz_ui_pow_ui(a.value,10ul,digits);
+        for (const unsigned long factor:
+                {1ul,7ul,1234567ul,9999999ul}) {
+            mpz_mul_ui(b.value,a.value,factor);
+            for (const unsigned long offset:
+                    {0ul,1ul,11ul,99ul}) {
+                mpz_add_ui(b.value,b.value,offset);
+                check_decimal_boundary(b.value);
+                mpz_sub_ui(b.value,b.value,offset);
+            }
+        }
+    }
+
     // B31: the new pair-wise base-10^9 renderer must preserve every
     // zero-padded two-digit group (00, 01, 09, 10, 99), carry across
     // decimal blocks, and the variable-width most-significant block.
