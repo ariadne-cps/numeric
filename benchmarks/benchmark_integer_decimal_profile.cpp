@@ -35,6 +35,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -171,11 +172,13 @@ double measure(F&& operation,unsigned iterations,unsigned samples)
 
 void report(char const* name,double nanoseconds,double full)
 {
-    std::cout << std::left << std::setw(28) << name
+    std::ostringstream formatted;
+    formatted << std::left << std::setw(28) << name
               << std::right << std::setw(12) << std::fixed
               << std::setprecision(3) << nanoseconds << " ns"
               << "  (" << std::setprecision(1) << 100.0*nanoseconds/full
-              << "% of full; non-additive)" << '\n';
+              << "% of full; non-additive)";
+    LOGGING_PRINTLN(formatted.str())
 }
 
 void benchmark(unsigned bits,unsigned iterations,unsigned samples)
@@ -188,13 +191,14 @@ void benchmark(unsigned bits,unsigned iterations,unsigned samples)
         return to_decimal(select(i).value);
     },iterations,samples);
 
-    std::cout << "\n" << bits << " bits | 32 GMP-verified official inputs"
-              << " | iterations=" << iterations
-              << " | samples=" << samples << '\n';
+    LOGGING_PRINTLN(" ") 
+    LOGGING_PRINTLN(bits << " bits | 32 GMP-verified official inputs"
+                    << " | iterations=" << iterations
+                    << " | samples=" << samples)
     report("production to_decimal",full,full);
     if (pool.front().value.size()<=cutoff_limbs) {
-        std::cout << "Power table / recursive divrem / append: not used "
-                     "(<=16 limbs).\n";
+        LOGGING_PRINTLN("Power table / recursive divrem / append: not used "
+                        "(<=16 limbs).")
         return;
     }
     const double powers=measure([&](unsigned i) {
@@ -223,8 +227,8 @@ void benchmark(unsigned bits,unsigned iterations,unsigned samples)
     report("recursive divrem replay",divisions,full);
     report("production leaf conversion",leaves,full);
     report("append / zero-padding replay",appending,full);
-    std::cout << "Diagnostic replays are independently timed. "
-                 "Do not add their percentages.\n";
+    LOGGING_PRINTLN("Diagnostic replays are independently timed. "
+                    "Do not add their percentages.")
 }
 
 } // namespace
@@ -250,8 +254,9 @@ int main(int argc,const char* argv[])
         for (unsigned bits:selection.sizes) {
             benchmark(bits,selection.iterations,selection.samples);
         }
-        std::cout << "\nNumerical verification PASS (GMP oracle "
-                     "and full production conversion).\n";
+        LOGGING_PRINTLN(" ")
+        LOGGING_PRINTLN("Numerical verification PASS (GMP oracle "
+                       "and full production conversion).")
         return 0;
     } catch (std::exception const& error) {
         std::cerr << "Integer decimal profile FAILED: "

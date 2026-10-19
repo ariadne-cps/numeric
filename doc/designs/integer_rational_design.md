@@ -3473,3 +3473,37 @@ These are same-input non-additive stage PROXIES, not exact in-situ
 call-stack timings; do not sum their fractions or claim causal
 bottlenecks without repeatable same-host evidence. Apple M2 B44
 measurements remain pending.
+
+
+### B44.1 logging-compatible output and user diagnostic measurements (19 October 2026)
+
+The B44.1 standalone benchmark fixes an output-only bug: although
+`logging_command_line()` already parses `-t/--theme`, `-v/--verbosity`
+and `-s/--scheduler`, B44 emitted its benchmark report through
+`std::cout`, outside the Ariadne logger. The B44.1 benchmark now
+uses `LOGGING_PRINTLN` for all normal report lines, including component
+measurements and the final verification banner. This restores normal
+logger theme/verbosity behavior, following all other benchmark
+executables. It does not alter the sample loops, clock, input pool,
+GMP oracle, arithmetic, B43 recursion or any other benchmark.
+The standalone diagnostic's `--summary-only` and `--details` options
+are shared parser options and do not change its stage measurements.
+Fatal errors still go to `std::cerr`.
+
+The user-supplied B44 diagnostic (20000 iterations, 31 samples, 32
+official-input magnitudes per size) passed GMP verification, with:
+- 1024 bits: full production decimal 1073.046 ns, no recursion;
+- 2048 bits: full 2942.338 ns; power-table replay 261.742 ns;
+  recursive divrem replay 960.735 ns; production leaf conversion
+  1649.181 ns; append/padding replay 40.525 ns;
+- 4096 bits: full 8236.562 ns; power-table replay 361.692 ns;
+  recursive divrem replay 4440.488 ns; production leaf conversion
+  3387.277 ns; append/padding replay 50.379 ns.
+These are independent, non-additive proxies: no individual replay
+percentage is proven to be exact production call-stack attribution.
+They suggest leaf conversion dominates the measured replays at 2048
+bits and recursive division at 4096 bits, while append/padding is
+small at both. Measurements are user-provided, not independently
+reproduced; native performance improvement is not claimed.
+B44's Unix, Windows and Coverage GitHub Actions passed; the separate
+Codecov patch/project checks were failing.
