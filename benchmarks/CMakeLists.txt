@@ -6,6 +6,7 @@ set(BENCHMARKS
     benchmark_compare_double_precision_backends
     benchmark_compare_integer_backends
     benchmark_integer_alias_dispatch
+    benchmark_integer_decimal_profile
     benchmark_compare_rational_backends
     benchmark_integer
     benchmark_rational

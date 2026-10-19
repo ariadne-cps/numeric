@@ -8333,3 +8333,18 @@ suite adds 80 explicit nested-padding GMP decimal cases.
 No native M2 or x86 performance claim is made before
 comparative benchmarks; see the B43 design journal.
 
+
+
+### B44 independent decimal conversion stage benchmark (19 October 2026)
+
+The standalone benchmark_integer_decimal_profile C++ diagnostic
+measures the exact production to_decimal call and independent
+same-input replays of power-table square, recursive divrem, leaf
+conversion and append/zero-padding, on the official 32-input
+GMP-verified Integer magnitude pool. It is registered as an
+additional benchmark target. Existing 84-operation Integer/GMP
+comparison, FloatAP algorithms, shared arithmetic, and CMake
+architecture selection are unchanged. Stage results are explicitly
+non-additive diagnostic proxies, not production call-stack
+percentages. See B44 in integer_rational_design.md. Native timings
+are pending.
