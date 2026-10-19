@@ -7751,3 +7751,22 @@ not sample inputs, benchmark order, GMP verification, production
 arithmetic or FloatAP. When comparing B23.1 with older reports,
 map both old names to their new counterparts; see
 `integer_rational_design.md`. B23.1 CI remains pending.
+
+
+### B24 decimal parsing with optional 128-bit accumulation (19 October 2026)
+
+B24 introduces a wide-radix path only in native
+`BigUnsigned::from_decimal` for decimal strings exceeding
+309 characters on GCC/Clang targets with `unsigned __int128`.
+Parse groups of up to 18 decimal digits and propagate full
+64-bit limb carries with one exact 128-bit intermediate.
+The prior portable 9-digit base converter, input validation,
+and <=309-digit path are unchanged, with portable/MSVC
+fallback for all sizes. It does not change decimal output,
+signed Integer semantics, FloatAP/Rational/Dyadic algorithms,
+GMP boundary bridges, or the integer benchmark workload.
+Add 45 independent GMP oracle parsing boundaries and four
+long malformed-input cases while retaining all existing tests.
+An isolated GCC/Clang/GMP probe passed and suggested possible
+large-input performance gains; integrated CI and native
+two-host benchmarks are pending. See `integer_rational_design.md`.

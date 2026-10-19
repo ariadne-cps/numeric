@@ -1865,3 +1865,58 @@ B23 native results from the user were GMP verified on ARM64/x86-64
 workflow suite succeeded at commit `16609ab`. The current B23.1
 naming-only commit requires fresh CI validation, but no numerical
 performance gains are claimed from its label change.
+
+
+### B24 wide-radix decimal construction (19 October 2026)
+
+After B23.1's report-label-only update, GitHub Unix, Windows,
+and Coverage CI all succeeded on `68bc5e9`. B23's last
+ARM64 and x86-64 GMP differential benchmarks each passed
+768 paired inputs and 2688 paired operation results. As shown by
+the previous six-size native benchmark, large decimal construction
+remains expensive relative to GMP (roughly 7.6 microseconds
+ARM64 and 6.5 microseconds x86-64 at 4096 bits in B23).
+
+B24 changes only native `BigUnsigned::from_decimal` in
+`src/big_unsigned.cpp`. Preserve the complete B19 base-`10^9`
+split-32-bit implementation and the shared ASCII digit validation
+for all strings of **309 characters or fewer**, and for all
+compiler targets that do not support `unsigned __int128`.
+For longer strings on GCC/Clang targets defining
+`__SIZEOF_INT128__`, accumulate decimal chunks of up to **18
+digits** (radix up to `10^18`) using one exact 128-bit intermediate
+per 64-bit limb: `product=(Wide)digit*radix+carry`,
+`digit=(Limb)product`, `carry=(Limb)(product>>64)`.
+Because `radix<=10^18<2^64` and `carry<radix`, no product
+overflows 128 bits. Both the first possibly short chunk and
+subsequent full chunks preserve leading zeros and all limb carries.
+The fallback has no ISA or GMP dependencies and remains available
+on Windows/MSVC. Helpers and all modified production functions
+are inside `namespace Ariadne`. The 309-digit cutoff leaves
+the complete <=1024-bit benchmark pool on the old implementation.
+
+A separate C++20/GMP single-process probe independently
+compared the existing 9-digit algorithm, new 18-digit algorithm,
+and `mpz_set_str` on deterministic strings up to 7000 digits.
+It passed all checked values on GCC and Clang. Its timings,
+particularly ~1.8x around 617 digits and ~2.7-3.0x around
+1234 digits, are isolated **proxies**, not project-integrated
+ARM64/x86-64 speedups. Keep the benchmark corpora, 14 operations,
+sample count and architecture test fixtures unchanged; measure
+actual improvement on each host.
+
+Extend `test_big_unsigned::test_gcd_decimal` with 45 exact
+GMP-oracle parsings covering lengths 308, 309, 310, 311, 312,
+616, 617, 1234 and 1900, with all-nine carry chains,
+long zero runs, leading zeros, mixed digits and alternating
+digits. Check directly against GMP values parsed from the
+*original input* and against exact GMP decimal output.
+Add four malformed >309-digit cases spanning first/middle/last
+invalid character positions. Existing 2800 randomized magnitude
+oracle cases, 1800 parsing oracle cases, 50 B22 split boundaries
+and signed Integer tests are untouched. Unix/Windows/Coverage
+CI and native ARM64/x86-64 performance results for B24 remain
+pending until the commit is validated. Compare B24 vs B23
+using unchanged six sizes, 20,000 iterations, 31 samples;
+pay special attention to `construct_decimal` at 2048 and
+4096 bits and ensure no regressions in `to_decimal` or division.
