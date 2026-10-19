@@ -7807,3 +7807,26 @@ independent GMP-oracle radix-power boundary cases and
 retain all preceding tests. Cross-platform CI and host
 performance benchmarks for B25.1 remain pending;
 see `integer_rational_design.md`.
+
+
+### B26 baseline x86-64 DIVQ for shared unsigned division (19 October 2026)
+
+To address the measured x86-64 general quotient/remainder
+slowdown relative to GMP, B26 specializes the internal
+128/64 `divide_wide` helper in `src/big_unsigned.cpp`
+for GNU/Clang x86-64 using a single baseline `divq`.
+The quotient/remainder input/output registers and
+hardware nonoverflow precondition are explicit. Keep
+the 64-bit direct path, MSVC `_udiv128`, non-x86
+`unsigned __int128` and portable fallback unchanged.
+Preserve all arithmetic semantics, normalization,
+allocation, correction logic, `FloatAP`, `Rational`,
+`Dyadic`, decimal formatting/parsing, GMP bridges and
+benchmark workloads. Do not alter CMake or build flags.
+Add 2048 exact constrained 128/64 GMP-oracle cases
+without removing existing division tests. A standalone
+GCC/Clang/GMP checker passed 500072 cases against the
+wide C++ implementation and checked an independent
+GMP sample; GitHub CI and native performance measurements
+for B26 remain pending. See the B26 entry in
+`integer_rational_design.md`.

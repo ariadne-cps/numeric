@@ -374,6 +374,20 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
     const unsigned __int64 quotient=_udiv128(
         high,low,divisor,&remainder);
     return {quotient,remainder};
+#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && \
+        !defined(_MSC_VER)
+    // B26: DIVQ divides RDX:RAX by a 64-bit operand, returning
+    // quotient in RAX and remainder in RDX. The caller guarantees
+    // 0 <= high < divisor, so the quotient fits in 64 bits and the
+    // hardware divide cannot overflow. Both registers are read/write
+    // operands; the divisor is distinct from them. No BMI2/ADX,
+    // extra build flags or CPU dispatch are required.
+    __asm__ volatile(
+        "divq %[divisor]"
+        : "+a" (low), "+d" (high)
+        : [divisor] "r" (divisor)
+        : "cc");
+    return {low,high};
 #elif defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
     // The extension is supported here; suppress only -Wpedantic.
     __extension__ using Wide=unsigned __int128;

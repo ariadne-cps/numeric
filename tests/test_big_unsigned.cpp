@@ -728,6 +728,37 @@ void TestBigUnsigned::test_division_limb()
         }
     }
 
+    // B26: stress exact 128/64 DIVQ preconditions. Each numerator
+    // has high < divisor (the hardware quotient must fit in a limb).
+    // Exercise saturated quotient, high=0, high=divisor-1,
+    // random carry, and divisors with and without their top bit set.
+    // All expected results come from GMP, never the native Wide path.
+    std::mt19937_64 wide_engine(0xB260D1B1ULL);
+    for (unsigned repetition=0u;repetition<2048u;++repetition) {
+        const std::uint64_t divisor=repetition%11u==0u ? max :
+            repetition%11u==1u ? std::uint64_t{1}<<63u :
+            repetition%11u==2u ? 3u :
+            repetition%11u==3u ? std::uint64_t{1}<<32u :
+            wide_engine()|std::uint64_t{1};
+        const std::uint64_t high=repetition%5u==0u ?
+            divisor-1u : repetition%5u==1u ? 0u :
+            wide_engine()%divisor;
+        const std::uint64_t low=repetition%7u==0u ?
+            max : repetition%7u==1u ? 0u : wide_engine();
+        const std::array<std::uint64_t,2> dividend{low,high};
+        const BigUnsigned value(dividend);
+        mpz_import(n.value,dividend.size(),-1,sizeof(std::uint64_t),
+                   0,0,dividend.data());
+        mpz_import(d.value,1u,-1,sizeof(divisor),0,0,&divisor);
+        mpz_tdiv_qr(q.value,r.value,n.value,d.value);
+        const auto [native_q,native_r]=divrem_limb(value,divisor);
+        check_against_gmp(native_q,q.value);
+        mpz_import(native_remainder.value,1u,-1,sizeof(native_r),
+                   0,0,&native_r);
+        ARIADNE_TEST_ASSERT(mpz_cmp(native_remainder.value,r.value)==0);
+        ARIADNE_TEST_ASSERT(native_r<divisor);
+    }
+
     const std::array<std::uint64_t,2> numerator{max,max};
     std::array<std::uint64_t,3> output{max,max,max};
     bool zero_threw=false,owning_zero_threw=false,short_threw=false;
