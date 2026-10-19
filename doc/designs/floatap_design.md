@@ -7576,3 +7576,8 @@ The user's post-B12 balanced-operand x86-64 benchmark found opt-in preallocated 
 ### B13 shared unsigned primitive benchmark (19 October 2026)
 
 Introduced a benchmark-only `benchmark_big_unsigned_arithmetic` executable (no new arithmetic/backend source): add/sub with both preallocated and owning destinations, compare as nonallocating read-only, and two left/right shifts as owning operations, all against matching GMP lifetimes and independently checked exact results. Production `BigUnsigned`, `FloatAP`, `Integer` and ISA dispatch are unchanged. This prepares measurement before implementing the common unsigned division/remainder kernel. See `integer_rational_design.md` for the benchmark contract and CLI; CI and native measurements pending.
+
+
+### B14 single-limb division and fallback-source rule (19 October 2026)
+
+The user clarified that generic arithmetic with **no native x86-64/ARM64 specialized counterpart** belongs in `src/big_unsigned.cpp`. Only portable alternatives to ISA-specialized algorithms belong in `big_unsigned_fallback.cpp`. Thus the pure C++20 unsigned single-limb quotient/remainder implementation and tests are in the common source; `big_unsigned_fallback.cpp` is unchanged. GMP differential tests cover 6000 cases, normalization and exceptions. A general multiprecision-divisor division is still needed before native Integer/Rational migration. Production multiplication dispatch and FloatAP remain unchanged.

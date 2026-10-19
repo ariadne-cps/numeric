@@ -31,6 +31,7 @@
 #include <random>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 #include <gmp.h>
 #include "macro/testing.hpp"
@@ -69,6 +70,7 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_boundaries());
         ARIADNE_TEST_CALL(test_randomized());
         ARIADNE_TEST_CALL(test_multiplication());
+        ARIADNE_TEST_CALL(test_division_limb());
         ARIADNE_TEST_CALL(test_views_and_scratch());
         ARIADNE_TEST_CALL(test_multiply_kernel_paths());
     }
@@ -78,6 +80,7 @@ class TestBigUnsigned
     void test_boundaries();
     void test_randomized();
     void test_multiplication();
+    void test_division_limb();
     void test_views_and_scratch();
     void test_multiply_kernel_paths();
 };
@@ -595,6 +598,94 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         }
     }
 
+}
+
+void TestBigUnsigned::test_division_limb()
+{
+    const auto max=std::numeric_limits<std::uint64_t>::max();
+    // Fixed independent cases that exercise the 64-bit remainder carry.
+    const std::array<std::uint64_t,2> all_ones{max,max};
+    const std::array<std::uint64_t,2> power_of_base{0u,1u};
+    const auto [whole,zero_remainder]=divrem_limb(BigUnsigned(all_ones),max);
+    ARIADNE_TEST_ASSERT(compare(whole,BigUnsigned(
+        std::array<std::uint64_t,2>{1u,1u}))==0);
+    ARIADNE_TEST_ASSERT(zero_remainder==0u);
+    const auto [one,remainder]=divrem_limb(BigUnsigned(power_of_base),max);
+    ARIADNE_TEST_ASSERT(compare(one,BigUnsigned(std::uint64_t{1}))==0);
+    ARIADNE_TEST_ASSERT(remainder==1u);
+    ARIADNE_TEST_ASSERT(divrem_limb(BigUnsigned{},1u).first.is_zero());
+
+    GmpInteger n,d,q,r,check;
+    std::mt19937_64 engine(0xD1D1D1ULL);
+    BigUnsigned::Scratch scratch;
+    // Cover zero, all-ones, exact powers of radix, the inline
+    // 4/5-limb boundary, and large dividends with varied divisors.
+    for (unsigned repetition=0u;repetition<6000u;++repetition) {
+        const std::size_t count=repetition%23u==0u ? 0u :
+                                repetition%29u==0u ? 64u :
+                                repetition%7u+1u;
+        std::vector<std::uint64_t> digits(count);
+        for (auto& limb:digits) limb=engine();
+        if (repetition%13u==0u) {
+            std::fill(digits.begin(),digits.end(),max);
+        }
+        if (repetition%17u==0u) {
+            std::fill(digits.begin(),digits.end(),0u);
+        }
+        if (repetition%19u==0u && !digits.empty()) {
+            std::fill(digits.begin(),digits.end(),0u);
+            digits.back()=1u;
+        }
+        const BigUnsigned value(digits);
+        const std::uint64_t divisor=repetition%11u==0u ? 1u :
+                                    repetition%11u==1u ? max :
+                                    repetition%11u==2u ? std::uint64_t{1}<<63u :
+                                    repetition%11u==3u ? 2u :
+                                    engine()|std::uint64_t{1};
+        mpz_import(n.value,digits.size(),-1,sizeof(std::uint64_t),
+                   0,0,digits.data());
+        mpz_import(d.value,1u,-1,sizeof(std::uint64_t),0,0,&divisor);
+        mpz_tdiv_qr(q.value,r.value,n.value,d.value);
+        const auto [actual,rem]=divrem_limb(value,divisor);
+        check_against_gmp(actual,q.value);
+        ARIADNE_TEST_ASSERT(rem==mpz_get_ui(r.value));
+
+        auto output=scratch.acquire(value.size()+2u);
+        std::fill(output.begin(),output.end(),max);
+        const auto low=BigUnsigned::divrem_limb_into(
+            value.limbs(),divisor,output);
+        ARIADNE_TEST_ASSERT(low==rem);
+        check_against_gmp(BigUnsigned(output),q.value);
+        ARIADNE_TEST_ASSERT(output[value.size()]==0u);
+        ARIADNE_TEST_ASSERT(output[value.size()+1u]==0u);
+        mpz_mul(check.value,q.value,d.value);
+        mpz_add(check.value,check.value,r.value);
+        ARIADNE_TEST_ASSERT(mpz_cmp(check.value,n.value)==0);
+    }
+
+    const std::array<std::uint64_t,2> numerator{max,max};
+    std::array<std::uint64_t,3> output{max,max,max};
+    bool zero_threw=false,owning_zero_threw=false,short_threw=false;
+    try {
+        (void)BigUnsigned::divrem_limb_into(numerator,0u,output);
+    } catch (std::domain_error const&) {
+        zero_threw=true;
+    }
+    try {
+        (void)divrem_limb(BigUnsigned(numerator),0u);
+    } catch (std::domain_error const&) {
+        owning_zero_threw=true;
+    }
+    try {
+        (void)BigUnsigned::divrem_limb_into(
+            numerator,3u,std::span(output).first(1u));
+    } catch (std::length_error const&) {
+        short_threw=true;
+    }
+    ARIADNE_TEST_ASSERT(zero_threw && owning_zero_threw && short_threw);
+    for (auto limb:output) {
+        ARIADNE_TEST_ASSERT(limb==max);
+    }
 }
 
 void TestBigUnsigned::test_randomized()
