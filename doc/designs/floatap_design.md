@@ -7830,3 +7830,31 @@ wide C++ implementation and checked an independent
 GMP sample; GitHub CI and native performance measurements
 for B26 remain pending. See the B26 entry in
 `integer_rational_design.md`.
+
+
+### B27 fused long division and smaller scratch (19 October 2026)
+
+The native multiprecision divider now calculates each
+quotient digit by a single pass that multiplies the
+normalized divisor by the estimated digit and subtracts
+the resulting low limb from the working dividend,
+propagating the high product plus borrow. A negative
+result triggers decrement/add-back corrections (at most
+two for normalized long division). This eliminates
+the previously allocated per-digit product buffer and
+reduces `divrem_scratch_limbs(n,m)` from
+`n+2*m+2` to `n+m+1` for n>=m>=2.
+The kernel uses GCC/Clang unsigned 128-bit products,
+MSVC `_umul128` or a portable 32-bit half-product
+fallback as appropriate, with no new CMake flags
+or ISA requirements. Preserve the B26 x86-64 DIVQ
+estimate, B23 selective outputs, all Integer semantics,
+FloatAP/Rational/Dyadic, GMP adapters, and benchmark
+operands. Add 2050 exact GMP-oracle regression fixtures
+including two independent double-correction cases;
+do not remove older cases. Three independent local
+GMP stress configurations (GCC wide, GCC portable
+and Clang wide), each with 256400 divisions, passed.
+Integrated Unix/Windows/Coverage CI and native
+two-host benchmarks remain pending. See B27 in
+`integer_rational_design.md`.

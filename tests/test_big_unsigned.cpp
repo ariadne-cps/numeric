@@ -869,6 +869,68 @@ void TestBigUnsigned::test_division()
         ARIADNE_TEST_ASSERT(mpz_cmp(check.value,a.value)==0);
     }
 
+    // B27: exercise the fused subtract/add-back implementation,
+    // including quotient estimates that need TWO corrections.
+    // These fixtures were found by the independent GMP stress probe,
+    // not by adjusting the expected result to the native algorithm.
+    const auto check_fused_division=[&](
+            BigUnsigned const& numerator,BigUnsigned const& denominator) {
+        mpz_import(a.value,numerator.size(),-1,sizeof(std::uint64_t),
+                   0,0,numerator.limbs().data());
+        mpz_import(b.value,denominator.size(),-1,sizeof(std::uint64_t),
+                   0,0,denominator.limbs().data());
+        mpz_tdiv_qr(q.value,r.value,a.value,b.value);
+        const auto [native_q,native_r]=divrem(numerator,denominator);
+        check_against_gmp(native_q,q.value);
+        check_against_gmp(native_r,r.value);
+        check_against_gmp(quot(numerator,denominator),q.value);
+        check_against_gmp(rem(numerator,denominator),r.value);
+        const auto needed=BigUnsigned::divrem_scratch_limbs(
+            numerator.size(),denominator.size());
+        if (denominator.size()>=2u &&
+                numerator.size()>=denominator.size()) {
+            ARIADNE_TEST_ASSERT(needed==
+                numerator.size()+denominator.size()+1u);
+        }
+        ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
+    };
+    check_fused_division(
+        BigUnsigned(std::array<std::uint64_t,4>{
+            max,max,max,max}),
+        BigUnsigned(std::array<std::uint64_t,2>{
+            0xe04e3de411f558a7ULL,0xba43f747b13ac11aULL}));
+    check_fused_division(
+        BigUnsigned(std::array<std::uint64_t,5>{
+            0x65a601688b16b11bULL,0x5b7d0bd5828e0a0cULL,
+            0x7ad9be6c73e93fdaULL,0xf370dcf1b5187984ULL,
+            0x48293917315898ccULL}),
+        BigUnsigned(std::array<std::uint64_t,2>{
+            0xc28ba8299ce45291ULL,0x91b35c306fef072dULL}));
+
+    std::mt19937_64 fused_engine(0xB27071ULL);
+    for (unsigned repetition=0u;repetition<2048u;++repetition) {
+        const std::size_t n=repetition%31u==0u?96u:
+                            2u+fused_engine()%32u;
+        const std::size_t m=repetition%17u==0u?2u:
+                            2u+fused_engine()%n;
+        std::vector<std::uint64_t> left(n),right(m);
+        for (auto& word:left) word=fused_engine();
+        for (auto& word:right) word=fused_engine();
+        if (repetition%13u==0u) std::fill(left.begin(),left.end(),max);
+        if (repetition%19u==0u) {
+            std::fill(right.begin(),right.end(),max);
+        }
+        if (repetition%23u==0u) {
+            std::fill(right.begin(),right.end(),0u);
+            right.back()=1u;
+        }
+        if (repetition%29u==0u) {
+            std::fill(right.begin(),right.end(),0u);
+            right.back()=std::uint64_t{1}<<63u;
+        }
+        check_fused_division(BigUnsigned(left),BigUnsigned(right));
+    }
+
     // Force all 64 divisor-normalization shifts. Vary the dividend's
     // top words and saturated bottom words to exercise quotient
     // estimates, downward corrections and full-width remainders.

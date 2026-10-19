@@ -441,31 +441,91 @@ std::size_t BigUnsigned::divrem_scratch_limbs(
         return 0u;
     }
     const auto max=std::numeric_limits<std::size_t>::max();
-    if (divisor_limbs>(max-2u)/2u ||
-            dividend_limbs>max-(2u*divisor_limbs+2u)) {
+    if (divisor_limbs>max-1u ||
+            dividend_limbs>max-1u-divisor_limbs) {
         throw std::length_error("BigUnsigned division scratch size overflow");
     }
-    // Normalized dividend (n+1), divisor (m), digit product (m+1).
-    return dividend_limbs+2u*divisor_limbs+2u;
+    // B27: the fused subtraction eliminates the digit-product buffer.
+    // Only the normalized dividend (n+1) and divisor (m) remain.
+    return dividend_limbs+divisor_limbs+1u;
 }
 
 namespace {
 
-// Compare equal-width, little-endian unsigned sequences.
-bool greater_fixed(BigUnsigned::LimbView a,BigUnsigned::LimbView b) noexcept
+// Portable 64x64 -> 128 fallback for the fused division step. The
+// same algebra as the reference multiply kernel: no wide integer or
+// optional CPU instruction is required.
+[[maybe_unused]] std::pair<BigUnsigned::Limb,BigUnsigned::Limb>
+multiply_digit_portable(BigUnsigned::Limb x,BigUnsigned::Limb y) noexcept
 {
-    for (std::size_t i=a.size();i!=0u;--i) {
-        if (a[i-1u]!=b[i-1u]) {
-            return a[i-1u]>b[i-1u];
-        }
-    }
-    return false;
+    using Limb=BigUnsigned::Limb;
+    constexpr Limb mask=0xffffffffULL;
+    const Limb x0=x&mask,x1=x>>32u,y0=y&mask,y1=y>>32u;
+    const Limb p00=x0*y0,p01=x0*y1,p10=x1*y0,p11=x1*y1;
+    const Limb middle=(p00>>32u)+(p01&mask)+(p10&mask);
+    return {(p00&mask)|(middle<<32u),
+            p11+(p01>>32u)+(p10>>32u)+(middle>>32u)};
 }
 
-// Reuse the existing checked subtraction below (also used by
-// Karatsuba): division corrects the quotient digit before subtracting.
-void subtract_in_place(BigUnsigned::MutableLimbView destination,
-                       BigUnsigned::LimbView source);
+// Subtract digit*divisor from the (m+1)-limb partial dividend in
+// place, fusing multiplication and subtraction into one pass.
+// Each carry is the high product limb plus the subtraction borrow.
+// The wide product+carry is < 2^128, so carry always fits 64 bits.
+// Return whether the signed mathematical difference is negative.
+bool subtract_digit_product(BigUnsigned::MutableLimbView window,
+                            BigUnsigned::LimbView divisor,
+                            BigUnsigned::Limb digit) noexcept
+{
+    using Limb=BigUnsigned::Limb;
+    Limb carry=0u;
+    for (std::size_t i=0u;i<divisor.size();++i) {
+        Limb low,high;
+#if defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__)
+        high=0u;
+        low=_umul128(divisor[i],digit,&high);
+        const Limb previous=low;
+        low+=carry;
+        high+=static_cast<Limb>(low<previous);
+#elif defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+        __extension__ using Wide=unsigned __int128;
+        const Wide product=static_cast<Wide>(divisor[i])*digit+carry;
+        low=static_cast<Limb>(product);
+        high=static_cast<Limb>(product>>64u);
+#else
+        const auto [product_low,product_high]=
+            multiply_digit_portable(divisor[i],digit);
+        low=product_low+carry;
+        high=product_high+static_cast<Limb>(low<product_low);
+#endif
+        const Limb old=window[i];
+        window[i]=old-low;
+        carry=high+static_cast<Limb>(old<low);
+    }
+    const std::size_t m=divisor.size();
+    const Limb old=window[m];
+    window[m]=old-carry;
+    return old<carry;
+}
+
+// Undo one unit of an overestimated quotient digit. When the
+// subtraction was negative, the working window holds its two's
+// complement modulo B^(m+1). After adding the divisor back, a
+// nonzero high limb means the estimate is still too large.
+// Knuth's normalized estimate needs at most two such add-backs.
+void add_back_divisor(BigUnsigned::MutableLimbView window,
+                      BigUnsigned::LimbView divisor) noexcept
+{
+    using Limb=BigUnsigned::Limb;
+    Limb carry=0u;
+    for (std::size_t i=0u;i<divisor.size();++i) {
+        const Limb old=window[i];
+        const Limb sum=old+divisor[i];
+        const Limb result=sum+carry;
+        carry=static_cast<Limb>((sum<old)||(result<sum));
+        window[i]=result;
+    }
+    window[divisor.size()]+=carry;
+}
 
 } // namespace
 
@@ -529,10 +589,9 @@ void BigUnsigned::divrem_selected_into(
     const std::size_t m=b.size();
     auto u=scratch.first(n+1u);
     auto v=scratch.subspan(n+1u,m);
-    auto product=scratch.subspan(n+1u+m,m+1u);
 
-    // The same exact normalized long division and downward quotient
-    // corrections are used in all three compile-time result modes.
+    // All three compile-time output modes share the same normalized
+    // quotient estimation, in-place subtraction and correction.
     const unsigned shift=static_cast<unsigned>(std::countl_zero(b.back()));
     Limb carry=0u;
     for (std::size_t i=0u;i<n;++i) {
@@ -555,13 +614,13 @@ void BigUnsigned::divrem_selected_into(
         Limb digit=high>=v[m-1u] ?
             std::numeric_limits<Limb>::max() :
             divide_wide(high,low,v[m-1u]).first;
-        mul_into(v,LimbView(&digit,1u),product);
-        const auto window=LimbView(u.data()+j,m+1u);
-        while (greater_fixed(product,window)) {
+        const auto window=u.subspan(j,m+1u);
+        bool overestimated=subtract_digit_product(window,v,digit);
+        while (overestimated) {
             --digit;
-            subtract_in_place(product,v);
+            add_back_divisor(window,v);
+            overestimated=window.back()!=0u;
         }
-        subtract_in_place(u.subspan(j,m+1u),product);
         if constexpr (WantQuotient) {
             quotient[j]=digit;
         }
