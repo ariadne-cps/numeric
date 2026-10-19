@@ -1004,6 +1004,50 @@ void TestBigUnsigned::test_gcd_decimal()
         ARIADNE_TEST_ASSERT(mpz_set_str(a.value,digits.c_str(),10)==0);
         check_against_gmp(parsed,a.value);
     }
+    // B24: long-input radix-10^18 parsing. Probe each side of the
+    // 309/310-digit selector, 18-digit group carry boundaries, and
+    // lengths beyond the 2048/4096-bit benchmark workloads. GMP
+    // parses the ORIGINAL input, not a native formatted roundtrip.
+    const auto check_long_parse=[&](std::string const& input) {
+        ARIADNE_TEST_ASSERT(
+            mpz_set_str(a.value,input.c_str(),10)==0);
+        const BigUnsigned parsed=from_decimal(input);
+        check_against_gmp(parsed,a.value);
+        std::string oracle(mpz_sizeinbase(a.value,10u)+2u,'\0');
+        mpz_get_str(oracle.data(),10,a.value);
+        oracle.resize(std::char_traits<char>::length(oracle.c_str()));
+        ARIADNE_TEST_ASSERT(to_decimal(parsed)==oracle);
+    };
+    for (const std::size_t length:
+            {308u,309u,310u,311u,312u,616u,617u,1234u,1900u}) {
+        check_long_parse(std::string(length,'9'));
+        check_long_parse("1"+std::string(length-2u,'0')+"1");
+        // The long path is selected by raw input size, even if
+        // leading zeros mean that the stored magnitude is small.
+        check_long_parse(std::string(length-1u,'0')+"1");
+        std::string mixed(length,'0');
+        mixed.front()='8';
+        mixed[18u]='7';
+        mixed.back()='6';
+        check_long_parse(mixed);
+        std::string alternating(length,'9');
+        for (std::size_t i=1u;i<length;i+=2u) {
+            alternating[i]='0';
+        }
+        check_long_parse(alternating);
+    }
+    // The long-string fast path must never bypass the shared
+    // validation of every ASCII digit (including the final byte).
+    for (const std::size_t invalid_position:
+            {0u,155u,309u,310u}) {
+        std::string invalid(311u,'7');
+        invalid[invalid_position]='x';
+        bool threw=false;
+        try { (void)from_decimal(invalid); }
+        catch (std::invalid_argument const&) { threw=true; }
+        ARIADNE_TEST_ASSERT(threw);
+    }
+
     // Balanced decimal formatting B22: exact radix-10^(9*2^k)
     // boundaries, long zero runs and carry chains, plus signed-free
     // decimal formatting beyond the standard 4096-bit benchmark.

@@ -662,6 +662,42 @@ BigUnsigned from_decimal(std::string_view input)
         }
     }
 
+    // B24: for long strings, group 18 decimal digits per pass and
+    // accumulate an exact 64x60-bit product in an unsigned 128-bit
+    // intermediate. This halves the number of full-limb scans. The
+    // carry is < 10^18, so (2^64-1)*10^18+carry fits in 128 bits.
+    // Keep B19's portable radix-10^9 implementation below unchanged
+    // for <=309 digits and for toolchains without native 128-bit ints.
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    if (input.size()>309u) {
+        __extension__ using Wide=unsigned __int128;
+        constexpr std::size_t group=18u;
+        std::vector<BigUnsigned::Limb> digits;
+        std::size_t pos=0u;
+        while (pos<input.size()) {
+            const std::size_t count=std::min(group,input.size()-pos);
+            BigUnsigned::Limb radix=1u;
+            BigUnsigned::Limb chunk=0u;
+            for (std::size_t i=0u;i<count;++i) {
+                radix*=10u;
+                chunk=chunk*10u+
+                    static_cast<BigUnsigned::Limb>(input[pos+i]-'0');
+            }
+            BigUnsigned::Limb carry=chunk;
+            for (auto& digit:digits) {
+                const Wide product=static_cast<Wide>(digit)*radix+carry;
+                digit=static_cast<BigUnsigned::Limb>(product);
+                carry=static_cast<BigUnsigned::Limb>(product>>64u);
+            }
+            if (carry!=0u) {
+                digits.push_back(carry);
+            }
+            pos+=count;
+        }
+        return BigUnsigned(digits);
+    }
+#endif
+
     // Multiply in base-10^9 blocks using 32-bit half-products, never
     // assuming compiler support for a 128-bit integer.
     constexpr std::size_t group=9u;
