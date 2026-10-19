@@ -179,16 +179,13 @@ Integer mul(Integer const& z1, Integer const& z2) {
 // Signed integer division truncates toward zero; the remainder
 // has the dividend's sign. Both agree with GMP's mpz_tdiv_* family.
 Integer quot(Integer const& z1, Integer const& z2) {
-    auto [quotient,remainder]=divrem(z1._magnitude,z2._magnitude);
-    (void)remainder;
-    return Integer::from_magnitude(std::move(quotient),
+    return Integer::from_magnitude(quot(z1._magnitude,z2._magnitude),
                                    z1._negative!=z2._negative);
 }
 
 Integer rem(Integer const& z1, Integer const& z2) {
-    auto [quotient,remainder]=divrem(z1._magnitude,z2._magnitude);
-    (void)quotient;
-    return Integer::from_magnitude(std::move(remainder),z1._negative);
+    return Integer::from_magnitude(rem(z1._magnitude,z2._magnitude),
+                                   z1._negative);
 }
 
 Integer pow(Integer const& z, Nat exponent) {

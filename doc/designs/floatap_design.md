@@ -7722,3 +7722,19 @@ randomized validation. An isolated alternative Boost-based
 algorithm passed 6058 GMP differential cases, but integrated
 Unix/Windows/Coverage and native ARM64/x86-64 speedup evidence
 remain pending. See `integer_rational_design.md` B22.
+
+
+### B23 single-output division after B22 (19 October 2026)
+
+B23 makes `Integer::quot` and `Integer::rem` use new
+single-output native `BigUnsigned` primitives backed by one
+templated internal division core, while preserving the public
+two-output `divrem_into` contract and the identical long-division
+quotient-digit correction. Unrequested quotient/remainder object
+allocation, final unnormalization or quotient stores are skipped
+as appropriate; single-limb remainder avoids quotient storage.
+No FloatAP, Rational, Dyadic, GMP adapter, arithmetic algorithm,
+benchmark definition or B22 decimal-formatting change. Existing
+GMP-randomized division tests are extended with single-output
+comparisons and boundary checks. Cross-platform CI and measured
+performance remain pending. Details: `integer_rational_design.md`.

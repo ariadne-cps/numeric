@@ -455,30 +455,59 @@ void subtract_in_place(BigUnsigned::MutableLimbView destination,
 
 } // namespace
 
-void BigUnsigned::divrem_into(
+template<bool WantQuotient,bool WantRemainder>
+void BigUnsigned::divrem_selected_into(
         LimbView a,LimbView b,MutableLimbView quotient,
         MutableLimbView remainder,MutableLimbView scratch)
 {
+    static_assert(WantQuotient || WantRemainder);
     if (b.empty()) {
         throw std::domain_error("BigUnsigned division by zero");
     }
-    if (quotient.size()<a.size() ||
-            remainder.size()<std::min(a.size(),b.size())) {
-        throw std::length_error("BigUnsigned division output too small");
+    const std::size_t quotient_limbs=
+        a.size()<b.size() ? 0u : a.size()-b.size()+1u;
+    const std::size_t remainder_limbs=std::min(a.size(),b.size());
+    if constexpr (WantQuotient) {
+        if (quotient.size()<quotient_limbs) {
+            throw std::length_error("BigUnsigned quotient output too small");
+        }
+    }
+    if constexpr (WantRemainder) {
+        if (remainder.size()<remainder_limbs) {
+            throw std::length_error("BigUnsigned remainder output too small");
+        }
     }
     const auto required=divrem_scratch_limbs(a.size(),b.size());
     if (scratch.size()<required) {
         throw std::length_error("BigUnsigned division scratch too small");
     }
 
-    std::fill(quotient.begin(),quotient.end(),Limb{0});
-    std::fill(remainder.begin(),remainder.end(),Limb{0});
+    if constexpr (WantQuotient) {
+        std::fill(quotient.begin(),quotient.end(),Limb{0});
+    }
+    if constexpr (WantRemainder) {
+        std::fill(remainder.begin(),remainder.end(),Limb{0});
+    }
     if (a.size()<b.size()) {
-        std::copy(a.begin(),a.end(),remainder.begin());
+        if constexpr (WantRemainder) {
+            std::copy(a.begin(),a.end(),remainder.begin());
+        }
         return;
     }
     if (b.size()==1u) {
-        remainder[0]=divrem_limb_into(a,b[0],quotient);
+        if constexpr (WantQuotient) {
+            const Limb low=divrem_limb_into(a,b[0],quotient);
+            if constexpr (WantRemainder) {
+                remainder[0u]=low;
+            }
+        } else {
+            // No quotient buffer or object is allocated for rem-only.
+            Limb low=0u;
+            for (std::size_t i=a.size();i!=0u;--i) {
+                low=divide_wide(low,a[i-1u],b[0u]).second;
+            }
+            remainder[0u]=low;
+        }
         return;
     }
 
@@ -488,7 +517,8 @@ void BigUnsigned::divrem_into(
     auto v=scratch.subspan(n+1u,m);
     auto product=scratch.subspan(n+1u+m,m+1u);
 
-    // Normalize the divisor's highest bit; keep the dividend carry.
+    // The same exact normalized long division and downward quotient
+    // corrections are used in all three compile-time result modes.
     const unsigned shift=static_cast<unsigned>(std::countl_zero(b.back()));
     Limb carry=0u;
     for (std::size_t i=0u;i<n;++i) {
@@ -504,9 +534,6 @@ void BigUnsigned::divrem_into(
         carry=shift==0u?0u:digit>>(64u-shift);
     }
 
-    // Radix-2^64 long division: the normalized top-two-limb estimate
-    // bounds the quotient digit from above. Correct its full product
-    // downward before subtracting; at most two corrections are needed.
     for (std::size_t counter=n-m+1u;counter!=0u;--counter) {
         const std::size_t j=counter-1u;
         const Limb high=u[j+m];
@@ -521,15 +548,35 @@ void BigUnsigned::divrem_into(
             subtract_in_place(product,v);
         }
         subtract_in_place(u.subspan(j,m+1u),product);
-        quotient[j]=digit;
+        if constexpr (WantQuotient) {
+            quotient[j]=digit;
+        }
     }
 
-    // Unnormalize the remainder; it is strictly smaller than b.
-    for (std::size_t i=0u;i<m;++i) {
-        const Limb high=i+1u<m?u[i+1u]:Limb{0};
-        remainder[i]=shift==0u?u[i]:
-            (u[i]>>shift)|(high<<(64u-shift));
+    if constexpr (WantRemainder) {
+        // The final partial dividend already holds the remainder.
+        for (std::size_t i=0u;i<m;++i) {
+            const Limb high=i+1u<m?u[i+1u]:Limb{0};
+            remainder[i]=shift==0u?u[i]:
+                (u[i]>>shift)|(high<<(64u-shift));
+        }
     }
+}
+
+void BigUnsigned::divrem_into(
+        LimbView a,LimbView b,MutableLimbView quotient,
+        MutableLimbView remainder,MutableLimbView scratch)
+{
+    // Keep the historical public output sizes and fail-before-mutation
+    // checks, even though specialized internal outputs can be smaller.
+    if (b.empty()) {
+        throw std::domain_error("BigUnsigned division by zero");
+    }
+    if (quotient.size()<a.size() ||
+            remainder.size()<std::min(a.size(),b.size())) {
+        throw std::length_error("BigUnsigned division output too small");
+    }
+    divrem_selected_into<true,true>(a,b,quotient,remainder,scratch);
 }
 
 std::pair<BigUnsigned,BigUnsigned> divrem(
@@ -556,6 +603,43 @@ std::pair<BigUnsigned,BigUnsigned> divrem(
     return {std::move(quotient),std::move(remainder)};
 }
 
+BigUnsigned quot(BigUnsigned const& a,BigUnsigned const& b)
+{
+    if (b.is_zero()) {
+        throw std::domain_error("BigUnsigned division by zero");
+    }
+    const auto count=a.size()<b.size()?0u:a.size()-b.size()+1u;
+    BigUnsigned quotient;
+    quotient.resize_for_result(count);
+    BigUnsigned::Scratch workspace;
+    const auto scratch=workspace.acquire(
+        BigUnsigned::divrem_scratch_limbs(a.size(),b.size()));
+    BigUnsigned::divrem_selected_into<true,false>(
+        a.limbs(),b.limbs(),
+        BigUnsigned::MutableLimbView(quotient.mutable_data(),count),
+        {},scratch);
+    quotient.normalize();
+    return quotient;
+}
+
+BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b)
+{
+    if (b.is_zero()) {
+        throw std::domain_error("BigUnsigned division by zero");
+    }
+    const auto count=std::min(a.size(),b.size());
+    BigUnsigned remainder;
+    remainder.resize_for_result(count);
+    BigUnsigned::Scratch workspace;
+    const auto scratch=workspace.acquire(
+        BigUnsigned::divrem_scratch_limbs(a.size(),b.size()));
+    BigUnsigned::divrem_selected_into<false,true>(
+        a.limbs(),b.limbs(),{},
+        BigUnsigned::MutableLimbView(remainder.mutable_data(),count),
+        scratch);
+    remainder.normalize();
+    return remainder;
+}
 
 BigUnsigned gcd(BigUnsigned a,BigUnsigned b)
 {
