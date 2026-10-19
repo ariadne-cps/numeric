@@ -1700,3 +1700,44 @@ existing `benchmark_compare_integer_backends` executable with
 --samples 31`. **Unix, Windows, Coverage CI and native benchmark
 measurements are pending for B20**, so no new performance ratio
 is claimed.
+
+
+### B21 complete retirement of transient signed class (19 October 2026)
+
+After successful B20 native ARM64 and x86-64 benchmark verification and
+green Unix/Windows/Coverage CI for `c767b45`, retire the independent
+B17 migration scaffold. The production `Integer` class continues to
+own canonical `BigUnsigned` magnitude and sign. Delete exactly
+`include/numeric/signed_integer.hpp`,
+`src/signed_integer.cpp`, and `tests/test_signed_integer.cpp`;
+remove its source from `src/CMakeLists.txt` and its test executable
+from `tests/CMakeLists.txt`. Do not replace the scaffold with another
+signed numeric wrapper. No changes to production arithmetic,
+benchmarks, ISA dispatch, FloatAP implementation or GMP boundary
+adapter are necessary.
+
+Before removal, transfer the complete independent 2500-case B17
+GMP-differential random corpus (original seed 0x51C0FFEE, operand
+construction, sign patterns, zeros, add/sub/mul, truncating quotient
+and remainder, remainder sign and algebraic identity) into a new
+`TestInteger::test_signed_regression` test section. Preserve B18's
+existing distinct 1700-case random differential corpus. Check the
+fixed sign/negative-zero, signed extrema, parsing failures,
+checked conversions, zero-power, negative square, signed 20-case
+division matrix, division-by-zero, and 130-shift pattern from B17.
+Since public `Integer` does not expose a direct signed shift API,
+test the same right-shift truncation-to-zero semantics by combining
+the native `BigUnsigned::shift_right` with `Integer::from_magnitude`,
+and independently through `quot(x,2^bits)`, comparing both with
+GMP `mpz_tdiv_q_2exp`. Similarly check native magnitude left shift
+with restored sign against GMP `mpz_mul_2exp`. Keep exact checked
+GMP oracle conversions and canonical nonnegative zero assertions.
+Do not add a new permanent signed class or public API.
+
+The deletion is an architecture completion gate, not merely a
+build-time convenience. All production code continues to reside
+under `namespace Ariadne`. Full Unix/Windows/Coverage and CTest
+results for this migration are pending; do not assert complete
+validation until green. The benchmark remains unchanged (all six
+sizes, fourteen operations) and can be rerun without migration
+specific modifications.
