@@ -8412,3 +8412,18 @@ FloatAP semantics, and the unchanged Integer/GMP benchmarks.
 181 new GMP parsing regressions included in production tests.
 Native same-host speedups remain to be verified; see B47 in
 integer_rational_design.md.
+
+
+### B48 ARM64 native 64-bit steps for small-divisor wide division (19 October 2026)
+
+The common BigUnsigned::divide_wide helper uses two exact native
+64-bit quotient/remainder steps on native GCC/Clang ARM64 when
+0<high<divisor<=2^32-1, avoiding the compiler's unsigned-128
+arithmetic runtime helper. This serves quotient, remainder and
+divrem modes and leaves the existing x86-64 DIVQ, MSVC, larger
+ARM64 divisors and fallback paths unchanged. GMP-differential
+tests were extended by 896 shape/divisor cases, including the
+official single-limb division shapes. No public API, FloatAP
+algorithm, benchmark workload, or GMP production dependency is
+changed. See B48 in integer_rational_design.md. Same-host
+performance measurements are pending.
