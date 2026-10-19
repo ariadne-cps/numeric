@@ -222,6 +222,36 @@ void TestBigUnsigned::test_multiplication()
                         static_cast<mp_bitcnt_t>(64u*low_limbs));
         check_against_gmp(mul_low(x,y,low_limbs),t.value);
     }
+
+    // B32: validate the symmetric squaring threshold and large carry
+    // chains against GMP; verify mul(x,x) independently remains exact.
+    // Include dense/sparse, saturated and exact high-limb boundaries.
+    std::mt19937_64 square_engine(0xB3205A7EULL);
+    for (const std::size_t count:
+            {1u,2u,7u,8u,9u,12u,16u,32u,64u,96u,128u}) {
+        for (unsigned repetition=0u;repetition<192u;++repetition) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=square_engine();
+            if (repetition%13u==0u) {
+                std::fill(words.begin(),words.end(),max);
+            } else if (repetition%17u==0u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+            } else if (repetition%19u==0u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u;
+                words.back()=max;
+            } else if (repetition%23u==0u) {
+                std::fill(words.begin(),words.end(),0u);
+            }
+            const BigUnsigned value(words);
+            mpz_import(a.value,value.size(),-1,sizeof(std::uint64_t),
+                       0,0,value.limbs().data());
+            mpz_mul(t.value,a.value,a.value);
+            check_against_gmp(square(value),t.value);
+            check_against_gmp(mul(value,value),t.value);
+        }
+    }
 }
 
 void TestBigUnsigned::test_views_and_scratch()

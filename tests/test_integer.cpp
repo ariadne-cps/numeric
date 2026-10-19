@@ -405,6 +405,25 @@ void TestInteger::test_native() {
         GMP& operator=(GMP const&)=delete;
     };
     GMP a,b,expected,quotient,remainder;
+
+    // B32: GMP is the independent oracle for the first-set-bit
+    // multiplication elision, including 0^0, signs and exponents
+    // with leading zero bits or several nonzero bits.
+    for (const char* literal:
+            {"0","1","-1","2","-2","17","-17",
+             "18446744073709551616","-18446744073709551616",
+             "340282366920938463463374607431768211455"}) {
+        const Integer input{String(literal)};
+        ARIADNE_TEST_ASSERT(mpz_set_str(a.value,literal,10)==0);
+        for (unsigned exponent=0u;exponent<=12u;++exponent) {
+            mpz_pow_ui(expected.value,a.value,exponent);
+            const GmpIntegerBoundary native_pow(
+                pow(input,Nat(exponent)));
+            ARIADNE_TEST_ASSERT(
+                mpz_cmp(native_pow.value(),expected.value)==0);
+        }
+    }
+
     std::mt19937_64 engine(0x1A7E6EEDULL);
     for (unsigned repetition=0u;repetition<1700u;++repetition) {
         std::string lhs=std::to_string(engine());

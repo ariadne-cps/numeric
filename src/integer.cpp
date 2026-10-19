@@ -193,9 +193,18 @@ Integer pow(Integer const& z, Nat exponent) {
     BigUnsigned base=z._magnitude;
     auto n=static_cast<std::uint64_t>(exponent);
     const bool negative=z._negative && (n&std::uint64_t{1})!=0u;
+    bool has_factor=false;
     while (n!=0u) {
         if ((n&std::uint64_t{1})!=0u) {
-            value=mul(value,base);
+            // B32: multiplying the initial accumulator 1 by the first
+            // selected power is unnecessary. Copy that power instead;
+            // keep the same squaring and multiplication schedule.
+            if (!has_factor) {
+                value=base;
+                has_factor=true;
+            } else {
+                value=mul(value,base);
+            }
         }
         n>>=1u;
         if (n!=0u) {
