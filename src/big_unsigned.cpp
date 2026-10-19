@@ -629,6 +629,27 @@ void BigUnsigned::divrem_selected_into(
         return;
     }
 
+    // B45: remove an exact B^k factor (B=2^64) from the divisor.
+    // a = a_hi*B^k+a_lo and b = b_hi*B^k, 0 <= a_lo < B^k:
+    // q = a_hi/b_hi and r = (a_hi%b_hi)*B^k+a_lo.
+    // Reuse the already checked and zero-initialized output/scratch;
+    // the high-span division needs strictly less scratch storage.
+    if (b.front()==0u) {
+        std::size_t zero_limbs=1u;
+        while (zero_limbs+1u<b.size() && b[zero_limbs]==0u) {
+            ++zero_limbs;
+        }
+        divrem_selected_into<WantQuotient,WantRemainder>(
+            a.subspan(zero_limbs),b.subspan(zero_limbs),quotient,
+            WantRemainder ? remainder.subspan(zero_limbs)
+                          : MutableLimbView{},
+            scratch);
+        if constexpr (WantRemainder) {
+            std::copy_n(a.begin(),zero_limbs,remainder.begin());
+        }
+        return;
+    }
+
     const std::size_t n=a.size();
     const std::size_t m=b.size();
 

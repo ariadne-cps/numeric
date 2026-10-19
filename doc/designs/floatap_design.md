@@ -8363,3 +8363,18 @@ B44 stage measurements show leaf conversion is the largest replay at
 recursive `divrem` is the largest at 4096 bits (4440.488 ns of
 an 8236.562 ns full conversion). Replays are non-additive.
 See the B44.1 record in `integer_rational_design.md`.
+
+
+### B45 exact whole-zero limb factoring in shared division (19 October 2026)
+
+General BigUnsigned divrem detects k>=1 zero low divisor limbs
+and divides canonical high views, reconstructing the discarded
+low dividend limbs in the exact remainder. This preserves quotient,
+remainder, scratch/output and aliasing contracts across all three
+public division modes. It accelerates a possible source of cost
+in B22's decimal-power division without modifying decimal recursion,
+ISA selection, FloatAP algorithms, GMP independence, official
+benchmarks or public APIs. Independent GMP regressions cover
+arbitrary shifted divisors and B22 powers of ten. No native
+performance claim is made until same-host measurements. See B45
+in integer_rational_design.md.

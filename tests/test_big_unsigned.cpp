@@ -1459,6 +1459,79 @@ void TestBigUnsigned::test_division()
         check_fused_division(BigUnsigned(left),BigUnsigned(right));
     }
 
+    // B45: independent GMP checks of whole-zero low divisor limbs.
+    // Include inline/heap boundaries, equal/small/large quotients,
+    // arbitrary low remainders, all output modes and guard contracts.
+    std::mt19937_64 shifted_engine(0xB450D1D1ULL);
+    for (const std::size_t m:{2u,3u,5u,8u,16u,32u,64u}) {
+        for (const std::size_t zeros:
+                {std::size_t{1},m/2u,m-1u}) {
+            for (unsigned repetition=0u;repetition<24u;++repetition) {
+                const std::size_t n=m+
+                    (repetition%4u==0u?0u:
+                     repetition%4u==1u?1u:
+                     repetition%4u==2u?m:2u*m);
+                std::vector<std::uint64_t> left(n),right(m);
+                for (auto& word:left) word=shifted_engine();
+                for (auto& word:right) word=shifted_engine();
+                std::fill_n(right.begin(),zeros,0u);
+                right.back()|=std::uint64_t{1}<<63u;
+                left.back()|=std::uint64_t{1}<<63u;
+                if (repetition%6u==0u && n==m) {
+                    left=right;
+                } else if (repetition%6u==1u && n==m) {
+                    left.back()=right.back()-1u;
+                } else if (repetition%6u==2u) {
+                    std::fill_n(left.begin(),zeros,0u);
+                } else if (repetition%6u==3u) {
+                    std::fill(left.begin(),left.end(),max);
+                }
+                const BigUnsigned numerator(left),denominator(right);
+                check_fused_division(numerator,denominator);
+                const auto needed=BigUnsigned::divrem_scratch_limbs(
+                    numerator.size(),denominator.size());
+                std::vector<std::uint64_t> qout(
+                    numerator.size()+2u,max);
+                std::vector<std::uint64_t> rout(
+                    std::min(numerator.size(),denominator.size())+2u,max);
+                std::vector<std::uint64_t> guards(needed+2u,max);
+                BigUnsigned::divrem_into(
+                    numerator.limbs(),denominator.limbs(),qout,rout,
+                    BigUnsigned::MutableLimbView(
+                        guards.data()+1u,needed));
+                check_against_gmp(BigUnsigned(qout),q.value);
+                check_against_gmp(BigUnsigned(rout),r.value);
+                for (std::size_t i=numerator.size();i<qout.size();++i) {
+                    ARIADNE_TEST_ASSERT(qout[i]==0u);
+                }
+                const std::size_t rem_count=
+                    std::min(numerator.size(),denominator.size());
+                for (std::size_t i=rem_count;i<rout.size();++i) {
+                    ARIADNE_TEST_ASSERT(rout[i]==0u);
+                }
+                ARIADNE_TEST_ASSERT(guards.front()==max);
+                ARIADNE_TEST_ASSERT(guards.back()==max);
+            }
+        }
+    }
+
+    // B45: the decimal divisors of B22 recursion contain large
+    // powers of two; exercise the exact official sparse input shape.
+    for (const unsigned digits:{72u,144u,288u,576u}) {
+        const BigUnsigned decimal_power=from_decimal(
+            std::string("1")+std::string(digits,'0'));
+        for (const std::size_t bits:{2048u,4096u}) {
+            const BigUnsigned binary_power=shift_left(
+                BigUnsigned(std::uint64_t{1}),bits-1u);
+            for (const std::uint64_t offset:
+                    {0u,1u,13u,127u,1023u}) {
+                const BigUnsigned numerator=add(
+                    binary_power,BigUnsigned(offset));
+                check_fused_division(numerator,decimal_power);
+            }
+        }
+    }
+
     // Force all 64 divisor-normalization shifts. Vary the dividend's
     // top words and saturated bottom words to exercise quotient
     // estimates, downward corrections and full-width remainders.
