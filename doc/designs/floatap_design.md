@@ -7643,3 +7643,8 @@ The existing `Integer` class has been refactored in place to canonical `BigUnsig
 ### B19 shared decimal throughput and Integer benchmark correction (19 October 2026)
 
 B18 native ARM64 and x86-64 measurements showed `to_decimal` dominating total time. In the shared `BigUnsigned` decimal conversion only, divide each radix-`2^64` word by `10^9` through two 32-bit halves using portable 64-bit arithmetic, avoiding 64-step bitwise division. Preserve `BigUnsigned::divrem_limb` and general `divrem` unchanged. The Integer-vs-GMP benchmark now compares one native `cmp` against one GMP `mpz_cmp` and adds separate nontrivial signed quotient/remainder rows without changing the original workload. All new values are verified exactly against GMP outside timing. A standalone 800,000-case mathematical oracle passed, but integrated CI and performance outcomes are pending. 4096-bit measurement remains available, though the next developer runs can temporarily specify `--bits 53,128,256,1024,2048`. See integer_rational_design.md B19.
+
+
+### B19.1 decimal type alias fix (19 October 2026)
+
+Within `namespace Ariadne`, the free function `to_decimal` must refer to the nested limb alias as `BigUnsigned::Limb`. Corrected two declarations/expressions; algorithms and benchmarks unchanged. CI pending.

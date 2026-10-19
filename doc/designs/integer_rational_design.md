@@ -1596,3 +1596,8 @@ B19 makes the **targeted common-only** decimal-format change in `src/big_unsigne
 The Integer benchmark compares using **one** `cmp` call versus one `mpz_cmp`. Existing original quotient/remainder rows and the original 32-value pools remain unchanged, while two additional `quotient_nontrivial`/`remainder_nontrivial` rows use a separate deterministic 32-value signed division pool with single-limb, half-width, near-equal and small divisors. Both backend pools are constructed outside timing. The benchmark's exhaustive cross-backend oracle now checks the additional input pairs and two operations at each width, with a fixed expected count of 14 instead of 12; historical 12-op per-size aggregation must not be directly compared to new 14-op aggregate. No changes to Rational benchmark paths, CI settings, timed sample counts, or data exclusions. **4096 bits remains supported and untouched**; for the next provisional benchmark invocation select `--bits 53,128,256,1024,2048` explicitly for speed, then restore 4096 after measuring `to_decimal` improvements.
 
 Integrated Unix/Windows/Coverage CI and native ARM64/x86-64 benchmark results for B19 are pending. Keep `SignedInteger` temporary and migrate its unique tests before final deletion, independently of benchmark throughput.
+
+
+### B19.1 scoped type fix (19 October 2026)
+
+AppleClang reported two unqualified `Limb` uses in free function `Ariadne::to_decimal`. The function was already in `namespace Ariadne`; `Limb` is a nested alias of `BigUnsigned`. Qualify both as `BigUnsigned::Limb`. No other source, test, benchmark, algorithm or namespace is changed. Integrated CI remains pending.
