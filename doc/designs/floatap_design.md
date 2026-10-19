@@ -7581,3 +7581,16 @@ Introduced a benchmark-only `benchmark_big_unsigned_arithmetic` executable (no n
 ### B14 single-limb division and fallback-source rule (19 October 2026)
 
 The user clarified that generic arithmetic with **no native x86-64/ARM64 specialized counterpart** belongs in `src/big_unsigned.cpp`. Only portable alternatives to ISA-specialized algorithms belong in `big_unsigned_fallback.cpp`. Thus the pure C++20 unsigned single-limb quotient/remainder implementation and tests are in the common source; `big_unsigned_fallback.cpp` is unchanged. GMP differential tests cover 6000 cases, normalization and exceptions. A general multiprecision-divisor division is still needed before native Integer/Rational migration. Production multiplication dispatch and FloatAP remain unchanged.
+
+
+### B14.1 Windows GMP 64-bit remainder oracle correction (19 October 2026)
+
+The B14 Windows Release build succeeded, but the single-limb division
+test compared a 64-bit native remainder against `mpz_get_ui`, whose
+`unsigned long` result is only 32 bits on Windows x64. The test now
+uses full-width `mpz_import` plus `mpz_cmp` and explicitly covers a
+remainder above 32 bits; all existing randomized GMP-differential
+checks remain unchanged. Production `BigUnsigned`, `FloatAP`,
+architecture dispatch and backend source placement remain unchanged.
+Windows and other CI results for this correction are pending. See
+`integer_rational_design.md` for the detailed B14.1 record.
