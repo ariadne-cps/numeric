@@ -7701,3 +7701,24 @@ cases. Signed shifts are checked using the shared native magnitude
 shifts plus sign, and GMP; this does not add an `Integer` shift API
 or change FloatAP arithmetic. Project cross-platform CI remains
 pending for B21; see `integer_rational_design.md`.
+
+
+### B22 recursive decimal formatting for large Integer magnitudes (19 October 2026)
+
+Based on B21's cross-platform green CI and native ARM64/x86-64
+benchmarks, optimize only `BigUnsigned::to_decimal` for large
+magnitudes. Retain the existing portable two-64/32 radix-10^9
+formatter up to 16 limbs; for larger values recursively divide
+by balanced cached exact powers `10^(9*2^i)`, padding each
+low-order decimal chunk to its fixed width. All helpers live
+inside `namespace Ariadne`. The powers are local to one
+conversion (no shared cache), and the recursion reuses shared
+native `divrem`. Preserve `Integer` signed-magnitude,
+the retired signed-class state, FloatAP and rational internals,
+GMP boundary adapters, parsing and benchmark workloads.
+Add 50 direct GMP-oracle power-of-ten and zero-run boundary
+cases to `test_big_unsigned` without removing any existing
+randomized validation. An isolated alternative Boost-based
+algorithm passed 6058 GMP differential cases, but integrated
+Unix/Windows/Coverage and native ARM64/x86-64 speedup evidence
+remain pending. See `integer_rational_design.md` B22.

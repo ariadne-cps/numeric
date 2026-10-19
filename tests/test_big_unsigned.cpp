@@ -972,6 +972,49 @@ void TestBigUnsigned::test_gcd_decimal()
         ARIADNE_TEST_ASSERT(mpz_set_str(a.value,digits.c_str(),10)==0);
         check_against_gmp(parsed,a.value);
     }
+    // Balanced decimal formatting B22: exact radix-10^(9*2^k)
+    // boundaries, long zero runs and carry chains, plus signed-free
+    // decimal formatting beyond the standard 4096-bit benchmark.
+    // The independent GMP oracle uses binary export, not from_decimal.
+    const auto check_decimal_boundary=[&](mpz_srcptr reference) {
+        const std::size_t words_needed=
+            (mpz_sizeinbase(reference,2u)+63u)/64u+1u;
+        std::vector<std::uint64_t> words(words_needed,0u);
+        std::size_t used=0u;
+        mpz_export(words.data(),&used,-1,sizeof(std::uint64_t),
+                   0,0,reference);
+        const BigUnsigned native(std::span(words.data(),used));
+        std::string expected_decimal(
+            mpz_sizeinbase(reference,10u)+2u,'\0');
+        mpz_get_str(expected_decimal.data(),10,reference);
+        expected_decimal.resize(
+            std::char_traits<char>::length(expected_decimal.c_str()));
+
+        const std::string decimal=to_decimal(native);
+        ARIADNE_TEST_ASSERT(decimal==expected_decimal);
+        ARIADNE_TEST_ASSERT(
+            compare(from_decimal(decimal),native)==0);
+    };
+    for (unsigned k=0u;k<=9u;++k) {
+        const unsigned long digits=9ul*(1ul<<k);
+        mpz_ui_pow_ui(a.value,10ul,digits);
+        check_decimal_boundary(a.value);             // 10^digits
+        mpz_sub_ui(a.value,a.value,1ul);
+        check_decimal_boundary(a.value);             // 99...99
+        mpz_add_ui(a.value,a.value,2ul);
+        check_decimal_boundary(a.value);             // 10^digits+1
+        mpz_add_ui(a.value,a.value,8ul);
+        check_decimal_boundary(a.value);             // 10^digits+9
+
+        // A nonzero suffix after many complete zero-filled radix
+        // groups; tests width padding in recursive low partitions.
+        const std::string blocks=
+            std::string("123456789")+std::string(digits,'0')+
+            std::string("000000001");
+        ARIADNE_TEST_ASSERT(
+            mpz_set_str(a.value,blocks.c_str(),10)==0);
+        check_decimal_boundary(a.value);
+    }
 }
 
 void TestBigUnsigned::test_randomized()

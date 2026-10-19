@@ -1741,3 +1741,66 @@ results for this migration are pending; do not assert complete
 validation until green. The benchmark remains unchanged (all six
 sizes, fourteen operations) and can be rerun without migration
 specific modifications.
+
+
+### B22 balanced large-integer decimal formatting (19 October 2026)
+
+After completion of the transient signed-class retirement in B21,
+the user provided native ARM64 and x86-64 six-size Integer/GMP
+benchmarks: both passed 768-input / 2688-result verification, and
+B21 Unix, Windows and Coverage CI were green at `7faa6da`.
+The 4096-bit native `to_decimal` cost remained approximately
+19.6 microseconds on ARM64 and 27.9 microseconds on x86-64,
+about 5.3x and 6.3x GMP respectively. These are B21 baselines.
+
+B22 optimizes only `BigUnsigned::to_decimal` in the shared
+`src/big_unsigned.cpp`. Preserve B19's exact radix-`10^9`,
+two-64/32-division formatter as `to_decimal_blocks` and select it
+unchanged for all values of at most **16 64-bit limbs** (including
+zero, signed-magnitude single limb, the inline/heap boundary,
+and every 1024-bit input). For larger inputs, build a private
+per-call table `P_i=10^(9*2^i)` by exact `BigUnsigned::square`,
+caching the exact decimal widths `9*2^i`. Avoid constructing the
+expensive final unnecessary square when its minimum bit length
+already exceeds half the original input's bit length.
+Recursively split a positive value at the largest `P_i` whose
+bit length is at most half the current value's bit length,
+using the existing exact `BigUnsigned::divrem(value,P_i)`.
+Convert the high and low parts recursively, left-padding the low
+decimal string with exactly `9*2^i` digits before concatenation.
+Because `0 <= low < P_i`, the suffix never exceeds the fixed
+width; leading high zeros are absent, and low zeros/long internal
+zero runs are exact. Leaves of at most 16 limbs use
+`to_decimal_blocks`. Zero is returned as `"0"`. No
+floating-point digit estimate, no global or shared mutable cache,
+no change to parsing/from_decimal, arithmetic, sign rules,
+benchmarks, public API, target-specific dispatch or GMP boundaries.
+The helper functions are in an anonymous namespace **inside**
+`namespace Ariadne`, never in the global namespace.
+This algorithm reuses native divrem and should be evaluated on
+both architectures for speed rather than assuming a crossover.
+
+Extend the existing `test_big_unsigned::test_gcd_decimal` with
+50 exact GMP-oracle decimal cases: powers `10^(9*2^k)` for
+`k=0..9`, each at its boundary, one below, one above,
+nine above, and with a long zero-filled run plus a nonzero suffix.
+Construct the independent native reference via `mpz_export`
+and compare output **exactly** to GMP's `mpz_get_str`;
+also verify `from_decimal(to_decimal(x)) == x`.
+This supplements, never replaces, the pre-existing 2800
+randomized GMP decimal checks, 1800 randomized parse checks
+and signed Integer regression suites. A separate Boost
+multiprecision implementation of the same balanced split
+(not the repository's BigUnsigned class) passed **6058** GMP
+differential decimal checks up to approximately 25000 bits.
+Its timings are a *proxy only*, not proof of a native performance
+improvement. B22 integrated cross-platform CI and the actual
+ARM64/x86-64 performance benchmarks are pending.
+
+Measure B22 with the unchanged full 53,128,256,1024,2048,4096-bit
+Integer-vs-GMP benchmark (20000 iterations, 31 samples), comparing
+B22 to B21 separately for each platform and especially inspecting
+1024-bit stability, 2048-/4096-bit `to_decimal`, overall slowdown
+and any regression in `from_decimal` and other operations.
+Do not optimize or alter the benchmark corpus to manufacture
+improvements. Keep 4096 bits included.
