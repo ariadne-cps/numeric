@@ -947,8 +947,23 @@ namespace {
 std::string to_decimal_blocks_wide(BigUnsigned const& value)
 {
     __extension__ using Wide=unsigned __int128;
-    constexpr BigUnsigned::Limb radix=1000000000000000000ULL;
+    using Limb=BigUnsigned::Limb;
+    constexpr Limb radix=1000000000000000000ULL;
     constexpr std::size_t block_width=18u;
+
+    // B46: replace the compiler's 128/64 runtime division (__udivti3
+    // on ARM64 Clang) with an exact constant-divisor reciprocal.
+    // R=floor(2^128/radix) (2^128 is not divisible by radix).
+    // For N=high*2^64+low and high<radix, floor(N*R/2^128) differs
+    // from floor(N/radix) by at most one, always on the low side:
+    // 0 <= N/radix-N*R/2^128 < radix/2^64 < 1.
+    // The provisional remainder is <2*radix<2^64, so its low
+    // 64-bit subtraction is the exact nonnegative remainder.
+    constexpr Wide reciprocal=(~Wide{0})/static_cast<Wide>(radix);
+    constexpr Limb reciprocal_high=static_cast<Limb>(reciprocal>>64u);
+    constexpr Limb reciprocal_low=static_cast<Limb>(reciprocal);
+    static_assert(reciprocal_high==18u);
+    static_assert(radix<=std::numeric_limits<Limb>::max()/2u);
 
     const auto limbs=value.limbs();
     std::vector<BigUnsigned::Limb> work(limbs.begin(),limbs.end());
@@ -960,12 +975,23 @@ std::string to_decimal_blocks_wide(BigUnsigned const& value)
     while (!work.empty()) {
         BigUnsigned::Limb remainder=0u;
         for (std::size_t i=work.size();i!=0u;--i) {
-            // remainder < 10^18 and digit < 2^64, so the
-            // numerator is < 10^18 * 2^64 and fits in Wide.
-            const Wide numerator=(static_cast<Wide>(remainder)<<64u)|
-                                  static_cast<Wide>(work[i-1u]);
-            work[i-1u]=static_cast<BigUnsigned::Limb>(numerator/radix);
-            remainder=static_cast<BigUnsigned::Limb>(numerator%radix);
+            // High 128 bits of (remainder*2^64+digit)*R.
+            // Compute its quotient with only 64x64->128 products.
+            // The cross-term fits in Wide because remainder<radix.
+            const Limb digit=work[i-1u];
+            const Wide cross=
+                static_cast<Wide>(remainder)*reciprocal_low+
+                static_cast<Wide>(digit)*reciprocal_high+
+                ((static_cast<Wide>(digit)*reciprocal_low)>>64u);
+            Limb quotient=remainder*reciprocal_high+
+                          static_cast<Limb>(cross>>64u);
+            Limb residual=digit-quotient*radix;
+            if (residual>=radix) {
+                ++quotient;
+                residual-=radix;
+            }
+            work[i-1u]=quotient;
+            remainder=residual;
         }
         blocks.push_back(remainder);
         while (!work.empty() && work.back()==0u) {

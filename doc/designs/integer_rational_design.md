@@ -3544,3 +3544,67 @@ No original tests or official benchmark workloads are changed.
 Both design journals describe the general arithmetic proof.
 Full CI and same-host Apple M2 benchmarking are pending.
 Do not claim an actual B45 speedup until those measurements.
+
+
+### B46 ARM64 radix-10^18 exact reciprocal leaf division (19 October 2026)
+
+B45's independent Apple M2 stage benchmark showed a reduction of the
+4096-bit decimal recursion's divrem replay from 4440.488 to 3678.875
+ns and full to_decimal from 8236.562 to 7520.004 ns. The unchanged
+official Integer/GMP benchmark measured native to_decimal at 4096 bits
+falling from B43 8512.402 ns to B45 7818.717 ns; native/GMP geomean
+changed 0.782x to 0.775x and total_time 1.197x to 1.151x. Correctness
+verification passed 768 paired inputs and 2688 operation results.
+All B45 Unix, Windows and Coverage Actions succeeded; external
+Codecov patch/project statuses remained failing. The remaining B45
+stage replays at 4096 bits were divrem 3678.875 ns, leaf conversion
+3464.458 ns, power construction 380.217 ns and append 51.048 ns;
+these separate timings are non-additive. At 2048 bits the leaf replay
+was 1674.200 ns and the full production conversion 2813.100 ns.
+
+B46 changes ONLY the existing native ARM64 wide-leaf formatter
+to_decimal_blocks_wide in src/big_unsigned.cpp. It keeps the radix
+10^18, >=9-limb ARM64 dispatch, work-block extraction, B42
+pre-reserved blocks and exactly-sized two-digit output, B43 recursion,
+B45 division, x86-64/Windows base-10^9 fallback, and the unchanged
+84-case official benchmark. ARM64 Clang currently lowers the wide
+128/64 constant division of each leaf work limb to __udivti3.
+B46 replaces that division with an exact reciprocal calculation using
+64x64->128 products and at most one quotient adjustment.
+
+Let B=2^64 and d=10^18 (<B/2), and take R=floor(B^2/d), which equals
+floor((B^2-1)/d) because d does not divide B^2. For each leaf
+division step, N=h*B+l with 0<=h<d and 0<=l<B. Define
+q0=floor(N*R/B^2). Since
+0<=N/d-N*R/B^2 < d/B < 1,
+q0 is either floor(N/d) or one less, never greater. Compute q0
+using the high 128 bits of the product of two 128-bit values:
+R=r_hi*B+r_lo, N=h*B+l,
+q0=h*r_hi + floor((h*r_lo+l*r_hi+floor(l*r_lo/B))/B).
+The cross term fits in unsigned 128 bits with this d. The exact
+provisional remainder N-q0*d is in [0,2*d), strictly below B;
+thus the 64-bit modular subtraction l-q0*d is already exact.
+If provisional remainder>=d, increment q0 and subtract d once.
+No floating-point estimate, external arithmetic dependency, new
+public API, global cache, or ISA-specific assembly is introduced.
+
+Before integration, a C++20 proof-of-implementation probe checked
+2,643,208 independent hi/lo pairs against the compiler's exact
+unsigned 128-bit quotient and remainder under Clang ASan/UBSan;
+26,303 cases required the single correction. An independent
+standalone full base-10^18 leaf formatter using the same recurrence
+matched GMP mpz_get_str for 9,000 randomized/adversarial operands
+at 9,10,11,12,15,16,17,32,64 limbs under Clang ASan/UBSan.
+An ARM64 Clang 17 assembly probe compiled the new recurrence into
+inline integer instructions without any __udivti3 call, whereas
+the previous implementation emitted such a call. The assembler
+probe does NOT establish Apple M2 runtime speedups.
+
+Production tests add 352 GMP-oracle decimal boundary cases at
+8,9,10,11,12,13,14,15,16,17,32 limbs, including all-ones, zero
+runs and 10^18-related repeating words. All older test corpora and
+benchmarks are preserved. Run standard Unix/Windows/Coverage CI and
+both 20,000-iteration/31-sample B44 diagnostic and the official
+Integer/GMP comparison on the same Apple M2 before accepting B46
+as a performance improvement. A regression would require revisiting
+or reverting the reciprocal path; no runtime speedup is claimed yet.

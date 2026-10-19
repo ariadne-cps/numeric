@@ -1887,6 +1887,47 @@ void TestBigUnsigned::test_gcd_decimal()
         }
     }
 
+    // B46: reciprocal-based ARM64 radix-10^18 leaf divrem replaces
+    // the unsigned 128/64 runtime divide. Exercise random dense and
+    // sparse 9..16-limb leaves, their 8/9 dispatch edge, the 16/17
+    // recursion boundary, carries and long internal zero runs. On
+    // every host compare against GMP, not a native roundtrip alone.
+    std::mt19937_64 b46_engine(0xB460DEC1A7ULL);
+    for (const std::size_t count:
+            {8u,9u,10u,11u,12u,13u,14u,15u,16u,17u,32u}) {
+        for (unsigned mode=0u;mode<32u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=b46_engine();
+            if (mode%8u==0u) {
+                std::fill(words.begin(),words.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+            } else if (mode%8u==1u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=1u;
+            } else if (mode%8u==2u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u;
+                words.back()=1u;
+            } else if (mode%8u==3u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+            } else if (mode%8u==4u) {
+                std::fill_n(words.begin(),count/2u,0u);
+            } else if (mode%8u==5u) {
+                for (std::size_t j=0u;j<count;j+=2u) {
+                    words[j]=0u;
+                }
+            } else if (mode%8u==6u) {
+                std::fill(words.begin(),words.end(),
+                          std::uint64_t{999999999999999999ULL});
+            }
+            words.back()|=1u;
+            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
+                       0,0,words.data());
+            check_decimal_boundary(a.value);
+        }
+    }
+
     // B43: append-only recursive formatting must preserve the
     // *entire* fixed-width lower field even when the remainder
     // itself needs further recursive divisions. GMP independently

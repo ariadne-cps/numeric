@@ -8378,3 +8378,19 @@ benchmarks or public APIs. Independent GMP regressions cover
 arbitrary shifted divisors and B22 powers of ten. No native
 performance claim is made until same-host measurements. See B45
 in integer_rational_design.md.
+
+
+### B46 ARM64-only exact constant-divisor reciprocal in decimal leaves (19 October 2026)
+
+The BigUnsigned wide radix-10^18 leaf formatter replaces its native
+unsigned 128-bit constant quotient/remainder division with an exact
+fixed reciprocal and at most one correction. This avoids compiler
+__udivti3 calls on ARM64 Clang without changing the decimal radix,
+B43 recursive splitting, B45 general division, portable/x86-64
+leaf formatting, public interface, or FloatAP arithmetic. Correctness
+is established for the recurrence by over 2.6 million independent
+ASan/UBSan exact wide-division pairs and 9000 whole-formatter GMP
+comparisons; integrated tests additionally check 352 GMP boundaries.
+The user must still compare the untouched official benchmark and
+standalone stage diagnostic on Apple M2 to establish performance.
+See B46 in integer_rational_design.md.
