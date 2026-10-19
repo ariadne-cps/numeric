@@ -3143,3 +3143,91 @@ Confirm the sparse 4096-bit `mul`,
 `square` and `pow3` do not regress
 relative to B38 158.777/228.442/565.898 ns.
 
+### B40 eliminate medium-size density prescans and Karatsuba leaf overhead (19 October 2026)
+
+The same-M2 B39 follow-up of the 31-sample official
+benchmark preserved B38's main sparse results:
+4096-bit `mul` 150.442 ns, `square` 237.315 ns,
+`pow3` 563.371 ns (versus B38
+158.777/228.442/565.898 ns); the total-time
+Integer/GMP ratio stayed 1.316x. All three B39
+GitHub Actions workflows completed successfully.
+
+A separate same-M2 dense multiplication benchmark
+identified *new* B39 dispatch costs at moderate
+sizes. Compared with B38, dense preallocated
+selected products rose 154.600 -> **166.696 ns**
+at 1024 bits (+7.8%) and 576.502 -> **600.090 ns**
+at 2048 bits (+4.1%). For the 4096-bit dense
+case B39 recovered much of B38's regression:
+2548.485 -> 2343.858 ns, while large owning
+products used Karatsuba and improved
+2575.535 -> 2265.110 ns. Repeated B39 density
+classification in cutoff-32 Karatsuba's
+32/33-limb recursive leaf products is also
+consistent with the measured preallocated
+Karatsuba changes from B38 to B39:
+158.329 -> 170.012 ns (1024),
+580.327 -> 603.987 ns (2048),
+1972.463 -> 2065.662 ns (4096).
+These observations motivate but do not
+individually prove the source of all timing drift.
+
+B40 conservatively **bypasses the B39 linear
+density prescan** in the ARM64 carry-chain
+multiplier whenever the active outer row count
+`min(a.size(),output.size())<64` **or** the
+multiplier contains fewer than 64 limbs.
+Those cases dispatch directly to the already
+validated B38 exact-zero-row implementation;
+the dense B37-like branch-free specialization
+is still available at >=64x64 limbs after
+B39's exact zero-density scan. This restores
+the B38 dispatch behavior in 1024/2048-bit
+dense full products, cutoff-32 Karatsuba's
+small recursive base cases, and ordinary
+low-truncated multiplication. At high
+sizes no density threshold, algorithm,
+instruction set or output contract changes.
+
+For ARM64 symmetric squaring, there are only
+`n-1` off-diagonal outer rows; B40 bypasses
+classification at `n<=64`, invoking the
+B38 symmetric kernel directly at 4096 bits
+and below, including cases with nonzero
+dense diagonals. At larger sizes B39's
+adaptive choice stays in place. There are
+still two compile-time native
+MUL/UMULH/ADDS/ADC variants, no new
+allocations, no scratch changes, no new
+features or runtime flags. Dense balanced
+>=64-limb *owning* multiplication retains
+B39's cutoff-32 Karatsuba selection and
+density gates. Small, sparse or imbalanced
+owning products continue down the selected
+ARM64 schoolbook. The Karatsuba recursion
+itself is unchanged; only the base-case
+multiplier ceases to repeat an O(n) scan
+for n=32/33. Caution: this should not be
+described as a measured B40 speedup until
+native M2 data are collected.
+
+Add **288** deterministic GMP-oracle test
+shapes at eighteen balanced and unbalanced
+size pairs spanning 7,8,16,31,32,33,
+63,64,65 and 128 limbs. Check owning
+multiplication in both orders, low products
+in both orders, the public symmetric square,
+and for large shapes also explicit cutoff-32
+Karatsuba with caller-owned scratch.
+Cover dense, all-ones, moderately sparse,
+threshold-zero, and highly sparse limb
+patterns. Keep all earlier tests,
+architecture-independent GMP reference,
+both design journals and the official
+84-operation benchmark unchanged.
+Full production C++ CI and same-M2
+dense/sparse benchmarks for B40 are
+pending; do not compare ARM M2 absolute
+timings to any other CPU.
+

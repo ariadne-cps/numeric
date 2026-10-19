@@ -54,16 +54,13 @@ using Limb = BigUnsigned::Limb;
 // multiplying. The full and truncated output contracts are unchanged.
 namespace {
 
-// One outer-limb density check before the full product. Stop as soon as
-// enough exact-zero rows have been found; dense inputs require only a
-// linear read, not a branch in every quadratic inner iteration.
-// The <8-row case keeps B38's direct sparse-aware implementation.
-bool use_sparse_rows(BigUnsigned::LimbView rows,
-                     BigUnsigned::LimbView multiplier) noexcept
+// The B39 density scan is useful only for large rows. B40 bypasses
+// it in each caller below 64 active outer or multiplier limbs:
+// those cases and Karatsuba's 32/33-limb leaves retain B38's cheaper
+// per-row zero guard. Large dense products still select B37's
+// branch-free inner recurrence after a linear, early-exit scan.
+bool use_sparse_rows(BigUnsigned::LimbView rows) noexcept
 {
-    if (rows.size()<8u || multiplier.size()<8u) {
-        return true;
-    }
     const std::size_t threshold=std::max<std::size_t>(
         2u,rows.size()/8u);
     std::size_t zeros=0u;
@@ -123,7 +120,11 @@ void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
                               BigUnsigned::MutableLimbView output) noexcept
 {
     const std::size_t active=std::min(a.size(),output.size());
-    if (use_sparse_rows(a.first(active),b)) {
+    // B40: preserve the measured B38 fast path for 1024/2048-bit
+    // products and for the recursive base cases of cutoff-32
+    // Karatsuba. Only large products pay for density classification.
+    if (active<64u || b.size()<64u ||
+            use_sparse_rows(a.first(active))) {
         mul_low_into_carry_arm64_impl<true>(a,b,output);
     } else {
         mul_low_into_carry_arm64_impl<false>(a,b,output);
@@ -214,7 +215,11 @@ void square_into_symmetric_arm64(BigUnsigned::LimbView a,
 {
     // Only a[0..n-2] contributes off-diagonal rows. The diagonal
     // is evaluated for every input limb in either instantiation.
-    if (use_sparse_rows(a.first(a.size()-1u),a)) {
+    // B40: at <=64 limbs (<=63 cross-product rows) avoid a second
+    // scan; the original B38 row guard works particularly well on
+    // the sparse powers used by the official benchmark.
+    if (a.size()<=64u ||
+            use_sparse_rows(a.first(a.size()-1u))) {
         square_into_symmetric_arm64_impl<true>(a,output);
     } else {
         square_into_symmetric_arm64_impl<false>(a,output);

@@ -8218,3 +8218,32 @@ threshold tests; native B39 benchmarks and
 CI remain pending. See B39 in
 `integer_rational_design.md`.
 
+### B40 reduce ARM64 adaptive kernel prescans under 64 limbs (19 October 2026)
+
+B39's ARM64 prescan imposed noticeable cost
+on dense 1024/2048-bit products and on the
+32/33-limb base cases invoked by Karatsuba
+with cutoff 32. B40 dispatches directly to
+the B38 exact-zero-row native carry kernel
+whenever either active outer rows or the
+multiplier is below 64 limbs. At and
+above 64x64 limbs the B39 density-adaptive
+choice remains unchanged. The ARM64
+symmetric square likewise uses B38's
+sparse-aware variant directly up to 64
+limbs (63 off-diagonal rows) instead of
+scanning those rows twice. The B39
+large balanced dense owning Karatsuba
+gate remains unchanged. These choices
+do not change Integer, pow, FloatAP,
+GMP oracles, public APIs, scratch/output
+contracts, x86-64 or benchmark workloads.
+
+Add 288 GMP-oracle boundary/crossover
+fixtures covering product order,
+low-truncated multiplication, squares
+and explicit cutoff-32 Karatsuba bases.
+Full project CI and same-host M2
+benchmark measurements remain pending;
+see B40 in `integer_rational_design.md`.
+
