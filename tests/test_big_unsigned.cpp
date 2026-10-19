@@ -979,6 +979,35 @@ void TestBigUnsigned::test_division()
         }
     }
 
+    // B29: deterministic sparse normalized divisors with long runs
+    // of zero limbs. Verify both the sparse and dense selection shapes
+    // against GMP through joint, quotient-only and remainder-only modes.
+    std::mt19937_64 sparse_engine(0xB290D1F5ULL);
+    for (unsigned repetition=0u;repetition<1024u;++repetition) {
+        const std::size_t n=16u+sparse_engine()%113u;
+        const std::size_t m=8u+sparse_engine()%(n-7u);
+        std::vector<std::uint64_t> left(n),right(m,0u);
+        for (auto& word:left) word=sparse_engine();
+        right.front()=sparse_engine();
+        right.back()=std::uint64_t{1}<<(repetition%64u);
+        if (repetition%3u==0u) {
+            right[m/2u]=sparse_engine();
+        }
+        if (repetition%5u==0u) {
+            // Partially dense divisors must retain the original kernel.
+            for (std::size_t i=1u;i+1u<m;++i) {
+                if (i%3u==0u) right[i]=sparse_engine();
+            }
+        }
+        if (repetition%7u==0u) {
+            std::fill(left.begin(),left.end(),max);
+        }
+        if (repetition%11u==0u) {
+            left.back()=1u;
+        }
+        check_fused_division(BigUnsigned(left),BigUnsigned(right));
+    }
+
     // Force all 64 divisor-normalization shifts. Vary the dividend's
     // top words and saturated bottom words to exercise quotient
     // estimates, downward corrections and full-width remainders.

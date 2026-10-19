@@ -7879,3 +7879,21 @@ microprobes, but production ARM64/x86-64 benchmark benefits remain
 unverified, and full-mix timings can fluctuate. See B28 in
 `integer_rational_design.md`; GitHub CI/Codecov checks are deferred
 at user request.
+
+### B29 selected sparse-divisor multiply/subtract kernel (19 October 2026)
+
+The reusable `BigUnsigned` normalized division now selects an
+optional C++20 compile-time zero-limb specialization only for at
+least eight divisor limbs, eight quotient digits, and at least half
+zero limbs after normalization. Multiplication by a zero divisor
+limb is replaced with an exactly equivalent carry/borrow update.
+The dense B27 multiply-subtract kernel and B28 quotient-0/1
+shortcut remain unchanged; all three output modes use the same
+mathematical division. No extra platform or build requirements,
+CMake modifications, ABI/API changes, or FloatAP/Rational/Dyadic
+algorithm changes. A 32000-case standalone differential GMP stress
+test passed both GCC and Clang ASan/UBSan variants; production
+tests add 1024 targeted sparse/dense-mixed oracles without removing
+previous fixtures. Isolated x86-64 GCC/Clang profiling indicates
+a benefit for sparse half-width divisors; integrated ARM64/x86-64
+results remain pending. See B29 in `integer_rational_design.md`.

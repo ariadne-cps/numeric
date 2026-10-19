@@ -472,6 +472,7 @@ multiply_digit_portable(BigUnsigned::Limb x,BigUnsigned::Limb y) noexcept
 // Each carry is the high product limb plus the subtraction borrow.
 // The wide product+carry is < 2^128, so carry always fits 64 bits.
 // Return whether the signed mathematical difference is negative.
+template<bool SparseZero>
 bool subtract_digit_product(BigUnsigned::MutableLimbView window,
                             BigUnsigned::LimbView divisor,
                             BigUnsigned::Limb digit) noexcept
@@ -479,6 +480,17 @@ bool subtract_digit_product(BigUnsigned::MutableLimbView window,
     using Limb=BigUnsigned::Limb;
     Limb carry=0u;
     for (std::size_t i=0u;i<divisor.size();++i) {
+        if constexpr (SparseZero) {
+            // If this normalized divisor limb is zero, the high
+            // product vanishes. Only the incoming carry/borrow must
+            // be subtracted; the dense kernel stays unchanged.
+            if (divisor[i]==0u) {
+                const Limb old=window[i];
+                window[i]=old-carry;
+                carry=static_cast<Limb>(old<carry);
+                continue;
+            }
+        }
         Limb low,high;
 #if defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__)
         high=0u;
@@ -643,23 +655,39 @@ void BigUnsigned::divrem_selected_into(
         carry=shift==0u?0u:digit>>(64u-shift);
     }
 
-    for (std::size_t counter=n-m+1u;counter!=0u;--counter) {
-        const std::size_t j=counter-1u;
-        const Limb high=u[j+m];
-        const Limb low=u[j+m-1u];
-        Limb digit=high>=v[m-1u] ?
-            std::numeric_limits<Limb>::max() :
-            divide_wide(high,low,v[m-1u]).first;
-        const auto window=u.subspan(j,m+1u);
-        bool overestimated=subtract_digit_product(window,v,digit);
-        while (overestimated) {
-            --digit;
-            add_back_divisor(window,v);
-            overestimated=window.back()!=0u;
+    // B29: only sufficiently large, sparse normalized divisors
+    // justify testing individual zero limbs. The selection is made
+    // once per division, and the dense digit loop has no extra check.
+    const std::size_t quotient_digits=n-m+1u;
+    const bool use_sparse= m>=8u && quotient_digits>=8u &&
+        static_cast<std::size_t>(
+            std::count(v.begin(),v.end(),Limb{0})) >= m/2u+m%2u;
+
+    const auto divide_digits=[&]<bool SparseZero>() {
+        for (std::size_t counter=quotient_digits;counter!=0u;--counter) {
+            const std::size_t j=counter-1u;
+            const Limb high=u[j+m];
+            const Limb low=u[j+m-1u];
+            Limb digit=high>=v[m-1u] ?
+                std::numeric_limits<Limb>::max() :
+                divide_wide(high,low,v[m-1u]).first;
+            const auto window=u.subspan(j,m+1u);
+            bool overestimated=
+                subtract_digit_product<SparseZero>(window,v,digit);
+            while (overestimated) {
+                --digit;
+                add_back_divisor(window,v);
+                overestimated=window.back()!=0u;
+            }
+            if constexpr (WantQuotient) {
+                quotient[j]=digit;
+            }
         }
-        if constexpr (WantQuotient) {
-            quotient[j]=digit;
-        }
+    };
+    if (use_sparse) {
+        divide_digits.template operator()<true>();
+    } else {
+        divide_digits.template operator()<false>();
     }
 
     if constexpr (WantRemainder) {
