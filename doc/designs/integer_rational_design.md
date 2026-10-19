@@ -2900,3 +2900,83 @@ regressions on Apple ARM64 M2 vs M2 and GCC/Clang
 x86-64. GitHub Actions may be checked; Codecov is
 not required to establish numeric correctness.
 
+### B37 native ARM64 symmetric square for Integer self-products and powers (19 October 2026)
+
+Apple M2 B36 integrated timings reveal a disproportionate ARM64
+square cost relative to GMP: at 1024/2048/4096 bits,
+native `square` was 220.983/656.942/2298.379 ns versus
+GMP 88.683/268.323/772.415 ns (2.49x/2.45x/2.98x).
+The corresponding `pow3` operation was
+590.819/1892.640/7303.648 ns versus
+352.962/921.167/2818.185 ns (1.67x/2.05x/2.59x).
+The official benchmark's `square` implementation is `a*a`,
+not the named `sqr` API. The power algorithm itself is
+already a binary method with the B32 first-identity-multiply
+elision; `pow3` requires one `square(base)` and one
+general product. Prioritize the underlying square rather
+than a benchmark-specific `pow3` shortcut.
+
+Until B37, ARM64 `BigUnsigned::square(a)` called generic
+`mul(a,a)`, performing all n*n products; B32's specialized
+symmetric square dispatch was restricted to GCC x86-64.
+B37 adds `BigUnsignedDetail::square_into_symmetric_arm64`
+in the existing ARM64 TU. It computes only off-diagonal
+`a[i]*a[j]` for i<j using exactly the selected baseline
+`MUL/UMULH/ADDS/ADC` carry-chain assembly, doubles the
+cross-term limb array, and adds all diagonal squares with
+exact 128-bit unsigned accumulation and carry propagation.
+The sum is the mathematical square and fits exactly in
+2*n limbs. There are n*(n+1)/2 wide products versus n*n
+for general multiplication. Inputs/output must be
+disjoint; the own-result wrapper provides the exact
+output size. No runtime CPUID, non-baseline ARM ISA,
+global storage, new API, CMake setting, ABI change
+or additional heap scratch is introduced.
+
+Dispatch ARM64 AppleClang/GCC/Clang with selected native
+`ARIADNE_BIG_UNSIGNED_ARM64` only for magnitudes
+>=8 limbs; preserve the previously selected carry-chain
+schoolbook for smaller operands. On ARM64, extend the
+existing B33 self-alias `Integer::mul(z,z)` to call
+`BigUnsigned::square` for >=8-limb same-object operands,
+with a size-first branch; numerically equal but separate
+objects retain generic multiplication, including the
+usual sign semantics. All paths on x86-64 GCC/Clang,
+Windows/MSVC and portable targets are unchanged.
+The new kernel also accelerates `sqr` and internal
+`Integer::pow` squaring automatically. Do not alter
+the official 14-operation Integer-vs-GMP benchmark,
+its six widths, GMP oracle, iterations or samples.
+
+An independently compiled C++20 reconstruction of
+the exact cross/doubling/diagonal recurrence passed
+**8160** GMP-oracle cases with Clang 17
+AddressSanitizer/UndefinedBehaviorSanitizer, including
+saturated, zero, sparse, alternating-zero and carry
+boundaries at 1..128 limbs. The six-instruction
+AArch64 multiplication-accumulation assembly block
+also cross-compiled with Clang 17's
+`--target=aarch64-none-elf`, yielding the intended
+MUL, UMULH, ADDS and ADC instructions.
+These are local algorithmic and assembly-syntax
+checks, **not** a native Apple M2 performance
+measurement or complete project build.
+
+Add 1,248 GMP-oracle unsigned square fixtures at
+1,4,7,8,9,15,16,17,32,33,64,65,128 limbs,
+comparing both `square(x)` and generic `mul(x,x)`,
+plus 216 GMP-oracle signed large `Integer::pow`
+cases at 7..64 limbs for exponents 2/3/5.
+Preserve B32/B33 and all previous tests.
+The full project test suite, GitHub Actions for B37
+and same-M2 31-sample integrated performance
+comparison against B36 remain pending until run.
+Specifically gate on `square` at 1024,2048,4096
+bits, `pow3` at all widths, `mul` as a control,
+and confirm no regression at 53/128/256 bits.
+No integrated speedup is claimed before those
+measurements. Keep M2 and M4 baseline results
+separate. The user has reauthorized GitHub CI
+inspections; report third-party Codecov statuses
+separately.
+

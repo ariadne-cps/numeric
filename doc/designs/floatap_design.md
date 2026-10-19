@@ -8134,3 +8134,28 @@ authorization now permits monitoring GitHub Actions
 CI; note Codecov's external status separately.
 See B36 in `integer_rational_design.md`.
 
+### B37 ARM64 dedicated symmetric square for Integer and pow (19 October 2026)
+
+The shared GMP-independent BigUnsigned ARM64 kernel now
+offers an exact symmetric square for >=8 limbs using
+the same baseline MUL/UMULH/ADDS/ADC instructions as
+the native selected carry-chain multiplier. Each
+off-diagonal limb pair is multiplied once, doubled,
+and combined with diagonal squares, reducing
+wide products from n*n to n*(n+1)/2. No public API,
+new architecture requirement, CMake option, shared
+scratch or FloatAP algorithm changes are introduced.
+On ARM64, identical-object `Integer::mul` can use
+the square; distinct-but-equal values retain the
+original generic multiply. In `Integer::pow`,
+the existing internal `square(base)` uses the new
+kernel without changing exponentiation semantics.
+x86-64 and all other architectures keep their
+old selection and benchmarking behavior.
+An 8160-case local GMP/ASan/UBSan recurrence test
+and AArch64 assembly cross-compilation passed.
+Production tests add 1248 unsigned GMP fixtures
+and 216 signed GMP power fixtures. Actual native
+Apple M2 speedups and the full B37 CI run are
+pending; see B37 in `integer_rational_design.md`.
+
