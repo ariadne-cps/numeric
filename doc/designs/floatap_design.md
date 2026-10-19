@@ -7965,3 +7965,10 @@ Integer and ARM64 effects remain unverified.
 See B31 in `integer_rational_design.md`.
 GitHub CI and Codecov are not consulted by user request.
 
+### B31.1 B31 decimal pair table identifier fix (19 October 2026)
+
+The constexpr base-100 digit-pair table counter in shared
+`BigUnsigned::to_decimal_blocks` is renamed to `pair_value` so
+`-Wshadow` does not warn about its `value` parameter.
+No arithmetic, behavior, ABI/API, FloatAP logic or benchmark changes;
+no new integrated testing is claimed. CI/Codecov remain deferred.

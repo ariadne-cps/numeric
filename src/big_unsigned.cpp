@@ -965,9 +965,9 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     // nine-digit block without temporary strings or repeated appends.
     static constexpr auto digit_pairs=[] {
         std::array<char,200> table{};
-        for (unsigned value=0u;value<100u;++value) {
-            table[2u*value]=static_cast<char>('0'+value/10u);
-            table[2u*value+1u]=static_cast<char>('0'+value%10u);
+        for (unsigned pair_value=0u;pair_value<100u;++pair_value) {
+            table[2u*pair_value]=static_cast<char>('0'+pair_value/10u);
+            table[2u*pair_value+1u]=static_cast<char>('0'+pair_value%10u);
         }
         return table;
     }();
