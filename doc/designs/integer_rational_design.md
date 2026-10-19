@@ -3441,3 +3441,35 @@ All earlier B22/B25/B31/B42 decimal scenarios and the
 official 84-operation benchmark are retained.
 B43 CI and same-M2 performance measurements are pending.
 
+
+
+### B44 standalone production-decimal stage diagnostic (19 October 2026)
+
+B43's Apple M2 native 4096-bit to_decimal changed from 8564.325 to
+8512.402 ns (-0.61%), while GMP changed from 4077.340 to 4116.558 ns.
+This is not conclusive evidence of a speedup. All B43 Unix, Windows
+and Coverage GitHub Actions passed; external Codecov patch/project
+checks failed separately. Keep the official 84-operation Integer/GMP
+workload, operands and reporting unchanged.
+
+B44 introduces only benchmarks/benchmark_integer_decimal_profile.cpp
+and its separate CMake benchmark target, without modifying production
+arithmetic, ISA dispatch, public APIs, or any existing benchmark file.
+It reuses integer_specifications(bits), the exact 32-case official
+signed Integer input pool, and profiles the corresponding magnitudes.
+Both production to_decimal and an independent B43-style split/append
+reconstruction are compared with GMP's decimal oracle before timing.
+The default sizes are 1024/2048/4096 bits, with 20000 iterations and
+31 samples. Example:
+./build/benchmarks/benchmark_integer_decimal_profile --bits 1024,2048,4096 --iterations 20000 --samples 31
+
+The diagnostic measures complete native to_decimal, and independently
+replays B22 power-table construction via production square, recursion
+divisions via production divrem, leaf conversions via production
+to_decimal (its <=16-limb leaf dispatch), and append/padding with
+precomputed exact leaf strings. The 1024-bit size bypasses recursive
+splits. The recursions are reconstructed outside all timed regions.
+These are same-input non-additive stage PROXIES, not exact in-situ
+call-stack timings; do not sum their fractions or claim causal
+bottlenecks without repeatable same-host evidence. Apple M2 B44
+measurements remain pending.
