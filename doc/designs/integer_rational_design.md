@@ -1523,3 +1523,12 @@ API, buffers, ISA selection, CMake flags, GMP oracle, or test coverage.
 The previously described standalone prototype checks do **not** verify
 the integrated B15.1 fix. Re-run Unix/Windows/Coverage CI and host
 CTest before claiming integrated correctness.
+
+
+### B16 BigUnsigned GCD and strict decimal conversion (19 October 2026)
+
+B15.1 Unix, Windows, and Coverage workflows passed at `feb15cc`. B16 adds generic GMP-free `gcd(BigUnsigned,BigUnsigned)`, `from_decimal(std::string_view)` and `to_decimal(BigUnsigned const&)` in the existing shared `src/big_unsigned.cpp`. GCD uses Euclidean remainder with canonical zero rules `gcd(0,0)=0`, `gcd(x,0)=x`. Parsing accepts only a nonempty ASCII unsigned decimal sequence, including leading zeroes; signs, whitespace, prefixes and nondigits raise `std::invalid_argument`. Output always uses canonical digits, with zero as `"0"`.
+
+The decimal parser consumes up to nine digits per block and multiplies existing radix-2^64 limbs by at most 10^9 using checked 32-bit half-product arithmetic, without a required 128-bit compiler extension. Decimal output repeatedly divides a temporary mutable limb copy by 10^9 using the existing portable wide-limb divider, accumulating and zero-padding nine-digit blocks. Neither operation uses GMP in production or alters architecture dispatch. These are correctness-first baselines, not competitive performance claims.
+
+An isolated Clang C++20 harness with warnings-as-errors passed 5000 native limb-to-decimal GMP round trips, 5000 independent decimal-string GMP comparisons (including 1900-digit cases), 1100 randomized GMP GCD comparisons and rejected malformed ASCII inputs. Added project regression cases against GMP and fixed boundary checks. **Integrated Unix/Windows/Coverage CI remains pending** on this new commit; the isolated harness is not a project-level result. This concludes the planned prerequisite primitive set for the initial signed-magnitude Integer design, but does not constitute Integer migration.

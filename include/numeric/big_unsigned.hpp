@@ -33,6 +33,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -246,6 +248,19 @@ class BigUnsigned
     //! Floor division by 2^bits.
     friend BigUnsigned shift_right(BigUnsigned const& a, std::size_t bits);
 };
+
+//! Euclidean greatest common divisor of unsigned magnitudes.
+//! gcd(0,0) is zero. Uses the shared exact division primitive.
+BigUnsigned gcd(BigUnsigned a,BigUnsigned b);
+
+//! Parse nonempty ASCII decimal digits into a canonical magnitude.
+//! Leading zeroes are accepted; whitespace and signs are rejected.
+//! Throws std::invalid_argument for empty or malformed input.
+BigUnsigned from_decimal(std::string_view digits);
+
+//! Exact unsigned decimal representation, with no leading zeroes.
+//! Zero is rendered as "0"; does not mutate its argument.
+std::string to_decimal(BigUnsigned const& value);
 
 } // namespace Ariadne
 

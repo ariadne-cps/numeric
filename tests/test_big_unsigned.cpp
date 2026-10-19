@@ -30,6 +30,7 @@
 #include <limits>
 #include <random>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -72,6 +73,7 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_multiplication());
         ARIADNE_TEST_CALL(test_division_limb());
         ARIADNE_TEST_CALL(test_division());
+        ARIADNE_TEST_CALL(test_gcd_decimal());
         ARIADNE_TEST_CALL(test_views_and_scratch());
         ARIADNE_TEST_CALL(test_multiply_kernel_paths());
     }
@@ -83,6 +85,7 @@ class TestBigUnsigned
     void test_multiplication();
     void test_division_limb();
     void test_division();
+    void test_gcd_decimal();
     void test_views_and_scratch();
     void test_multiply_kernel_paths();
 };
@@ -816,6 +819,77 @@ void TestBigUnsigned::test_division()
             std::numeric_limits<std::size_t>::max(),2u);
     } catch (std::length_error const&) { overflow_threw=true; }
     ARIADNE_TEST_ASSERT(overflow_threw);
+}
+
+
+void TestBigUnsigned::test_gcd_decimal()
+{
+    const auto zero=BigUnsigned{};
+    const auto one=BigUnsigned(std::uint64_t{1});
+    ARIADNE_TEST_ASSERT(gcd(zero,zero).is_zero());
+    ARIADNE_TEST_ASSERT(compare(gcd(zero,one),one)==0);
+    ARIADNE_TEST_ASSERT(compare(gcd(one,zero),one)==0);
+    ARIADNE_TEST_ASSERT(compare(
+        gcd(BigUnsigned(std::uint64_t{48}),BigUnsigned(std::uint64_t{18})),
+        BigUnsigned(std::uint64_t{6}))==0);
+    ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
+    ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
+    ARIADNE_TEST_ASSERT(to_decimal(from_decimal("000"))=="0");
+    ARIADNE_TEST_ASSERT(to_decimal(from_decimal("00018446744073709551616"))
+                        =="18446744073709551616");
+    ARIADNE_TEST_ASSERT(to_decimal(from_decimal(
+        "340282366920938463463374607431768211455"))
+        =="340282366920938463463374607431768211455");
+
+    for (const auto* bad: {"","-1","+1"," 1","1 ","1.2","0x1","12a"}) {
+        bool threw=false;
+        try { (void)from_decimal(bad); }
+        catch (std::invalid_argument const&) { threw=true; }
+        ARIADNE_TEST_ASSERT(threw);
+    }
+
+    std::mt19937_64 engine(0xB16B00B5ULL);
+    GmpInteger a,b,expected;
+    for (unsigned repetition=0u;repetition<2800u;++repetition) {
+        const std::size_t n=repetition%113u==0u?96u:engine()%20u;
+        const std::size_t m=repetition%71u==0u?32u:engine()%12u;
+        std::vector<std::uint64_t> left(n),right(m);
+        for (auto& digit:left) digit=engine();
+        for (auto& digit:right) digit=engine();
+        if (repetition%17u==0u) std::fill(left.begin(),left.end(),0u);
+        if (repetition%13u==0u) std::fill(left.begin(),left.end(),
+                                           std::numeric_limits<std::uint64_t>::max());
+        if (repetition%11u==0u) std::fill(right.begin(),right.end(),0u);
+        const BigUnsigned x(left),y(right);
+        mpz_import(a.value,x.size(),-1,sizeof(std::uint64_t),
+                   0,0,x.limbs().data());
+        mpz_import(b.value,y.size(),-1,sizeof(std::uint64_t),
+                   0,0,y.limbs().data());
+        mpz_gcd(expected.value,a.value,b.value);
+        check_against_gmp(gcd(x,y),expected.value);
+        const auto decimal=to_decimal(x);
+        ARIADNE_TEST_ASSERT(compare(from_decimal(decimal),x)==0);
+        ARIADNE_TEST_ASSERT(decimal.front()>='0' && decimal.front()<='9');
+        if (!x.is_zero()) ARIADNE_TEST_ASSERT(decimal.front()!='0');
+        const auto decimal_gmp=std::string(mpz_sizeinbase(a.value,10u)+2u,'\0');
+        std::string oracle=decimal_gmp;
+        mpz_get_str(oracle.data(),10,a.value);
+        oracle.resize(std::char_traits<char>::length(oracle.c_str()));
+        ARIADNE_TEST_ASSERT(decimal==oracle);
+    }
+    for (unsigned repetition=0u;repetition<1800u;++repetition) {
+        const std::size_t length=repetition%149u==0u?1900u:
+                                 1u+engine()%370u;
+        std::string digits(length,'0');
+        for (auto& digit:digits) {
+            digit=static_cast<char>('0'+static_cast<int>(engine()%10u));
+        }
+        const auto parsed=from_decimal(digits);
+        ARIADNE_TEST_ASSERT(to_decimal(parsed)==
+            to_decimal(from_decimal(to_decimal(parsed))));
+        ARIADNE_TEST_ASSERT(mpz_set_str(a.value,digits.c_str(),10)==0);
+        check_against_gmp(parsed,a.value);
+    }
 }
 
 void TestBigUnsigned::test_randomized()
