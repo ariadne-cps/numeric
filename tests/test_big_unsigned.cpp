@@ -1101,6 +1101,20 @@ void TestBigUnsigned::test_gcd_decimal()
         }
     }
 
+    // B25.1: on supported ARM64 these exercise the 18-digit leaf
+    // formatter, while x86-64/portable builds must match GMP via
+    // the B19 9-digit fallback. Probe carries and zero-padding at
+    // decimal block boundaries near the 8/9/16-limb cutoffs.
+    for (const unsigned long groups: {8ul,9ul,10ul,16ul,17ul,18ul}) {
+        const unsigned long digits=18ul*groups;
+        mpz_ui_pow_ui(a.value,10ul,digits);
+        check_decimal_boundary(a.value); // exact power of 10^18
+        mpz_sub_ui(a.value,a.value,1ul);
+        check_decimal_boundary(a.value); // every low block is 9...
+        mpz_add_ui(a.value,a.value,2ul);
+        check_decimal_boundary(a.value); // one plus power; zero runs
+    }
+
     for (unsigned k=0u;k<=9u;++k) {
         const unsigned long digits=9ul*(1ul<<k);
         mpz_ui_pow_ui(a.value,10ul,digits);

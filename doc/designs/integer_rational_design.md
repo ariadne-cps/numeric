@@ -1974,3 +1974,50 @@ on native ARM64 and x86-64, particularly `to_decimal` at
 1024/2048/4096 bits, other operations, and aggregation.
 Run Unix/Windows/Coverage CI; all B25 integrated validation
 and production speedups are pending until verified.
+
+
+### B25.1 ARM64-only wide-radix output, no CMake flags (19 October 2026)
+
+B25's full native benchmarks verified 768 independent paired
+inputs and 2688 paired operation results on both ARM64 and
+x86-64. However, B25's base-10^18 decimal output on x86-64
+regressed strongly relative to B24: native `to_decimal` rose
+from approximately 2239 to 4212 ns at 1024 bits, 6725 to
+9126 ns at 2048 bits, and 19731 to 23495 ns at 4096 bits.
+On ARM64, B25 improved the same three sizes from roughly
+1590 to 1346 ns, 4556 to 4186 ns and 13138 to 12596 ns.
+These measurements justify an architecture-specific
+compile-time selection; do not use the isolated B25 leaf
+microbenchmark as a production speedup claim.
+
+B25.1 retains the exact B25 base-10^18 unsigned 128-bit leaf
+implementation **only when compiler target macro
+`__aarch64__` is predefined** and the compiler defines
+`__SIZEOF_INT128__` and is GCC/Clang. It continues to use
+the B19 base-10^9 leaf for ARM64 magnitudes of <=8 limbs.
+For **x86-64 regardless of `__int128` support**, MSVC,
+and other targets, the existing portable radix-10^9 path is
+always selected. Both compile-time guards in the same
+`src/big_unsigned.cpp` implementation are updated.
+No CMakeLists.txt file is modified, no user-visible CMake
+option, compile definition, new feature flag or build-setting
+dependency is introduced: selection uses the compiler's
+standard target macro directly. The B22 recursive output
+algorithm, B24 parsing, B23 division, benchmark operands and
+operation names, test fixtures, and GMP bridges are unchanged.
+
+Keep all B25 50 GMP-differential limb-size cases and add
+18 exact power-of-10^(18*k) boundary checks for
+k=8,9,10,16,17,18 (exact power, minus one, plus one)
+to exercise wide-radix carries and low-block padding on
+ARM64 and the portable fallback on x86-64/Windows.
+Do not remove any existing regression tests.
+
+B25.1 Unix/Windows/Coverage CI results and native host
+benchmarks are pending. Expect the B25 to_decimal results
+to be retained on ARM64 and the B24 results to be restored
+on x86-64; these are expectations, not assertions of
+measured performance. Compare all six established bit
+sizes with the same 20,000 iterations, 31 samples and
+unchanged operation pool. Do not modify CMake for
+architecture selection.
