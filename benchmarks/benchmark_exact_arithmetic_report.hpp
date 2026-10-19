@@ -316,6 +316,20 @@ void verify_exact_results(std::vector<unsigned> const& sizes) {
                                          std::to_string(bits)+" bits, index "+
                                          std::to_string(i));
             }
+            if constexpr (Kind==ExactArithmeticKind::Integer) {
+                for (unsigned k=0u;k<pool_size;++k) {
+                    if (exact_value(gmp.division_a[k])!=
+                            exact_value(native.division_a[k]) ||
+                        exact_value(gmp.division_b[k])!=
+                            exact_value(native.division_b[k])) {
+                        throw std::runtime_error(
+                            "division input mismatch at "+
+                            std::to_string(bits)+" bits, index "+
+                            std::to_string(k));
+                    }
+                }
+                checked_inputs+=2u*pool_size;
+            }
             checked_inputs+=2u;
         }
         std::map<std::string,std::vector<std::string>> reference;
@@ -351,7 +365,7 @@ void verify_exact_results(std::vector<unsigned> const& sizes) {
                 ++count;
             });
         constexpr std::size_t expected_operations=
-            Kind==ExactArithmeticKind::Integer ? 12u : 15u;
+            Kind==ExactArithmeticKind::Integer ? 14u : 15u;
         if (reference.size()!=count || count!=expected_operations) {
             throw std::runtime_error("unexpected exact benchmark operation count");
         }
