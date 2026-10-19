@@ -2021,3 +2021,72 @@ measured performance. Compare all six established bit
 sizes with the same 20,000 iterations, 31 samples and
 unchanged operation pool. Do not modify CMake for
 architecture selection.
+
+
+### B26 x86-64 baseline DIVQ for exact 128/64 division (19 October 2026)
+
+After B25.1, the native x86-64 Integer/GMP slowdowns at 4096 bits
+were approximately 5.48x for the general `quotient` benchmark
+(1982 vs 362 ns) and 5.35x for `remainder` (1947 vs 364 ns).
+ARM64 at the same size was approximately 2.93x and 2.88x.
+In contrast, `pow3` was approximately 2.64x on x86-64
+versus 2.68x on ARM64, so B26 targets division rather than
+modifying multiplication or exponentiation.
+
+B26 changes *only* the internal `divide_wide` helper in
+`src/big_unsigned.cpp` for baseline GNU/Clang x86-64
+(`__x86_64__`, not `_MSC_VER`). Under the already-established
+precondition `divisor!=0 && high<divisor`, place the two-limb
+dividend in `RDX:RAX` and execute a single `divq` with an
+explicit register input for the divisor. The quotient returns
+in RAX and remainder in RDX. Use `+a` and `+d` read/write
+constraints, plus the `cc` clobber; there is no memory
+access inside the assembly. The high=0 shortcut remains
+the normal 64-bit division. The precondition ensures that
+DIVQ cannot overflow its 64-bit quotient. This baseline
+instruction requires no BMI2, ADX or runtime CPU feature
+detection. MSVC x64 retains its existing `_udiv128` intrinsic;
+non-x86 platforms retain their `unsigned __int128` or
+bitwise portable fallback. The kernel's public behavior,
+error checks, memory allocation, long-division digit
+correction, and GMP bridge remain unchanged.
+
+The change affects the expensive 128/64 quotient estimates
+and single-limb division, not trivial division cases where
+`|a|<|b|` and the helper is not invoked. It does not
+change `Integer::pow`, the multiplication dispatch, decimal
+input/output, benchmarks, build flags, or CMake in any way.
+No new CMake option, preprocessor build definition, instruction
+set requirement or ABI dependency is introduced.
+
+A separate local C++20 GNU inline-assembly checker compiled
+with GCC and Clang and passed **500072** exact constrained
+128/64 divisions against the arithmetic `unsigned __int128`
+implementation, verifying approximately one in 256 against
+an independent GMP `mpz_tdiv_qr` oracle. The GCC generated
+instruction stream for the isolated helper contains `div`
+rather than the wide-division support call. These are
+local isolated *correctness and code-generation checks*;
+they do not establish performance on the repository's
+actual production benchmark.
+
+In the existing `test_division_limb`, retain all B20
+6000 random GMP oracle cases, all 128/64 edge cases,
+and the division exception/guard tests, and add **2048**
+deterministic GMP-oracle 128/64 checks with high=0,
+high=divisor-1, random constrained high, saturated low
+words, and divisors across the full 64-bit range. The
+existing 6000 multiprecision differential cases continue
+to exercise all quotient-estimate correction paths.
+All tests are compiler-portable; no inline assembly in
+test sources.
+
+B26 requires Unix, Windows and Coverage GitHub CI
+verification and native x86-64 plus ARM64 Integer/GMP
+benchmarks with the same six widths (53,128,256,1024,
+2048,4096), 20000 iterations, 31 samples and 14
+unchanged operations. Prioritize actual x86-64
+`quotient` and `remainder` speedups, report changes
+in `quotient_trivial` separately, and confirm ARM64
+stability. CI and integrated performance are pending
+at commit preparation.
