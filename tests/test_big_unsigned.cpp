@@ -303,6 +303,76 @@ void TestBigUnsigned::test_multiplication()
         }
     }
 
+    // B38: cover sparse zero-row elimination in full and truncated
+    // ARM64 products, including both asymmetric operand orders. The
+    // GMP oracle remains independent of all native multiplication
+    // kernels, and these cases also execute on other architectures.
+    std::mt19937_64 arm_sparse_engine(0xB38C0FFEEULL);
+    for (const auto& [n,m]:
+            {std::pair<std::size_t,std::size_t>{1u,3u},
+             {4u,7u}, {7u,8u}, {8u,8u}, {9u,16u},
+             {16u,32u}, {32u,64u}, {64u,32u},
+             {64u,128u}, {128u,64u}, {64u,129u},
+             {129u,64u}, {96u,128u}, {128u,96u}}) {
+        for (unsigned repetition=0u;repetition<24u;++repetition) {
+            std::vector<std::uint64_t> left(n),right(m);
+            for (auto& word:left) word=arm_sparse_engine();
+            for (auto& word:right) word=arm_sparse_engine();
+            switch (repetition%8u) {
+            case 0u: // Sparse first operand: one high nonzero limb.
+                std::fill(left.begin(),left.end(),0u);
+                left.back()=std::uint64_t{1}<<63u;
+                break;
+            case 1u: // Sparse first operand with two remote limbs.
+                std::fill(left.begin(),left.end(),0u);
+                left.front()=13u;
+                left.back()=std::uint64_t{1}<<63u;
+                break;
+            case 2u: // Sparse second operand (reversed orientation).
+                std::fill(right.begin(),right.end(),0u);
+                right.front()=17u;
+                right.back()=std::uint64_t{1}<<63u;
+                break;
+            case 3u: // Sparse both, nonzero carry-prone endpoints.
+                std::fill(left.begin(),left.end(),0u);
+                std::fill(right.begin(),right.end(),0u);
+                left.front()=max;
+                right.front()=max;
+                left.back()=max;
+                right.back()=max;
+                break;
+            case 4u: // Every second row contributes no product.
+                for (std::size_t i=0u;i<n;i+=2u) left[i]=0u;
+                break;
+            case 5u: // Dense saturated products and long carries.
+                std::fill(left.begin(),left.end(),max);
+                std::fill(right.begin(),right.end(),max);
+                break;
+            default: // Dense random and mixed patterns.
+                break;
+            }
+            left.back()|=std::uint64_t{1}<<63u;
+            right.back()|=std::uint64_t{1}<<63u;
+            const BigUnsigned lhs(left),rhs(right);
+            mpz_import(a.value,lhs.size(),-1,sizeof(std::uint64_t),
+                       0,0,lhs.limbs().data());
+            mpz_import(b.value,rhs.size(),-1,sizeof(std::uint64_t),
+                       0,0,rhs.limbs().data());
+            mpz_mul(c.value,a.value,b.value);
+            check_against_gmp(mul(lhs,rhs),c.value);
+            check_against_gmp(mul(rhs,lhs),c.value);
+            const std::array<std::size_t,6> low_lengths{
+                0u,1u,n/2u,n,n+m-1u,n+m+2u};
+            for (const std::size_t low_limbs:low_lengths) {
+                mpz_set(t.value,c.value);
+                mpz_fdiv_r_2exp(t.value,t.value,
+                    static_cast<mp_bitcnt_t>(64u*low_limbs));
+                check_against_gmp(mul_low(lhs,rhs,low_limbs),t.value);
+                check_against_gmp(mul_low(rhs,lhs,low_limbs),t.value);
+            }
+        }
+    }
+
     // B32: validate the symmetric squaring threshold and large carry
     // chains against GMP; verify mul(x,x) independently remains exact.
     // Include dense/sparse, saturated and exact high-limb boundaries.

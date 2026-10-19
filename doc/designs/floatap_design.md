@@ -8159,3 +8159,32 @@ and 216 signed GMP power fixtures. Actual native
 Apple M2 speedups and the full B37 CI run are
 pending; see B37 in `integer_rational_design.md`.
 
+### B38 exact-zero ARM64 row elimination for generic multiplication/powers (19 October 2026)
+
+Shared BigUnsigned's existing ARM64 carry-chain
+schoolbook and B37 symmetric-square kernels now
+skip outer rows whose limb equals zero, preserving
+all nonzero-row MUL/UMULH/ADDS/ADC instructions,
+carry math, output initialization, and diagonal
+square accumulation. For signed `Integer::pow`,
+this accelerates the **general** multiplication
+and squaring operations with zero-limb runs;
+no `pow3` specialization or API/ABI/FloatAP
+algorithm change was introduced. x86-64,
+Windows and non-ARM64 paths are untouched,
+as are GMP oracles and the 14-operation
+benchmark corpus.
+
+Independent x86-64 C++ GMP differential probes
+passed 16,000 truncated/full multiplication cases
+and 16,000 ASan/UBSan symmetric-square cases.
+The proxy's large sparse-operand speedups do not
+establish an Apple M2 production speedup.
+The production test suite adds 336 asymmetric/
+dense/sparse GMP multiplication fixtures,
+six low-width checks in both operand orders
+for each, and 120 signed GMP power-three cases.
+Actual CI and M2 integrated B38 measurements
+remain outstanding; see B38 in
+`integer_rational_design.md`.
+
