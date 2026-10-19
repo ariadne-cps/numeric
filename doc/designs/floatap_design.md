@@ -7628,3 +7628,8 @@ shifts and checked 64-bit casts, and has its own GMP-differential
 tests. Legacy `Integer::_mpz` and its GMP-dependent consumers remain
 unchanged while integration is staged. See `integer_rational_design.md`
 for the migration boundaries; B17 CI is pending.
+
+
+### B17.1 clarification: transient SignedInteger test stage (19 October 2026)
+
+Keep B17 `SignedInteger` for cross-platform GMP-differential verification; do not revert it before transferring validated operations to the existing `Integer`. After the direct `Integer` storage and dependency migration, delete the temporary `SignedInteger` header, source, CTest target and dedicated test (migrating coverage into `test_integer.cpp`). The final architecture must expose only the existing `Integer` as the signed multiprecision type; `BigUnsigned` remains its GMP-free magnitude engine. See `integer_rational_design.md` B17.1 for mandatory completion gates.

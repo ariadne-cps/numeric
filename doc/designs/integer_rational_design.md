@@ -1565,3 +1565,12 @@ the 64-bit minimum, canonical zero, and invalid inputs. Existing
 are left intact in B17; migrating consumers and replacing the public
 facade are **remaining work**, not completed by introducing this core.
 Full B17 cross-platform project CI remains pending.
+
+
+### B17.1 decision: SignedInteger is temporary verification scaffolding (19 October 2026)
+
+The user clarified that B17's `SignedInteger` **must remain temporarily** to independently validate sign-magnitude behavior against GMP before the in-place public `Integer` migration. This corrects the previous inclination to immediately revert B17; **no revert was applied**. There must be **only one signed arbitrary-precision type in the final architecture: `Integer`**.
+
+Acceptance sequence: (1) validate the standalone B17 `SignedInteger` implementation and its GMP-differential tests across Unix, Windows and Coverage; (2) move its verified signed-magnitude invariants and operations into existing `include/numeric/integer.hpp` and `src/integer.cpp`, using `BigUnsigned` directly, without a permanent wrapper; (3) migrate dependent `Rational`, `Dyadic`, `FloatMP` and other consumers of `_mpz`/`get_mpz` using explicit conversions or narrow integration adapters, retaining existing meaningful semantics and the agreed signed division convention; (4) transfer and expand verification into existing `tests/test_integer.cpp`; (5) **delete** `include/numeric/signed_integer.hpp`, `src/signed_integer.cpp`, `tests/test_signed_integer.cpp` and their CMake target/source entries. Check that no code or build reference to `SignedInteger` remains. This deletion is a required completion gate for the migration, not optional cleanup.
+
+B17 remains an intermediate development and test stage; it does not establish a second production API. This documentation-only clarification does not alter B17 code or its CI results.
