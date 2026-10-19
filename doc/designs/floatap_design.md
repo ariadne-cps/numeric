@@ -7999,3 +7999,28 @@ B32 benchmark and repository suite execution
 remain pending; consult B32 in
 `integer_rational_design.md`.
 GitHub CI and Codecov are excluded by user request.
+
+### B33 Integer alias-self multiplication uses existing B32 square (19 October 2026)
+
+When the same Integer object is passed twice to
+`Integer::mul`, a GCC x86-64 fused build with
+at least eight magnitude limbs now dispatches to
+B32's symmetric `BigUnsigned::square` rather than
+generic `mul`. This is semantically valid for
+ordinary `a*a` and `a*=a` expressions and does
+not use value equality, benchmark-specific data,
+or new public APIs. All distinct operands and all
+ARM64 M2/M4, Clang, MSVC and portable configurations
+retain their previous multiply path. Negative
+self-products have canonical positive signs.
+Add 144 deterministic GMP-oracle fixtures covering
+aliases, equal-but-distinct copies, in-place squaring,
+zeros and saturated/large magnitudes. All FloatAP
+algorithms, shared BigUnsigned kernels, GMP adapters,
+build definitions and official benchmark workloads
+remain unchanged. An isolated x86-64 symmetric kernel
+speedup is known, but B33's integrated `Integer::square`
+benefit has **not yet been measured**. See B33 in
+`integer_rational_design.md`. GitHub CI and Codecov
+remain unconsulted at user request.
+
