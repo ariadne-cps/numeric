@@ -7941,3 +7941,27 @@ changes. A new integrated B30.1 run is still needed;
 the B29 performance data are historical, not new
 measurements. See B30.1 in `integer_rational_design.md`.
 GitHub CI and Codecov are excluded by user request.
+
+### B31 decimal leaf string rendering without temporary blocks (19 October 2026)
+
+The shared `BigUnsigned` radix-10^9 leaf formatter
+now pre-reserves its decimal blocks and assembles
+the output into a single exactly sized string,
+writing each lower nine-digit block backward as
+four fixed-width base-100 digit pairs plus one
+high digit from a constexpr 200-character table.
+The most significant block retains variable width.
+Arithmetic division by 1e9 is **unchanged**,
+as are ARM64 B25.1 radix-10^18 leaves, B22
+recursive splitting, B27-B29 division, GMP adapters,
+all FloatAP algorithms and public numeric semantics.
+A standalone 30000-case direct GMP differential
+formatter test passed both GCC and Clang
+ASan/UBSan; additional GMP fixtures target two-digit
+zero padding and radix carry boundaries. GCC/Clang
+isolated x86-64 leaf benchmarks favored the new
+string assembly at <=16 limbs, but integrated
+Integer and ARM64 effects remain unverified.
+See B31 in `integer_rational_design.md`.
+GitHub CI and Codecov are not consulted by user request.
+
