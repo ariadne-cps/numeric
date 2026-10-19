@@ -8068,3 +8068,30 @@ do not conflate Apple M2 with M4.
 See B34.1 in `integer_rational_design.md`;
 CI and Codecov remain excluded.
 
+### B35 selective large owning Karatsuba on GCC x86-64 (19 October 2026)
+
+For GCC x86-64 fused builds only, shared
+`BigUnsigned::mul` now chooses the existing
+GMP-independent Karatsuba implementation with
+cutoff 32 when both operands have >=64 limbs
+and their lengths are within 25% of the larger.
+The output remains normally owned and normalized;
+one private correctly sized scratch vector supports
+the existing recursive kernel. All smaller or
+unbalanced inputs, Apple ARM64 M2/M4, Clang,
+MSVC/portable and fused-selector-OFF builds
+retain B33's schoolbook behavior. B32/B33
+symmetric square and aliased Integer multiplication,
+`BigUnsigned::mul_into`, rational/FloatAP
+algorithms, APIs, GMP adapters and the official
+benchmark workload are unchanged.
+An independent x86-64 GCC/Clang+sanitizer
+8000-case GMP/fused differential check passed.
+The isolated owning sparse 64-limb kernel improved
+about 15.6%, but production performance remains
+unmeasured. Add 448 focused GMP differential
+pairs, including the 63/64 threshold and
+unbalanced cases; see B35 in
+`integer_rational_design.md`. GitHub CI and
+Codecov remain unconsulted by user request.
+

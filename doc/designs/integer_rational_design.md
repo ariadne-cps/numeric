@@ -2723,3 +2723,75 @@ executed the B34 diagnostic, but the B34.1 warning-only
 commit has not undergone a new full build by the
 assistant. GitHub CI and Codecov were not consulted.
 
+### B35 selective existing Karatsuba for large balanced GCC x86-64 multiplication (19 October 2026)
+
+B34.1 preserves the successful B33 alias-to-symmetric-square
+dispatch. The remaining large x86-64 cost is generic distinct
+`Integer::mul` (B33 around 3066 ns vs GMP 1425 ns at 4096 bits).
+Before introducing any new assembly kernel, B35 measured the
+existing B8 `BigUnsigned::mul_into_karatsuba` recurrence against
+the GCC-selected B6 fused schoolbook. The existing exact
+Karatsuba recursion uses caller-owned scratch, recursively
+computed sums, and the same architecture-selected schoolbook
+base cases; no new numeric algorithm is added.
+
+An isolated x86-64 GCC 14.2 -O3 A/B probe reproducing the
+production Karatsuba workspace, cross-term correction and
+fused schoolbook recurrence used rotating, pre-generated
+32-pair pools with independent GMP result verification.
+At 32 limbs, cutoff 32 offered no useful speedup; at 64
+limbs, cutoff 32 improved a dense-mixed preallocated
+kernel by approximately 12-15% and a benchmark-shaped
+near-power-of-two pool by approximately 16%. In repeated
+**owning** tests that allocate output and Karatsuba
+workspace each iteration, 64-limb sparse operands improved
+from approximately 3730 to 3148 ns (15.6%).
+At 96/128 limbs, sparse owning improvements were
+approximately 24%/30%. The exact local numbers
+depend on the environment and are **not** official
+native Integer-vs-GMP B35 timings. An 8000-case
+independent differential test compared cutoff-32
+Karatsuba with both the fused schoolbook and GMP on
+48..137 limbs, including random, saturated, powers
+of two, alternating-zero limbs and unequal operand
+lengths. GCC -O3 and Clang ASan/UBSan both passed.
+
+B35 therefore changes only **owning** `BigUnsigned::mul`
+on GCC x86-64 builds already selecting the existing
+`ARIADNE_BIG_UNSIGNED_GCC_FUSED` kernel, and only
+when the *smaller* operand has >=64 normalized limbs
+and the operand lengths are within 25% of the larger.
+The comparison uses `smaller >= larger - larger/4`
+to avoid integer overflow. Compute the exact scratch
+size via the existing
+`karatsuba_scratch_limbs(n,m,32)`, allocate one private
+vector, and call the existing exact
+`mul_into_karatsuba(...,scratch,32)` into the usual
+owned result. No global scratch, changes in output
+ownership, new ISA, CMake setting, public API,
+or benchmark-specific input tests. The original fused
+dispatch remains selected for 53/128/256/1024/2048-bit
+benchmarks and strongly unbalanced operands; 4096
+bits corresponds to 64 limbs and can use Karatsuba.
+All ARM64 Apple M2/M4, Clang, MSVC, and portable
+architectures keep B33's original multiplication;
+GCC control builds with the fused option OFF also
+retain the previous kernel. B32 symmetric
+`BigUnsigned::square` and B33 aliased Integer
+self-products are unchanged; preallocated
+`BigUnsigned::mul_into` stays fused.
+
+Add 448 focused GMP-oracle owning `mul(lhs,rhs)`
+and `mul(rhs,lhs)` regression scenarios spanning
+63/64/65, 80/96/128 limbs, balanced and skewed
+lengths, dense, all-ones and sparse patterns,
+with canonical high nonzero limbs. The original
+6000 randomized product tests, B32 symmetric
+square cases, Karatsuba scratch/guards and
+other benchmarks remain unchanged.
+Full integrated tests and actual x86-64/ARM64
+six-size Integer-vs-GMP benchmarks for B35
+remain outstanding; do not claim an integrated
+speedup from this kernel proxy. GitHub CI and
+Codecov were not consulted by user request.
+
