@@ -1088,34 +1088,45 @@ struct DecimalSplitPower {
 
 constexpr std::size_t decimal_recursive_cutoff_limbs=16u;
 
-std::string to_decimal_recursive(
+// B43: append into a single owning output string throughout the
+// divide-and-conquer recursion. min_digits is the exact field width
+// required by an ancestor's low half; only a leaf emits zero padding.
+// No leading zeros are introduced for the root (min_digits==0).
+void append_decimal_recursive(
         BigUnsigned const& value,
-        std::vector<DecimalSplitPower> const& powers)
+        std::vector<DecimalSplitPower> const& powers,
+        std::string& output,std::size_t min_digits)
 {
-    if (value.size()<=decimal_recursive_cutoff_limbs) {
-        return to_decimal_blocks(value);
+    if (value.size()>decimal_recursive_cutoff_limbs) {
+        // Preserve B22's balanced power selection and exact divrem.
+        const std::size_t midpoint=value.bit_length()/2u;
+        std::size_t count=powers.size();
+        while (count!=0u &&
+                powers[count-1u].value.bit_length()>midpoint) {
+            --count;
+        }
+        if (count!=0u) {
+            auto const& divisor=powers[count-1u];
+            auto [high,low]=divrem(value,divisor.value);
+
+            // The quotient contributes the high digits. If an
+            // ancestor requested a fixed-width decimal field, the
+            // high part carries only the width not owned by 'low'.
+            const std::size_t high_width=min_digits>divisor.width
+                ? min_digits-divisor.width : 0u;
+            append_decimal_recursive(high,powers,output,high_width);
+            // 0 <= low < 10^width, so its representation must occupy
+            // exactly 'width' characters, including leading zeros.
+            append_decimal_recursive(low,powers,output,divisor.width);
+            return;
+        }
     }
 
-    // Take the largest 10^(9*2^i) no wider than half the input's
-    // bit length; this yields a near-balanced split without a
-    // floating-point estimate of the number of decimal digits.
-    const std::size_t midpoint=value.bit_length()/2u;
-    std::size_t count=powers.size();
-    while (count!=0u && powers[count-1u].value.bit_length()>midpoint) {
-        --count;
+    const std::string leaf=to_decimal_blocks(value);
+    if (leaf.size()<min_digits) {
+        output.append(min_digits-leaf.size(),'0');
     }
-    if (count==0u) {
-        return to_decimal_blocks(value);
-    }
-
-    auto const& divisor=powers[count-1u];
-    auto [high,low]=divrem(value,divisor.value);
-    std::string result=to_decimal_recursive(high,powers);
-    const std::string suffix=to_decimal_recursive(low,powers);
-    // Since 0 <= low < 10^width, suffix.size() <= width.
-    result.append(divisor.width-suffix.size(),'0');
-    result+=suffix;
-    return result;
+    output+=leaf;
 }
 
 } // namespace
@@ -1134,7 +1145,8 @@ std::string to_decimal(BigUnsigned const& value)
     // no GMP boundary conversions, global caches, or ISA assumptions.
     std::vector<DecimalSplitPower> powers;
     powers.push_back({BigUnsigned(std::uint64_t{1000000000u}),9u});
-    const std::size_t midpoint=value.bit_length()/2u;
+    const std::size_t bit_length=value.bit_length();
+    const std::size_t midpoint=bit_length/2u;
     while (true) {
         const auto& last=powers.back();
         const std::size_t bits=last.value.bit_length();
@@ -1153,7 +1165,16 @@ std::string to_decimal(BigUnsigned const& value)
         const std::size_t width=last.width*2u;
         powers.push_back({std::move(squared),width});
     }
-    return to_decimal_recursive(value,powers);
+    std::string result;
+    // floor(bits/3)+1 safely bounds decimal digits since
+    // log10(2)<1/3. Reserve once and avoid repeated intermediate
+    // string allocation/copying, for both x86-64 and ARM64.
+    const std::size_t digit_capacity=bit_length/3u+1u;
+    if (digit_capacity<=result.max_size()) {
+        result.reserve(digit_capacity);
+    }
+    append_decimal_recursive(value,powers,result,0u);
+    return result;
 }
 
 namespace {

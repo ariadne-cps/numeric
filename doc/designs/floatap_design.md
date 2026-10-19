@@ -8311,3 +8311,25 @@ the B41.1 journal entry in
 ### B42 decimal leaf formatting without temporary strings (19 October 2026)
 
 B42 leaves the arbitrary precision arithmetic and recursive decimal conversion unchanged. On ARM64 only, the radix-10^18 leaf formatter now reserves quotient blocks, creates one exactly sized output string, and writes the leading block with `to_chars` and the other blocks as zero-padded digit pairs, eliminating individual `std::to_string` temporaries. The 128/64 wide division and all other platforms remain untouched; no workload or oracle alterations. A standalone 1800-case GMP/ASan/UBSan decimal verification passed. Add 208 production GMP decimal cases around the relevant boundary sizes. Full B42 CI and native timing results are pending. See the B42 entry in `integer_rational_design.md`.
+
+### B43 shared recursive decimal output accumulator (19 October 2026)
+
+B43 retains the exact B22 decimal power selection and
+quotient/remainder recursion, but no longer constructs and
+concatenates separate high/low `std::string` objects at every
+recursive node. A single output string is reserved once using
+an integer-only upper bound based on bit length, and both
+recursion branches append to it; inherited minimum widths
+are propagated to preserve every required zero of the low
+decimal partition, including nested zero remainders.
+B42 ARM64 wide leaves and B31 x86-64 radix-10^9 leaves
+are **unchanged**, so both architectures exercise the same
+new shared assembly and their established optimized leaves.
+FloatAP algorithms, GMP independence, arithmetic kernels,
+division, API/ABI, CMake configuration, and the official
+benchmark are unchanged. A standalone 880-case GMP-oracle
+recursion probe passed Clang ASan/UBSan. The production
+suite adds 80 explicit nested-padding GMP decimal cases.
+No native M2 or x86 performance claim is made before
+comparative benchmarks; see the B43 design journal.
+

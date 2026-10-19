@@ -3379,3 +3379,65 @@ B41.1 workflows finish.
 ### B42 single-allocation ARM64 radix-10^18 decimal formatting (19 October 2026)
 
 B41.1 passes all Unix, Windows and Coverage GitHub Actions, including Clang 16 Release and ThreadSanitizer. B41 Apple M2 measurements of `to_decimal` at 1024/2048/4096 bits were 1514.429/3675.169/9434.652 ns; GMP at 4096 bits was 4069.252 ns (2.319x). B42 retains the exact existing recursive splitting and wide 128/64 quotient/remainder algorithm but optimizes formatting of the ARM64 radix-10^18 leaves: the decimal block vector reserves at most two blocks per input limb, then one exactly sized result string is filled using `to_chars` for the leading block and constexpr digit-pair lookup for all nine pairs in each remaining 18-digit block. No per-block `std::to_string` or temporary allocation is used. Other platforms' radix-10^9 path, all arithmetic kernels and the official benchmark are unchanged. A standalone C++20 reconstruction of the wide division and formatter passed 1800 GMP `mpz_get_str` comparisons with Clang ASan/UBSan over 0..256 limbs, including sparse, saturated and zero values. Production regression adds 208 independent GMP decimal cases at 8..256 limbs, including 8/9 and 16/17 dispatch boundaries. B42 production CI and Apple M2 timings are pending.
+
+### B43 append-only recursive decimal output and one root string (19 October 2026)
+
+B42 on Apple M2 reduced native `to_decimal` versus B41.1 from
+1514.429 -> **1178.808 ns** at 1024 bits (-22.2%),
+3675.169 -> **3085.894 ns** at 2048 bits (-16.0%) and
+9434.652 -> **8564.325 ns** at 4096 bits (-9.2%).
+The corresponding GMP B42 4096-bit conversion was 4077.340 ns,
+leaving a 2.100x slowdown. The B42 official benchmark verified 768
+input pairs and 2688 operation results. All Unix, Windows and
+Coverage GitHub Actions passed (external Codecov statuses remained
+separate). The residual is not proven to lie in any single stage:
+decimal-power construction, multiprecision `divrem`, and leaf
+conversion were not isolated on the user's Apple M2.
+
+B43 targets a separate, demonstrable source of allocation/copy
+overhead in the **shared** B22 recursive string assembly. Previously
+`to_decimal_recursive(value,powers)` returned a new string at
+every recursive node, constructing separate high and low strings,
+padding the low string to the exact divisor width and concatenating
+both. B43 keeps the same power table, selected splitting divisor,
+exact `divrem` quotient and remainder, 16-limb recursion cutoff
+and architecture-selected leaf conversion, but threads **one**
+`std::string& output` down the recursion. At each high branch it
+passes only the inherited minimum decimal field width not already
+owned by the lower branch; each low branch receives exactly its
+divisor's decimal width. Only leaf nodes format or emit leading
+zeroes, so root output has no leading zeros and all lower fields are
+exactly zero-padded. This handles recursively split *remainders*
+that themselves have many digits, including zero, small residuals
+and long internal decimal-zero runs. The root pre-reserves
+`bit_length/3+1` characters as a conservative, overflow-safe
+upper bound on decimal length (`log10(2)<1/3`), and shares its
+already computed bit length with power-table creation.
+There are no caches, GMP calls, altered benchmarks, new public
+APIs, new arithmetic kernels, ISA requirements or division changes.
+
+Unlike B42, this string-assembly optimization is **shared**
+across ARM64 and x86-64, using each architecture's existing
+radix-10^18 / radix-10^9 leaf formatter; it does not reenable the
+historically slower 128/64 decimal division on x86-64.
+Do not assume a cross-platform speedup until independently
+measured on each host. The change removes intermediate recursive
+string allocations, not the leaf string creation or the
+multiprecision division cost; the empirical 7000 ns (4096-bit M2)
+goal remains unverified.
+
+Before integration, a standalone C++20 reconstruction of both
+the original recursive string assembly and B43's exact minimum-
+width append recurrence was run with independent GMP quotient/
+remainder and GMP decimal conversion for the leaves. All
+**880** randomized/adversarial 0..256-limb scenarios passed under
+Clang AddressSanitizer and UndefinedBehaviorSanitizer,
+including powers of two, zeros, saturated operands, random
+dense inputs and distant nonzero limbs. Production GMP decimal
+tests add **80** deliberately nested decimal-split and
+zero-padding cases across 144,288,576,1152,2304 decimal
+exponents, with independent `mpz_get_str` oracles.
+All earlier B22/B25/B31/B42 decimal scenarios and the
+official 84-operation benchmark are retained.
+B43 CI and same-M2 performance measurements are pending.
+
