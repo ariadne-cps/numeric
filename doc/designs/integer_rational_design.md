@@ -1601,3 +1601,46 @@ Integrated Unix/Windows/Coverage CI and native ARM64/x86-64 benchmark results fo
 ### B19.1 scoped type fix (19 October 2026)
 
 AppleClang reported two unqualified `Limb` uses in free function `Ariadne::to_decimal`. The function was already in `namespace Ariadne`; `Limb` is a nested alias of `BigUnsigned`. Qualify both as `BigUnsigned::Limb`. No other source, test, benchmark, algorithm or namespace is changed. Integrated CI remains pending.
+
+
+### B19.2 equal-prefix compare improvement and accurate benchmark verification count (19 October 2026)
+
+The user supplied B19.1 native ARM64 and x86-64 benchmark runs (20,000
+iterations, 31 samples). The shared `to_decimal` optimization reduced
+2048-bit conversion from 111251 to 5113 ns on ARM64 (21.76x) and from
+240108 to 7589 ns on x86-64 (31.64x). The x86-64 run also included
+4096 bits: conversion dropped from 952785 to 27951 ns (34.09x).
+These are same-user before/after runs, not simultaneous A/B trials.
+
+The most striking remaining platform difference is `compare`:
+at 2048 bits native/GMP is approximately 1.02x on ARM64 but 16.05x
+on x86-64. `BigUnsigned::compare` repeatedly invoked `limb()`
+for equal high prefixes, including repeated bounds and inline-vs-heap
+selection. B19.2 changes only this shared implementation to acquire
+both `LimbView` spans once and compare their limb values directly,
+preserving length-first comparison, signed ordering, canonical rules
+and `noexcept`. No ISA-specific source or kernel selection changes.
+Existing GMP-differential randomized compare coverage remains intact;
+added a deterministic 64-limb equal-prefix case and high-limb mismatch
+case. An isolated C++20 compare-view implementation passed 250000
+deterministic reference comparisons when compiled with both Clang and
+GCC, with warnings-as-errors. That does not replace project CTest or
+establish an observed speedup.
+
+The new benchmark division-input oracle in B19 checked all 32
+additional input pairs inside the pre-existing 32-element input loop,
+incorrectly reporting 10560 distinct inputs for five widths or 12672
+for six. B19.2 moves that validation loop outside the old input loop,
+preserving exactly the same comparisons, with no weakening and no
+change in timed measurements. The accurate counts are 640 distinct
+input values for five widths or 768 for six, with unchanged 2240 or
+2688 per-operation result checks respectively. This is not a
+performance change.
+
+The B19.1 Unix/Windows/Coverage CI was green at `a7b7bd1`, and its
+native benchmark outputs passed numerical verification. The B19.2
+full project and cross-platform CI plus new ARM64/x86-64 performance
+results are **pending**. Next investigate nontrivial division using
+representative quotient sizes, without changing or reducing its GMP
+differential coverage. Keep 4096 available but use
+`--bits 53,128,256,1024,2048` for interim repeats.

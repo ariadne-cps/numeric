@@ -149,6 +149,21 @@ void TestBigUnsigned::test_boundaries()
     }
     ARIADNE_TEST_ASSERT(threw);
     ARIADNE_TEST_ASSERT(compare(add(all,BigUnsigned{}),all)==0);
+
+    // Scan across equal high limbs in heap storage. The first
+    // differing limb is near the bottom, or does not exist at all.
+    std::array<std::uint64_t,64> equal_high{};
+    equal_high.fill(max);
+    std::array<std::uint64_t,64> low_different=equal_high;
+    low_different[0u]=max-1u;
+    const BigUnsigned high(equal_high);
+    const BigUnsigned low(low_different);
+    ARIADNE_TEST_ASSERT(compare(low,high)<0);
+    ARIADNE_TEST_ASSERT(compare(high,low)>0);
+    ARIADNE_TEST_ASSERT(compare(high,high)==0);
+    ARIADNE_TEST_ASSERT(compare(high,one)>0);
+    low_different[63u]=max-1u;
+    ARIADNE_TEST_ASSERT(compare(BigUnsigned(low_different),high)<0);
 }
 
 void TestBigUnsigned::test_multiplication()
