@@ -1844,3 +1844,24 @@ of output work, not a new division algorithm. Full Unix, Windows,
 Coverage CI and ARM64/x86-64 performance measurements remain pending;
 compare B23 against B22 at all 53..4096-bit widths with 20,000
 iterations and 31 samples. Inspect all 4 quotient/remainder workloads.
+
+
+### B23.1 benchmark operation naming clarification (19 October 2026)
+
+Following the user-requested clarification, rename the four integer
+division benchmark *labels only*: historical `quotient` to
+`quotient_trivial`, historical `remainder` to
+`remainder_trivial`, `quotient_nontrivial` to `quotient`, and
+`remainder_nontrivial` to `remainder`. The original 32-pair
+corpus satisfies `|a|<|b|`, hence its quotient is zero and remainder
+equals the dividend; the additional 32-pair division corpus includes
+small divisors, half-width divisors and near-equal magnitudes,
+and produces nonzero quotients. Keep every operand, iteration, sample,
+operation order, verified result, operation count and timed routine
+unchanged: only report names differ. Old and new benchmark output
+rows must be matched by this four-way mapping before comparisons.
+B23 native results from the user were GMP verified on ARM64/x86-64
+(768 pairs and 2688 results on both); its Unix/Windows/Coverage
+workflow suite succeeded at commit `16609ab`. The current B23.1
+naming-only commit requires fresh CI validation, but no numerical
+performance gains are claimed from its label change.

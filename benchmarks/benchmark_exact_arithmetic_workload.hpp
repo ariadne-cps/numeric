@@ -417,17 +417,21 @@ void integer_operations(IntegerPool<Operations> const& pool,Visit&& report) {
     report("square",[&](unsigned i) {
         return Operations::square(a[index(i)]);
     });
-    report("quotient",[&](unsigned i) {
+    // Preserve both historical 32-pair corpora and operation order.
+    // In the original pool |a|<|b| always: q=0 and r=a.
+    report("quotient_trivial",[&](unsigned i) {
         return Operations::quotient(a[index(i)],b[index(i)]);
     });
-    report("remainder",[&](unsigned i) {
+    report("remainder_trivial",[&](unsigned i) {
         return Operations::remainder(a[index(i)],b[index(i)]);
     });
-    report("quotient_nontrivial",[&](unsigned i) {
+    // The division-specific corpus includes small and half-width
+    // divisors, plus near-equal magnitudes: a nonzero signed quotient.
+    report("quotient",[&](unsigned i) {
         return Operations::quotient(pool.division_a[index(i)],
                                     pool.division_b[index(i)]);
     });
-    report("remainder_nontrivial",[&](unsigned i) {
+    report("remainder",[&](unsigned i) {
         return Operations::remainder(pool.division_a[index(i)],
                                      pool.division_b[index(i)]);
     });
