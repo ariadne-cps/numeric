@@ -414,20 +414,10 @@ bool greater_fixed(BigUnsigned::LimbView a,BigUnsigned::LimbView b) noexcept
     return false;
 }
 
-// Subtract a smaller disjoint unsigned view from a mutable destination.
+// Reuse the existing checked subtraction below (also used by
+// Karatsuba): division corrects the quotient digit before subtracting.
 void subtract_in_place(BigUnsigned::MutableLimbView destination,
-                       BigUnsigned::LimbView source) noexcept
-{
-    BigUnsigned::Limb borrow=0u;
-    for (std::size_t i=0u;i<destination.size();++i) {
-        const auto left=destination[i];
-        const auto right=i<source.size()?source[i]:BigUnsigned::Limb{0};
-        const auto difference=left-right;
-        destination[i]=difference-borrow;
-        borrow=static_cast<BigUnsigned::Limb>(
-            left<right || difference<borrow);
-    }
-}
+                       BigUnsigned::LimbView source);
 
 } // namespace
 
