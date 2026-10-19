@@ -104,6 +104,20 @@ class BigUnsigned
     //! This operation has no ISA-specific implementation.
     static Limb divrem_limb_into(
         LimbView a,Limb divisor,MutableLimbView quotient);
+    //! Exact scratch for normalized source views of the supplied lengths.
+    //! No scratch is needed for one-limb divisors or shorter dividends.
+    //! Throws length_error on size overflow.
+    static std::size_t divrem_scratch_limbs(
+        std::size_t dividend_limbs,std::size_t divisor_limbs);
+    //! Exact unsigned quotient and remainder in caller-owned storage.
+    //! Input views must be canonical: no high zero limbs, except empty zero.
+    //! Quotient requires a.size() limbs; remainder min(a.size(),b.size()).
+    //! Extra destination limbs are set to zero. All five views must be
+    //! pairwise disjoint; no allocation or mutation before size checks.
+    //! Zero divisor raises domain_error, undersized storage length_error.
+    static void divrem_into(
+        LimbView a,LimbView b,MutableLimbView quotient,
+        MutableLimbView remainder,MutableLimbView scratch);
     //! Product modulo 2^(64*output.size()); output is fully overwritten.
     //! Inputs and output must be disjoint. No intermediate allocation.
     //! Uses the selected architecture kernel when it is available.
@@ -213,6 +227,10 @@ class BigUnsigned
     //! Throws std::domain_error for a zero divisor.
     friend std::pair<BigUnsigned,Limb> divrem_limb(
         BigUnsigned const& a,Limb divisor);
+    //! Euclidean unsigned quotient and remainder: a = b*q+r, 0 <= r < b.
+    //! Returns canonical magnitudes, throws domain_error for b=0.
+    friend std::pair<BigUnsigned,BigUnsigned> divrem(
+        BigUnsigned const& a,BigUnsigned const& b);
     //! Exact product of two unsigned magnitudes.
     friend BigUnsigned mul(BigUnsigned const& a, BigUnsigned const& b);
 

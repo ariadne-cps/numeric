@@ -71,6 +71,7 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_randomized());
         ARIADNE_TEST_CALL(test_multiplication());
         ARIADNE_TEST_CALL(test_division_limb());
+        ARIADNE_TEST_CALL(test_division());
         ARIADNE_TEST_CALL(test_views_and_scratch());
         ARIADNE_TEST_CALL(test_multiply_kernel_paths());
     }
@@ -81,6 +82,7 @@ class TestBigUnsigned
     void test_randomized();
     void test_multiplication();
     void test_division_limb();
+    void test_division();
     void test_views_and_scratch();
     void test_multiply_kernel_paths();
 };
@@ -695,6 +697,125 @@ void TestBigUnsigned::test_division_limb()
     for (auto limb:output) {
         ARIADNE_TEST_ASSERT(limb==max);
     }
+}
+
+
+void TestBigUnsigned::test_division()
+{
+    const auto max=std::numeric_limits<std::uint64_t>::max();
+    const BigUnsigned zero;
+    const BigUnsigned one(std::uint64_t{1});
+    const BigUnsigned radix(std::array<std::uint64_t,2>{0u,1u});
+    const BigUnsigned radix_squared(
+        std::array<std::uint64_t,3>{0u,0u,1u});
+    const auto [q0,r0]=divrem(zero,radix);
+    ARIADNE_TEST_ASSERT(q0.is_zero() && r0.is_zero());
+    const auto [q1,r1]=divrem(one,radix);
+    ARIADNE_TEST_ASSERT(q1.is_zero() && compare(r1,one)==0);
+    const auto [q2,r2]=divrem(radix,radix);
+    ARIADNE_TEST_ASSERT(compare(q2,one)==0 && r2.is_zero());
+    const auto [q3,r3]=divrem(radix_squared,radix);
+    ARIADNE_TEST_ASSERT(compare(q3,radix)==0 && r3.is_zero());
+
+    GmpInteger a,b,q,r,check;
+    std::mt19937_64 engine(0xB15D1A1DULL);
+    for (unsigned repetition=0u;repetition<6000u;++repetition) {
+        const std::size_t n=repetition%31u==0u?96u:
+                             repetition%7u==0u?32u:engine()%17u;
+        const std::size_t m=repetition%37u==0u?1u:
+                             repetition%11u==0u?96u:
+                             1u+engine()%20u;
+        std::vector<std::uint64_t> da(n),db(m);
+        for (auto& digit:da) digit=engine();
+        for (auto& digit:db) digit=engine();
+        if (repetition%13u==0u) std::fill(da.begin(),da.end(),max);
+        if (repetition%17u==0u) std::fill(db.begin(),db.end(),max);
+        if (repetition%23u==0u) std::fill(da.begin(),da.end(),0u);
+        if (repetition%29u==0u) {
+            std::fill(db.begin(),db.end(),0u);
+            db.back()=1u;
+        }
+        if (repetition%43u==0u) {
+            std::fill(db.begin(),db.end(),0u);
+            db.back()=std::uint64_t{1}<<63u;
+        }
+        if (repetition%47u==0u) db.back()=1u;
+        if (repetition%53u==0u && n==m) da=db;
+        const BigUnsigned dividend(da),divisor(db);
+        mpz_import(a.value,dividend.size(),-1,sizeof(std::uint64_t),
+                   0,0,dividend.limbs().data());
+        mpz_import(b.value,divisor.size(),-1,sizeof(std::uint64_t),
+                   0,0,divisor.limbs().data());
+        mpz_tdiv_qr(q.value,r.value,a.value,b.value);
+        const auto [actual_q,actual_r]=divrem(dividend,divisor);
+        check_against_gmp(actual_q,q.value);
+        check_against_gmp(actual_r,r.value);
+        ARIADNE_TEST_ASSERT(compare(actual_r,divisor)<0);
+        ARIADNE_TEST_ASSERT(
+            compare(add(mul(actual_q,divisor),actual_r),dividend)==0);
+
+        const auto needed=BigUnsigned::divrem_scratch_limbs(
+            dividend.size(),divisor.size());
+        std::vector<std::uint64_t> qout(dividend.size()+2u,max);
+        std::vector<std::uint64_t> rout(
+            std::min(dividend.size(),divisor.size())+2u,max);
+        std::vector<std::uint64_t> guards(needed+2u,max);
+        const auto scratch=BigUnsigned::MutableLimbView(
+            guards.data()+1u,needed);
+        BigUnsigned::divrem_into(
+            dividend.limbs(),divisor.limbs(),qout,rout,scratch);
+        check_against_gmp(BigUnsigned(qout),q.value);
+        check_against_gmp(BigUnsigned(rout),r.value);
+        for (std::size_t i=dividend.size();i<qout.size();++i)
+            ARIADNE_TEST_ASSERT(qout[i]==0u);
+        for (std::size_t i=std::min(dividend.size(),divisor.size());
+                i<rout.size();++i)
+            ARIADNE_TEST_ASSERT(rout[i]==0u);
+        ARIADNE_TEST_ASSERT(guards.front()==max);
+        ARIADNE_TEST_ASSERT(guards.back()==max);
+        mpz_mul(check.value,q.value,b.value);
+        mpz_add(check.value,check.value,r.value);
+        ARIADNE_TEST_ASSERT(mpz_cmp(check.value,a.value)==0);
+    }
+
+    const std::array<std::uint64_t,3> dividend{max,max,max};
+    const std::array<std::uint64_t,2> divisor{max,max};
+    std::array<std::uint64_t,4> qout{max,max,max,max};
+    std::array<std::uint64_t,3> rout{max,max,max};
+    const auto needed=BigUnsigned::divrem_scratch_limbs(3u,2u);
+    std::vector<std::uint64_t> scratch(needed,max);
+    bool zero_threw=false,owning_zero_threw=false;
+    bool short_quotient=false,short_remainder=false,short_scratch=false;
+    try {
+        BigUnsigned::divrem_into(
+            dividend,BigUnsigned{}.limbs(),qout,rout,scratch);
+    } catch (std::domain_error const&) { zero_threw=true; }
+    try {
+        (void)divrem(BigUnsigned(dividend),zero);
+    } catch (std::domain_error const&) { owning_zero_threw=true; }
+    try {
+        BigUnsigned::divrem_into(
+            dividend,divisor,std::span(qout).first(2u),rout,scratch);
+    } catch (std::length_error const&) { short_quotient=true; }
+    try {
+        BigUnsigned::divrem_into(
+            dividend,divisor,qout,std::span(rout).first(1u),scratch);
+    } catch (std::length_error const&) { short_remainder=true; }
+    try {
+        BigUnsigned::divrem_into(
+            dividend,divisor,qout,rout,std::span(scratch).first(needed-1u));
+    } catch (std::length_error const&) { short_scratch=true; }
+    ARIADNE_TEST_ASSERT(zero_threw && owning_zero_threw &&
+                        short_quotient && short_remainder && short_scratch);
+    for (auto digit:qout) ARIADNE_TEST_ASSERT(digit==max);
+    for (auto digit:rout) ARIADNE_TEST_ASSERT(digit==max);
+    for (auto digit:scratch) ARIADNE_TEST_ASSERT(digit==max);
+    bool overflow_threw=false;
+    try {
+        (void)BigUnsigned::divrem_scratch_limbs(
+            std::numeric_limits<std::size_t>::max(),2u);
+    } catch (std::length_error const&) { overflow_threw=true; }
+    ARIADNE_TEST_ASSERT(overflow_threw);
 }
 
 void TestBigUnsigned::test_randomized()
