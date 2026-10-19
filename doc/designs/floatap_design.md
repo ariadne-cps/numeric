@@ -8027,14 +8027,14 @@ remain unconsulted at user request.
 ### B34 alias-dispatch diagnosis without arithmetic changes (19 October 2026)
 
 The official B33 x86-64 integrated benchmark measured large
-\`square\` improvements via the B32 symmetric kernel, but
-apparently slower generic \`mul\` for 53/128/256 bits.
+`square` improvements via the B32 symmetric kernel, but
+apparently slower generic `mul` for 53/128/256 bits.
 Synthetic same-host GCC A/B probes did not reproduce a
 stable gain from guard reordering or branch hints; the
 measured incremental alias guard cost was generally about
 0-1 ns. No algorithmic/ABI/API change is justified.
 Add a separate production-linked GMP-verified executable,
-\`benchmark_integer_alias_dispatch\`, comparing actual
+`benchmark_integer_alias_dispatch`, comparing actual
 public Integer multiplication on distinct, equal-but-
 separate and identical objects against explicit generic
 BigUnsigned multiplication and direct square controls.
@@ -8042,6 +8042,29 @@ Keep the established Integer/GMP benchmark and its corpus
 unchanged. This auxiliary diagnostic has not yet been
 compiled/executed against the repository; cross-platform
 ARM64 Apple M2/M4 timing comparisons remain separate.
-See B34 in \`integer_rational_design.md\`. Neither
+See B34 in `integer_rational_design.md`. Neither
 GitHub CI nor Codecov was consulted.
+
+### B34.1 alias diagnostic measurements and warning fix (19 October 2026)
+
+The separate B34 diagnostic was built on Apple ARM64
+(`fused=false`) and GCC x86-64 (`fused=true`); both
+reported `GMP verification PASS`. GCC x86-64
+aliased `Integer` self-multiplication improved over
+generic `BigUnsigned::mul` by 7.4% at 512 bits,
+28.6% at 1024 bits, 37.8% at 2048 bits and
+39.8% at 4096 bits, confirming B33's dispatch.
+Distinct x86-64 operands showed only approximately
+1.5/2.2/2.0 ns native-versus-reference gaps at
+53/128/256 bits, not proof of a guard-caused
+B33 regression. ARM64 native and reference paths
+agreed closely. The diagnostic had a Clang
+`-Wswitch-default` warning, fixed by placing its
+already-existing defensive logic_error throw in
+the `default` arm. Keep B33 arithmetic and the
+official benchmark unchanged. The host model for
+the diagnostic ARM64 execution was not specified;
+do not conflate Apple M2 with M4.
+See B34.1 in `integer_rational_design.md`;
+CI and Codecov remain excluded.
 

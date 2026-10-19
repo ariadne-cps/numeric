@@ -2610,9 +2610,9 @@ nor Codecov was consulted at the user's request.
 
 The B33 full x86-64 benchmark verified 1024/2048/4096-bit native
 square improvements of approximately 32/39/40% over B32. Its
-generic \`mul\` results at 53/128/256 bits, however, increased by
+generic `mul` results at 53/128/256 bits, however, increased by
 approximately 19/13/10% even though B33 changed only a pointer
-identity guard in \`Integer::mul\` and retained the exact pre-B33
+identity guard in `Integer::mul` and retained the exact pre-B33
 multiplication body for distinct operands.
 
 Tested B33's current identity-first guard against size-first
@@ -2627,32 +2627,32 @@ around 0-1 ns with variable sign. At 8-64 limbs no alternative
 had consistent performance wins across replicates. These
 isolated probes are *not* the complete production Integer
 implementation, so cannot conclusively explain the user's
-5-6 ns small-\`mul\` shifts. They do show that blindly
+5-6 ns small-`mul` shifts. They do show that blindly
 reordering the guard or attaching a branch hint lacks a
 credible performance justification. Binary layout or
 inter-run variability remain hypotheses, not established causes.
 
-**Decision:** Preserve B33's current production \`Integer::mul\`
+**Decision:** Preserve B33's current production `Integer::mul`
 and symmetric kernel rather than force an unproven B34 dispatch.
-Add a separate, opt-in \`benchmark_integer_alias_dispatch\`
+Add a separate, opt-in `benchmark_integer_alias_dispatch`
 executable, built against the **same actual NUMERIC_SRC** as
 the official Integer benchmark. The new diagnostic records
-median ns for public \`a*b\` on distinct operands, distinct
-objects with identical values, and same-object \`a*a\`.
-Its references call \`BigUnsigned::mul\` via
-\`Integer::from_magnitude\`, and use the actual B32
-\`BigUnsigned::square\` as a third self-square control.
+median ns for public `a*b` on distinct operands, distinct
+objects with identical values, and same-object `a*a`.
+Its references call `BigUnsigned::mul` via
+`Integer::from_magnitude`, and use the actual B32
+`BigUnsigned::square` as a third self-square control.
 Each width uses 32 deterministic operand pairs and signs,
 pre-verifies public/native/reference results against GMP,
 and alternates seven operation-order slots across each
 sample to limit drift. Report the library's actual
-\`selected_multiply_uses_fused()\` selection. This is
+`selected_multiply_uses_fused()` selection. This is
 a diagnostic tool **only**; do not alter the established
 14-operation Integer/GMP benchmark or its corpus, timing,
 iteration counts, fairness checks or output.
 
 To run from the same build on x86-64:
-\`./benchmarks/benchmark_integer_alias_dispatch --bits 53,128,256,512,1024,2048,4096 --iterations 20000 --samples 31\`.
+`./benchmarks/benchmark_integer_alias_dispatch --bits 53,128,256,512,1024,2048,4096 --iterations 20000 --samples 31`.
 Interpret public/reference differences cautiously because
 they include call structure as well as the alias guard;
 run B32 and B33 builds on the **same CPU**, alternating
@@ -2666,4 +2666,60 @@ B32 ARM64 numbers are Apple M2, B31.1 ARM64 numbers were
 Apple M4; never use cross-machine absolute times as
 evidence of a code regression. CI and Codecov remain
 unconsulted by user request.
+
+### B34.1 diagnostic warning fix and ARM64/x86-64 results (19 October 2026)
+
+The user built and executed B34's production-linked diagnostic
+on both Apple ARM64 (reported `fused=false`) and GCC x86-64
+(reported `fused=true`), with 20,000 iterations, 31 samples.
+Both runs ended with `GMP verification PASS`. Clang on ARM64
+reported `-Wswitch-default` because the diagnostic's enum
+switch did not contain an explicit `default` case. B34.1 moves
+the preexisting `std::logic_error("Unknown diagnostic mode")`
+throw into the `default` label of that switch, removing only
+the warning. It changes none of the seven measured cases,
+their order, timing, GMP verification or arithmetic behavior.
+
+The x86-64 GCC results demonstrate B33's genuine benefit
+on aliased self-products by comparing its production
+`a*a` with the diagnostic's explicit generic multiply:
+512 bits: 94.453 vs 102.012 ns (7.4% faster);
+1024 bits: 181.105 vs 253.586 ns (28.6%);
+2048 bits: 503.167 vs 809.378 ns (37.8%);
+4096 bits: 1834.987 vs 3047.787 ns (39.8%).
+The direct `BigUnsigned::square` control at 4096 bits
+was 1827.186 ns and confirms that the alias path is
+reaching the specialized square rather than generic mul.
+
+For distinct operands at 53,128,256 bits, the same
+x86-64 run yielded native/generic pairs 51.296/49.827,
+42.475/40.296, and 69.793/67.834 ns, respectively,
+corresponding to gaps of about 1.5, 2.2 and 2.0 ns.
+Those differences include compiler code generation
+and call/dispatch structure, so **must not be treated
+as the pure alias-check cost**. The 5-6 ns B33/B32
+small-multiplication regression has not been causally
+established. For 1024,2048,4096 bits, distinct
+native/generic were 257.940/257.924,
+821.206/819.870 and 3063.295/3063.707 ns,
+indicating near parity for large inputs.
+
+ARM64 native/generic measurements were very close,
+as expected for a platform that does not enable
+B33's GCC fused alias specialization (4096-bit
+distinct 2359.202/2355.177 ns, aliased
+2362.954/2361.898 ns). These diagnostic numbers
+identify an ARM64 host only, not whether it was
+M2 or M4: never infer its specific CPU without
+explicit user confirmation. The earlier official
+ARM64 B32/B33 runs were Apple M2, whereas
+B31.1 was measured on Apple M4.
+
+**Decision:** keep B33 unchanged, neither reorder its
+alias guard nor add a branch hint. B34.1 contains no
+numeric implementation change and does not alter
+the official Integer-vs-GMP corpus. The user has
+executed the B34 diagnostic, but the B34.1 warning-only
+commit has not undergone a new full build by the
+assistant. GitHub CI and Codecov were not consulted.
 
