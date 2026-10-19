@@ -1324,6 +1324,25 @@ void TestBigUnsigned::test_gcd_decimal()
         }
     }
 
+    // B31: the new pair-wise base-10^9 renderer must preserve every
+    // zero-padded two-digit group (00, 01, 09, 10, 99), carry across
+    // decimal blocks, and the variable-width most-significant block.
+    // GMP supplies the independent exact decimal oracle on every host.
+    for (const unsigned long digits:
+            {9ul,18ul,27ul,72ul,144ul,288ul,576ul}) {
+        mpz_ui_pow_ui(a.value,10ul,digits);
+        for (const unsigned long offset:
+                {0ul,1ul,9ul,10ul,11ul,99ul,100ul,101ul,999ul}) {
+            mpz_set(b.value,a.value);
+            mpz_add_ui(b.value,b.value,offset);
+            check_decimal_boundary(b.value);
+            if (offset!=0ul) {
+                mpz_sub_ui(b.value,a.value,offset);
+                check_decimal_boundary(b.value);
+            }
+        }
+    }
+
     for (unsigned k=0u;k<=9u;++k) {
         const unsigned long digits=9ul*(1ul<<k);
         mpz_ui_pow_ui(a.value,10ul,digits);

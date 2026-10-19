@@ -29,7 +29,9 @@
 #include "numeric/big_unsigned.hpp"
 
 #include <algorithm>
+#include <array>
 #include <bit>
+#include <charconv>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -932,6 +934,11 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     const auto limbs=value.limbs();
     std::vector<BigUnsigned::Limb> work(limbs.begin(),limbs.end());
     std::vector<unsigned> blocks;
+    // B31: avoid repeated growth of the decimal-block container.
+    // A 64-bit limb contributes at most three base-10^9 blocks.
+    if (limbs.size()<=blocks.max_size()/3u) {
+        blocks.reserve(limbs.size()*3u);
+    }
     while (!work.empty()) {
         // radix < 2^32. Two 64/32 divisions avoid a general 128/64
         // division, and the per-limb output update is in-place.
@@ -953,11 +960,45 @@ std::string to_decimal_blocks(BigUnsigned const& value)
         }
     }
 
-    std::string result=std::to_string(blocks.back());
-    for (std::size_t i=blocks.size()-1u;i!=0u;--i) {
-        const std::string block=std::to_string(blocks[i-1u]);
-        result.append(block_width-block.size(),'0');
-        result+=block;
+    // B31: format the base-10^9 blocks into one exactly sized
+    // string. Writing from the end preserves leading zeros in each
+    // nine-digit block without temporary strings or repeated appends.
+    static constexpr auto digit_pairs=[] {
+        std::array<char,200> table{};
+        for (unsigned value=0u;value<100u;++value) {
+            table[2u*value]=static_cast<char>('0'+value/10u);
+            table[2u*value+1u]=static_cast<char>('0'+value%10u);
+        }
+        return table;
+    }();
+
+    std::array<char,10> top_buffer{};
+    const auto [top_end,error]=std::to_chars(
+        top_buffer.data(),top_buffer.data()+top_buffer.size(),
+        blocks.back());
+    if (error!=std::errc{}) {
+        throw std::length_error("BigUnsigned decimal head overflow");
+    }
+    const std::size_t top_width=static_cast<std::size_t>(
+        top_end-top_buffer.data());
+    std::string result;
+    if (blocks.size()-1u>(result.max_size()-top_width)/block_width) {
+        throw std::length_error("BigUnsigned decimal output overflow");
+    }
+    result.resize(top_width+(blocks.size()-1u)*block_width);
+    std::copy_n(top_buffer.data(),top_width,result.data());
+
+    char* output=result.data()+result.size();
+    for (std::size_t i=0u;i+1u<blocks.size();++i) {
+        unsigned block=blocks[i]; // Each block is strictly below 10^9.
+        for (unsigned pair_index=0u;pair_index<4u;++pair_index) {
+            const unsigned pair=block%100u;
+            block/=100u;
+            output-=2u;
+            output[0u]=digit_pairs[2u*pair];
+            output[1u]=digit_pairs[2u*pair+1u];
+        }
+        *--output=static_cast<char>('0'+block);
     }
     return result;
 }

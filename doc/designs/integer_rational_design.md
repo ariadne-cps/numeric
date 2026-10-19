@@ -2389,3 +2389,70 @@ machine code and the allocation/copying costs, and verify
 performance with the **real** BigUnsigned/Integer end-to-end
 benchmark rather than a GMP-based recursion proxy. CI and
 Codecov remain deliberately unconsulted at user request.
+
+### B31 pairwise decimal string assembly and allocation reduction (19 October 2026)
+
+B30.1 re-established the reliable B29 x86-64 radix-10^9
+leaf after B30's official native 1024/2048/4096-bit
+regression. Profiling the reconstructed **exact B30.1
+leaf** on an x86-64 AMD EPYC 9V74 with GCC 14 and
+Clang 17 showed that GCC strength-reduces the constant
+1e9 divisions to integer multiplication and shifts,
+rather than executing a runtime hardware DIVQ.
+Replacing the divisor is not the current target.
+
+B31 retains that B19 arithmetic, B22 recursive
+power/split logic, B25.1 ARM64 1e18 wide-radix path,
+B27-B29 division and all public APIs and signed
+semantics. It changes **only the rendering and
+allocation strategy** of `to_decimal_blocks` with
+radix 1e9: pre-reserve an upper bound of three
+base-1e9 blocks per 64-bit limb; render the highest
+block once via `std::to_chars`; allocate an exactly
+sized result string; write the lower blocks backward
+from least to most significant using four base-100
+digit pairs and one leading digit. A local constexpr
+200-character lookup maps 0..99 to fixed two-digit
+strings. This preserves exactly nine characters per
+lower block (including leading zeros) without the
+previous repeated `std::to_string`, `append`, and
+temporary-string operations. The result-length
+calculation is overflow-checked; the constexpr
+table and C++17 `std::to_chars` require no new
+architecture support, build flag, or CMake change.
+The ARM64 wide leaf is untouched; on ARM64 the
+radix-1e9 renderer is still used through eight limbs.
+
+An exploratory alternating-order microbenchmark on
+the exact prior 1e9 extraction loop and the new
+renderer, with both random and the official
+near-power-of-two `2^(bits-1)+c` operand shapes,
+measured 16-limb GCC baseline ~2198-2206 ns versus
+candidate ~1769-1798 ns (roughly 18-20% faster).
+Clang ranged from ~2054-2131 ns to ~1719-1788 ns
+in short replicated runs (roughly 13-19% faster).
+Eight- and nine-limb leaves often improved ~25-34%;
+32-limb stand-alone leaves improved ~6-11%, though
+production B22 uses the recursive path beyond
+16 limbs. These figures isolate a leaf implementation,
+not production `Integer::to_decimal`: **no integrated
+B31 speedup has yet been shown**. Their limited
+transferability is especially relevant following
+B25/B30's misleading standalone wins.
+
+The isolated candidate passed 30000 independent
+GMP-oracle values (random 1..128 limb words, saturated
+limbs, powers of two, long internal zeros) under
+GCC -O2 and Clang AddressSanitizer/UBSan. Extend
+`test_big_unsigned` with targeted GMP checks of
+powers of ten +/- 0,1,9,10,11,99,100,101,999,
+including exact nine-digit zero padding and
+recursive split boundaries through 576 digits.
+All previous tests and official benchmark inputs,
+14 operation definitions, iteration/sample counts,
+ARM64 selection, GMP boundary rules and other
+native arithmetic are unchanged. Full repository
+tests and the ARM64/x86-64 integrated benchmark
+remain pending; GitHub CI and Codecov are deliberately
+not consulted at user request.
+
