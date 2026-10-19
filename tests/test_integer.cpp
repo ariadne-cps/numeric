@@ -31,6 +31,7 @@
 #include "foundation/logical.hpp"
 #include "utility/string.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -39,6 +40,7 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <gmp.h>
 
@@ -421,6 +423,64 @@ void TestInteger::test_native() {
                 pow(input,Nat(exponent)));
             ARIADNE_TEST_ASSERT(
                 mpz_cmp(native_pow.value(),expected.value)==0);
+        }
+    }
+
+    // B33: alias-aware multiplication is selected only when two
+    // references denote the exact same Integer. A distinct copy with
+    // identical value must still produce the same GMP-oracle square.
+    // Include the self-assignment x*=x contract, negative signs,
+    // zero, limb saturation and the 7/8-limb dispatch boundary.
+    std::mt19937_64 alias_square_engine(0xB33A11A5ULL);
+    for (const std::size_t count:
+            {1u,7u,8u,9u,16u,17u,32u,64u,128u}) {
+        for (unsigned mode=0u;mode<16u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=alias_square_engine();
+            switch (mode%8u) {
+            case 0u:
+                std::fill(words.begin(),words.end(),0u);
+                break;
+            case 1u:
+                std::fill(words.begin(),words.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+                break;
+            case 2u:
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+                break;
+            case 3u:
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u;
+                words.back()|=1u;
+                break;
+            case 4u:
+                for (std::size_t i=1u;i+1u<count;++i) words[i]=0u;
+                break;
+            default:
+                words.back()|=std::uint64_t{1}<<63u;
+                break;
+            }
+            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
+                       0,0,words.data());
+            if (mode%2u!=0u) mpz_neg(a.value,a.value);
+            const Integer x=integer_from_gmp(a.value);
+            const Integer distinct_copy=x;
+            mpz_mul(expected.value,a.value,a.value);
+
+            const GmpIntegerBoundary aliased_product(x*x);
+            const GmpIntegerBoundary distinct_product(x*distinct_copy);
+            ARIADNE_TEST_ASSERT(
+                mpz_cmp(aliased_product.value(),expected.value)==0);
+            ARIADNE_TEST_ASSERT(
+                mpz_cmp(distinct_product.value(),expected.value)==0);
+
+            Integer self_assigned=x;
+            self_assigned*=self_assigned;
+            const GmpIntegerBoundary assigned_product(self_assigned);
+            ARIADNE_TEST_ASSERT(
+                mpz_cmp(assigned_product.value(),expected.value)==0);
+            ARIADNE_TEST_ASSERT(!self_assigned.negative());
         }
     }
 

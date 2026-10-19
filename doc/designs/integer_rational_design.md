@@ -2539,3 +2539,70 @@ production test suite and user-host ARM64/
 x86-64 benchmarks remain outstanding;
 GitHub CI and Codecov are intentionally
 not consulted.
+
+### B33 alias-aware Integer self-multiplication dispatch to B32 square (19 October 2026)
+
+The official Integer-vs-GMP B32 x86-64 run confirms a meaningful
+`pow3` improvement from B31.1 (4096-bit native ~9509.5 to
+~8195.6 ns), but reports `mul` and `square` almost identical
+(4096-bit ~3049.2 and ~3046.4 ns respectively). Source-level
+inspection explains the latter: the benchmark's unchanged
+`IntegerOperations::square(a)` is defined as `a*a`; the
+inline `Integer::operator*` forwards both references directly to
+`Integer mul(Integer const&,Integer const&)`, which until B33
+always called generic `BigUnsigned::mul`. The B32 symmetric
+`BigUnsigned::square` was not reached for that ordinary
+self-multiplication use case. This is a genuine production API
+opportunity, not a request to alter the benchmark workload.
+
+B33 detects **object identity only** (`&z1==&z2`) in
+`Integer::mul`, and uses the already verified B32
+`BigUnsigned::square` when the magnitude has >=8 limbs,
+only in GCC x86-64 builds with the existing
+`ARIADNE_BIG_UNSIGNED_GCC_FUSED` definition.
+Distinct-but-equal objects continue through generic
+`BigUnsigned::mul`; different values are unaffected.
+All smaller GCC inputs, Clang, MSVC, ARM64 Apple M2/M4
+and portable configurations retain their previous
+binary-multiplication path. The square of a negative
+Integer is positive, so the alias case constructs an
+unsigned magnitude with sign=false; zero stays canonical.
+This also correctly implements `x*=x`: the original
+input is read completely before the assignment of
+the resulting Integer. The check is O(1), based on
+semantic aliasing of operand references, and does not
+recognize benchmark-generated values or inspect
+their numeric pattern. B32's existing full-product
+size guard and kernel dispatch remain authoritative.
+
+A fresh stand-alone x86-64 GCC 14.2 isolated
+fixed-pool test of the exact B32 limb recurrences
+measured schoolbook -> symmetric at 8,16,32,64 limbs
+around 66.4->49.5 / 230.8->147.3 /
+903.6->515.8 / 3625.6->1922.1 ns
+(approximately 25/36/43/47% less kernel time).
+Clang's isolated prototype also favored symmetry,
+but this does **not** change its production selector,
+which remains unmodified. The previous independent
+GMP-oracle kernel differential and sanitizer tests
+continue to support mathematical correctness; B33
+adds 144 deterministic native Integer self-alias,
+distinct-but-equal and `x*=x` GMP-oracle fixtures at
+1,7,8,9,16,17,32,64,128 limbs and varying signs/zeros.
+These new production tests and an integrated B33
+binary have **not yet been run** by the assistant.
+Thus no integrated x86-64 `square` gain may be claimed
+before repeating the user's 84-operation benchmark
+on the same x86-64 host, ideally with a GCC fused
+build and optionally its preexisting option-OFF
+control. Preserve the official square definition
+`a*a`, all inputs, 20000 iterations/31 samples,
+all existing tests and GMP boundaries unchanged.
+
+ARM64 B32 measurements were recorded on Apple
+**M2**, whereas preceding B31.1 values came from
+Apple **M4**; absolute cross-host differences
+must not be interpreted as B32 code regressions.
+No ARM64 code path is changed by B33. Neither CI
+nor Codecov was consulted at the user's request.
+
