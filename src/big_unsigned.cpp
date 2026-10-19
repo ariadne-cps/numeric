@@ -591,12 +591,22 @@ std::string to_decimal(BigUnsigned const& value)
     std::vector<BigUnsigned::Limb> work(limbs.begin(),limbs.end());
     std::vector<unsigned> blocks;
     while (!work.empty()) {
-        BigUnsigned::Limb remainder=0u;
+        // radix < 2^32, so the running remainder fits 32 bits.
+        // Split each 64-bit digit into two 32-bit halves: both
+        // (remainder<<32)|half numerators fit in uint64_t exactly.
+        // This removes the 64-iteration bitwise divider for decimal IO
+        // without __int128, ISA intrinsics or changing public division.
+        std::uint64_t remainder=0u;
         for (std::size_t i=work.size();i!=0u;--i) {
-            const auto [quotient,next]=divide_wide_portable(
-                remainder,work[i-1u],radix);
-            work[i-1u]=quotient;
-            remainder=next;
+            const Limb digit=work[i-1u];
+            const std::uint64_t upper=(remainder<<32u)|(digit>>32u);
+            const std::uint64_t quotient_high=upper/radix;
+            remainder=upper%radix;
+            const std::uint64_t lower=(remainder<<32u)|
+                                      (digit&Limb{0xffffffffu});
+            const std::uint64_t quotient_low=lower/radix;
+            remainder=lower%radix;
+            work[i-1u]=(quotient_high<<32u)|quotient_low;
         }
         blocks.push_back(static_cast<unsigned>(remainder));
         while (!work.empty() && work.back()==0u) {

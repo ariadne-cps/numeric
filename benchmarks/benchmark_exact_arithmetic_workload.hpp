@@ -214,6 +214,34 @@ inline std::vector<IntegerSpec> integer_specifications(unsigned bits) {
     return entries;
 }
 
+// Additional division-only operands; preserve the original historical pool.
+inline std::vector<IntegerSpec> integer_division_specifications(unsigned bits) {
+    std::vector<IntegerSpec> entries;
+    entries.reserve(32u);
+    RawInteger a,b,base;
+    mpz_set_ui(base.value,1ul);
+    mpz_mul_2exp(base.value,base.value,static_cast<mp_bitcnt_t>(bits-1u));
+    for (unsigned i=0u;i<32u;++i) {
+        mpz_add_ui(a.value,base.value,101ul+2ul*i);
+        if (i%4u==0u) {
+            mpz_set_ui(b.value,3ul+i);
+        } else if (i%4u==1u) {
+            mpz_set_ui(b.value,1ul);
+            mpz_mul_2exp(b.value,b.value,static_cast<mp_bitcnt_t>(bits/2u));
+            mpz_add_ui(b.value,b.value,1ul+i);
+        } else if (i%4u==2u) {
+            mpz_set(b.value,a.value);
+            mpz_sub_ui(b.value,b.value,1ul+i);
+        } else {
+            mpz_set_ui(b.value,2ul+i);
+        }
+        if (i%4u==2u || i%4u==3u) mpz_neg(a.value,a.value);
+        if (i%4u==1u || i%4u==3u) mpz_neg(b.value,b.value);
+        entries.push_back({decimal(a.value),decimal(b.value)});
+    }
+    return entries;
+}
+
 struct RationalSpec {
     std::string numerator_a;
     std::string denominator_a;
@@ -257,7 +285,8 @@ struct IntegerOperations {
     }
     static Number copy(Number const& a) { return Number(a); }
     static int compare(Number const& a,Number const& b) {
-        return a<b ? -1 : b<a ? 1 : 0;
+        const auto order=cmp(a,b);
+        return order==Comparison::LESS ? -1 : order==Comparison::GREATER ? 1 : 0;
     }
     static Number negate(Number const& a) { return -a; }
     static Number add(Number const& a,Number const& b) { return a+b; }
@@ -337,15 +366,23 @@ struct IntegerPool {
     using Number=typename Operations::Number;
     static constexpr unsigned pool_size=32u;
 
-    std::vector<IntegerSpec> spec;
-    std::vector<Number> a,b;
+    std::vector<IntegerSpec> spec,division_spec;
+    std::vector<Number> a,b,division_a,division_b;
 
-    explicit IntegerPool(unsigned bits) : spec(integer_specifications(bits)) {
+    explicit IntegerPool(unsigned bits)
+        : spec(integer_specifications(bits)),
+          division_spec(integer_division_specifications(bits)) {
         a.reserve(pool_size);
         b.reserve(pool_size);
+        division_a.reserve(pool_size);
+        division_b.reserve(pool_size);
         for (auto const& item : spec) {
             a.push_back(Operations::parse(item.a));
             b.push_back(Operations::parse(item.b));
+        }
+        for (auto const& item : division_spec) {
+            division_a.push_back(Operations::parse(item.a));
+            division_b.push_back(Operations::parse(item.b));
         }
     }
 };
@@ -385,6 +422,14 @@ void integer_operations(IntegerPool<Operations> const& pool,Visit&& report) {
     });
     report("remainder",[&](unsigned i) {
         return Operations::remainder(a[index(i)],b[index(i)]);
+    });
+    report("quotient_nontrivial",[&](unsigned i) {
+        return Operations::quotient(pool.division_a[index(i)],
+                                    pool.division_b[index(i)]);
+    });
+    report("remainder_nontrivial",[&](unsigned i) {
+        return Operations::remainder(pool.division_a[index(i)],
+                                     pool.division_b[index(i)]);
     });
     report("pow3",[&](unsigned i) {
         return Operations::power3(a[index(i)]);
