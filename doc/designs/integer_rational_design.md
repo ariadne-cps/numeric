@@ -2465,3 +2465,77 @@ under `-Wshadow`. Only an identifier changes: the 100 table
 entries, output bytes, arithmetic, benchmark workload and APIs
 remain identical. No new performance or test results are claimed;
 GitHub CI and Codecov remain unconsulted by user request.
+
+### B32 selected GCC x86-64 symmetric squaring and generic pow identity elision (19 October 2026)
+
+B31.1's repeated native ARM64 benchmarks confirmed its decimal
+conversion improvement and showed the first 256-bit `pow3` spike
+was measurement noise (181.7 ns falling to 124.5 ns). The remaining
+major 4096-bit costs are `pow3`, `mul` and `square`.
+Inspection of `Integer::pow` found that the first set exponent
+bit multiplied the initial accumulator `1` by a power of the
+base even though assignment is sufficient. The exponentiation
+schedule now copies that first factor and executes all subsequent
+squarings/multiplications as before. This works for every
+nonnegative Nat exponent, including exponent zero, zero base,
+negative inputs and even/odd sign; it does not special-case
+the benchmark's exponent three.
+
+`BigUnsigned::square` previously called `mul(a,a)`, which
+multiplies every pair of limbs twice. B32 introduces a
+**GCC x86-64 fused-build-only**, allocation-free symmetric
+square at eight or more limbs. The result's existing 2n
+limbs hold the sum of products with i<j, calculated once
+for each unordered pair; one left shift doubles all
+cross terms; adding each a[i]^2 at positions 2i and
+2i+1 completes the square with explicit carry
+propagation. The cross-term value cannot overflow
+2n limbs because it is less than a^2. Per-row
+carry placement at i+n is safe: previous rows
+reach at most i+n-1. The full 2n-limb result
+cannot overflow, including saturated-limb inputs.
+GCC x86-64 chooses this path only when its existing
+`ARIADNE_BIG_UNSIGNED_GCC_FUSED` selection is
+enabled; turning off the existing CMake option
+still exercises the unchanged reference schoolbook
+kernel. ARM64 retains its verified assembly
+carry-chain multiplier, Clang its selected B3
+schoolbook, and MSVC/portable their original paths.
+No new public API, scratch, ISA assumption,
+CMake option, benchmark workload or native
+dependency is introduced.
+
+An independently built x86-64 GCC 14.2 -O3
+probe compared the existing fused schoolbook
+recurrence against the symmetric implementation
+with fixed-size operand pools: at 8/16/32/64
+limbs the times were approximately
+67.7->50.6 / 232.2->148.6 / 929.2->531.5 /
+3855.9->2044.8 ns. These correspond to
+25/36/43/47% lower isolated kernel time.
+The same reference prototype passed 2500
+randomized/edge cases at each of 14 sizes
+(1..128 limbs), against the original kernel
+and independent GMP, under GCC and Clang;
+Clang AddressSanitizer/UndefinedBehaviorSanitizer
+also passed. **Integrated B32 performance
+has not yet been measured** and the isolated
+x86 numbers must not be compared directly
+with the six-size Integer benchmark. This
+does not establish any ARM64 speedup from
+the symmetric algorithm, which is not selected
+there.
+
+Extend `test_big_unsigned` with 2112 GMP
+differential square and mul(x,x) cases, spanning
+the 7/8-limb selection boundary through
+128 limbs, saturated words, sparsity and zeros.
+Extend `test_integer` with 130 independent
+GMP pow exponent/negative-sign/zero oracles.
+All existing architecture/kernel selection,
+test scenarios and official Integer-vs-GMP
+workload remain unchanged. The integrated
+production test suite and user-host ARM64/
+x86-64 benchmarks remain outstanding;
+GitHub CI and Codecov are intentionally
+not consulted.

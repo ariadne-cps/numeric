@@ -1328,8 +1328,85 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
     return result;
 }
 
+// B32: x86-64 GCC's selected fused schoolbook kernel evaluates each
+// off-diagonal product twice in a*a. For >=8 limbs a symmetric square
+// requires each a[i]*a[j] (i<j) only once. The existing output buffer
+// first collects these cross-products, doubles them, and finally adds
+// the diagonal squares. The two carry passes are exact in radix 2^64.
+// Keep the old selected kernel on ARM64, Clang, MSVC and non-fused
+// GCC builds until their own native benchmarks justify dispatch.
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+namespace {
+void square_limbs_symmetric(BigUnsigned::LimbView a,
+                            BigUnsigned::MutableLimbView output) noexcept
+{
+    using Limb=BigUnsigned::Limb;
+    __extension__ using Wide=unsigned __int128;
+    const std::size_t n=a.size();
+    std::fill(output.begin(),output.end(),Limb{0});
+
+    // Accumulate sum_{i<j} a[i]*a[j]*B^(i+j) with one wide product
+    // per unordered pair. Slot i+n has not been touched by prior rows.
+    for (std::size_t i=0u;i+1u<n;++i) {
+        Limb carry=0u;
+        for (std::size_t j=i+1u;j<n;++j) {
+            const std::size_t k=i+j;
+            const Wide sum=static_cast<Wide>(a[i])*a[j]+
+                           output[k]+carry;
+            output[k]=static_cast<Limb>(sum);
+            carry=static_cast<Limb>(sum>>64u);
+        }
+        output[i+n]=carry;
+    }
+
+    // Every cross term occurs twice in a^2. The doubled cross sum
+    // fits in 2*n limbs because it is <= a^2 < B^(2*n).
+    Limb carry=0u;
+    for (std::size_t k=0u;k<output.size();++k) {
+        const Limb word=output[k];
+        output[k]=(word<<1u)|carry;
+        carry=word>>63u;
+    }
+
+    // Add the diagonal squares in ascending digit order, preserving
+    // the carry between consecutive two-limb diagonal products.
+    carry=0u;
+    for (std::size_t i=0u;i<n;++i) {
+        const Wide diagonal=static_cast<Wide>(a[i])*a[i];
+        const std::size_t k=2u*i;
+        const Wide low=static_cast<Wide>(output[k])+
+                       static_cast<Limb>(diagonal)+carry;
+        output[k]=static_cast<Limb>(low);
+        carry=static_cast<Limb>(low>>64u);
+        const Wide high=static_cast<Wide>(output[k+1u])+
+                        static_cast<Limb>(diagonal>>64u)+carry;
+        output[k+1u]=static_cast<Limb>(high);
+        carry=static_cast<Limb>(high>>64u);
+    }
+}
+} // namespace
+#endif
+
 BigUnsigned square(BigUnsigned const& a)
 {
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+    if (a._size>=8u) {
+        if (a._size>std::numeric_limits<std::size_t>::max()/2u) {
+            throw std::length_error("BigUnsigned square size overflow");
+        }
+        BigUnsigned result;
+        result.resize_for_result(2u*a._size);
+        square_limbs_symmetric(
+            a.limbs(),BigUnsigned::MutableLimbView(
+                result.mutable_data(),2u*a._size));
+        result.normalize();
+        return result;
+    }
+#endif
     return mul(a,a);
 }
 

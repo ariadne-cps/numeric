@@ -7972,3 +7972,30 @@ The constexpr base-100 digit-pair table counter in shared
 `-Wshadow` does not warn about its `value` parameter.
 No arithmetic, behavior, ABI/API, FloatAP logic or benchmark changes;
 no new integrated testing is claimed. CI/Codecov remain deferred.
+
+### B32 GCC-selected symmetric BigUnsigned square and pow cleanup (19 October 2026)
+
+Only GCC x86-64 fused-multiply builds select a new
+symmetric `BigUnsigned::square` at >=8 limbs,
+computing unordered cross products once and
+adding diagonal squares. No additional scratch
+allocation is needed. All other configurations,
+including ARM64, Clang and portable/MSVC,
+retain their previously selected `square`
+multiplication kernel. `Integer::pow` now copies
+its first selected power instead of multiplying
+by the accumulator one, preserving exact
+arbitrary-exponent and signed semantics.
+Neither `FloatAP` nor `Rational` algorithms,
+GMP adapters, build options, ABI/APIs or
+benchmark workload are changed. An independent
+x86-64 arithmetic proxy passed large random,
+saturated and sparse GMP-oracle squares under
+GCC and Clang ASan/UBSan, with significant
+isolated GCC kernel speedups for >=8 limbs.
+Add targeted GMP differential squares and
+130 signed Integer power cases. Integrated
+B32 benchmark and repository suite execution
+remain pending; consult B32 in
+`integer_rational_design.md`.
+GitHub CI and Codecov are excluded by user request.
