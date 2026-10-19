@@ -201,8 +201,9 @@ double measure(Mode mode,Pools const& pool,
         return sample_ns([&](std::size_t i) {
             return native_magnitude_square(a[i]);},
             pool,iterations,sample_number);
+    default:
+        throw std::logic_error("Unknown diagnostic mode");
     }
-    throw std::logic_error("Unknown diagnostic mode");
 }
 
 unsigned parse_positive(const char* arg)
