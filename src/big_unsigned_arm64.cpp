@@ -82,4 +82,73 @@ void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
     }
 }
 
+
+// B37: symmetric AArch64 full square. Off-diagonal products a[i]*a[j]
+// with i<j are computed once using the same native carry-chain
+// instruction sequence as the selected generic ARM64 multiplier.
+// After doubling the off-diagonal sum, add the n diagonal products.
+// This uses n*(n+1)/2 wide products instead of n*n. The two linear
+// carry passes are exact in radix B=2^64; the final carry is zero
+// since a^2 < B^(2*n). No heap allocation, new ISA extension,
+// global state or compiler-specific optimization setting is needed.
+// Contract: n>=8; output.size()==2*n; all views are disjoint.
+void square_into_symmetric_arm64(BigUnsigned::LimbView a,
+                                  BigUnsigned::MutableLimbView output) noexcept
+{
+    __extension__ using Wide=unsigned __int128;
+    const std::size_t n=a.size();
+    std::fill(output.begin(),output.end(),Limb{0});
+
+    // Accumulate the strictly upper triangle, one product per pair.
+    // output[i+n] lies past all columns previously touched by row i.
+    for (std::size_t i=0u;i+1u<n;++i) {
+        const Limb ai=a[i];
+        Limb carry=0u;
+        for (std::size_t j=i+1u;j<n;++j) {
+            const std::size_t k=i+j;
+            const Limb bj=a[j];
+            const Limb previous=output[k];
+            Limb lo,hi;
+            __asm__ volatile(
+                "mul %x[lo], %x[ai], %x[bj]\n\t"
+                "umulh %x[hi], %x[ai], %x[bj]\n\t"
+                "adds %x[lo], %x[lo], %x[previous]\n\t"
+                "adc %x[hi], %x[hi], xzr\n\t"
+                "adds %x[lo], %x[lo], %x[carry]\n\t"
+                "adc %x[hi], %x[hi], xzr\n\t"
+                : [lo] "=&r" (lo), [hi] "=&r" (hi)
+                : [ai] "r" (ai), [bj] "r" (bj),
+                  [previous] "r" (previous), [carry] "r" (carry)
+                : "cc");
+            output[k]=lo;
+            carry=hi;
+        }
+        output[i+n]=carry;
+    }
+
+    // Add the symmetric lower triangle by doubling cross terms.
+    Limb carry=0u;
+    for (std::size_t k=0u;k<output.size();++k) {
+        const Limb word=output[k];
+        output[k]=(word<<1u)|carry;
+        carry=word>>63u;
+    }
+
+    // Diagonal products occupy disjoint pairs of positions before
+    // carry propagation. Wide additions preserve all carries.
+    carry=0u;
+    for (std::size_t i=0u;i<n;++i) {
+        const Wide diagonal=static_cast<Wide>(a[i])*a[i];
+        const std::size_t k=2u*i;
+        const Wide low=static_cast<Wide>(output[k])+
+                       static_cast<Limb>(diagonal)+carry;
+        output[k]=static_cast<Limb>(low);
+        carry=static_cast<Limb>(low>>64u);
+        const Wide high=static_cast<Wide>(output[k+1u])+
+                        static_cast<Limb>(diagonal>>64u)+carry;
+        output[k+1u]=static_cast<Limb>(high);
+        carry=static_cast<Limb>(high>>64u);
+    }
+}
+
 } // namespace Ariadne::BigUnsignedDetail

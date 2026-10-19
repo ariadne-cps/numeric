@@ -62,6 +62,10 @@ namespace BigUnsignedDetail {
 void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
                               BigUnsigned::LimbView b,
                               BigUnsigned::MutableLimbView output) noexcept;
+// B37: exact symmetric full square; requires 2*a.size() output limbs,
+// disjoint from the canonical nonempty input, and at least eight limbs.
+void square_into_symmetric_arm64(BigUnsigned::LimbView a,
+                                  BigUnsigned::MutableLimbView output) noexcept;
 } // namespace BigUnsignedDetail
 #endif
 
@@ -1443,6 +1447,24 @@ BigUnsigned square(BigUnsigned const& a)
         BigUnsigned result;
         result.resize_for_result(2u*a._size);
         square_limbs_symmetric(
+            a.limbs(),BigUnsigned::MutableLimbView(
+                result.mutable_data(),2u*a._size));
+        result.normalize();
+        return result;
+    }
+#endif
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
+    defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    // B37: native Apple Silicon uses a symmetric square instead of
+    // computing a generic product twice for each off-diagonal pair.
+    // Leave small inputs on the already-tuned carry-chain schoolbook.
+    if (a._size>=8u) {
+        if (a._size>std::numeric_limits<std::size_t>::max()/2u) {
+            throw std::length_error("BigUnsigned square size overflow");
+        }
+        BigUnsigned result;
+        result.resize_for_result(2u*a._size);
+        BigUnsignedDetail::square_into_symmetric_arm64(
             a.limbs(),BigUnsigned::MutableLimbView(
                 result.mutable_data(),2u*a._size));
         result.normalize();

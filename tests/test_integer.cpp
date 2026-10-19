@@ -484,6 +484,36 @@ void TestInteger::test_native() {
         }
     }
 
+    // B37: large signed powers exercise the same ARM64 specialized
+    // square used by pow3 without changing the exponentiation schedule.
+    std::mt19937_64 arm_pow_engine(0xB37C03ULL);
+    for (const std::size_t count: {7u,8u,9u,16u,32u,64u}) {
+        for (unsigned repetition=0u;repetition<12u;++repetition) {
+            std::vector<std::uint64_t> digits(count);
+            for (auto& word:digits) word=arm_pow_engine();
+            if (repetition%5u==0u) {
+                std::fill(digits.begin(),digits.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+            } else if (repetition%5u==1u) {
+                std::fill(digits.begin(),digits.end(),0u);
+                digits.back()=std::uint64_t{1}<<63u;
+            } else {
+                digits.back()|=std::uint64_t{1}<<63u;
+            }
+            mpz_import(a.value,digits.size(),-1,sizeof(std::uint64_t),
+                       0,0,digits.data());
+            if (repetition%2u!=0u) mpz_neg(a.value,a.value);
+            const Integer input=integer_from_gmp(a.value);
+            for (const unsigned exponent: {2u,3u,5u}) {
+                mpz_pow_ui(expected.value,a.value,exponent);
+                const GmpIntegerBoundary native_pow(
+                    pow(input,Nat(exponent)));
+                ARIADNE_TEST_ASSERT(
+                    mpz_cmp(native_pow.value(),expected.value)==0);
+            }
+        }
+    }
+
     std::mt19937_64 engine(0x1A7E6EEDULL);
     for (unsigned repetition=0u;repetition<1700u;++repetition) {
         std::string lhs=std::to_string(engine());

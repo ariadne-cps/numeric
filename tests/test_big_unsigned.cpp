@@ -268,6 +268,41 @@ void TestBigUnsigned::test_multiplication()
         }
     }
 
+    // B37: stress the 7/8-limb ARM64 symmetric-square crossover,
+    // long carry chains and diagonal/off-diagonal propagation.
+    // Also exercise the same public test on x86-64 and fallback builds.
+    std::mt19937_64 arm_square_engine(0xB37A11ULL);
+    for (const std::size_t count:
+            {1u,4u,7u,8u,9u,15u,16u,17u,32u,33u,64u,65u,128u}) {
+        for (unsigned repetition=0u;repetition<96u;++repetition) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=arm_square_engine();
+            switch (repetition%7u) {
+            case 0u:
+                std::fill(words.begin(),words.end(),max);
+                break;
+            case 1u:
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+                break;
+            case 2u:
+                for (std::size_t i=1u;i+1u<count;++i) words[i]=0u;
+                break;
+            case 3u:
+                for (std::size_t i=0u;i<count;i+=2u) words[i]=0u;
+                break;
+            default:
+                break;
+            }
+            const BigUnsigned input(words);
+            mpz_import(a.value,input.size(),-1,sizeof(std::uint64_t),
+                       0,0,input.limbs().data());
+            mpz_mul(t.value,a.value,a.value);
+            check_against_gmp(square(input),t.value);
+            check_against_gmp(mul(input,input),t.value);
+        }
+    }
+
     // B32: validate the symmetric squaring threshold and large carry
     // chains against GMP; verify mul(x,x) independently remains exact.
     // Include dense/sparse, saturated and exact high-limb boundaries.
