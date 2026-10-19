@@ -32,6 +32,7 @@
 #include <bit>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace Ariadne {
@@ -520,6 +521,96 @@ std::pair<BigUnsigned,BigUnsigned> divrem(
     quotient.normalize();
     remainder.normalize();
     return {std::move(quotient),std::move(remainder)};
+}
+
+
+BigUnsigned gcd(BigUnsigned a,BigUnsigned b)
+{
+    while (!b.is_zero()) {
+        auto division=divrem(a,b);
+        a=std::move(b);
+        b=std::move(division.second);
+    }
+    return a;
+}
+
+BigUnsigned from_decimal(std::string_view input)
+{
+    if (input.empty()) {
+        throw std::invalid_argument("BigUnsigned empty decimal input");
+    }
+    for (const char digit:input) {
+        if (digit<'0' || digit>'9') {
+            throw std::invalid_argument("BigUnsigned invalid decimal digit");
+        }
+    }
+
+    // Multiply in base-10^9 blocks using 32-bit half-products, never
+    // assuming compiler support for a 128-bit integer.
+    constexpr std::size_t group=9u;
+    constexpr BigUnsigned::Limb low_mask=0xffffffffULL;
+    std::vector<BigUnsigned::Limb> digits;
+    std::size_t pos=0u;
+    while (pos<input.size()) {
+        const std::size_t count=std::min(group,input.size()-pos);
+        BigUnsigned::Limb radix=1u;
+        BigUnsigned::Limb chunk=0u;
+        for (std::size_t i=0u;i<count;++i) {
+            radix*=10u;
+            chunk=chunk*10u+
+                static_cast<BigUnsigned::Limb>(input[pos+i]-'0');
+        }
+        BigUnsigned::Limb carry=chunk;
+        for (auto& digit:digits) {
+            const BigUnsigned::Limb low=(digit&low_mask)*radix+carry;
+            const BigUnsigned::Limb high=
+                (digit>>32u)*radix+(low>>32u);
+            digit=(high<<32u)|(low&low_mask);
+            carry=high>>32u;
+        }
+        if (carry!=0u) {
+            digits.push_back(carry);
+        }
+        pos+=count;
+    }
+    return BigUnsigned(digits);
+}
+
+std::string to_decimal(BigUnsigned const& value)
+{
+    if (value.is_zero()) {
+        return "0";
+    }
+
+    // Divide in base-10^9 blocks. A local mutable copy permits safe
+    // high-to-low in-place quotient updates without violating the
+    // disjoint-buffer contract of the public divrem_limb_into API.
+    constexpr BigUnsigned::Limb radix=1000000000u;
+    constexpr std::size_t block_width=9u;
+    const auto limbs=value.limbs();
+    std::vector<BigUnsigned::Limb> work(limbs.begin(),limbs.end());
+    std::vector<unsigned> blocks;
+    while (!work.empty()) {
+        BigUnsigned::Limb remainder=0u;
+        for (std::size_t i=work.size();i!=0u;--i) {
+            const auto [quotient,next]=divide_wide_portable(
+                remainder,work[i-1u],radix);
+            work[i-1u]=quotient;
+            remainder=next;
+        }
+        blocks.push_back(static_cast<unsigned>(remainder));
+        while (!work.empty() && work.back()==0u) {
+            work.pop_back();
+        }
+    }
+
+    std::string result=std::to_string(blocks.back());
+    for (std::size_t i=blocks.size()-1u;i!=0u;--i) {
+        const std::string block=std::to_string(blocks[i-1u]);
+        result.append(block_width-block.size(),'0');
+        result+=block;
+    }
+    return result;
 }
 
 namespace {
