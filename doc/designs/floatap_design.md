@@ -7616,3 +7616,15 @@ see `integer_rational_design.md` for details.
 ### B16 shared BigUnsigned GCD and decimal IO (19 October 2026)
 
 B15.1 cross-platform CI was green. Shared `src/big_unsigned.cpp` gains Euclidean unsigned `gcd`, strict ASCII decimal parsing and canonical unsigned decimal formatting, using existing division and portable 32-bit half-product operations without GMP dependencies. No change to FloatAP, ISA dispatch or fallback source placement. An isolated warning-clean Clang harness passed 5000 limb-format GMP comparisons, 5000 decimal input GMP comparisons and 1100 GCD GMP comparisons. Project CTest and CI for B16 are pending. Consult `integer_rational_design.md` for the contracts and migration sequencing.
+
+
+### B17 isolated signed-magnitude Integer substrate (19 October 2026)
+
+Following B16 CI green, the native `SignedInteger` class is added
+as a separate shared-core consumer of `BigUnsigned`. It implements
+canonical sign/magnitude, decimal conversions, signed arithmetic,
+truncation-toward-zero divrem with dividend-sign remainder, powers,
+shifts and checked 64-bit casts, and has its own GMP-differential
+tests. Legacy `Integer::_mpz` and its GMP-dependent consumers remain
+unchanged while integration is staged. See `integer_rational_design.md`
+for the migration boundaries; B17 CI is pending.
