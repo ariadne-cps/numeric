@@ -587,6 +587,42 @@ void BigUnsigned::divrem_selected_into(
 
     const std::size_t n=a.size();
     const std::size_t m=b.size();
+
+    // B28: equal leading limbs imply 0 <= a/b < 2 for equal-length
+    // normalized magnitudes. Determine the exact quotient (0 or 1)
+    // without normalizing or estimating a quotient digit.
+    // Preserve the checked public scratch requirement even on this path.
+    if (n==m && a.back()==b.back()) {
+        if constexpr (WantRemainder) {
+            // The final borrow determines whether a<b. When a>=b,
+            // this one subtraction already yields the exact remainder.
+            Limb borrow=0u;
+            for (std::size_t i=0u;i<m;++i) {
+                const Limb difference=a[i]-b[i];
+                remainder[i]=difference-borrow;
+                borrow=static_cast<Limb>((a[i]<b[i]) ||
+                                         (difference<borrow));
+            }
+            if (borrow!=0u) {
+                // The quotient is zero, so the remainder is a.
+                std::copy(a.begin(),a.end(),remainder.begin());
+            }
+            if constexpr (WantQuotient) {
+                quotient[0u]=static_cast<Limb>(borrow==0u);
+            }
+        } else if constexpr (WantQuotient) {
+            // Quotient-only does not need to construct a remainder.
+            for (std::size_t i=m;i!=0u;--i) {
+                if (a[i-1u]!=b[i-1u]) {
+                    quotient[0u]=static_cast<Limb>(a[i-1u]>b[i-1u]);
+                    return;
+                }
+            }
+            quotient[0u]=1u;
+        }
+        return;
+    }
+
     auto u=scratch.first(n+1u);
     auto v=scratch.subspan(n+1u,m);
 

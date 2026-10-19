@@ -2161,3 +2161,61 @@ improvement is claimed yet. Compare B27 with B26
 separately on each architecture, especially general
 `quotient` and `remainder`, and check
 `quotient_trivial` for run-to-run noise.
+
+### B28 exact equal-leading-limb quotient 0/1 fast path (19 October 2026)
+
+The B27 benchmark's 32 meaningful division operands consist of 16
+single-limb small divisors, eight approximately half-width divisors and
+eight near-equal dividend/divisor pairs. Therefore the x86-64
+`quotient`/GMP ratio cannot be attributed solely to the normalized
+multi-limb multiply-subtract loop. An independent GCC x86-64 probe
+also found that replacing one baseline `divq` with two 32-bit
+`divl` instructions for small divisors was slower; that candidate
+was **not** integrated.
+
+For normalized n-limb magnitudes a,b with n>=2 and the same most
+significant limb h, write a=h*B^(n-1)+a0 and b=h*B^(n-1)+b0, where
+B=2^64 and 0<=a0,b0<B^(n-1). Since h>=1, a<2*b.
+Consequently floor(a/b) is exactly 0 or 1. B28 adds an early return
+inside `BigUnsigned::divrem_selected_into` after all existing
+pre-mutation output and scratch checks, and after the single-limb
+case. Quotient-only scans from the highest limb and returns 0 for
+a<b or 1 otherwise without subtraction. For remainder-only and
+joint-output, one unsigned multi-limb subtraction obtains a-b and
+its final borrow. A zero borrow produces quotient 1 and remainder
+a-b; a nonzero borrow produces quotient 0 and remainder a. All
+output spans remain zero-initialized as before. The shared B27
+normalization/estimation/fused subtraction and correction path is
+unchanged for other operands. No ISA feature, external dependency,
+CMake option or public API is added, and the exact scratch
+requirement n+m+1 is deliberately unchanged even though this fast
+path does not touch it.
+
+An independent faithful B27-core reconstruction plus the B28
+shortcut passed 25,000 randomized equal-high-limb cases against GMP
+for joint, quotient-only and remainder-only outputs; Clang
+AddressSanitizer and UndefinedBehaviorSanitizer also passed.
+Add 2048 deterministic equal-leading-limb GMP-oracle cases to
+`test_big_unsigned`, with exact equality, both orderings,
+borrow/carry boundaries and up to 128 limbs. Verify all output
+modes and check that public output tails are cleared and scratch
+guards are unmodified. Retain all previous B27 and earlier
+regressions; benchmark corpus, operations, iterations and samples
+must remain unchanged.
+
+**Performance evidence is isolated, not integrated:** an x86-64
+AMD EPYC 9V74 environment using GCC -O3, fixed operand pools and
+preallocated output/scratch views measured the near-equal 4096-bit
+subset at approximately 113.3 -> 32.3 ns (quotient only) and
+133.3 -> 84.1 ns (remainder only). In the same local probe the full
+32-case mix was approximately 581.4 -> 562.9 ns (quotient) and
+607.0 -> 573.0 ns (remainder). Clang -O3 likewise improved the
+near-equal subset but full-mix remainder timings were variable
+(599.5 -> 618.9 ns in one run). The isolated test excludes owning
+Integer allocations, signed wrappers and the exact repository
+benchmark harness; its absolute numbers must not be compared
+against native user ARM64/x86-64 benchmark values. No integrated
+B28 improvement or ARM64 result is claimed. Repeat native six-size,
+14-operation Integer/GMP benchmarks and validate correctness;
+GitHub CI and Codecov are explicitly deferred by user request
+during the temporary GitHub service difficulties.

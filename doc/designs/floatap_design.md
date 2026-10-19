@@ -7858,3 +7858,24 @@ and Clang wide), each with 256400 divisions, passed.
 Integrated Unix/Windows/Coverage CI and native
 two-host benchmarks remain pending. See B27 in
 `integer_rational_design.md`.
+
+### B28 equal-leading-limb exact division shortcut (19 October 2026)
+
+The shared `BigUnsigned` divider now has an exact fast path for
+equal-length (at least two limbs), normalized operands with equal
+leading limbs. Their quotient is mathematically 0 or 1; quotient-only
+compares limbs, and remainder/joint modes use one subtraction with
+borrow to obtain the exact result. B27's multiply-subtract divider,
+other length cases, signed Integer behavior, FloatAP algorithms,
+Rational/Dyadic, GMP adapters, selected outputs and B27 scratch
+contract are unchanged. No architecture-specific instruction,
+feature dispatch, CMake change or new API is introduced.
+A standalone GMP differential stress probe passed 25,000 constrained
+randomized cases for all output modes under the GCC/Clang paths,
+including a Clang ASan/UBSan run. The production test suite gains
+2048 additional equal-leading-limb GMP-oracle cases. The near-equal
+subset is measurably faster on the isolated x86-64 GCC and Clang
+microprobes, but production ARM64/x86-64 benchmark benefits remain
+unverified, and full-mix timings can fluctuate. See B28 in
+`integer_rational_design.md`; GitHub CI/Codecov checks are deferred
+at user request.
