@@ -8394,3 +8394,21 @@ comparisons; integrated tests additionally check 352 GMP boundaries.
 The user must still compare the untouched official benchmark and
 standalone stage diagnostic on Apple M2 to establish performance.
 See B46 in integer_rational_design.md.
+
+
+### B47 wide radix-10^18 decimal input at 32+ digits (19 October 2026)
+
+The shared BigUnsigned::from_decimal previously chose its wide
+unsigned-128 radix-10^18 input loop only above 309 digits, excluding
+the official 1024-bit Integer construction workload (308 digits).
+B47 enables that existing exact path at 32+ digits on GCC/Clang
+targets supporting unsigned __int128, reserves a conservative
+whole-limb output capacity once, and processes the first short
+decimal group before repeated constant-radix 18-digit groups.
+Other toolchains retain the portable 9-digit input path; all
+targets preserve exact decimal parsing, sign handling, validation,
+FloatAP semantics, and the unchanged Integer/GMP benchmarks.
+8400 independent GMP/ASan/UBSan standalone checks passed, plus
+181 new GMP parsing regressions included in production tests.
+Native same-host speedups remain to be verified; see B47 in
+integer_rational_design.md.
