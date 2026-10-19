@@ -268,6 +268,66 @@ void TestBigUnsigned::test_multiplication()
         }
     }
 
+    // B39: cover both ARM64 dense/sparse template dispatch thresholds
+    // and the owning balanced-Karatsuba 63/64-limb boundary. Test data
+    // are independent from the benchmark pool; expected values come
+    // solely from GMP. Also run on non-ARM64 architectures as controls.
+    std::mt19937_64 adaptive_engine(0xB39DA7AULL);
+    for (const auto& [n,m]:
+            {std::pair<std::size_t,std::size_t>{7u,8u},
+             {8u,8u}, {15u,16u}, {16u,16u},
+             {32u,32u}, {63u,63u}, {63u,64u},
+             {64u,63u}, {64u,64u}, {64u,65u},
+             {65u,64u}, {64u,85u}, {64u,86u},
+             {85u,64u}, {86u,64u}, {96u,64u},
+             {128u,64u}, {64u,128u}, {128u,128u}}) {
+        for (unsigned repetition=0u;repetition<20u;++repetition) {
+            std::vector<std::uint64_t> left(n),right(m);
+            for (auto& word:left) word=adaptive_engine();
+            for (auto& word:right) word=adaptive_engine();
+            const auto zero_rows=[&](std::size_t count,
+                                     unsigned variant) {
+                switch (variant%7u) {
+                case 0u: return std::size_t{0u}; // dense
+                case 1u: return std::size_t{1u};
+                case 2u: return count/8u;       // density boundary
+                case 3u: return count/8u+1u;
+                case 4u: return count/2u;
+                case 5u: return count-2u;       // strongly sparse
+                default: return count/4u;
+                }
+            };
+            for (std::size_t i=0u;
+                    i<zero_rows(n,repetition) && i+1u<n;++i) {
+                left[i]=0u;
+            }
+            const unsigned right_mode=
+                repetition%3u==0u ? repetition : repetition+3u;
+            for (std::size_t i=0u;
+                    i<zero_rows(m,right_mode) && i+1u<m;++i) {
+                right[i]=0u;
+            }
+            left.back()|=std::uint64_t{1}<<63u;
+            right.back()|=std::uint64_t{1}<<63u;
+            const BigUnsigned lhs(left),rhs(right);
+            mpz_import(a.value,lhs.size(),-1,sizeof(std::uint64_t),
+                       0,0,lhs.limbs().data());
+            mpz_import(b.value,rhs.size(),-1,sizeof(std::uint64_t),
+                       0,0,rhs.limbs().data());
+            mpz_mul(c.value,a.value,b.value);
+            check_against_gmp(mul(lhs,rhs),c.value);
+            check_against_gmp(mul(rhs,lhs),c.value);
+            mpz_mul(t.value,a.value,a.value);
+            check_against_gmp(square(lhs),t.value);
+            const std::size_t low=(repetition%2u==0u) ?
+                (n+m)/2u : (n+m-1u);
+            mpz_set(t.value,c.value);
+            mpz_fdiv_r_2exp(
+                t.value,t.value,static_cast<mp_bitcnt_t>(64u*low));
+            check_against_gmp(mul_low(lhs,rhs,low),t.value);
+        }
+    }
+
     // B37: stress the 7/8-limb ARM64 symmetric-square crossover,
     // long carry chains and diagonal/off-diagonal propagation.
     // Also exercise the same public test on x86-64 and fallback builds.

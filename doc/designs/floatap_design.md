@@ -8188,3 +8188,33 @@ Actual CI and M2 integrated B38 measurements
 remain outstanding; see B38 in
 `integer_rational_design.md`.
 
+### B39 architecture-selective ARM64 dense/sparse multiplication dispatch (19 October 2026)
+
+B39 retains the mathematically exact B38 zero-row
+skip for sparse ARM64 powers and multiplications,
+while restoring a compile-time branch-free
+B37-like native schoolbook loop for sufficiently
+dense rows. Dispatch scans active outer limbs at
+most linearly with early exit, using a 1/8-row
+zero-density threshold and preserving small
+B38 inputs. The ARM64 symmetric square uses
+the same dense/sparse specialization without
+modifying the diagonal addition.
+
+For dense balanced >=64-limb *owning* products
+only, ARM64 may choose the pre-existing B8
+Karatsuba algorithm with cutoff 32 and a private
+scratch vector. GMP independence, all API and
+preallocated-output contracts, signed-power
+algorithms, x86-64 paths and the official
+benchmark pool are unchanged. The B37/B38
+M2 dense 4096-bit schoolbook regression
+(2284.963 -> 2548.485 ns) and Karatsuba
+preallocated advantage (1972.463 ns in B38)
+motivate the dispatch but do not prove that
+owning multiplication with allocation wins.
+Add 380 GMP-oracle mixed-size and zero-density
+threshold tests; native B39 benchmarks and
+CI remain pending. See B39 in
+`integer_rational_design.md`.
+

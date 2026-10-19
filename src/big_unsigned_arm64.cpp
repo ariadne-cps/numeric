@@ -49,21 +49,46 @@ using Limb = BigUnsigned::Limb;
 // demonstrated integrated speedups on Apple Silicon at 1024-4096 bits.
 // The intermediate is bounded by (B-1)^2 + 2(B-1) = B^2-1, B=2^64.
 // Inputs/output cannot overlap. Output is fully overwritten, no allocation.
-// B38 skips exact-zero outer limbs, retaining the dense carry-chain
-// sequence unchanged for every nonzero row (including truncated products).
-void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
-                              BigUnsigned::LimbView b,
-                              BigUnsigned::MutableLimbView output) noexcept
+// B39 compiles two exact kernels: dense B37 (no zero guard inside
+// any row) and sparse B38 (skip exact-zero rows), choosing once before
+// multiplying. The full and truncated output contracts are unchanged.
+namespace {
+
+// One outer-limb density check before the full product. Stop as soon as
+// enough exact-zero rows have been found; dense inputs require only a
+// linear read, not a branch in every quadratic inner iteration.
+// The <8-row case keeps B38's direct sparse-aware implementation.
+bool use_sparse_rows(BigUnsigned::LimbView rows,
+                     BigUnsigned::LimbView multiplier) noexcept
+{
+    if (rows.size()<8u || multiplier.size()<8u) {
+        return true;
+    }
+    const std::size_t threshold=std::max<std::size_t>(
+        2u,rows.size()/8u);
+    std::size_t zeros=0u;
+    for (const Limb limb:rows) {
+        if (limb==0u && ++zeros>=threshold) {
+            return true;
+        }
+    }
+    return false;
+}
+
+template<bool SkipZeroRows>
+void mul_low_into_carry_arm64_impl(BigUnsigned::LimbView a,
+                                   BigUnsigned::LimbView b,
+                                   BigUnsigned::MutableLimbView output) noexcept
 {
     std::fill(output.begin(),output.end(),Limb{0});
     for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
         const Limb ai=a[i];
-        // B38: a zero row contributes no product or carry. Output was
-        // cleared before the loop, and this row's final carry position
-        // has not been visited by any earlier row. Skip every inner
-        // multiplication without changing truncated/full semantics.
-        if (ai==0u) {
-            continue;
+        // The dense instantiation is exactly B37's branch-free inner
+        // recurrence. Only the sparse instantiation skips zero rows.
+        if constexpr (SkipZeroRows) {
+            if (ai==0u) {
+                continue;
+            }
         }
         Limb carry=0u;
         const std::size_t terms=std::min(b.size(),output.size()-i);
@@ -91,6 +116,20 @@ void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
     }
 }
 
+} // namespace
+
+void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
+                              BigUnsigned::LimbView b,
+                              BigUnsigned::MutableLimbView output) noexcept
+{
+    const std::size_t active=std::min(a.size(),output.size());
+    if (use_sparse_rows(a.first(active),b)) {
+        mul_low_into_carry_arm64_impl<true>(a,b,output);
+    } else {
+        mul_low_into_carry_arm64_impl<false>(a,b,output);
+    }
+}
+
 
 // B37: symmetric AArch64 full square. Off-diagonal products a[i]*a[j]
 // with i<j are computed once using the same native carry-chain
@@ -101,8 +140,10 @@ void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
 // since a^2 < B^(2*n). No heap allocation, new ISA extension,
 // global state or compiler-specific optimization setting is needed.
 // Contract: n>=8; output.size()==2*n; all views are disjoint.
-void square_into_symmetric_arm64(BigUnsigned::LimbView a,
-                                  BigUnsigned::MutableLimbView output) noexcept
+namespace {
+template<bool SkipZeroRows>
+void square_into_symmetric_arm64_impl(BigUnsigned::LimbView a,
+                                      BigUnsigned::MutableLimbView output) noexcept
 {
     __extension__ using Wide=unsigned __int128;
     const std::size_t n=a.size();
@@ -112,11 +153,12 @@ void square_into_symmetric_arm64(BigUnsigned::LimbView a,
     // output[i+n] lies past all columns previously touched by row i.
     for (std::size_t i=0u;i+1u<n;++i) {
         const Limb ai=a[i];
-        // B38: zero off-diagonal rows leave an untouched carry slot
-        // output[i+n]. The later doubling and diagonal accumulation
-        // still execute for every limb, including these zero rows.
-        if (ai==0u) {
-            continue;
+        // Dense rows retain B37's unchanged carry recurrence; sparse
+        // rows skip zero cross-products. Diagonal additions always run.
+        if constexpr (SkipZeroRows) {
+            if (ai==0u) {
+                continue;
+            }
         }
         Limb carry=0u;
         for (std::size_t j=i+1u;j<n;++j) {
@@ -163,6 +205,19 @@ void square_into_symmetric_arm64(BigUnsigned::LimbView a,
                         static_cast<Limb>(diagonal>>64u)+carry;
         output[k+1u]=static_cast<Limb>(high);
         carry=static_cast<Limb>(high>>64u);
+    }
+}
+} // namespace
+
+void square_into_symmetric_arm64(BigUnsigned::LimbView a,
+                                  BigUnsigned::MutableLimbView output) noexcept
+{
+    // Only a[0..n-2] contributes off-diagonal rows. The diagonal
+    // is evaluated for every input limb in either instantiation.
+    if (use_sparse_rows(a.first(a.size()-1u),a)) {
+        square_into_symmetric_arm64_impl<true>(a,output);
+    } else {
+        square_into_symmetric_arm64_impl<false>(a,output);
     }
 }
 
