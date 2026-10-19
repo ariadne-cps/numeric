@@ -931,6 +931,54 @@ void TestBigUnsigned::test_division()
         check_fused_division(BigUnsigned(left),BigUnsigned(right));
     }
 
+    // B28: equal highest limbs guarantee a quotient of either 0 or 1.
+    // Exercise both orderings, equality, borrow propagation and long
+    // exact remainders, independently against GMP in all output modes.
+    std::mt19937_64 equal_high_engine(0xB280C27ULL);
+    for (unsigned repetition=0u;repetition<2048u;++repetition) {
+        const std::size_t count=repetition%37u==0u?128u:
+                                2u+equal_high_engine()%64u;
+        std::vector<std::uint64_t> left(count),right(count);
+        for (auto& word:left) word=equal_high_engine();
+        for (auto& word:right) word=equal_high_engine();
+        right.back()|=1u;
+        left.back()=right.back();
+        if (repetition%4u==0u) {
+            left=right;
+        } else if (repetition%4u==1u) {
+            left=right;
+            ++left.front();
+        } else if (repetition%4u==2u) {
+            right=left;
+            ++right.front();
+        }
+        const BigUnsigned numerator(left),denominator(right);
+        check_fused_division(numerator,denominator);
+
+        // The public joint-output contract still requires the same
+        // scratch size and clears surplus output limbs. This fast path
+        // must not write into that scratch (including its guard limbs).
+        const auto needed=BigUnsigned::divrem_scratch_limbs(
+            numerator.size(),denominator.size());
+        std::vector<std::uint64_t> qout(numerator.size()+2u,max);
+        std::vector<std::uint64_t> rout(denominator.size()+2u,max);
+        std::vector<std::uint64_t> guards(needed+2u,max);
+        BigUnsigned::divrem_into(
+            numerator.limbs(),denominator.limbs(),qout,rout,
+            BigUnsigned::MutableLimbView(guards.data()+1u,needed));
+        check_against_gmp(BigUnsigned(qout),q.value);
+        check_against_gmp(BigUnsigned(rout),r.value);
+        for (const auto word:guards) {
+            ARIADNE_TEST_ASSERT(word==max);
+        }
+        for (std::size_t i=numerator.size();i<qout.size();++i) {
+            ARIADNE_TEST_ASSERT(qout[i]==0u);
+        }
+        for (std::size_t i=denominator.size();i<rout.size();++i) {
+            ARIADNE_TEST_ASSERT(rout[i]==0u);
+        }
+    }
+
     // Force all 64 divisor-normalization shifts. Vary the dividend's
     // top words and saturated bottom words to exercise quotient
     // estimates, downward corrections and full-width remainders.
