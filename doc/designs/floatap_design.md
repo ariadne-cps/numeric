@@ -7571,3 +7571,8 @@ The existing common-source opt-in Karatsuba kernel was adjusted to avoid redunda
 ### B12 Ubuntu integrated cutoff-32 Karatsuba results (19 October 2026)
 
 The user's post-B12 balanced-operand x86-64 benchmark found opt-in preallocated Karatsuba with cutoff 32 faster than selected GCC fused at 2560/3072/3584/4096/8192 bits, but approximately tied at 2048. At 4096 bits Karatsuba measured 2582.760 ns vs fused 3023.645 ns (14.6% less time), and at 8192 bits 8264.658 vs 12387.829 ns (33.3% less time). CI (Unix, Windows, Coverage) for functional B12 commit `014eedd` passed. The opt-in Karatsuba benchmark excludes scratch allocation/sizing and does not model owning public `mul`; no default dispatch change or end-to-end FloatAP speedup can yet be justified. See `integer_rational_design.md` for complete data and fairness qualification.
+
+
+### B13 shared unsigned primitive benchmark (19 October 2026)
+
+Introduced a benchmark-only `benchmark_big_unsigned_arithmetic` executable (no new arithmetic/backend source): add/sub with both preallocated and owning destinations, compare as nonallocating read-only, and two left/right shifts as owning operations, all against matching GMP lifetimes and independently checked exact results. Production `BigUnsigned`, `FloatAP`, `Integer` and ISA dispatch are unchanged. This prepares measurement before implementing the common unsigned division/remainder kernel. See `integer_rational_design.md` for the benchmark contract and CLI; CI and native measurements pending.
