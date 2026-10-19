@@ -8308,3 +8308,6 @@ Full CI on B41.1 is pending; see
 the B41.1 journal entry in
 `integer_rational_design.md`.
 
+### B42 decimal leaf formatting without temporary strings (19 October 2026)
+
+B42 leaves the arbitrary precision arithmetic and recursive decimal conversion unchanged. On ARM64 only, the radix-10^18 leaf formatter now reserves quotient blocks, creates one exactly sized output string, and writes the leading block with `to_chars` and the other blocks as zero-padded digit pairs, eliminating individual `std::to_string` temporaries. The 128/64 wide division and all other platforms remain untouched; no workload or oracle alterations. A standalone 1800-case GMP/ASan/UBSan decimal verification passed. Add 208 production GMP decimal cases around the relevant boundary sizes. Full B42 CI and native timing results are pending. See the B42 entry in `integer_rational_design.md`.
