@@ -6711,3 +6711,25 @@ unchanged signed/unsigned GMP benchmarks have not yet completed;
 no semantic regression or performance improvement is claimed absent
 those checks. Rebuild and rerun full Integer, BigUnsigned, Rational,
 FloatAP and performance gates before accepting.
+
+
+### R15a — fix MSVC narrowing warning in unsigned power GMP test (20 October 2026)
+
+**Observed CI failure:** the R15 Windows MSVC 14.51 Release build
+under `/W4 /WX` fails at `tests/test_big_unsigned.cpp:146` with
+C4244: passing a `std::uint64_t` exponent to GMP's
+`mpz_pow_ui(..., unsigned long)` potentially narrows on Windows,
+where `unsigned long` is 32-bit. Unix and Coverage workflows for
+R15 pass. This is solely a test harness type issue, not a production
+arithmetic error.
+
+**Fix:** use `const unsigned exponent` in the new R15 GMP-oracle
+loop. Every one of the 16 original exponents (0 through 33 with
+irregular bit patterns) is unchanged, and the same exponent widens
+safely for `BigUnsigned::pow(..., std::uint64_t)` and fits exactly
+in GMP's Windows `unsigned long`. No benchmark workloads, oracle,
+algorithm, or actual test scenario changes.
+
+**Validation status:** changes pushed directly onto `remove-gmp`;
+Windows, Unix and Coverage CI of R15a must be checked. No local
+MSVC compiler is available in the editing session.

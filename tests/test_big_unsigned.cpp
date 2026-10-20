@@ -141,7 +141,9 @@ void TestBigUnsigned::test_power()
     const BigUnsigned sample_base(sample_limbs);
     mpz_import(source.value,sample_base.size(),-1,sizeof(std::uint64_t),
                0,0,sample_base.limbs().data());
-    for (std::uint64_t exponent:{0u,1u,2u,3u,5u,6u,7u,8u,9u,
+    // mpz_pow_ui takes unsigned long (32-bit on Windows LLP64);
+    // all test exponents fit unsigned, so avoid narrowing warnings.
+    for (const unsigned exponent:{0u,1u,2u,3u,5u,6u,7u,8u,9u,
                                  12u,15u,16u,17u,31u,32u,33u}) {
         mpz_pow_ui(expected.value,source.value,exponent);
         check_against_gmp(pow(sample_base,exponent),expected.value);
