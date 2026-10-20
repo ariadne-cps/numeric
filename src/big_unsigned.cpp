@@ -2032,6 +2032,50 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
     return result;
 }
 
+// B71: short owning multiplication construction A/B control.
+// Keep BOTH alternatives in the same library TU as production mul().
+// They use a local 8-limb stack result for <=4-limb operands and then
+// construct a canonical BigUnsigned. The only kernel difference between
+// the two diagnostic variants is forced fused vs selected dispatch.
+// No production selector, headers, ABI contract or arithmetic changes.
+BigUnsigned mul_short_stack_selected_diagnostic(
+        BigUnsigned const& a,BigUnsigned const& b)
+{
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+    if (a.size()<=4u && b.size()<=4u) {
+        if (a.is_zero() || b.is_zero()) return BigUnsigned{};
+        std::array<BigUnsigned::Limb,8u> output{};
+        const std::size_t count=a.size()+b.size();
+        BigUnsigned::mul_into(
+            a.limbs(),b.limbs(),
+            BigUnsigned::MutableLimbView(output.data(),count));
+        return BigUnsigned(BigUnsigned::LimbView(output.data(),count));
+    }
+#endif
+    return mul(a,b);
+}
+
+BigUnsigned mul_short_stack_fused_diagnostic(
+        BigUnsigned const& a,BigUnsigned const& b)
+{
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+    if (a.size()<=4u && b.size()<=4u) {
+        if (a.is_zero() || b.is_zero()) return BigUnsigned{};
+        std::array<BigUnsigned::Limb,8u> output{};
+        const std::size_t count=a.size()+b.size();
+        BigUnsigned::mul_into_fused(
+            a.limbs(),b.limbs(),
+            BigUnsigned::MutableLimbView(output.data(),count));
+        return BigUnsigned(BigUnsigned::LimbView(output.data(),count));
+    }
+#endif
+    return mul(a,b);
+}
+
 // B32: x86-64 GCC's selected fused schoolbook kernel evaluates each
 // off-diagonal product twice in a*a. For >=8 limbs a symmetric square
 // requires each a[i]*a[j] (i<j) only once. The existing output buffer

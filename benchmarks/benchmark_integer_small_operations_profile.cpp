@@ -46,6 +46,14 @@
 #include <string_view>
 #include <utility>
 
+namespace Ariadne {
+// B71 library-TU short owning controls (benchmark-only entrypoints).
+BigUnsigned mul_short_stack_selected_diagnostic(
+    BigUnsigned const& a,BigUnsigned const& b);
+BigUnsigned mul_short_stack_fused_diagnostic(
+    BigUnsigned const& a,BigUnsigned const& b);
+}
+
 namespace {
 
 using namespace Ariadne;
@@ -281,6 +289,10 @@ void verify_b69(unsigned bits,IntegerPool<IntegerOperations> const& native,
         const std::string context=std::to_string(bits)+" bits #"+
                                   std::to_string(i);
         mpz_mul(reference.value,gmp.a[i].value,gmp.b[i].value);
+        b69_check_signed(b71_stack_selected_signed(a,b),
+                         reference.value,context+" B71 selected owning");
+        b69_check_signed(b71_stack_fused_signed(a,b),
+                         reference.value,context+" B71 fused owning");
         b69_check_signed(b69_owned<B69Kernel::Fused>(a,b),
                          reference.value,context+" fused multiply");
         b69_check_signed(b69_owned<B69Kernel::X86Carry>(a,b),
@@ -290,10 +302,22 @@ void verify_b69(unsigned bits,IntegerPool<IntegerOperations> const& native,
         mpz_abs(abs_a.value,gmp.a[i].value);
         mpz_abs(abs_b.value,gmp.b[i].value);
         mpz_mul(reference.value,abs_a.value,abs_b.value);
+        check_magnitude(
+            mul_short_stack_selected_diagnostic(
+                a.magnitude(),b.magnitude()),
+            reference.value,context+" B71 selected magnitude");
+        check_magnitude(
+            mul_short_stack_fused_diagnostic(
+                a.magnitude(),b.magnitude()),
+            reference.value,context+" B71 fused magnitude");
         b69_check_preallocated(a.magnitude(),b.magnitude(),
                                reference.value,context+" prealloc multiply");
 
         mpz_mul(reference.value,gmp.a[i].value,gmp.a[i].value);
+        b69_check_signed(b71_stack_selected_signed(a,a),
+                         reference.value,context+" B71 selected square");
+        b69_check_signed(b71_stack_fused_signed(a,a),
+                         reference.value,context+" B71 fused square");
         b69_check_signed(b69_owned<B69Kernel::Fused>(a,a),
                          reference.value,context+" fused square");
         b69_check_signed(b69_owned<B69Kernel::X86Carry>(a,a),
@@ -301,6 +325,14 @@ void verify_b69(unsigned bits,IntegerPool<IntegerOperations> const& native,
         b69_check_signed(b69_owned<B69Kernel::Selected>(a,a),
                          reference.value,context+" selected square");
         mpz_mul(reference.value,abs_a.value,abs_a.value);
+        check_magnitude(
+            mul_short_stack_selected_diagnostic(
+                a.magnitude(),a.magnitude()),
+            reference.value,context+" B71 selected square magnitude");
+        check_magnitude(
+            mul_short_stack_fused_diagnostic(
+                a.magnitude(),a.magnitude()),
+            reference.value,context+" B71 fused square magnitude");
         b69_check_preallocated(a.magnitude(),a.magnitude(),
                                reference.value,context+" prealloc square");
     }
@@ -336,6 +368,12 @@ void verify_b69(unsigned bits,IntegerPool<IntegerOperations> const& native,
                 const std::string context="short "+std::to_string(n)+
                     "x"+std::to_string(m)+" mode "+std::to_string(mode);
                 b69_check_preallocated(a,b,reference.value,context);
+                check_magnitude(
+                    mul_short_stack_selected_diagnostic(a,b),
+                    reference.value,context+" B71 selected");
+                check_magnitude(
+                    mul_short_stack_fused_diagnostic(a,b),
+                    reference.value,context+" B71 fused");
                 const Integer signed_a=Integer::from_magnitude(
                     a,(mode&1u)!=0u);
                 const Integer signed_b=Integer::from_magnitude(
@@ -352,6 +390,12 @@ void verify_b69(unsigned bits,IntegerPool<IntegerOperations> const& native,
                 b69_check_signed(
                     b69_owned<B69Kernel::Selected>(signed_a,signed_b),
                     reference.value,context+" selected");
+                b69_check_signed(
+                    b71_stack_selected_signed(signed_a,signed_b),
+                    reference.value,context+" B71 selected signed");
+                b69_check_signed(
+                    b71_stack_fused_signed(signed_a,signed_b),
+                    reference.value,context+" B71 fused signed");
             }
         }
     }
@@ -416,6 +460,30 @@ Integer b70_core_noinline(Integer const& a,Integer const& b)
 {
     return Integer::from_magnitude(
         mul(a.magnitude(),b.magnitude()),
+        a.negative()!=b.negative());
+}
+
+// B71: noinline signed adapters make the old and new owning
+// BigUnsigned calls pass through analogous benchmark call boundaries.
+// The two BigUnsigned algorithms themselves live in the numeric
+// library's big_unsigned.cpp, alongside the unchanged production mul().
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+Integer b71_stack_selected_signed(Integer const& a,Integer const& b)
+{
+    return Integer::from_magnitude(
+        mul_short_stack_selected_diagnostic(a.magnitude(),b.magnitude()),
+        a.negative()!=b.negative());
+}
+
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+Integer b71_stack_fused_signed(Integer const& a,Integer const& b)
+{
+    return Integer::from_magnitude(
+        mul_short_stack_fused_diagnostic(a.magnitude(),b.magnitude()),
         a.negative()!=b.negative());
 }
 
@@ -498,6 +566,61 @@ void report_b70(unsigned bits,
         [&](unsigned i) {return b70_core_noinline(
             native.a[idx(i)],native.a[idx(i)]);},
         iterations,samples);
+    LOGGING_PRINTLN(" ")
+    LOGGING_PRINTLN("B71 owning short result construction IN LIBRARY TU | "
+                    <<bits<<" bits")
+    b70_pair("mul core / stack selected",
+        [&](unsigned i) {return mul(
+            native.a[idx(i)].magnitude(),native.b[idx(i)].magnitude());},
+        [&](unsigned i) {return mul_short_stack_selected_diagnostic(
+            native.a[idx(i)].magnitude(),native.b[idx(i)].magnitude());},
+        iterations,samples);
+    b70_pair("mul stack selected/fused",
+        [&](unsigned i) {return mul_short_stack_selected_diagnostic(
+            native.a[idx(i)].magnitude(),native.b[idx(i)].magnitude());},
+        [&](unsigned i) {return mul_short_stack_fused_diagnostic(
+            native.a[idx(i)].magnitude(),native.b[idx(i)].magnitude());},
+        iterations,samples);
+    b70_pair("square core / stack selected",
+        [&](unsigned i) {auto const& a=native.a[idx(i)].magnitude();
+            return mul(a,a);},
+        [&](unsigned i) {auto const& a=native.a[idx(i)].magnitude();
+            return mul_short_stack_selected_diagnostic(a,a);},
+        iterations,samples);
+    b70_pair("square stack selected/fused",
+        [&](unsigned i) {auto const& a=native.a[idx(i)].magnitude();
+            return mul_short_stack_selected_diagnostic(a,a);},
+        [&](unsigned i) {auto const& a=native.a[idx(i)].magnitude();
+            return mul_short_stack_fused_diagnostic(a,a);},
+        iterations,samples);
+    b70_pair("mul signed core/stack",
+        [&](unsigned i) {return b70_core_noinline(
+            native.a[idx(i)],native.b[idx(i)]);},
+        [&](unsigned i) {return b71_stack_selected_signed(
+            native.a[idx(i)],native.b[idx(i)]);},
+        iterations,samples);
+    b70_pair("square signed core/stack",
+        [&](unsigned i) {return b70_core_noinline(
+            native.a[idx(i)],native.a[idx(i)]);},
+        [&](unsigned i) {return b71_stack_selected_signed(
+            native.a[idx(i)],native.a[idx(i)]);},
+        iterations,samples);
+    b70_pair("mul signed selected/fused",
+        [&](unsigned i) {return b71_stack_selected_signed(
+            native.a[idx(i)],native.b[idx(i)]);},
+        [&](unsigned i) {return b71_stack_fused_signed(
+            native.a[idx(i)],native.b[idx(i)]);},
+        iterations,samples);
+    b70_pair("square signed selected/fused",
+        [&](unsigned i) {return b71_stack_selected_signed(
+            native.a[idx(i)],native.a[idx(i)]);},
+        [&](unsigned i) {return b71_stack_fused_signed(
+            native.a[idx(i)],native.a[idx(i)]);},
+        iterations,samples);
+    LOGGING_PRINTLN("B71: owning helper is compiled in src/big_unsigned.cpp "
+                    "like production mul(), not in the benchmark. "
+                    "The existing B69 oracle checks 32 official and 300 "
+                    "extra short signed cases for both helpers.")
     LOGGING_PRINTLN("B70 controls share GMP-verified B69 arithmetic "
                     "and the SAME 32 signed official inputs; "
                     "results are independently timed. "
@@ -567,7 +690,9 @@ void report_b69(unsigned bits,
         iterations,samples);
     verify_b69(bits,native,gmp);
     report_b70(bits,native,iterations,samples);
-    LOGGING_PRINTLN("B69/B70 GMP oracle PASS before/after timing; "
+    // B71: verify again after EVERY B70/B71 timed row, not only before.
+    verify_b69(bits,native,gmp);
+    LOGGING_PRINTLN("B69/B70/B71 GMP oracle PASS before/after timing; "
                     "prealloc rows are allocation-free kernel calls, "
                     "owning rows have matched signed Integer results. "
                     "No rows are additive; no change to production.")
@@ -796,9 +921,9 @@ int main(int argc,const char* argv[])
         }
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Numerical verification PASS: all magnitude core "
-                        "operations, B68 signed candidates, B69 forced kernels "
-                        "and B70 matched selected/forced controls "
-                        "versus independent GMP.")
+                        "operations, B68 signed candidates, B69 forced kernels, "
+                        "B70 controls and B71 library-TU stack result "
+                        "helpers versus independent GMP.")
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"B67 owning-vs-core diagnostic FAILED: "

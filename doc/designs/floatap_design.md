@@ -8966,3 +8966,25 @@ FloatAP, ABI, public headers, original 84-operation
 benchmark or arithmetic production dispatch changes.
 No speedup is claimed before B70 host measurements.
 See integer_rational_design.md B70.
+
+### B71 same-library-TU owning short product diagnostics (20 October 2026)
+
+The B70 user-host GMP-verified x86 benchmark again found
+no consistent selected versus forced fused difference in
+preallocated or owning arithmetic; the inline/noinline
+whole-result controls incurred 6-10% call-hint overhead,
+and the residual production/forced ownership difference
+remains unresolved. B71 adds two diagnostic owning
+BigUnsigned short-multiply functions physically
+compiled in src/big_unsigned.cpp next to production mul():
+one uses the selected kernel, one forces fused.
+The same standalone profile compares them to production
+owning multiplication, squared inputs and noinline
+signed Integer wrappers. GMP-verifies the original
+32 signed input pairs and additional 300 zero/dense/
+sparse/random limb pairs before/after timing.
+This is not a production dispatch or benchmark
+workload change; FloatAP/Integer public arithmetic
+and ARM64 native carry remain unchanged.
+See integer_rational_design.md B71. CI and user-host
+B71 performance are pending.
