@@ -314,6 +314,50 @@ double Rational::get_d() const {
     if (is_inf(*this)) { return sign*std::numeric_limits<double>::infinity(); }
     const BigUnsigned& n=_numerator.magnitude();
     if (n.is_zero()) { return 0.0; }
+#if defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    (defined(__GNUC__) || defined(__clang__))
+    // R12: for two single-limb magnitudes, compute the exact binary
+    // exponent without allocating/normalizing shifted BigUnsigned
+    // values. The ratio always lies in the normal binary64 range.
+    // Use the baseline x86-64 DIVQ instruction for the 53-bit quotient
+    // rather than the compiler's general unsigned 128-bit division.
+    if (n.size()==1u && _denominator.size()==1u) {
+        const std::uint64_t numerator=n.limb(0u);
+        const std::uint64_t denominator=_denominator.limb(0u);
+        const int candidate=static_cast<int>(std::bit_width(numerator))-
+                            static_cast<int>(std::bit_width(denominator));
+        int exponent=candidate;
+        // Shifts fit in 64 bits: the shifted operand has the same
+        // bit length as the unshifted operand being compared against.
+        const bool below=candidate>=0
+            ? numerator<(denominator<<static_cast<unsigned>(candidate))
+            : (numerator<<static_cast<unsigned>(-candidate))<denominator;
+        if (below) { --exponent; }
+        const int scale=exponent-52;
+        if (scale>0) {
+            const auto significand=numerator/
+                (denominator<<static_cast<unsigned>(scale));
+            return std::copysign(
+                std::ldexp(static_cast<double>(significand),scale),sign);
+        }
+        __extension__ using Wide=unsigned __int128;
+        const Wide scaled=static_cast<Wide>(numerator)<<
+                          static_cast<unsigned>(-scale);
+        std::uint64_t significand=static_cast<std::uint64_t>(scaled);
+        std::uint64_t remainder=static_cast<std::uint64_t>(scaled>>64u);
+        if (remainder<denominator) {
+            __asm__ volatile("divq %[divisor]"
+                : "+a"(significand), "+d"(remainder)
+                : [divisor] "r"(denominator)
+                : "cc");
+            return std::copysign(
+                std::ldexp(static_cast<double>(significand),scale),sign);
+        }
+        // Defensive portable division for any unexpected bound.
+        const auto digits=static_cast<std::uint64_t>(scaled/denominator);
+        return std::copysign(std::ldexp(static_cast<double>(digits),scale),sign);
+    }
+#endif
     const std::size_t nb=n.bit_length(),db=_denominator.bit_length();
     if (nb>db && nb-db>1024u) { return sign*std::numeric_limits<double>::infinity(); }
     if (db>nb && db-nb>1075u) { return 0.0; }

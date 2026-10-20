@@ -580,6 +580,31 @@ void TestRational::test_gmp_differential() {
     const std::array<unsigned int,12> shifts={0u,1u,52u,53u,1022u,1023u,1024u,1073u,1074u,1075u,1076u,2048u};
     for (int mode : modes) {
         ARIADNE_TEST_EQUALS(std::fesetround(mode),0);
+        // R12: exercise exact one-limb conversion across wide unsigned
+        // ratios, repeating fractions, both signs and four host modes.
+        // Each result is compared bit-for-bit against GMP.
+        std::mt19937_64 small_random(0x1200530012812026ULL);
+        for (unsigned sample=0u;sample<512u;++sample) {
+            std::uint64_t numerator=small_random()|std::uint64_t{1};
+            std::uint64_t denominator=small_random()|std::uint64_t{1};
+            if (sample%4u==0u) {
+                numerator=(std::uint64_t{1}<<53u)+small_random()%100000u;
+                denominator=2u*numerator+small_random()%100000u;
+            } else if (sample%4u==1u) {
+                numerator=std::uint64_t{1}<<(small_random()%63u);
+                denominator=std::uint64_t{1}<<(small_random()%63u);
+            } else if (sample%4u==2u) {
+                numerator=1u+small_random()%1024u;
+            }
+            const Rational positive(Integer(numerator),Integer(denominator));
+            const Rational negative=-positive;
+            for (const Rational& value:{positive,negative}) {
+                const GmpRationalBoundary oracle(value);
+                conversion_matches=conversion_matches &&
+                    std::bit_cast<std::uint64_t>(value.get_d())==
+                    std::bit_cast<std::uint64_t>(mpq_get_d(oracle.value()));
+            }
+        }
         for (unsigned bits : {53u,128u,256u,448u,512u,1024u,2048u,4096u}) {
             const Integer base=pow(Integer(2),Nat(bits));
             const Integer twice=base*2;

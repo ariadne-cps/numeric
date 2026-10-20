@@ -6513,3 +6513,53 @@ Await Unix/Windows/Coverage CI and then unchanged ARM64 and
 x86-64 15-operation, six-width native-vs-mpq_t benchmark runs.
 Each host-width must satisfy BOTH strict `total_time <1x`
 and `worst <2x`, independently; the geomean is diagnostic.
+
+
+### R12 — exact scalar x86-64 Rational-to-double conversion (20 October 2026)
+
+**Measured R11 baseline (not R12).** Both ARM64 and x86-64
+20,000-iteration/31-sample user-supplied runs pass 384 paired inputs
+and 2,880 paired operation results. ARM64 total/worst for
+53/128/256/1024/2048/4096: .430/1.248, .788/1.791,
+1.341/2.544, 1.185/1.398, .894/1.526, .725/1.637.
+x86-64: .915/2.307, 1.111/2.147, 1.737/2.237,
+1.249/1.464, .797/1.143, .575/1.118.
+Six of twelve host/size cases pass both strict requirements
+total_time <1 and worst <2. On x86-64 the worst at 53 bits is
+to_double (2.307x); on ARM64 the worst at 256 bits is
+to_double (2.544x). Construction and GCD reductions are now
+substantially faster; 256/1024-bit arithmetic remains a
+separate high-priority total_time bottleneck.
+
+**Change.** On GCC/Clang x86-64 only, when both canonical Rational
+magnitudes have exactly one 64-bit limb, compute the exact binary
+exponent by integer bit-width comparison and bounded native shifts,
+without creating BigUnsigned shifts/temporary quotients. The ratio
+of two nonzero 64-bit integers is necessarily normal in binary64.
+When exponent<=52, form the exact scaled numerator as unsigned
+128-bit and divide its two 64-bit halves with baseline x86 DIVQ.
+The independently computed exponent proves the quotient has at
+most 53 bits, meeting DIVQ's high-word<divisor precondition; an
+explicit check retains the portable full division fallback.
+When exponent>52, a native 64-bit division by the exact shifted
+denominator suffices. The returned integer significand is exactly
+representable in double and ldexp preserves truncation toward
+zero independent of the host rounding mode. ARM64, Windows/MSVC
+and multi-limb inputs keep their previous algorithms unchanged.
+No GMP runtime dependency, benchmark special-casing, workload or
+threshold modification is introduced.
+
+**Tests.** Add 512 deterministic scalar ratios in each of the
+four host rounding modes, testing both signs and near-half,
+full-width random, power-of-two and tiny numerator regimes.
+Each comparison uses exact binary64 bits against mpq_get_d.
+The preexisting randomized multiprecision GMP and special-value
+tests are retained. Independently, an x86-64 GCC 14 local
+standalone kernel test already compared 320,000 random and
+boundary 64-bit ratios to GMP under four rounding modes,
+without a mismatch. This verifies the scalar math but is not a
+replacement for repository compilation and tests.
+
+**Validation.** R12 native full CI and matched ARM64/x86-64
+benchmarks have not run yet. Do not claim a measured improvement
+or success on any remaining performance gate before the new data.
