@@ -4821,3 +4821,19 @@ one failure yet regress another: require an updated complete
 84-case comparison before promotion, with a recorded
 rollback baseline. No algorithm or benchmark change is
 made by this acceptance-policy journal entry.
+
+### B60.1 fix namespace of diagnostic declaration under GCC (20 October 2026)
+
+The user's Ubuntu x86-64 GCC B60 build failed before running the division
+profile. The new forward declaration for
+`rem_limb_preinverse_diagnostic` in
+benchmarks/benchmark_big_unsigned_division_profile.cpp was mistakenly
+written inside the file's anonymous namespace, creating a *nested*,
+distinct `Ariadne` namespace. `BigUnsigned` belongs to the global
+`::Ariadne` namespace, so the compiler rejected the declaration and
+subsequent calls. B60.1 moves only that forward declaration into
+global `::Ariadne`, before opening the anonymous namespace. The
+benchmark cases, diagnostic algorithm, GMP verification, official
+benchmark, production selectors, tests and public headers are all
+unchanged. Native integration/CI must still confirm the fix; no
+performance result is claimed for B60.1.

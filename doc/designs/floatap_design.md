@@ -8760,3 +8760,12 @@ regress ARM64 while tuning x86. The 84-case GMP
 oracle and inputs remain unchanged. These are targets
 and user-reported baselines, not new performance results;
 see the integer_rational_design.md acceptance section.
+
+### B60.1 correct diagnostic forward-declaration namespace (20 October 2026)
+
+The B60 division-profile build on the user's x86-64 GCC host failed:
+the candidate's declaration was nested in an anonymous namespace's
+`Ariadne` instead of global `::Ariadne`, hiding `BigUnsigned` and
+the candidate symbol. Move the declaration ahead of the anonymous
+namespace; no numerical, GMP benchmark, production arithmetic or
+FloatAP changes. The integrated build and timing require revalidation.
