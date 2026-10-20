@@ -8741,3 +8741,22 @@ production rem dispatch, Integer/FloatAP arithmetic, decimal
 cutoff, public APIs, official 84-case benchmark and diagnostic
 fixture generation remain unchanged. No B60 integrated
 timings or CI verification yet; see integer journal B60.
+
+### Integer benchmark acceptance criteria after B59 (20 October 2026)
+
+The x86-64 campaign now requires every one of the six
+53/128/256/1024/2048/4096-bit official Integer/GMP
+total_time ratios to be strictly <1.000x AND the
+worst of all 84 operation/size ratios to be <2.000x
+in the same GMP-verified, unchanged official workload.
+The global aggregate total (B59: 0.977x) is not sufficient
+by itself. Current x86 failed total sizes are
+53=1.295x, 128=1.493x, 256=1.423x, 1024=1.074x;
+the 2048/4096-bit totals pass at 0.945x/0.922x.
+The global worst is quotient 2048 bits at 3.319x.
+ARM64 reference already satisfies worst<2x (1.944x)
+but misses 4096-bit total<1x (1.018x). Do not
+regress ARM64 while tuning x86. The 84-case GMP
+oracle and inputs remain unchanged. These are targets
+and user-reported baselines, not new performance results;
+see the integer_rational_design.md acceptance section.
