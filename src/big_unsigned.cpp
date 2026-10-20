@@ -451,6 +451,39 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
 #endif
 }
 
+// B57: exact 64-bit preinverted normalized 2-by-1 division.
+// For B=2^64 and B/2 <= d < B, inverse=floor((B^2-1)/d)-B.
+// The quotient approximation uses one wide product, two carry
+// corrections and no DIVQ per limb; d is fixed for the whole stream.
+// Only GCC x86-64 >=64-limb quotient-producing callers select it.
+// The reference DIVQ is retained for Clang, smaller inputs and
+// remainder-only division; no BMI2/ADX instruction is required.
+#if defined(__x86_64__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER) && \
+    defined(__SIZEOF_INT128__)
+std::pair<std::uint64_t,std::uint64_t> divide_preinverted_x86_64(
+        std::uint64_t high,std::uint64_t low,
+        std::uint64_t normalized,std::uint64_t inverse) noexcept
+{
+    __extension__ using Wide=unsigned __int128;
+    const Wide estimate=static_cast<Wide>(high)*inverse;
+    const Wide sum=estimate+
+        (static_cast<Wide>(high+1u)<<64u)+low;
+    std::uint64_t quotient=static_cast<std::uint64_t>(sum>>64u);
+    const std::uint64_t estimate_low=static_cast<std::uint64_t>(sum);
+    std::uint64_t remainder=low-quotient*normalized;
+    const std::uint64_t low_estimate=
+        static_cast<std::uint64_t>(remainder>estimate_low);
+    quotient-=low_estimate;
+    remainder+=low_estimate*normalized;
+    if (remainder>=normalized) {
+        ++quotient;
+        remainder-=normalized;
+    }
+    return {quotient,remainder};
+}
+#endif
+
 } // namespace
 
 BigUnsigned::Limb BigUnsigned::divrem_limb_into(
@@ -462,6 +495,54 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
     if (quotient.size()<a.size()) {
         throw std::length_error("BigUnsigned quotient output too small");
     }
+
+    // B57: division by 2^k is an exact right shift and mask,
+    // valid on every target; handle k=0 without an invalid shift.
+    if (std::has_single_bit(divisor)) {
+        const unsigned bits=std::countr_zero(divisor);
+        if (bits==0u) {
+            std::copy(a.begin(),a.end(),quotient.begin());
+        } else {
+            for (std::size_t i=0u;i<a.size();++i) {
+                const Limb upper=i+1u<a.size()?a[i+1u]:Limb{0};
+                quotient[i]=(a[i]>>bits)|(upper<<(64u-bits));
+            }
+        }
+        std::fill(quotient.subspan(a.size()).begin(),quotient.end(),
+                  Limb{0});
+        return a.empty()?Limb{0}:(a.front()&(divisor-1u));
+    }
+
+#if defined(__x86_64__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER) && \
+    defined(__SIZEOF_INT128__)
+    // B57 experimental threshold from independent GCC/Clang x86-64
+    // timings: GCC >=64 limbs benefits from normalized pi1, while
+    // small inputs and Clang favor the existing DIVQ recurrence.
+    // Construct the exact reciprocal with one native 128/64 DIVQ:
+    // (B^2-1)/normalized - B = ((B-1-normalized)*B+B-1)/normalized.
+    if (a.size()>=64u) {
+        const unsigned shift=std::countl_zero(divisor);
+        const Limb normalized=divisor<<shift;
+        const Limb inverse=divide_wide(
+            ~normalized,std::numeric_limits<Limb>::max(),
+            normalized).first;
+        Limb rem=shift==0u ? Limb{0} :
+            a.back()>>(64u-shift);
+        for (std::size_t i=a.size();i!=0u;--i) {
+            const Limb low=shift==0u ? a[i-1u] :
+                (a[i-1u]<<shift)|
+                (i>1u ? a[i-2u]>>(64u-shift) : Limb{0});
+            const auto [digit,next]=divide_preinverted_x86_64(
+                rem,low,normalized,inverse);
+            quotient[i-1u]=digit;
+            rem=next;
+        }
+        std::fill(quotient.subspan(a.size()).begin(),quotient.end(),
+                  Limb{0});
+        return rem>>shift;
+    }
+#endif
 
 #if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
     (defined(__GNUC__) || defined(__clang__))
@@ -723,6 +804,35 @@ void BigUnsigned::divrem_selected_into(
         }
         return;
     }
+
+    // B57: detect an exact power of B=2^64 times a power of two.
+    // For b=B^k*2^s, q=a>>(64*k+s), r=a mod b. This bypasses
+    // all quotient estimates and product-subtractions, for every
+    // output mode, including remainder-only. No temporary storage.
+    const bool power_of_two=std::has_single_bit(b.back()) &&
+        (b.size()==1u ||
+         (b.front()==0u &&
+          std::all_of(b.begin()+1u,b.end()-1u,
+                      [](Limb word) { return word==0u; })));
+    if (power_of_two) {
+        const std::size_t skip=b.size()-1u;
+        const unsigned bits=std::countr_zero(b.back());
+        if constexpr (WantQuotient) {
+            for (std::size_t i=0u;i<quotient_limbs;++i) {
+                const std::size_t index=i+skip;
+                const Limb upper=index+1u<a.size() ?
+                    a[index+1u] : Limb{0};
+                quotient[i]=bits==0u ? a[index] :
+                    (a[index]>>bits)|(upper<<(64u-bits));
+            }
+        }
+        if constexpr (WantRemainder) {
+            std::copy_n(a.begin(),skip,remainder.begin());
+            remainder[skip]=a[skip]&(b.back()-1u);
+        }
+        return;
+    }
+
     if (b.size()==1u) {
         if constexpr (WantQuotient) {
             const Limb low=divrem_limb_into(a,b[0],quotient);

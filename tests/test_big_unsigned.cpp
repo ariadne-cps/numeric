@@ -1518,6 +1518,67 @@ void TestBigUnsigned::test_division_limb()
         }
     }
 
+    // B57: normalized pi1 selection for >=64 raw quotient limbs
+    // on GCC x86-64, and universal one-limb powers-of-two.
+    // GMP is an independent oracle for saturated, random, sparse,
+    // denormalized and 63/64/65-limb boundary views.
+    std::mt19937_64 b57_engine(0xB570641ULL);
+    for (const std::size_t count:
+            {0u,1u,7u,8u,16u,31u,32u,63u,64u,65u,96u,128u}) {
+        for (const std::uint64_t divisor:
+                {1ULL,2ULL,3ULL,5ULL,7ULL,35ULL,255ULL,
+                 65535ULL,4294967295ULL,4294967296ULL,
+                 4294967297ULL,9223372036854775807ULL,
+                 9223372036854775808ULL,9223372036854775809ULL,
+                 18446744073709551615ULL}) {
+            for (unsigned mode=0u;mode<8u;++mode) {
+                std::vector<std::uint64_t> words(count);
+                for (auto& word:words) word=b57_engine();
+                if (mode==0u) {
+                    std::fill(words.begin(),words.end(),max);
+                } else if (mode==1u) {
+                    std::fill(words.begin(),words.end(),0u);
+                } else if (mode==2u && !words.empty()) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.front()=1u;
+                } else if (mode==3u && !words.empty()) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=1u;
+                } else if (mode==4u && !words.empty()) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=max;
+                } else if (mode==5u) {
+                    for (std::size_t i=0u;i<count;i+=2u)
+                        words[i]=0u;
+                } else if (mode==6u) {
+                    for (std::size_t i=0u;i<count;i+=3u)
+                        words[i]=max;
+                }
+                mpz_import(n.value,count,-1,sizeof(std::uint64_t),
+                           0,0,words.data());
+                mpz_import(d.value,1u,-1,sizeof(std::uint64_t),
+                           0,0,&divisor);
+                mpz_tdiv_qr(q.value,r.value,n.value,d.value);
+                auto out=scratch.acquire(count+2u);
+                std::fill(out.begin(),out.end(),max);
+                const auto remainder=BigUnsigned::divrem_limb_into(
+                    words,divisor,out);
+                check_against_gmp(BigUnsigned(out),q.value);
+                mpz_import(native_remainder.value,1u,-1,
+                           sizeof(remainder),0,0,&remainder);
+                ARIADNE_TEST_ASSERT(
+                    mpz_cmp(native_remainder.value,r.value)==0);
+                ARIADNE_TEST_ASSERT(out[count]==0u);
+                ARIADNE_TEST_ASSERT(out[count+1u]==0u);
+                const BigUnsigned value(words);
+                const auto [owned_q,owned_r]=
+                    divrem_limb(value,divisor);
+                check_against_gmp(owned_q,q.value);
+                ARIADNE_TEST_ASSERT(owned_r==remainder);
+            }
+        }
+    }
+
     const std::array<std::uint64_t,2> numerator{max,max};
     std::array<std::uint64_t,3> output{max,max,max};
     bool zero_threw=false,owning_zero_threw=false,short_threw=false;
@@ -1626,6 +1687,78 @@ void TestBigUnsigned::test_division()
         mpz_mul(check.value,q.value,b.value);
         mpz_add(check.value,check.value,r.value);
         ARIADNE_TEST_ASSERT(mpz_cmp(check.value,a.value)==0);
+    }
+
+    // B57: all 3 output modes of normalized multiprecision
+    // division by 2^(64*k+s), including high/low limb boundaries
+    // and dividend shorter than divisor. Verify against GMP both
+    // as owning objects and with guarded caller-owned storage.
+    std::mt19937_64 b57_power_engine(0xB570B172ULL);
+    for (const std::size_t nlimbs:
+            {1u,2u,8u,16u,32u,64u,65u,96u,128u}) {
+        for (const std::size_t mlimbs:
+                {1u,2u,3u,8u,16u,32u,64u,65u}) {
+            for (const unsigned bit:{0u,1u,17u,32u,63u}) {
+                for (unsigned mode=0u;mode<6u;++mode) {
+                    std::vector<std::uint64_t> left(nlimbs);
+                    std::vector<std::uint64_t> right(mlimbs,0u);
+                    right.back()=std::uint64_t{1}<<bit;
+                    for (auto& limb:left) limb=b57_power_engine();
+                    if (mode==0u) {
+                        std::fill(left.begin(),left.end(),max);
+                    } else if (mode==1u) {
+                        std::fill(left.begin(),left.end(),0u);
+                    } else if (mode==2u) {
+                        std::fill(left.begin(),left.end(),0u);
+                        left.front()=1u;
+                    } else if (mode==3u) {
+                        std::fill(left.begin(),left.end(),0u);
+                        left.back()=1u;
+                    } else if (mode==4u) {
+                        for (std::size_t i=0u;i<nlimbs;i+=2u)
+                            left[i]=0u;
+                    }
+                    const BigUnsigned dividend(left),divisor(right);
+                    mpz_import(a.value,dividend.size(),-1,
+                               sizeof(std::uint64_t),0,0,
+                               dividend.limbs().data());
+                    mpz_import(b.value,divisor.size(),-1,
+                               sizeof(std::uint64_t),0,0,
+                               divisor.limbs().data());
+                    mpz_tdiv_qr(q.value,r.value,a.value,b.value);
+                    const auto [both_q,both_r]=
+                        divrem(dividend,divisor);
+                    check_against_gmp(both_q,q.value);
+                    check_against_gmp(both_r,r.value);
+                    check_against_gmp(quot(dividend,divisor),q.value);
+                    check_against_gmp(rem(dividend,divisor),r.value);
+                    const std::size_t needed=
+                        BigUnsigned::divrem_scratch_limbs(
+                            dividend.size(),divisor.size());
+                    std::vector<std::uint64_t> qwords(
+                        dividend.size()+2u,max);
+                    std::vector<std::uint64_t> rwords(
+                        std::min(dividend.size(),divisor.size())+2u,max);
+                    std::vector<std::uint64_t> storage(
+                        needed+2u,max);
+                    BigUnsigned::divrem_into(
+                        dividend.limbs(),divisor.limbs(),
+                        qwords,rwords,BigUnsigned::MutableLimbView(
+                            storage.data()+1u,needed));
+                    check_against_gmp(BigUnsigned(qwords),q.value);
+                    check_against_gmp(BigUnsigned(rwords),r.value);
+                    ARIADNE_TEST_ASSERT(
+                        qwords[dividend.size()]==0u &&
+                        qwords[dividend.size()+1u]==0u);
+                    const std::size_t m=
+                        std::min(dividend.size(),divisor.size());
+                    ARIADNE_TEST_ASSERT(rwords[m]==0u &&
+                                        rwords[m+1u]==0u);
+                    ARIADNE_TEST_ASSERT(storage.front()==max);
+                    ARIADNE_TEST_ASSERT(storage.back()==max);
+                }
+            }
+        }
     }
 
     // B55: GMP differential coverage of the native x86-64

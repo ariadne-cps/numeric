@@ -4437,3 +4437,121 @@ The exact CI error annotations were not accessible
 through the GitHub connector; confirmation requires
 new CI results. No user-host B56 timings have
 been recorded.
+
+
+### B57 x86-64 long single-limb preinverse and universal power-of-two division (20 October 2026)
+
+The completed B56 user-host diagnostic, with 32 GMP-verified
+pairs per category at 1024/2048/4096 bits, reported severe
+slowness in single-limb division at 4096 bits: limb_small
+quot 1281.487 vs GMP 200.639 ns (6.387x), limb_wide
+quot 1349.135 vs 196.434 ns (6.868x), and limb_wide
+rem 1322.548 vs 196.262 ns (6.739x). The preallocated
+comparison likewise showed high arithmetic costs.
+GMP verification passed. The unchanged official
+Integer benchmark's nontrivial quotient/remainder
+corpus has 16/32 one-limb divisors (50% of inputs),
+8/32 ~half-width divisors and 8/32 near-equal
+operands, as verified in
+benchmarks/benchmark_exact_arithmetic_workload.hpp.
+B56 CLI and production arithmetic remain intact.
+
+B57 evaluated a **different 64/64 normalized pi1
+reciprocal** from ARM64 B49's two 32-bit stages.
+For B=2^64 and normalized d in [B/2,B), compute
+inv=floor((B^2-1)/d)-B. This fits 64 bits. Its
+exact construction is a SINGLE B26 DIVQ computing
+(hi=(~d),lo=UINT64_MAX)/d; the high limb is
+strictly <d, so DIVQ cannot overflow. Normalize
+the entire quotient stream virtually, without
+allocations: shift the divisor by countl_zero,
+start the remainder at the top discarded bits,
+and produce each normalized input limb from
+adjacent input limbs. The pi1 recurrence uses
+one 64x64->128 product plus modulo-2^64
+subtraction/correction to give the exact digit
+and next normalized remainder, then shifts the
+final remainder down. The result is mathematically
+identical to division using DIVQ. GMP's published
+preinversion formulation provides useful
+independent methodological context; the new
+recurrence is implemented in GMP-free production
+using native C++ unsigned __int128 products.
+
+A standalone Linux AMD EPYC x86-64 reproduction
+checked 32768 quotient/remainder input pairs
+independently against mpz_tdiv_qr, including
+1..128-limb inputs, small and full-width
+divisors, all-ones, zero runs and powers of B,
+with -O3 -Wpedantic -Werror GCC 14 and Clang 17.
+The revised single-DIVQ inverse setup was also
+verified with both compilers over the same cases.
+The median proxy times varied by operand size
+and compiler: in representative GCC runs at
+64 limbs divisor=35, DIVQ quotient ~272 ns,
+normalized reciprocal quotient ~229 ns;
+at 32 limbs the reciprocal was not better,
+and for remainder-only it was often worse.
+Clang's 32/64-limb normalized reciprocal was
+generally not faster than DIVQ. These tests run
+on a proxy, not the user's x86 CPU, and are NOT
+integrated B57 performance claims. Therefore
+the reciprocal is selected **only** for >=64
+raw quotient limbs on GNU x86-64 GCC, not Clang,
+not MSVC, not ARM64 and not remainder-only
+(which remains on B26 DIVQ); existing AMD
+and other x86 microarchitectures may differ.
+Small quotient loops retain B26 and ARM64 B49
+paths as appropriate. No BMI2/ADX required.
+
+B57 also recognizes exact *power-of-two divisors*
+and performs the quotient/remainder by shift and
+mask. BigUnsigned::divrem_limb_into uses the
+fast exact 2^s path, including 2^0=1; the
+multi-limb divrem_selected_into handles
+b=B^k*2^s and all three compile-time
+result modes. Its fast path is after all
+existing error, output-size and scratch-size
+checks, so it maintains their fail-before-
+mutation contracts; the results are fully
+zero-filled as before. For arbitrary dividends
+including a<b or noncanonical raw limb inputs
+on the single-limb API, the exact mathematical
+identity holds. The selected multi-limb
+algorithm does not allocate intermediate buffers
+or change public exception behavior; ARM64,
+Windows/MSVC and other architectures can
+benefit from this ISA-independent power-of-two
+optimization. The B45 trailing zero-limb and
+B36 near-equal optimizations continue to handle
+all non-power-of-two inputs unchanged.
+
+A standalone 6534-case GMP differential test
+for multi-limb powers of two passed both GCC 14
+and Clang 17 under ASan/UBSan, covering
+1..128-limb dividends, 1..128-limb divisors,
+s=0/1/17/31/32/63, dense/sparse/saturated
+values and n<m. The production suite adds
+1440 raw-limb single-divisor pairs across
+0/1/7/8/16/31/32/63/64/65/96/128
+limbs, 15 different divisors and eight
+randomized/adversarial patterns, plus 2160
+power-of-two multi-limb cases across nine
+dividend sizes, eight divisor sizes, five
+bit positions and six patterns. Each
+independently verifies GMP quotient and
+remainder and checks extra result words,
+every output mode and scratch sentinels.
+The official 84-case benchmark and the B56
+diagnostic benchmark are UNCHANGED.
+
+The main same-host acceptance test is to repeat
+the original 84-case benchmark at 20k iterations
+and 31 samples and the existing B56 profile at
+4k iterations and 15 samples, checking separate
+limb_small, limb_wide, power_of_two and
+short_2 categories at 1024/2048/4096 bits
+for wins and regressions. Since GCC 64-limb
+reciprocal behavior is experimental on the
+user's unknown x86 CPU, retain B56/B55 as
+rollback baseline if results regress.
