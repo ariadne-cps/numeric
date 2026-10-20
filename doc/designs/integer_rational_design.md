@@ -6176,3 +6176,50 @@ R3 speedup or accepted performance gates. Wait for CI and re-run the
 unaltered six-size benchmark on both hosts, plus the full Rational,
 Integer, BigUnsigned and FloatAP gates before evaluating another
 candidate.
+
+
+### R4 — proper-fraction floor/ceil shortcuts and strict Rational performance gates (20 October 2026)
+
+**Acceptance policy (user requested):** for **each** of the six widths
+53, 128, 256, 1024, 2048, 4096 bits, on **each** of ARM64 and x86-64,
+require both the `total_time` ratio strictly below 1.0x and the
+`worst` operation ratio strictly below 2.0x versus the directly
+measured `mpq_t` backend. The geomean is diagnostic and cannot
+substitute for either gate. Keep the 15 operations, 32-pair workloads,
+20,000 iterations, 31 samples, numerical oracle and measurement
+methodology unchanged. An architecture passes only if all six sizes
+pass both gates; do not average away a failure.
+
+**R3 baseline from user-provided runs (before R4):** ARM64 total/worst
+per width: 53 0.763/2.091x, 128 0.930/1.812x,
+256 1.840/2.432x, 1024 1.560/2.725x,
+2048 1.149/3.547x, 4096 0.881/3.945x.
+x86-64: 53 1.396/4.066x, 128 1.380/2.574x,
+256 2.372/2.931x, 1024 1.695/3.176x,
+2048 1.044/3.063x, 4096 0.730/3.889x.
+All 384 paired inputs and 2880 paired operation results pass numerical
+verification on each architecture. Unix, Windows and Coverage workflow
+runs on commit `012b336` succeeded. Only ARM64 128-bit passes both
+user gates at R3. This is not an R4 measurement.
+
+**R4 change:** finite `floor` and `ceil` now check the exact unsigned
+magnitude order before allocating quotient/remainder storage. For
+`|n|<d`, floor gives -1 for negative nonzero and 0 otherwise; ceil
+gives 1 for positive nonzero and 0 otherwise. Canonical zero is 0/1.
+The existing Euclidean quotient/remainder path is entirely unchanged
+when `|n|>=d`. This optimizes mathematically general proper fractions,
+not a benchmark-specific shape; it preserves signed results and the
+precondition that special values are not valid inputs.
+
+**R4 tests:** deterministic GMP floor- and ceiling-quotient comparisons
+for zero, small and large positive and negative proper fractions,
+whole numbers and improper fractions at all six widths, including the
+4-to-5-limb inline-storage boundary. Existing random GMP differential
+and specialized floating-point rounding tests remain intact.
+
+**Validation status:** R4 has not been executed on ARM64 or x86-64 in
+this editing session. Its build/CI and six-size performance outcome are
+pending; no post-R4 gate is claimed as passing. Afterwards, revisit
+`Rational::get_d` (still >2x at 53 bits on both architectures, >4x on
+x86-64) and the medium-width construction and four operations that
+still dominate the `total_time` failures.

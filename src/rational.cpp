@@ -485,6 +485,12 @@ Integer round(Rational const& q) {
 
 Integer ceil(Rational const& q) {
     ARIADNE_PRECONDITION(is_finite(q));
+    // R4: for |n|<d, ceil is 1 iff the numerator is positive.
+    // Canonical zero remains 0; other fractions retain exact division.
+    if (compare(q._numerator.magnitude(),q._denominator)<0) {
+        return !q._numerator.negative() && !q._numerator.magnitude().is_zero()
+            ? Integer(1) : Integer(0);
+    }
     auto division=divrem(q._numerator.magnitude(),q._denominator);
     if (!q._numerator.negative() && !division.second.is_zero()) {
         division.first=add(division.first,BigUnsigned(1u));
@@ -494,6 +500,11 @@ Integer ceil(Rational const& q) {
 
 Integer floor(Rational const& q) {
     ARIADNE_PRECONDITION(is_finite(q));
+    // R4: proper fractions have a known quotient and sign-correct floor.
+    // Avoid quotient/remainder materialization, including for large limbs.
+    if (compare(q._numerator.magnitude(),q._denominator)<0) {
+        return q._numerator.negative() ? Integer(-1) : Integer(0);
+    }
     auto division=divrem(q._numerator.magnitude(),q._denominator);
     if (q._numerator.negative() && !division.second.is_zero()) {
         division.first=add(division.first,BigUnsigned(1u));

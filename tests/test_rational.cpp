@@ -389,6 +389,31 @@ void TestRational::test_native_contract() {
     ARIADNE_TEST_EQUALS(cmp(Rational::nan(),finite),Comparison::INCOMPARABLE);
     ARIADNE_TEST_FAIL(static_cast<void>(GmpRationalBoundary(Rational::nan())));
 
+    // R4: check proper-fraction floor/ceil shortcuts, integral and
+    // improper fractions against independent GMP quotients. Include
+    // size boundaries around inline storage and long magnitudes.
+    for (unsigned bits : {53u,128u,256u,1024u,2048u,4096u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        const Integer below=base-1;
+        const Integer above=base+1;
+        const std::array<Rational,9> cases={
+            Rational(0),Rational(1,3),Rational(-1,3),
+            Rational(below,base),Rational(-below,base),
+            Rational(base,base),Rational(-base,base),
+            Rational(above,base),Rational(-above,base)
+        };
+        for (Rational const& value : cases) {
+            GmpRationalBoundary raw(value);
+            GmpIntegerBoundary expected;
+            mpz_fdiv_q(expected.mutable_value(),
+                       mpq_numref(raw.value()),mpq_denref(raw.value()));
+            ARIADNE_TEST_EQUALS(floor(value),expected.to_integer());
+            mpz_cdiv_q(expected.mutable_value(),
+                       mpq_numref(raw.value()),mpq_denref(raw.value()));
+            ARIADNE_TEST_EQUALS(ceil(value),expected.to_integer());
+        }
+    }
+
     // R3: exercise stack products (up to 8 limbs each), their exact
     // 8/9-limb boundary, the fallback, signs and opposite orderings.
     for (unsigned bits : {53u,128u,256u,448u,512u,1024u}) {
