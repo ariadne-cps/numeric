@@ -35,7 +35,12 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <span>
 #include <utility>
+
+#if defined(_MSC_VER) && defined(_M_X64)
+#include <intrin.h>
+#endif
 
 #if defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__)
 #include <immintrin.h>
@@ -66,6 +71,476 @@ void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
 // disjoint from the canonical nonempty input, and at least eight limbs.
 void square_into_symmetric_arm64(BigUnsigned::LimbView a,
                                   BigUnsigned::MutableLimbView output) noexcept;
+} // namespace BigUnsignedDetail
+#endif
+
+// Reference and native multiplication kernels now live in this translation
+// unit alongside the architecture-specific division, decimal and dispatch
+// paths. Architecture guards keep the previous per-target selections intact.
+//
+// Portable reference kernel (previously big_unsigned_fallback.cpp).
+// Available even when an optimized backend is selected, for differential
+// testing and baseline benchmarks.
+namespace {
+
+// This pure C++20 reference is available on all supported targets, even
+// when an optimized architecture backend is selected for production.
+// Keeping it compiled makes portable-vs-native tests and A/B benchmarks
+// independent of ISA support.
+// Portable 64x64 -> 128 multiply using only standard 64-bit arithmetic.
+// Represent operands as a1*2^32 + a0 and b1*2^32 + b0.
+std::pair<std::uint64_t,std::uint64_t> multiply_wide(
+        std::uint64_t a,std::uint64_t b) noexcept
+{
+    constexpr std::uint64_t mask = 0xffffffffull;
+    const std::uint64_t a0 = a & mask;
+    const std::uint64_t a1 = a >> 32u;
+    const std::uint64_t b0 = b & mask;
+    const std::uint64_t b1 = b >> 32u;
+
+    const std::uint64_t p00 = a0*b0;
+    const std::uint64_t p01 = a0*b1;
+    const std::uint64_t p10 = a1*b0;
+    const std::uint64_t p11 = a1*b1;
+
+    // The middle accumulator is at most 3*(2^32-1), so 64 bits suffice.
+    const std::uint64_t middle = (p00 >> 32u) + (p01 & mask) + (p10 & mask);
+    const std::uint64_t low = (p00 & mask) | (middle << 32u);
+    const std::uint64_t high = p11 + (p01 >> 32u) +
+                               (p10 >> 32u) + (middle >> 32u);
+    return {low,high};
+}
+
+// Compute the product modulo 2^(64*out.size()), storing only low limbs.
+// The destination must be distinct from both source spans; kernel zeroes it.
+// At each step the carry is below 2^64: (B-1)^2 + 2(B-1) = B^2-1.
+void multiply_limbs(std::span<std::uint64_t const> a,
+                    std::span<std::uint64_t const> b,
+                    std::span<std::uint64_t> out) noexcept
+{
+    std::fill(out.begin(),out.end(),std::uint64_t{0});
+
+    for (std::size_t i=0u; i<a.size() && i<out.size(); ++i) {
+        std::uint64_t carry = 0u;
+        const std::size_t terms = std::min(b.size(),out.size()-i);
+
+        for (std::size_t j=0u; j<terms; ++j) {
+            const auto [low,high] = multiply_wide(a[i],b[j]);
+            const std::uint64_t sum = out[i+j]+low;
+            const std::uint64_t overflow1 = static_cast<std::uint64_t>(sum<low);
+            const std::uint64_t result = sum+carry;
+            const std::uint64_t overflow2 = static_cast<std::uint64_t>(result<sum);
+
+            out[i+j] = result;
+            carry = high+overflow1+overflow2;
+        }
+
+        if (i+terms < out.size()) {
+            // No prior row can have written beyond index i+terms-1.
+            out[i+terms] = carry;
+        }
+    }
+}
+
+} // namespace
+
+void BigUnsigned::mul_low_into_portable(
+        LimbView a,LimbView b,MutableLimbView output)
+{
+    multiply_limbs(a,b,output);
+}
+
+// x86-64 baseline, Comba and MULQ carry-chain kernels
+// (previously big_unsigned_x86-64.cpp; original copyright Luca Geretti).
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64)
+namespace BigUnsignedDetail {
+namespace {
+
+using Limb = BigUnsigned::Limb;
+
+// Every supported x86-64 CPU has a 64x64->128 unsigned product.
+// MSVC offers _umul128; GCC/Clang lower unsigned __int128 to the
+// baseline instruction. No optional CPU extension or runtime CPUID.
+// All shifts are on unsigned values; no signed-overflow assumptions.
+std::pair<Limb,Limb> multiply_wide_x86_64(Limb a,Limb b) noexcept
+{
+#if defined(_MSC_VER) && defined(_M_X64)
+    unsigned __int64 high = 0u;
+    const unsigned __int64 low = _umul128(a,b,&high);
+    return {low,high};
+#else
+    __extension__ using Wide = unsigned __int128;
+    const Wide product = static_cast<Wide>(a)*static_cast<Wide>(b);
+    return {static_cast<Limb>(product),
+            static_cast<Limb>(product>>64u)};
+#endif
+}
+
+} // namespace
+
+// Same radix-B schoolbook recurrence as the portable reference, B=2^64.
+// Every inner step satisfies product + existing_limb + carry < B^2,
+// so high_product + two overflow bits is representable in one limb.
+// Source spans and output must not overlap; all output words are set.
+void mul_low_into_x86_64(BigUnsigned::LimbView a,
+                         BigUnsigned::LimbView b,
+                         BigUnsigned::MutableLimbView output) noexcept
+{
+    std::fill(output.begin(),output.end(),Limb{0});
+
+    for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
+        Limb carry = 0u;
+        const std::size_t terms = std::min(b.size(),output.size()-i);
+
+        for (std::size_t j=0u; j<terms; ++j) {
+            const auto [low,high] = multiply_wide_x86_64(a[i],b[j]);
+            const Limb sum = output[i+j]+low;
+            const Limb overflow1 = static_cast<Limb>(sum<low);
+            const Limb value = sum+carry;
+            const Limb overflow2 = static_cast<Limb>(value<sum);
+
+            output[i+j] = value;
+            carry = high+overflow1+overflow2;
+        }
+
+        if (i+terms < output.size()) {
+            output[i+terms] = carry;
+        }
+    }
+}
+
+// Experimental column-wise (Comba) schoolbook multiplication in radix 2^64.
+// The 192-bit lo:hi:top accumulator collects the 128-bit partial products
+// for one output column plus the propagated high part of the preceding one.
+// This structure writes each output digit exactly once. The low-word and
+// high-word additions are unsigned, and their overflows extend 'top'.
+// In an actual representable operand view, top is bounded by the number of
+// products in a column; even in the all-ones case it fits a limb.
+// No allocation, global state, BMI2, ADX or alignment beyond uint64_t.
+// Input and output spans must be disjoint, including partial overlap.
+void mul_low_into_comba_x86_64(BigUnsigned::LimbView a,
+                               BigUnsigned::LimbView b,
+                               BigUnsigned::MutableLimbView output) noexcept
+{
+    std::fill(output.begin(),output.end(),Limb{0});
+    if (a.empty() || b.empty()) {
+        return;
+    }
+
+    // The highest nonzero product column is at a.size()+b.size()-2.
+    // Avoid overflow in the size sum even for a truncated operation.
+    const std::size_t columns =
+        a.size()>std::numeric_limits<std::size_t>::max()-b.size()
+        ? output.size()
+        : std::min(output.size(),a.size()+b.size()-1u);
+
+    Limb lo=0u,hi=0u,top=0u;
+    for (std::size_t k=0u; k<columns; ++k) {
+        const std::size_t first=k>=b.size() ? k-b.size()+1u : 0u;
+        const std::size_t last=std::min(k,a.size()-1u);
+        for (std::size_t i=first; i<=last; ++i) {
+            const auto [product_lo,product_hi]=
+                multiply_wide_x86_64(a[i],b[k-i]);
+
+            const Limb next_lo=lo+product_lo;
+            const Limb carry_lo=static_cast<Limb>(next_lo<lo);
+            const Limb next_hi=hi+product_hi;
+            const Limb carry_hi=static_cast<Limb>(next_hi<hi);
+            const Limb high_with_carry=next_hi+carry_lo;
+            const Limb carry_hi_extra=static_cast<Limb>(
+                high_with_carry<next_hi);
+
+            lo=next_lo;
+            hi=high_with_carry;
+            top+=carry_hi+carry_hi_extra;
+        }
+
+        output[k]=lo;
+        lo=hi;
+        hi=top;
+        top=0u;
+    }
+    if (columns<output.size()) {
+        output[columns]=lo;
+    }
+}
+
+
+
+// B53: ARM64 B38/B40's exact-zero row elimination and adaptive dense
+// dispatch, now for the baseline x86-64 MULQ/ADDQ/ADCQ recurrence.
+// The result buffer is zero-filled. If ai==0, the entire row's sum
+// and final carry are zero: omitting it leaves the same result.
+// The dense template has no per-row branch; only >=64 active rows
+// and >=64 multiplier limbs pay for a linear density prescan.
+// Neither kernel requires BMI2, ADX, new alignment or allocations.
+#if (defined(__GNUC__) || defined(__clang__)) && \
+    defined(__x86_64__) && !defined(_MSC_VER)
+namespace {
+
+bool use_sparse_carry_rows_x86_64(BigUnsigned::LimbView rows) noexcept
+{
+    const std::size_t threshold=std::max<std::size_t>(
+        2u,rows.size()/8u);
+    std::size_t zeros=0u;
+    for (const Limb digit:rows) {
+        if (digit==0u && ++zeros>=threshold) {
+            return true;
+        }
+    }
+    return false;
+}
+
+template<bool SkipZeroRows>
+void mul_low_into_carry_x86_64_impl(
+        BigUnsigned::LimbView a,BigUnsigned::LimbView b,
+        BigUnsigned::MutableLimbView output) noexcept
+{
+    std::fill(output.begin(),output.end(),Limb{0});
+    for (std::size_t i=0u;i<a.size() && i<output.size();++i) {
+        const Limb ai=a[i];
+        if constexpr (SkipZeroRows) {
+            if (ai==0u) {
+                continue;
+            }
+        }
+        Limb carry=0u;
+        const std::size_t terms=std::min(b.size(),output.size()-i);
+        for (std::size_t j=0u;j<terms;++j) {
+            Limb lo=ai,hi;
+            const Limb previous=output[i+j];
+            const Limb bj=b[j];
+            __asm__ volatile(
+                "mulq %[bj]\n\t"
+                "addq %[previous], %%rax\n\t"
+                "adcq $0, %%rdx\n\t"
+                "addq %[carry], %%rax\n\t"
+                "adcq $0, %%rdx\n\t"
+                : "+&a" (lo), "=&d" (hi)
+                : [bj] "r" (bj), [previous] "r" (previous),
+                  [carry] "r" (carry)
+                : "cc");
+            output[i+j]=lo;
+            carry=hi;
+        }
+        if (i+terms<output.size()) {
+            output[i+terms]=carry;
+        }
+    }
+}
+} // namespace
+#endif
+
+// Preserve the public test/benchmark entry point for the native kernel.
+// Its MSVC implementation remains the historical B3 fallback.
+void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
+                               BigUnsigned::LimbView b,
+                               BigUnsigned::MutableLimbView output) noexcept
+{
+#if (defined(__GNUC__) || defined(__clang__)) && \
+    defined(__x86_64__) && !defined(_MSC_VER)
+    const std::size_t active=std::min(a.size(),output.size());
+    if (active<64u || b.size()<64u ||
+            use_sparse_carry_rows_x86_64(a.first(active))) {
+        mul_low_into_carry_x86_64_impl<true>(a,b,output);
+    } else {
+        mul_low_into_carry_x86_64_impl<false>(a,b,output);
+    }
+#else
+    mul_low_into_x86_64(a,b,output);
+#endif
+}
+} // namespace BigUnsignedDetail
+#endif
+
+// AArch64 MUL/UMULH/ADDS/ADC multiplication and symmetric square
+// (previously big_unsigned_arm64.cpp; original copyright Ariadne contributors).
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64)
+namespace BigUnsignedDetail {
+using Limb = BigUnsigned::Limb;
+
+// Native ARMv8-A row-schoolbook with explicit two-carry handling.
+// Unlike the shared __int128 fused implementation, inline assembly fixes
+// the sequence: MUL, UMULH, two ADDS/ADC pairs per product. This path
+// demonstrated integrated speedups on Apple Silicon at 1024-4096 bits.
+// The intermediate is bounded by (B-1)^2 + 2(B-1) = B^2-1, B=2^64.
+// Inputs/output cannot overlap. Output is fully overwritten, no allocation.
+// B39 compiles two exact kernels: dense B37 (no zero guard inside
+// any row) and sparse B38 (skip exact-zero rows), choosing once before
+// multiplying. The full and truncated output contracts are unchanged.
+namespace {
+
+// The B39 density scan is useful only for large rows. B40 bypasses
+// it in each caller below 64 active outer or multiplier limbs:
+// those cases and Karatsuba's 32/33-limb leaves retain B38's cheaper
+// per-row zero guard. Large dense products still select B37's
+// branch-free inner recurrence after a linear, early-exit scan.
+bool use_sparse_rows(BigUnsigned::LimbView rows) noexcept
+{
+    const std::size_t threshold=std::max<std::size_t>(
+        2u,rows.size()/8u);
+    std::size_t zeros=0u;
+    for (const Limb limb:rows) {
+        if (limb==0u && ++zeros>=threshold) {
+            return true;
+        }
+    }
+    return false;
+}
+
+template<bool SkipZeroRows>
+void mul_low_into_carry_arm64_impl(BigUnsigned::LimbView a,
+                                   BigUnsigned::LimbView b,
+                                   BigUnsigned::MutableLimbView output) noexcept
+{
+    std::fill(output.begin(),output.end(),Limb{0});
+    for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
+        const Limb ai=a[i];
+        // The dense instantiation is exactly B37's branch-free inner
+        // recurrence. Only the sparse instantiation skips zero rows.
+        if constexpr (SkipZeroRows) {
+            if (ai==0u) {
+                continue;
+            }
+        }
+        Limb carry=0u;
+        const std::size_t terms=std::min(b.size(),output.size()-i);
+        for (std::size_t j=0u; j<terms; ++j) {
+            Limb lo,hi;
+            const Limb bj=b[j];
+            const Limb previous=output[i+j];
+            __asm__ volatile(
+                "mul %x[lo], %x[ai], %x[bj]\n\t"
+                "umulh %x[hi], %x[ai], %x[bj]\n\t"
+                "adds %x[lo], %x[lo], %x[previous]\n\t"
+                "adc %x[hi], %x[hi], xzr\n\t"
+                "adds %x[lo], %x[lo], %x[carry]\n\t"
+                "adc %x[hi], %x[hi], xzr\n\t"
+                : [lo] "=&r" (lo), [hi] "=&r" (hi)
+                : [ai] "r" (ai), [bj] "r" (bj),
+                  [previous] "r" (previous), [carry] "r" (carry)
+                : "cc");
+            output[i+j]=lo;
+            carry=hi;
+        }
+        if (i+terms<output.size()) {
+            output[i+terms]=carry;
+        }
+    }
+}
+
+} // namespace
+
+void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
+                              BigUnsigned::LimbView b,
+                              BigUnsigned::MutableLimbView output) noexcept
+{
+    const std::size_t active=std::min(a.size(),output.size());
+    // B40: preserve the measured B38 fast path for 1024/2048-bit
+    // products and for the recursive base cases of cutoff-32
+    // Karatsuba. Only large products pay for density classification.
+    if (active<64u || b.size()<64u ||
+            use_sparse_rows(a.first(active))) {
+        mul_low_into_carry_arm64_impl<true>(a,b,output);
+    } else {
+        mul_low_into_carry_arm64_impl<false>(a,b,output);
+    }
+}
+
+
+// B37: symmetric AArch64 full square. Off-diagonal products a[i]*a[j]
+// with i<j are computed once using the same native carry-chain
+// instruction sequence as the selected generic ARM64 multiplier.
+// After doubling the off-diagonal sum, add the n diagonal products.
+// This uses n*(n+1)/2 wide products instead of n*n. The two linear
+// carry passes are exact in radix B=2^64; the final carry is zero
+// since a^2 < B^(2*n). No heap allocation, new ISA extension,
+// global state or compiler-specific optimization setting is needed.
+// Contract: n>=8; output.size()==2*n; all views are disjoint.
+namespace {
+template<bool SkipZeroRows>
+void square_into_symmetric_arm64_impl(BigUnsigned::LimbView a,
+                                      BigUnsigned::MutableLimbView output) noexcept
+{
+    __extension__ using Wide=unsigned __int128;
+    const std::size_t n=a.size();
+    std::fill(output.begin(),output.end(),Limb{0});
+
+    // Accumulate the strictly upper triangle, one product per pair.
+    // output[i+n] lies past all columns previously touched by row i.
+    for (std::size_t i=0u;i+1u<n;++i) {
+        const Limb ai=a[i];
+        // Dense rows retain B37's unchanged carry recurrence; sparse
+        // rows skip zero cross-products. Diagonal additions always run.
+        if constexpr (SkipZeroRows) {
+            if (ai==0u) {
+                continue;
+            }
+        }
+        Limb carry=0u;
+        for (std::size_t j=i+1u;j<n;++j) {
+            const std::size_t k=i+j;
+            const Limb bj=a[j];
+            const Limb previous=output[k];
+            Limb lo,hi;
+            __asm__ volatile(
+                "mul %x[lo], %x[ai], %x[bj]\n\t"
+                "umulh %x[hi], %x[ai], %x[bj]\n\t"
+                "adds %x[lo], %x[lo], %x[previous]\n\t"
+                "adc %x[hi], %x[hi], xzr\n\t"
+                "adds %x[lo], %x[lo], %x[carry]\n\t"
+                "adc %x[hi], %x[hi], xzr\n\t"
+                : [lo] "=&r" (lo), [hi] "=&r" (hi)
+                : [ai] "r" (ai), [bj] "r" (bj),
+                  [previous] "r" (previous), [carry] "r" (carry)
+                : "cc");
+            output[k]=lo;
+            carry=hi;
+        }
+        output[i+n]=carry;
+    }
+
+    // Add the symmetric lower triangle by doubling cross terms.
+    Limb carry=0u;
+    for (std::size_t k=0u;k<output.size();++k) {
+        const Limb word=output[k];
+        output[k]=(word<<1u)|carry;
+        carry=word>>63u;
+    }
+
+    // Diagonal products occupy disjoint pairs of positions before
+    // carry propagation. Wide additions preserve all carries.
+    carry=0u;
+    for (std::size_t i=0u;i<n;++i) {
+        const Wide diagonal=static_cast<Wide>(a[i])*a[i];
+        const std::size_t k=2u*i;
+        const Wide low=static_cast<Wide>(output[k])+
+                       static_cast<Limb>(diagonal)+carry;
+        output[k]=static_cast<Limb>(low);
+        carry=static_cast<Limb>(low>>64u);
+        const Wide high=static_cast<Wide>(output[k+1u])+
+                        static_cast<Limb>(diagonal>>64u)+carry;
+        output[k+1u]=static_cast<Limb>(high);
+        carry=static_cast<Limb>(high>>64u);
+    }
+}
+} // namespace
+
+void square_into_symmetric_arm64(BigUnsigned::LimbView a,
+                                  BigUnsigned::MutableLimbView output) noexcept
+{
+    // Only a[0..n-2] contributes off-diagonal rows. The diagonal
+    // is evaluated for every input limb in either instantiation.
+    // B40: at <=64 limbs (<=63 cross-product rows) avoid a second
+    // scan; the original B38 row guard works particularly well on
+    // the sparse powers used by the official benchmark.
+    if (a.size()<=64u ||
+            use_sparse_rows(a.first(a.size()-1u))) {
+        square_into_symmetric_arm64_impl<true>(a,output);
+    } else {
+        square_into_symmetric_arm64_impl<false>(a,output);
+    }
+}
 } // namespace BigUnsignedDetail
 #endif
 

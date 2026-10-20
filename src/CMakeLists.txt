@@ -4,7 +4,6 @@ add_library(NUMERIC_SRC OBJECT
     double.cpp
     integer.cpp
     big_unsigned.cpp
-    big_unsigned_fallback.cpp
     dyadic.cpp
     decimal.cpp
     rational.cpp
@@ -31,12 +30,12 @@ target_include_directories(NUMERIC_SRC PRIVATE
 
 target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_NUMERIC_BUILD)
 
-# The C++20 fallback reference is always compiled for tests/benchmarks.
-# Exactly one native architecture backend is selected when supported;
-# otherwise production dispatch uses only the fallback.
+# All BigUnsigned kernels (portable, x86-64 and ARM64) are in one .cpp.
+# The C++20 reference remains compiled for tests/benchmarks on every host.
+# Select at most one native backend through compile definitions;
+# otherwise production dispatch retains the portable fallback.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
         AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang|MSVC)$")
-    target_sources(NUMERIC_SRC PRIVATE big_unsigned_x86-64.cpp)
     target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_BIG_UNSIGNED_X86_64=1)
     # The fused 128-bit accumulator is compiler-sensitive: the same
     # algorithm was faster with GCC 14 and not consistently with Clang.
@@ -52,9 +51,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
 
 # ARM64 selects the explicit MUL/UMULH/ADDS/ADC carry-chain specialization
 # validated by native GMP differential tests and integrated Mac benchmarks.
-# Shared __int128 fused arithmetic is implemented once in big_unsigned.cpp.
+# Shared __int128 fused arithmetic is implemented in big_unsigned.cpp.
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$"
         AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
-    target_sources(NUMERIC_SRC PRIVATE big_unsigned_arm64.cpp)
     target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_BIG_UNSIGNED_ARM64=1)
 endif()

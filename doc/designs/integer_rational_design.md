@@ -6398,3 +6398,38 @@ reproduced with a minimal GCC compilation. Replace it with an explicit
 scenario, numerical behavior, or production source is altered.
 CI must be rechecked; the full failure logs were not available through
 the repository connector, so other compile problems are not ruled out.
+
+
+### R9 — one-source BigUnsigned compilation unit (20 October 2026)
+
+**Motivation / user decision:** native architecture conditionals are not
+fully separable into platform-specific source files. Division paths,
+wide-integer scalar estimation, decimal formatting, Karatsuba and
+multiplication dispatch already contain compiler/ISA branches inside
+common implementation functions. Keeping external kernels in separate
+`.cpp` files therefore creates a misleading partial modular boundary.
+
+**Structural change only:** merge the reference C++20 multiplication
+formerly in `big_unsigned_fallback.cpp`, the optional x86-64 kernel
+formerly in `big_unsigned_x86-64.cpp`, and the ARM64 native carry
+and symmetric-square kernels formerly in `big_unsigned_arm64.cpp`
+into `src/big_unsigned.cpp`. Enclose the platform-specific
+implementations in the SAME `ARIADNE_BIG_UNSIGNED_X86_64` and
+`ARIADNE_BIG_UNSIGNED_ARM64` compile-time guards used before.
+Preserve all internal public/diagnostic entry points, implementation
+bodies, kernel selectors, GCC fused option, target compiler definitions
+and portable reference implementation. Remove the three now-redundant
+sources and their CMake source entries; CMake still selects the same
+native backend flags based on compiler and target. No algorithm,
+operand set, oracle, threshold, runtime condition, test or benchmark
+is altered. Preserve historical source attribution in section comments
+and Git history.
+
+**Validation gates:** starting from R8b `aa5c520`, whose Unix, Windows
+and Coverage CI all succeeded, confirm the refactored single-source
+unit builds on GCC x86-64, Clang x86-64, AppleClang ARM64 and MSVC;
+run the full differential BigUnsigned, Integer, Rational, FloatAP and
+architecture-specific multiply diagnostics. Repeat the six-size,
+15-operation GMP comparison on both ARM64 and x86-64 to check for
+accidental performance regressions due to TU/codegen changes.
+These validations are pending for R9; no improvement is claimed.
