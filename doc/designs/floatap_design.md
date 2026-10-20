@@ -8786,3 +8786,20 @@ limbs. The immutable 84-operation official benchmark and
 FloatAP APIs/semantics remain unchanged. Verify CI and all
 six per-size <1x/worst <2x acceptance gates before claiming
 success. See integer journal B61.
+
+### B62 single-limb quotient pi1 threshold diagnostic (20 October 2026)
+
+B61 user-host GMP-verified official benchmark reports
+ALL total_time/GMP=0.999x, worst=3.386x (2048-bit
+quotient); 4096-bit remainder is now 1.968x after
+rem-only pi1 selection. The 1024/2048-bit quotient
+path still uses DIVQ below B57's 64-limb threshold.
+B62 adds two caller-owned GMP-verified comparator rows
+(pi1 versus DIVQ) for the original B56 32-pair
+small/wide single-limb divisor categories. Full
+quotients and remainders are checked against GMP,
+with reusable output storage; it is deliberately not
+an owning `quot()` comparison. No production dispatch,
+FloatAP algorithms, APIs or original 84-case workloads
+change. Integrated CI and on-target timings are still
+pending; see integer journal B62.

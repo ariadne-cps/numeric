@@ -620,6 +620,69 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
     return remainder;
 }
 
+// B62: caller-owned quotient comparison for the SAME non-power-of-two
+// single-limb inputs, without changing production's >=64 limb pi1 gate.
+// Both helpers retain the public kernel's exact quotient-output contract.
+// Defined only for the GCC x86-64 configuration under test.
+#if defined(__x86_64__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER) && \
+    defined(__SIZEOF_INT128__)
+BigUnsigned::Limb quotient_limb_pi1_into_diagnostic(
+        BigUnsigned::LimbView a,BigUnsigned::Limb divisor,
+        BigUnsigned::MutableLimbView quotient)
+{
+    using Limb=BigUnsigned::Limb;
+    if (divisor==0u) {
+        throw std::domain_error("B62 quotient pi1 division by zero");
+    }
+    if (quotient.size()<a.size()) {
+        throw std::length_error("B62 quotient pi1 output too small");
+    }
+    if (a.empty() || std::has_single_bit(divisor)) {
+        return BigUnsigned::divrem_limb_into(a,divisor,quotient);
+    }
+    const unsigned shift=static_cast<unsigned>(std::countl_zero(divisor));
+    const Limb normalized=divisor<<shift;
+    const Limb inverse=divide_wide(
+        ~normalized,std::numeric_limits<Limb>::max(),normalized).first;
+    Limb remaining=shift==0u ? Limb{0} : a.back()>>(64u-shift);
+    for (std::size_t i=a.size();i!=0u;--i) {
+        const Limb low=shift==0u ? a[i-1u] :
+            (a[i-1u]<<shift)|
+            (i>1u ? a[i-2u]>>(64u-shift) : Limb{0});
+        const auto [digit,next]=divide_preinverted_x86_64(
+            remaining,low,normalized,inverse);
+        quotient[i-1u]=digit;
+        remaining=next;
+    }
+    std::fill(quotient.begin()+static_cast<std::ptrdiff_t>(a.size()),
+              quotient.end(),Limb{0});
+    return remaining>>shift;
+}
+
+BigUnsigned::Limb quotient_limb_divq_into_diagnostic(
+        BigUnsigned::LimbView a,BigUnsigned::Limb divisor,
+        BigUnsigned::MutableLimbView quotient)
+{
+    using Limb=BigUnsigned::Limb;
+    if (divisor==0u) {
+        throw std::domain_error("B62 quotient DIVQ division by zero");
+    }
+    if (quotient.size()<a.size()) {
+        throw std::length_error("B62 quotient DIVQ output too small");
+    }
+    Limb remaining=0u;
+    for (std::size_t i=a.size();i!=0u;--i) {
+        const auto [digit,next]=divide_wide(remaining,a[i-1u],divisor);
+        quotient[i-1u]=digit;
+        remaining=next;
+    }
+    std::fill(quotient.begin()+static_cast<std::ptrdiff_t>(a.size()),
+              quotient.end(),Limb{0});
+    return remaining;
+}
+#endif
+
 // B61: independent diagnostic reference to the *old* owning single-limb
 // DIVQ remainder. This preserves the B60 baseline after pi1 promotion.
 BigUnsigned rem_limb_divq_diagnostic(

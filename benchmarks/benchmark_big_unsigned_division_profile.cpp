@@ -58,6 +58,17 @@ BigUnsigned rem_limb_preinverse_diagnostic(
         BigUnsigned const& a,BigUnsigned const& b);
 BigUnsigned rem_limb_divq_diagnostic(
         BigUnsigned const& a,BigUnsigned const& b);
+#if defined(__x86_64__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER) && \
+    defined(__SIZEOF_INT128__)
+// B62 caller-owned quotient kernels; no public header/API.
+BigUnsigned::Limb quotient_limb_pi1_into_diagnostic(
+        BigUnsigned::LimbView a,BigUnsigned::Limb divisor,
+        BigUnsigned::MutableLimbView quotient);
+BigUnsigned::Limb quotient_limb_divq_into_diagnostic(
+        BigUnsigned::LimbView a,BigUnsigned::Limb divisor,
+        BigUnsigned::MutableLimbView quotient);
+#endif
 }
 
 namespace {
@@ -287,6 +298,34 @@ void verify_pool(std::array<Fixture,pool_size>& pool,
         const std::string context=std::to_string(bits)+" bits "+
             name(shape)+" case "+std::to_string(k);
         verify(quot(test.dividend,test.divisor),q.value,context+" quot");
+#if defined(__x86_64__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER) && \
+    defined(__SIZEOF_INT128__)
+        if (shape==Shape::limb_small || shape==Shape::limb_wide) {
+            // Both quotient digits AND 64-bit residual must match GMP.
+            for (unsigned strategy=0u;strategy<2u;++strategy) {
+                std::fill(test.quotient_words.begin(),
+                          test.quotient_words.end(),Limb{0});
+                const Limb residue=strategy==0u ?
+                    quotient_limb_pi1_into_diagnostic(
+                        test.dividend.limbs(),test.divisor.limb(0u),
+                        test.quotient_words) :
+                    quotient_limb_divq_into_diagnostic(
+                        test.dividend.limbs(),test.divisor.limb(0u),
+                        test.quotient_words);
+                verify(test.quotient_words,q.value,
+                       context+(strategy==0u?" quot pi1":" quot divq"));
+                Gmp observed_rem;
+                mpz_import(observed_rem.value,1u,-1,sizeof(Limb),
+                           0,0,&residue);
+                if (mpz_cmp(observed_rem.value,r.value)!=0) {
+                    throw std::runtime_error(
+                        "B62 quotient diagnostic remainder differs from GMP: "+
+                        context);
+                }
+            }
+        }
+#endif
         verify(rem(test.dividend,test.divisor),r.value,context+" rem");
         if (shape==Shape::limb_small || shape==Shape::limb_wide) {
             verify(rem_limb_preinverse_diagnostic(
@@ -328,7 +367,7 @@ std::vector<Result> measure(unsigned bits,Shape shape,
         return pool[static_cast<std::size_t>(i)%pool.size()];
     };
     std::vector<Result> result;
-    result.reserve(6u);
+    result.reserve(8u);
     const auto record=[&](char const* operation,auto native,auto gmp) {
         Result entry;
         entry.bits=bits;
@@ -353,6 +392,44 @@ std::vector<Result> measure(unsigned bits,Shape shape,
             mpz_tdiv_q(answer.value,item.a.value,item.b.value);
             keep_alive(answer.value);
         });
+    // B62: the original 32-pair small/wide divisor fixtures, same
+    // zero-allocation caller-owned native output buffers, compared to
+    // GMP with reusable mpz_tdiv_q outputs. Both algorithms independently
+    // check quotient AND residual against GMP outside timed loops.
+#if defined(__x86_64__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER) && \
+    defined(__SIZEOF_INT128__)
+    if (shape==Shape::limb_small || shape==Shape::limb_wide) {
+        record("quot_pi1_prealloc",
+            [&](unsigned i) {
+                auto& item=select(i);
+                const Limb residue=quotient_limb_pi1_into_diagnostic(
+                    item.dividend.limbs(),item.divisor.limb(0u),
+                    item.quotient_words);
+                keep_alive(item.quotient_words);
+                keep_alive(residue);
+            },
+            [&](unsigned i) {
+                auto& item=select(i);
+                mpz_tdiv_q(item.prealloc_q.value,item.a.value,item.b.value);
+                keep_alive(item.prealloc_q.value);
+            });
+        record("quot_divq_prealloc",
+            [&](unsigned i) {
+                auto& item=select(i);
+                const Limb residue=quotient_limb_divq_into_diagnostic(
+                    item.dividend.limbs(),item.divisor.limb(0u),
+                    item.quotient_words);
+                keep_alive(item.quotient_words);
+                keep_alive(residue);
+            },
+            [&](unsigned i) {
+                auto& item=select(i);
+                mpz_tdiv_q(item.prealloc_q.value,item.a.value,item.b.value);
+                keep_alive(item.prealloc_q.value);
+            });
+    }
+#endif
     record("rem",
         [&](unsigned i) {
             auto answer=rem(select(i).dividend,select(i).divisor);
@@ -453,7 +530,7 @@ void print_results(std::vector<Result> const& rows,bool summary_only)
         LOGGING_PRINTLN(std::string(92u,'='))
     }
     LOGGING_PRINTLN("Worst native/GMP slowdown by operation (diagnostic categories)")
-    for (char const* operation:{"quot","rem","rem_pi1","rem_divq","divrem","prealloc_divrem"}) {
+    for (char const* operation:{"quot","quot_pi1_prealloc","quot_divq_prealloc","rem","rem_pi1","rem_divq","divrem","prealloc_divrem"}) {
         Result const* worst=nullptr;
         for (auto const& row:rows) {
             if (row.operation!=operation) continue;
@@ -477,6 +554,10 @@ void print_results(std::vector<Result> const& rows,bool summary_only)
                     "rem_pi1 forces the shared pi1 kernel and "
                     "rem_divq retains the old owning DIVQ reference. "
                     "Both are verified against GMP.")
+    LOGGING_PRINTLN("B62 quotient prealloc rows use matched caller-owned "
+                    "native output buffers and reusable GMP quotient "
+                    "outputs. They isolate single-limb kernels and "
+                    "are NOT owning quot() measurements.")
     LOGGING_PRINTLN("prealloc_divrem uses reusable native spans and "
                     "reusable GMP result buffers; it is not additive "
                     "to owning-operation timings.")

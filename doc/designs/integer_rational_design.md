@@ -4890,3 +4890,59 @@ benchmark remain to be checked before calling B61 an
 integrated success. Roll back to B59/B60.1 if the new
 production selector regresses independent correctness
 or aggregate performance.
+
+### B62 diagnostic: quotient-only single-limb pi1 threshold at 16/32 limbs (20 October 2026)
+
+The user's B61 integrated official 84-operation x86-64 benchmark
+(20000 iterations, 31 samples; 768 GMP-verified paired inputs
+and 2688 correct operation results) measured per-size totals
+53:1.452x, 128:1.538x, 256:1.486x, 1024:1.092x,
+2048:0.962x, 4096:0.941x and ALL:0.999x. The global
+worst is now quotient at 2048 bits, 3.386x, followed
+by quotient at 1024 bits, 3.282x. The 4096-bit
+official remainder improved from B59 1120.469 ns to
+B61 716.668 ns, moving its official ratio from
+3.073x to 1.968x. At 1024 and 2048 bits the remainder
+fell from 286.099/539.469 ns to 176.753/320.884 ns.
+The aggregate total worsened from B59 0.977x to 0.999x
+despite the remainder gain: construction and other
+operations moved as well, and the short sizes cannot
+invoke the new >=8-limb remainder kernel. Do not
+attribute unrelated shifts to B61; repeat full runs
+under comparable host conditions to estimate noise.
+
+B57 already selects exact quotient-producing normalized
+pi1 on GCC x86-64 when the input has >=64 limbs.
+At 1024/2048 bits (16/32 limbs), it still uses
+per-digit native DIVQ. B62 adds **diagnostic-only**
+caller-owned quotient comparators for GCC x86-64
+on the B56 limb_small/limb_wide 32-pair exact GMP
+pools. The pi1 comparator replays B57's normalized
+inverse estimation and digit correction for any
+input length, including 16 and 32 limbs. The DIVQ
+comparator uses the old exact recurrence independently
+of current production size selection. Both fill the
+same reusable quotient output span and return a 64-bit
+remainder. Each quotient AND remainder is checked
+against the independent GMP oracle before and after
+the timed phases; the GMP timed counterpart uses
+reusable `mpz_tdiv_q` output for fair caller-owned
+comparison. This kernel-only preallocated timing is
+not an owning `quot()` speedup claim and cannot be
+added to the original owning or divrem rows.
+
+B62 changes NO production quotient/remainder dispatch,
+arithmetic, official benchmark corpus, test cases,
+GMP oracle or FloatAP behavior. It adds two B56 rows:
+`quot_pi1_prealloc` and `quot_divq_prealloc` for
+both single-limb divisor categories, and records
+their matched GMP preallocated quotient results.
+After CI, measure on the SAME host using:
+  ./benchmarks/benchmark_big_unsigned_division_profile -t dark --bits 1024,2048,4096 --iterations 4000 --samples 15
+Only if 16/32-limb pi1 wins robustly in matched kernel
+measurements should we experiment with a lower GCC-only
+production quotient threshold, followed by GMP
+verification and the untouched 84-case acceptance
+gates (all six per-size totals <1x; worst <2x).
+The new diagnostic is not yet compilation/CI-verified
+or independently measured on the user's host.
