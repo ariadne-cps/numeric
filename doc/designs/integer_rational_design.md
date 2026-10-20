@@ -6468,3 +6468,48 @@ Rational construction and downstream FloatAP regressions unchanged.
 Require Unix, Windows, Coverage CI, full Integer/BigUnsigned/Rational/
 FloatAP test suites, and unchanged 20,000-iteration 31-sample
 ARM64/x86-64 six-width benchmark runs before accepting the change.
+
+
+### R11 — exact quotient-one/two Euclidean reduction (20 October 2026)
+
+**Baseline.** The newly supplied post-R10 ARM64 and x86-64 runs
+(20,000 iterations, 31 samples) each pass the 384 paired-input and
+2,880 operation-result GMP checks. Per-width total_time/worst ratios
+for 53/128/256/1024/2048/4096 bits are, on ARM64,
+0.405/1.229, 0.821/1.750, 1.418/2.309, 1.282/1.663,
+0.971/1.901, 0.796/2.063; on x86-64,
+0.961/2.248, 1.188/2.299, 1.880/2.459, 1.365/1.621,
+0.868/1.544, 0.626/1.586. Five of twelve width-host pairs
+meet both strict gates. At the time of R11 creation, R10 Coverage
+CI had passed while Unix/Windows CI were still running. No R11
+speedup is claimed.
+
+**Change.** Inside BigUnsigned::gcd, R6's equal-high-limb
+subtraction shortcut generalizes to ordered positive operands
+a>=b with equal canonical limb counts and highest limbs
+high_a-high_b <= high_b (computed without overflow). With
+B=2^(64*(limb_count-1)), high_b>=1 and
+a < (high_a+1)*B <= (2*high_b+1)*B <=3*high_b*B <=3*b.
+Thus the Euclidean quotient is either 1 or 2. Compute a-b
+once. If high_a<2*high_b, a<2*b, and a-b is the remainder.
+Only on high_a==2*high_b is another comparison needed:
+if a-b>=b, subtract b once more. This computes the exact
+remainder without Knuth division, scratch buffers, or
+approximation. Cases outside the exact range still call the
+unchanged remainder-only implementation. This applies equally
+to dense arbitrary operands and sparse rational inputs,
+not a workload signature. Keep R10's borrowed initial operands,
+R8's scalar Euclid and all preexisting arithmetic semantics.
+
+**Regression.** Add independent GMP-oracle GCD checks at
+53/128/192/255/256/257/320/512/1024/2048/4096 bits
+for quotient one, quotient two, exact 2*b, quotient three
+fallback, equal operands, reverse order, and verification that
+both lvalue arguments remain unchanged. Existing thousands
+of randomized GMP differential tests remain untouched.
+
+**Validation.** R11 has not been locally compiled or benchmarked.
+Await Unix/Windows/Coverage CI and then unchanged ARM64 and
+x86-64 15-operation, six-width native-vs-mpq_t benchmark runs.
+Each host-width must satisfy BOTH strict `total_time <1x`
+and `worst <2x`, independently; the geomean is diagnostic.

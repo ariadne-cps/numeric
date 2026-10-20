@@ -2558,6 +2558,38 @@ void TestBigUnsigned::test_gcd_decimal()
             check_against_gmp(close,left_gmp.value);
         }
     }
+    // R11: Euclidean quotient 1 and 2 with unequal top limbs,
+    // their exact boundary, and quotient >=3 (general remainder).
+    // Test reverse input order and the 4/5-limb storage transition.
+    {
+        GmpInteger left_gmp,right_gmp,oracle_gmp;
+        for (unsigned bits : {53u,128u,192u,255u,256u,257u,
+                              320u,512u,1024u,2048u,4096u}) {
+            const BigUnsigned unit=shift_left(one,bits);
+            const BigUnsigned divisor=add(unit,BigUnsigned(std::uint64_t{5}));
+            const BigUnsigned twice=mul(unit,BigUnsigned(std::uint64_t{2}));
+            const BigUnsigned thrice=mul(unit,BigUnsigned(std::uint64_t{3}));
+            const std::array<BigUnsigned,5u> dividends={
+                add(twice,BigUnsigned(std::uint64_t{7})),  // q=1
+                add(twice,BigUnsigned(std::uint64_t{10})), // q=2 exact
+                add(twice,BigUnsigned(std::uint64_t{17})), // q=2
+                add(thrice,BigUnsigned(std::uint64_t{23})),// q=3
+                divisor
+            };
+            mpz_import(right_gmp.value,divisor.size(),-1,
+                       sizeof(std::uint64_t),0,0,divisor.limbs().data());
+            for (auto const& dividend:dividends) {
+                mpz_import(left_gmp.value,dividend.size(),-1,
+                           sizeof(std::uint64_t),0,0,
+                           dividend.limbs().data());
+                mpz_gcd(oracle_gmp.value,left_gmp.value,right_gmp.value);
+                check_against_gmp(gcd(dividend,divisor),oracle_gmp.value);
+                check_against_gmp(gcd(divisor,dividend),oracle_gmp.value);
+                check_against_gmp(dividend,left_gmp.value);
+                check_against_gmp(divisor,right_gmp.value);
+            }
+        }
+    }
     ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
     ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
     ARIADNE_TEST_ASSERT(to_decimal(from_decimal("000"))=="0");

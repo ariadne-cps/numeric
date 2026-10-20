@@ -1751,12 +1751,26 @@ BigUnsigned gcd(BigUnsigned const& lhs,BigUnsigned const& rhs)
         return BigUnsigned(current);
     };
 
-    // R6: when both top limbs agree and a>=b, a<2*b and a%b=a-b.
+    // R11: for equally wide ordered inputs, if the top limb of a
+    // is at most twice that of b, then a<3*b. Euclid's quotient is
+    // exactly one or two, so the remainder needs only subtraction.
+    // Using high_a-high_b<=high_b avoids overflow of 2*high_b.
     const auto reduce=[](BigUnsigned const& a,
                          BigUnsigned const& b) -> BigUnsigned {
-        if (a.size()==b.size() &&
-                a.limb(a.size()-1u)==b.limb(b.size()-1u)) {
-            return sub(a,b);
+        if (a.size()==b.size()) {
+            const Limb high_a=a.limb(a.size()-1u);
+            const Limb high_b=b.limb(b.size()-1u);
+            // The caller maintains a>=b, hence high_a>=high_b.
+            if (high_a-high_b<=high_b) {
+                BigUnsigned difference=sub(a,b);
+                // If high_a<2*high_b, a<2*b: the quotient is one.
+                // At equality it can be either one or two.
+                if (high_a-high_b==high_b &&
+                        compare(difference,b)>=0) {
+                    return sub(difference,b);
+                }
+                return difference;
+            }
         }
         return rem(a,b);
     };
