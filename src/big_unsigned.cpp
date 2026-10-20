@@ -2863,6 +2863,11 @@ BigUnsigned square(BigUnsigned const& a)
 
 BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
 {
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+    // R15: retain B74's MSB-first buffered power algorithm unchanged
+    // on the same fused GCC x86-64 builds as before.
     if (exponent==0u) return BigUnsigned(std::uint64_t{1});
     if (exponent==1u) return base;
     if (base.is_zero()) return BigUnsigned{};
@@ -2926,6 +2931,31 @@ BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
         if ((exponent&bit)!=0u) result=mul(result,base);
     }
     return result;
+#else
+    // R15: move B32's right-to-left unsigned schedule from Integer
+    // to the magnitude layer. Preserve its first-factor copy elision,
+    // its squaring/multiply ordering and its original size selection.
+    // This branch is used on ARM64, Clang, MSVC and portable targets.
+    BigUnsigned value(std::uint64_t{1});
+    BigUnsigned current_base=base;
+    auto remaining=exponent;
+    bool has_factor=false;
+    while (remaining!=0u) {
+        if ((remaining&std::uint64_t{1})!=0u) {
+            if (!has_factor) {
+                value=current_base;
+                has_factor=true;
+            } else {
+                value=mul(value,current_base);
+            }
+        }
+        remaining>>=1u;
+        if (remaining!=0u) {
+            current_base=square(current_base);
+        }
+    }
+    return value;
+#endif
 }
 
 // B65: diagnostic-only GCC short symmetric square control.

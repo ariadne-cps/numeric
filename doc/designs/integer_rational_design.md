@@ -6669,3 +6669,45 @@ unsigned dispatch; identical performance has not yet been measured.
 **Validation status:** before this commit, R13a Unix, Windows and
 Coverage CI all passed. R14 compilation, host-specific benchmark
 stability and full regression are pending.
+
+
+### R15 — centralize platform-specific unsigned exponentiation in BigUnsigned (20 October 2026)
+
+**Motivation:** the sign-independent B32 right-to-left exponentiation
+schedule remained in `Integer::pow` on ARM64, Clang, MSVC and portable
+targets, whereas GCC x86-64 fused builds already called B74's MSB-first
+buffered `BigUnsigned::pow`. That made the signed front end responsible
+for unsigned algorithms and architecture dispatch. R14 moved the
+related self-multiply selection into `BigUnsigned::mul` in a preceding
+separate commit.
+
+**Change:** `Integer::pow` now solely converts the exponent, derives
+the result sign from negative-base parity and delegates to
+`BigUnsigned::pow`. The unsigned function retains B74's original
+GCC x86-64 fused MSB-first implementation verbatim under the existing
+compiler/backend definition. Other targets use B32's exact
+right-to-left loop, moved from `Integer::pow`, preserving first-factor
+copy elision, square/multiply ordering, zero and exponent-one handling.
+The public `BigUnsigned::pow` API continues to be exact for all
+unsigned inputs but now selects the same policy as the signed caller
+on each target. This modifies the algorithmic schedule for *direct*
+non-GCC callers of `BigUnsigned::pow` (previously MSB-first buffered),
+so such callers need independent performance regression measurement.
+The result of `Integer::pow` is unchanged for 0^0, +/-0, +/-1,
+negative odd/even powers, aliasing, long values and every Nat exponent.
+No GMP dependency, benchmark or timed operation is modified.
+
+**Tests:** preserve existing randomized signed and unsigned GMP
+exponentiation checks across 0..17 limbs and 0..1025-bit boundaries,
+plus 7/8-limb self-multiply and aliasing regression from R14. Add an
+independent unsigned GMP power matrix containing bit-pattern exponents
+0/1/2/3/5/6/7/8/9/12/15/16/17/31/32/33 with immutable borrowed
+inputs. Test and benchmark performance parity separately on ARM64,
+GCC/Clang x86-64, MSVC and forced-portable builds.
+
+**Validation:** R13a CI passed before R14. R14 CI was still running
+when R15 was authored. R15's Unix/Windows/Coverage workflows and
+unchanged signed/unsigned GMP benchmarks have not yet completed;
+no semantic regression or performance improvement is claimed absent
+those checks. Rebuild and rerun full Integer, BigUnsigned, Rational,
+FloatAP and performance gates before accepting.
