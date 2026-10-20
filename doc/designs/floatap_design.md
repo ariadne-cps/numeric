@@ -8686,3 +8686,12 @@ B57 numerical GMP verification passed; 4096-bit quotient improved
 worsened. B56 profile confirmed major improvements in one-limb
 quotient and power-of-two remainder but not general rem-only.
 Full warnings-as-errors CI needs revalidation. See integer journal.
+
+### B57.2 AppleClang test shadow fix (20 October 2026)
+
+The B57 single-limb division regression test declared a nested
+`remainder` conflicting with an earlier structured binding in the
+same test method under AppleClang -Wshadow -Werror. Rename only the
+B57 local to `limb_remainder` in the exact GMP oracle and equality
+assertion. No arithmetic, FloatAP, benchmark or test-case changes;
+full CI confirmation remains pending. See integer journal B57.2.
