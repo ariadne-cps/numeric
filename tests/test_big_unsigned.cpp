@@ -2506,7 +2506,8 @@ void TestBigUnsigned::test_gcd_decimal()
         for (unsigned bits : {128u,255u,256u,257u,1024u,4096u}) {
             const BigUnsigned wide=add(
                 shift_left(one,bits),BigUnsigned(std::uint64_t{77}));
-            for (std::uint64_t d : {1u,2u,3u,17u,65537u,
+            for (std::uint64_t d : std::array<std::uint64_t,6u>{
+                    1u,2u,3u,17u,65537u,
                     std::numeric_limits<std::uint64_t>::max()}) {
                 const BigUnsigned small(d);
                 mpz_import(ga.value,wide.size(),-1,sizeof(std::uint64_t),

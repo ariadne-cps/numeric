@@ -6383,3 +6383,18 @@ or compiler flag is changed. The explicit alias resolves the same lookup
 problem for Apple Clang, GCC and MSVC. R8a requires CI and fresh
 measurements before claiming R8 performance; the R7 benchmark remains
 the last measured baseline.
+
+
+### R8b — repair mixed-width initializer list in GMP GCD test (20 October 2026)
+
+**Blocking build regression:** R8a Unix/Windows/Coverage CI reports build
+failures. Inspecting the R8 tests found a second compile-time error:
+`for (std::uint64_t d : {1u,2u,3u,17u,65537u,
+std::numeric_limits<std::uint64_t>::max()})` tries to deduce one
+`std::initializer_list<auto>` from both `unsigned int` and
+`std::uint64_t` elements. This is ill-formed under C++20 and was
+reproduced with a minimal GCC compilation. Replace it with an explicit
+`std::array<std::uint64_t,6u>` of the SAME six values. No GMP oracle,
+scenario, numerical behavior, or production source is altered.
+CI must be rechecked; the full failure logs were not available through
+the repository connector, so other compile problems are not ruled out.
