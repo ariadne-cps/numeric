@@ -317,6 +317,54 @@ double Rational::get_d() const {
     // floating rounding mode. The <=53-bit integer is exactly representable.
     const int scale=std::max(exponent-52,-1074);
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    // R7: certify the exact normal binary64 significand from the high
+    // one or two limbs. n=N*B+nl, d=D*B+dl, 0<=nl,dl<B.
+    // If N*2^shift=q*D+r, then r>=q proves the lower bound and
+    // r+2^shift<D proves the strict upper bound for the full quotient.
+    // q==2^52 also has a valid lower bound from the exact exponent.
+    // Ambiguous or overflowing prefixes retain the complete division.
+    if (scale<0 && scale>=-63 && exponent>=-1022 &&
+            n.size()==_denominator.size() && n.size()>=2u) {
+        __extension__ using Wide=unsigned __int128;
+        const unsigned shift=static_cast<unsigned>(-scale);
+        const Wide power=Wide{1}<<shift;
+        auto certify=[&](Wide high_n,Wide high_d,
+                         std::uint64_t& significand) -> bool {
+            if (high_n>(~Wide{0}>>shift)) { return false; }
+            const Wide scaled=high_n<<shift;
+            const Wide candidate=scaled/high_d;
+            const Wide remainder=scaled%high_d;
+            constexpr Wide min_normal_significand=Wide{1}<<52u;
+            constexpr Wide max_normal_significand=Wide{1}<<53u;
+            if (candidate<min_normal_significand ||
+                    candidate>=max_normal_significand) {
+                return false;
+            }
+            const bool lower_proven=remainder>=candidate ||
+                candidate==min_normal_significand;
+            const bool upper_proven=high_d>power &&
+                remainder<high_d-power;
+            if (!lower_proven || !upper_proven) { return false; }
+            significand=static_cast<std::uint64_t>(candidate);
+            return true;
+        };
+        const std::size_t high=n.size()-1u;
+        const Wide high_n=n.limb(high);
+        const Wide high_d=_denominator.limb(high);
+        std::uint64_t significand=0u;
+        if (certify(high_n,high_d,significand)) {
+            return std::copysign(
+                std::ldexp(static_cast<double>(significand),scale),sign);
+        }
+        const Wide top_n=(high_n<<64u)|n.limb(high-1u);
+        const Wide top_d=(high_d<<64u)|_denominator.limb(high-1u);
+        if (certify(top_n,top_d,significand)) {
+            return std::copysign(
+                std::ldexp(static_cast<double>(significand),scale),sign);
+        }
+    }
+#endif
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
     // R5: short finite ratios need at most 128 bits of exact arithmetic.
     // Do not use floating approximation: the conversion must remain
     // identical under every active host rounding mode.

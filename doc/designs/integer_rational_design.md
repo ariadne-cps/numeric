@@ -6278,3 +6278,47 @@ ARM64/x86-64 six-size benchmarks before considering R5 accepted.
 **Tests:** add deterministic GMP-oracle gcd checks for both input orders at 128/192/256/257/320/512/1024-bit boundaries and multiple low-limb offsets. Keep randomized GMP gcd, Rational arithmetic, FloatAP and the benchmark fixture unchanged.
 
 **Validation:** R6 not locally compiled/benchmarked. R6 CI, cross-platform differential tests, and fresh ARM64/x86-64 baseline-matched performance runs are pending; no target is claimed passed on R6.
+
+
+### R7 — certified native 128-bit high-prefix binary64 division (20 October 2026)
+
+**R6 baseline (not R7 results):** the independently supplied ARM64
+and x86-64 runs both pass 384 paired inputs and 2,880 paired operation
+results; R6 Unix, Windows and Coverage workflows succeed.
+Per-size total_time/worst ratios at 53,128,256,1024,2048,4096 bits:
+ARM64 0.778/1.677, 1.002/1.817, 1.781/2.490,
+1.517/2.233, 1.078/2.431, 0.856/2.459.
+x86-64 1.275/2.334, 1.328/2.564, 2.208/3.023,
+1.539/2.131, 0.954/1.874, 0.670/1.908.
+Three of the 12 machine-width cases pass BOTH user acceptance gates;
+the requirements stay strictly total_time <1x AND worst <2x at
+EACH width and architecture separately, with no benchmark alteration.
+
+**R7 change:** for normal finite binary64 conversion, with a
+negative scale of at most 63 bits and equal limb counts, first compute
+the high-prefix quotient using native unsigned 128-bit arithmetic.
+Use one high limb, and on an ambiguous quotient use two high limbs.
+For n=N*B+nl, d=D*B+dl with 0<=nl,dl<B, if
+N*2^shift=q*D+r and r>=q, then the full quotient is >=q.
+If r+2^shift<D, its full quotient is <q+1. When the
+candidate equals 2^52, the exact known normal exponent independently
+certifies that the full quotient is >=2^52. Apply both checks before
+accepting the computed 53-bit significand. Check shift overflow,
+candidate bit range, and prefix validity; otherwise use the existing
+R5 three-limb certificate and ultimately the original full exact
+division. Preserve the established active-rounding-mode independence,
+truncation toward zero, signed zero, overflow/subnormal semantics and
+compiler fallbacks. This is independent of particular rational values
+and does not weaken correctness guarantees.
+
+**R7 test extension:** in all four floating rounding modes, compare
+bit-exact values against GMP for added positive and negative
+near-half, near-third, repeating and near-boundary inputs across
+the existing 53..4096-bit differential matrix. Leave the existing
+random GMP tests, 15 benchmark operations, input pool and medians
+unchanged.
+
+**Validation status:** no local build or R7 native benchmark has been
+run. The new commit requires Unix/Windows/Coverage, FloatAP/Integer/
+BigUnsigned/Rational regressions, and unaltered six-size ARM64/x86-64
+runs. Do not attribute measured R6 ratios to R7.

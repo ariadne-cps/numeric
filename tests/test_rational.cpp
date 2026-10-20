@@ -559,7 +559,9 @@ void TestRational::test_gmp_differential() {
         for (unsigned bits : {53u,128u,256u,448u,512u,1024u,2048u,4096u}) {
             const Integer base=pow(Integer(2),Nat(bits));
             const Integer twice=base*2;
-            const std::array<Rational,8> probes={
+            // R7 probes both a near-binary-boundary quotient and
+            // repeating quotients (not only ratios near unity).
+            const std::array<Rational,12> probes={
                 Rational(base+13,twice+17),
                 Rational(base-13,twice+17),
                 Rational(base+31,twice+19),
@@ -567,7 +569,11 @@ void TestRational::test_gmp_differential() {
                 Rational(base-1,base+1),
                 Rational(twice+1,base+1),
                 Rational(-(base+13),twice+17),
-                Rational(base+1,Integer(1))
+                Rational(base+1,Integer(1)),
+                Rational(base+31,base*3+19),
+                Rational(base-1,base*3+17),
+                Rational(-(base+13),base*3+19),
+                Rational(base*3+1,twice+17)
             };
             for (Rational const& value : probes) {
                 const GmpRationalBoundary oracle(value);
