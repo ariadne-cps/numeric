@@ -5257,3 +5257,72 @@ measurements remain to be verified. Command
 from build, one line with user's preferred
 theme:
   ./benchmarks/benchmark_integer_small_operations_profile -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
+
+### B68 same-signed-semantics A/B for decimal adapters and short products (20 October 2026)
+
+The user's B67 full integrated x86-64 GMP-verification PASS
+(20000 iterations, 31 samples; the original 32 official
+signed input and division-input corpora) reported these
+Integer owning / BigUnsigned owning magnitude ratios:
+  bits  construct_decimal   mul   square   pow3   to_decimal
+    53      1.395x         1.581x  1.313x  1.471x    1.533x
+   128      1.250x         1.535x  1.294x  1.334x    1.391x
+   256      1.146x         1.298x  1.182x  1.244x    1.231x
+At 53/128/256 bits, additional apparent unsigned-core
+versus Integer absolute nanoseconds were respectively:
+to_decimal +39.820/+41.863/+43.543,
+construct_decimal +26.904/+23.005/+22.211,
+mul +12.597/+13.212/+13.563.
+These are NON-ADDITIVE, not direct signed-wrapper
+attribution: unsigned controls omit sign semantics,
+return different types and may follow different paths.
+B67 also indicates integer/core mul overhead converges
+to 1.092x at 4096 bits; to_decimal converges to 1.012x.
+Do not infer a proven single root cause or alter
+the official benchmark from this comparison.
+
+B68 extends the unchanged independent B67 benchmark with
+an additional A/B section whose controls match the complete
+SIGNED output type and mathematical semantics, on the
+same exact 32 input pairs and same iteration/sample settings:
+- construct_signed: normal Integer(String(decimal)) versus
+  independently parsed sign with production from_decimal
+  and Integer::from_magnitude, avoiding the intermediate
+  Ariadne String for the candidate.
+- to_decimal_signed: normal std::string(Integer::literal())
+  versus production BigUnsigned::to_decimal on the input's
+  magnitude plus an exact conditional leading '-' inserted
+  into the returned owning std::string; the sign, including
+  canonical zero, is preserved.
+- mul_signed: normal Integer operator* versus a signed
+  result constructed from production BigUnsigned::mul and
+  the XOR of the two input signs.
+- square_signed: normal self-alias Integer z*z versus
+  signed (nonnegative) construction from production
+  BigUnsigned::square.
+
+The new candidate results are independently verified
+against signed mpz (including input sign, full multiplication,
+square, decimal string and signed -0/+0 normalization),
+before AND after their own timed loops. The exact GMP
+counterparts retain owning result lifetimes. The original
+B67 report with unsigned magnitude controls is still
+printed intact. These measurements can distinguish
+expensive String/signed adaptation from primitive costs
+more reliably than B67's unsigned comparisons, but remain
+independently timed and susceptible to scheduler/clock
+variance; avoid attributing their differences additively.
+
+B68 does not modify Integer/FloatAP production, public
+APIs, original 84-operation official benchmark, its
+GMP oracle, 32-case input corpus, or existing test
+expectations. Promoting an adapter or signed arithmetic
+change requires a clear same-host repeated win AND
+unchanged 84-case correctness/per-size total and worst
+acceptance gates (each total <1x, every worst <2x).
+No new production behavior or benchmark weights are
+introduced. B68 integrated CI and user-host timings
+are not yet established.
+
+Run from build, single line with dark theme:
+  ./benchmarks/benchmark_integer_small_operations_profile -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31

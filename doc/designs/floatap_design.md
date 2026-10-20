@@ -8909,3 +8909,20 @@ FloatAP/Integer arithmetic, original 84-case
 inputs, test or API changes are included.
 Run on the user's machine before selecting a
 53/128/256-bit production optimization.
+
+### B68 isolate signed decimal adapters and small owning arithmetic (20 October 2026)
+
+B67's GMP-verified x86-64 53/128/256-bit results show
+apparent integer/unsigned-core ratios of 1.395/1.250/1.146x
+for decimal construction and 1.533/1.391/1.231x for
+decimal output; unsigned is not an exact signed-wrapper
+cost attribution. B68 extends the same standalone B67
+diagnostic with GMP-verified equal-semantics owning
+signed alternatives for String-based construction,
+String-returning decimal output, nonaliased product
+and self-alias square on exactly the existing signed
+32-case official input pools. The original B67
+unsigned-core reference, FloatAP/Integer production
+arithmetic, source APIs and 84-operation official
+benchmark remain unchanged. A/B measurements and
+complete CI are pending. See integer journal B68.
