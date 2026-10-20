@@ -4555,3 +4555,34 @@ for wins and regressions. Since GCC 64-limb
 reciprocal behavior is experimental on the
 user's unknown x86 CPU, retain B56/B55 as
 rollback baseline if results regress.
+
+
+### B57.1 restore warnings-as-errors clean bit-count conversions (20 October 2026)
+
+The user's native x86-64 GCC build of B57 succeeded but warned at
+three new conversion sites in src/big_unsigned.cpp, lines 502, 525
+and 819: std::countr_zero/std::countl_zero return int whereas the
+destination variable is unsigned. All seven B57 GitHub Actions
+checks failed at their build steps with WARNINGS_AS_ERRORS=ON,
+including GCC, Clang, AppleClang and Windows. B57.1 makes these
+three conversions explicit via static_cast<unsigned>; the
+mathematical count range 0..64 guarantees they are nonnegative.
+GCC and Clang compiled isolated C++20 -Wsign-conversion -Werror
+reproducers. No algorithm, thresholds, test corpus or APIs change.
+
+The user's first on-target B57 official benchmark (GMP verification
+PASS) demonstrated a performance tradeoff. At 4096 bits native
+quotient fell from B55 1106.378 ns to 707.983 ns (-36.0%), while
+4096-bit construct_decimal rose from 2675.133 to 3175.472 ns;
+total_time/GMP rose 1.115x to 1.149x and geomean 1.148x to
+1.163x. Re-run under controlled conditions before attributing
+unrelated decimal construction timing changes to B57.
+
+B56/B57 division profile at 4096 bits: limb_small quot
+1281.487->314.578 ns (-75.5%), limb_wide quot
+1349.135->312.612 ns (-76.8%), power_of_two rem
+749.174->87.441 ns (-88.3%). Generic single-limb remainder
+limb_wide rem 1322.548->1306.280 ns, nearly unchanged,
+and short_2 quot 1665.143->1706.745 ns (+2.5%).
+The 84-case official benchmark and existing tests remain unchanged.
+Full CI retest required.
