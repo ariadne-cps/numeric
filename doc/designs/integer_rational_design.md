@@ -4095,3 +4095,26 @@ for regressions and avoid treating Apple M4 ARM64
 absolute timings as same-host comparisons. B53 has
 no on-target performance measurements yet. All
 standard CI checks should pass before acceptance.
+
+
+### B53.1 fix doubled x86-64 inline-assembly escape sequences (20 October 2026)
+
+The user's native x86-64 GCC -O3 build failed in
+src/big_unsigned_x86-64.cpp with assembler
+"invalid character '\\' in operand 1" near line 200.
+Root cause: B53 generated the five consecutive
+MULQ/ADDQ/ADCQ assembly string fragments with C++ source
+spelling `\\\\n\\\\t` (double backslashes), which
+produces literal backslash characters instead of
+the required newline/tab separators. B53.1 changes
+exactly these five source occurrences to `\\n\\t`.
+No instruction, register constraint, algorithm,
+dispatch, public API, test corpus, benchmark, or
+platform logic is modified. The fixed sequence was
+compiled locally on x86-64 with GCC 14.2 and Clang 17
+(-O3 -std=gnu++20 -Wall -Wextra -Wpedantic -Werror)
+and each compiler passed 250000 exact products
+against unsigned-128 arithmetic. This isolated
+assembly smoke check does not replace full project
+CI or the user's native B53 benchmark. B53 official
+same-host measurements remain pending.
