@@ -54,6 +54,12 @@
 
 namespace {
 
+namespace Ariadne {
+// B60 internal benchmark-only candidate; no public header/API.
+BigUnsigned rem_limb_preinverse_diagnostic(
+        BigUnsigned const& a,BigUnsigned const& b);
+}
+
 using namespace Ariadne;
 using namespace AriadneBenchmark;
 using Limb=BigUnsigned::Limb;
@@ -280,6 +286,11 @@ void verify_pool(std::array<Fixture,pool_size>& pool,
             name(shape)+" case "+std::to_string(k);
         verify(quot(test.dividend,test.divisor),q.value,context+" quot");
         verify(rem(test.dividend,test.divisor),r.value,context+" rem");
+        if (shape==Shape::limb_small || shape==Shape::limb_wide) {
+            verify(rem_limb_preinverse_diagnostic(
+                       test.dividend,test.divisor),r.value,
+                   context+" rem preinverse candidate");
+        }
         const auto both=divrem(test.dividend,test.divisor);
         verify(both.first,q.value,context+" divrem quot");
         verify(both.second,r.value,context+" divrem rem");
@@ -312,7 +323,7 @@ std::vector<Result> measure(unsigned bits,Shape shape,
         return pool[static_cast<std::size_t>(i)%pool.size()];
     };
     std::vector<Result> result;
-    result.reserve(4u);
+    result.reserve(5u);
     const auto record=[&](char const* operation,auto native,auto gmp) {
         Result entry;
         entry.bits=bits;
@@ -348,6 +359,27 @@ std::vector<Result> measure(unsigned bits,Shape shape,
             mpz_tdiv_r(answer.value,item.a.value,item.b.value);
             keep_alive(answer.value);
         });
+    // B60 same owning-result lifetime as the existing rem() row.
+    // This independently times pi1 on small/wide single-limb divisors
+    // and uses exactly the B56 inputs and GMP mpz_tdiv_r oracle.
+#if defined(__x86_64__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER) && \
+    defined(__SIZEOF_INT128__)
+    if (shape==Shape::limb_small || shape==Shape::limb_wide) {
+        record("rem_pi1",
+            [&](unsigned i) {
+                auto answer=rem_limb_preinverse_diagnostic(
+                    select(i).dividend,select(i).divisor);
+                keep_alive(answer);
+            },
+            [&](unsigned i) {
+                auto& item=select(i);
+                Gmp answer;
+                mpz_tdiv_r(answer.value,item.a.value,item.b.value);
+                keep_alive(answer.value);
+            });
+    }
+#endif
     record("divrem",
         [&](unsigned i) {
             auto answer=divrem(select(i).dividend,select(i).divisor);
@@ -404,7 +436,7 @@ void print_results(std::vector<Result> const& rows,bool summary_only)
         LOGGING_PRINTLN(std::string(92u,'='))
     }
     LOGGING_PRINTLN("Worst native/GMP slowdown by operation (diagnostic categories)")
-    for (char const* operation:{"quot","rem","divrem","prealloc_divrem"}) {
+    for (char const* operation:{"quot","rem","rem_pi1","divrem","prealloc_divrem"}) {
         Result const* worst=nullptr;
         for (auto const& row:rows) {
             if (row.operation!=operation) continue;
@@ -424,6 +456,9 @@ void print_results(std::vector<Result> const& rows,bool summary_only)
     }
     LOGGING_PRINTLN("GMP verification PASS; all fixture generation, "
                     "oracles and comparisons are outside timed loops.")
+    LOGGING_PRINTLN("B60 rem_pi1 is a GMP-verified diagnostic-only "
+                    "GCC x86-64 owning remainder candidate; "
+                    "production rem is unchanged.")
     LOGGING_PRINTLN("prealloc_divrem uses reusable native spans and "
                     "reusable GMP result buffers; it is not additive "
                     "to owning-operation timings.")

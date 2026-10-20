@@ -4687,3 +4687,73 @@ sanitizer, coverage and Windows CI before treating B59 as
 cross-platform verified. This documentation records the
 user's B58 results, not an independently executed B59
 integration or on-target timing.
+
+### B60 diagnose GCC x86-64 single-limb remainder-only pi1 (20 October 2026)
+
+B59's 84-case same-host x86-64 GMP-verified official benchmark
+(20k iterations, 31 samples, 768 operand pairs/2688 operation
+results) reported total_time/GMP=0.977x and geomean=1.162x,
+versus the B57.2 1.146x and 1.176x respectively. Thus
+the primary weighted-total parity objective is now met,
+though a single successful full run does not guarantee
+cross-run stability. At 2048 bits total_time/GMP=0.945x;
+at 4096 bits 0.922x. Production 2048/4096 to_decimal
+was 2068.069/6834.012 ns, versus 3159.524/8717.960
+ns in B57.2. Unrelated construct_decimal changes should
+not be attributed mechanically to the B59 selector.
+All B59 GitHub Actions workflows (Unix, Windows, Coverage)
+have completed successfully as checked on 20 October 2026.
+
+The B59 production-versus-cutoff diagnostic independently
+reported at 1024 bits 684.641/684.808/685.323 ns
+(production/16/32); at 2048 bits 2036.237/3111.808/
+2031.133 ns; at 4096 bits 6685.362/8586.050/
+6686.932 ns. All full conversions and recursive split
+results matched the independent GMP oracle.
+The old cutoff-16 production split replay remains
+distinct from B59's actual cutoff-32 call graph:
+2048 depth-0/1 native/GMP=2.435x/2.862x and
+4096 depth-0/1/2=2.521x/2.844x/3.007x.
+These non-additive diagnostics must NOT be treated
+as exact new production stack attribution.
+
+B60 does NOT change the successful B59 production
+division/decimal selector or the immutable 84-operation
+benchmark. The B56 division profiler receives one
+additional owning-result `rem_pi1` row on GCC x86-64
+for its existing exact 32-pair `limb_small` and
+`limb_wide` categories. The diagnostic-only function
+in src/big_unsigned.cpp reuses the B57 exact normalized
+preinverse digit recurrence, discards quotient digits,
+and returns an owning BigUnsigned remainder. The
+baseline `rem` row and GMP `mpz_tdiv_r` owning oracle
+remain intact, all on identical original inputs;
+the new candidate's results are independently checked
+against GMP before and after timings, including
+large and small divisors. Other hosts retain the
+existing production rem code; no public header/API
+or benchmark input pool has been changed.
+
+Before integration, an isolated exact C++20 GMP-linked
+reproducer tested 42000 deterministic cases per
+compiler under GCC and Clang, with input lengths
+8/16/32/63/64/65/128 limbs, zero/saturated/random
+numerators and varied small/large odd divisors.
+Both compilers passed -O3 -Wall -Wextra
+-Wsign-conversion -Werror and all GMP oracle checks
+after removing a test-harness-only unused helper.
+This proves the isolated recurrence, not an
+integrated build or speedup. No on-target B60
+measurements or full CI results have yet been
+verified.
+
+For same-host selection use:
+  cmake --build build --target benchmark_big_unsigned_division_profile -j8
+  ./build/benchmarks/benchmark_big_unsigned_division_profile --bits 1024,2048,4096 --iterations 4000 --samples 15
+If `rem_pi1` beats the production `rem` row
+repeat at 20000 iterations/31 samples and then
+consider a GCC-only measured production selector,
+with independent 84-case aggregate and geomean
+gates. Reject the candidate if it loses, regardless
+of earlier isolated proxy assumptions. Keep B59
+as rollback baseline for weighted-total performance.
