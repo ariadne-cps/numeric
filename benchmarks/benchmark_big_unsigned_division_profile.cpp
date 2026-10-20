@@ -53,8 +53,10 @@
 #include <gmp.h>
 
 namespace Ariadne {
-// B60 internal benchmark-only candidate; no public header/API.
+// B61 internal benchmark-only exact comparison; no public header/API.
 BigUnsigned rem_limb_preinverse_diagnostic(
+        BigUnsigned const& a,BigUnsigned const& b);
+BigUnsigned rem_limb_divq_diagnostic(
         BigUnsigned const& a,BigUnsigned const& b);
 }
 
@@ -290,6 +292,9 @@ void verify_pool(std::array<Fixture,pool_size>& pool,
             verify(rem_limb_preinverse_diagnostic(
                        test.dividend,test.divisor),r.value,
                    context+" rem preinverse candidate");
+            verify(rem_limb_divq_diagnostic(
+                       test.dividend,test.divisor),r.value,
+                   context+" rem old DIVQ baseline");
         }
         const auto both=divrem(test.dividend,test.divisor);
         verify(both.first,q.value,context+" divrem quot");
@@ -323,7 +328,7 @@ std::vector<Result> measure(unsigned bits,Shape shape,
         return pool[static_cast<std::size_t>(i)%pool.size()];
     };
     std::vector<Result> result;
-    result.reserve(5u);
+    result.reserve(6u);
     const auto record=[&](char const* operation,auto native,auto gmp) {
         Result entry;
         entry.bits=bits;
@@ -359,9 +364,9 @@ std::vector<Result> measure(unsigned bits,Shape shape,
             mpz_tdiv_r(answer.value,item.a.value,item.b.value);
             keep_alive(answer.value);
         });
-    // B60 same owning-result lifetime as the existing rem() row.
-    // This independently times pi1 on small/wide single-limb divisors
-    // and uses exactly the B56 inputs and GMP mpz_tdiv_r oracle.
+    // B61: matched owning lifetimes on the original B56 32-pair pool.
+    // rem_pi1 shares the selected new kernel; rem_divq preserves the
+    // original owning DIVQ recurrence without changing other cases.
 #if defined(__x86_64__) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
@@ -369,6 +374,18 @@ std::vector<Result> measure(unsigned bits,Shape shape,
         record("rem_pi1",
             [&](unsigned i) {
                 auto answer=rem_limb_preinverse_diagnostic(
+                    select(i).dividend,select(i).divisor);
+                keep_alive(answer);
+            },
+            [&](unsigned i) {
+                auto& item=select(i);
+                Gmp answer;
+                mpz_tdiv_r(answer.value,item.a.value,item.b.value);
+                keep_alive(answer.value);
+            });
+        record("rem_divq",
+            [&](unsigned i) {
+                auto answer=rem_limb_divq_diagnostic(
                     select(i).dividend,select(i).divisor);
                 keep_alive(answer);
             },
@@ -436,7 +453,7 @@ void print_results(std::vector<Result> const& rows,bool summary_only)
         LOGGING_PRINTLN(std::string(92u,'='))
     }
     LOGGING_PRINTLN("Worst native/GMP slowdown by operation (diagnostic categories)")
-    for (char const* operation:{"quot","rem","rem_pi1","divrem","prealloc_divrem"}) {
+    for (char const* operation:{"quot","rem","rem_pi1","rem_divq","divrem","prealloc_divrem"}) {
         Result const* worst=nullptr;
         for (auto const& row:rows) {
             if (row.operation!=operation) continue;
@@ -456,9 +473,10 @@ void print_results(std::vector<Result> const& rows,bool summary_only)
     }
     LOGGING_PRINTLN("GMP verification PASS; all fixture generation, "
                     "oracles and comparisons are outside timed loops.")
-    LOGGING_PRINTLN("B60 rem_pi1 is a GMP-verified diagnostic-only "
-                    "GCC x86-64 owning remainder candidate; "
-                    "production rem is unchanged.")
+    LOGGING_PRINTLN("B61: on GCC x86-64 rem uses pi1 for 8+ limbs; "
+                    "rem_pi1 forces the shared pi1 kernel and "
+                    "rem_divq retains the old owning DIVQ reference. "
+                    "Both are verified against GMP.")
     LOGGING_PRINTLN("prealloc_divrem uses reusable native spans and "
                     "reusable GMP result buffers; it is not additive "
                     "to owning-operation timings.")

@@ -455,9 +455,9 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
 // For B=2^64 and B/2 <= d < B, inverse=floor((B^2-1)/d)-B.
 // The quotient approximation uses one wide product, two carry
 // corrections and no DIVQ per limb; d is fixed for the whole stream.
-// Only GCC x86-64 >=64-limb quotient-producing callers select it.
-// The reference DIVQ is retained for Clang, smaller inputs and
-// remainder-only division; no BMI2/ADX instruction is required.
+// GCC x86-64 selects it for >=64-limb quotient-producing callers
+// and (B61) >=8-limb single-limb remainder-only callers.
+// Clang, short inputs and other targets retain DIVQ; no BMI2/ADX.
 #if defined(__x86_64__) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
@@ -481,6 +481,28 @@ std::pair<std::uint64_t,std::uint64_t> divide_preinverted_x86_64(
         remainder-=normalized;
     }
     return {quotient,remainder};
+}
+
+// B61: same exact B57 normalized pi1 used by quotient-producing division.
+// Rem-only inputs need the remainder, not an entire quotient array.
+std::uint64_t remainder_preinverted_x86_64(
+        BigUnsigned::LimbView words,std::uint64_t divisor) noexcept
+{
+    const unsigned shift=static_cast<unsigned>(std::countl_zero(divisor));
+    const std::uint64_t normalized=divisor<<shift;
+    const std::uint64_t inverse=divide_wide(
+        ~normalized,std::numeric_limits<std::uint64_t>::max(),
+        normalized).first;
+    std::uint64_t remaining=shift==0u ? std::uint64_t{0} :
+        words.back()>>(64u-shift);
+    for (std::size_t i=words.size();i!=0u;--i) {
+        const std::uint64_t low=shift==0u ? words[i-1u] :
+            (words[i-1u]<<shift)|
+            (i>1u ? words[i-2u]>>(64u-shift) : std::uint64_t{0});
+        remaining=divide_preinverted_x86_64(
+            remaining,low,normalized,inverse).second;
+    }
+    return remaining>>shift;
 }
 #endif
 
@@ -598,38 +620,36 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
     return remainder;
 }
 
-// B60: benchmark-only owning remainder candidate for single-limb
-// divisors, sharing B57's exact normalized pi1 recurrence. On GCC
-// x86-64 use its reciprocal for >=8 limbs, discarding quotient digits.
-// Production rem() deliberately retains its existing DIVQ dispatch.
+// B61: independent diagnostic reference to the *old* owning single-limb
+// DIVQ remainder. This preserves the B60 baseline after pi1 promotion.
+BigUnsigned rem_limb_divq_diagnostic(
+        BigUnsigned const& a,BigUnsigned const& b)
+{
+    if (b.size()!=1u) {
+        return rem(a,b);
+    }
+    const auto words=a.limbs();
+    const BigUnsigned::Limb divisor=b.limb(0u);
+    BigUnsigned::Limb remaining=0u;
+    for (std::size_t i=words.size();i!=0u;--i) {
+        remaining=divide_wide(remaining,words[i-1u],divisor).second;
+    }
+    return BigUnsigned(remaining);
+}
+
+// Preserve the B60 diagnostic pi1 comparison on the exact same operands.
+// Production now selects the identical preinverse kernel only on GCC x86-64
+// for non-power-of-two single-limb divisors and >=8-limb dividends.
 BigUnsigned rem_limb_preinverse_diagnostic(
         BigUnsigned const& a,BigUnsigned const& b)
 {
 #if defined(__x86_64__) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
-    if (b.size()==1u && a.size()>=8u) {
-        using Limb=BigUnsigned::Limb;
-        const Limb divisor=b.limb(0u);
-        if (!std::has_single_bit(divisor)) {
-            const auto words=a.limbs();
-            const unsigned shift=
-                static_cast<unsigned>(std::countl_zero(divisor));
-            const Limb normalized=divisor<<shift;
-            const Limb inverse=divide_wide(
-                ~normalized,std::numeric_limits<Limb>::max(),
-                normalized).first;
-            Limb remaining=shift==0u ? Limb{0} :
-                words.back()>>(64u-shift);
-            for (std::size_t i=words.size();i!=0u;--i) {
-                const Limb low=shift==0u ? words[i-1u] :
-                    (words[i-1u]<<shift)|
-                    (i>1u ? words[i-2u]>>(64u-shift) : Limb{0});
-                remaining=divide_preinverted_x86_64(
-                    remaining,low,normalized,inverse).second;
-            }
-            return BigUnsigned(remaining>>shift);
-        }
+    if (b.size()==1u && a.size()>=8u &&
+            !std::has_single_bit(b.limb(0u))) {
+        return BigUnsigned(remainder_preinverted_x86_64(
+            a.limbs(),b.limb(0u)));
     }
 #endif
     return rem(a,b);
@@ -877,12 +897,23 @@ void BigUnsigned::divrem_selected_into(
                 remainder[0u]=low;
             }
         } else {
-            // No quotient buffer or object is allocated for rem-only.
-            Limb low=0u;
-            for (std::size_t i=a.size();i!=0u;--i) {
-                low=divide_wide(low,a[i-1u],b[0u]).second;
+            // B61: exact normalized pi1 speeds up 8+ limb rem-only
+            // division on GCC x86-64, without quotient allocation.
+            // Preserve short DIVQ, power-of-two, ARM64 and Clang paths.
+#if defined(__x86_64__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER) && \
+    defined(__SIZEOF_INT128__)
+            if (a.size()>=8u) {
+                remainder[0u]=remainder_preinverted_x86_64(a,b[0u]);
+            } else
+#endif
+            {
+                Limb low=0u;
+                for (std::size_t i=a.size();i!=0u;--i) {
+                    low=divide_wide(low,a[i-1u],b[0u]).second;
+                }
+                remainder[0u]=low;
             }
-            remainder[0u]=low;
         }
         return;
     }
