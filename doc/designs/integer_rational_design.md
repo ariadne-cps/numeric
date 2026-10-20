@@ -6103,3 +6103,34 @@ Rational arithmetic and Integer/BigUnsigned remain unchanged.
 The separate Codecov status thresholds already failed on B75 (project
 92.96%, patch 92.56%, target 99.20%). R1a reports project 92.94% and
 patch 93.07%; workflow Coverage success is not Codecov gate acceptance.
+
+
+### R2 — remainder-only Euclidean GCD (20 October 2026)
+
+The initial user-supplied six-size Rational/mpq benchmarks (20,000
+iterations and 31 samples) passed 384 paired inputs and 2,880 paired
+operation checks on each architecture. Aggregate native/reference
+total-time ratios were 1.265x on ARM64 and 1.329x on x86-64;
+the most expensive regressions in overall per-size total time were
+at 256 bits (2.631x and 3.327x respectively). These values are the
+**pre-R2 baselines**, not post-change measurements.
+
+The shared `BigUnsigned::gcd` Euclidean loop now calls the existing
+remainder-only `rem(a,b)`, rather than constructing a quotient/remainder
+pair through `divrem(a,b)` and discarding the quotient at every
+iteration. It preserves the same Euclidean recurrence and edge cases,
+including gcd(0,0)=0. It uses the existing tested short and general
+remainder kernels and changes no Rational normalization, API,
+arithmetic policy, benchmark operand, GMP oracle, or architecture
+dispatch. The single shared-core change may also affect other users of
+`gcd`; benchmark and functional gates for those users remain applicable.
+
+**Validation status:** no local build or benchmark was available in
+the editing environment. No speedup, CI outcome or performance gate
+acceptance is claimed for R2 until the updated branch is rebuilt and
+tested on ARM64 and x86-64. Re-run the existing TestBigUnsigned,
+TestInteger and TestRational differential/alias tests and the unchanged
+`benchmark_compare_rational_backends` workload at
+53,128,256,1024,2048,4096 bits with 20,000 iterations and 31 samples;
+also check the FloatAP regression/performance gates before accepting
+this shared-core optimization.

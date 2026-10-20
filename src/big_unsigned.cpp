@@ -1251,10 +1251,12 @@ BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b)
 
 BigUnsigned gcd(BigUnsigned a,BigUnsigned b)
 {
+    // Euclid needs only the remainder. Avoid constructing and
+    // normalizing an unused quotient at every reduction step.
     while (!b.is_zero()) {
-        auto division=divrem(a,b);
+        BigUnsigned remainder=rem(a,b);
         a=std::move(b);
-        b=std::move(division.second);
+        b=std::move(remainder);
     }
     return a;
 }
