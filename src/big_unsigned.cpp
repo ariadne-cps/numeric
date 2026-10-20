@@ -929,26 +929,25 @@ BigUnsigned from_decimal(std::string_view input)
         }
     }
 
-    // B47: parsing at 128-bit precision and above benefits from
-    // B24's exact 18-digit unsigned-wide accumulation. B24's >309
-    // digit threshold excluded the 308-digit 1024-bit benchmark
-    // operands, which therefore paid for twice as many 9-digit
-    // passes. Keep the B19 portable radix-10^9 implementation below
-    // for short inputs and targets without native unsigned 128-bit.
+    // B47/B50: use native wide multiplication for medium/long
+    // decimal inputs; B47 lowered the threshold to 32 digits.
+    // B50 packs 19 digits per 64-bit chunk (10^19 < 2^64), one
+    // extra digit per full limb scan versus radix 10^18. Keep the
+    // original B19 radix-10^9 portable path for smaller inputs
+    // and toolchains without unsigned 128-bit arithmetic.
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
     if (input.size()>=32u) {
         __extension__ using Wide=unsigned __int128;
-        constexpr std::size_t group=18u;
-        constexpr BigUnsigned::Limb full_radix=1000000000000000000ULL;
+        constexpr std::size_t group=19u;
+        constexpr BigUnsigned::Limb full_radix=10000000000000000000ULL;
         std::vector<BigUnsigned::Limb> digits;
-        // ceil(decimal_digits/18) is a safe upper bound on the
-        // required 64-bit limbs: 10^18 < 2^64. No reallocations
-        // are necessary while growing the canonical magnitude.
+        // ceil(decimal_digits/19) bounds the necessary 64-bit
+        // limbs because 10^19 < 2^64, even for leading zeros.
         digits.reserve(input.size()/group+
                        static_cast<std::size_t>(input.size()%group!=0u));
-        // Consume any shorter group first, then multiply by exactly
-        // 10^18 on every remaining full group. This avoids a final
-        // short-radix pass and recomputation of the common radix.
+        // Consume a possibly short first group, then multiply by
+        // the compile-time constant 10^19 on all full groups.
+        // Every multiply+carry remains strictly below 2^128.
         const std::size_t first=input.size()%group==0u ?
             group : input.size()%group;
         std::size_t pos=0u;

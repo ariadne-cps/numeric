@@ -1887,6 +1887,31 @@ void TestBigUnsigned::test_gcd_decimal()
         }
         check_long_parse(random_digits);
     }
+    // B50: radix-10^19 parsing must handle all boundaries of
+    // complete 19-digit groups, the 31/32-digit selector, the
+    // 308-digit 1024-bit input, and 2048/4096-bit inputs. Check
+    // exact parsed magnitudes against GMP, including leading zeros,
+    // all nines, sparse digits, and independently randomized text.
+    for (const std::size_t length:
+            {18u,19u,20u,31u,32u,33u,36u,37u,38u,39u,40u,
+             56u,57u,58u,75u,76u,77u,78u,94u,95u,96u,
+             113u,114u,115u,151u,152u,153u,307u,308u,
+             309u,310u,311u,616u,617u,618u,619u,
+             1233u,1234u,1235u}) {
+        check_long_parse(std::string(length,'9'));
+        check_long_parse(std::string(length,'0'));
+        check_long_parse("1"+std::string(length-2u,'0')+"1");
+        check_long_parse(std::string(length-1u,'0')+"7");
+        std::string alternating(length,'0');
+        for (std::size_t i=0u;i<length;i+=2u) alternating[i]='9';
+        check_long_parse(alternating);
+        std::string random_digits(length,'0');
+        for (auto& digit:random_digits) {
+            digit=static_cast<char>('0'+engine()%10u);
+        }
+        check_long_parse(random_digits);
+    }
+
     // B47: exact powers 2^(bits-1) plus offsets, as used by
     // construct_decimal, checked with GMP independent of the
     // benchmark; include both signs via the established Integer
