@@ -2159,6 +2159,27 @@ BigUnsigned square(BigUnsigned const& a)
 }
 
 
+// B65: diagnostic-only GCC short symmetric square control.
+// Reuse the B32 exact triangular/doubling/diagonal recurrence at 1..7
+// limbs, where the production dispatcher still prefers schoolbook.
+// A bounded stack output avoids inventing additional heap allocations.
+// No production selector or public header is modified.
+BigUnsigned square_short_symmetric_diagnostic(BigUnsigned const& input)
+{
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+    if (!input.is_zero() && input.size()<=7u) {
+        std::array<BigUnsigned::Limb,14u> digits{};
+        const std::size_t count=2u*input.size();
+        square_limbs_symmetric(
+            input.limbs(),BigUnsigned::MutableLimbView(digits.data(),count));
+        return BigUnsigned(BigUnsigned::LimbView(digits.data(),count));
+    }
+#endif
+    return square(input);
+}
+
 // Portable, allocation-free Karatsuba implementation (formerly separate TU).
 // Kept in the common arithmetic source alongside selected limb kernels.
 namespace {
