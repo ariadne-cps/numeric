@@ -1518,13 +1518,13 @@ void TestBigUnsigned::test_division_limb()
         }
     }
 
-    // B57: normalized pi1 selection for >=64 raw quotient limbs
-    // on GCC x86-64, and universal one-limb powers-of-two.
-    // GMP is an independent oracle for saturated, random, sparse,
-    // denormalized and 63/64/65-limb boundary views.
+    // B57/B63: normalized pi1 selection for >=16 raw quotient
+    // limbs on GCC x86-64, and universal one-limb powers-of-two.
+    // GMP independently checks saturated, random, sparse, denormalized
+    // operands and the 15/16/17, 31/32/33, 63/64/65 boundaries.
     std::mt19937_64 b57_engine(0xB570641ULL);
     for (const std::size_t count:
-            {0u,1u,7u,8u,16u,31u,32u,63u,64u,65u,96u,128u}) {
+            {0u,1u,7u,8u,15u,16u,17u,31u,32u,33u,63u,64u,65u,96u,128u}) {
         for (const std::uint64_t divisor:
                 {1ULL,2ULL,3ULL,5ULL,7ULL,35ULL,255ULL,
                  65535ULL,4294967295ULL,4294967296ULL,
