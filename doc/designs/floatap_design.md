@@ -9230,8 +9230,9 @@ There are no remaining _mpq/get_mpq call sites in numeric sources, public
 headers, tests, Python or benchmark callers. Direct GMP test/benchmark
 oracles and FloatAP's independent internal mpq operations are retained.
 
-**Verification and measurements.** The complete AppleClang 21 Release
-warnings-as-errors everything build and all 20 CTest suites pass on
+**Verification and measurements.** After the R1a test-only corrections
+documented below, the complete AppleClang 21 Release warnings-as-errors
+everything build and all 20 C++ CTest suites pass on
 Apple M2 Ultra, macOS 26.6.2. New TestRational cases cover fixed independent
 expected fractions, large cancellation, zero/special cases, parsing,
 copy/move/self-aliasing, signed minimum exponents, 2000 deterministic
@@ -9270,3 +9271,24 @@ No FloatAP arithmetic, precision or rounding algorithm was changed.
 Rebuild library and clients, then measure native x86-64 from the build directory:
   cmake --build . --parallel --target benchmark_compare_rational_backends
   ./benchmarks/benchmark_compare_rational_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
+
+
+### R1a — compile the complete native Rational regression suite (20 October 2026)
+
+The first CI builds of R1 exposed two test-only Clang errors: a local
+FloatMP variable named infinity shadowed Ariadne::infinity under -Wshadow,
+and the bare GmpRationalBoundary(Rational::nan()) inside ARIADNE_TEST_FAIL
+could be parsed as a declaration instead of an expression. Rename the
+local and explicitly cast the temporary boundary expression to void.
+No Rational arithmetic, representation, exception expectation or oracle
+changes. Earlier incremental CTest output had used the previous executable
+after a failed rebuild; it is superseded by the following validation,
+which checks a successful build exit before starting CTest.
+
+AppleClang 21 Release warnings-as-errors everything including Python
+bindings succeeds; all 21 CTest entries pass (20 C++ suites plus the
+Python numeric suite with Python 3.14.7). GCC 16.2 ARM64 everything with
+the documented local optimization-memory budget succeeds and all 20 C++
+suites pass. Rebuilt Debug ASan/UBSan Rational/Integer/BigUnsigned/Float/
+FloatRounding suites pass (5/5), including the corrected new tests.
+Native x86-64 and MSVC still require remote CI/runtime confirmation.

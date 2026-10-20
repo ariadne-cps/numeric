@@ -381,13 +381,13 @@ void TestRational::test_native_contract() {
     ARIADNE_TEST_EQUALS(cmp(-Rational::inf(),-ExactDouble::inf()),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(Rational::nan(),ExactDouble::inf()),Comparison::INCOMPARABLE);
     const MultiplePrecision precision(128u);
-    const FloatMP infinity(ExactDouble::inf(),precision);
+    const FloatMP infinite_float(ExactDouble::inf(),precision);
     const FloatMP finite(ExactDouble(1.0),precision);
-    ARIADNE_TEST_EQUALS(cmp(infinity,Rational::inf()),Comparison::EQUAL);
-    ARIADNE_TEST_EQUALS(cmp(Rational::inf(),infinity),Comparison::EQUAL);
+    ARIADNE_TEST_EQUALS(cmp(infinite_float,Rational::inf()),Comparison::EQUAL);
+    ARIADNE_TEST_EQUALS(cmp(Rational::inf(),infinite_float),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(finite,Rational::inf()),Comparison::LESS);
     ARIADNE_TEST_EQUALS(cmp(Rational::nan(),finite),Comparison::INCOMPARABLE);
-    ARIADNE_TEST_FAIL(GmpRationalBoundary(Rational::nan()));
+    ARIADNE_TEST_FAIL(static_cast<void>(GmpRationalBoundary(Rational::nan())));
 
     const Integer factor=pow(Integer(2),Nat(320))+1;
     const Rational a(factor*7,11),b(11,factor*13);
