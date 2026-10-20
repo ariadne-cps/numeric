@@ -6322,3 +6322,49 @@ unchanged.
 run. The new commit requires Unix/Windows/Coverage, FloatAP/Integer/
 BigUnsigned/Rational regressions, and unaltered six-size ARM64/x86-64
 runs. Do not attribute measured R6 ratios to R7.
+
+
+### R8 — platform-select exact conversion and scalar Euclid termination (20 October 2026)
+
+**Acceptance:** unchanged six sizes x two architectures, with strictly
+`total_time <1x` and `worst <2x` for EACH machine/size. The user
+supplied R7 runs (20,000 iterations, 31 samples; 384 paired inputs,
+2,880 operation results PASS per machine). ARM64 total/worst ratios:
+53 .779/1.667; 128 1.034/3.987; 256 1.801/3.263;
+1024 1.515/2.162; 2048 1.104/2.417; 4096 .872/2.477.
+x86-64: 53 1.275/2.381; 128 1.325/2.204; 256 2.184/2.940;
+1024 1.531/2.042; 2048 .945/1.908; 4096 .668/1.900.
+R7 Unix, Windows and Coverage all pass. These are R7 data, not R8.
+
+**R8 conversion selection:** R7's new unsigned 128/128 top-limb
+certificate costs approximately 117 ns versus 36 ns for R6 at 128
+bits on ARM64, and also regresses 256+ ARM64 conversion. On x86-64,
+R7 materially reduces conversion cost at 128/256/1024/2048 bits.
+Therefore enable only the R7 high-prefix unsigned 128-bit conversion
+on x86-64 GCC/Clang; ARM64, MSVC and portable targets retain the
+R5 three-limb/exact fallback (and the existing one-limb R5 path).
+The numerical semantics and shared four-rounding-mode differential
+gate remain identical. This selects algorithms by observed host
+performance, not precision or benchmark input values.
+
+**R8 fast one-limb comparison:** Rational::cmp now compares exact
+unsigned 128-bit cross-products directly when all four numerator/
+denominator magnitudes contain exactly one 64-bit limb, avoiding
+stack-product arrays, dynamic multiplication dispatch and their
+bookkeeping. Longer operands and toolchains without unsigned 128-bit
+support retain R3's exact paths. Dedicated GMP comparisons use
+near-64-bit-limit, positive and negative fractions.
+
+**R8 scalar GCD termination:** BigUnsigned::gcd orders initial inputs
+once, then maintains a>=b invariant throughout Euclid. When the
+current divisor fits one 64-bit limb, perform at most one multiprecision
+remainder, then finish Euclid with scalar '%' iterations. Special-case
+divisor 1, preserving gcd(0,0), symmetry and all other cases. Keep
+R6's exact equal-high-limb subtraction on multiprecision inputs.
+Add 640 independent randomized scalar GMP comparisons in both orders,
+plus widths around the 4/5-limb boundary and 1024/4096-bit dividends.
+No changes to benchmark cases, GMP oracle, build flags or timed loops.
+
+**Status:** R8 native CI and six-size ARM64/x86-64 benchmarks pending;
+no R8 gate has been claimed passed. Shared-core changes require the
+Integer/BigUnsigned/Rational and downstream FloatAP differential gates.

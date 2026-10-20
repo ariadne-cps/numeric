@@ -389,6 +389,30 @@ void TestRational::test_native_contract() {
     ARIADNE_TEST_EQUALS(cmp(Rational::nan(),finite),Comparison::INCOMPARABLE);
     ARIADNE_TEST_FAIL(static_cast<void>(GmpRationalBoundary(Rational::nan())));
 
+    // R8: exact cross-products of one-limb magnitudes, including
+    // products which exceed 64 bits. Check the independent GMP order.
+    {
+        const std::uint64_t limit=std::numeric_limits<std::uint64_t>::max();
+        const std::array<Rational,4> samples={
+            Rational(Integer(limit-17u),Integer(limit-7u)),
+            Rational(Integer(limit-19u),Integer(limit-5u)),
+            Rational(Integer(limit-13u),Integer(limit-3u)),
+            Rational(Integer(limit-11u),Integer(limit-2u))
+        };
+        for (Rational const& x:samples) {
+            for (Rational const& y:samples) {
+                GmpRationalBoundary gx(x),gy(y);
+                const int raw=mpq_cmp(gx.value(),gy.value());
+                const Comparison expected=raw<0 ? Comparison::LESS
+                    : raw>0 ? Comparison::GREATER : Comparison::EQUAL;
+                ARIADNE_TEST_EQUALS(cmp(x,y),expected);
+                ARIADNE_TEST_EQUALS(cmp(-x,-y),
+                    raw>0 ? Comparison::LESS
+                    : raw<0 ? Comparison::GREATER : Comparison::EQUAL);
+            }
+        }
+    }
+
     // R4: check proper-fraction floor/ceil shortcuts, integral and
     // improper fractions against independent GMP quotients. Include
     // size boundaries around inline storage and long magnitudes.

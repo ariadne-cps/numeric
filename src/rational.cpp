@@ -76,6 +76,17 @@ BigUnsigned unsigned_mul(BigUnsigned const& a,BigUnsigned const& b) { return mul
 // heap-owned BigUnsigned is needed for magnitudes up to eight limbs.
 int compare_cross_products(BigUnsigned const& an,BigUnsigned const& bd,
                            BigUnsigned const& bn,BigUnsigned const& ad) {
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    // R8: four single-limb magnitudes need just two exact 64x64 products.
+    // Avoid calling the generic fused multiply kernel and scanning buffers.
+    if (an.size()==1u && bd.size()==1u &&
+            bn.size()==1u && ad.size()==1u) {
+        __extension__ using Wide=unsigned __int128;
+        const Wide left=static_cast<Wide>(an.limb(0u))*bd.limb(0u);
+        const Wide right=static_cast<Wide>(bn.limb(0u))*ad.limb(0u);
+        return left<right ? -1 : left>right ? 1 : 0;
+    }
+#endif
     constexpr std::size_t max_operand_limbs=8u;
     if (an.size()<=max_operand_limbs && bd.size()<=max_operand_limbs &&
             bn.size()<=max_operand_limbs && ad.size()<=max_operand_limbs) {
@@ -316,7 +327,11 @@ double Rational::get_d() const {
     // Truncate toward zero, including subnormals, independent of the active
     // floating rounding mode. The <=53-bit integer is exactly representable.
     const int scale=std::max(exponent-52,-1074);
-#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+// R8: the native 128/128 prefix division significantly regressed ARM64
+// while accelerating x86-64. Keep the exact R7 certificate on x86-64
+// and use the earlier R5/fallback path on ARM64 and other targets.
+#if defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    (defined(__GNUC__) || defined(__clang__))
     // R7: certify the exact normal binary64 significand from the high
     // one or two limbs. n=N*B+nl, d=D*B+dl, 0<=nl,dl<B.
     // If N*2^shift=q*D+r, then r>=q proves the lower bound and

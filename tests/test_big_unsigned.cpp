@@ -2486,6 +2486,39 @@ void TestBigUnsigned::test_gcd_decimal()
             }
         }
     }
+    // R8: Euclid's terminal single-word phase, both input orders,
+    // zero and random coprime/non-coprime arguments against GMP.
+    {
+        GmpInteger ga,gb,expected;
+        std::mt19937_64 random(0x8890ABCDEF234ULL);
+        for (unsigned i=0u;i<640u;++i) {
+            const std::uint64_t x=i%11u==0u ? 0u : random();
+            const std::uint64_t y=i%17u==0u ? 0u : random();
+            const BigUnsigned a(x),b(y);
+            mpz_import(ga.value,a.size(),-1,sizeof(std::uint64_t),
+                       0,0,a.limbs().data());
+            mpz_import(gb.value,b.size(),-1,sizeof(std::uint64_t),
+                       0,0,b.limbs().data());
+            mpz_gcd(expected.value,ga.value,gb.value);
+            check_against_gmp(gcd(a,b),expected.value);
+            check_against_gmp(gcd(b,a),expected.value);
+        }
+        for (unsigned bits : {128u,255u,256u,257u,1024u,4096u}) {
+            const BigUnsigned wide=add(
+                shift_left(one,bits),BigUnsigned(std::uint64_t{77}));
+            for (std::uint64_t d : {1u,2u,3u,17u,65537u,
+                    std::numeric_limits<std::uint64_t>::max()}) {
+                const BigUnsigned small(d);
+                mpz_import(ga.value,wide.size(),-1,sizeof(std::uint64_t),
+                           0,0,wide.limbs().data());
+                mpz_import(gb.value,small.size(),-1,sizeof(std::uint64_t),
+                           0,0,small.limbs().data());
+                mpz_gcd(expected.value,ga.value,gb.value);
+                check_against_gmp(gcd(wide,small),expected.value);
+                check_against_gmp(gcd(small,wide),expected.value);
+            }
+        }
+    }
     ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
     ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
     ARIADNE_TEST_ASSERT(to_decimal(from_decimal("000"))=="0");

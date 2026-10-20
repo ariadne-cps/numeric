@@ -1251,16 +1251,28 @@ BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b)
 
 BigUnsigned gcd(BigUnsigned a,BigUnsigned b)
 {
-    // Euclid needs only the remainder. Avoid constructing and
-    // normalizing an unused quotient at every reduction step.
+    // R8: order once. Every subsequent Euclidean remainder is smaller
+    // than the previous divisor, so a>=b remains true throughout.
+    if (compare(a,b)<0) { a.swap(b); }
     while (!b.is_zero()) {
-        // R6: after ordering equal-width operands with identical top
-        // limbs, b <= a < 2*b. Thus a mod b is exactly a-b;
-        // avoid Knuth division, its scratch buffer and quotient estimate.
-        // This is particularly useful when the difference fits inline.
-        if (a.size()==b.size() && a.size()>1u &&
+        if (b.size()==1u) {
+            // Finish Euclid entirely in machine words, rather than
+            // allocating a BigUnsigned for each scalar reduction.
+            Limb divisor=b.limb(0u);
+            if (divisor==1u) { return BigUnsigned(Limb{1}); }
+            Limb remainder=a.size()==1u ? a.limb(0u)%divisor
+                : rem(a,b).limb(0u);
+            while (remainder!=0u) {
+                const Limb next=divisor%remainder;
+                divisor=remainder;
+                remainder=next;
+            }
+            return BigUnsigned(divisor);
+        }
+        // R6: equal-width canonical operands with the same top limb
+        // satisfy b<=a<2*b, hence the exact remainder is a-b.
+        if (a.size()==b.size() &&
                 a.limb(a.size()-1u)==b.limb(b.size()-1u)) {
-            if (compare(a,b)<0) { a.swap(b); }
             BigUnsigned difference=sub(a,b);
             a=std::move(b);
             b=std::move(difference);
