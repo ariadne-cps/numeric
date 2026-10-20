@@ -6608,3 +6608,32 @@ weights, median methodology or GMP oracle altered.
 and is pending full CI; R13 remains unbuilt and unbenchmarked in this
 session. The strict user acceptance criteria remain both total_time<1x
 and worst<2x for every six widths on ARM64 and x86-64 independently.
+
+
+### R13a — avoid rounding-namespace shadow and record R13 performance (20 October 2026)
+
+**Build warning:** AppleClang with `-Wshadow` reports that the local
+`rounded` in the R13 ARM64 `Rational::get_d` certificate masks the
+existing `Ariadne::rounded` in `numeric/rounding.hpp:261`.
+Rename only this local value to `rounded_significand`; there is no
+change to arithmetic, rounding, exact certificates or benchmarks.
+
+**R13 measured, user-supplied (not R13a measurements):** ARM64
+`to_double` at 256 bits improves from R12's 106.383 ns / 2.556x to
+64.521 ns / 1.543x (mpq_t 41.806 ns). The ARM64 worst ratio at 256
+bits is now 1.896x (`add`), while total_time remains 1.324x.
+Across 53/128/256/1024/2048/4096 bits, ARM64 total/worst ratios:
+.424/1.219, .778/1.782, 1.324/1.896, 1.158/1.421,
+.897/1.555, .730/1.656. x86-64 total/worst ratios:
+.897/1.462, 1.108/2.249, 1.743/2.240, 1.252/1.468,
+.797/1.155, .574/1.123. All 384 paired input and 2,880 result
+numerical benchmark checks pass on each machine. ARM64 now passes
+worst<2x at all widths; only 53,128,2048,4096 pass BOTH gates on
+ARM64. x86-64 passes both at 53,2048,4096. Thus 7 of 12 host-width
+cases meet both gates after R13, and the strict acceptance target is
+still NOT achieved. R13a introduces no performance algorithm changes.
+
+**Validation:** R13's Unix/Windows/Coverage workflows were still
+running when R13a was prepared. R13a CI and matched host benchmarks
+must be checked independently. No fresh speedup or CI success is
+claimed for R13a.

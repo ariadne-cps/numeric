@@ -395,10 +395,10 @@ double Rational::get_d() const {
         // Clamping also handles an estimate rounding to 2^53 at a
         // representational boundary. Exact tests decide acceptance.
         if (std::isfinite(approximate) && approximate>=0.0) {
-            const std::uint64_t rounded=static_cast<std::uint64_t>(
+            const std::uint64_t rounded_significand=static_cast<std::uint64_t>(
                 std::clamp(approximate,static_cast<double>(smallest),
                           static_cast<double>(largest)));
-            const std::uint64_t guessed=std::min(rounded,largest);
+            const std::uint64_t guessed=std::min(rounded_significand,largest);
             std::array<Limb,capacity> scaled{};
             std::array<Limb,capacity> product{};
             const unsigned offset=shift/64u;
