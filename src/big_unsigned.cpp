@@ -1310,6 +1310,57 @@ namespace {
 // Preserve the historical MSVC x64 native B3 fallback. On other toolchains
 // without unsigned __int128, retain portable multiplication as a fallback.
 // Inputs and output must be disjoint; all output limbs are overwritten.
+// B53: x86-64 GNU counterpart of ARM64 B38/B40: two compile-time
+// recurrences, one skipping exact-zero outer rows and one without a
+// branch in dense rows. A skipped row contributes zero and its final
+// carry slot has never been touched by an earlier row. No input aliasing.
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && \
+    defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+bool use_sparse_fused_rows_x86_64(BigUnsigned::LimbView rows) noexcept
+{
+    const std::size_t threshold=std::max<std::size_t>(
+        2u,rows.size()/8u);
+    std::size_t zeros=0u;
+    for (const BigUnsigned::Limb digit:rows) {
+        if (digit==0u && ++zeros>=threshold) {
+            return true;
+        }
+    }
+    return false;
+}
+
+template<bool SkipZeroRows>
+void multiply_limbs_fused_x86_64_impl(
+        BigUnsigned::LimbView a,BigUnsigned::LimbView b,
+        BigUnsigned::MutableLimbView output) noexcept
+{
+    __extension__ using Wide=unsigned __int128;
+    using Limb=BigUnsigned::Limb;
+    std::fill(output.begin(),output.end(),Limb{0});
+    for (std::size_t i=0u;i<a.size() && i<output.size();++i) {
+        const Limb ai=a[i];
+        if constexpr (SkipZeroRows) {
+            if (ai==0u) {
+                continue;
+            }
+        }
+        Limb carry=0u;
+        const std::size_t terms=std::min(b.size(),output.size()-i);
+        for (std::size_t j=0u;j<terms;++j) {
+            const Wide total=static_cast<Wide>(ai)*b[j]+
+                             output[i+j]+carry;
+            output[i+j]=static_cast<Limb>(total);
+            carry=static_cast<Limb>(total>>64u);
+        }
+        if (i+terms<output.size()) {
+            output[i+terms]=carry;
+        }
+    }
+}
+#endif
+
 void multiply_limbs_fused(BigUnsigned::LimbView a,
                           BigUnsigned::LimbView b,
                           BigUnsigned::MutableLimbView output) noexcept
@@ -1317,6 +1368,21 @@ void multiply_limbs_fused(BigUnsigned::LimbView a,
 #if defined(_MSC_VER) && defined(_M_X64) && defined(ARIADNE_BIG_UNSIGNED_X86_64)
     BigUnsignedDetail::mul_low_into_x86_64(a,b,output);
 #elif defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && \
+    defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER)
+    // B40's ARM64 threshold: for small rows avoid an extra density
+    // prescan, for large rows pick a branch-free dense recurrence
+    // unless enough exact-zero rows justify skipping them.
+    const std::size_t active=std::min(a.size(),output.size());
+    if (active<64u || b.size()<64u ||
+            use_sparse_fused_rows_x86_64(a.first(active))) {
+        multiply_limbs_fused_x86_64_impl<true>(a,b,output);
+    } else {
+        multiply_limbs_fused_x86_64_impl<false>(a,b,output);
+    }
+#else
     __extension__ using Wide = unsigned __int128;
     std::fill(output.begin(),output.end(),BigUnsigned::Limb{0});
     for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
@@ -1332,6 +1398,7 @@ void multiply_limbs_fused(BigUnsigned::LimbView a,
             output[i+terms]=carry;
         }
     }
+#endif
 #else
     BigUnsigned::mul_low_into_portable(a,b,output);
 #endif

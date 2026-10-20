@@ -796,6 +796,81 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         }
     }
 
+    // B53: independent GMP oracle for x86 GCC fused and GNU/Clang
+    // assembly zero-row skipping. Include 31/32/33 B52 boundaries,
+    // 63/64/65 adaptive-density thresholds, unbalanced rows and
+    // truncated/oversized outputs. Raw views include noncanonical
+    // zero-high limbs, so skipping must not depend on normalization.
+    std::mt19937_64 b53_engine(0xB530B040ULL);
+    for (const auto& [n,m]:
+            {std::pair<std::size_t,std::size_t>{1u,1u},
+             {7u,64u}, {16u,16u}, {31u,32u}, {32u,31u},
+             {32u,32u}, {32u,33u}, {33u,32u}, {63u,64u},
+             {64u,63u}, {64u,64u}, {64u,65u}, {65u,64u},
+             {64u,128u}, {128u,64u}, {128u,128u}}) {
+        for (unsigned mode=0u;mode<24u;++mode) {
+            std::vector<std::uint64_t> left(n),right(m);
+            for (auto& word:left) word=b53_engine();
+            for (auto& word:right) word=b53_engine();
+            switch (mode%8u) {
+            case 0u:
+                std::fill(left.begin(),left.end(),max);
+                std::fill(right.begin(),right.end(),max);
+                break;
+            case 1u:
+                std::fill(left.begin(),left.end(),0u);
+                std::fill(right.begin(),right.end(),0u);
+                break;
+            case 2u:
+                for (std::size_t i=0u;i<n;i+=2u) left[i]=0u;
+                for (std::size_t i=0u;i<m;i+=2u) right[i]=0u;
+                break;
+            case 3u:
+                std::fill(left.begin()+1u,left.end(),0u);
+                std::fill(right.begin()+1u,right.end(),0u);
+                break;
+            case 4u:
+                std::fill_n(left.begin(),n/2u,0u);
+                std::fill_n(right.begin(),m/2u,0u);
+                break;
+            case 5u:
+                std::fill(left.begin(),left.end(),0u);
+                left.back()=max;
+                std::fill(right.begin(),right.end(),0u);
+                right.back()=max;
+                break;
+            case 6u:
+                for (std::size_t i=0u;i<n;i+=8u) left[i]=0u;
+                for (std::size_t i=0u;i<m;i+=8u) right[i]=0u;
+                break;
+            default: break;
+            }
+            mpz_import(a.value,n,-1,sizeof(std::uint64_t),
+                       0,0,left.data());
+            mpz_import(b.value,m,-1,sizeof(std::uint64_t),
+                       0,0,right.data());
+            mpz_mul(expected.value,a.value,b.value);
+
+            for (const std::size_t length:
+                    {std::size_t{0u},std::size_t{1u},
+                     (n+m)/2u,n+m-1u,n+m,n+m+2u}) {
+                std::vector<std::uint64_t> selected(length,max);
+                std::vector<std::uint64_t> fused(length,max);
+                std::vector<std::uint64_t> carry(length,max);
+                BigUnsigned::mul_low_into(left,right,selected);
+                BigUnsigned::mul_low_into_fused(left,right,fused);
+                BigUnsigned::mul_low_into_x86_64_carry(
+                    left,right,carry);
+                ARIADNE_TEST_ASSERT(selected==fused);
+                ARIADNE_TEST_ASSERT(selected==carry);
+                mpz_fdiv_r_2exp(
+                    rounded.value,expected.value,
+                    static_cast<mp_bitcnt_t>(64u*length));
+                check_against_gmp(BigUnsigned(selected),rounded.value);
+            }
+        }
+    }
+
     // Multiple writes reuse the same result space; both implementations
     // must overwrite all digits, including untouched high destinations.
     for (unsigned repetition=0u; repetition<6000u; ++repetition) {
