@@ -488,6 +488,110 @@ void TestBigUnsigned::test_multiplication()
         }
     }
 
+    // B54: GCC x86 B38/B40 symmetric-square sparse/dense dispatch
+    // and B39's owning Karatsuba density gate. Probe the exact
+    // 63/64 size boundary, the 1/8 zero cutoff, sparse powers,
+    // alternating limbs, saturated carries and random dense values.
+    // All expected full values originate independently from GMP.
+    std::mt19937_64 b54_engine(0xB54A6C4ULL);
+    for (const auto& [n,m]:
+            {std::pair<std::size_t,std::size_t>{32u,32u},
+             {33u,33u}, {63u,63u}, {63u,64u},
+             {64u,63u}, {64u,64u}, {64u,65u},
+             {65u,64u}, {65u,65u}, {64u,85u},
+             {64u,86u}, {85u,64u}, {86u,64u},
+             {96u,96u}, {127u,128u}, {128u,127u},
+             {128u,128u}}) {
+        for (unsigned mode=0u;mode<32u;++mode) {
+            std::vector<std::uint64_t> left(n),right(m);
+            for (auto& word:left) word=b54_engine();
+            for (auto& word:right) word=b54_engine();
+            const auto apply_pattern=[&](std::vector<std::uint64_t>& words,
+                                         unsigned pattern) {
+                const std::size_t count=words.size();
+                switch (pattern%8u) {
+                case 0u: break; // dense random
+                case 1u:
+                    std::fill(words.begin(),words.end(),max);
+                    break;
+                case 2u:
+                    std::fill(words.begin(),words.end(),0u);
+                    words.front()=13u;
+                    break;
+                case 3u:
+                    std::fill_n(words.begin(),count/8u,0u);
+                    break;
+                case 4u:
+                    std::fill_n(words.begin(),count/8u+1u,0u);
+                    break;
+                case 5u:
+                    for (std::size_t i=0u;i<count;i+=2u)
+                        words[i]=0u;
+                    break;
+                case 6u:
+                    for (std::size_t i=1u;i+1u<count;++i)
+                        words[i]=0u;
+                    break;
+                default:
+                    for (std::size_t i=0u;i<count;i+=8u)
+                        words[i]=0u;
+                    break;
+                }
+                words.back()|=std::uint64_t{1}<<63u;
+            };
+            apply_pattern(left,mode);
+            apply_pattern(right,mode+3u);
+            const BigUnsigned lhs(left),rhs(right);
+            mpz_import(a.value,n,-1,sizeof(std::uint64_t),
+                       0,0,left.data());
+            mpz_import(b.value,m,-1,sizeof(std::uint64_t),
+                       0,0,right.data());
+            mpz_mul(c.value,a.value,b.value);
+            check_against_gmp(mul(lhs,rhs),c.value);
+            check_against_gmp(mul(rhs,lhs),c.value);
+
+            std::vector<std::uint64_t> fused(n+m);
+            BigUnsigned::mul_into_fused(
+                lhs.limbs(),rhs.limbs(),fused);
+            check_against_gmp(BigUnsigned(fused),c.value);
+        }
+    }
+
+    for (const std::size_t n:
+            {7u,8u,9u,16u,31u,32u,33u,
+             63u,64u,65u,66u,96u,128u}) {
+        for (unsigned mode=0u;mode<64u;++mode) {
+            std::vector<std::uint64_t> words(n);
+            for (auto& word:words) word=b54_engine();
+            if (mode%8u==0u) {
+                std::fill(words.begin(),words.end(),max);
+            } else if (mode%8u==1u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=13u;
+            } else if (mode%8u==2u) {
+                std::fill_n(words.begin(),n/8u,0u);
+            } else if (mode%8u==3u) {
+                std::fill_n(words.begin(),n/8u+1u,0u);
+            } else if (mode%8u==4u) {
+                for (std::size_t i=0u;i<n;i+=2u)
+                    words[i]=0u;
+            } else if (mode%8u==5u) {
+                for (std::size_t i=1u;i+1u<n;++i)
+                    words[i]=0u;
+            } else if (mode%8u==6u) {
+                for (std::size_t i=0u;i<n;i+=8u)
+                    words[i]=0u;
+            }
+            words.back()|=std::uint64_t{1}<<63u;
+            const BigUnsigned input(words);
+            mpz_import(a.value,n,-1,sizeof(std::uint64_t),
+                       0,0,words.data());
+            mpz_mul(t.value,a.value,a.value);
+            check_against_gmp(square(input),t.value);
+            check_against_gmp(mul(input,input),t.value);
+        }
+    }
+
     // B37: stress the 7/8-limb ARM64 symmetric-square crossover,
     // long carry chains and diagonal/off-diagonal propagation.
     // Also exercise the same public test on x86-64 and fallback builds.
