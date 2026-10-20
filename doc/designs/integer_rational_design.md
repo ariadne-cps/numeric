@@ -5001,3 +5001,66 @@ runs should confirm borderline wins. B61 is a baseline,
 not proof of B63 outcomes. All B62 Unix/Windows/Coverage
 GitHub Actions workflows completed successfully; B63
 integrated CI and performance validation are pending.
+
+### B64 short-operand pow/square ownership diagnostic (20 October 2026)
+
+B63 on-target 20,000x31 GCC x86-64 official benchmark verified
+768 paired GMP inputs and all 2688 paired operation outputs.
+Per-size total_time/GMP ratios were:
+53=1.434x, 128=1.468x, 256=1.423x,
+1024=0.977x, 2048=0.863x, 4096=0.895x; ALL=0.933x.
+Per-size worst operation ratios were:
+53 pow3=2.366x, 128 pow3=2.476x,
+256 square=2.087x, 1024 quotient=1.969x,
+2048 compare=1.879x, 4096 compare=2.067x.
+The overall worst is 2.476x (pow3, 128 bits).
+B63 reduced the 1024/2048 quotient to 176.383/306.194 ns,
+from B61 292.537/554.274 ns. The 53/128/256 short-size
+total-time gates are still far from <1x; the 4096-bit
+worst compare margin is small and could be sensitive
+to repeat-run noise.
+
+B64 adds a separate GMP-verified benchmark target named
+benchmark_integer_small_power_profile. It uses the EXACT
+same 32 signed integer_specifications(bits) inputs as the
+official benchmark and does not modify the official
+84-case test corpus or arithmetic semantics.
+It times whole owning Integer results and owning GMP
+counterparts: production pow(z,Nat(3u)), a generic
+exponentiation-by-squaring alternative which defers
+copying the original base until an accumulator factor
+is actually needed, and a direct cube chaining
+diagnostic as a possible ownership lower-bound control.
+The direct cube is NOT to be promoted solely because
+the official workload includes exponent 3.
+It also measures production alias z*z versus an
+owning BigUnsigned::square-based signed Integer
+construction, retaining the exact output semantics.
+
+All alternatives must pass an independent mpz_pow_ui/
+mpz_mul oracle before and after the timed rows, at
+exponents 0/1/2/3/4/5/7/8/9 and the original signed
+32-input official corpus, with additional zero and
+signed-unit identities. The two timing groups
+measure whole owned result objects, not non-additive
+kernel stages. Different implementations may
+allocate internally; this is precisely one of the
+effects under investigation and must not be claimed
+as a proven bottleneck until measured. As in the
+official benchmark, each call creates its result
+inside the timed loop and GMP uses fresh owning
+mpz_t results. The explicit generic lazy algorithm
+is a diagnostic candidate, not a B64 production
+change. No change is made to any production path,
+public API, existing tests or FloatAP; this new
+target is appended to benchmarks/CMakeLists.txt.
+
+Same-host command, from build and with user's preferred
+theme and single-line formatting:
+  ./benchmarks/benchmark_integer_small_power_profile -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
+The result will determine whether deferred-copy generic
+exponentiation can reduce the 53/128-bit pow3 worst
+without the unsupported conclusion that one micro
+optimization will bring all three small-size totals
+under 1x. B64 integrated compilation/CI and actual
+GCC user-host timings are not yet confirmed.

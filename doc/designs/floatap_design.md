@@ -8823,3 +8823,23 @@ reference. Public APIs, FloatAP arithmetic, official
 84-operation workload and numerical oracle are unchanged.
 Integrated B63 CI and same-host official <1x per-size,
 <2x worst performance gates remain to be verified.
+
+### B64 short-width Integer power/square diagnostic (20 October 2026)
+
+The B63 official GMP-verified x86-64 results pass both
+acceptance limits at 1024 and 2048 bits, but 53/128/256
+bit total-time ratios remain 1.434x/1.468x/1.423x.
+Worst operation remains pow3 at 128 bits, 2.476x;
+256-bit square is 2.087x and 4096-bit compare 2.067x.
+B64 adds a standalone same-official-input diagnostic
+for owning generic lazy-copy exponentiation, the
+unchanged production pow(z,3), diagnostic direct-cube
+chaining, production z*z and direct signed-magnitude
+square, all checked against independent GMP power
+and multiplication oracles (including exponents
+0-9 as selected and signed/zero identity cases).
+No production arithmetic, FloatAP semantics, public
+APIs, original 84-case input pools or official
+benchmark code is changed. User-host B64 benchmark
+and integration/CI verification remain pending.
+See integer_rational_design.md B64.
