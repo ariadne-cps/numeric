@@ -9026,3 +9026,42 @@ arithmetic, ABI or user-facing features change.
 Native compilation/CI and official performance
 must be measured before claiming a production win.
 See integer_rational_design.md B72.
+
+
+### B73 shared decimal temporary storage and Integer result ownership (20 October 2026)
+
+B73 removes temporary ownership in Integer/shared-core conversions:
+move the formatter buffer into the existing String return value,
+remove one private by-value signed-magnitude constructor move,
+parse at most 77 digits into four inline result limbs, build longer
+parses in the result's own vector, and use stack work/block buffers
+for radix-10^9 leaves of at most eight limbs. The same existing
+19-/9-digit parsing recurrences are instantiated for inline and heap
+storage; radix thresholds, full input validation, recursive/wide
+formatting, signed semantics, selected ISA multiplication/division
+kernels and public object layouts remain unchanged. See B73 in
+integer_rational_design.md for bounds, lifetime and ownership details.
+No new FloatAP algorithm, rounding path or GMP production dependency.
+
+Local Apple M2 Ultra / AppleClang 21 Release warnings-as-errors:
+20/20 CTest pass, including FloatAP tests; full Integer and BigUnsigned
+Debug ASan/UBSan suites pass. The complete GCC 16.2 ARM64 BigUnsigned
+suite passes. In the unchanged six-size 20000x31 Integer/GMP benchmark,
+all 768 paired inputs and 2688 results verify. Repeated B73 ARM64
+per-size totals are 0.404..0.441x / 0.685..0.687x / 0.816..0.817x /
+0.847x / 1.001..1.002x / 0.994..0.995x. These do not certify the
+x86-64 target; ARM64 2048 still misses <1x, and its decimal parsing
+is about 7% slower than the single B72 reference run. No unmeasured
+x86-64 improvement or unchanged FloatAP performance is claimed.
+
+Both original FloatAP and Integer workloads/oracles are retained.
+Native GCC x86-64 and MSVC CI, repeated x86-64 per-size totals <1x
+and every worst <2x, and FloatAP native performance verification
+remain required before treating the performance campaign as complete.
+
+Forced-portable decimal ASan/UBSan validation (without __int128 or a
+native backend) additionally passes 3923 independent GMP and malformed
+input checks through 10000 decimal digits. The unchanged FloatAP
+1000x11 benchmark at 53/128/256/1024 bits verifies all 256 paired
+inputs and 3456 operation results. This is a numerical verification,
+not a before/after FloatAP performance acceptance result.

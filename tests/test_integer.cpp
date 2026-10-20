@@ -87,6 +87,7 @@ class TestInteger
     void test_combinatorics();
     void test_native();
     void test_signed_regression();
+    void test_owned_results();
 };
 
 void TestInteger::test()
@@ -99,6 +100,38 @@ void TestInteger::test()
     ARIADNE_TEST_CALL(test_combinatorics());
     ARIADNE_TEST_CALL(test_native());
     ARIADNE_TEST_CALL(test_signed_regression());
+    ARIADNE_TEST_CALL(test_owned_results());
+}
+
+void TestInteger::test_owned_results() {
+    // Exercise inline and heap magnitude ownership independently of
+    // decimal parsing. Moving a result must preserve its full value,
+    // leave the caller's moved-from magnitude zero and normalize -0.
+    for (const std::size_t count:{0u,1u,4u,5u,8u,9u,64u}) {
+        std::vector<std::uint64_t> words(count,
+            std::numeric_limits<std::uint64_t>::max());
+        const BigUnsigned source(words);
+        for (const bool negative:{false,true}) {
+            const Integer copied=Integer::from_magnitude(source,negative);
+            ARIADNE_TEST_ASSERT(compare(copied.magnitude(),source)==0);
+            ARIADNE_TEST_ASSERT(copied.negative()==(negative && count!=0u));
+            BigUnsigned magnitude=source;
+            Integer owned=Integer::from_magnitude(std::move(magnitude),negative);
+            ARIADNE_TEST_ASSERT(magnitude.is_zero());
+            ARIADNE_TEST_ASSERT(owned==copied);
+            const String text=owned.literal();
+            ARIADNE_TEST_ASSERT(Integer(text)==copied);
+            ARIADNE_TEST_ASSERT(compare(source,BigUnsigned(words))==0);
+            std::ostringstream stream;
+            stream << owned;
+            ARIADNE_TEST_ASSERT(stream.str()==std::string(text));
+            owned=Integer(7);
+            ARIADNE_TEST_ASSERT(Integer(text)==copied);
+        }
+    }
+    ARIADNE_TEST_ASSERT(Integer::from_magnitude(BigUnsigned{},true).literal()=="0");
+    ARIADNE_TEST_ASSERT(Integer(-1).literal()=="-1");
+    ARIADNE_TEST_ASSERT(Integer(1).literal()=="1");
 }
 
 void TestInteger::test_literal() {

@@ -1232,84 +1232,113 @@ BigUnsigned from_decimal(std::string_view input)
         }
     }
 
-    // B47/B50: use native wide multiplication for medium/long
-    // decimal inputs; B47 lowered the threshold to 32 digits.
-    // B50 packs 19 digits per 64-bit chunk (10^19 < 2^64), one
-    // extra digit per full limb scan versus radix 10^18. Keep the
-    // original B19 radix-10^9 portable path for smaller inputs
-    // and toolchains without unsigned 128-bit arithmetic.
+    // Share the exact block recurrences between inline and heap storage.
+    // Only the append operation differs; neither path copies a completed
+    // temporary vector into a second owning magnitude.
+    const auto parse=[input](auto& digits,auto append) {
+        // B47/B50: use native wide multiplication for medium/long
+        // decimal inputs; B47 lowered the threshold to 32 digits.
+        // B50 packs 19 digits per 64-bit chunk (10^19 < 2^64), one
+        // extra digit per full limb scan versus radix 10^18. Keep the
+        // original B19 radix-10^9 portable path for smaller inputs
+        // and toolchains without unsigned 128-bit arithmetic.
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
-    if (input.size()>=32u) {
-        __extension__ using Wide=unsigned __int128;
-        constexpr std::size_t group=19u;
-        constexpr BigUnsigned::Limb full_radix=10000000000000000000ULL;
-        std::vector<BigUnsigned::Limb> digits;
-        // ceil(decimal_digits/19) bounds the necessary 64-bit
-        // limbs because 10^19 < 2^64, even for leading zeros.
-        digits.reserve(input.size()/group+
-                       static_cast<std::size_t>(input.size()%group!=0u));
-        // Consume a possibly short first group, then multiply by
-        // the compile-time constant 10^19 on all full groups.
-        // Every multiply+carry remains strictly below 2^128.
-        const std::size_t first=input.size()%group==0u ?
-            group : input.size()%group;
+        if (input.size()>=32u) {
+            __extension__ using Wide=unsigned __int128;
+            constexpr std::size_t group=19u;
+            constexpr BigUnsigned::Limb full_radix=10000000000000000000ULL;
+            // Consume a possibly short first group, then multiply by
+            // the compile-time constant 10^19 on all full groups.
+            // Every multiply+carry remains strictly below 2^128.
+            const std::size_t first=input.size()%group==0u ?
+                group : input.size()%group;
+            std::size_t pos=0u;
+            while (pos<input.size()) {
+                const std::size_t count=pos==0u ? first : group;
+                BigUnsigned::Limb radix=full_radix;
+                if (count!=group) {
+                    radix=1u;
+                    for (std::size_t i=0u;i<count;++i) radix*=10u;
+                }
+                BigUnsigned::Limb chunk=0u;
+                for (std::size_t i=0u;i<count;++i) {
+                    chunk=chunk*10u+
+                        static_cast<BigUnsigned::Limb>(input[pos+i]-'0');
+                }
+                BigUnsigned::Limb carry=chunk;
+                for (auto& digit:digits) {
+                    const Wide product=static_cast<Wide>(digit)*radix+carry;
+                    digit=static_cast<BigUnsigned::Limb>(product);
+                    carry=static_cast<BigUnsigned::Limb>(product>>64u);
+                }
+                if (carry!=0u) {
+                    append(carry);
+                }
+                pos+=count;
+            }
+            return;
+        }
+#endif
+
+        // Multiply in base-10^9 blocks using 32-bit half-products, never
+        // assuming compiler support for a 128-bit integer.
+        constexpr std::size_t group=9u;
+        constexpr BigUnsigned::Limb low_mask=0xffffffffULL;
         std::size_t pos=0u;
         while (pos<input.size()) {
-            const std::size_t count=pos==0u ? first : group;
-            BigUnsigned::Limb radix=full_radix;
-            if (count!=group) {
-                radix=1u;
-                for (std::size_t i=0u;i<count;++i) radix*=10u;
-            }
+            const std::size_t count=std::min(group,input.size()-pos);
+            BigUnsigned::Limb radix=1u;
             BigUnsigned::Limb chunk=0u;
             for (std::size_t i=0u;i<count;++i) {
+                radix*=10u;
                 chunk=chunk*10u+
                     static_cast<BigUnsigned::Limb>(input[pos+i]-'0');
             }
             BigUnsigned::Limb carry=chunk;
             for (auto& digit:digits) {
-                const Wide product=static_cast<Wide>(digit)*radix+carry;
-                digit=static_cast<BigUnsigned::Limb>(product);
-                carry=static_cast<BigUnsigned::Limb>(product>>64u);
+                const BigUnsigned::Limb low=(digit&low_mask)*radix+carry;
+                const BigUnsigned::Limb high=
+                    (digit>>32u)*radix+(low>>32u);
+                digit=(high<<32u)|(low&low_mask);
+                carry=high>>32u;
             }
             if (carry!=0u) {
-                digits.push_back(carry);
+                append(carry);
             }
             pos+=count;
         }
-        return BigUnsigned(digits);
-    }
-#endif
+    };
 
-    // Multiply in base-10^9 blocks using 32-bit half-products, never
-    // assuming compiler support for a 128-bit integer.
-    constexpr std::size_t group=9u;
-    constexpr BigUnsigned::Limb low_mask=0xffffffffULL;
-    std::vector<BigUnsigned::Limb> digits;
-    std::size_t pos=0u;
-    while (pos<input.size()) {
-        const std::size_t count=std::min(group,input.size()-pos);
-        BigUnsigned::Limb radix=1u;
-        BigUnsigned::Limb chunk=0u;
-        for (std::size_t i=0u;i<count;++i) {
-            radix*=10u;
-            chunk=chunk*10u+
-                static_cast<BigUnsigned::Limb>(input[pos+i]-'0');
-        }
-        BigUnsigned::Limb carry=chunk;
-        for (auto& digit:digits) {
-            const BigUnsigned::Limb low=(digit&low_mask)*radix+carry;
-            const BigUnsigned::Limb high=
-                (digit>>32u)*radix+(low>>32u);
-            digit=(high<<32u)|(low&low_mask);
-            carry=high>>32u;
-        }
-        if (carry!=0u) {
+    BigUnsigned result;
+    // 10^77 < 2^256: every input of at most 77 decimal digits
+    // fits in our four inline limbs, including leading zeroes.
+    if (input.size()<=77u) {
+        const auto storage=BigUnsigned::MutableLimbView(result._inline_limbs);
+        auto digits=storage.first(0u);
+        parse(digits,[&](BigUnsigned::Limb carry) {
+            const std::size_t count=digits.size();
+            storage[count]=carry;
+            digits=storage.first(count+1u);
+        });
+        result._size=digits.size();
+    } else {
+        auto& digits=result._heap;
+        // ceil(digits/19) is safe since 10^19 < 2^64. Reserve
+        // without zero-initializing unused capacity on long inputs.
+        digits.reserve(input.size()/19u+
+            static_cast<std::size_t>(input.size()%19u!=0u));
+        parse(digits,[&](BigUnsigned::Limb carry) {
             digits.push_back(carry);
+        });
+        result._size=digits.size();
+        if (result._size<=BigUnsigned::inline_capacity) {
+            std::copy(digits.begin(),digits.end(),result._inline_limbs.begin());
+            // A long zero prefix must not leave a tiny value owning
+            // heap capacity proportional to the original input text.
+            result._heap=std::vector<BigUnsigned::Limb>{};
         }
-        pos+=count;
     }
-    return BigUnsigned(digits);
+    return result;
 }
 
 namespace {
@@ -1437,18 +1466,36 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     constexpr BigUnsigned::Limb radix=1000000000u;
     constexpr std::size_t block_width=9u;
     const auto limbs=value.limbs();
-    std::vector<BigUnsigned::Limb> work(limbs.begin(),limbs.end());
-    std::vector<unsigned> blocks;
-    // B31: avoid repeated growth of the decimal-block container.
-    // A 64-bit limb contributes at most three base-10^9 blocks.
-    if (limbs.size()<=blocks.max_size()/3u) {
-        blocks.reserve(limbs.size()*3u);
+    // Eight limbs cover the entire selected radix-10^9 leaf on
+    // native GCC/Clang builds. Keep its division scratch and blocks
+    // on the stack; larger portable leaves retain owned heap storage.
+    // Each limb contributes fewer than three nine-digit blocks.
+    std::array<BigUnsigned::Limb,8> inline_work{};
+    std::array<unsigned,24> inline_blocks{};
+    std::vector<BigUnsigned::Limb> heap_work;
+    std::vector<unsigned> heap_blocks;
+    std::span<BigUnsigned::Limb> work;
+    std::span<unsigned> blocks;
+    if (limbs.size()<=inline_work.size()) {
+        work={inline_work.data(),limbs.size()};
+        std::copy(limbs.begin(),limbs.end(),work.begin());
+        blocks=inline_blocks;
+    } else {
+        heap_work.assign(limbs.begin(),limbs.end());
+        if (limbs.size()>heap_blocks.max_size()/3u) {
+            throw std::length_error("BigUnsigned decimal block overflow");
+        }
+        heap_blocks.resize(limbs.size()*3u);
+        work=heap_work;
+        blocks=heap_blocks;
     }
-    while (!work.empty()) {
+    std::size_t work_size=work.size();
+    std::size_t block_count=0u;
+    while (work_size!=0u) {
         // radix < 2^32. Two 64/32 divisions avoid a general 128/64
         // division, and the per-limb output update is in-place.
         std::uint64_t remainder=0u;
-        for (std::size_t i=work.size();i!=0u;--i) {
+        for (std::size_t i=work_size;i!=0u;--i) {
             const BigUnsigned::Limb digit=work[i-1u];
             const std::uint64_t upper=(remainder<<32u)|(digit>>32u);
             const std::uint64_t quotient_high=upper/radix;
@@ -1459,9 +1506,9 @@ std::string to_decimal_blocks(BigUnsigned const& value)
             remainder=lower%radix;
             work[i-1u]=(quotient_high<<32u)|quotient_low;
         }
-        blocks.push_back(static_cast<unsigned>(remainder));
-        while (!work.empty() && work.back()==0u) {
-            work.pop_back();
+        blocks[block_count++]=static_cast<unsigned>(remainder);
+        while (work_size!=0u && work[work_size-1u]==0u) {
+            --work_size;
         }
     }
 
@@ -1480,21 +1527,21 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     std::array<char,10> top_buffer{};
     const auto [top_end,error]=std::to_chars(
         top_buffer.data(),top_buffer.data()+top_buffer.size(),
-        blocks.back());
+        blocks[block_count-1u]);
     if (error!=std::errc{}) {
         throw std::length_error("BigUnsigned decimal head overflow");
     }
     const std::size_t top_width=static_cast<std::size_t>(
         top_end-top_buffer.data());
     std::string result;
-    if (blocks.size()-1u>(result.max_size()-top_width)/block_width) {
+    if (block_count-1u>(result.max_size()-top_width)/block_width) {
         throw std::length_error("BigUnsigned decimal output overflow");
     }
-    result.resize(top_width+(blocks.size()-1u)*block_width);
+    result.resize(top_width+(block_count-1u)*block_width);
     std::copy_n(top_buffer.data(),top_width,result.data());
 
     char* output=result.data()+result.size();
-    for (std::size_t i=0u;i+1u<blocks.size();++i) {
+    for (std::size_t i=0u;i+1u<block_count;++i) {
         unsigned block=blocks[i]; // Each block is strictly below 10^9.
         for (unsigned pair_index=0u;pair_index<4u;++pair_index) {
             const unsigned pair=block%100u;

@@ -261,6 +261,9 @@ class BigUnsigned
     friend BigUnsigned shift_left(BigUnsigned const& a, std::size_t bits);
     //! Floor division by 2^bits.
     friend BigUnsigned shift_right(BigUnsigned const& a, std::size_t bits);
+
+    //! Parse decimal digits directly into the owned result storage.
+    friend BigUnsigned from_decimal(std::string_view digits);
 };
 
 //! Euclidean greatest common divisor of unsigned magnitudes.

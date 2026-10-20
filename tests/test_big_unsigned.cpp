@@ -2423,6 +2423,25 @@ void TestBigUnsigned::test_gcd_decimal()
         oracle.resize(std::char_traits<char>::length(oracle.c_str()));
         ARIADNE_TEST_ASSERT(to_decimal(parsed)==oracle);
     };
+    // Direct result construction may reserve more limbs than the
+    // canonical value needs. Check heap-to-inline normalization and
+    // reject malformed bytes at every position around both the
+    // 32-digit radix and 77/78-digit storage boundaries.
+    for (const std::size_t length:{1u,19u,31u,32u,76u,77u,78u,95u}) {
+        check_long_parse(std::string(length,'0'));
+        check_long_parse(std::string(length-1u,'0')+"7");
+        check_long_parse(std::string(length,'9'));
+        for (std::size_t position=0u;position<length;++position) {
+            for (const char invalid:{'x','\0'}) {
+                std::string input(length,'9');
+                input[position]=invalid;
+                bool threw=false;
+                try { (void)from_decimal(input); }
+                catch (std::invalid_argument const&) { threw=true; }
+                ARIADNE_TEST_ASSERT(threw);
+            }
+        }
+    }
     for (const std::size_t length:
             {308u,309u,310u,311u,312u,616u,617u,1234u,1900u}) {
         check_long_parse(std::string(length,'9'));
