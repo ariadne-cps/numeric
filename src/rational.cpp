@@ -37,7 +37,6 @@
 #include "number.hpp"
 #include "builtin.hpp"
 #include "integer.hpp"
-#include "numeric/detail/integer_gmp_bridge.hpp"
 #include "dyadic.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
@@ -46,7 +45,12 @@
 
 #include "concepts.hpp"
 
+#include <algorithm>
+#include <bit>
+#include <cstdint>
 #include <limits>
+#include <string>
+#include <utility>
 #include <iostream>
 #include <cmath>
 #include <stdexcept>
@@ -59,201 +63,240 @@ class InvalidRationalLiteralException {
 };
 
 namespace {
-Bool integer_is_zero(Integer const& z) { return is_zero(z); }
-Sign integer_sgn(Integer const& z) { return sgn(z); }
+Sign integer_sign(Integer const& n) { return sgn(n); }
+Integer integer_add(Integer const& a,Integer const& b) { return add(a,b); }
+Integer integer_sub(Integer const& a,Integer const& b) { return sub(a,b); }
+Integer integer_mul(Integer const& a,Integer const& b) { return mul(a,b); }
+Integer integer_neg(Integer const& n) { return neg(n); }
+Comparison integer_cmp(Integer const& a,Integer const& b) { return cmp(a,b); }
+BigUnsigned unsigned_mul(BigUnsigned const& a,BigUnsigned const& b) { return mul(a,b); }
+Bool unsigned_is_one(BigUnsigned const& n) { return n.size()==1u && n.limb(0u)==1u; }
+Integer multiply_magnitude(Integer const& n,BigUnsigned const& m) {
+    if (unsigned_is_one(m)) { return n; }
+    return Integer::from_magnitude(mul(n.magnitude(),m),n.negative());
+}
+BigUnsigned exact_quotient(BigUnsigned const& n,BigUnsigned const& d) {
+    return unsigned_is_one(d) ? n : quot(n,d);
+}
+Integer exact_quotient(Integer const& n,BigUnsigned const& d) {
+    return Integer::from_magnitude(exact_quotient(n.magnitude(),d),n.negative());
+}
 }
 
 template<> class ExtensionOperations<Rational> {
     friend class Rational;
     friend class ExtendedOperations<Rational>;
 
-    static Bool is_nan(Rational const& q) { return integer_is_zero(q.get_den()) && integer_is_zero(q.get_num()); }
-    static Bool is_inf(Rational const& q) { return integer_is_zero(q.get_den()) && !integer_is_zero(q.get_num()); }
-    static Bool is_finite(Rational const& q) { return !integer_is_zero(q.get_den()); }
-    static Bool is_zero(Rational const& q) { return integer_is_zero(q.get_num()) && !integer_is_zero(q.get_den()); }
+    static Bool is_nan(Rational const& q) { return q._kind==Rational::Kind::NAN_VALUE; }
+    static Bool is_inf(Rational const& q) {
+        return q._kind==Rational::Kind::POSITIVE_INFINITY || q._kind==Rational::Kind::NEGATIVE_INFINITY;
+    }
+    static Bool is_finite(Rational const& q) { return q._kind==Rational::Kind::FINITE; }
+    static Bool is_zero(Rational const& q) { return is_finite(q) && q._numerator.magnitude().is_zero(); }
+    static Sign sgn(Rational const& q) { return integer_sign(q._numerator); }
 
-    static Sign sgn(Rational const& q) { return integer_sgn(q.get_num()); }
-
-    static Void set_nan(Rational& q) { mpz_set_si(mpq_denref(q._mpq),0); mpz_set_si(mpq_numref(q._mpq),0); }
-    static Void set_inf(Rational& q, Sign s) { mpz_set_si(mpq_denref(q._mpq),0); mpz_set_si(mpq_numref(q._mpq),static_cast<Int>(s)); }
-    static Void set_zero(Rational& q) { mpq_set_si(q._mpq,0,1); }
+    static Void set_nan(Rational& q) { q=Rational::nan(); }
+    static Void set_inf(Rational& q, Sign s) { q=Rational::inf(s); }
+    static Void set_zero(Rational& q) { q=Rational(); }
 };
 
 template<> class FiniteOperations<Rational> {
     friend class ExtendedOperations<Rational>;
 
-    static Void set(Rational& r, Rational const& q) { mpq_set(r._mpq,q._mpq); }
+    static Rational reduced(Integer n,BigUnsigned d) {
+        return Rational(std::move(n),std::move(d),Rational::Reduced{});
+    }
+    static Void set(Rational& r,Rational const& q) { r=q; }
 
-    static Void add(Rational& r, Rational const& q1, Rational const& q2) { return mpq_add(r._mpq, q1._mpq, q2._mpq); }
-    static Void sub(Rational& r, Rational const& q1, Rational const& q2) { return mpq_sub(r._mpq, q1._mpq, q2._mpq); }
-    static Void mul(Rational& r, Rational const& q1, Rational const& q2) { return mpq_mul(r._mpq, q1._mpq, q2._mpq); }
-    static Void div(Rational& r, Rational const& q1, Rational const& q2) { return mpq_div(r._mpq, q1._mpq, q2._mpq); }
-
-    static Void neg(Rational& r, Rational const& q) { mpq_neg(r._mpq,q._mpq); }
-    static Void hlf(Rational& r, Rational const& q) { mpq_div_2exp(r._mpq,q._mpq,1u); }
-    static Void sqr(Rational& r, Rational const& q) { mpq_mul(r._mpq,q._mpq,q._mpq); }
-    static Void rec(Rational& r, Rational const& q) { mpq_inv(r._mpq,q._mpq); }
-
-    static Void max(Rational& r, Rational const& q1, Rational const& q2) {
-        if(mpq_cmp(q1._mpq,q2._mpq)>=0) { mpq_set(r._mpq,q1._mpq); } else { mpq_set(r._mpq,q2._mpq); } }
-    static Void min(Rational& r, Rational const& q1, Rational const& q2) {
-        if(mpq_cmp(q1._mpq,q2._mpq)<=0) { mpq_set(r._mpq,q1._mpq); } else { mpq_set(r._mpq,q2._mpq); } }
-    static Void abs(Rational& r, Rational const& q) { mpq_abs(r._mpq,q._mpq); }
-
-    static Comparison cmp(Rational const& q1, Rational const& q2) { return static_cast<Comparison>(mpq_cmp(q1._mpq,q2._mpq)); }
-    static Boolean eq(Rational const& q1, Rational const& q2) { return mpq_equal(q1._mpq,q2._mpq); }
+    static Void add_sub(Rational& r,Rational const& a,Rational const& b,bool subtract) {
+        if (a._numerator.magnitude().is_zero()) { r=subtract ? reduced(integer_neg(b._numerator),b._denominator) : b; return; }
+        if (b._numerator.magnitude().is_zero()) { r=a; return; }
+        const BigUnsigned g=gcd(a._denominator,b._denominator);
+        const BigUnsigned ad=exact_quotient(a._denominator,g);
+        const BigUnsigned bd=exact_quotient(b._denominator,g);
+        const Integer an=multiply_magnitude(a._numerator,bd);
+        const Integer bn=multiply_magnitude(b._numerator,ad);
+        Integer n=subtract ? integer_sub(an,bn) : integer_add(an,bn);
+        if (n.magnitude().is_zero()) { r=Rational(); return; }
+        // Only a factor of the original denominator gcd can remain.
+        const BigUnsigned h=gcd(n.magnitude(),g);
+        r=reduced(exact_quotient(n,h),unsigned_mul(ad,exact_quotient(b._denominator,h)));
+    }
+    static Void add(Rational& r,Rational const& a,Rational const& b) { add_sub(r,a,b,false); }
+    static Void sub(Rational& r,Rational const& a,Rational const& b) { add_sub(r,a,b,true); }
+    static Void mul(Rational& r,Rational const& a,Rational const& b) {
+        if (&a==&b) { sqr(r,a); return; }
+        if (a._numerator.magnitude().is_zero() || b._numerator.magnitude().is_zero()) {
+            r=Rational(); return;
+        }
+        const BigUnsigned g=gcd(a._numerator.magnitude(),b._denominator);
+        const BigUnsigned h=gcd(b._numerator.magnitude(),a._denominator);
+        r=reduced(integer_mul(exact_quotient(a._numerator,g),exact_quotient(b._numerator,h)),
+                  unsigned_mul(exact_quotient(a._denominator,h),exact_quotient(b._denominator,g)));
+    }
+    static Void div(Rational& r,Rational const& a,Rational const& b) {
+        if (b._numerator.magnitude().is_zero()) {
+            r=Rational::inf(integer_sign(a._numerator)); return;
+        }
+        if (a._numerator.magnitude().is_zero()) { r=Rational(); return; }
+        const BigUnsigned g=gcd(a._numerator.magnitude(),b._numerator.magnitude());
+        const BigUnsigned h=gcd(a._denominator,b._denominator);
+        Integer n=Integer::from_magnitude(
+            unsigned_mul(exact_quotient(a._numerator.magnitude(),g),exact_quotient(b._denominator,h)),
+            a._numerator.negative()!=b._numerator.negative());
+        r=reduced(std::move(n),unsigned_mul(exact_quotient(a._denominator,h),
+                                          exact_quotient(b._numerator.magnitude(),g)));
+    }
+    static Void neg(Rational& r,Rational const& q) { r=reduced(integer_neg(q._numerator),q._denominator); }
+    static Void hlf(Rational& r,Rational const& q) {
+        if ((q._numerator.magnitude().limb(0u)&1u)==0u) {
+            r=reduced(Integer::from_magnitude(shift_right(q._numerator.magnitude(),1u),q._numerator.negative()),q._denominator);
+        } else { r=reduced(q._numerator,shift_left(q._denominator,1u)); }
+    }
+    static Void sqr(Rational& r,Rational const& q) {
+        r=reduced(Integer::from_magnitude(square(q._numerator.magnitude()),false),square(q._denominator));
+    }
+    static Void rec(Rational& r,Rational const& q) {
+        if (q._numerator.magnitude().is_zero()) { r=Rational::inf(); return; }
+        r=reduced(Integer::from_magnitude(q._denominator,q._numerator.negative()),q._numerator.magnitude());
+    }
+    static Void max(Rational& r,Rational const& a,Rational const& b) { r=cmp(a,b)>=Comparison::EQUAL ? a : b; }
+    static Void min(Rational& r,Rational const& a,Rational const& b) { r=cmp(a,b)<=Comparison::EQUAL ? a : b; }
+    static Void abs(Rational& r,Rational const& q) {
+        r=reduced(Integer::from_magnitude(q._numerator.magnitude(),false),q._denominator);
+    }
+    static Comparison cmp(Rational const& a,Rational const& b) {
+        if (a._numerator.negative()!=b._numerator.negative()) {
+            return a._numerator.negative() ? Comparison::LESS : Comparison::GREATER;
+        }
+        if (compare(a._denominator,b._denominator)==0) { return integer_cmp(a._numerator,b._numerator); }
+        int order=compare(unsigned_mul(a._numerator.magnitude(),b._denominator),
+                          unsigned_mul(b._numerator.magnitude(),a._denominator));
+        if (a._numerator.negative()) { order=-order; }
+        return order<0 ? Comparison::LESS : order>0 ? Comparison::GREATER : Comparison::EQUAL;
+    }
+    static Boolean eq(Rational const& a,Rational const& b) {
+        return a._numerator==b._numerator && compare(a._denominator,b._denominator)==0;
+    }
 };
-
 
 Rational rec(Integer const& z) {
     return Rational(1,z);
 }
 
 Rational pow(Integer const& z, Int n) {
-    if(n>=0) { return Rational(pow(z,Nat(n))); } else { return Rational(1,pow(z,Nat(-n))); }
+    const Nat magnitude=n<0 ? Nat(-(n+1))+Nat(1) : Nat(n);
+    const Integer value=pow(z,magnitude);
+    return n<0 ? Rational(1,value) : Rational(value);
 }
 
-Rational::~Rational() {
-    mpq_clear(_mpq);
+Rational::Rational(Integer n,BigUnsigned d,Reduced)
+    : _numerator(std::move(n)),_denominator(std::move(d))
+{
+    if (_numerator.magnitude().is_zero()) { _denominator=BigUnsigned(1u); }
 }
 
-Rational::Rational() {
-    mpq_init(_mpq);
-    mpq_set_si(_mpq,0,1);
+Rational::Rational(Integer const& z) : _numerator(z) { }
+
+Rational::Rational(Integer const& n,Integer const& d) {
+    if (d.magnitude().is_zero()) { *this=inf(integer_sign(n)); return; }
+    if (n.magnitude().is_zero()) { return; }
+    const BigUnsigned g=gcd(n.magnitude(),d.magnitude());
+    _numerator=Integer::from_magnitude(exact_quotient(n.magnitude(),g),n.negative()!=d.negative());
+    _denominator=exact_quotient(d.magnitude(),g);
 }
 
-/*
-Rational::Rational(Nat m) {
-    mpq_init(_mpq);
-    mpq_set_ui(_mpq,m,1u);
-}
-
-Rational::Rational(Int n) {
-    mpq_init(_mpq);
-    mpq_set_si(_mpq,n,1);
-}
-*/
-
-Rational::Rational(Integer const& z) {
-    mpq_init(_mpq);
-    GmpIntegerBoundary value(z);
-    mpq_set_z(_mpq,value.value());
-}
-
-Rational::Rational(Dyadic const& f) {
-    mpq_init(this->_mpq);
-    Rational& q=*this;
-    if (is_finite(f)) {
-        mpq_set_f(q._mpq,f._mpf);
-    } else if (is_nan(f)) {
-        ExtensionOperations<Rational>::set_nan(q);
-    } else {
-        ExtensionOperations<Rational>::set_inf(q, f>0 ? Sign::POSITIVE : Sign::NEGATIVE);
-    }
-}
-
-Rational::Rational(Integer const& znum, Integer const& zden) {
-    mpq_init(_mpq);
-    GmpIntegerBoundary denominator(zden);
-    mpq_set_den(_mpq,denominator.value());
-    if (zden==0) {
-        Integer special=(znum==0) ? 0 : (znum>0) ? 1 : -1;
-        GmpIntegerBoundary numerator(special);
-        mpq_set_num(_mpq,numerator.value());
-    } else {
-        GmpIntegerBoundary numerator(znum);
-        mpq_set_num(_mpq,numerator.value());
-        mpq_canonicalize(_mpq);
-    }
-}
-
-Rational::Rational(Int64 n) : Rational(Integer(n)) {
-}
+Rational::Rational(Int64 n) : Rational(Integer(n)) { }
 
 Rational::Rational(ExactDouble const& x) {
-    mpq_init(this->_mpq);
-    Rational& q=*this;
-    Dbl d=x.get_d();
-    if(std::isfinite(d)) {
-        mpq_set_d(q._mpq,d);
-        mpq_canonicalize(q._mpq);
-    } else if (std::isnan(d)) {
-        ExtensionOperations<Rational>::set_nan(q);
-    } else {
-        ExtensionOperations<Rational>::set_inf(q, d>0 ? Sign::POSITIVE : Sign::NEGATIVE);
+    const double d=x.get_d();
+    if (std::isnan(d)) { *this=nan(); return; }
+    if (std::isinf(d)) { *this=inf(d<0.0 ? Sign::NEGATIVE : Sign::POSITIVE); return; }
+    if (d==0.0) { return; }
+    int exponent=0;
+    const double fraction=std::frexp(std::abs(d),&exponent);
+    std::uint64_t significand=static_cast<std::uint64_t>(std::ldexp(fraction,53));
+    const int trailing=std::countr_zero(significand);
+    significand>>=trailing;
+    exponent=exponent-53+trailing;
+    BigUnsigned magnitude(significand);
+    if (exponent>=0) { magnitude=shift_left(magnitude,static_cast<std::size_t>(exponent)); }
+    else { _denominator=shift_left(BigUnsigned(1u),static_cast<std::size_t>(-exponent)); }
+    _numerator=Integer::from_magnitude(std::move(magnitude),d<0.0);
+}
+
+Rational::Rational(FloatDP const& x) : Rational(ExactDouble(x.get_d())) { }
+Rational::Rational(FloatMP const& x) : Rational(x.operator Dyadic()) { }
+
+Rational::Rational(String const& str) {
+    // Decimal integer or numerator/denominator; permit ASCII whitespace as
+    // the old GMP reader did, but reject extra separators and missing digits.
+    std::string token;
+    for (char c : str) {
+        if (c!=' ' && c!='\t' && c!='\n' && c!='\r' && c!='\f' && c!='\v') { token.push_back(c); }
+    }
+    try {
+        const auto slash=token.find('/');
+        const Integer n(String(token.substr(0u,slash)));
+        const Integer d=slash==std::string::npos ? Integer(1) : Integer(String(token.substr(slash+1u)));
+        *this=Rational(n,d);
+    } catch (std::invalid_argument const&) {
+        ARIADNE_THROW(std::runtime_error,"Rational(string)",
+                      "String \""<<str<<"\" does not have a valid rational number format.");
     }
 }
 
-Rational::Rational(FloatDP const& x) : Rational(ExactDouble(x.get_d())) {
+Rational::Rational(Rational&& q) : Rational() {
+    std::swap(_numerator,q._numerator);
+    _denominator.swap(q._denominator);
+    std::swap(_kind,q._kind);
 }
 
-Rational::Rational(FloatMP const& x) : Rational(x.operator Dyadic()) {
-}
-
-Rational::Rational(const String& str) : Rational() {
-    Int base=10;
-    int fail = mpq_set_str(_mpq,str.c_str(),base);
-    if (fail!=0)
-        ARIADNE_THROW(std::runtime_error,"Rational(string)","String \""<<str<<"\" does not have a valid rational number format.");
-    mpq_canonicalize(_mpq);
-}
-
-Rational::Rational(const mpq_t q) {
-    mpq_init(_mpq);
-    mpq_set(_mpq,q);
-    mpq_canonicalize(_mpq);
-}
-
-Rational::Rational(const Rational& q) {
-    mpq_init(_mpq);
-    mpq_set(_mpq,q._mpq);
-}
-
-Rational::Rational(Rational&& q) {
-    mpq_init(_mpq);
-    mpq_swap(_mpq,q._mpq);
-}
-
-Rational& Rational::operator=(const Rational& q) {
-    mpq_set(_mpq,q._mpq);
+Rational& Rational::operator=(Rational const& q) {
+    if (this!=&q) {
+        Rational copy(q);
+        *this=std::move(copy);
+    }
     return *this;
 }
 
 Rational& Rational::operator=(Rational&& q) {
-    mpq_swap(_mpq,q._mpq);
+    std::swap(_numerator,q._numerator);
+    _denominator.swap(q._denominator);
+    std::swap(_kind,q._kind);
     return *this;
 }
 
-
-mpq_t const& Rational::get_mpq() const {
-    return this->_mpq;
-}
-
 double Rational::get_d() const {
-    if (is_finite(*this))
-        return mpq_get_d(this->_mpq);
-    else if (is_nan(*this)) {
-        return std::numeric_limits<double>::quiet_NaN();
-    } else {
-        return (sgn(*this) == Sign::POSITIVE) ? std::numeric_limits<double>::infinity() : -std::numeric_limits<double>::infinity();
-    }
+    if (is_nan(*this)) { return std::numeric_limits<double>::quiet_NaN(); }
+    const bool negative=_numerator.negative();
+    const double sign=negative ? -1.0 : 1.0;
+    if (is_inf(*this)) { return sign*std::numeric_limits<double>::infinity(); }
+    const BigUnsigned& n=_numerator.magnitude();
+    if (n.is_zero()) { return 0.0; }
+    const std::size_t nb=n.bit_length(),db=_denominator.bit_length();
+    if (nb>db && nb-db>1024u) { return sign*std::numeric_limits<double>::infinity(); }
+    if (db>nb && db-nb>1075u) { return 0.0; }
+    int exponent=nb>=db ? static_cast<int>(nb-db) : -static_cast<int>(db-nb);
+    const int order=exponent>=0
+        ? compare(n,shift_left(_denominator,static_cast<std::size_t>(exponent)))
+        : compare(shift_left(n,static_cast<std::size_t>(-exponent)),_denominator);
+    if (order<0) { --exponent; }
+    if (exponent>1023) { return sign*std::numeric_limits<double>::infinity(); }
+    if (exponent< -1074) { return 0.0; }
+    // Truncate toward zero, including subnormals, independent of the active
+    // floating rounding mode. The <=53-bit integer is exactly representable.
+    const int scale=std::max(exponent-52,-1074);
+    const BigUnsigned digits=scale<0
+        ? quot(shift_left(n,static_cast<std::size_t>(-scale)),_denominator)
+        : quot(n,shift_left(_denominator,static_cast<std::size_t>(scale)));
+    return std::copysign(std::ldexp(static_cast<double>(digits.limb(0u)),scale),sign);
 }
 
-Integer Rational::get_num() const {
-    return integer_from_gmp(mpq_numref(this->_mpq));
-}
-
-Integer Rational::get_den() const {
-    return integer_from_gmp(mpq_denref(this->_mpq));
-}
-
-Integer Rational::numerator() const {
-    return integer_from_gmp(mpq_numref(this->_mpq));
-}
-
-Natural Rational::denominator() const {
-    return Natural(integer_from_gmp(mpq_denref(this->_mpq)));
-}
+Integer Rational::get_num() const { return _numerator; }
+Integer Rational::get_den() const { return Integer::from_magnitude(_denominator,false); }
+Integer Rational::numerator() const { return get_num(); }
+Natural Rational::denominator() const { return Natural(get_den()); }
 
 Rational operator/(Integer const& z1, Integer const& z2) {
     return Rational(z1,z2);
@@ -339,15 +382,24 @@ Rational div(Integer const& z1, Integer const& z2) {
     return Rational(z1,z2);
 }
 
+Rational fma(Rational const& a,Rational const& b,Rational const& c) {
+    return add(mul(a,b),c);
+}
+
 Rational pow(Rational const& q, Nat m) {
-    Rational r=1; Rational p=q;
-    while(m!=0) { if(m%2==1) { r=r*p; } p=p*p; m/=2; }
-    return r;
+    if (m==0u) { return Rational(1); }
+    if (is_nan(q)) { return Rational::nan(); }
+    if (is_inf(q)) {
+        return Rational::inf(q._numerator.negative() && (m%2u)!=0u ? Sign::NEGATIVE : Sign::POSITIVE);
+    }
+    return Rational(Integer::from_magnitude(Ariadne::pow(q._numerator.magnitude(),m),
+                                            q._numerator.negative() && (m%2u)!=0u),
+                    Ariadne::pow(q._denominator,m),Rational::Reduced{});
 }
 
 Rational pow(Rational const& q, Int n) {
-    if(n<0) { return rec(pow(q,Nat(-n))); }
-    else { return pow(q,Nat(n)); }
+    const Nat magnitude=n<0 ? Nat(-(n+1))+Nat(1) : Nat(n);
+    return pow(n<0 ? rec(q) : q,magnitude);
 }
 
 Boolean eq(Rational const& q1, Rational const& q2) {
@@ -360,7 +412,8 @@ Boolean lt(Rational const& q1, Rational const& q2) {
 
 Rational Rational::inf(Sign sgn) {
     Rational q(sgn==Sign::ZERO ? 0 : sgn==Sign::POSITIVE ? +1 : -1);
-    mpz_set_si(mpq_denref(q._mpq),0);
+    q._denominator=BigUnsigned();
+    q._kind=sgn==Sign::ZERO ? Kind::NAN_VALUE : sgn==Sign::POSITIVE ? Kind::POSITIVE_INFINITY : Kind::NEGATIVE_INFINITY;
     return q;
 }
 
@@ -394,34 +447,29 @@ Sign sgn(Rational const& q) {
 
 Integer round(Rational const& q) {
     ARIADNE_PRECONDITION(is_finite(q));
-
-    const Integer num=q.numerator();
-    const Integer den=q.denominator();
-    const Integer doubled=add(num,num);
-    const Integer adjusted=num>=0 ? add(doubled,den) : sub(doubled,den);
-    return quot(adjusted,add(den,den));
+    auto division=divrem(q._numerator.magnitude(),q._denominator);
+    if (compare(shift_left(division.second,1u),q._denominator)>=0) {
+        division.first=add(division.first,BigUnsigned(1u));
+    }
+    return Integer::from_magnitude(std::move(division.first),q._numerator.negative());
 }
 
 Integer ceil(Rational const& q) {
     ARIADNE_PRECONDITION(is_finite(q));
-    const Integer numerator=q.numerator();
-    const Integer denominator=q.denominator();
-    Integer result=quot(numerator,denominator);
-    if (numerator>0 && rem(numerator,denominator)!=0) {
-        ++result;
+    auto division=divrem(q._numerator.magnitude(),q._denominator);
+    if (!q._numerator.negative() && !division.second.is_zero()) {
+        division.first=add(division.first,BigUnsigned(1u));
     }
-    return result;
+    return Integer::from_magnitude(std::move(division.first),q._numerator.negative());
 }
 
 Integer floor(Rational const& q) {
     ARIADNE_PRECONDITION(is_finite(q));
-    const Integer numerator=q.numerator();
-    const Integer denominator=q.denominator();
-    Integer result=quot(numerator,denominator);
-    if (numerator<0 && rem(numerator,denominator)!=0) {
-        --result;
+    auto division=divrem(q._numerator.magnitude(),q._denominator);
+    if (q._numerator.negative() && !division.second.is_zero()) {
+        division.first=add(division.first,BigUnsigned(1u));
     }
-    return result;
+    return Integer::from_magnitude(std::move(division.first),q._numerator.negative());
 }
 
 
@@ -432,11 +480,7 @@ Comparison cmp(Rational const& q1, Rational const& q2) {
 Comparison cmp(Rational const& q1, ExactDouble const& x2) {
     double d2=x2.get_d();
     ARIADNE_PRECONDITION(not std::isnan(d2));
-    if(std::isfinite(d2)) {
-        return cmp(q1,Rational(x2));
-    } else {
-        return d2 > 0.0 ? Comparison::LESS : Comparison::GREATER;
-    }
+    return cmp(q1,Rational(x2));
 }
 
 Comparison cmp(ExactDouble const& x1, Rational const& q2) {
@@ -488,14 +532,7 @@ Rational operator""_q(long double x) {
     if(re>std::numeric_limits<double>::epsilon())
         ARIADNE_THROW(InvalidRationalLiteralException,"Rational operator""_q(long double)",
                       "Rational approximation q="<<q<<" to x="<<x<<"="<<xd<<" has error "<<ae<<" and relative error "<<re<<" while is larger than machine epsilon");
-    mpq_canonicalize(q._mpq);
     return q;
-}
-
-OutputStream& write(OutputStream& os, mpz_t const z) {
-    String str(mpz_sizeinbase(z,10)+2u,'\0');
-    mpz_get_str(str.data(),10,z);
-    return os << str.c_str();
 }
 
 InputStream& operator>>(InputStream& is, Rational& q) {
@@ -505,10 +542,6 @@ InputStream& operator>>(InputStream& is, Rational& q) {
     return is;
 }
 
-//   mpq_get_str (char *str, mpq_eq1p_t *eq1pptr, Int b, SizeType n, mpq_t op, mpq_rnd_t rnd)
-// If str is not a null pointer, it should point to a block of storage large enough for the significand,
-// i.e., at least maq1(n + 2, 7). The eq1tra two bytes are for a possible minus sign,
-// and for the terminating null character, and the value 7 accounts for -@Inf@ plus the terminating null character.
 OutputStream& operator<<(OutputStream& os, Rational const& q1) {
     Integer num=q1.get_num();
     Integer den=q1.get_den();

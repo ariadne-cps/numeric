@@ -32,6 +32,7 @@
 #include "twoexp.hpp"
 #include "floatmp.hpp"
 #include "numeric/detail/integer_gmp_bridge.hpp"
+#include "numeric/detail/rational_gmp_bridge.hpp"
 #include "floatdp.hpp"
 #include "rounded_float.hpp"
 #include "float_approximation.hpp"
@@ -135,7 +136,8 @@ FloatMP::Float(Decimal const& dec, RoundingModeType rnd, MultiplePrecision pr)
 FloatMP::Float(Rational const& q, RoundingModeType rnd, MultiplePrecision pr) {
     mpfr_init2(_mpfr,pr);
     if (is_finite(q)) {
-        mpfr_set_q(_mpfr,q.get_mpq(),rnd);
+        GmpRationalBoundary raw(q);
+        mpfr_set_q(_mpfr,raw.value(),rnd);
     } else if (is_nan(q)) {
         mpfr_set_nan(_mpfr);
     } else {
@@ -771,12 +773,16 @@ Comparison cmp(FloatDP const& x1, FloatMP const& x2) {
 }
 
 Comparison cmp(FloatMP const& x1, Rational const& q2) {
-    auto c=mpfr_cmp_q(x1._mpfr,q2.get_mpq());
+    if (!mpfr_number_p(x1._mpfr) || !is_finite(q2)) { return cmp(Rational(x1),q2); }
+    GmpRationalBoundary raw(q2);
+    auto c=mpfr_cmp_q(x1._mpfr,raw.value());
     return c==0 ? Comparison::EQUAL : (c>0?Comparison::GREATER:Comparison::LESS);
 }
 
 Comparison cmp(Rational const& q1, FloatMP const& x2) {
-    auto c=mpfr_cmp_q(x2._mpfr,q1.get_mpq());
+    if (!mpfr_number_p(x2._mpfr) || !is_finite(q1)) { return cmp(q1,Rational(x2)); }
+    GmpRationalBoundary raw(q1);
+    auto c=mpfr_cmp_q(x2._mpfr,raw.value());
     return c==0 ? Comparison::EQUAL : (c>0?Comparison::LESS:Comparison::GREATER);
 }
 

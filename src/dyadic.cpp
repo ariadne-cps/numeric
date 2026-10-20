@@ -39,6 +39,7 @@
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/detail/integer_gmp_bridge.hpp"
+#include "numeric/detail/rational_gmp_bridge.hpp"
 #include "numeric/extended.hpp"
 
 #include "numeric/concepts.hpp"
@@ -47,6 +48,17 @@
 
 namespace Ariadne {
 
+
+// Dyadic still owns a GMP mpf value; keep its exact conversion at this
+// temporary boundary rather than introducing GMP into Rational arithmetic.
+Rational::Rational(Dyadic const& f) {
+    if (is_finite(f)) {
+        GmpRationalBoundary raw;
+        mpq_set_f(raw.mutable_value(),f._mpf);
+        *this=raw.to_rational();
+    } else if (is_nan(f)) { *this=nan(); }
+    else { *this=inf(f>0 ? Sign::POSITIVE : Sign::NEGATIVE); }
+}
 
 template<class X> class FiniteOperations;
 template<class X> class ExtensionOperations;
@@ -457,8 +469,7 @@ auto ScientificWriter::_write(OutputStream& os, Dyadic const& x) const -> Output
 
 auto FractionWriter::_write(OutputStream& os, Dyadic const& x) const -> OutputStream& {
     if(is_finite(x)) {
-        Rational q;
-        mpq_set_f (q._mpq,x._mpf);
+        const Rational q(x);
         os << q.numerator();
         Int exp = log2floor(q.denominator());
         if (exp!=0) { if(exp==1) { os << "/2"; } else { os << "/2^" << exp; } }

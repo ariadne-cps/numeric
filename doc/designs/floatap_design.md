@@ -9146,3 +9146,127 @@ These mixed single-run timings do not establish FloatAP performance
 acceptance; its existing short-width limits remain unmet. Native
 GCC x86-64 and MSVC validation and the six strict Integer per-size
 <1x totals/every case <2x remain pending.
+
+
+### R1 — native finite and extended Rational (20 October 2026)
+
+The user accepted Integer as complete after the B75 x86-64 run:
+per-size total/worst ratios at 53/128/256/1024/2048/4096 bits were
+0.535/1.296, 0.898/1.555, 0.987/1.597, 0.951/1.928,
+0.887/1.881 and 0.914/1.930x. Numerical verification passed
+768 paired inputs and 2688 results. R1 starts the explicitly requested
+Rational migration on remove-gmp; Integer and BigUnsigned are unchanged.
+
+**Representation and invariants.** Rational now privately owns an Integer
+numerator, a BigUnsigned denominator and an explicit finite/positive
+infinity/negative infinity/NaN kind. Every finite value is reduced, its
+denominator is positive and zero is 0/1. Special accessors retain the
+mathematically useful 0/0 or +/-1/0 conventions, but classification uses
+the explicit kind, never a GMP field. Public _mpq, get_mpq(), the mpq_t
+constructor and the unrelated raw-mpz stream helper are removed.
+This changes source interfaces for GMP-specific clients and the binary
+layout; rebuild the library and all clients together. Ordinary rational
+constructors, arithmetic, numerator/denominator accessors, streams and
+number/Python integration retain their mathematical interfaces. Builtin
+unsigned construction now uses Integer directly, including UINT64_MAX.
+
+**Finite arithmetic.** Addition/subtraction first computes g=gcd(b,d)
+for a/b and c/d, forms n=a*(d/g)+/-c*(b/g), and reduces only by
+h=gcd(abs(n),g). The denominator is (b/g)*(d/h); no other common
+factor can remain because both inputs were reduced. Multiplication
+cancels gcd(abs(a),d) and gcd(abs(c),b) before either product; division
+cancels numerator and denominator pairs before multiplying and handles
+the resulting sign explicitly. Same-object multiplication and sqr use
+squares of the already-coprime components. Halving cancels a factor of
+two from the numerator or shifts the denominator. Reciprocal exchanges
+coprime magnitudes. A private Reduced constructor is used only where
+these operations prove coprimality; it still canonicalizes zero.
+Powers use shared unsigned powering without repeated fraction gcds;
+negative exponents, including Int minimum, do not negate an unrepresentable
+signed minimum. Exact fma is implemented as exact multiply then add.
+Comparisons use canonical equality or exact cross-products. Floor, ceil
+and half-away-from-zero round share one unsigned quotient/remainder.
+
+**Extended semantics and explicit decisions.** Existing ExtendedOperations
+continues to dispatch finite versus special arithmetic, comparisons,
+min/max, sign, abs and reciprocal. NaN remains unequal to itself and
+named cmp returns INCOMPARABLE. No Rational signed zero is introduced.
+Finite division by zero is explicitly defined as signed infinity for
+nonzero numerators and NaN for 0/0; reciprocal zero is positive infinity.
+These cases no longer call GMP on an invalid denominator. Decimal text
+accepts signed integers or n/d, ignoring ASCII whitespace, and raises
+runtime_error on malformed input; textual denominator zero has the same
+explicit extended meaning as the integer-pair constructor. Equal infinities
+in Rational/ExactDouble comparisons now compare equal rather than taking
+the old unconditional less/greater branch; NaN remains incomparable.
+FloatMP mixed comparisons also classify special values before any GMP call.
+
+**Exact binary64 conversion.** ExactDouble import decomposes a finite
+binary64 into an integer significand and power of two and cancels trailing
+zero bits. get_d computes the binary exponent with exact comparisons,
+then truncates an exact scaled integer quotient to at most 53 bits.
+Subnormal spacing is 2^-1074; overflow yields signed infinity. Underflow
+returns +0, including negative tiny fractions, matching the old GMP
+conversion rather than introducing an observable negative zero. Results
+are independent of the active host rounding mode. No GMP or floating
+approximation is used to decide rounding. The public rational header
+passes an include-only compilation without GMP/MPFR headers, and its
+arithmetic object has no undefined GMP/MPFR symbols.
+
+**Remaining integration boundaries.** detail/rational_gmp_bridge.hpp is
+an independently owned RAII adapter, analogous to the Integer boundary,
+for still-GMP-backed Dyadic/FloatAP and MPFR FloatMP only. It is never a
+Rational member, arithmetic backend or cache. Export rejects nonfinite
+values rather than passing denominator zero to GMP. Dyadic conversion
+is implemented beside Dyadic's existing GMP storage; FloatMP conversion
+and finite mixed comparison explicitly use temporary exact exports.
+FloatAP's Rational conversion imports its significand through the existing
+Integer boundary and uses native shifts and normalization; Rational-to-AP
+and AP decimal formatting retain explicit transitional GMP exports.
+FloatAP's internal GMP significand, Fraction class and fixed-point arithmetic
+remain separate future migration work. The production library as a whole
+therefore still links GMP/MPFR: R1 does not claim complete link independence.
+There are no remaining _mpq/get_mpq call sites in numeric sources, public
+headers, tests, Python or benchmark callers. Direct GMP test/benchmark
+oracles and FloatAP's independent internal mpq operations are retained.
+
+**Verification and measurements.** The complete AppleClang 21 Release
+warnings-as-errors everything build and all 20 CTest suites pass on
+Apple M2 Ultra, macOS 26.6.2. New TestRational cases cover fixed independent
+expected fractions, large cancellation, zero/special cases, parsing,
+copy/move/self-aliasing, signed minimum exponents, 2000 deterministic
+binary64 round trips, 1200 independent random GMP-oracle pairs up to
+17 limbs, canonical result gcd/sign checks, floor/ceil and bit-exact
+binary64 differential checks at normal/subnormal/overflow boundaries
+under all four host rounding modes. Integer, BigUnsigned, Rational,
+Float and FloatRounding Debug ASan/UBSan suites pass (5/5).
+GCC 16.2 ARM64 passes the native Rational/Integer/BigUnsigned suites
+with normal project warnings-as-errors. A complete default GCC build
+encountered -Wdisabled-optimization in the existing very large
+TestFloat/TestFloatRounding template functions; full-build validation
+passes everything and all 20 CTest suites with the larger local GCC
+--param=max-gcse-memory=1000000 budget, without changing project CMake
+rules or suppressing warnings. Native x86-64 and MSVC are not
+available on this host and are not claimed as tested.
+
+The unchanged six-size Rational benchmark (20000 iterations, 31 samples)
+passes 384 paired inputs and 2880 operation results. Initial ARM64
+per-size total/worst ratios are 1.198/2.211, 1.203/5.643,
+2.562/3.567, 2.005/3.066, 1.351/3.435, 0.991/3.890x.
+These measurements overlapped compiler/test activity and are diagnostic
+only, not performance acceptance or an x86-64 prediction. Rational normalization/GCD, comparison and division
+remain optimization work. No fixture, operation weight, GMP oracle,
+timing barrier or compiler/ISA selector was changed.
+
+Both saved B75 and rebuilt R1 FloatAP benchmarks pass the unchanged
+1000x11 numerical check (256 inputs, 3456 results). Initial reference
+versus candidate total/worst ratios at 53/128/256/1024 bits are
+1.759/3.953 -> 1.694/4.063, 1.067/2.859 -> 1.068/2.750,
+0.600/2.079 -> 0.581/2.140, 0.245/1.628 -> 0.250/1.735x.
+These single runs do not establish performance acceptance or blanket
+nonregression; the existing short-width AP gates are still unmet.
+No FloatAP arithmetic, precision or rounding algorithm was changed.
+
+Rebuild library and clients, then measure native x86-64 from the build directory:
+  cmake --build . --parallel --target benchmark_compare_rational_backends
+  ./benchmarks/benchmark_compare_rational_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31

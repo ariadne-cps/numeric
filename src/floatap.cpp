@@ -29,6 +29,7 @@
 #include "numeric/floatap.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/detail/integer_gmp_bridge.hpp"
+#include "numeric/detail/rational_gmp_bridge.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
 #include "numeric/double.hpp"
@@ -834,11 +835,10 @@ Integer cast_integer(FloatAP const& value) {
         throw std::domain_error("FloatAP cannot cast a nonfinite value to Integer");
     }
     const Rational exact = static_cast<Rational>(value);
-    mpq_srcptr q = exact.get_mpq();
-    if (mpz_cmp_ui(mpq_denref(q), 1u) != 0) {
+    if (exact.denominator()!=1) {
         throw std::domain_error("FloatAP is not an integer");
     }
-    return integer_from_gmp(mpq_numref(q));
+    return exact.numerator();
 }
 
 Comparison cmp(FloatAP const& a, Rational const& b) {
@@ -909,7 +909,8 @@ std::string decimal_fixed(FloatAP const& x, unsigned int places,
     if (x.is_nan()) return "nan";
     if (x.is_inf()) return x.negative() ? "-inf" : "inf";
     const Rational rational=static_cast<Rational>(x);
-    mpq_srcptr q=rational.get_mpq();
+    GmpRationalBoundary raw(rational);
+    mpq_srcptr q=raw.value();
     mpz_t numerator,denominator,scale,quotient,remainder;
     mpz_inits(numerator,denominator,scale,quotient,remainder,nullptr);
     struct Clear {
@@ -1395,18 +1396,21 @@ FloatAP::Float(Rational const& q, RoundingModeType mode, PrecisionType pr)
         *this=nan(_precision);
     }
     else if (rational_is_inf(q)) {
-        *this=infinity(_precision,mpz_sgn(mpq_numref(q.get_mpq()))<0);
+        *this=infinity(_precision,q.numerator().negative());
     } else {
-        *this=from_rational(q.get_mpq(),_precision,mode);
+        GmpRationalBoundary raw(q);
+        *this=from_rational(raw.value(),_precision,mode);
     }
 }
 
 FloatAP::operator Rational() const {
     if (is_nan()) return Rational::nan();
     if (is_inf()) return Rational::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
-    Rational q;
-    to_rational(q._mpq);
-    return q;
+    BigUnsigned n=integer_from_gmp(_significand).magnitude();
+    BigUnsigned d(1u);
+    if (_exponent>0) { n=shift_left(n,shift_amount(_exponent)); }
+    if (_exponent<0) { d=shift_left(d,shift_amount(checked_sub(0,_exponent))); }
+    return Rational(Integer::from_magnitude(std::move(n),_negative),Integer::from_magnitude(std::move(d),false));
 }
 
 double FloatAP::get_d() const {
