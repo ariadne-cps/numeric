@@ -5132,3 +5132,59 @@ be assumed to close the ~1.4x 53/128/256 total gap.
 B65 native timings and integrated CI are pending.
 Command from build (one line; user-preferred -t dark):
   ./benchmarks/benchmark_integer_small_power_profile -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
+
+### B66 promote GMP-verified MSB-first signed power on GCC x86-64 (20 October 2026)
+
+The user ran B65 on the original 32 signed GMP-verified official
+inputs (20,000 iterations, 31 samples), obtaining these
+production -> generic MSB-first pow3 results:
+  53 bits:   100.293 -> 65.688 ns (0.655x, 1.558x GMP)
+ 128 bits:    97.224 -> 87.200 ns (0.897x, 2.294x GMP)
+ 256 bits:   124.522 ->114.540 ns (0.920x, 1.940x GMP)
+1024 bits:   248.337 ->202.110 ns (0.814x, 0.526x GMP)
+2048 bits:   369.999 ->322.656 ns (0.872x, 0.261x GMP)
+4096 bits:   651.561 ->588.354 ns (0.903x, 0.159x GMP)
+GMP verification PASS for signed powers 0/1/2/3/4/5/7/8/9/12
+and signed zero/unit controls. The diagnostic direct-cube
+sequence was faster, but it is not a general justification
+to special-case exponent 3. The B65 short symmetric square
+control improved 53 bits by only 5.5%, changed 128 bits
+by -0.9% and regressed 256 bits by 0.2%; DO NOT lower
+the >=8-limb square production gate based on these data.
+
+B66 replaces ONLY GCC x86-64 fused-build Integer::pow's
+right-to-left B32 exponentiation with the already
+GMP-tested general MSB-first left-to-right binary algorithm.
+It starts from the highest set exponent bit, borrows the
+immutable input magnitude instead of copying it,
+and materializes each required square and multiplication
+into an owned temporary before assignment. It handles
+exponents 0 and 1 explicitly, preserving 0^0=1,
+negative-sign parity and zero normalization. The
+exponent is the general Nat argument, not benchmark-only
+exponent three. The original B32 implementation remains
+selected on ARM64, AppleClang/Clang, MSVC and other builds.
+No public headers, FloatAP logic, GMP dependency, square
+or multiplication kernel, or the original 84-operation
+benchmark and its 32-input corpora are changed.
+
+Extend existing integrated GMP-oracle power tests with
+60 signed/unsigned values at canonical limb counts
+0/1/2/3/4 and 18 exponents each, including
+31/32/33/63/64/65 boundaries and sparse/saturated/random
+limbs (1080 oracle comparisons), alongside all previous
+power and arithmetic tests. As B65 timings are diagnostics
+rather than new integrated production B66 results, require
+the original same-host 84-case GMP-verified official benchmark
+before claiming B66 achieved a given slowdown reduction.
+All six size-specific total_time/GMP must be <1.000x,
+and every one of the 84 worst ratios <2.000x.
+B66 cannot by itself resolve 53/128/256-bit total-time
+ratios of approximately 1.4x, and 128-bit pow3 MSB-first
+was still 2.294x in B65. Verify the full CI and ARM64
+baseline before any wider algorithmic promotion.
+
+Run from build:
+  ./benchmarks/benchmark_compare_integer_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
+B66 native compile, integrated CI and official timing
+are not yet verified at commit authoring time.
