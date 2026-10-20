@@ -4011,3 +4011,87 @@ quotient estimator, reciprocal based small-divisor paths,
 and optional BMI2/ADX kernels only after checking actual
 target ISA and paired benchmark results; do not silently
 expand the narrow 32-limb selector without evidence.
+
+
+### B53 port ARM64 B38/B40 sparse-row multiplication to x86-64 (20 October 2026)
+
+On the user's SAME x86-64 host, the B52 native multiplication
+diagnostic confirmed the 32x32-limb MULQ/ADDQ/ADCQ dispatch:
+2048-bit preallocated selected 953.096 ns (B51) to 853.847
+ns (B52), 10.41% faster; at 4096 bits cutoff-32 Karatsuba
+2994.552->2675.843 ns, 10.64% faster. In the official
+84-operation benchmark, 2048-bit Integer mul fell
+1030.988->861.190 ns (-16.47%), and 4096-bit Integer
+mul 3117.157->2845.357 ns (-8.72%). At 4096 bits
+pow3 remained approximately unchanged
+8363.683->8362.002 ns, which exposes the cost of
+executing full schoolbook rows for sparse powers.
+B52 official total_time/GMP 1.843x, geomean 1.435x
+and numerical verification passed (768 paired inputs,
+2688 operation results). Across B51/B52 GMP and
+microbenchmark medians move as well; do not confuse
+cross-run ratio noise with code regressions.
+
+B53 transfers the *general mathematical* optimizations
+of ARM64 B38/B40 to native x86-64 multiplication, without
+special-casing the benchmark's pow3 operands. The x86
+GCC selected fused unsigned __int128 row-schoolbook
+now has two templated implementations: sparse skips any
+exact-zero outer limb row after initially zero-filling
+the output; dense has no zero check inside the outer
+loop. The existing x86 GNU/Clang MULQ/ADDQ/ADCQ kernel
+gets the same two specializations, preserving instruction
+syntax and carry propagation. If a row multiplier ai==0,
+every partial product, carry and output update from that
+row is identically zero, including the final carry slot
+which earlier rows cannot touch. Thus skipping a row is
+exact for all full/truncated and noncanonical raw inputs.
+
+As in ARM64 B40, when active outer rows =
+min(a.size(),output.size()) is <64 or b.size()<64,
+select the sparse variant without scanning; larger
+cases first scan up to a threshold
+max(2,floor(active_rows/8)) exact zero limbs and
+select sparse only upon reaching it, otherwise dense.
+The prescan exits early when sparse. This transfers
+ARM64's protection against costly dense-data branches
+at large sizes. The GCC 32x32 B52 assembly selector
+remains unchanged; it now benefits from zero-row
+elision too. The owning GCC Karatsuba size/balance
+selector is unchanged (a separate candidate for B54),
+and existing x86 symmetric square remains unchanged.
+Clang's default B3 schoolbook and MSVC are unchanged;
+only the explicit x86 carry benchmark on Clang uses
+the new template selection. ARM64 and portable
+kernels and all public exception, view ownership,
+no-alias, exactness and scratch contracts are unchanged.
+Neither BMI2 nor ADX is required.
+
+Before integration, a standalone GMP-based exact
+128-bit/assembly test of these identical recurrences
+verified 8000 full/truncated/oversized comparisons
+under GCC 14 and Clang 17 on a local AMD EPYC proxy,
+and again 8000 comparisons under Clang
+AddressSanitizer/UndefinedBehaviorSanitizer. The
+proxy is NOT the user's x86 target and cannot
+establish a performance claim. Production test
+corpus adds 16 operand-length pairs x24 adversarial/
+random patterns = 384 source pairs. Each compares
+six destination sizes (0,1,half,full-1,full,full+2)
+against independent GMP modulo 2^(64*length), with
+byte-exact comparison of the selected, forced fused
+and forced x86 carry results. Coverage spans the
+B52 31/32/33-limb selector, B40 63/64/65 adaptive
+prescan, 128-limb unbalanced operands, saturated,
+zero, alternating, sparse and dense patterns.
+
+Run the unchanged official x86-64 Integer/GMP benchmark
+(20000 iterations, 31 samples) and the existing
+benchmark_big_unsigned_multiply alternatives; primary
+target is reducing pow3 at 1024/2048/4096 bits and
+preserving B52's 2048/4096 mul gains. Inspect dense
+1024/2048/4096 preallocated multiply measurements
+for regressions and avoid treating Apple M4 ARM64
+absolute timings as same-host comparisons. B53 has
+no on-target performance measurements yet. All
+standard CI checks should pass before acceptance.

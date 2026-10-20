@@ -154,35 +154,55 @@ void mul_low_into_comba_x86_64(BigUnsigned::LimbView a,
 
 
 
-// Experimental GNU/Clang x86-64 row-schoolbook with explicit carry flags.
-// Equivalent to the selected shared wide-accumulator fused recurrence:
-// total = a[i]*b[j] + output[i+j] + carry, total < 2^128.
-// MULQ writes RDX:RAX; ADDQ/ADCQ propagate each of the two 64-bit
-// additions into the high half. +&a and =&d forbid early-clobber
-// overlap with inputs: incorrect allocation could corrupt a multiplier.
-// No BMI2/ADX, extra scratch, allocations, or runtime CPU detection.
-// Output and input spans must not alias; all output words are overwritten.
-// On MSVC (no GNU inline asm), the existing x86-64 B3 path is reused.
-void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
-                               BigUnsigned::LimbView b,
-                               BigUnsigned::MutableLimbView output) noexcept
+// B53: ARM64 B38/B40's exact-zero row elimination and adaptive dense
+// dispatch, now for the baseline x86-64 MULQ/ADDQ/ADCQ recurrence.
+// The result buffer is zero-filled. If ai==0, the entire row's sum
+// and final carry are zero: omitting it leaves the same result.
+// The dense template has no per-row branch; only >=64 active rows
+// and >=64 multiplier limbs pay for a linear density prescan.
+// Neither kernel requires BMI2, ADX, new alignment or allocations.
+#if (defined(__GNUC__) || defined(__clang__)) && \
+    defined(__x86_64__) && !defined(_MSC_VER)
+namespace {
+
+bool use_sparse_carry_rows_x86_64(BigUnsigned::LimbView rows) noexcept
 {
-#if (defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__) && !defined(_MSC_VER)
+    const std::size_t threshold=std::max<std::size_t>(
+        2u,rows.size()/8u);
+    std::size_t zeros=0u;
+    for (const Limb digit:rows) {
+        if (digit==0u && ++zeros>=threshold) {
+            return true;
+        }
+    }
+    return false;
+}
+
+template<bool SkipZeroRows>
+void mul_low_into_carry_x86_64_impl(
+        BigUnsigned::LimbView a,BigUnsigned::LimbView b,
+        BigUnsigned::MutableLimbView output) noexcept
+{
     std::fill(output.begin(),output.end(),Limb{0});
-    for (std::size_t i=0u; i<a.size() && i<output.size(); ++i) {
+    for (std::size_t i=0u;i<a.size() && i<output.size();++i) {
         const Limb ai=a[i];
+        if constexpr (SkipZeroRows) {
+            if (ai==0u) {
+                continue;
+            }
+        }
         Limb carry=0u;
         const std::size_t terms=std::min(b.size(),output.size()-i);
-        for (std::size_t j=0u; j<terms; ++j) {
+        for (std::size_t j=0u;j<terms;++j) {
             Limb lo=ai,hi;
             const Limb previous=output[i+j];
             const Limb bj=b[j];
             __asm__ volatile(
-                "mulq %[bj]\n\t"
-                "addq %[previous], %%rax\n\t"
-                "adcq $0, %%rdx\n\t"
-                "addq %[carry], %%rax\n\t"
-                "adcq $0, %%rdx\n\t"
+                "mulq %[bj]\\n\\t"
+                "addq %[previous], %%rax\\n\\t"
+                "adcq $0, %%rdx\\n\\t"
+                "addq %[carry], %%rax\\n\\t"
+                "adcq $0, %%rdx\\n\\t"
                 : "+&a" (lo), "=&d" (hi)
                 : [bj] "r" (bj), [previous] "r" (previous),
                   [carry] "r" (carry)
@@ -193,6 +213,25 @@ void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
         if (i+terms<output.size()) {
             output[i+terms]=carry;
         }
+    }
+}
+} // namespace
+#endif
+
+// Preserve the public test/benchmark entry point for the native kernel.
+// Its MSVC implementation remains the historical B3 fallback.
+void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
+                               BigUnsigned::LimbView b,
+                               BigUnsigned::MutableLimbView output) noexcept
+{
+#if (defined(__GNUC__) || defined(__clang__)) && \
+    defined(__x86_64__) && !defined(_MSC_VER)
+    const std::size_t active=std::min(a.size(),output.size());
+    if (active<64u || b.size()<64u ||
+            use_sparse_carry_rows_x86_64(a.first(active))) {
+        mul_low_into_carry_x86_64_impl<true>(a,b,output);
+    } else {
+        mul_low_into_carry_x86_64_impl<false>(a,b,output);
     }
 #else
     mul_low_into_x86_64(a,b,output);

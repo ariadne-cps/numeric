@@ -8501,3 +8501,28 @@ B51 decimal formatting was confirmed on the user's x86 host
 as 59.9%, 27.5% and 19.8% faster at 1024, 2048 and 4096
 bits respectively (full 84-operation total_time 2.052x
 to 1.842x). See B52 in integer_rational_design.md.
+
+
+### B53 ARM64 sparse multiplication lessons on x86-64 (20 October 2026)
+
+B53 ports B38/B40's general sparse-row elimination
+and adaptive dense/sparse template selection to the
+GCC x86-64 fused multiplication and GNU/Clang
+MULQ/ADDQ/ADCQ assembly kernels. Exact-zero outer
+limbs skip whole schoolbook rows, retaining the
+original mathematical result, with no public API,
+extra allocation, optional CPU ISA, dependency or
+FloatAP algorithm change. Products of >=64 active
+outer limbs and >=64 multiplier limbs use a bounded
+density prescan; smaller products select the zero-row
+guard directly. B52's 32x32-limb assembly dispatch is
+preserved. Clang default, Windows/MSVC, ARM64, and
+portable behavior are unchanged. Standalone GCC,
+Clang and Clang ASan/UBSan GMP checks passed 8000
+full/truncated comparisons each; 384 integrated
+GMP-oracle operand pairs with six destination
+lengths exercise 31/32/33, 63/64/65 and sparse
+threshold boundaries. On-target performance and CI
+remain to be measured; compare B52/B53 on the same
+x86-64 host, especially pow3 and dense-product
+regressions. See integer_rational_design.md B53.
