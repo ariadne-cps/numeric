@@ -68,25 +68,42 @@ class Integer
     bool _negative = false;
 
     // Normalizes negative zero; used by the signed arithmetic functions.
-    Integer(BigUnsigned&& magnitude,bool negative) noexcept;
+    Integer(BigUnsigned&& magnitude,bool negative) noexcept
+        : _magnitude(std::move(magnitude)),
+          _negative(negative && !_magnitude.is_zero())
+    {
+    }
 
   public:
     //! Construct a canonical signed magnitude without using GMP.
-    static Integer from_magnitude(BigUnsigned magnitude,bool negative) noexcept;
+    static Integer from_magnitude(BigUnsigned magnitude,bool negative) noexcept {
+        return Integer(std::move(magnitude),negative);
+    }
     BigUnsigned const& magnitude() const noexcept { return _magnitude; }
     bool negative() const noexcept { return _negative; }
 
     typedef ExactTag Paradigm; //!< <p/>
   public:
-    ~Integer(); //!< Destructor
+    ~Integer() = default; //!< Destructor
     Integer(); //!< Default constructor yielding \c 0
     template<BuiltinUnsignedIntegral M> Integer(M m); //!< Convert from a builtin unsigned (positive) integral type
     template<BuiltinSignedIntegral N> Integer(N n); //!< Convert from a builtin signed (positive or negative) integral type
     explicit Integer(String const&); //!< Construct from a string literal
-    Integer(const Integer&); //!< Copy constructor
-    Integer(Integer&&) noexcept; //!< Move constructor
-    Integer& operator=(const Integer&); //!< %Assignment
-    Integer& operator=(Integer&&) noexcept; //!< Move assignment
+    Integer(const Integer&) = default; //!< Copy constructor
+    Integer(Integer&& z) noexcept //!< Move constructor
+        : _magnitude(std::move(z._magnitude)),_negative(z._negative)
+    {
+        z._negative=false;
+    }
+    Integer& operator=(const Integer&) = default; //!< %Assignment
+    Integer& operator=(Integer&& z) noexcept { //!< Move assignment
+        if (this!=&z) {
+            _magnitude=std::move(z._magnitude);
+            _negative=z._negative;
+            z._negative=false;
+        }
+        return *this;
+    }
     operator ExactNumber () const; //!< Convert to a generic exact number
     String literal() const; //!< A string literal
 

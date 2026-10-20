@@ -43,18 +43,6 @@ namespace Ariadne {
 
 Comparison cmp(Integer const& z1, Integer const& z2);
 
-Integer::~Integer() = default;
-
-Integer::Integer(BigUnsigned&& magnitude,bool negative) noexcept
-    : _magnitude(std::move(magnitude)),
-      _negative(negative && !_magnitude.is_zero())
-{
-}
-
-Integer Integer::from_magnitude(BigUnsigned magnitude,bool negative) noexcept {
-    return Integer(std::move(magnitude),negative);
-}
-
 Integer::Integer() = default;
 
 Integer::Integer(Nat32 m) : _magnitude(static_cast<std::uint64_t>(m.get_ui())) {
@@ -86,22 +74,6 @@ Integer::Integer(String const& str) {
     }
     _magnitude=from_decimal(digits);
     _negative=negative && !_magnitude.is_zero();
-}
-
-Integer::Integer(const Integer& z) = default;
-Integer::Integer(Integer&& z) noexcept
-    : _magnitude(std::move(z._magnitude)),_negative(z._negative)
-{
-    z._negative=false;
-}
-Integer& Integer::operator=(const Integer& z) = default;
-Integer& Integer::operator=(Integer&& z) noexcept {
-    if (this!=&z) {
-        _magnitude=std::move(z._magnitude);
-        _negative=z._negative;
-        z._negative=false;
-    }
-    return *this;
 }
 
 long int Integer::get_si() const {

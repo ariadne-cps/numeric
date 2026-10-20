@@ -87,17 +87,37 @@ class BigUnsigned
 
   public:
     BigUnsigned() = default;
-    explicit BigUnsigned(Limb value) noexcept;
+    explicit BigUnsigned(Limb value) noexcept {
+        _inline_limbs[0u]=value;
+        _size=value!=0u ? 1u : 0u;
+    }
     explicit BigUnsigned(std::span<Limb const> digits);
     BigUnsigned(BigUnsigned const&) = default;
-    BigUnsigned(BigUnsigned&& other) noexcept;
+    BigUnsigned(BigUnsigned&& other) noexcept
+        : _inline_limbs(other._inline_limbs),
+          _heap(std::move(other._heap)),_size(other._size)
+    {
+        other._size=0u;
+    }
     BigUnsigned& operator=(BigUnsigned const&) = default;
-    BigUnsigned& operator=(BigUnsigned&& other) noexcept;
+    BigUnsigned& operator=(BigUnsigned&& other) noexcept {
+        if (this!=&other) {
+            _inline_limbs=other._inline_limbs;
+            _heap=std::move(other._heap);
+            _size=other._size;
+            other._size=0u;
+        }
+        return *this;
+    }
     ~BigUnsigned() = default;
 
     std::size_t size() const noexcept { return _size; }
     bool is_zero() const noexcept { return _size == 0u; }
-    LimbView limbs() const noexcept;
+    LimbView limbs() const noexcept {
+        return _size<=inline_capacity
+            ? LimbView(_inline_limbs.data(),_size)
+            : LimbView(_heap.data(),_size);
+    }
     //! Replace this magnitude with the canonical value of a limb view.
     //! Self-referential views are supported, including subspans.
     void assign(LimbView digits);
@@ -229,7 +249,9 @@ class BigUnsigned
     //! True only for GCC x86-64 with its independent selector enabled;
     //! native ARM64 instead selects the explicit carry-chain kernel.
     static bool selected_multiply_uses_fused() noexcept;
-    Limb limb(std::size_t index) const noexcept;
+    Limb limb(std::size_t index) const noexcept {
+        return index<_size ? limbs()[index] : 0u;
+    }
     std::size_t bit_length() const noexcept;
     void swap(BigUnsigned& other) noexcept;
 

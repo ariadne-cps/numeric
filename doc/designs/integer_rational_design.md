@@ -5850,3 +5850,92 @@ binding acceptance is still all SIX official per-size totals <1x
 and EVERY operation/size <2x, with stable same-host repeated runs.
 No benchmark corpus, weights or oracle was altered. Run from build:
   ./benchmarks/benchmark_compare_integer_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
+
+
+### B75 expose small ownership/adaptation bodies to the optimizer (20 October 2026)
+
+The user's B74 GCC x86-64 official 20000x31 run verifies all 768
+paired inputs and 2688 operation results. All 84 operation/size
+ratios are now below 2x: per-size worst is
+1.750/1.856/1.795/1.989/1.942/1.964x. Total/GMP is
+0.750/1.091/1.120/0.942/0.854/0.900x at the six widths.
+Only 128 and 256 bits still fail total parity: native sums
+532.743/776.424 ns versus GMP 488.214/693.014 ns. The remaining
+44.529/83.410 ns require about 8.36%/10.74% native reductions.
+The overall 0.901x sum does not substitute for these two gates.
+
+B75 makes existing small bodies visible in the class headers:
+BigUnsigned's scalar constructor, move constructor/assignment,
+limbs() and limb(); Integer's signed-magnitude constructor,
+from_magnitude(), destructor, copy constructor/assignment and move
+constructor/assignment. Their arithmetic, field transfers, self-move
+guards, moved-from canonical zero and negative-zero normalization
+are unchanged. The former out-of-line definitions are removed;
+there is one ODR-valid inline definition per method. Integer's
+default constructor remains out of line. No arithmetic kernel,
+unsigned power/division schedule, storage layout, capacity, API
+signature, exception specification, ISA dispatch, benchmark fixture,
+keep-alive barrier, operation weight or numerical oracle is changed.
+No LTO, compiler flag, always-inline attribute or platform dependency.
+
+The purpose is to let each caller optimize ownership transfers and
+eliminate redundant call/temporary work, including destruction of
+moved-from temporary magnitudes. It is not proof that a specific
+GCC ABI/linker rule caused the prior cost: B70's noisy controls did
+not establish that. An inline definition permits optimization; it
+does not guarantee a particular machine-code sequence or native
+x86-64 improvement. The bodies are shared across all toolchains.
+
+**Rebuild the library AND its clients/benchmarks together.** Moving
+formerly out-of-line special members to inline definitions can change
+which standalone symbols the shared library emits. This iteration
+preserves source-level mathematical/lifetime contracts and object
+layout; it does not promise linking old precompiled clients against
+the new library. The benchmark must be rebuilt normally, not altered
+to bypass construction/destruction. From the build directory:
+  cmake --build . --parallel --target benchmark_compare_integer_backends
+
+Local Apple M2 Ultra, macOS 26.6.2, AppleClang 21 Release
+warnings-as-errors: the complete C++ `everything` target rebuilds,
+and 20/20 CTest tests pass. Complete Integer/BigUnsigned Debug
+ASan/UBSan suites pass. The complete BigUnsigned suite also passes
+GCC 16.2 with native ARM64 kernels; actual storage/boundary/power/
+short-division tests pass forced-portable ASan/UBSan without native
+kernels or __int128 (only its pre-existing unused fused-helper warning
+is suppressed). No tests or assertions were changed. Existing B73
+ownership tests and GMP fixed/random arithmetic oracles are retained.
+The Integer translation unit also compiles with GCC 16.2 using the
+project warning set (including its normal non-template-friend
+suppression) and warnings-as-errors. These are ARM64/portable checks,
+not native GCC x86-64 or MSVC CI.
+
+The unchanged 20000x31 ARM64 Integer benchmark verifies 768 paired
+inputs and 2688 results before and in both final candidate repeats.
+A saved B74 executable AND library form the reference, while all
+candidate clients are rebuilt with the candidate headers. Native
+128-bit sums: 354.681 -> 323.478/335.364 ns; 256-bit sums:
+564.974 -> 527.437/550.217 ns. These local reductions do not
+predict the required x86-64 improvement or attribute additive costs.
+
+ARM64 per-size total/GMP B74 -> B75 two repeats:
+53: 0.358 -> 0.293/0.319; 128: 0.632 -> 0.598/0.598;
+256: 0.757 -> 0.738/0.747; 1024: 0.850 -> 0.837/0.843;
+2048: 0.998 -> 0.973/0.969; 4096: 0.980 -> 1.001/1.005.
+4096-bit native sums are 11786.017 -> 11659.638/11930.548 ns,
+with GMP sums 12026.676 -> 11643.269/11873.572 ns. Thus local
+ARM64 4096 total acceptance is not established; neither a blanket
+nonregression nor target parity is claimed from these mixed runs.
+
+Both matching B74 and rebuilt B75 FloatAP executables/libraries pass
+the unchanged 1000x11 four-size numerical check (256 paired inputs,
+3456 results). Candidate total/worst at 53/128/256/1024 bits are
+1.513/2.764x, 1.070/2.620x, 0.588/2.047x, 0.246/1.719x;
+reference is 1.600/4.317x, 1.021/2.975x, 0.586/2.071x,
+0.254/1.865x. Existing short-width FloatAP gates remain unmet;
+these one-run measurements do not establish performance acceptance.
+No FloatAP arithmetic or rounding algorithm was changed.
+
+B75 is committed directly on remove-gmp. Native GCC x86-64 and
+MSVC validation, repeated six-size Integer totals strictly <1x and
+all 84 ratios strictly <2x remain pending. After rebuilding, run:
+  ./benchmarks/benchmark_compare_integer_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31

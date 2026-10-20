@@ -85,33 +85,8 @@ std::size_t BigUnsigned::Scratch::capacity() const noexcept {
     return std::max(inline_capacity,_heap.capacity());
 }
 
-BigUnsigned::BigUnsigned(Limb value) noexcept {
-    _inline_limbs[0] = value;
-    _size = value != 0u ? 1u : 0u;
-}
-
 BigUnsigned::BigUnsigned(std::span<Limb const> digits) {
     set_limbs(digits);
-}
-
-BigUnsigned::BigUnsigned(BigUnsigned&& other) noexcept
-    : _inline_limbs(other._inline_limbs),
-      _heap(std::move(other._heap)),
-      _size(other._size)
-{
-    other._size = 0u;
-}
-
-BigUnsigned& BigUnsigned::operator=(BigUnsigned&& other) noexcept {
-    if (this != &other) {
-        _inline_limbs = other._inline_limbs;
-        _heap = std::move(other._heap);
-        _size = other._size;
-
-        other._size = 0u;
-    }
-
-    return *this;
 }
 
 BigUnsigned::Limb* BigUnsigned::mutable_data() noexcept {
@@ -140,16 +115,6 @@ void BigUnsigned::normalize() noexcept {
         std::copy_n(_heap.data(),_size,_inline_limbs.data());
         _heap.clear();
     }
-}
-
-BigUnsigned::LimbView BigUnsigned::limbs() const noexcept {
-    return _size <= inline_capacity
-        ? std::span<Limb const>(_inline_limbs.data(),_size)
-        : std::span<Limb const>(_heap.data(),_size);
-}
-
-BigUnsigned::Limb BigUnsigned::limb(std::size_t index) const noexcept {
-    return index < _size ? limbs()[index] : 0u;
 }
 
 void BigUnsigned::assign(LimbView digits) {

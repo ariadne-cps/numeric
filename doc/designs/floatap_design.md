@@ -9109,3 +9109,40 @@ FloatAP performance gates, and no performance acceptance or stable
 before/after nonregression is claimed. No FloatAP arithmetic or
 rounding algorithm is changed. Native GCC x86-64/MSVC validation and
 repeated six-size Integer totals <1x/every worst <2x remain required.
+
+
+### B75 inline ownership and limb-adaptation definitions (20 October 2026)
+
+The user's post-B74 x86-64 official run verifies all 768 paired
+inputs and 2688 results. All 84 cases are below 2x (global worst
+1.989x). Per-size totals are 0.750/1.091/1.120/0.942/0.854/0.900x;
+128/256 still need 44.529/83.410 ns off their native sums.
+
+B75 relocates unchanged small ownership/accessor bodies into the
+BigUnsigned/Integer class headers: scalar/move/limb adapters and
+signed result construction/copy/move/destruction. This gives callers
+visibility to optimize transfers and temporary lifetimes; no ISA,
+arithmetic, buffer/precision, object layout, rounding algorithm or
+benchmark changes. It does not establish a particular cause for the
+GCC overhead or guarantee compiler inlining. See the Integer journal
+for exact scope and measured limits. Library and clients/benchmarks
+must be rebuilt together; old precompiled shared-library symbol
+compatibility is not promised for formerly out-of-line definitions.
+
+AppleClang 21 Release warnings-as-errors: complete C++ everything
+rebuild and 20/20 CTest pass; full Integer/BigUnsigned Debug ASan/UBSan,
+GCC 16.2 ARM64 BigUnsigned and forced-portable targeted tests pass.
+No existing test or oracle was modified. Two unchanged 20000x31
+ARM64 Integer runs verify all inputs/results; local native sums
+improve at 128/256, but do not predict x86 target timings. ARM64
+4096 totals are 1.001/1.005x, so its strict gate remains unproven.
+
+Matching saved B74 and rebuilt B75 FloatAP clients/libraries both
+pass the unchanged 1000x11 53/128/256/1024 numerical check (256
+paired inputs, 3456 results). B75 total/worst are 1.513/2.764x,
+1.070/2.620x, 0.588/2.047x, 0.246/1.719x, compared with B74
+1.600/4.317x, 1.021/2.975x, 0.586/2.071x, 0.254/1.865x.
+These mixed single-run timings do not establish FloatAP performance
+acceptance; its existing short-width limits remain unmet. Native
+GCC x86-64 and MSVC validation and the six strict Integer per-size
+<1x totals/every case <2x remain pending.
