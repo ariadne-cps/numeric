@@ -6085,3 +6085,21 @@ the documented local optimization-memory budget succeeds and all 20 C++
 suites pass. Rebuilt Debug ASan/UBSan Rational/Integer/BigUnsigned/Float/
 FloatRounding suites pass (5/5), including the corrected new tests.
 Native x86-64 and MSVC still require remote CI/runtime confirmation.
+
+
+### R1b — retain division alias coverage on Clang 16 (20 October 2026)
+
+Clang 16 rejects the intentional destination/=destination test under
+-Wself-assign-overloaded. Use the existing reference alias as the right
+operand, preserving exactly the same object-aliasing case and expected
+value without suppressing any warning. AppleClang 21 rebuild and the
+complete Rational suite pass. The previous R1a CI already passed macOS
+Release/Coverage, Ubuntu GCC 13 x86-64 Release/Coverage and Windows 2025
+Release; Clang 16 Release/ThreadSanitizer requires this test spelling fix.
+The optional local Clang 15 syntax experiment could not compile against
+the installed newer macOS SDK/libc++ combination and is not validation.
+Rational arithmetic and Integer/BigUnsigned remain unchanged.
+
+The separate Codecov status thresholds already failed on B75 (project
+92.96%, patch 92.56%, target 99.20%). R1a reports project 92.94% and
+patch 93.07%; workflow Coverage success is not Codecov gate acceptance.

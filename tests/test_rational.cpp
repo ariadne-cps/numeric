@@ -418,7 +418,7 @@ void TestRational::test_native_contract() {
     ARIADNE_TEST_EQUALS(destination,a);
     destination*=destination;
     ARIADNE_TEST_EQUALS(destination,sqr(a));
-    destination/=destination;
+    destination/=alias;
     ARIADNE_TEST_EQUALS(destination,Rational(1));
     Rational special=Rational::inf(Sign::NEGATIVE);
     Rational moved_special(std::move(special));
