@@ -8769,3 +8769,20 @@ the candidate's declaration was nested in an anonymous namespace's
 the candidate symbol. Move the declaration ahead of the anonymous
 namespace; no numerical, GMP benchmark, production arithmetic or
 FloatAP changes. The integrated build and timing require revalidation.
+
+### B61 measured GCC x86-64 single-limb remainder pi1 promotion (20 October 2026)
+
+B60.1 on-target division profiles compared identical GMP-verified
+inputs and found rem-only normalized pi1 4.13-5.52x faster
+than the existing DIVQ path for 1024/2048/4096-bit single-limb
+small/wide divisors; diagnostic worst pi1/GMP was 1.206x.
+B61 selects the same shared exact kernel in production only
+for >=8-limb non-power-of-two rem-only division on GCC x86-64.
+ARM64, Clang, Windows, quotient and joint division remain
+unchanged. The benchmark preserves its 32-pair input corpus,
+the rem_pi1 comparator, and a separate old rem_divq baseline.
+GMP-oracle test coverage grows at 7/8/9, 63/64/65 and 128
+limbs. The immutable 84-operation official benchmark and
+FloatAP APIs/semantics remain unchanged. Verify CI and all
+six per-size <1x/worst <2x acceptance gates before claiming
+success. See integer journal B61.

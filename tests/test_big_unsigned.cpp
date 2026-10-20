@@ -1579,6 +1579,57 @@ void TestBigUnsigned::test_division_limb()
         }
     }
 
+    // B61: exact single-limb remainder-only pi1 with a GCC x86-64
+    // dispatch boundary at 7/8/9 limbs; compare against independent
+    // GMP for zero, saturated, sparse and random dividends.
+    // Also guard the existing 63/64/65-limb quotient pi1 boundary.
+    std::mt19937_64 b61_engine(0xB610D1A6ULL);
+    for (const std::size_t count:
+            {0u,1u,7u,8u,9u,15u,16u,31u,32u,63u,64u,65u,128u}) {
+        for (const std::uint64_t divisor:
+                {1ULL,2ULL,3ULL,5ULL,7ULL,35ULL,255ULL,
+                 65535ULL,4294967295ULL,4294967296ULL,
+                 4294967297ULL,9223372036854775807ULL,
+                 9223372036854775808ULL,9223372036854775809ULL,
+                 18446744073709551615ULL}) {
+            for (unsigned mode=0u;mode<8u;++mode) {
+                std::vector<std::uint64_t> words(count);
+                for (auto& word:words) word=b61_engine();
+                if (mode==0u) {
+                    std::fill(words.begin(),words.end(),max);
+                } else if (mode==1u) {
+                    std::fill(words.begin(),words.end(),0u);
+                } else if (mode==2u && !words.empty()) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.front()=1u;
+                } else if (mode==3u && !words.empty()) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=1u;
+                } else if (mode==4u && !words.empty()) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=max;
+                } else if (mode==5u) {
+                    for (std::size_t i=0u;i<count;i+=2u)
+                        words[i]=0u;
+                } else if (mode==6u) {
+                    for (std::size_t i=0u;i<count;i+=3u)
+                        words[i]=max;
+                }
+                const BigUnsigned value(words);
+                const BigUnsigned by(divisor);
+                const auto limbs=value.limbs();
+                mpz_import(n.value,limbs.size(),-1,sizeof(std::uint64_t),
+                           0,0,limbs.data());
+                mpz_import(d.value,1u,-1,sizeof(divisor),0,0,&divisor);
+                mpz_tdiv_qr(q.value,r.value,n.value,d.value);
+                check_against_gmp(rem(value,by),r.value);
+                const auto [full_q,full_r]=divrem(value,by);
+                check_against_gmp(full_q,q.value);
+                check_against_gmp(full_r,r.value);
+            }
+        }
+    }
+
     const std::array<std::uint64_t,2> numerator{max,max};
     std::array<std::uint64_t,3> output{max,max,max};
     bool zero_threw=false,owning_zero_threw=false,short_threw=false;

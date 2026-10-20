@@ -4837,3 +4837,56 @@ benchmark cases, diagnostic algorithm, GMP verification, official
 benchmark, production selectors, tests and public headers are all
 unchanged. Native integration/CI must still confirm the fix; no
 performance result is claimed for B60.1.
+
+### B61 promote measured single-limb remainder-only pi1 on GCC x86-64 (20 October 2026)
+
+On the user's same x86-64 GCC host, the B60.1 12-shape B56
+division profiler (4000 iterations, 15 samples, 32 deterministic
+independently GMP-verified inputs per category) measured exact
+owning `rem` versus `rem_pi1` times:
+  bits   divisor     rem ns     pi1 ns    rem/pi1
+  1024   limb_small  439.277    106.466    4.13x
+  1024   limb_wide   335.457     77.273    4.34x
+  2048   limb_small  631.118    131.504    4.80x
+  2048   limb_wide   655.604    129.613    5.06x
+  4096   limb_small 1240.534    238.935    5.19x
+  4096   limb_wide  1310.074    237.269    5.52x
+The diagnostic worst `rem_pi1`/GMP ratio was 1.206x
+(limb_wide, 4096 bits) versus `rem`/GMP 6.680x.
+These are diagnostic B56 categories, NOT the official 84-case
+worst ratios. The user's report passed its independent GMP oracle.
+At 4096 bits the short_2 multi-limb rem still took 1804.791 ns
+vs GMP 280.796 ns (6.427x); this is NOT addressed by B61.
+
+B61 accepts only the experimentally supported GCC x86-64
+single-limb remainder path for >=8 canonical dividend limbs
+and a non-power-of-two divisor. The implementation extracts
+the validated B60 exact normalized pi1 recurrence into one
+shared internal helper, called by production rem-only selected
+division and by its diagnostic wrapper. No quotient buffer or
+scratch allocation is introduced. The B57 power-of-two fast
+path executes before the candidate. Quotient-only and joint
+division preserve B57's existing selection. Other compilers,
+short inputs, ARM64 and Windows retain their old paths.
+
+The B56 diagnostic retains both the original `rem` row
+(now selecting production B61) and `rem_pi1` candidate,
+and additionally times GMP-oracle-verified `rem_divq`,
+explicitly preserving the older owning DIVQ recurrence
+for direct A/B measurement after promotion. The 32-pair
+pool, 12 shapes and official 84-case benchmark are untouched.
+Add GMP-oracle owning rem and joint divrem cases covering
+zero, 7/8/9, 63/64/65 and 128 limbs, varied odd/wide/power
+divisors and dense/sparse/saturated operands. Numerical
+comparisons remain independent; do not change test
+expectations to make the optimization pass.
+
+The performance acceptance gates remain all six per-size
+total_time/GMP < 1.000x and all 84 operation/size worst
+ratios < 2.000x, with no significant ARM64 regressions.
+The B60.1 diagnostic result alone does not establish that
+B61 meets either integrated gate. CI and full user-host
+benchmark remain to be checked before calling B61 an
+integrated success. Roll back to B59/B60.1 if the new
+production selector regresses independent correctness
+or aggregate performance.
