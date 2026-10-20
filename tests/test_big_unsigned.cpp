@@ -266,6 +266,57 @@ void TestBigUnsigned::test_multiplication()
     GmpInteger a,b,c,t;
 
     static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 64u*80u);
+
+    // B72: exact owning 4-limb fast-path boundary, including the
+    // ordinary 5-limb fallback on each side. The independent GMP
+    // reference tests zero, maximal carries, sparse and random rows;
+    // all targets run the same corpus, even though only GCC x86-64
+    // selects the new stack construction.
+    std::mt19937_64 short_product_engine(0xB7204455ULL);
+    for (const std::size_t n:{0u,1u,2u,3u,4u,5u}) {
+        for (const std::size_t m:{0u,1u,2u,3u,4u,5u}) {
+            for (unsigned mode=0u;mode<32u;++mode) {
+                std::array<std::uint64_t,5u> left{},right{};
+                for (std::size_t j=0u;j<n;++j)
+                    left[j]=short_product_engine();
+                for (std::size_t j=0u;j<m;++j)
+                    right[j]=short_product_engine();
+                if (mode%8u==0u) {
+                    std::fill(left.begin(),left.end(),max);
+                    std::fill(right.begin(),right.end(),max);
+                } else if (mode%8u==1u) {
+                    std::fill(left.begin(),left.end(),0u);
+                    std::fill(right.begin(),right.end(),0u);
+                } else if (mode%8u==2u) {
+                    std::fill(left.begin(),left.end(),0u);
+                    std::fill(right.begin(),right.end(),0u);
+                    if (n!=0u) left[n-1u]=1u;
+                    if (m!=0u) right[m-1u]=1u;
+                } else if (mode%8u==3u) {
+                    for (std::size_t j=0u;j<n;j+=2u) left[j]=0u;
+                    for (std::size_t j=0u;j<m;j+=2u) right[j]=0u;
+                } else if (mode%8u==4u) {
+                    for (std::size_t j=1u;j<n;++j) left[j]=0u;
+                    for (std::size_t j=1u;j<m;++j) right[j]=0u;
+                }
+                const BigUnsigned lhs(
+                    BigUnsigned::LimbView(left.data(),n));
+                const BigUnsigned rhs(
+                    BigUnsigned::LimbView(right.data(),m));
+                mpz_import(a.value,n,-1,sizeof(std::uint64_t),
+                           0,0,left.data());
+                mpz_import(b.value,m,-1,sizeof(std::uint64_t),
+                           0,0,right.data());
+                mpz_mul(c.value,a.value,b.value);
+                check_against_gmp(mul(lhs,rhs),c.value);
+                check_against_gmp(mul(rhs,lhs),c.value);
+                mpz_mul(t.value,a.value,a.value);
+                check_against_gmp(mul(lhs,lhs),t.value);
+                check_against_gmp(square(lhs),t.value);
+            }
+        }
+    }
+
     for (unsigned repetition=0; repetition<6000u; ++repetition) {
         const std::size_t n = engine()%34u;
         const std::size_t m = engine()%34u;

@@ -5562,3 +5562,68 @@ dispatch, build flag, official 84-case benchmark, or
 benchmark timing methodology changes. The fix does not
 claim performance or successful native build before
 actual CI/user verification.
+
+### B72 production short owning stack product on GCC x86-64 (20 October 2026)
+
+The user's B71.1 on-host independent GMP-verified benchmark
+(20,000 iterations, 31 samples; original 32 signed input
+pairs and additional 300 short zero/dense/sparse/random cases)
+measured the new SAME-library-TU short owning stack
+construction against existing BigUnsigned::mul.
+At 53 bits, unsigned multiply/square candidate/baseline
+were 0.950x/0.954x and signed owning 0.981x/0.978x.
+At 128 bits they were 0.978x/0.981x and
+0.969x/1.006x. At 256 bits they were
+0.928x/0.884x and 0.925x/0.902x.
+Selected/fused stack controls were nearly equivalent,
+sometimes reversing rank. Thus changing fused to
+carry-chain, which the prior B69 tests showed
+consistently slower, is not justified. The notable
+short owning gain at 256 bits appears linked to
+result construction rather than a faster multiplication
+kernel. The B70 inline/noinline controls have mixed
+results (including reversed rank at 128 bits in B71);
+do not treat these as a precise additive call cost.
+
+B72 promotes the precisely measured B71 diagnostic
+short owning construction to **production BigUnsigned::mul**
+ONLY under the existing GCC x86-64 fused-build guard
+and only for nonzero canonical inputs of at most
+BigUnsigned::inline_capacity=4 limbs each. It uses
+an eight-limb zeroed std::array, writes the exact full
+product with the UNCHANGED selected mul_into fused
+kernel, then constructs a fully owned normalized
+BigUnsigned from a view of the local buffer. Results
+larger than four limbs still use the existing owned
+vector representation. If either input is >=5 limbs,
+the original owning construction/Karatsuba selection
+remains untouched. Zero returns at the original
+early check; size arithmetic overflow checks retain
+their original order. No global buffers, special
+benchmark input assumptions, numerical approximation,
+public header/ABI, FloatAP arithmetic, ARM64,
+Clang or MSVC selected algorithms are changed.
+The B71 stack selected/fused diagnostics remain
+available as controls, although the B71 production
+baseline at <=4 limbs will now use the promoted
+variant; compare with B71.1's pre-promotion commit
+for historical A/B reference.
+
+Integrated tests add a deterministic independent
+GMP oracle over 6x6 operand limb-length boundaries
+0/1/2/3/4/5, 32 modes per pair (1152 combinations),
+checking mul(a,b), mul(b,a), mul(a,a) and square(a)
+for zero, all-one, sparse and random inputs. The
+existing 6000-random multiplication oracle and all
+previous tests remain intact. The original official
+84-operation benchmark and its 32-case input pools
+are unchanged. The user must verify both strict
+acceptance gates on the SAME GCC x86-64 machine:
+total_time/GMP <1x for each of 53/128/256/1024/
+2048/4096 bits, and every operation/size ratio <2x
+(equivalent to global worst <2x), before considering
+this iteration complete. ARM64 baseline preservation
+requires its own build/performance verification.
+B72 CI, compilation and measured production performance
+are pending at publication time. From build:
+  ./benchmarks/benchmark_compare_integer_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31

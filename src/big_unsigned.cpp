@@ -1946,6 +1946,26 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
         throw std::length_error("BigUnsigned product size overflow");
     }
 
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+    // B72: B71's independent GMP-verified same-library-TU stack
+    // construction was faster for short owning products on GCC x86-64,
+    // especially four-limb inputs. Use the SAME selected fused kernel,
+    // with bounded stack workspace. The returned BigUnsigned is fully
+    // owned and normalized; the source buffers never escape.
+    // Above four limbs, retain the previous heap and Karatsuba paths.
+    if (a._size<=BigUnsigned::inline_capacity &&
+            b._size<=BigUnsigned::inline_capacity) {
+        std::array<BigUnsigned::Limb,2u*BigUnsigned::inline_capacity> digits{};
+        const std::size_t count=a._size+b._size;
+        BigUnsigned::mul_into(
+            a.limbs(),b.limbs(),
+            BigUnsigned::MutableLimbView(digits.data(),count));
+        return BigUnsigned(BigUnsigned::LimbView(digits.data(),count));
+    }
+#endif
+
     BigUnsigned result;
     result.resize_for_result(a._size+b._size);
 

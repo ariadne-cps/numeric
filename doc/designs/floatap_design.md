@@ -9003,3 +9003,26 @@ dispatch, build flag, official 84-case benchmark, or
 benchmark timing methodology changes. The fix does not
 claim performance or successful native build before
 actual CI/user verification.
+
+### B72 GCC x86-64 short owning stack product selection (20 October 2026)
+
+B71 on-target independent GMP-verified comparisons
+showed same-library-TU stack selected multiplication
+advantage of 5% at 53 bits, 2% at 128 bits and 7%
+at 256 bits, with signed-owning gains up to 7.5%
+for multiplication and 9.8% for quadrature at
+256 bits. A GMP-verified eight-limb stack buffer
+construction is now selected in owning production
+BigUnsigned::mul only on GCC x86-64 and only for
+nonzero operands of at most four 64-bit limbs each.
+The previously chosen fused kernel is unchanged,
+as are all ARM64/Clang/MSVC algorithms, large-input
+Karatsuba selection and public APIs. Additional
+1152 independent GMP-oracle short-boundary test
+cases cover lengths 0..5 on both sides, zero,
+saturation, sparse patterns, carries and aliases.
+No original 84-case workload/weights, FloatAP
+arithmetic, ABI or user-facing features change.
+Native compilation/CI and official performance
+must be measured before claiming a production win.
+See integer_rational_design.md B72.
