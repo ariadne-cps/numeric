@@ -4757,3 +4757,67 @@ with independent 84-case aggregate and geomean
 gates. Reject the candidate if it loses, regardless
 of earlier isolated proxy assumptions. Keep B59
 as rollback baseline for weighted-total performance.
+
+### Post-B59 performance acceptance gates: per-size parity and worst-case cap (20 October 2026)
+
+User-defined target for the x86-64 Integer vs GMP performance campaign
+is now strictly stronger than the prior aggregate-total target:
+
+1. Each of the six official sizes (53, 128, 256, 1024, 2048 and
+   4096 bits) must individually satisfy total_time/GMP < 1.000x.
+2. Every official (operation, size) pair must satisfy
+   Integer/GMP < 2.000x; equivalently ALL worst < 2.000x.
+3. Both gates must hold in the SAME unmodified official 84-operation
+   benchmark, with 20000 iterations, 31 samples and independent
+   GMP correctness PASS. Track the global total and geomean as
+   diagnostics, but neither substitutes for either acceptance gate.
+   Preserve the production semantics, benchmark input corpus and
+   result-lifetime matching. Recheck near-threshold results with
+   repeated same-host runs; do not claim durable success from
+   noise-level wins.
+
+The latest user-reported x86-64 B59 official baseline is:
+  bits    total_time/GMP   per-size worst/GMP
+    53        1.295x            2.296x (pow3)
+   128        1.493x            2.518x (pow3)
+   256        1.423x            2.084x (quotient)
+  1024        1.074x            3.238x (quotient)
+  2048        0.945x            3.319x (quotient)
+  4096        0.922x            3.073x (remainder)
+   ALL        0.977x            3.319x (quotient, 2048)
+Global geomean remains 1.162x but is not a pass/fail condition.
+
+The user also supplied the independent ARM64 reference:
+  bits    total_time/GMP   per-size worst/GMP
+    53        0.587x            1.016x (to_decimal)
+   128        0.989x            1.801x (pow3)
+   256        0.999x            1.682x (pow3)
+  1024        0.856x            1.813x (quotient)
+  2048        0.973x            1.944x (quotient)
+  4096        1.018x            1.860x (remainder)
+   ALL        0.981x            1.944x (quotient, 2048)
+ARM64 meets the worst-case gate, but its 4096-bit total is
+still above 1.000x and 128/256-bit totals have little margin.
+Avoid regressing ARM64 while tuning x86; if the two acceptance
+gates are applied cross-platform, ARM64's 4096-bit aggregate
+also needs improvement.
+
+Next work priority is determined by the FAILED gates, not just
+the largest absolute timing or a global ratio:
+- Improve 53/128/256-bit total-time ratios without sacrificing
+  large-bit wins; diagnose short-operand owning-operation overhead
+  and 53/128-bit pow3 before promoting microkernels.
+- Reduce 1024/2048-bit quotient worst cases to <2x while
+  preserving their established GMP-oracle coverage.
+- Reduce 4096-bit remainder worst below 2x; B60's rem_pi1
+  is only a diagnostic candidate, not a production speedup.
+- Maintain the already passing 2048/4096-bit x86 total-time
+  gates and the ALL total-time/GMP 0.977x baseline.
+
+The B60 diagnostic commit 351ff6761711 leaves the B59
+production arithmetic unchanged. B60 CI and same-host
+rem_pi1 timing are not yet confirmed. A change may improve
+one failure yet regress another: require an updated complete
+84-case comparison before promotion, with a recorded
+rollback baseline. No algorithm or benchmark change is
+made by this acceptance-policy journal entry.
