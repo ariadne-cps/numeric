@@ -44,6 +44,7 @@
 
 namespace Ariadne {
 // B58 diagnostic-only entrypoint, implemented alongside production formatter.
+std::string to_decimal_cutoff16_diagnostic(BigUnsigned const& value);
 std::string to_decimal_cutoff32_diagnostic(BigUnsigned const& value);
 }
 
@@ -185,6 +186,7 @@ std::vector<ProfileCase> prepare(unsigned bits)
         auto const powers=make_powers(entry.value);
         collect(entry.value,powers,0u,entry,0u);
         if (to_decimal(entry.value)!=entry.expected ||
+                to_decimal_cutoff16_diagnostic(entry.value)!=entry.expected ||
                 to_decimal_cutoff32_diagnostic(entry.value)!=entry.expected ||
                 (entry.value.size()>cutoff_limbs &&
                  replay_append(entry)!=entry.expected)) {
@@ -224,6 +226,9 @@ void benchmark(unsigned bits,unsigned iterations,unsigned samples)
     const double full=measure([&](unsigned i) {
         return to_decimal(select(i).value);
     },iterations,samples);
+    const double cutoff16=measure([&](unsigned i) {
+        return to_decimal_cutoff16_diagnostic(select(i).value);
+    },iterations,samples);
     const double cutoff32=measure([&](unsigned i) {
         return to_decimal_cutoff32_diagnostic(select(i).value);
     },iterations,samples);
@@ -233,14 +238,16 @@ void benchmark(unsigned bits,unsigned iterations,unsigned samples)
                     << " | iterations=" << iterations
                     << " | samples=" << samples)
     report("production to_decimal",full,full);
-    report("experimental cutoff-32",cutoff32,full);
-    LOGGING_PRINTLN("B58 cutoff-32 / production = " << std::fixed
-                    << std::setprecision(3) << cutoff32/full << "x"
-                    << " (identical official inputs; GMP PASS)")
+    report("diagnostic cutoff-16",cutoff16,full);
+    report("diagnostic cutoff-32",cutoff32,full);
+    LOGGING_PRINTLN("B59 cutoff-32 / cutoff-16 = " << std::fixed
+                    << std::setprecision(3) << cutoff32/cutoff16 << "x"
+                    << " (same 32 inputs; GMP PASS)")
     // Recheck the full experimental output after its timed pass.
     for (auto const& entry:pool) {
-        if (to_decimal_cutoff32_diagnostic(entry.value)!=entry.expected)
-            throw std::runtime_error("B58 post-benchmark GMP mismatch");
+        if (to_decimal_cutoff16_diagnostic(entry.value)!=entry.expected ||
+                to_decimal_cutoff32_diagnostic(entry.value)!=entry.expected)
+            throw std::runtime_error("B59 post-benchmark GMP mismatch");
     }
     if (pool.front().value.size()<=cutoff_limbs) {
         LOGGING_PRINTLN("Power table / recursive divrem / append: not used "
@@ -344,7 +351,7 @@ int main(int argc,const char* argv[])
         }
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Numerical verification PASS (GMP oracle, production, "
-                       "cutoff-32 and every recursive split).")
+                       "cutoff-16/cutoff-32 and every recursive split).")
         return 0;
     } catch (std::exception const& error) {
         std::cerr << "Integer decimal profile FAILED: "

@@ -8706,3 +8706,18 @@ diagnostic. The official 84-operation Integer/GMP workload,
 production arithmetic, FloatAP and public APIs are unchanged.
 Same-host CI, correctness and performance measurements are
 still required before promoting any experiment. See integer journal B58.
+
+### B59 measured x86 GCC decimal cutoff-32 selection (20 October 2026)
+
+The user's B58 GMP-verified native x86-64 profile established
+35.1% lower to_decimal latency at 2048 bits and 22.0% lower
+at 4096 bits with a 32-limb instead of 16-limb leaf cutoff.
+B59 promotes that cutoff only for GCC x86-64 with __int128.
+ARM64, x86 Clang, MSVC and all other targets retain 16.
+The two diagnostic cutoff implementations are consolidated
+with production into one compile-time-templated formatter;
+both 16 and 32 remain independently timed and GMP-verified.
+Extra GMP-oracle tests cover 15/16/17, 31/32/33 and
+63/64/65-limb boundaries. The official Integer/GMP benchmark,
+FloatAP arithmetic and public APIs remain unchanged.
+Integrated B59 performance and CI are pending; see integer journal.
