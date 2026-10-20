@@ -8427,3 +8427,21 @@ official single-limb division shapes. No public API, FloatAP
 algorithm, benchmark workload, or GMP production dependency is
 changed. See B48 in integer_rational_design.md. Same-host
 performance measurements are pending.
+
+
+### B49 ARM64 quotient-specific pre-inverted 32-bit divisor (20 October 2026)
+
+For dividend lengths >=8 limbs, the existing BigUnsigned::divrem_limb_into
+uses one precomputed exact floor(2^64/divisor) reciprocal to generate
+each 64-bit quotient limb from two 32-bit half steps. Each estimate
+needs at most one correction and avoids the repeated ARM64 UDIV of
+B48 when 2<=divisor<=2^32-1. This changes quotient-producing
+single-limb division only; remainder-only, larger divisors, x86-64,
+Windows/MSVC, public arithmetic contracts, portable paths and
+FloatAP algorithms are unchanged. GMP-differential production tests
+were extended by 784 boundary/adversarial cases; the isolated
+recurrence passed 1.2 million 128-bit checks and 5000 full
+multi-limb GMP checks under Clang ASan/UBSan. All performance
+comparisons must use the SAME Apple M4; earlier B42-B47 M2
+timings cannot be directly compared with the M4 results.
+See B49 in integer_rational_design.md.

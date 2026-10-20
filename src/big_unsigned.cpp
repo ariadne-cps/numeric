@@ -463,6 +463,49 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
         throw std::length_error("BigUnsigned quotient output too small");
     }
 
+#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+    (defined(__GNUC__) || defined(__clang__))
+    // B49: amortize a small divisor's reciprocal over a whole
+    // multi-limb quotient. B48 needed two native UDIV instructions
+    // for every limb (two exact 64/32 steps). For >=8 limbs, one
+    // precomputed R=floor(2^64/divisor) replaces both divisions
+    // with UMULH and at most one correction per 32-bit half.
+    // The small-input path stays unchanged to avoid setup overhead.
+    if (a.size()>=8u && divisor>1u &&
+            divisor<=Limb{0xffffffffu}) {
+        __extension__ using Wide=unsigned __int128;
+        const Limb maximum=std::numeric_limits<Limb>::max();
+        const Limb reciprocal=maximum/divisor+
+            static_cast<Limb>(maximum%divisor==divisor-1u);
+        const auto divide_half=[divisor,reciprocal](Limb numerator) {
+            // Numerator < divisor*2^32 < 2^64.
+            // R=floor(2^64/divisor) yields a quotient estimate
+            // either exact or one low; residual is <2*divisor.
+            Limb digit=static_cast<Limb>(
+                (static_cast<Wide>(numerator)*reciprocal)>>64u);
+            Limb residual=numerator-digit*divisor;
+            if (residual>=divisor) {
+                ++digit;
+                residual-=divisor;
+            }
+            return std::pair<Limb,Limb>{digit,residual};
+        };
+        Limb remainder=0u;
+        for (std::size_t i=a.size();i!=0u;--i) {
+            const Limb word=a[i-1u];
+            const Limb upper=(remainder<<32u)|(word>>32u);
+            const auto [high_digit,partial]=divide_half(upper);
+            const Limb lower=(partial<<32u)|
+                (word&Limb{0xffffffffu});
+            const auto [low_digit,next]=divide_half(lower);
+            quotient[i-1u]=(high_digit<<32u)|low_digit;
+            remainder=next;
+        }
+        std::fill(quotient.subspan(a.size()).begin(),quotient.end(),
+                  Limb{0});
+        return remainder;
+    }
+#endif
     Limb remainder=0u;
     for (std::size_t i=a.size();i!=0u;--i) {
         const auto [digit,next]=divide_wide(

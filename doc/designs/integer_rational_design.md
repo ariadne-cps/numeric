@@ -3715,3 +3715,77 @@ and the official 84-operation workload are preserved. Benchmark
 on the same M2 before claiming a B48 speedup; check in particular
 quotient/remainder at 1024, 2048 and 4096 bits, as well as
 to_decimal to detect any unintended ARM64 regression.
+
+
+### B49 ARM64 pre-inverted narrow quotient loop (20 October 2026)
+
+Both B47 and B48 benchmarks were measured on the SAME Apple M4
+ARM64, so they support a valid within-host comparison. B48 versus
+B47 reduced native remainder timings at 1024/2048/4096 bits from
+121.002/257.183/546.194 ns to 103.625/221.458/467.669 ns
+(-14.36%/-13.89%/-14.38%). Quotient timings changed more modestly
+from 110.192/236.183/489.544 to 108.296/226.177/484.854 ns
+(-1.72%/-4.24%/-0.96%). On M4, the B48 official worst relevant
+large-size case remains quotient 2048 bits at 226.177 ns versus
+GMP 119.260 ns (1.896x). B48 84-operation geomean and total_time
+were 0.758x and 1.021x, compared with B47 M4 0.766x and 1.019x;
+the original 2.305x B47 worst compare 4096 timing appears noisy
+and must not be ascribed to B48. Both benchmarks retained GMP
+verification on 768 input pairs and 2688 operation results.
+All B48 Unix/Windows/Coverage Actions passed; external Codecov
+patch/project checks failed separately.
+
+B49 targets quotient generation for single-limb divisors 2..2^32-1
+on native ARM64 GCC/Clang. These account for 16 of the 32 official
+division-only workload cases (small divisors 3..35), so the goal
+is to accelerate the quotient-only path while RETAINING B48's
+remainder-only small-divisor fast path. The existing shared
+BigUnsigned::divrem_limb_into function used divide_wide per limb;
+B48's divide_wide requires two ARM64 UDIV operations per 64-bit
+limb for a 32-bit divisor. B49 selects a new exact pre-inverted
+path when the dividend contains >=8 limbs, the divisor is between
+2 and 2^32-1 inclusive, and native ARM64 unsigned 128-bit
+multiplication is available. Outside that case the old loop,
+MSVC, x86-64 and portable paths are unchanged. The optimization
+is general for arbitrary 64-bit limb inputs, NOT specialized to
+the benchmark's operand values.
+
+Let d be the divisor, B=2^32, and R=floor(2^64/d). The reciprocal
+is computed once using a 64-bit quotient/remainder operation:
+R=floor((2^64-1)/d) + [((2^64-1)%d)==d-1].
+For each 64-bit dividend word, split its high/low 32-bit halves;
+each 64-bit partial numerator X is strictly below d*B<=2^64.
+Set q0=floor(X*R/2^64) from the high half of a 64x64 product.
+Since 0<=X/d-X*R/2^64<X/2^64<1, q0 is either the exact
+floor(X/d) or one smaller. The provisional residual X-q0*d
+is in [0,2*d), so one compare/subtraction (and increment of
+q0) yields an exact 32-bit quotient half and remainder. Each
+full quotient word combines both halves. The approach replaces
+repeated hardware divisions with UMULH/MSUB-style operations
+and requires no new public API, dependency or global table.
+The B48 remainder-only path and shared long-division digit
+estimator remain unchanged; the large-divisor paths are untouched.
+The returned full remainder, output zero-filling, public failure
+semantics and no-alias requirement remain unchanged.
+
+Before integration an independent C++20 implementation completed
+1,200,000 exact 128/32 quotient/remainder comparisons and 5000
+multi-limb GMP mpz_tdiv_qr comparisons under Clang ASan/UBSan.
+An AArch64 Clang 17 assembly probe for the core quotient step
+showed native UMULH and MSUB, without division helper calls.
+Those checks establish arithmetic correctness for the isolated
+implementation, NOT performance on Apple M4. Integrated tests add
+784 deterministic GMP-differential (input size, divisor, pattern)
+cases across 7/8/9/16/32/64/96/128 limb lengths and divisors
+spanning the 2^32 selector, checking owning quotient/remainder
+and direct output with two zeroed surplus limbs. All existing
+benchmarks, earlier GMP tests, B45 divrem and B46/B47 decimal
+paths are retained unchanged.
+
+Measure the existing official 84-operation benchmark on M4,
+20,000 iterations and 31 samples, comparing B48/M4 with B49/M4.
+Primary outcomes: quotient 1024/2048/4096 ns and GMP-relative
+ratio. Guardrails: remainder improvements from B48 should remain,
+total_time should not regress materially, and all platform CI
+jobs should pass. A performance improvement is NOT claimed
+until same-host measurements are supplied.

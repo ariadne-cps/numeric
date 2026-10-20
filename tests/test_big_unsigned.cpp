@@ -1208,6 +1208,65 @@ void TestBigUnsigned::test_division_limb()
         }
     }
 
+    // B49: exercise the pre-inverted 128/32 quotient path on ARM64
+    // across 7/8/9 limb dispatch boundaries and longer dividends.
+    // GMP is the independent oracle for full quotient, remainder and
+    // all output limbs. Test divisor 1, 2^32-1 and 2^32 fallback too.
+    std::mt19937_64 reciprocal_engine(0xB490C0DEULL);
+    for (const std::size_t count:
+            {7u,8u,9u,16u,32u,64u,96u,128u}) {
+        for (const std::uint64_t divisor:
+                {1ULL,2ULL,3ULL,5ULL,7ULL,9ULL,31ULL,
+                 63ULL,255ULL,65535ULL,2147483648ULL,
+                 4294967295ULL,4294967296ULL,
+                 18446744073709551615ULL}) {
+            for (unsigned mode=0u;mode<7u;++mode) {
+                std::vector<std::uint64_t> words(count);
+                for (auto& word:words) word=reciprocal_engine();
+                if (mode==0u) {
+                    std::fill(words.begin(),words.end(),max);
+                } else if (mode==1u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=1u;
+                } else if (mode==2u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.front()=max;
+                    words.back()=1u;
+                } else if (mode==3u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=std::uint64_t{1}<<63u;
+                } else if (mode==4u) {
+                    std::fill(words.begin(),words.end(),0u);
+                } else if (mode==5u) {
+                    for (std::size_t i=0u;i<count;i+=2u) {
+                        words[i]=0u;
+                    }
+                }
+                const BigUnsigned value(words);
+                mpz_import(n.value,value.size(),-1,sizeof(std::uint64_t),
+                           0,0,value.limbs().data());
+                mpz_import(d.value,1u,-1,sizeof(divisor),0,0,&divisor);
+                mpz_tdiv_qr(q.value,r.value,n.value,d.value);
+                const auto [actual_q,actual_r]=
+                    divrem_limb(value,divisor);
+                check_against_gmp(actual_q,q.value);
+                mpz_import(native_remainder.value,1u,-1,
+                           sizeof(actual_r),0,0,&actual_r);
+                ARIADNE_TEST_ASSERT(
+                    mpz_cmp(native_remainder.value,r.value)==0);
+
+                auto output=scratch.acquire(value.size()+2u);
+                std::fill(output.begin(),output.end(),max);
+                const auto rem_out=BigUnsigned::divrem_limb_into(
+                    value.limbs(),divisor,output);
+                ARIADNE_TEST_ASSERT(rem_out==actual_r);
+                check_against_gmp(BigUnsigned(output),q.value);
+                ARIADNE_TEST_ASSERT(output[value.size()]==0u);
+                ARIADNE_TEST_ASSERT(output[value.size()+1u]==0u);
+            }
+        }
+    }
+
     const std::array<std::uint64_t,2> numerator{max,max};
     std::array<std::uint64_t,3> output{max,max,max};
     bool zero_threw=false,owning_zero_threw=false,short_threw=false;
