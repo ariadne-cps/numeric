@@ -8641,3 +8641,34 @@ previous B56.1 GCC and AppleClang Release jobs
 failed during Build; exact compiler logs could not
 be retrieved, so CI validation is still required.
 No numerical, FloatAP or benchmark semantics change.
+
+
+### B57 x86-64 selective normalized pi1 and power-of-two division (20 October 2026)
+
+The B56 category-resolved division profile
+identified one-limb small and wide divisors as
+costly on the user's GCC x86-64 host. B57
+experiments with an exact normalized 64/64 pi1
+reciprocal for quotient-producing
+BigUnsigned::divrem_limb_into ONLY on GNU GCC
+x86-64 when input has >=64 raw limbs; Clang,
+MSVC, ARM64, short inputs and remainder-only
+division retain their earlier paths. A single
+B26 DIVQ precomputes the exact reciprocal,
+avoiding an extra 128-bit runtime helper;
+no BMI2/ADX required. Separately, division
+by any exact power of two uses right shifts
+and masks for one- or multi-limb divisors,
+including remainder-only/joint outputs, on
+ALL architectures without scratch allocation.
+The official Integer/GMP workload is unchanged.
+Standalone exact GMP checks passed 32768
+one-limb quotient/remainder pairs under
+GCC/Clang and 6534 power-of-two multi-limb
+pairs under GCC plus Clang ASan/UBSan.
+The production test suite extends these to
+1440 + 2160 cases with size/contract guards.
+On-target integrated performance remains
+pending; use the B56 diagnostic and B55
+official timing baseline to accept or revert.
+See integer_rational_design.md B57.
