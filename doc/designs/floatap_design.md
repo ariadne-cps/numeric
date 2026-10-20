@@ -8988,3 +8988,18 @@ workload change; FloatAP/Integer public arithmetic
 and ARM64 native carry remain unchanged.
 See integer_rational_design.md B71. CI and user-host
 B71 performance are pending.
+
+
+### B71.1 fix B71 benchmark wrapper declaration order (20 October 2026)
+
+The user reported a native GCC x86-64 benchmark build failure
+in `benchmark_integer_small_operations_profile.cpp`:
+`verify_b69` referenced `b71_stack_selected_signed` and
+`b71_stack_fused_signed` before either was declared.
+Move the two existing diagnostic function definitions intact
+above `verify_b69` in the same anonymous namespace.
+No algorithm, oracle, test pool, production arithmetic,
+dispatch, build flag, official 84-case benchmark, or
+benchmark timing methodology changes. The fix does not
+claim performance or successful native build before
+actual CI/user verification.
