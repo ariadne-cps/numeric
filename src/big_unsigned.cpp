@@ -1251,6 +1251,7 @@ BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b)
 
 BigUnsigned gcd(BigUnsigned a,BigUnsigned b)
 {
+    using Limb=BigUnsigned::Limb;
     // R8: order once. Every subsequent Euclidean remainder is smaller
     // than the previous divisor, so a>=b remains true throughout.
     if (compare(a,b)<0) { a.swap(b); }

@@ -6368,3 +6368,18 @@ No changes to benchmark cases, GMP oracle, build flags or timed loops.
 **Status:** R8 native CI and six-size ARM64/x86-64 benchmarks pending;
 no R8 gate has been claimed passed. Shared-core changes require the
 Integer/BigUnsigned/Rational and downstream FloatAP differential gates.
+
+
+### R8a — fix scalar GCD limb type lookup (20 October 2026)
+
+**Build failure:** Apple Clang ARM64 rejects four unqualified uses of
+`Limb` inside the free function `BigUnsigned gcd(BigUnsigned,BigUnsigned)`:
+`Limb` is a nested type of `BigUnsigned`, not visible unqualified in
+this non-member scope (reported at big_unsigned.cpp around line 1261).
+
+**Fix:** add `using Limb=BigUnsigned::Limb;` inside `gcd`. No algorithm,
+branch condition, arithmetic result, benchmark fixture, test expectation,
+or compiler flag is changed. The explicit alias resolves the same lookup
+problem for Apple Clang, GCC and MSVC. R8a requires CI and fresh
+measurements before claiming R8 performance; the R7 benchmark remains
+the last measured baseline.
