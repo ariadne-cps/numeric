@@ -8884,3 +8884,28 @@ production or the official 84-case arithmetic benchmark
 changes. Same-host full benchmark and CI remain necessary
 to validate actual production improvements; consult
 integer_rational_design.md B66.
+
+### B67 owning Integer versus primitive magnitude profile (20 October 2026)
+
+B66's 84-case user-host x86 GCC benchmark passed the
+independent GMP oracle and reported overall total
+0.979x, worst pow3 at 128 bits 2.447x; every
+53/128/256-bit total still exceeds 1x and
+1024-bit total is 1.029x. Power improved relative
+to B63, but unrelated construction/division
+times drifted, so aggregate movement does not
+establish an MSB-first regression. B67 introduces
+a new standalone benchmark reusing exactly the
+official integer and division input pools,
+with owning GMP, owning signed Integer and
+owning BigUnsigned magnitude-only controls
+for construction, copy, compare, multiplication,
+square, quotient, remainder, power3 and decimal
+output. The unsigned core is independently
+GMP-oracle-checked before/after timing, and
+is a non-additive control rather than a precise
+signed-wrapper attribution. No production
+FloatAP/Integer arithmetic, original 84-case
+inputs, test or API changes are included.
+Run on the user's machine before selecting a
+53/128/256-bit production optimization.
