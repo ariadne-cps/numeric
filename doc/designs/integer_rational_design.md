@@ -4946,3 +4946,58 @@ verification and the untouched 84-case acceptance
 gates (all six per-size totals <1x; worst <2x).
 The new diagnostic is not yet compilation/CI-verified
 or independently measured on the user's host.
+
+### B63 x86-64 GCC quotient-only normalized pi1 threshold 16 limbs (20 October 2026)
+
+The user's B62 x86-64 GCC B56 diagnostic (4000 iterations,
+15 samples, original 32-pair GMP-verified operand pools) measured
+independent caller-owned `quot_pi1_prealloc` against the exact
+`quot_divq_prealloc` recurrence. At 1024 bits:
+  small 90.369 vs 300.657 ns (pi1 3.33x faster),
+  wide  83.630 vs 318.015 ns (pi1 3.80x faster).
+At 2048 bits:
+  small 147.365 vs 614.124 ns (4.17x),
+  wide  144.513 vs 638.188 ns (4.42x).
+At 4096 bits:
+  small 271.682 vs 1213.953 ns (4.47x),
+  wide  266.891 vs 1293.786 ns (4.85x).
+The diagnostic worst pi1/GMP was 1.541x (1024-bit wide);
+old DIVQ worst was 7.052x (4096-bit wide).
+All quotient AND remainder results matched the independent GMP oracle.
+These are preallocated kernel figures, not owning `quot()` or
+the official 84-case aggregate; do not equate their ratios.
+
+Crucially, the unchanged official 32-case integer division workload
+in benchmark_exact_arithmetic_workload.hpp uses single-limb
+divisors for i%4==0 and i%4==3, i.e. 16 of 32 inputs.
+For i%4==1 and i%4==2 it uses half-width and near-equal
+divisors. Consequently B63 can improve the real official
+`quotient` benchmark at 1024/2048 bits without modifying
+the workload, but cannot address the multi-limb half of
+those operation cases. It is not yet proven that the worst
+official ratios fall under 2x.
+
+B63 promotes the measured `>=16`-limb pi1 threshold in
+`BigUnsigned::divrem_limb_into` ONLY for GCC x86-64
+with __int128, replacing its earlier `>=64` threshold.
+It does not change the exact preinverse algorithm, the
+power-of-two fast path, the B61 rem-only >=8-limb
+selection, multi-limb Knuth division, ABI or public
+headers. Clang, ARM64, MSVC and short quotient
+inputs retain their existing selection.
+The B62 pi1 versus DIVQ diagnostic controls and their
+32-input GMP oracle stay unchanged as an A/B fallback.
+Extend the B57 test count list to 15/16/17 and
+31/32/33 limb sizes in addition to existing 63/64/65
+cases; quotient and 64-bit residual remain GMP-verified,
+including dense, sparse, saturated and zero inputs.
+No test expectations or official benchmark inputs are changed.
+
+Acceptance remains ALL six official per-size total_time/GMP
+strictly <1x and all 84 per-operation slowdown ratios
+strictly <2x, checked in one GMP-verified official run
+with 20000 iterations and 31 samples. Repeated on-target
+runs should confirm borderline wins. B61 is a baseline,
+not proof of B63 outcomes. All B62 Unix/Windows/Coverage
+GitHub Actions workflows completed successfully; B63
+integrated CI and performance validation are pending.

@@ -455,9 +455,10 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
 // For B=2^64 and B/2 <= d < B, inverse=floor((B^2-1)/d)-B.
 // The quotient approximation uses one wide product, two carry
 // corrections and no DIVQ per limb; d is fixed for the whole stream.
-// GCC x86-64 selects it for >=64-limb quotient-producing callers
+// B63: GCC x86-64 selects it for >=16-limb quotient-producing
+// callers, based on the GMP-verified B62 16/32/64-limb timings,
 // and (B61) >=8-limb single-limb remainder-only callers.
-// Clang, short inputs and other targets retain DIVQ; no BMI2/ADX.
+// Clang, shorter inputs and other targets retain DIVQ; no BMI2/ADX.
 #if defined(__x86_64__) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
@@ -538,12 +539,12 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
 #if defined(__x86_64__) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
-    // B57 experimental threshold from independent GCC/Clang x86-64
-    // timings: GCC >=64 limbs benefits from normalized pi1, while
-    // small inputs and Clang favor the existing DIVQ recurrence.
+    // B63: the exact B62 GMP-verified pi1 kernel beats DIVQ
+    // at 16, 32 and 64 limbs on the user's GCC x86-64 host.
+    // Preserve DIVQ below 16 limbs and on other compiler/ISA paths.
     // Construct the exact reciprocal with one native 128/64 DIVQ:
     // (B^2-1)/normalized - B = ((B-1-normalized)*B+B-1)/normalized.
-    if (a.size()>=64u) {
+    if (a.size()>=16u) {
         const unsigned shift=static_cast<unsigned>(std::countl_zero(divisor));
         const Limb normalized=divisor<<shift;
         const Limb inverse=divide_wide(

@@ -8803,3 +8803,23 @@ an owning `quot()` comparison. No production dispatch,
 FloatAP algorithms, APIs or original 84-case workloads
 change. Integrated CI and on-target timings are still
 pending; see integer journal B62.
+
+### B63 GCC x86-64 quotient pi1 16-limb production threshold (20 October 2026)
+
+B62's user-host independent GMP-verified preallocated
+single-limb quotient comparisons measured pi1 3.33-4.85x
+faster than DIVQ at 1024/2048/4096 bits. B63 promotes
+the GCC x86-64 `BigUnsigned::divrem_limb_into`
+normalized pi1 threshold from 64 to 16 input limbs,
+without modifying the recurrence, B61 rem-only path,
+power-of-two dispatch or other architectures. The official
+integer division workload includes 16 of 32 single-limb
+divisors, so the promotion can affect the official
+quotient score but does not address all multi-limb cases.
+Additional independent GMP checks cover 15/16/17,
+31/32/33 and 63/64/65 input limb boundaries. The
+unchanged B62 comparator keeps its exact old DIVQ
+reference. Public APIs, FloatAP arithmetic, official
+84-operation workload and numerical oracle are unchanged.
+Integrated B63 CI and same-host official <1x per-size,
+<2x worst performance gates remain to be verified.
