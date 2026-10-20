@@ -52,13 +52,13 @@
 
 #include <gmp.h>
 
-namespace {
-
 namespace Ariadne {
 // B60 internal benchmark-only candidate; no public header/API.
 BigUnsigned rem_limb_preinverse_diagnostic(
         BigUnsigned const& a,BigUnsigned const& b);
 }
+
+namespace {
 
 using namespace Ariadne;
 using namespace AriadneBenchmark;
