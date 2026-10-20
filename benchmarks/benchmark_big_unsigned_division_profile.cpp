@@ -67,6 +67,19 @@ struct Gmp {
     ~Gmp() { mpz_clear(value); }
     Gmp(Gmp const&)=delete;
     Gmp& operator=(Gmp const&)=delete;
+    // B56.1: make fixture pools movable without copying GMP internals.
+    // Initialize our own object, then swap GMP-owned storage. A moved
+    // source remains a valid, independently destructible mpz_t.
+    Gmp(Gmp&& other) noexcept {
+        mpz_init(value);
+        mpz_swap(value,other.value);
+    }
+    Gmp& operator=(Gmp&& other) noexcept {
+        if (this!=&other) {
+            mpz_swap(value,other.value);
+        }
+        return *this;
+    }
 };
 
 template<class T> void keep_alive(T const& value)

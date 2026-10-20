@@ -8616,3 +8616,16 @@ after timing. Original 84-case workload remains
 untouched. Same-host diagnostic results and CI are
 pending before any further x86 ISA or division change;
 see integer_rational_design.md B56.
+
+
+### B56.1 diagnostic fixture move fix (20 October 2026)
+
+The B56-only GMP RAII wrapper now supports
+noexcept move through mpz_init/mpz_swap. This
+enables make_pool to legally return its
+32-element fixture array by value under GCC
+and Clang; a standalone GMP-linked compile/
+run test passed with both compilers. No
+production Integer/FloatAP code, arithmetic,
+test expectations, benchmark cases or
+timing logic changes; full CI pending.
