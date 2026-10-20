@@ -1426,6 +1426,45 @@ void append_decimal_recursive(
     output+=leaf;
 }
 
+// B58 internal diagnostic variant; the production path is untouched.
+void append_decimal_recursive_cutoff32(
+        BigUnsigned const& value,
+        std::vector<DecimalSplitPower> const& powers,
+        std::string& output,std::size_t min_digits)
+{
+    if (value.size()>32u) {
+        // Preserve B22's balanced power selection and exact divrem.
+        const std::size_t midpoint=value.bit_length()/2u;
+        std::size_t count=powers.size();
+        while (count!=0u &&
+                powers[count-1u].value.bit_length()>midpoint) {
+            --count;
+        }
+        if (count!=0u) {
+            auto const& divisor=powers[count-1u];
+            auto [high,low]=divrem(value,divisor.value);
+
+            // The quotient contributes the high digits. If an
+            // ancestor requested a fixed-width decimal field, the
+            // high part carries only the width not owned by 'low'.
+            const std::size_t high_width=min_digits>divisor.width
+                ? min_digits-divisor.width : 0u;
+            append_decimal_recursive_cutoff32(high,powers,output,high_width);
+            // 0 <= low < 10^width, so its representation must occupy
+            // exactly 'width' characters, including leading zeros.
+            append_decimal_recursive_cutoff32(low,powers,output,divisor.width);
+            return;
+        }
+    }
+
+    const std::string leaf=to_decimal_blocks(value);
+    if (leaf.size()<min_digits) {
+        output.append(min_digits-leaf.size(),'0');
+    }
+    output+=leaf;
+}
+
+
 } // namespace
 
 std::string to_decimal(BigUnsigned const& value)
@@ -1471,6 +1510,53 @@ std::string to_decimal(BigUnsigned const& value)
         result.reserve(digit_capacity);
     }
     append_decimal_recursive(value,powers,result,0u);
+    return result;
+}
+
+// B58 benchmark-only symbol: not part of the stable public API.
+std::string to_decimal_cutoff32_diagnostic(BigUnsigned const& value)
+{
+    if (value.is_zero()) {
+        return "0";
+    }
+    if (value.size()<=32u) {
+        return to_decimal_blocks(value);
+    }
+
+    // Squaring successive powers of 10^9 costs logarithmically many
+    // products. Each recursive step uses the shared exact divrem;
+    // no GMP boundary conversions, global caches, or ISA assumptions.
+    std::vector<DecimalSplitPower> powers;
+    powers.push_back({BigUnsigned(std::uint64_t{1000000000u}),9u});
+    const std::size_t bit_length=value.bit_length();
+    const std::size_t midpoint=bit_length/2u;
+    while (true) {
+        const auto& last=powers.back();
+        const std::size_t bits=last.value.bit_length();
+        // The square has at least 2*bits-1 bits; avoid the large
+        // unnecessary final square when it cannot fit the midpoint.
+        if (bits>(midpoint+1u)/2u) {
+            break;
+        }
+        if (last.width>std::numeric_limits<std::size_t>::max()/2u) {
+            throw std::length_error("BigUnsigned decimal width overflow");
+        }
+        BigUnsigned squared=square(last.value);
+        if (squared.bit_length()>midpoint) {
+            break;
+        }
+        const std::size_t width=last.width*2u;
+        powers.push_back({std::move(squared),width});
+    }
+    std::string result;
+    // floor(bits/3)+1 safely bounds decimal digits since
+    // log10(2)<1/3. Reserve once and avoid repeated intermediate
+    // string allocation/copying, for both x86-64 and ARM64.
+    const std::size_t digit_capacity=bit_length/3u+1u;
+    if (digit_capacity<=result.max_size()) {
+        result.reserve(digit_capacity);
+    }
+    append_decimal_recursive_cutoff32(value,powers,result,0u);
     return result;
 }
 
