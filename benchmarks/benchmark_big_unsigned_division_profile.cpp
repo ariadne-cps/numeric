@@ -176,8 +176,8 @@ char const* name(Shape shape)
     case Shape::near_greater: return "near_greater_q1";
     case Shape::shifted_half: return "shifted_half";
     case Shape::power_of_two: return "power_of_two";
+    default: throw std::logic_error("unknown division shape");
     }
-    throw std::logic_error("unknown division shape");
 }
 
 struct Fixture {

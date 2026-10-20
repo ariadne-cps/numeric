@@ -4415,3 +4415,25 @@ benchmark workload or diagnostic measurement logic.
 Run the complete benchmark and CI to establish
 integration and native timing; that has NOT yet
 been confirmed.
+
+
+### B56.2 ensure exhaustive shape switch has required default (20 October 2026)
+
+The B56.1 diagnostic CI recorded GCC 13 Release and
+AppleClang 21 Release build failures, while Clang 16
+Release/TSan passed. CI enables WARNINGS_AS_ERRORS=ON.
+Review of the new diagnostic found a 12-case switch
+that intentionally enumerated every Shape but omitted
+the explicit default label required by the project's
+-Wswitch-default policy. B56.2 moves the existing
+logic_error into a switch default case without changing
+which inputs or cases can execute. An isolated C++20
+reproducer confirmed -Wswitch-default -Werror rejects
+the old fully-enumerated switch on both GCC 14 and
+Clang 17. This is a warning-policy compliance fix,
+not a change to the arithmetic, oracles, measured
+operations, input fixtures or official benchmark.
+The exact CI error annotations were not accessible
+through the GitHub connector; confirmation requires
+new CI results. No user-host B56 timings have
+been recorded.
