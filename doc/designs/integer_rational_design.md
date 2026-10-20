@@ -4640,3 +4640,50 @@ GMP-verified gains in the unchanged 84-operation official benchmark
 without regressions at other sizes or on ARM64. B58 source
 compilation, integrated execution, CI and user-host timings
 remain to be verified.
+
+### B59 promote measured GCC x86-64 decimal cutoff-32 (20 October 2026)
+
+B58 user-host x86-64 GCC benchmark, with 20000 iterations,
+31 samples and GMP verification PASS on all 32 official inputs,
+showed production cutoff-16 versus experimental cutoff-32:
+- 1024 bits: 679.306 versus 679.785 ns (ratio 1.001x);
+- 2048 bits: 3115.386 versus 2022.839 ns (ratio 0.649x,
+  35.1% faster);
+- 4096 bits: 8575.616 versus 6692.417 ns (ratio 0.780x,
+  22.0% faster).
+The original B58 recursive-division depth diagnostic also
+confirmed native owning divrem / GMP mpz_tdiv_qr ratios:
+- 2048 bits: depths 0/1 = 2.424x/2.819x;
+- 4096 bits: depths 0/1/2 = 2.516x/2.818x/3.011x.
+These independently timed depth replays are non-additive and
+do not assign exact production call-stack costs.
+
+B59 promotes the measured 32-limb leaf cutoff ONLY for
+__x86_64__ GCC (not Clang or MSVC) with unsigned __int128.
+ARM64, x86 Clang, Windows and other targets retain cutoff-16.
+The existing duplicated B58 cutoff-16/32 recursion and top-level
+formatter are consolidated into a single template parameterized
+by a compile-time cutoff: production selects the architecture
+constant while both diagnostic versions remain callable. No
+division, decimal leaf, multiplication, GMP boundary or
+public arithmetic API changes. The 84-operation official
+benchmark and original 32-input benchmark workload are unchanged.
+The standalone profile compares production against explicit
+diagnostic cutoff-16 AND cutoff-32, preserving repeatable
+same-host pre-promotion comparisons rather than letting the
+experimental comparator become identical to production.
+Both cutoff variants and each recursive split retain independent
+GMP validation. Add 216 independent GMP binary-export/oracle
+formatter checks at 15/16/17, 31/32/33 and 63/64/65 limbs,
+covering exact powers, saturated, sparse and random inputs.
+
+The B58 diagnosis suggests optimizing multiprecision division
+for decimal-power divisors after this promotion; B59 itself
+does not alter division. Projected improvements to the overall
+time/GMP figure are NOT established by a stage proxy. Repeat
+the official 84-operation benchmark at 20000 iterations
+and 31 samples on the same host; validate all release,
+sanitizer, coverage and Windows CI before treating B59 as
+cross-platform verified. This documentation records the
+user's B58 results, not an independently executed B59
+integration or on-target timing.
