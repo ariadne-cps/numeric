@@ -68,7 +68,7 @@ class Integer
     bool _negative = false;
 
     // Normalizes negative zero; used by the signed arithmetic functions.
-    Integer(BigUnsigned magnitude,bool negative) noexcept;
+    Integer(BigUnsigned&& magnitude,bool negative) noexcept;
 
   public:
     //! Construct a canonical signed magnitude without using GMP.

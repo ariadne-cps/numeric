@@ -46,7 +46,7 @@ Comparison cmp(Integer const& z1, Integer const& z2);
 
 Integer::~Integer() = default;
 
-Integer::Integer(BigUnsigned magnitude,bool negative) noexcept
+Integer::Integer(BigUnsigned&& magnitude,bool negative) noexcept
     : _magnitude(std::move(magnitude)),
       _negative(negative && !_magnitude.is_zero())
 {
@@ -331,8 +331,14 @@ Boolean lt(Integer const& z1, Integer const& z2) {
 }
 
 String Integer::literal() const {
-    const std::string magnitude=to_decimal(_magnitude);
-    return String(_negative ? "-"+magnitude : magnitude);
+    String result;
+    // String's std::string constructor copies even an rvalue. Move
+    // the formatter's owned buffer into its standard-string base.
+    static_cast<std::string&>(result)=to_decimal(_magnitude);
+    if (_negative) {
+        result.insert(result.begin(),'-');
+    }
+    return result;
 }
 
 OutputStream& operator<<(OutputStream& os, Integer const& z) {

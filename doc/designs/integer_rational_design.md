@@ -5627,3 +5627,118 @@ requires its own build/performance verification.
 B72 CI, compilation and measured production performance
 are pending at publication time. From build:
   ./benchmarks/benchmark_compare_integer_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
+
+
+### B73 remove temporary decimal ownership and one signed-result move (20 October 2026)
+
+The supplied x86-64 official baseline reports total_time/GMP
+1.429x/1.472x/1.458x/1.034x/0.904x/0.938x at
+53/128/256/1024/2048/4096 bits. The short groups require
+approximately 30.0%/32.1%/31.4% reductions in their native sums,
+not merely a worst-operation fix. The attached B68-B71 profiles
+predate production B72. Keep these separate from post-B72 results.
+B69's carry kernel remains slower than fused; B70/B71 provide no
+basis for changing the selected arithmetic or assigning additive
+costs to sign handling, inlining or allocation.
+
+B73 changes ownership and temporary storage, with no new ISA kernel:
+
+- `Integer::literal()` moves the existing `to_decimal()` buffer into
+  the standard-string base of its returned `String`, then inserts
+  the sign in that same owning string. The old conditional expression
+  and `String(std::string const&)` copied the magnitude buffer. This
+  retains the exact existing `String` return type and requires no
+  utility submodule change. Negative zero still formats as `0`.
+- The private signed-magnitude constructor takes `BigUnsigned&&`.
+  The public `from_magnitude(BigUnsigned,bool)` signature and layout
+  stay the same; its already-owned parameter is moved into the member
+  once, instead of through another by-value parameter first. Lvalue
+  callers still copy their source; moved-from magnitudes remain zero.
+- `from_decimal()` uses one generic block recurrence for both storage
+  strategies. At most 77 input digits are accumulated directly into
+  the result's four inline limbs: 10^77 < 2^256 bounds every prefix.
+  Longer inputs accumulate in the result's own vector, reserved to
+  ceil(input_digits/19), which is safe because 10^19 < 2^64. This
+  avoids the final second allocation/copy. Long inputs are not
+  zero-initialized across their reserved capacity. Leading-zero
+  inputs producing at most four limbs are copied into inline storage
+  and release their unused vector allocation. The existing 32-digit
+  threshold, 19-digit wide recurrence, portable 9-digit recurrence
+  and full ASCII validation before parsing remain unchanged. Appends
+  occur only after each limb scan, so vector growth/span extension
+  cannot invalidate an active scan. The carry append invariant keeps
+  stored limbs canonical, including an empty magnitude for zero.
+- The radix-10^9 formatter uses local arrays for up to eight source
+  limbs and 24 decimal blocks, eliminating its two temporary vector
+  allocations at short widths. Each limb contributes fewer than
+  three 9-digit blocks. Larger portable leaves retain checked dynamic
+  storage. Wide/recursive decimal algorithms and their dispatches,
+  multiplication/division kernels, fused/carry selection and B72's
+  product result construction are unchanged.
+
+These are shared C++20 ownership improvements on ARM64, x86-64 and
+portable targets, not a replacement arithmetic engine. No public
+operation, signed division convention, object layout, benchmark
+fixture, official input pool, operation weight or oracle is changed.
+The private constructor's signature changes; no binary compatibility
+for that private symbol is promised. No GMP is added to production.
+
+Validation on Apple M2 Ultra, macOS 26.6.2, AppleClang 21 Release
+with warnings-as-errors: all 20 CTest tests pass. The complete native
+`test_integer` and `test_big_unsigned` suites also pass a Debug build
+with AddressSanitizer and UndefinedBehaviorSanitizer. The complete
+BigUnsigned suite compiles with GCC 16.2, warnings-as-errors, native
+ARM64 kernels and passes. Additional tests cover signed owning
+results at 0/1/4/5/8/9/64 limbs, source preservation, moved-from zero,
+negative-zero normalization, retained decimal strings and stream IO;
+GMP parsing and formatting at 1/19/31/32/76/77/78/95 digits; and
+invalid ASCII/NUL at every position around those boundaries. Existing
+randomized and adversarial GMP tests remain intact. A separate forced-portable decimal harness (no __SIZEOF_INT128__,
+no native backend) passes 3923 independent GMP/malformed-input checks
+under ASan/UBSan, including up to 10000 input digits and the 8/9-limb
+formatter boundary. Its compilation suppresses the pre-existing
+unused fused-helper warning in this artificially forced configuration;
+the normal native builds retain warnings-as-errors. This is not a
+native MSVC build. The unchanged 1000x11 four-size FloatAP benchmark
+also verifies all 256 paired inputs and 3456 operation results; no
+FloatAP performance comparison to B72 was made. Windows/MSVC and
+native GCC x86-64 CI remain pending.
+
+Unchanged official 20,000-iteration, 31-sample Integer benchmark,
+all six widths, independent GMP verification PASS (768 paired inputs,
+2688 paired results) before and in both repeated final candidate runs:
+
+| bits | ARM64 B72 total/GMP | B73 run 1 total/GMP | run 2 total/GMP | B73 worst run 1 / run 2 |
+| --- | --- | --- | --- | --- |
+| 53 | 0.551x | 0.404x | 0.441x | 0.991x / 1.154x |
+| 128 | 0.937x | 0.687x | 0.685x | 1.518x / 1.496x |
+| 256 | 1.032x | 0.817x | 0.816x | 1.706x / 1.731x |
+| 1024 | 0.882x | 0.847x | 0.847x | 1.462x / 1.433x |
+| 2048 | 1.018x | 1.001x | 1.002x | 1.551x / 1.581x |
+| 4096 | 1.034x | 0.995x | 0.994x | 1.553x / 1.597x |
+
+Native short conversion nanoseconds (B72 -> B73 two-run range):
+53-bit parse 49.110 -> 22.085..22.090, format
+74.612 -> 36.923..37.090; 128-bit parse
+97.496 -> 62.460..63.244, format
+223.083 -> 117.525..119.360; 256-bit parse
+127.144 -> 93.123..93.796, format
+285.700 -> 170.333..171.842. These are ARM64 observations only;
+they do not project x86-64 timings or isolate each change's causal
+contribution. The baseline was a single run, candidate two repeats;
+host drift exists. Parsing at 2048 bits was about 7% slower locally
+(1010.794 -> 1080.692/1084.123 ns) despite lower per-size totals.
+Do not describe this as a per-operation regression-free change.
+
+**The requested target has not been achieved or certified by B73.**
+Even the ARM64 2048-bit total remains above 1x. Native GCC x86-64
+measurements after B72+B73 are required before accepting performance:
+each of the six totals must be strictly <1x and every operation/size
+ratio strictly <2x, on stable repeated runs on the same machine.
+A sum below 1x across all sizes is insufficient. Further work should
+follow those post-B73 measurements: short owning square/pow and
+nontrivial division remain candidates, with no kernel/threshold
+promotion inferred from the old profiles alone.
+
+From the x86-64 Release build (one line):
+  ./benchmarks/benchmark_compare_integer_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
