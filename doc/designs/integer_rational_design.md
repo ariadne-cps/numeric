@@ -5188,3 +5188,72 @@ Run from build:
   ./benchmarks/benchmark_compare_integer_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
 B66 native compile, integrated CI and official timing
 are not yet verified at commit authoring time.
+
+### B67 own-result short-operand performance decomposition (20 October 2026)
+
+B66's full official x86-64 benchmark (20k iterations, 31 samples,
+768 paired GMP-verified inputs and 2688 correct paired operation
+results) reported totals/GMP:
+  53=1.356x, 128=1.527x, 256=1.490x,
+  1024=1.029x, 2048=0.912x, 4096=0.940x,
+  ALL=0.979x; the overall worst is 2.447x
+  for pow3 at 128 bits. Worst per-size:
+  53 pow3=2.264x; 128 pow3=2.447x;
+  256 square=2.117x; 1024 quotient=2.028x;
+  2048 quotient=1.939x; 4096 quotient=2.074x.
+Compared with B63, the MSB-first optimization did
+improve actual pow3: 53 72.001->68.925 ns;
+1024 232.114->195.173 ns; 2048 342.477->306.423 ns;
+4096 638.445->590.928 ns. But other unchanged
+operations, particularly construct_decimal,
+increased in absolute time: at 1024 444.540->587.105,
+2048 986.184->1250.536 and 4096
+2657.408->3226.152 ns. Quotient/remainder also
+moved without code changes. Since B66 did not
+alter construction or division kernels, do not
+infer B66 caused their reported slowdown; host noise,
+load, clock, allocator and compilation context
+remain possible confounders. A single aggregate
+benchmark run is not sufficient to reject a
+consistently faster production pow kernel.
+
+B67 adds an independent small-operations benchmark
+target using both original 32-input
+integer_specifications(bits) and
+integer_division_specifications(bits). It times
+(1) raw owning GMP, (2) ordinary owning signed
+Integer API, and (3) direct owning unsigned
+BigUnsigned on the identical absolute input
+magnitudes for construct_decimal, copy, compare,
+mul, square, quotient, remainder, pow3 and
+to_decimal. All unsigned results are checked
+against an independent GMP absolute-value oracle
+before and after timing. The integer and GMP
+columns have the exact same signed semantics
+as the official workload; the unsigned column
+is a non-additive *magnitude-only control*.
+Its arithmetic can take different branches
+because sign is absent, so the Integer/core
+difference is not a direct measurement of
+signed-wrapper overhead. It can nevertheless
+help distinguish a slow primitive from an
+especially costly signed path on 53/128/256 bits.
+For pow3 the core controls direct
+square(a)*a and is explicitly not identical
+to the whole exponentiation algorithm;
+B65 already established this is a useful
+lower-bound diagnostic, not a generic cube
+production shortcut.
+
+No original official 84-case benchmark or its
+input pool, production arithmetic, GMP oracle,
+tests, or public headers are modified by B67;
+a new diagnostic target is appended in CMake.
+Acceptance remains each of six
+total_time/GMP <1.000x and worst <2.000x over
+all 84 cases on the same host, with stable
+repeat runs. B67 build/CI and user-host
+measurements remain to be verified. Command
+from build, one line with user's preferred
+theme:
+  ./benchmarks/benchmark_integer_small_operations_profile -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
