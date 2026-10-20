@@ -294,8 +294,8 @@ class BigUnsigned
 };
 
 //! Euclidean greatest common divisor of unsigned magnitudes.
-//! gcd(0,0) is zero. Uses the shared exact division primitive.
-BigUnsigned gcd(BigUnsigned a,BigUnsigned b);
+//! gcd(0,0) is zero. Borrows its inputs for the initial Euclidean step.
+BigUnsigned gcd(BigUnsigned const& a,BigUnsigned const& b);
 
 //! Exact unsigned power; exponent zero returns one, including 0^0.
 //! Bounded results use local alternating limb buffers; larger

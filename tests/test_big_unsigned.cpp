@@ -2520,6 +2520,44 @@ void TestBigUnsigned::test_gcd_decimal()
             }
         }
     }
+    // R10: inputs borrowed for GCD must remain unchanged, including
+    // self-aliasing, zero, short first remainders, and long reductions.
+    {
+        GmpInteger left_gmp,right_gmp,expected_gmp;
+        for (unsigned bits : {53u,128u,255u,256u,257u,
+                              512u,1024u,2048u,4096u}) {
+            const BigUnsigned base=shift_left(one,bits);
+            const BigUnsigned close=add(base,BigUnsigned(std::uint64_t{41}));
+            const BigUnsigned apart=add(
+                shift_left(one,bits+3u),BigUnsigned(std::uint64_t{93}));
+            const BigUnsigned multiple=mul(
+                close,BigUnsigned(std::uint64_t{7}));
+            const std::array<std::pair<BigUnsigned,BigUnsigned>,5u> cases={{
+                {close,apart},
+                {apart,close},
+                {close,multiple},
+                {apart,BigUnsigned(std::uint64_t{65537})},
+                {multiple,zero}
+            }};
+            for (auto const& pair:cases) {
+                auto const& a=pair.first;
+                auto const& b=pair.second;
+                mpz_import(left_gmp.value,a.size(),-1,sizeof(std::uint64_t),
+                           0,0,a.limbs().data());
+                mpz_import(right_gmp.value,b.size(),-1,sizeof(std::uint64_t),
+                           0,0,b.limbs().data());
+                mpz_gcd(expected_gmp.value,left_gmp.value,right_gmp.value);
+                check_against_gmp(gcd(a,b),expected_gmp.value);
+                check_against_gmp(gcd(b,a),expected_gmp.value);
+                check_against_gmp(a,left_gmp.value);
+                check_against_gmp(b,right_gmp.value);
+            }
+            mpz_import(left_gmp.value,close.size(),-1,sizeof(std::uint64_t),
+                       0,0,close.limbs().data());
+            check_against_gmp(gcd(close,close),left_gmp.value);
+            check_against_gmp(close,left_gmp.value);
+        }
+    }
     ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
     ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
     ARIADNE_TEST_ASSERT(to_decimal(from_decimal("000"))=="0");

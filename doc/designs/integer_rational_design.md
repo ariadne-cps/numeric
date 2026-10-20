@@ -6433,3 +6433,38 @@ architecture-specific multiply diagnostics. Repeat the six-size,
 15-operation GMP comparison on both ARM64 and x86-64 to check for
 accidental performance regressions due to TU/codegen changes.
 These validations are pending for R9; no improvement is claimed.
+
+
+### R10 — borrowed initial Euclidean reduction for Rational normalization (20 October 2026)
+
+**Baseline.** R9's single-source BigUnsigned refactor passes Unix,
+Windows and Coverage CI. The last user-provided ARM64 and x86-64
+R8a/R8b benchmark runs each pass numerical verification, but
+`construct_fraction` remains relatively slow at medium/large sizes,
+including 256-4096 bits. Continue enforcing per-size and per-host
+`total_time <1x` AND `worst <2x` versus direct `mpq_t`.
+
+**Change.** All Rational arithmetic GCD sites pass existing lvalue
+magnitudes. Switch `BigUnsigned gcd` from by-value operands to
+`const&`, and compute the first exact Euclidean remainder directly
+from those borrowed operands, rather than copying both magnitudes.
+Return the surviving borrowed input directly if the first remainder
+is zero. For one-limb remainder, finish with the established R8
+scalar Euclid without copying large inputs. Only if another
+multi-limb reduction is necessary, copy the surviving divisor once
+and thereafter reuse move-owned remainder buffers. Retain R6's
+exact same-high-limb subtraction shortcut and the R2 remainder-only
+division path. No benchmark inputs, GMP oracles, expectations, or
+runtime thresholds are changed. This function signature changes its
+C++ symbol/ABI; dependent binaries must be rebuilt from sources.
+
+**Tests.** Add GMP differential checks across
+53/128/255/256/257/512/1024/2048/4096 bits, with both orders,
+zero, exact multiples, same-object aliasing, and verification that
+borrowed operands are untouched. Keep randomized multi-limb GCD,
+Rational construction and downstream FloatAP regressions unchanged.
+
+**Validation.** No local R10 compilation or performance measurement.
+Require Unix, Windows, Coverage CI, full Integer/BigUnsigned/Rational/
+FloatAP test suites, and unchanged 20,000-iteration 31-sample
+ARM64/x86-64 six-width benchmark runs before accepting the change.

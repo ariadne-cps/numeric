@@ -1724,37 +1724,55 @@ BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b)
     return remainder;
 }
 
-BigUnsigned gcd(BigUnsigned a,BigUnsigned b)
+BigUnsigned gcd(BigUnsigned const& lhs,BigUnsigned const& rhs)
 {
     using Limb=BigUnsigned::Limb;
-    // R8: order once. Every subsequent Euclidean remainder is smaller
-    // than the previous divisor, so a>=b remains true throughout.
-    if (compare(a,b)<0) { a.swap(b); }
-    while (!b.is_zero()) {
-        if (b.size()==1u) {
-            // Finish Euclid entirely in machine words, rather than
-            // allocating a BigUnsigned for each scalar reduction.
-            Limb divisor=b.limb(0u);
-            if (divisor==1u) { return BigUnsigned(Limb{1}); }
-            Limb remainder=a.size()==1u ? a.limb(0u)%divisor
-                : rem(a,b).limb(0u);
-            while (remainder!=0u) {
-                const Limb next=divisor%remainder;
-                divisor=remainder;
-                remainder=next;
-            }
-            return BigUnsigned(divisor);
+    // R10: borrow the original magnitudes for the first reduction.
+    // Do not copy full-width numerator and denominator merely to
+    // discover a small remainder (or an exact divisor).
+    if (lhs.is_zero()) { return rhs; }
+    if (rhs.is_zero()) { return lhs; }
+    BigUnsigned const* larger=&lhs;
+    BigUnsigned const* smaller=&rhs;
+    if (compare(*larger,*smaller)<0) { std::swap(larger,smaller); }
+
+    // R8: complete a one-limb divisor with native scalar Euclid.
+    const auto scalar_tail=[](BigUnsigned const& dividend,
+                              BigUnsigned const& divisor) -> BigUnsigned {
+        Limb current=divisor.limb(0u);
+        if (current==1u) { return BigUnsigned(Limb{1}); }
+        Limb remaining=dividend.size()==1u
+            ? dividend.limb(0u)%current : rem(dividend,divisor).limb(0u);
+        while (remaining!=0u) {
+            const Limb next=current%remaining;
+            current=remaining;
+            remaining=next;
         }
-        // R6: equal-width canonical operands with the same top limb
-        // satisfy b<=a<2*b, hence the exact remainder is a-b.
+        return BigUnsigned(current);
+    };
+
+    // R6: when both top limbs agree and a>=b, a<2*b and a%b=a-b.
+    const auto reduce=[](BigUnsigned const& a,
+                         BigUnsigned const& b) -> BigUnsigned {
         if (a.size()==b.size() &&
                 a.limb(a.size()-1u)==b.limb(b.size()-1u)) {
-            BigUnsigned difference=sub(a,b);
-            a=std::move(b);
-            b=std::move(difference);
-            continue;
+            return sub(a,b);
         }
-        BigUnsigned remainder=rem(a,b);
+        return rem(a,b);
+    };
+
+    if (smaller->size()==1u) { return scalar_tail(*larger,*smaller); }
+    BigUnsigned first=reduce(*larger,*smaller);
+    if (first.is_zero()) { return *smaller; }
+    if (first.size()==1u) { return scalar_tail(*smaller,first); }
+
+    // Only the multi-limb continuation needs one owned copy; thereafter
+    // reuse moved remainders as in the original Euclidean loop.
+    BigUnsigned a=*smaller;
+    BigUnsigned b=std::move(first);
+    while (!b.is_zero()) {
+        if (b.size()==1u) { return scalar_tail(a,b); }
+        BigUnsigned remainder=reduce(a,b);
         a=std::move(b);
         b=std::move(remainder);
     }
