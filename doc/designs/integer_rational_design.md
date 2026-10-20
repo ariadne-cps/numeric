@@ -4227,3 +4227,97 @@ full geomean/total_time. If B54 harms sparse 2048
 multiplication or dense 4096 Karatsuba, revert or
 retune only the responsible selection without
 changing any benchmark input or test expectations.
+
+
+### B55 x86-64 GMP-proved MULQ/ADCQ multiply-subtract division step (20 October 2026)
+
+The user's B54 84-operation x86-64 benchmark (20,000 iterations,
+31 samples, 768 paired input fixtures / 2688 operation results
+PASS) reduced the native/GMP total_time from B53's 1.361x to
+1.153x, geomean 1.284x to 1.181x, by transferring ARM64 sparse
+square and Karatsuba density selection. The remaining worst case
+was quotient at 2048 bits: 558.359 ns native vs 163.808 ns GMP,
+3.409x; at 4096 bits quotient 1209.668 vs 361.524 ns (3.346x),
+remainder 1120.816 vs 364.121 ns (3.078x).
+These workloads include both narrow single-limb divisors and
+middle-size multiprecision denominators: do not assume their
+aggregated median isolates any one subpath.
+
+B55 examined the first hypothesis, directly copying B49's
+preinverted narrow divisor strategy from ARM64 to x86-64.
+A standalone x86-64 AMD EPYC 9V74 GCC 14.2 and Clang 17
+proxy compared exact scalar DIVQ 128/64 division with
+B49's two reciprocal multiply-high steps per 64-bit quotient
+digit, and full remainder-only equivalents, all using the
+unchanged divisor-independent input recurrence. All 101376
+deterministic/random/adversarial GMP quotients and remainders
+passed per compiler, for 1..128-limb dividends and 18 divisors
+spanning 2, powers of two, small primes and the 2^32 boundary.
+On this proxy B49 reciprocal was *consistently slower*:
+GCC 32 limbs divisor=35 gave 119.167 ns for DIVQ and
+181.581 ns for reciprocal quotient; the rem-only path
+127.614 versus 206.651 ns. Clang 32 limbs divisor=35
+gave 119.395 versus 221.048 ns for quotient. The exact
+CPU differs from the user's unknown x86 model, but the
+results disprove automatic portability and justify retaining
+B26's existing native DIVQ for narrow divisors on x86.
+The ARM64 B49 code and all related selection stay UNCHANGED.
+
+The second hypothesis targets the genuine multi-limb divisor
+path, which normalizes the dividend and denominator, estimates
+each quotient digit with divide_wide, and subtracts
+digit*divisor from an m+1 limb window. B27 already fused
+the multiply and subtract in C++, but on x86-64 its
+128-bit wide arithmetic still incurs separate borrow
+comparisons. B55 adds a baseline native
+MULQ -> ADDQ/ADCQ -> SUBQ/ADCQ *single carry chain*
+for the subtraction recurrence, selected only when
+m>=8 limbs on GNU/Clang x86-64, after all output and
+workspace contracts have been validated. Each step
+computes high:low = divisor[i]*digit+carry and then
+window[i]-=low while incorporating the borrow into
+the next carry. The exact algebra is unchanged.
+SparseZero==true retains B29's handling of normalized
+zero divisor limbs by subtracting only incoming carry.
+Final high-limb subtraction and underflow flag are
+identical. No BMI2, ADX, new runtime CPU gating,
+API, heap allocation, GMP production usage or
+benchmark modifications; ARM64, MSVC, non-x86
+targets and all denominators with 1..7 limbs
+retain the original C++ code.
+
+A local AMD EPYC proxy of the exact native recurrence
+was compiled with -O3 -std=gnu++20 -Wpedantic -Werror
+using GCC 14.2 and Clang 17, plus Clang ASan/UBSan.
+For each of 1,2,4,8,16,32,64,128 limbs it verified
+4096 random/adversarial cases against independent
+GMP integer subtraction modulo 2^(64*(m+1)) and
+the negative-result flag, and required byte-exact
+equality against the original B27 fused recurrence:
+32768 successful GMP checks for each build. In the
+GCC local timing proxy, the 16-limb kernel fell
+48.10 -> 43.17 ns (~10.2%) and the 64-limb kernel
+78.99 -> 71.40 ns (~9.6%); Clang 16-limb
+19.31 -> 16.44 ns (~14.9%). Small 1/2 limb cases
+were similar/slower, motivating B55's >=8-limb
+selector. These are isolated local proxy timings,
+NOT evidence of the integrated user-host speedup.
+
+The production regression adds 6 denominator sizes
+(7,8,9,16,32,64) x 3 additional dividend lengths
+(+2,+9,+32) x 24 adversarial/random patterns =
+432 GMP-oracle numerator/denominator pairs, validating
+joint divrem, quotient-only, remainder-only, preallocated
+outputs, oversized zero-filled destination words and
+scratch guard sentinels. This augments rather than
+weakens existing B27/B29/B36/B45 and B48/B49 tests.
+No adjustments to the official 84-case workload
+or benchmark expectation. CI must pass on GCC,
+Clang, macOS AppleClang, Windows MSVC and all
+sanitizer/coverage configurations. Run the original
+official user-host x86 benchmark at 20k iterations
+and 31 samples, measuring quotient/remainder at
+1024/2048/4096 bits, aggregate total_time/geomean
+and verifying all operation results. Preserve B54
+as the rollback baseline if division gets slower
+or no repeatable native improvement appears.

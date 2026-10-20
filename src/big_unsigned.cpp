@@ -613,6 +613,55 @@ bool subtract_digit_product(BigUnsigned::MutableLimbView window,
     return old<carry;
 }
 
+// B55: x86-64 GNU/Clang baseline MULQ/ADDQ/ADCQ/SUBQ/ADCQ
+// specialization for the existing fused digit-product subtraction.
+// It computes high:low = divisor[i]*digit + carry, subtracts
+// low from window[i], then folds the subtraction borrow into high.
+// The exact recurrence and (m+1)-limb two's-complement result
+// match subtract_digit_product<SparseZero>. Skipping a zero divisor
+// limb still subtracts the incoming carry/borrow. No BMI2/ADX.
+// Production selects this kernel for divisor lengths >=8 limbs;
+// smaller divisors retain the C++ wide implementation.
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && \
+    !defined(_MSC_VER)
+template<bool SparseZero>
+bool subtract_digit_product_x86_64(
+        BigUnsigned::MutableLimbView window,
+        BigUnsigned::LimbView divisor,
+        BigUnsigned::Limb digit) noexcept
+{
+    using Limb=BigUnsigned::Limb;
+    Limb carry=0u;
+    for (std::size_t i=0u;i<divisor.size();++i) {
+        if constexpr (SparseZero) {
+            if (divisor[i]==0u) {
+                const Limb old=window[i];
+                window[i]=old-carry;
+                carry=static_cast<Limb>(old<carry);
+                continue;
+            }
+        }
+        Limb low=divisor[i],high;
+        Limb old=window[i];
+        __asm__ volatile(
+            "mulq %[digit]\n\t"
+            "addq %[carry], %%rax\n\t"
+            "adcq $0, %%rdx\n\t"
+            "subq %%rax, %[old]\n\t"
+            "adcq $0, %%rdx\n\t"
+            : "+&a" (low), "=&d" (high), [old] "+&r" (old)
+            : [digit] "r" (digit), [carry] "r" (carry)
+            : "cc");
+        window[i]=old;
+        carry=high;
+    }
+    const std::size_t m=divisor.size();
+    const Limb old=window[m];
+    window[m]=old-carry;
+    return old<carry;
+}
+#endif
+
 // Undo one unit of an overestimated quotient digit. When the
 // subtraction was negative, the working window holds its two's
 // complement modulo B^(m+1). After adding the divisor back, a
@@ -802,8 +851,20 @@ void BigUnsigned::divrem_selected_into(
                 std::numeric_limits<Limb>::max() :
                 divide_wide(high,low,v[m-1u]).first;
             const auto window=u.subspan(j,m+1u);
+            // B55: a single selector outside the hot inner limb loop.
+            // >=8-limb x86 divisors use an exact native MULQ/ADCQ
+            // multiply/subtract recurrence; all other targets and
+            // smaller denominators keep the original wide C++ code.
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && \
+    !defined(_MSC_VER)
+            bool overestimated=m>=8u ?
+                subtract_digit_product_x86_64<SparseZero>(
+                    window,v,digit) :
+                subtract_digit_product<SparseZero>(window,v,digit);
+#else
             bool overestimated=
                 subtract_digit_product<SparseZero>(window,v,digit);
+#endif
             while (overestimated) {
                 --digit;
                 add_back_divisor(window,v);
