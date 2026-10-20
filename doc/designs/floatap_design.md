@@ -8926,3 +8926,23 @@ unsigned-core reference, FloatAP/Integer production
 arithmetic, source APIs and 84-operation official
 benchmark remain unchanged. A/B measurements and
 complete CI are pending. See integer journal B68.
+
+### B69 evaluate ARM64 carry-chain lessons on short GCC x86-64 (20 October 2026)
+
+The user's latest ARM64 GMP-verified official benchmark passes
+all per-size <1x totals except 4096 bits (1.008x), with
+global worst 1.805x. The B68 GCC x86 signed same-semantics
+A/B finds 11-28% lower formatter time and 7-23% lower
+signed decimal parser time at 53/128/256 bits, but
+manual multiply and square signed wrappers rarely help.
+B69 adds standalone 1..4-limb diagnostics comparing
+existing forced x86 fused and x86 carry-chain
+multiplication and square on matched official input
+pairs, both preallocated kernel and fully owning signed
+Integer results. All variants are independently GMP
+verified on the unchanged 32-case pool and extra
+short random/sparse/saturated/zero values. No production
+Integer/FloatAP math, other architecture selectors,
+official benchmark cases or public APIs change.
+See integer_rational_design.md B69. CI and on-target
+B69 timing must be verified before any selector switch.

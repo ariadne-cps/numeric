@@ -5326,3 +5326,77 @@ are not yet established.
 
 Run from build, single line with dark theme:
   ./benchmarks/benchmark_integer_small_operations_profile -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
+
+### B69 test ARM64 carry-chain transfer against GCC x86 fused at short widths (20 October 2026)
+
+The user provided a second ARM64 official 20,000-iteration/31-sample
+benchmark with GMP correctness PASS (768 paired inputs and 2688
+operation outputs): total_time/GMP was 0.604x at 53 bits, 0.985x at
+128, 0.986x at 256, 0.830x at 1024, 0.971x at 2048 and 1.008x at
+4096. Worst/GMP remained below 2x at all sizes (ALL=1.805x).
+Thus the native Integer representation and ownership strategy can
+perform competitively with GMP on another architecture at short
+widths; the x86-64 1.3-1.5x total ratios must not be treated as a
+platform-independent unavoidable signed wrapper overhead.
+Cross-machine absolute timing comparisons reflect different CPU
+and compiler performance and do not isolate an implementation cause.
+
+The same user's B68 x86-64 signed GMP-verified A/B comparisons
+(20,000 iterations, 31 samples on original 32 input pairs)
+measured signed direct construction candidate/production ratios
+0.768x/0.909x/0.934x and signed direct formatter
+0.723x/0.835x/0.888x at 53/128/256 bits. The candidate
+signed multiplication was 0.949x/1.070x/0.984x and
+signed square 1.005x/1.006x/1.010x. This shows repeatable
+same-semantics wins for String adapter avoidance, while
+manual signed multiply/square construction offers no consistent
+benefit. Large x86 operands often show minimal wrapper
+differences, so blaming sign handling alone is unwarranted.
+
+B69 makes the proposed ARM64-inspired kernel test on the SAME
+GCC x86-64 host, rather than comparing ARM64 and x86 absolute
+times. The existing B68 standalone diagnostic gains a third
+section ONLY when the production library reports both
+selected_multiply_uses_fused() and
+has_x86_64_carry_multiply(). For sizes 53, 128 and 256 bits,
+it compares the exact existing production fused 128-bit
+kernel against the explicitly available x86-64 carry-chain
+kernel in TWO independent, non-additive ways:
+(1) no-allocation fixed-size caller-owned eight-limb output
+arrays, independently timed for nonaliased multiplication
+and self-square; and
+(2) whole owning SIGNED Integer objects with matching result
+type, sign parity and GMP oracle, using both forced kernels.
+The whole-result experiment constructs a canonical
+BigUnsigned from the eight-word stack buffer; that may
+allocate and copy differently from the current production
+owning mul(), so its timings are A/B between *forced
+variants*, not a direct claim that merely flipping the
+production kernel will yield exactly the same performance.
+
+All B69 operations use exactly the existing 32 official
+Integer input pairs at each selected size. Additional
+300 random/dense/sparse/saturated/zero signed test pairs
+at canonical limb lengths 0..4 exercise both forced
+kernels for independent GMP quotient-free full products,
+including negative signs, squares and nonempty/empty
+operands. Both full owning signed products and raw
+fixed-buffer output digits must match GMP before AND
+after timed experiments. The candidate uses the existing
+BigUnsigned::mul_into_fused and
+BigUnsigned::mul_into_x86_64_carry entrypoints: no
+new architecture assembly, no production dispatch,
+ABI, public API, official benchmark workload/weights,
+oracle or other test behavior is changed.
+
+Run from build, as a single command:
+  ./benchmarks/benchmark_integer_small_operations_profile -t dark --bits 53,128,256 --iterations 20000 --samples 31
+A production change should be considered only on
+repeatable native GCC x86 improvements in short
+owning results, followed by the unmodified 84-case
+GMP-verified acceptance gates (all six per-size
+totals strictly <1x and every worst ratio <2x),
+with no ARM64 regression. Do not confuse the
+ARM64 success with proof x86 carry will win.
+B69 integrated build and host measurements
+remain unverified at commit authoring time.

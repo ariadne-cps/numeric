@@ -36,6 +36,8 @@
 #include <cstddef>
 #include <array>
 #include <cstdint>
+#include <limits>
+#include <random>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -186,6 +188,265 @@ void report_signed_candidate(char const* name,
          << std::setw(14) << c/n << "x"
          << std::setw(14) << c/g << "x";
     LOGGING_PRINTLN(line.str())
+}
+
+// B69: kernel-only exact 1..4 limb comparisons. Both forced algorithms
+// overwrite precisely the same caller-owned output span; neither creates
+// a BigUnsigned object, performs an allocation or changes production.
+enum class B69Kernel { Fused, X86Carry };
+
+template<B69Kernel Kernel>
+std::array<BigUnsigned::Limb,8u> b69_preallocated(
+        BigUnsigned const& first,BigUnsigned const& second)
+{
+    using Limb=BigUnsigned::Limb;
+    if (first.size()>4u || second.size()>4u) {
+        throw std::length_error("B69 diagnostic supports at most 4 limbs");
+    }
+    std::array<Limb,8u> output{};
+    if (!first.is_zero() && !second.is_zero()) {
+        const auto used=first.size()+second.size();
+        const auto target=BigUnsigned::MutableLimbView(
+            output.data(),used);
+        if constexpr (Kernel==B69Kernel::Fused) {
+            BigUnsigned::mul_into_fused(first.limbs(),second.limbs(),target);
+        } else {
+            BigUnsigned::mul_into_x86_64_carry(
+                first.limbs(),second.limbs(),target);
+        }
+    }
+    return output;
+}
+
+// Same signed Integer ownership on both forced paths; the only
+// difference is the multiplication kernel. This deliberately differs
+// from the production mul() allocation strategy, so forced/production
+// ratios are whole-result controls, NOT isolated kernel timings.
+template<B69Kernel Kernel>
+Integer b69_owned(Integer const& first,Integer const& second)
+{
+    const auto& a=first.magnitude();
+    const auto& b=second.magnitude();
+    auto digits=b69_preallocated<Kernel>(a,b);
+    const std::size_t used=a.size()+b.size();
+    return Integer::from_magnitude(
+        BigUnsigned(BigUnsigned::LimbView(digits.data(),used)),
+        first.negative()!=second.negative());
+}
+
+void b69_check_signed(Integer const& actual,mpz_srcptr reference,
+                      std::string const& label)
+{
+    RawInteger check;
+    auto const words=actual.magnitude().limbs();
+    mpz_import(check.value,words.size(),-1,sizeof(BigUnsigned::Limb),
+               0,0,words.data());
+    if (actual.negative()) mpz_neg(check.value,check.value);
+    if (mpz_cmp(check.value,reference)!=0) {
+        throw std::runtime_error("B69 signed GMP mismatch: "+label);
+    }
+}
+
+void b69_check_preallocated(BigUnsigned const& a,BigUnsigned const& b,
+                           mpz_srcptr oracle,std::string const& context)
+{
+    for (const B69Kernel kernel:{B69Kernel::Fused,B69Kernel::X86Carry}) {
+        const auto digits=kernel==B69Kernel::Fused ?
+            b69_preallocated<B69Kernel::Fused>(a,b) :
+            b69_preallocated<B69Kernel::X86Carry>(a,b);
+        RawInteger candidate;
+        mpz_import(candidate.value,a.size()+b.size(),-1,
+                   sizeof(BigUnsigned::Limb),0,0,digits.data());
+        if (mpz_cmp(candidate.value,oracle)!=0) {
+            throw std::runtime_error(
+                "B69 preallocated GMP mismatch: "+context);
+        }
+    }
+}
+
+void verify_b69(unsigned bits,IntegerPool<IntegerOperations> const& native,
+                IntegerPool<GmpIntegerOperations> const& gmp)
+{
+    if (bits>256u) return;
+    RawInteger reference,abs_a,abs_b;
+    for (unsigned i=0u;i<32u;++i) {
+        const auto& a=native.a[i];
+        const auto& b=native.b[i];
+        const std::string context=std::to_string(bits)+" bits #"+
+                                  std::to_string(i);
+        mpz_mul(reference.value,gmp.a[i].value,gmp.b[i].value);
+        b69_check_signed(b69_owned<B69Kernel::Fused>(a,b),
+                         reference.value,context+" fused multiply");
+        b69_check_signed(b69_owned<B69Kernel::X86Carry>(a,b),
+                         reference.value,context+" carry multiply");
+        mpz_abs(abs_a.value,gmp.a[i].value);
+        mpz_abs(abs_b.value,gmp.b[i].value);
+        mpz_mul(reference.value,abs_a.value,abs_b.value);
+        b69_check_preallocated(a.magnitude(),b.magnitude(),
+                               reference.value,context+" prealloc multiply");
+
+        mpz_mul(reference.value,gmp.a[i].value,gmp.a[i].value);
+        b69_check_signed(b69_owned<B69Kernel::Fused>(a,a),
+                         reference.value,context+" fused square");
+        b69_check_signed(b69_owned<B69Kernel::X86Carry>(a,a),
+                         reference.value,context+" carry square");
+        mpz_mul(reference.value,abs_a.value,abs_a.value);
+        b69_check_preallocated(a.magnitude(),a.magnitude(),
+                               reference.value,context+" prealloc square");
+    }
+
+    // Additional non-benchmark cases exercise canonical zero, each
+    // limb length 1..4, saturated/dense/sparse inputs and both signs.
+    std::mt19937_64 generator(0xB690ABCDULL);
+    for (std::size_t n=0u;n<=4u;++n) {
+        for (std::size_t m=0u;m<=4u;++m) {
+            for (unsigned mode=0u;mode<12u;++mode) {
+                std::array<std::uint64_t,4u> left{},right{};
+                for (std::size_t j=0u;j<n;++j) left[j]=generator();
+                for (std::size_t j=0u;j<m;++j) right[j]=generator();
+                if (mode%4u==0u) {
+                    std::fill(left.begin(),left.end(),~std::uint64_t{0});
+                    std::fill(right.begin(),right.end(),~std::uint64_t{0});
+                } else if (mode%4u==1u) {
+                    std::fill(left.begin(),left.end(),0u);
+                    std::fill(right.begin(),right.end(),0u);
+                    if (n>0u) left[n-1u]=std::uint64_t{1};
+                    if (m>0u) right[m-1u]=std::uint64_t{1};
+                } else if (mode%4u==2u) {
+                    for (std::size_t j=0u;j<n;j+=2u) left[j]=0u;
+                    for (std::size_t j=0u;j<m;j+=2u) right[j]=0u;
+                }
+                const BigUnsigned a(BigUnsigned::LimbView(left.data(),n));
+                const BigUnsigned b(BigUnsigned::LimbView(right.data(),m));
+                mpz_import(abs_a.value,n,-1,sizeof(std::uint64_t),
+                           0,0,left.data());
+                mpz_import(abs_b.value,m,-1,sizeof(std::uint64_t),
+                           0,0,right.data());
+                mpz_mul(reference.value,abs_a.value,abs_b.value);
+                const std::string context="short "+std::to_string(n)+
+                    "x"+std::to_string(m)+" mode "+std::to_string(mode);
+                b69_check_preallocated(a,b,reference.value,context);
+                const Integer signed_a=Integer::from_magnitude(
+                    a,(mode&1u)!=0u);
+                const Integer signed_b=Integer::from_magnitude(
+                    b,(mode&2u)!=0u);
+                if (((mode&1u)!=0u)!=((mode&2u)!=0u)) {
+                    mpz_neg(reference.value,reference.value);
+                }
+                b69_check_signed(
+                    b69_owned<B69Kernel::Fused>(signed_a,signed_b),
+                    reference.value,context+" fused");
+                b69_check_signed(
+                    b69_owned<B69Kernel::X86Carry>(signed_a,signed_b),
+                    reference.value,context+" carry");
+            }
+        }
+    }
+}
+
+template<class Gmp,class Production,class Fused,class Carry>
+void report_b69_owning(char const* label,
+        Gmp&& gmp,Production&& production,Fused&& fused,Carry&& carry,
+        unsigned iterations,unsigned samples)
+{
+    const double reference=exact_arithmetic_median_ns(
+        std::forward<Gmp>(gmp),iterations,samples);
+    const double selected=exact_arithmetic_median_ns(
+        std::forward<Production>(production),iterations,samples);
+    const double f=exact_arithmetic_median_ns(
+        std::forward<Fused>(fused),iterations,samples);
+    const double c=exact_arithmetic_median_ns(
+        std::forward<Carry>(carry),iterations,samples);
+    LOGGING_PRINTLN(std::left << std::setw(19) << label
+                    << std::right << std::fixed << std::setprecision(3)
+                    << " | GMP=" << reference << " ns"
+                    << " | production=" << selected << " ns"
+                    << " | forced_fused=" << f << " ns"
+                    << " | forced_carry=" << c << " ns"
+                    << " | carry/fused=" << c/f << "x"
+                    << " | carry/GMP=" << c/reference << "x")
+}
+
+template<class Fused,class Carry>
+void report_b69_kernel(char const* label,Fused&& fused,Carry&& carry,
+                       unsigned iterations,unsigned samples)
+{
+    const double f=exact_arithmetic_median_ns(
+        std::forward<Fused>(fused),iterations,samples);
+    const double c=exact_arithmetic_median_ns(
+        std::forward<Carry>(carry),iterations,samples);
+    LOGGING_PRINTLN(std::left << std::setw(19) << label
+                    << std::right << std::fixed << std::setprecision(3)
+                    << " | fused=" << f << " ns"
+                    << " | carry=" << c << " ns"
+                    << " | carry/fused=" << c/f << "x")
+}
+
+void report_b69(unsigned bits,
+                IntegerPool<IntegerOperations> const& native,
+                IntegerPool<GmpIntegerOperations> const& gmp,
+                unsigned iterations,unsigned samples)
+{
+    if (bits>256u) return;
+    if (!BigUnsigned::selected_multiply_uses_fused() ||
+            !BigUnsigned::has_x86_64_carry_multiply()) {
+        LOGGING_PRINTLN("B69 skipped: requires GCC x86-64 fused selection "
+                        "and native x86 carry kernel.")
+        return;
+    }
+    verify_b69(bits,native,gmp);
+    const auto ix=[](unsigned i)->unsigned { return i%32u; };
+    LOGGING_PRINTLN(" ")
+    LOGGING_PRINTLN("B69 matched x86-64 1..4-limb fused/carry diagnostics | "
+                    << bits << " bits | GMP oracle PASS")
+    report_b69_kernel("mul_prealloc",
+        [&](unsigned i) {
+            const auto& a=native.a[ix(i)];
+            const auto& b=native.b[ix(i)];
+            return b69_preallocated<B69Kernel::Fused>(
+                a.magnitude(),b.magnitude());
+        },
+        [&](unsigned i) {
+            const auto& a=native.a[ix(i)];
+            const auto& b=native.b[ix(i)];
+            return b69_preallocated<B69Kernel::X86Carry>(
+                a.magnitude(),b.magnitude());
+        },iterations,samples);
+    report_b69_kernel("square_prealloc",
+        [&](unsigned i) {
+            auto const& a=native.a[ix(i)].magnitude();
+            return b69_preallocated<B69Kernel::Fused>(a,a);
+        },
+        [&](unsigned i) {
+            auto const& a=native.a[ix(i)].magnitude();
+            return b69_preallocated<B69Kernel::X86Carry>(a,a);
+        },iterations,samples);
+
+    report_b69_owning("mul_signed_owned",
+        [&](unsigned i) { return GmpIntegerOperations::mul(
+            gmp.a[ix(i)],gmp.b[ix(i)]); },
+        [&](unsigned i) { return IntegerOperations::mul(
+            native.a[ix(i)],native.b[ix(i)]); },
+        [&](unsigned i) { return b69_owned<B69Kernel::Fused>(
+            native.a[ix(i)],native.b[ix(i)]); },
+        [&](unsigned i) { return b69_owned<B69Kernel::X86Carry>(
+            native.a[ix(i)],native.b[ix(i)]); },
+        iterations,samples);
+    report_b69_owning("square_signed_owned",
+        [&](unsigned i) { return GmpIntegerOperations::square(
+            gmp.a[ix(i)]); },
+        [&](unsigned i) { return IntegerOperations::square(
+            native.a[ix(i)]); },
+        [&](unsigned i) { return b69_owned<B69Kernel::Fused>(
+            native.a[ix(i)],native.a[ix(i)]); },
+        [&](unsigned i) { return b69_owned<B69Kernel::X86Carry>(
+            native.a[ix(i)],native.a[ix(i)]); },
+        iterations,samples);
+    verify_b69(bits,native,gmp);
+    LOGGING_PRINTLN("B69 GMP oracle PASS before/after timing; "
+                    "prealloc rows are allocation-free kernel calls, "
+                    "owning rows have matched signed Integer results. "
+                    "No rows are additive; no change to production.")
 }
 
 void verify(unsigned bits,IntegerPool<IntegerOperations> const& native,
@@ -378,6 +639,7 @@ void measure(unsigned bits,unsigned iterations,unsigned samples)
     LOGGING_PRINTLN("B68: every candidate preserves the signed GMP result. "
                     "Rows are timed independently, not additive. "
                     "A/B timings can still contain host drift.")
+    report_b69(bits,native,gmp,iterations,samples);
     LOGGING_PRINTLN("abs core = unsigned production BigUnsigned operations "
                     "on the SAME magnitudes. Signed overhead cannot "
                     "be inferred as an exact difference because "
@@ -410,8 +672,8 @@ int main(int argc,const char* argv[])
         }
         LOGGING_PRINTLN(" ")
         LOGGING_PRINTLN("Numerical verification PASS: all magnitude core "
-                        "operations AND B68 signed candidates "
-                        "versus independent GMP before/after timing.")
+                        "operations, B68 signed candidates and "
+                        "B69 forced fused/carry versus independent GMP.")
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"B67 owning-vs-core diagnostic FAILED: "
