@@ -1440,7 +1440,19 @@ void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
     // the explicit carry-chain path; fused remains available for comparison.
     BigUnsignedDetail::mul_low_into_carry_arm64(a,b,output);
 #elif defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
-    // GCC x86-64 continues to select the shared unsigned __int128 kernel.
+    // B52: on the measured x86-64 GCC host the existing baseline
+    // MULQ/ADDQ/ADCQ kernel outperformed fused unsigned __int128
+    // specifically for complete 32x32-limb products. Select it
+    // also for Karatsuba's 32-limb base cases, while preserving
+    // fused for other sizes and every truncated product. No
+    // optional BMI2/ADX instruction or runtime CPU dispatch.
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__x86_64__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+    if (a.size()==32u && b.size()==32u && output.size()>=64u) {
+        BigUnsignedDetail::mul_low_into_carry_x86_64(a,b,output);
+        return;
+    }
+#endif
     multiply_limbs_fused(a,b,output);
 #else
     mul_low_into_schoolbook(a,b,output);

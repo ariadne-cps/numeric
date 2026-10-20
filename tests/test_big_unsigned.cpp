@@ -724,6 +724,78 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     GmpInteger a,b,expected,rounded;
     static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 64u*80u);
 
+    // B52: data-driven 32x32 GCC x86-64 full-product dispatch
+    // to the baseline MULQ/ADCQ kernel. GMP is the independent
+    // product oracle. Exercise 31/32/33-limb boundaries, including
+    // noncanonical zero data, sparse rows, all-ones, extra output
+    // capacity and low products. No workload fixtures are changed.
+    std::mt19937_64 b52_engine(0xB5203232ULL);
+    for (const std::size_t n:{31u,32u,33u}) {
+        for (const std::size_t m:{31u,32u,33u}) {
+            for (unsigned mode=0u;mode<32u;++mode) {
+                std::vector<std::uint64_t> left(n),right(m);
+                for (auto& digit:left) digit=b52_engine();
+                for (auto& digit:right) digit=b52_engine();
+                if (mode%8u==0u) {
+                    std::fill(left.begin(),left.end(),max);
+                    std::fill(right.begin(),right.end(),max);
+                } else if (mode%8u==1u) {
+                    std::fill(left.begin(),left.end(),0u);
+                    std::fill(right.begin(),right.end(),0u);
+                    left.back()=1u;
+                    right.back()=1u;
+                } else if (mode%8u==2u) {
+                    for (std::size_t i=0u;i<n-1u;i+=2u)
+                        left[i]=0u;
+                    for (std::size_t i=0u;i<m-1u;i+=2u)
+                        right[i]=0u;
+                } else if (mode%8u==3u) {
+                    std::fill(left.begin(),left.end(),0u);
+                    std::fill(right.begin(),right.end(),0u);
+                    left.front()=max;
+                    right.front()=max;
+                } else if (mode%8u==4u) {
+                    for (std::size_t i=1u;i+1u<n;++i)
+                        left[i]=0u;
+                    for (std::size_t i=1u;i+1u<m;++i)
+                        right[i]=0u;
+                }
+                const BigUnsigned lhs(left),rhs(right);
+                mpz_import(a.value,lhs.size(),-1,
+                           sizeof(std::uint64_t),0,0,lhs.limbs().data());
+                mpz_import(b.value,rhs.size(),-1,
+                           sizeof(std::uint64_t),0,0,rhs.limbs().data());
+                mpz_mul(expected.value,a.value,b.value);
+                const std::size_t full=lhs.size()+rhs.size();
+                std::vector<std::uint64_t> selected(full,max);
+                BigUnsigned::mul_into(
+                    lhs.limbs(),rhs.limbs(),selected);
+                check_against_gmp(BigUnsigned(selected),expected.value);
+                check_against_gmp(mul(lhs,rhs),expected.value);
+
+                std::vector<std::uint64_t> fused(full,max);
+                BigUnsigned::mul_into_fused(
+                    lhs.limbs(),rhs.limbs(),fused);
+                ARIADNE_TEST_ASSERT(selected==fused);
+
+                std::vector<std::uint64_t> oversized(full+2u,max);
+                BigUnsigned::mul_into(
+                    lhs.limbs(),rhs.limbs(),oversized);
+                check_against_gmp(BigUnsigned(oversized),expected.value);
+                ARIADNE_TEST_ASSERT(oversized[full]==0u);
+                ARIADNE_TEST_ASSERT(oversized[full+1u]==0u);
+
+                const std::size_t low=full==0u?0u:full-1u;
+                std::vector<std::uint64_t> truncated(low,max);
+                BigUnsigned::mul_low_into(
+                    lhs.limbs(),rhs.limbs(),truncated);
+                mpz_fdiv_r_2exp(rounded.value,expected.value,
+                                 static_cast<mp_bitcnt_t>(64u*low));
+                check_against_gmp(BigUnsigned(truncated),rounded.value);
+            }
+        }
+    }
+
     // Multiple writes reuse the same result space; both implementations
     // must overwrite all digits, including untouched high destinations.
     for (unsigned repetition=0u; repetition<6000u; ++repetition) {
