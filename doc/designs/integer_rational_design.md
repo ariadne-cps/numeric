@@ -4118,3 +4118,112 @@ against unsigned-128 arithmetic. This isolated
 assembly smoke check does not replace full project
 CI or the user's native B53 benchmark. B53 official
 same-host measurements remain pending.
+
+
+### B54 x86-64 GCC adapt square and Karatsuba to operand density; retune 32-limb dispatch (20 October 2026)
+
+The user's B53.1 native x86-64 benchmark (20,000 iterations,
+31 samples; independent GMP verification PASS for 768 paired
+inputs and 2688 results) confirms the dominant impact of
+B38/B40-style exact-zero row skipping. Versus B52 on the
+same x86-64 CPU, 1024/2048/4096-bit Integer::mul changed
+252.938/861.190/2845.357 to 79.513/114.049/701.262 ns;
+pow3 changed 738.724/2193.092/8362.002 to
+310.053/686.622/2176.326 ns. Full benchmark total_time/GMP
+fell 1.843x to 1.361x; geomean 1.435x to 1.284x. Dense
+preallocated selected multiplication was essentially stable
+at 1024/2048/4096 bits (204.242/853.847/2969.094 ns B52
+versus 205.667/861.181/2934.027 ns B53). The B53.1
+build escape fix restored correct MULQ/ADCQ asm newlines;
+all seven GitHub Actions eventually passed (external
+Codecov patch/project failures reported independently).
+
+B54 addresses three remaining architecture-general
+opportunities, without operand-value-specific
+benchmark special cases:
+
+1. **Retune the B52 32x32-limb dispatch**: on the SAME
+   B53 x86 machine and compilation, explicit dense
+   2048-bit `prealloc_fused` measured 801.142 ns,
+   whereas forced `prealloc_x86_64_carry` measured
+   858.091 ns and selected 861.181 ns. These new
+   B53 fused measurements supersede B52's earlier
+   preference for assembly (B52 fused 1008.084 ns
+   versus assembly 854.808 ns). B54 removes the
+   special-case 32x32 selected assembly routing,
+   using B53's exact sparse-aware fused recurrence
+   at all GCC input dimensions. The explicit ASM
+   entrypoint remains available for comparison and
+   optional testing. Sparse 32x32 performance is
+   NOT YET established on the user's machine: only
+   B54's official 84-case benchmark can validate
+   that changing the 32x32 selection does not undo
+   sparse gains.
+
+2. **Transfer ARM64 B38/B40 adaptive symmetric square**:
+   the existing B32 GCC x86-64 square forms the upper
+   off-diagonal triangle and doubles it, then adds
+   the diagonal products. B54 introduces sparse/dense
+   compile-time instantiations. If an outer limb is
+   zero, omit its entire off-diagonal row. Earlier
+   triangular rows never write the row's final
+   output slot `output[i+n]`, and the output is
+   initialized to zero. All diagonal products and
+   carry passes are preserved. For <=64 limbs,
+   select the sparse variant without a prescan;
+   for >64 limbs classify the first n-1 active
+   outer rows with B53's exact-zero threshold
+   max(2,floor((n-1)/8)) and select dense without
+   per-row checks when the threshold is not reached.
+   The public square() size >=8 dispatch, original
+   arithmetic, allocation and output contracts remain.
+   This should especially reduce cost for sparse
+   1024/2048/4096-bit squares, previously roughly
+   166.670/492.103/1821.579 ns on x86 B53.
+
+3. **Transfer ARM64 B39 owning Karatsuba density gate**:
+   the B35 GCC x86 owning mul() used cutoff-32
+   Karatsuba for all >=64-limb nearly balanced
+   products, including sparse powers where B53's
+   zero-row schoolbook is now cheap. B54 requires
+   both operands to have <=floor(size/8) exact-zero
+   limbs before choosing this same balanced
+   Karatsuba path. Otherwise fall through to the
+   current sparse-aware row-schoolbook selected
+   kernel. Inputs of insufficient size or balance
+   bypass density scanning as before; no new scratch
+   allocation occurs for rejected Karatsuba.
+   Dense products retain cutoff-32 Karatsuba.
+   The same size/balance and zero-density criteria
+   were independently used on ARM64 in B39.
+
+This is a *controlled new B54 variant*, not a measured
+native on-target speedup claim. A standalone x86-64
+square kernel reproducer compiled with GCC and with
+Clang ASan/UBSan verified 13312 exact GMP squares
+and equality to B32's original algorithm per build
+across 8..128 limbs and saturated, zero, sparse,
+dense and threshold-boundary inputs. Production test
+addition supplies 17 length pairs x32 patterns =
+544 general multiplication cases (both operand orders
+and forced fused reference), plus 13 square sizes
+x64 patterns =832 GMP square/self-product pairs:
+1376 additional randomized/adversarial fixtures
+across B52/B53 32x32 and B35/B39 63/64/65
+crossover boundaries. All earlier test cases are
+preserved; the official benchmark and its 84 original
+workloads remain byte-for-byte unchanged.
+
+Acceptance: run full CI including GCC, Clang,
+AppleClang, Windows/MSVC, Coverage and sanitizer.
+Repeat the unchanged 31-sample, 20,000-iteration
+official x86-64 benchmark and the explicit
+preallocated dense multiplication diagnostic with
+fused/carry/Karatsuba alternatives. Compare B53/B54
+on the same host for 2048-bit sparse mul,
+1024/2048/4096-bit square, 4096-bit mul/pow3,
+dense 2048/4096-bit multiplication and the
+full geomean/total_time. If B54 harms sparse 2048
+multiplication or dense 4096 Karatsuba, revert or
+retune only the responsible selection without
+changing any benchmark input or test expectations.

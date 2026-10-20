@@ -1507,19 +1507,11 @@ void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
     // the explicit carry-chain path; fused remains available for comparison.
     BigUnsignedDetail::mul_low_into_carry_arm64(a,b,output);
 #elif defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
-    // B52: on the measured x86-64 GCC host the existing baseline
-    // MULQ/ADDQ/ADCQ kernel outperformed fused unsigned __int128
-    // specifically for complete 32x32-limb products. Select it
-    // also for Karatsuba's 32-limb base cases, while preserving
-    // fused for other sizes and every truncated product. No
-    // optional BMI2/ADX instruction or runtime CPU dispatch.
-#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__x86_64__) && \
-    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
-    if (a.size()==32u && b.size()==32u && output.size()>=64u) {
-        BigUnsignedDetail::mul_low_into_carry_x86_64(a,b,output);
-        return;
-    }
-#endif
+    // B54: on the SAME x86-64 host, B53's updated fused recurrence
+    // beat the B52 32x32 MULQ/ADCQ special case on dense inputs
+    // (801.142 vs 858.091 ns). Re-evaluate fused for all GCC sizes,
+    // including 32-limb Karatsuba leaves. The forced assembly entry
+    // point remains available for independent benchmarking.
     multiply_limbs_fused(a,b,output);
 #else
     mul_low_into_schoolbook(a,b,output);
@@ -1627,26 +1619,39 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
     defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
-    // B35: reserve Karatsuba for large, balanced owning products.
-    // 32-limb products stay fused: recursion and scratch cost too much
-    // there. At >=64 limbs the existing cutoff-32 exact kernel wins
-    // even after counting its one scratch allocation on x86-64 GCC.
-    // Avoid min*4 comparisons so size arithmetic cannot overflow.
+    // B54: B35's balanced, large-size Karatsuba dispatch is
+    // worthwhile for dense operands; B53 made sparse schoolbook
+    // dramatically cheaper. Port ARM64 B39's exact density gate
+    // so sparse powers skip unnecessary recursion and scratch.
+    // Avoid multiplication in the size/balance comparison.
     const std::size_t smaller=std::min(a._size,b._size);
     const std::size_t larger=std::max(a._size,b._size);
     if (smaller>=64u && smaller>=larger-larger/4u) {
-        constexpr std::size_t karatsuba_cutoff=32u;
-        const std::size_t scratch_limbs=
-            BigUnsigned::karatsuba_scratch_limbs(
-                a._size,b._size,karatsuba_cutoff);
-        std::vector<BigUnsigned::Limb> scratch(scratch_limbs);
-        BigUnsigned::mul_into_karatsuba(
-            a.limbs(),b.limbs(),
-            BigUnsigned::MutableLimbView(
-                result.mutable_data(),a._size+b._size),
-            scratch,karatsuba_cutoff);
-        result.normalize();
-        return result;
+        const auto sufficiently_dense=[](BigUnsigned::LimbView words) {
+            const std::size_t permitted_zeros=words.size()/8u;
+            std::size_t zeros=0u;
+            for (const BigUnsigned::Limb word:words) {
+                if (word==0u && ++zeros>permitted_zeros) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        if (sufficiently_dense(a.limbs()) &&
+                sufficiently_dense(b.limbs())) {
+            constexpr std::size_t karatsuba_cutoff=32u;
+            const std::size_t scratch_limbs=
+                BigUnsigned::karatsuba_scratch_limbs(
+                    a._size,b._size,karatsuba_cutoff);
+            std::vector<BigUnsigned::Limb> scratch(scratch_limbs);
+            BigUnsigned::mul_into_karatsuba(
+                a.limbs(),b.limbs(),
+                BigUnsigned::MutableLimbView(
+                    result.mutable_data(),a._size+b._size),
+                scratch,karatsuba_cutoff);
+            result.normalize();
+            return result;
+        }
     }
 #endif
 #if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
@@ -1705,8 +1710,10 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
     defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
 namespace {
-void square_limbs_symmetric(BigUnsigned::LimbView a,
-                            BigUnsigned::MutableLimbView output) noexcept
+template<bool SkipZeroRows>
+void square_limbs_symmetric_impl(
+        BigUnsigned::LimbView a,
+        BigUnsigned::MutableLimbView output) noexcept
 {
     using Limb=BigUnsigned::Limb;
     __extension__ using Wide=unsigned __int128;
@@ -1716,10 +1723,18 @@ void square_limbs_symmetric(BigUnsigned::LimbView a,
     // Accumulate sum_{i<j} a[i]*a[j]*B^(i+j) with one wide product
     // per unordered pair. Slot i+n has not been touched by prior rows.
     for (std::size_t i=0u;i+1u<n;++i) {
+        const Limb ai=a[i];
+        // B54/B38: skipped rows contribute zero. Earlier rows cannot
+        // touch output[i+n], which was cleared at function entry.
+        if constexpr (SkipZeroRows) {
+            if (ai==0u) {
+                continue;
+            }
+        }
         Limb carry=0u;
         for (std::size_t j=i+1u;j<n;++j) {
             const std::size_t k=i+j;
-            const Wide sum=static_cast<Wide>(a[i])*a[j]+
+            const Wide sum=static_cast<Wide>(ai)*a[j]+
                            output[k]+carry;
             output[k]=static_cast<Limb>(sum);
             carry=static_cast<Limb>(sum>>64u);
@@ -1750,6 +1765,22 @@ void square_limbs_symmetric(BigUnsigned::LimbView a,
                         static_cast<Limb>(diagonal>>64u)+carry;
         output[k+1u]=static_cast<Limb>(high);
         carry=static_cast<Limb>(high>>64u);
+    }
+}
+
+// B54: mirror ARM64 B40's adaptive square selection. The triangular
+// part has n-1 active outer rows. For <=64 limbs skip the prescan;
+// otherwise choose a branch-free dense variant unless the existing
+// B53 zero-row classifier detects enough exact-zero rows. Doubling
+// and all diagonal products are performed in BOTH variants.
+void square_limbs_symmetric(BigUnsigned::LimbView a,
+                            BigUnsigned::MutableLimbView output) noexcept
+{
+    if (a.size()<=64u ||
+            use_sparse_fused_rows_x86_64(a.first(a.size()-1u))) {
+        square_limbs_symmetric_impl<true>(a,output);
+    } else {
+        square_limbs_symmetric_impl<false>(a,output);
     }
 }
 } // namespace

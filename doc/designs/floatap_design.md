@@ -8541,3 +8541,32 @@ Clang 17 locally compile the exact corrected
 instruction sequence and pass 250000 product checks
 against native unsigned-128 results each. Complete
 CI and user-host benchmark remain to be checked.
+
+
+### B54 transfer ARM64 square and Karatsuba density policy to x86-64 (20 October 2026)
+
+On GCC x86-64 the B32 symmetric square now follows
+ARM64 B38/B40 by skipping exact-zero off-diagonal
+rows, with a branch-free dense template selected
+by a B53-style prescan only for >64 limbs.
+The owning B35 Karatsuba cutoff-32 selection now
+follows B39 and requires both large, balanced
+operands to have at most floor(size/8) zero limbs,
+so sparse powers use B53's ordinary row-skipping
+schoolbook rather than unnecessary Karatsuba
+recursion. B52's special 32x32 assembly dispatch
+is suspended in the B54 experiment because the
+new sparse-aware fused kernel measured 801.142 ns
+against carry ASM 858.091 ns on dense 2048-bit
+inputs in the user's B53 x86 benchmark. The
+dedicated ASM entrypoint remains accessible for
+comparison. ARM64, Windows/MSVC, Clang's default
+kernel, GMP-free production and all public
+arithmetic/scratch contracts are unchanged.
+A standalone square reproducer passed 13312 GMP
+and B32-equivalence checks per build on GCC and
+Clang ASan/UBSan; 1376 extra integrated GMP test
+fixtures cover the selectors and carry boundaries.
+User-host B54 performance and full CI are pending;
+the official benchmark is unchanged. See B54 in
+integer_rational_design.md.
