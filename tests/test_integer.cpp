@@ -491,6 +491,40 @@ void TestInteger::test_native() {
         }
     }
 
+    // B66: generic MSB-first exponentiation on x86-64 must remain exact
+    // at 0/1, nonconsecutive bits, and 31/32/33/63/64/65-bit
+    // exponent boundaries. Retain this GMP check on every architecture
+    // to guard the original ARM64 and portable paths as well.
+    std::mt19937_64 b66_engine(0xB660F00DULL);
+    for (const std::size_t count:{0u,1u,2u,3u,4u}) {
+        for (unsigned mode=0u;mode<12u;++mode) {
+            std::vector<std::uint64_t> digits(count);
+            for (auto& word:digits) word=b66_engine();
+            if (mode%4u==0u) {
+                std::fill(digits.begin(),digits.end(),0u);
+            } else if (mode%4u==1u) {
+                std::fill(digits.begin(),digits.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+            } else if (mode%4u==2u && !digits.empty()) {
+                std::fill(digits.begin(),digits.end(),0u);
+                digits.back()=std::uint64_t{1}<<63u;
+            }
+            mpz_import(a.value,digits.size(),-1,sizeof(std::uint64_t),
+                       0,0,digits.data());
+            if ((mode&1u)!=0u) mpz_neg(a.value,a.value);
+            const Integer base=integer_from_gmp(a.value);
+            for (const unsigned exponent:
+                    {0u,1u,2u,3u,5u,7u,8u,9u,12u,15u,16u,17u,
+                     31u,32u,33u,63u,64u,65u}) {
+                mpz_pow_ui(expected.value,a.value,exponent);
+                const GmpIntegerBoundary observed(
+                    pow(base,Nat(exponent)));
+                ARIADNE_TEST_ASSERT(
+                    mpz_cmp(observed.value(),expected.value)==0);
+            }
+        }
+    }
+
     // B33: alias-aware multiplication is selected only when two
     // references denote the exact same Integer. A distinct copy with
     // identical value must still produce the same GMP-oracle square.

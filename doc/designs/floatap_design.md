@@ -8864,3 +8864,23 @@ No Integer, FloatAP or other production arithmetic,
 dispatch, ABI, original 84-case workload or official
 benchmark code changes. Same-host measurements/CI
 are pending; see integer journal B65.
+
+### B66 GCC x86-64 generic MSB-first Integer power (20 October 2026)
+
+The user's B65 GMP-oracle benchmark measured a consistent
+generic MSB-first signed pow(z,3) improvement of 8.0-34.5%
+across 53/128/256/1024/2048/4096-bit inputs; direct cube
+was faster still but is not a general exponentiation policy.
+A forced short symmetric square produced only ~5.5% at
+53 bits, negligible benefit at 128 and slight regression
+at 256, so the existing >=8-limb square selection remains.
+B66 selects the already oracle-verified generic MSB-first
+pow only on GCC x86-64 fused builds and preserves the
+old B32 schedule on ARM64, Clang/MSVC and other compilers.
+The general Nat exponent works including 0, 1, sparse
+bit patterns and sign parity, with 1080 additional
+GMP-oracle combinations in integrated tests. No FloatAP
+production or the official 84-case arithmetic benchmark
+changes. Same-host full benchmark and CI remain necessary
+to validate actual production improvements; consult
+integer_rational_design.md B66.
