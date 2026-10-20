@@ -5547,3 +5547,18 @@ No reweighted workload was introduced (per user).
 Run from build in one line:
   ./benchmarks/benchmark_integer_small_operations_profile -t dark --bits 53,128,256 --iterations 20000 --samples 31
 B71 compilation/CI/host measurements are pending.
+
+
+### B71.1 fix B71 benchmark wrapper declaration order (20 October 2026)
+
+The user reported a native GCC x86-64 benchmark build failure
+in `benchmark_integer_small_operations_profile.cpp`:
+`verify_b69` referenced `b71_stack_selected_signed` and
+`b71_stack_fused_signed` before either was declared.
+Move the two existing diagnostic function definitions intact
+above `verify_b69` in the same anonymous namespace.
+No algorithm, oracle, test pool, production arithmetic,
+dispatch, build flag, official 84-case benchmark, or
+benchmark timing methodology changes. The fix does not
+claim performance or successful native build before
+actual CI/user verification.

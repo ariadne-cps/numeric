@@ -278,6 +278,30 @@ void b69_check_preallocated(BigUnsigned const& a,BigUnsigned const& b,
     }
 }
 
+// B71: noinline signed adapters make the old and new owning
+// BigUnsigned calls pass through analogous benchmark call boundaries.
+// The two BigUnsigned algorithms themselves live in the numeric
+// library's big_unsigned.cpp, alongside the unchanged production mul().
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+Integer b71_stack_selected_signed(Integer const& a,Integer const& b)
+{
+    return Integer::from_magnitude(
+        mul_short_stack_selected_diagnostic(a.magnitude(),b.magnitude()),
+        a.negative()!=b.negative());
+}
+
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+Integer b71_stack_fused_signed(Integer const& a,Integer const& b)
+{
+    return Integer::from_magnitude(
+        mul_short_stack_fused_diagnostic(a.magnitude(),b.magnitude()),
+        a.negative()!=b.negative());
+}
+
 void verify_b69(unsigned bits,IntegerPool<IntegerOperations> const& native,
                 IntegerPool<GmpIntegerOperations> const& gmp)
 {
@@ -460,30 +484,6 @@ Integer b70_core_noinline(Integer const& a,Integer const& b)
 {
     return Integer::from_magnitude(
         mul(a.magnitude(),b.magnitude()),
-        a.negative()!=b.negative());
-}
-
-// B71: noinline signed adapters make the old and new owning
-// BigUnsigned calls pass through analogous benchmark call boundaries.
-// The two BigUnsigned algorithms themselves live in the numeric
-// library's big_unsigned.cpp, alongside the unchanged production mul().
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((noinline))
-#endif
-Integer b71_stack_selected_signed(Integer const& a,Integer const& b)
-{
-    return Integer::from_magnitude(
-        mul_short_stack_selected_diagnostic(a.magnitude(),b.magnitude()),
-        a.negative()!=b.negative());
-}
-
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((noinline))
-#endif
-Integer b71_stack_fused_signed(Integer const& a,Integer const& b)
-{
-    return Integer::from_magnitude(
-        mul_short_stack_fused_diagnostic(a.magnitude(),b.magnitude()),
         a.negative()!=b.negative());
 }
 
