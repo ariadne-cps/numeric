@@ -3848,3 +3848,89 @@ compare B49/M4 with B50/M4 construct_decimal at 128/256/
 other operations for regressions. All standard CI matrices
 must pass. Keep B49 as the rollback baseline if the 19-digit
 wide path does not show a repeatable same-host benefit.
+
+
+### B51 first x86-64 performance campaign: revisit B46 reciprocal leaves (20 October 2026)
+
+The user provided the baseline *x86-64* 84-operation Integer/GMP
+benchmark (20,000 iterations, 31 samples, numerical verification
+PASS on 768 input pairs and 2688 operation results). At 4096 bits
+native versus GMP were: construct_decimal 2637.401 versus 2347.551
+ns, mul 3131.380 versus 1409.130 ns, square 1823.646 versus
+960.669 ns, quotient 1215.565 versus 361.724 ns, remainder
+1175.650 versus 365.284 ns, pow3 8192.439 versus 3650.179
+ns, and to_decimal 11715.378 versus 4431.388 ns. All-operation
+geomean was 1.459x and total_time 2.052x. This x86-64 hardware
+is not identified by model/compiler flags in the submitted log;
+M4 ARM64 wall-clock timings cannot establish same-CPU benefits.
+The M4 B50 total_time was 1.015x, not a legitimate cross-machine
+speedup baseline for individual changes.
+
+The code review found 1) x86-64 production multiply dispatch
+depends on compiler: GCC enables the fused kernel and associated
+large balanced Karatsuba and symmetric-square specializations,
+while Clang generally chooses the B3 row-schoolbook path;
+2) portable and x86-64 division kernels already include x86
+DIVQ and several B28/B36 quotient fast paths; and 3) x86-64
+decimal leaves remained on radix-10^9 in B50. Historical B25/B30
+radix-10^18 experiments REGRESSED in the official x86-64
+benchmark. B30 used a real 128/64 DIVQ loop, which is not the
+same algorithm as B46's exact pre-inverted radix-10^18, so
+these old measurements do not settle the current hypothesis.
+
+B51 changes only the existing compile-time guards around
+to_decimal_blocks_wide and its 9+-limb selection in
+src/big_unsigned.cpp: native x86-64 GNU/Clang targets providing
+unsigned __int128 now reuse the *unchanged B46* quotient/remainder
+reciprocal and B42 18-digit pair formatter, just as ARM64 does.
+The B46 quotient uses 64x64->128 products and at most one
+remainder correction; it requires neither a runtime 128-bit
+divide nor an x86-specific instruction. The full B19 base-10^9
+fallback remains selected for <=8-limb magnitudes, MSVC and
+other architectures; ARM64 behavior is unchanged. The shared
+recursive split, GMP independence, 84-case official workloads,
+public APIs, x86-64 multiply/divide kernels and their dispatch
+remain unchanged. No arbitrary handwritten assembly is
+introduced before the available competing mulq/adcq, Comba,
+fused and Karatsuba kernels are benchmarked on the actual
+target host. This is a **controlled first x86-64 experiment**.
+
+Before production integration, a local standalone x86-64 Linux
+probe on Intel Xeon Platinum 8573C (not the user's target CPU)
+reconstructed the B31 10^9 and B42/B46 10^18 formatting
+algorithms and checked each result with independent GMP
+mpz_get_str for 256 dense/sparse/saturated operands at each
+of 8,9,12,16,32 limbs (1280 GMP comparisons per variant).
+Clang 17 -O3 baseline-x86 medians (ns):
+- 8 limbs: narrow 482.030, reciprocal wide 304.750;
+- 9 limbs: narrow 548.132, reciprocal wide 336.512;
+- 12 limbs: narrow 956.700, reciprocal wide 524.170;
+- 16 limbs: narrow 1697.650, reciprocal wide 847.686;
+- 32 limbs: narrow 7771.950, reciprocal wide 3069.380.
+GCC 14 -O3 baseline-x86 medians (ns):
+- 8 limbs: narrow 551.198, reciprocal wide 346.259;
+- 9 limbs: narrow 645.396, reciprocal wide 366.258;
+- 12 limbs: narrow 1093.210, reciprocal wide 553.028;
+- 16 limbs: narrow 1998.440, reciprocal wide 797.383;
+- 32 limbs: narrow 8642.830, reciprocal wide 2632.700.
+These are **isolated local CPU timings**, not B51 official
+results and not a same-host comparison with the uploaded
+x86-64 baseline. Clang 17 AddressSanitizer/UndefinedBehavior
+Sanitizer and LeakSanitizer also passed the exact paired
+formatter checks against GMP. The production test suite adds
+288 deterministic GMP-oracle decimal values at 7/8/9, 16/17
+and larger size boundaries, preserving all earlier tests.
+Run CI across GCC, Clang, AppleClang, Windows/MSVC and
+ThreadSanitizer, and compare the official x86-64 benchmark
+on the user's machine; revert the x86 selector if the
+integrated experiment repeats B30's earlier regression.
+
+**Campaign next step**: on the same x86-64 CPU/compiler,
+run benchmark_big_unsigned_multiply with --include-fused,
+--include-x86-64-carry, --include-comba, --include-schoolbook
+and --include-karatsuba, plus --karatsuba-cutoff 32 to profile
+native selected, alternative preallocated kernels and GMP.
+Use diagnostic data to decide whether MULQ/ADCQ, BMI2/ADX
+gated kernels, square specialization or Karatsuba thresholds
+are justified for that target, rather than assuming M4 ARM64
+instruction-level tuning transfers directly.
