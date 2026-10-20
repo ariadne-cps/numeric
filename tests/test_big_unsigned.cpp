@@ -2127,6 +2127,56 @@ void TestBigUnsigned::test_gcd_decimal()
         }
     }
 
+    // B51: the multiply-only B46 wide leaf is now also selected
+    // for x86-64 GCC/Clang at 9+ limbs. Independent GMP oracles
+    // cover the 8/9-limb selector, the 16/17-limb recursive cutoff,
+    // dense/sparse operands, carry boundaries and zero runs. Keep
+    // the portable/MSVC radix-10^9 regression path equally checked.
+    std::mt19937_64 b51_engine(0xB510D3C1ULL);
+    for (const std::size_t count:
+            {7u,8u,9u,10u,12u,15u,16u,17u,18u,32u,33u,64u}) {
+        for (unsigned mode=0u;mode<24u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=b51_engine();
+            switch (mode%8u) {
+            case 0u:
+                std::fill(words.begin(),words.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+                break;
+            case 1u:
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=1u;
+                break;
+            case 2u:
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u;
+                words.back()=1u;
+                break;
+            case 3u:
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+                break;
+            case 4u:
+                std::fill_n(words.begin(),count/2u,0u);
+                break;
+            case 5u:
+                for (std::size_t i=0u;i<count;i+=2u) {
+                    words[i]=0u;
+                }
+                break;
+            case 6u:
+                std::fill(words.begin(),words.end(),
+                          std::uint64_t{999999999999999999ULL});
+                break;
+            default: break;
+            }
+            words.back()|=1u;
+            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
+                       0,0,words.data());
+            check_decimal_boundary(a.value);
+        }
+    }
+
     // B43: append-only recursive formatting must preserve the
     // *entire* fixed-width lower field even when the remainder
     // itself needs further recursive divisions. GMP independently

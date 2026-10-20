@@ -1011,13 +1011,15 @@ BigUnsigned from_decimal(std::string_view input)
 
 namespace {
 
-// B25.1: enable wide-radix decimal output only on native ARM64.
-// Its performance is better on ARM64 but substantially worse on x86-64.
-// Select using the compiler-provided target macro, not a CMake option
-// or a build-specific definition; leave B19's radix-10^9 fallback
-// unchanged for x86-64, MSVC and other targets. The 128-bit division
-// processes 18 decimal digits per quotient/remainder step on ARM64.
-#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+// B51: B46's exact reciprocal removed the runtime/inline 128/64
+// division that made earlier B25/B30 radix-10^18 x86-64 attempts
+// slower than the base-10^9 implementation. Permit the new
+// multiply-only 18-digit formatter on both AArch64 and x86-64
+// GCC/Clang with 128-bit integer support. The B19 base-10^9 path
+// remains selected for <=8 limbs and unsupported toolchains,
+// including MSVC. No CPU extension (BMI2/ADX) is required.
+#if (defined(__aarch64__) || defined(__x86_64__)) && \
+    defined(__SIZEOF_INT128__) && \
     (defined(__GNUC__) || defined(__clang__))
 std::string to_decimal_blocks_wide(BigUnsigned const& value)
 {
@@ -1118,10 +1120,12 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     if (value.is_zero()) {
         return "0";
     }
-#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+#if (defined(__aarch64__) || defined(__x86_64__)) && \
+    defined(__SIZEOF_INT128__) && \
     (defined(__GNUC__) || defined(__clang__))
-    // Retain the original path through the 8-limb boundary;
-    // the 18-digit divider is used for >=9 limbs (>=513 bits).
+    // B51: reuse B46's exact reciprocal formatter on both targets
+    // for >=9 limbs. Keep 8-limb and smaller inputs on radix-10^9
+    // so the small-value path and its allocation profile stay fixed.
     if (value.size()>8u) {
         return to_decimal_blocks_wide(value);
     }

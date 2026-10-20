@@ -8463,3 +8463,20 @@ The unchanged official benchmark must be rerun on the
 same Apple M4 for a causal B49/B50 performance comparison;
 no speedup is claimed before that measurement.
 See B50 in integer_rational_design.md.
+
+
+### B51 x86-64 integer-decimal output campaign (20 October 2026)
+
+Retarget the existing B46 exact radix-10^18 reciprocal output
+formatter to x86-64 GCC/Clang for BigUnsigned leaves >8 limbs.
+This revisits x86-64 10^18 output only because the earlier
+B25/B30 DIVQ variant has since been replaced by multiplication
+plus at most one exact remainder correction. Keep ARM64 behavior,
+portable/MSVC 10^9 fallback, x86 multiplication and division
+dispatch, GMP-free production and official benchmark unchanged.
+288 new x86-focused GMP boundary tests were added. Isolated
+GCC/Clang 17/14 x86-64 comparison favors the reciprocal version
+but native integrated speedup is not yet established.
+Follow-on x86 tuning must first compare existing mulq/adcq,
+Comba, fused, Karatsuba and baseline kernels on the target
+CPU/compiler. See B51 in integer_rational_design.md.
