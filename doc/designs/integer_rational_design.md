@@ -4600,3 +4600,43 @@ fixtures, assertions, numerical semantics, public APIs, production
 kernels and benchmark workloads. It is solely a warnings-as-errors
 source compatibility fix; full AppleClang and cross-platform CI
 validation is still pending.
+
+### B58 diagnostic: decimal cutoff-16 versus cutoff-32 and recursive split costs (20 October 2026)
+
+On-target B57.2 official x86-64 benchmark (20000 iterations, 31 samples,
+GMP verification PASS) measured total_time/GMP 1.146x and geomean
+1.176x. At 2048/4096 bits production to_decimal was
+3159.524/8717.960 ns, versus GMP 1861.035/4453.706 ns.
+The independent B44 diagnostic measured, at 2048 bits, full
+3115.608 ns, division replay 1212.801 ns and leaf replay
+1411.688 ns; at 4096 bits, full 8595.959 ns, division replay
+4789.633 ns and leaf replay 3056.365 ns. Replay fractions are
+not additive and are not exact in-situ attribution.
+
+B58 is deliberately measurement-only, not a production threshold
+change. The existing production formatter, 16-limb cutoff,
+arithmetic, official 84-operation benchmark and GMP workload
+remain intact. An internal benchmark-only symbol in
+src/big_unsigned.cpp duplicates the B22/B43 split recursion with
+a 32-limb leaf cutoff while invoking the SAME production
+to_decimal_blocks, square and divrem implementations. The B44
+diagnostic now times production cutoff-16 against cutoff-32 on
+the same 32 official-input magnitudes at 1024/2048/4096 bits.
+Both outputs must match independent GMP before timing and the
+experimental result is rechecked afterward. The diagnostic
+also captures the exact production division operands at
+each recursive depth, verifies quotient and remainder
+against an independent mpz_tdiv_qr oracle, and times owning
+native divrem against owning GMP mpz_tdiv_qr for identical
+operand pairs grouped by depth. The split results, like
+the original stage replays, are independent non-additive
+proxies, not literal in-situ call-stack measurements.
+
+Run on target:
+  cmake --build build --target benchmark_integer_decimal_profile -j8
+  ./build/benchmarks/benchmark_integer_decimal_profile --bits 1024,2048,4096 --iterations 20000 --samples 31
+Promote cutoff or division changes only after repeatable on-host
+GMP-verified gains in the unchanged 84-operation official benchmark
+without regressions at other sizes or on ARM64. B58 source
+compilation, integrated execution, CI and user-host timings
+remain to be verified.

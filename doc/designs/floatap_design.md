@@ -8695,3 +8695,14 @@ same test method under AppleClang -Wshadow -Werror. Rename only the
 B57 local to `limb_remainder` in the exact GMP oracle and equality
 assertion. No arithmetic, FloatAP, benchmark or test-case changes;
 full CI confirmation remains pending. See integer journal B57.2.
+
+### B58 diagnostic cutoff and recursive division costs (20 October 2026)
+
+Production to_decimal and its 16-limb cutoff are unchanged.
+B58 adds a separate internal benchmark-only cutoff-32 path
+using production leaf formatting, square and divrem, plus
+GMP-verified recursive split depth timings in the B44
+diagnostic. The official 84-operation Integer/GMP workload,
+production arithmetic, FloatAP and public APIs are unchanged.
+Same-host CI, correctness and performance measurements are
+still required before promoting any experiment. See integer journal B58.
