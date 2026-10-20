@@ -5463,3 +5463,87 @@ The binding target remains six official size-specific
 total_time/GMP strictly <1x and all 84 worst ratios
 strictly <2x, no benchmark fixture modifications.
 CI/integration verification pending.
+
+### B71 test short owning stack construction inside production library TU (20 October 2026)
+
+B70 on the user's GCC x86-64 host (20,000 iterations,
+31 samples, all independent B67/B68/B69/B70 GMP oracles PASS)
+found production-selected and forced-fused kernels
+approximately matched on the original 32 short operands.
+Ratios of selected/fused (candidate/baseline in B70)
+were 0.992x / 1.072x / 1.130x for 53/128/256-bit
+preallocated mul and 1.036x / 1.015x / 0.944x for
+preallocated square. The near-unity and changing
+order do not support changing the GCC dispatch.
+The B70 own-result selected/fused ratios were
+0.996x / 0.915x / 1.014x for multiplication and
+0.966x / 0.976x / 1.023x for squaring. These
+mixed figures further suggest compiler/code-layout
+or benchmark-run effects rather than a consistently
+better arithmetic kernel.
+
+B70's noinline fused-owning variants incurred
+~7.8%/7.5%/6.1% overhead for mul and ~9.9%/7.3%/7.1%
+for square at 53/128/256 bits. Noisy but repeatable
+same-run noinline production core wrappers only saved
+about 0.972x/0.972x/0.986x in nonaliased mul and
+0.948x/0.950x/0.990x in self-square. They do NOT
+reconstruct all code generation or ABI effects across
+translation units. B70's simple production-vs-forced
+owning comparison has a larger gap, but cannot yet
+attribute it to instructions alone.
+
+B71 explicitly moves a new diagnostic, exact
+short owning BigUnsigned product control INTO THE
+SAME src/big_unsigned.cpp translation unit as the
+unchanged production BigUnsigned::mul implementation.
+For input magnitude lengths at most four limbs, it
+calculates the selected-kernel product directly
+in a zeroed eight-limb local std::array, constructs
+a canonical BigUnsigned from the resulting limb view
+and returns the fully owned result. A second function
+does exactly the same but explicitly uses the fused
+kernel. Both fall back to normal mul() above the
+four-limb diagnostic limit or on other toolchains,
+so no production dispatch, public API or ARM64
+algorithm is modified.
+
+The existing B67/B68/B69/B70 benchmark gains
+side-by-side independent median timings of:
+(1) owning BigUnsigned::mul vs selected stack helper,
+(2) selected vs forced-fused stack helper,
+(3) signed owning Integer wrapper calling mul() vs
+    the new stack helper, with equivalent non-inlining,
+and the same for actual self-square operands.
+All new helpers return the same exact owning type
+and are linked as production-library functions,
+rather than handwritten benchmark-local mul_into
+entrypoints. They may still exhibit different code
+placement or inlining across build options; this
+diagnostic does not create an exact controlled
+linker/inlining experiment.
+
+Both unsigned magnitude results and full signed
+wrapper outputs are independently checked with
+GMP before and after timing, using the original
+32 official signed input pairs at each size and
+the existing 300 zero/saturated/sparse/random
+short 0..4-limb stress pairs. Neither user-facing
+benchmark input pools nor the original 84-operation
+official timing and GMP oracle are changed. No
+new public API or additional CMake build source
+is needed. Return of the user's B71 same-host
+results is required before proposing any
+short-product production change.
+
+The short-size performance strategy remains:
+keep fused selected on GCC x86-64 pending robust
+contrary evidence; keep native ARM64 carry-chain;
+record direct signed decimal adapter improvements
+from B68 as a separate possible production change.
+Six per-size official total_time/GMP <1x and all
+84 worst <2x remain the only acceptance gates.
+No reweighted workload was introduced (per user).
+Run from build in one line:
+  ./benchmarks/benchmark_integer_small_operations_profile -t dark --bits 53,128,256 --iterations 20000 --samples 31
+B71 compilation/CI/host measurements are pending.
