@@ -6575,3 +6575,36 @@ parsing diagnostic in a local standalone C++20 compiler check.
 Replace with direct-list initialization using braces. The exact
 same GMP comparison values, test count, and production code are
 unchanged. Re-run all build and test gates before accepting R12a.
+
+
+### R13 — certified small-multiprecision ARM64 binary64 conversion (20 October 2026)
+
+**Motivation:** the user explicitly highlighted the unresolved ARM64
+256-bit `to_double` regression. In the supplied R12 results, the
+native median is 106.383 ns vs mpq_t 41.617 ns, a 2.556x slowdown;
+meeting worst<2x requires <83.234 ns in this matched run.
+
+**Change:** for normal binary64 quotients with negative or zero scale
+and equal canonical 5..8-limb magnitudes on ARM64 GNU/Clang, derive
+a tentative significand from the top limbs using ordinary floating
+arithmetic. Clamp into the valid [2^52, 2^53-1] range. Independently
+build the exact shifted numerator and exact divisor-times-candidate
+products in fixed-length stack arrays. Only return the candidate if
+B*q <= A*2^shift < B*(q+1) is proven by full multiword comparisons.
+The test is independent of floating mode, architecture instruction
+rounding, approximation quality, and lower limbs. An incorrect or
+ambiguous candidate always falls through to the unchanged full-width
+conversion; zero, signs, subnormals, overflows, unequal widths and
+other targets remain unchanged. This is an exact certification strategy,
+not an assumption about benchmark numerator/denominator patterns.
+
+**Regression:** extend existing per-rounding-mode GMP binary64 tests
+with 96 deterministic dense inputs at each 5..8-limb length, including
+both signs, in addition to the prior 1200 randomized arithmetic pairs
+and extensive 53..4096-bit rounding-edge checks. No benchmark inputs,
+weights, median methodology or GMP oracle altered.
+
+**Status:** R12a fixes a reproduced most-vexing-parse build regression
+and is pending full CI; R13 remains unbuilt and unbenchmarked in this
+session. The strict user acceptance criteria remain both total_time<1x
+and worst<2x for every six widths on ARM64 and x86-64 independently.

@@ -371,6 +371,63 @@ double Rational::get_d() const {
     // Truncate toward zero, including subnormals, independent of the active
     // floating rounding mode. The <=53-bit integer is exactly representable.
     const int scale=std::max(exponent-52,-1074);
+#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+    (defined(__GNUC__) || defined(__clang__))
+    // R13: for medium equal-width normal ratios, estimate the 53-bit
+    // quotient from the highest limb; accept it ONLY after verifying
+    // q*d <= n*2^shift < (q+1)*d with full exact integer arithmetic.
+    // A rounding-mode-dependent initial estimate is harmless because
+    // the certificate, not the estimate, controls the returned value.
+    if (exponent>=-1022 && scale<=0 && scale>=-63 &&
+            n.size()==_denominator.size() &&
+            n.size()>4u && n.size()<=8u) {
+        using Limb=BigUnsigned::Limb;
+        constexpr std::size_t capacity=10u;
+        const std::size_t count=n.size();
+        const unsigned shift=static_cast<unsigned>(-scale);
+        const double approximate=std::ldexp(
+            static_cast<double>(n.limb(count-1u))/
+            static_cast<double>(_denominator.limb(count-1u)),
+            static_cast<int>(shift));
+        constexpr std::uint64_t smallest=std::uint64_t{1}<<52u;
+        constexpr std::uint64_t largest=(std::uint64_t{1}<<53u)-1u;
+        // Avoid converting a floating value outside the uint64 domain.
+        // Clamping also handles an estimate rounding to 2^53 at a
+        // representational boundary. Exact tests decide acceptance.
+        if (std::isfinite(approximate) && approximate>=0.0) {
+            const std::uint64_t rounded=static_cast<std::uint64_t>(
+                std::clamp(approximate,static_cast<double>(smallest),
+                          static_cast<double>(largest)));
+            const std::uint64_t guessed=std::min(rounded,largest);
+            std::array<Limb,capacity> scaled{};
+            std::array<Limb,capacity> product{};
+            const unsigned offset=shift/64u;
+            const unsigned low_shift=shift%64u;
+            for (std::size_t i=0u;i<count;++i) {
+                scaled[i+offset]|=n.limb(i)<<low_shift;
+                if (low_shift!=0u) {
+                    scaled[i+offset+1u]|=n.limb(i)>>(64u-low_shift);
+                }
+            }
+            const auto compared=[&](std::uint64_t coefficient) {
+                product.fill(0u);
+                const std::array<Limb,1u> multiplier={coefficient};
+                BigUnsigned::mul_into(_denominator.limbs(),multiplier,
+                    BigUnsigned::MutableLimbView(product.data(),count+1u));
+                for (std::size_t i=capacity;i!=0u;--i) {
+                    if (scaled[i-1u]!=product[i-1u]) {
+                        return scaled[i-1u]<product[i-1u] ? -1 : 1;
+                    }
+                }
+                return 0;
+            };
+            if (compared(guessed)>=0 && compared(guessed+1u)<0) {
+                return std::copysign(
+                    std::ldexp(static_cast<double>(guessed),scale),sign);
+            }
+        }
+    }
+#endif
 // R8: the native 128/128 prefix division significantly regressed ARM64
 // while accelerating x86-64. Keep the exact R7 certificate on x86-64
 // and use the earlier R5/fallback path on ARM64 and other targets.

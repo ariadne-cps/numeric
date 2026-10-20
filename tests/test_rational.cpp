@@ -605,6 +605,31 @@ void TestRational::test_gmp_differential() {
                     std::bit_cast<std::uint64_t>(mpq_get_d(oracle.value()));
             }
         }
+        // R13: independent random dense GMP ratios spanning 5..8
+        // limbs, both signs, and fractions close to 1/2 and 1/3.
+        // The exact certificate must work independently of the active
+        // floating-point rounding mode or fall back without error.
+        for (unsigned limbs=5u;limbs<=8u;++limbs) {
+            std::vector<std::uint64_t> numerator_limbs(limbs);
+            std::vector<std::uint64_t> denominator_limbs(limbs);
+            for (unsigned sample=0u;sample<96u;++sample) {
+                for (unsigned i=0u;i<limbs;++i) {
+                    numerator_limbs[i]=random();
+                    denominator_limbs[i]=random();
+                }
+                numerator_limbs.back()=(random()&0x3u)+1u;
+                denominator_limbs.back()=(random()&0x3u)+2u;
+                const Integer num=Integer::from_magnitude(
+                    BigUnsigned(numerator_limbs),sample%2u!=0u);
+                const Integer den=Integer::from_magnitude(
+                    BigUnsigned(denominator_limbs),false);
+                const Rational value(num,den);
+                const GmpRationalBoundary oracle(value);
+                conversion_matches=conversion_matches &&
+                    std::bit_cast<std::uint64_t>(value.get_d())==
+                    std::bit_cast<std::uint64_t>(mpq_get_d(oracle.value()));
+            }
+        }
         for (unsigned bits : {53u,128u,256u,448u,512u,1024u,2048u,4096u}) {
             const Integer base=pow(Integer(2),Nat(bits));
             const Integer twice=base*2;
