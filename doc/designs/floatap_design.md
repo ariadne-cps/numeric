@@ -8843,3 +8843,24 @@ APIs, original 84-case input pools or official
 benchmark code is changed. User-host B64 benchmark
 and integration/CI verification remain pending.
 See integer_rational_design.md B64.
+
+### B65 ARM64 lessons: short square and MSB-first power diagnostics (20 October 2026)
+
+ARM64 B37 triangular symmetric square, B38 sparse zero-row
+elision and B39/B40 adaptive dense/sparse selection have
+already been transferred to x86 GCC as B32/B53/B54;
+both architectures use the symmetric square only for
+>=8-limb owning inputs. User B64 GMP-verified owning
+timings showed direct cube 12-43% faster than production
+pow(z,3), while generic lazy exponentiation saves
+only 3-10%. B65 therefore adds diagnostic generic
+MSB-first exponentiation, which naturally produces
+square(x)*x at exponent 3 with no cube-only special
+case, and a forced 1..7-limb symmetric square
+comparison on GCC x86-64. Both are independently
+GMP-verified (including additional signed powers and
+0..8-limb random/sparse/saturated square inputs).
+No Integer, FloatAP or other production arithmetic,
+dispatch, ABI, original 84-case workload or official
+benchmark code changes. Same-host measurements/CI
+are pending; see integer journal B65.

@@ -5064,3 +5064,71 @@ without the unsupported conclusion that one micro
 optimization will bring all three small-size totals
 under 1x. B64 integrated compilation/CI and actual
 GCC user-host timings are not yet confirmed.
+
+### B65 assess ARM64 B37-B40 transfers at short widths and MSB-first power (20 October 2026)
+
+Following the user's question about lessons from the earlier ARM64
+square/power campaign, inspect both B37-B40 and x86 B32/B53/B54:
+- ARM64 B37's triangular/symmetric square was already present on
+  GCC x86-64 since B32, with the SAME >=8-limb production gate.
+- B38's skip-zero outer rows and B39/B40's adaptive dense/sparse
+  protection were already transferred to x86 by B53 and B54.
+- The existing balanced/dense Karatsuba and zero-row dispatch
+  serves large inputs; it does not address 1/2/4-limb work.
+There is no missing ARM64 assembly kernel that can be copied
+verbatim to x86, and the x86 production square under eight limbs
+still uses generic multiply.
+
+The user's B64 whole-operation GMP-verified (20000 iterations,
+31 samples, same 32 official signed input pairs per size) measured:
+  bits   pow3 production    lazy     direct chain      square prod/direct
+    53       98.435       92.252        56.310          31.173/30.067
+   128       95.375       88.665        78.088          32.736/31.369
+   256      119.706      115.919       105.947          52.842/52.384
+  1024      232.114      209.079       178.515          94.957/90.719
+  2048      342.477      319.100       282.644         150.606/146.884
+  4096      638.445      616.891       555.272         274.935/272.190
+GMP oracle PASS for production, lazy, direct cube and square,
+including powers 0/1/2/3/4/5/7/8/9 and signed zero/unit cases.
+The lazy 3-10% gain is much smaller than the 12-43% direct
+control's gain. A cube-only production shortcut would be a
+fragile and workload-specific response, not a general solution.
+
+B65 adds two diagnostic comparisons to the EXISTING B64
+benchmark, without modifying production arithmetic or its
+84-operation GMP workload:
+(1) Generic *most-significant-bit-first* exponentiation by
+squaring, borrowing the original base until the first
+square is needed, and then owning intermediate results.
+For exponent three, the generic recurrence naturally
+computes square(base) then mul(square,base), matching
+the direct cube control, but works for any unsigned
+exponent (including exponent zero and signed inputs).
+The GMP oracle covers exponents 0/1/2/3/4/5/7/8/9/12.
+(2) A benchmark-only forced invocation of the existing
+GCC x86-64 symmetric-square kernel at 1..7 limbs,
+with a bounded 14-limb local output before constructing
+the same owning BigUnsigned. Production still dispatches
+to generic multiplication under eight limbs; ARM64,
+Clang, MSVC and other architectures remain unchanged.
+The forced path is additionally checked against independent
+GMP for 0..8-limb zero/saturated/sparse/random values
+and official signed inputs. The forced comparison is
+reported at 53/128/256 bits; 1024+ retains its original
+selected square path and has no new short-kernel row.
+
+Both variants return normally owned Integer objects.
+MSB-first exponentiation changes the intermediate
+multiplication order at general exponents, so it must
+not be promoted from a cube-only measurement without
+wider correctness and same-host performance coverage
+and ARM64 regression checks. Likewise the symmetric
+short square should only be promoted if it improves
+the *whole owning* square result at all relevant small
+sizes, not merely its preallocated arithmetic.
+The larger objective is six total_time/GMP <1x and
+all 84 worst ratios <2x; optimizing power alone cannot
+be assumed to close the ~1.4x 53/128/256 total gap.
+B65 native timings and integrated CI are pending.
+Command from build (one line; user-preferred -t dark):
+  ./benchmarks/benchmark_integer_small_power_profile -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
