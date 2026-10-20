@@ -268,6 +268,15 @@ BigUnsigned add(BigUnsigned const& a, BigUnsigned const& b) {
     if (count == std::numeric_limits<std::size_t>::max()) {
         throw std::length_error("BigUnsigned addition size overflow");
     }
+    if (count==0u) return BigUnsigned{};
+    if (count==1u) {
+        const auto left=a._size==0u ? BigUnsigned::Limb{0} : a._inline_limbs[0u];
+        const auto right=b._size==0u ? BigUnsigned::Limb{0} : b._inline_limbs[0u];
+        const auto low=left+right;
+        if (low>=left) return BigUnsigned(low);
+        const std::array<BigUnsigned::Limb,2u> digits{low,1u};
+        return BigUnsigned(digits);
+    }
 
     BigUnsigned result;
     result.resize_for_result(count+1u);
@@ -304,6 +313,9 @@ BigUnsigned sub(BigUnsigned const& a, BigUnsigned const& b) {
         }
     }
 
+    if (active==1u) {
+        return BigUnsigned(left[0u]-(right.empty() ? 0u : right[0u]));
+    }
     BigUnsigned result;
     result.resize_for_result(active);
     const auto out=BigUnsigned::MutableLimbView(
@@ -1173,10 +1185,68 @@ std::pair<BigUnsigned,BigUnsigned> divrem(
     return {std::move(quotient),std::move(remainder)};
 }
 
+template<bool WantQuotient>
+BigUnsigned BigUnsigned::divide_short(BigUnsigned const& a,BigUnsigned const& b)
+{
+    if (a._size<b._size) {
+        if constexpr (WantQuotient) {
+            return BigUnsigned{};
+        } else {
+            return a;
+        }
+    }
+    // The caller has checked the divisor, so both operands here
+    // are nonempty and inline. Scalar division needs no scratch.
+    if (a._size==1u) {
+        const Limb left=a._inline_limbs[0u],right=b._inline_limbs[0u];
+        if constexpr (WantQuotient) {
+            return BigUnsigned(left<right ? Limb{0} : left/right);
+        } else {
+            return BigUnsigned(left<right ? left : left%right);
+        }
+    }
+    if (a._size==b._size) {
+        const Limb high=a._inline_limbs[a._size-1u];
+        const Limb divisor_high=b._inline_limbs[b._size-1u];
+        // The same exact q=0/1 criterion as B36, before preparing
+        // a normalized dividend, divisor or general owning result.
+        if (high<divisor_high) {
+            if constexpr (WantQuotient) return BigUnsigned{};
+            else return a;
+        }
+        if (high==divisor_high || high-divisor_high<divisor_high) {
+            const int order=compare(a,b);
+            if constexpr (WantQuotient) {
+                return BigUnsigned(static_cast<Limb>(order>=0));
+            } else {
+                return order<0 ? a : sub(a,b);
+            }
+        }
+    }
+
+    // For n,m<=inline_capacity, n+m+1<=9. Retain the exact
+    // selected single-limb/Knuth/power-of-two arithmetic while
+    // avoiding the larger generic Scratch and owning intermediates.
+    std::array<Limb,inline_capacity> digits{};
+    std::array<Limb,2u*inline_capacity+1u> workspace{};
+    const std::size_t count=WantQuotient
+        ? a._size-b._size+1u : b._size;
+    const auto output=MutableLimbView(digits.data(),count);
+    const auto scratch=MutableLimbView(workspace.data(),
+        divrem_scratch_limbs(a._size,b._size));
+    divrem_selected_into<WantQuotient,!WantQuotient>(
+        a.limbs(),b.limbs(),WantQuotient ? output : MutableLimbView{},
+        WantQuotient ? MutableLimbView{} : output,scratch);
+    return BigUnsigned(LimbView(digits.data(),count));
+}
+
 BigUnsigned quot(BigUnsigned const& a,BigUnsigned const& b)
 {
     if (b.is_zero()) {
         throw std::domain_error("BigUnsigned division by zero");
+    }
+    if (a.size()<=BigUnsigned::inline_capacity) {
+        return BigUnsigned::divide_short<true>(a,b);
     }
     const auto count=a.size()<b.size()?0u:a.size()-b.size()+1u;
     BigUnsigned quotient;
@@ -1196,6 +1266,9 @@ BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b)
 {
     if (b.is_zero()) {
         throw std::domain_error("BigUnsigned division by zero");
+    }
+    if (a.size()<=BigUnsigned::inline_capacity) {
+        return BigUnsigned::divide_short<false>(a,b);
     }
     const auto count=std::min(a.size(),b.size());
     BigUnsigned remainder;
@@ -2269,6 +2342,73 @@ BigUnsigned square(BigUnsigned const& a)
     return mul(a,a);
 }
 
+
+BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
+{
+    if (exponent==0u) return BigUnsigned(std::uint64_t{1});
+    if (exponent==1u) return base;
+    if (base.is_zero()) return BigUnsigned{};
+
+    // A conservative result bound, independent of exponent pattern
+    // or input values. Division avoids overflow in bits*exponent.
+    constexpr std::size_t bit_capacity=1024u;
+    const std::size_t bits=base.bit_length();
+    if (bits<=bit_capacity && exponent<=bit_capacity/bits) {
+        // ceil(x/64)+ceil(y/64) can be one larger than
+        // ceil((x+y)/64). The extra limb admits the full kernel
+        // output even when its high word normalizes away.
+        constexpr std::size_t limb_capacity=bit_capacity/64u+1u;
+        std::array<BigUnsigned::Limb,limb_capacity> first,second;
+        auto current=base.limbs();
+        bool use_first=true;
+        const auto step=[&](bool squaring) {
+            const auto right=squaring ? current : base.limbs();
+            const std::size_t count=current.size()+right.size();
+            auto& buffer=use_first ? first : second;
+            auto output=BigUnsigned::MutableLimbView(buffer.data(),count);
+            // Each selected kernel completely overwrites output;
+            // the arrays need no initialization or intermediate copies.
+            // Match square()'s existing >=8-limb symmetric selection.
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+            if (squaring && current.size()>=8u) {
+                square_limbs_symmetric(current,output);
+            } else
+#elif defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
+    defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+            if (squaring && current.size()>=8u) {
+                BigUnsignedDetail::square_into_symmetric_arm64(current,output);
+            } else
+#endif
+            {
+                BigUnsigned::mul_into(current,right,output);
+            }
+            std::size_t used=count;
+            while (used!=0u && buffer[used-1u]==0u) --used;
+            current=BigUnsigned::LimbView(buffer.data(),used);
+            use_first=!use_first;
+        };
+        for (std::uint64_t bit=std::bit_floor(exponent)>>1u;
+                bit!=0u;bit>>=1u) {
+            step(true);
+            if ((exponent&bit)!=0u) step(false);
+        }
+        // Only this final result owns storage; no view escapes.
+        return BigUnsigned(current);
+    }
+
+    // Arbitrary-size fallback: the same generic MSB-first schedule,
+    // using the existing owning square/multiply and their dispatches.
+    std::uint64_t bit=std::bit_floor(exponent)>>1u;
+    BigUnsigned result=square(base);
+    if ((exponent&bit)!=0u) result=mul(result,base);
+    for (bit>>=1u;bit!=0u;bit>>=1u) {
+        result=square(result);
+        if ((exponent&bit)!=0u) result=mul(result,base);
+    }
+    return result;
+}
 
 // B65: diagnostic-only GCC short symmetric square control.
 // Reuse the B32 exact triangular/doubling/diagonal recurrence at 1..7

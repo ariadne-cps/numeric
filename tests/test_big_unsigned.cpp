@@ -77,6 +77,8 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_gcd_decimal());
         ARIADNE_TEST_CALL(test_views_and_scratch());
         ARIADNE_TEST_CALL(test_multiply_kernel_paths());
+        ARIADNE_TEST_CALL(test_power());
+        ARIADNE_TEST_CALL(test_short_owned_division());
     }
 
   private:
@@ -90,7 +92,121 @@ class TestBigUnsigned
     void test_gcd_decimal();
     void test_views_and_scratch();
     void test_multiply_kernel_paths();
+    void test_power();
+    void test_short_owned_division();
 };
+
+void TestBigUnsigned::test_power()
+{
+    const BigUnsigned zero,one(std::uint64_t{1});
+    ARIADNE_TEST_ASSERT(compare(pow(zero,0u),one)==0);
+    ARIADNE_TEST_ASSERT(pow(zero,std::numeric_limits<std::uint64_t>::max()).is_zero());
+    ARIADNE_TEST_ASSERT(compare(pow(one,std::numeric_limits<std::uint64_t>::max()),one)==0);
+    ARIADNE_TEST_ASSERT(compare(pow(BigUnsigned(std::uint64_t{3}),5u),
+                              BigUnsigned(std::uint64_t{243}))==0);
+    const std::array<std::uint64_t,2u> two64{0u,1u};
+    const std::array<std::uint64_t,3u> two128{0u,0u,1u};
+    ARIADNE_TEST_ASSERT(compare(pow(BigUnsigned(two64),2u),BigUnsigned(two128))==0);
+
+    GmpInteger source,expected;
+    std::mt19937_64 generator(0xB7400A11ULL);
+    for (const std::size_t count:{0u,1u,2u,3u,4u,5u,8u,9u,16u,17u}) {
+        for (unsigned mode=0u;mode<12u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=generator();
+            if (mode%4u==0u) std::fill(words.begin(),words.end(),0u);
+            if (mode%4u==1u) std::fill(words.begin(),words.end(),
+                std::numeric_limits<std::uint64_t>::max());
+            if (mode%4u==2u && !words.empty()) {
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+            }
+            const BigUnsigned input(words);
+            const auto view=input.limbs();
+            mpz_import(source.value,view.size(),-1,sizeof(std::uint64_t),0,0,view.data());
+            for (const unsigned exponent:{0u,1u,2u,3u,4u,5u,7u,8u,9u,15u,16u,17u}) {
+                mpz_pow_ui(expected.value,source.value,exponent);
+                check_against_gmp(pow(input,exponent),expected.value);
+                check_against_gmp(input,source.value);
+            }
+        }
+    }
+    // Probe both sides of the conservative 1024-bit result bound.
+    // Dense 65/341-bit bases also need the seventeenth temporary
+    // product limb, even though the canonical result fits in sixteen.
+    for (const unsigned bits:{1u,2u,53u,64u,65u,127u,128u,129u,
+            255u,256u,257u,341u,342u,511u,512u,513u,1023u,1024u,1025u}) {
+        mpz_set_ui(source.value,1u);
+        mpz_mul_2exp(source.value,source.value,bits);
+        mpz_sub_ui(source.value,source.value,1u);
+        std::vector<std::uint64_t> words((bits+63u)/64u);
+        std::size_t count=0u;
+        mpz_export(words.data(),&count,-1,sizeof(std::uint64_t),0,0,source.value);
+        const BigUnsigned input(std::span(words.data(),count));
+        const unsigned limit=1024u/bits;
+        for (const unsigned exponent:{limit==0u ? 0u : limit-1u,limit,limit+1u}) {
+            mpz_pow_ui(expected.value,source.value,exponent);
+            check_against_gmp(pow(input,exponent),expected.value);
+        }
+    }
+}
+
+void TestBigUnsigned::test_short_owned_division()
+{
+    GmpInteger numerator,denominator,expected_q,expected_r;
+    std::mt19937_64 generator(0xB74D1A1DEULL);
+    for (std::size_t n=0u;n<=5u;++n) {
+        for (std::size_t m=0u;m<=5u;++m) {
+            for (unsigned mode=0u;mode<24u;++mode) {
+                std::vector<std::uint64_t> left(n),right(m);
+                for (auto& word:left) word=generator();
+                for (auto& word:right) word=generator();
+                if (mode%6u==0u) std::fill(left.begin(),left.end(),0u);
+                if (mode%6u==1u) {
+                    std::fill(left.begin(),left.end(),
+                        std::numeric_limits<std::uint64_t>::max());
+                    std::fill(right.begin(),right.end(),1u);
+                }
+                if (mode%6u==2u && !right.empty()) {
+                    std::fill(right.begin(),right.end(),0u);
+                    right.back()=std::uint64_t{1}<<(mode%64u);
+                }
+                if (mode%6u==3u && n==m) right=left;
+                if (mode%6u==4u && n==m && !right.empty()) {
+                    right=left;
+                    right[0u]=0u;
+                    left[0u]=std::numeric_limits<std::uint64_t>::max();
+                }
+                const BigUnsigned a(left),b(right);
+                const auto av=a.limbs(),bv=b.limbs();
+                mpz_import(numerator.value,av.size(),-1,sizeof(std::uint64_t),0,0,av.data());
+                mpz_import(denominator.value,bv.size(),-1,sizeof(std::uint64_t),0,0,bv.data());
+                if (b.is_zero()) {
+                    bool q_threw=false,r_threw=false;
+                    try { (void)quot(a,b); } catch (std::domain_error const&) { q_threw=true; }
+                    try { (void)rem(a,b); } catch (std::domain_error const&) { r_threw=true; }
+                    ARIADNE_TEST_ASSERT(q_threw && r_threw);
+                } else {
+                    mpz_tdiv_qr(expected_q.value,expected_r.value,
+                                numerator.value,denominator.value);
+                    check_against_gmp(quot(a,b),expected_q.value);
+                    check_against_gmp(rem(a,b),expected_r.value);
+                    check_against_gmp(a,numerator.value);
+                    check_against_gmp(b,denominator.value);
+                }
+            }
+        }
+    }
+    // Moved-from inline digits may still contain their previous bits.
+    // Scalar addition must use the canonical size, not stale storage.
+    BigUnsigned moved(std::numeric_limits<std::uint64_t>::max());
+    const BigUnsigned owned(std::move(moved));
+    const BigUnsigned one(std::uint64_t{1});
+    ARIADNE_TEST_ASSERT(compare(add(moved,one),one)==0);
+    ARIADNE_TEST_ASSERT(compare(add(one,moved),one)==0);
+    const std::array<std::uint64_t,2u> carry{0u,1u};
+    ARIADNE_TEST_ASSERT(compare(add(owned,one),BigUnsigned(carry))==0);
+}
 
 void TestBigUnsigned::test_storage()
 {

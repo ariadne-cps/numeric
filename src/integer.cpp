@@ -32,7 +32,6 @@
 
 #include "numeric/concepts.hpp"
 
-#include <bit>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -231,34 +230,12 @@ Integer pow(Integer const& z, Nat exponent) {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
     defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
-    // B66: exact, generic MSB-first exponentiation by squaring.
-    // B65 GMP-verified this schedule for powers other than three and
-    // found lower owning-result latency on the user's GCC x86-64 host
-    // at all six official sizes. Borrow the original base until a
-    // square is necessary: do not copy it merely to start the loop.
+    // B74: preserve B66's generic MSB-first schedule in the shared
+    // unsigned layer. Bounded powers use alternating local buffers
+    // and materialize one final owning magnitude, for every exponent.
     const auto n=static_cast<std::uint64_t>(exponent);
     const bool negative=z._negative && (n&std::uint64_t{1})!=0u;
-    if (n==0u) {
-        return Integer::from_magnitude(
-            BigUnsigned(std::uint64_t{1}),false);
-    }
-    if (n==1u) {
-        return Integer::from_magnitude(z._magnitude,negative);
-    }
-    const BigUnsigned& base=z._magnitude;
-    const BigUnsigned* current=&base;
-    BigUnsigned value;
-    for (std::uint64_t bit=std::bit_floor(n)>>1u;
-            bit!=0u;bit>>=1u) {
-        // current aliases the input initially and value thereafter;
-        // square/mul fully materialize their results before assignment.
-        value=square(*current);
-        current=&value;
-        if ((n&bit)!=0u) {
-            value=mul(value,base);
-        }
-    }
-    return Integer::from_magnitude(std::move(value),negative);
+    return Integer::from_magnitude(pow(z._magnitude,n),negative);
 #else
     // Preserve B32's right-to-left algorithm for ARM64, Clang, MSVC
     // and other builds until native performance can be validated.

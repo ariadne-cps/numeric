@@ -124,6 +124,13 @@ Integer pow3_direct_chain_diagnostic(Integer const& input)
         mul(square(magnitude),magnitude),input.negative());
 }
 
+Integer pow_buffer_diagnostic(Integer const& input,unsigned exponent)
+{
+    return Integer::from_magnitude(
+        pow(input.magnitude(),static_cast<std::uint64_t>(exponent)),
+        input.negative() && (exponent&1u)!=0u);
+}
+
 Integer square_magnitude_diagnostic(Integer const& input)
 {
     return Integer::from_magnitude(square(input.magnitude()),false);
@@ -165,6 +172,8 @@ void verify_input(Integer const& native,RawInteger const& gmp,
                              context+" lazy exponent "+std::to_string(exponent));
         require_equal_to_gmp(pow_msb_diagnostic(native,exponent),expected.value,
                              context+" msb exponent "+std::to_string(exponent));
+        require_equal_to_gmp(pow_buffer_diagnostic(native,exponent),expected.value,
+                             context+" buffer exponent "+std::to_string(exponent));
         if (exponent==3u) {
             require_equal_to_gmp(pow3_direct_chain_diagnostic(native),
                                  expected.value,context+" direct cube");
@@ -264,6 +273,9 @@ void run_size(unsigned bits,unsigned iterations,unsigned samples)
     const double pow_direct=exact_arithmetic_median_ns([&](unsigned i) {
         return pow3_direct_chain_diagnostic(native.a[index(i)]);
     },iterations,samples);
+    const double pow_buffer=exact_arithmetic_median_ns([&](unsigned i) {
+        return pow_buffer_diagnostic(native.a[index(i)],3u);
+    },iterations,samples);
     const double square_gmp=exact_arithmetic_median_ns([&](unsigned i) {
         return GmpIntegerOperations::square(gmp.a[index(i)]);
     },iterations,samples);
@@ -288,6 +300,7 @@ void run_size(unsigned bits,unsigned iterations,unsigned samples)
     report("production pow(z,3)",pow_native,pow_gmp,pow_native);
     report("generic lazy power",pow_lazy,pow_gmp,pow_native);
     report("generic MSB-first power",pow_msb,pow_gmp,pow_native);
+    report("generic buffered power",pow_buffer,pow_gmp,pow_native);
     report("direct cube control",pow_direct,pow_gmp,pow_native);
     LOGGING_PRINTLN("  GMP square: " << std::fixed
                     << std::setprecision(3) << square_gmp << " ns")

@@ -5742,3 +5742,111 @@ promotion inferred from the old profiles alone.
 
 From the x86-64 Release build (one line):
   ./benchmarks/benchmark_compare_integer_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31
+
+
+### B74 short owning arithmetic and generic buffered powers (20 October 2026)
+
+The user's post-B73 x86-64 20000x31 official run verifies all 768
+paired inputs and 2688 results. Per-size total/GMP is
+1.009x/1.250x/1.256x/0.992x/0.893x/0.915x at
+53/128/256/1024/2048/4096 bits; worst ratios are
+2.003x (pow3), 2.125x (pow3), 2.025x (quotient),
+1.982x (quotient), 1.918x (compare), 1.943x (remainder).
+The remaining native-sum excesses are 4.352/122.464/178.269 ns
+at the three short sizes. GMP's 53-bit timings differ markedly
+from the earlier attachment, so do not attribute the entire ratio
+improvement to one change or infer stable acceptance from one run.
+
+B74 targets owning intermediate work, retaining the existing kernels:
+
+- One-limb unsigned sums return a scalar magnitude, with a separate
+  two-limb carry result when needed. Subtraction whose significant
+  range shrinks to one limb returns that exact scalar difference.
+  Canonical size, not stale moved-from inline storage, decides zeros.
+- Owning `quot`/`rem` with at most four dividend limbs use a private
+  shared template. Shorter dividends return q=0/r=a; scalar inputs
+  use exact unsigned division/remainder. Equal-width q=0/1 cases
+  use B36's existing high-limb criterion before scratch preparation.
+  The other cases call the UNCHANGED selected division template with
+  local output of four limbs and scratch of nine limbs (n+m+1<=9).
+  Zero-divisor checks still precede every dispatch. Joint divrem,
+  low-level validation/scratch contracts, >4-limb owning division,
+  normalization, preinverse thresholds and ISA kernels are unchanged.
+  These storage/scalar paths are shared C++20 on all architectures.
+- A new exact `pow(BigUnsigned const&,uint64_t)` uses generic
+  MSB-first exponentiation. If base.bit_length()*exponent<=1024,
+  two alternating local buffers replace owning intermediate results.
+  The bound is checked by division, avoiding overflow; zero, exponent
+  zero (including 0^0=1), and exponent one are handled separately.
+  Every intermediate exponent is at most the requested exponent.
+  Although each canonical intermediate fits sixteen limbs,
+  ceil(x/64)+ceil(y/64) may exceed ceil((x+y)/64) by one. Each
+  buffer therefore has SEVENTEEN limbs (272 bytes in total), allowing
+  the full kernel output before normalization. The input is borrowed
+  immutably, buffers/output are disjoint, and every selected kernel
+  fully overwrites its output before it is read. No uninitialized
+  limb is read and no stack view escapes: only the final BigUnsigned
+  owns/copies storage. The >=8-limb symmetric-square selection and
+  selected fused/carry/portable multiplication are preserved. Above
+  the conservative budget, ordinary owning MSB-first square/multiply
+  remains arbitrary-size. The budget is a bounded-storage policy,
+  not a measured optimal crossover or an exponent-three special case.
+- `Integer::pow` calls this unsigned engine only under the existing
+  GCC x86-64 fused-build guard, keeping the same sign parity and
+  canonical zero. Other signed front ends retain their old schedule.
+  No public existing signature/layout or division convention changes;
+  the unsigned pow overload is new. The existing standalone small
+  power profile adds a GMP-verified owning SIGNED buffered-power row
+  on the original input pool, for direct controls on other targets.
+
+Validation on Apple M2 Ultra / AppleClang 21 Release warnings-as-errors:
+20/20 CTest pass; complete Integer and BigUnsigned Debug ASan/UBSan
+suites pass; complete GCC 16.2 native ARM64 BigUnsigned suite passes.
+Forced-portable (no native backend, __SIZEOF_INT128__ undefined)
+ASan/UBSan runs the actual power, short-division, arithmetic-boundary
+and common-prefix subtraction tests successfully. The forced build
+suppresses only the pre-existing unused fused-helper warning; normal
+native builds keep warnings-as-errors. No MSVC/x86 native build is
+claimed. New independent checks include 1497 GMP power cases plus
+fixed binary/scalar expectations, zero/unit maximum uint64 exponents,
+53/64/65/127/128/129/255/256/257/341/342/511/512/513/1023/1024/1025-bit
+base boundaries and both sides of the storage budget; 864 division
+operand cases at 0..5 limbs (including zero-divisor exceptions),
+source preservation, scalar carry, and moved-from stale inline data.
+The 65/341-bit dense powers explicitly exercise the seventeenth limb.
+All earlier independent and randomized tests remain intact.
+
+Both repeated unchanged ARM64 official 20000x31 runs verify 768
+paired inputs and 2688 results. Signed ARM64 power is intentionally
+unchanged; the separate same-signed profile verifies buffered powers
+before/after timing. Its MSB-control -> buffered ns are
+27.156 -> 27.654 (53), 61.435 -> 56.331 (128),
+90.904 -> 56.292 (256): neutral at 53, modest at 128, larger at 256.
+These ARM64 controls do not project native GCC x86-64 gains and are
+not additive components of the official total.
+
+ARM64 total/GMP reference -> two candidate runs:
+53: 0.408 -> 0.343/0.374; 128: 0.676 -> 0.645/0.639;
+256: 0.809 -> 0.760/0.787; 1024: 0.846 -> 0.844/0.856;
+2048: 1.009 -> 1.001/1.002; 4096: 0.963 -> 1.004/1.000.
+2048/4096 still fail strict ARM64 totals in these runs. Native
+4096-bit summed time nevertheless falls from 11890.528 to
+11664.503/11673.024 ns; GMP's reference sum changes from
+12345.094 to 11623.273/11669.685 ns. Record absolute times and
+repeat on the target rather than claiming either unconditional
+parity or a native slowdown from ratios alone.
+
+The unchanged FloatAP 1000x11 four-size benchmark verifies 256
+paired inputs and 3456 results for both the saved B73 library and
+B74. Its 53-bit relative total changes 1.460x -> 1.739x while native
+operation times generally improve and many MPFR times fall sharply
+(e.g. exp 1234.709 -> 693.625 ns). These runs do not establish
+FloatAP performance acceptance; its pre-existing short-size limits
+remain unmet. No floating-point arithmetic/rounding algorithm changed.
+
+B74 is committed directly on remove-gmp per user instruction.
+Native GCC x86-64 and Windows CI/performance remain pending. The
+binding acceptance is still all SIX official per-size totals <1x
+and EVERY operation/size <2x, with stable same-host repeated runs.
+No benchmark corpus, weights or oracle was altered. Run from build:
+  ./benchmarks/benchmark_compare_integer_backends -t dark --bits 53,128,256,1024,2048,4096 --iterations 20000 --samples 31

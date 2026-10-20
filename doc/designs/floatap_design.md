@@ -9065,3 +9065,47 @@ input checks through 10000 decimal digits. The unchanged FloatAP
 1000x11 benchmark at 53/128/256/1024 bits verifies all 256 paired
 inputs and 3456 operation results. This is a numerical verification,
 not a before/after FloatAP performance acceptance result.
+
+
+### B74 short owning arithmetic and bounded generic powers (20 October 2026)
+
+B74 follows the user's GMP-verified post-B73 x86-64 official run:
+total/GMP 1.009/1.250/1.256/0.992/0.893/0.915x; worst
+2.003/2.125/2.025/1.982/1.918/1.943x at the six Integer widths.
+Only 53/128/256 still fail. Shared scalar add/cancelled subtraction
+and <=4-limb owning quot/rem avoid generic result/workspace setup;
+other short divisions retain the same selected kernel with four
+output and nine scratch limbs. Low-level division contracts, joint
+divrem, >4-limb division and ISA kernels remain unchanged.
+
+New unsigned generic MSB-first power alternates two 17-limb local
+buffers for conservative result bounds <=1024 bits and constructs
+one final owning magnitude. The spare limb admits full kernel
+products whose canonical high word vanishes; no exponent-three
+specialization, approximation, global state or input mutation.
+Larger powers retain owning MSB-first arithmetic. Only the existing
+GCC x86-64 fused Integer path delegates to this engine; signed
+ARM64/Clang/MSVC power schedules are unchanged. See B74 in the
+Integer journal for bounds, ownership and exact dispatch contracts.
+
+AppleClang 21 Release warnings-as-errors: 20/20 CTest pass.
+Complete native Integer/BigUnsigned Debug ASan/UBSan and GCC 16.2
+ARM64 BigUnsigned suites pass. Targeted actual power/division/
+boundary tests also pass forced-portable ASan/UBSan without native
+kernels or __int128. Two unchanged 20000x31 ARM64 Integer runs verify
+all 768 paired inputs and 2688 results. Same-signed owning buffered
+power profiling is GMP-verified before and after all measurements;
+its 256-bit control improves from 90.904 to 56.292 ns locally,
+without predicting x86-64 timings. ARM64 2048/4096 strict total
+acceptance is not established; see absolute times/GMP drift in the
+companion journal. No benchmark workload or numerical oracle changes.
+
+Saved B73 and B74 libraries both pass the unchanged FloatAP 1000x11
+53/128/256/1024 numerical check (256 paired inputs, 3456 results).
+The 53-bit relative total changes 1.460x -> 1.739x while most native
+operation times improve; MPFR reference timing changes substantially
+between processes. Neither run satisfies the existing short-width
+FloatAP performance gates, and no performance acceptance or stable
+before/after nonregression is claimed. No FloatAP arithmetic or
+rounding algorithm is changed. Native GCC x86-64/MSVC validation and
+repeated six-size Integer totals <1x/every worst <2x remain required.

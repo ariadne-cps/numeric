@@ -80,6 +80,11 @@ class BigUnsigned
         LimbView a,LimbView b,MutableLimbView quotient,
         MutableLimbView remainder,MutableLimbView scratch);
 
+    // Owning division of at most inline_capacity dividend limbs.
+    // The divisor is nonzero; larger divisors simply give q=0,r=a.
+    template<bool WantQuotient>
+    static BigUnsigned divide_short(BigUnsigned const& a,BigUnsigned const& b);
+
   public:
     BigUnsigned() = default;
     explicit BigUnsigned(Limb value) noexcept;
@@ -269,6 +274,11 @@ class BigUnsigned
 //! Euclidean greatest common divisor of unsigned magnitudes.
 //! gcd(0,0) is zero. Uses the shared exact division primitive.
 BigUnsigned gcd(BigUnsigned a,BigUnsigned b);
+
+//! Exact unsigned power; exponent zero returns one, including 0^0.
+//! Bounded results use local alternating limb buffers; larger
+//! powers retain arbitrary-size owning exponentiation by squaring.
+BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent);
 
 //! Parse nonempty ASCII decimal digits into a canonical magnitude.
 //! Leading zeroes are accepted; whitespace and signs are rejected.
