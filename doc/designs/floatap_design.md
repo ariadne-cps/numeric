@@ -8480,3 +8480,24 @@ but native integrated speedup is not yet established.
 Follow-on x86 tuning must first compare existing mulq/adcq,
 Comba, fused, Karatsuba and baseline kernels on the target
 CPU/compiler. See B51 in integer_rational_design.md.
+
+
+### B52 native x86-64 GCC mixed 32-limb multiply dispatch (20 October 2026)
+
+The existing x86 GNU MULQ/ADDQ/ADCQ full-product kernel is
+selected only for 32x32-limb full products. This is supported
+by the user's same-host benchmark showing 810.044 ns for
+explicit carry-chain versus 954.267 ns for fused at 2048
+bits (15.1% lower), but the same asm loses at 128/256/
+1024/4096 bits; all those selectors remain unchanged.
+This impacts general GMP-free BigUnsigned/Integer/FloatAP
+products and Karatsuba's 32-limb leaves. No optional CPU ISA,
+benchmarks or public contracts change; Clang/MSVC/ARM64 remain
+unchanged. GMP differential tests add 288 operand pairs
+covering 31/32/33-limb boundaries, zero/saturated/sparse
+and randomized data, full/truncated/oversized destinations.
+Integrated same-host B52 performance and CI remain pending.
+B51 decimal formatting was confirmed on the user's x86 host
+as 59.9%, 27.5% and 19.8% faster at 1024, 2048 and 4096
+bits respectively (full 84-operation total_time 2.052x
+to 1.842x). See B52 in integer_rational_design.md.

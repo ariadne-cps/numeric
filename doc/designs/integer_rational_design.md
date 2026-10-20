@@ -3934,3 +3934,80 @@ Use diagnostic data to decide whether MULQ/ADCQ, BMI2/ADX
 gated kernels, square specialization or Karatsuba thresholds
 are justified for that target, rather than assuming M4 ARM64
 instruction-level tuning transfers directly.
+
+
+### B52 x86-64 GCC 32-limb assembly dispatch informed by native benchmarks (20 October 2026)
+
+The user's official B51 x86-64 benchmark (20,000 iterations,
+31 samples, unchanged 84 cases) demonstrated that enabling the
+B46 exact reciprocal base-10^18 leaf under x86-64 significantly
+accelerated Integer::to_decimal versus B50 on the SAME host:
+1024 bits 1793.826->720.012 ns (-59.86%); 2048 bits
+4526.997->3280.192 ns (-27.54%); 4096 bits
+11715.378->9396.203 ns (-19.80%). Overall geomean improved
+1.459x->1.370x, total_time improved 2.052x->1.842x,
+and worst slowdown improved 3.400x->3.257x. GMP verification
+passed 768 paired input fixtures and 2688 result fixtures.
+This CONFIRMS that the B46 reciprocal implementation, unlike
+the historical pre-B46 DIVQ implementation rejected in B30.1,
+can beat the old x86 radix-10^9 output path in production.
+
+The user also ran the existing benchmark_big_unsigned_multiply on
+that SAME x86-64 host, requesting all experimental variants,
+20,000 iterations and 31 samples with Karatsuba cutoff 32.
+The selected production kernel was reported as fused (x86-64
+GCC). For preallocated dense general products:
+bits         fused       MULQ/ADCQ      relative assembly delta
+128          16.409      16.709         +1.83%
+256          22.367      23.956         +7.10%
+1024         205.249     220.956        +7.66%
+2048         954.267     810.044        -15.11%
+4096         2964.676    3153.710       +6.38%
+At 2048 bits the historical portable and Comba alternatives
+were much worse; Karatsuba cutoff 32 was 961.873 ns, close
+to fused 954.267. At 4096 bits Karatsuba cutoff 32 was
+2994.552 ns, again near fused; changing every general product
+to MULQ/ADCQ would REGRESS the observed 4096-bit result.
+The x86-64 hardware CPU model and target compiler flags are not
+supplied in the log: do not extrapolate these absolute values
+to a different CPU, and do not claim BMI2/ADX availability.
+
+B52 selects the already GMP-tested no-extension MULQ/ADDQ/ADCQ
+kernel *only* in BigUnsigned::mul_low_into on builds with
+ARIADNE_BIG_UNSIGNED_GCC_FUSED (native GNU x86-64) and
+a.size()==b.size()==32 limbs and output.size()>=64 limbs.
+Other sizes, every truncated output below 64 limbs and
+Clang/AppleClang/MSVC/ARM64 all retain their previous selectors.
+The existing assembly has been benchmarked on the user's host
+and exercises the same full-product recurrence; no new assembly,
+CPU feature probing, public API or benchmark code is introduced.
+No value-dependent benchmark specialization exists: the 32-limb
+dispatch is valid for arbitrary limb values and applies equally
+to standalone owning products and Karatsuba base cases. The
+owning GCC Karatsuba 64-limb path uses 32x32 z0/z2 leaves,
+so it may also benefit; its 33x33 cross term remains fused.
+Only a new on-target integrated run can confirm either gain.
+
+The independent GMP test additions exercise 9 pairs of lengths
+31/32/33 x 31/32/33 limbs and 32 randomized/adversarial
+patterns each (288 distinct source pairs), comparing the
+owning output and exact caller-owned result against GMP,
+the selected kernel against the original fused kernel
+word for word, oversized destination zero-filling, and
+truncated low-product arithmetic against GMP. The earlier
+source-level and integrated GMP coverage, official Integer
+benchmarks and multiplication diagnostic workloads remain
+unchanged. Run all CI configurations; compare B51/B52
+official benchmarks on the same x86 host, especially
+2048/4096-bit mul/pow3 and total_time/geomean, and rerun
+the existing isolated kernel benchmark: at 2048 bits
+prealloc_selected should now track prealloc_x86_64_carry
+rather than prealloc_fused, while selected at 1024/4096
+should stay close to fused. If this prediction fails,
+inspect build flags / path before adjusting dispatch.
+
+Subsequent campaign stages should profile the existing DIVQ
+quotient estimator, reciprocal based small-divisor paths,
+and optional BMI2/ADX kernels only after checking actual
+target ISA and paired benchmark results; do not silently
+expand the narrow 32-limb selector without evidence.
