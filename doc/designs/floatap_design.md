@@ -8946,3 +8946,23 @@ Integer/FloatAP math, other architecture selectors,
 official benchmark cases or public APIs change.
 See integer_rational_design.md B69. CI and on-target
 B69 timing must be verified before any selector switch.
+
+### B70 x86 fused production overhead diagnostic (20 October 2026)
+
+B69 x86 GCC same-host GMP-verified short benchmarks found
+forced fused faster than carry-chain in all 53/128/256
+bit preallocated and owning signed comparisons, so
+do not transfer the ARM64 carry selector to x86.
+B69 forced fused signed owning was about 19-21%
+faster than production despite both using the same
+fused primitive; production crosses out-of-line
+Integer/BigUnsigned functions and constructs output
+differently. B70 extends the existing optional B69
+profile with production-selected and forced fused
+kernel/owning A/B rows and a noinline wrapper control
+on exactly the original official GMP-verified 32-input
+corpus and 300 extra short stress pairs. No Integer,
+FloatAP, ABI, public headers, original 84-operation
+benchmark or arithmetic production dispatch changes.
+No speedup is claimed before B70 host measurements.
+See integer_rational_design.md B70.

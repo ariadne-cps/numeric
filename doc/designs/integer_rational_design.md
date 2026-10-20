@@ -5400,3 +5400,66 @@ with no ARM64 regression. Do not confuse the
 ARM64 success with proof x86 carry will win.
 B69 integrated build and host measurements
 remain unverified at commit authoring time.
+
+### B70 short multiplication: selected fused dispatch, ownership and inlining controls (20 October 2026)
+
+The user's B69 GCC x86-64 results (20k iterations, 31 samples,
+independent GMP oracle PASS for official and extra short inputs)
+disprove the hypothesis that copying ARM64's carry-chain kernel
+directly to x86 improves short products. Carry/fused ratios
+for matched preallocated multiplies were 1.019x/1.151x/1.031x
+at 53/128/256 bits and 1.054x/1.150x/1.033x for square:
+carry was SLOWER at all three sizes. Full owning signed
+forced-carry/forced-fused was likewise worse in all cases,
+e.g. 128-bit mul 32.279/29.876=1.080x.
+Keep GCC x86-64 fused production selected, and keep the
+ARM64 native carry kernel and other ISA dispatch unchanged.
+
+Nonetheless B69 full signed owning forced-fused vs production
+reported:
+  bits   mul production -> forced fused   square production -> fused
+    53   34.462 -> 27.348 ns (0.794x)    31.467 -> 26.286 (0.835x)
+   128   36.850 -> 29.876 ns (0.811x)    34.107 -> 27.449 (0.805x)
+   256   58.266 -> 46.562 ns (0.799x)    55.136 -> 44.120 (0.800x)
+The two owning results use equal signed types and GMP-verified
+values, but B69's forced variant constructs a BigUnsigned from
+a stack array *in the benchmark translation unit*, whereas
+production Integer::mul and BigUnsigned::mul live in separate
+translation units, with different construction/normalization,
+function boundaries and possible compiler inlining. Since
+production already selects the SAME fused arithmetic kernel,
+these 19-21% reductions CANNOT be attributed solely to
+the multiplication instruction sequence.
+
+B70 extends the original B67/B68/B69 standalone profiler,
+without changing production code, tests, ABI, original
+official benchmark or any 32-case GMP corpus. It adds:
+- explicit production-selected BigUnsigned::mul_into alongside
+  forced mul_into_fused in identical caller-owned 8-limb
+  buffers (multiply and square);
+- full owning signed results constructed from each selected/
+  forced fixed stack buffer;
+- an intentionally noinline wrapper of exactly the same
+  fused owning variant, to estimate the call/inlining effect;
+- a noinline signed wrapper of production owning
+  BigUnsigned::mul, contrasted with Integer::mul.
+Both selected and forced output digits and signed results
+are checked against the independent GMP oracle on all
+official 32-pair signed inputs and the existing 300
+random/saturated/sparse/zero 0..4-limb stress cases.
+Recheck the original oracle after all timed rows.
+
+The noinline attribute is a compiler optimization hint
+for this benchmark and does NOT exactly reconstruct
+cross-translation-unit ABI/LTO behavior. All rows are
+independently timed and not additive, and the production
+results may be affected by scheduler/clock drift.
+No performance gains or new production acceptance gates
+are claimed until same-host B70 data are returned.
+
+From build (one line, -t dark):
+  ./benchmarks/benchmark_integer_small_operations_profile -t dark --bits 53,128,256 --iterations 20000 --samples 31
+The binding target remains six official size-specific
+total_time/GMP strictly <1x and all 84 worst ratios
+strictly <2x, no benchmark fixture modifications.
+CI/integration verification pending.
