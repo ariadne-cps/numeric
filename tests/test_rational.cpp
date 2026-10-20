@@ -596,7 +596,7 @@ void TestRational::test_gmp_differential() {
             } else if (sample%4u==2u) {
                 numerator=1u+small_random()%1024u;
             }
-            const Rational positive(Integer(numerator),Integer(denominator));
+            const Rational positive{Integer(numerator),Integer(denominator)};
             const Rational negative=-positive;
             for (const Rational& value:{positive,negative}) {
                 const GmpRationalBoundary oracle(value);

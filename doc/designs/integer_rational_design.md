@@ -6563,3 +6563,15 @@ replacement for repository compilation and tests.
 **Validation.** R12 native full CI and matched ARM64/x86-64
 benchmarks have not run yet. Do not claim a measured improvement
 or success on any remaining performance gate before the new data.
+
+
+### R12a — fix C++ most-vexing-parse in scalar conversion tests (20 October 2026)
+
+**Build failure:** R12 Unix, Coverage, and Windows jobs all failed at
+Build. The R12 test statement `const Rational positive(Integer(numerator),Integer(denominator));`
+is parsed as a function declaration, not an initialized Rational;
+its subsequent unary negation fails to compile. Reproduced the
+parsing diagnostic in a local standalone C++20 compiler check.
+Replace with direct-list initialization using braces. The exact
+same GMP comparison values, test count, and production code are
+unchanged. Re-run all build and test gates before accepting R12a.
