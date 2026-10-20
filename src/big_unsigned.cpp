@@ -1254,6 +1254,18 @@ BigUnsigned gcd(BigUnsigned a,BigUnsigned b)
     // Euclid needs only the remainder. Avoid constructing and
     // normalizing an unused quotient at every reduction step.
     while (!b.is_zero()) {
+        // R6: after ordering equal-width operands with identical top
+        // limbs, b <= a < 2*b. Thus a mod b is exactly a-b;
+        // avoid Knuth division, its scratch buffer and quotient estimate.
+        // This is particularly useful when the difference fits inline.
+        if (a.size()==b.size() && a.size()>1u &&
+                a.limb(a.size()-1u)==b.limb(b.size()-1u)) {
+            if (compare(a,b)<0) { a.swap(b); }
+            BigUnsigned difference=sub(a,b);
+            a=std::move(b);
+            b=std::move(difference);
+            continue;
+        }
         BigUnsigned remainder=rem(a,b);
         a=std::move(b);
         b=std::move(remainder);

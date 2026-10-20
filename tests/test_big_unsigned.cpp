@@ -2466,6 +2466,26 @@ void TestBigUnsigned::test_gcd_decimal()
     ARIADNE_TEST_ASSERT(compare(
         gcd(BigUnsigned(std::uint64_t{48}),BigUnsigned(std::uint64_t{18})),
         BigUnsigned(std::uint64_t{6}))==0);
+    // R6: equal highest limbs and a-b near the inline-storage boundary.
+    // Check both operand orders and common factors against GMP.
+    {
+        GmpInteger first,second,oracle;
+        for (const unsigned bits:{128u,192u,256u,257u,320u,512u,1024u}) {
+            for (const std::uint64_t offset:{1u,3u,17u,65537u}) {
+                const auto high=shift_left(BigUnsigned(std::uint64_t{1}),bits);
+                const auto left=add(high,BigUnsigned(offset*3u));
+                const auto right=add(high,BigUnsigned(offset*5u));
+                for (const auto& pair:{std::pair(left,right),std::pair(right,left)}) {
+                    mpz_import(first.value,pair.first.size(),-1,sizeof(std::uint64_t),
+                               0,0,pair.first.limbs().data());
+                    mpz_import(second.value,pair.second.size(),-1,sizeof(std::uint64_t),
+                               0,0,pair.second.limbs().data());
+                    mpz_gcd(oracle.value,first.value,second.value);
+                    check_against_gmp(gcd(pair.first,pair.second),oracle.value);
+                }
+            }
+        }
+    }
     ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
     ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
     ARIADNE_TEST_ASSERT(to_decimal(from_decimal("000"))=="0");

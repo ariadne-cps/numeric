@@ -6267,3 +6267,14 @@ workload/oracle unchanged.
 outcomes for R5. Rebuild and run all Unix/Windows/Coverage workflows,
 Rational/Integer/BigUnsigned/FloatAP differential gates and unchanged
 ARM64/x86-64 six-size benchmarks before considering R5 accepted.
+
+
+### R6 — exact equal-leading-limb Euclidean subtraction (20 October 2026)
+
+**Context:** R5 benchmark (20,000 iterations, 31 samples, six widths; no fixture or GMP changes) passed both oracle counts on ARM64 and x86-64, but still missed user gates total_time <1.0x and worst <2.0x at several widths. ARM64 total/worst ratios: 53 .705/1.686, 128 .932/1.860, 256 1.760/2.460, 1024 1.510/2.407, 2048 1.096/2.538, 4096 .859/2.569. x86-64: 53 1.210/2.237, 128 1.338/2.497, 256 2.289/3.072, 1024 1.645/2.321, 2048 1.008/2.122, 4096 .707/2.149. R5 Unix/Windows/Coverage CI succeeded.
+
+**R6:** In the shared `BigUnsigned gcd` Euclidean reduction, when both operands occupy the same number (>1) of canonical limbs and their most significant limbs are equal, order them and replace the general remainder operation with the exact subtraction. For ordered a>=b with the same positive high limb, a<2*b, so a mod b=a-b. Other inputs keep the existing remainder-only algorithm unchanged. The input ordering is semantically irrelevant to gcd; zeros preserve the former behavior. This targets division/scratch overhead in a mathematically general case, including differences collapsing from heap to inline limbs at 256 bits, rather than checking any benchmark operand shape.
+
+**Tests:** add deterministic GMP-oracle gcd checks for both input orders at 128/192/256/257/320/512/1024-bit boundaries and multiple low-limb offsets. Keep randomized GMP gcd, Rational arithmetic, FloatAP and the benchmark fixture unchanged.
+
+**Validation:** R6 not locally compiled/benchmarked. R6 CI, cross-platform differential tests, and fresh ARM64/x86-64 baseline-matched performance runs are pending; no target is claimed passed on R6.
