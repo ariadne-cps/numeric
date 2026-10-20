@@ -4321,3 +4321,69 @@ and 31 samples, measuring quotient/remainder at
 and verifying all operation results. Preserve B54
 as the rollback baseline if division gets slower
 or no repeatable native improvement appears.
+
+
+### B56 category-resolved x86-64 division profiling (20 October 2026)
+
+A second on-target x86-64 B55 official 84-case run (20,000
+iterations, 31 samples, GMP verification PASS for 768 paired
+input fixtures and 2688 results) reproduced the first:
+- 1024-bit quotient 284.508 -> 283.950 ns (-0.20%);
+- 2048-bit quotient 530.541 -> 531.040 ns (+0.09%);
+- 4096-bit quotient 1103.046 -> 1106.378 ns (+0.30%);
+- 2048-bit remainder 537.519 -> 540.614 ns (+0.58%);
+- 4096-bit remainder 1114.359 -> 1114.473 ns (+0.01%);
+- 4096-bit to_decimal 8672.970 -> 8703.651 ns (+0.35%).
+Total_time/GMP 1.117x -> 1.115x and geomean
+1.150x -> 1.148x. The B55 benefits were repeatable
+at the granularity of these measurements; B55 remains
+the accepted production arithmetic baseline.
+
+Before further instruction-level changes, distinguish
+which *algorithmic division category* dominates. The
+unchanged official workload mixes small single-limb
+divisors, half-width multiprecision denominators and
+near-equal operands. Its overall quotient/remainder
+medians cannot isolate the expensive subpath, nor can
+their medians be decomposed into additive stage costs.
+B56 intentionally makes NO PRODUCTION ARITHMETIC CHANGE.
+
+Add a separate optional executable,
+benchmarks/benchmark_big_unsigned_division_profile.cpp,
+wired into benchmarks/CMakeLists.txt, with:
+- exact deterministic 32-pair GMP-verified pools for
+  each (size,category), default 1024/2048/4096 bits;
+- categories limb_small, limb_wide, short_2, short_8,
+  quarter_dense, half_dense, half_sparse, long_dense,
+  near_less_q0, near_greater_q1, shifted_half and
+  power_of_two;
+- separately timed owning BigUnsigned quot/rem/divrem
+  versus matching GMP mpz_tdiv_q/r/qr with fresh
+  owning outputs created and released inside timed loops;
+- separately timed caller-owned BigUnsigned::divrem_into
+  versus GMP mpz_tdiv_qr with preallocated reusable
+  output buffers; result paths are labelled nonadditive;
+- GMP oracles for each public result and the preallocated
+  result, before and after the timed loops. The official
+  benchmark and all production tests are unchanged;
+  user-specified --bits, --iterations and --samples
+  use the established CLI parser (whole 64-bit multiples
+  at >=512 bits; default 20k iterations/31 samples);
+- a by-operation report of worst native/GMP case so
+  dense long division can be distinguished from a
+  one-limb DIVQ or B36 near-equal fast path.
+
+This is **diagnostic instrumentation only**, with no
+numerical or speedup claims before the executable
+passes CI and is run on the user's same x86-64 host.
+A recommended initial diagnostic run is:
+  cmake --build build --target benchmark_big_unsigned_division_profile -j8
+  ./build/benchmarks/benchmark_big_unsigned_division_profile -t dark \
+    --bits 1024,2048,4096 --iterations 4000 --samples 15
+Repeat slowest categories at 20000 iterations/31 samples
+before choosing B57. Inspect whether multiprecision
+quotient/remainder paths still dominate, or if overhead
+for small/near-equal denominators is more consequential.
+Avoid mistaking preallocated and owning cost differences
+for arithmetic speedups. Do not change oracle coverage
+or adjust benchmark inputs to make a faster path win.

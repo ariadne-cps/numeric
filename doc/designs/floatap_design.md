@@ -8595,3 +8595,24 @@ B54 on-target benchmark is the baseline;
 B55 integrated x86 performance remains
 pending, and all official benchmarks are unchanged.
 See B55 in integer_rational_design.md.
+
+
+### B56 x86-64 division-case diagnostic (20 October 2026)
+
+Two consecutive on-target B55 official GMP benchmark
+runs reproduced 4096-bit quotient at 1103.046/1106.378
+ns and 4096-bit remainder at 1114.359/1114.473 ns;
+full-suite total_time/GMP 1.117x/1.115x.
+No production Integer/FloatAP algorithm changes in B56.
+New benchmark_big_unsigned_division_profile uses 12
+deterministic divisor shapes, each with 32 independent
+GMP-verified operand pairs, to separate 1-limb small/
+wide, 2/8-limb short, quarter/half/long dense, half
+sparse, near-equal quotient zero/one, low-zero shifted
+divisor and power-of-two. It reports separate native
+and GMP owning quot/rem/divrem and preallocated joint
+divrem timings, with oracle verification before and
+after timing. Original 84-case workload remains
+untouched. Same-host diagnostic results and CI are
+pending before any further x86 ISA or division change;
+see integer_rational_design.md B56.
