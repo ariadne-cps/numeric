@@ -8721,3 +8721,23 @@ Extra GMP-oracle tests cover 15/16/17, 31/32/33 and
 63/64/65-limb boundaries. The official Integer/GMP benchmark,
 FloatAP arithmetic and public APIs remain unchanged.
 Integrated B59 performance and CI are pending; see integer journal.
+
+### B60 x86-64 rem-only pi1 diagnostic after aggregate parity (20 October 2026)
+
+B59 user-provided GMP-verified official 84-operation x86 benchmark
+measured total_time/GMP 0.977x, crossing the aggregate parity
+goal, though geomean remains 1.162x and division slower than
+GMP. All B59 Unix/Windows/Coverage workflows passed. The
+B59 profile confirmed the production cutoff-32 decimal
+selection at 2048/4096 bits, with GMP PASS.
+
+B60 is strictly diagnostic: add a separately named owning
+single-limb remainder candidate to the B56 profiler on GCC
+x86-64, using B57's exact normalized pi1 recurrence without
+writing quotient digits. Compare to the existing owning rem()
+and GMP mpz_tdiv_r on exactly the same 32 small/wide divisor
+inputs, with independent GMP correctness checks. The original
+production rem dispatch, Integer/FloatAP arithmetic, decimal
+cutoff, public APIs, official 84-case benchmark and diagnostic
+fixture generation remain unchanged. No B60 integrated
+timings or CI verification yet; see integer journal B60.
