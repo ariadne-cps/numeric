@@ -8570,3 +8570,28 @@ fixtures cover the selectors and carry boundaries.
 User-host B54 performance and full CI are pending;
 the official benchmark is unchanged. See B54 in
 integer_rational_design.md.
+
+
+### B55 baseline x86-64 multiply/subtract fused division step (20 October 2026)
+
+B55 selects a GMP-proved x86-64 GNU/Clang
+MULQ/ADDQ/ADCQ/SUBQ/ADCQ digit-product subtraction
+kernel for multi-limb integer denominators
+with >=8 limbs, preserving the original
+B27/29 fused arithmetic and sparse-normalized-
+divisor semantics. Smaller denominator sizes,
+ARM64, MSVC, other architectures and
+BigUnsigned/FloatAP public APIs remain unchanged.
+The B49 small-divisor reciprocal was evaluated
+on AMD EPYC GCC/Clang but deliberately NOT enabled
+on x86: native DIVQ was faster in independent
+same-host tests. An isolated exact arithmetic
+probe verified 32768 products/borrows against
+GMP under GCC, Clang and Clang ASan/UBSan,
+with 432 additional full division fixture pairs
+added to production tests across 7/8/9,
+16/32/64-limb divisor and 3 dividend sizes.
+B54 on-target benchmark is the baseline;
+B55 integrated x86 performance remains
+pending, and all official benchmarks are unchanged.
+See B55 in integer_rational_design.md.

@@ -1628,6 +1628,97 @@ void TestBigUnsigned::test_division()
         ARIADNE_TEST_ASSERT(mpz_cmp(check.value,a.value)==0);
     }
 
+    // B55: GMP differential coverage of the native x86-64
+    // MULQ/ADCQ digit-product subtraction selected at divisor
+    // length 8. Preserve the 7-limb C++ control, 8/9 boundary,
+    // 16/32/64-limb denominators, and both divisor operand orders.
+    // Full/joint and single-output modes must independently agree
+    // with GMP even after one- or two-digit corrections.
+    std::mt19937_64 b55_engine(0xB550DEC1ULL);
+    for (const std::size_t m:{7u,8u,9u,16u,32u,64u}) {
+        for (const std::size_t extra:{2u,9u,32u}) {
+            const std::size_t n=m+extra;
+            for (unsigned mode=0u;mode<24u;++mode) {
+                std::vector<std::uint64_t> left(n),right(m);
+                for (auto& word:left) word=b55_engine();
+                for (auto& word:right) word=b55_engine();
+                switch (mode%8u) {
+                case 0u:
+                    std::fill(left.begin(),left.end(),max);
+                    std::fill(right.begin(),right.end(),max);
+                    break;
+                case 1u:
+                    std::fill(left.begin(),left.end(),0u);
+                    left.back()=max;
+                    std::fill(right.begin(),right.end(),0u);
+                    right.back()=max;
+                    break;
+                case 2u:
+                    std::fill(left.begin(),left.end(),0u);
+                    left.front()=max;
+                    left.back()=max;
+                    std::fill(right.begin(),right.end(),0u);
+                    right.front()=3u;
+                    right.back()=max;
+                    break;
+                case 3u:
+                    for (std::size_t i=0u;i<n;i+=2u) left[i]=0u;
+                    for (std::size_t i=0u;i<m;i+=2u) right[i]=0u;
+                    break;
+                case 4u:
+                    for (std::size_t i=1u;i+1u<n;++i) left[i]=0u;
+                    for (std::size_t i=1u;i+1u<m;++i) right[i]=0u;
+                    break;
+                case 5u:
+                    std::fill_n(left.begin(),n/2u,0u);
+                    std::fill_n(right.begin(),m/2u,0u);
+                    break;
+                case 6u:
+                    for (std::size_t i=1u;i<n;i+=3u) left[i]=max;
+                    for (std::size_t i=1u;i<m;i+=3u) right[i]=max;
+                    break;
+                default: break;
+                }
+                left.back()|=std::uint64_t{1}<<63u;
+                right.back()|=std::uint64_t{1}<<63u;
+                const BigUnsigned dividend(left),divisor(right);
+                mpz_import(a.value,dividend.size(),-1,
+                           sizeof(std::uint64_t),0,0,
+                           dividend.limbs().data());
+                mpz_import(b.value,divisor.size(),-1,
+                           sizeof(std::uint64_t),0,0,
+                           divisor.limbs().data());
+                mpz_tdiv_qr(q.value,r.value,a.value,b.value);
+                const auto [actual_q,actual_r]=
+                    divrem(dividend,divisor);
+                check_against_gmp(actual_q,q.value);
+                check_against_gmp(actual_r,r.value);
+                check_against_gmp(quot(dividend,divisor),q.value);
+                check_against_gmp(rem(dividend,divisor),r.value);
+                const auto needed=BigUnsigned::divrem_scratch_limbs(
+                    dividend.size(),divisor.size());
+                std::vector<std::uint64_t> qwords(
+                    dividend.size()+2u,max);
+                std::vector<std::uint64_t> rwords(
+                    divisor.size()+2u,max);
+                std::vector<std::uint64_t> workspace(
+                    needed+2u,max);
+                BigUnsigned::divrem_into(
+                    dividend.limbs(),divisor.limbs(),qwords,rwords,
+                    BigUnsigned::MutableLimbView(
+                        workspace.data()+1u,needed));
+                check_against_gmp(BigUnsigned(qwords),q.value);
+                check_against_gmp(BigUnsigned(rwords),r.value);
+                ARIADNE_TEST_ASSERT(qwords[dividend.size()]==0u);
+                ARIADNE_TEST_ASSERT(qwords[dividend.size()+1u]==0u);
+                ARIADNE_TEST_ASSERT(rwords[divisor.size()]==0u);
+                ARIADNE_TEST_ASSERT(rwords[divisor.size()+1u]==0u);
+                ARIADNE_TEST_ASSERT(workspace.front()==max);
+                ARIADNE_TEST_ASSERT(workspace.back()==max);
+            }
+        }
+    }
+
     // B27: exercise the fused subtract/add-back implementation,
     // including quotient estimates that need TWO corrections.
     // These fixtures were found by the independent GMP stress probe,
