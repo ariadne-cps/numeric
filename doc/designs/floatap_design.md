@@ -8445,3 +8445,21 @@ multi-limb GMP checks under Clang ASan/UBSan. All performance
 comparisons must use the SAME Apple M4; earlier B42-B47 M2
 timings cannot be directly compared with the M4 results.
 See B49 in integer_rational_design.md.
+
+
+### B50 19-digit radix decimal-input parsing (20 October 2026)
+
+The shared BigUnsigned::from_decimal wide Horner parser on
+unsigned-128-capable Clang/GCC hosts now packs 19 digits rather
+than 18 per 64-bit chunk. Since 10^19<2^64, the full
+multiply-and-carry step remains exact in unsigned 128-bit.
+This reduces passes while preserving B47's >=32-digit
+selection, canonical magnitude, validation, signed Integer
+handling, FloatAP semantics and the portable radix-10^9
+fallback on MSVC/other toolchains. Independent GMP + ASan/UBSan
+checks passed for 12000 adversarial/random strings, and 234
+additional GMP parsing cases cover production boundaries.
+The unchanged official benchmark must be rerun on the
+same Apple M4 for a causal B49/B50 performance comparison;
+no speedup is claimed before that measurement.
+See B50 in integer_rational_design.md.

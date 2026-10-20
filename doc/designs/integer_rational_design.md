@@ -3789,3 +3789,62 @@ ratio. Guardrails: remainder improvements from B48 should remain,
 total_time should not regress materially, and all platform CI
 jobs should pass. A performance improvement is NOT claimed
 until same-host measurements are supplied.
+
+
+### B50 wider 19-digit input radix for construct_decimal (20 October 2026)
+
+The B49 official 84-case benchmark is measured on the SAME Apple M4
+ARM64 as B47 and B48. For B49, native construct_decimal at 2048 bits
+was 1009.473 ns versus GMP 744.775 ns (1.355x); at 4096 bits,
+2883.946 ns versus GMP 1726.542 ns (1.670x). The overall 84-case
+native/GMP total_time was 1.016x and geomean 0.747x, with successful
+verification of 768 input pairs and 2688 paired operation results.
+Although B49 reduced native quotient at 2048 bits to 198.350 ns,
+construct_decimal remains a large contributor to total time.
+
+B50 is a narrowly scoped change to the wide 128-bit-supported
+BigUnsigned::from_decimal path that B47 selected for >=32-digit
+inputs. Each radix-10^18 block currently contains at most 18
+decimal digits in one 64-bit limb. B50 uses the larger exact
+radix 10^19=10000000000000000000, still strictly below 2^64,
+to consume 19 digits per pass and reduce full multiprecision
+Horner scans. The first possibly shorter group is still consumed
+first, all subsequent groups use the constant radix, and the
+pre-reservation changes from ceil(decimal_digits/18) to
+ceil(decimal_digits/19). Each wide product has the form
+digit*radix+carry, where digit<2^64, radix<=10^19<2^64 and
+carry<radix. Hence the maximum product is
+(2^64-1)*radix+(radix-1)=2^64*radix-1<2^128,
+so the existing unsigned __int128 calculation stays exact.
+No divide-and-conquer algorithm, caches, new public API,
+dependency, GMP production call or benchmark alterations.
+The historical base-10^9 portable path on Windows/MSVC and
+other compilers without unsigned 128-bit remains unchanged;
+the unsigned-wide path is still selected at >=32 digits.
+ASCII validation and signed Integer construction are unchanged.
+
+A preliminary isolated Clang 17 x86-64 C++20 comparison (NOT
+an Apple M4 result) of otherwise identical Horner parsers
+showed radix-10^19 close to radix-10^18 at 1024 bits, roughly
+3-5% faster at 2048 bits, and roughly 1-3% faster at 4096
+bits. A prototype balanced parser and a 38-digit two-limb
+radix were slower in that environment and were NOT integrated.
+An independent standalone test verified 12000 adversarial/random
+decimal inputs against GMP and the prior radix-10^18 parser
+under Clang AddressSanitizer and UndefinedBehaviorSanitizer,
+including thresholds 31/32/33, exact radix boundaries,
+leading zeros, saturated digit strings, 308 digits and
+2048/4096-bit-sized inputs. Production regression adds 234
+GMP-oracle parsing cases (39 lengths x 6 patterns) spanning
+19-digit group boundaries, 1024-bit and 2048/4096-bit
+construction shapes; previously existing tests remain unchanged.
+The numbers above are input-parser proxy measurements only,
+not independent Apple M4 evidence.
+
+Acceptance requires the unchanged official 84-operation
+benchmark on Apple M4 at 20000 iterations and 31 samples:
+compare B49/M4 with B50/M4 construct_decimal at 128/256/
+1024/2048/4096 bits, overall total_time/geomean, and
+other operations for regressions. All standard CI matrices
+must pass. Keep B49 as the rollback baseline if the 19-digit
+wide path does not show a repeatable same-host benefit.
