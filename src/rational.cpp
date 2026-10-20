@@ -46,6 +46,7 @@
 #include "concepts.hpp"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cstdint>
 #include <limits>
@@ -70,6 +71,34 @@ Integer integer_mul(Integer const& a,Integer const& b) { return mul(a,b); }
 Integer integer_neg(Integer const& n) { return neg(n); }
 Comparison integer_cmp(Integer const& a,Integer const& b) { return cmp(a,b); }
 BigUnsigned unsigned_mul(BigUnsigned const& a,BigUnsigned const& b) { return mul(a,b); }
+// R3: compare bounded cross-products directly in fixed stack storage.
+// The two product spans are independent of both inputs; no temporary
+// heap-owned BigUnsigned is needed for magnitudes up to eight limbs.
+int compare_cross_products(BigUnsigned const& an,BigUnsigned const& bd,
+                           BigUnsigned const& bn,BigUnsigned const& ad) {
+    constexpr std::size_t max_operand_limbs=8u;
+    if (an.size()<=max_operand_limbs && bd.size()<=max_operand_limbs &&
+            bn.size()<=max_operand_limbs && ad.size()<=max_operand_limbs) {
+        constexpr std::size_t product_capacity=2u*max_operand_limbs;
+        std::array<BigUnsigned::Limb,product_capacity> left{};
+        std::array<BigUnsigned::Limb,product_capacity> right{};
+        const std::size_t left_size=an.size()+bd.size();
+        const std::size_t right_size=bn.size()+ad.size();
+        BigUnsigned::mul_into(an.limbs(),bd.limbs(),
+            BigUnsigned::MutableLimbView(left.data(),left_size));
+        BigUnsigned::mul_into(bn.limbs(),ad.limbs(),
+            BigUnsigned::MutableLimbView(right.data(),right_size));
+        // Products can have a zero high limb. Compare all potentially
+        // significant words and leave unwritten trailing words zero.
+        for (std::size_t i=std::max(left_size,right_size);i!=0u;--i) {
+            if (left[i-1u]!=right[i-1u]) {
+                return left[i-1u]<right[i-1u] ? -1 : 1;
+            }
+        }
+        return 0;
+    }
+    return compare(unsigned_mul(an,bd),unsigned_mul(bn,ad));
+}
 Bool unsigned_is_one(BigUnsigned const& n) { return n.size()==1u && n.limb(0u)==1u; }
 Integer multiply_magnitude(Integer const& n,BigUnsigned const& m) {
     if (unsigned_is_one(m)) { return n; }
@@ -170,8 +199,8 @@ template<> class FiniteOperations<Rational> {
             return a._numerator.negative() ? Comparison::LESS : Comparison::GREATER;
         }
         if (compare(a._denominator,b._denominator)==0) { return integer_cmp(a._numerator,b._numerator); }
-        int order=compare(unsigned_mul(a._numerator.magnitude(),b._denominator),
-                          unsigned_mul(b._numerator.magnitude(),a._denominator));
+        int order=compare_cross_products(a._numerator.magnitude(),b._denominator,
+                                         b._numerator.magnitude(),a._denominator);
         if (a._numerator.negative()) { order=-order; }
         return order<0 ? Comparison::LESS : order>0 ? Comparison::GREATER : Comparison::EQUAL;
     }

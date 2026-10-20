@@ -389,6 +389,25 @@ void TestRational::test_native_contract() {
     ARIADNE_TEST_EQUALS(cmp(Rational::nan(),finite),Comparison::INCOMPARABLE);
     ARIADNE_TEST_FAIL(static_cast<void>(GmpRationalBoundary(Rational::nan())));
 
+    // R3: exercise stack products (up to 8 limbs each), their exact
+    // 8/9-limb boundary, the fallback, signs and opposite orderings.
+    for (unsigned bits : {53u,128u,256u,448u,512u,1024u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        const Rational a(base+13,base*3+19);
+        const Rational b(base+31,base*2+17);
+        GmpRationalBoundary ga(a),gb(b);
+        const int raw=mpq_cmp(ga.value(),gb.value());
+        const Comparison expected=raw<0 ? Comparison::LESS
+            : raw>0 ? Comparison::GREATER : Comparison::EQUAL;
+        const Comparison reversed=raw>0 ? Comparison::LESS
+            : raw<0 ? Comparison::GREATER : Comparison::EQUAL;
+        ARIADNE_TEST_EQUALS(cmp(a,b),expected);
+        ARIADNE_TEST_EQUALS(cmp(b,a),reversed);
+        ARIADNE_TEST_EQUALS(cmp(-a,-b),reversed);
+        ARIADNE_TEST_EQUALS(cmp(-b,-a),expected);
+        ARIADNE_TEST_EQUALS(cmp(Rational(0),a),Comparison::LESS);
+        ARIADNE_TEST_EQUALS(cmp(a,Rational(0)),Comparison::GREATER);
+    }
     const Integer factor=pow(Integer(2),Nat(320))+1;
     const Rational a(factor*7,11),b(11,factor*13);
     ARIADNE_TEST_EQUALS(a*b,Rational(7,13));

@@ -6134,3 +6134,45 @@ TestInteger and TestRational differential/alias tests and the unchanged
 53,128,256,1024,2048,4096 bits with 20,000 iterations and 31 samples;
 also check the FloatAP regression/performance gates before accepting
 this shared-core optimization.
+
+
+### R3 — bounded stack products for Rational comparison (20 October 2026)
+
+**Measured R2 baseline, not an R3 result.** User-supplied ARM64 and
+x86-64 six-size `benchmark_compare_rational_backends` runs both pass
+384 paired inputs and 2,880 paired results. Compared with the pre-R2
+aggregate totals, ARM64 decreases from 1.265x to 1.073x and x86-64
+from 1.329x to 1.021x. At 256 bits, the ARM64/native-to-GMP total
+ratio is 1.870x (was 2.631x), and the x86-64 ratio is 2.367x (was
+3.327x). The R2 Unix, Windows and Coverage GitHub Actions complete
+successfully. Independent native ARM64 and x86-64 R3 measurements
+remain pending.
+
+**Change.** The finite `Rational::cmp` cross-product comparison now
+uses caller-owned stack limb arrays through the already-selected,
+portable-fallback `BigUnsigned::mul_into` kernel when each of the
+four unsigned input magnitudes occupies at most eight 64-bit limbs.
+Both exact products are compared from their high words, with a
+zero-initialized tail to handle different product lengths and any
+zero top limb. Above the eight-limb bound, the previous owning
+`mul` plus `compare` path is unchanged. Both paths preserve the
+existing sign and same-denominator shortcuts, the exact comparison
+order and IEEE/extended-special-value dispatch. No approximate
+floating comparison, GMP operation, conditional compilation or
+architecture-specific instruction is introduced. This specifically
+avoids two temporary heap-owned cross-products for the medium-size
+input range, while retaining the existing multiplication kernels.
+
+**Regression.** Add deterministic GMP-oracle comparisons around 53,
+128, 256, 448 (eight-limb stack boundary), 512 (fallback), and 1024
+bits, testing operand order, both-negative reversals and zero cases.
+Retain the previously existing randomized GMP differential, aliasing,
+NaN/infinity and rounding-mode coverage unchanged.
+
+**Validation status.** R3 has not been locally built or benchmarked:
+no native ARM64 or x86-64 execution environment was available in the
+repository-editing session. Do not interpret the R2 measurements as
+R3 speedup or accepted performance gates. Wait for CI and re-run the
+unaltered six-size benchmark on both hosts, plus the full Rational,
+Integer, BigUnsigned and FloatAP gates before evaluating another
+candidate.
