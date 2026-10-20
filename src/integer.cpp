@@ -162,26 +162,8 @@ Integer sub(Integer const& z1, Integer const& z2) {
 }
 
 Integer mul(Integer const& z1, Integer const& z2) {
-#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
-    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
-    // B33: the exact same Integer object is multiplied by itself.
-    // Dispatch to B32's symmetric kernel without inspecting operand
-    // values or changing the non-aliased multiplication path. Keep
-    // other architectures and smaller magnitudes unchanged.
-    if (&z1==&z2 && z1._magnitude.size()>=8u) {
-        return Integer::from_magnitude(square(z1._magnitude),false);
-    }
-#endif
-#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
-    defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
-    // B37: on native ARM64, only actual self-aliasing uses the new
-    // symmetric square; equal-valued distinct objects still use mul.
-    // Size-first keeps the already-fast 1..7-limb path unchanged.
-    if (z1._magnitude.size()>=8u && &z1==&z2) {
-        return Integer::from_magnitude(square(z1._magnitude),false);
-    }
-#endif
+    // The unsigned layer owns alias-aware square/kernel selection.
+    // Only the product sign belongs to the signed front end.
     return Integer::from_magnitude(
         mul(z1._magnitude,z2._magnitude),z1._negative!=z2._negative);
 }

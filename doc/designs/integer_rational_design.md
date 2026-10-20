@@ -6637,3 +6637,35 @@ still NOT achieved. R13a introduces no performance algorithm changes.
 running when R13a was prepared. R13a CI and matched host benchmarks
 must be checked independently. No fresh speedup or CI success is
 claimed for R13a.
+
+
+### R14 — relocate self-alias square dispatch from Integer to BigUnsigned (20 October 2026)
+
+**Purpose:** restore the signed/unsigned responsibility boundary,
+without changing benchmarks or selected multiplication kernels.
+B33/B37 detected same-object `Integer` multiplication and routed
+8+-limb operands to symmetric `BigUnsigned::square` on GCC x86-64
+fused and ARM64 native backends. This is a magnitude optimization,
+not signed arithmetic, so place the exact same platform/size/identity
+check in `BigUnsigned mul(const&,const&)`. `Integer mul` now applies
+only the XOR of operand signs to the delegated unsigned product.
+
+**Recursion safety:** the `square` fallback calls `mul(a,a)`, but the
+fast-path is reachable only at >=8 limbs on backends where `square`
+uses a dedicated symmetric kernel at the same threshold. For <8 limbs
+or all unsupported targets, `mul` does not dispatch to `square`.
+Zero and oversized product checks remain in their existing order.
+The new unsigned dispatch may also benefit other genuine self-alias
+callers, but no runtime value-pattern or benchmark shortcut is added.
+
+**Differential tests:** new GMP checks for same BigUnsigned object,
+distinct-but-equal object, explicit square, source immutability,
+zero, dense/all-ones/sparse/random values at 1,4,7,8,9,16,64 limbs.
+The preexisting signed self-product, `x*=x`, sign, saturation and
+GMP checks remain unchanged. Rebuild and run full Integer,
+BigUnsigned, Rational and FloatAP gates. This changes shared
+unsigned dispatch; identical performance has not yet been measured.
+
+**Validation status:** before this commit, R13a Unix, Windows and
+Coverage CI all passed. R14 compilation, host-specific benchmark
+stability and full regression are pending.

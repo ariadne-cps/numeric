@@ -2565,6 +2565,25 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
         throw std::length_error("BigUnsigned product size overflow");
     }
 
+    // R14: self-product dispatch belongs to the unsigned magnitude
+    // engine, not Integer. Preserve the exact B33/B37 platform and
+    // >=8-limb selection for same-object inputs; distinct equal-valued
+    // objects still take ordinary multiplication. This cannot recurse:
+    // on the selected platforms square() has a dedicated >=8-limb
+    // kernel, and its mul(a,a) fallback applies only below that bound.
+#if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
+    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
+    if (a._size>=8u && &a==&b) {
+        return square(a);
+    }
+#elif defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
+    defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    if (a._size>=8u && &a==&b) {
+        return square(a);
+    }
+#endif
+
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
     defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)

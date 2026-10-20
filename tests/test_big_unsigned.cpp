@@ -381,6 +381,37 @@ void TestBigUnsigned::test_multiplication()
     std::mt19937_64 engine(0x1282561024ULL);
     GmpInteger a,b,c,t;
 
+    // R14: verify the self-product decision at the unsigned layer,
+    // including both sides of the 8-limb symmetric-square threshold.
+    // Object identity, not equal numeric value, selects the fast path.
+    for (const std::size_t count:{1u,4u,7u,8u,9u,16u,64u}) {
+        for (unsigned mode=0u;mode<12u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=engine();
+            if (mode%4u==0u) {
+                std::fill(words.begin(),words.end(),0u);
+            } else if (mode%4u==1u) {
+                std::fill(words.begin(),words.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+            } else if (mode%4u==2u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+            } else {
+                words.back()|=std::uint64_t{1}<<63u;
+            }
+            const BigUnsigned input(words);
+            const BigUnsigned distinct(input);
+            mpz_import(a.value,input.size(),-1,sizeof(std::uint64_t),
+                       0,0,input.limbs().data());
+            mpz_mul(t.value,a.value,a.value);
+            check_against_gmp(mul(input,input),t.value);
+            check_against_gmp(mul(input,distinct),t.value);
+            check_against_gmp(square(input),t.value);
+            check_against_gmp(input,a.value);
+            check_against_gmp(distinct,a.value);
+        }
+    }
+
     static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 64u*80u);
 
     // B72: exact owning 4-limb fast-path boundary, including the
