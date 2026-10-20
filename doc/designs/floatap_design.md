@@ -8629,3 +8629,15 @@ run test passed with both compilers. No
 production Integer/FloatAP code, arithmetic,
 test expectations, benchmark cases or
 timing logic changes; full CI pending.
+
+
+### B56.2 diagnostic switch warning fix (20 October 2026)
+
+The 12-case diagnostic Shape-to-name switch now
+contains an explicit default throw, preserving the
+same runtime values while complying with GCC/Clang
+-Wswitch-default and warnings-as-errors CI. The
+previous B56.1 GCC and AppleClang Release jobs
+failed during Build; exact compiler logs could not
+be retrieved, so CI validation is still required.
+No numerical, FloatAP or benchmark semantics change.
