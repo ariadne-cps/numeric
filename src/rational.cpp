@@ -316,6 +316,45 @@ double Rational::get_d() const {
     // Truncate toward zero, including subnormals, independent of the active
     // floating rounding mode. The <=53-bit integer is exactly representable.
     const int scale=std::max(exponent-52,-1074);
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    // R5: short finite ratios need at most 128 bits of exact arithmetic.
+    // Do not use floating approximation: the conversion must remain
+    // identical under every active host rounding mode.
+    if (n.size()==1u && _denominator.size()==1u &&
+            scale<0 && scale>=-63) {
+        __extension__ using Wide=unsigned __int128;
+        const unsigned shift=static_cast<unsigned>(-scale);
+        const Wide numerator=static_cast<Wide>(n.limb(0u))<<shift;
+        const auto significand=static_cast<std::uint64_t>(
+            numerator/_denominator.limb(0u));
+        return std::copysign(std::ldexp(static_cast<double>(significand),scale),sign);
+    }
+#endif
+    // R5: for similarly sized large operands, compute the quotient from
+    // three high limbs and *prove* it equals the full exact quotient.
+    // Writing n=N*B+nl, d=D*B+dl (0<=nl,dl<B), let
+    // N*2^s=q*D+r. Then r>=q proves the lower bound; r+2^s<D
+    // proves the upper bound. For normal values, the exact binary
+    // exponent independently guarantees q>=2^52.
+    // Ambiguous prefixes always use the original full-width division.
+    if (scale<0 && scale>=-63 && exponent>=-1022 &&
+            n.size()==_denominator.size() && n.size()>4u) {
+        constexpr std::size_t retained_limbs=3u;
+        const std::size_t drop=n.size()-retained_limbs;
+        const unsigned shift=static_cast<unsigned>(-scale);
+        const BigUnsigned high_n(n.limbs().subspan(drop));
+        const BigUnsigned high_d(_denominator.limbs().subspan(drop));
+        auto [candidate,remainder]=divrem(shift_left(high_n,shift),high_d);
+        const bool lower_proven=compare(remainder,candidate)>=0 ||
+            (candidate.size()==1u &&
+             candidate.limb(0u)==(std::uint64_t{1}<<52u));
+        if (candidate.size()==1u && lower_proven &&
+                compare(add(remainder,shift_left(BigUnsigned(1u),shift)),
+                        high_d)<0) {
+            return std::copysign(
+                std::ldexp(static_cast<double>(candidate.limb(0u)),scale),sign);
+        }
+    }
     const BigUnsigned digits=scale<0
         ? quot(shift_left(n,static_cast<std::size_t>(-scale)),_denominator)
         : quot(n,shift_left(_denominator,static_cast<std::size_t>(scale)));

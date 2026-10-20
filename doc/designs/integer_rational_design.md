@@ -6223,3 +6223,47 @@ pending; no post-R4 gate is claimed as passing. Afterwards, revisit
 `Rational::get_d` (still >2x at 53 bits on both architectures, >4x on
 x86-64) and the medium-width construction and four operations that
 still dominate the `total_time` failures.
+
+
+### R5 — exact bounded conversion to binary64 (20 October 2026)
+
+**Acceptance:** preserve R4's per-architecture/per-size strict requirements:
+all 6 widths must have total_time <1x and worst <2x relative to
+direct mpq_t, with 20,000 iterations, 31 samples and unchanged operation
+weights/fixtures. The independent user-provided R4 measurements (ARM64
+then x86-64) pass 384 paired inputs and 2,880 operation results each.
+Total/worst: ARM64 53 0.723/2.130, 128 0.927/1.890,
+256 1.752/2.384, 1024 1.496/2.340, 2048 1.128/2.547,
+4096 0.879/2.576x. x86-64 53 1.268/4.009, 128 1.340/2.598,
+256 2.286/2.936, 1024 1.642/2.431, 2048 1.014/2.478,
+4096 0.713/2.577x. R4 Unix, Windows and Coverage CI pass.
+
+**R5 finite Rational::get_d paths:** for one-limb numerator and
+denominator, compute the exact scaled binary64 significand in an
+unsigned 128-bit intermediate on GCC/Clang with __int128 support
+(including x86-64 and ARM64), avoiding owning big-integer division.
+On other platforms, preserve the established portable fallback.
+
+For same-limb-count operands with at least five 64-bit limbs,
+normal binary64 values and negative scale of at most 63, first divide
+only the top three limbs, shifted by the 53-bit/significand scale.
+With n=N*B+nl and d=D*B+dl, B a shared power of two, and
+N*2^s=q*D+r, 0<=nl,dl<B, the bounds r>=q and r+2^s<D imply
+floor(n*2^s/d)=q. When q=2^52 on normal numbers, the exact
+binary exponent already guarantees the lower bound. If neither
+proof applies, or the inputs lie outside the selected range,
+take the unchanged full-width exact division. This is a generic
+exact-prefix certificate, not an approximation or a fixture-specific
+shortcut: all results must remain bit-for-bit equal to mpq_get_d,
+including signed zeros and all four host rounding modes.
+
+**R5 tests:** extend the existing four-rounding-mode GMP differential
+checks with 53,128,256,448,512,1024,2048,4096-bit values,
+near-half and near-one ratios, nonzero low tails, negative signs,
+and overflow. Keep all earlier randomized tests and benchmark
+workload/oracle unchanged.
+
+**Validation:** commit changes without claiming performance or CI
+outcomes for R5. Rebuild and run all Unix/Windows/Coverage workflows,
+Rational/Integer/BigUnsigned/FloatAP differential gates and unchanged
+ARM64/x86-64 six-size benchmarks before considering R5 accepted.

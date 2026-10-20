@@ -549,9 +549,33 @@ void TestRational::test_gmp_differential() {
     // under all four host rounding modes. Operands are not formed as doubles.
     const int saved_rounding=std::fegetround();
     const std::array<int,4> modes={FE_TONEAREST,FE_DOWNWARD,FE_UPWARD,FE_TOWARDZERO};
+    // R5: exact high-prefix conversion, 4-to-5-limb boundary, and
+    // near-half/near-one quotients with nonzero low tails. Compare raw
+    // binary64 patterns with the independent GMP implementation under
+    // every rounding mode, including cases requiring the full fallback.
     const std::array<unsigned int,12> shifts={0u,1u,52u,53u,1022u,1023u,1024u,1073u,1074u,1075u,1076u,2048u};
     for (int mode : modes) {
         ARIADNE_TEST_EQUALS(std::fesetround(mode),0);
+        for (unsigned bits : {53u,128u,256u,448u,512u,1024u,2048u,4096u}) {
+            const Integer base=pow(Integer(2),Nat(bits));
+            const Integer twice=base*2;
+            const std::array<Rational,8> probes={
+                Rational(base+13,twice+17),
+                Rational(base-13,twice+17),
+                Rational(base+31,twice+19),
+                Rational(base+1,base-1),
+                Rational(base-1,base+1),
+                Rational(twice+1,base+1),
+                Rational(-(base+13),twice+17),
+                Rational(base+1,Integer(1))
+            };
+            for (Rational const& value : probes) {
+                const GmpRationalBoundary oracle(value);
+                conversion_matches=conversion_matches &&
+                    std::bit_cast<std::uint64_t>(value.get_d())==
+                    std::bit_cast<std::uint64_t>(mpq_get_d(oracle.value()));
+            }
+        }
         for (unsigned int shift : shifts) {
             const Integer factor=pow(Integer(2),Nat(shift));
             const Integer n=Integer(random()|1u),d=Integer(random()|1u);
