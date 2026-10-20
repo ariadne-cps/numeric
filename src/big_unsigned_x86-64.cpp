@@ -198,11 +198,11 @@ void mul_low_into_carry_x86_64_impl(
             const Limb previous=output[i+j];
             const Limb bj=b[j];
             __asm__ volatile(
-                "mulq %[bj]\\n\\t"
-                "addq %[previous], %%rax\\n\\t"
-                "adcq $0, %%rdx\\n\\t"
-                "addq %[carry], %%rax\\n\\t"
-                "adcq $0, %%rdx\\n\\t"
+                "mulq %[bj]\n\t"
+                "addq %[previous], %%rax\n\t"
+                "adcq $0, %%rdx\n\t"
+                "addq %[carry], %%rax\n\t"
+                "adcq $0, %%rdx\n\t"
                 : "+&a" (lo), "=&d" (hi)
                 : [bj] "r" (bj), [previous] "r" (previous),
                   [carry] "r" (carry)

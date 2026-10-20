@@ -8526,3 +8526,18 @@ threshold boundaries. On-target performance and CI
 remain to be measured; compare B52/B53 on the same
 x86-64 host, especially pow3 and dense-product
 regressions. See integer_rational_design.md B53.
+
+
+### B53.1 x86-64 assembler source escape fix (20 October 2026)
+
+B53's baseline MULQ/ADDQ/ADCQ GCC/Clang assembly
+string was accidentally double-escaped: five `\\\\n\\\\t`
+tokens reached the assembler as literal backslashes
+and prevented building on the user's x86-64 GCC host.
+B53.1 restores the correct C++ escape `\\n\\t` in
+those five string fragments only, without modifying
+the B53 arithmetic or dispatch. Both GCC 14.2 and
+Clang 17 locally compile the exact corrected
+instruction sequence and pass 250000 product checks
+against native unsigned-128 results each. Complete
+CI and user-host benchmark remain to be checked.
