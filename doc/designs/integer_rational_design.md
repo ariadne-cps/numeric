@@ -4387,3 +4387,31 @@ for small/near-equal denominators is more consequential.
 Avoid mistaking preallocated and owning cost differences
 for arithmetic speedups. Do not change oracle coverage
 or adjust benchmark inputs to make a faster path win.
+
+
+### B56.1 fix move-only GMP fixture pool construction (20 October 2026)
+
+Before native testing, isolated GCC 14.2 C++20 compilation
+found that the newly introduced B56 diagnostic
+`make_pool()` returned `std::array<Fixture,32>` by
+value even though Fixture contains the explicitly
+noncopyable/nonmovable Gmp RAII wrapper. Named-value
+return optimization is optional and the compiler
+must find a legal move constructor: GCC rejected it
+with "use of deleted function std::array<Fixture,32>::array".
+B56.1 adds noexcept move constructor and assignment
+to the diagnostic-only Gmp wrapper, using mpz_init
+and mpz_swap rather than shallow copying opaque
+GMP storage. Both live objects remain valid for
+independent destruction; self move-assignment is
+guarded. A standalone exact reproducer compiled
+with GCC 14.2 and Clang 17 under -O3 -std=gnu++20
+-Wall -Wextra -Wpedantic -Werror, linked GMP,
+returned a 32-element array by value, moved it
+again and checked the expected GMP integer; both
+executables passed. There is no modification to
+any production library code, test source, official
+benchmark workload or diagnostic measurement logic.
+Run the complete benchmark and CI to establish
+integration and native timing; that has NOT yet
+been confirmed.
