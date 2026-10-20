@@ -499,7 +499,7 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
     // B57: division by 2^k is an exact right shift and mask,
     // valid on every target; handle k=0 without an invalid shift.
     if (std::has_single_bit(divisor)) {
-        const unsigned bits=std::countr_zero(divisor);
+        const unsigned bits=static_cast<unsigned>(std::countr_zero(divisor));
         if (bits==0u) {
             std::copy(a.begin(),a.end(),quotient.begin());
         } else {
@@ -522,7 +522,7 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
     // Construct the exact reciprocal with one native 128/64 DIVQ:
     // (B^2-1)/normalized - B = ((B-1-normalized)*B+B-1)/normalized.
     if (a.size()>=64u) {
-        const unsigned shift=std::countl_zero(divisor);
+        const unsigned shift=static_cast<unsigned>(std::countl_zero(divisor));
         const Limb normalized=divisor<<shift;
         const Limb inverse=divide_wide(
             ~normalized,std::numeric_limits<Limb>::max(),
@@ -816,7 +816,7 @@ void BigUnsigned::divrem_selected_into(
                       [](Limb word) { return word==0u; })));
     if (power_of_two) {
         const std::size_t skip=b.size()-1u;
-        const unsigned bits=std::countr_zero(b.back());
+        const unsigned bits=static_cast<unsigned>(std::countr_zero(b.back()));
         if constexpr (WantQuotient) {
             for (std::size_t i=0u;i<quotient_limbs;++i) {
                 const std::size_t index=i+skip;

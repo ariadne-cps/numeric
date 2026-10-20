@@ -8672,3 +8672,17 @@ On-target integrated performance remains
 pending; use the B56 diagnostic and B55
 official timing baseline to accept or revert.
 See integer_rational_design.md B57.
+
+
+### B57.1 x86 bit-count conversion warning fix (20 October 2026)
+
+B57 introduced three implicit int-to-unsigned bit-count conversions
+triggering -Wsign-conversion on the user's GCC x86-64 host.
+B57.1 replaces them with explicit static_cast<unsigned> for the
+known 0..64 count range, changing no algorithm or public API.
+B57 numerical GMP verification passed; 4096-bit quotient improved
+1106.378->707.983 ns versus B55, but full total_time/GMP rose
+1.115x->1.149x and some unrelated decimal construction timings
+worsened. B56 profile confirmed major improvements in one-limb
+quotient and power-of-two remainder but not general rem-only.
+Full warnings-as-errors CI needs revalidation. See integer journal.
