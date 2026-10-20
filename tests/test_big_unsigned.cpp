@@ -1561,11 +1561,11 @@ void TestBigUnsigned::test_division_limb()
                 mpz_tdiv_qr(q.value,r.value,n.value,d.value);
                 auto out=scratch.acquire(count+2u);
                 std::fill(out.begin(),out.end(),max);
-                const auto remainder=BigUnsigned::divrem_limb_into(
+                const auto limb_remainder=BigUnsigned::divrem_limb_into(
                     words,divisor,out);
                 check_against_gmp(BigUnsigned(out),q.value);
                 mpz_import(native_remainder.value,1u,-1,
-                           sizeof(remainder),0,0,&remainder);
+                           sizeof(limb_remainder),0,0,&limb_remainder);
                 ARIADNE_TEST_ASSERT(
                     mpz_cmp(native_remainder.value,r.value)==0);
                 ARIADNE_TEST_ASSERT(out[count]==0u);
@@ -1574,7 +1574,7 @@ void TestBigUnsigned::test_division_limb()
                 const auto [owned_q,owned_r]=
                     divrem_limb(value,divisor);
                 check_against_gmp(owned_q,q.value);
-                ARIADNE_TEST_ASSERT(owned_r==remainder);
+                ARIADNE_TEST_ASSERT(owned_r==limb_remainder);
             }
         }
     }

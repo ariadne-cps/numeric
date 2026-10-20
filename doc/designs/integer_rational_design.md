@@ -4586,3 +4586,17 @@ limb_wide rem 1322.548->1306.280 ns, nearly unchanged,
 and short_2 quot 1665.143->1706.745 ns (+2.5%).
 The 84-case official benchmark and existing tests remain unchanged.
 Full CI retest required.
+
+### B57.2 fix AppleClang B57 single-limb test shadow warning (20 October 2026)
+
+AppleClang arm64 Release CI failed to compile tests/test_big_unsigned.cpp
+with -Wshadow -Werror: the B57 test loop introduced a local
+`remainder` while test_division_limb() already held the structured-
+binding variable `remainder` from the fixed radix-boundary case.
+B57.2 renames only the nested B57 local to `limb_remainder` and
+updates the corresponding GMP 64-bit import and owning-result
+comparison. This preserves the original GMP oracle, complete test
+fixtures, assertions, numerical semantics, public APIs, production
+kernels and benchmark workloads. It is solely a warnings-as-errors
+source compatibility fix; full AppleClang and cross-platform CI
+validation is still pending.
