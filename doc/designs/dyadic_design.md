@@ -538,3 +538,13 @@ FloatAP->Integer casts. The production Dyadic enclosure getter APIs
 accept MultiplePrecision and will be matched with ArbitraryPrecision
 during the final native promotion, without preserving FloatMP-specific
 adapters. This is an API parity step, not final Dyadic promotion.
+
+### D53 — build fix for FloatMP infinity sign extraction (21 October 2026)
+
+D51 introduced two invalid calls to `sgn(*this)` inside FloatMP's
+conversion operators; unlike Dyadic, FloatMP does not expose that
+free function in this context. Restore the existing comparison-based
+sign selection `(*this > 0) ? Sign::POSITIVE : Sign::NEGATIVE` in both
+FloatMP->Dyadic and FloatMP->Rational special-value branches.
+No arithmetic or rounding path changes. Build and CI validation
+remain mandatory before treating D51/D52 as tested.

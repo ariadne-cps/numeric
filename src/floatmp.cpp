@@ -189,7 +189,7 @@ FloatMP::operator Dyadic() const {
     // Legacy convenience operator only until FloatMP is retired.
     // The mathematical value is exported without touching Dyadic::_mpf.
     if (is_nan(*this)) { return Dyadic::nan(); }
-    if (is_inf(*this)) { return Dyadic::inf(sgn(*this)); }
+    if (is_inf(*this)) { return Dyadic::inf((*this > 0) ? Sign::POSITIVE : Sign::NEGATIVE); }
     const Rational value=static_cast<Rational>(*this);
     return Dyadic(value.numerator(),
                   static_cast<Nat>(log2floor(value.denominator())));
@@ -197,7 +197,7 @@ FloatMP::operator Dyadic() const {
 
 FloatMP::operator Rational() const {
     if (is_nan(*this)) { return Rational::nan(); }
-    if (is_inf(*this)) { return Rational::inf(sgn(*this)); }
+    if (is_inf(*this)) { return Rational::inf((*this > 0) ? Sign::POSITIVE : Sign::NEGATIVE); }
     // MPFR stores a finite binary significand and an integral power of two.
     // Export them exactly, without an intermediate Dyadic or mpf_t value.
     GmpIntegerBoundary mantissa;
