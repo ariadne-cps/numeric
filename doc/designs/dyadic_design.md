@@ -267,3 +267,47 @@ When both finite operand denominator exponents coincide, R38's selected owning a
 ### R40.1 — fix GMP oracle accessor calls in R38 tests (21 October 2026)
 
 The R38 shifted add/sub tests in `tests/test_big_unsigned.cpp` incorrectly used `shifted_a.value()` and `shifted_b.value()` in two GMP left shifts and two GMP inverse right shifts. Both are `mpz_t` data members of `GmpInteger`, not callable functions; passing `.value` directly corrects the compile error. The test matrix, assertions, reference arithmetic, production kernels, and benchmark workload are unchanged. Confirm Unix, Windows, and Coverage CI after this fix; the implementation alone is not evidence of a green build.
+
+### D41 — x86-64 streamed first-operand shift in owned add/sub (21 October 2026)
+
+**Scope and motivation.** The official unchanged NewDyadic/Dyadic
+20,000 x 31 paired workload constructs operands with exponents e and
+e+1. Canonicalization of even coefficients can change that relationship,
+so the R40 equal-exponent specialization is used for part, not all,
+of the signed add/sub samples. The remaining unequal-exponent large
+operands often use R38 with the first coefficient virtually shifted.
+The R38 loop rereads an earlier limb and tests both shift counts in
+every result iteration.
+
+**Candidate.** On x86-64 only, when shift_a is in [1,63] and
+shift_b==0, accumulate the shifted first input with a forward spill
+register. Each iteration reads the current first input limb at most
+once, combines its left-shifted word with the carried high bits, and
+uses the second operand unshifted; the original exact carry/borrow
+combination remains unchanged. This preserves one owned result, input
+nonmutation and the previous underflow behavior. All other shift
+arrangements and ARM64 preserve the R38 path. It is a direct shared
+BigUnsigned kernel optimization, not an x86 inline-assembly feature.
+
+**Independent preliminary diagnostic (NOT integrated performance).**
+A standalone equivalent C++20 radix-2^64 kernel probe compared the
+original and streamed loops on GCC 14.2 and Clang 17 x86-64, with
+same inputs and a generic-versus-streamed differential PASS across
+widths 0..129, shifts 0,1,7,31,63, and both addition and subtraction,
+including the underflow exception. In synthetic 1-bit *first-operand*
+shift addition, the streamed/generic timing ratios were approximately
+0.79..0.97 on Clang and 0.72..0.88 on GCC at 16/32/64/128 limbs.
+The second-operand-shift case regressed on some GCC widths, so that
+direction was not selected. These diagnostics do not measure the actual
+NewDyadic constructor, allocation, normalization or full benchmark;
+there is no validated user-visible speedup claim.
+
+**Validation gate.** R38's retained independent GMP shifted add/sub
+oracle already exercises 0/1/4/16/17/31/32/33/64/65/129-limb
+operands, shifts 0/1/7/31/63 on either operand, all-ones, zero,
+carry, borrow and negative-difference rejection. Run Unix, Windows
+and Coverage, then compare the unchanged 18-operation NewDyadic/Dyadic
+20,000 x 31 benchmark on the same physical x86-64 host to R40.1;
+recheck ARM64 parity. Do not use a synthetic isolated ratio as
+promotion evidence. No public Dyadic/Rational change, no new benchmark
+CI job, and no alteration to the benchmark fixture.

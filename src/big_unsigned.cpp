@@ -732,22 +732,7 @@ BigUnsigned BigUnsigned::shifted_combine(
     const Limb* const ap=a.data();
     const Limb* const bp=b.data();
     const std::size_t as=a.size(),bs=b.size();
-    for (std::size_t i=0u;i<count;++i) {
-        Limb av=i<as ? ap[i] : Limb{0};
-        if (shift_a!=0u) {
-            av<<=shift_a;
-            if (i!=0u && i-1u<as) {
-                av|=ap[i-1u]>>(64u-shift_a);
-            }
-        }
-        Limb bv=i<bs ? bp[i] : Limb{0};
-        if (shift_b!=0u) {
-            bv<<=shift_b;
-            if (i!=0u && i-1u<bs) {
-                bv|=bp[i-1u]>>(64u-shift_b);
-            }
-        }
-
+    auto accumulate=[&](Limb av,Limb bv,std::size_t i) {
         if constexpr (Subtract) {
             const Limb partial=av-bv;
             const Limb value=partial-carry_or_borrow;
@@ -760,6 +745,41 @@ BigUnsigned BigUnsigned::shifted_combine(
             carry_or_borrow=static_cast<Limb>(
                 partial<av || value<partial);
             out[i]=value;
+        }
+    };
+
+    // D41: x86-64's single shifted first operand carries its spill
+    // bits forward rather than rereading the preceding input limb.
+    // Other operand/shift arrangements keep the proven R38 loop.
+#if defined(__x86_64__) || defined(_M_X64)
+    if (shift_a!=0u && shift_b==0u) {
+        Limb spill=0u;
+        for (std::size_t i=0u;i<count;++i) {
+            const Limb current=i<as ? ap[i] : Limb{0};
+            const Limb av=(current<<shift_a)|spill;
+            spill=current>>(64u-shift_a);
+            const Limb bv=i<bs ? bp[i] : Limb{0};
+            accumulate(av,bv,i);
+        }
+    } else
+#endif
+    {
+        for (std::size_t i=0u;i<count;++i) {
+            Limb av=i<as ? ap[i] : Limb{0};
+            if (shift_a!=0u) {
+                av<<=shift_a;
+                if (i!=0u && i-1u<as) {
+                    av|=ap[i-1u]>>(64u-shift_a);
+                }
+            }
+            Limb bv=i<bs ? bp[i] : Limb{0};
+            if (shift_b!=0u) {
+                bv<<=shift_b;
+                if (i!=0u && i-1u<bs) {
+                    bv|=bp[i-1u]>>(64u-shift_b);
+                }
+            }
+            accumulate(av,bv,i);
         }
     }
 
