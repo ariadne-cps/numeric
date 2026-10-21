@@ -315,6 +315,32 @@ public:
     }
 
   private:
+    // R36: on ARM64 the single-buffer accumulator improves add/sub
+    // across 5..64-limb magnitudes; x86-64 benefits through 16 limbs
+    // but regresses at 32..64 limbs. Keep a single exact algorithm,
+    // changing only the architecture-specific crossover to fallback.
+    // All other architectures conservatively use the shorter crossover.
+    static constexpr std::size_t aligned_add_sub_max_limbs() noexcept {
+#if defined(__aarch64__) || defined(_M_ARM64)
+        return 64u;
+#else
+        return 16u;
+#endif
+    }
+
+    static bool prefer_aligned_add_sub(NewDyadic const& a,
+                                       NewDyadic const& b) noexcept {
+        const std::size_t as=a._coefficient.magnitude().size();
+        const std::size_t bs=b._coefficient.magnitude().size();
+        const std::size_t limit=aligned_add_sub_max_limbs();
+        const std::size_t max_exponent=std::max(
+            a._denominator_exponent,b._denominator_exponent);
+        const std::size_t min_exponent=std::min(
+            a._denominator_exponent,b._denominator_exponent);
+        return (as>=5u || bs>=5u) && as<=limit && bs<=limit &&
+               max_exponent-min_exponent<=63u;
+    }
+
     // R35: for aligned finite signed arithmetic on 5..64-limb
     // magnitudes with an exponent gap <=63, scan borrowed virtual
     // shifted limbs and produce one canonical owned magnitude.
@@ -407,11 +433,7 @@ public:
         }
         const std::size_t e=std::max(a._denominator_exponent,
                                       b._denominator_exponent);
-        const std::size_t as=a._coefficient.magnitude().size();
-        const std::size_t bs=b._coefficient.magnitude().size();
-        if ((as>=5u || bs>=5u) && as<=64u && bs<=64u &&
-                e-std::min(a._denominator_exponent,
-                           b._denominator_exponent)<=63u) {
+        if (prefer_aligned_add_sub(a,b)) {
             return aligned_add_sub(a,b,false);
         }
         return NewDyadic(shifted(a._coefficient,e-a._denominator_exponent)
@@ -419,13 +441,7 @@ public:
     }
     friend NewDyadic operator-(NewDyadic const& a,NewDyadic const& b) {
         if (a.is_finite() && b.is_finite()) {
-            const std::size_t e=std::max(a._denominator_exponent,
-                                          b._denominator_exponent);
-            const std::size_t as=a._coefficient.magnitude().size();
-            const std::size_t bs=b._coefficient.magnitude().size();
-            if ((as>=5u || bs>=5u) && as<=64u && bs<=64u &&
-                    e-std::min(a._denominator_exponent,
-                               b._denominator_exponent)<=63u) {
+            if (prefer_aligned_add_sub(a,b)) {
                 return aligned_add_sub(a,b,true);
             }
         }

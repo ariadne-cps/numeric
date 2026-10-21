@@ -8073,3 +8073,54 @@ as are all benchmark operations, sample parameters and
 the removal of benchmark CI. Independent Unix/Windows/
 Coverage and same-host performance comparisons are required;
 no benefit is claimed from unmeasured code.
+
+
+### R36 — architecture-aware add/sub kernel crossover (21 October 2026)
+
+**Host identity correction.** The user explicitly clarified that
+the first paired Dyadic/NewDyadic benchmark host is ARM64 and the
+second is x86-64 (the earlier wording "amd64" for the first run
+was a mislabel). R35 numerical verification PASS on both hosts,
+with unchanged 384 input pairs, 18 operations, 20,000 iterations
+and 31 samples.
+
+**Measured tradeoff.** ARM64 R34 -> R35 at 4096 bits:
+add 192.369 -> 178.894 ns, sub 231.856 -> 177.590 ns.
+At 1024 bits add 90.152 -> 66.335 ns and sub
+112.017 -> 65.581 ns. On x86-64 R34 -> R35 at
+1024 bits add 135.814 -> 123.249 ns and
+sub 153.144 -> 123.163 ns; at 2048 bits add
+172.223 -> 191.680 ns and sub 188.964 -> 194.720 ns;
+at 4096 bits add 250.992 -> 316.049 ns and sub
+271.727 -> 321.672 ns. Thus the exact R35 fused
+accumulator is beneficial to 64 limbs on ARM64, but
+the x86-64 crossover lies between 16 and 32 limbs.
+
+**R36 policy.** Keep R35's exact shared virtual-shift
+algorithm unchanged. Use it for finite operands with
+at least one magnitude of five or more limbs, a maximum
+exponent gap of 63 bits, and *both* operand magnitudes
+up to 64 limbs on ARM64 (__aarch64__/_M_ARM64)
+or up to 16 limbs on x86-64 and other architectures.
+All other cases take the existing portable owning-shift
+fallback. This is a compile-time machine architecture
+policy, not an input-fixture lookup, compiler-warning
+workaround or semantic change. The cutoff is a measured
+heuristic and must be revisited if other x86 compilers
+or machines contradict it.
+
+**Coverage.** Extend test_new_dyadic's test port with
+legacy-Dyadic/Rational add/sub/reverse-sub checks at
+959/960/961, 1023/1024/1025, 1087/1088/1089 and
+4031/4032/4033, 4095/4096/4097, 4159/4160/4161
+bit boundaries, both signs and exponent gaps 0/1/63/64.
+Retain previous randomized oracle and all R35 tests.
+Keep Dyadic, Rational, the 18-operation paired benchmark,
+its CLI, CI policy and vcpkg/Windows linking unchanged.
+
+**Acceptance.** R36 is a provisional dispatch selection.
+After Unix/Windows/Coverage correctness checks, compare
+on the *same physical ARM64 and x86-64 machines* to R35.
+Expected directions are ARM64 parity with R35 and x86-64
+recovering the previous 2048/4096 add/sub timings.
+Do not infer measured speedup from the cutoff itself.

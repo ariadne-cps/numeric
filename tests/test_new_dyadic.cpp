@@ -193,6 +193,33 @@ void test_aligned_add_sub() {
             }
         }
     }
+    // R36: exercise the 16/17-limb x86-64 crossover and
+    // 64/65-limb ARM64 crossover with the same exact Dyadic oracle.
+    // Both branches must be semantically interchangeable.
+    for (unsigned bits:{959u,960u,961u,1023u,1024u,1025u,
+                        1087u,1088u,1089u,
+                        4031u,4032u,4033u,
+                        4095u,4096u,4097u,4159u,4160u,4161u}) {
+        const BigUnsigned leading=shift_left(BigUnsigned(1u),bits-1u);
+        const BigUnsigned right=add(leading,BigUnsigned(7u));
+        for (unsigned signs=0u;signs<4u;++signs) {
+            const Integer lhs=Integer::from_magnitude(
+                add(leading,BigUnsigned(3u)),(signs&1u)!=0u);
+            const Integer rhs=Integer::from_magnitude(
+                right,(signs&2u)!=0u);
+            for (unsigned gap:{0u,1u,63u,64u}) {
+                const unsigned exp=bits/5u+1u;
+                const NewDyadic x(lhs,exp),y(rhs,exp+gap);
+                const Dyadic ref_x(lhs,exp),ref_y(rhs,exp+gap);
+                check((x+y).to_rational()==Rational(ref_x+ref_y),
+                      "R36 arch dispatch boundary addition");
+                check((x-y).to_rational()==Rational(ref_x-ref_y),
+                      "R36 arch dispatch boundary subtraction");
+                check((y-x).to_rational()==Rational(ref_y-ref_x),
+                      "R36 arch dispatch boundary reverse subtraction");
+            }
+        }
+    }
     for (unsigned gap:{0u,1u,63u,64u,65u}) {
         const NewDyadic zero(0),one(Integer(1),gap);
         check(zero+one==one,"R35 zero plus nonzero");
