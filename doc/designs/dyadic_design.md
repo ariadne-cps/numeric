@@ -409,3 +409,26 @@ FloatAP conversion; removing tests does not establish correctness.
 removal or Dyadic promotion. Existing legacy FloatMP code is
 unchanged relative to D43 and still depends on the legacy Dyadic
 representation until its separate deletion.
+
+### D46 — exact FloatAP-to-Dyadic export without mpf intermediates (21 October 2026)
+
+FloatAP finite values already carry an integer significand and a signed
+binary exponent. Replace the former `mpf_init2 / mpf_set_z /
+mpf_mul_2exp / mpf_div_2exp / Dyadic(mpf_t)` conversion with
+`integer_from_gmp(_significand)` to a native BigUnsigned, followed
+by either an exact left shift for nonnegative exponents or an exact
+Dyadic(integer, denominator-exponent) construction for negative
+exponents. Preserve the independent sign bit, canonical zero,
+NaN and signed infinities. Avoid an implicit narrowing for negative
+exponents beyond the current legacy Dyadic Nat constructor limit:
+report overflow explicitly; the final native Dyadic API will use
+size_t exponents, removing that legacy-only restriction.
+
+Add a D46 exact round-trip and Rational oracle in `test_float.cpp`
+for 1/53/127/128/191-bit significands, five exponent choices, both
+signs, and special values. The existing FloatAP->Rational conversion
+remains a separate exact oracle. This changes no FloatMP adapter and
+does not bring back an `mpf_t` Dyadic compatibility API. Because
+the final native rename, downstream API transfer and FloatMP removal
+have not occurred, this is an intermediate migration commit, not a
+claim that the old Dyadic backend has already been removed.

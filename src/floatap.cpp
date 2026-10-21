@@ -812,22 +812,20 @@ FloatAP::operator Dyadic() const {
     if (is_inf()) {
         return Dyadic::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
     }
-    mpf_t exact;
-    mpf_init2(exact, static_cast<mp_bitcnt_t>(_precision));
-    struct Cleanup {
-        mpf_ptr value;
-        ~Cleanup() { mpf_clear(value); }
-    } cleanup{exact};
-    mpf_set_z(exact, _significand);
-    if (_exponent >= 0) {
-        mpf_mul_2exp(exact, exact, shift_amount(_exponent));
-    } else {
-        mpf_div_2exp(exact, exact, shift_amount(checked_sub(0, _exponent)));
+    // D46: export the exact binary significand/exponent, not an mpf_t.
+    // GMP remains an internal FloatAP significand representation only.
+    BigUnsigned magnitude=integer_from_gmp(_significand).magnitude();
+    if (magnitude.is_zero()) { return Dyadic(0); }
+    if (_exponent>=0) {
+        return Dyadic(Integer::from_magnitude(
+            shift_left(magnitude,shift_amount(_exponent)),_negative));
     }
-    if (_negative) {
-        mpf_neg(exact, exact);
+    const auto shift=shift_amount(checked_sub(0,_exponent));
+    if (shift>std::numeric_limits<Nat>::max()) {
+        throw std::overflow_error("FloatAP binary exponent exceeds Dyadic exponent range");
     }
-    return Dyadic(exact);
+    return Dyadic(Integer::from_magnitude(std::move(magnitude),_negative),
+                  static_cast<Nat>(shift));
 }
 
 Integer cast_integer(FloatAP const& value) {

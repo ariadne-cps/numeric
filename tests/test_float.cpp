@@ -1009,6 +1009,32 @@ Void test_double_runtime()
     set_builtin_rounding_to_nearest();
 }
 
+// D46: exact FloatAP -> Dyadic conversion without mpf_t intermediary.
+Void test_floatap_exact_dyadic_export() {
+    const auto precision=ArbitraryPrecision(256_bits);
+    for (unsigned width:{1u,53u,127u,128u,191u}) {
+        const BigUnsigned magnitude=add(
+            shift_left(BigUnsigned(1u),width-1u),BigUnsigned(13u));
+        for (unsigned denominator_exponent:{0u,1u,7u,63u,127u}) {
+            for (bool negative:{false,true}) {
+                const Integer coefficient=Integer::from_magnitude(
+                    magnitude,negative);
+                const Dyadic source(coefficient,denominator_exponent);
+                const FloatAP exact(source,precision);
+                const Dyadic restored=static_cast<Dyadic>(exact);
+                ARIADNE_TEST_EQUALS(Rational(restored),Rational(source));
+                ARIADNE_TEST_EQUALS(Rational(restored),
+                                    static_cast<Rational>(exact));
+            }
+        }
+    }
+    ARIADNE_TEST_ASSERT(is_nan(static_cast<Dyadic>(
+        FloatAP::nan(precision))));
+    ARIADNE_TEST_ASSERT(is_inf(static_cast<Dyadic>(
+        FloatAP::inf(Sign::POSITIVE,precision))));
+    ARIADNE_TEST_EQUALS(static_cast<Dyadic>(FloatAP(0,precision)),Dyadic(0));
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
@@ -1019,6 +1045,7 @@ Int main() {
     TestFloat<DoublePrecision>(dp).test();
     TestFloat<MultiplePrecision>(MultiplePrecision(128_bits)).test();
     TestFloat<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
+    test_floatap_exact_dyadic_export();
 
 
     return ARIADNE_TEST_FAILURES;
