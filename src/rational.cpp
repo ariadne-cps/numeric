@@ -1268,17 +1268,6 @@ template<> String class_name<Rational>() { return "Rational"; }
 template<> String class_name<RationalBounds>() { return "RationalBounds"; }
 
 
-// TODO: Move to dyadic.cpp
-DyadicBounds operator*(DyadicBounds const& w1, DyadicBounds const& w2) {
-    return _mul(RoundExact(),w1,w2); }
-
-DyadicBounds mul(DyadicBounds const& w1, DyadicBounds const& w2) {
-    return _mul(RoundExact(),w1,w2); }
-
-    DyadicBounds pow(DyadicBounds const& w, Int n) {
-    ARIADNE_PRECONDITION(n>=0);
-    return pow(w,static_cast<Nat>(n)); }
-
 static_assert(Field<Rational>);
 static_assert(Lattice<Rational>);
 

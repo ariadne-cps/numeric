@@ -78,7 +78,7 @@ private:
         if (magnitude.bit_length()>std::numeric_limits<std::size_t>::digits) {
             throw std::overflow_error("Dyadic denominator exponent too large");
         }
-        return static_cast<std::size_t>(exp.get_ui());
+        return exp.template get<std::size_t>();
     }
     static Integer shifted(Integer const& x,std::size_t bits) {
         if (bits==0u || x.magnitude().is_zero()) { return x; }
@@ -585,6 +585,19 @@ public:
         return x;
     }
     friend Dyadic hlf(Dyadic const& x) { return x/2; }
+    // Quotients and reciprocals of dyadics are exact rational numbers.
+    friend Rational rec(Dyadic const& x) {
+        return rec(x.to_rational());
+    }
+    friend Rational div(Dyadic const& a,Dyadic const& b) {
+        return div(a.to_rational(),b.to_rational());
+    }
+    friend Rational div(Dyadic const& a,Integer const& b) {
+        return div(a.to_rational(),Rational(b));
+    }
+    friend Rational div(Integer const& a,Dyadic const& b) {
+        return div(Rational(a),b.to_rational());
+    }
 
     friend Dyadic pow(Dyadic const& x,Nat exponent) {
         Dyadic result(1);
@@ -795,6 +808,7 @@ template<> class Bounds<Dyadic> {
     Dyadic upper_raw() const { return _u; }
     Bounds<FloatDP> get(DoublePrecision pr) const;
     Bounds<FloatAP> get(ArbitraryPrecision pr) const;
+    Bounds<FloatMP> get(MultiplePrecision pr) const;
     friend Bounds<Dyadic> operator+(Bounds<Dyadic> const& w) { return Bounds<Dyadic>(+w._l,w._u); }
     friend Bounds<Dyadic> operator-(Bounds<Dyadic> const& w) { return Bounds<Dyadic>(-w._u,-w._l); }
     friend Bounds<Dyadic> operator+(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2) {
@@ -911,9 +925,11 @@ template<> class LowerBound<Dyadic> {
     LowerBound(Dyadic l) : _l(l) { }
     LowerBound(Bounds<Dyadic> lu) : _l(lu.lower_raw()) { }
     LowerBound(LowerBound<FloatDP> const& x);
+    LowerBound(LowerBound<FloatMP> const& x);
     Dyadic raw() const { return _l; }
     LowerBound<FloatDP> get(DoublePrecision pr) const;
     LowerBound<FloatAP> get(ArbitraryPrecision pr) const;
+    LowerBound<FloatMP> get(MultiplePrecision pr) const;
     friend OutputStream& operator<<(OutputStream& os, LowerBound<Dyadic> const& y) { return os << y._l << ":"; }
 };
 
@@ -923,9 +939,11 @@ template<> class UpperBound<Dyadic> {
     explicit UpperBound(Dyadic u) : _u(u) { }
     UpperBound(Bounds<Dyadic> lu) : _u(lu.upper_raw()) { }
     UpperBound(UpperBound<FloatDP> const& x);
+    UpperBound(UpperBound<FloatMP> const& x);
     Dyadic raw() const { return _u; }
     UpperBound<FloatDP> get(DoublePrecision pr) const;
     UpperBound<FloatAP> get(ArbitraryPrecision pr) const;
+    UpperBound<FloatMP> get(MultiplePrecision pr) const;
     friend OutputStream& operator<<(OutputStream& os, UpperBound<Dyadic> const& y) { return os << ":" << y._u; }
 };
 
@@ -956,5 +974,40 @@ inline Dyadic operator""_bin(long double x) { return operator""_dyadic(x); }
 inline Dyadic dy_(long double x) { return operator""_dyadic(x); }
 Dyadic make_dyadic(unsigned long long int);
 Dyadic hlf(Integer const& n);
+// Exact mixed dyadic/rational enclosure operations. Overloads prevent
+// ambiguous implicit promotions between distinct interval specializations.
+inline RationalBounds rational_enclosure(DyadicBounds const& x) {
+    return RationalBounds(Rational(x.lower_raw()),Rational(x.upper_raw()));
+}
+#define ARIADNE_DYADIC_RATIONAL_BOUNDS_BINARY(NAME) \
+inline RationalBounds NAME(RationalBounds const& q,DyadicBounds const& d) { \
+    return NAME(q,rational_enclosure(d)); \
+} \
+inline RationalBounds NAME(DyadicBounds const& d,RationalBounds const& q) { \
+    return NAME(rational_enclosure(d),q); \
+}
+ARIADNE_DYADIC_RATIONAL_BOUNDS_BINARY(add)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_BINARY(sub)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_BINARY(mul)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_BINARY(div)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_BINARY(max)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_BINARY(min)
+#undef ARIADNE_DYADIC_RATIONAL_BOUNDS_BINARY
+
+#define ARIADNE_DYADIC_RATIONAL_BOUNDS_COMPARE(OP) \
+inline ValidatedKleenean operator OP(RationalBounds const& q,DyadicBounds const& d) { \
+    return q OP rational_enclosure(d); \
+} \
+inline ValidatedKleenean operator OP(DyadicBounds const& d,RationalBounds const& q) { \
+    return rational_enclosure(d) OP q; \
+}
+ARIADNE_DYADIC_RATIONAL_BOUNDS_COMPARE(==)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_COMPARE(!=)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_COMPARE(<)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_COMPARE(>)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_COMPARE(<=)
+ARIADNE_DYADIC_RATIONAL_BOUNDS_COMPARE(>=)
+#undef ARIADNE_DYADIC_RATIONAL_BOUNDS_COMPARE
+
 } // namespace Ariadne
 #endif // ARIADNE_DYADIC_HPP

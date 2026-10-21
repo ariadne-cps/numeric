@@ -10,6 +10,10 @@
 #include "numeric/decimal.hpp"
 #include "numeric/double.hpp"
 #include "numeric/concepts.hpp"
+#include "numeric/float_bounds.hpp"
+#include "numeric/float_lower_bound.hpp"
+#include "numeric/float_upper_bound.hpp"
+#include "numeric/float_approximation.hpp"
 #include "utility/string.hpp"
 #include "utility/writable.hpp"
 #include <limits>
@@ -100,10 +104,6 @@ auto RepresentationWriter<Dyadic>::_write(OutputStream& os, Dyadic const& x) con
 Dyadic make_dyadic(unsigned long long int n) { return Dyadic(Integer(n)); }
 Dyadic hlf(Integer const& n) { return hlf(Dyadic(n)); }
 // Exact dyadic endpoint values with directed rounding to each target.
-Bounds<FloatDP> Bounds<Dyadic>::get(DoublePrecision pr) const {
-    return Bounds<FloatDP>(FloatDP(lower_raw(),FloatDP::ROUND_DOWNWARD,pr),
-                           FloatDP(upper_raw(),FloatDP::ROUND_UPWARD,pr));
-}
 Bounds<FloatAP> Bounds<Dyadic>::get(ArbitraryPrecision pr) const {
     return Bounds<FloatAP>(FloatAP(lower_raw(),FloatAP::ROUND_DOWNWARD,pr),
                            FloatAP(upper_raw(),FloatAP::ROUND_UPWARD,pr));
