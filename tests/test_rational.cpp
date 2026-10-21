@@ -433,6 +433,56 @@ void TestRational::test_native_contract() {
             ARIADNE_TEST_EQUALS(b-b,Rational(0));
         }
     }
+    // R30: sparse radix construction with independent GMP oracle.
+    // Test high-ratio reduction, exact multiples, nonzero/coprime
+    // differences, overflow fallbacks and 4/5 and 128/129 limbs.
+    for (unsigned bits:{64u,128u,255u,256u,320u,512u,1024u,2048u,4096u,8192u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        const std::array<std::pair<unsigned,unsigned>,7u> high_pairs={{
+            {1u,2u},{1u,3u},{2u,4u},{3u,9u},
+            {3u,3u},{2u,3u},{1u,1u}
+        }};
+        const std::array<std::pair<std::uint64_t,std::uint64_t>,6u> low_pairs={{
+            {13u,17u},{63u,126u},{1u,0u},{7u,14u},
+            {0u,0u},{std::numeric_limits<std::uint64_t>::max(),
+                      std::numeric_limits<std::uint64_t>::max()}
+        }};
+        for (const auto [high_n,high_d]:high_pairs) {
+            for (const auto [low_n,low_d]:low_pairs) {
+                for (unsigned signs=0u;signs<4u;++signs) {
+                    const Integer positive_n=base*Integer(high_n)+Integer(low_n);
+                    const Integer positive_d=base*Integer(high_d)+Integer(low_d);
+                    const Integer raw_n=(signs&1u)!=0u ? -positive_n : positive_n;
+                    const Integer raw_d=(signs&2u)!=0u ? -positive_d : positive_d;
+                    const Rational result(raw_n,raw_d);
+                    GmpRationalBoundary expected;
+                    integer_to_gmp(mpq_numref(expected.mutable_value()),raw_n);
+                    integer_to_gmp(mpq_denref(expected.mutable_value()),raw_d);
+                    mpq_canonicalize(expected.mutable_value());
+                    const GmpRationalBoundary actual(result);
+                    ARIADNE_TEST_ASSERT(mpq_equal(actual.value(),expected.value())!=0);
+                    GmpIntegerBoundary common;
+                    mpz_gcd(common.mutable_value(),
+                            mpq_numref(actual.value()),mpq_denref(actual.value()));
+                    ARIADNE_TEST_ASSERT(mpz_cmp_ui(common.value(),1u)==0);
+                    ARIADNE_TEST_ASSERT(mpz_sgn(mpq_denref(actual.value()))>0);
+                }
+            }
+        }
+        if (bits>=128u) {
+            // A nonzero intermediate word disables the sparse
+            // reduction, preserving the original Euclidean path.
+            const Integer dense_n=base+pow(Integer(2),Nat(64))+Integer(11);
+            const Integer dense_d=base*2+pow(Integer(2),Nat(64))+Integer(17);
+            const Rational dense_result(dense_n,dense_d);
+            GmpRationalBoundary dense_expected;
+            integer_to_gmp(mpq_numref(dense_expected.mutable_value()),dense_n);
+            integer_to_gmp(mpq_denref(dense_expected.mutable_value()),dense_d);
+            mpq_canonicalize(dense_expected.mutable_value());
+            const GmpRationalBoundary dense_actual(dense_result);
+            ARIADNE_TEST_ASSERT(mpq_equal(dense_actual.value(),dense_expected.value())!=0);
+        }
+    }
     // R17: high-prefix product bounds must agree with exact GMP
     // comparisons. Cover readily separable and nearly equal ratios,
     // reverse ordering, negatives, and the 8/9-limb stack boundary.

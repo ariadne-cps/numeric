@@ -7706,3 +7706,62 @@ Rational 15-operation official 20,000x31 benchmark and all strict
 cross-platform gates still apply. R29 remains a provisional
 performance candidate pending CI and independently measured
 ARM64/x86-64 end-to-end results.
+
+
+### R30 — sparse-radix fraction constructor reduction (21 October 2026)
+
+**Measured context.** Native R29 construct_fraction at 256/2048/4096
+bits is ARM64 Rational/GMP 114.196/153.808 ns,
+386.390/329.390 ns, 692.450/542.265 ns;
+x86-64 211.755/202.491 ns, 336.809/411.919 ns,
+537.964/630.596 ns. The x86-64 full Rational 256-bit
+total remains 1.143x. Both exact official benchmarks pass.
+R29 Unix, Windows, Coverage, Rational benchmark workflows passed.
+
+**Provable constructor-only fast path.** Preserve the public
+numerator/denominator constructor, special and zero semantics,
+sign normalization, Reduced constructor and exact quotients.
+Before GCD normalization, inspect both nonzero magnitudes for the
+same 2..128 limb width with all intermediate limb positions
+1..width-2 equal to zero. Write N=p*B^k+n0,
+D=q*B^k+d0 with B=2^64 and k=width-1. Choose the operand
+with the larger high coefficient as H, the other as L.
+Only when high(H)=t*high(L) exactly and t*low(L)
+fits in uint64, delta=abs(low(H)-t*low(L)) also fits
+in uint64. Euclid gives gcd(N,D)=gcd(L,delta).
+If delta=0, return L; if delta=1, return 1.
+For delta>65535 use existing gcd(L,one-limb delta).
+For 1<delta<=65535, compute B^k modulo delta with
+binary exponentiation, and the scalar remainder from the
+two nonzero limbs of L, then return std::gcd(delta,remainder).
+Residues <=65534 keep all products and additions safely
+in uint64; no 128-bit integer or ISA assumptions.
+
+All predicates describe general integers rather than fixture
+values. Dense inputs bail out on their lowest intermediate
+word; unmatched limb counts, unmatched high coefficients,
+low-product overflow and inputs beyond 128 limbs use the
+unchanged full Euclidean GCD. No BigUnsigned or other
+Rational operator implementation is changed.
+
+**Independent validation.** A local standalone C++20/GMP
+differential prototype compiled with GCC -O3 and
+-Wall -Wextra -Wconversion -Wsign-conversion -Werror
+passed 139,203 randomized accepted cases in the 2..129
+limb range. This is not the integrated project's CTest.
+Add GMP-oracle construction and canonicality cases at
+64/128/255/256/320/512/1024/2048/4096/8192 bits,
+high ratios 1:2,1:3,2:4,3:9,3:3,2:3,1:1,
+64-bit low tails (including exact multiples, zero and
+maximum), both numerator and denominator signs, and
+nonzero intermediate limb fallbacks. Keep the original
+six-width Rational benchmark, 20,000x31 samples,
+384 paired inputs and 2,880 expected results unchanged.
+
+**Status and acceptance.** R30 is a provisional constructor
+optimization, not yet an integrated or production
+performance pass. Require independent Unix/Windows/Coverage
+and same-host x86-64 parent/candidate official benchmark,
+plus ARM64 native timing and full GMP numerical verification.
+Do not conflate successful workflow with the strict
+total<1 and worst<2 per size gates.

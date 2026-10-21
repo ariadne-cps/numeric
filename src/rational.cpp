@@ -50,6 +50,7 @@
 #include <bit>
 #include <cstdint>
 #include <limits>
+#include <numeric>
 #include <string>
 #include <utility>
 #include <iostream>
@@ -202,6 +203,61 @@ int compare_shifted_unsigned(BigUnsigned const& a,BigUnsigned const& b,
         if (left[index]!=shifted) { return left[index]<shifted ? -1 : 1; }
     }
     return 0;
+}
+// R30: a sparse common radix admits a short, exact GCD reduction.
+// For B=2^64, n=p*B^k+n0, d=q*B^k+d0, with every middle
+// limb zero, if larger_high=t*smaller_high then
+//   gcd(n,d)=gcd(smaller,abs(larger_low-t*smaller_low)).
+// Only accept a 64-bit low difference proved without overflow.
+// A small nonzero difference permits O(log k) modular exponentiation
+// instead of scanning k+1 limbs through scalar remainder division.
+// This path is independent of the official benchmark's input values.
+BigUnsigned gcd_fraction_sparse(BigUnsigned const& n,BigUnsigned const& d) {
+    using Limb=BigUnsigned::Limb;
+    if (n.size()!=d.size() || n.size()<2u || n.size()>128u) {
+        return gcd(n,d);
+    }
+    // Fail quickly on ordinary dense inputs without scanning all limbs.
+    if (n.size()>2u && (n.limb(1u)!=0u || d.limb(1u)!=0u)) {
+        return gcd(n,d);
+    }
+    for (std::size_t i=2u;i+1u<n.size();++i) {
+        if (n.limb(i)!=0u || d.limb(i)!=0u) { return gcd(n,d); }
+    }
+    const bool n_high_first=n.limb(n.size()-1u)>=d.limb(d.size()-1u);
+    const BigUnsigned& larger=n_high_first ? n : d;
+    const BigUnsigned& smaller=n_high_first ? d : n;
+    const Limb high=larger.limb(larger.size()-1u);
+    const Limb divisor_high=smaller.limb(smaller.size()-1u);
+    if (high%divisor_high!=0u) { return gcd(n,d); }
+    const Limb factor=high/divisor_high;
+    const Limb small_low=smaller.limb(0u);
+    if (small_low!=0u &&
+            factor>std::numeric_limits<Limb>::max()/small_low) {
+        return gcd(n,d);
+    }
+    const Limb scaled_low=factor*small_low;
+    const Limb large_low=larger.limb(0u);
+    const Limb gap=large_low>=scaled_low
+        ? large_low-scaled_low : scaled_low-large_low;
+    if (gap==0u) { return smaller; }
+    if (gap==1u) { return BigUnsigned(Limb{1}); }
+    if (gap>65535u) { return gcd(smaller,BigUnsigned(gap)); }
+
+    // The residues are at most 65534, so every modular product and
+    // final addition fits a 64-bit unsigned limb without wide types.
+    // B mod gap = (UINT64_MAX mod gap + 1) mod gap, exactly.
+    const Limb radix=(std::numeric_limits<Limb>::max()%gap+1u)%gap;
+    Limb power=1u;
+    Limb base=radix;
+    std::size_t exponent=smaller.size()-1u;
+    while (exponent!=0u) {
+        if ((exponent&1u)!=0u) { power=power*base%gap; }
+        exponent>>=1u;
+        if (exponent!=0u) { base=base*base%gap; }
+    }
+    const Limb remainder=((divisor_high%gap)*power%gap+small_low%gap)%gap;
+    return BigUnsigned(std::gcd(gap,remainder));
 }
 // R20: fuse bounded signed cross products without owning intermediates.
 Integer signed_cross_sum(Integer const& p,BigUnsigned const& x,
@@ -437,7 +493,7 @@ Rational::Rational(Integer const& z) : _numerator(z) { }
 Rational::Rational(Integer const& n,Integer const& d) {
     if (d.magnitude().is_zero()) { *this=inf(integer_sign(n)); return; }
     if (n.magnitude().is_zero()) { return; }
-    const BigUnsigned g=gcd(n.magnitude(),d.magnitude());
+    const BigUnsigned g=gcd_fraction_sparse(n.magnitude(),d.magnitude());
     _numerator=Integer::from_magnitude(exact_quotient(n.magnitude(),g),n.negative()!=d.negative());
     _denominator=exact_quotient(d.magnitude(),g);
 }
