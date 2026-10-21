@@ -10,6 +10,7 @@
 #include "numeric/decimal.hpp"
 #include "numeric/twoexp.hpp"
 #include "numeric/rational.hpp"
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -154,6 +155,55 @@ void test_arithmetic() {
 
 // TestDyadic::test_comparisons: same signed comparison and ordering
 // scenarios, plus a compile-time signature check for Boolean/Comparison.
+// R34: bit-for-bit legacy binary64 and exact cross-exponent cmp.
+void test_binary64_and_scaled_comparison() {
+    const auto check_double=[](Integer const& coefficient,unsigned exponent) {
+        const Dyadic old_value(coefficient,exponent);
+        const NewDyadic new_value(coefficient,exponent);
+        if (std::bit_cast<std::uint64_t>(old_value.get_d())!=
+            std::bit_cast<std::uint64_t>(new_value.get_d())) {
+            throw std::runtime_error("legacy binary64 mismatch at exponent "+
+                                     std::to_string(exponent));
+        }
+    };
+    for (unsigned width:{1u,2u,3u,52u,53u,54u,63u,64u,65u,
+                         127u,128u,129u,255u,256u,257u,
+                         1023u,1024u,1025u,4095u,4096u,4097u}) {
+        const BigUnsigned leading=shift_left(BigUnsigned(1u),width-1u);
+        for (unsigned tail:{0u,1u,3u,7u,127u}) {
+            const BigUnsigned magnitude=add(leading,BigUnsigned(tail));
+            const Integer pos=Integer::from_magnitude(magnitude,false);
+            const Integer neg=Integer::from_magnitude(magnitude,true);
+            for (unsigned exponent:{0u,1u,2u,width/2u,width,width+1u,
+                                    width+1021u,width+1022u,
+                                    width+1072u,width+1073u,width+1074u}) {
+                check_double(pos,exponent);
+                check_double(neg,exponent);
+            }
+        }
+    }
+    for (unsigned width:{1u,53u,64u,65u,127u,128u,129u,
+                         255u,256u,257u,1024u,2048u,4096u}) {
+        const BigUnsigned leading=shift_left(BigUnsigned(1u),width-1u);
+        for (unsigned i=0u;i<24u;++i) {
+            const Integer a=Integer::from_magnitude(
+                add(leading,BigUnsigned(1u+2u*i)),i%4u>=2u);
+            const Integer b=Integer::from_magnitude(
+                add(leading,BigUnsigned(7u+5u*i)),
+                i%4u==1u || i%4u==2u);
+            for (unsigned ea:{0u,1u,width/2u,width,width+1u}) {
+                for (unsigned eb:{0u,1u,width/2u,width,width+1u}) {
+                    const NewDyadic x(a,ea),y(b,eb);
+                    const Dyadic old_x(a,ea),old_y(b,eb);
+                    if (cmp(x,y)!=cmp(old_x,old_y)) {
+                        throw std::runtime_error("legacy comparison mismatch");
+                    }
+                }
+            }
+        }
+    }
+}
+
 void test_comparisons() {
     static_assert(std::is_same_v<
         decltype(std::declval<NewDyadic>()<std::declval<NewDyadic>()),
@@ -213,6 +263,7 @@ int main() {
         test_conversions();
         test_arithmetic();
         test_comparisons();
+        test_binary64_and_scaled_comparison();
         test_infinity();
         std::cout<<"NewDyadic test port (literal/conversions/arithmetic/"
                     "comparisons/infinity) PASS\n";

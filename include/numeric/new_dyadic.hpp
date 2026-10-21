@@ -74,6 +74,49 @@ private:
             x._coefficient.negative());
     }
 
+    // Exact comparison of positive n/2^en and m/2^em without
+    // constructing shifted operands.
+    static int compare_scaled(BigUnsigned const& n,std::size_t en,
+                              BigUnsigned const& m,std::size_t em) noexcept {
+        if (n.is_zero() || m.is_zero()) {
+            return n.is_zero() ? (m.is_zero() ? 0 : -1) : 1;
+        }
+        const std::size_t nb=n.bit_length(),mb=m.bit_length();
+        const bool ng=nb>=en,mg=mb>=em;
+        if (ng!=mg) { return ng ? 1 : -1; }
+        if (ng) {
+            if (nb-en!=mb-em) { return nb-en>mb-em ? 1 : -1; }
+        } else {
+            if (en-nb!=em-mb) { return en-nb<em-mb ? 1 : -1; }
+        }
+        return nb>=mb ? compare_aligned(n,m) : -compare_aligned(m,n);
+    }
+
+    // Align shorter positive magnitude virtually to the longer
+    // magnitude's most significant bit. No owning BigUnsigned.
+    static int compare_aligned(BigUnsigned const& a,
+                               BigUnsigned const& b) noexcept {
+        const std::size_t shift=a.bit_length()-b.bit_length();
+        const std::size_t whole=shift/64u;
+        const unsigned part=static_cast<unsigned>(shift%64u);
+        for (std::size_t i=a.size();i!=0u;--i) {
+            const std::size_t index=i-1u;
+            std::uint64_t word=0u;
+            if (index>=whole) {
+                const std::size_t j=index-whole;
+                if (j<b.size()) {
+                    word=part==0u ? b.limb(j) : b.limb(j)<<part;
+                }
+                if (part!=0u && j!=0u && j-1u<b.size()) {
+                    word|=b.limb(j-1u)>>(64u-part);
+                }
+            }
+            const std::uint64_t actual=a.limb(index);
+            if (actual!=word) { return actual<word ? -1 : 1; }
+        }
+        return 0;
+    }
+
     static void require_finite(NewDyadic const& x) {
         if (x._kind!=Kind::Finite) {
             throw std::domain_error("non-finite NewDyadic cannot be rounded");
@@ -186,7 +229,58 @@ public:
             shift_left(BigUnsigned(1u),_denominator_exponent),false);
         return Rational(_coefficient,denominator);
     }
-    double get_d() const { return to_rational().get_d(); }
+    // Truncate to IEEE binary64 from the native magnitude.
+    // GMP mpf_get_d returns positive zero on underflow even
+    // for negative operands. No Rational allocation.
+    double get_d() const {
+        if (_kind==Kind::NaN) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        if (_kind==Kind::PositiveInfinity) {
+            return std::numeric_limits<double>::infinity();
+        }
+        if (_kind==Kind::NegativeInfinity) {
+            return -std::numeric_limits<double>::infinity();
+        }
+        const BigUnsigned& n=_coefficient.magnitude();
+        if (n.is_zero()) { return 0.0; }
+        const bool negative=_coefficient.negative();
+        const std::size_t bits=n.bit_length();
+        int exponent;
+        if (bits>_denominator_exponent) {
+            const std::size_t positive=bits-1u-_denominator_exponent;
+            if (positive>1023u) {
+                return negative ? -std::numeric_limits<double>::infinity()
+                                : std::numeric_limits<double>::infinity();
+            }
+            exponent=static_cast<int>(positive);
+        } else {
+            const std::size_t negative_power=_denominator_exponent-bits+1u;
+            if (negative_power>1074u) { return 0.0; }
+            exponent=-static_cast<int>(negative_power);
+        }
+        std::uint64_t significand;
+        if (bits<=53u) {
+            significand=n.limb(0u)<<(53u-bits);
+        } else {
+            const std::size_t first=bits-53u;
+            const std::size_t index=first/64u;
+            const unsigned shift=static_cast<unsigned>(first%64u);
+            significand=n.limb(index)>>shift;
+            if (shift!=0u && index+1u<n.size()) {
+                significand|=n.limb(index+1u)<<(64u-shift);
+            }
+            significand&=(std::uint64_t{1}<<53u)-1u;
+        }
+        double value;
+        if (exponent>=-1022) {
+            value=std::ldexp(static_cast<double>(significand),exponent-52);
+        } else {
+            const unsigned drop=static_cast<unsigned>(-1022-exponent);
+            value=std::ldexp(static_cast<double>(significand>>drop),-1074);
+        }
+        return value==0.0 ? 0.0 : (negative ? -value : value);
+    }
 
     friend NewDyadic operator-(NewDyadic const& x) {
         if (x._kind==Kind::NaN) { return nan(); }
@@ -296,10 +390,15 @@ public:
                 b._kind==Kind::NegativeInfinity) {
             return Comparison::GREATER;
         }
-        const auto exponent=std::max(a._denominator_exponent,
-                                      b._denominator_exponent);
-        return cmp(shifted(a._coefficient,exponent-a._denominator_exponent),
-                   shifted(b._coefficient,exponent-b._denominator_exponent));
+        const int sa=signum(a),sb=signum(b);
+        if (sa!=sb) { return sa<sb ? Comparison::LESS : Comparison::GREATER; }
+        if (sa==0) { return Comparison::EQUAL; }
+        const int magnitude=compare_scaled(
+            a._coefficient.magnitude(),a._denominator_exponent,
+            b._coefficient.magnitude(),b._denominator_exponent);
+        const int order=sa<0 ? -magnitude : magnitude;
+        return order<0 ? Comparison::LESS :
+               order>0 ? Comparison::GREATER : Comparison::EQUAL;
     }
     friend Boolean lt(NewDyadic const& a,NewDyadic const& b) {
         if (a._kind==Kind::NaN || b._kind==Kind::NaN) { return false; }
