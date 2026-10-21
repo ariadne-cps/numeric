@@ -79,7 +79,7 @@ struct Pool {
                (now_a[i]+now_b[i]).to_rational()!=Rational(old_a[i]+old_b[i]) ||
                (now_a[i]-now_b[i]).to_rational()!=Rational(old_a[i]-old_b[i]) ||
                (now_a[i]*now_b[i]).to_rational()!=Rational(old_a[i]*old_b[i]) ||
-               pow(now_a[i],3u).to_rational()!=Rational(pow(old_a[i],Nat(3u))) ||
+               pow(now_a[i],Nat(3u)).to_rational()!=Rational(pow(old_a[i],Nat(3u))) ||
                floor(now_a[i])!=floor(old_a[i]) ||
                ceil(now_a[i])!=ceil(old_a[i]) ||
                round(now_a[i])!=round(old_a[i]) ||
@@ -113,7 +113,7 @@ void run(unsigned bits,unsigned iterations,unsigned samples) {
     pair("mul",[&](unsigned i){return x.old_a[i&mask]*x.old_b[i&mask];},
          [&](unsigned i){return x.now_a[i&mask]*x.now_b[i&mask];});
     pair("square",[&](unsigned i){return sqr(x.old_a[i&mask]);},
-         [&](unsigned i){return x.now_a[i&mask]*x.now_a[i&mask];});
+         [&](unsigned i){return sqr(x.now_a[i&mask]);});
     pair("negate",[&](unsigned i){return -x.old_a[i&mask];},
          [&](unsigned i){return -x.now_a[i&mask];});
     pair("abs",[&](unsigned i){return abs(x.old_a[i&mask]);},
@@ -121,7 +121,7 @@ void run(unsigned bits,unsigned iterations,unsigned samples) {
     pair("half",[&](unsigned i){return hlf(x.old_a[i&mask]);},
          [&](unsigned i){return hlf(x.now_a[i&mask]);});
     pair("compare",[&](unsigned i){return cmp(x.old_a[i&mask],x.old_b[i&mask]);},
-         [&](unsigned i){return x.now_a[i&mask]<x.now_b[i&mask];});
+         [&](unsigned i){return cmp(x.now_a[i&mask],x.now_b[i&mask]);});
     pair("min",[&](unsigned i){return min(x.old_a[i&mask],x.old_b[i&mask]);},
          [&](unsigned i){return min(x.now_a[i&mask],x.now_b[i&mask]);});
     pair("max",[&](unsigned i){return max(x.old_a[i&mask],x.old_b[i&mask]);},
@@ -135,7 +135,7 @@ void run(unsigned bits,unsigned iterations,unsigned samples) {
     pair("to_double",[&](unsigned i){return x.old_a[i&mask].get_d();},
          [&](unsigned i){return x.now_a[i&mask].get_d();});
     pair("pow3",[&](unsigned i){return pow(x.old_a[i&mask],Nat(3u));},
-         [&](unsigned i){return pow(x.now_a[i&mask],3u);});
+         [&](unsigned i){return pow(x.now_a[i&mask],Nat(3u));});
 }
 }
 int main(int argc,char const* argv[]) {
