@@ -6869,3 +6869,31 @@ measurement has yet been performed. Require Unix/Windows/Coverage
 and unchanged six-width 20,000-iteration/31-sample paired benchmarks
 before interpreting performance. Strict acceptance remains
 `total_time<1x` and `worst<2x` at every width on BOTH hosts.
+
+
+### R19a — restore signed exact quotient used by Rational addition (21 October 2026)
+
+**Build-blocking regression caused by R19:** the cleanup removed the
+`exact_quotient(Integer const&,BigUnsigned const&)` wrapper as
+supposedly unused. However, the `g>1,h>1` normalization branch in
+`FiniteOperations<Rational>::add_sub` still calls
+`exact_quotient(n,h)` with an Integer numerator. The remaining
+BigUnsigned overload cannot accept Integer, causing AppleClang's
+two reported compile errors in rational.cpp (around line 253).
+R19 Unix, Windows and Coverage workflows all failed in Build.
+
+**Minimal repair:** restore the exact signed wrapper from R18. It
+delegates to the unsigned exact quotient of the magnitude and restores
+the numerator's original sign with `Integer::from_magnitude`.
+This is the existing, verified behavior for nontrivial shared factors
+in add/sub. It is intentionally still needed by this branch; the
+statement in R19 about removing that wrapper was incorrect. The
+now-unused `integer_mul` wrapper stays removed. All of R19's
+copy-avoiding factor borrowing in mul/div is retained, without any
+change to operand values, GMP oracle, benchmarks or numeric tests.
+
+**Verification:** ensure Unix, Windows and Coverage CI compile,
+the GMP differential tests exercise the g>1,h>1 add/sub branch, and
+the unchanged six-width benchmark is rerun on ARM64 and x86-64 before
+claiming R19 performance. No successful R19a build or speedup is
+claimed in advance.

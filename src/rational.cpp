@@ -178,6 +178,11 @@ Integer multiply_magnitude(Integer const& n,BigUnsigned const& m) {
 BigUnsigned exact_quotient(BigUnsigned const& n,BigUnsigned const& d) {
     return unsigned_is_one(d) ? n : quot(n,d);
 }
+// R19a: add_sub still needs the signed overload for the final
+// numerator reduction when the common factor h is greater than one.
+Integer exact_quotient(Integer const& n,BigUnsigned const& d) {
+    return Integer::from_magnitude(exact_quotient(n.magnitude(),d),n.negative());
+}
 // R19: construct a product from exact cross-cancelled magnitudes,
 // borrowing each original operand whenever its divisor is one.
 // quot(x,1) would materialize a full BigUnsigned copy unnecessarily;
