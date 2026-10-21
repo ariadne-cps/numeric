@@ -9431,3 +9431,22 @@ The upper-bound source-conversion template must round **upward** rather
 than downward. Do not change Numeric's storage or test expectations.
 The compilation and link of Unix, Windows and Coverage runs must
 still be checked; this journal entry does not assert CI success.
+
+### D61 — complete missing FloatAP precision getters at the link boundary (21 October 2026)
+
+After D60, macOS ARM64 links report two missing API families:
+`NumberInterface::_get(ValidatedTag,ArbitraryPrecision)` and
+`Real::get(ArbitraryPrecision)`. Both declarations were introduced
+with D57 but had no out-of-line definitions. Define the NumberInterface
+validated getter by delegating to the existing native OrderTag virtual
+method; also define its one-precision MetricTag convenience method.
+Define all remaining D57-declared Real API functions in the existing
+`src/real.cpp`: Real get/compute_using/compute_get, LowerReal and
+UpperReal compute_get, plus ValidatedReal, ValidatedLowerReal and
+ValidatedUpperReal get at arbitrary precision. Real computes a rigorous
+DyadicBounds enclosure at the requested effort and converts its exact
+endpoints outward via the native FloatAP get, retaining rounding
+direction. No FloatMP conversion is used. Add regression assertions
+for Exact and ValidatedReal at arbitrary precision and both directed
+real computation paths. Tests and native linker/CI remain required
+before treating this as validated.

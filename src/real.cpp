@@ -462,8 +462,14 @@ Integer round(Real const& r) {
 DyadicBounds Real::compute_get(Effort e) const { return this->_ptr->_compute(e); }
 FloatDPBounds Real::get(DoublePrecision pr) const { return this->_ptr->_compute_get(Effort(0),pr); }
 FloatMPBounds Real::get(MultiplePrecision pr) const { return this->_ptr->_compute_get(Effort(pr.bits()),pr); }
+FloatAPBounds Real::get(ArbitraryPrecision pr) const {
+    return this->compute_get(Effort(pr.bits()),pr);
+}
 FloatDPBounds Real::compute_using(DoublePrecision pr) const { return this->_ptr->_compute_get(Effort(0),pr); }
 FloatMPBounds Real::compute_using(MultiplePrecision pr) const { return this->_ptr->_compute_get(Effort(pr.bits()),pr); }
+FloatAPBounds Real::compute_using(ArbitraryPrecision pr) const {
+    return this->get(pr);
+}
 
 template<> String class_name<Real>() { return "Real"; }
 template<> String class_name<PositiveReal>() { return "PositiveReal"; }
@@ -508,6 +514,10 @@ FloatDPBounds Real::compute_get(Effort eff, DoublePrecision pr) const {
 FloatMPBounds Real::compute_get(Effort eff, MultiplePrecision pr) const {
     return this->_ptr->_compute_get(eff,pr);
 }
+FloatAPBounds Real::compute_get(Effort eff, ArbitraryPrecision pr) const {
+    // Obtain rigorous dyadic endpoints, then round outward in FloatAP.
+    return this->compute_get(eff).get(pr);
+}
 
 ValidatedKleenean check_sgn(Real r, Effort eff) {
     auto x = r.compute_get(eff);
@@ -539,6 +549,9 @@ FloatDPLowerBound LowerReal::compute_get(Effort eff, DoublePrecision pr) const {
 FloatMPLowerBound LowerReal::compute_get(Effort eff, MultiplePrecision pr) const {
     return this->_ptr->_compute(eff).get(pr);
 }
+FloatAPLowerBound LowerReal::compute_get(Effort eff, ArbitraryPrecision pr) const {
+    return this->_ptr->_compute(eff).get(pr);
+}
 
 OutputStream& operator<<(OutputStream& os, LowerReal const& x) {
     return x.pointer()->_write(os);
@@ -564,6 +577,9 @@ FloatDPUpperBound UpperReal::compute_get(Effort eff, DoublePrecision pr) const {
 }
 
 FloatMPUpperBound UpperReal::compute_get(Effort eff, MultiplePrecision pr) const {
+    return this->_ptr->_compute(eff).get(pr);
+}
+FloatAPUpperBound UpperReal::compute_get(Effort eff, ArbitraryPrecision pr) const {
     return this->_ptr->_compute(eff).get(pr);
 }
 
@@ -642,6 +658,9 @@ ValidatedReal::operator DyadicBounds () const { return this->get(); }
 DyadicBounds ValidatedReal::get() const { return this->_ptr->_get(); }
 FloatDPBounds ValidatedReal::get(DoublePrecision pr) const { return this->_ptr->_get(pr); }
 FloatMPBounds ValidatedReal::get(MultiplePrecision pr) const { return this->_ptr->_get(pr); }
+FloatAPBounds ValidatedReal::get(ArbitraryPrecision pr) const {
+    return this->get().get(pr);
+}
 
 OutputStream& operator<<(OutputStream& os, ValidatedReal const& vr) { return vr._ptr->_write(os); }
 
@@ -651,6 +670,9 @@ ValidatedLowerReal::ValidatedLowerReal(ValidatedReal const& r) : Handle<const In
 DyadicLowerBound ValidatedLowerReal::get() const { return this->_ptr->_get(); }
 FloatDPLowerBound ValidatedLowerReal::get(DoublePrecision pr) const { return FloatDPLowerBound(this->get().raw(),pr); }
 FloatMPLowerBound ValidatedLowerReal::get(MultiplePrecision pr) const { return FloatMPLowerBound(this->get().raw(),pr); }
+FloatAPLowerBound ValidatedLowerReal::get(ArbitraryPrecision pr) const {
+    return FloatAPLowerBound(this->get().raw(),pr);
+}
 OutputStream& operator<<(OutputStream& os, ValidatedLowerReal const& lr) { return lr._ptr->_write(os); }
 
 
@@ -660,6 +682,9 @@ ValidatedUpperReal::ValidatedUpperReal(ValidatedReal const& r) : Handle<const In
 DyadicUpperBound ValidatedUpperReal::get() const { return this->_ptr->_get(); }
 FloatDPUpperBound ValidatedUpperReal::get(DoublePrecision pr) const { return FloatDPUpperBound(this->get().raw(),pr); }
 FloatMPUpperBound ValidatedUpperReal::get(MultiplePrecision pr) const { return FloatMPUpperBound(this->get().raw(),pr); }
+FloatAPUpperBound ValidatedUpperReal::get(ArbitraryPrecision pr) const {
+    return FloatAPUpperBound(this->get().raw(),pr);
+}
 OutputStream& operator<<(OutputStream& os, ValidatedUpperReal const& ur) { return ur._ptr->_write(os); }
 
 ApproximateDouble::ApproximateDouble(Real const& r) : _d(FloatDPApproximation(r,dp).raw().get_d()) { }

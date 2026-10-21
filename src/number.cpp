@@ -76,9 +76,11 @@ Real::operator EffectiveNumber() const { return EffectiveNumber(new NumberWrappe
 
 FloatDPBounds NumberInterface::_get(ValidatedTag, DoublePrecision pr) const { return this->_get(OrderTag(),pr); }
 FloatMPBounds NumberInterface::_get(ValidatedTag, MultiplePrecision pr) const { return this->_get(OrderTag(),pr); }
+FloatAPBounds NumberInterface::_get(ValidatedTag, ArbitraryPrecision pr) const { return this->_get(OrderTag(),pr); }
 
 FloatDPBall NumberInterface::_get(MetricTag p, DoublePrecision pr) const { return this->_get(p,pr,pr); }
 FloatMPBall NumberInterface::_get(MetricTag p, MultiplePrecision pr) const { return this->_get(p,pr,pr); }
+FloatAPBall NumberInterface::_get(MetricTag p, ArbitraryPrecision pr) const { return this->_get(p,pr,pr); }
 
 
 
