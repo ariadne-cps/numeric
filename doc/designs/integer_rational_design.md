@@ -6985,3 +6985,103 @@ locally. Require Unix, Windows and Coverage CI, Integer,
 BigUnsigned, Rational and FloatAP checks, and native six-width
 ARM64 and x86-64 benchmarks before claiming speedup. Keep the
 strict user gates per host and per size.
+
+### R21 — bounded borrowed-view Euclidean GCD (21 October 2026)
+
+**Implementation.** For nonzero inputs of
+at most 128 limbs, keep Euclid's exact remainder sequence in three
+independent stack buffers. Borrow both original inputs until their
+first reduction; rotate the result buffer so neither live input ever
+aliases the output. Normalize every remainder before the next step.
+Use the existing remainder-only division kernel and its portable/ISA
+selection; no new instructions, CPU requirements or floating estimates.
+Preserve R11's exact quotient-one/two subtraction and trim identical
+leading limbs before subtracting. Finish single-limb divisors with the
+existing selected remainder kernel (including B61) and scalar Euclid.
+Only the final GCD becomes an owning BigUnsigned. Larger operands
+retain the existing arbitrary-precision path. The fixed bound limits
+scratch, not supported integer precision. No benchmark inputs or
+canonical Rational contracts change. Test zero, equality, input
+preservation, common factors, dense random values, quotient boundaries
+and the 128/129-limb dispatch boundary against independent values/GMP.
+Record native timings and sanitizer/compiler checks after execution.
+
+The 128-limb bound uses 3*128 remainder limbs plus 257 division scratch
+limbs (5,128 bytes of arrays). Those arrays need no initial zero fill:
+each kernel fully writes its active output and every consumer sees
+only its normalized span. Euclid maintains a>=b>0; for equally long
+inputs ah-bh<=bh proves a<3*b without overflowing 2*bh. At most two
+exact subtractions suffice. Trimming equal high limbs is safe because
+the first unequal lower limb proves the remaining unsigned order.
+The second subtraction uses independent division scratch, then copies
+the normalized result back. Three-way rotation never overwrites either
+live input. No architecture-dependent arithmetic was added.
+
+**Regression coverage.** New independent cases use
+gcd((2^k-1)*f,(2^k+1)*f)=f, f=2^64+3, with k>=126.
+The coprimality follows from the odd operands differing by two.
+Dense deterministic GMP cases at 2/4/5/8/16/64/127/128/129/160 limbs
+exercise long buffer rotations, both argument orders, the exact stack
+limit, fallback, and unchanged sources. Existing randomized GCD,
+quotient-one/two, equality, zero, scalar, Rational canonicality and
+special-value suites are preserved.
+
+**Online measurement.** A dedicated Rational benchmark push/manual
+workflow compares HEAD^ with HEAD on the same Ubuntu 24.04 x86-64
+runner, separately with GCC 13 and Clang 16. It builds both Release
+revisions with warnings-as-errors, tests the candidate, and runs the
+unchanged six-width 20,000x31 benchmark sequentially. Raw logs, CPU
+and compiler details and both SHAs are uploaded as artifacts; the
+summary is informational because shared hosted CPUs have timing noise.
+No speed gate is weakened and no benchmark fixture is changed.
+
+**Local validation.** AppleClang 21 Release warnings-as-errors: all
+20 C++ CTest suites pass. Debug ASan/UBSan: Integer, BigUnsigned,
+Rational, Float and FloatRounding pass (5/5). GCC 16.2 ARM64 Release
+warnings-as-errors: Integer, BigUnsigned and Rational pass (3/3).
+The workflow YAML parses and git diff --check is clean. Native MSVC,
+x86-64 and remote Unix/Windows/Coverage validation remain pending at
+publication; do not infer their results from the local checks.
+
+**Native ARM64 measurements.** Apple M2 Ultra (Mac Studio),
+macOS 26.6.2, AppleClang
+21.0.0.21000334, Release, unchanged benchmark, six widths,
+20,000 iterations and 31 samples. R20 parent and R21 were rebuilt
+in separate directories; the recorded comparison ran sequentially
+without concurrent builds/tests. Both pass 384 paired inputs and
+2,880 exact operation results. Rational/GMP total/worst ratios:
+
+| bits | R20 total | R21 total | R20 worst | R21 worst |
+|---:|---:|---:|---:|---:|
+| 53 | .356 | .367 | 1.245 | 1.235 |
+| 128 | .649 | .565 | 1.803 | 1.714 |
+| 256 | 1.120 | .894 | 1.697 | 1.750 |
+| 1024 | 1.111 | .898 | 1.402 | 1.413 |
+| 2048 | .825 | .720 | 1.499 | 1.345 |
+| 4096 | .682 | .627 | 1.630 | 1.516 |
+| ALL | .772 | .680 | 1.803 | 1.750 |
+
+All six ARM64 widths meet strict total<1 and worst<2 in this run.
+Worst cases are to_double at 53/256/1024, compare at 128 and
+construct_fraction at 2048/4096. These kernels were not altered;
+small absolute timing changes include measurement/code-layout noise.
+The sum of native medians at 256 bits falls from 1,987.330 to
+1,587.294 ns, and at 1024 from 4,087.420 to 3,302.547 ns.
+Examples of absolute R20 -> R21 medians (ns): 256-bit construction
+194.525 -> 138.338, add 315.548 -> 237.144, mul 372.442 -> 283.812;
+1024-bit mul 863.206 -> 629.456, div 857.354 -> 636.850.
+The 53-bit native sum increases 1.9% (411.401 -> 419.288 ns),
+where scalar inputs retain the old GCD path; no universal speedup
+is claimed. Recheck strict gates on native x86-64.
+
+The paired Integer 20,000x31 comparison passes 768 inputs/2,688
+results: aggregate total .958 -> .951 and worst 1.659 -> 1.646.
+Existing marginal 2048/4096 total ratios remain around 1x
+(1.007/1.013 -> 1.001/1.003); no new Integer gate guarantee.
+FloatAP's unchanged 1,000x11 comparison passes 256 inputs/3,456
+results. Total/worst at 53/128/256/1024 bits is
+1.397/2.483 -> 1.358/2.471,
+1.071/2.696 -> 1.072/2.683,
+.596/2.053 -> .591/2.055,
+.249/1.642 -> .248/1.615.
+Its prior short-width performance deficits remain outside R21's scope.

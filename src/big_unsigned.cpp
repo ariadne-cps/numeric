@@ -1724,6 +1724,77 @@ BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b)
     return remainder;
 }
 
+BigUnsigned BigUnsigned::gcd_bounded(LimbView a,LimbView b)
+{
+    // Canonical views satisfy a>=b>0 and have at most capacity limbs.
+    // Three rotating outputs leave the two live inputs disjoint from
+    // the next result; the division scratch is independent of all four.
+    constexpr std::size_t capacity=128u;
+    std::array<std::array<Limb,capacity>,3u> remainders;
+    std::array<Limb,2u*capacity+1u> workspace;
+    const auto subtract_views=[](LimbView x,LimbView y,MutableLimbView output) {
+        std::size_t count=x.size();
+        if (count==y.size()) {
+            while (count!=0u && x[count-1u]==y[count-1u]) { --count; }
+        }
+        (void)sub_into(x.first(count),y.first(std::min(count,y.size())),
+                       output.first(count));
+        while (count!=0u && output[count-1u]==0u) { --count; }
+        return output.first(count);
+    };
+    std::size_t next=0u;
+    while (!b.empty()) {
+        if (b.size()==1u) {
+            Limb current=b[0u];
+            if (current==1u) { return BigUnsigned(Limb{1}); }
+            Limb remaining;
+            if (a.size()==1u) {
+                remaining=a[0u]%current;
+            } else {
+                divrem_selected_into<false,true>(a,b,{},
+                    MutableLimbView(&remaining,1u),{});
+            }
+            while (remaining!=0u) {
+                const Limb value=current%remaining;
+                current=remaining;
+                remaining=value;
+            }
+            return BigUnsigned(current);
+        }
+        auto output=MutableLimbView(remainders[next].data(),b.size());
+        if (a.size()==b.size() && a.back()-b.back()<=b.back()) {
+            // Preserve R11's exact quotient-one/two shortcut. Matching
+            // leading limbs cancel before subtracting any lower words.
+            output=subtract_views(a,b,output);
+            bool at_least_b=output.size()==b.size();
+            if (at_least_b) {
+                for (std::size_t i=b.size();i!=0u;--i) {
+                    if (output[i-1u]!=b[i-1u]) {
+                        at_least_b=output[i-1u]>b[i-1u];
+                        break;
+                    }
+                }
+            }
+            if (at_least_b) {
+                const auto difference=subtract_views(output,b,
+                    MutableLimbView(workspace.data(),output.size()));
+                std::copy(difference.begin(),difference.end(),output.begin());
+                output=output.first(difference.size());
+            }
+        } else {
+            divrem_selected_into<false,true>(a,b,{},output,
+                MutableLimbView(workspace.data(),divrem_scratch_limbs(a.size(),b.size())));
+            std::size_t count=output.size();
+            while (count!=0u && output[count-1u]==0u) { --count; }
+            output=output.first(count);
+        }
+        a=b;
+        b=output;
+        next=(next+1u)%remainders.size();
+    }
+    return BigUnsigned(a);
+}
+
 BigUnsigned gcd(BigUnsigned const& lhs,BigUnsigned const& rhs)
 {
     using Limb=BigUnsigned::Limb;
@@ -1735,6 +1806,10 @@ BigUnsigned gcd(BigUnsigned const& lhs,BigUnsigned const& rhs)
     BigUnsigned const* larger=&lhs;
     BigUnsigned const* smaller=&rhs;
     if (compare(*larger,*smaller)<0) { std::swap(larger,smaller); }
+
+    if (larger->size()<=128u && smaller->size()>1u) {
+        return BigUnsigned::gcd_bounded(larger->limbs(),smaller->limbs());
+    }
 
     // R8: complete a one-limb divisor with native scalar Euclid.
     const auto scalar_tail=[](BigUnsigned const& dividend,

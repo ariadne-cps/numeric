@@ -2640,6 +2640,35 @@ void TestBigUnsigned::test_gcd_decimal()
             }
         }
     }
+    // R21: fixed coprimality and dense Euclid at the stack/fallback
+    // boundary. Both source views must survive every buffer rotation.
+    {
+        const BigUnsigned factor=add(shift_left(one,64u),BigUnsigned(std::uint64_t{3}));
+        std::mt19937_64 random(0x21BCD128ULL);
+        GmpInteger oracle_left,oracle_right,oracle_gcd;
+        for (std::size_t count : {2u,4u,5u,8u,16u,64u,127u,128u,129u,160u}) {
+            const BigUnsigned power=shift_left(one,64u*count-2u);
+            const BigUnsigned left=mul(sub(power,one),factor);
+            const BigUnsigned right=mul(add(power,one),factor);
+            ARIADNE_TEST_ASSERT(compare(gcd(left,right),factor)==0);
+            ARIADNE_TEST_ASSERT(compare(gcd(right,left),factor)==0);
+            for (unsigned trial=0u;trial<4u;++trial) {
+                std::vector<std::uint64_t> x(count),y(count);
+                for (auto& word:x) { word=random(); }
+                for (auto& word:y) { word=random(); }
+                x.back()|=std::uint64_t{1}<<63u;
+                y.back()|=std::uint64_t{1}<<63u;
+                const BigUnsigned first(x),second(y);
+                mpz_import(oracle_left.value,count,-1,sizeof(std::uint64_t),0,0,x.data());
+                mpz_import(oracle_right.value,count,-1,sizeof(std::uint64_t),0,0,y.data());
+                mpz_gcd(oracle_gcd.value,oracle_left.value,oracle_right.value);
+                check_against_gmp(gcd(first,second),oracle_gcd.value);
+                check_against_gmp(gcd(second,first),oracle_gcd.value);
+                check_against_gmp(first,oracle_left.value);
+                check_against_gmp(second,oracle_right.value);
+            }
+        }
+    }
     ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
     ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
     ARIADNE_TEST_ASSERT(to_decimal(from_decimal("000"))=="0");

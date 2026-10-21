@@ -9310,3 +9310,25 @@ Rational arithmetic and Integer/BigUnsigned remain unchanged.
 The separate Codecov status thresholds already failed on B75 (project
 92.96%, patch 92.56%, target 99.20%). R1a reports project 92.94% and
 patch 93.07%; workflow Coverage success is not Codecov gate acceptance.
+
+### R21 shared GCD implementation contract (21 October 2026)
+
+The paired `integer_rational_design.md` R21 entry specifies a bounded,
+borrowed-view Euclidean GCD using disjoint stack buffers and the existing
+remainder-only shared division kernel. It changes no FloatAP algorithm,
+rounding contract, ISA requirement or kernel selector. Inputs beyond
+128 limbs retain the unlimited owning path. AppleClang 21 Release on macOS 26.6.2 ARM64 passes all 20 C++ suites;
+Debug ASan/UBSan passes the five Integer/BigUnsigned/Rational/Float/
+FloatRounding suites. The unchanged native FloatAP 1,000x11 comparison
+passes 256 paired inputs and 3,456 exact results for both R20 and R21.
+Total/worst FloatAP/FloatMP at 53/128/256/1024 bits is
+1.397/2.483 -> 1.358/2.471,
+1.071/2.696 -> 1.072/2.683,
+.596/2.053 -> .591/2.055,
+.249/1.642 -> .248/1.615. These single sequential runs do not establish
+a blanket speedup; the existing short-width deficits remain. No FloatAP
+arithmetic changed. R21's Rational conversion through the shared native
+GCD can benefit, including FloatAP-to-Rational conversion. Native
+x86-64/MSVC and remote CI validation remain pending at publication.
+Full contracts, absolute Rational timings and regression coverage are
+recorded in the paired R21 entry.

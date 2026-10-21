@@ -85,6 +85,10 @@ class BigUnsigned
     template<bool WantQuotient>
     static BigUnsigned divide_short(BigUnsigned const& a,BigUnsigned const& b);
 
+    // Bounded Euclid reuses disjoint limb buffers and remainder-only division.
+    static BigUnsigned gcd_bounded(LimbView a,LimbView b);
+    friend BigUnsigned gcd(BigUnsigned const& a,BigUnsigned const& b);
+
   public:
     BigUnsigned() = default;
     explicit BigUnsigned(Limb value) noexcept {
