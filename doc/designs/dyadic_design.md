@@ -521,3 +521,20 @@ instantiate them; they should be deleted wholesale as part of the
 forthcoming FloatMP removal, not migrated into native Dyadic.
 No changes to FloatMP representation, test fixtures, or benchmark
 workloads. CI must confirm exactness, including finite/special cases.
+
+### D52 — parity of Rational/Integer/Dyadic interoperability with FloatAP (21 October 2026)
+
+Before replacing the public Dyadic backend, maintain parity between the
+soon-to-be-removed FloatMP interfaces and the retained FloatAP backend.
+`Rational(FloatAP const&)` now mirrors the existing explicit
+`Rational(FloatMP const&)` constructor, delegating to FloatAP's exact
+`operator Rational()` rather than using double or any Dyadic/MPFR
+storage conversion. FloatAP already provides `cast_integer(FloatAP)`,
+`FloatAP(Integer,...)` and both exact and explicitly rounded Dyadic
+conversion APIs; no duplicate Integer overload is added. Add
+independent tests of finite/large dyadic rational values, both
+infinities, NaN, FloatAP->Dyadic roundtrip, and exact/non-integral
+FloatAP->Integer casts. The production Dyadic enclosure getter APIs
+accept MultiplePrecision and will be matched with ArbitraryPrecision
+during the final native promotion, without preserving FloatMP-specific
+adapters. This is an API parity step, not final Dyadic promotion.

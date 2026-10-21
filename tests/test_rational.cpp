@@ -31,6 +31,7 @@
 #include "numeric/number.hpp"
 #include "numeric/floatdp.hpp"
 #include "numeric/floatmp.hpp"
+#include "numeric/floatap.hpp"
 #include "foundation/logical.hpp"
 
 #include <array>
@@ -143,6 +144,23 @@ void TestRational::test_conversions() {
     MultiplePrecision mp(128);
     FloatMP fmp(Dyadic(5,2u),mp);
     ARIADNE_TEST_EQUAL(Rational(fmp),Rational(5,4));
+
+    // D52: FloatAP has the same exact-to-Rational entry point as FloatMP.
+    const ArbitraryPrecision ap_precision(256_bits);
+    const FloatAP ap(Dyadic(5,2u),ap_precision);
+    ARIADNE_TEST_EQUAL(Rational(ap),Rational(5,4));
+    const Integer wide_numerator(String("123456789012345678901234567890123456789"));
+    const Dyadic wide_dyadic(wide_numerator,73u);
+    const FloatAP wide_ap(wide_dyadic,ap_precision);
+    ARIADNE_TEST_EQUAL(Rational(wide_ap),Rational(wide_dyadic));
+    ARIADNE_TEST_EQUAL(static_cast<Dyadic>(wide_ap),wide_dyadic);
+    ARIADNE_TEST_EQUAL(cast_integer(FloatAP(Integer(-17),ap_precision)),Integer(-17));
+    ARIADNE_TEST_FAIL(cast_integer(ap));
+    ARIADNE_TEST_ASSERT(is_nan(Rational(FloatAP::nan(ap_precision))));
+    ARIADNE_TEST_EQUAL(Rational(FloatAP::inf(Sign::POSITIVE,ap_precision)),
+                       Rational::inf(Sign::POSITIVE));
+    ARIADNE_TEST_EQUAL(Rational(FloatAP::inf(Sign::NEGATIVE,ap_precision)),
+                       Rational::inf(Sign::NEGATIVE));
 
     ARIADNE_TEST_EQUAL(Rational(String("7/9")),Rational(7,9));
     ARIADNE_TEST_FAIL(Rational(String("not-a-rational")));
