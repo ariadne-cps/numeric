@@ -372,19 +372,25 @@ public:
         BigUnsigned magnitude;
         bool result_negative=negative_a;
         if (same_sign) {
-            magnitude=BigUnsigned::add_shifted(
-                an.limbs(),shift_a,bn.limbs(),shift_b);
+            magnitude=shift_a==0u && shift_b==0u
+                ? add(an,bn)
+                : BigUnsigned::add_shifted(
+                    an.limbs(),shift_a,bn.limbs(),shift_b);
         } else {
             const int order=compare_scaled(
                 an,a._denominator_exponent,
                 bn,b._denominator_exponent);
             if (order==0) { return NewDyadic(); }
             if (order>0) {
-                magnitude=BigUnsigned::sub_shifted(
-                    an.limbs(),shift_a,bn.limbs(),shift_b);
+                magnitude=shift_a==0u && shift_b==0u
+                    ? sub(an,bn)
+                    : BigUnsigned::sub_shifted(
+                        an.limbs(),shift_a,bn.limbs(),shift_b);
             } else {
-                magnitude=BigUnsigned::sub_shifted(
-                    bn.limbs(),shift_b,an.limbs(),shift_a);
+                magnitude=shift_a==0u && shift_b==0u
+                    ? sub(bn,an)
+                    : BigUnsigned::sub_shifted(
+                        bn.limbs(),shift_b,an.limbs(),shift_a);
                 result_negative=negative_b;
             }
         }
