@@ -496,3 +496,28 @@ remain unchanged until final type replacement; removal of these
 three legacy bodies and final rename remain explicit follow-up work.
 A passing D48 CI validates only the former split-header variant;
 Unix/Windows/Coverage must validate the new in-header arrangement.
+
+### D51 — eliminate all FloatMP access to Dyadic's GMP representation (21 October 2026)
+
+FloatMP is scheduled for deletion, so no new Dyadic/GMP compatibility
+API is added. Delete the `mpfr_set_f(w.get_mpf())` paths from
+`FloatMP(Dyadic,...)` and its assignment; the existing Rational/MPFR
+boundary is reused only for the residual legacy API until FloatMP is
+removed. Delete `mpfr_get_f(res._mpf)` and raw `_mpf[0]` special-value
+tags in the reverse conversion. Its remaining legacy operator routes
+the *exact* binary value through Rational and reconstructs
+the dyadic coefficient/denominator, with explicit NaN and infinity
+handling. Crucially FloatMP itself no longer knows the storage of
+Dyadic or needs `get_mpf()`.
+
+The source-of-truth FloatMP->Rational conversion is now a direct exact
+`mpfr_get_z_2exp` extraction of the MPFR significand and signed binary
+exponent, handled with native Integer/Rational; Rational(FloatMP) uses
+that conversion, not the former FloatMP->Dyadic->Rational chain.
+`cast_integer(FloatMP)` also works directly on Rational, without
+round-tripping through Dyadic. Preserve the old public FloatMP
+signatures solely because the library and generic tests still
+instantiate them; they should be deleted wholesale as part of the
+forthcoming FloatMP removal, not migrated into native Dyadic.
+No changes to FloatMP representation, test fixtures, or benchmark
+workloads. CI must confirm exactness, including finite/special cases.
