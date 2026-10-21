@@ -384,3 +384,28 @@ Exact output conversions FloatMP->Dyadic and FloatAP->Dyadic still
 need migration before old Dyadic files can safely be removed.
 Do not conflate this intermediate dependency elimination with
 completed promotion or green CI.
+
+### D45 — narrow Dyadic migration to FloatAP, not FloatMP (21 October 2026)
+
+**Scope correction.** FloatMP is scheduled for removal, with FloatAP
+remaining as the arbitrary-precision float backend. Consequently, do
+not spend migration effort rewriting FloatMP <-> Dyadic conversions.
+Revert only the FloatMP input-conversion changes introduced in D44,
+restoring `src/floatmp.cpp` to its pre-D44 content pending removal
+of that source and its build, test, and API references. The native
+`FloatDP` input adjustment from D44 is retained for now.
+
+**Promotion requirement.** Before retiring the old Dyadic class, move
+the supported external APIs and conversions to the native replacement:
+FloatAP -> Dyadic must preserve the *exact* finite binary rational
+(significand and binary exponent), and Dyadic -> FloatAP must respect
+its precision and rounding contracts. FloatMP-specific overloads,
+storage access, and tests should be removed with FloatMP, not ported.
+No Dyadic `get_mpf()`, `_mpf`, or GMP `mpf_t` shim should survive
+the final replacement. Keep independent correctness checks for
+FloatAP conversion; removing tests does not establish correctness.
+
+**Status.** This is a scope correction, not completion of FloatMP
+removal or Dyadic promotion. Existing legacy FloatMP code is
+unchanged relative to D43 and still depends on the legacy Dyadic
+representation until its separate deletion.
