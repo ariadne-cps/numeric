@@ -66,7 +66,8 @@ unsigned trailing_bits(std::array<Limb,binary_capacity> const& data,
     std::size_t i=0u;
     while (i<size && data[i]==0u) { ++i; }
     if (i==size) { throw std::logic_error("R24 trailing_bits of zero"); }
-    return static_cast<unsigned>(64u*i+std::countr_zero(data[i]));
+    return static_cast<unsigned>(64u*i)+
+           static_cast<unsigned>(std::countr_zero(data[i]));
 }
 
 void shift_down(std::array<Limb,binary_capacity>& data,std::size_t& size,
@@ -186,10 +187,19 @@ std::vector<Group> make_groups(unsigned bits) {
         mpz_divexact(bd_by_g.value,mpq_denref(b.value),g.value);
         mpz_mul(scaled_a.value,mpq_numref(a.value),bd_by_g.value);
         mpz_mul(scaled_b.value,mpq_numref(b.value),ad_by_g.value);
-        mpz_add(sum.value,scaled_a.value,scaled_b.value);
-        groups[3u].cases.push_back(make_case(sum.value,g.value));
-        mpz_sub(sum.value,scaled_a.value,scaled_b.value);
-        groups[4u].cases.push_back(make_case(sum.value,g.value));
+        // The production add/sub path skips the second GCD when
+        // gcd(den_a,den_b)==1, and also when the cross-sum is zero.
+        // Time this category only on inputs that actually reach it.
+        if (mpz_cmp_ui(g.value,1ul)!=0) {
+            mpz_add(sum.value,scaled_a.value,scaled_b.value);
+            if (mpz_sgn(sum.value)!=0) {
+                groups[3u].cases.push_back(make_case(sum.value,g.value));
+            }
+            mpz_sub(sum.value,scaled_a.value,scaled_b.value);
+            if (mpz_sgn(sum.value)!=0) {
+                groups[4u].cases.push_back(make_case(sum.value,g.value));
+            }
+        }
     }
     return groups;
 }
@@ -242,7 +252,9 @@ void report_group(Group const& group,unsigned bits,
         mpz_gcd(result.value,item.raw_a.value,item.raw_b.value);
         return result;
     },iterations,samples);
-    std::cout << bits << " " << group.name << " native=" << native
+    std::cout << bits << " " << group.name
+              << " active_pairs=" << group.cases.size() << "/32"
+              << " native=" << native
               << " gmp=" << gmp << " native/gmp=" << native/gmp;
     const bool bounded=std::all_of(group.cases.begin(),group.cases.end(),
         [](Case const& item) {

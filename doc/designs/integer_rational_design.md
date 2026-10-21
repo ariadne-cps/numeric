@@ -7358,3 +7358,53 @@ unmodified full official benchmark.
 
 **Status at authoring:** no local native x86-64 execution or benchmark
 result has been claimed, and no GCD optimization is promoted.
+
+
+### R24.1 — correct diagnostic call selection and GCC conversion warning (21 October 2026)
+
+**Input data.** The user's R24 reports contain both Apple Silicon ARM64
+and x86-64 measurements with identical R24 diagnostic arguments
+(3000 iterations, 11 samples). The experimental eight-limb Stein GCD
+loses to the existing native Euclidean GCD on every reported category
+where measured; example binary/native at 256 bits: ARM64 11.3-23.9x,
+x86-64 8.0-17.1x. **Do not promote binary GCD.** On x86-64,
+multi-limb production GCD is frequently slower than mpz_gcd from
+256 bits upward (construct_b 245.632/145.381 ns at 256, 801.007/
+527.414 ns at 4096). On ARM64, the 256-bit construct_b GCD is almost
+at parity (111.458/112.917 ns), but 1024+ bits have deficits; avoid
+inferring CPU-independent kernel thresholds.
+
+The unchanged official R23 Rational/GMP 20,000x31 user reports pass
+384 paired inputs and 2880 paired operation results on both hosts.
+Total/worst at 53,128,256,1024,2048,4096 bits:
+ARM64 .402/1.274, .557/1.741, .852/1.548, .876/1.349,
+.695/1.182, .604/1.240;
+x86-64 .856/1.317, .819/1.979, 1.176/1.704, .938/1.383,
+.624/1.029, .483/.903.
+The only reported Rational gate failure is the x86-64 256-bit total;
+128-bit x86-64 compare remains close to its strict worst<2 cap.
+At 256 bits on x86-64, the four arithmetic deltas from GMP are
+approximately +77ns add, +77ns sub, +102ns mul, +114ns div.
+These absolute per-operation differences are not attributable
+entirely to GCD until an end-to-end candidate is measured.
+
+**Diagnostic correction.** The first R24 benchmark erroneously included
+gcd(cross_sum,g) even when g=gcd(den_a,den_b)=1, while production
+Rational::add_sub skips that second GCD (and skips it for a zero sum).
+For the official 256-bit 32-pair fixture, only eight pairs have
+g>1, all with g=2; 24 have g=1. The diagnostic now adds
+add_reduce/sub_reduce samples *only* when g>1 and the respective
+cross-sum is nonzero, and prints active_pairs per group. This changes
+the diagnostic only, not the official fixture nor any production
+algorithm. Previously recorded add_reduce/sub_reduce timings must
+not be used as estimates of cost on the executed production path.
+Correct GCC -Wsign-conversion in trailing_bits by explicitly casting
+both intermediate integer types before addition; mathematical bounds
+remain <=512 bits at the diagnostic eight-limb limit.
+
+**CI status at discovery.** The initial R24 commit (23d0a2d) passed
+Windows and Coverage but failed Unix Release and the GCC/Clang hosted
+benchmark build steps; the user independently observed the
+sign-conversion warning on x86-64. Treat the R24.1 warnings-as-errors
+rebuild and complete hosted workflow as necessary validation.
+No performance improvement is claimed.
