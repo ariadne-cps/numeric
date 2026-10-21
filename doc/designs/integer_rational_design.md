@@ -7822,3 +7822,66 @@ on ARM64 and x86-64 using the existing CMake targets, iterations
 and samples. The normal Unix, Windows, and Coverage workflows remain
 untouched. Subsequent Rational performance claims must cite
 independent native measurements rather than hosted CI benchmarks.
+
+
+### R31 — eliminate final Rational mul temporary; extend sparse GCD to add/sub and mul (21 October 2026)
+
+**Motivation.** R19 already borrows unit-cancelled multiply factors;
+R20/R23 already fuse signed addition's two cross products into one
+bounded scratch array and one owned final magnitude. R22 already
+divides scalar cancellation factors into caller-owned buffers.
+Thus additional blind removal of product temporaries is unlikely
+to explain the x86-64 versus ARM64 gap. Native R30 at 256 bits
+measured ARM64 mul=244.844 ns vs GMP 275.860 ns and
+x86-64 mul=475.300 ns vs GMP 374.180 ns; add/sub on x86-64
+353.754/346.689 ns vs GMP 280.365/280.516 ns.
+The R24 GCD breakdown showed that multi-limb GCD is
+disproportionately expensive on x86-64.
+
+**Change 1: direct mul result commitment.** Multiply all four
+cancelled factors into two fully owned BigUnsigned outputs,
+then create the signed Integer numerator and pass both to
+FiniteOperations::set_sum. This avoids construction of a
+temporary Rational via reduced() and its move/swap assignment.
+The caller destination is only mutated after the products
+are calculated, retaining multiply self-alias correctness.
+Sqr and div paths are intentionally unchanged.
+
+**Change 2: generic sparse-radix GCD reuse.** Rename the R30
+constructor-only helper to gcd_sparse_radix and use it also for
+add/sub's gcd(den_a,den_b) and mul's two cross-GCD operations.
+Retain exactly R30's high-coefficient integer-ratio shortcut
+as the first fast path and its generic fallback. For arbitrary
+high coefficients n=p*B^k+n0, d=q*B^k+d0, compute the exact
+determinant delta=q*n0-p*d0 if both scalar multiplications fit
+64 bits. Because q*n-p*d=delta, gcd(n,d) divides delta.
+If delta!=0 and gcd(p,delta)=1, then gcd(n,d)=gcd(n,delta):
+a divisor of n and delta divides p*d and is coprime to p.
+Symmetrically if gcd(q,delta)=1, use gcd(d,delta).
+Otherwise fall back unchanged to the full BigUnsigned::gcd.
+For a gap<=65535, the specialized sparse-scalar step computes
+B^k mod gap in logarithmic time by exact modular exponentiation;
+larger gaps use the existing general scalar GCD kernel.
+All inputs and the result remain canonical, with no new ISA
+assumptions, precision limits or dependence on specific
+benchmark operand values. The original zero and special
+Rational cases remain unchanged. This general determinant
+route particularly handles denominators with high coefficients
+2 and 3 without assuming a high-coefficient multiple.
+
+**Regression scope.** Add direct GMP add/sub/mul and in-place
+add/mul comparisons for both signs on sparse inputs, across
+128/192/255/256/320/448/512/1024/2048/4096 bits and
+24 low-word configurations each. Keep the original
+randomized dense GMP suite, existing alias/self-square tests,
+all R30 constructor tests and full official 15-operation
+Rational input corpus and exact results unchanged.
+No automated Rational benchmark job is restored: the
+user-requested workflow deletion remains intact.
+
+**Status.** R31 is a candidate. Verify Unix/Windows/Coverage
+and request independent native ARM64/x86-64 20,000x31
+measurements before attributing end-to-end gains. The
+x86-64 256-bit total_time remains strictly required <1
+and worst <2 at every width. Never treat a workflow
+success as a performance-gate acceptance.

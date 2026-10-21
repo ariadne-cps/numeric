@@ -483,6 +483,53 @@ void TestRational::test_native_contract() {
             ARIADNE_TEST_ASSERT(mpq_equal(dense_actual.value(),dense_expected.value())!=0);
         }
     }
+    // R31: verify GCD shortcuts through real add, subtract and
+    // multiply operations against an independent GMP rational oracle.
+    // The 2:3 denominator high-word ratio is deliberately *not*
+    // an exact integer ratio. Exercise determinant 0, +/-1 and
+    // composite values, both operand signs, both orders, and
+    // the 4/5/8/9-limb normalization boundaries.
+    for (unsigned bits:{128u,192u,255u,256u,320u,448u,512u,
+                        1024u,2048u,4096u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        for (unsigned i=0u;i<24u;++i) {
+            const Integer an=base+Integer(13u+2u*i);
+            const Integer ad=base*2+Integer(17u+3u*i);
+            const Integer bn=base+Integer(31u+5u*i);
+            const Integer bd=base*3+Integer(19u+7u*i);
+            for (unsigned signs=0u;signs<4u;++signs) {
+                const Rational left((signs&1u)!=0u ? -an : an,ad);
+                const Rational right((signs&2u)!=0u ? -bn : bn,bd);
+                const GmpRationalBoundary raw_left(left),raw_right(right);
+                GmpRationalBoundary expected_sum,expected_sub,expected_mul;
+                mpq_add(expected_sum.mutable_value(),
+                        raw_left.value(),raw_right.value());
+                mpq_sub(expected_sub.mutable_value(),
+                        raw_left.value(),raw_right.value());
+                mpq_mul(expected_mul.mutable_value(),
+                        raw_left.value(),raw_right.value());
+                const GmpRationalBoundary actual_sum(left+right);
+                const GmpRationalBoundary actual_sub(left-right);
+                const GmpRationalBoundary actual_mul(left*right);
+                ARIADNE_TEST_ASSERT(mpq_equal(
+                    actual_sum.value(),expected_sum.value())!=0);
+                ARIADNE_TEST_ASSERT(mpq_equal(
+                    actual_sub.value(),expected_sub.value())!=0);
+                ARIADNE_TEST_ASSERT(mpq_equal(
+                    actual_mul.value(),expected_mul.value())!=0);
+                Rational inplace(left);
+                inplace+=right;
+                const GmpRationalBoundary actual_inplace_add(inplace);
+                ARIADNE_TEST_ASSERT(mpq_equal(
+                    actual_inplace_add.value(),expected_sum.value())!=0);
+                inplace=left;
+                inplace*=right;
+                const GmpRationalBoundary actual_inplace_mul(inplace);
+                ARIADNE_TEST_ASSERT(mpq_equal(
+                    actual_inplace_mul.value(),expected_mul.value())!=0);
+            }
+        }
+    }
     // R17: high-prefix product bounds must agree with exact GMP
     // comparisons. Cover readily separable and nearly equal ratios,
     // reverse ordering, negatives, and the 8/9-limb stack boundary.
