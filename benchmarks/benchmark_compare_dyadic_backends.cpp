@@ -4,12 +4,16 @@
  ****************************************************************************/
 #include "numeric/new_dyadic.hpp"
 #include "numeric/dyadic.hpp"
+#include "benchmark_command_line.hpp"
+#include "logging/logging.hpp"
+#include "logging/command_line.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -26,23 +30,71 @@ template<class T> void consume(T const& value) {
     sink=&value;
 #endif
 }
-unsigned positive(std::string const& s) {
-    std::size_t used=0u;
-    const unsigned long v=std::stoul(s,&used);
-    if(used!=s.size() || !v || v>std::numeric_limits<unsigned>::max())
-        throw std::invalid_argument("invalid positive unsigned");
-    return static_cast<unsigned>(v);
+
+struct Selection {
+    unsigned iterations=20000u;
+    unsigned samples=31u;
+    std::vector<unsigned> sizes{53u,128u,256u,1024u,2048u,4096u};
+    bool summary_only=false;
+    bool details=false;
+    double max_slowdown=std::numeric_limits<double>::infinity();
+};
+
+// Reuse the same Ariadne CLI and validation as the Integer/Rational
+// backends; do not implement another hand-written argv loop.
+List<ArgumentParser> comparison_parsers(Selection& s) {
+    List<ArgumentParser> parsers;
+    parsers.append(make_valued_argument_parser(
+        "i","iterations","Number of operations in each measured sample (positive)",
+        [&s](String const& v)->VoidFunction {
+            const unsigned n=BenchmarkCommandLine::parse_unsigned<unsigned>(v);
+            if(n==0u) throw std::invalid_argument("iterations must be positive");
+            return [&s,n] { s.iterations=n; };
+        }));
+    parsers.append(make_valued_argument_parser(
+        "n","samples","Odd number of samples, at least three",
+        [&s](String const& v)->VoidFunction {
+            const unsigned n=BenchmarkCommandLine::parse_unsigned<unsigned>(v);
+            if(n<3u || n%2u==0u) throw std::invalid_argument("invalid sample count");
+            return [&s,n] { s.samples=n; };
+        }));
+    parsers.append(make_valued_argument_parser(
+        "b","bits","Comma-separated operand sizes in bits (positive)",
+        [&s](String const& v)->VoidFunction {
+            const std::string text(v);
+            if(text.empty() || text.back()==',')
+                throw std::invalid_argument("invalid size list");
+            std::vector<unsigned> sizes;
+            std::istringstream input(text);
+            std::string token;
+            while(std::getline(input,token,',')) {
+                const unsigned n=BenchmarkCommandLine::parse_unsigned<unsigned>(String(token));
+                if(n==0u || std::find(sizes.begin(),sizes.end(),n)!=sizes.end())
+                    throw std::invalid_argument("invalid or duplicate operand size");
+                sizes.push_back(n);
+            }
+            if(sizes.empty()) throw std::invalid_argument("empty size list");
+            return [&s,sizes] { s.sizes=sizes; };
+        }));
+    parsers.append(make_unvalued_argument_parser(
+        "","summary-only","Print only aggregate statistics",
+        [&s] { s.summary_only=true; }));
+    parsers.append(make_unvalued_argument_parser(
+        "","details","Print each matched NewDyadic/Dyadic ratio",
+        [&s] { s.details=true; }));
+    parsers.append(make_valued_argument_parser(
+        "","max-slowdown","Fail if worst NewDyadic/Dyadic slowdown exceeds this",
+        [&s](String const& v)->VoidFunction {
+            const std::string text(v);
+            std::size_t used=0u;
+            const double maximum=std::stod(text,&used);
+            if(used!=text.size() || !std::isfinite(maximum) || maximum<=0.0)
+                throw std::invalid_argument("invalid positive slowdown ratio");
+            return [&s,maximum] { s.max_slowdown=maximum; };
+        }));
+    return parsers;
 }
-std::vector<unsigned> bits_arg(std::string const& s) {
-    std::vector<unsigned> v; std::istringstream in(s);std::string piece;
-    while(std::getline(in,piece,',')) {
-        auto const n=positive(piece);
-        if(std::find(v.begin(),v.end(),n)!=v.end()) throw std::invalid_argument("duplicate bit width");
-        v.push_back(n);
-    }
-    if(v.empty() || s.back()==',')throw std::invalid_argument("invalid bits");
-    return v;
-}
+
 template<class F> double measure(F const& f,unsigned n,unsigned samples) {
     using Clock=std::chrono::steady_clock;
     std::vector<double> data;data.reserve(samples);
@@ -89,16 +141,25 @@ struct Pool {
         }
     }
 };
-void run(unsigned bits,unsigned iterations,unsigned samples) {
+struct Datum {
+    std::string operation;
+    unsigned bits;
+    double reference_ns;
+    double candidate_ns;
+};
+
+void run(unsigned bits,unsigned iterations,unsigned samples,
+         std::vector<Datum>& data) {
     const Pool x(bits);
     constexpr unsigned mask=31u;
     auto pair=[&](char const* name,auto&& old_fn,auto&& new_fn) {
         const double old_ns=measure(old_fn,iterations,samples);
         const double new_ns=measure(new_fn,iterations,samples);
-        std::cout<<std::left<<std::setw(23)<<name<<std::setw(7)<<bits
-                 <<std::right<<std::fixed<<std::setprecision(3)
-                 <<std::setw(16)<<old_ns<<std::setw(16)<<new_ns
-                 <<std::setw(12)<<new_ns/old_ns<<'\n';
+        if(!std::isfinite(old_ns) || !std::isfinite(new_ns) ||
+                old_ns<=0.0 || new_ns<=0.0) {
+            throw std::runtime_error(std::string("invalid benchmark timing: ")+name);
+        }
+        data.push_back({name,bits,old_ns,new_ns});
     };
     pair("construct_integer",[&](unsigned i){return Dyadic(x.first[i&mask]);},
          [&](unsigned i){return NewDyadic(x.first[i&mask]);});
@@ -137,32 +198,132 @@ void run(unsigned bits,unsigned iterations,unsigned samples) {
     pair("pow3",[&](unsigned i){return pow(x.old_a[i&mask],Nat(3u));},
          [&](unsigned i){return pow(x.now_a[i&mask],Nat(3u));});
 }
+struct Aggregate {
+    std::size_t count=0u;
+    double logarithms=0.0;
+    double reference_sum=0.0;
+    double candidate_sum=0.0;
+    double worst=0.0;
+    std::string worst_name;
+
+    void add(Datum const& d) {
+        const double ratio=d.candidate_ns/d.reference_ns;
+        ++count;
+        logarithms+=std::log(ratio);
+        reference_sum+=d.reference_ns;
+        candidate_sum+=d.candidate_ns;
+        if(ratio>worst) {
+            worst=ratio;
+            worst_name=d.operation+", "+std::to_string(d.bits)+" bits";
+        }
+    }
+    void print(std::string const& label) const {
+        if(count==0u || reference_sum<=0.0)
+            throw std::runtime_error("empty Dyadic benchmark aggregate");
+        LOGGING_PRINTLN(std::left<<std::setw(12)<<label
+            <<"  ops="<<std::setw(3)<<count
+            <<"  geomean="<<std::fixed<<std::setprecision(3)
+            <<std::exp(logarithms/static_cast<double>(count))<<"x"
+            <<"  total_time="<<candidate_sum/reference_sum<<"x"
+            <<"  worst="<<worst<<"x ("<<worst_name<<")")
+    }
+};
+
+void print_measurements(std::vector<Datum> const& data,Selection const& s) {
+    if(s.summary_only) return;
+    LOGGING_PRINTLN("Dyadic / NewDyadic benchmark | iterations="
+                    <<s.iterations<<" | samples="<<s.samples)
+    LOGGING_PRINTLN(std::string(79u,'='))
+    LOGGING_PRINTLN(std::left<<std::setw(24)<<"Operation"
+        <<std::setw(8)<<"Bits"<<std::right
+        <<std::setw(16)<<"Dyadic (ns)"<<std::setw(16)<<"NewDyadic (ns)")
+    LOGGING_PRINTLN(std::string(79u,'-'))
+    for(auto const& d:data) {
+        LOGGING_PRINTLN(std::left<<std::setw(24)<<d.operation
+            <<std::setw(8)<<d.bits<<std::right
+            <<std::fixed<<std::setprecision(3)
+            <<std::setw(16)<<d.reference_ns<<std::setw(16)<<d.candidate_ns)
+    }
+    LOGGING_PRINTLN(std::string(79u,'='))
+}
+
+void print_comparison(std::vector<Datum> const& data,Selection const& s) {
+    std::map<unsigned,Aggregate> widths;
+    Aggregate overall;
+    if(s.details) {
+        LOGGING_PRINTLN(" ")
+        LOGGING_PRINTLN("Detailed comparisons (NewDyadic / Dyadic)")
+        LOGGING_PRINTLN(std::string(79u,'-'))
+        LOGGING_PRINTLN(std::left<<std::setw(24)<<"Operation"
+            <<std::setw(8)<<"Bits"<<std::setw(16)<<"Dyadic (ns)"
+            <<std::setw(16)<<"NewDyadic (ns)"<<"Slowdown")
+    }
+    for(auto const& d:data) {
+        widths[d.bits].add(d);
+        overall.add(d);
+        if(s.details) {
+            LOGGING_PRINTLN(std::left<<std::setw(24)<<d.operation
+                <<std::setw(8)<<d.bits
+                <<std::setw(16)<<std::fixed<<std::setprecision(3)
+                <<d.reference_ns<<std::setw(16)<<d.candidate_ns
+                <<d.candidate_ns/d.reference_ns<<"x")
+        }
+    }
+    LOGGING_PRINTLN(" ")
+    LOGGING_PRINTLN(std::string(79u,'='))
+    LOGGING_PRINTLN("NewDyadic / Dyadic slowdown (x; >1 means slower)")
+    LOGGING_PRINTLN(std::string(79u,'-'))
+    for(auto const& [bits,aggregate]:widths) {
+        aggregate.print(std::to_string(bits)+" bits");
+    }
+    overall.print("ALL");
+    LOGGING_PRINTLN(std::string(79u,'='))
+    LOGGING_PRINTLN("geomean weights each (operation, size) equally; "
+                    "total_time weights by measured cost.")
+    if(std::isfinite(s.max_slowdown) && overall.worst>s.max_slowdown) {
+        throw std::runtime_error(
+            "NewDyadic slowdown exceeds --max-slowdown: "+
+            std::to_string(overall.worst)+"x > "+
+            std::to_string(s.max_slowdown)+"x");
+    }
+}
+
 }
 int main(int argc,char const* argv[]) {
-    unsigned iterations=20000u,samples=31u;
-    std::vector<unsigned> widths{53u,128u,256u,1024u,2048u,4096u};
+    BenchmarkCommandLine::initialize_logging();
     try {
-        for(int i=1;i<argc;++i) {
-            std::string key=argv[i];
-            if(++i>=argc)throw std::invalid_argument("missing argument "+key);
-            std::string value=argv[i];
-            if(key=="--bits") widths=bits_arg(value);
-            else if(key=="--iterations") iterations=positive(value);
-            else if(key=="--samples") samples=positive(value);
-            else throw std::invalid_argument("unknown option "+key);
+        Selection selection;
+        CommandLineInterface cli;
+        cli.add(logging_command_line());
+        cli.add(CommandLineContribution(
+            "numeric-dyadic-comparison",comparison_parsers(selection)));
+        const auto args=BenchmarkCommandLine::normalize_legacy_arguments(
+            argc,argv,{"iterations","samples"},
+            {"--iterations","-i","--samples","-n","--bits","-b",
+             "--max-slowdown","--scheduler","-s","--theme","-t",
+             "--verbosity","-v"});
+        if(!cli.acquire(args)) {
+            return BenchmarkCommandLine::requests_help(args)?0:1;
         }
-        if(samples<3u || samples%2u==0u)
-            throw std::invalid_argument("samples must be odd and >=3");
-        std::cout<<"Dyadic vs NewDyadic | iterations="<<iterations
-                 <<" samples="<<samples<<" | reference=legacy Dyadic (mpf)\n";
-        std::cout<<std::left<<std::setw(23)<<"Operation"<<std::setw(7)<<"Bits"
-                 <<std::right<<std::setw(16)<<"Dyadic(ns)"
-                 <<std::setw(16)<<"NewDyadic(ns)"<<std::setw(12)<<"New/Old\n";
-        for(unsigned bits:widths)run(bits,iterations,samples);
-        std::cout<<"Exact verification PASS: native Rational vs legacy Dyadic\n";
-    } catch(std::exception const& e) {
-        std::cerr<<"Dyadic comparison failed: "<<e.what()<<'\n';
+        LOGGING_PRINTLN("Dyadic vs NewDyadic | iterations="
+            <<selection.iterations<<" | samples="<<selection.samples
+            <<" | reference=Dyadic (mpf), not GMP")
+        std::vector<Datum> data;
+        data.reserve(selection.sizes.size()*18u);
+        for(unsigned bits:selection.sizes) {
+            LOGGING_PRINTLN("Measuring "<<bits<<" bits ...")
+            run(bits,selection.iterations,selection.samples,data);
+            LOGGING_PRINTLN("Completed "<<bits<<" bits")
+        }
+        print_measurements(data,selection);
+        // Pool checks exact invariants outside the measured samples.
+        LOGGING_PRINTLN("Numerical verification PASS: "
+            <<selection.sizes.size()*64u<<" paired inputs; "
+            <<"signed add/sub/mul, cube, floor/ceil/round and ordering.")
+        print_comparison(data,selection);
+        return 0;
+    } catch(std::exception const& error) {
+        LOGGING_PRINTLN("Dyadic comparison benchmark: "<<error.what())
         return 1;
     }
-    return 0;
 }
