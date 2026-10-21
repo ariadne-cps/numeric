@@ -7926,3 +7926,54 @@ remain unchanged. Run Unix, Windows and Coverage independently.
 Measure ARM64 and x86-64 with unchanged 20,000x31 official
 benchmark for promotion; a successful CI alone does not show
 performance gain. R32 remains provisional until evaluated.
+
+
+### R32.1 — dual-host native benchmark confirms nominal Rational gates (21 October 2026)
+
+**Independent unchanged-workload measurements.** User-provided R32
+ARM64 and x86-64 reports use the original six precisions
+53/128/256/1024/2048/4096 bits, 15 Rational and GMP operations,
+20,000 iterations, 31 samples. Both report Numerical verification
+PASS for 384 paired inputs and 2,880 operation results.
+
+ARM64 total_time ratios by ascending precision:
+0.426, 0.474, 0.768, 0.768, 0.593, 0.516.
+x86-64 total_time ratios:
+0.831, 0.702, 0.990, 0.857, 0.563, 0.435.
+The overall x86-64 total_time ratio is 0.557.
+At 256 bits, ARM64 div fell from R31 251.902 ns to
+R32 210.150 ns (GMP 280.046 ns), and x86-64 div fell
+from R31 483.145 ns to R32 408.017 ns (GMP 379.313 ns).
+ARM64 256-bit full total_time changed R31 0.777x -> R32
+0.768x; x86-64 R31 1.030x -> R32 0.990x.
+
+**Gate interpretation.** On these two specific native runs,
+total_time<1 holds for every width on both hosts. The
+highest operation slowdown was x86-64 1.980x
+(compare at 128 bits) and ARM64 1.743x
+(compare at 128 bits); both satisfy the strict worst<2
+condition. The x86-64 256-bit total 0.990x has only
+a ~1% margin and the x86-64 128-bit worst 1.980x
+has only ~1% margin. Neither is a repeatability
+claim or proof of robust platform superiority.
+R32 is therefore a successful *measured candidate*,
+but should be remeasured under matched-run stable host
+conditions before declaring a reliable performance gate.
+
+**CI distinction.** The original R32 Unix workflow's
+Ubuntu GCC 13 Release, Ubuntu Clang 16 Release, and Ubuntu
+Clang 16 ThreadSanitizer jobs all succeeded. The macOS
+AppleClang 21 Release job initially failed during GitHub
+Actions 'Set up job' (before compilation); this is a runner
+setup issue rather than evidence of a C++ source failure.
+Coverage succeeded. Windows and any retried macOS checks
+must be tracked separately until completed. The user-requested
+stand-alone Rational benchmark CI remains deleted; no
+performance thresholds, sample counts, workload or test
+cases have been changed by this journal entry.
+
+**Next action.** Freeze the R32 arithmetic implementation for
+now. Prefer repeated independent ARM64 and x86-64 native
+20,000x31 measurements and confirmation of all CI platform
+tests over risky further production dispatch alterations
+when the strict gates are only narrowly met.
