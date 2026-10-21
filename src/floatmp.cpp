@@ -118,7 +118,10 @@ FloatMP::Float(Integer const& z, RoundingModeType rnd, MultiplePrecision pr) {
 FloatMP::Float(Dyadic const& w, RoundingModeType rnd, MultiplePrecision pr) {
     mpfr_init2(_mpfr,pr);
     if (is_finite(w)) {
-        mpfr_set_f(_mpfr,w.get_mpf(),rnd);
+        // Exact GMP-free Dyadic storage; adapt only the arithmetic value
+        // at the MPFR conversion boundary.
+        GmpRationalBoundary exact{Rational(w)};
+        mpfr_set_q(_mpfr,exact.value(),rnd);
     } else if (is_nan(w)) {
         mpfr_set_nan(_mpfr);
     } else {
@@ -171,8 +174,15 @@ FloatMP& FloatMP::operator=(const ExactDouble& x) {
 }
 
 FloatMP& FloatMP::operator=(const Dyadic& w) {
-    mpfr_set_f(_mpfr,w.get_mpf(),get_rounding_mode());
-    ARIADNE_PRECONDITION(*this==w);
+    if (is_finite(w)) {
+        GmpRationalBoundary exact{Rational(w)};
+        mpfr_set_q(_mpfr,exact.value(),get_rounding_mode());
+    } else if (is_nan(w)) {
+        mpfr_set_nan(_mpfr);
+    } else {
+        mpfr_set_inf(_mpfr,sgn(w)==Sign::POSITIVE ? +1 : -1);
+    }
+    ARIADNE_PRECONDITION(*this==w || is_nan(w));
     return *this;
 }
 

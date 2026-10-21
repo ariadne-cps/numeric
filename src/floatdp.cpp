@@ -175,7 +175,7 @@ FloatDP& FloatDP::operator=(ExactDouble const& x) {
 
 FloatDP& FloatDP::operator=(Dyadic const& w) {
     if (is_finite(w)) {
-        this->dbl=mpf_get_d(w.get_mpf());
+        this->dbl=w.get_d();
         ARIADNE_PRECONDITION(*this==w);
     } else if (is_nan(w)) {
         *this=FloatDP::nan(this->precision());

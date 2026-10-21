@@ -366,3 +366,21 @@ native Rational exact arithmetic checks remain outside the timing
 regions; later migration will rename the temporary `NewDyadic`
 type identifier to `Dyadic`. CI and benchmark compilation remain
 required; this step is not the complete class migration.
+
+### D44 — remove direct Dyadic mpf access on FloatDP/FloatMP input (21 October 2026)
+
+As part of the authorized retirement of the GMP-backed Dyadic,
+FloatDP assignment now uses the exact type's `get_d()` conversion
+instead of `mpf_get_d(w.get_mpf())`. FloatMP construction and
+assignment use the exact mathematical `Rational(w)` through the
+existing temporary `GmpRationalBoundary` and MPFR's `mpfr_set_q`,
+with explicit handling of NaN and infinities on assignment.
+This removes all direct reads of Dyadic's GMP representation from
+these input paths without changing MPFR's implementation or
+using `double` for multiprecision conversion. The temporary
+boundary is GMP-backed because FloatMP/MPFR remains a separate
+legacy floating-point backend, not because Dyadic owns GMP data.
+Exact output conversions FloatMP->Dyadic and FloatAP->Dyadic still
+need migration before old Dyadic files can safely be removed.
+Do not conflate this intermediate dependency elimination with
+completed promotion or green CI.
