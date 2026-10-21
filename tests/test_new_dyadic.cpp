@@ -156,6 +156,51 @@ void test_arithmetic() {
 // TestDyadic::test_comparisons: same signed comparison and ordering
 // scenarios, plus a compile-time signature check for Boolean/Comparison.
 // R34: bit-for-bit legacy binary64 and exact cross-exponent cmp.
+// R35: ported Dyadic arithmetic oracle over virtual-shift fast path
+// and both fallback boundaries. Test magnitude reversal, both signs,
+// exact cancellation, carry, borrow and +=/-= alias safety.
+void test_aligned_add_sub() {
+    for (unsigned bits:{53u,64u,65u,127u,128u,255u,256u,257u,
+                        320u,511u,512u,1024u,2048u,4096u,4097u}) {
+        const BigUnsigned leading=shift_left(BigUnsigned(1u),bits-1u);
+        for (unsigned tail:{0u,1u,63u}) {
+            const Integer magnitude=Integer::from_magnitude(
+                add(leading,BigUnsigned(tail)),false);
+            for (unsigned signs=0u;signs<4u;++signs) {
+                const Integer a=(signs&1u)!=0u ? -magnitude : magnitude;
+                const Integer b=(signs&2u)!=0u ? -magnitude : magnitude;
+                for (unsigned gap:{0u,1u,7u,31u,63u,64u,65u}) {
+                    const unsigned ea=bits/5u+1u,eb=ea+gap;
+                    const NewDyadic x(a,ea),y(b,eb);
+                    const Dyadic old_x(a,ea),old_y(b,eb);
+                    const Rational expected_sum=Rational(old_x+old_y);
+                    const Rational expected_difference=Rational(old_x-old_y);
+                    check((x+y).to_rational()==expected_sum,
+                          "R35 sum versus legacy Dyadic");
+                    check((x-y).to_rational()==expected_difference,
+                          "R35 difference versus legacy Dyadic");
+                    check((y-x).to_rational()==Rational(old_y-old_x),
+                          "R35 reversed subtraction");
+                    NewDyadic inplace(x);
+                    inplace+=y;
+                    check(inplace.to_rational()==expected_sum,
+                          "R35 in-place addition");
+                    inplace=x;
+                    inplace-=y;
+                    check(inplace.to_rational()==expected_difference,
+                          "R35 in-place subtraction");
+                }
+            }
+        }
+    }
+    for (unsigned gap:{0u,1u,63u,64u,65u}) {
+        const NewDyadic zero(0),one(Integer(1),gap);
+        check(zero+one==one,"R35 zero plus nonzero");
+        check(zero-one==-one,"R35 zero minus nonzero");
+        check(one-zero==one,"R35 nonzero minus zero");
+    }
+}
+
 void test_binary64_and_scaled_comparison() {
     const auto check_double=[](Integer const& coefficient,unsigned exponent) {
         const Dyadic old_value(coefficient,exponent);
@@ -264,6 +309,7 @@ int main() {
         test_arithmetic();
         test_comparisons();
         test_binary64_and_scaled_comparison();
+        test_aligned_add_sub();
         test_infinity();
         std::cout<<"NewDyadic test port (literal/conversions/arithmetic/"
                     "comparisons/infinity) PASS\n";

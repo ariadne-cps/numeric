@@ -11,6 +11,7 @@
 #include "numeric/twoexp.hpp"
 #include "numeric/builtin.hpp"
 #include <type_traits>
+#include <array>
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -313,6 +314,89 @@ public:
         *this=*this*rhs; return *this;
     }
 
+  private:
+    // R35: for aligned finite signed arithmetic on 5..64-limb
+    // magnitudes with an exponent gap <=63, scan borrowed virtual
+    // shifted limbs and produce one canonical owned magnitude.
+    // No shifted Integer operands or temporary negation.
+    static NewDyadic aligned_add_sub(NewDyadic const& a,NewDyadic const& b,
+                                      bool subtract_second) {
+        using Limb=BigUnsigned::Limb;
+        const BigUnsigned& an=a._coefficient.magnitude();
+        const BigUnsigned& bn=b._coefficient.magnitude();
+        if (an.is_zero()) { return subtract_second ? -b : b; }
+        if (bn.is_zero()) { return a; }
+
+        const std::size_t exponent=std::max(a._denominator_exponent,
+                                            b._denominator_exponent);
+        const unsigned shift_a=static_cast<unsigned>(
+            exponent-a._denominator_exponent);
+        const unsigned shift_b=static_cast<unsigned>(
+            exponent-b._denominator_exponent);
+        const std::size_t a_bits=an.bit_length()+shift_a;
+        const std::size_t b_bits=bn.bit_length()+shift_b;
+        const std::size_t width=(std::max(a_bits,b_bits)+63u)/64u;
+        // Up to 65 shifted limbs, plus one final addition carry.
+        std::array<Limb,66u> output{};
+
+        const auto digit=[](BigUnsigned const& n,std::size_t i,
+                            unsigned shift)->Limb {
+            if (shift==0u) { return n.limb(i); }
+            const Limb low=n.limb(i)<<shift;
+            return i==0u ? low : low|(n.limb(i-1u)>>(64u-shift));
+        };
+
+        const bool a_negative=a._coefficient.negative();
+        const bool b_negative=b._coefficient.negative()!=subtract_second;
+        const bool adding=a_negative==b_negative;
+        bool negative=a_negative,reverse=false;
+        if (!adding) {
+            int order=0;
+            if (a_bits!=b_bits) {
+                order=a_bits>b_bits ? 1 : -1;
+            } else {
+                for (std::size_t i=width;i!=0u;--i) {
+                    const Limb av=digit(an,i-1u,shift_a);
+                    const Limb bv=digit(bn,i-1u,shift_b);
+                    if (av!=bv) {
+                        order=av>bv ? 1 : -1;
+                        break;
+                    }
+                }
+            }
+            if (order==0) { return NewDyadic(); }
+            reverse=order<0;
+            negative=reverse ? b_negative : a_negative;
+        }
+
+        Limb carry_or_borrow=0u;
+        for (std::size_t i=0u;i<width;++i) {
+            Limb av=digit(an,i,shift_a),bv=digit(bn,i,shift_b);
+            if (reverse) { std::swap(av,bv); }
+            if (adding) {
+                const Limb partial=av+bv;
+                const Limb result=partial+carry_or_borrow;
+                carry_or_borrow=static_cast<Limb>(
+                    partial<av || result<partial);
+                output[i]=result;
+            } else {
+                const Limb partial=av-bv;
+                const Limb result=partial-carry_or_borrow;
+                carry_or_borrow=static_cast<Limb>(
+                    av<bv || partial<carry_or_borrow);
+                output[i]=result;
+            }
+        }
+        std::size_t used=width;
+        if (adding && carry_or_borrow!=0u) {
+            output[used++]=carry_or_borrow;
+        }
+        return NewDyadic(Integer::from_magnitude(
+            BigUnsigned(BigUnsigned::LimbView(output.data(),used)),negative),
+            exponent);
+    }
+
+  public:
     friend NewDyadic operator+(NewDyadic const& a,NewDyadic const& b) {
         if (!a.is_finite() || !b.is_finite()) {
             if (a._kind==Kind::NaN || b._kind==Kind::NaN) { return nan(); }
@@ -323,10 +407,28 @@ public:
         }
         const std::size_t e=std::max(a._denominator_exponent,
                                       b._denominator_exponent);
+        const std::size_t as=a._coefficient.magnitude().size();
+        const std::size_t bs=b._coefficient.magnitude().size();
+        if ((as>=5u || bs>=5u) && as<=64u && bs<=64u &&
+                e-std::min(a._denominator_exponent,
+                           b._denominator_exponent)<=63u) {
+            return aligned_add_sub(a,b,false);
+        }
         return NewDyadic(shifted(a._coefficient,e-a._denominator_exponent)
                        +shifted(b._coefficient,e-b._denominator_exponent),e);
     }
     friend NewDyadic operator-(NewDyadic const& a,NewDyadic const& b) {
+        if (a.is_finite() && b.is_finite()) {
+            const std::size_t e=std::max(a._denominator_exponent,
+                                          b._denominator_exponent);
+            const std::size_t as=a._coefficient.magnitude().size();
+            const std::size_t bs=b._coefficient.magnitude().size();
+            if ((as>=5u || bs>=5u) && as<=64u && bs<=64u &&
+                    e-std::min(a._denominator_exponent,
+                               b._denominator_exponent)<=63u) {
+                return aligned_add_sub(a,b,true);
+            }
+        }
         return a+(-b);
     }
     friend NewDyadic operator*(NewDyadic const& a,NewDyadic const& b) {

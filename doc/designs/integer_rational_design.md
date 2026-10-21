@@ -8028,3 +8028,48 @@ The NewDyadic/Dyadic comparison adopts benchmark_command_line.hpp, Ariadne Comma
 ### R34 - direct native binary64 and virtual-shift compare (21 October 2026)
 
 The user-supplied ARM64 Dyadic/NewDyadic 20000x31 comparison has 18 operations at each width and the unchanged paired fixture check passes. NewDyadic is substantially quicker at construction, multiplication, squaring and integer rounding. The dominant regressions are to_double (215.242 ns versus 2.856 ns at 4096 bits) and cmp (96.508 ns versus 3.577 ns). The attachment described as x86-64 actually contains a Rational/GMP comparison, so it is NOT a Dyadic result. Replace NewDyadic get_d's owning Rational construction with direct exact 53-bit significand extraction reading at most two limbs; preserve truncation, exponent overflow, subnormal underflow and the legacy mpf_get_d positive-zero convention on negative underflow. Replace cmp's owning shifts with virtual radix-2^64 mantissa alignment and a constant-time high-exponent/sign comparison. Add bitwise GMP-backed legacy Dyadic/get_d checks across normal/subnormal/overflow offsets and exact old/new cmp checks across widths and signs. A standalone 120000-case GMP random test verified nonzero conversion results and discovered positive zero on legacy underflow, which the production candidate follows. Benchmark corpus and public Dyadic/NewDyadic interfaces are unchanged, Rational stays frozen and Rational benchmark CI stays removed. CI and independent full performance repeats remain necessary before accepting R34.
+
+
+### R35 — virtual-shift, single-output native Dyadic add/sub (21 October 2026)
+
+**Paired observations.** User supplied two independent Dyadic/NewDyadic
+runs at 20,000 iterations, 31 samples and six widths, with exact
+verification PASS. At 4096 bits legacy versus NewDyadic add/sub
+times are 71.027/192.369 and 70.302/231.856 ns on the first
+reported system, and 98.457/250.992 and 97.097/271.727 ns
+on the second. Their labels "amd64" and "x86-64" are architecture
+synonyms, not proof of distinct ISAs. The benchmark's comparison
+and binary64 conversion are now substantially improved by R34.
+
+**Implementation.** Preserve the original Dyadic and public
+NewDyadic API. On finite add/sub operands with 5..64 maximum
+magnitude limbs, each individual size <=64 and binary exponent
+gap <=63, replace the construction of two shifted owning
+Integer temporaries, the signed sum, and subtraction's negated
+intermediate with a single 66-limb stack accumulator. Each
+input's shifted radix-2^64 digit is read from borrowed canonical
+BigUnsigned limbs (at most two input reads); no source is mutated.
+For opposite-sign contributions, determine the exact larger
+virtual magnitude from bit lengths and then high-to-low limbs,
+choose the result sign, and subtract with borrow. For matching
+signs, add with carry and retain the final carry limb.
+Canonicalize one final owning magnitude and signed Integer.
+All nonfinite, smaller 1..4-limb, >64-limb, or exponent-gap
+>=64 cases retain their exact previous algorithm. This
+retains exact cancellation, zero, infinity, aliasing and
+all special-value semantics.
+
+**Verification.** A separate C++20 Boost.Multiprecision oracle
+compiled with -Wall -Wextra -Werror verified the underlying
+radix-2^64 aligned addition/subtraction on 200,000 varied random
+up-to-64-limb signed operand pairs including cancellation;
+this is not an integrated project test. Add ported
+test_new_dyadic.cpp legacy-Dyadic/Rational cross-checks at
+53,64,65,127,128,255,256,257,320,511,512,1024,
+2048,4096,4097 bits and gaps 0,1,7,31,63,64,65,
+all four sign combinations, carry, borrow, reverse
+subtraction, += and -=. Existing test_dyadic is unchanged,
+as are all benchmark operations, sample parameters and
+the removal of benchmark CI. Independent Unix/Windows/
+Coverage and same-host performance comparisons are required;
+no benefit is claimed from unmeasured code.
