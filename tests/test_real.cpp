@@ -39,6 +39,7 @@
 #include "numeric/accuracy.hpp"
 
 #include "numeric/float_literals.hpp"
+#include "numeric/floatap.hpp"
 #include "numeric/float_bounds.hpp"
 
 namespace Ariadne {
@@ -175,6 +176,8 @@ void TestReal::test_conversions() {
     const FloatAPBounds native=one.get(ap);
     ARIADNE_TEST_EQUALS(native.lower_raw(),FloatAP(1,ap));
     ARIADNE_TEST_EQUALS(native.upper_raw(),FloatAP(1,ap));
+    ARIADNE_TEST_EQUALS(FloatAPLowerBound(native).raw(),FloatAP(1,ap));
+    ARIADNE_TEST_EQUALS(FloatAPUpperBound(native).raw(),FloatAP(1,ap));
     ARIADNE_TEST_EQUALS(one.compute_using(ap).lower_raw(),FloatAP(1,ap));
     ARIADNE_TEST_EQUALS(one.compute_get(Effort(8u),ap).upper_raw(),FloatAP(1,ap));
     ARIADNE_TEST_EQUALS(ValidatedReal(DyadicBounds(Dyadic(1),Dyadic(2)))

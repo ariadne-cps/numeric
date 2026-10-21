@@ -44,6 +44,9 @@ template<> UpperBound<FloatAP>::UpperBound(ValidatedUpperNumber const& y, Arbitr
 
 // Upper endpoint construction mirrors LowerBound but rounds upward.
 template UpperBound<FloatAP>::UpperBound(Real const&, ArbitraryPrecision);
+// Mirror the lower endpoint constructor. The interval itself already
+// encloses the real value and upper_raw() is its upper endpoint.
+template UpperBound<FloatAP>::UpperBound(Bounds<FloatAP> const&);
 
 template class UpperBound<FloatMP>;
 

@@ -9450,3 +9450,24 @@ direction. No FloatMP conversion is used. Add regression assertions
 for Exact and ValidatedReal at arbitrary precision and both directed
 real computation paths. Tests and native linker/CI remain required
 before treating this as validated.
+
+### D62 — instantiate native bound-from-bounds constructors and complete FloatAP umbrella include (21 October 2026)
+
+A macOS ARM64 build after D61 reported exactly two missing linker
+symbols: `LowerBound<FloatAP>::LowerBound(Bounds<FloatAP> const&)` and
+`UpperBound<FloatAP>::UpperBound(Bounds<FloatAP> const&)`.
+Both constructors are already correctly defined in the existing
+`float_lower_bound.tpl.hpp` and `float_upper_bound.tpl.hpp`;
+explicitly instantiate them in their respective original translation
+units. The rigorous FloatAP enclosure computed by Real is preserved:
+lower uses `lower_raw()` and upper uses `upper_raw()`.
+
+The same build showed incomplete `FloatAP` and
+`ArbitraryPrecision` types in `test_real.cpp`, causing a large
+cascade of irrelevant ostream errors. Include `floatap.hpp`
+explicitly in that test and in the existing `floats.hpp` umbrella
+beside `floatmp.hpp`, so the native backend is publicly available
+where the legacy one is included. Exercise both bound-from-bounds
+constructors in the Real conversion regression. No new header,
+no FloatMP conversion bridge and no change to arithmetic semantics.
+A complete Unix, Windows and Coverage build must still validate D62.
