@@ -631,6 +631,35 @@ void TestRational::test_gmp_differential() {
             }
         }
     }
+    // R20: exact GMP cross-sum checks near both sides of the 8-limb
+    // stack/fallback boundary, with signs, carries and cancellation.
+    for (unsigned bits : {53u,128u,255u,256u,320u,447u,
+                          448u,511u,512u,1024u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        const std::array<std::pair<Rational,Rational>,4u> pairs={{
+            {Rational(base+13,base*2+17),Rational(base+31,base*3+19)},
+            {Rational(base-13,base*3+23),Rational(base+19,base*2+31)},
+            {Rational(base+1,base+2),Rational(base+2,base+3)},
+            {Rational(base+13,base*2+17),Rational(base+13,base*2+17)}
+        }};
+        for (auto const& pair:pairs) {
+            for (unsigned mask=0u;mask<4u;++mask) {
+                const Rational lhs=(mask&1u)!=0u ? -pair.first : pair.first;
+                const Rational rhs=(mask&2u)!=0u ? -pair.second : pair.second;
+                GmpRationalBoundary oracle_lhs(lhs),oracle_rhs(rhs);
+                mpq_add(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
+                check(lhs+rhs);
+                Rational running=lhs;
+                running+=rhs;
+                check(running);
+                mpq_sub(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
+                check(lhs-rhs);
+                running=lhs;
+                running-=rhs;
+                check(running);
+            }
+        }
+    }
     // R19: all four combinations of identity/nonidentity cross-GCD
     // divisors for both multiply and divide, across the inline boundary
     // and long operands. Check exact GMP arithmetic, canonicality,

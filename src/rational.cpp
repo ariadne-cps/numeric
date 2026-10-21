@@ -175,6 +175,58 @@ Integer multiply_magnitude(Integer const& n,BigUnsigned const& m) {
     if (unsigned_is_one(m)) { return n; }
     return Integer::from_magnitude(mul(n.magnitude(),m),n.negative());
 }
+// R20: fuse bounded signed cross products without owning intermediates.
+Integer signed_cross_sum(Integer const& p,BigUnsigned const& x,
+                         Integer const& q,BigUnsigned const& y,bool subtract) {
+    constexpr std::size_t max_limbs=8u;
+    auto const& a=p.magnitude();
+    auto const& b=q.magnitude();
+    // Preserve the faster scalar path for four one-limb factors,
+    // as well as the existing unit-factor and long-operand paths.
+    const bool all_scalar=a.size()==1u && x.size()==1u &&
+                          b.size()==1u && y.size()==1u;
+    if (all_scalar || a.size()>max_limbs || x.size()>max_limbs ||
+            b.size()>max_limbs || y.size()>max_limbs ||
+            unsigned_is_one(x) || unsigned_is_one(y)) {
+        const Integer lhs=multiply_magnitude(p,x);
+        const Integer rhs=multiply_magnitude(q,y);
+        return subtract ? integer_sub(lhs,rhs) : integer_add(lhs,rhs);
+    }
+    using Limb=BigUnsigned::Limb;
+    std::array<Limb,16u> left{},right{};
+    std::array<Limb,17u> out{};
+    const std::size_t ln=a.size()+x.size(),rn=b.size()+y.size();
+    const std::size_t width=std::max(ln,rn);
+    BigUnsigned::mul_into(a.limbs(),x.limbs(),
+        BigUnsigned::MutableLimbView(left.data(),ln));
+    BigUnsigned::mul_into(b.limbs(),y.limbs(),
+        BigUnsigned::MutableLimbView(right.data(),rn));
+    const auto lv=BigUnsigned::LimbView(left.data(),ln);
+    const auto rv=BigUnsigned::LimbView(right.data(),rn);
+    const bool negative_l=p.negative(),negative_r=q.negative()!=subtract;
+    if (negative_l==negative_r) {
+        out[width]=BigUnsigned::add_into(lv,rv,
+            BigUnsigned::MutableLimbView(out.data(),width));
+        return Integer::from_magnitude(
+            BigUnsigned(BigUnsigned::LimbView(out.data(),width+1u)),
+            negative_l);
+    }
+    int order=0;
+    for (std::size_t i=width;i!=0u;--i) {
+        if (left[i-1u]!=right[i-1u]) {
+            order=left[i-1u]>right[i-1u] ? 1 : -1;
+            break;
+        }
+    }
+    if (order==0) { return Integer(0); }
+    const Limb borrow=order>0
+        ? BigUnsigned::sub_into(lv,rv,BigUnsigned::MutableLimbView(out.data(),width))
+        : BigUnsigned::sub_into(rv,lv,BigUnsigned::MutableLimbView(out.data(),width));
+    (void)borrow; // Exact unsigned order above guarantees no borrow.
+    return Integer::from_magnitude(
+        BigUnsigned(BigUnsigned::LimbView(out.data(),width)),
+        order>0 ? negative_l : negative_r);
+}
 BigUnsigned exact_quotient(BigUnsigned const& n,BigUnsigned const& d) {
     return unsigned_is_one(d) ? n : quot(n,d);
 }
@@ -234,18 +286,15 @@ template<> class FiniteOperations<Rational> {
             // is already the reduced denominator. Borrow both inputs
             // instead of copying them through exact_quotient(x,1),
             // and move the owning result numerator into the rational.
-            const Integer an=multiply_magnitude(a._numerator,b._denominator);
-            const Integer bn=multiply_magnitude(b._numerator,a._denominator);
-            Integer n=subtract ? integer_sub(an,bn) : integer_add(an,bn);
+            Integer n=signed_cross_sum(a._numerator,b._denominator,
+                                       b._numerator,a._denominator,subtract);
             if (n.magnitude().is_zero()) { r=Rational(); return; }
             r=reduced(std::move(n),unsigned_mul(a._denominator,b._denominator));
             return;
         }
         const BigUnsigned ad=exact_quotient(a._denominator,g);
         const BigUnsigned bd=exact_quotient(b._denominator,g);
-        const Integer an=multiply_magnitude(a._numerator,bd);
-        const Integer bn=multiply_magnitude(b._numerator,ad);
-        Integer n=subtract ? integer_sub(an,bn) : integer_add(an,bn);
+        Integer n=signed_cross_sum(a._numerator,bd,b._numerator,ad,subtract);
         if (n.magnitude().is_zero()) { r=Rational(); return; }
         // Only a factor of the original denominator gcd can remain.
         const BigUnsigned h=gcd(n.magnitude(),g);

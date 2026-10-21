@@ -6941,3 +6941,47 @@ number of tests, operands, benchmarks or production implementation.
 **Validation:** fresh Unix, Windows and Coverage builds and
 regressions are required; no new performance conclusion until
 the existing ARM64/x86-64 six-width benchmark is rerun.
+
+
+### R20 — bounded stack-based signed cross-product sums (21 October 2026)
+
+**Baseline:** R19c (`3ade341`) passed Unix, Windows and Coverage.
+Both freshly supplied R19c benchmarks (20,000 iterations, 31 samples)
+pass the 384 paired inputs / 2,880 operation results on ARM64 and
+x86-64. Total_time/worst ratios for 53/128/256/1024/2048/4096 bits:
+ARM64 .404/1.213, .746/1.771, 1.176/1.547,
+1.105/1.438, .819/1.447, .681/1.649;
+x86-64 .871/1.409, 1.074/1.991, 1.636/2.046,
+1.167/1.360, .738/1.145, .539/1.119.
+Seven of 12 host/width pairs satisfy both strict gates
+total_time<1x AND worst<2x.
+
+**Change:** in `Rational::add_sub`, when each signed numerator
+magnitude and unsigned scale factor occupies at most eight 64-bit
+limbs, replace two owning multiplications and a third owning
+integer add/sub with exact multiplication into two 16-limb local
+arrays, followed by `BigUnsigned::add_into` or `sub_into` into
+a 17-limb local result. Use full-width magnitude comparison to
+choose the subtraction direction, effective sign and cancellation
+to canonical zero. Materialize only one final owning magnitude
+with `Integer::from_magnitude`. The same helper serves both
+coprime and shared-denominator branches. Four entirely scalar
+factors, any unit scale factor and long operands preserve
+the previous path to avoid undoing existing specializations.
+The public API, GMP oracle, all mathematical operations,
+platform flags, thresholds of underlying kernels and benchmark
+inputs remain unchanged. This is a general allocation-reduction
+technique, not an optimization keyed to benchmark values.
+
+**Tests:** add independent GMP add/sub differential cases at
+53/128/255/256/320/447/448/511/512/1024 bits. Exercise both
+effective operand signs, dense and closely matched fractions,
+zero cancellation, carries, subtract-borrow, compound operators
+and the 8/9-limb boundary. Preserve the prior randomized
+canonical GMP suites and FloatAP regressions.
+
+**Validation pending:** R20 has not been compiled or measured
+locally. Require Unix, Windows and Coverage CI, Integer,
+BigUnsigned, Rational and FloatAP checks, and native six-width
+ARM64 and x86-64 benchmarks before claiming speedup. Keep the
+strict user gates per host and per size.
