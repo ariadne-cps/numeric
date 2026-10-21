@@ -569,6 +569,40 @@ void TestRational::test_gmp_differential() {
         conversion_matches=conversion_matches &&
             std::bit_cast<std::uint64_t>(a.get_d())==std::bit_cast<std::uint64_t>(mpq_get_d(ga.value()));
     }
+    // R16: explicit coprime-denominator (g=1), shared factor with
+    // h=1 and shared factor with h>1. GMP checks the exact result and
+    // canonical positive denominator for both signs and both orders.
+    for (unsigned bits : {53u,128u,256u,1024u,2048u,4096u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        const std::array<std::pair<Rational,Rational>,7u> inputs={{
+            {Rational(1,base),Rational(1,base+1)},
+            {Rational(7,base),Rational(-11,base+1)},
+            {Rational(-1,base),Rational(1,base+1)},
+            {Rational(1,base),Rational(-1,base)},
+            {Rational(1,2*base),Rational(1,2*(base+1))},
+            {Rational(-1,2*base),Rational(1,2*(base+1))},
+            {Rational(1,6),Rational(1,10)}
+        }};
+        for (auto const& pair:inputs) {
+            for (unsigned order=0u;order<2u;++order) {
+                const Rational& a=order==0u ? pair.first : pair.second;
+                const Rational& b=order==0u ? pair.second : pair.first;
+                GmpRationalBoundary native_a(a),native_b(b);
+                mpq_add(expected.mutable_value(),native_a.value(),native_b.value());
+                check(a+b);
+                mpq_sub(expected.mutable_value(),native_a.value(),native_b.value());
+                check(a-b);
+                Rational aliased=a;
+                aliased+=a;
+                mpq_add(expected.mutable_value(),native_a.value(),native_a.value());
+                check(aliased);
+                aliased=a;
+                aliased-=a;
+                mpq_sub(expected.mutable_value(),native_a.value(),native_a.value());
+                check(aliased);
+            }
+        }
+    }
     // Independently check truncation at normal/subnormal and overflow edges,
     // under all four host rounding modes. Operands are not formed as doubles.
     const int saved_rounding=std::fegetround();

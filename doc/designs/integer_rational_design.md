@@ -6733,3 +6733,46 @@ algorithm, or actual test scenario changes.
 **Validation status:** changes pushed directly onto `remove-gmp`;
 Windows, Unix and Coverage CI of R15a must be checked. No local
 MSVC compiler is available in the editing session.
+
+
+### R16 — borrow coprime denominators and move normalized sum (20 October 2026)
+
+**Baseline:** R15a (`b7f79d1`) completed Unix, Windows and Coverage
+CI successfully. The last supplied side-by-side Rational benchmark
+measurements are R13 (before the R14/R15 refactoring); do not present
+those as R16 or R15a performance. The user acceptance gates remain
+`total_time <1x` AND `worst <2x` at each of 53,128,256,1024,
+2048,4096 bits on both ARM64 and x86-64. R13 was compliant on
+7 of 12 host/precision combinations.
+
+**Change:** in `FiniteOperations<Rational>::add_sub`, after
+`g=gcd(den_a,den_b)`, if g=1, work directly with both borrowed
+canonical denominators instead of copying them through
+`exact_quotient(den,1)`. For canonical p/q and r/s with gcd(q,s)=1,
+the signed cross-sum numerator `p*s +/- r*q` is coprime to q:
+modulo q it is p*s (coprime to q), and similarly modulo s
+it is +/-r*q (coprime to s). Hence the product q*s already is
+fully reduced, provided the numerator is nonzero. Skip the redundant
+`gcd(n,1)`, the quotient-by-1 copies and numerator copy; construct
+from an owning numerator moved into the result. Canonical
+cancellation to zero still follows the existing zero path. When
+g!=1, keep the established reduced-denominator algorithm, but if
+the final h=gcd(n,g)=1, again move the already-reduced numerator
+and borrow the original denominator for its final product. h>1
+continues through the prior exact quotient path. All cases preserve
+the prior rational sign, denominator, alias and exceptional semantics.
+No benchmark corpus, operation count, weights or independent GMP
+oracle was modified.
+
+**Tests:** add GMP-oracle exact arithmetic checks at all six widths
+for coprime and shared-factor denominators, with g=1, g>1/h=1,
+g>1/h>1, both operand orders and signs, cancellation to zero,
+self-aliasing via += and -=, and canonical numerator/denominator.
+Existing 1200 randomized GMP test pairs and FloatAP gates remain
+unchanged.
+
+**Validation:** R16 has not been locally compiled or benchmarked.
+Require Unix, Windows and Coverage CI, the complete downstream
+Integer/Rational/FloatAP test suite and fresh unchanged benchmark
+runs on both hosts before claiming a speedup. The fast-path is an
+algebraic identity for all canonical rationals, not benchmark-only.

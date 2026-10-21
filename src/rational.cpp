@@ -152,6 +152,19 @@ template<> class FiniteOperations<Rational> {
         if (a._numerator.magnitude().is_zero()) { r=subtract ? reduced(integer_neg(b._numerator),b._denominator) : b; return; }
         if (b._numerator.magnitude().is_zero()) { r=a; return; }
         const BigUnsigned g=gcd(a._denominator,b._denominator);
+        if (unsigned_is_one(g)) {
+            // R16: coprime canonical denominators cannot introduce a
+            // common factor in the cross-sum numerator. Their product
+            // is already the reduced denominator. Borrow both inputs
+            // instead of copying them through exact_quotient(x,1),
+            // and move the owning result numerator into the rational.
+            const Integer an=multiply_magnitude(a._numerator,b._denominator);
+            const Integer bn=multiply_magnitude(b._numerator,a._denominator);
+            Integer n=subtract ? integer_sub(an,bn) : integer_add(an,bn);
+            if (n.magnitude().is_zero()) { r=Rational(); return; }
+            r=reduced(std::move(n),unsigned_mul(a._denominator,b._denominator));
+            return;
+        }
         const BigUnsigned ad=exact_quotient(a._denominator,g);
         const BigUnsigned bd=exact_quotient(b._denominator,g);
         const Integer an=multiply_magnitude(a._numerator,bd);
@@ -160,6 +173,12 @@ template<> class FiniteOperations<Rational> {
         if (n.magnitude().is_zero()) { r=Rational(); return; }
         // Only a factor of the original denominator gcd can remain.
         const BigUnsigned h=gcd(n.magnitude(),g);
+        if (unsigned_is_one(h)) {
+            // The numerator is already canonical; reuse its ownership
+            // and the unreduced input denominator without copies.
+            r=reduced(std::move(n),unsigned_mul(ad,b._denominator));
+            return;
+        }
         r=reduced(exact_quotient(n,h),unsigned_mul(ad,exact_quotient(b._denominator,h)));
     }
     static Void add(Rational& r,Rational const& a,Rational const& b) { add_sub(r,a,b,false); }
