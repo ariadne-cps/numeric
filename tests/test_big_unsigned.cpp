@@ -1063,9 +1063,9 @@ void TestBigUnsigned::test_views_and_scratch()
             mpz_import(shifted_b.value,b.size(),-1,8,0,0,b.limbs().data());
             for (unsigned sa:{0u,1u,7u,31u,63u}) {
                 for (unsigned sb:{0u,1u,7u,31u,63u}) {
-                    mpz_mul_2exp(shifted_a.value,shifted_a.value(),
+                    mpz_mul_2exp(shifted_a.value,shifted_a.value,
                                  static_cast<mp_bitcnt_t>(sa));
-                    mpz_mul_2exp(shifted_b.value,shifted_b.value(),
+                    mpz_mul_2exp(shifted_b.value,shifted_b.value,
                                  static_cast<mp_bitcnt_t>(sb));
                     mpz_add(shifted_expected.value,shifted_a.value,
                             shifted_b.value);
@@ -1082,9 +1082,9 @@ void TestBigUnsigned::test_views_and_scratch()
                         check_against_gmp(BigUnsigned::sub_shifted(
                             b.limbs(),sb,a.limbs(),sa),shifted_expected.value);
                     }
-                    mpz_tdiv_q_2exp(shifted_a.value,shifted_a.value(),
+                    mpz_tdiv_q_2exp(shifted_a.value,shifted_a.value,
                                    static_cast<mp_bitcnt_t>(sa));
-                    mpz_tdiv_q_2exp(shifted_b.value,shifted_b.value(),
+                    mpz_tdiv_q_2exp(shifted_b.value,shifted_b.value,
                                    static_cast<mp_bitcnt_t>(sb));
                 }
             }
