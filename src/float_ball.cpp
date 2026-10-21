@@ -53,6 +53,23 @@ template FloatAP const Ball<FloatAP,FloatDP>::value() const;
 template OutputStream& Operations<Ball<FloatAP,FloatDP>>::_write(
     OutputStream&, Ball<FloatAP,FloatDP> const&);
 
+
+// Match the FloatMP public constructors for both supported FloatAP error
+// precisions. The generic template definitions use exact FloatAP values
+// and round errors upward in the error precision.
+template Ball<FloatAP,FloatDP>::Ball(Real const&, ArbitraryPrecision, DoublePrecision);
+template Ball<FloatAP,FloatDP>::Ball(ValidatedNumber const&, ArbitraryPrecision, DoublePrecision);
+template Ball<FloatAP,FloatDP>::Ball(Integer const&, ArbitraryPrecision, DoublePrecision);
+template Ball<FloatAP,FloatDP>::Ball(Rational const&, ArbitraryPrecision, DoublePrecision);
+template Ball<FloatAP,FloatAP>::Ball(Bounds<FloatAP> const&, ArbitraryPrecision);
+template Ball<FloatAP,FloatAP>::Ball(Real const&, ArbitraryPrecision, ArbitraryPrecision);
+template Ball<FloatAP,FloatAP>::Ball(ValidatedNumber const&, ArbitraryPrecision, ArbitraryPrecision);
+template Ball<FloatAP,FloatAP>::Ball(Dyadic const&, ArbitraryPrecision, ArbitraryPrecision);
+template Ball<FloatAP,FloatAP>::Ball(Integer const&, ArbitraryPrecision, ArbitraryPrecision);
+template Ball<FloatAP,FloatAP>::Ball(Rational const&, ArbitraryPrecision, ArbitraryPrecision);
+template OutputStream& Operations<Ball<FloatAP,FloatAP>>::_write(
+    OutputStream&, Ball<FloatAP,FloatAP> const&);
+
 template class Ball<FloatMP,FloatMP>;
 template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&);
 template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&, Nat);
@@ -62,6 +79,8 @@ template InputStream& Operations<Ball<FloatMP,FloatMP>>::_read(InputStream&, Bal
 template<> String class_name<Ball<FloatDP>>() { return "FloatDPBall"; }
 template<> String class_name<Ball<FloatMP,FloatDP>>() { return "FloatMDPBall"; }
 template<> String class_name<Ball<FloatMP>>() { return "FloatMPBall"; }
+template<> String class_name<Ball<FloatAP,FloatDP>>() { return "FloatAPDPBall"; }
+template<> String class_name<Ball<FloatAP,FloatAP>>() { return "FloatAPBall"; }
 
 Ball<FloatDP> FloatDP::pm(Error<FloatDP> const& e) const { return Ball<FloatDP>(*this,e); }
 Ball<FloatMP> FloatMP::pm(Error<FloatMP> const& e) const { return Ball<FloatMP>(*this,e); }

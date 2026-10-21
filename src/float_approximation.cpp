@@ -27,6 +27,7 @@
 
 #include "floatdp.hpp"
 #include "floatmp.hpp"
+#include "floatap.hpp"
 
 namespace Ariadne {
 
@@ -37,7 +38,12 @@ template<> Approximation<FloatMP>::operator ApproximateNumber() const;
 template class Approximation<FloatDP>;
 template class Approximation<FloatMP>;
 
+// Explicit native constructor definitions needed by NumberGetterMixin.
+template Approximation<FloatAP>::Approximation(Real const&, ArbitraryPrecision);
+template Approximation<FloatAP>::Approximation(ApproximateNumber const&, ArbitraryPrecision);
+
 template<> String class_name<Approximation<FloatDP>>() { return "FloatDPApproximation"; }
 template<> String class_name<Approximation<FloatMP>>() { return "FloatMPApproximation"; }
+template<> String class_name<Approximation<FloatAP>>() { return "FloatAPApproximation"; }
 
 } // namespace Ariadne

@@ -9410,3 +9410,24 @@ integer, dyadic, rational, FloatDP and FloatMP wrappers remain concrete,
 and exercises exact `ExactNumber` and `ValidatedNumber` dispatch
 into native-precision bounds. This is a CI build fix; full Unix,
 Windows and Coverage verification is required.
+
+### D60 — link native FloatAP generic conversion overloads (21 October 2026)
+
+D59's six previously abstract virtual methods now compile, but native
+macOS/ARM64 linking fails because preexisting templated constructors
+for FloatAP specializations were never instantiated or exported.
+Supply the omitted native `LowerBound<FloatAP>(Real,ArbitraryPrecision)`
+and `UpperBound<FloatAP>(Real,ArbitraryPrecision)` instantiations, plus
+`Bounds<FloatAP>(ValidatedNumber,ArbitraryPrecision)`,
+`Approximation<FloatAP>(Real/ApproximateNumber,ArbitraryPrecision)`,
+and `Ball<FloatAP,FloatDP>` / `Ball<FloatAP,FloatAP>` constructors
+for generic numbers and exact values. Define their public
+`class_name` specializations and native ball output.
+
+Remove the temporary FloatMP conversion from FloatAP's Real/validated
+lower, upper, and bounds constructors: use native `get(pr)` and
+existing exact/outward interval conversion, with no MPFR roundtrip.
+The upper-bound source-conversion template must round **upward** rather
+than downward. Do not change Numeric's storage or test expectations.
+The compilation and link of Unix, Windows and Coverage runs must
+still be checked; this journal entry does not assert CI success.

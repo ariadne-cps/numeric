@@ -42,9 +42,11 @@ template<> auto Operations<FloatBounds<MultiplePrecision>>::_write(OutputStream&
 
 template<> Bounds<FloatDP>::Bounds(Real const&, DoublePrecision);
 template<> Bounds<FloatAP>::Bounds(Real const& value, ArbitraryPrecision pr)
-    : Bounds<FloatAP>(
-        static_cast<Dyadic>(value.get(MultiplePrecision(static_cast<mpfr_prec_t>(pr.bits()))).lower_raw()),
-        static_cast<Dyadic>(value.get(MultiplePrecision(static_cast<mpfr_prec_t>(pr.bits()))).upper_raw()),pr) { }
+    : Bounds<FloatAP>(value.get(pr)) { }
+
+// NumberWrapper calls this when converting generic validated values
+// to native outward-rounded intervals.
+template Bounds<FloatAP>::Bounds(ValidatedNumber const&, ArbitraryPrecision);
 template<> Bounds<FloatDP>::operator ValidatedNumber() const;
 template<> Bounds<FloatMP>::operator ValidatedNumber() const;
 

@@ -40,7 +40,10 @@ template<> UpperBound<FloatDP>::UpperBound(Real const&, DoublePrecision);
 
 template class UpperBound<FloatDP>;
 template<> UpperBound<FloatAP>::UpperBound(ValidatedUpperNumber const& y, ArbitraryPrecision pr)
-    : UpperBound<FloatAP>(static_cast<Dyadic>(y.get(MultiplePrecision(static_cast<mpfr_prec_t>(pr.bits()))).raw()),pr) { }
+    : UpperBound<FloatAP>(y.get(pr)) { }
+
+// Upper endpoint construction mirrors LowerBound but rounds upward.
+template UpperBound<FloatAP>::UpperBound(Real const&, ArbitraryPrecision);
 
 template class UpperBound<FloatMP>;
 

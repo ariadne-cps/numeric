@@ -40,7 +40,11 @@ template<> LowerBound<FloatDP>::LowerBound(Real const&, DoublePrecision);
 
 template class LowerBound<FloatDP>;
 template<> LowerBound<FloatAP>::LowerBound(ValidatedLowerNumber const& y, ArbitraryPrecision pr)
-    : LowerBound<FloatAP>(static_cast<Dyadic>(y.get(MultiplePrecision(static_cast<mpfr_prec_t>(pr.bits()))).raw()),pr) { }
+    : LowerBound<FloatAP>(y.get(pr)) { }
+
+// Real is first enclosed as exact dyadic bounds by Real::get(pr).
+// The lower endpoint is then rounded downward by the native FloatAP.
+template LowerBound<FloatAP>::LowerBound(Real const&, ArbitraryPrecision);
 
 template class LowerBound<FloatMP>;
 
