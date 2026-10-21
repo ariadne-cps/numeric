@@ -7514,3 +7514,41 @@ parent/candidate x86-64 comparison and independent ARM64 native
 reports. If the extra comparisons/subtractions cost more than the
 avoided general divisions, revert production dispatch while retaining
 useful diagnostic and design findings.
+
+
+### R26.1 — reject quotient-three production dispatch after dual-host measurement (21 October 2026)
+
+**Measured user reports.** The user ran the unchanged 15-operation
+Rational/GMP benchmark at all six widths, 20,000 iterations and
+31 samples, on both ARM64 and x86-64 with R26 applied. Both hosts
+reported exact verification PASS (384 paired inputs and 2,880 paired
+operation results). The paired x86-64 total-time ratios at
+53/128/256/1024/2048/4096 bits were
+.839/.815/1.170/.922/.629/.488; ARM64 ratios were
+.395/.564/.848/.875/.714/.612.
+The strict 256-bit x86-64 total_time<1 objective is still violated.
+Earlier unchanged-benchmark R23/R25 baselines from the same respective
+hosts were x86-64 .856/.819/1.176/.938/.624/.483 and
+ARM64 .402/.557/.852/.876/.695/.604. The apparent 256-bit
+x86-64 reduction 1.176x -> 1.170x is approximately 0.5%
+relative, too small to establish a dependable performance improvement
+from one set of hardware measurements. At 128 bits the R26 ARM64
+worst-case ratio is 1.957, uncomfortably close to the strict <2 gate.
+The x86-64 R26 worst-case ratio is 1.961 at 128 bits.
+
+**Decision.** Revert *only* the R26 quotient-three modification to
+src/big_unsigned.cpp and restore its precise R25 production contents
+(unaltered R21/R11 quotient-one/two bounded GCD). Preserve the
+new R26 GMP differential tests in tests/test_big_unsigned.cpp: the
+q=2/3/4 and 4/5/128/129-limb boundary scenarios remain valuable
+architecture-level GCD coverage. Preserve all prior R24/R25
+diagnostics and source documentation, clearly labelling their
+candidates as rejected/unselected. No benchmark fixture, sample
+count, threshold, operation, oracle or architecture gate changed.
+The four GitHub checks on R26 (Unix, Windows, Coverage and x86-64
+Rational benchmark) completed successfully; they establish functional
+correctness, not sufficient performance. The R26.1 revert must
+pass the normal checks independently. Future efforts should target
+the actual x86-64 five-limb / 256-bit Rational bottleneck rather
+than widening repeated-subtraction dispatch without independent
+repeatable end-to-end benefit.

@@ -1878,34 +1878,20 @@ BigUnsigned BigUnsigned::gcd_bounded(LimbView a,LimbView b)
             return BigUnsigned(current);
         }
         auto output=MutableLimbView(remainders[next].data(),b.size());
-        // R26: same-width high limbs prove a quotient <=3 whenever
-        // high_a <= 3*high_b. Avoid multiplication overflow by testing
-        // the successive differences. The ordered caller has a>=b.
-        // This extends R11's <=2 case for sparse near-powers of B,
-        // but is valid for arbitrary canonical magnitudes.
-        bool small_quotient=false;
-        if (a.size()==b.size()) {
-            const Limb high_delta=a.back()-b.back();
-            small_quotient=high_delta<=b.back() ||
-                high_delta-b.back()<=b.back();
-        }
-        if (small_quotient) {
-            // Three rotating buffers keep the live input views
-            // disjoint. Each optional repeated subtraction uses
-            // independent workspace, then copies its trimmed result
-            // back to the next remainder buffer.
+        if (a.size()==b.size() && a.back()-b.back()<=b.back()) {
+            // Preserve R11's exact quotient-one/two shortcut. Matching
+            // leading limbs cancel before subtracting any lower words.
             output=subtract_views(a,b,output);
-            for (unsigned step=1u;step<3u;++step) {
-                bool at_least_b=output.size()==b.size();
-                if (at_least_b) {
-                    for (std::size_t i=b.size();i!=0u;--i) {
-                        if (output[i-1u]!=b[i-1u]) {
-                            at_least_b=output[i-1u]>b[i-1u];
-                            break;
-                        }
+            bool at_least_b=output.size()==b.size();
+            if (at_least_b) {
+                for (std::size_t i=b.size();i!=0u;--i) {
+                    if (output[i-1u]!=b[i-1u]) {
+                        at_least_b=output[i-1u]>b[i-1u];
+                        break;
                     }
                 }
-                if (!at_least_b) { break; }
+            }
+            if (at_least_b) {
                 const auto difference=subtract_views(output,b,
                     MutableLimbView(workspace.data(),output.size()));
                 std::copy(difference.begin(),difference.end(),output.begin());
