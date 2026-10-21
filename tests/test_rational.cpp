@@ -413,6 +413,26 @@ void TestRational::test_native_contract() {
         }
     }
 
+    // R28: independent GMP add/sub checks across the 256-bit heap
+    // boundary, four effective sign combinations and 8/9-limb cases.
+    for (unsigned bits:{127u,128u,255u,256u,257u,319u,320u,448u,512u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        for (unsigned mode=0u;mode<4u;++mode) {
+            const Integer a_num=(mode&1u)!=0u ? -(base+13) : base+13;
+            const Integer b_num=(mode&2u)!=0u ? -(base+31) : base+31;
+            const Rational a(a_num,base*2+17);
+            const Rational b(b_num,base*3+19);
+            const GmpRationalBoundary oracle_a(a),oracle_b(b);
+            GmpRationalBoundary oracle_sum,oracle_diff;
+            mpq_add(oracle_sum.mutable_value(),oracle_a.value(),oracle_b.value());
+            mpq_sub(oracle_diff.mutable_value(),oracle_a.value(),oracle_b.value());
+            const GmpRationalBoundary actual_sum(a+b),actual_diff(a-b);
+            ARIADNE_TEST_ASSERT(mpq_equal(actual_sum.value(),oracle_sum.value())!=0);
+            ARIADNE_TEST_ASSERT(mpq_equal(actual_diff.value(),oracle_diff.value())!=0);
+            ARIADNE_TEST_EQUALS(a-a,Rational(0));
+            ARIADNE_TEST_EQUALS(b-b,Rational(0));
+        }
+    }
     // R17: high-prefix product bounds must agree with exact GMP
     // comparisons. Cover readily separable and nearly equal ratios,
     // reverse ordering, negatives, and the 8/9-limb stack boundary.

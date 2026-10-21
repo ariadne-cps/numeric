@@ -7608,3 +7608,51 @@ The new production change is **provisional** pending Unix,
 Windows, Coverage and same-host x86-64 parent/candidate CI as
 well as independent ARM64 comparison. A tiny win within ordinary
 measurement noise is not enough to justify a broadly slower path.
+
+
+### R28 — Rational add/sub and to_double candidates (21 October 2026)
+
+**Motivation.** User-provided R27 full 20,000-iteration, 31-sample
+Rational/MPQ reports pass 384 paired inputs and 2,880 exact results
+on both ARM64 and x86-64. At 256 bits on x86-64: Rational versus GMP
+add 355.474/280.372 ns, sub 348.538/283.086 ns, and to_double
+104.773/61.635 ns; the complete total is 1.164x (fails strict <1).
+ARM64 total at 256 bits is 0.876x. Prior binary, Lehmer and
+quotient-three GCD attempts did not close this gap, so prioritize
+these three operations without modifying mul/div dispatch.
+
+**R28a: get_d exponent ordering.** The previous exact comparison of
+n with denominator*2^exponent, or numerator*2^(-exponent) with
+denominator, materialized a shifted owning BigUnsigned. Replace
+it by exact borrowed-limb comparison. Compare the bit lengths first;
+if equal, reconstruct each virtual shifted limb including the
+64-bit offset and cross-word carry, from most to least significant.
+Protect size_t bit-length addition from overflow. No integer values
+are approximated, no rounding mode depends on the helper, and
+the pre-existing binary64 truncation, prefix certificates, specials,
+underflow and overflow stay untouched. This can remove a heap-backed
+intermediate at the 4/5-limb boundary.
+
+**R28b: bounded positive product accumulation.** For GCC x86-64
+with unsigned __int128, when both factor views have at most eight
+limbs and R23 accumulate_product is adding (not subtracting), fuse
+a_i*b_j+output[i+j]+carry into one exact 128-bit operation and split
+its low/high limbs. This sum is less than B^2 for B=2^64.
+Keep zero-row skipping, carry propagation and the escaped-carry
+bit as in R23. All other targets, negative accumulations, large
+factors, APIs and all Rational dispatch paths remain unchanged.
+Any speedup remains to be measured independently and cannot be
+inferred from compiler or operation counts.
+
+**Correctness/measurement.** Add GMP add/sub checks at 127,128,255,
+256,257,319,320,448,512 bits for both argument signs, cancellation
+and 8/9-limb transitions. Retain the existing independently
+GMP-verified randomized product accumulator suite, full Rational
+random GMP cases, double bitwise comparisons across the four
+hardware rounding modes, underflow/overflow and all finite/special
+cases. The six-width 15-operation official 20,000x31 benchmark
+and its 384 inputs/2,880 expected results are unchanged.
+Run Unix, Windows, Coverage and paired x86-64 GCC/Clang official
+benchmarks; request an independent ARM64 run. R28 is provisional
+until both the whole Rational workload and these isolated operations
+show reproducible benefit with no architecture regression.

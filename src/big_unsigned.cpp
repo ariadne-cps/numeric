@@ -1221,6 +1221,37 @@ BigUnsigned::Limb accumulate_product(
         BigUnsigned::MutableLimbView output) noexcept
 {
     using Limb=BigUnsigned::Limb;
+    // R28: exact fused positive accumulation for bounded GNU x86-64
+    // cross sums. (B-1)^2+2(B-1)<B^2, so the carry fits a limb.
+    // Subtraction, longer inputs and other toolchains retain R23.
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && \
+    defined(__SIZEOF_INT128__) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER)
+    if constexpr (!Subtract) {
+        if (a.size()<=8u && b.size()<=8u) {
+            __extension__ using Wide=unsigned __int128;
+            Limb escaped_fused=0u;
+            for (std::size_t i=0u;i<a.size();++i) {
+                if (a[i]==0u) { continue; }
+                Limb carry=0u;
+                for (std::size_t j=0u;j<b.size();++j) {
+                    const Wide total=static_cast<Wide>(a[i])*b[j]
+                                     +output[i+j]+carry;
+                    output[i+j]=static_cast<Limb>(total);
+                    carry=static_cast<Limb>(total>>64u);
+                }
+                for (std::size_t k=i+b.size();carry!=0u &&
+                        k<output.size();++k) {
+                    const Limb old=output[k];
+                    output[k]=old+carry;
+                    carry=static_cast<Limb>(output[k]<old);
+                }
+                escaped_fused|=carry;
+            }
+            return escaped_fused;
+        }
+    }
+#endif
     Limb escaped=0u;
     for (std::size_t i=0u;i<a.size();++i) {
         if (a[i]==0u) { continue; }

@@ -175,6 +175,34 @@ Integer multiply_magnitude(Integer const& n,BigUnsigned const& m) {
     if (unsigned_is_one(m)) { return n; }
     return Integer::from_magnitude(mul(n.magnitude(),m),n.negative());
 }
+// R28: exact comparison against a logically shifted magnitude.
+// Compare bit lengths first; read the shifted limbs without allocating.
+int compare_shifted_unsigned(BigUnsigned const& a,BigUnsigned const& b,
+                             std::size_t shift) {
+    using Limb=BigUnsigned::Limb;
+    const std::size_t abits=a.bit_length(),bbits=b.bit_length();
+    if (shift>std::numeric_limits<std::size_t>::max()-bbits) { return -1; }
+    const std::size_t scaled_bits=bbits+shift;
+    if (abits!=scaled_bits) { return abits<scaled_bits ? -1 : 1; }
+    const auto left=a.limbs(),right=b.limbs();
+    const std::size_t whole=shift/64u;
+    const unsigned part=static_cast<unsigned>(shift%64u);
+    for (std::size_t i=left.size();i!=0u;--i) {
+        const std::size_t index=i-1u;
+        Limb shifted=0u;
+        if (index>=whole) {
+            const std::size_t j=index-whole;
+            if (j<right.size()) {
+                shifted=part==0u ? right[j] : right[j]<<part;
+            }
+            if (part!=0u && j!=0u && j-1u<right.size()) {
+                shifted|=right[j-1u]>>(64u-part);
+            }
+        }
+        if (left[index]!=shifted) { return left[index]<shifted ? -1 : 1; }
+    }
+    return 0;
+}
 // R20: fuse bounded signed cross products without owning intermediates.
 Integer signed_cross_sum(Integer const& p,BigUnsigned const& x,
                          Integer const& q,BigUnsigned const& y,bool subtract) {
@@ -531,8 +559,10 @@ double Rational::get_d() const {
     if (db>nb && db-nb>1075u) { return 0.0; }
     int exponent=nb>=db ? static_cast<int>(nb-db) : -static_cast<int>(db-nb);
     const int order=exponent>=0
-        ? compare(n,shift_left(_denominator,static_cast<std::size_t>(exponent)))
-        : compare(shift_left(n,static_cast<std::size_t>(-exponent)),_denominator);
+        ? compare_shifted_unsigned(n,_denominator,
+                                   static_cast<std::size_t>(exponent))
+        : -compare_shifted_unsigned(_denominator,n,
+                                    static_cast<std::size_t>(-exponent));
     if (order<0) { --exponent; }
     if (exponent>1023) { return sign*std::numeric_limits<double>::infinity(); }
     if (exponent< -1074) { return 0.0; }
