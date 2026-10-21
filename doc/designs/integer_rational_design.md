@@ -6897,3 +6897,26 @@ the GMP differential tests exercise the g>1,h>1 add/sub branch, and
 the unchanged six-width benchmark is rerun on ARM64 and x86-64 before
 claiming R19 performance. No successful R19a build or speedup is
 claimed in advance.
+
+
+### R19b — fix GMP test variable shadowing on Clang (21 October 2026)
+
+**Observed failure:** R19a's AppleClang ARM64 `-Wshadow -Werror`
+build rejects three GMP oracle declarations in
+`TestRational::test_gmp_differential`: inner `ga(lhs)` and
+`gb(rhs)` (line 651), and later `ga(a)` (line 669), mask the
+`GmpRationalBoundary ga,gb,expected` variables declared at the
+start of the same function (line 555). R19a Unix, Windows and
+Coverage CI did not pass.
+
+**Narrow correction:** in the additional R19 multiplication/division
+oracle cases, rename inner `ga`/`gb` to
+`oracle_lhs`/`oracle_rhs`, and the inner self-alias `ga`
+to `oracle_self`. Update their exact references only.
+All test inputs, 4-way sign/operand cases, exact GMP operations,
+canonicality checks, benchmark workloads and production code remain
+unchanged. No test coverage is weakened.
+
+**Validation:** verify fresh Unix, Windows and Coverage CI.
+Fresh R19 performance data cannot be claimed until native benchmark
+runs are available.

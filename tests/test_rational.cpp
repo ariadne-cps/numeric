@@ -648,30 +648,30 @@ void TestRational::test_gmp_differential() {
             for (unsigned signs=0u;signs<4u;++signs) {
                 const Rational lhs=(signs&1u)!=0u ? -a : a;
                 const Rational rhs=(signs&2u)!=0u ? -factor : factor;
-                GmpRationalBoundary ga(lhs),gb(rhs);
-                mpq_mul(expected.mutable_value(),ga.value(),gb.value());
+                GmpRationalBoundary oracle_lhs(lhs),oracle_rhs(rhs);
+                mpq_mul(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
                 check(lhs*rhs);
                 Rational result=lhs;
                 result*=rhs;
                 check(result);
-                mpq_mul(expected.mutable_value(),gb.value(),ga.value());
+                mpq_mul(expected.mutable_value(),oracle_rhs.value(),oracle_lhs.value());
                 check(rhs*lhs);
-                mpq_div(expected.mutable_value(),ga.value(),gb.value());
+                mpq_div(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
                 check(lhs/rhs);
                 result=lhs;
                 result/=rhs;
                 check(result);
-                mpq_div(expected.mutable_value(),gb.value(),ga.value());
+                mpq_div(expected.mutable_value(),oracle_rhs.value(),oracle_lhs.value());
                 check(rhs/lhs);
             }
         }
         // Preserve the existing alias-aware square and self-division.
-        GmpRationalBoundary ga(a);
-        mpq_mul(expected.mutable_value(),ga.value(),ga.value());
+        GmpRationalBoundary oracle_self(a);
+        mpq_mul(expected.mutable_value(),oracle_self.value(),oracle_self.value());
         Rational self=a;
         self*=self;
         check(self);
-        mpq_div(expected.mutable_value(),ga.value(),ga.value());
+        mpq_div(expected.mutable_value(),oracle_self.value(),oracle_self.value());
         self=a;
         self/=self;
         check(self);
