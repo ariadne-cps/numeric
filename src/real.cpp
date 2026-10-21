@@ -39,6 +39,7 @@
 #include "decimal.hpp"
 
 #include "float_bounds.hpp"
+#include "floatap.hpp"
 
 #include "real_interface.hpp"
 #include "sequence.hpp"

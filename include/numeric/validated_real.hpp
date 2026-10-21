@@ -73,6 +73,7 @@ class ValidatedReal
     //! Note that increasing the accuracy typically does not yield arbitrarily
     //! tight bounds, as the object is already an approximation to finite accuracy.
     FloatMPBounds get(MultiplePrecision pr) const;
+    FloatAPBounds get(ArbitraryPrecision pr) const;
     //! \brief Write to an output stream.
     friend OutputStream& operator<<(OutputStream&, ValidatedReal const&);
 

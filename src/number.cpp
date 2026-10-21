@@ -41,6 +41,7 @@
 #include "real.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
+#include "floatap.hpp"
 
 #include "number_interface.hpp"
 #include "number_wrapper.hpp"

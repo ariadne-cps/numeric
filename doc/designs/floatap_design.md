@@ -9379,3 +9379,17 @@ all per-width total/worst gates, with 256-bit add/sub about 10%/9% faster
 and total .869 -> .851. Full native measurements and proofs are in the
 paired R23 journal. Native x86-64 reports and remote CI remain pending
 at publication; no x86-64 performance acceptance is inferred.
+
+### D57.1 — native arbitrary-precision access throughout Number and Real (21 October 2026)
+
+Implement native ArbitraryPrecision overloads of NumberInterface and
+NumberWrapper for all six paradigm-specific results (ball with double
+error, ball with arbitrary error, bounds, lower, upper, approximation),
+and convenience metrics/validated getters. Extend Real's compute_get,
+get, compute_using, LowerReal and UpperReal computation, and
+ValidatedReal's direct bounding access to return native FloatAP values.
+Compute rigorous Real enclosures first as DyadicBounds using the
+existing effort-based computation and then round the two exact endpoints
+directly outward via FloatAP, never via FloatMP or double.
+Preserve FloatMP API during coexistence. Local compilation and CI
+remain prerequisites to calling the new overload set validated.

@@ -45,6 +45,7 @@
 #include "builtin.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
+#include "floatap.hpp"
 #include "float_ball.hpp"
 #include "float_bounds.hpp"
 #include "float_upper_bound.hpp"

@@ -89,12 +89,21 @@ class NumberInterface
     virtual FloatMPLowerBound _get(LowerTag, MultiplePrecision) const = 0;
     virtual FloatMPApproximation _get(ApproximateTag, MultiplePrecision) const = 0;
 
+    virtual FloatAPDPBall _get(MetricTag, ArbitraryPrecision, DoublePrecision) const = 0;
+    virtual FloatAPBall _get(MetricTag, ArbitraryPrecision, ArbitraryPrecision) const = 0;
+    virtual FloatAPBounds _get(OrderTag, ArbitraryPrecision) const = 0;
+    virtual FloatAPUpperBound _get(UpperTag, ArbitraryPrecision) const = 0;
+    virtual FloatAPLowerBound _get(LowerTag, ArbitraryPrecision) const = 0;
+    virtual FloatAPApproximation _get(ApproximateTag, ArbitraryPrecision) const = 0;
+
     // FIXME: Only used in templates; should not really be needed
     FloatDPBall _get(MetricTag p, DoublePrecision pr) const;
     FloatMPBall _get(MetricTag p, MultiplePrecision pr) const;
+    FloatAPBall _get(MetricTag p, ArbitraryPrecision pr) const;
 
     FloatDPBounds _get(ValidatedTag, DoublePrecision pr) const;
     FloatMPBounds _get(ValidatedTag, MultiplePrecision pr) const;
+    FloatAPBounds _get(ValidatedTag, ArbitraryPrecision pr) const;
 
     virtual LogicalInterface* _is_pos() const = 0;
 
