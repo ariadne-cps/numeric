@@ -471,3 +471,9 @@ No storage or arithmetic function references GMP. This stages the
 interfaces; it is NOT the final removal of `dyadic.hpp`,
 `dyadic.cpp`, legacy test files, or FloatMP, and CI must validate
 the changes before declaring this layer ready.
+
+### D49 — revert D48's separate extensions header (21 October 2026)
+
+D48 introduced `include/numeric/new_dyadic_extensions.hpp`, a parallel wrapper header with no counterpart in the existing Dyadic organization. This was an architectural deviation and is reverted in full: delete the new header and restore `tests/test_new_dyadic.cpp` to the D47 version. Preserve the D48 entry above for historical traceability, but treat its implementation as **retracted**.
+
+The replacement must use the existing file layout exclusively: `include/numeric/dyadic.hpp` for the native Dyadic class, Positive specialization, writers, and bounds/ball/lower/upper/approximation declarations; `src/dyadic.cpp` for required out-of-line definitions; `tests/test_dyadic.cpp` for the retained and updated tests. Delete `include/numeric/new_dyadic.hpp` and `tests/test_new_dyadic.cpp` at final promotion. Do not create `dyadic_extensions.hpp` or similar files; do not port FloatMP adapters, which are scheduled for retirement. Existing mathematical coverage must be retained through the final renamed test.
