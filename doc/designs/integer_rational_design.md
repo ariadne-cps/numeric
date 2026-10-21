@@ -7798,3 +7798,27 @@ does NOT satisfy the strict total_time<1. ARM64 total
 128-bit compare ratio is 1.982x, close to the <2 gate.
 These are independently supplied native full-workload
 measurements; integrated CI compilation remains necessary.
+
+
+### R30.2 — Clang structured-binding diagnostics and CI policy (21 October 2026)
+
+**Test compilation fix.** The new R30 GMP constructor regression
+used value structured bindings for high_pairs and low_pairs.
+Clang 16 with -Werror rejected both via -Wrange-loop-construct.
+Use const auto& structured bindings for both loops; this preserves
+the exact pair values, every loop iteration, GMP equality and
+canonicality checks, and the R30.1 fix to the test macro's
+internal result variable. These are compiler-policy failures of
+test source, not demonstrated numeric errors. Re-run Unix, Windows
+and Coverage on the corrected commit.
+
+**CI policy per user request.** Delete the stand-alone
+.github/workflows/rational-benchmark.yml workflow, which previously
+ran parent/candidate Rational timings and the R24 GCD diagnostic
+automatically on remove-gmp pushes and allowed manual dispatch.
+No CI benchmark targets, exact oracle, fixture or source benchmark
+files are changed; benchmarks can still be built and run explicitly
+on ARM64 and x86-64 using the existing CMake targets, iterations
+and samples. The normal Unix, Windows, and Coverage workflows remain
+untouched. Subsequent Rational performance claims must cite
+independent native measurements rather than hosted CI benchmarks.

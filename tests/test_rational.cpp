@@ -447,8 +447,8 @@ void TestRational::test_native_contract() {
             {0u,0u},{std::numeric_limits<std::uint64_t>::max(),
                       std::numeric_limits<std::uint64_t>::max()}
         }};
-        for (const auto [high_n,high_d]:high_pairs) {
-            for (const auto [low_n,low_d]:low_pairs) {
+        for (const auto& [high_n,high_d]:high_pairs) {
+            for (const auto& [low_n,low_d]:low_pairs) {
                 for (unsigned signs=0u;signs<4u;++signs) {
                     const Integer positive_n=base*Integer(high_n)+Integer(low_n);
                     const Integer positive_d=base*Integer(high_d)+Integer(low_d);
