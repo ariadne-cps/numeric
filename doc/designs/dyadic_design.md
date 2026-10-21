@@ -447,3 +447,27 @@ explicit rounding and nonfinite values. These overloads are transitional:
 when NewDyadic becomes Dyadic, eliminate the old FloatAP/Dyadic overloads
 and retain just these native implementations. Do not migrate FloatMP.
 Validation through Unix/Windows/Coverage CI is required.
+
+### D48 — stage native interval and enclosure wrappers (21 October 2026)
+
+Extract the existing Dyadic bounds/ball/lower-bound/upper-bound/
+approximation type declarations into an independent
+`numeric/new_dyadic_extensions.hpp` for the experimental native type,
+preserving value/raw access, lattice operations and exact enclosure
+semantics. This is intentionally a parallel API, not a rename of the
+production Dyadic type. The inherited FloatMP-specific constructors
+and `get(MultiplePrecision)` declarations are omitted: FloatMP will
+be retired, not adapted. The `operator ValidatedNumber()` conversion
+is also deferred until the final name migration because its
+NumberWrapper/ExactNumber instantiation requires replacing the
+production class.
+
+Provide exact four-vertex interval multiplication and parity-aware
+integer powers directly, rather than relying on legacy GMP-bound
+source definitions. Add focused tests in `test_new_dyadic.cpp` for
+arithmetic enclosures, crossing-zero square and powers, subset
+refinement, ball conversion, and lower/upper/approximation wrappers.
+No storage or arithmetic function references GMP. This stages the
+interfaces; it is NOT the final removal of `dyadic.hpp`,
+`dyadic.cpp`, legacy test files, or FloatMP, and CI must validate
+the changes before declaring this layer ready.
