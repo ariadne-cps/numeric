@@ -38,11 +38,11 @@
 #include <span>
 #include <utility>
 
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64)
 #include <intrin.h>
 #endif
 
-#if defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__)
+#if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(__clang__)
 #include <immintrin.h>
 #endif
 
@@ -164,7 +164,7 @@ using Limb = BigUnsigned::Limb;
 // All shifts are on unsigned values; no signed-overflow assumptions.
 std::pair<Limb,Limb> multiply_wide_x86_64(Limb a,Limb b) noexcept
 {
-#if defined(_MSC_VER) && defined(_M_X64)
+#if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64)
     unsigned __int64 high = 0u;
     const unsigned __int64 low = _umul128(a,b,&high);
     return {low,high};
@@ -275,7 +275,7 @@ void mul_low_into_comba_x86_64(BigUnsigned::LimbView a,
 // and >=64 multiplier limbs pay for a linear density prescan.
 // Neither kernel requires BMI2, ADX, new alignment or allocations.
 #if (defined(__GNUC__) || defined(__clang__)) && \
-    defined(__x86_64__) && !defined(_MSC_VER)
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(_MSC_VER)
 namespace {
 
 bool use_sparse_carry_rows_x86_64(BigUnsigned::LimbView rows) noexcept
@@ -338,7 +338,7 @@ void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
                                BigUnsigned::MutableLimbView output) noexcept
 {
 #if (defined(__GNUC__) || defined(__clang__)) && \
-    defined(__x86_64__) && !defined(_MSC_VER)
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(_MSC_VER)
     const std::size_t active=std::min(a.size(),output.size());
     if (active<64u || b.size()<64u ||
             use_sparse_carry_rows_x86_64(a.first(active))) {
@@ -852,7 +852,7 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
     if (high==0u) {
         return {low/divisor,low%divisor};
     }
-#if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && (defined(__GNUC__) || defined(__clang__))
     // B48: a 32-bit divisor admits an exact 128/32 quotient via
     // two 64/32 hardware divisions, instead of the compiler's
     // 128/64 __udivti3 helper on ARM64. Since high<divisor<2^32,
@@ -871,13 +871,13 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
         return {(quotient_high<<32u)|quotient_low,lower%divisor};
     }
 #endif
-#if defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__)
+#if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(__clang__)
     // MSVC x64 intrinsic available since Visual Studio 2019.
     unsigned __int64 remainder=0u;
     const unsigned __int64 quotient=_udiv128(
         high,low,divisor,&remainder);
     return {quotient,remainder};
-#elif defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && \
+#elif defined(ARIADNE_BIG_UNSIGNED_X86_64) && (defined(__GNUC__) || defined(__clang__)) && \
         !defined(_MSC_VER)
     // B26: DIVQ divides RDX:RAX by a 64-bit operand, returning
     // quotient in RAX and remainder in RDX. The caller guarantees
@@ -911,7 +911,7 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
 // callers, based on the GMP-verified B62 16/32/64-limb timings,
 // and (B61) >=8-limb single-limb remainder-only callers.
 // Clang, shorter inputs and other targets retain DIVQ; no BMI2/ADX.
-#if defined(__x86_64__) && defined(__GNUC__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
 std::pair<std::uint64_t,std::uint64_t> divide_preinverted_x86_64(
@@ -988,7 +988,7 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
         return a.empty()?Limb{0}:(a.front()&(divisor-1u));
     }
 
-#if defined(__x86_64__) && defined(__GNUC__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
     // B63: the exact B62 GMP-verified pi1 kernel beats DIVQ
@@ -1019,7 +1019,7 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
     }
 #endif
 
-#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__SIZEOF_INT128__) && \
     (defined(__GNUC__) || defined(__clang__))
     // B49: amortize a small divisor's reciprocal over a whole
     // multi-limb quotient. B48 needed two native UDIV instructions
@@ -1077,7 +1077,7 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
 // single-limb inputs, without changing production's >=64 limb pi1 gate.
 // Both helpers retain the public kernel's exact quotient-output contract.
 // Defined only for the GCC x86-64 configuration under test.
-#if defined(__x86_64__) && defined(__GNUC__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
 BigUnsigned::Limb quotient_limb_pi1_into_diagnostic(
@@ -1159,7 +1159,7 @@ BigUnsigned rem_limb_divq_diagnostic(
 BigUnsigned rem_limb_preinverse_diagnostic(
         BigUnsigned const& a,BigUnsigned const& b)
 {
-#if defined(__x86_64__) && defined(__GNUC__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
     if (b.size()==1u && a.size()>=8u &&
@@ -1240,7 +1240,7 @@ bool subtract_digit_product(BigUnsigned::MutableLimbView window,
             }
         }
         Limb low,high;
-#if defined(_MSC_VER) && defined(_M_X64) && !defined(__clang__)
+#if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(__clang__)
         high=0u;
         low=_umul128(divisor[i],digit,&high);
         const Limb previous=low;
@@ -1276,7 +1276,7 @@ bool subtract_digit_product(BigUnsigned::MutableLimbView window,
 // limb still subtracts the incoming carry/borrow. No BMI2/ADX.
 // Production selects this kernel for divisor lengths >=8 limbs;
 // smaller divisors retain the C++ wide implementation.
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && (defined(__GNUC__) || defined(__clang__)) && \
     !defined(_MSC_VER)
 template<bool SparseZero>
 bool subtract_digit_product_x86_64(
@@ -1416,7 +1416,7 @@ void BigUnsigned::divrem_selected_into(
             // B61: exact normalized pi1 speeds up 8+ limb rem-only
             // division on GCC x86-64, without quotient allocation.
             // Preserve short DIVQ, power-of-two, ARM64 and Clang paths.
-#if defined(__x86_64__) && defined(__GNUC__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER) && \
     defined(__SIZEOF_INT128__)
             if (a.size()>=8u) {
@@ -1549,7 +1549,7 @@ void BigUnsigned::divrem_selected_into(
             // >=8-limb x86 divisors use an exact native MULQ/ADCQ
             // multiply/subtract recurrence; all other targets and
             // smaller denominators keep the original wide C++ code.
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && (defined(__GNUC__) || defined(__clang__)) && \
     !defined(_MSC_VER)
             bool overestimated=m>=8u ?
                 subtract_digit_product_x86_64<SparseZero>(
@@ -1922,7 +1922,7 @@ namespace {
 // GCC/Clang with 128-bit integer support. The B19 base-10^9 path
 // remains selected for <=8 limbs and unsupported toolchains,
 // including MSVC. No CPU extension (BMI2/ADX) is required.
-#if (defined(__aarch64__) || defined(__x86_64__)) && \
+#if (defined(ARIADNE_BIG_UNSIGNED_ARM64) || defined(ARIADNE_BIG_UNSIGNED_X86_64)) && \
     defined(__SIZEOF_INT128__) && \
     (defined(__GNUC__) || defined(__clang__))
 std::string to_decimal_blocks_wide(BigUnsigned const& value)
@@ -2024,7 +2024,7 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     if (value.is_zero()) {
         return "0";
     }
-#if (defined(__aarch64__) || defined(__x86_64__)) && \
+#if (defined(ARIADNE_BIG_UNSIGNED_ARM64) || defined(ARIADNE_BIG_UNSIGNED_X86_64)) && \
     defined(__SIZEOF_INT128__) && \
     (defined(__GNUC__) || defined(__clang__))
     // B51: reuse B46's exact reciprocal formatter on both targets
@@ -2137,7 +2137,7 @@ struct DecimalSplitPower {
 // B59: the user's GMP-verified x86-64 GCC B58 experiment favored 32
 // limbs at 2048 and 4096 bits. Preserve the measured 16-limb
 // production baseline on all other compiler/architecture combinations.
-#if defined(__x86_64__) && defined(__GNUC__) && !defined(__clang__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__GNUC__) && !defined(__clang__) && \
     !defined(_MSC_VER) && defined(__SIZEOF_INT128__)
 constexpr std::size_t decimal_recursive_cutoff_limbs=32u;
 #else
@@ -2268,7 +2268,7 @@ namespace {
 // carry slot has never been touched by an earlier row. No input aliasing.
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64) && \
     defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
 bool use_sparse_fused_rows_x86_64(BigUnsigned::LimbView rows) noexcept
 {
@@ -2317,12 +2317,12 @@ void multiply_limbs_fused(BigUnsigned::LimbView a,
                           BigUnsigned::LimbView b,
                           BigUnsigned::MutableLimbView output) noexcept
 {
-#if defined(_MSC_VER) && defined(_M_X64) && defined(ARIADNE_BIG_UNSIGNED_X86_64)
+#if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(ARIADNE_BIG_UNSIGNED_X86_64)
     BigUnsignedDetail::mul_low_into_x86_64(a,b,output);
 #elif defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64) && \
     defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__GNUC__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__GNUC__) && \
     !defined(__clang__) && !defined(_MSC_VER)
     // B40's ARM64 threshold: for small rows avoid an extra density
     // prescan, for large rows pick a branch-free dense recurrence
@@ -2375,7 +2375,7 @@ bool BigUnsigned::has_arm64_multiply() noexcept {
 }
 
 bool BigUnsigned::has_x86_64_carry_multiply() noexcept {
-#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__x86_64__) \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(ARIADNE_BIG_UNSIGNED_X86_64) \
     && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
     return true;
 #else
@@ -2572,12 +2572,12 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
     // on the selected platforms square() has a dedicated >=8-limb
     // kernel, and its mul(a,a) fallback applies only below that bound.
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
     if (a._size>=8u && &a==&b) {
         return square(a);
     }
-#elif defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
+#elif defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(ARIADNE_BIG_UNSIGNED_ARM64) && \
     defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
     if (a._size>=8u && &a==&b) {
         return square(a);
@@ -2585,7 +2585,7 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
 #endif
 
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
     // B72: B71's independent GMP-verified same-library-TU stack
     // construction was faster for short owning products on GCC x86-64,
@@ -2608,7 +2608,7 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
     result.resize_for_result(a._size+b._size);
 
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
     // B54: B35's balanced, large-size Karatsuba dispatch is
     // worthwhile for dense operands; B53 made sparse schoolbook
@@ -2645,7 +2645,7 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
         }
     }
 #endif
-#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(ARIADNE_BIG_UNSIGNED_ARM64) && \
     defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
     // B39: on ARM64, Karatsuba with cutoff 32 beats the dense B37
     // schoolbook for balanced owning 64-limb products in the user's
@@ -2700,7 +2700,7 @@ BigUnsigned mul_short_stack_selected_diagnostic(
         BigUnsigned const& a,BigUnsigned const& b)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
     if (a.size()<=4u && b.size()<=4u) {
         if (a.is_zero() || b.is_zero()) return BigUnsigned{};
@@ -2719,7 +2719,7 @@ BigUnsigned mul_short_stack_fused_diagnostic(
         BigUnsigned const& a,BigUnsigned const& b)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
     if (a.size()<=4u && b.size()<=4u) {
         if (a.is_zero() || b.is_zero()) return BigUnsigned{};
@@ -2742,7 +2742,7 @@ BigUnsigned mul_short_stack_fused_diagnostic(
 // Keep the old selected kernel on ARM64, Clang, MSVC and non-fused
 // GCC builds until their own native benchmarks justify dispatch.
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
 namespace {
 template<bool SkipZeroRows>
@@ -2824,7 +2824,7 @@ void square_limbs_symmetric(BigUnsigned::LimbView a,
 BigUnsigned square(BigUnsigned const& a)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
     if (a._size>=8u) {
         if (a._size>std::numeric_limits<std::size_t>::max()/2u) {
@@ -2839,7 +2839,7 @@ BigUnsigned square(BigUnsigned const& a)
         return result;
     }
 #endif
-#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(ARIADNE_BIG_UNSIGNED_ARM64) && \
     defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
     // B37: native Apple Silicon uses a symmetric square instead of
     // computing a generic product twice for each off-diagonal pair.
@@ -2864,7 +2864,7 @@ BigUnsigned square(BigUnsigned const& a)
 BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
     // R15: retain B74's MSB-first buffered power algorithm unchanged
     // on the same fused GCC x86-64 builds as before.
@@ -2893,12 +2893,12 @@ BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
             // the arrays need no initialization or intermediate copies.
             // Match square()'s existing >=8-limb symmetric selection.
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
             if (squaring && current.size()>=8u) {
                 square_limbs_symmetric(current,output);
             } else
-#elif defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__aarch64__) && \
+#elif defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(ARIADNE_BIG_UNSIGNED_ARM64) && \
     defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
             if (squaring && current.size()>=8u) {
                 BigUnsignedDetail::square_into_symmetric_arm64(current,output);
@@ -2966,7 +2966,7 @@ BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
 BigUnsigned square_short_symmetric_diagnostic(BigUnsigned const& input)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
-    defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+    defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
     if (!input.is_zero() && input.size()<=7u) {
         std::array<BigUnsigned::Limb,14u> digits{};

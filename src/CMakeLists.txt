@@ -30,6 +30,10 @@ target_include_directories(NUMERIC_SRC PRIVATE
 
 target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_NUMERIC_BUILD)
 
+# Architecture selectors below are PRIVATE to every NUMERIC_SRC file,
+# including rational.cpp. Compiler capability checks are independent.
+# Tests and benchmarks do not inherit PRIVATE definitions.
+
 # All BigUnsigned kernels (portable, x86-64 and ARM64) are in one .cpp.
 # The C++20 reference remains compiled for tests/benchmarks on every host.
 # Select at most one native backend through compile definitions;

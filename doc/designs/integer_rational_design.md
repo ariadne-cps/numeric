@@ -6822,3 +6822,8 @@ all prior randomized GMP tests and unchanged benchmark workloads.
 Unix/Windows/Coverage checks plus unchanged ARM64/x86-64 31-sample,
 20,000-iteration runs before interpreting performance. The target
 remains `total_time<1x` and `worst<2x` for every host-width pair.
+
+
+### R18 — use CMake architecture selectors consistently (21 October 2026)
+
+Replace 40 architecture preprocessor predicates in `src/big_unsigned.cpp` and three in `src/rational.cpp` with the existing CMake-selected `ARIADNE_BIG_UNSIGNED_X86_64` / `ARIADNE_BIG_UNSIGNED_ARM64` target-private flags. This is a lexical-only replacement of `defined(__x86_64__)`, `defined(__aarch64__)`, and `defined(_M_X64)`; all compiler feature guards, algorithm bodies, thresholds, benchmarks and test oracles are unchanged. Document PRIVATE definition scope in `src/CMakeLists.txt`. Native regression and benchmarks pending; do not claim performance changes. R17 Unix and Coverage CI passed prior to this refactor.

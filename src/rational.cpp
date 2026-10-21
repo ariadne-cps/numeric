@@ -394,7 +394,7 @@ double Rational::get_d() const {
     if (is_inf(*this)) { return sign*std::numeric_limits<double>::infinity(); }
     const BigUnsigned& n=_numerator.magnitude();
     if (n.is_zero()) { return 0.0; }
-#if defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     (defined(__GNUC__) || defined(__clang__))
     // R12: for two single-limb magnitudes, compute the exact binary
     // exponent without allocating/normalizing shifted BigUnsigned
@@ -451,7 +451,7 @@ double Rational::get_d() const {
     // Truncate toward zero, including subnormals, independent of the active
     // floating rounding mode. The <=53-bit integer is exactly representable.
     const int scale=std::max(exponent-52,-1074);
-#if defined(__aarch64__) && defined(__SIZEOF_INT128__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(__SIZEOF_INT128__) && \
     (defined(__GNUC__) || defined(__clang__))
     // R13: for medium equal-width normal ratios, estimate the 53-bit
     // quotient from the highest limb; accept it ONLY after verifying
@@ -511,7 +511,7 @@ double Rational::get_d() const {
 // R8: the native 128/128 prefix division significantly regressed ARM64
 // while accelerating x86-64. Keep the exact R7 certificate on x86-64
 // and use the earlier R5/fallback path on ARM64 and other targets.
-#if defined(__x86_64__) && defined(__SIZEOF_INT128__) && \
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     (defined(__GNUC__) || defined(__clang__))
     // R7: certify the exact normal binary64 significand from the high
     // one or two limbs. n=N*B+nl, d=D*B+dl, 0<=nl,dl<B.
