@@ -7408,3 +7408,57 @@ benchmark build steps; the user independently observed the
 sign-conversion warning on x86-64. Treat the R24.1 warnings-as-errors
 rebuild and complete hosted workflow as necessary validation.
 No performance improvement is claimed.
+
+
+### R25 — nonproduction bounded Lehmer experiment (21 October 2026)
+
+**Observed R24.1 input.** The user supplied corrected ARM64 and x86-64
+R24 diagnostics (3,000 iterations, 11 samples, all GCD checks pass).
+Binary Stein loses in every measured applicable category on both
+architectures and is not a promotion candidate. On x86-64 at 256 bits,
+construct_b native/GMP=1.678x (243.923/145.365 ns),
+mul_cross_b=1.322x (192.971/145.971 ns), and
+div_num=1.197x (174.313/145.577 ns). At 128 bits, the conditional
+add_reduce GCD costs 79.068 vs 34.492 ns but runs only for 10 of 32
+benchmark pairs. At 256 bits, add_reduce runs for 8 of 32. Consequently,
+optimizing only a low-limb GCD tail cannot by itself close the complete
+256-bit Rational total-time gap. The earlier R24.1 CI succeeded for
+Unix and Coverage; Windows and the hosted benchmark were not yet
+complete when the user reported these measurements.
+
+**Experiment.** Add a self-contained header under benchmarks/ only,
+with a compiler-128-bit bounded Lehmer GCD candidate (at most eight
+64-bit limbs). For equal-length multi-limb inputs, extract the same
+127 leading bits from both, compute up to 20 agreed quotient steps
+using a matrix with small signed coefficients, and apply the resulting
+unimodular matrix to *entire* limb arrays using signed base-2^64
+carry arithmetic. Reject nonrepresentable, negative, or nondecreasing
+transforms; otherwise their determinant +/-1 proves exact gcd
+preservation, even though the prefix approximations are truncated.
+The fallback performs an exact Euclidean step through existing public
+BigUnsigned::divrem_into, deliberately charging its *both-output*
+cost rather than altering any private production remainder selector.
+A scalar tail uses exact 128-bit remainder and scalar std::gcd.
+Coefficient bounds of 2^19 and at most 20 steps bound all signed
+128-bit intermediates. Inputs and all work arrays are disjoint.
+Non-GCC/Clang platforms without __int128 and operands >8 limbs
+retain production gcd, with no misleading candidate timing reported.
+
+This is intentionally a **diagnostic**, not a production Lehmer
+implementation or a promised speedup. The official 15-operation
+Rational benchmark and its fixture, GMP oracle, architecture dispatch,
+semantics, and kernels are all untouched. The R24 profiler now reports
+lehmer/native next to binary/native for available categories, and
+verifies each candidate result against GMP outside timing, including
+the deterministic 0-9 limb boundary cases. A separate standalone C++
+prototype of the same bounded matrix recurrence was tested locally
+against GMP on 200,000 randomized 1-8 limb pairs, using GMP solely as
+the exact remainder fallback in that standalone prototype; this does
+not substitute for a production build or the integrated checks.
+
+**Acceptance rule.** A candidate must be meaningfully faster on
+native x86-64 in the costly 256-bit GCD categories, without harm to
+ARM64, before considering a selective production kernel. Any promotion
+then requires independent GMP canonical regression and 20,000x31
+six-width full Rational runs on both hosts. Do not alter the official
+benchmark or claim R25 performance improvement before these runs.

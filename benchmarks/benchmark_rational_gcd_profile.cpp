@@ -30,6 +30,7 @@
  */
 
 #include "benchmark_exact_arithmetic_workload.hpp"
+#include "benchmark_rational_lehmer_candidate.hpp"
 
 #include <algorithm>
 #include <array>
@@ -207,7 +208,8 @@ std::vector<Group> make_groups(unsigned bits) {
 void verify_case(Case const& item) {
     const auto expected=from_decimal(decimal(item.expected.value));
     if (compare(gcd(item.a,item.b),expected)!=0 ||
-            compare(binary_gcd_stack(item.a,item.b),expected)!=0) {
+            compare(binary_gcd_stack(item.a,item.b),expected)!=0 ||
+            compare(AriadneBenchmark::LehmerDiagnostic::gcd(item.a,item.b),expected)!=0) {
         throw std::runtime_error("R24 GCD mismatch with independent GMP oracle");
     }
 }
@@ -269,6 +271,15 @@ void report_group(Group const& group,unsigned bits,
         std::cout << " binary=" << binary << " binary/native=" << binary/native;
     } else {
         std::cout << " binary=not-applicable";
+    }
+    if (bounded && AriadneBenchmark::LehmerDiagnostic::available) {
+        const double lehmer=exact_arithmetic_median_ns([&](unsigned i) {
+            auto const& item=index(i);
+            return AriadneBenchmark::LehmerDiagnostic::gcd(item.a,item.b);
+        },iterations,samples);
+        std::cout << " lehmer=" << lehmer << " lehmer/native=" << lehmer/native;
+    } else {
+        std::cout << " lehmer=not-applicable";
     }
     std::cout << '\n';
 }
