@@ -7305,3 +7305,56 @@ exact results in both revisions. Total/worst at 53/128/256/1024 bits:
 sequential runs include timing variation; they do not prove universal
 nonregression. Existing FloatAP short-width deficits remain. No FloatAP
 arithmetic or existing Integer kernel selection changed.
+
+
+### R24 — diagnostic of common short GCD costs (21 October 2026)
+
+**Scope and baseline.** The unchanged user-supplied R23 Ubuntu x86-64
+Rational benchmark (20,000 iterations, 31 samples, 384 paired inputs,
+2,880 paired results) reports total/worst at 53/128/256/1024/2048/4096:
+.857/1.331, .817/1.986, 1.175/1.707, .939/1.375,
+.623/1.029, .483/.901. The 256-bit total still violates the strict
+per-width <1 gate; compare at 128 bits is close to the <2 worst-case
+gate. R23 revision 904d41fe passed Unix, Windows, Coverage and hosted
+Rational benchmark workflows. A successful hosted benchmark job does
+not, by itself, constitute a performance-gate pass.
+
+**Diagnostic only.** Add \`benchmark_rational_gcd_profile\` to the
+normal benchmarks build, never to CTest. Recreate the unchanged official
+32-pair Rational operand fixture at all six official widths. Canonicalize
+each Rational operand with GMP outside the timed region. Measure
+separately the two construction reductions, common denominator GCD,
+the final gcd(n,g) for addition and subtraction, the two multiplication
+cross-GCDs, and numerator/denominator division cross-GCDs. Compare
+production BigUnsigned::gcd with directly invoked mpz_gcd; both own
+their returned values, and shared timing uses the same warmed
+sample-median harness as the existing official benchmark.
+
+A diagnostic stack-backed binary GCD (Stein) runs only for magnitudes
+of at most 8 limbs, using independent local buffers for shift and
+subtraction and a final exact common-power-of-two restoration. No
+production BigUnsigned dispatch, arithmetic, Rational invariant or
+GMP/MPFR bridge changes. For larger inputs, the binary candidate
+falls back to the production algorithm for independent correctness
+boundary checks and is reported as inapplicable in timing data.
+Every fixture result is compared to an independently computed GMP gcd
+**outside** timing. Further deterministic 0-9-limb boundary/random
+cases, including zero, equal operands and the 8/9-limb transition,
+are also GMP-oracle checked before measurement. No input set, oracle,
+operation weight, threshold, or reporting field of the original
+official Rational benchmark is changed.
+
+**Hosted x86-64 measurement.** The existing two-compiler benchmark
+workflow now builds and runs the R24 diagnostic on its candidate only,
+after the unchanged R23-parent/R24 official comparison, and uploads
+the diagnostic with host information and raw official logs. Its output
+reports absolute nanoseconds, native/GMP and binary/native by GCD
+category and width. These are **not** projected speedups. Consider
+production promotion only after inspecting measured x86-64 GCC/Clang
+costs, separately for both the GCD and complete Rational operations,
+with no ARM64 regression and all Unix/Windows/Coverage checks.
+In particular, compare at 128 bits must retain worst<2 in the
+unmodified full official benchmark.
+
+**Status at authoring:** no local native x86-64 execution or benchmark
+result has been claimed, and no GCD optimization is promoted.

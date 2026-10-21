@@ -4,6 +4,8 @@ on:
   push:
     branches: [remove-gmp]
     paths:
+      - 'benchmarks/benchmark_rational_gcd_profile.cpp'
+      - 'benchmarks/CMakeLists.txt'
       - 'src/big_unsigned.cpp'
       - 'src/rational.cpp'
       - 'include/numeric/big_unsigned.hpp'
@@ -42,7 +44,7 @@ jobs:
           cmake -S ../numeric-before -B build-before -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF -DWARNINGS_AS_ERRORS=ON
           cmake --build build-before --parallel 2 --target benchmark_compare_rational_backends
           cmake -S . -B build-after -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF -DWARNINGS_AS_ERRORS=ON
-          cmake --build build-after --parallel 2 --target benchmark_compare_rational_backends test_big_unsigned test_integer test_rational test_float test_float_rounding
+          cmake --build build-after --parallel 2 --target benchmark_compare_rational_backends benchmark_rational_gcd_profile test_big_unsigned test_integer test_rational test_float test_float_rounding
       - name: Test candidate
         run: ctest --test-dir build-after -R '^test_(big_unsigned|integer|rational|float|float_rounding)$' --output-on-failure
       - name: Measure sequentially on the same runner
@@ -65,6 +67,17 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           done
+      - name: R24 isolated GCD diagnostic (candidate only)
+        run: |
+          ./build-after/benchmarks/benchmark_rational_gcd_profile 3000 11 > results/r24-gcd.txt 2>&1
+          cat results/r24-gcd.txt
+          {
+            echo "### R24 GCD diagnostic (${{ matrix.compiler }})"
+            echo 'Results are diagnostic, not a performance gate.'
+            echo '```text'
+            cat results/r24-gcd.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

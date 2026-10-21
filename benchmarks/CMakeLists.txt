@@ -13,6 +13,7 @@ set(BENCHMARKS
     benchmark_compare_rational_backends
     benchmark_integer
     benchmark_rational
+    benchmark_rational_gcd_profile
 )
 
 if(NOT TARGET benchmarks)
