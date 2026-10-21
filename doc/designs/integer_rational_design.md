@@ -7552,3 +7552,59 @@ pass the normal checks independently. Future efforts should target
 the actual x86-64 five-limb / 256-bit Rational bottleneck rather
 than widening repeated-subtraction dispatch without independent
 repeatable end-to-end benefit.
+
+
+### R27 — short GCD scalar-tail and equal-prefix candidate (21 October 2026)
+
+**Basis.** The R25 binary/Lehmer diagnostics reject both expensive
+short-GCD candidates. R26's quotient-three experiment passed exact
+paired results but left x86-64 256-bit total_time at 1.170 versus
+1.176 at baseline, so R26.1 reverted its production dispatch and
+retained additional GMP differential tests. Investigate the frequent
+transition to one-limb gcd tails instead: for a canonical multi-limb
+dividend A and scalar divisor d, the first high word A_top needs no
+128/64 division when A_top<d. More generally, for *all* nonzero d,
+an exact first reduction A_top%d, followed by the existing per-limb
+recurrence, preserves A mod d. For powers of two, the complete
+remainder is A_low&(d-1). For two ordered equal-length operands with
+identical limbs 1..n-1, gcd(A,B)=gcd(A,A_low-B_low), and equal
+operands return A unchanged. These laws hold for arbitrary inputs,
+not just the workload's 2^k+small offsets.
+
+**Candidate implementation.** Introduce a nonallocating local
+scalar Euclid helper in big_unsigned.cpp for dividend lengths <=8,
+using the exact DIVQ-backed divide_wide on remaining words and
+ordinary native scalar Euclid; skip the top-word division when it
+is already smaller than d. Use it for the bounded GCD's scalar tail
+and the large-fallback scalar-tail cases of up to eight limbs.
+For >8 limbs, retain B61's preinverted remainder dispatch and
+existing scalar algorithm. Before entering bounded GCD for 2..8
+limbs, check whether the complete high prefix matches. If so,
+return the full original magnitude on equality, otherwise compute
+gcd(A,A_low-B_low) using the same scalar helper without allocating
+the three rotating remainder buffers. Other multi-limb paths and
+quotient-one/two shortcuts are unchanged.
+
+**Measurement rationale and limitations.** A separate local GCC 14
+x86-64 microbenchmark used the exact algebraic Rational 256-bit
+fixture to construct the scalar-tail inputs outside timed loops.
+On that *different* Xeon 8573C host, n=4-5 scalar remainders took
+about 13-20 ns for regular DIVQ recurrence, versus about 13-16 ns
+for top-divide-skipping and about 14-18 ns for preinverted pi1,
+depending on GCD site. The gains are small and must NOT be
+extrapolated to the user's x86-64 CPU or to complete Rational
+operations. More elaborate reciprocal-32 variants were slower
+on the same local host. Correctness comes from independent GMP,
+not from these timing measurements.
+
+**Regression and promotion criteria.** Extend test_big_unsigned's
+GMP-oracle GCD coverage with random shared-high-prefix pairs at
+2,3,4,5,7,8,9 limbs, low-word differences 0,1,6,65537 and 2^63,
+plus scalar divisors 1,2,65537,2^63,UINT64_MAX and random odd
+values across the 1/2/8/9-limb boundaries and both operand orders.
+Do not modify workload operands, the numerical oracle, default
+build flags, 20,000x31 sample schedule or Rational correctness.
+The new production change is **provisional** pending Unix,
+Windows, Coverage and same-host x86-64 parent/candidate CI as
+well as independent ARM64 comparison. A tiny win within ordinary
+measurement noise is not enough to justify a broadly slower path.

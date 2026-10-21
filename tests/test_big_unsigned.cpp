@@ -2800,6 +2800,65 @@ void TestBigUnsigned::test_gcd_decimal()
             }
         }
     }
+    // R27: GMP checks the borrowed-prefix GCD shortcut independently.
+    // The high limbs are equal and the low limb differs by 0, 1,
+    // an odd composite, or a large 64-bit number. Exercise both
+    // argument orders, multi-limb equal inputs, nonzero gcd values,
+    // and the 8/9-limb short/fallback boundary.
+    {
+        GmpInteger left_gmp,right_gmp,oracle_gmp;
+        std::mt19937_64 random(0x5277705245464958ULL);
+        for (std::size_t count:{2u,3u,4u,5u,7u,8u,9u}) {
+            for (unsigned repetition=0u;repetition<96u;++repetition) {
+                std::vector<std::uint64_t> left(count),right(count);
+                for (auto& word:left) { word=random(); }
+                left.back()|=std::uint64_t{1}<<63u;
+                right=left;
+                const std::uint64_t difference=
+                    repetition%5u==0u ? 0u :
+                    repetition%5u==1u ? 1u :
+                    repetition%5u==2u ? 6u :
+                    repetition%5u==3u ? 65537u :
+                    std::uint64_t{1}<<63u;
+                left.front()=std::numeric_limits<std::uint64_t>::max();
+                right.front()=left.front()-difference;
+                const BigUnsigned a(left),b(right);
+                mpz_import(left_gmp.value,a.size(),-1,sizeof(std::uint64_t),
+                           0,0,a.limbs().data());
+                mpz_import(right_gmp.value,b.size(),-1,sizeof(std::uint64_t),
+                           0,0,b.limbs().data());
+                mpz_gcd(oracle_gmp.value,left_gmp.value,right_gmp.value);
+                check_against_gmp(gcd(a,b),oracle_gmp.value);
+                check_against_gmp(gcd(b,a),oracle_gmp.value);
+                check_against_gmp(a,left_gmp.value);
+                check_against_gmp(b,right_gmp.value);
+            }
+        }
+        // Exercise all limb widths of the scalar tail, including
+        // divisors 1, powers of two, UINT64_MAX and mixed words.
+        for (std::size_t count:{1u,2u,3u,4u,5u,7u,8u,9u}) {
+            for (unsigned repetition=0u;repetition<96u;++repetition) {
+                std::vector<std::uint64_t> limbs(count);
+                for (auto& word:limbs) { word=random(); }
+                limbs.back()|=std::uint64_t{1}<<63u;
+                const std::uint64_t d=repetition%6u==0u ? 1u :
+                    repetition%6u==1u ? 2u :
+                    repetition%6u==2u ? 65537u :
+                    repetition%6u==3u ? std::uint64_t{1}<<63u :
+                    repetition%6u==4u ?
+                        std::numeric_limits<std::uint64_t>::max() :
+                        random()|1u;
+                const BigUnsigned a(limbs),b(d);
+                mpz_import(left_gmp.value,a.size(),-1,sizeof(std::uint64_t),
+                           0,0,a.limbs().data());
+                mpz_import(right_gmp.value,b.size(),-1,sizeof(std::uint64_t),
+                           0,0,b.limbs().data());
+                mpz_gcd(oracle_gmp.value,left_gmp.value,right_gmp.value);
+                check_against_gmp(gcd(a,b),oracle_gmp.value);
+                check_against_gmp(gcd(b,a),oracle_gmp.value);
+            }
+        }
+    }
     // R21: fixed coprimality and dense Euclid at the stack/fallback
     // boundary. Both source views must survive every buffer rotation.
     {

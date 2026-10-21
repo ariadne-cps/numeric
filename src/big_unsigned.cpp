@@ -1840,6 +1840,38 @@ BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b)
     return remainder;
 }
 
+// R27: a bounded scalar Euclidean tail does not need to divide its
+// leading word if that word is smaller than the divisor. For a one-limb
+// dividend this is simply the native remainder. A power-of-two divisor
+// needs only the low-limb mask for every dividend width. This helper
+// does not allocate or mutate its borrowed input.
+namespace {
+BigUnsigned::Limb gcd_short_scalar_tail(
+        BigUnsigned::LimbView a,BigUnsigned::Limb current) noexcept
+{
+    using Limb=BigUnsigned::Limb;
+    if (current==1u) { return Limb{1}; }
+    Limb remaining;
+    if (std::has_single_bit(current)) {
+        remaining=a.front()&(current-1u);
+    } else if (a.size()==1u) {
+        remaining=a.front()%current;
+    } else {
+        remaining=a.back();
+        if (remaining>=current) { remaining%=current; }
+        for (std::size_t i=a.size()-1u;i!=0u;--i) {
+            remaining=divide_wide(remaining,a[i-1u],current).second;
+        }
+    }
+    while (remaining!=0u) {
+        const Limb next=current%remaining;
+        current=remaining;
+        remaining=next;
+    }
+    return current;
+}
+} // namespace
+
 BigUnsigned BigUnsigned::gcd_bounded(LimbView a,LimbView b)
 {
     // Canonical views satisfy a>=b>0 and have at most capacity limbs.
@@ -1861,15 +1893,16 @@ BigUnsigned BigUnsigned::gcd_bounded(LimbView a,LimbView b)
     std::size_t next=0u;
     while (!b.empty()) {
         if (b.size()==1u) {
+            // Short GCDs avoid the needless leading 128/64 division;
+            // large tails keep B61's measured preinverted dispatch.
+            if (a.size()<=8u) {
+                return BigUnsigned(gcd_short_scalar_tail(a,b[0u]));
+            }
             Limb current=b[0u];
             if (current==1u) { return BigUnsigned(Limb{1}); }
             Limb remaining;
-            if (a.size()==1u) {
-                remaining=a[0u]%current;
-            } else {
-                divrem_selected_into<false,true>(a,b,{},
-                    MutableLimbView(&remaining,1u),{});
-            }
+            divrem_selected_into<false,true>(a,b,{},
+                MutableLimbView(&remaining,1u),{});
             while (remaining!=0u) {
                 const Limb value=current%remaining;
                 current=remaining;
@@ -1923,6 +1956,23 @@ BigUnsigned gcd(BigUnsigned const& lhs,BigUnsigned const& rhs)
     BigUnsigned const* smaller=&rhs;
     if (compare(*larger,*smaller)<0) { std::swap(larger,smaller); }
 
+    // R27: if the entire high-word prefix is identical, the difference
+    // fits in one limb and gcd(a,b)=gcd(a,a-b). Test only short inputs:
+    // unrelated magnitudes fail the first high-limb comparison cheaply.
+    // Equal inputs must return their whole value, not a scalar zero.
+    if (larger->size()==smaller->size() &&
+            larger->size()>=2u && larger->size()<=8u) {
+        const auto a=larger->limbs();
+        const auto b=smaller->limbs();
+        std::size_t i=a.size()-1u;
+        while (i!=0u && a[i]==b[i]) { --i; }
+        if (i==0u) {
+            if (a[0u]==b[0u]) { return *larger; }
+            // Ordering has already proved a[0]>b[0].
+            return BigUnsigned(gcd_short_scalar_tail(a,a[0u]-b[0u]));
+        }
+    }
+
     if (larger->size()<=128u && smaller->size()>1u) {
         return BigUnsigned::gcd_bounded(larger->limbs(),smaller->limbs());
     }
@@ -1931,9 +1981,11 @@ BigUnsigned gcd(BigUnsigned const& lhs,BigUnsigned const& rhs)
     const auto scalar_tail=[](BigUnsigned const& dividend,
                               BigUnsigned const& divisor) -> BigUnsigned {
         Limb current=divisor.limb(0u);
+        if (dividend.size()<=8u) {
+            return BigUnsigned(gcd_short_scalar_tail(dividend.limbs(),current));
+        }
         if (current==1u) { return BigUnsigned(Limb{1}); }
-        Limb remaining=dividend.size()==1u
-            ? dividend.limb(0u)%current : rem(dividend,divisor).limb(0u);
+        Limb remaining=rem(dividend,divisor).limb(0u);
         while (remaining!=0u) {
             const Limb next=current%remaining;
             current=remaining;
