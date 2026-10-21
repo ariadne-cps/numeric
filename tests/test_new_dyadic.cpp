@@ -443,6 +443,36 @@ void test_floatap_native_bridge() {
     check(is_inf(static_cast<NewDyadic>(FloatAP::inf(Sign::NEGATIVE,precision))),"D47 infinity");
 }
 
+// D48: native exact bounds and ball arithmetic, without GMP storage.
+void test_native_wrappers() {
+    const NewDyadicBounds positive(NewDyadic(1),NewDyadic(3));
+    const NewDyadicBounds negative(NewDyadic(-3),NewDyadic(-1));
+    const NewDyadicBounds crossing(NewDyadic(-2),NewDyadic(3));
+    check((positive+NewDyadicBounds(NewDyadic(2),NewDyadic(4))).upper_raw()
+          ==NewDyadic(7),"D48 bounds add");
+    check((positive-negative).lower_raw()==NewDyadic(2),"D48 bounds sub");
+    check((positive*negative).lower_raw()==NewDyadic(-9),"D48 bounds mul lower");
+    check((positive*negative).upper_raw()==NewDyadic(-1),"D48 bounds mul upper");
+    check(sqr(crossing).lower_raw()==NewDyadic(0),"D48 square crossing lower");
+    check(sqr(crossing).upper_raw()==NewDyadic(9),"D48 square crossing upper");
+    check(pow(crossing,Nat(3u)).lower_raw()==NewDyadic(-8),"D48 odd power");
+    check(pow(crossing,Nat(2u)).lower_raw()==NewDyadic(0),"D48 even power");
+    check(abs(crossing).upper_raw()==NewDyadic(3),"D48 bounds abs");
+    check(refines(NewDyadicBounds(NewDyadic(2),NewDyadic(2)),positive),
+          "D48 bounds refinement");
+    const NewDyadicBall ball(NewDyadic(3),NewDyadic(1));
+    const NewDyadicBounds enclosure=static_cast<NewDyadicBounds>(ball);
+    check(enclosure.lower_raw()==NewDyadic(2) &&
+          enclosure.upper_raw()==NewDyadic(4),"D48 ball enclosure");
+    check((ball*NewDyadicBall(NewDyadic(2),NewDyadic(0))).value_raw()
+          ==NewDyadic(6),"D48 ball multiplication");
+    const NewDyadicLowerBound lower(positive);
+    const NewDyadicUpperBound upper(positive);
+    const NewDyadicApproximation approximation(NewDyadic(2));
+    check(lower.raw()==NewDyadic(1) && upper.raw()==NewDyadic(3)
+          && approximation.raw()==NewDyadic(2),"D48 wrapper values");
+}
+
 // TestDyadic::test_infinity: public special-value contracts, sign,
 // mixed arithmetic, half, abs, min/max and double conversion.
 void test_infinity() {
@@ -492,6 +522,7 @@ int main() {
         test_canonical_fraction_rounding();
         test_wide_abs();
         test_floatap_native_bridge();
+        test_native_wrappers();
         test_infinity();
         std::cout<<"NewDyadic test port (literal/conversions/arithmetic/"
                     "comparisons/infinity) PASS\n";

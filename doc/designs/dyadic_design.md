@@ -477,3 +477,22 @@ the changes before declaring this layer ready.
 D48 introduced `include/numeric/new_dyadic_extensions.hpp`, a parallel wrapper header with no counterpart in the existing Dyadic organization. This was an architectural deviation and is reverted in full: delete the new header and restore `tests/test_new_dyadic.cpp` to the D47 version. Preserve the D48 entry above for historical traceability, but treat its implementation as **retracted**.
 
 The replacement must use the existing file layout exclusively: `include/numeric/dyadic.hpp` for the native Dyadic class, Positive specialization, writers, and bounds/ball/lower/upper/approximation declarations; `src/dyadic.cpp` for required out-of-line definitions; `tests/test_dyadic.cpp` for the retained and updated tests. Delete `include/numeric/new_dyadic.hpp` and `tests/test_new_dyadic.cpp` at final promotion. Do not create `dyadic_extensions.hpp` or similar files; do not port FloatMP adapters, which are scheduled for retirement. Existing mathematical coverage must be retained through the final renamed test.
+
+### D50 — integrate native enclosure wrappers into the existing Dyadic header layout (21 October 2026)
+
+D48 was reverted in D49 because a separate `new_dyadic_extensions.hpp`
+file was not part of the project's Dyadic layout. Restore its already
+CI-tested native wrapper implementation in the **same native class
+header**, currently `include/numeric/new_dyadic.hpp`; this is to be
+renamed in-place to `include/numeric/dyadic.hpp` during final
+promotion. No additional headers or new source files are created.
+Retain the D48 interval/ball/lower/upper/approximation tests in the
+existing native test file, but remove its include of the rejected
+extensions header. The existing wrapper specializations contain
+no accesses to GMP Dyadic storage and no FloatMP-specific overloads.
+
+Production `dyadic.hpp`, `dyadic.cpp` and `test_dyadic.cpp`
+remain unchanged until final type replacement; removal of these
+three legacy bodies and final rename remain explicit follow-up work.
+A passing D48 CI validates only the former split-header variant;
+Unix/Windows/Coverage must validate the new in-header arrangement.
