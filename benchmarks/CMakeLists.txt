@@ -14,7 +14,7 @@ set(BENCHMARKS
     benchmark_integer
     benchmark_rational
     benchmark_rational_gcd_profile
-    benchmark_compare_dyadic_backends
+    benchmark_dyadic
 )
 
 if(NOT TARGET benchmarks)

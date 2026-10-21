@@ -345,3 +345,24 @@ ARM64 20,000x31 comparison on the same workload; worst slowdown must
 be strictly below 2x. A C++ source change or successful CI alone does
 not establish that performance condition. Do not declare NewDyadic
 finished until the gate is measured.
+
+### D43 — standalone native dyadic timing benchmark (21 October 2026)
+
+The user has closed the isolated NewDyadic performance campaign and authorized
+promoting it into Dyadic, retiring the legacy GMP-backed implementation and
+its comparison test. Promotion requires porting downstream bindings and
+rounded-float/ball/bounds and writer APIs before deleting the old class:
+the experimental NewDyadic implementation alone does not provide these.
+
+As the first independent, compilable step, replace
+`benchmark_compare_dyadic_backends.cpp` with
+`benchmark_dyadic.cpp` and update the benchmark CMake target.
+The new executable measures the same 18 arithmetic and construction
+operations at the same six default widths with the same 20,000
+iterations and 31-sample medians; it reports absolute ns values and
+per-width aggregate sums only. Remove Dyadic/mpf reference timings,
+ratios, geomeans, slowdown gates and comparative CLI flags. The
+native Rational exact arithmetic checks remain outside the timing
+regions; later migration will rename the temporary `NewDyadic`
+type identifier to `Dyadic`. CI and benchmark compilation remain
+required; this step is not the complete class migration.
