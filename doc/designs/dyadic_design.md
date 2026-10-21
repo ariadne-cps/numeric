@@ -432,3 +432,18 @@ does not bring back an `mpf_t` Dyadic compatibility API. Because
 the final native rename, downstream API transfer and FloatMP removal
 have not occurred, this is an intermediate migration commit, not a
 claim that the old Dyadic backend has already been removed.
+
+### D47 — parallel native FloatAP/NewDyadic interface before final rename (21 October 2026)
+
+Introduce direct conversions in both directions between FloatAP and NewDyadic
+without using legacy Dyadic or mpf_t. The input side converts the exact
+Rational value and distinguishes exact construction (rejecting inexact
+precision) from explicitly rounded construction. Assignment preserves the
+exact-conversion contract. The output side exports FloatAP's integer
+significand and signed binary exponent as an exact native dyadic, including
+NaN and signed infinity. Add a test matrix of 1/53/127/128/191 bit operands,
+five exponents, both signs, exact Rational verification, assignment,
+explicit rounding and nonfinite values. These overloads are transitional:
+when NewDyadic becomes Dyadic, eliminate the old FloatAP/Dyadic overloads
+and retain just these native implementations. Do not migrate FloatMP.
+Validation through Unix/Windows/Coverage CI is required.

@@ -10,6 +10,7 @@
 #include "numeric/decimal.hpp"
 #include "numeric/twoexp.hpp"
 #include "numeric/rational.hpp"
+#include "numeric/floatap.hpp"
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -413,6 +414,35 @@ void test_wide_abs() {
     check(is_nan(abs(NewDyadic::nan())),"D42 NaN abs");
 }
 
+// D47: native FloatAP conversion, preserving exactness.
+void test_floatap_native_bridge() {
+    const ArbitraryPrecision precision(256_bits);
+    for (unsigned width:{1u,53u,127u,128u,191u}) {
+        const BigUnsigned magnitude=add(shift_left(BigUnsigned(1u),width-1u),BigUnsigned(13u));
+        for (unsigned exponent:{0u,1u,7u,63u,127u}) {
+            for (bool negative:{false,true}) {
+                const Integer coefficient=Integer::from_magnitude(magnitude,negative);
+                const NewDyadic source(coefficient,exponent);
+                const FloatAP value(source,precision);
+                const NewDyadic restored=static_cast<NewDyadic>(value);
+                check(restored.to_rational()==source.to_rational(),"D47 exact roundtrip");
+                check(restored.to_rational()==static_cast<Rational>(value),"D47 Rational oracle");
+                FloatAP assigned(precision);
+                assigned=source;
+                check(static_cast<NewDyadic>(assigned).to_rational()==source.to_rational(),
+                      "D47 exact assignment");
+            }
+        }
+    }
+    const BigUnsigned wide=add(shift_left(BigUnsigned(1u),256u),BigUnsigned(1u));
+    const NewDyadic inexact(Integer::from_magnitude(wide,false));
+    must_fail([&] { (void)FloatAP(inexact,precision); },"D47 reject inexact");
+    const FloatAP rounded(inexact,FloatAP::ROUND_TO_NEAREST,precision);
+    check(is_finite(static_cast<NewDyadic>(rounded)),"D47 explicit rounding");
+    check(is_nan(static_cast<NewDyadic>(FloatAP::nan(precision))),"D47 NaN");
+    check(is_inf(static_cast<NewDyadic>(FloatAP::inf(Sign::NEGATIVE,precision))),"D47 infinity");
+}
+
 // TestDyadic::test_infinity: public special-value contracts, sign,
 // mixed arithmetic, half, abs, min/max and double conversion.
 void test_infinity() {
@@ -461,6 +491,7 @@ int main() {
         test_owned_shifted_arithmetic();
         test_canonical_fraction_rounding();
         test_wide_abs();
+        test_floatap_native_bridge();
         test_infinity();
         std::cout<<"NewDyadic test port (literal/conversions/arithmetic/"
                     "comparisons/infinity) PASS\n";

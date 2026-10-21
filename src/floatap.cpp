@@ -32,6 +32,7 @@
 #include "numeric/detail/rational_gmp_bridge.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
+#include "numeric/new_dyadic.hpp"
 #include "numeric/double.hpp"
 #include "numeric/floatdp.hpp"
 #include "numeric/rounding.hpp"
@@ -787,6 +788,10 @@ FloatAP& FloatAP::operator=(Integer const& n) {
     return *this = FloatAP(n, get_rounding_mode(), precision());
 }
 
+FloatAP& FloatAP::operator=(NewDyadic const& n) {
+    return *this = FloatAP(n, precision());
+}
+
 FloatAP& FloatAP::operator=(Dyadic const& n) {
     // Preserve the exact-assignment contract of FloatMP. Constructing the
     // replacement first also leaves *this unchanged if it is inexact.
@@ -828,6 +833,25 @@ FloatAP::operator Dyadic() const {
                   static_cast<Nat>(shift));
 }
 
+// D47: temporary, native-only export for the eventual Dyadic rename.
+FloatAP::operator NewDyadic() const {
+    if (is_nan()) {
+        return NewDyadic::nan();
+    }
+    if (is_inf()) {
+        return NewDyadic::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
+    }
+    BigUnsigned magnitude=integer_from_gmp(_significand).magnitude();
+    if (magnitude.is_zero()) { return NewDyadic(0); }
+    if (_exponent>=0) {
+        return NewDyadic(Integer::from_magnitude(
+            shift_left(magnitude,shift_amount(_exponent)),_negative));
+    }
+    return NewDyadic(
+        Integer::from_magnitude(std::move(magnitude),_negative),
+        shift_amount(checked_sub(0,_exponent)));
+}
+
 Integer cast_integer(FloatAP const& value) {
     if (!value.is_finite()) {
         throw std::domain_error("FloatAP cannot cast a nonfinite value to Integer");
@@ -856,6 +880,13 @@ Comparison cmp(Rational const& a, FloatAP const& b) {
 FloatAP::Float(ExactDouble const& value, PrecisionType precision)
     : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
 
+FloatAP::Float(NewDyadic const& value, PrecisionType precision)
+    : Float(value.to_rational(),ROUND_TO_NEAREST,precision) {
+    if (!is_nan() && cmp(*this,value.to_rational())!=Comparison::EQUAL) {
+        throw std::runtime_error("FloatAP: native dyadic value not exactly representable at requested precision");
+    }
+}
+
 FloatAP::Float(Dyadic const& value, PrecisionType precision)
     : Float(Rational(value), ROUND_TO_NEAREST, precision) {
     // Unlike the explicitly rounded constructor, this conversion must be
@@ -875,6 +906,10 @@ FloatAP::Float(std::string const& value, PrecisionType precision)
 FloatAP::Float(ExactDouble const& value, RoundingModeType mode,
                PrecisionType precision)
     : Float(Rational(value), mode, precision) { }
+
+FloatAP::Float(NewDyadic const& value, RoundingModeType mode,
+               PrecisionType precision)
+    : Float(value.to_rational(),mode,precision) { }
 
 FloatAP::Float(Dyadic const& value, RoundingModeType mode,
                PrecisionType precision)
