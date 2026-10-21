@@ -142,6 +142,12 @@ class BigUnsigned
     //! This operation has no ISA-specific implementation.
     static Limb divrem_limb_into(
         LimbView a,Limb divisor,MutableLimbView quotient);
+    //! Exact division by a nonzero limb into disjoint caller storage.
+    //! Requires at least a.size() output limbs; extra limbs are zeroed.
+    //! Throws domain_error for zero divisor or nonexact division, and
+    //! length_error for insufficient output. Inputs are not modified.
+    static void divexact_limb_into(
+        LimbView a,Limb divisor,MutableLimbView quotient);
     //! Exact scratch for normalized source views of the supplied lengths.
     //! For dividend n >= divisor m >= 2, returns n+m+1 limbs:
     //! normalized dividend (n+1) and normalized divisor (m).
@@ -276,6 +282,10 @@ class BigUnsigned
         BigUnsigned const& a,BigUnsigned const& b);
     //! Quotient alone, avoiding storage and normalization of the remainder.
     friend BigUnsigned quot(BigUnsigned const& a,BigUnsigned const& b);
+    //! Quotient when b is nonzero and known to divide a exactly.
+    //! Single-limb divisors use the shared exact-division kernel;
+    //! multiprecision divisors retain the general quotient path.
+    friend BigUnsigned quot_exact(BigUnsigned const& a,BigUnsigned const& b);
     //! Remainder alone, avoiding storage and normalization of the quotient.
     friend BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b);
     //! Exact product of two unsigned magnitudes.

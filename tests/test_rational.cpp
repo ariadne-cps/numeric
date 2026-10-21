@@ -706,6 +706,33 @@ void TestRational::test_gmp_differential() {
         self/=self_alias;
         check(self);
     }
+    // R22: scalar exact cancellation, including the even non-power-of-two
+    // divisor 14 and both sides of the eight-limb factor-buffer bound.
+    for (unsigned bits : {53u,127u,128u,255u,256u,447u,448u,511u,512u,1024u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        const Rational a(15*(base+1),14*base);
+        const std::array<Rational,4u> factors={Rational(1),Rational(1,15),
+                                             Rational(14),Rational(14,15)};
+        ARIADNE_TEST_ASSERT(a*factors[3u]==Rational(base+1,base));
+        ARIADNE_TEST_ASSERT(a/Rational(15,14)==Rational(base+1,base));
+        for (auto const& factor:factors) {
+            for (unsigned mask=0u;mask<4u;++mask) {
+                const Rational lhs=(mask&1u)!=0u ? -a : a;
+                const Rational rhs=(mask&2u)!=0u ? -factor : factor;
+                GmpRationalBoundary oracle_lhs(lhs),oracle_rhs(rhs);
+                mpq_mul(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
+                check(lhs*rhs);
+                Rational running=lhs;
+                running*=rhs;
+                check(running);
+                mpq_div(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
+                check(lhs/rhs);
+                running=lhs;
+                running/=rhs;
+                check(running);
+            }
+        }
+    }
     // Independently check truncation at normal/subnormal and overflow edges,
     // under all four host rounding modes. Operands are not formed as doubles.
     const int saved_rounding=std::fegetround();

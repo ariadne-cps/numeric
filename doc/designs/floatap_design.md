@@ -9332,3 +9332,23 @@ GCD can benefit, including FloatAP-to-Rational conversion. Native
 x86-64/MSVC and remote CI validation remain pending at publication.
 Full contracts, absolute Rational timings and regression coverage are
 recorded in the paired R21 entry.
+
+### R22 shared exact scalar quotient contract (21 October 2026)
+
+The paired integer_rational_design.md R22 entry specifies an exact
+single-limb quotient using a modular inverse, disjoint caller storage,
+unsigned carry proofs and existing compiler-wide/portable products.
+There is no new ISA requirement, FloatAP rounding change or arithmetic
+backend. Rational conversions can use the primitive when a GCD proves
+exact divisibility. The implementation passes AppleClang 21 Release (20/20 C++ suites),
+Debug ASan/UBSan (5/5), GCC 16.2 ARM64 (3/3), and the new exact
+kernel's 2,048-case portable-wide-product differential check.
+The unchanged 1,000x11 FloatAP benchmark passes 256 paired inputs and
+3,456 exact results. Final ARM64 R22 total/worst ratios at 53/128/256/
+1024 are 1.654/3.431, 1.079/2.697, .593/2.069, .247/1.611.
+The unchanged R21 baseline's 53-bit total varied from 1.337 to 1.679
+on repetition, largely through MPFR timing; raw first/repeated logs
+are retained. No universal speedup/nonregression or short-width gate
+acceptance is claimed. R22's complete Rational measurements and
+exact-division proofs are in the paired journal. Remote CI and native
+x86-64 measurements remain pending at publication.

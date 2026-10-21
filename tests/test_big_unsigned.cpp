@@ -73,6 +73,7 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_randomized());
         ARIADNE_TEST_CALL(test_multiplication());
         ARIADNE_TEST_CALL(test_division_limb());
+        ARIADNE_TEST_CALL(test_exact_division_limb());
         ARIADNE_TEST_CALL(test_division());
         ARIADNE_TEST_CALL(test_gcd_decimal());
         ARIADNE_TEST_CALL(test_views_and_scratch());
@@ -88,6 +89,7 @@ class TestBigUnsigned
     void test_randomized();
     void test_multiplication();
     void test_division_limb();
+    void test_exact_division_limb();
     void test_division();
     void test_gcd_decimal();
     void test_views_and_scratch();
@@ -1872,6 +1874,68 @@ void TestBigUnsigned::test_division_limb()
     }
 }
 
+
+void TestBigUnsigned::test_exact_division_limb()
+{
+    using Limb=BigUnsigned::Limb;
+    const Limb max=std::numeric_limits<Limb>::max();
+    // Fixed values independent of the native product and division paths.
+    ARIADNE_TEST_ASSERT(to_decimal(quot_exact(
+        from_decimal("340282366920938463463374607431768211455"),BigUnsigned(Limb{3})))
+        =="113427455640312821154458202477256070485");
+    ARIADNE_TEST_ASSERT(to_decimal(quot_exact(
+        from_decimal("36893488147419103230"),BigUnsigned(max)))=="2");
+    std::mt19937_64 random(0x22E1AC7ULL);
+    std::vector<Limb> divisors={1u,2u,3u,6u,7u,10u,12u,17u,65537u,max,max-1u};
+    for (unsigned bit=0u;bit<64u;++bit) {
+        divisors.push_back(Limb{1}<<bit);
+        divisors.push_back((random()>>(63u-bit))|(Limb{1}<<bit));
+    }
+    for (Limb odd=1u;odd<32u;odd+=2u) { divisors.push_back(odd); }
+    GmpInteger oracle_q,oracle_d,oracle_n;
+    for (std::size_t length : {0u,1u,2u,4u,5u,8u,9u,16u,65u,129u}) {
+        for (Limb divisor:divisors) {
+            for (unsigned mode=0u;mode<4u;++mode) {
+                std::vector<Limb> words(length);
+                for (auto& word:words) { word=random(); }
+                if (mode==1u) { std::fill(words.begin(),words.end(),max); }
+                if (mode==2u) { std::fill(words.begin(),words.end(),Limb{0}); }
+                if (mode==3u) {
+                    std::fill(words.begin(),words.end(),Limb{0});
+                    if (!words.empty()) { words.back()=1u; words.front()|=1u; }
+                }
+                mpz_import(oracle_q.value,length,-1,sizeof(Limb),0,0,words.data());
+                mpz_import(oracle_d.value,1u,-1,sizeof(Limb),0,0,&divisor);
+                mpz_mul(oracle_n.value,oracle_q.value,oracle_d.value);
+                std::vector<Limb> input(length+1u);
+                std::size_t count=0u;
+                mpz_export(input.data(),&count,-1,sizeof(Limb),0,0,oracle_n.value);
+                input.resize(count);
+                const BigUnsigned source(input);
+                std::vector<Limb> output(count+2u,max);
+                BigUnsigned::divexact_limb_into(source.limbs(),divisor,output);
+                check_against_gmp(BigUnsigned(output),oracle_q.value);
+                check_against_gmp(quot_exact(source,BigUnsigned(divisor)),oracle_q.value);
+                check_against_gmp(source,oracle_n.value);
+                ARIADNE_TEST_ASSERT(output[count]==0u && output[count+1u]==0u);
+            }
+        }
+    }
+    const std::array<Limb,2u> input={1u,1u};
+    std::array<Limb,2u> output={max,max};
+    bool zero_threw=false,short_threw=false;
+    try { BigUnsigned::divexact_limb_into(input,0u,output); }
+    catch (std::domain_error const&) { zero_threw=true; }
+    try { BigUnsigned::divexact_limb_into(input,3u,std::span(output).first(1u)); }
+    catch (std::length_error const&) { short_threw=true; }
+    ARIADNE_TEST_ASSERT(zero_threw && short_threw && output[0u]==max && output[1u]==max);
+    for (Limb divisor:std::array<Limb,4u>{2u,3u,6u,max}) {
+        bool inexact_threw=false;
+        try { BigUnsigned::divexact_limb_into(input,divisor,output); }
+        catch (std::domain_error const&) { inexact_threw=true; }
+        ARIADNE_TEST_ASSERT(inexact_threw);
+    }
+}
 
 void TestBigUnsigned::test_division()
 {

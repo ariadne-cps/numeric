@@ -7085,3 +7085,119 @@ results. Total/worst at 53/128/256/1024 bits is
 .596/2.053 -> .591/2.055,
 .249/1.642 -> .248/1.615.
 Its prior short-width performance deficits remain outside R21's scope.
+
+### R22 — exact scalar division and borrowed cancelled factors (21 October 2026)
+
+**Implemented contract.** Add a shared exact
+single-limb quotient kernel for the proven-divisibility cases in Rational
+normalization and cross-cancellation. Write a disjoint caller buffer of
+at least the source length; preserve the source and zero extra output.
+Split d=odd*2^s, require the source's low s bits to vanish, and read the
+right-shifted source without an owning shift. For odd d, compute its
+inverse modulo B=2^64, then recover quotient digits from low to high:
+q_i=(a_i-carry)*inverse mod B; carry'=high(q_i*d)+borrow(a_i,carry).
+The invariant q_partial*d = a_partial + carry*B^(i+1) proves the digits;
+carry<d guarantees the high product plus borrow cannot overflow.
+A nonzero final carry rejects nonexact input. The inverse seed
+(3*d) XOR 2 is correct modulo 32 for odd d; four Newton iterations
+x=x*(2-d*x) double the valid bits to at least 64. All arithmetic is
+unsigned modulo B. Power-of-two and scalar source cases retain direct
+shifts/native scalar division. A multiprecision divisor keeps the
+existing general quotient path under the documented exact-divisibility
+precondition. No precision limit or GMP dependency is introduced.
+
+Wide products use compiler-available unsigned 128-bit arithmetic,
+MSVC x64 _umul128, or the existing pure C++20 32-bit-half multiply.
+No new ISA requirement or dispatch option is added. The inverse fixes
+the exact low digit; the wide product supplies the next high carry; inputs, output and all temporary
+factor/product buffers are disjoint. Rational's <=8-limb cancelled
+product can borrow unit-divisor factors and store other scalar-divisor
+quotients in independent eight-limb arrays, then materialize only the
+final product. Longer operands/multiprecision divisors retain owning
+fallbacks. All gcd and canonical Rational proofs remain unchanged.
+
+Validate independent exact products, all divisor bit lengths, odd/even
+and power-of-two divisors, carries, zeros, UINT64_MAX, inline/heap
+boundaries, large operands, source preservation and invalid scalar
+inputs against GMP; retain full Rational/Integer/FloatAP regressions.
+No performance result or threshold acceptance is claimed in advance.
+
+**R21 completed validation and x86-64 baseline.** Commit 97e9ae3 passed
+Unix, Windows and Coverage. The user's x86-64 20,000x31 result passes
+384 inputs/2,880 results: per-width total/worst at 53/128/256/1024/
+2048/4096 bits is .872/1.391, .892/1.995, 1.294/1.730,
+.980/1.382, .654/1.064, .500/.975. The 256-bit total remains
+above 1x; compare at 128 bits has almost no margin under 2x.
+The new hosted R21 workflow passed both compiler jobs, but its actual
+performance limits are compiler/host dependent: GCC 13 on AMD EPYC
+9V74 reports total/worst .729/1.672, .652/2.210, 1.066/1.667,
+.828/1.006, .561/1.065, .462/.953. Clang 16 on AMD EPYC 7763
+reports .501/1.163, .668/2.018, 1.100/2.029, 1.552/2.943,
+1.881/3.223, 2.473/3.970. Do not treat successful benchmark jobs
+as performance-gate acceptance. Hosted Clang's large-width square
+path is a separate existing deficit. The artifacts were downloaded
+read-only and matched the SHA-256 digests returned by GitHub.
+
+**Validation.** Apple M2 Ultra, macOS 26.6.2, AppleClang 21 Release
+warnings-as-errors: all 20 C++ suites pass. Debug ASan/UBSan passes
+Integer, BigUnsigned, Rational, Float and FloatRounding (5/5).
+GCC 16.2 ARM64 Release warnings-as-errors passes Integer, BigUnsigned
+and Rational (3/3). The new direct limb/owning tests cover 6,200 exact
+cases constructed with GMP, all divisor bit lengths, every odd seed
+residue modulo 32, mixed even/odd divisors, all-ones/random/sparse/zero
+quotients and up to 130 dividend limbs. Independent fixed values and
+invalid scalar division/zero/undersized buffers are checked separately.
+Rational tests add controlled scalar cross-cancellations (including
+14 and 15), all sign pairs, compound operators, fixed exact expected
+fractions and the eight/nine-limb boundary. The preserved full suite
+still covers multiprecision-divisor fallbacks and special values.
+A standalone 2,048-case GMP differential build with ARM64 selection
+but __SIZEOF_INT128__ undefined exercises the new kernel's existing
+C++20 32-bit-half wide-product fallback, including mixed even divisors.
+No native x86-64/MSVC performance claim precedes the remote run.
+
+**Native ARM64 performance.** Apple M2 Ultra, AppleClang 21, macOS
+26.6.2, Release, unchanged six-width 20,000x31 comparison. Both R21
+and final R22 pass 384 inputs and 2,880 paired exact results. Recorded
+runs were sequential and had no concurrent builds or tests. The
+earlier R22 trials are diagnostic; the table is the final source version.
+
+| bits | R21 total | R22 total | R21 worst | R22 worst |
+|---:|---:|---:|---:|---:|
+| 53 bits | 0.360 | 0.369 | 1.235 | 1.236 |
+| 128 bits | 0.573 | 0.538 | 1.837 | 1.738 |
+| 256 bits | 0.902 | 0.882 | 1.701 | 1.687 |
+| 1024 bits | 0.905 | 0.884 | 1.420 | 1.443 |
+| 2048 bits | 0.729 | 0.709 | 1.298 | 1.153 |
+| 4096 bits | 0.621 | 0.594 | 1.472 | 1.276 |
+| ALL | 0.680 | 0.656 | 1.837 | 1.738 |
+
+All six ARM64 Rational widths retain total<1x and worst<2x. This is
+an incremental improvement; no native x86-64 gate acceptance is inferred.
+Absolute 256-bit native medians (R21 -> R22, ns):
+- construct_fraction: 138.954 -> 137.442.
+- add: 242.127 -> 241.981.
+- sub: 241.113 -> 241.244.
+- mul: 288.898 -> 274.852.
+- div: 283.467 -> 276.931.
+Sum of native medians at 53 bits: 415.819 -> 419.818 ns.
+Sum of native medians at 128 bits: 1106.676 -> 1044.257 ns.
+Sum of native medians at 256 bits: 1604.316 -> 1602.129 ns.
+Sum of native medians at 1024 bits: 3325.132 -> 3321.063 ns.
+Sum of native medians at 2048 bits: 5470.241 -> 5485.076 ns.
+Sum of native medians at 4096 bits: 10695.727 -> 10704.573 ns.
+
+Integer 20,000x31 passes 768 inputs/2,688 results. Aggregate total/
+worst is .951/1.614 -> .947/1.619; individual marginal long-width
+ratios continue to vary around 1x. No Integer gate guarantee is added.
+FloatAP 1,000x11 passes 256 inputs/3,456 exact results for both
+revisions. Final R22 total/worst at 53/128/256/1024 is
+1.654/3.431, 1.079/2.697, .593/2.069, .247/1.611.
+The unchanged R21 baseline itself varied at 53 bits from total 1.337
+in the first run to 1.679 in a repeat, largely through the MPFR timing
+denominator. Do not interpret the first-run ratio change as a measured
+FloatAP arithmetic regression or claim universal nonregression. The
+existing short-width FloatAP gates remain unmet; no FloatAP arithmetic
+was changed. Raw first/repeated runs are retained for comparison.
+Native x86-64 GCC/Clang measurements and Unix/Windows/Coverage CI for
+R22 remain pending at publication.

@@ -1680,6 +1680,71 @@ BigUnsigned BigUnsigned::divide_short(BigUnsigned const& a,BigUnsigned const& b)
     return BigUnsigned(LimbView(digits.data(),count));
 }
 
+void BigUnsigned::divexact_limb_into(LimbView a,Limb divisor,MutableLimbView quotient)
+{
+    if (divisor==0u) { throw std::domain_error("BigUnsigned division by zero"); }
+    if (quotient.size()<a.size()) {
+        throw std::length_error("BigUnsigned exact quotient output too small");
+    }
+    if (a.empty()) {
+        std::fill(quotient.begin(),quotient.end(),Limb{0});
+        return;
+    }
+    const unsigned shift=static_cast<unsigned>(std::countr_zero(divisor));
+    if (a.size()==1u || std::has_single_bit(divisor)) {
+        if (divrem_limb_into(a,divisor,quotient)!=0u) {
+            throw std::domain_error("BigUnsigned nonexact division");
+        }
+        return;
+    }
+    if (shift!=0u && (a.front()&((Limb{1}<<shift)-1u))!=0u) {
+        throw std::domain_error("BigUnsigned nonexact division");
+    }
+    const Limb odd=divisor>>shift;
+    // The seed is an inverse modulo 32 for every odd residue. Each
+    // Newton step squares its error, giving 10,20,40,80 correct bits.
+    Limb inverse=(3u*odd)^Limb{2};
+    for (unsigned i=0u;i<4u;++i) { inverse*=Limb{2}-odd*inverse; }
+    Limb carry=0u;
+    for (std::size_t i=0u;i<a.size();++i) {
+        const Limb upper=i+1u<a.size() ? a[i+1u] : Limb{0};
+        const Limb word=shift==0u ? a[i] :
+            (a[i]>>shift)|(upper<<(64u-shift));
+        const Limb digit=(word-carry)*inverse;
+        Limb high;
+#if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(__clang__)
+        (void)_umul128(digit,odd,&high);
+#elif defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+        __extension__ using Wide=unsigned __int128;
+        high=static_cast<Limb>((static_cast<Wide>(digit)*odd)>>64u);
+#else
+        high=multiply_digit_portable(digit,odd).second;
+#endif
+        const Limb borrow=static_cast<Limb>(word<carry);
+        carry=high+borrow;
+        quotient[i]=digit;
+    }
+    if (carry!=0u) { throw std::domain_error("BigUnsigned nonexact division"); }
+    std::fill(quotient.subspan(a.size()).begin(),quotient.end(),Limb{0});
+}
+
+BigUnsigned quot_exact(BigUnsigned const& a,BigUnsigned const& b)
+{
+    if (b.size()!=1u) { return quot(a,b); }
+    const auto divisor=b.limb(0u);
+    if (divisor==1u) { return a; }
+    if (a.size()<=1u) { return quot(a,b); }
+    if (std::has_single_bit(divisor)) {
+        return shift_right(a,static_cast<unsigned>(std::countr_zero(divisor)));
+    }
+    BigUnsigned result;
+    result.resize_for_result(a.size());
+    BigUnsigned::divexact_limb_into(a.limbs(),divisor,
+        BigUnsigned::MutableLimbView(result.mutable_data(),a.size()));
+    result.normalize();
+    return result;
+}
+
 BigUnsigned quot(BigUnsigned const& a,BigUnsigned const& b)
 {
     if (b.is_zero()) {

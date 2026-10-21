@@ -228,7 +228,8 @@ Integer signed_cross_sum(Integer const& p,BigUnsigned const& x,
         order>0 ? negative_l : negative_r);
 }
 BigUnsigned exact_quotient(BigUnsigned const& n,BigUnsigned const& d) {
-    return unsigned_is_one(d) ? n : quot(n,d);
+    if (unsigned_is_one(d)) { return n; }
+    return n.size()<=1u ? quot(n,d) : quot_exact(n,d);
 }
 // R19a: add_sub still needs the signed overload for the final
 // numerator reduction when the common factor h is greater than one.
@@ -241,12 +242,35 @@ Integer exact_quotient(Integer const& n,BigUnsigned const& d) {
 // make the decision independently for each factor.
 BigUnsigned multiply_cancelled(BigUnsigned const& lhs,BigUnsigned const& lhs_divisor,
                                BigUnsigned const& rhs,BigUnsigned const& rhs_divisor) {
-    if (unsigned_is_one(lhs_divisor)) {
-        if (unsigned_is_one(rhs_divisor)) { return unsigned_mul(lhs,rhs); }
-        return unsigned_mul(lhs,quot(rhs,rhs_divisor));
+    const bool left_unit=unsigned_is_one(lhs_divisor);
+    const bool right_unit=unsigned_is_one(rhs_divisor);
+    if (left_unit && right_unit) { return unsigned_mul(lhs,rhs); }
+    constexpr std::size_t capacity=8u;
+    if (lhs.size()<=capacity && rhs.size()<=capacity &&
+            (lhs.size()>1u || rhs.size()>1u) &&
+            lhs_divisor.size()==1u && rhs_divisor.size()==1u) {
+        using Limb=BigUnsigned::Limb;
+        std::array<Limb,capacity> left,right;
+        std::array<Limb,2u*capacity> product;
+        const auto cancelled=[](BigUnsigned const& n,BigUnsigned const& d,
+                                bool unit,BigUnsigned::MutableLimbView output) {
+            if (unit) { return n.limbs(); }
+            BigUnsigned::divexact_limb_into(n.limbs(),d.limb(0u),output);
+            std::size_t count=n.size();
+            while (count!=0u && output[count-1u]==0u) { --count; }
+            return BigUnsigned::LimbView(output.data(),count);
+        };
+        const auto a=cancelled(lhs,lhs_divisor,left_unit,left);
+        const auto b=cancelled(rhs,rhs_divisor,right_unit,right);
+        const std::size_t count=a.size()+b.size();
+        BigUnsigned::mul_into(a,b,BigUnsigned::MutableLimbView(product.data(),count));
+        return BigUnsigned(BigUnsigned::LimbView(product.data(),count));
     }
-    if (unsigned_is_one(rhs_divisor)) { return unsigned_mul(quot(lhs,lhs_divisor),rhs); }
-    return unsigned_mul(quot(lhs,lhs_divisor),quot(rhs,rhs_divisor));
+    if (unsigned_is_one(lhs_divisor)) {
+        return unsigned_mul(lhs,exact_quotient(rhs,rhs_divisor));
+    }
+    if (unsigned_is_one(rhs_divisor)) { return unsigned_mul(exact_quotient(lhs,lhs_divisor),rhs); }
+    return unsigned_mul(exact_quotient(lhs,lhs_divisor),exact_quotient(rhs,rhs_divisor));
 }
 
 }
