@@ -9,6 +9,7 @@
 #include "numeric/rational.hpp"
 #include "numeric/decimal.hpp"
 #include "numeric/twoexp.hpp"
+#include "numeric/builtin.hpp"
 #include <type_traits>
 #include <algorithm>
 #include <bit>
@@ -94,7 +95,8 @@ public:
     }
     NewDyadic(Integer const& numerator,Natural exponent)
         : NewDyadic(numerator,static_cast<std::size_t>(exponent.get_si())) { }
-    NewDyadic(Integer const&,Int) = delete;
+    template<BuiltinSignedIntegral N>
+    NewDyadic(Integer const&,N) = delete;
     template<BuiltinIntegral N>
     NewDyadic(N n) : NewDyadic(Integer(n)) { }
 

@@ -8013,3 +8013,8 @@ two-exp literal suffixes and full stream interface likewise
 remain pending separate compatibility work. This is a test-first
 gap inventory, not a claim that NewDyadic already replaces Dyadic.
 No benchmark or Rational CI job is re-enabled.
+
+
+### R33f - fix AppleClang native NewDyadic construction (21 October 2026)
+
+The ARM64 paired benchmark failed to build with incomplete ExactDouble in NewDyadic(double) and ambiguous overload selection for unsigned exponents: a deleted, non-template signed Int overload was an equally ranked implicit conversion as size_t. Include numeric/builtin.hpp (the full ExactDouble definition) and constrain the deleted signature using the BuiltinSignedIntegral concept. Signed arguments remain deliberately rejected; unsigned calls select the existing size_t constructor. No change to reference Dyadic, benchmark fixtures, arithmetic or correctness assertions. Previous Unix and Coverage R33e builds failed during compilation, so validate the next revision independently.
