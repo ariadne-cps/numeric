@@ -78,7 +78,12 @@ private:
         if (magnitude.bit_length()>std::numeric_limits<std::size_t>::digits) {
             throw std::overflow_error("Dyadic denominator exponent too large");
         }
-        return exp.template get<std::size_t>();
+        const std::size_t value=exp.template get<std::size_t>();
+        // Match the original Natural overload's signed Int exponent range.
+        if (!std::in_range<Int>(value)) {
+            throw std::overflow_error("Dyadic denominator exponent too large");
+        }
+        return value;
     }
     static Integer shifted(Integer const& x,std::size_t bits) {
         if (bits==0u || x.magnitude().is_zero()) { return x; }

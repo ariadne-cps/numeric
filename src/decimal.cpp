@@ -29,6 +29,7 @@
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/floats.hpp"
+#include <stdexcept>
 
 namespace Ariadne {
 
@@ -58,6 +59,9 @@ Decimal::Decimal(Integer p, Nat q) : _p(p), _q(q)
 
 Decimal::Decimal(Dyadic const& w)
 {
+    if (!is_finite(w)) {
+        throw std::domain_error("Cannot convert non-finite Dyadic to Decimal");
+    }
     ARIADNE_PRECONDITION(w.exponent()>=0);
     this->_p=w.mantissa();
     this->_q=static_cast<Nat>(w.exponent());

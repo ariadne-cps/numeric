@@ -173,6 +173,8 @@ void TestDyadic::test_conversions() {
     ARIADNE_TEST_EQUAL(Dyadic(Dyadic(-13,3u)),Dyadic(-13,3u));
     Natural huge_exponent{Integer{String("9223372036854775808")}};
     ARIADNE_TEST_FAIL((Dyadic{Integer(1),huge_exponent}));
+    Natural valid_exponent{63u};
+    ARIADNE_TEST_EQUALS(Dyadic(Integer(1),valid_exponent),Dyadic(1,63u));
     ARIADNE_TEST_FAIL((PositiveDyadic{Dyadic(-1)}));
 
     ARIADNE_TEST_EQUAL(round(Dyadic(-11,2u)),Integer(-3));
