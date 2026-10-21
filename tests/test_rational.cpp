@@ -501,22 +501,27 @@ void TestRational::test_native_contract() {
                 const Rational left((signs&1u)!=0u ? -an : an,ad);
                 const Rational right((signs&2u)!=0u ? -bn : bn,bd);
                 const GmpRationalBoundary raw_left(left),raw_right(right);
-                GmpRationalBoundary expected_sum,expected_sub,expected_mul;
+                GmpRationalBoundary expected_sum,expected_sub,expected_mul,expected_div;
                 mpq_add(expected_sum.mutable_value(),
                         raw_left.value(),raw_right.value());
                 mpq_sub(expected_sub.mutable_value(),
                         raw_left.value(),raw_right.value());
                 mpq_mul(expected_mul.mutable_value(),
                         raw_left.value(),raw_right.value());
+                mpq_div(expected_div.mutable_value(),
+                        raw_left.value(),raw_right.value());
                 const GmpRationalBoundary actual_sum(left+right);
                 const GmpRationalBoundary actual_sub(left-right);
                 const GmpRationalBoundary actual_mul(left*right);
+                const GmpRationalBoundary actual_div(left/right);
                 ARIADNE_TEST_ASSERT(mpq_equal(
                     actual_sum.value(),expected_sum.value())!=0);
                 ARIADNE_TEST_ASSERT(mpq_equal(
                     actual_sub.value(),expected_sub.value())!=0);
                 ARIADNE_TEST_ASSERT(mpq_equal(
                     actual_mul.value(),expected_mul.value())!=0);
+                ARIADNE_TEST_ASSERT(mpq_equal(
+                    actual_div.value(),expected_div.value())!=0);
                 Rational inplace(left);
                 inplace+=right;
                 const GmpRationalBoundary actual_inplace_add(inplace);
@@ -527,6 +532,11 @@ void TestRational::test_native_contract() {
                 const GmpRationalBoundary actual_inplace_mul(inplace);
                 ARIADNE_TEST_ASSERT(mpq_equal(
                     actual_inplace_mul.value(),expected_mul.value())!=0);
+                inplace=left;
+                inplace/=right;
+                const GmpRationalBoundary actual_inplace_div(inplace);
+                ARIADNE_TEST_ASSERT(mpq_equal(
+                    actual_inplace_div.value(),expected_div.value())!=0);
             }
         }
     }

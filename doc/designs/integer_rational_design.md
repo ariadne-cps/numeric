@@ -7885,3 +7885,44 @@ measurements before attributing end-to-end gains. The
 x86-64 256-bit total_time remains strictly required <1
 and worst <2 at every width. Never treat a workflow
 success as a performance-gate acceptance.
+
+
+### R32 — reuse exact sparse GCD and direct result commitment in Rational div (21 October 2026)
+
+**R31 native measurements.** On the unchanged official Rational 20,000x31
+workload the user supplied independent ARM64 and x86-64 reports.
+Both pass numerical verification (384 paired input cases; 2,880 exact
+operation results). R30 -> R31 at 256 bits: ARM64
+add 199.883 -> 180.285 ns, sub 192.454 -> 176.277 ns,
+mul 244.844 -> 217.831 ns, total 0.827x -> 0.777x.
+x86-64 add 353.754 -> 311.886 ns,
+sub 346.689 -> 304.128 ns, mul 475.300 -> 412.156 ns,
+total 1.103x -> 1.030x. R31 passed Unix, Windows
+and Coverage GitHub Actions; the retired Rational benchmark
+workflow remains absent. The x86-64 128-bit compare worst
+is 1.978x and 256-bit total still fails strict <1.
+
+**Candidate change.** R31 introduced a proved generic sparse-radix
+GCD used by constructor/add/sub/mul, but division still performed
+its two cross-cancellation GCD calls through the generic
+multi-limb gcd. Replace both calls with the exact same
+gcd_sparse_radix, preserving its full fallback for dense,
+incompatible, overflowing or non-certifiable operands. Once
+the cancelled numerator and denominator are owned, commit
+them directly using FiniteOperations::set_sum, as in R31
+multiplication. This removes the temporary reduced Rational
+and its move/swap. All inputs remain borrowed until both
+outputs are computed, keeping aliasing safe.
+No change to the arithmetic identity, numerical representation,
+zero/special cases, algorithms in BigUnsigned, or benchmark
+inputs/cadence.
+
+**Independent correctness.** Extend existing R31 GMP add/sub/mul
+boundary cases with GMP rational division and in-place /=.
+Those cases cross 128/192/255/256/320/448/512/1024/2048/
+4096 bits with both numerator signs and 24 low-word configurations
+per width; the existing dense random/special/alias suites
+remain unchanged. Run Unix, Windows and Coverage independently.
+Measure ARM64 and x86-64 with unchanged 20,000x31 official
+benchmark for promotion; a successful CI alone does not show
+performance gain. R32 remains provisional until evaluated.

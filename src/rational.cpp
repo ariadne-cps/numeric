@@ -454,13 +454,19 @@ template<> class FiniteOperations<Rational> {
             r=Rational::inf(integer_sign(a._numerator)); return;
         }
         if (a._numerator.magnitude().is_zero()) { r=Rational(); return; }
-        const BigUnsigned g=gcd(a._numerator.magnitude(),b._numerator.magnitude());
-        const BigUnsigned h=gcd(a._denominator,b._denominator);
+        // R32: the same exact sparse-radix GCD used by mul also
+        // applies to div's cross-cancellation pair. The borrowed
+        // arguments remain live until both results are computed.
+        const BigUnsigned g=gcd_sparse_radix(
+            a._numerator.magnitude(),b._numerator.magnitude());
+        const BigUnsigned h=gcd_sparse_radix(
+            a._denominator,b._denominator);
         BigUnsigned numerator=multiply_cancelled(
             a._numerator.magnitude(),g,b._denominator,h);
         BigUnsigned denominator=multiply_cancelled(
             a._denominator,h,b._numerator.magnitude(),g);
-        r=reduced(Integer::from_magnitude(
+        // Avoid an intermediate Rational and its move/swap, as in R31 mul.
+        set_sum(r,Integer::from_magnitude(
             std::move(numerator),a._numerator.negative()!=b._numerator.negative()),
             std::move(denominator));
     }
