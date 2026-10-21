@@ -8170,3 +8170,53 @@ native same-host benchmark results before promotion.
 ### R37.1 — compile fix for mixed Boolean/bool test comparison (21 October 2026)
 
 All R37 Unix/Windows/Coverage workflows failed at the compilation step. The user-supplied AppleClang diagnostic pinpoints tests/test_new_dyadic.cpp:187: a comparison of Ariadne Boolean (floor(native)==ceil(native)) to built-in bool integer causes ambiguous operator== overload selection. Explicitly convert the Ariadne Boolean to bool before comparing to the canonicality expectation. Keep the assertion, original Dyadic oracle tests, all R37 arithmetic, benchmark fixture, vcpkg, build workflows and API unchanged. Both R37 user-supplied native benchmark runs passed their 384-input fixture numerical verification and showed floor/ceil improvements; these are independent of integrated CI. Revalidate Unix/Windows/Coverage before considering R37 stabilized.
+
+
+### R38 — one-allocation shifted signed add/sub for NewDyadic (21 October 2026)
+
+**User-defined goal.** Focus exclusively on add and sub and lower the
+maximum measured NewDyadic/Dyadic slowdown below 2 on ARM64 and x86-64.
+The R37.1 user benchmarks (20,000x31, unchanged 18 operations and 384
+signed pairs) returned PASS and an overall total_time of 0.374x
+ARM64 and 0.368x x86-64. Their 4096-bit add/sub ratios were
+175.535/67.027=2.619x and 174.450/66.727=2.614x on ARM64,
+versus 254.798/95.906=2.657x and 274.429/96.617=2.840x
+on x86-64. All Unix/Windows/Coverage R37.1 checks succeeded.
+
+**Proposed algorithm.** Old fallback forms two full shifted owned
+Integer operands and one signed result; R35's accelerated kernel
+instead uses a 66-limb stack result and then allocates and copies
+it into a canonical owned BigUnsigned. Both incur avoidable
+large-width work. Add two *new*, isolated BigUnsigned APIs,
+add_shifted and sub_shifted: for shifts 0..63, read two borrowed
+input views with virtual left alignment, calculate carry/borrow
+through one radix-2^64 loop, and write directly into exactly
+one result-owned BigUnsigned allocation; subtract rejects a
+negative result. The preexisting BigUnsigned arithmetic kernels
+and benchmark corpus are unchanged. In NewDyadic use signed
+virtual-magnitude compare_scaled to select direction and sign;
+then construct exactly one canonical native Integer/2^exponent
+result. Route large finite operands with difference<=63 bits
+to this kernel: largest operand >=32 limbs on ARM64 or >=17
+limbs on x86-64 and other architectures. Shorter inputs retain
+R35 stack or original paths, preserving their measured behavior.
+No changes to public Dyadic, Rational, Positive wrappers,
+multiplication, benchmark CLI, or Windows/vcpkg.
+
+**Exact oracles.** Expand test_big_unsigned.cpp's preexisting
+GMP oracle for both shifted operations across lengths
+0/1/4/16/17/31/32/33/64/65/129 and shifts
+0/1/7/31/63 on both operands, including all-ones,
+signed direction and underflow. Extend the original
+Dyadic-derived NewDyadic tests with direct old-Dyadic/
+Rational add/sub/reverse-sub/+=/-= checks at the
+17- and 32-limb boundaries, 4096 and 8192 bits,
+both signs and exponent gaps including the 63/64
+crossover. Ensure the new kernel never mutates
+borrowed operands or weakens correctness assertions.
+
+**Status.** R38 is a candidate, not a claimed success.
+Run Unix/Windows/Coverage and remeasure both machines with
+the same 20,000x31 workload. The strict goal is worst<2x
+for every operation and precision on both ARM64/x86-64;
+do not alter benchmark cases or thresholds to satisfy it.

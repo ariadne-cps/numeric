@@ -206,6 +206,48 @@ void test_canonical_fraction_rounding() {
     }
 }
 
+// R38: test direct owned add/sub on both sides of the ARM64
+// 32-limb and x86-64 17-limb crossover. The original Dyadic is
+// the independent oracle, not an input-specific benchmark expectation.
+void test_owned_shifted_arithmetic() {
+    for (unsigned bits:{960u,961u,1023u,1024u,1025u,
+                        1087u,1088u,1089u,
+                        1983u,1984u,1985u,
+                        2047u,2048u,2049u,
+                        4095u,4096u,4097u,8192u}) {
+        const BigUnsigned high=shift_left(BigUnsigned(1u),bits-1u);
+        for (unsigned low:{0u,1u,7u,63u}) {
+            const Integer ax=Integer::from_magnitude(
+                add(high,BigUnsigned(11u+low)),false);
+            const Integer by=Integer::from_magnitude(
+                add(high,BigUnsigned(13u+low)),false);
+            for (unsigned signs=0u;signs<4u;++signs) {
+                const Integer aa=(signs&1u)!=0u ? -ax : ax;
+                const Integer bb=(signs&2u)!=0u ? -by : by;
+                for (unsigned gap:{0u,1u,2u,7u,31u,63u,64u}) {
+                    const unsigned ea=bits/5u+1u,eb=ea+gap;
+                    const NewDyadic a(aa,ea),b(bb,eb);
+                    const Dyadic ref_a(aa,ea),ref_b(bb,eb);
+                    check((a+b).to_rational()==Rational(ref_a+ref_b),
+                          "R38 owned shifted add oracle");
+                    check((a-b).to_rational()==Rational(ref_a-ref_b),
+                          "R38 owned shifted sub oracle");
+                    check((b-a).to_rational()==Rational(ref_b-ref_a),
+                          "R38 owned shifted reversed sub oracle");
+                    NewDyadic inplace(a);
+                    inplace+=b;
+                    check(inplace.to_rational()==Rational(ref_a+ref_b),
+                          "R38 owned shifted += alias");
+                    inplace=a;
+                    inplace-=b;
+                    check(inplace.to_rational()==Rational(ref_a-ref_b),
+                          "R38 owned shifted -= alias");
+                }
+            }
+        }
+    }
+}
+
 void test_aligned_add_sub() {
     for (unsigned bits:{53u,64u,65u,127u,128u,255u,256u,257u,
                         320u,511u,512u,1024u,2048u,4096u,4097u}) {
@@ -384,6 +426,7 @@ int main() {
         test_comparisons();
         test_binary64_and_scaled_comparison();
         test_aligned_add_sub();
+        test_owned_shifted_arithmetic();
         test_canonical_fraction_rounding();
         test_infinity();
         std::cout<<"NewDyadic test port (literal/conversions/arithmetic/"

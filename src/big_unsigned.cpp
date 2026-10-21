@@ -703,6 +703,90 @@ BigUnsigned::Limb BigUnsigned::sub_into(
     return borrow;
 }
 
+// R38: compute a short-bit-shifted sum/difference directly into
+// BigUnsigned's own storage. Neither input is ever materialized as
+// a shifted BigUnsigned. The Subtract mode assumes a>=b after shifts
+// and detects negative results through the final borrow.
+template<bool Subtract>
+BigUnsigned BigUnsigned::shifted_combine(
+    LimbView a,unsigned shift_a,LimbView b,unsigned shift_b)
+{
+    if (shift_a>=64u || shift_b>=64u) {
+        throw std::invalid_argument("shifted_combine requires shifts <64");
+    }
+    if (a.size()>std::numeric_limits<std::size_t>::max()-2u ||
+            b.size()>std::numeric_limits<std::size_t>::max()-2u) {
+        throw std::length_error("shifted_combine operand size overflow");
+    }
+
+    const std::size_t size_a=a.size()+(shift_a!=0u && !a.empty() ? 1u : 0u);
+    const std::size_t size_b=b.size()+(shift_b!=0u && !b.empty() ? 1u : 0u);
+    const std::size_t count=std::max(size_a,size_b);
+    if (count==0u) { return BigUnsigned{}; }
+
+    BigUnsigned result;
+    result.resize_for_result(count+1u);
+    Limb* out=result.mutable_data();
+    Limb carry_or_borrow=0u;
+
+    const Limb* const ap=a.data();
+    const Limb* const bp=b.data();
+    const std::size_t as=a.size(),bs=b.size();
+    for (std::size_t i=0u;i<count;++i) {
+        Limb av=i<as ? ap[i] : Limb{0};
+        if (shift_a!=0u) {
+            av<<=shift_a;
+            if (i!=0u && i-1u<as) {
+                av|=ap[i-1u]>>(64u-shift_a);
+            }
+        }
+        Limb bv=i<bs ? bp[i] : Limb{0};
+        if (shift_b!=0u) {
+            bv<<=shift_b;
+            if (i!=0u && i-1u<bs) {
+                bv|=bp[i-1u]>>(64u-shift_b);
+            }
+        }
+
+        if constexpr (Subtract) {
+            const Limb partial=av-bv;
+            const Limb value=partial-carry_or_borrow;
+            carry_or_borrow=static_cast<Limb>(
+                av<bv || partial<carry_or_borrow);
+            out[i]=value;
+        } else {
+            const Limb partial=av+bv;
+            const Limb value=partial+carry_or_borrow;
+            carry_or_borrow=static_cast<Limb>(
+                partial<av || value<partial);
+            out[i]=value;
+        }
+    }
+
+    if constexpr (Subtract) {
+        if (carry_or_borrow!=0u) {
+            throw std::underflow_error("negative shifted difference");
+        }
+        out[count]=Limb{0};
+    } else {
+        out[count]=carry_or_borrow;
+    }
+    result.normalize();
+    return result;
+}
+
+BigUnsigned BigUnsigned::add_shifted(
+    LimbView a,unsigned shift_a,LimbView b,unsigned shift_b)
+{
+    return shifted_combine<false>(a,shift_a,b,shift_b);
+}
+
+BigUnsigned BigUnsigned::sub_shifted(
+    LimbView a,unsigned shift_a,LimbView b,unsigned shift_b)
+{
+    return shifted_combine<true>(a,shift_a,b,shift_b);
+}
+
 BigUnsigned add(BigUnsigned const& a, BigUnsigned const& b) {
     const std::size_t count = std::max(a._size,b._size);
     if (count == std::numeric_limits<std::size_t>::max()) {

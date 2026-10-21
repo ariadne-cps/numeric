@@ -334,6 +334,64 @@ public:
                max_exponent-min_exponent<=63u;
     }
 
+    // R38: use one owned magnitude allocation directly in BigUnsigned.
+    // Large inputs bypass both the two-shift fallback and the R35
+    // stack-buffer/owning-buffer double materialization. The equality
+    // and sign decision use virtual magnitude comparison only.
+    static bool prefer_owned_shifted_add_sub(NewDyadic const& a,
+                                              NewDyadic const& b) noexcept {
+#if defined(__aarch64__) || defined(_M_ARM64)
+        constexpr std::size_t min_limbs=32u;
+#else
+        constexpr std::size_t min_limbs=17u;
+#endif
+        const std::size_t largest=std::max(
+            a._coefficient.magnitude().size(),
+            b._coefficient.magnitude().size());
+        const std::size_t high=std::max(
+            a._denominator_exponent,b._denominator_exponent);
+        const std::size_t low=std::min(
+            a._denominator_exponent,b._denominator_exponent);
+        return largest>=min_limbs && high-low<=63u;
+    }
+
+    static NewDyadic owned_shifted_add_sub(
+        NewDyadic const& a,NewDyadic const& b,bool subtract_second) {
+        const BigUnsigned& an=a._coefficient.magnitude();
+        const BigUnsigned& bn=b._coefficient.magnitude();
+        const std::size_t exponent=std::max(
+            a._denominator_exponent,b._denominator_exponent);
+        const unsigned shift_a=static_cast<unsigned>(
+            exponent-a._denominator_exponent);
+        const unsigned shift_b=static_cast<unsigned>(
+            exponent-b._denominator_exponent);
+        const bool negative_a=a._coefficient.negative();
+        const bool negative_b=b._coefficient.negative()!=subtract_second;
+        const bool same_sign=negative_a==negative_b;
+
+        BigUnsigned magnitude;
+        bool result_negative=negative_a;
+        if (same_sign) {
+            magnitude=BigUnsigned::add_shifted(
+                an.limbs(),shift_a,bn.limbs(),shift_b);
+        } else {
+            const int order=compare_scaled(
+                an,a._denominator_exponent,
+                bn,b._denominator_exponent);
+            if (order==0) { return NewDyadic(); }
+            if (order>0) {
+                magnitude=BigUnsigned::sub_shifted(
+                    an.limbs(),shift_a,bn.limbs(),shift_b);
+            } else {
+                magnitude=BigUnsigned::sub_shifted(
+                    bn.limbs(),shift_b,an.limbs(),shift_a);
+                result_negative=negative_b;
+            }
+        }
+        return NewDyadic(Integer::from_magnitude(
+            std::move(magnitude),result_negative),exponent);
+    }
+
     // R35: for aligned finite signed arithmetic on 5..64-limb
     // magnitudes with an exponent gap <=63, scan borrowed virtual
     // shifted limbs and produce one canonical owned magnitude.
@@ -426,6 +484,9 @@ public:
         }
         const std::size_t e=std::max(a._denominator_exponent,
                                       b._denominator_exponent);
+        if (prefer_owned_shifted_add_sub(a,b)) {
+            return owned_shifted_add_sub(a,b,false);
+        }
         if (prefer_aligned_add_sub(a,b)) {
             return aligned_add_sub(a,b,false);
         }
@@ -434,6 +495,9 @@ public:
     }
     friend NewDyadic operator-(NewDyadic const& a,NewDyadic const& b) {
         if (a.is_finite() && b.is_finite()) {
+            if (prefer_owned_shifted_add_sub(a,b)) {
+                return owned_shifted_add_sub(a,b,true);
+            }
             if (prefer_aligned_add_sub(a,b)) {
                 return aligned_add_sub(a,b,true);
             }

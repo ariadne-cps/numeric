@@ -72,6 +72,10 @@ class BigUnsigned
     void resize_for_result(std::size_t limbs);
     void normalize() noexcept;
     void set_limbs(std::span<Limb const> digits);
+    // One owned result, no shifted owning operands or scratch buffer.
+    template<bool Subtract>
+    static BigUnsigned shifted_combine(
+        LimbView a,unsigned shift_a,LimbView b,unsigned shift_b);
 
     // Compile-time modes avoid unneeded outputs during division.
     // The all-output divrem_into contract remains unchanged.
@@ -134,6 +138,16 @@ class BigUnsigned
     //! is large enough for all input limbs. Returns borrow (0 or 1).
     //! Inputs and output must be disjoint.
     static Limb sub_into(LimbView a,LimbView b,MutableLimbView output);
+
+    //! Exact sum (a << shift_a) + (b << shift_b), allocating only
+    //! the returned canonical magnitude. Shifts must be below 64.
+    //! Source views are borrowed and never modified.
+    static BigUnsigned add_shifted(
+        LimbView a,unsigned shift_a,LimbView b,unsigned shift_b);
+    //! Exact difference (a << shift_a) - (b << shift_b); throws
+    //! underflow_error if the result would be negative.
+    static BigUnsigned sub_shifted(
+        LimbView a,unsigned shift_a,LimbView b,unsigned shift_b);
     //! Divide a nonnegative limb view by a nonzero 64-bit limb.
     //! The quotient uses caller-owned storage of at least a.size()
     //! limbs; any extra output limbs are zeroed. Returns the exact

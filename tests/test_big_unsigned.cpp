@@ -1038,6 +1038,68 @@ void TestBigUnsigned::test_views_and_scratch()
                         static_cast<mp_bitcnt_t>(64u*low));
         check_against_gmp(BigUnsigned(product_view),expected.value);
     }
+    // R38: exact GMP oracle for the owned shifted sum/difference,
+    // including 16/17/31/32/33/64/65-limb dispatch boundaries,
+    // carries, borrows, zeros, and shifts on both operands.
+    GmpInteger shifted_a,shifted_b,shifted_expected;
+    std::mt19937_64 shifted_engine(0xB38038ULL);
+    for (std::size_t width:{0u,1u,4u,16u,17u,31u,32u,33u,64u,65u,129u}) {
+        for (unsigned case_index=0u;case_index<24u;++case_index) {
+            const std::size_t length_b=case_index%5u==0u ? width :
+                case_index%5u==1u ? 0u :
+                case_index%5u==2u ? 1u :
+                case_index%5u==3u ? width/2u : width+1u;
+            std::vector<std::uint64_t> da(width),db(length_b);
+            for (auto& word:da) { word=shifted_engine(); }
+            for (auto& word:db) { word=shifted_engine(); }
+            if (case_index%7u==0u) {
+                std::fill(da.begin(),da.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+                std::fill(db.begin(),db.end(),
+                          std::numeric_limits<std::uint64_t>::max());
+            }
+            const BigUnsigned a(da),b(db);
+            mpz_import(shifted_a.value,a.size(),-1,8,0,0,a.limbs().data());
+            mpz_import(shifted_b.value,b.size(),-1,8,0,0,b.limbs().data());
+            for (unsigned sa:{0u,1u,7u,31u,63u}) {
+                for (unsigned sb:{0u,1u,7u,31u,63u}) {
+                    mpz_mul_2exp(shifted_a.value,shifted_a.value(),
+                                 static_cast<mp_bitcnt_t>(sa));
+                    mpz_mul_2exp(shifted_b.value,shifted_b.value(),
+                                 static_cast<mp_bitcnt_t>(sb));
+                    mpz_add(shifted_expected.value,shifted_a.value,
+                            shifted_b.value);
+                    check_against_gmp(BigUnsigned::add_shifted(
+                        a.limbs(),sa,b.limbs(),sb),shifted_expected.value);
+                    if (mpz_cmp(shifted_a.value,shifted_b.value)>=0) {
+                        mpz_sub(shifted_expected.value,shifted_a.value,
+                                shifted_b.value);
+                        check_against_gmp(BigUnsigned::sub_shifted(
+                            a.limbs(),sa,b.limbs(),sb),shifted_expected.value);
+                    } else {
+                        mpz_sub(shifted_expected.value,shifted_b.value,
+                                shifted_a.value);
+                        check_against_gmp(BigUnsigned::sub_shifted(
+                            b.limbs(),sb,a.limbs(),sa),shifted_expected.value);
+                    }
+                    mpz_tdiv_q_2exp(shifted_a.value,shifted_a.value(),
+                                   static_cast<mp_bitcnt_t>(sa));
+                    mpz_tdiv_q_2exp(shifted_b.value,shifted_b.value(),
+                                   static_cast<mp_bitcnt_t>(sb));
+                }
+            }
+        }
+    }
+    // R38: shifted subtraction rejects a negative result.
+    ARIADNE_TEST_ASSERT([] {
+        const BigUnsigned one(std::uint64_t{1}),two(std::uint64_t{2});
+        try {
+            (void)BigUnsigned::sub_shifted(one.limbs(),0u,two.limbs(),0u);
+        } catch (std::underflow_error const&) {
+            return true;
+        }
+        return false;
+    }());
 }
 
 void TestBigUnsigned::test_multiply_kernel_paths()
