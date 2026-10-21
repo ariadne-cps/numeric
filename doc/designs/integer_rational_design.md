@@ -6776,3 +6776,49 @@ Require Unix, Windows and Coverage CI, the complete downstream
 Integer/Rational/FloatAP test suite and fresh unchanged benchmark
 runs on both hosts before claiming a speedup. The fast-path is an
 algebraic identity for all canonical rationals, not benchmark-only.
+
+
+### R17 — certified two-leading-limb Rational cross-product comparison (21 October 2026)
+
+**Baseline:** R16 Unix and Coverage workflows passed, while Windows
+failed during an external vcpkg `z-applocal` step with `Access is denied`
+while copying benchmark DLLs after linking. The user classified this
+as a temporary GitHub environment issue and explicitly requested that
+it be ignored: no CMake or build-tool changes. R16's separately
+supplied ARM64 and x86-64 benchmark reports both pass 384 exact input
+checks and 2,880 operation-result checks. Total/worst ratios across
+53/128/256/1024/2048/4096 bits: ARM64 .423/1.233,
+.767/1.876, 1.232/1.565, 1.150/1.401, .888/1.562,
+.697/1.553; x86-64 .882/1.422, 1.095/2.170,
+1.691/2.039, 1.221/1.448, .774/1.144, .561/1.111.
+Seven of twelve host-width pairs pass both required strict gates.
+The principal x86-64 remaining worst-case is compare at 128 bits.
+
+**R17 change:** when all four unsigned Rational cross-product
+magnitudes contain at least two limbs and the two product limb sums
+are identical, compute the products only of each operand's highest
+two 64-bit limbs (4-limb local output). Writing operands as
+x=U*B^k+r and y=V*B^m+s, with B=2^64 and 0<=r<B^k,
+0<=s<B^m, the exact product obeys
+UV*B^(k+m) <= xy < (U+1)(V+1)*B^(k+m).
+The exact prefix product UV occupies up to four limbs. Form the
+exact upper prefix bound UV+U+V+1 by four-limb additions with full
+carry propagation; if the bound overflows four limbs, decline
+certification. If the upper left bound is <= the lower right bound,
+the left product is strictly smaller; symmetrically for right.
+Otherwise fall back to the existing complete 8-limb stack/fallback
+multiplication and comparison. Size mismatch and one-limb cases
+remain on their prior exact paths. This is not a benchmark-specific
+heuristic: it proves the result before returning. No approximations,
+compiler-specific instructions beyond the existing 128-bit GCC/Clang
+arithmetic support, input restrictions or GMP dependencies are added.
+
+**Tests:** add GMP differential comparisons at 128/256/448/512/
+1024/2048/4096 bits across contrasting and nearly equal rational
+values, signs, swapped operands, and stack/heap thresholds. Retain
+all prior randomized GMP tests and unchanged benchmark workloads.
+
+**Validation:** R17 is not locally compiled or benchmarked. Require
+Unix/Windows/Coverage checks plus unchanged ARM64/x86-64 31-sample,
+20,000-iteration runs before interpreting performance. The target
+remains `total_time<1x` and `worst<2x` for every host-width pair.

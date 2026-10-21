@@ -413,6 +413,34 @@ void TestRational::test_native_contract() {
         }
     }
 
+    // R17: high-prefix product bounds must agree with exact GMP
+    // comparisons. Cover readily separable and nearly equal ratios,
+    // reverse ordering, negatives, and the 8/9-limb stack boundary.
+    for (unsigned bits:{128u,256u,448u,512u,1024u,2048u,4096u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        const std::array<Rational,6u> probes={
+            Rational(base+13,base*2+17),
+            Rational(base+31,base*3+19),
+            Rational(base+13,base*2+19),
+            Rational(base+1,base+2),
+            Rational(base+2,base+3),
+            Rational(-(base+29),base*3+7)
+        };
+        for (Rational const& a:probes) {
+            for (Rational const& b:probes) {
+                GmpRationalBoundary ga(a),gb(b);
+                const int raw=mpq_cmp(ga.value(),gb.value());
+                const Comparison expected=raw<0 ? Comparison::LESS
+                    : raw>0 ? Comparison::GREATER : Comparison::EQUAL;
+                const Comparison reverse=raw>0 ? Comparison::LESS
+                    : raw<0 ? Comparison::GREATER : Comparison::EQUAL;
+                ARIADNE_TEST_EQUALS(cmp(a,b),expected);
+                ARIADNE_TEST_EQUALS(cmp(b,a),reverse);
+                ARIADNE_TEST_EQUALS(cmp(-a,-b),reverse);
+            }
+        }
+    }
+
     // R4: check proper-fraction floor/ceil shortcuts, integral and
     // improper fractions against independent GMP quotients. Include
     // size boundaries around inline storage and long magnitudes.

@@ -87,6 +87,67 @@ int compare_cross_products(BigUnsigned const& an,BigUnsigned const& bd,
         return left<right ? -1 : left>right ? 1 : 0;
     }
 #endif
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    // R17: certify ordering using only the top two limbs of each
+    // magnitude. For x=U*B^k+x0 and y=V*B^m+y0, with
+    // 0<=x0<B^k and 0<=y0<B^m:
+    //   U*V <= x*y/B^(k+m) < (U+1)*(V+1).
+    // Compare the *exact* 2x2-limb lower products against the
+    // opposing upper product, formed by adding U+V+1 with carries.
+    // A certificate is possible only with matching total limb
+    // counts (the same power-of-B scale). Ambiguous cases fall back.
+    if (an.size()>=2u && bd.size()>=2u &&
+            bn.size()>=2u && ad.size()>=2u &&
+            an.size()+bd.size()==bn.size()+ad.size() &&
+            (an.size()>2u || bd.size()>2u ||
+             bn.size()>2u || ad.size()>2u)) {
+        using Limb=BigUnsigned::Limb;
+        __extension__ using Wide=unsigned __int128;
+        std::array<Limb,4u> left{},right{};
+        BigUnsigned::mul_into(an.limbs().last(2u),bd.limbs().last(2u),
+            BigUnsigned::MutableLimbView(left.data(),left.size()));
+        BigUnsigned::mul_into(bn.limbs().last(2u),ad.limbs().last(2u),
+            BigUnsigned::MutableLimbView(right.data(),right.size()));
+        const auto compare_words=[](std::array<Limb,4u> const& x,
+                                    std::array<Limb,4u> const& y) {
+            for (std::size_t i=4u;i!=0u;--i) {
+                if (x[i-1u]!=y[i-1u]) {
+                    return x[i-1u]<y[i-1u] ? -1 : 1;
+                }
+            }
+            return 0;
+        };
+        // The prefix upper bound is UV+U+V+1. The carry can
+        // overflow 256 bits only for both all-ones prefixes;
+        // in that case decline to certify from that bound.
+        const auto upper_prefix=[](std::array<Limb,4u> product,
+                                   BigUnsigned const& x,
+                                   BigUnsigned const& y,
+                                   bool& fits) {
+            Wide carry=1u;
+            for (std::size_t i=0u;i<4u;++i) {
+                Wide sum=static_cast<Wide>(product[i])+carry;
+                if (i<2u) {
+                    sum+=x.limb(x.size()-2u+i);
+                    sum+=y.limb(y.size()-2u+i);
+                }
+                product[i]=static_cast<Limb>(sum);
+                carry=sum>>64u;
+            }
+            fits=carry==0u;
+            return product;
+        };
+        bool fits=false;
+        const auto upper_left=upper_prefix(left,an,bd,fits);
+        if (fits && compare_words(upper_left,right)<=0) {
+            return -1;
+        }
+        const auto upper_right=upper_prefix(right,bn,ad,fits);
+        if (fits && compare_words(upper_right,left)<=0) {
+            return 1;
+        }
+    }
+#endif
     constexpr std::size_t max_operand_limbs=8u;
     if (an.size()<=max_operand_limbs && bd.size()<=max_operand_limbs &&
             bn.size()<=max_operand_limbs && ad.size()<=max_operand_limbs) {
