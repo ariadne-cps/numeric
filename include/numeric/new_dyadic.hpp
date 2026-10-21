@@ -62,13 +62,6 @@ private:
         }
     }
 
-    static bool has_fraction(BigUnsigned const& n,std::size_t exponent) {
-        if (exponent==0u || n.is_zero()) { return false; }
-        if (exponent>=n.bit_length()) { return true; }
-        const auto truncated=shift_right(n,exponent);
-        return compare(shift_left(truncated,exponent),n)!=0;
-    }
-
     static Integer truncated(NewDyadic const& x) {
         return Integer::from_magnitude(
             shift_right(x._coefficient.magnitude(),x._denominator_exponent),
@@ -563,7 +556,7 @@ public:
         require_finite(x);
         Integer z=truncated(x);
         if (x._coefficient.negative() &&
-                has_fraction(x._coefficient.magnitude(),x._denominator_exponent)) {
+                x._denominator_exponent!=0u) {
             z=z-Integer(1);
         }
         return z;
@@ -572,7 +565,7 @@ public:
         require_finite(x);
         Integer z=truncated(x);
         if (!x._coefficient.negative() &&
-                has_fraction(x._coefficient.magnitude(),x._denominator_exponent)) {
+                x._denominator_exponent!=0u) {
             z=z+Integer(1);
         }
         return z;

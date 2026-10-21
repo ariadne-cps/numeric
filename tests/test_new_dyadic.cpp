@@ -159,6 +159,53 @@ void test_arithmetic() {
 // R35: ported Dyadic arithmetic oracle over virtual-shift fast path
 // and both fallback boundaries. Test magnitude reversal, both signs,
 // exact cancellation, carry, borrow and +=/-= alias safety.
+// R37: a normalized finite coefficient is odd whenever the
+// denominator exponent is nonzero. Thus every positive exponent
+// means a non-integral value, and floor/ceil must round away from
+// truncation in the appropriate direction. Exercise both signs,
+// full limb boundaries, and values that become integral on input.
+void test_canonical_fraction_rounding() {
+    for (unsigned bits:{1u,2u,53u,63u,64u,65u,127u,128u,
+                        129u,255u,256u,257u,1024u,2048u,4096u,4097u}) {
+        const BigUnsigned high=shift_left(BigUnsigned(1u),bits-1u);
+        for (unsigned tail:{0u,1u,2u,3u,7u,63u}) {
+            const Integer magnitude=Integer::from_magnitude(
+                add(high,BigUnsigned(tail)),false);
+            for (unsigned negative=0u;negative<2u;++negative) {
+                const Integer numerator=negative!=0u ? -magnitude : magnitude;
+                for (unsigned exponent:{0u,1u,2u,7u,63u,64u,
+                                        bits/2u,bits,bits+1u}) {
+                    const NewDyadic native(numerator,exponent);
+                    const Dyadic legacy(numerator,exponent);
+                    check(floor(native)==floor(legacy),
+                          "R37 canonical fractional floor");
+                    check(ceil(native)==ceil(legacy),
+                          "R37 canonical fractional ceil");
+                    check(floor(native)<=ceil(native),
+                          "R37 floor/ceil order");
+                    const bool integer=native.denominator_exponent()==0u;
+                    check((floor(native)==ceil(native))==integer,
+                          "R37 exponent/whole-value invariant");
+                }
+            }
+        }
+    }
+    for (unsigned exponent:{0u,1u,2u,63u,64u,65u,256u,4096u}) {
+        const NewDyadic n(Integer(0),exponent);
+        check(n.denominator_exponent()==0u,"R37 canonical zero");
+        check(floor(n)==Integer(0) && ceil(n)==Integer(0),
+              "R37 zero floor/ceil");
+        if (exponent!=0u) {
+            const BigUnsigned exact=shift_left(BigUnsigned(1u),exponent);
+            const Integer exact_integer=Integer::from_magnitude(exact,false);
+            const NewDyadic q(exact_integer,exponent);
+            check(q.denominator_exponent()==0u,"R37 integral factor reduction");
+            check(floor(q)==Integer(1) && ceil(q)==Integer(1),
+                  "R37 exact whole power of two");
+        }
+    }
+}
+
 void test_aligned_add_sub() {
     for (unsigned bits:{53u,64u,65u,127u,128u,255u,256u,257u,
                         320u,511u,512u,1024u,2048u,4096u,4097u}) {
@@ -337,6 +384,7 @@ int main() {
         test_comparisons();
         test_binary64_and_scaled_comparison();
         test_aligned_add_sub();
+        test_canonical_fraction_rounding();
         test_infinity();
         std::cout<<"NewDyadic test port (literal/conversions/arithmetic/"
                     "comparisons/infinity) PASS\n";

@@ -8124,3 +8124,44 @@ on the *same physical ARM64 and x86-64 machines* to R35.
 Expected directions are ARM64 parity with R35 and x86-64
 recovering the previous 2048/4096 add/sub timings.
 Do not infer measured speedup from the cutoff itself.
+
+
+### R37 — constant-time canonical fractional check in NewDyadic floor/ceil (21 October 2026)
+
+**Measured context.** R36 ARM64 and x86-64 paired measurements,
+20,000x31, keep NewDyadic significantly faster than original
+Dyadic in the total weighted 18-operation workload
+(ARM64 total_time .402x, x86-64 .404x). ARM64 R36 4096-bit
+add/sub = 174.365/173.502 ns vs R35 178.894/177.590 ns;
+x86-64 R36 4096-bit add/sub = 271.830/290.305 ns
+vs R35 316.049/321.672 ns. The strict tests Unix,
+Windows and Coverage are all green on R36. The user
+confirmed the first host is ARM64 and the second x86-64.
+
+**Canonicality proof.** NewDyadic's finite invariant is
+coefficient/2^e with coefficient odd whenever e>0:
+normalize() divides out all common powers of two and
+sets e=0 for zero. Therefore for every canonical
+nonzero finite NewDyadic, e>0 if and only if it has a
+nonzero fractional part. The original has_fraction()
+called shift_right, shift_left and BigUnsigned::compare,
+temporarily materializing full-width integers solely to
+rediscover this invariant. In floor/ceil, replace
+has_fraction(magnitude,e) with e!=0, and delete the
+redundant helper. Keep the existing truncated sign
+correction, exact Integer output, special-value errors
+and public overload signatures unchanged.
+
+**Test coverage.** Extend the original Dyadic-derived
+NewDyadic test with legacy Dyadic oracle floor/ceil
+at 16 widths from 1 to 4097 bits, positive/negative,
+six low-word patterns (including even and odd inputs),
+nine binary exponent offsets, plus zero and exact
+powers of two up to 4096 bits to validate canonical
+factor removal. Verify floor<=ceil and
+(floor==ceil iff normalized denominator exponent==0).
+No changes to tests/test_dyadic.cpp, the paired corpus,
+Rational, build/link config, vcpkg or benchmark CI.
+R37 is a general semantic simplification, not yet a
+measured performance gain; require independent CI and
+native same-host benchmark results before promotion.
