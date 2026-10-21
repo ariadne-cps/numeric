@@ -67,7 +67,6 @@ namespace {
 Sign integer_sign(Integer const& n) { return sgn(n); }
 Integer integer_add(Integer const& a,Integer const& b) { return add(a,b); }
 Integer integer_sub(Integer const& a,Integer const& b) { return sub(a,b); }
-Integer integer_mul(Integer const& a,Integer const& b) { return mul(a,b); }
 Integer integer_neg(Integer const& n) { return neg(n); }
 Comparison integer_cmp(Integer const& a,Integer const& b) { return cmp(a,b); }
 BigUnsigned unsigned_mul(BigUnsigned const& a,BigUnsigned const& b) { return mul(a,b); }
@@ -179,9 +178,20 @@ Integer multiply_magnitude(Integer const& n,BigUnsigned const& m) {
 BigUnsigned exact_quotient(BigUnsigned const& n,BigUnsigned const& d) {
     return unsigned_is_one(d) ? n : quot(n,d);
 }
-Integer exact_quotient(Integer const& n,BigUnsigned const& d) {
-    return Integer::from_magnitude(exact_quotient(n.magnitude(),d),n.negative());
+// R19: construct a product from exact cross-cancelled magnitudes,
+// borrowing each original operand whenever its divisor is one.
+// quot(x,1) would materialize a full BigUnsigned copy unnecessarily;
+// make the decision independently for each factor.
+BigUnsigned multiply_cancelled(BigUnsigned const& lhs,BigUnsigned const& lhs_divisor,
+                               BigUnsigned const& rhs,BigUnsigned const& rhs_divisor) {
+    if (unsigned_is_one(lhs_divisor)) {
+        if (unsigned_is_one(rhs_divisor)) { return unsigned_mul(lhs,rhs); }
+        return unsigned_mul(lhs,quot(rhs,rhs_divisor));
+    }
+    if (unsigned_is_one(rhs_divisor)) { return unsigned_mul(quot(lhs,lhs_divisor),rhs); }
+    return unsigned_mul(quot(lhs,lhs_divisor),quot(rhs,rhs_divisor));
 }
+
 }
 
 template<> class ExtensionOperations<Rational> {
@@ -251,8 +261,13 @@ template<> class FiniteOperations<Rational> {
         }
         const BigUnsigned g=gcd(a._numerator.magnitude(),b._denominator);
         const BigUnsigned h=gcd(b._numerator.magnitude(),a._denominator);
-        r=reduced(integer_mul(exact_quotient(a._numerator,g),exact_quotient(b._numerator,h)),
-                  unsigned_mul(exact_quotient(a._denominator,h),exact_quotient(b._denominator,g)));
+        BigUnsigned numerator=multiply_cancelled(
+            a._numerator.magnitude(),g,b._numerator.magnitude(),h);
+        BigUnsigned denominator=multiply_cancelled(
+            a._denominator,h,b._denominator,g);
+        r=reduced(Integer::from_magnitude(
+            std::move(numerator),a._numerator.negative()!=b._numerator.negative()),
+            std::move(denominator));
     }
     static Void div(Rational& r,Rational const& a,Rational const& b) {
         if (b._numerator.magnitude().is_zero()) {
@@ -261,11 +276,13 @@ template<> class FiniteOperations<Rational> {
         if (a._numerator.magnitude().is_zero()) { r=Rational(); return; }
         const BigUnsigned g=gcd(a._numerator.magnitude(),b._numerator.magnitude());
         const BigUnsigned h=gcd(a._denominator,b._denominator);
-        Integer n=Integer::from_magnitude(
-            unsigned_mul(exact_quotient(a._numerator.magnitude(),g),exact_quotient(b._denominator,h)),
-            a._numerator.negative()!=b._numerator.negative());
-        r=reduced(std::move(n),unsigned_mul(exact_quotient(a._denominator,h),
-                                          exact_quotient(b._numerator.magnitude(),g)));
+        BigUnsigned numerator=multiply_cancelled(
+            a._numerator.magnitude(),g,b._denominator,h);
+        BigUnsigned denominator=multiply_cancelled(
+            a._denominator,h,b._numerator.magnitude(),g);
+        r=reduced(Integer::from_magnitude(
+            std::move(numerator),a._numerator.negative()!=b._numerator.negative()),
+            std::move(denominator));
     }
     static Void neg(Rational& r,Rational const& q) { r=reduced(integer_neg(q._numerator),q._denominator); }
     static Void hlf(Rational& r,Rational const& q) {

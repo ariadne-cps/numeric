@@ -6827,3 +6827,45 @@ remains `total_time<1x` and `worst<2x` for every host-width pair.
 ### R18 — use CMake architecture selectors consistently (21 October 2026)
 
 Replace 40 architecture preprocessor predicates in `src/big_unsigned.cpp` and three in `src/rational.cpp` with the existing CMake-selected `ARIADNE_BIG_UNSIGNED_X86_64` / `ARIADNE_BIG_UNSIGNED_ARM64` target-private flags. This is a lexical-only replacement of `defined(__x86_64__)`, `defined(__aarch64__)`, and `defined(_M_X64)`; all compiler feature guards, algorithm bodies, thresholds, benchmarks and test oracles are unchanged. Document PRIVATE definition scope in `src/CMakeLists.txt`. Native regression and benchmarks pending; do not claim performance changes. R17 Unix and Coverage CI passed prior to this refactor.
+
+
+### R19 — borrow uncancelled Rational multiply/divide factors (21 October 2026)
+
+**Baseline.** R18 (`e1a8fb2`) Unix, Windows and Coverage workflows
+all passed. The most recent separately supplied 6-width host
+benchmarks are from R16; neither R17 nor R18 has paired native
+performance measurements yet. R16 total_time/worst per width:
+ARM64 .423/1.233, .767/1.876, 1.232/1.565, 1.150/1.401,
+.888/1.562, .697/1.553; x86-64 .882/1.422, 1.095/2.170,
+1.691/2.039, 1.221/1.448, .774/1.144, .561/1.111.
+Both reports passed 384 paired inputs and 2,880 paired results.
+
+**Change.** Canonical Rational multiplication and division use two
+cross-GCDs (g and h), then produce two products from four exact
+cancelled factors. Prior code evaluated `exact_quotient(x,1)` by
+copying `x`; each cross-GCD equal to 1 could therefore cause two
+unnecessary BigUnsigned copies. New private
+`multiply_cancelled(lhs,lhs_divisor,rhs,rhs_divisor)` borrows each
+original magnitude when its exact divisor is 1, independently for
+both factors, and computes a real exact quotient only when the
+divisor exceeds 1. The result is constructed as an owning numerator
+and denominator, with numerator sign determined as before by XOR.
+Keep the same cross-GCDs, exact multiplication, canonicality,
+special-values and self-alias-square dispatch. Remove now-unused
+Integer wrappers for `mul` and `exact_quotient`. These are
+optimizations for all coprime and partially coprime factors,
+not special cases of benchmark inputs.
+
+**Regression.** Add independent GMP-oracle multiply/divide checks
+across 53,128,256,1024,2048,4096 bits for all 4 combinations
+of trivial and nontrivial cross factors, all 4 sign combinations,
+both operand orders, compound operators, self-alias multiply and
+self-division. Every result is checked for GMP numeric equality
+and canonical positive denominator. Retain randomized GMP
+differential suites, FloatAP coverage, benchmarks and workloads.
+
+**Validation.** No local R19 full build or matched ARM64/x86-64
+measurement has yet been performed. Require Unix/Windows/Coverage
+and unchanged six-width 20,000-iteration/31-sample paired benchmarks
+before interpreting performance. Strict acceptance remains
+`total_time<1x` and `worst<2x` at every width on BOTH hosts.

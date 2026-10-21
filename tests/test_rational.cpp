@@ -631,6 +631,51 @@ void TestRational::test_gmp_differential() {
             }
         }
     }
+    // R19: all four combinations of identity/nonidentity cross-GCD
+    // divisors for both multiply and divide, across the inline boundary
+    // and long operands. Check exact GMP arithmetic, canonicality,
+    // in-place operations, swapped order and independent sign choices.
+    for (unsigned bits : {53u,128u,256u,1024u,2048u,4096u}) {
+        const Integer base=pow(Integer(2),Nat(bits));
+        const Rational a(base+3,base+5);
+        const std::array<Rational,4u> factors={
+            Rational(base+9,base+7), // both quotient divisors are one
+            Rational(base+9,base+3), // shared numerator/denominator
+            Rational(base+5,base+9), // opposite shared cross factor
+            Rational(base+5,base+3)  // two nontrivial cross factors
+        };
+        for (Rational const& factor : factors) {
+            for (unsigned signs=0u;signs<4u;++signs) {
+                const Rational lhs=(signs&1u)!=0u ? -a : a;
+                const Rational rhs=(signs&2u)!=0u ? -factor : factor;
+                GmpRationalBoundary ga(lhs),gb(rhs);
+                mpq_mul(expected.mutable_value(),ga.value(),gb.value());
+                check(lhs*rhs);
+                Rational result=lhs;
+                result*=rhs;
+                check(result);
+                mpq_mul(expected.mutable_value(),gb.value(),ga.value());
+                check(rhs*lhs);
+                mpq_div(expected.mutable_value(),ga.value(),gb.value());
+                check(lhs/rhs);
+                result=lhs;
+                result/=rhs;
+                check(result);
+                mpq_div(expected.mutable_value(),gb.value(),ga.value());
+                check(rhs/lhs);
+            }
+        }
+        // Preserve the existing alias-aware square and self-division.
+        GmpRationalBoundary ga(a);
+        mpq_mul(expected.mutable_value(),ga.value(),ga.value());
+        Rational self=a;
+        self*=self;
+        check(self);
+        mpq_div(expected.mutable_value(),ga.value(),ga.value());
+        self=a;
+        self/=self;
+        check(self);
+    }
     // Independently check truncation at normal/subnormal and overflow edges,
     // under all four host rounding modes. Operands are not formed as doubles.
     const int saved_rounding=std::fegetround();
