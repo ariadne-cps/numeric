@@ -179,6 +179,8 @@ class Rational
     //! \name Comparison operations
     friend Sign sgn(Rational const& q); //!< The sign of \a q.
     friend Comparison cmp(Rational const& q1, Rational const& q2); //!< Compares which of \a q1 and \a q2 is larger.
+    friend Comparison cmp(Rational const& q,Int n) { return cmp(q,Rational(n)); }
+    friend Comparison cmp(Int n,Rational const& q) { return cmp(Rational(n),q); }
     friend Boolean eq(Rational const& q1, Rational const& q2); //!< Tests if \a q1 is equal to \a q2.
     friend Boolean lt(Rational const& q1, Rational const& q2); //!< Tests if \a q1 is less than \a q2.
     //!@}

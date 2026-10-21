@@ -240,7 +240,8 @@ public:
             static_cast<Nat>(_denominator_exponent)).literal();
     }
 
-    static Dyadic inf(int sign=1) {
+    static Dyadic inf() { return inf(1); }
+    static Dyadic inf(int sign) {
         Dyadic result;
         result._kind=sign==0 ? Kind::NaN :
                      sign>0 ? Kind::PositiveInfinity : Kind::NegativeInfinity;
@@ -585,6 +586,9 @@ public:
         return x;
     }
     friend Dyadic hlf(Dyadic const& x) { return x/2; }
+    friend Rational operator/(Dyadic const& a,Dyadic const& b) {
+        return div(a.to_rational(),b.to_rational());
+    }
     // Quotients and reciprocals of dyadics are exact rational numbers.
     friend Rational rec(Dyadic const& x) {
         return rec(x.to_rational());
@@ -617,9 +621,7 @@ public:
     }
     friend Comparison cmp(Dyadic const& a,Dyadic const& b) {
         if (a._kind==Kind::NaN || b._kind==Kind::NaN) {
-            // cmp does not model unordered; Boolean comparisons
-            // explicitly reject NaN below, as with the legacy type.
-            return Comparison::EQUAL;
+            return Comparison::INCOMPARABLE;
         }
         if (a._kind==b._kind && !a.is_finite()) {
             return Comparison::EQUAL;
@@ -642,6 +644,8 @@ public:
         return order<0 ? Comparison::LESS :
                order>0 ? Comparison::GREATER : Comparison::EQUAL;
     }
+    friend Comparison cmp(Dyadic const& a,Int b) { return cmp(a,Dyadic(b)); }
+    friend Comparison cmp(Int a,Dyadic const& b) { return cmp(Dyadic(a),b); }
     friend Boolean lt(Dyadic const& a,Dyadic const& b) {
         if (a._kind==Kind::NaN || b._kind==Kind::NaN) { return false; }
         return cmp(a,b)==Comparison::LESS;
@@ -978,6 +982,9 @@ Dyadic hlf(Integer const& n);
 // ambiguous implicit promotions between distinct interval specializations.
 inline RationalBounds rational_enclosure(DyadicBounds const& x) {
     return RationalBounds(Rational(x.lower_raw()),Rational(x.upper_raw()));
+}
+inline RationalBounds div(DyadicBounds const& a,DyadicBounds const& b) {
+    return div(rational_enclosure(a),rational_enclosure(b));
 }
 #define ARIADNE_DYADIC_RATIONAL_BOUNDS_BINARY(NAME) \
 inline RationalBounds NAME(RationalBounds const& q,DyadicBounds const& d) { \
