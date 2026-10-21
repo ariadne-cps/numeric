@@ -7201,3 +7201,107 @@ existing short-width FloatAP gates remain unmet; no FloatAP arithmetic
 was changed. Raw first/repeated runs are retained for comparison.
 Native x86-64 GCC/Clang measurements and Unix/Windows/Coverage CI for
 R22 remain pending at publication.
+
+### R23 — fused unsigned product accumulation for Rational sums (21 October 2026)
+
+**Baseline.** R22 (2f9e710) passed Unix, Windows, Coverage and both
+hosted x86-64 benchmark jobs. User-supplied 20,000x31 reports, arm64
+then x86-64, both pass 384 inputs/2,880 exact results. ARM64 per-width
+total/worst at 53/128/256/1024/2048/4096 is .407/1.257, .576/1.763,
+.889/1.558, .891/1.404, .701/1.155, .606/1.314: all gates pass.
+On x86-64: .896/1.398, .875/1.966, 1.234/1.762, .959/1.413,
+.647/1.107, .499/.985. Only the 256-bit total fails. At 256 bits,
+add/sub remain 409.509/410.803 ns versus GMP 280.330/280.860 ns;
+compare at 128 bits retains little margin under 2x.
+
+**Shared unsigned primitive.** accumulate_product_into(a,b,out,subtract)
+updates an existing disjoint accumulator by +/-a*b modulo B^out.size(),
+B=2^64, and returns the one-bit overflow or borrow. For nonempty
+factors require out.size()>=a.size()+b.size(); check size arithmetic
+and storage before mutation. A zero factor leaves the accumulator
+unchanged. Both read-only factors may alias each other but not output.
+No allocation, scratch storage, finite precision limit or new ISA
+requirement is introduced; no existing kernel selector changes.
+
+Each row forms a_i*b_j+carry, applies its low limb to the accumulator,
+and carries its high limb plus addition overflow/subtraction borrow.
+The combined intermediate is at most (B-1)^2+2*(B-1)=B^2-1, so the
+next carry fits a limb. Propagate the last row carry/borrow through
+all higher accumulator words. Since a*b<B^out.size(), adding it to
+an unsigned accumulator can overflow at most once; subtraction can
+borrow at most once. The OR of escaping row bits is therefore the
+exact final overflow/borrow. Skip exact-zero multiplier rows; other
+rows retain the same full-width recurrence. Optional compiler unsigned
+128-bit multiplication, MSVC x64 _umul128, and the existing portable
+32-bit-half multiply provide the same low/high products. There is no
+CPU feature probe or assembly addition in this change.
+
+**Rational integration.** For bounded cross sums, form the first
+product in width+1 limbs, where width covers both full products, and
+accumulate the second directly. One guard limb proves the unsigned
+sum exact. For opposite effective signs, a returned borrow identifies
+a negative difference; convert its two's-complement buffer back to
+an unsigned magnitude in place, then combine its sign with that of
+the first numerator. Signed interpretation remains in Rational. Zero
+is canonicalized by Integer and the existing Rational zero branch.
+This replaces two product arrays plus a separate add/sub output by
+one 17-limb array and removes the separate product comparison. All
+scalar, unit-factor and >8-limb operand fallbacks are retained.
+
+Completed nonzero canonical add/sub components also move directly
+into the result, followed by setting kind=finite. Both owning values
+are fully evaluated before member assignment, preserving aliases.
+Member move assignment is noexcept; public Rational move construction,
+move assignment and their existing source-value semantics are unchanged.
+The direct assignment alone did not show an ARM64 speedup in the short
+trial, so it is not claimed as an independently measured optimization.
+No GCD, reduction proof, benchmark operand, timing weight or oracle changes.
+
+**Functional validation.** Apple M2 Ultra, macOS 26.6.2, AppleClang 21
+Release warnings-as-errors: all 20 C++ CTest suites pass. Debug
+ASan/UBSan: Integer, BigUnsigned, Rational, Float and FloatRounding
+pass (5/5). GCC 16.2 ARM64 Release warnings-as-errors: Integer,
+BigUnsigned and Rational pass (3/3). Existing exact and extended-value
+suites, public copy/move invariants and GMP differential checks remain.
+New public replacement/self-alias tests cover both source orders,
+zero cancellation, every denominator-GCD reduction branch and replacing
+an existing special destination. The unsigned kernel has independent
+full-width carry/borrow cases plus 1,728 GMP comparisons of arbitrary
+initial accumulators, dense/sparse/all-ones/zero factors, 0/1/2/4/5/8/
+9/16/64-limb widths and extra high limbs; sources are checked unchanged.
+A standalone ARM64 build with __SIZEOF_INT128__ undefined passes
+4,096 further GMP comparisons through the new portable wide-product
+fallback. No x86-64/MSVC performance or remote CI success is claimed
+before those jobs run.
+
+**Native measurements.** Sequential R22/R23 Release runs on the same
+M2 Ultra, without concurrent builds/tests: Rational 20,000x31, all six
+widths, both pass 384 paired inputs/2,880 exact results. Total/worst:
+
+| Bits | R22 total | R23 total | R22 worst | R23 worst |
+| --- | ---: | ---: | ---: | ---: |
+| 53 | .368 | .362 | 1.257 | 1.238 |
+| 128 | .537 | .523 | 1.762 | 1.746 |
+| 256 | .869 | .851 | 1.680 | 1.723 |
+| 1024 | .886 | .884 | 1.417 | 1.552 |
+| 2048 | .703 | .705 | 1.121 | 1.244 |
+| 4096 | .610 | .611 | 1.273 | 1.282 |
+| ALL | .664 | .662 | 1.762 | 1.746 |
+
+All Rational ARM64 gates pass. Absolute add/sub medians (R22 -> R23,
+ns): 53 bits 90.767/89.033 -> 81.604/80.842; 128 bits
+188.167/186.790 -> 168.244/171.060; 256 bits 242.121/242.142 ->
+217.710/220.954; 1024 bits 615.410/600.740 -> 577.708/578.765.
+The 256-bit add/sub improvement is about 10%/9%; it does not establish
+that the user's x86-64 total gate now passes. Native x86-64 reports and
+remote Unix/Windows/Coverage results remain pending at publication.
+
+Integer 20,000x31 passes 768 inputs/2,688 results in both revisions.
+ALL total/worst .955/1.651 -> .949/1.667; 4096-bit total remains
+above 1x (1.017 -> 1.006). FloatAP 1,000x11 passes 256 inputs/3,456
+exact results in both revisions. Total/worst at 53/128/256/1024 bits:
+1.345/2.443 -> 1.403/2.568, 1.043/2.644 -> 1.067/2.635,
+.588/2.044 -> .589/2.021, .247/1.570 -> .250/1.608. These single
+sequential runs include timing variation; they do not prove universal
+nonregression. Existing FloatAP short-width deficits remain. No FloatAP
+arithmetic or existing Integer kernel selection changed.

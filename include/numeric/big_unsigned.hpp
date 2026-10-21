@@ -177,6 +177,13 @@ class BigUnsigned
     //! a.size()+b.size() limbs for nonempty operands. Extra limbs are zeroed.
     //! Both input views must be disjoint from output. No allocations.
     static void mul_into(LimbView a,LimbView b,MutableLimbView output);
+    //! Update an existing accumulator by +/-a*b modulo its limb width.
+    //! Return the addition overflow or subtraction borrow bit. Nonempty
+    //! factors require at least a.size()+b.size() output limbs; zero
+    //! factors leave output unchanged. Inputs must be disjoint from
+    //! output. No allocation; insufficient size throws before mutation.
+    static Limb accumulate_product_into(
+        LimbView a,LimbView b,MutableLimbView output,bool subtract);
     //! Full product using the explicitly selected portable reference.
     static void mul_into_portable(LimbView a,LimbView b,MutableLimbView output);
     //! Experimental column-wise Comba kernel for benchmarking on x86-64.

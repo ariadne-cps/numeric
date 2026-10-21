@@ -9352,3 +9352,30 @@ are retained. No universal speedup/nonregression or short-width gate
 acceptance is claimed. R22's complete Rational measurements and
 exact-division proofs are in the paired journal. Remote CI and native
 x86-64 measurements remain pending at publication.
+
+### R23 shared product accumulation and Rational result ownership (21 October 2026)
+
+The paired integer_rational_design.md R23 entry specifies the new
+unsigned accumulate_product_into primitive, disjoint accumulator
+contract, exact overflow/borrow recurrence, and compiler-wide/MSVC/
+portable fallback products. Existing FloatAP arithmetic, ISA selection
+and rounding are unchanged. Rational uses this to fuse bounded signed
+cross sums in one buffer and moves completed canonical components into
+its result without another Rational temporary. Signed interpretation
+stays in Rational; all scalar/unit/long paths and public move semantics
+remain. AppleClang 21 Release passes all 20 C++ suites; Debug ASan/UBSan
+passes five suites; GCC 16.2 ARM64 passes three suites. A standalone
+portable-wide-product build passes 4,096 GMP accumulation comparisons.
+Sequential native R22/R23 FloatAP 1,000x11 measurements on the same M2
+Ultra pass 256 paired inputs/3,456 exact results in both revisions.
+Total/worst at 53/128/256/1024 bits is 1.345/2.443 -> 1.403/2.568,
+1.043/2.644 -> 1.067/2.635, .588/2.044 -> .589/2.021,
+.247/1.570 -> .250/1.608. Existing short-width deficits remain; single
+sequential runs do not establish universal nonregression. The workload,
+precision and correctness gates are unchanged. Integer 20,000x31 also
+passes 768 inputs/2,688 results; ALL total/worst .955/1.651 ->
+.949/1.667, with 4096-bit total still above 1x. Rational ARM64 passes
+all per-width total/worst gates, with 256-bit add/sub about 10%/9% faster
+and total .869 -> .851. Full native measurements and proofs are in the
+paired R23 journal. Native x86-64 reports and remote CI remain pending
+at publication; no x86-64 performance acceptance is inferred.

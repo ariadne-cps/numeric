@@ -1215,6 +1215,57 @@ multiply_digit_portable(BigUnsigned::Limb x,BigUnsigned::Limb y) noexcept
             p11+(p01>>32u)+(p10>>32u)+(middle>>32u)};
 }
 
+template<bool Subtract>
+BigUnsigned::Limb accumulate_product(
+        BigUnsigned::LimbView a,BigUnsigned::LimbView b,
+        BigUnsigned::MutableLimbView output) noexcept
+{
+    using Limb=BigUnsigned::Limb;
+    Limb escaped=0u;
+    for (std::size_t i=0u;i<a.size();++i) {
+        if (a[i]==0u) { continue; }
+        Limb carry=0u;
+        for (std::size_t j=0u;j<b.size();++j) {
+            Limb low,high;
+#if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(__clang__)
+            low=_umul128(a[i],b[j],&high);
+            const Limb previous=low;
+            low+=carry;
+            high+=static_cast<Limb>(low<previous);
+#elif defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+            __extension__ using Wide=unsigned __int128;
+            const Wide product=static_cast<Wide>(a[i])*b[j]+carry;
+            low=static_cast<Limb>(product);
+            high=static_cast<Limb>(product>>64u);
+#else
+            const auto product=multiply_digit_portable(a[i],b[j]);
+            low=product.first+carry;
+            high=product.second+static_cast<Limb>(low<product.first);
+#endif
+            const Limb old=output[i+j];
+            if constexpr (Subtract) {
+                output[i+j]=old-low;
+                carry=high+static_cast<Limb>(old<low);
+            } else {
+                output[i+j]=old+low;
+                carry=high+static_cast<Limb>(output[i+j]<old);
+            }
+        }
+        for (std::size_t k=i+b.size();carry!=0u && k<output.size();++k) {
+            const Limb old=output[k];
+            if constexpr (Subtract) {
+                output[k]=old-carry;
+                carry=static_cast<Limb>(old<carry);
+            } else {
+                output[k]=old+carry;
+                carry=static_cast<Limb>(output[k]<old);
+            }
+        }
+        escaped|=carry;
+    }
+    return escaped;
+}
+
 // Subtract digit*divisor from the (m+1)-limb partial dividend in
 // place, fusing multiplication and subtraction into one pass.
 // Each carry is the high product limb plus the subtraction borrow.
@@ -2665,6 +2716,18 @@ void BigUnsigned::mul_into_fused(
 {
     check_full_product_size(a,b,output);
     mul_low_into_fused(a,b,output);
+}
+
+BigUnsigned::Limb BigUnsigned::accumulate_product_into(
+        LimbView a,LimbView b,MutableLimbView output,bool subtract)
+{
+    if (a.empty() || b.empty()) { return 0u; }
+    if (a.size()>std::numeric_limits<std::size_t>::max()-b.size() ||
+            output.size()<a.size()+b.size()) {
+        throw std::length_error("BigUnsigned product accumulator too small");
+    }
+    return subtract ? accumulate_product<true>(a,b,output)
+                    : accumulate_product<false>(a,b,output);
 }
 
 void BigUnsigned::mul_into_schoolbook(

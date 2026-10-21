@@ -618,16 +618,42 @@ void TestRational::test_gmp_differential() {
                 GmpRationalBoundary native_a(a),native_b(b);
                 mpq_add(expected.mutable_value(),native_a.value(),native_b.value());
                 check(a+b);
+                // R23: replacement of the left/right operand and of a
+                // preexisting special destination preserves the result.
+                Rational direct=a;
+                direct+=b;
+                check(direct);
+                direct=b;
+                direct=a+direct;
+                check(direct);
+                direct=Rational::nan();
+                direct=a+b;
+                check(direct);
                 mpq_sub(expected.mutable_value(),native_a.value(),native_b.value());
                 check(a-b);
+                direct=a;
+                direct-=b;
+                check(direct);
+                direct=b;
+                direct=a-direct;
+                check(direct);
+                direct=Rational::inf(Sign::NEGATIVE);
+                direct=a-b;
+                check(direct);
                 Rational aliased=a;
                 aliased+=a;
                 mpq_add(expected.mutable_value(),native_a.value(),native_a.value());
                 check(aliased);
+                direct=a;
+                Rational& direct_alias=direct;
+                direct+=direct_alias;
+                check(direct);
                 aliased=a;
                 aliased-=a;
                 mpq_sub(expected.mutable_value(),native_a.value(),native_a.value());
                 check(aliased);
+                direct-=direct_alias;
+                check(direct);
             }
         }
     }

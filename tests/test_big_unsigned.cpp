@@ -74,6 +74,7 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_multiplication());
         ARIADNE_TEST_CALL(test_division_limb());
         ARIADNE_TEST_CALL(test_exact_division_limb());
+        ARIADNE_TEST_CALL(test_product_accumulation());
         ARIADNE_TEST_CALL(test_division());
         ARIADNE_TEST_CALL(test_gcd_decimal());
         ARIADNE_TEST_CALL(test_views_and_scratch());
@@ -90,6 +91,7 @@ class TestBigUnsigned
     void test_multiplication();
     void test_division_limb();
     void test_exact_division_limb();
+    void test_product_accumulation();
     void test_division();
     void test_gcd_decimal();
     void test_views_and_scratch();
@@ -1935,6 +1937,67 @@ void TestBigUnsigned::test_exact_division_limb()
         catch (std::domain_error const&) { inexact_threw=true; }
         ARIADNE_TEST_ASSERT(inexact_threw);
     }
+}
+
+void TestBigUnsigned::test_product_accumulation()
+{
+    using Limb=BigUnsigned::Limb;
+    const Limb max=std::numeric_limits<Limb>::max();
+    const std::array<Limb,1u> one={1u};
+    std::array<Limb,2u> fixed={max,max};
+    ARIADNE_TEST_ASSERT(BigUnsigned::accumulate_product_into(one,one,fixed,false)==1u);
+    ARIADNE_TEST_ASSERT(fixed[0u]==0u && fixed[1u]==0u);
+    ARIADNE_TEST_ASSERT(BigUnsigned::accumulate_product_into(one,one,fixed,true)==1u);
+    ARIADNE_TEST_ASSERT(fixed[0u]==max && fixed[1u]==max);
+    std::mt19937_64 random(0x23ACC00ULL);
+    GmpInteger a,b,initial,product,total,modulus,expected;
+    for (std::size_t length : {0u,1u,2u,4u,5u,8u,9u,16u,64u}) {
+        for (unsigned trial=0u;trial<32u;++trial) {
+            const std::size_t other=trial%3u==0u ? 1u : length;
+            std::vector<Limb> x(length),y(other);
+            for (auto& word:x) { word=random(); }
+            for (auto& word:y) { word=random(); }
+            if (trial%4u==0u) { std::fill(x.begin(),x.end(),max); }
+            if (trial%4u==1u) {
+                std::fill(x.begin(),x.end(),Limb{0});
+                if (!x.empty()) { x.back()=1u; x.front()|=1u; }
+            }
+            if (trial%4u==2u) { std::fill(y.begin(),y.end(),Limb{0}); }
+            const BigUnsigned left(x),right(y);
+            mpz_import(a.value,left.size(),-1,sizeof(Limb),0,0,left.limbs().data());
+            mpz_import(b.value,right.size(),-1,sizeof(Limb),0,0,right.limbs().data());
+            mpz_mul(product.value,a.value,b.value);
+            for (std::size_t extra : {0u,1u,3u}) {
+                const std::size_t count=left.size()+right.size()+extra;
+                std::vector<Limb> original(count);
+                for (auto& word:original) { word=random(); }
+                if (trial%3u==0u) { std::fill(original.begin(),original.end(),Limb{0}); }
+                if (trial%3u==1u) { std::fill(original.begin(),original.end(),max); }
+                mpz_import(initial.value,count,-1,sizeof(Limb),0,0,original.data());
+                mpz_set_ui(modulus.value,1u);
+                mpz_mul_2exp(modulus.value,modulus.value,static_cast<mp_bitcnt_t>(64u*count));
+                for (bool subtract : {false,true}) {
+                    auto output=original;
+                    if (subtract) { mpz_sub(total.value,initial.value,product.value); }
+                    else { mpz_add(total.value,initial.value,product.value); }
+                    const Limb want=static_cast<Limb>(subtract ? mpz_sgn(total.value)<0 :
+                                                     mpz_cmp(total.value,modulus.value)>=0);
+                    mpz_fdiv_r(expected.value,total.value,modulus.value);
+                    const Limb escaped=BigUnsigned::accumulate_product_into(
+                        left.limbs(),right.limbs(),output,subtract);
+                    ARIADNE_TEST_ASSERT(escaped==want);
+                    check_against_gmp(BigUnsigned(output),expected.value);
+                    check_against_gmp(left,a.value);
+                    check_against_gmp(right,b.value);
+                }
+            }
+        }
+    }
+    bool short_threw=false;
+    fixed={7u,11u};
+    try { (void)BigUnsigned::accumulate_product_into(one,one,std::span(fixed).first(1u),false); }
+    catch (std::length_error const&) { short_threw=true; }
+    ARIADNE_TEST_ASSERT(short_threw && fixed[0u]==7u && fixed[1u]==11u);
 }
 
 void TestBigUnsigned::test_division()

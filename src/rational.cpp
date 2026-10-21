@@ -193,39 +193,23 @@ Integer signed_cross_sum(Integer const& p,BigUnsigned const& x,
         return subtract ? integer_sub(lhs,rhs) : integer_add(lhs,rhs);
     }
     using Limb=BigUnsigned::Limb;
-    std::array<Limb,16u> left{},right{};
-    std::array<Limb,17u> out{};
-    const std::size_t ln=a.size()+x.size(),rn=b.size()+y.size();
-    const std::size_t width=std::max(ln,rn);
-    BigUnsigned::mul_into(a.limbs(),x.limbs(),
-        BigUnsigned::MutableLimbView(left.data(),ln));
-    BigUnsigned::mul_into(b.limbs(),y.limbs(),
-        BigUnsigned::MutableLimbView(right.data(),rn));
-    const auto lv=BigUnsigned::LimbView(left.data(),ln);
-    const auto rv=BigUnsigned::LimbView(right.data(),rn);
-    const bool negative_l=p.negative(),negative_r=q.negative()!=subtract;
-    if (negative_l==negative_r) {
-        out[width]=BigUnsigned::add_into(lv,rv,
-            BigUnsigned::MutableLimbView(out.data(),width));
-        return Integer::from_magnitude(
-            BigUnsigned(BigUnsigned::LimbView(out.data(),width+1u)),
-            negative_l);
-    }
-    int order=0;
-    for (std::size_t i=width;i!=0u;--i) {
-        if (left[i-1u]!=right[i-1u]) {
-            order=left[i-1u]>right[i-1u] ? 1 : -1;
-            break;
+    std::array<Limb,17u> out;
+    const std::size_t width=std::max(a.size()+x.size(),b.size()+y.size());
+    const auto output=BigUnsigned::MutableLimbView(out.data(),width+1u);
+    BigUnsigned::mul_into(a.limbs(),x.limbs(),output);
+    const bool opposite=p.negative()!=(q.negative()!=subtract);
+    const Limb borrow=BigUnsigned::accumulate_product_into(b.limbs(),y.limbs(),output,opposite);
+    if (opposite && borrow!=0u) {
+        // The guard limb makes a negative difference an unambiguous
+        // two's-complement value. Restore its unsigned magnitude.
+        Limb carry=1u;
+        for (auto& word:output) {
+            const Limb inverted=~word;
+            word=inverted+carry;
+            carry=static_cast<Limb>(word<inverted);
         }
     }
-    if (order==0) { return Integer(0); }
-    const Limb borrow=order>0
-        ? BigUnsigned::sub_into(lv,rv,BigUnsigned::MutableLimbView(out.data(),width))
-        : BigUnsigned::sub_into(rv,lv,BigUnsigned::MutableLimbView(out.data(),width));
-    (void)borrow; // Exact unsigned order above guarantees no borrow.
-    return Integer::from_magnitude(
-        BigUnsigned(BigUnsigned::LimbView(out.data(),width)),
-        order>0 ? negative_l : negative_r);
+    return Integer::from_magnitude(BigUnsigned(output),p.negative()!=(opposite && borrow!=0u));
 }
 BigUnsigned exact_quotient(BigUnsigned const& n,BigUnsigned const& d) {
     if (unsigned_is_one(d)) { return n; }
@@ -300,6 +284,15 @@ template<> class FiniteOperations<Rational> {
     }
     static Void set(Rational& r,Rational const& q) { r=q; }
 
+    // Both owning components are complete before this call. Add/sub
+    // has proved the nonzero result canonical, even when r aliases an
+    // input. Avoid constructing and swapping a second Rational.
+    static Void set_sum(Rational& r,Integer&& n,BigUnsigned&& d) noexcept {
+        r._numerator=std::move(n);
+        r._denominator=std::move(d);
+        r._kind=Rational::Kind::FINITE;
+    }
+
     static Void add_sub(Rational& r,Rational const& a,Rational const& b,bool subtract) {
         if (a._numerator.magnitude().is_zero()) { r=subtract ? reduced(integer_neg(b._numerator),b._denominator) : b; return; }
         if (b._numerator.magnitude().is_zero()) { r=a; return; }
@@ -313,7 +306,7 @@ template<> class FiniteOperations<Rational> {
             Integer n=signed_cross_sum(a._numerator,b._denominator,
                                        b._numerator,a._denominator,subtract);
             if (n.magnitude().is_zero()) { r=Rational(); return; }
-            r=reduced(std::move(n),unsigned_mul(a._denominator,b._denominator));
+            set_sum(r,std::move(n),unsigned_mul(a._denominator,b._denominator));
             return;
         }
         const BigUnsigned ad=exact_quotient(a._denominator,g);
@@ -325,10 +318,10 @@ template<> class FiniteOperations<Rational> {
         if (unsigned_is_one(h)) {
             // The numerator is already canonical; reuse its ownership
             // and the unreduced input denominator without copies.
-            r=reduced(std::move(n),unsigned_mul(ad,b._denominator));
+            set_sum(r,std::move(n),unsigned_mul(ad,b._denominator));
             return;
         }
-        r=reduced(exact_quotient(n,h),unsigned_mul(ad,exact_quotient(b._denominator,h)));
+        set_sum(r,exact_quotient(n,h),unsigned_mul(ad,exact_quotient(b._denominator,h)));
     }
     static Void add(Rational& r,Rational const& a,Rational const& b) { add_sub(r,a,b,false); }
     static Void sub(Rational& r,Rational const& a,Rational const& b) { add_sub(r,a,b,true); }
