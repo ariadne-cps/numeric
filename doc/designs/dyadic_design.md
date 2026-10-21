@@ -311,3 +311,37 @@ and Coverage, then compare the unchanged 18-operation NewDyadic/Dyadic
 recheck ARM64 parity. Do not use a synthetic isolated ratio as
 promotion evidence. No public Dyadic/Rational change, no new benchmark
 CI job, and no alteration to the benchmark fixture.
+
+### D42 — direct canonical absolute value without redundant materialization (21 October 2026)
+
+**ARM64 target.** User-supplied unchanged 20,000-iteration, 31-sample
+paired NewDyadic/Dyadic benchmark reports abs at 4096 bits of 76.419 ns
+versus 36.298 ns, a 2.105x slowdown; previously it was 74.656 ns
+versus 36.767 ns, 2.031x. The overall ARM64 worst<2x gate therefore
+remains unsatisfied, despite the exact 384-pair benchmark verification
+passing. Do not infer D41 caused the small change without matched runs.
+
+**Change.** The old abs conditionally generated -x (copying the signed
+Integer coefficient), then constructed Positive<NewDyadic> from a
+materialized NewDyadic. Instead, as the already declared friend of
+NewDyadic, abs copies the canonical unsigned magnitude once into a
+nonnegative Integer and assigns the source denominator exponent and
+kind directly, mapping only negative infinity to positive infinity.
+Because the original finite representation is canonical, this avoids
+a second normalization/copy. The already available checked rvalue
+Positive constructor consumes the result without copying its owned
+magnitude. The source is never mutated. Preserve positive and negative
+finite values, zero, NaN, both infinities, and all original APIs.
+
+**Correctness.** Add test_wide_abs: old Dyadic reference and exact
+Rational comparison across 1/53/128/256/1024/2048/4096/8192-bit
+magnitudes, different odd low words, five exponents and both signs;
+also check canonical exponent, result sign, source immutability, zero,
+infinities, and NaN. The preexisting benchmark fixture and test suites
+are unchanged.
+
+**Promotion gate.** Require Unix/Windows/Coverage CI and fresh native
+ARM64 20,000x31 comparison on the same workload; worst slowdown must
+be strictly below 2x. A C++ source change or successful CI alone does
+not establish that performance condition. Do not declare NewDyadic
+finished until the gate is measured.

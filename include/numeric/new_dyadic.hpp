@@ -673,7 +673,15 @@ public:
     }
 };
 inline Positive<NewDyadic> abs(NewDyadic const& x) {
-    return Positive<NewDyadic>(sgn(x)==Sign::NEGATIVE ? -x : x);
+    // D42: copy the canonical magnitude exactly once, without forming
+    // a negated NewDyadic or renormalizing an already canonical value.
+    NewDyadic result;
+    result._coefficient=Integer::from_magnitude(
+        x._coefficient.magnitude(),false);
+    result._denominator_exponent=x._denominator_exponent;
+    result._kind=x._kind==NewDyadic::Kind::NegativeInfinity
+        ? NewDyadic::Kind::PositiveInfinity : x._kind;
+    return Positive<NewDyadic>(std::move(result));
 }
 inline Positive<NewDyadic> sqr(NewDyadic const& x) {
     return Positive<NewDyadic>(x*x);

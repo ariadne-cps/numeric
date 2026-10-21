@@ -381,6 +381,38 @@ void test_comparisons() {
     check(max(NewDyadic(-2),NewDyadic(1))==NewDyadic(1),"max");
 }
 
+// D42: exact absolute value of large canonical signed coefficients.
+// Preserve the input, denominator exponent and special-value behavior.
+void test_wide_abs() {
+    for (unsigned width:{1u,53u,128u,256u,1024u,2048u,4096u,8192u}) {
+        const BigUnsigned high=shift_left(BigUnsigned(1u),width-1u);
+        for (unsigned tail:{1u,3u,15u}) {
+            const BigUnsigned magnitude=add(high,BigUnsigned(tail));
+            for (unsigned exponent:{0u,1u,7u,63u,width/5u+1u}) {
+                for (unsigned sign=0u;sign<2u;++sign) {
+                    const Integer coefficient=Integer::from_magnitude(
+                        magnitude,sign!=0u);
+                    const NewDyadic value(coefficient,exponent);
+                    const NewDyadic original(value);
+                    const Dyadic legacy(coefficient,exponent);
+                    const Positive<NewDyadic> actual=abs(value);
+                    same_value(actual,abs(legacy),"D42 legacy abs");
+                    check(actual.denominator_exponent()==
+                          value.denominator_exponent(),"D42 abs exponent");
+                    check(sgn(actual)!=Sign::NEGATIVE,"D42 abs sign");
+                    check(value==original,"D42 abs input preserved");
+                }
+            }
+        }
+    }
+    check(abs(NewDyadic(0))==NewDyadic(0),"D42 zero abs");
+    check(abs(NewDyadic::inf(Sign::NEGATIVE))==
+          NewDyadic::inf(Sign::POSITIVE),"D42 negative infinity abs");
+    check(abs(NewDyadic::inf(Sign::POSITIVE))==
+          NewDyadic::inf(Sign::POSITIVE),"D42 positive infinity abs");
+    check(is_nan(abs(NewDyadic::nan())),"D42 NaN abs");
+}
+
 // TestDyadic::test_infinity: public special-value contracts, sign,
 // mixed arithmetic, half, abs, min/max and double conversion.
 void test_infinity() {
@@ -428,6 +460,7 @@ int main() {
         test_aligned_add_sub();
         test_owned_shifted_arithmetic();
         test_canonical_fraction_rounding();
+        test_wide_abs();
         test_infinity();
         std::cout<<"NewDyadic test port (literal/conversions/arithmetic/"
                     "comparisons/infinity) PASS\n";
