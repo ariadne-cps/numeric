@@ -7977,3 +7977,8 @@ now. Prefer repeated independent ARM64 and x86-64 native
 20,000x31 measurements and confirmation of all CI platform
 tests over risky further production dispatch alterations
 when the strict gates are only narrowly met.
+
+
+### R33b — paired Dyadic/NewDyadic experiment (21 October 2026)
+
+Keep existing Dyadic/mpf untouched. The proposed NewDyadic candidate owns only an Integer coefficient, nonnegative power-of-two denominator exponent and finite/infinity/NaN kind. It normalizes powers of two after every operation; add, sub, mul, compare, half, round, floor and ceil are exact native arithmetic. A provisional Rational conversion permits independent exact value comparison. The explicit CMake benchmark_compare_dyadic_backends target reports 18 matched operations per width, default 53,128,256,1024,2048,4096 bits with 20000 iterations and 31 samples, paired input pool of 32 deterministic signed dyadics and exact off-timer verification against legacy Dyadic converted to Rational. Report old ns, new ns, New/Old ratio; this is NOT a GMP comparison. No benchmark CI jobs. NewDyadic currently does not replace the full Dyadic public API or its legacy MPFR bridge; promote only after strict correctness and equivalent behavior on edge cases.
