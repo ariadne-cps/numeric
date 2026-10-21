@@ -9393,3 +9393,20 @@ existing effort-based computation and then round the two exact endpoints
 directly outward via FloatAP, never via FloatMP or double.
 Preserve FloatMP API during coexistence. Local compilation and CI
 remain prerequisites to calling the new overload set validated.
+
+### D59 — complete FloatAP virtual dispatch in NumberGetterMixin (21 October 2026)
+
+The first D57 CI compilation failed in `number.cpp`: its six new
+`NumberInterface::_get(..., ArbitraryPrecision, ...)` functions were
+pure virtual, but `NumberGetterMixin<X>` still implemented only the
+FloatDP and FloatMP overloads. All instantiated `NumberWrapper<X>`
+classes therefore became abstract. D59 installs the matching six
+`override` methods in the existing mixin and routes them through
+the existing typed `_get_as` constructors, preserving both metric
+precisions and exact outward enclosure semantics. No API method is
+made non-pure, no FloatMP intermediate is introduced, and all prior
+overloads are unchanged. Regression coverage asserts that the
+integer, dyadic, rational, FloatDP and FloatMP wrappers remain concrete,
+and exercises exact `ExactNumber` and `ValidatedNumber` dispatch
+into native-precision bounds. This is a CI build fix; full Unix,
+Windows and Coverage verification is required.

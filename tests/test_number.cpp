@@ -83,6 +83,13 @@ static_assert(check_number_concept<ApproximateNumber>());
 static_assert(check_number_concept<ValidatedNumber>());
 static_assert(check_number_concept<EffectiveNumber>());
 static_assert(check_number_concept<ExactNumber>());
+static_assert(!std::is_abstract_v<NumberWrapper<Integer>>,
+              "Every NumberWrapper must override native precision getters");
+static_assert(!std::is_abstract_v<NumberWrapper<Dyadic>>);
+static_assert(!std::is_abstract_v<NumberWrapper<Rational>>);
+static_assert(!std::is_abstract_v<NumberWrapper<FloatDP>>);
+static_assert(!std::is_abstract_v<NumberWrapper<FloatMP>>);
+
 static_assert(check_directed_number_concept<ValidatedLowerNumber,ValidatedUpperNumber>());
 static_assert(check_directed_number_concept<EffectiveLowerNumber,EffectiveUpperNumber>());
 
@@ -121,6 +128,17 @@ Void TestNumbers::test()
 Void
 TestNumbers::test_dyadic_behaviour()
 {
+    // D59: Exercise NumberInterface's native-precision virtual dispatch,
+    // including both-sided outward rounding of exact rational inputs.
+    const ArbitraryPrecision native_precision(128_bits);
+    const ExactNumber exact(Dyadic(13,2u));
+    const FloatAPBounds native=exact.get(native_precision);
+    ARIADNE_TEST_ASSERT(static_cast<Rational>(native.lower_raw())<=Rational(13,4));
+    ARIADNE_TEST_ASSERT(static_cast<Rational>(native.upper_raw())>=Rational(13,4));
+    const ValidatedNumber validated(DyadicBounds(Dyadic(1,3u),Dyadic(3,3u)));
+    const FloatAPBounds enclosure=validated.get(native_precision);
+    ARIADNE_TEST_ASSERT(static_cast<Rational>(enclosure.lower_raw())<=Rational(1,8));
+    ARIADNE_TEST_ASSERT(static_cast<Rational>(enclosure.upper_raw())>=Rational(3,8));
     ExactNumber y(Dyadic(1));
     try {
         ExactNumber r = y+y;
