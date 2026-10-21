@@ -660,6 +660,11 @@ public:
             throw std::domain_error("negative Positive<NewDyadic>");
         }
     }
+    explicit Positive(NewDyadic&& x) : NewDyadic(std::move(x)) {
+        if (sgn(*this)==Sign::NEGATIVE) {
+            throw std::domain_error("negative Positive<NewDyadic>");
+        }
+    }
 };
 inline Positive<NewDyadic> abs(NewDyadic const& x) {
     return Positive<NewDyadic>(sgn(x)==Sign::NEGATIVE ? -x : x);

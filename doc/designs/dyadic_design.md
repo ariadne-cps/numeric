@@ -255,3 +255,7 @@ do not alter benchmark cases or thresholds to satisfy it.
 ### R38.1 — fix AppleClang macro parsing in BigUnsigned shifted-subtraction test (21 October 2026)
 
 Commit `8f7ea1992` wraps the lambda expression passed to `ARIADNE_TEST_ASSERT` in an extra pair of parentheses. The comma separating the two `BigUnsigned` local declarations inside the lambda had been interpreted by the preprocessor as an additional function-like macro argument under AppleClang. The added parentheses group the expression as one macro argument; the underflow test semantics and checked expectations are unchanged. CI rerun required before marking the fix validated.
+
+### R39 — avoid redundant temporary copy in `abs` and `sqr` (21 October 2026)
+
+Add a checked rvalue overload `Positive<NewDyadic>(NewDyadic&&)` next to the existing const-reference constructor. This lets the negative `abs` path consume the already materialized `-x` temporary without copying its potentially large native Integer coefficient again; the positive `abs` path still copies the caller-owned lvalue, preserving nonmutation, and `sqr` can likewise move its multiplication result. Validation of the positivity invariant is performed on the constructed object. Keep the public signature of `abs`, exact sign/special semantics, original Dyadic and benchmark workload unchanged. This is a structural allocation/copy reduction candidate, not a measured ARM64 gain. Run compilation and full regression tests plus native same-host ARM64 benchmark before accepting a performance improvement.
