@@ -815,6 +815,30 @@ void TestRational::test_gmp_differential() {
                     std::bit_cast<std::uint64_t>(mpq_get_d(oracle.value()));
             }
         }
+        // R29: sparse two-word prefixes with arbitrary nonzero
+        // low tails. GMP is the bit-for-bit binary64 oracle.
+        // High-word coefficients cover exact and nonexact leading
+        // divisions under all four active host rounding modes.
+        for (unsigned bits:{128u,256u,320u,512u,1024u,2048u}) {
+            const Integer base=pow(Integer(2),Nat(bits));
+            for (std::uint64_t high_n:{1u,3u,7u}) {
+                for (std::uint64_t high_d:{2u,3u,5u}) {
+                    const Integer n=base*Integer(high_n)
+                        +Integer((random()&65535u)+1u);
+                    const Integer d=base*Integer(high_d)
+                        +Integer((random()&65535u)+1u);
+                    const Rational positive(n,d);
+                    for (Rational const& value:
+                            {positive,-positive}) {
+                        const GmpRationalBoundary oracle(value);
+                        conversion_matches=conversion_matches &&
+                            std::bit_cast<std::uint64_t>(value.get_d())==
+                            std::bit_cast<std::uint64_t>(
+                                mpq_get_d(oracle.value()));
+                    }
+                }
+            }
+        }
         // R13: independent random dense GMP ratios spanning 5..8
         // limbs, both signs, and fractions close to 1/2 and 1/3.
         // The exact certificate must work independently of the active

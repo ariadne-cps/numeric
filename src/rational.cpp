@@ -670,6 +670,31 @@ double Rational::get_d() const {
             return std::copysign(
                 std::ldexp(static_cast<double>(significand),scale),sign);
         }
+        // R29: when both two-limb prefixes have a zero low word,
+        // the exact 128/128 prefix division simplifies to 64/64.
+        // N=high_n*B and D=high_d*B; with s=-scale,
+        // q=floor((high_n*2^s)/high_d), r=(high_n*2^s)%high_d.
+        // The full-prefix remainder is r*B. Since q<2^53<B,
+        // r>0 proves its lower bound; q==2^52 is also proven
+        // by the exponent. The upper bound is strict because
+        // (high_d-r)*B>=B>2^s. Otherwise use R7's normal path.
+        if (n.limb(high-1u)==0u && _denominator.limb(high-1u)==0u &&
+                high_n<=static_cast<Wide>(
+                    std::numeric_limits<std::uint64_t>::max()>>shift)) {
+            const std::uint64_t scaled=
+                static_cast<std::uint64_t>(high_n)<<shift;
+            const std::uint64_t leading_d=static_cast<std::uint64_t>(high_d);
+            const std::uint64_t candidate=scaled/leading_d;
+            const std::uint64_t remainder=scaled%leading_d;
+            constexpr std::uint64_t min_significand=std::uint64_t{1}<<52u;
+            constexpr std::uint64_t max_significand=std::uint64_t{1}<<53u;
+            if (candidate>=min_significand &&
+                    candidate<max_significand &&
+                    (remainder!=0u || candidate==min_significand)) {
+                return std::copysign(
+                    std::ldexp(static_cast<double>(candidate),scale),sign);
+            }
+        }
         const Wide top_n=(high_n<<64u)|n.limb(high-1u);
         const Wide top_d=(high_d<<64u)|_denominator.limb(high-1u);
         if (certify(top_n,top_d,significand)) {

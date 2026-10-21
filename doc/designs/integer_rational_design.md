@@ -7656,3 +7656,53 @@ Run Unix, Windows, Coverage and paired x86-64 GCC/Clang official
 benchmarks; request an independent ARM64 run. R28 is provisional
 until both the whole Rational workload and these isolated operations
 show reproducible benefit with no architecture regression.
+
+
+### R29 — retain R28 double conversion, retire unproven add accumulator, certify sparse prefixes (21 October 2026)
+
+**R28 measurements.** The user provided native ARM64 and x86-64 official
+Rational 20,000x31 runs. Both pass 384 paired inputs and 2,880 results.
+R27 -> R28 at 256 bits: ARM64 total .876x -> .835x,
+to_double 64.390 -> 41.237 ns, add 203.394 -> 198.042 ns,
+sub 190.767 -> 192.492 ns; x86-64 total 1.164x -> 1.154x,
+to_double 104.773 -> 85.729 ns, add 355.474 -> 357.068 ns,
+sub 348.538 -> 349.180 ns. These tiny add/sub differences do
+not establish a benefit from R28b GCC accumulation, which added
+an extra bounded kernel path. Restore the complete
+src/big_unsigned.cpp from R27 (which preserves all R27 GCD
+changes); preserve the independent R28 GMP add/sub tests and
+R28a exact allocation-free exponent comparison. All four R28
+CI workflows passed. The 128-bit x86-64 worst-case compare was
+2.019x (strictly above the <2x gate), while 256-bit total was
+still 1.154x. Compare code did not change; do not attribute
+this small timing variation without paired evidence.
+
+**Exact binary64 R29 candidate.** Inside the R7 two-limb high-prefix
+certificate, if both leading two-limb prefixes have exactly zero
+low word, write N=n_top*B, D=d_top*B, s=-scale (s<=63).
+If n_top*2^s fits in 64 bits, compute exact q=floor(n_top*2^s/d_top)
+and r=(n_top*2^s)%d_top using native 64-bit arithmetic.
+The full-prefix remainder is R=r*B. Accept only if
+2^52<=q<2^53 and (r>0 or q==2^52). This is the same
+existing R7 exact certificate: r>0 implies R>=B>q, while
+q==2^52 has a lower bound from the exact exponent. The strict
+upper bound holds because D-R=(d_top-r)*B>=B>2^s.
+Ambiguous or out-of-bound cases fall back to the existing 128-bit
+prefix division. The predicate recognizes a general sparse
+leading-prefix property, not benchmark operand values. All normal,
+subnormal, special, negative and other precision cases keep
+the existing semantics, with no floating estimate or rounding
+mode dependency. ARM64, MSVC and Windows remain unchanged.
+
+**Verification.** Extend the existing bitwise GMP oracle cases
+inside all four host rounding-mode loops for sparse leading-prefix
+ratios at 128/256/320/512/1024/2048 bits, 3x3 combinations
+of leading coefficients, independently selected nonzero lower
+tails and both signs. Independent integer-oracle simulation of
+the sparse candidate verified 50,433 accepted random examples
+of 2-64 limbs with no incorrect exact quotient; this does not
+substitute for the integrated build or GMP tests. The unchanged
+Rational 15-operation official 20,000x31 benchmark and all strict
+cross-platform gates still apply. R29 remains a provisional
+performance candidate pending CI and independently measured
+ARM64/x86-64 end-to-end results.
