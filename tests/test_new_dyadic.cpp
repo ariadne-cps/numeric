@@ -184,7 +184,7 @@ void test_canonical_fraction_rounding() {
                     check(floor(native)<=ceil(native),
                           "R37 floor/ceil order");
                     const bool integer=native.denominator_exponent()==0u;
-                    check((floor(native)==ceil(native))==integer,
+                    check(static_cast<bool>(floor(native)==ceil(native))==integer,
                           "R37 exponent/whole-value invariant");
                 }
             }

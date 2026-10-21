@@ -8165,3 +8165,8 @@ Rational, build/link config, vcpkg or benchmark CI.
 R37 is a general semantic simplification, not yet a
 measured performance gain; require independent CI and
 native same-host benchmark results before promotion.
+
+
+### R37.1 — compile fix for mixed Boolean/bool test comparison (21 October 2026)
+
+All R37 Unix/Windows/Coverage workflows failed at the compilation step. The user-supplied AppleClang diagnostic pinpoints tests/test_new_dyadic.cpp:187: a comparison of Ariadne Boolean (floor(native)==ceil(native)) to built-in bool integer causes ambiguous operator== overload selection. Explicitly convert the Ariadne Boolean to bool before comparing to the canonicality expectation. Keep the assertion, original Dyadic oracle tests, all R37 arithmetic, benchmark fixture, vcpkg, build workflows and API unchanged. Both R37 user-supplied native benchmark runs passed their 384-input fixture numerical verification and showed floor/ceil improvements; these are independent of integrated CI. Revalidate Unix/Windows/Coverage before considering R37 stabilized.
