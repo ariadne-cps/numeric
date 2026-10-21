@@ -7765,3 +7765,36 @@ and same-host x86-64 parent/candidate official benchmark,
 plus ARM64 native timing and full GMP numerical verification.
 Do not conflate successful workflow with the strict
 total<1 and worst<2 per size gates.
+
+
+### R30.1 — resolve Clang -Wshadow in GMP constructor regression (21 October 2026)
+
+**Classification: test-only compile failure, not a failed numeric oracle.**
+AppleClang ARM64 Release with -Wshadow -Werror rejects the R30
+GMP differential block: a local variable named result shadows the
+internal local also named result introduced by ARIADNE_TEST_ASSERT
+from macro/testing.hpp (three errors at test_rational.cpp:463,
+467, 468). Rename only the local Rational object to
+fraction_result and its single GmpRationalBoundary construction.
+Preserve every macro assertion, operand, sign combination, GMP
+canonicality oracle, loop bound and numerical test. No source
+algorithm, official benchmark or build-warning flag changes.
+The R30 workflow runs Unix, Windows and Coverage failed at the
+initial commit; check the next revision independently.
+
+**Native R30 benchmark reports provided by the user.**
+Both the ARM64 and x86-64 official 20,000-iteration, 31-sample
+six-width Rational/GMP comparisons completed exact numerical
+verification PASS (384 paired inputs, 2880 results). Relative
+to the R29 reports on the same respective hosts, R30's
+construct_fraction at 256/2048/4096 bits was
+ARM64 114.196 -> 94.010 ns, 386.390 -> 155.429 ns,
+692.450 -> 219.613 ns, and x86-64
+211.755 -> 136.206 ns, 336.809 -> 214.528 ns,
+537.964 -> 278.859 ns. The x86-64 full 256-bit
+total_time ratio improved 1.143x -> 1.103x but still
+does NOT satisfy the strict total_time<1. ARM64 total
+256 bits changed .851x -> .827x. The x86-64 worst
+128-bit compare ratio is 1.982x, close to the <2 gate.
+These are independently supplied native full-workload
+measurements; integrated CI compilation remains necessary.

@@ -454,12 +454,12 @@ void TestRational::test_native_contract() {
                     const Integer positive_d=base*Integer(high_d)+Integer(low_d);
                     const Integer raw_n=(signs&1u)!=0u ? -positive_n : positive_n;
                     const Integer raw_d=(signs&2u)!=0u ? -positive_d : positive_d;
-                    const Rational result(raw_n,raw_d);
+                    const Rational fraction_result(raw_n,raw_d);
                     GmpRationalBoundary expected;
                     integer_to_gmp(mpq_numref(expected.mutable_value()),raw_n);
                     integer_to_gmp(mpq_denref(expected.mutable_value()),raw_d);
                     mpq_canonicalize(expected.mutable_value());
-                    const GmpRationalBoundary actual(result);
+                    const GmpRationalBoundary actual(fraction_result);
                     ARIADNE_TEST_ASSERT(mpq_equal(actual.value(),expected.value())!=0);
                     GmpIntegerBoundary common;
                     mpz_gcd(common.mutable_value(),
