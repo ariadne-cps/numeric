@@ -85,6 +85,13 @@ template<class F> class LowerBound
     LowerBound(const ValidatedLowerNumber& y, PR pr);
     template<class FF> requires Constructible<F,FF,RND,PR>
         LowerBound(const LowerBound<FF>& x, PR pr) : _l(x.raw(),down,pr) { }
+    // Exact cross-backend conversion without going through a generic
+    // ValidatedLowerNumber, which would recursively redispatch to itself.
+    template<class FF> requires (!Constructible<F,FF,RND,PR>
+                                 && Constructible<Rational,FF>
+                                 && Constructible<F,Rational,RND,PR>)
+        LowerBound(const LowerBound<FF>& x, PR pr)
+            : _l(Rational(x.raw()),down,pr) { }
 
     //! Convert from lower \em and upper bounds on a number.
     LowerBound(Bounds<F> const& x);

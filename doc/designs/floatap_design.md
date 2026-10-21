@@ -9471,3 +9471,33 @@ where the legacy one is included. Exercise both bound-from-bounds
 constructors in the Real conversion regression. No new header,
 no FloatMP conversion bridge and no change to arithmetic semantics.
 A complete Unix, Windows and Coverage build must still validate D62.
+
+### D63 — prevent recursive generic lower/upper conversions and check Windows precision (21 October 2026)
+
+An ARM64 `test_float` run segfaulted directly after the FloatAP
+Real-enclosure checks, before the first generic lower/upper conversion
+assertion. The following `ValidatedLowerNumber` and
+`ValidatedUpperNumber` objects wrap FloatMP lower/upper bounds.
+Previously `NumberGetterMixin<X>::_get_as<FloatAPLowerBound>(pr)`
+could regard the FloatAP constructor from `ValidatedLowerNumber` as
+viable via an implicit conversion from `LowerBound<FloatMP>`;
+constructing that wrapper recursively invokes the same virtual
+`_get`, causing unbounded recursion/stack overflow. The upper-bound
+path is symmetric.
+
+In the existing lower/upper wrapper headers, add a direct, typed
+cross-backend constructor for source types whose raw values are
+exactly convertible to Rational, used only when direct raw-float
+conversion is unavailable. It constructs `FloatAP` from the source's
+exact Rational value using downward/upward rounding respectively.
+This avoids generic redispatch, preserves mathematical enclosure and
+does not introduce any `FloatAP(FloatMP)` adapter. Keep all the
+existing tests, and explicitly compare direct and virtual converted
+endpoints to prevent recurrence.
+
+On Windows, `ArbitraryPrecision::bits()` is size_t whereas the
+`Effort` constructor accepts Nat. Explicitly reject values beyond
+Nat's representable range in `Real::get(ArbitraryPrecision)`,
+then cast to Nat, removing MSVC C4267 under /WX without silently
+truncating. ARM64 and Windows compilation and tests must still verify
+the fixes.

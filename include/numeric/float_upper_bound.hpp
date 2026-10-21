@@ -86,6 +86,13 @@ template<class F> class UpperBound
     UpperBound(const ValidatedUpperNumber& y, PR pr);
     template<class FF> requires Constructible<F,FF,RND,PR>
         UpperBound(const UpperBound<FF>& x, PR pr) : _u(x.raw(),up,pr) { }
+    // Preserve the exact source value and round outward; do not bounce
+    // through a generic ValidatedUpperNumber and recursively dispatch.
+    template<class FF> requires (!Constructible<F,FF,RND,PR>
+                                 && Constructible<Rational,FF>
+                                 && Constructible<F,Rational,RND,PR>)
+        UpperBound(const UpperBound<FF>& x, PR pr)
+            : _u(Rational(x.raw()),up,pr) { }
 
     //! Convert from upper \em and lower bounds on a number.
     UpperBound(Bounds<F> const& x);

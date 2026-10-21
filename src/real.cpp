@@ -47,6 +47,8 @@
 #include "number_wrapper.hpp"
 
 #include "concepts.hpp"
+#include <limits>
+#include <stdexcept>
 
 namespace Ariadne {
 
@@ -463,7 +465,11 @@ DyadicBounds Real::compute_get(Effort e) const { return this->_ptr->_compute(e);
 FloatDPBounds Real::get(DoublePrecision pr) const { return this->_ptr->_compute_get(Effort(0),pr); }
 FloatMPBounds Real::get(MultiplePrecision pr) const { return this->_ptr->_compute_get(Effort(pr.bits()),pr); }
 FloatAPBounds Real::get(ArbitraryPrecision pr) const {
-    return this->compute_get(Effort(pr.bits()),pr);
+    const std::size_t bits=pr.bits();
+    if (bits>std::numeric_limits<Nat>::max()) {
+        throw std::overflow_error("Real: precision exceeds the Effort range");
+    }
+    return this->compute_get(Effort(static_cast<Nat>(bits)),pr);
 }
 FloatDPBounds Real::compute_using(DoublePrecision pr) const { return this->_ptr->_compute_get(Effort(0),pr); }
 FloatMPBounds Real::compute_using(MultiplePrecision pr) const { return this->_ptr->_compute_get(Effort(pr.bits()),pr); }

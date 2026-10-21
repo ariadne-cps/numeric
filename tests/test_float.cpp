@@ -372,6 +372,12 @@ TestFloat<PR>::test_conversions()
             const ValidatedUpperNumber validated_upper=mp_upper;
             const LowerBound<FloatAP> ap_lower(validated_lower,pr);
             const UpperBound<FloatAP> ap_upper(validated_upper,pr);
+            // Direct and virtual conversions must agree, without recursive
+            // dispatch through ValidatedLower/UpperNumber.
+            const LowerBound<FloatAP> direct_lower(mp_lower,pr);
+            const UpperBound<FloatAP> direct_upper(mp_upper,pr);
+            ARIADNE_TEST_EQUALS(ap_lower.raw(),direct_lower.raw());
+            ARIADNE_TEST_EQUALS(ap_upper.raw(),direct_upper.raw());
             ARIADNE_TEST_ASSERT(cmp(ap_lower.raw(),exact_third)!=Comparison::GREATER);
             ARIADNE_TEST_ASSERT(cmp(ap_upper.raw(),exact_third)!=Comparison::LESS);
         }
