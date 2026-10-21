@@ -673,7 +673,8 @@ void TestRational::test_gmp_differential() {
         check(self);
         mpq_div(expected.mutable_value(),oracle_self.value(),oracle_self.value());
         self=a;
-        self/=self;
+        Rational& self_alias=self;
+        self/=self_alias;
         check(self);
     }
     // Independently check truncation at normal/subnormal and overflow edges,

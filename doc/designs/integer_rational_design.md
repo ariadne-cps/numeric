@@ -6920,3 +6920,24 @@ unchanged. No test coverage is weakened.
 **Validation:** verify fresh Unix, Windows and Coverage CI.
 Fresh R19 performance data cannot be claimed until native benchmark
 runs are available.
+
+
+### R19c — preserve self-division alias test without Clang self-assign warning (21 October 2026)
+
+**Blocking CI error:** Clang 16 with `-Werror` rejects the R19
+GMP-oracle test statement `self/=self` as
+`-Wself-assign-overloaded` at `tests/test_rational.cpp:676`.
+The failure is a warning-policy/test-expression issue, not an
+identified Rational arithmetic defect. R19b Unix CI failed;
+Coverage passed at the latest check.
+
+**Minimal fix:** use `Rational& self_alias=self;` and invoke
+`self/=self_alias`. Both references still name the exact same
+object, so the test continues to exercise in-place self-division
+and to compare against `mpq_div(a,a)`, followed by canonicality
+verification. Do not disable diagnostics or alter the GMP oracle,
+number of tests, operands, benchmarks or production implementation.
+
+**Validation:** fresh Unix, Windows and Coverage builds and
+regressions are required; no new performance conclusion until
+the existing ARM64/x86-64 six-width benchmark is rerun.
