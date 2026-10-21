@@ -7987,3 +7987,29 @@ Keep existing Dyadic/mpf untouched. The proposed NewDyadic candidate owns only a
 ### R33d — align NewDyadic public arithmetic API with Dyadic (21 October 2026)
 
 User requested signature/semantic parity and that NewDyadic tests derive from the original test_dyadic.cpp, not an unrelated minimal test. Restore Boolean comparison returns, Comparison cmp, Sign sgn, Boolean eq/lt, Bool special predicates, Positive<NewDyadic> square and abs results, named arithmetic, compound assignments, signed/unsigned pow distinction, numerator/exponent queries, exact String/ExactDouble/TwoExp construction, and canonical native storage. The legacy Dyadic implementation remains unchanged. The paired benchmark now times `cmp` on both sides and `sqr` on both sides. Retain exact Rational oracle outside measurements. Port test_dyadic's literal/conversion/arithmetic/comparison/special sections into the independent NewDyadic test; DyadicBounds/Ball and raw mpf interop still require separate compatibility work before migration/promotion.
+
+
+### R33e — port original Dyadic test scenarios to NewDyadic (21 October 2026)
+
+**Test provenance.** Rewrite tests/test_new_dyadic.cpp as a parallel
+section-by-section adaptation of tests/test_dyadic.cpp: test_literal,
+test_conversions, test_arithmetic, test_comparisons, test_infinity.
+Carry over exact literal values 3.25, -11.375, 0.375, 2^3/2^-3;
+invalid/non-dyadic decimal rejection; all 11 legacy rounding
+expectations; negative floor/ceil and infinity exceptions; arithmetic
+3/4 +/- (-5/8), signed positive/negative powers, compound updates;
+negative comparisons; infinities, NaN, signs and invalid operations.
+Add exact cross-checks with the legacy Dyadic and native Rational at
+53,128,256,512,1024,2048,4096 bits. Verify public Boolean and
+Comparison return signatures at compile time. Do not weaken a
+failing numeric expectation or silently substitute a different
+numeric rounding rule. Keep the previous test_dyadic.cpp untouched.
+
+**Deliberate gaps before API parity.** The source test sections
+test_bounds and test_ball require NewDyadic-specialized bounds,
+balls, positive and abstraction wrappers, and are NOT yet ported.
+The existing legacy mpf constructor/accessor, default Writer API,
+two-exp literal suffixes and full stream interface likewise
+remain pending separate compatibility work. This is a test-first
+gap inventory, not a claim that NewDyadic already replaces Dyadic.
+No benchmark or Rational CI job is re-enabled.
