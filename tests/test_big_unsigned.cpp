@@ -2767,6 +2767,39 @@ void TestBigUnsigned::test_gcd_decimal()
             }
         }
     }
+    // R26: same-width quotient <=3 shortcut. This differs from the
+    // existing R11 cases by deliberately exercising q=3, q=2 with
+    // high-limb ratio 3:1, and the transition to q>=4. GMP is the
+    // independent gcd oracle; both orders and source immutability
+    // are checked at 4/5- and 127/128/129-limb boundaries.
+    {
+        GmpInteger ga,gb,expected;
+        std::mt19937_64 engine(0x52632633474344ULL);
+        for (const std::size_t count:{2u,3u,4u,5u,8u,16u,127u,128u,129u}) {
+            const BigUnsigned top=shift_left(one,64u*(count-1u));
+            for (unsigned trial=0u;trial<40u;++trial) {
+                const BigUnsigned low(engine()|1u);
+                const BigUnsigned b=add(top,low);
+                for (std::uint64_t q:{2u,3u,4u}) {
+                    for (unsigned variant=0u;variant<3u;++variant) {
+                        const BigUnsigned product=mul(b,BigUnsigned(q));
+                        const BigUnsigned a=variant==0u ? product :
+                            variant==1u ? add(product,one) :
+                            sub(add(product,b),one);
+                        mpz_import(ga.value,a.size(),-1,sizeof(std::uint64_t),
+                                   0,0,a.limbs().data());
+                        mpz_import(gb.value,b.size(),-1,sizeof(std::uint64_t),
+                                   0,0,b.limbs().data());
+                        mpz_gcd(expected.value,ga.value,gb.value);
+                        check_against_gmp(gcd(a,b),expected.value);
+                        check_against_gmp(gcd(b,a),expected.value);
+                        check_against_gmp(a,ga.value);
+                        check_against_gmp(b,gb.value);
+                    }
+                }
+            }
+        }
+    }
     // R21: fixed coprimality and dense Euclid at the stack/fallback
     // boundary. Both source views must survive every buffer rotation.
     {

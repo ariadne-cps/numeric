@@ -7462,3 +7462,55 @@ ARM64, before considering a selective production kernel. Any promotion
 then requires independent GMP canonical regression and 20,000x31
 six-width full Rational runs on both hosts. Do not alter the official
 benchmark or claim R25 performance improvement before these runs.
+
+
+### R26 — prove and benchmark quotient-three shortcut in bounded GCD (21 October 2026)
+
+**Evidence.** User's R25 ARM64/x86-64 benchmark (3,000x11, GMP
+verification PASS) shows the experimental bounded Lehmer variant is
+slower at 256 bits on every applicable category on both hosts. On
+x86-64, Lehmer/native at 256 bits: construct_a=1.848,
+construct_b=1.193, add_den=1.789, mul_cross_a=1.609,
+mul_cross_b=1.294, div_num=1.157, div_den=1.715.
+On ARM64 the corresponding range is 1.414-2.321.
+Neither binary GCD nor this conservative Lehmer implementation is
+selected for production.
+
+**Candidate change.** Expand the existing R11/R21 short-quotient
+subtraction in *bounded* BigUnsigned::gcd from at most two to at most
+three subtracts for ordered, equal-size canonical input views.
+Writing a=high_a*B^k+low_a and b=high_b*B^k+low_b,
+a>=b and high_a<=3*high_b imply
+a<(high_a+1)*B^k<= (3*high_b+1)*B^k<4*b
+(the last strict inequality follows from b>=high_b*B^k
+and the integrality of the quotient; for high_b=1, a<4*B^k<=4*b).
+Consequently floor(a/b)<=3. This is a general arithmetic bound,
+not a corpus-specific recognition test. Test the condition with
+unsigned differences high_delta=high_a-high_b,
+high_delta<=high_b || high_delta-high_b<=high_b
+using short-circuit evaluation, without overflowing 3*high_b.
+The first subtraction stores in the next disjoint GCD buffer;
+each additional subtract uses the independent division workspace
+and copies the trimmed output back. A lexicographic comparison
+ensures no subtraction occurs when the remainder is already <b.
+The normal general remainder-only division remains the fallback
+for larger quotients and unequal sizes. No change to quotient or
+remainder public kernels or Rational invariants.
+
+**Independent regression.** Extend test_big_unsigned GCD GMP
+differential cases at 2,3,4,5,8,16,127,128,129 limbs, across
+q=2/3/4 and exact/effectively q+1 boundary residues, both operand
+orders and unchanged input magnitudes. This covers both the
+bounded/fallback threshold and the heap/inline boundary. Existing
+randomized GCD, decimal, multiplication, Rational and FloatAP
+tests remain enabled. Keep 15-operation Rational/GMP 20,000x31
+benchmark and all 32 official pairs per width unchanged.
+
+**Status.** R26 is a measured candidate, **not** an asserted speedup:
+the x86-64 256-bit full Rational total and 128-bit worst operation
+must improve or at least stay within the project gates without
+regressing ARM64 and high widths; use the hosted same-run
+parent/candidate x86-64 comparison and independent ARM64 native
+reports. If the extra comparisons/subtractions cost more than the
+avoided general divisions, revert production dispatch while retaining
+useful diagnostic and design findings.
