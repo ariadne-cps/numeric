@@ -1091,7 +1091,7 @@ void TestBigUnsigned::test_views_and_scratch()
         }
     }
     // R38: shifted subtraction rejects a negative result.
-    ARIADNE_TEST_ASSERT([] {
+    ARIADNE_TEST_ASSERT(([] {
         const BigUnsigned one(std::uint64_t{1}),two(std::uint64_t{2});
         try {
             (void)BigUnsigned::sub_shifted(one.limbs(),0u,two.limbs(),0u);
@@ -1099,7 +1099,7 @@ void TestBigUnsigned::test_views_and_scratch()
             return true;
         }
         return false;
-    }());
+    }()));
 }
 
 void TestBigUnsigned::test_multiply_kernel_paths()
