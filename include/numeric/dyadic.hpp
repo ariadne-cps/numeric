@@ -29,225 +29,735 @@
 #ifndef ARIADNE_DYADIC_HPP
 #define ARIADNE_DYADIC_HPP
 
-#include "numeric/gmp.hpp"
-
-#include <iostream> // For std::floor std::ceil etc
-#include <iomanip> // For std::setprecision
-#include <cmath> // For std::floor std::ceil etc
-#include <algorithm> // For std::max, std::min
-#include <limits> // For std::numeric_limits<double>
-
-#include "utility/handle.hpp"
-#include "utility/writable.hpp"
-
-#include "foundation/logical.hpp"
 #include "numeric/integer.hpp"
+#include "numeric/rational.hpp"
+#include "numeric/decimal.hpp"
 #include "numeric/twoexp.hpp"
-#include "numeric/arithmetic.hpp"
+#include "numeric/builtin.hpp"
+#include "numeric/number.decl.hpp"
+#include "utility/writable.hpp"
+#include "utility/handle.hpp"
+#include "foundation/logical.hpp"
+#include <type_traits>
+#include <array>
+#include <algorithm>
+#include <bit>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
+#include <utility>
 
 namespace Ariadne {
-
-
-class ExactDouble;
 class Dyadic;
 extern const Dyadic infty;
-
 class InfinityException : public std::runtime_error {
-    using std::runtime_error::runtime_error;
+  public: using std::runtime_error::runtime_error;
 };
-
-//! \ingroup NumericModule
-//! \brief A dyadic number of the form \f$p/2^q\f$ for integers \f$p\f$, \f$q\f$; equivalently, a number with a finite binary expansion.
-//! \sa Integer, Decimal, Rational, Float<DP>, Float<MP>
-//! \details The number \f$1.375\f$ is an example of a dyadic number, since it is equal to \f$1.375=11/8=11/2^3=1.101_2\f$. The number \f$0.1375\f$ is not a dyadic number, since \f$0.1375=11/80=11/(2^4\times 5)=0.0010\overline{0011}_2\f$, so the denominator is not a power of \f$2\f$, and its binary expansion is recurring.
-class Dyadic
-{
+// Exact finite value: coefficient / 2^denominator_exponent.
+// Canonical form has no factor of two in the coefficient if exponent>0.
+// GMP is deliberately absent from representation and arithmetic.
+class Dyadic {
     static Writer<Dyadic> _default_writer;
-  public:
-//    template<class W> requires BaseOf<WriterInterface<Dyadic>,W> static Void set_default_writer(W w) {
-//        _default_writer=std::make_shared<W>(std::move(w)); }
-//    static Void set_default_writer(Writer<Dyadic> w) { _default_writer=w.managed_pointer(); }
-    static Void set_default_writer(Writer<Dyadic> w);
-    static Writer<Dyadic> default_writer();
-  public:
-    mpf_t _mpf;
-  public:
+public:
     typedef ExactTag Paradigm;
+    static Void set_default_writer(Writer<Dyadic> writer);
+    static Writer<Dyadic> default_writer();
+    operator ExactNumber() const;
+    friend OutputStream& operator<<(OutputStream&,Dyadic const&);
 
-    //! \brief Construct a Dyadic number from a GNU mpf object.
-    explicit Dyadic (mpf_t mpf);
-    //! \brief Construct the Dyadic number \a p/2<sup>q</sup>.
-    Dyadic (Integer const& p, Nat q);
-    Dyadic (Integer const& p, Int q) = delete; // Can only construct a dyadic p/2^q for a positive (unsigned) value q, such at uint or Nat.
-    Dyadic (Integer const& p, Natural q);
-    //! \brief Destructor.
-    ~Dyadic();
-    //! \brief Default constructor creates the number 0 (zero).
-    Dyadic();
-    //! \brief Copy constructor.
-    Dyadic(Dyadic const& n);
-    Dyadic(Dyadic&& n);
-    //! \brief Assignment constructor.
-    Dyadic& operator=(Dyadic const& n);
-    Dyadic& operator=(Dyadic&& n);
-    //! \brief Convert from a built-in integer.
-    template<BuiltinIntegral N> Dyadic(N n);
-    //! \brief Convert from an exact double-precision number.
-    Dyadic(const ExactDouble& d);
-    //! \brief Convert from an integer.
-    Dyadic(const Integer& z);
-    //! \brief Convert from a power of two.
-    Dyadic(const TwoExp& t);
-    //! \brief Explicit construction from a built-in double-precision value.
-    //! \details Tests to ensure that the number is not 'accidentally' created from a rounded version of a string literal,
-    //! by comparing the input with it's single-precision approximation.
-    explicit Dyadic(double x);
-    //! \brief Construct from a string representation.
-    explicit Dyadic(String const&);
-    //! \brief Convert to a generic number.
-    operator ExactNumber () const;
-    //! \brief A representation of ±∞ or NaN.
-    static Dyadic inf(Sign sgn);
-    //! \brief A representation of +∞.
-    static Dyadic inf();
-    //! \brief A representation of NaN (not-a-number).
-    static Dyadic nan();
+    enum class Kind : unsigned char { Finite, PositiveInfinity, NegativeInfinity, NaN };
+private:
+    Integer _coefficient;
+    std::size_t _denominator_exponent=0u;
+    Kind _kind=Kind::Finite;
 
-    //! \brief The smallest integer \a p such that \a x=p/2<sup>q</sup>
-    Integer mantissa() const;
-    //! \brief The (negative) integer \a -q such that \a x=p/2<sup>q</sup>
-    Int exponent() const;
-    //! \brief A double-precision approximation.
-    double get_d() const;
-    mpf_t const& get_mpf() const;
-    //! \brief A string literal, comprising the exact value in decimal format.
-    String literal() const;
-    //! \brief Convert a floating-point literal to Dyadic i.e. long binary format.
-    friend Dyadic operator""_bin(long double x);
-    //! \brief Convert a floating-point literal to Dyadic.
-    friend Dyadic operator""_dyadic(long double x);
-    //! \brief Shorthand for operator""_dyadic.
-    friend Dyadic operator""_dy(long double x);
-    //! \brief Alternative for operator""_dyadic for use in Python interface.
-    friend Dyadic dy_(long double x);
+    static std::size_t checked_natural_exponent(Natural const& exp) {
+        const BigUnsigned& magnitude=exp.magnitude();
+        if (magnitude.bit_length()>std::numeric_limits<std::size_t>::digits) {
+            throw std::overflow_error("Dyadic denominator exponent too large");
+        }
+        return static_cast<std::size_t>(exp.get_ui());
+    }
+    static Integer shifted(Integer const& x,std::size_t bits) {
+        if (bits==0u || x.magnitude().is_zero()) { return x; }
+        return Integer::from_magnitude(shift_left(x.magnitude(),bits),x.negative());
+    }
 
-    //!@{
-    //! \name Arithmetic operators
-    friend Dyadic operator+(Dyadic const& w) { return pos(w); } //!< <p/>
-    friend Dyadic operator-(Dyadic const& w) { return neg(w); } //!< <p/>
-    friend Dyadic operator+(Dyadic const& w1, Dyadic const& w2) { return add(w1,w2); } //!< <p/>
-    friend Dyadic operator-(Dyadic const& w1, Dyadic const& w2) { return sub(w1,w2); } //!< <p/>
-    friend Dyadic operator*(Dyadic const& w1, Dyadic const& w2) { return mul(w1,w2); } //!< <p/>
-    friend Dyadic& operator+=(Dyadic& w1, Dyadic const& w2) { return w1=add(w1,w2); } //!< <p/>
-    friend Dyadic& operator-=(Dyadic& w1, Dyadic const& w2) { return w1=sub(w1,w2); } //!< <p/>
-    friend Dyadic& operator*=(Dyadic& w1, Dyadic const& w2) { return w1=mul(w1,w2); } //!< <p/>
-    friend Rational operator/(Rational const&, Rational const&);
-    //!@}
+    void normalize() {
+        if (_kind!=Kind::Finite || _coefficient.magnitude().is_zero()) {
+            _denominator_exponent=0u;
+            return;
+        }
+        auto const& magnitude=_coefficient.magnitude();
+        std::size_t trailing=0u;
+        for (std::size_t i=0u;i<magnitude.size();++i) {
+            const std::uint64_t limb=magnitude.limb(i);
+            if (limb!=0u) {
+                trailing+=static_cast<std::size_t>(std::countr_zero(limb));
+                break;
+            }
+            trailing+=64u;
+        }
+        const std::size_t reduce=std::min(trailing,_denominator_exponent);
+        if (reduce!=0u) {
+            _coefficient=Integer::from_magnitude(
+                shift_right(magnitude,reduce),_coefficient.negative());
+            _denominator_exponent-=reduce;
+        }
+    }
 
-    //!@{
-    //! \name Comparison operators
-    friend Boolean operator==(Dyadic const& w1, Dyadic const& w2) { return eq(w1,w2); } //!< <p/>
-    friend Boolean operator!=(Dyadic const& w1, Dyadic const& w2) { return !eq(w1,w2); } //!< <p/>
-    friend Boolean operator<=(Dyadic const& w1, Dyadic const& w2) { return !lt(w2,w1); } //!< <p/>
-    friend Boolean operator>=(Dyadic const& w1, Dyadic const& w2) { return !lt(w1,w2); } //!< <p/>
-    friend Boolean operator< (Dyadic const& w1, Dyadic const& w2) { return lt(w1,w2); } //!< <p/>
-    friend Boolean operator> (Dyadic const& w1, Dyadic const& w2) { return lt(w2,w1); } //!< <p/>
-    //!@}
+    static Integer truncated(Dyadic const& x) {
+        return Integer::from_magnitude(
+            shift_right(x._coefficient.magnitude(),x._denominator_exponent),
+            x._coefficient.negative());
+    }
 
-    //!@{
-    //! \name Arithmetic operations
-    friend Dyadic nul(Dyadic const& w); //!< Zero \a 0.
-    friend Dyadic pos(Dyadic const& w); //!< %Positive \a +w.
-    friend Dyadic neg(Dyadic const& w); //!< Negative \a -w.
-    friend Positive<Dyadic> sqr(Dyadic const& w); //!< Square \a w<sup>2</sup>.
-    friend Dyadic hlf(Dyadic const& w); //!< Half \a w/2.
+    // Exact comparison of positive n/2^en and m/2^em without
+    // constructing shifted operands.
+    static int compare_scaled(BigUnsigned const& n,std::size_t en,
+                              BigUnsigned const& m,std::size_t em) noexcept {
+        if (n.is_zero() || m.is_zero()) {
+            return n.is_zero() ? (m.is_zero() ? 0 : -1) : 1;
+        }
+        const std::size_t nb=n.bit_length(),mb=m.bit_length();
+        const bool ng=nb>=en,mg=mb>=em;
+        if (ng!=mg) { return ng ? 1 : -1; }
+        if (ng) {
+            if (nb-en!=mb-em) { return nb-en>mb-em ? 1 : -1; }
+        } else {
+            if (en-nb!=em-mb) { return en-nb<em-mb ? 1 : -1; }
+        }
+        return nb>=mb ? compare_aligned(n,m) : -compare_aligned(m,n);
+    }
 
-    friend Dyadic add(Dyadic const& w1, Dyadic const& w2); //!< Add \a w1+w2.
-    friend Dyadic sub(Dyadic const& w1, Dyadic const& w2); //!< Subtract \a w1-w2.
-    friend Dyadic mul(Dyadic const& w1, Dyadic const& w2); //!< Multiply \a w1×w2.
-    friend Dyadic pow(Dyadic const& w, Nat m); //!< Power \a w<sup>m</sup> where \a  m is positive.
-    friend Rational pow(Dyadic const& w, Int n); //!< Power \a w<sup>n</sup>.
-    friend Dyadic fma(Dyadic const& w1, Dyadic const& w2, Dyadic const& w3); //!< Fused multiply-and-add \a w1×w2+w3.
+    // Align shorter positive magnitude virtually to the longer
+    // magnitude's most significant bit. No owning BigUnsigned.
+    static int compare_aligned(BigUnsigned const& a,
+                               BigUnsigned const& b) noexcept {
+        const std::size_t shift=a.bit_length()-b.bit_length();
+        const std::size_t whole=shift/64u;
+        const unsigned part=static_cast<unsigned>(shift%64u);
+        for (std::size_t i=a.size();i!=0u;--i) {
+            const std::size_t index=i-1u;
+            std::uint64_t word=0u;
+            if (index>=whole) {
+                const std::size_t j=index-whole;
+                if (j<b.size()) {
+                    word=part==0u ? b.limb(j) : b.limb(j)<<part;
+                }
+                if (part!=0u && j!=0u && j-1u<b.size()) {
+                    word|=b.limb(j-1u)>>(64u-part);
+                }
+            }
+            const std::uint64_t actual=a.limb(index);
+            if (actual!=word) { return actual<word ? -1 : 1; }
+        }
+        return 0;
+    }
 
-    friend Rational rec(Rational const&);
-    friend Rational div(Rational const&, Rational const&);
-    //!@}
+    static void require_finite(Dyadic const& x) {
+        if (x._kind!=Kind::Finite) {
+            throw std::domain_error("non-finite Dyadic cannot be rounded");
+        }
+    }
 
-    friend Real sqrt(Real const&);
-    friend Real exp(Real const&);
-    friend Real log(Real const&);
-    friend Real sin(Real const&);
-    friend Real cos(Real const&);
-    friend Real tan(Real const&);
-    friend Real asin(Real const&);
-    friend Real acos(Real const&);
-    friend Real atan(Real const&);
+    static int signum(Dyadic const& x) noexcept {
+        if (x._kind==Kind::PositiveInfinity) { return 1; }
+        if (x._kind==Kind::NegativeInfinity) { return -1; }
+        if (x._kind==Kind::NaN || x._coefficient.magnitude().is_zero()) { return 0; }
+        return x._coefficient.negative() ? -1 : 1;
+    }
 
-    //!@{
-    //! \name Lattice operations
-    friend Positive<Dyadic> abs(Dyadic const& w); //!< Absolute value \a |w|.
-    friend Dyadic min(Dyadic const& w1, Dyadic const& w2); //!< Minimum \a w1∧w2.
-//    friend Positive<Dyadic> min(Positive<Dyadic> const& w1, Positive<Dyadic> const& w2);
-    friend Dyadic max(Dyadic const& w1, Dyadic const& w2); //!< Maximum \a w1∨w2.
-//    friend Positive<Dyadic> max(Dyadic const& w1, Positive<Dyadic> const& w2);
-//    friend Positive<Dyadic> max(Positive<Dyadic> const& w1, Dyadic const& w2);
-//    friend Positive<Dyadic> max(Positive<Dyadic> const& w1, Positive<Dyadic> const& w2);
-    //!@}
+public:
+    Dyadic()=default;
+    Dyadic(Integer numerator,std::size_t exponent=0u)
+        : _coefficient(std::move(numerator)),_denominator_exponent(exponent) {
+        normalize();
+    }
+    Dyadic(Integer const& numerator,Natural exponent)
+        : Dyadic(numerator,checked_natural_exponent(exponent)) { }
+    template<BuiltinSignedIntegral N>
+    Dyadic(Integer const&,N) = delete;
+    template<BuiltinIntegral N>
+    Dyadic(N n) : Dyadic(Integer(n)) { }
 
-    //!@{
-    //! \name Rounding operations
-    friend Integer floor(Dyadic const& w); //!< Round down to the nearest lower integer.
-    friend Integer round(Dyadic const& w); //!< Round to the nearest integer. %Rounding of halves is implementation-dependent.
-    friend Integer ceil(Dyadic const& w); //!< Round up to the nearest higher integer.
-    //!@}
+    // Same value-conversion entry points as Dyadic; all arithmetic
+    // remains native, and only exact dyadic Rational values are accepted.
+    explicit Dyadic(Rational const& q) {
+        if (is_nan(q)) { *this=nan(); return; }
+        if (is_inf(q)) {
+            *this=inf(sgn(q)==Sign::POSITIVE ? 1 : -1);
+            return;
+        }
+        auto const denominator=q.denominator();
+        auto const& magnitude=denominator.magnitude();
+        if (magnitude.is_zero() || magnitude.bit_length()==0u) {
+            throw std::invalid_argument("invalid Dyadic denominator");
+        }
+        const std::size_t exp=magnitude.bit_length()-1u;
+        if (compare(magnitude,shift_left(BigUnsigned(1u),exp))!=0) {
+            throw std::invalid_argument("Rational is not a Dyadic");
+        }
+        _coefficient=q.numerator();
+        _denominator_exponent=exp;
+        normalize();
+    }
+    Dyadic(ExactDouble const& d) : Dyadic(Rational(d)) { }
+    explicit Dyadic(double d) : Dyadic(Rational(ExactDouble(d))) { }
+    explicit Dyadic(String const& s) : Dyadic(Rational(Decimal(s))) { }
+    explicit Dyadic(FloatDP const& d);
+    explicit Dyadic(FloatAP const& d);
+    Dyadic(TwoExp const& power) {
+        const Int e=power.exponent();
+        if (e>=0) {
+            _coefficient=shifted(Integer(1),static_cast<std::size_t>(e));
+        } else {
+            // Avoid signed overflow for INT_MIN.
+            _coefficient=Integer(1);
+            _denominator_exponent=static_cast<std::size_t>(-(e+1))+1u;
+        }
+    }
+    Integer mantissa() const { return _coefficient; }
+    Int exponent() const {
+        if (_denominator_exponent>
+              static_cast<std::size_t>(std::numeric_limits<Int>::max())) {
+            throw std::overflow_error("Dyadic exponent out of range");
+        }
+        return static_cast<Int>(_denominator_exponent);
+    }
+    String literal() const {
+        if (_kind==Kind::NaN) { return String("NaN"); }
+        if (_kind==Kind::PositiveInfinity) { return String("inf"); }
+        if (_kind==Kind::NegativeInfinity) { return String("-inf"); }
+        if (_denominator_exponent==0u) { return _coefficient.literal(); }
+        if (_denominator_exponent>std::numeric_limits<Nat>::max()) {
+            throw std::overflow_error("Dyadic literal exponent out of range");
+        }
+        return Decimal(_coefficient*pow(Integer(5),
+            static_cast<Nat>(_denominator_exponent)),
+            static_cast<Nat>(_denominator_exponent)).literal();
+    }
 
-    //!@{
-    //! \name Comparison operations
-    friend Sign sgn(Dyadic const& w); //!< The sign of \a w.
-    friend Comparison cmp(Dyadic const& w1, Dyadic const& w2); //!< Compares which of \a w1 and \a w2 is larger.
-    friend Boolean eq(Dyadic const& w1, Dyadic const& w2); //!< Tests if \a w1 is equal to \a w2.
-    friend Boolean lt(Dyadic const& w1, Dyadic const& w2); //!< Tests if \a w1 is less than \a w2.
-    //!@}
+    static Dyadic inf(int sign=1) {
+        Dyadic result;
+        result._kind=sign==0 ? Kind::NaN :
+                     sign>0 ? Kind::PositiveInfinity : Kind::NegativeInfinity;
+        return result;
+    }
+    static Dyadic nan() { return inf(0); }
+    static Dyadic inf(Sign sign) {
+        return inf(sign==Sign::ZERO ? 0 :
+                   sign==Sign::POSITIVE ? 1 : -1);
+    }
 
-    //!@{
-    //! \name Special value tests
-    friend Bool is_nan(Dyadic const& w); //!< Tests whether \a w is NaN (not-a-number).
-    friend Bool is_inf(Dyadic const& w); //!< Tests whether \a w is ±∞.
-    friend Bool is_finite(Dyadic const& w); //!< Tests whether \a w is finite.
-    friend Bool is_zero(Dyadic const& w); //!< Tests whether \a w is zero.
-    //!@}
+    Kind kind() const noexcept { return _kind; }
+    Integer const& coefficient() const noexcept { return _coefficient; }
+    std::size_t denominator_exponent() const noexcept {
+        return _denominator_exponent;
+    }
+    bool is_finite() const noexcept { return _kind==Kind::Finite; }
+    bool is_zero() const noexcept {
+        return is_finite() && _coefficient.magnitude().is_zero();
+    }
 
-    //!@{
-    //! \name Input/output operations
-    friend OutputStream& operator<<(OutputStream& os, Dyadic const& w); //!< Write to an output stream.
-    //!@}
+    Rational to_rational() const {
+        if (_kind==Kind::NaN) { return Rational::nan(); }
+        if (_kind==Kind::PositiveInfinity) { return Rational::inf(Sign::POSITIVE); }
+        if (_kind==Kind::NegativeInfinity) { return Rational::inf(Sign::NEGATIVE); }
+        if (_denominator_exponent==0u) { return Rational(_coefficient); }
+        const Integer denominator=Integer::from_magnitude(
+            shift_left(BigUnsigned(1u),_denominator_exponent),false);
+        return Rational(_coefficient,denominator);
+    }
+    // Truncate to IEEE binary64 from the native magnitude.
+    // GMP mpf_get_d returns positive zero on underflow even
+    // for negative operands. No Rational allocation.
+    double get_d() const {
+        if (_kind==Kind::NaN) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        if (_kind==Kind::PositiveInfinity) {
+            return std::numeric_limits<double>::infinity();
+        }
+        if (_kind==Kind::NegativeInfinity) {
+            return -std::numeric_limits<double>::infinity();
+        }
+        const BigUnsigned& n=_coefficient.magnitude();
+        if (n.is_zero()) { return 0.0; }
+        const bool negative=_coefficient.negative();
+        const std::size_t bits=n.bit_length();
+        int exponent;
+        if (bits>_denominator_exponent) {
+            const std::size_t positive=bits-1u-_denominator_exponent;
+            if (positive>1023u) {
+                return negative ? -std::numeric_limits<double>::infinity()
+                                : std::numeric_limits<double>::infinity();
+            }
+            exponent=static_cast<int>(positive);
+        } else {
+            const std::size_t negative_power=_denominator_exponent-bits+1u;
+            if (negative_power>1074u) { return 0.0; }
+            exponent=-static_cast<int>(negative_power);
+        }
+        std::uint64_t significand;
+        if (bits<=53u) {
+            significand=n.limb(0u)<<(53u-bits);
+        } else {
+            const std::size_t first=bits-53u;
+            const std::size_t index=first/64u;
+            const unsigned shift=static_cast<unsigned>(first%64u);
+            significand=n.limb(index)>>shift;
+            if (shift!=0u && index+1u<n.size()) {
+                significand|=n.limb(index+1u)<<(64u-shift);
+            }
+            significand&=(std::uint64_t{1}<<53u)-1u;
+        }
+        double value;
+        if (exponent>=-1022) {
+            value=std::ldexp(static_cast<double>(significand),exponent-52);
+        } else {
+            const unsigned drop=static_cast<unsigned>(-1022-exponent);
+            value=std::ldexp(static_cast<double>(significand>>drop),-1074);
+        }
+        return value==0.0 ? 0.0 : (negative ? -value : value);
+    }
+
+    friend Dyadic operator-(Dyadic const& x) {
+        if (x._kind==Kind::NaN) { return nan(); }
+        if (x._kind==Kind::PositiveInfinity) { return inf(-1); }
+        if (x._kind==Kind::NegativeInfinity) { return inf(1); }
+        return Dyadic(-x._coefficient,x._denominator_exponent);
+    }
+    friend Dyadic operator+(Dyadic const& x) { return x; }
+    friend Dyadic nul(Dyadic const&) { return Dyadic(0); }
+    friend Dyadic pos(Dyadic const& x) { return x; }
+    friend Dyadic neg(Dyadic const& x) { return -x; }
+    friend Dyadic add(Dyadic const& a,Dyadic const& b) {
+        return a+b;
+    }
+    friend Dyadic sub(Dyadic const& a,Dyadic const& b) {
+        return a-b;
+    }
+    friend Dyadic mul(Dyadic const& a,Dyadic const& b) {
+        return a*b;
+    }
+    friend Dyadic fma(Dyadic const& a,Dyadic const& b,
+                          Dyadic const& c) { return a*b+c; }
+    Dyadic& operator+=(Dyadic const& rhs) {
+        *this=*this+rhs; return *this;
+    }
+    Dyadic& operator-=(Dyadic const& rhs) {
+        *this=*this-rhs; return *this;
+    }
+    Dyadic& operator*=(Dyadic const& rhs) {
+        *this=*this*rhs; return *this;
+    }
+
+  private:
+    // R36: on ARM64 the single-buffer accumulator improves add/sub
+    // across 5..64-limb magnitudes; x86-64 benefits through 16 limbs
+    // but regresses at 32..64 limbs. Keep a single exact algorithm,
+    // changing only the architecture-specific crossover to fallback.
+    // All other architectures conservatively use the shorter crossover.
+    static constexpr std::size_t aligned_add_sub_max_limbs() noexcept {
+#if defined(__aarch64__) || defined(_M_ARM64)
+        return 64u;
+#else
+        return 16u;
+#endif
+    }
+
+    static bool prefer_aligned_add_sub(Dyadic const& a,
+                                       Dyadic const& b) noexcept {
+        const std::size_t as=a._coefficient.magnitude().size();
+        const std::size_t bs=b._coefficient.magnitude().size();
+        const std::size_t limit=aligned_add_sub_max_limbs();
+        const std::size_t max_exponent=std::max(
+            a._denominator_exponent,b._denominator_exponent);
+        const std::size_t min_exponent=std::min(
+            a._denominator_exponent,b._denominator_exponent);
+        return (as>=5u || bs>=5u) && as<=limit && bs<=limit &&
+               max_exponent-min_exponent<=63u;
+    }
+
+    // R38: use one owned magnitude allocation directly in BigUnsigned.
+    // Large inputs bypass both the two-shift fallback and the R35
+    // stack-buffer/owning-buffer double materialization. The equality
+    // and sign decision use virtual magnitude comparison only.
+    static bool prefer_owned_shifted_add_sub(Dyadic const& a,
+                                              Dyadic const& b) noexcept {
+#if defined(__aarch64__) || defined(_M_ARM64)
+        constexpr std::size_t min_limbs=32u;
+#else
+        constexpr std::size_t min_limbs=17u;
+#endif
+        const std::size_t largest=std::max(
+            a._coefficient.magnitude().size(),
+            b._coefficient.magnitude().size());
+        const std::size_t high=std::max(
+            a._denominator_exponent,b._denominator_exponent);
+        const std::size_t low=std::min(
+            a._denominator_exponent,b._denominator_exponent);
+        return largest>=min_limbs && high-low<=63u;
+    }
+
+    static Dyadic owned_shifted_add_sub(
+        Dyadic const& a,Dyadic const& b,bool subtract_second) {
+        const BigUnsigned& an=a._coefficient.magnitude();
+        const BigUnsigned& bn=b._coefficient.magnitude();
+        const std::size_t exponent=std::max(
+            a._denominator_exponent,b._denominator_exponent);
+        const unsigned shift_a=static_cast<unsigned>(
+            exponent-a._denominator_exponent);
+        const unsigned shift_b=static_cast<unsigned>(
+            exponent-b._denominator_exponent);
+        const bool negative_a=a._coefficient.negative();
+        const bool negative_b=b._coefficient.negative()!=subtract_second;
+        const bool same_sign=negative_a==negative_b;
+
+        BigUnsigned magnitude;
+        bool result_negative=negative_a;
+        if (same_sign) {
+            magnitude=shift_a==0u && shift_b==0u
+                ? add(an,bn)
+                : BigUnsigned::add_shifted(
+                    an.limbs(),shift_a,bn.limbs(),shift_b);
+        } else {
+            const int order=compare_scaled(
+                an,a._denominator_exponent,
+                bn,b._denominator_exponent);
+            if (order==0) { return Dyadic(); }
+            if (order>0) {
+                magnitude=shift_a==0u && shift_b==0u
+                    ? sub(an,bn)
+                    : BigUnsigned::sub_shifted(
+                        an.limbs(),shift_a,bn.limbs(),shift_b);
+            } else {
+                magnitude=shift_a==0u && shift_b==0u
+                    ? sub(bn,an)
+                    : BigUnsigned::sub_shifted(
+                        bn.limbs(),shift_b,an.limbs(),shift_a);
+                result_negative=negative_b;
+            }
+        }
+        return Dyadic(Integer::from_magnitude(
+            std::move(magnitude),result_negative),exponent);
+    }
+
+    // R35: for aligned finite signed arithmetic on 5..64-limb
+    // magnitudes with an exponent gap <=63, scan borrowed virtual
+    // shifted limbs and produce one canonical owned magnitude.
+    // No shifted Integer operands or temporary negation.
+    static Dyadic aligned_add_sub(Dyadic const& a,Dyadic const& b,
+                                      bool subtract_second) {
+        using Limb=BigUnsigned::Limb;
+        const BigUnsigned& an=a._coefficient.magnitude();
+        const BigUnsigned& bn=b._coefficient.magnitude();
+        if (an.is_zero()) { return subtract_second ? -b : b; }
+        if (bn.is_zero()) { return a; }
+
+        const std::size_t exponent=std::max(a._denominator_exponent,
+                                            b._denominator_exponent);
+        const unsigned shift_a=static_cast<unsigned>(
+            exponent-a._denominator_exponent);
+        const unsigned shift_b=static_cast<unsigned>(
+            exponent-b._denominator_exponent);
+        const std::size_t a_bits=an.bit_length()+shift_a;
+        const std::size_t b_bits=bn.bit_length()+shift_b;
+        const std::size_t width=(std::max(a_bits,b_bits)+63u)/64u;
+        // Up to 65 shifted limbs, plus one final addition carry.
+        std::array<Limb,66u> output{};
+
+        const auto digit=[](BigUnsigned const& n,std::size_t i,
+                            unsigned shift)->Limb {
+            if (shift==0u) { return n.limb(i); }
+            const Limb low=n.limb(i)<<shift;
+            return i==0u ? low : low|(n.limb(i-1u)>>(64u-shift));
+        };
+
+        const bool a_negative=a._coefficient.negative();
+        const bool b_negative=b._coefficient.negative()!=subtract_second;
+        const bool adding=a_negative==b_negative;
+        bool negative=a_negative,reverse=false;
+        if (!adding) {
+            int order=0;
+            if (a_bits!=b_bits) {
+                order=a_bits>b_bits ? 1 : -1;
+            } else {
+                for (std::size_t i=width;i!=0u;--i) {
+                    const Limb av=digit(an,i-1u,shift_a);
+                    const Limb bv=digit(bn,i-1u,shift_b);
+                    if (av!=bv) {
+                        order=av>bv ? 1 : -1;
+                        break;
+                    }
+                }
+            }
+            if (order==0) { return Dyadic(); }
+            reverse=order<0;
+            negative=reverse ? b_negative : a_negative;
+        }
+
+        Limb carry_or_borrow=0u;
+        for (std::size_t i=0u;i<width;++i) {
+            Limb av=digit(an,i,shift_a),bv=digit(bn,i,shift_b);
+            if (reverse) { std::swap(av,bv); }
+            if (adding) {
+                const Limb partial=av+bv;
+                const Limb result=partial+carry_or_borrow;
+                carry_or_borrow=static_cast<Limb>(
+                    partial<av || result<partial);
+                output[i]=result;
+            } else {
+                const Limb partial=av-bv;
+                const Limb result=partial-carry_or_borrow;
+                carry_or_borrow=static_cast<Limb>(
+                    av<bv || partial<carry_or_borrow);
+                output[i]=result;
+            }
+        }
+        std::size_t used=width;
+        if (adding && carry_or_borrow!=0u) {
+            output[used++]=carry_or_borrow;
+        }
+        return Dyadic(Integer::from_magnitude(
+            BigUnsigned(BigUnsigned::LimbView(output.data(),used)),negative),
+            exponent);
+    }
+
+  public:
+    friend Dyadic operator+(Dyadic const& a,Dyadic const& b) {
+        if (!a.is_finite() || !b.is_finite()) {
+            if (a._kind==Kind::NaN || b._kind==Kind::NaN) { return nan(); }
+            if (!a.is_finite() && !b.is_finite()) {
+                return a._kind==b._kind ? a : nan();
+            }
+            return a.is_finite() ? b : a;
+        }
+        const std::size_t e=std::max(a._denominator_exponent,
+                                      b._denominator_exponent);
+        if (prefer_owned_shifted_add_sub(a,b)) {
+            return owned_shifted_add_sub(a,b,false);
+        }
+        if (prefer_aligned_add_sub(a,b)) {
+            return aligned_add_sub(a,b,false);
+        }
+        return Dyadic(shifted(a._coefficient,e-a._denominator_exponent)
+                       +shifted(b._coefficient,e-b._denominator_exponent),e);
+    }
+    friend Dyadic operator-(Dyadic const& a,Dyadic const& b) {
+        if (a.is_finite() && b.is_finite()) {
+            if (prefer_owned_shifted_add_sub(a,b)) {
+                return owned_shifted_add_sub(a,b,true);
+            }
+            if (prefer_aligned_add_sub(a,b)) {
+                return aligned_add_sub(a,b,true);
+            }
+        }
+        return a+(-b);
+    }
+    friend Dyadic operator*(Dyadic const& a,Dyadic const& b) {
+        if (!a.is_finite() || !b.is_finite()) {
+            if (a._kind==Kind::NaN || b._kind==Kind::NaN ||
+                    signum(a)==0 || signum(b)==0) { return nan(); }
+            return inf(signum(a)==signum(b) ? 1 : -1);
+        }
+        if (a._denominator_exponent>
+                std::numeric_limits<std::size_t>::max()-b._denominator_exponent) {
+            throw std::overflow_error("Dyadic binary exponent overflow");
+        }
+        return Dyadic(a._coefficient*b._coefficient,
+                         a._denominator_exponent+b._denominator_exponent);
+    }
+    friend Dyadic operator/(Dyadic x,int denominator) {
+        if (denominator!=2) {
+            throw std::domain_error("only divide by two is a Dyadic operation");
+        }
+        if (x.is_finite() && !x.is_zero()) {
+            if (x._denominator_exponent==std::numeric_limits<std::size_t>::max()) {
+                throw std::overflow_error("Dyadic binary exponent overflow");
+            }
+            ++x._denominator_exponent;
+            x.normalize();
+        }
+        return x;
+    }
+    friend Dyadic hlf(Dyadic const& x) { return x/2; }
+
+    friend Dyadic pow(Dyadic const& x,Nat exponent) {
+        Dyadic result(1);
+        Dyadic factor(x);
+        for (unsigned n=exponent;n!=0u;n>>=1u) {
+            if ((n&1u)!=0u) { result=result*factor; }
+            if (n>1u) { factor=factor*factor; }
+        }
+        return result;
+    }
+    friend Boolean eq(Dyadic const& a,Dyadic const& b) {
+        if (a._kind==Kind::NaN || b._kind==Kind::NaN) { return false; }
+        if (a._kind!=b._kind) { return false; }
+        if (!a.is_finite()) { return true; }
+        return a._denominator_exponent==b._denominator_exponent &&
+               static_cast<bool>(a._coefficient==b._coefficient);
+    }
+    friend Comparison cmp(Dyadic const& a,Dyadic const& b) {
+        if (a._kind==Kind::NaN || b._kind==Kind::NaN) {
+            // cmp does not model unordered; Boolean comparisons
+            // explicitly reject NaN below, as with the legacy type.
+            return Comparison::EQUAL;
+        }
+        if (a._kind==b._kind && !a.is_finite()) {
+            return Comparison::EQUAL;
+        }
+        if (a._kind==Kind::NegativeInfinity ||
+                b._kind==Kind::PositiveInfinity) {
+            return Comparison::LESS;
+        }
+        if (a._kind==Kind::PositiveInfinity ||
+                b._kind==Kind::NegativeInfinity) {
+            return Comparison::GREATER;
+        }
+        const int sa=signum(a),sb=signum(b);
+        if (sa!=sb) { return sa<sb ? Comparison::LESS : Comparison::GREATER; }
+        if (sa==0) { return Comparison::EQUAL; }
+        const int magnitude=compare_scaled(
+            a._coefficient.magnitude(),a._denominator_exponent,
+            b._coefficient.magnitude(),b._denominator_exponent);
+        const int order=sa<0 ? -magnitude : magnitude;
+        return order<0 ? Comparison::LESS :
+               order>0 ? Comparison::GREATER : Comparison::EQUAL;
+    }
+    friend Boolean lt(Dyadic const& a,Dyadic const& b) {
+        if (a._kind==Kind::NaN || b._kind==Kind::NaN) { return false; }
+        return cmp(a,b)==Comparison::LESS;
+    }
+    friend Sign sgn(Dyadic const& x) {
+        return signum(x)>0 ? Sign::POSITIVE :
+               signum(x)<0 ? Sign::NEGATIVE : Sign::ZERO;
+    }
+    friend Bool is_nan(Dyadic const& x) {
+        return x._kind==Kind::NaN;
+    }
+    friend Bool is_inf(Dyadic const& x) {
+        return x._kind==Kind::PositiveInfinity ||
+               x._kind==Kind::NegativeInfinity;
+    }
+    friend Bool is_finite(Dyadic const& x) { return x.is_finite(); }
+    friend Bool is_zero(Dyadic const& x) { return x.is_zero(); }
+    friend Boolean operator==(Dyadic const& a,Dyadic const& b) { return eq(a,b); }
+    friend Boolean operator!=(Dyadic const& a,Dyadic const& b) { return !eq(a,b); }
+
+    friend Boolean operator<(Dyadic const& a,Dyadic const& b) { return lt(a,b); }
+    friend Boolean operator>(Dyadic const& a,Dyadic const& b) { return lt(b,a); }
+    friend Boolean operator<=(Dyadic const& a,Dyadic const& b) { return !lt(b,a); }
+    friend Boolean operator>=(Dyadic const& a,Dyadic const& b) { return !lt(a,b); }
+    friend Rational pow(Dyadic const& x,Int exponent) {
+        if (exponent>=0) {
+            return pow(x,static_cast<Nat>(exponent)).to_rational();
+        }
+        const Nat positive=static_cast<Nat>(-(exponent+1))+Nat(1);
+        return Rational(1)/pow(x,positive).to_rational();
+    }
+    friend Dyadic min(Dyadic const& a,Dyadic const& b) {
+        if (a._kind==Kind::NaN || b._kind==Kind::NaN) { return nan(); }
+        return b<a ? b : a;
+    }
+    friend Dyadic max(Dyadic const& a,Dyadic const& b) {
+        if (a._kind==Kind::NaN || b._kind==Kind::NaN) { return nan(); }
+        return a<b ? b : a;
+    }
+    friend Positive<Dyadic> abs(Dyadic const& x);
+    friend Positive<Dyadic> sqr(Dyadic const& x);
+    friend Integer floor(Dyadic const& x) {
+        require_finite(x);
+        Integer z=truncated(x);
+        if (x._coefficient.negative() &&
+                x._denominator_exponent!=0u) {
+            z=z-Integer(1);
+        }
+        return z;
+    }
+    friend Integer ceil(Dyadic const& x) {
+        require_finite(x);
+        Integer z=truncated(x);
+        if (!x._coefficient.negative() &&
+                x._denominator_exponent!=0u) {
+            z=z+Integer(1);
+        }
+        return z;
+    }
+    friend Integer round(Dyadic const& x) {
+        require_finite(x);
+        const auto& magnitude=x._coefficient.magnitude();
+        BigUnsigned integer=shift_right(magnitude,x._denominator_exponent);
+        // Round ties away from zero, matching current Dyadic.
+        if (x._denominator_exponent!=0u) {
+            const auto half=shift_right(magnitude,x._denominator_exponent-1u);
+            if ((half.limb(0u)&1u)!=0u) {
+                integer=add(integer,BigUnsigned(1u));
+            }
+        }
+        return Integer::from_magnitude(std::move(integer),x._coefficient.negative());
+    }
 };
 
 class DecimalWriter : public WriterInterface<Dyadic> {
-    virtual OutputStream& _write(OutputStream& os, Dyadic const& w) const final override;
+    virtual OutputStream& _write(OutputStream& os,Dyadic const& x) const final override;
 };
 class ScientificWriter : public WriterInterface<Dyadic> {
-    virtual OutputStream& _write(OutputStream& os, Dyadic const& w) const final override;
+    virtual OutputStream& _write(OutputStream& os,Dyadic const& x) const final override;
 };
 class FractionWriter : public WriterInterface<Dyadic> {
-    virtual OutputStream& _write(OutputStream& os, Dyadic const& w) const final override;
+    virtual OutputStream& _write(OutputStream& os,Dyadic const& x) const final override;
 };
 template<> class RepresentationWriter<Dyadic> : public WriterInterface<Dyadic> {
-    virtual OutputStream& _write(OutputStream& os, Dyadic const& w) const final override;
+    virtual OutputStream& _write(OutputStream& os,Dyadic const& x) const final override;
 };
-
-
-template<BuiltinIntegral N> inline Dyadic::Dyadic(N n) : Dyadic(Integer(n)) { }
-
-
 template<> class Positive<Dyadic> : public Dyadic {
-  public:
+public:
     Positive() : Dyadic() { }
-    template<BuiltinUnsignedIntegral M> Positive(M m) : Dyadic(m) { }
-    Positive(int n) = delete;
-    explicit Positive(Dyadic const& w) : Dyadic(w) { ARIADNE_PRECONDITION(w>=0); }
+    template<BuiltinUnsignedIntegral M>
+    Positive(M n) : Dyadic(n) { }
+    Positive(int) = delete;
+    explicit Positive(Dyadic const& x) : Dyadic(x) {
+        if (sgn(x)==Sign::NEGATIVE) {
+            throw std::domain_error("negative Positive<Dyadic>");
+        }
+    }
+    explicit Positive(Dyadic&& x) : Dyadic(std::move(x)) {
+        if (sgn(*this)==Sign::NEGATIVE) {
+            throw std::domain_error("negative Positive<Dyadic>");
+        }
+    }
 };
-inline Positive<Dyadic> cast_positive(Dyadic const& w) { return Positive<Dyadic>(w); }
+inline Positive<Dyadic> cast_positive(Dyadic const& x) { return Positive<Dyadic>(x); }
+inline Positive<Dyadic> abs(Dyadic const& x) {
+    // D42: copy the canonical magnitude exactly once, without forming
+    // a negated Dyadic or renormalizing an already canonical value.
+    Dyadic result;
+    result._coefficient=Integer::from_magnitude(
+        x._coefficient.magnitude(),false);
+    result._denominator_exponent=x._denominator_exponent;
+    result._kind=x._kind==Dyadic::Kind::NegativeInfinity
+        ? Dyadic::Kind::PositiveInfinity : x._kind;
+    return Positive<Dyadic>(std::move(result));
+}
+inline Positive<Dyadic> sqr(Dyadic const& x) {
+    return Positive<Dyadic>(x*x);
+}
+
+// Existing native core implementation ends here. Wrapper specializations
+// live in this same header, matching the final numeric/dyadic.hpp layout.
+} // namespace Ariadne
+
+#include "numeric/arithmetic.hpp"
+#include "utility/handle.hpp"
+#include "utility/writable.hpp"
+#include "foundation/logical.hpp"
+
+namespace Ariadne {
 
 using PositiveDyadic = Positive<Dyadic>;
 
@@ -284,23 +794,45 @@ template<> class Bounds<Dyadic> {
     Dyadic lower_raw() const { return _l; }
     Dyadic upper_raw() const { return _u; }
     Bounds<FloatDP> get(DoublePrecision pr) const;
-    Bounds<FloatMP> get(MultiplePrecision pr) const;
+    Bounds<FloatAP> get(ArbitraryPrecision pr) const;
     friend Bounds<Dyadic> operator+(Bounds<Dyadic> const& w) { return Bounds<Dyadic>(+w._l,w._u); }
     friend Bounds<Dyadic> operator-(Bounds<Dyadic> const& w) { return Bounds<Dyadic>(-w._u,-w._l); }
     friend Bounds<Dyadic> operator+(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2) {
         return Bounds<Dyadic>(w1._l+w2._l,w1._u+w2._u); }
     friend Bounds<Dyadic> operator-(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2) {
         return Bounds<Dyadic>(w1._l-w2._u,w1._u-w2._l); }
-    friend Bounds<Dyadic> operator*(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2);
+    friend Bounds<Dyadic> operator*(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2) {
+        // Exact multiplication enclosure: all four vertices, no rounding.
+        Dyadic p=w1._l*w2._l, q=w1._l*w2._u;
+        Dyadic r=w1._u*w2._l, s=w1._u*w2._u;
+        return Bounds<Dyadic>(min(min(p,q),min(r,s)),
+                                 max(max(p,q),max(r,s)));
+    }
     friend Bounds<Rational> operator/(Bounds<Rational> const& w1, Bounds<Rational> const& w2);
     friend Bounds<Dyadic> add(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2) {
         return Bounds<Dyadic>(w1._l+w2._l,w1._u+w2._u); }
     friend Bounds<Dyadic> sub(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2) {
         return Bounds<Dyadic>(w1._l-w2._u,w1._u-w2._l); }
-    friend Bounds<Dyadic> mul(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2);
+    friend Bounds<Dyadic> mul(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2) { return w1*w2; }
     friend Bounds<Rational> div(Bounds<Rational> const& w1, Bounds<Rational> const& w2);
-    friend Bounds<Dyadic> pow(Bounds<Dyadic> const& w, Nat m);
-    friend Bounds<Dyadic> pow(Bounds<Dyadic> const& w, Int m); // DEPRECATED m always positive
+    friend Bounds<Dyadic> pow(Bounds<Dyadic> const& w, Nat m) {
+        if (m==0u) { return Bounds<Dyadic>(Dyadic(1)); }
+        if (m%2u!=0u) {
+            return Bounds<Dyadic>(pow(w._l,m),pow(w._u,m));
+        }
+        if (w._l>=0) {
+            return Bounds<Dyadic>(pow(w._l,m),pow(w._u,m));
+        }
+        if (w._u<=0) {
+            return Bounds<Dyadic>(pow(w._u,m),pow(w._l,m));
+        }
+        return Bounds<Dyadic>(Dyadic(0),
+                                 max(pow(w._l,m),pow(w._u,m)));
+    }
+    friend Bounds<Dyadic> pow(Bounds<Dyadic> const& w, Int m) {
+        if (m<0) { throw std::domain_error("negative Dyadic interval power"); }
+        return pow(w,static_cast<Nat>(m));
+    }
     friend Bounds<Dyadic> nul(Bounds<Dyadic> const& w) {
         return Bounds<Dyadic>(nul(w._l),nul(w._u)); }
     friend Bounds<Dyadic> pos(Bounds<Dyadic> const& w) {
@@ -355,7 +887,6 @@ template<> class Ball<Dyadic,Dyadic> {
         : Ball(Dyadic(x.value_raw()),Dyadic(x.error_raw())) { }
     explicit Ball(Bounds<Dyadic> const& w) : _v(hlf(w.lower()+w.upper())), _e(hlf(w.upper()-w.lower())) { }
     explicit operator Bounds<Dyadic>() const { return Bounds<Dyadic>(_v-_e,_v+_e); }
-    operator ValidatedNumber() const;
     Dyadic value() const { return _v; }
     Dyadic error() const { return _e; }
     Dyadic value_raw() const { return _v; }
@@ -380,10 +911,9 @@ template<> class LowerBound<Dyadic> {
     LowerBound(Dyadic l) : _l(l) { }
     LowerBound(Bounds<Dyadic> lu) : _l(lu.lower_raw()) { }
     LowerBound(LowerBound<FloatDP> const& x);
-    LowerBound(LowerBound<FloatMP> const& x);
     Dyadic raw() const { return _l; }
     LowerBound<FloatDP> get(DoublePrecision pr) const;
-    LowerBound<FloatMP> get(MultiplePrecision pr) const;
+    LowerBound<FloatAP> get(ArbitraryPrecision pr) const;
     friend OutputStream& operator<<(OutputStream& os, LowerBound<Dyadic> const& y) { return os << y._l << ":"; }
 };
 
@@ -393,10 +923,9 @@ template<> class UpperBound<Dyadic> {
     explicit UpperBound(Dyadic u) : _u(u) { }
     UpperBound(Bounds<Dyadic> lu) : _u(lu.upper_raw()) { }
     UpperBound(UpperBound<FloatDP> const& x);
-    UpperBound(UpperBound<FloatMP> const& x);
     Dyadic raw() const { return _u; }
     UpperBound<FloatDP> get(DoublePrecision pr) const;
-    UpperBound<FloatMP> get(MultiplePrecision pr) const;
+    UpperBound<FloatAP> get(ArbitraryPrecision pr) const;
     friend OutputStream& operator<<(OutputStream& os, UpperBound<Dyadic> const& y) { return os << ":" << y._u; }
 };
 
@@ -405,11 +934,12 @@ template<> class Approximation<Dyadic> {
   public:
     Approximation(Dyadic a) : _a(a) { }
     Approximation(Approximation<FloatDP> const& x);
-    Approximation(Approximation<FloatMP> const& x);
     Dyadic raw() const { return _a; }
     Approximation<FloatDP> get(DoublePrecision pr) const;
-    Approximation<FloatMP> get(MultiplePrecision pr) const;
-    friend OutputStream& operator<<(OutputStream& os, Approximation<Dyadic> const& y);
+    Approximation<FloatAP> get(ArbitraryPrecision pr) const;
+    friend OutputStream& operator<<(OutputStream& os, Approximation<Dyadic> const& y) {
+        return os << y._a;
+    }
 };
 
 template<> class Positive<Bounds<Dyadic>> : public Bounds<Dyadic> { public: Positive(Bounds<Dyadic> w) : Bounds<Dyadic>(w) { }; };
@@ -417,14 +947,14 @@ template<> class Positive<LowerBound<Dyadic>> : public LowerBound<Dyadic> { publ
 template<> class Positive<UpperBound<Dyadic>> : public UpperBound<Dyadic> { public: Positive(UpperBound<Dyadic> w) : UpperBound<Dyadic>(w) { } ; };
 template<> class Positive<Approximation<Dyadic>> : public Approximation<Dyadic> { public: Positive(Approximation<Dyadic> w) : Approximation<Dyadic>(w) { } };
 
+
+
 inline Dyadic operator""_dyadic(long double x) { return Dyadic(static_cast<double>(x)); }
 inline Dyadic operator""_dy(long double x) { return operator""_dyadic(x); }
 inline Dyadic operator""_q2(long double x) { return operator""_dyadic(x); }
 inline Dyadic operator""_bin(long double x) { return operator""_dyadic(x); }
-
-Comparison cmp(Dyadic const& x1, Dyadic const& x2);
-Dyadic make_dyadic(unsigned long long int n);
-
+inline Dyadic dy_(long double x) { return operator""_dyadic(x); }
+Dyadic make_dyadic(unsigned long long int);
+Dyadic hlf(Integer const& n);
 } // namespace Ariadne
-
-#endif
+#endif // ARIADNE_DYADIC_HPP

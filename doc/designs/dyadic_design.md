@@ -548,3 +548,7 @@ sign selection `(*this > 0) ? Sign::POSITIVE : Sign::NEGATIVE` in both
 FloatMP->Dyadic and FloatMP->Rational special-value branches.
 No arithmetic or rounding path changes. Build and CI validation
 remain mandatory before treating D51/D52 as tested.
+
+### D54 — native Dyadic promoted to canonical filenames (21 October 2026)
+
+Replace canonical dyadic.hpp/dyadic.cpp with Integer-magnitude and denominator-exponent native backend, fold wrappers directly into dyadic.hpp, preserve writers, remove old mpf_t implementation. Remove new_dyadic.hpp and test_new_dyadic.cpp and update FloatAP and benchmark to canonical type and header. Preserve legacy test_dyadic.cpp plus native wrapper regression checks. FloatMP remains scheduled for removal; build and tests must validate compatibility. This is a large integration candidate: do not equate commit publication with green CI.

@@ -2,7 +2,7 @@
  * benchmark_dyadic.cpp
  * Absolute timing of the native dyadic arithmetic backend.
  ****************************************************************************/
-#include "numeric/new_dyadic.hpp"
+#include "numeric/dyadic.hpp"
 #include "benchmark_command_line.hpp"
 #include "logging/logging.hpp"
 #include "logging/command_line.hpp"
@@ -92,7 +92,7 @@ template<class F> double measure(F const& f,unsigned n,unsigned samples) {
 
 struct Pool {
     std::vector<Integer> first,second;
-    std::vector<NewDyadic> a,b;
+    std::vector<Dyadic> a,b;
     unsigned exp;
     explicit Pool(unsigned bits):exp(bits/5u+1u) {
         const auto high=shift_left(BigUnsigned(1u),bits-1u);
@@ -139,9 +139,9 @@ void run(unsigned bits,unsigned iterations,unsigned samples,
             throw std::runtime_error(std::string("invalid benchmark timing: ")+name);
         data.push_back({name,bits,ns});
     };
-    time("construct_integer",[&](unsigned i){return NewDyadic(x.first[i&mask]);});
-    time("construct_fraction",[&](unsigned i){return NewDyadic(x.first[i&mask],x.exp);});
-    time("copy",[&](unsigned i){return NewDyadic(x.a[i&mask]);});
+    time("construct_integer",[&](unsigned i){return Dyadic(x.first[i&mask]);});
+    time("construct_fraction",[&](unsigned i){return Dyadic(x.first[i&mask],x.exp);});
+    time("copy",[&](unsigned i){return Dyadic(x.a[i&mask]);});
     time("add",[&](unsigned i){return x.a[i&mask]+x.b[i&mask];});
     time("sub",[&](unsigned i){return x.a[i&mask]-x.b[i&mask];});
     time("mul",[&](unsigned i){return x.a[i&mask]*x.b[i&mask];});

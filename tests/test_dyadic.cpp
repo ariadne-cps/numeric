@@ -85,6 +85,7 @@ class TestDyadic
     void test_ball();
     void test_comparisons();
     void test_infinity();
+    void test_native_wrappers();
 };
 
 void TestDyadic::test()
@@ -96,6 +97,7 @@ void TestDyadic::test()
     ARIADNE_TEST_CALL(test_ball());
     ARIADNE_TEST_CALL(test_comparisons());
     ARIADNE_TEST_CALL(test_infinity());
+    ARIADNE_TEST_CALL(test_native_wrappers());
 }
 
 const Writer<Dyadic> fraction_write=FractionWriter();
@@ -161,11 +163,6 @@ void TestDyadic::test_literal() {
 }
 
 void TestDyadic::test_conversions() {
-    mpf_t raw_mpf;
-    mpf_init_set_ui(raw_mpf,7u);
-    ARIADNE_TEST_EQUAL(Dyadic(raw_mpf),Dyadic(7));
-    mpf_clear(raw_mpf);
-
     Dyadic assigned;
     Dyadic assign_source(7,2u);
     assigned=assign_source;
@@ -326,6 +323,37 @@ void TestDyadic::test_ball() {
 void TestDyadic::test_comparisons() {
     ARIADNE_TEST_BINARY_PREDICATE(operator<,Dyadic(-4,3u),Dyadic(-1,2u));
 }
+
+// D48: native exact bounds and ball arithmetic, without GMP storage.
+void TestDyadic::test_native_wrappers() {
+    const DyadicBounds positive(Dyadic(1),Dyadic(3));
+    const DyadicBounds negative(Dyadic(-3),Dyadic(-1));
+    const DyadicBounds crossing(Dyadic(-2),Dyadic(3));
+    check((positive+DyadicBounds(Dyadic(2),Dyadic(4))).upper_raw()
+          ==Dyadic(7),"D48 bounds add");
+    check((positive-negative).lower_raw()==Dyadic(2),"D48 bounds sub");
+    check((positive*negative).lower_raw()==Dyadic(-9),"D48 bounds mul lower");
+    check((positive*negative).upper_raw()==Dyadic(-1),"D48 bounds mul upper");
+    check(sqr(crossing).lower_raw()==Dyadic(0),"D48 square crossing lower");
+    check(sqr(crossing).upper_raw()==Dyadic(9),"D48 square crossing upper");
+    check(pow(crossing,Nat(3u)).lower_raw()==Dyadic(-8),"D48 odd power");
+    check(pow(crossing,Nat(2u)).lower_raw()==Dyadic(0),"D48 even power");
+    check(abs(crossing).upper_raw()==Dyadic(3),"D48 bounds abs");
+    check(refines(DyadicBounds(Dyadic(2),Dyadic(2)),positive),
+          "D48 bounds refinement");
+    const DyadicBall ball(Dyadic(3),Dyadic(1));
+    const DyadicBounds enclosure=static_cast<DyadicBounds>(ball);
+    check(enclosure.lower_raw()==Dyadic(2) &&
+          enclosure.upper_raw()==Dyadic(4),"D48 ball enclosure");
+    check((ball*DyadicBall(Dyadic(2),Dyadic(0))).value_raw()
+          ==Dyadic(6),"D48 ball multiplication");
+    const DyadicLowerBound lower(positive);
+    const DyadicUpperBound upper(positive);
+    const DyadicApproximation approximation(Dyadic(2));
+    check(lower.raw()==Dyadic(1) && upper.raw()==Dyadic(3)
+          && approximation.raw()==Dyadic(2),"D48 wrapper values");
+}
+
 
 void TestDyadic::test_infinity() {
 

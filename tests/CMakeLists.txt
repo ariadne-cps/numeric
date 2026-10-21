@@ -5,7 +5,6 @@ set(UNIT_TESTS
     test_integer
     test_big_unsigned
     test_dyadic
-    test_new_dyadic
     test_rational
     test_decimal
     test_extended

@@ -47,7 +47,6 @@ namespace Ariadne {
 class Integer;
 class Rational;
 class Dyadic;
-class NewDyadic;
 class ExactDouble;
 class TwoExp;
 struct RoundDownward;
@@ -223,7 +222,6 @@ template<> class Float<ArbitraryPrecision> {
     Float(std::int64_t n, PrecisionType precision);
     Float(ExactDouble const& n, PrecisionType precision);
     Float(Dyadic const& n, PrecisionType precision);
-    Float(NewDyadic const& n, PrecisionType precision);
     explicit Float(std::string const& value, PrecisionType precision);
     Float(TwoExp const& n, PrecisionType precision);
     Float(FloatDP const& n, PrecisionType precision);
@@ -232,7 +230,6 @@ template<> class Float<ArbitraryPrecision> {
     Float(FloatDP const& n, RoundingModeType mode, PrecisionType precision);
     Float(ExactDouble const& n, RoundingModeType mode, PrecisionType precision);
     Float(Dyadic const& n, RoundingModeType mode, PrecisionType precision);
-    Float(NewDyadic const& n, RoundingModeType mode, PrecisionType precision);
     Float(Integer const& n, PrecisionType precision)
         : Float(n, ROUND_TO_NEAREST, precision) { }
 
@@ -246,7 +243,6 @@ template<> class Float<ArbitraryPrecision> {
     }
     explicit operator Rational() const;
     explicit operator Dyadic() const;
-    explicit operator NewDyadic() const;
     double get_d() const;
     std::string literal() const;
     std::string literal(RoundingModeType mode) const;
@@ -276,7 +272,6 @@ template<> class Float<ArbitraryPrecision> {
     }
     FloatAP& operator=(Integer const& n);
     FloatAP& operator=(Dyadic const& n);
-    FloatAP& operator=(NewDyadic const& n);
     FloatAP& operator=(TwoExp const& n);
     FloatAP& operator=(ExactDouble const& n);
     FloatAP& assign_unsigned(std::uint64_t n);
