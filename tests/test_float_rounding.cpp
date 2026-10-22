@@ -83,6 +83,9 @@ static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 #ifndef ARIADNE_FLOATAP_ADD_SUB_ORACLE_PATH
 #error "Provide the FloatAP add/sub fixture path from CMake"
 #endif
+#ifndef ARIADNE_FLOATAP_EXP_ORACLE_PATH
+#error "Provide the FloatAP exponential fixture path from CMake"
+#endif
 // Exact references, keyed by precision, mode, and the rational input.
 // Ordered lookup avoids quadratic duplicate checking and linear scans as
 // the frozen oracle dataset grows. The comparator uses exact Rational order.
@@ -165,6 +168,13 @@ Rational const& floatap_add_sub_golden(std::size_t bits,
                                        Rational const& input) {
     static const auto rows=load_floatap_golden_rows(
         ARIADNE_FLOATAP_ADD_SUB_ORACLE_PATH,1780u);
+    return find_floatap_golden(rows,bits,mode,input);
+}
+Rational const& floatap_exp_golden(std::size_t bits,
+                                   FloatAP::RoundingModeType mode,
+                                   Rational const& input) {
+    static const auto rows=load_floatap_golden_rows(
+        ARIADNE_FLOATAP_EXP_ORACLE_PATH,288u);
     return find_floatap_golden(rows,bits,mode,input);
 }
 
@@ -1211,12 +1221,11 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Exercise the precision-dependent exp argument reduction and
-            // fixed-point squaring reconstruction. Compare every directed
-            // result with the exact MPFR oracle on identical binary inputs.
+            // Exercise precision-dependent exp reduction and reconstruction
+            // against fixed exact binary outputs from rigorously certified
+            // rational Taylor enclosures (no live FloatMP/MPFR oracle).
             for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 for (Dyadic const& argument :
                      {Dyadic(1,2u),Dyadic(-1,2u),Dyadic(3,2u),
                       Dyadic(-3,2u),Dyadic(1,1u),Dyadic(-1,1u),
@@ -1226,16 +1235,16 @@ TestFloatRounding<PR>::test_precision_regressions()
                       Dyadic(1,64u),Dyadic(-1,64u),
                       Dyadic(1023,10u),Dyadic(-1023,10u)}) {
                     const FloatAP a(argument,ap);
-                    const FloatMP m(argument,mp);
-                    const auto compare_exponential=[&](auto ap_mode,auto mp_mode) {
+                    const Rational exact_input=static_cast<Rational>(a);
+                    const auto compare_exponential=[&](auto ap_mode) {
                         ARIADNE_TEST_EQUALS(
                             static_cast<Rational>(exp(ap_mode,a)),
-                            static_cast<Rational>(exp(mp_mode,m)));
+                            floatap_exp_golden(ap.bits(),ap_mode,exact_input));
                     };
-                    compare_exponential(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                    compare_exponential(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                    compare_exponential(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                    compare_exponential(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    compare_exponential(FloatAP::ROUND_TO_NEAREST);
+                    compare_exponential(FloatAP::ROUND_DOWNWARD);
+                    compare_exponential(FloatAP::ROUND_UPWARD);
+                    compare_exponential(FloatAP::ROUND_TOWARD_ZERO);
                 }
             }
         }

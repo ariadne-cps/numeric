@@ -9885,3 +9885,45 @@ alone cannot determine whether the failure is timeout or a numerical
 mismatch. D80 is not a fix for that unidentified failure; obtain
 the full CTest failure log to diagnose it. Compilation and numerical
 execution of D80 remain unverified.
+
+### D81 — certify and freeze the exponential rounding oracle (22 October 2026)
+
+Replace the existing FloatMP comparison in the precision-dependent
+`exp` argument reduction and squaring-reconstruction regression with
+immutable, independently certified exact dyadic outputs. Keep the
+original 18 signed Dyadic inputs, four precisions (53, 128, 256,
+1024 bits), all four modes, operation order, and all 288 assertions.
+The original input is exactly representable at every tested precision;
+the lookup uses `static_cast<Rational>(a)` for the actual binary input.
+
+Store the 288 six-column golden rows directly in
+`tests/data/floatap_exp.tsv`, with no subdirectory or separate
+C++ oracle source/header. Reuse the common loader and its ordered
+`std::map` in `test_float_rounding.cpp`, and inject the third
+absolute source-tree fixture path using CMake.
+
+CERTIFICATION (offline, without FloatAP, FloatMP, GMP, MPFR, or
+floating-point transcendental functions):
+Represent each positive Taylor term and sum as outward-rounded
+integers scaled by B=2^1400. For t=abs(x)/16 <= 7/16, compute
+S=sum(t^k/k!,k=0..165), with lower terms floored and upper
+terms ceiled at every nonnegative integer division. The exact
+positive remainder after term 165 is bounded by twice term 166:
+the following term ratios are t/(k+1) < 1/2. Add twice the
+UPPER estimate of term 166 to the upper sum only. Both sums are
+positive enclosures of exp(t). Square the two bounds four times
+using outward floor/ceil fixed-point multiplication to enclose
+exp(abs(x))=exp(t)^16. For negative arguments, invert the
+positive bounds with outward floor/ceil fixed-point division.
+Finally, accept a fixture entry ONLY when rounding the lower
+and upper endpoint to the requested binary precision and mode
+gives exactly the same canonical rational. All 288 results
+passed this exact-arithmetic interval agreement test; 72
+downward/zero pairs also match as expected for positive exp.
+
+The output values are precomputed constants in a separate flat TSV.
+This is a rigorous oracle for the specified `exp` cases, not an
+assumption that the implementation under test is correct.
+The rest of the MPFR/FloatMP-dependent transcendental tests
+and the Windows 30-second timeout remain untouched.
+Cross-platform build and runtime testing still required.
