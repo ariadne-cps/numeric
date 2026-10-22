@@ -88,6 +88,7 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_product.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_SQUARE_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_square.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B37_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b37.tsv";
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b39.tsv";
 
@@ -814,40 +815,30 @@ void TestBigUnsigned::test_multiplication()
     if (b54_squares >> b54_square_extra)
         throw std::runtime_error("Extra B54 square TSV rows");
 
-    // B37: stress the 7/8-limb ARM64 symmetric-square crossover,
-    // long carry chains and diagonal/off-diagonal propagation.
-    // Also exercise the same public test on x86-64 and fallback builds.
-    std::mt19937_64 arm_square_engine(0xB37A11ULL);
+    // B37: all seven structural square classes at every original width.
+    std::ifstream b37_golden(ARIADNE_BIG_UNSIGNED_B37_ORACLE_PATH);
+    if (!b37_golden) throw std::runtime_error("Missing B37 oracle TSV");
+    std::string b37_header;
+    while (b37_golden.peek()=='#') std::getline(b37_golden,b37_header);
     for (const std::size_t count:
             {1u,4u,7u,8u,9u,15u,16u,17u,32u,33u,64u,65u,128u}) {
-        for (unsigned repetition=0u;repetition<96u;++repetition) {
-            std::vector<std::uint64_t> words(count);
-            for (auto& word:words) word=arm_square_engine();
-            switch (repetition%7u) {
-            case 0u:
-                std::fill(words.begin(),words.end(),max);
-                break;
-            case 1u:
-                std::fill(words.begin(),words.end(),0u);
-                words.back()=std::uint64_t{1}<<63u;
-                break;
-            case 2u:
-                for (std::size_t i=1u;i+1u<count;++i) words[i]=0u;
-                break;
-            case 3u:
-                for (std::size_t i=0u;i<count;i+=2u) words[i]=0u;
-                break;
-            default:
-                break;
-            }
-            const BigUnsigned input(words);
-            mpz_import(a.value,input.size(),-1,sizeof(std::uint64_t),
-                       0,0,input.limbs().data());
-            mpz_mul(t.value,a.value,a.value);
-            check_against_gmp(square(input),t.value);
-            check_against_gmp(mul(input,input),t.value);
+        for (unsigned repetition=0u;repetition<7u;++repetition) {
+            std::size_t ref_count=0u;
+            unsigned ref_repetition=0u;
+            std::string raw_input,raw_square;
+            if (!(b37_golden >> ref_count >> ref_repetition
+                  >> raw_input >> raw_square)
+                || ref_count!=count || ref_repetition!=repetition)
+                throw std::runtime_error("Missing or unordered B37 oracle row");
+            const BigUnsigned input=big_unsigned_from_golden_hex(raw_input);
+            ARIADNE_TEST_ASSERT(input.size()<=count);
+            check_against_precomputed_hex(square(input),raw_square);
+            check_against_precomputed_hex(mul(input,input),raw_square);
         }
     }
+    std::string b37_extra;
+    if (b37_golden >> b37_extra)
+        throw std::runtime_error("Extra B37 oracle rows");
 
     // B38: cover sparse zero-row elimination in full and truncated
     // ARM64 products, including both asymmetric operand orders. The
