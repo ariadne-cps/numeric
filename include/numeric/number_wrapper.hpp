@@ -303,6 +303,7 @@ template<> struct DispatcherTraits<RationalBounds> { typedef ValidatedAlgebraicN
 
 template<> struct DispatcherTraits<FloatDP> { typedef ConcreteNumberInterface<FloatDP> Interface; };
 template<> struct DispatcherTraits<FloatMP> { typedef ConcreteNumberInterface<FloatMP> Interface; };
+template<> struct DispatcherTraits<FloatAP> { typedef ConcreteNumberInterface<FloatAP> Interface; };
 
 template<class F> struct DispatcherTraits<Ball<F>> { typedef ConcreteNumberInterface<F> Interface; };
 template<class F> struct DispatcherTraits<Bounds<F>> { typedef ConcreteNumberInterface<F> Interface; };
