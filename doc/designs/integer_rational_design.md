@@ -8011,3 +8011,8 @@ Replace GMP expected add/sub operations in R20 with `rational_r20.tsv`, freezing
 ### R33.5 — R19 factor cancellation reference migration (22 October 2026)
 
 Replace the R19 GMP expected results for 4 cross-GCD categories x 4 signs x 6 widths, retaining original 96 combinations and six self-aliasing cases. Source-keyed TSV contains canonical operands and independent product/division outcomes for both orientations; test checks direct and compound operations and self-aliasing. CI validation pending.
+
+
+### R33.6 — R22 scalar cancellation oracle migration (22 October 2026)
+
+Freeze all 160 R22 cases in tests/data/rational_r22.tsv, retaining ten original 53/127/128/255/256/447/448/511/512/1024-bit thresholds, factors 1, 1/15, 14, 14/15, all four sign masks, and the two exact cancellation identities. Oracle uses independent signed big integers with gcd normalization. Compare native direct/in-place multiplication and division to exact normalized numerator/denominator from TSV. GMP no longer used for this block. Build/CI still required.

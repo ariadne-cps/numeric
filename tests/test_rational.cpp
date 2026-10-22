@@ -66,6 +66,7 @@ inline constexpr char R4_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r4.tsv
 inline constexpr char R16_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r16.tsv";
 inline constexpr char R20_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r20.tsv";
 inline constexpr char R19_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r19.tsv";
+inline constexpr char R22_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r22.tsv";
 inline constexpr char R0_RANDOM_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_random.tsv";
 
 constexpr bool check_concept()
@@ -959,33 +960,47 @@ void TestRational::test_gmp_differential() {
     std::string r19_extra;
     if (r19_file >> r19_extra)
         throw std::runtime_error("Extra R19 TSV rows");
-    // R22: scalar exact cancellation, including the even non-power-of-two
-    // divisor 14 and both sides of the eight-limb factor-buffer bound.
-    for (unsigned bits : {53u,127u,128u,255u,256u,447u,448u,511u,512u,1024u}) {
+    // R22: source-keyed exact cancellation across all original
+    // factor/sign combinations and ten eight-limb buffer boundaries.
+    // Keep every structurally distinct source case, not just one/ten.
+    std::ifstream r22_fixture(R22_ORACLE_PATH);
+    if (!r22_fixture) throw std::runtime_error("Missing Rational R22 TSV");
+    std::string r22_header;
+    while (r22_fixture.peek()=='#') std::getline(r22_fixture,r22_header);
+    for (unsigned bits:{53u,127u,128u,255u,256u,447u,448u,
+                        511u,512u,1024u}) {
         const Integer base=pow(Integer(2),Nat(bits));
         const Rational a(15*(base+1),14*base);
-        const std::array<Rational,4u> factors={Rational(1),Rational(1,15),
-                                             Rational(14),Rational(14,15)};
+        const std::array<Rational,4u> factors={
+            Rational(1),Rational(1,15),Rational(14),Rational(14,15)};
         ARIADNE_TEST_ASSERT(a*factors[3u]==Rational(base+1,base));
         ARIADNE_TEST_ASSERT(a/Rational(15,14)==Rational(base+1,base));
-        for (auto const& factor:factors) {
+        for (unsigned factor=0u;factor<4u;++factor) {
             for (unsigned mask=0u;mask<4u;++mask) {
+                unsigned ref_bits=0u,ref_factor=0u,ref_mask=0u;
+                std::string lhs_text,rhs_text,product_text,quotient_text;
+                if (!(r22_fixture >> ref_bits >> ref_factor >> ref_mask
+                      >> lhs_text >> rhs_text >> product_text >> quotient_text)
+                    || ref_bits!=bits || ref_factor!=factor || ref_mask!=mask)
+                    throw std::runtime_error("Missing or unordered R22 TSV row");
                 const Rational lhs=(mask&1u)!=0u ? -a : a;
-                const Rational rhs=(mask&2u)!=0u ? -factor : factor;
-                GmpRationalBoundary oracle_lhs(lhs),oracle_rhs(rhs);
-                mpq_mul(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
-                check(lhs*rhs);
-                Rational running=lhs;
-                running*=rhs;
-                check(running);
-                mpq_div(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
-                check(lhs/rhs);
-                running=lhs;
-                running/=rhs;
-                check(running);
+                const Rational rhs=(mask&2u)!=0u ? -factors[factor] : factors[factor];
+                verify_fraction(lhs,lhs_text);
+                verify_fraction(rhs,rhs_text);
+                verify_fraction(lhs*rhs,product_text);
+                Rational assigned=lhs;
+                assigned*=rhs;
+                verify_fraction(assigned,product_text);
+                verify_fraction(lhs/rhs,quotient_text);
+                assigned=lhs;
+                assigned/=rhs;
+                verify_fraction(assigned,quotient_text);
             }
         }
     }
+    std::string r22_extra;
+    if (r22_fixture >> r22_extra)
+        throw std::runtime_error("Extra R22 TSV rows");
     // Independently check truncation at normal/subnormal and overflow edges,
     // under all four host rounding modes. Operands are not formed as doubles.
     const int saved_rounding=std::fegetround();
