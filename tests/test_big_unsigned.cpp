@@ -89,6 +89,7 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_product.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_SQUARE_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_square.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B37_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b37.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B38_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b38.tsv";
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b39.tsv";
 
@@ -840,75 +841,43 @@ void TestBigUnsigned::test_multiplication()
     if (b37_golden >> b37_extra)
         throw std::runtime_error("Extra B37 oracle rows");
 
-    // B38: cover sparse zero-row elimination in full and truncated
-    // ARM64 products, including both asymmetric operand orders. The
-    // GMP oracle remains independent of all native multiplication
-    // kernels, and these cases also execute on other architectures.
-    std::mt19937_64 arm_sparse_engine(0xB38C0FFEEULL);
+    // B38: retain each sparse/dense mode at every asymmetry/width.
+    // Full and six truncated products use independent exact TSV values.
+    std::ifstream b38_golden(ARIADNE_BIG_UNSIGNED_B38_ORACLE_PATH);
+    if (!b38_golden) throw std::runtime_error("Missing B38 oracle TSV");
+    std::string b38_header;
+    while (b38_golden.peek()=='#') std::getline(b38_golden,b38_header);
     for (const auto& [n,m]:
-            {std::pair<std::size_t,std::size_t>{1u,3u},
-             {4u,7u}, {7u,8u}, {8u,8u}, {9u,16u},
-             {16u,32u}, {32u,64u}, {64u,32u},
-             {64u,128u}, {128u,64u}, {64u,129u},
-             {129u,64u}, {96u,128u}, {128u,96u}}) {
-        for (unsigned repetition=0u;repetition<24u;++repetition) {
-            std::vector<std::uint64_t> left(n),right(m);
-            for (auto& word:left) word=arm_sparse_engine();
-            for (auto& word:right) word=arm_sparse_engine();
-            switch (repetition%8u) {
-            case 0u: // Sparse first operand: one high nonzero limb.
-                std::fill(left.begin(),left.end(),0u);
-                left.back()=std::uint64_t{1}<<63u;
-                break;
-            case 1u: // Sparse first operand with two remote limbs.
-                std::fill(left.begin(),left.end(),0u);
-                left.front()=13u;
-                left.back()=std::uint64_t{1}<<63u;
-                break;
-            case 2u: // Sparse second operand (reversed orientation).
-                std::fill(right.begin(),right.end(),0u);
-                right.front()=17u;
-                right.back()=std::uint64_t{1}<<63u;
-                break;
-            case 3u: // Sparse both, nonzero carry-prone endpoints.
-                std::fill(left.begin(),left.end(),0u);
-                std::fill(right.begin(),right.end(),0u);
-                left.front()=max;
-                right.front()=max;
-                left.back()=max;
-                right.back()=max;
-                break;
-            case 4u: // Every second row contributes no product.
-                for (std::size_t i=0u;i<n;i+=2u) left[i]=0u;
-                break;
-            case 5u: // Dense saturated products and long carries.
-                std::fill(left.begin(),left.end(),max);
-                std::fill(right.begin(),right.end(),max);
-                break;
-            default: // Dense random and mixed patterns.
-                break;
-            }
-            left.back()|=std::uint64_t{1}<<63u;
-            right.back()|=std::uint64_t{1}<<63u;
-            const BigUnsigned lhs(left),rhs(right);
-            mpz_import(a.value,lhs.size(),-1,sizeof(std::uint64_t),
-                       0,0,lhs.limbs().data());
-            mpz_import(b.value,rhs.size(),-1,sizeof(std::uint64_t),
-                       0,0,rhs.limbs().data());
-            mpz_mul(c.value,a.value,b.value);
-            check_against_gmp(mul(lhs,rhs),c.value);
-            check_against_gmp(mul(rhs,lhs),c.value);
-            const std::array<std::size_t,6> low_lengths{
+            std::initializer_list<std::pair<std::size_t,std::size_t>>{{1u,3u},{4u,7u},{7u,8u},{8u,8u},{9u,16u},{16u,32u},{32u,64u},{64u,32u},{64u,128u},{128u,64u},{64u,129u},{129u,64u},{96u,128u},{128u,96u}}) {
+        for (unsigned repetition=0u;repetition<8u;++repetition) {
+            std::size_t ref_n=0u,ref_m=0u;
+            unsigned ref_rep=0u;
+            std::string lhs_hex,rhs_hex,product_hex;
+            std::array<std::string,6u> low_hex;
+            if (!(b38_golden >> ref_n >> ref_m >> ref_rep
+                 >> lhs_hex >> rhs_hex >> product_hex
+                 >> low_hex[0] >> low_hex[1] >> low_hex[2]
+                 >> low_hex[3] >> low_hex[4] >> low_hex[5])
+                || ref_n!=n || ref_m!=m || ref_rep!=repetition)
+                throw std::runtime_error("Missing or unordered B38 oracle row");
+            const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
+            const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
+            ARIADNE_TEST_ASSERT(lhs.size()==n && rhs.size()==m);
+            check_against_precomputed_hex(mul(lhs,rhs),product_hex);
+            check_against_precomputed_hex(mul(rhs,lhs),product_hex);
+            const std::array<std::size_t,6u> low_lengths{
                 0u,1u,n/2u,n,n+m-1u,n+m+2u};
-            for (const std::size_t low_limbs:low_lengths) {
-                mpz_set(t.value,c.value);
-                mpz_fdiv_r_2exp(t.value,t.value,
-                    static_cast<mp_bitcnt_t>(64u*low_limbs));
-                check_against_gmp(mul_low(lhs,rhs,low_limbs),t.value);
-                check_against_gmp(mul_low(rhs,lhs,low_limbs),t.value);
+            for (std::size_t i=0u;i<low_lengths.size();++i) {
+                check_against_precomputed_hex(
+                    mul_low(lhs,rhs,low_lengths[i]),low_hex[i]);
+                check_against_precomputed_hex(
+                    mul_low(rhs,lhs,low_lengths[i]),low_hex[i]);
             }
         }
     }
+    std::string b38_extra;
+    if (b38_golden >> b38_extra)
+        throw std::runtime_error("Extra B38 oracle rows");
 
     // B32: validate the symmetric squaring threshold and large carry
     // chains against GMP; verify mul(x,x) independently remains exact.
