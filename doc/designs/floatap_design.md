@@ -9743,3 +9743,14 @@ fixture semantics before treating this increment as completed.
 ### D75 — correct CMake source-path expansion for flat oracle data (22 October 2026)
 
 Remove an accidental CMake escape before `CMAKE_CURRENT_SOURCE_DIR` in the compile definition for `test_float_rounding`; the path must expand during configuration. A standalone quoted-path CMake compile passed; full project CI remains to be checked.
+
+### D76 — fix C++ most-vexing-parse in FloatAP golden fixture reader (22 October 2026)
+
+D74's two Rational local variables in the inline TSV reader were parsed
+by AppleClang as function declarations and failed compilation under
+-Werror. Replace both parenthesized initializations with brace
+initialization. The operator== and vector push_back errors reported by
+the compiler were consequences of the incorrect declarations.
+The fixture set (232 entries), test inputs, expected values and checks
+are unchanged. This source-level change still requires CI compilation
+and execution; it is not evidence of a passing numerical regression.

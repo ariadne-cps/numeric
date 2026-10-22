@@ -108,8 +108,8 @@ std::vector<FloatAPGoldenRow> load_floatap_golden_rows() {
             throw std::runtime_error("Invalid FloatAP oracle mode/precision at line "
                                      +std::to_string(line_number));
         }
-        const Rational input(Integer(String(in_num)),Integer(String(in_den)));
-        const Rational expected(Integer(String(out_num)),Integer(String(out_den)));
+        const Rational input{Integer(String(in_num)),Integer(String(in_den))};
+        const Rational expected{Integer(String(out_num)),Integer(String(out_den))};
         for (auto const& old : rows) {
             if (old.bits==bits && old.mode==tag[0] && old.input==input)
                 throw std::runtime_error("Duplicate FloatAP oracle line "
