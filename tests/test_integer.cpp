@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 #include <sstream>
 #include <cstdint>
 #include <limits>
@@ -43,6 +44,10 @@
 #include <vector>
 
 #include <gmp.h>
+
+#ifndef ARIADNE_INTEGER_POWER_ORACLE_PATH
+#error "Provide the Integer power oracle TSV path from CMake"
+#endif
 
 #include "macro/testing.hpp"
 
@@ -506,22 +511,31 @@ void TestInteger::test_native() {
         }
     }
 
-    // B32: GMP is the independent oracle for the first-set-bit
-    // multiplication elision, including 0^0, signs and exponents
-    // with leading zero bits or several nonzero bits.
+    // B32: independent frozen exact signed-power reference; retain all
+    // sign/width cases and sample exponent bit patterns at boundaries.
+    std::ifstream pow_fixture(ARIADNE_INTEGER_POWER_ORACLE_PATH);
+    if (!pow_fixture) throw std::runtime_error("Missing Integer power TSV");
+    std::string pow_header;
+    while (pow_fixture.peek()=='#') std::getline(pow_fixture,pow_header);
     for (const char* literal:
             {"0","1","-1","2","-2","17","-17",
              "18446744073709551616","-18446744073709551616",
              "340282366920938463463374607431768211455"}) {
         const Integer input{String(literal)};
-        ARIADNE_TEST_ASSERT(mpz_set_str(a.value,literal,10)==0);
-        for (unsigned exponent=0u;exponent<=12u;++exponent) {
-            mpz_pow_ui(expected.value,a.value,exponent);
-            const GmpIntegerBoundary native_pow(
-                pow(input,Nat(exponent)));
-            ARIADNE_TEST_ASSERT(
-                mpz_cmp(native_pow.value(),expected.value)==0);
+        for (unsigned exponent: {0u,1u,2u,3u,5u,7u,8u,9u,11u,12u}) {
+            std::string ref_base,ref_result;
+            unsigned ref_exponent=0u;
+            if (!(pow_fixture >> ref_base >> ref_exponent >> ref_result) ||
+                ref_base!=literal || ref_exponent!=exponent) {
+                throw std::runtime_error("Missing or unordered Integer power TSV row");
+            }
+            ARIADNE_TEST_EQUALS(pow(input,Nat(exponent)),
+                                Integer(String(ref_result)));
         }
+    }
+    std::string pow_extra;
+    if (pow_fixture >> pow_extra) {
+        throw std::runtime_error("Extra Integer power TSV rows");
     }
 
     // B66: generic MSB-first exponentiation on x86-64 must remain exact
