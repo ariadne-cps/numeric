@@ -8,105 +8,125 @@ on:
       - decoupled-interval
   pull_request:
 
-jobs:
-  build:
-    name: Windows 2025 [Release]
-    runs-on: windows-2025
+env:
+  VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite"
+  SCCACHE_GHA_ENABLED: "true"
 
-    env:
-      VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}/.vcpkg-cache,readwrite"
-      SCCACHE_GHA_ENABLED: "true"
+jobs:
+  build-test:
+    name: Windows 2025 MSVC [${{ matrix.build_type == 'Release' && 'Release Build' || 'Debug Tests' }}]
+    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Debug]
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up MSVC environment
-      uses: ilammy/msvc-dev-cmd@v1.13.0
-      with:
-        arch: x64
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+        with:
+          arch: x64
 
-    - name: Set up sccache
-      uses: mozilla-actions/sccache-action@v0.0.11
-      with:
-        version: "v0.18.0"
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+        with:
+          version: "v0.18.0"
 
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.13"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
 
-    - name: Install Python Test Dependencies
-      run: python -m pip install pytest
+      - name: Install Python test dependencies
+        if: matrix.build_type == 'Debug'
+        run: python -m pip install pytest
 
-    - name: Get vcpkg revision
-      shell: pwsh
-      run: |
-        $rev = git -C C:/vcpkg rev-parse HEAD
-        "VCPKG_REV=$rev" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Get vcpkg revision
+        shell: pwsh
+        run: |
+          $rev = git -C C:/vcpkg rev-parse HEAD
+          "VCPKG_REV=$rev" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-    - name: Restore vcpkg binary cache
-      id: vcpkg-cache
-      uses: actions/cache/restore@v4
-      with:
-        path: ${{ github.workspace }}/.vcpkg-cache
-        key: vcpkg-windows-release-${{ env.VCPKG_REV }}-${{ hashFiles('cmake/triplets/x64-windows-release.cmake') }}
-        restore-keys: |
-          vcpkg-windows-release-${{ env.VCPKG_REV }}-
+      - name: Restore vcpkg binary cache
+        id: vcpkg-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/.vcpkg-cache
+          key: vcpkg-windows-release-${{ env.VCPKG_REV }}-${{ hashFiles('cmake/triplets/x64-windows-release.cmake') }}
+          restore-keys: |
+            vcpkg-windows-release-${{ env.VCPKG_REV }}-
 
-    - name: Install GMP and MPFR with vcpkg
-      shell: pwsh
-      run: |
-        & C:/vcpkg/vcpkg.exe install gmp:x64-windows-release mpfr:x64-windows-release --host-triplet=x64-windows-release --overlay-triplets="$env:GITHUB_WORKSPACE/cmake/triplets"
+      - name: Install GMP and MPFR with vcpkg
+        shell: pwsh
+        run: |
+          & C:/vcpkg/vcpkg.exe install gmp:x64-windows-release mpfr:x64-windows-release --host-triplet=x64-windows-release --overlay-triplets="$env:GITHUB_WORKSPACE/cmake/triplets"
 
-    - name: Save vcpkg binary cache
-      if: steps.vcpkg-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
-      with:
-        path: ${{ github.workspace }}/.vcpkg-cache
-        key: vcpkg-windows-release-${{ env.VCPKG_REV }}-${{ hashFiles('cmake/triplets/x64-windows-release.cmake') }}
+      - name: Save vcpkg binary cache
+        if: matrix.build_type == 'Release' && steps.vcpkg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/.vcpkg-cache
+          key: vcpkg-windows-release-${{ env.VCPKG_REV }}-${{ hashFiles('cmake/triplets/x64-windows-release.cmake') }}
 
-    - name: Create Build Environment
-      run: cmake -E make_directory ${{ runner.workspace }}/build
+      - name: Configure CMake
+        run: |
+          # /Z7 avoids concurrent compiler PDB writes in Debug.
+          cmake -S . -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache `
+            -DCMAKE_CXX_FLAGS_DEBUG="/Z7 /Ob0 /Od /RTC1" `
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-release `
+            -DVCPKG_HOST_TRIPLET=x64-windows-release `
+            -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON `
+            -DPYTHON_ENFORCE_TESTS=${{ matrix.build_type == 'Debug' && 'ON' || 'OFF' }} `
+            -DWARNINGS_AS_ERRORS=ON
 
-    - name: Configure CMake
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake $env:GITHUB_WORKSPACE -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON -DWARNINGS_AS_ERRORS=ON -DPYTHON_ENFORCE_TESTS=ON
+      - name: Build Release library and bindings
+        if: matrix.build_type == 'Release'
+        run: cmake --build build --parallel --target ariadne-numeric bindings
 
-    - name: Build
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel --target everything
+      - name: Install Release library
+        if: matrix.build_type == 'Release'
+        run: cmake --install build --prefix "${{ runner.workspace }}/install"
 
-    - name: Test C++
-      working-directory: ${{ runner.workspace }}/build
-      run: ctest -LE python -V --timeout 30
+      - name: Prepare C++ numeric tutorial
+        if: matrix.build_type == 'Release'
+        shell: pwsh
+        run: cmake -E copy_directory "$env:GITHUB_WORKSPACE/tutorials/tutorial_numeric" "${{ runner.workspace }}/tutorial_numeric"
 
-    - name: Test Python
-      working-directory: ${{ runner.workspace }}/build
-      run: ctest -L python -V --timeout 30
+      - name: Build and check C++ numeric tutorial
+        if: matrix.build_type == 'Release'
+        shell: pwsh
+        working-directory: ${{ runner.workspace }}/tutorial_numeric
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ runner.workspace }}/install" -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
+          cmake --build build --parallel
+          $env:PATH = "${{ runner.workspace }}\install\bin;C:\vcpkg\installed\x64-windows-release\bin;$env:PATH"
+          & ".\build\tutorial_numeric.exe"
 
-    - name: Install Ariadne Numeric
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --install . --prefix "${{ runner.workspace }}/install"
+      - name: Check Python numeric tutorial
+        if: matrix.build_type == 'Release'
+        shell: pwsh
+        working-directory: ${{ github.workspace }}/python/tutorials
+        run: |
+          $env:PYTHONPATH = "${{ runner.workspace }}\build\python"
+          python tutorial_numeric.py
 
-    - name: Prepare C++ Numeric Tutorial
-      shell: pwsh
-      run: cmake -E copy_directory "$env:GITHUB_WORKSPACE/tutorials/tutorial_numeric" "${{ runner.workspace }}/tutorial_numeric"
+      - name: Verify uninstallation
+        if: matrix.build_type == 'Release'
+        run: cmake --build build --target uninstall
 
-    - name: Check C++ Numeric Tutorial
-      shell: pwsh
-      working-directory: ${{ runner.workspace }}/tutorial_numeric
-      run: |
-        cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ runner.workspace }}/install" -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-release -DVCPKG_HOST_TRIPLET=x64-windows-release -DX_VCPKG_APPLOCAL_DEPS_SERIALIZED=ON
-        cmake --build build --parallel
-        $env:PATH = "${{ runner.workspace }}\install\bin;C:\vcpkg\installed\x64-windows-release\bin;$env:PATH"
-        & ".\build\tutorial_numeric.exe"
+      - name: Build Debug tests and bindings
+        if: matrix.build_type == 'Debug'
+        run: cmake --build build --parallel --target tests
 
-    - name: Check Python Numeric Tutorial
-      shell: pwsh
-      working-directory: ${{ github.workspace }}/python/tutorials
-      run: |
-        $env:PYTHONPATH = "${{ runner.workspace }}\build\python"
-        python tutorial_numeric.py
+      - name: Run Debug C++ tests
+        if: matrix.build_type == 'Debug'
+        run: ctest --test-dir build -LE python -V --timeout 30 --output-on-failure
 
-    - name: Verify Uninstallation
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --target uninstall
+      - name: Run Debug Python tests
+        if: matrix.build_type == 'Debug'
+        run: ctest --test-dir build -L python -V --timeout 30 --output-on-failure

@@ -9,130 +9,110 @@ on:
   pull_request:
 
 env:
-  BUILD_TYPE: Release
   SCCACHE_GHA_ENABLED: "true"
 
 jobs:
-  build:
-    name: ${{ matrix.config.name }}
+  build-test:
+    name: ${{ matrix.config.name }} [${{ matrix.build_type == 'Release' && 'Release Build' || 'Debug Tests' }}]
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
       matrix:
+        build_type: [Release, Debug]
         config:
-          - { name: "macOS 26 AppleClang 21 [Release]", os: macos-26, cxx: "/usr/bin/clang++" }
-          - { name: "Ubuntu 24.04 Clang 16 [Release]", os: ubuntu-24.04, cxx: "clang++-16", pkg: "clang-16" }
-          - { name: "Ubuntu 24.04 GCC 13 [Release]", os: ubuntu-24.04, cxx: "g++-13", pkg: "g++-13" }
+          - { name: "macOS 26 AppleClang 21", os: macos-26, cxx: "/usr/bin/clang++" }
+          - { name: "Ubuntu 24.04 Clang 16", os: ubuntu-24.04, cxx: "clang++-16", pkg: "clang-16" }
+          - { name: "Ubuntu 24.04 GCC 13", os: ubuntu-24.04, cxx: "g++-13", pkg: "g++-13" }
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up sccache
-      uses: mozilla-actions/sccache-action@v0.0.11
-      with:
-        version: "v0.18.0"
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.11
+        with:
+          version: "v0.18.0"
 
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.13"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
 
-    - name: Install Python Test Dependencies
-      run: python -m pip install pytest
+      - name: Install Python test dependencies
+        if: matrix.build_type == 'Debug'
+        run: python -m pip install pytest
 
-    - name: Get macOS Concurrency
-      if: runner.os == 'macOS'
-      run: echo NPROC="sysctl -n hw.ncpu" >> $GITHUB_ENV
+      - name: Get macOS concurrency
+        if: runner.os == 'macOS'
+        run: echo "NPROC=$(sysctl -n hw.ncpu)" >> "$GITHUB_ENV"
 
-    - name: Get Linux Concurrency
-      if: runner.os == 'Linux'
-      run: echo NPROC="nproc" >> $GITHUB_ENV
+      - name: Get Linux concurrency
+        if: runner.os == 'Linux'
+        run: echo "NPROC=$(nproc)" >> "$GITHUB_ENV"
 
-    - name: Set Up macOS Dependencies
-      if: runner.os == 'macOS'
-      run: brew install ninja gmp mpfr pkg-config
+      - name: Set up macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install ninja gmp mpfr pkg-config
 
-    - name: Set Up Linux Dependencies
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cmake ninja-build pkg-config ${{ matrix.config.pkg }} libgmp-dev libmpfr-dev
+      - name: Set up Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config ${{ matrix.config.pkg }} libgmp-dev libmpfr-dev
 
-    - name: Create Build Environment
-      run: cmake -E make_directory ${{ runner.workspace }}/build
+      - name: Configure CMake
+        run: |
+          cmake -S . -B "${{ runner.workspace }}/build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+            -DPYTHON_ENFORCE_TESTS=${{ matrix.build_type == 'Debug' && 'ON' || 'OFF' }} \
+            -DWARNINGS_AS_ERRORS=ON
 
-    - name: Configure CMake
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -G Ninja -DWARNINGS_AS_ERRORS=ON -DPYTHON_ENFORCE_TESTS=ON
+      - name: Build Release library and bindings
+        if: matrix.build_type == 'Release'
+        run: cmake --build "${{ runner.workspace }}/build" --parallel "$NPROC" --target ariadne-numeric bindings
 
-    - name: Build
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --parallel $($NPROC) --target everything
+      - name: Install Release library
+        if: matrix.build_type == 'Release'
+        run: cmake --install "${{ runner.workspace }}/build" --prefix "${{ runner.workspace }}/install"
 
-    - name: Test C++
-      working-directory: ${{ runner.workspace }}/build
-      run: ctest -j $($NPROC) -LE python --output-on-failure
+      - name: Prepare C++ numeric tutorial
+        if: matrix.build_type == 'Release'
+        run: cmake -E copy_directory "$GITHUB_WORKSPACE/tutorials/tutorial_numeric" "${{ runner.workspace }}/tutorial_numeric"
 
-    - name: Test Python
-      working-directory: ${{ runner.workspace }}/build
-      run: ctest -L python -V --output-on-failure
+      - name: Build and check C++ numeric tutorial
+        if: matrix.build_type == 'Release'
+        working-directory: ${{ runner.workspace }}/tutorial_numeric
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_PREFIX_PATH="${{ runner.workspace }}/install" \
+            -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake --build build --parallel "$NPROC"
+          export LD_LIBRARY_PATH="${{ runner.workspace }}/install/lib:${LD_LIBRARY_PATH:-}"
+          export DYLD_LIBRARY_PATH="${{ runner.workspace }}/install/lib:${DYLD_LIBRARY_PATH:-}"
+          ./build/tutorial_numeric
 
-    - name: Install Ariadne Numeric
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --install . --prefix ${{ runner.workspace }}/install
+      - name: Check Python numeric tutorial
+        if: matrix.build_type == 'Release'
+        working-directory: ${{ github.workspace }}/python/tutorials
+        env:
+          PYTHONPATH: ${{ runner.workspace }}/build/python
+        run: python tutorial_numeric.py
 
-    - name: Prepare C++ Numeric Tutorial
-      run: cmake -E copy_directory $GITHUB_WORKSPACE/tutorials/tutorial_numeric ${{ runner.workspace }}/tutorial_numeric
+      - name: Verify uninstallation
+        if: matrix.build_type == 'Release'
+        run: cmake --build "${{ runner.workspace }}/build" --target uninstall
 
-    - name: Check C++ Numeric Tutorial
-      working-directory: ${{ runner.workspace }}/tutorial_numeric
-      run: |
-        cmake -S . -B build -DCMAKE_PREFIX_PATH=${{ runner.workspace }}/install -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -G Ninja
-        cmake --build build --parallel $($NPROC)
-        export LD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${LD_LIBRARY_PATH:-}
-        export DYLD_LIBRARY_PATH=${{ runner.workspace }}/install/lib:${DYLD_LIBRARY_PATH:-}
-        ./build/tutorial_numeric
+      - name: Build Debug tests and bindings
+        if: matrix.build_type == 'Debug'
+        run: cmake --build "${{ runner.workspace }}/build" --parallel "$NPROC" --target tests
 
-    - name: Check Python Numeric Tutorial
-      working-directory: ${{ github.workspace }}/python/tutorials
-      env:
-        PYTHONPATH: ${{ runner.workspace }}/build/python
-      run: python tutorial_numeric.py
+      - name: Run Debug C++ tests
+        if: matrix.build_type == 'Debug'
+        run: ctest --test-dir "${{ runner.workspace }}/build" -j "$NPROC" -LE python --output-on-failure
 
-    - name: Verify Uninstallation
-      working-directory: ${{ runner.workspace }}/build
-      run: cmake --build . --target uninstall
-
-
-  thread-sanitizer:
-    name: Ubuntu 24.04 Clang 16 [ThreadSanitizer]
-    runs-on: ubuntu-24.04
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up sccache
-      uses: mozilla-actions/sccache-action@v0.0.11
-      with:
-        version: "v0.18.0"
-
-    - name: Set Up Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cmake ninja-build pkg-config clang-16 libgmp-dev libmpfr-dev
-
-    - name: Create Build Environment
-      run: cmake -E make_directory ${{runner.workspace}}/build-tsan
-
-    - name: Configure CMake
-      working-directory: ${{runner.workspace}}/build-tsan
-      run: cmake ${{github.workspace}} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++-16 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DTHREAD_SANITIZER=ON -DBUILD_PYTHON_BINDINGS=OFF -G Ninja -DWARNINGS_AS_ERRORS=ON
-
-    - name: Build
-      working-directory: ${{runner.workspace}}/build-tsan
-      run: cmake --build . --parallel 2
-
-    - name: Test
-      working-directory: ${{runner.workspace}}/build-tsan
-      env:
-        TSAN_OPTIONS: halt_on_error=1
-      run: ctest --output-on-failure
+      - name: Run Debug Python tests
+        if: matrix.build_type == 'Debug'
+        run: ctest --test-dir "${{ runner.workspace }}/build" -L python -V --output-on-failure

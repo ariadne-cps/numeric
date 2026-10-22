@@ -3,6 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Unix Status](https://github.com/ariadne-cps/numeric/actions/workflows/unix.yml/badge.svg)](https://github.com/ariadne-cps/numeric/actions/workflows/unix.yml)
 [![Windows Status](https://github.com/ariadne-cps/numeric/actions/workflows/win.yml/badge.svg)](https://github.com/ariadne-cps/numeric/actions/workflows/win.yml)
+[![Sanitizers Status](https://github.com/ariadne-cps/numeric/actions/workflows/sanitizers.yml/badge.svg)](https://github.com/ariadne-cps/numeric/actions/workflows/sanitizers.yml)
 [![Coverage Status](https://github.com/ariadne-cps/numeric/actions/workflows/coverage.yml/badge.svg)](https://github.com/ariadne-cps/numeric/actions/workflows/coverage.yml)
 [![codecov](https://codecov.io/gh/ariadne-cps/numeric/branch/main/graph/badge.svg)](https://codecov.io/gh/ariadne-cps/numeric)
 
@@ -36,14 +37,37 @@ Clone the repository together with its Git submodules:
 ```bash
 git clone --recurse-submodules https://github.com/ariadne-cps/numeric.git
 cd numeric
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-cmake --build . --parallel
-ctest --output-on-failure
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release --parallel --target ariadne-numeric bindings
+cmake --install build-release --prefix install
 ```
 
-A C++20 compiler, CMake, GMP and MPFR are required.
+A C++20 compiler, CMake, GMP and MPFR are required. Python 3.11+ with development
+headers is needed for the Python bindings; disable them with
+`-DBUILD_PYTHON_BINDINGS=OFF` when not needed.
+
+The CI builds the standalone C++ tutorial against the installed library,
+runs both C++ and Python tutorials, and verifies uninstallation independently
+of the test suite.
+
+## Tests
+
+Configure Debug separately and run both the C++ and Python tests:
+
+```bash
+python -m pip install pytest
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug -DPYTHON_ENFORCE_TESTS=ON
+cmake --build build-debug --parallel --target tests
+ctest --test-dir build-debug -LE python --output-on-failure
+ctest --test-dir build-debug -L python --output-on-failure
+```
+
+## Sanitizers
+
+The Sanitizers workflow runs two independent Ubuntu/Clang Debug jobs:
+ThreadSanitizer for data races, and AddressSanitizer with
+UndefinedBehaviorSanitizer for memory errors and undefined behavior.
+Both jobs disable Python bindings; they are separate from Coverage.
 
 ## Coverage
 
