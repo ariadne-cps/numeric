@@ -104,6 +104,9 @@ static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 #ifndef ARIADNE_FLOATAP_ACOS_ORACLE_PATH
 #error "Provide the FloatAP arccosine fixture path from CMake"
 #endif
+#ifndef ARIADNE_FLOATAP_ATAN_ORACLE_PATH
+#error "Provide the FloatAP arctangent fixture path from CMake"
+#endif
 // Exact references, keyed by precision, mode, and the rational input.
 // Ordered lookup avoids quadratic duplicate checking and linear scans as
 // the frozen oracle dataset grows. The comparator uses exact Rational order.
@@ -233,6 +236,14 @@ Rational const& floatap_acos_golden(std::size_t bits,
                                     Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
         ARIADNE_FLOATAP_ACOS_ORACLE_PATH,520u);
+    return find_floatap_golden(rows,bits,mode,original_input);
+}
+
+Rational const& floatap_atan_golden(std::size_t bits,
+                                    FloatAP::RoundingModeType mode,
+                                    Rational const& original_input) {
+    static const auto rows=load_floatap_golden_rows(
+        ARIADNE_FLOATAP_ATAN_ORACLE_PATH,640u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 
@@ -1595,14 +1606,14 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Certified atan(1/2) linearization, both signs and both
-            // sides of the exact work-dependent crossover. Confirm
-            // four rounding modes and cache precision upgrades/reuse.
+            // Certified atan(1/2) linearization on both sides of the
+            // exact work-dependent crossover, including signs, directed
+            // rounding, and cache precision upgrades/reuse. Reference
+            // keyed by the ORIGINAL input, independently rounded offline.
             FloatAPPhaseTiming timing_centered_atan("centered_atan",precision.bits());
             for (Bits bits : {53_bits,7_bits,128_bits,256_bits,
                               1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 const Nat exponent_ulp(static_cast<Nat>(ap.bits()));
                 const Rational ulp(Integer(1),
                                    pow(Integer(2),exponent_ulp));
@@ -1628,18 +1639,15 @@ TestFloatRounding<PR>::test_precision_regressions()
                             sign_factor < 0 ? -magnitude : magnitude;
                         const FloatAP ap_input(exact,
                             FloatAP::ROUND_TO_NEAREST,ap);
-                        const FloatMP mp_input(
-                            static_cast<Rational>(ap_input),
-                            FloatMP::ROUND_TO_NEAREST,mp);
-                        const auto check=[&](auto ap_mode,auto mp_mode) {
+                        const auto check=[&](auto ap_mode) {
                             ARIADNE_TEST_EQUALS(
                                 static_cast<Rational>(atan(ap_mode,ap_input)),
-                                static_cast<Rational>(atan(mp_mode,mp_input)));
+                                floatap_atan_golden(ap.bits(),ap_mode,exact));
                         };
-                        check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                        check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                        check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                        check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                        check(FloatAP::ROUND_TO_NEAREST);
+                        check(FloatAP::ROUND_DOWNWARD);
+                        check(FloatAP::ROUND_UPWARD);
+                        check(FloatAP::ROUND_TOWARD_ZERO);
                     }
                 }
             }

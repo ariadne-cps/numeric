@@ -10120,3 +10120,47 @@ interval width was 13826/2^1800.
 D85 Unix, Windows and Coverage workflows all passed before D86.
 D86 build and regression/CI status are pending. No production
 source, timeouts or unrelated tests were modified.
+
+### D87 — certify centered arctangent golden oracle (22 October 2026)
+
+Replace the FloatMP/MPFR comparison only in `centered_atan`
+within `tests/test_float_rounding.cpp`. Preserve six precision
+visits (53, 7, 128, 256, 1024, 53 bits), all sixteen source
+Rational magnitudes (including four near-centre ULP probes, four
+exact cutoff and exterior probes, and fallback arguments), both
+signs and four directed modes: all 768 original assertions remain.
+The original exact signed Rational, NOT the FloatAP-rounded binary
+argument, is the lookup key, with nearest/even input rounding
+performed independently by integer quotient and midpoint comparisons.
+This detects FloatAP constructor regressions, rather than selecting
+a correspondingly shifted golden result. The second 53-bit visit
+reuses the same references.
+
+Add 640 independently certified distinct golden entries to the
+flat `tests/data/floatap_atan.tsv` file. This is the shared
+per-operation atan oracle and can be expanded for subsequent atan
+regressions. Add the CMake absolute source path and reuse the
+existing strict six-column inline golden reader with exact row
+count, malformed, missing and duplicate detection. No helper
+sources or new data subdirectory are introduced.
+
+Generate the oracle using arbitrary-precision native integer
+arithmetic only (without GMP, MPFR, FloatMP, FloatAP, or floating
+transcendental evaluations). With B=2^1800, use outward fixed-point
+floor/ceil bounds on positive atan arguments y<=1/2. Sum the
+alternating atan series with outward-rounded terms k=0..1149,
+bounding the signed remainder by the next nonnegative term.
+For x in [0,1/2], evaluate directly. For x in (1/2,1],
+use atan(x)=pi/4-atan((1-x)/(1+x)); for x>1 use
+atan(x)=pi/2-atan(1/x). The needed pi/4 interval is derived from
+Machin's certified exact identity
+pi/4=4*atan(1/5)-atan(1/239). Negative arguments use oddness.
+Each signed interval's endpoints must independently round to
+the same exact canonical binary Rational for the requested
+precision and direction, including nearest/even ties. All 640
+references passed this certification (widest interval
+12668/2^1800).
+
+D86 Unix, Windows and Coverage jobs passed before this change.
+D87 compilation, regressions and CI validation remain pending.
+No timeouts, production code or unrelated tests are modified.
