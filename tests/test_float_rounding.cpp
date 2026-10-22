@@ -243,7 +243,7 @@ Rational const& floatap_atan_golden(std::size_t bits,
                                     FloatAP::RoundingModeType mode,
                                     Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
-        ARIADNE_FLOATAP_ATAN_ORACLE_PATH,840u);
+        ARIADNE_FLOATAP_ATAN_ORACLE_PATH,1340u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 
@@ -1689,7 +1689,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // Certified atan(1/2) cache and centered argument reduction:
             // probe either side of 1/4, 1/2 and 5/7, both signs,
             // different precision/cache ordering, and all rounding modes.
-            // Always compare identical *rounded binary inputs* with MPFR.
+            // The independent golden key is the ORIGINAL source Rational.
             const Rational epsilon(Dyadic(1,40u));
             const Rational tiny(Dyadic(1,100u));
             const Rational values[]={
@@ -1704,22 +1704,19 @@ TestFloatRounding<PR>::test_precision_regressions()
             };
             for (Bits bits : {53_bits,7_bits,128_bits,1024_bits,256_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 for (Rational const& value : values) {
                     for (Int sign : {Int(-1),Int(1)}) {
                         const Rational exact=sign<0 ? -value : value;
                         const FloatAP a(exact,FloatAP::ROUND_TO_NEAREST,ap);
-                        const FloatMP m(static_cast<Rational>(a),
-                                        FloatMP::ROUND_TO_NEAREST,mp);
-                        const auto verify=[&](auto am,auto mm) {
+                        const auto verify=[&](auto am) {
                             ARIADNE_TEST_EQUALS(
                                 static_cast<Rational>(atan(am,a)),
-                                static_cast<Rational>(atan(mm,m)));
+                                floatap_atan_golden(ap.bits(),am,exact));
                         };
-                        verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                        verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                        verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                        verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                        verify(FloatAP::ROUND_TO_NEAREST);
+                        verify(FloatAP::ROUND_DOWNWARD);
+                        verify(FloatAP::ROUND_UPWARD);
+                        verify(FloatAP::ROUND_TOWARD_ZERO);
                     }
                 }
             }

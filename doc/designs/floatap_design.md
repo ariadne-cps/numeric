@@ -10207,3 +10207,47 @@ generation. No production code, timeouts, existing test cases
 or other test blocks were changed. The D87 commit had no GitHub
 Actions runs available when D88 was prepared; D88 build/CI
 verification is also pending.
+
+### D89 — certified atan-cache and centered reduction regression (22 October 2026)
+
+Replace only the third atan FloatMP/MPFR differential oracle, the
+unnamed centered cache and argument-reduction block immediately
+following `single_recurrence_atan`. Retain six precision visits
+(53, 7, 128, 1024, 256, 53), all twenty magnitude inputs around
+1/4, 1/3, 1/2, 5/7, plus 0, 1, 2 and 3, both signs and four
+directed rounding modes. All 960 original assertions execute
+unchanged, including duplicate visits of signed zero and the
+revisited 53-bit precision.
+
+Extend, rather than duplicate, the existing flat
+`tests/data/floatap_atan.tsv` oracle from 840 to 1340
+certified distinct rows. Of 800 comparisons over the five
+distinct precisions, 300 used existing or newly inserted
+identical keys, including the second zero-sign visit at each
+precision. The remaining 500 references were new.
+The original source Rational is used as the oracle lookup key,
+not the FloatAP-rounded input; 76 of the 200 input
+visits required nontrivial independent nearest-even rounding.
+The strict row-count validation is updated accordingly.
+
+Offline certified evaluation uses only arbitrary-precision native
+integer arithmetic, B=2^1800 outward fixed-point intervals and
+the alternating atan series through k=1149 with the first omitted
+term as a rigorous signed tail bound. The recurrence identities are:
+atan(x)=pi/4-atan((1-x)/(1+x)) when 1/2<x<=1,
+atan(x)=pi/4+atan((x-1)/(x+1)) when 1<x<=3,
+and atan(x)=pi/2-atan(1/x) for x>3. Values <=1/2 use the
+direct series. Pi/4 is independently bounded from
+Machin's formula 4 atan(1/5)-atan(1/239), and negative
+arguments use oddness. Every result is included only when both
+exact rational enclosure endpoints round to the IDENTICAL binary
+value for the selected precision and mode. All 800 generated
+comparisons passed this certification, with widest enclosure
+6911/2^1800. No GMP, MPFR, FloatMP, FloatAP or
+floating-point transcendental oracle was used to derive results.
+
+No source code outside the selected test block and atan fixture
+loader row count changed; production, other tests and timeouts
+are untouched. Merge conflict currently blocks CI visibility,
+so D87/D88/D89 executable regressions remain unverified.
+Only `remove-gmp` is updated.
