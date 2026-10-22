@@ -38,7 +38,6 @@
 #include <sstream>
 #include <cstdint>
 #include <limits>
-#include <random>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -64,6 +63,10 @@
 #endif
 #ifndef ARIADNE_INTEGER_B38_ORACLE_PATH
 #error "Provide the Integer B38 oracle TSV path from CMake"
+#endif
+
+#ifndef ARIADNE_INTEGER_B66_ORACLE_PATH
+#error "Provide the Integer B66 oracle TSV path from CMake"
 #endif
 
 #ifndef ARIADNE_INTEGER_POWER_ORACLE_PATH
@@ -458,15 +461,6 @@ void TestInteger::test_native() {
         }
     }
 
-    struct GMP {
-        mpz_t value;
-        GMP() { mpz_init(value); }
-        ~GMP() { mpz_clear(value); }
-        GMP(GMP const&)=delete;
-        GMP& operator=(GMP const&)=delete;
-    };
-    GMP a,expected;
-
     // B41: six structural classes x four sign pairs x eight widths.
     // Source and expected values are independently frozen, with no GMP
     // calls in this differential test. Self-aliasing remains covered.
@@ -530,39 +524,38 @@ void TestInteger::test_native() {
         throw std::runtime_error("Extra Integer power TSV rows");
     }
 
-    // B66: generic MSB-first exponentiation on x86-64 must remain exact
-    // at 0/1, nonconsecutive bits, and 31/32/33/63/64/65-bit
-    // exponent boundaries. Retain this GMP check on every architecture
-    // to guard the original ARM64 and portable paths as well.
-    std::mt19937_64 b66_engine(0xB660F00DULL);
-    for (const std::size_t count:{0u,1u,2u,3u,4u}) {
-        for (unsigned mode=0u;mode<12u;++mode) {
-            std::vector<std::uint64_t> digits(count);
-            for (auto& word:digits) word=b66_engine();
-            if (mode%4u==0u) {
-                std::fill(digits.begin(),digits.end(),0u);
-            } else if (mode%4u==1u) {
-                std::fill(digits.begin(),digits.end(),
-                          std::numeric_limits<std::uint64_t>::max());
-            } else if (mode%4u==2u && !digits.empty()) {
-                std::fill(digits.begin(),digits.end(),0u);
-                digits.back()=std::uint64_t{1}<<63u;
-            }
-            mpz_import(a.value,digits.size(),-1,sizeof(std::uint64_t),
-                       0,0,digits.data());
-            if ((mode&1u)!=0u) mpz_neg(a.value,a.value);
-            const Integer base=integer_from_gmp(a.value);
-            for (const unsigned exponent:
+    // B66: original 18 exponent boundaries, across each original width.
+    // Four distinct input-pattern classes are retained from the source
+    // mt19937_64 sequence. Results were frozen using independent exact
+    // integer arithmetic (no GMP or Integer-under-test at runtime).
+    std::ifstream exponent_oracle(ARIADNE_INTEGER_B66_ORACLE_PATH);
+    if (!exponent_oracle) throw std::runtime_error("Missing Integer B66 TSV");
+    std::string exponent_header;
+    while (exponent_oracle.peek()=='#')
+        std::getline(exponent_oracle,exponent_header);
+    for (const std::size_t width:{0u,1u,2u,3u,4u}) {
+        for (unsigned mode=0u;mode<4u;++mode) {
+            for (unsigned exponent:
                     {0u,1u,2u,3u,5u,7u,8u,9u,12u,15u,16u,17u,
                      31u,32u,33u,63u,64u,65u}) {
-                mpz_pow_ui(expected.value,a.value,exponent);
-                const GmpIntegerBoundary observed(
-                    pow(base,Nat(exponent)));
-                ARIADNE_TEST_ASSERT(
-                    mpz_cmp(observed.value(),expected.value)==0);
+                std::size_t ref_width=0u;
+                unsigned ref_mode=0u,ref_exponent=0u;
+                std::string raw_base,raw_result;
+                if (!(exponent_oracle >> ref_width >> ref_mode >> ref_exponent
+                        >> raw_base >> raw_result)
+                    || ref_width!=width || ref_mode!=mode
+                    || ref_exponent!=exponent) {
+                    throw std::runtime_error("Missing or unordered B66 TSV row");
+                }
+                const Integer base{String(raw_base)};
+                ARIADNE_TEST_EQUALS(pow(base,Nat(exponent)),
+                                    Integer(String(raw_result)));
             }
         }
     }
+    std::string extra_exponent;
+    if (exponent_oracle >> extra_exponent)
+        throw std::runtime_error("Extra B66 TSV rows");
 
     // B33: independent exact source-keyed squares for all eight distinct
     // structural classes at every original width; includes x*=x aliasing.
