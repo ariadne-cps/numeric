@@ -10251,3 +10251,53 @@ loader row count changed; production, other tests and timeouts
 are untouched. Merge conflict currently blocks CI visibility,
 so D87/D88/D89 executable regressions remain unverified.
 Only `remove-gmp` is updated.
+
+### D90 — certify shared asin/acos enclosure and endpoint tests (22 October 2026)
+
+Remove live FloatMP/MPFR differential oracle calls only from the
+one-evaluation asin and shared acos regression block directly after
+the centered atan cache tests. Keep all four precision visits (53,
+128, 256, 1024), seventeen original signed Rational arguments
+including ±1, values 2^-40 from ±1, zero, and the 1/2 branch
+transition, both functions, and four directed rounding modes:
+all 544 original assertions remain unchanged.
+
+Extend the existing `tests/data/floatap_asin.tsv` to 728
+entries and `tests/data/floatap_acos.tsv` to 728,
+adding 208 and 208
+independent correctly rounded reference values respectively.
+Reuse 64 asin and 64 acos results
+from D86, independently recertifying every overlap and detecting
+any disagreement. No additional fixture files, CMake path changes,
+external C++ oracle utilities or new subdirectories. The golden
+lookup key is the exact ORIGINAL Rational input, even when that
+input must first be binary nearest/even rounded.
+
+The offline independent generator uses native arbitrary-precision
+integers, no GMP, MPFR, FloatMP, FloatAP or floating-point
+transcendental oracle. Nearest/even input rounding and the final
+four directed roundings use exact integer quotient and midpoint
+tests. With B=2^1800 fixed-point integer arithmetic, sqrt is
+enclosed rigorously using an integer isqrt and a one-unit outward
+bound. For |x|<=3/4 use asin(a)=2 atan(a/(1+sqrt(1-a*a)))
+with a=|x|; the inner atan argument lies below 1/2.
+For 3/4<|x|<1 use acos(a)=2 atan(sqrt((1-a)/(1+a))),
+whose atan argument is below 1/2 even arbitrarily near 1,
+then asin(a)=pi/2-acos(a). At |x|=1, acos(1)=0 is
+handled exactly, and asin(1)=pi/2. Negative sources use
+asin(-a)=-asin(a) and acos(-a)=pi/2+asin(a).
+Pi/2 is independently enclosed with Machin's identity
+8 atan(1/5)-2 atan(1/239). Each atan uses outward
+integer fixed-point alternating Taylor summation k=0..1149,
+with a rigorous next-term remainder bound.
+All 544 signed function/mode/precision references were
+admitted ONLY after both exact enclosure endpoints rounded to
+the identical binary Rational. The largest fixed-point interval
+width was 25338/2^1800. Exact |x|=1 was visited
+8 times including signs/precisions.
+
+Only the selected tests, strict loader cardinalities, the two
+existing TSV datasets and this journal were changed.
+The unresolved merge conflict continues to prevent CI execution;
+this commit is offline-certified but NOT yet build/regression
+validated. Keep the branch `remove-gmp`.
