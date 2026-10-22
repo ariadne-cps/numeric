@@ -39,8 +39,12 @@ endforeach()
 # short-owned BigUnsigned division test. Absolute path works on Windows.
 target_compile_definitions(test_big_unsigned PRIVATE
     "ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_short_div.tsv\""
-    "ARIADNE_INTEGER_POWER_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_power.tsv\""
     "ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_power.tsv\""
+)
+
+# Exact independent integer power oracle for the Integer test.
+target_compile_definitions(test_integer PRIVATE
+    "ARIADNE_INTEGER_POWER_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_power.tsv\""
 )
 
 # Absolute source path: out-of-source and Windows CTest need no copied fixtures.
