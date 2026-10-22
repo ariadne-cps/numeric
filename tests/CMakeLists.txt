@@ -35,50 +35,13 @@ foreach(TEST ${UNIT_TESTS})
     endif()
 endforeach()
 
-# Exact original-operand, quotient and remainder oracle for the native
-# short-owned BigUnsigned division test. Absolute path works on Windows.
-target_compile_definitions(test_big_unsigned PRIVATE
-    "ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_short_div.tsv\""
-    "ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_power.tsv\""
-    "ARIADNE_BIG_UNSIGNED_R14_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_r14.tsv\""
-    "ARIADNE_BIG_UNSIGNED_B72_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_b72.tsv\""
-    "ARIADNE_BIG_UNSIGNED_RANDOM_MUL_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_random_mul.tsv\""
-    "ARIADNE_BIG_UNSIGNED_B35_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_b35.tsv\""
-    "ARIADNE_BIG_UNSIGNED_B40_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_b40.tsv\""
-    "ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_b39.tsv\""
-    "ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_b54_product.tsv\""
-    "ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_sub.tsv\""
-)
-
-# Exact independent integer power oracle for the Integer test.
-target_compile_definitions(test_integer PRIVATE
-    "ARIADNE_INTEGER_POWER_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_power.tsv\""
-    "ARIADNE_INTEGER_B66_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_b66.tsv\""
-    "ARIADNE_INTEGER_B33_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_b33.tsv\""
-    "ARIADNE_INTEGER_B37_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_b37.tsv\""
-    "ARIADNE_INTEGER_B38_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_b38.tsv\""
-    "ARIADNE_INTEGER_B17_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_b17.tsv\""
-    "ARIADNE_INTEGER_B18_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_b18.tsv\""
-    "ARIADNE_INTEGER_SUB_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_sub.tsv\""
-)
-
-# Absolute source path: out-of-source and Windows CTest need no copied fixtures.
-target_compile_definitions(test_float_rounding PRIVATE
-    "ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_rounding.tsv\""
-    "ARIADNE_FLOATAP_ADD_SUB_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_add_sub.tsv\""
-    "ARIADNE_FLOATAP_EXP_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_exp.tsv\""
-    "ARIADNE_FLOATAP_POW_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_pow.tsv\""
-    "ARIADNE_FLOATAP_SQRT_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_sqrt.tsv\""
-    "ARIADNE_FLOATAP_LOG_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_log.tsv\""
-    "ARIADNE_FLOATAP_CENTERED_EXP_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_centered_exp.tsv\""
-    "ARIADNE_FLOATAP_ASIN_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_asin.tsv\""
-    "ARIADNE_FLOATAP_ACOS_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_acos.tsv\""
-    "ARIADNE_FLOATAP_ATAN_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_atan.tsv\""
-    "ARIADNE_FLOATAP_SIN_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_sin.tsv\""
-    "ARIADNE_FLOATAP_COS_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_cos.tsv\""
-    "ARIADNE_FLOATAP_TAN_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_tan.tsv\""
-    "ARIADNE_FLOATAP_GET_D_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_get_d.tsv\""
-)
+# Absolute fixture base directory for the three oracle-using test targets.
+# The TSV file names live beside their consumers in the C++ test files.
+# Absolute path preserves out-of-source builds and Windows CTest.
+foreach(TEST IN ITEMS test_big_unsigned test_integer test_float_rounding)
+    target_compile_definitions(${TEST} PRIVATE
+        "ARIADNE_TEST_DATA_DIR=\"\${CMAKE_CURRENT_SOURCE_DIR}/data\"")
+endforeach()
 
 add_library(check_numeric OBJECT check_numeric.cpp)
 target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)

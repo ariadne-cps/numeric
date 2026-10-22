@@ -43,9 +43,11 @@ using namespace Ariadne;
 
 namespace {
 
-#ifndef ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH
-#error "Provide the BigUnsigned short-division oracle path from CMake"
+#ifndef ARIADNE_TEST_DATA_DIR
+#error "Provide the absolute test data directory from CMake"
 #endif
+
+inline constexpr char ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_short_div.tsv";
 
 unsigned golden_hex_nibble(char c)
 {
@@ -84,40 +86,22 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 }
 
 
-#ifndef ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH
-#error "Provide B54 product oracle path from CMake"
-#endif
+inline constexpr char ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_product.tsv";
 
-#ifndef ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH
-#error "Provide BigUnsigned B39 oracle path from CMake"
-#endif
+inline constexpr char ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b39.tsv";
 
-#ifndef ARIADNE_BIG_UNSIGNED_B40_ORACLE_PATH
-#error "Provide B40 TSV path from CMake"
-#endif
+inline constexpr char ARIADNE_BIG_UNSIGNED_B40_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b40.tsv";
 
-#ifndef ARIADNE_BIG_UNSIGNED_B35_ORACLE_PATH
-#error "Provide BigUnsigned B35 product oracle path from CMake"
-#endif
+inline constexpr char ARIADNE_BIG_UNSIGNED_B35_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b35.tsv";
 
-#ifndef ARIADNE_BIG_UNSIGNED_RANDOM_MUL_ORACLE_PATH
-#error "Provide BigUnsigned randomized multiplication oracle path from CMake"
-#endif
+inline constexpr char ARIADNE_BIG_UNSIGNED_RANDOM_MUL_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_random_mul.tsv";
 
-#ifndef ARIADNE_BIG_UNSIGNED_R14_ORACLE_PATH
-#error "Provide BigUnsigned R14 square oracle path from CMake"
-#endif
-#ifndef ARIADNE_BIG_UNSIGNED_B72_ORACLE_PATH
-#error "Provide BigUnsigned B72 product oracle path from CMake"
-#endif
+inline constexpr char ARIADNE_BIG_UNSIGNED_R14_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r14.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B72_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b72.tsv";
 
-#ifndef ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH
-#error "Provide the BigUnsigned subtraction oracle path from CMake"
-#endif
+inline constexpr char ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_sub.tsv";
 
-#ifndef ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH
-#error "Provide the BigUnsigned power oracle path from CMake"
-#endif
+inline constexpr char ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_power.tsv";
 
 void check_against_power_golden(std::ifstream& golden,char kind,
                                 std::size_t param1,std::size_t param2,
@@ -802,6 +786,7 @@ void TestBigUnsigned::test_multiplication()
     std::string b54_extra;
     if (b54_golden >> b54_extra) throw std::runtime_error("Extra B54 TSV rows");
 
+    std::mt19937_64 b54_engine(0xB54A6C4ULL);
     // Retain the original shared PRNG state for the subsequent B54 square loop.
     for (const auto& [n,m]:std::initializer_list<std::pair<std::size_t,std::size_t>>{{32u,32u},{33u,33u},{63u,63u},{63u,64u},{64u,63u},{64u,64u},{64u,65u},{65u,64u},{65u,65u},{64u,85u},{64u,86u},{85u,64u},{86u,64u},{96u,96u},{127u,128u},{128u,127u},{128u,128u}}) {
         for (unsigned mode=0u;mode<32u;++mode) {

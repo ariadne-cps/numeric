@@ -77,48 +77,24 @@ constexpr bool check_float_rounding_concept()
 static_assert(check_float_rounding_concept<DoublePrecision>());
 static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 
-#ifndef ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH
-#error "Provide the FloatAP fixture path from CMake"
+#ifndef ARIADNE_TEST_DATA_DIR
+#error "Provide the absolute test data directory from CMake"
 #endif
-#ifndef ARIADNE_FLOATAP_ADD_SUB_ORACLE_PATH
-#error "Provide the FloatAP add/sub fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_EXP_ORACLE_PATH
-#error "Provide the FloatAP exponential fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_POW_ORACLE_PATH
-#error "Provide the FloatAP integer-power fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_SQRT_ORACLE_PATH
-#error "Provide the FloatAP square-root fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_LOG_ORACLE_PATH
-#error "Provide the FloatAP logarithm fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_CENTERED_EXP_ORACLE_PATH
-#error "Provide the FloatAP centered exponential fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_ASIN_ORACLE_PATH
-#error "Provide the FloatAP arcsine fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_ACOS_ORACLE_PATH
-#error "Provide the FloatAP arccosine fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_ATAN_ORACLE_PATH
-#error "Provide the FloatAP arctangent fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_SIN_ORACLE_PATH
-#error "Provide the FloatAP sine fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_COS_ORACLE_PATH
-#error "Provide the FloatAP cosine fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_TAN_ORACLE_PATH
-#error "Provide the FloatAP tangent fixture path from CMake"
-#endif
-#ifndef ARIADNE_FLOATAP_GET_D_ORACLE_PATH
-#error "Provide the FloatAP binary64 conversion fixture path from CMake"
-#endif
+
+inline constexpr char ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_rounding.tsv";
+inline constexpr char ARIADNE_FLOATAP_ADD_SUB_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_add_sub.tsv";
+inline constexpr char ARIADNE_FLOATAP_EXP_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_exp.tsv";
+inline constexpr char ARIADNE_FLOATAP_POW_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_pow.tsv";
+inline constexpr char ARIADNE_FLOATAP_SQRT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_sqrt.tsv";
+inline constexpr char ARIADNE_FLOATAP_LOG_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_log.tsv";
+inline constexpr char ARIADNE_FLOATAP_CENTERED_EXP_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_centered_exp.tsv";
+inline constexpr char ARIADNE_FLOATAP_ASIN_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_asin.tsv";
+inline constexpr char ARIADNE_FLOATAP_ACOS_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_acos.tsv";
+inline constexpr char ARIADNE_FLOATAP_ATAN_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_atan.tsv";
+inline constexpr char ARIADNE_FLOATAP_SIN_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_sin.tsv";
+inline constexpr char ARIADNE_FLOATAP_COS_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_cos.tsv";
+inline constexpr char ARIADNE_FLOATAP_TAN_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_tan.tsv";
+inline constexpr char ARIADNE_FLOATAP_GET_D_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/floatap_get_d.tsv";
 // Exact references, keyed by precision, mode, and the rational input.
 // Ordered lookup avoids quadratic duplicate checking and linear scans as
 // the frozen oracle dataset grows. The comparator uses exact Rational order.
@@ -321,7 +297,7 @@ using FloatAPPowerGoldenTable =
 FloatAPPowerGoldenTable load_floatap_power_golden_rows() {
     std::ifstream file(ARIADNE_FLOATAP_POW_ORACLE_PATH);
     if (!file) throw std::runtime_error(
-        "Missing FloatAP integer power oracle: "
+        std::string("Missing FloatAP integer power oracle: ")+
         ARIADNE_FLOATAP_POW_ORACLE_PATH);
     FloatAPPowerGoldenTable rows;
     std::string line;

@@ -44,34 +44,22 @@
 
 #include <gmp.h>
 
-#ifndef ARIADNE_INTEGER_SUB_ORACLE_PATH
-#error "Provide the Integer subtraction oracle TSV path from CMake"
+inline constexpr char ARIADNE_INTEGER_SUB_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_sub.tsv";
+
+inline constexpr char ARIADNE_INTEGER_B17_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b17.tsv";
+inline constexpr char ARIADNE_INTEGER_B18_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b18.tsv";
+
+inline constexpr char ARIADNE_INTEGER_B33_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b33.tsv";
+inline constexpr char ARIADNE_INTEGER_B37_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b37.tsv";
+inline constexpr char ARIADNE_INTEGER_B38_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b38.tsv";
+
+inline constexpr char ARIADNE_INTEGER_B66_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b66.tsv";
+
+#ifndef ARIADNE_TEST_DATA_DIR
+#error "Provide the absolute test data directory from CMake"
 #endif
 
-#ifndef ARIADNE_INTEGER_B17_ORACLE_PATH
-#error "Provide the Integer B17 oracle TSV path from CMake"
-#endif
-#ifndef ARIADNE_INTEGER_B18_ORACLE_PATH
-#error "Provide the Integer B18 oracle TSV path from CMake"
-#endif
-
-#ifndef ARIADNE_INTEGER_B33_ORACLE_PATH
-#error "Provide the Integer B33 oracle TSV path from CMake"
-#endif
-#ifndef ARIADNE_INTEGER_B37_ORACLE_PATH
-#error "Provide the Integer B37 oracle TSV path from CMake"
-#endif
-#ifndef ARIADNE_INTEGER_B38_ORACLE_PATH
-#error "Provide the Integer B38 oracle TSV path from CMake"
-#endif
-
-#ifndef ARIADNE_INTEGER_B66_ORACLE_PATH
-#error "Provide the Integer B66 oracle TSV path from CMake"
-#endif
-
-#ifndef ARIADNE_INTEGER_POWER_ORACLE_PATH
-#error "Provide the Integer power oracle TSV path from CMake"
-#endif
+inline constexpr char ARIADNE_INTEGER_POWER_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_power.tsv";
 
 #include "macro/testing.hpp"
 
