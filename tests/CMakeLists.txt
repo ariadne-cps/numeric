@@ -46,6 +46,7 @@ target_compile_definitions(test_big_unsigned PRIVATE
     "ARIADNE_BIG_UNSIGNED_B35_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_b35.tsv\""
     "ARIADNE_BIG_UNSIGNED_B40_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_b40.tsv\""
     "ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_b39.tsv\""
+    "ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_b54_product.tsv\""
     "ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_sub.tsv\""
 )
 

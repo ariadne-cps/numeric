@@ -84,6 +84,10 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 }
 
 
+#ifndef ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH
+#error "Provide B54 product oracle path from CMake"
+#endif
+
 #ifndef ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH
 #error "Provide BigUnsigned B39 oracle path from CMake"
 #endif
@@ -771,72 +775,37 @@ void TestBigUnsigned::test_multiplication()
     if (b39_golden >> b39_extra)
         throw std::runtime_error("Extra B39 TSV rows");
 
-    // B54: GCC x86 B38/B40 symmetric-square sparse/dense dispatch
-    // and B39's owning Karatsuba density gate. Probe the exact
-    // 63/64 size boundary, the 1/8 zero cutoff, sparse powers,
-    // alternating limbs, saturated carries and random dense values.
-    // All expected full values originate independently from GMP.
-    std::mt19937_64 b54_engine(0xB54A6C4ULL);
-    for (const auto& [n,m]:
-            {std::pair<std::size_t,std::size_t>{32u,32u},
-             {33u,33u}, {63u,63u}, {63u,64u},
-             {64u,63u}, {64u,64u}, {64u,65u},
-             {65u,64u}, {65u,65u}, {64u,85u},
-             {64u,86u}, {85u,64u}, {86u,64u},
-             {96u,96u}, {127u,128u}, {128u,127u},
-             {128u,128u}}) {
-        for (unsigned mode=0u;mode<32u;++mode) {
-            std::vector<std::uint64_t> left(n),right(m);
-            for (auto& word:left) word=b54_engine();
-            for (auto& word:right) word=b54_engine();
-            const auto apply_pattern=[&](std::vector<std::uint64_t>& words,
-                                         unsigned pattern) {
-                const std::size_t count=words.size();
-                switch (pattern%8u) {
-                case 0u: break; // dense random
-                case 1u:
-                    std::fill(words.begin(),words.end(),max);
-                    break;
-                case 2u:
-                    std::fill(words.begin(),words.end(),0u);
-                    words.front()=13u;
-                    break;
-                case 3u:
-                    std::fill_n(words.begin(),count/8u,0u);
-                    break;
-                case 4u:
-                    std::fill_n(words.begin(),count/8u+1u,0u);
-                    break;
-                case 5u:
-                    for (std::size_t i=0u;i<count;i+=2u)
-                        words[i]=0u;
-                    break;
-                case 6u:
-                    for (std::size_t i=1u;i+1u<count;++i)
-                        words[i]=0u;
-                    break;
-                default:
-                    for (std::size_t i=0u;i<count;i+=8u)
-                        words[i]=0u;
-                    break;
-                }
-                words.back()|=std::uint64_t{1}<<63u;
-            };
-            apply_pattern(left,mode);
-            apply_pattern(right,mode+3u);
-            const BigUnsigned lhs(left),rhs(right);
-            mpz_import(a.value,n,-1,sizeof(std::uint64_t),
-                       0,0,left.data());
-            mpz_import(b.value,m,-1,sizeof(std::uint64_t),
-                       0,0,right.data());
-            mpz_mul(c.value,a.value,b.value);
-            check_against_gmp(mul(lhs,rhs),c.value);
-            check_against_gmp(mul(rhs,lhs),c.value);
-
+    // B54: all 17 width pairs and 8 distinct density patterns.
+    std::ifstream b54_golden(ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH);
+    if (!b54_golden) throw std::runtime_error("Missing B54 TSV");
+    std::string b54_header;
+    while (b54_golden.peek()=='#') std::getline(b54_golden,b54_header);
+    for (const auto& [n,m]:std::initializer_list<std::pair<std::size_t,std::size_t>>{{32u,32u},{33u,33u},{63u,63u},{63u,64u},{64u,63u},{64u,64u},{64u,65u},{65u,64u},{65u,65u},{64u,85u},{64u,86u},{85u,64u},{86u,64u},{96u,96u},{127u,128u},{128u,127u},{128u,128u}}) {
+        for (unsigned mode=0u;mode<8u;++mode) {
+            std::size_t ref_n=0u,ref_m=0u;
+            unsigned ref_mode=0u;
+            std::string lhs_hex,rhs_hex,result_hex;
+            if (!(b54_golden >> ref_n >> ref_m >> ref_mode
+                  >> lhs_hex >> rhs_hex >> result_hex)
+                || ref_n!=n || ref_m!=m || ref_mode!=mode)
+                throw std::runtime_error("Missing or unordered B54 TSV row");
+            const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
+            const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
+            ARIADNE_TEST_ASSERT(lhs.size()==n && rhs.size()==m);
+            check_against_precomputed_hex(mul(lhs,rhs),result_hex);
+            check_against_precomputed_hex(mul(rhs,lhs),result_hex);
             std::vector<std::uint64_t> fused(n+m);
-            BigUnsigned::mul_into_fused(
-                lhs.limbs(),rhs.limbs(),fused);
-            check_against_gmp(BigUnsigned(fused),c.value);
+            BigUnsigned::mul_into_fused(lhs.limbs(),rhs.limbs(),fused);
+            check_against_precomputed_hex(BigUnsigned(fused),result_hex);
+        }
+    }
+    std::string b54_extra;
+    if (b54_golden >> b54_extra) throw std::runtime_error("Extra B54 TSV rows");
+
+    // Retain the original shared PRNG state for the subsequent B54 square loop.
+    for (const auto& [n,m]:std::initializer_list<std::pair<std::size_t,std::size_t>>{{32u,32u},{33u,33u},{63u,63u},{63u,64u},{64u,63u},{64u,64u},{64u,65u},{65u,64u},{65u,65u},{64u,85u},{64u,86u},{85u,64u},{86u,64u},{96u,96u},{127u,128u},{128u,127u},{128u,128u}}) {
+        for (unsigned mode=0u;mode<32u;++mode) {
+            for (std::size_t i=0u;i<n+m;++i) (void)b54_engine();
         }
     }
 
