@@ -10301,3 +10301,48 @@ existing TSV datasets and this journal were changed.
 The unresolved merge conflict continues to prevent CI execution;
 this commit is offline-certified but NOT yet build/regression
 validated. Keep the branch `remove-gmp`.
+
+### D91 — certify centered sine/cosine exact golden oracles (22 October 2026)
+
+Replace the live FloatMP/MPFR differential comparisons ONLY in the
+`centered_sin_cos` regression block. Retain all seven precision visits
+(96, 128, 192, 224, 256, 1024, 128 bits), seven positive source
+Rational magnitudes near the exact +/-1/2 cache/guard thresholds
+and at 1/4 and 3/4, both signs, four directed rounding modes
+and both functions: all 784 original test assertions remain.
+The repeated 128-bit visit still tests cache upgrades and reuse.
+
+Add one operation-specific reusable golden TSV each:
+`tests/data/floatap_sin.tsv` and `tests/data/floatap_cos.tsv`,
+with 336 certified entries apiece for 84 signed source inputs
+at six distinct precisions. Keep flat data layout; add only
+two CMake absolute paths, two strict inline loader accessors and
+the existing duplicate/missing/malformed/exact-count checks.
+The fixture key is the ORIGINAL exact Rational input; independent
+nearest/even integer conversion precedes the oracle calculation,
+so a FloatAP constructor regression cannot silently shift keys.
+Exactly 84/84 source inputs are already p-bit
+binary-representable; no source cases were discarded.
+
+Offline certification uses ONLY arbitrary-precision native integers,
+no GMP, MPFR, FloatMP or FloatAP and no floating-point transcendental
+oracle. For 0<abs(x)<1 use B=2^1800 and outward floor/ceil fixed-point
+bounds for x and x^2, followed by alternating sine/cosine Taylor
+series k=0..239. Each term is propagated by outward floor/ceil
+integer multiplication and factorial-quotient division
+(term recurrence x^2/((2k+2)(2k+3)) for sine,
+ x^2/((2k+1)(2k+2)) for cosine), and partial sums are bounded
+outward by their signed term intervals. Since 240 terms were
+included, the first omitted positive term bounds the remaining
+alternating tail above, while zero bounds it below. Use
+sin(-x)=-sin(x) and cos(-x)=cos(x) to recover signs.
+Every one of the 672 certified source/mode/function rows is accepted
+ONLY when both rational interval endpoints independently round to
+the identical exact binary Rational, including nearest/even ties.
+The maximum interval width was 240/2^1800.
+
+No production code, timeout settings, test order or other test
+blocks were changed. The existing merge conflict prevents CI
+runs from being observed; D91 compilation/regression remains
+unverified despite independent offline numerical certification.
+Continue exclusively on the `remove-gmp` branch.
