@@ -158,6 +158,10 @@ void test_float_error(typename F::PrecisionType pr)
     E assigned(pr);
     assigned=generic;
     ARIADNE_TEST_EQUALS(assigned.raw(),F(2,pr));
+    if constexpr (Same<F,FloatAP>) {
+        // Native error conversion must retain the FloatAP backend.
+        ARIADNE_TEST_EQUALS(generic.class_name(),String("FloatAP"));
+    }
 
     StringStream stream;
     Operations<E>::_write(stream,two_error);

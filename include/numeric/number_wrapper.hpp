@@ -216,9 +216,43 @@ template<class R, class X> inline R _concrete_apply(UnaryElementaryOperator op, 
     }
 }
 
+// The native AP dispatcher should not instantiate operations for which no
+// directed numerical meaning is defined.  In particular, division by an
+// unqualified lower/upper bound is not a division by a positive denominator.
+template<class X> struct IsNativeAPDispatchOperand : std::false_type { };
+template<> struct IsNativeAPDispatchOperand<FloatAP> : std::true_type { };
+template<class F> struct IsNativeAPDispatchOperand<Ball<FloatAP,F>> : std::true_type { };
+template<> struct IsNativeAPDispatchOperand<Bounds<FloatAP>> : std::true_type { };
+template<> struct IsNativeAPDispatchOperand<LowerBound<FloatAP>> : std::true_type { };
+template<> struct IsNativeAPDispatchOperand<UpperBound<FloatAP>> : std::true_type { };
+template<> struct IsNativeAPDispatchOperand<Approximation<FloatAP>> : std::true_type { };
+
 template<class R, class X1, class X2> inline R _concrete_apply(BinaryElementaryOperator op, X1 const& x1, X2 const& x2) {
     static_assert(Same<R,NumberInterface*>);
-    return op.accept([&x1,x2](auto _op){return _make_number_wrapper(_op(x1,x2));});
+    return op.accept([&x1,&x2](auto _op) -> R {
+        if constexpr (Same<decltype(_op),Div> &&
+                      (IsNativeAPDispatchOperand<X1>::value || IsNativeAPDispatchOperand<X2>::value)) {
+            // These cases have native, rigorous implementations.  For other
+            // AP combinations, a denominator can be only one-sided or the
+            // operation has no implementation: report unsupported dispatch.
+            if constexpr ((Same<X1,Bounds<FloatAP>> && Same<X2,Bounds<FloatAP>>) ||
+                          (Same<X1,Bounds<FloatAP>> && Same<X2,FloatAP>) ||
+                          (Same<X1,FloatAP> && Same<X2,Bounds<FloatAP>>) ||
+                          (Same<X1,Ball<FloatAP>> && Same<X2,Ball<FloatAP>>) ||
+                          (Same<X1,Ball<FloatAP>> && Same<X2,FloatAP>) ||
+                          (Same<X1,FloatAP> && Same<X2,Ball<FloatAP>>)) {
+                return _make_number_wrapper(_op(x1,x2));
+            } else {
+                ARIADNE_THROW(DispatchException,"_concrete_apply(BinaryElementaryOperator,FloatAP)",
+                              "Unsupported division of "<<class_name<X1>()<<" by "<<class_name<X2>());
+            }
+        } else if constexpr (requires { _op(x1,x2); }) {
+            return _make_number_wrapper(_op(x1,x2));
+        } else {
+            ARIADNE_THROW(DispatchException,"_concrete_apply(BinaryElementaryOperator)",
+                          "Unsupported "<<op<<" on "<<class_name<X1>()<<" and "<<class_name<X2>());
+        }
+    });
 }
 
 template<class R, class X1, class X2> inline R _concrete_apply_max_or_min(BinaryElementaryOperator op, X1 const& x1, X2 const& x2) {
