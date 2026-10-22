@@ -192,61 +192,50 @@ inline Integer make_unsigned(Natural px) {
   #endif
 }
 
+// Instantiate a unary operation only when it is defined for the concrete
+// numeric type.  Directed lower/upper bounds deliberately do not expose all
+// elementary functions (e.g. squaring an arbitrary one-sided bound).
+template<class R, class OP, class X> inline R _concrete_apply_unary(OP op, X const& x) {
+    static_assert(Same<R,NumberInterface*>);
+    if constexpr (requires { op(x); }) {
+        return _make_number_wrapper(make_unsigned(op(x)));
+    } else {
+        ARIADNE_THROW(DispatchException,"_concrete_apply(UnaryElementaryOperator)",
+                      "Unsupported unary operation on "<<class_name<X>());
+    }
+}
+
 template<class R, class X> inline R _concrete_apply(UnaryElementaryOperator op, X const& x) {
     static_assert(Same<R,NumberInterface*>);
     switch(op.code()) {
-        case OperatorCode::NUL: return _make_number_wrapper(make_unsigned(Nul()(x)));
-        case OperatorCode::POS: return _make_number_wrapper(make_unsigned(Pos()(x)));
-        case OperatorCode::NEG: return _make_number_wrapper(make_unsigned(Neg()(x)));
-        case OperatorCode::SQR: return _make_number_wrapper(make_unsigned(Sqr()(x)));
-        case OperatorCode::HLF: return _make_number_wrapper(make_unsigned(Hlf()(x)));
-        case OperatorCode::REC: return _make_number_wrapper(make_unsigned(Rec()(x)));
-        case OperatorCode::SQRT: return _make_number_wrapper(make_unsigned(Sqrt()(x)));
-        case OperatorCode::EXP: return _make_number_wrapper(make_unsigned(Exp()(x)));
-        case OperatorCode::LOG: return _make_number_wrapper(make_unsigned(Log()(x)));
-        case OperatorCode::SIN: return _make_number_wrapper(make_unsigned(Sin()(x)));
-        case OperatorCode::COS: return _make_number_wrapper(make_unsigned(Cos()(x)));
-        case OperatorCode::TAN: return _make_number_wrapper(make_unsigned(Tan()(x)));
-        case OperatorCode::TANH: return _make_number_wrapper(make_unsigned(Tanh()(x)));
-        case OperatorCode::ASIN: return _make_number_wrapper(make_unsigned(Asin()(x)));
-        case OperatorCode::ACOS: return _make_number_wrapper(make_unsigned(Acos()(x)));
-        case OperatorCode::ATAN: return _make_number_wrapper(make_unsigned(Atan()(x)));
-        case OperatorCode::ABS: return _make_number_wrapper(make_unsigned(Abs()(x)));
+        case OperatorCode::NUL: return _concrete_apply_unary<R>(Nul(),x);
+        case OperatorCode::POS: return _concrete_apply_unary<R>(Pos(),x);
+        case OperatorCode::NEG: return _concrete_apply_unary<R>(Neg(),x);
+        case OperatorCode::SQR: return _concrete_apply_unary<R>(Sqr(),x);
+        case OperatorCode::HLF: return _concrete_apply_unary<R>(Hlf(),x);
+        case OperatorCode::REC: return _concrete_apply_unary<R>(Rec(),x);
+        case OperatorCode::SQRT: return _concrete_apply_unary<R>(Sqrt(),x);
+        case OperatorCode::EXP: return _concrete_apply_unary<R>(Exp(),x);
+        case OperatorCode::LOG: return _concrete_apply_unary<R>(Log(),x);
+        case OperatorCode::SIN: return _concrete_apply_unary<R>(Sin(),x);
+        case OperatorCode::COS: return _concrete_apply_unary<R>(Cos(),x);
+        case OperatorCode::TAN: return _concrete_apply_unary<R>(Tan(),x);
+        case OperatorCode::TANH: return _concrete_apply_unary<R>(Tanh(),x);
+        case OperatorCode::ASIN: return _concrete_apply_unary<R>(Asin(),x);
+        case OperatorCode::ACOS: return _concrete_apply_unary<R>(Acos(),x);
+        case OperatorCode::ATAN: return _concrete_apply_unary<R>(Atan(),x);
+        case OperatorCode::ABS: return _concrete_apply_unary<R>(Abs(),x);
         default: ARIADNE_THROW(DispatchException,"_concrete_apply(UnaryElementaryOperator,X const&)","Unsupported unary operator code "<<op.code());
     }
 }
 
-// The native AP dispatcher should not instantiate operations for which no
-// directed numerical meaning is defined.  In particular, division by an
-// unqualified lower/upper bound is not a division by a positive denominator.
-template<class X> struct IsNativeAPDispatchOperand : std::false_type { };
-template<> struct IsNativeAPDispatchOperand<FloatAP> : std::true_type { };
-template<class F> struct IsNativeAPDispatchOperand<Ball<FloatAP,F>> : std::true_type { };
-template<> struct IsNativeAPDispatchOperand<Bounds<FloatAP>> : std::true_type { };
-template<> struct IsNativeAPDispatchOperand<LowerBound<FloatAP>> : std::true_type { };
-template<> struct IsNativeAPDispatchOperand<UpperBound<FloatAP>> : std::true_type { };
-template<> struct IsNativeAPDispatchOperand<Approximation<FloatAP>> : std::true_type { };
-
+// Preserve native overload dispatch for every supported binary operator.
+// A missing overload is an unsupported type/operator combination, not a
+// reason to instantiate ill-formed code or to change the numerical backend.
 template<class R, class X1, class X2> inline R _concrete_apply(BinaryElementaryOperator op, X1 const& x1, X2 const& x2) {
     static_assert(Same<R,NumberInterface*>);
     return op.accept([&x1,&x2,&op](auto _op) -> R {
-        if constexpr (Same<decltype(_op),Div> &&
-                      (IsNativeAPDispatchOperand<X1>::value || IsNativeAPDispatchOperand<X2>::value)) {
-            // These cases have native, rigorous implementations.  For other
-            // AP combinations, a denominator can be only one-sided or the
-            // operation has no implementation: report unsupported dispatch.
-            if constexpr ((Same<X1,Bounds<FloatAP>> && Same<X2,Bounds<FloatAP>>) ||
-                          (Same<X1,Bounds<FloatAP>> && Same<X2,FloatAP>) ||
-                          (Same<X1,FloatAP> && Same<X2,Bounds<FloatAP>>) ||
-                          (Same<X1,Ball<FloatAP>> && Same<X2,Ball<FloatAP>>) ||
-                          (Same<X1,Ball<FloatAP>> && Same<X2,FloatAP>) ||
-                          (Same<X1,FloatAP> && Same<X2,Ball<FloatAP>>)) {
-                return _make_number_wrapper(_op(x1,x2));
-            } else {
-                ARIADNE_THROW(DispatchException,"_concrete_apply(BinaryElementaryOperator,FloatAP)",
-                              "Unsupported division of "<<class_name<X1>()<<" by "<<class_name<X2>());
-            }
-        } else if constexpr (requires { _op(x1,x2); }) {
+        if constexpr (requires { _op(x1,x2); }) {
             return _make_number_wrapper(_op(x1,x2));
         } else {
             ARIADNE_THROW(DispatchException,"_concrete_apply(BinaryElementaryOperator)",
