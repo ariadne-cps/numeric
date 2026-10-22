@@ -9558,3 +9558,24 @@ These measurements must be labeled *transitional*: D64 still converts
 through GMP bridges, and several FloatAP paths retain GMP arithmetic.
 A full optimized build and runtime regression are required before making
 quantitative 2048-bit performance claims.
+
+### D67 — extend dual-backend benchmark to 4096 bits (22 October 2026)
+
+Accept an explicit 4096-bit group alongside 53, 128, 256, 1024 and
+2048 bits in `benchmark_compare_multiple_precision_backends`, without
+changing its four-precision default. `BackendPool::precision_at` already
+constructs the exact requested precision (D66); only the CLI whitelist,
+help text and benchmark documentation require a functional update.
+The full six-precision command is:
+
+```sh
+./build-bench/benchmarks/benchmark_compare_multiple_precision_backends \\
+  300 7 --bits 53,128,256,1024,2048,4096 --summary-only --details
+```
+
+The 27-operation, 32-input exact-result cross-backend comparison is
+unchanged, now covering 5184 operation results over six precision groups.
+4096-bit transcendental operations may be prohibitively expensive;
+benchmark times, correctness and compiler/platform support must be
+validated with a full optimized build and actual runs. These numbers
+remain transitional while FloatAP retains GMP storage and adapters.
