@@ -10005,3 +10005,39 @@ including logarithm and trigonometric tests, remain unchanged.
 A successful CI build and numerical run are still required before
 declaring the change regression tested. The known Windows timeout
 is deferred until the end of FloatMP migration, as requested.
+
+### D84 — certify centered logarithm golden results (22 October 2026)
+
+Replace the first MPFR/FloatMP differential logarithm block centered
+around 1/2 with independent exact-arithmetic certified fixtures.
+Preserve all six precision visits (53,7,128,256,1024,53), fifteen
+source Rational arguments per visit including cutoff boundaries,
+and four directed modes: 360 unchanged assertions. Inputs are first
+rounded nearest/even to the tested precision exactly as before.
+After canonicalizing duplicate rounded values and revisited
+precision 53, this yields 284 distinct immutable references in
+`tests/data/floatap_log.tsv` in the same flat directory as all other
+oracle datasets.
+
+Offline certification computes positive |log(x)| as
+2*atanh(y), y=|x-1|/(x+1)<=3/5, using the nonnegative series
+sum(y^(2k+1)/(2k+1), k=0..1100). Each intermediate is represented
+with B=2^1800 fixed-point integers. Multiplication/division and
+sum operations round lower terms down and upper terms up.
+The omitted tail is conservatively bounded by 4 times the upper
+estimate of the following odd-power term before multiplying by 2.
+Use sign reversal for x<1. Each reference was accepted ONLY after
+both certified rational interval endpoints rounded to the IDENTICAL
+signed value at the requested bit precision and mode, including
+nearest/even ties. x=1 is handled exactly as zero. No GMP,
+MPFR, FloatMP, FloatAP, or floating-point transcendental evaluation
+was used in generating the fixture.
+
+The test loads and validates the 284-row golden file through the
+existing inline map reader, using a new absolute CMake path;
+no external hpp/cpp oracle units or data subfolders are added.
+Other logarithm blocks and transcendental checks remain unchanged.
+No timeout adjustments or numerical production-code modifications.
+Windows at D83 compiled and passed; Unix D83 was still in progress
+when preparing this patch. CI and runtime verification of D84 are
+still outstanding.
