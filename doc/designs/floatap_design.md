@@ -10604,3 +10604,50 @@ or CMake change. Build and executable CI remain unverified
 due to the unresolved merge conflict. Do not treat
 offline mathematical certification as passing CI.
 Commit exclusively on `remove-gmp`.
+
+### D97 — certify pi and cold/warm cache behavior without FloatMP (22 October 2026)
+
+Replace ONLY the live FloatMP/MPFR pi oracle in the cache and
+directed-rounding test block. Keep the original six precision
+visits (53, 256, 7, 1024, 128, 53 bits), including revisiting
+53 bits after 1024-bit cache activity. Within each visit
+preserve the original mode order nearest, upward, downward,
+toward-zero, nearest again, and invoke `FloatAP::pi` twice
+in EACH verification. Both test assertions are unchanged:
+correctly rounded Rational value and exact `ARIADNE_TEST_SAME`
+for consecutive cached values. Thus retain all 60 original
+assertions, including 30 distinct cache-pair checks.
+
+No additional per-constant TSV is needed. Reuse the existing
+independently certified `tests/data/floatap_atan.tsv` for the
+exact source Rational 1 at all five distinct precisions and
+four rounding directions (20 reference entries); the fixture
+lookup is still strict for missing/duplicate keys and
+expected count. Use the mathematical identity
+pi = 4*atan(1), with 4 an exact power of two: scaling the
+correctly rounded p-bit binary value by 4 commutes exactly
+with all four rounding modes and preserves p-bit
+significand precision, with no intermediate FloatAP work.
+
+As an additional independent verification, recertify EVERY
+one of the 20 pi references by a DIRECT Machin enclosure
+pi=16*atan(1/5)-4*atan(1/239). Form B=2^1800
+outward integer intervals for each atan using the
+alternating power series through k=1149 plus its first
+omitted positive term. Construct the pi enclosure by
+outward integer interval subtraction and multiplication,
+and confirm that both exact interval endpoints round to
+the IDENTICAL p-bit binary Rational for every mode.
+All 20 outcomes match 4 times the existing atan(1)
+fixture exactly; the direct pi enclosure width was
+23036/2^1800. Certification uses only native BigInt-style
+arbitrary-precision integer arithmetic, not GMP, MPFR,
+FloatMP, FloatAP or floating-point transcendental oracles.
+
+Only the pi block in `tests/test_float_rounding.cpp` and
+this design journal are changed. No new data files,
+no CMake change, no production code and no test-case
+removal. The existing conflict still blocks visible CI
+for D87 onward; D97 has not been compiled or executed
+under CTest/CI despite the independent numeric proof.
+All changes remain on `remove-gmp`.

@@ -2048,24 +2048,26 @@ TestFloatRounding<PR>::test_precision_regressions()
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
             // Exercise cold and warm pi-cache paths, switching precisions
-            // and rounding modes. The oracle is the exact MPFR result
-            // converted to Rational; every cached copy must agree.
+            // and rounding modes. pi = 4*atan(1): multiplication by the
+            // exact power of two preserves p-bit correct rounding. The atan
+            // source-keyed fixture was certified independently of FloatAP
+            // (and its scaled pi values also checked with a Machin bound).
             for (Bits bits : {53_bits,256_bits,7_bits,1024_bits,128_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(static_cast<mpfr_prec_t>(ap.bits()));
-                const auto check_pi=[&](auto ap_mode,auto mp_mode) {
+                const auto check_pi=[&](auto ap_mode) {
                     const FloatAP first=FloatAP::pi(ap_mode,ap);
                     const FloatAP repeated=FloatAP::pi(ap_mode,ap);
-                    const FloatMP reference=FloatMP::pi(mp_mode,mp);
+                    const Rational reference=Rational(4) *
+                        floatap_atan_golden(ap.bits(),ap_mode,Rational(1));
                     ARIADNE_TEST_EQUALS(static_cast<Rational>(first),
-                                        static_cast<Rational>(reference));
+                                        reference);
                     ARIADNE_TEST_SAME(first,repeated);
                 };
-                check_pi(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                check_pi(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                check_pi(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                check_pi(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
-                check_pi(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
+                check_pi(FloatAP::ROUND_TO_NEAREST);
+                check_pi(FloatAP::ROUND_UPWARD);
+                check_pi(FloatAP::ROUND_DOWNWARD);
+                check_pi(FloatAP::ROUND_TOWARD_ZERO);
+                check_pi(FloatAP::ROUND_TO_NEAREST);
             }
         }
 
