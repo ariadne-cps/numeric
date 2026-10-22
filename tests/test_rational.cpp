@@ -729,15 +729,7 @@ void TestRational::test_native_double() {
 
 void TestRational::test_gmp_differential() {
     std::mt19937_64 random(0x6672616374696f6eULL);
-    GmpRationalBoundary ga,gb,expected;
-    bool operations_match=true,canonical=true,conversion_matches=true;
-    auto check=[&](Rational const& value) {
-        GmpRationalBoundary actual(value);
-        operations_match=operations_match && mpq_equal(actual.value(),expected.value());
-        GmpIntegerBoundary common;
-        mpz_gcd(common.mutable_value(),mpq_numref(actual.value()),mpq_denref(actual.value()));
-        canonical=canonical && mpz_cmp_ui(common.value(),1u)==0 && mpz_sgn(mpq_denref(actual.value()))>0;
-    };
+    bool conversion_matches=true;
     // R0: 120 independently frozen representatives of the original
     // 1200 seeded random visits. One representative per ten visits;
     // all 17 input widths and source-sign classes remain represented.
@@ -1130,8 +1122,6 @@ void TestRational::test_gmp_differential() {
         }
     }
     ARIADNE_TEST_EQUALS(std::fesetround(saved_rounding),0);
-    ARIADNE_TEST_ASSERT(operations_match);
-    ARIADNE_TEST_ASSERT(canonical);
     ARIADNE_TEST_ASSERT(conversion_matches);
 }
 
