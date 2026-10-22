@@ -31,7 +31,13 @@
 #ifndef ARIADNE_INTEGER_HPP
 #define ARIADNE_INTEGER_HPP
 
-#include "numeric/gmp.hpp"
+#include "numeric/big_unsigned.hpp"
+
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 #include "utility/typedefs.hpp"
 #include "macro/general.hpp"
@@ -57,21 +63,47 @@ template<> struct IsNumber<Int> : True { };
 //! \sa Natural, Dyadic, Decimal, Rational, Real
 class Integer
 {
+  private:
+    BigUnsigned _magnitude;
+    bool _negative = false;
+
+    // Normalizes negative zero; used by the signed arithmetic functions.
+    Integer(BigUnsigned&& magnitude,bool negative) noexcept
+        : _magnitude(std::move(magnitude)),
+          _negative(negative && !_magnitude.is_zero())
+    {
+    }
+
   public:
-    mpz_t _mpz;
-  public:
+    //! Construct a canonical signed magnitude without using GMP.
+    static Integer from_magnitude(BigUnsigned magnitude,bool negative) noexcept {
+        return Integer(std::move(magnitude),negative);
+    }
+    BigUnsigned const& magnitude() const noexcept { return _magnitude; }
+    bool negative() const noexcept { return _negative; }
+
     typedef ExactTag Paradigm; //!< <p/>
   public:
-    ~Integer(); //!< Destructor
+    ~Integer() = default; //!< Destructor
     Integer(); //!< Default constructor yielding \c 0
     template<BuiltinUnsignedIntegral M> Integer(M m); //!< Convert from a builtin unsigned (positive) integral type
     template<BuiltinSignedIntegral N> Integer(N n); //!< Convert from a builtin signed (positive or negative) integral type
-    explicit Integer(const mpz_t); //!< Construct from a raw GMP integer
     explicit Integer(String const&); //!< Construct from a string literal
-    Integer(const Integer&); //!< Copy constructor
-    Integer(Integer&&); //!< Move constructor
-    Integer& operator=(const Integer&); //!< %Assignment
-    Integer& operator=(Integer&&); //!< Move assignment
+    Integer(const Integer&) = default; //!< Copy constructor
+    Integer(Integer&& z) noexcept //!< Move constructor
+        : _magnitude(std::move(z._magnitude)),_negative(z._negative)
+    {
+        z._negative=false;
+    }
+    Integer& operator=(const Integer&) = default; //!< %Assignment
+    Integer& operator=(Integer&& z) noexcept { //!< Move assignment
+        if (this!=&z) {
+            _magnitude=std::move(z._magnitude);
+            _negative=z._negative;
+            z._negative=false;
+        }
+        return *this;
+    }
     operator ExactNumber () const; //!< Convert to a generic exact number
     String literal() const; //!< A string literal
 
@@ -157,8 +189,7 @@ class Integer
 
   public:
     template<BuiltinIntegral N> N get() const; //!< Convert to a builtin integral value of type \a N. Throws a \c std::runtime_error if the value does not fit in type \a N.
-    long int get_si() const;
-    mpz_t const& get_mpz() const;
+    long int get_si() const; //!< Checked conversion to host long; throws if out of range.
   private:
   public:
     Integer(Nat32 m);
@@ -173,7 +204,29 @@ Integer operator""_z(unsigned long long int n);
 Integer operator""_z(const char* str, std::size_t);
 
 template<BuiltinIntegral N> inline N Integer::get() const {
-    N n=static_cast<N>(this->get_si()); ARIADNE_ASSERT(Integer(n)==*this); return n; }
+    if (_magnitude.size()>1u) {
+        throw std::out_of_range("Integer does not fit destination type");
+    }
+    const std::uint64_t value=_magnitude.limb(0u);
+    if (_negative) {
+        constexpr std::uint64_t min_magnitude=
+            static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())+1u;
+        if (value>min_magnitude) {
+            throw std::out_of_range("Integer does not fit destination type");
+        }
+        const std::int64_t signed_value=value==min_magnitude
+            ? std::numeric_limits<std::int64_t>::min()
+            : -static_cast<std::int64_t>(value);
+        if (!std::in_range<N>(signed_value)) {
+            throw std::out_of_range("Integer does not fit destination type");
+        }
+        return static_cast<N>(signed_value);
+    }
+    if (!std::in_range<N>(value)) {
+        throw std::out_of_range("Integer does not fit destination type");
+    }
+    return static_cast<N>(value);
+}
 
 template<class R, class A> R integer_cast(const A& a) {
     return cast_integer(a).template get<R>(); }

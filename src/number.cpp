@@ -41,6 +41,7 @@
 #include "real.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
+#include "floatap.hpp"
 
 #include "number_interface.hpp"
 #include "number_wrapper.hpp"
@@ -75,9 +76,11 @@ Real::operator EffectiveNumber() const { return EffectiveNumber(new NumberWrappe
 
 FloatDPBounds NumberInterface::_get(ValidatedTag, DoublePrecision pr) const { return this->_get(OrderTag(),pr); }
 FloatMPBounds NumberInterface::_get(ValidatedTag, MultiplePrecision pr) const { return this->_get(OrderTag(),pr); }
+FloatAPBounds NumberInterface::_get(ValidatedTag, ArbitraryPrecision pr) const { return this->_get(OrderTag(),pr); }
 
 FloatDPBall NumberInterface::_get(MetricTag p, DoublePrecision pr) const { return this->_get(p,pr,pr); }
 FloatMPBall NumberInterface::_get(MetricTag p, MultiplePrecision pr) const { return this->_get(p,pr,pr); }
+FloatAPBall NumberInterface::_get(MetricTag p, ArbitraryPrecision pr) const { return this->_get(p,pr,pr); }
 
 
 
@@ -99,6 +102,9 @@ template<> FloatMPError::operator ValidatedErrorNumber() const { return Validate
 
 
 template<> FloatMPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatMPApproximation>(*this)); }
+// Keep the native generic-number conversion alongside the other concrete
+// specializations: MSVC must emit it in ariadne-numeric.lib for D100.
+template<> FloatAPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatAPApproximation>(*this)); }
 //template<> FloatMPLowerBound::operator ValidatedLowerNumber() const { return ValidatedLowerNumber(new NumberWrapper<FloatMPLowerBound>(*this)); }
 //template<> FloatMPUpperBound::operator ValidatedUpperNumber() const { return ValidatedUpperNumber(new NumberWrapper<FloatMPUpperBound>(*this)); }
 template<> FloatMPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBounds>(*this)); }

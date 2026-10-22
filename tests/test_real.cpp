@@ -39,6 +39,7 @@
 #include "numeric/accuracy.hpp"
 
 #include "numeric/float_literals.hpp"
+#include "numeric/floatap.hpp"
 #include "numeric/float_bounds.hpp"
 
 namespace Ariadne {
@@ -165,12 +166,22 @@ void TestReal::test_conversions() {
     Real one=1;
     Real pi_=4*atan(one);
     MultiplePrecision mp(128_bits);
+    ArbitraryPrecision ap(128_bits);
     auto pi_dp=pi_.get(dp);
     ARIADNE_TEST_PRINT(pi_dp);
 
     ARIADNE_TEST_EQUALS(one.get_d(),1.0);
     ARIADNE_TEST_EQUALS(one.compute_using(dp).lower_raw(),FloatDP(1,dp));
     ARIADNE_TEST_EQUALS(one.compute_using(mp).lower_raw(),FloatMP(1,mp));
+    const FloatAPBounds native=one.get(ap);
+    ARIADNE_TEST_EQUALS(native.lower_raw(),FloatAP(1,ap));
+    ARIADNE_TEST_EQUALS(native.upper_raw(),FloatAP(1,ap));
+    ARIADNE_TEST_EQUALS(FloatAPLowerBound(native).raw(),FloatAP(1,ap));
+    ARIADNE_TEST_EQUALS(FloatAPUpperBound(native).raw(),FloatAP(1,ap));
+    ARIADNE_TEST_EQUALS(one.compute_using(ap).lower_raw(),FloatAP(1,ap));
+    ARIADNE_TEST_EQUALS(one.compute_get(Effort(8u),ap).upper_raw(),FloatAP(1,ap));
+    ARIADNE_TEST_EQUALS(ValidatedReal(DyadicBounds(Dyadic(1),Dyadic(2)))
+                            .get(ap).lower_raw(),FloatAP(1,ap));
 
     ARIADNE_TEST_EXECUTE(FloatDPBall(one,dp));
     ARIADNE_TEST_EXECUTE(FloatDPBounds(one,dp));
@@ -302,9 +313,12 @@ void TestReal::test_directed() {
     ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff));
     ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff,dp));
     ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff,mp));
+    const ArbitraryPrecision ap(128_bits);
+    ARIADNE_TEST_ASSERT(ltwo.compute_get(eff,ap).raw()<=FloatAP(2,ap));
     ARIADNE_TEST_EXECUTE(utwo.compute_get(eff));
     ARIADNE_TEST_EXECUTE(utwo.compute_get(eff,dp));
     ARIADNE_TEST_EXECUTE(utwo.compute_get(eff,mp));
+    ARIADNE_TEST_ASSERT(utwo.compute_get(eff,ap).raw()>=FloatAP(2,ap));
 
     std::ostringstream directed_stream;
     directed_stream << ltwo << " " << utwo;

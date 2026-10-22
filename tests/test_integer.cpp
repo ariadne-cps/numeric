@@ -30,9 +30,34 @@
 #include "foundation/logical.hpp"
 #include "utility/string.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 #include <sstream>
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+
+inline constexpr char ARIADNE_INTEGER_SUB_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_sub.tsv";
+
+inline constexpr char ARIADNE_INTEGER_B17_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b17.tsv";
+inline constexpr char ARIADNE_INTEGER_B18_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b18.tsv";
+
+inline constexpr char ARIADNE_INTEGER_B33_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b33.tsv";
+inline constexpr char ARIADNE_INTEGER_B37_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b37.tsv";
+inline constexpr char ARIADNE_INTEGER_B38_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b38.tsv";
+
+inline constexpr char ARIADNE_INTEGER_B66_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_b66.tsv";
+
+#ifndef ARIADNE_TEST_DATA_DIR
+#error "Provide the absolute test data directory from CMake"
+#endif
+
+inline constexpr char ARIADNE_INTEGER_POWER_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_power.tsv";
 
 #include "macro/testing.hpp"
 
@@ -75,6 +100,9 @@ class TestInteger
     void test_comparisons();
     void test_small_types();
     void test_combinatorics();
+    void test_native();
+    void test_signed_regression();
+    void test_owned_results();
 };
 
 void TestInteger::test()
@@ -85,6 +113,40 @@ void TestInteger::test()
     ARIADNE_TEST_CALL(test_arithmetic());
     ARIADNE_TEST_CALL(test_small_types());
     ARIADNE_TEST_CALL(test_combinatorics());
+    ARIADNE_TEST_CALL(test_native());
+    ARIADNE_TEST_CALL(test_signed_regression());
+    ARIADNE_TEST_CALL(test_owned_results());
+}
+
+void TestInteger::test_owned_results() {
+    // Exercise inline and heap magnitude ownership independently of
+    // decimal parsing. Moving a result must preserve its full value,
+    // leave the caller's moved-from magnitude zero and normalize -0.
+    for (const std::size_t count:{0u,1u,4u,5u,8u,9u,64u}) {
+        std::vector<std::uint64_t> words(count,
+            std::numeric_limits<std::uint64_t>::max());
+        const BigUnsigned source(words);
+        for (const bool negative:{false,true}) {
+            const Integer copied=Integer::from_magnitude(source,negative);
+            ARIADNE_TEST_ASSERT(compare(copied.magnitude(),source)==0);
+            ARIADNE_TEST_ASSERT(copied.negative()==(negative && count!=0u));
+            BigUnsigned magnitude=source;
+            Integer owned=Integer::from_magnitude(std::move(magnitude),negative);
+            ARIADNE_TEST_ASSERT(magnitude.is_zero());
+            ARIADNE_TEST_ASSERT(owned==copied);
+            const String text=owned.literal();
+            ARIADNE_TEST_ASSERT(Integer(text)==copied);
+            ARIADNE_TEST_ASSERT(compare(source,BigUnsigned(words))==0);
+            std::ostringstream stream;
+            stream << owned;
+            ARIADNE_TEST_ASSERT(stream.str()==std::string(text));
+            owned=Integer(7);
+            ARIADNE_TEST_ASSERT(Integer(text)==copied);
+        }
+    }
+    ARIADNE_TEST_ASSERT(Integer::from_magnitude(BigUnsigned{},true).literal()=="0");
+    ARIADNE_TEST_ASSERT(Integer(-1).literal()=="-1");
+    ARIADNE_TEST_ASSERT(Integer(1).literal()=="1");
 }
 
 void TestInteger::test_literal() {
@@ -141,10 +203,6 @@ void TestInteger::test_constructors() {
     ARIADNE_TEST_EQUALS(z4,zn*zn+zn);
 
     ARIADNE_TEST_EQUALS(Integer(Nat32(7)),Integer(7));
-    mpz_t raw;
-    mpz_init_set_si(raw,-17);
-    ARIADNE_TEST_EQUALS(Integer(raw),Integer(-17));
-    mpz_clear(raw);
 
     Integer assigned(1);
     Integer source(9);
@@ -330,6 +388,373 @@ void TestInteger::test_comparisons() {
     ARIADNE_TEST_COMPARE(Integer(2),>=,Integer(-3));
     ARIADNE_TEST_COMPARE(Integer(2),< ,Integer(3));
     ARIADNE_TEST_COMPARE(Integer(2),> ,Integer(-3));
+}
+
+
+void TestInteger::test_native() {
+    const Integer zero(0);
+    const Integer one(1);
+    const Integer minus_one(-1);
+    ARIADNE_TEST_ASSERT(Integer(String("-0")).literal()=="0");
+    ARIADNE_TEST_ASSERT(Integer(String("+00000042")).literal()=="42");
+    ARIADNE_TEST_ASSERT(Integer(String("00000")).literal()=="0");
+    ARIADNE_TEST_ASSERT(Integer(String("18446744073709551616")).literal()
+                        =="18446744073709551616");
+    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::int64_t>::min())
+        .get<std::int64_t>()==std::numeric_limits<std::int64_t>::min());
+    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::uint64_t>::max())
+        .get<std::uint64_t>()==std::numeric_limits<std::uint64_t>::max());
+    ARIADNE_TEST_ASSERT(pow(Integer(0),Nat(0u))==1);
+    ARIADNE_TEST_ASSERT(pow(Integer(-7),Nat(3u))==-343);
+    ARIADNE_TEST_ASSERT(pow(Integer(-7),Nat(4u))==2401);
+    ARIADNE_TEST_ASSERT(sqr(Integer(-13))==169);
+    ARIADNE_TEST_ASSERT(abs(Integer(-13))==13);
+    ARIADNE_TEST_ASSERT(log2floor(Natural(0u))==-1);
+    ARIADNE_TEST_ASSERT(log2floor(Natural(8u))==3);
+    ARIADNE_TEST_ASSERT(quot(Integer(-11),Integer(3))==-3);
+    ARIADNE_TEST_ASSERT(rem(Integer(-11),Integer(3))==-2);
+    ARIADNE_TEST_ASSERT(quot(Integer(11),Integer(-3))==-3);
+    ARIADNE_TEST_ASSERT(rem(Integer(11),Integer(-3))==2);
+
+    for (const char* invalid: {"","-","+","-+1"," 1","1 ","1a","1.0"}) {
+        bool threw=false;
+        try { (void)Integer(String(invalid)); }
+        catch (std::invalid_argument const&) { threw=true; }
+        ARIADNE_TEST_ASSERT(threw);
+    }
+    bool negative_unsigned=false,positive_overflow=false,division_zero=false;
+    try { (void)minus_one.get<std::uint64_t>(); }
+    catch (std::out_of_range const&) { negative_unsigned=true; }
+    try { (void)Integer(String("9223372036854775808")).get<std::int64_t>(); }
+    catch (std::out_of_range const&) { positive_overflow=true; }
+    try { (void)quot(one,zero); }
+    catch (std::domain_error const&) { division_zero=true; }
+    ARIADNE_TEST_ASSERT(negative_unsigned && positive_overflow && division_zero);
+
+    for (const char* a: {"-11","11","-12","12","0"}) {
+        for (const char* b: {"-3","3","-5","5"}) {
+            Integer dividend{String(a)};
+            Integer divisor{String(b)};
+            const Integer quotient=quot(dividend,divisor);
+            const Integer remainder=rem(dividend,divisor);
+            ARIADNE_TEST_ASSERT(dividend==quotient*divisor+remainder);
+            ARIADNE_TEST_ASSERT(abs(remainder)<abs(divisor));
+            ARIADNE_TEST_ASSERT(remainder==0 || sgn(remainder)==sgn(dividend));
+        }
+    }
+
+    // B41: six structural classes x four sign pairs x eight widths.
+    // Source and expected values are independently frozen, with no GMP
+    // calls in this differential test. Self-aliasing remains covered.
+    std::ifstream sub_fixture(ARIADNE_INTEGER_SUB_ORACLE_PATH);
+    if (!sub_fixture) throw std::runtime_error("Missing Integer subtraction TSV");
+    std::string sub_header;
+    while (sub_fixture.peek()=='#') std::getline(sub_fixture,sub_header);
+    for (const std::size_t width:{1u,2u,7u,8u,16u,32u,64u,128u}) {
+        for (unsigned mode=0u;mode<6u;++mode) {
+            for (unsigned signs=0u;signs<4u;++signs) {
+                std::size_t ref_width=0u;
+                unsigned ref_mode=0u,ref_signs=0u;
+                std::string raw_lhs,raw_rhs,raw_expected;
+                if (!(sub_fixture >> ref_width >> ref_mode >> ref_signs >>
+                                  raw_lhs >> raw_rhs >> raw_expected) ||
+                    ref_width!=width || ref_mode!=mode || ref_signs!=signs) {
+                    throw std::runtime_error("Missing or unordered Integer subtraction TSV row");
+                }
+                const Integer lhs{String(raw_lhs)},rhs{String(raw_rhs)};
+                const Integer expected_sub{String(raw_expected)};
+                ARIADNE_TEST_EQUALS(lhs-rhs,expected_sub);
+                Integer assigned=lhs;
+                assigned-=rhs;
+                ARIADNE_TEST_EQUALS(assigned,expected_sub);
+                Integer aliased=lhs;
+                Integer const& same_object=aliased;
+                aliased-=same_object;
+                ARIADNE_TEST_ASSERT(aliased==0);
+                ARIADNE_TEST_ASSERT(!aliased.negative());
+            }
+        }
+    }
+    std::string sub_extra;
+    if (sub_fixture >> sub_extra)
+        throw std::runtime_error("Extra Integer subtraction TSV rows");
+
+    // B32: independent frozen exact signed-power reference; retain all
+    // sign/width cases and sample exponent bit patterns at boundaries.
+    std::ifstream pow_fixture(ARIADNE_INTEGER_POWER_ORACLE_PATH);
+    if (!pow_fixture) throw std::runtime_error("Missing Integer power TSV");
+    std::string pow_header;
+    while (pow_fixture.peek()=='#') std::getline(pow_fixture,pow_header);
+    for (const char* literal:
+            {"0","1","-1","2","-2","17","-17",
+             "18446744073709551616","-18446744073709551616",
+             "340282366920938463463374607431768211455"}) {
+        const Integer input{String(literal)};
+        for (unsigned exponent: {0u,1u,2u,3u,5u,7u,8u,9u,11u,12u}) {
+            std::string ref_base,ref_result;
+            unsigned ref_exponent=0u;
+            if (!(pow_fixture >> ref_base >> ref_exponent >> ref_result) ||
+                ref_base!=literal || ref_exponent!=exponent) {
+                throw std::runtime_error("Missing or unordered Integer power TSV row");
+            }
+            ARIADNE_TEST_EQUALS(pow(input,Nat(exponent)),
+                                Integer(String(ref_result)));
+        }
+    }
+    std::string pow_extra;
+    if (pow_fixture >> pow_extra) {
+        throw std::runtime_error("Extra Integer power TSV rows");
+    }
+
+    // B66: original 18 exponent boundaries, across each original width.
+    // Four distinct input-pattern classes are retained from the source
+    // mt19937_64 sequence. Results were frozen using independent exact
+    // integer arithmetic (no GMP or Integer-under-test at runtime).
+    std::ifstream exponent_oracle(ARIADNE_INTEGER_B66_ORACLE_PATH);
+    if (!exponent_oracle) throw std::runtime_error("Missing Integer B66 TSV");
+    std::string exponent_header;
+    while (exponent_oracle.peek()=='#')
+        std::getline(exponent_oracle,exponent_header);
+    for (const std::size_t width:{0u,1u,2u,3u,4u}) {
+        for (unsigned mode=0u;mode<4u;++mode) {
+            for (unsigned exponent:
+                    {0u,1u,2u,3u,5u,7u,8u,9u,12u,15u,16u,17u,
+                     31u,32u,33u,63u,64u,65u}) {
+                std::size_t ref_width=0u;
+                unsigned ref_mode=0u,ref_exponent=0u;
+                std::string raw_base,raw_result;
+                if (!(exponent_oracle >> ref_width >> ref_mode >> ref_exponent
+                        >> raw_base >> raw_result)
+                    || ref_width!=width || ref_mode!=mode
+                    || ref_exponent!=exponent) {
+                    throw std::runtime_error("Missing or unordered B66 TSV row");
+                }
+                const Integer base{String(raw_base)};
+                ARIADNE_TEST_EQUALS(pow(base,Nat(exponent)),
+                                    Integer(String(raw_result)));
+            }
+        }
+    }
+    std::string extra_exponent;
+    if (exponent_oracle >> extra_exponent)
+        throw std::runtime_error("Extra B66 TSV rows");
+
+    // B33: independent exact source-keyed squares for all eight distinct
+    // structural classes at every original width; includes x*=x aliasing.
+    std::ifstream square_oracle(ARIADNE_INTEGER_B33_ORACLE_PATH);
+    if (!square_oracle) throw std::runtime_error("Missing Integer B33 TSV");
+    std::string square_comment;
+    while (square_oracle.peek()=='#') std::getline(square_oracle,square_comment);
+    for (const std::size_t width:{1u,7u,8u,9u,16u,17u,32u,64u,128u}) {
+        for (unsigned mode=0u;mode<8u;++mode) {
+            std::size_t ref_width=0u;
+            unsigned ref_mode=0u;
+            std::string source,expected;
+            if (!(square_oracle >> ref_width >> ref_mode >> source >> expected)
+                || ref_width!=width || ref_mode!=mode) {
+                throw std::runtime_error("Missing or unordered B33 TSV row");
+            }
+            const Integer x{String(source)},copy=x;
+            const Integer square{String(expected)};
+            ARIADNE_TEST_EQUALS(x*x,square);
+            ARIADNE_TEST_EQUALS(x*copy,square);
+            Integer assigned=x;
+            assigned*=assigned;
+            ARIADNE_TEST_EQUALS(assigned,square);
+            ARIADNE_TEST_ASSERT(!assigned.negative());
+        }
+    }
+    std::string extra_square;
+    if (square_oracle >> extra_square)
+        throw std::runtime_error("Extra B33 TSV rows");
+
+    // B37: keep the saturation/high-bit/dense sign classes across
+    // the 7/8/9-limb square dispatch and all original wider widths.
+    std::ifstream large_power_oracle(ARIADNE_INTEGER_B37_ORACLE_PATH);
+    if (!large_power_oracle) throw std::runtime_error("Missing Integer B37 TSV");
+    std::string large_power_comment;
+    while (large_power_oracle.peek()=='#')
+        std::getline(large_power_oracle,large_power_comment);
+    for (const std::size_t width:{7u,8u,9u,16u,32u,64u}) {
+        for (unsigned repetition=0u;repetition<4u;++repetition) {
+            for (unsigned exponent:{2u,3u,5u}) {
+                std::size_t ref_width=0u;
+                unsigned ref_repetition=0u,ref_exponent=0u;
+                std::string source,expected;
+                if (!(large_power_oracle >> ref_width >> ref_repetition
+                        >> ref_exponent >> source >> expected)
+                    || ref_width!=width || ref_repetition!=repetition
+                    || ref_exponent!=exponent) {
+                    throw std::runtime_error("Missing or unordered B37 TSV row");
+                }
+                const Integer x{String(source)};
+                ARIADNE_TEST_EQUALS(pow(x,Nat(exponent)),
+                                    Integer(String(expected)));
+            }
+        }
+    }
+    std::string extra_large_power;
+    if (large_power_oracle >> extra_large_power)
+        throw std::runtime_error("Extra B37 TSV rows");
+
+    // B38: all six sparse/dense structural cases at 8..128 limbs,
+    // including the alternating-zero, saturated and both sign classes.
+    std::ifstream cubic_oracle(ARIADNE_INTEGER_B38_ORACLE_PATH);
+    if (!cubic_oracle) throw std::runtime_error("Missing Integer B38 TSV");
+    std::string cubic_comment;
+    while (cubic_oracle.peek()=='#') std::getline(cubic_oracle,cubic_comment);
+    for (const std::size_t width:{8u,16u,32u,64u,128u}) {
+        for (unsigned repetition=0u;repetition<6u;++repetition) {
+            std::size_t ref_width=0u;
+            unsigned ref_repetition=0u;
+            std::string source,expected;
+            if (!(cubic_oracle >> ref_width >> ref_repetition
+                 >> source >> expected)
+                || ref_width!=width || ref_repetition!=repetition) {
+                throw std::runtime_error("Missing or unordered B38 TSV row");
+            }
+            ARIADNE_TEST_EQUALS(pow(Integer(String(source)),Nat(3u)),
+                                Integer(String(expected)));
+        }
+    }
+    std::string extra_cubic;
+    if (cubic_oracle >> extra_cubic)
+        throw std::runtime_error("Extra B38 TSV rows");
+
+    // B18: frozen exact signed arithmetic on 170 strategically sampled
+    // originals out of 1700; expected results never use GMP at runtime.
+    std::ifstream golden(ARIADNE_INTEGER_B18_ORACLE_PATH);
+    if (!golden) throw std::runtime_error("Missing Integer B18 oracle TSV");
+    std::string comment;
+    while (golden.peek()=='#') std::getline(golden,comment);
+    for (unsigned sample=0u;sample<170u;++sample) {
+        unsigned rep=0u;
+        std::string lhs,rhs,sum,sub,mul,q_expected,r_expected;
+        if (!(golden >> rep >> lhs >> rhs >> sum >> sub >> mul
+                     >> q_expected >> r_expected) ||
+            rep!=10u*sample+(7u*sample+3u)%10u) {
+            throw std::runtime_error("Missing or out-of-order Integer B18 oracle");
+        }
+        const Integer x{String(lhs)},y{String(rhs)};
+        ARIADNE_TEST_EQUALS(x+y,Integer(String(sum)));
+        ARIADNE_TEST_EQUALS(x-y,Integer(String(sub)));
+        ARIADNE_TEST_EQUALS(x*y,Integer(String(mul)));
+        const Integer q=quot(x,y),r=rem(x,y);
+        ARIADNE_TEST_EQUALS(q,Integer(String(q_expected)));
+        ARIADNE_TEST_EQUALS(r,Integer(String(r_expected)));
+        ARIADNE_TEST_ASSERT(q*y+r==x);
+        ARIADNE_TEST_ASSERT(abs(r)<abs(y));
+        ARIADNE_TEST_ASSERT(r==0 || sgn(r)==sgn(x));
+        ARIADNE_TEST_ASSERT(x.literal()==Integer(String(lhs)).literal());
+    }
+    std::string extra;
+    if (golden >> extra)
+        throw std::runtime_error("Extra Integer B18 oracle rows");
+}
+
+// Preserve all B17 signed-magnitude regression scenarios on the
+// production Integer type. The earlier B18 differential corpus (1700
+// independent cases) is kept in test_native() above.
+void TestInteger::test_signed_regression() {
+    const Integer zero(0);
+    const Integer one(1);
+    const Integer minus_one(-1);
+    ARIADNE_TEST_ASSERT(sgn(zero)==Sign::ZERO);
+    ARIADNE_TEST_ASSERT(!Integer(String("-0")).negative());
+    ARIADNE_TEST_ASSERT(Integer(String("-00000")).literal()=="0");
+    ARIADNE_TEST_ASSERT(Integer(String("+000123")).literal()=="123");
+    ARIADNE_TEST_ASSERT(Integer::from_magnitude(BigUnsigned{},true)==zero);
+    ARIADNE_TEST_ASSERT(!Integer::from_magnitude(BigUnsigned{},true).negative());
+    ARIADNE_TEST_ASSERT(cmp(one,minus_one)==Comparison::GREATER);
+    ARIADNE_TEST_ASSERT(cmp(minus_one,zero)==Comparison::LESS);
+    ARIADNE_TEST_ASSERT(cmp(zero,zero)==Comparison::EQUAL);
+    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::int64_t>::min())
+        .get<std::int64_t>()==std::numeric_limits<std::int64_t>::min());
+    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::uint64_t>::max())
+        .get<std::uint64_t>()==std::numeric_limits<std::uint64_t>::max());
+    ARIADNE_TEST_ASSERT(pow(zero,Nat(0u)).literal()=="1");
+    ARIADNE_TEST_ASSERT(sqr(Integer(-13))==169);
+    ARIADNE_TEST_ASSERT(quot(Integer(-7),Integer(2))==-3);
+
+    for (const char* invalid: {"","-","+"," 1","1 ","1_0","--1"}) {
+        bool threw=false;
+        try { (void)Integer(String(invalid)); }
+        catch (std::invalid_argument const&) { threw=true; }
+        ARIADNE_TEST_ASSERT(threw);
+    }
+    bool negative_to_unsigned=false,positive_overflow=false;
+    try { (void)minus_one.get<std::uint64_t>(); }
+    catch (std::out_of_range const&) { negative_to_unsigned=true; }
+    try { (void)Integer(String("9223372036854775808"))
+                  .get<std::int64_t>(); }
+    catch (std::out_of_range const&) { positive_overflow=true; }
+    ARIADNE_TEST_ASSERT(negative_to_unsigned && positive_overflow);
+
+    for (const char* left: {"-11","11","-12","12","0"}) {
+        for (const char* right: {"-3","3","-5","5"}) {
+            const Integer a{String(left)},b{String(right)};
+            const Integer q=quot(a,b),r=rem(a,b);
+            ARIADNE_TEST_ASSERT(cmp(q*b+r,a)==Comparison::EQUAL);
+            ARIADNE_TEST_ASSERT(abs(r)<abs(b));
+            ARIADNE_TEST_ASSERT(is_zero(r) || sgn(r)==sgn(a));
+        }
+    }
+
+    // B17: 250 source-keyed references, one per ten original visits.
+    // All 130 shift counts survive along with signed and zero cases.
+    std::ifstream golden(ARIADNE_INTEGER_B17_ORACLE_PATH);
+    if (!golden) throw std::runtime_error("Missing Integer B17 oracle TSV");
+    std::string comment;
+    while (golden.peek()=='#') std::getline(golden,comment);
+    const auto check=[&](Integer const& actual,std::string const& reference) {
+        ARIADNE_TEST_EQUALS(actual,Integer(String(reference)));
+        ARIADNE_TEST_ASSERT(!is_zero(actual) || !actual.negative());
+        ARIADNE_TEST_ASSERT((reference=="0")==is_zero(actual));
+        ARIADNE_TEST_ASSERT((reference.front()=='-')==actual.negative());
+    };
+    for (unsigned sample=0u;sample<250u;++sample) {
+        unsigned rep=0u;
+        std::string ad,bd,sum,sub,mul,q_expected,r_expected,shr,shl;
+        if (!(golden >> rep >> ad >> bd >> sum >> sub >> mul >>
+                     q_expected >> r_expected >> shr >> shl) ||
+            rep!=10u*sample+(7u*sample+3u)%10u) {
+            throw std::runtime_error("Missing or unordered Integer B17 oracle");
+        }
+        const Integer x{String(ad)},y{String(bd)};
+        check(x,ad);
+        check(y,bd);
+        check(x+y,sum);
+        check(x-y,sub);
+        check(x*y,mul);
+        const Integer q=quot(x,y),r=rem(x,y);
+        check(q,q_expected);
+        check(r,r_expected);
+        ARIADNE_TEST_ASSERT(q*y+r==x);
+        ARIADNE_TEST_ASSERT(abs(r)<abs(y));
+        ARIADNE_TEST_ASSERT(is_zero(r) || sgn(r)==sgn(x));
+
+        const unsigned bits=rep%130u;
+        const BigUnsigned scale=shift_left(
+            BigUnsigned(std::uint64_t{1}),bits);
+        const Integer divisor=Integer::from_magnitude(scale,false);
+        const Integer shifted_right=Integer::from_magnitude(
+            shift_right(x.magnitude(),bits),x.negative());
+        check(shifted_right,shr);
+        check(quot(x,divisor),shr);
+        const Integer shifted_left=Integer::from_magnitude(
+            shift_left(x.magnitude(),bits),x.negative());
+        check(shifted_left,shl);
+    }
+    std::string extra;
+    if (golden >> extra)
+        throw std::runtime_error("Extra Integer B17 oracle rows");
+
+    bool quotient_zero=false,remainder_zero=false;
+    try { (void)quot(one,zero); }
+    catch (std::domain_error const&) { quotient_zero=true; }
+    try { (void)rem(one,zero); }
+    catch (std::domain_error const&) { remainder_zero=true; }
+    ARIADNE_TEST_ASSERT(quotient_zero && remainder_zero);
 }
 
 int main() {

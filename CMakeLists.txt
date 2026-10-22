@@ -4,7 +4,6 @@ project(Numeric VERSION 1.0)
 
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
-
 if(NOT TARGET ariadne-configuration)
     find_package(Git REQUIRED)
     execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -68,6 +67,8 @@ setup_project_library(
     OBJECTS NUMERIC_SRC
     LINK_LIBRARIES numeric
 )
+
+# Benchmarks are registered by setup_standalone_project_tests().
 
 setup_standalone_project_tests(
     TARGET ariadne-numeric

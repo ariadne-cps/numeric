@@ -85,6 +85,7 @@ class TestDyadic
     void test_ball();
     void test_comparisons();
     void test_infinity();
+    void test_native_wrappers();
 };
 
 void TestDyadic::test()
@@ -96,6 +97,7 @@ void TestDyadic::test()
     ARIADNE_TEST_CALL(test_ball());
     ARIADNE_TEST_CALL(test_comparisons());
     ARIADNE_TEST_CALL(test_infinity());
+    ARIADNE_TEST_CALL(test_native_wrappers());
 }
 
 const Writer<Dyadic> fraction_write=FractionWriter();
@@ -161,11 +163,6 @@ void TestDyadic::test_literal() {
 }
 
 void TestDyadic::test_conversions() {
-    mpf_t raw_mpf;
-    mpf_init_set_ui(raw_mpf,7u);
-    ARIADNE_TEST_EQUAL(Dyadic(raw_mpf),Dyadic(7));
-    mpf_clear(raw_mpf);
-
     Dyadic assigned;
     Dyadic assign_source(7,2u);
     assigned=assign_source;
@@ -176,6 +173,8 @@ void TestDyadic::test_conversions() {
     ARIADNE_TEST_EQUAL(Dyadic(Dyadic(-13,3u)),Dyadic(-13,3u));
     Natural huge_exponent{Integer{String("9223372036854775808")}};
     ARIADNE_TEST_FAIL((Dyadic{Integer(1),huge_exponent}));
+    Natural valid_exponent{63u};
+    ARIADNE_TEST_EQUALS(Dyadic(Integer(1),valid_exponent),Dyadic(1,63u));
     ARIADNE_TEST_FAIL((PositiveDyadic{Dyadic(-1)}));
 
     ARIADNE_TEST_EQUAL(round(Dyadic(-11,2u)),Integer(-3));
@@ -327,14 +326,43 @@ void TestDyadic::test_comparisons() {
     ARIADNE_TEST_BINARY_PREDICATE(operator<,Dyadic(-4,3u),Dyadic(-1,2u));
 }
 
+// D48: native exact bounds and ball arithmetic, without GMP storage.
+void TestDyadic::test_native_wrappers() {
+    const DyadicBounds positive(Dyadic(1),Dyadic(3));
+    const DyadicBounds negative(Dyadic(-3),Dyadic(-1));
+    const DyadicBounds crossing(Dyadic(-2),Dyadic(3));
+    ARIADNE_TEST_ASSERT((positive+DyadicBounds(Dyadic(2),Dyadic(4))).upper_raw()
+          ==Dyadic(7));
+    ARIADNE_TEST_ASSERT((positive-negative).lower_raw()==Dyadic(2));
+    ARIADNE_TEST_ASSERT((positive*negative).lower_raw()==Dyadic(-9));
+    ARIADNE_TEST_ASSERT((positive*negative).upper_raw()==Dyadic(-1));
+    ARIADNE_TEST_ASSERT(sqr(crossing).lower_raw()==Dyadic(0));
+    ARIADNE_TEST_ASSERT(sqr(crossing).upper_raw()==Dyadic(9));
+    ARIADNE_TEST_ASSERT(pow(crossing,Nat(3u)).lower_raw()==Dyadic(-8));
+    ARIADNE_TEST_ASSERT(pow(crossing,Nat(2u)).lower_raw()==Dyadic(0));
+    ARIADNE_TEST_ASSERT(abs(crossing).upper_raw()==Dyadic(3));
+    ARIADNE_TEST_ASSERT(refines(DyadicBounds(Dyadic(2),Dyadic(2)),positive));
+    const DyadicBall ball(Dyadic(3),Dyadic(1));
+    const DyadicBounds enclosure=static_cast<DyadicBounds>(ball);
+    ARIADNE_TEST_ASSERT(enclosure.lower_raw()==Dyadic(2) &&
+          enclosure.upper_raw()==Dyadic(4));
+    ARIADNE_TEST_ASSERT((ball*DyadicBall(Dyadic(2),Dyadic(0))).value_raw()
+          ==Dyadic(6));
+    const DyadicLowerBound lower(positive);
+    const DyadicUpperBound upper(positive);
+    const DyadicApproximation approximation(Dyadic(2));
+    ARIADNE_TEST_ASSERT(lower.raw()==Dyadic(1) && upper.raw()==Dyadic(3)
+          && approximation.raw()==Dyadic(2));
+}
+
+
 void TestDyadic::test_infinity() {
 
-    mpf_t mpf; static_assert(std::is_signed<decltype(mpf[0]._mp_exp)>::value,"");
-
-    mp_exp_t mp_exp_t_min = std::numeric_limits<mp_exp_t>::min();
-    ARIADNE_TEST_PRINT(mp_exp_t_min);
-    Dyadic z(0);
-    assert(z._mpf[0]._mp_size==0 && z._mpf[0]._mp_exp==0);
+    // Verify the new canonical zero representation without GMP internals.
+    const Dyadic z(0);
+    ARIADNE_TEST_ASSERT(z.coefficient()==Integer(0));
+    ARIADNE_TEST_ASSERT(z.denominator_exponent()==0u);
+    ARIADNE_TEST_ASSERT(Dyadic(0,17u).denominator_exponent()==0u);
 
     ARIADNE_TEST_PRINT(Dyadic::nan());
     ARIADNE_TEST_PRINT(Dyadic::inf());

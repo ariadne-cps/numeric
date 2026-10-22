@@ -107,6 +107,7 @@ class UpperReal
     DyadicUpperBound compute_get(Effort eff) const;
     FloatDPUpperBound compute_get(Effort eff, DoublePrecision pr) const;
     FloatMPUpperBound compute_get(Effort eff, MultiplePrecision pr) const;
+    FloatAPUpperBound compute_get(Effort eff, ArbitraryPrecision pr) const;
     //!@}
 
   public:
@@ -210,6 +211,7 @@ class ValidatedUpperReal
     DyadicUpperBound get() const;
     FloatDPUpperBound get(DoublePrecision) const;
     FloatMPUpperBound get(MultiplePrecision) const;
+    FloatAPUpperBound get(ArbitraryPrecision) const;
     friend OutputStream& operator<<(OutputStream&, ValidatedUpperReal const&);
 };
 

@@ -3,6 +3,7 @@ add_library(NUMERIC_SRC OBJECT
     int.cpp
     double.cpp
     integer.cpp
+    big_unsigned.cpp
     dyadic.cpp
     decimal.cpp
     rational.cpp
@@ -11,6 +12,7 @@ add_library(NUMERIC_SRC OBJECT
     number.cpp
     floatdp.cpp
     floatmp.cpp
+    floatap.cpp
     float_approximation.cpp
     float_lower_bound.cpp
     float_upper_bound.cpp
@@ -27,3 +29,34 @@ target_include_directories(NUMERIC_SRC PRIVATE
 )
 
 target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_NUMERIC_BUILD)
+
+# Architecture selectors below are PRIVATE to every NUMERIC_SRC file,
+# including rational.cpp. Compiler capability checks are independent.
+# Tests and benchmarks do not inherit PRIVATE definitions.
+
+# All BigUnsigned kernels (portable, x86-64 and ARM64) are in one .cpp.
+# The C++20 reference remains compiled for tests/benchmarks on every host.
+# Select at most one native backend through compile definitions;
+# otherwise production dispatch retains the portable fallback.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$"
+        AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang|MSVC)$")
+    target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_BIG_UNSIGNED_X86_64=1)
+    # The fused 128-bit accumulator is compiler-sensitive: the same
+    # algorithm was faster with GCC 14 and not consistently with Clang.
+    # Keep the B3 schoolbook selector on Clang/AppleClang/MSVC and allow
+    # a same-host GCC control build by setting this option to OFF.
+    option(NUMERIC_BIG_UNSIGNED_GCC_FUSED_MULTIPLY
+           "Select fused 128-bit BigUnsigned multiplication on x86-64 GCC" ON)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+            AND NUMERIC_BIG_UNSIGNED_GCC_FUSED_MULTIPLY)
+        target_compile_definitions(NUMERIC_SRC PRIVATE
+            ARIADNE_BIG_UNSIGNED_GCC_FUSED=1)
+    endif()
+
+# ARM64 selects the explicit MUL/UMULH/ADDS/ADC carry-chain specialization
+# validated by native GMP differential tests and integrated Mac benchmarks.
+# Shared __int128 fused arithmetic is implemented in big_unsigned.cpp.
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$"
+        AND CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+    target_compile_definitions(NUMERIC_SRC PRIVATE ARIADNE_BIG_UNSIGNED_ARM64=1)
+endif()

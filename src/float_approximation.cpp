@@ -27,6 +27,7 @@
 
 #include "floatdp.hpp"
 #include "floatmp.hpp"
+#include "floatap.hpp"
 
 namespace Ariadne {
 
@@ -37,7 +38,22 @@ template<> Approximation<FloatMP>::operator ApproximateNumber() const;
 template class Approximation<FloatDP>;
 template class Approximation<FloatMP>;
 
+// Native constructors are implemented in float_approximation.tpl.hpp.
+// Instantiate every constructor used by the complete FloatAP approximation
+// test suite, rather than suppressing its semantic regression coverage.
+template Approximation<FloatAP>::Approximation(Real const&, ArbitraryPrecision);
+template Approximation<FloatAP>::Approximation(ApproximateNumber const&, ArbitraryPrecision);
+template Approximation<FloatAP>::Approximation(LowerBound<FloatAP> const&);
+template Approximation<FloatAP>::Approximation(UpperBound<FloatAP> const&);
+template Approximation<FloatAP>::Approximation(Bounds<FloatAP> const&);
+template Approximation<FloatAP>::Approximation(Error<FloatAP> const&);
+
 template<> String class_name<Approximation<FloatDP>>() { return "FloatDPApproximation"; }
 template<> String class_name<Approximation<FloatMP>>() { return "FloatMPApproximation"; }
+template<> String class_name<Approximation<FloatAP>>() { return "FloatAPApproximation"; }
+
+// The native ApproximateNumber conversion has a concrete specialization in
+// number.cpp beside the FloatDP and FloatMP conversions. The explicit
+// instantiation here was not emitted as a linkable symbol by MSVC.
 
 } // namespace Ariadne

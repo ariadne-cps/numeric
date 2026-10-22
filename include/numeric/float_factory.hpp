@@ -90,7 +90,7 @@ template<class F> inline FloatFactory<PrecisionType<F>> factory(LowerBound<F> co
 template<class F> inline FloatFactory<PrecisionType<F>> factory(UpperBound<F> const& flt);
 template<class F> inline FloatFactory<PrecisionType<F>> factory(Bounds<F> const& flt);
 template<class F, class FE> inline FloatBallFactory<PrecisionType<F>,PrecisionType<FE>> factory(Ball<F,FE> const& flt);
-template<class F> requires Same<F,FloatDP> or Same<F,FloatMP> inline FloatFactory<PrecisionType<F>> factory(F const& flt);
+template<ARawFloat F> inline FloatFactory<PrecisionType<F>> factory(F const& flt);
 
 template<ARawFloat F> inline FloatFactory<PrecisionType<F>> factory(F const& flt) {
     return FloatFactory<PrecisionType<F>>(flt.precision()); }

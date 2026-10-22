@@ -27,20 +27,33 @@
 
 #include "floatdp.hpp"
 #include "floatmp.hpp"
+#include "floatap.hpp"
 
 namespace Ariadne {
 
 LowerBound<Dyadic>::LowerBound(LowerBound<FloatDP> const& x) : LowerBound(Dyadic(x.raw())) { }
-LowerBound<Dyadic>::LowerBound(LowerBound<FloatMP> const& x) : LowerBound(Dyadic(x.raw())) { }
+LowerBound<Dyadic>::LowerBound(LowerBound<FloatMP> const& x) : LowerBound(Dyadic(Rational(x.raw()))) { }
 LowerBound<FloatDP> LowerBound<Dyadic>::get(DoublePrecision pr) const { return LowerBound<FloatDP>(FloatDP(this->raw(),down,pr)); }
 LowerBound<FloatMP> LowerBound<Dyadic>::get(MultiplePrecision pr) const { return LowerBound<FloatMP>(FloatMP(this->raw(),down,pr)); }
 
 template<> LowerBound<FloatDP>::LowerBound(Real const&, DoublePrecision);
 
 template class LowerBound<FloatDP>;
+template<> LowerBound<FloatAP>::LowerBound(ValidatedLowerNumber const& y, ArbitraryPrecision pr)
+    : LowerBound<FloatAP>(y.get(pr)) { }
+
+// Real is first enclosed as exact dyadic bounds by Real::get(pr).
+// The lower endpoint is then rounded downward by the native FloatAP.
+template LowerBound<FloatAP>::LowerBound(Real const&, ArbitraryPrecision);
+// This template constructor is defined in float_lower_bound.tpl.hpp;
+// generic LowerReal computation creates a FloatAP lower endpoint from
+// an already rigorously enclosed FloatAP interval.
+template LowerBound<FloatAP>::LowerBound(Bounds<FloatAP> const&);
+
 template class LowerBound<FloatMP>;
 
 template<> String class_name<LowerBound<FloatDP>>() { return "FloatDPLowerBound"; }
 template<> String class_name<LowerBound<FloatMP>>() { return "FloatMPLowerBound"; }
+template<> String class_name<LowerBound<FloatAP>>() { return "FloatAPLowerBound"; }
 
 } // namespace Ariadne

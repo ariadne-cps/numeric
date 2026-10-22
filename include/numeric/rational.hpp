@@ -31,7 +31,6 @@
 #ifndef ARIADNE_RATIONAL_HPP
 #define ARIADNE_RATIONAL_HPP
 
-#include "numeric/gmp.hpp"
 #include "utility/typedefs.hpp"
 #include "utility/metaprogramming.hpp"
 #include "utility/string.hpp"
@@ -44,6 +43,8 @@ namespace Ariadne {
 
 
 class Int64;
+template<class X> class FiniteOperations;
+template<class X> class ExtensionOperations;
 
 enum class Comparison : ComparableEnumerationType;
 
@@ -52,28 +53,40 @@ enum class Comparison : ComparableEnumerationType;
 
 //! \ingroup NumericModule
 //! \brief %Rational numbers.
+//! Finite values are reduced n/d with d>0 and canonical zero 0/1.
+//! NaN and signed infinities have an explicit kind, independent of GMP.
 //! \sa Integer, Dyadic, Decimal, Real
 class Rational
 {
-  public:
-    mpq_t _mpq;
+  private:
+    enum class Kind : unsigned char { FINITE, POSITIVE_INFINITY, NEGATIVE_INFINITY, NAN_VALUE };
+    Integer _numerator;
+    BigUnsigned _denominator{1u};
+    Kind _kind = Kind::FINITE;
+
+    // Finite values are always reduced, with positive denominator and 0/1.
+    // Only arithmetic which has proved coprimality may use this constructor.
+    struct Reduced { };
+    Rational(Integer numerator,BigUnsigned denominator,Reduced);
+    friend class FiniteOperations<Rational>;
+    friend class ExtensionOperations<Rational>;
   public:
     typedef ExactTag Paradigm;
     typedef Rational NumericType;
   public:
-    ~Rational();
-    Rational();
+    ~Rational() = default;
+    Rational() = default;
     Rational(const Integer&, const Integer&);
     template<BuiltinIntegral N> Rational(N n);
     Rational(Int64);
     explicit Rational(FloatDP const&);
     explicit Rational(FloatMP const&);
+    explicit Rational(FloatAP const&);
     Rational(const ExactDouble&);
     Rational(const Integer&);
     Rational(const Dyadic&);
     explicit Rational(const String&);
-    explicit Rational(const mpq_t);
-    Rational(const Rational&);
+    Rational(const Rational&) = default;
     Rational(Rational&&);
     Rational& operator=(const Rational&);
     Rational& operator=(Rational&&);
@@ -128,6 +141,7 @@ class Rational
     friend Rational div(Rational const& q1, Rational const& q2); //!< \brief Divide \a q1÷q2.
     friend Rational fma(Rational const& q1, Rational const& q2, Rational const& q3); //!< \brief Fused multiply-and-add \a q1×q2+q3.
     friend Rational pow(Rational const& q, Int n); //!< \brief Power \a q<sup>n</sup>.
+    friend Rational pow(Rational const& q, Nat n);
     //!@}
 
     friend Real sqrt(Real const&);
@@ -165,6 +179,8 @@ class Rational
     //! \name Comparison operations
     friend Sign sgn(Rational const& q); //!< The sign of \a q.
     friend Comparison cmp(Rational const& q1, Rational const& q2); //!< Compares which of \a q1 and \a q2 is larger.
+    friend Comparison cmp(Rational const& q,Int n) { return cmp(q,Rational(n)); }
+    friend Comparison cmp(Int n,Rational const& q) { return cmp(Rational(n),q); }
     friend Boolean eq(Rational const& q1, Rational const& q2); //!< Tests if \a q1 is equal to \a q2.
     friend Boolean lt(Rational const& q1, Rational const& q2); //!< Tests if \a q1 is less than \a q2.
     //!@}
@@ -189,8 +205,8 @@ class Rational
     friend Rational q_(long double x);
     //!@}
   public:
+    //! Binary64 conversion truncating toward zero; underflow yields +0.
     double get_d() const;
-    mpq_t const& get_mpq() const;
   private:
     friend class Dyadic;
 };
@@ -198,9 +214,8 @@ template<> struct IsNumber<Rational> : True { };
 Rational operator""_q(unsigned long long int n);
 Rational operator""_q(long double x);
 
-template<BuiltinIntegral N> inline Rational::Rational(N n) : Rational(Int64(n)) { }
+template<BuiltinIntegral N> inline Rational::Rational(N n) : Rational(Integer(n)) { }
 
-OutputStream& write(OutputStream& os, mpz_t const z);
 InputStream& operator>>(InputStream& is, Rational& q1);
 
 template<> class Positive<Rational> : public Rational {

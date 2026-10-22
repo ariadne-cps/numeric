@@ -33,6 +33,7 @@
 #include "float.decl.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
+#include "floatap.hpp"
 
 #include "rounded_float.hpp"
 

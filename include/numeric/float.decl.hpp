@@ -39,6 +39,7 @@ class TwoExp;
 
 class DoublePrecision;
 class MultiplePrecision;
+class ArbitraryPrecision;
 
 using DP = DoublePrecision;
 using MP = MultiplePrecision;
@@ -53,16 +54,20 @@ template<class X> class Positive;
 template<class... PRS> class Float;
 using FloatDP=Float<DP>;
 using FloatMP=Float<MP>;
+using FloatAP=Float<ArbitraryPrecision>;
 
 using DoublePrecisionFloat = FloatDP;
 using MultiplePrecisionFloat = FloatMP;
+using ArbitraryPrecisionFloat = FloatAP;
 
 using RawFloatDP = FloatDP;
 using RawFloatMP = FloatMP;
+using RawFloatAP = FloatAP;
 
 template<class F> struct IsARawFloat { static const bool value = false; };
 template<> struct IsARawFloat<FloatDP> { static const bool value = true; };
 template<> struct IsARawFloat<FloatMP> { static const bool value = true; };
+template<> struct IsARawFloat<FloatAP> { static const bool value = true; };
 template<class F> concept ARawFloat = IsARawFloat<F>::value;
 
 #ifdef DOXYGEN
@@ -189,12 +194,29 @@ using PositiveFloatMPLowerBound = PositiveFloatLowerBound<MultiplePrecision>; //
 using PositiveFloatMPApproximation = PositiveFloatApproximation<MultiplePrecision>; //!< <p/>
 
 using FloatMDPBall = FloatBall<MultiplePrecision,DoublePrecision>; //!< <p/>
+
+//! Native arbitrary-precision counterparts of all FloatMP family aliases.
+using FloatAPDPBall = FloatBall<ArbitraryPrecision,DoublePrecision>;
+using FloatAPBall = FloatBall<ArbitraryPrecision>;
+using FloatAPBounds = FloatBounds<ArbitraryPrecision>;
+using FloatAPUpperBound = FloatUpperBound<ArbitraryPrecision>;
+using FloatAPLowerBound = FloatLowerBound<ArbitraryPrecision>;
+using FloatAPApproximation = FloatApproximation<ArbitraryPrecision>;
+using FloatAPError = FloatError<ArbitraryPrecision>;
+using PositiveFloatAP = PositiveFloat<ArbitraryPrecision>;
+using PositiveFloatAPBall = PositiveFloatBall<ArbitraryPrecision>;
+using PositiveFloatAPBounds = PositiveFloatBounds<ArbitraryPrecision>;
+using PositiveFloatAPUpperBound = PositiveFloatUpperBound<ArbitraryPrecision>;
+using PositiveFloatAPLowerBound = PositiveFloatLowerBound<ArbitraryPrecision>;
+using PositiveFloatAPApproximation = PositiveFloatApproximation<ArbitraryPrecision>;
+
 //!@}
 
 
 template<class X> struct IsFloat : False { };
 template<> struct IsFloat<FloatDP> : True { };
 template<> struct IsFloat<FloatMP> : True { };
+template<> struct IsFloat<FloatAP> : True { };
 template<class F> struct IsFloat<Approximation<F>> : IsFloat<F> { };
 template<class F> struct IsFloat<LowerBound<F>> : IsFloat<F> { };
 template<class F> struct IsFloat<UpperBound<F>> : IsFloat<F> { };
@@ -209,6 +231,7 @@ template<class T> struct IsNumber;
 template<> struct IsNumber<Dbl> : True { };
 template<> struct IsNumber<FloatDP> : True { };
 template<> struct IsNumber<FloatMP> : True { };
+template<> struct IsNumber<FloatAP> : True { };
 template<class F> struct IsNumber<Approximation<F>> : IsNumber<F> { };
 template<class F> struct IsNumber<Bounds<F>> : IsNumber<F> { };
 template<class F, class FE> struct IsNumber<Ball<F,FE>> : IsNumber<F> { };

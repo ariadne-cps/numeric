@@ -31,6 +31,8 @@
 #include "builtin.hpp"
 #include "twoexp.hpp"
 #include "floatmp.hpp"
+#include "numeric/detail/integer_gmp_bridge.hpp"
+#include "numeric/detail/rational_gmp_bridge.hpp"
 #include "floatdp.hpp"
 #include "rounded_float.hpp"
 #include "float_approximation.hpp"
@@ -41,6 +43,12 @@
 #include "rational.hpp"
 
 #include "concepts.hpp"
+
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace Ariadne {
 
@@ -88,9 +96,12 @@ FloatMP::Float(TwoExp const& t, MultiplePrecision pr) {
     mpfr_set_ui_2exp(_mpfr,1u,t.exponent(),near);
 }
 
-FloatMP::Float(Dyadic const& w, MultiplePrecision pr) : FloatMP(w,near,pr) {
-    if (cmp(Dyadic(*this),w)!=Comparison::EQUAL && !is_nan(w)) {
-        ARIADNE_THROW(std::runtime_error,"Float(Dyadic)","Dyadic \""<<w<<"\" is not an exact floating-point number with precision " << pr << ".");
+FloatMP::Float(Dyadic const& w, MultiplePrecision pr)
+    : FloatMP(Rational(w),near,pr) {
+    // Transitional API until FloatMP removal; do not inspect Dyadic storage.
+    if (!is_nan(w) && static_cast<Rational>(*this)!=Rational(w)) {
+        ARIADNE_THROW(std::runtime_error,"Float(Dyadic)",
+            "Dyadic \""<<w<<"\" is not an exact floating-point number with precision " << pr << ".");
     }
 }
 
@@ -109,23 +120,12 @@ FloatMP::Float(FloatDP const& x, RoundingModeType rnd, MultiplePrecision pr) {
 
 FloatMP::Float(Integer const& z, RoundingModeType rnd, MultiplePrecision pr) {
     mpfr_init2(_mpfr,pr);
-    mpfr_set_z(_mpfr,z.get_mpz(),rnd);
+    GmpIntegerBoundary native(z);
+    mpfr_set_z(_mpfr,native.value(),rnd);
 }
 
-FloatMP::Float(Dyadic const& w, RoundingModeType rnd, MultiplePrecision pr) {
-    mpfr_init2(_mpfr,pr);
-    if (is_finite(w)) {
-        mpfr_set_f(_mpfr,w.get_mpf(),rnd);
-    } else if (is_nan(w)) {
-        mpfr_set_nan(_mpfr);
-    } else {
-        if (sgn(w) == Sign::POSITIVE) {
-            mpfr_set_inf(_mpfr,+1);
-        } else {
-            mpfr_set_inf(_mpfr,-1);
-        }
-    }
-}
+FloatMP::Float(Dyadic const& w, RoundingModeType rnd, MultiplePrecision pr)
+    : FloatMP(Rational(w),rnd,pr) { }
 
 FloatMP::Float(Decimal const& dec, RoundingModeType rnd, MultiplePrecision pr)
     : FloatMP(Rational(dec),rnd,pr) { }
@@ -133,7 +133,8 @@ FloatMP::Float(Decimal const& dec, RoundingModeType rnd, MultiplePrecision pr)
 FloatMP::Float(Rational const& q, RoundingModeType rnd, MultiplePrecision pr) {
     mpfr_init2(_mpfr,pr);
     if (is_finite(q)) {
-        mpfr_set_q(_mpfr,q.get_mpq(),rnd);
+        GmpRationalBoundary raw(q);
+        mpfr_set_q(_mpfr,raw.value(),rnd);
     } else if (is_nan(q)) {
         mpfr_set_nan(_mpfr);
     } else {
@@ -167,9 +168,10 @@ FloatMP& FloatMP::operator=(const ExactDouble& x) {
 }
 
 FloatMP& FloatMP::operator=(const Dyadic& w) {
-    mpfr_set_f(_mpfr,w.get_mpf(),get_rounding_mode());
-    ARIADNE_PRECONDITION(*this==w);
-    return *this;
+    // Keep the legacy exact-assignment check without an mpf_t adapter.
+    FloatMP replacement(w,get_rounding_mode(),precision());
+    ARIADNE_PRECONDITION(is_nan(w) || static_cast<Rational>(replacement)==Rational(w));
+    return *this=std::move(replacement);
 }
 
 FloatMP& FloatMP::operator=(const FloatMP& x) {
@@ -190,21 +192,62 @@ FloatMP& FloatMP::operator=(FloatMP&& x) {
 }
 
 FloatMP::operator Dyadic() const {
-    Dyadic res;
-    if (is_finite(*this)) {
-        mpfr_get_f(res._mpf,this->_mpfr, MPFR_RNDN);
-    } else if (is_nan(*this)) {
-        res._mpf[0]._mp_size=0;
-        res._mpf[0]._mp_exp=std::numeric_limits<mp_exp_t>::min();
-    } else {
-        res._mpf[0]._mp_size=0;
-        res._mpf[0]._mp_exp = (*this > 0) ? +1 : -1;
-    }
-    return res;
+    // Legacy convenience operator only until FloatMP is retired.
+    // The mathematical value is exported without touching Dyadic::_mpf.
+    if (is_nan(*this)) { return Dyadic::nan(); }
+    if (is_inf(*this)) { return Dyadic::inf((*this > 0) ? Sign::POSITIVE : Sign::NEGATIVE); }
+    const Rational value=static_cast<Rational>(*this);
+    return Dyadic(value.numerator(),
+                  static_cast<Nat>(log2floor(value.denominator())));
 }
 
 FloatMP::operator Rational() const {
-    return Rational(Dyadic(*this));
+    if (is_nan(*this)) { return Rational::nan(); }
+    if (is_inf(*this)) { return Rational::inf((*this > 0) ? Sign::POSITIVE : Sign::NEGATIVE); }
+    if (is_zero(*this)) return Rational(0);
+    // Legacy FloatMP: export its exact p-bit binary digits directly.
+    // The MPFR object will be retired; do not revive the deleted
+    // mpz_t -> Integer bridge merely for this conversion.
+    const auto precision=static_cast<std::size_t>(mpfr_get_prec(_mpfr));
+    mpfr_exp_t decimal_point=0;
+    char* raw_digits=mpfr_get_str(nullptr,&decimal_point,2,precision,_mpfr,MPFR_RNDN);
+    if (!raw_digits)
+        throw std::runtime_error("FloatMP cannot export exact binary digits");
+    const std::string binary(raw_digits);
+    mpfr_free_str(raw_digits);
+    const bool negative=binary.front()=='-';
+    const std::size_t offset=negative ? 1u : 0u;
+    const std::size_t length=binary.size()-offset;
+    if (length==0u || length>static_cast<std::uintmax_t>(
+            std::numeric_limits<mpfr_exp_t>::max()) ||
+        length>std::numeric_limits<std::size_t>::max()-63u)
+        throw std::overflow_error("FloatMP binary significand size out of range");
+    std::vector<std::uint64_t> words((length+63u)/64u,0u);
+    for (std::size_t i=0u;i<length;++i) {
+        const char digit=binary[binary.size()-1u-i];
+        if (digit=='1') words[i/64u]|=std::uint64_t{1}<<(i%64u);
+        else if (digit!='0')
+            throw std::runtime_error("Invalid FloatMP binary digit");
+    }
+    const mpfr_exp_t count=static_cast<mpfr_exp_t>(length);
+    if (decimal_point<std::numeric_limits<mpfr_exp_t>::min()+count)
+        throw std::overflow_error("FloatMP binary exponent out of range");
+    const mpfr_exp_t exponent=decimal_point-count;
+    BigUnsigned magnitude(words);
+    if (exponent>=0) {
+        if (static_cast<std::uintmax_t>(exponent)>
+            std::numeric_limits<std::size_t>::max())
+            throw std::overflow_error("FloatMP binary exponent out of range");
+        return Rational(Integer::from_magnitude(
+            shift_left(magnitude,static_cast<std::size_t>(exponent)),negative));
+    }
+    const auto denominator_bits=static_cast<std::uintmax_t>(-(exponent+1))+1u;
+    if (denominator_bits>std::numeric_limits<std::size_t>::max())
+        throw std::overflow_error("FloatMP binary exponent out of range");
+    return Rational(Integer::from_magnitude(std::move(magnitude),negative),
+        Integer::from_magnitude(
+            shift_left(BigUnsigned(1u),static_cast<std::size_t>(denominator_bits)),
+            false));
 }
 
 const FloatMP::RoundingModeType FloatMP::ROUND_TO_NEAREST = MPFR_RNDN;
@@ -769,12 +812,16 @@ Comparison cmp(FloatDP const& x1, FloatMP const& x2) {
 }
 
 Comparison cmp(FloatMP const& x1, Rational const& q2) {
-    auto c=mpfr_cmp_q(x1._mpfr,q2.get_mpq());
+    if (!mpfr_number_p(x1._mpfr) || !is_finite(q2)) { return cmp(Rational(x1),q2); }
+    GmpRationalBoundary raw(q2);
+    auto c=mpfr_cmp_q(x1._mpfr,raw.value());
     return c==0 ? Comparison::EQUAL : (c>0?Comparison::GREATER:Comparison::LESS);
 }
 
 Comparison cmp(Rational const& q1, FloatMP const& x2) {
-    auto c=mpfr_cmp_q(x2._mpfr,q1.get_mpq());
+    if (!mpfr_number_p(x2._mpfr) || !is_finite(q1)) { return cmp(q1,Rational(x2)); }
+    GmpRationalBoundary raw(q1);
+    auto c=mpfr_cmp_q(x2._mpfr,raw.value());
     return c==0 ? Comparison::EQUAL : (c>0?Comparison::LESS:Comparison::GREATER);
 }
 
@@ -856,11 +903,10 @@ FloatMP mul_opp(FloatMP const& x, FloatMP const& y);
 FloatMP div_opp(FloatMP const& x, FloatMP const& y);
 
 Integer cast_integer(FloatMP const& x) {
-    // Alternatively use mpfr_get_z
-    Dyadic w(x);
-    Integer z=round(w);
-    ARIADNE_ASSERT_MSG(z==w,"Cannot cast non-integral value "<<z<<" to an Integer");
-    return z;
+    const Rational value=static_cast<Rational>(x);
+    ARIADNE_ASSERT_MSG(is_finite(value) && value.denominator()==1,
+                       "Cannot cast non-integral FloatMP value "<<x<<" to an Integer");
+    return value.numerator();
 }
 
 namespace {

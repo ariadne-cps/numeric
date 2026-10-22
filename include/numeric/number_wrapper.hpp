@@ -45,6 +45,7 @@
 #include "builtin.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
+#include "floatap.hpp"
 #include "float_ball.hpp"
 #include "float_bounds.hpp"
 #include "float_upper_bound.hpp"
@@ -482,6 +483,22 @@ template<class X> class NumberGetterMixin : public virtual NumberInterface {
         return this->_get_as<FloatMPLowerBound>(pr); }
     virtual FloatMPApproximation _get(ApproximateTag, MultiplePrecision pr) const override {
         return this->_get_as<FloatMPApproximation>(pr); }
+
+    // Native arbitrary-precision counterparts of the FloatMP dispatch.
+    // Keep the same paradigm-specific return types and the supplied
+    // centre/error precision; never route through FloatMP or FloatDP.
+    virtual FloatAPDPBall _get(MetricTag, ArbitraryPrecision pr, DoublePrecision pre) const override {
+        return this->_get_as<FloatAPDPBall>(pr,pre); }
+    virtual FloatAPBall _get(MetricTag, ArbitraryPrecision pr, ArbitraryPrecision pre) const override {
+        return this->_get_as<FloatAPBall>(pr,pre); }
+    virtual FloatAPBounds _get(OrderTag, ArbitraryPrecision pr) const override {
+        return this->_get_as<FloatAPBounds>(pr); }
+    virtual FloatAPUpperBound _get(UpperTag, ArbitraryPrecision pr) const override {
+        return this->_get_as<FloatAPUpperBound>(pr); }
+    virtual FloatAPLowerBound _get(LowerTag, ArbitraryPrecision pr) const override {
+        return this->_get_as<FloatAPLowerBound>(pr); }
+    virtual FloatAPApproximation _get(ApproximateTag, ArbitraryPrecision pr) const override {
+        return this->_get_as<FloatAPApproximation>(pr); }
 
     virtual ParadigmCode _paradigm() const override { return P::code(); }
     virtual String _class_name() const override { return class_name<X>(); }
