@@ -54,7 +54,7 @@ unsigned golden_hex_nibble(char c)
     throw std::invalid_argument("Invalid hexadecimal BigUnsigned golden digit");
 }
 
-void check_against_precomputed_hex(BigUnsigned const& value, std::string const& hex)
+BigUnsigned big_unsigned_from_golden_hex(std::string const& hex)
 {
     if (hex.empty() || (hex.size()>1u && hex.front()=='0')) {
         throw std::invalid_argument("Noncanonical BigUnsigned golden input");
@@ -64,7 +64,15 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
         words[i/16u] |= std::uint64_t{golden_hex_nibble(hex[hex.size()-1u-i])}
                         << static_cast<unsigned>(4u*(i%16u));
     }
-    const BigUnsigned expected(words);
+    return BigUnsigned(words);
+}
+
+void check_against_precomputed_hex(BigUnsigned const& value, std::string const& hex)
+{
+    if (hex.empty() || (hex.size()>1u && hex.front()=='0')) {
+        throw std::invalid_argument("Noncanonical BigUnsigned golden input");
+    }
+    const BigUnsigned expected=big_unsigned_from_golden_hex(hex);
     const std::size_t bits=(hex=="0") ? 0u :
         4u*(hex.size()-1u)+static_cast<std::size_t>(
             std::bit_width(golden_hex_nibble(hex.front())));
@@ -75,6 +83,10 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
     ARIADNE_TEST_ASSERT(limbs.empty() || limbs.back()!=0u);
 }
 
+
+#ifndef ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH
+#error "Provide the BigUnsigned subtraction oracle path from CMake"
+#endif
 
 #ifndef ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH
 #error "Provide the BigUnsigned power oracle path from CMake"
@@ -410,81 +422,48 @@ void TestBigUnsigned::test_boundaries()
 // including underflow, canonical zero, dense inputs and long borrows.
 void TestBigUnsigned::test_subtraction_common_prefix()
 {
-    const auto max=std::numeric_limits<std::uint64_t>::max();
-    std::mt19937_64 engine(0xB41CA11CEULL);
-    GmpInteger a,b,expected;
-    for (const std::size_t count:
+    // One source-keyed representative of each of the nine original
+    // structural classes at every nonzero width. Include the zero width.
+    // No GMP or test-subject calculation is used to derive expectations.
+    std::ifstream golden(ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH);
+    if (!golden) throw std::runtime_error("Missing BigUnsigned subtraction TSV");
+    std::string header;
+    while (golden.peek()=='#') std::getline(golden,header);
+    for (const std::size_t width:
             {0u,1u,2u,7u,8u,16u,31u,32u,63u,64u,65u,128u}) {
-        for (unsigned repetition=0u;repetition<64u;++repetition) {
-            std::vector<std::uint64_t> left(count),right(count);
-            for (auto& word:left) word=engine();
-            for (auto& word:right) word=engine();
-            switch (repetition%9u) {
-            case 0u: // Exact equality: result width zero.
-                right=left;
-                break;
-            case 1u: // Only the lowest word differs.
-                right=left;
-                if (count!=0u) left[0u]=max;
-                break;
-            case 2u: // Opposite ordering in the low word.
-                right=left;
-                if (count!=0u) right[0u]=max;
-                break;
-            case 3u: // Very long equal high prefix.
-                right=left;
-                if (count!=0u) {
-                    left[0u]=max;
-                    right[0u]=0u;
-                }
-                break;
-            case 4u: // Dense, saturated, long carry/borrow chain.
-                std::fill(left.begin(),left.end(),max);
-                std::fill(right.begin(),right.end(),max);
-                if (count!=0u) right.front()=0u;
-                break;
-            case 5u: // Different canonical widths, left shorter.
-                if (count!=0u) left.back()=0u;
-                break;
-            case 6u: // Different canonical widths, right shorter.
-                if (count!=0u) right.back()=0u;
-                break;
-            case 7u: // Two remote nonzero limbs.
-                std::fill(left.begin(),left.end(),0u);
-                std::fill(right.begin(),right.end(),0u);
-                if (count!=0u) {
-                    left.front()=max;
-                    left.back()|=std::uint64_t{1}<<63u;
-                    right.front()=1u;
-                    right.back()|=std::uint64_t{1}<<63u;
-                }
-                break;
-            default: // Independent dense random values.
-                break;
+        const unsigned classes=width==0u ? 1u : 9u;
+        for (unsigned mode=0u;mode<classes;++mode) {
+            std::size_t row_width=0u;
+            unsigned row_mode=0u;
+            std::string lhs_hex,rhs_hex,forward_hex,reverse_hex;
+            if (!(golden >> row_width >> row_mode >> lhs_hex >> rhs_hex
+                         >> forward_hex >> reverse_hex)
+                || row_width!=width || row_mode!=mode) {
+                throw std::runtime_error("Missing or out-of-order subtraction TSV row");
             }
-            const BigUnsigned lhs(left),rhs(right);
-            mpz_import(a.value,lhs.size(),-1,sizeof(std::uint64_t),
-                       0,0,lhs.limbs().data());
-            mpz_import(b.value,rhs.size(),-1,sizeof(std::uint64_t),
-                       0,0,rhs.limbs().data());
-            const auto verify=[&](BigUnsigned const& first,
-                                  BigUnsigned const& second,
-                                  mpz_srcptr x,mpz_srcptr y) {
-                mpz_sub(expected.value,x,y);
-                if (mpz_sgn(expected.value)<0) {
+            const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
+            const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
+            check_against_precomputed_hex(lhs,lhs_hex);
+            check_against_precomputed_hex(rhs,rhs_hex);
+            const auto verify=[&](BigUnsigned const& a,BigUnsigned const& b,
+                                  std::string const& expected_hex) {
+                if (expected_hex=="-") {
                     bool threw=false;
-                    try { (void)sub(first,second); }
+                    try { (void)sub(a,b); }
                     catch (std::underflow_error const&) { threw=true; }
                     ARIADNE_TEST_ASSERT(threw);
                 } else {
-                    check_against_gmp(sub(first,second),expected.value);
+                    check_against_precomputed_hex(sub(a,b),expected_hex);
                 }
             };
-            verify(lhs,rhs,a.value,b.value);
-            verify(rhs,lhs,b.value,a.value);
+            verify(lhs,rhs,forward_hex);
+            verify(rhs,lhs,reverse_hex);
         }
     }
+    std::string extra;
+    if (golden >> extra) throw std::runtime_error("Extra subtraction TSV rows");
 }
+
 
 void TestBigUnsigned::test_multiplication()
 {

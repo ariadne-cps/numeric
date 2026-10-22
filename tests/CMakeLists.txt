@@ -40,6 +40,7 @@ endforeach()
 target_compile_definitions(test_big_unsigned PRIVATE
     "ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_short_div.tsv\""
     "ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_power.tsv\""
+    "ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_sub.tsv\""
 )
 
 # Exact independent integer power oracle for the Integer test.
