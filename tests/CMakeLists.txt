@@ -40,7 +40,7 @@ endforeach()
 # Absolute path preserves out-of-source builds and Windows CTest.
 foreach(TEST IN ITEMS test_big_unsigned test_integer test_float_rounding)
     target_compile_definitions(${TEST} PRIVATE
-        "ARIADNE_TEST_DATA_DIR=\"\${CMAKE_CURRENT_SOURCE_DIR}/data\"")
+        "ARIADNE_TEST_DATA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/data\"")
 endforeach()
 
 add_library(check_numeric OBJECT check_numeric.cpp)
