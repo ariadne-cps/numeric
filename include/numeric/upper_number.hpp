@@ -36,7 +36,7 @@
 #include "utility/prototype.hpp"
 
 #include "foundation/logical.decl.hpp"
-#include "numeric/logical_pointer.hpp"
+#include "foundation/logical.hpp"
 #include "number.decl.hpp"
 #include "float.decl.hpp"
 
