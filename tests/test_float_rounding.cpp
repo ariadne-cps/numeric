@@ -118,7 +118,7 @@ std::vector<FloatAPGoldenRow> load_floatap_golden_rows() {
         }
         rows.push_back({bits,tag[0],input,expected});
     }
-    if (rows.size()!=232u) throw std::runtime_error(
+    if (rows.size()!=1064u) throw std::runtime_error(
         "Unexpected FloatAP oracle row count: "+std::to_string(rows.size()));
     return rows;
 }
@@ -544,11 +544,10 @@ TestFloatRounding<PR>::test_precision_regressions()
     }
     if constexpr (Same<PR,ArbitraryPrecision>) {
         // Broad, exact non-dyadic quotients across the limb boundaries.
-        // FloatMP is a secondary differential oracle; the independently
-        // expected 1/3 and halfway cases above remain unchanged.
+        // Stored exact integer-rounding references replace backend cross-checks;
+        // independently expected 1/3 and halfway cases remain unchanged.
         for (Bits bits : {53_bits,128_bits,256_bits,1024_bits,1536_bits}) {
             const ArbitraryPrecision p(bits);
-            const MultiplePrecision mp(bits);
             const Integer power=pow(Integer(2),Nat(p.bits()));
             for (Int offset : {Int(1),Int(7),Int(19),Int(257)}) {
                 const Rational positive_ratio(
@@ -557,17 +556,16 @@ TestFloatRounding<PR>::test_precision_regressions()
                 for (bool negative_input : {false,true}) {
                     const Rational exact_input=negative_input
                         ? -positive_ratio : positive_ratio;
-                    const auto verify=[&](auto ap_mode,auto mp_mode) {
-                        const FloatAP candidate(exact_input,ap_mode,p);
-                        const FloatMP reference(exact_input,mp_mode,mp);
-                        ARIADNE_TEST_EQUALS(
-                            static_cast<Rational>(candidate),
-                            static_cast<Rational>(reference));
-                    };
-                    verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                    verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                    verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                    verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    const auto verify=[&](auto ap_mode) {
+                            const FloatAP candidate(exact_input,ap_mode,p);
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(candidate),
+                                floatap_golden(p.bits(),ap_mode,exact_input));
+                        };
+                    verify(FloatAP::ROUND_TO_NEAREST);
+                    verify(FloatAP::ROUND_DOWNWARD);
+                    verify(FloatAP::ROUND_UPWARD);
+                    verify(FloatAP::ROUND_TOWARD_ZERO);
                 }
             }
         }
@@ -577,7 +575,6 @@ TestFloatRounding<PR>::test_precision_regressions()
         // normalization; verify exact rounding for each sign and mode.
         for (Bits bits : {128_bits,256_bits,1024_bits,1536_bits}) {
             const ArbitraryPrecision p(bits);
-            const MultiplePrecision mp(bits);
             const Integer power=pow(Integer(2),Nat(p.bits()));
             for (Int offset : {Int(1),Int(17),Int(257)}) {
                 const Rational positive_ratio(
@@ -585,16 +582,16 @@ TestFloatRounding<PR>::test_precision_regressions()
                 for (bool negative_input : {false,true}) {
                     const Rational input=negative_input
                         ? -positive_ratio : positive_ratio;
-                    const auto verify=[&](auto ap_mode,auto mp_mode) {
-                        const FloatAP candidate(input,ap_mode,p);
-                        const FloatMP reference(input,mp_mode,mp);
-                        ARIADNE_TEST_EQUALS(static_cast<Rational>(candidate),
-                                            static_cast<Rational>(reference));
-                    };
-                    verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                    verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                    verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                    verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    const auto verify=[&](auto ap_mode) {
+                            const FloatAP candidate(input,ap_mode,p);
+                            ARIADNE_TEST_EQUALS(
+                                static_cast<Rational>(candidate),
+                                floatap_golden(p.bits(),ap_mode,input));
+                        };
+                    verify(FloatAP::ROUND_TO_NEAREST);
+                    verify(FloatAP::ROUND_DOWNWARD);
+                    verify(FloatAP::ROUND_UPWARD);
+                    verify(FloatAP::ROUND_TOWARD_ZERO);
                 }
             }
         }
@@ -603,13 +600,12 @@ TestFloatRounding<PR>::test_precision_regressions()
         // Fused multiply/subtract carry can include a borrow from the
         // previous word. Stress runs of zero and all-one low limbs,
         // quotient-correction boundaries, signs and all rounding modes.
-        // FloatMP is an independent differential oracle; exact 1/3 and
-        // halfway reference tests above remain in place.
+        // Stored exact integer-rounding references replace backend cross-checks;
+        // exact 1/3 and halfway tests above remain in place.
         for (Bits bits : {65_bits,128_bits,129_bits,255_bits,256_bits,
                           257_bits,511_bits,512_bits,1023_bits,1024_bits,
                           1025_bits,1536_bits}) {
             const ArbitraryPrecision p(bits);
-            const MultiplePrecision mp(bits);
             const Integer power=pow(Integer(2),Nat(p.bits()));
             for (Int offset : {Int(1),Int(3),Int(257)}) {
                 const Integer x=power-Integer(offset);
@@ -620,21 +616,16 @@ TestFloatRounding<PR>::test_precision_regressions()
                     for (bool negative_input : {false,true}) {
                         const Rational input=negative_input
                             ? -positive_ratio : positive_ratio;
-                        const auto verify=[&](auto ap_mode,auto mp_mode) {
+                        const auto verify=[&](auto ap_mode) {
                             const FloatAP candidate(input,ap_mode,p);
-                            const FloatMP reference(input,mp_mode,mp);
                             ARIADNE_TEST_EQUALS(
                                 static_cast<Rational>(candidate),
-                                static_cast<Rational>(reference));
+                                floatap_golden(p.bits(),ap_mode,input));
                         };
-                        verify(FloatAP::ROUND_TO_NEAREST,
-                               FloatMP::ROUND_TO_NEAREST);
-                        verify(FloatAP::ROUND_DOWNWARD,
-                               FloatMP::ROUND_DOWNWARD);
-                        verify(FloatAP::ROUND_UPWARD,
-                               FloatMP::ROUND_UPWARD);
-                        verify(FloatAP::ROUND_TOWARD_ZERO,
-                               FloatMP::ROUND_TOWARD_ZERO);
+                        verify(FloatAP::ROUND_TO_NEAREST);
+                        verify(FloatAP::ROUND_DOWNWARD);
+                        verify(FloatAP::ROUND_UPWARD);
+                        verify(FloatAP::ROUND_TOWARD_ZERO);
                     }
                 }
             }

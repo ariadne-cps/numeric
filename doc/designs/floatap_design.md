@@ -9767,3 +9767,42 @@ direct `<cstddef>` include. This preserves the full precision type,
 does not introduce unchecked casts and does not modify fixture data,
 test inputs, expected outputs, modes, or timeouts. The source-level
 fix still needs Windows CI build and runtime validation.
+
+### D78 — freeze arithmetic quotient oracles and remove three FloatMP differential groups (22 October 2026)
+
+Extend `tests/data/floatap_rounding.tsv` from 232 to 1064
+exact-rational references, still flat under `tests/data/` and
+loaded exclusively inside `test_float_rounding.cpp`.
+Add 832 new references covering every original case of three
+additional `test_precision_regressions` groups:
+
+- Broad non-dyadic quotient rounding around limb boundaries:
+  5 precisions x 4 offsets x 2 signs x 4 modes = 160 references.
+- Sparse-denominator quotient rounding:
+  4 precisions x 3 offsets x 2 signs x 4 modes = 96 references.
+- Carry/borrow and quotient correction boundaries:
+  12 precisions x 3 offsets x 2 operand orders x 2 signs
+  x 4 modes = 576 references.
+
+The expected rational results are generated with independent BigInt
+quotient/remainder arithmetic and exact ties-to-even comparison.
+Check the sign and the directed-rounding ordering against the exact
+input for all generated rows before publication; detect duplicate
+(precision, mode, rational input) keys. Each reference is a
+canonical signed numerator / positive denominator, not a value
+computed by FloatAP, FloatMP, GMP or MPFR.
+
+Replace only these three groups' live FloatMP comparisons by their
+frozen reference lookups. Preserve the existing inputs, sign variations,
+precision order, all four modes and assertion count per group.
+The initial 232 reference rows and original 1/3, wide-ratio and
+halfway assertions remain unchanged, as do all currently unconverted
+FloatMP-dependent transcendental or arithmetic groups. Update
+the loader's exact expected row count to 1064. No change to
+production arithmetics, benchmark configuration, test timeout or CI.
+
+The committed fixtures and C++ edits are not a tested performance
+fix: full optimized builds and complete Windows/Unix/macOS test runs
+are required. The previously reported Windows 30-second
+`test_float_rounding` timeout may or may not improve after removing
+the full legacy oracle; do not assume its resolution.
