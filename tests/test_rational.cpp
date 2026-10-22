@@ -62,6 +62,7 @@ namespace {
 #endif
 inline constexpr char R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r8.tsv";
 inline constexpr char R28_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r28.tsv";
+inline constexpr char R4_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r4.tsv";
 
 constexpr bool check_concept()
 {
@@ -603,30 +604,39 @@ void TestRational::test_native_contract() {
         }
     }
 
-    // R4: check proper-fraction floor/ceil shortcuts, integral and
-    // improper fractions against independent GMP quotients. Include
-    // size boundaries around inline storage and long magnitudes.
+    // R4: exact independently frozen floor/ceil results for all nine
+    // fraction classes across all six original bit-width boundaries.
+    std::ifstream r4_golden(R4_ORACLE_PATH);
+    if (!r4_golden) throw std::runtime_error("Missing R4 floor/ceil TSV");
+    std::string r4_header;
+    while (r4_golden.peek()=='#') std::getline(r4_golden,r4_header);
     for (unsigned bits : {53u,128u,256u,1024u,2048u,4096u}) {
         const Integer base=pow(Integer(2),Nat(bits));
         const Integer below=base-1;
         const Integer above=base+1;
-        const std::array<Rational,9> cases={
+        const std::array<Rational,9u> cases={
             Rational(0),Rational(1,3),Rational(-1,3),
             Rational(below,base),Rational(-below,base),
             Rational(base,base),Rational(-base,base),
             Rational(above,base),Rational(-above,base)
         };
-        for (Rational const& value : cases) {
-            GmpRationalBoundary raw(value);
-            GmpIntegerBoundary expected;
-            mpz_fdiv_q(expected.mutable_value(),
-                       mpq_numref(raw.value()),mpq_denref(raw.value()));
-            ARIADNE_TEST_EQUALS(floor(value),expected.to_integer());
-            mpz_cdiv_q(expected.mutable_value(),
-                       mpq_numref(raw.value()),mpq_denref(raw.value()));
-            ARIADNE_TEST_EQUALS(ceil(value),expected.to_integer());
+        for (std::size_t index=0u;index<cases.size();++index) {
+            unsigned ref_bits=0u,ref_index=0u;
+            std::string numerator,denominator,ref_floor,ref_ceil;
+            if (!(r4_golden >> ref_bits >> ref_index >> numerator
+                   >> denominator >> ref_floor >> ref_ceil)
+                || ref_bits!=bits || ref_index!=index)
+                throw std::runtime_error("Missing or unordered R4 TSV row");
+            const Rational& value=cases[index];
+            ARIADNE_TEST_EQUALS(value.numerator(),Integer(String(numerator)));
+            ARIADNE_TEST_EQUALS(value.denominator(),Integer(String(denominator)));
+            ARIADNE_TEST_EQUALS(floor(value),Integer(String(ref_floor)));
+            ARIADNE_TEST_EQUALS(ceil(value),Integer(String(ref_ceil)));
         }
     }
+    std::string extra_r4;
+    if (r4_golden >> extra_r4)
+        throw std::runtime_error("Extra R4 oracle TSV rows");
 
     // R3: exercise stack products (up to 8 limbs each), their exact
     // 8/9-limb boundary, the fallback, signs and opposite orderings.
@@ -741,11 +751,16 @@ void TestRational::test_gmp_differential() {
         integer_to_gmp(mpq_denref(gb.mutable_value()),bd);
         mpq_canonicalize(gb.mutable_value());
         mpq_set(expected.mutable_value(),ga.value()); check(a);
-        GmpIntegerBoundary integral;
+        // Temporary forward-only comparison until this random oracle is frozen.
+        GmpIntegerBoundary integral,actual_integral;
         mpz_fdiv_q(integral.mutable_value(),mpq_numref(ga.value()),mpq_denref(ga.value()));
-        operations_match=operations_match && floor(a)==integral.to_integer();
+        integer_to_gmp(actual_integral.mutable_value(),floor(a));
+        operations_match=operations_match &&
+            mpz_cmp(actual_integral.value(),integral.value())==0;
         mpz_cdiv_q(integral.mutable_value(),mpq_numref(ga.value()),mpq_denref(ga.value()));
-        operations_match=operations_match && ceil(a)==integral.to_integer();
+        integer_to_gmp(actual_integral.mutable_value(),ceil(a));
+        operations_match=operations_match &&
+            mpz_cmp(actual_integral.value(),integral.value())==0;
         mpq_add(expected.mutable_value(),ga.value(),gb.value()); check(a+b);
         mpq_sub(expected.mutable_value(),ga.value(),gb.value()); check(a-b);
         mpq_mul(expected.mutable_value(),ga.value(),gb.value()); check(a*b);

@@ -44,6 +44,12 @@
 
 #include "concepts.hpp"
 
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
 namespace Ariadne {
 
 namespace {
@@ -198,23 +204,50 @@ FloatMP::operator Dyadic() const {
 FloatMP::operator Rational() const {
     if (is_nan(*this)) { return Rational::nan(); }
     if (is_inf(*this)) { return Rational::inf((*this > 0) ? Sign::POSITIVE : Sign::NEGATIVE); }
-    // MPFR stores a finite binary significand and an integral power of two.
-    // Export them exactly, without an intermediate Dyadic or mpf_t value.
-    GmpIntegerBoundary mantissa;
-    const mpfr_exp_t exponent=mpfr_get_z_2exp(mantissa.mutable_value(),_mpfr);
-    Integer coefficient=mantissa.to_integer();
-    if (exponent>=0) {
-        return Rational(Integer::from_magnitude(
-            shift_left(coefficient.magnitude(),
-                       static_cast<std::size_t>(exponent)),
-            coefficient.negative()));
+    if (is_zero(*this)) return Rational(0);
+    // Legacy FloatMP: export its exact p-bit binary digits directly.
+    // The MPFR object will be retired; do not revive the deleted
+    // mpz_t -> Integer bridge merely for this conversion.
+    const auto precision=static_cast<std::size_t>(mpfr_get_prec(_mpfr));
+    mpfr_exp_t decimal_point=0;
+    char* raw_digits=mpfr_get_str(nullptr,&decimal_point,2,precision,_mpfr,MPFR_RNDN);
+    if (!raw_digits)
+        throw std::runtime_error("FloatMP cannot export exact binary digits");
+    const std::string binary(raw_digits);
+    mpfr_free_str(raw_digits);
+    const bool negative=binary.front()=='-';
+    const std::size_t offset=negative ? 1u : 0u;
+    const std::size_t length=binary.size()-offset;
+    if (length==0u || length>static_cast<std::uintmax_t>(
+            std::numeric_limits<mpfr_exp_t>::max()) ||
+        length>std::numeric_limits<std::size_t>::max()-63u)
+        throw std::overflow_error("FloatMP binary significand size out of range");
+    std::vector<std::uint64_t> words((length+63u)/64u,0u);
+    for (std::size_t i=0u;i<length;++i) {
+        const char digit=binary[binary.size()-1u-i];
+        if (digit=='1') words[i/64u]|=std::uint64_t{1}<<(i%64u);
+        else if (digit!='0')
+            throw std::runtime_error("Invalid FloatMP binary digit");
     }
-    const auto magnitude=static_cast<std::uint64_t>(-(exponent+1))+1u;
-    if (magnitude>std::numeric_limits<std::size_t>::max()) {
+    const mpfr_exp_t count=static_cast<mpfr_exp_t>(length);
+    if (decimal_point<std::numeric_limits<mpfr_exp_t>::min()+count)
         throw std::overflow_error("FloatMP binary exponent out of range");
+    const mpfr_exp_t exponent=decimal_point-count;
+    BigUnsigned magnitude(words);
+    if (exponent>=0) {
+        if (static_cast<std::uintmax_t>(exponent)>
+            std::numeric_limits<std::size_t>::max())
+            throw std::overflow_error("FloatMP binary exponent out of range");
+        return Rational(Integer::from_magnitude(
+            shift_left(magnitude,static_cast<std::size_t>(exponent)),negative));
     }
-    return Rational(coefficient,Integer::from_magnitude(
-        shift_left(BigUnsigned(1u),static_cast<std::size_t>(magnitude)),false));
+    const auto denominator_bits=static_cast<std::uintmax_t>(-(exponent+1))+1u;
+    if (denominator_bits>std::numeric_limits<std::size_t>::max())
+        throw std::overflow_error("FloatMP binary exponent out of range");
+    return Rational(Integer::from_magnitude(std::move(magnitude),negative),
+        Integer::from_magnitude(
+            shift_left(BigUnsigned(1u),static_cast<std::size_t>(denominator_bits)),
+            false));
 }
 
 const FloatMP::RoundingModeType FloatMP::ROUND_TO_NEAREST = MPFR_RNDN;
