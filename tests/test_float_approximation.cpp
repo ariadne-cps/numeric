@@ -33,6 +33,7 @@
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/float.decl.hpp"
+#include "numeric/floatap.hpp"
 #include "numeric/float_approximation.hpp"
 #include "numeric/float_bounds.hpp"
 #include "numeric/float_lower_bound.hpp"
@@ -65,7 +66,7 @@ constexpr bool check_float_approximation_concept()
 }
 
 static_assert(check_float_approximation_concept<DoublePrecision>());
-static_assert(check_float_approximation_concept<MultiplePrecision>());
+static_assert(check_float_approximation_concept<ArbitraryPrecision>());
 
 } // namespace
 
@@ -127,7 +128,8 @@ TestFloatApproximation<PR>::test_header_api()
     ARIADNE_TEST_EQUALS(copied.raw(),from_integer.raw());
 
     if constexpr (Same<PR,DoublePrecision>) {
-        FloatMPApproximation other(1,MultiplePrecision(128_bits));
+        // Preserve the cross-backend conversion using the native type.
+        FloatAPApproximation other(1,ArbitraryPrecision(128_bits));
         A cross(other,pr);
         ARIADNE_TEST_EQUALS(cross.raw(),F(1,pr));
     } else {
@@ -272,7 +274,7 @@ Int main() {
     std::cerr<<std::setprecision(20);
 
     TestFloatApproximation<DoublePrecision>(dp).test();
-    TestFloatApproximation<MultiplePrecision>(MultiplePrecision(128_bits)).test();
+    TestFloatApproximation<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
 
     return ARIADNE_TEST_FAILURES;
 }

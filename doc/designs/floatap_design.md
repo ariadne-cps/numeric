@@ -10755,3 +10755,33 @@ other test module was changed. Because the rebase and
 merge status must be validated by actual build/CI runs,
 the D99 compiled regression result is NOT claimed as
 verified at commit time.
+
+### D100 — migrate FloatApproximation coverage to FloatAP (22 October 2026)
+
+Apply the explicit coverage-preservation rule: for every
+FloatMP-specific behavior check, provide the corresponding
+FloatAP check unless already covered by a native test.
+In `tests/test_float_approximation.cpp`, replace the
+MultiplePrecision C++20 concept assertion with the
+ArbitraryPrecision concept assertion, and replace the former
+128-bit backend suite with the same full
+`TestFloatApproximation<ArbitraryPrecision>` suite at 128 bits.
+Keep the complete original generic test sequence for
+header API, conversions, arithmetic and comparisons,
+without deleting assertions, modes, or test inputs.
+
+In the existing FloatDP cross-backend approximation
+conversion test, substitute a
+`FloatAPApproximation(1, ArbitraryPrecision(128_bits))`
+source for the old backend source, retaining the
+`FloatDPApproximation` construction and its exact
+`raw() == FloatDP(1)` assertion. In the native suite,
+retain the reverse DP-approximation-to-FloatAP check.
+Include the complete `numeric/floatap.hpp` header.
+
+After migration the test source has zero occurrences
+of FloatMP/MultiplePrecision/MPFR/mpfr. No production,
+CMake, fixture, timeout or other test module change.
+Compilation and runtime results are not inferred from
+source review: CI status must be checked separately.
+Work is restricted to the rebased `remove-gmp` branch.
