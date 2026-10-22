@@ -87,6 +87,7 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_product.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B54_SQUARE_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_square.tsv";
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b39.tsv";
 
@@ -786,48 +787,32 @@ void TestBigUnsigned::test_multiplication()
     std::string b54_extra;
     if (b54_golden >> b54_extra) throw std::runtime_error("Extra B54 TSV rows");
 
-    std::mt19937_64 b54_engine(0xB54A6C4ULL);
-    // Retain the original shared PRNG state for the subsequent B54 square loop.
-    for (const auto& [n,m]:std::initializer_list<std::pair<std::size_t,std::size_t>>{{32u,32u},{33u,33u},{63u,63u},{63u,64u},{64u,63u},{64u,64u},{64u,65u},{65u,64u},{65u,65u},{64u,85u},{64u,86u},{85u,64u},{86u,64u},{96u,96u},{127u,128u},{128u,127u},{128u,128u}}) {
-        for (unsigned mode=0u;mode<32u;++mode) {
-            for (std::size_t i=0u;i<n+m;++i) (void)b54_engine();
-        }
-    }
-
+    // B54 squares: all original widths and eight distinct mode%8
+    // structures, with the original stream frozen independently.
+    std::ifstream b54_squares(ARIADNE_BIG_UNSIGNED_B54_SQUARE_ORACLE_PATH);
+    if (!b54_squares) throw std::runtime_error("Missing B54 squares TSV");
+    std::string b54_square_header;
+    while (b54_squares.peek()=='#')
+        std::getline(b54_squares,b54_square_header);
     for (const std::size_t n:
             {7u,8u,9u,16u,31u,32u,33u,
              63u,64u,65u,66u,96u,128u}) {
-        for (unsigned mode=0u;mode<64u;++mode) {
-            std::vector<std::uint64_t> words(n);
-            for (auto& word:words) word=b54_engine();
-            if (mode%8u==0u) {
-                std::fill(words.begin(),words.end(),max);
-            } else if (mode%8u==1u) {
-                std::fill(words.begin(),words.end(),0u);
-                words.front()=13u;
-            } else if (mode%8u==2u) {
-                std::fill_n(words.begin(),n/8u,0u);
-            } else if (mode%8u==3u) {
-                std::fill_n(words.begin(),n/8u+1u,0u);
-            } else if (mode%8u==4u) {
-                for (std::size_t i=0u;i<n;i+=2u)
-                    words[i]=0u;
-            } else if (mode%8u==5u) {
-                for (std::size_t i=1u;i+1u<n;++i)
-                    words[i]=0u;
-            } else if (mode%8u==6u) {
-                for (std::size_t i=0u;i<n;i+=8u)
-                    words[i]=0u;
-            }
-            words.back()|=std::uint64_t{1}<<63u;
-            const BigUnsigned input(words);
-            mpz_import(a.value,n,-1,sizeof(std::uint64_t),
-                       0,0,words.data());
-            mpz_mul(t.value,a.value,a.value);
-            check_against_gmp(square(input),t.value);
-            check_against_gmp(mul(input,input),t.value);
+        for (unsigned mode=0u;mode<8u;++mode) {
+            std::size_t ref_n=0u;
+            unsigned ref_mode=0u;
+            std::string input_hex,result_hex;
+            if (!(b54_squares >> ref_n >> ref_mode >> input_hex >> result_hex)
+                || ref_n!=n || ref_mode!=mode)
+                throw std::runtime_error("Missing or unordered B54 square TSV row");
+            const BigUnsigned input=big_unsigned_from_golden_hex(input_hex);
+            ARIADNE_TEST_ASSERT(input.size()==n);
+            check_against_precomputed_hex(square(input),result_hex);
+            check_against_precomputed_hex(mul(input,input),result_hex);
         }
     }
+    std::string b54_square_extra;
+    if (b54_squares >> b54_square_extra)
+        throw std::runtime_error("Extra B54 square TSV rows");
 
     // B37: stress the 7/8-limb ARM64 symmetric-square crossover,
     // long carry chains and diagonal/off-diagonal propagation.
