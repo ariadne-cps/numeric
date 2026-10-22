@@ -8006,3 +8006,8 @@ The original 1,200-case Rational random differential loop now tests 120 source-k
 ### R33.4 — R20 exact cross-add/sub oracle (22 October 2026)
 
 Replace GMP expected add/sub operations in R20 with `rational_r20.tsv`, freezing all 160 original signed source pairs and independently calculated canonical rational results at all ten storage boundaries. Verify direct and compound assignment arithmetic against canonical TSV numerators and denominators; preserve cancellation and carry pattern classes. No production changes. CI validation pending.
+
+
+### R33.5 — R19 factor cancellation reference migration (22 October 2026)
+
+Replace the R19 GMP expected results for 4 cross-GCD categories x 4 signs x 6 widths, retaining original 96 combinations and six self-aliasing cases. Source-keyed TSV contains canonical operands and independent product/division outcomes for both orientations; test checks direct and compound operations and self-aliasing. CI validation pending.

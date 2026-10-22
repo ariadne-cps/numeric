@@ -65,6 +65,7 @@ inline constexpr char R28_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r28.t
 inline constexpr char R4_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r4.tsv";
 inline constexpr char R16_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r16.tsv";
 inline constexpr char R20_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r20.tsv";
+inline constexpr char R19_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r19.tsv";
 inline constexpr char R0_RANDOM_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_random.tsv";
 
 constexpr bool check_concept()
@@ -915,52 +916,49 @@ void TestRational::test_gmp_differential() {
     std::string r20_extra;
     if (r20_fixture >> r20_extra)
         throw std::runtime_error("Extra R20 TSV rows");
-    // R19: all four combinations of identity/nonidentity cross-GCD
-    // divisors for both multiply and divide, across the inline boundary
-    // and long operands. Check exact GMP arithmetic, canonicality,
-    // in-place operations, swapped order and independent sign choices.
-    for (unsigned bits : {53u,128u,256u,1024u,2048u,4096u}) {
-        const Integer base=pow(Integer(2),Nat(bits));
-        const Rational a(base+3,base+5);
-        const std::array<Rational,4u> factors={
-            Rational(base+9,base+7), // both quotient divisors are one
-            Rational(base+9,base+3), // shared numerator/denominator
-            Rational(base+5,base+9), // opposite shared cross factor
-            Rational(base+5,base+3)  // two nontrivial cross factors
-        };
-        for (Rational const& factor : factors) {
-            for (unsigned signs=0u;signs<4u;++signs) {
-                const Rational lhs=(signs&1u)!=0u ? -a : a;
-                const Rational rhs=(signs&2u)!=0u ? -factor : factor;
-                GmpRationalBoundary oracle_lhs(lhs),oracle_rhs(rhs);
-                mpq_mul(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
-                check(lhs*rhs);
-                Rational result=lhs;
-                result*=rhs;
-                check(result);
-                mpq_mul(expected.mutable_value(),oracle_rhs.value(),oracle_lhs.value());
-                check(rhs*lhs);
-                mpq_div(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
-                check(lhs/rhs);
-                result=lhs;
-                result/=rhs;
-                check(result);
-                mpq_div(expected.mutable_value(),oracle_rhs.value(),oracle_lhs.value());
-                check(rhs/lhs);
+    // R19: exact source-keyed product and division oracle across all
+    // four cross-GCD classes, both sign masks and both operand orders.
+    std::ifstream r19_file(R19_ORACLE_PATH);
+    if (!r19_file) throw std::runtime_error("Missing Rational R19 TSV");
+    std::string r19_header;
+    while (r19_file.peek()=='#') std::getline(r19_file,r19_header);
+    for (unsigned bits:{53u,128u,256u,1024u,2048u,4096u}) {
+        for (unsigned factor=0u;factor<5u;++factor) {
+            for (unsigned signs=0u;signs<(factor==4u?1u:4u);++signs) {
+                unsigned ref_bits=0u,ref_factor=0u,ref_signs=0u;
+                std::string lhs_text,rhs_text,mul_text,div_text,reverse_text;
+                if (!(r19_file >> ref_bits >> ref_factor >> ref_signs
+                      >> lhs_text >> rhs_text >> mul_text >> div_text >> reverse_text)
+                    || ref_bits!=bits || ref_factor!=factor || ref_signs!=signs)
+                    throw std::runtime_error("Missing or unordered R19 TSV row");
+                const Rational lhs=parse_r16(lhs_text),rhs=parse_r16(rhs_text);
+                verify_fraction(lhs,lhs_text);
+                verify_fraction(rhs,rhs_text);
+                verify_fraction(lhs*rhs,mul_text);
+                verify_fraction(rhs*lhs,mul_text);
+                Rational assigned=lhs;
+                assigned*=rhs;
+                verify_fraction(assigned,mul_text);
+                verify_fraction(lhs/rhs,div_text);
+                assigned=lhs;
+                assigned/=rhs;
+                verify_fraction(assigned,div_text);
+                verify_fraction(rhs/lhs,reverse_text);
+                if (factor==4u) {
+                    Rational self=lhs;
+                    self*=self;
+                    verify_fraction(self,mul_text);
+                    self=lhs;
+                    Rational& alias=self;
+                    self/=alias;
+                    verify_fraction(self,div_text);
+                }
             }
         }
-        // Preserve the existing alias-aware square and self-division.
-        GmpRationalBoundary oracle_self(a);
-        mpq_mul(expected.mutable_value(),oracle_self.value(),oracle_self.value());
-        Rational self=a;
-        self*=self;
-        check(self);
-        mpq_div(expected.mutable_value(),oracle_self.value(),oracle_self.value());
-        self=a;
-        Rational& self_alias=self;
-        self/=self_alias;
-        check(self);
     }
+    std::string r19_extra;
+    if (r19_file >> r19_extra)
+        throw std::runtime_error("Extra R19 TSV rows");
     // R22: scalar exact cancellation, including the even non-power-of-two
     // divisor 14 and both sides of the eight-limb factor-buffer bound.
     for (unsigned bits : {53u,127u,128u,255u,256u,447u,448u,511u,512u,1024u}) {
