@@ -74,10 +74,9 @@ template<class Float> struct BackendPool {
             }
             return Precision{};
         } else {
-            return bits == 53u ? Precision(53_bits)
-                 : bits == 128u ? Precision(128_bits)
-                 : bits == 256u ? Precision(256_bits)
-                                : Precision(1024_bits);
+            // Construct the requested precision, not a predefined fallback.
+            // The benchmark may exercise 2048 bits (or any supported width).
+            return Precision(bits);
         }
     }
 

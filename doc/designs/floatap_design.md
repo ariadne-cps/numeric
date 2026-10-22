@@ -9534,3 +9534,27 @@ for the quotient rounding increment. No new arithmetic kernel, change
 to the public BigUnsigned interface, or change to ties-to-even rounding.
 A standalone Clang/GCC C++20 `-Werror` lookup check passed; the full
 ARM64 build and 3456-case differential regression still need CI validation.
+
+### D66 — enable five-precision FloatMP/FloatAP comparison (22 October 2026)
+
+The benchmark comparison accepts an explicit 2048-bit precision along
+with 53, 128, 256 and 1024 bits via `--bits`. Replace the four-value
+`BackendPool::precision_at` conditional, whose final branch silently
+returned 1024 bits for every other width, with exact construction from
+the requested bit count. This is shared with the FloatDP/FloatAP
+comparison: FloatDP remains restricted to 53 bits by its existing guard.
+Keep the default four-precision selection unchanged to avoid silently
+increasing the cost of existing benchmark invocations. The full
+five-precision command is:
+
+```sh
+./build-bench/benchmarks/benchmark_compare_multiple_precision_backends \\
+  300 7 --bits 53,128,256,1024,2048 --summary-only --details
+```
+
+The timing loop is unchanged; exact cross-backend validation still checks
+all 27 operations and 32 deterministic inputs per precision after timing.
+These measurements must be labeled *transitional*: D64 still converts
+through GMP bridges, and several FloatAP paths retain GMP arithmetic.
+A full optimized build and runtime regression are required before making
+quantitative 2048-bit performance claims.

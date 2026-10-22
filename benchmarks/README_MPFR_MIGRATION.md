@@ -22,7 +22,8 @@ ctest --test-dir build-mpfr -R '^test_float_multipleprecision_backends$' --outpu
 ./build-mpfr/benchmarks/benchmark_compare_multiple_precision_backends 300 7 > mpfr_baseline.csv
 ```
 
-The benchmark runs 53, 128, 256 and 1024-bit cases. It reports
+The benchmark defaults to 53, 128, 256 and 1024-bit cases; explicitly
+pass `--bits 53,128,256,1024,2048` to include 2048 bits. It reports
 `backend,operation,bits,iterations,samples,median_ns`. Deterministic
 preconstructed nontrivial operands, a warm-up, repeated measurements,
 a median, and a compiler escape prevent the most common measurement
@@ -70,7 +71,7 @@ To see **just the summary**, without creating a CSV file:
 To print the individual FloatAP/FloatMP ratios as well:
 
 ```sh
-./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 --summary-only --details
+./build-dual/benchmarks/benchmark_compare_multiple_precision_backends 300 7 --bits 53,128,256,1024,2048 --summary-only --details
 ```
 
 To fail the process if **any** (operation, precision) runs slower
