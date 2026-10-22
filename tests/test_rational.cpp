@@ -453,10 +453,10 @@ void TestRational::test_native_contract() {
                     ref_bits!=bits || ref_mode!=mode) {
                     throw std::runtime_error("Malformed or unordered R28 TSV row");
                 }
-                const Rational a(Integer(String(an)),Integer(String(ad)));
-                const Rational b(Integer(String(bn)),Integer(String(bd)));
-                const Rational sum(Integer(String(sn)),Integer(String(sd)));
-                const Rational difference(Integer(String(dn)),Integer(String(dd)));
+                const Rational a{Integer(String(an)),Integer(String(ad))};
+                const Rational b{Integer(String(bn)),Integer(String(bd))};
+                const Rational sum{Integer(String(sn)),Integer(String(sd))};
+                const Rational difference{Integer(String(dn)),Integer(String(dd))};
                 ARIADNE_TEST_EQUALS(a+b,sum);
                 ARIADNE_TEST_EQUALS(a-b,difference);
                 ARIADNE_TEST_EQUALS(a-a,Rational(0));
