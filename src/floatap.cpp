@@ -60,273 +60,8 @@
 
 namespace Ariadne {
 
-// FloatAP-internal unsigned arithmetic. All implementation details live
-// here; no separate numeric headers or public implementation types.
-// Stack-bounded initial path; private representation of FloatAP only.
-struct FloatAP::SmallUnsigned {
-    static constexpr std::size_t capacity = 18;
-    static constexpr std::uint64_t base = std::uint64_t{1} << 32;
-    std::array<std::uint32_t,capacity> limb{};
-    std::size_t size = 0;
-    void trim() noexcept {
-        while (size != 0 && limb[size-1] == 0) --size;
-    }
-};
-
-std::size_t FloatAP::small_bit_length(SmallUnsigned const& x) noexcept {
-    return x.size == 0 ? 0 :
-        32 * (x.size-1) + 32 -
-        static_cast<std::size_t>(std::countl_zero(x.limb[x.size-1]));
-}
-
-int FloatAP::small_compare(SmallUnsigned const& a, SmallUnsigned const& b) noexcept {
-    if (a.size != b.size) return a.size < b.size ? -1 : 1;
-    for (std::size_t i = a.size; i != 0; --i) {
-        if (a.limb[i-1] != b.limb[i-1])
-            return a.limb[i-1] < b.limb[i-1] ? -1 : 1;
-    }
-    return 0;
-}
-
-bool FloatAP::small_shift_left(SmallUnsigned const& x, std::size_t shift, SmallUnsigned& out) noexcept {
-    out = {};
-    if (x.size == 0) return true;
-    const std::size_t words = shift / 32;
-    const unsigned bits = static_cast<unsigned>(shift % 32);
-    if (words >= SmallUnsigned::capacity || x.size > SmallUnsigned::capacity-words) return false;
-    std::uint64_t carry = 0;
-    for (std::size_t i = 0; i < x.size; ++i) {
-        const std::uint64_t part = (std::uint64_t{x.limb[i]} << bits) | carry;
-        out.limb[i+words] = static_cast<std::uint32_t>(part);
-        carry = part >> 32;
-    }
-    out.size = words+x.size;
-    if (carry != 0) {
-        if (out.size == SmallUnsigned::capacity) return false;
-        out.limb[out.size++] = static_cast<std::uint32_t>(carry);
-    }
-    return true;
-}
-
-void FloatAP::small_shift_right(SmallUnsigned const& x, unsigned bits, SmallUnsigned& out) noexcept {
-    out = {};
-    if (x.size == 0) return;
-    if (bits == 0) { out = x; return; }
-    std::uint32_t carry = 0;
-    for (std::size_t i = x.size; i != 0; --i) {
-        const std::uint32_t here = x.limb[i-1];
-        out.limb[i-1] = static_cast<std::uint32_t>(
-            (here >> bits) | (std::uint64_t{carry} << (32-bits)));
-        carry = here;
-    }
-    out.size = x.size;
-    out.trim();
-}
-
-bool FloatAP::small_increment(SmallUnsigned& x) noexcept {
-    for (std::size_t i = 0; i < x.size; ++i) {
-        if (++x.limb[i] != 0) return true;
-    }
-    if (x.size == SmallUnsigned::capacity) return false;
-    x.limb[x.size++] = 1;
-    return true;
-}
-
-// Normalized SmallUnsigned::base-2^32 long division (Knuth algorithm D).
-// A 64/32 quotient handles the single-limb denominator case.
-// Uses only standard uint32_t/uint64_t and stack storage.
-bool FloatAP::small_divrem(SmallUnsigned const& dividend, SmallUnsigned const& divisor,
-                   SmallUnsigned& quotient, SmallUnsigned& remainder) noexcept {
-    quotient = {};
-    remainder = {};
-    if (divisor.size == 0) return false;
-    if (small_compare(dividend, divisor) < 0) {
-        remainder = dividend;
-        return true;
-    }
-    if (divisor.size == 1) {
-        quotient.size = dividend.size;
-        std::uint64_t r = 0;
-        for (std::size_t i = dividend.size; i != 0; --i) {
-            const std::uint64_t partial = (r << 32) | dividend.limb[i-1];
-            quotient.limb[i-1] =
-                static_cast<std::uint32_t>(partial / divisor.limb[0]);
-            r = partial % divisor.limb[0];
-        }
-        quotient.trim();
-        if (r != 0) {
-            remainder.limb[0] = static_cast<std::uint32_t>(r);
-            remainder.size = 1;
-        }
-        return true;
-    }
-    const unsigned normalization =
-        static_cast<unsigned>(std::countl_zero(divisor.limb[divisor.size-1]));
-    SmallUnsigned v, u;
-    if (!small_shift_left(divisor, normalization, v) ||
-        !small_shift_left(dividend, normalization, u)) return false;
-    const std::size_t n = v.size;
-    const std::size_t m = u.size-n;
-    if (u.size == SmallUnsigned::capacity) return false; // sentinel top word
-    u.limb[u.size] = 0;
-    quotient.size = m+1;
-
-    for (std::size_t offset = m+1; offset != 0; --offset) {
-        const std::size_t j = offset-1;
-        const std::uint64_t top = u.limb[j+n];
-        const std::uint64_t below = u.limb[j+n-1];
-        std::uint64_t estimate, estimated_remainder;
-        if (top >= v.limb[n-1]) {
-            estimate = SmallUnsigned::base-1;
-            estimated_remainder = below + v.limb[n-1];
-        } else {
-            const std::uint64_t numerator = (top << 32) | below;
-            estimate = numerator / v.limb[n-1];
-            estimated_remainder = numerator % v.limb[n-1];
-        }
-        while (estimated_remainder < SmallUnsigned::base &&
-               estimate * v.limb[n-2] >
-               estimated_remainder * SmallUnsigned::base + u.limb[j+n-2]) {
-            --estimate;
-            estimated_remainder += v.limb[n-1];
-        }
-        std::uint64_t carry = 0, borrow = 0;
-        for (std::size_t i = 0; i < n; ++i) {
-            const std::uint64_t product = estimate * v.limb[i] + carry;
-            carry = product >> 32;
-            const std::uint64_t subtrahend = (product & (SmallUnsigned::base-1)) + borrow;
-            borrow = u.limb[j+i] < subtrahend;
-            u.limb[j+i] = static_cast<std::uint32_t>(
-                std::uint64_t{u.limb[j+i]} - subtrahend);
-        }
-        const std::uint64_t final_subtrahend = carry+borrow;
-        const bool overestimate = u.limb[j+n] < final_subtrahend;
-        u.limb[j+n] = static_cast<std::uint32_t>(
-            std::uint64_t{u.limb[j+n]} - final_subtrahend);
-        if (overestimate) {
-            --estimate;
-            std::uint64_t addition_carry = 0;
-            for (std::size_t i = 0; i < n; ++i) {
-                const std::uint64_t sum = std::uint64_t{u.limb[j+i]} +
-                                          v.limb[i] + addition_carry;
-                u.limb[j+i] = static_cast<std::uint32_t>(sum);
-                addition_carry = sum >> 32;
-            }
-            u.limb[j+n] += static_cast<std::uint32_t>(addition_carry);
-        }
-        quotient.limb[j] = static_cast<std::uint32_t>(estimate);
-    }
-    quotient.trim();
-    SmallUnsigned normalized_remainder;
-    normalized_remainder.size = n;
-    for (std::size_t i = 0; i < n; ++i)
-        normalized_remainder.limb[i] = u.limb[i];
-    normalized_remainder.trim();
-    small_shift_right(normalized_remainder, normalization, remainder);
-    return true;
-}
-
-// The adapter is deliberately the only GMP-aware part of the new kernel.
-// GMP's limbs contain the absolute magnitude even for negative integers;
-// the sign is handled by FloatAP metadata independently.
-bool FloatAP::import_small_magnitude(mpz_srcptr input,
-                            SmallUnsigned& result) {
-    const std::size_t bits = mpz_sizeinbase(input,2);
-    if (bits > 64u || mpz_sgn(input) == 0) return false;
-    const std::size_t words = (bits+31u)/32u;
-    result = {};
-    result.size = words;
-#if GMP_NUMB_BITS == 64
-    for (std::size_t i = 0; i < words; ++i) {
-        result.limb[i] = static_cast<std::uint32_t>(
-            mpz_getlimbn(input,static_cast<mp_size_t>(i/2u)) >>
-            (32u * (i%2u)));
-    }
-#elif GMP_NUMB_BITS == 32
-    for (std::size_t i = 0; i < words; ++i) {
-        result.limb[i] = static_cast<std::uint32_t>(
-            mpz_getlimbn(input,static_cast<mp_size_t>(i)));
-    }
-#else
-    return false; // unchanged GMP fallback for other limb layouts
-#endif
-    result.trim();
-    return true;
-}
-
-// Exactly round an unscaled ratio of <=64-bit magnitudes into a
-// <=64-bit significand. The adapter above and output import below
-// are the only GMP dependencies; division and rounding use local limbs.
-// Return false rather than risking insufficient scratch capacity.
-bool FloatAP::small_rounded_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
-                         unsigned long precision, bool negative,
-                         FloatAP::Rounding rounding,
-                         SmallUnsigned& rounded_significand,
-                         FloatAP::Exponent& exponent) {
-    SmallUnsigned n, d, temporary, top, bottom, quotient, remainder;
-    if (!import_small_magnitude(numerator,n) ||
-        !import_small_magnitude(denominator,d)) return false;
-
-    // k = floor(log2(n/d)); ensure comparison is exact even across
-    // powers of two and in the signed-exponent rounding boundary cases.
-    auto k = static_cast<FloatAP::Exponent>(small_bit_length(n)) -
-             static_cast<FloatAP::Exponent>(small_bit_length(d));
-    if (k >= 0) {
-        if (!small_shift_left(d,static_cast<std::size_t>(k),temporary))
-            return false;
-        if (small_compare(n,temporary) < 0) --k;
-    } else {
-        if (!small_shift_left(n,static_cast<std::size_t>(-k),temporary))
-            return false;
-        if (small_compare(temporary,d) < 0) --k;
-    }
-    const auto shift = static_cast<FloatAP::Exponent>(precision-1u) - k;
-    if (shift >= 0) {
-        if (!small_shift_left(n,static_cast<std::size_t>(shift),top))
-            return false;
-        bottom = d;
-    } else {
-        top = n;
-        if (!small_shift_left(d,static_cast<std::size_t>(-shift),bottom))
-            return false;
-    }
-    if (!small_divrem(top,bottom,quotient,remainder)) return false;
-
-    bool increment = false;
-    if (remainder.size != 0u) {
-        switch (rounding.value()) {
-            case FloatAP::Rounding::ToNearest: {
-                SmallUnsigned twice;
-                if (!small_shift_left(remainder,1u,twice)) return false;
-                const int comparison = small_compare(twice,bottom);
-                increment = comparison > 0 ||
-                    (comparison == 0 && (quotient.limb[0] & 1u) != 0u);
-                break;
-            }
-            case FloatAP::Rounding::Downward:
-                increment = negative;
-                break;
-            case FloatAP::Rounding::Upward:
-                increment = !negative;
-                break;
-            case FloatAP::Rounding::TowardZero:
-                break;
-            default:
-                return false;
-        }
-    }
-    if (increment && !small_increment(quotient)) return false;
-    exponent = k - static_cast<FloatAP::Exponent>(precision-1u);
-    if (small_bit_length(quotient) > precision) {
-        SmallUnsigned reduced;
-        small_shift_right(quotient,1u,reduced);
-        quotient = reduced;
-        ++exponent;
-    }
-    rounded_significand = quotient;
-    return true;
-}
-
+// All unsigned arithmetic in FloatAP uses the repository's optimized
+// 64-bit-limb BigUnsigned. No second 32-bit-limb arithmetic engine.
 // Round an already-populated, nonzero positive GMP significand in-place.
 // Keeping the destination as the accumulator avoids extra mpz allocations
 // and signed-integer copies in add_sub() and mul(). The sign is stored
@@ -377,113 +112,104 @@ void FloatAP::round_scaled_integer(FloatAP& result, Exponent scale, Rounding mod
     }
 }
 
-FloatAP FloatAP::from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
-Exponent scale, unsigned long precision, Rounding mode,
-bool negative_zero, bool invert_sign) {
+// D64: exact division and remainder now use the shared native
+// BigUnsigned kernels, including for the old <=64-bit fast path.
+// GMP is temporarily confined to the boundary wrapper and FloatAP
+// significand storage until the remaining storage migration.
+FloatAP FloatAP::from_native_ratio(Integer const& numerator,
+                                  Integer const& denominator,
+                                  Exponent scale, unsigned long precision,
+                                  Rounding mode, bool negative_zero,
+                                  bool invert_sign) {
+    if (denominator.magnitude().is_zero()) {
+        throw std::domain_error("FloatAP zero denominator");
+    }
     FloatAP result(precision);
-    if (mpz_sgn(denominator) == 0) throw std::domain_error("FloatAP zero denominator");
-    if (mpz_sgn(numerator) == 0) {
+    auto const& n = numerator.magnitude();
+    auto const& d = denominator.magnitude();
+    if (n.is_zero()) {
         result.set_zero(negative_zero);
         return result;
     }
-    result._negative = ((mpz_sgn(numerator) < 0) !=
-                        (mpz_sgn(denominator) < 0)) != invert_sign;
+    result._negative =
+        (numerator.negative() != denominator.negative()) != invert_sign;
 
-    // General rational normalization and division are unnecessary when
-    // the denominator is one. Round the existing magnitude in-place.
-    if (mpz_cmp_ui(denominator, 1ul) == 0) {
-        mpz_abs(result._significand, numerator);
-        round_scaled_integer(result, scale, mode);
+    // Identical to the previous GMP-only integer path for denominator 1.
+    if (compare(d,BigUnsigned(1u)) == 0) {
+        integer_to_gmp(result._significand,
+            Integer::from_magnitude(n,false));
+        round_scaled_integer(result,scale,mode);
         return result;
     }
 
-    // Use the exact allocation-free, 32-bit-limb quotient/remainder
-    // kernel only where isolated measurements show a benefit. At 128
-    // bits the portable prototype is slower than GMP: keep its existing
-    // path until a better cross-platform wide-limb algorithm is proven.
-    if (precision <= 64ul) {
-        SmallUnsigned quotient;
-        Exponent quotient_exponent = 0;
-        if (small_rounded_ratio(numerator, denominator, precision,
-                                result._negative, mode,
-                                quotient, quotient_exponent)) {
-            mpz_import(result._significand,quotient.size,-1,
-                       sizeof(std::uint32_t),0,0,quotient.limb.data());
-            result._exponent = checked_add(scale,quotient_exponent);
-            return result;
+    Exponent k=checked_sub(floatap_exponent_from_bit_length(n.bit_length()),
+                           floatap_exponent_from_bit_length(d.bit_length()));
+    const auto nonnegative_shift=[](Exponent e) -> std::size_t {
+        if (e<0 || static_cast<std::uintmax_t>(e)>
+                     std::numeric_limits<std::size_t>::max()) {
+            throw std::overflow_error("FloatAP native shift out of range");
+        }
+        return static_cast<std::size_t>(e);
+    };
+    if (k>=0) {
+        if (compare(n,shift_left(d,nonnegative_shift(k)))<0) {
+            k=checked_sub(k,1);
+        }
+    } else {
+        if (compare(shift_left(n,nonnegative_shift(checked_sub(0,k))),d)<0) {
+            k=checked_sub(k,1);
         }
     }
 
-    // General GMP fallback for larger operands and precision.
-    // Keep exact quotient/remainder rounding unchanged.
-    mpz_t abs_n, abs_d, remainder, scratch;
-    mpz_inits(abs_n, abs_d, remainder, scratch, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b, c, d;
-        ~Cleanup() { mpz_clears(a, b, c, d, nullptr); }
-    } cleanup{abs_n, abs_d, remainder, scratch};
-    mpz_srcptr n = numerator;
-    mpz_srcptr d = denominator;
-    if (mpz_sgn(numerator) < 0) {
-        mpz_abs(abs_n, numerator);
-        n = abs_n;
-    }
-    if (mpz_sgn(denominator) < 0) {
-        mpz_abs(abs_d, denominator);
-        d = abs_d;
-    }
-
-    Exponent k = checked_sub(bit_length(n), bit_length(d));
-    if (k >= 0) {
-        mpz_mul_2exp(scratch, d, shift_amount(k));
-        if (mpz_cmp(n, scratch) < 0) k = checked_sub(k, 1);
+    Exponent const shift=checked_sub(static_cast<Exponent>(precision-1u),k);
+    BigUnsigned dividend;
+    BigUnsigned divisor;
+    if (shift>=0) {
+        dividend=shift_left(n,nonnegative_shift(shift));
+        divisor=d;
     } else {
-        mpz_mul_2exp(scratch, n, shift_amount(checked_sub(0, k)));
-        if (mpz_cmp(scratch, d) < 0) k = checked_sub(k, 1);
+        dividend=n;
+        divisor=shift_left(d,nonnegative_shift(checked_sub(0,shift)));
     }
-
-    const Exponent shift = checked_sub(static_cast<Exponent>(precision - 1), k);
-    mpz_srcptr divisor = d;
-    if (shift >= 0) {
-        mpz_mul_2exp(scratch, n, shift_amount(shift));
-        mpz_tdiv_qr(result._significand, remainder, scratch, d);
-    } else {
-        mpz_mul_2exp(scratch, d, shift_amount(checked_sub(0, shift)));
-        divisor = scratch;
-        mpz_tdiv_qr(result._significand, remainder, n, scratch);
-    }
-
-    bool increment = false;
-    if (mpz_size(remainder) != 0) {
+    auto [quotient,remainder]=divrem(dividend,divisor);
+    bool increment=false;
+    if (!remainder.is_zero()) {
         switch (mode.value()) {
-            case Rounding::ToNearest:
-                mpz_mul_2exp(remainder, remainder, 1);
-                increment = mpz_cmp(remainder, divisor) > 0 ||
-                    (mpz_cmp(remainder, divisor) == 0 &&
-                     mpz_odd_p(result._significand));
+            case Rounding::ToNearest: {
+                auto const twice=add(remainder,remainder);
+                int const order=compare(twice,divisor);
+                increment=order>0 || (order==0 && (quotient.limb(0u)&1u));
                 break;
-            case Rounding::Downward:
-                increment = result._negative;
-                break;
-            case Rounding::Upward:
-                increment = !result._negative;
-                break;
-            case Rounding::TowardZero:
-                break;
-            default:
-                throw std::invalid_argument("FloatAP unknown rounding mode");
+            }
+            case Rounding::Downward: increment=result._negative; break;
+            case Rounding::Upward: increment=!result._negative; break;
+            case Rounding::TowardZero: break;
+            default: throw std::invalid_argument("FloatAP unknown rounding mode");
         }
     }
-    if (increment) mpz_add_ui(result._significand, result._significand, 1);
-    result._exponent = checked_add(scale, checked_sub(k, static_cast<Exponent>(precision - 1)));
-    if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
-        mpz_tdiv_q_2exp(result._significand, result._significand, 1);
-        if (result._exponent == std::numeric_limits<Exponent>::max()) {
-            return infinity(precision, result._negative);
+    if (increment) quotient=add(quotient,BigUnsigned(1u));
+    result._exponent=checked_add(
+        scale,checked_sub(k,static_cast<Exponent>(precision-1u)));
+    if (quotient.bit_length()>precision) {
+        quotient=shift_right(quotient,1u);
+        if (result._exponent==std::numeric_limits<Exponent>::max()) {
+            return infinity(precision,result._negative);
         }
-        result._exponent = checked_add(result._exponent, 1);
+        result._exponent=checked_add(result._exponent,1);
     }
+    integer_to_gmp(result._significand,
+        Integer::from_magnitude(std::move(quotient),false));
     return result;
+}
+
+// Transitional GMP-facing entry point. No GMP arithmetic is performed
+// in the ratio computation; remove this adapter with mpz_t storage.
+FloatAP FloatAP::from_ratio(mpz_srcptr numerator,mpz_srcptr denominator,
+                            Exponent scale,unsigned long precision,
+                            Rounding mode,bool negative_zero,bool invert_sign) {
+    return from_native_ratio(integer_from_gmp(numerator),
+                             integer_from_gmp(denominator),scale,precision,
+                             mode,negative_zero,invert_sign);
 }
 
 FloatAP FloatAP::from_integer(mpz_srcptr n, unsigned long p, Rounding mode) {

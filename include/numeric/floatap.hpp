@@ -151,20 +151,13 @@ template<> class Float<ArbitraryPrecision> {
     using Exponent = std::int64_t;
 
   private:
-    // Existing <=64-bit numerator/denominator fast path, retained from
-    // the beginning of remove-gmp. Larger divisions use GMP until the
-    // separately designed shared native limb substrate is validated.
-    struct SmallUnsigned;
-    static std::size_t small_bit_length(SmallUnsigned const&) noexcept;
-    static int small_compare(SmallUnsigned const&,SmallUnsigned const&) noexcept;
-    static bool small_shift_left(SmallUnsigned const&,std::size_t,SmallUnsigned&) noexcept;
-    static void small_shift_right(SmallUnsigned const&,unsigned,SmallUnsigned&) noexcept;
-    static bool small_increment(SmallUnsigned&) noexcept;
-    static bool small_divrem(SmallUnsigned const&,SmallUnsigned const&,
-                             SmallUnsigned&,SmallUnsigned&) noexcept;
-    static bool import_small_magnitude(mpz_srcptr,SmallUnsigned&);
-    static bool small_rounded_ratio(mpz_srcptr,mpz_srcptr,unsigned long,bool,
-                                    Rounding,SmallUnsigned&,Exponent&);
+    // Shared unsigned arithmetic uses BigUnsigned. The mpz_t member and
+    // its remaining callers are transitional until full storage removal.
+    static FloatAP from_native_ratio(Integer const& numerator,
+                                     Integer const& denominator,
+                                     Exponent scale,unsigned long precision,
+                                     Rounding mode,bool negative_zero=false,
+                                     bool invert_sign=false);
     mpz_t _significand;
     unsigned long _precision;
     Exponent _exponent = 0;

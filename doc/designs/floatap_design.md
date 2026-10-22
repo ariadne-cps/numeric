@@ -9501,3 +9501,23 @@ Nat's representable range in `Real::get(ArbitraryPrecision)`,
 then cast to Nat, removing MSVC C4267 under /WX without silently
 truncating. ARM64 and Windows compilation and tests must still verify
 the fixes.
+
+### D64 — replace FloatAP's private 32-bit limb kernel and GMP ratio division (22 October 2026)
+
+Migration-first change, not a performance milestone. Remove the entire
+FloatAP::SmallUnsigned 32-bit limb representation, its custom Knuth
+division and GMP-based import/export fast path. Replace both that
+<=64-bit kernel and the larger GMP quotient/remainder fallback in
+from_ratio with one exact native implementation using the project's
+optimized BigUnsigned (64-bit limbs, divrem/shift_left/compare/add).
+Preserve all four IEEE rounding modes, round-to-nearest ties-to-even,
+separate sign and signed zero, exponent adjustment and carry overflow.
+The temporary mpz_srcptr-facing from_ratio adapter converts input
+values to native Integer; after the calculation only the existing
+mpz_t significand storage is written through the transitional
+Integer GMP bridge. GMP storage, printing, transcendental internals,
+and other paths are NOT removed by this commit and require explicit
+successive migrations. Do not benchmark this intermediate boundary
+cost or claim FloatAP is GMP-free until the final grep and runtime
+regression are clean. Validate the 3456-case FloatMP/FloatAP
+differential baseline on ARM64 and x86-64, including all directed modes.
