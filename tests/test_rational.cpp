@@ -64,6 +64,7 @@ inline constexpr char R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r8.tsv
 inline constexpr char R28_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r28.tsv";
 inline constexpr char R4_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r4.tsv";
 inline constexpr char R16_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r16.tsv";
+inline constexpr char R0_RANDOM_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_random.tsv";
 
 constexpr bool check_concept()
 {
@@ -734,46 +735,85 @@ void TestRational::test_gmp_differential() {
         mpz_gcd(common.mutable_value(),mpq_numref(actual.value()),mpq_denref(actual.value()));
         canonical=canonical && mpz_cmp_ui(common.value(),1u)==0 && mpz_sgn(mpq_denref(actual.value()))>0;
     };
-    for (unsigned int i=0u; i!=1200u; ++i) {
-        const std::size_t count=1u+(i%17u);
-        std::vector<std::uint64_t> words(count);
-        auto integer=[&](bool nonzero) {
-            for (auto& word : words) { word=random(); }
-            if (nonzero) { words.back()|=1u; }
-            if (!nonzero && i%13u==0u) { std::fill(words.begin(),words.end(),0u); }
-            return Integer::from_magnitude(BigUnsigned(words),(random()&1u)!=0u);
-        };
-        const Integer an=integer(false),ad=integer(true),bn=integer(false),bd=integer(true);
-        const Rational a(an,ad),b(bn,bd);
-        integer_to_gmp(mpq_numref(ga.mutable_value()),an);
-        integer_to_gmp(mpq_denref(ga.mutable_value()),ad);
-        mpq_canonicalize(ga.mutable_value());
-        integer_to_gmp(mpq_numref(gb.mutable_value()),bn);
-        integer_to_gmp(mpq_denref(gb.mutable_value()),bd);
-        mpq_canonicalize(gb.mutable_value());
-        mpq_set(expected.mutable_value(),ga.value()); check(a);
-        // Temporary forward-only comparison until this random oracle is frozen.
-        GmpIntegerBoundary integral,actual_integral;
-        mpz_fdiv_q(integral.mutable_value(),mpq_numref(ga.value()),mpq_denref(ga.value()));
-        integer_to_gmp(actual_integral.mutable_value(),floor(a));
-        operations_match=operations_match &&
-            mpz_cmp(actual_integral.value(),integral.value())==0;
-        mpz_cdiv_q(integral.mutable_value(),mpq_numref(ga.value()),mpq_denref(ga.value()));
-        integer_to_gmp(actual_integral.mutable_value(),ceil(a));
-        operations_match=operations_match &&
-            mpz_cmp(actual_integral.value(),integral.value())==0;
-        mpq_add(expected.mutable_value(),ga.value(),gb.value()); check(a+b);
-        mpq_sub(expected.mutable_value(),ga.value(),gb.value()); check(a-b);
-        mpq_mul(expected.mutable_value(),ga.value(),gb.value()); check(a*b);
-        mpq_mul(expected.mutable_value(),ga.value(),ga.value()); check(sqr(a));
-        mpq_div_2exp(expected.mutable_value(),ga.value(),1u); check(hlf(a));
-        if (!is_zero(b)) { mpq_div(expected.mutable_value(),ga.value(),gb.value()); check(a/b); }
-        if (!is_zero(a)) { mpq_inv(expected.mutable_value(),ga.value()); check(rec(a)); }
-        const int order=mpq_cmp(ga.value(),gb.value());
-        const Comparison want=order<0 ? Comparison::LESS : order>0 ? Comparison::GREATER : Comparison::EQUAL;
-        operations_match=operations_match && cmp(a,b)==want && bool(a==b)==bool(mpq_equal(ga.value(),gb.value()));
-        conversion_matches=conversion_matches &&
-            std::bit_cast<std::uint64_t>(a.get_d())==std::bit_cast<std::uint64_t>(mpq_get_d(ga.value()));
+    // R0: 120 independently frozen representatives of the original
+    // 1200 seeded random visits. One representative per ten visits;
+    // all 17 input widths and source-sign classes remain represented.
+    std::ifstream random_fixture(R0_RANDOM_ORACLE_PATH);
+    if (!random_fixture)
+        throw std::runtime_error("Missing Rational random TSV");
+    std::string random_header;
+    while (random_fixture.peek()=='#')
+        std::getline(random_fixture,random_header);
+    const auto verify_fraction=[](Rational const& actual,
+                                  std::string const& expected) {
+        const std::size_t slash=expected.find('/');
+        if (slash==std::string::npos)
+            throw std::runtime_error("Invalid Rational exact TSV fraction");
+        const Integer numerator{String(expected.substr(0u,slash))};
+        const Integer denominator{String(expected.substr(slash+1u))};
+        ARIADNE_TEST_EQUALS(actual.numerator(),numerator);
+        ARIADNE_TEST_EQUALS(actual.denominator(),denominator);
+    };
+    for (unsigned sample=0u;sample<120u;++sample) {
+        unsigned original=0u;
+        std::size_t width=0u;
+        std::string an,ad,bn,bd,source_a,source_b;
+        std::string sum,difference,product,squared,halved;
+        std::string quotient,reciprocal,floored,ceiled,binary64;
+        int order=2;
+        if (!(random_fixture >> original >> width >> an >> ad >> bn >> bd
+              >> source_a >> source_b >> sum >> difference >> product
+              >> squared >> halved >> quotient >> reciprocal
+              >> floored >> ceiled >> order >> binary64)
+            || original/10u!=sample || width!=1u+original%17u
+            || order < -1 || order > 1 || binary64.size()!=16u) {
+            throw std::runtime_error("Missing or unordered Rational random TSV row");
+        }
+        const Rational a{Integer(String(an)),Integer(String(ad))};
+        const Rational b{Integer(String(bn)),Integer(String(bd))};
+        verify_fraction(a,source_a);
+        verify_fraction(b,source_b);
+        verify_fraction(a+b,sum);
+        verify_fraction(a-b,difference);
+        verify_fraction(a*b,product);
+        verify_fraction(sqr(a),squared);
+        verify_fraction(hlf(a),halved);
+        if (quotient=="-") {
+            ARIADNE_TEST_ASSERT(is_zero(b));
+        } else {
+            ARIADNE_TEST_ASSERT(!is_zero(b));
+            verify_fraction(a/b,quotient);
+        }
+        if (reciprocal=="-") {
+            ARIADNE_TEST_ASSERT(is_zero(a));
+        } else {
+            ARIADNE_TEST_ASSERT(!is_zero(a));
+            verify_fraction(rec(a),reciprocal);
+        }
+        ARIADNE_TEST_EQUALS(floor(a),Integer(String(floored)));
+        ARIADNE_TEST_EQUALS(ceil(a),Integer(String(ceiled)));
+        const Comparison want=order<0 ? Comparison::LESS
+            : order>0 ? Comparison::GREATER : Comparison::EQUAL;
+        ARIADNE_TEST_EQUALS(cmp(a,b),want);
+        ARIADNE_TEST_EQUALS(bool(a==b),order==0);
+        const std::uint64_t expected_bits=static_cast<std::uint64_t>(
+            std::stoull(binary64,nullptr,16));
+        ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(a.get_d()),
+                            expected_bits);
+    }
+    std::string random_extra;
+    if (random_fixture >> random_extra)
+        throw std::runtime_error("Extra Rational random TSV rows");
+
+    // R29/R13 reuse this engine. Preserve precisely the 1200 original
+    // mt19937_64 streams, but perform no discarded GMP calculations.
+    // Each original iteration read four word vectors and four sign bits.
+    for (unsigned iteration=0u;iteration<1200u;++iteration) {
+        const std::size_t count=1u+iteration%17u;
+        for (unsigned operand=0u;operand<4u;++operand) {
+            for (std::size_t word=0u;word<count;++word) (void)random();
+            (void)random();
+        }
     }
     // R16: all original operand widths, GCD classes and both orders.
     // Independent exact expectations are frozen with canonical operands.
