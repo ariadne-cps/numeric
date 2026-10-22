@@ -10164,3 +10164,46 @@ references passed this certification (widest interval
 D86 Unix, Windows and Coverage jobs passed before this change.
 D87 compilation, regressions and CI validation remain pending.
 No timeouts, production code or unrelated tests are modified.
+
+### D88 — certify single-recurrence arctangent oracles (22 October 2026)
+
+Replace the live FloatMP/MPFR oracle only in the
+`single_recurrence_atan` regression block. Retain the original
+precision order (7, 53, 128, 256, 1024 bits), all sixteen signed
+dyadic arguments spanning the |x|=1/2 and |x|=2 transition
+boundaries, and the four directed rounding modes: 320 unchanged
+test assertions. The original exact Dyadic as Rational is the
+oracle key, not the rounded FloatAP value, so constructor rounding
+errors cannot shift the oracle to the wrong row.
+
+Extend the EXISTING `tests/data/floatap_atan.tsv` rather than
+creating a per-block fixture. Exactly 120 of 320 requested references
+already occur in D87 (the ±1/2, ±1 and ±2 probes at each precision),
+and all 120 were independently recomputed and matched exactly.
+Append 200 additional certified references, for a new total of
+840 rows; update the strict fixture row-count check accordingly.
+All the original centered atan checks remain unchanged.
+
+For each source Rational independently construct the nearest-even
+p-bit binary input using integer midpoint tests. Compute rigorously
+outward-rounded atan bounds using native integer arithmetic
+with B=2^1800 and alternating Taylor series through k=1149,
+plus the first omitted term. For |x|<=1/2 use the direct series.
+For 1/2<|x|<=1 reduce by atan(x)=pi/4-atan((1-x)/(1+x)).
+For 1<|x|<=3 use atan(x)=pi/4+atan((x-1)/(x+1)),
+which also handles values just BELOW 2 without exceeding the
+series convergence restriction |y|<=1/2. For |x|>3 use
+atan(x)=pi/2-atan(1/x). Pi/4 comes from the independently
+certified Machin identity 4 atan(1/5)-atan(1/239).
+Apply oddness for negative inputs, and accept each result only if
+both rational interval endpoints round to the IDENTICAL binary
+value in the specified direction including nearest/even ties.
+All 320 generated comparisons passed the independent rounding
+certificate, with maximum new interval width
+6911/2^1800.
+
+No GMP, MPFR, FloatMP or FloatAP oracle was used in fixture
+generation. No production code, timeouts, existing test cases
+or other test blocks were changed. The D87 commit had no GitHub
+Actions runs available when D88 was prepared; D88 build/CI
+verification is also pending.

@@ -243,7 +243,7 @@ Rational const& floatap_atan_golden(std::size_t bits,
                                     FloatAP::RoundingModeType mode,
                                     Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
-        ARIADNE_FLOATAP_ATAN_ORACLE_PATH,640u);
+        ARIADNE_FLOATAP_ATAN_ORACLE_PATH,840u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 
@@ -1654,13 +1654,13 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Single-recurrence atan certification: test the transitions
-            // at |x|=1/2 and |x|=2, small arguments, and both signs.
-            // The oracle uses precisely the FloatAP input value.
+            // Single-recurrence atan certification at |x|=1/2 and |x|=2,
+            // small arguments, both signs, and all directed modes.
+            // Use an independently certified exact binary oracle, keyed
+            // by the original Dyadic source before input rounding.
             FloatAPPhaseTiming timing_single_recurrence_atan("single_recurrence_atan",precision.bits());
             for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 for (Dyadic const& argument :
                      {Dyadic(1,64u),Dyadic(-1,64u),
                       Dyadic(255,9u),Dyadic(-255,9u),
@@ -1671,17 +1671,16 @@ TestFloatRounding<PR>::test_precision_regressions()
                       Dyadic(2,0u),Dyadic(-2,0u),
                       Dyadic(1025,9u),Dyadic(-1025,9u)}) {
                     const FloatAP a(Rational(argument),FloatAP::ROUND_TO_NEAREST,ap);
-                    const FloatMP m(static_cast<Rational>(a),
-                                    FloatMP::ROUND_TO_NEAREST,mp);
-                    const auto check_atan=[&](auto ap_mode,auto mp_mode) {
+                    const auto check_atan=[&](auto ap_mode) {
                         ARIADNE_TEST_EQUALS(
                             static_cast<Rational>(atan(ap_mode,a)),
-                            static_cast<Rational>(atan(mp_mode,m)));
+                            floatap_atan_golden(
+                                ap.bits(),ap_mode,Rational(argument)));
                     };
-                    check_atan(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                    check_atan(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                    check_atan(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                    check_atan(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    check_atan(FloatAP::ROUND_TO_NEAREST);
+                    check_atan(FloatAP::ROUND_DOWNWARD);
+                    check_atan(FloatAP::ROUND_UPWARD);
+                    check_atan(FloatAP::ROUND_TOWARD_ZERO);
                 }
             }
         }
