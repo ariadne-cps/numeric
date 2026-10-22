@@ -45,6 +45,10 @@
 
 #include <gmp.h>
 
+#ifndef ARIADNE_INTEGER_SUB_ORACLE_PATH
+#error "Provide the Integer subtraction oracle TSV path from CMake"
+#endif
+
 #ifndef ARIADNE_INTEGER_POWER_ORACLE_PATH
 #error "Provide the Integer power oracle TSV path from CMake"
 #endif
@@ -446,70 +450,41 @@ void TestInteger::test_native() {
     };
     GMP a,b,expected,quotient,remainder;
 
-    // B41: compare direct signed subtraction with independent GMP
-    // across all sign pairs, equal/unequal widths and long common
-    // high prefixes. This also checks x-=y and the x-=x alias case.
-    std::mt19937_64 sub_engine(0xB41D1FFULL);
-    for (const std::size_t count:
-            {1u,2u,7u,8u,16u,32u,64u,128u}) {
-        for (unsigned repetition=0u;repetition<24u;++repetition) {
-            std::vector<std::uint64_t> left(count),right(count);
-            for (auto& word:left) word=sub_engine();
-            for (auto& word:right) word=sub_engine();
-            switch (repetition%6u) {
-            case 0u: // Exact equal values.
-                right=left;
-                break;
-            case 1u: // Lower limb differs, high prefix cancels.
-                right=left;
-                left[0u]=std::numeric_limits<std::uint64_t>::max();
-                right[0u]=0u;
-                break;
-            case 2u: // Reversed ordering of low word.
-                right=left;
-                left[0u]=0u;
-                right[0u]=std::numeric_limits<std::uint64_t>::max();
-                break;
-            case 3u: // Same sign and opposite sign over zero.
-                std::fill(left.begin(),left.end(),0u);
-                break;
-            case 4u: // Different canonical widths.
-                right.back()=0u;
-                break;
-            default: // Independent dense values.
-                break;
-            }
-            mpz_import(a.value,left.size(),-1,sizeof(std::uint64_t),
-                       0,0,left.data());
-            mpz_import(b.value,right.size(),-1,sizeof(std::uint64_t),
-                       0,0,right.data());
-            for (unsigned sign_mode=0u;sign_mode<4u;++sign_mode) {
-                if ((sign_mode&1u)!=0u) mpz_neg(a.value,a.value);
-                if ((sign_mode&2u)!=0u) mpz_neg(b.value,b.value);
-                const Integer lhs=integer_from_gmp(a.value);
-                const Integer rhs=integer_from_gmp(b.value);
-                mpz_sub(expected.value,a.value,b.value);
-                const GmpIntegerBoundary native_sub(lhs-rhs);
-                ARIADNE_TEST_ASSERT(
-                    mpz_cmp(native_sub.value(),expected.value)==0);
+    // B41: six structural classes x four sign pairs x eight widths.
+    // Source and expected values are independently frozen, with no GMP
+    // calls in this differential test. Self-aliasing remains covered.
+    std::ifstream sub_fixture(ARIADNE_INTEGER_SUB_ORACLE_PATH);
+    if (!sub_fixture) throw std::runtime_error("Missing Integer subtraction TSV");
+    std::string sub_header;
+    while (sub_fixture.peek()=='#') std::getline(sub_fixture,sub_header);
+    for (const std::size_t width:{1u,2u,7u,8u,16u,32u,64u,128u}) {
+        for (unsigned mode=0u;mode<6u;++mode) {
+            for (unsigned signs=0u;signs<4u;++signs) {
+                std::size_t ref_width=0u;
+                unsigned ref_mode=0u,ref_signs=0u;
+                std::string raw_lhs,raw_rhs,raw_expected;
+                if (!(sub_fixture >> ref_width >> ref_mode >> ref_signs >>
+                                  raw_lhs >> raw_rhs >> raw_expected) ||
+                    ref_width!=width || ref_mode!=mode || ref_signs!=signs) {
+                    throw std::runtime_error("Missing or unordered Integer subtraction TSV row");
+                }
+                const Integer lhs{String(raw_lhs)},rhs{String(raw_rhs)};
+                const Integer expected_sub{String(raw_expected)};
+                ARIADNE_TEST_EQUALS(lhs-rhs,expected_sub);
                 Integer assigned=lhs;
                 assigned-=rhs;
-                const GmpIntegerBoundary assigned_sub(assigned);
-                ARIADNE_TEST_ASSERT(
-                    mpz_cmp(assigned_sub.value(),expected.value)==0);
+                ARIADNE_TEST_EQUALS(assigned,expected_sub);
                 Integer aliased=lhs;
-                // B41.1: preserve the exact same-object '-=' test
-                // without Clang's -Wself-assign-overloaded diagnostic.
-                // The const reference denotes 'aliased', not a copy.
                 Integer const& same_object=aliased;
                 aliased-=same_object;
                 ARIADNE_TEST_ASSERT(aliased==0);
                 ARIADNE_TEST_ASSERT(!aliased.negative());
-                if ((sign_mode&1u)!=0u) mpz_neg(a.value,a.value);
-                if ((sign_mode&2u)!=0u) mpz_neg(b.value,b.value);
             }
         }
     }
+    std::string sub_extra;
+    if (sub_fixture >> sub_extra)
+        throw std::runtime_error("Extra Integer subtraction TSV rows");
 
     // B32: independent frozen exact signed-power reference; retain all
     // sign/width cases and sample exponent bit patterns at boundaries.
