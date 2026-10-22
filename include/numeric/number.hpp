@@ -36,6 +36,7 @@
 #include "utility/prototype.hpp"
 
 #include "foundation/logical.decl.hpp"
+#include "numeric/logical_pointer.hpp"
 #include "number.decl.hpp"
 #include "float.decl.hpp"
 
@@ -219,9 +220,9 @@ template<class P> class Number
 
 
     friend LogicalType<EqualityInformation<P>> operator==(Number<P> const& y1, Number<P> const& y2) {
-        return Detail::logical_type_from_pointer<EqualityInformation<P>>(y1.ref()._apply(BinaryComparisonOperator(Equal()),y2.ptr())); }
+        return Detail::logical_type_from_owned_pointer<EqualityInformation<P>>(y1.ref()._apply(BinaryComparisonOperator(Equal()),y2.ptr())); }
     friend LogicalType<LessThanInformation<P>> operator< (Number<P> const& y1, Number<P> const& y2) {
-        return Detail::logical_type_from_pointer<LessThanInformation<P>>(y1.ref()._apply(BinaryComparisonOperator(Less()),y2.ptr())); }
+        return Detail::logical_type_from_owned_pointer<LessThanInformation<P>>(y1.ref()._apply(BinaryComparisonOperator(Less()),y2.ptr())); }
     friend LogicalType<LessThanInformation<P>> operator> (Number<P> const& y1, Number<P> const& y2) { return (y2<y1); } //!< <p/>
     friend LogicalNegationType<LogicalType<EqualityInformation<P>>> operator!=(Number<P> const& y1, Number<P> const& y2) { return !(y1==y2); } //!< <p/>
     friend LogicalType<LessThanInformation<P>> operator<=(Number<P> const& y1, Number<P> const& y2) { return !(y1>y2); } //!< <p/>

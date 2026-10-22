@@ -89,8 +89,10 @@ FloatMP::Float(TwoExp const& t, MultiplePrecision pr) {
 }
 
 FloatMP::Float(Dyadic const& w, MultiplePrecision pr) : FloatMP(w,near,pr) {
-    if (cmp(Dyadic(*this),w)!=Comparison::EQUAL && !is_nan(w))
+    if (cmp(Dyadic(*this),w)!=Comparison::EQUAL && !is_nan(w)) {
+        mpfr_clear(_mpfr);
         ARIADNE_THROW(std::runtime_error,"Float(Dyadic)","Dyadic \""<<w<<"\" is not an exact floating-point number with precision " << pr << ".");
+    }
 }
 
 FloatMP::Float(String const& str, MultiplePrecision pr) : FloatMP(Dyadic(str),pr) {
