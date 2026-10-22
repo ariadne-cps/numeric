@@ -23,7 +23,6 @@
  */
 
 #include "numeric/integer.hpp"
-#include "numeric/detail/integer_gmp_bridge.hpp"
 #include "numeric/int.hpp"
 #include "numeric/twoexp.hpp"
 #include "numeric/accuracy.hpp"
@@ -42,7 +41,6 @@
 #include <string>
 #include <vector>
 
-#include <gmp.h>
 
 inline constexpr char ARIADNE_INTEGER_SUB_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_sub.tsv";
 
@@ -205,10 +203,6 @@ void TestInteger::test_constructors() {
     ARIADNE_TEST_EQUALS(z4,zn*zn+zn);
 
     ARIADNE_TEST_EQUALS(Integer(Nat32(7)),Integer(7));
-    mpz_t raw;
-    mpz_init_set_si(raw,-17);
-    ARIADNE_TEST_EQUALS(integer_from_gmp(raw),Integer(-17));
-    mpz_clear(raw);
 
     Integer assigned(1);
     Integer source(9);
