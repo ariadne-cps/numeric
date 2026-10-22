@@ -9968,3 +9968,40 @@ removes repeated MPFR oracle evaluation in the selected test block.
 The other FloatMP-dependent numerical tests still need migration,
 and no Windows timeout adjustment is made. Build and test validation
 are pending after commit.
+
+### D83 — freeze correctly rounded integer square-root oracles (22 October 2026)
+
+Replace the single FloatMP square-root differential block in
+`test_precision_regressions()` with an offline exact-arithmetic
+oracle. Preserve all five precision widths (7, 53, 128, 256, 1024
+bits), the fourteen source Rational values including boundaries near
+one/four and perfect squares, all four large and small binary shifts
+of FloatAP(5/4), and all four rounding modes. The original 5 x 18 x
+4 = 360 assertions remain, with no timeout or production change.
+
+Store 300 distinct golden rows directly in `tests/data/floatap_sqrt.tsv`
+(60 repeated checks correspond to distinct sources rounding to the
+same binary input). Format: precision, mode, exact input Rational after
+nearest/even rounding to the tested precision, expected rounded square
+root Rational. All original test calls still execute.
+
+Offline generation uses ONLY signed arbitrary-precision integer
+arithmetic; no FloatAP, FloatMP, GMP or MPFR. For positive input n/d:
+compute k=floor(log2(n/d)), sqrt exponent e=floor(k/2)-p+1,
+and exact rational A/B=(n/d)*2^(-2e). Let
+q=isqrt(floor(A/B)), and verify the strict integer bounds
+q^2*B <= A < (q+1)^2*B. For nearest rounding compare
+4*A versus (2q+1)^2*B, resolving equality by even q.
+Downward/toward-zero choose q; upward increments iff
+q^2*B!=A. Normalize any p-bit mantissa carry and save
+the exact canonical rational output. Verify for each distinct
+positive input that DOWN <= NEAREST <= UP and ZERO == DOWN.
+These integer inequalities certify each golden result.
+
+Reuse the existing finite-rational map loader directly inside
+`tests/test_float_rounding.cpp`; add only a new CMake absolute
+source-path definition. All other MPFR-dependent regressions,
+including logarithm and trigonometric tests, remain unchanged.
+A successful CI build and numerical run are still required before
+declaring the change regression tested. The known Windows timeout
+is deferred until the end of FloatMP migration, as requested.

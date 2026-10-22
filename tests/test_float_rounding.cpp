@@ -89,6 +89,9 @@ static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 #ifndef ARIADNE_FLOATAP_POW_ORACLE_PATH
 #error "Provide the FloatAP integer-power fixture path from CMake"
 #endif
+#ifndef ARIADNE_FLOATAP_SQRT_ORACLE_PATH
+#error "Provide the FloatAP square-root fixture path from CMake"
+#endif
 // Exact references, keyed by precision, mode, and the rational input.
 // Ordered lookup avoids quadratic duplicate checking and linear scans as
 // the frozen oracle dataset grows. The comparator uses exact Rational order.
@@ -178,6 +181,13 @@ Rational const& floatap_exp_golden(std::size_t bits,
                                    Rational const& input) {
     static const auto rows=load_floatap_golden_rows(
         ARIADNE_FLOATAP_EXP_ORACLE_PATH,288u);
+    return find_floatap_golden(rows,bits,mode,input);
+}
+Rational const& floatap_sqrt_golden(std::size_t bits,
+                                    FloatAP::RoundingModeType mode,
+                                    Rational const& input) {
+    static const auto rows=load_floatap_golden_rows(
+        ARIADNE_FLOATAP_SQRT_ORACLE_PATH,300u);
     return find_floatap_golden(rows,bits,mode,input);
 }
  
@@ -1033,14 +1043,12 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Integer square-root remainder controls nearest rounding:
-            // probe exact roots, both sides of rounding boundaries,
-            // carry near binary powers, scale parity and wide exponent
-            // shifts. Compare the same rounded AP input with MPFR in all
-            // four rounding modes, without changing earlier tests.
+            // Integer square-root remainder and halfway rounding:
+            // freeze the correctly rounded results computed independently
+            // from exact integer square root and midpoint comparisons.
+            // Keep the same rounded inputs and all four rounding modes.
             for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 const Rational step(Integer(1),
                                     pow(Integer(2),Nat(ap.bits())));
                 const Rational exact_values[]={
@@ -1051,18 +1059,16 @@ TestFloatRounding<PR>::test_precision_regressions()
                     Rational(4)-step,Rational(4)+step
                 };
                 const auto check=[&](FloatAP const& input) {
-                    const FloatMP reference_input(
-                        static_cast<Rational>(input),
-                        FloatMP::ROUND_TO_NEAREST,mp);
-                    const auto check_mode=[&](auto am,auto mm) {
+                    const Rational exact_input=static_cast<Rational>(input);
+                    const auto check_mode=[&](auto am) {
                         ARIADNE_TEST_EQUALS(
                             static_cast<Rational>(sqrt(am,input)),
-                            static_cast<Rational>(sqrt(mm,reference_input)));
+                            floatap_sqrt_golden(ap.bits(),am,exact_input));
                     };
-                    check_mode(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                    check_mode(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                    check_mode(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                    check_mode(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    check_mode(FloatAP::ROUND_TO_NEAREST);
+                    check_mode(FloatAP::ROUND_DOWNWARD);
+                    check_mode(FloatAP::ROUND_UPWARD);
+                    check_mode(FloatAP::ROUND_TOWARD_ZERO);
                 };
                 for (Rational const& value : exact_values) {
                     check(FloatAP(value,FloatAP::ROUND_TO_NEAREST,ap));

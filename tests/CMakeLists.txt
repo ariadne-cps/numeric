@@ -41,6 +41,7 @@ target_compile_definitions(test_float_rounding PRIVATE
     "ARIADNE_FLOATAP_ADD_SUB_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_add_sub.tsv\""
     "ARIADNE_FLOATAP_EXP_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_exp.tsv\""
     "ARIADNE_FLOATAP_POW_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_pow.tsv\""
+    "ARIADNE_FLOATAP_SQRT_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_sqrt.tsv\""
 )
 
 add_library(check_numeric OBJECT check_numeric.cpp)
