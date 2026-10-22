@@ -9754,3 +9754,16 @@ the compiler were consequences of the incorrect declarations.
 The fixture set (232 entries), test inputs, expected values and checks
 are unchanged. This source-level change still requires CI compilation
 and execution; it is not evidence of a passing numerical regression.
+
+### D77 — preserve size_t bit precision in golden-oracle lookup (22 October 2026)
+
+MSVC v14.51 on Windows failed `test_float_rounding.cpp` with three
+C4267 warnings under /W4 /WX: each call to `floatap_golden(p.bits(),...)`
+narrowed `ArbitraryPrecision::bits()` (`std::size_t`, 64-bit on the
+runner) into `unsigned long` (32-bit on Windows). Use
+`std::size_t` consistently for `FloatAPGoldenRow::bits`, the TSV
+parser's local bit count and the lookup function parameter. Add a
+direct `<cstddef>` include. This preserves the full precision type,
+does not introduce unchecked casts and does not modify fixture data,
+test inputs, expected outputs, modes, or timeouts. The source-level
+fix still needs Windows CI build and runtime validation.

@@ -24,6 +24,7 @@
 
 #include <bit>
 #include <chrono>
+#include <cstddef>
 #include <iostream>
 #include <cassert>
 #include <cstdint>
@@ -80,7 +81,7 @@ static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 #endif
 // All fixture handling lives in this test, not an extra library or TU.
 struct FloatAPGoldenRow {
-    unsigned long bits;
+    std::size_t bits;
     char mode;
     Rational input;
     Rational expected;
@@ -96,7 +97,7 @@ std::vector<FloatAPGoldenRow> load_floatap_golden_rows() {
         ++line_number;
         if (line.empty() || line[0]=='#') continue;
         std::istringstream fields(line);
-        unsigned long bits=0ul;
+        std::size_t bits=0u;
         std::string tag,in_num,in_den,out_num,out_den,extra;
         if (!(fields>>bits>>tag>>in_num>>in_den>>out_num>>out_den)
             || (fields>>extra)) {
@@ -121,7 +122,7 @@ std::vector<FloatAPGoldenRow> load_floatap_golden_rows() {
         "Unexpected FloatAP oracle row count: "+std::to_string(rows.size()));
     return rows;
 }
-Rational const& floatap_golden(unsigned long bits,
+Rational const& floatap_golden(std::size_t bits,
                                FloatAP::RoundingModeType mode,
                                Rational const& input) {
     static const auto rows=load_floatap_golden_rows();
