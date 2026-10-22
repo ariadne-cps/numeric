@@ -185,9 +185,8 @@ Rational::Rational(FloatDP const& x) : Rational(ExactDouble(x.get_d())) {
 Rational::Rational(FloatMP const& x) : Rational(x.operator Dyadic()) {
 }
 
-Rational::Rational(const String& str) {
+Rational::Rational(const String& str) : Rational() {
     Int base=10;
-    mpq_init(_mpq);
     int fail = mpq_set_str(_mpq,str.c_str(),base);
     if (fail!=0)
         ARIADNE_THROW(std::runtime_error,"Rational(string)","String \""<<str<<"\" does not have a valid rational number format.");

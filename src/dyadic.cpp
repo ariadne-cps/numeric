@@ -149,16 +149,16 @@ Dyadic::Dyadic(TwoExp const& w) : Dyadic(1u) {
     else { mpf_div_2exp(_mpf,_mpf,static_cast<mp_bitcnt_t>(-q)); }
 }
 
-Dyadic::Dyadic(String const& str)
+Dyadic::Dyadic(String const& str) : Dyadic()
 {
-    mpf_t _mpf_tmp;
+    mpf_t mpf_tmp;
     mp_bitcnt_t prec=static_cast<mp_bitcnt_t>(std::ceil(3+str.size()*3.322265625));
-    mpf_init2(_mpf_tmp,prec);
-    int fail = mpf_set_str(_mpf_tmp,str.c_str(),10);
+    mpf_init2(mpf_tmp,prec);
+    int fail = mpf_set_str(mpf_tmp,str.c_str(),10);
+    if (fail==0) { mpf_set(_mpf,mpf_tmp); }
+    mpf_clear(mpf_tmp);
     if (fail!=0)
         ARIADNE_THROW(std::runtime_error,"Dyadic(string)","String \""<<str<<"\" does not have a valid dyadic number format.");
-    mpf_init2(_mpf,maximum_precision);
-    mpf_set(_mpf,_mpf_tmp);
 
     if (Decimal(*this)!=Decimal(str))
         ARIADNE_THROW(std::runtime_error,"Dyadic(string)","String \""<<str<<"\" does not represent an exact dyadic number.");

@@ -61,6 +61,8 @@ static const double _log2_approx=0.6931471805599453094;
 // The floor of log_10(|x|). abslog10floor(x)+1 is the number of digits of x before the decimal point.
 // Returns the smallest representable  int  if x is zero
 int abslog10floor(double x) {
+    if (x == 0.0) { return std::numeric_limits<int>::min(); }
+    if (!std::isfinite(x)) { return 0; }
     return static_cast<int>(std::floor(std::log10(std::abs(x))));
     //static const double MIN_INT=-2147483648.;
     //return std::max(std::floor(std::log10(std::abs(x))),MIN_INT);

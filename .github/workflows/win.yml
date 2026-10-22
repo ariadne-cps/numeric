@@ -112,7 +112,7 @@ jobs:
         shell: pwsh
         working-directory: ${{ github.workspace }}/python/tutorials
         run: |
-          $env:PYTHONPATH = "${{ runner.workspace }}\build\python"
+          $env:PYTHONPATH = "${{ github.workspace }}/build/python"
           python tutorial_numeric.py
 
       - name: Verify uninstallation
@@ -125,8 +125,12 @@ jobs:
 
       - name: Run Debug C++ tests
         if: matrix.build_type == 'Debug'
-        run: ctest --test-dir build -LE python -V --timeout 30 --output-on-failure
+        run: |
+          $env:PATH = 'C:/vcpkg/installed/x64-windows-release/bin;' + $env:PATH
+          ctest --test-dir build -LE python -V --timeout 30 --output-on-failure
 
       - name: Run Debug Python tests
         if: matrix.build_type == 'Debug'
-        run: ctest --test-dir build -L python -V --timeout 30 --output-on-failure
+        run: |
+          $env:PATH = 'C:/vcpkg/installed/x64-windows-release/bin;' + $env:PATH
+          ctest --test-dir build -L python -V --timeout 30 --output-on-failure
