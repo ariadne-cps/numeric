@@ -75,7 +75,6 @@ constexpr bool check_float_rounding_concept()
 }
 
 static_assert(check_float_rounding_concept<DoublePrecision>());
-static_assert(check_float_rounding_concept<MultiplePrecision>());
 static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 
 #ifndef ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH
@@ -439,8 +438,6 @@ Int main() {
     std::cerr<<std::setprecision(20);
 
     ARIADNE_TEST_CLASS(FloatDP,TestFloatRounding<DoublePrecision>(dp));
-    ARIADNE_TEST_CLASS(FloatMP,TestFloatRounding<MultiplePrecision>(MultiplePrecision(64_bits)));
-    ARIADNE_TEST_CLASS(FloatMP,TestFloatRounding<MultiplePrecision>(MultiplePrecision(192_bits)));
     ARIADNE_TEST_CLASS(FloatAP,TestFloatRounding<ArbitraryPrecision>(ArbitraryPrecision(64_bits)));
     ARIADNE_TEST_CLASS(FloatAP,TestFloatRounding<ArbitraryPrecision>(ArbitraryPrecision(192_bits)));
 
@@ -669,20 +666,25 @@ TestFloatRounding<PR>::test_conversion_from_to()
 template<> Void
 TestFloatRounding<DoublePrecision>::test_conversion_between()
 {
-    FloatMP xmp1(Rational(1,3),downward,MultiplePrecision(100_bits));
-    FloatDP xdp1(xmp1,downward,DoublePrecision());
-    ARIADNE_TEST_COMPARE(xdp1,<,xmp1);
-    FloatMP xmp2(Rational(1,3),upward,MultiplePrecision(100_bits));
-    FloatDP xdp2(xmp2,upward,DoublePrecision());
-    ARIADNE_TEST_COMPARE(xdp2,>,xmp2);
+    // Keep cross-precision conversion coverage with the native backend.
+    // A 100-bit directed 1/3 lies strictly between the corresponding
+    // 53-bit rounded values and the exact rational 1/3.
+    const ArbitraryPrecision source_precision(100_bits);
+    const Rational exact(1,3);
+    const FloatAP xap1(exact,downward,source_precision);
+    const FloatDP xdp1(xap1,downward,DoublePrecision());
+    ARIADNE_TEST_COMPARE(Rational(xdp1),<,Rational(xap1));
+    const FloatAP xap2(exact,upward,source_precision);
+    const FloatDP xdp2(xap2,upward,DoublePrecision());
+    ARIADNE_TEST_COMPARE(Rational(xdp2),>,Rational(xap2));
     ARIADNE_TEST_COMPARE(xdp2,>,xdp1);
 }
 
 template<class PR> Void
 TestFloatRounding<PR>::test_conversion_between()
 {
-    // The corresponding DoublePrecision-specific conversion test is
-    // specialized above; both arbitrary-precision backends share this one.
+    // The DoublePrecision-specific FloatAP-to-FloatDP conversion test
+    // is specialized above; this case checks FloatDP-to-FloatAP.
     const FloatDP source(Rational(1,3),upward,DoublePrecision());
     const Float converted(source,PR(100_bits));
     ARIADNE_TEST_EQUALS(converted,source);
@@ -697,7 +699,7 @@ TestFloatRounding<PR>::test_precision_regressions()
 {
     // Exercise the native non-dyadic ratio path through the public FloatAP
     // API; the expected 1/3 mantissas follow exactly from integer division
-    // of 2^(p+1) by three, independently of FloatMP and FloatAP.
+    // of 2^(p+1) by three, independently of FloatAP.
     if constexpr (Same<PR,ArbitraryPrecision>) {
         FloatAPPhaseTiming timing_native_ratio("native_ratio",precision.bits());
         for (Bits bits : {2_bits,7_bits,31_bits,32_bits,33_bits,53_bits,
@@ -869,9 +871,9 @@ TestFloatRounding<PR>::test_precision_regressions()
             }
         }
     }
-    // These checks replace the separate FloatAP precision tests and use
-    // exactly the same floating-point API for FloatMP and FloatAP.
-    if constexpr (!Same<PR,DoublePrecision>) {
+    // Preserve exact-rounding regression coverage for FloatAP with the
+    // public arithmetic API over all required precisions and modes.
+    if constexpr (Same<PR,ArbitraryPrecision>) {
         using F=RawFloat<PR>;
         for (Bits bits : {2_bits,7_bits,24_bits,53_bits,113_bits,256_bits,1024_bits}) {
             const PR pr(bits);
@@ -918,8 +920,8 @@ TestFloatRounding<PR>::test_precision_regressions()
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
             // Fixed exact dyadic literals, independently generated from
-            // rigorous rational enclosures; no MPFR, FloatAP conversion
-            // or FloatAP arithmetic is used to derive the expectations.
+            // rigorous rational enclosures, independently of FloatAP
+            // conversion or FloatAP arithmetic.
             // For each row the nearest-even mantissa M has exponent e;
             // down/up use M plus their separately certified integer delta.
             struct CertifiedLiteral {
@@ -1005,7 +1007,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // Independent exact dyadic oracle values around +/-1/2:
             // both rational Taylor enclosure endpoints were rounded
             // offline to the SAME target literal for every mode.
-            // This is not an MPFR oracle and not a FloatAP-derived
+            // This is an independent golden oracle, not a FloatAP-derived
             // expectation. Check both signs and both sides of 1/2.
             struct NearHalfTrigLiteral {
                 char const* function;
@@ -1092,7 +1094,7 @@ TestFloatRounding<PR>::test_precision_regressions()
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
             // Independent mathematically certified exact dyadic literals
-            // of atan(+-1/2 +- 2^-(p-3)). No MPFR or FloatAP is used
+            // of atan(+-1/2 +- 2^-(p-3)). No FloatAP is used
             // to derive the expected mantissas or directed offsets.
             struct AtanExpected {
                 unsigned bits, offset_bits;
@@ -1419,7 +1421,7 @@ TestFloatRounding<PR>::test_precision_regressions()
         if constexpr (Same<PR,ArbitraryPrecision>) {
             // Exercise precision-dependent exp reduction and reconstruction
             // against fixed exact binary outputs from rigorously certified
-            // rational Taylor enclosures (no live FloatMP/MPFR oracle).
+            // rational Taylor enclosures (independently of FloatAP).
             for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
                 for (Dyadic const& argument :

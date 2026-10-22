@@ -10706,3 +10706,52 @@ unverified due to the outstanding merge conflict;
 correctness of the independent oracle calculation does NOT
 constitute an executed C++ regression result.
 All changes are committed only on `remove-gmp`.
+
+### D99 — remove legacy precision backend from rounding tests (22 October 2026)
+
+After the rebase of `remove-gmp` onto `main`, this commit
+is based on the new D98 HEAD `f872210be8bda99d8e2f6dee85262dca5a3f3933`, not on the former
+pre-rebase commit IDs.
+
+Remove the legacy backend from `tests/test_float_rounding.cpp`
+COMPLETELY: delete its C++20 concept static_assert, the two
+standalone 64-bit/192-bit suite instantiations in `main()`,
+and all remaining code/comment textual references. Do not
+instantiate or check its behavior anywhere in this test file.
+Retain the DoublePrecision concept static_assert, the native
+ArbitraryPrecision concept static_assert, the FloatDP suite,
+and both original FloatAP suites (64 and 192 bits), including
+their full generic test-method order and content.
+
+Preserve cross-type conversion semantics rather than dropping
+the old three-assertion FloatDP conversion regression. Use the
+supported `FloatDP(FloatAP, rounding, DoublePrecision())`
+constructor to convert 100-bit native values computed by
+rounding exact 1/3 downward and upward. Verify the 53-bit
+downward result is strictly below the 100-bit native
+downward source, the 53-bit upward result is strictly above
+the 100-bit native upward source, and upward DP > downward
+DP. The ordering is checked with exact Rational conversion
+for both operands so it does not depend on undocumented
+cross-backend operator overloads. Retain all THREE original
+assertion sites while extending conversion coverage to
+native-to-DoublePrecision.
+
+The former generic precision-regression guard checking for
+non-DoublePrecision is now explicitly keyed to
+`Same<PR,ArbitraryPrecision>`; all native precision/mode
+coverage (including 2,7,24,53,113,256,1024 bits)
+is retained, with no test-order or input change. Comments
+were updated to match the reduced set of live backends.
+
+A static source audit confirms ZERO occurrences of
+`FloatMP`, `MultiplePrecision`, `MPFR` or
+`mpfr` in `tests/test_float_rounding.cpp` after D99.
+This is intentionally scoped to that single test module;
+other tests still require independent native migrations,
+including GMP-backed arithmetic oracles.
+No production code, CMake, TSV datasets, timeout or any
+other test module was changed. Because the rebase and
+merge status must be validated by actual build/CI runs,
+the D99 compiled regression result is NOT claimed as
+verified at commit time.
