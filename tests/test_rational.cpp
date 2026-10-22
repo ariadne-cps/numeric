@@ -747,12 +747,12 @@ void TestRational::test_gmp_differential() {
     while (random_fixture.peek()=='#')
         std::getline(random_fixture,random_header);
     const auto verify_fraction=[](Rational const& actual,
-                                  std::string const& expected) {
-        const std::size_t slash=expected.find('/');
+                                  std::string const& expected_text) {
+        const std::size_t slash=expected_text.find('/');
         if (slash==std::string::npos)
             throw std::runtime_error("Invalid Rational exact TSV fraction");
-        const Integer numerator{String(expected.substr(0u,slash))};
-        const Integer denominator{String(expected.substr(slash+1u))};
+        const Integer numerator{String(expected_text.substr(0u,slash))};
+        const Integer denominator{String(expected_text.substr(slash+1u))};
         ARIADNE_TEST_EQUALS(actual.numerator(),numerator);
         ARIADNE_TEST_EQUALS(actual.denominator(),denominator);
     };
