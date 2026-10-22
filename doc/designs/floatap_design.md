@@ -9644,3 +9644,28 @@ runs, especially the durations of `test_big_unsigned` and
 `test_float_rounding`. If a timeout persists, instrument the test
 phases and distinguish computation from stdout/capture overhead
 before altering tests or arithmetic.
+
+### D71 — pinpoint intermittent Windows FloatAP rounding timeout with phase timings (22 October 2026)
+
+After the D70 nonverbose CTest change, uploaded Windows Release logs from run
+#? (artifact `logs_107726866508.zip`) show a genuine remaining timeout at
+30.01 seconds in `test_float_rounding` (19/20 passed). In contrast,
+`test_big_unsigned` completed in 6.12 seconds, versus 29.97 seconds in
+the earlier verbose run. The failure log is 6.54 MB for its C++ step,
+mostly emitted because CTest prints a failing test's buffered output.
+Both FloatAP 64-bit and FloatMP tests completed; the final FloatAP
+192-bit instance reached its `test_precision_regressions` logarithm
+cross-checks without a failed numerical assertion. Because failure output
+is replayed when the test terminates, timestamps on those assertion lines
+do NOT measure how long the assertions themselves took.
+
+Add diagnostic-only wall-clock BEGIN/END checkpoints (stderr) around
+the existing native ratio, power and selected transcendental
+differential test blocks, labeled with the outer suite precision. These
+checkpoints identify incomplete sections and provide section durations on
+the next timeout. No test body, cases, oracle, expected result, rounding
+mode, cache access order, timeout, workflow, or numeric implementation is
+changed. The checkpoint overhead should be negligible but remains to be
+confirmed in the Windows CI run. Do not claim a performance fix from D71:
+use checkpoint evidence to isolate the slow section and then profile
+native computational kernels versus test output overhead.

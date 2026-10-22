@@ -23,6 +23,8 @@
  */
 
 #include <bit>
+#include <chrono>
+#include <iostream>
 #include <cassert>
 #include <cstdint>
 #include <fstream>
@@ -71,6 +73,31 @@ constexpr bool check_float_rounding_concept()
 static_assert(check_float_rounding_concept<DoublePrecision>());
 static_assert(check_float_rounding_concept<MultiplePrecision>());
 static_assert(check_float_rounding_concept<ArbitraryPrecision>());
+
+    
+// Diagnostic-only wall-clock checkpoints. They do not alter test inputs,
+// assertions, execution order, or the arithmetic implementation.
+class FloatAPPhaseTiming {
+    const char* _name;
+    std::size_t _enclosing_bits;
+    std::chrono::steady_clock::time_point _begin;
+  public:
+    FloatAPPhaseTiming(const char* name,std::size_t enclosing_bits)
+      : _name(name),_enclosing_bits(enclosing_bits),
+        _begin(std::chrono::steady_clock::now()) {
+        std::cerr << "[floatap-timing] BEGIN " << _name
+                  << " suite_bits=" << _enclosing_bits << '\n';
+    }
+    ~FloatAPPhaseTiming() {
+        const auto elapsed=std::chrono::duration<double,std::milli>(
+            std::chrono::steady_clock::now()-_begin).count();
+        std::cerr << "[floatap-timing] END " << _name
+                  << " suite_bits=" << _enclosing_bits
+                  << " elapsed_ms=" << elapsed << '\n';
+    }
+    FloatAPPhaseTiming(FloatAPPhaseTiming const&)=delete;
+    FloatAPPhaseTiming& operator=(FloatAPPhaseTiming const&)=delete;
+};
 
 
 } // namespace
@@ -368,6 +395,7 @@ TestFloatRounding<PR>::test_precision_regressions()
     // API; the expected 1/3 mantissas follow exactly from integer division
     // of 2^(p+1) by three, independently of FloatMP and FloatAP.
     if constexpr (Same<PR,ArbitraryPrecision>) {
+        FloatAPPhaseTiming timing_native_ratio("native_ratio",precision.bits());
         for (Bits bits : {2_bits,7_bits,31_bits,32_bits,33_bits,53_bits,
                           64_bits,65_bits,127_bits,128_bits,129_bits,
                           255_bits,256_bits,257_bits,1023_bits,1024_bits,
@@ -1146,6 +1174,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // significand. Compare with the MPFR oracle on the same
             // rounded input, for mixed degrees, both signs, every
             // directed mode, and low to high precision.
+            FloatAPPhaseTiming timing_integer_pow("integer_pow",precision.bits());
             for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
                 const MultiplePrecision mp(bits);
@@ -1213,6 +1242,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // offsets, the exact work-precision cutoff, and the general
             // fallback outside that cutoff. Use identical rounded
             // FloatAP/MPFR inputs and all four rounding directions.
+            FloatAPPhaseTiming timing_centered_log("centered_log",precision.bits());
             for (Bits bits : {53_bits,7_bits,128_bits,256_bits,
                               1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
@@ -1259,6 +1289,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // Check the exact window boundary, one step outside it,
             // all four directions, very low precision, high-precision
             // cache upgrades and revisiting a lower precision.
+            FloatAPPhaseTiming timing_centered_exp("centered_exp",precision.bits());
             for (Bits bits : {53_bits,7_bits,128_bits,256_bits,
                               1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
@@ -1312,6 +1343,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // cache growth and subsequent reuse. Use precisely the
             // rounded FloatAP input with the MPFR reference, including
             // fallback points outside the local neighborhood.
+            FloatAPPhaseTiming timing_centered_asin_acos("centered_asin_acos",precision.bits());
             for (Bits bits : {53_bits,7_bits,128_bits,256_bits,
                               1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
@@ -1365,6 +1397,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // Certified atan(1/2) linearization, both signs and both
             // sides of the exact work-dependent crossover. Confirm
             // four rounding modes and cache precision upgrades/reuse.
+            FloatAPPhaseTiming timing_centered_atan("centered_atan",precision.bits());
             for (Bits bits : {53_bits,7_bits,128_bits,256_bits,
                               1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
@@ -1415,6 +1448,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // Single-recurrence atan certification: test the transitions
             // at |x|=1/2 and |x|=2, small arguments, and both signs.
             // The oracle uses precisely the FloatAP input value.
+            FloatAPPhaseTiming timing_single_recurrence_atan("single_recurrence_atan",precision.bits());
             for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
                 const MultiplePrecision mp(bits);
@@ -1527,6 +1561,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // including 96/128/192/224/256/1024 bits and all modes.
             // A second pass at 128 bits checks a tighter cache reused
             // at a lower requested working precision.
+            FloatAPPhaseTiming timing_centered_sin_cos("centered_sin_cos",precision.bits());
             for (Bits bits : {96_bits,128_bits,192_bits,224_bits,
                               256_bits,1024_bits,128_bits}) {
                 const ArbitraryPrecision ap(bits);
@@ -1568,6 +1603,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // and use identical binary inputs for the MPFR oracle.
             // Include precisions on either side of the work>=256
             // performance dispatch, without changing the oracle.
+            FloatAPPhaseTiming timing_local_sin_cos("local_sin_cos",precision.bits());
             for (Bits bits : {53_bits,7_bits,128_bits,192_bits,224_bits,
                               256_bits,384_bits,1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
@@ -1612,6 +1648,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // to check cache reuse and upgrades. Include values on both
             // sides of the exact |delta| <= 2^-ceil(work/2) threshold;
             // every result must match the correctly rounded MPFR oracle.
+            FloatAPPhaseTiming timing_centered_tan("centered_tan",precision.bits());
             for (Bits bits : {53_bits,7_bits,256_bits,128_bits,1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
                 const MultiplePrecision mp(bits);
@@ -1648,6 +1685,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // The single-sqrt cosine enclosure is used by tangent for
             // |x|<=1. Check both signs, low precision and reconstruction
             // across |x|=1 against the correctly rounded MPFR result.
+            FloatAPPhaseTiming timing_tangent_sqrt_cos("tangent_sqrt_cos",precision.bits());
             for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
                 const MultiplePrecision mp(bits);
@@ -1726,6 +1764,7 @@ TestFloatRounding<PR>::test_precision_regressions()
             // Check log range-reduction boundaries, cancellation near 1,
             // cached log(2) enclosures and all directed rounding modes
             // against the exact MPFR result at the same binary input.
+            FloatAPPhaseTiming timing_log_boundaries("log_boundaries",precision.bits());
             for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
                 const MultiplePrecision mp(bits);
