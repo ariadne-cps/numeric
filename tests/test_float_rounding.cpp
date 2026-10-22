@@ -278,7 +278,7 @@ Rational const& floatap_tan_golden(std::size_t bits,
                                    FloatAP::RoundingModeType mode,
                                    Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
-        ARIADNE_FLOATAP_TAN_ORACLE_PATH,576u);
+        ARIADNE_FLOATAP_TAN_ORACLE_PATH,816u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 
@@ -1874,14 +1874,13 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Tangent-centered enclosure at +/-1/2. Vary precision order
-            // to check cache reuse and upgrades. Include values on both
-            // sides of the exact |delta| <= 2^-ceil(work/2) threshold;
-            // every result must match the correctly rounded MPFR oracle.
+            // Tangent-centered enclosure at +/-1/2. Preserve precision
+            // ordering, cache reuse and upgrades, and both sides of the
+            // exact |delta| <= 2^-ceil(work/2) threshold. Compare against
+            // certified independently rounded source-keyed golden values.
             FloatAPPhaseTiming timing_centered_tan("centered_tan",precision.bits());
             for (Bits bits : {53_bits,7_bits,256_bits,128_bits,1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 const Nat offset_denominator_power(static_cast<unsigned long>(ap.bits()) / 2ul + 16ul);
                 const Rational step(Integer(1),pow(Integer(2),offset_denominator_power));
                 const Rational half(1,2);
@@ -1895,17 +1894,15 @@ TestFloatRounding<PR>::test_precision_regressions()
                     for (Int sign : {Int(-1),Int(1)}) {
                         const Rational exact = sign < 0 ? -magnitude : magnitude;
                         const FloatAP a(exact,FloatAP::ROUND_TO_NEAREST,ap);
-                        const FloatMP oracle(static_cast<Rational>(a),
-                                             FloatMP::ROUND_TO_NEAREST,mp);
-                        const auto verify=[&](auto am,auto mm) {
+                        const auto verify=[&](auto am) {
                             ARIADNE_TEST_EQUALS(
                                 static_cast<Rational>(tan(am,a)),
-                                static_cast<Rational>(tan(mm,oracle)));
+                                floatap_tan_golden(ap.bits(),am,exact));
                         };
-                        verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                        verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                        verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                        verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                        verify(FloatAP::ROUND_TO_NEAREST);
+                        verify(FloatAP::ROUND_DOWNWARD);
+                        verify(FloatAP::ROUND_UPWARD);
+                        verify(FloatAP::ROUND_TOWARD_ZERO);
                     }
                 }
             }

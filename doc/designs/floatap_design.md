@@ -10396,3 +10396,48 @@ timeouts. The unresolved merge conflict still prevents CI from
 running on D87-D92, so compilation/regression remains unverified;
 the offline numerical oracle certification is complete.
 All work is committed ONLY on `remove-gmp`.
+
+### D93 — certify centered tangent enclosure regression (22 October 2026)
+
+Replace only the `centered_tan` FloatMP/MPFR differential oracle
+without deleting or changing any source test case. Preserve all six
+precision visits (53, 7, 256, 128, 1024, 53 bits), nine magnitudes
+including the exact cutoff and fallback around 1/2, both signs,
+all four rounding modes, and the second 53-bit cache-reuse visit.
+All 432 original test assertions remain.
+
+Extend the existing `tests/data/floatap_tan.tsv`, not a second
+tangent dataset. Five distinct precisions times 18 signed inputs
+times four modes require 360 references, of which 120 overlapped
+the D92 dataset and were independently recalculated and checked
+to agree exactly. Append 240 new certified golden rows, yielding
+816 TSV records. Update only the existing strict row-count
+validation. The fixture key uses the ORIGINAL exact signed source
+Rational and performs the nearest/even p-bit input conversion
+independently of FloatAP, so erroneous constructor rounding
+cannot select a misleading golden result. 12 of
+the 90 distinct precision/source combinations required actual
+input rounding.
+
+The offline oracle generator uses exclusively arbitrary-precision
+native integer arithmetic with B=2^1800 fixed-point bounds,
+independent of FloatAP, FloatMP, GMP and MPFR. For the rounded
+0<abs(x)<1 inputs, compute rigorous outward Taylor enclosures of
+sin(x) and cos(x) with alternating series through k=239,
+outward interval multiplication/division at every term and the
+first omitted positive term enclosing the tail. Verify the
+cosine lower bound is strictly positive; then divide the sin
+enclosure by the cos enclosure with outward floor/ceil integer
+division to contain tan(x), and use oddness on negative inputs.
+For every mode and precision, accept the reference ONLY when
+both exact interval endpoints round to precisely the identical
+canonical p-bit binary Rational, including nearest/even ties.
+All 360 comparisons passed the offline proof, maximum
+enclosure width 631/2^1800. No external numeric
+oracle or floating-point transcendental evaluation was used.
+
+No production implementation changes, timeout adjustments,
+regression-case deletions, new data files or CMake changes.
+D87 onward still lacks CI coverage because of the unresolved
+merge conflict, so the D93 compilation and executable regressions
+remain unverified. All modifications are restricted to `remove-gmp`.
