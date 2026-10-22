@@ -38,12 +38,22 @@ template<> Approximation<FloatMP>::operator ApproximateNumber() const;
 template class Approximation<FloatDP>;
 template class Approximation<FloatMP>;
 
-// Explicit native constructor definitions needed by NumberGetterMixin.
+// Native constructors are implemented in float_approximation.tpl.hpp.
+// Instantiate every constructor used by the complete FloatAP approximation
+// test suite, rather than suppressing its semantic regression coverage.
 template Approximation<FloatAP>::Approximation(Real const&, ArbitraryPrecision);
 template Approximation<FloatAP>::Approximation(ApproximateNumber const&, ArbitraryPrecision);
+template Approximation<FloatAP>::Approximation(LowerBound<FloatAP> const&);
+template Approximation<FloatAP>::Approximation(UpperBound<FloatAP> const&);
+template Approximation<FloatAP>::Approximation(Bounds<FloatAP> const&);
+template Approximation<FloatAP>::Approximation(Error<FloatAP> const&);
 
 template<> String class_name<Approximation<FloatDP>>() { return "FloatDPApproximation"; }
 template<> String class_name<Approximation<FloatMP>>() { return "FloatMPApproximation"; }
 template<> String class_name<Approximation<FloatAP>>() { return "FloatAPApproximation"; }
+
+// Generate the native generic-number conversion after class_name is defined:
+// NumberWrapper<Approximation<FloatAP>> needs the specialization at link time.
+template Approximation<FloatAP>::operator ApproximateNumber() const;
 
 } // namespace Ariadne

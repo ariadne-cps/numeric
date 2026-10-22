@@ -10785,3 +10785,43 @@ CMake, fixture, timeout or other test module change.
 Compilation and runtime results are not inferred from
 source review: CI status must be checked separately.
 Work is restricted to the rebased `remove-gmp` branch.
+
+### D101 — resolve missing FloatAP approximation linker symbols (22 October 2026)
+
+A full macOS arm64 Release link of `tests/test_float_approximation`
+after D100 fails with five unresolved symbols, all in
+`Approximation<FloatAP>`: constructors from
+`LowerBound<FloatAP>`, `UpperBound<FloatAP>`,
+`Bounds<FloatAP>`, `Error<FloatAP>`, and
+conversion to `ApproximateNumber`.
+
+This is a LIBRARY explicit-instantiation gap, not a wrong
+test expectation or an unsupported numerical behavior.
+The constructor and conversion templates already have real
+implementations in `include/numeric/float_approximation.tpl.hpp`.
+Historically `src/float_approximation.cpp` instantiated the
+full FloatDP/FloatMP approximation classes, but for FloatAP only
+the Real and ApproximateNumber constructors; D100's complete
+native test suite exposed the absent emitted symbols.
+
+Fix exclusively `src/float_approximation.cpp` by explicitly
+instantiating the FOUR remaining conversion constructors for
+`Approximation<FloatAP>` and its
+`operator ApproximateNumber() const`. Place the conversion
+operator instantiation AFTER the already defined
+`class_name<Approximation<FloatAP>>` specialization because
+the NumberWrapper-backed generic conversion requires that
+specialization. Keep the two previously instantiated native
+constructors and legacy production code intact; only add the
+five required symbols. Do not explicitly instantiate the whole
+Approximation<FloatAP> class or modify its numerical behavior.
+
+KEEP the entire D100 FloatAP approximation suite and all
+its original generic assertion sites, including generic number,
+lower/upper/bounds/error conversions and cross-precision paths;
+do not silence the link error by removing coverage. No test,
+CMake, fixture, timeout, or other production file changes.
+A remote source/ABI audit confirms the five missing symbols
+are declared and template-defined; compilation and regression
+results still require actual CI/build and are NOT asserted here.
+Working branch: `remove-gmp`, parent HEAD `f9802f5a4e8d4d8d26e8c4f7a1f01291a48c0c81`.
