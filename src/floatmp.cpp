@@ -263,6 +263,7 @@ Void FloatMP::set_precision(MultiplePrecision pr) {
     mpfr_init2(tmp,pr);
     mpfr_set(tmp,_mpfr,get_rounding_mode());
     mpfr_swap(_mpfr,tmp);
+    mpfr_clear(tmp);
 }
 
 FloatMP::ExponentType FloatMP::exponent() const {

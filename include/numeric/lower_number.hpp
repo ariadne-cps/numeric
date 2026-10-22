@@ -134,9 +134,9 @@ template<class P> class LowerNumber
 
     struct Zero { };
     friend LowerLogicalType<P> operator>(LowerNumber<P> const& y, Zero const&) {
-        return LowerLogicalType<P>(y.ref()._is_pos()); }
+        return LowerLogicalType<P>(Detail::logical_type_from_owned_pointer<P>(y.ref()._is_pos())); }
     friend UpperLogicalType<P> operator<(LowerNumber<P> const& y, Zero const&) {
-        return UpperLogicalType<P>(not y.ref()._is_pos()); }
+        return not (y > Zero{}); }
 
 };
 

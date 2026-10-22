@@ -359,6 +359,13 @@ TestNumbers::test_misc()
     EffectiveLowerNumber positive_real(Real(1));
     ARIADNE_TEST_ASSERT(definitely(positive_real > EffectiveLowerNumber::Zero{}));
 
+    // Comparison results must preserve their logical value and own the returned object.
+    ValidatedLowerNumber negative_dyadic(Dyadic(-1));
+    ARIADNE_TEST_ASSERT(not definitely(negative_dyadic > ValidatedLowerNumber::Zero{}));
+    ARIADNE_TEST_ASSERT(possibly(negative_dyadic < ValidatedLowerNumber::Zero{}));
+    ValidatedLowerNumber zero_dyadic(Dyadic(0));
+    ARIADNE_TEST_ASSERT(not definitely(zero_dyadic > ValidatedLowerNumber::Zero{}));
+
     FloatDPApproximation dp_approximation(2u,dp);
     ARIADNE_TEST_EXECUTE(pow(dp_approximation,Integer(3)));
     FloatMPApproximation mp_power_approximation(2u,mp);
