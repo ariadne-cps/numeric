@@ -10863,3 +10863,53 @@ competing explicit instantiation. Since Windows executable
 CI is not available from this editing context, the actual
 MSVC link must still be rerun to confirm resolution.
 Parent commit is `6da78909b92eb6577d32349cc364a467c2cb9c7e` on rebased `remove-gmp`.
+
+### D103 — precompute short-owned BigUnsigned division oracles (22 October 2026)
+
+No loop counts were modified; a proposed sampling/repetition
+reduction was CANCELLED before any commit. Migrate only
+`test_short_owned_division()` from live GMP/mpz oracle calls
+to frozen independently calculated results as requested.
+
+Retain all original 6*6*24 = 864 original visits,
+the same seeded `std::mt19937_64(0xB74D1A1DEULL)`,
+all six mode%6 input mutation families, exactly the original
+test ordering, divide-by-zero exception checks for both quot
+and rem, and the separate moved-from-inline regression.
+The TSV `tests/data/big_unsigned_short_div.tsv`
+provides seven columns: original n, original m, original
+mode, original numerator (canonical lowercase hexadecimal),
+original denominator, expected quotient, expected remainder.
+For zero denominator, the last two fields are both "-".
+716 live divisions and 148 zero-denominator
+exception visits are present. Strict sequential source-key
+verification rejects missing, malformed, out-of-order and
+extra fixture records. Both ORIGINAL operands are checked
+against the fixture, including those with zero denominator.
+
+Generate independent fixtures using ONLY native arbitrary
+precision integer arithmetic: implement the standardized
+mt19937_64 recurrence and verify its first two outputs at
+seed 5489 against published standard test vectors
+(14514284786278117030, 4620546740167642908).
+At every original input, compute q=a/b and r=a%b using
+exact integers and certify 0<=r<b and a=b*q+r.
+No GMP, FloatAP, BigUnsigned, MPFR or floating-point
+arithmetic is used to obtain the oracle. The C++ test
+decodes hexadecimal nibbles directly into uint64 limbs,
+not via the production decimal parser. Each precomputed
+check retains four semantic assertions: exact numeric
+comparison, zero status, exact bit length computed from
+source hex, and canonical highest limb. The two source
+operands are also checked unconditionally.
+
+This is the FIRST incremental migration of the large
+`test_big_unsigned.cpp` file. All OTHER mpz-based blocks
+remain unchanged and still need migration; the test is
+not yet GMP-free. No iteration reduction, unrelated test,
+production code, fixture path or timeout alteration.
+Add one absolute CMake source-path definition for the
+new fixture. Performance must be MEASURED under TSan;
+the user goal is a roughly 10x reduction from 18 seconds,
+not a verified outcome of this source change.
+Parent HEAD: `98130207350c7cbd210f80484173522869b07c5a`.

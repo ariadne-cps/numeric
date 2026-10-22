@@ -35,6 +35,12 @@ foreach(TEST ${UNIT_TESTS})
     endif()
 endforeach()
 
+# Exact original-operand, quotient and remainder oracle for the native
+# short-owned BigUnsigned division test. Absolute path works on Windows.
+target_compile_definitions(test_big_unsigned PRIVATE
+    "ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/big_unsigned_short_div.tsv\""
+)
+
 # Absolute source path: out-of-source and Windows CTest need no copied fixtures.
 target_compile_definitions(test_float_rounding PRIVATE
     "ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_rounding.tsv\""

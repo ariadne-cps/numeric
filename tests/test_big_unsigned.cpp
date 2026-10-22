@@ -25,6 +25,8 @@
 #include "numeric/big_unsigned.hpp"
 
 #include <algorithm>
+#include <bit>
+#include <fstream>
 #include <array>
 #include <cstdint>
 #include <limits>
@@ -40,6 +42,37 @@
 using namespace Ariadne;
 
 namespace {
+
+#ifndef ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH
+#error "Provide the BigUnsigned short-division oracle path from CMake"
+#endif
+
+unsigned golden_hex_nibble(char c)
+{
+    if (c>='0' && c<='9') return static_cast<unsigned>(c-'0');
+    if (c>='a' && c<='f') return static_cast<unsigned>(c-'a'+10);
+    throw std::invalid_argument("Invalid hexadecimal BigUnsigned golden digit");
+}
+
+void check_against_precomputed_hex(BigUnsigned const& value, std::string const& hex)
+{
+    if (hex.empty() || (hex.size()>1u && hex.front()=='0')) {
+        throw std::invalid_argument("Noncanonical BigUnsigned golden input");
+    }
+    std::vector<std::uint64_t> words((hex.size()+15u)/16u,0u);
+    for (std::size_t i=0u;i<hex.size();++i) {
+        words[i/16u] |= std::uint64_t{golden_hex_nibble(hex[hex.size()-1u-i])}
+                        << static_cast<unsigned>(4u*(i%16u));
+    }
+    const BigUnsigned expected(words);
+    const std::size_t bits=(hex=="0") ? 0u :
+        4u*(hex.size()-1u)+std::bit_width(golden_hex_nibble(hex.front()));
+    const auto limbs=value.limbs();
+    ARIADNE_TEST_ASSERT(compare(value,expected)==0);
+    ARIADNE_TEST_ASSERT(value.is_zero()==(bits==0u));
+    ARIADNE_TEST_ASSERT(value.bit_length()==bits);
+    ARIADNE_TEST_ASSERT(limbs.empty() || limbs.back()!=0u);
+}
 
 void check_against_gmp(BigUnsigned const& x, mpz_srcptr expected)
 {
@@ -176,7 +209,13 @@ void TestBigUnsigned::test_power()
 
 void TestBigUnsigned::test_short_owned_division()
 {
-    GmpInteger numerator,denominator,expected_q,expected_r;
+    // Retain every original 6x6x24 width/mode visit unchanged.
+    // Exact source-keyed golden references were generated independently
+    // of GMP and BigUnsigned, with the standardized mt19937_64 stream.
+    std::ifstream golden(ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH);
+    if (!golden) throw std::runtime_error("Missing BigUnsigned division golden TSV");
+    std::string header;
+    while (golden.peek()=='#') std::getline(golden,header);
     std::mt19937_64 generator(0xB74D1A1DEULL);
     for (std::size_t n=0u;n<=5u;++n) {
         for (std::size_t m=0u;m<=5u;++m) {
@@ -201,24 +240,42 @@ void TestBigUnsigned::test_short_owned_division()
                     left[0u]=std::numeric_limits<std::uint64_t>::max();
                 }
                 const BigUnsigned a(left),b(right);
-                const auto av=a.limbs(),bv=b.limbs();
-                mpz_import(numerator.value,av.size(),-1,sizeof(std::uint64_t),0,0,av.data());
-                mpz_import(denominator.value,bv.size(),-1,sizeof(std::uint64_t),0,0,bv.data());
+                std::size_t ref_n=0u,ref_m=0u;
+                unsigned ref_mode=0u;
+                std::string ref_a,ref_b,ref_q,ref_r;
+                if (!(golden >> ref_n >> ref_m >> ref_mode
+                             >> ref_a >> ref_b >> ref_q >> ref_r)) {
+                    throw std::runtime_error("Missing short-division golden row");
+                }
+                if (ref_n!=n || ref_m!=m || ref_mode!=mode) {
+                    throw std::runtime_error("Incorrect short-division golden row order");
+                }
+                // Check the ORIGINAL operands as well as the resulting
+                // quotient and remainder, rather than deriving lookup
+                // keys from possibly incorrect arithmetic outputs.
+                check_against_precomputed_hex(a,ref_a);
+                check_against_precomputed_hex(b,ref_b);
                 if (b.is_zero()) {
+                    if (ref_q!="-" || ref_r!="-") {
+                        throw std::runtime_error("Expected zero-divisor golden markers");
+                    }
                     bool q_threw=false,r_threw=false;
                     try { (void)quot(a,b); } catch (std::domain_error const&) { q_threw=true; }
                     try { (void)rem(a,b); } catch (std::domain_error const&) { r_threw=true; }
                     ARIADNE_TEST_ASSERT(q_threw && r_threw);
                 } else {
-                    mpz_tdiv_qr(expected_q.value,expected_r.value,
-                                numerator.value,denominator.value);
-                    check_against_gmp(quot(a,b),expected_q.value);
-                    check_against_gmp(rem(a,b),expected_r.value);
-                    check_against_gmp(a,numerator.value);
-                    check_against_gmp(b,denominator.value);
+                    if (ref_q=="-" || ref_r=="-") {
+                        throw std::runtime_error("Missing nonzero-division golden values");
+                    }
+                    check_against_precomputed_hex(quot(a,b),ref_q);
+                    check_against_precomputed_hex(rem(a,b),ref_r);
                 }
             }
         }
+    }
+    std::string extra;
+    if (golden >> extra) {
+        throw std::runtime_error("Extra short-division golden rows");
     }
     // Moved-from inline digits may still contain their previous bits.
     // Scalar addition must use the canonical size, not stale storage.
