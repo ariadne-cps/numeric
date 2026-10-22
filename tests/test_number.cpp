@@ -89,6 +89,32 @@ static_assert(!std::is_abstract_v<NumberWrapper<Dyadic>>);
 static_assert(!std::is_abstract_v<NumberWrapper<Rational>>);
 static_assert(!std::is_abstract_v<NumberWrapper<FloatDP>>);
 static_assert(!std::is_abstract_v<NumberWrapper<FloatMP>>);
+static_assert(std::is_convertible_v<FloatAP,ExactNumber>);
+static_assert(requires(FloatAP const& x, FloatAP const& y, FloatDP const& dp,
+                       ExactDouble const& d, ArbitraryPrecision pr,
+                       CurrentRoundingMode mode) {
+    { sqr(mode,x) } -> Same<FloatAP>;
+    { rec(mode,x) } -> Same<FloatAP>;
+    { add(mode,x,y) } -> Same<FloatAP>;
+    { sub(mode,x,y) } -> Same<FloatAP>;
+    { mul(mode,x,y) } -> Same<FloatAP>;
+    { div(mode,x,y) } -> Same<FloatAP>;
+    { fma(mode,x,y,x) } -> Same<FloatAP>;
+    { sqrt(mode,x) } -> Same<FloatAP>;
+    { exp(mode,x) } -> Same<FloatAP>;
+    { log(mode,x) } -> Same<FloatAP>;
+    { sin(mode,x) } -> Same<FloatAP>;
+    { cos(mode,x) } -> Same<FloatAP>;
+    { tan(mode,x) } -> Same<FloatAP>;
+    { asin(mode,x) } -> Same<FloatAP>;
+    { acos(mode,x) } -> Same<FloatAP>;
+    { atan(mode,x) } -> Same<FloatAP>;
+    { add(mode,x,dp) } -> Same<FloatAP>;
+    { add(mode,dp,x) } -> Same<FloatAP>;
+    { sub(mode,x,d) } -> Same<FloatAP>;
+    { sub(mode,d,x) } -> Same<FloatAP>;
+    { FloatAP::pi(mode,pr) } -> Same<FloatAP>;
+});
 
 static_assert(check_directed_number_concept<ValidatedLowerNumber,ValidatedUpperNumber>());
 static_assert(check_directed_number_concept<EffectiveLowerNumber,EffectiveUpperNumber>());

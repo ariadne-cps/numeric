@@ -31,6 +31,7 @@
 
 #include "numeric/bits.hpp"
 #include "numeric/float.decl.hpp"
+#include "numeric/number.decl.hpp"
 #include "numeric/sign.hpp"
 #include <cstddef>
 #include <ostream>
@@ -294,6 +295,7 @@ template<> class Float<ArbitraryPrecision> {
     void set_precision(PrecisionType precision);
     FloatAP const& raw() const noexcept { return *this; }
     FloatAP& raw() noexcept { return *this; }
+    operator ExactNumber() const;
     Ball<FloatAP,FloatAP> pm(Error<FloatAP> const& error) const;
     Ball<FloatAP,FloatDP> pm(Error<FloatDP> const& error) const;
 
@@ -508,6 +510,42 @@ template<> class Float<ArbitraryPrecision> {
     friend Bounds<FloatAP> asin(FloatAP const& x);
     friend Bounds<FloatAP> acos(FloatAP const& x);
     friend Bounds<FloatAP> atan(FloatAP const& x);
+    // FloatMP-compatible current-rounding overloads, using native FloatAP.
+    friend FloatAP sqr(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP rec(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP add(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2);
+    friend FloatAP sub(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2);
+    friend FloatAP mul(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2);
+    friend FloatAP div(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2);
+    friend FloatAP fma(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2, FloatAP const& x3);
+    friend FloatAP pow(CurrentRoundingMode, FloatAP const& x, Nat m);
+    friend FloatAP pow(CurrentRoundingMode, FloatAP const& x, Int n);
+    friend FloatAP sqrt(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP exp(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP log(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP sin(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP cos(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP tan(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP asin(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP acos(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP atan(CurrentRoundingMode, FloatAP const& x);
+    static FloatAP pi(CurrentRoundingMode, ArbitraryPrecision pr);
+    friend FloatAP add(CurrentRoundingMode, FloatAP const& x1, FloatDP const& x2);
+    friend FloatAP sub(CurrentRoundingMode, FloatAP const& x1, FloatDP const& x2);
+    friend FloatAP mul(CurrentRoundingMode, FloatAP const& x1, FloatDP const& x2);
+    friend FloatAP div(CurrentRoundingMode, FloatAP const& x1, FloatDP const& x2);
+    friend FloatAP add(CurrentRoundingMode, FloatDP const& x1, FloatAP const& x2);
+    friend FloatAP sub(CurrentRoundingMode, FloatDP const& x1, FloatAP const& x2);
+    friend FloatAP mul(CurrentRoundingMode, FloatDP const& x1, FloatAP const& x2);
+    friend FloatAP div(CurrentRoundingMode, FloatDP const& x1, FloatAP const& x2);
+    friend FloatAP add(CurrentRoundingMode, FloatAP const& x1, ExactDouble x2);
+    friend FloatAP sub(CurrentRoundingMode, FloatAP const& x1, ExactDouble x2);
+    friend FloatAP mul(CurrentRoundingMode, FloatAP const& x1, ExactDouble x2);
+    friend FloatAP div(CurrentRoundingMode, FloatAP const& x1, ExactDouble x2);
+    friend FloatAP add(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2);
+    friend FloatAP sub(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2);
+    friend FloatAP mul(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2);
+    friend FloatAP div(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2);
     friend FloatAP pow(RoundingModeType mode, FloatAP const& x, Int exponent);
     friend FloatAP operator+(FloatAP const& x) { return x; }
     friend FloatAP operator-(FloatAP const& x) { return negate(x); }

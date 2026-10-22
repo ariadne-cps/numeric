@@ -112,6 +112,7 @@ template<> FloatAPApproximation::operator ApproximateNumber() const { return App
 template<> FloatMPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBounds>(*this)); }
 //template<> FloatMPBall::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBall>(*this)); }
 FloatMP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatMP>(*this)); }
+FloatAP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatAP>(*this)); }
 
 ExactNumber cast_exact(ValidatedUpperNumber const& y) { return ExactNumber(y.handle()); }
 ExactNumber cast_exact(ValidatedLowerNumber const& y) { return ExactNumber(y.handle()); }

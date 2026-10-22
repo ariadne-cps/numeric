@@ -494,6 +494,43 @@ FloatAP::Rounding::Rounding(RoundApproximately const&) noexcept : _value(ToNeare
 FloatAP::Rounding::Rounding(CurrentRoundingMode const&) noexcept
     : _value(FloatAP::get_rounding_mode().value()) { }
 
+// Forward current-rounding operations to the existing native implementation.
+FloatAP sqr(CurrentRoundingMode, FloatAP const& x) { return sqr(FloatAP::get_rounding_mode(),x); }
+FloatAP rec(CurrentRoundingMode, FloatAP const& x) { return rec(FloatAP::get_rounding_mode(),x); }
+FloatAP add(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2) { return add(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP sub(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2) { return sub(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP mul(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2) { return mul(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP div(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2) { return div(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP fma(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2, FloatAP const& x3) { return fma(FloatAP::get_rounding_mode(),x1,x2,x3); }
+FloatAP pow(CurrentRoundingMode, FloatAP const& x, Nat m) { return pow(FloatAP::get_rounding_mode(),x,m); }
+FloatAP pow(CurrentRoundingMode, FloatAP const& x, Int n) { return pow(FloatAP::get_rounding_mode(),x,n); }
+FloatAP sqrt(CurrentRoundingMode, FloatAP const& x) { return sqrt(FloatAP::get_rounding_mode(),x); }
+FloatAP exp(CurrentRoundingMode, FloatAP const& x) { return exp(FloatAP::get_rounding_mode(),x); }
+FloatAP log(CurrentRoundingMode, FloatAP const& x) { return log(FloatAP::get_rounding_mode(),x); }
+FloatAP sin(CurrentRoundingMode, FloatAP const& x) { return sin(FloatAP::get_rounding_mode(),x); }
+FloatAP cos(CurrentRoundingMode, FloatAP const& x) { return cos(FloatAP::get_rounding_mode(),x); }
+FloatAP tan(CurrentRoundingMode, FloatAP const& x) { return tan(FloatAP::get_rounding_mode(),x); }
+FloatAP asin(CurrentRoundingMode, FloatAP const& x) { return asin(FloatAP::get_rounding_mode(),x); }
+FloatAP acos(CurrentRoundingMode, FloatAP const& x) { return acos(FloatAP::get_rounding_mode(),x); }
+FloatAP atan(CurrentRoundingMode, FloatAP const& x) { return atan(FloatAP::get_rounding_mode(),x); }
+FloatAP FloatAP::pi(CurrentRoundingMode, ArbitraryPrecision pr) { return pi(FloatAP::get_rounding_mode(),pr); }
+FloatAP add(CurrentRoundingMode, FloatAP const& x1, FloatDP const& x2) { return add(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP sub(CurrentRoundingMode, FloatAP const& x1, FloatDP const& x2) { return sub(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP mul(CurrentRoundingMode, FloatAP const& x1, FloatDP const& x2) { return mul(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP div(CurrentRoundingMode, FloatAP const& x1, FloatDP const& x2) { return div(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP add(CurrentRoundingMode, FloatDP const& x1, FloatAP const& x2) { return add(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP sub(CurrentRoundingMode, FloatDP const& x1, FloatAP const& x2) { return sub(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP mul(CurrentRoundingMode, FloatDP const& x1, FloatAP const& x2) { return mul(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP div(CurrentRoundingMode, FloatDP const& x1, FloatAP const& x2) { return div(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP add(CurrentRoundingMode, FloatAP const& x1, ExactDouble x2) { return add(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP sub(CurrentRoundingMode, FloatAP const& x1, ExactDouble x2) { return sub(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP mul(CurrentRoundingMode, FloatAP const& x1, ExactDouble x2) { return mul(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP div(CurrentRoundingMode, FloatAP const& x1, ExactDouble x2) { return div(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP add(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2) { return add(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP sub(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2) { return sub(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP mul(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2) { return mul(FloatAP::get_rounding_mode(),x1,x2); }
+FloatAP div(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2) { return div(FloatAP::get_rounding_mode(),x1,x2); }
+
 FloatAP::Float(FloatDP const& value, PrecisionType precision)
     : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
 
