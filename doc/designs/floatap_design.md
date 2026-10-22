@@ -9927,3 +9927,44 @@ assumption that the implementation under test is correct.
 The rest of the MPFR/FloatMP-dependent transcendental tests
 and the Windows 30-second timeout remain untouched.
 Cross-platform build and runtime testing still required.
+
+### D82 — freeze one-round integer-power oracles (22 October 2026)
+
+Replace the FloatMP cross-backend oracle for the existing integer-power
+regression in `test_precision_regressions()`, without changing any
+numeric operation or test case. Preserve the five tested precision widths
+(7, 53, 128, 256, 1024 bits), eight magnitudes, both signs, eight
+nonnegative integer powers (0, 1, 2, 3, 7, 8, 13, 31), and four
+rounding modes. These are 2,560 assertions. The separate existing
+signed-zero, infinities, and NaN tests remain untouched.
+
+Store 2,400 distinct reference keys in the flat
+`tests/data/floatap_pow.tsv` (negative and positive exact zero
+produce the same Rational key, accounting for 160 repeated checks).
+The file records precision, mode, ORIGINAL exact signed Rational input,
+integer degree, and expected exact rounded Rational result. Input
+rounding is independently computed to nearest/even once, the rounded
+dyadic numerator/denominator are each raised to the given nonnegative
+integer power EXACTLY, and the final rational is rounded only once in
+the requested direction. In particular, zero to the zeroth power
+remains one. Directed results were checked against their exact
+pre-rounding values during offline fixture generation.
+
+Using the original source Rational as a lookup key, rather than
+`static_cast<Rational>(ap_input)`, keeps the golden reference
+independent even if FloatAP's input constructor regresses.
+A dedicated typed map key additionally stores the power; this
+avoids constructing high-degree, up-to-tens-of-thousands-bit rational
+powers during TEST execution merely to find the expected value.
+All fixture-reading code remains inside `test_float_rounding.cpp`
+and the CMake definition points directly to `tests/data/floatap_pow.tsv`.
+Missing, malformed, or duplicate reference keys fail immediately;
+the total count is checked strictly.
+
+The golden generator used only native arbitrary-precision integer
+arithmetic, no FloatAP, FloatMP, GMP, MPFR, or transcendental routines.
+This change is not a numerical speedup to FloatAP itself; it only
+removes repeated MPFR oracle evaluation in the selected test block.
+The other FloatMP-dependent numerical tests still need migration,
+and no Windows timeout adjustment is made. Build and test validation
+are pending after commit.

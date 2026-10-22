@@ -86,6 +86,9 @@ static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 #ifndef ARIADNE_FLOATAP_EXP_ORACLE_PATH
 #error "Provide the FloatAP exponential fixture path from CMake"
 #endif
+#ifndef ARIADNE_FLOATAP_POW_ORACLE_PATH
+#error "Provide the FloatAP integer-power fixture path from CMake"
+#endif
 // Exact references, keyed by precision, mode, and the rational input.
 // Ordered lookup avoids quadratic duplicate checking and linear scans as
 // the frozen oracle dataset grows. The comparator uses exact Rational order.
@@ -177,6 +180,86 @@ Rational const& floatap_exp_golden(std::size_t bits,
         ARIADNE_FLOATAP_EXP_ORACLE_PATH,288u);
     return find_floatap_golden(rows,bits,mode,input);
 }
+ 
+// Integer power lookup uses the original exact Rational and exponent
+// as its key. The offline data performs the nearest-even input rounding
+// independently, so the test does not derive its oracle from FloatAP.
+struct FloatAPPowerGoldenKey {
+    std::size_t bits;
+    char mode;
+    Rational input;
+    std::size_t degree;
+};
+struct FloatAPPowerGoldenKeyLess {
+    bool operator()(FloatAPPowerGoldenKey const& a,
+                    FloatAPPowerGoldenKey const& b) const {
+        if (a.bits!=b.bits) return a.bits<b.bits;
+        if (a.mode!=b.mode) return a.mode<b.mode;
+        if (a.input!=b.input) return static_cast<bool>(a.input<b.input);
+        return a.degree<b.degree;
+    }
+};
+using FloatAPPowerGoldenTable =
+    std::map<FloatAPPowerGoldenKey,Rational,FloatAPPowerGoldenKeyLess>;
+
+FloatAPPowerGoldenTable load_floatap_power_golden_rows() {
+    std::ifstream file(ARIADNE_FLOATAP_POW_ORACLE_PATH);
+    if (!file) throw std::runtime_error(
+        "Missing FloatAP integer power oracle: "
+        ARIADNE_FLOATAP_POW_ORACLE_PATH);
+    FloatAPPowerGoldenTable rows;
+    std::string line;
+    std::size_t line_number=0u;
+    while (std::getline(file,line)) {
+        ++line_number;
+        if (line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        std::size_t bits=0u;
+        std::size_t degree=0u;
+        std::string mode,in_num,in_den,out_num,out_den,extra;
+        if (!(fields>>bits>>mode>>in_num>>in_den>>degree>>out_num>>out_den)
+            || (fields>>extra)) {
+            throw std::runtime_error("Malformed FloatAP power fixture line "
+                                     +std::to_string(line_number));
+        }
+        if (bits<2u || mode.size()!=1u ||
+            (mode[0]!='N' && mode[0]!='D' &&
+             mode[0]!='U' && mode[0]!='Z')) {
+            throw std::runtime_error("Invalid FloatAP power fixture metadata at line "
+                                     +std::to_string(line_number));
+        }
+        const Rational input{Integer(String(in_num)),Integer(String(in_den))};
+        const Rational expected{Integer(String(out_num)),Integer(String(out_den))};
+        if (!rows.emplace(FloatAPPowerGoldenKey{bits,mode[0],input,degree},
+                          expected).second) {
+            throw std::runtime_error("Duplicate FloatAP power fixture line "
+                                     +std::to_string(line_number));
+        }
+    }
+    if (rows.size()!=2400u) throw std::runtime_error(
+        "Unexpected FloatAP integer power oracle row count: "
+        +std::to_string(rows.size()));
+    return rows;
+}
+Rational const& floatap_power_golden(std::size_t bits,
+                                     FloatAP::RoundingModeType mode,
+                                     Rational const& input,
+                                     Nat degree) {
+    static const auto rows=load_floatap_power_golden_rows();
+    char tag='?';
+    if (mode==FloatAP::ROUND_TO_NEAREST) tag='N';
+    else if (mode==FloatAP::ROUND_DOWNWARD) tag='D';
+    else if (mode==FloatAP::ROUND_UPWARD) tag='U';
+    else if (mode==FloatAP::ROUND_TOWARD_ZERO) tag='Z';
+    else throw std::invalid_argument("Unknown FloatAP integer power rounding mode");
+    auto const found=rows.find(FloatAPPowerGoldenKey{
+        bits,tag,input,static_cast<std::size_t>(degree)});
+    if (found!=rows.end()) return found->second;
+    throw std::runtime_error("Missing FloatAP power fixture: bits="
+                             +std::to_string(bits)+" mode="+tag+
+                             " degree="+std::to_string(degree));
+}
+
 
 
 // Diagnostic-only wall-clock checkpoints. They do not alter test inputs,
@@ -1250,14 +1333,13 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // One-round integer power directly from the exact binary
-            // significand. Compare with the MPFR oracle on the same
-            // rounded input, for mixed degrees, both signs, every
-            // directed mode, and low to high precision.
+            // One-round integer power, with an independent exact oracle:
+            // nearest-round the original input, form its exact integer power,
+            // then round once in the requested direction. Fixture keys use
+            // signed_input so no FloatAP-derived value becomes the oracle.
             FloatAPPhaseTiming timing_integer_pow("integer_pow",precision.bits());
             for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 const Rational magnitudes[] = {
                     Rational(0),Rational(1),Rational(1,2),
                     Rational(3,4),Rational(17,16),Rational(5,3),
@@ -1269,23 +1351,20 @@ TestFloatRounding<PR>::test_precision_regressions()
                             sign_factor < 0 ? -magnitude : magnitude;
                         const FloatAP ap_input(
                             signed_input,FloatAP::ROUND_TO_NEAREST,ap);
-                        const FloatMP mp_input(
-                            static_cast<Rational>(ap_input),
-                            FloatMP::ROUND_TO_NEAREST,mp);
                         for (Nat power : {Nat(0u),Nat(1u),Nat(2u),
                                           Nat(3u),Nat(7u),Nat(8u),
                                           Nat(13u),Nat(31u)}) {
-                            const auto check=[&](auto ap_mode,auto mp_mode) {
+                            const auto check=[&](auto ap_mode) {
                                 ARIADNE_TEST_EQUALS(
                                     static_cast<Rational>(
                                         pow(ap_mode,ap_input,power)),
-                                    static_cast<Rational>(
-                                        pow(mp_mode,mp_input,power)));
+                                    floatap_power_golden(
+                                        ap.bits(),ap_mode,signed_input,power));
                             };
-                            check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                            check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                            check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                            check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                            check(FloatAP::ROUND_TO_NEAREST);
+                            check(FloatAP::ROUND_DOWNWARD);
+                            check(FloatAP::ROUND_UPWARD);
+                            check(FloatAP::ROUND_TOWARD_ZERO);
                         }
                     }
                 }
