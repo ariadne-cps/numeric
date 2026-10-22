@@ -9521,3 +9521,16 @@ successive migrations. Do not benchmark this intermediate boundary
 cost or claim FloatAP is GMP-free until the final grep and runtime
 regression are clean. Validate the 3456-case FloatMP/FloatAP
 differential baseline on ARM64 and x86-64, including all directed modes.
+
+### D65 — fix BigUnsigned hidden-friend addition lookup in FloatAP (22 October 2026)
+
+The first macOS ARM64 Clang build after D64 failed in
+`FloatAP::from_native_ratio`: unqualified `add(BigUnsigned,BigUnsigned)`
+resolved to the four-argument `FloatAP::add` member instead of the
+`BigUnsigned` hidden-friend function. Define a private translation-unit
+helper that calls the hidden friend through argument-dependent lookup
+outside `FloatAP` member scope; use it for twice the remainder and
+for the quotient rounding increment. No new arithmetic kernel, change
+to the public BigUnsigned interface, or change to ties-to-even rounding.
+A standalone Clang/GCC C++20 `-Werror` lookup check passed; the full
+ARM64 build and 3456-case differential regression still need CI validation.

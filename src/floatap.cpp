@@ -112,6 +112,14 @@ void FloatAP::round_scaled_integer(FloatAP& result, Exponent scale, Rounding mod
     }
 }
 
+namespace {
+// BigUnsigned's hidden-friend add relies on ADL, which is suppressed
+// by FloatAP::add during lookup inside FloatAP member functions.
+BigUnsigned add_big_unsigned(BigUnsigned const& a, BigUnsigned const& b) {
+    return add(a,b);
+}
+} // namespace
+
 // D64: exact division and remainder now use the shared native
 // BigUnsigned kernels, including for the old <=64-bit fast path.
 // GMP is temporarily confined to the boundary wrapper and FloatAP
@@ -176,7 +184,7 @@ FloatAP FloatAP::from_native_ratio(Integer const& numerator,
     if (!remainder.is_zero()) {
         switch (mode.value()) {
             case Rounding::ToNearest: {
-                auto const twice=add(remainder,remainder);
+                auto const twice=add_big_unsigned(remainder,remainder);
                 int const order=compare(twice,divisor);
                 increment=order>0 || (order==0 && (quotient.limb(0u)&1u));
                 break;
@@ -187,7 +195,7 @@ FloatAP FloatAP::from_native_ratio(Integer const& numerator,
             default: throw std::invalid_argument("FloatAP unknown rounding mode");
         }
     }
-    if (increment) quotient=add(quotient,BigUnsigned(1u));
+    if (increment) quotient=add_big_unsigned(quotient,BigUnsigned(1u));
     result._exponent=checked_add(
         scale,checked_sub(k,static_cast<Exponent>(precision-1u)));
     if (quotient.bit_length()>precision) {
