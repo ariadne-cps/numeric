@@ -84,6 +84,13 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 }
 
 
+#ifndef ARIADNE_BIG_UNSIGNED_R14_ORACLE_PATH
+#error "Provide BigUnsigned R14 square oracle path from CMake"
+#endif
+#ifndef ARIADNE_BIG_UNSIGNED_B72_ORACLE_PATH
+#error "Provide BigUnsigned B72 product oracle path from CMake"
+#endif
+
 #ifndef ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH
 #error "Provide the BigUnsigned subtraction oracle path from CMake"
 #endif
@@ -480,9 +487,13 @@ void TestBigUnsigned::test_multiplication()
     std::mt19937_64 engine(0x1282561024ULL);
     GmpInteger a,b,c,t;
 
-    // R14: verify the self-product decision at the unsigned layer,
-    // including both sides of the 8-limb symmetric-square threshold.
-    // Object identity, not equal numeric value, selects the fast path.
+    // R14: independent frozen self-product references. Preserve all
+    // original draws from the shared engine: later randomized tests
+    // must continue to use exactly the same inputs.
+    std::ifstream square_golden(ARIADNE_BIG_UNSIGNED_R14_ORACLE_PATH);
+    if (!square_golden) throw std::runtime_error("Missing R14 square TSV");
+    std::string square_header;
+    while (square_golden.peek()=='#') std::getline(square_golden,square_header);
     for (const std::size_t count:{1u,4u,7u,8u,9u,16u,64u}) {
         for (unsigned mode=0u;mode<12u;++mode) {
             std::vector<std::uint64_t> words(count);
@@ -498,26 +509,37 @@ void TestBigUnsigned::test_multiplication()
             } else {
                 words.back()|=std::uint64_t{1}<<63u;
             }
-            const BigUnsigned input(words);
-            const BigUnsigned distinct(input);
-            mpz_import(a.value,input.size(),-1,sizeof(std::uint64_t),
-                       0,0,input.limbs().data());
-            mpz_mul(t.value,a.value,a.value);
-            check_against_gmp(mul(input,input),t.value);
-            check_against_gmp(mul(input,distinct),t.value);
-            check_against_gmp(square(input),t.value);
-            check_against_gmp(input,a.value);
-            check_against_gmp(distinct,a.value);
+            if (mode>=4u) continue; // Four structurally distinct classes.
+            std::size_t ref_count=0u;
+            unsigned ref_mode=0u;
+            std::string ref_input,ref_square;
+            if (!(square_golden >> ref_count >> ref_mode
+                               >> ref_input >> ref_square)
+                || ref_count!=count || ref_mode!=mode) {
+                throw std::runtime_error("Missing or unordered R14 square row");
+            }
+            const BigUnsigned input(words),distinct(input);
+            check_against_precomputed_hex(input,ref_input);
+            check_against_precomputed_hex(distinct,ref_input);
+            check_against_precomputed_hex(mul(input,input),ref_square);
+            check_against_precomputed_hex(mul(input,distinct),ref_square);
+            check_against_precomputed_hex(square(input),ref_square);
         }
     }
+    std::string extra_square;
+    if (square_golden >> extra_square)
+        throw std::runtime_error("Extra R14 square oracle rows");
 
     static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 64u*80u);
 
-    // B72: exact owning 4-limb fast-path boundary, including the
-    // ordinary 5-limb fallback on each side. The independent GMP
-    // reference tests zero, maximal carries, sparse and random rows;
-    // all targets run the same corpus, even though only GCC x86-64
-    // selects the new stack construction.
+    // B72: independent frozen product and square expectations for
+    // every width pair on either side of the owning 4/5-limb threshold.
+    // All original random draws are consumed before selecting a class.
+    std::ifstream product_golden(ARIADNE_BIG_UNSIGNED_B72_ORACLE_PATH);
+    if (!product_golden) throw std::runtime_error("Missing B72 product TSV");
+    std::string product_header;
+    while (product_golden.peek()=='#')
+        std::getline(product_golden,product_header);
     std::mt19937_64 short_product_engine(0xB7204455ULL);
     for (const std::size_t n:{0u,1u,2u,3u,4u,5u}) {
         for (const std::size_t m:{0u,1u,2u,3u,4u,5u}) {
@@ -545,23 +567,30 @@ void TestBigUnsigned::test_multiplication()
                     for (std::size_t j=1u;j<n;++j) left[j]=0u;
                     for (std::size_t j=1u;j<m;++j) right[j]=0u;
                 }
-                const BigUnsigned lhs(
-                    BigUnsigned::LimbView(left.data(),n));
-                const BigUnsigned rhs(
-                    BigUnsigned::LimbView(right.data(),m));
-                mpz_import(a.value,n,-1,sizeof(std::uint64_t),
-                           0,0,left.data());
-                mpz_import(b.value,m,-1,sizeof(std::uint64_t),
-                           0,0,right.data());
-                mpz_mul(c.value,a.value,b.value);
-                check_against_gmp(mul(lhs,rhs),c.value);
-                check_against_gmp(mul(rhs,lhs),c.value);
-                mpz_mul(t.value,a.value,a.value);
-                check_against_gmp(mul(lhs,lhs),t.value);
-                check_against_gmp(square(lhs),t.value);
+                if (mode>=8u) continue; // All eight behavior classes.
+                std::size_t ref_n=0u,ref_m=0u;
+                unsigned ref_mode=0u;
+                std::string ref_lhs,ref_rhs,ref_product,ref_square;
+                if (!(product_golden >> ref_n >> ref_m >> ref_mode >>
+                                      ref_lhs >> ref_rhs >>
+                                      ref_product >> ref_square)
+                    || ref_n!=n || ref_m!=m || ref_mode!=mode) {
+                    throw std::runtime_error("Missing or unordered B72 product row");
+                }
+                const BigUnsigned lhs(BigUnsigned::LimbView(left.data(),n));
+                const BigUnsigned rhs(BigUnsigned::LimbView(right.data(),m));
+                check_against_precomputed_hex(lhs,ref_lhs);
+                check_against_precomputed_hex(rhs,ref_rhs);
+                check_against_precomputed_hex(mul(lhs,rhs),ref_product);
+                check_against_precomputed_hex(mul(rhs,lhs),ref_product);
+                check_against_precomputed_hex(mul(lhs,lhs),ref_square);
+                check_against_precomputed_hex(square(lhs),ref_square);
             }
         }
     }
+    std::string extra_product;
+    if (product_golden >> extra_product)
+        throw std::runtime_error("Extra B72 product oracle rows");
 
     for (unsigned repetition=0; repetition<6000u; ++repetition) {
         const std::size_t n = engine()%34u;
