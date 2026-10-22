@@ -9618,3 +9618,29 @@ timeout, but the log does not establish which native routine consumes
 the time. Preserve all differential test cases and diagnose with focused
 per-phase timing and/or a pre-D64 versus post-D64 comparison. No
 performance root cause or resolution is claimed by this revert.
+
+### D70 — remove verbose CTest output from Unix and Windows CI (22 October 2026)
+
+The Windows Release C++ workflow still passed `ctest -V` on every run,
+streaming millions of successful test assertions to GitHub Actions
+(the uploaded failing run #681 has 4,245,873 lines and roughly 241 MB
+in its C++ test step). Recent Windows outcomes with the default 30s
+limit vary: #677 and #680 passed; #679, #681 and #683 did not. The
+separate #682 pass used the temporary 120s limit and cannot be treated
+as evidence of completion under 30s.
+
+Remove `-V` and use `--output-on-failure` for Windows C++ and Python
+CTest steps, and remove the redundant `-V` from the Unix Python
+CTest step. Unix C++ and sanitizer CTest steps already use
+`--output-on-failure` without verbose mode. Leave every suite, test
+body, precision, workload and timeout unchanged (Windows stays at
+30 seconds per test). No numerical changes and no rerouting of
+the FloatAP/FloatMP benchmark.
+
+This is a controlled CI-output experiment, not a diagnosed arithmetic
+fix: CTest still captures the child process output internally, and
+failure output remains available. Compare multiple same-commit Windows
+runs, especially the durations of `test_big_unsigned` and
+`test_float_rounding`. If a timeout persists, instrument the test
+phases and distinguish computation from stdout/capture overhead
+before altering tests or arithmetic.
