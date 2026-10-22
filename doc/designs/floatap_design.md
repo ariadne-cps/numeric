@@ -10079,3 +10079,44 @@ Production code, precision ordering, numerical coverage, timeout
 settings, and remaining MPFR-dependent tests are unchanged.
 D84 Unix, Windows and Coverage workflows passed; D85 CI and build
 validation are pending.
+
+### D86 — certify centered arcsine and arccosine oracles (22 October 2026)
+
+Replace live FloatMP/MPFR comparisons only in `centered_asin_acos`.
+Preserve precision visits 53, 7, 128, 256, 1024, 53,
+all 13 magnitudes (including the centered threshold and exterior
+fallback), both signs, both inverse-trigonometric functions and four
+rounding directions: 1,248 original assertions unchanged.
+
+Two operation-specific flat fixtures, `tests/data/floatap_asin.tsv`
+and `tests/data/floatap_acos.tsv`, each contain 520 immutable
+certified results. Keys use the ORIGINAL exact signed Rational,
+so accidental FloatAP constructor regressions cannot choose another
+fixture. Offline nearest-even input rounding is performed exclusively
+with arbitrary-precision integer quotient, remainder, and midpoint
+comparisons; the repeated 53-bit visit reuses existing keys.
+The existing strict six-column inline reader rejects missing,
+malformed, duplicate or unexpected-count entries. Two absolute
+CMake fixture paths are added, with no extra C++ helper files.
+
+For independently certifying each reference, let a=abs(rounded x)
+and B=2^1800. All |x|<=3/4. From a=n/d, compute
+q=isqrt(floor((d*d-n*n)*B*B/(d*d))), giving a certified enclosure
+sqrt(1-a*a) in [q/B,(q+1)/B]. Outward rational/integer arithmetic
+bounds t=a/(1+sqrt(1-a*a))<1/2. The identity
+asin(a)=2 atan(t) uses the alternating atan series, tracking lower
+and upper fixed-point powers and sums for k=0..1149 inclusive,
+with the first omitted term enclosing the alternating tail.
+For negative x reverse the sine-inverse bounds. Independently
+certify pi/2 via Machin's identity
+pi/2=8 atan(1/5)-2 atan(1/239), using the same rigorously
+bounded series. Finally, acos(x)=pi/2-asin(x) is bounded outward.
+Each fixture is accepted only if BOTH exact rational interval
+endpoints round to the identical p-bit value in the specified
+direction, including nearest/even midpoint handling.
+All 1,040 entries passed certification; the maximum final
+interval width was 13826/2^1800.
+
+D85 Unix, Windows and Coverage workflows all passed before D86.
+D86 build and regression/CI status are pending. No production
+source, timeouts or unrelated tests were modified.
