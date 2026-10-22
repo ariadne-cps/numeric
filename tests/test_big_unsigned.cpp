@@ -84,6 +84,10 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 }
 
 
+#ifndef ARIADNE_BIG_UNSIGNED_B35_ORACLE_PATH
+#error "Provide BigUnsigned B35 product oracle path from CMake"
+#endif
+
 #ifndef ARIADNE_BIG_UNSIGNED_RANDOM_MUL_ORACLE_PATH
 #error "Provide BigUnsigned randomized multiplication oracle path from CMake"
 #endif
@@ -634,50 +638,42 @@ void TestBigUnsigned::test_multiplication()
     if (random_golden >> random_extra)
         throw std::runtime_error("Extra random multiplication TSV rows");
 
-    // B35: the owning product must agree with the independent GMP
-    // oracle across the selective 63/64-limb Karatsuba boundary,
-    // odd lengths, near-balanced and strongly unbalanced operands.
-    // These tests run on every architecture, including the old
-    // unfused/reference multiplication paths.
-    std::mt19937_64 karatsuba_selected_engine(0xB35CA7A5ULL);
+    // B35: freeze five behaviorally distinct modes for every original
+    // Karatsuba width pair (including 63/64/65 and unbalanced lengths).
+    // Both operand orders compare against one independent exact reference.
+    std::ifstream b35_golden(ARIADNE_BIG_UNSIGNED_B35_ORACLE_PATH);
+    if (!b35_golden) throw std::runtime_error("Missing BigUnsigned B35 oracle TSV");
+    std::string b35_header;
+    while (b35_golden.peek()=='#') std::getline(b35_golden,b35_header);
     for (const auto& [n,m]:
             {std::pair<std::size_t,std::size_t>{63u,63u},
              {63u,64u}, {64u,63u}, {64u,64u}, {64u,65u},
              {65u,64u}, {65u,65u}, {80u,64u}, {96u,64u},
              {96u,96u}, {128u,64u}, {128u,96u},
              {96u,128u}, {128u,128u}}) {
-        for (unsigned repetition=0u;repetition<32u;++repetition) {
-            std::vector<std::uint64_t> left(n),right(m);
-            for (auto& word:left) word=karatsuba_selected_engine();
-            for (auto& word:right) word=karatsuba_selected_engine();
-            if (repetition%7u==0u) {
-                std::fill(left.begin(),left.end(),max);
-                std::fill(right.begin(),right.end(),max);
-            } else if (repetition%7u==1u) {
-                std::fill(left.begin(),left.end(),0u);
-                std::fill(right.begin(),right.end(),0u);
-                left.front()=13u;
-                right.front()=31u;
-            } else if (repetition%7u==2u) {
-                for (std::size_t i=1u;i+1u<n;++i) left[i]=0u;
-                for (std::size_t i=1u;i+1u<m;++i) right[i]=0u;
-            } else if (repetition%7u==3u) {
-                for (std::size_t i=0u;i<n;i+=2u) left[i]=0u;
-                for (std::size_t i=0u;i<m;i+=2u) right[i]=0u;
+        for (unsigned repetition=0u;repetition<5u;++repetition) {
+            std::size_t source_n=0u,source_m=0u;
+            unsigned source_repetition=0u;
+            std::string lhs_hex,rhs_hex,product_hex;
+            if (!(b35_golden >> source_n >> source_m >> source_repetition
+                        >> lhs_hex >> rhs_hex >> product_hex)
+                || source_n!=n || source_m!=m ||
+                   source_repetition!=repetition) {
+                throw std::runtime_error("Missing or unordered B35 TSV row");
             }
-            left.back()|=std::uint64_t{1}<<63u;
-            right.back()|=std::uint64_t{1}<<63u;
-
-            const BigUnsigned lhs(left),rhs(right);
-            mpz_import(a.value,n,-1,sizeof(std::uint64_t),
-                       0,0,left.data());
-            mpz_import(b.value,m,-1,sizeof(std::uint64_t),
-                       0,0,right.data());
-            mpz_mul(c.value,a.value,b.value);
-            check_against_gmp(mul(lhs,rhs),c.value);
-            check_against_gmp(mul(rhs,lhs),c.value);
+            const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
+            const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
+            ARIADNE_TEST_ASSERT(lhs.size()==n);
+            ARIADNE_TEST_ASSERT(rhs.size()==m);
+            const BigUnsigned expected_product=
+                big_unsigned_from_golden_hex(product_hex);
+            check_against_precomputed_hex(mul(lhs,rhs),product_hex);
+            ARIADNE_TEST_ASSERT(compare(mul(rhs,lhs),expected_product)==0);
         }
     }
+    std::string b35_extra;
+    if (b35_golden >> b35_extra)
+        throw std::runtime_error("Extra B35 TSV oracle rows");
 
     // B40: regression corpus for the 63/64 active-row dispatch
     // crossover and for 31/32/33-limb Karatsuba leaf products.
