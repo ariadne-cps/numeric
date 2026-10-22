@@ -75,7 +75,6 @@ class GmpIntegerBoundary
     ~GmpIntegerBoundary() { mpz_clear(_value); }
     mpz_ptr mutable_value() noexcept { return _value; }
     mpz_srcptr value() const noexcept { return _value; }
-    Integer to_integer() const { return integer_from_gmp(_value); }
 };
 
 } // namespace Ariadne

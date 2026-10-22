@@ -36,11 +36,6 @@
 
 namespace Ariadne {
 
-//! Transitional adapter, never stored inside Rational or used by its arithmetic.
-inline Rational rational_from_gmp(mpq_srcptr source) {
-    return Rational(integer_from_gmp(mpq_numref(source)),integer_from_gmp(mpq_denref(source)));
-}
-
 //! GMP arithmetic accepts finite fractions only; never export our special tags.
 inline void rational_to_gmp(mpq_ptr destination,Rational const& source) {
     if (!is_finite(source)) {
@@ -65,7 +60,6 @@ class GmpRationalBoundary
     ~GmpRationalBoundary() { mpq_clear(_value); }
     mpq_ptr mutable_value() noexcept { return _value; }
     mpq_srcptr value() const noexcept { return _value; }
-    Rational to_rational() const { return rational_from_gmp(_value); }
 };
 
 } // namespace Ariadne

@@ -35,10 +35,10 @@ foreach(TEST ${UNIT_TESTS})
     endif()
 endforeach()
 
-# Absolute fixture base directory for the three oracle-using test targets.
+# Absolute fixture base directory for the oracle-using test targets.
 # The TSV file names live beside their consumers in the C++ test files.
 # Absolute path preserves out-of-source builds and Windows CTest.
-foreach(TEST IN ITEMS test_big_unsigned test_integer test_float_rounding)
+foreach(TEST IN ITEMS test_big_unsigned test_integer test_rational test_float_rounding)
     target_compile_definitions(${TEST} PRIVATE
         "ARIADNE_TEST_DATA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/data\"")
 endforeach()

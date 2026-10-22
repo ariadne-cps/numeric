@@ -7981,3 +7981,8 @@ when the strict gates are only narrowly met.
 ## NewDyadic continuation
 
 The experimental `NewDyadic` work beginning with commit [`0f7f06c16`](https://github.com/ariadne-cps/numeric/commit/0f7f06c16) (R33a), including R33b–R38, is maintained separately in [`dyadic_design.md`](dyadic_design.md). The shared BigUnsigned foundation and Integer/Rational historical records remain in this journal. New shared-kernel changes that affect both projects should be cross-referenced in each journal.
+
+
+### R33 — oracle migration and removal of reverse Rational GMP bridge methods (22 October 2026)
+
+As part of the `remove-gmp` test migration, replace the R8 and R28 GMP differential checks in `test_rational.cpp` with exact source-keyed TSV references (16 and 36 cases respectively, preserving all original sign and width boundaries). Test 600-digit native integer parsing and streaming without an intermediary mpz conversion. Remove `rational_from_gmp` and reverse `to_rational()`/`to_integer()` bridge methods; retain forward GMP adapters temporarily for legacy rational differential tests. The `integer_from_gmp` function itself remains necessary to the current `FloatAP` implementation, whose GMP significand and legacy ratio paths are not yet converted. Do not remove or hide that live dependency until those FloatAP paths are made native. This is test-only and bridge surface cleanup; no arithmetic implementation, architecture or performance gates were modified. CI validation remains required.

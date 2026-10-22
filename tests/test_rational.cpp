@@ -41,6 +41,9 @@
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
+#include <fstream>
+#include <stdexcept>
+#include <string>
 #include <limits>
 #include <random>
 #include <utility>
@@ -53,6 +56,12 @@ using namespace std;
 using namespace Ariadne;
 
 namespace {
+
+#ifndef ARIADNE_TEST_DATA_DIR
+#error "Provide the test data directory from CMake"
+#endif
+inline constexpr char R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r8.tsv";
+inline constexpr char R28_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r28.tsv";
 
 constexpr bool check_concept()
 {
@@ -162,13 +171,6 @@ void TestRational::test_conversions() {
     ARIADNE_TEST_FAIL(Rational(String("not-a-rational")));
     ARIADNE_TEST_ASSERT(is_nan(Rational(0,0)));
 
-    mpq_t raw;
-    mpq_init(raw);
-    mpq_set_si(raw,5,6);
-    Rational from_raw=rational_from_gmp(raw);
-    mpq_clear(raw);
-    ARIADNE_TEST_EQUAL(from_raw,Rational(5,6));
-
     Rational assigned;
     Rational source(11,13);
     assigned=source;
@@ -185,12 +187,8 @@ void TestRational::test_conversions() {
     ARIADNE_TEST_EQUAL(unchanged,Rational(5,7));
 
     String big_digits(600,'9');
-    mpz_t big_integer;
-    mpz_init(big_integer);
-    ARIADNE_TEST_EQUALS(mpz_set_str(big_integer,big_digits.c_str(),10),0);
     std::ostringstream big_output;
-    big_output << integer_from_gmp(big_integer);
-    mpz_clear(big_integer);
+    big_output << Integer(big_digits);
     ARIADNE_TEST_EQUALS(big_output.str(),std::string(600,'9'));
 }
 
@@ -403,50 +401,73 @@ void TestRational::test_native_contract() {
     ARIADNE_TEST_EQUALS(cmp(Rational::nan(),finite),Comparison::INCOMPARABLE);
     ARIADNE_TEST_FAIL(static_cast<void>(GmpRationalBoundary(Rational::nan())));
 
-    // R8: exact cross-products of one-limb magnitudes, including
-    // products which exceed 64 bits. Check the independent GMP order.
+    // R8: original 4x4 near-2^64 exact cross-product ordering.
+    // Freeze independent expected signs; test reversed signed ordering too.
     {
         const std::uint64_t limit=std::numeric_limits<std::uint64_t>::max();
-        const std::array<Rational,4> samples={
+        const std::array<Rational,4u> samples={
             Rational(Integer(limit-17u),Integer(limit-7u)),
             Rational(Integer(limit-19u),Integer(limit-5u)),
             Rational(Integer(limit-13u),Integer(limit-3u)),
             Rational(Integer(limit-11u),Integer(limit-2u))
         };
-        for (Rational const& x:samples) {
-            for (Rational const& y:samples) {
-                GmpRationalBoundary gx(x),gy(y);
-                const int raw=mpq_cmp(gx.value(),gy.value());
-                const Comparison expected=raw<0 ? Comparison::LESS
-                    : raw>0 ? Comparison::GREATER : Comparison::EQUAL;
-                ARIADNE_TEST_EQUALS(cmp(x,y),expected);
-                ARIADNE_TEST_EQUALS(cmp(-x,-y),
-                    raw>0 ? Comparison::LESS
-                    : raw<0 ? Comparison::GREATER : Comparison::EQUAL);
+        std::ifstream reference(R8_ORACLE_PATH);
+        if (!reference) throw std::runtime_error("Missing R8 oracle TSV");
+        std::string header;
+        while (reference.peek()=='#') std::getline(reference,header);
+        for (unsigned i=0u;i<4u;++i) {
+            for (unsigned j=0u;j<4u;++j) {
+                unsigned ref_i=0u,ref_j=0u;
+                int order=2;
+                if (!(reference >> ref_i >> ref_j >> order) ||
+                    ref_i!=i || ref_j!=j || order < -1 || order > 1) {
+                    throw std::runtime_error("Malformed or unordered R8 TSV row");
+                }
+                const Comparison expected=order<0 ? Comparison::LESS
+                    : order>0 ? Comparison::GREATER : Comparison::EQUAL;
+                ARIADNE_TEST_EQUALS(cmp(samples[i],samples[j]),expected);
+                const Comparison reversed=order>0 ? Comparison::LESS
+                    : order<0 ? Comparison::GREATER : Comparison::EQUAL;
+                ARIADNE_TEST_EQUALS(cmp(-samples[i],-samples[j]),reversed);
             }
         }
+        std::string extra;
+        if (reference >> extra)
+            throw std::runtime_error("Extra R8 oracle TSV rows");
     }
 
-    // R28: independent GMP add/sub checks across the 256-bit heap
-    // boundary, four effective sign combinations and 8/9-limb cases.
-    for (unsigned bits:{127u,128u,255u,256u,257u,319u,320u,448u,512u}) {
-        const Integer base=pow(Integer(2),Nat(bits));
-        for (unsigned mode=0u;mode<4u;++mode) {
-            const Integer a_num=(mode&1u)!=0u ? -(base+13) : base+13;
-            const Integer b_num=(mode&2u)!=0u ? -(base+31) : base+31;
-            const Rational a(a_num,base*2+17);
-            const Rational b(b_num,base*3+19);
-            const GmpRationalBoundary oracle_a(a),oracle_b(b);
-            GmpRationalBoundary oracle_sum,oracle_diff;
-            mpq_add(oracle_sum.mutable_value(),oracle_a.value(),oracle_b.value());
-            mpq_sub(oracle_diff.mutable_value(),oracle_a.value(),oracle_b.value());
-            const GmpRationalBoundary actual_sum(a+b),actual_diff(a-b);
-            ARIADNE_TEST_ASSERT(mpq_equal(actual_sum.value(),oracle_sum.value())!=0);
-            ARIADNE_TEST_ASSERT(mpq_equal(actual_diff.value(),oracle_diff.value())!=0);
-            ARIADNE_TEST_EQUALS(a-a,Rational(0));
-            ARIADNE_TEST_EQUALS(b-b,Rational(0));
+    // R28: all original heap thresholds and four signed combinations.
+    // Source rational operands and both canonical results are frozen
+    // independently, not computed with GMP during the test.
+    {
+        std::ifstream reference(R28_ORACLE_PATH);
+        if (!reference) throw std::runtime_error("Missing R28 oracle TSV");
+        std::string header;
+        while (reference.peek()=='#') std::getline(reference,header);
+        for (unsigned bits:{127u,128u,255u,256u,257u,319u,320u,448u,512u}) {
+            for (unsigned mode=0u;mode<4u;++mode) {
+                unsigned ref_bits=0u,ref_mode=0u;
+                std::string an,ad,bn,bd,sn,sd,dn,dd;
+                if (!(reference >> ref_bits >> ref_mode >> an >> ad
+                      >> bn >> bd >> sn >> sd >> dn >> dd) ||
+                    ref_bits!=bits || ref_mode!=mode) {
+                    throw std::runtime_error("Malformed or unordered R28 TSV row");
+                }
+                const Rational a(Integer(String(an)),Integer(String(ad)));
+                const Rational b(Integer(String(bn)),Integer(String(bd)));
+                const Rational sum(Integer(String(sn)),Integer(String(sd)));
+                const Rational difference(Integer(String(dn)),Integer(String(dd)));
+                ARIADNE_TEST_EQUALS(a+b,sum);
+                ARIADNE_TEST_EQUALS(a-b,difference);
+                ARIADNE_TEST_EQUALS(a-a,Rational(0));
+                ARIADNE_TEST_EQUALS(b-b,Rational(0));
+            }
         }
+        std::string extra;
+        if (reference >> extra)
+            throw std::runtime_error("Extra R28 oracle TSV rows");
     }
+
     // R30: sparse radix construction with independent GMP oracle.
     // Test high-ratio reduction, exact multiples, nonzero/coprime
     // differences, overflow fallbacks and 4/5 and 128/129 limbs.
