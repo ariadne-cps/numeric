@@ -9851,3 +9851,37 @@ FloatAP or the full suite, and NOT a confirmed Windows timeout fix.
 CI compilation and numerical execution on all targets are needed.
 All old MPFR-dependent transcendental and further arithmetic checks
 not listed above remain untouched for future independent oracles.
+
+### D80 — freeze cancellation and exponent-gap add/sub references (22 October 2026)
+
+Move the existing FloatMP oracle for addition/subtraction of ten exactly
+representable binary inputs at 7, 53, 128, 256, and 1024 bits into the
+flat `tests/data/floatap_add_sub.tsv`. Preserve all ten ordered
+operands, 100 ordered pairs per precision, both operations, all four
+rounding modes, and signed-zero/NaN special-case assertions. The
+4,000 existing arithmetic comparisons map to 1,780 unique
+(precision, rounding mode, exact result before rounding) keys.
+Expected outputs were independently computed using arbitrary-precision
+integer rational operations and binary ties-to-even/directed rounding,
+not FloatAP or FloatMP.
+
+To avoid mixing unrelated datasets, reuse the inline golden reader
+with two separately loaded, exactly size-checked maps: 4,794
+construction/division rows and 1,780 addition/subtraction rows.
+CMake defines a second absolute path to the flat data file.
+Keep the reader in `tests/test_float_rounding.cpp` without adding
+oracle headers or implementation files, per the agreed layout.
+
+The exact input for each lookup is the rational sum or difference of
+the operands AFTER their existing FloatAP construction, ensuring the
+fixture represents the original operations. Test count, precision,
+input selection, operation and rounding-mode order, and 30-second
+Windows timeout remain unchanged. No production arithmetic changes.
+Other FloatMP-dependent transcendental tests remain for migration.
+
+During preparation, Windows #693 at D79 was observed failing in
+the C++ CTest step even though its build passed; GitHub job metadata
+alone cannot determine whether the failure is timeout or a numerical
+mismatch. D80 is not a fix for that unidentified failure; obtain
+the full CTest failure log to diagnose it. Compilation and numerical
+execution of D80 remain unverified.

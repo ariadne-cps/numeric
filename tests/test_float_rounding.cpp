@@ -80,6 +80,9 @@ static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 #ifndef ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH
 #error "Provide the FloatAP fixture path from CMake"
 #endif
+#ifndef ARIADNE_FLOATAP_ADD_SUB_ORACLE_PATH
+#error "Provide the FloatAP add/sub fixture path from CMake"
+#endif
 // Exact references, keyed by precision, mode, and the rational input.
 // Ordered lookup avoids quadratic duplicate checking and linear scans as
 // the frozen oracle dataset grows. The comparator uses exact Rational order.
@@ -97,10 +100,11 @@ struct FloatAPGoldenKeyLess {
     }
 };
 using FloatAPGoldenTable = std::map<FloatAPGoldenKey,Rational,FloatAPGoldenKeyLess>;
-FloatAPGoldenTable load_floatap_golden_rows() {
-    std::ifstream file(ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH);
+FloatAPGoldenTable load_floatap_golden_rows(char const* path,
+                                            std::size_t expected_rows) {
+    std::ifstream file(path);
     if (!file) throw std::runtime_error(
-        "Missing FloatAP oracle: " ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH);
+        std::string("Missing FloatAP oracle: ")+path);
     FloatAPGoldenTable rows;
     std::string line;
     unsigned long line_number=0ul;
@@ -128,14 +132,16 @@ FloatAPGoldenTable load_floatap_golden_rows() {
                                      +std::to_string(line_number));
         }
     }
-    if (rows.size()!=4794u) throw std::runtime_error(
-        "Unexpected FloatAP oracle row count: "+std::to_string(rows.size()));
+    if (rows.size()!=expected_rows) throw std::runtime_error(
+        std::string("Unexpected FloatAP oracle row count in ")+path+
+        ": "+std::to_string(rows.size())+
+        " (expected "+std::to_string(expected_rows)+")");
     return rows;
 }
-Rational const& floatap_golden(std::size_t bits,
-                               FloatAP::RoundingModeType mode,
-                               Rational const& input) {
-    static const auto rows=load_floatap_golden_rows();
+Rational const& find_floatap_golden(FloatAPGoldenTable const& rows,
+                                    std::size_t bits,
+                                    FloatAP::RoundingModeType mode,
+                                    Rational const& input) {
     char tag='?';
     if (mode==FloatAP::ROUND_TO_NEAREST) tag='N';
     else if (mode==FloatAP::ROUND_DOWNWARD) tag='D';
@@ -146,6 +152,20 @@ Rational const& floatap_golden(std::size_t bits,
     if (found!=rows.end()) return found->second;
     throw std::runtime_error("Missing FloatAP oracle: bits="
                              +std::to_string(bits)+" mode="+tag);
+}
+Rational const& floatap_golden(std::size_t bits,
+                               FloatAP::RoundingModeType mode,
+                               Rational const& input) {
+    static const auto rows=load_floatap_golden_rows(
+        ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH,4794u);
+    return find_floatap_golden(rows,bits,mode,input);
+}
+Rational const& floatap_add_sub_golden(std::size_t bits,
+                                       FloatAP::RoundingModeType mode,
+                                       Rational const& input) {
+    static const auto rows=load_floatap_golden_rows(
+        ARIADNE_FLOATAP_ADD_SUB_ORACLE_PATH,1780u);
+    return find_floatap_golden(rows,bits,mode,input);
 }
 
 
@@ -1149,10 +1169,10 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Exact MPFR oracle for cancellation, ties and exponent gaps.
+            // Cancellation, ties and large exponent gaps: use independently
+            // frozen exact rational values of the *rounded binary operands*.
             for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(static_cast<mpfr_prec_t>(ap.bits()));
                 const FloatAP one(1,ap);
                 const FloatAP fraction(Rational(7,11),FloatAP::ROUND_TO_NEAREST,ap);
                 const FloatAP tiny=shft(one,-static_cast<Int>(ap.bits()));
@@ -1164,20 +1184,20 @@ TestFloatRounding<PR>::test_precision_regressions()
                 };
                 for (FloatAP const& x : values) {
                     for (FloatAP const& y : values) {
-                        const FloatMP mx(static_cast<Rational>(x),
-                                         FloatMP::ROUND_TO_NEAREST,mp);
-                        const FloatMP my(static_cast<Rational>(y),
-                                         FloatMP::ROUND_TO_NEAREST,mp);
-                        const auto verify=[&](auto am,auto mm) {
+                        const Rational exact_x=static_cast<Rational>(x);
+                        const Rational exact_y=static_cast<Rational>(y);
+                        const Rational exact_sum=exact_x+exact_y;
+                        const Rational exact_difference=exact_x-exact_y;
+                        const auto verify=[&](auto am) {
                             ARIADNE_TEST_EQUALS(static_cast<Rational>(add(am,x,y)),
-                                                static_cast<Rational>(add(mm,mx,my)));
+                                floatap_add_sub_golden(ap.bits(),am,exact_sum));
                             ARIADNE_TEST_EQUALS(static_cast<Rational>(sub(am,x,y)),
-                                                static_cast<Rational>(sub(mm,mx,my)));
+                                floatap_add_sub_golden(ap.bits(),am,exact_difference));
                         };
-                        verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                        verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                        verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                        verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                        verify(FloatAP::ROUND_TO_NEAREST);
+                        verify(FloatAP::ROUND_DOWNWARD);
+                        verify(FloatAP::ROUND_UPWARD);
+                        verify(FloatAP::ROUND_TOWARD_ZERO);
                     }
                 }
                 const FloatAP z(0,ap);
