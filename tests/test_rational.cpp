@@ -63,6 +63,7 @@ namespace {
 inline constexpr char R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r8.tsv";
 inline constexpr char R28_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r28.tsv";
 inline constexpr char R4_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r4.tsv";
+inline constexpr char R16_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r16.tsv";
 
 constexpr bool check_concept()
 {
@@ -774,66 +775,71 @@ void TestRational::test_gmp_differential() {
         conversion_matches=conversion_matches &&
             std::bit_cast<std::uint64_t>(a.get_d())==std::bit_cast<std::uint64_t>(mpq_get_d(ga.value()));
     }
-    // R16: explicit coprime-denominator (g=1), shared factor with
-    // h=1 and shared factor with h>1. GMP checks the exact result and
-    // canonical positive denominator for both signs and both orders.
-    for (unsigned bits : {53u,128u,256u,1024u,2048u,4096u}) {
-        const Integer base=pow(Integer(2),Nat(bits));
-        const std::array<std::pair<Rational,Rational>,7u> inputs={{
-            {Rational(1,base),Rational(1,base+1)},
-            {Rational(7,base),Rational(-11,base+1)},
-            {Rational(-1,base),Rational(1,base+1)},
-            {Rational(1,base),Rational(-1,base)},
-            {Rational(1,2*base),Rational(1,2*(base+1))},
-            {Rational(-1,2*base),Rational(1,2*(base+1))},
-            {Rational(1,6),Rational(1,10)}
-        }};
-        for (auto const& pair:inputs) {
+    // R16: all original operand widths, GCD classes and both orders.
+    // Independent exact expectations are frozen with canonical operands.
+    std::ifstream r16_file(R16_ORACLE_PATH);
+    if (!r16_file) throw std::runtime_error("Missing Rational R16 TSV");
+    std::string r16_header;
+    while (r16_file.peek()=='#') std::getline(r16_file,r16_header);
+    const auto parse_r16=[](std::string const& text) {
+        const auto pos=text.find('/');
+        if (pos==std::string::npos)
+            throw std::runtime_error("Invalid R16 Rational fixture");
+        return Rational{Integer(String(text.substr(0u,pos))),
+                        Integer(String(text.substr(pos+1u)))};
+    };
+    for (unsigned bits:{53u,128u,256u,1024u,2048u,4096u}) {
+        for (unsigned pair=0u;pair<7u;++pair) {
             for (unsigned order=0u;order<2u;++order) {
-                const Rational& a=order==0u ? pair.first : pair.second;
-                const Rational& b=order==0u ? pair.second : pair.first;
-                GmpRationalBoundary native_a(a),native_b(b);
-                mpq_add(expected.mutable_value(),native_a.value(),native_b.value());
-                check(a+b);
-                // R23: replacement of the left/right operand and of a
-                // preexisting special destination preserves the result.
+                unsigned got_bits=0u,got_pair=0u,got_order=0u;
+                std::string raw_a,raw_b,sum,difference,doubled,zero;
+                if (!(r16_file >> got_bits >> got_pair >> got_order
+                      >> raw_a >> raw_b >> sum >> difference >> doubled >> zero)
+                    || got_bits!=bits || got_pair!=pair || got_order!=order)
+                    throw std::runtime_error("Missing or unordered R16 TSV row");
+                const Rational a=parse_r16(raw_a),b=parse_r16(raw_b);
+                const Rational expected_sum=parse_r16(sum);
+                const Rational expected_difference=parse_r16(difference);
+                const Rational expected_twice=parse_r16(doubled);
+                const Rational expected_zero=parse_r16(zero);
+                ARIADNE_TEST_EQUALS(a+b,expected_sum);
+                ARIADNE_TEST_EQUALS(a-b,expected_difference);
                 Rational direct=a;
                 direct+=b;
-                check(direct);
+                ARIADNE_TEST_EQUALS(direct,expected_sum);
                 direct=b;
                 direct=a+direct;
-                check(direct);
+                ARIADNE_TEST_EQUALS(direct,expected_sum);
                 direct=Rational::nan();
                 direct=a+b;
-                check(direct);
-                mpq_sub(expected.mutable_value(),native_a.value(),native_b.value());
-                check(a-b);
+                ARIADNE_TEST_EQUALS(direct,expected_sum);
                 direct=a;
                 direct-=b;
-                check(direct);
+                ARIADNE_TEST_EQUALS(direct,expected_difference);
                 direct=b;
                 direct=a-direct;
-                check(direct);
+                ARIADNE_TEST_EQUALS(direct,expected_difference);
                 direct=Rational::inf(Sign::NEGATIVE);
                 direct=a-b;
-                check(direct);
+                ARIADNE_TEST_EQUALS(direct,expected_difference);
                 Rational aliased=a;
                 aliased+=a;
-                mpq_add(expected.mutable_value(),native_a.value(),native_a.value());
-                check(aliased);
+                ARIADNE_TEST_EQUALS(aliased,expected_twice);
                 direct=a;
                 Rational& direct_alias=direct;
                 direct+=direct_alias;
-                check(direct);
+                ARIADNE_TEST_EQUALS(direct,expected_twice);
                 aliased=a;
                 aliased-=a;
-                mpq_sub(expected.mutable_value(),native_a.value(),native_a.value());
-                check(aliased);
+                ARIADNE_TEST_EQUALS(aliased,expected_zero);
                 direct-=direct_alias;
-                check(direct);
+                ARIADNE_TEST_EQUALS(direct,expected_zero);
             }
         }
     }
+    std::string extra_r16;
+    if (r16_file >> extra_r16)
+        throw std::runtime_error("Extra Rational R16 TSV rows");
     // R20: exact GMP cross-sum checks near both sides of the 8-limb
     // stack/fallback boundary, with signs, carries and cancellation.
     for (unsigned bits : {53u,128u,255u,256u,320u,447u,

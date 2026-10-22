@@ -7991,3 +7991,8 @@ As part of the `remove-gmp` test migration, replace the R8 and R28 GMP different
 ### R33.1 — remaining reverse-conversion callers (22 October 2026)
 
 The removal of `GmpIntegerBoundary::to_integer()` exposed missed callers in FloatMP and Rational. FloatMP is legacy and scheduled for removal; a strictly compatibility-oriented binary MPFR digit export now constructs its exact native Rational value without reviving an mpz_t-to-Integer converter. Rational R4 moves all 54 canonical floor/ceil cases to an independently computed TSV. The 1,200-case random GMP differential loop still uses GMP as an oracle, but now compares GMP integers by exporting the tested Integer through the existing forward `integer_to_gmp` path. These changes do not change numerical kernels or performance requirements. Build/CI validation required before claiming closure.
+
+
+### R33.2 — R16 reference fixture migration (22 October 2026)
+
+R16 is now fully source-keyed in rational_r16.tsv: all 84 original configurations are retained, not reduced because the seven GCD classes and both operand orders are semantically distinct. GMP expected arithmetic replaced by independent exact signed-integer fraction arithmetic. Preserve R23 assignment/alias and special-destination checks. No production arithmetic changes; CI validation pending.
