@@ -142,11 +142,25 @@ FloatAP FloatAP::from_native_ratio(Integer const& numerator,
     result._negative =
         (numerator.negative() != denominator.negative()) != invert_sign;
 
-    // Identical to the previous GMP-only integer path for denominator 1.
-    if (compare(d,BigUnsigned(1u)) == 0) {
+    // Power-of-two denominators are exact binary scalings. Preserve
+    // the fast path used by the old mpq_t constructor without creating a
+    // GMP rational or executing a general multi-limb division.
+    bool denominator_is_power_of_two = true;
+    bool saw_nonzero_limb = false;
+    for (auto limb : d.limbs()) {
+        if (limb == 0u) continue;
+        if (saw_nonzero_limb || !std::has_single_bit(limb)) {
+            denominator_is_power_of_two = false;
+            break;
+        }
+        saw_nonzero_limb = true;
+    }
+    if (denominator_is_power_of_two) {
+        const Exponent denominator_shift =
+            floatap_exponent_from_bit_length(d.bit_length()-1u);
         integer_to_gmp(result._significand,
             Integer::from_magnitude(n,false));
-        round_scaled_integer(result,scale,mode);
+        round_scaled_integer(result,checked_sub(scale,denominator_shift),mode);
         return result;
     }
 
@@ -1101,10 +1115,8 @@ FloatAP shft(FloatAP const& value, Int amount) {
 }
 
 FloatAP::Float(Integer const& n, RoundingModeType mode, PrecisionType pr)
-: Float([&]() {
-    GmpIntegerBoundary native(n);
-    return from_integer(native.value(),static_cast<unsigned long>(pr.bits()),mode);
-}()) {
+: Float(from_native_ratio(n,Integer(1u),0,
+                          static_cast<unsigned long>(pr.bits()),mode)) {
 }
 
 namespace {
@@ -1127,8 +1139,9 @@ FloatAP::Float(Rational const& q, RoundingModeType mode, PrecisionType pr)
     else if (rational_is_inf(q)) {
         *this=infinity(_precision,q.numerator().negative());
     } else {
-        GmpRationalBoundary raw(q);
-        *this=from_rational(raw.value(),_precision,mode);
+        // Rational already owns canonical Integer/BigUnsigned values.
+        // Avoid exporting them to GMP merely to import them back.
+        *this=from_native_ratio(q.numerator(),q.denominator(),0,_precision,mode);
     }
 }
 

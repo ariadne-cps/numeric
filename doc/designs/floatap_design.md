@@ -9669,3 +9669,33 @@ changed. The checkpoint overhead should be negligible but remains to be
 confirmed in the Windows CI run. Do not claim a performance fix from D71:
 use checkpoint evidence to isolate the slow section and then profile
 native computational kernels versus test output overhead.
+
+### D72 — route FloatAP Integer/Rational construction through native values (22 October 2026)
+
+Start preparing to replace the FloatAP `mpz_t _significand` member
+without breaking the several hundred still-GMP call sites in
+`floatap.cpp`. The public constructors from `Integer` and `Rational`
+previously exported the already-native inputs into `GmpIntegerBoundary`
+or `GmpRationalBoundary` and re-imported them in
+`FloatAP::from_ratio`. They now call the D64
+`from_native_ratio` kernel directly. Nonfinite Rational cases still
+follow the preexisting NaN/infinity paths.
+
+Preserve the essential dyadic fast path in `from_native_ratio`:
+detect an exact power-of-two denominator directly from
+`BigUnsigned::limbs()` using `std::has_single_bit`, then round the
+numerator with the checked negative binary denominator exponent.
+Denominator one is included. Non-dyadic inputs continue to use the
+shared BigUnsigned quotient/remainder kernel and unchanged rounding
+modes. No new large-number arithmetic engine or GMP/MPFR helper is
+introduced. Existing FloatAP GMP storage remains the explicit output
+boundary of this stage; only input-side GMP conversions are eliminated.
+
+Full GMP removal is NOT achieved: storage, round_scaled_integer,
+transcendental fixed-point, Fraction and other legacy call sites still
+use GMP. Keep all existing differential tests unchanged; build and
+numerical validation are required on supported platforms before
+declaring D72 tested. Proceed with native storage only after its
+dependent operations are converted coherently, not by changing the
+field type in isolation.
+
