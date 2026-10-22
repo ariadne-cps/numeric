@@ -141,11 +141,7 @@ void TestRational::test_conversions() {
 
     FloatDP fdp(Dyadic(5,2u),dp);
     ARIADNE_TEST_EQUAL(Rational(fdp),Rational(5,4));
-    MultiplePrecision mp(128);
-    FloatMP fmp(Dyadic(5,2u),mp);
-    ARIADNE_TEST_EQUAL(Rational(fmp),Rational(5,4));
-
-    // D52: FloatAP has the same exact-to-Rational entry point as FloatMP.
+    // Exact FloatAP-to-Rational conversion must not require FloatMP.
     const ArbitraryPrecision ap_precision(256_bits);
     const FloatAP ap(Dyadic(5,2u),ap_precision);
     ARIADNE_TEST_EQUAL(Rational(ap),Rational(5,4));
@@ -398,9 +394,9 @@ void TestRational::test_native_contract() {
     ARIADNE_TEST_EQUALS(cmp(Rational::inf(),ExactDouble::inf()),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(-Rational::inf(),-ExactDouble::inf()),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(Rational::nan(),ExactDouble::inf()),Comparison::INCOMPARABLE);
-    const MultiplePrecision precision(128u);
-    const FloatMP infinite_float(ExactDouble::inf(),precision);
-    const FloatMP finite(ExactDouble(1.0),precision);
+    const ArbitraryPrecision precision(128_bits);
+    const FloatAP infinite_float(ExactDouble::inf(),precision);
+    const FloatAP finite(ExactDouble(1.0),precision);
     ARIADNE_TEST_EQUALS(cmp(infinite_float,Rational::inf()),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(Rational::inf(),infinite_float),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(finite,Rational::inf()),Comparison::LESS);

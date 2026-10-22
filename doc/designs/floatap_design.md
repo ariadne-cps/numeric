@@ -9699,3 +9699,20 @@ declaring D72 tested. Proceed with native storage only after its
 dependent operations are converted coherently, not by changing the
 field type in isolation.
 
+### D73 — replace legacy FloatMP Rational conversion tests with FloatAP (22 October 2026)
+
+Begin removing FloatMP from the test suite without discarding existing
+numerical contracts. In `tests/test_rational.cpp`, replace FloatMP
+infinite/finite comparisons with equivalent FloatAP cases at 128 bits.
+Remove the redundant FloatMP-to-Rational 5/4 roundtrip, leaving the
+existing exact FloatAP-to-Rational roundtrip at 256 bits and its
+special-value and large-dyadic checks. No change to production code,
+benchmarks, CTest timeouts, or the rounding regression oracle.
+
+This is a partial removal only. `test_float_rounding.cpp` still uses
+FloatMP as an independent oracle in many precision/mode combinations;
+blindly deleting those references would silently invalidate regression
+coverage. Other FloatMP-specific generic float tests remain too. Full
+removal must replace those checks with independent exact rounding and
+certified interval expectations, and then remove the old instantiations.
+These edits have not yet been built or tested in CI.
