@@ -56,6 +56,16 @@
 #error "Provide the Integer B18 oracle TSV path from CMake"
 #endif
 
+#ifndef ARIADNE_INTEGER_B33_ORACLE_PATH
+#error "Provide the Integer B33 oracle TSV path from CMake"
+#endif
+#ifndef ARIADNE_INTEGER_B37_ORACLE_PATH
+#error "Provide the Integer B37 oracle TSV path from CMake"
+#endif
+#ifndef ARIADNE_INTEGER_B38_ORACLE_PATH
+#error "Provide the Integer B38 oracle TSV path from CMake"
+#endif
+
 #ifndef ARIADNE_INTEGER_POWER_ORACLE_PATH
 #error "Provide the Integer power oracle TSV path from CMake"
 #endif
@@ -554,126 +564,87 @@ void TestInteger::test_native() {
         }
     }
 
-    // B33: alias-aware multiplication is selected only when two
-    // references denote the exact same Integer. A distinct copy with
-    // identical value must still produce the same GMP-oracle square.
-    // Include the self-assignment x*=x contract, negative signs,
-    // zero, limb saturation and the 7/8-limb dispatch boundary.
-    std::mt19937_64 alias_square_engine(0xB33A11A5ULL);
-    for (const std::size_t count:
-            {1u,7u,8u,9u,16u,17u,32u,64u,128u}) {
-        for (unsigned mode=0u;mode<16u;++mode) {
-            std::vector<std::uint64_t> words(count);
-            for (auto& word:words) word=alias_square_engine();
-            switch (mode%8u) {
-            case 0u:
-                std::fill(words.begin(),words.end(),0u);
-                break;
-            case 1u:
-                std::fill(words.begin(),words.end(),
-                          std::numeric_limits<std::uint64_t>::max());
-                break;
-            case 2u:
-                std::fill(words.begin(),words.end(),0u);
-                words.back()=std::uint64_t{1}<<63u;
-                break;
-            case 3u:
-                std::fill(words.begin(),words.end(),0u);
-                words.front()=1u;
-                words.back()|=1u;
-                break;
-            case 4u:
-                for (std::size_t i=1u;i+1u<count;++i) words[i]=0u;
-                break;
-            default:
-                words.back()|=std::uint64_t{1}<<63u;
-                break;
+    // B33: independent exact source-keyed squares for all eight distinct
+    // structural classes at every original width; includes x*=x aliasing.
+    std::ifstream square_oracle(ARIADNE_INTEGER_B33_ORACLE_PATH);
+    if (!square_oracle) throw std::runtime_error("Missing Integer B33 TSV");
+    std::string square_comment;
+    while (square_oracle.peek()=='#') std::getline(square_oracle,square_comment);
+    for (const std::size_t width:{1u,7u,8u,9u,16u,17u,32u,64u,128u}) {
+        for (unsigned mode=0u;mode<8u;++mode) {
+            std::size_t ref_width=0u;
+            unsigned ref_mode=0u;
+            std::string source,expected;
+            if (!(square_oracle >> ref_width >> ref_mode >> source >> expected)
+                || ref_width!=width || ref_mode!=mode) {
+                throw std::runtime_error("Missing or unordered B33 TSV row");
             }
-            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
-                       0,0,words.data());
-            if (mode%2u!=0u) mpz_neg(a.value,a.value);
-            const Integer x=integer_from_gmp(a.value);
-            const Integer distinct_copy=x;
-            mpz_mul(expected.value,a.value,a.value);
-
-            const GmpIntegerBoundary aliased_product(x*x);
-            const GmpIntegerBoundary distinct_product(x*distinct_copy);
-            ARIADNE_TEST_ASSERT(
-                mpz_cmp(aliased_product.value(),expected.value)==0);
-            ARIADNE_TEST_ASSERT(
-                mpz_cmp(distinct_product.value(),expected.value)==0);
-
-            Integer self_assigned=x;
-            self_assigned*=self_assigned;
-            const GmpIntegerBoundary assigned_product(self_assigned);
-            ARIADNE_TEST_ASSERT(
-                mpz_cmp(assigned_product.value(),expected.value)==0);
-            ARIADNE_TEST_ASSERT(!self_assigned.negative());
+            const Integer x{String(source)},copy=x;
+            const Integer square{String(expected)};
+            ARIADNE_TEST_EQUALS(x*x,square);
+            ARIADNE_TEST_EQUALS(x*copy,square);
+            Integer assigned=x;
+            assigned*=assigned;
+            ARIADNE_TEST_EQUALS(assigned,square);
+            ARIADNE_TEST_ASSERT(!assigned.negative());
         }
     }
+    std::string extra_square;
+    if (square_oracle >> extra_square)
+        throw std::runtime_error("Extra B33 TSV rows");
 
-    // B37: large signed powers exercise the same ARM64 specialized
-    // square used by pow3 without changing the exponentiation schedule.
-    std::mt19937_64 arm_pow_engine(0xB37C03ULL);
-    for (const std::size_t count: {7u,8u,9u,16u,32u,64u}) {
-        for (unsigned repetition=0u;repetition<12u;++repetition) {
-            std::vector<std::uint64_t> digits(count);
-            for (auto& word:digits) word=arm_pow_engine();
-            if (repetition%5u==0u) {
-                std::fill(digits.begin(),digits.end(),
-                          std::numeric_limits<std::uint64_t>::max());
-            } else if (repetition%5u==1u) {
-                std::fill(digits.begin(),digits.end(),0u);
-                digits.back()=std::uint64_t{1}<<63u;
-            } else {
-                digits.back()|=std::uint64_t{1}<<63u;
-            }
-            mpz_import(a.value,digits.size(),-1,sizeof(std::uint64_t),
-                       0,0,digits.data());
-            if (repetition%2u!=0u) mpz_neg(a.value,a.value);
-            const Integer input=integer_from_gmp(a.value);
-            for (const unsigned exponent: {2u,3u,5u}) {
-                mpz_pow_ui(expected.value,a.value,exponent);
-                const GmpIntegerBoundary native_pow(
-                    pow(input,Nat(exponent)));
-                ARIADNE_TEST_ASSERT(
-                    mpz_cmp(native_pow.value(),expected.value)==0);
+    // B37: keep the saturation/high-bit/dense sign classes across
+    // the 7/8/9-limb square dispatch and all original wider widths.
+    std::ifstream large_power_oracle(ARIADNE_INTEGER_B37_ORACLE_PATH);
+    if (!large_power_oracle) throw std::runtime_error("Missing Integer B37 TSV");
+    std::string large_power_comment;
+    while (large_power_oracle.peek()=='#')
+        std::getline(large_power_oracle,large_power_comment);
+    for (const std::size_t width:{7u,8u,9u,16u,32u,64u}) {
+        for (unsigned repetition=0u;repetition<4u;++repetition) {
+            for (unsigned exponent:{2u,3u,5u}) {
+                std::size_t ref_width=0u;
+                unsigned ref_repetition=0u,ref_exponent=0u;
+                std::string source,expected;
+                if (!(large_power_oracle >> ref_width >> ref_repetition
+                        >> ref_exponent >> source >> expected)
+                    || ref_width!=width || ref_repetition!=repetition
+                    || ref_exponent!=exponent) {
+                    throw std::runtime_error("Missing or unordered B37 TSV row");
+                }
+                const Integer x{String(source)};
+                ARIADNE_TEST_EQUALS(pow(x,Nat(exponent)),
+                                    Integer(String(expected)));
             }
         }
     }
+    std::string extra_large_power;
+    if (large_power_oracle >> extra_large_power)
+        throw std::runtime_error("Extra B37 TSV rows");
 
-    // B38: exercise pow3 on general zero-row patterns and both signs.
-    // These are genuine arbitrary-precision powers, not a shortcut
-    // based on the benchmark's particular operand construction.
-    std::mt19937_64 sparse_power_engine(0xB38C03ULL);
-    for (const std::size_t count: {8u,16u,32u,64u,128u}) {
-        for (unsigned repetition=0u;repetition<24u;++repetition) {
-            std::vector<std::uint64_t> digits(count);
-            for (auto& word:digits) word=sparse_power_engine();
-            if (repetition%6u==0u) {
-                std::fill(digits.begin(),digits.end(),0u);
-                digits.back()=std::uint64_t{1}<<63u;
-            } else if (repetition%6u==1u) {
-                std::fill(digits.begin(),digits.end(),0u);
-                digits.front()=13u;
-                digits.back()=std::uint64_t{1}<<63u;
-            } else if (repetition%6u==2u) {
-                for (std::size_t i=0u;i<count;i+=2u) digits[i]=0u;
-            } else if (repetition%6u==3u) {
-                std::fill(digits.begin(),digits.end(),
-                          std::numeric_limits<std::uint64_t>::max());
+    // B38: all six sparse/dense structural cases at 8..128 limbs,
+    // including the alternating-zero, saturated and both sign classes.
+    std::ifstream cubic_oracle(ARIADNE_INTEGER_B38_ORACLE_PATH);
+    if (!cubic_oracle) throw std::runtime_error("Missing Integer B38 TSV");
+    std::string cubic_comment;
+    while (cubic_oracle.peek()=='#') std::getline(cubic_oracle,cubic_comment);
+    for (const std::size_t width:{8u,16u,32u,64u,128u}) {
+        for (unsigned repetition=0u;repetition<6u;++repetition) {
+            std::size_t ref_width=0u;
+            unsigned ref_repetition=0u;
+            std::string source,expected;
+            if (!(cubic_oracle >> ref_width >> ref_repetition
+                 >> source >> expected)
+                || ref_width!=width || ref_repetition!=repetition) {
+                throw std::runtime_error("Missing or unordered B38 TSV row");
             }
-            digits.back()|=std::uint64_t{1}<<63u;
-            mpz_import(a.value,digits.size(),-1,sizeof(std::uint64_t),
-                       0,0,digits.data());
-            if (repetition%2u!=0u) mpz_neg(a.value,a.value);
-            const Integer input=integer_from_gmp(a.value);
-            mpz_pow_ui(expected.value,a.value,3u);
-            const GmpIntegerBoundary native_cube(pow(input,Nat(3u)));
-            ARIADNE_TEST_ASSERT(
-                mpz_cmp(native_cube.value(),expected.value)==0);
+            ARIADNE_TEST_EQUALS(pow(Integer(String(source)),Nat(3u)),
+                                Integer(String(expected)));
         }
     }
+    std::string extra_cubic;
+    if (cubic_oracle >> extra_cubic)
+        throw std::runtime_error("Extra B38 TSV rows");
 
     // B18: frozen exact signed arithmetic on 170 strategically sampled
     // originals out of 1700; expected results never use GMP at runtime.
