@@ -10492,3 +10492,62 @@ changes. GitHub CI remains unavailable because of the
 previously noted merge conflict: D94 build and executable
 regression outcomes are NOT verified. Continue exclusively
 on `remove-gmp`.
+
+### D95 — certify exact dyadic sin/cos/tan reduction oracles (22 October 2026)
+
+Replace live FloatMP/MPFR oracle calls ONLY in the unnamed
+single-recurrence sine/cosine/tangent block immediately before
+`log_boundaries`. Preserve all four precision visits
+(53, 128, 256, 1024 bits), all twenty-two exact signed dyadic
+source arguments including tiny 2^-64 and 2^-128,
+both sides of |x|=1 and larger 5/2, 7/2 arguments,
+all four rounding modes, and all three functions:
+exactly 1056 original assertions remain unchanged.
+Keep the original exact Dyadic-to-FloatAP constructor, with
+the source Rational as the oracle key.
+
+Extend existing per-operation datasets in the same flat directory:
+`tests/data/floatap_sin.tsv` from 792 to 1080 rows,
+`tests/data/floatap_cos.tsv` from 792 to 1080 rows,
+and `tests/data/floatap_tan.tsv` from 1016 to 1208 rows.
+Add 288, 288, and
+192 new certified references respectively.
+Independently recertify and compare all overlapping references:
+sin 64, cos 64, tan 160,
+all exact matches. Reuse the strict inline TSV golden loader,
+which still rejects missing, duplicate, malformed and
+unexpected-row-count entries. No CMake changes, new dataset
+names or extra source utilities.
+
+Offline certification uses ONLY native arbitrary-precision
+integers, without GMP, MPFR, FloatMP, FloatAP, or any
+floating-point transcendental oracle. Compute outward
+fixed-point enclosures with B=2^1800 from 240 terms
+(k=0..239) of alternating sine and cosine Taylor series,
+floor/ceil rounding every term recurrence using rigorously
+enclosed x and x^2, and add the first omitted POSITIVE term
+to the upper bound on the alternating remainder.
+The alternating tail bound applies once terms decrease;
+at |x|<=7/2 they decrease in the omitted range.
+Apply sine oddness and cosine evenness to signed inputs.
+For tan, verify the cosine enclosure lies strictly on one
+side of zero. To cover BOTH signs of sine and cosine, find
+the minimum/maximum of the four rational corner quotients
+sin_lower/cos_lower, sin_lower/cos_upper,
+sin_upper/cos_lower, sin_upper/cos_upper.
+Take outward floor/ceil on those extrema scaled by B.
+For every mode and precision require BOTH exact rational
+interval endpoints to round identically to the same
+p-bit binary Rational. All 1056 distinct comparisons
+passed; maximum interval widths were
+sin 242/2^1800, cos 239/2^1800,
+tan 1375/2^1800.
+All 88 dyadic source/precision combinations were already
+exactly binary representable, as required.
+
+No production changes, timeout changes, deletions of test
+cases or modifications to other test blocks.
+D95 executable tests and CI remain unverified because
+of the unresolved merge conflict; offline certified
+references are not a substitute for passing regressions.
+Continue exclusively on the `remove-gmp` branch.

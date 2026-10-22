@@ -263,14 +263,14 @@ Rational const& floatap_sin_golden(std::size_t bits,
                                    FloatAP::RoundingModeType mode,
                                    Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
-        ARIADNE_FLOATAP_SIN_ORACLE_PATH,792u);
+        ARIADNE_FLOATAP_SIN_ORACLE_PATH,1080u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 Rational const& floatap_cos_golden(std::size_t bits,
                                    FloatAP::RoundingModeType mode,
                                    Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
-        ARIADNE_FLOATAP_COS_ORACLE_PATH,792u);
+        ARIADNE_FLOATAP_COS_ORACLE_PATH,1080u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 
@@ -278,7 +278,7 @@ Rational const& floatap_tan_golden(std::size_t bits,
                                    FloatAP::RoundingModeType mode,
                                    Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
-        ARIADNE_FLOATAP_TAN_ORACLE_PATH,1016u);
+        ARIADNE_FLOATAP_TAN_ORACLE_PATH,1208u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 
@@ -1942,15 +1942,12 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Differential oracle for single-recurrence certified
-            // sine/cosine/tangent rounding (including cosine reconstructed
-            // from sine). All inputs are exact dyadics; compare their
-            // rounded values exactly in all four rounding modes.
-            // Include arguments on either side of the |x|=1 reduction
-            // boundary, nearly-one values, and very small magnitudes.
+            // Single-recurrence sine/cosine/tangent rounding (including
+            // cosine reconstructed from sine). Keep the exact dyadic
+            // inputs, both sides of |x|=1 and the very small arguments,
+            // using independent correctly rounded rational references.
             for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 for (Dyadic const& argument :
                      {Dyadic(1,2u),Dyadic(-1,2u),Dyadic(3,2u),
                       Dyadic(-3,2u),Dyadic(5,1u),Dyadic(-5,1u),
@@ -1962,22 +1959,22 @@ TestFloatRounding<PR>::test_precision_regressions()
                       Dyadic(1,64u),Dyadic(-1,64u),
                       Dyadic(1,128u),Dyadic(-1,128u)}) {
                     const FloatAP a(argument,ap);
-                    const FloatMP m(argument,mp);
-                    const auto compare_trigonometric=[&](auto ap_mode,auto mp_mode) {
+                    const Rational source(argument);
+                    const auto compare_trigonometric=[&](auto ap_mode) {
                         ARIADNE_TEST_EQUALS(
                             static_cast<Rational>(sin(ap_mode,a)),
-                            static_cast<Rational>(sin(mp_mode,m)));
+                            floatap_sin_golden(ap.bits(),ap_mode,source));
                         ARIADNE_TEST_EQUALS(
                             static_cast<Rational>(cos(ap_mode,a)),
-                            static_cast<Rational>(cos(mp_mode,m)));
+                            floatap_cos_golden(ap.bits(),ap_mode,source));
                         ARIADNE_TEST_EQUALS(
                             static_cast<Rational>(tan(ap_mode,a)),
-                            static_cast<Rational>(tan(mp_mode,m)));
+                            floatap_tan_golden(ap.bits(),ap_mode,source));
                     };
-                    compare_trigonometric(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                    compare_trigonometric(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                    compare_trigonometric(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                    compare_trigonometric(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    compare_trigonometric(FloatAP::ROUND_TO_NEAREST);
+                    compare_trigonometric(FloatAP::ROUND_DOWNWARD);
+                    compare_trigonometric(FloatAP::ROUND_UPWARD);
+                    compare_trigonometric(FloatAP::ROUND_TOWARD_ZERO);
                 }
             }
         }
