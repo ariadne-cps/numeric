@@ -33,6 +33,7 @@
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/float.decl.hpp"
+#include "numeric/floatap.hpp"
 
 #include "numeric/float_bounds.hpp"
 
@@ -67,7 +68,7 @@ constexpr bool check_float_bounds_concept()
 }
 
 static_assert(check_float_bounds_concept<DoublePrecision>());
-static_assert(check_float_bounds_concept<MultiplePrecision>());
+static_assert(check_float_bounds_concept<ArbitraryPrecision>());
 
 } // namespace
 
@@ -144,9 +145,9 @@ TestFloatBounds<PR>::test_header_api()
 
     FloatBoundsType source(1,2,pr);
 
-    if constexpr (Same<PR,MultiplePrecision>) {
-        RawFloatType lower_mismatched(1,MultiplePrecision(64_bits));
-        RawFloatType upper_mismatched(2,MultiplePrecision(128_bits));
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        RawFloatType lower_mismatched(1,ArbitraryPrecision(64_bits));
+        RawFloatType upper_mismatched(2,ArbitraryPrecision(128_bits));
         ARIADNE_TEST_FAIL(FloatBoundsType(lower_mismatched,upper_mismatched));
     }
 
@@ -564,7 +565,7 @@ template<class PR> Void TestFloatBounds<PR>::test_class()
     if constexpr (Same<PR,DoublePrecision>) {
         ARIADNE_TEST_EQUALS(class_name<FloatBoundsType>(),String("FloatDPBounds"));
     } else {
-        ARIADNE_TEST_EQUALS(class_name<FloatBoundsType>(),String("FloatMPBounds"));
+        ARIADNE_TEST_EQUALS(class_name<FloatBoundsType>(),String("FloatAPBounds"));
     }
 
     // Tests for inexact operations
@@ -853,8 +854,8 @@ Int main() {
     std::cerr<<std::setprecision(20);
 
     TestFloatBounds<DoublePrecision>(dp).test();
-    TestFloatBounds<MultiplePrecision>(MultiplePrecision(53_bits)).test();
-    TestFloatBounds<MultiplePrecision>(MultiplePrecision(128_bits)).test();
+    TestFloatBounds<ArbitraryPrecision>(ArbitraryPrecision(53_bits)).test();
+    TestFloatBounds<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
 
     return ARIADNE_TEST_FAILURES;
 }

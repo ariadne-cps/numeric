@@ -35,6 +35,7 @@
 #include "numeric/number.hpp"
 #include "numeric/real.hpp"
 #include "numeric/float.decl.hpp"
+#include "numeric/floatap.hpp"
 
 #include "numeric/float_ball.hpp"
 
@@ -149,8 +150,8 @@ TestFloatBall<PR,PRE>::test_header_api()
     StringStream invalid_separator("1xx0");
     ARIADNE_TEST_FAIL(invalid_separator >> parsed);
 
-    if constexpr (Same<PR,MultiplePrecision>) {
-        MultiplePrecision lower_precision(53_bits);
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        ArbitraryPrecision lower_precision(53_bits);
 
         FloatBallType source_down(Rational(1,3),precision);
         FloatBallType narrowed_down(source_down,lower_precision);
@@ -260,12 +261,12 @@ TestFloatBall<PR,PRE>::test_conversions()
     if constexpr (Same<PR,DoublePrecision>) {
         ARIADNE_TEST_EQUALS(class_name<FloatBallType>(),String("FloatDPBall"));
     } else if constexpr (Same<PRE,DoublePrecision>) {
-        ARIADNE_TEST_EQUALS(class_name<FloatBallType>(),String("FloatMDPBall"));
+        ARIADNE_TEST_EQUALS(class_name<FloatBallType>(),String("FloatAPDPBall"));
     } else {
-        ARIADNE_TEST_EQUALS(class_name<FloatBallType>(),String("FloatMPBall"));
+        ARIADNE_TEST_EQUALS(class_name<FloatBallType>(),String("FloatAPBall"));
     }
 
-    if constexpr (Same<PR,MultiplePrecision> and Same<PRE,MultiplePrecision>) {
+    if constexpr (Same<PR,ArbitraryPrecision> and Same<PRE,ArbitraryPrecision>) {
         FloatBallType zero_with_unit_error(RawFloatType(0,precision),RawFloat<PRE>(1,error_precision));
         StringStream stream;
         stream << zero_with_unit_error;
@@ -334,8 +335,8 @@ Int main() {
     std::cerr<<std::setprecision(20);
 
     TestFloatBall<DoublePrecision,DoublePrecision>(dp).test();
-    TestFloatBall<MultiplePrecision>(MultiplePrecision(128_bits)).test();
-    TestFloatBall<MultiplePrecision,DoublePrecision>(MultiplePrecision(128_bits)).test();
+    TestFloatBall<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
+    TestFloatBall<ArbitraryPrecision,DoublePrecision>(ArbitraryPrecision(128_bits)).test();
 
     return ARIADNE_TEST_FAILURES;
 }

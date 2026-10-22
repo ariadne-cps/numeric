@@ -35,6 +35,7 @@
 #include "numeric/upper_number.hpp"
 #include "numeric/lower_number.hpp"
 #include "numeric/float.decl.hpp"
+#include "numeric/floatap.hpp"
 #include "numeric/floats.hpp"
 
 #include "macro/testing.hpp"
@@ -69,7 +70,7 @@ constexpr bool check_directed_float_concept()
 }
 
 static_assert(check_directed_float_concept<DoublePrecision>());
-static_assert(check_directed_float_concept<MultiplePrecision>());
+static_assert(check_directed_float_concept<ArbitraryPrecision>());
 
 } // namespace
 
@@ -221,7 +222,7 @@ TestDirectedFloats<PR>::test_header_api()
     PositiveValidatedUpperNumber positive_generic_negative(generic_negative);
     ARIADNE_TEST_FAIL(PositiveFloatUpperBoundType(positive_generic_negative,precision));
 
-    if constexpr (Same<PR,MultiplePrecision>) {
+    if constexpr (Same<PR,ArbitraryPrecision>) {
         FloatDPLowerBound lower_dp(1,dp);
         FloatDPUpperBound upper_dp(1,dp);
         L lower_cross(lower_dp,precision);
@@ -294,9 +295,9 @@ TestDirectedFloats<PR>::test_conversions()
         ARIADNE_TEST_EQUALS(class_name<FloatUpperBoundType>(),String("FloatDPUpperBound"));
         ARIADNE_TEST_EQUALS(class_name<FloatError<PR>>(),String("FloatDPError"));
     } else {
-        ARIADNE_TEST_EQUALS(class_name<FloatLowerBoundType>(),String("FloatMPLowerBound"));
-        ARIADNE_TEST_EQUALS(class_name<FloatUpperBoundType>(),String("FloatMPUpperBound"));
-        ARIADNE_TEST_EQUALS(class_name<FloatError<PR>>(),String("FloatMPError"));
+        ARIADNE_TEST_EQUALS(class_name<FloatLowerBoundType>(),String("FloatAPLowerBound"));
+        ARIADNE_TEST_EQUALS(class_name<FloatUpperBoundType>(),String("FloatAPUpperBound"));
+        ARIADNE_TEST_EQUALS(class_name<FloatError<PR>>(),String("FloatAPError"));
     }
 }
 
@@ -387,7 +388,7 @@ Int main() {
     std::cerr<<std::setprecision(20);
 
     TestDirectedFloats<DoublePrecision>(dp).test();
-    TestDirectedFloats<MultiplePrecision>(MultiplePrecision(128_bits)).test();
+    TestDirectedFloats<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
 
     return ARIADNE_TEST_FAILURES;
 }

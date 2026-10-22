@@ -28,7 +28,7 @@
 #include "numeric/float_error.tpl.hpp"
 #include "numeric/float_bounds.hpp"
 #include "numeric/floatdp.hpp"
-#include "numeric/floatmp.hpp"
+#include "numeric/floatap.hpp"
 #include "numeric/positive.hpp"
 
 #include "macro/testing.hpp"
@@ -56,7 +56,7 @@ constexpr bool check_concept()
 }
 
 static_assert(check_concept<FloatDP>());
-static_assert(check_concept<FloatMP>());
+static_assert(check_concept<FloatAP>());
 
 template<class F>
 void test_float_error(typename F::PrecisionType pr)
@@ -195,7 +195,7 @@ void test_float_error(typename F::PrecisionType pr)
     if constexpr (Same<F,FloatDP>) {
         ARIADNE_TEST_EQUALS(class_name<E>(),String("FloatDPError"));
     } else {
-        ARIADNE_TEST_EQUALS(class_name<E>(),String("FloatMPError"));
+        ARIADNE_TEST_EQUALS(class_name<E>(),String("FloatAPError"));
     }
 }
 
@@ -204,6 +204,6 @@ void test_float_error(typename F::PrecisionType pr)
 int main()
 {
     test_float_error<FloatDP>(dp);
-    test_float_error<FloatMP>(MultiplePrecision(128_bits));
+    test_float_error<FloatAP>(ArbitraryPrecision(128_bits));
     return ARIADNE_TEST_FAILURES;
 }
