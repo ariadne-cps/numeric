@@ -9739,3 +9739,7 @@ No change to numeric implementations, test timeouts or benchmark loops.
 
 Build and cross-platform CI still need to validate the new parser and
 fixture semantics before treating this increment as completed.
+
+### D75 — correct CMake source-path expansion for flat oracle data (22 October 2026)
+
+Remove an accidental CMake escape before `CMAKE_CURRENT_SOURCE_DIR` in the compile definition for `test_float_rounding`; the path must expand during configuration. A standalone quoted-path CMake compile passed; full project CI remains to be checked.

@@ -37,7 +37,7 @@ endforeach()
 
 # Absolute source path: out-of-source and Windows CTest need no copied fixtures.
 target_compile_definitions(test_float_rounding PRIVATE
-    "ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH=\"\${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_rounding.tsv\""
+    "ARIADNE_FLOATAP_ROUNDING_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_rounding.tsv\""
 )
 
 add_library(check_numeric OBJECT check_numeric.cpp)
