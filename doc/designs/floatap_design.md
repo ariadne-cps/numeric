@@ -10346,3 +10346,53 @@ blocks were changed. The existing merge conflict prevents CI
 runs from being observed; D91 compilation/regression remains
 unverified despite independent offline numerical certification.
 Continue exclusively on the `remove-gmp` branch.
+
+### D92 — certify local sine, cosine, tangent regression oracles (22 October 2026)
+
+Replace FloatMP/MPFR oracle comparisons ONLY in the `local_sin_cos`
+block while preserving its nine precision visits
+(53, 7, 128, 192, 224, 256, 384, 1024, 53 bits),
+nine source magnitudes each at both signs, all four
+rounding modes and all three functions. All 1944 original
+assertions remain, including the 53-bit cache revisit,
+work>=256 performance dispatch and outside-fast-path probes.
+
+Extend the existing `tests/data/floatap_sin.tsv` to 792
+entries and `tests/data/floatap_cos.tsv` to 792 entries,
+reusing and independently rechecking 120 and 120
+preexisting D91 references. New references number
+456 and 456, respectively. Add only
+`tests/data/floatap_tan.tsv`, with 576 certified results,
+as the reusable operation-wide tangent dataset. CMake gains the
+single absolute source path for tangent; the current inline strict
+six-column loader is reused for all three operations, with
+duplicate/missing/malformed/exact-row-count checks. Keys use each
+ORIGINAL signed rational source argument, not a value from FloatAP.
+
+Offline oracle generation uses arbitrary-precision native integer
+arithmetic exclusively, without GMP, MPFR, FloatMP, FloatAP, or
+floating-point transcendental evaluations. Perform independent
+nearest/even binary rounding on each input, using integer quotients
+and midpoint comparisons. Using B=2^1800 and outward fixed-point
+floor/ceil arithmetic, compute sin and cos enclosures for
+|x|<=3/4 from 240 terms (k=0..239) of the alternating
+Taylor series. Recurrence multiplies by the outward-enclosed x^2
+and divides by exact factorial ratios; the next positive term
+bounds the remaining signed tail. Then enclose tan(x) as the
+outward quotient of sin(x)/cos(x), after strictly verifying
+that the certified cosine lower bound is POSITIVE.
+Apply oddness to sine/tangent and evenness to cosine.
+Every interval endpoint is independently rounded to the p-bit
+binary rational in each requested directed rounding mode.
+All 1728 distinct function/mode/source/precision results
+successfully certified, with maximal fixed-point interval width
+631/2^1800. 0 of the 144
+distinct source/precision inputs required nontrivial nearest/even
+input rounding; 240 overlapping references
+agreed exactly with D91.
+
+No changes to production, other test blocks, test order or
+timeouts. The unresolved merge conflict still prevents CI from
+running on D87-D92, so compilation/regression remains unverified;
+the offline numerical oracle certification is complete.
+All work is committed ONLY on `remove-gmp`.

@@ -113,6 +113,9 @@ static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 #ifndef ARIADNE_FLOATAP_COS_ORACLE_PATH
 #error "Provide the FloatAP cosine fixture path from CMake"
 #endif
+#ifndef ARIADNE_FLOATAP_TAN_ORACLE_PATH
+#error "Provide the FloatAP tangent fixture path from CMake"
+#endif
 // Exact references, keyed by precision, mode, and the rational input.
 // Ordered lookup avoids quadratic duplicate checking and linear scans as
 // the frozen oracle dataset grows. The comparator uses exact Rational order.
@@ -260,14 +263,22 @@ Rational const& floatap_sin_golden(std::size_t bits,
                                    FloatAP::RoundingModeType mode,
                                    Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
-        ARIADNE_FLOATAP_SIN_ORACLE_PATH,336u);
+        ARIADNE_FLOATAP_SIN_ORACLE_PATH,792u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 Rational const& floatap_cos_golden(std::size_t bits,
                                    FloatAP::RoundingModeType mode,
                                    Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
-        ARIADNE_FLOATAP_COS_ORACLE_PATH,336u);
+        ARIADNE_FLOATAP_COS_ORACLE_PATH,792u);
+    return find_floatap_golden(rows,bits,mode,original_input);
+}
+
+Rational const& floatap_tan_golden(std::size_t bits,
+                                   FloatAP::RoundingModeType mode,
+                                   Rational const& original_input) {
+    static const auto rows=load_floatap_golden_rows(
+        ARIADNE_FLOATAP_TAN_ORACLE_PATH,576u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 
@@ -1821,17 +1832,14 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Local certified sin/cos Taylor bounds near +/-1/2, including
-            // very small representable offsets, the exact center and
-            // arguments outside the fast path. Test all directed modes
-            // and use identical binary inputs for the MPFR oracle.
-            // Include precisions on either side of the work>=256
-            // performance dispatch, without changing the oracle.
+            // Local certified sin/cos/tan near +/-1/2, including
+            // exact centers, small offsets and fallback arguments.
+            // Preserve all rounding modes and the work>=256 dispatch
+            // transition; use exact source-keyed independent oracles.
             FloatAPPhaseTiming timing_local_sin_cos("local_sin_cos",precision.bits());
             for (Bits bits : {53_bits,7_bits,128_bits,192_bits,224_bits,
                               256_bits,384_bits,1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 const Rational unit(Integer(1),
                     pow(Integer(2),Nat(ap.bits())));
                 const Rational half(1,2);
@@ -1845,23 +1853,21 @@ TestFloatRounding<PR>::test_precision_regressions()
                     for (Int sign : {Int(-1),Int(1)}) {
                         const Rational value=sign<0 ? -positive : positive;
                         const FloatAP a(value,FloatAP::ROUND_TO_NEAREST,ap);
-                        const FloatMP m(static_cast<Rational>(a),
-                                        FloatMP::ROUND_TO_NEAREST,mp);
-                        const auto verify=[&](auto am,auto mm) {
+                        const auto verify=[&](auto am) {
                             ARIADNE_TEST_EQUALS(
                                 static_cast<Rational>(sin(am,a)),
-                                static_cast<Rational>(sin(mm,m)));
+                                floatap_sin_golden(ap.bits(),am,value));
                             ARIADNE_TEST_EQUALS(
                                 static_cast<Rational>(cos(am,a)),
-                                static_cast<Rational>(cos(mm,m)));
+                                floatap_cos_golden(ap.bits(),am,value));
                             ARIADNE_TEST_EQUALS(
                                 static_cast<Rational>(tan(am,a)),
-                                static_cast<Rational>(tan(mm,m)));
+                                floatap_tan_golden(ap.bits(),am,value));
                         };
-                        verify(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                        verify(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                        verify(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                        verify(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                        verify(FloatAP::ROUND_TO_NEAREST);
+                        verify(FloatAP::ROUND_DOWNWARD);
+                        verify(FloatAP::ROUND_UPWARD);
+                        verify(FloatAP::ROUND_TOWARD_ZERO);
                     }
                 }
             }
