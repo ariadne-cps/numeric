@@ -9601,3 +9601,20 @@ output for that job, obscuring useful failures. Switch its C++ phase to
 suppressing per-assertion success logs. Do not alter numerical tests,
 workload sizes, algorithms, or precision selections. If the 120-second
 limit also fails, profile the actual slow operation before widening it.
+
+### D69 — revert Windows test timeout workaround; investigate regression (22 October 2026)
+
+Revert the D68 increase of the `test_float_rounding` Windows CTest
+limit to 120 seconds and restore the pre-D68 Windows workflow's C++
+CTest invocation. The 30-second timeout remains in effect. Raising a
+time limit without identifying a newly introduced slowdown conceals a
+potential arithmetic regression and is not an acceptable fix.
+
+From the uploaded Windows 2025 Release CI log, the timeout occurs
+inside `TestFloatRounding<ArbitraryPrecision>(192_bits)::test_precision_regressions()`,
+while the FloatAP/MPFR `pow` cross-check loop is still producing
+successful comparisons. No numerical failure was reported before the
+timeout, but the log does not establish which native routine consumes
+the time. Preserve all differential test cases and diagnose with focused
+per-phase timing and/or a pre-D64 versus post-D64 comparison. No
+performance root cause or resolution is claimed by this revert.
