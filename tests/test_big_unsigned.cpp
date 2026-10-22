@@ -84,6 +84,10 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 }
 
 
+#ifndef ARIADNE_BIG_UNSIGNED_B40_ORACLE_PATH
+#error "Provide B40 TSV path from CMake"
+#endif
+
 #ifndef ARIADNE_BIG_UNSIGNED_B35_ORACLE_PATH
 #error "Provide BigUnsigned B35 product oracle path from CMake"
 #endif
@@ -675,12 +679,13 @@ void TestBigUnsigned::test_multiplication()
     if (b35_golden >> b35_extra)
         throw std::runtime_error("Extra B35 TSV oracle rows");
 
-    // B40: regression corpus for the 63/64 active-row dispatch
-    // crossover and for 31/32/33-limb Karatsuba leaf products.
-    // GMP is the independent oracle in both operand orders, with
-    // sparse/dense boundaries and low-product truncations. Other
-    // architectures execute the identical cases as a control.
-    std::mt19937_64 arm_small_dispatch_engine(0xB4004040ULL);
+    // B40: all eight zero-row density classes and the all-ones
+    // saturation case on every original Karatsuba/dispatch width pair.
+    // Independent source-keyed oracle, including truncated products.
+    std::ifstream b40_golden(ARIADNE_BIG_UNSIGNED_B40_ORACLE_PATH);
+    if (!b40_golden) throw std::runtime_error("Missing B40 TSV");
+    std::string b40_header;
+    while (b40_golden.peek()=='#') std::getline(b40_golden,b40_header);
     for (const auto& [n,m]:
             {std::pair<std::size_t,std::size_t>{7u,64u},
              {8u,64u}, {16u,16u}, {31u,32u}, {32u,31u},
@@ -688,68 +693,38 @@ void TestBigUnsigned::test_multiplication()
              {63u,63u}, {63u,64u}, {64u,63u},
              {64u,64u}, {64u,65u}, {65u,64u},
              {64u,128u}, {128u,64u}, {128u,128u}}) {
-        for (unsigned repetition=0u;repetition<16u;++repetition) {
-            std::vector<std::uint64_t> left(n),right(m);
-            for (auto& word:left) word=arm_small_dispatch_engine();
-            for (auto& word:right) word=arm_small_dispatch_engine();
-            const auto zeros_for=[](std::size_t count,
-                                    unsigned mode) {
-                switch (mode%8u) {
-                case 0u: return std::size_t{0u};
-                case 1u: return std::size_t{1u};
-                case 2u: return count/8u;
-                case 3u: return count/8u+1u;
-                case 4u: return count/2u;
-                case 5u: return count-1u;
-                case 6u: return std::size_t{2u};
-                default: return count/4u;
-                }
-            };
-            const std::size_t zeros_left=zeros_for(n,repetition);
-            const std::size_t zeros_right=zeros_for(m,repetition+3u);
-            for (std::size_t i=0u;i<zeros_left && i+1u<n;++i) {
-                left[i]=0u;
+        for (unsigned ordinal=0u;ordinal<9u;++ordinal) {
+            const unsigned repetition=ordinal==8u?15u:ordinal;
+            std::size_t source_n=0u,source_m=0u;
+            unsigned source_rep=0u;
+            std::string lhs_hex,rhs_hex,prod_hex,low_hex,square_hex;
+            if (!(b40_golden >> source_n >> source_m >> source_rep
+                    >> lhs_hex >> rhs_hex >> prod_hex >> low_hex >> square_hex)
+                || source_n!=n || source_m!=m || source_rep!=repetition) {
+                throw std::runtime_error("Missing or unordered B40 TSV row");
             }
-            for (std::size_t i=0u;i<zeros_right && i+1u<m;++i) {
-                right[i]=0u;
-            }
-            if (repetition==15u) {
-                std::fill(left.begin(),left.end(),max);
-                std::fill(right.begin(),right.end(),max);
-            }
-            left.back()|=std::uint64_t{1}<<63u;
-            right.back()|=std::uint64_t{1}<<63u;
-            const BigUnsigned lhs(left),rhs(right);
-            mpz_import(a.value,lhs.size(),-1,sizeof(std::uint64_t),
-                       0,0,lhs.limbs().data());
-            mpz_import(b.value,rhs.size(),-1,sizeof(std::uint64_t),
-                       0,0,rhs.limbs().data());
-            mpz_mul(c.value,a.value,b.value);
-            check_against_gmp(mul(lhs,rhs),c.value);
-            check_against_gmp(mul(rhs,lhs),c.value);
-            const std::size_t low=(repetition%2u==0u)
-                ? std::size_t{1u} : n+m-1u;
-            mpz_fdiv_r_2exp(t.value,c.value,
-                            static_cast<mp_bitcnt_t>(64u*low));
-            check_against_gmp(mul_low(lhs,rhs,low),t.value);
-            check_against_gmp(mul_low(rhs,lhs,low),t.value);
-            mpz_mul(t.value,a.value,a.value);
-            check_against_gmp(square(lhs),t.value);
-
-            // Exercise explicit cutoff-32 Karatsuba recursion and
-            // its small leaves, including sparse and dense operands.
+            const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
+            const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
+            ARIADNE_TEST_ASSERT(lhs.size()==n && rhs.size()==m);
+            check_against_precomputed_hex(mul(lhs,rhs),prod_hex);
+            check_against_precomputed_hex(mul(rhs,lhs),prod_hex);
+            const std::size_t low=repetition%2u==0u?1u:n+m-1u;
+            check_against_precomputed_hex(mul_low(lhs,rhs,low),low_hex);
+            check_against_precomputed_hex(mul_low(rhs,lhs,low),low_hex);
+            check_against_precomputed_hex(square(lhs),square_hex);
             if (n>=64u && m>=64u) {
                 const std::size_t required=
-                    BigUnsigned::karatsuba_scratch_limbs(
-                        n,m,32u);
-                std::vector<std::uint64_t> scratch(required);
-                std::vector<std::uint64_t> output(n+m);
+                    BigUnsigned::karatsuba_scratch_limbs(n,m,32u);
+                std::vector<std::uint64_t> scratch(required),output(n+m);
                 BigUnsigned::mul_into_karatsuba(
                     lhs.limbs(),rhs.limbs(),output,scratch,32u);
-                check_against_gmp(BigUnsigned(output),c.value);
+                check_against_precomputed_hex(BigUnsigned(output),prod_hex);
             }
         }
     }
+    std::string b40_extra;
+    if (b40_golden >> b40_extra)
+        throw std::runtime_error("Extra B40 TSV rows");
 
     // B39: cover both ARM64 dense/sparse template dispatch thresholds
     // and the owning balanced-Karatsuba 63/64-limb boundary. Test data
