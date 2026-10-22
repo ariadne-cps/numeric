@@ -46,6 +46,8 @@ target_compile_definitions(test_big_unsigned PRIVATE
 # Exact independent integer power oracle for the Integer test.
 target_compile_definitions(test_integer PRIVATE
     "ARIADNE_INTEGER_POWER_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_power.tsv\""
+    "ARIADNE_INTEGER_B17_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_b17.tsv\""
+    "ARIADNE_INTEGER_B18_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_b18.tsv\""
     "ARIADNE_INTEGER_SUB_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/integer_sub.tsv\""
 )
 

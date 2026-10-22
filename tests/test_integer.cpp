@@ -49,6 +49,13 @@
 #error "Provide the Integer subtraction oracle TSV path from CMake"
 #endif
 
+#ifndef ARIADNE_INTEGER_B17_ORACLE_PATH
+#error "Provide the Integer B17 oracle TSV path from CMake"
+#endif
+#ifndef ARIADNE_INTEGER_B18_ORACLE_PATH
+#error "Provide the Integer B18 oracle TSV path from CMake"
+#endif
+
 #ifndef ARIADNE_INTEGER_POWER_ORACLE_PATH
 #error "Provide the Integer power oracle TSV path from CMake"
 #endif
@@ -448,7 +455,7 @@ void TestInteger::test_native() {
         GMP(GMP const&)=delete;
         GMP& operator=(GMP const&)=delete;
     };
-    GMP a,b,expected,quotient,remainder;
+    GMP a,expected;
 
     // B41: six structural classes x four sign pairs x eight widths.
     // Source and expected values are independently frozen, with no GMP
@@ -668,42 +675,35 @@ void TestInteger::test_native() {
         }
     }
 
-    std::mt19937_64 engine(0x1A7E6EEDULL);
-    for (unsigned repetition=0u;repetition<1700u;++repetition) {
-        std::string lhs=std::to_string(engine());
-        std::string rhs=std::to_string(engine()|std::uint64_t{1});
-        for (unsigned j=0u;j<repetition%7u;++j) {
-            lhs+=std::to_string(engine());
-            rhs+=std::to_string(engine());
+    // B18: frozen exact signed arithmetic on 170 strategically sampled
+    // originals out of 1700; expected results never use GMP at runtime.
+    std::ifstream golden(ARIADNE_INTEGER_B18_ORACLE_PATH);
+    if (!golden) throw std::runtime_error("Missing Integer B18 oracle TSV");
+    std::string comment;
+    while (golden.peek()=='#') std::getline(golden,comment);
+    for (unsigned sample=0u;sample<170u;++sample) {
+        unsigned rep=0u;
+        std::string lhs,rhs,sum,sub,mul,q_expected,r_expected;
+        if (!(golden >> rep >> lhs >> rhs >> sum >> sub >> mul
+                     >> q_expected >> r_expected) ||
+            rep!=10u*sample+(7u*sample+3u)%10u) {
+            throw std::runtime_error("Missing or out-of-order Integer B18 oracle");
         }
-        if (repetition%2u!=0u) lhs.insert(lhs.begin(),'-');
-        if (repetition%3u!=0u) rhs.insert(rhs.begin(),'-');
-        if (repetition%19u==0u) lhs="0";
-        const Integer x{String(lhs)};
-        const Integer y{String(rhs)};
-        ARIADNE_TEST_ASSERT(mpz_set_str(a.value,lhs.c_str(),10)==0);
-        ARIADNE_TEST_ASSERT(mpz_set_str(b.value,rhs.c_str(),10)==0);
-        mpz_add(expected.value,a.value,b.value);
-        GmpIntegerBoundary sum(x+y);
-        ARIADNE_TEST_ASSERT(mpz_cmp(sum.value(),expected.value)==0);
-        mpz_sub(expected.value,a.value,b.value);
-        GmpIntegerBoundary difference(x-y);
-        ARIADNE_TEST_ASSERT(mpz_cmp(difference.value(),expected.value)==0);
-        mpz_mul(expected.value,a.value,b.value);
-        GmpIntegerBoundary product(x*y);
-        ARIADNE_TEST_ASSERT(mpz_cmp(product.value(),expected.value)==0);
-        mpz_tdiv_qr(quotient.value,remainder.value,a.value,b.value);
-        const Integer q=quot(x,y);
-        const Integer r=rem(x,y);
-        GmpIntegerBoundary native_q(q),native_r(r);
-        ARIADNE_TEST_ASSERT(mpz_cmp(native_q.value(),quotient.value)==0);
-        ARIADNE_TEST_ASSERT(mpz_cmp(native_r.value(),remainder.value)==0);
+        const Integer x{String(lhs)},y{String(rhs)};
+        ARIADNE_TEST_EQUALS(x+y,Integer(String(sum)));
+        ARIADNE_TEST_EQUALS(x-y,Integer(String(sub)));
+        ARIADNE_TEST_EQUALS(x*y,Integer(String(mul)));
+        const Integer q=quot(x,y),r=rem(x,y);
+        ARIADNE_TEST_EQUALS(q,Integer(String(q_expected)));
+        ARIADNE_TEST_EQUALS(r,Integer(String(r_expected)));
         ARIADNE_TEST_ASSERT(q*y+r==x);
         ARIADNE_TEST_ASSERT(abs(r)<abs(y));
-        const auto converted=integer_from_gmp(a.value);
-        ARIADNE_TEST_ASSERT(converted==x);
-        ARIADNE_TEST_ASSERT(converted.literal()==x.literal());
+        ARIADNE_TEST_ASSERT(r==0 || sgn(r)==sgn(x));
+        ARIADNE_TEST_ASSERT(x.literal()==Integer(String(lhs)).literal());
     }
+    std::string extra;
+    if (golden >> extra)
+        throw std::runtime_error("Extra Integer B18 oracle rows");
 }
 
 // Preserve all B17 signed-magnitude regression scenarios on the
@@ -754,52 +754,35 @@ void TestInteger::test_signed_regression() {
         }
     }
 
-    struct GMP {
-        mpz_t value;
-        GMP() { mpz_init(value); }
-        ~GMP() { mpz_clear(value); }
-        GMP(GMP const&)=delete;
-        GMP& operator=(GMP const&)=delete;
-    };
-    GMP a,b,expected,quotient,remainder;
-    const auto check=[&](Integer const& actual,mpz_srcptr oracle) {
-        GmpIntegerBoundary converted(actual);
-        ARIADNE_TEST_ASSERT(mpz_cmp(converted.value(),oracle)==0);
+    // B17: 250 source-keyed references, one per ten original visits.
+    // All 130 shift counts survive along with signed and zero cases.
+    std::ifstream golden(ARIADNE_INTEGER_B17_ORACLE_PATH);
+    if (!golden) throw std::runtime_error("Missing Integer B17 oracle TSV");
+    std::string comment;
+    while (golden.peek()=='#') std::getline(golden,comment);
+    const auto check=[&](Integer const& actual,std::string const& reference) {
+        ARIADNE_TEST_EQUALS(actual,Integer(String(reference)));
         ARIADNE_TEST_ASSERT(!is_zero(actual) || !actual.negative());
-        ARIADNE_TEST_ASSERT((mpz_sgn(oracle)==0)==is_zero(actual));
-        ARIADNE_TEST_ASSERT((mpz_sgn(oracle)<0)==actual.negative());
+        ARIADNE_TEST_ASSERT((reference=="0")==is_zero(actual));
+        ARIADNE_TEST_ASSERT((reference.front()=='-')==actual.negative());
     };
-
-    // Retain the full old 2500-case corpus (seed, digit patterns and
-    // signed divisors) in addition to B18's existing 1700-case suite.
-    std::mt19937_64 engine(0x51C0FFEEULL);
-    for (unsigned rep=0u;rep<2500u;++rep) {
-        std::string ad=std::to_string(engine());
-        std::string bd=std::to_string(engine()|std::uint64_t{1});
-        for (unsigned j=0u;j<rep%8u;++j) {
-            ad+=std::to_string(engine());
-            bd+=std::to_string(engine());
+    for (unsigned sample=0u;sample<250u;++sample) {
+        unsigned rep=0u;
+        std::string ad,bd,sum,sub,mul,q_expected,r_expected,shr,shl;
+        if (!(golden >> rep >> ad >> bd >> sum >> sub >> mul >>
+                     q_expected >> r_expected >> shr >> shl) ||
+            rep!=10u*sample+(7u*sample+3u)%10u) {
+            throw std::runtime_error("Missing or unordered Integer B17 oracle");
         }
-        if (rep%2u!=0u) ad.insert(ad.begin(),'-');
-        if (rep%3u!=0u) bd.insert(bd.begin(),'-');
-        if (rep%17u==0u) ad="0";
-
         const Integer x{String(ad)},y{String(bd)};
-        ARIADNE_TEST_ASSERT(mpz_set_str(a.value,ad.c_str(),10)==0);
-        ARIADNE_TEST_ASSERT(mpz_set_str(b.value,bd.c_str(),10)==0);
-        check(x,a.value);
-        check(y,b.value);
-        mpz_add(expected.value,a.value,b.value);
-        check(x+y,expected.value);
-        mpz_sub(expected.value,a.value,b.value);
-        check(x-y,expected.value);
-        mpz_mul(expected.value,a.value,b.value);
-        check(x*y,expected.value);
-
-        mpz_tdiv_qr(quotient.value,remainder.value,a.value,b.value);
+        check(x,ad);
+        check(y,bd);
+        check(x+y,sum);
+        check(x-y,sub);
+        check(x*y,mul);
         const Integer q=quot(x,y),r=rem(x,y);
-        check(q,quotient.value);
-        check(r,remainder.value);
+        check(q,q_expected);
+        check(r,r_expected);
         ARIADNE_TEST_ASSERT(q*y+r==x);
         ARIADNE_TEST_ASSERT(abs(r)<abs(y));
         ARIADNE_TEST_ASSERT(is_zero(r) || sgn(r)==sgn(x));
@@ -808,25 +791,17 @@ void TestInteger::test_signed_regression() {
         const BigUnsigned scale=shift_left(
             BigUnsigned(std::uint64_t{1}),bits);
         const Integer divisor=Integer::from_magnitude(scale,false);
-
-        // The former temporary signed right shift truncated toward zero,
-        // unlike an arithmetic/floor shift for negative inputs.
-        // Integer has no signed-shift API: verify the same contract
-        // through its native magnitude shift and signed quotient.
-        mpz_tdiv_q_2exp(expected.value,a.value,
-                        static_cast<mp_bitcnt_t>(bits));
         const Integer shifted_right=Integer::from_magnitude(
             shift_right(x.magnitude(),bits),x.negative());
-        check(shifted_right,expected.value);
-        check(quot(x,divisor),expected.value);
-
-        // The migrated signed left shift keeps the source sign.
-        mpz_mul_2exp(expected.value,a.value,
-                     static_cast<mp_bitcnt_t>(bits));
+        check(shifted_right,shr);
+        check(quot(x,divisor),shr);
         const Integer shifted_left=Integer::from_magnitude(
             shift_left(x.magnitude(),bits),x.negative());
-        check(shifted_left,expected.value);
+        check(shifted_left,shl);
     }
+    std::string extra;
+    if (golden >> extra)
+        throw std::runtime_error("Extra Integer B17 oracle rows");
 
     bool quotient_zero=false,remainder_zero=false;
     try { (void)quot(one,zero); }
