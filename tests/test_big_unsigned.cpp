@@ -84,6 +84,10 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 }
 
 
+#ifndef ARIADNE_BIG_UNSIGNED_RANDOM_MUL_ORACLE_PATH
+#error "Provide BigUnsigned randomized multiplication oracle path from CMake"
+#endif
+
 #ifndef ARIADNE_BIG_UNSIGNED_R14_ORACLE_PATH
 #error "Provide BigUnsigned R14 square oracle path from CMake"
 #endif
@@ -592,46 +596,43 @@ void TestBigUnsigned::test_multiplication()
     if (product_golden >> extra_product)
         throw std::runtime_error("Extra B72 product oracle rows");
 
-    for (unsigned repetition=0; repetition<6000u; ++repetition) {
-        const std::size_t n = engine()%34u;
-        const std::size_t m = engine()%34u;
-        std::array<std::uint64_t,34> da{}, db{};
-
-        for (std::size_t j=0u; j<n; ++j) da[j] = engine();
-        for (std::size_t j=0u; j<m; ++j) db[j] = engine();
-        if (repetition%7u == 0u) {
-            for (std::size_t j=0u; j<n; ++j) da[j] = max;
+    // Independently frozen original-source random multiplication corpus.
+    // One representative per ten source visits, stratified over all 34
+    // operand widths, truncation lengths, dense, sparse and zero classes.
+    std::ifstream random_golden(ARIADNE_BIG_UNSIGNED_RANDOM_MUL_ORACLE_PATH);
+    if (!random_golden)
+        throw std::runtime_error("Missing BigUnsigned random multiplication TSV");
+    std::string random_header;
+    while (random_golden.peek()=='#')
+        std::getline(random_golden,random_header);
+    unsigned previous_repetition=0u;
+    for (unsigned sample=0u;sample<600u;++sample) {
+        unsigned repetition=0u;
+        std::size_t original_n=0u,original_m=0u,low_limbs=0u;
+        std::string source_x,source_y,product,squared,truncated;
+        if (!(random_golden >> repetition >> original_n >> original_m
+               >> low_limbs >> source_x >> source_y >> product
+               >> squared >> truncated) ||
+            repetition/10u!=sample ||
+            (sample!=0u && repetition<=previous_repetition) ||
+            original_n>33u || original_m>33u || low_limbs>79u) {
+            throw std::runtime_error(
+                "Missing or out-of-order random multiplication TSV row");
         }
-        if (repetition%11u == 0u) {
-            for (std::size_t j=0u; j<m; ++j) db[j] = max;
-        }
-        if (repetition%13u == 0u) {
-            for (std::size_t j=0u; j<n; ++j) da[j] = 0u;
-        }
-        if (repetition%17u == 0u) {
-            for (std::size_t j=0u; j<m; ++j) db[j] = 0u;
-        }
-
-        const BigUnsigned x(std::span(da.data(),n));
-        const BigUnsigned y(std::span(db.data(),m));
-        mpz_import(a.value,n,-1,8,0,0,da.data());
-        mpz_import(b.value,m,-1,8,0,0,db.data());
-
-        mpz_mul(c.value,a.value,b.value);
-        check_against_gmp(mul(x,y),c.value);
-        ARIADNE_TEST_ASSERT(compare(mul(x,y),mul(y,x)) == 0);
-
-        mpz_mul(t.value,a.value,a.value);
-        check_against_gmp(square(x),t.value);
-        check_against_gmp(mul(x,x),t.value);
-
-        const std::size_t low_limbs = repetition%5u == 0u ? 0u :
-            repetition%5u == 1u ? 1u : repetition%5u == 2u ? 4u :
-            repetition%5u == 3u ? 5u : engine()%80u;
-        mpz_fdiv_r_2exp(t.value,c.value,
-                        static_cast<mp_bitcnt_t>(64u*low_limbs));
-        check_against_gmp(mul_low(x,y,low_limbs),t.value);
+        previous_repetition=repetition;
+        const BigUnsigned x=big_unsigned_from_golden_hex(source_x);
+        const BigUnsigned y=big_unsigned_from_golden_hex(source_y);
+        ARIADNE_TEST_ASSERT(x.size()<=original_n);
+        ARIADNE_TEST_ASSERT(y.size()<=original_m);
+        check_against_precomputed_hex(mul(x,y),product);
+        check_against_precomputed_hex(mul(y,x),product);
+        check_against_precomputed_hex(square(x),squared);
+        check_against_precomputed_hex(mul(x,x),squared);
+        check_against_precomputed_hex(mul_low(x,y,low_limbs),truncated);
     }
+    std::string random_extra;
+    if (random_golden >> random_extra)
+        throw std::runtime_error("Extra random multiplication TSV rows");
 
     // B35: the owning product must agree with the independent GMP
     // oracle across the selective 63/64-limb Karatsuba boundary,
