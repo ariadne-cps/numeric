@@ -77,7 +77,7 @@ jobs:
 
     - name: Test C++
       working-directory: ${{ runner.workspace }}/build
-      run: ctest -LE python -V --timeout 30
+      run: ctest -LE python --output-on-failure --timeout 30
 
     - name: Test Python
       working-directory: ${{ runner.workspace }}/build

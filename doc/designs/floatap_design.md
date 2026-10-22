@@ -9579,3 +9579,25 @@ unchanged, now covering 5184 operation results over six precision groups.
 benchmark times, correctness and compiler/platform support must be
 validated with a full optimized build and actual runs. These numbers
 remain transitional while FloatAP retains GMP storage and adapters.
+
+### D68 — retain full FloatAP differential coverage on Windows CI (22 October 2026)
+
+The Windows 2025 Release CI job at PR #30 merge commit `e7966793`
+completed the entire 108-step compilation/link and passed 19/20 C++
+CTest cases. `test_float_rounding` was killed by the global 30-second
+per-test timeout while still emitting successful FloatAP/FloatMP power
+checks during its second FloatAP precision instantiation. The captured
+output has no failed numerical assertion in that test; it is a timeout,
+not evidence of a wrong rounding result. Its full regression body is
+retained without skips or reductions. Set a Windows-only CTest TIMEOUT
+of 120 seconds for exactly `test_float_rounding`; leave other tests on
+the existing default 30-second limit. The per-test CTest timeout
+property overrides the CLI default `--timeout` (verified with a small
+local CMake/CTest smoke test; Windows CI still needs confirmation).
+
+The Windows CI's `ctest -LE python -V` also generated ~241 MB of test
+output for that job, obscuring useful failures. Switch its C++ phase to
+`--output-on-failure`, preserving diagnostics for failures while
+suppressing per-assertion success logs. Do not alter numerical tests,
+workload sizes, algorithms, or precision selections. If the 120-second
+limit also fails, profile the actual slow operation before widening it.

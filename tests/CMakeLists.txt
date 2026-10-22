@@ -35,6 +35,13 @@ foreach(TEST ${UNIT_TESTS})
     endif()
 endforeach()
 
+# FloatAP/MPFR differential rounding tests take longer on Windows Release.
+# Preserve their full coverage while retaining the default 30s CI limit
+# for all other tests (the test-specific TIMEOUT overrides --timeout).
+if(WIN32)
+    set_tests_properties(test_float_rounding PROPERTIES TIMEOUT 120)
+endif()
+
 add_library(check_numeric OBJECT check_numeric.cpp)
 target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
 
