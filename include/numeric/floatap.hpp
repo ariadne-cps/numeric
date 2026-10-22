@@ -294,6 +294,8 @@ template<> class Float<ArbitraryPrecision> {
     void set_precision(PrecisionType precision);
     FloatAP const& raw() const noexcept { return *this; }
     FloatAP& raw() noexcept { return *this; }
+    Ball<FloatAP,FloatAP> pm(Error<FloatAP> const& error) const;
+    Ball<FloatAP,FloatDP> pm(Error<FloatDP> const& error) const;
 
     PrecisionType precision() const noexcept {
         return PrecisionType(_precision);

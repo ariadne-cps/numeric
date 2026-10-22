@@ -99,6 +99,8 @@ FloatDP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Flo
 //template<> FloatMPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatMPError>(*this)); }
 template<> FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDP>(cast_exact(*this))); }
 template<> FloatMPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatMP>(cast_exact(*this))); }
+// Keep FloatAP error conversion equivalent to the existing DP/MP semantics.
+template<> FloatAPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatAP>(cast_exact(*this))); }
 
 
 template<> FloatMPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatMPApproximation>(*this)); }

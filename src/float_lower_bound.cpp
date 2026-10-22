@@ -33,6 +33,7 @@ namespace Ariadne {
 
 LowerBound<Dyadic>::LowerBound(LowerBound<FloatDP> const& x) : LowerBound(Dyadic(x.raw())) { }
 LowerBound<Dyadic>::LowerBound(LowerBound<FloatMP> const& x) : LowerBound(Dyadic(Rational(x.raw()))) { }
+LowerBound<Dyadic>::LowerBound(LowerBound<FloatAP> const& x) : LowerBound(Dyadic(x.raw())) { }
 LowerBound<FloatDP> LowerBound<Dyadic>::get(DoublePrecision pr) const { return LowerBound<FloatDP>(FloatDP(this->raw(),down,pr)); }
 LowerBound<FloatMP> LowerBound<Dyadic>::get(MultiplePrecision pr) const { return LowerBound<FloatMP>(FloatMP(this->raw(),down,pr)); }
 

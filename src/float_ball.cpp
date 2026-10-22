@@ -85,6 +85,8 @@ template<> String class_name<Ball<FloatAP,FloatAP>>() { return "FloatAPBall"; }
 Ball<FloatDP> FloatDP::pm(Error<FloatDP> const& e) const { return Ball<FloatDP>(*this,e); }
 Ball<FloatMP> FloatMP::pm(Error<FloatMP> const& e) const { return Ball<FloatMP>(*this,e); }
 Ball<FloatMP,FloatDP> FloatMP::pm(Error<FloatDP> const& e) const { return Ball<FloatMP,FloatDP>(*this,e); }
+Ball<FloatAP,FloatAP> FloatAP::pm(Error<FloatAP> const& e) const { return Ball<FloatAP,FloatAP>(*this,e); }
+Ball<FloatAP,FloatDP> FloatAP::pm(Error<FloatDP> const& e) const { return Ball<FloatAP,FloatDP>(*this,e); }
 
 
 template<> OutputStream& Operations<FloatBall<MultiplePrecision>>::_write(OutputStream& os, FloatBall<MultiplePrecision> const& x) {

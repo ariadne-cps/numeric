@@ -935,6 +935,7 @@ template<> class LowerBound<Dyadic> {
     LowerBound(Bounds<Dyadic> lu) : _l(lu.lower_raw()) { }
     LowerBound(LowerBound<FloatDP> const& x);
     LowerBound(LowerBound<FloatMP> const& x);
+    LowerBound(LowerBound<FloatAP> const& x);
     Dyadic raw() const { return _l; }
     LowerBound<FloatDP> get(DoublePrecision pr) const;
     LowerBound<FloatAP> get(ArbitraryPrecision pr) const;
@@ -949,6 +950,7 @@ template<> class UpperBound<Dyadic> {
     UpperBound(Bounds<Dyadic> lu) : _u(lu.upper_raw()) { }
     UpperBound(UpperBound<FloatDP> const& x);
     UpperBound(UpperBound<FloatMP> const& x);
+    UpperBound(UpperBound<FloatAP> const& x);
     Dyadic raw() const { return _u; }
     UpperBound<FloatDP> get(DoublePrecision pr) const;
     UpperBound<FloatAP> get(ArbitraryPrecision pr) const;
