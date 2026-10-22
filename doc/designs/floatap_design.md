@@ -9806,3 +9806,48 @@ fix: full optimized builds and complete Windows/Unix/macOS test runs
 are required. The previously reported Windows 30-second
 `test_float_rounding` timeout may or may not improve after removing
 the full legacy oracle; do not assume its resolution.
+
+### D79 — freeze rounded-input arithmetic oracles and remove four more FloatMP groups (22 October 2026)
+
+Extend the existing flat `tests/data/floatap_rounding.tsv` from
+1,064 to 4,794 DISTINCT exact-rational reference rows. Generate the
+expected values using independently implemented arbitrary-precision
+signed integer quotient/remainder, binary exponent alignment and
+ties-to-even/directed-rounding rules. Across all four test groups,
+3,960 existing checks request a golden value: 3,730 newly distinct
+keys and 230 correct reuses of a previously generated key. During
+generation, verify every existing TSV row against exact arithmetic,
+check signed directed-rounding order and reject conflicting keys.
+
+Replace live FloatMP comparisons without changing the loop shapes,
+input lists, four modes, precisions, assertion counts or production
+arithmetic in these `test_precision_regressions` groups:
+- Portable small-limb division: the direct Rational constructor is
+  checked on the original signed exact input; division is checked
+  against a frozen reference indexed by the EXACT rational quotient
+  of the two already-nearest-rounded FloatAP inputs, not by the
+  original two unrounded rationals.
+- Signed small rational numerator/denominator cases: both `div`
+  and the Rational constructor are checked against the same exact
+  frozen rounded fraction (including negative denominators).
+- Direct dyadic Rational construction with powers-of-two denominators
+  and all four modes.
+- Integer construction and arithmetic: verify the Integer-to-FloatAP
+  rounding first; for add, sub, mul and fused multiply-add, index the
+  reference on the mathematical exact operation applied to the
+  ALREADY ROUNDED first operand and exact -3 and +1. This preserves
+  the intended single-round FMA semantics.
+
+To keep the larger golden file efficient, replace the old O(N^2)
+duplicate-checking loader and O(N) query scan with an ordered
+`std::map` indexed by (precision bits, rounding mode, exact Rational
+input). Its comparator is total for these finite rationals and catches
+mathematically equivalent duplicate keys. The returned Rational value
+still comes solely from the frozen file. The reader remains INSIDE
+`test_float_rounding.cpp`; no new headers/sources or data subdirs.
+
+This is a test-oracle migration, NOT GMP/MPFR elimination from
+FloatAP or the full suite, and NOT a confirmed Windows timeout fix.
+CI compilation and numerical execution on all targets are needed.
+All old MPFR-dependent transcendental and further arithmetic checks
+not listed above remain untouched for future independent oracles.
