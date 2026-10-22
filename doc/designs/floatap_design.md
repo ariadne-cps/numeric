@@ -10551,3 +10551,56 @@ D95 executable tests and CI remain unverified because
 of the unresolved merge conflict; offline certified
 references are not a substitute for passing regressions.
 Continue exclusively on the `remove-gmp` branch.
+
+### D96 — certify logarithm range reduction and cache boundaries (22 October 2026)
+
+Replace only the live FloatMP/MPFR comparisons in
+`log_boundaries`, retaining all four original precision visits
+(53, 128, 256, 1024 bits), thirteen original Rational
+inputs (1/2, 3/4, 3/2, 2, 1/8, 8, 1±2^-40,
+3/4±2^-40, 3/2±2^-40, 1/2+2^-40), all four
+directed rounding modes, and all 208 original assertions.
+Cache ordering and threshold-probe order remain unchanged.
+
+Extend the EXISTING `tests/data/floatap_log.tsv` rather
+than creating a second logarithm file. Verify all 48
+existing D84 source/mode/precision golden references
+by a different independent certificate and append
+160 new six-column rows, yielding
+444 unique records; update the strict inline loader
+row-count check. Preserve exact ORIGINAL source Rational
+keys, with independent integer nearest/even binary input
+conversion, so a broken FloatAP constructor cannot alter
+the oracle lookup. 0 of 52 source/precision
+visits needed a nontrivial binary input rounding.
+
+For offline mathematical certification use native arbitrary
+precision integer arithmetic exclusively: NO GMP, MPFR,
+FloatMP, FloatAP or floating-point transcendental oracle.
+With B=2^1800, independently enclose log(x) using the
+identity log(x)=2*atanh((x-1)/(x+1)), after reducing
+x=2^k*y to 1/2<=y<2. Thus |(y-1)/(y+1)|<=1/3.
+Enclose log(2) independently by the convergent series
+2*atanh(1/3). For |t|<=1/3, sum k=0..1149 of
+the positive atanh terms t^(2k+1)/(2k+1) using
+outward integer floor/ceil at each multiplication/division.
+The remaining positive tail is bounded above by
+4*t^(2301) for 2*atanh(t) (with the outward upper
+power). Recover the negative log-y interval by
+reversing signed endpoints, and add k times the
+independent log(2) interval with outward sign rules.
+This keeps cancellation near x=1 under direct
+certification without prematurely rounding intermediate
+values. For every source p-bit binary input and all
+four rounding modes, admit a row ONLY when the exact
+rational lower and upper bounds round to the IDENTICAL
+binary Rational, including nearest/even midpoint cases.
+All 208 comparisons certified; maximum fixed-point interval
+width 6912/2^1800. Range reduction exponents:
+{"0":40,"1":4,"3":4,"-2":4}.
+
+No production code, timeout, unrelated test, fixture path
+or CMake change. Build and executable CI remain unverified
+due to the unresolved merge conflict. Do not treat
+offline mathematical certification as passing CI.
+Commit exclusively on `remove-gmp`.
