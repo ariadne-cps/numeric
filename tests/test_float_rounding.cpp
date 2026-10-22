@@ -32,6 +32,7 @@
 #include <sstream>
 #include <string>
 #include <iomanip>
+#include <iterator>
 #include <map>
 #include <stdexcept>
 #include <type_traits>
@@ -115,6 +116,9 @@ static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 #endif
 #ifndef ARIADNE_FLOATAP_TAN_ORACLE_PATH
 #error "Provide the FloatAP tangent fixture path from CMake"
+#endif
+#ifndef ARIADNE_FLOATAP_GET_D_ORACLE_PATH
+#error "Provide the FloatAP binary64 conversion fixture path from CMake"
 #endif
 // Exact references, keyed by precision, mode, and the rational input.
 // Ordered lookup avoids quadratic duplicate checking and linear scans as
@@ -279,6 +283,18 @@ Rational const& floatap_tan_golden(std::size_t bits,
                                    Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
         ARIADNE_FLOATAP_TAN_ORACLE_PATH,1208u);
+    return find_floatap_golden(rows,bits,mode,original_input);
+}
+
+// Expected values are unsigned binary64 bit-patterns stored as exact
+// integral Rationals (denominator 1) in the existing golden file format.
+// Original source keys are intentionally independent of FloatAP::get_d
+// and of any FloatAP constructor's result.
+Rational const& floatap_get_d_bits_golden(std::size_t bits,
+                                          FloatAP::RoundingModeType mode,
+                                          Rational const& original_input) {
+    static const auto rows=load_floatap_golden_rows(
+        ARIADNE_FLOATAP_GET_D_ORACLE_PATH,272u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 
@@ -2072,14 +2088,14 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // FloatAP::get_d must round the stored exact binary value like
-            // FloatMP::get_d in all four modes, including ties, subnormals,
-            // exponent extremes and negative zero.
+            // FloatAP::get_d must implement correctly rounded IEEE 754
+            // binary64 conversion from each stored p-bit value, including
+            // midpoint ties, signed subnormals, overflows and signed zero.
+            // Frozen bit-pattern references are calculated independently
+            // from the ORIGINAL exact Rational and p-bit input rounding.
             const auto previous_ap=FloatAP::get_rounding_mode();
-            const auto previous_mp=FloatMP::get_rounding_mode();
             for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(static_cast<mpfr_prec_t>(ap.bits()));
                 const FloatAP one(1,ap);
                 const FloatAP negative_one(-1,ap);
                 const FloatAP tie_even(Integer(String("9007199254740993")),ap);
@@ -2099,21 +2115,35 @@ TestFloatRounding<PR>::test_precision_regressions()
                     shft(negative_one,Int(1024)),
                     shft(near_overflow,Int(970))
                 };
-                const auto check=[&](auto ap_mode,auto mp_mode) {
+                const Rational original_inputs[]={
+                    Rational(1),Rational(-1),Rational(1,3),Rational(-17,13),
+                    Rational(Integer(String("9007199254740993"))),
+                    Rational(Integer(String("9007199254740995"))),
+                    Rational(Dyadic(1,1200u)),Rational(Dyadic(-1,1200u)),
+                    Rational(Dyadic(1,1076u)),Rational(Dyadic(1,1075u)),
+                    Rational(Dyadic(-1,1075u)),
+                    Rational(Dyadic(1,1074u)),Rational(Dyadic(1,1022u)),
+                    Rational(Dyadic(TwoExp(static_cast<Int>(1023)))),
+                    Rational(Dyadic(TwoExp(static_cast<Int>(1024)))),
+                    -Rational(Dyadic(TwoExp(static_cast<Int>(1024)))),
+                    Rational(Integer(String("18014398509481983"))) *
+                        Rational(Dyadic(TwoExp(static_cast<Int>(970))))
+                };
+                static_assert(std::size(values)==std::size(original_inputs));
+                const auto check=[&](auto ap_mode) {
                     FloatAP::set_rounding_mode(ap_mode);
-                    FloatMP::set_rounding_mode(mp_mode);
-                    for (FloatAP const& value : values) {
-                        const FloatMP oracle(static_cast<Rational>(value),
-                                             FloatMP::ROUND_TO_NEAREST,mp);
-                        ARIADNE_TEST_EQUALS(
-                            std::bit_cast<std::uint64_t>(value.get_d()),
-                            std::bit_cast<std::uint64_t>(oracle.get_d()));
+                    for (std::size_t i=0u;i<std::size(values);++i) {
+                        const Rational actual_bits{Integer(String(std::to_string(
+                            std::bit_cast<std::uint64_t>(values[i].get_d()))))};
+                        ARIADNE_TEST_EQUALS(actual_bits,
+                            floatap_get_d_bits_golden(
+                                ap.bits(),ap_mode,original_inputs[i]));
                     }
                 };
-                check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                check(FloatAP::ROUND_TO_NEAREST);
+                check(FloatAP::ROUND_DOWNWARD);
+                check(FloatAP::ROUND_UPWARD);
+                check(FloatAP::ROUND_TOWARD_ZERO);
 
                 const FloatAP negative_zero=FloatAP::zero(
                     static_cast<unsigned long>(ap.bits()),true);
@@ -2125,7 +2155,6 @@ TestFloatRounding<PR>::test_precision_regressions()
                 ARIADNE_TEST_ASSERT(std::isinf(FloatAP::inf(ap).get_d()));
             }
             FloatAP::set_rounding_mode(previous_ap);
-            FloatMP::set_rounding_mode(previous_mp);
         }
 
         // A deterministic comparison oracle with varied binary scales.

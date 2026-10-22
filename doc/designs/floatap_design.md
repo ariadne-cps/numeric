@@ -10651,3 +10651,58 @@ removal. The existing conflict still blocks visible CI
 for D87 onward; D97 has not been compiled or executed
 under CTest/CI despite the independent numeric proof.
 All changes remain on `remove-gmp`.
+
+### D98 — replace FloatMP get_d differential checks with certified binary64 bits (22 October 2026)
+
+Replace exclusively the FloatMP/MPFR differential oracle in the
+`FloatAP::get_d()` test block. Preserve the four precision visits
+(53, 128, 256, 1024 bits), all seventeen original input values,
+the four original modes nearest/even, downward, upward, and toward
+zero, and each original bit-exact assertion: 272 conversion
+assertions. Preserve 16 further assertions checking signed
+negative/positive zero, NaN and infinity across precisions.
+Keep FloatAP's original thread-local rounding-mode restoration.
+The original input construction, its ordering, and all extreme
+binary shifts remain unchanged.
+
+Add only `tests/data/floatap_get_d.tsv` with 272 strictly validated
+six-column oracle rows (bits, mode, ORIGINAL source numerator,
+ORIGINAL source denominator, unsigned binary64 bits, 1).
+Reuse the EXISTING canonical Rational-based golden loader and
+mode mapping: missing, duplicate, malformed and wrong-count
+rows remain hard failures. The 64-bit expected bits are stored
+as an exact decimal Integer numerator with denominator 1, which
+also accommodates the sign bit, infinities, and signed zero.
+The test converts the actual uint64 bit pattern to an exact
+Rational for direct equality with this golden value. Add only
+one accessor, one macro and one absolute CMake TSV source path;
+no additional helper/source modules. Explicit exact Rational
+input keys (not `Rational(FloatAP)`) ensure broken FloatAP
+constructors cannot silently change the oracle lookup.
+
+Offline oracle generation uses ONLY native BigInt arithmetic,
+not GMP, MPFR, FloatMP, FloatAP or a host double. Starting
+from each of the exact 17 Rational source inputs, independently
+round the source to a p-bit binary real with exact integer
+division and ties-to-even; 11 of 68 input
+conversions were inexact. Independently round the resulting
+stored binary real onto the normal 53-bit significand grid
+or, for exponents below -1022, the subnormal 2^-1074 grid.
+Use exact quotient/remainder, signed directed rounding,
+nearest-even tie handling, significand carries, and the
+binary64 overflow rule (infinity or maximum finite according
+to sign and mode). Pack sign, biased exponent and fraction
+into canonical unsigned 64-bit integer patterns.
+Explicitly check 25 independently known IEEE 754
+bit patterns covering integer halfway ties, smallest normal
+and subnormal, signed underflow, rounded overflow and infinity.
+All 272 references were generated and checked for unique
+precision/mode/source keys. Expected-value classes:
+{"zero":60,"subnormal":36,"normal":152,"infinity":24,"negativeZero":24,"negativeInfinity":8}.
+
+No production code, test input, test order, timeout or unrelated
+test was modified. CI and executable regression runs remain
+unverified due to the outstanding merge conflict;
+correctness of the independent oracle calculation does NOT
+constitute an executed C++ regression result.
+All changes are committed only on `remove-gmp`.

@@ -50,6 +50,7 @@ target_compile_definitions(test_float_rounding PRIVATE
     "ARIADNE_FLOATAP_SIN_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_sin.tsv\""
     "ARIADNE_FLOATAP_COS_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_cos.tsv\""
     "ARIADNE_FLOATAP_TAN_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_tan.tsv\""
+    "ARIADNE_FLOATAP_GET_D_ORACLE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/floatap_get_d.tsv\""
 )
 
 add_library(check_numeric OBJECT check_numeric.cpp)
