@@ -229,7 +229,7 @@ template<> struct IsNativeAPDispatchOperand<Approximation<FloatAP>> : std::true_
 
 template<class R, class X1, class X2> inline R _concrete_apply(BinaryElementaryOperator op, X1 const& x1, X2 const& x2) {
     static_assert(Same<R,NumberInterface*>);
-    return op.accept([&x1,&x2](auto _op) -> R {
+    return op.accept([&x1,&x2,&op](auto _op) -> R {
         if constexpr (Same<decltype(_op),Div> &&
                       (IsNativeAPDispatchOperand<X1>::value || IsNativeAPDispatchOperand<X2>::value)) {
             // These cases have native, rigorous implementations.  For other
