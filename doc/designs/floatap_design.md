@@ -10441,3 +10441,54 @@ regression-case deletions, new data files or CMake changes.
 D87 onward still lacks CI coverage because of the unresolved
 merge conflict, so the D93 compilation and executable regressions
 remain unverified. All modifications are restricted to `remove-gmp`.
+
+### D94 — certify tangent single-sqrt cosine and reconstruction checks (22 October 2026)
+
+Replace live FloatMP/MPFR comparisons only in `tangent_sqrt_cos`
+while preserving all five precision visits (7, 53, 128, 256,
+1024 bits), fourteen original signed dyadic arguments spanning
+tiny 2^-64, 1/2, 3/4, 1023/1024, 1, 1025/1024 and 3/2,
+all four directed rounding modes: exactly 280 original
+assertions, with the source-order and low-precision cases
+unchanged. Keep the Rational-to-FloatAP nearest/even conversion:
+some original dyadics are not representable exactly at p=7.
+Use the exact ORIGINAL Dyadic as Rational golden key, rather
+than letting a faulty FloatAP input constructor choose a
+different reference. 4 of 70 input visits
+require genuine rounding before testing tangent.
+
+Extend the EXISTING operation-wide `tests/data/floatap_tan.tsv`
+from 816 to 1016 records. Independently recertify 80 existing
+references shared with D92/D93 (the +/-1/2 and +/-3/4
+arguments at five precisions), all matching exactly, and append
+200 additional immutable certified rows. Update the existing
+strict inline TSV row count only. No additional CMake definitions,
+new golden dataset or separate helper source files.
+
+Certification uses only native arbitrary-precision integer
+arithmetic with B=2^1800, no GMP, MPFR, FloatMP, FloatAP or
+floating-point transcendental oracle. Round the original
+Rational to a p-bit binary argument with exact integer quotient,
+remainder and nearest-even midpoint logic. For |x|<=3/2,
+bound sine and cosine via outward interval fixed-point
+recurrences for 240 alternating Taylor terms (k=0..239)
+and the first positive omitted term, which contains the
+remaining alternating tail. The series remainder decreases
+at this truncation for |x|<=3/2. Each cosine enclosure
+has a strictly positive LOWER bound, including inputs just
+above 1 and at 3/2. Obtain tangent enclosures by dividing
+positive sine bounds by cosine bounds with integer floor
+and ceil operations, then use oddness for negative inputs.
+Admit each reference only after BOTH rational interval
+endpoints round identically to the exact canonical p-bit
+Rational in each mode, including nearest/even ties.
+All 280 oracle checks passed this independent
+certificate; the maximum fixed-point interval width
+was 50825/2^1800. Inputs greater than 1
+were visited 20 times across precisions.
+
+No production code, timeout, test-case or unrelated-test
+changes. GitHub CI remains unavailable because of the
+previously noted merge conflict: D94 build and executable
+regression outcomes are NOT verified. Continue exclusively
+on `remove-gmp`.

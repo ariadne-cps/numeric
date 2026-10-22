@@ -278,7 +278,7 @@ Rational const& floatap_tan_golden(std::size_t bits,
                                    FloatAP::RoundingModeType mode,
                                    Rational const& original_input) {
     static const auto rows=load_floatap_golden_rows(
-        ARIADNE_FLOATAP_TAN_ORACLE_PATH,816u);
+        ARIADNE_FLOATAP_TAN_ORACLE_PATH,1016u);
     return find_floatap_golden(rows,bits,mode,original_input);
 }
 
@@ -1910,12 +1910,11 @@ TestFloatRounding<PR>::test_precision_regressions()
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
             // The single-sqrt cosine enclosure is used by tangent for
-            // |x|<=1. Check both signs, low precision and reconstruction
-            // across |x|=1 against the correctly rounded MPFR result.
+            // |x|<=1. Preserve both signs, low precision and reconstruction
+            // across |x|=1, with certified exact source-keyed references.
             FloatAPPhaseTiming timing_tangent_sqrt_cos("tangent_sqrt_cos",precision.bits());
             for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 for (Dyadic const& argument :
                      {Dyadic(1,64u),Dyadic(-1,64u),
                       Dyadic(1,1u),Dyadic(-1,1u),
@@ -1924,24 +1923,20 @@ TestFloatRounding<PR>::test_precision_regressions()
                       Dyadic(1,0u),Dyadic(-1,0u),
                       Dyadic(1025,10u),Dyadic(-1025,10u),
                       Dyadic(3,1u),Dyadic(-3,1u)}) {
-                    // This input set includes dyadics requiring more than
-                    // seven significant bits. Round the argument explicitly,
-                    // then use that identical binary value for the MPFR oracle.
-                    // The exact Dyadic constructor must continue to reject
-                    // inputs which are not representable at precision ap.
-                    const FloatAP a(Rational(argument),
-                                    FloatAP::ROUND_TO_NEAREST,ap);
-                    const FloatMP m(static_cast<Rational>(a),
-                                    FloatMP::ROUND_TO_NEAREST,mp);
-                    const auto check_tangent=[&](auto ap_mode,auto mp_mode) {
+                    // Some source dyadics need more than seven significant
+                    // bits; retain nearest/even input rounding instead of
+                    // using the exact Dyadic constructor at that precision.
+                    const Rational exact(argument);
+                    const FloatAP a(exact,FloatAP::ROUND_TO_NEAREST,ap);
+                    const auto check_tangent=[&](auto ap_mode) {
                         ARIADNE_TEST_EQUALS(
                             static_cast<Rational>(tan(ap_mode,a)),
-                            static_cast<Rational>(tan(mp_mode,m)));
+                            floatap_tan_golden(ap.bits(),ap_mode,exact));
                     };
-                    check_tangent(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                    check_tangent(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                    check_tangent(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                    check_tangent(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                    check_tangent(FloatAP::ROUND_TO_NEAREST);
+                    check_tangent(FloatAP::ROUND_DOWNWARD);
+                    check_tangent(FloatAP::ROUND_UPWARD);
+                    check_tangent(FloatAP::ROUND_TOWARD_ZERO);
                 }
             }
         }
