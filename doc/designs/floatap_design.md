@@ -10913,3 +10913,47 @@ new fixture. Performance must be MEASURED under TSan;
 the user goal is a roughly 10x reduction from 18 seconds,
 not a verified outcome of this source change.
 Parent HEAD: `98130207350c7cbd210f80484173522869b07c5a`.
+
+### D104 — repair hexadecimal bit-width warning and migrate exact unsigned powers (22 October 2026)
+
+Fix the clang -Wsign-conversion warning at the golden hex bit-length
+calculation with an explicit `static_cast<std::size_t>` around
+`std::bit_width(unsigned)`; the original hexadecimal nibble and
+bit-length checks are unchanged.
+
+Eliminate all ten GMP/mpz call sites from `test_power()` only,
+replacing them with immutable independently generated golden rows
+at `tests/data/big_unsigned_power.tsv`. Do NOT reduce any
+iterations or remove any assertion sites. Keep the complete
+10 limb counts x 12 modes x 12 exponents = 1440
+matrix; retain all 16 irregular-base exponent cases and
+57 conservative 1024-bit cutoff-boundary cases (including
+duplicate exponent visits when 1024/bits = 0). Altogether 1513
+sequential source-keyed fixture rows are checked. Each row holds
+kind, original count/bits, original mode, exponent, exact original
+operand hex, and exact expected result hex.
+
+The initial standard-mt19937_64 sequence is recreated
+independently using native BigInt, verified against the known
+seed-5489 output vector before generating the fixture with
+original 0xB7400A11 seed and exact original input mutations.
+Every expected power has TWO independent native-integer
+calculations: built-in BigInt exponentiation and explicit
+binary repeated squaring. They agreed on all 1513
+rows (max exponent 1025, max result bit length 18496).
+The golden C++ reader rejects missing, wrong-order and extra
+rows, checks the original input, and compares the computed
+power with the precomputed exact result, each using four
+existing semantic assertions (exact equality, zero status,
+bit length, canonical top limb).
+
+For boundary inputs create 2^bits-1 directly using C++
+uint64 limbs rather than a GMP import/export round trip;
+all 19 original bit sizes and all 3 per-size exponent visits
+remain exactly unchanged. No GMP runtime oracle occurs
+inside the migrated power block. The OTHER test blocks
+and their existing GMP dependencies are NOT yet migrated.
+Add only one absolute path CMake definition. No production
+change, timeout or loop change. TSan timing/CI results
+require real runs; the 10x goal is not claimed achieved.
+Parent `b5ecc37e34037457c869ebc1b1b4abf1a859afcd`, branch `remove-gmp`.

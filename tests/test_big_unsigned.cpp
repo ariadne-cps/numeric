@@ -66,12 +66,40 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
     }
     const BigUnsigned expected(words);
     const std::size_t bits=(hex=="0") ? 0u :
-        4u*(hex.size()-1u)+std::bit_width(golden_hex_nibble(hex.front()));
+        4u*(hex.size()-1u)+static_cast<std::size_t>(
+            std::bit_width(golden_hex_nibble(hex.front())));
     const auto limbs=value.limbs();
     ARIADNE_TEST_ASSERT(compare(value,expected)==0);
     ARIADNE_TEST_ASSERT(value.is_zero()==(bits==0u));
     ARIADNE_TEST_ASSERT(value.bit_length()==bits);
     ARIADNE_TEST_ASSERT(limbs.empty() || limbs.back()!=0u);
+}
+
+
+#ifndef ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH
+#error "Provide the BigUnsigned power oracle path from CMake"
+#endif
+
+void check_against_power_golden(std::ifstream& golden,char kind,
+                                std::size_t param1,std::size_t param2,
+                                unsigned exponent,
+                                BigUnsigned const& input,
+                                BigUnsigned const& actual)
+{
+    char row_kind='?';
+    std::size_t row_param1=0u,row_param2=0u;
+    unsigned row_exponent=0u;
+    std::string original_hex,expected_hex;
+    if (!(golden >> row_kind >> row_param1 >> row_param2
+                 >> row_exponent >> original_hex >> expected_hex)) {
+        throw std::runtime_error("Missing or malformed BigUnsigned power row");
+    }
+    if (row_kind!=kind || row_param1!=param1 || row_param2!=param2
+        || row_exponent!=exponent) {
+        throw std::runtime_error("Unordered BigUnsigned power golden row");
+    }
+    check_against_precomputed_hex(actual,expected_hex);
+    check_against_precomputed_hex(input,original_hex);
 }
 
 void check_against_gmp(BigUnsigned const& x, mpz_srcptr expected)
@@ -145,7 +173,13 @@ void TestBigUnsigned::test_power()
     const std::array<std::uint64_t,3u> two128{0u,0u,1u};
     ARIADNE_TEST_ASSERT(compare(pow(BigUnsigned(two64),2u),BigUnsigned(two128))==0);
 
-    GmpInteger source,expected;
+    // The original inputs and all exponent visits are retained.
+    // Exact source/result reference pairs were frozen independently
+    // using native arbitrary-precision integer exponentiation.
+    std::ifstream golden(ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH);
+    if (!golden) throw std::runtime_error("Missing BigUnsigned power golden TSV");
+    std::string header;
+    while (golden.peek()=='#') std::getline(golden,header);
     std::mt19937_64 generator(0xB7400A11ULL);
     for (const std::size_t count:{0u,1u,2u,3u,4u,5u,8u,9u,16u,17u}) {
         for (unsigned mode=0u;mode<12u;++mode) {
@@ -159,32 +193,25 @@ void TestBigUnsigned::test_power()
                 words.back()=std::uint64_t{1}<<63u;
             }
             const BigUnsigned input(words);
-            const auto view=input.limbs();
-            mpz_import(source.value,view.size(),-1,sizeof(std::uint64_t),0,0,view.data());
             for (const unsigned exponent:{0u,1u,2u,3u,4u,5u,7u,8u,9u,15u,16u,17u}) {
-                mpz_pow_ui(expected.value,source.value,exponent);
-                check_against_gmp(pow(input,exponent),expected.value);
-                check_against_gmp(input,source.value);
+                check_against_power_golden(
+                    golden,'R',count,mode,exponent,input,pow(input,exponent));
             }
         }
     }
     // R15: unsigned powers now own both platform-specific binary
     // schedules. Probe irregular bit patterns and sign-independent
-    // magnitude behavior against GMP, with borrowed inputs unchanged.
+    // magnitude behavior against independent exact golden values,
+    // with borrowed inputs unchanged.
     const std::array<std::uint64_t,3u> sample_limbs={
         std::uint64_t{0xfffffffffffffffdu},std::uint64_t{17u},
         std::uint64_t{1u}
     };
     const BigUnsigned sample_base(sample_limbs);
-    mpz_import(source.value,sample_base.size(),-1,sizeof(std::uint64_t),
-               0,0,sample_base.limbs().data());
-    // mpz_pow_ui takes unsigned long (32-bit on Windows LLP64);
-    // all test exponents fit unsigned, so avoid narrowing warnings.
     for (const unsigned exponent:{0u,1u,2u,3u,5u,6u,7u,8u,9u,
                                  12u,15u,16u,17u,31u,32u,33u}) {
-        mpz_pow_ui(expected.value,source.value,exponent);
-        check_against_gmp(pow(sample_base,exponent),expected.value);
-        check_against_gmp(sample_base,source.value);
+        check_against_power_golden(
+            golden,'S',0u,0u,exponent,sample_base,pow(sample_base,exponent));
     }
 
     // Probe both sides of the conservative 1024-bit result bound.
@@ -192,18 +219,23 @@ void TestBigUnsigned::test_power()
     // product limb, even though the canonical result fits in sixteen.
     for (const unsigned bits:{1u,2u,53u,64u,65u,127u,128u,129u,
             255u,256u,257u,341u,342u,511u,512u,513u,1023u,1024u,1025u}) {
-        mpz_set_ui(source.value,1u);
-        mpz_mul_2exp(source.value,source.value,bits);
-        mpz_sub_ui(source.value,source.value,1u);
-        std::vector<std::uint64_t> words((bits+63u)/64u);
-        std::size_t count=0u;
-        mpz_export(words.data(),&count,-1,sizeof(std::uint64_t),0,0,source.value);
-        const BigUnsigned input(std::span(words.data(),count));
+        // Build exactly 2^bits-1 directly from little-endian words,
+        // preserving the original operand and all three exponent cases.
+        std::vector<std::uint64_t> words((bits+63u)/64u,
+                                         std::numeric_limits<std::uint64_t>::max());
+        if (bits%64u != 0u) {
+            words.back() = (std::uint64_t{1}<<(bits%64u))-1u;
+        }
+        const BigUnsigned input(words);
         const unsigned limit=1024u/bits;
         for (const unsigned exponent:{limit==0u ? 0u : limit-1u,limit,limit+1u}) {
-            mpz_pow_ui(expected.value,source.value,exponent);
-            check_against_gmp(pow(input,exponent),expected.value);
+            check_against_power_golden(
+                golden,'B',bits,0u,exponent,input,pow(input,exponent));
         }
+    }
+    std::string trailing;
+    if (golden >> trailing) {
+        throw std::runtime_error("Extra BigUnsigned power golden rows");
     }
 }
 
