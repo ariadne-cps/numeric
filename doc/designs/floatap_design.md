@@ -10041,3 +10041,41 @@ No timeout adjustments or numerical production-code modifications.
 Windows at D83 compiled and passed; Unix D83 was still in progress
 when preparing this patch. CI and runtime verification of D84 are
 still outstanding.
+
+### D85 — certify the centered exponential oracle (22 October 2026)
+
+Replace the MPFR/FloatMP differential comparison in the
+`centered_exp` block immediately after `centered_log` with independently
+certified immutable correctly rounded values. Preserve six precision
+visits (53, 7, 128, 256, 1024, 53 bits), fifteen source Rational
+magnitudes, both signs, all four rounding modes, and all 720 original
+assertions, including window-boundary and cache-revisit probes.
+The exact source arguments are independently nearest-even rounded to
+the binary input of the tested precision using integer arithmetic.
+Deduplication of rounded arguments and the repeated 53-bit visit yields
+142 signed input keys and 568 distinct rounding references.
+
+Store the results in the flat `tests/data/floatap_centered_exp.tsv`
+file, add its absolute source path from CMake, and reuse the existing
+strict six-column inline oracle loader (malformed, duplicate, missing
+and incorrect row-count entries are errors). No added C++ oracle helper
+source/header or nested data directory.
+
+The offline generator uses only arbitrary-precision integer arithmetic.
+For positive a=abs(x), reduce to t=a/16<=1/8; use outward fixed-point
+integer interval operations with B=2^1800. Starting from t^0/0!=1,
+bound Taylor terms 1..166 via floor/ceil of exact integer products
+and quotients, sum terms 0..165, and bound the positive remainder by
+twice the upper bound of term 166 (successive term ratios < 1/2).
+Four outward-rounded squarings enclose exp(a)=exp(t)^16. For negative
+x, invert the positive enclosure by outward floor/ceil division.
+Every fixture is emitted ONLY when both certified rational interval
+endpoints round to the identical canonical binary rational in the
+specified mode, including nearest-even ties. All 568 entries passed
+this test. No GMP, MPFR, FloatMP, FloatAP, or floating-point exponential
+oracle was used.
+
+Production code, precision ordering, numerical coverage, timeout
+settings, and remaining MPFR-dependent tests are unchanged.
+D84 Unix, Windows and Coverage workflows passed; D85 CI and build
+validation are pending.

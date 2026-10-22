@@ -95,6 +95,9 @@ static_assert(check_float_rounding_concept<ArbitraryPrecision>());
 #ifndef ARIADNE_FLOATAP_LOG_ORACLE_PATH
 #error "Provide the FloatAP logarithm fixture path from CMake"
 #endif
+#ifndef ARIADNE_FLOATAP_CENTERED_EXP_ORACLE_PATH
+#error "Provide the FloatAP centered exponential fixture path from CMake"
+#endif
 // Exact references, keyed by precision, mode, and the rational input.
 // Ordered lookup avoids quadratic duplicate checking and linear scans as
 // the frozen oracle dataset grows. The comparator uses exact Rational order.
@@ -201,6 +204,14 @@ Rational const& floatap_log_golden(std::size_t bits,
     return find_floatap_golden(rows,bits,mode,input);
 }
  
+Rational const& floatap_centered_exp_golden(std::size_t bits,
+                                            FloatAP::RoundingModeType mode,
+                                            Rational const& input) {
+    static const auto rows=load_floatap_golden_rows(
+        ARIADNE_FLOATAP_CENTERED_EXP_ORACLE_PATH,568u);
+    return find_floatap_golden(rows,bits,mode,input);
+}
+
 // Integer power lookup uses the original exact Rational and exponent
 // as its key. The offline data performs the nearest-even input rounding
 // independently, so the test does not derive its oracle from FloatAP.
@@ -1456,15 +1467,14 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Exponential certified Taylor center at BOTH +/-1/2.
-            // Check the exact window boundary, one step outside it,
+            // Certified exponential oracle around BOTH +/-1/2.
+            // Keep the exact window boundary, one step outside it,
             // all four directions, very low precision, high-precision
             // cache upgrades and revisiting a lower precision.
             FloatAPPhaseTiming timing_centered_exp("centered_exp",precision.bits());
             for (Bits bits : {53_bits,7_bits,128_bits,256_bits,
                               1024_bits,53_bits}) {
                 const ArbitraryPrecision ap(bits);
-                const MultiplePrecision mp(bits);
                 const Nat exponent_ulp(static_cast<Nat>(ap.bits()));
                 const Rational ulp(Integer(1),
                                    pow(Integer(2),exponent_ulp));
@@ -1491,18 +1501,18 @@ TestFloatRounding<PR>::test_precision_regressions()
                             ? -magnitude : magnitude;
                         const FloatAP ap_input(exact,
                             FloatAP::ROUND_TO_NEAREST,ap);
-                        const FloatMP mp_input(
-                            static_cast<Rational>(ap_input),
-                            FloatMP::ROUND_TO_NEAREST,mp);
-                        const auto check=[&](auto ap_mode,auto mp_mode) {
+                        const Rational rounded_input=
+                            static_cast<Rational>(ap_input);
+                        const auto check=[&](auto ap_mode) {
                             ARIADNE_TEST_EQUALS(
                                 static_cast<Rational>(exp(ap_mode,ap_input)),
-                                static_cast<Rational>(exp(mp_mode,mp_input)));
+                                floatap_centered_exp_golden(
+                                    ap.bits(),ap_mode,rounded_input));
                         };
-                        check(FloatAP::ROUND_TO_NEAREST,FloatMP::ROUND_TO_NEAREST);
-                        check(FloatAP::ROUND_DOWNWARD,FloatMP::ROUND_DOWNWARD);
-                        check(FloatAP::ROUND_UPWARD,FloatMP::ROUND_UPWARD);
-                        check(FloatAP::ROUND_TOWARD_ZERO,FloatMP::ROUND_TOWARD_ZERO);
+                        check(FloatAP::ROUND_TO_NEAREST);
+                        check(FloatAP::ROUND_DOWNWARD);
+                        check(FloatAP::ROUND_UPWARD);
+                        check(FloatAP::ROUND_TOWARD_ZERO);
                     }
                 }
             }
