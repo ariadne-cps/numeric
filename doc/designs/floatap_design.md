@@ -10825,3 +10825,41 @@ A remote source/ABI audit confirms the five missing symbols
 are declared and template-defined; compilation and regression
 results still require actual CI/build and are NOT asserted here.
 Working branch: `remove-gmp`, parent HEAD `f9802f5a4e8d4d8d26e8c4f7a1f01291a48c0c81`.
+
+### D102 — make native approximation generic conversion link on MSVC (22 October 2026)
+
+The user reports the Windows x64 MSVC 14.51 linker STILL fails
+after D101: the ONLY remaining missing external in
+`tests/test_float_approximation.exe` is
+`Approximation<FloatAP>::operator ApproximateNumber() const`
+(LNK2019/LNK1120). Unlike the four missing conversion
+constructors, the D101 bare explicit-instantiation definition
+in `src/float_approximation.cpp` did not provide a
+linkable symbol in the reported MSVC build.
+
+Follow the EXISTING repository pattern already used to provide
+`FloatDPApproximation::operator ApproximateNumber()` and
+`FloatMPApproximation::operator ApproximateNumber()`:
+define a concrete out-of-line explicit specialization
+`template<> FloatAPApproximation::operator ApproximateNumber() const`
+in `src/number.cpp`, returning
+`ApproximateNumber(new NumberWrapper<FloatAPApproximation>(*this))`.
+This makes the native conversion an ordinary
+non-discardable library definition in the same source module
+and compilation context as its two existing counterparts.
+Delete only the competing explicit instantiation of that
+operator from `src/float_approximation.cpp`, to avoid
+duplicate/competing definitions across translation units.
+Keep ALL six pre-existing native constructor instantiations
+and legacy production conversions unchanged.
+
+The test suite, its generic() and assignment checks, CMake,
+TSV fixtures and timeouts are entirely unmodified. Do NOT
+remove or skip any native approximation assertions; the
+problem is a missing production linkage symbol, not an
+invalid expected value. Source-level verification confirms
+exactly one native out-of-line specialization and no
+competing explicit instantiation. Since Windows executable
+CI is not available from this editing context, the actual
+MSVC link must still be rerun to confirm resolution.
+Parent commit is `6da78909b92eb6577d32349cc364a467c2cb9c7e` on rebased `remove-gmp`.

@@ -52,8 +52,8 @@ template<> String class_name<Approximation<FloatDP>>() { return "FloatDPApproxim
 template<> String class_name<Approximation<FloatMP>>() { return "FloatMPApproximation"; }
 template<> String class_name<Approximation<FloatAP>>() { return "FloatAPApproximation"; }
 
-// Generate the native generic-number conversion after class_name is defined:
-// NumberWrapper<Approximation<FloatAP>> needs the specialization at link time.
-template Approximation<FloatAP>::operator ApproximateNumber() const;
+// The native ApproximateNumber conversion has a concrete specialization in
+// number.cpp beside the FloatDP and FloatMP conversions. The explicit
+// instantiation here was not emitted as a linkable symbol by MSVC.
 
 } // namespace Ariadne

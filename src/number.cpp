@@ -102,6 +102,9 @@ template<> FloatMPError::operator ValidatedErrorNumber() const { return Validate
 
 
 template<> FloatMPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatMPApproximation>(*this)); }
+// Keep the native generic-number conversion alongside the other concrete
+// specializations: MSVC must emit it in ariadne-numeric.lib for D100.
+template<> FloatAPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatAPApproximation>(*this)); }
 //template<> FloatMPLowerBound::operator ValidatedLowerNumber() const { return ValidatedLowerNumber(new NumberWrapper<FloatMPLowerBound>(*this)); }
 //template<> FloatMPUpperBound::operator ValidatedUpperNumber() const { return ValidatedUpperNumber(new NumberWrapper<FloatMPUpperBound>(*this)); }
 template<> FloatMPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBounds>(*this)); }
