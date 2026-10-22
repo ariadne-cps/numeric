@@ -29,23 +29,18 @@
 
 #include "floatdp.hpp"
 #include "floatmp.hpp"
-#include "floatap.hpp"
 
 namespace Ariadne {
 
 template<> Error<FloatDP>::operator ValidatedErrorNumber() const;
 template<> Error<FloatMP>::operator ValidatedErrorNumber() const;
-template<> Error<FloatAP>::operator ValidatedErrorNumber() const;
 
 template class Error<FloatDP>;
 template class Operations<Error<FloatDP>>;
 template class Error<FloatMP>;
 template class Operations<Error<FloatMP>>;
-template class Error<FloatAP>;
-template class Operations<Error<FloatAP>>;
 
 template<> String class_name<Error<FloatDP>>() { return "FloatDPError"; }
 template<> String class_name<Error<FloatMP>>() { return "FloatMPError"; }
-template<> String class_name<Error<FloatAP>>() { return "FloatAPError"; }
 
 } // namespace Ariadne
