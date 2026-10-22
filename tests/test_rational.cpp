@@ -64,6 +64,7 @@ inline constexpr char R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r8.tsv
 inline constexpr char R28_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r28.tsv";
 inline constexpr char R4_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r4.tsv";
 inline constexpr char R16_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r16.tsv";
+inline constexpr char R20_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r20.tsv";
 inline constexpr char R0_RANDOM_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_random.tsv";
 
 constexpr bool check_concept()
@@ -880,35 +881,40 @@ void TestRational::test_gmp_differential() {
     std::string extra_r16;
     if (r16_file >> extra_r16)
         throw std::runtime_error("Extra Rational R16 TSV rows");
-    // R20: exact GMP cross-sum checks near both sides of the 8-limb
-    // stack/fallback boundary, with signs, carries and cancellation.
-    for (unsigned bits : {53u,128u,255u,256u,320u,447u,
-                          448u,511u,512u,1024u}) {
-        const Integer base=pow(Integer(2),Nat(bits));
-        const std::array<std::pair<Rational,Rational>,4u> pairs={{
-            {Rational(base+13,base*2+17),Rational(base+31,base*3+19)},
-            {Rational(base-13,base*3+23),Rational(base+19,base*2+31)},
-            {Rational(base+1,base+2),Rational(base+2,base+3)},
-            {Rational(base+13,base*2+17),Rational(base+13,base*2+17)}
-        }};
-        for (auto const& pair:pairs) {
-            for (unsigned mask=0u;mask<4u;++mask) {
-                const Rational lhs=(mask&1u)!=0u ? -pair.first : pair.first;
-                const Rational rhs=(mask&2u)!=0u ? -pair.second : pair.second;
-                GmpRationalBoundary oracle_lhs(lhs),oracle_rhs(rhs);
-                mpq_add(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
-                check(lhs+rhs);
+    // R20: all ten limb-storage transition widths, four cancellation
+    // patterns and all four sign combinations remain in a frozen oracle.
+    std::ifstream r20_fixture(R20_ORACLE_PATH);
+    if (!r20_fixture) throw std::runtime_error("Missing Rational R20 TSV");
+    std::string r20_header;
+    while (r20_fixture.peek()=='#') std::getline(r20_fixture,r20_header);
+    for (unsigned bits:{53u,128u,255u,256u,320u,447u,
+                         448u,511u,512u,1024u}) {
+        for (unsigned pair=0u;pair<4u;++pair) {
+            for (unsigned signs=0u;signs<4u;++signs) {
+                unsigned ref_bits=0u,ref_pair=0u,ref_signs=0u;
+                std::string lhs_text,rhs_text,sum_text,sub_text;
+                if (!(r20_fixture >> ref_bits >> ref_pair >> ref_signs
+                      >> lhs_text >> rhs_text >> sum_text >> sub_text)
+                    || ref_bits!=bits || ref_pair!=pair || ref_signs!=signs) {
+                    throw std::runtime_error("Missing or unordered R20 TSV row");
+                }
+                const Rational lhs=parse_r16(lhs_text),rhs=parse_r16(rhs_text);
+                verify_fraction(lhs,lhs_text);
+                verify_fraction(rhs,rhs_text);
+                verify_fraction(lhs+rhs,sum_text);
                 Rational running=lhs;
                 running+=rhs;
-                check(running);
-                mpq_sub(expected.mutable_value(),oracle_lhs.value(),oracle_rhs.value());
-                check(lhs-rhs);
+                verify_fraction(running,sum_text);
+                verify_fraction(lhs-rhs,sub_text);
                 running=lhs;
                 running-=rhs;
-                check(running);
+                verify_fraction(running,sub_text);
             }
         }
     }
+    std::string r20_extra;
+    if (r20_fixture >> r20_extra)
+        throw std::runtime_error("Extra R20 TSV rows");
     // R19: all four combinations of identity/nonidentity cross-GCD
     // divisors for both multiply and divide, across the inline boundary
     // and long operands. Check exact GMP arithmetic, canonicality,

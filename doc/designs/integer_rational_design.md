@@ -8001,3 +8001,8 @@ R16 is now fully source-keyed in rational_r16.tsv: all 84 original configuration
 ### R33.3 — R0 randomized reference migration (22 October 2026)
 
 The original 1,200-case Rational random differential loop now tests 120 source-keyed rows from rational_random.tsv, selected adaptively one from each ten visits with full 17-width coverage, raw sign combinations, zero operands and comparison classes. Freeze all arithmetic results, normalized rational representations, floor/ceil and mpq_get_d IEEE754 truncation results. Validate the exact binary64 calculation against GMP-generated C++ outputs from the first ten original source states. Retain the full mt19937_64 advancement without discarded arithmetic to keep downstream R29/R13 input identity. The remaining deterministic R19/R20 and conversion-mode suites still use GMP. No production kernels touched. Verify the new commit on Unix, Windows, Coverage and Sanitizers.
+
+
+### R33.4 — R20 exact cross-add/sub oracle (22 October 2026)
+
+Replace GMP expected add/sub operations in R20 with `rational_r20.tsv`, freezing all 160 original signed source pairs and independently calculated canonical rational results at all ten storage boundaries. Verify direct and compound assignment arithmetic against canonical TSV numerators and denominators; preserve cancellation and carry pattern classes. No production changes. CI validation pending.
