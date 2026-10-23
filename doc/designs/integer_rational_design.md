@@ -8641,3 +8641,31 @@ the eleventh executable in explicit generators and generate-data targets,
 not the tests target. Coverage rises to 61/115 TSVs. No TSV, test
 consumer, production source, or legacy GMP-oracle path is modified.
 Full platform CI remains to be checked.
+
+### B89 — shared RNG exact R29/R13/R5 generator (23 October 2026)
+
+Add standalone `tests/data/generator_rational_shared_stream.cpp` for
+`rational_r29.tsv` (216 source-keyed sparse-prefix binary64 cases), all
+16 `rational_r13_mode{0..3}_limbs{5..8}.tsv` files (96 exact signed
+dense-limb conversion cases each), and `rational_r5.tsv` (48 shifts,
+four signed conversion expectations per row). Reconstruct every source
+input using the original mt19937_64(0x6672616374696f6e) sequence:
+first consume every original 1,200 R0 visit schedule (four operands,
+each with all limbs plus one sign draw). For each of four subsequent host
+rounding modes, generate R29 followed by R13 limbs 5,6,7,8 followed
+by R5's 12 shift probes. This original interleaving is essential;
+advancing all R29 modes before R13 changes the random-source values.
+Expected binary64 bits are derived by exact integer quotient, bit length,
+normal/subnormal mantissa/exponent construction and round-toward-zero,
+without Numeric, GMP, MPFR, Boost, FloatMP or host FP operations.
+
+GCC and Clang C++20 compilations succeeded with -Wall -Wextra -Wpedantic
+-Wsign-conversion -Wshadow -Werror. An additional Clang build used the
+strict extended CI warning set. All 18 generated fixtures matched the
+existing Git blob SHA-1 IDs, as checked against the current main tree.
+--verify rejects deliberately corrupted data without rewriting it.
+Register the twelfth executable with the explicit generators and
+generate-data targets; tests and default all still exclude generators.
+Coverage rises from 61 to 79 of the 115 unchanged, versioned TSV files.
+No test consumer, production code, legacy GMP oracle or root CMake changes.
+Full platform CI remains to be checked.

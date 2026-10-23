@@ -4,7 +4,8 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
-`generator_rational_binary64.cpp`, and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
+`generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`,
+and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
 FloatMP or Boost**: expected values must not come from the code being tested.
@@ -26,7 +27,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (61 of 115 at B88).
+overwrites only the currently covered TSV files (79 of 115 at B89).
 The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
@@ -53,6 +54,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/g
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_big_unsigned_dispatch.cpp -o /tmp/numeric-oracle-dispatch
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_integer_random.cpp -o /tmp/numeric-oracle-integer-random
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_binary64.cpp -o /tmp/numeric-oracle-binary64
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_shared_stream.cpp -o /tmp/numeric-oracle-rational-stream
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -64,6 +66,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-dispatch --verify --data-dir tests/data
 /tmp/numeric-oracle-integer-random --verify --data-dir tests/data
 /tmp/numeric-oracle-binary64 --verify --data-dir tests/data
+/tmp/numeric-oracle-rational-stream --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -89,6 +92,7 @@ review every diff before committing. No sampling is used.
 | `generator_big_unsigned_dispatch.cpp` | `big_unsigned_b39.tsv`, `big_unsigned_b40.tsv`, `big_unsigned_b54_product.tsv`, `big_unsigned_b54_square.tsv` | 152 B39, 162 B40, 136 B54 products, 104 B54 squares |
 | `generator_integer_random.cpp` | `integer_b17.tsv`, `integer_b18.tsv` | 250 signed arithmetic/shift cases and 170 signed arithmetic/division cases |
 | `generator_rational_binary64.cpp` | `rational_r7.tsv`, `rational_r12.tsv` | 384 R7 rational probes; 2,048 R12 one-limb seeded conversions (both signs) |
+| `generator_rational_shared_stream.cpp` | `rational_r29.tsv`, all sixteen `rational_r13_mode*_limbs*.tsv`, `rational_r5.tsv` | 216 R29, 1,536 R13, 48 R5 rows; exact shared original RNG state |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -210,3 +214,13 @@ Both generated TSVs match the original checked-in blobs byte for byte,
 with GCC and Clang strict C++20 warnings; the read-only --verify also
 rejects deliberate TSV corruption. The eleventh generator is registered
 in the explicit generators and generate-data targets.
+
+B89 regenerates all 18 R29/R13/R5 files from the exact shared Rational
+mt19937_64 stream. Replaying the 1,200 original R0 source visits is
+mandatory, followed by interleaving R29, four R13 limb-width groups and
+R5 within EACH host-mode iteration; generating R29 for all modes first
+would break the reproducibility of downstream inputs. Exact integer
+arithmetic yields GMP-style binary64 truncation, without GMP or MPFR.
+GCC and Clang strict compilation and --verify reproduce all 18 original
+Git blobs byte-for-byte. Registered as the twelfth explicit generator;
+all original files remain versioned and unchanged.
