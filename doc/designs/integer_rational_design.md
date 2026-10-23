@@ -8567,3 +8567,28 @@ available in the explicit generators and generate-data targets without
 coupling it to tests. The 53rd of 115 original frozen TSVs is now
 reproducible. No source-tree TSV content, test consumer, runtime GMP
 oracle, production code or root CMake was changed. Full CI remains pending.
+
+### B86 — B39/B40/B54 source-reproducible multiplication fixtures (23 October 2026)
+
+Add independent standard-C++20 `tests/data/generator_big_unsigned_dispatch.cpp`
+for B39 (19 x 8 = 152 cases), B40 (18 x 9 = 162), B54 products
+(17 x 8 = 136) and B54 squares (13 x 8 = 104). Original 20/16/32/64
+mode cycles and source RNG draws are fully replayed; B54's product and
+square stages share the seeded mt19937_64(0xB54A6C4) stream, including
+all 17 x 32 product-source iterations before its first square.
+Independent shift/add unsigned-limb arithmetic computes exact full,
+square and truncated results with no Numeric/GMP/MPFR/Boost/FloatMP.
+
+The original four TSV object IDs were reproduced byte-for-byte:
+B39 82c2d5dfa3c171bc2d0588393aa1ee3a5a6dd671;
+B40 5f603317b54f2fd19178d8fcb061d0799a25eb38;
+B54 product 2bf1ee6c6259df30c627ad249ac963f16ea3641c;
+B54 square ed71c32efb60aea636775edc61f4131b7ac90c61.
+GCC and Clang compiled and verified the generator under stringent C++20
+warnings including -Wsign-conversion -Wshadow -Werror. An intentionally
+corrupted fixture was rejected by read-only --verify.
+Register the ninth executable in the ORACLE_GENERATORS list for explicit
+`generators` and `generate-data`; retain decoupled `tests`.
+Coverage rises to 57 of 115 original versioned TSVs. No fixture data,
+consumer test, GMP oracle, production code or root CMake changed.
+Full multi-platform repository CI remains to be checked.
