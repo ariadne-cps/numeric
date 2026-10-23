@@ -2347,7 +2347,6 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         return {point(Fraction{}), point(Fraction(1L))};
     }
 
-    const Fraction magnitude = absolute(x);
     const unsigned long max_terms = work / 2ul + 48ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(max_terms));
@@ -2356,162 +2355,211 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
     }
     const unsigned long fixed_bits = work + guard;
     if (static_cast<std::uintmax_t>(fixed_bits) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
-        throw std::overflow_error("FloatAP sine/cosine GMP shift overflow");
+            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+        static_cast<std::uintmax_t>(fixed_bits) >
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::overflow_error("FloatAP sine/cosine fixed-point shift overflow");
     }
-    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(fixed_bits);
 
-    mpz_t scaled, argument, square, term, sum, lower, upper;
-    mpz_t error, tail, scratch;
-    mpz_inits(scaled, argument, square, term, sum, lower, upper,
-              error, tail, scratch, nullptr);
-    struct Cleanup {
-        mpz_ptr a,b,c,d,e,f,g,h,i,j;
-        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,i,j,nullptr); }
-    } cleanup{scaled,argument,square,term,sum,lower,upper,
-              error,tail,scratch};
+    using Limb=BigUnsigned::Limb;
+    using Words=std::vector<Limb>;
+    const std::size_t shift=static_cast<std::size_t>(fixed_bits);
+    const std::size_t whole=shift/64u;
+    const unsigned partial=static_cast<unsigned>(shift%64u);
+    const Fraction magnitude=absolute(x);
+    const Integer numerator=integer_from_gmp(mpq_numref(magnitude.raw()));
+    const Integer denominator=integer_from_gmp(mpq_denref(magnitude.raw()));
+    const BigUnsigned scale=shift_left(BigUnsigned(1u),shift);
+    const BigUnsigned argument=quot(
+        shift_left(numerator.magnitude(),shift),denominator.magnitude());
 
-    mpz_set_ui(scaled, 1ul);
-    mpz_mul_2exp(scaled, scaled, shift);
-    mpz_mul_2exp(scratch, mpq_numref(magnitude.raw()), shift);
-    mpz_fdiv_q(argument, scratch, mpq_denref(magnitude.raw()));
-    mpz_mul(square, argument, argument);
-    mpz_fdiv_q_2exp(square, square, shift);
-
-    mpz_t threshold;
-    mpz_init_set_ui(threshold, 1ul);
-    struct ThresholdCleanup {
-        mpz_ptr value;
-        ~ThresholdCleanup() { mpz_clear(value); }
-    } threshold_cleanup{threshold};
-    mpz_mul_2exp(threshold, threshold, static_cast<mp_bitcnt_t>(guard));
-
-    // Let Q=2^B and a=floor(Q*|x|). The fixed-point square
-    // b=floor(a*a/Q) underapproximates Q*x*x by less than 3.
-    // For each nonnegative Taylor term T_n, the recurrence
-    // t_(n+1)=floor(t_n*b/(Q*d_n)) satisfies 0<=T_n-t_n<8:
-    // the error obeys e_(n+1)<(e_n+3)/d_n+1, d_n>=2.
-    // This applies to both sin and cos for every |x|<=1.
-    const auto series = [&](bool sine) -> Interval {
-        if (sine) {
-            mpz_set(term, argument);
-        } else {
-            mpz_set(term, scaled);
+    Words square,term,sum,product,next_term,quotient;
+    const BigUnsigned threshold=shift_left(BigUnsigned(1u),
+                                            static_cast<std::size_t>(guard));
+    const auto trim=[](Words& value) {
+        while (!value.empty() && value.back()==0u) value.pop_back();
+    };
+    const auto within_threshold=[&](Words const& value) {
+        const auto bound=threshold.limbs();
+        if (value.size()!=bound.size()) return value.size()<bound.size();
+        for (std::size_t i=value.size();i!=0u;--i) {
+            if (value[i-1u]!=bound[i-1u]) return value[i-1u]<bound[i-1u];
         }
-        mpz_set_ui(sum, 0ul);
+        return true;
+    };
 
-        for (unsigned long n = 0; n < max_terms; ++n) {
-            if (n % 2ul == 0ul) {
-                mpz_add(sum, sum, term);
-            } else {
-                mpz_sub(sum, sum, term);
+    // The series is alternating with decreasing positive terms for |x|<=1.
+    // Its partial sum is therefore nonnegative, so update one limb vector
+    // in place rather than allocating signed Integer/Rational temporaries.
+    const auto accumulate=[&](Words const& addend,bool subtract) {
+        if (!subtract) {
+            if (sum.size()<addend.size()) sum.resize(addend.size(),0u);
+            Limb carry=0u;
+            for (std::size_t i=0u;i<addend.size();++i) {
+                const Limb old=sum[i];
+                const Limb value=old+addend[i];
+                const Limb result=value+carry;
+                carry=static_cast<Limb>(value<old || result<value);
+                sum[i]=result;
             }
+            for (std::size_t i=addend.size();carry!=0u && i<sum.size();++i) {
+                ++sum[i];
+                carry=static_cast<Limb>(sum[i]==0u);
+            }
+            if (carry!=0u) sum.push_back(carry);
+        } else {
+            if (addend.size()>sum.size()) {
+                throw std::logic_error("FloatAP sine/cosine series sum underflow");
+            }
+            Limb borrow=0u;
+            for (std::size_t i=0u;i<sum.size();++i) {
+                const Limb right=i<addend.size()?addend[i]:Limb{0};
+                const Limb old=sum[i];
+                const Limb difference=old-right;
+                const Limb result=difference-borrow;
+                borrow=static_cast<Limb>(old<right || difference<borrow);
+                sum[i]=result;
+            }
+            if (borrow!=0u) {
+                throw std::logic_error("FloatAP sine/cosine series sum underflow");
+            }
+            trim(sum);
+        }
+    };
 
-            if (n > (std::numeric_limits<unsigned long>::max() - 3ul) / 2ul) {
+    // floor(a*b/2^B), with disjoint scratch and output limb storage.
+    // Reuse product and result capacity across Taylor terms.
+    const auto scaled_product=[&](Words const& left,Words const& right,
+                                   Words& output) {
+        if (left.empty() || right.empty()) {
+            output.clear();
+            return;
+        }
+        if (left.size()>std::numeric_limits<std::size_t>::max()-right.size()) {
+            throw std::overflow_error("FloatAP sine/cosine product size overflow");
+        }
+        product.resize(left.size()+right.size());
+        BigUnsigned::mul_into(left,right,product);
+        trim(product);
+        if (product.size()<=whole) {
+            output.clear();
+            return;
+        }
+        const std::size_t count=product.size()-whole;
+        output.resize(count);
+        for (std::size_t i=0u;i<count;++i) {
+            const Limb low=product[whole+i]>>partial;
+            const Limb high=partial!=0u && i+1u<count
+                ? product[whole+i+1u]<<(64u-partial) : Limb{0};
+            output[i]=low|high;
+        }
+        trim(output);
+    };
+    Words argument_words(argument.limbs().begin(),argument.limbs().end());
+    scaled_product(argument_words,argument_words,square);
+
+    // When both functions are requested, derive cosine from the sine
+    // enclosure; retain its native endpoints to avoid GMP round-trips.
+    BigUnsigned sine_lower_nonnegative,sine_upper_nonnegative;
+    const auto series=[&](bool sine) -> Interval {
+        const auto start=sine ? argument.limbs() : scale.limbs();
+        term.assign(start.begin(),start.end());
+        sum.clear();
+
+        for (unsigned long n=0u;n<max_terms;++n) {
+            accumulate(term,n%2ul!=0ul);
+
+            if (n>(std::numeric_limits<unsigned long>::max()-3ul)/2ul) {
                 throw std::overflow_error("FloatAP sine/cosine series index");
             }
-            const unsigned long twice_n = 2ul * n;
-            const unsigned long a = sine ? twice_n + 2ul : twice_n + 1ul;
-            const unsigned long b = sine ? twice_n + 3ul : twice_n + 2ul;
-            if (a > std::numeric_limits<unsigned long>::max() / b) {
+            const unsigned long twice_n=2ul*n;
+            const unsigned long a=sine ? twice_n+2ul : twice_n+1ul;
+            const unsigned long b=sine ? twice_n+3ul : twice_n+2ul;
+            if (a>std::numeric_limits<unsigned long>::max()/b) {
                 throw std::overflow_error("FloatAP sine/cosine factorial overflow");
             }
-            const unsigned long divisor = a * b;
+            const Limb divisor=static_cast<Limb>(a*b);
 
-            mpz_mul(term, term, square);
-            mpz_fdiv_q_2exp(term, term, shift);
-            mpz_fdiv_q_ui(term, term, divisor);
+            scaled_product(term,square,next_term);
+            quotient.resize(next_term.size());
+            (void)BigUnsigned::divrem_limb_into(next_term,divisor,quotient);
+            trim(quotient);
+            term.swap(quotient);
 
-            if (mpz_cmp(term, threshold) <= 0 || n + 1ul == max_terms) {
-                // The n+1 included terms contribute at most 8*(n+1)
-                // total units of downward-rounding error. The first
-                // omitted exact term is <= t_(n+1)+8. Its alternating
-                // sign identifies which endpoint needs the tail.
-                mpz_set_ui(error, n);
-                mpz_add_ui(error, error, 1ul);
-                mpz_mul_ui(error, error, 8ul);
-                mpz_set(lower, sum);
-                mpz_sub(lower, lower, error);
-                mpz_set(upper, sum);
-                mpz_add(upper, upper, error);
-                mpz_set(tail, term);
-                mpz_add_ui(tail, tail, 8ul);
-                if (n % 2ul == 0ul) {
-                    mpz_sub(lower, lower, tail);
-                } else {
-                    mpz_add(upper, upper, tail);
+            if (within_threshold(term) || n+1ul==max_terms) {
+                // Identical certificate: 8*(n+1) accumulated units,
+                // followed by the first omitted term plus 8 units.
+                const BigUnsigned result(BigUnsigned::LimbView(
+                    sum.data(),sum.size()));
+                const BigUnsigned error=mul(
+                    BigUnsigned(static_cast<Limb>(n+1ul)),BigUnsigned(8u));
+                const BigUnsigned tail=add(
+                    BigUnsigned(BigUnsigned::LimbView(
+                        term.data(),term.size())),BigUnsigned(8u));
+                const BigUnsigned lower_error=n%2ul==0ul
+                    ? add(error,tail) : error;
+                const BigUnsigned upper_error=n%2ul==0ul
+                    ? error : add(error,tail);
+                const bool lower_negative=compare(result,lower_error)<0;
+                const BigUnsigned lower=lower_negative
+                    ? sub(lower_error,result) : sub(result,lower_error);
+                const BigUnsigned upper=add(result,upper_error);
+                if (sine && outputs==TrigOutputs::both) {
+                    sine_lower_nonnegative=lower_negative
+                        ? BigUnsigned{} : lower;
+                    sine_upper_nonnegative=upper;
                 }
-
-                return {Fraction(lower, fixed_bits),
-                        Fraction(upper, fixed_bits)};
+                return {Fraction(lower,fixed_bits,lower_negative),
+                        Fraction(upper,fixed_bits)};
             }
         }
         throw std::logic_error("FloatAP sine/cosine series did not terminate");
     };
 
-    const bool want_sine = outputs != TrigOutputs::cosine;
-    Interval sine = want_sine ? series(true) : point(Fraction{});
-    Interval cosine = point(Fraction{});
+    const bool want_sine=outputs!=TrigOutputs::cosine;
+    Interval sine=want_sine ? series(true) : point(Fraction{});
+    Interval cosine=point(Fraction{});
 
-    if (outputs == TrigOutputs::cosine) {
-        cosine = series(false);
-    } else if (outputs == TrigOutputs::both) {
-        // On |x|<=1, the sine magnitude is in [0,1] and cosine is
-        // nonnegative. The positive-sine interval is still represented
-        // in the shared `lower` and `upper` scaled integer endpoints.
-        if (mpz_sgn(lower) < 0) {
-            mpz_set_ui(lower, 0ul);
-        }
-        if (mpz_cmp(upper, scaled) > 0) {
-            mpz_set(upper, scaled);
-        }
-        if (mpz_cmp(lower, upper) > 0) {
+    if (outputs==TrigOutputs::cosine) {
+        cosine=series(false);
+    } else if (outputs==TrigOutputs::both) {
+        // The sine interval must be intersected with [0,1].
+        // For |x|<=1, cosine is nonnegative and sin(|x|)<=sin(1).
+        const BigUnsigned& lower=sine_lower_nonnegative;
+        const BigUnsigned upper=compare(sine_upper_nonnegative,scale)>0
+            ? scale : sine_upper_nonnegative;
+        if (compare(lower,upper)>0) {
             throw std::logic_error("FloatAP invalid certified sine bounds");
         }
 
-        // For 0<=L<=sin(|x|)*Q<=U<=8Q/9, let
-        // f(s)=sqrt(Q^2-s^2). Because |f'(s)|=s/f(s)<=8/sqrt(17)<2
-        // on [0,8Q/9], f(L)-f(U)<=2(U-L).
-        // Thus just ONE downward integer square root of Q^2-U^2
-        // certifies both cosine endpoints: C_lo=floor(f(U)),
-        // C_hi=C_lo+1+2(U-L). An alternative exact two-root path
-        // handles any overly wide sine interval outside the bound.
-        mpz_mul_ui(scratch, upper, 9ul);
-        mpz_mul_ui(term, scaled, 8ul);
-        if (mpz_cmp(scratch, term) <= 0) {
-            mpz_mul(scratch, scaled, scaled);
-            mpz_mul(term, upper, upper);
-            mpz_sub(term, scratch, term);
-            mpz_sqrt(sum, term);
-            mpz_sub(tail, upper, lower);
-            mpz_mul_2exp(tail, tail, 1u);
-            mpz_add_ui(tail, tail, 1u);
-            mpz_add(scratch, sum, tail);
-            mpz_set(lower, sum);
-            mpz_set(upper, scratch);
+        // When U<=8Q/9, sqrt(Q^2-s^2) is 2-Lipschitz on
+        // the whole [L,U]. One integer square root is sufficient;
+        // otherwise compute exact outward roots for both endpoints.
+        const BigUnsigned squared_scale=mul(scale,scale);
+        BigUnsigned cosine_lower,cosine_upper;
+        if (compare(mul(upper,BigUnsigned(9u)),
+                    mul(scale,BigUnsigned(8u)))<=0) {
+            cosine_lower=isqrt(sub(squared_scale,mul(upper,upper)));
+            const BigUnsigned width=sub(upper,lower);
+            cosine_upper=add(cosine_lower,
+                add(shift_left(width,1u),BigUnsigned(1u)));
         } else {
-            // Conservative general fallback: two exact integer roots.
-            mpz_mul(scratch, scaled, scaled);
-            mpz_mul(term, lower, lower);
-            mpz_sub(term, scratch, term);
-            mpz_sqrtrem(sum, tail, term);
-            if (mpz_sgn(tail) != 0) {
-                mpz_add_ui(sum, sum, 1ul);
+            auto [ceil_root,root_remainder]=sqrtrem(
+                sub(squared_scale,mul(lower,lower)));
+            if (!root_remainder.is_zero()) {
+                ceil_root=add(ceil_root,BigUnsigned(1u));
             }
-            mpz_mul(term, upper, upper);
-            mpz_sub(term, scratch, term);
-            mpz_sqrt(lower, term);
-            mpz_set(upper, sum);
+            cosine_lower=isqrt(sub(squared_scale,mul(upper,upper)));
+            cosine_upper=std::move(ceil_root);
         }
-
-        cosine = {Fraction(lower, fixed_bits),
-                  Fraction(upper, fixed_bits)};
+        cosine={Fraction(cosine_lower,fixed_bits),
+                Fraction(cosine_upper,fixed_bits)};
     }
 
-    if (want_sine && x.sign() < 0) {
-        sine = negative(sine);
+    if (want_sine && x.sign()<0) {
+        sine=negative(sine);
     }
-    return {std::move(sine), std::move(cosine)};
+    return {std::move(sine),std::move(cosine)};
 }
 
 // Multiply an interval by a signed exact scalar without evaluating four

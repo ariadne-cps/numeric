@@ -11800,3 +11800,36 @@ precision after measuring. Suggested smoke inputs for CLI testing are
 At extreme widths, memory/time limitations may naturally apply;
 no claim is made that the benchmark can physically complete for every
 representable `unsigned` input.
+
+### D131 — native sine/cosine Taylor series and certified cosine reconstruction (23 October 2026)
+
+The `small_sine_cosine` kernel now computes `a=floor(2^B*abs(x))`,
+`b=floor(a*a/2^B)`, and each positive Taylor term entirely through
+native BigUnsigned limb buffers. The original single downward recurrence
+and its proof are preserved: 8*(n+1) fixed-point units bound the
+accumulated per-term error, and `next_term+8` bounds the first
+omitted alternating term. The in-place alternating sum is nonnegative
+on |x|<=1; limb carry/borrow checks protect that invariant.
+One native product and one short divisor update use the caller-owned,
+capacity-reused `BigUnsigned::mul_into` and `divrem_limb_into`
+scratch buffers. No GMP or canonical Rational is constructed per term.
+
+For TrigOutputs::both, the existing cosine-from-sine shortcut survives.
+The native sine enclosure is clamped to [0,2^B]. When `9*U<=8*Q`,
+the same proven derivative bound needs only one native `isqrt`
+of `Q*Q-U*U`: the upper bound is the lower root plus
+`1+2*(U-L)`. The same conservative two-root fallback now uses
+native `sqrtrem` and `isqrt` when the Lipschitz precondition fails.
+For TrigOutputs::cosine, the direct alternating cosine series is kept.
+Both signed endpoint enclosures cross into the legacy Fraction
+carrier only on return. The existing centered trig cache and
+half-angle/argument reduction optimizations remain unchanged.
+
+Existing independent source-keyed sin/cos/tan/inverse-trig/pi
+oracles and the paired 35-operation benchmark remain unmodified.
+The D130 arbitrary-bit benchmark completed the supplied
+five-precision run with 5600 exact paired numerical comparisons;
+this provides no D131 performance evidence. Run the cross-platform
+CI and obtain user-supplied same-host performance results before
+accepting any speedup claim. Native transcendental migration is not
+complete until remaining Fraction/GMP paths are eliminated.
