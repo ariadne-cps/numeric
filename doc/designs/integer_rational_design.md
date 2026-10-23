@@ -8508,3 +8508,36 @@ command with the absolute source-data directory. This probe is not a
 full Numeric CI run. No production sources, test consumer code, GMP
 oracle behavior, generator algorithms, existing TSVs, root CMake,
 FloatMP or benchmarks are changed.
+
+### B84 — version exact structural Integer/BigUnsigned generators (23 October 2026)
+
+Add the self-contained C++20 `tests/data/generator_integer_structural.cpp`
+as a seventh standalone generator. It independently derives the original
+source operands and exact expected outputs for `integer_b66.tsv` (360 rows),
+`integer_sub.tsv` (192 rows), `big_unsigned_sub.tsv` (100 rows),
+`integer_b33.tsv` (72 rows), `integer_b37.tsv` (72 rows) and
+`integer_b38.tsv` (30 rows). Replay the entire original mt19937_64 seeded
+streams, including the visits discarded by the historical structural
+sampling. Preserve exponent boundaries, all signed masks, alias cases,
+underflow markers, and canonical zero. Sources and results derive from
+independent base-2^64 limb add/sub, binary shift/add multiplication and
+integer powering, without Numeric/GMP/MPFR/FloatMP/Boost involvement.
+
+GCC and Clang compiled the same generator with C++20 `-O2 -Wall -Wextra
+-Wpedantic -Wsign-conversion -Wshadow -Werror`; both wrote identical
+byte streams. Git blob object hashes of the regenerated TSVs match the
+previously committed originals exactly:
+integer_b66 9c0a5bfc956b78aead0e7a1b13d93a7e57f896e2;
+integer_sub b1ba7f3454dbc190755e8c7b66bc05a0918a6fdf;
+big_unsigned_sub f57078e92fd83ba82fef41aceb9bd148604da08d;
+integer_b33 ff92f80126f7e409904d933ff2eee065626ba557;
+integer_b37 c1a2861fc851a2c048f73dd1e1817f2ecdcdc9e3;
+integer_b38 cf359723cc0f5d70984fab635ea03a49ec32442b.
+
+Register the program in the `ORACLE_GENERATORS` list so explicit
+`generators` compiles it and explicit `generate-data` runs it with
+`--write`; unit-test builds remain independent. Update generator README.
+50 of the 115 versioned TSVs are now source-reproducible. Leave the
+other 65 files, test consumers, production arithmetic, FloatMP,
+benchmarks, GMP runtime oracles and root CMake unchanged. No fixture
+contents changed. The complete platform CI remains to be checked.
