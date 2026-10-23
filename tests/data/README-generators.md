@@ -5,7 +5,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`, `generator_big_unsigned_random_mul.cpp`,
-`generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`,
+`generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -28,7 +28,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (97 of 115 at B94).
+overwrites only the currently covered TSV files (98 of 115 at B95).
 The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
@@ -61,6 +61,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_big_unsigned_random_mul.cpp -o /tmp/numeric-oracle-random-mul
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_directed_bounds.cpp -o /tmp/numeric-oracle-floatap-bounds
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_pi.cpp -o /tmp/numeric-oracle-pi
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_get_d.cpp -o /tmp/numeric-oracle-get-d
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -78,6 +79,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-random-mul --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-bounds --verify --data-dir tests/data
 /tmp/numeric-oracle-pi --verify --data-dir tests/data
+/tmp/numeric-oracle-get-d --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -109,6 +111,7 @@ review every diff before committing. No sampling is used.
 | `generator_big_unsigned_random_mul.cpp` | `big_unsigned_random_mul.tsv` | All 6,000 original seeded multiplication visits, 600 selected source-keyed full, square and low products |
 | `generator_floatap_directed_bounds.cpp` | `floatap_directed_bounds.tsv` | 90 certified exact rational lower/upper dyadic bounds, 6 precisions × 15 signed inputs |
 | `generator_floatap_pi.cpp` | `floatap_pi.tsv` | Machin's formula: 400-term rigorous 1,200-bit integer interval, directed 384-bit and nearest-even 320-bit π |
+| `generator_floatap_get_d.cpp` | `floatap_get_d.tsv` | 272 exact p-bit FloatAP-to-binary64 conversions, four precisions and four IEEE rounding modes |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -285,3 +288,14 @@ of the interval. GCC and Clang C++20 strict builds reproduce the original
 1,250-byte Git blob without GMP, MPFR, Numeric or host floating point.
 The seventeenth generator is available from `generators` and `generate-data`;
 all data remains versioned and `tests` does not depend on generators.
+
+B95 reproduces `floatap_get_d.tsv`: independently round each of the 17
+original exact rational sources to an intermediate p-bit FloatAP number
+(precision 53, 128, 256 or 1024) with nearest-even ties, then convert
+the exact dyadic result to IEEE-754 binary64 in each of four directed
+modes. Signed zero, normal/subnormal, carry, midpoint-even and saturating
+overflow use pure integer quotient/remainder. A separate exact Python
+integer implementation reproduced all 272 outputs before the C++20
+GCC/Clang strict build and 65,751-byte original Git blob comparison.
+This eighteenth generator belongs to `generators`/`generate-data`, not
+`tests`, and neither GMP nor original fixture values are consulted.

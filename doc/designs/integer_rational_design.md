@@ -8802,3 +8802,34 @@ hash-object and --verify. Register as generator #17 for explicit
 independent. The number of reproducible TSVs increases from 96 to
 97 of 115. No original TSV, consumer test, GMP runtime oracle,
 production arithmetic or root CMake is modified. Full CI pending.
+
+### B95 — independent two-stage FloatAP get_d binary64 oracle (23 October 2026)
+
+Add `tests/data/generator_floatap_get_d.cpp` as standalone C++20
+source for all 272 original `floatap_get_d.tsv` conversions. Recreate
+the original 17 input Rationals by their exact algebraic definitions:
+integers and thirds, binary halfway ties, extremely small dyadics,
+positive and negative exponent boundaries and the IEEE overflow tie.
+For precisions p=53,128,256,1024, first nearest-even round the original
+rational to the exact p-bit binary dyadic value. Then perform a separate
+correctly rounded conversion to IEEE-754 binary64 under N/D/U/Z,
+including biased normal exponent/mantissa, 2^-1074 subnormal grid,
+negative zero, positive/negative infinity, highest finite value and
+signed/toward-zero overflow saturation. All steps use independent
+radix-2^64 integer long division, exact remainders, bit lengths and
+explicit midpoint-even tie rules. No GMP, MPFR, FloatAP, Numeric,
+Boost or native host FP operations are used.
+
+Independent Python BigInt and C++20 implementations both generate the
+same original 272 source-keyed records. GCC 14 and Clang 17 compiled
+under -O2 -std=c++20 -Wall -Wextra -Wpedantic -Wsign-conversion
+-Wshadow -Werror; both emitted exactly 65,751 bytes matching original
+Git SHA-1 `7365a0f27accc0b364bf3f6de1db4dc06a0084c2`.
+The optimization-specific false-positive GCC array-bounds warning
+caused by returning a copied zero Rational was avoided by rejecting
+zero at the first-stage source as no zero source is present; all
+real zero/subnormal conversion paths remain tested at stage two.
+Register generator #18 in explicit `generators` and `generate-data`,
+without coupling `tests`. Source-reproducible coverage is now 98/115.
+All existing TSVs, test consumers, production code and GMP oracles are
+unchanged. Full platform CI remains to be checked.
