@@ -1602,13 +1602,49 @@ public:
         return value==Comparison::LESS ? -1 :
                value==Comparison::GREATER ? 1 : 0;
     }
+    // Exact dyadic arithmetic bypasses the general Rational GCD:
+    // align signed numerators for +/- or multiply numerators for *.
+    // All non-dyadic operands retain the native Rational fallback.
+    static Fraction dyadic_sum(Fraction const& a,Fraction const& b,
+                               std::size_t a_bits,std::size_t b_bits,
+                               bool subtract_rhs) {
+        const std::size_t bits=std::max(a_bits,b_bits);
+        const auto scaled=[](Integer const& n,std::size_t shift) {
+            return shift==0u ? n : Integer::from_magnitude(
+                shift_left(n.magnitude(),shift),n.negative());
+        };
+        const Integer left=scaled(a.numerator(),bits-a_bits);
+        const Integer right=scaled(b.numerator(),bits-b_bits);
+        return Fraction(Rational::from_dyadic(
+            subtract_rhs ? sub(left,right) : add(left,right),bits));
+    }
     friend Fraction operator+(Fraction const& a,Fraction const& b) {
+        if (a.sign()==0 || b.sign()==0) return Fraction(a._value+b._value);
+        const auto a_bits=a.dyadic_denominator_bits();
+        const auto b_bits=b.dyadic_denominator_bits();
+        if (a_bits && b_bits) {
+            return dyadic_sum(a,b,*a_bits,*b_bits,false);
+        }
         return Fraction(a._value+b._value);
     }
     friend Fraction operator-(Fraction const& a,Fraction const& b) {
+        if (a.sign()==0 || b.sign()==0) return Fraction(a._value-b._value);
+        const auto a_bits=a.dyadic_denominator_bits();
+        const auto b_bits=b.dyadic_denominator_bits();
+        if (a_bits && b_bits) {
+            return dyadic_sum(a,b,*a_bits,*b_bits,true);
+        }
         return Fraction(a._value-b._value);
     }
     friend Fraction operator*(Fraction const& a,Fraction const& b) {
+        if (a.sign()==0 || b.sign()==0) return Fraction(a._value*b._value);
+        const auto a_bits=a.dyadic_denominator_bits();
+        const auto b_bits=b.dyadic_denominator_bits();
+        if (a_bits && b_bits &&
+                *a_bits<=std::numeric_limits<std::size_t>::max()-*b_bits) {
+            return Fraction(Rational::from_dyadic(
+                mul(a.numerator(),b.numerator()),*a_bits+*b_bits));
+        }
         return Fraction(a._value*b._value);
     }
     friend Fraction operator/(Fraction const& a,Fraction const& b) {

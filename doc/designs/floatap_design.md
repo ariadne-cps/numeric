@@ -12179,3 +12179,32 @@ source-keyed FloatAP oracles in every rounding mode, plus the
 comparison benchmark's post-timing paired exact checks. The new
 Unix/Windows/Sanitizers/Coverage CI must pass before acceptance;
 no speedup is claimed without user-supplied paired benchmarks.
+
+### D142 — exact dyadic Fraction arithmetic fast path (23 October 2026)
+
+The two user-provided, same-host D141 benchmark snapshots reveal a
+substantial selective regression following the native Rational migration:
+at 2048 bits the nearest FloatAP exp/log/tan/asin/acos measurements
+grew approximately 80.7x/24.3x/82.2x/80.5x/82.5x respectively, while
+sin and atan became faster. D141 passes Unix, Windows, Sanitizers and
+Coverage. These are D141 before/after results, NOT D142 measurements.
+
+The certified centered transcendental paths repeatedly add, subtract and
+multiply cached dyadic intervals and dyadic offsets. Their generic native
+Rational GCD and cross-cancellation operations are unnecessary when
+BOTH operands are canonical n/2^k values. Fraction's private +/- now
+align signed Integer numerators to the larger exponent and construct the
+exact answer via Rational::from_dyadic; * exactly multiplies signed
+numerators and adds the exponents with a size_t overflow guard. That
+factory reduces only common trailing powers of two. Zero operands use
+the existing native Rational fast paths and non-dyadic operands retain
+the original Rational operators. This does not restore GMP, create
+another rational engine or modify the public API.
+
+Signed inputs, different dyadic scales, cancellation, canonical zero,
+certified interval bounds, caches, transcendental fallback algorithms,
+all rounding modes and final FloatAP rounding semantics are preserved.
+The source-keyed independent oracle datasets and paired benchmark
+comparisons are unchanged. Run cross-platform CI and all FloatAP oracles
+and obtain new SAME-HOST benchmarks at 53/128/256/1024/2048 bits
+before claiming any D142 speedup; there is no measured D142 result yet.
