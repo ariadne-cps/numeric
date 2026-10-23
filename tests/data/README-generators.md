@@ -5,7 +5,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`, `generator_big_unsigned_random_mul.cpp`,
-`generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`,
+`generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -28,7 +28,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (98 of 115 at B95).
+overwrites only the currently covered TSV files (99 of 115 at B96).
 The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
@@ -62,6 +62,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_directed_bounds.cpp -o /tmp/numeric-oracle-floatap-bounds
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_pi.cpp -o /tmp/numeric-oracle-pi
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_get_d.cpp -o /tmp/numeric-oracle-get-d
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_power_exact.cpp -o /tmp/numeric-oracle-power
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -80,6 +81,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-floatap-bounds --verify --data-dir tests/data
 /tmp/numeric-oracle-pi --verify --data-dir tests/data
 /tmp/numeric-oracle-get-d --verify --data-dir tests/data
+/tmp/numeric-oracle-power --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -112,6 +114,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_directed_bounds.cpp` | `floatap_directed_bounds.tsv` | 90 certified exact rational lower/upper dyadic bounds, 6 precisions × 15 signed inputs |
 | `generator_floatap_pi.cpp` | `floatap_pi.tsv` | Machin's formula: 400-term rigorous 1,200-bit integer interval, directed 384-bit and nearest-even 320-bit π |
 | `generator_floatap_get_d.cpp` | `floatap_get_d.tsv` | 272 exact p-bit FloatAP-to-binary64 conversions, four precisions and four IEEE rounding modes |
+| `generator_floatap_power_exact.cpp` | `floatap_pow.tsv` | 2,400 original signed integer-power references at five precisions, eight degrees and four rounding modes |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -299,3 +302,15 @@ integer implementation reproduced all 272 outputs before the C++20
 GCC/Clang strict build and 65,751-byte original Git blob comparison.
 This eighteenth generator belongs to `generators`/`generate-data`, not
 `tests`, and neither GMP nor original fixture values are consulted.
+
+B96 reproduces all 2,400 exact FloatAP integer-power fixture keys from
+15 distinct original signed input rationals, five binary precisions,
+eight exponent choices and all four output rounding modes. The input
+is rounded to p-bit nearest/even using independent integer quotient and
+remainder, its exact dyadic significand raised to the original exponent,
+and the final result rounded ONCE to precision p using nearest/even or
+signed directed rules. All outputs are canonical dyadic rationals. GCC 14
+and Clang 17 strict C++20 builds and independent execution match the
+original 106,895-byte Git blob; neither Numeric nor GMP/MPFR/Boost are
+used. The nineteenth generator participates in explicit `generators`
+and `generate-data`, not `tests`; all TSVs remain versioned.

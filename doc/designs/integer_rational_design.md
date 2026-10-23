@@ -8833,3 +8833,31 @@ Register generator #18 in explicit `generators` and `generate-data`,
 without coupling `tests`. Source-reproducible coverage is now 98/115.
 All existing TSVs, test consumers, production code and GMP oracles are
 unchanged. Full platform CI remains to be checked.
+
+### B96 — independent exact FloatAP integer-power generator (23 October 2026)
+
+Add standalone `tests/data/generator_floatap_power_exact.cpp` for all
+2,400 original `floatap_pow.tsv` keys: five p-bit precisions (7, 53,
+128, 256, 1024); eight original input magnitudes with both signs,
+with duplicate signed zeros deduplicated; eight degrees (0,1,2,3,7,
+8,13,31); four directed rounding modes. Inputs are reconstructed from
+the original source enumeration. Each signed source Rational first
+undergoes exact nearest-even input quantization to p binary digits.
+Compute the exact integer power using independent binary shift/add
+radix-2^64 multiplication, keeping the exact dyadic scale, followed
+by one final p-bit round with exact discarded-bit/tie comparison for
+N/D/U/Z modes. All expected numerators/denominators are canonicalized
+by stripping common factors of two. Handle 0^0=+1, negative odd powers,
+and binade carry without native FP, GMP, MPFR, Numeric or Boost.
+
+GCC 14 and Clang 17 both compiled using C++20 -O2 -Wall -Wextra
+-Wpedantic -Wsign-conversion -Wshadow -Werror. The generated TSV
+contains exactly 2,400 entries, 106,895 bytes, and matches the original
+Git blob SHA-1 `ae8049364ce05bfae1e381af2ba68127a7de1a21`.
+Clang read-only --verify accepted the independently generated GCC file;
+performance measured locally around 0.34-0.41 seconds exclusive of
+compilation. Register executable #19 for explicitly invoked
+`generators` and `generate-data`; leave `tests` decoupled. Coverage
+increases to 99 of 115 TSV fixtures. No existing fixture, test consumer,
+production code, remaining GMP runtime oracle or root CMake is changed.
+Full CI remains to be checked.
