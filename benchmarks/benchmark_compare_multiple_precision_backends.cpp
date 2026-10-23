@@ -283,7 +283,7 @@ void verify_benchmark_values(std::vector<unsigned> const& precisions) {
             verified_inputs += 2u;
         }
 
-        // Compare each of the 29 operation definitions at ALL 32 indices;
+        // Compare each of the 35 operation definitions at ALL 32 indices;
         // never test only the first benchmark input or merely compare times.
         std::map<std::string,std::vector<CheckedValue>> expected;
         for_each_backend_operation(reference,[&](char const* name, auto&& operation) {
@@ -312,7 +312,7 @@ void verify_benchmark_values(std::vector<unsigned> const& precisions) {
             ++operations_this_precision;
         });
         if (operations_this_precision != expected.size() ||
-            operations_this_precision != 29u) {
+            operations_this_precision != 35u) {
             throw std::runtime_error("benchmark operation count changed");
         }
     }

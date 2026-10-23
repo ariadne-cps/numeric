@@ -11718,3 +11718,29 @@ or regression without controlled repeated A/B runs. Preserve
 independent exact oracles, cached centered-log paths, other workloads,
 and all four rounding modes. D127 likewise makes no speed claim
 before its own CI and user-supplied benchmark results.
+
+### D128 — benchmark directed subtraction, FMA and square root (23 October 2026)
+
+The shared monomorphic FloatMP/FloatAP performance workload now includes
+the six previously omitted operations `sub_down`, `sub_up`, `fma_down`,
+`fma_up`, `sqrt_down` and `sqrt_up`. All existing nearest cases and
+operands are unchanged. In particular, the FMA variants use the same
+`a[i]*b[i]+a[i]` fused operation as the existing nearest benchmark,
+and the square-root variants use the same positive `a[i]` input.
+The shared operation list prevents different inputs for FloatMP/FloatAP.
+The benchmark's exact output-value differential verifier still runs
+only AFTER stopwatch measurements, checking every operation at every
+one of 32 indices for every requested precision. Its operation-count
+assertion is updated from 29 to 35. For the six standard precisions,
+this gives 35*32*6=6720 exact paired output comparisons, in addition
+to the preexisting paired-input checks. Existing independent semantic
+oracles and the arithmetic implementations are unchanged.
+
+This adds measurement coverage, not numerical functionality or a
+measured performance improvement. Previous lack of rows for these
+rounding modes did NOT imply lack of support in FloatAP or FloatMP.
+Validate the benchmark and its paired output checks on CI, then use
+user-supplied same-host benchmark results to compare directed vs
+nearest modes. D127 log-series CI was still running when this entry
+was prepared; do not infer a pass or speedup from the existence of
+the commit.

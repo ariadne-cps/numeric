@@ -143,6 +143,14 @@ void for_each_backend_operation(BackendPool<Float> const& pool, Visit&& report) 
         return sub(Float::ROUND_TO_NEAREST, a[index(i)], b[index(i)]);
     }
     );
+    report("sub_down",[& ](unsigned i) {
+        return sub(Float::ROUND_DOWNWARD, a[index(i)], b[index(i)]);
+    }
+    );
+    report("sub_up",[& ](unsigned i) {
+        return sub(Float::ROUND_UPWARD, a[index(i)], b[index(i)]);
+    }
+    );
     report("mul_nearest",[& ](unsigned i) {
         return mul(Float::ROUND_TO_NEAREST, a[index(i)], b[index(i)]);
     }
@@ -171,9 +179,25 @@ void for_each_backend_operation(BackendPool<Float> const& pool, Visit&& report) 
         return fma(Float::ROUND_TO_NEAREST, a[index(i)], b[index(i)], a[index(i)]);
     }
     );
+    report("fma_down",[& ](unsigned i) {
+        return fma(Float::ROUND_DOWNWARD, a[index(i)], b[index(i)], a[index(i)]);
+    }
+    );
+    report("fma_up",[& ](unsigned i) {
+        return fma(Float::ROUND_UPWARD, a[index(i)], b[index(i)], a[index(i)]);
+    }
+    );
     // Operations shared by both concrete backends are timed identically.
     report("sqrt_nearest",[& ](unsigned i) {
         return sqrt(Float::ROUND_TO_NEAREST, a[index(i)]);
+    }
+    );
+    report("sqrt_down",[& ](unsigned i) {
+        return sqrt(Float::ROUND_DOWNWARD, a[index(i)]);
+    }
+    );
+    report("sqrt_up",[& ](unsigned i) {
+        return sqrt(Float::ROUND_UPWARD, a[index(i)]);
     }
     );
     report("exp_nearest",[& ](unsigned i) {
