@@ -36,7 +36,6 @@
 #include "numeric/big_unsigned.hpp"
 #include <cstddef>
 #include <ostream>
-#include <gmp.h>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -180,17 +179,14 @@ template<> class Float<ArbitraryPrecision> {
         }
         return checked_add(a,- b);
     }
-    static mp_bitcnt_t shift_amount(Exponent n) {
-        // All callers pass a nonnegative shift, enforced by their branches
-        // and by checked_sub(). Only narrower GMP bit-count types need a
-        // representability check (notably possible on Windows).
-        if constexpr (std::numeric_limits<mp_bitcnt_t>::digits <
-                      std::numeric_limits<Exponent>::digits) {
-            if (static_cast<std::uint64_t>(n) > std::numeric_limits<mp_bitcnt_t>::max()) {
-                throw std::overflow_error("FloatAP shift out of range");
-            }
+    static std::size_t shift_amount(Exponent n) {
+        // Every native shift must fit size_t, including on 32-bit targets.
+        // Call sites provide a nonnegative exponent or a checked distance.
+        if (n<0 || static_cast<std::uintmax_t>(n)>
+                   std::numeric_limits<std::size_t>::max()) {
+            throw std::overflow_error("FloatAP shift out of range");
         }
-        return static_cast<mp_bitcnt_t>(n);
+        return static_cast<std::size_t>(n);
     }
     static Exponent bit_length(BigUnsigned const& x) {
         return floatap_exponent_from_bit_length(x.bit_length());
@@ -640,16 +636,6 @@ template<> class Float<ArbitraryPrecision> {
     friend FloatAP acos(RoundingModeType mode, FloatAP const& x);
     static FloatAP pi(RoundingModeType mode, PrecisionType precision);
 
-    // Round signed numerator/denominator * 2^scale exactly once; invert_sign
-    // applies the separate operand-sign bit without copying a GMP integer.
-    static FloatAP from_ratio(mpz_srcptr numerator, mpz_srcptr denominator,
-    Exponent scale, unsigned long precision,
-    Rounding mode, bool negative_zero = false,
-    bool invert_sign = false);
-    static FloatAP from_integer(mpz_srcptr n, unsigned long precision, Rounding mode);
-    static FloatAP from_rational(mpq_srcptr value, unsigned long precision, Rounding mode);
-    // Exact conversion, not an approximation to double.
-    void to_rational(mpq_ptr out) const;
     static FloatAP negate(FloatAP x);
     static FloatAP add_sub(FloatAP const& a, FloatAP const& b,
     unsigned long precision, Rounding mode, bool subtract);

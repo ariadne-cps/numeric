@@ -11435,3 +11435,62 @@ added, but neither full compiler nor integration test success
 has yet been established. Treat CI as mandatory validation, and
 correct any compile failures or semantic regressions before
 claiming the migration is verified.
+
+### D120 — eliminate FloatAP GMP-pointer legacy interfaces (23 October 2026)
+
+Audit the storage conversion committed in D119. There are four
+obsolete members with GMP pointer signatures:
+`from_integer(mpz_srcptr)` (no callers),
+`from_ratio(mpz_srcptr,mpz_srcptr,...)` (only called by the
+power exponent-overflow fallback),
+`from_rational(mpq_srcptr,...)` (only called by certified
+exp/log/trigonometric interval rounding), and
+`to_rational(mpq_ptr)` (only used by the same fallback and by
+the private `Fraction(FloatAP)` constructor). No other code
+in the repository calls these methods.
+
+Remove all four declarations and definitions. Remove
+`#include <gmp.h>` from the public FloatAP header. The native
+`shift_amount` now returns `std::size_t` and checks both the
+nonnegative-domain and the target-size representability without
+any GMP bit-count types; every remaining call shifts a native
+BigUnsigned. The public `significand()` remains a
+`BigUnsigned const&`.
+
+The rare exponent-overflow fallback of `FloatAP::pow`
+now computes the exact `Rational(value)`, evaluates
+`pow(Rational,Nat)` using existing native arithmetic, then
+rounds exactly once via the public Rational constructor.
+This preserves the old mathematical operation and leaves the
+usual fast path untouched, without allocating mpq_t/mpz_t
+temporaries or retaining a pointer bridge.
+
+The certified interval code's internally GMP-backed `Fraction`
+continues to exist (migration of transcendentals is separate).
+Its `Fraction(FloatAP const&)` constructor now uses the
+public native Rational conversion and the existing
+`rational_to_gmp` boundary helper, instead of calling
+`FloatAP::to_rational(mpq_ptr)`. Its new `native()` method
+converts an interval endpoint's exact GMP numerator and
+denominator to native Integer/Rational. Both the exp/log
+certification and the trigonometric certification use
+`FloatAP(endpoint.native(),mode,PrecisionType(bits))` for
+their lower/upper candidates. Those paths retain the
+original exact interval enclosure and single directed
+rounding; numerical oracle semantics are unchanged.
+The native finite FloatAP representation never stores GMP
+pointers, and its API contains no GMP types.
+
+Remaining explicit GMP dependencies are inside the
+`Fraction` and fixed-point certified transcendental
+algorithms and the decimal formatting implementation,
+not legacy FloatAP API methods. Removing these algorithms'
+GMP use will require a separate reimplementation and
+semantic oracle checks.
+
+The existing FloatAP independent directed-bound and
+transcendental regression suites must validate this change.
+CI compilation and test results for D120 are pending; the
+local environment cannot clone the entire repository due
+lack of GitHub DNS access. Do not claim the tests passed
+without a CI result.

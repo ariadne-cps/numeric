@@ -248,52 +248,6 @@ FloatAP FloatAP::from_native_ratio(Integer const& numerator,
     return result;
 }
 
-// Transitional GMP-facing entry point. No GMP arithmetic is performed
-// in the ratio computation; remove this adapter with mpz_t storage.
-FloatAP FloatAP::from_ratio(mpz_srcptr numerator,mpz_srcptr denominator,
-                            Exponent scale,unsigned long precision,
-                            Rounding mode,bool negative_zero,bool invert_sign) {
-    return from_native_ratio(integer_from_gmp(numerator),
-                             integer_from_gmp(denominator),scale,precision,
-                             mode,negative_zero,invert_sign);
-}
-
-FloatAP FloatAP::from_integer(mpz_srcptr n, unsigned long p, Rounding mode) {
-    // Existing GMP callers cross the boundary once; the integer arithmetic
-    // and directed rounding are performed by the native conversion path.
-    return from_native_ratio(integer_from_gmp(n),Integer(1u),0,p,mode);
-}
-
-FloatAP FloatAP::from_rational(mpq_srcptr r, unsigned long p, Rounding mode) {
-    // Dyadic rationals can be rounded as integer significands without a
-    // general GMP quotient/remainder division. Both paths are exact.
-    mpz_srcptr denominator = mpq_denref(r);
-    if (mpz_popcount(denominator) == 1u) {
-        const mp_bitcnt_t power = mpz_scan1(denominator, 0u);
-        if (static_cast<std::uintmax_t>(power) <=
-            static_cast<std::uintmax_t>(std::numeric_limits<Exponent>::max())) {
-            FloatAP result(p);
-            mpz_srcptr numerator = mpq_numref(r);
-            if (mpz_sgn(numerator) == 0) return result;
-            result._negative = mpz_sgn(numerator) < 0;
-            result._significand=integer_from_gmp(numerator).magnitude();
-            round_scaled_integer(result, -static_cast<Exponent>(power), mode);
-            return result;
-        }
-    }
-    return from_ratio(mpq_numref(r), denominator, 0, p, mode);
-}
-
-void FloatAP::to_rational(mpq_ptr out) const {
-    if (!is_finite()) throw std::domain_error("FloatAP nonfinite to Rational");
-    integer_to_gmp(mpq_numref(out),
-        Integer::from_magnitude(_significand,_negative));
-    mpz_set_ui(mpq_denref(out), 1);
-    if (_exponent > 0) mpz_mul_2exp(mpq_numref(out), mpq_numref(out), shift_amount(_exponent));
-    if (_exponent < 0) mpz_mul_2exp(mpq_denref(out), mpq_denref(out), shift_amount(checked_sub(0, _exponent)));
-    mpq_canonicalize(out);
-}
-
 FloatAP FloatAP::negate(FloatAP x) {
     if (!x.is_nan()) x._negative = !x._negative;
     return x;
@@ -885,8 +839,7 @@ FloatAP next(RoundDownward, FloatAP const& x) {
     return r;
 }
 
-// Integral rounding now uses native BigUnsigned shifts and bit tests.
-// Only the eventual export from the current mpz_t-owned significand remains.
+// Integral rounding works directly on the BigUnsigned significand.
 // In particular, signed minimum exponents never trigger huge 2^k allocations.
 namespace {
 
@@ -1530,27 +1483,11 @@ FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& value, Nat exponent) 
         return result;
     }
 
-    // Rare normalization-cancellation/scale-overflow fallback:
-    // retain the original exact rational computation, including its
-    // exception and rounding behavior.
-    mpq_t exact;
-    mpq_init(exact);
-    struct RationalCleanup {
-        mpq_ptr value;
-        ~RationalCleanup() { mpq_clear(value); }
-    } cleanup{exact};
-    value.to_rational(exact);
-
-    mpz_t numerator, denominator;
-    mpz_inits(numerator, denominator, nullptr);
-    struct IntegerCleanup {
-        mpz_ptr a, b;
-        ~IntegerCleanup() { mpz_clears(a, b, nullptr); }
-    } ints{numerator, denominator};
-
-    mpz_pow_ui(numerator, mpq_numref(exact), degree);
-    mpz_pow_ui(denominator, mpq_denref(exact), degree);
-    return FloatAP::from_ratio(numerator, denominator, 0, bits, mode);
+    // Rare normalization-cancellation/scale-overflow fallback.
+    // Keep an exact rational result and one final rounding, without
+    // roundtrips through mpq_t/mpz_t. Rational::pow is native.
+    const Rational exact=static_cast<Rational>(value);
+    return FloatAP(pow(exact,exponent),mode,value.precision());
 }
 
 template<> String class_name<ArbitraryPrecision>() { return "ArbitraryPrecision"; }
@@ -1577,11 +1514,12 @@ public:
         mpq_set(_value, rational);
     }
 
-    // Write the exact dyadic FloatAP value into the owned mpq_t directly.
-    // This avoids allocating/canonicalizing a separate Rational and then
-    // deep-copying its numerator and denominator into another mpq_t.
+    // Certified transcendental intervals still use GMP-owned Fraction
+    // scratch. Convert through the public native exact Rational value,
+    // not through a GMP-pointer method on FloatAP.
     explicit Fraction(FloatAP const& binary) : Fraction() {
-        binary.to_rational(_value);
+        const Rational exact=static_cast<Rational>(binary);
+        rational_to_gmp(_value,exact);
     }
 
     Fraction(mpz_srcptr numerator, unsigned long denominator_bits) : Fraction() {
@@ -1608,6 +1546,14 @@ public:
 
     mpq_srcptr raw() const noexcept {
         return _value;
+    }
+
+    // Native endpoint conversion is the sole bridge back to FloatAP.
+    // Both components are imported as Integer; FloatAP then performs
+    // exact rounding by its existing from_native_ratio path.
+    Rational native() const {
+        return Rational(integer_from_gmp(mpq_numref(_value)),
+                        integer_from_gmp(mpq_denref(_value)));
     }
 
     // Avoid a temporary Fraction and general rational division when
@@ -2093,8 +2039,8 @@ FloatAP certified(Evaluate evaluate, FloatAP::RoundingModeType mode,
             throw std::overflow_error("FloatAP certified precision overflow");
         }
         const Interval interval = evaluate(bits + extra);
-        const FloatAP lower = FloatAP::from_rational(interval.lower.raw(), bits, mode);
-        const FloatAP upper = FloatAP::from_rational(interval.upper.raw(), bits, mode);
+        const FloatAP lower = FloatAP(interval.lower.native(),mode,FloatAP::PrecisionType(bits));
+        const FloatAP upper = FloatAP(interval.upper.native(),mode,FloatAP::PrecisionType(bits));
         if (lower == upper) {
             return lower;
         }
@@ -3163,8 +3109,8 @@ FloatAP certified(Function function, Fraction const& x,
         }
 
         const Interval bounds = evaluate(function, x, bits + extra);
-        const FloatAP low = FloatAP::from_rational(bounds.lower.raw(), bits, mode);
-        const FloatAP high = FloatAP::from_rational(bounds.upper.raw(), bits, mode);
+        const FloatAP low = FloatAP(bounds.lower.native(),mode,FloatAP::PrecisionType(bits));
+        const FloatAP high = FloatAP(bounds.upper.native(),mode,FloatAP::PrecisionType(bits));
         if (low == high) {
             return low;
         }
