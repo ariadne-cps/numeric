@@ -12137,3 +12137,45 @@ Cross-platform CI and the existing independent source-keyed
 exp/centered-exp/sin/cos/tan/atan/inverse-trig tests in all rounding
 modes must pass. A same-host benchmark from the user is needed
 before attributing a performance improvement to D140.
+
+### D141 — remove GMP-backed Fraction carrier from FloatAP (23 October 2026)
+
+The certified transcendental `Ariadne::Detail::Fraction` carrier now
+owns a native `Rational`, not `mpq_t`. All signed numerator and
+denominator access is through borrowed native `Integer` and
+`BigUnsigned` references, so the GMP bridge, all `mpz_*`/`mpq_*`
+calls, and the `numeric/detail/integer_gmp_bridge.hpp` include have
+been removed from `src/floatap.cpp`. Native `Rational` already has
+optimized cross-cancellation and pre-factored denominator arithmetic;
+do not duplicate these algorithms or round through a `Rational`
+at the final FloatAP boundary.
+
+A new `Rational::from_dyadic(Integer,std::size_t)` constructor
+avoids general multiprecision GCD for `n/2^k`. It removes only the
+common power of two from the signed numerator magnitude before
+using the proved-reduced constructor, including negative and
+canonical-zero cases. Canonical finite numerator/denominator
+accessors allow the temporary Fraction wrapper and its certified
+endpoint conversion to borrow native component storage. The existing
+FloatAP::from_ratio conversion performs the final rounding without
+any additional Rational constructor or canonicalization.
+
+Half-centered sine/cosine/atan predicates now check native
+power-of-two denominator limbs. The near-half exponential window
+compares native bit lengths and only shifts in the equal-width case.
+All original centered reductions, first-order/Taylor error bounds,
+cache conditions, directed rounding choices, and general-rational
+fallback paths are preserved. This change does not touch FloatMP
+or other remaining GMP/MPFR-dependent types and does not create
+directories named `detail`. The bridge header is still retained
+for its other production and test consumers and must be deleted
+once those have migrated; it is no longer included by FloatAP.
+
+This is a dependency migration with potentially material performance
+effects: the native Rational cross-cancellation path should be measured
+against the prior GMP carrier, especially at 53/128 bits and at
+2048/4096 bits. Correctness requires the unchanged independent
+source-keyed FloatAP oracles in every rounding mode, plus the
+comparison benchmark's post-timing paired exact checks. The new
+Unix/Windows/Sanitizers/Coverage CI must pass before acceptance;
+no speedup is claimed without user-supplied paired benchmarks.

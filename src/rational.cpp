@@ -522,6 +522,26 @@ Rational::Rational(Integer n,BigUnsigned d,Reduced)
 
 Rational::Rational(Integer const& z) : _numerator(z) { }
 
+Rational Rational::from_dyadic(Integer numerator,std::size_t bits) {
+    if (numerator.magnitude().is_zero()) return Rational{};
+    const BigUnsigned& magnitude=numerator.magnitude();
+    std::size_t trailing=0u;
+    for (auto limb:magnitude.limbs()) {
+        if (limb!=0u) {
+            trailing+=static_cast<std::size_t>(std::countr_zero(limb));
+            break;
+        }
+        trailing+=64u;
+    }
+    const std::size_t remove=std::min(trailing,bits);
+    if (remove!=0u) {
+        numerator=Integer::from_magnitude(
+            shift_right(magnitude,remove),numerator.negative());
+    }
+    return Rational(std::move(numerator),
+        shift_left(BigUnsigned(1u),bits-remove),Reduced{});
+}
+
 Rational::Rational(Integer const& n,Integer const& d) {
     if (d.magnitude().is_zero()) { *this=inf(integer_sign(n)); return; }
     if (n.magnitude().is_zero()) { return; }

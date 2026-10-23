@@ -84,6 +84,11 @@ class Rational
     explicit Rational(FloatAP const&);
     Rational(const ExactDouble&);
     Rational(const Integer&);
+    //! Construct an exact n/2^bits without a generic multiprecision GCD.
+    static Rational from_dyadic(Integer numerator,std::size_t bits);
+    //! Borrow canonical finite components without allocating or copying.
+    Integer const& numerator_reference() const noexcept { return _numerator; }
+    BigUnsigned const& denominator_reference() const noexcept { return _denominator; }
     Rational(const Dyadic&);
     explicit Rational(const String&);
     Rational(const Rational&) = default;

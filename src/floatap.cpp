@@ -28,7 +28,6 @@
 
 #include "numeric/floatap.hpp"
 #include "numeric/integer.hpp"
-#include "numeric/detail/integer_gmp_bridge.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
 
@@ -1510,53 +1509,21 @@ template<> String class_name<Rounded<FloatAP>>() { return "Rounded<FloatAP>"; }
 namespace Detail {
 
 class Fraction {
-    mpq_t _value;
+    // Exact, canonical native Rational. Its arithmetic already performs
+    // denominator-GCD factoring and cross-cancellation; reimplementing
+    // those algorithms here would duplicate the optimized native core.
+    Rational _value;
 
-    // For an exact n / 2^k the GCD is a power of two. Normalize by
-    // removing min(k,v2(n)) zero bits, rather than invoking GMP's
-    // general multiprecision GCD in every certified endpoint.
-    static void normalize_dyadic(mpq_ptr value,mp_bitcnt_t denominator_bits) {
-        mpz_ptr numerator=mpq_numref(value);
-        mpz_ptr denominator=mpq_denref(value);
-        if (mpz_sgn(numerator)==0) {
-            // GMP's canonical zero is 0/1, not 0/2^k.
-            mpz_set_ui(denominator,1u);
-            return;
-        }
-        const mp_bitcnt_t remove=std::min(
-            denominator_bits,mpz_scan1(numerator,0u));
-        if (remove!=0u) {
-            // The division is exact even when numerator is negative.
-            mpz_tdiv_q_2exp(numerator,numerator,remove);
-        }
-        mpz_set_ui(denominator,1u);
-        mpz_mul_2exp(denominator,denominator,denominator_bits-remove);
-    }
+    explicit Fraction(Rational value) : _value(std::move(value)) { }
 
 public:
-    Fraction() {
-        mpq_init(_value);
-    }
+    Fraction()=default;
+    explicit Fraction(long integer) : _value(Integer(integer)) { }
 
-    explicit Fraction(long integer) : Fraction() {
-        mpq_set_si(_value, integer, 1);
-    }
-
-    explicit Fraction(mpq_srcptr rational) : Fraction() {
-        mpq_set(_value, rational);
-    }
-
-    // Certified interval scratch is still GMP-backed until the
-    // separate native transcendental migration. Export the exact
-    // binary dyadic directly: constructing a canonical Rational here
-    // needlessly invokes a potentially large GCD at every precision.
-    explicit Fraction(FloatAP const& binary) : Fraction() {
+    explicit Fraction(FloatAP const& binary) {
         if (!binary.is_finite()) {
             throw std::domain_error("FloatAP nonfinite to rational interval");
         }
-        integer_to_gmp(mpq_numref(_value),
-            Integer::from_magnitude(binary.significand(),binary.negative()));
-        mpz_set_ui(mpq_denref(_value),1u);
         const auto exponent=binary.exponent();
         if (exponent==std::numeric_limits<FloatAP::Exponent>::min()) {
             throw std::overflow_error("FloatAP exponent shift overflow");
@@ -1564,108 +1531,91 @@ public:
         const std::uint64_t distance=exponent<0
             ? static_cast<std::uint64_t>(-exponent)
             : static_cast<std::uint64_t>(exponent);
-        if (distance>std::numeric_limits<mp_bitcnt_t>::max()) {
-            throw std::overflow_error("FloatAP GMP interval shift overflow");
+        if (distance>std::numeric_limits<std::size_t>::max()) {
+            throw std::overflow_error("FloatAP native interval shift overflow");
         }
-        const mp_bitcnt_t shift=static_cast<mp_bitcnt_t>(distance);
+        BigUnsigned magnitude=binary.significand();
         if (exponent>0) {
-            // Integral positive shifts already have denominator one.
-            mpz_mul_2exp(mpq_numref(_value),mpq_numref(_value),shift);
-        } else if (exponent<0) {
-            normalize_dyadic(_value,shift);
+            magnitude=shift_left(magnitude,static_cast<std::size_t>(distance));
         }
+        _value=Rational::from_dyadic(
+            Integer::from_magnitude(std::move(magnitude),binary.negative()),
+            exponent<0 ? static_cast<std::size_t>(distance) : 0u);
     }
 
-    // Import a native fixed-point endpoint once; no GMP in the series loop.
-    Fraction(BigUnsigned const& numerator, unsigned long denominator_bits) : Fraction() {
-        const auto digits=numerator.limbs();
-        mpz_import(mpq_numref(_value),digits.size(),-1,
-                   sizeof(BigUnsigned::Limb),0,0,digits.data());
-        normalize_dyadic(_value,static_cast<mp_bitcnt_t>(denominator_bits));
+    Fraction(BigUnsigned const& magnitude,unsigned long denominator_bits)
+        : _value(Rational::from_dyadic(
+              Integer::from_magnitude(magnitude,false),
+              static_cast<std::size_t>(denominator_bits))) { }
+
+    Fraction(BigUnsigned const& magnitude,unsigned long denominator_bits,
+             bool negative)
+        : _value(Rational::from_dyadic(
+              Integer::from_magnitude(magnitude,negative),
+              static_cast<std::size_t>(denominator_bits))) { }
+
+    Fraction(Fraction const&)=default;
+    Fraction(Fraction&&)=default;
+    Fraction& operator=(Fraction const&)=default;
+    Fraction& operator=(Fraction&&)=default;
+
+    Integer const& numerator() const noexcept {
+        return _value.numerator_reference();
+    }
+    BigUnsigned const& denominator() const noexcept {
+        return _value.denominator_reference();
     }
 
-    // A certified dyadic endpoint may straddle zero; attach its sign
-    // only once at the Fraction boundary, not inside the native series.
-    Fraction(BigUnsigned const& magnitude, unsigned long denominator_bits,
-             bool negative) : Fraction(magnitude,denominator_bits) {
-        if (negative && !magnitude.is_zero()) mpq_neg(_value,_value);
+    std::optional<std::size_t> dyadic_denominator_bits() const noexcept {
+        auto digits=denominator().limbs();
+        bool found=false;
+        std::size_t exponent=0u;
+        for (std::size_t i=0u;i<digits.size();++i) {
+            if (digits[i]==0u) continue;
+            if (found || !std::has_single_bit(digits[i])) {
+                return std::nullopt;
+            }
+            found=true;
+            exponent=64u*i+
+                static_cast<std::size_t>(std::countr_zero(digits[i]));
+        }
+        return found ? std::optional<std::size_t>(exponent)
+                     : std::nullopt;
     }
-
-    Fraction(mpz_srcptr numerator, unsigned long denominator_bits) : Fraction() {
-        mpz_set(mpq_numref(_value), numerator);
-        normalize_dyadic(_value,static_cast<mp_bitcnt_t>(denominator_bits));
+    bool is_dyadic() const noexcept {
+        return dyadic_denominator_bits().has_value();
     }
-
-    Fraction(Fraction const& other) : Fraction(other._value) { }
-
-    Fraction(Fraction&& other) noexcept : Fraction() {
-        mpq_swap(_value, other._value);
-    }
-
-    ~Fraction() {
-        mpq_clear(_value);
-    }
-
-    Fraction& operator=(Fraction other) noexcept {
-        mpq_swap(_value, other._value);
-        return *this;
-    }
-
-    mpq_srcptr raw() const noexcept {
-        return _value;
-    }
-
-    // Round exact interval endpoints directly: do not construct a
-    // canonical Rational. Rational(n,d) performs a multiprecision GCD
-    // even though the certified interval is already normalized.
-    // It was introduced into every transcendental certification
-    // attempt in D120 and caused a substantial regression.
     FloatAP rounded(unsigned long bits,FloatAP::RoundingModeType mode) const {
-        return FloatAP::from_ratio(
-            integer_from_gmp(mpq_numref(_value)),
-            integer_from_gmp(mpq_denref(_value)),mode,
-            FloatAP::PrecisionType(bits));
+        return FloatAP::from_ratio(numerator(),
+            Integer::from_magnitude(denominator(),false),
+            mode,FloatAP::PrecisionType(bits));
     }
-
-    // Avoid a temporary Fraction and general rational division when
-    // reducing an argument by an exact factor of two.
     void halve() {
-        mpq_div_2exp(_value, _value, 1u);
+        _value=hlf(_value);
     }
-
     int sign() const noexcept {
-        return mpq_sgn(_value);
+        return numerator().magnitude().is_zero() ? 0 :
+            numerator().negative() ? -1 : 1;
     }
-
-    friend int compare(Fraction const& a, Fraction const& b) {
-        return mpq_cmp(a._value, b._value);
+    friend int compare(Fraction const& a,Fraction const& b) {
+        const Comparison value=cmp(a._value,b._value);
+        return value==Comparison::LESS ? -1 :
+               value==Comparison::GREATER ? 1 : 0;
     }
-
-    friend Fraction operator+(Fraction const& a, Fraction const& b) {
-        Fraction result;
-        mpq_add(result._value, a._value, b._value);
-        return result;
+    friend Fraction operator+(Fraction const& a,Fraction const& b) {
+        return Fraction(a._value+b._value);
     }
-
-    friend Fraction operator-(Fraction const& a, Fraction const& b) {
-        Fraction result;
-        mpq_sub(result._value, a._value, b._value);
-        return result;
+    friend Fraction operator-(Fraction const& a,Fraction const& b) {
+        return Fraction(a._value-b._value);
     }
-
-    friend Fraction operator*(Fraction const& a, Fraction const& b) {
-        Fraction result;
-        mpq_mul(result._value, a._value, b._value);
-        return result;
+    friend Fraction operator*(Fraction const& a,Fraction const& b) {
+        return Fraction(a._value*b._value);
     }
-
-    friend Fraction operator/(Fraction const& a, Fraction const& b) {
-        if (b.sign() == 0) {
+    friend Fraction operator/(Fraction const& a,Fraction const& b) {
+        if (b.sign()==0) {
             throw std::domain_error("FloatAP zero rational denominator");
         }
-        Fraction result;
-        mpq_div(result._value, a._value, b._value);
-        return result;
+        return Fraction(a._value/b._value);
     }
 };
 
@@ -1706,8 +1656,6 @@ Interval exp_series(Fraction const& x, unsigned long work) {
     }
     const unsigned long fixed_bits = work + guard;
     if (static_cast<std::uintmax_t>(fixed_bits) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
-        static_cast<std::uintmax_t>(fixed_bits) >
         static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
         throw std::overflow_error("FloatAP exponential fixed-point shift overflow");
     }
@@ -1717,11 +1665,11 @@ Interval exp_series(Fraction const& x, unsigned long work) {
     const auto fixed_shift=static_cast<std::size_t>(fixed_bits);
     const std::size_t whole=fixed_shift/64u;
     const unsigned partial=static_cast<unsigned>(fixed_shift%64u);
-    const Integer native_numerator=integer_from_gmp(mpq_numref(magnitude.raw()));
-    const Integer native_denominator=integer_from_gmp(mpq_denref(magnitude.raw()));
+    const Integer& native_numerator=magnitude.numerator();
+    const BigUnsigned& native_denominator=magnitude.denominator();
     const BigUnsigned argument=quot(
         shift_left(native_numerator.magnitude(),fixed_shift),
-        native_denominator.magnitude());
+        native_denominator);
 
     // The five buffers retain their capacities across all Taylor terms.
     // In contrast to chained owning arithmetic, no temporary BigUnsigned
@@ -1839,7 +1787,7 @@ Interval exp_interval(Fraction x, unsigned long work) {
 
     const unsigned long fixed_bits = work + halvings + 64ul;
     if (static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
         static_cast<std::uintmax_t>(fixed_bits) >
             static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
         throw std::overflow_error("FloatAP exponential reconstruction shift overflow");
@@ -1850,15 +1798,15 @@ Interval exp_interval(Fraction x, unsigned long work) {
     const std::size_t whole=shift/64u;
     const unsigned partial=static_cast<unsigned>(shift%64u);
 
-    // Convert only the two initial certified rational bounds. The
+    // Quantize the two initial certified rational bounds. The
     // lower is rounded down and the upper rounded up at the same
     // dyadic scale. Avoid canonical Rational/GCD round trips.
     const auto to_scaled=[&](Fraction const& bound,bool round_upward) {
-        const Integer numerator=integer_from_gmp(mpq_numref(bound.raw()));
-        const Integer denominator=integer_from_gmp(mpq_denref(bound.raw()));
+        const Integer& numerator=bound.numerator();
+        const BigUnsigned& denominator=bound.denominator();
         auto [value,remainder]=divrem(
             shift_left(numerator.magnitude(),shift),
-            denominator.magnitude());
+            denominator);
         if (round_upward && !remainder.is_zero()) {
             value=add(value,BigUnsigned(1u));
         }
@@ -1955,7 +1903,7 @@ Interval log_series(Fraction const& z, unsigned long work) {
     }
     const unsigned long fixed_bits = work + guard;
     if (static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
         static_cast<std::uintmax_t>(fixed_bits) >
             static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
         throw std::overflow_error("FloatAP logarithm fixed-point shift overflow");
@@ -1967,10 +1915,10 @@ Interval log_series(Fraction const& z, unsigned long work) {
     const std::size_t whole=shift/64u;
     const unsigned partial=static_cast<unsigned>(shift%64u);
     const Fraction magnitude=absolute(z);
-    const Integer num=integer_from_gmp(mpq_numref(magnitude.raw()));
-    const Integer den=integer_from_gmp(mpq_denref(magnitude.raw()));
+    const Integer& num=magnitude.numerator();
+    const BigUnsigned& den=magnitude.denominator();
     auto [z_lower,remainder]=divrem(
-        shift_left(num.magnitude(),shift),den.magnitude());
+        shift_left(num.magnitude(),shift),den);
     const BigUnsigned z_upper=remainder.is_zero()
         ? z_lower : add(z_lower,BigUnsigned(1u));
 
@@ -2184,11 +2132,11 @@ Interval log_interval(Fraction x, unsigned long work) {
 // compare the actual native limbs; this is the only ambiguous case.
 // GMP is touched only to read the not-yet-migrated Fraction carrier.
 bool within_dyadic_window(Fraction const& value,unsigned long binary_shift) {
-    const mpz_srcptr numerator=mpq_numref(value.raw());
-    if (mpz_sgn(numerator)==0) return true;
-    const mpz_srcptr denominator=mpq_denref(value.raw());
-    const std::size_t numerator_bits=mpz_sizeinbase(numerator,2u);
-    const std::size_t denominator_bits=mpz_sizeinbase(denominator,2u);
+    if (value.sign()==0) return true;
+    const BigUnsigned& numerator=value.numerator().magnitude();
+    const BigUnsigned& denominator=value.denominator();
+    const std::size_t numerator_bits=numerator.bit_length();
+    const std::size_t denominator_bits=denominator.bit_length();
     if (static_cast<std::uintmax_t>(binary_shift) >
             static_cast<std::uintmax_t>(
                 std::numeric_limits<std::size_t>::max()-numerator_bits)) {
@@ -2199,12 +2147,9 @@ bool within_dyadic_window(Fraction const& value,unsigned long binary_shift) {
     if (shifted_bits!=denominator_bits) {
         return shifted_bits<denominator_bits;
     }
-    const Integer native_numerator=integer_from_gmp(numerator);
-    const Integer native_denominator=integer_from_gmp(denominator);
     return compare(
-        shift_left(native_numerator.magnitude(),
-                   static_cast<std::size_t>(binary_shift)),
-        native_denominator.magnitude())<=0;
+        shift_left(numerator,static_cast<std::size_t>(binary_shift)),
+        denominator)<=0;
 }
 
 bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
@@ -2214,7 +2159,7 @@ bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
     const unsigned long cutoff_bits=work/2ul+work%2ul;
     if (static_cast<std::uintmax_t>(cutoff_bits)>
             static_cast<std::uintmax_t>(
-                std::numeric_limits<mp_bitcnt_t>::max())) {
+                std::numeric_limits<std::size_t>::max())) {
         return false;
     }
     return within_dyadic_window(delta,cutoff_bits);
@@ -2231,16 +2176,14 @@ Integer outward_dyadic_integer(Fraction const& exact,
                                unsigned long bits,
                                bool round_toward_positive) {
     if (static_cast<std::uintmax_t>(bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
-        static_cast<std::uintmax_t>(bits) >
             static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
         throw std::overflow_error("FloatAP dyadic endpoint shift overflow");
     }
-    const Integer numerator=integer_from_gmp(mpq_numref(exact.raw()));
-    const Integer denominator=integer_from_gmp(mpq_denref(exact.raw()));
+    const Integer& numerator=exact.numerator();
+    const BigUnsigned& denominator=exact.denominator();
     auto [magnitude,remainder]=divrem(
         shift_left(numerator.magnitude(),static_cast<std::size_t>(bits)),
-        denominator.magnitude());
+        denominator);
     const bool negative=numerator.negative();
     const bool round_magnitude_up=negative
         ? !round_toward_positive : round_toward_positive;
@@ -2477,7 +2420,7 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
     }
     const unsigned long fixed_bits = work + guard;
     if (static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
         static_cast<std::uintmax_t>(fixed_bits) >
             static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
         throw std::overflow_error("FloatAP sine/cosine fixed-point shift overflow");
@@ -2489,11 +2432,11 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
     const std::size_t whole=shift/64u;
     const unsigned partial=static_cast<unsigned>(shift%64u);
     const Fraction magnitude=absolute(x);
-    const Integer numerator=integer_from_gmp(mpq_numref(magnitude.raw()));
-    const Integer denominator=integer_from_gmp(mpq_denref(magnitude.raw()));
+    const Integer& numerator=magnitude.numerator();
+    const BigUnsigned& denominator=magnitude.denominator();
     const BigUnsigned scale=shift_left(BigUnsigned(1u),shift);
     const BigUnsigned argument=quot(
-        shift_left(numerator.magnitude(),shift),denominator.magnitude());
+        shift_left(numerator.magnitude(),shift),denominator);
 
     Words square,term,sum,product,next_term,quotient;
     const BigUnsigned threshold=shift_left(BigUnsigned(1u),
@@ -2746,16 +2689,15 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
     }
 
     // The caller established a canonical dyadic offset n/2^k,
-    // with |offset| <= 2^-ceil(work/2). GMP is still required here
-    // only to inspect the temporary Fraction carrier.
-    const mp_bitcnt_t denominator_shift =
-        mpz_scan1(mpq_denref(offset.raw()),0u);
+    // with |offset| <= 2^-ceil(work/2). The carrier is native.
+    const std::size_t denominator_shift =
+        offset.dyadic_denominator_bits().value();
     if (static_cast<std::uintmax_t>(denominator_shift) >
             static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
         throw std::overflow_error("FloatAP centered delta shift overflow");
     }
     const std::size_t shift=static_cast<std::size_t>(denominator_shift);
-    const Integer delta_numerator=integer_from_gmp(mpq_numref(offset.raw()));
+    const Integer& delta_numerator=offset.numerator();
 
     // The original Taylor certificate is |R|<=delta^2/2,
     // hence 2^(bits-work-1) integer units. The same bound is used
@@ -2863,7 +2805,7 @@ bool sufficiently_near_half(Fraction const& delta, unsigned long work) {
     const unsigned long half_work=work/2ul+work%2ul;
     if (static_cast<std::uintmax_t>(half_work)>
             static_cast<std::uintmax_t>(
-                std::numeric_limits<mp_bitcnt_t>::max())) {
+                std::numeric_limits<std::size_t>::max())) {
         return false;
     }
     return within_dyadic_window(delta,half_work);
@@ -2887,7 +2829,7 @@ Interval small_atan(Fraction const& x, unsigned long work) {
     }
     const unsigned long fixed_bits = work + guard;
     if (static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
         static_cast<std::uintmax_t>(fixed_bits) >
             static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
         throw std::overflow_error("FloatAP arctangent fixed-point shift overflow");
@@ -2899,10 +2841,10 @@ Interval small_atan(Fraction const& x, unsigned long work) {
     const std::size_t whole=shift/64u;
     const unsigned partial=static_cast<unsigned>(shift%64u);
     const Fraction magnitude=absolute(x);
-    const Integer numerator=integer_from_gmp(mpq_numref(magnitude.raw()));
-    const Integer denominator=integer_from_gmp(mpq_denref(magnitude.raw()));
+    const Integer numerator=magnitude.numerator();
+    const BigUnsigned& denominator=magnitude.denominator();
     const BigUnsigned argument=quot(
-        shift_left(numerator.magnitude(),shift),denominator.magnitude());
+        shift_left(numerator.magnitude(),shift),denominator);
 
     Words power(argument.limbs().begin(),argument.limbs().end());
     Words sum,square,term,product,next_power;
@@ -3135,9 +3077,9 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
         const Fraction delta = absolute(x) - half;
         if (sufficiently_near_half(delta, work)) {
             // A FloatAP input is dyadic. Use a single cached integer
-            // scale and outward-directed GMP shifts instead of creating
+            // scale and outward-directed native shifts instead of creating
             // general rational intermediate products every time.
-            if (mpz_popcount(mpq_denref(delta.raw())) == 1u) {
+            if (delta.is_dyadic()) {
                 return centered_trigonometric_dyadic(x, delta, work, outputs);
             }
             if (work > std::numeric_limits<unsigned long>::max() - 16ul) {
@@ -3187,17 +3129,16 @@ Interval square_root_interval(Fraction const& x, unsigned long work) {
         return point(Fraction{});
     }
     // The argument is an exact positive fraction. Its integer quotient
-    // and exact square-root remainder are native; only the two final
-    // interval endpoints cross the legacy Fraction boundary.
-    if (work > std::numeric_limits<mp_bitcnt_t>::max() / 2u ||
-        work > std::numeric_limits<std::size_t>::max() / 2u) {
+    // and exact square-root remainder are native; the final
+    // interval endpoints stay in the native Fraction carrier.
+    if (work > std::numeric_limits<std::size_t>::max() / 2u) {
         throw std::overflow_error("FloatAP radical precision too large");
     }
-    const Integer numerator=integer_from_gmp(mpq_numref(x.raw()));
-    const Integer denominator=integer_from_gmp(mpq_denref(x.raw()));
+    const Integer& numerator=x.numerator();
+    const BigUnsigned& denominator=x.denominator();
     auto [quotient,division_remainder]=divrem(
         shift_left(numerator.magnitude(),static_cast<std::size_t>(2u*work)),
-        denominator.magnitude());
+        denominator);
     auto [root,square_remainder]=sqrtrem(quotient);
     const Fraction lower(root,work);
     // Equality to the original rational requires BOTH exact integer
@@ -3291,13 +3232,13 @@ Interval centered_atan_half_interval(Fraction const& input,
     }
     const unsigned long bits = work + 24ul;
     if (static_cast<std::uintmax_t>(bits + 2ul) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
-        mpz_popcount(mpq_denref(delta.raw())) != 1u) {
+        static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
+        !delta.is_dyadic()) {
         return rational_fallback();
     }
-    const mp_bitcnt_t delta_shift =
-        mpz_scan1(mpq_denref(delta.raw()), 0u);
-    if (delta_shift > static_cast<mp_bitcnt_t>(bits + 2ul)) {
+    const std::size_t delta_shift =
+        delta.dyadic_denominator_bits().value();
+    if (delta_shift > static_cast<std::size_t>(bits + 2ul)) {
         return rational_fallback();
     }
 
@@ -3322,7 +3263,7 @@ Interval centered_atan_half_interval(Fraction const& input,
     // Quotient and remainder are computed once on a native magnitude.
     // For negative n, floor/ceil exchange the upward magnitude
     // correction; exact divisibility must not change either bound.
-    const Integer delta_numerator=integer_from_gmp(mpq_numref(delta.raw()));
+    const Integer& delta_numerator=delta.numerator();
     const std::size_t shift=static_cast<std::size_t>(
         centered.bits+2ul-static_cast<unsigned long>(delta_shift));
     auto [quotient,remainder_by_five]=divrem_limb(
