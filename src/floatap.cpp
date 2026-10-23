@@ -62,11 +62,13 @@ namespace Ariadne {
 // All unsigned arithmetic in FloatAP uses the repository's optimized
 // 64-bit-limb BigUnsigned; the nonnegative significand is owned directly.
 namespace {
-bool floatap_test_bit(BigUnsigned const& n,std::size_t bit) noexcept {
-    return ((n.limb(bit/64u)>>(bit%64u))&1u)!=0u;
+bool floatap_test_bit(BigUnsigned::LimbView n,std::size_t bit) noexcept {
+    return bit/64u<n.size() && ((n[bit/64u]>>(bit%64u))&1u)!=0u;
 }
-bool floatap_any_bits_below(BigUnsigned const& n,std::size_t limit) noexcept {
-    const auto digits=n.limbs();
+bool floatap_test_bit(BigUnsigned const& n,std::size_t bit) noexcept {
+    return floatap_test_bit(n.limbs(),bit);
+}
+bool floatap_any_bits_below(BigUnsigned::LimbView digits,std::size_t limit) noexcept {
     const std::size_t whole=std::min(limit/64u,digits.size());
     for(std::size_t i=0u;i<whole;++i) {
         if(digits[i]!=0u) return true;
@@ -75,6 +77,9 @@ bool floatap_any_bits_below(BigUnsigned const& n,std::size_t limit) noexcept {
     return partial!=0u && whole<digits.size() &&
         (digits[whole]&((BigUnsigned::Limb{1}<<partial)-1u))!=0u;
 }
+bool floatap_any_bits_below(BigUnsigned const& n,std::size_t limit) noexcept {
+    return floatap_any_bits_below(n.limbs(),limit);
+}
 std::size_t floatap_popcount(BigUnsigned const& n) noexcept {
     std::size_t count=0u;
     for(auto word:n.limbs()) count+=static_cast<std::size_t>(std::popcount(word));
@@ -82,13 +87,69 @@ std::size_t floatap_popcount(BigUnsigned const& n) noexcept {
 }
 BigUnsigned add_big_unsigned(BigUnsigned const&,BigUnsigned const&);
 } // namespace
+// Round a borrowed, canonical nonzero magnitude to at most 64 bits.
+// All bit inspection precedes the write, so the view may alias result.
+void FloatAP::round_short(FloatAP& result,BigUnsigned::LimbView magnitude,
+                          Exponent scale,Rounding mode) {
+    const auto precision=result._precision;
+    const auto width=floatap_exponent_from_bit_length(
+        (magnitude.size()-1u)*64u+64u-static_cast<unsigned>(std::countl_zero(magnitude.back())));
+    const auto shift=checked_sub(width,static_cast<Exponent>(precision));
+    result._exponent=checked_add(scale,shift);
+    // The retained significand fits a limb even when the exact input
+    // (e.g. a product or power) spans many limbs. Read its leading
+    // window and guard/sticky bits without constructing shifted owners.
+    std::uint64_t retained;
+    bool increment=false;
+    if (shift <= 0) {
+        retained=magnitude[0u] << static_cast<unsigned>(-shift);
+    } else {
+        const auto dropped=static_cast<std::size_t>(shift);
+        const auto word=dropped/64u;
+        const auto offset=static_cast<unsigned>(dropped%64u);
+        retained=magnitude[word]>>offset;
+        if (offset!=0u && word+1u<magnitude.size()) retained|=magnitude[word+1u]<<(64u-offset);
+        switch(mode.value()) {
+            case Rounding::ToNearest:
+                increment=floatap_test_bit(magnitude,dropped-1u) &&
+                    ((retained&1u)!=0u ||
+                     floatap_any_bits_below(magnitude,dropped-1u));
+                break;
+            case Rounding::Downward:
+                increment=result._negative && floatap_any_bits_below(magnitude,dropped);
+                break;
+            case Rounding::Upward:
+                increment=!result._negative && floatap_any_bits_below(magnitude,dropped);
+                break;
+            case Rounding::TowardZero: break;
+            default: throw std::invalid_argument("FloatAP unknown rounding mode");
+        }
+    }
+    if (increment) ++retained;
+    // A 64-bit carry wraps to zero; narrower carries remain in the limb.
+    if (retained==0u || (precision<64u && retained==(std::uint64_t{1}<<precision))) {
+        retained=std::uint64_t{1}<<(precision-1u);
+        if (result._exponent==std::numeric_limits<Exponent>::max()) {
+            result=infinity(precision,result._negative);
+            return;
+        }
+        result._exponent=checked_add(result._exponent,1);
+    }
+    result._significand=BigUnsigned(retained);
+}
+
 // Round a positive native magnitude in place, preserving tie-to-even.
 void FloatAP::round_scaled_integer(FloatAP& result, Exponent scale, Rounding mode) {
     const auto precision = result._precision;
+    if (precision<=64u) {
+        round_short(result,result._significand.limbs(),scale,mode);
+        return;
+    }
     const Exponent shift = checked_sub(bit_length(result._significand),
                                        static_cast<Exponent>(precision));
     result._exponent = checked_add(scale, shift);
-    if (shift <= 0) {
+    if (shift == 0) return;
+    if (shift < 0) {
         result._significand=shift_left(result._significand,
             static_cast<std::size_t>(shift_amount(checked_sub(0,shift))));
         return;
@@ -153,18 +214,23 @@ FloatAP FloatAP::from_native_ratio(Integer const& numerator,
                                   Exponent scale, unsigned long precision,
                                   Rounding mode, bool negative_zero,
                                   bool invert_sign) {
-    if (denominator.magnitude().is_zero()) {
+    return from_unsigned_ratio(numerator.magnitude(),denominator.magnitude(),
+        scale,precision,mode,
+        (numerator.negative()!=denominator.negative())!=invert_sign,negative_zero);
+}
+
+FloatAP FloatAP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
+                                    Exponent scale,unsigned long precision,
+                                    Rounding mode,bool negative,bool negative_zero) {
+    if (d.is_zero()) {
         throw std::domain_error("FloatAP zero denominator");
     }
     FloatAP result(precision);
-    auto const& n = numerator.magnitude();
-    auto const& d = denominator.magnitude();
     if (n.is_zero()) {
         result.set_zero(negative_zero);
         return result;
     }
-    result._negative =
-        (numerator.negative() != denominator.negative()) != invert_sign;
+    result._negative=negative;
 
     // Power-of-two denominators are exact binary scalings. Preserve
     // the fast path used by the old mpq_t constructor without creating a
@@ -184,6 +250,56 @@ FloatAP FloatAP::from_native_ratio(Integer const& numerator,
             floatap_exponent_from_bit_length(d.bit_length()-1u);
         result._significand=n;
         round_scaled_integer(result,checked_sub(scale,denominator_shift),mode);
+        return result;
+    }
+
+    if (precision<=64u && n.size()==1u && d.size()==1u) {
+        // Normalize a short ratio using scalar metadata, then use the
+        // shared exact 128/64 limb divider. The scaled numerator needs at
+        // most p+bit_length(d) bits; the quotient always fits one limb.
+        const std::uint64_t numerator=n.limb(0u),denominator=d.limb(0u);
+        Exponent k=static_cast<Exponent>(std::countl_zero(denominator))-
+                   static_cast<Exponent>(std::countl_zero(numerator));
+        if (k>=0 ? numerator<(denominator<<static_cast<unsigned>(k))
+                 : (numerator<<static_cast<unsigned>(-k))<denominator) --k;
+        const Exponent shift=static_cast<Exponent>(precision-1u)-k;
+        std::array<std::uint64_t,2u> dividend{},quotient{};
+        std::uint64_t divisor=denominator;
+        if (shift>=64) {
+            dividend[1u]=numerator<<static_cast<unsigned>(shift-64);
+        } else if (shift>=0) {
+            const auto s=static_cast<unsigned>(shift);
+            dividend[0u]=numerator<<s;
+            if (s!=0u) dividend[1u]=numerator>>(64u-s);
+        } else {
+            dividend[0u]=numerator;
+            divisor<<=static_cast<unsigned>(-shift);
+        }
+        const std::uint64_t remainder=BigUnsigned::divrem_limb_into(
+            BigUnsigned::LimbView(dividend.data(),dividend[1u]!=0u ? 2u : 1u),
+            divisor,quotient);
+        std::uint64_t retained=quotient[0u];
+        bool increment=false;
+        if (remainder!=0u) {
+            switch(mode.value()) {
+                case Rounding::ToNearest:
+                    increment=remainder>divisor-remainder ||
+                        (remainder==divisor-remainder && (retained&1u)!=0u);
+                    break;
+                case Rounding::Downward: increment=negative; break;
+                case Rounding::Upward: increment=!negative; break;
+                case Rounding::TowardZero: break;
+                default: throw std::invalid_argument("FloatAP unknown rounding mode");
+            }
+        }
+        result._exponent=checked_add(scale,k-static_cast<Exponent>(precision-1u));
+        if (increment) ++retained;
+        if (retained==0u || (precision<64u && retained==(std::uint64_t{1}<<precision))) {
+            retained=std::uint64_t{1}<<(precision-1u);
+            if (result._exponent==std::numeric_limits<Exponent>::max()) return infinity(precision,negative);
+            result._exponent=checked_add(result._exponent,1);
+        }
+        result._significand=BigUnsigned(retained);
         return result;
     }
 
@@ -309,7 +425,37 @@ unsigned long p, Rounding mode, bool subtract) {
         return from_native_ratio(exact,denominator,high._exponent,p,mode);
     }
 
-    // For ordinary gaps, align and combine positive magnitudes natively.
+    // For short results, shared shifted-combine kernels avoid an owning
+    // shifted operand, including product/addend alignment in a fused op.
+    if (p<=64u && gap<64u) {
+        FloatAP result(p);
+        result._negative=high_negative;
+        const auto shift=static_cast<unsigned>(gap);
+        if (high_negative==low_negative) {
+            result._significand=BigUnsigned::add_shifted(
+                high._significand.limbs(),shift,low._significand.limbs(),0u);
+        } else {
+            // A larger exponent need not mean a larger magnitude when
+            // input precisions differ. Compare without a shifted owner.
+            const auto high_width=static_cast<std::uint64_t>(high._significand.bit_length())+gap;
+            const auto low_width=static_cast<std::uint64_t>(low._significand.bit_length());
+            bool high_larger=high_width>low_width;
+            if (high_width==low_width) {
+                // Equal widths are uncommon for mixed precisions. The
+                // shared exact comparison retains cancellation semantics.
+                high_larger=compare(shift_left(high._significand,shift),low._significand)>=0;
+            }
+            result._significand=high_larger
+                ? BigUnsigned::sub_shifted(high._significand.limbs(),shift,low._significand.limbs(),0u)
+                : BigUnsigned::sub_shifted(low._significand.limbs(),0u,high._significand.limbs(),shift);
+            if (!high_larger) result._negative=!result._negative;
+        }
+        if (result._significand.is_zero()) result.set_zero(mode==Rounding::Downward);
+        else round_scaled_integer(result,low._exponent,mode);
+        return result;
+    }
+
+    // For ordinary larger gaps, align and combine positive magnitudes natively.
     // Preserve the independent sign metadata and a single final rounding.
     FloatAP result(p);
     result._negative=high_negative;
@@ -343,6 +489,17 @@ unsigned long p, Rounding mode) {
     if (a.is_zero() || b.is_zero()) return zero(p, neg);
     FloatAP result(p);
     result._negative = neg;
+    if (p<=64u && a._significand.size()<=2u && b._significand.size()<=2u) {
+        std::array<BigUnsigned::Limb,4u> product;
+        const auto count=a._significand.size()+b._significand.size();
+        BigUnsigned::mul_into(a._significand.limbs(),b._significand.limbs(),
+            BigUnsigned::MutableLimbView(product.data(),count));
+        auto used=count;
+        while (product[used-1u]==0u) --used;
+        round_short(result,BigUnsigned::LimbView(product.data(),used),
+                    checked_add(a._exponent,b._exponent),mode);
+        return result;
+    }
     result._significand=mul_big_unsigned(a._significand,b._significand);
     round_scaled_integer(result,checked_add(a._exponent,b._exponent),mode);
     return result;
@@ -354,12 +511,10 @@ unsigned long p, Rounding mode) {
     const bool neg = a._negative != b._negative;
     if (a.is_inf() || b.is_zero()) return infinity(p, neg);
     if (a.is_zero() || b.is_inf()) return zero(p, neg);
-    // Sign remains metadata, and inputs already own unsigned magnitudes.
-    return from_native_ratio(
-                             Integer::from_magnitude(a._significand,false),
-                             Integer::from_magnitude(b._significand,false),
+    // Borrow the unsigned magnitudes; no signed Integer copies are needed.
+    return from_unsigned_ratio(a._significand,b._significand,
                              checked_sub(a._exponent,b._exponent),
-                             p,mode,false,neg);
+                             p,mode,neg);
 }
 
 FloatAP FloatAP::fma(FloatAP const& a, FloatAP const& b,
@@ -487,11 +642,9 @@ FloatAP::Float(FloatAP const& value, RoundingModeType mode, PrecisionType precis
         // Rescale the existing binary significand without materializing
         // significand * 2^exponent as an enormous Rational. This is
         // essential at the native exponent limits.
-        const Integer numerator=Integer::from_magnitude(
-            value._significand,value._negative);
-        *this=from_native_ratio(numerator,Integer(1u),value._exponent,
-                                static_cast<unsigned long>(precision.bits()),
-                                mode);
+        _significand=value._significand;
+        _negative=value._negative;
+        round_scaled_integer(*this,value._exponent,mode);
     }
 }
 
@@ -1148,17 +1301,18 @@ FloatAP::operator Rational() const {
     if (is_nan()) return Rational::nan();
     if (is_inf()) return Rational::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
     BigUnsigned n=_significand;
-    BigUnsigned d(1u);
     if (_exponent>0) { n=shift_left(n,shift_amount(_exponent)); }
-    if (_exponent<0) { d=shift_left(d,shift_amount(checked_sub(0,_exponent))); }
-    return Rational(Integer::from_magnitude(std::move(n),_negative),Integer::from_magnitude(std::move(d),false));
+    Integer numerator=Integer::from_magnitude(std::move(n),_negative);
+    if (_exponent<0) return Rational::from_dyadic(std::move(numerator),
+        shift_amount(checked_sub(0,_exponent)));
+    return Rational(std::move(numerator));
 }
 
-double FloatAP::get_d() const {
+double FloatAP::get_d_general() const {
     // FloatAP stores an exact binary significand and an exponent. Converting
     // through Rational builds/canonicalizes a potentially enormous 2^k
     // denominator and also silently truncates rather than respecting the
-    // active rounding mode. Extract 53 leading bits directly from GMP.
+    // active rounding mode. Extract the leading bits directly.
     if (is_nan()) {
         return std::numeric_limits<double>::quiet_NaN();
     }
@@ -1485,6 +1639,32 @@ FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& value, Nat exponent) 
     if (!scale_overflow) {
         FloatAP result(bits);
         result._negative = value._negative && ((degree & 1ul) != 0ul);
+        if (bits<=64u && degree<=16ul) {
+            // Exact short floating-point powers need at most 1024 bits.
+            // Keep intermediate products in two disjoint stack buffers;
+            // all multiplication still uses the shared limb substrate.
+            // Only the final significand owns storage and is rounded.
+            constexpr std::size_t capacity=17u;
+            std::array<BigUnsigned::Limb,capacity> first,second;
+            auto current=value._significand.limbs();
+            bool use_first=true;
+            const auto multiply=[&](BigUnsigned::LimbView right) {
+                auto& buffer=use_first ? first : second;
+                const auto count=current.size()+right.size();
+                BigUnsigned::mul_into(current,right,
+                    BigUnsigned::MutableLimbView(buffer.data(),count));
+                auto used=count;
+                while (used!=0u && buffer[used-1u]==0u) --used;
+                current=BigUnsigned::LimbView(buffer.data(),used);
+                use_first=!use_first;
+            };
+            for (auto bit=std::bit_floor(degree)>>1u;bit!=0ul;bit>>=1u) {
+                multiply(current);
+                if ((degree&bit)!=0ul) multiply(value._significand.limbs());
+            }
+            FloatAP::round_short(result,current,product_scale,mode);
+            return result;
+        }
         // Exact power on the already-owned unsigned magnitude.
         result._significand=pow(value._significand,
             static_cast<std::uint64_t>(degree));
@@ -3213,7 +3393,7 @@ Interval asin_interval(Fraction const& x, unsigned long work) {
 
 enum class Function {
     sine, cosine, tangent, arctangent, arcsine, arccosine,
-    pi, half_pi, negative_half_pi
+    pi, half_pi, negative_half_pi, exponential, logarithm
 };
 
 // Replace exact division in repeated near-half tangent evaluations with
@@ -3464,6 +3644,153 @@ Interval centered_inverse_half_interval(Fraction const& input,
         ? negative(enclosure) : enclosure;
 }
 
+// Short centered evaluations use a common fixed binary scale and the same
+// rigorous Taylor bounds as the general near-half paths. No Rational is
+// constructed per call, and cached data are outward enclosures of constants,
+// shared by every rounding mode, never cached rounded function results.
+struct FloatAPShortTranscendentals {
+    struct Center {
+        unsigned long bits=0;
+        BigUnsigned lower,upper,slope_lower,slope_upper;
+        unsigned error=0;
+        bool slope_negative=false;
+        bool result_negative=false;
+    };
+
+    static void coefficients(Center& target,Interval const& value,
+                             Interval const& slope,unsigned long bits) {
+        target.lower=outward_dyadic_integer(value.lower,bits,false).magnitude();
+        target.upper=outward_dyadic_integer(value.upper,bits,true).magnitude();
+        target.slope_lower=outward_dyadic_integer(slope.lower,bits,false).magnitude();
+        target.slope_upper=outward_dyadic_integer(slope.upper,bits,true).magnitude();
+    }
+
+    static Center make_center(Function function,bool negative,unsigned long bits) {
+        Center result;
+        switch(function) {
+            case Function::exponential: {
+                const auto& centers=exponential_half_centers(bits);
+                const auto& center=negative ? centers.negative : centers.positive;
+                coefficients(result,center,center,bits);
+                result.error=2u;
+                result.slope_negative=negative;
+                break;
+            }
+            case Function::logarithm:
+                coefficients(result,log2_interval(bits+32ul),point(Fraction(2L)),bits);
+                result.error=8u;
+                result.slope_negative=true;
+                result.result_negative=true;
+                break;
+            case Function::sine:
+            case Function::cosine: {
+                const auto& [sine,cosine]=half_trigonometric_intervals(bits+32ul);
+                coefficients(result,function==Function::sine ? sine : cosine,
+                    function==Function::sine ? cosine : sine,bits);
+                result.error=1u;
+                result.slope_negative=function==Function::cosine;
+                result.result_negative=function==Function::sine && negative;
+                break;
+            }
+            case Function::tangent: {
+                const auto& center=tangent_half_enclosures(bits);
+                coefficients(result,center.tangent,center.derivative,bits);
+                result.error=6u;
+                result.result_negative=negative;
+                break;
+            }
+            case Function::arctangent:
+                coefficients(result,atan_half_interval(bits+32ul),
+                    divide(point(Fraction(4L)),point(Fraction(5L))),bits);
+                result.error=1u;
+                result.result_negative=negative;
+                break;
+            case Function::arcsine:
+            case Function::arccosine: {
+                const auto& center=inverse_half_enclosures(bits);
+                const auto& value=function==Function::arcsine ? center.arcsine_half :
+                    (negative ? center.arccosine_negative_half : center.arccosine_positive_half);
+                coefficients(result,value,center.slope_half,bits);
+                result.error=2u;
+                result.slope_negative=function==Function::arccosine && !negative;
+                result.result_negative=function==Function::arcsine && negative;
+                break;
+            }
+            default: throw std::logic_error("FloatAP invalid short transcendental");
+        }
+        result.bits=bits;
+        return result;
+    }
+
+    // Return floor(slope*n/2^shift), and optionally its ceiling. Products
+    // use the existing shared native multiplier, including portable builds.
+    static std::uint64_t correction(BigUnsigned const& slope,std::uint64_t n,
+                                     unsigned shift,bool upward) {
+        std::array<BigUnsigned::Limb,3u> product;
+        BigUnsigned::mul_into(slope.limbs(),BigUnsigned::LimbView(&n,1u),product);
+        const auto word=shift/64u;
+        const auto offset=shift%64u;
+        std::uint64_t retained=product[word]>>offset;
+        if (offset!=0u) retained|=product[word+1u]<<(64u-offset);
+        if (upward && floatap_any_bits_below(BigUnsigned::LimbView(product),shift)) ++retained;
+        return retained;
+    }
+
+    static std::optional<FloatAP> evaluate(Function function,FloatAP::Rounding mode,
+                                           FloatAP const& x) {
+        const auto precision=x._precision;
+        // The supported short window has an exact one-word signed offset
+        // from |x|=1/2. Other arguments use the unchanged adaptive path.
+        if (precision>64u || x._exponent < -64 || x._exponent >= 0) return std::nullopt;
+        const unsigned denominator_bits=static_cast<unsigned>(-x._exponent);
+        const auto half=std::uint64_t{1}<<(denominator_bits-1u);
+        const auto magnitude=x._significand.limb(0u);
+        const bool offset_negative=magnitude<half;
+        const auto offset=offset_negative ? half-magnitude : magnitude-half;
+        const unsigned long bits=precision+32ul;
+        const auto cutoff=static_cast<unsigned>((bits+1ul)/2ul);
+        if (offset!=0u && (cutoff>denominator_bits ||
+            offset>(std::uint64_t{1}<<(denominator_bits-cutoff)))) return std::nullopt;
+
+        static thread_local std::array<Center,
+            2u*(static_cast<std::size_t>(Function::logarithm)+1u)> centers;
+        auto& center=centers[2u*static_cast<std::size_t>(function)+static_cast<unsigned>(x._negative)];
+        if (center.bits!=bits) center=make_center(function,x._negative,bits);
+
+        const auto lo=correction(center.slope_lower,offset,denominator_bits,false);
+        const auto hi=correction(center.slope_upper,offset,denominator_bits,true);
+        const bool subtract=offset_negative!=center.slope_negative;
+        // Since |delta|<=2^-ceil(B/2), C*delta^2*2^B<=C.
+        // The correction fits <=52 bits at B<=96, hence these signed
+        // offsets cannot overflow. Centers stay positive in this window.
+        const std::int64_t lower_offset=(subtract ? -static_cast<std::int64_t>(hi)
+            : static_cast<std::int64_t>(lo))-static_cast<std::int64_t>(center.error);
+        const std::int64_t upper_offset=(subtract ? -static_cast<std::int64_t>(lo)
+            : static_cast<std::int64_t>(hi))+static_cast<std::int64_t>(center.error);
+        const auto endpoint=[&](BigUnsigned const& constant,std::int64_t displacement) {
+            const std::uint64_t absolute=static_cast<std::uint64_t>(
+                displacement<0 ? -displacement : displacement);
+            const BigUnsigned::LimbView increment(&absolute,1u);
+            std::array<BigUnsigned::Limb,2u> output;
+            if (displacement<0) BigUnsigned::sub_into(constant.limbs(),increment,output);
+            else BigUnsigned::add_into(constant.limbs(),increment,output);
+            FloatAP result(precision);
+            result._negative=center.result_negative;
+            FloatAP::round_short(result,BigUnsigned::LimbView(output.data(),
+                output[1u]!=0u ? 2u : 1u),-static_cast<FloatAP::Exponent>(bits),mode);
+            return result;
+        };
+        FloatAP lower=endpoint(center.lower,lower_offset);
+        FloatAP upper=endpoint(center.upper,upper_offset);
+        // Equal rounded magnitude endpoints certify both positive and
+        // negative enclosures. An ambiguous result uses the existing Ziv
+        // refinement, including all difficult halfway/directed cases.
+        if (lower._exponent==upper._exponent &&
+            lower._significand.limb(0u)==upper._significand.limb(0u)) return lower;
+        return std::nullopt;
+    }
+};
+
 Interval evaluate(Function function, Fraction const& x, unsigned long work) {
     switch (function) {
         case Function::sine:
@@ -3579,6 +3906,7 @@ FloatAP unary(Function function, FloatAP::RoundingModeType mode,
         }
     }
 
+    if (auto short_result=FloatAPShortTranscendentals::evaluate(function,mode,x)) return std::move(*short_result);
     const Fraction argument = rational_argument(x);
     if (function == Function::arcsine || function == Function::arccosine) {
         if (compare(absolute(argument), Fraction(1L)) > 0) {
@@ -3613,6 +3941,7 @@ FloatAP exp(FloatAP::RoundingModeType mode, FloatAP const& x) {
     if (x.is_zero()) {
         return FloatAP(std::int64_t{1}, x.precision());
     }
+    if (auto short_result=FloatAPShortTranscendentals::evaluate(Function::exponential,mode,x)) return std::move(*short_result);
     const Fraction input = rational_argument(x);
     return certified([&](unsigned long work) {
         return exp_half_centered_or_general(input, work);
@@ -3631,6 +3960,7 @@ FloatAP log(FloatAP::RoundingModeType mode, FloatAP const& x) {
     if (x.is_inf()) {
         return FloatAP::infinity(bits);
     }
+    if (auto short_result=FloatAPShortTranscendentals::evaluate(Function::logarithm,mode,x)) return std::move(*short_result);
     const Fraction input = rational_argument(x);
     if (compare(input, Fraction(1)) == 0) {
         return FloatAP::zero(bits);

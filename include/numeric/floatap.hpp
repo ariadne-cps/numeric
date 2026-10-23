@@ -34,6 +34,7 @@
 #include "numeric/number.decl.hpp"
 #include "numeric/sign.hpp"
 #include "numeric/big_unsigned.hpp"
+#include <bit>
 #include <cstddef>
 #include <ostream>
 #include <cstdint>
@@ -50,6 +51,7 @@ class Rational;
 class Dyadic;
 class ExactDouble;
 class TwoExp;
+namespace Detail { struct FloatAPShortTranscendentals; }
 struct RoundDownward;
 struct RoundUpward;
 struct RoundToNearest;
@@ -153,17 +155,24 @@ template<> class Float<ArbitraryPrecision> {
     using Exponent = std::int64_t;
 
   private:
+    friend struct Detail::FloatAPShortTranscendentals;
     // Exact nonnegative magnitude; sign and special-value kind are separate.
     static FloatAP from_native_ratio(Integer const& numerator,
                                      Integer const& denominator,
                                      Exponent scale,unsigned long precision,
                                      Rounding mode,bool negative_zero=false,
                                      bool invert_sign=false);
+    static FloatAP from_unsigned_ratio(BigUnsigned const& numerator,
+                                       BigUnsigned const& denominator,
+                                       Exponent scale,unsigned long precision,
+                                       Rounding mode,bool negative,
+                                       bool negative_zero=false);
     BigUnsigned _significand;
     unsigned long _precision;
     Exponent _exponent = 0;
     Kind _kind = Kind::Finite;
     bool _negative = false;
+    double get_d_general() const;
 
     static Exponent checked_add(Exponent a, Exponent b) {
         constexpr auto max = std::numeric_limits<Exponent>::max();
@@ -193,6 +202,8 @@ template<> class Float<ArbitraryPrecision> {
     }
     // Normalize and round an already-owned nonzero positive significand.
     static void round_scaled_integer(FloatAP& result, Exponent scale, Rounding mode);
+    static void round_short(FloatAP& result,BigUnsigned::LimbView magnitude,
+                            Exponent scale,Rounding mode);
     void set_zero(bool negative) {
         _kind = Kind::Finite;
         _negative = negative;
@@ -239,7 +250,26 @@ template<> class Float<ArbitraryPrecision> {
     }
     explicit operator Rational() const;
     explicit operator Dyadic() const;
-    double get_d() const;
+    double get_d() const {
+        if constexpr (sizeof(double)==sizeof(std::uint64_t) &&
+                      std::numeric_limits<double>::is_iec559 &&
+                      std::numeric_limits<double>::digits==53) {
+            // A normal binary64 with <=53 significant bits is exact in
+            // every rounding mode. Keep this frequent conversion inline.
+            if (_kind==Kind::Finite && _precision<=53u) {
+                if (_significand.is_zero()) return _negative ? -0.0 : 0.0;
+                if (_exponent>=-1022-static_cast<Exponent>(_precision-1u) &&
+                    _exponent<=1023-static_cast<Exponent>(_precision-1u)) {
+                    const auto highest=_exponent+static_cast<Exponent>(_precision-1u);
+                    const std::uint64_t fraction=(_significand.limb(0u)<<(53u-_precision)) &
+                        ((std::uint64_t{1}<<52u)-1u);
+                    return std::bit_cast<double>((static_cast<std::uint64_t>(_negative)<<63u) |
+                        (static_cast<std::uint64_t>(highest+1023)<<52u) | fraction);
+                }
+            }
+        }
+        return get_d_general();
+    }
     std::string literal() const;
     std::string literal(RoundingModeType mode) const;
     static Nat output_places;

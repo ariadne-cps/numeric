@@ -12241,3 +12241,97 @@ D142 Windows, Sanitizers and Coverage CI are green at this review;
 Unix was still in progress when last observed. These measurements
 do not, by themselves, establish all-platform semantic correctness or
 prove that Numeric outside FloatAP is GMP-free.
+
+
+### D143 — certified short centered transcendental evaluation (23 October 2026)
+
+The FloatDP comparison at 53 bits showed exp/log/sin/cos/tan/atan/asin/acos
+costing roughly 290–580 ns, dominated by constructing exact Rational
+arguments, corrections and endpoint carriers in the near-half paths.
+The new FloatAP-specific short path evaluates the same local Taylor
+certificates directly in native fixed-point limbs. It does not call libm,
+GMP or MPFR, cache results for benchmark inputs, change the workload, or
+weaken correctly rounded results. Existing constant enclosures remain the
+source of every coefficient. The implementation stays in floatap.cpp;
+shared BigUnsigned kernels provide multiplication and signed-magnitude
+addition/subtraction. No test executable or benchmark modification is added.
+
+**Scope and certificate.** For p<=64, set B=p+32 (34<=B<=96). Accept an
+exact one-limb offset delta=n*2^-D from |x|=1/2 only when 1<=D<=64 and
+|delta|<=2^-ceil(B/2). Other representations/arguments use the existing
+path, including p=64 values just below 1/2 whose scale requires D=65.
+Cache OUTWARD center and positive derivative-magnitude intervals at scale
+2^B, independently of rounding mode. Negative arguments and negative
+derivatives are handled by exact sign metadata. In particular log uses
+the positive magnitude log(2)-2*delta, exp(-y) uses a negative slope,
+and acos(-y) uses center 2*pi/3 and a positive slope.
+
+The pre-existing local Taylor bounds give |R|<=C*delta^2, with C=2 for
+exp, 8 for log, 1 for sin/cos/atan, 6 for tan, and 2 for asin/acos.
+The sin/cos constant also follows from the global bound |f''|<=1.
+The accepted window implies |R|*2^B<=C. Each derivative product is
+rounded outward by exact limb multiplication and inspection of discarded
+bits. Adding/subtracting C integer units therefore encloses the exact
+function value. Bounded signed corrections fit int64_t; unsigned center
+and output buffers need at most two limbs. Both interval endpoints are
+rounded with the existing FloatAP rounding kernel. A result is returned
+only if their normalized significands AND exponents agree. For a negative
+result the magnitude endpoints reverse order, but equality of their
+rounded values provides the same certificate. Any ambiguity falls back
+to the original adaptive/Ziv path, without an iteration cap.
+
+These caches hold coefficient enclosures, not rounded function values.
+They are per thread and rebuilt when this short path's requested precision
+changes. Cold coefficient generation is not represented by the warmed
+benchmark timings below. General arguments and higher precisions retain
+their previous algorithms; these measurements do not imply universal
+performance gains for the eight functions.
+
+**Other short-path work retained in this branch.** Normalization to <=64
+bits reads a borrowed limb window with exact guard/sticky bits; short
+ratios borrow unsigned inputs and use the shared divider; short products
+and powers use stack buffers and one final rounding. Short additions/FMA
+alignment use shared shifted-combine kernels. Rational conversion uses
+the existing dyadic factory. Exact normal binary64 conversion is inline;
+subnormal, overflowing and wider values retain the general conversion.
+Consumers should rebuild against the updated header. In the shared
+single-limb divider, a leading dividend word below the divisor already
+has quotient zero and is used as the initial remainder, avoiding a
+redundant divide. No ISA selection, portable fallback or arithmetic
+contract is changed by that shortcut.
+
+**Same-host measurements.** AppleClang 21, arm64, Release -O3. The existing
+benchmark_compare_double_precision_backends runs with 20,000 iterations
+and 31 samples. Before/after below isolates the transcendental change:
+the earlier short arithmetic work is present on both sides. The final
+columns use the second repeated candidate run; changes smaller than a
+few percent should not be over-interpreted.
+
+| Function | Before (ns) | After (ns) | Speedup | FloatDP after (ns) |
+| --- | ---: | ---: | ---: | ---: |
+| exp | 459.046 | 39.883 | 11.51x | 23.896 |
+| log | 467.175 | 36.825 | 12.69x | 24.583 |
+| sin | 488.731 | 40.308 | 12.12x | 59.352 |
+| cos | 491.781 | 41.933 | 11.73x | 71.156 |
+| tan | 536.396 | 41.508 | 12.92x | 39.123 |
+| atan | 283.113 | 42.160 | 6.72x | 34.183 |
+| asin | 580.500 | 41.529 | 13.98x | 83.150 |
+| acos | 568.906 | 42.169 | 13.49x | 88.860 |
+
+Across all 53 operations in this warmed input pool, final FloatAP/FloatDP
+is 0.773x geometric mean and 0.519x time-sum ratio. The largest remaining
+slowdown is pow7_nearest (4.763x). The local 53-bit nearest exp/log/atan
+and tan still cost more than FloatDP, while sin/cos/asin/acos are faster
+in this particular pool. Directed transcendental operations are faster
+than FloatDP here. Numerical correctness continues to take precedence
+over these measurements.
+
+**Validation.** Existing Release CTest suite: 21/21, including Python.
+Existing multiple-precision comparison at 53/64/128/256/1024/2048 bits:
+384 paired inputs and 10,176 operation results pass its exact post-timing
+verifier (1,000 iterations, 11 samples). The frozen source-keyed FloatAP
+oracles remain unchanged and exercise all four rounding modes, both
+signs, near-half neighborhoods, boundaries and general fallbacks.
+AddressSanitizer/UBSan Debug tests with warnings treated as errors: 20/20
+pass, run separately. Cross-platform CI is still required; local macOS checks
+do not establish Windows/Linux correctness or performance.

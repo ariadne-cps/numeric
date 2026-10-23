@@ -8100,3 +8100,17 @@ Test-independent CMake, FloatMP and benchmark sources are unchanged.
 Run complete cross-platform CI before considering this candidate
 validated; remaining runtime GMP checks require their own independent
 source-keyed migrations.
+
+### FloatAP D143 — skip a known-zero leading quotient digit (23 October 2026)
+
+The short FloatAP ratio path uses the existing divrem_limb_into kernel.
+In its ordinary division loop, a leading dividend limb smaller than the
+nonzero divisor has quotient digit zero and is already the exact initial
+remainder. Initialize that digit/remainder directly and divide only the
+remaining words. Empty inputs and trailing output zeroing retain their
+contracts; preinverted and power-of-two selections are unchanged. This
+portable shortcut reuses all existing architecture-specific divide_wide
+implementations and adds none. Existing GMP-backed single-limb division
+boundary/random checks and the complete FloatAP oracle suite validate the
+shared operation. See floatap_design.md D143 for the encompassing branch
+and its local performance/validation scope.
