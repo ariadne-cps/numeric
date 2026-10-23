@@ -318,8 +318,8 @@ TestFloatBounds<PR>::test_tpl_api_and_branches()
     ARIADNE_TEST_COMPARE(truncated.upper_raw(),>=,inexact.upper_raw());
     ARIADNE_TEST_EXECUTE(trunc(inexact,Nat(40u)));
 
-    // The DP and MP bounds stream specializations represent the zero
-    // interval as 0.0[:], distinct from the generic Bounds<F> formatter.
+    // All supported floating-point bounds use the same public
+    // zero-interval representation, including native FloatAP.
     {
         std::ostringstream zero_output;
         zero_output << FloatBoundsType(0,pr);
