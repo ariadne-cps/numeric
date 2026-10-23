@@ -33,6 +33,7 @@
 #include "numeric/float.decl.hpp"
 #include "numeric/number.decl.hpp"
 #include "numeric/sign.hpp"
+#include "numeric/big_unsigned.hpp"
 #include <cstddef>
 #include <ostream>
 #include <gmp.h>
@@ -117,7 +118,8 @@ using FloatAP = Float<ArbitraryPrecision>;
 
 // MPFR-independent floating-point representation and arithmetic.
 // A finite nonzero value is (-1)^negative * significand * 2^exponent,
-// with precisely precision significant bits. GMP is temporary limb storage.
+// with precisely precision significant bits and a native BigUnsigned
+// significand. GMP remains only at external legacy/interval boundaries.
 template<> class Float<ArbitraryPrecision> {
   public:
     // A value type rather than an enum: Ariadne's rounding tags convert
@@ -152,14 +154,13 @@ template<> class Float<ArbitraryPrecision> {
     using Exponent = std::int64_t;
 
   private:
-    // Shared unsigned arithmetic uses BigUnsigned. The mpz_t member and
-    // its remaining callers are transitional until full storage removal.
+    // Exact nonnegative magnitude; sign and special-value kind are separate.
     static FloatAP from_native_ratio(Integer const& numerator,
                                      Integer const& denominator,
                                      Exponent scale,unsigned long precision,
                                      Rounding mode,bool negative_zero=false,
                                      bool invert_sign=false);
-    mpz_t _significand;
+    BigUnsigned _significand;
     unsigned long _precision;
     Exponent _exponent = 0;
     Kind _kind = Kind::Finite;
@@ -191,8 +192,8 @@ template<> class Float<ArbitraryPrecision> {
         }
         return static_cast<mp_bitcnt_t>(n);
     }
-    static Exponent bit_length(mpz_srcptr x) {
-        return floatap_exponent_from_bit_length(mpz_sizeinbase(x, 2));
+    static Exponent bit_length(BigUnsigned const& x) {
+        return floatap_exponent_from_bit_length(x.bit_length());
     }
     // Normalize and round an already-owned nonzero positive significand.
     static void round_scaled_integer(FloatAP& result, Exponent scale, Rounding mode);
@@ -200,7 +201,7 @@ template<> class Float<ArbitraryPrecision> {
         _kind = Kind::Finite;
         _negative = negative;
         _exponent = 0;
-        mpz_set_ui(_significand, 0);
+        _significand=BigUnsigned{};
     }
 
   public:
@@ -208,7 +209,6 @@ template<> class Float<ArbitraryPrecision> {
         if (precision < 2 || precision > static_cast<std::uint64_t>(std::numeric_limits<Exponent>::max())) {
             throw std::invalid_argument("FloatAP precision must be >=2 and fit in exponent range");
         }
-        mpz_init(_significand);
     }
     explicit Float(PrecisionType precision)
     : Float(static_cast<unsigned long>(precision.bits())) {
@@ -248,18 +248,13 @@ template<> class Float<ArbitraryPrecision> {
     friend OutputStream& write(OutputStream& out, FloatAP const& x, DecimalPrecision figures, RoundingModeType mode);
     friend OutputStream& repr(OutputStream& out, FloatAP const& x, RoundingModeType mode);
     friend OutputStream& repr(OutputStream& out, FloatAP const& x);
-    ~Float() {
-        mpz_clear(_significand);
-    }
+    ~Float() = default;
     Float(FloatAP const& x)
-    : _precision(x._precision), _exponent(x._exponent), _kind(x._kind), _negative(x._negative) {
-        mpz_init_set(_significand, x._significand);
-    }
-    Float(FloatAP && x) noexcept
-    : _precision(x._precision), _exponent(x._exponent), _kind(x._kind), _negative(x._negative) {
-        mpz_init(_significand);
-        mpz_swap(_significand, x._significand);
-    }
+    : _significand(x._significand), _precision(x._precision),
+      _exponent(x._exponent), _kind(x._kind), _negative(x._negative) { }
+    Float(FloatAP&& x) noexcept
+    : _significand(std::move(x._significand)), _precision(x._precision),
+      _exponent(x._exponent), _kind(x._kind), _negative(x._negative) { }
     FloatAP& operator=(FloatAP x) noexcept {
         swap(x);
         return *this;
@@ -277,7 +272,7 @@ template<> class Float<ArbitraryPrecision> {
         }
     }
     void swap(FloatAP& x) noexcept {
-        mpz_swap(_significand, x._significand);
+        _significand.swap(x._significand);
         std::swap(_precision, x._precision);
         std::swap(_exponent, x._exponent);
         std::swap(_kind, x._kind);
@@ -305,7 +300,7 @@ template<> class Float<ArbitraryPrecision> {
     Exponent exponent() const noexcept {
         return _exponent;
     }
-    mpz_srcptr significand() const noexcept {
+    BigUnsigned const& significand() const noexcept {
         return _significand;
     }
     Kind kind() const noexcept {
@@ -315,7 +310,7 @@ template<> class Float<ArbitraryPrecision> {
         return _negative;
     }
     bool is_zero() const noexcept {
-        return _kind == Kind::Finite && mpz_size(_significand) == 0;
+        return _kind == Kind::Finite && _significand.is_zero();
     }
     bool is_finite() const noexcept {
         return _kind == Kind::Finite;
@@ -363,14 +358,16 @@ template<> class Float<ArbitraryPrecision> {
     // No subnormal significands are supported by this kernel.
     static FloatAP min(PrecisionType p) {
         FloatAP result(p);
-        mpz_setbit(result._significand, static_cast<mp_bitcnt_t>(p.bits()-1));
+        result._significand=shift_left(BigUnsigned(1u),p.bits()-1u);
         result._exponent = std::numeric_limits<Exponent>::min();
         return result;
     }
     static FloatAP max(PrecisionType p) {
         FloatAP result(p);
-        mpz_setbit(result._significand, static_cast<mp_bitcnt_t>(p.bits()));
-        mpz_sub_ui(result._significand, result._significand, 1);
+        const BigUnsigned power=shift_left(BigUnsigned(1u),p.bits());
+        const BigUnsigned one(1u);
+        result._significand=BigUnsigned::sub_shifted(
+            power.limbs(),0u,one.limbs(),0u);
         result._exponent = std::numeric_limits<Exponent>::max();
         return result;
     }

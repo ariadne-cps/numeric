@@ -11382,3 +11382,56 @@ mistaking the staged native operation conversions for completion of
 the storage migration. The new power path and existing tests still
 require compilation and CI confirmation, plus performance measurements
 before any speed claim.
+
+### D119 — replace FloatAP mpz_t significand with BigUnsigned (23 October 2026)
+
+This change replaces the storage member `FloatAP::_significand` from
+`mpz_t` to an owned canonical `BigUnsigned`. Its public
+`significand()` observer now returns `BigUnsigned const&` instead
+of `mpz_srcptr`. Native value copy/move/swap/destruction take the
+place of the old GMP lifetime calls. The sign, finite/inf/nan kind,
+precision and signed 64-bit exponent remain independent metadata.
+
+The native magnitude path now covers: constructing/rounding from
+Integer/Rational, round_scaled_integer with exact guard/sticky/LSB
+tests, from_native_ratio, add/sub including far-exponent signed-sticky
+special cases, mul, div, fused multiply-add, pow, sqrtrem-based sqrt,
+rescale to another precision, Dyadic/Rational export, signed integral
+floor/ceil/round, cmp between unequal exponents using truncated
+unsigned limbs and nonzero discarded-bit detection, correctly rounded
+IEEE binary64 get_d, and next/previous including exponent edges.
+The preexisting legacy `from_ratio(mpz_srcptr,...)`,
+`from_rational(mpq_srcptr,...)` and `to_rational(mpq_ptr)`
+remain *boundary adapters*: incoming/outgoing GMP rationals or
+integers are converted exactly where needed, but no GMP object
+backs the FloatAP significand.
+
+In the predecessor of an exact power of two, normalization requires
+the p-bit integer `2^p-1` and one less exponent, independently of
+sign. The previous `mpz_setbit` followed by an extra decrement did
+not yield that exact normalized predecessor. The native
+implementation sets `2^p-1` directly. The newly added dedicated
+`test_floatap_native_significand_storage` has independent fixed
+expected bit patterns (not GMP) at 7, 53, 128 and 256 precision
+bits, including positive/negative powers of two, immediate neighbors,
+native value copy/assignment, signed zero and extreme finite
+significands. Existing independent directed-rounding fixtures and
+certified regression oracles are not altered.
+
+IMPORTANT scope boundary: this removes GMP storage from FloatAP
+itself, NOT every last GMP call in `src/floatap.cpp`. Decimal
+printing and the legacy pointer interfaces still call GMP at exact
+representation boundaries, and certified transcendental interval
+kernels still own `mpq_t`/`mpz_t` scratch and caches. Those
+are separately tracked future conversions to native Rational/Integer.
+The main FloatAP value operations no longer call GMP on a
+`_significand` operand, as checked across the source and header.
+
+The workspace available for this edit cannot resolve github.com
+to clone the complete project and run the whole C++ build. The
+source replacement was statically checked for all GMP calls
+directly accessing the significand, and the new tests were
+added, but neither full compiler nor integration test success
+has yet been established. Treat CI as mandatory validation, and
+correct any compile failures or semantic regressions before
+claiming the migration is verified.

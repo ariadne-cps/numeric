@@ -62,31 +62,48 @@
 namespace Ariadne {
 
 // All unsigned arithmetic in FloatAP uses the repository's optimized
-// 64-bit-limb BigUnsigned. No second 32-bit-limb arithmetic engine.
-// Round an already-populated, nonzero positive GMP significand in-place.
-// Keeping the destination as the accumulator avoids extra mpz allocations
-// and signed-integer copies in add_sub() and mul(). The sign is stored
-// separately, and the rounding logic is shared with from_ratio(n,1,...).
+// 64-bit-limb BigUnsigned; the nonnegative significand is owned directly.
+namespace {
+bool floatap_test_bit(BigUnsigned const& n,std::size_t bit) noexcept {
+    return ((n.limb(bit/64u)>>(bit%64u))&1u)!=0u;
+}
+bool floatap_any_bits_below(BigUnsigned const& n,std::size_t limit) noexcept {
+    const auto digits=n.limbs();
+    const std::size_t whole=std::min(limit/64u,digits.size());
+    for(std::size_t i=0u;i<whole;++i) {
+        if(digits[i]!=0u) return true;
+    }
+    const unsigned partial=static_cast<unsigned>(limit%64u);
+    return partial!=0u && whole<digits.size() &&
+        (digits[whole]&((BigUnsigned::Limb{1}<<partial)-1u))!=0u;
+}
+std::size_t floatap_popcount(BigUnsigned const& n) noexcept {
+    std::size_t count=0u;
+    for(auto word:n.limbs()) count+=static_cast<std::size_t>(std::popcount(word));
+    return count;
+}
+BigUnsigned add_big_unsigned(BigUnsigned const&,BigUnsigned const&);
+} // namespace
+// Round a positive native magnitude in place, preserving tie-to-even.
 void FloatAP::round_scaled_integer(FloatAP& result, Exponent scale, Rounding mode) {
     const auto precision = result._precision;
     const Exponent shift = checked_sub(bit_length(result._significand),
                                        static_cast<Exponent>(precision));
     result._exponent = checked_add(scale, shift);
     if (shift <= 0) {
-        mpz_mul_2exp(result._significand, result._significand,
-                     shift_amount(checked_sub(0, shift)));
+        result._significand=shift_left(result._significand,
+            static_cast<std::size_t>(shift_amount(checked_sub(0,shift))));
         return;
     }
-
-    const mp_bitcnt_t dropped = shift_amount(shift);
-    const bool inexact = mpz_scan1(result._significand, 0u) < dropped;
+    const std::size_t dropped=static_cast<std::size_t>(shift_amount(shift));
+    const bool inexact=floatap_any_bits_below(result._significand,dropped);
     bool increment = false;
     if (inexact) {
         switch (mode.value()) {
             case Rounding::ToNearest:
-                increment = mpz_tstbit(result._significand, dropped - 1u) != 0 &&
-                    (mpz_tstbit(result._significand, dropped) != 0 ||
-                     mpz_scan1(result._significand, 0u) < dropped - 1u);
+                increment=floatap_test_bit(result._significand,dropped-1u) &&
+                    (floatap_test_bit(result._significand,dropped) ||
+                     floatap_any_bits_below(result._significand,dropped-1u));
                 break;
             case Rounding::Downward:
                 increment = result._negative;
@@ -100,10 +117,11 @@ void FloatAP::round_scaled_integer(FloatAP& result, Exponent scale, Rounding mod
                 throw std::invalid_argument("FloatAP unknown rounding mode");
         }
     }
-    mpz_tdiv_q_2exp(result._significand, result._significand, dropped);
-    if (increment) mpz_add_ui(result._significand, result._significand, 1u);
-    if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
-        mpz_tdiv_q_2exp(result._significand, result._significand, 1u);
+    result._significand=shift_right(result._significand,dropped);
+    if (increment) result._significand=add_big_unsigned(
+        result._significand,BigUnsigned(1u));
+    if (bit_length(result._significand)>static_cast<Exponent>(precision)) {
+        result._significand=shift_right(result._significand,1u);
         // Crossing the maximal finite exponent by a rounded carry yields infinity.
         if (result._exponent == std::numeric_limits<Exponent>::max()) {
             result = infinity(precision, result._negative);
@@ -166,8 +184,7 @@ FloatAP FloatAP::from_native_ratio(Integer const& numerator,
     if (denominator_is_power_of_two) {
         const Exponent denominator_shift =
             floatap_exponent_from_bit_length(d.bit_length()-1u);
-        integer_to_gmp(result._significand,
-            Integer::from_magnitude(n,false));
+        result._significand=n;
         round_scaled_integer(result,checked_sub(scale,denominator_shift),mode);
         return result;
     }
@@ -227,8 +244,7 @@ FloatAP FloatAP::from_native_ratio(Integer const& numerator,
         }
         result._exponent=checked_add(result._exponent,1);
     }
-    integer_to_gmp(result._significand,
-        Integer::from_magnitude(std::move(quotient),false));
+    result._significand=std::move(quotient);
     return result;
 }
 
@@ -260,7 +276,7 @@ FloatAP FloatAP::from_rational(mpq_srcptr r, unsigned long p, Rounding mode) {
             mpz_srcptr numerator = mpq_numref(r);
             if (mpz_sgn(numerator) == 0) return result;
             result._negative = mpz_sgn(numerator) < 0;
-            mpz_abs(result._significand, numerator);
+            result._significand=integer_from_gmp(numerator).magnitude();
             round_scaled_integer(result, -static_cast<Exponent>(power), mode);
             return result;
         }
@@ -270,8 +286,8 @@ FloatAP FloatAP::from_rational(mpq_srcptr r, unsigned long p, Rounding mode) {
 
 void FloatAP::to_rational(mpq_ptr out) const {
     if (!is_finite()) throw std::domain_error("FloatAP nonfinite to Rational");
-    mpz_set(mpq_numref(out), _significand);
-    if (_negative) mpz_neg(mpq_numref(out), mpq_numref(out));
+    integer_to_gmp(mpq_numref(out),
+        Integer::from_magnitude(_significand,_negative));
     mpz_set_ui(mpq_denref(out), 1);
     if (_exponent > 0) mpz_mul_2exp(mpq_numref(out), mpq_numref(out), shift_amount(_exponent));
     if (_exponent < 0) mpz_mul_2exp(mpq_denref(out), mpq_denref(out), shift_amount(checked_sub(0, _exponent)));
@@ -333,9 +349,8 @@ unsigned long p, Rounding mode, bool subtract) {
             checked_add(static_cast<Exponent>(high._precision),
                         static_cast<Exponent>(p)),2);
         const auto shift=static_cast<std::size_t>(shift_amount(padding));
-        const Integer high_integer=integer_from_gmp(high._significand);
         Integer exact=Integer::from_magnitude(
-            shift_left(high_integer.magnitude(),shift),high_negative);
+            shift_left(high._significand,shift),high_negative);
         exact=low_negative ? exact-Integer(1) : exact+Integer(1);
         const Integer denominator=Integer::from_magnitude(
             shift_left(BigUnsigned(1u),shift),false);
@@ -346,28 +361,24 @@ unsigned long p, Rounding mode, bool subtract) {
     // Preserve the independent sign metadata and a single final rounding.
     FloatAP result(p);
     result._negative=high_negative;
-    const Integer high_integer=integer_from_gmp(high._significand);
-    const Integer low_integer=integer_from_gmp(low._significand);
-    BigUnsigned aligned=shift_left(high_integer.magnitude(),
+    BigUnsigned aligned=shift_left(high._significand,
         static_cast<std::size_t>(
             shift_amount(checked_sub(high._exponent,low._exponent))));
     if(a._negative==b_negative) {
-        aligned=add_big_unsigned(aligned,low_integer.magnitude());
+        aligned=add_big_unsigned(aligned,low._significand);
     } else {
-        if(compare(aligned,low_integer.magnitude())<0) {
-            aligned=sub_big_unsigned(low_integer.magnitude(),aligned);
+        if(compare(aligned,low._significand)<0) {
+            aligned=sub_big_unsigned(low._significand,aligned);
             result._negative=!result._negative;
         } else {
-            aligned=sub_big_unsigned(aligned,low_integer.magnitude());
+            aligned=sub_big_unsigned(aligned,low._significand);
         }
     }
     if(aligned.is_zero()) {
         result.set_zero(mode==Rounding::Downward);
         return result;
     }
-    // Until the storage field is changed, GMP remains only the destination.
-    integer_to_gmp(result._significand,
-        Integer::from_magnitude(std::move(aligned),false));
+    result._significand=std::move(aligned);
     round_scaled_integer(result,low._exponent,mode);
     return result;
 }
@@ -380,12 +391,7 @@ unsigned long p, Rounding mode) {
     if (a.is_zero() || b.is_zero()) return zero(p, neg);
     FloatAP result(p);
     result._negative = neg;
-    const Integer a_integer=integer_from_gmp(a._significand);
-    const Integer b_integer=integer_from_gmp(b._significand);
-    BigUnsigned product=mul_big_unsigned(a_integer.magnitude(),
-                                         b_integer.magnitude());
-    integer_to_gmp(result._significand,
-        Integer::from_magnitude(std::move(product),false));
+    result._significand=mul_big_unsigned(a._significand,b._significand);
     round_scaled_integer(result,checked_add(a._exponent,b._exponent),mode);
     return result;
 }
@@ -396,10 +402,10 @@ unsigned long p, Rounding mode) {
     const bool neg = a._negative != b._negative;
     if (a.is_inf() || b.is_zero()) return infinity(p, neg);
     if (a.is_zero() || b.is_inf()) return zero(p, neg);
-    // Sign remains metadata; the native quotient/remainder algorithm
-    // receives positive Integer magnitudes without a signed copy.
-    return from_native_ratio(integer_from_gmp(a._significand),
-                             integer_from_gmp(b._significand),
+    // Sign remains metadata, and inputs already own unsigned magnitudes.
+    return from_native_ratio(
+                             Integer::from_magnitude(a._significand,false),
+                             Integer::from_magnitude(b._significand,false),
                              checked_sub(a._exponent,b._exponent),
                              p,mode,false,neg);
 }
@@ -414,13 +420,9 @@ FloatAP const& c, unsigned long p, Rounding mode) {
     }
     if (c.is_inf()) return infinity(p, c._negative);
     if (a.is_zero() || b.is_zero()) return add(zero(p, neg), c, p, mode);
-    const Integer a_integer=integer_from_gmp(a._significand);
-    const Integer b_integer=integer_from_gmp(b._significand);
-    BigUnsigned product=mul_big_unsigned(a_integer.magnitude(),
-                                         b_integer.magnitude());
+    BigUnsigned product=mul_big_unsigned(a._significand,b._significand);
     FloatAP exact(static_cast<unsigned long>(product.bit_length()));
-    integer_to_gmp(exact._significand,
-        Integer::from_magnitude(std::move(product),false));
+    exact._significand=std::move(product);
     exact._negative = neg;
     exact._exponent = checked_add(a._exponent, b._exponent);
     return add(exact, c, p, mode);
@@ -533,9 +535,8 @@ FloatAP::Float(FloatAP const& value, RoundingModeType mode, PrecisionType precis
         // Rescale the existing binary significand without materializing
         // significand * 2^exponent as an enormous Rational. This is
         // essential at the native exponent limits.
-        const Integer original=integer_from_gmp(value._significand);
         const Integer numerator=Integer::from_magnitude(
-            original.magnitude(),value._negative);
+            value._significand,value._negative);
         *this=from_native_ratio(numerator,Integer(1u),value._exponent,
                                 static_cast<unsigned long>(precision.bits()),
                                 mode);
@@ -571,9 +572,8 @@ FloatAP::operator Dyadic() const {
     if (is_inf()) {
         return Dyadic::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
     }
-    // D46: export the exact binary significand/exponent, not an mpf_t.
-    // GMP remains an internal FloatAP significand representation only.
-    BigUnsigned magnitude=integer_from_gmp(_significand).magnitude();
+    // Export the exact native binary significand/exponent.
+    BigUnsigned magnitude=_significand;
     if (magnitude.is_zero()) { return Dyadic(0); }
     if (_exponent>=0) {
         return Dyadic(Integer::from_magnitude(
@@ -719,7 +719,7 @@ std::string print(FloatAP const& x, DecimalPrecision figures, FloatAP::RoundingM
     if(std::isfinite(absolute) && absolute>0) {
         magnitude=static_cast<int>(std::floor(std::log10(absolute)));
     } else {
-        const double estimated=(static_cast<double>(mpz_sizeinbase(x.significand(),2))-1.0
+        const double estimated=(static_cast<double>(x.significand().bit_length())-1.0
                                +static_cast<double>(x.exponent()))*0.3010299956639812;
         magnitude=static_cast<int>(std::floor(estimated));
     }
@@ -830,28 +830,27 @@ FloatAP next(RoundUpward, FloatAP const& x) {
     if (x.is_inf()) return neg(FloatAP::max(x.precision()));
     if (x.is_zero()) return FloatAP::min(x.precision());
     FloatAP r(x);
-    const bool all_ones = mpz_popcount(r._significand) == r._precision;
-    const bool first = mpz_popcount(r._significand) == 1;
+    const bool all_ones = floatap_popcount(r._significand) == r._precision;
+    const bool first = floatap_popcount(r._significand) == 1;
     if (r._negative) {
         if (first) {
             if (r._exponent == std::numeric_limits<FloatAP::Exponent>::min()) {
                 return FloatAP::zero(r._precision, true);
             }
-            mpz_setbit(r._significand, static_cast<mp_bitcnt_t>(r._precision));
-            mpz_sub_ui(r._significand, r._significand, 1);
+            r._significand=sub_big_unsigned(
+                shift_left(BigUnsigned(1u),r._precision),BigUnsigned(1u));
             --r._exponent;
         } else {
-            mpz_sub_ui(r._significand, r._significand, 1);
+            r._significand=sub_big_unsigned(r._significand,BigUnsigned(1u));
         }
     } else if (all_ones) {
         if (r._exponent == std::numeric_limits<FloatAP::Exponent>::max()) {
             return FloatAP::inf(r.precision());
         }
-        mpz_set_ui(r._significand, 0);
-        mpz_setbit(r._significand, static_cast<mp_bitcnt_t>(r._precision-1));
+        r._significand=shift_left(BigUnsigned(1u),r._precision-1u);
         ++r._exponent;
     } else {
-        mpz_add_ui(r._significand, r._significand, 1);
+        r._significand=add_big_unsigned(r._significand,BigUnsigned(1u));
     }
     return r;
 }
@@ -861,28 +860,27 @@ FloatAP next(RoundDownward, FloatAP const& x) {
     if (x.is_inf()) return FloatAP::max(x.precision());
     if (x.is_zero()) return neg(FloatAP::min(x.precision()));
     FloatAP r(x);
-    const bool all_ones = mpz_popcount(r._significand) == r._precision;
-    const bool first = mpz_popcount(r._significand) == 1;
+    const bool all_ones = floatap_popcount(r._significand) == r._precision;
+    const bool first = floatap_popcount(r._significand) == 1;
     if (r._negative) {
         if (all_ones) {
             if (r._exponent == std::numeric_limits<FloatAP::Exponent>::max()) {
                 return FloatAP::inf(Sign::NEGATIVE, r.precision());
             }
-            mpz_set_ui(r._significand, 0);
-            mpz_setbit(r._significand, static_cast<mp_bitcnt_t>(r._precision-1));
+            r._significand=shift_left(BigUnsigned(1u),r._precision-1u);
             ++r._exponent;
         } else {
-            mpz_add_ui(r._significand, r._significand, 1);
+            r._significand=add_big_unsigned(r._significand,BigUnsigned(1u));
         }
     } else if (first) {
         if (r._exponent == std::numeric_limits<FloatAP::Exponent>::min()) {
             return FloatAP::zero(r._precision);
         }
-        mpz_setbit(r._significand, static_cast<mp_bitcnt_t>(r._precision));
-        mpz_sub_ui(r._significand, r._significand, 1);
+        r._significand=sub_big_unsigned(
+                shift_left(BigUnsigned(1u),r._precision),BigUnsigned(1u));
         --r._exponent;
     } else {
-        mpz_sub_ui(r._significand, r._significand, 1);
+        r._significand=sub_big_unsigned(r._significand,BigUnsigned(1u));
     }
     return r;
 }
@@ -926,8 +924,7 @@ FloatAP floor(FloatAP const& x) {
     if(!x.is_finite() || x.is_zero() || x._exponent>=0) return x;
     const std::uint64_t shift=std::uint64_t{0}-
         static_cast<std::uint64_t>(x._exponent);
-    const Integer significand=integer_from_gmp(x._significand);
-    const BigUnsigned& magnitude=significand.magnitude();
+    const BigUnsigned& magnitude=x._significand;
     if(shift>=magnitude.bit_length()) {
         return FloatAP(x._negative ? std::int64_t{-1} : std::int64_t{0},x.precision());
     }
@@ -943,8 +940,7 @@ FloatAP ceil(FloatAP const& x) {
     if(!x.is_finite() || x.is_zero() || x._exponent>=0) return x;
     const std::uint64_t shift=std::uint64_t{0}-
         static_cast<std::uint64_t>(x._exponent);
-    const Integer significand=integer_from_gmp(x._significand);
-    const BigUnsigned& magnitude=significand.magnitude();
+    const BigUnsigned& magnitude=x._significand;
     if(shift>=magnitude.bit_length()) {
         return FloatAP(x._negative ? std::int64_t{0} : std::int64_t{1},x.precision());
     }
@@ -960,8 +956,7 @@ FloatAP round(FloatAP const& x) {
     if(!x.is_finite() || x.is_zero() || x._exponent>=0) return x;
     const std::uint64_t shift=std::uint64_t{0}-
         static_cast<std::uint64_t>(x._exponent);
-    const Integer significand=integer_from_gmp(x._significand);
-    const BigUnsigned& magnitude=significand.magnitude();
+    const BigUnsigned& magnitude=x._significand;
     const std::size_t bits=magnitude.bit_length();
     if(shift>bits) {
         return FloatAP::zero(x._precision,x._negative);
@@ -1190,7 +1185,7 @@ FloatAP::Float(Rational const& q, RoundingModeType mode, PrecisionType pr)
 FloatAP::operator Rational() const {
     if (is_nan()) return Rational::nan();
     if (is_inf()) return Rational::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
-    BigUnsigned n=integer_from_gmp(_significand).magnitude();
+    BigUnsigned n=_significand;
     BigUnsigned d(1u);
     if (_exponent>0) { n=shift_left(n,shift_amount(_exponent)); }
     if (_exponent<0) { d=shift_left(d,shift_amount(checked_sub(0,_exponent))); }
@@ -1229,7 +1224,7 @@ double FloatAP::get_d() const {
 
     // The finite significand is positive and has at most _precision bits,
     // which itself fits Exponent by construction.
-    const Exponent top = static_cast<Exponent>(mpz_sizeinbase(_significand, 2) - 1u);
+    const Exponent top=static_cast<Exponent>(_significand.bit_length()-1u);
     if (_exponent > 0 && top > std::numeric_limits<Exponent>::max() - _exponent) {
         return signed_value(rounds_away() ?
                             std::numeric_limits<double>::infinity() :
@@ -1248,12 +1243,12 @@ double FloatAP::get_d() const {
                             std::numeric_limits<double>::denorm_min() : 0.0);
     }
 
-    // GMP truncates this normalized 53-bit significand, regardless of the
-    // stored precision. The conversion and scaling to an integer are exact.
-    long unused_exponent = 0;
-    const double leading_fraction = mpz_get_d_2exp(&unused_exponent, _significand);
-    const std::uint64_t leading = static_cast<std::uint64_t>(
-        std::ldexp(leading_fraction, static_cast<int>(digits)));
+    // Extract the 53 leading bits exactly, truncating any low bits.
+    const std::size_t width=_significand.bit_length();
+    const BigUnsigned top_bits=width>static_cast<std::size_t>(digits)
+        ? shift_right(_significand,width-static_cast<std::size_t>(digits))
+        : shift_left(_significand,static_cast<std::size_t>(digits)-width);
+    const std::uint64_t leading=top_bits.limb(0u);
     const Exponent subnormal_shift = highest < min_normal
                                     ? min_normal - highest : 0;
     std::uint64_t mantissa = leading >> static_cast<unsigned>(subnormal_shift);
@@ -1262,25 +1257,21 @@ double FloatAP::get_d() const {
     // mode, including IEEE halfway ties and the transition to subnormals.
     const Exponent discarded = top - (digits - 1) + subnormal_shift;
     if (discarded > 0) {
-        if (static_cast<std::uintmax_t>(discarded) >
-            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
-            throw std::overflow_error("FloatAP conversion shift exceeds GMP limit");
-        }
-        const mp_bitcnt_t dropped = static_cast<mp_bitcnt_t>(discarded);
+        const std::size_t dropped=static_cast<std::size_t>(discarded);
         bool increment = false;
         switch (mode) {
             case Rounding::ToNearest:
-                increment = mpz_tstbit(_significand, dropped - 1u) != 0 &&
-                    ((mantissa & 1u) != 0u ||
-                     mpz_scan1(_significand, 0u) < dropped - 1u);
+                increment=floatap_test_bit(_significand,dropped-1u) &&
+                    ((mantissa&1u)!=0u ||
+                     floatap_any_bits_below(_significand,dropped-1u));
                 break;
             case Rounding::Downward:
-                increment = _negative &&
-                    mpz_scan1(_significand, 0u) < dropped;
+                increment=_negative &&
+                    floatap_any_bits_below(_significand,dropped);
                 break;
             case Rounding::Upward:
-                increment = !_negative &&
-                    mpz_scan1(_significand, 0u) < dropped;
+                increment=!_negative &&
+                    floatap_any_bits_below(_significand,dropped);
                 break;
             case Rounding::TowardZero:
                 break;
@@ -1358,10 +1349,10 @@ Comparison cmp(FloatAP const& a, FloatAP const& b) {
     // any GMP temporaries or constructing Rational values.
     int magnitude = 0;
     if (a._exponent == b._exponent) {
-        magnitude = mpz_cmp(a._significand, b._significand);
+        magnitude = compare(a._significand,b._significand);
     } else {
-        const std::size_t a_bits = mpz_sizeinbase(a._significand, 2);
-        const std::size_t b_bits = mpz_sizeinbase(b._significand, 2);
+        const std::size_t a_bits=a._significand.bit_length();
+        const std::size_t b_bits=b._significand.bit_length();
 
         if (a._exponent > b._exponent) {
             // Unsigned subtraction also handles a signed exponent gap
@@ -1377,16 +1368,10 @@ Comparison cmp(FloatAP const& a, FloatAP const& b) {
             } else {
                 // The leading positions coincide. Shift the smaller
                 // representation right; the discarded bits break ties.
-                mpz_t truncated;
-                mpz_init(truncated);
-                struct Cleanup {
-                    mpz_ptr value;
-                    ~Cleanup() { mpz_clear(value); }
-                } cleanup{truncated};
-                const auto shift = static_cast<mp_bitcnt_t>(gap);
-                mpz_tdiv_q_2exp(truncated, b._significand, shift);
-                magnitude = mpz_cmp(a._significand, truncated);
-                if (magnitude == 0 && !mpz_divisible_2exp_p(b._significand, shift)) {
+                const auto shift=static_cast<std::size_t>(gap);
+                const BigUnsigned truncated=shift_right(b._significand,shift);
+                magnitude=compare(a._significand,truncated);
+                if(magnitude==0 && floatap_any_bits_below(b._significand,shift)) {
                     magnitude = -1;
                 }
             }
@@ -1400,16 +1385,10 @@ Comparison cmp(FloatAP const& a, FloatAP const& b) {
             } else if (gap < a_bits - b_bits) {
                 magnitude = 1;
             } else {
-                mpz_t truncated;
-                mpz_init(truncated);
-                struct Cleanup {
-                    mpz_ptr value;
-                    ~Cleanup() { mpz_clear(value); }
-                } cleanup{truncated};
-                const auto shift = static_cast<mp_bitcnt_t>(gap);
-                mpz_tdiv_q_2exp(truncated, a._significand, shift);
-                magnitude = mpz_cmp(truncated, b._significand);
-                if (magnitude == 0 && !mpz_divisible_2exp_p(a._significand, shift)) {
+                const auto shift=static_cast<std::size_t>(gap);
+                const BigUnsigned truncated=shift_right(a._significand,shift);
+                magnitude=compare(truncated,b._significand);
+                if(magnitude==0 && floatap_any_bits_below(a._significand,shift)) {
                     magnitude = 1;
                 }
             }
@@ -1456,7 +1435,7 @@ FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
     // Compute the exact integer square root and remainder with native
     // unsigned limbs. GMP is not part of the root/rounding calculation.
     // Only the final owned significand export remains transitional.
-    const BigUnsigned magnitude=integer_from_gmp(value._significand).magnitude();
+    const BigUnsigned& magnitude=value._significand;
     const BigUnsigned scaled=shift_left(magnitude,static_cast<std::size_t>(
         FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift))));
     auto [root,remainder]=sqrtrem(scaled);
@@ -1488,8 +1467,7 @@ FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
     }
 
     FloatAP result(bits);
-    integer_to_gmp(result._significand,
-        Integer::from_magnitude(std::move(root),false));
+    result._significand=std::move(root);
     result._exponent = result_exponent;
     return result;
 }
@@ -1545,14 +1523,9 @@ FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& value, Nat exponent) 
     if (!scale_overflow) {
         FloatAP result(bits);
         result._negative = value._negative && ((degree & 1ul) != 0ul);
-        // Exact power in the native unsigned magnitude engine. GMP is
-        // only the transitional storage boundary for the FloatAP result.
-        const BigUnsigned magnitude=
-            integer_from_gmp(value._significand).magnitude();
-        const BigUnsigned powered=pow(magnitude,
+        // Exact power on the already-owned unsigned magnitude.
+        result._significand=pow(value._significand,
             static_cast<std::uint64_t>(degree));
-        integer_to_gmp(result._significand,
-            Integer::from_magnitude(powered,false));
         FloatAP::round_scaled_integer(result, product_scale, mode);
         return result;
     }

@@ -1072,6 +1072,63 @@ Void test_floatap_exact_dyadic_export() {
     ARIADNE_TEST_EQUALS(static_cast<Dyadic>(FloatAP(0,precision)),Dyadic(0));
 }
 
+// Native-storage regression uses exact binary significand/exponent facts,
+// not another floating implementation or GMP as the test oracle.
+Void test_floatap_native_significand_storage() {
+    for (std::size_t bits:{7u,53u,128u,256u}) {
+        const ArbitraryPrecision precision(bits);
+        const BigUnsigned leading=shift_left(BigUnsigned(1u),bits-1u);
+        const BigUnsigned all_ones=sub(shift_left(BigUnsigned(1u),bits),
+                                      BigUnsigned(1u));
+        const FloatAP one(std::int64_t{1},precision);
+        const FloatAP negative_one(std::int64_t{-1},precision);
+        ARIADNE_TEST_ASSERT(compare(one.significand(),leading)==0);
+        ARIADNE_TEST_ASSERT(compare(negative_one.significand(),leading)==0);
+        ARIADNE_TEST_ASSERT(!one.negative() && negative_one.negative());
+        ARIADNE_TEST_ASSERT(one.exponent()==-static_cast<std::int64_t>(bits-1u));
+        ARIADNE_TEST_ASSERT(negative_one.exponent()==one.exponent());
+        ARIADNE_TEST_EQUALS(one.get_d(),1.0);
+        ARIADNE_TEST_EQUALS(negative_one.get_d(),-1.0);
+
+        // Immediately below +1 and immediately above -1, the p-bit
+        // significand wraps to 2^p-1 with the exponent decremented.
+        const FloatAP before_one=next(RoundDownward{},one);
+        const FloatAP after_negative_one=next(RoundUpward{},negative_one);
+        ARIADNE_TEST_ASSERT(compare(before_one.significand(),all_ones)==0);
+        ARIADNE_TEST_ASSERT(compare(after_negative_one.significand(),all_ones)==0);
+        ARIADNE_TEST_ASSERT(before_one.exponent()==one.exponent()-1);
+        ARIADNE_TEST_ASSERT(after_negative_one.exponent()==one.exponent()-1);
+
+        const FloatAP after_one=next(RoundUpward{},one);
+        const FloatAP before_negative_one=next(RoundDownward{},negative_one);
+        const BigUnsigned incremented=add(leading,BigUnsigned(1u));
+        ARIADNE_TEST_ASSERT(compare(after_one.significand(),incremented)==0);
+        ARIADNE_TEST_ASSERT(compare(before_negative_one.significand(),incremented)==0);
+        ARIADNE_TEST_ASSERT(after_one.exponent()==one.exponent());
+        ARIADNE_TEST_ASSERT(before_negative_one.exponent()==one.exponent());
+
+        // Storage copy/assignment and canonical signed zero are explicit.
+        FloatAP copied=one;
+        ARIADNE_TEST_ASSERT(compare(copied.significand(),leading)==0);
+        copied=negative_one;
+        ARIADNE_TEST_ASSERT(copied.negative());
+        ARIADNE_TEST_ASSERT(compare(copied.significand(),leading)==0);
+        const FloatAP negative_zero=FloatAP::zero(
+            static_cast<unsigned long>(bits),true);
+        ARIADNE_TEST_ASSERT(negative_zero.is_zero() && negative_zero.negative());
+        ARIADNE_TEST_ASSERT(negative_zero.significand().is_zero());
+
+        const FloatAP smallest=FloatAP::min(precision);
+        const FloatAP largest=FloatAP::max(precision);
+        ARIADNE_TEST_ASSERT(compare(smallest.significand(),leading)==0);
+        ARIADNE_TEST_ASSERT(compare(largest.significand(),all_ones)==0);
+        ARIADNE_TEST_ASSERT(smallest.exponent()==
+            std::numeric_limits<FloatAP::Exponent>::min());
+        ARIADNE_TEST_ASSERT(largest.exponent()==
+            std::numeric_limits<FloatAP::Exponent>::max());
+    }
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
@@ -1083,6 +1140,7 @@ Int main() {
     TestFloat<DoublePrecision>(dp).test();
         TestFloat<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
     test_floatap_exact_dyadic_export();
+    test_floatap_native_significand_storage();
 
 
     return ARIADNE_TEST_FAILURES;
