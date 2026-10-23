@@ -3242,6 +3242,17 @@ BigUnsigned isqrt(BigUnsigned const& value)
     }
 }
 
+// Use the same integer Newton root kernel as isqrt, but construct the
+// independent exact remainder only when the caller explicitly requests it.
+// Unlike a temporary mid-point enclosure, the remainder is suitable for
+// the single-rounding FloatAP sqrt decision (remainder > root).
+std::pair<BigUnsigned,BigUnsigned> sqrtrem(BigUnsigned const& value)
+{
+    BigUnsigned root=isqrt(value);
+    BigUnsigned remainder=sub(value,square(root));
+    return {std::move(root),std::move(remainder)};
+}
+
 BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \

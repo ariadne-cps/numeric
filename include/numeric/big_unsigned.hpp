@@ -322,6 +322,10 @@ class BigUnsigned
     //! Floor integer square root, returning the unique r with r*r <= a < (r+1)*(r+1).
     //! Zero maps to zero; does not mutate its input and never uses GMP.
     friend BigUnsigned isqrt(BigUnsigned const& a);
+    //! Exact unsigned square root and remainder: a = root*root + remainder,
+    //! with remainder <= 2*root. Both results are canonical and independently
+    //! owned; the input is borrowed, unchanged. Zero maps to {0,0}.
+    friend std::pair<BigUnsigned,BigUnsigned> sqrtrem(BigUnsigned const& a);
 
     //! Exact multiplication by 2^bits (no fixed precision limit).
     friend BigUnsigned shift_left(BigUnsigned const& a, std::size_t bits);
@@ -334,6 +338,9 @@ class BigUnsigned
 
 //! Exact floor square root of an arbitrary nonnegative magnitude.
 BigUnsigned isqrt(BigUnsigned const& a);
+
+//! Exact root and remainder for n = root^2 + remainder, 0 <= remainder <= 2*root.
+std::pair<BigUnsigned,BigUnsigned> sqrtrem(BigUnsigned const& a);
 
 //! Euclidean greatest common divisor of unsigned magnitudes.
 //! gcd(0,0) is zero. Borrows its inputs for the initial Euclidean step.

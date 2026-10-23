@@ -230,7 +230,7 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
         verify(BigUnsigned(output),expected.value);
     };
     std::vector<Result> result;
-    result.reserve(8u);
+    result.reserve(9u);
 
     mpz_add(expected.value,ga.value,gb.value);
     const auto sum=[&] {
@@ -351,20 +351,11 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
         result.push_back(right);
     }
 
-    // isqrt has an owning-only native API. Both timed paths include
-    // result construction/destruction and use precisely the same input.
-    // Fewer iterations at wide bit sizes keep this expensive operation
-    // practical without changing the per-call timing denominator.
+    // Only owning APIs exist for isqrt/sqrtrem. Both compared paths
+    // allocate and destroy their result(s), with common immutable input
+    // and identical iterations/samples. Verification stays OUTSIDE timing.
     mpz_sqrt(expected.value,ga.value);
     verify(isqrt(greater),expected.value);
-    const auto sqrt_gmp=[&] {
-        mpz_sqrt(reused.value,ga.value);
-        keep_alive(reused.value);
-    };
-    sqrt_gmp();
-    if (mpz_cmp(reused.value,expected.value)!=0) {
-        throw std::runtime_error("GMP sqrt mismatch");
-    }
     const unsigned sqrt_iterations=std::max(
         1u,iterations/std::max(1u,bits/64u));
     Result sqrt_row{bits,"isqrt"};
@@ -379,6 +370,30 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
     },sqrt_iterations,samples);
     verify(isqrt(greater),expected.value);
     result.push_back(sqrt_row);
+
+    // Match two owned native results against two owned GMP mpz_t values.
+    // The result pair is checked before/after the measured loops.
+    GmpInteger expected_remainder;
+    mpz_sqrtrem(expected.value,expected_remainder.value,ga.value);
+    const auto check_sqrtrem=[&] {
+        const auto [root,remainder]=sqrtrem(greater);
+        verify(root,expected.value);
+        verify(remainder,expected_remainder.value);
+    };
+    check_sqrtrem();
+    Result sqrtrem_row{bits,"sqrtrem"};
+    sqrtrem_row.owning_native=median_ns([&] {
+        auto value=sqrtrem(greater);
+        keep_alive(value);
+    },sqrt_iterations,samples);
+    sqrtrem_row.owning_gmp=median_ns([&] {
+        GmpInteger root,remainder;
+        mpz_sqrtrem(root.value,remainder.value,ga.value);
+        keep_alive(root.value);
+        keep_alive(remainder.value);
+    },sqrt_iterations,samples);
+    check_sqrtrem();
+    result.push_back(sqrtrem_row);
 
     // Repeat exact checks after timing, never in a measured loop.
     mpz_add(expected.value,ga.value,gb.value);
@@ -435,7 +450,7 @@ void print_results(std::vector<Result> const& rows,bool summary_only)
     preallocated.print("preallocated");
     owning.print("owning      ");
     LOGGING_PRINTLN("Preallocated includes add/sub kernels and compare; "
-                    "owning includes add/sub, shifts and isqrt.")
+                    "owning includes add/sub, shifts, isqrt and sqrtrem.")
 }
 
 } // namespace

@@ -194,7 +194,7 @@ class TestBigUnsigned
 
 void TestBigUnsigned::test_sqrt()
 {
-    // Independent, frozen exact pairs generated with BigInt digit-pair
+    // Independent, frozen exact triples generated with BigInt digit-pair
     // restoring arithmetic (and cross-checked with a binary-search oracle).
     // This block never consults GMP, even though older tests elsewhere do.
     std::ifstream golden(ARIADNE_BIG_UNSIGNED_SQRT_ORACLE_PATH);
@@ -204,18 +204,25 @@ void TestBigUnsigned::test_sqrt()
     while (std::getline(golden,line)) {
         if (line.empty() || line.front()=='#') continue;
         std::istringstream fields(line);
-        std::string input_hex,root_hex,extra;
-        if (!(fields>>input_hex>>root_hex) || (fields>>extra)) {
+        std::string input_hex,root_hex,remainder_hex,extra;
+        if (!(fields>>input_hex>>root_hex>>remainder_hex) || (fields>>extra)) {
             throw std::runtime_error("Malformed BigUnsigned sqrt golden row");
         }
         const BigUnsigned input=big_unsigned_from_golden_hex(input_hex);
         const BigUnsigned original=input;
-        const BigUnsigned result=isqrt(input);
-        check_against_precomputed_hex(result,root_hex);
-        // Additional semantic inequalities are properties, NOT the oracle.
-        ARIADNE_TEST_ASSERT(compare(square(result),input)<=0);
-        const BigUnsigned successor=add(result,BigUnsigned(std::uint64_t{1}));
+        const BigUnsigned root=isqrt(input);
+        check_against_precomputed_hex(root,root_hex);
+        const auto [root_with_remainder,remainder]=sqrtrem(input);
+        check_against_precomputed_hex(root_with_remainder,root_hex);
+        check_against_precomputed_hex(remainder,remainder_hex);
+        // Algebraic properties supplement, never replace the frozen oracle.
+        ARIADNE_TEST_ASSERT(compare(square(root),input)<=0);
+        const BigUnsigned successor=add(root,BigUnsigned(std::uint64_t{1}));
         ARIADNE_TEST_ASSERT(compare(square(successor),input)>0);
+        ARIADNE_TEST_ASSERT(compare(
+            add(square(root_with_remainder),remainder),input)==0);
+        ARIADNE_TEST_ASSERT(compare(remainder,
+            add(root_with_remainder,root_with_remainder))<=0);
         ARIADNE_TEST_ASSERT(compare(input,original)==0);
         ++rows;
     }

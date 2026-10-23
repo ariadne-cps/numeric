@@ -11032,3 +11032,37 @@ This phase does not replace FloatAP's owned `mpz_t` significand,
 alter its rounding, or weaken any existing oracle/benchmark workload.
 Benchmark timings and full cross-platform test results remain to
 be measured by actual builds/CI; no performance claim is made.
+
+### D108 — canonical square-root remainder, oracle and CI correction (23 October 2026)
+
+Follow-up to D107: the public BigUnsigned magnitude layer now exposes
+`sqrtrem(n)` in addition to `isqrt(n)`. Both use the same GMP-free
+integer Newton root kernel. The first computes
+`n = root*root + remainder` with `0 <= remainder <= 2*root`, while
+`isqrt` omits the final square/subtract expense when the remainder
+is unnecessary. The remainder permits FloatAP to retain the proven
+nearest-rounding predicate `remainder > root`; float storage and
+rounding are not yet changed. The original cached divisions and
+initialization remain unchanged.
+
+The existing independent, fixed `big_unsigned_sqrt.tsv` oracle is
+upgraded from input/root pairs to input/root/remainder triples.
+All 161 original input magnitudes remain present, in the same order.
+The digits and roots are independently recomputed from restoring
+radix-4 binary-pair BigInt arithmetic and cross-checked against
+a separate binary-search root oracle; the remainder is taken from
+the restoring accumulator and checked against exact independent
+`n-root^2`. The C++ test asserts exact canonical triples, exact
+square/remainder bounds and operand immutability, WITHOUT calling
+GMP for this new test. Other GMP differential tests remain unchanged.
+
+The original test's variable named `result` conflicted with an
+internal declaration inside `ARIADNE_TEST_ASSERT` under `-Wshadow
+-Werror`, causing the AppleClang ARM64 CI compile failure.
+It is renamed to `root` without weakening that macro or any
+assertions. The owning-only integrated benchmark adds
+`sqrtrem`/ `mpz_sqrtrem` on the same inputs and the same
+iteration/sample count as `isqrt`/ `mpz_sqrt`, with two-result
+ownership matched and correctness verified only outside timing.
+Do not assert performance parity before same-host timing.
+This commit is intended for numeric/main directly, as requested.
