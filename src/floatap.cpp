@@ -2202,9 +2202,12 @@ bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
 // dyadic quotient. Positive floor/ceil use quotient/remainder directly;
 // for negative endpoints the direction of magnitude rounding reverses.
 // This is a temporary boundary import until Fraction itself is native.
-Fraction outward_dyadic_endpoint(Fraction const& exact,
-                                 unsigned long bits,
-                                 bool round_toward_positive) {
+// Import one GMP-backed exact endpoint, but keep the integer quotient
+// and its sign native. This avoids importing the result back out of a
+// Fraction when a cached centered correction needs integer bounds.
+Integer outward_dyadic_integer(Fraction const& exact,
+                               unsigned long bits,
+                               bool round_toward_positive) {
     if (static_cast<std::uintmax_t>(bits) >
             static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
         static_cast<std::uintmax_t>(bits) >
@@ -2222,7 +2225,15 @@ Fraction outward_dyadic_endpoint(Fraction const& exact,
     if (round_magnitude_up && !remainder.is_zero()) {
         magnitude=add(magnitude,BigUnsigned(1u));
     }
-    return Fraction(magnitude,bits,negative);
+    return Integer::from_magnitude(std::move(magnitude),negative);
+}
+
+Fraction outward_dyadic_endpoint(Fraction const& exact,
+                                 unsigned long bits,
+                                 bool round_toward_positive) {
+    const Integer result=outward_dyadic_integer(
+        exact,bits,round_toward_positive);
+    return Fraction(result.magnitude(),bits,result.negative());
 }
 
 Interval exp_outward_dyadic(Interval const& bounds,
@@ -3244,65 +3255,52 @@ Interval centered_atan_half_interval(Fraction const& input,
     struct Cache {
         unsigned long work = 0;
         unsigned long bits = 0;
-        mpz_t lower, upper;
-        Cache() { mpz_inits(lower, upper, nullptr); }
-        ~Cache() { mpz_clears(lower, upper, nullptr); }
-        Cache(Cache const&) = delete;
-        Cache& operator=(Cache const&) = delete;
+        Integer lower;
+        Integer upper;
     };
     static thread_local Cache centered;
     if (centered.work < work) {
-        const Interval certified_center = atan_half_interval(work + 40ul);
-        mpz_t scaled;
-        mpz_init(scaled);
-        struct ScaledCleanup {
-            mpz_ptr value;
-            ~ScaledCleanup() { mpz_clear(value); }
-        } scaled_cleanup{scaled};
-        mpz_mul_2exp(scaled, mpq_numref(certified_center.lower.raw()),
-                     static_cast<mp_bitcnt_t>(bits));
-        mpz_fdiv_q(centered.lower, scaled,
-                   mpq_denref(certified_center.lower.raw()));
-        mpz_mul_2exp(scaled, mpq_numref(certified_center.upper.raw()),
-                     static_cast<mp_bitcnt_t>(bits));
-        mpz_cdiv_q(centered.upper, scaled,
-                   mpq_denref(certified_center.upper.raw()));
-        centered.bits = bits;
-        centered.work = work;
+        const Interval certified_center=atan_half_interval(work+40ul);
+        centered.lower=outward_dyadic_integer(
+            certified_center.lower,bits,false);
+        centered.upper=outward_dyadic_integer(
+            certified_center.upper,bits,true);
+        centered.bits=bits;
+        centered.work=work;
     }
 
-    mpz_t scaled, linear_lower, linear_upper, lower, upper, remainder;
-    mpz_inits(scaled, linear_lower, linear_upper, lower, upper, remainder,
-              nullptr);
-    struct Cleanup {
-        mpz_ptr a,b,c,d,e,f;
-        ~Cleanup() { mpz_clears(a,b,c,d,e,f,nullptr); }
-    } cleanup{scaled,linear_lower,linear_upper,lower,upper,remainder};
+    // delta=n/2^k: (4/5)*delta*2^B=n*2^(B+2-k)/5.
+    // Quotient and remainder are computed once on a native magnitude.
+    // For negative n, floor/ceil exchange the upward magnitude
+    // correction; exact divisibility must not change either bound.
+    const Integer delta_numerator=integer_from_gmp(mpq_numref(delta.raw()));
+    const std::size_t shift=static_cast<std::size_t>(
+        centered.bits+2ul-static_cast<unsigned long>(delta_shift));
+    auto [quotient,remainder_by_five]=divrem_limb(
+        shift_left(delta_numerator.magnitude(),shift),5u);
+    const bool delta_negative=delta_numerator.negative();
+    const bool nonexact=remainder_by_five!=0u;
+    const Integer linear_lower=Integer::from_magnitude(
+        delta_negative && nonexact
+            ? add(quotient,BigUnsigned(1u)) : quotient,
+        delta_negative);
+    const Integer linear_upper=Integer::from_magnitude(
+        !delta_negative && nonexact
+            ? add(quotient,BigUnsigned(1u)) : quotient,
+        delta_negative);
 
-    // delta = n / 2^k. At scale Q=2^centered.bits,
-    // (4/5)*delta*Q = n*2^(centered.bits+2-k)/5 exactly.
-    // Directed integer quotients give rigorous linear endpoints,
-    // including negative deltas.
-    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(
-        centered.bits + 2ul) - delta_shift;
-    mpz_mul_2exp(scaled, mpq_numref(delta.raw()), shift);
-    mpz_fdiv_q_ui(linear_lower, scaled, 5ul);
-    mpz_cdiv_q_ui(linear_upper, scaled, 5ul);
-
-    // |atan''(y)|<=3/2 on [1/4,3/4], so
-    // |R| <= delta^2 <= 2^-work for the checked neighborhood.
-    // On the cached (possibly tighter) binary scale, 2^-work
-    // corresponds exactly to 2^(centered.bits-work) integer units.
-    mpz_set_ui(remainder, 1ul);
-    mpz_mul_2exp(remainder, remainder, static_cast<mp_bitcnt_t>(
-        centered.bits - work));
-    mpz_add(lower, centered.lower, linear_lower);
-    mpz_sub(lower, lower, remainder);
-    mpz_add(upper, centered.upper, linear_upper);
-    mpz_add(upper, upper, remainder);
-    const Interval positive{Fraction(lower, centered.bits),
-                            Fraction(upper, centered.bits)};
-    return input.sign() < 0 ? negative(positive) : positive;
+    // |atan''(y)|<=3/2 for y in [1/4,3/4], so the same
+    // first-order Taylor remainder is at most 2^-work.
+    const Integer error=Integer::from_magnitude(
+        shift_left(BigUnsigned(1u),
+                   static_cast<std::size_t>(centered.bits-work)),false);
+    const Integer lower=centered.lower+linear_lower-error;
+    const Integer upper=centered.upper+linear_upper+error;
+    const Interval positive{
+        Fraction(lower.magnitude(),centered.bits,lower.negative()),
+        Fraction(upper.magnitude(),centered.bits,upper.negative())
+    };
+    return input.sign()<0 ? negative(positive) : positive;
 }
 
 struct TangentHalfEnclosures {

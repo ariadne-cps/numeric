@@ -11993,3 +11993,39 @@ The user-provided benchmark results are for the previous D133 code
 and cannot substantiate D136 performance until rerun on the same
 host and conditions. D135 Windows/Sanitizers/Coverage were green
 when D136 work began; Unix was still running.
+
+### D137 — native centered-atangent signed fixed-point correction (23 October 2026)
+
+The certified near-1/2 `atan` fast path keeps its original
+`|delta|<=2^-ceil(work/2)` window, the exact dyadic denominator
+check, its work-precision cache and the rigorous first-order
+Taylor remainder `2^-work`. D137 converts its cached center
+endpoints from GMP `mpz_t` to native signed `Integer`; the
+shared `outward_dyadic_integer` helper exposes exact directed
+integer quotients at the cache boundary and retains the existing
+`outward_dyadic_endpoint` wrapper for other consumers.
+
+The per-call linear term is still EXACT:
+`(4/5)*delta*2^B=n*2^(B+2-k)/5` for `delta=n/2^k`.
+Native `BigUnsigned::divrem_limb` computes the positive-magnitude
+quotient and remainder once. For positive n, the lower term is q
+and the upper is q+1 when the remainder is nonzero; for negative
+n the lower is -(q+1) and upper is -q. Integer carries the signs
+without constructing a Rational/GCD. Endpoints are obtained from
+`center_lower + linear_lower - 2^(B-work)` and
+`center_upper + linear_upper + 2^(B-work)` with native signed
+integer arithmetic, then returned as signed dyadic Fraction
+endpoints through the legacy GMP carrier once.
+
+This removes the fixed-point GMP mpz_t allocation/copy/shift/
+division/add/sub operations in the centered-atan hot path,
+while retaining the cheap GMP dyadic-denominator check and the
+existing rational fallback for non-dyadic / over-shift cases.
+It does NOT change atan's series, other trigonometric kernels,
+or the independently sourced golden-oracle tests. The special
+case of a negative delta with a nonzero division remainder
+is explicitly handled to preserve floor/ceil semantics.
+This is a dependency-migration step, not a speedup claim:
+cross-platform compiler/semantic CI and fresh user-supplied
+same-host timings are required. No measured D137 performance
+result was available at commit creation.
