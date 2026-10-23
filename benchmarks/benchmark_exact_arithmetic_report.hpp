@@ -331,8 +331,15 @@ void verify_exact_results(std::vector<unsigned> const& sizes) {
                         std::to_string(bits)+" bits, index "+
                         std::to_string(k));
                 }
+                if (exact_value(gmp.sqrt_a[k])!=
+                    exact_value(native.sqrt_a[k])) {
+                    throw std::runtime_error(
+                        "square-root input mismatch at "+
+                        std::to_string(bits)+" bits, index "+
+                        std::to_string(k));
+                }
             }
-            checked_inputs+=2u*pool_size;
+            checked_inputs+=3u*pool_size;
         }
         std::map<std::string,std::vector<std::string>> reference;
         for_each_exact_operation<Kind,GmpOperations>(
@@ -367,7 +374,7 @@ void verify_exact_results(std::vector<unsigned> const& sizes) {
                 ++count;
             });
         constexpr std::size_t expected_operations=
-            Kind==ExactArithmeticKind::Integer ? 14u : 15u;
+            Kind==ExactArithmeticKind::Integer ? 16u : 15u;
         if (reference.size()!=count || count!=expected_operations) {
             throw std::runtime_error("unexpected exact benchmark operation count");
         }

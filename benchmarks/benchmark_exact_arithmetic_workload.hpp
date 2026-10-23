@@ -151,6 +151,13 @@ inline std::string exact_value(double value) {
     return std::to_string(bits);
 }
 
+// Preserve both exact results for sqrtrem, never check only the root.
+// Works with std::pair<Integer,Integer> and std::pair<RawInteger,RawInteger>.
+template<class A,class B>
+std::string exact_value(std::pair<A,B> const& values) {
+    return exact_value(values.first)+"/"+exact_value(values.second);
+}
+
 template<class Value> void keep_result_alive(Value const& value) {
 #if defined(__GNUC__) || defined(__clang__)
     asm volatile("" : : "g"(&value) : "memory");
@@ -293,6 +300,10 @@ struct IntegerOperations {
     static Number sub(Number const& a,Number const& b) { return a-b; }
     static Number mul(Number const& a,Number const& b) { return a*b; }
     static Number square(Number const& a) { return a*a; }
+    static Number square_root(Number const& a) { return isqrt(a); }
+    static std::pair<Number,Number> square_root_remainder(Number const& a) {
+        return sqrtrem(a);
+    }
     static Number quotient(Number const& a,Number const& b) {
         return quot(a,b);
     }
@@ -339,6 +350,16 @@ struct GmpIntegerOperations {
         mpz_mul(result.value,a.value,a.value);
         return result;
     }
+    static Number square_root(Number const& a) {
+        Number root;
+        mpz_sqrt(root.value,a.value);
+        return root;
+    }
+    static std::pair<Number,Number> square_root_remainder(Number const& a) {
+        Number root,remainder;
+        mpz_sqrtrem(root.value,remainder.value,a.value);
+        return {std::move(root),std::move(remainder)};
+    }
     static Number quotient(Number const& a,Number const& b) {
         Number result;
         // Native Integer uses truncation toward zero for quotient.
@@ -367,7 +388,7 @@ struct IntegerPool {
     static constexpr unsigned pool_size=32u;
 
     std::vector<IntegerSpec> spec,division_spec;
-    std::vector<Number> a,b,division_a,division_b;
+    std::vector<Number> a,b,division_a,division_b,sqrt_a;
 
     explicit IntegerPool(unsigned bits)
         : spec(integer_specifications(bits)),
@@ -376,9 +397,16 @@ struct IntegerPool {
         b.reserve(pool_size);
         division_a.reserve(pool_size);
         division_b.reserve(pool_size);
+        sqrt_a.reserve(pool_size);
         for (auto const& item : spec) {
             a.push_back(Operations::parse(item.a));
             b.push_back(Operations::parse(item.b));
+            // Square root has a nonnegative domain. Freeze the absolute
+            // magnitude of the existing 32 signed corpus inputs before
+            // timing, identically for the native and direct GMP backends.
+            const std::string& signed_a=item.a;
+            sqrt_a.push_back(Operations::parse(
+                signed_a.front()=='-' ? signed_a.substr(1u) : signed_a));
         }
         for (auto const& item : division_spec) {
             division_a.push_back(Operations::parse(item.a));
@@ -416,6 +444,12 @@ void integer_operations(IntegerPool<Operations> const& pool,Visit&& report) {
     });
     report("square",[&](unsigned i) {
         return Operations::square(a[index(i)]);
+    });
+    report("isqrt",[&](unsigned i) {
+        return Operations::square_root(pool.sqrt_a[index(i)]);
+    });
+    report("sqrtrem",[&](unsigned i) {
+        return Operations::square_root_remainder(pool.sqrt_a[index(i)]);
     });
     // Preserve both historical 32-pair corpora and operation order.
     // In the original pool |a|<|b| always: q=0 and r=a.

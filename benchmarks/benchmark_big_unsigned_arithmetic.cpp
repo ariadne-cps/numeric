@@ -27,7 +27,6 @@
  */
 
 #include "numeric/big_unsigned.hpp"
-#include "numeric/integer.hpp"
 #include "benchmark_command_line.hpp"
 #include "logging/command_line.hpp"
 #include "logging/logging.hpp"
@@ -223,7 +222,7 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
     import_gmp(ga.value,greater);
     import_gmp(gb.value,smaller);
     std::vector<Result> result;
-    result.reserve(11u);
+    result.reserve(9u);
 
     mpz_add(expected.value,ga.value,gb.value);
     verify(add(greater,smaller),expected.value);
@@ -329,25 +328,6 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
     verify(isqrt(greater),expected.value);
     result.push_back(sqrt_row);
 
-    // Same positive source bits for Integer and BigUnsigned. The
-    // Integer wrapper delegates to shared native magnitude arithmetic.
-    // Each measured path owns a fresh return value; GMP additionally
-    // owns/clears its mpz_t output, matching the prior owning protocol.
-    const Integer integer_source=Integer::from_magnitude(greater,false);
-    verify(isqrt(integer_source).magnitude(),expected.value);
-    Result integer_sqrt_row{bits,"int_isqrt"};
-    integer_sqrt_row.owning_native=median_ns([&] {
-        auto value=isqrt(integer_source);
-        keep_alive(value);
-    },sqrt_iterations,samples);
-    integer_sqrt_row.owning_gmp=median_ns([&] {
-        GmpInteger value;
-        mpz_sqrt(value.value,ga.value);
-        keep_alive(value.value);
-    },sqrt_iterations,samples);
-    verify(isqrt(integer_source).magnitude(),expected.value);
-    result.push_back(integer_sqrt_row);
-
     // Match two owned native results against two owned GMP mpz_t values.
     // The result pair is checked before/after the measured loops.
     GmpInteger expected_remainder;
@@ -371,26 +351,6 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
     },sqrt_iterations,samples);
     check_sqrtrem();
     result.push_back(sqrtrem_row);
-
-    const auto check_integer_sqrtrem=[&] {
-        const auto [root,remainder]=sqrtrem(integer_source);
-        verify(root.magnitude(),expected.value);
-        verify(remainder.magnitude(),expected_remainder.value);
-    };
-    check_integer_sqrtrem();
-    Result integer_sqrtrem_row{bits,"int_sqrtrem"};
-    integer_sqrtrem_row.owning_native=median_ns([&] {
-        auto value=sqrtrem(integer_source);
-        keep_alive(value);
-    },sqrt_iterations,samples);
-    integer_sqrtrem_row.owning_gmp=median_ns([&] {
-        GmpInteger root,remainder;
-        mpz_sqrtrem(root.value,remainder.value,ga.value);
-        keep_alive(root.value);
-        keep_alive(remainder.value);
-    },sqrt_iterations,samples);
-    check_integer_sqrtrem();
-    result.push_back(integer_sqrtrem_row);
 
     // Check all operations once again after measurement.
     mpz_add(expected.value,ga.value,gb.value);

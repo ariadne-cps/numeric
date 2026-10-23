@@ -11211,3 +11211,39 @@ Comparative GMP checks run outside timing. The preallocated columns
 are not reintroduced and no existing measurements are removed.
 Actual cross-platform CI and same-host performance results remain
 to be collected; no new performance parity claim is made.
+
+### D113 — move Integer square-root comparisons into the existing Integer benchmark (23 October 2026)
+
+Correct the D112 benchmark placement: `benchmark_big_unsigned_arithmetic`
+must measure only unsigned primitives. Drop its temporary
+`int_isqrt` and `int_sqrtrem` rows, associated Integer include,
+and owning Integer input setup, restoring the original nine unsigned
+measurements per bit width. The earlier choice duplicated the
+Integer backend benchmarking infrastructure in the wrong executable.
+
+Use the established `benchmark_compare_integer_backends` and its
+shared `benchmark_exact_arithmetic_workload.hpp` instead. Extend
+`IntegerOperations` and `GmpIntegerOperations` with separate
+`isqrt`/ `sqrtrem` callbacks. For native, invoke the newly added
+Integer functions; for GMP, invoke the direct `mpz_sqrt` and
+`mpz_sqrtrem` kernels, each producing fresh owned RAII results.
+Precompute 32 positive inputs from the absolute values of the
+existing signed Integer `a` corpus before timing, and verify that
+native and GMP receive exactly identical positive values.
+The original signed operation inputs and every previous operation
+remain unchanged. GMP is never used to supply an expected value
+for any new unit test: the independent 161-triple oracle in
+`test_integer.cpp` remains the test oracle.
+
+Update the shared exact-value comparison to serialize both values
+of each sqrtrem result pair, and adjust the benchmark's required
+Integer operation count from 14 to 16. The existing code performs
+the full numerical differential check outside measured loops;
+neither benchmark adds a new test case that self-compares its
+production output. This makes the operations visible in both the
+Integer comparison and the shared Integer absolute benchmark,
+without affecting Rational's 15-operation corpus.
+
+CI compilation, test execution, and actual same-host timing for this
+reorganization remain to be confirmed; no benchmark performance
+claims are made on an unmeasured revision.
