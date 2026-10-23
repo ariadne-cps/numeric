@@ -11863,3 +11863,34 @@ certification; the added exact comparisons may reveal genuine
 existing bugs and must not be relaxed to accept approximate numerical
 agreement. Benchmark CI and a post-change measurement by the user
 are required before any performance claims. No speedup is claimed.
+
+### D133 — native outward exponential interval reconstruction (23 October 2026)
+
+The argument-reduction and Taylor-certified `exp_interval` implementation
+retains its existing reduction limit, halving count, work precision,
+reduced-series call, and positive interval endpoints. After the Taylor
+series it now imports the *two* positive Fraction endpoints once to
+native Integer/BigUnsigned, computes lower=floor(2^B*lo) and
+upper=ceil(2^B*hi) using exact quotient and remainder, and performs
+all `halvings` squarings through reusable limb-vector buffers.
+The lower update is `floor(lower^2/2^B)`; the upper is
+`ceil(upper^2/2^B)`. The upward path explicitly checks all discarded
+whole limbs and low partial-limb bits to determine its exact ceil
+increment, with no numerical approximation or extra GCD. Both
+directions continue to use monotonicity of squaring on nonnegative
+bounds. `BigUnsigned::mul_into` writes into caller-owned product
+scratch, and next lower/upper vectors retain capacity and swap with
+current values, avoiding owning BigUnsigned temporaries per squaring.
+
+Only final dyadic endpoint construction crosses the still GMP-backed
+Fraction boundary, and no GMP code remains in the reconstruction
+squaring loop. This step does NOT migrate other remaining Fraction
+operations or all of FloatAP. The independent exp source-keyed oracle
+and all four rounding modes remain mandatory correctness gates.
+
+The user-provided D132 benchmark passed 8480 exact paired results on
+53 operations over five requested precisions. Its reported low-precision
+exp slowdown and high-precision advantage are BEFORE D133, not
+post-change performance evidence. Observe the new cross-platform CI
+and user-supplied same-host paired performance results before claiming
+any improvement; avoid losing the existing high-precision advantage.

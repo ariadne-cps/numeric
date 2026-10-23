@@ -1797,9 +1797,8 @@ Interval exp_series(Fraction const& x, unsigned long work) {
 }
 
 Interval exp_interval(Fraction x, unsigned long work) {
-    // Reduce more aggressively when greater precision makes the
-    // exponential Taylor series expensive. Fixed-point reconstruction
-    // keeps the size of subsequent square intermediates bounded.
+    // Preserve argument reduction, Taylor enclosure, and the exact
+    // outward-directed repeated-squaring reconstruction.
     const unsigned long reduction_bits = std::min(
         16ul, std::max(6ul, work / 32ul));
     const Fraction reduction_limit =
@@ -1822,37 +1821,103 @@ Interval exp_interval(Fraction x, unsigned long work) {
         return interval;
     }
 
-    // The series endpoints are certified positive rationals. Convert them
-    // to directed B-bit fixed-point integers once, then square without
-    // letting their exact rational denominators double at each step.
     const unsigned long fixed_bits = work + halvings + 64ul;
     if (static_cast<std::uintmax_t>(fixed_bits) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
-        throw std::overflow_error("FloatAP exponential reconstruction GMP shift overflow");
+            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+        static_cast<std::uintmax_t>(fixed_bits) >
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::overflow_error("FloatAP exponential reconstruction shift overflow");
     }
-    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(fixed_bits);
-    mpz_t numerator, lower, upper;
-    mpz_inits(numerator, lower, upper, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b, c;
-        ~Cleanup() { mpz_clears(a, b, c, nullptr); }
-    } cleanup{numerator, lower, upper};
+    using Limb=BigUnsigned::Limb;
+    using Words=std::vector<Limb>;
+    const std::size_t shift=static_cast<std::size_t>(fixed_bits);
+    const std::size_t whole=shift/64u;
+    const unsigned partial=static_cast<unsigned>(shift%64u);
 
-    mpz_mul_2exp(numerator, mpq_numref(interval.lower.raw()), shift);
-    mpz_fdiv_q(lower, numerator, mpq_denref(interval.lower.raw()));
-    mpz_mul_2exp(numerator, mpq_numref(interval.upper.raw()), shift);
-    mpz_cdiv_q(upper, numerator, mpq_denref(interval.upper.raw()));
+    // Convert only the two initial certified rational bounds. The
+    // lower is rounded down and the upper rounded up at the same
+    // dyadic scale. Avoid canonical Rational/GCD round trips.
+    const auto to_scaled=[&](Fraction const& bound,bool upward) {
+        const Integer numerator=integer_from_gmp(mpq_numref(bound.raw()));
+        const Integer denominator=integer_from_gmp(mpq_denref(bound.raw()));
+        auto [value,remainder]=divrem(
+            shift_left(numerator.magnitude(),shift),
+            denominator.magnitude());
+        if (upward && !remainder.is_zero()) {
+            value=add(value,BigUnsigned(1u));
+        }
+        const auto digits=value.limbs();
+        return Words(digits.begin(),digits.end());
+    };
+    Words lower=to_scaled(interval.lower,false);
+    Words upper=to_scaled(interval.upper,true);
+    Words product,next_lower,next_upper;
+    const auto trim=[](Words& digits) {
+        while (!digits.empty() && digits.back()==0u) digits.pop_back();
+    };
+    const auto increment=[](Words& digits) {
+        for (std::size_t i=0u;i<digits.size();++i) {
+            if (++digits[i]!=0u) return;
+        }
+        digits.push_back(Limb{1});
+    };
 
-    // Squaring is increasing on positive reals: floor lower, ceil upper.
-    // With B >= work + halvings + 64, accumulated rounding errors are
-    // tiny, but correctness relies only on outward bounds, not that size.
-    for (unsigned i = 0u; i < halvings; ++i) {
-        mpz_mul(lower, lower, lower);
-        mpz_fdiv_q_2exp(lower, lower, shift);
-        mpz_mul(upper, upper, upper);
-        mpz_cdiv_q_2exp(upper, upper, shift);
+    // floor(y*y/2^B) or ceil(y*y/2^B) as required. The discarded
+    // full limbs and low partial-limb bits determine whether ceil
+    // increments. The same product and output scratch is reused.
+    const auto square_outward=[&](Words const& value,Words& result,bool upward) {
+        if (value.empty()) {
+            result.clear();
+            return;
+        }
+        if (value.size()>std::numeric_limits<std::size_t>::max()/2u) {
+            throw std::overflow_error("FloatAP exponential square size overflow");
+        }
+        product.resize(2u*value.size());
+        BigUnsigned::mul_into(value,value,product);
+        trim(product);
+
+        bool discarded=false;
+        if (upward) {
+            for (std::size_t j=0u;j<std::min(whole,product.size());++j) {
+                discarded = discarded || product[j]!=0u;
+            }
+            if (partial!=0u && product.size()>whole) {
+                discarded = discarded ||
+                    (product[whole] & ((Limb{1}<<partial)-1u))!=0u;
+            }
+        }
+
+        if (product.size()<=whole) {
+            result.clear();
+        } else {
+            const std::size_t count=product.size()-whole;
+            result.resize(count);
+            for (std::size_t j=0u;j<count;++j) {
+                const Limb low=product[whole+j]>>partial;
+                const Limb high=partial!=0u && j+1u<count
+                    ? product[whole+j+1u]<<(64u-partial) : Limb{0};
+                result[j]=low|high;
+            }
+            trim(result);
+        }
+        if (upward && discarded) increment(result);
+    };
+
+    // Square only positive endpoint magnitudes, preserving the
+    // certified enclosure through monotonicity of squaring.
+    for (unsigned i=0u;i<halvings;++i) {
+        square_outward(lower,next_lower,false);
+        lower.swap(next_lower);
+        square_outward(upper,next_upper,true);
+        upper.swap(next_upper);
     }
-    return {Fraction(lower, fixed_bits), Fraction(upper, fixed_bits)};
+    return {
+        Fraction(BigUnsigned(BigUnsigned::LimbView(
+                     lower.data(),lower.size())),fixed_bits),
+        Fraction(BigUnsigned(BigUnsigned::LimbView(
+                     upper.data(),upper.size())),fixed_bits)
+    };
 }
 
 // For |z| <= 1/3, log((1+z)/(1-z)) = 2 sum z^(2n+1)/(2n+1).
