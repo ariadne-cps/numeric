@@ -1121,6 +1121,13 @@ bool rational_is_inf(Rational const& q) {
 }
 }
 
+FloatAP FloatAP::from_ratio(Integer const& numerator,
+                            Integer const& denominator,
+                            RoundingModeType mode,PrecisionType precision) {
+    return from_native_ratio(numerator,denominator,0,
+                             static_cast<unsigned long>(precision.bits()),mode);
+}
+
 FloatAP::Float(Rational const& q, RoundingModeType mode, PrecisionType pr)
 : Float(pr) {
     if (rational_is_nan(q)) {
@@ -1514,12 +1521,34 @@ public:
         mpq_set(_value, rational);
     }
 
-    // Certified transcendental intervals still use GMP-owned Fraction
-    // scratch. Convert through the public native exact Rational value,
-    // not through a GMP-pointer method on FloatAP.
+    // Certified interval scratch is still GMP-backed until the
+    // separate native transcendental migration. Export the exact
+    // binary dyadic directly: constructing a canonical Rational here
+    // needlessly invokes a potentially large GCD at every precision.
     explicit Fraction(FloatAP const& binary) : Fraction() {
-        const Rational exact=static_cast<Rational>(binary);
-        rational_to_gmp(_value,exact);
+        if (!binary.is_finite()) {
+            throw std::domain_error("FloatAP nonfinite to rational interval");
+        }
+        integer_to_gmp(mpq_numref(_value),
+            Integer::from_magnitude(binary.significand(),binary.negative()));
+        mpz_set_ui(mpq_denref(_value),1u);
+        const auto exponent=binary.exponent();
+        if (exponent==std::numeric_limits<FloatAP::Exponent>::min()) {
+            throw std::overflow_error("FloatAP exponent shift overflow");
+        }
+        const std::uint64_t distance=exponent<0
+            ? static_cast<std::uint64_t>(-exponent)
+            : static_cast<std::uint64_t>(exponent);
+        if (distance>std::numeric_limits<mp_bitcnt_t>::max()) {
+            throw std::overflow_error("FloatAP GMP interval shift overflow");
+        }
+        const mp_bitcnt_t shift=static_cast<mp_bitcnt_t>(distance);
+        if (exponent>0) {
+            mpz_mul_2exp(mpq_numref(_value),mpq_numref(_value),shift);
+        } else if (exponent<0) {
+            mpz_mul_2exp(mpq_denref(_value),mpq_denref(_value),shift);
+        }
+        mpq_canonicalize(_value);
     }
 
     Fraction(mpz_srcptr numerator, unsigned long denominator_bits) : Fraction() {
@@ -1548,12 +1577,16 @@ public:
         return _value;
     }
 
-    // Native endpoint conversion is the sole bridge back to FloatAP.
-    // Both components are imported as Integer; FloatAP then performs
-    // exact rounding by its existing from_native_ratio path.
-    Rational native() const {
-        return Rational(integer_from_gmp(mpq_numref(_value)),
-                        integer_from_gmp(mpq_denref(_value)));
+    // Round exact interval endpoints directly: do not construct a
+    // canonical Rational. Rational(n,d) performs a multiprecision GCD
+    // even though the certified interval is already normalized.
+    // It was introduced into every transcendental certification
+    // attempt in D120 and caused a substantial regression.
+    FloatAP rounded(unsigned long bits,FloatAP::RoundingModeType mode) const {
+        return FloatAP::from_ratio(
+            integer_from_gmp(mpq_numref(_value)),
+            integer_from_gmp(mpq_denref(_value)),mode,
+            FloatAP::PrecisionType(bits));
     }
 
     // Avoid a temporary Fraction and general rational division when
@@ -2039,8 +2072,8 @@ FloatAP certified(Evaluate evaluate, FloatAP::RoundingModeType mode,
             throw std::overflow_error("FloatAP certified precision overflow");
         }
         const Interval interval = evaluate(bits + extra);
-        const FloatAP lower = FloatAP(interval.lower.native(),mode,FloatAP::PrecisionType(bits));
-        const FloatAP upper = FloatAP(interval.upper.native(),mode,FloatAP::PrecisionType(bits));
+        const FloatAP lower = interval.lower.rounded(bits,mode);
+        const FloatAP upper = interval.upper.rounded(bits,mode);
         if (lower == upper) {
             return lower;
         }
@@ -3109,8 +3142,8 @@ FloatAP certified(Function function, Fraction const& x,
         }
 
         const Interval bounds = evaluate(function, x, bits + extra);
-        const FloatAP low = FloatAP(bounds.lower.native(),mode,FloatAP::PrecisionType(bits));
-        const FloatAP high = FloatAP(bounds.upper.native(),mode,FloatAP::PrecisionType(bits));
+        const FloatAP low = bounds.lower.rounded(bits,mode);
+        const FloatAP high = bounds.upper.rounded(bits,mode);
         if (low == high) {
             return low;
         }

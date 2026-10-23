@@ -228,6 +228,12 @@ template<> class Float<ArbitraryPrecision> {
     Float(N n, RoundingModeType mode, PrecisionType precision)
         : Float(Integer(n), mode, precision) { }
     Float(Rational const& n, RoundingModeType mode, PrecisionType precision);
+    //! Round an exact signed native numerator/denominator once.
+    //! No canonical Rational intermediate (which would incur GCD).
+    //! A zero denominator throws std::domain_error.
+    static FloatAP from_ratio(Integer const& numerator,
+                              Integer const& denominator,
+                              RoundingModeType mode,PrecisionType precision);
     explicit Float(Rational const& n, PrecisionType precision)
     : Float(n, ROUND_TO_NEAREST, precision) {
     }

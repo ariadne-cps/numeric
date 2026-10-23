@@ -1074,6 +1074,46 @@ Void test_floatap_exact_dyadic_export() {
 
 // Native-storage regression uses exact binary significand/exponent facts,
 // not another floating implementation or GMP as the test oracle.
+// Frozen mathematical expectations for direct native ratio rounding.
+// In particular, the huge common factor exercises a non-reduced
+// numerator/denominator without constructing a canonical Rational.
+Void test_floatap_native_ratio_rounding() {
+    const ArbitraryPrecision p(7_bits);
+    const auto nearest=FloatAP::ROUND_TO_NEAREST;
+    const auto upward=FloatAP::ROUND_UPWARD;
+    const auto downward=FloatAP::ROUND_DOWNWARD;
+    const FloatAP thirds=FloatAP::from_ratio(Integer(1),Integer(3),nearest,p);
+    const FloatAP thirds_up=FloatAP::from_ratio(Integer(1),Integer(3),upward,p);
+    const FloatAP negative_thirds=FloatAP::from_ratio(Integer(-1),Integer(3),downward,p);
+    const FloatAP negative_denominator=FloatAP::from_ratio(
+        Integer(1),Integer(-3),upward,p);
+    ARIADNE_TEST_ASSERT(compare(thirds.significand(),BigUnsigned(85u))==0);
+    ARIADNE_TEST_ASSERT(compare(thirds_up.significand(),BigUnsigned(86u))==0);
+    ARIADNE_TEST_ASSERT(compare(negative_thirds.significand(),BigUnsigned(86u))==0);
+    ARIADNE_TEST_ASSERT(compare(negative_denominator.significand(),BigUnsigned(85u))==0);
+    ARIADNE_TEST_ASSERT(thirds.exponent()==-8);
+    ARIADNE_TEST_ASSERT(thirds_up.exponent()==-8);
+    ARIADNE_TEST_ASSERT(negative_thirds.exponent()==-8);
+    ARIADNE_TEST_ASSERT(!thirds.negative() && !thirds_up.negative());
+    ARIADNE_TEST_ASSERT(negative_thirds.negative() && negative_denominator.negative());
+
+    const BigUnsigned common=shift_left(BigUnsigned(1u),256u);
+    const Integer numerator=Integer::from_magnitude(common,false);
+    const Integer denominator=Integer::from_magnitude(
+        mul(common,BigUnsigned(3u)),false);
+    const FloatAP nonreduced=FloatAP::from_ratio(numerator,denominator,nearest,p);
+    ARIADNE_TEST_ASSERT(compare(nonreduced.significand(),BigUnsigned(85u))==0);
+    ARIADNE_TEST_ASSERT(nonreduced.exponent()==-8);
+    const FloatAP exact=FloatAP::from_ratio(Integer(5),Integer(8),nearest,p);
+    ARIADNE_TEST_ASSERT(compare(exact.significand(),BigUnsigned(80u))==0);
+    ARIADNE_TEST_ASSERT(exact.exponent()==-7);
+
+    bool threw=false;
+    try { (void)FloatAP::from_ratio(Integer(1),Integer(0),nearest,p); }
+    catch(std::domain_error const&) { threw=true; }
+    ARIADNE_TEST_ASSERT(threw);
+}
+
 Void test_floatap_native_significand_storage() {
     for (std::size_t bits:{7u,53u,128u,256u}) {
         const ArbitraryPrecision precision(bits);
@@ -1141,6 +1181,7 @@ Int main() {
         TestFloat<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
     test_floatap_exact_dyadic_export();
     test_floatap_native_significand_storage();
+    test_floatap_native_ratio_rounding();
 
 
     return ARIADNE_TEST_FAILURES;

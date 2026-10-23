@@ -11494,3 +11494,60 @@ CI compilation and test results for D120 are pending; the
 local environment cannot clone the entire repository due
 lack of GitHub DNS access. Do not claim the tests passed
 without a CI result.
+
+### D121 — eliminate D120 certified-interval GCD performance regression (23 October 2026)
+
+User reported a substantial slowdown at all precisions following
+D120 (commit c38e3e23). Root cause verified in its diff:
+the certified transcendental endpoints previously went directly
+through FloatAP::from_rational(mpq_srcptr) (the dyadic case skipped
+division entirely; otherwise it imported two Integer operands and
+performed one exact native division/rounding). D120 instead called
+Fraction::native(), constructing an owning canonical Rational from
+both mpq components, then FloatAP(Rational,mode,precision).
+Canonicalizing Rational incurs a potentially very large GCD and
+additional allocation/copying on BOTH interval endpoints, on
+EVERY repeated certification iteration. D120 additionally made
+Fraction(FloatAP) convert through a canonical Rational, causing
+another unnecessary GCD before all transcendental evaluations.
+These intermediate gcd reductions are not needed mathematically:
+the exact ratio need not be reduced before correctly-rounded division.
+
+D121 adds a GMP-free PUBLIC static FloatAP::from_ratio overload
+taking two native Integer operands, rounding mode and precision.
+It delegates immediately to the existing private from_native_ratio
+engine (including its exact power-of-two denominator fast path),
+without a canonical Rational intermediate. Fraction::rounded
+imports the two internally stored mpq fields to native Integer and
+calls this new entrypoint; the four exp/log/trigonometry certification
+endpoint calls now use Fraction::rounded, removing the previously
+introduced gcd path. Fraction(FloatAP) again exports the native
+binary significand/exponent DIRECTLY to its private GMP-backed
+interval state and canonicalizes there, restoring the original
+fast-path complexity without exposing GMP in the FloatAP API.
+Sign handling, nonfinite rejection and exponent shift bounds are
+preserved. All interval calculations and branch/bounds semantics
+remain unchanged.
+
+The new native factory also has independent fixed arithmetic
+assertions at 7 bits for +1/3, -1/3, 5/8, upward/downward tie
+direction, signed denominators, a deliberately UNREDUCED
+2^256/(3*2^256), and zero denominator rejection. Existing
+source-keyed independent transcendental and rounding oracles are
+not changed.
+
+Scope: This is a focused regression repair, NOT completion of
+the strict architectural rule requested by the user (GMP/MPFR only
+inside FloatMP implementation or benchmarks). The remaining
+internal Fraction and interval algorithms in floatap.cpp still
+contain GMP; these must be migrated separately to native
+Integer/Rational/BigUnsigned without reintroducing costly generic
+normalization on high-frequency paths. Do not rewrite these
+complex interval algorithms together with the performance repair.
+The prior staging of unrelated print/FloatDP/MPFR cleanups is
+NOT included in D121, to permit isolated performance attribution.
+
+Performance recovery must be measured on the same host using the
+same precision workload and sample protocol. C++ compilation,
+independent correctness regressions, sanitizer runs and measured
+speedups are pending; algebraic analysis alone is not validation.
