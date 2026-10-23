@@ -1,0 +1,8 @@
+# R3 exact signed rational ordering, independent integer cross-product.
+# bits expected_sign (-1/0/1).
+53	-1
+128	-1
+256	-1
+448	-1
+512	-1
+1024	-1

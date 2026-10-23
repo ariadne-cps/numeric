@@ -8016,3 +8016,31 @@ Replace the R19 GMP expected results for 4 cross-GCD categories x 4 signs x 6 wi
 ### R33.6 — R22 scalar cancellation oracle migration (22 October 2026)
 
 Freeze all 160 R22 cases in tests/data/rational_r22.tsv, retaining ten original 53/127/128/255/256/447/448/511/512/1024-bit thresholds, factors 1, 1/15, 14, 14/15, all four sign masks, and the two exact cancellation identities. Oracle uses independent signed big integers with gcd normalization. Compare native direct/in-place multiplication and division to exact normalized numerator/denominator from TSV. GMP no longer used for this block. Build/CI still required.
+
+### R33.7 — freeze R30, R17 and R3 rational GMP-oracle paths (23 October 2026)
+
+Migrate the remaining original R30 sparse-radix canonical constructor,
+R17 bounded cross-product comparison and R3 8/9-limb comparison blocks
+from runtime GMP/mpq/mpz into source-keyed, independently computed
+exact integer TSV oracles. Preserve ALL R30 10 widths, 7 high-coefficient
+pairs, 6 low-tail pairs, 4 sign masks and 9 dense cases: 1689 rows
+(including the 8192-bit and 128/129-limb cases), with both canonical
+numerator and denominator frozen separately. Preserve all 252 R17
+7 x 6 x 6 comparison signs and 6 R3 boundary comparisons, including
+both operand orders, negative reversals and zero ordering.
+
+TSV data was calculated offline using signed arbitrary-precision
+integer exact cross-products and Euclidean gcd, with no calls into
+Numeric's Integer or Rational, no GMP/MPFR and no runtime expectation
+generation. Readers reject missing, misordered and extra rows.
+Do not weaken canonical numerator/denominator assertions to only
+Rational equivalence: the constructor's normalized representation
+remains an explicit tested contract. The R31/R32, R5/R7/R12/R13/R29
+binary64 conversion cases and bridge-specific exception test are
+separate remaining GMP consumers, not silently discarded. The
+BigUnsigned and Integer GMP differential test families also remain
+to be frozen in subsequent migrations. FloatMP and its benchmark
+baseline, build linkage and all CMake files are intentionally untouched.
+
+Cross-platform CI and source-keyed historical test suites must pass
+before accepting this as production test migration.

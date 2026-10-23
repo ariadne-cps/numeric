@@ -67,6 +67,9 @@ inline constexpr char R20_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r20.t
 inline constexpr char R19_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r19.tsv";
 inline constexpr char R22_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r22.tsv";
 inline constexpr char R0_RANDOM_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_random.tsv";
+inline constexpr char R30_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r30.tsv";
+inline constexpr char R17_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r17.tsv";
+inline constexpr char R3_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r3.tsv";
 
 constexpr bool check_concept()
 {
@@ -473,9 +476,13 @@ void TestRational::test_native_contract() {
             throw std::runtime_error("Extra R28 oracle TSV rows");
     }
 
-    // R30: sparse radix construction with independent GMP oracle.
-    // Test high-ratio reduction, exact multiples, nonzero/coprime
-    // differences, overflow fallbacks and 4/5 and 128/129 limbs.
+    // R30: original sparse and dense construction cases, including the
+    // 128/129-limb boundary. Expected canonical components are frozen
+    // independently, without GMP or Rational arithmetic at test time.
+    std::ifstream r30_golden(R30_ORACLE_PATH);
+    if (!r30_golden) throw std::runtime_error("Missing R30 oracle TSV");
+    std::string r30_header;
+    while (r30_golden.peek()=='#') std::getline(r30_golden,r30_header);
     for (unsigned bits:{64u,128u,255u,256u,320u,512u,1024u,2048u,4096u,8192u}) {
         const Integer base=pow(Integer(2),Nat(bits));
         const std::array<std::pair<unsigned,unsigned>,7u> high_pairs={{
@@ -487,42 +494,47 @@ void TestRational::test_native_contract() {
             {0u,0u},{std::numeric_limits<std::uint64_t>::max(),
                       std::numeric_limits<std::uint64_t>::max()}
         }};
-        for (const auto& [high_n,high_d]:high_pairs) {
-            for (const auto& [low_n,low_d]:low_pairs) {
+        for (unsigned high_index=0u;high_index<high_pairs.size();++high_index) {
+            const auto& [high_n,high_d]=high_pairs[high_index];
+            for (unsigned low_index=0u;low_index<low_pairs.size();++low_index) {
+                const auto& [low_n,low_d]=low_pairs[low_index];
                 for (unsigned signs=0u;signs<4u;++signs) {
                     const Integer positive_n=base*Integer(high_n)+Integer(low_n);
                     const Integer positive_d=base*Integer(high_d)+Integer(low_d);
                     const Integer raw_n=(signs&1u)!=0u ? -positive_n : positive_n;
                     const Integer raw_d=(signs&2u)!=0u ? -positive_d : positive_d;
                     const Rational fraction_result(raw_n,raw_d);
-                    GmpRationalBoundary expected;
-                    integer_to_gmp(mpq_numref(expected.mutable_value()),raw_n);
-                    integer_to_gmp(mpq_denref(expected.mutable_value()),raw_d);
-                    mpq_canonicalize(expected.mutable_value());
-                    const GmpRationalBoundary actual(fraction_result);
-                    ARIADNE_TEST_ASSERT(mpq_equal(actual.value(),expected.value())!=0);
-                    GmpIntegerBoundary common;
-                    mpz_gcd(common.mutable_value(),
-                            mpq_numref(actual.value()),mpq_denref(actual.value()));
-                    ARIADNE_TEST_ASSERT(mpz_cmp_ui(common.value(),1u)==0);
-                    ARIADNE_TEST_ASSERT(mpz_sgn(mpq_denref(actual.value()))>0);
+                    unsigned ref_bits=0u,ref_high=0u,ref_low=0u,ref_signs=0u;
+                    std::string ref_num,ref_den;
+                    if (!(r30_golden >> ref_bits >> ref_high >> ref_low >> ref_signs
+                          >> ref_num >> ref_den) ||
+                        ref_bits!=bits || ref_high!=high_index ||
+                        ref_low!=low_index || ref_signs!=signs) {
+                        throw std::runtime_error("Missing or unordered R30 TSV row");
+                    }
+                    ARIADNE_TEST_EQUALS(fraction_result.numerator(),Integer(String(ref_num)));
+                    ARIADNE_TEST_EQUALS(fraction_result.denominator(),Integer(String(ref_den)));
                 }
             }
         }
         if (bits>=128u) {
-            // A nonzero intermediate word disables the sparse
-            // reduction, preserving the original Euclidean path.
             const Integer dense_n=base+pow(Integer(2),Nat(64))+Integer(11);
             const Integer dense_d=base*2+pow(Integer(2),Nat(64))+Integer(17);
             const Rational dense_result(dense_n,dense_d);
-            GmpRationalBoundary dense_expected;
-            integer_to_gmp(mpq_numref(dense_expected.mutable_value()),dense_n);
-            integer_to_gmp(mpq_denref(dense_expected.mutable_value()),dense_d);
-            mpq_canonicalize(dense_expected.mutable_value());
-            const GmpRationalBoundary dense_actual(dense_result);
-            ARIADNE_TEST_ASSERT(mpq_equal(dense_actual.value(),dense_expected.value())!=0);
+            unsigned ref_bits=0u,ref_high=0u,ref_low=0u,ref_signs=0u;
+            std::string ref_num,ref_den;
+            if (!(r30_golden >> ref_bits >> ref_high >> ref_low >> ref_signs
+                  >> ref_num >> ref_den) ||
+                ref_bits!=bits || ref_high!=7u || ref_low!=0u || ref_signs!=0u) {
+                throw std::runtime_error("Missing or unordered R30 dense TSV row");
+            }
+            ARIADNE_TEST_EQUALS(dense_result.numerator(),Integer(String(ref_num)));
+            ARIADNE_TEST_EQUALS(dense_result.denominator(),Integer(String(ref_den)));
         }
     }
+    std::string r30_extra;
+    if (r30_golden >> r30_extra)
+        throw std::runtime_error("Extra R30 oracle TSV rows");
     // R31: verify GCD shortcuts through real add, subtract and
     // multiply operations against an independent GMP rational oracle.
     // The 2:3 denominator high-word ratio is deliberately *not*
@@ -580,9 +592,12 @@ void TestRational::test_native_contract() {
             }
         }
     }
-    // R17: high-prefix product bounds must agree with exact GMP
-    // comparisons. Cover readily separable and nearly equal ratios,
-    // reverse ordering, negatives, and the 8/9-limb stack boundary.
+    // R17: all original 7*6*6 cross-product comparisons, including
+    // reverse/negative order and the 8/9-limb stack threshold.
+    std::ifstream r17_golden(R17_ORACLE_PATH);
+    if (!r17_golden) throw std::runtime_error("Missing R17 oracle TSV");
+    std::string r17_header;
+    while (r17_golden.peek()=='#') std::getline(r17_golden,r17_header);
     for (unsigned bits:{128u,256u,448u,512u,1024u,2048u,4096u}) {
         const Integer base=pow(Integer(2),Nat(bits));
         const std::array<Rational,6u> probes={
@@ -593,20 +608,30 @@ void TestRational::test_native_contract() {
             Rational(base+2,base+3),
             Rational(-(base+29),base*3+7)
         };
-        for (Rational const& a:probes) {
-            for (Rational const& b:probes) {
-                GmpRationalBoundary ga(a),gb(b);
-                const int raw=mpq_cmp(ga.value(),gb.value());
+        for (unsigned i=0u;i<probes.size();++i) {
+            for (unsigned j=0u;j<probes.size();++j) {
+                unsigned ref_bits=0u,ref_i=0u,ref_j=0u;
+                int raw=2;
+                if (!(r17_golden >> ref_bits >> ref_i >> ref_j >> raw) ||
+                    ref_bits!=bits || ref_i!=i || ref_j!=j ||
+                    raw< -1 || raw>1) {
+                    throw std::runtime_error("Missing or unordered R17 TSV row");
+                }
                 const Comparison expected=raw<0 ? Comparison::LESS
                     : raw>0 ? Comparison::GREATER : Comparison::EQUAL;
                 const Comparison reverse=raw>0 ? Comparison::LESS
                     : raw<0 ? Comparison::GREATER : Comparison::EQUAL;
+                const Rational& a=probes[i];
+                const Rational& b=probes[j];
                 ARIADNE_TEST_EQUALS(cmp(a,b),expected);
                 ARIADNE_TEST_EQUALS(cmp(b,a),reverse);
                 ARIADNE_TEST_EQUALS(cmp(-a,-b),reverse);
             }
         }
     }
+    std::string r17_extra;
+    if (r17_golden >> r17_extra)
+        throw std::runtime_error("Extra R17 oracle TSV rows");
 
     // R4: exact independently frozen floor/ceil results for all nine
     // fraction classes across all six original bit-width boundaries.
@@ -642,14 +667,21 @@ void TestRational::test_native_contract() {
     if (r4_golden >> extra_r4)
         throw std::runtime_error("Extra R4 oracle TSV rows");
 
-    // R3: exercise stack products (up to 8 limbs each), their exact
-    // 8/9-limb boundary, the fallback, signs and opposite orderings.
+    // R3: independently frozen exact ordering at the 8/9-limb boundary.
+    std::ifstream r3_golden(R3_ORACLE_PATH);
+    if (!r3_golden) throw std::runtime_error("Missing R3 oracle TSV");
+    std::string r3_header;
+    while (r3_golden.peek()=='#') std::getline(r3_golden,r3_header);
     for (unsigned bits : {53u,128u,256u,448u,512u,1024u}) {
         const Integer base=pow(Integer(2),Nat(bits));
         const Rational a(base+13,base*3+19);
         const Rational b(base+31,base*2+17);
-        GmpRationalBoundary ga(a),gb(b);
-        const int raw=mpq_cmp(ga.value(),gb.value());
+        unsigned ref_bits=0u;
+        int raw=2;
+        if (!(r3_golden >> ref_bits >> raw) ||
+            ref_bits!=bits || raw< -1 || raw>1) {
+            throw std::runtime_error("Missing or unordered R3 TSV row");
+        }
         const Comparison expected=raw<0 ? Comparison::LESS
             : raw>0 ? Comparison::GREATER : Comparison::EQUAL;
         const Comparison reversed=raw>0 ? Comparison::LESS
@@ -661,6 +693,9 @@ void TestRational::test_native_contract() {
         ARIADNE_TEST_EQUALS(cmp(Rational(0),a),Comparison::LESS);
         ARIADNE_TEST_EQUALS(cmp(a,Rational(0)),Comparison::GREATER);
     }
+    std::string r3_extra;
+    if (r3_golden >> r3_extra)
+        throw std::runtime_error("Extra R3 oracle TSV rows");
     const Integer factor=pow(Integer(2),Nat(320))+1;
     const Rational a(factor*7,11),b(11,factor*13);
     ARIADNE_TEST_EQUALS(a*b,Rational(7,13));
