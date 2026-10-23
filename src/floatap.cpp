@@ -423,37 +423,10 @@ FloatAP const& c, unsigned long p, Rounding mode) {
     return add(exact, c, p, mode);
 }
 
-namespace {
-// A signed 64-bit integer is imported directly, without a decimal
-// intermediate. In particular, INT64_MIN is handled without negating
-// a signed value outside its range.
-FloatAP float_from_int64(std::int64_t n, ArbitraryPrecision precision) {
-    mpz_t value;
-    mpz_init(value);
-    struct Cleanup {
-        mpz_ptr value;
-        ~Cleanup() {
-            mpz_clear(value);
-        }
-    }
-    cleanup { value };
-
-    std::uint64_t magnitude = static_cast<std::uint64_t>(n);
-    if (n < 0) {
-        magnitude = std::uint64_t { 0 } - magnitude;
-    }
-    mpz_import(value, 1, 1, sizeof(magnitude), 0, 0,& magnitude);
-    if (n < 0) {
-        mpz_neg(value, value);
-    }
-    return FloatAP::from_integer(value, static_cast<unsigned long>(precision.bits()),
-    FloatAP::ROUND_TO_NEAREST);
-}
-}
-
+// Integer owns a native signed magnitude; no mpz_t import is required,
+// including for INT64_MIN.
 FloatAP::Float(std::int64_t n, PrecisionType pr)
-: Float(float_from_int64(n, pr)) {
-}
+    : Float(Integer(n), ROUND_TO_NEAREST, pr) { }
 
 namespace {
 thread_local FloatAP::RoundingModeType floatap_current_rounding =
@@ -915,66 +888,92 @@ FloatAP next(RoundDownward, FloatAP const& x) {
     return r;
 }
 
-// Integral rounding uses the exact GMP significand and binary exponent.
-// It does not convert an extreme exponent into an enormous Rational.
+// Integral rounding now uses native BigUnsigned shifts and bit tests.
+// Only the eventual export from the current mpz_t-owned significand remains.
+// In particular, signed minimum exponents never trigger huge 2^k allocations.
+namespace {
+
+bool has_discarded_bits(BigUnsigned const& magnitude,std::size_t shift) {
+    const std::size_t whole=shift/64u;
+    const std::size_t partial=shift%64u;
+    const auto limbs=magnitude.limbs();
+    for(std::size_t i=0;i<std::min(whole,limbs.size());++i) {
+        if(limbs[i]!=0u) return true;
+    }
+    if(partial!=0u && whole<limbs.size()) {
+        const std::uint64_t mask=(std::uint64_t{1}<<partial)-1u;
+        return (limbs[whole]&mask)!=0u;
+    }
+    return false;
+}
+
+bool has_bit(BigUnsigned const& magnitude,std::size_t index) {
+    return (magnitude.limb(index/64u) &
+            (std::uint64_t{1}<<(index%64u)))!=0u;
+}
+
+FloatAP signed_integral_float(BigUnsigned magnitude,bool negative,
+                              ArbitraryPrecision precision) {
+    if(magnitude.is_zero()) {
+        return FloatAP::zero(static_cast<unsigned long>(precision.bits()),negative);
+    }
+    return FloatAP(Integer::from_magnitude(std::move(magnitude),negative),
+                   FloatAP::ROUND_TO_NEAREST,precision);
+}
+
+} // namespace
+
 FloatAP floor(FloatAP const& x) {
-    if (!x.is_finite() || x.is_zero() || x._exponent >= 0) return x;
-    const std::uint64_t shift = std::uint64_t{0} -
+    if(!x.is_finite() || x.is_zero() || x._exponent>=0) return x;
+    const std::uint64_t shift=std::uint64_t{0}-
         static_cast<std::uint64_t>(x._exponent);
-    if (shift >= mpz_sizeinbase(x._significand, 2)) {
-        return FloatAP(x._negative ? std::int64_t{-1} : std::int64_t{0}, x.precision());
+    const Integer significand=integer_from_gmp(x._significand);
+    const BigUnsigned& magnitude=significand.magnitude();
+    if(shift>=magnitude.bit_length()) {
+        return FloatAP(x._negative ? std::int64_t{-1} : std::int64_t{0},x.precision());
     }
-    mpz_t integer;
-    mpz_init(integer);
-    struct Cleanup { mpz_ptr p; ~Cleanup() { mpz_clear(p); } } cleanup{integer};
-    const auto k = FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift));
-    if (x._negative) {
-        mpz_cdiv_q_2exp(integer, x._significand, k);
-        mpz_neg(integer, integer);
-    } else {
-        mpz_fdiv_q_2exp(integer, x._significand, k);
+    const std::size_t dropped=static_cast<std::size_t>(shift);
+    BigUnsigned integral=shift_right(magnitude,dropped);
+    if(x._negative && has_discarded_bits(magnitude,dropped)) {
+        integral=add_big_unsigned(integral,BigUnsigned(1u));
     }
-    return FloatAP::from_integer(integer, x._precision, FloatAP::ROUND_TO_NEAREST);
+    return signed_integral_float(std::move(integral),x._negative,x.precision());
 }
 
 FloatAP ceil(FloatAP const& x) {
-    if (!x.is_finite() || x.is_zero() || x._exponent >= 0) return x;
-    const std::uint64_t shift = std::uint64_t{0} -
+    if(!x.is_finite() || x.is_zero() || x._exponent>=0) return x;
+    const std::uint64_t shift=std::uint64_t{0}-
         static_cast<std::uint64_t>(x._exponent);
-    if (shift >= mpz_sizeinbase(x._significand, 2)) {
-        return FloatAP(x._negative ? std::int64_t{0} : std::int64_t{1}, x.precision());
+    const Integer significand=integer_from_gmp(x._significand);
+    const BigUnsigned& magnitude=significand.magnitude();
+    if(shift>=magnitude.bit_length()) {
+        return FloatAP(x._negative ? std::int64_t{0} : std::int64_t{1},x.precision());
     }
-    mpz_t integer;
-    mpz_init(integer);
-    struct Cleanup { mpz_ptr p; ~Cleanup() { mpz_clear(p); } } cleanup{integer};
-    const auto k = FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift));
-    if (x._negative) {
-        mpz_fdiv_q_2exp(integer, x._significand, k);
-        mpz_neg(integer, integer);
-    } else {
-        mpz_cdiv_q_2exp(integer, x._significand, k);
+    const std::size_t dropped=static_cast<std::size_t>(shift);
+    BigUnsigned integral=shift_right(magnitude,dropped);
+    if(!x._negative && has_discarded_bits(magnitude,dropped)) {
+        integral=add_big_unsigned(integral,BigUnsigned(1u));
     }
-    return FloatAP::from_integer(integer, x._precision, FloatAP::ROUND_TO_NEAREST);
+    return signed_integral_float(std::move(integral),x._negative,x.precision());
 }
 
 FloatAP round(FloatAP const& x) {
-    if (!x.is_finite() || x.is_zero() || x._exponent >= 0) return x;
-    const std::uint64_t shift = std::uint64_t{0} -
+    if(!x.is_finite() || x.is_zero() || x._exponent>=0) return x;
+    const std::uint64_t shift=std::uint64_t{0}-
         static_cast<std::uint64_t>(x._exponent);
-    const std::size_t bits = mpz_sizeinbase(x._significand, 2);
-    if (shift > bits) return FloatAP::zero(x._precision, x._negative);
-    mpz_t integer;
-    mpz_init(integer);
-    struct Cleanup { mpz_ptr p; ~Cleanup() { mpz_clear(p); } } cleanup{integer};
-    const auto k = FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift));
-    mpz_tdiv_q_2exp(integer, x._significand, k);
-    // mpfr_round uses nearest integer with halfway cases away from zero.
-    if (mpz_tstbit(x._significand, k-1) != 0) {
-        mpz_add_ui(integer, integer, 1);
+    const Integer significand=integer_from_gmp(x._significand);
+    const BigUnsigned& magnitude=significand.magnitude();
+    const std::size_t bits=magnitude.bit_length();
+    if(shift>bits) {
+        return FloatAP::zero(x._precision,x._negative);
     }
-    if (x._negative) mpz_neg(integer, integer);
-    if (mpz_sgn(integer) == 0) return FloatAP::zero(x._precision, x._negative);
-    return FloatAP::from_integer(integer, x._precision, FloatAP::ROUND_TO_NEAREST);
+    const std::size_t dropped=static_cast<std::size_t>(shift);
+    BigUnsigned integral=shift_right(magnitude,dropped);
+    // Preserve the historical nearest-integer/ties-away-from-zero contract.
+    if(has_bit(magnitude,dropped-1u)) {
+        integral=add_big_unsigned(integral,BigUnsigned(1u));
+    }
+    return signed_integral_float(std::move(integral),x._negative,x.precision());
 }
 
 FloatAP abs(FloatAP::RoundingModeType, FloatAP const& x) {

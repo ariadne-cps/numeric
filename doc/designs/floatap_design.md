@@ -10957,3 +10957,26 @@ Add only one absolute path CMake definition. No production
 change, timeout or loop change. TSan timing/CI results
 require real runs; the 10x goal is not claimed achieved.
 Parent `b5ecc37e34037457c869ebc1b1b4abf1a859afcd`, branch `remove-gmp`.
+
+### D105 — remove GMP arithmetic from FloatAP integral rounding (23 October 2026)
+
+This incremental change on `numeric/main` does **not** modify the
+historical `remove-gmp` branch, the public `floats.hpp` aggregation,
+`floatmp.hpp`, or any benchmark. MPFR remains buildable for comparisons.
+
+- The signed `std::int64_t` FloatAP constructor now passes through the
+  native `Integer` signed-magnitude implementation and
+  `from_native_ratio`, rather than allocating/importing a temporary
+  `mpz_t`. `INT64_MIN` is handled without signed negation.
+- `floor`, `ceil` and `round` use the existing native
+  `BigUnsigned` limb shifts, low-bit detection and integer
+  construction. Signed zeros, negative values, ties away from zero and
+  the minimum signed exponent retain their existing contracts.
+- The three functions still export the *stored* `mpz_t` significand
+  through `integer_from_gmp` once. That is an interim storage
+  adapter, not GMP arithmetic: the full `FloatAP::_significand`
+  migration remains outstanding.
+- Dedicated native tests cover half ties, signed zero, negative floor
+  and ceiling, `INT64_MIN`, and extremal binary exponents; no test
+  or golden oracle is weakened, removed or rewritten to self-compare.
+- This step is source-reviewed only until cross-platform CI runs.

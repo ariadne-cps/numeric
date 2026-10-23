@@ -33,6 +33,7 @@
 #include <string>
 #include <iomanip>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <stdexcept>
 #include <type_traits>
@@ -2706,6 +2707,39 @@ TestFloatRounding<PR>::test_arithmetic()
     ARIADNE_TEST_ASSERT(floor(f1)==1); ARIADNE_TEST_ASSERT(ceil(f1)==2);
     ARIADNE_TEST_ASSERT(floor(f2)==-4); ARIADNE_TEST_ASSERT(ceil(f2)==-3);
     ARIADNE_TEST_ASSERT(floor(f3)==-2); ARIADNE_TEST_ASSERT(ceil(f3)==-2);
+
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        // Independent exact rational/integer expectations for native
+        // integral rounding, including ties away from zero.
+        const FloatAP half(Dyadic(1,1u),precision);
+        const FloatAP minus_half(Dyadic(-1,1u),precision);
+        const FloatAP quarter(Dyadic(1,2u),precision);
+        const FloatAP minus_quarter(Dyadic(-1,2u),precision);
+        ARIADNE_TEST_EQUALS(round(half),FloatAP(1,precision));
+        ARIADNE_TEST_EQUALS(round(minus_half),FloatAP(-1,precision));
+        ARIADNE_TEST_EQUALS(round(quarter),FloatAP(0,precision));
+        ARIADNE_TEST_ASSERT(is_zero(round(minus_quarter)));
+        ARIADNE_TEST_ASSERT(round(minus_quarter).negative());
+        ARIADNE_TEST_EQUALS(floor(quarter),FloatAP(0,precision));
+        ARIADNE_TEST_EQUALS(ceil(quarter),FloatAP(1,precision));
+        ARIADNE_TEST_EQUALS(floor(minus_quarter),FloatAP(-1,precision));
+        ARIADNE_TEST_EQUALS(ceil(minus_quarter),FloatAP(0,precision));
+        ARIADNE_TEST_ASSERT(not ceil(minus_quarter).negative());
+        // Import of the most negative signed 64-bit integer must not
+        // overflow by attempting to negate it in the signed domain.
+        const std::int64_t min_i64=std::numeric_limits<std::int64_t>::min();
+        const FloatAP min_i64_float(min_i64,ArbitraryPrecision(128_bits));
+        ARIADNE_TEST_EQUALS(Rational(min_i64_float),Rational(Integer(min_i64)));
+        // No huge shift allocation at the minimum signed exponent.
+        const FloatAP tiny=FloatAP::min(precision);
+        const FloatAP minus_tiny=-tiny;
+        ARIADNE_TEST_EQUALS(floor(tiny),FloatAP(0,precision));
+        ARIADNE_TEST_EQUALS(ceil(tiny),FloatAP(1,precision));
+        ARIADNE_TEST_EQUALS(floor(minus_tiny),FloatAP(-1,precision));
+        ARIADNE_TEST_EQUALS(ceil(minus_tiny),FloatAP(0,precision));
+        ARIADNE_TEST_ASSERT(is_zero(round(minus_tiny)));
+        ARIADNE_TEST_ASSERT(round(minus_tiny).negative());
+    }
 
     // Conversion to integer types
     Int i3,i4;
