@@ -4,7 +4,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
-`generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`,
+`generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -27,7 +27,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (93 of 115 at B90).
+overwrites only the currently covered TSV files (94 of 115 at B91).
 The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
@@ -56,6 +56,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_binary64.cpp -o /tmp/numeric-oracle-binary64
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_shared_stream.cpp -o /tmp/numeric-oracle-rational-stream
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_r31.cpp -o /tmp/numeric-oracle-r31
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_random.cpp -o /tmp/numeric-oracle-r0
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -69,6 +70,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-binary64 --verify --data-dir tests/data
 /tmp/numeric-oracle-rational-stream --verify --data-dir tests/data
 /tmp/numeric-oracle-r31 --verify --data-dir tests/data
+/tmp/numeric-oracle-r0 --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -96,6 +98,7 @@ review every diff before committing. No sampling is used.
 | `generator_rational_binary64.cpp` | `rational_r7.tsv`, `rational_r12.tsv` | 384 R7 rational probes; 2,048 R12 one-limb seeded conversions (both signs) |
 | `generator_rational_shared_stream.cpp` | `rational_r29.tsv`, all sixteen `rational_r13_mode*_limbs*.tsv`, `rational_r5.tsv` | 216 R29, 1,536 R13, 48 R5 rows; exact shared original RNG state |
 | `generator_rational_r31.cpp` | 14 `rational_r31_<bits>_<chunk>.tsv` fixtures | All 960 R31/R32 cases, 10 widths, 24 source indices, four signs; preserve 2048/4096-bit chunks |
+| `generator_rational_random.cpp` | `rational_random.tsv` | Full 1,200-visit RNG replay and all 120 original stratified exact R0 cases |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -235,3 +238,12 @@ Clang compile and run the independent C++20 generator under strict warnings,
 and every output matches the original Git blob SHA-1, with no copied data.
 The generator is registered in explicit `generators` and `generate-data`;
 `tests` and the default build remain decoupled. Data stays versioned.
+
+B91 adds the complete independent R0 random Rational fixture generator.
+It replays all 1,200 original seeded mt19937_64 iterations and freezes
+exactly the same 120 adaptive one-per-ten sample offsets, without reading
+TSV input. Independent signed radix-2^64 limbs reproduce raw integer
+sources, canonical fractions, arithmetic, floor/ceil and GMP-compatible
+round-toward-zero binary64 bit patterns. GCC and Clang strict builds match
+the existing `rational_random.tsv` Git SHA exactly; read-only --verify
+rejects corruption. It is the fourteenth explicitly registered generator.

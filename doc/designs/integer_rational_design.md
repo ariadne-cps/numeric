@@ -8699,3 +8699,29 @@ for the explicit `generators` and `generate-data` targets, leaving
 from 79 to 93 of 115 versioned TSVs. No existing TSV, test consumer,
 production code, GMP oracle, root CMake, FloatMP or benchmark changes.
 Full platform CI is still required.
+
+### B91 — independent source-keyed Rational R0 random fixture (23 October 2026)
+
+Add standalone `tests/data/generator_rational_random.cpp` to reproduce
+the complete preexisting `rational_random.tsv` from its original
+mt19937_64(0x6672616374696f6e) stream. Replay all 1,200 original
+visits (47,860 RNG draws), including four operand limb vectors and
+four sign draws at each iteration, keeping the 120 exact adaptive
+one-per-ten selected indices. Source integers, signed canonical
+fractions, add/subtract/multiply, square, half, optional division
+and reciprocal, floor/ceil, comparison and raw hexadecimal IEEE-754
+binary64 bits are all computed with independent standard-C++20
+base-2^64 limb arithmetic. No Numeric/GMP/MPFR/FloatMP/Boost runtime
+oracle or fixture input is involved.
+
+An independent exact BigInt replay reproduced all 120 original
+19-field rows. GCC 14 and Clang 17 compiled with strict C++20 warnings
+including -Wsign-conversion -Wshadow -Werror; an extended CI-style
+Clang strict-warning compilation also passed. Both executables
+regenerated 579,270 bytes, exactly the original Git blob SHA-1
+`1f1db8b7fe27af6c30dcaa18c7feb6c3ee6ce7de`.
+Read-only --verify detected deliberate corruption. Register the
+fourteenth generator in explicit generators and generate-data targets
+without coupling tests; update README. Coverage rises from 93 to
+94/115 versioned TSV files. No original data, test consumer,
+production code or GMP oracle is modified. Full platform CI pending.
