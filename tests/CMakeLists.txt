@@ -56,6 +56,7 @@ set(ORACLE_GENERATORS
     generator_exact_small
     generator_big_unsigned_power_div
     generator_rational_exact
+    generator_exact_b72_r17
 )
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)
     add_executable(${GENERATOR} "data/${GENERATOR}.cpp")

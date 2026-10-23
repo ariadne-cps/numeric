@@ -8447,3 +8447,30 @@ Check full Unix/Windows/Sanitizers/Coverage CI after commit. The
 preceding B80 macOS Coverage failure was in the Upload Code Coverage
 step, while its Ubuntu Coverage job and Windows workflow succeeded;
 this should not be misclassified as a generator compilation failure.
+
+### B82 — reproduce B72 and R17 source-keyed exact fixtures (23 October 2026)
+
+Add standalone `tests/data/generator_exact_b72_r17.cpp` using the
+standard-library independent radix-2^64 Nat helper. Reproduce the
+existing `big_unsigned_b72.tsv` across all 36 (n,m) width pairs and
+all eight selected mode classes, 288 rows. Replay all 32 original
+`mt19937_64(0xB7204455)` source visits per pair to preserve the
+stream, including modes not frozen in the TSV. Compute all products
+and source squares with an independent binary shift-and-add limb
+multiplier. Reproduce the existing `rational_r17.tsv` across all
+7 widths and all 6 x 6 signed rational orderings, 252 rows, by
+exact sign handling and cross-product comparison. Inputs are derived
+from the original test source; no TSV inputs are re-used as an oracle.
+
+Compiled and generated both TSVs with GCC 14 and Clang 17 C++20
+`-Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror`.
+All generated Git object IDs match the previous frozen blobs:
+`big_unsigned_b72.tsv` 87e5d405d7374f9a19963936b56761e089417f4a;
+`rational_r17.tsv` 3b53a0dc9a8c0908083ece7039778c2631c19696.
+Register generator as a build-only tests dependency and update README.
+No changes to original fixtures, consumers, GMP checks, FloatMP,
+production algorithms, root CMake, benchmarks or source fixture paths.
+44 of 115 TSV files now have independent versioned generators.
+Full CI remains to be checked. As directed, do not introduce
+`generate-data` or remove versioned TSVs before full generator coverage
+and GMP-oracle migration.

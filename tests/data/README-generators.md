@@ -2,7 +2,7 @@
 
 The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
-and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
+`generator_exact_b72_r17.cpp`, and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
 FloatMP or Boost**: expected values must not come from the code being tested.
@@ -15,11 +15,13 @@ c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_b76.c
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_exact_small.cpp -o /tmp/numeric-oracle-exact-small
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_big_unsigned_power_div.cpp -o /tmp/numeric-oracle-power-div
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_rational_exact.cpp -o /tmp/numeric-oracle-rational-exact
+c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_exact_b72_r17.cpp -o /tmp/numeric-oracle-b72-r17
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
 /tmp/numeric-oracle-power-div --verify --data-dir tests/data
 /tmp/numeric-oracle-rational-exact --verify --data-dir tests/data
+/tmp/numeric-oracle-b72-r17 --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -39,6 +41,7 @@ review every diff before committing. No sampling is used.
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
+| `generator_exact_b72_r17.cpp` | `big_unsigned_b72.tsv`, `rational_r17.tsv` | 288 B72 products/squares and 252 R17 comparisons |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -108,3 +111,12 @@ matched the previous TSVs, including headers and row ordering. For R20,
 the fourth pair has identical operands, essential to preserve cancellation
 and aliasing; it must not be replaced with the first unequal pair.
 No TSVs are removed, and `generate-data` is still deferred.
+
+B82 independently reproduces B72 and R17. The B72 source consumes all
+1,152 original mt19937_64 source visits (including 24 nonselected modes
+per width pair) before emitting exactly 36 x 8 = 288 source-keyed
+product/square rows. R17 regenerates all 7 x 6 x 6 = 252 exact signed
+cross-comparisons using separate shift/add limb multiplication. GCC 14
+and Clang 17 strict warning builds generated both TSVs with their
+original Git blob IDs, byte-for-byte. No fixtures are changed, no GMP
+oracles are replaced, and automatic data generation is still deferred.
