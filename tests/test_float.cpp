@@ -813,7 +813,11 @@ TestFloat<PR>::test_operations()
         if constexpr (Same<PR,ArbitraryPrecision>) {
             ARIADNE_TEST_EXECUTE(FloatDP(a,FloatDP::ROUND_TO_NEAREST,dp));
             ARIADNE_TEST_EXECUTE(FloatDP(a,FloatDP::ROUND_TOWARD_ZERO,dp));
-            ARIADNE_TEST_FAIL(FloatDP(a,static_cast<FloatDP::RoundingModeType>(0xffffu),dp));
+            const auto bad_mode=static_cast<FloatDP::RoundingModeType>(0xffffu);
+            ARIADNE_TEST_FAIL(FloatDP(a,bad_mode,dp));
+            ARIADNE_TEST_FAIL(FloatDP(FloatType(0,pr),bad_mode,dp));
+            ARIADNE_TEST_FAIL(FloatDP(FloatType::nan(pr),bad_mode,dp));
+            ARIADNE_TEST_FAIL(FloatDP(FloatType::inf(pr),bad_mode,dp));
         }
         FloatType::set_rounding_to_nearest();
     }

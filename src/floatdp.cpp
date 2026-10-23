@@ -161,6 +161,10 @@ FloatDP::Float(FloatAP const& value, RoundingModeType rnd, PrecisionType pr)
               : value.is_zero() ? FloatDP(ExactDouble(value.negative() ? -0.0 : 0.0),pr)
               : FloatDP(static_cast<Rational>(value),rnd,pr))
 {
+    // Reject unsupported rounding modes for every kind of FloatAP input,
+    // including exact values, infinities, NaNs, and signed zero.
+    ARIADNE_PRECONDITION(rnd==ROUND_TO_NEAREST || rnd==ROUND_DOWNWARD
+                      || rnd==ROUND_UPWARD || rnd==ROUND_TOWARD_ZERO);
 }
 
 FloatDP::Float(FloatDP const& x, RoundingModeType, PrecisionType)
