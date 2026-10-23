@@ -8142,3 +8142,25 @@ test and BigUnsigned/Integer GMP suites are separate tasks.
 
 Production numeric code, FloatMP, benchmarks and CMake are untouched.
 Cross-platform CI is required before declaring this migration verified.
+
+### R33.11 — migrate R29 and R13 binary64 conversion oracles (23 October 2026)
+
+Migrate the complete remaining R29 sparse-prefix and R13 dense random
+Rational::get_d() differential blocks to independently computed
+source-keyed TSV expectations. R29 preserves 4 host modes, 6 widths,
+3 numerator and 3 denominator high-word coefficients, and both signs:
+216 source rows, 432 exact binary64 outcomes. R13 preserves 4 host
+modes, 4 widths (5..8 limbs), all 96 original cases per width: 1536
+source rows and exact binary64 outputs. No random cases are skipped.
+The original std::mt19937_64 generator state and all draws remain
+unchanged, including the 1200 legacy R0 visits and the following R5
+input generation. Frozen TSV signed numerator and denominator
+values are checked against the generated source integers on every
+row; bit-exact IEEE-754 outcomes are computed independently with
+arbitrary-precision integer division and bit lengths, without Numeric,
+GMP or MPFR. R13 TSVs are split by mode and limb count for manageable
+GitHub transfers, without changing the original 1536 cases.
+Each reader rejects missing, misordered and extra rows.
+R5 and bridge-specific GMP tests remain unchanged; benchmark, CMake,
+FloatMP and production algorithms are untouched.
+Cross-platform CI is required before treating this migration as verified.
