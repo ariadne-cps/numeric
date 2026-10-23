@@ -49,6 +49,9 @@ template<> Bounds<FloatAP>::Bounds(Real const& value, ArbitraryPrecision pr)
 // to native outward-rounded intervals.
 template<> Bounds<FloatDP>::operator ValidatedNumber() const;
 template<> Bounds<FloatMP>::operator ValidatedNumber() const;
+// This specialization is defined in number.cpp. Declare it before the
+// explicit class instantiation below, preventing a second definition on MSVC.
+template<> Bounds<FloatAP>::operator ValidatedNumber() const;
 
 template class Bounds<FloatDP>;
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_pi(DoublePrecision);
