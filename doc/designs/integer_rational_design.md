@@ -8387,3 +8387,35 @@ is updated; 36 committed TSVs now have versioned independent generators.
 Production arithmetic, legacy GMP oracles, consumers, all frozen TSVs,
 FloatMP, benchmarks and root CMake remain unchanged. Full repository
 CI (Unix, Windows, Sanitizers, Coverage) is still required.
+
+### B80 — independent rational R28/R30/R22 fixture generators (23 October 2026)
+
+Add standalone standard-C++20 `tests/data/generator_rational_exact.cpp` to
+reproduce 36 R28 exact signed add/sub rows, all 1,689 R30 exact canonical
+normalization rows (including nine 128..8192-bit dense fallbacks), and all
+160 R22 scalar signed multiplication/division rows. Exact signed fraction
+arithmetic uses independent base-2^64 limbs and binary shift/add
+multiplication, long division, normalization by binary GCD, with no
+Numeric/GMP/MPFR/FloatMP/Boost dependencies. R28's raw operand columns
+remain unreduced as in the original frozen fixture, while resulting sum
+and difference columns are canonical. Seeds, source parameters, sign
+classes and row ordering are unchanged; no sampling or new test cases.
+
+The C++20 generator was compiled and --verify executed with GCC and Clang
+using CI-style strict warnings including -Wsign-conversion -Wshadow -Werror.
+Regenerated outputs matched all previously committed Git object hashes:
+R28 7292632988a8b8d7e02f9e2a866704f46fce73d2;
+R30 3381e112eac6cbc56c30dcaa18a858053894014e;
+R22 fe5f8415bab7db3f4980c34bf41360e13d4b67b0.
+Read-only verification also rejected a deliberately corrupted fixture.
+Update tests/CMakeLists.txt only to compile the generator as a dependency
+of the aggregate `tests` target; it is not automatically run. Update
+README-generators.md. Existing test consumers, all original TSV data,
+production code, GMP oracles, root CMake, FloatMP and benchmarks remain
+untouched. Coverage rises from 36 to 39 versioned source-reproducible TSVs.
+Full Unix, Windows, Sanitizers and Coverage CI remains required.
+
+Scheduling decision: defer a CMake `generate-data` target, removal of
+versioned TSVs, and any build-tree fixture generation until all fixture
+generators are available and remaining GMP reference oracles are
+replaced. Existing source-tree TSVs remain mandatory in the meantime.

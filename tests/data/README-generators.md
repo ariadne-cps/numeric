@@ -1,8 +1,8 @@
 # Reproducible exact golden-data generators
 
 The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
-`generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, and
-`oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
+`generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
+and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
 FloatMP or Boost**: expected values must not come from the code being tested.
@@ -14,10 +14,12 @@ c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_gcd.c
 c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_b76.cpp -o /tmp/numeric-oracle-b76
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_exact_small.cpp -o /tmp/numeric-oracle-exact-small
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_big_unsigned_power_div.cpp -o /tmp/numeric-oracle-power-div
+c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_rational_exact.cpp -o /tmp/numeric-oracle-rational-exact
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
 /tmp/numeric-oracle-power-div --verify --data-dir tests/data
+/tmp/numeric-oracle-rational-exact --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -36,6 +38,7 @@ review every diff before committing. No sampling is used.
 | `generator_big_unsigned_b76.cpp` | all fourteen `big_unsigned_b76_gcd_decimal_*.tsv` | 2,800 source-keyed GCD/decimal cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
+| `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div cases |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -80,3 +83,17 @@ GCC 14 and Clang 17, including the strict Clang/CI warning set with
 `-Wsign-conversion -Wshadow -Werror`. `--verify` rejects a modified fixture
 without altering it. The independent long-division generator additionally
 checks `a == b*q+r` and `r < b` for every nonzero divisor. CI remains pending.
+
+B80 adds independent signed-rational and fraction-normalization sources for
+R28, R30, and R22 (39 reproducible TSVs overall). Signed source and exact
+result fractions are derived without linking or executing Numeric, GMP,
+MPFR, FloatMP or Boost. The R28 source columns intentionally preserve the
+original unreduced numerator/denominator in cases with a common factor,
+while mathematical result columns are reduced canonically. R30 includes
+all nine dense fallback rows at original 128..8192-bit boundaries.
+The three files were reproduced byte-for-byte against their pre-existing
+Git blob SHA-1 hashes on GCC and Clang with strict CI-style warnings,
+including `-Wsign-conversion -Wshadow -Werror`; a deliberately modified
+fixture was rejected in `--verify` mode. No checked-in TSV or consumer
+changed. Keep TSVs versioned until every generator and GMP oracle
+migration is complete; no automatic `generate-data` target is introduced.
