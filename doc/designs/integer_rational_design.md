@@ -8777,3 +8777,28 @@ explicit `generators` and `generate-data`, not `tests`.
 Source-reproducible fixture coverage rises from 95 to 96 of 115.
 No versioned data, production arithmetic, test consumer, GMP oracle,
 root CMake or FloatMP source was changed. Full CI remains pending.
+
+### B94 — independent certified integer-only FloatAP pi fixture (23 October 2026)
+
+Add standalone C++20 `tests/data/generator_floatap_pi.cpp` to reproduce
+`floatap_pi.tsv` from Machin's formula pi=16*atan(1/5)-4*atan(1/239).
+Derive a rigorous integer-only fixed-point interval at scale 2^1200
+using 400 Taylor terms per arctangent. Each series term is bracketed
+by its exact integer floor and ceiling, with a rigorous alternating
+next-term tail bound. Signed interval combination yields bounds for pi.
+Prove both endpoints lie in a common 384-bit directed-rounding cell;
+prove both give the same 320-bit nearest-even result. Emit the exact
+canonical reduced rational lower/upper and nearest-even expected values.
+The algorithm uses standard C++20, independent radix-2^64 limbs, and
+portable binary small-divisor long division, without GMP, MPFR,
+FloatAP, Numeric, Boost or native floating-point approximations.
+
+GCC 14 and Clang 17 compiled under -O2 -std=c++20 -Wall -Wextra
+-Wpedantic -Wsign-conversion -Wshadow -Werror. Both generated the
+identical 1,250-byte original blob SHA-1
+`33eccacd41fa17d8453c098ede5cab4c662b5fc5`, verified with Git
+hash-object and --verify. Register as generator #17 for explicit
+`generators` and `generate-data`; default builds and `tests` remain
+independent. The number of reproducible TSVs increases from 96 to
+97 of 115. No original TSV, consumer test, GMP runtime oracle,
+production arithmetic or root CMake is modified. Full CI pending.

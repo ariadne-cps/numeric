@@ -67,6 +67,7 @@ set(ORACLE_GENERATORS
     generator_rational_random
     generator_big_unsigned_random_mul
     generator_floatap_directed_bounds
+    generator_floatap_pi
 )
 set(ORACLE_GENERATOR_COMMANDS)
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)
