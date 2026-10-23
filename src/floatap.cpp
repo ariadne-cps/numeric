@@ -39,6 +39,7 @@
 #include "numeric/positive.hpp"
 #include "numeric/float_upper_bound.hpp"
 #include "numeric/float_lower_bound.hpp"
+#include "numeric/float_bounds.hpp"
 #include "numeric/decimal.hpp"
 
 #include <algorithm>
@@ -1093,8 +1094,14 @@ FloatAP& operator/=(FloatAP& x, TwoExp const& t) {
     return x = x / t;
 }
 
-// Outward-rounded FloatAP operations are defined by Bounds<F> in
-// float_bounds.hpp; do not define an independent competing overload here.
+// Native fused multiply-add: one outward rounding per endpoint.
+Bounds<FloatAP> fma(FloatAP const& a, FloatAP const& b, FloatAP const& c) {
+    return Bounds<FloatAP>(fma(FloatAP::ROUND_DOWNWARD,a,b,c),
+                           fma(FloatAP::ROUND_UPWARD,a,b,c));
+}
+
+// Other outward-rounded FloatAP operations are defined by Bounds<F> in
+// float_bounds.hpp; do not define competing overloads here.
 FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& x, Int exponent) {
     if (exponent >= 0) {
         return pow(mode, x, static_cast<Nat>(exponent));

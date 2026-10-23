@@ -90,6 +90,18 @@ static_assert(!std::is_abstract_v<NumberWrapper<Rational>>);
 static_assert(!std::is_abstract_v<NumberWrapper<FloatDP>>);
 static_assert(!std::is_abstract_v<NumberWrapper<FloatMP>>);
 static_assert(std::is_convertible_v<FloatAP,ExactNumber>);
+// The two backends must expose the same signed directed division domain.
+template<class A, class B> concept SupportsDirectDivision =
+    requires(A const& a, B const& b) { div(a,b); };
+static_assert(!SupportsDirectDivision<Real,UpperBound<FloatMP>>);
+static_assert(!SupportsDirectDivision<Real,UpperBound<FloatAP>>);
+static_assert(!SupportsDirectDivision<Rational,LowerBound<FloatMP>>);
+static_assert(!SupportsDirectDivision<Rational,LowerBound<FloatAP>>);
+static_assert(!SupportsDirectDivision<UpperBound<FloatMP>,Integer>);
+static_assert(!SupportsDirectDivision<UpperBound<FloatAP>,Integer>);
+static_assert(!SupportsDirectDivision<LowerBound<FloatMP>,Dyadic>);
+static_assert(!SupportsDirectDivision<LowerBound<FloatAP>,Dyadic>);
+static_assert(requires(FloatAP const& a) { { fma(a,a,a) } -> Same<Bounds<FloatAP>>; });
 static_assert(requires(FloatAP const& x, FloatAP const& y, FloatDP const& dp,
                        ExactDouble const& d, ArbitraryPrecision pr,
                        CurrentRoundingMode mode) {
@@ -179,6 +191,18 @@ TestNumbers::test_dyadic_behaviour()
 Void
 TestNumbers::test_float_value_behaviour()
 {
+    // Check rigorous enclosure and single-rounding endpoints of native FMA.
+    const ArbitraryPrecision ap_precision(128_bits);
+    const FloatAP fa(Rational(1,3),FloatAP::ROUND_TO_NEAREST,ap_precision);
+    const FloatAP fb(Rational(2,7),FloatAP::ROUND_TO_NEAREST,ap_precision);
+    const FloatAP fc(Rational(-1,5),FloatAP::ROUND_TO_NEAREST,ap_precision);
+    const Bounds<FloatAP> enclosed=fma(fa,fb,fc);
+    const Rational expected=static_cast<Rational>(fa)*static_cast<Rational>(fb)+static_cast<Rational>(fc);
+    ARIADNE_TEST_ASSERT(static_cast<Rational>(enclosed.lower_raw())<=expected);
+    ARIADNE_TEST_ASSERT(expected<=static_cast<Rational>(enclosed.upper_raw()));
+    ARIADNE_TEST_EQUALS(enclosed.lower_raw(),fma(FloatAP::ROUND_DOWNWARD,fa,fb,fc));
+    ARIADNE_TEST_EQUALS(enclosed.upper_raw(),fma(FloatAP::ROUND_UPWARD,fa,fb,fc));
+
     ExactNumber n(Int(1));
     ExactNumber z(Integer(1));
     ExactNumber w(Dyadic(1));

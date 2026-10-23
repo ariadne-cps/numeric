@@ -495,6 +495,7 @@ template<> class Float<ArbitraryPrecision> {
     friend Bounds<FloatAP> sub(FloatAP const& a, FloatAP const& b);
     friend Bounds<FloatAP> mul(FloatAP const& a, FloatAP const& b);
     friend Bounds<FloatAP> div(FloatAP const& a, FloatAP const& b);
+    friend Bounds<FloatAP> fma(FloatAP const& a, FloatAP const& b, FloatAP const& c);
     friend Bounds<FloatAP> sqr(FloatAP const& x);
     friend Bounds<FloatAP> rec(FloatAP const& x);
     friend Bounds<FloatAP> pow(FloatAP const& x, Nat n);
