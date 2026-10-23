@@ -8861,3 +8861,34 @@ compilation. Register executable #19 for explicitly invoked
 increases to 99 of 115 TSV fixtures. No existing fixture, test consumer,
 production code, remaining GMP runtime oracle or root CMake is changed.
 Full CI remains to be checked.
+
+### B97 — exact certified FloatAP sqrt reference generator (23 October 2026)
+
+Add standalone C++20 `tests/data/generator_floatap_sqrt.cpp` to reproduce
+`floatap_sqrt.tsv` from all original 14 positive Rational inputs,
+including source-specific p-bit steps around one/four, plus the four
+shifts (-2000,-127,127,2000) of the nearest-rounded source 5/4.
+Five significand precisions (7,53,128,256,1024) and all four output
+modes preserve all 360 original test visits. Exactly 300 source-keyed
+references remain after explicit duplicate rounded-input removal,
+matching the original fixture ordering and comments.
+
+Independently nearest-even round source operands using exact radix-2^64
+quotient/remainder. For the positive dyadic x at precision p, compute
+its square-root target unit from floor(log2(x)) with correct floor
+semantics for negative binary exponents. Form the exact ratio A/B,
+calculate its integer quotient, and use independent digit-pair restoring
+integer isqrt. Certify both q^2*B<=A and (q+1)^2*B>A, compare exact
+4*A against (2*q+1)^2*B for nearest-even, and perform outward rounding
+for upward while keeping downward and toward-zero exact. Normalize all
+output fractions by cancelling binary powers. No native FP, Numeric,
+GMP, MPFR, Boost or FloatAP is used.
+
+GCC 14 and Clang 17 strict C++20 warning builds and execution produced
+exactly 76,870 bytes and Git blob SHA-1
+`b83956f9533a77c2dc8465f69ef0ebf47055a198`, matching the frozen
+fixture byte for byte. Clang read-only --verify accepted GCC's result.
+Register generator #20 in explicit `generators` and `generate-data`,
+not `tests`. Generator coverage reaches 100 of 115 TSV files. Leave
+all committed TSVs, production code, runtime GMP oracles and root CMake
+unchanged; full platform CI still needs verification.

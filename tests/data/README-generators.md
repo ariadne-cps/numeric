@@ -5,7 +5,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`, `generator_big_unsigned_random_mul.cpp`,
-`generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`,
+`generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`, `generator_floatap_sqrt.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -28,7 +28,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (99 of 115 at B96).
+overwrites only the currently covered TSV files (100 of 115 at B97).
 The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
@@ -63,6 +63,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_pi.cpp -o /tmp/numeric-oracle-pi
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_get_d.cpp -o /tmp/numeric-oracle-get-d
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_power_exact.cpp -o /tmp/numeric-oracle-power
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_sqrt.cpp -o /tmp/numeric-oracle-floatap-sqrt
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -82,6 +83,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-pi --verify --data-dir tests/data
 /tmp/numeric-oracle-get-d --verify --data-dir tests/data
 /tmp/numeric-oracle-power --verify --data-dir tests/data
+/tmp/numeric-oracle-floatap-sqrt --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -115,6 +117,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_pi.cpp` | `floatap_pi.tsv` | Machin's formula: 400-term rigorous 1,200-bit integer interval, directed 384-bit and nearest-even 320-bit π |
 | `generator_floatap_get_d.cpp` | `floatap_get_d.tsv` | 272 exact p-bit FloatAP-to-binary64 conversions, four precisions and four IEEE rounding modes |
 | `generator_floatap_power_exact.cpp` | `floatap_pow.tsv` | 2,400 original signed integer-power references at five precisions, eight degrees and four rounding modes |
+| `generator_floatap_sqrt.cpp` | `floatap_sqrt.tsv` | 300 unique input/mode exact rounded square roots; 360 source checks retained by consumer |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -314,3 +317,13 @@ and Clang 17 strict C++20 builds and independent execution match the
 original 106,895-byte Git blob; neither Numeric nor GMP/MPFR/Boost are
 used. The nineteenth generator participates in explicit `generators`
 and `generate-data`, not `tests`; all TSVs remain versioned.
+
+B97 recreates FloatAP square root expectations from the ORIGINAL 14 positive
+rational sources and four shifted nearest-rounded inputs at each of five
+precisions, preserving source order and deduplicating identical rounded keys.
+Exact binary integer division, pairwise restoring isqrt, signed scale
+bookkeeping, and strict midpoint-even comparisons generate 300 reference
+rows matching the original 76,870-byte `floatap_sqrt.tsv` Git blob.
+GCC and Clang C++20 strict builds and cross-compiler read-only --verify
+pass. The twentieth generator is included only in explicit `generators`
+and `generate-data`, while all original fixtures remain versioned.
