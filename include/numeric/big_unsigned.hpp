@@ -93,7 +93,7 @@ class BigUnsigned
     // naturally limb-aligned unsigned radix chunks.
     template<bool WantRemainder>
     static std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
-        BigUnsigned const& value);
+        BigUnsigned const& value,Scratch& workspace);
     static BigUnsigned concat_sqrt_limbs(
         LimbView higher,LimbView lower,std::size_t lower_count);
 

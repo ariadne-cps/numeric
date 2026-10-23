@@ -11247,3 +11247,41 @@ without affecting Rational's 15-operation corpus.
 CI compilation, test execution, and actual same-host timing for this
 reorganization remain to be confirmed; no benchmark performance
 claims are made on an unmeasured revision.
+
+### D114 — tight quotient division and exact binary64-seeded 128-bit sqrt (23 October 2026)
+
+The source after D113 still computes all large roots with a
+balanced divide-and-conquer digit recurrence. This step preserves
+its split, quotient/remainder formula, one-step correction, public
+interfaces, signed Integer wrappers and both independent test oracles.
+
+The 65..128-bit native specialization previously computed an
+approximate long-double square root followed by two unsigned-128
+Newton divisions and two exact quotient comparisons. Replace it
+with a binary64 square-root seed, exactly bounded by the binary64
+representation of 2^64, a single unsigned-128 Newton refinement,
+and exact 128-bit product comparisons to restore the floor.
+No correctness decision is based on floating-point rounding;
+any finite positive seed is corrected to the exact root. This avoids
+both the long-double library square root and extra wide divisions.
+A strict -Wall -Wextra -Wpedantic -Werror C++20 standalone harness
+compared both versions over more than 2.75 million 128-bit values,
+including random limbs, adversarial upper limbs and exact squares
+plus/minus one. On its local x86-64 Clang host the isolated path
+measured 69.7 ns before and 11.3 ns after (not the integrated
+benchmark, not a cross-platform speed claim).
+
+At larger widths, instead of the public divrem() convenience
+wrapper (which reserves a.size() output limbs for the quotient),
+the shared sqrt recursion now calls the unchanged private
+divrem_selected_into<true,true> division kernel with the exact
+quotient length max(0,n-m+1), remainder length min(n,m), and
+preallocated scratch. A single Scratch instance is passed down
+the root recursion; its workspace grows only as required and
+is reused after the child has completed. No change is made to
+the general public divrem contract or any other division caller.
+The existing 161 precomputed restoring-digit triples remain
+the unit-test oracle, and benchmark workloads / iteration counts
+remain exactly unchanged. Actual production CI and cross-platform
+integrated benchmark medians must be verified before any claim
+of a measured full-workload improvement.

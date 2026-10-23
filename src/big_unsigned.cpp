@@ -3241,28 +3241,32 @@ SqrtLimb sqrt_limb(SqrtLimb n)
 }
 
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
-// Integer-corrected sqrt of a 128-bit operand. Two Newton steps from
-// an approximate long-double seed avoid repeated owning BigUnsigned
-// division for the common 65..128-bit significands.
+// Exact 128-bit square root with a cheap binary64 seed and ONE 128-bit
+// Newton refinement. The seed is approximate and is never trusted:
+// full-width integer products correct its result to the exact floor.
+// Using sqrt(double) avoids costly sqrt(long double) on x86, and one
+// instead of two divisions is beneficial on both ARM64 and x86-64.
 SqrtLimb sqrt_two_limbs(BigUnsigned const& n)
 {
     __extension__ using Wide=unsigned __int128;
     const Wide wide=(static_cast<Wide>(n.limb(1u))<<64u)|n.limb(0u);
-    const long double estimate=std::sqrt(
-        std::ldexp(static_cast<long double>(n.limb(1u)),64)+
-        static_cast<long double>(n.limb(0u)));
-    const long double limit=std::ldexp(1.0L,64);
+    // 2^64 is exactly representable as binary64, with no overflow
+    // for any legal two-limb input. Guard the float->uint64 conversion.
+    constexpr double radix=18446744073709551616.0;
+    const double estimate=std::sqrt(
+        static_cast<double>(n.limb(1u))*radix+
+        static_cast<double>(n.limb(0u)));
     constexpr SqrtLimb maximum=std::numeric_limits<SqrtLimb>::max();
-    SqrtLimb root=estimate>=limit ? maximum :
-                   static_cast<SqrtLimb>(estimate);
+    SqrtLimb root=estimate>=radix ? maximum :
+                  static_cast<SqrtLimb>(estimate);
     if (root==0u) root=1u;
-    for (unsigned step=0u;step<2u;++step) {
-        const Wide next=(static_cast<Wide>(root)+wide/root)>>1u;
-        root=next>maximum ? maximum : static_cast<SqrtLimb>(next);
-    }
-    while (static_cast<Wide>(root)>wide/root) --root;
+    const Wide next=(static_cast<Wide>(root)+wide/root)>>1u;
+    root=next>maximum ? maximum : static_cast<SqrtLimb>(next);
+    // Products rather than 128-bit divisions enforce exact rounding.
+    // The correction loops also handle any valid floating-point seed.
+    while (static_cast<Wide>(root)*root>wide) --root;
     while (root<maximum &&
-           static_cast<Wide>(root+1u)<=wide/(root+1u)) ++root;
+           static_cast<Wide>(root+1u)*(root+1u)<=wide) ++root;
     return root;
 }
 #endif
@@ -3333,7 +3337,7 @@ BigUnsigned BigUnsigned::concat_sqrt_limbs(
 // BigUnsigned operations. Recurse only on half-size inputs.
 template<bool WantRemainder>
 std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
-    BigUnsigned const& value)
+    BigUnsigned const& value,Scratch& workspace)
 {
     if (value.is_zero()) return {BigUnsigned{},BigUnsigned{}};
     if (value.size()==1u) {
@@ -3373,7 +3377,7 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
     const BigUnsigned high=aligned
         ? BigUnsigned(input_limbs.subspan(2u*half_words))
         : shift_right(value,2u*k);
-    auto [s,r]=sqrt_recursive<true>(high);
+    auto [s,r]=sqrt_recursive<true>(high,workspace);
     const BigUnsigned divisor=shift_left(s,1u);
     // Non-overlapping radix fields need only concatenation. Avoid the
     // mid/low owning copies and shifted intermediate for aligned k.
@@ -3384,7 +3388,25 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
     // Preserve the Euclidean remainder of the trial-digit division.
     // Previously we discarded it and recomputed it with a full-width
     // divisor*q product and subtraction at every recursion level.
-    auto [q,division_remainder]=divrem(numerator,divisor);
+    // Tight quotient/remainder outputs: the public owning divrem()
+    // reserves a.size() quotient limbs even when the quotient needs
+    // only a.size()-b.size()+1. In sqrt the quotient is roughly half
+    // the dividend width, so the unnecessary heap allocation matters.
+    const std::size_t q_size=numerator.size()<divisor.size()
+        ? 0u : numerator.size()-divisor.size()+1u;
+    const std::size_t r_size=std::min(numerator.size(),divisor.size());
+    BigUnsigned q,division_remainder;
+    q.resize_for_result(q_size);
+    division_remainder.resize_for_result(r_size);
+    const auto scratch=workspace.acquire(
+        divrem_scratch_limbs(numerator.size(),divisor.size()));
+    divrem_selected_into<true,true>(
+        numerator.limbs(),divisor.limbs(),
+        MutableLimbView(q.mutable_data(),q_size),
+        MutableLimbView(division_remainder.mutable_data(),r_size),
+        scratch);
+    q.normalize();
+    division_remainder.normalize();
     if (q.bit_length()>k) {
         BigUnsigned max_digit=sub(
             shift_left(BigUnsigned(SqrtLimb{1}),k),
@@ -3428,12 +3450,14 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
 
 BigUnsigned isqrt(BigUnsigned const& value)
 {
-    return std::move(BigUnsigned::sqrt_recursive<false>(value).first);
+    BigUnsigned::Scratch workspace;
+    return std::move(BigUnsigned::sqrt_recursive<false>(value,workspace).first);
 }
 
 std::pair<BigUnsigned,BigUnsigned> sqrtrem(BigUnsigned const& value)
 {
-    return BigUnsigned::sqrt_recursive<true>(value);
+    BigUnsigned::Scratch workspace;
+    return BigUnsigned::sqrt_recursive<true>(value,workspace);
 }
 
 BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
