@@ -328,14 +328,16 @@ Rounded(Approximation<FloatType> const& x) : Rounded(x.raw()) { }
     friend Rounded<FloatType>& operator*=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1=x1*x2; }
     friend Rounded<FloatType>& operator/=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1=x1/x2; }
 
-    friend Rounded<FloatType> operator+(Rounded<FloatType> x1, ExactDouble x2) { return x1+FloatMP(x2,x1.precision()); }
-    friend Rounded<FloatType> operator-(Rounded<FloatType> x1, ExactDouble x2) { return x1-FloatMP(x2,x1.precision()); }
-    friend Rounded<FloatType> operator*(Rounded<FloatType> x1, ExactDouble x2) { return x1*FloatMP(x2,x1.precision()); }
-    friend Rounded<FloatType> operator/(Rounded<FloatType> x1, ExactDouble x2) { return x1/FloatMP(x2,x1.precision()); }
-    friend Rounded<FloatType> operator+(ExactDouble x1, Rounded<FloatType> x2) { return FloatMP(x1,x2.precision())+x2; }
-    friend Rounded<FloatType> operator-(ExactDouble x1, Rounded<FloatType> x2) { return FloatMP(x1,x2.precision())-x2; }
-    friend Rounded<FloatType> operator*(ExactDouble x1, Rounded<FloatType> x2) { return FloatMP(x1,x2.precision())*x2; }
-    friend Rounded<FloatType> operator/(ExactDouble x1, Rounded<FloatType> x2) { return FloatMP(x1,x2.precision())/x2; }
+    // Convert mixed ExactDouble operands through the selected backend and
+    // its active rounding mode; never hard-wire the MPFR implementation.
+    friend Rounded<FloatType> operator+(Rounded<FloatType> x1, ExactDouble x2) { return x1+Rounded<FloatType>(x2,x1.precision()); }
+    friend Rounded<FloatType> operator-(Rounded<FloatType> x1, ExactDouble x2) { return x1-Rounded<FloatType>(x2,x1.precision()); }
+    friend Rounded<FloatType> operator*(Rounded<FloatType> x1, ExactDouble x2) { return x1*Rounded<FloatType>(x2,x1.precision()); }
+    friend Rounded<FloatType> operator/(Rounded<FloatType> x1, ExactDouble x2) { return x1/Rounded<FloatType>(x2,x1.precision()); }
+    friend Rounded<FloatType> operator+(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1,x2.precision())+x2; }
+    friend Rounded<FloatType> operator-(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1,x2.precision())-x2; }
+    friend Rounded<FloatType> operator*(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1,x2.precision())*x2; }
+    friend Rounded<FloatType> operator/(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1,x2.precision())/x2; }
     friend Rounded<FloatType>& operator+=(Rounded<FloatType>& x1, ExactDouble x2) { return x1=x1+x2; }
     friend Rounded<FloatType>& operator-=(Rounded<FloatType>& x1, ExactDouble x2) { return x1=x1-x2; }
     friend Rounded<FloatType>& operator*=(Rounded<FloatType>& x1, ExactDouble x2) { return x1=x1*x2; }
