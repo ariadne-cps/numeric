@@ -400,11 +400,11 @@ void TestReal::test_directed() {
     ValidatedLowerReal validated_lower{DyadicLowerBound{Dyadic(2)}};
     ARIADNE_TEST_EXECUTE(validated_lower.get());
     ARIADNE_TEST_EXECUTE(validated_lower.get(dp));
-    ARIADNE_TEST_EXECUTE(validated_lower.get(mp));
+    ARIADNE_TEST_EXECUTE(validated_lower.get(ap));
     ValidatedUpperReal validated_upper{DyadicUpperBound{Dyadic(2)}};
     ARIADNE_TEST_EXECUTE(validated_upper.get());
     ARIADNE_TEST_EXECUTE(validated_upper.get(dp));
-    ARIADNE_TEST_EXECUTE(validated_upper.get(mp));
+    ARIADNE_TEST_EXECUTE(validated_upper.get(ap));
     std::ostringstream validated_stream;
     validated_stream << validated_lower << " " << validated_upper;
     ARIADNE_TEST_ASSERT(not validated_stream.str().empty());
@@ -554,7 +554,7 @@ void TestReal::test_sequence() {
     Real bounds_limit(convergent_bounds);
     ARIADNE_TEST_EXECUTE(bounds_limit.compute_get(Effort(2u)));
     ARIADNE_TEST_EXECUTE(bounds_limit.compute_get(Effort(2u),dp));
-    ARIADNE_TEST_EXECUTE(bounds_limit.compute_get(Effort(2u),mp));
+    ARIADNE_TEST_EXECUTE(bounds_limit.compute_get(Effort(2u),ap));
     std::ostringstream bounds_limit_stream;
     bounds_limit_stream << bounds_limit;
     ARIADNE_TEST_ASSERT(not bounds_limit_stream.str().empty());
