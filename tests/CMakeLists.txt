@@ -65,6 +65,7 @@ set(ORACLE_GENERATORS
     generator_rational_shared_stream
     generator_rational_r31
     generator_rational_random
+    generator_big_unsigned_random_mul
 )
 set(ORACLE_GENERATOR_COMMANDS)
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)

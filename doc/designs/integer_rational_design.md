@@ -8725,3 +8725,27 @@ fourteenth generator in explicit generators and generate-data targets
 without coupling tests; update README. Coverage rises from 93 to
 94/115 versioned TSV files. No original data, test consumer,
 production code or GMP oracle is modified. Full platform CI pending.
+
+### B92 — complete seeded BigUnsigned randomized multiplication fixture (23 October 2026)
+
+Add `tests/data/generator_big_unsigned_random_mul.cpp` as a standalone,
+standard-library-only C++20 generator. Reconstruct the initial shared
+mt19937_64(0x1282561024) stream state by replaying all 7 x 12 R14
+source visits, then iterate all 6,000 original random multiplication
+source rounds. Preserve the two operand length draws, every word,
+all-ones and zero transforms keyed to original repetition, and the
+conditional extra RNG draw for low length when repetition%5 == 4.
+Freeze exactly the 600 original adaptive one-per-ten sample offsets,
+but compute all source operands, exact full products, squares and low
+products independently using radix-2^64 binary shift-and-add arithmetic.
+No frozen expected product or input data is embedded in the generator.
+
+GCC 14 and Clang 17 both compiled with C++20 -O2 -Wall -Wextra
+-Wpedantic -Wsign-conversion -Wshadow -Werror. Generated exactly
+942,214 bytes with original Git SHA-1
+`e06e8b7f8caf0eaaaa42bce30894561063226eac`. An intentionally
+corrupted copy is rejected by read-only --verify. Register the
+fifteenth generator in explicit `generators` and `generate-data`,
+leaving tests and default all decoupled. Total exact source-reproducible
+fixtures: 95/115. Existing TSVs, test consumers, GMP runtime oracles,
+production code and root CMake are unchanged. Full CI pending.
