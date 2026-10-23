@@ -93,7 +93,7 @@ struct Nat {
         if (zero()) throw std::runtime_error("trailing_zero_bits(0)");
         std::size_t i=0;
         while (w[i]==0) ++i;
-        return i*64+std::countr_zero(w[i]);
+        return i*64u+static_cast<std::size_t>(std::countr_zero(w[i]));
     }
     static Nat gcd(Nat a,Nat b) {
         if (a.zero()) return b;
