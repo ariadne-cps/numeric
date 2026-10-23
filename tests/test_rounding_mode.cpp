@@ -26,6 +26,8 @@
 #include <sstream>
 
 #include "numeric/rounding.hpp"
+#include "numeric/floatap.hpp"
+#include "numeric/rational.hpp"
 
 #include "macro/testing.hpp"
 
@@ -75,24 +77,47 @@ void TestRoundingMode::test() const {
     set_builtin_rounding_mode(original_rounding);
 
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(downward),ROUND_DOWNWARD);
-    ARIADNE_TEST_EQUALS(static_cast<int>(static_cast<MPFRRoundingModeType>(downward)),static_cast<int>(MPFR_RNDD));
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(to_nearest),ROUND_TO_NEAREST);
-    ARIADNE_TEST_EQUALS(static_cast<int>(static_cast<MPFRRoundingModeType>(to_nearest)),static_cast<int>(MPFR_RNDN));
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(upward),ROUND_UPWARD);
-    ARIADNE_TEST_EQUALS(static_cast<int>(static_cast<MPFRRoundingModeType>(upward)),static_cast<int>(MPFR_RNDU));
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(toward_zero),ROUND_TOWARD_ZERO);
-    ARIADNE_TEST_EQUALS(static_cast<int>(static_cast<MPFRRoundingModeType>(toward_zero)),static_cast<int>(MPFR_RNDZ));
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(approximately),ROUND_TO_NEAREST);
-    ARIADNE_TEST_EQUALS(static_cast<int>(static_cast<MPFRRoundingModeType>(approximately)),static_cast<int>(MPFR_RNDN));
+
+    // Verify the same rounding tags map to the native arbitrary-precision
+    // backend, independently of MPFR's enumeration and storage types.
+    ARIADNE_TEST_ASSERT(FloatAP::Rounding(downward)==FloatAP::ROUND_DOWNWARD);
+    ARIADNE_TEST_ASSERT(FloatAP::Rounding(to_nearest)==FloatAP::ROUND_TO_NEAREST);
+    ARIADNE_TEST_ASSERT(FloatAP::Rounding(upward)==FloatAP::ROUND_UPWARD);
+    ARIADNE_TEST_ASSERT(FloatAP::Rounding(toward_zero)==FloatAP::ROUND_TOWARD_ZERO);
+    ARIADNE_TEST_ASSERT(FloatAP::Rounding(approximately)==FloatAP::ROUND_TO_NEAREST);
 
     Rounding rnd_near(to_nearest);
     Rounding rnd_down(downward);
     Rounding rnd_up(upward);
-    Rounding rnd_zero(ROUND_TOWARD_ZERO,MPFR_RNDZ);
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_near),ROUND_TO_NEAREST);
-    ARIADNE_TEST_EQUALS(static_cast<int>(static_cast<MPFRRoundingModeType>(rnd_down)),static_cast<int>(MPFR_RNDD));
+    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_down),ROUND_DOWNWARD);
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_up),ROUND_UPWARD);
-    ARIADNE_TEST_EQUALS(static_cast<int>(static_cast<MPFRRoundingModeType>(rnd_zero)),static_cast<int>(MPFR_RNDZ));
+
+    const auto saved_native=FloatAP::get_rounding_mode();
+    FloatAP::set_rounding_to_nearest();
+    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_TO_NEAREST);
+    FloatAP::set_rounding_downward();
+    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_DOWNWARD);
+    FloatAP::set_rounding_upward();
+    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_UPWARD);
+    FloatAP::set_rounding_toward_zero();
+    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_TOWARD_ZERO);
+    FloatAP::set_rounding_mode(saved_native);
+
+    const ArbitraryPrecision native_precision(128_bits);
+    const Rational third(1,3);
+    const FloatAP lower(third,FloatAP::ROUND_DOWNWARD,native_precision);
+    const FloatAP upper(third,FloatAP::ROUND_UPWARD,native_precision);
+    const FloatAP toward_zero_positive(third,FloatAP::ROUND_TOWARD_ZERO,native_precision);
+    const FloatAP toward_zero_negative(-third,FloatAP::ROUND_TOWARD_ZERO,native_precision);
+    ARIADNE_TEST_ASSERT(Rational(lower)<third);
+    ARIADNE_TEST_ASSERT(third<Rational(upper));
+    ARIADNE_TEST_EQUALS(toward_zero_positive,lower);
+    ARIADNE_TEST_EQUALS(toward_zero_negative,-lower);
 
     std::ostringstream stream;
     stream << rnd_near << " " << rnd_down << " " << rnd_up;
