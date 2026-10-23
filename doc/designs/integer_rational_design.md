@@ -8194,3 +8194,32 @@ BigUnsigned and Integer still have GMP oracle code. Production
 arithmetic, FloatMP, benchmark reference, and all CMake files
 are unchanged. Require Unix/Windows/Sanitizers/Coverage CI before
 declaring the test migration validated.
+
+### R33.13 — make frozen GMP-replacement TSV parsers safe on Windows (23 October 2026)
+
+The R33.11 Windows CTest log supplied by the user shows test_rational
+failing after completing the 512 positive/negative R12 source checks
+at its first R29 block, with "Integer empty decimal literal". This
+diagnostic is misleading: Integer comparison operators return Ariadne
+Boolean, whose overloaded logical || does not short-circuit. Combining
+istream extraction and Integer(String(ref_n)) inside one disjunction
+can therefore parse an empty string even if extraction failed.
+The actual reason the initial R29 extraction failed on MSVC is not yet
+proven by that exception alone.
+
+Split R29, R13 and R5 validation into strictly ordered phases:
+(1) read each complete TSV record and reject missing/malformed rows,
+(2) verify mode/width/index and original exact source decimal words
+against the actual generated Integer::literal() strings, rejecting any
+empty operand token; (3) decode uint64 IEEE-754 results from decimal
+tokens with std::stoull and compare raw binary64 patterns exactly.
+This avoids unnecessary decimal-to-Integer conversions in source
+checks, avoids eager evaluation of overloaded Boolean || and makes
+cross-platform diagnostics specific. This also avoids a platform-
+dependent istream numeric-extraction issue for uint64 bit patterns.
+
+All independently frozen TSV data, all original source streams, test
+case counts, signs, modes, exact comparisons, test names, benchmarks,
+FloatMP, CMake and production implementations remain unchanged.
+Do not regard this as validated until Windows plus Unix, Sanitizers
+and Coverage pass after this commit.

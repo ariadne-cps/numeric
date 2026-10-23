@@ -1127,16 +1127,23 @@ void TestRational::test_gmp_differential() {
                         +Integer((random()&65535u)+1u);
                     unsigned ref_mode=0u,ref_bits=0u;
                     std::uint64_t ref_high_n=0u,ref_high_d=0u;
-                    std::string ref_n,ref_d;
-                    std::uint64_t positive_bits=0u,negative_bits=0u;
+                    std::string ref_n,ref_d,positive_token,negative_token;
+                    // Parse before validating: Integer comparison returns an
+                    // Ariadne Boolean, whose overloaded || cannot short-circuit.
                     if (!(r29_golden >> ref_mode >> ref_bits >> ref_high_n
                           >> ref_high_d >> ref_n >> ref_d
-                          >> positive_bits >> negative_bits)
-                        || ref_mode!=mode_index || ref_bits!=bits
-                        || ref_high_n!=high_n || ref_high_d!=high_d
-                        || n!=Integer(String(ref_n)) || d!=Integer(String(ref_d))) {
-                        throw std::runtime_error("Missing or source-mismatched R29 TSV row");
+                          >> positive_token >> negative_token)) {
+                        throw std::runtime_error("Malformed or missing R29 TSV row");
                     }
+                    if (ref_mode!=mode_index || ref_bits!=bits
+                        || ref_high_n!=high_n || ref_high_d!=high_d
+                        || ref_n.empty() || ref_d.empty()
+                        || std::string(n.literal().c_str())!=ref_n
+                        || std::string(d.literal().c_str())!=ref_d) {
+                        throw std::runtime_error("Out-of-order or source-mismatched R29 TSV row");
+                    }
+                    const std::uint64_t positive_bits=std::stoull(positive_token);
+                    const std::uint64_t negative_bits=std::stoull(negative_token);
                     const Rational positive(n,d);
                     const Rational negative=-positive;
                     ARIADNE_TEST_EQUALS(
@@ -1170,15 +1177,18 @@ void TestRational::test_gmp_differential() {
                 const Integer den=Integer::from_magnitude(
                     BigUnsigned(denominator_limbs),false);
                 unsigned ref_mode=0u,ref_limbs=0u,ref_sample=0u;
-                std::string ref_n,ref_d;
-                std::uint64_t ref_bits=0u;
+                std::string ref_n,ref_d,bits_token;
                 if (!(fixture >> ref_mode >> ref_limbs >> ref_sample
-                      >> ref_n >> ref_d >> ref_bits)
-                    || ref_mode!=mode_index || ref_limbs!=limbs
-                    || ref_sample!=sample ||
-                    num!=Integer(String(ref_n)) || den!=Integer(String(ref_d))) {
-                    throw std::runtime_error("Missing or source-mismatched R13 TSV row");
+                      >> ref_n >> ref_d >> bits_token)) {
+                    throw std::runtime_error("Malformed or missing R13 TSV row");
                 }
+                if (ref_mode!=mode_index || ref_limbs!=limbs
+                    || ref_sample!=sample || ref_n.empty() || ref_d.empty()
+                    || std::string(num.literal().c_str())!=ref_n
+                    || std::string(den.literal().c_str())!=ref_d) {
+                    throw std::runtime_error("Out-of-order or source-mismatched R13 TSV row");
+                }
+                const std::uint64_t ref_bits=std::stoull(bits_token);
                 const Rational value(num,den);
                 ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(value.get_d()),ref_bits);
             }
@@ -1225,13 +1235,21 @@ void TestRational::test_gmp_differential() {
             const Integer n=Integer(random()|1u),d=Integer(random()|1u);
             unsigned ref_mode=0u,ref_shift=0u;
             std::string ref_n,ref_d;
-            std::array<std::uint64_t,4> expected_bits{};
+            std::array<std::string,4> bit_tokens;
             if (!(r5_golden >> ref_mode >> ref_shift >> ref_n >> ref_d
-                  >> expected_bits[0] >> expected_bits[1]
-                  >> expected_bits[2] >> expected_bits[3])
-                || ref_mode!=mode_index || ref_shift!=shift
-                || n!=Integer(String(ref_n)) || d!=Integer(String(ref_d))) {
-                throw std::runtime_error("Missing or source-mismatched R5 TSV row");
+                  >> bit_tokens[0] >> bit_tokens[1]
+                  >> bit_tokens[2] >> bit_tokens[3])) {
+                throw std::runtime_error("Malformed or missing R5 TSV row");
+            }
+            if (ref_mode!=mode_index || ref_shift!=shift
+                || ref_n.empty() || ref_d.empty()
+                || std::string(n.literal().c_str())!=ref_n
+                || std::string(d.literal().c_str())!=ref_d) {
+                throw std::runtime_error("Out-of-order or source-mismatched R5 TSV row");
+            }
+            std::array<std::uint64_t,4> expected_bits{};
+            for (unsigned index=0u;index<4u;++index) {
+                expected_bits[index]=std::stoull(bit_tokens[index]);
             }
             const std::array<Rational,4> values={Rational(n,d*factor),Rational(-n,d*factor),
                                                 Rational(n*factor,d),Rational(-n*factor,d)};
