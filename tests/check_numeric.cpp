@@ -37,7 +37,6 @@
 #include "numeric/upper_number.hpp"
 #include "numeric/floats.hpp"
 #include "numeric/floatdp.hpp"
-#include "numeric/floatmp.hpp"
 
 using namespace Ariadne;
 

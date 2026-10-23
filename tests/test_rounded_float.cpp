@@ -34,7 +34,6 @@
 #include "numeric/rounding.hpp"
 #include "numeric/floats.hpp"
 #include "numeric/floatdp.hpp"
-#include "numeric/floatmp.hpp"
 #include "numeric/rounded_float.hpp"
 #include "numeric/numeric.hpp"
 #include "numeric/dyadic.hpp"

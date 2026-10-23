@@ -30,7 +30,6 @@
 #include "numeric/dyadic.hpp"
 #include "numeric/number.hpp"
 #include "numeric/floatdp.hpp"
-#include "numeric/floatmp.hpp"
 #include "numeric/floatap.hpp"
 #include "foundation/logical.hpp"
 
@@ -156,7 +155,7 @@ void TestRational::test_conversions() {
 
     FloatDP fdp(Dyadic(5,2u),dp);
     ARIADNE_TEST_EQUAL(Rational(fdp),Rational(5,4));
-    // Exact FloatAP-to-Rational conversion must not require FloatMP.
+    // Exact FloatAP-to-Rational conversion must not depend on another floating-point backend.
     const ArbitraryPrecision ap_precision(256_bits);
     const FloatAP ap(Dyadic(5,2u),ap_precision);
     ARIADNE_TEST_EQUAL(Rational(ap),Rational(5,4));
