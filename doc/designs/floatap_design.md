@@ -12393,3 +12393,50 @@ existing multiple-precision comparison verifies 384 paired inputs and
 10,752 operation results across 53/64/128/256/1024/2048 bits. The high-
 precision tanh performance work continues after this checkpoint. Sanitizer
 and cross-platform CI results for D144 are not yet claimed.
+
+### D145 — native wide-precision centered tanh (23 October 2026)
+
+For p>64, evaluate tanh near +/-1/2 directly from the native significand
+and exponent, without constructing a Fraction per call. Use B=p+32 and
+the exact window |delta|<=2^-ceil(B/2). Cache outward B-bit enclosures of
+C=tanh(1/2) and S=1-C^2, independent of rounding mode. Removing the
+leading half from an above-half significand often yields a small offset
+without copying the full input. Both adjacent binades and both signs
+are supported; other arguments retain adaptive interval refinement.
+
+One shared BigUnsigned product computes c=floor(S_lower*|delta|*2^B).
+Check once when building the cache that S_upper-S_lower<=2 integer
+units. Product truncation then costs <1 unit, the slope uncertainty
+costs <=2*|delta|<1 unit, and |tanh''|<=2 bounds the Taylor remainder
+by delta^2*2^B<=1 unit. Thus C_lower +/- c - 3 and
+C_upper +/- c + 3 rigorously enclose the positive-magnitude result.
+Round both endpoints with the requested sign and mode and accept only
+equal normalized results. Ambiguous rounding returns to the existing
+adaptive certificate. Arithmetic and rounding use the shared native
+BigUnsigned implementation; FloatAP still has no MPFR dependency.
+
+Same-host arm64 Release measurements, existing multiple-precision
+comparison, 2,000 iterations and 31 samples, warmed near-half input pool:
+
+| Bits | tanh nearest at D144 (ns) | D145 (ns) | MPFR in D145 run (ns) |
+| --- | ---: | ---: | ---: |
+| 128 | 1151.875 | 90.084 | 1270.812 |
+| 256 | 1516.709 | 287.938 | 1777.854 |
+| 1024 | 1952.084 | 299.771 | 7018.292 |
+| 2048 | 2694.625 | 432.812 | 20396.479 |
+
+The D144 baseline used 1,000 iterations and 11 samples. These measurements
+exclude cold coefficient generation and establish gains for this input
+pool; they do not establish gains for arbitrary tanh arguments. Down/up
+also use the native certificate. The 53/64-bit paths remain unchanged.
+
+Extend the independent frozen tanh oracle from 716 to 1,148 literals.
+New cases cover p=65/95/96/127/129/2048, both signs, all four modes,
+and offsets immediately inside/on/outside the wide-window boundary.
+Release CTest passes 21/21 including Python. The existing benchmark's
+exact verifier passes 384 paired inputs and 10,752 paired operation
+results across 53/64/128/256/1024/2048 bits. Cross-platform CI remains
+to be assessed.
+
+AddressSanitizer/UBSan Debug CTest with warnings treated as errors passes
+20/20 on the final D144/D145 source state, including the expanded oracles.

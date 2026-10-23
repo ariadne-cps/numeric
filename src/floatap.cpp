@@ -3878,6 +3878,72 @@ struct FloatAPShortTranscendentals {
             lower._significand.limb(0u)==upper._significand.limb(0u)) return lower;
         return std::nullopt;
     }
+    static std::optional<FloatAP> evaluate_tanh_wide(FloatAP::Rounding mode,
+                                                     FloatAP const& x) {
+        const auto precision=x._precision;
+        if (precision<=64u || precision>std::numeric_limits<unsigned long>::max()-256ul ||
+            precision>static_cast<std::uint64_t>(std::numeric_limits<FloatAP::Exponent>::max()-256))
+            return std::nullopt;
+        const auto p=static_cast<FloatAP::Exponent>(precision);
+        if (x._exponent!=-p && x._exponent!=-p-1) return std::nullopt;
+        const bool offset_negative=x._exponent==-p-1;
+        const auto denominator_bits=static_cast<std::size_t>(-x._exponent);
+        const unsigned long bits=precision+32ul;
+        BigUnsigned offset;
+        const auto digits=x._significand.limbs();
+        const auto leading_bit=std::uint64_t{1}<<((precision-1ul)%64ul);
+        if (!offset_negative && digits.back()==leading_bit) {
+            // Removing the leading half gives the exact offset. Trimming
+            // zero high limbs avoids copying an entire high-precision input.
+            offset=BigUnsigned(digits.first(digits.size()-1u));
+        } else {
+            const auto half=shift_left(BigUnsigned(1u),denominator_bits-1u);
+            offset=offset_negative ? sub_big_unsigned(half,x._significand)
+                                   : sub_big_unsigned(x._significand,half);
+        }
+        const auto maximum_offset_bit=denominator_bits-(bits+1ul)/2ul;
+        const auto width=offset.bit_length();
+        if (width>maximum_offset_bit+1u ||
+            (width==maximum_offset_bit+1u &&
+             floatap_any_bits_below(offset,maximum_offset_bit))) return std::nullopt;
+
+        static thread_local Center center;
+        static thread_local bool narrow_slope=false;
+        if (center.bits!=bits) {
+            center=make_center(Function::hyperbolic_tangent,false,bits);
+            narrow_slope=compare(sub_big_unsigned(center.slope_upper,center.slope_lower),
+                                 BigUnsigned(2u))<=0;
+        }
+        // One slope product suffices: its truncation costs <1 unit, the
+        // slope enclosure costs <=2*|delta|<1, and Taylor's remainder
+        // costs <=1. Thus +/-3 units encloses every accumulated error.
+        if (!narrow_slope) return std::nullopt;
+        const auto correction=shift_right(mul_big_unsigned(center.slope_lower,offset),
+                                           denominator_bits);
+        const auto enlarged=add_big_unsigned(correction,BigUnsigned(3u));
+        const bool correction_at_least_three=compare(correction,BigUnsigned(3u))>=0;
+        const auto reduced=correction_at_least_three
+            ? sub_big_unsigned(correction,BigUnsigned(3u))
+            : sub_big_unsigned(BigUnsigned(3u),correction);
+        const auto endpoint=[&](BigUnsigned const& constant,bool upper) {
+            const bool enlarge=upper!=offset_negative;
+            const auto& displacement=enlarge ? enlarged : reduced;
+            bool subtract=offset_negative;
+            if (!enlarge && !correction_at_least_three) subtract=!subtract;
+            FloatAP result(precision);
+            result._negative=x._negative;
+            result._significand=subtract ? sub_big_unsigned(constant,displacement)
+                                        : add_big_unsigned(constant,displacement);
+            FloatAP::round_scaled_integer(result,-static_cast<FloatAP::Exponent>(bits),mode);
+            return result;
+        };
+        FloatAP lower=endpoint(center.lower,false);
+        FloatAP upper=endpoint(center.upper,true);
+        if (lower._exponent==upper._exponent &&
+            compare(lower._significand,upper._significand)==0) return lower;
+        return std::nullopt;
+    }
+
     static bool evaluate_double(Function function,FloatAP::Rounding mode,
                                 double value,double& output) {
         if constexpr (sizeof(double)==sizeof(std::uint64_t) &&
@@ -4096,6 +4162,8 @@ FloatAP tanh(FloatAP::RoundingModeType mode,FloatAP const& x) {
     if (x.is_inf()) return FloatAP(x._negative ? -1 : 1,x.precision());
     if (auto result=FloatAPShortTranscendentals::evaluate(
             Function::hyperbolic_tangent,mode,x)) return std::move(*result);
+    if (auto result=FloatAPShortTranscendentals::evaluate_tanh_wide(mode,x))
+        return std::move(*result);
 
     const bool directed_toward_zero=mode==FloatAP::Rounding::TowardZero ||
         (mode==FloatAP::Rounding::Downward && !x._negative) ||
