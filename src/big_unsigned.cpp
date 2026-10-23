@@ -3549,9 +3549,9 @@ void sqrt_divide(BigUnsigned::MutableLimbView numerator,
         auto window=numerator.subspan(j,h+1u);
 #if defined(ARIADNE_BIG_UNSIGNED_ARM64)
         SqrtLimb carry=0u;
-        for (std::size_t i=0u;i<h;++i) {
-            SqrtLimb lo,hi,word=window[i];
-            const SqrtLimb factor=divisor[i];
+        for (std::size_t limb_index=0u;limb_index<h;++limb_index) {
+            SqrtLimb lo,hi,word=window[limb_index];
+            const SqrtLimb factor=divisor[limb_index];
             __asm__ volatile(
                 "mul %x[lo], %x[factor], %x[digit]\n\t"
                 "umulh %x[hi], %x[factor], %x[digit]\n\t"
@@ -3562,7 +3562,7 @@ void sqrt_divide(BigUnsigned::MutableLimbView numerator,
                 : [lo] "=&r" (lo),[hi] "=&r" (hi),[word] "+&r" (word)
                 : [factor] "r" (factor),[digit] "r" (digit),[carry] "r" (carry)
                 : "cc");
-            window[i]=word;
+            window[limb_index]=word;
             carry=hi;
         }
         const SqrtLimb old=window[h];

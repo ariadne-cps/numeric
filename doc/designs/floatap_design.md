@@ -11324,3 +11324,15 @@ This establishes the recurrence algebra, not successful C++
 compilation of the new code. Production CI and same-host
 timings for D115 must still be checked before concluding that
 the lower-level division optimization improved overall results.
+
+### D116 — ARM64 square-root preinverse loop shadowing warning (23 October 2026)
+
+The current `main` HEAD was refreshed to `5644d335` before this fix.
+In the ARM64 branch of `sqrt_divide`, the inner loop declared
+`std::size_t i`, shadowing the surrounding live comparison index
+`std::size_t i=h`. Rename only the inner loop's counter and
+associated divisor/window accesses to `limb_index`. The loop bounds,
+ordering, native MUL/UMULH/ADDS/ADC instructions and arithmetic
+semantics are unchanged; no oracle or benchmark inputs are changed.
+This removes the source-level `-Wshadow` warning at the reported
+location, pending AppleClang CI confirmation.
