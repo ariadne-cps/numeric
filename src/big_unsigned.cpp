@@ -1015,11 +1015,11 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
 // B63: GCC x86-64 selects it for >=16-limb quotient-producing
 // callers, based on the GMP-verified B62 16/32/64-limb timings,
 // and (B61) >=8-limb single-limb remainder-only callers.
-// Clang, shorter inputs and other targets retain DIVQ; no BMI2/ADX.
-#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__GNUC__) && \
-    !defined(__clang__) && !defined(_MSC_VER) && \
-    defined(__SIZEOF_INT128__)
-std::pair<std::uint64_t,std::uint64_t> divide_preinverted_x86_64(
+// Other general division callers retain their existing selection.
+// The normalized square-root division also reuses this helper on ARM64
+// and Clang. No BMI2/ADX or other optional instructions are required.
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+std::pair<std::uint64_t,std::uint64_t> divide_preinverted(
         std::uint64_t high,std::uint64_t low,
         std::uint64_t normalized,std::uint64_t inverse) noexcept
 {
@@ -1041,6 +1041,10 @@ std::pair<std::uint64_t,std::uint64_t> divide_preinverted_x86_64(
     return {quotient,remainder};
 }
 
+#endif
+
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__GNUC__) && \
+    !defined(__clang__) && !defined(_MSC_VER) && defined(__SIZEOF_INT128__)
 // B61: same exact B57 normalized pi1 used by quotient-producing division.
 // Rem-only inputs need the remainder, not an entire quotient array.
 std::uint64_t remainder_preinverted_x86_64(
@@ -1057,7 +1061,7 @@ std::uint64_t remainder_preinverted_x86_64(
         const std::uint64_t low=shift==0u ? words[i-1u] :
             (words[i-1u]<<shift)|
             (i>1u ? words[i-2u]>>(64u-shift) : std::uint64_t{0});
-        remaining=divide_preinverted_x86_64(
+        remaining=divide_preinverted(
             remaining,low,normalized,inverse).second;
     }
     return remaining>>shift;
@@ -1113,7 +1117,7 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
             const Limb low=shift==0u ? a[i-1u] :
                 (a[i-1u]<<shift)|
                 (i>1u ? a[i-2u]>>(64u-shift) : Limb{0});
-            const auto [digit,next]=divide_preinverted_x86_64(
+            const auto [digit,next]=divide_preinverted(
                 rem,low,normalized,inverse);
             quotient[i-1u]=digit;
             rem=next;
@@ -1208,7 +1212,7 @@ BigUnsigned::Limb quotient_limb_pi1_into_diagnostic(
         const Limb low=shift==0u ? a[i-1u] :
             (a[i-1u]<<shift)|
             (i>1u ? a[i-2u]>>(64u-shift) : Limb{0});
-        const auto [digit,next]=divide_preinverted_x86_64(
+        const auto [digit,next]=divide_preinverted(
             remaining,low,normalized,inverse);
         quotient[i-1u]=digit;
         remaining=next;
@@ -3246,16 +3250,16 @@ SqrtLimb sqrt_limb(SqrtLimb n)
 // full-width integer products correct its result to the exact floor.
 // Using sqrt(double) avoids costly sqrt(long double) on x86, and one
 // instead of two divisions is beneficial on both ARM64 and x86-64.
-SqrtLimb sqrt_two_limbs(BigUnsigned const& n)
+SqrtLimb sqrt_two_limbs(SqrtLimb low,SqrtLimb high)
 {
     __extension__ using Wide=unsigned __int128;
-    const Wide wide=(static_cast<Wide>(n.limb(1u))<<64u)|n.limb(0u);
+    const Wide wide=(static_cast<Wide>(high)<<64u)|low;
     // 2^64 is exactly representable as binary64, with no overflow
     // for any legal two-limb input. Guard the float->uint64 conversion.
     constexpr double radix=18446744073709551616.0;
     const double estimate=std::sqrt(
-        static_cast<double>(n.limb(1u))*radix+
-        static_cast<double>(n.limb(0u)));
+        static_cast<double>(high)*radix+
+        static_cast<double>(low));
     constexpr SqrtLimb maximum=std::numeric_limits<SqrtLimb>::max();
     SqrtLimb root=estimate>=radix ? maximum :
                   static_cast<SqrtLimb>(estimate);
@@ -3351,7 +3355,7 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
     }
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
     if (value.size()==2u) {
-        const SqrtLimb root=sqrt_two_limbs(value);
+        const SqrtLimb root=sqrt_two_limbs(value.limb(0u),value.limb(1u));
         if constexpr(WantRemainder) {
             __extension__ using Wide=unsigned __int128;
             const Wide n=(static_cast<Wide>(value.limb(1u))<<64u)|
@@ -3461,14 +3465,295 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
     }
 }
 
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+namespace {
+
+// These helpers explicitly allow the destination as the left operand.
+// Arithmetic is modulo the destination width; the returned borrow marks
+// a negative residual in the single downward root correction.
+SqrtLimb sqrt_subtract(BigUnsigned::MutableLimbView lhs,
+                       BigUnsigned::LimbView rhs)
+{
+    SqrtLimb borrow=0u;
+    for (std::size_t i=0u;i<lhs.size();++i) {
+        const SqrtLimb right=i<rhs.size() ? rhs[i] : 0u;
+        const SqrtLimb left=lhs[i];
+        const SqrtLimb difference=left-right;
+        lhs[i]=difference-borrow;
+        borrow=static_cast<SqrtLimb>(left<right || difference<borrow);
+    }
+    return borrow;
+}
+
+void sqrt_add_multiple(BigUnsigned::MutableLimbView lhs,
+                       BigUnsigned::LimbView rhs,SqrtLimb factor)
+{
+    __extension__ using Wide=unsigned __int128;
+    SqrtLimb carry=0u;
+    std::size_t i=0u;
+    for (;i<rhs.size();++i) {
+        const Wide sum=static_cast<Wide>(rhs[i])*factor+lhs[i]+carry;
+        lhs[i]=static_cast<SqrtLimb>(sum);
+        carry=static_cast<SqrtLimb>(sum>>64u);
+    }
+    while (carry!=0u && i<lhs.size()) {
+        const SqrtLimb old=lhs[i];
+        lhs[i++]=old+carry;
+        carry=static_cast<SqrtLimb>(old+carry<old);
+    }
+}
+
+// The square-root divisor is already normalized. Divide in place,
+// reusing one exact reciprocal for every trial quotient digit.
+void sqrt_divide(BigUnsigned::MutableLimbView numerator,
+                 BigUnsigned::LimbView divisor,BigUnsigned::MutableLimbView quotient)
+{
+    const std::size_t h=divisor.size();
+    const SqrtLimb top=divisor.back();
+    const std::size_t k=quotient.size()-1u;
+    // r < 2*s implies the leading quotient digit is zero or one.
+    auto upper=numerator.subspan(k);
+    std::size_t i=h;
+    while (i!=0u && upper[i-1u]==divisor[i-1u]) --i;
+    quotient[k]=static_cast<SqrtLimb>(i==0u || upper[i-1u]>divisor[i-1u]);
+    if (quotient[k]!=0u) sqrt_subtract(upper,divisor);
+    if (h==1u) {
+        for (std::size_t j=k;j!=0u;--j) {
+            const auto [digit,rem]=divide_wide(numerator[j],numerator[j-1u],top);
+            quotient[j-1u]=digit;
+            numerator[j-1u]=rem;
+            numerator[j]=0u;
+        }
+        return;
+    }
+    const SqrtLimb inverse=divide_wide(
+        ~top,std::numeric_limits<SqrtLimb>::max(),top).first;
+    for (std::size_t counter=k;counter!=0u;--counter) {
+        const std::size_t j=counter-1u;
+        const SqrtLimb high=numerator[j+h],low=numerator[j+h-1u];
+        const auto estimate=high>=top ?
+            std::pair<SqrtLimb,SqrtLimb>{std::numeric_limits<SqrtLimb>::max(),low+top} :
+            divide_preinverted(high,low,top,inverse);
+        SqrtLimb digit=estimate.first;
+        SqrtLimb residual=estimate.second;
+        if (h>=8u && (high<top || residual>=low)) {
+            __extension__ using Wide=unsigned __int128;
+            while (static_cast<Wide>(digit)*divisor[h-2u]>
+                   ((static_cast<Wide>(residual)<<64u)|numerator[j+h-2u])) {
+                --digit;
+                const SqrtLimb old=residual;
+                residual+=top;
+                if (residual<old) break;
+            }
+        }
+        auto window=numerator.subspan(j,h+1u);
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64)
+        SqrtLimb carry=0u;
+        for (std::size_t i=0u;i<h;++i) {
+            SqrtLimb lo,hi,word=window[i];
+            const SqrtLimb factor=divisor[i];
+            __asm__ volatile(
+                "mul %x[lo], %x[factor], %x[digit]\n\t"
+                "umulh %x[hi], %x[factor], %x[digit]\n\t"
+                "adds %x[lo], %x[lo], %x[carry]\n\t"
+                "adc %x[hi], %x[hi], xzr\n\t"
+                "subs %x[word], %x[word], %x[lo]\n\t"
+                "cinc %x[hi], %x[hi], cc\n\t"
+                : [lo] "=&r" (lo),[hi] "=&r" (hi),[word] "+&r" (word)
+                : [factor] "r" (factor),[digit] "r" (digit),[carry] "r" (carry)
+                : "cc");
+            window[i]=word;
+            carry=hi;
+        }
+        const SqrtLimb old=window[h];
+        window[h]=old-carry;
+        bool negative=old<carry;
+#else
+        bool negative=subtract_digit_product<false>(window,divisor,digit);
+#endif
+        while (negative) {
+            --digit;
+            add_back_divisor(window,divisor);
+            negative=window.back()!=0u;
+        }
+        quotient[j]=digit;
+    }
+}
+
+void sqrt_shift_right(BigUnsigned::MutableLimbView words,unsigned shift)
+{
+    if (shift==0u) return;
+    const std::size_t skip=shift/64u;
+    const unsigned bits=shift%64u;
+    const std::size_t count=words.size()-skip;
+    for (std::size_t i=0u;i<count;++i) {
+        const SqrtLimb high=i+skip+1u<words.size() ? words[i+skip+1u] : 0u;
+        words[i]=bits==0u ? words[i+skip] :
+            (words[i+skip]>>bits)|(high<<(64u-bits));
+    }
+    std::fill(words.begin()+static_cast<std::ptrdiff_t>(count),words.end(),0u);
+}
+
+} // namespace
+
+// n root limbs and 2*n input limbs, with at least one of the input's
+// top two bits set. Recurse on the high 2*h words, leaving their exact remainder
+// in value. Parent and child reuse the same workspace sequentially.
+// For B=2^(64*k), write value=high*B^2+mid*B+low. Given high=s^2+r,
+// q=floor((r*B+mid)/(2*s)) yields s*B+q, at most one above the root
+// after clamping q to B-1. Normalization guarantees s >= B/2.
+template<bool WantRemainder>
+void BigUnsigned::sqrt_recursive_into(
+    MutableLimbView value,MutableLimbView root,MutableLimbView scratch)
+{
+    const std::size_t n=root.size();
+    if (n==1u) {
+        __extension__ using Wide=unsigned __int128;
+        const Limb s=sqrt_two_limbs(value[0u],value[1u]);
+        root[0u]=s;
+        if constexpr(WantRemainder) {
+            const Wide rem=((static_cast<Wide>(value[1u])<<64u)|value[0u])-
+                static_cast<Wide>(s)*s;
+            value[0u]=static_cast<Limb>(rem);
+            value[1u]=static_cast<Limb>(rem>>64u);
+        }
+        return;
+    }
+    const std::size_t k=n/2u,h=n-k;
+    auto s=root.subspan(k);
+    sqrt_recursive_into<true>(value.subspan(2u*k),s,scratch);
+
+    auto numerator=scratch.first(n+1u);
+    auto q=scratch.subspan(n+1u,k+1u);
+    // Divide floor((r*B+mid)/2) by s, preserving the discarded bit.
+    const Limb low_bit=value[k]&1u;
+    for (std::size_t i=0u;i<=n;++i) {
+        const std::size_t j=k+i;
+        const Limb low=j<value.size() ? value[j] : 0u;
+        const Limb high=j+1u<value.size() ? value[j+1u] : 0u;
+        numerator[i]=(low>>1u)|(high<<63u);
+    }
+    sqrt_divide(numerator,s,q);
+
+    // Replace the high part with the division residual, in place.
+    auto residual_high=value.subspan(k);
+    Limb carry=low_bit;
+    for (std::size_t i=0u;i<h;++i) {
+        const Limb word=numerator[i];
+        residual_high[i]=(word<<1u)|carry;
+        carry=word>>63u;
+    }
+    residual_high[h]=carry;
+    std::fill(residual_high.begin()+static_cast<std::ptrdiff_t>(h+1u),
+              residual_high.end(),0u);
+    if (q[k]!=0u) {
+        // q can only be B or B+1. Clamping adds 2*s or 4*s to
+        // the residual, so that the following square check stays exact.
+        sqrt_add_multiple(residual_high,s,2u*(q[0u]+1u));
+        std::fill_n(q.begin(),k,std::numeric_limits<Limb>::max());
+    }
+    std::copy_n(q.begin(),k,root.begin());
+    auto q2=scratch.first(2u*k);
+#if defined(ARIADNE_BIG_UNSIGNED_ARM64)
+    if (k>=8u) BigUnsignedDetail::square_into_symmetric_arm64(root.first(k),q2);
+    else
+#endif
+    mul_into(root.first(k),root.first(k),q2);
+    bool negative;
+    if constexpr(WantRemainder) {
+        negative=sqrt_subtract(value,q2)!=0u;
+    } else {
+        // isqrt needs only the sign, avoiding an unused full subtraction.
+        std::size_t i=value.size();
+        while (i>q2.size() && value[i-1u]==0u) --i;
+        if (i>q2.size()) negative=false;
+        else {
+            while (i!=0u && value[i-1u]==q2[i-1u]) --i;
+            negative=i!=0u && value[i-1u]<q2[i-1u];
+        }
+    }
+    if (negative) {
+        for (std::size_t i=0u;i<root.size();++i) {
+            if (root[i]--!=0u) break;
+        }
+        if constexpr(WantRemainder) {
+            // n-(candidate-1)^2 = old_residual+2*new_root+1.
+            sqrt_add_multiple(value,root,2u);
+            for (std::size_t i=0u;i<value.size();++i) {
+                if (++value[i]!=0u) break;
+            }
+        }
+    }
+}
+
+template<bool WantRemainder>
+std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_buffered(BigUnsigned const& value)
+{
+    const std::size_t n=value.size()/2u+value.size()%2u;
+    // 2*n input + n root + (2*n+2) sequential division workspace.
+    if (n>(std::numeric_limits<std::size_t>::max()-2u)/5u) {
+        throw std::length_error("BigUnsigned sqrt workspace overflow");
+    }
+    const std::size_t count=5u*n+2u;
+    std::array<Limb,512u> local;
+    std::vector<Limb> heap;
+    if (count>local.size()) heap.resize(count);
+    auto storage=count<=local.size() ? MutableLimbView(local).first(count) :
+        MutableLimbView(heap);
+    auto input=storage.first(2u*n);
+    auto root=storage.subspan(2u*n,n);
+    auto scratch=storage.subspan(3u*n);
+    const unsigned shift=static_cast<unsigned>(std::countl_zero(value.limbs().back()))/2u+
+        (value.size()%2u!=0u ? 32u : 0u);
+    const std::size_t skip=(2u*shift)/64u;
+    const unsigned bits=(2u*shift)%64u;
+    std::fill_n(input.begin(),skip,Limb{0});
+    Limb carry=0u;
+    for (std::size_t i=0u;i<value.size();++i) {
+        const Limb word=value.limb(i);
+        input[i+skip]=(word<<bits)|carry;
+        carry=bits==0u ? 0u : word>>(64u-bits);
+    }
+    if (value.size()+skip<input.size()) input.back()=carry;
+    sqrt_recursive_into<WantRemainder>(input,root,scratch);
+    if constexpr(WantRemainder) {
+        if (shift!=0u) {
+            // If S is the scaled root and t its discarded low bits,
+            // N-floor(S/2^shift)^2 = (R+2*S*t-t^2)/2^(2*shift).
+            // Subtract t^2 and add S*(2*t) modulo the buffer width;
+            // the nonnegative final sum fits and 2*t fits one limb.
+            const Limb t=root[0u]&((Limb{1}<<shift)-1u);
+            __extension__ using Wide=unsigned __int128;
+            const Wide t2=static_cast<Wide>(t)*t;
+            const std::array<Limb,2u> square_t={static_cast<Limb>(t2),
+                static_cast<Limb>(t2>>64u)};
+            sqrt_subtract(input,square_t);
+            sqrt_add_multiple(input,root,t*2u);
+            sqrt_shift_right(input,2u*shift);
+        }
+    }
+    sqrt_shift_right(root,shift);
+    BigUnsigned result(root);
+    if constexpr(WantRemainder) {
+        return {std::move(result),BigUnsigned(input.first(n+1u))};
+    } else return {std::move(result),BigUnsigned{}};
+}
+#endif
+
 BigUnsigned isqrt(BigUnsigned const& value)
 {
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    if (value.size()>2u) return std::move(BigUnsigned::sqrt_buffered<false>(value).first);
+#endif
     BigUnsigned::Scratch workspace;
     return std::move(BigUnsigned::sqrt_recursive<false>(value,workspace).first);
 }
 
 std::pair<BigUnsigned,BigUnsigned> sqrtrem(BigUnsigned const& value)
 {
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    if (value.size()>2u) return BigUnsigned::sqrt_buffered<true>(value);
+#endif
     BigUnsigned::Scratch workspace;
     return BigUnsigned::sqrt_recursive<true>(value,workspace);
 }

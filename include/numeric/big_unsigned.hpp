@@ -94,6 +94,12 @@ class BigUnsigned
     template<bool WantRemainder>
     static std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
         BigUnsigned const& value,Scratch& workspace);
+    // Normalized, destructive limb recursion; all buffers are disjoint.
+    template<bool WantRemainder>
+    static void sqrt_recursive_into(
+        MutableLimbView value,MutableLimbView root,MutableLimbView scratch);
+    template<bool WantRemainder>
+    static std::pair<BigUnsigned,BigUnsigned> sqrt_buffered(BigUnsigned const& value);
     static BigUnsigned concat_sqrt_limbs(
         LimbView higher,LimbView lower,std::size_t lower_count);
 

@@ -229,6 +229,37 @@ void TestBigUnsigned::test_sqrt()
     if (golden.bad() || rows<100u) {
         throw std::runtime_error("Incomplete BigUnsigned sqrt golden TSV");
     }
+
+    // Known roots exercise every even normalization shift, odd/even
+    // limb counts, recursive splits and both workspace storage paths.
+    // The expected answers below follow directly from (s-1)^2 < s^2-1
+    // and s^2+2*s = (s+1)^2-1; no square-root oracle is involved.
+    const BigUnsigned one(std::uint64_t{1}),two(std::uint64_t{2});
+    for (std::size_t count:{2u,3u,4u,5u,7u,8u,9u,15u,16u,17u,
+                           31u,32u,33u,64u,101u,102u,103u,128u}) {
+        for (unsigned leading=0u;leading<64u;++leading) {
+            std::vector<BigUnsigned::Limb> words(count);
+            for (std::size_t i=0u;i<count;++i) {
+                words[i]=0x9e3779b97f4a7c15ULL*(i+1u);
+            }
+            words.back()=std::numeric_limits<BigUnsigned::Limb>::max()>>leading;
+            const BigUnsigned s(words),squared=square(s),twice=add(s,s);
+            const auto verify=[&](BigUnsigned const& input,
+                                  BigUnsigned const& expected_root,
+                                  BigUnsigned const& expected_remainder) {
+                const BigUnsigned original=input;
+                ARIADNE_TEST_ASSERT(compare(isqrt(input),expected_root)==0);
+                const auto [root,remainder]=sqrtrem(input);
+                ARIADNE_TEST_ASSERT(compare(root,expected_root)==0);
+                ARIADNE_TEST_ASSERT(compare(remainder,expected_remainder)==0);
+                ARIADNE_TEST_ASSERT(compare(input,original)==0);
+            };
+            verify(squared,s,BigUnsigned{});
+            verify(sub(squared,one),sub(s,one),sub(twice,two));
+            verify(add(squared,one),s,one);
+            verify(add(squared,twice),s,twice);
+        }
+    }
 }
 
 void TestBigUnsigned::test_power()
