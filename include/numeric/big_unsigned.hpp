@@ -89,6 +89,14 @@ class BigUnsigned
     template<bool WantQuotient>
     static BigUnsigned divide_short(BigUnsigned const& a,BigUnsigned const& b);
 
+    // Internal square-root recursion and direct concatenation of
+    // naturally limb-aligned unsigned radix chunks.
+    template<bool WantRemainder>
+    static std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
+        BigUnsigned const& value);
+    static BigUnsigned concat_sqrt_limbs(
+        LimbView higher,LimbView lower,std::size_t lower_count);
+
     // Bounded Euclid reuses disjoint limb buffers and remainder-only division.
     static BigUnsigned gcd_bounded(LimbView a,LimbView b);
     friend BigUnsigned gcd(BigUnsigned const& a,BigUnsigned const& b);

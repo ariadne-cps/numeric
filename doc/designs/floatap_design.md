@@ -11149,3 +11149,35 @@ or FloatAP semantic path was modified in this change.
 AppleClang/GCC/MSVC production compilation and actual same-host
 benchmark timings of D110 remain pending; no performance
 improvement is claimed until those measurements.
+
+### D111 — owning-only integrated arithmetic benchmark and aligned sqrt chunks (23 October 2026)
+
+The next user-supplied D110 benchmark measured isqrt native/GMP
+3.427/19.133, 26.408/20.358, 139.692/47.808,
+906.367/173.266 and 1810.800/309.467 ns respectively
+for 53/128/256/1024/2048 bits. Sqrtrem native/GMP measured
+3.629/34.325, 33.229/34.867, 164.758/67.358,
+934.266/168.800, 1914.134/323.666 ns. D110 remains
+5.85x GMP at 2048 bits for isqrt and 5.91x for sqrtrem.
+
+The integrated BigUnsigned arithmetic benchmark is simplified
+as explicitly requested: remove all preallocated timings,
+preallocated per-operation fields and aggregate statistics.
+Measure native and GMP operations exclusively on equal-lifetime
+owning paths, including compare as a nonallocating operation;
+retain exact independent GMP verification before/after timing,
+identical operand bit-size pools, iterations and sample count.
+Print Native, GMP and Native/GMP columns; the overall owning
+aggregate remains. No zero-input or regression oracle is weakened.
+
+The square-root recursion now detects k divisible by 64 and
+concatenates canonical lower and upper limb views directly into
+one owned result. This avoids the shifts, extra extracted chunk
+objects, and additions needed to compose the numerator,
+candidate and residual, with no new architectural instruction
+or GMP call. Non-limb-aligned widths still use the established
+general algorithm. The concatenation primitive is private to
+BigUnsigned, and the public isqrt/sqrtrem contract, frozen
+161-triple sqrt oracle, and benchmark input corpus remain unchanged.
+The production C++ CI and measured same-host performance for
+this implementation must be checked before any speedup claim.

@@ -3299,6 +3299,29 @@ BigUnsigned sqrt_chunk(BigUnsigned const& value,
     return BigUnsigned(std::span<SqrtLimb const>(words.data(),count));
 }
 
+} // namespace
+
+BigUnsigned BigUnsigned::concat_sqrt_limbs(
+    LimbView higher,LimbView lower,std::size_t lower_count)
+{
+    // Used only when digit boundaries align with 64-bit limbs.
+    // Lower is padded to exactly lower_count limbs before higher
+    // is appended. No carry or shifted owning intermediate is needed.
+    if (lower.size()>lower_count ||
+        higher.size()>std::numeric_limits<std::size_t>::max()-lower_count) {
+        throw std::length_error("BigUnsigned sqrt concatenation size overflow");
+    }
+    const std::size_t total=lower_count+higher.size();
+    BigUnsigned joined;
+    joined.resize_for_result(total);
+    Limb* out=joined.mutable_data();
+    std::fill_n(out,lower_count,Limb{0});
+    std::copy(lower.begin(),lower.end(),out);
+    std::copy(higher.begin(),higher.end(),out+lower_count);
+    joined.normalize();
+    return joined;
+}
+
 // Divide-and-conquer square root (radix 2^k), with an optional final
 // remainder. Split n = high*B^2 + mid*B + low and recursively form
 // sqrtrem(high)=(s,r). The trial digit q=floor((r*B+mid)/(2*s))
@@ -3309,7 +3332,7 @@ BigUnsigned sqrt_chunk(BigUnsigned const& value,
 // a single correction suffices. All divisions are exact unsigned
 // BigUnsigned operations. Recurse only on half-size inputs.
 template<bool WantRemainder>
-std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
+std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
     BigUnsigned const& value)
 {
     if (value.is_zero()) return {BigUnsigned{},BigUnsigned{}};
@@ -3344,12 +3367,20 @@ std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
     const std::size_t bits=value.bit_length();
     const std::size_t root_bits=bits/2u+bits%2u;
     const std::size_t k=root_bits/2u;
-    const BigUnsigned high=shift_right(value,2u*k);
+    const bool aligned=(k%64u==0u);
+    const std::size_t half_words=k/64u;
+    const auto input_limbs=value.limbs();
+    const BigUnsigned high=aligned
+        ? BigUnsigned(input_limbs.subspan(2u*half_words))
+        : shift_right(value,2u*k);
     auto [s,r]=sqrt_recursive<true>(high);
-    const BigUnsigned mid=sqrt_chunk(value,k,k);
-    const BigUnsigned low=sqrt_chunk(value,0u,k);
     const BigUnsigned divisor=shift_left(s,1u);
-    const BigUnsigned numerator=add(shift_left(r,k),mid);
+    // Non-overlapping radix fields need only concatenation. Avoid the
+    // mid/low owning copies and shifted intermediate for aligned k.
+    const BigUnsigned numerator=aligned
+        ? concat_sqrt_limbs(
+            r.limbs(),input_limbs.subspan(half_words,half_words),half_words)
+        : add(shift_left(r,k),sqrt_chunk(value,k,k));
     // Preserve the Euclidean remainder of the trial-digit division.
     // Previously we discarded it and recomputed it with a full-width
     // divisor*q product and subtraction at every recursion level.
@@ -3367,9 +3398,13 @@ std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
         q=std::move(max_digit);
     }
 
-    BigUnsigned candidate=add(shift_left(s,k),q);
-    const BigUnsigned residual=add(
-        shift_left(division_remainder,k),low);
+    BigUnsigned candidate=aligned
+        ? concat_sqrt_limbs(s.limbs(),q.limbs(),half_words)
+        : add(shift_left(s,k),q);
+    const BigUnsigned residual=aligned
+        ? concat_sqrt_limbs(division_remainder.limbs(),
+                            input_limbs.first(half_words),half_words)
+        : add(shift_left(division_remainder,k),sqrt_chunk(value,0u,k));
     const BigUnsigned q2=square(q);
     if (compare(residual,q2)<0) {
         // Trial root was one too large. Recover the new remainder
@@ -3391,16 +3426,14 @@ std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
     }
 }
 
-} // namespace
-
 BigUnsigned isqrt(BigUnsigned const& value)
 {
-    return std::move(sqrt_recursive<false>(value).first);
+    return std::move(BigUnsigned::sqrt_recursive<false>(value).first);
 }
 
 std::pair<BigUnsigned,BigUnsigned> sqrtrem(BigUnsigned const& value)
 {
-    return sqrt_recursive<true>(value);
+    return BigUnsigned::sqrt_recursive<true>(value);
 }
 
 BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)

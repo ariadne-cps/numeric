@@ -161,8 +161,6 @@ List<ArgumentParser> parsers(Selection& config)
 struct Result {
     unsigned bits;
     std::string operation;
-    double prealloc_native=0.0;
-    double prealloc_gmp=0.0;
     double owning_native=0.0;
     double owning_gmp=0.0;
 };
@@ -175,9 +173,9 @@ struct Aggregate {
     double worst=0.0;
     std::string worst_operation;
 
-    void add(Result const& r,bool owning) {
-        const double native=owning ? r.owning_native : r.prealloc_native;
-        const double gmp=owning ? r.owning_gmp : r.prealloc_gmp;
+    void add(Result const& r) {
+        const double native=r.owning_native;
+        const double gmp=r.owning_gmp;
         if (!(native>0.0 && gmp>0.0)) return;
         const double ratio=native/gmp;
         ++count;
@@ -220,37 +218,15 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
     const bool swapped=compare(a,b)<0;
     BigUnsigned const& greater=swapped ? b : a;
     BigUnsigned const& smaller=swapped ? a : b;
-    const std::size_t count=std::max(greater.size(),smaller.size());
-    std::vector<Limb> output(count+1u);
-    const auto core=BigUnsigned::MutableLimbView(output.data(),count);
-    GmpInteger ga,gb,expected,reused;
+    GmpInteger ga,gb,expected;
     import_gmp(ga.value,greater);
     import_gmp(gb.value,smaller);
-    const auto check_output=[&] {
-        verify(BigUnsigned(output),expected.value);
-    };
     std::vector<Result> result;
     result.reserve(9u);
 
     mpz_add(expected.value,ga.value,gb.value);
-    const auto sum=[&] {
-        output[count]=BigUnsigned::add_into(greater.limbs(),smaller.limbs(),core);
-        keep_alive(output.data());
-    };
-    const auto add_gmp=[&] {
-        mpz_add(reused.value,ga.value,gb.value);
-        keep_alive(reused.value);
-    };
-    sum();
-    check_output();
     verify(add(greater,smaller),expected.value);
-    add_gmp();
-    if (mpz_cmp(reused.value,expected.value)!=0) {
-        throw std::runtime_error("GMP addition oracle mismatch");
-    }
     Result add_row{bits,"add"};
-    add_row.prealloc_native=median_ns(sum,iterations,samples);
-    add_row.prealloc_gmp=median_ns(add_gmp,iterations,samples);
     add_row.owning_native=median_ns([&] {
         auto value=add(greater,smaller);
         keep_alive(value);
@@ -263,27 +239,8 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
     result.push_back(add_row);
 
     mpz_sub(expected.value,ga.value,gb.value);
-    const auto subtract=[&] {
-        const Limb borrow=BigUnsigned::sub_into(
-            greater.limbs(),smaller.limbs(),core);
-        output[count]=0u;
-        keep_alive(borrow);
-        keep_alive(output.data());
-    };
-    const auto sub_gmp=[&] {
-        mpz_sub(reused.value,ga.value,gb.value);
-        keep_alive(reused.value);
-    };
-    subtract();
-    check_output();
     verify(sub(greater,smaller),expected.value);
-    sub_gmp();
-    if (mpz_cmp(reused.value,expected.value)!=0) {
-        throw std::runtime_error("GMP subtraction oracle mismatch");
-    }
     Result sub_row{bits,"sub"};
-    sub_row.prealloc_native=median_ns(subtract,iterations,samples);
-    sub_row.prealloc_gmp=median_ns(sub_gmp,iterations,samples);
     sub_row.owning_native=median_ns([&] {
         auto value=sub(greater,smaller);
         keep_alive(value);
@@ -295,27 +252,27 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
     },iterations,samples);
     result.push_back(sub_row);
 
-    // Exact native comparator returns -1,0,1; GMP sign is normalized.
+    // Compare is already allocation-free on both implementations.
     const int native_comparison=compare(a,b);
-    const int gmp_comparison=swapped ? -1 : mpz_cmp(ga.value,gb.value);
+    const int gmp_comparison=swapped ? -mpz_cmp(ga.value,gb.value)
+                                     : mpz_cmp(ga.value,gb.value);
     if ((native_comparison<0)!=(gmp_comparison<0) ||
         (native_comparison>0)!=(gmp_comparison>0)) {
         throw std::runtime_error("comparison differs from GMP");
     }
     Result cmp_row{bits,"compare"};
-    cmp_row.prealloc_native=median_ns([&] {
+    cmp_row.owning_native=median_ns([&] {
         const int value=compare(a,b);
         keep_alive(value);
     },iterations,samples);
-    cmp_row.prealloc_gmp=median_ns([&] {
+    cmp_row.owning_gmp=median_ns([&] {
         const int value=swapped ? mpz_cmp(gb.value,ga.value)
                                 : mpz_cmp(ga.value,gb.value);
         keep_alive(value);
     },iterations,samples);
     result.push_back(cmp_row);
 
-    // Shift is currently owning-only on BigUnsigned: no preallocated
-    // shift API exists. Measure identically owning results on GMP.
+    // Both shift implementations own their result.
     static_assert(std::numeric_limits<mp_bitcnt_t>::max()>=65u);
     for (unsigned shift_bits:{1u,65u}) {
         mpz_mul_2exp(expected.value,ga.value,
@@ -395,13 +352,11 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
     check_sqrtrem();
     result.push_back(sqrtrem_row);
 
-    // Repeat exact checks after timing, never in a measured loop.
+    // Check all operations once again after measurement.
     mpz_add(expected.value,ga.value,gb.value);
-    sum();
-    check_output();
+    verify(add(greater,smaller),expected.value);
     mpz_sub(expected.value,ga.value,gb.value);
-    subtract();
-    check_output();
+    verify(sub(greater,smaller),expected.value);
     for (unsigned shift_bits:{1u,65u}) {
         mpz_mul_2exp(expected.value,ga.value,
                      static_cast<mp_bitcnt_t>(shift_bits));
@@ -415,21 +370,19 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
 
 void print_results(std::vector<Result> const& rows,bool summary_only)
 {
-    Aggregate preallocated,owning;
+    Aggregate owning;
     if (!summary_only) {
-        LOGGING_PRINTLN("BigUnsigned arithmetic vs GMP (ns; both lifetimes matched)")
-        LOGGING_PRINTLN(std::string(92u,'='))
+        LOGGING_PRINTLN("BigUnsigned arithmetic vs GMP (ns; owning results)")
+        LOGGING_PRINTLN(std::string(66u,'='))
         LOGGING_PRINTLN(std::left << std::setw(10) << "Operation"
                         << std::setw(7) << "Bits"
-                        << std::setw(16) << "Prealloc native"
-                        << std::setw(16) << "Prealloc GMP"
-                        << std::setw(16) << "Owning native"
-                        << std::setw(16) << "Owning GMP")
-        LOGGING_PRINTLN(std::string(92u,'-'))
+                        << std::setw(16) << "Native (ns)"
+                        << std::setw(16) << "GMP (ns)"
+                        << std::setw(14) << "Native/GMP")
+        LOGGING_PRINTLN(std::string(66u,'-'))
     }
     for (auto const& r:rows) {
-        preallocated.add(r,false);
-        owning.add(r,true);
+        owning.add(r);
         if (!summary_only) {
             const auto show=[](double ns) {
                 if (ns==0.0) return std::string("-");
@@ -439,18 +392,14 @@ void print_results(std::vector<Result> const& rows,bool summary_only)
             };
             LOGGING_PRINTLN(std::left << std::setw(10) << r.operation
                             << std::setw(7) << r.bits
-                            << std::setw(16) << show(r.prealloc_native)
-                            << std::setw(16) << show(r.prealloc_gmp)
                             << std::setw(16) << show(r.owning_native)
-                            << std::setw(16) << show(r.owning_gmp))
+                            << std::setw(16) << show(r.owning_gmp)
+                            << std::setw(14) << show(r.owning_native/r.owning_gmp))
         }
     }
-    LOGGING_PRINTLN(std::string(92u,'='))
+    LOGGING_PRINTLN(std::string(66u,'='))
     LOGGING_PRINTLN("BigUnsigned / GMP slowdown (x; >1 means slower)")
-    preallocated.print("preallocated");
-    owning.print("owning      ");
-    LOGGING_PRINTLN("Preallocated includes add/sub kernels and compare; "
-                    "owning includes add/sub, shifts, isqrt and sqrtrem.")
+    owning.print("owning");
 }
 
 } // namespace
