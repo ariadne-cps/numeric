@@ -1172,7 +1172,15 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
     }
 #endif
     Limb remainder=0u;
-    for (std::size_t i=a.size();i!=0u;--i) {
+    std::size_t remaining=a.size();
+    // A leading limb below the divisor is already the exact remainder;
+    // its quotient digit is zero. In normalized short FloatAP ratios
+    // this removes the redundant first divide of a two-limb numerator.
+    if (remaining!=0u && a.back()<divisor) {
+        quotient[--remaining]=0u;
+        remainder=a.back();
+    }
+    for (std::size_t i=remaining;i!=0u;--i) {
         const auto [digit,next]=divide_wide(
             remainder,a[i-1u],divisor);
         quotient[i-1u]=digit;

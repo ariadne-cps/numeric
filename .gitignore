@@ -3,6 +3,7 @@ include/config.hpp
 build*
 .idea/
 .vscode/
+python/tests/__pycache__
 cmake-build-debug/
 .DS_Store
 ~*
