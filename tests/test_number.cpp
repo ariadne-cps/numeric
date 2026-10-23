@@ -31,7 +31,7 @@
 #include "numeric/lower_number.hpp"
 
 #include "numeric/floatdp.hpp"
-#include "numeric/floatmp.hpp"
+#include "numeric/floatap.hpp"
 #include "numeric/float_ball.hpp"
 #include "numeric/float_bounds.hpp"
 #include "numeric/float_upper_bound.hpp"
@@ -88,7 +88,7 @@ static_assert(!std::is_abstract_v<NumberWrapper<Integer>>,
 static_assert(!std::is_abstract_v<NumberWrapper<Dyadic>>);
 static_assert(!std::is_abstract_v<NumberWrapper<Rational>>);
 static_assert(!std::is_abstract_v<NumberWrapper<FloatDP>>);
-static_assert(!std::is_abstract_v<NumberWrapper<FloatMP>>);
+static_assert(!std::is_abstract_v<NumberWrapper<FloatAP>>);
 static_assert(std::is_convertible_v<FloatAP,ExactNumber>);
 // Preserve the FloatAP generic-division call surface directly rather than
 // comparing it with an MPFR-backed type in this compilation unit.
@@ -251,21 +251,21 @@ TestNumbers::test_float_value_behaviour()
     } catch (const DispatchException& e) {
         ARIADNE_TEST_NOTIFY("Binary addition on Rational and Float<DP> within ExactNumber gives error:\n    "<<e.what());
     } 
-    y=ExactNumber(FloatMP(1,MP(64)));
+    y=ExactNumber(FloatAP(1,ArbitraryPrecision(64_bits)));
     try {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<MP> within ExactNumber yields "<<(y+y).class_name());
+        ARIADNE_TEST_NOTIFY("Binary addition on Float<AP> within ExactNumber yields "<<(y+y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<MP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TEST_NOTIFY("Binary addition on Float<AP> within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary division on Float<MP> within ExactNumber yields "<<(y/y).class_name());
+        ARIADNE_TEST_NOTIFY("Binary division on Float<AP> within ExactNumber yields "<<(y/y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary division on Float<MP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TEST_NOTIFY("Binary division on Float<AP> within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary maximum on Float<MP> within ExactNumber yields "<<max(y,y).class_name());
+        ARIADNE_TEST_NOTIFY("Binary maximum on Float<AP> within ExactNumber yields "<<max(y,y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary maximum on Float<MP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TEST_NOTIFY("Binary maximum on Float<AP> within ExactNumber gives error:\n    "<<e.what());
     }
 }
 
@@ -338,7 +338,7 @@ TestNumbers::test_misc()
     ARIADNE_TEST_ASSIGN_CONSTRUCT(ValidatedLowerNumber,z,yl);
     ARIADNE_TEST_ASSIGN(z,yl+yl);
 
-    MultiplePrecision mp(128);
+    ArbitraryPrecision ap(128_bits);
 
     DyadicBounds dyadic_bounds(Dyadic(1),Dyadic(2));
     ValidatedNumber dyadic_number=dyadic_bounds.operator ValidatedNumber();
@@ -348,17 +348,19 @@ TestNumbers::test_misc()
     ValidatedErrorNumber dp_error_number=dp_error.operator ValidatedErrorNumber();
     ARIADNE_TEST_EQUALS(dp_error_number.class_name(),String("FloatDP"));
 
-    FloatMPError mp_error(1u,mp);
-    ValidatedErrorNumber mp_error_number=mp_error.operator ValidatedErrorNumber();
-    ARIADNE_TEST_EQUALS(mp_error_number.class_name(),String("FloatMP"));
+    // Verify the native backend's concrete type is preserved through generic
+    // validated, approximate, and error wrappers without MPFR intermediates.
+    FloatAPError ap_error(1u,ap);
+    ValidatedErrorNumber ap_error_number=ap_error.operator ValidatedErrorNumber();
+    ARIADNE_TEST_EQUALS(ap_error_number.class_name(),String("FloatAP"));
 
-    FloatMPApproximation mp_approximation(2u,mp);
-    ApproximateNumber approximation_number=mp_approximation.operator ApproximateNumber();
-    ARIADNE_TEST_EQUALS(approximation_number.class_name(),String("FloatMPApproximation"));
+    FloatAPApproximation ap_approximation(2u,ap);
+    ApproximateNumber approximation_number=ap_approximation.operator ApproximateNumber();
+    ARIADNE_TEST_EQUALS(approximation_number.class_name(),String("FloatAPApproximation"));
 
-    FloatMPBounds mp_bounds(2u,mp);
-    ValidatedNumber mp_bounds_number=mp_bounds.operator ValidatedNumber();
-    ARIADNE_TEST_EQUALS(mp_bounds_number.class_name(),String("FloatMPBounds"));
+    FloatAPBounds ap_bounds(2u,ap);
+    ValidatedNumber ap_bounds_number=ap_bounds.operator ValidatedNumber();
+    ARIADNE_TEST_EQUALS(ap_bounds_number.class_name(),String("FloatAPBounds"));
 
     ValidatedUpperNumber upper_dyadic(Dyadic(2));
     ValidatedLowerNumber lower_dyadic(Dyadic(2));
@@ -367,7 +369,7 @@ TestNumbers::test_misc()
 
     ValidatedNumber metric_number(Real(Rational(3,5)));
     ARIADNE_TEST_EXECUTE(metric_number.ref()._get(MetricTag(),dp));
-    ARIADNE_TEST_EXECUTE(metric_number.ref()._get(MetricTag(),mp));
+    ARIADNE_TEST_EXECUTE(metric_number.ref()._get(MetricTag(),ap));
 
     ExactNumber integer_one(Integer(1));
     ExactNumber integer_two(Integer(2));
@@ -385,9 +387,9 @@ TestNumbers::test_misc()
     ARIADNE_TEST_EQUALS(integer_one.ref()._paradigm(),ParadigmCode::EXACT);
 
     ExactNumber mixed_dp(FloatDP(1,dp));
-    ExactNumber mixed_mp(FloatMP(2,mp));
-    ARIADNE_TEST_THROWS(add(mixed_dp,mixed_mp),DispatchException);
-    ARIADNE_TEST_THROWS((void)(mixed_dp<mixed_mp),DispatchException);
+    ExactNumber mixed_ap(FloatAP(2,ap));
+    ARIADNE_TEST_THROWS(add(mixed_dp,mixed_ap),DispatchException);
+    ARIADNE_TEST_THROWS((void)(mixed_dp<mixed_ap),DispatchException);
 
     ApproximateNumber unsupported_conversion(FloatDPApproximation(1u,dp));
     ARIADNE_TEST_THROWS(unsupported_conversion.ref()._get_q(),ParadigmError);
@@ -433,11 +435,11 @@ TestNumbers::test_misc()
 
     FloatDPApproximation dp_approximation(2u,dp);
     ARIADNE_TEST_EXECUTE(pow(dp_approximation,Integer(3)));
-    FloatMPApproximation mp_power_approximation(2u,mp);
-    ARIADNE_TEST_EXECUTE(pow(mp_power_approximation,Integer(3)));
+    FloatAPApproximation ap_power_approximation(2u,ap);
+    ARIADNE_TEST_EXECUTE(pow(ap_power_approximation,Integer(3)));
     Integer huge_power{String("9223372036854775808")};
     ARIADNE_TEST_FAIL(pow(dp_approximation,huge_power));
-    ARIADNE_TEST_FAIL(pow(mp_power_approximation,huge_power));
+    ARIADNE_TEST_FAIL(pow(ap_power_approximation,huge_power));
 
     ExactNumber unary(Integer(1));
     ARIADNE_TEST_EXECUTE(nul(unary));
@@ -514,28 +516,28 @@ template<class Y> void test_number_get() {
     Rational q=3/5_q;
     Real r(q);
     Y y(r);
-    MultiplePrecision mp(192);
-    MultiplePrecision mpe(128);
+    ArbitraryPrecision ap(192_bits);
+    ArbitraryPrecision ape(128_bits);
 
     ARIADNE_TEST_WITHIN(ApproximateNumber(y).get(dp),q,Dyadic(TwoExp(-52)));
-    ARIADNE_TEST_WITHIN(ApproximateNumber(y).get(mp),q,Dyadic(TwoExp(-128)));
+    ARIADNE_TEST_WITHIN(ApproximateNumber(y).get(ap),q,Dyadic(TwoExp(-128)));
 
     ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedLowerNumber(y).get(dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedLowerNumber(y).get(mp),q);
+    ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedLowerNumber(y).get(ap),q);
 
     ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedUpperNumber(y).get(dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedUpperNumber(y).get(mp),q);
+    ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedUpperNumber(y).get(ap),q);
 
     ARIADNE_TEST_BINARY_PREDICATE(models,y.get(dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(mp),q);
+    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(ap),q);
 
     ARIADNE_TEST_BINARY_PREDICATE(models,y.get(dp,dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(mp,dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(mp,mpe),q);
+    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(ap,dp),q);
+    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(ap,ape),q);
 
     ARIADNE_TEST_SAME_TYPE(decltype(y.get(dp,dp)),FloatDPBall);
-    ARIADNE_TEST_SAME_TYPE(decltype(y.get(mp,dp)),FloatMPDPBall);
-    ARIADNE_TEST_SAME_TYPE(decltype(y.get(mp,mpe)),FloatMPBall);
+    ARIADNE_TEST_SAME_TYPE(decltype(y.get(ap,dp)),FloatAPDPBall);
+    ARIADNE_TEST_SAME_TYPE(decltype(y.get(ap,ape)),FloatAPBall);
 }
 
 template<> void test_number_get<ExactNumber>() { }
@@ -543,20 +545,20 @@ template<> void test_number_get<ExactNumber>() { }
 template<> void test_number_get<ApproximateNumber>() {
     Rational q=3/5_q;
     ApproximateNumber y(q);
-    MultiplePrecision mp(128);
+    ArbitraryPrecision ap(128_bits);
     ARIADNE_TEST_WITHIN(y.get(dp),q,3e-16);
-    ARIADNE_TEST_WITHIN(y.get(mp),q,3e-16);
+    ARIADNE_TEST_WITHIN(y.get(ap),q,3e-16);
 
-    // Regression tests for DP/MP conversion.
+    // Regression tests for native FloatDP/FloatAP conversion.
     Dbl d=-0.6;
     ARIADNE_TEST_ASSIGN(y,d);
     ARIADNE_TEST_EXECUTE(y.get(dp));
-    ARIADNE_TEST_EXECUTE(y.get(mp));
+    ARIADNE_TEST_EXECUTE(y.get(ap));
 
     FloatDPApproximation x(-2.5,double_precision);
     ARIADNE_TEST_ASSIGN(y,x);
     ARIADNE_TEST_EXECUTE(y.get(dp));
-    ARIADNE_TEST_EXECUTE(y.get(mp));
+    ARIADNE_TEST_EXECUTE(y.get(ap));
 
 }
 
