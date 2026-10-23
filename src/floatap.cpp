@@ -1505,8 +1505,9 @@ template<> String class_name<FloatAP>() { return "FloatAP"; }
 template<> String class_name<Rounded<FloatAP>>() { return "Rounded<FloatAP>"; }
 
 
-// Exact rational intervals shared by certified transcendental operations.
-namespace {
+// Exact rational intervals and certified transcendental helpers live in
+// one implementation namespace, shared by exp/log and trigonometry.
+namespace Detail {
 
 class Fraction {
     mpq_t _value;
@@ -1663,8 +1664,6 @@ Fraction absolute(Fraction const& x) {
 Fraction rational_argument(FloatAP const& x) {
     return Fraction(x);
 }
-
-namespace FloatAPExpLogDetail {
 
 // Evaluate exp on |x| <= 1/2 with a single downward-rounded
 // fixed-point Taylor recurrence. Let Q=2^B, a=floor(Q*|x|),
@@ -2335,9 +2334,6 @@ FloatAP certified(Evaluate evaluate, FloatAP::RoundingModeType mode,
     }
 }
 
-} // namespace FloatAPExpLogDetail
-
-namespace FloatAPTrigonometricDetail {
 
 // Arithmetic on these fractions is exact. The approximation error is
 // represented only by the endpoints of Interval, never by floating point.
@@ -3562,12 +3558,10 @@ FloatAP unary(Function function, FloatAP::RoundingModeType mode,
     return certified(function, argument, mode, x.precision());
 }
 
-} // namespace FloatAPTrigonometricDetail
-
-} // namespace
+} // namespace Detail
 
 FloatAP exp(FloatAP::RoundingModeType mode, FloatAP const& x) {
-    using namespace FloatAPExpLogDetail;
+    using namespace Detail;
     const unsigned long bits = static_cast<unsigned long>(x.precision().bits());
     if (x.is_nan()) {
         return FloatAP::nan(bits);
@@ -3585,7 +3579,7 @@ FloatAP exp(FloatAP::RoundingModeType mode, FloatAP const& x) {
 }
 
 FloatAP log(FloatAP::RoundingModeType mode, FloatAP const& x) {
-    using namespace FloatAPExpLogDetail;
+    using namespace Detail;
     const unsigned long bits = static_cast<unsigned long>(x.precision().bits());
     if (x.is_nan() || (x.negative() && !x.is_zero())) {
         return FloatAP::nan(bits);
@@ -3606,37 +3600,37 @@ FloatAP log(FloatAP::RoundingModeType mode, FloatAP const& x) {
 }
 
 FloatAP sin(FloatAP::RoundingModeType mode, FloatAP const& x) {
-    using namespace FloatAPTrigonometricDetail;
+    using namespace Detail;
     return unary(Function::sine, mode, x);
 }
 
 FloatAP cos(FloatAP::RoundingModeType mode, FloatAP const& x) {
-    using namespace FloatAPTrigonometricDetail;
+    using namespace Detail;
     return unary(Function::cosine, mode, x);
 }
 
 FloatAP tan(FloatAP::RoundingModeType mode, FloatAP const& x) {
-    using namespace FloatAPTrigonometricDetail;
+    using namespace Detail;
     return unary(Function::tangent, mode, x);
 }
 
 FloatAP atan(FloatAP::RoundingModeType mode, FloatAP const& x) {
-    using namespace FloatAPTrigonometricDetail;
+    using namespace Detail;
     return unary(Function::arctangent, mode, x);
 }
 
 FloatAP asin(FloatAP::RoundingModeType mode, FloatAP const& x) {
-    using namespace FloatAPTrigonometricDetail;
+    using namespace Detail;
     return unary(Function::arcsine, mode, x);
 }
 
 FloatAP acos(FloatAP::RoundingModeType mode, FloatAP const& x) {
-    using namespace FloatAPTrigonometricDetail;
+    using namespace Detail;
     return unary(Function::arccosine, mode, x);
 }
 
 FloatAP Float<ArbitraryPrecision>::pi(RoundingModeType mode, PrecisionType precision) {
-    using namespace FloatAPTrigonometricDetail;
+    using namespace Detail;
     unsigned index;
     switch (mode.value()) {
         case Rounding::ToNearest: index = 0u; break;

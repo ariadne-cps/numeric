@@ -50,7 +50,7 @@
 namespace Ariadne {
 
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
-namespace BigUnsignedDetail {
+namespace Detail {
 void mul_low_into_x86_64(BigUnsigned::LimbView a,
                          BigUnsigned::LimbView b,
                          BigUnsigned::MutableLimbView output) noexcept;
@@ -60,11 +60,11 @@ void mul_low_into_comba_x86_64(BigUnsigned::LimbView a,
 void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
                                BigUnsigned::LimbView b,
                                BigUnsigned::MutableLimbView output) noexcept;
-} // namespace BigUnsignedDetail
+} // namespace Detail
 #endif
 
 #if defined(ARIADNE_BIG_UNSIGNED_ARM64)
-namespace BigUnsignedDetail {
+namespace Detail {
 void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
                               BigUnsigned::LimbView b,
                               BigUnsigned::MutableLimbView output) noexcept;
@@ -72,7 +72,7 @@ void mul_low_into_carry_arm64(BigUnsigned::LimbView a,
 // disjoint from the canonical nonempty input, and at least eight limbs.
 void square_into_symmetric_arm64(BigUnsigned::LimbView a,
                                   BigUnsigned::MutableLimbView output) noexcept;
-} // namespace BigUnsignedDetail
+} // namespace Detail
 #endif
 
 // Reference and native multiplication kernels now live in this translation
@@ -154,7 +154,7 @@ void BigUnsigned::mul_low_into_portable(
 // x86-64 baseline, Comba and MULQ carry-chain kernels
 // (previously big_unsigned_x86-64.cpp; original copyright Luca Geretti).
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
-namespace BigUnsignedDetail {
+namespace Detail {
 namespace {
 
 using Limb = BigUnsigned::Limb;
@@ -351,13 +351,13 @@ void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
     mul_low_into_x86_64(a,b,output);
 #endif
 }
-} // namespace BigUnsignedDetail
+} // namespace Detail
 #endif
 
 // AArch64 MUL/UMULH/ADDS/ADC multiplication and symmetric square
 // (previously big_unsigned_arm64.cpp; original copyright Ariadne contributors).
 #if defined(ARIADNE_BIG_UNSIGNED_ARM64)
-namespace BigUnsignedDetail {
+namespace Detail {
 using Limb = BigUnsigned::Limb;
 
 // Native ARMv8-A row-schoolbook with explicit two-carry handling.
@@ -542,7 +542,7 @@ void square_into_symmetric_arm64(BigUnsigned::LimbView a,
         square_into_symmetric_arm64_impl<false>(a,output);
     }
 }
-} // namespace BigUnsignedDetail
+} // namespace Detail
 #endif
 
 BigUnsigned::MutableLimbView BigUnsigned::Scratch::acquire(std::size_t count) {
@@ -2670,7 +2670,7 @@ void multiply_limbs_fused(BigUnsigned::LimbView a,
                           BigUnsigned::MutableLimbView output) noexcept
 {
 #if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(ARIADNE_BIG_UNSIGNED_X86_64)
-    BigUnsignedDetail::mul_low_into_x86_64(a,b,output);
+    Detail::mul_low_into_x86_64(a,b,output);
 #elif defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64) && \
     defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
@@ -2755,7 +2755,7 @@ void BigUnsigned::mul_low_into_comba(
         LimbView a,LimbView b,MutableLimbView output)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
-    BigUnsignedDetail::mul_low_into_comba_x86_64(a,b,output);
+    Detail::mul_low_into_comba_x86_64(a,b,output);
 #else
     mul_low_into_portable(a,b,output);
 #endif
@@ -2775,7 +2775,7 @@ void BigUnsigned::mul_low_into_arm64_carry(
         LimbView a,LimbView b,MutableLimbView output)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_ARM64)
-    BigUnsignedDetail::mul_low_into_carry_arm64(a,b,output);
+    Detail::mul_low_into_carry_arm64(a,b,output);
 #else
     mul_low_into_portable(a,b,output);
 #endif
@@ -2785,7 +2785,7 @@ void BigUnsigned::mul_low_into_x86_64_carry(
         LimbView a,LimbView b,MutableLimbView output)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_X86_64)
-    BigUnsignedDetail::mul_low_into_carry_x86_64(a,b,output);
+    Detail::mul_low_into_carry_x86_64(a,b,output);
 #else
     mul_low_into_portable(a,b,output);
 #endif
@@ -2798,7 +2798,7 @@ void BigUnsigned::mul_low_into_schoolbook(
     // Reproduce the B3 selected behavior, including its one-limb
     // portable fallback, to preserve a strict A/B control.
     if (a.size() >= 2u && b.size() >= 2u) {
-        BigUnsignedDetail::mul_low_into_x86_64(a,b,output);
+        Detail::mul_low_into_x86_64(a,b,output);
         return;
     }
 #endif
@@ -2809,7 +2809,7 @@ void BigUnsigned::mul_low_into(LimbView a,LimbView b,MutableLimbView output) {
 #if defined(ARIADNE_BIG_UNSIGNED_ARM64)
     // Apple Silicon measurements and native GMP differential tests validate
     // the explicit carry-chain path; fused remains available for comparison.
-    BigUnsignedDetail::mul_low_into_carry_arm64(a,b,output);
+    Detail::mul_low_into_carry_arm64(a,b,output);
 #elif defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED)
     // B54: on the SAME x86-64 host, B53's updated fused recurrence
     // beat the B52 32x32 MULQ/ADCQ special case on dense inputs
@@ -3214,7 +3214,7 @@ BigUnsigned square(BigUnsigned const& a)
         }
         BigUnsigned result;
         result.resize_for_result(2u*a._size);
-        BigUnsignedDetail::square_into_symmetric_arm64(
+        Detail::square_into_symmetric_arm64(
             a.limbs(),BigUnsigned::MutableLimbView(
                 result.mutable_data(),2u*a._size));
         result.normalize();
@@ -3655,7 +3655,7 @@ void BigUnsigned::sqrt_recursive_into(
     std::copy_n(q.begin(),k,root.begin());
     auto q2=scratch.first(2u*k);
 #if defined(ARIADNE_BIG_UNSIGNED_ARM64)
-    if (k>=8u) BigUnsignedDetail::square_into_symmetric_arm64(root.first(k),q2);
+    if (k>=8u) Detail::square_into_symmetric_arm64(root.first(k),q2);
     else
 #endif
     mul_into(root.first(k),root.first(k),q2);
@@ -3798,7 +3798,7 @@ BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
 #elif defined(ARIADNE_BIG_UNSIGNED_ARM64) && defined(ARIADNE_BIG_UNSIGNED_ARM64) && \
     defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
             if (squaring && current.size()>=8u) {
-                BigUnsignedDetail::square_into_symmetric_arm64(current,output);
+                Detail::square_into_symmetric_arm64(current,output);
             } else
 #endif
             {

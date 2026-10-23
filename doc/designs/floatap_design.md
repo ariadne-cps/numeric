@@ -11922,3 +11922,39 @@ independent golden oracles, benchmark workloads and rounding modes
 remain unchanged. Do not claim a speedup until the user's same-host
 paired benchmark and cross-platform CI have been checked; FloatAP
 still contains other GMP-backed Fraction code.
+
+### D135 — single Ariadne::Detail namespace and compiler scope fix (23 October 2026)
+
+The D134 Apple Clang compile failure exposed an unnecessary nested
+namespace split: `outward_dyadic_endpoint` was inside
+`FloatAPExpLogDetail` while its trigonometric caller
+`outward_dyadic_interval` was inside
+`FloatAPTrigonometricDetail`, both nested further within an
+anonymous namespace. Consolidate the *entire internal FloatAP
+Fraction/Interval/transcendental implementation* into ONE
+`Ariadne::Detail` namespace. Remove both redundant named wrappers
+and the enclosing anonymous wrapper, while retaining local internal
+anonymous namespaces elsewhere in the translation unit.
+The existing unqualified calls now correctly share the same
+scope: no cross-module facade, extra forwarding wrappers, or
+unneeded long qualified names. The FloatAP entry points continue
+to use `using namespace Detail` locally, as before, rather than
+at namespace or header scope.
+
+The only other bespoke *Detail namespace identified in production
+numeric sources*, `BigUnsignedDetail`, is likewise renamed to
+`Ariadne::Detail` consistently in architecture-specific forward
+declarations, definitions and dispatch call sites. Architecture
+guards and optimized kernels remain unchanged. Existing
+`Ariadne::Detail` declarations in numeric headers are preserved;
+public `Ariadne::Constants`, C++ anonymous namespaces, file paths
+named `detail`, and third-party namespaces are not rewritten.
+
+This is intentionally a namespace/lookup refactor only; no
+integer arithmetic, rational semantics, numerical bounds, test
+oracles, benchmark work or rounding mode changes. Keep the D134
+Windows C4459 variable rename. The D134 error and earlier D133
+Windows failure must both be considered unresolved until this
+exact commit passes compiler and semantic regression CI on
+Unix, Windows, Sanitizers and Coverage. Numerical performance
+claims require a fresh same-host benchmark.
