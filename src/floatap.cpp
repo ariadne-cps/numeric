@@ -3814,14 +3814,14 @@ struct FloatAPShortTranscendentals {
     // Return floor(slope*n/2^shift), and optionally its ceiling. Products
     // use the existing shared native multiplier, including portable builds.
     static std::uint64_t correction(BigUnsigned const& slope,std::uint64_t n,
-                                     unsigned shift,bool upward) {
+                                     unsigned shift,bool round_upward) {
         std::array<BigUnsigned::Limb,3u> product;
         BigUnsigned::mul_into(slope.limbs(),BigUnsigned::LimbView(&n,1u),product);
         const auto word=shift/64u;
         const auto offset=shift%64u;
         std::uint64_t retained=product[word]>>offset;
         if (offset!=0u) retained|=product[word+1u]<<(64u-offset);
-        if (upward && floatap_any_bits_below(BigUnsigned::LimbView(product),shift)) ++retained;
+        if (round_upward && floatap_any_bits_below(BigUnsigned::LimbView(product),shift)) ++retained;
         return retained;
     }
 

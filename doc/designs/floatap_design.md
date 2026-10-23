@@ -12440,3 +12440,18 @@ to be assessed.
 
 AddressSanitizer/UBSan Debug CTest with warnings treated as errors passes
 20/20 on the final D144/D145 source state, including the expanded oracles.
+
+### D145.1 — MSVC C4459 shadowing fix for centered FloatAP correction (23 October 2026)
+
+Windows MSVC 14.51.36231 with /W4 /WX rejects
+src/floatap.cpp's FloatAPShortTranscendentals::correction at line 3817:
+the parameter `bool upward` shadows the public global
+`Ariadne::upward` from numeric/rounding.hpp (C4459/C2220).
+Rename only that parameter to `round_upward` and update its
+single use within the same helper. The positional `false`/`true` callers, exact limb multiplication, discarded-bit check,
+outward endpoint correction, certified intervals, round-to-nearest
+and directed rounding behavior are all unchanged. No numerical
+reference or test fixture has been altered to suppress the warning.
+The fix is limited to the existing FloatAP translation unit; it
+does not touch FloatMP, GMP/MPFR, benchmarks, or CMake.
+Validate Windows /W4 /WX and Unix, Sanitizers, Coverage in CI.
