@@ -11662,3 +11662,26 @@ every precision, and compare exp_nearest/exp_down/exp_up medians in paired
 same-host repeated samples. Existing independent FloatAP exp oracle
 checks in four rounding modes remain unchanged, as do the certified
 exp kernels themselves.
+
+### D126 — native certified inverse-trigonometric square-root endpoints (23 October 2026)
+
+The positive-rational `square_root_interval` used by asin/acos now forms
+the exact scaled native quotient `q=floor(n*2^(2B)/d)` using native
+Integer/BigUnsigned operations, and computes `sqrtrem(q)` once.
+Its lower endpoint is `floor(sqrt(q))/2^B`; the endpoint is exact
+if and only if BOTH the Euclidean division remainder and the
+integer-square-root remainder are zero. Otherwise the upper endpoint
+is the next integer at the same binary scale. These are exactly the
+old GMP bounds, including exact-square detection.
+
+Unlike the old `mpz_sqrt` followed by `root^2 * denominator`, the
+new code needs no extra full square/product for exactness. It does
+not construct a canonical Rational or perform an avoidable GCD.
+One native input import and final Fraction endpoint boundary conversion
+remain until the certified Fraction carrier itself is migrated. This
+is NOT a complete GMP-free FloatAP result.
+
+The existing independent asin/acos golden oracles, endpoint-rounding
+assertions, and all benchmark workloads remain unchanged. Compilation,
+cross-platform CI, correctness regressions, and same-host benchmark
+performance must be verified before making speedup claims.

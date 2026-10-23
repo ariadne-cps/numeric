@@ -2812,30 +2812,27 @@ Interval square_root_interval(Fraction const& x, unsigned long work) {
     if (x.sign() == 0) {
         return point(Fraction{});
     }
-    if (work > std::numeric_limits<mp_bitcnt_t>::max() / 2u) {
+    // The argument is an exact positive fraction. Its integer quotient
+    // and exact square-root remainder are native; only the two final
+    // interval endpoints cross the legacy Fraction boundary.
+    if (work > std::numeric_limits<mp_bitcnt_t>::max() / 2u ||
+        work > std::numeric_limits<std::size_t>::max() / 2u) {
         throw std::overflow_error("FloatAP radical precision too large");
     }
-
-    mpz_t scaled, quotient, root, squared;
-    mpz_inits(scaled, quotient, root, squared, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b, c, d;
-        ~Cleanup() { mpz_clears(a, b, c, d, nullptr); }
-    } cleanup{scaled, quotient, root, squared};
-
-    mpz_mul_2exp(scaled, mpq_numref(x.raw()), 2u * work);
-    mpz_fdiv_q(quotient, scaled, mpq_denref(x.raw()));
-    mpz_sqrt(root, quotient);
-    const Fraction lower(root, work);
-
-    mpz_mul(squared, root, root);
-    mpz_mul(squared, squared, mpq_denref(x.raw()));
-    if (mpz_cmp(squared, scaled) == 0) {
+    const Integer numerator=integer_from_gmp(mpq_numref(x.raw()));
+    const Integer denominator=integer_from_gmp(mpq_denref(x.raw()));
+    auto [quotient,division_remainder]=divrem(
+        shift_left(numerator.magnitude(),static_cast<std::size_t>(2u*work)),
+        denominator.magnitude());
+    auto [root,square_remainder]=sqrtrem(quotient);
+    const Fraction lower(root,work);
+    // Equality to the original rational requires BOTH exact integer
+    // division and an exact square. No extra root^2 * denominator
+    // multiply or canonical Rational/GCD construction is necessary.
+    if (division_remainder.is_zero() && square_remainder.is_zero()) {
         return point(lower);
     }
-
-    mpz_add_ui(root, root, 1u);
-    return {lower, Fraction(root, work)};
+    return {lower,Fraction(add(root,BigUnsigned(1u)),work)};
 }
 
 Interval asin_interval(Fraction const& x, unsigned long work) {
