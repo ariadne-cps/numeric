@@ -1,7 +1,8 @@
 # Reproducible exact golden-data generators
 
 The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
-`generator_exact_small.cpp`, and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
+`generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, and
+`oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
 FloatMP or Boost**: expected values must not come from the code being tested.
@@ -12,9 +13,11 @@ From the repository root, using a C++20 compiler:
 c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_gcd.cpp -o /tmp/numeric-oracle-gcd
 c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_b76.cpp -o /tmp/numeric-oracle-b76
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_exact_small.cpp -o /tmp/numeric-oracle-exact-small
+c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_big_unsigned_power_div.cpp -o /tmp/numeric-oracle-power-div
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
+/tmp/numeric-oracle-power-div --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -32,6 +35,7 @@ review every diff before committing. No sampling is used.
 | `generator_big_unsigned_gcd.cpp` | `big_unsigned_r6.tsv`, `r8`, `r10`, `r11`, `r21`, all nine `r26_*`, `r27` | 5,561 source-and-GCD checks, including 3,240 R26 variants |
 | `generator_big_unsigned_b76.cpp` | all fourteen `big_unsigned_b76_gcd_decimal_*.tsv` | 2,800 source-keyed GCD/decimal cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
+| `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -63,3 +67,16 @@ warnings (including `-Wsign-conversion -Werror`) reproduced the five
 unchanged committed fixture blob IDs byte for byte. An intentionally
 altered TSV was correctly rejected by `--verify` without rewriting it.
 This is not yet a full-platform CI result.
+
+B79 reproduces the D104 BigUnsigned power and D103 short-owned division
+fixtures without changing them (36 TSV files now have versioned generators).
+The power fixture replays all source draws from the original 10 limb widths
+and 12 source modes, retaining the same five selected modes and six
+exponents; the deterministic sample and boundary power cases remain intact.
+The division fixture replays all 864 source draws and retains the original
+nine distinct tested mode indices per width pair, including zero divisors.
+Both files exactly matched their previously committed Git blob IDs with
+GCC 14 and Clang 17, including the strict Clang/CI warning set with
+`-Wsign-conversion -Wshadow -Werror`. `--verify` rejects a modified fixture
+without altering it. The independent long-division generator additionally
+checks `a == b*q+r` and `r < b` for every nonzero divisor. CI remains pending.

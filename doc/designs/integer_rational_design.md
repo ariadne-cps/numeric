@@ -8354,3 +8354,36 @@ consumer tests, runtime GMP oracles, production code, root CMake,
 FloatMP and benchmarks are untouched. The independent source corpus
 is now reproducible for 34 TSV files (29 B77 plus five B78).
 Full Unix/Windows/Sanitizers/Coverage CI remains to be checked.
+
+### B79 — reproduce BigUnsigned D104 power and D103 short-division fixtures (23 October 2026)
+
+Version standalone `tests/data/generator_big_unsigned_power_div.cpp` and
+register it as a build-only generator target. It independently reproduces
+`tests/data/big_unsigned_power.tsv` (373 existing source/result rows) and
+`tests/data/big_unsigned_short_div.tsv` (324 existing rows) using only
+standard C++20 and the independent unsigned-limb B77 oracle helper.
+Multiplication and powering use binary shift/add and exponentiation by
+squaring; quotient and remainder use bit-aligned repeated subtraction.
+All expected values are computed without Numeric, GMP, MPFR, FloatMP,
+or Boost. For division, each reference verifies `a=b*q+r` and `0<=r<b`,
+with a separate explicit no-result representation for zero divisors.
+
+For the D104 random corpus, replay each of the original `mt19937_64`
+(0xB7400A11) source visits across 10 widths and 12 modes, including
+unselected modes, before reproducing exactly the same five selected
+source modes and six selected exponents, followed by all 16 small sample
+and 57 1024-bit-boundary power rows. For D103, replay the entire seeded
+(0xB74D1A1DE) 6 x 6 x 24 source corpus and its original overwrite order;
+reproduce all nine selected modes per width pair, including the
+exceptional zero-divisor cases. No sampled row was discarded or added.
+
+GCC 14 and Clang 17 compiled and passed `--verify` with the full strict
+CI-style warning list (`-Wsign-conversion -Wshadow -Werror` included).
+Both regenerated files exactly matched the existing Git blob hashes
+(c0dd421950bbdcfbc86adbda19d76c1773f84d61 and
+5a0c2d9d5b2bd19f5ab6f0b44415ca10e6e27b8e). Corrupting a
+fixture causes read-only verification to fail. The generator README
+is updated; 36 committed TSVs now have versioned independent generators.
+Production arithmetic, legacy GMP oracles, consumers, all frozen TSVs,
+FloatMP, benchmarks and root CMake remain unchanged. Full repository
+CI (Unix, Windows, Sanitizers, Coverage) is still required.
