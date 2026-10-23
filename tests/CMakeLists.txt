@@ -61,6 +61,7 @@ set(ORACLE_GENERATORS
     generator_big_unsigned_mul
     generator_big_unsigned_dispatch
     generator_integer_random
+    generator_rational_binary64
 )
 set(ORACLE_GENERATOR_COMMANDS)
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)

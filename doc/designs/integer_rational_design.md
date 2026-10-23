@@ -8617,3 +8617,27 @@ No fixture data, test consumer, production code or GMP oracle changed.
 Register the tenth executable in ORACLE_GENERATORS for `generators`
 and `generate-data`, not `tests`; 59 of 115 TSVs now reproduced.
 Full platform CI remains to be checked.
+
+### B88 — independent Rational R7/R12 binary64 truncation fixtures (23 October 2026)
+
+Add standalone `tests/data/generator_rational_binary64.cpp` for the
+original R7 4 x 8 x 12 = 384 source-keyed rational double-conversion
+cases and R12 4 x 512 = 2048 one-limb random conversion cases (both
+positive and negative outputs). Reproduce source numerators and
+denominators by exact powers of two and the original mt19937_64
+(0x1200530012812026) replay, respectively. The expected raw IEEE-754
+binary64 patterns are derived by exact bit lengths, bit-aligned integer
+quotient, normal/subnormal exponent/significand construction and explicit
+truncation toward zero. They do not depend on Numeric, GMP, MPFR, Boost,
+FloatMP, host doubles, or the current hardware rounding mode.
+
+GCC and Clang compiled and verified all output with C++20
+-Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror. Both generated
+TSVs match their original committed blob SHA-1 values exactly:
+R7 9d8e75190d09b49bf91b183cd68e2c6afaa7f4b4;
+R12 0ead6f9d1aac895ac4712dfb8a73041f2ea9002f.
+Read-only verification detects deliberate fixture corruption. Register
+the eleventh executable in explicit generators and generate-data targets,
+not the tests target. Coverage rises to 61/115 TSVs. No TSV, test
+consumer, production source, or legacy GMP-oracle path is modified.
+Full platform CI remains to be checked.
