@@ -8223,3 +8223,32 @@ case counts, signs, modes, exact comparisons, test names, benchmarks,
 FloatMP, CMake and production implementations remain unchanged.
 Do not regard this as validated until Windows plus Unix, Sanitizers
 and Coverage pass after this commit.
+
+### R33.14 — frozen GCD oracles for BigUnsigned R6/R8/R10/R11 (23 October 2026)
+
+Replace the runtime GMP differential checks in the four original
+deterministic GCD families with source-keyed exact BigInt Euclidean
+results in four standalone TSV files. Preserve R6 7 widths x 4
+offsets x 2 orders = 56 cases; R8 all 640 original mt19937_64
+source pairs plus 6 x 6 wide/small checks = 676 cases; R10 nine
+widths x five borrowed-source pairs and one self-alias case = 54;
+R11 eleven widths x five Euclidean quotient-boundary cases = 55.
+Total 841 records, no sampling. R8 source stream was checked
+against a separate compiled C++20 generator for its first twelve
+output words; skipped conditional draws remain skipped.
+
+TSV rows include original source-key parameters, exact canonical
+hexadecimal left/right operands, and independently computed exact
+unsigned Euclidean gcd values. Each test verifies canonical inputs,
+GCD(a,b) and GCD(b,a) against the same frozen oracle, then verifies
+source values again to preserve the original borrowed operand
+immutability assertions. The TSV readers reject missing, reordered,
+malformed and excess rows. Oracle generation uses exact BigInt and
+does not depend on Numeric or GMP/MPFR. The new bidirectional GCD
+assertions strengthen some original checks without eliminating
+any original source scenario, storage threshold or alias case.
+
+Other GMP-based GCD families (R26/R27 etc.), division, products,
+decimal formatting, randomized arithmetic and integer/GMP bridge
+tests remain intentionally unchanged. No FloatMP, CMake, production
+source or benchmark edits. Require four-workflow CI validation.
