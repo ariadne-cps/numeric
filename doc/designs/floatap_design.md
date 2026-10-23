@@ -11551,3 +11551,38 @@ Performance recovery must be measured on the same host using the
 same precision workload and sample protocol. C++ compilation,
 independent correctness regressions, sanitizer runs and measured
 speedups are pending; algebraic analysis alone is not validation.
+
+### D122 — native decimal formatting and independent binary64 display (23 October 2026)
+
+FloatAP's fixed-decimal formatter now works directly from its exact
+BigUnsigned significand and signed binary exponent. It calculates
+the decimal scaled numerator and denominator using native shifts,
+pow(10,places), multiplication, divrem, and exactly one directed
+nearest-even/upward/downward/toward-zero decision on the Euclidean
+remainder. It keeps canonical signed-zero, infinity, NaN and the
+existing string formatting convention (including the decimal point
+for zero places). This removes GMP from the ordinary FloatAP decimal
+formatting path and drops the unused rational_gmp_bridge header there.
+
+FloatDP's display path no longer allocates FloatMP and delegates to
+MPFR; it uses exact 53-bit FloatAP representation of binary64,
+preserving negative zero and NaN/Inf, then invokes native decimal
+printing. Builtin rounding tags are mapped explicitly. This
+removes the FloatMP/MPFR dependency from src/floatdp.cpp, without
+changing FloatMP itself or its benchmarks.
+
+New source-keyed tests assert exact decimal outputs for 1/8, 3/8,
+negative 1/8, ties-to-even and directed modes, signed zero,
+infinity and NaN. The FloatDP tests check exact decimal ties and
+negative zero separately. These are fixed mathematical expectations,
+not GMP/MPFR or another native floating implementation as oracle.
+Unrelated regression cases and existing benchmarks remain unchanged.
+
+The unused historical numeric/gmp.hpp and mpfr_array.hpp/.cpp
+are removed: repo-wide symbol searches found no callers, and
+mpfr_array.cpp is not compiled in src/CMakeLists.txt. GMP-backed
+certified transcendental Fraction/fixed-point code in FloatAP,
+GMP bridge helpers still used by FloatMP, and MPFR types outside
+FloatMP in common rounding/public interfaces remain outstanding.
+Do not call the strict migration complete. Cross-platform builds,
+unit tests and performance benchmark comparison are still required.

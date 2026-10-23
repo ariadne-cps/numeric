@@ -27,6 +27,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
+#include <cmath>
 #include <limits>
 #include <locale>
 #include <sstream>
@@ -41,7 +42,6 @@
 #include "numeric/rational.hpp"
 #include "numeric/rounding.hpp"
 #include "numeric/floatdp.hpp"
-#include "numeric/floatmp.hpp"
 #include "numeric/floatap.hpp"
 #include "numeric/rounded_float.hpp"
 #include "numeric/float_approximation.hpp"
@@ -301,14 +301,26 @@ OutputStream& write(OutputStream& os, FloatDP const& x, Nat bits, BuiltinRoundin
 }
 */
 
-OutputStream& write(OutputStream& os, FloatMP const& x, DecimalPlaces plcs, MPFRRoundingModeType rnd);
-OutputStream& write(OutputStream& os, FloatMP const& x, DecimalPrecision figs, MPFRRoundingModeType rnd);
-
-MPFRRoundingModeType to_mpfr_rounding_mode(BuiltinRoundingModeType rnd) {
-    ARIADNE_PRECONDITION(rnd==ROUND_TO_NEAREST || rnd==ROUND_UPWARD || rnd==ROUND_DOWNWARD);
-    return (rnd==FloatDP::ROUND_TO_NEAREST) ? FloatMP::ROUND_TO_NEAREST
-               : (rnd==FloatDP::ROUND_DOWNWARD) ? FloatMP::ROUND_DOWNWARD : FloatMP::ROUND_UPWARD;
+// Preserve exact binary64 inputs, including signed zero and IEEE
+// special values. Decimal rounding uses the native arbitrary-precision
+// formatter without foreign floating-point temporaries.
+namespace {
+FloatAP::RoundingModeType native_decimal_mode(BuiltinRoundingModeType mode) {
+    ARIADNE_PRECONDITION(mode==ROUND_TO_NEAREST ||
+                         mode==ROUND_DOWNWARD || mode==ROUND_UPWARD);
+    return mode==ROUND_TO_NEAREST ? FloatAP::ROUND_TO_NEAREST :
+           mode==ROUND_DOWNWARD ? FloatAP::ROUND_DOWNWARD :
+                                  FloatAP::ROUND_UPWARD;
 }
+FloatAP native_binary64(FloatDP const& x) {
+    constexpr unsigned long bits=53u;
+    const double value=x.get_d();
+    if(std::isnan(value)) return FloatAP::nan(bits);
+    if(std::isinf(value)) return FloatAP::infinity(bits,std::signbit(value));
+    if(value==0.0) return FloatAP::zero(bits,std::signbit(value));
+    return FloatAP(ExactDouble(value),ArbitraryPrecision(std::size_t{bits}));
+}
+} // namespace
 
 String FloatDP::literal() const {
     StringStream ss;
@@ -323,15 +335,10 @@ String FloatDP::literal(RoundingModeType rnd) const {
 }
 
 OutputStream& write(OutputStream& os, FloatDP const& x, DecimalPlaces plcs, BuiltinRoundingModeType rnd) {
-    MultiplePrecision pr_mp(53);
-    MPFRRoundingModeType rnd_mp=to_mpfr_rounding_mode(rnd);
-    return write(os,FloatMP(x,pr_mp),plcs,rnd_mp);
+    return os << print(native_binary64(x),plcs,native_decimal_mode(rnd));
 }
-
 OutputStream& write(OutputStream& os, FloatDP const& x, DecimalPrecision figs, BuiltinRoundingModeType rnd) {
-    MultiplePrecision pr_mp(53);
-    MPFRRoundingModeType rnd_mp=to_mpfr_rounding_mode(rnd);
-    return write(os,FloatMP(x,pr_mp),figs,rnd_mp);
+    return os << print(native_binary64(x),figs,native_decimal_mode(rnd));
 }
 
 OutputStream& repr(OutputStream& os, FloatDP const& x) {

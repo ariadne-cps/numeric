@@ -1114,6 +1114,52 @@ Void test_floatap_native_ratio_rounding() {
     ARIADNE_TEST_ASSERT(threw);
 }
 
+// Decimal-format oracle: exact binary rationals with frozen expected
+// strings. No GMP or other floating implementation generates the answers.
+Void test_native_decimal_format() {
+    const ArbitraryPrecision precision(53_bits);
+    const FloatAP one_eighth(Rational(Integer(1),Integer(8)),
+                             FloatAP::ROUND_TO_NEAREST,precision);
+    const FloatAP negative_eighth(Rational(Integer(-1),Integer(8)),
+                                  FloatAP::ROUND_TO_NEAREST,precision);
+    const FloatAP three_eighths(Rational(Integer(3),Integer(8)),
+                                FloatAP::ROUND_TO_NEAREST,precision);
+    ARIADNE_TEST_EQUALS(print(one_eighth,DecimalPlaces(2u),
+                              FloatAP::ROUND_TO_NEAREST),String("0.12"));
+    ARIADNE_TEST_EQUALS(print(one_eighth,DecimalPlaces(2u),
+                              FloatAP::ROUND_UPWARD),String("0.13"));
+    ARIADNE_TEST_EQUALS(print(one_eighth,DecimalPlaces(3u),
+                              FloatAP::ROUND_TO_NEAREST),String("0.125"));
+    ARIADNE_TEST_EQUALS(print(negative_eighth,DecimalPlaces(2u),
+                              FloatAP::ROUND_TO_NEAREST),String("-0.12"));
+    ARIADNE_TEST_EQUALS(print(negative_eighth,DecimalPlaces(2u),
+                              FloatAP::ROUND_DOWNWARD),String("-0.13"));
+    ARIADNE_TEST_EQUALS(print(three_eighths,DecimalPlaces(2u),
+                              FloatAP::ROUND_TO_NEAREST),String("0.38"));
+    ARIADNE_TEST_EQUALS(print(three_eighths,DecimalPlaces(2u),
+                              FloatAP::ROUND_TOWARD_ZERO),String("0.37"));
+    ARIADNE_TEST_EQUALS(print(FloatAP(2,precision),DecimalPlaces(0u),
+                              FloatAP::ROUND_TO_NEAREST),String("2."));
+    ARIADNE_TEST_EQUALS(print(FloatAP::zero(53u,true),DecimalPlaces(2u),
+                              FloatAP::ROUND_TO_NEAREST),String("-0.00"));
+    ARIADNE_TEST_EQUALS(print(FloatAP::infinity(53u,true),DecimalPlaces(2u),
+                              FloatAP::ROUND_TO_NEAREST),String("-inf"));
+    ARIADNE_TEST_EQUALS(print(FloatAP::nan(53u),DecimalPlaces(2u),
+                              FloatAP::ROUND_TO_NEAREST),String("nan"));
+
+    // The separate binary64 formatter also preserves exact halfway
+    // rounding and the signed-zero payload.
+    StringStream dp_nearest_stream,dp_upward_stream,dp_tie_stream,dp_zero_stream;
+    write(dp_nearest_stream,FloatDP(0.125),DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
+    write(dp_upward_stream,FloatDP(0.125),DecimalPlaces(2u),FloatDP::ROUND_UPWARD);
+    write(dp_tie_stream,FloatDP(0.375),DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
+    write(dp_zero_stream,FloatDP(-0.0),DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
+    ARIADNE_TEST_EQUALS(dp_nearest_stream.str(),String("0.12"));
+    ARIADNE_TEST_EQUALS(dp_upward_stream.str(),String("0.13"));
+    ARIADNE_TEST_EQUALS(dp_tie_stream.str(),String("0.38"));
+    ARIADNE_TEST_EQUALS(dp_zero_stream.str(),String("-0.00"));
+}
+
 Void test_floatap_native_significand_storage() {
     for (std::size_t bits:{7u,53u,128u,256u}) {
         const ArbitraryPrecision precision(bits);
@@ -1182,6 +1228,7 @@ Int main() {
     test_floatap_exact_dyadic_export();
     test_floatap_native_significand_storage();
     test_floatap_native_ratio_rounding();
+    test_native_decimal_format();
 
 
     return ARIADNE_TEST_FAILURES;

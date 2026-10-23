@@ -29,7 +29,6 @@
 #include "numeric/floatap.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/detail/integer_gmp_bridge.hpp"
-#include "numeric/detail/rational_gmp_bridge.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
 
@@ -615,28 +614,35 @@ std::string decimal_fixed(FloatAP const& x, unsigned int places,
                           FloatAP::RoundingModeType mode) {
     if (x.is_nan()) return "nan";
     if (x.is_inf()) return x.negative() ? "-inf" : "inf";
-    const Rational rational=static_cast<Rational>(x);
-    GmpRationalBoundary raw(rational);
-    mpq_srcptr q=raw.value();
-    mpz_t numerator,denominator,scale,quotient,remainder;
-    mpz_inits(numerator,denominator,scale,quotient,remainder,nullptr);
-    struct Clear {
-        mpz_ptr a,b,c,d,e;
-        ~Clear(){mpz_clears(a,b,c,d,e,nullptr);}
-    } clear{numerator,denominator,scale,quotient,remainder};
+    // Preserve the exact dyadic value rather than constructing a
+    // canonical Rational and a temporary GMP rational. Decimal digits
+    // are obtained by one native unsigned division and a single exact
+    // directed rounding decision.
+    BigUnsigned numerator=x.significand();
+    BigUnsigned denominator(1u);
+    const auto binary_exponent=x.exponent();
+    if(binary_exponent>0) {
+        numerator=shift_left(numerator,
+            static_cast<std::size_t>(binary_exponent));
+    } else if(binary_exponent<0) {
+        // Avoid negating INT64_MIN; preserve the checked shift domain.
+        const auto distance=static_cast<std::uint64_t>(
+            -(binary_exponent+1))+1u;
+        if(distance>std::numeric_limits<std::size_t>::max())
+            throw std::overflow_error("FloatAP decimal exponent shift out of range");
+        denominator=shift_left(denominator,static_cast<std::size_t>(distance));
+    }
     const bool neg=x.negative();
-    mpz_abs(numerator,mpq_numref(q));
-    mpz_set(denominator,mpq_denref(q));
-    mpz_ui_pow_ui(scale,10ul,static_cast<unsigned long>(places));
-    mpz_mul(numerator,numerator,scale);
-    mpz_tdiv_qr(quotient,remainder,numerator,denominator);
-    if (mpz_sgn(remainder)!=0) {
+    const BigUnsigned scale=pow(BigUnsigned(10u),
+        static_cast<std::uint64_t>(places));
+    auto [quotient,remainder]=divrem(mul(numerator,scale),denominator);
+    if (!remainder.is_zero()) {
         bool increase=false;
         switch(mode.value()) {
             case FloatAP::Rounding::ToNearest: {
-                mpz_mul_ui(remainder,remainder,2u);
-                const int order=mpz_cmp(remainder,denominator);
-                increase=order>0 || (order==0 && mpz_odd_p(quotient));
+                const int order=compare(shift_left(remainder,1u),denominator);
+                increase=order>0 || (order==0 &&
+                    (quotient.limb(0u)&BigUnsigned::Limb{1})!=0u);
                 break;
             }
             case FloatAP::Rounding::Downward: increase=neg; break;
@@ -644,12 +650,9 @@ std::string decimal_fixed(FloatAP const& x, unsigned int places,
             case FloatAP::Rounding::TowardZero: break;
             default: throw std::invalid_argument("Invalid FloatAP decimal rounding mode");
         }
-        if(increase) mpz_add_ui(quotient,quotient,1);
+        if(increase) quotient=add(quotient,BigUnsigned(1u));
     }
-    const std::size_t capacity=mpz_sizeinbase(quotient,10)+2;
-    std::string digits(capacity,'\0');
-    mpz_get_str(digits.data(),10,quotient);
-    digits.resize(std::char_traits<char>::length(digits.c_str()));
+    std::string digits=to_decimal(quotient);
     if(places>0) {
         if(digits.size()<=places) digits.insert(0,places+1-digits.size(),'0');
         digits.insert(digits.size()-places,1,'.');
