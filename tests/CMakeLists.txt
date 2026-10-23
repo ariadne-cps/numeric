@@ -71,6 +71,7 @@ set(ORACLE_GENERATORS
     generator_floatap_get_d
     generator_floatap_power_exact
     generator_floatap_sqrt
+    generator_floatap_pow_short
 )
 set(ORACLE_GENERATOR_COMMANDS)
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)
