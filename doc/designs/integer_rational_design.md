@@ -8328,3 +8328,29 @@ fixtures, source RNG streams, test expectations, CMake or runtime GMP.
 The exact expression was compiled and executed with GCC and Clang
 under the reported warnings-as-errors flag set. Full repository CI
 should still be checked independently after this commit.
+
+### B78 — version five independent exact data generators (23 October 2026)
+
+Add standalone C++20 `tests/data/generator_exact_small.cpp` for the
+already frozen datasets `rational_r3.tsv` (6 ordered comparisons),
+`rational_r4.tsv` (54 exact floor/ceil samples), `rational_r8.tsv`
+(16 near-2^64 rational comparisons), `integer_power.tsv` (100 signed
+powers), and `big_unsigned_r14.tsv` (28 squares). It uses only the
+standard-library B77 exact unsigned limb helper; independent
+shift-and-add multiplication, quotient/remainder, and signed decimal
+output reproduce the original source-keyed expectations without
+Numeric, GMP, MPFR, FloatMP, or Boost. R4 retains the canonical 1/1
+case for base/base; R14 consumes all 12 source-RNG visits per width
+before selecting the original four structural classes. No extra
+sampling, seed changes or test modifications are introduced.
+
+GCC 14 and Clang 17 with full strict warning flags (including
+-Wsign-conversion -Werror) compiled and verified the generator.
+All five regenerated datasets matched their original Git blob SHA-1
+IDs exactly; `--verify` rejected an intentionally corrupted test TSV
+without writing it. Only the generator, its build-only registration,
+the generator README and this journal changed. Existing frozen files,
+consumer tests, runtime GMP oracles, production code, root CMake,
+FloatMP and benchmarks are untouched. The independent source corpus
+is now reproducible for 34 TSV files (29 B77 plus five B78).
+Full Unix/Windows/Sanitizers/Coverage CI remains to be checked.
