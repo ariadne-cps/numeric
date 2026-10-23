@@ -11958,3 +11958,38 @@ Windows failure must both be considered unresolved until this
 exact commit passes compiler and semantic regression CI on
 Unix, Windows, Sanitizers and Coverage. Numerical performance
 claims require a fresh same-host benchmark.
+
+### D136 — eliminate general GCD for dyadic Fraction construction (23 October 2026)
+
+The remaining GMP-backed `Fraction` interval carrier was performing
+a full `mpq_canonicalize` for every dyadic endpoint created by the
+native exp/log/sin/cos/atan series, certified square-root endpoints
+and reconstruction caches. This invokes a generic multiprecision
+GCD despite the known denominator `2^B`, adding avoidable cost at
+precisely the hot return-to-Fraction boundary.
+
+A single private `normalize_dyadic(mpq_ptr,mp_bitcnt_t)` now reduces
+`n/2^B` by `2^min(B,v2(n))` using only a GMP scan for the low set
+bit and an exact right shift of the numerator. The denominator is set
+to `2^(B-reduced)` directly. A zero numerator is canonicalized as
+`0/1`, and negative numerators use exact division by a power of
+two; sign and directed rounding are unchanged. The signed
+`Fraction(BigUnsigned,B,negative)` overload benefits automatically
+from the native constructor. `Fraction(mpz_srcptr,B)` is handled
+similarly. Construction from finite FloatAP bypasses canonicalization
+for nonnegative binary exponents (denominator already one) and
+normalizes directly for negative exponents. The unit-`Fraction`
+constructors and GMP rational operators still maintain canonical
+form as before.
+
+No new Integer, BigUnsigned, Rational or GMP temporary is introduced
+into Taylor loops, and there is no change to certified error bounds,
+cached argument reductions, external FloatAP APIs or the 53-operation
+benchmark. This is a targeted reduction of avoidable general GCD
+work, NOT a full GMP-free migration of Fraction. The independent
+source-keyed oracle tests and all four rounding modes remain
+mandatory, as does CI across Unix, Windows, Sanitizers and Coverage.
+The user-provided benchmark results are for the previous D133 code
+and cannot substantiate D136 performance until rerun on the same
+host and conditions. D135 Windows/Sanitizers/Coverage were green
+when D136 work began; Unix was still running.

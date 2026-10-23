@@ -1512,6 +1512,27 @@ namespace Detail {
 class Fraction {
     mpq_t _value;
 
+    // For an exact n / 2^k the GCD is a power of two. Normalize by
+    // removing min(k,v2(n)) zero bits, rather than invoking GMP's
+    // general multiprecision GCD in every certified endpoint.
+    static void normalize_dyadic(mpq_ptr value,mp_bitcnt_t denominator_bits) {
+        mpz_ptr numerator=mpq_numref(value);
+        mpz_ptr denominator=mpq_denref(value);
+        if (mpz_sgn(numerator)==0) {
+            // GMP's canonical zero is 0/1, not 0/2^k.
+            mpz_set_ui(denominator,1u);
+            return;
+        }
+        const mp_bitcnt_t remove=std::min(
+            denominator_bits,mpz_scan1(numerator,0u));
+        if (remove!=0u) {
+            // The division is exact even when numerator is negative.
+            mpz_tdiv_q_2exp(numerator,numerator,remove);
+        }
+        mpz_set_ui(denominator,1u);
+        mpz_mul_2exp(denominator,denominator,denominator_bits-remove);
+    }
+
 public:
     Fraction() {
         mpq_init(_value);
@@ -1548,11 +1569,11 @@ public:
         }
         const mp_bitcnt_t shift=static_cast<mp_bitcnt_t>(distance);
         if (exponent>0) {
+            // Integral positive shifts already have denominator one.
             mpz_mul_2exp(mpq_numref(_value),mpq_numref(_value),shift);
         } else if (exponent<0) {
-            mpz_mul_2exp(mpq_denref(_value),mpq_denref(_value),shift);
+            normalize_dyadic(_value,shift);
         }
-        mpq_canonicalize(_value);
     }
 
     // Import a native fixed-point endpoint once; no GMP in the series loop.
@@ -1560,9 +1581,7 @@ public:
         const auto digits=numerator.limbs();
         mpz_import(mpq_numref(_value),digits.size(),-1,
                    sizeof(BigUnsigned::Limb),0,0,digits.data());
-        mpz_set_ui(mpq_denref(_value),1u);
-        mpz_mul_2exp(mpq_denref(_value),mpq_denref(_value),denominator_bits);
-        mpq_canonicalize(_value);
+        normalize_dyadic(_value,static_cast<mp_bitcnt_t>(denominator_bits));
     }
 
     // A certified dyadic endpoint may straddle zero; attach its sign
@@ -1574,9 +1593,7 @@ public:
 
     Fraction(mpz_srcptr numerator, unsigned long denominator_bits) : Fraction() {
         mpz_set(mpq_numref(_value), numerator);
-        mpz_set_ui(mpq_denref(_value), 1);
-        mpz_mul_2exp(mpq_denref(_value), mpq_denref(_value), denominator_bits);
-        mpq_canonicalize(_value);
+        normalize_dyadic(_value,static_cast<mp_bitcnt_t>(denominator_bits));
     }
 
     Fraction(Fraction const& other) : Fraction(other._value) { }
