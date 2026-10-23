@@ -153,6 +153,12 @@ class Integer
     friend Rational div(Integer const& z1, Integer const& z2); //!< \brief Quotient \a z1÷z2.
     friend Integer fma(Integer const& z1, Integer const& z2, Integer const& z3); //!< \brief Fused multiply-and-add \a z1×z2+z3.
     friend Integer pow(Integer const& z, Nat m); //!< \brief Power \a z<sup>m</sup>.
+    //! Exact floor square root of a nonnegative Integer; throws domain_error
+    //! for negative values. Zero maps to canonical nonnegative zero.
+    friend Integer isqrt(Integer const& z);
+    //! Exact root and remainder: z=root*root+remainder, 0<=remainder<=2*root.
+    //! Requires z>=0; both returned Integer values are nonnegative.
+    friend std::pair<Integer,Integer> sqrtrem(Integer const& z);
     friend Rational pow(Integer const& z, Int n); //!< \brief Power \a z<sup>n</sup>.
 
     friend Integer quot(Integer const& z1, Integer const& z2); //!< <p/>
@@ -197,6 +203,10 @@ class Integer
     Integer(Nat64 m);
     Integer(Int64 n);
 };
+
+//! Signed wrapper for the shared GMP-free magnitude square root.
+Integer isqrt(Integer const& z);
+std::pair<Integer,Integer> sqrtrem(Integer const& z);
 
 template<BuiltinUnsignedIntegral M> inline Integer::Integer(M m) : Integer(Nat64(m)) { }
 template<BuiltinSignedIntegral N> inline Integer::Integer(N n) : Integer(Int64(n)) { }

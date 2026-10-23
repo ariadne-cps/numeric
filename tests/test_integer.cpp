@@ -58,6 +58,7 @@ inline constexpr char ARIADNE_INTEGER_B66_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR 
 #endif
 
 inline constexpr char ARIADNE_INTEGER_POWER_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_power.tsv";
+inline constexpr char ARIADNE_INTEGER_SQRT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_sqrt.tsv";
 
 #include "macro/testing.hpp"
 
@@ -83,6 +84,29 @@ constexpr bool check_concept()
     };
 }
 
+// Parse the independently frozen hexadecimal oracle values without GMP.
+BigUnsigned sqrt_oracle_hex(std::string const& hex)
+{
+    if (hex.empty() || (hex.size()>1u && hex.front()=='0')) {
+        throw std::invalid_argument("Invalid Integer square-root oracle hex");
+    }
+    std::vector<std::uint64_t> words((hex.size()+15u)/16u,0u);
+    for (std::size_t i=0u;i<hex.size();++i) {
+        const char digit=hex[hex.size()-1u-i];
+        const unsigned nibble=digit>='0' && digit<='9'
+            ? static_cast<unsigned>(digit-'0')
+            : digit>='a' && digit<='f'
+                ? static_cast<unsigned>(digit-'a'+10)
+                : 16u;
+        if (nibble==16u) {
+            throw std::invalid_argument("Malformed Integer square-root oracle hex");
+        }
+        words[i/16u]|=static_cast<std::uint64_t>(nibble)
+                       <<static_cast<unsigned>(4u*(i%16u));
+    }
+    return BigUnsigned(words);
+}
+
 static_assert(check_concept());
 
 } // namespace
@@ -103,6 +127,7 @@ class TestInteger
     void test_native();
     void test_signed_regression();
     void test_owned_results();
+    void test_sqrt();
 };
 
 void TestInteger::test()
@@ -116,6 +141,67 @@ void TestInteger::test()
     ARIADNE_TEST_CALL(test_native());
     ARIADNE_TEST_CALL(test_signed_regression());
     ARIADNE_TEST_CALL(test_owned_results());
+    ARIADNE_TEST_CALL(test_sqrt());
+}
+
+void TestInteger::test_sqrt()
+{
+    // Reuse the 161 independent restoring-digit sqrt/root/remainder
+    // triples, not GMP or another call to the function under test.
+    std::ifstream golden(ARIADNE_INTEGER_SQRT_ORACLE_PATH);
+    if (!golden) throw std::runtime_error("Missing Integer sqrt oracle TSV");
+    std::size_t cases=0u;
+    std::string line;
+    while (std::getline(golden,line)) {
+        if (line.empty() || line.front()=='#') continue;
+        std::istringstream fields(line);
+        std::string input_hex,root_hex,remainder_hex,extra;
+        if (!(fields>>input_hex>>root_hex>>remainder_hex) || (fields>>extra)) {
+            throw std::runtime_error("Malformed Integer sqrt oracle row");
+        }
+        const BigUnsigned input_magnitude=sqrt_oracle_hex(input_hex);
+        const Integer input=Integer::from_magnitude(input_magnitude,false);
+        const Integer preserved=input;
+        const Integer expected_root=Integer::from_magnitude(
+            sqrt_oracle_hex(root_hex),false);
+        const Integer expected_remainder=Integer::from_magnitude(
+            sqrt_oracle_hex(remainder_hex),false);
+        const Integer root=isqrt(input);
+        const auto [paired_root,remainder]=sqrtrem(input);
+        ARIADNE_TEST_ASSERT(root==expected_root);
+        ARIADNE_TEST_ASSERT(paired_root==expected_root);
+        ARIADNE_TEST_ASSERT(remainder==expected_remainder);
+        ARIADNE_TEST_ASSERT(!root.negative() && !remainder.negative());
+        ARIADNE_TEST_ASSERT(!root.negative() && !paired_root.negative());
+        ARIADNE_TEST_ASSERT(paired_root*paired_root+remainder==input);
+        ARIADNE_TEST_ASSERT(remainder<=paired_root+paired_root);
+        ARIADNE_TEST_ASSERT(input==preserved);
+
+        // Only zero accepts a canonicalized negative-zero source.
+        const Integer negative_input=Integer::from_magnitude(
+            input_magnitude,true);
+        if (input_magnitude.is_zero()) {
+            ARIADNE_TEST_ASSERT(!negative_input.negative());
+            ARIADNE_TEST_ASSERT(isqrt(negative_input)==Integer(0));
+            const auto [zero_root,zero_remainder]=sqrtrem(negative_input);
+            ARIADNE_TEST_ASSERT(zero_root==Integer(0));
+            ARIADNE_TEST_ASSERT(zero_remainder==Integer(0));
+        } else {
+            bool root_threw=false,remainder_threw=false;
+            try { (void)isqrt(negative_input); }
+            catch (std::domain_error const&) { root_threw=true; }
+            try { (void)sqrtrem(negative_input); }
+            catch (std::domain_error const&) { remainder_threw=true; }
+            ARIADNE_TEST_ASSERT(root_threw && remainder_threw);
+            ARIADNE_TEST_ASSERT(negative_input.negative());
+            ARIADNE_TEST_ASSERT(compare(
+                negative_input.magnitude(),input_magnitude)==0);
+        }
+        ++cases;
+    }
+    if (golden.bad() || cases!=161u) {
+        throw std::runtime_error("Incomplete Integer sqrt oracle fixture");
+    }
 }
 
 void TestInteger::test_owned_results() {

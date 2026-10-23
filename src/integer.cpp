@@ -180,6 +180,24 @@ Integer rem(Integer const& z1, Integer const& z2) {
                                    z1._negative);
 }
 
+Integer isqrt(Integer const& z) {
+    if (z._negative) {
+        throw std::domain_error("Integer square root of negative value");
+    }
+    return Integer::from_magnitude(isqrt(z._magnitude),false);
+}
+
+std::pair<Integer,Integer> sqrtrem(Integer const& z) {
+    if (z._negative) {
+        throw std::domain_error("Integer square root of negative value");
+    }
+    auto [root,remainder]=sqrtrem(z._magnitude);
+    return {
+        Integer::from_magnitude(std::move(root),false),
+        Integer::from_magnitude(std::move(remainder),false)
+    };
+}
+
 Integer pow(Integer const& z, Nat exponent) {
     // Only sign parity and negative-zero normalization belong here.
     // The unsigned engine selects the existing per-platform schedule.

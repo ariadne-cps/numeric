@@ -11181,3 +11181,33 @@ BigUnsigned, and the public isqrt/sqrtrem contract, frozen
 161-triple sqrt oracle, and benchmark input corpus remain unchanged.
 The production C++ CI and measured same-host performance for
 this implementation must be checked before any speedup claim.
+
+### D112 — native Integer square root and shared independent oracle (23 October 2026)
+
+The signed Integer front-end now exposes `isqrt(Integer const&)`
+and `sqrtrem(Integer const&)`. Negative inputs throw
+`std::domain_error` before invoking any unsigned operation;
+zero and positive values delegate directly to the shared
+`BigUnsigned` integer square-root kernels. Both outputs are
+canonical, nonnegative Integer magnitudes, with
+`n = root*root + remainder` and `0 <= remainder <= 2*root`.
+This adds no GMP arithmetic or duplicated signed sqrt algorithm.
+
+`test_integer` reuses ALL 161 source-keyed independent hexadecimal
+triples in `tests/data/big_unsigned_sqrt.tsv`, using a dedicated
+hex-to-BigUnsigned parser. Both result magnitudes are matched to the
+frozen external root and remainder, and additional algebraic bounds,
+input immutability, signed negative rejection, and canonicalized
+negative-zero behavior are checked. The new test block does NOT
+use GMP or call production arithmetic to generate its expected values.
+The legacy test suite and fixture content remain unchanged.
+
+The existing owning-only
+`benchmark_big_unsigned_arithmetic` now includes separately
+labelled `int_isqrt` and `int_sqrtrem` comparisons against
+`mpz_sqrt` and `mpz_sqrtrem`, using identical positive
+operand magnitudes, iteration counts, and owned result lifetimes.
+Comparative GMP checks run outside timing. The preallocated columns
+are not reintroduced and no existing measurements are removed.
+Actual cross-platform CI and same-host performance results remain
+to be collected; no new performance parity claim is made.
