@@ -10980,3 +10980,26 @@ historical `remove-gmp` branch, the public `floats.hpp` aggregation,
   and ceiling, `INT64_MIN`, and extremal binary exponents; no test
   or golden oracle is weakened, removed or rewritten to self-compare.
 - This step is source-reviewed only until cross-platform CI runs.
+
+### D106 — native signed/unsigned arithmetic in FloatAP core (23 October 2026)
+
+On `numeric/main`, the former GMP operations inside FloatAP's
+addition/subtraction (including signed far-exponent sticky adjustment),
+multiplication, division, fused multiply-add and precision conversion
+are replaced with existing native types:
+- `Integer` for signed aligned accumulators and exact signed offsets;
+- `BigUnsigned` for strictly nonnegative significand shifts, sums,
+  differences, products, and the quotient/remainder kernel already
+  present in `from_native_ratio`.
+The transitional `mpz_t _significand` still requires
+`integer_from_gmp` and `integer_to_gmp` at storage boundaries.
+`FloatMP`, MPFR comparisons, benchmark targets, the `floats.hpp`
+aggregator, test-oracle fixtures, and `test_rounding_mode.cpp`
+remain unchanged. In particular, no generic `BigUnsigned` signed
+arithmetic layer has been introduced.
+
+The published change preserves the existing single-rounding path and
+its independent TSV oracle tests; cross-platform CI confirmation
+is required before asserting behavioral equivalence. The next
+dedicated phase will replace the owned `mpz_t` storage and then
+the remaining `mpq_t` series intermediates with `Rational`.
