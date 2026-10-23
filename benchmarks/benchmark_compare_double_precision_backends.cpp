@@ -66,11 +66,13 @@ void print_results(std::vector<BenchmarkDatum> const& data,
                     << "  " << std::right << std::setw(timing_width) << "Median (ns)")
     LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '-'))
     unsigned previous_bits=0;
+    std::string previous_backend;
     for (auto const& datum : data) {
-        if (previous_bits != 0u && previous_bits != datum.bits) {
+        if (previous_bits != 0u && (previous_bits != datum.bits || previous_backend != datum.backend)) {
             LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '-'))
         }
         previous_bits=datum.bits;
+        previous_backend=datum.backend;
         LOGGING_PRINTLN(std::left << std::setw(backend_width) << datum.backend
                         << "  " << std::setw(operation_width) << datum.operation
                         << "  " << std::setw(6) << datum.bits

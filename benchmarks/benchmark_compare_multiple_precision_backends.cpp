@@ -68,11 +68,13 @@ void print_results(std::vector<BenchmarkDatum> const& data,
                     << "  " << std::right << std::setw(timing_width) << "Median (ns)")
     LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '-'))
     unsigned previous_bits=0;
+    std::string previous_backend;
     for (auto const& datum : data) {
-        if (previous_bits != 0u && previous_bits != datum.bits) {
+        if (previous_bits != 0u && (previous_bits != datum.bits || previous_backend != datum.backend)) {
             LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '-'))
         }
         previous_bits=datum.bits;
+        previous_backend=datum.backend;
         LOGGING_PRINTLN(std::left << std::setw(backend_width) << datum.backend
                         << "  " << std::setw(operation_width) << datum.operation
                         << "  " << std::setw(6) << datum.bits
@@ -283,7 +285,7 @@ void verify_benchmark_values(std::vector<unsigned> const& precisions) {
             verified_inputs += 2u;
         }
 
-        // Compare each of the 53 operation definitions at ALL 32 indices;
+        // Compare every shared operation definition at ALL 32 indices;
         // never test only the first benchmark input or merely compare times.
         std::map<std::string,std::vector<CheckedValue>> expected;
         for_each_backend_operation(reference,[&](char const* name, auto&& operation) {
@@ -312,7 +314,7 @@ void verify_benchmark_values(std::vector<unsigned> const& precisions) {
             ++operations_this_precision;
         });
         if (operations_this_precision != expected.size() ||
-            operations_this_precision != 53u) {
+            operations_this_precision != backend_operation_count) {
             throw std::runtime_error("benchmark operation count changed");
         }
     }

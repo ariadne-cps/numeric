@@ -342,14 +342,15 @@ template<> class Float<DP>
     friend FloatDP pow(CurrentRoundingMode, FloatDP x, Nat m) { return FloatDP(pow_rnd(x.dbl,m)); } //!< <p/>
     friend FloatDP pow(CurrentRoundingMode, FloatDP x, Int n) { return FloatDP(pow_rnd(x.dbl,n)); } //!< <p/>
     friend FloatDP sqrt(CurrentRoundingMode, FloatDP x) { return FloatDP(sqrt_rnd(x.dbl)); } //!< <p/>
-    friend FloatDP exp(CurrentRoundingMode, FloatDP x) { return FloatDP(exp_rnd(x.dbl)); } //!< <p/>
-    friend FloatDP log(CurrentRoundingMode, FloatDP x) { return FloatDP(log_rnd(x.dbl)); } //!< <p/>
-    friend FloatDP sin(CurrentRoundingMode, FloatDP x) { return FloatDP(sin_rnd(x.dbl)); } //!< <p/>
-    friend FloatDP cos(CurrentRoundingMode, FloatDP x) { return FloatDP(cos_rnd(x.dbl)); } //!< <p/>
-    friend FloatDP tan(CurrentRoundingMode, FloatDP x) { return FloatDP(tan_rnd(x.dbl)); } //!< <p/>
-    friend FloatDP asin(CurrentRoundingMode, FloatDP x) { return FloatDP(asin_rnd(x.dbl)); } //!< <p/>
-    friend FloatDP acos(CurrentRoundingMode, FloatDP x) { return FloatDP(acos_rnd(x.dbl)); } //!< <p/>
-    friend FloatDP atan(CurrentRoundingMode, FloatDP x) { return FloatDP(atan_rnd(x.dbl)); } //!< <p/>
+    friend FloatDP exp(CurrentRoundingMode, FloatDP x) { return exp(FloatDP::get_rounding_mode(),x); }
+    friend FloatDP log(CurrentRoundingMode, FloatDP x) { return log(FloatDP::get_rounding_mode(),x); }
+    friend FloatDP sin(CurrentRoundingMode, FloatDP x) { return sin(FloatDP::get_rounding_mode(),x); }
+    friend FloatDP cos(CurrentRoundingMode, FloatDP x) { return cos(FloatDP::get_rounding_mode(),x); }
+    friend FloatDP tan(CurrentRoundingMode, FloatDP x) { return tan(FloatDP::get_rounding_mode(),x); }
+    friend FloatDP tanh(CurrentRoundingMode, FloatDP x) { return tanh(FloatDP::get_rounding_mode(),x); }
+    friend FloatDP asin(CurrentRoundingMode, FloatDP x) { return asin(FloatDP::get_rounding_mode(),x); }
+    friend FloatDP acos(CurrentRoundingMode, FloatDP x) { return acos(FloatDP::get_rounding_mode(),x); }
+    friend FloatDP atan(CurrentRoundingMode, FloatDP x) { return atan(FloatDP::get_rounding_mode(),x); }
     static FloatDP pi(CurrentRoundingMode, PrecisionType) { return FloatDP(pi_rnd()); } //!< <p/>
     //!@}
   private:
@@ -398,14 +399,15 @@ template<> class Float<DP>
     friend FloatDP sqr(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&sqr_rnd,rnd,x); } //!< <p/>
     friend FloatDP rec(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&rec_rnd,rnd,x); } //!< <p/>
     friend FloatDP sqrt(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&sqrt_rnd,rnd,x); } //!< <p/>
-    friend FloatDP exp(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&exp_rnd,rnd,x); } //!< <p/>
-    friend FloatDP log(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&log_rnd,rnd,x); } //!< <p/>
-    friend FloatDP sin(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&sin_rnd,rnd,x); } //!< <p/>
-    friend FloatDP cos(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&cos_rnd,rnd,x); } //!< <p/>
-    friend FloatDP tan(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&tan_rnd,rnd,x); } //!< <p/>
-    friend FloatDP asin(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&asin_rnd,rnd,x); } //!< <p/>
-    friend FloatDP acos(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&acos_rnd,rnd,x); } //!< <p/>
-    friend FloatDP atan(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&atan_rnd,rnd,x); } //!< <p/>
+    friend FloatDP exp(RoundingModeType rnd, FloatDP x);
+    friend FloatDP log(RoundingModeType rnd, FloatDP x);
+    friend FloatDP sin(RoundingModeType rnd, FloatDP x);
+    friend FloatDP cos(RoundingModeType rnd, FloatDP x);
+    friend FloatDP tan(RoundingModeType rnd, FloatDP x);
+    friend FloatDP tanh(RoundingModeType rnd, FloatDP x);
+    friend FloatDP asin(RoundingModeType rnd, FloatDP x);
+    friend FloatDP acos(RoundingModeType rnd, FloatDP x);
+    friend FloatDP atan(RoundingModeType rnd, FloatDP x);
 
     friend FloatDP med(RoundingModeType rnd, FloatDP x1, FloatDP x2) {
         rounding_mode_t rounding_mode=get_rounding_mode(); set_rounding_mode(rnd); //!< <p/>
