@@ -12205,6 +12205,39 @@ Signed inputs, different dyadic scales, cancellation, canonical zero,
 certified interval bounds, caches, transcendental fallback algorithms,
 all rounding modes and final FloatAP rounding semantics are preserved.
 The source-keyed independent oracle datasets and paired benchmark
-comparisons are unchanged. Run cross-platform CI and all FloatAP oracles
-and obtain new SAME-HOST benchmarks at 53/128/256/1024/2048 bits
-before claiming any D142 speedup; there is no measured D142 result yet.
+comparisons are unchanged. Cross-platform CI and all FloatAP oracles
+remain mandatory.
+
+**D142 post-commit same-host benchmark (user supplied, 23 October 2026):**
+1000 iterations, 31 samples, five precisions (53/128/256/1024/2048),
+53 operations per precision. The exact post-timing verifier reports
+PASS for 320 paired inputs and 8480 paired operation results. At 2048
+bits, nearest-rounding FloatAP timings in ns are:
+
+| Operation | Pre-D141 | D141 | D142 | D141/D142 speedup |
+| --- | ---: | ---: | ---: | ---: |
+| exp | 5548.458 | 447646.542 | 3062.083 | 146.19x |
+| log | 4624.625 | 112236.542 | 1928.583 | 58.20x |
+| tan | 6748.833 | 554944.083 | 2534.875 | 218.92x |
+| asin | 6797.042 | 547383.666 | 2795.375 | 195.82x |
+| acos | 6634.459 | 547498.459 | 2802.542 | 195.36x |
+
+All five operations are also faster than pre-D141 at 2048 bits,
+by factors 1.81x, 2.40x, 2.66x, 2.43x and 2.37x respectively.
+At 53 bits their D141/D142 speedups are 4.37x, 4.02x,
+6.69x, 6.57x, and 6.52x. In the D142 benchmark FloatAP/MPFR
+slowdown across all 265 operation/precision pairs is
+0.474x geometric mean and 0.145x time-sum ratio;
+the worst operation is add_up at 256 bits (3.217x slower than MPFR).
+Across the *pre-D141 vs D142* comparison, 82/265 FloatAP
+operation/precision timings remain slower, so no claim of
+universal speedup is warranted. The severe D141 certified-transcendental
+regression is resolved in these measurements. Caching/warm-up,
+host conditions, and benchmark input mix remain the same
+within the supplied paired runs; smaller changes should not be
+over-interpreted without repetitions.
+
+D142 Windows, Sanitizers and Coverage CI are green at this review;
+Unix was still in progress when last observed. These measurements
+do not, by themselves, establish all-platform semantic correctness or
+prove that Numeric outside FloatAP is GMP-free.
