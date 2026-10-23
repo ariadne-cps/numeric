@@ -28,6 +28,7 @@
 #include <string>
 #include <iomanip>
 #include <stdexcept>
+#include <map>
 #include <fenv.h>
 
 #include "numeric/rounding.hpp"
@@ -44,6 +45,40 @@ using namespace std;
 using namespace Ariadne;
 
 namespace {
+struct CertifiedRounding { Rational down; Rational up; };
+using CertifiedKey=std::pair<std::string,Rational>;
+std::map<CertifiedKey,CertifiedRounding> const& certified_rounding_data() {
+#ifndef ARIADNE_TEST_DATA_DIR
+#error "Configure ARIADNE_TEST_DATA_DIR"
+#endif
+    static const auto data=[] {
+        std::ifstream input(ARIADNE_TEST_DATA_DIR "/rounded_float_directed.tsv");
+        if(!input) throw std::runtime_error("Missing certified rounding TSV");
+        std::map<CertifiedKey,CertifiedRounding> rows;
+        std::string line;
+        while(std::getline(input,line)) {
+            if(line.empty() || line[0]=='#') continue;
+            std::istringstream row(line);
+            std::string kind,n,d,ln,ld,un,ud,extra;
+            if(!(row>>kind>>n>>d>>ln>>ld>>un>>ud) || (row>>extra))
+                throw std::runtime_error("Malformed certified rounding TSV row");
+            Rational x{Integer(String(n)),Integer(String(d))};
+            Rational lo{Integer(String(ln)),Integer(String(ld))};
+            Rational hi{Integer(String(un)),Integer(String(ud))};
+            if(lo>hi || !rows.emplace(CertifiedKey{kind,x},CertifiedRounding{lo,hi}).second)
+                throw std::runtime_error("Duplicate or invalid certified rounding row");
+        }
+        if(rows.size()!=24u) throw std::runtime_error("Wrong certified rounding TSV row count");
+        return rows;
+    }();
+    return data;
+}
+CertifiedRounding const& certified_rounding(std::string const& kind,Rational const& x) {
+    auto const& rows=certified_rounding_data();
+    auto it=rows.find(CertifiedKey{kind,x});
+    if(it==rows.end()) throw std::runtime_error("Missing certified rounding input");
+    return it->second;
+}
 
 template<class FLT>
 constexpr bool check_rounded_float_concept()
@@ -591,24 +626,24 @@ TestRounded<FLT>::test_function()
     ARIADNE_TEST_COMPARE(add(log(two_value),log(half)),<,zero);
 
     if constexpr (Same<FLT,FloatDP>) {
-        MultiplePrecision mp(128);
-
         std::vector<ExactDouble> wexp={-2.0_x,-1.5_x,-1.0_x,-0.75_x,-0.5_x,-0.375_x,0.375_x,0.5_x,0.75_x,1.0_x,1.5_x,2.0_x};
         for (auto w : wexp) {
             ARIADNE_TEST_PRINT(w);
+            auto const& expected=certified_rounding("exp",Rational(w));
             RoundedFloatType::set_rounding_mode(upward);
-            ARIADNE_TEST_COMPARE(cast_exact(exp(RoundedFloatType(w,dp))),>,cast_exact(exp(up,FloatMP(w,mp))));
+            ARIADNE_TEST_COMPARE(Rational(cast_exact(exp(RoundedFloatType(w,dp)))),==,expected.up);
             RoundedFloatType::set_rounding_mode(downward);
-            ARIADNE_TEST_COMPARE(cast_exact(exp(RoundedFloatType(w,dp))),<,cast_exact(exp(down,FloatMP(w,mp))));
+            ARIADNE_TEST_COMPARE(Rational(cast_exact(exp(RoundedFloatType(w,dp)))),==,expected.down);
         }
 
         std::vector<ExactDouble> wlog={3.0_x,2.0_x,0.75_x,0.625_x,0.5_x,0.375_x};
         for (auto w : wlog) {
             ARIADNE_TEST_PRINT(w);
+            auto const& expected=certified_rounding("log",Rational(w));
             RoundedFloatType::set_rounding_mode(upward);
-            ARIADNE_TEST_COMPARE(cast_exact(log(RoundedFloatType(w,dp))),>,cast_exact(log(up,FloatMP(w,mp))));
+            ARIADNE_TEST_COMPARE(Rational(cast_exact(log(RoundedFloatType(w,dp)))),==,expected.up);
             RoundedFloatType::set_rounding_mode(downward);
-            ARIADNE_TEST_COMPARE(cast_exact(log(RoundedFloatType(w,dp))),<,cast_exact(log(down,FloatMP(w,mp))));
+            ARIADNE_TEST_COMPARE(Rational(cast_exact(log(RoundedFloatType(w,dp)))),==,expected.down);
         }
     }
 
@@ -795,14 +830,15 @@ TestRounded<FLT>::test_arctan()
     if constexpr (Same<FLT,FloatDP>) {
         Dyadic e(1,48u);
 
-        // Test against FloatMP values
+        // Same six boundary inputs, now tested against certified directed results.
         std::vector<Dyadic> tests({1+e,1,1-e,-1+e,-1,-1-e});
         for (Dyadic w : tests) {
             ARIADNE_TEST_PRINT(w);
+            auto const& expected=certified_rounding("atan",Rational(w));
             RoundedFloatType::set_rounding_mode(upward);
-            ARIADNE_TEST_COMPARE(cast_exact(atan(RoundedFloatType(w,dp))),>,cast_exact(atan(up,FloatMP(w,MP(128)))));
+            ARIADNE_TEST_COMPARE(Rational(cast_exact(atan(RoundedFloatType(w,dp)))),==,expected.up);
             RoundedFloatType::set_rounding_mode(downward);
-            ARIADNE_TEST_COMPARE(cast_exact(atan(RoundedFloatType(w,dp))),<,cast_exact(atan(down,FloatMP(w,MP(128)))));
+            ARIADNE_TEST_COMPARE(Rational(cast_exact(atan(RoundedFloatType(w,dp)))),==,expected.down);
         }
     }
 }
