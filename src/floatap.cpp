@@ -1554,6 +1554,16 @@ public:
         mpq_canonicalize(_value);
     }
 
+    // Import a native fixed-point endpoint once; no GMP in the series loop.
+    Fraction(BigUnsigned const& numerator, unsigned long denominator_bits) : Fraction() {
+        const auto digits=numerator.limbs();
+        mpz_import(mpq_numref(_value),digits.size(),-1,
+                   sizeof(BigUnsigned::Limb),0,0,digits.data());
+        mpz_set_ui(mpq_denref(_value),1u);
+        mpz_mul_2exp(mpq_denref(_value),mpq_denref(_value),denominator_bits);
+        mpq_canonicalize(_value);
+    }
+
     Fraction(mpz_srcptr numerator, unsigned long denominator_bits) : Fraction() {
         mpz_set(mpq_numref(_value), numerator);
         mpz_set_ui(mpq_denref(_value), 1);
@@ -1673,47 +1683,102 @@ Interval exp_series(Fraction const& x, unsigned long work) {
     }
     const unsigned long fixed_bits = work + guard;
     if (static_cast<std::uintmax_t>(fixed_bits) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
-        throw std::overflow_error("FloatAP exponential GMP shift overflow");
+        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+        static_cast<std::uintmax_t>(fixed_bits) >
+        static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::overflow_error("FloatAP exponential fixed-point shift overflow");
     }
-    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(fixed_bits);
 
-    mpz_t numerator, argument, term, sum_lower, sum_upper, threshold;
-    mpz_inits(numerator, argument, term, sum_lower, sum_upper, threshold, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b, c, d, e, f;
-        ~Cleanup() { mpz_clears(a, b, c, d, e, f, nullptr); }
-    } cleanup{numerator, argument, term, sum_lower, sum_upper, threshold};
+    using Limb=BigUnsigned::Limb;
+    using Words=std::vector<Limb>;
+    const auto fixed_shift=static_cast<std::size_t>(fixed_bits);
+    const std::size_t whole=fixed_shift/64u;
+    const unsigned partial=static_cast<unsigned>(fixed_shift%64u);
+    const Integer native_numerator=integer_from_gmp(mpq_numref(magnitude.raw()));
+    const Integer native_denominator=integer_from_gmp(mpq_denref(magnitude.raw()));
+    const BigUnsigned argument=quot(
+        shift_left(native_numerator.magnitude(),fixed_shift),
+        native_denominator.magnitude());
 
-    mpz_mul_2exp(numerator, mpq_numref(magnitude.raw()), shift);
-    mpz_fdiv_q(argument, numerator, mpq_denref(magnitude.raw()));
-
-    mpz_set_ui(term, 1ul);
-    mpz_mul_2exp(term, term, shift);
-    mpz_set(sum_lower, term);
-
-    mpz_set_ui(threshold, 1ul);
-    mpz_mul_2exp(threshold, threshold, static_cast<mp_bitcnt_t>(guard));
+    // The five buffers retain their capacities across all Taylor terms.
+    // In contrast to chained owning arithmetic, no temporary BigUnsigned
+    // or GMP integer is constructed for multiplication, shifting, division,
+    // or accumulation in the recurrence.
+    Words term(whole+1u,0u);
+    term[whole]=Limb{1}<<partial;
+    Words sum_lower=term;
+    Words product,shifted,next_term,next_sum;
+    const BigUnsigned threshold=shift_left(BigUnsigned(1u),
+                                           static_cast<std::size_t>(guard));
+    const auto trim=[](Words& value) {
+        while (!value.empty() && value.back()==0u) value.pop_back();
+    };
+    const auto below_threshold=[&](Words const& value) {
+        const auto bound=threshold.limbs();
+        if (value.size()!=bound.size()) return value.size()<bound.size();
+        for (std::size_t i=value.size();i!=0u;--i) {
+            if (value[i-1u]!=bound[i-1u]) return value[i-1u]<bound[i-1u];
+        }
+        return true;
+    };
 
     for (unsigned long n = 1ul; n <= max_terms; ++n) {
-        // floor(floor(y/Q)/n) == floor(y/(Q*n)) for nonnegative y.
-        mpz_mul(term, term, argument);
-        mpz_fdiv_q_2exp(term, term, shift);
-        mpz_fdiv_q_ui(term, term, n);
-        mpz_add(sum_lower, sum_lower, term);
+        // t_n=floor(floor(t_(n-1)*a/2^B)/n). Reuse the same
+        // multiplication, shifting and short-division buffers.
+        if (term.empty() || argument.is_zero()) {
+            product.clear();
+        } else {
+            if (term.size()>std::numeric_limits<std::size_t>::max()-argument.size()) {
+                throw std::overflow_error("FloatAP exponential limb count overflow");
+            }
+            product.resize(term.size()+argument.size());
+            BigUnsigned::mul_into(term,argument.limbs(),product);
+            trim(product);
+        }
 
-        if (mpz_cmp(term, threshold) <= 0 || n == max_terms) {
-            // 6*n bounds the accumulated downward-rounding error;
-            // t_n+6 bounds the complete positive omitted tail.
-            mpz_set(sum_upper, sum_lower);
-            mpz_add(sum_upper, sum_upper, term);
-            mpz_set_ui(numerator, n);
-            mpz_add_ui(numerator, numerator, 1ul);
-            mpz_mul_ui(numerator, numerator, 6ul);
-            mpz_add(sum_upper, sum_upper, numerator);
+        BigUnsigned::LimbView right_shifted;
+        if (product.size()>whole) {
+            const std::size_t length=product.size()-whole;
+            if (partial==0u) {
+                right_shifted=BigUnsigned::LimbView(product.data()+whole,length);
+            } else {
+                shifted.resize(length);
+                for (std::size_t i=0u;i<length;++i) {
+                    const Limb low=product[whole+i]>>partial;
+                    const Limb high=i+1u<length
+                        ? product[whole+i+1u]<<(64u-partial) : Limb{0};
+                    shifted[i]=low|high;
+                }
+                trim(shifted);
+                right_shifted=shifted;
+            }
+        }
+        next_term.resize(right_shifted.size());
+        (void)BigUnsigned::divrem_limb_into(
+            right_shifted,static_cast<Limb>(n),next_term);
+        trim(next_term);
+        term.swap(next_term);
 
-            const Interval positive{Fraction(sum_lower, fixed_bits),
-                                    Fraction(sum_upper, fixed_bits)};
+        const std::size_t count=std::max(sum_lower.size(),term.size());
+        next_sum.resize(count+1u);
+        const Limb carry=BigUnsigned::add_into(
+            sum_lower,term,BigUnsigned::MutableLimbView(next_sum.data(),count));
+        next_sum[count]=carry;
+        trim(next_sum);
+        sum_lower.swap(next_sum);
+
+        if (below_threshold(term) || n == max_terms) {
+            // The same proven enclosure: sum + term + 6*(n+1).
+            const BigUnsigned lower(BigUnsigned::LimbView(
+                sum_lower.data(),sum_lower.size()));
+            const BigUnsigned last_term(BigUnsigned::LimbView(
+                term.data(),term.size()));
+            const BigUnsigned tail=mul(
+                add(BigUnsigned(static_cast<Limb>(n)),BigUnsigned(1u)),
+                BigUnsigned(6u));
+            const BigUnsigned upper=add(add(lower,last_term),tail);
+            const Interval positive{Fraction(lower,fixed_bits),
+                                    Fraction(upper,fixed_bits)};
             if (x.sign() > 0) {
                 return positive;
             }

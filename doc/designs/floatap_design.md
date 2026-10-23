@@ -11599,3 +11599,37 @@ negative zero's sign bit. Expected oracle strings, rounding modes,
 production code and benchmarks are untouched. The compiler previously
 failed before running any new decimal checks, so CI still needs to
 confirm compilation and execution of these tests.
+
+### D124 — native fixed-point exp series with reusable limb buffers (23 October 2026)
+
+The certified exponential Taylor evaluator migrates its hot fixed-point
+recurrence from in-place GMP mpz_t arithmetic to native BigUnsigned limb
+kernels. The mathematical algorithm and rigorous bounds are unchanged:
+a=floor(2^B*abs(x)), t_0=2^B, t_n=floor(floor(t_(n-1)*a/2^B)/n),
+and the upper enclosure uses sum(t_i)+t_n+6*(n+1). Negative arguments
+still use reciprocal endpoints in reverse order. The same guard width,
+termination threshold and argument reductions are retained.
+
+Unlike a direct expression-level BigUnsigned port, D124 holds the current
+term, running sum, multiplication product, shifted product, next term
+and next sum in reusable std::vector<Limb> storage. The loop calls
+BigUnsigned::mul_into, divrem_limb_into and add_into on borrowed spans;
+it creates no owning BigUnsigned, Integer or Rational temporary per
+iteration, and performs no GMP calculation in the recurrence. It
+constructs the native input argument once. A temporary
+Fraction(BigUnsigned,2^B) boundary constructor imports only the two
+final endpoint integers, without introducing canonical native Rational
+normalization or a redundant native GCD in the certification loop.
+
+This is an intentionally isolated migration step, not a claim that
+FloatAP is fully GMP-free. The Fraction carrier, other exp/log/trig
+certification paths, and the boundary imports are still GMP-backed.
+Subsequent steps must remove them without changing the certified
+interval mathematics or losing performance through temporary copies.
+
+Correctness must be checked against the existing unchanged independent
+source-keyed floatap_exp.tsv oracle, four rounding modes, centered
+exponential and directed bounds, and Unix/Windows/Sanitizers/Coverage CI.
+Only same-host results from benchmark_compare_multiple_precision_backends,
+provided by the user, can establish any performance conclusion. No
+speedup is claimed here.
