@@ -11633,3 +11633,32 @@ exponential and directed bounds, and Unix/Windows/Sanitizers/Coverage CI.
 Only same-host results from benchmark_compare_multiple_precision_backends,
 provided by the user, can establish any performance conclusion. No
 speedup is claimed here.
+
+### D125 — benchmark both directed exponential modes (23 October 2026)
+
+The shared monomorphic `benchmark_compare_multiple_precision_backends`
+operation list now includes `exp_down` and `exp_up` alongside the unchanged
+`exp_nearest`. The FloatMP and FloatAP runs use the SAME indexed input pool,
+precision, operation and sample protocol. All three operations are checked
+at all 32 input indices in the post-timing exact-value comparison; the
+operation-count guard is updated from 27 to 29. Timing loops still contain
+no correctness checks. Preexisting operations and their input values are
+unchanged.
+
+The directed modes already execute the same optimized FloatAP exp evaluator:
+native fixed-point Taylor series (D124), argument reduction, certified
+half-centered exponential cache, and precision-refinement loop. The
+only mode-specific behavior is rounding the rigorous interval endpoints
+when deciding whether refinement can stop. No approximation obtained by
+nearest rounding is reused as a directed result, because that would not
+certify the requested direction. Do not introduce a separate directed
+fast path unless its bounds are justified and independent exact oracles
+pass. Benchmark timings supplied by the user will determine whether
+the shared optimized path is fast enough; no speedup is claimed here.
+
+Required validation before drawing conclusions: build the benchmark with
+both backends, run its exact 29-operation/32-input differential checks at
+every precision, and compare exp_nearest/exp_down/exp_up medians in paired
+same-host repeated samples. Existing independent FloatAP exp oracle
+checks in four rounding modes remain unchanged, as do the certified
+exp kernels themselves.

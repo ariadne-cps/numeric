@@ -180,6 +180,14 @@ void for_each_backend_operation(BackendPool<Float> const& pool, Visit&& report) 
         return exp(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
+    report("exp_down",[& ](unsigned i) {
+        return exp(Float::ROUND_DOWNWARD, a[index(i)]);
+    }
+    );
+    report("exp_up",[& ](unsigned i) {
+        return exp(Float::ROUND_UPWARD, a[index(i)]);
+    }
+    );
     report("log_nearest",[& ](unsigned i) {
         return log(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
