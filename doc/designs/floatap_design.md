@@ -11114,3 +11114,38 @@ one million random 64-/128-bit integer specializations against exact
 multiprecision inequalities; this is not a full project build.
 Actual production build, cross-platform CI and repeat same-host
 performance measurements remain pending; no D109 speedup is claimed.
+
+### D110 — reuse trial-digit Euclidean remainder in BigUnsigned sqrt (23 October 2026)
+
+The user measured the D109 divide-and-conquer version on the same
+20000-iteration, 31-sample integrated arithmetic benchmark, providing
+the first measured post-D109 comparison. Isqrt owning native/GMP ns:
+53 bits 3.442/19.156, 128 bits 26.471/20.350,
+256 bits 148.233/47.650, 1024 bits 953.667/172.934,
+2048 bits 1885.466/291.400. Sqrtrem native/GMP ns:
+53 bits 3.633/33.998, 128 bits 33.312/34.921,
+256 bits 169.958/67.375, 1024 bits 982.866/168.966,
+2048 bits 1992.333/311.600. The remaining D109 isqrt
+slowdown at 2048 bits is 6.470x; GMP parity is NOT achieved.
+
+Source inspection revealed the same expensive redundant calculation
+at every recursive step: compute q=quot(numerator,2*s), discard
+the division's remainder, then reconstruct it by
+numerator-(2*s)*q. D110 instead uses native divrem(numerator,2*s)
+to obtain q and its remainder in one invocation, then forms
+the next residual as (division_remainder << k)+low-q*q.
+Thus one multiprecision product and one subtraction per recursive
+level are removed. The exceptional case q>=B remains exactly
+handled: after clamping q to B-1, add (2*s)*(old_q-(B-1))
+to the returned remainder, ensuring no incorrect implicit reuse
+of the original quotient's remainder. This branch is uncommon,
+but required for exactness and is not omitted as a speed shortcut.
+
+An independent BigInt recurrence check on 4,750 random positive
+integers at irregular 129-4096-bit widths matched the exact
+binary-search square root and nonnegative remainder. No oracle,
+existing test, benchmark input, iteration count, comparison lifetime
+or FloatAP semantic path was modified in this change.
+AppleClang/GCC/MSVC production compilation and actual same-host
+benchmark timings of D110 remain pending; no performance
+improvement is claimed until those measurements.

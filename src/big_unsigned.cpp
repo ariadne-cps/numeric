@@ -3350,15 +3350,26 @@ std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
     const BigUnsigned low=sqrt_chunk(value,0u,k);
     const BigUnsigned divisor=shift_left(s,1u);
     const BigUnsigned numerator=add(shift_left(r,k),mid);
-    BigUnsigned q=quot(numerator,divisor);
+    // Preserve the Euclidean remainder of the trial-digit division.
+    // Previously we discarded it and recomputed it with a full-width
+    // divisor*q product and subtraction at every recursion level.
+    auto [q,division_remainder]=divrem(numerator,divisor);
     if (q.bit_length()>k) {
-        q=sub(shift_left(BigUnsigned(SqrtLimb{1}),k),
-              BigUnsigned(SqrtLimb{1}));
+        BigUnsigned max_digit=sub(
+            shift_left(BigUnsigned(SqrtLimb{1}),k),
+            BigUnsigned(SqrtLimb{1}));
+        // A rare over-large trial digit is clamped to B-1. Restore the
+        // corresponding remainder exactly, rather than using the
+        // original quotient's remainder with the reduced trial digit.
+        const BigUnsigned excess=sub(q,max_digit);
+        division_remainder=add(
+            division_remainder,mul(divisor,excess));
+        q=std::move(max_digit);
     }
 
     BigUnsigned candidate=add(shift_left(s,k),q);
     const BigUnsigned residual=add(
-        shift_left(sub(numerator,mul(divisor,q)),k),low);
+        shift_left(division_remainder,k),low);
     const BigUnsigned q2=square(q);
     if (compare(residual,q2)<0) {
         // Trial root was one too large. Recover the new remainder
