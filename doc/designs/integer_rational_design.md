@@ -8114,3 +8114,31 @@ implementations and adds none. Existing GMP-backed single-limb division
 boundary/random checks and the complete FloatAP oracle suite validate the
 shared operation. See floatap_design.md D143 for the encompassing branch
 and its local performance/validation scope.
+
+### R33.10 — remove R12 runtime GMP conversion oracle (23 October 2026)
+
+Migrate the R12 test from runtime mpq_get_d differential calls to
+independently computed, source-keyed TSV `tests/data/rational_r12.tsv`.
+All 512 original samples are retained for each of the four FE rounding
+modes, and both signs per sample are checked: 2048 source-keyed rows
+and 4096 bit-exact binary64 outcomes (no thinning or skipped cases).
+The existing std::mt19937_64 engine, seed, draws and all four input
+classes remain unchanged. The TSV explicitly freezes the original
+numerator and denominator next to each expected positive/negative
+uint64 bit pattern. Test readers verify original source values,
+mode/index order, missing rows and excess rows.
+
+Offline expectations use independent signed-integer binary bit lengths,
+exact quotient and exponent construction, and IEEE-754 binary64
+sign/exponent/significand encoding; no GMP, MPFR, Numeric Rational or
+Numeric BigUnsigned algorithms are used to produce them. The
+std::mt19937_64 sequence was validated against a separate compiled
+C++20 generator for both seeds used in the conversion group.
+The bit-level oracle targets the historical mpq_get_d truncation
+contract irrespective of active host FE rounding mode. All original
+R5/R7/R13/R29 conversion checks and subsequent random-stream
+consumption remain unchanged. The remaining GMP bridge exception
+test and BigUnsigned/Integer GMP suites are separate tasks.
+
+Production numeric code, FloatMP, benchmarks and CMake are untouched.
+Cross-platform CI is required before declaring this migration verified.

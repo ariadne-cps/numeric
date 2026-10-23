@@ -71,6 +71,7 @@ inline constexpr char R30_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r30.t
 inline constexpr char R17_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r17.tsv";
 inline constexpr char R3_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r3.tsv";
 inline constexpr char R7_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r7.tsv";
+inline constexpr char R12_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r12.tsv";
 
 constexpr bool check_concept()
 {
@@ -1065,12 +1066,16 @@ void TestRational::test_gmp_differential() {
     if (!r7_golden) throw std::runtime_error("Missing R7 oracle TSV");
     std::string r7_header;
     while (r7_golden.peek()=='#') std::getline(r7_golden,r7_header);
+    std::ifstream r12_golden(R12_ORACLE_PATH);
+    if (!r12_golden) throw std::runtime_error("Missing R12 oracle TSV");
+    std::string r12_header;
+    while (r12_golden.peek()=='#') std::getline(r12_golden,r12_header);
     for (unsigned mode_index=0u;mode_index<modes.size();++mode_index) {
         const int mode=modes[mode_index];
         ARIADNE_TEST_EQUALS(std::fesetround(mode),0);
-        // R12: exercise exact one-limb conversion across wide unsigned
-        // ratios, repeating fractions, both signs and four host modes.
-        // Each result is compared bit-for-bit against GMP.
+        // R12: all original one-limb sources and both signs, with
+        // independently frozen bit-exact binary64 results. Validate each
+        // source against the original mt19937_64 sequence as well.
         std::mt19937_64 small_random(0x1200530012812026ULL);
         for (unsigned sample=0u;sample<512u;++sample) {
             std::uint64_t numerator=small_random()|std::uint64_t{1};
@@ -1084,14 +1089,21 @@ void TestRational::test_gmp_differential() {
             } else if (sample%4u==2u) {
                 numerator=1u+small_random()%1024u;
             }
+            unsigned ref_mode=0u,ref_sample=0u;
+            std::uint64_t ref_num=0u,ref_den=0u;
+            std::uint64_t expected_positive=0u,expected_negative=0u;
+            if (!(r12_golden >> ref_mode >> ref_sample >> ref_num >> ref_den
+                  >> expected_positive >> expected_negative)
+                || ref_mode!=mode_index || ref_sample!=sample
+                || ref_num!=numerator || ref_den!=denominator) {
+                throw std::runtime_error("Missing, misordered or source-mismatched R12 TSV row");
+            }
             const Rational positive{Integer(numerator),Integer(denominator)};
             const Rational negative=-positive;
-            for (const Rational& value:{positive,negative}) {
-                const GmpRationalBoundary oracle(value);
-                conversion_matches=conversion_matches &&
-                    std::bit_cast<std::uint64_t>(value.get_d())==
-                    std::bit_cast<std::uint64_t>(mpq_get_d(oracle.value()));
-            }
+            ARIADNE_TEST_EQUALS(
+                std::bit_cast<std::uint64_t>(positive.get_d()),expected_positive);
+            ARIADNE_TEST_EQUALS(
+                std::bit_cast<std::uint64_t>(negative.get_d()),expected_negative);
         }
         // R29: sparse two-word prefixes with arbitrary nonzero
         // low tails. GMP is the bit-for-bit binary64 oracle.
@@ -1196,6 +1208,9 @@ void TestRational::test_gmp_differential() {
     std::string r7_extra;
     if (r7_golden >> r7_extra)
         throw std::runtime_error("Extra R7 oracle TSV rows");
+    std::string r12_extra;
+    if (r12_golden >> r12_extra)
+        throw std::runtime_error("Extra R12 oracle TSV rows");
     ARIADNE_TEST_ASSERT(conversion_matches);
 }
 
