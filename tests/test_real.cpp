@@ -117,7 +117,7 @@ CertifiedPi certified_pi() {
         result={Rational(Integer(String(ln)),Integer(String(ld))),
                 Rational(Integer(String(un)),Integer(String(ud))),
                 Rational(Integer(String(nn)),Integer(String(nd)))};
-        if(!(result.lower < result.near && result.near < result.upper))
+        if(!(result.lower < result.upper && result.near-Dyadic(1,319u) < result.lower && result.upper < result.near+Dyadic(1,319u)))
             throw std::runtime_error("Invalid pi interval");
         found=true;
     }
