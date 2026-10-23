@@ -11586,3 +11586,16 @@ GMP bridge helpers still used by FloatMP, and MPFR types outside
 FloatMP in common rounding/public interfaces remain outstanding.
 Do not call the strict migration complete. Cross-platform builds,
 unit tests and performance benchmark comparison are still required.
+
+### D123 — use public FloatDP exact-binary64 constructors in decimal tests (23 October 2026)
+
+Fix four CI compilation errors in `tests/test_float.cpp` introduced
+by D122: FloatDP(double) is a private constructor, deliberately not a
+public import path. Decimal rounding regression tests now construct
+FloatDP via its existing public FloatDP(ExactDouble const&,DoublePrecision)
+constructor, using the `dp` precision tag. The original exact
+binary64 inputs 0.125, 0.375 and -0.0 remain unchanged, including
+negative zero's sign bit. Expected oracle strings, rounding modes,
+production code and benchmarks are untouched. The compiler previously
+failed before running any new decimal checks, so CI still needs to
+confirm compilation and execution of these tests.

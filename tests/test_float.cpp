@@ -1150,10 +1150,10 @@ Void test_native_decimal_format() {
     // The separate binary64 formatter also preserves exact halfway
     // rounding and the signed-zero payload.
     StringStream dp_nearest_stream,dp_upward_stream,dp_tie_stream,dp_zero_stream;
-    write(dp_nearest_stream,FloatDP(0.125),DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
-    write(dp_upward_stream,FloatDP(0.125),DecimalPlaces(2u),FloatDP::ROUND_UPWARD);
-    write(dp_tie_stream,FloatDP(0.375),DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
-    write(dp_zero_stream,FloatDP(-0.0),DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
+    write(dp_nearest_stream,FloatDP(ExactDouble(0.125),dp),DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
+    write(dp_upward_stream,FloatDP(ExactDouble(0.125),dp),DecimalPlaces(2u),FloatDP::ROUND_UPWARD);
+    write(dp_tie_stream,FloatDP(ExactDouble(0.375),dp),DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
+    write(dp_zero_stream,FloatDP(ExactDouble(-0.0),dp),DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
     ARIADNE_TEST_EQUALS(dp_nearest_stream.str(),String("0.12"));
     ARIADNE_TEST_EQUALS(dp_upward_stream.str(),String("0.13"));
     ARIADNE_TEST_EQUALS(dp_tie_stream.str(),String("0.38"));
