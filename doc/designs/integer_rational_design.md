@@ -8310,3 +8310,7 @@ Their existing independent GMP checks are retained until separately
 migrated; other BigUnsigned GMP families and Integer bridge still
 remain. No change to production code, CMake, FloatMP or benchmarks.
 Cross-platform CI is required before B76 is considered validated.
+
+### B77 — reproducible standalone C++20 oracle generators (23 October 2026)
+
+Version tests/data/generator_big_unsigned_gcd.cpp, generator_big_unsigned_b76.cpp, oracle_exact_integer.hpp and README-generators.md. These standard C++20 sources use neither Numeric nor GMP, MPFR, FloatMP or Boost. They independently regenerate all 15 GCD and 14 B76 GCD/decimal TSVs using independent base-2^64 limbs, binary GCD, exact decimal conversion and unchanged std::mt19937_64 streams. Both GCC and Clang C++20 warnings-as-errors builds reproduced all 29 committed TSV files byte for byte without changing them. By default --verify does not write files; --write explicitly regenerates them. tests/CMakeLists.txt compiles both programs as dependencies of the aggregate tests build target, without registering them for CTest or running them during compilation. Existing numeric test cases, GMP reference code, production, root CMake, FloatMP and benchmarks are untouched. Other TSVs, including certified FloatAP transcendental fixtures, still have no versioned generator. Full CI remains required.

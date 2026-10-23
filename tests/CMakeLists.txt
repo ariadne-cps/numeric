@@ -48,3 +48,14 @@ target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
 
 add_custom_target(tests)
 add_dependencies(tests ${UNIT_TESTS} check_numeric)
+
+# Independent standalone C++20 TSV generators: compiled with tests, never auto-run.
+set(ORACLE_GENERATORS
+    generator_big_unsigned_gcd
+    generator_big_unsigned_b76
+)
+foreach(GENERATOR IN LISTS ORACLE_GENERATORS)
+    add_executable(${GENERATOR} "data/${GENERATOR}.cpp")
+    target_compile_features(${GENERATOR} PRIVATE cxx_std_20)
+endforeach()
+add_dependencies(tests ${ORACLE_GENERATORS})
