@@ -115,6 +115,11 @@ Void test_numeric_casts()
 
     ARIADNE_TEST_EQUALS(numeric_cast<Int>(dp_two),Int(2));
     ARIADNE_TEST_EQUALS(numeric_cast<Int>(ap_two),Int(2));
+    // The public numeric_cast API must match the legacy backend on
+    // positive, negative and non-integral finite inputs.
+    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatAP(-2,ap)),Int(-2));
+    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatAP(ExactDouble(2.5),ap)),Int(2));
+    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatAP(ExactDouble(-2.5),ap)),Int(-2));
 
     ARIADNE_TEST_EQUALS(numeric_cast<double>(dp_two),2.0);
     ARIADNE_TEST_EQUALS(numeric_cast<double>(dy_two),2.0);
