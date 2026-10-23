@@ -1837,13 +1837,13 @@ Interval exp_interval(Fraction x, unsigned long work) {
     // Convert only the two initial certified rational bounds. The
     // lower is rounded down and the upper rounded up at the same
     // dyadic scale. Avoid canonical Rational/GCD round trips.
-    const auto to_scaled=[&](Fraction const& bound,bool upward) {
+    const auto to_scaled=[&](Fraction const& bound,bool round_upward) {
         const Integer numerator=integer_from_gmp(mpq_numref(bound.raw()));
         const Integer denominator=integer_from_gmp(mpq_denref(bound.raw()));
         auto [value,remainder]=divrem(
             shift_left(numerator.magnitude(),shift),
             denominator.magnitude());
-        if (upward && !remainder.is_zero()) {
+        if (round_upward && !remainder.is_zero()) {
             value=add(value,BigUnsigned(1u));
         }
         const auto digits=value.limbs();
@@ -1865,7 +1865,7 @@ Interval exp_interval(Fraction x, unsigned long work) {
     // floor(y*y/2^B) or ceil(y*y/2^B) as required. The discarded
     // full limbs and low partial-limb bits determine whether ceil
     // increments. The same product and output scratch is reused.
-    const auto square_outward=[&](Words const& value,Words& result,bool upward) {
+    const auto square_outward=[&](Words const& value,Words& result,bool round_upward) {
         if (value.empty()) {
             result.clear();
             return;
@@ -1878,7 +1878,7 @@ Interval exp_interval(Fraction x, unsigned long work) {
         trim(product);
 
         bool discarded=false;
-        if (upward) {
+        if (round_upward) {
             for (std::size_t j=0u;j<std::min(whole,product.size());++j) {
                 discarded = discarded || product[j]!=0u;
             }
@@ -1901,7 +1901,7 @@ Interval exp_interval(Fraction x, unsigned long work) {
             }
             trim(result);
         }
-        if (upward && discarded) increment(result);
+        if (round_upward && discarded) increment(result);
     };
 
     // Square only positive endpoint magnitudes, preserving the
@@ -2182,28 +2182,39 @@ bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
     return inside_center_window;
 }
 
+// Convert a signed certified rational endpoint to an exact outward
+// dyadic quotient. Positive floor/ceil use quotient/remainder directly;
+// for negative endpoints the direction of magnitude rounding reverses.
+// This is a temporary boundary import until Fraction itself is native.
+Fraction outward_dyadic_endpoint(Fraction const& exact,
+                                 unsigned long bits,
+                                 bool round_toward_positive) {
+    if (static_cast<std::uintmax_t>(bits) >
+            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+        static_cast<std::uintmax_t>(bits) >
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::overflow_error("FloatAP dyadic endpoint shift overflow");
+    }
+    const Integer numerator=integer_from_gmp(mpq_numref(exact.raw()));
+    const Integer denominator=integer_from_gmp(mpq_denref(exact.raw()));
+    auto [magnitude,remainder]=divrem(
+        shift_left(numerator.magnitude(),static_cast<std::size_t>(bits)),
+        denominator.magnitude());
+    const bool negative=numerator.negative();
+    const bool round_magnitude_up=negative
+        ? !round_toward_positive : round_toward_positive;
+    if (round_magnitude_up && !remainder.is_zero()) {
+        magnitude=add(magnitude,BigUnsigned(1u));
+    }
+    return Fraction(magnitude,bits,negative);
+}
+
 Interval exp_outward_dyadic(Interval const& bounds,
                             unsigned long denominator_bits) {
-    if (static_cast<std::uintmax_t>(denominator_bits) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
-        throw std::overflow_error("FloatAP cached exponential shift overflow");
-    }
-    const mp_bitcnt_t scale = static_cast<mp_bitcnt_t>(denominator_bits);
-    mpz_t scaled_numerator, endpoint_lower, endpoint_upper;
-    mpz_inits(scaled_numerator, endpoint_lower, endpoint_upper, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b, c;
-        ~Cleanup() { mpz_clears(a, b, c, nullptr); }
-    } cleanup{scaled_numerator, endpoint_lower, endpoint_upper};
-
-    mpz_mul_2exp(scaled_numerator, mpq_numref(bounds.lower.raw()), scale);
-    mpz_fdiv_q(endpoint_lower, scaled_numerator,
-               mpq_denref(bounds.lower.raw()));
-    mpz_mul_2exp(scaled_numerator, mpq_numref(bounds.upper.raw()), scale);
-    mpz_cdiv_q(endpoint_upper, scaled_numerator,
-               mpq_denref(bounds.upper.raw()));
-    return {Fraction(endpoint_lower, denominator_bits),
-            Fraction(endpoint_upper, denominator_bits)};
+    return {
+        outward_dyadic_endpoint(bounds.lower,denominator_bits,false),
+        outward_dyadic_endpoint(bounds.upper,denominator_bits,true)
+    };
 }
 
 struct ExponentialHalfCenters {
@@ -3159,23 +3170,10 @@ enum class Function {
 // dyadic outward endpoints. The initial general division is computed only
 // on a cache miss or when the requested work precision increases.
 Interval outward_dyadic_interval(Interval const& input, unsigned long bits) {
-    if (static_cast<std::uintmax_t>(bits) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
-        throw std::overflow_error("FloatAP dyadic tangent interval shift overflow");
-    }
-    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(bits);
-    mpz_t scaled, lower, upper;
-    mpz_inits(scaled, lower, upper, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b, c;
-        ~Cleanup() { mpz_clears(a, b, c, nullptr); }
-    } cleanup{scaled, lower, upper};
-
-    mpz_mul_2exp(scaled, mpq_numref(input.lower.raw()), shift);
-    mpz_fdiv_q(lower, scaled, mpq_denref(input.lower.raw()));
-    mpz_mul_2exp(scaled, mpq_numref(input.upper.raw()), shift);
-    mpz_cdiv_q(upper, scaled, mpq_denref(input.upper.raw()));
-    return {Fraction(lower, bits), Fraction(upper, bits)};
+    return {
+        outward_dyadic_endpoint(input.lower,bits,false),
+        outward_dyadic_endpoint(input.upper,bits,true)
+    };
 }
 
 // Certified linearization of atan around 1/2, for signed inputs.

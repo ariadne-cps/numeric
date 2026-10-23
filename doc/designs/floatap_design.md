@@ -11894,3 +11894,31 @@ exp slowdown and high-precision advantage are BEFORE D133, not
 post-change performance evidence. Observe the new cross-platform CI
 and user-supplied same-host paired performance results before claiming
 any improvement; avoid losing the existing high-precision advantage.
+
+### D134 — repair Windows shadow warning and native signed dyadic endpoints (23 October 2026)
+
+The Windows D133 pipeline found MSVC C4459 in `exp_interval`:
+both lambda parameters named `upward` shadow the global
+`Ariadne::upward` defined in `rounding.hpp`, and the build uses
+`/W4 /WX`. Both parameter names and their uses are now
+`round_upward`, without altering the directed squaring semantics.
+
+The two certified interval-to-dyadic converters,
+`exp_outward_dyadic` and `outward_dyadic_interval`, now share
+`outward_dyadic_endpoint` and no longer allocate temporary GMP
+`mpz_t` or perform `mpz_fdiv_q`/`mpz_cdiv_q`. The helper
+imports each exact Fraction numerator/denominator once, computes
+the native quotient and remainder of `abs(num)*2^bits/den`, and
+applies a sign-aware directed correction: positive floor or
+negative ceil keeps the quotient; positive ceil or negative floor
+increments iff the remainder is nonzero. This reproduces the exact
+signed GMP floor/ceil semantics (including exact division and zero).
+
+The output returns to the GMP-backed Fraction carrier only once.
+The helper is mainly called on cached bound initialization/precision
+upgrades for centered exponential, arctangent and tangent paths.
+Existing centered reduction, native Taylor recurrences, source-keyed
+independent golden oracles, benchmark workloads and rounding modes
+remain unchanged. Do not claim a speedup until the user's same-host
+paired benchmark and cross-platform CI have been checked; FloatAP
+still contains other GMP-backed Fraction code.
