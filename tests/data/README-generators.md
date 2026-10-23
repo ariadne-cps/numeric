@@ -38,7 +38,7 @@ review every diff before committing. No sampling is used.
 | `generator_big_unsigned_b76.cpp` | all fourteen `big_unsigned_b76_gcd_decimal_*.tsv` | 2,800 source-keyed GCD/decimal cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
-| `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div cases |
+| `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -97,3 +97,14 @@ including `-Wsign-conversion -Wshadow -Werror`; a deliberately modified
 fixture was rejected in `--verify` mode. No checked-in TSV or consumer
 changed. Keep TSVs versioned until every generator and GMP oracle
 migration is complete; no automatic `generate-data` target is introduced.
+
+B81 extends the same independent rational fixture generator to all R16,
+R19 and R20 original cases. Each source pair is explicitly reconstructed
+from the historical pre-TSV test source, not read back from a TSV; exact
+signed rational outputs are canonicalized through independent C++20 limb
+arithmetic. All 346 additional rows were also independently reproduced
+using exact JavaScript BigInt arithmetic and their complete Git blob hashes
+matched the previous TSVs, including headers and row ordering. For R20,
+the fourth pair has identical operands, essential to preserve cancellation
+and aliasing; it must not be replaced with the first unequal pair.
+No TSVs are removed, and `generate-data` is still deferred.

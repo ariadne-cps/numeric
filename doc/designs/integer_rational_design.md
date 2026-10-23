@@ -8419,3 +8419,31 @@ Scheduling decision: defer a CMake `generate-data` target, removal of
 versioned TSVs, and any build-tree fixture generation until all fixture
 generators are available and remaining GMP reference oracles are
 replaced. Existing source-tree TSVs remain mandatory in the meantime.
+
+### B81 — version exact independent R16/R19/R20 arithmetic sources (23 October 2026)
+
+Extend `tests/data/generator_rational_exact.cpp`, reusing its independent
+unsigned-limb signed rational, binary GCD, aligned-subtraction division and
+shift/add multiplication support. Historical pre-TSV C++ test inputs were
+recovered and represented directly, not read from existing fixture inputs.
+Reproduce R16 all 6 x 7 x 2 = 84 signed add/sub, doubling and alias rows;
+R19 all 6 x (4 x 4 + 1) = 102 signed cross-factor multiply/divide and
+self-alias rows; R20 all 10 x 4 x 4 = 160 signed cross-add/sub rows.
+In R20 pair_index=3 deliberately repeats the same Rational on both sides;
+this preserves all original exact cancellation cases.
+
+Independent JavaScript BigInt exact arithmetic regenerated all three
+complete byte streams, independently confirming their Git blob SHA-1s:
+R16 ed55680b1d2ced1b911c5581276f62c9009b0902;
+R19 09fafdc815bd0bc58c0d41fd0385743f4218dd17;
+R20 f7895eb61aef5b04e4a23fa2d66bd8a26b2fe720.
+Existing original TSVs are unchanged; verification is read-only by
+default and explicit `--write` remains required for regeneration.
+`tests/CMakeLists.txt` already registers this generator; no new target
+or `generate-data` rule is added. No production numeric code, test
+consumer, GMP-oracle code, FloatMP, benchmark or original frozen data
+changes. Source-reproducible coverage reaches 42 of 115 TSV files.
+Check full Unix/Windows/Sanitizers/Coverage CI after commit. The
+preceding B80 macOS Coverage failure was in the Upload Code Coverage
+step, while its Ubuntu Coverage job and Windows workflow succeeded;
+this should not be misclassified as a generator compilation failure.

@@ -159,6 +159,103 @@ std::string r22() {
     }
     return out;
 }
+
+std::string r16() {
+    std::string out=
+        "# R16 exact independent Rational add/sub and alias results at all 6 widths.\n"
+        "# bits pair_index order lhs rhs sum difference twice_lhs zero_lhs\n"
+        "# 7 coprime/shared-denominator structural classes and both orders; original 84 cases preserved.\n";
+    auto fraction=[](Nat n,Nat d,bool negative=false) {
+        return Fraction(Signed(std::move(n),negative),std::move(d));
+    };
+    for (unsigned bits:{53u,128u,256u,1024u,2048u,4096u}) {
+        const Nat base=Nat::power2(bits);
+        const Nat next=Nat::add(base,Nat(1u));
+        const std::array<std::pair<Fraction,Fraction>,7u> cases={{
+            {fraction(Nat(1u),base),fraction(Nat(1u),next)},
+            {fraction(Nat(7u),base),fraction(Nat(11u),next,true)},
+            {fraction(Nat(1u),base,true),fraction(Nat(1u),next)},
+            {fraction(Nat(1u),base),fraction(Nat(1u),base,true)},
+            {fraction(Nat(1u),base.mul_small(2u)),fraction(Nat(1u),next.mul_small(2u))},
+            {fraction(Nat(1u),base.mul_small(2u),true),fraction(Nat(1u),next.mul_small(2u))},
+            {fraction(Nat(1u),Nat(6u)),fraction(Nat(1u),Nat(10u))}
+        }};
+        for (unsigned pair=0u;pair<cases.size();++pair) {
+            for (unsigned order=0u;order<2u;++order) {
+                const Fraction& a=order==0u?cases[pair].first:cases[pair].second;
+                const Fraction& b=order==0u?cases[pair].second:cases[pair].first;
+                out+=row({std::to_string(bits),std::to_string(pair),std::to_string(order),
+                    a.str(),b.str(),add(a,b).str(),add(a,b,true).str(),
+                    add(a,a).str(),add(a,a,true).str()});
+            }
+        }
+    }
+    return out;
+}
+std::string r19() {
+    std::string out=
+        "# R19 signed cross-GCD multiplication, division and alias fixture.\n"
+        "# width factor_index sign_mask canonical_lhs canonical_rhs product lhs_div_rhs rhs_div_lhs\n"
+        "# All original 96 sign/factor cases plus 6 self-alias cases, exact independent integers.\n";
+    for (unsigned bits:{53u,128u,256u,1024u,2048u,4096u}) {
+        const Nat base=Nat::power2(bits);
+        const Nat p3=Nat::add(base,Nat(3u));
+        const Nat p5=Nat::add(base,Nat(5u));
+        const Nat p7=Nat::add(base,Nat(7u));
+        const Nat p9=Nat::add(base,Nat(9u));
+        const Fraction original(Signed(p3),p5);
+        const std::array<Fraction,5u> factors={{
+            Fraction(Signed(p9),p7),Fraction(Signed(p9),p3),
+            Fraction(Signed(p5),p9),Fraction(Signed(p5),p3),original
+        }};
+        for (unsigned factor=0u;factor<factors.size();++factor) {
+            for (unsigned mask=0u;mask<(factor==4u?1u:4u);++mask) {
+                const Fraction lhs(Signed(original.num.mag,(mask&1u)!=0u),original.den);
+                const Fraction rhs(Signed(factors[factor].num.mag,(mask&2u)!=0u),
+                                   factors[factor].den);
+                out+=row({std::to_string(bits),std::to_string(factor),std::to_string(mask),
+                    lhs.str(),rhs.str(),mul(lhs,rhs).str(),
+                    quotient(lhs,rhs).str(),quotient(rhs,lhs).str()});
+            }
+        }
+    }
+    return out;
+}
+std::string r20() {
+    std::string out=
+        "# R20 independently exact signed cross-sum/difference oracle, no GMP at test time.\n"
+        "# width pair_index sign_mask canonical_lhs canonical_rhs exact_sum exact_difference\n"
+        "# Preserve all 10 width thresholds, 4 structural operand pairs and 4 sign combinations.\n"
+        "# Fraction tokens use canonical num/den, calculated by exact integer arithmetic.\n";
+    for (unsigned bits:{53u,128u,255u,256u,320u,447u,448u,511u,512u,1024u}) {
+        const Nat base=Nat::power2(bits);
+        const Fraction first(Signed(Nat::add(base,Nat(13u))),
+                             Nat::add(base.mul_small(2u),Nat(17u)));
+        const std::array<std::pair<Fraction,Fraction>,4u> pairs={{
+            {first,Fraction(Signed(Nat::add(base,Nat(31u))),
+                            Nat::add(base.mul_small(3u),Nat(19u)))},
+            {Fraction(Signed(Nat::sub(base,Nat(13u))),
+                      Nat::add(base.mul_small(3u),Nat(23u))),
+             Fraction(Signed(Nat::add(base,Nat(19u))),
+                      Nat::add(base.mul_small(2u),Nat(31u)))},
+            {Fraction(Signed(Nat::add(base,Nat(1u))),Nat::add(base,Nat(2u))),
+             Fraction(Signed(Nat::add(base,Nat(2u))),Nat::add(base,Nat(3u)))},
+            {first,first}
+        }};
+        for (unsigned pair=0u;pair<pairs.size();++pair) {
+            for (unsigned mask=0u;mask<4u;++mask) {
+                const Fraction& raw_a=pairs[pair].first;
+                const Fraction& raw_b=pairs[pair].second;
+                const Fraction a(Signed(raw_a.num.mag,(mask&1u)!=0u),raw_a.den);
+                const Fraction b(Signed(raw_b.num.mag,(mask&2u)!=0u),raw_b.den);
+                out+=row({std::to_string(bits),std::to_string(pair),std::to_string(mask),
+                    a.str(),b.str(),add(a,b).str(),add(a,b,true).str()});
+            }
+        }
+    }
+    return out;
+}
+
 }
 int main(int argc,char** argv) {
     try {
@@ -167,6 +264,9 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"rational_r28.tsv",r28(),write);
         independent_oracle::output(dir,"rational_r30.tsv",r30(),write);
         independent_oracle::output(dir,"rational_r22.tsv",r22(),write);
+        independent_oracle::output(dir,"rational_r16.tsv",r16(),write);
+        independent_oracle::output(dir,"rational_r19.tsv",r19(),write);
+        independent_oracle::output(dir,"rational_r20.tsv",r20(),write);
         return 0;
     } catch(std::exception const& error) {
         std::cerr<<"Rational exact generator: "<<error.what()<<'\n';
