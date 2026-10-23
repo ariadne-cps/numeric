@@ -30,6 +30,8 @@
 #include <string>
 #include <cmath>
 #include <limits>
+#include <set>
+#include <stdexcept>
 
 #include "numeric/builtin.hpp"
 #include "numeric/double.hpp"
@@ -58,7 +60,53 @@
 using namespace Ariadne;
 using namespace std;
 
+#ifndef ARIADNE_TEST_DATA_DIR
+#error "Provide the absolute test data directory from CMake"
+#endif
+
 namespace {
+
+// These exact directed-rounding fixtures are generated offline using signed
+// integer division only. The test must never use another float implementation
+// as an oracle for FloatAP.
+Void test_floatap_directed_bound_oracles() {
+    constexpr char filename[]=ARIADNE_TEST_DATA_DIR "/floatap_directed_bounds.tsv";
+    std::ifstream data(filename);
+    if (!data) throw std::runtime_error(std::string("Missing FloatAP oracle: ")+filename);
+    std::set<std::string> unique_keys;
+    std::string line;
+    Nat rows=0u;
+    while (std::getline(data,line)) {
+        if (line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        std::size_t bits=0;
+        std::string n,d,lo_n,lo_d,hi_n,hi_d,extra;
+        if (!(fields>>bits>>n>>d>>lo_n>>lo_d>>hi_n>>hi_d) || (fields>>extra))
+            throw std::runtime_error("Malformed FloatAP directed-bound oracle row");
+        if (!unique_keys.emplace(std::to_string(bits)+":"+n+"/"+d).second)
+            throw std::runtime_error("Duplicate FloatAP directed-bound oracle input");
+        const ArbitraryPrecision prec(bits);
+        const Rational input{Integer(String(n)),Integer(String(d))};
+        const Rational lower_expected{Integer(String(lo_n)),Integer(String(lo_d))};
+        const Rational upper_expected{Integer(String(hi_n)),Integer(String(hi_d))};
+        ARIADNE_TEST_ASSERT(lower_expected<=input && input<=upper_expected);
+        const LowerBound<FloatAP> direct_lower(input,prec);
+        const UpperBound<FloatAP> direct_upper(input,prec);
+        const ValidatedLowerNumber exact_generic_lower(input);
+        const ValidatedUpperNumber exact_generic_upper(input);
+        const LowerBound<FloatAP> generic_lower(exact_generic_lower,prec);
+        const UpperBound<FloatAP> generic_upper(exact_generic_upper,prec);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(direct_lower.raw()),lower_expected);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(direct_upper.raw()),upper_expected);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(generic_lower.raw()),lower_expected);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(generic_upper.raw()),upper_expected);
+        ARIADNE_TEST_EQUALS(direct_lower.precision(),prec);
+        ARIADNE_TEST_EQUALS(direct_upper.precision(),prec);
+        ++rows;
+    }
+    if (rows!=90u) throw std::runtime_error("Unexpected FloatAP directed-bound oracle row count");
+}
+
 
 template<class PR>
 constexpr bool check_float_concept()
@@ -365,21 +413,9 @@ TestFloat<PR>::test_conversions()
             ARIADNE_TEST_ASSERT(cmp(real_enclosure.lower_raw(),exact_third)!=Comparison::GREATER);
             ARIADNE_TEST_ASSERT(cmp(real_enclosure.upper_raw(),exact_third)!=Comparison::LESS);
 
-            const MultiplePrecision mp_precision(static_cast<mpfr_prec_t>(pr.bits()));
-            const LowerBound<FloatMP> mp_lower(exact_third,mp_precision);
-            const UpperBound<FloatMP> mp_upper(exact_third,mp_precision);
-            const ValidatedLowerNumber validated_lower=mp_lower;
-            const ValidatedUpperNumber validated_upper=mp_upper;
-            const LowerBound<FloatAP> ap_lower(validated_lower,pr);
-            const UpperBound<FloatAP> ap_upper(validated_upper,pr);
-            // Direct and virtual conversions must agree, without recursive
-            // dispatch through ValidatedLower/UpperNumber.
-            const LowerBound<FloatAP> direct_lower(mp_lower,pr);
-            const UpperBound<FloatAP> direct_upper(mp_upper,pr);
-            ARIADNE_TEST_EQUALS(ap_lower.raw(),direct_lower.raw());
-            ARIADNE_TEST_EQUALS(ap_upper.raw(),direct_upper.raw());
-            ARIADNE_TEST_ASSERT(cmp(ap_lower.raw(),exact_third)!=Comparison::GREATER);
-            ARIADNE_TEST_ASSERT(cmp(ap_upper.raw(),exact_third)!=Comparison::LESS);
+            // The direct and polymorphic FloatAP conversion paths are tested
+            // against a frozen, independently computed Rational TSV oracle.
+            // No runtime FloatMP/MPFR values participate in these checks.
         }
 
         if constexpr (Same<PR,MultiplePrecision>) {
@@ -1046,6 +1082,7 @@ Int main() {
     std::cerr<<std::setprecision(20);
     
     test_float_literals();
+    test_floatap_directed_bound_oracles();
     test_builtin_runtime();
     test_double_runtime();
     TestFloat<DoublePrecision>(dp).test();

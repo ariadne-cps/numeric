@@ -90,19 +90,14 @@ static_assert(!std::is_abstract_v<NumberWrapper<Rational>>);
 static_assert(!std::is_abstract_v<NumberWrapper<FloatDP>>);
 static_assert(!std::is_abstract_v<NumberWrapper<FloatMP>>);
 static_assert(std::is_convertible_v<FloatAP,ExactNumber>);
-// Track public overload availability against FloatMP, not an invented
-// prohibition.  This concept checks call syntax, not instantiation of a
-// forwarding template body or the numerical behavior at runtime.
+// Preserve the FloatAP generic-division call surface directly rather than
+// comparing it with an MPFR-backed type in this compilation unit.
 template<class A, class B> concept SupportsDirectDivision =
     requires(A const& a, B const& b) { div(a,b); };
-static_assert(SupportsDirectDivision<Real,UpperBound<FloatMP>> ==
-              SupportsDirectDivision<Real,UpperBound<FloatAP>>);
-static_assert(SupportsDirectDivision<Rational,LowerBound<FloatMP>> ==
-              SupportsDirectDivision<Rational,LowerBound<FloatAP>>);
-static_assert(SupportsDirectDivision<UpperBound<FloatMP>,Integer> ==
-              SupportsDirectDivision<UpperBound<FloatAP>,Integer>);
-static_assert(SupportsDirectDivision<LowerBound<FloatMP>,Dyadic> ==
-              SupportsDirectDivision<LowerBound<FloatAP>,Dyadic>);
+static_assert(SupportsDirectDivision<Real,UpperBound<FloatAP>>);
+static_assert(SupportsDirectDivision<Rational,LowerBound<FloatAP>>);
+static_assert(SupportsDirectDivision<UpperBound<FloatAP>,Integer>);
+static_assert(SupportsDirectDivision<LowerBound<FloatAP>,Dyadic>);
 static_assert(requires(FloatAP const& a) { { fma(a,a,a) } -> Same<Bounds<FloatAP>>; });
 static_assert(requires(FloatAP const& x, FloatAP const& y, FloatDP const& dp,
                        ExactDouble const& d, ArbitraryPrecision pr,
