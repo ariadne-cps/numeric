@@ -230,7 +230,7 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
         verify(BigUnsigned(output),expected.value);
     };
     std::vector<Result> result;
-    result.reserve(7u);
+    result.reserve(8u);
 
     mpz_add(expected.value,ga.value,gb.value);
     const auto sum=[&] {
@@ -350,6 +350,36 @@ std::vector<Result> measure(unsigned bits,unsigned iterations,unsigned samples)
         },iterations,samples);
         result.push_back(right);
     }
+
+    // isqrt has an owning-only native API. Both timed paths include
+    // result construction/destruction and use precisely the same input.
+    // Fewer iterations at wide bit sizes keep this expensive operation
+    // practical without changing the per-call timing denominator.
+    mpz_sqrt(expected.value,ga.value);
+    verify(isqrt(greater),expected.value);
+    const auto sqrt_gmp=[&] {
+        mpz_sqrt(reused.value,ga.value);
+        keep_alive(reused.value);
+    };
+    sqrt_gmp();
+    if (mpz_cmp(reused.value,expected.value)!=0) {
+        throw std::runtime_error("GMP sqrt mismatch");
+    }
+    const unsigned sqrt_iterations=std::max(
+        1u,iterations/std::max(1u,bits/64u));
+    Result sqrt_row{bits,"isqrt"};
+    sqrt_row.owning_native=median_ns([&] {
+        auto value=isqrt(greater);
+        keep_alive(value);
+    },sqrt_iterations,samples);
+    sqrt_row.owning_gmp=median_ns([&] {
+        GmpInteger value;
+        mpz_sqrt(value.value,ga.value);
+        keep_alive(value.value);
+    },sqrt_iterations,samples);
+    verify(isqrt(greater),expected.value);
+    result.push_back(sqrt_row);
+
     // Repeat exact checks after timing, never in a measured loop.
     mpz_add(expected.value,ga.value,gb.value);
     sum();
@@ -405,7 +435,7 @@ void print_results(std::vector<Result> const& rows,bool summary_only)
     preallocated.print("preallocated");
     owning.print("owning      ");
     LOGGING_PRINTLN("Preallocated includes add/sub kernels and compare; "
-                    "owning includes add/sub and shifts.")
+                    "owning includes add/sub, shifts and isqrt.")
 }
 
 } // namespace

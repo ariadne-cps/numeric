@@ -31,6 +31,7 @@
 #include <cstdint>
 #include <limits>
 #include <random>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -48,6 +49,7 @@ namespace {
 #endif
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_short_div.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_SQRT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_sqrt.tsv";
 
 unsigned golden_hex_nibble(char c)
 {
@@ -167,6 +169,7 @@ class TestBigUnsigned
         ARIADNE_TEST_CALL(test_views_and_scratch());
         ARIADNE_TEST_CALL(test_multiply_kernel_paths());
         ARIADNE_TEST_CALL(test_power());
+        ARIADNE_TEST_CALL(test_sqrt());
         ARIADNE_TEST_CALL(test_short_owned_division());
     }
 
@@ -184,8 +187,42 @@ class TestBigUnsigned
     void test_views_and_scratch();
     void test_multiply_kernel_paths();
     void test_power();
+    void test_sqrt();
     void test_short_owned_division();
 };
+
+
+void TestBigUnsigned::test_sqrt()
+{
+    // Independent, frozen exact pairs generated with BigInt digit-pair
+    // restoring arithmetic (and cross-checked with a binary-search oracle).
+    // This block never consults GMP, even though older tests elsewhere do.
+    std::ifstream golden(ARIADNE_BIG_UNSIGNED_SQRT_ORACLE_PATH);
+    if (!golden) throw std::runtime_error("Missing BigUnsigned sqrt golden TSV");
+    std::string line;
+    std::size_t rows=0u;
+    while (std::getline(golden,line)) {
+        if (line.empty() || line.front()=='#') continue;
+        std::istringstream fields(line);
+        std::string input_hex,root_hex,extra;
+        if (!(fields>>input_hex>>root_hex) || (fields>>extra)) {
+            throw std::runtime_error("Malformed BigUnsigned sqrt golden row");
+        }
+        const BigUnsigned input=big_unsigned_from_golden_hex(input_hex);
+        const BigUnsigned original=input;
+        const BigUnsigned result=isqrt(input);
+        check_against_precomputed_hex(result,root_hex);
+        // Additional semantic inequalities are properties, NOT the oracle.
+        ARIADNE_TEST_ASSERT(compare(square(result),input)<=0);
+        const BigUnsigned successor=add(result,BigUnsigned(std::uint64_t{1}));
+        ARIADNE_TEST_ASSERT(compare(square(successor),input)>0);
+        ARIADNE_TEST_ASSERT(compare(input,original)==0);
+        ++rows;
+    }
+    if (golden.bad() || rows<100u) {
+        throw std::runtime_error("Incomplete BigUnsigned sqrt golden TSV");
+    }
+}
 
 void TestBigUnsigned::test_power()
 {

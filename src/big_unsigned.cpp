@@ -3220,6 +3220,28 @@ BigUnsigned square(BigUnsigned const& a)
 }
 
 
+
+BigUnsigned isqrt(BigUnsigned const& value)
+{
+    if (value.is_zero()) return BigUnsigned{};
+
+    // A strict upper bound on sqrt(value), including exact powers of two.
+    // Form ceil(bit_length/2) without adding one to a possibly maximal size.
+    const std::size_t bits=value.bit_length();
+    BigUnsigned current=shift_left(
+        BigUnsigned(BigUnsigned::Limb{1}),bits/2u+bits%2u);
+
+    // Integer Newton iteration from above: next=floor((x+floor(n/x))/2).
+    // For x>sqrt(n), it strictly decreases without crossing floor(sqrt(n));
+    // at the fixed point x is exactly floor(sqrt(n)).
+    for (;;) {
+        const BigUnsigned quotient=quot(value,current);
+        BigUnsigned next=shift_right(add(current,quotient),1u);
+        if (compare(next,current)>=0) return current;
+        current=std::move(next);
+    }
+}
+
 BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)
 {
 #if defined(ARIADNE_BIG_UNSIGNED_GCC_FUSED) && \
