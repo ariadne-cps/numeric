@@ -535,16 +535,40 @@ void TestRational::test_native_contract() {
     std::string r30_extra;
     if (r30_golden >> r30_extra)
         throw std::runtime_error("Extra R30 oracle TSV rows");
-    // R31: verify GCD shortcuts through real add, subtract and
-    // multiply operations against an independent GMP rational oracle.
-    // The 2:3 denominator high-word ratio is deliberately *not*
-    // an exact integer ratio. Exercise determinant 0, +/-1 and
-    // composite values, both operand signs, both orders, and
-    // the 4/5/8/9-limb normalization boundaries.
+    // R31/R32: preserve all 10 * 24 * 4 signed determinant/GCD
+    // configurations and every direct/in-place arithmetic check.
+    // Both canonical input operands and all four canonical results
+    // come from source-keyed exact integer TSV oracles, not GMP.
     for (unsigned bits:{128u,192u,255u,256u,320u,448u,512u,
                         1024u,2048u,4096u}) {
         const Integer base=pow(Integer(2),Nat(bits));
+        std::ifstream reference;
+        unsigned current_chunk=std::numeric_limits<unsigned>::max();
         for (unsigned i=0u;i<24u;++i) {
+            // Chunk only the large TSV files for reliable transfer.
+            // This changes no source cases and introduces no sampling.
+            const unsigned chunk=bits==4096u ? i/6u
+                : bits==2048u ? i/12u : 0u;
+            if (chunk!=current_chunk) {
+                if (reference.is_open()) {
+                    std::string excess;
+                    if (reference >> excess) {
+                        throw std::runtime_error("Extra R31 TSV rows");
+                    }
+                    reference.close();
+                    reference.clear();
+                }
+                const std::string file=std::string(ARIADNE_TEST_DATA_DIR)
+                    +"/rational_r31_"+std::to_string(bits)
+                    +"_"+std::to_string(chunk)+".tsv";
+                reference.open(file);
+                if (!reference) {
+                    throw std::runtime_error("Missing R31 oracle TSV: "+file);
+                }
+                std::string header;
+                while (reference.peek()=='#') std::getline(reference,header);
+                current_chunk=chunk;
+            }
             const Integer an=base+Integer(13u+2u*i);
             const Integer ad=base*2+Integer(17u+3u*i);
             const Integer bn=base+Integer(31u+5u*i);
@@ -552,44 +576,44 @@ void TestRational::test_native_contract() {
             for (unsigned signs=0u;signs<4u;++signs) {
                 const Rational left((signs&1u)!=0u ? -an : an,ad);
                 const Rational right((signs&2u)!=0u ? -bn : bn,bd);
-                const GmpRationalBoundary raw_left(left),raw_right(right);
-                GmpRationalBoundary expected_sum,expected_sub,expected_mul,expected_div;
-                mpq_add(expected_sum.mutable_value(),
-                        raw_left.value(),raw_right.value());
-                mpq_sub(expected_sub.mutable_value(),
-                        raw_left.value(),raw_right.value());
-                mpq_mul(expected_mul.mutable_value(),
-                        raw_left.value(),raw_right.value());
-                mpq_div(expected_div.mutable_value(),
-                        raw_left.value(),raw_right.value());
-                const GmpRationalBoundary actual_sum(left+right);
-                const GmpRationalBoundary actual_sub(left-right);
-                const GmpRationalBoundary actual_mul(left*right);
-                const GmpRationalBoundary actual_div(left/right);
-                ARIADNE_TEST_ASSERT(mpq_equal(
-                    actual_sum.value(),expected_sum.value())!=0);
-                ARIADNE_TEST_ASSERT(mpq_equal(
-                    actual_sub.value(),expected_sub.value())!=0);
-                ARIADNE_TEST_ASSERT(mpq_equal(
-                    actual_mul.value(),expected_mul.value())!=0);
-                ARIADNE_TEST_ASSERT(mpq_equal(
-                    actual_div.value(),expected_div.value())!=0);
+                unsigned ref_bits=0u,ref_i=0u,ref_signs=0u;
+                std::string left_num,left_den,right_num,right_den;
+                std::string sum_num,sum_den,diff_num,diff_den;
+                std::string mul_num,mul_den,div_num,div_den;
+                if (!(reference >> ref_bits >> ref_i >> ref_signs
+                      >> left_num >> left_den >> right_num >> right_den
+                      >> sum_num >> sum_den >> diff_num >> diff_den
+                      >> mul_num >> mul_den >> div_num >> div_den)
+                    || ref_bits!=bits || ref_i!=i || ref_signs!=signs) {
+                    throw std::runtime_error("Missing or unordered R31 TSV row");
+                }
+                // Check canonicality, not merely fraction equivalence.
+                const auto check_result=[](Rational const& actual,
+                                           std::string const& num,
+                                           std::string const& den) {
+                    ARIADNE_TEST_EQUALS(actual.numerator(),Integer(String(num)));
+                    ARIADNE_TEST_EQUALS(actual.denominator(),Integer(String(den)));
+                };
+                check_result(left,left_num,left_den);
+                check_result(right,right_num,right_den);
+                check_result(left+right,sum_num,sum_den);
+                check_result(left-right,diff_num,diff_den);
+                check_result(left*right,mul_num,mul_den);
+                check_result(left/right,div_num,div_den);
                 Rational inplace(left);
                 inplace+=right;
-                const GmpRationalBoundary actual_inplace_add(inplace);
-                ARIADNE_TEST_ASSERT(mpq_equal(
-                    actual_inplace_add.value(),expected_sum.value())!=0);
+                check_result(inplace,sum_num,sum_den);
                 inplace=left;
                 inplace*=right;
-                const GmpRationalBoundary actual_inplace_mul(inplace);
-                ARIADNE_TEST_ASSERT(mpq_equal(
-                    actual_inplace_mul.value(),expected_mul.value())!=0);
+                check_result(inplace,mul_num,mul_den);
                 inplace=left;
                 inplace/=right;
-                const GmpRationalBoundary actual_inplace_div(inplace);
-                ARIADNE_TEST_ASSERT(mpq_equal(
-                    actual_inplace_div.value(),expected_div.value())!=0);
+                check_result(inplace,div_num,div_den);
             }
+        }
+        std::string excess;
+        if (reference >> excess) {
+            throw std::runtime_error("Extra R31 TSV rows");
         }
     }
     // R17: all original 7*6*6 cross-product comparisons, including

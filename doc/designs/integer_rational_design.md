@@ -8044,3 +8044,33 @@ baseline, build linkage and all CMake files are intentionally untouched.
 
 Cross-platform CI and source-keyed historical test suites must pass
 before accepting this as production test migration.
+
+### R33.8 — source-keyed R31/R32 canonical arithmetic oracle (23 October 2026)
+
+Replace the entire original R31/R32 runtime GMP/mpq differential block
+with exact signed-integer fixed TSV expectations. Retain all ten widths
+128/192/255/256/320/448/512/1024/2048/4096 bits, all 24 tail
+configurations and all four operand-sign combinations at each width
+(960 original operand pairs). Keep direct add/sub/mul/div and in-place
++=, *=, /= checks: 6720 operation outputs, plus canonical source
+left/right operand checks (1920 source fractions). The TSV inputs
+and expected outputs are computed independently using signed arbitrary-
+precision integer cross products and Euclidean gcd, not GMP/MPFR or
+the Numeric Integer/Rational implementation. Compare canonical signed
+numerator and positive denominator components, not only rational
+equality, so reduction errors cannot be disguised by expected-value
+normalization.
+
+Files tests/data/rational_r31_<bits>_<chunk>.tsv cover all 960
+cases without sampling. The 2048-bit rows are divided into two
+12-index chunks and 4096-bit rows into four 6-index chunks because
+the GitHub blob connector limits very large single-file transfers.
+All other precisions use one chunk. Runtime readers enforce the
+original iteration/index/sign sequence, missing rows and no trailing
+rows in every chunk; the file split does not change numerical test
+semantics. No change to benchmark, CMake, production Rational,
+FloatMP or FloatAP. Remaining GMP uses include native binary64
+conversion (R5/R7/R12/R13/R29), BigUnsigned tests, Integer
+bridge-specific verification, and the separate bridge exception
+check. Treat this commit as unvalidated until fresh cross-platform
+CI confirms it.
