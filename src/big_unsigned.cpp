@@ -32,6 +32,7 @@
 #include <array>
 #include <bit>
 #include <charconv>
+#include <cmath>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -3221,36 +3222,174 @@ BigUnsigned square(BigUnsigned const& a)
 
 
 
-BigUnsigned isqrt(BigUnsigned const& value)
+namespace {
+
+using SqrtLimb=BigUnsigned::Limb;
+
+// Single-limb fast path. Floating point only supplies an estimate;
+// integer quotients enforce the exact floor, including near 2^64.
+SqrtLimb sqrt_limb(SqrtLimb n)
 {
-    if (value.is_zero()) return BigUnsigned{};
+    if (n==0u) return 0u;
+    SqrtLimb root=static_cast<SqrtLimb>(
+        std::sqrt(static_cast<double>(n)));
+    if (root==0u) root=1u;
+    while (root>n/root) --root;
+    while (root<std::numeric_limits<SqrtLimb>::max() &&
+           root+1u<=n/(root+1u)) ++root;
+    return root;
+}
 
-    // A strict upper bound on sqrt(value), including exact powers of two.
-    // Form ceil(bit_length/2) without adding one to a possibly maximal size.
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+// Integer-corrected sqrt of a 128-bit operand. Two Newton steps from
+// an approximate long-double seed avoid repeated owning BigUnsigned
+// division for the common 65..128-bit significands.
+SqrtLimb sqrt_two_limbs(BigUnsigned const& n)
+{
+    __extension__ using Wide=unsigned __int128;
+    const Wide wide=(static_cast<Wide>(n.limb(1u))<<64u)|n.limb(0u);
+    const long double estimate=std::sqrt(
+        std::ldexp(static_cast<long double>(n.limb(1u)),64)+
+        static_cast<long double>(n.limb(0u)));
+    const long double limit=std::ldexp(1.0L,64);
+    constexpr SqrtLimb maximum=std::numeric_limits<SqrtLimb>::max();
+    SqrtLimb root=estimate>=limit ? maximum :
+                   static_cast<SqrtLimb>(estimate);
+    if (root==0u) root=1u;
+    for (unsigned step=0u;step<2u;++step) {
+        const Wide next=(static_cast<Wide>(root)+wide/root)>>1u;
+        root=next>maximum ? maximum : static_cast<SqrtLimb>(next);
+    }
+    while (static_cast<Wide>(root)>wide/root) --root;
+    while (root<maximum &&
+           static_cast<Wide>(root+1u)<=wide/(root+1u)) ++root;
+    return root;
+}
+#endif
+
+// Select exactly 'width' bits from the borrowed canonical operand,
+// beginning at 'offset', into a canonical BigUnsigned value.
+// Small chunks stay in fixed stack storage; no temporary GMP objects.
+BigUnsigned sqrt_chunk(BigUnsigned const& value,
+                       std::size_t offset,std::size_t width)
+{
+    if (width==0u) return BigUnsigned{};
+    const std::size_t count=width/64u+static_cast<std::size_t>(width%64u!=0u);
+    const std::size_t first=offset/64u;
+    const unsigned shift=static_cast<unsigned>(offset%64u);
+    const unsigned rest=static_cast<unsigned>(width%64u);
+    const auto fill=[&](std::span<SqrtLimb> words) {
+        for (std::size_t i=0u;i<words.size();++i) {
+            const SqrtLimb low=value.limb(first+i);
+            words[i]=shift==0u ? low :
+                ((low>>shift)|(value.limb(first+i+1u)<<(64u-shift)));
+        }
+        if (rest!=0u) {
+            words.back()&=(SqrtLimb{1}<<rest)-1u;
+        }
+    };
+    if (count<=BigUnsigned::inline_capacity) {
+        std::array<SqrtLimb,BigUnsigned::inline_capacity> words{};
+        auto view=std::span<SqrtLimb>(words.data(),count);
+        fill(view);
+        return BigUnsigned(std::span<SqrtLimb const>(view.data(),count));
+    }
+    std::vector<SqrtLimb> words(count);
+    fill(words);
+    return BigUnsigned(std::span<SqrtLimb const>(words.data(),count));
+}
+
+// Divide-and-conquer square root (radix 2^k), with an optional final
+// remainder. Split n = high*B^2 + mid*B + low and recursively form
+// sqrtrem(high)=(s,r). The trial digit q=floor((r*B+mid)/(2*s))
+// is at most B+1, and the true digit is < B. Clamp q to B-1,
+// then correct downward at most once using the exact residual.
+//
+// Since s >= B/2 for this balanced split, q^2 < B^2 <= 2*s*B;
+// a single correction suffices. All divisions are exact unsigned
+// BigUnsigned operations. Recurse only on half-size inputs.
+template<bool WantRemainder>
+std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
+    BigUnsigned const& value)
+{
+    if (value.is_zero()) return {BigUnsigned{},BigUnsigned{}};
+    if (value.size()==1u) {
+        const SqrtLimb digit=value.limb(0u);
+        const SqrtLimb root=sqrt_limb(digit);
+        if constexpr(WantRemainder) {
+            return {BigUnsigned(root),BigUnsigned(digit-root*root)};
+        } else {
+            return {BigUnsigned(root),BigUnsigned{}};
+        }
+    }
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    if (value.size()==2u) {
+        const SqrtLimb root=sqrt_two_limbs(value);
+        if constexpr(WantRemainder) {
+            __extension__ using Wide=unsigned __int128;
+            const Wide n=(static_cast<Wide>(value.limb(1u))<<64u)|
+                          value.limb(0u);
+            const Wide rem=n-static_cast<Wide>(root)*root;
+            const std::array<SqrtLimb,2u> words={
+                static_cast<SqrtLimb>(rem),
+                static_cast<SqrtLimb>(rem>>64u)
+            };
+            return {BigUnsigned(root),BigUnsigned(words)};
+        } else {
+            return {BigUnsigned(root),BigUnsigned{}};
+        }
+    }
+#endif
+
     const std::size_t bits=value.bit_length();
-    BigUnsigned current=shift_left(
-        BigUnsigned(BigUnsigned::Limb{1}),bits/2u+bits%2u);
+    const std::size_t root_bits=bits/2u+bits%2u;
+    const std::size_t k=root_bits/2u;
+    const BigUnsigned high=shift_right(value,2u*k);
+    auto [s,r]=sqrt_recursive<true>(high);
+    const BigUnsigned mid=sqrt_chunk(value,k,k);
+    const BigUnsigned low=sqrt_chunk(value,0u,k);
+    const BigUnsigned divisor=shift_left(s,1u);
+    const BigUnsigned numerator=add(shift_left(r,k),mid);
+    BigUnsigned q=quot(numerator,divisor);
+    if (q.bit_length()>k) {
+        q=sub(shift_left(BigUnsigned(SqrtLimb{1}),k),
+              BigUnsigned(SqrtLimb{1}));
+    }
 
-    // Integer Newton iteration from above: next=floor((x+floor(n/x))/2).
-    // For x>sqrt(n), it strictly decreases without crossing floor(sqrt(n));
-    // at the fixed point x is exactly floor(sqrt(n)).
-    for (;;) {
-        const BigUnsigned quotient=quot(value,current);
-        BigUnsigned next=shift_right(add(current,quotient),1u);
-        if (compare(next,current)>=0) return current;
-        current=std::move(next);
+    BigUnsigned candidate=add(shift_left(s,k),q);
+    const BigUnsigned residual=add(
+        shift_left(sub(numerator,mul(divisor,q)),k),low);
+    const BigUnsigned q2=square(q);
+    if (compare(residual,q2)<0) {
+        // Trial root was one too large. Recover the new remainder
+        // via n-(candidate-1)^2 = 2*candidate-1-(q2-residual).
+        BigUnsigned remainder;
+        if constexpr(WantRemainder) {
+            remainder=sub(
+                sub(shift_left(candidate,1u),BigUnsigned(SqrtLimb{1})),
+                sub(q2,residual));
+        }
+        candidate=sub(candidate,BigUnsigned(SqrtLimb{1}));
+        return {std::move(candidate),std::move(remainder)};
+    }
+
+    if constexpr(WantRemainder) {
+        return {std::move(candidate),sub(residual,q2)};
+    } else {
+        return {std::move(candidate),BigUnsigned{}};
     }
 }
 
-// Use the same integer Newton root kernel as isqrt, but construct the
-// independent exact remainder only when the caller explicitly requests it.
-// Unlike a temporary mid-point enclosure, the remainder is suitable for
-// the single-rounding FloatAP sqrt decision (remainder > root).
+} // namespace
+
+BigUnsigned isqrt(BigUnsigned const& value)
+{
+    return std::move(sqrt_recursive<false>(value).first);
+}
+
 std::pair<BigUnsigned,BigUnsigned> sqrtrem(BigUnsigned const& value)
 {
-    BigUnsigned root=isqrt(value);
-    BigUnsigned remainder=sub(value,square(root));
-    return {std::move(root),std::move(remainder)};
+    return sqrt_recursive<true>(value);
 }
 
 BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent)

@@ -11066,3 +11066,51 @@ iteration/sample count as `isqrt`/ `mpz_sqrt`, with two-result
 ownership matched and correctness verified only outside timing.
 Do not assert performance parity before same-host timing.
 This commit is intended for numeric/main directly, as requested.
+
+### D109 — balanced divide-and-conquer BigUnsigned integer square root (23 October 2026)
+
+User-provided same-host integrated benchmark after D108 (owning operations,
+ns per call, 20000 iterations/31 median samples): isqrt/native versus GMP
+was 58.071/19.146 at 53 bits, 134.179/20.317 at 128,
+318.333/48.242 at 256, 2651.100/178.733 at 1024 and
+6801.533/287.534 at 2048. sqrtrem was 71.698/34.138,
+145.817/34.858, 333.725/67.250, 2729.400/169.033 and
+7042.066/310.400 respectively. The 2048-bit isqrt slowdown was
+23.655x. This is the PRE-CHANGE baseline, not an estimate of D109.
+
+Replace full-precision repeated Newton division with balanced binary
+divide-and-conquer square root. Split the original unsigned n into
+high*B^2+mid*B+low for B=2^k, k=floor(ceil(bit_length(n)/2)/2).
+Compute (s,r)=sqrtrem(high), let numerator=r*B+mid, then
+q=min(B-1,floor(numerator/(2*s))). The proposed root is s*B+q;
+derive its exact residual as
+((numerator-2*s*q)*B+low)-q*q.
+If that residual is negative, decrement root by one and add
+2*(s*B+q)-1 to the remainder. Since balanced splitting guarantees
+s>=B/2, at most one decrement is needed. The recursion halves the
+operand bit length at each step and requires only one division per
+recursion level, on substantially smaller operands. It does not
+construct n as a temporary owned BigUnsigned at every level and
+never imports/export GMP limbs.
+
+The recursive implementation is shared by isqrt and sqrtrem: isqrt
+does not materialize the final remainder, while sqrtrem returns
+the exact canonical pair. For a single 64-bit limb use an approximate
+double square root corrected through exact integer quotient checks;
+on GCC/Clang 128-bit-capable targets use a long-double estimate with
+two 128-bit Newton corrections and exact comparisons for two-limb
+inputs. The floating estimate is not the mathematical oracle and does
+not affect correctness. Other C++20 platforms use the portable
+recursive algorithm, with no compiler- or architecture-dependent
+semantic differences.
+
+Keep the 161 independent integer sqrt/root/remainder TSV oracle rows,
+input order, original C++ assertions and the integrated benchmark
+corpus and timing protocol byte-for-byte unchanged. A separate
+5,076-case BigInt radix-4 restoring and exact-bound model validated
+the recursive arithmetic on boundary and random inputs through
+4096 bits. A standalone strict-warning Clang C++20 test validated
+one million random 64-/128-bit integer specializations against exact
+multiprecision inequalities; this is not a full project build.
+Actual production build, cross-platform CI and repeat same-host
+performance measurements remain pending; no D109 speedup is claimed.
