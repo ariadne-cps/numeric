@@ -12100,3 +12100,40 @@ and the four CI workflows are required before accepting the
 change. Retain the same-host comparison benchmark for the user's
 subsequent performance measurements. No files or directories
 under `detail` were created by D139.
+
+### D140 — native exact half-window certification without GMP temporaries (23 October 2026)
+
+The exp and trigonometric near-half predicates previously created
+temporary `mpz_t` values, copied and absolutized each exact Fraction
+numerator, shifted it by `ceil(work/2)`, and compared with the
+positive denominator. D140 deduplicates both predicates into one
+`Ariadne::Detail::within_dyadic_window` comparator for the same
+rigorous inequality `|num|*2^k <= den`; exp continues to reject
+`work<4`, and both keep their previous `mp_bitcnt_t` guard.
+
+The comparator handles zero exactly. Otherwise, GMP's base-2
+bit lengths of the still-legacy `Fraction`'s numerator magnitude
+and denominator decide all cases EXCEPT equal bit lengths.
+Only in that ambiguous case, two Integer boundary imports and
+a native BigUnsigned left shift/compare inspect the actual
+significands. This eliminates the two per-call temporary GMP
+allocations, absolute-value copying and multiprecision GMP shift
+and compare. Most neighborhood checks now need no extra
+multiprecision allocation at all; exact threshold equality and
+the cases just above/below a binary power are still tested by
+a precise native comparison. The count/overflow guard ensures
+no addition of bit widths can wrap the platform size_t.
+
+The original first-order Taylor certificates, all cached centers,
+argument reductions, window thresholds, and rounded outputs remain
+unchanged; the two predicates are semantically equivalent for
+positive/negative and zero offsets, dyadic and general rational
+denominators. This is NOT the complete GMP removal: basic
+`mpq_t` carrier operations and read-only GMP bit metadata remain.
+No new `detail` folders are created and only `Ariadne::Detail`
+is used for implementation helpers.
+
+Cross-platform CI and the existing independent source-keyed
+exp/centered-exp/sin/cos/tan/atan/inverse-trig tests in all rounding
+modes must pass. A same-host benchmark from the user is needed
+before attributing a performance improvement to D140.

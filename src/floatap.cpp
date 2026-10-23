@@ -2178,24 +2178,46 @@ Interval log_interval(Fraction x, unsigned long work) {
 // constants are cached as rigorous outward DYADIC enclosures, not
 // approximations rounded in a caller-selected mode. The general
 // exp_interval remains the fallback everywhere outside the window.
+// Compare |numerator|*2^binary_shift <= denominator exactly.
+// The common case is decided from base-2 bit lengths without creating
+// even a native multiprecision temporary. When their bit lengths match,
+// compare the actual native limbs; this is the only ambiguous case.
+// GMP is touched only to read the not-yet-migrated Fraction carrier.
+bool within_dyadic_window(Fraction const& value,unsigned long binary_shift) {
+    const mpz_srcptr numerator=mpq_numref(value.raw());
+    if (mpz_sgn(numerator)==0) return true;
+    const mpz_srcptr denominator=mpq_denref(value.raw());
+    const std::size_t numerator_bits=mpz_sizeinbase(numerator,2u);
+    const std::size_t denominator_bits=mpz_sizeinbase(denominator,2u);
+    if (static_cast<std::uintmax_t>(binary_shift) >
+            static_cast<std::uintmax_t>(
+                std::numeric_limits<std::size_t>::max()-numerator_bits)) {
+        return false;
+    }
+    const std::size_t shifted_bits=
+        numerator_bits+static_cast<std::size_t>(binary_shift);
+    if (shifted_bits!=denominator_bits) {
+        return shifted_bits<denominator_bits;
+    }
+    const Integer native_numerator=integer_from_gmp(numerator);
+    const Integer native_denominator=integer_from_gmp(denominator);
+    return compare(
+        shift_left(native_numerator.magnitude(),
+                   static_cast<std::size_t>(binary_shift)),
+        native_denominator.magnitude())<=0;
+}
+
 bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
     // |delta| <= 2^(-ceil(work/2)), with work>=4 guaranteeing the
     // entire segment around +/-1/2 lies inside [-3/4,3/4].
-    if (work < 4ul) return false;
-    const unsigned long cutoff_bits = work / 2ul + work % 2ul;
-    if (static_cast<std::uintmax_t>(cutoff_bits) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+    if (work<4ul) return false;
+    const unsigned long cutoff_bits=work/2ul+work%2ul;
+    if (static_cast<std::uintmax_t>(cutoff_bits)>
+            static_cast<std::uintmax_t>(
+                std::numeric_limits<mp_bitcnt_t>::max())) {
         return false;
     }
-    mpz_t scaled_absolute_offset;
-    mpz_init(scaled_absolute_offset);
-    mpz_abs(scaled_absolute_offset, mpq_numref(delta.raw()));
-    mpz_mul_2exp(scaled_absolute_offset, scaled_absolute_offset,
-                 static_cast<mp_bitcnt_t>(cutoff_bits));
-    const bool inside_center_window =
-        mpz_cmp(scaled_absolute_offset, mpq_denref(delta.raw())) <= 0;
-    mpz_clear(scaled_absolute_offset);
-    return inside_center_window;
+    return within_dyadic_window(delta,cutoff_bits);
 }
 
 // Convert a signed certified rational endpoint to an exact outward
@@ -2838,19 +2860,13 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
 // or even smaller (work odd), so a first-order Taylor enclosure
 // has a certified remainder below one bit at the requested work.
 bool sufficiently_near_half(Fraction const& delta, unsigned long work) {
-    const unsigned long half_work = work / 2ul + work % 2ul;
-    if (static_cast<std::uintmax_t>(half_work) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
+    const unsigned long half_work=work/2ul+work%2ul;
+    if (static_cast<std::uintmax_t>(half_work)>
+            static_cast<std::uintmax_t>(
+                std::numeric_limits<mp_bitcnt_t>::max())) {
         return false;
     }
-    mpz_t scaled;
-    mpz_init(scaled);
-    mpz_abs(scaled, mpq_numref(delta.raw()));
-    mpz_mul_2exp(scaled, scaled, static_cast<mp_bitcnt_t>(half_work));
-    const bool within_half_threshold =
-        mpz_cmp(scaled, mpq_denref(delta.raw())) <= 0;
-    mpz_clear(scaled);
-    return within_half_threshold;
+    return within_dyadic_window(delta,half_work);
 }
 
 // Evaluate atan(x) for |x| <= 1/2 as an alternating Taylor series.
