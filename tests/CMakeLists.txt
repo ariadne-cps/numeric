@@ -49,7 +49,7 @@ target_link_libraries(check_numeric PRIVATE ariadne-numeric numeric)
 add_custom_target(tests)
 add_dependencies(tests ${UNIT_TESTS} check_numeric)
 
-# Independent standalone C++20 TSV generators: compiled with tests, never auto-run.
+# Standalone C++20 generators are independent of unit-test builds.
 set(ORACLE_GENERATORS
     generator_big_unsigned_gcd
     generator_big_unsigned_b76
@@ -58,8 +58,23 @@ set(ORACLE_GENERATORS
     generator_rational_exact
     generator_exact_b72_r17
 )
+set(ORACLE_GENERATOR_COMMANDS)
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)
-    add_executable(${GENERATOR} "data/${GENERATOR}.cpp")
+    add_executable(${GENERATOR} EXCLUDE_FROM_ALL "data/${GENERATOR}.cpp")
     target_compile_features(${GENERATOR} PRIVATE cxx_std_20)
+    list(APPEND ORACLE_GENERATOR_COMMANDS
+        COMMAND "$<TARGET_FILE:${GENERATOR}>" --write --data-dir "${CMAKE_CURRENT_SOURCE_DIR}/data")
 endforeach()
-add_dependencies(tests ${ORACLE_GENERATORS})
+
+# Build only the independent generator executables.
+add_custom_target(generators)
+add_dependencies(generators ${ORACLE_GENERATORS})
+
+# Explicitly overwrite only the TSVs covered by versioned generators.
+# Commands run sequentially; the first failure stops further generation.
+add_custom_target(generate-data
+    ${ORACLE_GENERATOR_COMMANDS}
+    COMMENT "Regenerating source-tree test data using standalone generators"
+    VERBATIM
+)
+add_dependencies(generate-data generators)

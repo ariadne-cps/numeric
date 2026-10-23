@@ -8474,3 +8474,37 @@ production algorithms, root CMake, benchmarks or source fixture paths.
 Full CI remains to be checked. As directed, do not introduce
 `generate-data` or remove versioned TSVs before full generator coverage
 and GMP-oracle migration.
+
+### B83 — dedicated generators and explicit generate-data CMake targets (23 October 2026)
+
+Separate the independently compiled C++20 oracle programs from the
+aggregate `tests` build target in `tests/CMakeLists.txt`. Register a
+dedicated `generators` target with all six currently versioned oracle
+generators and set their executable targets EXCLUDE_FROM_ALL so that
+ordinary builds and `tests` do not compile them implicitly. Register
+an explicitly invoked `generate-data` target depending on `generators`,
+which executes each generator in a fixed sequence with `--write` and
+`--data-dir` set to the absolute source-tree `tests/data` directory.
+The commands are intentionally non-incremental and run on each target
+invocation, allowing the developer to measure overall execution time
+externally; no runtime measurement is embedded in the build logic.
+Single-command-sequence execution stops on the first generator failure,
+without parallel writes to source-tree TSVs.
+
+The target covers only the 44 TSVs already reproduced by the six
+generators, leaving the remaining 71 versioned TSVs as they are.
+There is no automatic invocation during compilation or CTest, and
+no switch to build-tree fixture paths. Update `README-generators.md`
+with the explicit targets and warning that `--write` overwrites
+source-tree files. The choice of whether to stop version-controlling
+TSV fixtures remains postponed until full 115-file generation coverage
+and replacement of remaining GMP oracles.
+
+Verified the target dependency and command-sequence behavior with a
+standalone CMake/Ninja probe: default `all` and `tests` build no
+generator; `generators` builds both sample executable targets; and
+`generate-data` builds dependencies and runs every `--write`
+command with the absolute source-data directory. This probe is not a
+full Numeric CI run. No production sources, test consumer code, GMP
+oracle behavior, generator algorithms, existing TSVs, root CMake,
+FloatMP or benchmarks are changed.

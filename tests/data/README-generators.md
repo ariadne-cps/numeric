@@ -7,6 +7,36 @@ the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
 FloatMP or Boost**: expected values must not come from the code being tested.
 
+### CMake targets
+
+After configuring the project, invoke these targets explicitly:
+
+```sh
+cmake --build <build-dir> --target tests
+cmake --build <build-dir> --target generators
+cmake --build <build-dir> --target generate-data
+```
+
+`tests` builds the test suite without any generator dependency.
+`generators` builds all standalone C++20 generator executables; the
+generator executables are also excluded from the default `all` target.
+`generate-data` first builds the generators if necessary, then runs
+**every registered generator in sequence** with `--write` and an absolute
+`--data-dir` pointing at the existing **source-tree** `tests/data`.
+This target executes on each invocation, even if no input changed; it
+overwrites only the currently covered TSV files (44 of 115 at B82).
+The other TSVs remain committed and untouched. The generators' own
+messages show which files were written. A failed generator stops the
+sequence. Neither `tests` nor CTest runs the generators automatically.
+
+The TSVs remain version-controlled: review `git diff -- tests/data`
+after regeneration. Removing versioned fixtures or switching consumers
+to build-tree paths is deliberately deferred until all generators are
+implemented and the remaining GMP oracle migration is complete.
+
+For a manual, read-only comparison rather than regeneration, use the
+following standalone `--verify` commands.
+
 From the repository root, using a C++20 compiler:
 
 ```sh
