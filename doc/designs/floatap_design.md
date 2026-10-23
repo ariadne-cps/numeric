@@ -12059,3 +12059,44 @@ Cross-platform compile/test CI and the user's paired same-host
 benchmark are required before claiming any measured speedup.
 D137's Windows CI succeeded at the start of this change; other
 D137 workflows were still running.
+
+### D139 — native centered sine/cosine fixed-point correction (23 October 2026)
+
+The optimized `centered_trigonometric_dyadic` path around absolute
+argument 1/2 now keeps its four cached certified sine/cosine
+coefficients in signed native `Integer` objects. Cache refresh
+imports each exact Fraction endpoint once using the existing native
+`outward_dyadic_integer` directed converter instead of four GMP
+`mpz_t` fields and their allocation lifecycle.
+
+For the exact dyadic offset `delta=n/2^k`, the native borrowed
+`BigUnsigned::mul_into` product computes floor or ceil of
+`coefficient*n/2^k`. A capacity-reused limb product/slice workspace
+checks all discarded full-limb and partial-limb bits, increments the
+magnitude for positive ceil or negative floor only when discarded
+bits are nonzero, and reconstructs an exact signed `Integer`.
+For negative `n`, the coefficients are selected exactly as in the
+original GMP code: the lower/upper coefficients are swapped through
+the sign-sensitive directed floor/ceil. The two correction bounds
+combine with the same rigorous `2^(B-work-1)` units for the
+first-order Taylor remainder, `B=work+16`. The output retains the
+same outward dyadic endpoints, even when the lower bound becomes
+negative, and applies the existing odd-sine sign symmetry.
+
+The old per-call GMP `mpz_t` temporaries and `mpz_mul`,
+`mpz_fdiv_q_2exp`, `mpz_cdiv_q_2exp` and `mpz_add/sub`
+are gone from this hot path. Only the cheap dyadic denominator
+inspection and the numerator import from the transitional GMP
+Fraction carrier remain; the two final endpoints return to
+Fraction. `BigUnsigned::mul_into` uses reusable caller-owned limb
+buffers and creates no owning big integer during multiplication.
+The cached half-angle enclosures and proof of correctness are
+unchanged; no separate trigonometric approximation is introduced.
+
+This remains an incremental GMP removal, not a full GMP-free
+FloatAP claim or a measured performance improvement. Independent
+source-keyed sin/cos/tan/asin/acos oracle tests, all rounding modes,
+and the four CI workflows are required before accepting the
+change. Retain the same-host comparison benchmark for the user's
+subsequent performance measurements. No files or directories
+under `detail` were created by D139.

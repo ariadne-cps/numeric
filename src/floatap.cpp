@@ -2698,15 +2698,7 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
     struct Cache {
         unsigned long work = 0;
         unsigned long bits = 0;
-        mpz_t sine_lower, sine_upper, cosine_lower, cosine_upper;
-        Cache() {
-            mpz_inits(sine_lower, sine_upper, cosine_lower, cosine_upper, nullptr);
-        }
-        ~Cache() {
-            mpz_clears(sine_lower, sine_upper, cosine_lower, cosine_upper, nullptr);
-        }
-        Cache(Cache const&) = delete;
-        Cache& operator=(Cache const&) = delete;
+        Integer sine_lower, sine_upper, cosine_lower, cosine_upper;
     };
     static thread_local Cache fixed_center;
 
@@ -2717,87 +2709,128 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
         const unsigned long target_bits = work + 16ul;
         const auto& [sine, cosine] =
             half_trigonometric_intervals(work + 32ul);
-
-        mpz_t numerator_shifted;
-        mpz_init(numerator_shifted);
-        struct Cleanup {
-            mpz_ptr value;
-            ~Cleanup() { mpz_clear(value); }
-        } cleanup{numerator_shifted};
-        const auto assign_outward = [&](mpz_ptr destination, Fraction const& value,
-                                        bool round_toward_positive_infinity) {
-            mpz_mul_2exp(numerator_shifted, mpq_numref(value.raw()),
-                         static_cast<mp_bitcnt_t>(target_bits));
-            if (round_toward_positive_infinity) {
-                mpz_cdiv_q(destination, numerator_shifted, mpq_denref(value.raw()));
-            } else {
-                mpz_fdiv_q(destination, numerator_shifted, mpq_denref(value.raw()));
-            }
-        };
-        assign_outward(fixed_center.sine_lower, sine.lower, false);
-        assign_outward(fixed_center.sine_upper, sine.upper, true);
-        assign_outward(fixed_center.cosine_lower, cosine.lower, false);
-        assign_outward(fixed_center.cosine_upper, cosine.upper, true);
+        // Keep signed native coefficients for the complete cached work
+        // precision. Their construction is one-time, on cache upgrade.
+        fixed_center.sine_lower =
+            outward_dyadic_integer(sine.lower,target_bits,false);
+        fixed_center.sine_upper =
+            outward_dyadic_integer(sine.upper,target_bits,true);
+        fixed_center.cosine_lower =
+            outward_dyadic_integer(cosine.lower,target_bits,false);
+        fixed_center.cosine_upper =
+            outward_dyadic_integer(cosine.upper,target_bits,true);
         fixed_center.bits = target_bits;
         fixed_center.work = work;
     }
 
-    // The caller established a dyadic offset, with positive canonical
-    // denominator 2^k, and |offset| <= 2^-ceil(work/2).
-    const mp_bitcnt_t shift = mpz_scan1(mpq_denref(offset.raw()), 0u);
-    mpz_srcptr delta_numerator = mpq_numref(offset.raw());
+    // The caller established a canonical dyadic offset n/2^k,
+    // with |offset| <= 2^-ceil(work/2). GMP is still required here
+    // only to inspect the temporary Fraction carrier.
+    const mp_bitcnt_t denominator_shift =
+        mpz_scan1(mpq_denref(offset.raw()),0u);
+    if (static_cast<std::uintmax_t>(denominator_shift) >
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::overflow_error("FloatAP centered delta shift overflow");
+    }
+    const std::size_t shift=static_cast<std::size_t>(denominator_shift);
+    const Integer delta_numerator=integer_from_gmp(mpq_numref(offset.raw()));
 
-    mpz_t term_lower, term_upper, result_lower, result_upper, remainder;
-    mpz_inits(term_lower, term_upper, result_lower, result_upper, remainder, nullptr);
-    struct TermsCleanup {
-        mpz_ptr a, b, c, d, e;
-        ~TermsCleanup() { mpz_clears(a, b, c, d, e, nullptr); }
-    } terms_cleanup{term_lower,term_upper,result_lower,result_upper,remainder};
+    // The original Taylor certificate is |R|<=delta^2/2,
+    // hence 2^(bits-work-1) integer units. The same bound is used
+    // for both the sine and cosine first-order corrections.
+    const Integer error=Integer::from_magnitude(
+        shift_left(BigUnsigned(1u),
+            static_cast<std::size_t>(fixed_center.bits-work-1ul)),false);
 
-    // Taylor: |R|<=offset^2/2<=2^(-work-1). At the cached scale
-    // Q=2^bits this is exactly <=2^(bits-work-1) integer units.
-    const unsigned long remaining_bits = fixed_center.bits - work - 1ul;
-    mpz_set_ui(remainder, 1ul);
-    mpz_mul_2exp(remainder, remainder,
-                 static_cast<mp_bitcnt_t>(remaining_bits));
-
-    const auto mul_outward = [&](mpz_srcptr coefficient_lower,
-                                 mpz_srcptr coefficient_upper) {
-        const bool nonnegative = mpz_sgn(delta_numerator) >= 0;
-        mpz_mul(term_lower,
-                nonnegative ? coefficient_lower : coefficient_upper,
-                delta_numerator);
-        mpz_fdiv_q_2exp(term_lower, term_lower, shift);
-        mpz_mul(term_upper,
-                nonnegative ? coefficient_upper : coefficient_lower,
-                delta_numerator);
-        mpz_cdiv_q_2exp(term_upper, term_upper, shift);
+    using Limb=BigUnsigned::Limb;
+    using Words=std::vector<Limb>;
+    Words product,scaled;
+    const auto trim=[](Words& digits) {
+        while (!digits.empty() && digits.back()==0u) digits.pop_back();
+    };
+    const auto increment=[](Words& digits) {
+        for (std::size_t i=0u;i<digits.size();++i) {
+            if (++digits[i]!=0u) return;
+        }
+        digits.push_back(Limb{1});
+    };
+    // floor or ceil of coefficient*n / 2^k. There are only two
+    // products per requested function. Both share the same scratch;
+    // no GMP product/division or canonical Rational is constructed.
+    const auto multiply_outward=[&](Integer const& coefficient,
+                                    bool round_toward_positive) -> Integer {
+        const BigUnsigned& lhs=coefficient.magnitude();
+        const BigUnsigned& rhs=delta_numerator.magnitude();
+        if (lhs.is_zero() || rhs.is_zero()) return Integer{};
+        if (lhs.size()>std::numeric_limits<std::size_t>::max()-rhs.size()) {
+            throw std::overflow_error("FloatAP centered product size overflow");
+        }
+        product.resize(lhs.size()+rhs.size());
+        BigUnsigned::mul_into(lhs.limbs(),rhs.limbs(),product);
+        const std::size_t whole=shift/64u;
+        const unsigned partial=static_cast<unsigned>(shift%64u);
+        bool discarded=false;
+        for (std::size_t i=0u;i<std::min(whole,product.size());++i) {
+            discarded=discarded || product[i]!=0u;
+        }
+        if (partial!=0u && whole<product.size()) {
+            discarded=discarded ||
+                (product[whole]&((Limb{1}<<partial)-1u))!=0u;
+        }
+        if (whole>=product.size()) {
+            scaled.clear();
+        } else {
+            const std::size_t count=product.size()-whole;
+            scaled.resize(count);
+            for (std::size_t i=0u;i<count;++i) {
+                const Limb low=product[whole+i]>>partial;
+                const Limb high=partial!=0u && i+1u<count
+                    ? product[whole+i+1u]<<(64u-partial) : Limb{0};
+                scaled[i]=low|high;
+            }
+            trim(scaled);
+        }
+        const bool negative=coefficient.negative()!=delta_numerator.negative();
+        if (discarded && (negative ? !round_toward_positive
+                                   : round_toward_positive)) {
+            increment(scaled);
+        }
+        return Integer::from_magnitude(BigUnsigned(
+            BigUnsigned::LimbView(scaled.data(),scaled.size())),negative);
     };
 
-    Interval sine_result = point(Fraction{});
-    Interval cosine_result = point(Fraction{});
-    if (output != TrigOutputs::cosine) {
-        // sin(1/2+d) = S + C*d + R, |R|<=d^2/2.
-        mul_outward(fixed_center.cosine_lower, fixed_center.cosine_upper);
-        mpz_add(result_lower, fixed_center.sine_lower, term_lower);
-        mpz_sub(result_lower, result_lower, remainder);
-        mpz_add(result_upper, fixed_center.sine_upper, term_upper);
-        mpz_add(result_upper, result_upper, remainder);
-        sine_result = {Fraction(result_lower, fixed_center.bits),
-                       Fraction(result_upper, fixed_center.bits)};
-        if (argument.sign() < 0) sine_result = negative(sine_result);
+    const auto certified_endpoint=[&](Integer const& exact) {
+        return Fraction(exact.magnitude(),fixed_center.bits,exact.negative());
+    };
+    Interval sine_result=point(Fraction{});
+    Interval cosine_result=point(Fraction{});
+    if (output!=TrigOutputs::cosine) {
+        // sin(1/2+d) = S + C*d + R, |R| <= d^2/2.
+        const bool delta_negative=delta_numerator.negative();
+        const Integer correction_lower=multiply_outward(
+            delta_negative ? fixed_center.cosine_upper
+                           : fixed_center.cosine_lower,false);
+        const Integer correction_upper=multiply_outward(
+            delta_negative ? fixed_center.cosine_lower
+                           : fixed_center.cosine_upper,true);
+        const Integer lower=fixed_center.sine_lower+correction_lower-error;
+        const Integer upper=fixed_center.sine_upper+correction_upper+error;
+        sine_result={certified_endpoint(lower),certified_endpoint(upper)};
+        if (argument.sign()<0) sine_result=negative(sine_result);
     }
-    if (output != TrigOutputs::sine) {
-        // cos(1/2+d) = C - S*d + R, |R|<=d^2/2.
-        mul_outward(fixed_center.sine_lower, fixed_center.sine_upper);
-        mpz_sub(result_lower, fixed_center.cosine_lower, term_upper);
-        mpz_sub(result_lower, result_lower, remainder);
-        mpz_sub(result_upper, fixed_center.cosine_upper, term_lower);
-        mpz_add(result_upper, result_upper, remainder);
-        cosine_result = {Fraction(result_lower, fixed_center.bits),
-                         Fraction(result_upper, fixed_center.bits)};
+    if (output!=TrigOutputs::sine) {
+        // cos(1/2+d) = C - S*d + R, |R| <= d^2/2.
+        const Integer correction_lower=multiply_outward(
+            delta_numerator.negative() ? fixed_center.sine_upper
+                                       : fixed_center.sine_lower,false);
+        const Integer correction_upper=multiply_outward(
+            delta_numerator.negative() ? fixed_center.sine_lower
+                                       : fixed_center.sine_upper,true);
+        const Integer lower=fixed_center.cosine_lower-correction_upper-error;
+        const Integer upper=fixed_center.cosine_upper-correction_lower+error;
+        cosine_result={certified_endpoint(lower),certified_endpoint(upper)};
     }
-    return {std::move(sine_result), std::move(cosine_result)};
+    return {std::move(sine_result),std::move(cosine_result)};
 }
 
 // For finite delta, test |delta| <= 2^(-ceil(work/2)) using exact
