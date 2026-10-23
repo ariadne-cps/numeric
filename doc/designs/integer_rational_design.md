@@ -8592,3 +8592,28 @@ Register the ninth executable in the ORACLE_GENERATORS list for explicit
 Coverage rises to 57 of 115 original versioned TSVs. No fixture data,
 consumer test, GMP oracle, production code or root CMake changed.
 Full multi-platform repository CI remains to be checked.
+
+### B87 — restore source-keyed signed randomized B17/B18 generators (23 October 2026)
+
+Add `tests/data/generator_integer_random.cpp`, standalone standard-C++20
+source replaying all 2500 B17 and 1700 B18 original mt19937_64 visits,
+concatenated decimal string operands, sign rules and zero cases. The
+historical one-per-ten sampling positions are preserved exactly:
+`rep=10*k+(7*k+3)%10`, yielding 250 B17 and 170 B18 cases.
+The independent radix-2^64 limb implementation computes signed
+add/subtract, shift/add product, bit-aligned long quotient/remainder with
+truncation toward zero and sign-of-dividend remainder, and B17 signed
+right/left shifts including all 0..129 bit boundaries. No Numeric,
+GMP, MPFR, FloatMP or Boost dependency exists.
+
+A separate exact JavaScript BigInt/MT19937-64 implementation reproduced
+both original TSV contents independently, followed by direct C++20 GCC
+and Clang execution and byte-for-byte comparison. C++ builds used
+`-Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror`.
+Original Git blob object IDs matched:
+B17 `542d28c6079f163c8d21f36adc35f5f57ae2d91f`;
+B18 `28f074d21007fe6412004a8d3a0432cb6478d20d`.
+No fixture data, test consumer, production code or GMP oracle changed.
+Register the tenth executable in ORACLE_GENERATORS for `generators`
+and `generate-data`, not `tests`; 59 of 115 TSVs now reproduced.
+Full platform CI remains to be checked.

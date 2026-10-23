@@ -60,6 +60,7 @@ set(ORACLE_GENERATORS
     generator_integer_structural
     generator_big_unsigned_mul
     generator_big_unsigned_dispatch
+    generator_integer_random
 )
 set(ORACLE_GENERATOR_COMMANDS)
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)

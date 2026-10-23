@@ -3,7 +3,8 @@
 The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
-`generator_big_unsigned_dispatch.cpp`, and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
+`generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
+and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
 FloatMP or Boost**: expected values must not come from the code being tested.
@@ -25,7 +26,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (57 of 115 at B86).
+overwrites only the currently covered TSV files (59 of 115 at B87).
 The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
@@ -50,6 +51,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/g
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_integer_structural.cpp -o /tmp/numeric-oracle-structural
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_big_unsigned_mul.cpp -o /tmp/numeric-oracle-b35-b37-b38
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_big_unsigned_dispatch.cpp -o /tmp/numeric-oracle-dispatch
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_integer_random.cpp -o /tmp/numeric-oracle-integer-random
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -59,6 +61,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/g
 /tmp/numeric-oracle-structural --verify --data-dir tests/data
 /tmp/numeric-oracle-b35-b37-b38 --verify --data-dir tests/data
 /tmp/numeric-oracle-dispatch --verify --data-dir tests/data
+/tmp/numeric-oracle-integer-random --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -82,6 +85,7 @@ review every diff before committing. No sampling is used.
 | `generator_integer_structural.cpp` | `integer_b66.tsv`, `integer_sub.tsv`, `big_unsigned_sub.tsv`, `integer_b33.tsv`, `integer_b37.tsv`, `integer_b38.tsv` | 360 power, 192 signed subtract, 100 unsigned subtract, 72 signed squares, 72 signed powers, 30 signed cubes |
 | `generator_big_unsigned_mul.cpp` | `big_unsigned_b35.tsv`, `big_unsigned_b37.tsv`, `big_unsigned_b38.tsv` | 70 Karatsuba products, 91 squares, 112 products with six truncated variants |
 | `generator_big_unsigned_dispatch.cpp` | `big_unsigned_b39.tsv`, `big_unsigned_b40.tsv`, `big_unsigned_b54_product.tsv`, `big_unsigned_b54_square.tsv` | 152 B39, 162 B40, 136 B54 products, 104 B54 squares |
+| `generator_integer_random.cpp` | `integer_b17.tsv`, `integer_b18.tsv` | 250 signed arithmetic/shift cases and 170 signed arithmetic/division cases |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -185,3 +189,12 @@ B54's square fixture intentionally shares the exact RNG state after all
 all four regenerated TSVs match their original Git blob IDs byte-for-byte.
 The ninth generator participates in explicit `generators` and
 `generate-data` targets, not `tests` or the default build.
+
+B87 restores the full original std::mt19937_64 visits for B17 (2,500)
+and B18 (1,700), freezes their original 1-in-10 stratified sample
+positions, and derives exact signed add/subtract/multiply, truncating
+quotient/remainder and B17 truncating right shift using independent
+base-2^64 integer arithmetic. GCC and Clang C++20 strict-warning
+compilation and execution matched both committed Git blob SHA-1 IDs.
+The tenth program is available from explicit `generators` and
+`generate-data`; existing TSVs remain unchanged and tracked.
