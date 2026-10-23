@@ -1080,13 +1080,13 @@ Void test_floatap_exact_dyadic_export() {
 Void test_floatap_native_ratio_rounding() {
     const ArbitraryPrecision p(7_bits);
     const auto nearest=FloatAP::ROUND_TO_NEAREST;
-    const auto upward=FloatAP::ROUND_UPWARD;
-    const auto downward=FloatAP::ROUND_DOWNWARD;
+    const auto round_up=FloatAP::ROUND_UPWARD;
+    const auto round_down=FloatAP::ROUND_DOWNWARD;
     const FloatAP thirds=FloatAP::from_ratio(Integer(1),Integer(3),nearest,p);
-    const FloatAP thirds_up=FloatAP::from_ratio(Integer(1),Integer(3),upward,p);
-    const FloatAP negative_thirds=FloatAP::from_ratio(Integer(-1),Integer(3),downward,p);
+    const FloatAP thirds_up=FloatAP::from_ratio(Integer(1),Integer(3),round_up,p);
+    const FloatAP negative_thirds=FloatAP::from_ratio(Integer(-1),Integer(3),round_down,p);
     const FloatAP negative_denominator=FloatAP::from_ratio(
-        Integer(1),Integer(-3),upward,p);
+        Integer(1),Integer(-3),round_up,p);
     ARIADNE_TEST_ASSERT(compare(thirds.significand(),BigUnsigned(85u))==0);
     ARIADNE_TEST_ASSERT(compare(thirds_up.significand(),BigUnsigned(86u))==0);
     ARIADNE_TEST_ASSERT(compare(negative_thirds.significand(),BigUnsigned(86u))==0);
