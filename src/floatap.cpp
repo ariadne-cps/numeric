@@ -1564,6 +1564,13 @@ public:
         mpq_canonicalize(_value);
     }
 
+    // A certified dyadic endpoint may straddle zero; attach its sign
+    // only once at the Fraction boundary, not inside the native series.
+    Fraction(BigUnsigned const& magnitude, unsigned long denominator_bits,
+             bool negative) : Fraction(magnitude,denominator_bits) {
+        if (negative && !magnitude.is_zero()) mpq_neg(_value,_value);
+    }
+
     Fraction(mpz_srcptr numerator, unsigned long denominator_bits) : Fraction() {
         mpz_set(mpq_numref(_value), numerator);
         mpz_set_ui(mpq_denref(_value), 1);
@@ -2675,7 +2682,6 @@ Interval small_atan(Fraction const& x, unsigned long work) {
         return point(Fraction{});
     }
 
-    const Fraction magnitude = absolute(x);
     const unsigned long max_terms = work / 2ul + 4ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(max_terms));
@@ -2684,73 +2690,144 @@ Interval small_atan(Fraction const& x, unsigned long work) {
     }
     const unsigned long fixed_bits = work + guard;
     if (static_cast<std::uintmax_t>(fixed_bits) >
-        static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max())) {
-        throw std::overflow_error("FloatAP arctangent GMP shift overflow");
+            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+        static_cast<std::uintmax_t>(fixed_bits) >
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::overflow_error("FloatAP arctangent fixed-point shift overflow");
     }
-    const mp_bitcnt_t shift = static_cast<mp_bitcnt_t>(fixed_bits);
 
-    mpz_t scaled, argument, square, power, sum, term, tail, error;
-    mpz_inits(scaled, argument, square, power, sum, term, tail, error, nullptr);
-    struct Cleanup {
-        mpz_ptr a,b,c,d,e,f,g,h;
-        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,nullptr); }
-    } cleanup{scaled,argument,square,power,sum,term,tail,error};
+    using Limb=BigUnsigned::Limb;
+    using Words=std::vector<Limb>;
+    const std::size_t shift=static_cast<std::size_t>(fixed_bits);
+    const std::size_t whole=shift/64u;
+    const unsigned partial=static_cast<unsigned>(shift%64u);
+    const Fraction magnitude=absolute(x);
+    const Integer numerator=integer_from_gmp(mpq_numref(magnitude.raw()));
+    const Integer denominator=integer_from_gmp(mpq_denref(magnitude.raw()));
+    const BigUnsigned argument=quot(
+        shift_left(numerator.magnitude(),shift),denominator.magnitude());
 
-    // Let Q=2^fixed_bits, a=floor(Q*|x|) and b=floor(a*a/Q).
-    // For |x|<=1/2, 0<=Q*x*x-b<2 and a<=Q*x.
-    mpz_mul_2exp(scaled, mpq_numref(magnitude.raw()), shift);
-    mpz_fdiv_q(argument, scaled, mpq_denref(magnitude.raw()));
-    mpz_mul(square, argument, argument);
-    mpz_fdiv_q_2exp(square, square, shift);
-    mpz_set(power, argument);
-    mpz_set_ui(sum, 0ul);
+    Words power(argument.limbs().begin(),argument.limbs().end());
+    Words sum,square,term,product,next_power;
+    const BigUnsigned limit=shift_left(BigUnsigned(1u),
+                                       static_cast<std::size_t>(guard));
+    const auto trim=[](Words& digits) {
+        while (!digits.empty() && digits.back()==0u) digits.pop_back();
+    };
 
-    // p_n=floor(p_(n-1)*b/Q), p_0=a. If P_n=Q*|x|^(2n+1),
-    // e_n=P_n-p_n obeys e_0<1 and e_(n+1)<e_n/4+2,
-    // so 0<=e_n<4 for every n. Consequently each downward-rounded
-    // Taylor term p_n/(2n+1) differs from the exact scaled term by
-    // less than 5 integer units, independently of n. The first
-    // omitted alternating term is bounded by p_(n+1)+4 units.
-    // One recurrence therefore certifies BOTH endpoints: no need for
-    // separate upward and downward powers, squares and divisions.
-    mpz_t limit;
-    mpz_init_set_ui(limit, 1ul);
-    struct LimitCleanup {
-        mpz_ptr value;
-        ~LimitCleanup() { mpz_clear(value); }
-    } limit_cleanup{limit};
-    mpz_mul_2exp(limit, limit, static_cast<mp_bitcnt_t>(guard));
+    // All Taylor powers are nonnegative. Output and product retain their
+    // capacity across terms; no owning BigUnsigned is made in the loop.
+    const auto scaled_product=[&](Words const& left,Words const& right,
+                                   Words& output) {
+        if (left.empty() || right.empty()) {
+            output.clear();
+            return;
+        }
+        if (left.size()>std::numeric_limits<std::size_t>::max()-right.size()) {
+            throw std::overflow_error("FloatAP arctangent product size overflow");
+        }
+        product.resize(left.size()+right.size());
+        BigUnsigned::mul_into(left,right,product);
+        trim(product);
+        if (product.size()<=whole) {
+            output.clear();
+            return;
+        }
+        const std::size_t count=product.size()-whole;
+        output.resize(count);
+        for (std::size_t i=0u;i<count;++i) {
+            const Limb low=product[whole+i]>>partial;
+            const Limb high=partial!=0u && i+1u<count
+                ? product[whole+i+1u]<<(64u-partial) : Limb{0};
+            output[i]=low|high;
+        }
+        trim(output);
+    };
 
-    for (unsigned long n = 0; n < max_terms; ++n) {
-        const unsigned long divisor = 2ul * n + 1ul;
-        mpz_fdiv_q_ui(term, power, divisor);
-        if (n % 2ul == 0ul) mpz_add(sum, sum, term);
-        else mpz_sub(sum, sum, term);
+    // Alternating partial sums are nonnegative: terms decrease for
+    // |x|<=1/2, and the very first term is positive.
+    const auto accumulate=[&](Words const& addend,bool subtract) {
+        if (!subtract) {
+            if (sum.size()<addend.size()) sum.resize(addend.size(),0u);
+            Limb carry=0u;
+            for (std::size_t i=0u;i<addend.size();++i) {
+                const Limb old=sum[i];
+                const Limb value=old+addend[i];
+                const Limb result=value+carry;
+                carry=static_cast<Limb>(value<old || result<value);
+                sum[i]=result;
+            }
+            for (std::size_t i=addend.size();carry!=0u && i<sum.size();++i) {
+                ++sum[i];
+                carry=static_cast<Limb>(sum[i]==0u);
+            }
+            if (carry!=0u) sum.push_back(carry);
+        } else {
+            Limb borrow=0u;
+            for (std::size_t i=0u;i<sum.size();++i) {
+                const Limb part=i<addend.size()?addend[i]:Limb{0};
+                const Limb old=sum[i];
+                const Limb difference=old-part;
+                const Limb result=difference-borrow;
+                borrow=static_cast<Limb>(old<part || difference<borrow);
+                sum[i]=result;
+            }
+            if (borrow!=0u || addend.size()>sum.size()) {
+                throw std::logic_error("FloatAP arctangent series sum underflow");
+            }
+            trim(sum);
+        }
+    };
+    const auto under_limit=[&](Words const& digits) {
+        const auto bound=limit.limbs();
+        if (digits.size()!=bound.size()) return digits.size()<bound.size();
+        for (std::size_t i=digits.size();i!=0u;--i) {
+            if (digits[i-1u]!=bound[i-1u]) return digits[i-1u]<bound[i-1u];
+        }
+        return true;
+    };
 
-        mpz_mul(power, power, square);
-        mpz_fdiv_q_2exp(power, power, shift);
+    // Q=2^B, a=floor(Q*|x|), b=floor(a*a/Q), then
+    // p_(n+1)=floor(p_n*b/Q). Keep the original 4-unit power
+    // and 5-unit per-term error certificates.
+    scaled_product(power,power,square);
+    for (unsigned long n=0u;n<max_terms;++n) {
+        if (n>(std::numeric_limits<unsigned long>::max()-1ul)/2ul) {
+            throw std::overflow_error("FloatAP arctangent series index overflow");
+        }
+        const Limb divisor=static_cast<Limb>(2ul*n+1ul);
+        term.resize(power.size());
+        (void)BigUnsigned::divrem_limb_into(power,divisor,term);
+        trim(term);
+        accumulate(term,n%2ul!=0ul);
 
-        if (mpz_cmp(power, limit) <= 0 || n + 1ul == max_terms) {
-            // All n+1 term errors together have magnitude <5*(n+1).
-            // The next term is the alternating-series remainder bound.
-            mpz_set_ui(error, n);
-            mpz_add_ui(error, error, 1ul);
-            mpz_mul_ui(error, error, 5ul);
-            mpz_t lower, upper;
-            mpz_inits(lower, upper, nullptr);
-            struct EndpointCleanup {
-                mpz_ptr a, b;
-                ~EndpointCleanup() { mpz_clears(a, b, nullptr); }
-            } endpoint_cleanup{lower, upper};
-            mpz_sub(lower, sum, error);
-            mpz_add(upper, sum, error);
-            mpz_add_ui(tail, power, 4ul);
-            if (n % 2ul == 0ul) mpz_sub(lower, lower, tail);
-            else mpz_add(upper, upper, tail);
+        scaled_product(power,square,next_power);
+        power.swap(next_power);
 
-            const Interval positive{Fraction(lower, fixed_bits),
-                                    Fraction(upper, fixed_bits)};
-            return x.sign() < 0 ? negative(positive) : positive;
+        if (under_limit(power) || n+1ul==max_terms) {
+            // The first omitted alternating term is <= power+4.
+            // n+1 included terms introduce at most 5*(n+1) units.
+            const BigUnsigned result(BigUnsigned::LimbView(
+                sum.data(),sum.size()));
+            const BigUnsigned error=mul(
+                BigUnsigned(static_cast<Limb>(n+1ul)),BigUnsigned(5u));
+            const BigUnsigned tail=add(
+                BigUnsigned(BigUnsigned::LimbView(
+                    power.data(),power.size())),BigUnsigned(4u));
+            const BigUnsigned lower_error=n%2ul==0ul
+                ? add(error,tail) : error;
+            const BigUnsigned upper_error=n%2ul==0ul
+                ? error : add(error,tail);
+
+            const bool lower_negative=compare(result,lower_error)<0;
+            const BigUnsigned lower=lower_negative
+                ? sub(lower_error,result) : sub(result,lower_error);
+            const BigUnsigned upper=add(result,upper_error);
+            const Interval positive{
+                Fraction(lower,fixed_bits,lower_negative),
+                Fraction(upper,fixed_bits)
+            };
+            return x.sign()<0 ? negative(positive) : positive;
         }
     }
     throw std::logic_error("FloatAP arctangent series did not terminate");

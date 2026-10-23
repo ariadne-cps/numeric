@@ -11744,3 +11744,34 @@ user-supplied same-host benchmark results to compare directed vs
 nearest modes. D127 log-series CI was still running when this entry
 was prepared; do not infer a pass or speedup from the existence of
 the commit.
+
+### D129 — native single-recurrence certified arctangent series (23 October 2026)
+
+The `small_atan` fixed-point Taylor kernel now evaluates integer products,
+power updates, the alternating partial sum and integer term divisions with
+caller-owned reusable 64-bit limb vectors and `BigUnsigned::mul_into` and
+`divrem_limb_into`. This preserves the original single downward recurrence,
+rather than introducing separate upper/lower series or general Rational
+arithmetic. The coefficient `a=floor(2^B*abs(x))`, square
+`b=floor(a*a/2^B)`, recurrence `p_(n+1)=floor(p_n*b/2^B)`,
+term `floor(p_n/(2n+1))` and stop threshold `2^guard` are unchanged.
+Alternating partial sums stay nonnegative on `|x|<=1/2`. Their limb
+addition/subtraction propagates carry/borrow in place. A defensive
+underflow check catches any violated sign invariant.
+
+The same proof yields endpoint errors `5*(n+1)` and `power+4`
+in fixed-point units. After the last iteration, the error and tail
+are combined once into two owning native integers. The certified LOWER
+endpoint may be negative for arguments near zero: an explicit native
+magnitude/sign endpoint constructor preserves this case without
+spurious signed arithmetic in the Taylor loop. Both dyadic endpoints
+then cross the still-GMP-backed Fraction boundary exactly once.
+
+The change affects `atan` and arctangent components used by `asin`,
+`acos`, the half-angle cache and `pi`. Other centered approximations
+and exact oracles are untouched. The user-provided D128 benchmark
+successfully compared 6720 exact operation outputs across 35 paired
+operations and six precisions; timings are baseline observations,
+not evidence that D129 improves performance. D129 must pass
+cross-platform CI and unchanged independent all-rounding-mode oracles,
+and new same-host performance data are needed before declaring a win.
