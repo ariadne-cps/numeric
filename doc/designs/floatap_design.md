@@ -11358,3 +11358,27 @@ check out and compile the project from this session. CI has to
 confirm the new code and the independent FloatAP test/MPFR-oracle
 regressions. Do not regard algebraic equivalence alone as successful
 test execution.
+
+### D118 — native exact FloatAP integer-power significand (23 October 2026)
+
+After the native `sqrtrem` change (D117), migrate the exact nonnegative
+integer-power significand in `FloatAP::pow` from direct
+`mpz_pow_ui(result._significand, value._significand, degree)` to
+`pow(BigUnsigned, uint64_t)`. The existing signed parity rule,
+checked exponent multiplication and a single final
+`round_scaled_integer` call remain unchanged. For now the
+existing positive `mpz_t` significand is imported once and the
+result is exported once, pending the actual BigUnsigned storage
+migration. The unusual exponent-overflow/rational fallback remains
+unchanged. The function does not call GMP for the power arithmetic.
+
+The earlier attempt to switch `FloatAP::_significand` to BigUnsigned
+touches many dependent call sites (normalization, comparisons, directed
+double conversion, neighbors, decimal, exact rational bridges and
+separate certified transcendental GMP boundaries). That unpublished
+header prototype was NOT applied to main, because there was no
+complete compiled/validated corresponding source conversion. Avoid
+mistaking the staged native operation conversions for completion of
+the storage migration. The new power path and existing tests still
+require compilation and CI confirmation, plus performance measurements
+before any speed claim.

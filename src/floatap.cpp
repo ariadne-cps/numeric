@@ -1545,7 +1545,14 @@ FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& value, Nat exponent) 
     if (!scale_overflow) {
         FloatAP result(bits);
         result._negative = value._negative && ((degree & 1ul) != 0ul);
-        mpz_pow_ui(result._significand, value._significand, degree);
+        // Exact power in the native unsigned magnitude engine. GMP is
+        // only the transitional storage boundary for the FloatAP result.
+        const BigUnsigned magnitude=
+            integer_from_gmp(value._significand).magnitude();
+        const BigUnsigned powered=pow(magnitude,
+            static_cast<std::uint64_t>(degree));
+        integer_to_gmp(result._significand,
+            Integer::from_magnitude(powered,false));
         FloatAP::round_scaled_integer(result, product_scale, mode);
         return result;
     }
