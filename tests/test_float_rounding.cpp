@@ -67,7 +67,7 @@ constexpr bool check_float_rounding_concept()
         mul(near,x,y); mul(down,x,y); mul(up,x,y);
         div(near,x,y); div(down,x,y); div(up,x,y);
         sqr(approx,x); rec(approx,x); sqrt(approx,x); exp(approx,x); log(approx,x);
-        sin(approx,x); cos(approx,x); tan(approx,x); asin(approx,x); acos(approx,x); atan(approx,x);
+        sin(approx,x); cos(approx,x); tan(approx,x); tanh(approx,x); asin(approx,x); acos(approx,x); atan(approx,x);
         pow(approx,x,n); pow(approx,x,m);
         +x; -x; x+y; x-y; x*y; x/y;
         F::set_rounding_to_nearest(); F::set_rounding_downward(); F::set_rounding_upward(); F::set_rounding_toward_zero();
@@ -295,11 +295,12 @@ struct FloatAPPowerGoldenKeyLess {
 using FloatAPPowerGoldenTable =
     std::map<FloatAPPowerGoldenKey,Rational,FloatAPPowerGoldenKeyLess>;
 
-FloatAPPowerGoldenTable load_floatap_power_golden_rows() {
-    std::ifstream file(ARIADNE_FLOATAP_POW_ORACLE_PATH);
+FloatAPPowerGoldenTable load_floatap_power_golden_rows(
+        char const* path=ARIADNE_FLOATAP_POW_ORACLE_PATH,
+        std::size_t expected_rows=2400u) {
+    std::ifstream file(path);
     if (!file) throw std::runtime_error(
-        std::string("Missing FloatAP integer power oracle: ")+
-        ARIADNE_FLOATAP_POW_ORACLE_PATH);
+        std::string("Missing FloatAP integer power oracle: ")+path);
     FloatAPPowerGoldenTable rows;
     std::string line;
     std::size_t line_number=0u;
@@ -329,7 +330,7 @@ FloatAPPowerGoldenTable load_floatap_power_golden_rows() {
                                      +std::to_string(line_number));
         }
     }
-    if (rows.size()!=2400u) throw std::runtime_error(
+    if (rows.size()!=expected_rows) throw std::runtime_error(
         "Unexpected FloatAP integer power oracle row count: "
         +std::to_string(rows.size()));
     return rows;
@@ -406,6 +407,7 @@ class TestFloatRounding
     Void test_cosine();
     Void test_arctan();
     Void test_precision_regressions();
+    Void test_short_power_and_tanh();
     Void test_function();
 };
 
@@ -446,6 +448,7 @@ TestFloatRounding<PR>::test()
     ARIADNE_TEST_CALL(test_cosine());
     ARIADNE_TEST_CALL(test_arctan());
     ARIADNE_TEST_CALL(test_precision_regressions());
+    ARIADNE_TEST_CALL(test_short_power_and_tanh());
 }
 
 
@@ -2966,4 +2969,121 @@ TestFloatRounding<PR>::test_arctan()
     // Regression test
     ARIADNE_TEST_COMPARE(div(down,pi_down,4),<,div(up,pi_up,4));
 
+}
+
+
+template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        static const auto rows=load_floatap_power_golden_rows(
+            ARIADNE_TEST_DATA_DIR "/floatap_pow_short.tsv",3680u);
+        for (auto const& [key,expected]:rows) {
+            const FloatAP value(key.input,near,ArbitraryPrecision(key.bits));
+            const auto check=[&](auto mode) {
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(pow(mode,value,Nat(key.degree))),expected);
+            };
+            switch(key.mode) {
+                case 'N': check(near); break;
+                case 'D': check(down); break;
+                case 'U': check(up); break;
+                case 'Z': check(toward_zero); break;
+                default: throw std::runtime_error("Invalid short-power oracle mode");
+            }
+        }
+    }
+    static const auto rows=load_floatap_golden_rows(
+        ARIADNE_TEST_DATA_DIR "/floatap_tanh.tsv",716u);
+    for (auto const& [key,expected]:rows) {
+        if constexpr (Same<PR,DoublePrecision>) { if(key.bits!=53u) continue; }
+        const auto pr=[&]() {
+            if constexpr (Same<PR,ArbitraryPrecision>) return PR(key.bits);
+            else return PR{};
+        }();
+        const Float value(key.input,near,pr);
+        const auto check=[&](auto mode) {
+            ARIADNE_TEST_EQUALS(static_cast<Rational>(tanh(mode,value)),expected);
+            const auto old=Float::get_rounding_mode();
+            Float::set_rounding_mode(mode);
+            ARIADNE_TEST_EQUALS(static_cast<Rational>(tanh(CurrentRoundingMode{},value)),expected);
+            Float::set_rounding_mode(old);
+        };
+        switch(key.mode) {
+            case 'N': check(near); break;
+            case 'D': check(down); break;
+            case 'U': check(up); break;
+            case 'Z': check(toward_zero); break;
+            default: throw std::runtime_error("Invalid tanh oracle mode");
+        }
+    }
+    if constexpr (Same<PR,DoublePrecision>) {
+        // Reuse independent frozen transcendental literals for the shared
+        // binary64 adapter. MPFR converts the SOURCE input only; expected
+        // function values remain the existing offline exact certificates.
+        const auto verify=[&](char const* path,std::size_t count,
+                              auto evaluate,bool check_nearest) {
+            const auto golden=load_floatap_golden_rows(path,count);
+            const Rational window(Integer(1),pow(Integer(2),Nat(43u)));
+            for (auto const& [key,expected]:golden) {
+                if (key.bits!=53u || (key.mode=='N' && !check_nearest)) continue;
+                const FloatMP converted(key.input,MPFR_RNDN,MultiplePrecision(53));
+                const FloatDP input(ExactDouble(converted.get_d()),dp);
+                if (abs(abs(static_cast<Rational>(input))-Rational(1,2))>window) continue;
+                const auto check=[&](auto mode) {
+                    const auto old=FloatDP::get_rounding_mode();
+                    ARIADNE_TEST_EQUALS(static_cast<Rational>(evaluate(mode,input)),expected);
+                    ARIADNE_TEST_ASSERT(FloatDP::get_rounding_mode()==old);
+                };
+                switch(key.mode) {
+                    case 'N': check(near); break;
+                    case 'D': check(down); break;
+                    case 'U': check(up); break;
+                    case 'Z': check(toward_zero); break;
+                    default: throw std::runtime_error("Invalid shared transcendental oracle mode");
+                }
+            }
+        };
+        verify(ARIADNE_FLOATAP_CENTERED_EXP_ORACLE_PATH,568u,
+            [](auto mode,FloatDP value) { return exp(mode,value); },false);
+        verify(ARIADNE_FLOATAP_LOG_ORACLE_PATH,444u,
+            [](auto mode,FloatDP value) { return log(mode,value); },false);
+        verify(ARIADNE_FLOATAP_SIN_ORACLE_PATH,1080u,
+            [](auto mode,FloatDP value) { return sin(mode,value); },true);
+        verify(ARIADNE_FLOATAP_COS_ORACLE_PATH,1080u,
+            [](auto mode,FloatDP value) { return cos(mode,value); },true);
+        verify(ARIADNE_FLOATAP_TAN_ORACLE_PATH,1208u,
+            [](auto mode,FloatDP value) { return tan(mode,value); },false);
+        verify(ARIADNE_FLOATAP_ATAN_ORACLE_PATH,1340u,
+            [](auto mode,FloatDP value) { return atan(mode,value); },false);
+        verify(ARIADNE_FLOATAP_ASIN_ORACLE_PATH,728u,
+            [](auto mode,FloatDP value) { return asin(mode,value); },true);
+        verify(ARIADNE_FLOATAP_ACOS_ORACLE_PATH,728u,
+            [](auto mode,FloatDP value) { return acos(mode,value); },true);
+    }
+    const Float negative_zero(ExactDouble(-0.0),precision);
+    ARIADNE_TEST_ASSERT(std::signbit(negative_zero.get_d()));
+    ARIADNE_TEST_ASSERT(std::signbit(tanh(near,negative_zero).get_d()));
+    for (auto mode : {Float::ROUND_TO_NEAREST,Float::ROUND_DOWNWARD,
+                      Float::ROUND_UPWARD,Float::ROUND_TOWARD_ZERO}) {
+        const Float converted(ExactDouble(-0.0),mode,precision);
+        ARIADNE_TEST_ASSERT(std::signbit(converted.get_d()));
+        ARIADNE_TEST_ASSERT(std::signbit(tanh(mode,converted).get_d()));
+    }
+    if constexpr (Same<PR,ArbitraryPrecision>) {
+        const FloatDP source(ExactDouble(-0.0),dp);
+        ARIADNE_TEST_ASSERT(Float(source,precision).negative());
+        ARIADNE_TEST_ASSERT(Float(source,up,precision).negative());
+    }
+    ARIADNE_TEST_ASSERT(is_nan(tanh(near,Float::nan(precision))));
+    ARIADNE_TEST_EQUALS(tanh(near,Float::inf(Sign::POSITIVE,precision)),Float(1,precision));
+    ARIADNE_TEST_EQUALS(tanh(near,Float::inf(Sign::NEGATIVE,precision)),Float(-1,precision));
+    if constexpr (Same<PR,DoublePrecision>) {
+        const Float least(ExactDouble(std::numeric_limits<double>::denorm_min()),precision);
+        ARIADNE_TEST_EQUALS(tanh(near,least),least);
+        ARIADNE_TEST_EQUALS(tanh(up,least),least);
+        ARIADNE_TEST_EQUALS(tanh(down,least),Float(0,precision));
+        ARIADNE_TEST_EQUALS(tanh(toward_zero,least),Float(0,precision));
+        ARIADNE_TEST_EQUALS(tanh(near,-least),-least);
+        ARIADNE_TEST_EQUALS(tanh(down,-least),-least);
+        ARIADNE_TEST_ASSERT(std::signbit(tanh(up,-least).get_d()));
+        ARIADNE_TEST_EQUALS(tanh(up,-least),negative_zero);
+    }
 }

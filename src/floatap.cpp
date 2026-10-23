@@ -596,6 +596,7 @@ FloatAP log(CurrentRoundingMode, FloatAP const& x) { return log(FloatAP::get_rou
 FloatAP sin(CurrentRoundingMode, FloatAP const& x) { return sin(FloatAP::get_rounding_mode(),x); }
 FloatAP cos(CurrentRoundingMode, FloatAP const& x) { return cos(FloatAP::get_rounding_mode(),x); }
 FloatAP tan(CurrentRoundingMode, FloatAP const& x) { return tan(FloatAP::get_rounding_mode(),x); }
+FloatAP tanh(CurrentRoundingMode, FloatAP const& x) { return tanh(FloatAP::get_rounding_mode(),x); }
 FloatAP asin(CurrentRoundingMode, FloatAP const& x) { return asin(FloatAP::get_rounding_mode(),x); }
 FloatAP acos(CurrentRoundingMode, FloatAP const& x) { return acos(FloatAP::get_rounding_mode(),x); }
 FloatAP atan(CurrentRoundingMode, FloatAP const& x) { return atan(FloatAP::get_rounding_mode(),x); }
@@ -618,10 +619,10 @@ FloatAP mul(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2) { return mul
 FloatAP div(CurrentRoundingMode, ExactDouble x1, FloatAP const& x2) { return div(FloatAP::get_rounding_mode(),x1,x2); }
 
 FloatAP::Float(FloatDP const& value, PrecisionType precision)
-    : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
+    : Float(ExactDouble(value.get_d()), ROUND_TO_NEAREST, precision) { }
 
 FloatAP::Float(FloatDP const& value, RoundingModeType mode, PrecisionType precision)
-    : Float(Rational(value), mode, precision) { }
+    : Float(ExactDouble(value.get_d()), mode, precision) { }
 
 FloatAP::Float(FloatAP const& value, PrecisionType precision)
     : Float(value, ROUND_TO_NEAREST, precision) { }
@@ -714,7 +715,7 @@ Comparison cmp(Rational const& a, FloatAP const& b) {
 }
 
 FloatAP::Float(ExactDouble const& value, PrecisionType precision)
-    : Float(Rational(value), ROUND_TO_NEAREST, precision) { }
+    : Float(value, ROUND_TO_NEAREST, precision) { }
 
 FloatAP::Float(Dyadic const& value, PrecisionType precision)
     : Float(Rational(value), ROUND_TO_NEAREST, precision) {
@@ -734,7 +735,11 @@ FloatAP::Float(std::string const& value, PrecisionType precision)
 
 FloatAP::Float(ExactDouble const& value, RoundingModeType mode,
                PrecisionType precision)
-    : Float(Rational(value), mode, precision) { }
+    : Float(Rational(value), mode, precision) {
+    // Rational has one canonical zero. Preserve the source binary sign
+    // before it is lost at this otherwise exact conversion boundary.
+    if (value.get_d()==0.0) set_zero(std::signbit(value.get_d()));
+}
 
 FloatAP::Float(Dyadic const& value, RoundingModeType mode,
                PrecisionType precision)
@@ -1640,6 +1645,39 @@ FloatAP pow(FloatAP::RoundingModeType mode, FloatAP const& value, Nat exponent) 
         FloatAP result(bits);
         result._negative = value._negative && ((degree & 1ul) != 0ul);
         if (bits<=64u && degree<=16ul) {
+            // Near either bounding power of two, the scaled exact power
+            // is 2^q +/- n*d + R, with 0<R<1/2 for d!=0 under this
+            // bound. Its integer part and inexactness are therefore known
+            // without constructing the full p*n-bit integer power.
+            const auto word=value._significand.limb(0u);
+            const auto lower=std::uint64_t{1}<<(bits-1u);
+            const auto upper=bits==64u ? std::uint64_t{0} : std::uint64_t{1}<<bits;
+            const auto below=word-lower,above=upper-word;
+            const bool near_upper=above<below;
+            const auto distance=near_upper ? above : below;
+            const auto q=near_upper ? bits : bits-1u;
+            if (distance==0u || (q>=2u &&
+                distance<=(std::uint64_t{1}<<((q-2u)/2u))/degree)) {
+                const auto correction=distance*degree;
+                auto retained=near_upper ? upper-correction : lower+correction;
+                if (distance!=0u) {
+                    switch(mode.value()) {
+                        case FloatAP::Rounding::ToNearest:
+                        case FloatAP::Rounding::TowardZero: break;
+                        case FloatAP::Rounding::Downward:
+                            if (result._negative) ++retained;
+                            break;
+                        case FloatAP::Rounding::Upward:
+                            if (!result._negative) ++retained;
+                            break;
+                        default: throw std::invalid_argument("FloatAP unknown power rounding mode");
+                    }
+                }
+                result._exponent=FloatAP::checked_add(product_scale,
+                    static_cast<FloatAP::Exponent>(q*(degree-1ul)));
+                result._significand=BigUnsigned(retained);
+                return result;
+            }
             // Exact short floating-point powers need at most 1024 bits.
             // Keep intermediate products in two disjoint stack buffers;
             // all multiplication still uses the shared limb substrate.
@@ -3391,10 +3429,50 @@ Interval asin_interval(Fraction const& x, unsigned long work) {
             Fraction(2L) * right.upper};
 }
 
-enum class Function {
-    sine, cosine, tangent, arctangent, arcsine, arccosine,
-    pi, half_pi, negative_half_pi, exponential, logarithm
-};
+// For y=|x|, u=exp(-2*y) lies in [0,1] and
+// tanh(y)=(1-u)/(1+u), a decreasing function of u. Apply this
+// transform to exact outward exponential endpoints before final rounding.
+Interval tanh_interval(Fraction const& x,unsigned long work) {
+    if (x.sign()==0) return point(Fraction{});
+    const Fraction one(1L);
+    const Interval exponential=exp_interval(Fraction(-2L)*absolute(x),work);
+    const Interval positive{
+        (one-exponential.upper)/(one+exponential.upper),
+        (one-exponential.lower)/(one+exponential.lower)
+    };
+    return x.sign()<0 ? negative(positive) : positive;
+}
+
+// The same first-order tanh enclosure also serves arbitrary precision.
+// Cache certified dyadic center/derivative bounds rather than repeatedly
+// evaluating exp(-2*x) for arguments close to +/-1/2.
+Interval tanh_centered_or_general(Fraction const& input,unsigned long work) {
+    const Fraction delta=absolute(input)-Fraction(1L)/Fraction(2L);
+    if (!exp_inside_half_window(delta,work)) return tanh_interval(input,work);
+    struct Cache {
+        unsigned long work=0;
+        Interval center,slope;
+    };
+    static thread_local Cache cache;
+    if (cache.work<work) {
+        if (work>std::numeric_limits<unsigned long>::max()-40ul)
+            throw std::overflow_error("FloatAP tanh center precision overflow");
+        const auto center=tanh_interval(Fraction(1L)/Fraction(2L),work+40ul);
+        const Fraction one(1L);
+        const Interval slope{one-center.upper*center.upper,
+                             one-center.lower*center.lower};
+        cache.center=exp_outward_dyadic(center,work+24ul);
+        cache.slope=exp_outward_dyadic(slope,work+24ul);
+        cache.work=work;
+    }
+    auto result=add(cache.center,multiply_by_fraction(cache.slope,delta));
+    const Fraction error=delta*delta; // |tanh''|<=2, hence |R|<=delta^2
+    result.lower=result.lower-error;
+    result.upper=result.upper+error;
+    return input.sign()<0 ? negative(result) : result;
+}
+
+using Function=FloatTranscendental;
 
 // Replace exact division in repeated near-half tangent evaluations with
 // dyadic outward endpoints. The initial general division is computed only
@@ -3676,6 +3754,17 @@ struct FloatAPShortTranscendentals {
                 result.slope_negative=negative;
                 break;
             }
+            case Function::hyperbolic_tangent: {
+                const auto center=tanh_interval(Fraction(1L)/Fraction(2L),bits+40ul);
+                const Fraction one(1L);
+                const Interval slope{one-center.upper*center.upper,
+                                     one-center.lower*center.lower};
+                coefficients(result,center,slope,bits);
+                // |tanh''|=2*|tanh|*(1-tanh^2)<=2 globally.
+                result.error=1u;
+                result.result_negative=negative;
+                break;
+            }
             case Function::logarithm:
                 coefficients(result,log2_interval(bits+32ul),point(Fraction(2L)),bits);
                 result.error=8u;
@@ -3753,7 +3842,7 @@ struct FloatAPShortTranscendentals {
             offset>(std::uint64_t{1}<<(denominator_bits-cutoff)))) return std::nullopt;
 
         static thread_local std::array<Center,
-            2u*(static_cast<std::size_t>(Function::logarithm)+1u)> centers;
+            2u*(static_cast<std::size_t>(Function::hyperbolic_tangent)+1u)> centers;
         auto& center=centers[2u*static_cast<std::size_t>(function)+static_cast<unsigned>(x._negative)];
         if (center.bits!=bits) center=make_center(function,x._negative,bits);
 
@@ -3789,10 +3878,39 @@ struct FloatAPShortTranscendentals {
             lower._significand.limb(0u)==upper._significand.limb(0u)) return lower;
         return std::nullopt;
     }
+    static bool evaluate_double(Function function,FloatAP::Rounding mode,
+                                double value,double& output) {
+        if constexpr (sizeof(double)==sizeof(std::uint64_t) &&
+                      std::numeric_limits<double>::is_iec559 &&
+                      std::numeric_limits<double>::digits==53) {
+            const auto encoded=std::bit_cast<std::uint64_t>(value);
+            const auto exponent=(encoded>>52u)&0x7ffu;
+            // The certified window is around |x|=1/2, so every eligible
+            // binary64 input is normal in one of these two binades.
+            if (exponent!=1021u && exponent!=1022u) return false;
+            FloatAP input(53ul);
+            input._negative=(encoded>>63u)!=0u;
+            input._exponent=static_cast<FloatAP::Exponent>(exponent)-1023-52;
+            input._significand=BigUnsigned((encoded&((std::uint64_t{1}<<52u)-1u)) |
+                                           (std::uint64_t{1}<<52u));
+            if (auto result=evaluate(function,mode,input)) {
+                output=result->get_d(); // exact normal binary64 encoding
+                return true;
+            }
+        }
+        return false;
+    }
 };
+
+bool try_floatdp_transcendental(FloatTranscendental function,
+        FloatAP::Rounding mode,double input,double& output) {
+    return FloatAPShortTranscendentals::evaluate_double(function,mode,input,output);
+}
 
 Interval evaluate(Function function, Fraction const& x, unsigned long work) {
     switch (function) {
+        case Function::hyperbolic_tangent:
+            return tanh_centered_or_general(x,work);
         case Function::sine:
             return sine_cosine_intervals(x, work, TrigOutputs::sine).first;
         case Function::cosine:
@@ -3968,6 +4086,46 @@ FloatAP log(FloatAP::RoundingModeType mode, FloatAP const& x) {
     return certified([&](unsigned long work) {
         return log_half_centered_or_general(input, work);
     }, mode, x.precision());
+}
+
+FloatAP tanh(FloatAP::RoundingModeType mode,FloatAP const& x) {
+    using namespace Detail;
+    const auto bits=x._precision;
+    if (x.is_nan()) return FloatAP::nan(bits);
+    if (x.is_zero()) return x;
+    if (x.is_inf()) return FloatAP(x._negative ? -1 : 1,x.precision());
+    if (auto result=FloatAPShortTranscendentals::evaluate(
+            Function::hyperbolic_tangent,mode,x)) return std::move(*result);
+
+    const bool directed_toward_zero=mode==FloatAP::Rounding::TowardZero ||
+        (mode==FloatAP::Rounding::Downward && !x._negative) ||
+        (mode==FloatAP::Rounding::Upward && x._negative);
+    // e>2 implies 1-tanh(y)<2*exp(-2*y)<2^(1-2*y).
+    // At y>=ceil((p+2)/2), this is below half an ulp beneath 1.
+    const FloatAP saturation(Integer((static_cast<std::uint64_t>(bits)+3u)/2u),x.precision());
+    if (cmp(abs(x),saturation)!=Comparison::LESS) {
+        FloatAP result(x._negative ? -1 : 1,x.precision());
+        if (directed_toward_zero) {
+            result._significand=sub_big_unsigned(shift_left(BigUnsigned(1u),bits),BigUnsigned(1u));
+            result._exponent=-static_cast<FloatAP::Exponent>(bits);
+        }
+        return result;
+    }
+    const auto highest=FloatAP::checked_add(x._exponent,
+        static_cast<FloatAP::Exponent>(bits-1u));
+    // 0<y-tanh(y)<y^3. This conservative small-input window
+    // places the difference below half the spacing beneath y, including
+    // binade boundaries. The exact answer is strictly closer to zero.
+    if (highest<=-static_cast<FloatAP::Exponent>(bits/2u+4u)) {
+        if (!directed_toward_zero) return x;
+        FloatAP result=x;
+        if (floatap_popcount(x._significand)==1u) {
+            result._exponent=FloatAP::checked_sub(x._exponent,1);
+            result._significand=sub_big_unsigned(shift_left(BigUnsigned(1u),bits),BigUnsigned(1u));
+        } else result._significand=sub_big_unsigned(x._significand,BigUnsigned(1u));
+        return result;
+    }
+    return certified(Function::hyperbolic_tangent,rational_argument(x),mode,x.precision());
 }
 
 FloatAP sin(FloatAP::RoundingModeType mode, FloatAP const& x) {

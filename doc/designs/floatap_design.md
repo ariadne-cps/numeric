@@ -12335,3 +12335,61 @@ signs, near-half neighborhoods, boundaries and general fallbacks.
 AddressSanitizer/UBSan Debug tests with warnings treated as errors: 20/20
 pass, run separately. Cross-platform CI is still required; local macOS checks
 do not establish Windows/Linux correctness or performance.
+
+
+### D144 — short integer powers, raw tanh and shared binary64 kernels (23 October 2026)
+
+`pow7` names the benchmark's call to the general integer-power operation,
+not a separate public function. For p<=64 and degrees 2..16, arguments
+close to either adjacent power of two now avoid the full p*n-bit product.
+Write their magnitude as (2^q +/- d)*2^e and require
+n*d<=2^floor((q-2)/2), with exact powers of two handled separately.
+The exact scaled result is 2^q +/- n*d + R, with 0<R<1/2 for d!=0.
+Indeed convexity makes R positive on either side, and the absolute
+binomial remainder is bounded by
+(n*d)^2/[2^(q+1)*(1-n*d/2^q)]<1/2 under that condition.
+The integer part and inexactness therefore determine every rounding mode
+without a multiprecision power. Other arguments/degrees keep the exact
+buffered/generic path. Exponent arithmetic and signed special values keep
+the previous contracts. The existing comparison measured about 9–10 ns
+for pow7 at 53 bits, versus about 56 ns before this shortcut.
+
+Add raw `tanh(mode,x)` and current-mode overloads for FloatAP/FloatMP/FloatDP.
+FloatAP constructs exact outward bounds using u=exp(-2*|x|) and the
+monotone transform (1-u)/(1+u), with one final certified rounding.
+The short centered kernel uses tanh(1/2) and 1-tanh(1/2)^2, with
+|tanh''|<=2 giving the remainder bound delta^2. A dyadic centered cache
+also supports arbitrary precision; general arguments retain adaptive
+interval refinement. Very small values use 0<y-tanh(y)<y^3 to choose x
+or its immediate predecessor in magnitude. Large values use
+1-tanh(y)<2^(1-2*y) to select +/-1 or its predecessor. Directed results
+that would exceed FloatAP's native exponent range retain checked overflow.
+FloatMP calls mpfr_tanh. FloatDP uses the shared certified short kernel
+and an MPFR-backed reference outside it, with explicit tiny/subnormal
+handling to avoid double rounding. FloatAP gains no MPFR dependency.
+Bounds, Approximation and Rounded wrappers now reach the raw operation.
+
+The binary64 adapter decodes normal near-half inputs directly into their
+exact 53-bit significand and exponent, reuses D143's outward coefficient
+cache and integer rounding, then encodes the exact binary64 result.
+FloatDP uses it for directed exp/log/sin/cos/tan/atan/asin/acos/tanh and
+nearest sin/cos/asin/acos/tanh. Keep the cheaper legacy nearest
+exp/log/tan/atan paths. Outside the certified window, prior algorithms
+remain in place. Current-mode wrappers preserve the caller's mode.
+
+Both comparison benchmarks now contain tanh_nearest/down/up, for 56
+operations, with a shared operation-count constant used by the existing
+post-timing verifier. Print a separator on backend changes as well as
+precision changes. No new test executable is added. Existing rounding
+tests gain 3,680 independent exact short-power boundary literals and 716
+independent tanh literals from rigorous integer/rational exponential
+bounds. Reuse the frozen transcendental oracles for the binary64 adapter.
+The signed-zero regression exposed a pre-existing conversion bug:
+ExactDouble/FloatDP -> Rational -> FloatAP lost -0. Preserve its source
+sign explicitly and check both the converted input and tanh output.
+
+Validation at this checkpoint: Release CTest 21/21 including Python;
+existing multiple-precision comparison verifies 384 paired inputs and
+10,752 operation results across 53/64/128/256/1024/2048 bits. The high-
+precision tanh performance work continues after this checkpoint. Sanitizer
+and cross-platform CI results for D144 are not yet claimed.

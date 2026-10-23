@@ -51,7 +51,13 @@ class Rational;
 class Dyadic;
 class ExactDouble;
 class TwoExp;
-namespace Detail { struct FloatAPShortTranscendentals; }
+namespace Detail {
+    enum class FloatTranscendental {
+        sine,cosine,tangent,arctangent,arcsine,arccosine,
+        pi,half_pi,negative_half_pi,exponential,logarithm,hyperbolic_tangent
+    };
+    struct FloatAPShortTranscendentals;
+}
 struct RoundDownward;
 struct RoundUpward;
 struct RoundToNearest;
@@ -556,6 +562,7 @@ template<> class Float<ArbitraryPrecision> {
     friend FloatAP sin(CurrentRoundingMode, FloatAP const& x);
     friend FloatAP cos(CurrentRoundingMode, FloatAP const& x);
     friend FloatAP tan(CurrentRoundingMode, FloatAP const& x);
+    friend FloatAP tanh(CurrentRoundingMode, FloatAP const& x);
     friend FloatAP asin(CurrentRoundingMode, FloatAP const& x);
     friend FloatAP acos(CurrentRoundingMode, FloatAP const& x);
     friend FloatAP atan(CurrentRoundingMode, FloatAP const& x);
@@ -667,6 +674,7 @@ template<> class Float<ArbitraryPrecision> {
     friend FloatAP sin(RoundingModeType mode, FloatAP const& x);
     friend FloatAP cos(RoundingModeType mode, FloatAP const& x);
     friend FloatAP tan(RoundingModeType mode, FloatAP const& x);
+    friend FloatAP tanh(RoundingModeType mode, FloatAP const& x);
     friend FloatAP atan(RoundingModeType mode, FloatAP const& x);
     friend FloatAP asin(RoundingModeType mode, FloatAP const& x);
     friend FloatAP acos(RoundingModeType mode, FloatAP const& x);
@@ -687,6 +695,13 @@ template<> class Float<ArbitraryPrecision> {
     static FloatAP fma(FloatAP const& a, FloatAP const& b,
     FloatAP const& c, unsigned long precision, Rounding mode);
 };
+
+// Shared certified short kernel; the binary64 adapter preserves the
+// same enclosure/rounding contract without constructing Rational inputs.
+namespace Detail {
+    bool try_floatdp_transcendental(FloatTranscendental function,
+        FloatAP::Rounding mode,double input,double& output);
+}
 
 template<class R, class A> R integer_cast(A const& value);
 template<> inline Int integer_cast(const FloatAP& x) { return static_cast<Int>(x.get_d()); }

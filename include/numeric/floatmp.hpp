@@ -335,6 +335,7 @@ template<> class Float<MP>
     friend FloatMP sin(CurrentRoundingMode, FloatMP const& x); //!< <p/>
     friend FloatMP cos(CurrentRoundingMode, FloatMP const& x); //!< <p/>
     friend FloatMP tan(CurrentRoundingMode, FloatMP const& x); //!< <p/>
+    friend FloatMP tanh(CurrentRoundingMode, FloatMP const& x);
     friend FloatMP asin(CurrentRoundingMode, FloatMP const& x); //!< <p/>
     friend FloatMP acos(CurrentRoundingMode, FloatMP const& x); //!< <p/>
     friend FloatMP atan(CurrentRoundingMode, FloatMP const& x); //!< <p/>
@@ -393,6 +394,7 @@ template<> class Float<MP>
     friend FloatMP sin(RoundingModeType rnd, FloatMP const& x); //!< <p/>
     friend FloatMP cos(RoundingModeType rnd, FloatMP const& x); //!< <p/>
     friend FloatMP tan(RoundingModeType rnd, FloatMP const& x); //!< <p/>
+    friend FloatMP tanh(RoundingModeType mode, FloatMP const& x);
     friend FloatMP asin(RoundingModeType rnd, FloatMP const& x); //!< <p/>
     friend FloatMP acos(RoundingModeType rnd, FloatMP const& x); //!< <p/>
     friend FloatMP atan(RoundingModeType rnd, FloatMP const& x); //!< <p/>

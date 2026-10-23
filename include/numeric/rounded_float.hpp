@@ -133,25 +133,15 @@ template<> class Rounded<FloatDP>
     friend Rounded<FloatDP> fma(Rounded<FloatDP> x1, Rounded<FloatDP> x2, Rounded<FloatDP> x3) { return Rounded<FloatDP>(fma_rnd(x1._flt.dbl,x2._flt.dbl,x3._flt.dbl)); }
     friend Rounded<FloatDP> pow(Rounded<FloatDP> x, Int n) { return Rounded<FloatDP>(pow_rnd(x._flt.dbl,n)); }
     friend Rounded<FloatDP> sqrt(Rounded<FloatDP> x) { return Rounded<FloatDP>(sqrt_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> exp(Rounded<FloatDP> x) { return Rounded<FloatDP>(exp_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> log(Rounded<FloatDP> x) { return Rounded<FloatDP>(log_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> sin(Rounded<FloatDP> x) { return Rounded<FloatDP>(sin_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> cos(Rounded<FloatDP> x) { return Rounded<FloatDP>(cos_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> tan(Rounded<FloatDP> x) { return Rounded<FloatDP>(tan_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> tanh(Rounded<FloatDP> x) {
-        Rounded<FloatDP> one(1,x.precision());
-        Rounded<FloatDP> two_value(2,x.precision());
-        if(x._flt.dbl>=0.0) {
-            Rounded<FloatDP> e=exp(two_value*x);
-            return one-two_value/(e+one);
-        } else {
-            Rounded<FloatDP> e=exp(two_value*(-x));
-            return two_value/(e+one)-one;
-        }
-    }
-    friend Rounded<FloatDP> asin(Rounded<FloatDP> x) { return Rounded<FloatDP>(asin_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> acos(Rounded<FloatDP> x) { return Rounded<FloatDP>(acos_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> atan(Rounded<FloatDP> x) { return Rounded<FloatDP>(atan_rnd(x._flt.dbl)); }
+    friend Rounded<FloatDP> exp(Rounded<FloatDP> x) { return Rounded<FloatDP>(exp(FloatDP::get_rounding_mode(),x._flt)); }
+    friend Rounded<FloatDP> log(Rounded<FloatDP> x) { return Rounded<FloatDP>(log(FloatDP::get_rounding_mode(),x._flt)); }
+    friend Rounded<FloatDP> sin(Rounded<FloatDP> x) { return Rounded<FloatDP>(sin(FloatDP::get_rounding_mode(),x._flt)); }
+    friend Rounded<FloatDP> cos(Rounded<FloatDP> x) { return Rounded<FloatDP>(cos(FloatDP::get_rounding_mode(),x._flt)); }
+    friend Rounded<FloatDP> tan(Rounded<FloatDP> x) { return Rounded<FloatDP>(tan(FloatDP::get_rounding_mode(),x._flt)); }
+    friend Rounded<FloatDP> tanh(Rounded<FloatDP> x) { return Rounded<FloatDP>(tanh(FloatDP::get_rounding_mode(),x._flt)); }
+    friend Rounded<FloatDP> asin(Rounded<FloatDP> x) { return Rounded<FloatDP>(asin(FloatDP::get_rounding_mode(),x._flt)); }
+    friend Rounded<FloatDP> acos(Rounded<FloatDP> x) { return Rounded<FloatDP>(acos(FloatDP::get_rounding_mode(),x._flt)); }
+    friend Rounded<FloatDP> atan(Rounded<FloatDP> x) { return Rounded<FloatDP>(atan(FloatDP::get_rounding_mode(),x._flt)); }
     static Rounded<FloatDP> pi(PrecisionType) { return Rounded<FloatDP>(pi_rnd()); }
 
     friend Rounded<FloatDP> abs(Rounded<FloatDP> x) { return Rounded<FloatDP>(abs_rnd(x._flt.dbl)); }
@@ -286,17 +276,7 @@ Rounded(Approximation<FloatType> const& x) : Rounded(x.raw()) { }
     friend Rounded<FloatType> sin(Rounded<FloatType> x) { return Rounded<FloatType>(sin(_rnd,x._flt)); }
     friend Rounded<FloatType> cos(Rounded<FloatType> x) { return Rounded<FloatType>(cos(_rnd,x._flt)); }
     friend Rounded<FloatType> tan(Rounded<FloatType> x) { return Rounded<FloatType>(tan(_rnd,x._flt)); }
-    friend Rounded<FloatType> tanh(Rounded<FloatType> x) {
-        Rounded<FloatType> one(1,x.precision());
-        Rounded<FloatType> two_value(2,x.precision());
-        if(definitely(x>=0)) {
-            Rounded<FloatType> e=exp(two_value*x);
-            return one-two_value/(e+one);
-        } else {
-            Rounded<FloatType> e=exp(two_value*(-x));
-            return two_value/(e+one)-one;
-        }
-    }
+    friend Rounded<FloatType> tanh(Rounded<FloatType> x) { return Rounded<FloatType>(tanh(_rnd,x._flt)); }
     friend Rounded<FloatType> asin(Rounded<FloatType> x) { return Rounded<FloatType>(asin(_rnd,x._flt)); }
     friend Rounded<FloatType> acos(Rounded<FloatType> x) { return Rounded<FloatType>(acos(_rnd,x._flt)); }
     friend Rounded<FloatType> atan(Rounded<FloatType> x) { return Rounded<FloatType>(atan(_rnd,x._flt)); }

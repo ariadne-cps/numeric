@@ -260,26 +260,7 @@ template<class F> class Bounds
     friend Bounds<F> tan(Bounds<F> const& x) {
         return Operations<Bounds<F>>::_tan(x); } //!< <p/>
     friend Bounds<F> tanh(Bounds<F> const& x) {
-        F zero(0,x.precision()); F one(1,x.precision()); F two_value(2,x.precision());
-        auto lower_tanh=[&](F const& v) {
-            if(v>=zero) {
-                F e=exp(down,mul(down,two_value,v));
-                return sub(down,one,div(up,two_value,add(down,e,one)));
-            } else {
-                F e=exp(up,mul(up,two_value,neg(v)));
-                return sub(down,div(down,two_value,add(up,e,one)),one);
-            }
-        };
-        auto upper_tanh=[&](F const& v) {
-            if(v>=zero) {
-                F e=exp(up,mul(up,two_value,v));
-                return sub(up,one,div(down,two_value,add(up,e,one)));
-            } else {
-                F e=exp(down,mul(down,two_value,neg(v)));
-                return sub(up,div(up,two_value,add(down,e,one)),one);
-            }
-        };
-        return Bounds<F>(lower_tanh(x.lower_raw()),upper_tanh(x.upper_raw()));
+        return Bounds<F>(tanh(down,x.lower_raw()),tanh(up,x.upper_raw()));
     } //!< <p/>
     friend Bounds<F> asin(Bounds<F> const& x) {
         F minus_one(-1,x.precision());

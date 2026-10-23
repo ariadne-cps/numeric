@@ -20,7 +20,9 @@
 namespace AriadneBenchmark {
 using namespace Ariadne;
 
-// Keep both comparison executables on the same 27-operation battery
+inline constexpr unsigned backend_operation_count=56u;
+
+// Keep both comparison executables on the same operation battery
 // and identical, deterministic 32-element exact-rational input pool.
 // Changing the workload here deliberately changes BOTH benchmarks.
 template< class T > inline void keep_alive(T const& value) {
@@ -61,7 +63,7 @@ struct BenchmarkDatum {
 };
 
 // Both the timer and its post-measurement numerical checker use the
-// *same* input construction and the *same* 27 operation callables.
+// *same* input construction and the *same* operation callables.
 // A new operation cannot silently enter only one of the two paths.
 template<class Float> struct BackendPool {
     using Precision = typename Float::PrecisionType;
@@ -251,6 +253,15 @@ void for_each_backend_operation(BackendPool<Float> const& pool, Visit&& report) 
     });
     report("tan_up",[&](unsigned i) {
         return tan(Float::ROUND_UPWARD,a[index(i)]);
+    });
+    report("tanh_nearest",[&](unsigned i) {
+        return tanh(Float::ROUND_TO_NEAREST,a[index(i)]);
+    });
+    report("tanh_down",[&](unsigned i) {
+        return tanh(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("tanh_up",[&](unsigned i) {
+        return tanh(Float::ROUND_UPWARD,a[index(i)]);
     });
     report("atan_nearest",[& ](unsigned i) {
         return atan(Float::ROUND_TO_NEAREST, a[index(i)]);

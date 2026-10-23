@@ -417,6 +417,7 @@ FloatMP log(CurrentRoundingMode, FloatMP const& x) { return log(FloatMP::get_rou
 FloatMP sin(CurrentRoundingMode, FloatMP const& x) { return sin(FloatMP::get_rounding_mode(),x); }
 FloatMP cos(CurrentRoundingMode, FloatMP const& x) { return cos(FloatMP::get_rounding_mode(),x); }
 FloatMP tan(CurrentRoundingMode, FloatMP const& x) { return tan(FloatMP::get_rounding_mode(),x); }
+FloatMP tanh(CurrentRoundingMode, FloatMP const& x) { return tanh(FloatMP::get_rounding_mode(),x); }
 FloatMP asin(CurrentRoundingMode, FloatMP const& x) { return asin(FloatMP::get_rounding_mode(),x); }
 FloatMP acos(CurrentRoundingMode, FloatMP const& x) { return acos(FloatMP::get_rounding_mode(),x); }
 FloatMP atan(CurrentRoundingMode, FloatMP const& x) { return atan(FloatMP::get_rounding_mode(),x); }
@@ -710,6 +711,10 @@ FloatMP cos(FloatMP::RoundingModeType rnd, FloatMP const& x) {
 
 FloatMP tan(FloatMP::RoundingModeType rnd, FloatMP const& x) {
     FloatMP r(x.precision(),NoInit()); mpfr_tan(r._mpfr,x._mpfr,rnd); return r;
+}
+
+FloatMP tanh(FloatMP::RoundingModeType rnd, FloatMP const& x) {
+    FloatMP r(x.precision(),NoInit()); mpfr_tanh(r._mpfr,x._mpfr,rnd); return r;
 }
 
 FloatMP asin(FloatMP::RoundingModeType rnd, FloatMP const& x) {
