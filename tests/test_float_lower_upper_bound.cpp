@@ -277,8 +277,16 @@ TestDirectedFloats<PR>::test_conversions()
     ARIADNE_TEST_EQUALS(cast_integer(FloatUpperBound<PR>(Dyadic(5,2u),precision)),Integer(2));
     ARIADNE_TEST_EQUALS(cast_integer(FloatLowerBound<PR>(Dyadic(11,2u),precision)),Integer(2));
     
-    // Test that FloatError can be constructed from NaN
-    ARIADNE_TEST_EXECUTE(FloatError<PR>(Float<PR>::nan(precision)));
+    // A NaN is unordered, not a negative value. FloatAP must agree with
+    // FloatMP in mixed comparisons against integer literals, and error
+    // bounds must allow NaN without weakening the negative-error invariant.
+    const Float<PR> nan_value=Float<PR>::nan(precision);
+    ARIADNE_TEST_ASSERT(not (nan_value<0));
+    ARIADNE_TEST_ASSERT(not (nan_value<=0));
+    ARIADNE_TEST_ASSERT(not (nan_value>0));
+    ARIADNE_TEST_ASSERT(not (nan_value>=0));
+    ARIADNE_TEST_ASSERT(nan_value!=0);
+    ARIADNE_TEST_EXECUTE(FloatError<PR>(nan_value));
 
     FloatLowerBoundType lower_bound(five_thirds,precision);
     FloatUpperBoundType upper_bound(five_thirds,precision);

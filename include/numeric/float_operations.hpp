@@ -122,7 +122,15 @@ template<class Y1, class Y2> concept HaveCmp = requires(Y1 y1, Y2 y2) {
     { cmp(y1,y2) } -> SameAs<Comparison>;
 };
 template<class OP, class Y1, class Y2> requires HaveCmp<Y1,Y2> Boolean _cmp(OP op, Y1 const& y1, Y2 const& y2) {
-    return op(cmp(y1,y2),Comparison::EQUAL); }
+    const Comparison comparison=cmp(y1,y2);
+    // INCOMPARABLE is encoded as -128, not as an ordered value.
+    // Comparing that sentinel with EQUAL (=0) makes NaN spuriously less
+    // than ordinary numbers. Preserve the same unordered behavior as MPFR.
+    if(comparison==Comparison::INCOMPARABLE) {
+        if constexpr (SameAs<OP,Ne>) { return true; }
+        else { return false; }
+    }
+    return op(comparison,Comparison::EQUAL); }
 
 template<class Y1, class Y2> requires HaveCmp<Y1,Y2> Boolean operator==(Y1 const& y1, Y2 const& y2) { return _cmp(Eq(),y1,y2); }
 template<class Y1, class Y2> requires HaveCmp<Y1,Y2> Boolean operator!=(Y1 const& y1, Y2 const& y2) { return _cmp(Ne(),y1,y2); }
