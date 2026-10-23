@@ -8164,3 +8164,33 @@ Each reader rejects missing, misordered and extra rows.
 R5 and bridge-specific GMP tests remain unchanged; benchmark, CMake,
 FloatMP and production algorithms are untouched.
 Cross-platform CI is required before treating this migration as verified.
+
+### R33.12 — migrate remaining R5 get_d GMP oracle (23 October 2026)
+
+Migrate the original R5 conversion differential block from runtime
+GMP mpq_get_d to source-keyed, independently computed exact
+IEEE-754 binary64 bits in tests/data/rational_r5.tsv. Preserve
+the original 12 shifts (0/1/52/53/1022/1023/1024/1073/1074/
+1075/1076/2048), four FE rounding modes and four signed numerator/
+denominator scale patterns per visit: 48 exact source pairs and
+192 raw binary64 checks. No sampling, operand substitution or
+changes to the historical std::mt19937_64 stream. Offline source
+generation reproduces the previously advanced R0 and R29/R13
+generator consumption, and was checked against a separately compiled
+C++20 std::mt19937_64 source producer including five R5 samples.
+The exact output oracle derives binary64 exponent/significand by
+BigInt quotient with truncation and handles subnormals, overflow
+and the historical positive-zero underflow contract; it never
+calls Numeric, GMP or MPFR. Compare all four raw uint64 patterns
+and check exact generated source inputs, row order and no extra
+or missing rows. Maintain explicit mismatch diagnostics for
+mode, shift, operation, actual and expected patterns.
+
+This completes migration of R5/R7/R12/R13/R29 runtime GMP
+conversion oracles. The standalone test_gmp_differential naming
+and the exceptional GMP rational bridge constructor check remain
+because the bridge is a separate interoperability concern; likewise,
+BigUnsigned and Integer still have GMP oracle code. Production
+arithmetic, FloatMP, benchmark reference, and all CMake files
+are unchanged. Require Unix/Windows/Sanitizers/Coverage CI before
+declaring the test migration validated.

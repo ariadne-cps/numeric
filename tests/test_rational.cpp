@@ -73,6 +73,7 @@ inline constexpr char R3_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r3.tsv
 inline constexpr char R7_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r7.tsv";
 inline constexpr char R12_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r12.tsv";
 inline constexpr char R29_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r29.tsv";
+inline constexpr char R5_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r5.tsv";
 
 constexpr bool check_concept()
 {
@@ -1075,6 +1076,10 @@ void TestRational::test_gmp_differential() {
     if (!r29_golden) throw std::runtime_error("Missing R29 oracle TSV");
     std::string r29_header;
     while (r29_golden.peek()=='#') std::getline(r29_golden,r29_header);
+    std::ifstream r5_golden(R5_ORACLE_PATH);
+    if (!r5_golden) throw std::runtime_error("Missing R5 oracle TSV");
+    std::string r5_header;
+    while (r5_golden.peek()=='#') std::getline(r5_golden,r5_header);
     for (unsigned mode_index=0u;mode_index<modes.size();++mode_index) {
         const int mode=modes[mode_index];
         ARIADNE_TEST_EQUALS(std::fesetround(mode),0);
@@ -1213,18 +1218,29 @@ void TestRational::test_gmp_differential() {
                     expected_bits;
             }
         }
+        // R5: all original shifts and four signed, scaled operands.
+        // Frozen raw binary64 patterns are independent of Numeric and GMP.
         for (unsigned int shift : shifts) {
             const Integer factor=pow(Integer(2),Nat(shift));
             const Integer n=Integer(random()|1u),d=Integer(random()|1u);
+            unsigned ref_mode=0u,ref_shift=0u;
+            std::string ref_n,ref_d;
+            std::array<std::uint64_t,4> expected_bits{};
+            if (!(r5_golden >> ref_mode >> ref_shift >> ref_n >> ref_d
+                  >> expected_bits[0] >> expected_bits[1]
+                  >> expected_bits[2] >> expected_bits[3])
+                || ref_mode!=mode_index || ref_shift!=shift
+                || n!=Integer(String(ref_n)) || d!=Integer(String(ref_d))) {
+                throw std::runtime_error("Missing or source-mismatched R5 TSV row");
+            }
             const std::array<Rational,4> values={Rational(n,d*factor),Rational(-n,d*factor),
                                                 Rational(n*factor,d),Rational(-n*factor,d)};
-            for (Rational const& value : values) {
-                GmpRationalBoundary raw(value);
-                const auto actual=std::bit_cast<std::uint64_t>(value.get_d());
-                const auto expected_bits=std::bit_cast<std::uint64_t>(mpq_get_d(raw.value()));
-                if (actual!=expected_bits) {
+            for (unsigned index=0u;index<values.size();++index) {
+                const auto actual=std::bit_cast<std::uint64_t>(values[index].get_d());
+                if (actual!=expected_bits[index]) {
                     std::cerr << "Rational double mismatch: mode=" << mode << " shift=" << shift
-                              << " actual=" << actual << " expected=" << expected_bits << '\n';
+                              << " case=" << index << " actual=" << actual
+                              << " expected=" << expected_bits[index] << '\n';
                     conversion_matches=false;
                 }
             }
@@ -1240,6 +1256,9 @@ void TestRational::test_gmp_differential() {
     std::string r29_extra;
     if (r29_golden >> r29_extra)
         throw std::runtime_error("Extra R29 oracle TSV rows");
+    std::string r5_extra;
+    if (r5_golden >> r5_extra)
+        throw std::runtime_error("Extra R5 oracle TSV rows");
     ARIADNE_TEST_ASSERT(conversion_matches);
 }
 
