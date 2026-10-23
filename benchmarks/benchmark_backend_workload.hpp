@@ -216,35 +216,89 @@ void for_each_backend_operation(BackendPool<Float> const& pool, Visit&& report) 
         return log(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
+    report("log_down",[&](unsigned i) {
+        return log(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("log_up",[&](unsigned i) {
+        return log(Float::ROUND_UPWARD,a[index(i)]);
+    });
     report("sin_nearest",[& ](unsigned i) {
         return sin(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
+    report("sin_down",[&](unsigned i) {
+        return sin(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("sin_up",[&](unsigned i) {
+        return sin(Float::ROUND_UPWARD,a[index(i)]);
+    });
     report("cos_nearest",[& ](unsigned i) {
         return cos(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
+    report("cos_down",[&](unsigned i) {
+        return cos(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("cos_up",[&](unsigned i) {
+        return cos(Float::ROUND_UPWARD,a[index(i)]);
+    });
     report("tan_nearest",[& ](unsigned i) {
         return tan(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
+    report("tan_down",[&](unsigned i) {
+        return tan(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("tan_up",[&](unsigned i) {
+        return tan(Float::ROUND_UPWARD,a[index(i)]);
+    });
     report("atan_nearest",[& ](unsigned i) {
         return atan(Float::ROUND_TO_NEAREST, a[index(i)]);
     }
     );
+    report("atan_down",[&](unsigned i) {
+        return atan(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("atan_up",[&](unsigned i) {
+        return atan(Float::ROUND_UPWARD,a[index(i)]);
+    });
     report("asin_nearest", [&](unsigned i) {
         return asin(Float::ROUND_TO_NEAREST, a[index(i)]);
+    });
+    report("asin_down",[&](unsigned i) {
+        return asin(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("asin_up",[&](unsigned i) {
+        return asin(Float::ROUND_UPWARD,a[index(i)]);
     });
     report("acos_nearest", [&](unsigned i) {
         return acos(Float::ROUND_TO_NEAREST, a[index(i)]);
     });
+    report("acos_down",[&](unsigned i) {
+        return acos(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("acos_up",[&](unsigned i) {
+        return acos(Float::ROUND_UPWARD,a[index(i)]);
+    });
     report("pi_nearest", [&](unsigned) {
         return Float::pi(Float::ROUND_TO_NEAREST, precision);
+    });
+    report("pi_down",[&](unsigned) {
+        return Float::pi(Float::ROUND_DOWNWARD,precision);
+    });
+    report("pi_up",[&](unsigned) {
+        return Float::pi(Float::ROUND_UPWARD,precision);
     });
     report("pow7_nearest",[& ](unsigned i) {
         return pow(Float::ROUND_TO_NEAREST, a[index(i)], Nat(7u));
     }
     );
+    report("pow7_down",[&](unsigned i) {
+        return pow(Float::ROUND_DOWNWARD,a[index(i)],Nat(7u));
+    });
+    report("pow7_up",[&](unsigned i) {
+        return pow(Float::ROUND_UPWARD,a[index(i)],Nat(7u));
+    });
     report("to_double",[& ](unsigned i) {
         return a[index(i)].get_d();
     }

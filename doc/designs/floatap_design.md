@@ -11833,3 +11833,33 @@ this provides no D131 performance evidence. Run the cross-platform
 CI and obtain user-supplied same-host performance results before
 accepting any speedup claim. Native transcendental migration is not
 complete until remaining Fraction/GMP paths are eliminated.
+
+### D132 — complete directed-rounding coverage of the comparison benchmark (23 October 2026)
+
+Following the D124–D131 conversions, the benchmark still timed only
+nearest rounding for log, sin, cos, tan, atan, asin, acos, and pi.
+This left every directed-rounding performance path of the migrated
+certified transcendental kernels unmeasured except exponential, despite
+the pre-existing support in BOTH FloatAP and FloatMP APIs.
+The common monomorphic `for_each_backend_operation` workload now
+adds `log_down/up`, `sin_down/up`, `cos_down/up`, `tan_down/up`,
+`atan_down/up`, `asin_down/up`, `acos_down/up`, and
+`pi_down/up`, plus `pow7_down/up` to complete all rounding-sensitive
+operations in the same comparison. The three variants of each operation
+use the same indexed value(s) or requested precision in both backends.
+
+There are now 53 distinct operations per precision, instead of 35.
+The exact post-timing differential verifier's operation-count guard
+is updated to 53; for a standard six-precision run it compares
+53*32*6=10176 paired operation outputs and 384 paired inputs.
+All preexisting nearest operations, test inputs, workload timing logic,
+CLI bit precision parsing, numerical production code, and independent
+source-keyed exact oracles are unchanged. In particular, pi is
+evaluated outside the index-dependent lambda just as in the nearest
+case, and `pow7` keeps its original `Nat(7u)` exponent.
+
+Directed transcendental results still require rigorous directed
+certification; the added exact comparisons may reveal genuine
+existing bugs and must not be relaxed to accept approximate numerical
+agreement. Benchmark CI and a post-change measurement by the user
+are required before any performance claims. No speedup is claimed.
