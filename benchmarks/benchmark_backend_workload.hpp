@@ -74,8 +74,8 @@ template<class Float> struct BackendPool {
             }
             return Precision{};
         } else {
-            // Construct the requested precision, not a predefined fallback.
-            // Honor the exact bit count, including 2048 and 4096 bits.
+            // Construct precisely the requested bit count: the comparison
+            // CLI accepts every integer precision >=2, not a fixed preset list.
             return Precision(bits);
         }
     }

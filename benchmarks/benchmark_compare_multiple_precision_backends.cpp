@@ -353,7 +353,7 @@ List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelecti
         }));
 
     parsers.append(make_valued_argument_parser(
-        "b","bits","Comma-separated precisions (53,128,256,1024,2048,4096)",
+        "b","bits","Comma-separated bit precisions (each >=2)",
         [&selection](String const& value) -> VoidFunction {
             const std::string text(value);
             if(text.empty() || text.back()==',') throw std::invalid_argument("invalid precision list");
@@ -362,8 +362,8 @@ List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelecti
             std::string token;
             while(std::getline(input,token,',')) {
                 const unsigned bits=BenchmarkCommandLine::parse_unsigned<unsigned>(String(token));
-                if(bits!=53u && bits!=128u && bits!=256u && bits!=1024u && bits!=2048u && bits!=4096u) {
-                    throw std::invalid_argument("unsupported precision");
+                if(bits<2u) {
+                    throw std::invalid_argument("precision must be at least 2 bits");
                 }
                 if(std::find(parsed.begin(),parsed.end(),bits)!=parsed.end()) {
                     throw std::invalid_argument("duplicate precision");

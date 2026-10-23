@@ -11775,3 +11775,28 @@ operations and six precisions; timings are baseline observations,
 not evidence that D129 improves performance. D129 must pass
 cross-platform CI and unchanged independent all-rounding-mode oracles,
 and new same-host performance data are needed before declaring a win.
+
+### D130 — remove fixed bit-precision whitelist from comparison benchmark (23 October 2026)
+
+The `benchmark_compare_multiple_precision_backends` CLI no longer limits
+`--bits/-b` to the historical 53/128/256/1024/2048/4096 presets.
+Any comma-separated `unsigned` integer precision >=2 is accepted and
+passed unchanged to both FloatMP and FloatAP via the pre-existing
+`BackendPool<Float>::precision_at(bits)` code. There is no artificial
+upper limit beyond the input type and the actual backend/memory limits.
+The default `53,128,256,1024` sequence is unchanged when no option is
+provided. Duplicate values, invalid numbers, values 0 or 1, empty
+lists and trailing commas remain errors. The help text now describes
+the supported lower bound rather than enumerating selected precisions.
+
+The helper's FloatDP-only 53-bit branch is unrelated to this executable:
+the comparison explicitly instantiates only FloatMP and FloatAP.
+No numeric kernels, benchmark operations, paired input generation,
+verification logic, iteration counts, or output formatting changed.
+Existing 35-operation exact checks are still run for each requested
+precision after measuring. Suggested smoke inputs for CLI testing are
+`--bits 2,3,7,53,129,257`; reject `--bits 0`, `--bits 1`,
+`--bits 2,2`, malformed lists and overflow beyond `unsigned`.
+At extreme widths, memory/time limitations may naturally apply;
+no claim is made that the benchmark can physically complete for every
+representable `unsigned` input.
