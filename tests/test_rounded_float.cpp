@@ -631,7 +631,7 @@ TestRounded<FLT>::test_function()
         std::vector<ExactDouble> wexp={-2.0_x,-1.5_x,-1.0_x,-0.75_x,-0.5_x,-0.375_x,0.375_x,0.5_x,0.75_x,1.0_x,1.5_x,2.0_x};
         for (auto w : wexp) {
             ARIADNE_TEST_PRINT(w);
-            auto const& expected=certified_rounding("exp",Rational(w));
+            const CertifiedRounding expected=certified_rounding("exp",Rational(w));
             RoundedFloatType::set_rounding_mode(upward);
             ARIADNE_TEST_COMPARE(Rational(cast_exact(exp(RoundedFloatType(w,dp)))),>,expected.up);
             RoundedFloatType::set_rounding_mode(downward);
@@ -641,7 +641,7 @@ TestRounded<FLT>::test_function()
         std::vector<ExactDouble> wlog={3.0_x,2.0_x,0.75_x,0.625_x,0.5_x,0.375_x};
         for (auto w : wlog) {
             ARIADNE_TEST_PRINT(w);
-            auto const& expected=certified_rounding("log",Rational(w));
+            const CertifiedRounding expected=certified_rounding("log",Rational(w));
             RoundedFloatType::set_rounding_mode(upward);
             ARIADNE_TEST_COMPARE(Rational(cast_exact(log(RoundedFloatType(w,dp)))),>,expected.up);
             RoundedFloatType::set_rounding_mode(downward);
@@ -836,7 +836,7 @@ TestRounded<FLT>::test_arctan()
         std::vector<Dyadic> tests({1+e,1,1-e,-1+e,-1,-1-e});
         for (Dyadic w : tests) {
             ARIADNE_TEST_PRINT(w);
-            auto const& expected=certified_rounding("atan",Rational(w));
+            const CertifiedRounding expected=certified_rounding("atan",Rational(w));
             RoundedFloatType::set_rounding_mode(upward);
             ARIADNE_TEST_COMPARE(Rational(cast_exact(atan(RoundedFloatType(w,dp)))),>,expected.up);
             RoundedFloatType::set_rounding_mode(downward);
