@@ -8276,3 +8276,37 @@ split by width for manageable data files only, not for sampling.
 Other GMP test families remain; do not remove or weaken them.
 No edits to CMake, FloatMP, benchmarks or production numeric code.
 Require four-workflow CI before declaring R33.15 validated.
+
+### B76 — freeze all 2,800 seeded BigUnsigned GCD/decimal oracles (23 October 2026)
+
+Replace GMP as a runtime oracle in the original test_gcd_decimal
+2800-iteration mixed-width seeded loop. Preserve its entire
+std::mt19937_64 seed 0xB16B00B5, conditional draws for both
+operand lengths, exact 0/20/32/96-limb width selections, fills
+and override order (zero limbs / UINT64_MAX), all 2800 cases,
+input immutability, exact unsigned GCD, canonical bit-length,
+decimal formatting and decimal roundtrip checks. No sampling.
+
+The 14 TSV fixture files tests/data/big_unsigned_b76_gcd_decimal_
+<chunk>.tsv contain all 2800 original source visits in ordered
+200-row chunks. Every record freezes iteration, raw requested n/m
+lengths, both exact unsigned source magnitudes in hexadecimal,
+their exact Euclidean gcd in hexadecimal, and the independently
+derived source magnitude in base 10. The offline oracle computes
+these using arbitrary-size integers, Euclid, and exact decimal
+rendering independent from GMP, MPFR or Ariadne. The first 12
+source visits were crosschecked against a separately compiled
+C++20 std::mt19937_64 generator, including the width override,
+zero/MAX fills and conditional random draws. Sources and outcomes
+are checked against TSV on every visit, with strict row, file
+boundary and extra-row validation. Also verify gcd(y,x) and source
+operands after arithmetic to retain and strengthen borrowed-source
+immutability/commutativity checking. The original to_decimal/
+from_decimal canonicality and roundtrip assertions remain.
+
+The subsequent 1800-visit random decimal parser test and all later
+seeded radix parse cases continue from the identical generator state.
+Their existing independent GMP checks are retained until separately
+migrated; other BigUnsigned GMP families and Integer bridge still
+remain. No change to production code, CMake, FloatMP or benchmarks.
+Cross-platform CI is required before B76 is considered validated.

@@ -56,6 +56,7 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA
 inline constexpr char ARIADNE_BIG_UNSIGNED_R11_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r11.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R27_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r27.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R21_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r21.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B76_GCD_ORACLE_PREFIX[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b76_gcd_decimal_";
 inline constexpr char ARIADNE_BIG_UNSIGNED_SQRT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_sqrt.tsv";
 
 unsigned golden_hex_nibble(char c)
@@ -2996,7 +2997,26 @@ void TestBigUnsigned::test_gcd_decimal()
 
     std::mt19937_64 engine(0xB16B00B5ULL);
     GmpInteger a,b,expected;
+    // B76: every original seeded GCD/decimal case has an independent,
+    // immutable exact TSV oracle, including its original source operands.
+    std::ifstream b76_fixture;
     for (unsigned repetition=0u;repetition<2800u;++repetition) {
+        if (repetition%200u==0u) {
+            if (b76_fixture.is_open()) {
+                std::string extra;
+                if (b76_fixture >> extra)
+                    throw std::runtime_error("Extra B76 GCD/decimal TSV rows");
+                b76_fixture.close();
+                b76_fixture.clear();
+            }
+            const std::string path=std::string(ARIADNE_BIG_UNSIGNED_B76_GCD_ORACLE_PREFIX)
+                +std::to_string(repetition/200u)+".tsv";
+            b76_fixture.open(path);
+            if (!b76_fixture)
+                throw std::runtime_error("Missing B76 GCD/decimal TSV: "+path);
+            std::string header;
+            while (b76_fixture.peek()=='#') std::getline(b76_fixture,header);
+        }
         const std::size_t n=repetition%113u==0u?96u:engine()%20u;
         const std::size_t m=repetition%71u==0u?32u:engine()%12u;
         std::vector<std::uint64_t> left(n),right(m);
@@ -3007,22 +3027,31 @@ void TestBigUnsigned::test_gcd_decimal()
                                            std::numeric_limits<std::uint64_t>::max());
         if (repetition%11u==0u) std::fill(right.begin(),right.end(),0u);
         const BigUnsigned x(left),y(right);
-        mpz_import(a.value,x.size(),-1,sizeof(std::uint64_t),
-                   0,0,x.limbs().data());
-        mpz_import(b.value,y.size(),-1,sizeof(std::uint64_t),
-                   0,0,y.limbs().data());
-        mpz_gcd(expected.value,a.value,b.value);
-        check_against_gmp(gcd(x,y),expected.value);
+
+        unsigned source_iteration=0u;
+        std::size_t source_n=0u,source_m=0u;
+        std::string source_x,source_y,expected_gcd,expected_decimal;
+        if (!(b76_fixture >> source_iteration >> source_n >> source_m
+              >> source_x >> source_y >> expected_gcd >> expected_decimal))
+            throw std::runtime_error("Missing or malformed B76 GCD/decimal TSV row");
+        if (source_iteration!=repetition || source_n!=n || source_m!=m)
+            throw std::runtime_error("Wrong source index/width in B76 TSV");
+
+        check_against_precomputed_hex(x,source_x);
+        check_against_precomputed_hex(y,source_y);
+        check_against_precomputed_hex(gcd(x,y),expected_gcd);
+        check_against_precomputed_hex(gcd(y,x),expected_gcd);
         const auto decimal=to_decimal(x);
         ARIADNE_TEST_ASSERT(compare(from_decimal(decimal),x)==0);
         ARIADNE_TEST_ASSERT(decimal.front()>='0' && decimal.front()<='9');
         if (!x.is_zero()) ARIADNE_TEST_ASSERT(decimal.front()!='0');
-        const auto decimal_gmp=std::string(mpz_sizeinbase(a.value,10u)+2u,'\0');
-        std::string oracle=decimal_gmp;
-        mpz_get_str(oracle.data(),10,a.value);
-        oracle.resize(std::char_traits<char>::length(oracle.c_str()));
-        ARIADNE_TEST_ASSERT(decimal==oracle);
+        ARIADNE_TEST_ASSERT(decimal==expected_decimal);
+        check_against_precomputed_hex(x,source_x);
+        check_against_precomputed_hex(y,source_y);
     }
+    std::string b76_extra;
+    if (b76_fixture >> b76_extra)
+        throw std::runtime_error("Extra B76 GCD/decimal TSV rows");
     for (unsigned repetition=0u;repetition<1800u;++repetition) {
         const std::size_t length=repetition%149u==0u?1900u:
                                  1u+engine()%370u;
