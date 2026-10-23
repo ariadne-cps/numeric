@@ -11285,3 +11285,42 @@ the unit-test oracle, and benchmark workloads / iteration counts
 remain exactly unchanged. Actual production CI and cross-platform
 integrated benchmark medians must be verified before any claim
 of a measured full-workload improvement.
+
+### D115 — halve square-root trial division operands without changing exact remainder (23 October 2026)
+
+The user's integrated `benchmark_compare_integer_backends` on 53/128/256/1024
+bits (20,000 iterations, 31 samples) measured the D114 Integer wrapper:
+isqrt native/GMP 8.542/19.171, 13.133/20.979, 90.829/45.771,
+514.465/167.662 ns; sqrtrem native/GMP 8.192/41.475,
+16.656/42.958, 94.596/70.042, 552.362/175.402 ns.
+The 1024-bit sqrtrem slowdown was 3.149x. This is D114's
+PRE-CHANGE baseline, not a D115 performance prediction.
+
+The exact divide-and-conquer digit recurrence needs
+q=floor(N/(2*s)), rho=N mod (2*s), where s is the already
+computed root of the high chunk. Since s>0,
+q=floor(floor(N/2)/s), and
+rho=2*(floor(N/2) mod s) + (N mod 2).
+Compute the quotient/remainder with the existing private tight
+division API on floor(N/2) and s, then reconstruct the original
+rho with a left shift and low-bit insertion into the owned buffer.
+This completely removes construction of the one-bit-wider
+divisor 2*s. It is especially beneficial when s is one 64-bit
+limb but 2*s has two limbs: the existing tuned one-limb division
+kernel can then replace the general Knuth divisor path.
+
+The rare q>=B clamping branch remains EXACT: add
+2*s*(old_q-(B-1)) to the remainder before the usual
+root/remainder correction. The public BigUnsigned/Integer
+contracts, unsigned and signed oracle fixture, benchmark
+inputs, output pairs, lifetime policy, and 16-operation
+Integer comparison remain unchanged.
+
+A separate BigInt mathematical implementation checked
+2,660 independent 129..4096-bit random inputs and the full
+161-row frozen restoring-digit reference fixture, including
+15 trial-digit clamp occurrences and exact remainder validation.
+This establishes the recurrence algebra, not successful C++
+compilation of the new code. Production CI and same-host
+timings for D115 must still be checked before concluding that
+the lower-level division optimization improved overall results.

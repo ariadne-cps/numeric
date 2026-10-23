@@ -3378,45 +3378,58 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
         ? BigUnsigned(input_limbs.subspan(2u*half_words))
         : shift_right(value,2u*k);
     auto [s,r]=sqrt_recursive<true>(high,workspace);
-    const BigUnsigned divisor=shift_left(s,1u);
     // Non-overlapping radix fields need only concatenation. Avoid the
     // mid/low owning copies and shifted intermediate for aligned k.
     const BigUnsigned numerator=aligned
         ? concat_sqrt_limbs(
             r.limbs(),input_limbs.subspan(half_words,half_words),half_words)
         : add(shift_left(r,k),sqrt_chunk(value,k,k));
-    // Preserve the Euclidean remainder of the trial-digit division.
-    // Previously we discarded it and recomputed it with a full-width
-    // divisor*q product and subtraction at every recursion level.
-    // Tight quotient/remainder outputs: the public owning divrem()
-    // reserves a.size() quotient limbs even when the quotient needs
-    // only a.size()-b.size()+1. In sqrt the quotient is roughly half
-    // the dividend width, so the unnecessary heap allocation matters.
-    const std::size_t q_size=numerator.size()<divisor.size()
-        ? 0u : numerator.size()-divisor.size()+1u;
-    const std::size_t r_size=std::min(numerator.size(),divisor.size());
+
+    // floor(N/(2*s)) == floor(floor(N/2)/s), with the exact Euclidean
+    // remainder N mod (2*s) = 2*(floor(N/2) mod s) + (N & 1).
+    // This avoids constructing the extra-bit-wide divisor 2*s. In
+    // particular, 256-bit inputs often reduce an expensive two-limb
+    // division to the tuned single-limb division kernel.
+    const SqrtLimb low_bit=numerator.limb(0u)&SqrtLimb{1};
+    const BigUnsigned half_numerator=shift_right(numerator,1u);
+
+    // Tight result lengths and a reused workspace avoid the generic
+    // owning divrem() wrapper's oversized quotient allocation.
+    const std::size_t q_size=half_numerator.size()<s.size()
+        ? 0u : half_numerator.size()-s.size()+1u;
+    const std::size_t r_size=std::min(half_numerator.size(),s.size());
     BigUnsigned q,division_remainder;
     q.resize_for_result(q_size);
     division_remainder.resize_for_result(r_size);
     const auto scratch=workspace.acquire(
-        divrem_scratch_limbs(numerator.size(),divisor.size()));
+        divrem_scratch_limbs(half_numerator.size(),s.size()));
     divrem_selected_into<true,true>(
-        numerator.limbs(),divisor.limbs(),
+        half_numerator.limbs(),s.limbs(),
         MutableLimbView(q.mutable_data(),q_size),
         MutableLimbView(division_remainder.mutable_data(),r_size),
         scratch);
     q.normalize();
     division_remainder.normalize();
+
+    // Recover the exact remainder for the original 2*s divisor with
+    // an in-place low-bit insertion, avoiding a second owning addition.
+    division_remainder=shift_left(division_remainder,1u);
+    if (low_bit!=0u) {
+        if (division_remainder.is_zero()) {
+            division_remainder=BigUnsigned(SqrtLimb{1});
+        } else {
+            division_remainder.mutable_data()[0u]|=SqrtLimb{1};
+        }
+    }
     if (q.bit_length()>k) {
         BigUnsigned max_digit=sub(
             shift_left(BigUnsigned(SqrtLimb{1}),k),
             BigUnsigned(SqrtLimb{1}));
-        // A rare over-large trial digit is clamped to B-1. Restore the
-        // corresponding remainder exactly, rather than using the
-        // original quotient's remainder with the reduced trial digit.
+        // Keep the rare over-large digit exact: if q is clamped to B-1,
+        // restore (2*s)*(q-(B-1)) to the original division remainder.
         const BigUnsigned excess=sub(q,max_digit);
         division_remainder=add(
-            division_remainder,mul(divisor,excess));
+            division_remainder,shift_left(mul(s,excess),1u));
         q=std::move(max_digit);
     }
 
