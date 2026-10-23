@@ -8749,3 +8749,31 @@ fifteenth generator in explicit `generators` and `generate-data`,
 leaving tests and default all decoupled. Total exact source-reproducible
 fixtures: 95/115. Existing TSVs, test consumers, GMP runtime oracles,
 production code and root CMake are unchanged. Full CI pending.
+
+### B93 — GMP/MPFR-free FloatAP directed rational bounds generator (23 October 2026)
+
+Add standalone standard-C++20 `tests/data/generator_floatap_directed_bounds.cpp`
+which reproduces every original input and exact directed dyadic bound
+in `floatap_directed_bounds.tsv`: six significand precisions
+(7, 32, 53, 64, 128, 192) times fifteen signed, zero or dyadic
+rational inputs. Determine floor(log2|q|) using exact unsigned limb
+bit lengths and shifts; independently floor/ceil the magnitude on
+its p-bit lattice using long quotient/remainder; reverse bounds for
+negative values; reduce resulting rational numerators/denominators
+using binary GCD and exact division. No GMP, MPFR, FloatAP, Numeric,
+Boost, native double or host FP rounding is used. Source inputs are
+reconstructed from the original test's explicit 15-element input set,
+not copied from the frozen TSV.
+
+GCC 14 and Clang 17 -O2 -std=c++20 -Wall -Wextra -Wpedantic
+-Wsign-conversion -Wshadow -Werror compiled and ran successfully,
+producing identical 7,742-byte fixtures matching the original SHA-1
+`ef8e337b8d4271371c919044d3eec16ca6fb731c` byte for byte.
+An optimization-specific GCC array-bounds warning from a temporary
+Nat copy was eliminated by constructing the scaled Nat from its
+original unsigned source rather than disabling warnings.
+Register the sixteenth generator in `ORACLE_GENERATORS` for the
+explicit `generators` and `generate-data`, not `tests`.
+Source-reproducible fixture coverage rises from 95 to 96 of 115.
+No versioned data, production arithmetic, test consumer, GMP oracle,
+root CMake or FloatMP source was changed. Full CI remains pending.

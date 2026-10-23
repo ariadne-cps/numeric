@@ -5,7 +5,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`, `generator_big_unsigned_random_mul.cpp`,
-and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
+`generator_floatap_directed_bounds.cpp`, and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
 FloatMP or Boost**: expected values must not come from the code being tested.
@@ -27,7 +27,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (95 of 115 at B92).
+overwrites only the currently covered TSV files (96 of 115 at B93).
 The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
@@ -58,6 +58,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_r31.cpp -o /tmp/numeric-oracle-r31
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_random.cpp -o /tmp/numeric-oracle-r0
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_big_unsigned_random_mul.cpp -o /tmp/numeric-oracle-random-mul
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_directed_bounds.cpp -o /tmp/numeric-oracle-floatap-bounds
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -73,6 +74,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-r31 --verify --data-dir tests/data
 /tmp/numeric-oracle-r0 --verify --data-dir tests/data
 /tmp/numeric-oracle-random-mul --verify --data-dir tests/data
+/tmp/numeric-oracle-floatap-bounds --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -102,6 +104,7 @@ review every diff before committing. No sampling is used.
 | `generator_rational_r31.cpp` | 14 `rational_r31_<bits>_<chunk>.tsv` fixtures | All 960 R31/R32 cases, 10 widths, 24 source indices, four signs; preserve 2048/4096-bit chunks |
 | `generator_rational_random.cpp` | `rational_random.tsv` | Full 1,200-visit RNG replay and all 120 original stratified exact R0 cases |
 | `generator_big_unsigned_random_mul.cpp` | `big_unsigned_random_mul.tsv` | All 6,000 original seeded multiplication visits, 600 selected source-keyed full, square and low products |
+| `generator_floatap_directed_bounds.cpp` | `floatap_directed_bounds.tsv` | 90 certified exact rational lower/upper dyadic bounds, 6 precisions × 15 signed inputs |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -260,3 +263,12 @@ not copied expected data. Independent shift/add limb multiplication and
 truncation yield the original 942,214-byte TSV and its exact Git SHA-1.
 GCC and Clang strict C++20 builds succeed. Explicit `generators` and
 `generate-data` include the fifteenth program; test builds remain separate.
+
+B93 reproduces `floatap_directed_bounds.tsv` from original rational inputs,
+computing exact floor/ceil on a power-of-two lattice and canonical dyadic
+fractions at precisions 7, 32, 53, 64, 128 and 192. Both GCC 14 and
+Clang 17 compile and regenerate all 90 rows with strict C++20 warnings,
+producing the original 7,742-byte Git blob. The independent generator
+uses no host floating-point calculations or runtime GMP/MPFR/FloatAP.
+Its addition to the explicit `generators` and `generate-data` targets
+does not change tests, existing fixtures or the default build.
