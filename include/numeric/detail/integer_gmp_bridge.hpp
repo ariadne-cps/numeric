@@ -31,6 +31,7 @@
 
 #include <gmp.h>
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -41,12 +42,23 @@ inline Integer integer_from_gmp(mpz_srcptr source)
     if (mpz_sgn(source)==0) {
         return Integer{};
     }
-    const std::size_t capacity=(mpz_sizeinbase(source,2u)+63u)/64u;
-    std::vector<std::uint64_t> words(capacity);
+    // Four limbs fit inside BigUnsigned itself. Use the same inline
+    // capacity for the GMP export buffer, avoiding a heap allocation
+    // on the overwhelmingly common small-precision boundary path.
+    // mpz_sizeinbase(x,2) is exact for nonzero x.
+    const std::size_t bit_count=mpz_sizeinbase(source,2u);
+    const std::size_t capacity=1u+(bit_count-1u)/64u;
+    std::array<std::uint64_t,BigUnsigned::inline_capacity> inline_words{};
+    std::vector<std::uint64_t> large_words;
+    std::uint64_t* words=inline_words.data();
+    if (capacity>inline_words.size()) {
+        large_words.resize(capacity);
+        words=large_words.data();
+    }
     std::size_t used=0u;
-    mpz_export(words.data(),&used,-1,sizeof(std::uint64_t),0,0,source);
+    mpz_export(words,&used,-1,sizeof(std::uint64_t),0,0,source);
     return Integer::from_magnitude(
-        BigUnsigned(std::span(words.data(),used)),mpz_sgn(source)<0);
+        BigUnsigned(std::span(words,used)),mpz_sgn(source)<0);
 }
 
 inline void integer_to_gmp(mpz_ptr destination,Integer const& source)

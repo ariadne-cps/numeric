@@ -12029,3 +12029,33 @@ This is a dependency-migration step, not a speedup claim:
 cross-platform compiler/semantic CI and fresh user-supplied
 same-host timings are required. No measured D137 performance
 result was available at commit creation.
+
+### D138 — allocation-free small GMP-to-native boundary imports (23 October 2026)
+
+The temporary `integer_from_gmp` bridge is still needed by the
+legacy GMP-backed Fraction carrier and its certified endpoints.
+Previously every nonzero import allocated a `std::vector<uint64_t>`
+even when BigUnsigned could store all words inline (up to four
+64-bit limbs). D138 introduces a stack `std::array` matching
+`BigUnsigned::inline_capacity` and takes the vector fallback only
+when the exact GMP base-2 bit width exceeds four limbs. The resulting
+BigUnsigned is still independently owned and normalized; the
+source GMP integer is borrowed and never changed. The exact
+calculation `1+(bit_count-1)/64` is valid for nonzero inputs and
+avoids an overflowing `bit_count+63` expression. Zero retains
+its original early return, and negative signs remain canonical.
+
+This is an allocation/performance preparation for future GMP removal,
+not a claim that FloatAP has ceased using GMP. No Taylor kernels,
+certified enclosures, rounding rules, or benchmark operations change.
+Add a focused `test_integer::test_gmp_bridge` covering zero,
+positive/negative values, 1–6 limb source patterns and binary
+boundaries 64, 128, 255/256/257, 320/321. The values are
+independently constructed as GMP integers and checked against
+native BigUnsigned magnitudes/signs, then round-tripped into GMP.
+The established source-keyed FloatAP oracle tests remain untouched.
+
+Cross-platform compile/test CI and the user's paired same-host
+benchmark are required before claiming any measured speedup.
+D137's Windows CI succeeded at the start of this change; other
+D137 workflows were still running.

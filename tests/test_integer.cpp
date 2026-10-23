@@ -23,6 +23,7 @@
  */
 
 #include "numeric/integer.hpp"
+#include "numeric/detail/integer_gmp_bridge.hpp"
 #include "numeric/int.hpp"
 #include "numeric/twoexp.hpp"
 #include "numeric/accuracy.hpp"
@@ -31,6 +32,8 @@
 #include "utility/string.hpp"
 
 #include <algorithm>
+#include <array>
+#include <span>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -125,6 +128,7 @@ class TestInteger
     void test_small_types();
     void test_combinatorics();
     void test_native();
+    void test_gmp_bridge();
     void test_signed_regression();
     void test_owned_results();
     void test_sqrt();
@@ -139,9 +143,49 @@ void TestInteger::test()
     ARIADNE_TEST_CALL(test_small_types());
     ARIADNE_TEST_CALL(test_combinatorics());
     ARIADNE_TEST_CALL(test_native());
+    ARIADNE_TEST_CALL(test_gmp_bridge());
     ARIADNE_TEST_CALL(test_signed_regression());
     ARIADNE_TEST_CALL(test_owned_results());
     ARIADNE_TEST_CALL(test_sqrt());
+}
+
+void TestInteger::test_gmp_bridge()
+{
+    // The production GMP->Integer boundary uses inline limbs for up
+    // to four words and one heap buffer above that threshold. Exercise
+    // both sides with exact nontrivial patterns and both signs.
+    mpz_t gmp_value,returned;
+    mpz_inits(gmp_value,returned,nullptr);
+    const std::array<std::uint64_t,6u> digits{
+        0x0123456789abcdefULL,0xfedcba9876543210ULL,
+        0x8000000000000001ULL,0x13579bdf2468ace0ULL,
+        0xffffffffffffffffULL,0x8000000000000000ULL
+    };
+    for (std::size_t width=0u;width<=digits.size();++width) {
+        const BigUnsigned magnitude(std::span(digits.data(),width));
+        for (bool negative:{false,true}) {
+            mpz_import(gmp_value,width,-1,sizeof(std::uint64_t),
+                       0,0,digits.data());
+            if (negative) mpz_neg(gmp_value,gmp_value);
+            const Integer imported=integer_from_gmp(gmp_value);
+            ARIADNE_TEST_ASSERT(compare(imported.magnitude(),magnitude)==0);
+            ARIADNE_TEST_ASSERT(imported.negative()==(negative && width!=0u));
+            integer_to_gmp(returned,imported);
+            ARIADNE_TEST_ASSERT(mpz_cmp(returned,gmp_value)==0);
+        }
+    }
+    // The most significant set bit and the 4/5-limb threshold must
+    // not be lost when mpz_sizeinbase is exactly divisible by 64.
+    for (unsigned bits:{1u,64u,65u,128u,255u,256u,257u,320u,321u}) {
+        mpz_set_ui(gmp_value,1u);
+        mpz_mul_2exp(gmp_value,gmp_value,bits-1u);
+        const Integer imported=integer_from_gmp(gmp_value);
+        ARIADNE_TEST_ASSERT(imported.magnitude().bit_length()==bits);
+        ARIADNE_TEST_ASSERT(!imported.negative());
+        integer_to_gmp(returned,imported);
+        ARIADNE_TEST_ASSERT(mpz_cmp(returned,gmp_value)==0);
+    }
+    mpz_clears(gmp_value,returned,nullptr);
 }
 
 void TestInteger::test_sqrt()
