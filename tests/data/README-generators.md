@@ -2,7 +2,7 @@
 
 The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
-`generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, and
+`generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`, and
 `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -25,7 +25,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (50 of 115 at B84).
+overwrites only the currently covered TSV files (53 of 115 at B85).
 The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
@@ -48,6 +48,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_rational_exact.cpp -o /tmp/numeric-oracle-rational-exact
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_exact_b72_r17.cpp -o /tmp/numeric-oracle-b72-r17
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_integer_structural.cpp -o /tmp/numeric-oracle-structural
+c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_big_unsigned_mul.cpp -o /tmp/numeric-oracle-b35-b37-b38
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -55,6 +56,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/g
 /tmp/numeric-oracle-rational-exact --verify --data-dir tests/data
 /tmp/numeric-oracle-b72-r17 --verify --data-dir tests/data
 /tmp/numeric-oracle-structural --verify --data-dir tests/data
+/tmp/numeric-oracle-b35-b37-b38 --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -76,6 +78,7 @@ review every diff before committing. No sampling is used.
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
 | `generator_exact_b72_r17.cpp` | `big_unsigned_b72.tsv`, `rational_r17.tsv` | 288 B72 products/squares and 252 R17 comparisons |
 | `generator_integer_structural.cpp` | `integer_b66.tsv`, `integer_sub.tsv`, `big_unsigned_sub.tsv`, `integer_b33.tsv`, `integer_b37.tsv`, `integer_b38.tsv` | 360 power, 192 signed subtract, 100 unsigned subtract, 72 signed squares, 72 signed powers, 30 signed cubes |
+| `generator_big_unsigned_mul.cpp` | `big_unsigned_b35.tsv`, `big_unsigned_b37.tsv`, `big_unsigned_b38.tsv` | 70 Karatsuba products, 91 squares, 112 products with six truncated variants |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -164,3 +167,10 @@ and Clang strict C++20 builds regenerated all six TSVs byte-for-byte; their
 Git blob SHA-1 IDs match the original committed fixtures. `generators` now
 compiles seven executables, while `generate-data` runs all seven in sequence
 and overwrites only the 50 reproducible TSVs. `tests` remains decoupled.
+
+B85 adds exact independent B35/B37/B38 multiplication, squaring and truncated
+multiplication fixtures, while preserving the complete seeded RNG advance
+through discarded modes. The three generated TSVs match the original Git
+blob SHA-1 values, verified after both GCC and Clang strict-warning builds.
+The eighth program is wired through `generators` and `generate-data`; the
+source-tree TSVs remain versioned and `tests` does not depend on generators.

@@ -58,6 +58,7 @@ set(ORACLE_GENERATORS
     generator_rational_exact
     generator_exact_b72_r17
     generator_integer_structural
+    generator_big_unsigned_mul
 )
 set(ORACLE_GENERATOR_COMMANDS)
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)

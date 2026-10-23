@@ -8541,3 +8541,29 @@ Register the program in the `ORACLE_GENERATORS` list so explicit
 other 65 files, test consumers, production arithmetic, FloatMP,
 benchmarks, GMP runtime oracles and root CMake unchanged. No fixture
 contents changed. The complete platform CI remains to be checked.
+
+### B85 — independent BigUnsigned B35/B37/B38 golden generators (23 October 2026)
+
+Add `tests/data/generator_big_unsigned_mul.cpp` as a standalone C++20
+source for `big_unsigned_b35.tsv` (14 x 5 = 70 cases),
+`big_unsigned_b37.tsv` (13 x 7 = 91 squares) and
+`big_unsigned_b38.tsv` (14 x 8 = 112 multiplication/truncation cases).
+The generator replays the complete original C++ mt19937_64 streams
+including all unselected visits: 32, 96 and 24 per original width pair,
+respectively. It reproduces all historic transformations and ordering,
+then derives products using independent binary shift-and-add unsigned-limb
+arithmetic and six low-limb results by exact truncation of the product.
+No Numeric/GMP/MPFR/Boost/FloatMP oracle is involved.
+
+Compiled with GCC and Clang under C++20 -O2 -Wall -Wextra -Wpedantic
+-Wsign-conversion -Wshadow -Werror. Regenerated Git blob IDs exactly
+match the previously committed fixtures:
+B35 98e2be0ee5f55d17761a359e6501c9892a2259ce;
+B37 9ccb32059de5c5ae6664e6eaa7066ac2f87995a9;
+B38 6dbf2deb93bd07e41a57c44e05d599c4136113a4.
+The additional fifth B35 header/comment line is preserved exactly.
+Register the eighth executable through ORACLE_GENERATORS to make it
+available in the explicit generators and generate-data targets without
+coupling it to tests. The 53rd of 115 original frozen TSVs is now
+reproducible. No source-tree TSV content, test consumer, runtime GMP
+oracle, production code or root CMake was changed. Full CI remains pending.
