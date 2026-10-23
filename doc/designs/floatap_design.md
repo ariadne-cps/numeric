@@ -11685,3 +11685,36 @@ The existing independent asin/acos golden oracles, endpoint-rounding
 assertions, and all benchmark workloads remain unchanged. Compilation,
 cross-platform CI, correctness regressions, and same-host benchmark
 performance must be verified before making speedup claims.
+
+### D127 — native two-sided fixed-point logarithm series (23 October 2026)
+
+The exact outward-certified `log_series` recurrence has been converted
+from `mpz_t` to `BigUnsigned` limb operations. The proof and all
+mathematical enclosures are unchanged: `zlo=floor(2^B*abs(z))`,
+`zhi=ceil(2^B*abs(z))`; the lower and upper squares and odd powers
+are rounded respectively down and up at the common scale `2^B`.
+Each Taylor summand is divided respectively with floor and ceil by
+`2n+1`. The stopping tail remains `3*power_hi`, compared with
+`2^(B-work)`, and both sums are doubled before adding that upper tail.
+For negative arguments, signs and endpoints are reversed as before.
+
+The native implementation imports the initial fraction once, performs
+one native quotient/remainder to obtain the lower and upper arguments,
+and stores the two powers, two squares, two sums, and product/quotient
+scratch in reusable `std::vector<BigUnsigned::Limb>` buffers.
+`BigUnsigned::mul_into` and `divrem_limb_into` operate on borrowed
+views; upward multiplication checks all discarded bits and increments
+only for a nonzero remainder. Sum accumulation is in-place with carry
+propagation. No GMP call, owning BigUnsigned construction, canonical
+Rational normalization or GCD occurs in a Taylor iteration.
+The two final positive dyadic endpoints are still imported into the
+legacy GMP-backed Fraction carrier, to be removed later.
+
+This phase also records the D126 same-host benchmark supplied by the
+user. D126 passed Unix, Windows, Sanitizers and Coverage. The observed
+asin/acos timings changed slightly, but unrelated atan and exp also
+slowed in the new run: the benchmark does NOT establish a D126 speedup
+or regression without controlled repeated A/B runs. Preserve
+independent exact oracles, cached centered-log paths, other workloads,
+and all four rounding modes. D127 likewise makes no speed claim
+before its own CI and user-supplied benchmark results.

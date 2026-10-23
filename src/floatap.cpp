@@ -1860,75 +1860,175 @@ Interval log_series(Fraction const& z, unsigned long work) {
     }
 
     const unsigned long terms = work / 3ul + 4ul;
-    const unsigned long guard = 32ul + static_cast<unsigned long>(std::bit_width(terms));
+    const unsigned long guard =
+        32ul + static_cast<unsigned long>(std::bit_width(terms));
     if (work > std::numeric_limits<unsigned long>::max() - guard) {
         throw std::overflow_error("FloatAP logarithm work precision overflow");
     }
     const unsigned long fixed_bits = work + guard;
+    if (static_cast<std::uintmax_t>(fixed_bits) >
+            static_cast<std::uintmax_t>(std::numeric_limits<mp_bitcnt_t>::max()) ||
+        static_cast<std::uintmax_t>(fixed_bits) >
+            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::overflow_error("FloatAP logarithm fixed-point shift overflow");
+    }
 
-    mpz_t numerator, zlo, zhi, square_lo, square_hi, power_lo, power_hi;
-    mpz_t sum_lo, sum_hi, quotient, tail;
-    mpz_inits(numerator, zlo, zhi, square_lo, square_hi, power_lo, power_hi,
-              sum_lo, sum_hi, quotient, tail, nullptr);
-    struct Cleanup {
-        mpz_ptr a,b,c,d,e,f,g,h,i,j,k;
-        ~Cleanup() { mpz_clears(a,b,c,d,e,f,g,h,i,j,k,nullptr); }
-    } cleanup{numerator,zlo,zhi,square_lo,square_hi,power_lo,power_hi,
-              sum_lo,sum_hi,quotient,tail};
+    using Limb=BigUnsigned::Limb;
+    using Words=std::vector<Limb>;
+    const std::size_t shift=static_cast<std::size_t>(fixed_bits);
+    const std::size_t whole=shift/64u;
+    const unsigned partial=static_cast<unsigned>(shift%64u);
+    const Fraction magnitude=absolute(z);
+    const Integer num=integer_from_gmp(mpq_numref(magnitude.raw()));
+    const Integer den=integer_from_gmp(mpq_denref(magnitude.raw()));
+    auto [z_lower,remainder]=divrem(
+        shift_left(num.magnitude(),shift),den.magnitude());
+    const BigUnsigned z_upper=remainder.is_zero()
+        ? z_lower : add(z_lower,BigUnsigned(1u));
 
-    const Fraction magnitude = absolute(z);
-    mpz_mul_2exp(numerator, mpq_numref(magnitude.raw()), fixed_bits);
-    mpz_fdiv_q(zlo, numerator, mpq_denref(magnitude.raw()));
-    mpz_cdiv_q(zhi, numerator, mpq_denref(magnitude.raw()));
+    // Match GMP's exact floor/ceil endpoints. Only the initial fraction
+    // import and final Fraction construction use the legacy GMP carrier.
+    // Every fixed-point product, power, integer division and sum below
+    // operates on reusable native caller-owned limb buffers.
+    Words power_lo(z_lower.limbs().begin(),z_lower.limbs().end());
+    Words power_hi(z_upper.limbs().begin(),z_upper.limbs().end());
+    Words square_lo,square_hi,sum_lo,sum_hi;
+    Words product,next_power,quotient,tail;
+    const BigUnsigned threshold=shift_left(BigUnsigned(1u),
+                                            static_cast<std::size_t>(guard));
+    const auto trim=[](Words& v) {
+        while (!v.empty() && v.back()==0u) v.pop_back();
+    };
+    const auto increment=[](Words& v) {
+        std::size_t index=0u;
+        while (index<v.size()) {
+            if (++v[index]!=0u) return;
+            ++index;
+        }
+        v.push_back(Limb{1});
+    };
 
-    mpz_mul(square_lo, zlo, zlo);
-    mpz_fdiv_q_2exp(square_lo, square_lo, fixed_bits);
-    mpz_mul(square_hi, zhi, zhi);
-    mpz_cdiv_q_2exp(square_hi, square_hi, fixed_bits);
-    mpz_set(power_lo, zlo);
-    mpz_set(power_hi, zhi);
+    // Given a,b >= 0, compute floor(a*b/2^B), or ceil when outward=true.
+    // The full product is borrowed from one scratch buffer: discarded
+    // bits, including the partial limb, determine the upward correction.
+    const auto scaled_product=[&](Words const& left,Words const& right,
+                                   bool outward,Words& output) {
+        if (left.empty() || right.empty()) {
+            output.clear();
+            return;
+        }
+        if (left.size()>std::numeric_limits<std::size_t>::max()-right.size()) {
+            throw std::overflow_error("FloatAP logarithm product size overflow");
+        }
+        product.resize(left.size()+right.size());
+        BigUnsigned::mul_into(left,right,product);
+        trim(product);
 
-    // For |z| <= 1/3 the remaining doubled series after N terms is
-    // at most (9/4)*|z|^(2N+1). The upper fixed-point odd power is
-    // outward rounded, so three times that upper bound is a safe
-    // integer enclosure of the entire tail. Stop as soon as the
-    // *actual* argument converges, not after a worst-case term count.
-    mpz_t threshold;
-    mpz_init_set_ui(threshold, 1ul);
-    struct ThresholdCleanup {
-        mpz_ptr value;
-        ~ThresholdCleanup() { mpz_clear(value); }
-    } threshold_cleanup{threshold};
-    mpz_mul_2exp(threshold, threshold, fixed_bits - work);
+        bool discarded=false;
+        if (outward) {
+            for (std::size_t i=0u;i<std::min(whole,product.size());++i) {
+                discarded = discarded || product[i]!=0u;
+            }
+            if (partial!=0u && product.size()>whole) {
+                discarded = discarded ||
+                    (product[whole] & ((Limb{1}<<partial)-1u))!=0u;
+            }
+        }
 
-    for (unsigned long n = 0; n < terms; ++n) {
-        const unsigned long divisor = 2ul * n + 1ul;
-        mpz_fdiv_q_ui(quotient, power_lo, divisor);
-        mpz_add(sum_lo, sum_lo, quotient);
-        mpz_cdiv_q_ui(quotient, power_hi, divisor);
-        mpz_add(sum_hi, sum_hi, quotient);
+        if (product.size()<=whole) {
+            output.clear();
+        } else {
+            const std::size_t count=product.size()-whole;
+            output.resize(count);
+            for (std::size_t i=0u;i<count;++i) {
+                const Limb low=product[whole+i]>>partial;
+                const Limb high=partial!=0u && i+1u<count
+                    ? product[whole+i+1u]<<(64u-partial) : Limb{0};
+                output[i]=low|high;
+            }
+            trim(output);
+        }
+        if (outward && discarded) increment(output);
+    };
 
-        mpz_mul(power_lo, power_lo, square_lo);
-        mpz_fdiv_q_2exp(power_lo, power_lo, fixed_bits);
-        mpz_mul(power_hi, power_hi, square_hi);
-        mpz_cdiv_q_2exp(power_hi, power_hi, fixed_bits);
+    // In-place nonnegative accumulator; carry propagation is bounded
+    // by the current active sum and never creates a BigUnsigned.
+    const auto accumulate=[&](Words& sum,Words const& addend) {
+        if (sum.size()<addend.size()) sum.resize(addend.size(),0u);
+        Limb carry=0u;
+        for (std::size_t i=0u;i<addend.size();++i) {
+            const Limb old=sum[i];
+            const Limb value=old+addend[i];
+            const Limb result=value+carry;
+            carry=static_cast<Limb>(value<old || result<value);
+            sum[i]=result;
+        }
+        for (std::size_t i=addend.size();carry!=0u && i<sum.size();++i) {
+            ++sum[i];
+            carry=static_cast<Limb>(sum[i]==0u);
+        }
+        if (carry!=0u) sum.push_back(carry);
+    };
+    const auto within_threshold=[&](Words const& value) {
+        const auto bound=threshold.limbs();
+        if (value.size()!=bound.size()) return value.size()<bound.size();
+        for (std::size_t i=value.size();i!=0u;--i) {
+            if (value[i-1u]!=bound[i-1u]) return value[i-1u]<bound[i-1u];
+        }
+        return true;
+    };
 
-        mpz_mul_ui(tail, power_hi, 3ul);
-        if (mpz_cmp(tail, threshold) <= 0 || n + 1ul == terms) {
+    scaled_product(power_lo,power_lo,false,square_lo);
+    scaled_product(power_hi,power_hi,true,square_hi);
+
+    // The original proof and work-dependent bound are unchanged.
+    // The Taylor tail after each term is <= 3 * upper odd power.
+    for (unsigned long n=0u;n<terms;++n) {
+        if (n>(std::numeric_limits<unsigned long>::max()-1ul)/2ul) {
+            throw std::overflow_error("FloatAP logarithm series index overflow");
+        }
+        const Limb divisor=static_cast<Limb>(2ul*n+1ul);
+        quotient.resize(power_lo.size());
+        (void)BigUnsigned::divrem_limb_into(power_lo,divisor,quotient);
+        trim(quotient);
+        accumulate(sum_lo,quotient);
+
+        quotient.resize(power_hi.size());
+        const Limb upper_remainder=
+            BigUnsigned::divrem_limb_into(power_hi,divisor,quotient);
+        trim(quotient);
+        if (upper_remainder!=0u) increment(quotient);
+        accumulate(sum_hi,quotient);
+
+        scaled_product(power_lo,square_lo,false,next_power);
+        power_lo.swap(next_power);
+        scaled_product(power_hi,square_hi,true,next_power);
+        power_hi.swap(next_power);
+
+        if (power_hi.empty()) {
+            tail.clear();
+        } else {
+            const Limb three=3u;
+            tail.resize(power_hi.size()+1u);
+            BigUnsigned::mul_into(power_hi,BigUnsigned::LimbView(&three,1u),
+                                  tail);
+            trim(tail);
+        }
+        if (within_threshold(tail) || n+1ul==terms) {
             break;
         }
     }
 
-    // The partial sum contains only positive magnitudes; negate and
-    // reverse the interval for an originally negative argument.
-    mpz_mul_2exp(sum_lo, sum_lo, 1);
-    mpz_mul_2exp(sum_hi, sum_hi, 1);
-    mpz_add(sum_hi, sum_hi, tail);
-
-    const Interval positive{Fraction(sum_lo, fixed_bits),
-                            Fraction(sum_hi, fixed_bits)};
-    return z.sign() < 0
-        ? Interval{Fraction{} - positive.upper, Fraction{} - positive.lower}
+    const BigUnsigned lower=shift_left(
+        BigUnsigned(BigUnsigned::LimbView(sum_lo.data(),sum_lo.size())),1u);
+    const BigUnsigned upper=add(
+        shift_left(BigUnsigned(BigUnsigned::LimbView(
+            sum_hi.data(),sum_hi.size())),1u),
+        BigUnsigned(BigUnsigned::LimbView(tail.data(),tail.size())));
+    const Interval positive{Fraction(lower,fixed_bits),
+                            Fraction(upper,fixed_bits)};
+    return z.sign()<0
+        ? Interval{Fraction{}-positive.upper,Fraction{}-positive.lower}
         : positive;
 }
 
