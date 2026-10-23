@@ -8074,3 +8074,29 @@ conversion (R5/R7/R12/R13/R29), BigUnsigned tests, Integer
 bridge-specific verification, and the separate bridge exception
 check. Treat this commit as unvalidated until fresh cross-platform
 CI confirms it.
+
+### R33.9 — independently frozen R7 binary64 conversion oracle (23 October 2026)
+
+Migrate the deterministic R7 multiprecision Rational::get_d() test
+from the runtime GMP mpq_get_d oracle to source-keyed exact IEEE-754
+binary64 bit patterns in tests/data/rational_r7.tsv. Preserve all
+8 original widths (53/128/256/448/512/1024/2048/4096), all
+12 original near-boundary/repeating/negative/overflow rational probes
+and all four FE_* host rounding modes: 384 expected values, no
+sampling. Inputs still come from the original explicit Rational
+construction expressions; expected bits were computed independently
+from exact signed arbitrary-precision integer numerator/denominator
+pairs by finding the exact binary exponent and truncating the exact
+significand quotient toward zero, with full IEEE overflow and
+subnormal handling. These expectations do not call GMP/MPFR or Numeric.
+Unlike a numeric float comparison, raw-bit equality catches sign,
+last-bit, infinity and rounding-mode errors.
+
+The reader checks mode/width/probe source keys and rejects missing,
+out-of-order and extra rows. Preserve the original R5/R12/R13/R29
+random streams and cases, including every GMP differential test in
+those still-unmigrated blocks, without changing PRNG state or workload.
+Test-independent CMake, FloatMP and benchmark sources are unchanged.
+Run complete cross-platform CI before considering this candidate
+validated; remaining runtime GMP checks require their own independent
+source-keyed migrations.

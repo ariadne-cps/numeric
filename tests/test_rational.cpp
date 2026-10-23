@@ -70,6 +70,7 @@ inline constexpr char R0_RANDOM_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational
 inline constexpr char R30_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r30.tsv";
 inline constexpr char R17_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r17.tsv";
 inline constexpr char R3_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r3.tsv";
+inline constexpr char R7_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/rational_r7.tsv";
 
 constexpr bool check_concept()
 {
@@ -1060,7 +1061,12 @@ void TestRational::test_gmp_differential() {
     // binary64 patterns with the independent GMP implementation under
     // every rounding mode, including cases requiring the full fallback.
     const std::array<unsigned int,12> shifts={0u,1u,52u,53u,1022u,1023u,1024u,1073u,1074u,1075u,1076u,2048u};
-    for (int mode : modes) {
+    std::ifstream r7_golden(R7_ORACLE_PATH);
+    if (!r7_golden) throw std::runtime_error("Missing R7 oracle TSV");
+    std::string r7_header;
+    while (r7_golden.peek()=='#') std::getline(r7_golden,r7_header);
+    for (unsigned mode_index=0u;mode_index<modes.size();++mode_index) {
+        const int mode=modes[mode_index];
         ARIADNE_TEST_EQUALS(std::fesetround(mode),0);
         // R12: exercise exact one-limb conversion across wide unsigned
         // ratios, repeating fractions, both signs and four host modes.
@@ -1136,11 +1142,12 @@ void TestRational::test_gmp_differential() {
                     std::bit_cast<std::uint64_t>(mpq_get_d(oracle.value()));
             }
         }
+        // R7: preserve all twelve rational source cases at eight widths
+        // and all four host modes; compare exact independently frozen
+        // binary64 bit patterns, not a rounded/toleranced double.
         for (unsigned bits : {53u,128u,256u,448u,512u,1024u,2048u,4096u}) {
             const Integer base=pow(Integer(2),Nat(bits));
             const Integer twice=base*2;
-            // R7 probes both a near-binary-boundary quotient and
-            // repeating quotients (not only ratios near unity).
             const std::array<Rational,12> probes={
                 Rational(base+13,twice+17),
                 Rational(base-13,twice+17),
@@ -1155,11 +1162,17 @@ void TestRational::test_gmp_differential() {
                 Rational(-(base+13),base*3+19),
                 Rational(base*3+1,twice+17)
             };
-            for (Rational const& value : probes) {
-                const GmpRationalBoundary oracle(value);
+            for (unsigned probe=0u;probe<probes.size();++probe) {
+                unsigned ref_mode=0u,ref_bits=0u,ref_probe=0u;
+                std::uint64_t expected_bits=0u;
+                if (!(r7_golden >> ref_mode >> ref_bits >> ref_probe >> expected_bits)
+                    || ref_mode!=mode_index || ref_bits!=bits
+                    || ref_probe!=probe) {
+                    throw std::runtime_error("Missing or unordered R7 TSV row");
+                }
                 conversion_matches=conversion_matches &&
-                    std::bit_cast<std::uint64_t>(value.get_d())==
-                    std::bit_cast<std::uint64_t>(mpq_get_d(oracle.value()));
+                    std::bit_cast<std::uint64_t>(probes[probe].get_d())==
+                    expected_bits;
             }
         }
         for (unsigned int shift : shifts) {
@@ -1180,6 +1193,9 @@ void TestRational::test_gmp_differential() {
         }
     }
     ARIADNE_TEST_EQUALS(std::fesetround(saved_rounding),0);
+    std::string r7_extra;
+    if (r7_golden >> r7_extra)
+        throw std::runtime_error("Extra R7 oracle TSV rows");
     ARIADNE_TEST_ASSERT(conversion_matches);
 }
 
