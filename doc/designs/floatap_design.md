@@ -11336,3 +11336,25 @@ ordering, native MUL/UMULH/ADDS/ADC instructions and arithmetic
 semantics are unchanged; no oracle or benchmark inputs are changed.
 This removes the source-level `-Wshadow` warning at the reported
 location, pending AppleClang CI confirmation.
+
+### D117 — native FloatAP square root before significand storage migration (23 October 2026)
+
+`FloatAP::sqrt` now uses the established GMP-free `BigUnsigned::sqrtrem`
+to compute the exact scaled root and remainder and uses the native
+strict comparison `remainder > root` to implement nearest rounding.
+All four directed modes, exponent parity and carry normalization retain
+the original branches. The existing `mpz_sqrtrem`, GMP intermediate
+root and remainder and their manual cleanup are removed from this
+operation. The input's transitional `mpz_t` significand crosses
+one `integer_from_gmp` boundary and the final native root crosses
+one `integer_to_gmp` boundary. No public method or data layout is
+altered yet: the full switch of FloatAP::_significand from `mpz_t`
+to `BigUnsigned` also requires migrating its formatting, conversion,
+comparison, next/previous, exponent, and transcendental helpers.
+No inference of GMP-free FloatAP storage is made.
+
+This commit is intentionally narrow: the build environment cannot
+check out and compile the project from this session. CI has to
+confirm the new code and the independent FloatAP test/MPFR-oracle
+regressions. Do not regard algebraic equivalence alone as successful
+test execution.

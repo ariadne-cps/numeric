@@ -1453,26 +1453,21 @@ FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
     result_exponent = FloatAP::checked_sub(
         result_exponent, static_cast<FloatAP::Exponent>(offset));
 
-    mpz_t scaled, root, remainder;
-    mpz_inits(scaled, root, remainder, nullptr);
-    struct Cleanup {
-        mpz_ptr a, b, c;
-        ~Cleanup() { mpz_clears(a, b, c, nullptr); }
-    } cleanup{scaled, root, remainder};
-
-    mpz_mul_2exp(scaled, value._significand,
-                 FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift)));
-    mpz_sqrtrem(root, remainder, scaled);
+    // Compute the exact integer square root and remainder with native
+    // unsigned limbs. GMP is not part of the root/rounding calculation.
+    // Only the final owned significand export remains transitional.
+    const BigUnsigned magnitude=integer_from_gmp(value._significand).magnitude();
+    const BigUnsigned scaled=shift_left(magnitude,static_cast<std::size_t>(
+        FloatAP::shift_amount(static_cast<FloatAP::Exponent>(shift))));
+    auto [root,remainder]=sqrtrem(scaled);
 
     bool increment = false;
-    if (mpz_size(remainder) != 0) {
+    if (!remainder.is_zero()) {
         switch (mode.value()) {
             case FloatAP::Rounding::ToNearest:
-                // scaled = root*root + remainder from mpz_sqrtrem.
-                // sqrt(scaled) > root+1/2 iff 4*remainder > 4*root+1.
-                // Both are integers, so this is exactly remainder > root;
-                // equality at the half-integer cannot occur.
-                increment = mpz_cmp(remainder, root) > 0;
+                // scaled=root*root+remainder. The exact nearest criterion
+                // is remainder>root; a halfway tie is impossible.
+                increment = compare(remainder,root)>0;
                 break;
             case FloatAP::Rounding::Upward:
                 increment = true;
@@ -1485,15 +1480,16 @@ FloatAP sqrt(FloatAP::RoundingModeType mode, FloatAP const& value) {
         }
     }
     if (increment) {
-        mpz_add_ui(root, root, 1);
+        root=add_big_unsigned(root,BigUnsigned(1u));
     }
-    if (mpz_sizeinbase(root, 2) > bits) {
-        mpz_tdiv_q_2exp(root, root, 1);
+    if (root.bit_length()>bits) {
+        root=shift_right(root,1u);
         result_exponent = FloatAP::checked_add(result_exponent, 1);
     }
 
     FloatAP result(bits);
-    mpz_set(result._significand, root);
+    integer_to_gmp(result._significand,
+        Integer::from_magnitude(std::move(root),false));
     result._exponent = result_exponent;
     return result;
 }
