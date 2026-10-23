@@ -79,10 +79,24 @@ template Ball<FloatAP,FloatAP>::operator ValidatedNumber() const;
 
 
 template class Ball<FloatMP,FloatMP>;
+// Export both native centre/error precision combinations with the same
+// API surface as the corresponding FloatMP balls.
+template class Ball<FloatAP,FloatDP>;
+template class Ball<FloatAP,FloatAP>;
 template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&);
 template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&, Nat);
 template Integer Operations<Ball<FloatMP,FloatMP>>::_cast_integer(Ball<FloatMP,FloatMP> const&);
 template InputStream& Operations<Ball<FloatMP,FloatMP>>::_read(InputStream&, Ball<FloatMP,FloatMP>&);
+// The native ball operations have the same semantic implementation as FloatMP.
+template Ball<FloatAP,FloatDP> Operations<Ball<FloatAP,FloatDP>>::_trunc(Ball<FloatAP,FloatDP> const&);
+template Ball<FloatAP,FloatDP> Operations<Ball<FloatAP,FloatDP>>::_trunc(Ball<FloatAP,FloatDP> const&, Nat);
+template Integer Operations<Ball<FloatAP,FloatDP>>::_cast_integer(Ball<FloatAP,FloatDP> const&);
+template InputStream& Operations<Ball<FloatAP,FloatDP>>::_read(InputStream&, Ball<FloatAP,FloatDP>&);
+template Ball<FloatAP,FloatAP> Operations<Ball<FloatAP,FloatAP>>::_trunc(Ball<FloatAP,FloatAP> const&);
+template Ball<FloatAP,FloatAP> Operations<Ball<FloatAP,FloatAP>>::_trunc(Ball<FloatAP,FloatAP> const&, Nat);
+template Integer Operations<Ball<FloatAP,FloatAP>>::_cast_integer(Ball<FloatAP,FloatAP> const&);
+template InputStream& Operations<Ball<FloatAP,FloatAP>>::_read(InputStream&, Ball<FloatAP,FloatAP>&);
+
 
 template<> String class_name<Ball<FloatDP>>() { return "FloatDPBall"; }
 template<> String class_name<Ball<FloatMP,FloatDP>>() { return "FloatMDPBall"; }

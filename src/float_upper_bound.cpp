@@ -55,6 +55,8 @@ template UpperBound<FloatAP>::UpperBound(UpperBound<FloatAP> const&, ArbitraryPr
 
 
 template class UpperBound<FloatMP>;
+// Export the complete native directed-bound API just as for FloatMP.
+template class UpperBound<FloatAP>;
 
 template<> String class_name<UpperBound<FloatDP>>() { return "FloatDPUpperBound"; }
 template<> String class_name<UpperBound<FloatMP>>() { return "FloatMPUpperBound"; }

@@ -36,6 +36,7 @@ namespace Ariadne {
 
 FloatDP midpoint(Bounds<FloatDP> const& x) { return x.value(); } // DEPRECATED
 FloatMP midpoint(Bounds<FloatMP> const& x) { return x.value(); } // DEPRECATED
+FloatAP midpoint(Bounds<FloatAP> const& x) { return x.value(); } // DEPRECATED
 
 template<> auto Operations<FloatBounds<DoublePrecision>>::_write(OutputStream& os, const FloatBounds<DoublePrecision>& x) -> OutputStream&;
 template<> auto Operations<FloatBounds<MultiplePrecision>>::_write(OutputStream& os, const FloatBounds<MultiplePrecision>& x) -> OutputStream&;
@@ -73,6 +74,22 @@ template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_tan(Bounds<FloatAP> const
 template OutputStream& Operations<Bounds<FloatAP>>::_write(OutputStream&,Bounds<FloatAP> const&);
 
 template class Bounds<FloatMP>;
+// Export the full native interval API in parallel with FloatMP.
+template class Bounds<FloatAP>;
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_pi(ArbitraryPrecision);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_trunc(Bounds<FloatAP> const&);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_trunc(Bounds<FloatAP> const&, Nat);
+template Integer Operations<Bounds<FloatAP>>::_cast_integer(Bounds<FloatAP> const&);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_add(Bounds<FloatAP> const&, FloatAP const&);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_add(FloatAP const&, Bounds<FloatAP> const&);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_sub(Bounds<FloatAP> const&, FloatAP const&);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_sub(FloatAP const&, Bounds<FloatAP> const&);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_mul(Bounds<FloatAP> const&, FloatAP const&);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_mul(FloatAP const&, Bounds<FloatAP> const&);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_div(Bounds<FloatAP> const&, FloatAP const&);
+template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_div(FloatAP const&, Bounds<FloatAP> const&);
+template InputStream& Operations<Bounds<FloatAP>>::_read(InputStream&, Bounds<FloatAP>&);
+
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_pi(MultiplePrecision);
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sin(Bounds<FloatMP> const&);
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_cos(Bounds<FloatMP> const&);

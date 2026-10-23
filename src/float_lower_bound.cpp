@@ -58,6 +58,8 @@ template LowerBound<FloatAP>::LowerBound(LowerBound<FloatAP> const&, ArbitraryPr
 
 
 template class LowerBound<FloatMP>;
+// Export the complete native directed-bound API just as for FloatMP.
+template class LowerBound<FloatAP>;
 
 template<> String class_name<LowerBound<FloatDP>>() { return "FloatDPLowerBound"; }
 template<> String class_name<LowerBound<FloatMP>>() { return "FloatMPLowerBound"; }
