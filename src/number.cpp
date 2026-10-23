@@ -67,6 +67,11 @@ Approximation<FloatMP> pow(Approximation<FloatMP> const& x, Integer const& z) {
     ARIADNE_PRECONDITION(n==z);
     return Approximation<FloatMP>(pow(approx,x._a,n));
 }
+Approximation<FloatAP> pow(Approximation<FloatAP> const& x, Integer const& z) {
+    Int n=z.get_si();
+    ARIADNE_PRECONDITION(n==z);
+    return Approximation<FloatAP>(pow(approx,x._a,n));
+}
 
 ExactDouble::operator ExactNumber() const { return Dyadic(*this).operator ExactNumber(); }
 Integer::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Integer>(*this)); }
@@ -110,6 +115,7 @@ template<> FloatAPApproximation::operator ApproximateNumber() const { return App
 //template<> FloatMPLowerBound::operator ValidatedLowerNumber() const { return ValidatedLowerNumber(new NumberWrapper<FloatMPLowerBound>(*this)); }
 //template<> FloatMPUpperBound::operator ValidatedUpperNumber() const { return ValidatedUpperNumber(new NumberWrapper<FloatMPUpperBound>(*this)); }
 template<> FloatMPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBounds>(*this)); }
+template<> FloatAPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatAPBounds>(*this)); }
 //template<> FloatMPBall::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBall>(*this)); }
 FloatMP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatMP>(*this)); }
 FloatAP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatAP>(*this)); }

@@ -70,6 +70,14 @@ template Ball<FloatAP,FloatAP>::Ball(Rational const&, ArbitraryPrecision, Arbitr
 template OutputStream& Operations<Ball<FloatAP,FloatAP>>::_write(
     OutputStream&, Ball<FloatAP,FloatAP> const&);
 
+// NumberGetterMixin and the native interval algorithms require these
+// constructors at link time. Use their shared, outward-rounded definitions.
+template Ball<FloatAP,FloatDP>::Ball(Ball<FloatAP,FloatDP> const&, ArbitraryPrecision, DoublePrecision);
+template Ball<FloatAP,FloatAP>::Ball(Bounds<FloatAP> const&);
+template Ball<FloatAP,FloatAP>::Ball(Ball<FloatAP,FloatAP> const&, ArbitraryPrecision, ArbitraryPrecision);
+template Ball<FloatAP,FloatAP>::operator ValidatedNumber() const;
+
+
 template class Ball<FloatMP,FloatMP>;
 template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&);
 template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&, Nat);

@@ -50,6 +50,12 @@ template LowerBound<FloatAP>::LowerBound(Real const&, ArbitraryPrecision);
 // generic LowerReal computation creates a FloatAP lower endpoint from
 // an already rigorously enclosed FloatAP interval.
 template LowerBound<FloatAP>::LowerBound(Bounds<FloatAP> const&);
+ // Complete the same outward-rounding and precision-conversion constructors
+ // used by NumberGetterMixin for FloatMP.
+template LowerBound<FloatAP>::LowerBound(FloatAP const&, ArbitraryPrecision);
+template LowerBound<FloatAP>::LowerBound(Bounds<FloatAP> const&, ArbitraryPrecision);
+template LowerBound<FloatAP>::LowerBound(LowerBound<FloatAP> const&, ArbitraryPrecision);
+
 
 template class LowerBound<FloatMP>;
 
