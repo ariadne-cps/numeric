@@ -63,6 +63,7 @@ set(ORACLE_GENERATORS
     generator_integer_random
     generator_rational_binary64
     generator_rational_shared_stream
+    generator_rational_r31
 )
 set(ORACLE_GENERATOR_COMMANDS)
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)

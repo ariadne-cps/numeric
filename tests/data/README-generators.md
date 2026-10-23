@@ -4,7 +4,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
-`generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`,
+`generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -27,7 +27,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (79 of 115 at B89).
+overwrites only the currently covered TSV files (93 of 115 at B90).
 The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
@@ -55,6 +55,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/g
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_integer_random.cpp -o /tmp/numeric-oracle-integer-random
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_binary64.cpp -o /tmp/numeric-oracle-binary64
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_shared_stream.cpp -o /tmp/numeric-oracle-rational-stream
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_r31.cpp -o /tmp/numeric-oracle-r31
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -67,6 +68,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-integer-random --verify --data-dir tests/data
 /tmp/numeric-oracle-binary64 --verify --data-dir tests/data
 /tmp/numeric-oracle-rational-stream --verify --data-dir tests/data
+/tmp/numeric-oracle-r31 --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -93,6 +95,7 @@ review every diff before committing. No sampling is used.
 | `generator_integer_random.cpp` | `integer_b17.tsv`, `integer_b18.tsv` | 250 signed arithmetic/shift cases and 170 signed arithmetic/division cases |
 | `generator_rational_binary64.cpp` | `rational_r7.tsv`, `rational_r12.tsv` | 384 R7 rational probes; 2,048 R12 one-limb seeded conversions (both signs) |
 | `generator_rational_shared_stream.cpp` | `rational_r29.tsv`, all sixteen `rational_r13_mode*_limbs*.tsv`, `rational_r5.tsv` | 216 R29, 1,536 R13, 48 R5 rows; exact shared original RNG state |
+| `generator_rational_r31.cpp` | 14 `rational_r31_<bits>_<chunk>.tsv` fixtures | All 960 R31/R32 cases, 10 widths, 24 source indices, four signs; preserve 2048/4096-bit chunks |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -224,3 +227,11 @@ arithmetic yields GMP-style binary64 truncation, without GMP or MPFR.
 GCC and Clang strict compilation and --verify reproduce all 18 original
 Git blobs byte-for-byte. Registered as the twelfth explicit generator;
 all original files remain versioned and unchanged.
+
+B90 adds the complete deterministic R31/R32 corpus: 960 exact rational
+source combinations in 14 original TSV chunks. Chunk indices and exact
+header ranges are preserved at widths 2048 and 4096 bits. Both GCC and
+Clang compile and run the independent C++20 generator under strict warnings,
+and every output matches the original Git blob SHA-1, with no copied data.
+The generator is registered in explicit `generators` and `generate-data`;
+`tests` and the default build remain decoupled. Data stays versioned.

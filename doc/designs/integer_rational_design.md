@@ -8669,3 +8669,33 @@ generate-data targets; tests and default all still exclude generators.
 Coverage rises from 61 to 79 of the 115 unchanged, versioned TSV files.
 No test consumer, production code, legacy GMP oracle or root CMake changes.
 Full platform CI remains to be checked.
+
+### B90 — complete deterministic Rational R31/R32 exact fixture regeneration (23 October 2026)
+
+Add standalone standard-C++20 `tests/data/generator_rational_r31.cpp`
+using only the independent radix-2^64 `Nat` helper. Generate all
+10 original widths (128, 192, 255, 256, 320, 448, 512, 1024, 2048,
+4096 bits) x 24 original input index configurations x all four sign
+masks = 960 source-keyed rational add/sub/mul/div test rows. Numerators
+and denominators are reconstructed from the original test's formulas;
+all outputs are independently canonicalized using binary limb GCD and
+exact division, independent shift/add multiplication and signed fraction
+arithmetic. Retain all 14 original TSV file partitions: eight single
+chunks, two 2048-bit chunks of 12 indices, and four 4096-bit chunks of
+six indices, including exact original index-range header comments.
+
+The generator compiled with GCC and Clang under strict C++20 warnings,
+including -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror;
+Clang passed the extended CI-style warning set. All 14 regenerated TSVs
+match the original Git object SHA-1 values byte for byte; read-only
+verification correctly rejects a tampered file. Source replay is purely
+deterministic and reads no original TSV as input. The complete generator
+ran locally in about 2.3 seconds excluding compilation on Linux;
+this is a diagnostic, not a bound for other machines.
+
+Register the thirteenth standalone generator in `ORACLE_GENERATORS`
+for the explicit `generators` and `generate-data` targets, leaving
+`tests` decoupled. Update README. Source-reproducible coverage rises
+from 79 to 93 of 115 versioned TSVs. No existing TSV, test consumer,
+production code, GMP oracle, root CMake, FloatMP or benchmark changes.
+Full platform CI is still required.
