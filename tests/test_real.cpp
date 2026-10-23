@@ -23,6 +23,8 @@
  */
 
 #include <sstream>
+#include <fstream>
+#include <stdexcept>
 #include <vector>
 
 #include "utility/module.hpp"
@@ -97,6 +99,32 @@ constexpr bool check_real_concept()
 }
 
 static_assert(check_real_concept());
+#ifndef ARIADNE_TEST_DATA_DIR
+#error "Missing test data directory"
+#endif
+struct CertifiedPi { Rational lower,upper,near; };
+CertifiedPi certified_pi() {
+    std::ifstream file(ARIADNE_TEST_DATA_DIR "/floatap_pi.tsv");
+    if(!file) throw std::runtime_error("Missing certified pi oracle");
+    std::string line; CertifiedPi result; bool found=false;
+    while(std::getline(file,line)) {
+        if(line.empty() || line[0]=='#') continue;
+        std::istringstream row(line);
+        std::string b,p,ln,ld,un,ud,nn,nd,extra;
+        if(!(row>>b>>p>>ln>>ld>>un>>ud>>nn>>nd) || (row>>extra)
+           || b!="384" || p!="320" || found)
+            throw std::runtime_error("Malformed pi oracle");
+        result={Rational(Integer(String(ln)),Integer(String(ld))),
+                Rational(Integer(String(un)),Integer(String(ud))),
+                Rational(Integer(String(nn)),Integer(String(nd)))};
+        if(!(result.lower < result.near && result.near < result.upper))
+            throw std::runtime_error("Invalid pi interval");
+        found=true;
+    }
+    if(!found) throw std::runtime_error("Empty certified pi oracle");
+    return result;
+}
+
 
 } // namespace
 
@@ -135,7 +163,7 @@ void TestReal::test()
 
 void TestReal::test_expression_evaluation() {
     Effort eff(8u);
-    MultiplePrecision mp(128_bits);
+    ArbitraryPrecision ap(128_bits);
     Real x=Real(1)/2;
     Real y=Real(2);
 
@@ -152,9 +180,9 @@ void TestReal::test_expression_evaluation() {
 
     for (Real const& expression : expressions) {
         FloatDPBounds dp_bounds=expression.compute_get(eff,dp);
-        FloatMPBounds mp_bounds=expression.compute_get(eff,mp);
+        FloatAPBounds ap_bounds=expression.compute_get(eff,ap);
         ARIADNE_TEST_ASSERT(dp_bounds.lower_raw()<=dp_bounds.upper_raw());
-        ARIADNE_TEST_ASSERT(mp_bounds.lower_raw()<=mp_bounds.upper_raw());
+        ARIADNE_TEST_ASSERT(ap_bounds.lower_raw()<=ap_bounds.upper_raw());
 
         std::ostringstream expression_stream;
         expression_stream << expression;
@@ -165,14 +193,13 @@ void TestReal::test_expression_evaluation() {
 void TestReal::test_conversions() {
     Real one=1;
     Real pi_=4*atan(one);
-    MultiplePrecision mp(128_bits);
     ArbitraryPrecision ap(128_bits);
     auto pi_dp=pi_.get(dp);
     ARIADNE_TEST_PRINT(pi_dp);
 
     ARIADNE_TEST_EQUALS(one.get_d(),1.0);
     ARIADNE_TEST_EQUALS(one.compute_using(dp).lower_raw(),FloatDP(1,dp));
-    ARIADNE_TEST_EQUALS(one.compute_using(mp).lower_raw(),FloatMP(1,mp));
+    ARIADNE_TEST_EQUALS(one.compute_using(ap).lower_raw(),FloatAP(1,ap));
     const FloatAPBounds native=one.get(ap);
     ARIADNE_TEST_EQUALS(native.lower_raw(),FloatAP(1,ap));
     ARIADNE_TEST_EQUALS(native.upper_raw(),FloatAP(1,ap));
@@ -192,8 +219,8 @@ void TestReal::test_conversions() {
     DyadicBounds dyadic_bounds(Dyadic(1),Dyadic(2));
     ARIADNE_TEST_EQUALS(dyadic_bounds.get(dp).lower_raw(),FloatDP(1,dp));
     ARIADNE_TEST_EQUALS(dyadic_bounds.get(dp).upper_raw(),FloatDP(2,dp));
-    ARIADNE_TEST_EQUALS(dyadic_bounds.get(mp).lower_raw(),FloatMP(1,mp));
-    ARIADNE_TEST_EQUALS(dyadic_bounds.get(mp).upper_raw(),FloatMP(2,mp));
+    ARIADNE_TEST_EQUALS(dyadic_bounds.get(ap).lower_raw(),FloatAP(1,ap));
+    ARIADNE_TEST_EQUALS(dyadic_bounds.get(ap).upper_raw(),FloatAP(2,ap));
 
     std::ostringstream accuracy_stream;
     accuracy_stream << Accuracy(8_bits);
@@ -301,7 +328,7 @@ void TestReal::test_arithmetic() {
 
 void TestReal::test_directed() {
     Effort eff(4u);
-    MultiplePrecision mp(128_bits);
+    ArbitraryPrecision ap(128_bits);
     Real two_real=2;
     Real three_real=3;
 
@@ -312,12 +339,11 @@ void TestReal::test_directed() {
 
     ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff));
     ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff,dp));
-    ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff,mp));
-    const ArbitraryPrecision ap(128_bits);
+    ARIADNE_TEST_EXECUTE(ltwo.compute_get(eff,ap));
     ARIADNE_TEST_ASSERT(ltwo.compute_get(eff,ap).raw()<=FloatAP(2,ap));
     ARIADNE_TEST_EXECUTE(utwo.compute_get(eff));
     ARIADNE_TEST_EXECUTE(utwo.compute_get(eff,dp));
-    ARIADNE_TEST_EXECUTE(utwo.compute_get(eff,mp));
+    ARIADNE_TEST_EXECUTE(utwo.compute_get(eff,ap));
     ARIADNE_TEST_ASSERT(utwo.compute_get(eff,ap).raw()>=FloatAP(2,ap));
 
     std::ostringstream directed_stream;
@@ -464,31 +490,28 @@ void TestReal::test_accuracy() {
     Real one=1;
     Real pi_=4*atan(one);
 
-    MultiplePrecision mp_high(320);
-    RawFloatMP pi_near = FloatMP::pi(near,mp_high);
-
+    const CertifiedPi oracle=certified_pi();
     ARIADNE_TEST_CONSTRUCT(FloatDPBounds,pi_dp,(pi_.get(dp)));
+    const ArbitraryPrecision ap(128_bits);
+    ARIADNE_TEST_CONSTRUCT(FloatAPBounds,pi_ap,(pi_.get(ap)));
+    ARIADNE_TEST_ASSERT(Rational(pi_dp.lower_raw())<=oracle.lower);
+    ARIADNE_TEST_ASSERT(Rational(pi_dp.upper_raw())>=oracle.upper);
+    ARIADNE_TEST_ASSERT(Rational(pi_ap.lower_raw())<=oracle.lower);
+    ARIADNE_TEST_ASSERT(Rational(pi_ap.upper_raw())>=oracle.upper);
 
-    MultiplePrecision mp(128);
-    ARIADNE_TEST_CONSTRUCT(FloatMPBounds,pi_mp,(pi_.get(mp)));
-
-    ARIADNE_TEST_ASSERT(pi_dp.lower_raw()<=pi_near);
-    ARIADNE_TEST_ASSERT(pi_dp.upper_raw()>=pi_near);
-
-    ARIADNE_TEST_ASSERT(pi_mp.lower_raw()<=pi_near);
-    ARIADNE_TEST_ASSERT(pi_mp.upper_raw()>=pi_near);
-
-    mp=precision(320_bits);
+    const ArbitraryPrecision ap_high(320_bits);
     Effort effort{256};
     ARIADNE_TEST_CONSTRUCT(ValidatedReal,pi_ord,(pi_.compute(effort)));
     Accuracy accuracy{256_bits};
-    FloatMP error(accuracy.error(),mp);
+    FloatAP error(accuracy.error(),ap_high);
     ARIADNE_TEST_CONSTRUCT(ValidatedReal,pi_met,(pi_.compute(accuracy)));
-    ARIADNE_TEST_CONSTRUCT(FloatMPBounds,pi_met_mp,(pi_met.get(mp)));
-    ARIADNE_TEST_PRINT(pi_met_mp.error());
-    ARIADNE_TEST_PRINT(abs(sub(up,pi_met_mp.value_raw(),pi_near)));
-    ARIADNE_TEST_ASSERT(pi_met_mp.error() <= error);
-    ARIADNE_TEST_ASSERT(rad(up,pi_met_mp.value(),pi_near) <= error.raw());
+    ARIADNE_TEST_CONSTRUCT(FloatAPBounds,pi_met_ap,(pi_met.get(ap_high)));
+    ARIADNE_TEST_PRINT(pi_met_ap.error());
+    const FloatAP pi_near(oracle.near,FloatAP::ROUND_TO_NEAREST,ap_high);
+    ARIADNE_TEST_EQUALS(Rational(pi_near),oracle.near);
+    ARIADNE_TEST_PRINT(abs(sub(up,pi_met_ap.value_raw(),pi_near)));
+    ARIADNE_TEST_ASSERT(pi_met_ap.error() <= error);
+    ARIADNE_TEST_ASSERT(rad(up,pi_met_ap.value(),pi_near) <= error.raw());
 
     Dyadic eps(1,1024u);
     ARIADNE_TEST_CONSTRUCT(Real,sin_pi,(sin(pi_)));
@@ -508,11 +531,11 @@ void TestReal::test_sequence() {
     FastCauchySequence<Dyadic> wseq(wfn);
     Real wlim=limit(wseq);
     Real wdirect(wseq);
-    MultiplePrecision mp(128_bits);
+    ArbitraryPrecision ap(128_bits);
     ARIADNE_TEST_EXECUTE(wlim.compute_get(Effort(4u),dp));
-    ARIADNE_TEST_EXECUTE(wlim.compute_get(Effort(4u),mp));
+    ARIADNE_TEST_EXECUTE(wlim.compute_get(Effort(4u),ap));
     ARIADNE_TEST_EXECUTE(wdirect.compute_get(Effort(4u),dp));
-    ARIADNE_TEST_EXECUTE(wdirect.compute_get(Effort(4u),mp));
+    ARIADNE_TEST_EXECUTE(wdirect.compute_get(Effort(4u),ap));
     std::ostringstream dyadic_limit_stream;
     dyadic_limit_stream << wdirect;
     ARIADNE_TEST_ASSERT(not dyadic_limit_stream.str().empty());
@@ -542,7 +565,7 @@ void TestReal::test_sequence() {
     FastCauchySequence<Real> rseq(rfn);
     Real rlim=limit(rseq);
     ARIADNE_TEST_EXECUTE(rlim.compute_get(Effort(4u),dp));
-    ARIADNE_TEST_EXECUTE(rlim.compute_get(Effort(4u),mp));
+    ARIADNE_TEST_EXECUTE(rlim.compute_get(Effort(4u),ap));
     std::ostringstream real_limit_stream;
     real_limit_stream << rlim;
     ARIADNE_TEST_ASSERT(not real_limit_stream.str().empty());
@@ -560,7 +583,7 @@ void TestReal::test_sequence() {
     ARIADNE_TEST_PRINT(nondeterministic_greater(pi_,"3.1415926535897932"_dec,"3.1415926535897937"_dec));
     ARIADNE_TEST_PRINT(nondeterministic_greater(pi_,"3.1415926535897932"_dec,"3.1415926535897933"_dec));
 
-    ARIADNE_TEST_PRINT(pi_.compute(Accuracy(256_bits)).get(MultiplePrecision(256_bits)));
+    ARIADNE_TEST_PRINT(pi_.compute(Accuracy(256_bits)).get(ArbitraryPrecision(256_bits)));
     ARIADNE_TEST_PRINT(std::boolalpha);
     ARIADNE_TEST_PRINT(choose(pi_>pi_lower,pi_<pi_upper));
     ARIADNE_TEST_PRINT(choose(pi_>pi_lower,pi_<3.2_dec));
