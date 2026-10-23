@@ -8252,3 +8252,27 @@ Other GMP-based GCD families (R26/R27 etc.), division, products,
 decimal formatting, randomized arithmetic and integer/GMP bridge
 tests remain intentionally unchanged. No FloatMP, CMake, production
 source or benchmark edits. Require four-workflow CI validation.
+
+### R33.15 — freeze BigUnsigned GCD R26/R27/R21 runtime GMP oracles (23 October 2026)
+
+Replace GMP GCD expectations with fully independent exact BigInt Euclid
+source-keyed TSV oracles. R26 retains 9 limb widths (2/3/4/5/8/16/
+127/128/129), 40 trials per width and all 9 quotient/variant combinations
+per trial: 360 frozen base sources and 3240 result checks. The TSV records
+source low/b values and all 9 expected gcd results; the source
+mt19937_64 still consumes exactly the original draws.
+R27 retains 7 x 96 shared-prefix and 8 x 96 scalar-tail cases = 1440.
+R21 retains all 10 x 4 dense samples = 40, plus existing exact
+fixed-factor identities at every width. Total 4720 original GCD
+source/result checks, without sampling or case substitution.
+
+All generated inputs and their Euclidean GCD expectations are frozen
+from unsigned arbitrary-precision BigInt, with no GMP/MPFR/Numeric
+calls. The three mt19937_64 seeds were independently crosschecked
+against compiled C++20 engine outputs. Tests enforce exact source
+hexadecimal, order/keys, missing/excess rows, canonical limbs and bit
+length, both argument orders and immutability. The R26 cases are
+split by width for manageable data files only, not for sampling.
+Other GMP test families remain; do not remove or weaken them.
+No edits to CMake, FloatMP, benchmarks or production numeric code.
+Require four-workflow CI before declaring R33.15 validated.

@@ -54,6 +54,8 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R11_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r11.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_R27_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r27.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_R21_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r21.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_SQRT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_sqrt.tsv";
 
 unsigned golden_hex_nibble(char c)
@@ -2868,51 +2870,57 @@ void TestBigUnsigned::test_gcd_decimal()
         }
         ensure_gcd_golden_end(golden,"R11");
     }
-    // R26: same-width quotient <=3 shortcut. This differs from the
-    // existing R11 cases by deliberately exercising q=3, q=2 with
-    // high-limb ratio 3:1, and the transition to q>=4. GMP is the
-    // independent gcd oracle; both orders and source immutability
-    // are checked at 4/5- and 127/128/129-limb boundaries.
+    // R26: preserve all 9 widths, 40 trials and 9 quotient variants.
     {
-        GmpInteger ga,gb,expected;
         std::mt19937_64 engine(0x52632633474344ULL);
         for (const std::size_t count:{2u,3u,4u,5u,8u,16u,127u,128u,129u}) {
+            const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
+                "/big_unsigned_r26_"+std::to_string(count)+".tsv";
+            std::ifstream golden(path);
+            require_gcd_golden(golden,"R26");
             const BigUnsigned top=shift_left(one,64u*(count-1u));
             for (unsigned trial=0u;trial<40u;++trial) {
                 const BigUnsigned low(engine()|1u);
                 const BigUnsigned b=add(top,low);
+                std::size_t ref_count=0u;
+                unsigned ref_trial=0u;
+                std::string low_hex,b_hex;
+                std::array<std::string,9u> results;
+                if (!(golden >> ref_count >> ref_trial >> low_hex >> b_hex))
+                    throw std::runtime_error("Missing R26 TSV row");
+                for (auto& value:results)
+                    if (!(golden >> value)) throw std::runtime_error("Malformed R26 TSV row");
+                if (ref_count!=count || ref_trial!=trial)
+                    throw std::runtime_error("Unordered R26 TSV row");
+                check_against_precomputed_hex(low,low_hex);
+                check_against_precomputed_hex(b,b_hex);
+                unsigned index=0u;
                 for (std::uint64_t q:{2u,3u,4u}) {
                     for (unsigned variant=0u;variant<3u;++variant) {
                         const BigUnsigned product=mul(b,BigUnsigned(q));
                         const BigUnsigned a=variant==0u ? product :
                             variant==1u ? add(product,one) :
                             sub(add(product,b),one);
-                        mpz_import(ga.value,a.size(),-1,sizeof(std::uint64_t),
-                                   0,0,a.limbs().data());
-                        mpz_import(gb.value,b.size(),-1,sizeof(std::uint64_t),
-                                   0,0,b.limbs().data());
-                        mpz_gcd(expected.value,ga.value,gb.value);
-                        check_against_gmp(gcd(a,b),expected.value);
-                        check_against_gmp(gcd(b,a),expected.value);
-                        check_against_gmp(a,ga.value);
-                        check_against_gmp(b,gb.value);
+                        check_against_precomputed_hex(gcd(a,b),results[index]);
+                        check_against_precomputed_hex(gcd(b,a),results[index]);
+                        check_against_precomputed_hex(b,b_hex);
+                        ++index;
                     }
                 }
+                check_against_precomputed_hex(low,low_hex);
             }
+            ensure_gcd_golden_end(golden,"R26");
         }
     }
-    // R27: GMP checks the borrowed-prefix GCD shortcut independently.
-    // The high limbs are equal and the low limb differs by 0, 1,
-    // an odd composite, or a large 64-bit number. Exercise both
-    // argument orders, multi-limb equal inputs, nonzero gcd values,
-    // and the 8/9-limb short/fallback boundary.
+    // R27: complete original shared-prefix and scalar-tail random streams.
     {
-        GmpInteger left_gmp,right_gmp,oracle_gmp;
+        std::ifstream golden(ARIADNE_BIG_UNSIGNED_R27_ORACLE_PATH);
+        require_gcd_golden(golden,"R27");
         std::mt19937_64 random(0x5277705245464958ULL);
         for (std::size_t count:{2u,3u,4u,5u,7u,8u,9u}) {
             for (unsigned repetition=0u;repetition<96u;++repetition) {
                 std::vector<std::uint64_t> left(count),right(count);
-                for (auto& word:left) { word=random(); }
+                for (auto& word:left) word=random();
                 left.back()|=std::uint64_t{1}<<63u;
                 right=left;
                 const std::uint64_t difference=
@@ -2923,24 +2931,14 @@ void TestBigUnsigned::test_gcd_decimal()
                     std::uint64_t{1}<<63u;
                 left.front()=std::numeric_limits<std::uint64_t>::max();
                 right.front()=left.front()-difference;
-                const BigUnsigned a(left),b(right);
-                mpz_import(left_gmp.value,a.size(),-1,sizeof(std::uint64_t),
-                           0,0,a.limbs().data());
-                mpz_import(right_gmp.value,b.size(),-1,sizeof(std::uint64_t),
-                           0,0,b.limbs().data());
-                mpz_gcd(oracle_gmp.value,left_gmp.value,right_gmp.value);
-                check_against_gmp(gcd(a,b),oracle_gmp.value);
-                check_against_gmp(gcd(b,a),oracle_gmp.value);
-                check_against_gmp(a,left_gmp.value);
-                check_against_gmp(b,right_gmp.value);
+                check_gcd_golden(golden,{"P",std::to_string(count),
+                    std::to_string(repetition)},BigUnsigned(left),BigUnsigned(right));
             }
         }
-        // Exercise all limb widths of the scalar tail, including
-        // divisors 1, powers of two, UINT64_MAX and mixed words.
         for (std::size_t count:{1u,2u,3u,4u,5u,7u,8u,9u}) {
             for (unsigned repetition=0u;repetition<96u;++repetition) {
                 std::vector<std::uint64_t> limbs(count);
-                for (auto& word:limbs) { word=random(); }
+                for (auto& word:limbs) word=random();
                 limbs.back()|=std::uint64_t{1}<<63u;
                 const std::uint64_t d=repetition%6u==0u ? 1u :
                     repetition%6u==1u ? 2u :
@@ -2949,24 +2947,20 @@ void TestBigUnsigned::test_gcd_decimal()
                     repetition%6u==4u ?
                         std::numeric_limits<std::uint64_t>::max() :
                         random()|1u;
-                const BigUnsigned a(limbs),b(d);
-                mpz_import(left_gmp.value,a.size(),-1,sizeof(std::uint64_t),
-                           0,0,a.limbs().data());
-                mpz_import(right_gmp.value,b.size(),-1,sizeof(std::uint64_t),
-                           0,0,b.limbs().data());
-                mpz_gcd(oracle_gmp.value,left_gmp.value,right_gmp.value);
-                check_against_gmp(gcd(a,b),oracle_gmp.value);
-                check_against_gmp(gcd(b,a),oracle_gmp.value);
+                check_gcd_golden(golden,{"S",std::to_string(count),
+                    std::to_string(repetition)},BigUnsigned(limbs),BigUnsigned(d));
             }
         }
+        ensure_gcd_golden_end(golden,"R27");
     }
-    // R21: fixed coprimality and dense Euclid at the stack/fallback
-    // boundary. Both source views must survive every buffer rotation.
+    // R21: preserve the fixed-factor identity, all 40 dense samples,
+    // source immutability and both borrowed-input orders.
     {
         const BigUnsigned factor=add(shift_left(one,64u),BigUnsigned(std::uint64_t{3}));
         std::mt19937_64 random(0x21BCD128ULL);
-        GmpInteger oracle_left,oracle_right,oracle_gcd;
-        for (std::size_t count : {2u,4u,5u,8u,16u,64u,127u,128u,129u,160u}) {
+        std::ifstream golden(ARIADNE_BIG_UNSIGNED_R21_ORACLE_PATH);
+        require_gcd_golden(golden,"R21");
+        for (std::size_t count:{2u,4u,5u,8u,16u,64u,127u,128u,129u,160u}) {
             const BigUnsigned power=shift_left(one,64u*count-2u);
             const BigUnsigned left=mul(sub(power,one),factor);
             const BigUnsigned right=mul(add(power,one),factor);
@@ -2974,20 +2968,15 @@ void TestBigUnsigned::test_gcd_decimal()
             ARIADNE_TEST_ASSERT(compare(gcd(right,left),factor)==0);
             for (unsigned trial=0u;trial<4u;++trial) {
                 std::vector<std::uint64_t> x(count),y(count);
-                for (auto& word:x) { word=random(); }
-                for (auto& word:y) { word=random(); }
+                for (auto& word:x) word=random();
+                for (auto& word:y) word=random();
                 x.back()|=std::uint64_t{1}<<63u;
                 y.back()|=std::uint64_t{1}<<63u;
-                const BigUnsigned first(x),second(y);
-                mpz_import(oracle_left.value,count,-1,sizeof(std::uint64_t),0,0,x.data());
-                mpz_import(oracle_right.value,count,-1,sizeof(std::uint64_t),0,0,y.data());
-                mpz_gcd(oracle_gcd.value,oracle_left.value,oracle_right.value);
-                check_against_gmp(gcd(first,second),oracle_gcd.value);
-                check_against_gmp(gcd(second,first),oracle_gcd.value);
-                check_against_gmp(first,oracle_left.value);
-                check_against_gmp(second,oracle_right.value);
+                check_gcd_golden(golden,{std::to_string(count),
+                    std::to_string(trial)},BigUnsigned(x),BigUnsigned(y));
             }
         }
+        ensure_gcd_golden_end(golden,"R21");
     }
     ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
     ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
