@@ -131,7 +131,6 @@ constexpr bool check_float_concept()
 }
 
 static_assert(check_float_concept<DoublePrecision>());
-static_assert(check_float_concept<MultiplePrecision>());
 static_assert(check_float_concept<ArbitraryPrecision>());
 
 
@@ -265,7 +264,7 @@ TestFloat<PR>::test_conversions()
         ARIADNE_TEST_EQUALS(class_name<ApproximateDouble>(),String("ApproximateDouble"));
         ARIADNE_TEST_EQUALS(class_name<ExactDouble>(),String("ExactDouble"));
         ARIADNE_TEST_EQUALS(class_name<Rounded<FloatDP>>(),String("Rounded<FloatDP>"));
-    } else if constexpr (Same<PR,MultiplePrecision> || Same<PR,ArbitraryPrecision>) {
+    } else if constexpr (Same<PR,ArbitraryPrecision>) {
         PR pr=precision;
 
         ARIADNE_TEST_ASSERT(PR(64_bits)<=PR(128_bits));
@@ -343,7 +342,7 @@ TestFloat<PR>::test_conversions()
         }
 
         if constexpr (Same<PR,ArbitraryPrecision>) {
-            // FloatAP must reproduce FloatMP's public zero-interval format,
+            // Preserve the public zero-interval representation,
             // rather than the old generic formatter's "{0.:0.}" spelling.
             std::ostringstream ap_zero_stream;
             ap_zero_stream << Bounds<FloatAP>(0,pr);
@@ -415,35 +414,27 @@ TestFloat<PR>::test_conversions()
 
             // The direct and polymorphic FloatAP conversion paths are tested
             // against a frozen, independently computed Rational TSV oracle.
-            // No runtime FloatMP/MPFR values participate in these checks.
+            // No external floating-point backend is used as an oracle.
         }
 
-        if constexpr (Same<PR,MultiplePrecision>) {
-            MultiplePrecision from_dp(dp);
-            ARIADNE_TEST_EQUALS(from_dp.bits(),53u);
+        // Exercise native precision controls and decimal formatting.
+        // The MPFR raw-pointer path has no counterpart in FloatAP.
+        const ArbitraryPrecision from_bits(53_bits);
+        ARIADNE_TEST_EQUALS(from_bits.bits(),53u);
 
-            std::ostringstream precision_repr;
-            repr(precision_repr,MultiplePrecision(96_bits));
-            ARIADNE_TEST_EQUALS(precision_repr.str(),String("MultiplePrecision(96)"));
+        std::ostringstream precision_repr;
+        repr(precision_repr,ArbitraryPrecision(96_bits));
+        ARIADNE_TEST_EQUALS(precision_repr.str(),String("ArbitraryPrecision(96)"));
 
-            ARIADNE_TEST_EQUALS(multiple_precision(static_cast<mpfr_prec_t>(80)),MultiplePrecision(80_bits));
-            ARIADNE_TEST_EQUALS(multiple_precision(81_bits),MultiplePrecision(81_bits));
-            ARIADNE_TEST_EQUALS(Ariadne::precision(static_cast<mpfr_prec_t>(82)),MultiplePrecision(82_bits));
-            ARIADNE_TEST_EQUALS(Ariadne::mp(static_cast<mpfr_prec_t>(83)),MultiplePrecision(83_bits));
+        FloatType source(Dyadic(3,2u),pr);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(source),Rational(3,4));
 
-            FloatMP source(Dyadic(3,2u),pr);
-            FloatMP from_raw(source.get_mpfr(),RawPtr());
-            ARIADNE_TEST_EQUALS(from_raw,source);
+        const ArbitraryPrecision old_default=FloatType::get_default_precision();
+        FloatType::set_default_precision(ArbitraryPrecision(96_bits));
+        ARIADNE_TEST_EQUALS(FloatType::get_default_precision(),ArbitraryPrecision(96_bits));
+        FloatType::set_default_precision(old_default);
 
-            MultiplePrecision old_default=FloatMP::get_default_precision();
-            FloatMP::set_default_precision(MultiplePrecision(96_bits));
-            ARIADNE_TEST_EQUALS(FloatMP::get_default_precision(),MultiplePrecision(96_bits));
-            FloatMP::set_default_precision(old_default);
-
-            ARIADNE_TEST_EXECUTE(mpfr_set_si(resized.get_mpfr(),2,MPFR_RNDN));
-        } else {
-            resized=Integer(2);
-        }
+        resized=Integer(2);
         ARIADNE_TEST_EQUALS(resized,Dyadic(2));
     }
 }
@@ -754,7 +745,7 @@ TestFloat<PR>::test_operations()
         ARIADNE_TEST_EXECUTE(dp_prefailed >> parsed);
     }
 
-    if constexpr (Same<PR,MultiplePrecision> || Same<PR,ArbitraryPrecision>) {
+    if constexpr (Same<PR,ArbitraryPrecision>) {
         FloatType a(2,pr);
         FloatType b(1,pr);
         FloatDP dpa(1,dp);
@@ -819,7 +810,7 @@ TestFloat<PR>::test_operations()
         ARIADNE_TEST_EQUALS(FloatType::output_places,Nat(7u));
         ARIADNE_TEST_EQUALS(class_name<Rounded<FloatType>>(),String("Rounded<")+class_name<FloatType>()+String(">"));
 
-        if constexpr (Same<PR,MultiplePrecision>) {
+        if constexpr (Same<PR,ArbitraryPrecision>) {
             ARIADNE_TEST_EXECUTE(FloatDP(a,FloatDP::ROUND_TO_NEAREST,dp));
             ARIADNE_TEST_EXECUTE(FloatDP(a,FloatDP::ROUND_TOWARD_ZERO,dp));
             ARIADNE_TEST_FAIL(FloatDP(a,static_cast<FloatDP::RoundingModeType>(0xffffu),dp));
@@ -859,22 +850,22 @@ TestFloat<PR>::test_predicates()
         ARIADNE_TEST_EQUALS(cmp(zero,FloatDP::inf(Sign::NEGATIVE,dp)),Comparison::GREATER);
     }
 
-    if constexpr (Same<PR,MultiplePrecision> || Same<PR,ArbitraryPrecision>) {
+    if constexpr (Same<PR,ArbitraryPrecision>) {
         Float<PR> x(Dyadic(3,1u),pr);
         Float<PR> one(1,pr);
-        Float<PR> two_mp(2,pr);
+        Float<PR> two_native(2,pr);
 
-        ARIADNE_TEST_EQUALS(cmp(two_mp,one),Comparison::GREATER);
-        ARIADNE_TEST_EQUALS(cmp(two_mp,Nat(1u)),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(two_native,one),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(two_native,Nat(1u)),Comparison::GREATER);
         ARIADNE_TEST_EQUALS(cmp(one,Nat(2u)),Comparison::LESS);
 
-        ARIADNE_TEST_EQUALS(cmp(Int(1),two_mp),Comparison::LESS);
-        ARIADNE_TEST_EQUALS(cmp(Int(2),two_mp),Comparison::EQUAL);
-        ARIADNE_TEST_EQUALS(cmp(Int(3),two_mp),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(Int(1),two_native),Comparison::LESS);
+        ARIADNE_TEST_EQUALS(cmp(Int(2),two_native),Comparison::EQUAL);
+        ARIADNE_TEST_EQUALS(cmp(Int(3),two_native),Comparison::GREATER);
 
-        ARIADNE_TEST_EQUALS(cmp(ExactDouble(1.0),two_mp),Comparison::LESS);
-        ARIADNE_TEST_EQUALS(cmp(ExactDouble(2.0),two_mp),Comparison::EQUAL);
-        ARIADNE_TEST_EQUALS(cmp(ExactDouble(3.0),two_mp),Comparison::GREATER);
+        ARIADNE_TEST_EQUALS(cmp(ExactDouble(1.0),two_native),Comparison::LESS);
+        ARIADNE_TEST_EQUALS(cmp(ExactDouble(2.0),two_native),Comparison::EQUAL);
+        ARIADNE_TEST_EQUALS(cmp(ExactDouble(3.0),two_native),Comparison::GREATER);
 
         ARIADNE_TEST_EQUALS(cmp(Nat(1u),x),Comparison::LESS);
         ARIADNE_TEST_EQUALS(cmp(Nat(2u),x),Comparison::GREATER);
@@ -1086,8 +1077,7 @@ Int main() {
     test_builtin_runtime();
     test_double_runtime();
     TestFloat<DoublePrecision>(dp).test();
-    TestFloat<MultiplePrecision>(MultiplePrecision(128_bits)).test();
-    TestFloat<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
+        TestFloat<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
     test_floatap_exact_dyadic_export();
 
 
