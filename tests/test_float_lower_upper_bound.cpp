@@ -286,7 +286,7 @@ TestDirectedFloats<PR>::test_conversions()
     ARIADNE_TEST_ASSERT(not (nan_value>0));
     ARIADNE_TEST_ASSERT(not (nan_value>=0));
     ARIADNE_TEST_ASSERT(nan_value!=0);
-    ARIADNE_TEST_EXECUTE(FloatError<PR>(nan_value));
+    ARIADNE_TEST_EXECUTE(static_cast<void>(FloatError<PR>{nan_value}));
 
     FloatLowerBoundType lower_bound(five_thirds,precision);
     FloatUpperBoundType upper_bound(five_thirds,precision);
