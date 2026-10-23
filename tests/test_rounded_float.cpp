@@ -100,13 +100,13 @@ constexpr bool check_rounded_float_concept()
 }
 
 static_assert(check_rounded_float_concept<FloatDP>());
-static_assert(check_rounded_float_concept<FloatMP>());
+static_assert(check_rounded_float_concept<FloatAP>());
 
 Void test_numeric_casts()
 {
     FloatDP dp_two(2,dp);
-    MultiplePrecision mp(128_bits);
-    FloatMP mp_two(2,mp);
+    const ArbitraryPrecision ap(128_bits);
+    FloatAP ap_two(2,ap);
     Dyadic dy_two(2);
     Real real_two(2);
     FloatDPBounds bounds_two(2,dp);
@@ -114,7 +114,7 @@ Void test_numeric_casts()
     double double_two=2.0;
 
     ARIADNE_TEST_EQUALS(numeric_cast<Int>(dp_two),Int(2));
-    ARIADNE_TEST_EQUALS(numeric_cast<Int>(mp_two),Int(2));
+    ARIADNE_TEST_EQUALS(numeric_cast<Int>(ap_two),Int(2));
 
     ARIADNE_TEST_EQUALS(numeric_cast<double>(dp_two),2.0);
     ARIADNE_TEST_EQUALS(numeric_cast<double>(dy_two),2.0);
@@ -175,7 +175,7 @@ Int main() {
     ARIADNE_TEST_CALL(test_numeric_casts());
 
     TestRounded<FloatDP>(dp).test();
-    TestRounded<FloatMP>(MP(128)).test();
+    TestRounded<FloatAP>(ArbitraryPrecision(128_bits)).test();
 
     return ARIADNE_TEST_FAILURES;
 }
@@ -710,68 +710,7 @@ TestRounded<FLT>::test_cosine()
     ARIADNE_TEST_COMPARE(cos(3*pi_up),==,-1.0_x);
 }
 
-/*
-template<> Void
-TestRounded<FloatDP>::test_arctan()
-{
-    PR pr;
 
-    static const RoundedFloatType pi_down(3.1415926535897931,pr);
-    //static const RoundedFloatType pi_near(3.1415926535897931,pr);
-    static const RoundedFloatType pi_up  (3.1415926535897936,pr);
-
-    static const RoundedFloatType atan_quarter_down(0.244978663126864143,pr);
-    //static const RoundedFloatType atan_quarter_near(0.244978663126864154_x,pr);
-    static const RoundedFloatType atan_quarter_up  (0.244978663126864171,pr);
-
-    static const RoundedFloatType sqrt_three_down(1.732050807568877193,pr);
-    //static const RoundedFloatType sqrt_three_near(1.732050807568877294_x,pr);
-    static const RoundedFloatType sqrt_three_up  (1.732050807568877415,pr);
-
-    static const RoundedFloatType zero(0.0_x,pr);
-    static const RoundedFloatType one(1.0_x,pr);
-    static const RoundedFloatType eps(FloatType::eps(pr));
-
-    RoundedFloatType::set_rounding_mode(upward);
-    ARIADNE_TEST_EQUAL(atan(zero),zero);
-    ARIADNE_TEST_COMPARE(atan(one)*4,>=,pi_up);
-    ARIADNE_TEST_COMPARE(atan(-one)*4,>=,-pi_down);
-    ARIADNE_TEST_COMPARE(atan(sqrt_three_up)*3,>=,pi_up);
-    ARIADNE_TEST_COMPARE(atan(-sqrt_three_down)*3,>=,-pi_down);
-    ARIADNE_TEST_COMPARE(atan(1/sqrt_three_down)*6,>=,pi_up);
-    ARIADNE_TEST_COMPARE(atan(-1/sqrt_three_up)*6,>=,-pi_down);
-    ARIADNE_TEST_COMPARE(atan(one/4),>=,atan_quarter_up);
-    ARIADNE_TEST_COMPARE(atan(-one/4),>=,-atan_quarter_down);
-
-    RoundedFloatType::set_rounding_mode(downward);
-    ARIADNE_TEST_EQUAL(atan(zero),zero);
-    ARIADNE_TEST_COMPARE(atan(+one)*4,<=,pi_down);
-    ARIADNE_TEST_COMPARE(atan(-one)*4,<=,-pi_up);
-    ARIADNE_TEST_COMPARE(atan(+sqrt_three_down)*3,<=,pi_down);
-    ARIADNE_TEST_COMPARE(atan(-sqrt_three_up)*3,<=,-pi_up);
-    ARIADNE_TEST_COMPARE(atan(1/sqrt_three_up)*6,<=,pi_down);
-    ARIADNE_TEST_COMPARE(atan(-1/sqrt_three_down)*6,<=,-pi_up);
-    ARIADNE_TEST_COMPARE(atan(+one/4),<=,atan_quarter_down);
-    ARIADNE_TEST_COMPARE(atan(-one/4),<=,-atan_quarter_up);
-
-    ARIADNE_TEST_COMPARE(atan(one)*4-pi_up,<=,4*eps);
-    ARIADNE_TEST_COMPARE(atan(sqrt_three_up)*3-pi_up,<=,4*eps);
-    ARIADNE_TEST_COMPARE(atan(1/sqrt_three_down)*6-pi_up,<=,4*eps);
-    ARIADNE_TEST_COMPARE(atan(one/4)-atan_quarter_up,<=,eps/2);
-
-    Dyadic e(1,48u);
-
-    // Test against FloatMP values
-    std::vector<Dyadic> tests({1+e,1,1-e,-1+e,-1,-1-e});
-    for (Dyadic w : tests) {
-        ARIADNE_TEST_PRINT(w);
-        RoundedFloatType::set_rounding_mode(upward);
-        ARIADNE_TEST_COMPARE(cast_exact(atan(RoundedFloatType(w,dp))),>,cast_exact(atan(up,FloatMP(w,MP(128)))));
-        RoundedFloatType::set_rounding_mode(downward);
-        ARIADNE_TEST_COMPARE(cast_exact(atan(RoundedFloatType(w,dp))),<,cast_exact(atan(down,FloatMP(w,MP(128)))));
-    }
-}
-*/
 
 template<class FLT> Void
 TestRounded<FLT>::test_arctan()
