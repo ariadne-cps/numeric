@@ -45,16 +45,11 @@ template<> LowerBound<FloatAP>::LowerBound(ValidatedLowerNumber const& y, Arbitr
 
 // Real is first enclosed as exact dyadic bounds by Real::get(pr).
 // The lower endpoint is then rounded downward by the native FloatAP.
-template LowerBound<FloatAP>::LowerBound(Real const&, ArbitraryPrecision);
 // This template constructor is defined in float_lower_bound.tpl.hpp;
 // generic LowerReal computation creates a FloatAP lower endpoint from
 // an already rigorously enclosed FloatAP interval.
-template LowerBound<FloatAP>::LowerBound(Bounds<FloatAP> const&);
  // Complete the same outward-rounding and precision-conversion constructors
  // used by NumberGetterMixin for FloatMP.
-template LowerBound<FloatAP>::LowerBound(FloatAP const&, ArbitraryPrecision);
-template LowerBound<FloatAP>::LowerBound(Bounds<FloatAP> const&, ArbitraryPrecision);
-template LowerBound<FloatAP>::LowerBound(LowerBound<FloatAP> const&, ArbitraryPrecision);
 
 
 template class LowerBound<FloatMP>;

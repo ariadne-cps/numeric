@@ -47,7 +47,6 @@ template<> Bounds<FloatAP>::Bounds(Real const& value, ArbitraryPrecision pr)
 
 // NumberWrapper calls this when converting generic validated values
 // to native outward-rounded intervals.
-template Bounds<FloatAP>::Bounds(ValidatedNumber const&, ArbitraryPrecision);
 template<> Bounds<FloatDP>::operator ValidatedNumber() const;
 template<> Bounds<FloatMP>::operator ValidatedNumber() const;
 

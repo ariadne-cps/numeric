@@ -47,9 +47,6 @@ template Ball<FloatMP,FloatDP> Operations<Ball<FloatMP,FloatDP>>::_trunc(Ball<Fl
 template Integer Operations<Ball<FloatMP,FloatDP>>::_cast_integer(Ball<FloatMP,FloatDP> const&);
 template InputStream& Operations<Ball<FloatMP,FloatDP>>::_read(InputStream&, Ball<FloatMP,FloatDP>&);
 // Explicit instantiations for the FloatAP centre with double-precision error.
-template Ball<FloatAP,FloatDP>::Ball(Bounds<FloatAP> const&, DoublePrecision);
-template Ball<FloatAP,FloatDP>::Ball(Dyadic const&, ArbitraryPrecision, DoublePrecision);
-template FloatAP const Ball<FloatAP,FloatDP>::value() const;
 template OutputStream& Operations<Ball<FloatAP,FloatDP>>::_write(
     OutputStream&, Ball<FloatAP,FloatDP> const&);
 
@@ -57,25 +54,11 @@ template OutputStream& Operations<Ball<FloatAP,FloatDP>>::_write(
 // Match the FloatMP public constructors for both supported FloatAP error
 // precisions. The generic template definitions use exact FloatAP values
 // and round errors upward in the error precision.
-template Ball<FloatAP,FloatDP>::Ball(Real const&, ArbitraryPrecision, DoublePrecision);
-template Ball<FloatAP,FloatDP>::Ball(ValidatedNumber const&, ArbitraryPrecision, DoublePrecision);
-template Ball<FloatAP,FloatDP>::Ball(Integer const&, ArbitraryPrecision, DoublePrecision);
-template Ball<FloatAP,FloatDP>::Ball(Rational const&, ArbitraryPrecision, DoublePrecision);
-template Ball<FloatAP,FloatAP>::Ball(Bounds<FloatAP> const&, ArbitraryPrecision);
-template Ball<FloatAP,FloatAP>::Ball(Real const&, ArbitraryPrecision, ArbitraryPrecision);
-template Ball<FloatAP,FloatAP>::Ball(ValidatedNumber const&, ArbitraryPrecision, ArbitraryPrecision);
-template Ball<FloatAP,FloatAP>::Ball(Dyadic const&, ArbitraryPrecision, ArbitraryPrecision);
-template Ball<FloatAP,FloatAP>::Ball(Integer const&, ArbitraryPrecision, ArbitraryPrecision);
-template Ball<FloatAP,FloatAP>::Ball(Rational const&, ArbitraryPrecision, ArbitraryPrecision);
 template OutputStream& Operations<Ball<FloatAP,FloatAP>>::_write(
     OutputStream&, Ball<FloatAP,FloatAP> const&);
 
 // NumberGetterMixin and the native interval algorithms require these
 // constructors at link time. Use their shared, outward-rounded definitions.
-template Ball<FloatAP,FloatDP>::Ball(Ball<FloatAP,FloatDP> const&, ArbitraryPrecision, DoublePrecision);
-template Ball<FloatAP,FloatAP>::Ball(Bounds<FloatAP> const&);
-template Ball<FloatAP,FloatAP>::Ball(Ball<FloatAP,FloatAP> const&, ArbitraryPrecision, ArbitraryPrecision);
-template Ball<FloatAP,FloatAP>::operator ValidatedNumber() const;
 
 
 template class Ball<FloatMP,FloatMP>;
