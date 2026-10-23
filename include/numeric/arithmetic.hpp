@@ -968,16 +968,26 @@ template<class X, class QX=X, class R=X, class QR=QX> class ProvideDirectedSemiF
 };
 
 
+// Evaluate generic division viability only when both operand types are
+// complete. Checking the conversion in a trailing return type eagerly
+// instantiates CRTP bases and breaks positive/directed numeric classes.
+template<class X, class Y> concept CanForwardGenericDivisionLeft =
+    requires(X const& x, Y const& y) { div(x,factory(x).create(y)); };
+template<class X, class Y> concept CanForwardGenericDivisionRight =
+    requires(X const& x, Y const& y) { div(factory(x).create(y),x); };
+
 template<class X> struct DefineConcreteGenericArithmeticOperations {
     template<GenericNumber Y> friend decltype(auto) add(X const& x, Y const& y) { return add(x,factory(x).create(y)); }
     template<GenericNumber Y> friend decltype(auto) sub(X const& x, Y const& y) { return sub(x,factory(x).create(y)); }
     template<GenericNumber Y> friend decltype(auto) mul(X const& x, Y const& y) { return mul(x,factory(x).create(y)); }
-    template<GenericNumber Y> friend auto div(X const& x, Y const& y) -> decltype(div(x,factory(x).create(y))) { return div(x,factory(x).create(y)); }
+    template<GenericNumber Y> friend decltype(auto) div(X const& x, Y const& y)
+        requires CanForwardGenericDivisionLeft<X,Y> { return div(x,factory(x).create(y)); }
 
     template<GenericNumber Y> friend decltype(auto) add(Y const& y, X const& x) { return add(factory(x).create(y),x); }
     template<GenericNumber Y> friend decltype(auto) sub(Y const& y, X const& x) { return sub(factory(x).create(y),x); }
     template<GenericNumber Y> friend decltype(auto) mul(Y const& y, X const& x) { return mul(factory(x).create(y),x); }
-    template<GenericNumber Y> friend auto div(Y const& y, X const& x) -> decltype(div(factory(x).create(y),x)) { return div(factory(x).create(y),x); }
+    template<GenericNumber Y> friend decltype(auto) div(Y const& y, X const& x)
+        requires CanForwardGenericDivisionRight<X,Y> { return div(factory(x).create(y),x); }
 
     template<GenericNumber Y> friend decltype(auto) max(X const& x, Y const& y) { return max(x,factory(x).create(y)); }
     template<GenericNumber Y> friend decltype(auto) min(X const& x, Y const& y) { return min(x,factory(x).create(y)); }
