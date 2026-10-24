@@ -9,7 +9,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_floatap_add_sub.cpp`, `generator_floatap_exp.cpp`,
 `generator_floatap_log.cpp`, `generator_floatap_sin_cos.cpp`,
 `generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
-`generator_floatap_tan.cpp`, `generator_floatap_asin_acos.cpp`,
+`generator_floatap_tan.cpp`, `generator_floatap_asin_acos.cpp`, `generator_floatap_tanh.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -33,7 +33,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (112 of 115 at B107).
+overwrites only the currently covered TSV files (113 of 115 at B108).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
 byte. The other TSVs remain committed and untouched. The generators' own
@@ -81,6 +81,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_atan.cpp -o /tmp/numeric-oracle-floatap-atan
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_tan.cpp -o /tmp/numeric-oracle-floatap-tan
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_asin_acos.cpp -o /tmp/numeric-oracle-floatap-asin-acos
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_tanh.cpp -o /tmp/numeric-oracle-floatap-tanh
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -111,6 +112,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-floatap-atan --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-tan --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-asin-acos --verify --data-dir tests/data
+/tmp/numeric-oracle-floatap-tanh --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -155,6 +157,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_atan.cpp` | `floatap_atan.tsv` | 1,340 certified atan references reproducing all original D87, D88, D89 lookup keys |
 | `generator_floatap_tan.cpp` | `floatap_tan.tsv` | 1,208 certified tangent values across D92, D93, D94 and D95 original sources |
 | `generator_floatap_asin_acos.cpp` | `floatap_asin.tsv`, `floatap_acos.tsv` | 728 certified inverse-trigonometric references per TSV, preserving D86/D90 original sources |
+| `generator_floatap_tanh.cpp` | `floatap_tanh.tsv` | 1,148 certified tanh references from all original 13 precisions, 4 modes and signed/cutoff/saturation probes |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -555,3 +558,24 @@ Both hashes match the original version-controlled fixtures exactly.
 Generator #30 joins the opt-in targets, reaching 112/115 TSVs.
 No existing TSVs, test consumers, runtime GMP oracles, or production
 sources are changed.
+
+B108 adds independent C++20 `generator_floatap_tanh.cpp`, recreating
+all 1,148 source-sorted `floatap_tanh.tsv` rows. All 13 original
+precision sets and mode groups are generated algebraically (17, 29,
+or 18 source rationals per mode); exact source keys are independently
+rounded nearest-even before applying a certified tanh. Use B=2^2304,
+an outward Taylor enclosure of exp(|x|/32) through term 409 with
+next-term remainder and six outward squarings to enclose exp(2|x|).
+Directed division bounds (exp(2x)-1)/(exp(2x)+1). Large |x|=1000
+is certified by the strict nonattainment of 1 and the bound
+1-tanh(1000)<2^-1799, so directed rounding returns the correct
+predecessor at p<=1024 rather than spuriously returning 1.
+Preserve all signed nearest-even and N/D/U/Z modes and the distinct
+p-even/p-odd cutoff rules. Original comment lines stay unchanged.
+Strict GCC and Clang C++20 warning-as-error builds, read-only
+--verify, and deliberate fixture-corruption rejection all passed.
+The generated 345,917 bytes have exactly Git blob SHA-1
+`7bc870f9e9f1006e3f5c0850c6e1eed1c5e68a2b`, identical to
+the original fixture. Generator #31 joins opt-in targets, reaching
+113/115 TSV files. No original TSV, test consumer, runtime GMP
+oracle or production code changes.

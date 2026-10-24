@@ -9160,3 +9160,28 @@ Register generator #30 in opt-in CMake targets. Generator coverage
 is 112/115, with three original TSVs outstanding. No fixtures,
 test consumers, production code or runtime GMP test oracles changed.
 CI for B107 pending.
+
+### B108 — certified independent tanh fixture (24 October 2026)
+
+Add standard-C++20-only `generator_floatap_tanh.cpp` covering the
+full 1,148 rows of `floatap_tanh.tsv`, rebuilding 13 source
+precision families, all signed inputs sorted exactly as originally,
+and four rounding modes. Recover the original near-half cutoff
+selections, including the separate ceil((p+33)/2) rule for the wide
+precision regression cases, and original nearest-even input
+quantization. Compute tanh(x) independently with an outward integer
+interval for exp(2|x|), via exp(|x|/32) Taylor through 409 terms
+and six directed squarings at B=2^2304, followed by monotone
+interval fraction (E-1)/(E+1). For |x|=1000, use exp(2000)>2^1800
+to prove 0<1-tanh(x)<2^-1799, preserving strict directed rounding
+at p<=1024, including correct 1 predecessor. Directed negative
+values use sign-aware mode swapping, and all other certified
+interval endpoints must round identically at requested p.
+
+Strict GCC and Clang C++20 warnings-as-errors, --verify and
+corruption rejection passed. Exact original Git blob SHA-1
+`7bc870f9e9f1006e3f5c0850c6e1eed1c5e68a2b` and 345,917 bytes.
+Generator #31 joins opt-in `generators`, `generate-data`,
+`verify-data` targets. Coverage reaches 113/115, leaving
+`big_unsigned_sqrt.tsv` and `floatap_rounding.tsv` outstanding.
+No fixtures, tests, runtime GMP oracles or production code changed.
