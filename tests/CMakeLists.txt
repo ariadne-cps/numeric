@@ -75,6 +75,7 @@ set(ORACLE_GENERATORS
     generator_rounded_float_directed
     generator_floatap_add_sub
     generator_floatap_exp
+    generator_floatap_log
 )
 set(ORACLE_GENERATOR_COMMANDS)
 set(ORACLE_VERIFY_COMMANDS)

@@ -9003,3 +9003,25 @@ Register generator #24 in opt-in `generators`, `generate-data`,
 production code or runtime GMP oracle changed. Previous B100 Unix,
 Windows, Coverage and Sanitizers workflow runs all completed success.
 CI for B101 is pending.
+
+### B102 — certified logarithm fixture regeneration (24 October 2026)
+
+Add standalone standard-library C++20 `generator_floatap_log.cpp`
+covering all 444 source-keyed `floatap_log.tsv` rows, including 284
+centered-log unique references from six precision visits and 160 D96
+additions. Preserve original source order, nearest-even input rounding
+for centered cases and unrounded original rational lookup keys in D96.
+Certify log via an integer fixed-point B=2^1800 enclosure of
+2*atanh(|x-1|/(x+1)), with 1101 positive series terms plus rigorous
+4*y^2205 remainder. At x=8 or 1/8 use 3*log(2) identity to obtain a
+sufficiently tight enclosure for 1024-bit output. Round both interval
+endpoints independently under N/D/U/Z and require exact agreement;
+negate with correct sign-aware directed rounding. All 444 reference
+values, including exact log(1)=0, are computed independently with no
+Numeric, GMP, MPFR, FloatAP or host transcendental oracle. Restore the
+D96 header in its original mid-file position. GCC and Clang strict
+warnings-as-errors builds and read-only --verify pass, corruption fails.
+Generated 122,768 bytes with SHA-1
+`7cae466575432ff238dd73ecdeeb599b7e17ceed`, matching main's
+original Git blob exactly. Generator #25 joins opt-in CMake targets;
+coverage 105/115. No original fixtures or test/production code changed.

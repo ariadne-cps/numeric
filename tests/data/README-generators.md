@@ -7,6 +7,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`, `generator_big_unsigned_random_mul.cpp`,
 `generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`, `generator_floatap_sqrt.cpp`, `generator_floatap_pow_short.cpp`, `generator_rounded_float_directed.cpp`,
 `generator_floatap_add_sub.cpp`, `generator_floatap_exp.cpp`,
+`generator_floatap_log.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -30,7 +31,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (104 of 115 at B101).
+overwrites only the currently covered TSV files (105 of 115 at B102).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
 byte. The other TSVs remain committed and untouched. The generators' own
@@ -72,6 +73,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rounded_float_directed.cpp -o /tmp/numeric-oracle-rounded-directed
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_add_sub.cpp -o /tmp/numeric-oracle-floatap-add-sub
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_exp.cpp -o /tmp/numeric-oracle-floatap-exp
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_log.cpp -o /tmp/numeric-oracle-floatap-log
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -96,6 +98,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-rounded-directed --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-add-sub --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-exp --verify --data-dir tests/data
+/tmp/numeric-oracle-floatap-log --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -134,6 +137,7 @@ review every diff before committing. No sampling is used.
 | `generator_rounded_float_directed.cpp` | `rounded_float_directed.tsv` | 24 rigorous 128-bit exp/log/atan directed pairs, 48 original strict bound comparisons |
 | `generator_floatap_add_sub.cpp` | `floatap_add_sub.tsv` | 1,780 unique source-keyed exact add/sub roundings from all 10×10 operand pairs, both operations, 4 modes and 5 precisions |
 | `generator_floatap_exp.cpp` | `floatap_exp.tsv` | 288 certified, correctly rounded exp results across 18 signed inputs, 4 precisions and 4 rounding modes |
+| `generator_floatap_log.cpp` | `floatap_log.tsv` | 444 certified correctly rounded logs, including 284 original centered inputs and 160 D96 cases |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -412,3 +416,20 @@ The 24th independent generator participates only in opt-in CMake
 targets `generators`, `generate-data`, `verify-data`. No original TSV,
 test consumer, production source or runtime GMP oracle was changed.
 Generator coverage reaches 104/115. Full CI pending for this commit.
+
+B102 independently reproduces all 444 rows (122,768 bytes) in
+`floatap_log.tsv`. Recreate the original six centered-precision visits,
+all 15 centered rational source operands, nearest-even input rounding,
+unique-key de-duplication, and the original D96 input sequence at four
+precisions. Use exact integer limb arithmetic at B=2^1800 and outward
+atanh series through k=1100 with a bounded positive remainder; for
+1/8 and 8 use the exact identity log(8)=3*log(2) to avoid an
+insufficient direct Taylor remainder at precision 1024. Both enclosure
+endpoints must yield identical N/D/U/Z p-bit rounded dyadic rationals.
+D96's comment is emitted at its original in-file position, not in
+the first header block. GCC/Clang strict C++20 compiles and both
+--verify runs pass; deliberately corrupted fixtures fail verification.
+The regenerated blob SHA-1 `7cae466575432ff238dd73ecdeeb599b7e17ceed`
+is identical to main's original fixture. Generator #25 is opt-in through
+`generators`, `generate-data`, `verify-data`. Coverage now 105/115.
+No fixture, consumer, runtime GMP oracle or production source changed.
