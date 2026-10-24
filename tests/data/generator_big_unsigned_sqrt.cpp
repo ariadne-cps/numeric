@@ -1,24 +1,37 @@
 // SPDX-License-Identifier: MIT
 // Independent integer restoring square root, standard C++20 only.
+// Deterministic SplitMix64 replaces the unrecoverable original entropy.
 #include "oracle_exact_integer.hpp"
-#include "big_unsigned_sqrt_legacy_seeds.hpp"
 #include <bit>
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
-#include <string_view>
 namespace {
 using independent_oracle::Nat;
-Nat from_hex(std::string_view src) {
-    Nat n;
-    for(char digit:src) {
-        unsigned v=0;
-        if(digit>='0'&&digit<='9')v=static_cast<unsigned>(digit-'0');
-        else if(digit>='a'&&digit<='f')v=10u+static_cast<unsigned>(digit-'a');
-        else throw std::invalid_argument("bad hex seed");
-        n=Nat::add(n.mul_small(16u),Nat(v));
+// Portable, fully specified SplitMix64 random source: unsigned 64-bit wrap.
+// Each draw fills one limb, low limb first; set highest bit to exact width.
+struct SplitMix64 {
+    std::uint64_t state=0x526f6f74534d3230ULL;
+    std::uint64_t next() {
+        state+=0x9e3779b97f4a7c15ULL;
+        auto x=state;
+        x=(x^(x>>30u))*0xbf58476d1ce4e5b9ULL;
+        x=(x^(x>>27u))*0x94d049bb133111ebULL;
+        return x^(x>>31u);
     }
-    return n;
+};
+Nat random_exact_width(SplitMix64& prng,unsigned width,bool zero_low_limb=false) {
+    if(width==0u)throw std::invalid_argument("zero random width");
+    std::vector<std::uint64_t> words((width+63u)/64u);
+    for(auto& w:words)w=prng.next();
+    const unsigned valid_top=width%64u;
+    if(valid_top!=0u)words.back()&=(std::uint64_t{1}<<valid_top)-1u;
+    words.back()|=std::uint64_t{1}<<((width-1u)%64u);
+    if(zero_low_limb) {
+        if(width<=64u)throw std::invalid_argument("not enough limbs for sparse sample");
+        words.front()=0u;
+    }
+    return Nat(std::move(words));
 }
 std::string hex(Nat const& n) {
     if(n.zero())return "0";
@@ -60,10 +73,11 @@ Nat independent_square(Nat const& n) {
 std::string generate() {
     std::string out=
         "# BigUnsigned integer sqrtrem: canonical input_hex expected_floor_root_hex expected_remainder_hex\n"
-        "# Oracle: independent JavaScript BigInt digit-pair restoring arithmetic.\n"
-        "# Root independently cross-checked against BigInt binary-search sqrt.\n"
-        "# Remainder obtained directly from digit-pair restoring state and checked\n"
-        "# against independent input - root*root arithmetic.\n"
+        "# Source: SplitMix64 seed 0x526f6f74534d3230, modulo-2^64 words, low limb first.\n"
+        "# Source widths: 53/64/65 (3 each), 127/128/256/512/1024/2048/4096 (4 each).\n"
+        "# Each four-sample group includes a forced-zero low 64-bit limb at index 1.\n"
+        "# Eleven more generated roots give square-1, square, square+1 cases.\n"
+        "# Oracle: independent radix-4 restoring sqrtrem and shift/add square bounds.\n"
         "# No GMP/MPFR or BigUnsigned output used to compute expected values.\n";
     std::size_t count=0u;
     const auto append=[&](Nat const& n) {
@@ -87,9 +101,15 @@ std::string generate() {
         append(power);
         append(Nat::add(power,Nat(1u)));
     }
-    for(std::string_view input:legacy_sqrt_random_inputs)append(from_hex(input));
-    for(std::string_view root_input:legacy_sqrt_square_roots) {
-        const Nat sq=independent_square(from_hex(root_input));
+    SplitMix64 prng;
+    for(unsigned width:{53u,64u,65u})
+        for(unsigned i=0u;i<3u;++i)append(random_exact_width(prng,width));
+    for(unsigned width:{127u,128u,256u,512u,1024u,2048u,4096u})
+        for(unsigned i=0u;i<4u;++i)
+            append(random_exact_width(prng,width,i==1u));
+    for(unsigned width:{31u,32u,63u,64u,65u,127u,128u,256u,512u,1024u,2048u}) {
+        const auto root=random_exact_width(prng,width);
+        const auto sq=independent_square(root);
         append(Nat::sub(sq,Nat(1u)));append(sq);append(Nat::add(sq,Nat(1u)));
     }
     if(count!=161u)throw std::runtime_error("wrong sqrt row count");

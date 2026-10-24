@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Reproduce all exact rational FloatAP rounding fixtures from source test loops.
+// Reproduce exact rational rounding and add/sub FloatAP fixtures from source loops.
 // Standard C++20 and independent integer limbs only, no Numeric/GMP/MPFR/Boost.
 #include "oracle_exact_integer.hpp"
 #include <algorithm>
@@ -244,6 +244,50 @@ struct Generator {
         if(count!=4794u)throw std::runtime_error("D79 total count "+std::to_string(count));
     }
 };
+// D80 add/sub belongs to the same exact signed-rational rounding family.
+// Reconstruct every source dyadic before the final p-bit rounding. The
+// original 10 x 10 operand schedule, both operations, mode visit order
+// and first-seen key semantics are preserved exactly.
+std::string generate_add_sub() {
+    std::string out=
+        "# FloatAP exact add/sub oracle v1: 10x10 ordered pairs x 2 operations x 4 rounding modes x 5 precisions.\n"
+        "# precision_bits mode input_num input_den expected_num expected_den\n"
+        "# Modes N nearest/ties-even, D downward, U upward, Z toward zero.\n"
+        "# Operands are exact FloatAP-representable dyadics: 1, -1, rounded(7/11), its negation,\n"
+        "# +/-2^(-bits), +/- powers of two with exponent +/-200 and +/-1400.\n"
+        "# Input is the exact sum or difference BEFORE final rounding.\n"
+        "# Values computed using independent arbitrary-precision integer/rational algorithms.\n"
+        "# D80; no FloatAP/FloatMP/GMP/MPFR involved in generation.\n";
+    std::set<std::tuple<unsigned,char,std::string,std::string>> seen;
+    for(unsigned p:{7u,53u,128u,256u,1024u}) {
+        const Rat one=integer(1);
+        const Rat minus_one=integer(-1);
+        const Rat ratio=rounded(scalar(7u,11u),p,'N');
+        const Rat minus_ratio=neg(ratio);
+        const Rat tiny=reduce(Nat(1u),Nat::power2(p));
+        const Rat minus_tiny=neg(tiny);
+        const std::array<Rat,10u> operands={one,minus_one,ratio,minus_ratio,
+            tiny,minus_tiny,
+            reduce(Nat(1u),Nat::power2(200u)),
+            reduce(Nat::power2(200u),Nat(1u)),
+            reduce(Nat(1u),Nat::power2(1400u)),
+            reduce(Nat::power2(1400u),Nat(1u))};
+        for(auto const& a:operands)for(auto const& b:operands) {
+            const auto sum=add(a,b),difference=sub(a,b);
+            for(char mode:{'N','D','U','Z'}) {
+                for(auto const& source:{sum,difference}) {
+                    const auto source_num=decimal(source),source_den=source.d.dec();
+                    if(!seen.emplace(p,mode,source_num,source_den).second)continue;
+                    const auto expected=rounded(source,p,mode);
+                    out+=row({std::to_string(p),std::string(1u,mode),
+                              source_num,source_den,decimal(expected),expected.d.dec()});
+                }
+            }
+        }
+    }
+    if(seen.size()!=1780u)throw std::runtime_error("add/sub case count is not 1780");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -251,6 +295,7 @@ int main(int argc,char** argv) {
         const auto dir=independent_oracle::data_directory(argc,argv,write);
         Generator g;g.generate();
         independent_oracle::output(dir,"floatap_rounding.tsv",g.data,write);
+        independent_oracle::output(dir,"floatap_add_sub.tsv",generate_add_sub(),write);
     }catch(std::exception const& e){
         std::cerr<<"FloatAP rounding generator: "<<e.what()<<'\n';
         return 1;

@@ -6,12 +6,12 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`, `generator_big_unsigned_random_mul.cpp`,
 `generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`, `generator_floatap_sqrt.cpp`, `generator_floatap_pow_short.cpp`, `generator_rounded_float_directed.cpp`,
-`generator_floatap_add_sub.cpp`, `generator_floatap_exp.cpp`,
+`generator_floatap_exp.cpp`,
 `generator_floatap_log.cpp`, `generator_floatap_sin_cos.cpp`,
 `generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
 `generator_floatap_tan.cpp`, `generator_floatap_asin_acos.cpp`, `generator_floatap_tanh.cpp`,
 `generator_floatap_rounding.cpp`, `generator_big_unsigned_sqrt.cpp`,
-`big_unsigned_sqrt_legacy_seeds.hpp`, and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
+and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
 FloatMP or Boost**: expected values must not come from the code being tested.
@@ -74,7 +74,6 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_sqrt.cpp -o /tmp/numeric-oracle-floatap-sqrt
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_pow_short.cpp -o /tmp/numeric-oracle-short-pow
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rounded_float_directed.cpp -o /tmp/numeric-oracle-rounded-directed
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_add_sub.cpp -o /tmp/numeric-oracle-floatap-add-sub
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_exp.cpp -o /tmp/numeric-oracle-floatap-exp
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_log.cpp -o /tmp/numeric-oracle-floatap-log
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_sin_cos.cpp -o /tmp/numeric-oracle-floatap-sin-cos
@@ -107,7 +106,6 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-floatap-sqrt --verify --data-dir tests/data
 /tmp/numeric-oracle-short-pow --verify --data-dir tests/data
 /tmp/numeric-oracle-rounded-directed --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-add-sub --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-exp --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-log --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-sin-cos --verify --data-dir tests/data
@@ -154,7 +152,6 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_sqrt.cpp` | `floatap_sqrt.tsv` | 300 unique input/mode exact rounded square roots; 360 source checks retained by consumer |
 | `generator_floatap_pow_short.cpp` | `floatap_pow_short.tsv` | 3,680 exact boundary-focused integer powers, 5 precisions, 7 degrees, 4 directed modes |
 | `generator_rounded_float_directed.cpp` | `rounded_float_directed.tsv` | 24 rigorous 128-bit exp/log/atan directed pairs, 48 original strict bound comparisons |
-| `generator_floatap_add_sub.cpp` | `floatap_add_sub.tsv` | 1,780 unique source-keyed exact add/sub roundings from all 10×10 operand pairs, both operations, 4 modes and 5 precisions |
 | `generator_floatap_exp.cpp` | `floatap_exp.tsv` | 288 certified, correctly rounded exp results across 18 signed inputs, 4 precisions and 4 rounding modes |
 | `generator_floatap_log.cpp` | `floatap_log.tsv` | 444 certified correctly rounded logs, including 284 original centered inputs and 160 D96 cases |
 | `generator_floatap_sin_cos.cpp` | `floatap_sin.tsv`, `floatap_cos.tsv` | 1,080 exact source-keyed independently certified outputs each, across D91, D92, D95 original test families |
@@ -163,8 +160,8 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_tan.cpp` | `floatap_tan.tsv` | 1,208 certified tangent values across D92, D93, D94 and D95 original sources |
 | `generator_floatap_asin_acos.cpp` | `floatap_asin.tsv`, `floatap_acos.tsv` | 728 certified inverse-trigonometric references per TSV, preserving D86/D90 original sources |
 | `generator_floatap_tanh.cpp` | `floatap_tanh.tsv` | 1,148 certified tanh references from all original 13 precisions, 4 modes and signed/cutoff/saturation probes |
-| `generator_floatap_rounding.cpp` | `floatap_rounding.tsv` | 4,794 exact integer-rational roundings across original initial, broad quotient and D79 compound arithmetic families |
-| `generator_big_unsigned_sqrt.cpp` | `big_unsigned_sqrt.tsv` | 161 independently computed integer floor-root/remainder triples; 48 historical source entropy seeds are frozen separately because the original PRNG is unavailable |
+| `generator_floatap_rounding.cpp` | `floatap_rounding.tsv`, `floatap_add_sub.tsv` | 4,794 exact-rational rounding rows and 1,780 independent D80 add/sub rows; both existing TSVs unchanged |
+| `generator_big_unsigned_sqrt.cpp` | `big_unsigned_sqrt.tsv` | 161 exact sqrtrem triples; fully specified seeded SplitMix64 input generation, same 37 random width profiles and 33 square-neighbor cases |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -633,3 +630,27 @@ full compiled execution against the committed input bank and CI
 of B110 must still be confirmed. No original TSV, test consumer,
 production source, or runtime GMP oracle changed. Generator #33
 joins opt-in targets `generators`, `generate-data`, `verify-data`.
+
+B111 consolidation: `generator_floatap_rounding.cpp` now emits both
+`floatap_rounding.tsv` (4,794 rows, SHA `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b`)
+and `floatap_add_sub.tsv` (1,780 rows, SHA
+`b4552cfbdea659730486dd5bcdb3bb3a62be7984`). These two files
+remain byte-for-byte unchanged; remove `generator_floatap_add_sub.cpp`
+and its CMake executable. Generator count becomes 32 for all 115 TSVs.
+
+The previously unrecoverable 48 legacy input-only seeds in
+`big_unsigned_sqrt_legacy_seeds.hpp` are no longer needed. The
+existing `generator_big_unsigned_sqrt.cpp` now specifies the entire
+input stream via SplitMix64 seeded with `0x526f6f74534d3230`,
+64-bit wraparound, low-limb-first word order, exact-width top-bit masks,
+and sparse zero-low-limb cases. Keep the same 161 cases, including
+37 random magnitudes in their original size classes and 33 boundary
+cases around squares of 11 newly generated roots. The first 91
+small and power-of-two input cases remain identical; 70 random-derived
+cases intentionally change, and all sqrt/rem expectations are
+recomputed independently. The new TSV is 48,272 bytes and Git SHA
+`5ed4a8d6705a2b39dd44d5ebcf9f5f666019d2bd`. Strict GCC/Clang
+C++20 builds, independent Python math.isqrt + PRNG cross-checks, and
+both generator --verify/corruption checks passed. No test consumer or
+production implementation was modified. Standard CI tests do not yet
+build or run the opt-in `verify-data` target.

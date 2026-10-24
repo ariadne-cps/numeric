@@ -9238,3 +9238,27 @@ No original fixture, consumer, runtime GMP oracle or production
 algorithm was changed. Next: verify full generator target on CI
 and design additional source-keyed oracle fixtures to eliminate the
 remaining runtime GMP numerical comparisons without reducing cases.
+
+### B111 — consolidated rounding generator, deterministic sqrt corpus (24 October 2026)
+
+Reduce generator executables 33 -> 32 by merging D80 add/sub into
+`generator_floatap_rounding.cpp`. The shared standalone C++20 source
+outputs both pre-existing exact TSVs without byte changes: rounding
+4,794 rows SHA `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b`, add/sub
+1,780 rows SHA `b4552cfbdea659730486dd5bcdb3bb3a62be7984`.
+Delete the redundant generator executable/source but keep all original
+D80 visits, modes and first-visit deduplication.
+
+Replace the 48 historic non-reproducible sqrt entropy inputs by a new
+SplitMix64 recurrence directly in `generator_big_unsigned_sqrt.cpp`.
+Document 64-bit wrap, seed `0x526f6f74534d3230`, limb generation,
+width masking and exact top bits, and sparse low-word-zero variant.
+Delete frozen seed header. Keep all 161 test rows and original size
+classes: 91 fixed edge/power-of-two cases, 37 generated numbers,
+33 neighboring-square cases from 11 generated roots. Expected roots
+and remainders for 70 changed input magnitudes are regenerated from
+independent restoring arithmetic; Python's math.isqrt cross-checks
+all 161 triples and the PRNG is separately reproduced. TSV Git blob
+`5ed4a8d6705a2b39dd44d5ebcf9f5f666019d2bd`, 48,272 bytes.
+Both GCC/Clang strict C++20 generator builds, --verify, and corruption
+rejection pass; no consumer or production source changed.
