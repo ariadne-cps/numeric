@@ -9025,3 +9025,38 @@ Generated 122,768 bytes with SHA-1
 `7cae466575432ff238dd73ecdeeb599b7e17ceed`, matching main's
 original Git blob exactly. Generator #25 joins opt-in CMake targets;
 coverage 105/115. No original fixtures or test/production code changed.
+
+### B103 — certified independent sine and cosine fixture regeneration (24 October 2026)
+
+Add one standard C++20 generator
+`tests/data/generator_floatap_sin_cos.cpp` reproducing the complete
+original `floatap_sin.tsv` (281,134 bytes / 1,080 rows) and
+`floatap_cos.tsv` (278,016 bytes / 1,080 rows) with independent
+arbitrary-width integer arithmetic. Rebuild every source Rational in
+D91, D92 and D95 from original test rules and retain the exact
+precision schedule, sign order, original source-keyed map semantics,
+independent nearest-even input rounding, first-seen duplicate removal
+and all 4 output rounding modes. D91 adds 336 rows per file, D92 456,
+and D95 288. Preserve mid-file D92 and D95 explanatory comments.
+
+Evaluate both sine and cosine through 240 signed alternating Taylor
+terms at fixed-point B=2^1800, computing all term enclosures using
+portable 32-bit digit multiplication, exact Nat division and directed
+outward integer rounding. Add a rigorous enclosure of the first
+omitted term; odd/even identities handle negative input. Independently
+round both signed interval endpoints N/D/U/Z at the requested output
+precision, rejecting any case for which they disagree. Caching on
+the exact nearest-even rounded input magnitude shares the certified
+sin and cos evaluation across all four modes, signs, precision visits
+and overlapping test groups. No implementation-under-test or GMP/
+MPFR/Boost floating-point oracle is used to compute outputs.
+
+Strict GCC/Clang C++20 -Wall -Wextra -Wpedantic -Wsign-conversion
+-Wshadow -Werror compile and --verify pass for both files; corrupted
+fixture --verify fails. Exact original Git blob hashes:
+`9b75d8fd4992f62e288c151e8f930dedd66a778e` (sin) and
+`31475db715e25928b31b34d31e32735e2cbb97be` (cos).
+Register generator #26 in explicit opt-in CMake targets
+`generators`, `generate-data`, `verify-data`; coverage becomes
+107/115 (93.0 percent). Existing fixtures, tests, production code and
+runtime GMP oracles remain unchanged. Full CI of B103 pending.

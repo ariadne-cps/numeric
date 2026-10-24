@@ -76,6 +76,7 @@ set(ORACLE_GENERATORS
     generator_floatap_add_sub
     generator_floatap_exp
     generator_floatap_log
+    generator_floatap_sin_cos
 )
 set(ORACLE_GENERATOR_COMMANDS)
 set(ORACLE_VERIFY_COMMANDS)
