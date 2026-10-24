@@ -9060,3 +9060,24 @@ Register generator #26 in explicit opt-in CMake targets
 `generators`, `generate-data`, `verify-data`; coverage becomes
 107/115 (93.0 percent). Existing fixtures, tests, production code and
 runtime GMP oracles remain unchanged. Full CI of B103 pending.
+
+### B104 — correctly rounded centered FloatAP exponential fixture (24 October 2026)
+
+Add independent standalone C++20 `generator_floatap_centered_exp.cpp`.
+Reconstruct the original D85 source algorithm: six precision visits
+(53,7,128,256,1024,53), 15 magnitudes around 1/2 and at 1/4,3/4,
+1/3,2/3,1,2, both signs, four rounding directions. Independently
+round every source Rational to nearest-even at p bits and deduplicate
+first-seen (p,mode,signed rounded dyadic) keys, giving 568 fixture
+rows while preserving 720 original checks. All values are rigorously
+certified by outward fixed-point integer enclosures (B=2^1800) of
+exp(|x|/16) through term 165, twice-next-term tail, four squarings,
+and directed reciprocals for negative inputs; interval endpoints
+must round to precisely the same p-bit N/D/U/Z rational. No Numeric,
+FloatAP, GMP, MPFR, FloatMP, Boost or floating-point exponential
+oracle is involved. Strict GCC/Clang C++20 builds, --verify and
+corruption rejection pass. Regenerated 170,882 bytes have Git blob
+`a221dfa3cc3e8feff2b425aff8290180fe994d3a`, identical to the
+original TSV. Register generator #27 in explicit `generators`,
+`generate-data` and `verify-data`; coverage reaches 108/115.
+No fixtures, consumers, production code or runtime GMP tests changed.
