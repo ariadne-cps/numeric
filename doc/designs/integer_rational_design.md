@@ -8977,3 +8977,29 @@ Register generator #23 in the existing explicit `generators`,
 `generate-data`, and `verify-data` targets. Coverage reaches 103/115.
 The TSV and all production code, test consumers and runtime GMP oracles
 remain unchanged. Full cross-platform CI still must be verified.
+
+### B101 — certified exponential FloatAP fixture reconstruction (24 October 2026)
+
+Add independent C++20 `tests/data/generator_floatap_exp.cpp`,
+reconstructing the original 18 signed rational source keys in their
+precise original order and their 53, 128, 256, 1024-bit four-mode
+correctly rounded exp results (288 cases). Independent radix-2^32
+multiplication within radix-2^64 Nat limbs, exact aligned-subtraction
+long division and outward fixed-point enclosures at B=2^1400 implement
+the Taylor series exp(|x|/16) through term 165. Twice term 166 bounds
+the positive remainder at max |x|/16=7/16; four outward squares and
+positive reciprocal enclosures reconstruct exp(+-|x|) without any
+floating-point transcendental oracle. Each endpoint is rounded using
+an exact independent binary grid and nearest-even parity/direct modes,
+then canonical dyadic rationals must agree before emission.
+
+GCC/Clang strict C++20 -Wall -Wextra -Wpedantic -Wsign-conversion
+-Wshadow -Werror compile, both read-only --verify and deliberate
+fixture corruption rejection passed on the original data. Exactly
+68,122 bytes / 288 rows reproduce Git blob
+`92ce3c0eeda7f73f5e0385abf483f93367792891` byte-for-byte.
+Register generator #24 in opt-in `generators`, `generate-data`,
+`verify-data`; coverage 104/115. No existing fixture, consumer,
+production code or runtime GMP oracle changed. Previous B100 Unix,
+Windows, Coverage and Sanitizers workflow runs all completed success.
+CI for B101 is pending.
