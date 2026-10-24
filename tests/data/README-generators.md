@@ -5,7 +5,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`, `generator_big_unsigned_random_mul.cpp`,
-`generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`, `generator_floatap_sqrt.cpp`, `generator_floatap_pow_short.cpp`,
+`generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`, `generator_floatap_sqrt.cpp`, `generator_floatap_pow_short.cpp`, `generator_rounded_float_directed.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -19,6 +19,7 @@ After configuring the project, invoke these targets explicitly:
 cmake --build <build-dir> --target tests
 cmake --build <build-dir> --target generators
 cmake --build <build-dir> --target generate-data
+cmake --build <build-dir> --target verify-data
 ```
 
 `tests` builds the test suite without any generator dependency.
@@ -28,8 +29,10 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (101 of 115 at B98).
-The other TSVs remain committed and untouched. The generators' own
+overwrites only the currently covered TSV files (102 of 115 at B99).
+`verify-data` instead builds and runs every registered generator with
+`--verify` and never rewrites fixtures. It fails on any missing or different
+byte. The other TSVs remain committed and untouched. The generators' own
 messages show which files were written. A failed generator stops the
 sequence. Neither `tests` nor CTest runs the generators automatically.
 
@@ -65,6 +68,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_power_exact.cpp -o /tmp/numeric-oracle-power
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_sqrt.cpp -o /tmp/numeric-oracle-floatap-sqrt
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_pow_short.cpp -o /tmp/numeric-oracle-short-pow
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rounded_float_directed.cpp -o /tmp/numeric-oracle-rounded-directed
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -86,6 +90,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-power --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-sqrt --verify --data-dir tests/data
 /tmp/numeric-oracle-short-pow --verify --data-dir tests/data
+/tmp/numeric-oracle-rounded-directed --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -121,6 +126,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_power_exact.cpp` | `floatap_pow.tsv` | 2,400 original signed integer-power references at five precisions, eight degrees and four rounding modes |
 | `generator_floatap_sqrt.cpp` | `floatap_sqrt.tsv` | 300 unique input/mode exact rounded square roots; 360 source checks retained by consumer |
 | `generator_floatap_pow_short.cpp` | `floatap_pow_short.tsv` | 3,680 exact boundary-focused integer powers, 5 precisions, 7 degrees, 4 directed modes |
+| `generator_rounded_float_directed.cpp` | `rounded_float_directed.tsv` | 24 rigorous 128-bit exp/log/atan directed pairs, 48 original strict bound comparisons |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -343,3 +349,18 @@ N/D/U/Z. GCC 14 and Clang 17 strict builds reproduce all 462,642 bytes
 of the original `floatap_pow_short.tsv`; no frozen operand values or
 expected outputs are copied into source. Generator #21 participates only
 in the explicit `generators`/`generate-data` targets.
+
+B99 independently regenerates the exact 24-source 128-bit directed
+`rounded_float_directed.tsv` certificate with standard C++20 integers.
+Its exp, log and atan interval enclosures use an outward-rounded
+fixed-point scale of 2^1400; Taylor remainders, Machin's pi/4 reduction,
+negative-argument signs and reciprocal bounds are explicitly enclosed.
+Both enclosures must lead to the same 128-bit downward and upward binary
+values. The source contains no expected TSV values and reads no TSV
+inputs. GCC and Clang C++20 warnings-as-errors builds regenerated all
+5,181 bytes with identical original Git blob SHA-1
+`f20fd0de94317e1999cfe1c4d7ac6718c443a9db`; read-only --verify
+also rejected a deliberately modified file. The 22nd generator is
+registered in `generators`, `generate-data` and the new non-writing
+`verify-data` CMake target. Generator coverage is 102 of 115 TSVs.
+No existing fixture, consumer, runtime oracle or production source changed.

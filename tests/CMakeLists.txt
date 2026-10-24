@@ -72,13 +72,17 @@ set(ORACLE_GENERATORS
     generator_floatap_power_exact
     generator_floatap_sqrt
     generator_floatap_pow_short
+    generator_rounded_float_directed
 )
 set(ORACLE_GENERATOR_COMMANDS)
+set(ORACLE_VERIFY_COMMANDS)
 foreach(GENERATOR IN LISTS ORACLE_GENERATORS)
     add_executable(${GENERATOR} EXCLUDE_FROM_ALL "data/${GENERATOR}.cpp")
     target_compile_features(${GENERATOR} PRIVATE cxx_std_20)
     list(APPEND ORACLE_GENERATOR_COMMANDS
         COMMAND "$<TARGET_FILE:${GENERATOR}>" --write --data-dir "${CMAKE_CURRENT_SOURCE_DIR}/data")
+    list(APPEND ORACLE_VERIFY_COMMANDS
+        COMMAND "$<TARGET_FILE:${GENERATOR}>" --verify --data-dir "${CMAKE_CURRENT_SOURCE_DIR}/data")
 endforeach()
 
 # Build only the independent generator executables.
@@ -93,3 +97,11 @@ add_custom_target(generate-data
     VERBATIM
 )
 add_dependencies(generate-data generators)
+
+# Non-destructive byte-for-byte checks of every versioned generator fixture.
+add_custom_target(verify-data
+    ${ORACLE_VERIFY_COMMANDS}
+    COMMENT "Verifying independent source-tree test data"
+    VERBATIM
+)
+add_dependencies(verify-data generators)
