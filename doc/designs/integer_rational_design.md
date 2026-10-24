@@ -9185,3 +9185,27 @@ Generator #31 joins opt-in `generators`, `generate-data`,
 `verify-data` targets. Coverage reaches 113/115, leaving
 `big_unsigned_sqrt.tsv` and `floatap_rounding.tsv` outstanding.
 No fixtures, tests, runtime GMP oracles or production code changed.
+
+### B109 — independently reproduced exact FloatAP rational rounding (24 October 2026)
+
+Add standard-C++20-only `tests/data/generator_floatap_rounding.cpp`.
+Recreate all original 4,794 source-keyed rows in exact order,
+including base ratio/tie cases (232), broad multi-limb division,
+sparse denominator and correction boundaries (832), and D79
+arithmetic/division/dyadic cases (3,730). The D79 section uses
+original exact source generation rules, including dividing operands
+after nearest-even input quantization and doing N/D/U/Z arithmetic
+with operands after the corresponding mode's quantization. Preserve
+original deduplication, five compound operations, midpoint ties-to-even
+and sign-aware directed rounding. No TSV data is read to construct
+source inputs or expected numbers. Implementation uses independently
+implemented exact radix-2^32 multiplication on Nat radix-2^64 limbs,
+signed exact rational arithmetic, binary GCD, quotient/remainder and
+p-bit rational canonicalization. Strict GCC and Clang builds and
+--verify pass and corrupted-file validation fails. Generated 4,794
+rows / 1,225,939 bytes match Git blob exactly:
+`8d5c927485bc2c171853bb1502ed6b9d0d2aa51b`.
+Register #32 in opt-in generator and verify-data targets, raising
+coverage to 114/115. No originals, consumer tests or production
+algorithms were changed. Remaining big_unsigned_sqrt.tsv still
+requires recovery of the original random source algorithm.

@@ -82,6 +82,7 @@ set(ORACLE_GENERATORS
     generator_floatap_tan
     generator_floatap_asin_acos
     generator_floatap_tanh
+    generator_floatap_rounding
 )
 set(ORACLE_GENERATOR_COMMANDS)
 set(ORACLE_VERIFY_COMMANDS)

@@ -10,6 +10,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_floatap_log.cpp`, `generator_floatap_sin_cos.cpp`,
 `generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
 `generator_floatap_tan.cpp`, `generator_floatap_asin_acos.cpp`, `generator_floatap_tanh.cpp`,
+`generator_floatap_rounding.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -33,7 +34,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (113 of 115 at B108).
+overwrites only the currently covered TSV files (114 of 115 at B109).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
 byte. The other TSVs remain committed and untouched. The generators' own
@@ -82,6 +83,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_tan.cpp -o /tmp/numeric-oracle-floatap-tan
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_asin_acos.cpp -o /tmp/numeric-oracle-floatap-asin-acos
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_tanh.cpp -o /tmp/numeric-oracle-floatap-tanh
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_rounding.cpp -o /tmp/numeric-oracle-floatap-rounding
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -113,6 +115,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-floatap-tan --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-asin-acos --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-tanh --verify --data-dir tests/data
+/tmp/numeric-oracle-floatap-rounding --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -158,6 +161,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_tan.cpp` | `floatap_tan.tsv` | 1,208 certified tangent values across D92, D93, D94 and D95 original sources |
 | `generator_floatap_asin_acos.cpp` | `floatap_asin.tsv`, `floatap_acos.tsv` | 728 certified inverse-trigonometric references per TSV, preserving D86/D90 original sources |
 | `generator_floatap_tanh.cpp` | `floatap_tanh.tsv` | 1,148 certified tanh references from all original 13 precisions, 4 modes and signed/cutoff/saturation probes |
+| `generator_floatap_rounding.cpp` | `floatap_rounding.tsv` | 4,794 exact integer-rational roundings across original initial, broad quotient and D79 compound arithmetic families |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -579,3 +583,24 @@ The generated 345,917 bytes have exactly Git blob SHA-1
 the original fixture. Generator #31 joins opt-in targets, reaching
 113/115 TSV files. No original TSV, test consumer, runtime GMP
 oracle or production code changes.
+
+B109 independently regenerates all 4,794 references in
+`floatap_rounding.tsv` without consulting source TSV operands or
+expected values. Rebuild 232 base rows, 832 additional multiprecision
+quotient rows and 3,730 D79 references in precisely their original
+first-visit order, preserving the original mid-file section comments.
+The D79 inputs include 320 source ratios, 320 dyadics, 2,520
+small-limb numerator/denominator and quotient visits, and 570 new
+integer arithmetic cases, with original duplicate removal. Form
+compound quotient inputs only after independent nearest-even source
+rounding, and compound arithmetic operands only after their own
+N/D/U/Z conversion. Round each resulting exact signed ratio with
+independent 32-bit-product limb arithmetic, exact division and
+nearest-even midpoint parity. No expected values, source operands,
+Numeric, GMP, MPFR, FloatMP or Boost are taken from TSV files.
+GCC and Clang strict C++20 warnings-as-errors builds and read-only
+--verify both pass. An intentionally corrupted fixture is rejected.
+The regenerated 1,225,939 bytes match the original Git blob
+`8d5c927485bc2c171853bb1502ed6b9d0d2aa51b` byte-for-byte.
+Generator #32 joins opt-in CMake targets, reaching 114/115 original
+TSV files. Only `big_unsigned_sqrt.tsv` remains.
