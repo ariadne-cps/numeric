@@ -9209,3 +9209,32 @@ Register #32 in opt-in generator and verify-data targets, raising
 coverage to 114/115. No originals, consumer tests or production
 algorithms were changed. Remaining big_unsigned_sqrt.tsv still
 requires recovery of the original random source algorithm.
+
+### B110 — 115/115 fixtures with qualified historical entropy recovery (24 October 2026)
+
+Add standalone C++20 `generator_big_unsigned_sqrt.cpp` plus the
+input-only `big_unsigned_sqrt_legacy_seeds.hpp` bank. Reconstruct
+21 initial small edge integers, an extra five, 69 powers-of-two
+boundary inputs from the original widths, 37 historical random
+magnitudes, and 33 boundary cases from 11 original square-root
+magnitudes. The last 48 sources are frozen as seeds ONLY because
+the original 2026-10-23 random generator algorithm and seed were not
+retained in committed source/history. No expected roots/remainders
+are frozen in source. Recompute all exact floor root and remainder
+using independent binary-pair restoring arithmetic, and validate
+with a separate binary shift/add square and strict successor bound.
+JavaScript BigInt independently reconstructed the entire 161-row,
+48,161-byte original fixture byte-for-byte, matching Git blob
+`686e648fbe32f70303b1b01c38629bd03e3672a3`. The standalone
+C++ generator builds in strict C++20 GCC/Clang warning-as-error mode;
+full C++ fixture verification on actual committed seeds and full
+CI still require confirmation. Do not misrepresent this as recovery
+of the unrecoverable pseudorandom stream.
+
+Register generator #33 into opt-in `generators`, `generate-data`
+and `verify-data`; all 115 existing fixtures now have a registered
+generator, with the above 48-source provenance qualification.
+No original fixture, consumer, runtime GMP oracle or production
+algorithm was changed. Next: verify full generator target on CI
+and design additional source-keyed oracle fixtures to eliminate the
+remaining runtime GMP numerical comparisons without reducing cases.

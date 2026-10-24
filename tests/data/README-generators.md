@@ -10,8 +10,8 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_floatap_log.cpp`, `generator_floatap_sin_cos.cpp`,
 `generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
 `generator_floatap_tan.cpp`, `generator_floatap_asin_acos.cpp`, `generator_floatap_tanh.cpp`,
-`generator_floatap_rounding.cpp`,
-and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
+`generator_floatap_rounding.cpp`, `generator_big_unsigned_sqrt.cpp`,
+`big_unsigned_sqrt_legacy_seeds.hpp`, and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
 FloatMP or Boost**: expected values must not come from the code being tested.
@@ -34,7 +34,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (114 of 115 at B109).
+overwrites only the currently covered TSV files (115 of 115 at B110).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
 byte. The other TSVs remain committed and untouched. The generators' own
@@ -84,6 +84,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_asin_acos.cpp -o /tmp/numeric-oracle-floatap-asin-acos
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_tanh.cpp -o /tmp/numeric-oracle-floatap-tanh
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_rounding.cpp -o /tmp/numeric-oracle-floatap-rounding
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_big_unsigned_sqrt.cpp -o /tmp/numeric-oracle-bigunsigned-sqrt
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -116,6 +117,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-floatap-asin-acos --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-tanh --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-rounding --verify --data-dir tests/data
+/tmp/numeric-oracle-bigunsigned-sqrt --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -162,6 +164,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_asin_acos.cpp` | `floatap_asin.tsv`, `floatap_acos.tsv` | 728 certified inverse-trigonometric references per TSV, preserving D86/D90 original sources |
 | `generator_floatap_tanh.cpp` | `floatap_tanh.tsv` | 1,148 certified tanh references from all original 13 precisions, 4 modes and signed/cutoff/saturation probes |
 | `generator_floatap_rounding.cpp` | `floatap_rounding.tsv` | 4,794 exact integer-rational roundings across original initial, broad quotient and D79 compound arithmetic families |
+| `generator_big_unsigned_sqrt.cpp` | `big_unsigned_sqrt.tsv` | 161 independently computed integer floor-root/remainder triples; 48 historical source entropy seeds are frozen separately because the original PRNG is unavailable |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -604,3 +607,29 @@ The regenerated 1,225,939 bytes match the original Git blob
 `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b` byte-for-byte.
 Generator #32 joins opt-in CMake targets, reaching 114/115 original
 TSV files. Only `big_unsigned_sqrt.tsv` remains.
+
+B110 completes the generator registration for all 115 original TSVs.
+`generator_big_unsigned_sqrt.cpp` independently computes all 161
+integer floor-square-root/remainder triples with radix-4 restoring
+arithmetic and separately checks n=root^2+remainder and the strict
+upper bound (root+1)^2>n using a binary shift-and-add square.
+The first 22 small edge inputs and 69 powers-of-two +/-1 cases are
+recreated algebraically. **Important provenance limitation:** the
+original 37 random input magnitudes and the 11 original random square
+roots used to build 33 adjacent-square cases do not have a recoverable
+PRNG/seed in repository history. To preserve every original case, 48
+*input-only entropy seeds* are frozen in
+`big_unsigned_sqrt_legacy_seeds.hpp`. These are historical input
+identities, NOT precalculated oracle outputs. All 161 root/remainder
+results are independently recomputed; the original fixture is not
+read during generation. Therefore this last fixture is reproducible
+from committed seeds, but not reconstructible from the original random
+stream. This qualification must remain explicit when reporting 115/115.
+An independent JavaScript BigInt radix-4 restoring implementation
+reproduced all 161 triples, exactly 48,161 bytes and original Git
+blob `686e648fbe32f70303b1b01c38629bd03e3672a3`.
+The C++ source compiled in strict-warning C++20 with GCC and Clang;
+full compiled execution against the committed input bank and CI
+of B110 must still be confirmed. No original TSV, test consumer,
+production source, or runtime GMP oracle changed. Generator #33
+joins opt-in targets `generators`, `generate-data`, `verify-data`.
