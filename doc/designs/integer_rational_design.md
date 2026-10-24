@@ -9081,3 +9081,25 @@ corruption rejection pass. Regenerated 170,882 bytes have Git blob
 original TSV. Register generator #27 in explicit `generators`,
 `generate-data` and `verify-data`; coverage reaches 108/115.
 No fixtures, consumers, production code or runtime GMP tests changed.
+
+### B105 — certified atan oracle regeneration (24 October 2026)
+
+Add C++20 independent `generator_floatap_atan.cpp`. Rebuild D87,
+D88 and D89 original source-keyed references (640/200/500 rows),
+including all precision visits, signed operands, exact original
+Rational keys, and independent nearest-even input quantization.
+Use signed outward fixed-point integer intervals at B=2^1800,
+1,150 alternating atan Taylor terms at maximum, Machin's certified
+pi/4, direct Taylor at <=1/2, complementary pi/4 argument reduction
+for 1/2<x<1, and pi/2-atan(1/x) above 1. An early break when
+the next power interval is below 2^180 (at B=2^1800) preserves a
+rigorous symmetric omitted-tail enclosure, greatly improving runtime.
+Every p-bit N/D/U/Z result is accepted only if independently rounded
+lower/upper interval endpoints agree. No Numeric, GMP, MPFR, FloatMP,
+Boost, or host floating-point atan oracle; no TSV source values used.
+Strict GCC and Clang C++20 compilation, --verify and deliberate
+corruption rejection succeed. Exact original 309,281-byte Git blob
+`9daa471b286fb3b3b5cd0d4a804a4977cfd16079` is reproduced.
+Register generator #28 in opt-in targets; coverage becomes 109/115.
+Existing fixtures, consumers, production code, and runtime GMP tests
+remain unchanged. CI for B105 is pending.

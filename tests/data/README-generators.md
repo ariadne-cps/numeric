@@ -8,7 +8,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`, `generator_floatap_sqrt.cpp`, `generator_floatap_pow_short.cpp`, `generator_rounded_float_directed.cpp`,
 `generator_floatap_add_sub.cpp`, `generator_floatap_exp.cpp`,
 `generator_floatap_log.cpp`, `generator_floatap_sin_cos.cpp`,
-`generator_floatap_centered_exp.cpp`,
+`generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -32,7 +32,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (108 of 115 at B104).
+overwrites only the currently covered TSV files (109 of 115 at B105).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
 byte. The other TSVs remain committed and untouched. The generators' own
@@ -77,6 +77,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_log.cpp -o /tmp/numeric-oracle-floatap-log
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_sin_cos.cpp -o /tmp/numeric-oracle-floatap-sin-cos
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_centered_exp.cpp -o /tmp/numeric-oracle-floatap-centered-exp
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_atan.cpp -o /tmp/numeric-oracle-floatap-atan
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -104,6 +105,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-floatap-log --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-sin-cos --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-centered-exp --verify --data-dir tests/data
+/tmp/numeric-oracle-floatap-atan --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -145,6 +147,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_log.cpp` | `floatap_log.tsv` | 444 certified correctly rounded logs, including 284 original centered inputs and 160 D96 cases |
 | `generator_floatap_sin_cos.cpp` | `floatap_sin.tsv`, `floatap_cos.tsv` | 1,080 exact source-keyed independently certified outputs each, across D91, D92, D95 original test families |
 | `generator_floatap_centered_exp.cpp` | `floatap_centered_exp.tsv` | 568 exact certified reference rows from all 720 original centered-exp visits |
+| `generator_floatap_atan.cpp` | `floatap_atan.tsv` | 1,340 certified atan references reproducing all original D87, D88, D89 lookup keys |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -484,3 +487,21 @@ Generated 170,882 bytes identical to the original blob SHA-1
 #27 and coverage becomes 108/115; CMake targets are opt-in.
 No original TSV, test consumer, runtime GMP oracle or production code
 has been modified. Cross-platform CI for B104 is pending.
+
+B105 independently regenerates all 1,340 original `floatap_atan.tsv`
+source-keyed references (309,281 bytes). Preserve D87 centered-source
+precision visits, D88 Dyadic regression probes and D89 cache/centered
+argument-reduction cases in exact visit order; independently round
+original inputs nearest-even at each precision. Use portable unsigned
+integer limbs at B=2^1800, an outward alternating Taylor recurrence,
+and certified Machin pi/4 identity with interval argument reduction.
+Small-divisor long division and an early termination at a rigorously
+bounded tiny omitted tail permit full generation efficiently without
+weakening the 1,150-term maximum. Independently round both interval
+endpoints under N/D/U/Z and reject ambiguous values. GCC/Clang strict
+C++20 builds and --verify pass; corrupted fixtures are rejected.
+The unchanged original TSV Git blob SHA is
+`9daa471b286fb3b3b5cd0d4a804a4977cfd16079`.
+Generator #28 joins only opt-in CMake targets, reaching 109/115.
+No input fixture, test consumer, runtime GMP oracle or production code
+has changed.
