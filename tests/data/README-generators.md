@@ -9,6 +9,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_floatap_add_sub.cpp`, `generator_floatap_exp.cpp`,
 `generator_floatap_log.cpp`, `generator_floatap_sin_cos.cpp`,
 `generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
+`generator_floatap_tan.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -32,7 +33,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (109 of 115 at B105).
+overwrites only the currently covered TSV files (110 of 115 at B106).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
 byte. The other TSVs remain committed and untouched. The generators' own
@@ -78,6 +79,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_sin_cos.cpp -o /tmp/numeric-oracle-floatap-sin-cos
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_centered_exp.cpp -o /tmp/numeric-oracle-floatap-centered-exp
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_atan.cpp -o /tmp/numeric-oracle-floatap-atan
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_tan.cpp -o /tmp/numeric-oracle-floatap-tan
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -106,6 +108,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-floatap-sin-cos --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-centered-exp --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-atan --verify --data-dir tests/data
+/tmp/numeric-oracle-floatap-tan --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -148,6 +151,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_sin_cos.cpp` | `floatap_sin.tsv`, `floatap_cos.tsv` | 1,080 exact source-keyed independently certified outputs each, across D91, D92, D95 original test families |
 | `generator_floatap_centered_exp.cpp` | `floatap_centered_exp.tsv` | 568 exact certified reference rows from all 720 original centered-exp visits |
 | `generator_floatap_atan.cpp` | `floatap_atan.tsv` | 1,340 certified atan references reproducing all original D87, D88, D89 lookup keys |
+| `generator_floatap_tan.cpp` | `floatap_tan.tsv` | 1,208 certified tangent values across D92, D93, D94 and D95 original sources |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -505,3 +509,28 @@ The unchanged original TSV Git blob SHA is
 Generator #28 joins only opt-in CMake targets, reaching 109/115.
 No input fixture, test consumer, runtime GMP oracle or production code
 has changed.
+
+B106 independently regenerates all 1,208 original `floatap_tan.tsv`
+references: 576 D92 local sin/cos/tan, 240 D93 centered tangent,
+200 D94 one-square-root cosine tangent and 192 D95 exact dyadic
+trigonometric recurrence/regression references. Reconstruct every
+original source value algebraically in original visitation order,
+including all signed cases, precision repeats, and first-seen-key
+deduplication. Convert each source independently to nearest-even
+p-bit binary before evaluating its exact tangent.
+
+The generator uses standard C++20 unsigned integer limbs and
+outward B=2^1800 fixed-point alternating sine and cosine Taylor
+series (240 terms and omitted-term enclosure). It encloses the
+signed quotient sin(x)/cos(x) with rigorous outward rational interval
+division and correctly handles negative cosine for arguments past
+pi/2. Oddness handles negative arguments; all four rounding modes
+N/D/U/Z require both interval endpoints to agree as exact binary
+rational outputs. No Numeric, GMP, MPFR, FloatMP, Boost or host
+floating-point transcendental is used to calculate expectations.
+GCC and Clang strict C++20 warnings-as-errors builds and --verify
+pass; deliberate fixture corruption fails. Original TSV byte count
+303,143 and blob `0b73c09cd203961ace02c86c3af8c866db8c7ac4`
+are reproduced exactly. Generator #29 joins opt-in CMake targets,
+raising coverage to 110 of 115 TSVs. No fixture, test consumer,
+production code, or runtime GMP oracle has been modified.

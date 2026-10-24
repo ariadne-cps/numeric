@@ -79,6 +79,7 @@ set(ORACLE_GENERATORS
     generator_floatap_sin_cos
     generator_floatap_centered_exp
     generator_floatap_atan
+    generator_floatap_tan
 )
 set(ORACLE_GENERATOR_COMMANDS)
 set(ORACLE_VERIFY_COMMANDS)

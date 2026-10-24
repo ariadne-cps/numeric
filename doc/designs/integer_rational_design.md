@@ -9103,3 +9103,33 @@ corruption rejection succeed. Exact original 309,281-byte Git blob
 Register generator #28 in opt-in targets; coverage becomes 109/115.
 Existing fixtures, consumers, production code, and runtime GMP tests
 remain unchanged. CI for B105 is pending.
+
+### B106 — independently certified tangent fixture regeneration (24 October 2026)
+
+Add standalone standard C++20 `tests/data/generator_floatap_tan.cpp`,
+reproducing `floatap_tan.tsv` exactly (303,143 bytes / 1,208 rows).
+Rebuild D92 (576 unique keys), D93 (240 new), D94 (200 new), and
+D95 (192 new) from their original test loops: local p-bit rational
+offsets from 1/2, centered p/2+16 offsets, wider binary rational
+sources, signed order, precision visits and first-seen deduplication.
+Independently round the original Rational source to nearest-even
+p-bit binary before evaluating tangent. Use 240 outward alternating
+integer-only Taylor terms for sin/cos at B=2^1800; enclose omitted
+term, require cosine interval exclude zero, divide signed numerator
+interval by signed denominator with four endpoint combinations,
+rigorously outward floor/ceil, and use oddness at negative sources.
+Support negative cosine for |x|>pi/2, not merely the near-1/2 window.
+Require identical rounded exact rational from both endpoint bounds
+in every N/D/U/Z mode. No Numeric, GMP, MPFR, FloatMP, Boost,
+host floating-point tangent or expected TSV source values are used.
+
+Strict GCC and Clang -std=c++20 -Wall -Wextra -Wpedantic
+-Wsign-conversion -Wshadow -Werror compile, and read-only --verify
+pass; a deliberately corrupted 303,143-byte fixture is rejected.
+The reproduced Git blob is exactly
+`0b73c09cd203961ace02c86c3af8c866db8c7ac4`, identical to
+the original version-controlled fixture. Add generator #29 to
+opt-in `generators`, `generate-data`, `verify-data` targets;
+coverage reaches 110/115, with five originals outstanding.
+No existing fixture, test consumer, runtime GMP oracle or production
+source was changed. Full CI for B106 is pending.
