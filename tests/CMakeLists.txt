@@ -80,6 +80,7 @@ set(ORACLE_GENERATORS
     generator_floatap_centered_exp
     generator_floatap_atan
     generator_floatap_tan
+    generator_floatap_asin_acos
 )
 set(ORACLE_GENERATOR_COMMANDS)
 set(ORACLE_VERIFY_COMMANDS)

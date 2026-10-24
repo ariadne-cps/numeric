@@ -9,7 +9,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_floatap_add_sub.cpp`, `generator_floatap_exp.cpp`,
 `generator_floatap_log.cpp`, `generator_floatap_sin_cos.cpp`,
 `generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
-`generator_floatap_tan.cpp`,
+`generator_floatap_tan.cpp`, `generator_floatap_asin_acos.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -33,7 +33,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (110 of 115 at B106).
+overwrites only the currently covered TSV files (112 of 115 at B107).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
 byte. The other TSVs remain committed and untouched. The generators' own
@@ -80,6 +80,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_centered_exp.cpp -o /tmp/numeric-oracle-floatap-centered-exp
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_atan.cpp -o /tmp/numeric-oracle-floatap-atan
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_tan.cpp -o /tmp/numeric-oracle-floatap-tan
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_asin_acos.cpp -o /tmp/numeric-oracle-floatap-asin-acos
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -109,6 +110,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-floatap-centered-exp --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-atan --verify --data-dir tests/data
 /tmp/numeric-oracle-floatap-tan --verify --data-dir tests/data
+/tmp/numeric-oracle-floatap-asin-acos --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -152,6 +154,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_centered_exp.cpp` | `floatap_centered_exp.tsv` | 568 exact certified reference rows from all 720 original centered-exp visits |
 | `generator_floatap_atan.cpp` | `floatap_atan.tsv` | 1,340 certified atan references reproducing all original D87, D88, D89 lookup keys |
 | `generator_floatap_tan.cpp` | `floatap_tan.tsv` | 1,208 certified tangent values across D92, D93, D94 and D95 original sources |
+| `generator_floatap_asin_acos.cpp` | `floatap_asin.tsv`, `floatap_acos.tsv` | 728 certified inverse-trigonometric references per TSV, preserving D86/D90 original sources |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -534,3 +537,21 @@ pass; deliberate fixture corruption fails. Original TSV byte count
 are reproduced exactly. Generator #29 joins opt-in CMake targets,
 raising coverage to 110 of 115 TSVs. No fixture, test consumer,
 production code, or runtime GMP oracle has been modified.
+
+B107 adds an independent C++20 generator for both asin and acos
+fixtures. It reconstructs the original D86 centered source visits
+and D90 signed endpoints, with exact source keys and independently
+nearest-even rounded binary inputs. Rigorous fixed-point B=2^1800
+integer enclosures calculate sqrt(1-x^2) through digit-pair integer
+square root of a rational-scaled integer, then asin(x)=2*atan(x/(1+
+sqrt(1-x^2))), and acos(x)=pi/2-asin(x) using a certified Machin pi/4.
+All interval endpoints must round to identical p-bit N/D/U/Z values.
+728 rows per file: 520 D86 and 208 new D90 references. GCC and
+Clang strict C++20 compiles, --verify for both TSVs, and deliberate
+fixture corruption rejection pass. The independently regenerated
+189,909-byte asin blob is `50d8070f7cc049ad76840f51f2d4042ce9f73cb4`;
+189,361-byte acos blob is `9bc0e3b101c737783565f4dc67c0033ec6fa7c91`.
+Both hashes match the original version-controlled fixtures exactly.
+Generator #30 joins the opt-in targets, reaching 112/115 TSVs.
+No existing TSVs, test consumers, runtime GMP oracles, or production
+sources are changed.

@@ -9133,3 +9133,30 @@ opt-in `generators`, `generate-data`, `verify-data` targets;
 coverage reaches 110/115, with five originals outstanding.
 No existing fixture, test consumer, runtime GMP oracle or production
 source was changed. Full CI for B106 is pending.
+
+### B107 — independent certified asin/acos golden regeneration (24 October 2026)
+
+Add `tests/data/generator_floatap_asin_acos.cpp` using standard
+C++20-only arbitrary-width integer limbs. Reconstruct all D86 (520)
+and additional D90 (208) keys from the original signed Rational
+source and precision visitation rules, rounding each operand nearest
+even before evaluation. For each original magnitude independently
+certify sqrt(1-x^2) through floor integer square root of
+floor((d^2-n^2)*B^2/d^2), including exactness detection for the
+upper interval endpoint, where B=2^1800. Bound atan of the resulting
+ratio x/(1+sqrt(1-x^2)) at both ordered endpoints, multiply by two,
+and use certified pi/2 subtraction for acos (exactly zero at x=+1).
+Arctangent uses the existing independent signed fixed-point interval
+and Machin reduction routines, no FloatAP, Numeric, GMP, MPFR,
+FloatMP, Boost or host transcendentals. Both interval endpoints must
+round to identical binary rationals for all N/D/U/Z modes.
+
+GCC and Clang strict C++20 warnings-as-errors compiles and --verify
+of both fixtures passed; intentional corruption is detected.
+Exact original Git blobs: asin 189,909 bytes / 728 rows,
+`50d8070f7cc049ad76840f51f2d4042ce9f73cb4`; acos 189,361 bytes
+/ 728 rows, `9bc0e3b101c737783565f4dc67c0033ec6fa7c91`.
+Register generator #30 in opt-in CMake targets. Generator coverage
+is 112/115, with three original TSVs outstanding. No fixtures,
+test consumers, production code or runtime GMP test oracles changed.
+CI for B107 pending.
