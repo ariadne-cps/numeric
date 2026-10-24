@@ -6,6 +6,7 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`, `generator_big_unsigned_random_mul.cpp`,
 `generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`, `generator_floatap_sqrt.cpp`, `generator_floatap_pow_short.cpp`, `generator_rounded_float_directed.cpp`,
+`generator_floatap_add_sub.cpp`,
 and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
 the standard library, with an independent unsigned-limb implementation for
 exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
@@ -29,7 +30,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (102 of 115 at B99).
+overwrites only the currently covered TSV files (103 of 115 at B100).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
 byte. The other TSVs remain committed and untouched. The generators' own
@@ -69,6 +70,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_sqrt.cpp -o /tmp/numeric-oracle-floatap-sqrt
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_pow_short.cpp -o /tmp/numeric-oracle-short-pow
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rounded_float_directed.cpp -o /tmp/numeric-oracle-rounded-directed
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_add_sub.cpp -o /tmp/numeric-oracle-floatap-add-sub
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
 /tmp/numeric-oracle-exact-small --verify --data-dir tests/data
@@ -91,6 +93,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-floatap-sqrt --verify --data-dir tests/data
 /tmp/numeric-oracle-short-pow --verify --data-dir tests/data
 /tmp/numeric-oracle-rounded-directed --verify --data-dir tests/data
+/tmp/numeric-oracle-floatap-add-sub --verify --data-dir tests/data
 ```
 
 `--verify` is the default and never writes to the data directory. It
@@ -127,6 +130,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatap_sqrt.cpp` | `floatap_sqrt.tsv` | 300 unique input/mode exact rounded square roots; 360 source checks retained by consumer |
 | `generator_floatap_pow_short.cpp` | `floatap_pow_short.tsv` | 3,680 exact boundary-focused integer powers, 5 precisions, 7 degrees, 4 directed modes |
 | `generator_rounded_float_directed.cpp` | `rounded_float_directed.tsv` | 24 rigorous 128-bit exp/log/atan directed pairs, 48 original strict bound comparisons |
+| `generator_floatap_add_sub.cpp` | `floatap_add_sub.tsv` | 1,780 unique source-keyed exact add/sub roundings from all 10×10 operand pairs, both operations, 4 modes and 5 precisions |
 
 **Scope limitation:** the repository contains many other TSVs, including
 `floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
@@ -364,3 +368,22 @@ also rejected a deliberately modified file. The 22nd generator is
 registered in `generators`, `generate-data` and the new non-writing
 `verify-data` CMake target. Generator coverage is 102 of 115 TSVs.
 No existing fixture, consumer, runtime oracle or production source changed.
+
+B100 independently regenerates `floatap_add_sub.tsv`: the complete
+10 x 10 ordered source pair corpus, both exact additions/subtractions,
+all four directed/nearest output modes, and precision sets 7, 53, 128,
+256 and 1024 bits. The original 7/11 source is first nearest-even
+quantized to the selected precision, and the other source dyadics are
+constructed from their original powers of two. Every exact signed sum
+and difference is formed in arbitrary-width integer limbs before a
+single p-bit output rounding, with canonical rational serialization.
+Keys are deduplicated only after reproducing their source order, leaving
+all 1,780 distinct rows while existing test consumers retain all
+10 x 10 x 2 x 4 x 5 original checks. GCC and Clang strict C++20
+compilation, read-only --verify, and deliberate fixture corruption
+rejection pass. The reproduced 1,104,075-byte source-tree TSV has Git
+blob SHA-1 `b4552cfbdea659730486dd5bcdb3bb3a62be7984`, exactly the
+original committed blob. This adds generator #23 to the explicit
+`generators`, `generate-data` and `verify-data` targets, without
+modifying a TSV, test consumer, production source or runtime GMP oracle.
+Coverage is now 103 of 115 TSVs; all-platform CI is pending.

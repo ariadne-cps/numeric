@@ -8952,3 +8952,28 @@ generators with --verify only, never overwriting source fixtures.
 Coverage reaches 102/115. No production source, original fixture,
 test consumer, runtime GMP test or root CMake was changed. Full
 platform CI generator verification remains to be added.
+
+### B100 — exact FloatAP add/sub source reproduction (24 October 2026)
+
+Add standalone C++20 `tests/data/generator_floatap_add_sub.cpp`,
+reproducing all 1,780 canonical unique rows in the pre-existing
+`floatap_add_sub.tsv` from the ORIGINAL complete five-precision,
+10x10 ordered operand corpus and both add/sub operation visits.
+Source operands are +1/-1, +/-nearest-even(7/11), +/-2^-precision,
+2^-200, 2^200, 2^-1400, and 2^1400. Form exact signed dyadic sums
+and differences with independent 64-bit limb arithmetic, preserving
+all large exponent gaps. Canonicalize raw exact input rationals,
+keep the first original visit per (p,mode,exact_input) key, round once
+under N/D/U/Z using independent integer division/remainder and
+nearest-even midpoint parity, and reduce exact binary result ratios.
+Expected values and input literals are not read from the TSV. Preserve
+its original eight comment lines, original first-visit row ordering,
+and 1,780 unique rows. GCC/Clang strict warnings-as-errors builds both
+produce 1,104,075 bytes matching existing blob
+`b4552cfbdea659730486dd5bcdb3bb3a62be7984`; read-only
+--verify passes and an altered fixture is rejected without overwriting.
+
+Register generator #23 in the existing explicit `generators`,
+`generate-data`, and `verify-data` targets. Coverage reaches 103/115.
+The TSV and all production code, test consumers and runtime GMP oracles
+remain unchanged. Full cross-platform CI still must be verified.

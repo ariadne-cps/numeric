@@ -73,6 +73,7 @@ set(ORACLE_GENERATORS
     generator_floatap_sqrt
     generator_floatap_pow_short
     generator_rounded_float_directed
+    generator_floatap_add_sub
 )
 set(ORACLE_GENERATOR_COMMANDS)
 set(ORACLE_VERIFY_COMMANDS)
