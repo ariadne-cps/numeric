@@ -9262,3 +9262,23 @@ all 161 triples and the PRNG is separately reproduced. TSV Git blob
 `5ed4a8d6705a2b39dd44d5ebcf9f5f666019d2bd`, 48,272 bytes.
 Both GCC/Clang strict C++20 generator builds, --verify, and corruption
 rejection pass; no consumer or production source changed.
+
+### A1 — runtime GMP product-accumulation oracle migrated to TSV (24 October 2026)
+
+Convert the entire `test_product_accumulation()` GMP numerical oracle
+(9 sizes x 32 trials x 3 output extras x 2 add/sub = 1,728 checks)
+to a source-keyed independent exact TSV reference. Preserve the
+original full mt19937_64(0x23ACC00) draw stream, original source
+transforms including empty operands, two directional accumulate calls,
+exact output-buffer lengths and exceptional unchanged-buffer assertions.
+Consumer reads, validates every original source key, result and
+escaped bit with an independent canonical BigUnsigned-from-hex parser,
+checks full buffer size, source immutability and no missing or extra
+records. Expected results no longer computed by GMP at runtime.
+The existing independent shift/add product routine of
+`generator_big_unsigned_mul.cpp` also regenerates this dataset to
+minimize number of executables. Independent JS BigInt + mt19937_64
+reference matches all original 1,728 visits: 1,441,196 bytes and
+Git SHA `2e1d31c8b7e9339693ddbaa7f22d2741d213012e`.
+No production code, other fixture or other numerical GMP oracle changed.
+Full CI validation of consumer and generator is pending.

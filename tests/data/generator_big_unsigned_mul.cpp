@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Reproduce the original BigUnsigned B35/B37/B38 golden multiplication cases.
+// Reproduce B35/B37/B38 multiplication and A1 modular accumulation cases.
 // Standalone C++20; no Numeric, GMP, MPFR, Boost or FloatMP.
 #include "oracle_exact_integer.hpp"
 
@@ -145,6 +145,67 @@ std::string b38() {
     }
     return out;
 }
+
+// A1: preserve every original 9*32*3*2 seeded product-accumulation visit.
+// Expected values use exact signed arithmetic modulo the entire destination
+// width, not any BigUnsigned accumulation or multiplication implementation.
+std::string accumulation() {
+    std::string out=
+        "# Independent BigUnsigned accumulate_product_into exact modular oracle, A1.\n"
+        "# length trial extra subtract left_hex right_hex initial_hex result_hex escaped\n"
+        "# Inputs replay all original mt19937_64(0x23ACC00) draws, including overwritten ones.\n"
+        "# Product uses independent radix-2^32 arithmetic; escape and low result modulo 2^(64*count).\n"
+        "# Each 9 x 32 x 3 x 2 case preserves its original requested buffer count and subtraction direction.\n"
+        "# No Numeric, GMP, MPFR, FloatMP or Boost linked to this standalone C++20 generator.\n";
+    std::mt19937_64 random(0x23ACC00ULL);
+    std::size_t count_rows=0u;
+    for(std::size_t length:{0u,1u,2u,4u,5u,8u,9u,16u,64u}) {
+        for(unsigned trial=0u;trial<32u;++trial) {
+            const std::size_t other=trial%3u==0u?1u:length;
+            Words x(length),y(other);
+            for(auto& word:x)word=random();
+            for(auto& word:y)word=random();
+            if(trial%4u==0u)std::fill(x.begin(),x.end(),UINT64_MAX);
+            if(trial%4u==1u) {
+                std::fill(x.begin(),x.end(),0u);
+                if(!x.empty()){x.back()=1u;x.front()|=1u;}
+            }
+            if(trial%4u==2u)std::fill(y.begin(),y.end(),0u);
+            const Nat left(x),right(y);
+            const Nat full=multiply(left,right);
+            for(std::size_t extra:{0u,1u,3u}) {
+                const std::size_t count=left.w.size()+right.w.size()+extra;
+                Words original(count);
+                for(auto& word:original)word=random();
+                if(trial%3u==0u)std::fill(original.begin(),original.end(),0u);
+                if(trial%3u==1u)std::fill(original.begin(),original.end(),UINT64_MAX);
+                const Nat initial(original),modulus=Nat::power2(64u*count);
+                for(bool subtract:{false,true}) {
+                    Nat expected;
+                    bool escaped=false;
+                    if(!subtract) {
+                        const Nat sum=Nat::add(initial,full);
+                        escaped=sum.compare(modulus)>=0;
+                        expected=low_product(sum,count);
+                    } else if(initial.compare(full)>=0) {
+                        expected=low_product(Nat::sub(initial,full),count);
+                    } else {
+                        escaped=true;
+                        const Nat deficit=low_product(Nat::sub(full,initial),count);
+                        expected=deficit.zero()?Nat():Nat::sub(modulus,deficit);
+                    }
+                    out+=row({std::to_string(length),std::to_string(trial),
+                              std::to_string(extra),subtract?"1":"0",
+                              left.hex(),right.hex(),initial.hex(),
+                              expected.hex(),escaped?"1":"0"});
+                    ++count_rows;
+                }
+            }
+        }
+    }
+    if(count_rows!=1728u)throw std::runtime_error("wrong accumulation case count");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -153,9 +214,10 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_b35.tsv",b35(),write);
         independent_oracle::output(dir,"big_unsigned_b37.tsv",b37(),write);
         independent_oracle::output(dir,"big_unsigned_b38.tsv",b38(),write);
+        independent_oracle::output(dir,"big_unsigned_accumulation.tsv",accumulation(),write);
         return 0;
     } catch(std::exception const& ex) {
-        std::cerr<<"B35/B37/B38 generator: "<<ex.what()<<'\n';
+        std::cerr<<"BigUnsigned multiplication/accumulation generator: "<<ex.what()<<'\n';
         return 1;
     }
 }

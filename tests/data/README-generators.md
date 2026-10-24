@@ -654,3 +654,27 @@ C++20 builds, independent Python math.isqrt + PRNG cross-checks, and
 both generator --verify/corruption checks passed. No test consumer or
 production implementation was modified. Standard CI tests do not yet
 build or run the opt-in `verify-data` target.
+
+### A1 — first runtime GMP oracle removal (24 October 2026)
+
+Replace the complete runtime GMP numerical reference in
+`TestBigUnsigned::test_product_accumulation()` by a new independent
+source-keyed `big_unsigned_accumulation.tsv`. The original nested loops
+are retained with all mt19937_64(0x23ACC00) draws, exact width choices,
+zero/all-ones/sparse source transforms, all 9 x 32 x 3 x 2 = 1,728
+operation visits and overflow/borrow escape checks. The TSV records
+length, trial, extra capacity, sign of accumulation, both operands,
+the original buffer, exact modular result and escaped flag. The
+consumer verifies source keys and expected values without GMP,
+checks all operand/buffer immutability, canonical limbs and buffer
+length, rejects missing/out-of-order/extra rows, and retains original
+exception/unchanged destination assertions. The generator now lives
+in existing `generator_big_unsigned_mul.cpp` alongside B35/B37/B38,
+not in an additional executable: 116 TSVs and still 32 generators.
+Independently regenerated 1,728 cases with original C++ mt19937_64
+and a second JavaScript BigInt mt19937_64 implementation; both agree
+byte-for-byte on 1,441,196 bytes, Git blob
+`2e1d31c8b7e9339693ddbaa7f22d2741d213012e`. Standalone GCC and
+Clang strict C++20 generator compilation plus --verify passed on the
+fixture. This is one converted GMP runtime test method; other GMP
+numerical oracle methods have deliberately not been touched.
