@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Independent test-data generation only. No Numeric, GMP, MPFR or Boost.
+// Independent test-data generation only. No Numeric, GMP, independent exact arithmetic or Boost.
 #ifndef ARIADNE_TEST_ORACLE_EXACT_INTEGER_HPP
 #define ARIADNE_TEST_ORACLE_EXACT_INTEGER_HPP
 #include <algorithm>

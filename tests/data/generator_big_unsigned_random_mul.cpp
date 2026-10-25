@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Original-source exact BigUnsigned randomized multiplication fixture.
-// Standalone C++20; no Numeric, GMP, MPFR, Boost or FloatMP.
+// Standalone C++20; no Numeric, GMP, independent exact arithmetic, Boost or independent exact arithmetic.
 #include "oracle_exact_integer.hpp"
 
 namespace {

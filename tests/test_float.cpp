@@ -421,7 +421,7 @@ TestFloat<PR>::test_conversions()
         }
 
         // Exercise native precision controls and decimal formatting.
-        // The MPFR raw-pointer path has no counterpart in FloatAP.
+        // The independent exact arithmetic raw-pointer path has no counterpart in FloatAP.
         const ArbitraryPrecision from_bits(53_bits);
         ARIADNE_TEST_EQUALS(from_bits.bits(),53u);
 

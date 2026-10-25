@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproduce exact rational rounding and add/sub FloatAP fixtures from source loops.
-// Standard C++20 and independent integer limbs only, no Numeric/GMP/MPFR/Boost.
+// Standard C++20 and independent integer limbs only, no Numeric/GMP/independent exact arithmetic/Boost.
 #include "oracle_exact_integer.hpp"
 #include <algorithm>
 #include <array>
@@ -133,7 +133,7 @@ struct Generator {
         "# precision_bits mode input_num input_den expected_num expected_den\n"
         "# N nearest ties-to-even; D down; U up; Z toward zero\n"
         "# Base-10 integers, positive denominators; exact rational values.\n"
-        "# Derived from independent integer divrem and ties-to-even (no FloatAP, FloatMP, GMP, MPFR).\n"
+        "# Derived from independent integer divrem and ties-to-even (no FloatAP, independent exact arithmetic, GMP, independent exact arithmetic).\n"
         "# This is NOT a transcendental oracle. Cases 4794.\n";
     std::set<std::tuple<unsigned,char,std::string,std::string>> seen;
     std::size_t count=0;
@@ -257,7 +257,7 @@ std::string generate_add_sub() {
         "# +/-2^(-bits), +/- powers of two with exponent +/-200 and +/-1400.\n"
         "# Input is the exact sum or difference BEFORE final rounding.\n"
         "# Values computed using independent arbitrary-precision integer/rational algorithms.\n"
-        "# D80; no FloatAP/FloatMP/GMP/MPFR involved in generation.\n";
+        "# D80; no FloatAP/independent exact arithmetic/GMP/independent exact arithmetic involved in generation.\n";
     std::set<std::tuple<unsigned,char,std::string,std::string>> seen;
     for(unsigned p:{7u,53u,128u,256u,1024u}) {
         const Rat one=integer(1);
