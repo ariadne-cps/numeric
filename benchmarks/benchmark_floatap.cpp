@@ -12,7 +12,7 @@
 #include "benchmark_backend_workload.hpp"
 
 #include <algorithm>
-#include <chrono>
+#include <iomanip>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -32,7 +32,7 @@ struct Selection {
 List<ArgumentParser> make_argument_parsers(Selection& selection) {
     List<ArgumentParser> parsers;
     parsers.append(make_valued_argument_parser(
-        "i","iterations","Number of repetitions of the full operation battery",
+        "i","iterations","Number of operations in each measured sample (positive)",
         [&selection](String const& value) -> VoidFunction {
             const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
             if(count==0u) throw std::invalid_argument("iterations must be positive");
@@ -66,31 +66,62 @@ List<ArgumentParser> make_argument_parsers(Selection& selection) {
     return parsers;
 }
 
-double total_time_ns(unsigned bits, unsigned iterations, unsigned samples) {
-    BackendPool<FloatAP> pool(bits);
-    std::vector<double> measurements;
-    measurements.reserve(samples);
+double print_results_and_totals(std::vector<BenchmarkDatum> const& data,
+                                std::vector<unsigned> const& precisions,
+                                unsigned iterations,
+                                unsigned samples) {
+    constexpr int operation_width=24;
+    constexpr int timing_width=15;
+    constexpr int table_width=operation_width+timing_width+12;
 
-    for(unsigned sample=0u; sample<=samples; ++sample) {
-        const auto start=std::chrono::steady_clock::now();
-        std::size_t operation_groups=0u;
-        for_each_backend_operation(pool,[&](char const*, auto&& operation) {
-            ++operation_groups;
-            for(unsigned i=0u; i<iterations; ++i) {
-                auto result=operation(i);
-                keep_alive(result);
-            }
-        });
-        const auto stop=std::chrono::steady_clock::now();
-        if(operation_groups!=backend_operation_count)
-            throw std::runtime_error("benchmark operation count changed");
-        if(sample!=0u) {
-            measurements.push_back(
-                std::chrono::duration<double,std::nano>(stop-start).count());
+    if(data.size()!=precisions.size()*backend_operation_count)
+        throw std::runtime_error("benchmark operation count changed");
+
+    LOGGING_PRINTLN("FloatAP benchmark | iterations=" << iterations
+                    << " | samples=" << samples)
+    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'='))
+    LOGGING_PRINTLN(std::left << std::setw(operation_width) << "Operation"
+                    << "  " << std::setw(6) << "Bits"
+                    << "  " << std::right << std::setw(timing_width) << "Median (ns)")
+    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
+
+    double all_precisions_total_ns=0.0;
+    std::size_t offset=0u;
+    for(const unsigned bits:precisions) {
+        double precision_total_ns=0.0;
+        std::size_t count=0u;
+        while(offset<data.size() && data[offset].bits==bits) {
+            const auto& datum=data[offset];
+            if(datum.backend!="floatap")
+                throw std::runtime_error("unexpected benchmark backend");
+            LOGGING_PRINTLN(std::left << std::setw(operation_width) << datum.operation
+                            << "  " << std::setw(6) << datum.bits
+                            << "  " << std::right << std::setw(timing_width)
+                            << std::fixed << std::setprecision(3) << datum.nanoseconds)
+            precision_total_ns+=datum.nanoseconds;
+            ++count;
+            ++offset;
         }
+        if(count!=backend_operation_count)
+            throw std::runtime_error("benchmark operation count changed for precision "
+                                     +std::to_string(bits));
+        all_precisions_total_ns+=precision_total_ns;
+        LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
+        LOGGING_PRINTLN(std::left << std::setw(operation_width) << "TOTAL"
+                        << "  " << std::setw(6) << bits
+                        << "  " << std::right << std::setw(timing_width)
+                        << std::fixed << std::setprecision(3) << precision_total_ns)
+        LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'='))
     }
-    std::sort(measurements.begin(),measurements.end());
-    return measurements[samples/2u];
+    if(offset!=data.size())
+        throw std::runtime_error("unexpected benchmark rows after precision totals");
+
+    LOGGING_PRINTLN(std::left << std::setw(operation_width) << "TOTAL ALL"
+                    << "  " << std::setw(6) << "-"
+                    << "  " << std::right << std::setw(timing_width)
+                    << std::fixed << std::setprecision(3) << all_precisions_total_ns)
+    LOGGING_PRINTLN("Totals are sums of the per-operation median nanoseconds.")
+    return all_precisions_total_ns;
 }
 
 } // namespace
@@ -110,12 +141,14 @@ int main(int argc, const char* argv[]) {
         if(!command_line.acquire(arguments))
             return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
 
-        double total_ns=0.0;
+        std::vector<BenchmarkDatum> measurements;
+        measurements.reserve(selection.precisions.size()*backend_operation_count);
         for(const unsigned bits:selection.precisions)
-            total_ns+=total_time_ns(bits,selection.iterations,selection.samples);
+            run_backend<FloatAP>("floatap",bits,selection.iterations,selection.samples,
+                                 measurements);
 
-        LOGGING_PRINTLN("FloatAP total time (all operations): "
-                        << total_ns/1.0e6 << " ms")
+        print_results_and_totals(measurements,selection.precisions,
+                                 selection.iterations,selection.samples);
         return 0;
     } catch(std::exception const& e) {
         LOGGING_PRINTLN("benchmark_floatap: " << e.what())
