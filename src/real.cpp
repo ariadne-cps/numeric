@@ -325,7 +325,7 @@ class WhenRealExpression : public RealBase {
         : WhenRealExpression(c1.condition(),c1.term(),c2.condition(),c2.term()) { }
     virtual DyadicBounds _compute_get(Effort eff) const;
     virtual FloatDPBounds _compute_get(Effort, DoublePrecision pr) const { return this->_compute(Effort(0u)).get(pr); }
-    virtual FloatAPBounds _compute_get(Effort, ArbitraryPrecision pr) const { return this->_compute(Effort(pr.bits())).get(pr); }
+    virtual FloatAPBounds _compute_get(Effort, ArbitraryPrecision pr) const { return this->_compute(Effort(static_cast<Nat>(pr.bits()))).get(pr); }
     friend OutputStream& operator<<(OutputStream& os, WhenRealExpression const& r) { return r._write(os); }
   public:
     virtual OutputStream& _write(OutputStream& os) const;
