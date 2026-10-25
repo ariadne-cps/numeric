@@ -292,7 +292,7 @@ void TestReal::test_constructors() {
 
     ARIADNE_TEST_CONSTRUCT(Real,xy,(EffectiveNumber(5)));
     ARIADNE_TEST_EQUALS(xy.get(double_precision),5);
-    ARIADNE_TEST_EQUALS(xy.get(precision(128_bits)),5);
+    ARIADNE_TEST_EQUALS(xy.get(ArbitraryPrecision(128_bits)),5);
 }
 
 void TestReal::test_arithmetic() {
@@ -602,8 +602,8 @@ void TestReal::test_sequence() {
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).compute(Effort(20u)));
     ARIADNE_TEST_PRINT(when({x<=0,-x},{x>=0,+x}).compute(Effort(20u)));
     ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(dp));
-    ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(precision(192_bits)));
-    ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(precision(320_bits)));
+    ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(ArbitraryPrecision(192_bits)));
+    ARIADNE_TEST_PRINT(when({x>=0,+x},{x<=0,-x}).get(ArbitraryPrecision(320_bits)));
     ARIADNE_TEST_COMPARE(when({x>=0,+x},{x<=0,1+x}).compute(Effort(20u)),>=,0.5_x);
 
     ARIADNE_TEST_FAIL(when({sin(pi)>=1,+1},{sin(pi)<=-1,-1}).compute(Effort(12u)));
@@ -617,7 +617,7 @@ void TestReal::test_sequence() {
     ARIADNE_TEST_PRINT(x.compute(Effort(12)));
     ARIADNE_TEST_PRINT(x.compute(Effort(12))<DyadicBounds(0));
     ARIADNE_TEST_PRINT(x.compute(Effort(20u)));
-    ARIADNE_TEST_PRINT(x.compute(Effort(20u)).get(precision(320_bits)));
+    ARIADNE_TEST_PRINT(x.compute(Effort(20u)).get(ArbitraryPrecision(320_bits)));
 
     Real y=2*sin(pi/6)-1;
     ARIADNE_TEST_UNARY_PREDICATE(is_indeterminate,(y>=0).check(Effort(0u)));
