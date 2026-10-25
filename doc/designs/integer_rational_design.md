@@ -9481,3 +9481,33 @@ The total is now 130 versioned TSVs across the unchanged 32 generator
 executables, 25,144 cumulative A1-A8 migrated visits.
 No production changes. Full consumer CI and opt-in generator-wide
 `verify-data` are separate validations.
+
+### A9 — B55 multiprecision division GMP oracle migration (25 October 2026)
+
+Replace all 6 divisor widths (7,8,9,16,32,64) x 3 length
+offsets (2,9,32) x 24 original input modes = 432 original B55
+GMP oracle visits in `test_division()`. Preserve the full
+`std::mt19937_64(0xB550DEC1)` draw stream, all ordered source
+transforms, the divisor high-bit normalization, and the 7/8/9
+kernel dispatch boundary. Exact source-keyed fixtures check both
+operands, quotient and remainder on `divrem`, `quot`, `rem` and
+`divrem_into`; existing output-capacity, zero-surplus and
+scratch-guard assertions remain. All rows must appear in original
+order, with none missing or extra. GMP blocks outside B55 remain.
+
+Extend the existing independent C++20 power/division generator
+with B55 input replay, independent Nat aligned-subtraction long
+division and shift/add Euclidean identity checks; no Numeric,
+GMP, MPFR or Boost is used. Separately regenerate source inputs
+with std::mt19937_64 compiled using GCC and Clang, and use Python
+arbitrary-precision divmod to certify every result. Exact bytewise
+Git blob identities: B55 short (216 visits, 178,716 bytes)
+`929963b14605a7a0eaa3f78aeacb8b398e615858`;
+medium (144 visits, 221,212 bytes)
+`3d8e5a3070ff80af9b01cd59a8b0a01a4da53882`;
+large (72 visits, 239,017 bytes)
+`7837342521a24a6cb672dbd364b37f0f4f44ab70`.
+Total: 133 versioned TSV fixtures and 32 existing generator
+executables; A1–A9 cumulative migrated test visits: 25,576.
+No production code changes. Full consumer CI and opt-in
+`verify-data` must be reported separately from oracle checks.

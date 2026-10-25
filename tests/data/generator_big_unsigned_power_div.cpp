@@ -516,6 +516,85 @@ std::array<std::string,3> b57_power_fixtures() {
         throw std::runtime_error("wrong A8 visit counts");
     return out;
 }
+
+// A9: B55 native divisor-length selection cases. Restore original
+// randomized inputs and calculate division by independent Nat long division.
+std::array<std::string,3> b55_fixtures() {
+    const auto header=[](std::size_t visits) {
+        return std::string("# A9 B55 seeded multiprecision division oracle, ")+
+            std::to_string(visits)+" original visits.\n"
+            "# m extra mode dividend_hex divisor_hex quotient_hex remainder_hex\n"
+            "# Original mt19937_64(0xB550DEC1), all conditional overwrites preserved.\n"
+            "# Exact independent Euclidean quotient/remainder; no GMP/MPFR/Numeric.\n";
+    };
+    std::array<std::string,3> out{header(216u),header(144u),header(72u)};
+    std::array<std::size_t,3> rows{};
+    std::mt19937_64 engine(0xB550DEC1ULL);
+    const auto max=UINT64_MAX;
+    for (std::size_t m:{7u,8u,9u,16u,32u,64u}) {
+        for (std::size_t extra:{2u,9u,32u}) {
+            const std::size_t n=m+extra;
+            for (unsigned mode=0u;mode<24u;++mode) {
+                std::vector<std::uint64_t> left(n),right(m);
+                for (auto& word:left) word=engine();
+                for (auto& word:right) word=engine();
+                switch (mode%8u) {
+                case 0u:
+                    std::fill(left.begin(),left.end(),max);
+                    std::fill(right.begin(),right.end(),max);
+                    break;
+                case 1u:
+                    std::fill(left.begin(),left.end(),0u);
+                    left.back()=max;
+                    std::fill(right.begin(),right.end(),0u);
+                    right.back()=max;
+                    break;
+                case 2u:
+                    std::fill(left.begin(),left.end(),0u);
+                    left.front()=max;
+                    left.back()=max;
+                    std::fill(right.begin(),right.end(),0u);
+                    right.front()=3u;
+                    right.back()=max;
+                    break;
+                case 3u:
+                    for (std::size_t i=0u;i<n;i+=2u) left[i]=0u;
+                    for (std::size_t i=0u;i<m;i+=2u) right[i]=0u;
+                    break;
+                case 4u:
+                    for (std::size_t i=1u;i+1u<n;++i) left[i]=0u;
+                    for (std::size_t i=1u;i+1u<m;++i) right[i]=0u;
+                    break;
+                case 5u:
+                    std::fill_n(left.begin(),n/2u,0u);
+                    std::fill_n(right.begin(),m/2u,0u);
+                    break;
+                case 6u:
+                    for (std::size_t i=1u;i<n;i+=3u) left[i]=max;
+                    for (std::size_t i=1u;i<m;i+=3u) right[i]=max;
+                    break;
+                default: break;
+                }
+                left.back()|=std::uint64_t{1}<<63u;
+                right.back()|=std::uint64_t{1}<<63u;
+                const Nat dividend(std::move(left)),divisor(std::move(right));
+                const auto [quotient,remainder]=divide(dividend,divisor);
+                if (remainder.compare(divisor)>=0 ||
+                    Nat::add(multiply(quotient,divisor),remainder)
+                        .compare(dividend)!=0)
+                    throw std::runtime_error("invalid A9 exact division identity");
+                const std::size_t group=m<=9u?0u:m<=32u?1u:2u;
+                out[group]+=row({std::to_string(m),std::to_string(extra),
+                                 std::to_string(mode),dividend.hex(),
+                                 divisor.hex(),quotient.hex(),remainder.hex()});
+                ++rows[group];
+            }
+        }
+    }
+    if (rows!=std::array<std::size_t,3>{216u,144u,72u})
+        throw std::runtime_error("wrong A9 source visit counts");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -539,6 +618,10 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_b57_power_short.tsv",a8[0u],write);
         independent_oracle::output(dir,"big_unsigned_b57_power_medium.tsv",a8[1u],write);
         independent_oracle::output(dir,"big_unsigned_b57_power_large.tsv",a8[2u],write);
+        const auto a9=b55_fixtures();
+        independent_oracle::output(dir,"big_unsigned_b55_short.tsv",a9[0u],write);
+        independent_oracle::output(dir,"big_unsigned_b55_medium.tsv",a9[1u],write);
+        independent_oracle::output(dir,"big_unsigned_b55_large.tsv",a9[2u],write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';

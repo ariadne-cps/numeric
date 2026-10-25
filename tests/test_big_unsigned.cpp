@@ -63,6 +63,9 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_EXACT_LIMB_129B_PATH[] = ARIADNE_TEST
 inline constexpr char ARIADNE_BIG_UNSIGNED_B57_POWER_SHORT_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b57_power_short.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B57_POWER_MEDIUM_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b57_power_medium.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B57_POWER_LARGE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b57_power_large.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B55_SHORT_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b55_short.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B55_MEDIUM_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b55_medium.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B55_LARGE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b55_large.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -2427,12 +2430,21 @@ void TestBigUnsigned::test_division()
         if (file >> extra) throw std::runtime_error("Extra A8 B57 power rows");
     }
 
-    // B55: GMP differential coverage of the native x86-64
+    // B55: independently frozen numerical coverage of the native x86-64
     // MULQ/ADCQ digit-product subtraction selected at divisor
     // length 8. Preserve the 7-limb C++ control, 8/9 boundary,
     // 16/32/64-limb denominators, and both divisor operand orders.
-    // Full/joint and single-output modes must independently agree
-    // with GMP even after one- or two-digit corrections.
+    // Full/joint and single-output modes must match exact TSV results
+    // even after one- or two-digit corrections.
+    std::array<std::ifstream,3> b55_golden{
+        std::ifstream(ARIADNE_BIG_UNSIGNED_B55_SHORT_PATH),
+        std::ifstream(ARIADNE_BIG_UNSIGNED_B55_MEDIUM_PATH),
+        std::ifstream(ARIADNE_BIG_UNSIGNED_B55_LARGE_PATH)};
+    for (auto& file:b55_golden) {
+        if (!file) throw std::runtime_error("Missing B55 exact TSV");
+        std::string header;
+        while (file.peek()=='#') std::getline(file,header);
+    }
     std::mt19937_64 b55_engine(0xB550DEC1ULL);
     for (const std::size_t m:{7u,8u,9u,16u,32u,64u}) {
         for (const std::size_t extra:{2u,9u,32u}) {
@@ -2481,19 +2493,23 @@ void TestBigUnsigned::test_division()
                 left.back()|=std::uint64_t{1}<<63u;
                 right.back()|=std::uint64_t{1}<<63u;
                 const BigUnsigned dividend(left),divisor(right);
-                mpz_import(a.value,dividend.size(),-1,
-                           sizeof(std::uint64_t),0,0,
-                           dividend.limbs().data());
-                mpz_import(b.value,divisor.size(),-1,
-                           sizeof(std::uint64_t),0,0,
-                           divisor.limbs().data());
-                mpz_tdiv_qr(q.value,r.value,a.value,b.value);
-                const auto [actual_q,actual_r]=
-                    divrem(dividend,divisor);
-                check_against_gmp(actual_q,q.value);
-                check_against_gmp(actual_r,r.value);
-                check_against_gmp(quot(dividend,divisor),q.value);
-                check_against_gmp(rem(dividend,divisor),r.value);
+                const std::size_t group=m<=9u?0u:m<=32u?1u:2u;
+                std::size_t ref_m=0u,ref_extra=0u;
+                unsigned ref_mode=0u;
+                std::string lhs_hex,rhs_hex,quotient_hex,remainder_hex;
+                if (!(b55_golden[group] >> ref_m >> ref_extra >> ref_mode
+                       >> lhs_hex >> rhs_hex >> quotient_hex >> remainder_hex)
+                    || ref_m!=m || ref_extra!=extra || ref_mode!=mode)
+                    throw std::runtime_error("Missing or unordered B55 exact TSV row");
+                check_against_precomputed_hex(dividend,lhs_hex);
+                check_against_precomputed_hex(divisor,rhs_hex);
+                const auto [actual_q,actual_r]=divrem(dividend,divisor);
+                check_against_precomputed_hex(actual_q,quotient_hex);
+                check_against_precomputed_hex(actual_r,remainder_hex);
+                check_against_precomputed_hex(quot(dividend,divisor),quotient_hex);
+                check_against_precomputed_hex(rem(dividend,divisor),remainder_hex);
+                check_against_precomputed_hex(dividend,lhs_hex);
+                check_against_precomputed_hex(divisor,rhs_hex);
                 const auto needed=BigUnsigned::divrem_scratch_limbs(
                     dividend.size(),divisor.size());
                 std::vector<std::uint64_t> qwords(
@@ -2506,8 +2522,8 @@ void TestBigUnsigned::test_division()
                     dividend.limbs(),divisor.limbs(),qwords,rwords,
                     BigUnsigned::MutableLimbView(
                         workspace.data()+1u,needed));
-                check_against_gmp(BigUnsigned(qwords),q.value);
-                check_against_gmp(BigUnsigned(rwords),r.value);
+                check_against_precomputed_hex(BigUnsigned(qwords),quotient_hex);
+                check_against_precomputed_hex(BigUnsigned(rwords),remainder_hex);
                 ARIADNE_TEST_ASSERT(qwords[dividend.size()]==0u);
                 ARIADNE_TEST_ASSERT(qwords[dividend.size()+1u]==0u);
                 ARIADNE_TEST_ASSERT(rwords[divisor.size()]==0u);
@@ -2516,6 +2532,11 @@ void TestBigUnsigned::test_division()
                 ARIADNE_TEST_ASSERT(workspace.back()==max);
             }
         }
+    }
+
+    for (auto& file:b55_golden) {
+        std::string extra;
+        if (file >> extra) throw std::runtime_error("Extra B55 exact TSV rows");
     }
 
     // B27: exercise the fused subtract/add-back implementation,
