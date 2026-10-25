@@ -3067,9 +3067,18 @@ void TestBigUnsigned::test_division()
             throw std::runtime_error("Extra A31 B36 TSV rows");
     }
 
-    // B29: deterministic sparse normalized divisors with long runs
-    // of zero limbs. Verify both the sparse and dense selection shapes
-    // against GMP through joint, quotient-only and remainder-only modes.
+    // A32/B29: deterministic sparse/dense divisor shapes use exact TSVs.
+    std::array<std::ifstream,2u> a32_b29;
+    for (std::size_t part=0u;part<a32_b29.size();++part) {
+        const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
+            "/big_unsigned_a32_b29_"+std::to_string(part)+".tsv";
+        a32_b29[part].open(path);
+        if (!a32_b29[part])
+            throw std::runtime_error("Missing A32 B29 TSV: "+path);
+        std::string header;
+        while (a32_b29[part].peek()=='#')
+            std::getline(a32_b29[part],header);
+    }
     std::mt19937_64 sparse_engine(0xB290D1F5ULL);
     for (unsigned repetition=0u;repetition<1024u;++repetition) {
         const std::size_t n=16u+sparse_engine()%113u;
@@ -3093,7 +3102,33 @@ void TestBigUnsigned::test_division()
         if (repetition%11u==0u) {
             left.back()=1u;
         }
-        check_fused_division(BigUnsigned(left),BigUnsigned(right));
+        const BigUnsigned numerator(left),denominator(right);
+        std::ifstream& golden=a32_b29[repetition/512u];
+        unsigned ref_repetition=0u;
+        std::size_t ref_n=0u,ref_m=0u;
+        std::string numerator_hex,denominator_hex,quotient_hex,remainder_hex;
+        if (!(golden >> ref_repetition >> ref_n >> ref_m
+              >> numerator_hex >> denominator_hex
+              >> quotient_hex >> remainder_hex) ||
+            ref_repetition!=repetition || ref_n!=n || ref_m!=m)
+            throw std::runtime_error(
+                "Missing or unordered A32 B29 TSV row");
+        check_against_precomputed_hex(numerator,numerator_hex);
+        check_against_precomputed_hex(denominator,denominator_hex);
+        const auto [native_q,native_r]=divrem(numerator,denominator);
+        check_against_precomputed_hex(native_q,quotient_hex);
+        check_against_precomputed_hex(native_r,remainder_hex);
+        check_against_precomputed_hex(
+            quot(numerator,denominator),quotient_hex);
+        check_against_precomputed_hex(
+            rem(numerator,denominator),remainder_hex);
+        ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
+    }
+
+    for (std::size_t part=0u;part<a32_b29.size();++part) {
+        std::string extra;
+        if (a32_b29[part] >> extra)
+            throw std::runtime_error("Extra A32 B29 TSV rows");
     }
 
     // B45: independent GMP checks of whole-zero low divisor limbs.

@@ -174,6 +174,41 @@ std::array<std::string,2u> a31_b36() {
     return out;
 }
 
+
+std::array<std::string,2u> a32_b29() {
+    std::array<std::string,2u> out{
+        "# A32 B29 sparse division oracle part 0: visits 0..511.\n"
+        "# repetition n m numerator_hex denominator_hex quotient_hex remainder_hex\n"
+        "# Exact mt19937_64(0xB290D1F5) conditional source stream preserved.\n"
+        "# No Numeric/GMP/Boost dependency.\n",
+        "# A32 B29 sparse division oracle part 1: visits 512..1023.\n"
+        "# repetition n m numerator_hex denominator_hex quotient_hex remainder_hex\n"
+        "# Exact mt19937_64(0xB290D1F5) conditional source stream preserved.\n"
+        "# No Numeric/GMP/Boost dependency.\n"};
+    std::mt19937_64 engine(0xB290D1F5ULL);
+    const auto max=UINT64_MAX;
+    for (unsigned repetition=0u;repetition<1024u;++repetition) {
+        const std::size_t n=16u+static_cast<std::size_t>(engine()%113u);
+        const std::size_t m=8u+static_cast<std::size_t>(engine()%(n-7u));
+        std::vector<std::uint64_t> left(n),right(m,0u);
+        for (auto& word:left) word=engine();
+        right.front()=engine();
+        right.back()=std::uint64_t{1}<<(repetition%64u);
+        if (repetition%3u==0u) right[m/2u]=engine();
+        if (repetition%5u==0u)
+            for (std::size_t i=1u;i+1u<m;++i)
+                if (i%3u==0u) right[i]=engine();
+        if (repetition%7u==0u) std::fill(left.begin(),left.end(),max);
+        if (repetition%11u==0u) left.back()=1u;
+        const Nat numerator(std::move(left)),denominator(std::move(right));
+        const auto [quotient,remainder]=divide(numerator,denominator);
+        out[repetition/512u]+=row({
+            std::to_string(repetition),std::to_string(n),std::to_string(m),
+            numerator.hex(),denominator.hex(),quotient.hex(),remainder.hex()});
+    }
+    return out;
+}
+
 }
 
 int main(int argc,char** argv) {
@@ -195,6 +230,11 @@ int main(int argc,char** argv) {
             independent_oracle::output(
                 dir,"big_unsigned_a31_b36_"+std::to_string(part)+".tsv",
                 a31[part],write);
+        const auto a32=a32_b29();
+        for (std::size_t part=0u;part<a32.size();++part)
+            independent_oracle::output(
+                dir,"big_unsigned_a32_b29_"+std::to_string(part)+".tsv",
+                a32[part],write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"BigUnsigned remaining division generator: "

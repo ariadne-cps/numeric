@@ -140,7 +140,7 @@ review every diff before committing. No sampling is used.
 | `generator_big_unsigned_views.cpp` | five `big_unsigned_a23_views_*.tsv`, `big_unsigned_a24_shifted_sources.tsv`, ten `big_unsigned_a24_shifted_*.tsv` | 5,000 scratch-buffer arithmetic + 6,600 source-keyed shifted add/sub cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
-| `generator_big_unsigned_division_remaining.cpp` | six `big_unsigned_a29_division_*.tsv`, two `big_unsigned_a30_b28_*.tsv`, two `big_unsigned_a31_b36_*.tsv` files | 6,000 general, 2,048 B28, and 1,280 B36 visits |
+| `generator_big_unsigned_division_remaining.cpp` | six `big_unsigned_a29_division_*.tsv`, two `big_unsigned_a30_b28_*.tsv`, two `big_unsigned_a31_b36_*.tsv`, two `big_unsigned_a32_b29_*.tsv` files | 6,000 general, 2,048 B28, 1,280 B36, and 1,024 B29 visits |
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
 | `generator_exact_b72_r17.cpp` | `big_unsigned_b72.tsv`, `rational_r17.tsv` | 288 B72 products/squares and 252 R17 comparisons |
 | `generator_integer_structural.cpp` | `integer_b66.tsv`, `integer_sub.tsv`, `big_unsigned_sub.tsv`, `integer_b33.tsv`, `integer_b37.tsv`, `integer_b38.tsv` | 360 power, 192 signed subtract, 100 unsigned subtract, 72 signed squares, 72 signed powers, 30 signed cubes |
@@ -1188,3 +1188,15 @@ checked against the frozen exact quotient/remainder.
 The remaining-division generator emits two independently computed fixtures;
 blobs: `d7f1e6ddeccf60d4085baf5eaedf46b7bb920c21` and
 `9bf497e9817766610c9ff96b7511b58c92fd04b4`.
+
+### A32 — B29 sparse division oracle migration
+
+Migrate all 1,024 B29 sparse/dense divisor visits to two exact TSV segments.
+The consumer preserves the exact conditional `mt19937_64(0xB290D1F5)`
+draw sequence, sparse midpoint injection, partially dense divisor draws,
+all-ones dividends and high-limb overrides. Joint, quotient-only and
+remainder-only paths remain checked against frozen exact results.
+
+The remaining-division generator emits two 512-row fixtures; blobs:
+`f56baf8176a40e6b0f51967d653754a0d5451735` and
+`0b74ec4c834107fe055776195f80b8e9f2e5c721`.
