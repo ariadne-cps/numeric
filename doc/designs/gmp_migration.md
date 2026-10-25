@@ -13,7 +13,7 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A20
+## Current state — A21
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
@@ -21,14 +21,14 @@ progress reporting, barring a documented correction to the audit.
 | `test_views_and_scratch()` | 0 | 11,600 |
 | `test_multiply_kernel_paths()` | 0 | 11,432 |
 | `test_randomized()` | 10,000 | 0 |
-| `test_gcd_decimal()` | 1,800 | 1,993 |
+| `test_gcd_decimal()` | 2,284 | 1,509 |
 | `test_division_limb()` | 12,944 | 0 |
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **39,762** | **36,561** |
+| **Total** | **40,246** | **36,077** |
 
-Progress: **39,762 / 76,323 = 52.097%**.
+Progress: **40,246 / 76,323 = 52.731%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
@@ -39,8 +39,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
   R38 shifted operation visits.
 - `test_multiply_kernel_paths()`: 11,432, comprising B52/B53,
   general kernels, B8 and Karatsuba.
-- `test_gcd_decimal()`: 484 structured decimal parsing visits and 1,509
-  decimal formatting visits.
+- `test_gcd_decimal()`: 1,509 decimal formatting visits.
 
 ## Commit milestones
 
@@ -57,6 +56,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A18 — randomized arithmetic, seventh segment | 1,250 | 36,712 |
 | A19 — randomized arithmetic, final segment | 1,250 | 37,962 |
 | A20 — randomized decimal parsing | 1,800 | 39,762 |
+| A21 — structured decimal parsing | 484 | 40,246 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -223,3 +223,21 @@ C++20 reproduction generated that exact blob. No production code or
 previous fixture changes. The remaining numerical GMP oracle visits in
 `test_gcd_decimal()` are the 484 structured parsing cases and 1,509
 formatting cases.
+
+## A21 — structured decimal parsing (25 October 2026)
+
+Migrate the remaining 484 structured decimal parsing visits in
+`test_gcd_decimal()` to `big_unsigned_a21_decimal_structured.tsv`.
+The fixture preserves every original input string in execution order:
+24 direct storage-boundary cases, 45 long B24 cases, 156 B47 cases,
+234 B50 cases and 25 exact `2^(bits-1)+offset` cases. B47/B50 randomized
+strings continue from the exact post-A20 state of the shared
+`mt19937_64(0xB16B00B5)` stream.
+
+The standalone decimal generator uses only the independent `Nat` helper
+and emits 484 rows, 279,466 bytes, Git blob
+`17a68c45126d418b00f9e984e95ea9bd486fef8e`. A separately compiled C++20
+reproduction produced the same blob. Runtime GMP parsing and decimal
+conversion are removed from these 484 cases. The only remaining numerical
+GMP oracle visits in `test_gcd_decimal()` are 1,509 decimal-formatting
+cases; production code and prior fixtures are unchanged.

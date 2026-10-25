@@ -134,7 +134,7 @@ review every diff before committing. No sampling is used.
 |---|---|---:|
 | `generator_big_unsigned_gcd.cpp` | `big_unsigned_r6.tsv`, `r8`, `r10`, `r11`, `r21`, all nine `r26_*`, `r27` | 5,561 source-and-GCD checks, including 3,240 R26 variants |
 | `generator_big_unsigned_b76.cpp` | all fourteen `big_unsigned_b76_gcd_decimal_*.tsv` | 2,800 source-keyed GCD/decimal cases |
-| `generator_big_unsigned_decimal.cpp` | `big_unsigned_a20_decimal_random.tsv` | 1,800 source-keyed randomized decimal parsing cases |
+| `generator_big_unsigned_decimal.cpp` | `big_unsigned_a20_decimal_random.tsv`, `big_unsigned_a21_decimal_structured.tsv` | 1,800 randomized + 484 structured source-keyed decimal parsing cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
@@ -994,3 +994,22 @@ bytes and Git blob `5238d33947659f227a12efaaf8ffd63fa8770903`.
 An independently compiled C++20 reproduction produced the same Git blob,
 providing a byte-for-byte check of the random stream and expected values.
 Migration inventory: `doc/designs/gmp_migration.md`.
+
+### A21 — structured decimal parsing oracle migration
+
+Migrate the remaining 484 structured parsing visits in
+`test_gcd_decimal()` to `big_unsigned_a21_decimal_structured.tsv`.
+The fixture preserves all original boundary strings, B47/B50 randomized
+strings and the 25 exact `2^(bits-1)+offset` sources. The consumer checks
+sequential source identity for every explicitly constructed input; for the
+25 power cases it additionally checks the independently frozen parsed value
+against the original native shift/add construction.
+
+`generator_big_unsigned_decimal.cpp` replays B76 and A20 to preserve the
+shared `mt19937_64(0xB16B00B5)` state before generating B47/B50 random
+strings. Exact expected values use only the standalone `Nat` implementation.
+The fixture contains 484 rows, 279,466 bytes and Git blob
+`17a68c45126d418b00f9e984e95ea9bd486fef8e`. A separately compiled C++20
+reproduction generated the identical blob. After A21 no numerical GMP
+oracle remains in decimal parsing; only decimal formatting cases remain in
+`test_gcd_decimal()`.

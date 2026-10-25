@@ -3321,20 +3321,45 @@ void TestBigUnsigned::test_gcd_decimal()
     std::string a20_extra;
     if (a20_decimal_random >> a20_extra)
         throw std::runtime_error("Extra A20 randomized decimal TSV rows");
-    // B24: long-input radix-10^18 parsing. Probe the historical
-    // 309/310-digit boundary (both now wide after B47), 18-digit
-    // group carry boundaries, and
-    // lengths beyond the 2048/4096-bit benchmark workloads. GMP
-    // parses the ORIGINAL input, not a native formatted roundtrip.
+    // A21: all remaining structured decimal parsing cases use one
+    // sequential source-keyed fixture instead of a runtime GMP oracle.
+    std::ifstream a21_decimal_structured(
+        std::string(ARIADNE_TEST_DATA_DIR)+
+        "/big_unsigned_a21_decimal_structured.tsv");
+    if (!a21_decimal_structured)
+        throw std::runtime_error("Missing A21 structured decimal TSV");
+    std::string a21_header;
+    while (a21_decimal_structured.peek()=='#')
+        std::getline(a21_decimal_structured,a21_header);
+    std::size_t a21_ordinal=0u;
+    const auto read_a21=[&]() {
+        std::size_t source_ordinal=0u;
+        std::string source_decimal,expected_hex,expected_decimal;
+        if (!(a21_decimal_structured >> source_ordinal >> source_decimal
+              >> expected_hex >> expected_decimal) ||
+            source_ordinal!=a21_ordinal++)
+            throw std::runtime_error(
+                "Missing or unordered A21 structured decimal TSV row");
+        return std::array<std::string,3u>{
+            std::move(source_decimal),std::move(expected_hex),
+            std::move(expected_decimal)};
+    };
     const auto check_long_parse=[&](std::string const& input) {
-        ARIADNE_TEST_ASSERT(
-            mpz_set_str(a.value,input.c_str(),10)==0);
+        const auto reference=read_a21();
+        if (reference[0u]!=input)
+            throw std::runtime_error(
+                "Wrong source in A21 structured decimal TSV row");
         const BigUnsigned parsed=from_decimal(input);
-        check_against_gmp(parsed,a.value);
-        std::string oracle(mpz_sizeinbase(a.value,10u)+2u,'\0');
-        mpz_get_str(oracle.data(),10,a.value);
-        oracle.resize(std::char_traits<char>::length(oracle.c_str()));
-        ARIADNE_TEST_ASSERT(to_decimal(parsed)==oracle);
+        check_against_precomputed_hex(parsed,reference[1u]);
+        ARIADNE_TEST_ASSERT(to_decimal(parsed)==reference[2u]);
+        return parsed;
+    };
+    const auto check_long_parse_fixture_source=[&]() {
+        const auto reference=read_a21();
+        const BigUnsigned parsed=from_decimal(reference[0u]);
+        check_against_precomputed_hex(parsed,reference[1u]);
+        ARIADNE_TEST_ASSERT(to_decimal(parsed)==reference[2u]);
+        return parsed;
     };
     // Direct result construction may reserve more limbs than the
     // canonical value needs. Check heap-to-inline normalization and
@@ -3421,22 +3446,22 @@ void TestBigUnsigned::test_gcd_decimal()
         check_long_parse(random_digits);
     }
 
-    // B47: exact powers 2^(bits-1) plus offsets, as used by
-    // construct_decimal, checked with GMP independent of the
-    // benchmark; include both signs via the established Integer
-    // benchmark verification.
+    // B47: preserve exact powers 2^(bits-1) plus offsets. The source
+    // decimal is frozen in A21; native shift/add additionally ties each
+    // sequential fixture row to the original bits/offset case.
     for (const unsigned bits:{128u,256u,1024u,2048u,4096u}) {
-        mpz_set_ui(a.value,1u);
-        mpz_mul_2exp(a.value,a.value,bits-1u);
         for (const unsigned long offset:{0ul,13ul,31ul,75ul,187ul}) {
-            mpz_add_ui(b.value,a.value,offset);
-            const std::size_t buffer_size=mpz_sizeinbase(b.value,10u)+2u;
-            std::string decimal(buffer_size,'\0');
-            mpz_get_str(decimal.data(),10,b.value);
-            decimal.resize(std::char_traits<char>::length(decimal.c_str()));
-            check_long_parse(decimal);
+            const BigUnsigned parsed=check_long_parse_fixture_source();
+            const BigUnsigned expected=add(
+                shift_left(one,bits-1u),BigUnsigned(offset));
+            ARIADNE_TEST_ASSERT(compare(parsed,expected)==0);
         }
     }
+    if (a21_ordinal!=484u)
+        throw std::runtime_error("Wrong A21 structured decimal row count");
+    std::string a21_extra;
+    if (a21_decimal_structured >> a21_extra)
+        throw std::runtime_error("Extra A21 structured decimal TSV rows");
 
     // The long-string fast path must never bypass the shared
     // validation of every ASCII digit (including the final byte).
