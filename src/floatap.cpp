@@ -581,9 +581,9 @@ FloatAP::Rounding::Rounding(CurrentRoundingMode const&) noexcept
     : _value(FloatAP::get_rounding_mode().value()) { }
 
 FloatAP::Rounding::Rounding(Ariadne::Rounding const& mode) noexcept
-    : _value(static_cast<BuiltinRoundingModeType>(mode)==ROUND_DOWNWARD ? Downward
-             : static_cast<BuiltinRoundingModeType>(mode)==ROUND_UPWARD ? Upward
-             : static_cast<BuiltinRoundingModeType>(mode)==ROUND_TOWARD_ZERO ? TowardZero
+    : _value(static_cast<BuiltinRoundingModeType>(mode)==Ariadne::ROUND_DOWNWARD ? Downward
+             : static_cast<BuiltinRoundingModeType>(mode)==Ariadne::ROUND_UPWARD ? Upward
+             : static_cast<BuiltinRoundingModeType>(mode)==Ariadne::ROUND_TOWARD_ZERO ? TowardZero
              : ToNearest) { }
 
 // Forward current-rounding operations to the existing native implementation.

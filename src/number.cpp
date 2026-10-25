@@ -93,21 +93,15 @@ template<> FloatDPBounds::operator ValidatedNumber() const { return ValidatedNum
 FloatDP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatDP>(*this)); }
 
 //template<> FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDPError>(*this)); }
-//template<> FloatMPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatMPError>(*this)); }
 template<> FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDP>(cast_exact(*this))); }
-// Keep FloatAP error conversion equivalent to the existing DP/MP semantics.
+// Keep the native error conversion equivalent to the existing DP semantics.
 template<> FloatAPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatAP>(cast_exact(*this))); }
 
 
-template<> FloatMPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatMPApproximation>(*this)); }
 // Keep the native generic-number conversion alongside the other concrete
 // specializations: MSVC must emit it in ariadne-numeric.lib for D100.
 template<> FloatAPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatAPApproximation>(*this)); }
-//template<> FloatMPLowerBound::operator ValidatedLowerNumber() const { return ValidatedLowerNumber(new NumberWrapper<FloatMPLowerBound>(*this)); }
-//template<> FloatMPUpperBound::operator ValidatedUpperNumber() const { return ValidatedUpperNumber(new NumberWrapper<FloatMPUpperBound>(*this)); }
-template<> FloatMPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBounds>(*this)); }
 template<> FloatAPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatAPBounds>(*this)); }
-//template<> FloatMPBall::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBall>(*this)); }
 FloatAP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatAP>(*this)); }
 
 ExactNumber cast_exact(ValidatedUpperNumber const& y) { return ExactNumber(y.handle()); }

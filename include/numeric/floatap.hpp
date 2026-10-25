@@ -33,6 +33,7 @@
 #include "numeric/float.decl.hpp"
 #include "numeric/number.decl.hpp"
 #include "numeric/number.hpp"
+#include "numeric/rounding.hpp"
 #include "numeric/sign.hpp"
 #include "numeric/big_unsigned.hpp"
 #include <bit>
