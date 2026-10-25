@@ -302,8 +302,9 @@ FloatDPCenter floatdp_center(FloatDPTranscendental function,bool negative) {
                 fixed96(0x0000000000000000ULL,0x0000000200000000ULL),
                 8u,true,true
             };
+        default:
+            throw std::logic_error("Unknown FloatDP transcendental");
     }
-    throw std::logic_error("Unknown FloatDP transcendental");
 }
 
 std::uint64_t floatdp_correction(FloatDPFixed96 slope,std::uint64_t offset,
