@@ -2515,7 +2515,7 @@ void TestBigUnsigned::test_division()
         if (a29_general[part] >> extra)
             throw std::runtime_error("Extra A29 general division TSV rows");
     }
-/ B57: all 3 output modes of normalized multiprecision
+// B57: all 3 output modes of normalized multiprecision
     // division by 2^(64*k+s), including high/low limb boundaries
     // and dividend shorter than divisor. Verify each output against
     // independently certified exact Euclidean TSV records.
