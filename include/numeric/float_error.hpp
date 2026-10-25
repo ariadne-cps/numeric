@@ -52,7 +52,7 @@ namespace Ariadne {
 
 //! \ingroup NumericModule
 //! \brief Floating-point upper bounds for positive real numbers, suitable for use as an upper bound for an error in a metric space.
-//! \sa FloatDP, FloatMP, Float, UpperBound.
+//! \sa FloatDP, Float, UpperBound.
 template<class F> class Error
     : public DefineDirectedFloatOperations<UpperBound<F>,LowerBound<F>>
 

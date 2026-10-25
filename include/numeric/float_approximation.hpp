@@ -47,7 +47,7 @@ namespace Ariadne {
 //! \details
 //! The \c Approximation<F> class represents approximate floating-point numbers.
 //! Operations are performed approximately, with no guarantees on the output.
-//! \sa Real, NaiveReal, FloatDP, FloatMP, Float, Ball, Bounds.
+//! \sa Real, NaiveReal, FloatDP, Float, Ball, Bounds.
 template<class F> class Approximation
     : public DefineFloatOperations<Approximation<F>>
 {

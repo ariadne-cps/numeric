@@ -53,7 +53,7 @@ template<class PRE, class PR> requires (not DefaultConstructible<PRE>) and Const
 
 //! \ingroup NumericModule
 //! \brief Floating point approximations to a real number with guaranteed error bounds.
-//! \sa Real, FloatDP, FloatMP, Error, Float, Bounds, Approximation.
+//! \sa Real, FloatDP, Error, Float, Bounds, Approximation.
 template<class F, class FE> class Ball
     : public DefineFloatOperations<Ball<F,FE>>
     , public ProvideConvertedFieldOperations<Bounds<F>,Ball<F,FE>>

@@ -44,7 +44,7 @@ namespace Ariadne {
 
 //! \ingroup NumericModule
 //! \brief Floating-point lower bounds for real numbers.
-//! \sa LowerReal, FloatDP, FloatMP, Bounds, UpperBound.
+//! \sa LowerReal, FloatDP, Bounds, UpperBound.
 template<class F> class LowerBound
     : public DefineDirectedFloatOperations<LowerBound<F>,UpperBound<F>>
     , public DefineFloatOperations<Approximation<F>>

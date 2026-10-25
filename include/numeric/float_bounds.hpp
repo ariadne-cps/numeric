@@ -62,7 +62,7 @@ struct DefaultTag;
 //! If \f$v\f$ and \f$e\f$ are the returned value and error for the bounds \f$[l,u]\f$, then it is guaranteed that \f$v-e\leq l\f$ and \f$v+e\geq u\f$ in exact arithmetic.
 //!
 //! To test if the bounds contain a number , use \c models(Bounds<F>,F), and to test if bounds are inconsistent use \c inconsistent(x,y), and to test if \c x provides a better approximation, use \c refines(x,y).
-//! \sa Real, FloatDP, FloatMP, Float, Ball, UpperBound, LowerBound, Approximation.
+//! \sa Real, FloatDP, Float, Ball, UpperBound, LowerBound, Approximation.
 //!
 //! \par Python interface
 //!
