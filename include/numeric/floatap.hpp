@@ -50,6 +50,7 @@ namespace Ariadne {
 
 class Integer;
 class Rational;
+class Decimal;
 class Dyadic;
 class ExactDouble;
 class TwoExp;
@@ -240,6 +241,7 @@ template<> class Float<ArbitraryPrecision> {
     Float(FloatDP const& n, RoundingModeType mode, PrecisionType precision);
     Float(ExactDouble const& n, RoundingModeType mode, PrecisionType precision);
     Float(Dyadic const& n, RoundingModeType mode, PrecisionType precision);
+    Float(Decimal const& n, RoundingModeType mode, PrecisionType precision);
     Float(Integer const& n, PrecisionType precision)
         : Float(n, ROUND_TO_NEAREST, precision) { }
 

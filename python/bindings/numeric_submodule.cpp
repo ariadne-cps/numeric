@@ -349,6 +349,7 @@ void export_dyadic(pymodule& module)
     dyadic_class.def(init<TwoExp>());
     dyadic_class.def(init<Dyadic>());
     dyadic_class.def(init<FloatDP>());
+    dyadic_class.def(init<FloatAP>());
     dyadic_class.def(init<String>());
     dyadic_class.def("__str__", &__cstr__<Dyadic>);
     dyadic_class.def("__repr__", &__repr__<Dyadic>);
@@ -778,6 +779,7 @@ template<> Void export_precision<ArbitraryPrecision>(pymodule& module) {
     module.attr("AP")=precision_class;
     module.def("arbitrary_precision", [](Nat bits){ return ArbitraryPrecision(static_cast<std::size_t>(bits)); },pybind11::arg("bits"));
     module.def("ap", [](Nat bits){ return ArbitraryPrecision(static_cast<std::size_t>(bits)); },pybind11::arg("bits"));
+    module.def("precision", [](Nat bits){ return ArbitraryPrecision(static_cast<std::size_t>(bits)); },pybind11::arg("bits"));
 }
 
 

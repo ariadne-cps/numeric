@@ -408,6 +408,9 @@ TestFloat<PR>::test_conversions()
             ARIADNE_TEST_EQUALS(class_name<UpperBound<FloatAP>>(),String("FloatAPUpperBound"));
 
             const Rational exact_third(1,3);
+            const Decimal exact_decimal(Integer(125),3u);
+            const FloatAP decimal_nearest(exact_decimal,FloatAP::ROUND_TO_NEAREST,pr);
+            ARIADNE_TEST_EQUALS(static_cast<Rational>(decimal_nearest),Rational(1,8));
             const Bounds<FloatAP> real_enclosure(Real(exact_third),pr);
             ARIADNE_TEST_ASSERT(cmp(real_enclosure.lower_raw(),exact_third)!=Comparison::GREATER);
             ARIADNE_TEST_ASSERT(cmp(real_enclosure.upper_raw(),exact_third)!=Comparison::LESS);

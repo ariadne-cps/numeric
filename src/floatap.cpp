@@ -751,6 +751,10 @@ FloatAP::Float(Dyadic const& value, RoundingModeType mode,
                PrecisionType precision)
     : Float(Rational(value), mode, precision) { }
 
+FloatAP::Float(Decimal const& value, RoundingModeType mode,
+               PrecisionType precision)
+    : Float(Rational(value), mode, precision) { }
+
 void FloatAP::set_precision(PrecisionType precision) {
     if (precision.bits() == _precision) {
         return;

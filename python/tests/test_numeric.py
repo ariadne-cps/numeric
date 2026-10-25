@@ -26,6 +26,8 @@ from pyariadne import *
 def test_generics():
     assert(DP==DoublePrecision)
     assert(AP==ArbitraryPrecision)
+    assert(type(precision(128))==ArbitraryPrecision)
+    assert(precision(128).bits()==128)
     assert(Float[DP]==FloatDP)
     assert(Float[AP]==FloatAP)
     assert(Ball[FloatDP]==FloatDPBall)
@@ -49,6 +51,9 @@ def test_regression():
     ExactDouble(1.3) # Can we construct ExactDouble when input probably not exact?
     Dyadic(exact(1.375))
     FloatDP("1.375",dp)
+    ap=ArbitraryPrecision(128)
+    fa=FloatAP(Dyadic(11,3),ap)
+    assert(Dyadic(fa)==Dyadic(11,3))
 
     z=Integer(1)
     w=Dyadic(1)
