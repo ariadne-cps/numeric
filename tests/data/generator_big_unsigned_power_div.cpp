@@ -648,6 +648,43 @@ std::array<std::string,2> b27_fixtures() {
         throw std::runtime_error("wrong A10 case count");
     return out;
 }
+
+std::string b48_multiprecision_fixture() {
+    std::string out=
+        "# A11 B48 multiprecision division, 336 original visits.\n"
+        "# count divisor_decimal mode numerator_hex quotient_hex remainder_hex\n"
+        "# mt19937_64(0xB48A11D1), all original random draws and transforms.\n"
+        "# Independent Euclidean arithmetic, no GMP/MPFR/Numeric/Boost.\n";
+    std::mt19937_64 engine(0xB48A11D1ULL);
+    const auto max=UINT64_MAX;
+    std::size_t rows=0u;
+    for (const std::size_t count:{2u,4u,5u,8u,16u,32u,64u,96u}) {
+        for (const std::uint64_t divisor:
+                {1ULL,3ULL,5ULL,7ULL,9ULL,16ULL,31ULL,
+                 34ULL,63ULL,255ULL,65535ULL,4294967295ULL,
+                 4294967296ULL,18446744073709551615ULL}) {
+            for (unsigned mode=0u;mode<3u;++mode) {
+                std::vector<std::uint64_t> words(count);
+                for (auto& limb:words) limb=engine();
+                if (mode==0u) std::fill(words.begin(),words.end(),max);
+                else if (mode==1u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=1u;
+                }
+                const Nat n(std::move(words)),d(divisor);
+                const auto [q,r]=divide(n,d);
+                if (r.compare(d)>=0 ||
+                    Nat::add(multiply(q,d),r).compare(n)!=0)
+                    throw std::runtime_error("invalid A11 Euclidean identity");
+                out+=row({std::to_string(count),std::to_string(divisor),
+                          std::to_string(mode),n.hex(),q.hex(),r.hex()});
+                ++rows;
+            }
+        }
+    }
+    if (rows!=336u) throw std::runtime_error("wrong A11 visit count");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -678,6 +715,7 @@ int main(int argc,char** argv) {
         const auto a10=b27_fixtures();
         independent_oracle::output(dir,"big_unsigned_b27_first.tsv",a10[0u],write);
         independent_oracle::output(dir,"big_unsigned_b27_second.tsv",a10[1u],write);
+        independent_oracle::output(dir,"big_unsigned_b48_multiprecision.tsv",b48_multiprecision_fixture(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';

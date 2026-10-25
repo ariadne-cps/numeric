@@ -931,3 +931,15 @@ second (1,024 rows, 844,784 bytes)
 135 fixtures, 32 standalone executables, 27,626 cumulatively
 migrated A1-A10 visits. Production code remains untouched.
 Consumer CI and optional verify-data are separate checks.
+
+### A11 — B48 multiprecision division source-keyed oracle (25 October 2026)
+
+Migrate all 8 widths x 14 divisors x 3 modes = 336 original B48
+numerical oracle visits in `test_division()`. Preserve seeded
+`mt19937_64(0xB48A11D1)` draws, transformation precedence, and the
+three independent result APIs. The existing independent C++20 generator
+now emits `big_unsigned_b48_multiprecision.tsv` with 336 source-keyed
+exact results, checking the Euclidean identity. Git blob
+`11042c7f930f66082d8a89d6670376c03786938d` (305,944 bytes).
+The GMP oracle for B28 and other division groups remains unchanged.
+The audit is maintained separately at `doc/designs/gmp_migration.md`.

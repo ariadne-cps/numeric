@@ -68,6 +68,7 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_B55_MEDIUM_PATH[] = ARIADNE_TEST_DATA
 inline constexpr char ARIADNE_BIG_UNSIGNED_B55_LARGE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b55_large.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B27_FIRST_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b27_first.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B27_SECOND_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b27_second.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B48_MULTIPRECISION_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b48_multiprecision.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -2644,7 +2645,11 @@ void TestBigUnsigned::test_division()
 
     // B48: preserve quotient-only, remainder-only and joint-output
     // semantics for the small divisors used in the unchanged
-    // 32-case official benchmark; GMP remains the independent oracle.
+    // 32-case official benchmark; the independent TSV is the oracle.
+    std::ifstream b48_golden(ARIADNE_BIG_UNSIGNED_B48_MULTIPRECISION_PATH);
+    if (!b48_golden) throw std::runtime_error("Missing A11 B48 TSV");
+    std::string b48_header;
+    while (b48_golden.peek()=='#') std::getline(b48_golden,b48_header);
     std::mt19937_64 small_divisor_engine(0xB48A11D1ULL);
     for (const std::size_t count:
             {2u,4u,5u,8u,16u,32u,64u,96u}) {
@@ -2661,11 +2666,36 @@ void TestBigUnsigned::test_division()
                     std::fill(words.begin(),words.end(),0u);
                     words.back()=1u;
                 }
-                check_fused_division(
-                    BigUnsigned(words),BigUnsigned(divisor));
+                std::size_t ref_count=0u;
+                std::uint64_t ref_divisor=0u;
+                unsigned ref_mode=0u;
+                std::string input_hex,quotient_hex,remainder_hex;
+                if (!(b48_golden >> ref_count >> ref_divisor >> ref_mode
+                      >> input_hex >> quotient_hex >> remainder_hex)
+                    || ref_count!=count || ref_divisor!=divisor || ref_mode!=mode)
+                    throw std::runtime_error("Missing or unordered A11 B48 row");
+                const BigUnsigned numerator(words),denominator(divisor);
+                check_against_precomputed_hex(numerator,input_hex);
+                const auto [qvalue,rvalue]=divrem(numerator,denominator);
+                check_against_precomputed_hex(qvalue,quotient_hex);
+                check_against_precomputed_hex(rvalue,remainder_hex);
+                check_against_precomputed_hex(quot(numerator,denominator),quotient_hex);
+                check_against_precomputed_hex(rem(numerator,denominator),remainder_hex);
+                const auto needed=BigUnsigned::divrem_scratch_limbs(
+                    numerator.size(),denominator.size());
+                if (denominator.size()>=2u &&
+                    numerator.size()>=denominator.size())
+                    ARIADNE_TEST_ASSERT(needed==
+                        numerator.size()+denominator.size()+1u);
+                ARIADNE_TEST_ASSERT(compare(rvalue,denominator)<0);
+                check_against_precomputed_hex(numerator,input_hex);
             }
         }
     }
+
+    std::string b48_extra;
+    if (b48_golden >> b48_extra)
+        throw std::runtime_error("Extra A11 B48 rows");
 
     // B28: equal highest limbs guarantee a quotient of either 0 or 1.
     // Exercise both orderings, equality, borrow propagation and long
