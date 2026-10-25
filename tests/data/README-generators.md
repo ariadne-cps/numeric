@@ -1,7 +1,7 @@
 # Reproducible exact golden-data generators
 
 The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
-`generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
+`generator_big_unsigned_decimal.cpp`, `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`,
@@ -55,6 +55,7 @@ From the repository root, using a C++20 compiler:
 ```sh
 c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_gcd.cpp -o /tmp/numeric-oracle-gcd
 c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_b76.cpp -o /tmp/numeric-oracle-b76
+c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_decimal.cpp -o /tmp/numeric-oracle-decimal
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_exact_small.cpp -o /tmp/numeric-oracle-exact-small
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_big_unsigned_power_div.cpp -o /tmp/numeric-oracle-power-div
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_rational_exact.cpp -o /tmp/numeric-oracle-rational-exact
@@ -133,6 +134,7 @@ review every diff before committing. No sampling is used.
 |---|---|---:|
 | `generator_big_unsigned_gcd.cpp` | `big_unsigned_r6.tsv`, `r8`, `r10`, `r11`, `r21`, all nine `r26_*`, `r27` | 5,561 source-and-GCD checks, including 3,240 R26 variants |
 | `generator_big_unsigned_b76.cpp` | all fourteen `big_unsigned_b76_gcd_decimal_*.tsv` | 2,800 source-keyed GCD/decimal cases |
+| `generator_big_unsigned_decimal.cpp` | `big_unsigned_a20_decimal_random.tsv` | 1,800 source-keyed randomized decimal parsing cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
@@ -973,4 +975,22 @@ draw. This removes the remaining numerical GMP branch from
 external expectations. The fixture has 1,250 rows, 1,202,168 bytes and Git
 blob `15f9d3656bf5fe77ac2b97e0ba6faee3b0883ea3`. A separate multiple-precision witness first
 reproduces the A18 fixture exactly before independently computing A19.
+Migration inventory: `doc/designs/gmp_migration.md`.
+
+### A20 — randomized decimal parsing oracle migration
+
+Migrate the original 1,800 randomized decimal parsing visits in
+`test_gcd_decimal()` to `big_unsigned_a20_decimal_random.tsv`.
+The consumer preserves the existing `mt19937_64(0xB16B00B5)` state by
+executing the complete preceding 2,800-visit B76 stream before generating
+the same decimal strings. Each TSV row source-keys repetition, length and
+full decimal input, then supplies exact hexadecimal and canonical decimal
+expectations.
+
+`generator_big_unsigned_decimal.cpp` is standalone C++20 and uses the
+independent `Nat` arithmetic in `oracle_exact_integer.hpp`; it does not
+link Numeric, GMP or Boost. The fixture contains 1,800 rows, 1,011,827
+bytes and Git blob `5238d33947659f227a12efaaf8ffd63fa8770903`.
+An independently compiled C++20 reproduction produced the same Git blob,
+providing a byte-for-byte check of the random stream and expected values.
 Migration inventory: `doc/designs/gmp_migration.md`.

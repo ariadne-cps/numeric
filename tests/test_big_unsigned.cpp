@@ -3285,6 +3285,17 @@ void TestBigUnsigned::test_gcd_decimal()
     std::string b76_extra;
     if (b76_fixture >> b76_extra)
         throw std::runtime_error("Extra B76 GCD/decimal TSV rows");
+    // A20: preserve the original 1,800 randomized decimal strings and
+    // exact mt19937_64 stream, but consume source-keyed independent TSV
+    // expectations instead of computing the numerical oracle with GMP.
+    std::ifstream a20_decimal_random(
+        std::string(ARIADNE_TEST_DATA_DIR)+
+        "/big_unsigned_a20_decimal_random.tsv");
+    if (!a20_decimal_random)
+        throw std::runtime_error("Missing A20 randomized decimal TSV");
+    std::string a20_header;
+    while (a20_decimal_random.peek()=='#')
+        std::getline(a20_decimal_random,a20_header);
     for (unsigned repetition=0u;repetition<1800u;++repetition) {
         const std::size_t length=repetition%149u==0u?1900u:
                                  1u+engine()%370u;
@@ -3292,12 +3303,24 @@ void TestBigUnsigned::test_gcd_decimal()
         for (auto& digit:digits) {
             digit=static_cast<char>('0'+static_cast<int>(engine()%10u));
         }
+        unsigned source_repetition=0u;
+        std::size_t source_length=0u;
+        std::string source_digits,expected_hex,expected_decimal;
+        if (!(a20_decimal_random >> source_repetition >> source_length
+              >> source_digits >> expected_hex >> expected_decimal) ||
+            source_repetition!=repetition || source_length!=length ||
+            source_digits!=digits)
+            throw std::runtime_error(
+                "Missing or unordered A20 randomized decimal TSV row");
         const auto parsed=from_decimal(digits);
+        check_against_precomputed_hex(parsed,expected_hex);
         ARIADNE_TEST_ASSERT(to_decimal(parsed)==
             to_decimal(from_decimal(to_decimal(parsed))));
-        ARIADNE_TEST_ASSERT(mpz_set_str(a.value,digits.c_str(),10)==0);
-        check_against_gmp(parsed,a.value);
+        ARIADNE_TEST_ASSERT(to_decimal(parsed)==expected_decimal);
     }
+    std::string a20_extra;
+    if (a20_decimal_random >> a20_extra)
+        throw std::runtime_error("Extra A20 randomized decimal TSV rows");
     // B24: long-input radix-10^18 parsing. Probe the historical
     // 309/310-digit boundary (both now wide after B47), 18-digit
     // group carry boundaries, and
