@@ -142,6 +142,63 @@ std::string short_div_fixture() {
     }
     return out;
 }
+// A3: exact 128/64 division edge and B26 fixture. Original input streams,
+// including all conditional mt19937_64 draws, are preserved byte-for-byte.
+std::string div128_fixture() {
+    std::string out=
+        "# A3 exact 128/64 quotient/remainder oracle, 192 edge + 2048 B26 visits.\n"
+        "# kind ordinal divisor_hex low_hex high_hex numerator_hex quotient_hex remainder_hex\n"
+        "# E: original 8*4*6 edge cases; B: original mt19937_64(0xB260D1B1) visits.\n"
+        "# All original conditional PRNG draws and 128/64 preconditions retained.\n"
+        "# Independent aligned-subtraction integer long division, no GMP/MPFR/Boost/Numeric.\n";
+    std::size_t rows=0u;
+    const auto append=[&](char kind,std::size_t ordinal,
+                          std::uint64_t divisor,std::uint64_t low,
+                          std::uint64_t high) {
+        if (divisor==0u || high>=divisor)
+            throw std::runtime_error("invalid A3 128/64 source");
+        const Nat source(std::vector<std::uint64_t>{low,high});
+        const Nat d(divisor);
+        const auto [q,r]=divide(source,d);
+        if (r.compare(d)>=0 ||
+            Nat::add(multiply(q,d),r).compare(source)!=0)
+            throw std::runtime_error("invalid A3 quotient/remainder identity");
+        out+=row({std::string(1,kind),std::to_string(ordinal),
+                  d.hex(),Nat(low).hex(),Nat(high).hex(),
+                  source.hex(),q.hex(),r.hex()});
+        ++rows;
+    };
+    const auto max=UINT64_MAX;
+    const std::array<std::uint64_t,8> edge_divisors{
+        1u,2u,3u,0xffffffffULL,0x100000000ULL,
+        0x8000000000000000ULL,max-1u,max};
+    const std::array<std::uint64_t,6> edge_lows{
+        0u,1u,0xffffffffULL,0x8000000000000000ULL,max-1u,max};
+    std::size_t edge_index=0u;
+    for (const auto divisor:edge_divisors) {
+        const std::array<std::uint64_t,4> highs{
+            0u,divisor>1u?1u:0u,divisor/2u,divisor-1u};
+        for (const auto high:highs)
+            for (const auto low:edge_lows)
+                append('E',edge_index++,divisor,low,high);
+    }
+    std::mt19937_64 wide_engine(0xB260D1B1ULL);
+    for (unsigned repetition=0u;repetition<2048u;++repetition) {
+        const std::uint64_t divisor=repetition%11u==0u ? max :
+            repetition%11u==1u ? std::uint64_t{1}<<63u :
+            repetition%11u==2u ? 3u :
+            repetition%11u==3u ? std::uint64_t{1}<<32u :
+            wide_engine()|std::uint64_t{1};
+        const std::uint64_t high=repetition%5u==0u ?
+            divisor-1u : repetition%5u==1u ? 0u :
+            wide_engine()%divisor;
+        const std::uint64_t low=repetition%7u==0u ?
+            max : repetition%7u==1u ? 0u : wide_engine();
+        append('B',repetition,divisor,low,high);
+    }
+    if (rows!=2240u) throw std::runtime_error("wrong A3 case count");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -149,6 +206,7 @@ int main(int argc,char** argv) {
         const auto dir=independent_oracle::data_directory(argc,argv,write);
         independent_oracle::output(dir,"big_unsigned_power.tsv",power_fixture(),write);
         independent_oracle::output(dir,"big_unsigned_short_div.tsv",short_div_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_div128by64.tsv",div128_fixture(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';

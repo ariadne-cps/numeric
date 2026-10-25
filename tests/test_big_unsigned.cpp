@@ -50,6 +50,7 @@ namespace {
 #endif
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_short_div.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_DIV128_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_div128by64.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -96,6 +97,29 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
     ARIADNE_TEST_ASSERT(limbs.empty() || limbs.back()!=0u);
 }
 
+
+
+void check_div128_golden(std::ifstream& golden,char kind,std::size_t ordinal,
+                         std::uint64_t divisor,std::uint64_t low,
+                         std::uint64_t high,BigUnsigned const& dividend,
+                         BigUnsigned const& quotient,std::uint64_t remainder)
+{
+    std::string ref_kind,divisor_hex,low_hex,high_hex,source_hex;
+    std::string quotient_hex,remainder_hex;
+    std::size_t ref_ordinal=0u;
+    if (!(golden >> ref_kind >> ref_ordinal >> divisor_hex >> low_hex
+                 >> high_hex >> source_hex >> quotient_hex >> remainder_hex)
+        || ref_kind!=std::string(1,kind) || ref_ordinal!=ordinal)
+        throw std::runtime_error("Missing, malformed or unordered A3 div128 TSV row");
+    check_against_precomputed_hex(BigUnsigned(divisor),divisor_hex);
+    check_against_precomputed_hex(BigUnsigned(low),low_hex);
+    check_against_precomputed_hex(BigUnsigned(high),high_hex);
+    check_against_precomputed_hex(dividend,source_hex);
+    check_against_precomputed_hex(quotient,quotient_hex);
+    check_against_precomputed_hex(BigUnsigned(remainder),remainder_hex);
+    ARIADNE_TEST_ASSERT(remainder<divisor);
+    check_against_precomputed_hex(dividend,source_hex);
+}
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_product.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_SQUARE_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_square.tsv";
@@ -1714,10 +1738,17 @@ void TestBigUnsigned::test_division_limb()
         ARIADNE_TEST_ASSERT(mpz_cmp(check.value,n.value)==0);
     }
 
-    // Target 128/64 single-digit division including the maximum
-    // possible quotient (dividend high word == divisor-1). GMP is the
-    // independent oracle and the remainder comparison preserves all
-    // 64 bits on Windows LLP64.
+    // A3: independent source-keyed exact quotient and remainder for all
+    // 192 original 128/64 edge visits and all 2,048 original B26 visits.
+    // Retain the original input order and conditional PRNG consumption.
+    std::ifstream div128_golden(ARIADNE_BIG_UNSIGNED_DIV128_ORACLE_PATH);
+    if (!div128_golden) throw std::runtime_error("Missing A3 div128 TSV");
+    std::string div128_header;
+    while (div128_golden.peek()=='#')
+        std::getline(div128_golden,div128_header);
+
+    // Target 128/64 single-digit division including saturated quotient,
+    // divisor boundary values, high=divisor-1 and wide remainders.
     const std::array<std::uint64_t,8> edge_divisors{
         1u,2u,3u,std::uint64_t{0xffffffffu},
         std::uint64_t{1}<<32u,std::uint64_t{1}<<63u,
@@ -1725,22 +1756,17 @@ void TestBigUnsigned::test_division_limb()
     const std::array<std::uint64_t,6> edge_lows{
         0u,1u,std::uint64_t{0xffffffffu},
         std::uint64_t{1}<<63u,max-1u,max};
+    std::size_t edge_index=0u;
     for (const std::uint64_t divisor:edge_divisors) {
         const std::array<std::uint64_t,4> highs{
             0u,divisor>1u?1u:0u,divisor/2u,divisor-1u};
-        mpz_import(d.value,1u,-1,sizeof(divisor),0,0,&divisor);
         for (const std::uint64_t high:highs) {
             for (const std::uint64_t low:edge_lows) {
                 const std::array<std::uint64_t,2> dividend{low,high};
                 const BigUnsigned value(dividend);
-                mpz_import(n.value,dividend.size(),-1,
-                           sizeof(std::uint64_t),0,0,dividend.data());
-                mpz_tdiv_qr(q.value,r.value,n.value,d.value);
                 const auto [native_q,native_r]=divrem_limb(value,divisor);
-                check_against_gmp(native_q,q.value);
-                mpz_import(native_remainder.value,1u,-1,
-                           sizeof(native_r),0,0,&native_r);
-                ARIADNE_TEST_ASSERT(mpz_cmp(native_remainder.value,r.value)==0);
+                check_div128_golden(div128_golden,'E',edge_index++,
+                                    divisor,low,high,value,native_q,native_r);
                 ARIADNE_TEST_ASSERT(native_r<divisor);
                 if (high==divisor-1u && low==max) {
                     ARIADNE_TEST_ASSERT(native_q.limb(0u)==max);
@@ -1750,11 +1776,8 @@ void TestBigUnsigned::test_division_limb()
         }
     }
 
-    // B26: stress exact 128/64 DIVQ preconditions. Each numerator
-    // has high < divisor (the hardware quotient must fit in a limb).
-    // Exercise saturated quotient, high=0, high=divisor-1,
-    // random carry, and divisors with and without their top bit set.
-    // All expected results come from GMP, never the native Wide path.
+    // B26: preserve all 2,048 original 128/64 DIVQ precondition visits.
+    // Original seed, conditional draws and high<divisor are unchanged.
     std::mt19937_64 wide_engine(0xB260D1B1ULL);
     for (unsigned repetition=0u;repetition<2048u;++repetition) {
         const std::uint64_t divisor=repetition%11u==0u ? max :
@@ -1769,17 +1792,14 @@ void TestBigUnsigned::test_division_limb()
             max : repetition%7u==1u ? 0u : wide_engine();
         const std::array<std::uint64_t,2> dividend{low,high};
         const BigUnsigned value(dividend);
-        mpz_import(n.value,dividend.size(),-1,sizeof(std::uint64_t),
-                   0,0,dividend.data());
-        mpz_import(d.value,1u,-1,sizeof(divisor),0,0,&divisor);
-        mpz_tdiv_qr(q.value,r.value,n.value,d.value);
         const auto [native_q,native_r]=divrem_limb(value,divisor);
-        check_against_gmp(native_q,q.value);
-        mpz_import(native_remainder.value,1u,-1,sizeof(native_r),
-                   0,0,&native_r);
-        ARIADNE_TEST_ASSERT(mpz_cmp(native_remainder.value,r.value)==0);
+        check_div128_golden(div128_golden,'B',repetition,
+                            divisor,low,high,value,native_q,native_r);
         ARIADNE_TEST_ASSERT(native_r<divisor);
     }
+    std::string div128_extra;
+    if (div128_golden >> div128_extra)
+        throw std::runtime_error("Extra A3 div128 TSV rows");
 
     // B48: the ARM64 32-bit-divisor fast path must return the exact
     // full quotient and 64-bit remainder, independently of the

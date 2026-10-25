@@ -702,3 +702,31 @@ GCC 14 and Clang 17 strict C++20 standalone source builds regenerate
 identical B32 bytes. Full CI/consumer validation is reported
 separately from generator-level validation; do not count it as passed
 until the test jobs complete. No production code was modified.
+
+### A3 — 128/64 edge and B26 runtime GMP migration (25 October 2026)
+
+Migrate all 192 original 128/64 edge visits (8 divisors x 4 high-word
+choices x 6 low words) and all 2,048 B26 randomized DIVQ visits in
+`TestBigUnsigned::test_division_limb()`, without reducing coverage.
+The original `mt19937_64(0xB260D1B1)` source, conditional RNG draws,
+divisor/high/low selections and high<divisor precondition are preserved.
+The consumer verifies every ordered source key, canonical numerator
+and operands, exact full 64-bit remainder and quotient, unchanged
+source, original saturation assertions, and missing/extra TSV rows.
+
+The existing standalone C++20
+`tests/data/generator_big_unsigned_power_div.cpp` now also emits
+`big_unsigned_div128by64.tsv` using independent aligned-subtraction
+long division and binary shift/add multiplication for the identity
+numerator=divisor*quotient+remainder and remainder<divisor. Neither
+GMP nor production division is used in the generator. Exactly
+2,240 rows, 227,016 bytes, Git blob
+`f9084b5d88d01b2acf356e5f4b0cb9a0435ff7cd`.
+Strict GCC/Clang C++20 compilations agree byte-for-byte; a separately
+implemented Python mt19937_64 and built-in arbitrary-precision
+division reproduce all 2,240 source keys, quotients and remainders.
+118 source TSV fixtures are registered across the same 32 generators.
+Other division/GMP blocks, all production sources and all previously
+committed fixtures remain unchanged. Consumer regression/CI results
+must be checked separately after publication; the opt-in full
+`verify-data` target is not part of standard CI.
