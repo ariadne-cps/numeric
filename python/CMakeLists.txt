@@ -14,6 +14,10 @@ if(Python3_FOUND)
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         ariadne_finalize_python_module(NAME numeric)
 
+        set(PYTHON_BINDINGS_INSTALL_DIR "${Python3_SITEARCH}"
+            CACHE STRING "Install destination for Python targets")
+        install(TARGETS pyariadne DESTINATION "${PYTHON_BINDINGS_INSTALL_DIR}")
+
         add_subdirectory(tests)
         add_dependencies(bindings pyariadne)
     endif()

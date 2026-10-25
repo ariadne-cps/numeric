@@ -54,7 +54,7 @@ jobs:
 
       - name: Build Release library and bindings
         if: matrix.build_type == 'Release'
-        run: cmake --build build --parallel --target everything
+        run: cmake --build build --parallel --target ariadne-numeric bindings
 
       - name: Install Release library
         if: matrix.build_type == 'Release'
@@ -79,9 +79,7 @@ jobs:
         if: matrix.build_type == 'Release'
         shell: pwsh
         working-directory: ${{ github.workspace }}/python/tutorials
-        run: |
-          $env:PYTHONPATH = "${{ runner.workspace }}\build\python"
-          python tutorial_numeric.py
+        run: python tutorial_numeric.py
 
       - name: Verify uninstallation
         if: matrix.build_type == 'Release'
