@@ -52,6 +52,8 @@ namespace {
 inline constexpr char ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_short_div.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_DIV128_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_div128by64.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_DIV_LIMB_RANDOM_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_div_limb_random.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B48_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b48.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B49_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b49.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -121,6 +123,37 @@ void check_div128_golden(std::ifstream& golden,char kind,std::size_t ordinal,
     ARIADNE_TEST_ASSERT(remainder<divisor);
     check_against_precomputed_hex(dividend,source_hex);
 }
+
+
+struct LimbDivisionGolden {
+    std::ifstream file;
+    explicit LimbDivisionGolden(char const* path):file(path) {
+        if (!file) throw std::runtime_error("Missing A5 limb division TSV");
+        std::string header;
+        while (file.peek()=='#') std::getline(file,header);
+    }
+    void check(std::size_t count,std::uint64_t divisor,unsigned mode,
+               BigUnsigned const& source,BigUnsigned const& quotient,
+               std::uint64_t remainder) {
+        std::size_t ref_count=0u;
+        std::uint64_t ref_divisor=0u;
+        unsigned ref_mode=0u;
+        std::string source_hex,quotient_hex,remainder_hex;
+        if (!(file >> ref_count >> ref_divisor >> ref_mode
+                   >> source_hex >> quotient_hex >> remainder_hex) ||
+            ref_count!=count || ref_divisor!=divisor || ref_mode!=mode)
+            throw std::runtime_error("Missing or unordered A5 limb division row");
+        check_against_precomputed_hex(source,source_hex);
+        check_against_precomputed_hex(quotient,quotient_hex);
+        check_against_precomputed_hex(BigUnsigned(remainder),remainder_hex);
+        ARIADNE_TEST_ASSERT(remainder<divisor);
+        check_against_precomputed_hex(source,source_hex);
+    }
+    void finish() {
+        std::string extra;
+        if (file >> extra) throw std::runtime_error("Extra A5 limb division rows");
+    }
+};
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_product.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_SQUARE_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_square.tsv";
@@ -1815,6 +1848,7 @@ void TestBigUnsigned::test_division_limb()
     // production divide_wide implementation. Include saturated and
     // sparse operands across inline/heap storage boundaries and
     // the 2^32 divisor selector boundary.
+    LimbDivisionGolden golden_b48(ARIADNE_BIG_UNSIGNED_B48_ORACLE_PATH);
     std::mt19937_64 narrow_engine(0xB48032D0ULL);
     for (const std::size_t count:
             {1u,2u,3u,4u,5u,8u,16u,32u,64u,96u}) {
@@ -1836,33 +1870,29 @@ void TestBigUnsigned::test_division_limb()
                     words.back()|=1u;
                 }
                 const BigUnsigned value(words);
-                mpz_import(n.value,value.size(),-1,sizeof(std::uint64_t),
-                           0,0,value.limbs().data());
-                mpz_import(d.value,1u,-1,sizeof(divisor),0,0,&divisor);
-                mpz_tdiv_qr(q.value,r.value,n.value,d.value);
                 const auto [got_quotient,got_remainder]=
                     divrem_limb(value,divisor);
-                check_against_gmp(got_quotient,q.value);
-                mpz_import(native_remainder.value,1u,-1,
-                           sizeof(got_remainder),0,0,&got_remainder);
-                ARIADNE_TEST_ASSERT(
-                    mpz_cmp(native_remainder.value,r.value)==0);
+
+                golden_b48.check(count,divisor,mode,value,got_quotient,got_remainder);
                 auto out=scratch.acquire(value.size()+2u);
                 std::fill(out.begin(),out.end(),max);
                 const auto low=BigUnsigned::divrem_limb_into(
                     value.limbs(),divisor,out);
                 ARIADNE_TEST_ASSERT(low==got_remainder);
-                check_against_gmp(BigUnsigned(out),q.value);
+                ARIADNE_TEST_ASSERT(compare(BigUnsigned(out),got_quotient)==0);
                 ARIADNE_TEST_ASSERT(out[value.size()]==0u);
                 ARIADNE_TEST_ASSERT(out[value.size()+1u]==0u);
             }
         }
     }
 
+    golden_b48.finish();
+
     // B49: exercise the pre-inverted 128/32 quotient path on ARM64
     // across 7/8/9 limb dispatch boundaries and longer dividends.
     // GMP is the independent oracle for full quotient, remainder and
     // all output limbs. Test divisor 1, 2^32-1 and 2^32 fallback too.
+    LimbDivisionGolden golden_b49(ARIADNE_BIG_UNSIGNED_B49_ORACLE_PATH);
     std::mt19937_64 reciprocal_engine(0xB490C0DEULL);
     for (const std::size_t count:
             {7u,8u,9u,16u,32u,64u,96u,128u}) {
@@ -1894,29 +1924,24 @@ void TestBigUnsigned::test_division_limb()
                     }
                 }
                 const BigUnsigned value(words);
-                mpz_import(n.value,value.size(),-1,sizeof(std::uint64_t),
-                           0,0,value.limbs().data());
-                mpz_import(d.value,1u,-1,sizeof(divisor),0,0,&divisor);
-                mpz_tdiv_qr(q.value,r.value,n.value,d.value);
                 const auto [actual_q,actual_r]=
                     divrem_limb(value,divisor);
-                check_against_gmp(actual_q,q.value);
-                mpz_import(native_remainder.value,1u,-1,
-                           sizeof(actual_r),0,0,&actual_r);
-                ARIADNE_TEST_ASSERT(
-                    mpz_cmp(native_remainder.value,r.value)==0);
+
+                golden_b49.check(count,divisor,mode,value,actual_q,actual_r);
 
                 auto output=scratch.acquire(value.size()+2u);
                 std::fill(output.begin(),output.end(),max);
                 const auto rem_out=BigUnsigned::divrem_limb_into(
                     value.limbs(),divisor,output);
                 ARIADNE_TEST_ASSERT(rem_out==actual_r);
-                check_against_gmp(BigUnsigned(output),q.value);
+                ARIADNE_TEST_ASSERT(compare(BigUnsigned(output),actual_q)==0);
                 ARIADNE_TEST_ASSERT(output[value.size()]==0u);
                 ARIADNE_TEST_ASSERT(output[value.size()+1u]==0u);
             }
         }
     }
+
+    golden_b49.finish();
 
     // B57/B63: normalized pi1 selection for >=16 raw quotient
     // limbs on GCC x86-64, and universal one-limb powers-of-two.

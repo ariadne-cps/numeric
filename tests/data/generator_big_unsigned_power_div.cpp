@@ -240,6 +240,160 @@ std::string div_limb_random_fixture() {
     if (rows!=6000u) throw std::runtime_error("wrong A4 row count");
     return out;
 }
+
+// A5: a separate portable base-2 bitwise division oracle for wide
+// dividend / 64-bit divisor. No production divide_wide or GMP involved.
+// The 65th remainder bit is tracked as a carry before modulo-2^64
+// subtraction, avoiding compiler-specific 128-bit integer types.
+std::pair<Nat,std::uint64_t> divide_limb_bits(Nat const& n,
+                                               std::uint64_t divisor) {
+    if (divisor==0u) throw std::invalid_argument("zero limb divisor");
+    std::vector<std::uint64_t> quotient(n.w.size(),0u);
+    std::uint64_t remainder=0u;
+    for (std::size_t i=n.w.size();i>0u;--i) {
+        for (unsigned bit=64u;bit>0u;) {
+            --bit;
+            const bool carry=(remainder>>63u)!=0u;
+            remainder=(remainder<<1u)|((n.w[i-1u]>>bit)&1u);
+            if (carry || remainder>=divisor) {
+                remainder-=divisor;
+                quotient[i-1u]|=std::uint64_t{1}<<bit;
+            }
+        }
+    }
+    return {Nat(std::move(quotient)),remainder};
+}
+std::array<std::string,4> limb_stress_fixtures() {
+    std::array<std::string,4> out{
+        "# A5 B48 independent exact limb division, all 560 original visits.\n"
+        "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
+        "# Original mt19937_64(0xB48032D0) with all overwritten draws preserved.\n"
+        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
+        "# A5 B49 independent exact limb division, all 784 original visits.\n"
+        "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
+        "# Original mt19937_64(0xB490C0DE) with all overwritten draws preserved.\n"
+        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
+        "# A5 B57 independent exact limb division, all 1800 original visits.\n"
+        "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
+        "# Original mt19937_64(0xB570641) with all overwritten draws preserved.\n"
+        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
+        "# A5 B61 independent exact limb division, all 1560 original visits.\n"
+        "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
+        "# Original mt19937_64(0xB610D1A6) with all overwritten draws preserved.\n"
+        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n"};
+    std::array<std::size_t,4> rows{};
+    const auto append=[&](std::size_t group,std::size_t count,
+                          std::uint64_t divisor,unsigned mode,
+                          std::vector<std::uint64_t> const& words) {
+        if (words.size()!=count)
+            throw std::runtime_error("wrong A5 source limb count");
+        const Nat input(words);
+        const auto [quotient,remainder]=divide_limb_bits(input,divisor);
+        if (remainder>=divisor ||
+            Nat::add(multiply(quotient,Nat(divisor)),Nat(remainder))
+                .compare(input)!=0)
+            throw std::runtime_error("wrong independent A5 Euclidean identity");
+        out[group]+=row({std::to_string(count),std::to_string(divisor),
+                         std::to_string(mode),input.hex(),quotient.hex(),
+                         Nat(remainder).hex()});
+        ++rows[group];
+    };
+    const auto max=UINT64_MAX;
+    std::mt19937_64 narrow_engine(0xB48032D0ULL);
+    for (std::size_t count:{1u,2u,3u,4u,5u,8u,16u,32u,64u,96u}) {
+        for (std::uint64_t divisor:
+                {1ULL,2ULL,3ULL,7ULL,9ULL,10ULL,31ULL,63ULL,
+                 255ULL,65535ULL,2147483648ULL,4294967295ULL,
+                 4294967296ULL,18446744073709551615ULL}) {
+            for (unsigned mode=0u;mode<4u;++mode) {
+                std::vector<std::uint64_t> words(count);
+                for (auto& word:words) word=narrow_engine();
+                if (mode==0u) std::fill(words.begin(),words.end(),max);
+                else if (mode==1u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=1u;
+                } else if (mode==2u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.front()=max;
+                    words.back()|=1u;
+                }
+                append(0u,count,divisor,mode,words);
+            }
+        }
+    }
+    std::mt19937_64 reciprocal_engine(0xB490C0DEULL);
+    for (std::size_t count:{7u,8u,9u,16u,32u,64u,96u,128u}) {
+        for (std::uint64_t divisor:
+                {1ULL,2ULL,3ULL,5ULL,7ULL,9ULL,31ULL,
+                 63ULL,255ULL,65535ULL,2147483648ULL,
+                 4294967295ULL,4294967296ULL,
+                 18446744073709551615ULL}) {
+            for (unsigned mode=0u;mode<7u;++mode) {
+                std::vector<std::uint64_t> words(count);
+                for (auto& word:words) word=reciprocal_engine();
+                if (mode==0u) std::fill(words.begin(),words.end(),max);
+                else if (mode==1u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=1u;
+                } else if (mode==2u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.front()=max;
+                    words.back()=1u;
+                } else if (mode==3u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    words.back()=std::uint64_t{1}<<63u;
+                } else if (mode==4u) {
+                    std::fill(words.begin(),words.end(),0u);
+                } else if (mode==5u) {
+                    for (std::size_t i=0u;i<count;i+=2u)
+                        words[i]=0u;
+                }
+                append(1u,count,divisor,mode,words);
+            }
+        }
+    }
+    const auto pi1=[&](std::size_t group,std::uint64_t seed,
+                       std::initializer_list<std::size_t> counts) {
+        std::mt19937_64 engine(seed);
+        for (std::size_t count:counts) {
+            for (std::uint64_t divisor:
+                    {1ULL,2ULL,3ULL,5ULL,7ULL,35ULL,255ULL,
+                     65535ULL,4294967295ULL,4294967296ULL,
+                     4294967297ULL,9223372036854775807ULL,
+                     9223372036854775808ULL,9223372036854775809ULL,
+                     18446744073709551615ULL}) {
+                for (unsigned mode=0u;mode<8u;++mode) {
+                    std::vector<std::uint64_t> words(count);
+                    for (auto& word:words) word=engine();
+                    if (mode==0u) std::fill(words.begin(),words.end(),max);
+                    else if (mode==1u) std::fill(words.begin(),words.end(),0u);
+                    else if (mode==2u && !words.empty()) {
+                        std::fill(words.begin(),words.end(),0u);
+                        words.front()=1u;
+                    } else if (mode==3u && !words.empty()) {
+                        std::fill(words.begin(),words.end(),0u);
+                        words.back()=1u;
+                    } else if (mode==4u && !words.empty()) {
+                        std::fill(words.begin(),words.end(),0u);
+                        words.back()=max;
+                    } else if (mode==5u) {
+                        for (std::size_t i=0u;i<count;i+=2u) words[i]=0u;
+                    } else if (mode==6u) {
+                        for (std::size_t i=0u;i<count;i+=3u) words[i]=max;
+                    }
+                    append(group,count,divisor,mode,words);
+                }
+            }
+        }
+    };
+    pi1(2u,0xB570641ULL,
+        {0u,1u,7u,8u,15u,16u,17u,31u,32u,33u,63u,64u,65u,96u,128u});
+    pi1(3u,0xB610D1A6ULL,
+        {0u,1u,7u,8u,9u,15u,16u,31u,32u,63u,64u,65u,128u});
+    if (rows!=std::array<std::size_t,4>{560u,784u,1800u,1560u})
+        throw std::runtime_error("wrong A5 fixture row counts");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -249,6 +403,11 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_short_div.tsv",short_div_fixture(),write);
         independent_oracle::output(dir,"big_unsigned_div128by64.tsv",div128_fixture(),write);
         independent_oracle::output(dir,"big_unsigned_div_limb_random.tsv",div_limb_random_fixture(),write);
+        const auto a5=limb_stress_fixtures();
+        independent_oracle::output(dir,"big_unsigned_b48.tsv",a5[0u],write);
+        independent_oracle::output(dir,"big_unsigned_b49.tsv",a5[1u],write);
+        independent_oracle::output(dir,"big_unsigned_b57.tsv",a5[2u],write);
+        independent_oracle::output(dir,"big_unsigned_b61.tsv",a5[3u],write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';

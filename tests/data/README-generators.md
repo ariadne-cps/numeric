@@ -756,3 +756,26 @@ std::mt19937_64 C++20 witness. Fixture 1,194,017 bytes, Git blob
 GMP blocks remain for later steps, as do GMP tests in other methods.
 No production code or prior fixture changed. Standard CI does not
 run the opt-in all-fixture `verify-data` target.
+
+### A5 — B48/B49 numerical oracle conversion (25 October 2026)
+
+Convert every original B48 and B49 numerical GMP division comparison
+(560 + 784 = 1,344 visits) to source-keyed TSV results while preserving
+original mt19937_64 random draws, all dividend transforms, both
+owning/non-owning quotient paths and exact full-width remainder checks.
+The consumer validates ordered width/divisor/mode, original source,
+canonical expected quotient/remainder, output guard clearing and
+TSV exhaustion. Other GMP blocks B57/B63 and B61 are not yet migrated.
+
+The consolidated C++20 power/division generator independently computes
+all four new A5 fixture files (B48 560; B49 784; B57 1,800; B61
+1,560 visits) using portable bit-at-a-time division with a 65th
+remainder carry and independent binary shift/add Euclidean identity
+checks. C++20 GCC and Clang mt19937_64 input witnesses and exact
+Python big-integer division independently reproduce all four files.
+SHA Git blobs: B48 `1a56559c3f5c529a5c222fe1136b69be1d3aed28`,
+B49 `4f82aac238df03238128ad5d41be21b9e2b24a22`,
+B57 `dc2a5205d8aa4a912f73f9e675522b1531f65794`,
+B61 `f9e8a720ece587c13d68802588cfe75ebb006e67`.
+Only B48/B49 consumer conversions are counted as migrated here.
+CI for A5 is pending. No production changes.
