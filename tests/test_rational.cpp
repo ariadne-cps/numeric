@@ -24,7 +24,6 @@
 
 
 #include "numeric/rational.hpp"
-#include "numeric/detail/rational_gmp_bridge.hpp"
 #include "numeric/builtin.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/dyadic.hpp"
@@ -122,7 +121,7 @@ class TestRational
     void test_bounds();
     void test_native_contract();
     void test_native_double();
-    void test_gmp_differential();
+    void test_differential();
 
 };
 
@@ -137,7 +136,7 @@ void TestRational::test()
     ARIADNE_TEST_CALL(test_bounds());
     ARIADNE_TEST_CALL(test_native_contract());
     ARIADNE_TEST_CALL(test_native_double());
-    ARIADNE_TEST_CALL(test_gmp_differential());
+    ARIADNE_TEST_CALL(test_differential());
 }
 
 void TestRational::test_literal() {
@@ -411,7 +410,6 @@ void TestRational::test_native_contract() {
     ARIADNE_TEST_EQUALS(cmp(Rational::inf(),infinite_float),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(finite,Rational::inf()),Comparison::LESS);
     ARIADNE_TEST_EQUALS(cmp(Rational::nan(),finite),Comparison::INCOMPARABLE);
-    ARIADNE_TEST_FAIL(static_cast<void>(GmpRationalBoundary(Rational::nan())));
 
     // R8: original 4x4 near-2^64 exact cross-product ordering.
     // Freeze independent expected signs; test reversed signed ordering too.
@@ -789,7 +787,7 @@ void TestRational::test_native_double() {
     ARIADNE_TEST_ASSERT(roundtrips);
 }
 
-void TestRational::test_gmp_differential() {
+void TestRational::test_differential() {
     std::mt19937_64 random(0x6672616374696f6eULL);
     bool conversion_matches=true;
     // R0: 120 independently frozen representatives of the original
