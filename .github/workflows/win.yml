@@ -49,12 +49,12 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=sccache `
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache `
             -DCMAKE_CXX_FLAGS_DEBUG="/Z7 /Ob0 /Od /RTC1" `
-            -DPYTHON_ENFORCE_TESTS=${{ matrix.build_type == 'Debug' && 'ON' || 'OFF' }} `
+            -DPYTHON_ENFORCE_TESTS=ON `
             -DWARNINGS_AS_ERRORS=ON
 
       - name: Build Release library and bindings
         if: matrix.build_type == 'Release'
-        run: cmake --build build --parallel --target ariadne-numeric bindings
+        run: cmake --build build --parallel --target everything
 
       - name: Install Release library
         if: matrix.build_type == 'Release'
