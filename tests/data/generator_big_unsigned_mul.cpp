@@ -183,6 +183,57 @@ std::string b38() {
     return out;
 }
 
+
+std::string a25_b52() {
+    std::string out=
+        "# A25 B52 multiply-kernel oracle: all 288 original n/m/mode visits.\n"
+        "# n m mode lhs_hex rhs_hex product_hex low_limbs low_product_hex\n"
+        "# Exact mt19937_64(0xB5203232) source stream; independent exact integer multiplication.\n"
+        "# No Numeric/GMP/Boost dependency.\n";
+    std::mt19937_64 rng(0xB5203232ULL);
+    std::size_t rows=0u;
+    for (const std::size_t n:{31u,32u,33u}) {
+        for (const std::size_t m:{31u,32u,33u}) {
+            for (unsigned mode=0u;mode<32u;++mode) {
+                Words left(n),right(m);
+                for (auto& digit:left) digit=rng();
+                for (auto& digit:right) digit=rng();
+                if (mode%8u==0u) {
+                    std::fill(left.begin(),left.end(),UINT64_MAX);
+                    std::fill(right.begin(),right.end(),UINT64_MAX);
+                } else if (mode%8u==1u) {
+                    std::fill(left.begin(),left.end(),0u);
+                    std::fill(right.begin(),right.end(),0u);
+                    left.back()=1u;
+                    right.back()=1u;
+                } else if (mode%8u==2u) {
+                    for (std::size_t i=0u;i<n-1u;i+=2u) left[i]=0u;
+                    for (std::size_t i=0u;i<m-1u;i+=2u) right[i]=0u;
+                } else if (mode%8u==3u) {
+                    std::fill(left.begin(),left.end(),0u);
+                    std::fill(right.begin(),right.end(),0u);
+                    left.front()=UINT64_MAX;
+                    right.front()=UINT64_MAX;
+                } else if (mode%8u==4u) {
+                    for (std::size_t i=1u;i+1u<n;++i) left[i]=0u;
+                    for (std::size_t i=1u;i+1u<m;++i) right[i]=0u;
+                }
+                const Nat lhs(std::move(left)),rhs(std::move(right));
+                const Nat product=multiply(lhs,rhs);
+                const std::size_t full=lhs.w.size()+rhs.w.size();
+                const std::size_t low=full==0u?0u:full-1u;
+                out+=row({std::to_string(n),std::to_string(m),
+                          std::to_string(mode),lhs.hex(),rhs.hex(),
+                          product.hex(),std::to_string(low),
+                          low_product(product,low).hex()});
+                ++rows;
+            }
+        }
+    }
+    if (rows!=288u) throw std::runtime_error("wrong A25 B52 row count");
+    return out;
+}
+
 // A1: preserve every original 9*32*3*2 seeded product-accumulation visit.
 // Expected values use exact signed arithmetic modulo the entire destination
 // width, not any BigUnsigned accumulation or multiplication implementation.
@@ -252,6 +303,7 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_b37.tsv",b37(),write);
         independent_oracle::output(dir,"big_unsigned_b38.tsv",b38(),write);
         independent_oracle::output(dir,"big_unsigned_b32.tsv",b32(),write);
+        independent_oracle::output(dir,"big_unsigned_a25_b52.tsv",a25_b52(),write);
         independent_oracle::output(dir,"big_unsigned_accumulation.tsv",accumulation(),write);
         return 0;
     } catch(std::exception const& ex) {

@@ -1356,6 +1356,11 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     // product oracle. Exercise 31/32/33-limb boundaries, including
     // noncanonical zero data, sparse rows, all-ones, extra output
     // capacity and low products. No workload fixtures are changed.
+    std::ifstream a25_b52(
+        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_a25_b52.tsv");
+    if (!a25_b52) throw std::runtime_error("Missing A25 B52 TSV");
+    std::string a25_b52_header;
+    while (a25_b52.peek()=='#') std::getline(a25_b52,a25_b52_header);
     std::mt19937_64 b52_engine(0xB5203232ULL);
     for (const std::size_t n:{31u,32u,33u}) {
         for (const std::size_t m:{31u,32u,33u}) {
@@ -1388,17 +1393,24 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                         right[i]=0u;
                 }
                 const BigUnsigned lhs(left),rhs(right);
-                mpz_import(a.value,lhs.size(),-1,
-                           sizeof(std::uint64_t),0,0,lhs.limbs().data());
-                mpz_import(b.value,rhs.size(),-1,
-                           sizeof(std::uint64_t),0,0,rhs.limbs().data());
-                mpz_mul(expected.value,a.value,b.value);
+                std::size_t ref_n=0u,ref_m=0u,ref_low=0u;
+                unsigned ref_mode=0u;
+                std::string lhs_hex,rhs_hex,product_hex,low_hex;
+                if (!(a25_b52 >> ref_n >> ref_m >> ref_mode
+                      >> lhs_hex >> rhs_hex >> product_hex
+                      >> ref_low >> low_hex) ||
+                    ref_n!=n || ref_m!=m || ref_mode!=mode)
+                    throw std::runtime_error(
+                        "Missing or unordered A25 B52 TSV row");
+                check_against_precomputed_hex(lhs,lhs_hex);
+                check_against_precomputed_hex(rhs,rhs_hex);
                 const std::size_t full=lhs.size()+rhs.size();
                 std::vector<std::uint64_t> selected(full,max);
                 BigUnsigned::mul_into(
                     lhs.limbs(),rhs.limbs(),selected);
-                check_against_gmp(BigUnsigned(selected),expected.value);
-                check_against_gmp(mul(lhs,rhs),expected.value);
+                check_against_precomputed_hex(
+                    BigUnsigned(selected),product_hex);
+                check_against_precomputed_hex(mul(lhs,rhs),product_hex);
 
                 std::vector<std::uint64_t> fused(full,max);
                 BigUnsigned::mul_into_fused(
@@ -1408,20 +1420,27 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                 std::vector<std::uint64_t> oversized(full+2u,max);
                 BigUnsigned::mul_into(
                     lhs.limbs(),rhs.limbs(),oversized);
-                check_against_gmp(BigUnsigned(oversized),expected.value);
+                check_against_precomputed_hex(
+                    BigUnsigned(oversized),product_hex);
                 ARIADNE_TEST_ASSERT(oversized[full]==0u);
                 ARIADNE_TEST_ASSERT(oversized[full+1u]==0u);
 
                 const std::size_t low=full==0u?0u:full-1u;
+                if (ref_low!=low)
+                    throw std::runtime_error("Wrong A25 B52 low length");
                 std::vector<std::uint64_t> truncated(low,max);
                 BigUnsigned::mul_low_into(
                     lhs.limbs(),rhs.limbs(),truncated);
-                mpz_fdiv_r_2exp(rounded.value,expected.value,
-                                 static_cast<mp_bitcnt_t>(64u*low));
-                check_against_gmp(BigUnsigned(truncated),rounded.value);
+                check_against_precomputed_hex(
+                    BigUnsigned(truncated),low_hex);
+                check_against_precomputed_hex(lhs,lhs_hex);
+                check_against_precomputed_hex(rhs,rhs_hex);
             }
         }
     }
+    std::string a25_b52_extra;
+    if (a25_b52 >> a25_b52_extra)
+        throw std::runtime_error("Extra A25 B52 TSV rows");
 
     // B53: independent GMP oracle for x86 GCC fused and GNU/Clang
     // assembly zero-row skipping. Include 31/32/33 B52 boundaries,

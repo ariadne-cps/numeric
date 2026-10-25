@@ -13,29 +13,29 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A24
+## Current state — A25
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
 | `test_division()` | 4,978 | 11,536 |
 | `test_views_and_scratch()` | 11,600 | 0 |
-| `test_multiply_kernel_paths()` | 0 | 11,432 |
+| `test_multiply_kernel_paths()` | 288 | 11,144 |
 | `test_randomized()` | 10,000 | 0 |
 | `test_gcd_decimal()` | 3,793 | 0 |
 | `test_division_limb()` | 12,944 | 0 |
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **53,355** | **22,968** |
+| **Total** | **53,643** | **22,680** |
 
-Progress: **53,355 / 76,323 = 69.907%**.
+Progress: **53,643 / 76,323 = 70.284%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
 - `test_division()`: generalized random 6,000; B28, B36, B29, B45,
   normalization and remaining special division cases 5,536.
-- `test_multiply_kernel_paths()`: 11,432, comprising B52/B53,
+- `test_multiply_kernel_paths()`: 11,144, comprising B53,
   general kernels, B8 and Karatsuba.
 
 ## Commit milestones
@@ -57,6 +57,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A22 — decimal formatting | 1,509 | 41,755 |
 | A23 — scratch-buffer arithmetic | 5,000 | 46,755 |
 | A24 — R38 shifted add/sub | 6,600 | 53,355 |
+| A25 — B52 multiply-kernel | 288 | 53,643 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -290,3 +291,19 @@ A24 blobs exactly. No production code changes. After A24,
 `test_views_and_scratch()` is fully migrated at 11,600/11,600 visits, so
 the fixed audit has only `test_division()` and
 `test_multiply_kernel_paths()` remaining.
+
+## A25 — B52 multiply-kernel oracle (25 October 2026)
+
+Migrate all 288 B52 source visits in `test_multiply_kernel_paths()` to
+`big_unsigned_a25_b52.tsv`. The exact seeded source stream, structural
+transforms, canonicalized operands, full-product checks, fused-kernel
+agreement, oversized destination guards and `full-1` low-product checks
+are preserved. Only the runtime numerical GMP oracle is replaced.
+
+The existing standalone multiplication generator uses independent shift/add
+`Nat` arithmetic and emits source hex, exact full product and exact truncated
+product. The fixture has 288 rows, 774,359 bytes and Git blob
+`db88450f727a185a1b5543e1b2323081d6893088`. No production code or prior
+fixture changes. Remaining `test_multiply_kernel_paths()` inventory is
+2,304 B53 visits, 6,000 general-kernel visits, 2,800 B8 cutoff visits and
+40 fixed Karatsuba cutoff visits, for 11,144 total.
