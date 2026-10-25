@@ -56,6 +56,10 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_B48_ORACLE_PATH[] = ARIADNE_TEST_DATA
 inline constexpr char ARIADNE_BIG_UNSIGNED_B49_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b49.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B57_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b57.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B61_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b61.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_EXACT_LIMB_SMALL_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_exact_limb_small.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_EXACT_LIMB_65_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_exact_limb_65.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_EXACT_LIMB_129A_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_exact_limb_129a.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_EXACT_LIMB_129B_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_exact_limb_129b.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -2093,9 +2097,22 @@ void TestBigUnsigned::test_exact_division_limb()
         divisors.push_back((random()>>(63u-bit))|(Limb{1}<<bit));
     }
     for (Limb odd=1u;odd<32u;odd+=2u) { divisors.push_back(odd); }
-    GmpInteger oracle_q,oracle_d,oracle_n;
+    // A7: original 6,200 source visits and RNG draws. Four independently
+    // certified fixtures avoid ever computing the exact dividend with GMP.
+    std::array<std::ifstream,4> golden{
+        std::ifstream(ARIADNE_BIG_UNSIGNED_EXACT_LIMB_SMALL_PATH),
+        std::ifstream(ARIADNE_BIG_UNSIGNED_EXACT_LIMB_65_PATH),
+        std::ifstream(ARIADNE_BIG_UNSIGNED_EXACT_LIMB_129A_PATH),
+        std::ifstream(ARIADNE_BIG_UNSIGNED_EXACT_LIMB_129B_PATH)};
+    for (auto& file:golden) {
+        if (!file) throw std::runtime_error("Missing A7 exact limb TSV");
+        std::string header;
+        while (file.peek()=='#') std::getline(file,header);
+    }
     for (std::size_t length : {0u,1u,2u,4u,5u,8u,9u,16u,65u,129u}) {
-        for (Limb divisor:divisors) {
+        for (std::size_t divisor_index=0u;
+                divisor_index<divisors.size();++divisor_index) {
+            const Limb divisor=divisors[divisor_index];
             for (unsigned mode=0u;mode<4u;++mode) {
                 std::vector<Limb> words(length);
                 for (auto& word:words) { word=random(); }
@@ -2105,22 +2122,36 @@ void TestBigUnsigned::test_exact_division_limb()
                     std::fill(words.begin(),words.end(),Limb{0});
                     if (!words.empty()) { words.back()=1u; words.front()|=1u; }
                 }
-                mpz_import(oracle_q.value,length,-1,sizeof(Limb),0,0,words.data());
-                mpz_import(oracle_d.value,1u,-1,sizeof(Limb),0,0,&divisor);
-                mpz_mul(oracle_n.value,oracle_q.value,oracle_d.value);
-                std::vector<Limb> input(length+1u);
-                std::size_t count=0u;
-                mpz_export(input.data(),&count,-1,sizeof(Limb),0,0,oracle_n.value);
-                input.resize(count);
-                const BigUnsigned source(input);
+                const std::size_t group=length<=16u ? 0u :
+                    length==65u ? 1u : divisor_index<78u ? 2u : 3u;
+                std::size_t ref_length=0u,ref_index=0u;
+                unsigned ref_mode=0u;
+                Limb ref_divisor=0u;
+                std::string quotient_hex,dividend_hex;
+                if (!(golden[group] >> ref_length >> ref_index >> ref_mode
+                      >> ref_divisor >> quotient_hex >> dividend_hex) ||
+                    ref_length!=length || ref_index!=divisor_index ||
+                    ref_mode!=mode || ref_divisor!=divisor)
+                    throw std::runtime_error("Missing or unordered A7 exact limb row");
+                const BigUnsigned expected_quotient(words);
+                check_against_precomputed_hex(expected_quotient,quotient_hex);
+                const BigUnsigned source=big_unsigned_from_golden_hex(dividend_hex);
+                const auto source_before=source;
+                const std::size_t count=source.size();
                 std::vector<Limb> output(count+2u,max);
                 BigUnsigned::divexact_limb_into(source.limbs(),divisor,output);
-                check_against_gmp(BigUnsigned(output),oracle_q.value);
-                check_against_gmp(quot_exact(source,BigUnsigned(divisor)),oracle_q.value);
-                check_against_gmp(source,oracle_n.value);
+                check_against_precomputed_hex(BigUnsigned(output),quotient_hex);
+                check_against_precomputed_hex(
+                    quot_exact(source,BigUnsigned(divisor)),quotient_hex);
+                check_against_precomputed_hex(source,dividend_hex);
+                ARIADNE_TEST_ASSERT(compare(source,source_before)==0);
                 ARIADNE_TEST_ASSERT(output[count]==0u && output[count+1u]==0u);
             }
         }
+    }
+    for (auto& file:golden) {
+        std::string extra;
+        if (file >> extra) throw std::runtime_error("Extra A7 exact limb TSV rows");
     }
     const std::array<Limb,2u> input={1u,1u};
     std::array<Limb,2u> output={max,max};

@@ -394,6 +394,72 @@ std::array<std::string,4> limb_stress_fixtures() {
         throw std::runtime_error("wrong A5 fixture row counts");
     return out;
 }
+
+// A7: exact-limb dividend sources must be computed outside production
+// arithmetic. Keep the complete original PRNG stream and all 6,200
+// quotient/divisor visits, including overwritten random input words.
+std::array<std::string,4> exact_limb_fixtures() {
+    const auto header=[](std::string const& segment) {
+        return std::string(
+            "# A7 exact single-limb division, original 6,200 visits.\n"
+            "# length divisor_index mode divisor_decimal quotient_hex dividend_hex\n"
+            "# ")+segment+"\n"
+            "# Original mt19937_64(0x22E1AC7) including overwritten word draws.\n"
+            "# Products independently obtained by integer multiplication, zero canonical.\n";
+    };
+    std::array<std::string,4> out{
+        header("Segment S: original lengths 0,1,2,4,5,8,9,16; 4,960 visits."),
+        header("Segment M: original length 65; 620 visits."),
+        header("Segment H0: original length 129, divisor indices 0..77; 312 visits."),
+        header("Segment H1: original length 129, divisor indices 78..154; 308 visits.")};
+    std::array<std::size_t,4> rows{};
+    const std::uint64_t max=UINT64_MAX;
+    std::mt19937_64 random(0x22E1AC7ULL);
+    std::vector<std::uint64_t> divisors={
+        1u,2u,3u,6u,7u,10u,12u,17u,65537u,max,max-1u};
+    for (unsigned bit=0u;bit<64u;++bit) {
+        divisors.push_back(std::uint64_t{1}<<bit);
+        divisors.push_back((random()>>(63u-bit))|(std::uint64_t{1}<<bit));
+    }
+    for (std::uint64_t odd=1u;odd<32u;odd+=2u)
+        divisors.push_back(odd);
+    if (divisors.size()!=155u)
+        throw std::runtime_error("invalid A7 divisor count");
+    for (std::size_t length:{0u,1u,2u,4u,5u,8u,9u,16u,65u,129u}) {
+        for (std::size_t index=0u;index<divisors.size();++index) {
+            const std::uint64_t divisor=divisors[index];
+            for (unsigned mode=0u;mode<4u;++mode) {
+                std::vector<std::uint64_t> words(length);
+                for (auto& word:words) word=random();
+                if (mode==1u) std::fill(words.begin(),words.end(),max);
+                if (mode==2u) std::fill(words.begin(),words.end(),0u);
+                if (mode==3u) {
+                    std::fill(words.begin(),words.end(),0u);
+                    if (!words.empty()) {
+                        words.back()=1u;
+                        words.front()|=1u;
+                    }
+                }
+                const Nat quotient(std::move(words));
+                const Nat dividend=quotient.mul_small(divisor);
+                // Validate via a separately implemented bitwise
+                // quotient/remainder algorithm, not GMP or Numeric.
+                const auto [verified,rem]=divide_limb_bits(dividend,divisor);
+                if (rem!=0u || verified.compare(quotient)!=0)
+                    throw std::runtime_error("A7 exact-product division identity");
+                const std::size_t group=length<=16u ? 0u :
+                     length==65u ? 1u : index<78u ? 2u : 3u;
+                out[group]+=row({std::to_string(length),std::to_string(index),
+                                 std::to_string(mode),std::to_string(divisor),
+                                 quotient.hex(),dividend.hex()});
+                ++rows[group];
+            }
+        }
+    }
+    if (rows!=std::array<std::size_t,4>{4960u,620u,312u,308u})
+        throw std::runtime_error("wrong A7 fixture row count");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -408,6 +474,11 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_b49.tsv",a5[1u],write);
         independent_oracle::output(dir,"big_unsigned_b57.tsv",a5[2u],write);
         independent_oracle::output(dir,"big_unsigned_b61.tsv",a5[3u],write);
+        const auto a7=exact_limb_fixtures();
+        independent_oracle::output(dir,"big_unsigned_exact_limb_small.tsv",a7[0u],write);
+        independent_oracle::output(dir,"big_unsigned_exact_limb_65.tsv",a7[1u],write);
+        independent_oracle::output(dir,"big_unsigned_exact_limb_129a.tsv",a7[2u],write);
+        independent_oracle::output(dir,"big_unsigned_exact_limb_129b.tsv",a7[3u],write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';

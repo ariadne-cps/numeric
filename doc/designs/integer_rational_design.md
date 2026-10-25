@@ -9417,3 +9417,33 @@ independent Python and portable C++20 verification of B57/B61
 fixture arithmetic is reused, not recharacterized as a new run.
 Full A6 consumer CI and opt-in `verify-data` remain separate
 checks; report CI as passed only when observed.
+
+### A7 — exact single-limb division GMP oracle migration (25 October 2026)
+
+Migrate all 6,200 visits of `test_exact_division_limb()` (10 original
+limb lengths x 155 original divisors x 4 modes) from runtime GMP
+generation and numerical comparisons to four source-keyed exact TSV
+fixtures. Preserve the full std::mt19937_64(0x22E1AC7) draw sequence,
+all original divisors, input-word transforms, both low-level
+`divexact_limb_into` and owning `quot_exact` result comparisons,
+canonical input/quotient shape, source immutability, output guards and
+all invalid/inexact/unchanged-buffer exception checks. The consumer
+rejects missing, reordered or extra records.
+
+Existing independent C++20 `generator_big_unsigned_power_div.cpp`
+regenerates the datasets via Nat::mul_small and independently checks
+the exact inverse using the bitwise single-limb divide implementation;
+no Numeric, GMP, MPFR or Boost dependency. Independently replaying
+all 6,200 original std::mt19937_64 cases compiled with both GCC and
+Clang and Python arbitrary-precision multiplication reproduces every
+fixture byte-for-byte. Git blobs, respectively small (4,960 rows)
+`d4a68ff02f44a9273ca8bf0a30aa4874a57ab295`, length 65
+(620 rows) `6a5c0cdee6d167bfedaff54917cc725bd73793ae`,
+length 129 first 78 divisors (312 rows)
+`0697660ce3945381db5840683f408ee73de55e1d` and remaining
+77 divisors (308 rows)
+`c42a99815380e11bce4f3976773b8507483f47bb`.
+No production sources changed; the same 32 generator executables now
+cover 127 TSVs. A1–A7 cumulative migrated visits: 22,984.
+A7 consumer CI is to be checked after publication, separately
+from local fixture verification and opt-in `verify-data`.
