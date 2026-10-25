@@ -76,6 +76,7 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_A15_FOURTH_PATH[] = ARIADNE_TEST_DATA
 inline constexpr char ARIADNE_BIG_UNSIGNED_A16_FIFTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a16_randomized_fifth.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_A17_SIXTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a17_randomized_sixth.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_A18_SEVENTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a18_randomized_seventh.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_A19_EIGHTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a19_randomized_eighth.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -3773,11 +3774,6 @@ void TestBigUnsigned::test_gcd_decimal()
 void TestBigUnsigned::test_randomized()
 {
     std::mt19937_64 engine(0xBA17B00DULL);
-    GmpInteger a,b,c;
-
-    // The tested shift is at most 1029 bits, even when GMP uses 32-bit
-    // mp_bitcnt_t (notably with 64-bit size_t on Windows/MSVC).
-    static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 1029u);
 
     std::ifstream a12_golden(ARIADNE_BIG_UNSIGNED_A12_FIRST_PATH);
     if (!a12_golden) throw std::runtime_error("Missing A12 randomized TSV");
@@ -3807,6 +3803,10 @@ void TestBigUnsigned::test_randomized()
     if (!a18_golden) throw std::runtime_error("Missing A18 randomized TSV");
     std::string a18_header;
     while (a18_golden.peek()=='#') std::getline(a18_golden,a18_header);
+    std::ifstream a19_golden(ARIADNE_BIG_UNSIGNED_A19_EIGHTH_PATH);
+    if (!a19_golden) throw std::runtime_error("Missing A19 randomized TSV");
+    std::string a19_header;
+    while (a19_golden.peek()=='#') std::getline(a19_golden,a19_header);
     for (unsigned repetition=0; repetition<10000u; ++repetition) {
         const std::size_t n = engine()%20u;
         const std::size_t m = engine()%20u;
@@ -3818,59 +3818,37 @@ void TestBigUnsigned::test_randomized()
         const BigUnsigned x(std::span(na.data(),n));
         const BigUnsigned y(std::span(nb.data(),m));
         const std::size_t bits=engine()%1030u;
-        if (repetition<8750u) {
-            std::ifstream& golden=repetition<1250u?a12_golden:
-                repetition<2500u?a13_golden:
-                repetition<3750u?a14_golden:
-                repetition<5000u?a15_golden:
-                repetition<6250u?a16_golden:
-                repetition<7500u?a17_golden:a18_golden;
-            unsigned ref_rep=0u;
-            std::size_t ref_n=0u,ref_m=0u,ref_bits=0u;
-            int ref_cmp=0;
-            std::string xhex,yhex,sumhex,diffhex,lhex,rhex;
-            if (!(golden >> ref_rep >> ref_n >> ref_m >> ref_bits
-                >> xhex >> yhex >> ref_cmp >> sumhex >> diffhex
-                >> lhex >> rhex) ||
-                ref_rep!=repetition || ref_n!=n || ref_m!=m ||
-                ref_bits!=bits || ref_cmp < -1 || ref_cmp > 1)
-                throw std::runtime_error("Missing or unordered A12-A18 randomized row");
-            check_against_precomputed_hex(x,xhex);
-            check_against_precomputed_hex(y,yhex);
-            ARIADNE_TEST_ASSERT(compare(x,y)==ref_cmp);
-            check_against_precomputed_hex(add(x,y),sumhex);
-            if (ref_cmp>=0) {
-                if (diffhex=="-")
-                    throw std::runtime_error("Missing A12-A18 subtraction oracle");
-                check_against_precomputed_hex(sub(x,y),diffhex);
-            } else if (diffhex!="-")
-                throw std::runtime_error("Unexpected A12-A18 subtraction oracle");
-            check_against_precomputed_hex(shift_left(x,bits),lhex);
-            check_against_precomputed_hex(shift_right(x,bits),rhex);
-            check_against_precomputed_hex(x,xhex);
-            check_against_precomputed_hex(y,yhex);
-        } else {
-        mpz_import(a.value,n,-1,8,0,0,na.data());
-        mpz_import(b.value,m,-1,8,0,0,nb.data());
-        ARIADNE_TEST_ASSERT(compare(x,y)==mpz_cmp(a.value,b.value) ||
-            (compare(x,y)<0 && mpz_cmp(a.value,b.value)<0) ||
-            (compare(x,y)>0 && mpz_cmp(a.value,b.value)>0));
-        mpz_add(c.value,a.value,b.value);
-        check_against_gmp(add(x,y),c.value);
-        if (mpz_cmp(a.value,b.value) >= 0) {
-            mpz_sub(c.value,a.value,b.value);
-            check_against_gmp(sub(x,y),c.value);
-        }
-        // The original shift draw is shared with the TSV branch.
-
-        const auto gmp_bits = static_cast<mp_bitcnt_t>(bits);
-
-        mpz_mul_2exp(c.value,a.value,gmp_bits);
-        check_against_gmp(shift_left(x,bits),c.value);
-
-        mpz_fdiv_q_2exp(c.value,a.value,gmp_bits);
-        check_against_gmp(shift_right(x,bits),c.value);
-        }
+        std::ifstream& golden=repetition<1250u?a12_golden:
+            repetition<2500u?a13_golden:
+            repetition<3750u?a14_golden:
+            repetition<5000u?a15_golden:
+            repetition<6250u?a16_golden:
+            repetition<7500u?a17_golden:
+            repetition<8750u?a18_golden:a19_golden;
+        unsigned ref_rep=0u;
+        std::size_t ref_n=0u,ref_m=0u,ref_bits=0u;
+        int ref_cmp=0;
+        std::string xhex,yhex,sumhex,diffhex,lhex,rhex;
+        if (!(golden >> ref_rep >> ref_n >> ref_m >> ref_bits
+            >> xhex >> yhex >> ref_cmp >> sumhex >> diffhex
+            >> lhex >> rhex) ||
+            ref_rep!=repetition || ref_n!=n || ref_m!=m ||
+            ref_bits!=bits || ref_cmp < -1 || ref_cmp > 1)
+            throw std::runtime_error("Missing or unordered A12-A19 randomized row");
+        check_against_precomputed_hex(x,xhex);
+        check_against_precomputed_hex(y,yhex);
+        ARIADNE_TEST_ASSERT(compare(x,y)==ref_cmp);
+        check_against_precomputed_hex(add(x,y),sumhex);
+        if (ref_cmp>=0) {
+            if (diffhex=="-")
+                throw std::runtime_error("Missing A12-A19 subtraction oracle");
+            check_against_precomputed_hex(sub(x,y),diffhex);
+        } else if (diffhex!="-")
+            throw std::runtime_error("Unexpected A12-A19 subtraction oracle");
+        check_against_precomputed_hex(shift_left(x,bits),lhex);
+        check_against_precomputed_hex(shift_right(x,bits),rhex);
+        check_against_precomputed_hex(x,xhex);
+        check_against_precomputed_hex(y,yhex);
     }
     std::string a12_extra;
     if (a12_golden >> a12_extra)
@@ -3893,6 +3871,9 @@ void TestBigUnsigned::test_randomized()
     std::string a18_extra;
     if (a18_golden >> a18_extra)
         throw std::runtime_error("Extra A18 randomized TSV rows");
+    std::string a19_extra;
+    if (a19_golden >> a19_extra)
+        throw std::runtime_error("Extra A19 randomized TSV rows");
 }
 
 } // namespace

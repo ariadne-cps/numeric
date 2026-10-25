@@ -1017,3 +1017,15 @@ The fixture has 1,250 rows, 1,212,953 bytes and Git blob
 `b1c7416dd60cc79511d545a706df56b18b70bf74`. A separate arbitrary-precision witness first reproduces
 the A17 fixture exactly before independently computing A18. Migration
 inventory: `doc/designs/gmp_migration.md`.
+
+### A19 — final 1,250 randomized arithmetic oracle visits
+
+Migrate original visits 8,750–9,999 to independent
+`big_unsigned_a19_randomized_eighth.tsv`, preserving the original single
+`mt19937_64(0xBA17B00D)` stream, conditional input transformations and shift
+draw. This removes the remaining numerical GMP branch from
+`test_randomized()`; all 10,000 original visits now use source-keyed exact
+external expectations. The fixture has 1,250 rows, 1,202,168 bytes and Git
+blob `15f9d3656bf5fe77ac2b97e0ba6faee3b0883ea3`. A separate arbitrary-precision witness first
+reproduces the A18 fixture exactly before independently computing A19.
+Migration inventory: `doc/designs/gmp_migration.md`.
