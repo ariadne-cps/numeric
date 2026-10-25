@@ -3017,13 +3017,34 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
     if constexpr (Same<PR,DoublePrecision>) {
         // Reuse independent frozen transcendental literals for the shared
         // binary64 adapter. Expected values remain offline exact certificates.
+        // Recover nearest-even binary64 input exactly: Rational::get_d()
+        // truncates toward zero, whereas the frozen oracles were generated
+        // after nearest-even source conversion.
+        const auto nearest_binary64=[](Rational const& source) {
+            const double truncated=source.get_d();
+            const Rational base{ExactDouble(truncated)};
+            if (cmp(source,base)==Comparison::EQUAL) return truncated;
+            const bool toward_negative=cmp(source,base)==Comparison::LESS;
+            const double adjacent=std::nextafter(truncated,
+                toward_negative ? -std::numeric_limits<double>::infinity()
+                                :  std::numeric_limits<double>::infinity());
+            const Rational midpoint=(base+Rational(ExactDouble(adjacent)))/Rational(2);
+            const Comparison position=cmp(source,midpoint);
+            if (position==Comparison::EQUAL) {
+                return (std::bit_cast<std::uint64_t>(truncated)&1u)!=0u
+                    ? adjacent : truncated;
+            }
+            const bool closer_to_adjacent=toward_negative
+                ? position==Comparison::LESS : position==Comparison::GREATER;
+            return closer_to_adjacent ? adjacent : truncated;
+        };
         const auto verify=[&](char const* path,std::size_t count,
                               auto evaluate,bool check_nearest) {
             const auto golden=load_floatap_golden_rows(path,count);
             const Rational window(Integer(1),pow(Integer(2),Nat(43u)));
             for (auto const& [key,expected]:golden) {
                 if (key.bits!=53u || (key.mode=='N' && !check_nearest)) continue;
-                const FloatDP input(ExactDouble(key.input.get_d()),dp);
+                const FloatDP input(ExactDouble(nearest_binary64(key.input)),dp);
                 if (abs(abs(static_cast<Rational>(input))-Rational(1,2))>window) continue;
                 const auto check=[&](auto mode) {
                     const auto old=FloatDP::get_rounding_mode();
