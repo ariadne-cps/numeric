@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproduce B76's 2,800 exact golden GCD + decimal oracle cases.
-// Standalone C++20; no Numeric, GMP, MPFR, Boost or external runtime.
+// Standalone C++20; no Numeric, GMP, independent exact arithmetic, Boost or external runtime.
 #include "oracle_exact_integer.hpp"
 using independent_oracle::Nat;
 

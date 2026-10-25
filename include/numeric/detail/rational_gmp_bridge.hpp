@@ -45,7 +45,7 @@ inline void rational_to_gmp(mpq_ptr destination,Rational const& source) {
     integer_to_gmp(mpq_denref(destination),source.denominator());
 }
 
-//! Independently owned temporary for legacy GMP/MPFR conversion only.
+//! Independently owned temporary for legacy GMP/independent exact arithmetic conversion only.
 class GmpRationalBoundary
 {
     mpq_t _value;

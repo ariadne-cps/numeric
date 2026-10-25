@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Rigorous integer-only Machin-formula pi oracle, independent C++20.
-// No GMP, MPFR, FloatAP, Numeric, Boost or native floating point.
+// No GMP, independent exact arithmetic, FloatAP, Numeric, Boost or native floating point.
 #include "oracle_exact_integer.hpp"
 
 namespace {
@@ -71,7 +71,7 @@ std::string generate() {
         "# Computed by signed-integer fixed-point arithmetic, B=2^1200:\n"
         "# pi=16*atan(1/5)-4*atan(1/239), alternating Taylor partial sums\n"
         "# for k=0..399, per-term outward division and explicit next-term bound.\n"
-        "# Independent of FloatAP, FloatMP, MPFR, GMP and floating-point pi.\n"
+        "# Independent of FloatAP, independent exact arithmetic, independent exact arithmetic, GMP and floating-point pi.\n"
         "# Both fixed-point interval endpoints certify identical binary directed\n"
         "# 384-bit bounds and identical nearest-even 320-bit reference.\n";
     const Interval a=atan_inverse(5u),b=atan_inverse(239u);

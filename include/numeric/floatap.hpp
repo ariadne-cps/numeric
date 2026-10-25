@@ -82,7 +82,7 @@ inline std::int64_t floatap_exponent_from_bit_length(std::size_t bit_count) {
     return static_cast<std::int64_t>(bit_count);
 }
 
-// The precision tag is deliberately independent of MPFR types.
+// The precision tag is deliberately independent of independent exact arithmetic types.
 class ArbitraryPrecision {
     std::size_t _bits;
   public:
@@ -126,14 +126,14 @@ class ArbitraryPrecision {
 // arithmetic is implemented, while transcendental functions are pending.
 using FloatAP = Float<ArbitraryPrecision>;
 
-// MPFR-independent floating-point representation and arithmetic.
+// independent exact arithmetic-independent floating-point representation and arithmetic.
 // A finite nonzero value is (-1)^negative * significand * 2^exponent,
 // with precisely precision significant bits and a native BigUnsigned
 // significand. GMP remains only at external legacy/interval boundaries.
 template<> class Float<ArbitraryPrecision> {
   public:
     // A value type rather than an enum: Ariadne's rounding tags convert
-    // directly to it, without making the GMP kernel depend on MPFR.
+    // directly to it, without making the GMP kernel depend on independent exact arithmetic.
     class Rounding {
       public:
         enum Value { ToNearest, Downward, Upward, TowardZero };

@@ -309,7 +309,7 @@ Rounded(Approximation<FloatType> const& x) : Rounded(x.raw()) { }
     friend Rounded<FloatType>& operator/=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1=x1/x2; }
 
     // Convert mixed ExactDouble operands through the selected backend and
-    // its active rounding mode; never hard-wire the MPFR implementation.
+    // its active rounding mode; never hard-wire the independent exact arithmetic implementation.
     friend Rounded<FloatType> operator+(Rounded<FloatType> x1, ExactDouble x2) { return x1+Rounded<FloatType>(x2,x1.precision()); }
     friend Rounded<FloatType> operator-(Rounded<FloatType> x1, ExactDouble x2) { return x1-Rounded<FloatType>(x2,x1.precision()); }
     friend Rounded<FloatType> operator*(Rounded<FloatType> x1, ExactDouble x2) { return x1*Rounded<FloatType>(x2,x1.precision()); }
