@@ -2452,7 +2452,7 @@ void TestBigUnsigned::test_division()
     ARIADNE_TEST_ASSERT(compare(q3,radix)==0 && r3.is_zero());
 
     GmpInteger a,b,q,r;
-    st    std::array<std::ifstream,6u> a29_general;
+    std::array<std::ifstream,6u> a29_general;
     for (std::size_t part=0u;part<a29_general.size();++part) {
         const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
             "/big_unsigned_a29_division_"+std::to_string(part)+".tsv";
