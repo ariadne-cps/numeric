@@ -38,7 +38,6 @@
 #include <utility>
 #include <vector>
 
-#include <gmp.h>
 #include "macro/testing.hpp"
 
 using namespace Ariadne;
@@ -253,27 +252,6 @@ void check_gcd_golden(std::ifstream& golden,
     check_against_precomputed_hex(right,rhs);
 }
 
-void check_against_gmp(BigUnsigned const& x, mpz_srcptr expected)
-{
-    mpz_t native;
-    mpz_init(native);
-    const auto digits = x.limbs();
-    mpz_import(native,digits.size(),-1,sizeof(BigUnsigned::Limb),0,0,digits.data());
-    ARIADNE_TEST_ASSERT(mpz_cmp(native,expected)==0);
-    ARIADNE_TEST_ASSERT(x.is_zero() == (mpz_sgn(native)==0));
-    ARIADNE_TEST_ASSERT(x.bit_length() ==
-        (mpz_sgn(native)==0 ? 0u : mpz_sizeinbase(native,2)));
-    ARIADNE_TEST_ASSERT(digits.empty() || digits.back()!=0u);
-    mpz_clear(native);
-}
-
-struct GmpInteger {
-    mpz_t value;
-    GmpInteger() { mpz_init(value); }
-    ~GmpInteger() { mpz_clear(value); }
-    GmpInteger(GmpInteger const&) = delete;
-    GmpInteger& operator=(GmpInteger const&) = delete;
-};
 
 class TestBigUnsigned
 {
