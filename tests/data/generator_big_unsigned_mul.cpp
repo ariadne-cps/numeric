@@ -24,6 +24,43 @@ Nat low_product(Nat value,std::size_t limbs) {
     value.trim();
     return value;
 }
+// A2: reproduce all 11*192 original B32 square source visits exactly.
+// Each mt19937_64 draw is consumed before applying the original transforms;
+// expected squares use the independent shift/add exact multiplication above.
+std::string b32() {
+    std::string out=
+        "# B32 independent exact square oracle; all 2,112 original source visits.\n"
+        "# count repetition input_hex square_hex\n"
+        "# Original mt19937_64(0xB3205A7E) stream; all draws preserved, even when overwritten.\n"
+        "# Expected squares computed with independent binary shift/add multiplication.\n"
+        "# No Numeric, GMP, MPFR, FloatMP or Boost.\n";
+    std::mt19937_64 rng(0xB3205A7EULL);
+    std::size_t rows=0u;
+    for(std::size_t count:{1u,2u,7u,8u,9u,12u,16u,32u,64u,96u,128u}) {
+        for(unsigned repetition=0u;repetition<192u;++repetition) {
+            Words words(count);
+            for(auto& word:words)word=rng();
+            if(repetition%13u==0u)std::fill(words.begin(),words.end(),UINT64_MAX);
+            else if(repetition%17u==0u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+            } else if(repetition%19u==0u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u;
+                words.back()=UINT64_MAX;
+            } else if(repetition%23u==0u) {
+                std::fill(words.begin(),words.end(),0u);
+            }
+            const Nat input(std::move(words));
+            out+=row({std::to_string(count),std::to_string(repetition),
+                      input.hex(),multiply(input,input).hex()});
+            ++rows;
+        }
+    }
+    if(rows!=2112u)throw std::runtime_error("wrong B32 row count");
+    return out;
+}
+
 std::string b35() {
     std::string out=
       "# B35 frozen independent exact Karatsuba product oracle.\n"
@@ -214,6 +251,7 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_b35.tsv",b35(),write);
         independent_oracle::output(dir,"big_unsigned_b37.tsv",b37(),write);
         independent_oracle::output(dir,"big_unsigned_b38.tsv",b38(),write);
+        independent_oracle::output(dir,"big_unsigned_b32.tsv",b32(),write);
         independent_oracle::output(dir,"big_unsigned_accumulation.tsv",accumulation(),write);
         return 0;
     } catch(std::exception const& ex) {

@@ -99,6 +99,7 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_product.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B54_SQUARE_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_square.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B32_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b32.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B37_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b37.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B38_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b38.tsv";
 
@@ -608,8 +609,6 @@ void TestBigUnsigned::test_multiplication()
     ARIADNE_TEST_ASSERT(compare(square(one),one) == 0);
 
     std::mt19937_64 engine(0x1282561024ULL);
-    GmpInteger a,b,c,t;
-
     // R14: independent frozen self-product references. Preserve all
     // original draws from the shared engine: later randomized tests
     // must continue to use exactly the same inputs.
@@ -652,8 +651,6 @@ void TestBigUnsigned::test_multiplication()
     std::string extra_square;
     if (square_golden >> extra_square)
         throw std::runtime_error("Extra R14 square oracle rows");
-
-    static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 64u*80u);
 
     // B72: independent frozen product and square expectations for
     // every width pair on either side of the owning 4/5-limb threshold.
@@ -995,9 +992,13 @@ void TestBigUnsigned::test_multiplication()
     if (b38_golden >> b38_extra)
         throw std::runtime_error("Extra B38 oracle rows");
 
-    // B32: validate the symmetric squaring threshold and large carry
-    // chains against GMP; verify mul(x,x) independently remains exact.
-    // Include dense/sparse, saturated and exact high-limb boundaries.
+    // A2/B32: retain all 2,112 original random-source visits, including
+    // overwritten mt19937_64 draws. Exact expectations are independent TSV
+    // squares, not GMP computations at runtime.
+    std::ifstream b32_golden(ARIADNE_BIG_UNSIGNED_B32_ORACLE_PATH);
+    if (!b32_golden) throw std::runtime_error("Missing B32 square TSV");
+    std::string b32_header;
+    while (b32_golden.peek()=='#') std::getline(b32_golden,b32_header);
     std::mt19937_64 square_engine(0xB3205A7EULL);
     for (const std::size_t count:
             {1u,2u,7u,8u,9u,12u,16u,32u,64u,96u,128u}) {
@@ -1016,14 +1017,24 @@ void TestBigUnsigned::test_multiplication()
             } else if (repetition%23u==0u) {
                 std::fill(words.begin(),words.end(),0u);
             }
+            std::size_t source_count=0u;
+            unsigned source_repetition=0u;
+            std::string input_hex,square_hex;
+            if (!(b32_golden >> source_count >> source_repetition
+                             >> input_hex >> square_hex)
+                || source_count!=count || source_repetition!=repetition)
+                throw std::runtime_error("Missing or unordered B32 TSV row");
             const BigUnsigned value(words);
-            mpz_import(a.value,value.size(),-1,sizeof(std::uint64_t),
-                       0,0,value.limbs().data());
-            mpz_mul(t.value,a.value,a.value);
-            check_against_gmp(square(value),t.value);
-            check_against_gmp(mul(value,value),t.value);
+            ARIADNE_TEST_ASSERT(value.size()<=count);
+            check_against_precomputed_hex(value,input_hex);
+            check_against_precomputed_hex(square(value),square_hex);
+            check_against_precomputed_hex(mul(value,value),square_hex);
+            check_against_precomputed_hex(value,input_hex);
         }
     }
+    std::string b32_extra;
+    if (b32_golden >> b32_extra)
+        throw std::runtime_error("Extra B32 TSV rows");
 }
 
 void TestBigUnsigned::test_views_and_scratch()

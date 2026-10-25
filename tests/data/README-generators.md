@@ -678,3 +678,27 @@ byte-for-byte on 1,441,196 bytes, Git blob
 Clang strict C++20 generator compilation plus --verify passed on the
 fixture. This is one converted GMP runtime test method; other GMP
 numerical oracle methods have deliberately not been touched.
+
+### A2 — complete B32 runtime GMP square oracle migration (25 October 2026)
+
+Migrate all 11 x 192 = 2,112 original B32 squared-input visits in
+`TestBigUnsigned::test_multiplication()` from GMP to a source-keyed
+independent `big_unsigned_b32.tsv` oracle. The seed
+`mt19937_64(0xB3205A7E)`, 11 original widths, all 192 repetitions,
+all random draws (including overwritten draws), and the ordered
+13/17/19/23 divisibility transforms are unchanged. Each row freezes
+original width, repetition, canonical input hex and exact square.
+The consumer checks every source key and input, both `square(x)` and
+`mul(x,x)` against the independent exact expected square, source
+immutability and canonical shape; it rejects missing or extra rows.
+Only this B32 numerical GMP oracle is removed; other GMP checks
+remain. The existing `generator_big_unsigned_mul.cpp` uses its
+independent exact binary shift/add multiplication to produce the
+2,112-row B32 fixture alongside B35/B37/B38 and A1: 117 TSVs,
+still 32 generator executables. The independently reproduced B32
+fixture is 3,328,858 bytes, Git blob SHA
+`a9afcd45514a36df0faf7167fa275bb7569d6d1f`.
+GCC 14 and Clang 17 strict C++20 standalone source builds regenerate
+identical B32 bytes. Full CI/consumer validation is reported
+separately from generator-level validation; do not count it as passed
+until the test jobs complete. No production code was modified.
