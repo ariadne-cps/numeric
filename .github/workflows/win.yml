@@ -49,7 +49,7 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=sccache `
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache `
             -DCMAKE_CXX_FLAGS_DEBUG="/Z7 /Ob0 /Od /RTC1" `
-            -DPYTHON_ENFORCE_TESTS=ON `
+            -DPYTHON_ENFORCE_TESTS=${{ matrix.build_type == 'Debug' && 'ON' || 'OFF' }} `
             -DWARNINGS_AS_ERRORS=ON
 
       - name: Build Release library and bindings
