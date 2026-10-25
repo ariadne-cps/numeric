@@ -38,11 +38,9 @@ class Real;
 class TwoExp;
 
 class DoublePrecision;
-class MultiplePrecision;
 class ArbitraryPrecision;
 
 using DP = DoublePrecision;
-using MP = MultiplePrecision;
 
 template<class F> using PrecisionType = typename F::PrecisionType;
 
@@ -53,20 +51,16 @@ template<class X> class Positive;
 
 template<class... PRS> class Float;
 using FloatDP=Float<DP>;
-using FloatMP=Float<MP>;
 using FloatAP=Float<ArbitraryPrecision>;
 
 using DoublePrecisionFloat = FloatDP;
-using MultiplePrecisionFloat = FloatMP;
 using ArbitraryPrecisionFloat = FloatAP;
 
 using RawFloatDP = FloatDP;
-using RawFloatMP = FloatMP;
 using RawFloatAP = FloatAP;
 
 template<class F> struct IsARawFloat { static const bool value = false; };
 template<> struct IsARawFloat<FloatDP> { static const bool value = true; };
-template<> struct IsARawFloat<FloatMP> { static const bool value = true; };
 template<> struct IsARawFloat<FloatAP> { static const bool value = true; };
 template<class F> concept ARawFloat = IsARawFloat<F>::value;
 
@@ -149,7 +143,6 @@ template<class P, class PR, class PRE=PR> using FloatType = typename FloatTypede
 
 //template<class P, class PR, class PRE=PR> using Float = typename FloatTypedef<P,PR,PRE>::Type;
 //template<class P> using FloatDP=Float<P,DoublePrecision>;
-//template<class P> using FloatMP=Float<P,MultiplePrecision>;
 
 
 //! \relates Float<DP>
@@ -171,31 +164,11 @@ using PositiveFloatDPUpperBound = PositiveFloatUpperBound<DoublePrecision>; //!<
 using PositiveFloatDPLowerBound = PositiveFloatLowerBound<DoublePrecision>; //!< <p/>
 using PositiveFloatDPApproximation = PositiveFloatApproximation<DoublePrecision>; //!< <p/>
 
-using FloatMPDPBall = FloatBall<MultiplePrecision,DoublePrecision>; //!< <p/>
 //!@}
 
-//! \relates Float<MP>
-//! \name Type synonyms for FloatMP based numbers.
+//! \relates Float<ArbitraryPrecision>
+//! \name Type synonyms for FloatAP based numbers.
 //!@{
-using FloatMP = Float<MultiplePrecision>; //!< <p/>
-using FloatMPBall = FloatBall<MultiplePrecision>; //!< <p/>
-using FloatMPBounds = FloatBounds<MultiplePrecision>; //!< <p/>
-using FloatMPUpperBound = FloatUpperBound<MultiplePrecision>; //!< <p/>
-using FloatMPLowerBound = FloatLowerBound<MultiplePrecision>; //!< <p/>
-using FloatMPApproximation = FloatApproximation<MultiplePrecision>; //!< <p/>
-
-using FloatMPError = FloatError<MultiplePrecision>; //!< <p/>
-
-using PositiveFloatMP = PositiveFloat<MultiplePrecision>; //!< <p/>
-using PositiveFloatMPBall = PositiveFloatBall<MultiplePrecision>; //!< <p/>
-using PositiveFloatMPBounds = PositiveFloatBounds<MultiplePrecision>; //!< <p/>
-using PositiveFloatMPUpperBound = PositiveFloatUpperBound<MultiplePrecision>; //!< <p/>
-using PositiveFloatMPLowerBound = PositiveFloatLowerBound<MultiplePrecision>; //!< <p/>
-using PositiveFloatMPApproximation = PositiveFloatApproximation<MultiplePrecision>; //!< <p/>
-
-using FloatMDPBall = FloatBall<MultiplePrecision,DoublePrecision>; //!< <p/>
-
-//! Native arbitrary-precision counterparts of all FloatMP family aliases.
 using FloatAPDPBall = FloatBall<ArbitraryPrecision,DoublePrecision>;
 using FloatAPBall = FloatBall<ArbitraryPrecision>;
 using FloatAPBounds = FloatBounds<ArbitraryPrecision>;
@@ -215,7 +188,6 @@ using PositiveFloatAPApproximation = PositiveFloatApproximation<ArbitraryPrecisi
 
 template<class X> struct IsFloat : False { };
 template<> struct IsFloat<FloatDP> : True { };
-template<> struct IsFloat<FloatMP> : True { };
 template<> struct IsFloat<FloatAP> : True { };
 template<class F> struct IsFloat<Approximation<F>> : IsFloat<F> { };
 template<class F> struct IsFloat<LowerBound<F>> : IsFloat<F> { };
@@ -230,7 +202,6 @@ template<class F> concept AFloat = IsFloat<F>::value;
 template<class T> struct IsNumber;
 template<> struct IsNumber<Dbl> : True { };
 template<> struct IsNumber<FloatDP> : True { };
-template<> struct IsNumber<FloatMP> : True { };
 template<> struct IsNumber<FloatAP> : True { };
 template<class F> struct IsNumber<Approximation<F>> : IsNumber<F> { };
 template<class F> struct IsNumber<Bounds<F>> : IsNumber<F> { };

@@ -144,6 +144,7 @@ template<> class Float<ArbitraryPrecision> {
         Rounding(RoundTowardZero const&) noexcept;
         Rounding(RoundApproximately const&) noexcept;
         Rounding(CurrentRoundingMode const&) noexcept;
+        Rounding(Ariadne::Rounding const&) noexcept;
         constexpr Value value() const noexcept { return _value; }
         friend constexpr bool operator==(Rounding const&, Rounding const&) = default;
     };
@@ -546,7 +547,7 @@ template<> class Float<ArbitraryPrecision> {
     friend Bounds<FloatAP> asin(FloatAP const& x);
     friend Bounds<FloatAP> acos(FloatAP const& x);
     friend Bounds<FloatAP> atan(FloatAP const& x);
-    // FloatMP-compatible current-rounding overloads, using native FloatAP.
+    // Current-rounding overloads, using native FloatAP.
     friend FloatAP sqr(CurrentRoundingMode, FloatAP const& x);
     friend FloatAP rec(CurrentRoundingMode, FloatAP const& x);
     friend FloatAP add(CurrentRoundingMode, FloatAP const& x1, FloatAP const& x2);

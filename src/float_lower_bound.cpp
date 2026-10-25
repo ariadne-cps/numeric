@@ -26,16 +26,13 @@
 #include "float_lower_bound.tpl.hpp"
 
 #include "floatdp.hpp"
-#include "floatmp.hpp"
 #include "floatap.hpp"
 
 namespace Ariadne {
 
 LowerBound<Dyadic>::LowerBound(LowerBound<FloatDP> const& x) : LowerBound(Dyadic(x.raw())) { }
-LowerBound<Dyadic>::LowerBound(LowerBound<FloatMP> const& x) : LowerBound(Dyadic(Rational(x.raw()))) { }
 LowerBound<Dyadic>::LowerBound(LowerBound<FloatAP> const& x) : LowerBound(Dyadic(x.raw())) { }
 LowerBound<FloatDP> LowerBound<Dyadic>::get(DoublePrecision pr) const { return LowerBound<FloatDP>(FloatDP(this->raw(),down,pr)); }
-LowerBound<FloatMP> LowerBound<Dyadic>::get(MultiplePrecision pr) const { return LowerBound<FloatMP>(FloatMP(this->raw(),down,pr)); }
 
 template<> LowerBound<FloatDP>::LowerBound(Real const&, DoublePrecision);
 
@@ -49,15 +46,11 @@ template<> LowerBound<FloatAP>::LowerBound(ValidatedLowerNumber const& y, Arbitr
 // generic LowerReal computation creates a FloatAP lower endpoint from
 // an already rigorously enclosed FloatAP interval.
  // Complete the same outward-rounding and precision-conversion constructors
- // used by NumberGetterMixin for FloatMP.
 
 
-template class LowerBound<FloatMP>;
-// Export the complete native directed-bound API just as for FloatMP.
 template class LowerBound<FloatAP>;
 
 template<> String class_name<LowerBound<FloatDP>>() { return "FloatDPLowerBound"; }
-template<> String class_name<LowerBound<FloatMP>>() { return "FloatMPLowerBound"; }
 template<> String class_name<LowerBound<FloatAP>>() { return "FloatAPLowerBound"; }
 
 } // namespace Ariadne

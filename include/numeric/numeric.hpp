@@ -55,8 +55,6 @@ namespace Ariadne {
 template<class R, class A> inline R numeric_cast(const A& a) { return R(a); }
 
 template<> inline Int numeric_cast(const FloatDP& a) { return Int(a.get_d()); }
-template<> inline Int numeric_cast(const FloatMP& a) { return Int(a.get_d()); }
-// Match the existing FloatDP/FloatMP integer-conversion contract for FloatAP.
 template<> inline Int numeric_cast(const FloatAP& a) { return Int(a.get_d()); }
 template<> inline double numeric_cast(const FloatDP& a) { return a.get_d(); }
 template<> inline double numeric_cast(const Dyadic& a) { return a.get_d(); }

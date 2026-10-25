@@ -32,7 +32,7 @@
 #include "real.hpp"
 
 #include "floatdp.hpp"
-#include "floatmp.hpp"
+#include "floatap.hpp"
 #include "float_ball.hpp"
 #include "float_bounds.hpp"
 #include "float_upper_bound.hpp"
@@ -50,18 +50,18 @@ static_assert(TranscendentalField<Real> && OrderedLattice<Real>);
 
 
 static_assert(IsRoundedLatticeField<FloatDP>);
-static_assert(IsRoundedLatticeField<FloatMP>);
+static_assert(IsRoundedLatticeField<FloatAP>);
 static_assert(IsRoundedLatticeField<RoundedArchetype>);
 
 static_assert(OrderedLatticeTranscendentalField<Ball<FloatDP,FloatDP>>);
-static_assert(OrderedLatticeTranscendentalField<Ball<FloatMP,FloatDP>>);
-static_assert(OrderedLatticeTranscendentalField<Ball<FloatMP,FloatMP>>);
+static_assert(OrderedLatticeTranscendentalField<Ball<FloatAP,FloatDP>>);
+static_assert(OrderedLatticeTranscendentalField<Ball<FloatAP,FloatAP>>);
 
 static_assert(OrderedLatticeTranscendentalField<Bounds<FloatDP>>);
-static_assert(OrderedLatticeTranscendentalField<Bounds<FloatMP>>);
+static_assert(OrderedLatticeTranscendentalField<Bounds<FloatAP>>);
 
 static_assert(OrderedLatticeTranscendentalField<Approximation<FloatDP>>);
-static_assert(OrderedLatticeTranscendentalField<Approximation<FloatMP>>);
+static_assert(OrderedLatticeTranscendentalField<Approximation<FloatAP>>);
 
 static_assert(DirectedGroups<LowerBound<FloatDP>,UpperBound<FloatDP>>);
 static_assert(DirectedGroup<LowerBound<FloatDP>>);
@@ -71,8 +71,8 @@ static_assert(DirectedGroup<LowerBound<FloatDP>>);
 static_assert(Monotone<LowerBound<FloatDP>>);
 
 static_assert(DirectedSemiField<Positive<UpperBound<FloatDP>>>);
-static_assert(DirectedSemiField<Positive<UpperBound<FloatMP>>>);
+static_assert(DirectedSemiField<Positive<UpperBound<FloatAP>>>);
 static_assert(DirectedSemiField<Positive<LowerBound<FloatDP>>>);
-static_assert(DirectedSemiField<Positive<LowerBound<FloatMP>>>);
+static_assert(DirectedSemiField<Positive<LowerBound<FloatAP>>>);
 
 } // namespace Ariadne

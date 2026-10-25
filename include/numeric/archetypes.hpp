@@ -39,7 +39,6 @@ class Real;
 class TwoExp;
 
 class DoublePrecision;
-class MultiplePrecision;
 
 struct DecimalPlaces;
 struct DecimalPrecision;
@@ -66,7 +65,6 @@ using ValidatedUpperNumber = UpperNumber<ValidatedTag>;
 
 template<class... PRS> class Float;
 using FloatDP=Float<DoublePrecision>;
-using FloatMP=Float<MultiplePrecision>;
 
 class RoundedArchetype {
   public:

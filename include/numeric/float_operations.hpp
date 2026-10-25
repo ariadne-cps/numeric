@@ -249,7 +249,7 @@ template<class FLT> class DeclareRoundedOperations {
 } // namespace Ariadne
 
 #include "floatdp.hpp"
-#include "floatmp.hpp"
+#include "floatap.hpp"
 
 #include "float_factory.hpp"
 

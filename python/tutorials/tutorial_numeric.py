@@ -102,10 +102,10 @@ def tutorial_numeric():
     section("Floating-point precision")
 
     dp = DoublePrecision()
-    mp = MultiplePrecision(128)
+    ap = ArbitraryPrecision(128)
 
     pi_dp = pi_value.get(dp)
-    pi_mp = pi_value.get(mp)
+    pi_mp = pi_value.get(ap)
 
     show("pi with double precision", pi_dp)
     show("pi with 128-bit multiple precision", pi_mp)
@@ -121,7 +121,7 @@ def tutorial_numeric():
     accurate_pi = pi_value.compute(requested_accuracy)
     show("pi computed to 128 bits of accuracy", accurate_pi)
 
-    accurate_pi_mp = accurate_pi.get(mp)
+    accurate_pi_mp = accurate_pi.get(ap)
     show("validated pi at 128-bit precision", accurate_pi_mp)
     show("validated pi error", accurate_pi_mp.error())
 
@@ -138,10 +138,10 @@ def tutorial_numeric():
     section("Raw floating-point numbers")
 
     raw_dp = FloatDP(x_(1.75), dp)
-    raw_mp = FloatMP(x_(1.75), mp)
+    raw_mp = FloatAP(x_(1.75), ap)
 
     show("FloatDP 1.75", raw_dp)
-    show("FloatMP 1.75", raw_mp)
+    show("FloatAP 1.75", raw_mp)
 
     # 8. Validated floating-point bounds
     section("Validated floating-point bounds")
@@ -163,8 +163,8 @@ def tutorial_numeric():
     # 9. Multiple-precision validated bounds
     section("Multiple-precision bounds")
 
-    mp_decimal_bounds = FloatMPBounds(Decimal("1.2"), mp)
-    mp_interval = FloatMPBounds(Rational(11, 10), Rational(14, 10), mp)
+    mp_decimal_bounds = FloatAPBounds(Decimal("1.2"), ap)
+    mp_interval = FloatAPBounds(Rational(11, 10), Rational(14, 10), ap)
 
     show("128-bit bounds for decimal 1.2", mp_decimal_bounds)
     show("128-bit bounds for [11/10,14/10]", mp_interval)
@@ -174,7 +174,7 @@ def tutorial_numeric():
     section("Floating-point approximations")
 
     approximation_dp = FloatDPApproximation(1.23, dp)
-    approximation_mp = FloatMPApproximation(1.23, mp)
+    approximation_mp = FloatAPApproximation(1.23, ap)
 
     show("double-precision approximation to 1.23", approximation_dp)
     show("multiple-precision approximation to 1.23", approximation_mp)
@@ -185,7 +185,7 @@ def tutorial_numeric():
     # 11. Ball representation
     section("Validated balls")
 
-    pi_ball = FloatMPBall(pi_value.compute(Accuracy(bits=128)).get(mp))
+    pi_ball = FloatAPBall(pi_value.compute(Accuracy(bits=128)).get(ap))
     show("pi represented as a multiple-precision ball", pi_ball)
     show("ball error", pi_ball.error())
 
@@ -222,7 +222,7 @@ def tutorial_numeric():
     result = exp(-x) * sin(pi_value / 4)
 
     validated_result = result.compute(Accuracy(bits=128))
-    result_bounds = validated_result.get(mp)
+    result_bounds = validated_result.get(ap)
 
     show("result as a Real", result)
     show("result with requested accuracy", validated_result)

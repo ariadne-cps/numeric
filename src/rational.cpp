@@ -39,7 +39,6 @@
 #include "integer.hpp"
 #include "dyadic.hpp"
 #include "floatdp.hpp"
-#include "floatmp.hpp"
 #include "floatap.hpp"
 #include "sign.hpp"
 #include "extended.hpp"
@@ -570,7 +569,6 @@ Rational::Rational(ExactDouble const& x) {
 }
 
 Rational::Rational(FloatDP const& x) : Rational(ExactDouble(x.get_d())) { }
-Rational::Rational(FloatMP const& x) : Rational(x.operator Rational()) { }
 Rational::Rational(FloatAP const& x) : Rational(x.operator Rational()) { }
 
 Rational::Rational(String const& str) {

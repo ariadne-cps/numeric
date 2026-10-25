@@ -35,7 +35,6 @@ namespace Ariadne {
 
 
 template<> struct GenericTrait<FloatDP> { typedef ExactNumber Type; };
-template<> struct GenericTrait<FloatMP> { typedef ExactNumber Type; };
 template<> struct GenericTrait<FloatAP> { typedef ExactNumber Type; };
 template<class F> struct GenericTrait<Approximation<F>> { typedef ApproximateNumber Type; };
 template<class F> struct GenericTrait<LowerBound<F>> { typedef ValidatedLowerNumber Type; };
@@ -45,7 +44,6 @@ template<class F, class FE> struct GenericTrait<Ball<F,FE>> { typedef ValidatedN
 template<class F> struct GenericTrait<Error<F>> { typedef PositiveValidatedUpperNumber Type; };
 
 template<> struct CharacteristicsTrait<FloatDP> { typedef DP Type; };
-template<> struct CharacteristicsTrait<FloatMP> { typedef MP Type; };
 template<> struct CharacteristicsTrait<FloatAP> { typedef ArbitraryPrecision Type; };
 template<class F> struct CharacteristicsTrait<Approximation<F>> { typedef CharacteristicsType<F> Type; };
 template<class F> struct CharacteristicsTrait<LowerBound<F>> { typedef CharacteristicsType<F> Type; };
@@ -63,11 +61,6 @@ template<class F> struct ConcreteTraits<Rounded<F>> {
 template<> struct ConcreteTraits<FloatDP> {
     typedef ExactNumber GenericType;
     typedef DP CharacteristicsType;
-};
-
-template<> struct ConcreteTraits<FloatMP> {
-    typedef ExactNumber GenericType;
-    typedef MP CharacteristicsType;
 };
 
 template<> struct ConcreteTraits<FloatAP> {
@@ -107,14 +100,6 @@ template<class F> struct ConcreteTraits<Error<F>> {
 
 template<> struct NumericTraits<FloatDP> {
     using F=FloatDP;
-    typedef F OppositeType;
-    typedef Positive<F> PositiveType;
-    typedef Boolean LessType;
-    typedef Boolean EqualsType;
-};
-
-template<> struct NumericTraits<FloatMP> {
-    using F=FloatMP;
     typedef F OppositeType;
     typedef Positive<F> PositiveType;
     typedef Boolean LessType;

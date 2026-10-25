@@ -1,7 +1,7 @@
 /***************************************************************************
  *            benchmark_backend_workload.hpp
  *
- *  Shared operation pool for FloatMP/FloatAP and FloatDP/FloatAP.
+ *  Shared operation pool for FloatAP and FloatDP/FloatAP.
  ****************************************************************************/
 
 #ifndef ARIADNE_NUMERIC_BENCHMARK_BACKEND_WORKLOAD_HPP
@@ -24,7 +24,7 @@ inline constexpr unsigned backend_operation_count=56u;
 
 // Keep both comparison executables on the same operation battery
 // and identical, deterministic 32-element exact-rational input pool.
-// Changing the workload here deliberately changes BOTH benchmarks.
+// Changing the workload here deliberately changes all backend benchmarks.
 template< class T > inline void keep_alive(T const& value) {
 #if defined(__GNUC__) || defined(__clang__)
     asm volatile("" : : "g"(& value) : "memory");

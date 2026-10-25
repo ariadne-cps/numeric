@@ -25,24 +25,15 @@ from pyariadne import *
 
 def test_generics():
     assert(DP==DoublePrecision)
-    assert(MP==MultiplePrecision)
     assert(AP==ArbitraryPrecision)
     assert(Float[DP]==FloatDP)
-    assert(Float[MP]==FloatMP)
     assert(Float[AP]==FloatAP)
     assert(Ball[FloatDP]==FloatDPBall)
-    assert(Ball[FloatMP]==FloatMPBall)
     assert(Bounds[FloatDP]==FloatDPBounds)
-    assert(Bounds[FloatMP]==FloatMPBounds)
     assert(UpperBound[FloatDP]==FloatDPUpperBound)
-    assert(UpperBound[FloatMP]==FloatMPUpperBound)
     assert(LowerBound[FloatDP]==FloatDPLowerBound)
-    assert(LowerBound[FloatMP]==FloatMPLowerBound)
     assert(Approximation[FloatDP]==FloatDPApproximation)
-    assert(Approximation[FloatMP]==FloatMPApproximation)
     assert(Ball[FloatDP,FloatDP]==FloatDPBall)
-    assert(Ball[FloatMP,FloatDP]==FloatMPDPBall)
-    assert(Ball[FloatMP,FloatMP]==FloatMPBall)
     assert(Ball[FloatAP]==FloatAPBall)
     assert(Bounds[FloatAP]==FloatAPBounds)
     assert(UpperBound[FloatAP]==FloatAPUpperBound)
@@ -54,12 +45,10 @@ def test_generics():
 def test_regression():
     # New regression tests
     dp = DoublePrecision()
-    mp = MultiplePrecision(52)
     # Questions: Should the following conversions from double be allowed?
     ExactDouble(1.3) # Can we construct ExactDouble when input probably not exact?
     Dyadic(exact(1.375))
     FloatDP("1.375",dp)
-    FloatMP("1.375",mp)
 
     z=Integer(1)
     w=Dyadic(1)
@@ -253,12 +242,9 @@ def check_rounded(x):
 def test_rounded():
     w=Dyadic(3,1); q=Rational(1,3);
     dp=DoublePrecision(); RoundedFloatDP(w,dp); RoundedFloatDP(q,dp); 
-    mp=MultiplePrecision(128); RoundedFloatMP(w,mp); RoundedFloatMP(q,mp); 
     ap=ArbitraryPrecision(128); RoundedFloatAP(w,ap); RoundedFloatAP(q,ap); 
     dp=DoublePrecision(); FloatDP(w,dp); FloatDP(q,up,dp); FloatDP.eps(dp);
-    mp=MultiplePrecision(128); FloatMP(w,mp); FloatMP(q,up,mp); FloatMP.eps(mp);
     check_rounded(FloatDP(w,dp))
-    check_rounded(FloatMP(w,mp))
     check_rounded(FloatAP(w,ap))
 
 
@@ -272,7 +258,6 @@ def test_concrete():
     r=Real(q)
 
     dp=DoublePrecision()
-    mp=MultiplePrecision(64)
     ax=FloatDPApproximation(2.25,dp)
     bx=FloatDPBounds(dp)
     bx=FloatDPBounds(5,dp)
@@ -329,13 +314,6 @@ def test_concrete():
     check_arithmetic(ax,vy,r=ax)
     check_arithmetic(ax,ay,r=ax)
 
-    mx=FloatMPDPBall(xd,mp)
-    check_arithmetic(mx,mx,r=mx)
-    check_arithmetic(mx,n,r=mx)
-    check_arithmetic(mx,w,r=mx)
 
 
 def test_ball_string_is_utf8():
-    mp = MultiplePrecision(128)
-    ball = FloatMPBall("1.0", "0.1", mp)
-    assert "±" in str(ball)

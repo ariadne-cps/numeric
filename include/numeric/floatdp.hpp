@@ -190,8 +190,6 @@ template<> class Float<DP>
     explicit Float(Dyadic const& w, RoundingModeType rnd, PrecisionType pr);
     //! \brief Construct from a decimal number with given rounding
     explicit Float(Decimal const& d, RoundingModeType rnd, PrecisionType pr);
-    //! \brief Construct from a FloatMP using given rounding
-    explicit Float(FloatMP const& d, RoundingModeType rnd, PrecisionType pr);
     //! \brief Construct from a FloatAP using given rounding
     explicit Float(FloatAP const& d, RoundingModeType rnd, PrecisionType pr);
     //! \brief Construct from a rational number with given rounding

@@ -80,7 +80,6 @@ class Rational
     template<BuiltinIntegral N> Rational(N n);
     Rational(Int64);
     explicit Rational(FloatDP const&);
-    explicit Rational(FloatMP const&);
     explicit Rational(FloatAP const&);
     Rational(const ExactDouble&);
     Rational(const Integer&);

@@ -31,8 +31,6 @@ namespace Ariadne {
 int abslog10floor(double);
 
 template<> OutputStream& Operations<FloatBall<DoublePrecision>>::_write(OutputStream& os, FloatBall<DoublePrecision> const& x);
-template<> OutputStream& Operations<FloatBall<MultiplePrecision,DoublePrecision>>::_write(OutputStream& os, FloatBall<MultiplePrecision,DoublePrecision> const& x);
-template<> OutputStream& Operations<FloatBall<MultiplePrecision>>::_write(OutputStream& os, FloatBall<MultiplePrecision> const& x);
 
 template<> Ball<FloatDP,FloatDP>::Ball(Real const&, DoublePrecision);
 
@@ -41,17 +39,11 @@ template Ball<FloatDP,FloatDP> Operations<Ball<FloatDP,FloatDP>>::_trunc(Ball<Fl
 template Ball<FloatDP,FloatDP> Operations<Ball<FloatDP,FloatDP>>::_trunc(Ball<FloatDP,FloatDP> const&, Nat);
 template Integer Operations<Ball<FloatDP,FloatDP>>::_cast_integer(Ball<FloatDP,FloatDP> const&);
 template InputStream& Operations<Ball<FloatDP,FloatDP>>::_read(InputStream&, Ball<FloatDP,FloatDP>&);
-template class Ball<FloatMP,FloatDP>;
-template Ball<FloatMP,FloatDP> Operations<Ball<FloatMP,FloatDP>>::_trunc(Ball<FloatMP,FloatDP> const&);
-template Ball<FloatMP,FloatDP> Operations<Ball<FloatMP,FloatDP>>::_trunc(Ball<FloatMP,FloatDP> const&, Nat);
-template Integer Operations<Ball<FloatMP,FloatDP>>::_cast_integer(Ball<FloatMP,FloatDP> const&);
-template InputStream& Operations<Ball<FloatMP,FloatDP>>::_read(InputStream&, Ball<FloatMP,FloatDP>&);
 // Explicit instantiations for the FloatAP centre with double-precision error.
 template OutputStream& Operations<Ball<FloatAP,FloatDP>>::_write(
     OutputStream&, Ball<FloatAP,FloatDP> const&);
 
 
-// Match the FloatMP public constructors for both supported FloatAP error
 // precisions. The generic template definitions use exact FloatAP values
 // and round errors upward in the error precision.
 template OutputStream& Operations<Ball<FloatAP,FloatAP>>::_write(
@@ -61,16 +53,9 @@ template OutputStream& Operations<Ball<FloatAP,FloatAP>>::_write(
 // constructors at link time. Use their shared, outward-rounded definitions.
 
 
-template class Ball<FloatMP,FloatMP>;
 // Export both native centre/error precision combinations with the same
-// API surface as the corresponding FloatMP balls.
 template class Ball<FloatAP,FloatDP>;
 template class Ball<FloatAP,FloatAP>;
-template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&);
-template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&, Nat);
-template Integer Operations<Ball<FloatMP,FloatMP>>::_cast_integer(Ball<FloatMP,FloatMP> const&);
-template InputStream& Operations<Ball<FloatMP,FloatMP>>::_read(InputStream&, Ball<FloatMP,FloatMP>&);
-// The native ball operations have the same semantic implementation as FloatMP.
 template Ball<FloatAP,FloatDP> Operations<Ball<FloatAP,FloatDP>>::_trunc(Ball<FloatAP,FloatDP> const&);
 template Ball<FloatAP,FloatDP> Operations<Ball<FloatAP,FloatDP>>::_trunc(Ball<FloatAP,FloatDP> const&, Nat);
 template Integer Operations<Ball<FloatAP,FloatDP>>::_cast_integer(Ball<FloatAP,FloatDP> const&);
@@ -82,77 +67,19 @@ template InputStream& Operations<Ball<FloatAP,FloatAP>>::_read(InputStream&, Bal
 
 
 template<> String class_name<Ball<FloatDP>>() { return "FloatDPBall"; }
-template<> String class_name<Ball<FloatMP,FloatDP>>() { return "FloatMDPBall"; }
-template<> String class_name<Ball<FloatMP>>() { return "FloatMPBall"; }
 template<> String class_name<Ball<FloatAP,FloatDP>>() { return "FloatAPDPBall"; }
 template<> String class_name<Ball<FloatAP,FloatAP>>() { return "FloatAPBall"; }
 
 Ball<FloatDP> FloatDP::pm(Error<FloatDP> const& e) const { return Ball<FloatDP>(*this,e); }
-Ball<FloatMP> FloatMP::pm(Error<FloatMP> const& e) const { return Ball<FloatMP>(*this,e); }
-Ball<FloatMP,FloatDP> FloatMP::pm(Error<FloatDP> const& e) const { return Ball<FloatMP,FloatDP>(*this,e); }
 Ball<FloatAP,FloatAP> FloatAP::pm(Error<FloatAP> const& e) const { return Ball<FloatAP,FloatAP>(*this,e); }
 Ball<FloatAP,FloatDP> FloatAP::pm(Error<FloatDP> const& e) const { return Ball<FloatAP,FloatDP>(*this,e); }
 
 
-template<> OutputStream& Operations<FloatBall<MultiplePrecision>>::_write(OutputStream& os, FloatBall<MultiplePrecision> const& x) {
-    // Write based on number of correct digits
-    static const double log2ten = 3.3219280948873621817;
-    static const char pmstr[] = "\xC2\xB1";
-    static const char hlfstr[] = "\xC2\xBD";
-    FloatMP const& v=x.value_raw();
-    FloatMP const& e=x.error_raw();
-    double edbl=e.get_d();
-    // Compute the number of decimal places to be displayed
-    Nat errplc = static_cast<Nat>(FloatError<MultiplePrecision>::output_places);
-    Nat log10err = static_cast<Nat>(abslog10floor(edbl));
-    Nat dgtserr = errplc-(log10err+1);
-    Nat dgtsval = (x.value()==0) ? dgtserr : static_cast<Nat>(std::floor((x.value().precision()+1-x.value().exponent())/log2ten));
-    Nat dgts = std::max(std::min(dgtsval,dgtserr),errplc);
-    if(edbl==0.0) { dgts = dgtsval; }
-
-    DecimalPlaces plcs{dgts};
-
-    // Get string version of mpfr values
-    String vstr=print(v,plcs,MPFR_RNDN);
-    String estr=print(e,plcs,MPFR_RNDU);
-
-    // Find position of first significan digit of error
-    auto vcstr=vstr.c_str(); auto ecstr=estr.c_str();
-    size_t cpl=0;
-    if(edbl==0.0) {
-        cpl=std::strlen(vcstr);
-    } else if(edbl<1.0) {
-        const char* vptr = std::strchr(vcstr,'.');
-        const char* eptr = std::strchr(ecstr,'.');
-        ++vptr; ++eptr;
-        while((*eptr)=='0') { ++eptr; ++vptr; }
-
-        cpl = static_cast<size_t>(vptr-vcstr);
-    }
-
-
-    // Chop and concatenate strings
-    String ostr=vstr.substr(0,cpl);
-    ostr += "[";
-    ostr += vstr.substr(cpl);
-    ostr += pmstr;
-    const size_t ecpl=std::min(cpl,estr.size());
-    ostr += estr.substr(ecpl);
-    ostr += hlfstr;
-    ostr += "]";
-    return os << ostr;
-}
-
-
-template<> OutputStream& Operations<FloatBall<MultiplePrecision,DoublePrecision>>::_write(OutputStream& os, FloatBall<MultiplePrecision,DoublePrecision> const& x) {
-    MultiplePrecision prec(64);
-    return os << FloatBall<MultiplePrecision,MultiplePrecision>(x.value_raw(),FloatMP(x.error_raw(),prec));
-}
-
-
 template<> OutputStream& Operations<FloatBall<DoublePrecision>>::_write(OutputStream& os, FloatBall<DoublePrecision> const& x) {
-    MultiplePrecision prec(64);
-    return os << FloatBall<MultiplePrecision>(FloatMP(x.value_raw(),prec),FloatMP(x.error_raw(),prec));
+    const ArbitraryPrecision prec(std::size_t{64});
+    return os << FloatBall<ArbitraryPrecision>(
+        FloatAP(ExactDouble(x.value_raw().get_d()),prec),
+        FloatAP(ExactDouble(x.error_raw().get_d()),prec));
 }
 
 } // namespace Ariadne

@@ -39,7 +39,6 @@
 #include "numeric/rational.hpp"
 #include "numeric/rounding.hpp"
 #include "numeric/floatdp.hpp"
-#include "numeric/floatmp.hpp"
 
 #include "numeric/concepts.hpp"
 

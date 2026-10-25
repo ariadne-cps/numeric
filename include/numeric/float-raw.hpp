@@ -31,7 +31,7 @@
 
 #include "float.decl.hpp"
 #include "floatdp.hpp"
-#include "floatmp.hpp"
+#include "floatap.hpp"
 #include "numeric/operators.hpp"
 
 namespace Ariadne {
@@ -102,75 +102,24 @@ inline FloatDP pi_approx(DoublePrecision const& pr) { return FloatDP::pi_near(pr
 inline FloatDP pi_down(DoublePrecision const& pr) { return FloatDP::pi_down(pr); }
 
 
-inline FloatMP nul(exact,FloatMP x) { return nul(x); }
-inline FloatMP pos(exact,FloatMP x) { return pos(x); }
-inline FloatMP neg(exact,FloatMP x) { return neg(x); }
-inline FloatMP hlf(exact,FloatMP x) { return hlf(x); }
-
-inline FloatMP max(exact,FloatMP x1, FloatMP x2) { return max(x1,x2); }
-inline FloatMP min(exact,FloatMP x1, FloatMP x2) { return min(x1,x2); }
-inline FloatMP abs(exact,FloatMP x) { return abs(x); }
 
 
-inline FloatMP add(approx,FloatMP const& x1, FloatMP const& x2) { return add(near,x1,x2); }
-inline FloatMP add(near,FloatMP const& x1, FloatMP const& x2) { return add(near,x1,x2); }
-inline FloatMP add(up,FloatMP const& x1, FloatMP const& x2) { return add(up,x1,x2); }
-inline FloatMP add(down,FloatMP const& x1, FloatMP const& x2) { return add(down,x1,x2); }
 
-inline FloatMP sub(approx,FloatMP const& x1, FloatMP const& x2) { return sub(near,x1,x2); }
-inline FloatMP sub(near,FloatMP const& x1, FloatMP const& x2) { return sub(near,x1,x2); }
-inline FloatMP sub(up,FloatMP const& x1, FloatMP const& x2) { return sub(up,x1,x2); }
-inline FloatMP sub(down,FloatMP const& x1, FloatMP const& x2) { return sub(down,x1,x2); }
 
-inline FloatMP mul(approx,FloatMP const& x1, FloatMP const& x2) { return mul(near,x1,x2); }
-inline FloatMP mul(near,FloatMP const& x1, FloatMP const& x2) { return mul(near,x1,x2); }
-inline FloatMP mul(up,FloatMP const& x1, FloatMP const& x2) { return mul(up,x1,x2); }
-inline FloatMP mul(down,FloatMP const& x1, FloatMP const& x2) { return mul(down,x1,x2); }
 
-inline FloatMP div(approx,FloatMP const& x1, FloatMP const& x2) { return div(near,x1,x2); }
-inline FloatMP div(near,FloatMP const& x1, FloatMP const& x2) { return div(near,x1,x2); }
-inline FloatMP div(up,FloatMP const& x1, FloatMP const& x2) { return div(up,x1,x2); }
-inline FloatMP div(down,FloatMP const& x1, FloatMP const& x2) { return div(down,x1,x2); }
 
-inline FloatMP pow(approx,FloatMP const& x, Int n) { return pow(near,x,n); }
-inline FloatMP pow(up,FloatMP const& x, Int n) { return pow(up,x,n); }
-inline FloatMP pow(down,FloatMP const& x, Int n) { return pow(down,x,n); }
 
-inline FloatMP next(down,FloatMP const& x) { return sub(down,x,FloatMP::min(x.precision())); }
-inline FloatMP next(up,FloatMP const& x) { return add(up,x,FloatMP::min(x.precision())); }
 
-inline FloatMP rec(approx,FloatMP const& x) { return rec(near,x); }
-inline FloatMP rec(near,FloatMP const& x) { return rec(near,x); }
-inline FloatMP rec(up,FloatMP const& x) { return rec(up,x); }
-inline FloatMP rec(down,FloatMP const& x) { return rec(down,x); }
 
-inline FloatMP sqrt(up,FloatMP const& x) { return sqrt(up,x); }
-inline FloatMP sqrt(down,FloatMP const& x) { return sqrt(down,x); }
 
-inline FloatMP exp(up,FloatMP const& x) { return exp(up,x); }
-inline FloatMP exp(down,FloatMP const& x) { return exp(down,x); }
 
-inline FloatMP log(up,FloatMP const& x) { return log(up,x); }
-inline FloatMP log(down,FloatMP const& x) { return log(down,x); }
 
-inline FloatMP sin(up,FloatMP const& x) { return sin(up,x); }
-inline FloatMP sin(down,FloatMP const& x) { return sin(down,x); }
 
-inline FloatMP cos(up,FloatMP const& x) { return cos(up,x); }
-inline FloatMP cos(down,FloatMP const& x) { return cos(down,x); }
 
-inline FloatMP atan(up,FloatMP const& x) { return atan(up,x); }
-inline FloatMP atan(down,FloatMP const& x) { return atan(down,x); }
 
-inline FloatMP pi_up(MultiplePrecision const& pr) { return FloatMP::pi_up(pr); }
-inline FloatMP pi_approx(MultiplePrecision const& pr) { return FloatMP::pi_near(pr); }
-inline FloatMP pi_down(MultiplePrecision const& pr) { return FloatMP::pi_down(pr); }
 
-inline FloatMP med(near,FloatMP x1, FloatMP x2) { return hlf(add(near,x1,x2)); }
-inline FloatMP rad(up,FloatMP x1, FloatMP x2) { return hlf(sub(up,x2,x1)); }
 
-FloatMP add(up,FloatMP x1, FloatDP x2);
-FloatMP sub(down,FloatMP x1, FloatDP x2);
+
 */
 /*
 inline FloatDP max(exact,FloatDP const& x1, FloatDP const& x2) { return max(x1,x2); }
@@ -236,15 +185,6 @@ inline FloatDP asin(approx,FloatDP x) { return std::asin(x.dbl); }
 inline FloatDP acos(approx,FloatDP x) { return std::acos(x.dbl); }
 inline FloatDP atan(approx,FloatDP x) { return std::atan(x.dbl); }
 
-inline FloatMP sqrt(approx,FloatMP const& x) { return sqrt(near,x); }
-inline FloatMP exp(approx,FloatMP const& x) { return exp(near,x); }
-inline FloatMP log(approx,FloatMP const& x) { return log(near,x); }
-inline FloatMP sin(approx,FloatMP const& x) { return sin(near,x); }
-inline FloatMP cos(approx,FloatMP const& x) { return cos(near,x); }
-inline FloatMP tan(approx,FloatMP const& x) { return tan(near,x); }
-inline FloatMP asin(approx,FloatMP const& x) { return asin(near,x); }
-inline FloatMP acos(approx,FloatMP const& x) { return acos(near,x); }
-inline FloatMP atan(approx,FloatMP const& x) { return atan(near,x); }
 */
 
 } // namespace Ariadne

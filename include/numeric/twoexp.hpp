@@ -54,7 +54,7 @@ class TwoExp {
     Int exponent() const { return this->_n; }
     // NOTE: Use std::pow(2.0,_n) not (1<<_n) since latter does not handle very large exponents
     FloatDP get_raw(DoublePrecision pr) const;
-    FloatMP get_raw(MultiplePrecision pr) const;
+    FloatAP get_raw(ArbitraryPrecision pr) const;
     double get_d() const { return std::pow(2.0,this->_n); }
     friend TwoExp rec(TwoExp w) { return TwoExp(-w._n); }
     friend Dyadic operator+(TwoExp);

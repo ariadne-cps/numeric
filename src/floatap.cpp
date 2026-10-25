@@ -580,6 +580,12 @@ FloatAP::Rounding::Rounding(RoundApproximately const&) noexcept : _value(ToNeare
 FloatAP::Rounding::Rounding(CurrentRoundingMode const&) noexcept
     : _value(FloatAP::get_rounding_mode().value()) { }
 
+FloatAP::Rounding::Rounding(Ariadne::Rounding const& mode) noexcept
+    : _value(static_cast<BuiltinRoundingModeType>(mode)==ROUND_DOWNWARD ? Downward
+             : static_cast<BuiltinRoundingModeType>(mode)==ROUND_UPWARD ? Upward
+             : static_cast<BuiltinRoundingModeType>(mode)==ROUND_TOWARD_ZERO ? TowardZero
+             : ToNearest) { }
+
 // Forward current-rounding operations to the existing native implementation.
 FloatAP sqr(CurrentRoundingMode, FloatAP const& x) { return sqr(FloatAP::get_rounding_mode(),x); }
 FloatAP rec(CurrentRoundingMode, FloatAP const& x) { return rec(FloatAP::get_rounding_mode(),x); }
@@ -654,7 +660,7 @@ FloatAP& FloatAP::operator=(Integer const& n) {
 }
 
 FloatAP& FloatAP::operator=(Dyadic const& n) {
-    // Preserve the exact-assignment contract of FloatMP. Constructing the
+    // Preserve the exact-assignment contract of FloatAP. Constructing the
     // replacement first also leaves *this unchanged if it is inexact.
     return *this = FloatAP(n, precision());
 }
@@ -872,7 +878,7 @@ OutputStream& operator<<(OutputStream& os, FloatAP const& value) {
 }
 
 InputStream& operator>>(InputStream& is, FloatAP& value) {
-    // Follow FloatMP's token boundaries, leaving punctuation for the caller.
+    // Follow the established token boundaries, leaving punctuation for the caller.
     std::string token;
     int c = is.get();
     while (c == ' ' || c == '\t' || c == '\n') {

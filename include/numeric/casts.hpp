@@ -34,7 +34,7 @@
 #include "number.decl.hpp"
 #include "float.decl.hpp"
 #include "floatdp.hpp"
-#include "floatmp.hpp"
+#include "floatap.hpp"
 
 #include "float_approximation.hpp"
 #include "float_lower_bound.hpp"
@@ -49,7 +49,7 @@ namespace Ariadne {
 // Approximation, directed bounds, balls and errors own their raw float as a data member.
 // Reinterpreting the wrapper object as the contained F would rely on object-layout equivalence
 // that is not guaranteed by C++. Use the wrapper accessors instead.
-template<class F> requires DerivedFrom<F,FloatDP> or DerivedFrom<F,FloatMP> inline F const& cast_exact(F const& x) { return x; }
+template<class F> requires DerivedFrom<F,FloatDP> or DerivedFrom<F,FloatAP> inline F const& cast_exact(F const& x) { return x; }
 template<class F> inline F const& cast_exact(Approximation<F> const& x) { return x.raw(); }
 template<class F> inline F const& cast_exact(LowerBound<F> const& x) { return x.raw(); }
 template<class F> inline F const& cast_exact(UpperBound<F> const& x) { return x.raw(); }
@@ -85,8 +85,6 @@ template<template<class>class T> inline const T<FloatDPApproximation>& cast_appr
 template<template<class>class T> inline const T<FloatDPApproximation>& cast_approximate(const T<FloatDPApproximation>& t) {
     return reinterpret_cast<const T<FloatDPApproximation>&>(t); }
 
-inline FloatMP const& cast_exact(RawFloatMP const& x) { return x; }
-inline FloatMP const& cast_exact(FloatMPApproximation const& x) { return x.raw(); }
 
 
 } // namespace Ariadne

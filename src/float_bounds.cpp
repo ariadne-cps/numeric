@@ -27,7 +27,6 @@
 #include "float_bounds.tpl.hpp"
 
 #include "floatdp.hpp"
-#include "floatmp.hpp"
 #include "floatap.hpp"
 
 #include "concepts.hpp"
@@ -35,11 +34,8 @@
 namespace Ariadne {
 
 FloatDP midpoint(Bounds<FloatDP> const& x) { return x.value(); } // DEPRECATED
-FloatMP midpoint(Bounds<FloatMP> const& x) { return x.value(); } // DEPRECATED
 FloatAP midpoint(Bounds<FloatAP> const& x) { return x.value(); } // DEPRECATED
 
-template<> auto Operations<FloatBounds<DoublePrecision>>::_write(OutputStream& os, const FloatBounds<DoublePrecision>& x) -> OutputStream&;
-template<> auto Operations<FloatBounds<MultiplePrecision>>::_write(OutputStream& os, const FloatBounds<MultiplePrecision>& x) -> OutputStream&;
 
 template<> Bounds<FloatDP>::Bounds(Real const&, DoublePrecision);
 template<> Bounds<FloatAP>::Bounds(Real const& value, ArbitraryPrecision pr)
@@ -48,7 +44,6 @@ template<> Bounds<FloatAP>::Bounds(Real const& value, ArbitraryPrecision pr)
 // NumberWrapper calls this when converting generic validated values
 // to native outward-rounded intervals.
 template<> Bounds<FloatDP>::operator ValidatedNumber() const;
-template<> Bounds<FloatMP>::operator ValidatedNumber() const;
 // This specialization is defined in number.cpp. Declare it before the
 // explicit class instantiation below, preventing a second definition on MSVC.
 template<> Bounds<FloatAP>::operator ValidatedNumber() const;
@@ -75,8 +70,6 @@ template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_cos(Bounds<FloatAP> const
 template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_tan(Bounds<FloatAP> const&);
 template OutputStream& Operations<Bounds<FloatAP>>::_write(OutputStream&,Bounds<FloatAP> const&);
 
-template class Bounds<FloatMP>;
-// Export the full native interval API in parallel with FloatMP.
 template class Bounds<FloatAP>;
 template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_pi(ArbitraryPrecision);
 template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_trunc(Bounds<FloatAP> const&);
@@ -92,86 +85,17 @@ template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_div(Bounds<FloatAP> const
 template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_div(FloatAP const&, Bounds<FloatAP> const&);
 template InputStream& Operations<Bounds<FloatAP>>::_read(InputStream&, Bounds<FloatAP>&);
 
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_pi(MultiplePrecision);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sin(Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_cos(Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_tan(Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(Bounds<FloatMP> const&, Nat);
-template Integer Operations<Bounds<FloatMP>>::_cast_integer(Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(Bounds<FloatMP> const&, FloatMP const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(FloatMP const&, Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(Bounds<FloatMP> const&, FloatMP const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(FloatMP const&, Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(Bounds<FloatMP> const&, FloatMP const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(FloatMP const&, Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(Bounds<FloatMP> const&, FloatMP const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(FloatMP const&, Bounds<FloatMP> const&);
-template InputStream& Operations<Bounds<FloatMP>>::_read(InputStream&, Bounds<FloatMP>&);
 
 template<> String class_name<Bounds<FloatDP>>() { return "FloatDPBounds"; }
-template<> String class_name<Bounds<FloatMP>>() { return "FloatMPBounds"; }
 template<> String class_name<Bounds<FloatAP>>() { return "FloatAPBounds"; }
 
-Int abslog10floor(FloatMP const&);
-
-namespace {
-
-OutputStream& write_bounds_with_error_places(OutputStream& os, const FloatMP& l, const FloatMP& u, Nat errplc)
-{
-    static const double log2ten = 3.3219280948873621817;
-    using std::max; using std::min;
-    if(l==0.0_x && u==0.0_x) { return os << "0.0[:]"; }
-
-    int precplc=static_cast<int>(min(l.precision(),u.precision())/log2ten);
-    FloatMP wdth=sub(up,u,l);
-    FloatMP mag=max(neg(l),u);
-    int log10wdth=max(abslog10floor(wdth),std::numeric_limits<int>::min()+static_cast<int>(errplc));
-    int log10mag=abslog10floor(mag);
-    int dgtswdth=static_cast<int>(errplc)-(log10wdth+1); // Digits appropriate given width of interval
-    //int dgtsbnd=bndplc-(log10mag+1); // Digits appropriate given asked-for precision of bounded objects
-    int dgtsprec=precplc-(log10mag+1); // Digits appropriate given precision of objects
-    uint dgts=static_cast<uint>(max(min(dgtswdth,dgtsprec),1));
-    DecimalPlaces plcs{dgts};
-
-    String lstr=print(l,plcs,MPFR_RNDD);
-    String ustr=print(u,plcs,MPFR_RNDU);
-    auto lcstr=lstr.c_str();
-    size_t cpl=0;
-    if((l>=0)==(u>=0) && abslog10floor(l)==abslog10floor(u)) {
-        while(lcstr[cpl]!='\0' && lcstr[cpl]==ustr[cpl]) { ++cpl; }
-
-    }
-
-    String ostr=lstr.substr(0,cpl);
-    ostr += "[";
-    ostr += lstr.substr(cpl);
-    ostr += ":";
-    ostr += ustr.substr(cpl);
-    ostr += "]";
-    return os << ostr;
-}
-
-} //namespace
-
-template<> OutputStream& Operations<FloatBounds<MultiplePrecision>>::_write(OutputStream& os, const FloatBounds<MultiplePrecision>& x)
-{
-    return write_bounds_with_error_places(os,x.lower_raw(),x.upper_raw(),FloatError<MultiplePrecision>::output_places);
-}
-
-template<> OutputStream& Operations<FloatBounds<DoublePrecision>>::_write(OutputStream& os, const FloatBounds<DoublePrecision>& x)
-{
-    MultiplePrecision prec(53);
-    return write_bounds_with_error_places(os,FloatMP(x.lower_raw(),prec),FloatMP(x.upper_raw(),prec),FloatError<DoublePrecision>::output_places);
-}
-
 static_assert(TranscendentalField<Bounds<FloatDP>>);
-static_assert(TranscendentalField<Bounds<FloatMP>>);
+static_assert(TranscendentalField<Bounds<FloatAP>>);
 
 static_assert(OrderedLattice<Bounds<FloatDP>>);
-static_assert(OrderedLattice<Bounds<FloatMP>>);
+static_assert(OrderedLattice<Bounds<FloatAP>>);
 
 static_assert(WidenTranscendentalField<FloatDP>);
-static_assert(WidenTranscendentalField<FloatMP>);
+static_assert(WidenTranscendentalField<FloatAP>);
 
 } // namespace Ariadne

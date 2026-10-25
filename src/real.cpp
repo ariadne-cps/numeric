@@ -66,7 +66,6 @@ OutputStream& operator<<(OutputStream& os, Accuracy const& acc) {
 }
 
 Bounds<FloatDP> Bounds<Dyadic>::get(DoublePrecision pr) const { return Bounds<FloatDP>(_l,_u,pr); }
-Bounds<FloatMP> Bounds<Dyadic>::get(MultiplePrecision pr) const { return Bounds<FloatMP>(_l,_u,pr); }
 
 template<> Ball<FloatDP>::Ball(Real const& r, DoublePrecision pr) : Ball(r.compute_get(Effort(53),pr)) { }
 template<> Bounds<FloatDP>::Bounds(Real const& r, DoublePrecision pr) : Bounds<FloatDP>(r.compute_get(Effort(53),pr)) { }
@@ -81,7 +80,7 @@ template<> struct ValidatedRealWrapper<DyadicBounds> : public ValidatedRealInter
     ValidatedRealWrapper(X const& x) : X(x) { }
     virtual DyadicBounds _get() const override final { return *this; }
     virtual FloatDPBounds _get(DoublePrecision pr) const override final { return FloatDPBounds(this->_get(),pr); }
-    virtual FloatMPBounds _get(MultiplePrecision pr) const override final { return FloatMPBounds(this->_get(),pr); }
+    virtual FloatAPBounds _get(ArbitraryPrecision pr) const override final { return FloatAPBounds(this->_get(),pr); }
     virtual OutputStream& _write(OutputStream& os) const override final { return os << static_cast<DyadicBounds const&>(*this); }
 };
 
@@ -107,7 +106,7 @@ ValidatedReal RealBase::_compute(Accuracy accuracy) const {
     return ValidatedReal(res);
 }
 
-MultiplePrecision precision(Nat pr) { return MultiplePrecision(pr); }
+ArbitraryPrecision precision(Nat pr) { return ArbitraryPrecision(pr); }
 
 static const Nat PRECISION_PER_UNIT_EFFORT=16;
 
@@ -117,7 +116,7 @@ struct RealExpressionBase : RealBase {
         else { return DyadicBounds(this->_compute_get(eff,precision(eff.work()*PRECISION_PER_UNIT_EFFORT))); }
     }
     virtual FloatDPBounds _compute_get(Effort eff, DoublePrecision pr) const override = 0;
-    virtual FloatMPBounds _compute_get(Effort eff, MultiplePrecision pr) const override = 0;
+    virtual FloatAPBounds _compute_get(Effort eff, ArbitraryPrecision pr) const override = 0;
 };
 
 template<class O, class A> struct UnaryNumericExpression {
@@ -158,7 +157,7 @@ template<class O, class A> struct RealWrapper<O,A>
     RealWrapper(O o, A a) : Expression(o,a)
         , FloatDPBounds(this->_op(this->_arg.get(dp))) { }
     virtual FloatDPBounds _compute_get(Effort, DoublePrecision) const {  return static_cast<FloatDPBounds>(*this); }
-    virtual FloatMPBounds _compute_get(Effort, MultiplePrecision pr) const {  return this->_op(this->_arg.get(pr)); }
+    virtual FloatAPBounds _compute_get(Effort, ArbitraryPrecision pr) const {  return this->_op(this->_arg.get(pr)); }
     virtual OutputStream& _write(OutputStream& os) const { return this->_write_expression(os); }
 };
 
@@ -169,7 +168,7 @@ template<class O, class A1, class A2> struct RealWrapper<O,A1,A2>
     RealWrapper(O o, A1 a1, A2 a2) : Expression(o,a1,a2)
         , FloatDPBounds(this->_op(this->_arg1.get(dp),this->_arg2.get(dp))) { }
     virtual FloatDPBounds _compute_get(Effort, DoublePrecision) const {  return static_cast<FloatDPBounds>(*this); }
-    virtual FloatMPBounds _compute_get(Effort eff, MultiplePrecision pr) const {  return this->_op(this->_arg1.compute_get(eff,pr),this->_arg2.compute_get(eff,pr)); }
+    virtual FloatAPBounds _compute_get(Effort eff, ArbitraryPrecision pr) const {  return this->_op(this->_arg1.compute_get(eff,pr),this->_arg2.compute_get(eff,pr)); }
     virtual OutputStream& _write(OutputStream& os) const { return this->_write_expression(os); }
 };
 
@@ -180,7 +179,7 @@ template<class A, class N> struct RealWrapper<Pow,A,N>
     RealWrapper(Pow o, A a, N n) : Expression(o,a,n)
         , FloatDPBounds(this->_op(this->_arg.get(dp),n)) { }
     virtual FloatDPBounds _compute_get(Effort, DoublePrecision) const {  return static_cast<FloatDPBounds>(*this); }
-    virtual FloatMPBounds _compute_get(Effort eff, MultiplePrecision pr) const {  return this->_op(this->_arg.compute_get(eff,pr),this->_num); }
+    virtual FloatAPBounds _compute_get(Effort eff, ArbitraryPrecision pr) const {  return this->_op(this->_arg.compute_get(eff,pr),this->_num); }
     virtual OutputStream& _write(OutputStream& os) const { return this->_write_expression(os); }
 };
 
@@ -189,7 +188,7 @@ template<class X> struct RealWrapper<Cnst,X> : RealExpressionBase, FloatDPBounds
   public:
     RealWrapper(X const& x) : FloatDPBounds(x,dp), _c(x) { }
     virtual FloatDPBounds _compute_get(Effort, DoublePrecision) const { return static_cast<FloatDPBounds const&>(*this); }
-    virtual FloatMPBounds _compute_get(Effort, MultiplePrecision pr) const { return FloatMPBounds(this->_c,pr); }
+    virtual FloatAPBounds _compute_get(Effort, ArbitraryPrecision pr) const { return FloatAPBounds(this->_c,pr); }
     virtual OutputStream& _write(OutputStream& os) const { return os << this->_c; }
 };
 
@@ -199,7 +198,7 @@ template<> struct RealWrapper<Cnst,EffectiveNumber> : RealExpressionBase, FloatD
   public:
     RealWrapper(X const& x) : FloatDPBounds(x,dp), _c(x) { }
     virtual FloatDPBounds _compute_get(Effort, DoublePrecision) const { return static_cast<FloatDPBounds const&>(*this); }
-    virtual FloatMPBounds _compute_get(Effort, MultiplePrecision pr) const { return FloatMPBounds(this->_c,pr); }
+    virtual FloatAPBounds _compute_get(Effort, ArbitraryPrecision pr) const { return FloatAPBounds(this->_c,pr); }
     virtual OutputStream& _write(OutputStream& os) const { return os << this->_c; }
 };
 
@@ -214,8 +213,8 @@ template<> struct RealLimit<Real> : RealBase {
         Nat n = eff.work()+1u; return _seq[n].compute_get(eff).pm(Dyadic(TwoExp(-static_cast<Int>(n)))); }
     virtual FloatDPBounds _compute_get(Effort eff, DoublePrecision pr) const {
         Nat n = eff.work()+1u; return _seq[n].compute_get(eff,pr)+(FloatDPBounds(-(TwoExp(-static_cast<Int>(n))),+TwoExp(-static_cast<Int>(n)),pr)); }
-    virtual FloatMPBounds _compute_get(Effort eff, MultiplePrecision pr) const {
-        Nat n = eff.work()+1u; return _seq[n].compute_get(eff,pr)+FloatMPBounds(-(TwoExp(-static_cast<Int>(n))),+TwoExp(-static_cast<Int>(n)),pr); }
+    virtual FloatAPBounds _compute_get(Effort eff, ArbitraryPrecision pr) const {
+        Nat n = eff.work()+1u; return _seq[n].compute_get(eff,pr)+FloatAPBounds(-(TwoExp(-static_cast<Int>(n))),+TwoExp(-static_cast<Int>(n)),pr); }
     virtual OutputStream& _write(OutputStream& os) const {
         return os << "{" << _seq[0u] << ", " << _seq[1u] << ", " <<_seq[2u] << ", ... }"; }
 };
@@ -228,7 +227,7 @@ template<> struct RealLimit<Dyadic> : RealBase {
         Nat n=eff.work()+1u; return DyadicBounds(_seq[n]-(TwoExp(-static_cast<Int>(n))),_seq[n]+(TwoExp(-static_cast<Int>(n)))); }
     virtual FloatDPBounds _compute_get(Effort eff, DoublePrecision pr) const {
         return this->_compute(eff).get(pr); }
-    virtual FloatMPBounds _compute_get(Effort eff, MultiplePrecision pr) const {
+    virtual FloatAPBounds _compute_get(Effort eff, ArbitraryPrecision pr) const {
         return this->_compute(eff).get(pr); }
     virtual OutputStream& _write(OutputStream& os) const {
         return os << "{" << _seq[0u] << ", " << _seq[1u] << ", " <<_seq[2u] << ", ... }"; }
@@ -242,7 +241,7 @@ template<> struct RealLimit<DyadicBounds> : RealBase {
         return _seq[eff.work()]; }
     virtual FloatDPBounds _compute_get(Effort eff, DoublePrecision pr) const {
         return _seq[eff.work()].get(pr); }
-    virtual FloatMPBounds _compute_get(Effort eff, MultiplePrecision pr) const {
+    virtual FloatAPBounds _compute_get(Effort eff, ArbitraryPrecision pr) const {
         return _seq[eff.work()].get(pr); }
     virtual OutputStream& _write(OutputStream& os) const {
         return os << "{" << _seq[0u] << ", " << _seq[1u] << ", " <<_seq[2u] << ", ... }"; }
@@ -326,7 +325,7 @@ class WhenRealExpression : public RealBase {
         : WhenRealExpression(c1.condition(),c1.term(),c2.condition(),c2.term()) { }
     virtual DyadicBounds _compute_get(Effort eff) const;
     virtual FloatDPBounds _compute_get(Effort, DoublePrecision pr) const { return this->_compute(Effort(0u)).get(pr); }
-    virtual FloatMPBounds _compute_get(Effort, MultiplePrecision pr) const { return this->_compute(Effort(pr.bits())).get(pr); }
+    virtual FloatAPBounds _compute_get(Effort, ArbitraryPrecision pr) const { return this->_compute(Effort(pr.bits())).get(pr); }
     friend OutputStream& operator<<(OutputStream& os, WhenRealExpression const& r) { return r._write(os); }
   public:
     virtual OutputStream& _write(OutputStream& os) const;
@@ -366,18 +365,6 @@ refine:
     if(x.lower_raw()>a) { return true; } else if(x.upper_raw()<b) { return false; }
     ++eff;
     goto refine;
-/*
-    DoublePrecision dp;
-    FloatDPBounds x0=r.get(dp);
-    if(x0.lower_raw()>a) { return true; } else if(x0.upper_raw()<b) { return false; }
-    Nat bits=64;
-    while(true) {
-        MultiplePrecision pr(bits);
-        FloatMPBounds x=r.get(pr);
-        if(x.lower_raw()>a) { return true; } else if(x.upper_raw()<b) { return false; }
-        bits+=64;
-    }
-*/
 }
 
 
@@ -415,7 +402,7 @@ template<class O> LogicalInterface* LogicalWrapper<O,Real>::_copy() const {
 template<class O> LogicalValue LogicalWrapper<O,Real>::_check(Effort e) const {
     return static_cast<LogicalValue>(this->_op(this->_arg.compute(e)));
 //    if(e==0u) { DoublePrecision p; return static_cast<LogicalValue>(this->_op(this->_arg.get(p))); }
-//    else { MultiplePrecision p(e*64); return static_cast<LogicalValue>(this->_op(this->_arg.get(p))); }
+//    else { ArbitraryPrecision p(e*64); return static_cast<LogicalValue>(this->_op(this->_arg.get(p))); }
 }
 
 template<class O> struct LogicalWrapper<O,Real,Real>
@@ -434,7 +421,7 @@ template<class O> LogicalInterface* LogicalWrapper<O,Real,Real>::_copy() const {
 template<class O> LogicalValue LogicalWrapper<O,Real,Real>::_check(Effort e) const {
     return static_cast<LogicalValue>(this->_op(this->_arg1.compute(e),this->_arg2.compute(e)));
 //    if(e==0u) { DoublePrecision p; return static_cast<LogicalValue>(this->_op(this->_arg1.get(p),this->_arg2.get(p))); }
-//    else { MultiplePrecision p(e*64); return static_cast<LogicalValue>(this->_op(this->_arg1.get(p),this->_arg2.get(p))); }
+//    else { ArbitraryPrecision p(e*64); return static_cast<LogicalValue>(this->_op(this->_arg1.get(p),this->_arg2.get(p))); }
 }
 
 template<class R, class O, class... ARGS> R make_logical(O op, ARGS ...args) {
@@ -463,7 +450,6 @@ Integer round(Real const& r) {
 
 DyadicBounds Real::compute_get(Effort e) const { return this->_ptr->_compute(e); }
 FloatDPBounds Real::get(DoublePrecision pr) const { return this->_ptr->_compute_get(Effort(0),pr); }
-FloatMPBounds Real::get(MultiplePrecision pr) const { return this->_ptr->_compute_get(Effort(pr.bits()),pr); }
 FloatAPBounds Real::get(ArbitraryPrecision pr) const {
     const std::size_t bits=pr.bits();
     if (bits>std::numeric_limits<Nat>::max()) {
@@ -472,7 +458,6 @@ FloatAPBounds Real::get(ArbitraryPrecision pr) const {
     return this->compute_get(Effort(static_cast<Nat>(bits)),pr);
 }
 FloatDPBounds Real::compute_using(DoublePrecision pr) const { return this->_ptr->_compute_get(Effort(0),pr); }
-FloatMPBounds Real::compute_using(MultiplePrecision pr) const { return this->_ptr->_compute_get(Effort(pr.bits()),pr); }
 FloatAPBounds Real::compute_using(ArbitraryPrecision pr) const {
     return this->get(pr);
 }
@@ -483,13 +468,6 @@ template<> String class_name<PositiveReal>() { return "PositiveReal"; }
 const Real pi = 4*atan(1); //Real(3.1415926535897930, 3.141592653589793238, 3.1415926535897936);
 const Real infinity = Real(operator""_x(std::numeric_limits<double>::infinity()));
 
-//FloatDPBounds Real::get(DoublePrecision pr) const {
-//    return this->_ptr->_compute_get(Effort(53),pr);
-//}
-
-//FloatMPBounds Real::get(MultiplePrecision pr) const {
-//    return this->_ptr->_compute_get(Effort(pr.bits()),pr);
-//}
 
 ValidatedReal Real::compute(Effort eff) const {
     return this->_ptr->_compute(eff);
@@ -497,32 +475,14 @@ ValidatedReal Real::compute(Effort eff) const {
 
 ValidatedReal Real::compute(Accuracy accuracy) const {
     return this->_ptr->_compute(accuracy);
-/*
-    Nat effort=1;
-    MultiplePrecision precision(effort*64);
-    FloatMPError error_bound(FloatMP(accuracy.error(),upward,precision));
-    FloatMPError error=2u*error_bound;
-    FloatMPBounds res(precision);
-    while (!(error.raw()<error_bound.raw())) {
-        res=this->get(precision);
-        error=res.error();
-        effort+=1;
-        precision=MultiplePrecision(effort*64);
-    }
-    return ValidatedReal(res);
-*/
 }
 
 FloatDPBounds Real::compute_get(Effort eff, DoublePrecision pr) const {
     return this->_ptr->_compute_get(eff,pr);
 }
 
-FloatMPBounds Real::compute_get(Effort eff, MultiplePrecision pr) const {
-    return this->_ptr->_compute_get(eff,pr);
-}
 FloatAPBounds Real::compute_get(Effort eff, ArbitraryPrecision pr) const {
-    // Obtain rigorous dyadic endpoints, then round outward in FloatAP.
-    return this->compute_get(eff).get(pr);
+    return this->_ptr->_compute_get(eff,pr);
 }
 
 ValidatedKleenean check_sgn(Real r, Effort eff) {
@@ -552,9 +512,6 @@ FloatDPLowerBound LowerReal::compute_get(Effort eff, DoublePrecision pr) const {
     return this->_ptr->_compute(eff).get(pr);
 }
 
-FloatMPLowerBound LowerReal::compute_get(Effort eff, MultiplePrecision pr) const {
-    return this->_ptr->_compute(eff).get(pr);
-}
 FloatAPLowerBound LowerReal::compute_get(Effort eff, ArbitraryPrecision pr) const {
     return this->_ptr->_compute(eff).get(pr);
 }
@@ -582,9 +539,6 @@ FloatDPUpperBound UpperReal::compute_get(Effort eff, DoublePrecision pr) const {
     return this->_ptr->_compute(eff).get(pr);
 }
 
-FloatMPUpperBound UpperReal::compute_get(Effort eff, MultiplePrecision pr) const {
-    return this->_ptr->_compute(eff).get(pr);
-}
 FloatAPUpperBound UpperReal::compute_get(Effort eff, ArbitraryPrecision pr) const {
     return this->_ptr->_compute(eff).get(pr);
 }
@@ -656,16 +610,15 @@ UpperReal div(PositiveReal const& pr1, LowerReal const& lr2) { return div(make_s
 
 
 static_assert(Constructible<FloatDP,Dyadic,FloatDP::RoundingModeType,FloatDP::PrecisionType>);
-static_assert(Constructible<FloatMP,Dyadic,FloatMP::RoundingModeType,FloatMP::PrecisionType>);
+static_assert(Constructible<FloatAP,Dyadic,FloatAP::RoundingModeType,FloatAP::PrecisionType>);
 
 ValidatedReal::ValidatedReal(DyadicBounds const& y)
     : Handle<const Interface>(std::make_shared<ValidatedRealWrapper<DyadicBounds>>(y)) { }
 ValidatedReal::operator DyadicBounds () const { return this->get(); }
 DyadicBounds ValidatedReal::get() const { return this->_ptr->_get(); }
 FloatDPBounds ValidatedReal::get(DoublePrecision pr) const { return this->_ptr->_get(pr); }
-FloatMPBounds ValidatedReal::get(MultiplePrecision pr) const { return this->_ptr->_get(pr); }
 FloatAPBounds ValidatedReal::get(ArbitraryPrecision pr) const {
-    return this->get().get(pr);
+    return this->_ptr->_get(pr);
 }
 
 OutputStream& operator<<(OutputStream& os, ValidatedReal const& vr) { return vr._ptr->_write(os); }
@@ -675,7 +628,6 @@ ValidatedLowerReal::ValidatedLowerReal(DyadicLowerBound const& y)
 ValidatedLowerReal::ValidatedLowerReal(ValidatedReal const& r) : Handle<const Interface>(r.managed_pointer()) { }
 DyadicLowerBound ValidatedLowerReal::get() const { return this->_ptr->_get(); }
 FloatDPLowerBound ValidatedLowerReal::get(DoublePrecision pr) const { return FloatDPLowerBound(this->get().raw(),pr); }
-FloatMPLowerBound ValidatedLowerReal::get(MultiplePrecision pr) const { return FloatMPLowerBound(this->get().raw(),pr); }
 FloatAPLowerBound ValidatedLowerReal::get(ArbitraryPrecision pr) const {
     return FloatAPLowerBound(this->get().raw(),pr);
 }
@@ -687,7 +639,6 @@ ValidatedUpperReal::ValidatedUpperReal(DyadicUpperBound const& y)
 ValidatedUpperReal::ValidatedUpperReal(ValidatedReal const& r) : Handle<const Interface>(r.managed_pointer()) { }
 DyadicUpperBound ValidatedUpperReal::get() const { return this->_ptr->_get(); }
 FloatDPUpperBound ValidatedUpperReal::get(DoublePrecision pr) const { return FloatDPUpperBound(this->get().raw(),pr); }
-FloatMPUpperBound ValidatedUpperReal::get(MultiplePrecision pr) const { return FloatMPUpperBound(this->get().raw(),pr); }
 FloatAPUpperBound ValidatedUpperReal::get(ArbitraryPrecision pr) const {
     return FloatAPUpperBound(this->get().raw(),pr);
 }

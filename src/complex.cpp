@@ -28,7 +28,6 @@
 #include "complex.hpp"
 
 #include "floatdp.hpp"
-#include "floatmp.hpp"
 
 #include "float_approximation.hpp"
 #include "float_lower_bound.hpp"

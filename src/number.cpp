@@ -40,7 +40,6 @@
 #include "rational.hpp"
 #include "real.hpp"
 #include "floatdp.hpp"
-#include "floatmp.hpp"
 #include "floatap.hpp"
 
 #include "number_interface.hpp"
@@ -62,11 +61,6 @@ Approximation<FloatDP> pow(Approximation<FloatDP> const& x, Integer const& z) {
     ARIADNE_PRECONDITION(n==z);
     return Approximation<FloatDP>(pow(approx,x._a,n));
 }
-Approximation<FloatMP> pow(Approximation<FloatMP> const& x, Integer const& z) {
-    Int n=z.get_si();
-    ARIADNE_PRECONDITION(n==z);
-    return Approximation<FloatMP>(pow(approx,x._a,n));
-}
 Approximation<FloatAP> pow(Approximation<FloatAP> const& x, Integer const& z) {
     Int n=z.get_si();
     ARIADNE_PRECONDITION(n==z);
@@ -80,11 +74,9 @@ Rational::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Ra
 Real::operator EffectiveNumber() const { return EffectiveNumber(new NumberWrapper<Real>(*this)); }
 
 FloatDPBounds NumberInterface::_get(ValidatedTag, DoublePrecision pr) const { return this->_get(OrderTag(),pr); }
-FloatMPBounds NumberInterface::_get(ValidatedTag, MultiplePrecision pr) const { return this->_get(OrderTag(),pr); }
 FloatAPBounds NumberInterface::_get(ValidatedTag, ArbitraryPrecision pr) const { return this->_get(OrderTag(),pr); }
 
 FloatDPBall NumberInterface::_get(MetricTag p, DoublePrecision pr) const { return this->_get(p,pr,pr); }
-FloatMPBall NumberInterface::_get(MetricTag p, MultiplePrecision pr) const { return this->_get(p,pr,pr); }
 FloatAPBall NumberInterface::_get(MetricTag p, ArbitraryPrecision pr) const { return this->_get(p,pr,pr); }
 
 
@@ -103,7 +95,6 @@ FloatDP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Flo
 //template<> FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDPError>(*this)); }
 //template<> FloatMPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatMPError>(*this)); }
 template<> FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDP>(cast_exact(*this))); }
-template<> FloatMPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatMP>(cast_exact(*this))); }
 // Keep FloatAP error conversion equivalent to the existing DP/MP semantics.
 template<> FloatAPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatAP>(cast_exact(*this))); }
 
@@ -117,7 +108,6 @@ template<> FloatAPApproximation::operator ApproximateNumber() const { return App
 template<> FloatMPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBounds>(*this)); }
 template<> FloatAPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatAPBounds>(*this)); }
 //template<> FloatMPBall::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBall>(*this)); }
-FloatMP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatMP>(*this)); }
 FloatAP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatAP>(*this)); }
 
 ExactNumber cast_exact(ValidatedUpperNumber const& y) { return ExactNumber(y.handle()); }

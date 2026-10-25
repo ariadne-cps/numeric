@@ -147,17 +147,14 @@ class Real
     //! Compute a concrete approximation using double-precision.
     FloatDPBounds compute_get(Effort eff, DoublePrecision pr) const;
     //! Compute a concrete approximation using the given precision.
-    FloatMPBounds compute_get(Effort eff, MultiplePrecision pr) const;
     FloatAPBounds compute_get(Effort eff, ArbitraryPrecision pr) const;
     //! Compute a concrete approximation using double-precision.
     FloatDPBounds get(DoublePrecision pr) const;
     //! Compute a concrete approximation using the given precision.
-    FloatMPBounds get(MultiplePrecision pr) const;
     FloatAPBounds get(ArbitraryPrecision pr) const;
     //! Compute a concrete approximation using double-precision.
     FloatDPBounds compute_using(DoublePrecision pr) const;
     //! Compute a concrete approximation using the given precision.
-    FloatMPBounds compute_using(MultiplePrecision pr) const;
     FloatAPBounds compute_using(ArbitraryPrecision pr) const;
     //!@}
 

@@ -26,16 +26,13 @@
 #include "float_upper_bound.tpl.hpp"
 
 #include "floatdp.hpp"
-#include "floatmp.hpp"
 #include "floatap.hpp"
 
 namespace Ariadne {
 
 UpperBound<Dyadic>::UpperBound(UpperBound<FloatDP> const& x) : UpperBound(Dyadic(x.raw())) { }
-UpperBound<Dyadic>::UpperBound(UpperBound<FloatMP> const& x) : UpperBound(Dyadic(Rational(x.raw()))) { }
 UpperBound<Dyadic>::UpperBound(UpperBound<FloatAP> const& x) : UpperBound(Dyadic(x.raw())) { }
 UpperBound<FloatDP> UpperBound<Dyadic>::get(DoublePrecision pr) const { return UpperBound<FloatDP>(FloatDP(this->raw(),up,pr)); }
-UpperBound<FloatMP> UpperBound<Dyadic>::get(MultiplePrecision pr) const { return UpperBound<FloatMP>(FloatMP(this->raw(),up,pr)); }
 
 template<> UpperBound<FloatDP>::UpperBound(Real const&, DoublePrecision);
 
@@ -46,15 +43,11 @@ template<> UpperBound<FloatAP>::UpperBound(ValidatedUpperNumber const& y, Arbitr
 // Upper endpoint construction mirrors LowerBound but rounds upward.
 // Mirror the lower endpoint constructor. The interval itself already
 // encloses the real value and upper_raw() is its upper endpoint.
- // Match FloatMP's native precision-conversion surface.
 
 
-template class UpperBound<FloatMP>;
-// Export the complete native directed-bound API just as for FloatMP.
 template class UpperBound<FloatAP>;
 
 template<> String class_name<UpperBound<FloatDP>>() { return "FloatDPUpperBound"; }
-template<> String class_name<UpperBound<FloatMP>>() { return "FloatMPUpperBound"; }
 template<> String class_name<UpperBound<FloatAP>>() { return "FloatAPUpperBound"; }
 
 } // namespace Ariadne
