@@ -460,6 +460,62 @@ std::array<std::string,4> exact_limb_fixtures() {
         throw std::runtime_error("wrong A7 fixture row count");
     return out;
 }
+
+// A8: B57 multi-limb division by powers of two. The original
+// mt19937_64 stream is replayed in full; quotient/remainder are
+// computed via standalone Nat shifts, never Numeric's division.
+std::array<std::string,3> b57_power_fixtures() {
+    const auto header=[](std::size_t visits) {
+        return std::string("# A8 B57 division by 2^(64*(m-1)+bit), ")+
+            std::to_string(visits)+
+            " visits.\n"
+            "# nlimbs mlimbs bit mode dividend_hex divisor_hex quotient_hex remainder_hex\n"
+            "# Original mt19937_64(0xB570B172), all draws including overwritten words.\n"
+            "# Independent shift/mask exact division, canonical lowercase hexadecimal.\n";
+    };
+    std::array<std::string,3> out{header(1200u),header(480u),header(480u)};
+    std::array<std::size_t,3> rows{};
+    std::mt19937_64 engine(0xB570B172ULL);
+    for (std::size_t n:{1u,2u,8u,16u,32u,64u,65u,96u,128u}) {
+        for (std::size_t m:{1u,2u,3u,8u,16u,32u,64u,65u}) {
+            for (unsigned bit:{0u,1u,17u,32u,63u}) {
+                for (unsigned mode=0u;mode<6u;++mode) {
+                    std::vector<std::uint64_t> left(n);
+                    for (auto& limb:left) limb=engine();
+                    if (mode==0u) std::fill(left.begin(),left.end(),UINT64_MAX);
+                    else if (mode==1u) std::fill(left.begin(),left.end(),0u);
+                    else if (mode==2u) {
+                        std::fill(left.begin(),left.end(),0u);
+                        left.front()=1u;
+                    } else if (mode==3u) {
+                        std::fill(left.begin(),left.end(),0u);
+                        left.back()=1u;
+                    } else if (mode==4u) {
+                        for (std::size_t i=0u;i<n;i+=2u) left[i]=0u;
+                    }
+                    const Nat dividend(std::move(left));
+                    const std::size_t shift=64u*(m-1u)+bit;
+                    const Nat divisor=Nat::power2(shift);
+                    const Nat quotient=dividend.shr(shift);
+                    const Nat remainder=Nat::sub(dividend,quotient.shl(shift));
+                    if (remainder.compare(divisor)>=0 ||
+                        Nat::add(quotient.shl(shift),remainder).compare(dividend)!=0)
+                        throw std::runtime_error("invalid A8 Euclidean identity");
+                    const std::size_t group=n<=32u?0u:n<=65u?1u:2u;
+                    out[group]+=row({
+                        std::to_string(n),std::to_string(m),
+                        std::to_string(bit),std::to_string(mode),
+                        dividend.hex(),divisor.hex(),quotient.hex(),
+                        remainder.hex()});
+                    ++rows[group];
+                }
+            }
+        }
+    }
+    if (rows!=std::array<std::size_t,3>{1200u,480u,480u})
+        throw std::runtime_error("wrong A8 visit counts");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -479,6 +535,10 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_exact_limb_65.tsv",a7[1u],write);
         independent_oracle::output(dir,"big_unsigned_exact_limb_129a.tsv",a7[2u],write);
         independent_oracle::output(dir,"big_unsigned_exact_limb_129b.tsv",a7[3u],write);
+        const auto a8=b57_power_fixtures();
+        independent_oracle::output(dir,"big_unsigned_b57_power_short.tsv",a8[0u],write);
+        independent_oracle::output(dir,"big_unsigned_b57_power_medium.tsv",a8[1u],write);
+        independent_oracle::output(dir,"big_unsigned_b57_power_large.tsv",a8[2u],write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';

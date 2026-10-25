@@ -843,3 +843,37 @@ No production sources changed; the same 32 generator executables now
 cover 127 TSVs. A1–A7 cumulative migrated visits: 22,984.
 A7 consumer CI is to be checked after publication, separately
 from local fixture verification and opt-in `verify-data`.
+
+### A8 — B57 power-of-two multiprecision division oracle (25 October 2026)
+
+Convert all 2,160 original B57 visits in
+`TestBigUnsigned::test_division()`: nine original dividend widths x
+eight divisor widths x five bit positions x six input modes. Preserve
+the complete seeded std::mt19937_64(0xB570B172) input stream, including
+draws subsequently overwritten, all original ordered transforms,
+the power-of-two divisors, and all owning and caller-owned division paths.
+Each source-keyed TSV row records original width, divisor width,
+bit position and mode, canonical dividend and divisor, exact
+quotient and remainder. Consumer checks every key and both sources,
+`divrem`, `quot`, `rem`, `divrem_into`, zeroed quotient/remainder
+output guards, scratch guard integrity and absence of extra records.
+Other GMP oracles in `test_division()` are intentionally unchanged.
+
+The already registered independent standalone C++20 generator
+`generator_big_unsigned_power_div.cpp` produces three fixtures
+using Nat right shift and exact subtraction of the shifted quotient;
+it explicitly checks the Euclidean identity and remainder bound.
+GCC and Clang independently reproduce all 2,160 seeded input
+visits, while Python exact bit-shift and mask calculations produce
+the same source keys, dividends, divisors, quotients and remainders.
+Fixture blob SHAs and counts: short widths 1,2,8,16,32 (1,200 rows,
+755,283 bytes) `35e1d41e2b862720d835a52fe477093aaeeb21a4`;
+medium 64,65 (480 rows, 826,491 bytes)
+`a4f0689a89079310a8bd85f066a9dfe69b687d45`;
+large 96,128 (480 rows, 1,301,002 bytes)
+`c5a0a0bf80b2de7a4cf1eecca40365822f0a1fe2`.
+The three committed Git blobs match Python-produced bytes exactly.
+The total is now 130 versioned TSVs across the unchanged 32 generator
+executables, 25,144 cumulative A1-A8 migrated visits.
+No production changes. Full consumer CI and opt-in generator-wide
+`verify-data` are separate validations.
