@@ -28,6 +28,8 @@
 #include <iomanip>
 #include <cassert>
 #include <limits>
+#include <cstdint>
+#include <stdexcept>
 
 
 
@@ -37,6 +39,7 @@
 #include "numeric/dyadic.hpp"
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
+#include "numeric/big_unsigned.hpp"
 #include "numeric/rounding.hpp"
 #include "numeric/floatdp.hpp"
 
@@ -211,28 +214,201 @@ double exp_rnd(double x)
 
 
 
-double tanh_rnd(double x)
-{
-    if(std::isnan(x) || x==0.0) { return x; }
-    if(x==std::numeric_limits<double>::infinity()) { return 1.0; }
-    if(x==-std::numeric_limits<double>::infinity()) { return -1.0; }
+namespace {
 
-    const rounding_mode_t rounding=get_builtin_rounding_mode();
-    if(x<0.0) {
-        rounding_mode_t positive_rounding=rounding;
-        if(rounding==ROUND_DOWNWARD) positive_rounding=ROUND_UPWARD;
-        else if(rounding==ROUND_UPWARD) positive_rounding=ROUND_DOWNWARD;
-        set_builtin_rounding_mode(positive_rounding);
-        const double result=-tanh_rnd(-x);
-        set_builtin_rounding_mode(rounding);
-        return result;
+struct TanhFixedInterval {
+    BigUnsigned lower;
+    BigUnsigned upper;
+};
+
+bool tanh_test_bit(BigUnsigned const& value,std::size_t bit) noexcept
+{
+    const auto digits=value.limbs();
+    const std::size_t word=bit/64u;
+    return word<digits.size() && ((digits[word]>>(bit%64u))&1u)!=0u;
+}
+
+bool tanh_any_bits_below(BigUnsigned const& value,std::size_t limit) noexcept
+{
+    if(limit==0u) return false;
+    const auto digits=value.limbs();
+    const std::size_t whole=limit/64u;
+    const std::size_t complete=whole<digits.size() ? whole : digits.size();
+    for(std::size_t i=0u;i<complete;++i) {
+        if(digits[i]!=0u) return true;
+    }
+    const unsigned partial=static_cast<unsigned>(limit%64u);
+    return partial!=0u && whole<digits.size() &&
+        (digits[whole]&((BigUnsigned::Limb{1}<<partial)-1u))!=0u;
+}
+
+BigUnsigned tanh_ceil_shift_right(BigUnsigned const& value,std::size_t shift)
+{
+    BigUnsigned quotient=shift_right(value,shift);
+    if(tanh_any_bits_below(value,shift)) {
+        quotient=add(quotient,BigUnsigned(1u));
+    }
+    return quotient;
+}
+
+BigUnsigned tanh_ceil_div_limb(BigUnsigned const& value,BigUnsigned::Limb divisor)
+{
+    auto [quotient,remainder]=divrem_limb(value,divisor);
+    if(remainder!=0u) quotient=add(quotient,BigUnsigned(1u));
+    return quotient;
+}
+
+TanhFixedInterval tanh_next_exp_term(TanhFixedInterval const& term,
+                                     BigUnsigned const& argument,
+                                     std::size_t work,
+                                     BigUnsigned::Limb divisor)
+{
+    BigUnsigned lower=shift_right(mul(term.lower,argument),work);
+    BigUnsigned upper=tanh_ceil_shift_right(mul(term.upper,argument),work);
+    auto [lower_quotient,lower_remainder]=divrem_limb(lower,divisor);
+    (void)lower_remainder;
+    return {std::move(lower_quotient),tanh_ceil_div_limb(upper,divisor)};
+}
+
+TanhFixedInterval tanh_square_fixed(TanhFixedInterval const& value,
+                                    std::size_t work)
+{
+    return {shift_right(square(value.lower),work),
+            tanh_ceil_shift_right(square(value.upper),work)};
+}
+
+BigUnsigned tanh_ceil_div_scaled(BigUnsigned const& numerator,
+                                 BigUnsigned const& denominator,
+                                 std::size_t work)
+{
+    auto [quotient,remainder]=divrem(shift_left(numerator,work),denominator);
+    if(!remainder.is_zero()) quotient=add(quotient,BigUnsigned(1u));
+    return quotient;
+}
+
+// Rigorous fixed-point enclosure for tanh(x), x in [2^-28,20).
+// Write z=x/128, enclose exp(z) by its positive Taylor series, then
+// square eight times to obtain exp(2*x). All lower endpoints round down
+// and all upper endpoints round up in integer arithmetic.
+TanhFixedInterval tanh_fixed_interval(double x,std::size_t work)
+{
+    int exponent;
+    const double fraction=std::frexp(x,&exponent);
+    const auto significand=static_cast<BigUnsigned::Limb>(std::ldexp(fraction,53));
+    const std::int64_t shift=static_cast<std::int64_t>(work)+exponent-60;
+    if(shift<0) throw std::logic_error("tanh fixed-point scale too small");
+
+    const BigUnsigned one=shift_left(BigUnsigned(1u),work);
+    const BigUnsigned argument=shift_left(BigUnsigned(significand),
+                                          static_cast<std::size_t>(shift));
+    TanhFixedInterval term{one,one};
+    TanhFixedInterval exponential{one,one};
+
+    for(BigUnsigned::Limb k=1u;;++k) {
+        term=tanh_next_exp_term(term,argument,work,k);
+        exponential.lower=add(exponential.lower,term.lower);
+        exponential.upper=add(exponential.upper,term.upper);
+        // Here z<=5/32. Once a complete term is at most one fixed-point
+        // unit, all remaining positive Taylor terms total less than two.
+        if(term.upper.bit_length()<=1u) {
+            exponential.upper=add(exponential.upper,BigUnsigned(2u));
+            break;
+        }
+        if(k==4096u) throw std::overflow_error("tanh exponential series did not terminate");
     }
 
-    volatile double two_x=mul_rnd(2.0,x);
-    volatile double exponential=exp_rnd(two_x);
-    volatile double denominator=add_rnd(exponential,1.0);
-    volatile double quotient=div_rnd(2.0,denominator);
-    return sub_rnd(1.0,quotient);
+    for(unsigned i=0u;i<8u;++i) {
+        exponential=tanh_square_fixed(exponential,work);
+    }
+
+    const BigUnsigned lower_numerator=sub(exponential.lower,one);
+    const BigUnsigned upper_numerator=sub(exponential.upper,one);
+    const BigUnsigned lower_denominator=add(exponential.lower,one);
+    const BigUnsigned upper_denominator=add(exponential.upper,one);
+
+    return {
+        quot(shift_left(lower_numerator,work),lower_denominator),
+        tanh_ceil_div_scaled(upper_numerator,upper_denominator,work)
+    };
+}
+
+double tanh_round_fixed_positive(BigUnsigned const& value,std::size_t work,
+                                 rounding_mode_t mode)
+{
+    if(value.is_zero()) return 0.0;
+    const std::size_t width=value.bit_length();
+    BigUnsigned retained;
+    std::size_t shift=0u;
+    if(width<53u) {
+        retained=shift_left(value,53u-width);
+    } else {
+        shift=width-53u;
+        retained=shift_right(value,shift);
+    }
+
+    bool increment=false;
+    if(shift!=0u) {
+        if(mode==ROUND_TO_NEAREST) {
+            increment=tanh_test_bit(value,shift-1u) &&
+                (((retained.limb(0u)&1u)!=0u) ||
+                 tanh_any_bits_below(value,shift-1u));
+        } else if(mode==ROUND_UPWARD) {
+            increment=tanh_any_bits_below(value,shift);
+        }
+    }
+    if(increment) retained=add(retained,BigUnsigned(1u));
+
+    const std::int64_t scale=static_cast<std::int64_t>(width)-
+        static_cast<std::int64_t>(work)-53;
+    return std::ldexp(static_cast<double>(retained.limb(0u)),
+                      static_cast<int>(scale));
+}
+
+double tanh_positive_rnd(double x,rounding_mode_t mode)
+{
+    if(mode==ROUND_TOWARD_ZERO) mode=ROUND_DOWNWARD;
+
+    // For sufficiently small positive binary64 x,
+    // 0 < x-tanh(x) < x^3 lies below half the spacing beneath x.
+    if(x<0x1p-28) {
+        return mode==ROUND_DOWNWARD ? std::nextafter(x,0.0) : x;
+    }
+
+    // For x>=20, 0 < 1-tanh(x) < 2*exp(-40) < 2^-53.
+    // Hence the directed lower result is predecessor(1), while nearest
+    // and upward round to 1.
+    if(x>=20.0) {
+        return mode==ROUND_DOWNWARD ? std::nextafter(1.0,0.0) : 1.0;
+    }
+
+    // Ziv refinement: the exact value is accepted only when both rigorous
+    // fixed-point endpoints round to the same binary64 result.
+    for(std::size_t work=128u;;work+=64u) {
+        const auto enclosure=tanh_fixed_interval(x,work);
+        const double lower=tanh_round_fixed_positive(enclosure.lower,work,mode);
+        const double upper=tanh_round_fixed_positive(enclosure.upper,work,mode);
+        if(lower==upper) return lower;
+        if(work>std::numeric_limits<std::size_t>::max()-64u)
+            throw std::overflow_error("tanh certified precision overflow");
+    }
+}
+
+} // namespace
+
+double tanh_rnd(double x)
+{
+    if(std::isnan(x) || x==0.0) return x;
+    if(x==std::numeric_limits<double>::infinity()) return 1.0;
+    if(x==-std::numeric_limits<double>::infinity()) return -1.0;
+
+    const rounding_mode_t mode=get_builtin_rounding_mode();
+    if(x>0.0) return tanh_positive_rnd(x,mode);
+
+    rounding_mode_t positive_mode=mode;
+    if(mode==ROUND_DOWNWARD) positive_mode=ROUND_UPWARD;
+    else if(mode==ROUND_UPWARD || mode==ROUND_TOWARD_ZERO)
+        positive_mode=ROUND_DOWNWARD;
+    return -tanh_positive_rnd(-x,positive_mode);
 }
 
 
