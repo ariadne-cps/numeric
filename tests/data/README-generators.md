@@ -1,7 +1,7 @@
 # Reproducible exact golden-data generators
 
 The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
-`generator_big_unsigned_decimal.cpp`, `generator_big_unsigned_views.cpp`, `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
+`generator_big_unsigned_decimal.cpp`, `generator_big_unsigned_views.cpp`, `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_big_unsigned_division_remaining.cpp`, `generator_rational_exact.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`,
@@ -59,6 +59,7 @@ c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_views
 c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_decimal.cpp -o /tmp/numeric-oracle-decimal
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_exact_small.cpp -o /tmp/numeric-oracle-exact-small
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_big_unsigned_power_div.cpp -o /tmp/numeric-oracle-power-div
+c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_big_unsigned_division_remaining.cpp -o /tmp/numeric-oracle-division-remaining
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_rational_exact.cpp -o /tmp/numeric-oracle-rational-exact
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_exact_b72_r17.cpp -o /tmp/numeric-oracle-b72-r17
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Wshadow -Werror tests/data/generator_integer_structural.cpp -o /tmp/numeric-oracle-structural
@@ -139,6 +140,7 @@ review every diff before committing. No sampling is used.
 | `generator_big_unsigned_views.cpp` | five `big_unsigned_a23_views_*.tsv`, `big_unsigned_a24_shifted_sources.tsv`, ten `big_unsigned_a24_shifted_*.tsv` | 5,000 scratch-buffer arithmetic + 6,600 source-keyed shifted add/sub cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
+| `generator_big_unsigned_division_remaining.cpp` | six `big_unsigned_a29_division_*.tsv` files | 6,000 source-keyed general division visits |
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
 | `generator_exact_b72_r17.cpp` | `big_unsigned_b72.tsv`, `rational_r17.tsv` | 288 B72 products/squares and 252 R17 comparisons |
 | `generator_integer_structural.cpp` | `integer_b66.tsv`, `integer_sub.tsv`, `big_unsigned_sub.tsv`, `integer_b33.tsv`, `integer_b37.tsv`, `integer_b38.tsv` | 360 power, 192 signed subtract, 100 unsigned subtract, 72 signed squares, 72 signed powers, 30 signed cubes |
@@ -1142,3 +1144,22 @@ cutoff-specific execution; only the exact product oracle moves to TSV.
 multiplication. The B8 fixture is 2,445,194 bytes (blob
 `16848b2efecd3cdc5535e03e0e4694df1890e09f`); the fixed fixture is 43,579
 bytes (blob `51233e8a709ad097bfd1435c0a9171fdef7dcdb6`).
+
+### A29 — general division oracle migration
+
+Migrate all 6,000 general randomized visits in `test_division()` to six
+1,000-row source-keyed TSV segments. The consumer preserves the single
+`mt19937_64(0xB15D1A1D)` stream, all width choices and every source
+transformation. Each row freezes dividend, divisor, quotient and remainder;
+all existing joint/single-output, scratch, guard, zero-tail and Euclidean
+identity checks remain active.
+
+`generator_big_unsigned_division_remaining.cpp` is a standalone C++20
+generator using independent aligned-subtraction long division and shift/add
+multiplication. The six A29 fixture blobs are
+`7b6b55f4727df0f458c922df46365d8d2f92dff7`,
+`9c29bfd502d7abc0ebb27853464170c96d0d311d`,
+`388adcbd50795a61c795e32b8403b5858681f76f`,
+`7789485fe33bc3a7c31de069537ae3ddcf4353f4`,
+`432a61307b1af89ff8548289857d447d6629841b` and
+`5ee40a6f52a8c94c765da8dcbad76c07bf1e6ac7`.

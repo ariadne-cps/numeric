@@ -13,11 +13,11 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A28
+## Current state — A29
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
-| `test_division()` | 4,978 | 11,536 |
+| `test_division()` | 10,978 | 5,536 |
 | `test_views_and_scratch()` | 11,600 | 0 |
 | `test_multiply_kernel_paths()` | 11,432 | 0 |
 | `test_randomized()` | 10,000 | 0 |
@@ -26,15 +26,15 @@ progress reporting, barring a documented correction to the audit.
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **64,787** | **11,536** |
+| **Total** | **70,787** | **5,536** |
 
-Progress: **64,787 / 76,323 = 84.885%**.
+Progress: **70,787 / 76,323 = 92.747%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
-- `test_division()`: generalized random 6,000; B28, B36, B29, B45,
-  normalization and remaining special division cases 5,536.
+- `test_division()`: B28 2,048; B36 1,280; B29 1,024; B45 shifted 504;
+  B45 decimal 40; normalization 640 = 5,536.
 
 ## Commit milestones
 
@@ -59,6 +59,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A26 — B53 sparse-row multiply | 2,304 | 55,947 |
 | A27 — general multiply kernels | 6,000 | 61,947 |
 | A28 — B8 + fixed Karatsuba | 2,840 | 64,787 |
+| A29 — general division | 6,000 | 70,787 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -351,3 +352,17 @@ shift/add arithmetic. The B8 fixture blob is
 After A28, `test_multiply_kernel_paths()` is 11,432/11,432 migrated and the
 only remaining audited numerical GMP-oracle method is `test_division()`
 with 11,536 visits.
+
+## A29 — general division oracle (25 October 2026)
+
+Migrate all 6,000 general randomized division visits to six sequential
+source-keyed TSVs while preserving the exact `mt19937_64(0xB15D1A1D)`
+stream, operand-width branches and all deterministic transforms. The consumer
+retains divrem/quot/rem agreement, `divrem_into` output sizing, scratch guards,
+remainder bounds and the native Euclidean identity assertion.
+
+The new standalone remaining-division generator uses aligned-subtraction
+long division and shift/add multiplication, with no Numeric/GMP/Boost
+runtime dependency. No production code changes. Remaining audited numerical
+GMP-oracle visits: B28 2,048, B36 1,280, B29 1,024, B45 544 and normalization
+640 = 5,536 total.

@@ -57,6 +57,7 @@ set(ORACLE_GENERATORS
     generator_big_unsigned_views
     generator_exact_small
     generator_big_unsigned_power_div
+    generator_big_unsigned_division_remaining
     generator_rational_exact
     generator_exact_b72_r17
     generator_integer_structural

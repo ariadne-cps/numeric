@@ -2451,7 +2451,18 @@ void TestBigUnsigned::test_division()
     const auto [q3,r3]=divrem(radix_squared,radix);
     ARIADNE_TEST_ASSERT(compare(q3,radix)==0 && r3.is_zero());
 
-    GmpInteger a,b,q,r,check;
+    GmpInteger a,b,q,r;
+    st    std::array<std::ifstream,6u> a29_general;
+    for (std::size_t part=0u;part<a29_general.size();++part) {
+        const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
+            "/big_unsigned_a29_division_"+std::to_string(part)+".tsv";
+        a29_general[part].open(path);
+        if (!a29_general[part])
+            throw std::runtime_error("Missing A29 general division TSV: "+path);
+        std::string header;
+        while (a29_general[part].peek()=='#')
+            std::getline(a29_general[part],header);
+    }
     std::mt19937_64 engine(0xB15D1A1DULL);
     for (unsigned repetition=0u;repetition<6000u;++repetition) {
         const std::size_t n=repetition%31u==0u?96u:
@@ -2476,18 +2487,24 @@ void TestBigUnsigned::test_division()
         if (repetition%47u==0u) db.back()=1u;
         if (repetition%53u==0u && n==m) da=db;
         const BigUnsigned dividend(da),divisor(db);
-        mpz_import(a.value,dividend.size(),-1,sizeof(std::uint64_t),
-                   0,0,dividend.limbs().data());
-        mpz_import(b.value,divisor.size(),-1,sizeof(std::uint64_t),
-                   0,0,divisor.limbs().data());
-        mpz_tdiv_qr(q.value,r.value,a.value,b.value);
+
+        std::ifstream& golden=a29_general[repetition/1000u];
+        unsigned ref_repetition=0u;
+        std::size_t ref_n=0u,ref_m=0u;
+        std::string dividend_hex,divisor_hex,quotient_hex,remainder_hex;
+        if (!(golden >> ref_repetition >> ref_n >> ref_m
+              >> dividend_hex >> divisor_hex >> quotient_hex >> remainder_hex) ||
+            ref_repetition!=repetition || ref_n!=n || ref_m!=m)
+            throw std::runtime_error(
+                "Missing or unordered A29 general division TSV row");
+        check_against_precomputed_hex(dividend,dividend_hex);
+        check_against_precomputed_hex(divisor,divisor_hex);
+
         const auto [actual_q,actual_r]=divrem(dividend,divisor);
-        check_against_gmp(actual_q,q.value);
-        check_against_gmp(actual_r,r.value);
-        // Independent single-output paths must match both GMP and the
-        // complete divrem result without using unrequested output objects.
-        check_against_gmp(quot(dividend,divisor),q.value);
-        check_against_gmp(rem(dividend,divisor),r.value);
+        check_against_precomputed_hex(actual_q,quotient_hex);
+        check_against_precomputed_hex(actual_r,remainder_hex);
+        check_against_precomputed_hex(quot(dividend,divisor),quotient_hex);
+        check_against_precomputed_hex(rem(dividend,divisor),remainder_hex);
         ARIADNE_TEST_ASSERT(compare(quot(dividend,divisor),actual_q)==0);
         ARIADNE_TEST_ASSERT(compare(rem(dividend,divisor),actual_r)==0);
         ARIADNE_TEST_ASSERT(compare(actual_r,divisor)<0);
@@ -2504,8 +2521,8 @@ void TestBigUnsigned::test_division()
             guards.data()+1u,needed);
         BigUnsigned::divrem_into(
             dividend.limbs(),divisor.limbs(),qout,rout,scratch);
-        check_against_gmp(BigUnsigned(qout),q.value);
-        check_against_gmp(BigUnsigned(rout),r.value);
+        check_against_precomputed_hex(BigUnsigned(qout),quotient_hex);
+        check_against_precomputed_hex(BigUnsigned(rout),remainder_hex);
         for (std::size_t i=dividend.size();i<qout.size();++i)
             ARIADNE_TEST_ASSERT(qout[i]==0u);
         for (std::size_t i=std::min(dividend.size(),divisor.size());
@@ -2513,12 +2530,15 @@ void TestBigUnsigned::test_division()
             ARIADNE_TEST_ASSERT(rout[i]==0u);
         ARIADNE_TEST_ASSERT(guards.front()==max);
         ARIADNE_TEST_ASSERT(guards.back()==max);
-        mpz_mul(check.value,q.value,b.value);
-        mpz_add(check.value,check.value,r.value);
-        ARIADNE_TEST_ASSERT(mpz_cmp(check.value,a.value)==0);
+        check_against_precomputed_hex(dividend,dividend_hex);
+        check_against_precomputed_hex(divisor,divisor_hex);
     }
-
-    // B57: all 3 output modes of normalized multiprecision
+    for (std::size_t part=0u;part<a29_general.size();++part) {
+        std::string extra;
+        if (a29_general[part] >> extra)
+            throw std::runtime_error("Extra A29 general division TSV rows");
+    }
+/ B57: all 3 output modes of normalized multiprecision
     // division by 2^(64*k+s), including high/low limb boundaries
     // and dividend shorter than divisor. Verify each output against
     // independently certified exact Euclidean TSV records.
