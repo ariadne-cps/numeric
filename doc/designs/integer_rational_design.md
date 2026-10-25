@@ -9383,3 +9383,37 @@ B57 `dc2a5205d8aa4a912f73f9e675522b1531f65794`,
 B61 `f9e8a720ece587c13d68802588cfe75ebb006e67`.
 Only B48/B49 consumer conversions are counted as migrated here.
 CI for A5 is pending. No production changes.
+
+### A6 — complete runtime GMP oracle migration of single-limb division (25 October 2026)
+
+Complete the remaining source-keyed replacement in
+`TestBigUnsigned::test_division_limb()`: B57/B63 contributes
+15 widths x 15 divisors x 8 modes = 1,800 original seeded
+visits, and B61 contributes 13 widths x 15 divisors x 8 modes =
+1,560 visits, for 3,360 new GMP-free oracle visits.
+Use the existing independently certified
+`big_unsigned_b57.tsv` and `big_unsigned_b61.tsv` fixtures
+added in A5, retaining every original `mt19937_64` draw,
+all seven explicit transforms and the unchanged eighth random
+mode, original width and divisor sets and visited order.
+
+The B57 consumer validates the full quotient and 64-bit remainder
+from `divrem_limb_into` against the exact TSV, retaining output
+guard zeroing, then checks `divrem_limb` quotient and remainder
+against the certified result. B61 validates `divrem` quotient
+and full remainder against the exact TSV, preserving the
+independent `rem` call and checking it matches that certified
+remainder. All expected values are checked through the canonical
+hex parser, including zero, and TSV rows must be complete and
+ordered. Original invalid-input, short-output and unchanged-buffer
+exception assertions are retained.
+
+No numerical GMP oracle remains inside `test_division_limb()`;
+other GMP tests and production implementation are unchanged.
+Total A1-A6 migrated test visits: 16,784.
+All existing 123 TSV fixtures retain their committed hashes;
+there are still 32 standalone generator executables. A5's
+independent Python and portable C++20 verification of B57/B61
+fixture arithmetic is reused, not recharacterized as a new run.
+Full A6 consumer CI and opt-in `verify-data` remain separate
+checks; report CI as passed only when observed.

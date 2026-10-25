@@ -54,6 +54,8 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_DIV128_ORACLE_PATH[] = ARIADNE_TEST_D
 inline constexpr char ARIADNE_BIG_UNSIGNED_DIV_LIMB_RANDOM_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_div_limb_random.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B48_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b48.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B49_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b49.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B57_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b57.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B61_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b61.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -1721,7 +1723,6 @@ void TestBigUnsigned::test_division_limb()
     ARIADNE_TEST_ASSERT(wide_rem==wide_remainder);
     ARIADNE_TEST_ASSERT(divrem_limb(BigUnsigned{},1u).first.is_zero());
 
-    GmpInteger n,d,q,r,native_remainder; // Still needed by later GMP blocks.
     std::ifstream random_div_golden(ARIADNE_BIG_UNSIGNED_DIV_LIMB_RANDOM_ORACLE_PATH);
     if (!random_div_golden)
         throw std::runtime_error("Missing A4 random limb division TSV");
@@ -1945,8 +1946,9 @@ void TestBigUnsigned::test_division_limb()
 
     // B57/B63: normalized pi1 selection for >=16 raw quotient
     // limbs on GCC x86-64, and universal one-limb powers-of-two.
-    // GMP independently checks saturated, random, sparse, denormalized
+    // Independent B57 TSV covers saturated, random, sparse and denormalized
     // operands and the 15/16/17, 31/32/33, 63/64/65 boundaries.
+    LimbDivisionGolden golden_b57(ARIADNE_BIG_UNSIGNED_B57_ORACLE_PATH);
     std::mt19937_64 b57_engine(0xB570641ULL);
     for (const std::size_t count:
             {0u,1u,7u,8u,15u,16u,17u,31u,32u,33u,63u,64u,65u,96u,128u}) {
@@ -1979,35 +1981,30 @@ void TestBigUnsigned::test_division_limb()
                     for (std::size_t i=0u;i<count;i+=3u)
                         words[i]=max;
                 }
-                mpz_import(n.value,count,-1,sizeof(std::uint64_t),
-                           0,0,words.data());
-                mpz_import(d.value,1u,-1,sizeof(std::uint64_t),
-                           0,0,&divisor);
-                mpz_tdiv_qr(q.value,r.value,n.value,d.value);
                 auto out=scratch.acquire(count+2u);
                 std::fill(out.begin(),out.end(),max);
                 const auto limb_remainder=BigUnsigned::divrem_limb_into(
                     words,divisor,out);
-                check_against_gmp(BigUnsigned(out),q.value);
-                mpz_import(native_remainder.value,1u,-1,
-                           sizeof(limb_remainder),0,0,&limb_remainder);
-                ARIADNE_TEST_ASSERT(
-                    mpz_cmp(native_remainder.value,r.value)==0);
+                const BigUnsigned value(words);
+                golden_b57.check(count,divisor,mode,value,
+                                 BigUnsigned(out),limb_remainder);
                 ARIADNE_TEST_ASSERT(out[count]==0u);
                 ARIADNE_TEST_ASSERT(out[count+1u]==0u);
-                const BigUnsigned value(words);
                 const auto [owned_q,owned_r]=
                     divrem_limb(value,divisor);
-                check_against_gmp(owned_q,q.value);
+                ARIADNE_TEST_ASSERT(compare(owned_q,BigUnsigned(out))==0);
                 ARIADNE_TEST_ASSERT(owned_r==limb_remainder);
             }
         }
     }
 
+    golden_b57.finish();
+
     // B61: exact single-limb remainder-only pi1 with a GCC x86-64
-    // dispatch boundary at 7/8/9 limbs; compare against independent
-    // GMP for zero, saturated, sparse and random dividends.
+    // dispatch boundary at 7/8/9 limbs; use independent B61
+    // source-keyed TSV for zero, saturated, sparse and random dividends.
     // Also guard the existing 63/64/65-limb quotient pi1 boundary.
+    LimbDivisionGolden golden_b61(ARIADNE_BIG_UNSIGNED_B61_ORACLE_PATH);
     std::mt19937_64 b61_engine(0xB610D1A6ULL);
     for (const std::size_t count:
             {0u,1u,7u,8u,9u,15u,16u,31u,32u,63u,64u,65u,128u}) {
@@ -2042,18 +2039,16 @@ void TestBigUnsigned::test_division_limb()
                 }
                 const BigUnsigned value(words);
                 const BigUnsigned by(divisor);
-                const auto limbs=value.limbs();
-                mpz_import(n.value,limbs.size(),-1,sizeof(std::uint64_t),
-                           0,0,limbs.data());
-                mpz_import(d.value,1u,-1,sizeof(divisor),0,0,&divisor);
-                mpz_tdiv_qr(q.value,r.value,n.value,d.value);
-                check_against_gmp(rem(value,by),r.value);
                 const auto [full_q,full_r]=divrem(value,by);
-                check_against_gmp(full_q,q.value);
-                check_against_gmp(full_r,r.value);
+                ARIADNE_TEST_ASSERT(full_r.size()<=1u);
+                golden_b61.check(count,divisor,mode,value,full_q,
+                                 full_r.limb(0u));
+                ARIADNE_TEST_ASSERT(compare(rem(value,by),full_r)==0);
             }
         }
     }
+
+    golden_b61.finish();
 
     const std::array<std::uint64_t,2> numerator{max,max};
     std::array<std::uint64_t,3> output{max,max,max};
