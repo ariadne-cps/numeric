@@ -180,7 +180,7 @@ enum class FloatDPTranscendental {
 };
 
 // FloatDP's certified near-half kernel is deliberately independent of
-// FloatMP.  Coefficients are outward dyadic enclosures at scale 2^-96,
+// FloatMP.  Coefficients are outward dyadic enclosures at scale 2^-85,
 // derived from the repository's independently generated 128-bit exact
 // transcendental oracles.  The few derivative bounds that are not direct
 // function values are obtained by exact integer identities:
@@ -189,24 +189,24 @@ enum class FloatDPTranscendental {
 // Runtime evaluation therefore needs only the shared unsigned-limb
 // multiplier plus binary64 bit manipulation; no FloatMP object, precision
 // tag, adaptive series, or multiprecision transcendental cache is touched.
-struct FloatDPFixed96 {
+struct FloatDPFixed85 {
     std::uint64_t low;
     std::uint64_t high;
 };
 
 struct FloatDPCenter {
-    FloatDPFixed96 lower;
-    FloatDPFixed96 upper;
-    FloatDPFixed96 slope_lower;
-    FloatDPFixed96 slope_upper;
+    FloatDPFixed85 lower;
+    FloatDPFixed85 upper;
+    FloatDPFixed85 slope_lower;
+    FloatDPFixed85 slope_upper;
     unsigned error;
     bool slope_negative;
     bool result_negative;
 };
 
-constexpr unsigned FLOATDP_FIXED_BITS=96u;
+constexpr unsigned FLOATDP_FIXED_BITS=85u;
 
-constexpr FloatDPFixed96 fixed96(std::uint64_t low,std::uint64_t high) {
+constexpr FloatDPFixed85 fixed85(std::uint64_t low,std::uint64_t high) {
     return {low,high};
 }
 
@@ -214,92 +214,92 @@ FloatDPCenter floatdp_center(FloatDPTranscendental function,bool negative) {
     switch(function) {
         case FloatDPTranscendental::sine:
             return {
-                fixed96(0x2c17bfa1d92f0d93ULL,0x000000007abba1d1ULL),
-                fixed96(0x2c17bfa1d92f0d94ULL,0x000000007abba1d1ULL),
-                fixed96(0xdbea7cedbddd9da2ULL,0x00000000e0a94032ULL),
-                fixed96(0xdbea7cedbddd9da3ULL,0x00000000e0a94032ULL),
+                fixed85(0x3a2582f7f43b25e1ULL,0x00000000000f5774ULL),
+                fixed85(0x3a2582f7f43b25e2ULL,0x00000000000f5774ULL),
+                fixed85(0x065b7d4f9db7bbb3ULL,0x00000000001c1528ULL),
+                fixed85(0x065b7d4f9db7bbb4ULL,0x00000000001c1528ULL),
                 1u,false,negative
             };
         case FloatDPTranscendental::cosine:
             return {
-                fixed96(0xdbea7cedbddd9da2ULL,0x00000000e0a94032ULL),
-                fixed96(0xdbea7cedbddd9da3ULL,0x00000000e0a94032ULL),
-                fixed96(0x2c17bfa1d92f0d93ULL,0x000000007abba1d1ULL),
-                fixed96(0x2c17bfa1d92f0d94ULL,0x000000007abba1d1ULL),
+                fixed85(0x065b7d4f9db7bbb3ULL,0x00000000001c1528ULL),
+                fixed85(0x065b7d4f9db7bbb4ULL,0x00000000001c1528ULL),
+                fixed85(0x3a2582f7f43b25e1ULL,0x00000000000f5774ULL),
+                fixed85(0x3a2582f7f43b25e2ULL,0x00000000000f5774ULL),
                 1u,true,false
             };
         case FloatDPTranscendental::tangent:
             return {
-                fixed96(0x9a3a5218bcb2403cULL,0x000000008bda7adfULL),
-                fixed96(0x9a3a5218bcb2403dULL,0x000000008bda7adfULL),
-                fixed96(0x5147e2c853cfc458ULL,0x000000014c66fbe4ULL),
-                fixed96(0x5147e2c853cfc45aULL,0x000000014c66fbe4ULL),
+                fixed85(0x5bf3474a43179648ULL,0x0000000000117b4fULL),
+                fixed85(0x5bf3474a43179649ULL,0x0000000000117b4fULL),
+                fixed85(0x7c8a28fc590a79f8ULL,0x0000000000298cdfULL),
+                fixed85(0x7c8a28fc590a79faULL,0x0000000000298cdfULL),
                 6u,false,negative
             };
         case FloatDPTranscendental::arctangent:
             return {
-                fixed96(0x86ed3da2b7f222f6ULL,0x0000000076b19c15ULL),
-                fixed96(0x86ed3da2b7f222f7ULL,0x0000000076b19c15ULL),
-                fixed96(0xccccccccccccccccULL,0x00000000ccccccccULL),
-                fixed96(0xcccccccccccccccdULL,0x00000000ccccccccULL),
+                fixed85(0x82b0dda7b456fe44ULL,0x00000000000ed633ULL),
+                fixed85(0x82b0dda7b456fe45ULL,0x00000000000ed633ULL),
+                fixed85(0x9999999999999999ULL,0x0000000000199999ULL),
+                fixed85(0x999999999999999aULL,0x0000000000199999ULL),
                 1u,false,negative
             };
         case FloatDPTranscendental::arcsine:
             return {
-                fixed96(0x6b9b2c232dd99707ULL,0x00000000860a91c1ULL),
-                fixed96(0x6b9b2c232dd99708ULL,0x00000000860a91c1ULL),
-                fixed96(0x0331c4d218f81e4aULL,0x00000001279a7459ULL),
-                fixed96(0x0331c4d218f81e4bULL,0x00000001279a7459ULL),
+                fixed85(0x382d73658465bb32ULL,0x000000000010c152ULL),
+                fixed85(0x382d73658465bb33ULL,0x000000000010c152ULL),
+                fixed85(0x8b2066389a431f03ULL,0x000000000024f34eULL),
+                fixed85(0x8b2066389a431f04ULL,0x000000000024f34eULL),
                 2u,false,negative
             };
         case FloatDPTranscendental::arccosine:
             if(negative) {
                 return {
-                    fixed96(0xae6cb08cb7665c1eULL,0x00000002182a4705ULL),
-                    fixed96(0xae6cb08cb7665c1fULL,0x00000002182a4705ULL),
-                    fixed96(0x0331c4d218f81e4aULL,0x00000001279a7459ULL),
-                    fixed96(0x0331c4d218f81e4bULL,0x00000001279a7459ULL),
+                    fixed85(0xe0b5cd961196eccbULL,0x0000000000430548ULL),
+                    fixed85(0xe0b5cd961196ecccULL,0x0000000000430548ULL),
+                    fixed85(0x8b2066389a431f03ULL,0x000000000024f34eULL),
+                    fixed85(0x8b2066389a431f04ULL,0x000000000024f34eULL),
                     2u,false,false
                 };
             }
             return {
-                fixed96(0xd73658465bb32e0fULL,0x000000010c152382ULL),
-                fixed96(0xd73658465bb32e10ULL,0x000000010c152382ULL),
-                fixed96(0x0331c4d218f81e4aULL,0x00000001279a7459ULL),
-                fixed96(0x0331c4d218f81e4bULL,0x00000001279a7459ULL),
+                fixed85(0x705ae6cb08cb7665ULL,0x00000000002182a4ULL),
+                fixed85(0x705ae6cb08cb7666ULL,0x00000000002182a4ULL),
+                fixed85(0x8b2066389a431f03ULL,0x000000000024f34eULL),
+                fixed85(0x8b2066389a431f04ULL,0x000000000024f34eULL),
                 2u,true,false
             };
         case FloatDPTranscendental::hyperbolic_tangent:
             return {
-                fixed96(0x5a2bcd944a3b8871ULL,0x00000000764d4f5dULL),
-                fixed96(0x5a2bcd944a3b8872ULL,0x00000000764d4f5dULL),
-                fixed96(0x1a1ca06ff3e4becdULL,0x00000000c954a37dULL),
-                fixed96(0x1a1ca06ff3e4becfULL,0x00000000c954a37dULL),
+                fixed85(0xebab4579b2894771ULL,0x00000000000ec9a9ULL),
+                fixed85(0xebab4579b2894772ULL,0x00000000000ec9a9ULL),
+                fixed85(0x6fa343940dfe7c96ULL,0x0000000000192a94ULL),
+                fixed85(0x6fa343940dfe7c98ULL,0x0000000000192a94ULL),
                 1u,false,negative
             };
         case FloatDPTranscendental::exponential:
             if(negative) {
                 return {
-                    fixed96(0x7cb04ff3d675a355ULL,0x000000009b4597e3ULL),
-                    fixed96(0x7cb04ff3d675a356ULL,0x000000009b4597e3ULL),
-                    fixed96(0x7cb04ff3d675a355ULL,0x000000009b4597e3ULL),
-                    fixed96(0x7cb04ff3d675a356ULL,0x000000009b4597e3ULL),
+                    fixed85(0xfc6f9609fe7aceb4ULL,0x00000000001368b2ULL),
+                    fixed85(0xfc6f9609fe7aceb5ULL,0x00000000001368b2ULL),
+                    fixed85(0xfc6f9609fe7aceb4ULL,0x00000000001368b2ULL),
+                    fixed85(0xfc6f9609fe7aceb5ULL,0x00000000001368b2ULL),
                     2u,true,false
                 };
             }
             return {
-                fixed96(0xe069bc972dfefab6ULL,0x00000001a61298e1ULL),
-                fixed96(0xe069bc972dfefab7ULL,0x00000001a61298e1ULL),
-                fixed96(0xe069bc972dfefab6ULL,0x00000001a61298e1ULL),
-                fixed96(0xe069bc972dfefab7ULL,0x00000001a61298e1ULL),
+                fixed85(0x1c3c0d3792e5bfdfULL,0x000000000034c253ULL),
+                fixed85(0x1c3c0d3792e5bfe0ULL,0x000000000034c253ULL),
+                fixed85(0x1c3c0d3792e5bfdfULL,0x000000000034c253ULL),
+                fixed85(0x1c3c0d3792e5bfe0ULL,0x000000000034c253ULL),
                 2u,false,false
             };
         case FloatDPTranscendental::logarithm:
             return {
-                fixed96(0xd1cf79abc9e3b398ULL,0x00000000b17217f7ULL),
-                fixed96(0xd1cf79abc9e3b399ULL,0x00000000b17217f7ULL),
-                fixed96(0x0000000000000000ULL,0x0000000200000000ULL),
-                fixed96(0x0000000000000000ULL,0x0000000200000000ULL),
+                fixed85(0xfefa39ef35793c76ULL,0x0000000000162e42ULL),
+                fixed85(0xfefa39ef35793c77ULL,0x0000000000162e42ULL),
+                fixed85(0x0000000000000000ULL,0x0000000000400000ULL),
+                fixed85(0x0000000000000000ULL,0x0000000000400000ULL),
                 8u,true,true
             };
         default:
@@ -307,7 +307,7 @@ FloatDPCenter floatdp_center(FloatDPTranscendental function,bool negative) {
     }
 }
 
-std::uint64_t floatdp_correction(FloatDPFixed96 slope,std::uint64_t offset,
+std::uint64_t floatdp_correction(FloatDPFixed85 slope,std::uint64_t offset,
                                  unsigned denominator_bits,bool round_upward) {
     using Limb=BigUnsigned::Limb;
     const std::array<Limb,2u> slope_words={slope.low,slope.high};
@@ -330,7 +330,7 @@ std::uint64_t floatdp_correction(FloatDPFixed96 slope,std::uint64_t offset,
 }
 
 std::array<BigUnsigned::Limb,2u>
-floatdp_endpoint(FloatDPFixed96 center,std::int64_t displacement) {
+floatdp_endpoint(FloatDPFixed85 center,std::int64_t displacement) {
     using Limb=BigUnsigned::Limb;
     const std::array<Limb,2u> input={center.low,center.high};
     std::array<Limb,2u> output={0u,0u};
@@ -422,9 +422,9 @@ bool floatdp_certified_transcendental(FloatDPTranscendental function,
     const bool offset_negative=magnitude<half;
     const std::uint64_t offset=offset_negative ? half-magnitude : magnitude-half;
 
-    // At scale B=96 the quadratic remainder certificates used by all
+    // At scale B=85 the quadratic remainder certificates used by all
     // centers are bounded by their small integer error constants whenever
-    // |delta| <= 2^-48.
+    // |delta| <= 2^-43.
     constexpr unsigned cutoff=(FLOATDP_FIXED_BITS+1u)/2u;
     if(offset!=0u &&
        (cutoff>denominator_bits ||

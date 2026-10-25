@@ -10860,7 +10860,7 @@ engine. The two public floating-point specializations may share exact low-level 
 but one floating-point type must not be used as the implementation substrate of the other.
 
 `FloatDP` now owns a binary64-specific near-half fixed-point kernel in `src/floatdp.cpp`.
-Its centers are outward dyadic enclosures at scale `2^-96`, derived from the repository's
+Its centers are outward dyadic enclosures at scale `2^-85`, derived from the repository's
 independently generated exact transcendental oracle data. Runtime evaluation uses only binary64 bit
 decomposition, two-limb fixed-point coefficients, the shared `BigUnsigned::mul_into` primitive,
 explicit remainder/error margins, and final binary64 rounding. No `FloatMP` object, precision tag,
@@ -10868,7 +10868,7 @@ adaptive `FloatMP` series, or `FloatMPShortTranscendentals` cache is involved.
 
 The centered derivatives use exact identities where possible: `tan' = 1+tan^2`,
 `atan' = 4/5`, `asin' = -acos' = 2/sqrt(3)`, and `tanh' = 1-tanh^2`.
-The fast path is accepted only when the lower and upper certified fixed-point endpoints round to
+At binary64 precision this reproduces the original `53+32=85` certification scale and its `|delta| <= 2^-43` centered window. The fast path is accepted only when the lower and upper certified fixed-point endpoints round to
 the same binary64 value in the requested rounding mode; otherwise evaluation falls back to the
 existing general `FloatDP` implementation.
 
