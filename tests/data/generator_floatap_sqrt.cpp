@@ -122,7 +122,7 @@ std::string generate() {
         "# A/B = (n/d)*2^(-2e). Calculate q=isqrt(floor(A/B)).\n"
         "# Verify q^2*B <= A < (q+1)^2*B (integer square root floor).\n"
         "# Nearest: compare 4*A to (2*q+1)^2*B; ties-to-even. Directed: exact iff A=q^2*B.\n"
-        "# Result q*2^e, canonical rational. No FloatAP, FloatMP, GMP or MPFR required.\n";
+        "# Result q*2^e, canonical rational. No FloatAP, independent exact arithmetic, GMP or independent exact arithmetic required.\n";
     for(unsigned p:{7u,53u,128u,256u,1024u}) {
         std::vector<std::pair<std::string,std::string>> seen;
         for(const auto& input:original_inputs(p)) {

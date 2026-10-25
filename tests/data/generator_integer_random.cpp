@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproduce the original B17 and B18 source-keyed signed integer test data.
-// Standalone C++20; no Numeric, GMP, MPFR, Boost or FloatMP.
+// Standalone C++20; no Numeric, GMP, independent exact arithmetic, Boost or independent exact arithmetic.
 #include "oracle_exact_integer.hpp"
 
 namespace {

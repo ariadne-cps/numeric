@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Independently certified tangent fixture, standard C++20 only.
-// No Numeric, GMP, MPFR, FloatMP, Boost or host floating-point arithmetic.
+// No Numeric, GMP, independent exact arithmetic, independent exact arithmetic, Boost or host floating-point arithmetic.
 #include "oracle_exact_integer.hpp"
 #include <array>
 #include <map>
@@ -244,7 +244,7 @@ struct Generator {
         "# k=0..239 plus next positive omitted term; cos lower bound strictly >0.\n"
         "# Divide sin enclosure by cos enclosure with outward floor/ceil, apply oddness.\n"
         "# Emit only when the bounds round to identical exact binary rationals.\n"
-        "# No GMP, MPFR, FloatMP, FloatAP or floating transcendental oracle.\n";
+        "# No GMP, independent exact arithmetic, independent exact arithmetic, FloatAP or floating transcendental oracle.\n";
     std::set<std::tuple<unsigned,char,std::string,std::string>> seen;
     std::map<std::pair<std::string,std::string>,SignedInterval> cache;
     std::size_t count=0;

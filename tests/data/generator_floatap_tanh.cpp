@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Recreate certified tanh fixture using independent standard C++20 integer arithmetic.
-// Standalone standard C++20; no GMP, MPFR, Numeric, Boost, or host floats.
+// Standalone standard C++20; no GMP, independent exact arithmetic, Numeric, Boost, or host floats.
 #include "oracle_exact_integer.hpp"
 #include <array>
 #include <bit>
@@ -242,7 +242,7 @@ std::string generate() {
         "# outward fixed-point exp Taylor recurrence on |t|<=1/4, tail <= last term,\n"
         "# outward repeated squaring, then (exp(2|x|)-1)/(exp(2|x|)+1).\n"
         "# Both rigorous endpoint bounds independently round to the same literal.\n"
-        "# No Numeric, libm, GMP, MPFR or floating-point expectation generation.\n"
+        "# No Numeric, libm, GMP, independent exact arithmetic or floating-point expectation generation.\n"
         "# Four modes, both signs, near-half cutoff edges, tiny inputs and saturation.\n";
     constexpr std::array<unsigned,13u> precisions={2u,7u,53u,64u,65u,95u,96u,127u,128u,129u,256u,1024u,2048u};
     const auto append_signed=[](std::vector<Rational>& values,Rational a){

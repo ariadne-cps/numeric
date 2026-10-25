@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproduce existing R3/R4/R8, B32 and R14 exact golden fixtures.
-// Standalone C++20; no Numeric, GMP, MPFR, Boost or other oracle dependency.
+// Standalone C++20; no Numeric, GMP, independent exact arithmetic, Boost or other oracle dependency.
 #include "oracle_exact_integer.hpp"
 
 namespace {

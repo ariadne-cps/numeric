@@ -78,7 +78,7 @@ std::string generate() {
         "# Each four-sample group includes a forced-zero low 64-bit limb at index 1.\n"
         "# Eleven more generated roots give square-1, square, square+1 cases.\n"
         "# Oracle: independent radix-4 restoring sqrtrem and shift/add square bounds.\n"
-        "# No GMP/MPFR or BigUnsigned output used to compute expected values.\n";
+        "# No GMP/independent exact arithmetic or BigUnsigned output used to compute expected values.\n";
     std::size_t count=0u;
     const auto append=[&](Nat const& n) {
         const auto [root,rem]=restoring_sqrtrem(n);
