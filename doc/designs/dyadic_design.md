@@ -63,7 +63,7 @@ For a normalized nonzero finite coefficient `c / 2^e`, the coefficient is odd wh
 
 ### R37.1 — compile fix for mixed Boolean/bool test comparison (21 October 2026)
 
- All R37 Unix/Windows/Coverage workflows failed at the compilation step. Explicitly convert the Ariadne Boolean to bool before comparing to the canonicality expectation. Keep the assertion, original Dyadic oracle tests, all R37 arithmetic, benchmark fixture, vcpkg, build workflows and API unchanged. Both R37 user-supplied native benchmark runs passed their 384-input fixture numerical verification and showed floor/ceil improvements; these are independent of integrated CI. Revalidate Unix/Windows/Coverage before considering R37 stabilized.
+ All R37 Unix/Windows/Coverage workflows failed at the compilation step. Explicitly convert the Ariadne Boolean to bool before comparing to the canonicality expectation. Keep the assertion, original Dyadic oracle tests, all R37 arithmetic, benchmark fixture, build workflows and API unchanged. Both R37 user-supplied native benchmark runs passed their 384-input fixture numerical verification and showed floor/ceil improvements; these are independent of integrated CI. Revalidate Unix/Windows/Coverage before considering R37 stabilized.
 
 ### R38 — single-owned-allocation shifted add/sub (21 October 2026)
 

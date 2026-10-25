@@ -25,7 +25,6 @@ Ariadne Numeric is the standalone C++20 numeric layer used by Ariadne. It provid
 Numeric depends directly on:
 
 - [ariadne-cps/foundation](https://github.com/ariadne-cps/foundation), included as a Git submodule.
-- [GMP](https://gmplib.org/).
 
 Foundation provides [ariadne-cps/utility](https://github.com/ariadne-cps/utility) transitively. Build configuration is shared through [ariadne-cps/configuration](https://github.com/ariadne-cps/configuration).
 
@@ -41,7 +40,7 @@ cmake --build build-release --parallel --target ariadne-numeric bindings
 cmake --install build-release --prefix install
 ```
 
-A C++20 compiler, CMake and GMP are required. Python 3.11+ with development
+A C++20 compiler and CMake are required. Python 3.11+ with development
 headers is needed for the Python bindings; disable them with
 `-DBUILD_PYTHON_BINDINGS=OFF` when not needed.
 
