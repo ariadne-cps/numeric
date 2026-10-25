@@ -7,7 +7,7 @@
 # exact integer quotient/remainder and midpoint-even tests in N/D/U/Z modes.
 # Sign bit is retained for zeros; infinities and maximum finite values encoded
 # as unsigned 64-bit integers, avoiding any host floating point dependencies.
-# No MPFR, GMP, FloatMP, FloatAP or host double used as a reference.
+# No independent exact arithmetic, GMP, independent exact arithmetic, FloatAP or host double used as a reference.
 53	N	1	1	4607182418800017408	1
 53	D	1	1	4607182418800017408	1
 53	U	1	1	4607182418800017408	1

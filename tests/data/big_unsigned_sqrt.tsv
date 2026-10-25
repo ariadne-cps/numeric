@@ -4,7 +4,7 @@
 # Each four-sample group includes a forced-zero low 64-bit limb at index 1.
 # Eleven more generated roots give square-1, square, square+1 cases.
 # Oracle: independent radix-4 restoring sqrtrem and shift/add square bounds.
-# No GMP/MPFR or BigUnsigned output used to compute expected values.
+# No GMP/independent exact arithmetic or BigUnsigned output used to compute expected values.
 0 0 0
 1 1 0
 2 1 1

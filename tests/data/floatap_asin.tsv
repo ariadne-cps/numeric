@@ -6,7 +6,7 @@
 # pi/2 = 8 atan(1/5)-2 atan(1/239); asin=2 atan(x/(1+sqrt(1-x^2))).
 # Accept a value only when BOTH enclosure endpoints round to the same
 # exact binary Rational at the requested bits and direction.
-# No GMP, MPFR, FloatMP, FloatAP, or external transcendental oracle.
+# No GMP, independent exact arithmetic, independent exact arithmetic, FloatAP, or external transcendental oracle.
 53	N	-1	2	-2358079250676147	4503599627370496
 53	D	-1	2	-2358079250676147	4503599627370496
 53	U	-1	2	-4716158501352293	9007199254740992

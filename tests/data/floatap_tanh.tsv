@@ -5,7 +5,7 @@
 # outward fixed-point exp Taylor recurrence on |t|<=1/4, tail <= last term,
 # outward repeated squaring, then (exp(2|x|)-1)/(exp(2|x|)+1).
 # Both rigorous endpoint bounds independently round to the same literal.
-# No Numeric, libm, GMP, MPFR or floating-point expectation generation.
+# No Numeric, libm, GMP, independent exact arithmetic or floating-point expectation generation.
 # Four modes, both signs, near-half cutoff edges, tiny inputs and saturation.
 2	D	-1000	1	-1	1
 2	D	-8	1	-1	1

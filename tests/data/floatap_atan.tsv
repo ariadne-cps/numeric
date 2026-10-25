@@ -6,7 +6,7 @@
 # For x>1: pi/2-atan(1/x). Handle negative inputs by oddness.
 # pi/4=4*atan(1/5)-atan(1/239) certified with the same integer intervals.
 # Emit rows ONLY when both exact interval endpoints round to same binary rational.
-# No GMP, MPFR, FloatMP, FloatAP or floating-point transcendental calculations.
+# No GMP, independent exact arithmetic, independent exact arithmetic, FloatAP or floating-point transcendental calculations.
 53	N	-1	2	-8352332796509007	18014398509481984
 53	D	-1	2	-522020799781813	1125899906842624
 53	U	-1	2	-8352332796509007	18014398509481984
