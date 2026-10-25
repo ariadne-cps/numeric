@@ -1210,3 +1210,12 @@ transforms are preserved; each row is source-keyed and contains exact quotient
 and remainder computed by the standalone long-division oracle. The fixture has
 544 rows, 743,901 bytes and Git blob
 `a29d884326073e4972fae8a47c4610721de10003`.
+
+### A34 — divisor-normalization division
+
+`generator_big_unsigned_division_remaining.cpp` also emits
+`big_unsigned_a34_normalization.tsv`, covering all 64 normalization shifts x
+10 modes = 640 exact division cases. Each row freezes both source operands and
+exact quotient/remainder; the fixture has 640 rows, 86,823 bytes and Git blob
+`da602174c15f52d33838659fe2596e63cdcbdc24`. This completes the fixed
+76,323-visit BigUnsigned numerical GMP-oracle migration audit.

@@ -271,6 +271,37 @@ std::string a33_b45() {
     return out;
 }
 
+
+std::string a34_normalization() {
+    std::string out=
+        "# A34 divisor-normalization division oracle.\n"
+        "# shift mode dividend_hex divisor_hex quotient_hex remainder_hex\n"
+        "# All 64 normalization shifts x 10 modes; no GMP/Numeric/Boost.\n";
+    const auto max=UINT64_MAX;
+    std::size_t rows=0u;
+    for (unsigned shift=0u;shift<64u;++shift) {
+        const std::uint64_t top=max>>shift;
+        for (unsigned mode=0u;mode<10u;++mode) {
+            const Nat divisor(std::vector<std::uint64_t>{
+                (mode%2u)==0u ? max : std::uint64_t{1},top});
+            const Nat dividend(std::vector<std::uint64_t>{
+                (mode%3u)==0u ? max : std::uint64_t{mode+1u},
+                (mode%3u)==1u ? 0u : max,
+                (mode%2u)==0u ? max : std::uint64_t{1},
+                (mode%3u)==2u ? top-1u : top});
+            const auto [quotient,remainder]=divide(dividend,divisor);
+            if (Nat::add(multiply(quotient,divisor),remainder).compare(dividend)!=0 ||
+                remainder.compare(divisor)>=0)
+                throw std::runtime_error("invalid A34 Euclidean identity");
+            out+=row({std::to_string(shift),std::to_string(mode),
+                      dividend.hex(),divisor.hex(),quotient.hex(),remainder.hex()});
+            ++rows;
+        }
+    }
+    if (rows!=640u) throw std::runtime_error("wrong A34 row count");
+    return out;
+}
+
 }
 
 int main(int argc,char** argv) {
@@ -299,6 +330,9 @@ int main(int argc,char** argv) {
                 a32[part],write);
         independent_oracle::output(
             dir,"big_unsigned_a33_b45.tsv",a33_b45(),write);
+        independent_oracle::output(
+            dir,"big_unsigned_a34_normalization.tsv",
+            a34_normalization(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"BigUnsigned remaining division generator: "

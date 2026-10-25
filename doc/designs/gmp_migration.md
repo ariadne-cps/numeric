@@ -13,11 +13,11 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A33
+## Current state — A34
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
-| `test_division()` | 15,874 | 640 |
+| `test_division()` | 16,514 | 0 |
 | `test_views_and_scratch()` | 11,600 | 0 |
 | `test_multiply_kernel_paths()` | 11,432 | 0 |
 | `test_randomized()` | 10,000 | 0 |
@@ -26,14 +26,13 @@ progress reporting, barring a documented correction to the audit.
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **75,683** | **640** |
+| **Total** | **76,323** | **0** |
 
-Progress: **75,683 / 76,323 = 99.161%**.
+Progress: **76,323 / 76,323 = 100.000%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
-- `test_division()`: normalization 640.
 
 ## Commit milestones
 
@@ -63,6 +62,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A31 — B36 high-ratio division | 1,280 | 74,115 |
 | A32 — B29 sparse division | 1,024 | 75,139 |
 | A33 — B45 zero-low/decimal division | 544 | 75,683 |
+| A34 — divisor normalization | 640 | 76,323 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -415,3 +415,18 @@ The standalone remaining-division generator emits
 `big_unsigned_a33_b45.tsv` without Numeric/GMP/Boost. No production code
 changes. Remaining audited numerical GMP-oracle visits: the 640 divisor
 normalization cases only.
+
+## A34 — divisor normalization (25 October 2026)
+
+Migrate the final 640 audited numerical GMP-oracle visits in
+`test_division()`: all 64 divisor-normalization shifts crossed with the ten
+original dividend modes. Inputs remain deterministically constructed in the
+consumer; the source-keyed TSV verifies both operands before checking exact
+quotient and remainder, `quot`/`rem` agreement, remainder bounds and the
+native Euclidean identity.
+
+The standalone remaining-division generator emits
+`big_unsigned_a34_normalization.tsv` without Numeric/GMP/Boost. No production
+code changes. This completes the fixed BigUnsigned audit at **76,323 / 76,323
+= 100.000%** migrated numerical GMP-oracle visits. GMP interoperability tests
+remain outside this denominator by definition.

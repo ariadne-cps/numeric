@@ -2451,7 +2451,6 @@ void TestBigUnsigned::test_division()
     const auto [q3,r3]=divrem(radix_squared,radix);
     ARIADNE_TEST_ASSERT(compare(q3,radix)==0 && r3.is_zero());
 
-    GmpInteger a,b,q,r;
     std::array<std::ifstream,6u> a29_general;
     for (std::size_t part=0u;part<a29_general.size();++part) {
         const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
@@ -3212,9 +3211,16 @@ void TestBigUnsigned::test_division()
     if (a33_b45 >> a33_extra)
         throw std::runtime_error("Extra A33 B45 TSV rows");
 
-    // Force all 64 divisor-normalization shifts. Vary the dividend's
-    // top words and saturated bottom words to exercise quotient
-    // estimates, downward corrections and full-width remainders.
+    // A34: force all 64 divisor-normalization shifts and preserve all
+    // ten original dividend modes with a deterministic source-keyed TSV.
+    std::ifstream a34_normalization(
+        std::string(ARIADNE_TEST_DATA_DIR)+
+        "/big_unsigned_a34_normalization.tsv");
+    if (!a34_normalization)
+        throw std::runtime_error("Missing A34 normalization TSV");
+    std::string a34_header;
+    while (a34_normalization.peek()=='#')
+        std::getline(a34_normalization,a34_header);
     for (unsigned shift=0u;shift<64u;++shift) {
         const std::uint64_t top=max>>shift;
         for (unsigned mode=0u;mode<10u;++mode) {
@@ -3227,23 +3233,33 @@ void TestBigUnsigned::test_division()
                 (mode%3u)==2u ? top-1u : top};
             const BigUnsigned dividend_value(dividend_words);
             const BigUnsigned divisor_value(divisor_words);
-            mpz_import(a.value,dividend_words.size(),-1,
-                       sizeof(std::uint64_t),0,0,dividend_words.data());
-            mpz_import(b.value,divisor_words.size(),-1,
-                       sizeof(std::uint64_t),0,0,divisor_words.data());
-            mpz_tdiv_qr(q.value,r.value,a.value,b.value);
+            unsigned ref_shift=0u,ref_mode=0u;
+            std::string dividend_hex,divisor_hex,quotient_hex,remainder_hex;
+            if (!(a34_normalization >> ref_shift >> ref_mode
+                  >> dividend_hex >> divisor_hex
+                  >> quotient_hex >> remainder_hex) ||
+                ref_shift!=shift || ref_mode!=mode)
+                throw std::runtime_error(
+                    "Missing or unordered A34 normalization TSV row");
+            check_against_precomputed_hex(dividend_value,dividend_hex);
+            check_against_precomputed_hex(divisor_value,divisor_hex);
             const auto [native_q,native_r]=divrem(
                 dividend_value,divisor_value);
-            check_against_gmp(native_q,q.value);
-            check_against_gmp(native_r,r.value);
-            check_against_gmp(quot(dividend_value,divisor_value),q.value);
-            check_against_gmp(rem(dividend_value,divisor_value),r.value);
+            check_against_precomputed_hex(native_q,quotient_hex);
+            check_against_precomputed_hex(native_r,remainder_hex);
+            check_against_precomputed_hex(
+                quot(dividend_value,divisor_value),quotient_hex);
+            check_against_precomputed_hex(
+                rem(dividend_value,divisor_value),remainder_hex);
             ARIADNE_TEST_ASSERT(compare(native_r,divisor_value)<0);
             ARIADNE_TEST_ASSERT(compare(
                 add(mul(native_q,divisor_value),native_r),
                 dividend_value)==0);
         }
     }
+    std::string a34_extra;
+    if (a34_normalization >> a34_extra)
+        throw std::runtime_error("Extra A34 normalization TSV rows");
 
     // Focused zero, short dividend, exact quotient and single-limb
     // divisor cases; keep both divided-output implementations checked.
