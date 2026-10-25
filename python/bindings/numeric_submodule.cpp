@@ -785,10 +785,13 @@ template<class PR> void export_rounded_operations(pymodule& module)
 {
     typedef RawFloat<PR> F;
     typedef Rounding RND;
-    module.def("nul", &_nul_<RND,F>);
-    module.def("pos", &_pos_<RND,F>);
-    module.def("neg", &_neg_<RND,F>);
-    module.def("hlf", &_hlf_<RND,F>);
+    // These four operations are exact for every raw backend, so keep the
+    // historical Python (rounding,value) signature without requiring a
+    // backend-specific rounded overload.
+    module.def("nul", [](RND const&, F const& x){ return nul(x); });
+    module.def("pos", [](RND const&, F const& x){ return pos(x); });
+    module.def("neg", [](RND const&, F const& x){ return neg(x); });
+    module.def("hlf", [](RND const&, F const& x){ return hlf(x); });
     module.def("sqr", &_sqr_<RND,F>);
     module.def("rec", &_rec_<RND,F>);
     module.def("add", &_add_<RND,F,F>);
