@@ -235,43 +235,12 @@ FloatDP acos(FloatDP::RoundingModeType mode,FloatDP x) {
     return FloatDP::_apply_rnd(&acos_rnd,mode,x);
 }
 
-// The raw tanh API returns a single correctly rounded binary64 result.
-// Use the native FloatAP transcendental kernel as the general fallback.
 FloatDP tanh(FloatDP::RoundingModeType mode,FloatDP x) {
-    FloatAP::Rounding native_mode=FloatAP::Rounding::ToNearest;
-    if (mode==FloatDP::ROUND_DOWNWARD) native_mode=FloatAP::Rounding::Downward;
-    else if (mode==FloatDP::ROUND_UPWARD) native_mode=FloatAP::Rounding::Upward;
-    else if (mode==FloatDP::ROUND_TOWARD_ZERO) native_mode=FloatAP::Rounding::TowardZero;
-    else if (mode!=FloatDP::ROUND_TO_NEAREST)
-        throw std::invalid_argument("FloatDP unknown tanh rounding mode");
-
-    const double value=x.dbl;
-    if (std::isnan(value) || value==0.0) return x;
-    if (std::isinf(value)) return FloatDP(ExactDouble(std::copysign(1.0,value)),x.precision());
-
-    // Avoid double rounding at the binary64 subnormal boundary. Here
-    // |x-tanh(x)|<|x|^3 is below half the spacing immediately beneath x.
-    if (std::fabs(value)<0x1p-28) {
-        const bool rounds_toward_zero=mode==FloatDP::ROUND_TOWARD_ZERO ||
-            (mode==FloatDP::ROUND_DOWNWARD && value>0.0) ||
-            (mode==FloatDP::ROUND_UPWARD && value<0.0);
-        return FloatDP(ExactDouble(rounds_toward_zero ? std::nextafter(value,0.0) : value),
-                       x.precision());
-    }
-
-    double short_output;
+    double output;
     if (shared_transcendental(Detail::FloatTranscendental::hyperbolic_tangent,
-            mode,value,short_output)) return FloatDP(short_output);
-
-    // Outside the subnormal window the result is a normal binary64 value.
-    // A correctly rounded 53-bit FloatAP therefore has exactly the target
-    // significand and can be converted to double without another rounding.
-    const ArbitraryPrecision native_precision(std::size_t{53});
-    const FloatAP native_input(ExactDouble(value),native_precision);
-    const FloatAP native_output=tanh(native_mode,native_input);
-    return FloatDP(ExactDouble(native_output.get_d()),x.precision());
+            mode,x.dbl,output)) return FloatDP(output);
+    return FloatDP::_apply_rnd(&tanh_rnd,mode,x);
 }
-
 FloatDP::Float(FloatDP const& x, RoundingModeType, PrecisionType)
     : FloatDP(x)
 {
@@ -335,6 +304,11 @@ FloatDP cos_rnd(FloatDP x)
 FloatDP tan_rnd(FloatDP x)
 {
     return FloatDP(tan_rnd(x.dbl));
+}
+
+FloatDP tanh_rnd(FloatDP x)
+{
+    return FloatDP(tanh_rnd(x.dbl));
 }
 
 FloatDP atan_rnd(FloatDP x)

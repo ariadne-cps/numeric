@@ -51,6 +51,7 @@ double log_rnd(double x);
 double sin_rnd(double x);
 double cos_rnd(double x);
 double tan_rnd(double x);
+double tanh_rnd(double x);
 double asin_rnd(double x);
 double acos_rnd(double x);
 double atan_rnd(double x);

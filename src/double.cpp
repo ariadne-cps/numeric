@@ -211,6 +211,31 @@ double exp_rnd(double x)
 
 
 
+double tanh_rnd(double x)
+{
+    if(std::isnan(x) || x==0.0) { return x; }
+    if(x==std::numeric_limits<double>::infinity()) { return 1.0; }
+    if(x==-std::numeric_limits<double>::infinity()) { return -1.0; }
+
+    const rounding_mode_t rounding=get_builtin_rounding_mode();
+    if(x<0.0) {
+        rounding_mode_t positive_rounding=rounding;
+        if(rounding==ROUND_DOWNWARD) positive_rounding=ROUND_UPWARD;
+        else if(rounding==ROUND_UPWARD) positive_rounding=ROUND_DOWNWARD;
+        set_builtin_rounding_mode(positive_rounding);
+        const double result=-tanh_rnd(-x);
+        set_builtin_rounding_mode(rounding);
+        return result;
+    }
+
+    volatile double two_x=mul_rnd(2.0,x);
+    volatile double exponential=exp_rnd(two_x);
+    volatile double denominator=add_rnd(exponential,1.0);
+    volatile double quotient=div_rnd(2.0,denominator);
+    return sub_rnd(1.0,quotient);
+}
+
+
 double log_rnd(double x) {
     static const long long int c[12]={ 1LL, 3LL, 5LL, 7LL, 9LL, 11LL, 13LL, 15LL, 17LL, 19LL, 21LL, 23LL };
 

@@ -456,6 +456,7 @@ template<> class Float<DP>
     friend FloatDP sin_rnd(FloatDP x);
     friend FloatDP cos_rnd(FloatDP x);
     friend FloatDP tan_rnd(FloatDP x);
+    friend FloatDP tanh_rnd(FloatDP x);
     friend FloatDP atan_rnd(FloatDP x);
 
     // Opposite rounded arithmetic

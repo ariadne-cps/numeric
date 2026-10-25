@@ -3016,16 +3016,14 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
     }
     if constexpr (Same<PR,DoublePrecision>) {
         // Reuse independent frozen transcendental literals for the shared
-        // binary64 adapter. MPFR converts the SOURCE input only; expected
-        // function values remain the existing offline exact certificates.
+        // binary64 adapter. Expected values remain offline exact certificates.
         const auto verify=[&](char const* path,std::size_t count,
                               auto evaluate,bool check_nearest) {
             const auto golden=load_floatap_golden_rows(path,count);
             const Rational window(Integer(1),pow(Integer(2),Nat(43u)));
             for (auto const& [key,expected]:golden) {
                 if (key.bits!=53u || (key.mode=='N' && !check_nearest)) continue;
-                const FloatAP converted(key.input,FloatAP::ROUND_TO_NEAREST,ArbitraryPrecision(53_bits));
-                const FloatDP input(ExactDouble(converted.get_d()),dp);
+                const FloatDP input(ExactDouble(key.input.get_d()),dp);
                 if (abs(abs(static_cast<Rational>(input))-Rational(1,2))>window) continue;
                 const auto check=[&](auto mode) {
                     const auto old=FloatDP::get_rounding_mode();
