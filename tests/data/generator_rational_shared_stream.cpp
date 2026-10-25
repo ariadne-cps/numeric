@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproduce the R29, R13 and R5 exact binary64 fixtures from their shared source stream.
-// Standalone C++20: no Numeric, GMP, MPFR, Boost, FloatMP or native FP arithmetic.
+// Standalone C++20: no Numeric, GMP, independent exact arithmetic, Boost, independent exact arithmetic or native FP arithmetic.
 #include "oracle_exact_integer.hpp"
 
 namespace {
@@ -90,7 +90,7 @@ std::string generate_r13(std::mt19937_64& engine,unsigned mode,unsigned limbs) {
     std::string out=
         "# R13 independent source-keyed native conversion oracle, original seeded random limb streams\n"
         "# mode_index limbs sample raw_signed_numerator raw_denominator expected_binary64_bits\n"
-        "# Signed numerator and denominator are exact from C++ std::mt19937_64 limb vectors; no GMP/MPFR/Numeric\n";
+        "# Signed numerator and denominator are exact from C++ std::mt19937_64 limb vectors; no GMP/independent exact arithmetic/Numeric\n";
     for (unsigned sample=0u;sample<96u;++sample) {
         Words nw(limbs),dw(limbs);
         for (unsigned j=0u;j<limbs;++j) {
@@ -113,7 +113,7 @@ void run_all(std::filesystem::path const& dir,bool write) {
         "# R5: exact frozen IEEE-754 binary64 truncation oracle for original random shift probes.\n"
         "# mode_index shift original_num original_den pos_div_bits neg_div_bits pos_mul_bits neg_mul_bits\n"
         "# 4 modes x 12 shifts x 4 signed quotient cases: all 192 original results, no thinning.\n"
-        "# All source mt19937_64 words and expected exact binary64 patterns independently derived, no GMP/MPFR/Numeric.\n";
+        "# All source mt19937_64 words and expected exact binary64 patterns independently derived, no GMP/independent exact arithmetic/Numeric.\n";
     for (unsigned mode=0u;mode<4u;++mode) {
         r29data+=generate_r29_mode(engine,mode);
         for (unsigned limbs=5u;limbs<=8u;++limbs) {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Exact two-stage (FloatAP p-bit -> IEEE binary64) rounding oracle, C++20.
-// No GMP, MPFR, FloatAP, Numeric, Boost, or host floating-point conversions.
+// No GMP, independent exact arithmetic, FloatAP, Numeric, Boost, or host floating-point conversions.
 #include "oracle_exact_integer.hpp"
 
 namespace {
@@ -123,7 +123,7 @@ std::string generate() {
         "# exact integer quotient/remainder and midpoint-even tests in N/D/U/Z modes.\n"
         "# Sign bit is retained for zeros; infinities and maximum finite values encoded\n"
         "# as unsigned 64-bit integers, avoiding any host floating point dependencies.\n"
-        "# No MPFR, GMP, FloatMP, FloatAP or host double used as a reference.\n";
+        "# No independent exact arithmetic, GMP, independent exact arithmetic, FloatAP or host double used as a reference.\n";
     for(unsigned precision:{53u,128u,256u,1024u}) {
         for(const auto& source:original_inputs()) {
             const Rational rounded=rounded_to_precision(source,precision);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Rigorous integer-only exponential oracle for the original FloatAP fixtures.
-// Standalone standard C++20; no GMP, MPFR, Numeric, Boost, or host floats.
+// Standalone standard C++20; no GMP, independent exact arithmetic, Numeric, Boost, or host floats.
 #include "oracle_exact_integer.hpp"
 #include <array>
 #include <bit>
@@ -141,7 +141,7 @@ std::pair<std::string,std::string> certify(Interval const& interval,
 }
 std::string generate(){
     std::string out=
-        "# Certified exp(x) correctly rounded results; independent of GMP/MPFR/FloatAP.\n"
+        "# Certified exp(x) correctly rounded results; independent of GMP/independent exact arithmetic/FloatAP.\n"
         "# precision_bits mode input_num input_den expected_num expected_den\n"
         "# W=1400, B=2^W, t=abs(x)/16 <= 7/16, Taylor N=165.\n"
         "# Every term t^k/k! bounded with outward floor/ceil fixed-point division.\n"

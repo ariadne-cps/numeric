@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproduce exact source-keyed Rational R7 and R12 IEEE-754 binary64 fixtures.
-// Standalone C++20: no Numeric, GMP, MPFR, FloatMP, Boost or host FP rounding.
+// Standalone C++20: no Numeric, GMP, independent exact arithmetic, independent exact arithmetic, Boost or host FP rounding.
 #include "oracle_exact_integer.hpp"
 
 namespace {
@@ -101,7 +101,7 @@ std::string rational_r12() {
         "# R12 exact unsigned one-limb Rational::get_d oracle (all seeded sources).\n"
         "# mode_index sample numerator denominator expected_positive_bits expected_negative_bits\n"
         "# Four FE rounding modes, 512 visits each, both signs: 4096 bit-exact conversion outcomes.\n"
-        "# Expected binary64 sign/exponent/significand computed independently using exact BigInt quotient and bit lengths, no GMP/MPFR/Numeric.\n";
+        "# Expected binary64 sign/exponent/significand computed independently using exact BigInt quotient and bit lengths, no GMP/independent exact arithmetic/Numeric.\n";
     for (unsigned mode=0u;mode<4u;++mode) {
         std::mt19937_64 engine(0x1200530012812026ULL);
         for (unsigned sample=0u;sample<512u;++sample) {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproduce FloatAP directed rational bounds without external arithmetic libraries.
-// Standalone C++20; no Numeric, GMP, MPFR, Boost or FloatAP.
+// Standalone C++20; no Numeric, GMP, independent exact arithmetic, Boost or FloatAP.
 #include "oracle_exact_integer.hpp"
 
 namespace {
@@ -65,7 +65,7 @@ std::string generate() {
         "# For each exact rational q and precision p, find k=floor(log2(abs(q)))\n"
         "# by integer bit-length and shift comparisons; let e=k-p+1.\n"
         "# lower=floor(q/2^e)*2^e; upper=ceil(q/2^e)*2^e.\n"
-        "# Frozen as reduced rationals. No FloatAP, FloatMP, MPFR or GMP involved.\n"
+        "# Frozen as reduced rationals. No FloatAP, independent exact arithmetic, independent exact arithmetic or GMP involved.\n"
         "# Six precisions x fifteen signed, zero and dyadic inputs = 90 rows.\n";
     constexpr std::array<std::pair<std::int64_t,std::uint64_t>,15u> inputs={{{0,1},
         {1,3},{-1,3},{5,3},{-5,3},{7,11},{-7,11},{1,2},{-1,2},

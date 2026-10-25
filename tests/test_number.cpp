@@ -91,7 +91,7 @@ static_assert(!std::is_abstract_v<NumberWrapper<FloatDP>>);
 static_assert(!std::is_abstract_v<NumberWrapper<FloatAP>>);
 static_assert(std::is_convertible_v<FloatAP,ExactNumber>);
 // Preserve the FloatAP generic-division call surface directly rather than
-// comparing it with an MPFR-backed type in this compilation unit.
+// comparing it with an independent exact arithmetic-backed type in this compilation unit.
 template<class A, class B> concept SupportsDirectDivision =
     requires(A const& a, B const& b) { div(a,b); };
 static_assert(SupportsDirectDivision<Real,UpperBound<FloatAP>>);
@@ -349,7 +349,7 @@ TestNumbers::test_misc()
     ARIADNE_TEST_EQUALS(dp_error_number.class_name(),String("FloatDP"));
 
     // Verify the native backend's concrete type is preserved through generic
-    // validated, approximate, and error wrappers without MPFR intermediates.
+    // validated, approximate, and error wrappers without independent exact arithmetic intermediates.
     FloatAPError ap_error(1u,ap);
     ValidatedErrorNumber ap_error_number=ap_error.operator ValidatedErrorNumber();
     ARIADNE_TEST_EQUALS(ap_error_number.class_name(),String("FloatAP"));
