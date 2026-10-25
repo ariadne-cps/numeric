@@ -2895,9 +2895,18 @@ void TestBigUnsigned::test_division()
     if (b48_golden >> b48_extra)
         throw std::runtime_error("Extra A11 B48 rows");
 
-    // B28: equal highest limbs guarantee a quotient of either 0 or 1.
-    // Exercise both orderings, equality, borrow propagation and long
-    // exact remainders, independently against GMP in all output modes.
+    // A30/B28: equal-high fast-path cases use two sequential exact TSVs.
+    std::array<std::ifstream,2u> a30_b28;
+    for (std::size_t part=0u;part<a30_b28.size();++part) {
+        const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
+            "/big_unsigned_a30_b28_"+std::to_string(part)+".tsv";
+        a30_b28[part].open(path);
+        if (!a30_b28[part])
+            throw std::runtime_error("Missing A30 B28 TSV: "+path);
+        std::string header;
+        while (a30_b28[part].peek()=='#')
+            std::getline(a30_b28[part],header);
+    }
     std::mt19937_64 equal_high_engine(0xB280C27ULL);
     for (unsigned repetition=0u;repetition<2048u;++repetition) {
         const std::size_t count=repetition%37u==0u?128u:
@@ -2917,7 +2926,26 @@ void TestBigUnsigned::test_division()
             ++right.front();
         }
         const BigUnsigned numerator(left),denominator(right);
-        check_fused_division(numerator,denominator);
+        std::ifstream& golden=a30_b28[repetition/1024u];
+        unsigned ref_repetition=0u;
+        std::size_t ref_count=0u;
+        std::string numerator_hex,denominator_hex,quotient_hex,remainder_hex;
+        if (!(golden >> ref_repetition >> ref_count
+              >> numerator_hex >> denominator_hex
+              >> quotient_hex >> remainder_hex) ||
+            ref_repetition!=repetition || ref_count!=count)
+            throw std::runtime_error(
+                "Missing or unordered A30 B28 TSV row");
+        check_against_precomputed_hex(numerator,numerator_hex);
+        check_against_precomputed_hex(denominator,denominator_hex);
+        const auto [native_q,native_r]=divrem(numerator,denominator);
+        check_against_precomputed_hex(native_q,quotient_hex);
+        check_against_precomputed_hex(native_r,remainder_hex);
+        check_against_precomputed_hex(
+            quot(numerator,denominator),quotient_hex);
+        check_against_precomputed_hex(
+            rem(numerator,denominator),remainder_hex);
+        ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
 
         // The public joint-output contract still requires the same
         // scratch size and clears surplus output limbs. This fast path
@@ -2930,8 +2958,8 @@ void TestBigUnsigned::test_division()
         BigUnsigned::divrem_into(
             numerator.limbs(),denominator.limbs(),qout,rout,
             BigUnsigned::MutableLimbView(guards.data()+1u,needed));
-        check_against_gmp(BigUnsigned(qout),q.value);
-        check_against_gmp(BigUnsigned(rout),r.value);
+        check_against_precomputed_hex(BigUnsigned(qout),quotient_hex);
+        check_against_precomputed_hex(BigUnsigned(rout),remainder_hex);
         for (const auto word:guards) {
             ARIADNE_TEST_ASSERT(word==max);
         }
@@ -2941,6 +2969,12 @@ void TestBigUnsigned::test_division()
         for (std::size_t i=denominator.size();i<rout.size();++i) {
             ARIADNE_TEST_ASSERT(rout[i]==0u);
         }
+    }
+
+    for (std::size_t part=0u;part<a30_b28.size();++part) {
+        std::string extra;
+        if (a30_b28[part] >> extra)
+            throw std::runtime_error("Extra A30 B28 TSV rows");
     }
 
     // B36: equal-size quotients that can be classified from the

@@ -81,6 +81,48 @@ std::array<std::string,6u> a29_general() {
     }
     return out;
 }
+
+std::array<std::string,2u> a30_b28() {
+    std::array<std::string,2u> out;
+    for (std::size_t part=0u;part<out.size();++part) {
+        out[part]="# A30 B28 equal-high division oracle part "+
+            std::to_string(part)+": visits "+std::to_string(part*1024u)+
+            ".."+std::to_string(part*1024u+1023u)+".\n"
+            "# repetition count numerator_hex denominator_hex quotient_hex remainder_hex\n"
+            "# Exact mt19937_64(0xB280C27) source stream and equal-high transforms preserved.\n"
+            "# No Numeric/GMP/Boost dependency.\n";
+    }
+    std::mt19937_64 engine(0xB280C27ULL);
+    for (unsigned repetition=0u;repetition<2048u;++repetition) {
+        const std::size_t count=repetition%37u==0u?128u:
+            2u+static_cast<std::size_t>(engine()%64u);
+        std::vector<std::uint64_t> left(count),right(count);
+        for (auto& word:left) word=engine();
+        for (auto& word:right) word=engine();
+        right.back()|=1u;
+        left.back()=right.back();
+        if (repetition%4u==0u) {
+            left=right;
+        } else if (repetition%4u==1u) {
+            left=right;
+            ++left.front();
+        } else if (repetition%4u==2u) {
+            right=left;
+            ++right.front();
+        }
+        const Nat numerator(std::move(left)),denominator(std::move(right));
+        const auto [quotient,remainder]=divide(numerator,denominator);
+        if (Nat::add(multiply(quotient,denominator),remainder)
+                .compare(numerator)!=0 ||
+            remainder.compare(denominator)>=0)
+            throw std::runtime_error("invalid A30 Euclidean identity");
+        out[repetition/1024u]+=row({
+            std::to_string(repetition),std::to_string(count),
+            numerator.hex(),denominator.hex(),quotient.hex(),remainder.hex()});
+    }
+    return out;
+}
+
 }
 
 int main(int argc,char** argv) {
@@ -92,6 +134,11 @@ int main(int argc,char** argv) {
             independent_oracle::output(
                 dir,"big_unsigned_a29_division_"+std::to_string(part)+".tsv",
                 a29[part],write);
+        const auto a30=a30_b28();
+        for (std::size_t part=0u;part<a30.size();++part)
+            independent_oracle::output(
+                dir,"big_unsigned_a30_b28_"+std::to_string(part)+".tsv",
+                a30[part],write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"BigUnsigned remaining division generator: "

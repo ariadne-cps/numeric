@@ -13,11 +13,11 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A29
+## Current state — A30
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
-| `test_division()` | 10,978 | 5,536 |
+| `test_division()` | 13,026 | 3,488 |
 | `test_views_and_scratch()` | 11,600 | 0 |
 | `test_multiply_kernel_paths()` | 11,432 | 0 |
 | `test_randomized()` | 10,000 | 0 |
@@ -26,15 +26,15 @@ progress reporting, barring a documented correction to the audit.
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **70,787** | **5,536** |
+| **Total** | **72,835** | **3,488** |
 
-Progress: **70,787 / 76,323 = 92.747%**.
+Progress: **72,835 / 76,323 = 95.430%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
-- `test_division()`: B28 2,048; B36 1,280; B29 1,024; B45 shifted 504;
-  B45 decimal 40; normalization 640 = 5,536.
+- `test_division()`: B36 1,280; B29 1,024; B45 shifted 504;
+  B45 decimal 40; normalization 640 = 3,488.
 
 ## Commit milestones
 
@@ -60,6 +60,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A27 — general multiply kernels | 6,000 | 61,947 |
 | A28 — B8 + fixed Karatsuba | 2,840 | 64,787 |
 | A29 — general division | 6,000 | 70,787 |
+| A30 — B28 equal-high division | 2,048 | 72,835 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -366,3 +367,16 @@ long division and shift/add multiplication, with no Numeric/GMP/Boost
 runtime dependency. No production code changes. Remaining audited numerical
 GMP-oracle visits: B28 2,048, B36 1,280, B29 1,024, B45 544 and normalization
 640 = 5,536 total.
+
+## A30 — B28 equal-high division (25 October 2026)
+
+Migrate all 2,048 B28 equal-high-limb visits to two exact source-keyed TSVs.
+The original seeded stream, equality/borrow source transforms, joint and
+single-output paths, zero-tail checks and the special guarantee that this
+fast path leaves its scratch buffer untouched are all preserved. Only the
+runtime GMP numerical oracle is replaced.
+
+The standalone remaining-division generator emits two 1,024-row fixtures
+using independent long division. No production code changes. Remaining
+numerical GMP-oracle inventory is B36 1,280, B29 1,024, B45 544 and
+normalization 640 = 3,488 visits.
