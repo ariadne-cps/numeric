@@ -952,3 +952,14 @@ original seeded random stream is shared across both branches.
 Exact comparison, addition, conditional subtraction and both shifts
 are verified; fixture blob `487f06f3921d72d2de9caee06bf9c23957ee6012`.
 Progress tracked in `doc/designs/gmp_migration.md`.
+
+### A13 — second 1,250 randomized arithmetic oracle visits
+
+Add `big_unsigned_a13_randomized_second.tsv` for original seeded visits
+1,250–2,499; preserve all original random draws, including the first
+1,250 discarded only by the independent generator. The consumer compares
+all original arithmetic and shift outputs against independently
+certified exact results and continues using GMP for visits 2,500–9,999.
+Exact fixture 1,217,436 bytes, Git blob
+`ae3a7c98ef3ac9dedea8e44d5a2d410daccb342e`.
+The audit is updated in `doc/designs/gmp_migration.md`.
