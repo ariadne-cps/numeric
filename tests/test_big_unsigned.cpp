@@ -66,6 +66,8 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_B57_POWER_LARGE_PATH[] = ARIADNE_TEST
 inline constexpr char ARIADNE_BIG_UNSIGNED_B55_SHORT_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b55_short.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B55_MEDIUM_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b55_medium.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B55_LARGE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b55_large.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B27_FIRST_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b27_first.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B27_SECOND_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b27_second.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -2543,6 +2545,40 @@ void TestBigUnsigned::test_division()
     // including quotient estimates that need TWO corrections.
     // These fixtures were found by the independent GMP stress probe,
     // not by adjusting the expected result to the native algorithm.
+    std::array<std::ifstream,2> b27_golden{
+        std::ifstream(ARIADNE_BIG_UNSIGNED_B27_FIRST_PATH),
+        std::ifstream(ARIADNE_BIG_UNSIGNED_B27_SECOND_PATH)};
+    for (auto& file:b27_golden) {
+        if (!file) throw std::runtime_error("Missing B27 independent TSV");
+        std::string header;
+        while (file.peek()=='#') std::getline(file,header);
+    }
+    const auto check_b27=[&](char kind,unsigned index,
+            BigUnsigned const& numerator,BigUnsigned const& denominator) {
+        const std::size_t group=kind=='F'||index<1024u?0u:1u;
+        std::string ref_kind,a_hex,b_hex,q_hex,r_hex;
+        unsigned ref_index=0u;
+        if (!(b27_golden[group] >> ref_kind >> ref_index >>
+              a_hex >> b_hex >> q_hex >> r_hex) ||
+            ref_kind!=std::string(1,kind) || ref_index!=index)
+            throw std::runtime_error("Missing or unordered B27 oracle row");
+        check_against_precomputed_hex(numerator,a_hex);
+        check_against_precomputed_hex(denominator,b_hex);
+        const auto [qvalue,rvalue]=divrem(numerator,denominator);
+        check_against_precomputed_hex(qvalue,q_hex);
+        check_against_precomputed_hex(rvalue,r_hex);
+        check_against_precomputed_hex(quot(numerator,denominator),q_hex);
+        check_against_precomputed_hex(rem(numerator,denominator),r_hex);
+        const auto needed=BigUnsigned::divrem_scratch_limbs(
+            numerator.size(),denominator.size());
+        if (denominator.size()>=2u &&
+                numerator.size()>=denominator.size())
+            ARIADNE_TEST_ASSERT(needed==
+                numerator.size()+denominator.size()+1u);
+        ARIADNE_TEST_ASSERT(compare(rvalue,denominator)<0);
+        check_against_precomputed_hex(numerator,a_hex);
+        check_against_precomputed_hex(denominator,b_hex);
+    };
     const auto check_fused_division=[&](
             BigUnsigned const& numerator,BigUnsigned const& denominator) {
         mpz_import(a.value,numerator.size(),-1,sizeof(std::uint64_t),
@@ -2564,12 +2600,12 @@ void TestBigUnsigned::test_division()
         }
         ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
     };
-    check_fused_division(
+    check_b27('F',0u,
         BigUnsigned(std::array<std::uint64_t,4>{
             max,max,max,max}),
         BigUnsigned(std::array<std::uint64_t,2>{
             0xe04e3de411f558a7ULL,0xba43f747b13ac11aULL}));
-    check_fused_division(
+    check_b27('F',1u,
         BigUnsigned(std::array<std::uint64_t,5>{
             0x65a601688b16b11bULL,0x5b7d0bd5828e0a0cULL,
             0x7ad9be6c73e93fdaULL,0xf370dcf1b5187984ULL,
@@ -2598,7 +2634,12 @@ void TestBigUnsigned::test_division()
             std::fill(right.begin(),right.end(),0u);
             right.back()=std::uint64_t{1}<<63u;
         }
-        check_fused_division(BigUnsigned(left),BigUnsigned(right));
+        check_b27('R',repetition,BigUnsigned(left),BigUnsigned(right));
+    }
+
+    for (auto& file:b27_golden) {
+        std::string extra;
+        if (file >> extra) throw std::runtime_error("Extra B27 oracle rows");
     }
 
     // B48: preserve quotient-only, remainder-only and joint-output

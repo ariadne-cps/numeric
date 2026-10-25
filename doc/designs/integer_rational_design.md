@@ -9511,3 +9511,27 @@ Total: 133 versioned TSV fixtures and 32 existing generator
 executables; A1–A9 cumulative migrated test visits: 25,576.
 No production code changes. Full consumer CI and opt-in
 `verify-data` must be reported separately from oracle checks.
+
+### A10 — B27 fused division oracle migration (25 October 2026)
+
+Migrate both original fixed adversarial quotient-correction cases and
+all 2,048 original mt19937_64(0xB27071) randomized visits, preserving
+the original conditional RNG draws and ordered 13/19/23/29 transforms.
+The source-keyed consumer separately compares divrem, quot and rem
+against independent exact quotient and remainder, checks source
+immutability, scratch sizing and remainder bounds, and detects
+missing or extra records. The shared GMP oracle remains for other
+B28/B36/B29/B45 tests, which are unchanged.
+
+The existing independent C++20 generator regenerates the two B27
+TSVs via aligned-subtraction Nat division, independently checks the
+Euclidean identity using binary shift/add multiplication, without
+GMP/MPFR/Boost/Numeric. Reproduction through independently ported
+mt19937_64 and Python bigint division yields the committed blobs:
+first (1,026 rows, 847,088 bytes)
+`a4a2aa7f948a8bd9a673700f48bcd5efbb5ed101`;
+second (1,024 rows, 844,784 bytes)
+`18448ac0544c03bddb54c22488f507dd6778ffb2`.
+135 fixtures, 32 standalone executables, 27,626 cumulatively
+migrated A1-A10 visits. Production code remains untouched.
+Consumer CI and optional verify-data are separate checks.

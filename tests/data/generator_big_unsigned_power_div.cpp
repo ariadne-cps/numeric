@@ -595,6 +595,59 @@ std::array<std::string,3> b55_fixtures() {
         throw std::runtime_error("wrong A9 source visit counts");
     return out;
 }
+
+std::array<std::string,2> b27_fixtures() {
+    const auto header=[] {
+        return std::string(
+            "# A10 B27 fused division independent exact oracle, fixed 2 cases plus 2048 random.\n"
+            "# kind repetition numerator_hex denominator_hex quotient_hex remainder_hex\n"
+            "# F fixed adversarial cases, R original mt19937_64(0xB27071) visits.\n"
+            "# Euclidean integer quotient/remainder, no GMP or Numeric.\n");
+    };
+    std::array<std::string,2> out{header(),header()};
+    std::array<std::size_t,2> rows{};
+    const auto add=[&](char kind,unsigned index,
+                       std::vector<std::uint64_t> left,
+                       std::vector<std::uint64_t> right) {
+        const Nat a(std::move(left)),b(std::move(right));
+        const auto [q,r]=divide(a,b);
+        if (r.compare(b)>=0 || Nat::add(multiply(q,b),r).compare(a)!=0)
+            throw std::runtime_error("invalid A10 exact division");
+        const std::size_t group=kind=='F'||index<1024u ? 0u : 1u;
+        out[group]+=row({std::string(1,kind),std::to_string(index),
+                         a.hex(),b.hex(),q.hex(),r.hex()});
+        ++rows[group];
+    };
+    const auto max=UINT64_MAX;
+    add('F',0u,{max,max,max,max},
+        {0xe04e3de411f558a7ULL,0xba43f747b13ac11aULL});
+    add('F',1u,{0x65a601688b16b11bULL,0x5b7d0bd5828e0a0cULL,
+                0x7ad9be6c73e93fdaULL,0xf370dcf1b5187984ULL,
+                0x48293917315898ccULL},
+        {0xc28ba8299ce45291ULL,0x91b35c306fef072dULL});
+    std::mt19937_64 engine(0xB27071ULL);
+    for (unsigned repetition=0u;repetition<2048u;++repetition) {
+        const std::size_t n=repetition%31u==0u?96u:2u+engine()%32u;
+        const std::size_t m=repetition%17u==0u?2u:2u+engine()%n;
+        std::vector<std::uint64_t> left(n),right(m);
+        for (auto& word:left) word=engine();
+        for (auto& word:right) word=engine();
+        if (repetition%13u==0u) std::fill(left.begin(),left.end(),max);
+        if (repetition%19u==0u) std::fill(right.begin(),right.end(),max);
+        if (repetition%23u==0u) {
+            std::fill(right.begin(),right.end(),0u);
+            right.back()=1u;
+        }
+        if (repetition%29u==0u) {
+            std::fill(right.begin(),right.end(),0u);
+            right.back()=std::uint64_t{1}<<63u;
+        }
+        add('R',repetition,std::move(left),std::move(right));
+    }
+    if (rows!=std::array<std::size_t,2>{1026u,1024u})
+        throw std::runtime_error("wrong A10 case count");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -622,6 +675,9 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_b55_short.tsv",a9[0u],write);
         independent_oracle::output(dir,"big_unsigned_b55_medium.tsv",a9[1u],write);
         independent_oracle::output(dir,"big_unsigned_b55_large.tsv",a9[2u],write);
+        const auto a10=b27_fixtures();
+        independent_oracle::output(dir,"big_unsigned_b27_first.tsv",a10[0u],write);
+        independent_oracle::output(dir,"big_unsigned_b27_second.tsv",a10[1u],write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';
