@@ -4,17 +4,18 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
-`generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`, `generator_rational_r31.cpp`, `generator_rational_random.cpp`, `generator_big_unsigned_random_mul.cpp`,
-`generator_floatap_directed_bounds.cpp`, `generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`, `generator_floatap_sqrt.cpp`, `generator_floatap_pow_short.cpp`, `generator_rounded_float_directed.cpp`,
-`generator_floatap_exp.cpp`,
-`generator_floatap_log.cpp`, `generator_floatap_sin_cos.cpp`,
-`generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
+`generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`,
+`generator_rational_r31.cpp`, `generator_rational_random.cpp`,
+`generator_big_unsigned_random_mul.cpp`, `generator_floatap_directed_bounds.cpp`,
+`generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`,
+`generator_floatap_sqrt.cpp`, `generator_floatap_pow_short.cpp`,
+`generator_rounded_float_directed.cpp`, `generator_floatap_exp.cpp`, `generator_floatap_log.cpp`,
+`generator_floatap_sin_cos.cpp`, `generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
 `generator_floatap_tan.cpp`, `generator_floatap_asin_acos.cpp`, `generator_floatap_tanh.cpp`,
-`generator_floatap_rounding.cpp`, `generator_big_unsigned_sqrt.cpp`,
-and `oracle_exact_integer.hpp` are **standalone C++20** sources. They use only
-the standard library, with an independent unsigned-limb implementation for
-exact arithmetic. In particular, **do not link them to Numeric, GMP, MPFR,
-FloatMP or Boost**: expected values must not come from the code being tested.
+`generator_floatap_rounding.cpp`, `generator_big_unsigned_sqrt.cpp`, and `oracle_exact_integer.hpp`
+are **standalone C++20** sources. They use only the standard library, with an independent
+unsigned-limb implementation for exact arithmetic. In particular, **do not link them to Numeric, GMP
+or Boost**: expected values must not come from the code being tested.
 
 ### CMake targets
 
@@ -207,19 +208,16 @@ GCC 14 and Clang 17, including the strict Clang/CI warning set with
 without altering it. The independent long-division generator additionally
 checks `a == b*q+r` and `r < b` for every nonzero divisor. CI remains pending.
 
-B80 adds independent signed-rational and fraction-normalization sources for
-R28, R30, and R22 (39 reproducible TSVs overall). Signed source and exact
-result fractions are derived without linking or executing Numeric, GMP,
-MPFR, FloatMP or Boost. The R28 source columns intentionally preserve the
-original unreduced numerator/denominator in cases with a common factor,
-while mathematical result columns are reduced canonically. R30 includes
-all nine dense fallback rows at original 128..8192-bit boundaries.
-The three files were reproduced byte-for-byte against their pre-existing
-Git blob SHA-1 hashes on GCC and Clang with strict CI-style warnings,
-including `-Wsign-conversion -Wshadow -Werror`; a deliberately modified
-fixture was rejected in `--verify` mode. No checked-in TSV or consumer
-changed. Keep TSVs versioned until every generator and GMP oracle
-migration is complete; no automatic `generate-data` target is introduced.
+B80 adds independent signed-rational and fraction-normalization sources for R28, R30, and R22 (39
+reproducible TSVs overall). Signed source and exact result fractions are derived without linking or
+executing Numeric, GMP or Boost. The R28 source columns intentionally preserve the original
+unreduced numerator/denominator in cases with a common factor, while mathematical result columns are
+reduced canonically. R30 includes all nine dense fallback rows at original 128..8192-bit boundaries.
+The three files were reproduced byte-for-byte against their pre-existing Git blob SHA-1 hashes on
+GCC and Clang with strict CI-style warnings, including `-Wsign-conversion -Wshadow -Werror`; a
+deliberately modified fixture was rejected in `--verify` mode. No checked-in TSV or consumer
+changed. Keep TSVs versioned until every generator and GMP oracle migration is complete; no
+automatic `generate-data` target is introduced.
 
 B81 extends the same independent rational fixture generator to all R16,
 R19 and R20 original cases. Each source pair is explicitly reconstructed
@@ -275,24 +273,20 @@ compilation and execution matched both committed Git blob SHA-1 IDs.
 The tenth program is available from explicit `generators` and
 `generate-data`; existing TSVs remain unchanged and tracked.
 
-B88 reproduces R7 and R12 conversion references with exact integer
-mantissa/exponent extraction and round-toward-zero behavior, independent
-of the host FP rounding mode, runtime GMP or MPFR. The original R12
-mt19937_64 source sequence is fully replayed for each of four host modes.
-Both generated TSVs match the original checked-in blobs byte for byte,
-with GCC and Clang strict C++20 warnings; the read-only --verify also
-rejects deliberate TSV corruption. The eleventh generator is registered
-in the explicit generators and generate-data targets.
+B88 reproduces R7 and R12 conversion references with exact integer mantissa/exponent extraction and
+round-toward-zero behavior, independent of the host FP rounding mode, runtime GMP. The original R12
+mt19937_64 source sequence is fully replayed for each of four host modes. Both generated TSVs match
+the original checked-in blobs byte for byte, with GCC and Clang strict C++20 warnings; the read-only
+--verify also rejects deliberate TSV corruption. The eleventh generator is registered in the
+explicit generators and generate-data targets.
 
-B89 regenerates all 18 R29/R13/R5 files from the exact shared Rational
-mt19937_64 stream. Replaying the 1,200 original R0 source visits is
-mandatory, followed by interleaving R29, four R13 limb-width groups and
-R5 within EACH host-mode iteration; generating R29 for all modes first
-would break the reproducibility of downstream inputs. Exact integer
-arithmetic yields GMP-style binary64 truncation, without GMP or MPFR.
-GCC and Clang strict compilation and --verify reproduce all 18 original
-Git blobs byte-for-byte. Registered as the twelfth explicit generator;
-all original files remain versioned and unchanged.
+B89 regenerates all 18 R29/R13/R5 files from the exact shared Rational mt19937_64 stream. Replaying
+the 1,200 original R0 source visits is mandatory, followed by interleaving R29, four R13 limb-width
+groups and R5 within EACH host-mode iteration; generating R29 for all modes first would break the
+reproducibility of downstream inputs. Exact integer arithmetic yields GMP-style binary64 truncation,
+without GMP. GCC and Clang strict compilation and --verify reproduce all 18 original Git blobs
+byte-for-byte. Registered as the twelfth explicit generator; all original files remain versioned and
+unchanged.
 
 B90 adds the complete deterministic R31/R32 corpus: 960 exact rational
 source combinations in 14 original TSV chunks. Chunk indices and exact
@@ -321,23 +315,20 @@ truncation yield the original 942,214-byte TSV and its exact Git SHA-1.
 GCC and Clang strict C++20 builds succeed. Explicit `generators` and
 `generate-data` include the fifteenth program; test builds remain separate.
 
-B93 reproduces `floatap_directed_bounds.tsv` from original rational inputs,
-computing exact floor/ceil on a power-of-two lattice and canonical dyadic
-fractions at precisions 7, 32, 53, 64, 128 and 192. Both GCC 14 and
-Clang 17 compile and regenerate all 90 rows with strict C++20 warnings,
-producing the original 7,742-byte Git blob. The independent generator
-uses no host floating-point calculations or runtime GMP/MPFR/FloatAP.
-Its addition to the explicit `generators` and `generate-data` targets
-does not change tests, existing fixtures or the default build.
+B93 reproduces `floatap_directed_bounds.tsv` from original rational inputs, computing exact
+floor/ceil on a power-of-two lattice and canonical dyadic fractions at precisions 7, 32, 53, 64, 128
+and 192. Both GCC 14 and Clang 17 compile and regenerate all 90 rows with strict C++20 warnings,
+producing the original 7,742-byte Git blob. The independent generator uses no host floating-point
+calculations or runtime GMP/FloatAP. Its addition to the explicit `generators` and `generate-data`
+targets does not change tests, existing fixtures or the default build.
 
-B94 independently recreates `floatap_pi.tsv` using exact integer fixed-point
-Taylor intervals for Machin's formula, 400 terms per atan at scale 2^1200.
-Explicit integer interval widths and next-term remainders certify directed
-384-bit endpoints and the same nearest-even 320-bit value from BOTH ends
-of the interval. GCC and Clang C++20 strict builds reproduce the original
-1,250-byte Git blob without GMP, MPFR, Numeric or host floating point.
-The seventeenth generator is available from `generators` and `generate-data`;
-all data remains versioned and `tests` does not depend on generators.
+B94 independently recreates `floatap_pi.tsv` using exact integer fixed-point Taylor intervals for
+Machin's formula, 400 terms per atan at scale 2^1200. Explicit integer interval widths and next-term
+remainders certify directed 384-bit endpoints and the same nearest-even 320-bit value from BOTH ends
+of the interval. GCC and Clang C++20 strict builds reproduce the original 1,250-byte Git blob
+without GMP, Numeric or host floating point. The seventeenth generator is available from
+`generators` and `generate-data`; all data remains versioned and `tests` does not depend on
+generators.
 
 B95 reproduces `floatap_get_d.tsv`: independently round each of the 17
 original exact rational sources to an intermediate p-bit FloatAP number
@@ -350,17 +341,14 @@ GCC/Clang strict build and 65,751-byte original Git blob comparison.
 This eighteenth generator belongs to `generators`/`generate-data`, not
 `tests`, and neither GMP nor original fixture values are consulted.
 
-B96 reproduces all 2,400 exact FloatAP integer-power fixture keys from
-15 distinct original signed input rationals, five binary precisions,
-eight exponent choices and all four output rounding modes. The input
-is rounded to p-bit nearest/even using independent integer quotient and
-remainder, its exact dyadic significand raised to the original exponent,
-and the final result rounded ONCE to precision p using nearest/even or
-signed directed rules. All outputs are canonical dyadic rationals. GCC 14
-and Clang 17 strict C++20 builds and independent execution match the
-original 106,895-byte Git blob; neither Numeric nor GMP/MPFR/Boost are
-used. The nineteenth generator participates in explicit `generators`
-and `generate-data`, not `tests`; all TSVs remain versioned.
+B96 reproduces all 2,400 exact FloatAP integer-power fixture keys from 15 distinct original signed
+input rationals, five binary precisions, eight exponent choices and all four output rounding modes.
+The input is rounded to p-bit nearest/even using independent integer quotient and remainder, its
+exact dyadic significand raised to the original exponent, and the final result rounded ONCE to
+precision p using nearest/even or signed directed rules. All outputs are canonical dyadic rationals.
+GCC 14 and Clang 17 strict C++20 builds and independent execution match the original 106,895-byte
+Git blob; neither Numeric nor GMP/Boost are used. The nineteenth generator participates in explicit
+`generators` and `generate-data`, not `tests`; all TSVs remain versioned.
 
 B97 recreates FloatAP square root expectations from the ORIGINAL 14 positive
 rational sources and four shifted nearest-rounded inputs at each of five
@@ -419,27 +407,21 @@ original committed blob. This adds generator #23 to the explicit
 modifying a TSV, test consumer, production source or runtime GMP oracle.
 Coverage is now 103 of 115 TSVs; all-platform CI is pending.
 
-B101 independently regenerates `floatap_exp.tsv` with correctly rounded,
-rigorously certified exponential values. Recreate nine exact rational
-magnitudes (1/4, 3/4, 1/2, 1, 3, 7, 2^-16, 2^-64 and 1023/1024)
-and both signs, in the original order, then emit four bit widths
-(53/128/256/1024) and N/D/U/Z modes for all 288 original checks.
-At B=2^1400, compute outward integer interval Taylor terms k=0..165
-for exp(|x|/16) and bound the positive remainder by twice term 166.
-Four directed outward squares enclose exp(|x|), and exp(-|x|) is the
-outward reciprocal of this positive interval. Round BOTH interval
-endpoints independently in each mode and require matching exact dyadic
-rational outputs before accepting any row. C++20 standard-library-only
-with independently implemented 32-bit digit multiplication and exact
-limb division; no GMP, MPFR, FloatAP, FloatMP, Numeric, Boost or host
-floating exp. Strict GCC and Clang warnings-as-errors builds passed;
-`--verify` passed on both and rejected deliberately corrupted source
-data. Regenerated exactly 288 rows / 68,122 bytes, identical to Git
-blob SHA-1 `92ce3c0eeda7f73f5e0385abf483f93367792891` on main.
-The 24th independent generator participates only in opt-in CMake
-targets `generators`, `generate-data`, `verify-data`. No original TSV,
-test consumer, production source or runtime GMP oracle was changed.
-Generator coverage reaches 104/115. Full CI pending for this commit.
+B101 independently regenerates `floatap_exp.tsv` with correctly rounded, rigorously certified
+exponential values. Recreate nine exact rational magnitudes (1/4, 3/4, 1/2, 1, 3, 7, 2^-16, 2^-64
+and 1023/1024) and both signs, in the original order, then emit four bit widths (53/128/256/1024)
+and N/D/U/Z modes for all 288 original checks. At B=2^1400, compute outward integer interval Taylor
+terms k=0..165 for exp(|x|/16) and bound the positive remainder by twice term 166. Four directed
+outward squares enclose exp(|x|), and exp(-|x|) is the outward reciprocal of this positive interval.
+Round BOTH interval endpoints independently in each mode and require matching exact dyadic rational
+outputs before accepting any row. C++20 standard-library-only with independently implemented 32-bit
+digit multiplication and exact limb division; no GMP, FloatAP, Numeric, Boost or host floating exp.
+Strict GCC and Clang warnings-as-errors builds passed; `--verify` passed on both and rejected
+deliberately corrupted source data. Regenerated exactly 288 rows / 68,122 bytes, identical to Git
+blob SHA-1 `92ce3c0eeda7f73f5e0385abf483f93367792891` on main. The 24th independent generator
+participates only in opt-in CMake targets `generators`, `generate-data`, `verify-data`. No original
+TSV, test consumer, production source or runtime GMP oracle was changed. Generator coverage reaches
+104/115. Full CI pending for this commit.
 
 B102 independently reproduces all 444 rows (122,768 bytes) in
 `floatap_log.tsv`. Recreate the original six centered-precision visits,
@@ -458,32 +440,24 @@ is identical to main's original fixture. Generator #25 is opt-in through
 `generators`, `generate-data`, `verify-data`. Coverage now 105/115.
 No fixture, consumer, runtime GMP oracle or production source changed.
 
-B103 independently regenerates both `floatap_sin.tsv` and
-`floatap_cos.tsv` without changing their original contents. The
-standalone C++20 generator reconstructs precisely the three input
-families (D91 centered offsets p/2+16, D92 local offsets p, D95 wider
-exact binary dyadics), preserving the full precision-visit order,
-signed source lookup keys, original nearest-even FloatAP input
-quantization and first-seen key deduplication. There are exactly
-336 D91, 456 D92 and 288 D95 unique source/mode rows for each
-function (1,080 each). Evaluate 240 alternating integer Taylor terms
-for sin and cos with outward integer interval products/quotients at
-B=2^1800; separately enclose the first omitted tail term. Negative
-sine uses exact oddness and cosine uses exact evenness. All four
-N/D/U/Z roundings require both enclosures to agree in the target
-precision; a shared cache reuses exact rounded input magnitudes.
-The generator does not read TSV files to obtain either input operands
-or expected answers, and uses no Numeric, GMP, MPFR, FloatMP, Boost
-or host floating-point sine/cosine. GCC and Clang strict C++20 builds
-and --verify pass on both original files; deliberate corruption fails.
-Original Git blob SHAs are unchanged:
-`floatap_sin.tsv`: `9b75d8fd4992f62e288c151e8f930dedd66a778e`,
-281,134 bytes; `floatap_cos.tsv`:
-`31475db715e25928b31b34d31e32735e2cbb97be`, 278,016 bytes.
-Generator #26 participates only in the opt-in targets
-`generators`, `generate-data`, `verify-data` and increases coverage
-to 107/115, leaving eight original TSV files without generators.
-No tests, production source or runtime GMP oracle were changed.
+B103 independently regenerates both `floatap_sin.tsv` and `floatap_cos.tsv` without changing their
+original contents. The standalone C++20 generator reconstructs precisely the three input families
+(D91 centered offsets p/2+16, D92 local offsets p, D95 wider exact binary dyadics), preserving the
+full precision-visit order, signed source lookup keys, original nearest-even FloatAP input
+quantization and first-seen key deduplication. There are exactly 336 D91, 456 D92 and 288 D95 unique
+source/mode rows for each function (1,080 each). Evaluate 240 alternating integer Taylor terms for
+sin and cos with outward integer interval products/quotients at B=2^1800; separately enclose the
+first omitted tail term. Negative sine uses exact oddness and cosine uses exact evenness. All four
+N/D/U/Z roundings require both enclosures to agree in the target precision; a shared cache reuses
+exact rounded input magnitudes. The generator does not read TSV files to obtain either input
+operands or expected answers, and uses no Numeric, GMP, Boost or host floating-point sine/cosine.
+GCC and Clang strict C++20 builds and --verify pass on both original files; deliberate corruption
+fails. Original Git blob SHAs are unchanged: `floatap_sin.tsv`:
+`9b75d8fd4992f62e288c151e8f930dedd66a778e`, 281,134 bytes; `floatap_cos.tsv`:
+`31475db715e25928b31b34d31e32735e2cbb97be`, 278,016 bytes. Generator #26 participates only in the
+opt-in targets `generators`, `generate-data`, `verify-data` and increases coverage to 107/115,
+leaving eight original TSV files without generators. No tests, production source or runtime GMP
+oracle were changed.
 
 B104 adds the standard-library-only `generator_floatap_centered_exp.cpp`
 covering all 568 distinct rows of `floatap_centered_exp.tsv`. Recreate
@@ -529,21 +503,16 @@ including all signed cases, precision repeats, and first-seen-key
 deduplication. Convert each source independently to nearest-even
 p-bit binary before evaluating its exact tangent.
 
-The generator uses standard C++20 unsigned integer limbs and
-outward B=2^1800 fixed-point alternating sine and cosine Taylor
-series (240 terms and omitted-term enclosure). It encloses the
-signed quotient sin(x)/cos(x) with rigorous outward rational interval
-division and correctly handles negative cosine for arguments past
-pi/2. Oddness handles negative arguments; all four rounding modes
-N/D/U/Z require both interval endpoints to agree as exact binary
-rational outputs. No Numeric, GMP, MPFR, FloatMP, Boost or host
-floating-point transcendental is used to calculate expectations.
-GCC and Clang strict C++20 warnings-as-errors builds and --verify
-pass; deliberate fixture corruption fails. Original TSV byte count
-303,143 and blob `0b73c09cd203961ace02c86c3af8c866db8c7ac4`
-are reproduced exactly. Generator #29 joins opt-in CMake targets,
-raising coverage to 110 of 115 TSVs. No fixture, test consumer,
-production code, or runtime GMP oracle has been modified.
+The generator uses standard C++20 unsigned integer limbs and outward B=2^1800 fixed-point
+alternating sine and cosine Taylor series (240 terms and omitted-term enclosure). It encloses the
+signed quotient sin(x)/cos(x) with rigorous outward rational interval division and correctly handles
+negative cosine for arguments past pi/2. Oddness handles negative arguments; all four rounding modes
+N/D/U/Z require both interval endpoints to agree as exact binary rational outputs. No Numeric, GMP,
+Boost or host floating-point transcendental is used to calculate expectations. GCC and Clang strict
+C++20 warnings-as-errors builds and --verify pass; deliberate fixture corruption fails. Original TSV
+byte count 303,143 and blob `0b73c09cd203961ace02c86c3af8c866db8c7ac4` are reproduced exactly.
+Generator #29 joins opt-in CMake targets, raising coverage to 110 of 115 TSVs. No fixture, test
+consumer, production code, or runtime GMP oracle has been modified.
 
 B107 adds an independent C++20 generator for both asin and acos
 fixtures. It reconstructs the original D86 centered source visits
@@ -584,26 +553,19 @@ the original fixture. Generator #31 joins opt-in targets, reaching
 113/115 TSV files. No original TSV, test consumer, runtime GMP
 oracle or production code changes.
 
-B109 independently regenerates all 4,794 references in
-`floatap_rounding.tsv` without consulting source TSV operands or
-expected values. Rebuild 232 base rows, 832 additional multiprecision
-quotient rows and 3,730 D79 references in precisely their original
-first-visit order, preserving the original mid-file section comments.
-The D79 inputs include 320 source ratios, 320 dyadics, 2,520
-small-limb numerator/denominator and quotient visits, and 570 new
-integer arithmetic cases, with original duplicate removal. Form
-compound quotient inputs only after independent nearest-even source
-rounding, and compound arithmetic operands only after their own
-N/D/U/Z conversion. Round each resulting exact signed ratio with
-independent 32-bit-product limb arithmetic, exact division and
-nearest-even midpoint parity. No expected values, source operands,
-Numeric, GMP, MPFR, FloatMP or Boost are taken from TSV files.
-GCC and Clang strict C++20 warnings-as-errors builds and read-only
---verify both pass. An intentionally corrupted fixture is rejected.
-The regenerated 1,225,939 bytes match the original Git blob
-`8d5c927485bc2c171853bb1502ed6b9d0d2aa51b` byte-for-byte.
-Generator #32 joins opt-in CMake targets, reaching 114/115 original
-TSV files. Only `big_unsigned_sqrt.tsv` remains.
+B109 independently regenerates all 4,794 references in `floatap_rounding.tsv` without consulting
+source TSV operands or expected values. Rebuild 232 base rows, 832 additional multiprecision
+quotient rows and 3,730 D79 references in precisely their original first-visit order, preserving the
+original mid-file section comments. The D79 inputs include 320 source ratios, 320 dyadics, 2,520
+small-limb numerator/denominator and quotient visits, and 570 new integer arithmetic cases, with
+original duplicate removal. Form compound quotient inputs only after independent nearest-even source
+rounding, and compound arithmetic operands only after their own N/D/U/Z conversion. Round each
+resulting exact signed ratio with independent 32-bit-product limb arithmetic, exact division and
+nearest-even midpoint parity. No expected values, source operands, Numeric, GMP or Boost are taken
+from TSV files. GCC and Clang strict C++20 warnings-as-errors builds and read-only --verify both
+pass. An intentionally corrupted fixture is rejected. The regenerated 1,225,939 bytes match the
+original Git blob `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b` byte-for-byte. Generator #32 joins
+opt-in CMake targets, reaching 114/115 original TSV files. Only `big_unsigned_sqrt.tsv` remains.
 
 B110 completes the generator registration for all 115 original TSVs.
 `generator_big_unsigned_sqrt.cpp` independently computes all 161
@@ -826,23 +788,17 @@ canonical input/quotient shape, source immutability, output guards and
 all invalid/inexact/unchanged-buffer exception checks. The consumer
 rejects missing, reordered or extra records.
 
-Existing independent C++20 `generator_big_unsigned_power_div.cpp`
-regenerates the datasets via Nat::mul_small and independently checks
-the exact inverse using the bitwise single-limb divide implementation;
-no Numeric, GMP, MPFR or Boost dependency. Independently replaying
-all 6,200 original std::mt19937_64 cases compiled with both GCC and
-Clang and Python arbitrary-precision multiplication reproduces every
-fixture byte-for-byte. Git blobs, respectively small (4,960 rows)
-`d4a68ff02f44a9273ca8bf0a30aa4874a57ab295`, length 65
-(620 rows) `6a5c0cdee6d167bfedaff54917cc725bd73793ae`,
-length 129 first 78 divisors (312 rows)
-`0697660ce3945381db5840683f408ee73de55e1d` and remaining
-77 divisors (308 rows)
-`c42a99815380e11bce4f3976773b8507483f47bb`.
-No production sources changed; the same 32 generator executables now
-cover 127 TSVs. A1–A7 cumulative migrated visits: 22,984.
-A7 consumer CI is to be checked after publication, separately
-from local fixture verification and opt-in `verify-data`.
+Existing independent C++20 `generator_big_unsigned_power_div.cpp` regenerates the datasets via
+Nat::mul_small and independently checks the exact inverse using the bitwise single-limb divide
+implementation; no Numeric, GMP or Boost dependency. Independently replaying all 6,200 original
+std::mt19937_64 cases compiled with both GCC and Clang and Python arbitrary-precision multiplication
+reproduces every fixture byte-for-byte. Git blobs, respectively small (4,960 rows)
+`d4a68ff02f44a9273ca8bf0a30aa4874a57ab295`, length 65 (620 rows)
+`6a5c0cdee6d167bfedaff54917cc725bd73793ae`, length 129 first 78 divisors (312 rows)
+`0697660ce3945381db5840683f408ee73de55e1d` and remaining 77 divisors (308 rows)
+`c42a99815380e11bce4f3976773b8507483f47bb`. No production sources changed; the same 32 generator
+executables now cover 127 TSVs. A1–A7 cumulative migrated visits: 22,984. A7 consumer CI is to be
+checked after publication, separately from local fixture verification and opt-in `verify-data`.
 
 ### A8 — B57 power-of-two multiprecision division oracle (25 October 2026)
 
@@ -891,22 +847,15 @@ operands, quotient and remainder on `divrem`, `quot`, `rem` and
 scratch-guard assertions remain. All rows must appear in original
 order, with none missing or extra. GMP blocks outside B55 remain.
 
-Extend the existing independent C++20 power/division generator
-with B55 input replay, independent Nat aligned-subtraction long
-division and shift/add Euclidean identity checks; no Numeric,
-GMP, MPFR or Boost is used. Separately regenerate source inputs
-with std::mt19937_64 compiled using GCC and Clang, and use Python
-arbitrary-precision divmod to certify every result. Exact bytewise
-Git blob identities: B55 short (216 visits, 178,716 bytes)
-`929963b14605a7a0eaa3f78aeacb8b398e615858`;
-medium (144 visits, 221,212 bytes)
-`3d8e5a3070ff80af9b01cd59a8b0a01a4da53882`;
-large (72 visits, 239,017 bytes)
-`7837342521a24a6cb672dbd364b37f0f4f44ab70`.
-Total: 133 versioned TSV fixtures and 32 existing generator
-executables; A1–A9 cumulative migrated test visits: 25,576.
-No production code changes. Full consumer CI and opt-in
-`verify-data` must be reported separately from oracle checks.
+Extend the existing independent C++20 power/division generator with B55 input replay, independent
+Nat aligned-subtraction long division and shift/add Euclidean identity checks; no Numeric, GMP or
+Boost is used. Separately regenerate source inputs with std::mt19937_64 compiled using GCC and
+Clang, and use Python arbitrary-precision divmod to certify every result. Exact bytewise Git blob
+identities: B55 short (216 visits, 178,716 bytes) `929963b14605a7a0eaa3f78aeacb8b398e615858`; medium
+(144 visits, 221,212 bytes) `3d8e5a3070ff80af9b01cd59a8b0a01a4da53882`; large (72 visits, 239,017
+bytes) `7837342521a24a6cb672dbd364b37f0f4f44ab70`. Total: 133 versioned TSV fixtures and 32 existing
+generator executables; A1–A9 cumulative migrated test visits: 25,576. No production code changes.
+Full consumer CI and opt-in `verify-data` must be reported separately from oracle checks.
 
 ### A10 — B27 fused division oracle migration (25 October 2026)
 
@@ -919,18 +868,14 @@ immutability, scratch sizing and remainder bounds, and detects
 missing or extra records. The shared GMP oracle remains for other
 B28/B36/B29/B45 tests, which are unchanged.
 
-The existing independent C++20 generator regenerates the two B27
-TSVs via aligned-subtraction Nat division, independently checks the
-Euclidean identity using binary shift/add multiplication, without
-GMP/MPFR/Boost/Numeric. Reproduction through independently ported
-mt19937_64 and Python bigint division yields the committed blobs:
-first (1,026 rows, 847,088 bytes)
-`a4a2aa7f948a8bd9a673700f48bcd5efbb5ed101`;
-second (1,024 rows, 844,784 bytes)
-`18448ac0544c03bddb54c22488f507dd6778ffb2`.
-135 fixtures, 32 standalone executables, 27,626 cumulatively
-migrated A1-A10 visits. Production code remains untouched.
-Consumer CI and optional verify-data are separate checks.
+The existing independent C++20 generator regenerates the two B27 TSVs via aligned-subtraction Nat
+division, independently checks the Euclidean identity using binary shift/add multiplication, without
+GMP/Boost/Numeric. Reproduction through independently ported mt19937_64 and Python bigint division
+yields the committed blobs: first (1,026 rows, 847,088 bytes)
+`a4a2aa7f948a8bd9a673700f48bcd5efbb5ed101`; second (1,024 rows, 844,784 bytes)
+`18448ac0544c03bddb54c22488f507dd6778ffb2`. 135 fixtures, 32 standalone executables, 27,626
+cumulatively migrated A1-A10 visits. Production code remains untouched. Consumer CI and optional
+verify-data are separate checks.
 
 ### A11 — B48 multiprecision division source-keyed oracle (25 October 2026)
 

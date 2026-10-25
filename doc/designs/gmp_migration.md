@@ -1,5 +1,7 @@
 # GMP numerical-oracle migration — BigUnsigned
 
+> **Current design perspective — October 2026.** This journal treats each native arithmetic component as an autonomous implementation. Progress is measured by exact, independently generated oracles, cross-platform regression tests, absolute operation latency, and speedups between revisions of the *same* algorithm. Historical cross-backend performance ratios and retired adapter details are omitted; mathematical proofs and native implementation decisions are retained.
+
 Baseline: `main` at `60306926d7093bcf8ebee0867ec5ffe2600401c9` (A10), 25 October 2026.
 
 ## Scope and counting
@@ -55,15 +57,12 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A18 — randomized arithmetic, seventh segment | 1,250 | 36,712 |
 | A19 — randomized arithmetic, final segment | 1,250 | 37,962 |
 
-A11 maintains the eight dividend widths, fourteen divisors, three
-original modes, all PRNG draws, and separately validates exact
-`divrem`, `quot` and `rem` outputs and original scratch size
+A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
+and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
 invariants against a new independent source-keyed fixture.
-`tests/data/generator_big_unsigned_power_div.cpp` regenerates
-`big_unsigned_b48_multiprecision.tsv` without GMP, Numeric, MPFR
-or Boost. The fixture has 336 rows, 305,944 bytes, Git blob
-`11042c7f930f66082d8a89d6670376c03786938d`.
-Other GMP division blocks remain unchanged.
+`tests/data/generator_big_unsigned_power_div.cpp` regenerates `big_unsigned_b48_multiprecision.tsv`
+without GMP, Numeric or Boost. The fixture has 336 rows, 305,944 bytes, Git blob
+`11042c7f930f66082d8a89d6670376c03786938d`. Other GMP division blocks remain unchanged.
 
 ## Post-commit reporting
 

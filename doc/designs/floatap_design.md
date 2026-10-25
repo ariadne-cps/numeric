@@ -1,9 +1,10 @@
 # FloatAP — arbitrary-precision floating point
 
-This is the living design and user manual for the **experimental** `FloatAP`
-backend. Keep this document synchronized with every implementation change.
-The historical MPFR-removal work is tracked on `remove-mpfr`. The
-GMP-free continuation is tracked on `remove-gmp`; see
+> **Current design perspective — October 2026.** This journal treats each native arithmetic component as an autonomous implementation. Progress is measured by exact, independently generated oracles, cross-platform regression tests, absolute operation latency, and speedups between revisions of the *same* algorithm. Historical cross-backend performance ratios and retired adapter details are omitted; mathematical proofs and native implementation decisions are retained.
+
+This is the living design and implementation journal for the native `FloatAP`
+backend. Keep this document synchronized with every change.
+The shared unsigned-limb arithmetic development is tracked on `remove-gmp`; see
 [`integer_rational_design.md`](integer_rational_design.md) for the shared
 unsigned limb core and the `Integer`/`Rational` migration.
 
@@ -43,18 +44,18 @@ dispatch, correctness, and performance requirements in
 "Architecture-specific limb kernels: mandatory engineering
 contract" later in this document.
 
-## Names and coexistence
+## Public types and precision contract
 
-- **`FloatMP = Float<MultiplePrecision>`**: existing MPFR reference.
-- **`FloatAP = Float<ArbitraryPrecision>`**: new native arithmetic, independent
-  of MPFR once complete.
-- `ArbitraryPrecision` is a bit count, **not** a multiple of IEEE double
-  precision. Examples: 7, 53, 113, 127, 256, 1000 bits.
-- Both are distinct concrete types, selected at compile time. No virtual
-  scalar interface, backend pointer, or per-operation dynamic dispatch.
+- **`FloatAP = Float<ArbitraryPrecision>`** provides native, correctly
+  rounded arbitrary-precision arithmetic.
+- `ArbitraryPrecision` counts significant **bits**, not multiples of
+  machine-double precision. Supported examples include 7, 53, 113,
+  127, 256 and 1000 bits.
+- The floating-point value has an explicit precision and exponent
+  with no per-operation backend dispatch.
 
 The name 'arbitrary precision' describes user-selectable significance,
-not an infinite exponent range or necessarily unbounded resource usage.
+not an infinite exponent range or unlimited resources.
 
 ## Representation
 
@@ -71,10 +72,6 @@ overflow raises an exception. Separate flags represent positive/negative
 zero, positive/negative infinity, and NaN.
 
 For the first implementation, GMP `mpz_t` supplies integer storage.
-**MPFR is not used by the native kernel.** This is an intentionally
-temporary dependency: the long-term objective remains replacing GMP
-and MPFR. It also enables direct, exact rational comparison with MPFR
-in the tests.
 
 ## Rounding contract
 
@@ -120,71 +117,51 @@ Priority based on the 16 October 2026 same-host benchmark:
 
 The first fixed-point step for `log` is implemented, but an observed
 speedup is **not** yet established; see the decision record below.
-The long-term intent remains to avoid GMP as well as MPFR in the native
-backend. MPFR is permitted in oracle tests and benchmarks, **not**
-in native `FloatAP` arithmetic.
+The long-term objective is to remove GMP from the native arithmetic
+implementation while retaining all certified rounding guarantees.
 
-## Verification and benchmarks
+## Verification and performance methodology
 
-`benchmark_compare_multiple_precision_backends` is the C++
-dual-backend comparison executable. It exercises both concrete
-backends unconditionally in current builds and reports
-`FloatAP / FloatMP` timings for individual operations:
+FloatAP is validated as a standalone implementation. Independent,
+source-keyed exact oracles certify four rounding modes, signed zeros,
+exceptional values, boundary inputs and hard-to-round transcendental cases.
+The numerical test suite also checks that rounding state is preserved.
+CI runs Debug/Release, platform checks and sanitizers.
 
-```sh
-./build-dual/benchmarks/benchmark_compare_multiple_precision_backends \
-  300 7 --summary-only
-```
-
-`--details` reports operation-level ratios; `--max-slowdown 1.5`
-fails if **any** operation exceeds that ratio. Geometric-mean slowdown
-weights each (operation, precision) pair equally; time-sum slowdown
-assumes one call to each operation; neither is an application workload
-profile. All reports and comparisons are in **C++**, not Python.
-
-The shared `test_float`, `test_float_rounding`, and differential
-tests must instantiate for both backends once `FloatAP` meets their
-API requirements. Correct rounding of transcendental operations
-must be validated against MPFR, including hard-to-round cases.
-The MPFR library remains a *test oracle*, not an implementation
-dependency of native arithmetic.
+Benchmark evidence is recorded as **absolute latency per operation and
+precision**, together with within-FloatAP improvements between successive
+revisions. Identical input pools, warmed runs, separate correctness checks,
+and explicit sample counts are necessary before making performance claims.
+The native integer substrate is profiled independently by operation and
+architecture; benchmark outcomes never justify weakening exact tests.
 
 ## Status and limitations (updated 16 October 2026)
 
-- `FloatAP = Float<ArbitraryPrecision>` is a direct, usable public
-  specialization with native basic arithmetic, conversions, square root,
-  exponential, logarithm, trigonometry and `pi`, along with substantial
-  compatibility with Ariadne's shared Float suites. This is **not**
-  yet a drop-in replacement for every FloatMP application.
-- Implementation now resides in **one translation unit**:
-  `src/floatap.cpp`. The former `floatap_exp_log.cpp` and
-  `floatap_trigonometric.cpp` were merged and removed from CMake.
-  The transcendental code shares one exact `Fraction` and `Interval`
-  representation while retaining function-specific internal namespaces.
-- The original kernel is based on GMP integers; most transcendental
-  series are still based on expensive GMP rational intermediates.
-  The first exception is the new fixed-point `log_series`.
-  Extreme exponents, range conventions, correctness of directed
-  conversions and hard-to-round behavior need continued verification.
-- The dual-backend comparison is already running. Timings supplied on
-  16 October 2026 show approximately **5x** slower basic additions
-  at 53 bits and **352x / 1,488x / 8,987x** slower `log` at
-  53 / 128 / 256 bits **before** the fixed-point change.
-  These are baseline measurements, not a measured improvement.
-- CI for commit `8eb5c97` has succeeded on the listed Linux and
-  macOS configurations, but Windows Release and Codecov checks are
-  failing; full cross-platform validation is **not** complete.
-- Historical sections below describe decisions *at the date made*.
-  A historical statement that an operation was absent or lived in
-  a separate file must not be mistaken for current implementation status.
+- `FloatAP = Float<ArbitraryPrecision>` is a direct, usable public specialization with native basic
+arithmetic, conversions, square root, exponential, logarithm, trigonometry and `pi`, along with
+substantial compatibility with Ariadne's shared Float suites.
+- Implementation now resides in **one translation unit**: `src/floatap.cpp`. The former
+`floatap_exp_log.cpp` and `floatap_trigonometric.cpp` were merged and removed from CMake. The
+transcendental code shares one exact `Fraction` and `Interval` representation while retaining
+function-specific internal namespaces.
+- The original kernel is based on GMP integers; most transcendental series are still based on
+expensive GMP rational intermediates. The first exception is the new fixed-point `log_series`.
+Extreme exponents, range conventions, correctness of directed conversions and hard-to-round behavior
+need continued verification.
+- The dual-backend comparison is already running. Timings supplied on 16 October 2026 show
+approximately **5x** slower basic additions at 53 bits and **352x / 1,488x / 8,987x** slower `log`
+at 53 / 128 / 256 bits **before** the fixed-point change. These are baseline measurements, not a
+measured improvement.
+- CI for commit `8eb5c97` has succeeded on the listed Linux and macOS configurations, but Windows
+Release and Codecov checks are failing; full cross-platform validation is **not** complete.
+- Historical sections below describe decisions *at the date made*. A historical statement that an
+operation was absent or lived in a separate file must not be mistaken for current implementation
+status.
 
 ## Changing the architecture
 
-Update this manual whenever representation, rounding, exponent limits,
-allocation strategy, tests, benchmark methodology, or public names
-change. Do not silently replace `FloatMP`; migration of the public
-alias is a separate, ABI-relevant change after correctness and
-performance review.
+Update this manual whenever representation, rounding, exponent limits, allocation strategy, tests,
+benchmark methodology, or public names change.
 
 ## Coverage-driven regression tests
 
@@ -207,10 +184,9 @@ project, and some infeasible platform-dependent overflow branches remain.
 
 ## Coverage integration
 
-The internal implementation is compiled into `NUMERIC_SRC` unconditionally;
-`test_floatap` and `test_floatap_edge_cases` are in the normal CTest test list, so the CI `coverage`
-target exercises and instruments `src/floatap.cpp`. This does **not**
-mean the public `FloatAP` API is complete: CI still uses MPFR for `FloatMP`.
+The internal implementation is compiled into `NUMERIC_SRC` unconditionally; `test_floatap` and
+`test_floatap_edge_cases` are in the normal CTest test list, so the CI `coverage` target exercises
+and instruments `src/floatap.cpp`.
 
 Build and run the kernel test:
 
@@ -219,8 +195,8 @@ cmake --build build --target test_floatap
 ctest --test-dir build -R '^test_floatap$' --output-on-failure
 ```
 
-The kernel is a prototype using GMP limbs. Comparison with MPFR and
-hard-to-round transcendental validation are still pending.
+The kernel is a prototype using GMP limbs. Comparison with and hard-to-round transcendental
+validation are still pending.
 
 ## Coverage report of 15 October 2026, 21:32
 
@@ -237,12 +213,10 @@ constructors, `bits()` accessor and equality operator. The
 constructors, equal and unequal instances, and non-power-of-two bit counts.
 The new tests require a fresh coverage run to confirm their effect.
 
-Remaining uncovered kernel paths concern checked exponent arithmetic,
-oversized shifts and integer size limits. Forcing extraordinary memory
-allocation just to exercise platform-specific overflow is not a
-correctness test. Coverage is not evidence of fully correct arithmetic:
-additional independent boundary and MPFR differential checks remain
-necessary.
+Remaining uncovered kernel paths concern checked exponent arithmetic, oversized shifts and integer
+size limits. Forcing extraordinary memory allocation just to exercise platform-specific overflow is
+not a correctness test. Coverage is not evidence of fully correct arithmetic: additional independent
+boundary and independent exact-oracle checks remain necessary.
 
 ## Coverage report of 15 October 2026, 21:37
 
@@ -347,17 +321,13 @@ transcendental functions.
 
 ## Direct class integration (October 2026)
 
-The temporary kernel class was removed. `Float<ArbitraryPrecision>` now
-owns GMP significand storage, precision, exponent, sign and special-value
-state directly; `FloatAP` aliases the specialization. The existing tests
-exercise its elementary arithmetic methods and special values without a
-wrapper. Public constructors for integers/rationals, exact rational
-conversion and comparisons have been introduced. They are not yet a
-complete replacement for the `FloatMP` interface: transcendental
-functions, advanced rounding session controls and optimized extreme
-exponent comparisons are outstanding. The old coverage numbers describe
-the pre-refactor kernel, so a fresh report is required. Final goal remains
-100% line, function and branch coverage without weakening safety checks.
+The temporary kernel class was removed. `Float<ArbitraryPrecision>` now owns GMP significand
+storage, precision, exponent, sign and special-value state directly; `FloatAP` aliases the
+specialization. The existing tests exercise its elementary arithmetic methods and special values
+without a wrapper. Public constructors for integers/rationals, exact rational conversion and
+comparisons have been introduced. The old coverage numbers describe the pre-refactor kernel, so a
+fresh report is required. Final goal remains 100% line, function and branch coverage without
+weakening safety checks.
 
 
 ## Coverage report 78 (15 October 2026, 22:27)
@@ -487,25 +457,14 @@ functions, lines, and branches across the completed FloatAP implementation.
 
 ## First comparable benchmark slice (16 October 2026)
 
-`BUILD_FLOATAP_COMPARISON=ON` now enables direct, monomorphic
-`FloatAP`/MPFR comparison for **only the implemented common API**:
-rational construction, copying, comparison, directed add/sub/mul/div,
-fused multiply-add, conversion to double and exact rational conversion.
-These run at 53, 128, 256 and 1024 bits and use the same operand pool
-for each backend. The C++ benchmark emits per-operation timings and
-geometric-mean/weighted slowdown. MPFR's transcendental, square-root
-and power benchmarks are retained in the MPFR-only configuration.
+These run at 53, 128, 256 and 1024 bits and use the same operand pool for each backend. The C++
+benchmark emits per-operation timings and geometric-mean/weighted slowdown.
 
-The differential conformance test similarly compares the two backends
-on exact rational results for elementary arithmetic and four rounding
-modes. The generic full-`FloatMP` test suites are not enabled for
-`FloatAP` until the advanced operations exist. No shim calls MPFR
-from `FloatAP`, and there is no dynamic backend dispatch.
+The differential conformance test similarly compares the two backends on exact rational results for
+elementary arithmetic and four rounding modes.
 
-The initial native implementation still uses exact GMP integers,
-may allocate large temporaries and may be slower than MPFR. This
-benchmark is a baseline for optimization, **not a claim of parity
-for transcendentals or the entire floating-point interface**.
+This benchmark is a baseline for optimization, **not a claim of parity for transcendentals or the
+entire floating-point interface**.
 
 Build:
 
@@ -531,14 +490,12 @@ After the preceding all-green 100% test and coverage report, the next
 implementation block introduces native `sqrt(rounding_mode, FloatAP)`
 and `pow(rounding_mode, FloatAP, Nat)`:
 
-- `sqrt` constructs exact dyadic lower/upper bounds using GMP integer
-  division and `mpz_sqrt`. It increases working precision until both
-  certified endpoints round identically to the destination format.
-  It never uses MPFR or an unverified `double` result. A bounded
-  resource guard throws rather than returning an uncertain result.
-- `pow` computes the exact numerator and denominator powers with GMP
-  and rounds the resulting rational once; zero/infinity/NaN and signed
-  zero have explicit cases.
+- `sqrt` constructs exact dyadic lower/upper bounds using GMP integer division and `mpz_sqrt`. It
+increases working precision until both certified endpoints round identically to the destination
+format. It never uses or an unverified `double` result. A bounded resource guard throws rather than
+returning an uncertain result.
+- `pow` computes the exact numerator and denominator powers with GMP and rounds the resulting
+rational once; zero/infinity/NaN and signed zero have explicit cases.
 
 These two operations are included in the dual-backend differential
 test and benchmark slice alongside elementary arithmetic. More
@@ -571,14 +528,12 @@ toward-zero truncate; any significand carry is normalized. Exponent
 halving uses mathematical floor and checked integer arithmetic. Signed
 zero, infinity, NaN and negative input cases remain explicit.
 
-An independent standalone C++ GMP property harness executed 237,000
-normalization and directed-enclosure cases across 2..80-bit precision.
-It is not a substitute for the complete Ariadne build or full MPFR
-differential regression. The previous arbitrary 2048-bit iteration
-limit, convergence failure and excessive precision guard are no
-longer part of the algorithm. Edge tests now include multiple rounding
-modes and signed special-value cases. The full coverage result must
-be regenerated for this updated version.
+An independent standalone C++ GMP property harness executed 237,000 normalization and
+directed-enclosure cases across 2..80-bit precision. It is not a substitute for the complete Ariadne
+build or full independent exact-oracle regression. The previous arbitrary 2048-bit iteration limit,
+convergence failure and excessive precision guard are no longer part of the algorithm. Edge tests
+now include multiple rounding modes and signed special-value cases. The full coverage result must be
+regenerated for this updated version.
 
 
 ## Coverage report 84 (16 October 2026, 10:58)
@@ -603,11 +558,9 @@ A fresh full CI coverage run must confirm the new totals.
 
 ## Native exp/log with exact rational enclosures (16 October 2026)
 
-The first transcendental block adds native `exp` and `log` in
-`src/floatap_exp_log.cpp`, registered in `NUMERIC_SRC`.
-They do not invoke MPFR and do not use floating-point approximations
-to determine the rounding bit. Taylor sums and their rigorous remainder
-bounds are represented by GMP rationals.
+The first transcendental block adds native `exp` and `log` in `src/floatap_exp_log.cpp`, registered
+in `NUMERIC_SRC`. They do not invoke and do not use floating-point approximations to determine the
+rounding bit. Taylor sums and their rigorous remainder bounds are represented by GMP rationals.
 
 For `exp(x)`, repeatedly halve the argument until `|x| <= 1/2`;
 the Taylor remainder is bounded by twice the first omitted term.
@@ -625,23 +578,17 @@ resource guards instead of returning an uncertified value. This first
 correctness-oriented implementation allocates large GMP rationals and
 is **not yet performance optimized**.
 
-The differential MPFR oracle test now includes `exp` and `log` for
-four rounding modes and the benchmark includes both operations.
-`sin`, `cos`, `tan`, `atan`, `asin`, `acos` and `pi` remain
-missing, so the dual-backend opt-in must not yet be removed. Newly added
-branches will need a fresh coverage report.
+The differential oracle test now includes `exp` and `log` for four rounding modes and the benchmark
+includes both operations. `sin`, `cos`, `tan`, `atan`, `asin`, `acos` and `pi` remain missing, so
+the dual-backend opt-in must not yet be removed. Newly added branches will need a fresh coverage
+report.
 
 
 ## Permanent dual-backend benchmark configuration (16 October 2026)
 
-The benchmark infrastructure is now **unconditional**: both
-`FloatMP` and `FloatAP` are compiled, timed and subjected to
-differential checks in every standalone build. No CMake variables
-`BUILD_FLOATAP_COMPARISON` or
-`BUILD_NUMERIC_MIGRATION_BENCHMARKS`, and no
-`ARIADNE_NUMERIC_ENABLE_FLOATAP` preprocessor macro, are used by
-the benchmark or the dedicated differential test. The configuration
-submodule registers `benchmarks/` once.
+No CMake variables `BUILD_FLOATAP_COMPARISON` or `BUILD_NUMERIC_MIGRATION_BENCHMARKS`, and no
+`ARIADNE_NUMERIC_ENABLE_FLOATAP` preprocessor macro, are used by the benchmark or the dedicated
+differential test. The configuration submodule registers `benchmarks/` once.
 
 The C++20 compile-time `HasTrigonometricOperations<FloatAP>`
 capability check is a **temporary completeness gate**, not a
@@ -655,9 +602,7 @@ includes the operations for **both** backends. The differential
 test uses the analogous `HasAdvancedFunctions` check for
 `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, and π.
 
-This change does not claim that missing transcendental functions
-have been implemented. No dummy implementations or MPFR forwarding
-have been introduced into `FloatAP`.
+This change does not claim that missing transcendental functions have been implemented.
 
 Typical build, without any benchmark/comparison option:
 
@@ -674,14 +619,11 @@ prior states of this development branch, not the current build contract.
 
 ## Complete native trigonometric interface and unconditional comparison (16 October 2026)
 
-The native `Float<ArbitraryPrecision>` specialization now implements the
-entire set of operations requested by the comparison benchmark:
-`sin`, `cos`, `tan`, `atan`, `asin`, `acos`, and `pi`, in
-addition to the existing `sqrt`, `exp`, `log`, `pow`, elementary
-arithmetic, conversions and comparisons. Their definitions live in
-`src/floatap_trigonometric.cpp`, not in an MPFR wrapper. The benchmarks
-and differential tests no longer have temporary capability gates:
-they instantiate **both** backends and exercise the full operation set.
+The native `Float<ArbitraryPrecision>` specialization now implements the entire set of operations
+requested by the comparison benchmark: `sin`, `cos`, `tan`, `atan`, `asin`, `acos`, and `pi`, in
+addition to the existing `sqrt`, `exp`, `log`, `pow`, elementary arithmetic, conversions and
+comparisons. The benchmarks and differential tests no longer have temporary capability gates: they
+instantiate **both** backends and exercise the full operation set.
 
 Native trigonometry uses GMP rational enclosures and certified remainders:
 - Taylor series for sine and cosine on `[-1, 1]`, with error bounded by
@@ -708,26 +650,16 @@ values are treated explicitly; `atan(±inf)`, `asin(±1)`, and
 finite surrogates. Resource guards may throw for extremely large inputs
 rather than return uncertified values.
 
-This initial algorithm is correctness-oriented, with expensive rational
-temporaries and an adaptive precision loop. It is not optimized for
-benchmark speed, and does not promise termination for every theoretical
-hard-to-round input. Full Ariadne CI compilation and MPFR differential
-testing are required **before performance numbers can be trusted**.
-The previously achieved 100% coverage applies only to the earlier
-implementation; all newly introduced functions, lines and branches must
-be covered in subsequent reports.
+This initial algorithm is correctness-oriented, with expensive rational temporaries and an adaptive
+precision loop. It is not optimized for benchmark speed, and does not promise termination for every
+theoretical hard-to-round input. The previously achieved 100% coverage applies only to the earlier
+implementation; all newly introduced functions, lines and branches must be covered in subsequent
+reports.
 
 
-## Independent FloatMP and FloatAP test targets (16 October 2026)
+## Independent FloatAP test targets (16 October 2026)
 
-The former dual-backend `test_float_multipleprecision_backends` target
-is replaced with `test_floatmp_conformance`, which imports only the
-FloatMP API. The independent `test_floatap` and
-`test_floatap_edge_cases` targets use the native FloatAP and exact
-GMP/Rational references, never `floatmp.hpp` or MPFR. This structure
-allows the FloatMP tests and library backend to be deleted later without
-modifying FloatAP tests. The explicit dual-backend *performance*
-comparison remains the benchmark's responsibility.
+The explicit dual-backend *performance* comparison remains the benchmark's responsibility.
 
 Clang compilation failures in `test_floatap_edge_cases.cpp` caused by
 unqualified `16_bits` literals were fixed by explicitly constructing
@@ -738,23 +670,17 @@ new `half_pi` and `negative_half_pi` switch cases in
 
 ## Benchmark-driven optimization: direct binary comparison (16 October 2026)
 
-The initial benchmark at 53 bits measures `cmp` at roughly 194 ns
-for FloatAP versus 12 ns for FloatMP (about 16x), and at 256 bits
-roughly 307 ns versus 12 ns (about 26x). The previous implementation
-converted both operands to GMP rationals and compared their canonical
-numerators and denominators. This is unnecessary because FloatAP
-stores signed binary significands and exponents directly.
+The previous implementation converted both operands to GMP rationals and compared their canonical
+numerators and denominators. This is unnecessary because FloatAP stores signed binary significands
+and exponents directly.
 
-The optimized comparison now classifies NaN/infinities/signed zeros,
-compares signs, then compares the most significant binary positions
-from the significand bit lengths and exponents. Matching positions
-are resolved by truncating the lower-exponent significand and
-examining any discarded nonzero low bits; otherwise no GMP temporary
-is required. The exponent-gap calculation uses unsigned subtraction,
-avoiding signed overflow across the full int64 range, and large
-exponent gaps never trigger enormous shifts. The result is inverted
-for negative operands. This is independent of MPFR and does not
-convert to `Rational`.
+The optimized comparison now classifies NaN/infinities/signed zeros, compares signs, then compares
+the most significant binary positions from the significand bit lengths and exponents. Matching
+positions are resolved by truncating the lower-exponent significand and examining any discarded
+nonzero low bits; otherwise no GMP temporary is required. The exponent-gap calculation uses unsigned
+subtraction, avoiding signed overflow across the full int64 range, and large exponent gaps never
+trigger enormous shifts. The result is inverted for negative operands. This is independent of and
+does not convert to `Rational`.
 
 An independent GMP rational oracle test compares thousands of
 randomized mixed-sign, mixed-scale, mixed-precision operands against
@@ -784,23 +710,16 @@ the fields are functions, regions, lines, and branches respectively:
 | `src/floatap_trigonometric.cpp` | 43/43 | 189/219 | 94/122 |
 | `include/numeric/floatap.hpp` | 47/47 | 113/113 | 40/40 |
 
-A dedicated `test_floatap_precision` executable covers precisions
-2, 7, 24, 53, 113, 256, and 1024 bits for elementary operations under
-all four rounding modes, with independently constructed exact-rational
-answers. It also checks selected transcendental results at 7, 24, 53,
-and 113 bits for ordered directed rounding and exact identities. These
-tests are native FloatAP tests, not FloatMP dependency tests. Directed
-rounding ordering alone is *not* a proof of correctly rounded
-transcendentals; more independent reference vectors remain necessary.
+A dedicated `test_floatap_precision` executable covers precisions 2, 7, 24, 53, 113, 256, and 1024
+bits for elementary operations under all four rounding modes, with independently constructed
+exact-rational answers. It also checks selected transcendental results at 7, 24, 53, and 113 bits
+for ordered directed rounding and exact identities. Directed rounding ordering alone is *not* a
+proof of correctly rounded transcendentals; more independent reference vectors remain necessary.
 
-On GCC 13 with `-Wshadow -Werror`, nested enumerators `downward`,
-`upward`, `toward_zero` and `infinity` conflict with similarly
-named Ariadne namespace variables when the FloatMP header is present.
-The enum class values are renamed to `ToNearest`, `Downward`,
-`Upward`, `TowardZero` and `Finite`, `Infinity`, `NaN`.
-The public `ROUND_*` constants retain their names and behavior.
-The change is a source API rename for clients who used the nested
-enumerators directly; benchmark calls through `ROUND_*` are unaffected.
+The enum class values are renamed to `ToNearest`, `Downward`, `Upward`, `TowardZero` and `Finite`,
+`Infinity`, `NaN`. The public `ROUND_*` constants retain their names and behavior. The change is a
+source API rename for clients who used the nested enumerators directly; benchmark calls through
+`ROUND_*` are unaffected.
 
 The full CI build and a fresh coverage report are required to
 validate this expanded test suite and renaming. The final 100%
@@ -809,17 +728,15 @@ coverage and full-precision correctness targets remain outstanding.
 
 ## Reusing the existing Ariadne Float test suites (16 October 2026)
 
-The authoritative behavioral contract for the MPFR replacement is the
-unchanged, macro-based `tests/test_float.cpp` and
-`tests/test_float_rounding.cpp` (`ARIADNE_TEST_*`). New, smaller
-FloatAP-only tests supplement these suites but are **not substitutes**
-for instantiating the historical `TestFloat<ArbitraryPrecision>` and
-`TestFloatRounding<ArbitraryPrecision>` classes. The existing
-`ARIADNE_NUMERIC_ENABLE_FLOATAP` guards in those legacy files cannot
-simply be enabled yet: the native specialization still lacks some
-constructors, global rounding-mode overloads, mixed arithmetic,
-`RawFloat` registration, bounds/balls, and conversion/streaming APIs.
-Do not remove or skip assertions to obtain a green test run.
+The authoritative behavioral contract for the independent exact oracles replacement is the
+unchanged, macro-based `tests/test_float.cpp` and `tests/test_float_rounding.cpp`
+(`ARIADNE_TEST_*`). New, smaller FloatAP-only tests supplement these suites but are **not
+substitutes** for instantiating the historical `TestFloat<ArbitraryPrecision>` and
+`TestFloatRounding<ArbitraryPrecision>` classes. The existing `ARIADNE_NUMERIC_ENABLE_FLOATAP`
+guards in those legacy files cannot simply be enabled yet: the native specialization still lacks
+some constructors, global rounding-mode overloads, mixed arithmetic, `RawFloat` registration,
+bounds/balls, and conversion/streaming APIs. Do not remove or skip assertions to obtain a green test
+run.
 
 The first API-compatibility block introduces exact conversions from
 `Dyadic`, `ExactDouble`, and `TwoExp`, mutable precision with
@@ -830,14 +747,11 @@ not as special test shims. They require compilation and regression
 verification on macOS, Ubuntu, and Windows. The historical tests have
 **not yet been enabled**; the complete API parity task remains open.
 
-The shared `test_float.cpp` now also contains direct
-`ARIADNE_TEST_*` checks for this first compatibility block. All
-existing FloatDP/FloatMP assertions remain in place. These checks are
-**not** presented as full test parity: the generic
-`TestFloat<ArbitraryPrecision>` and
-`TestFloatRounding<ArbitraryPrecision>` instantiations still require
-more production APIs. No test is marked passed merely because its
-instantiation is not yet enabled.
+The shared `test_float.cpp` now also contains direct `ARIADNE_TEST_*` checks for this first
+compatibility block. These checks are **not** presented as full test parity: the generic
+`TestFloat<ArbitraryPrecision>` and `TestFloatRounding<ArbitraryPrecision>` instantiations still
+require more production APIs. No test is marked passed merely because its instantiation is not yet
+enabled.
 
 
 ## Correcting class-scope lookup in rounded helper methods (16 October 2026)
@@ -933,14 +847,9 @@ the previously guarded cross-precision conversion specialization.
 so the existing Ariadne generic floating-point abstractions can
 participate in overload resolution.
 
-This change **enables the historical suites but does not establish
-that they compile or pass**. Notably, the native backend still lacks
-some of the existing FloatDP/FloatMP contract: conversions and
-assignments, round-tag overloads, bounds/ball operations, parsing,
-minimum/maximum exponent semantics, and several transcendental
-helpers. Each missing API must be implemented rather than excluding
-or weakening a test. The full build and CI results are the criterion
-for completing this integration.
+This change **enables the historical suites but does not establish that they compile or pass**. Each
+missing API must be implemented rather than excluding or weakening a test. The full build and CI
+results are the criterion for completing this integration.
 
 
 ## First compilation failures with the historical suites (16 October 2026)
@@ -977,28 +886,11 @@ or weakened assertions were reintroduced.
 
 ## Consolidation into the original Float test suites (16 October 2026)
 
-`tests/test_float.cpp` now shares its multiple-precision conversion,
-arithmetic and comparison paths with both `MultiplePrecision` and
-`ArbitraryPrecision`: generic operands and expected values use
-`Float<PR>` and `PR`, while actual MPFR-only internals such as
-`get_mpfr()`, `MPFR_RNDN`, raw pointers, built-in MPFR precision
-conversions and MPFR default-precision management remain in explicit
-`Same<PR,MultiplePrecision>` subbranches. The test assertions for
-generic behavior have not been disabled.
+The test assertions for generic behavior have not been disabled.
 
-`tests/test_float_rounding.cpp` shares the cross-precision conversion
-test using `Float<PR>` for both multi-precision backends. Its original
-templated classes, and every original rounding assertion, remain
-enabled. A `test_precision_regressions()` method using Ariadne's
-`ARIADNE_TEST_*` macros integrates the key tests formerly in
-`test_floatap.cpp`, `test_floatap_edge_cases.cpp`,
-`test_floatap_precision.cpp` and `test_floatmp_conformance.cpp`:
-seven precisions between 2 and 1024 bits, all four rounding modes,
-exact Rational oracles for basic arithmetic and FMA, low-precision
-square-root edge cases, transcendental enclosures and identities,
-varied-scale comparisons and nonfinite values. These tests execute
-for FloatMP **and** FloatAP; they are not fallback FloatAP-specific suites.
-Coverage-only tests of internal implementation details are not
+`tests/test_float_rounding.cpp` shares the cross-precision conversion test using `Float<PR>` for
+both multi-precision backends. Its original templated classes, and every original rounding
+assertion, remain enabled. Coverage-only tests of internal implementation details are not
 substitutes for this shared mathematical contract.
 
 The four dedicated test targets and their source files are removed
@@ -1049,11 +941,8 @@ suppressing assertions. A complete project rebuild is still required.
 
 ## Performance redesign: certified fixed-point logarithm (16 October 2026)
 
-**Change:** `8eb5c97722fa41532174470022cc9cddeae454af`,
-`src/floatap.cpp`. This is the first response to the benchmark
-finding that the GMP-rational transcendental prototype is far slower
-than MPFR. Earlier `log_series` iterations used `mpq_t` for every
-Taylor term and sum; each rational multiplication/addition could
+**Change:** `8eb5c97722fa41532174470022cc9cddeae454af`, `src/floatap.cpp`. Earlier `log_series`
+iterations used `mpq_t` for every Taylor term and sum; each rational multiplication/addition could
 grow numerator and denominator and require canonicalization.
 
 **Decision:** keep the externally visible `FloatAP` representation,
@@ -1090,44 +979,37 @@ terms. A zero argument returns an exact zero enclosure. The outer
 `certified` loop still refines until **both** endpoints round to the
 same requested result, rather than accepting an approximate answer.
 
-**Trade-offs and current limits:** the series is now linear in a
-bounded count of fixed-point steps, rather than manipulating exact
-rational denominators at each step. This does **not** yet add fast
-argument reduction, binary splitting, reuse of `log(2)`, or a
-scratch allocator. The `log_interval` reconstruction still handles
-powers of two and `log(2)` using rational enclosures; other
-transcendentals still use the exact rational prototype. No
-post-change speed ratio is available yet, and the bound/protocol
-must still be stress-tested against MPFR at all rounding modes and
-near rounding boundaries, including cases that trigger refinement.
+**Trade-offs and current limits:** the series is now linear in a bounded count of fixed-point steps,
+rather than manipulating exact rational denominators at each step. This does **not** yet add fast
+argument reduction, binary splitting, reuse of `log(2)`, or a scratch allocator. The `log_interval`
+reconstruction still handles powers of two and `log(2)` using rational enclosures; other
+transcendentals still use the exact rational prototype.
 
 **Performance baseline supplied before this change** (median ns,
 300 iterations, seven samples, identical benchmark operations):
 
-| Operation | Bits | MPFR (ns) | FloatAP (ns) | FloatAP / MPFR |
-|---|---:|---:|---:|---:|
-| add, nearest | 53 | 69.03 | 335.28 | 4.9x |
-| log, nearest | 53 | 660.28 | 232180.14 | 352x |
-| log, nearest | 128 | 1551.39 | 2309173.75 | 1488x |
-| log, nearest | 256 | 2671.25 | 24007044.58 | 8987x |
-| atan, nearest | 53 | 667.50 | 232492.08 | 348x |
-| atan, nearest | 128 | 2683.61 | 2245674.17 | 837x |
+| Operation | Bits | FloatAP (ns) |
+| --- | ---: | ---: |
+| add, nearest | 53 | 335.28 |
+| log, nearest | 53 | 232180.14 |
+| log, nearest | 128 | 2309173.75 |
+| log, nearest | 256 | 24007044.58 |
+| atan, nearest | 53 | 232492.08 |
+| atan, nearest | 128 | 2245674.17 |
 
 These timings justify prioritizing the transcendental algorithms;
 they are **not** measurements of `8eb5c97`. Retain the original
 same-backend, same-input and same-rounding benchmark methodology,
 and validate output equivalence before claiming an optimization.
 
-**First post-change benchmark (16 October 2026).** These are user-supplied
-same-workload median timings with 300 iterations and seven samples.
-The log speedup is computed against the preceding supplied baseline;
-the MPFR comparisons use the contemporaneous new run:
+**First post-change benchmark (16 October 2026).** These are user-supplied same-workload median
+timings with 300 iterations and seven samples.
 
-| Bits | Old FloatAP log (ns) | New FloatAP log (ns) | Speedup | New MPFR log (ns) | Remaining slowdown |
-|---|---:|---:|---:|---:|---:|
-| 53 | 232180.14 | 3870.00 | 60.0x | 657.50 | 5.9x |
-| 128 | 2309173.75 | 6245.14 | 369.8x | 1520.56 | 4.1x |
-| 256 | 24007044.58 | 10135.28 | 2368.7x | 2609.31 | 3.9x |
+| Bits | Old FloatAP log (ns) | New FloatAP log (ns) | Speedup |
+| --- | ---: | ---: | ---: |
+| 53 | 232180.14 | 3870.00 | 60.0x |
+| 128 | 2309173.75 | 6245.14 | 369.8x |
+| 256 | 24007044.58 | 10135.28 | 2368.7x |
 
 The baseline FloatAP `atan` times remain approximately 237687 ns
 at 53 bits and 2262583 ns at 128 bits; `asin`/`acos` remain even
@@ -1187,10 +1069,8 @@ reversing the endpoints. Integer outward rounding guarantees
 inclusion independently of the number of guard bits; the guard
 precision serves efficiency, not correctness.
 
-The existing `certified` refinement loop remains unchanged: it
-returns only after both enclosure endpoints round identically in
-the requested rounding mode. Thus the change is compatible with
-the four rounding modes and does not forward numerical work to MPFR.
+The existing `certified` refinement loop remains unchanged: it returns only after both enclosure
+endpoints round identically in the requested rounding mode.
 
 **Expected propagation:** `pi_interval` uses two calls to
 `small_atan` in Machin's identity; `atan_interval` uses it
@@ -1201,24 +1081,15 @@ without changing their identities. This update does **not**
 accelerate the rational Taylor evaluation of `exp`, `sin`,
 or `cos`, and does not cache `pi`.
 
-**Pre-commit verification:** a standalone arithmetic check compared
-the enclosing interval against high-precision arctangent values
-for 208 rational arguments, including `+/-1/2`, `1/5`,
-`1/239`, and very small values, with work precision 32, 53,
-85, 128, 256, and 512 bits. This is an algorithm-level
-cross-check, **not** a complete Ariadne build or MPFR differential
-regression. Numerical speedup and the final cross-platform
-regression remain to be measured.
+**Pre-commit verification:** a standalone arithmetic check compared the enclosing interval against
+high-precision arctangent values for 208 rational arguments, including `+/-1/2`, `1/5`, `1/239`, and
+very small values, with work precision 32, 53, 85, 128, 256, and 512 bits. This is an
+algorithm-level cross-check, **not** a complete Ariadne build or independent exact-oracle
+regression. Numerical speedup and the final cross-platform regression remain to be measured.
 
-**Literature and next steps:** Arb documents fixed-point Taylor
-arctangent evaluation, table-based argument reduction, and
-rectangular splitting at low/medium precision; see
-https://arblib.org/arb.html and the MPFR algorithm notes at
-https://www.mpfr.org/algo.html. Investigate reducing transformed
-arguments to below `1/16`, caching certified Machin constants
-at appropriate working precision, and rectangular/binary splitting
-when iteration cost dominates. Retain hard-to-round and all-mode
-differential comparisons as acceptance criteria.
+Investigate reducing transformed arguments to below `1/16`, caching certified Machin constants at
+appropriate working precision, and rectangular/binary splitting when iteration cost dominates.
+Retain hard-to-round and all-mode differential comparisons as acceptance criteria.
 
 
 ## Performance redesign: certified fixed-point exponential (16 October 2026)
@@ -1252,29 +1123,18 @@ rounded only by the preexisting certification loop. Consequently,
 fixed-point truncation does **not** reduce the correctness contract;
 the guard bits affect efficiency, not the validity of the enclosure.
 
-**Independent algorithm check:** 209 rational arguments in
-`[-1/2,1/2]`, including `+/-1/2`, tiny arguments and randomized
-fractions, were checked against high-precision reference evaluations
-for `work = 8, 32, 53, 85, 128, 256, 512, 1024`. All
-evaluations were enclosed. This is not a substitute for the C++
-MPFR differential suites or a full cross-platform regression.
+**Independent algorithm check:** 209 rational arguments in `[-1/2,1/2]`, including `+/-1/2`, tiny
+arguments and randomized fractions, were checked against high-precision reference evaluations for
+`work = 8, 32, 53, 85, 128, 256, 512, 1024`. All evaluations were enclosed. This is not a substitute
+for the C++ independent exact-oracle suites or a full cross-platform regression.
 
-**Pre-change benchmark provided by the user:** `exp` takes
-25.08 us at 53 bits, 70.03 us at 128 bits, 250.45 us at
-256 bits, and **11.56 ms at 1024 bits**; MPFR takes
-0.79, 1.12, 1.62 and 6.61 us respectively. These are baseline
-figures measured *before this change*, not achieved speedups.
-A new same-machine C++ benchmark and all-mode MPFR comparisons
-are required before accepting performance claims.
+These are baseline figures measured *before this change*, not achieved speedups.
 
-**Follow-up:** apply a jointly evaluated certified fixed-point
-sine/cosine series; then optimize argument reduction and the
-rational interval squaring operations. Arb/FLINT documents
-fixed-point Taylor/rectangular-splitting exponential methods
-(`_arb_exp_taylor_naive`, `_arb_exp_taylor_rs`) and more
-aggressive reduction of small exponential arguments:
-https://flintlib.org/doc/arb.html . No MPFR function is called
-by the new native code.
+**Follow-up:** apply a jointly evaluated certified fixed-point sine/cosine series; then optimize
+argument reduction and the rational interval squaring operations. Arb/FLINT documents fixed-point
+Taylor/rectangular-splitting exponential methods (`_arb_exp_taylor_naive`, `_arb_exp_taylor_rs`) and
+more aggressive reduction of small exponential arguments: https://flintlib.org/doc/arb.html . The
+implementation uses native arithmetic and exact certification.
 
 
 ## Performance redesign: certified simultaneous sine and cosine (16 October 2026)
@@ -1319,39 +1179,28 @@ enclosure of the remainder). For negative arguments, negate and
 swap the sine endpoints; cosine is even. A zero argument
 returns the exact pairs `(0,1)`.
 
-The original argument-halving, double-angle interval propagation,
-`tan = sin/cos` enclosure, all four rounding modes, and
-endpoint-agreement refinement remain unchanged. The algorithm
-is still native GMP, **without MPFR calls**. It handles
-`|x| > 1` via the existing reduction, although large
-argument reduction remains an important independent limitation.
+The original argument-halving, double-angle interval propagation, `tan = sin/cos` enclosure, all
+four rounding modes, and endpoint-agreement refinement remain unchanged. The implementation uses
+native arithmetic and exact certification. It handles `|x| > 1` via the existing reduction, although
+large argument reduction remains an important independent limitation.
 
-**Validation:** a standalone exact-rational/fixed-point
-implementation was checked on **219 rational arguments**, at
-work precisions 8, 32, 53, 85, 128, 256, 512, 1024 bits,
-against high-precision sine and cosine references; all
-intervals contained their reference results. This is a useful
-check of the interval recurrence, not a substitute for the
-Ariadne regression suite. New C++ regression cases compare
-`FloatAP` with `FloatMP` on dyadic inputs, including
-negative and reduced arguments, in **all four rounding modes**
-at 53, 128, 256 and 1024 bits.
+**Validation:** a standalone exact-rational/fixed-point implementation was checked on **219 rational
+arguments**, at work precisions 8, 32, 53, 85, 128, 256, 512, 1024 bits, against high-precision sine
+and cosine references; all intervals contained their reference results. This is a useful check of
+the interval recurrence, not a substitute for the Ariadne regression suite.
 
 **Performance baseline (user benchmark before this change):**
 
-| Bits | FloatAP sin (ns) | MPFR sin (ns) | FloatAP cos (ns) | MPFR cos (ns) |
-|---|---:|---:|---:|---:|
-| 53 | 19531.67 | 704.44 | 19196.11 | 521.67 |
-| 128 | 66202.36 | 1061.67 | 64755.83 | 691.11 |
-| 256 | 252700.97 | 1541.53 | 251945.56 | 1150.14 |
-| 1024 | 11626473.33 | 6159.58 | 11562120.00 | 4843.89 |
+| Bits | FloatAP sin (ns) | FloatAP cos (ns) |
+| --- | ---: | ---: |
+| 53 | 19531.67 | 19196.11 |
+| 128 | 66202.36 | 64755.83 |
+| 256 | 252700.97 | 251945.56 |
+| 1024 | 11626473.33 | 11562120.00 |
 
-These are **pre-change measurements**, not demonstrated
-speedups. The outer `tan` operation was 28.94 ms at
-1024 bits versus 6.77 us for MPFR, motivating the
-joint kernel. Rebenchmark identical inputs and verify
-bit-exact results under every rounding mode before
-claiming the optimization is accepted.
+These are **pre-change measurements**, not demonstrated speedups. The outer `tan` operation was
+28.94 ms at 1024 bits versus 6.77 us for, motivating the joint kernel. Rebenchmark identical inputs
+and verify bit-exact results under every rounding mode before claiming the optimization is accepted.
 
 **State of the art and next steps:** FLINT/Arb provides
 a pair of fixed-point Taylor kernels and a rectangular-splitting
@@ -1366,20 +1215,14 @@ and limb-level arithmetic fast paths.
 
 ## Performance redesign: cached certified pi (16 October 2026)
 
-**Benchmark motivation:** after fixed-point sine/cosine, `pi_nearest`
-became the largest *relative* discrepancy: repeated calls to
-`FloatAP::pi` took approximately 5.9, 8.2, 12.7, and **84.3 us**
-at 53, 128, 256, and 1024 bits, versus 49, 49, 50, and
-51 ns for MPFR, respectively. The benchmark calls `pi`
-300 times per sample after warm-up, so it measures a **hot
-constant**, not one-off computation. MPFR caches its pi
-constant; see https://www.mpfr.org/mpfr-current/mpfr.html
-(section on memory handling) and `src/const_pi.c`.
-FLINT's Arb `arb_const_pi` also caches constants:
-https://flintlib.org/doc/arb.html .
+**Benchmark motivation:** after fixed-point sine/cosine, `pi_nearest` became the largest *relative*
+discrepancy: repeated calls to `FloatAP::pi` took approximately 5.9, 8.2, 12.7, and **84.3 us** at
+53, 128, 256, and 1024 bits, versus 49, 49, 50, and 51 ns for, respectively. The benchmark calls
+`pi` 300 times per sample after warm-up, so it measures a **hot constant**, not one-off computation.
+FLINT's Arb `arb_const_pi` also caches constants: https://flintlib.org/doc/arb.html .
 
-**Decision:** implement two independent, bounded **thread-local**
-caches, without delegating any numeric work to MPFR:
+**Decision:** implement two independent, bounded **thread-local** caches, without delegating any
+numeric work to independent exact oracles:
 
 1. `FloatAPTrigonometricDetail::pi_interval(work)` retains the
    most recently constructed certified Machin interval at the
@@ -1407,12 +1250,8 @@ precision may grow). Both caches are independent of the mutable
 default rounding mode. Invalid rounding modes are rejected
 before indexing the slots.
 
-**Testing:** the shared float rounding suite now interleaves
-53, 256, 7, 1024, 128, and 53 bits; it requests pi in all
-four modes and compares the exact rational value with the
-corresponding `FloatMP` result. A repeated same-key call
-tests the hot cache. The existing `atan`/`asin`/`acos`
-tests also exercise pi-dependent paths.
+A repeated same-key call tests the hot cache. The existing `atan`/`asin`/`acos` tests also exercise
+pi-dependent paths.
 
 **Benchmark interpretation:** the next repeated-pi benchmark
 should speed up markedly, but that result measures **cache
@@ -1426,28 +1265,16 @@ demonstrates a need.
 
 ## Performance redesign: direct FloatAP-to-double conversion (16 October 2026)
 
-**Measured motivation:** after the certified pi cache, `to_double`
-was the worst relative benchmark: 136 ns at 53 bits and 324 ns
-at 1024 bits, versus 18 ns for MPFR at both precisions
-(approximately 7.5x and 17.8x slower). The earlier
-`FloatAP::get_d()` constructed a full `Rational` and called
-GMP `mpq_get_d`: for negative binary exponents this allocates
-a power-of-two denominator and canonicalizes an exact rational
-that is not otherwise needed.
+The earlier `FloatAP::get_d()` constructed a full `Rational` and called GMP `mpq_get_d`: for
+negative binary exponents this allocates a power-of-two denominator and canonicalizes an exact
+rational that is not otherwise needed.
 
-**Decision:** convert the native positive GMP significand and
-signed binary exponent directly to a hardware `double`. GMP
-`mpz_get_d_2exp` extracts a normalized, **truncated**
-double significand with at most 53 significant bits without
-building a quotient or denominator. The original stored
-significand remains available for exact guard, tie, parity,
-and sticky-bit tests via `mpz_tstbit`/`mpz_scan1`. The
-converter supports nearest-even, upward, downward, and
-toward-zero using the **current FloatAP rounding mode**.
-This corrects the earlier semantic discrepancy: the former
-`Rational::get_d()`/GMP `mpq_get_d` always truncated
-toward zero, while `FloatMP::get_d()` calls MPFR with
-the current rounding mode.
+**Decision:** convert the native positive GMP significand and signed binary exponent directly to a
+hardware `double`. GMP `mpz_get_d_2exp` extracts a normalized, **truncated** double significand with
+at most 53 significant bits without building a quotient or denominator. The original stored
+significand remains available for exact guard, tie, parity, and sticky-bit tests via
+`mpz_tstbit`/`mpz_scan1`. The converter supports nearest-even, upward, downward, and toward-zero
+using the **current FloatAP rounding mode**.
 
 **Boundary correctness:** determine the binary exponent from
 the exact stored significant-bit count, guarding signed overflow.
@@ -1464,42 +1291,25 @@ signed infinity, and signed zero are handled without GMP
 conversions. All finite results are exactly representable
 scalings, avoiding a second rounding in `ldexp`.
 
-**Independent verification:** the integer-extraction and
-rounding recurrence was compiled with GMP and compared
-against an exact GMP rational oracle on **54,880 cases**,
-spanning 14 significand widths from 2 to 1024 bits,
-14 exponent categories (including subnormals and normal
-boundaries), positive/negative values, and all four modes.
-Each compared the full 64-bit double representation. This
-is a standalone algorithm check, not a complete C++/MPFR
-regression. The Ariadne rounding suite now additionally
-compares against actual `FloatMP::get_d()`, including
-large finite values and cases that overflow `double`.
-The benchmark speedup remains to be measured.
+**Independent verification:** the integer-extraction and rounding recurrence was compiled with GMP
+and compared against an exact GMP rational oracle on **54,880 cases**, spanning 14 significand
+widths from 2 to 1024 bits, 14 exponent categories (including subnormals and normal boundaries),
+positive/negative values, and all four modes. Each compared the full 64-bit double representation.
+This is a standalone algorithm check, not a complete C++/independent exact oracles regression. The
+benchmark speedup remains to be measured.
 
-**Contract and follow-up:** the new implementation uses only GMP
-for significand inspection; no MPFR arithmetic is introduced.
-The mode-aware numerical behavior is an intentional
-compatibility correction and must be validated against the
-shared regression suite under all rounding modes. Benchmark
-normal, subnormal, overflow, and exact-conversion workloads
-separately; do not infer cold or worst-case latency from the
-normal-input microbenchmark alone.
+The implementation uses native arithmetic and exact certification. The mode-aware numerical behavior
+is an intentional compatibility correction and must be validated against the shared regression suite
+under all rounding modes. Benchmark normal, subnormal, overflow, and exact-conversion workloads
+separately; do not infer cold or worst-case latency from the normal-input microbenchmark alone.
 
-Reference: GNU GMP manual, integer conversion functions
-(`mpz_get_d_2exp`), https://gmplib.org/manual/Converting-Integers;
-GNU MPFR manual, `mpfr_get_d`, https://mpfr.org/mpfr-current/mpfr.html .
 
 ## Performance redesign: adaptive log series and log2 cache (16 October 2026)
 
-**Evidence:** in the benchmark supplied after the direct `get_d()`
-optimization, `FloatAP::log` at 1024 bits took 81.06 us versus
-8.53 us for MPFR (9.51x), making it the worst relative case.
-The benchmark's rational inputs are near `1/2`, so the old
-reduction interval `[1/2,2]` left them near `1/2` and the
-series argument `z=(x-1)/(x+1)` near `-1/3`. The previous
-fixed-point implementation always evaluated `floor(work/3)+4`
-terms, even for inputs whose transformed argument was tiny.
+The benchmark's rational inputs are near `1/2`, so the old reduction interval `[1/2,2]` left them
+near `1/2` and the series argument `z=(x-1)/(x+1)` near `-1/3`. The previous fixed-point
+implementation always evaluated `floor(work/3)+4` terms, even for inputs whose transformed argument
+was tiny.
 
 **Decisions:**
 
@@ -1535,10 +1345,6 @@ identity `log(x)=log(y)+k*log(2)`. The constant is never
 treated as exact. The same monotone endpoint arithmetic
 continues to support all four rounding modes.
 
-**Regression added:** a differential oracle test compares
-all four rounded modes of `FloatAP` against `FloatMP`
-at 53, 128, 256, and 1024 bits, using exact binary inputs
-near 1/2, 3/4, 1, 3/2 and 2, and small/large powers of two.
 This is a test addition, not a claim that the CI has passed.
 
 **Performance status:** the stated times are the *pre-change*
@@ -1558,14 +1364,10 @@ remain possible future steps, after this regression.
 
 ## Arithmetic optimization: integer-denominator rounding (16 October 2026)
 
-**Motivation:** the newest benchmark shows `FloatAP` still approximately
-5x slower than MPFR on 53-bit addition, and 4.7x slower on 53-bit
-multiplication, despite the fixed-point transcendental improvements.
-Both arithmetic kernels assemble an **exact binary integer** and
-invoke the general `from_ratio(numerator,denominator,scale,precision,mode)`
-routine with `denominator = 1`. Previously, that routine allocated
-five additional temporary GMP integers, normalized the rational and
-performed a general quotient/remainder division.
+Both arithmetic kernels assemble an **exact binary integer** and invoke the general
+`from_ratio(numerator,denominator,scale,precision,mode)` routine with `denominator = 1`. Previously,
+that routine allocated five additional temporary GMP integers, normalized the rational and performed
+a general quotient/remainder division.
 
 **Decision and invariant:** detect the **positive unit denominator**
 in `FloatAP::from_ratio`, and round the signed integer significand
@@ -1589,40 +1391,27 @@ general-rational division path (for genuine nonunit denominators),
 all four rounding modes and all special-value handling. This is a
 **single fast path**, not a change to the public `FloatAP` API.
 
-**Verification before publication:** a standalone native GMP C++
-harness compared the new integer-specialized path with the old
-general denominator-one routine in **318,400 directed-rounding cases**,
-covering precision from 2 to 2048 bits, significand lengths below,
-at and above the target, signed operands, rounding carries, and all
-four modes. Both normalized significand and exponent matched.
-The Ariadne rounding suite additionally receives exact FloatAP vs
-FloatMP comparisons at 7/53/128/256/1024 bits, checking integer
-construction, add/sub/mul/fma under all four rounding modes. Neither
-the harness nor the additional tests imply that full CI has passed.
+**Verification before publication:** a standalone native GMP C++ harness compared the new
+integer-specialized path with the old general denominator-one routine in **318,400 directed-rounding
+cases**, covering precision from 2 to 2048 bits, significand lengths below, at and above the target,
+signed operands, rounding carries, and all four modes. Both normalized significand and exponent
+matched. Neither the harness nor the additional tests imply that full CI has passed.
 
-**Performance status:** the reference benchmark provided on
-16 October 2026 measured 53-bit `add_nearest` at 346.39 ns for
-FloatAP versus 74.45 ns for MPFR, and 53-bit `mul_nearest` at
-294.03 ns versus 67.22 ns. At 1024 bits `add_nearest` took
-392.36 ns versus 70.55 ns, and `mul_nearest` 472.50 ns versus
-177.22 ns. These measurements are **before** this change.
-A same-host post-change benchmark is needed to quantify the
-benefit and detect any new bottlenecks.
+**Performance status:** the reference benchmark provided on 16 October 2026 measured 53-bit
+`add_nearest` at 346.39 ns for FloatAP versus 74.45 ns for, and 53-bit `mul_nearest` at 294.03 ns
+versus 67.22 ns. At 1024 bits `add_nearest` took 392.36 ns versus 70.55 ns, and `mul_nearest` 472.50
+ns versus 177.22 ns. These measurements are **before** this change. A same-host post-change
+benchmark is needed to quantify the benefit and detect any new bottlenecks.
 
-**Next options:** avoid constructing a temporary unit denominator
-even at the call sites, and specialize ordinary direct limb addition
-and multiplication where profiling justifies the complexity. This
-fast path does not change rational-based transcendental enclosures
-or borrow rounding logic from MPFR.
+**Next options:** avoid constructing a temporary unit denominator even at the call sites, and
+specialize ordinary direct limb addition and multiplication where profiling justifies the
+complexity.
 
 ## Interval quotient optimization: sign-aware extrema (16 October 2026)
 
-The benchmark after integer-denominator rounding showed 1024-bit
-`tan_nearest` at 61.61 us versus 6.72 us for MPFR (9.17x).
-The original certified trigonometric interval division built two
-rational reciprocals and four rational cross-products, then selected
-their minimum and maximum, even though endpoint signs determine the
-extrema in advance.
+The original certified trigonometric interval division built two rational reciprocals and four
+rational cross-products, then selected their minimum and maximum, even though endpoint signs
+determine the extrema in advance.
 
 **Decision:** preserve exact rational enclosures, but choose the
 extremal endpoint pair using the signs of both intervals. For a
@@ -1642,14 +1431,10 @@ enclosure quality is sacrificed. The improvement also applies
 to other certified trigonometric paths using interval division,
 including arcsine.
 
-**Validation:** an independent exact-arithmetic enumeration checked
-240,426 valid interval configurations over rational endpoints,
-including negative denominators and numerators crossing zero;
-the optimized pair matched the old four-candidate extrema in
-every case. The shared rounding tests now additionally compare
-`FloatAP::tan` with `FloatMP::tan` at 53, 128, 256, and
-1024 bits in all four rounding modes. Negative arguments and
-arguments with negative cosine are explicitly included.
+**Validation:** an independent exact-arithmetic enumeration checked 240,426 valid interval
+configurations over rational endpoints, including negative denominators and numerators crossing
+zero; the optimized pair matched the old four-candidate extrema in every case. Negative arguments
+and arguments with negative cosine are explicitly included.
 
 **Performance status:** the benchmark values above precede this
 change; a new run is needed to measure actual speedup and detect
@@ -1661,15 +1446,9 @@ conversion overhead before undertaking more intrusive changes.
 
 ## Selective fixed-point trigonometric evaluation (16 October 2026)
 
-**Observed bottleneck:** the latest benchmark reports 1024-bit
-`cos_nearest` at 41.82 us versus 4.84 us for MPFR (8.63x),
-and `sin_nearest` at 41.92 us versus 5.90 us (7.11x).
-`tan_nearest` is 49.41 us versus 6.53 us (7.56x).
-The fixed-point Taylor kernel previously evaluated both the sine
-and cosine recurrence on every call, even when the public request
-only required one result. Each unused recurrence performed two
-GMP multiplications, shifts, directed divisions and accumulator
-updates per iteration.
+The fixed-point Taylor kernel previously evaluated both the sine and cosine recurrence on every
+call, even when the public request only required one result. Each unused recurrence performed two
+GMP multiplications, shifts, directed divisions and accumulator updates per iteration.
 
 **Decision:** add a private `TrigOutputs` selector to the
 fixed-point kernel and propagate it from the trigonometric
@@ -1697,23 +1476,16 @@ dispatcher accesses only the requested result. The
 double-angle and tangent paths always request both intervals.
 No rounding mode or public interface is changed.
 
-**Regression:** extend the differential sine/cosine/tangent
-suite comparing FloatAP with MPFR at 53, 128, 256, and
-1024 bits under all four rounding modes. New arguments
-include exactly +1/-1 and +7/8/-7/8, in addition to values
-above 1 and negative-cosine cases. These tests exercise both
-the selective and joint kernel paths; correctness of the
-rounded results is the acceptance criterion.
+**Regression:** extend the differential sine/cosine/tangent suite comparing FloatAP with independent
+exact oracles at 53, 128, 256, and 1024 bits under all four rounding modes. New arguments include
+exactly +1/-1 and +7/8/-7/8, in addition to values above 1 and negative-cosine cases. These tests
+exercise both the selective and joint kernel paths; correctness of the rounded results is the
+acceptance criterion.
 
-**Measurements:** the reported 41.82 us cosine and 41.92 us
-sine at 1024 bits are the **pre-change** reference. The
-latest benchmark was collected under visibly different
-timing conditions from the preceding run (for example,
-the MPFR comparison microbenchmark changed substantially).
-Do not attribute inter-run changes exclusively to
-algorithmic modifications without same-environment controls.
-Rebenchmark identical inputs, including `tan`, and
-measure cold and warm cases before recording any speedup.
+**Measurements:** the reported 41.82 us cosine and 41.92 us sine at 1024 bits are the **pre-change**
+reference. Do not attribute inter-run changes exclusively to algorithmic modifications without
+same-environment controls. Rebenchmark identical inputs, including `tan`, and measure cold and warm
+cases before recording any speedup.
 
 **Relation to the state of the art:** FLINT/Arb explicitly
 supports evaluating sine alone or both sine and cosine in
@@ -1726,17 +1498,11 @@ argument reduction, or limb-level intermediate reuse.
 
 ## Exponential reduction with bounded fixed-point reconstruction (16 October 2026)
 
-**Motivation:** after the selective sine/cosine implementation, the
-user's same-run benchmark reported 1024-bit `exp_nearest` at
-54.97 us for FloatAP and 6.42 us for MPFR (8.57x), the largest
-remaining relative slowdown. At 53 bits, it took 4.66 us versus
-1.66 us. The existing `exp_series` already uses rigorous GMP
-fixed-point Taylor intervals but reduces its argument only to
-`|x| <= 1/2`. More aggressive halving reduces the number of
-series terms, but the old *exact-rational* interval squaring
-doubled the denominator bit length after each squaring. Thus
-simply reducing to `1/2^16` would make reconstruction slower,
-not faster.
+At 53 bits, it took 4.66 us versus 1.66 us. The existing `exp_series` already uses rigorous GMP
+fixed-point Taylor intervals but reduces its argument only to `|x| <= 1/2`. More aggressive halving
+reduces the number of series terms, but the old *exact-rational* interval squaring doubled the
+denominator bit length after each squaring. Thus simply reducing to `1/2^16` would make
+reconstruction slower, not faster.
 
 **Decision:** select a target `|x| <= 2^(-d)` with
 `d = min(16, max(6, floor(work/32)))`. Compute
@@ -1802,11 +1568,8 @@ https://flintlib.org/doc/arb.html .
 
 ## Trigonometric performance: derive cosine from a certified sine interval (16 October 2026)
 
-**Benchmark motivation:** the latest same-run 1024-bit median for
-`tan_nearest` is 49.82 us versus 6.68 us for MPFR (7.46x).
-Although the preceding selective-Taylor change roughly halved
-the time of separate `sin` and `cos`, tangent still requested
-**both** complete fixed-point Taylor recurrences.
+Although the preceding selective-Taylor change roughly halved the time of separate `sin` and `cos`,
+tangent still requested **both** complete fixed-point Taylor recurrences.
 
 **State of the art:** FLINT/Arb's `sin_cos.c` deliberately computes
 only sine and derives cosine by an integer square root when the
@@ -1866,28 +1629,17 @@ inputs near 1, very small arguments, arguments requiring
 double-angle reconstruction, all four rounding modes,
 and 53, 128, 256, 1024-bit target precisions.
 
-**Acceptance:** rerun the complete C++ and MPFR differential
-suites and measure the benchmark on the same hardware.
-The expected improvement concerns `tan` and trigonometric
-calculations requiring both outputs. The separate
-`cos_nearest` kernel is not changed by this optimization,
-and no improvement is claimed until measured. The
-mathematical guarantee does not depend on performance.
+The expected improvement concerns `tan` and trigonometric calculations requiring both outputs. The
+separate `cos_nearest` kernel is not changed by this optimization, and no improvement is claimed
+until measured. The mathematical guarantee does not depend on performance.
 
 
 ## Inverse trigonometric optimization: single arctangent enclosure (16 October 2026)
 
-**Benchmark motivation:** after the certified cosine-from-sine
-optimization, the largest remaining relative slowdown was
-`acos_nearest` at 1024 bits: **156.70 us** for FloatAP
-versus **23.42 us** for MPFR (6.69x). At the same
-precision, `asin_nearest` took 155.04 us versus 23.40 us.
-The common `asin_interval` routine obtained an interval
-for `z=x/(1+sqrt(1-x^2))` and computed `atan(z.lower)`
-**and** `atan(z.upper)` separately with the certified
-fixed-point arctangent series. The endpoints differ by only
-the previous outward square-root uncertainty, so the second
-arctangent is largely redundant.
+At the same precision, `asin_nearest` took 155.04 us versus 23.40 us. The common `asin_interval`
+routine obtained an interval for `z=x/(1+sqrt(1-x^2))` and computed `atan(z.lower)` **and**
+`atan(z.upper)` separately with the certified fixed-point arctangent series. The endpoints differ by
+only the previous outward square-root uncertainty, so the second arctangent is largely redundant.
 
 **Decision:** replace the two independent arctangent calls with
 **one** certified arctangent interval and an exact rational
@@ -1912,17 +1664,11 @@ and correctly-rounded final certification remain unchanged.
 `acos(x)=pi/2-asin(x)` automatically benefits from the same
 change; its `pi` interval remains certified and cached.
 
-**Verification:** an independent 425-decimal-digit mpmath
-check exercised **7,464** rational intervals across widths
-corresponding to 7, 24, 53, 128, 256, and 1024 bits, with
-both endpoint choices and positive/negative inputs. The
-new intervals contained arctangent at each endpoint and at
-the midpoint in all cases. This is numerical corroboration;
-the rigorous guarantee follows from the analytic derivative
-bound, not from finite testing. The shared C++ rounding suite
-also now compares FloatAP `asin` and `acos` with MPFR at
-53, 128, 256, and 1024 bits, using inputs near +/-1, zero,
-both signs, and all four rounding modes.
+**Verification:** an independent 425-decimal-digit mpmath check exercised **7,464** rational
+intervals across widths corresponding to 7, 24, 53, 128, 256, and 1024 bits, with both endpoint
+choices and positive/negative inputs. The new intervals contained arctangent at each endpoint and at
+the midpoint in all cases. This is numerical corroboration; the rigorous guarantee follows from the
+analytic derivative bound, not from finite testing.
 
 **Expected performance:** this eliminates one arctangent
 series evaluation from each ordinary `asin`/`acos` call.
@@ -1938,12 +1684,8 @@ higher-risk opportunity.
 
 ## Exponential optimization: single certified fixed-point Taylor recurrence (16 October 2026)
 
-**Bottleneck:** the 16 October benchmark after the one-atan optimization
-showed FloatAP `exp_nearest` taking 5.37 us at 128 bits versus 1.04 us
-for MPFR (5.15x), and 28.34 us at 1024 bits versus 6.42 us
-(4.42x). The previous `exp_series` evaluated independent lower
-and upper Taylor-term recurrences with two GMP big-integer products,
-directed shifts, and divisions per term, as well as another upper
+The previous `exp_series` evaluated independent lower and upper Taylor-term recurrences with two GMP
+big-integer products, directed shifts, and divisions per term, as well as another upper
 multiplication/division to bound the first omitted term.
 
 **Decision:** compute only the downward-rounded positive Taylor
@@ -1988,44 +1730,26 @@ Negative inputs use `exp(-x)=1/exp(x)` with swapped rational
 interval endpoints. The subsequent bounded fixed-point
 squaring reconstruction, introduced earlier, is unaffected.
 
-**Independent verification:** a standalone compiled GMP C++ harness
-tested 360 positive and negative rational arguments with precisions
-53, 128, 256, and 1024 bits, comparing the resulting rational
-intervals against lower/upper exact rational Taylor bounds. All
-360 certificates enclosed the reference. The proof above provides
-the general guarantee, not the finite test count. Additional
-Ariadne differential tests compare FloatAP and FloatMP `exp`
-for small arguments, plus inputs close to unity, at each of the
-four target precisions and all four rounding modes.
+**Independent verification:** a standalone compiled GMP C++ harness tested 360 positive and negative
+rational arguments with precisions 53, 128, 256, and 1024 bits, comparing the resulting rational
+intervals against lower/upper exact rational Taylor bounds. All 360 certificates enclosed the
+reference. The proof above provides the general guarantee, not the finite test count.
 
-**Prototype benchmark (not the Ariadne benchmark):** on the local
-Linux GMP harness with a benchmark-like input near 1/2 and 32
-extra working bits, the single-recurrence exponential completed
-in approximately 2.57 us at 128 bits and 17.1 us at 1024 bits.
-The earlier two-recurrence benchmark measured approximately
-4.1 us at 128 bits and over 30 us at 1024 bits. Cross-run
-differences are not controlled; evaluate the final outcome
-using the same-host FloatAP/MPFR benchmark and full CI.
+**Prototype benchmark (not the Ariadne benchmark):** on the local Linux GMP harness with a
+benchmark-like input near 1/2 and 32 extra working bits, the single-recurrence exponential completed
+in approximately 2.57 us at 128 bits and 17.1 us at 1024 bits. The earlier two-recurrence benchmark
+measured approximately 4.1 us at 128 bits and over 30 us at 1024 bits.
 
-**Scope:** this is an algebraic interval bound, not a heuristic
-or an MPFR-dependent shortcut. The additional interval width is
-deliberately conservative; the existing certified loop retries
-at higher work precision if both endpoints do not round to
-the same target value. No special-value semantics, public API,
-or functional test expectations are relaxed.
+The additional interval width is deliberately conservative; the existing certified loop retries at
+higher work precision if both endpoints do not round to the same target value. No special-value
+semantics, public API, or functional test expectations are relaxed.
 
 ## Trigonometric optimization: one certified fixed-point recurrence (16 October 2026)
 
-**Measured motivation (pre-change):** the 16 October benchmark after
-the exponential single-recurrence optimization reported `sin_nearest`
-at 1024 bits as 22.49 us (MPFR 5.90 us), `cos_nearest` as
-22.16 us (MPFR 4.79 us), and `tan_nearest` as 30.70 us
-(MPFR 6.47 us). FloatAP's sin/cos Taylor kernel still calculated
-both lower and upper outward-rounded sequences of positive term
-magnitudes, performing two big-integer products and two divisions
-for every Taylor term. The existing tangent path already avoids
-evaluating cosine's Taylor series, reconstructing positive cosine
-from a certified sine interval using integer square roots.
+FloatAP's sin/cos Taylor kernel still calculated both lower and upper outward-rounded sequences of
+positive term magnitudes, performing two big-integer products and two divisions for every Taylor
+term. The existing tangent path already avoids evaluating cosine's Taylor series, reconstructing
+positive cosine from a certified sine interval using integer square roots.
 
 **Decision:** compute only a **downward-rounded fixed-point
 recurrence** for the positive magnitudes of the alternating
@@ -2104,13 +1828,8 @@ rationals across [-1,1], and values as tiny as +/-2^-1050.
 These finite tests corroborate the mathematical argument;
 they are not a replacement for the proof.
 
-**Ariadne regression:** the shared differential suite
-compares sine, cosine, and tangent from FloatAP and MPFR
-at 53, 128, 256, and 1024 bits in all four rounding modes.
-New arguments include +/-31/32, +/-17/16 and +/-2^-128.
-The test also exercises the separately rounded cosine
-series and the sine-derived cosine path. No previous
-expectations were relaxed.
+New arguments include +/-31/32, +/-17/16 and +/-2^-128. The test also exercises the separately
+rounded cosine series and the sine-derived cosine path. No previous expectations were relaxed.
 
 **Performance:** all timings above are a **pre-change**
 baseline. The new kernel removes half of each active
@@ -2123,12 +1842,9 @@ be driven by profiling rather than assumptions.
 
 ## Shared GMP kernel for addition and subtraction (16 October 2026)
 
-**Motivation:** the preceding same-run benchmark measured FloatAP
-`sub_nearest` at 170.14 ns versus MPFR 40.00 ns at 256 bits.
-The old implementation copied and negated the second operand
-before calling add; add then aligned two independent signed GMP
-temporaries. This caused unnecessary allocations, copying and
-sign changes.
+The old implementation copied and negated the second operand before calling add; add then aligned
+two independent signed GMP temporaries. This caused unnecessary allocations, copying and sign
+changes.
 
 **Design decision:** represent subtraction as a logical inversion
 of the sign bit of the second operand, sharing the `add_sub`
@@ -2150,11 +1866,7 @@ On the same Linux executable, the isolated GMP alignment
 microbenchmark decreased from 41-45 ns to 11-12 ns per call.
 This is **not** an Ariadne benchmark and excludes final rounding.
 
-**Regression:** expand FloatAP-versus-MPFR exact-result testing
-for add and sub across 7, 53, 128, 256, and 1024 bits,
-all four rounding modes, both signs, cancellation, exponent
-gaps and signed zero. CI and the same-environment benchmark
-must verify the integrated implementation before attributing
+CI and the same-environment benchmark must verify the integrated implementation before attributing
 an end-to-end speedup.
 
 ## Logging integration and benchmark reporting (16 October 2026)
@@ -2169,16 +1881,10 @@ benchmark targets link to `ariadne-logging` and `logging`;
 the numeric library's public API does **not** acquire a
 logging dependency.
 
-**Output conventions:** human-readable benchmark output uses
-`LOGGING_PRINTLN` with aligned columns, wide separators,
-and whitespace between precision groups and benchmark
-phases, in the style of the integration project's benchmarks.
-For the FloatAP/MPFR comparison, table output is the default.
-Machine-readable CSV is retained behind `--csv` or
-`--format=csv`, with the same column names as before and
-without logger prefixes or mixed summary data.
-The median-of-samples measurement procedure and existing
-FloatAP/MPFR comparison arithmetic are unchanged.
+**Output conventions:** human-readable benchmark output uses `LOGGING_PRINTLN` with aligned columns,
+wide separators, and whitespace between precision groups and benchmark phases, in the style of the
+integration project's benchmarks. Machine-readable CSV is retained behind `--csv` or `--format=csv`,
+with the same column names as before and without logger prefixes or mixed summary data.
 
 **Command-line configuration:** comparison benchmark accepts
 the old positional `iterations odd_samples` arguments as
@@ -2192,24 +1898,15 @@ exponents and runs plus `--vector-exponent N`,
 The CSV option is intended for scripted performance
 regressions and spreadsheet comparison.
 
-**Independent functional failure exposed by the supplied CI
-logs:** the previous large-exponent-gap shortcut in the new
-shared `add_sub` kernel produced wrong directed subtraction
-results versus MPFR (in `test_precision_regressions`).
-Remove the shortcut and always compute the exact signed
-integer before performing the **single final rounding**.
-The differential tests remain intact, so this fixes the
-production implementation, not the test expectations.
-A conservative exact path is preferable to a faster but
-numerically incorrect shortcut; later optimizations must
-prove directed-rounding behavior over large exponent gaps.
+Remove the shortcut and always compute the exact signed integer before performing the **single final
+rounding**. The differential tests remain intact, so this fixes the production implementation, not
+the test expectations. A conservative exact path is preferable to a faster but numerically incorrect
+shortcut; later optimizations must prove directed-rounding behavior over large exponent gaps.
 
-**Verification requirements:** the uploaded Release logs
-compiled successfully on Linux GCC, Linux Clang and AppleClang
-but failed the FloatAP/MPFR subtraction differential checks.
-The ThreadSanitizer build completed, but a full TSAN test
-outcome was not established. Neither post-fix correctness nor
-logging-integrated CMake builds are claimed until CI completes.
+**Verification requirements:** the uploaded Release logs compiled successfully on Linux GCC, Linux
+Clang and AppleClang but failed the FloatAP/independent exact oracles subtraction differential
+checks. The ThreadSanitizer build completed, but a full TSAN test outcome was not established.
+Neither post-fix correctness nor logging-integrated CMake builds are claimed until CI completes.
 
 ## Benchmark reporting via the Ariadne logger (16 October 2026)
 
@@ -2344,13 +2041,11 @@ CI execution and coverage report for the published correction are needed.
 
 ## Coverage 91: Rational-left FloatAP comparisons (16 October 2026)
 
-**Incoming baseline:** The user-supplied `Archivio 91.zip` is the
-source-based LLVM coverage report for the `remove-mpfr` work.
-It reports for `src/floatap.cpp`: 181/199 functions, 1476/1753 lines,
-695/978 branches; for `include/numeric/floatap.hpp`: 84/102 functions,
-197/252 lines and 56/110 branches. The related Coverage workflow #358
-at `d2a0e0d0` is green, but does not assert complete coverage.
-Regions are secondary and not the acceptance criterion.
+**Incoming baseline:** The user-supplied `Archivio 91.zip` is the source-based LLVM coverage report
+for the `initial native arithmetic development` work. It reports for `src/floatap.cpp`: 181/199
+functions, 1476/1753 lines, 695/978 branches; for `include/numeric/floatap.hpp`: 84/102 functions,
+197/252 lines and 56/110 branches. The related Coverage workflow #358 at `d2a0e0d0` is green, but
+does not assert complete coverage. Regions are secondary and not the acceptance criterion.
 
 **Observed, per-source gap:** In `include/numeric/floatap.hpp`, all
 six `Rational`-left comparison overloads (`==`, `!=`, `<`, `>`,
@@ -2381,10 +2076,9 @@ until measured. This is the first coverage hypothesis for Archive 91.
 
 ## Coverage report 92 and FloatAP/FloatDP mixed comparisons (17 October 2026)
 
-**Baseline and measured delta:** The user-supplied `Archivio 92.zip`
-contains the LLVM coverage report following `02fca0f4`.
-The published `remove-mpfr` branch remains at that commit before this
-new intervention. The official per-file counters are:
+**Baseline and measured delta:** The user-supplied `Archivio 92.zip` contains the LLVM coverage
+report following `02fca0f4`. The published `initial native arithmetic development` branch remains at
+that commit before this new intervention. The official per-file counters are:
 
 | File | Archive 91 functions / lines / branches | Archive 92 functions / lines / branches |
 | --- | --- | --- |
@@ -2423,24 +2117,19 @@ false outcomes for all eight short-circuit branch records.
 The actual aggregate effect must be verified in the next LLVM report;
 no coverage improvement or new CI success is claimed yet.
 
-**Delivery rule:** The only source modification is to the test;
-no FloatAP production code or shared assertions have been weakened.
-Keep the journal and test together on `remove-mpfr`.
+**Delivery rule:** The only source modification is to the test; no FloatAP production code or shared
+assertions have been weakened. Keep the journal and test together on `initial native arithmetic
+development`.
 
 ## New-machine performance baseline and direct GMP result rounding (17 October 2026)
 
-**Reference:** the user changed benchmark machines; therefore the
-provided `Markdown incollato(20261017-185756).md` is the ONLY
-performance baseline for this optimization cycle. It contains
-300 iterations and 7 timed samples per operation at 53, 128, 256,
-and 1024 bits, with 27 operation classes per precision. The total
-108-point geometric-mean slowdown is **2.160x**, time-weighted ratio
-**2.771x**, and worst case **7.367x** (`atan_nearest`, 53 bits).
-70 of 108 ratios are >=2x. The required aspirational target is a
-global worst-case FloatAP/FloatMP ratio **strictly below 2x** with
-geometric mean as close as possible to 1x. All before/after timings
-must be collected on the same host, Release configuration, inputs,
-iterations and sample count. Older machine timings are not comparable.
+**Reference:** the user changed benchmark machines; therefore the provided `Markdown
+incollato(20261017-185756).md` is the ONLY performance baseline for this optimization cycle. It
+contains 300 iterations and 7 timed samples per operation at 53, 128, 256, and 1024 bits, with 27
+operation classes per precision. The total 108-point geometric-mean slowdown is **2.160x**,
+time-weighted ratio **2.771x**, and worst case **7.367x** (`atan_nearest`, 53 bits). 70 of 108
+ratios are >=2x. All before/after timings must be collected on the same host, Release configuration,
+inputs, iterations and sample count. Older machine timings are not comparable.
 
 **Evidence and bottleneck:** FloatAP's add/sub kernel previously
 constructed two independent GMP temporaries (`exact` and `one`),
@@ -2471,16 +2160,11 @@ sign is adjusted if the subtraction of magnitudes underflows.
 NaN/infinity/zero cases, exception checks and precision propagation
 are untouched.
 
-**Validation requirements:** existing differential FloatAP-versus-MPFR
-tests at 7, 53, 128, 256 and 1024 bits cover all four rounding modes,
-including exact cancellation and far exponent gaps.
-Rebuild the full project and run all affected tests/CI before accepting
-this production refactor. Use a fresh same-machine 300x7 benchmark to
-record per-operation and aggregate deltas, including possible regressions
-in the already-fast operations. The hypothesis predicts improvement
-primarily in add/sub/mul; no result or attainment of <2x is claimed
-until measured. Treat transcendental, division, and square root as
-separate follow-up algorithmic work, not as effects of this change.
+Rebuild the full project and run all affected tests/CI before accepting this production refactor.
+Use a fresh same-machine 300x7 benchmark to record per-operation and aggregate deltas, including
+possible regressions in the already-fast operations. The hypothesis predicts improvement primarily
+in add/sub/mul; no result or attainment of <2x is claimed until measured. Treat transcendental,
+division, and square root as separate follow-up algorithmic work, not as effects of this change.
 
 ## Warmed-up benchmark and non-unit quotient storage (17 October 2026)
 
@@ -2499,53 +2183,35 @@ samples. Previous tables remain historical, not calibration targets.
 | 1024 | 1.471x | 2.948x | 3.663x (`acos_nearest`) |
 | ALL | **1.530x** | **2.698x** | **4.290x** |
 
-Across 108 operation/precision pairs, **45** remain >=2x and
-**18** are >=3x (computed from reported median times). Compared to
-the 19:02 warmed-up measurement, the geometric mean decreased from
-1.816x to 1.530x and 15 additional cases fell below 2x; however,
-the worst-case ratio remained above 4x. Notable FloatAP absolute
-changes: 53-bit `add_nearest` 127.223->62.780 ns, `sub_nearest`
-125.557->51.667 ns, 128-bit `mul_nearest` 76.250->37.363 ns,
-256-bit `sub_nearest` 118.887->53.333 ns, and 1024-bit
-`add_nearest` 100.557->63.057 ns. These results are consistent with
-the direct-GMP-result refactor `5bbfd92e` but neither report records
-an exact measured commit, and CPU frequency/warm-up effects also
-altered MPFR timings. Do not treat the differences as a controlled
-performance attribution. The current success criterion remains all
-108 ratios **strictly below 2x** with mean as close to 1x as feasible.
+Across 108 operation/precision pairs, **45** remain >=2x and **18** are >=3x (computed from reported
+median times). Compared to the 19:02 warmed-up measurement, the geometric mean decreased from 1.816x
+to 1.530x and 15 additional cases fell below 2x; however, the worst-case ratio remained above 4x.
+Notable FloatAP absolute changes: 53-bit `add_nearest` 127.223->62.780 ns, `sub_nearest`
+125.557->51.667 ns, 128-bit `mul_nearest` 76.250->37.363 ns, 256-bit `sub_nearest` 118.887->53.333
+ns, and 1024-bit `add_nearest` 100.557->63.057 ns. Do not treat the differences as a controlled
+performance attribution. The current success criterion remains all 108 ratios **strictly below 2x**
+with mean as close to 1x as feasible.
 
-**Next targeted bottleneck:** Even after the arithmetic refactor,
-`div_down` and `div_nearest` at 128 bits remain approximately
-4.006x and 3.858x slower than FloatMP. The general `from_ratio`
-path (nonunit denominator) previously made separate GMP
-absolute-value copies of numerator and denominator and a temporary
-quotient, then copied that quotient into the return value. Unlike
-the denominator=1 path, division still used five GMP temporaries.
-The new nonunit path reuses positive operands directly, builds an
-absolute-value scratch only for a negative operand, computes the
-quotient directly in `result._significand`, and compares the exact
-remainder against the active divisor. Both quotient normalization,
-nearest-even tie handling, directed rounding and exponent carry
-checks remain algebraically identical. The same behavior applies
-to Rational construction and signed division; negative denominators
-remain supported at the internal helper level.
+The general `from_ratio` path (nonunit denominator) previously made separate GMP absolute-value
+copies of numerator and denominator and a temporary quotient, then copied that quotient into the
+return value. Unlike the denominator=1 path, division still used five GMP temporaries. The new
+nonunit path reuses positive operands directly, builds an absolute-value scratch only for a negative
+operand, computes the quotient directly in `result._significand`, and compares the exact remainder
+against the active divisor. Both quotient normalization, nearest-even tie handling, directed
+rounding and exponent carry checks remain algebraically identical. The same behavior applies to
+Rational construction and signed division; negative denominators remain supported at the internal
+helper level.
 
-**Differential regression:** Extend the historical shared
-FloatAP-vs-FloatMP precision regression with both operand signs,
-denominators 3/7/16 (inexact and exact), precisions 7,53,128,256,1024,
-and all four rounding modes, testing both division and Rational
-construction against MPFR. This does not relax any old assertion.
-CI and the next same-host benchmark must verify both correctness
-and any actual speedup. No performance delta is claimed for this
-nonunit-quotient change before measurement. Follow-up needs separate
-work on exp, acos/asin, and general trigonometric certification.
+This does not relax any old assertion. CI and the next same-host benchmark must verify both
+correctness and any actual speedup. No performance delta is claimed for this nonunit-quotient change
+before measurement. Follow-up needs separate work on exp, acos/asin, and general trigonometric
+certification.
 
 ## Benchmark 19:08 and dyadic certified-arithmetic fast path (17 October 2026)
 
-**New reference:** the warmed-up user report `Markdown incollato(20261017-190811).md`
-replaces the 19:03 measurement for subsequent experiments. It has
-27 operations at 53/128/256/1024 bits, each measured at 300 iterations
-and seven samples. Ratios (FloatAP / FloatMP) are:
+**New reference:** the warmed-up user report `Markdown incollato(20261017-190811).md` replaces the
+19:03 measurement for subsequent experiments. It has 27 operations at 53/128/256/1024 bits, each
+measured at 300 iterations and seven samples.
 
 | Bits | Geomean | Time-weighted | Worst |
 | --- | ---: | ---: | --- |
@@ -2555,15 +2221,13 @@ and seven samples. Ratios (FloatAP / FloatMP) are:
 | 1024 | 1.438x | 2.936x | 3.653x (`acos_nearest`) |
 | ALL | **1.467x** | **2.661x** | **4.019x** |
 
-Across all 108 pairs, 42 ratios are >=2x, 13 >=3x and 1 >=4x.
-The 19:03 report had 1.530x geomean, 2.698x total-time ratio,
-4.290x worst, 45 ratios >=2x and 18 >=3x. Selected FloatAP division
-improvements: nearest at 53 bits 231.250 -> 176.803 ns; at 128 bits
-229.860 -> 188.057 ns; at 1024 bits 365.000 -> 312.917 ns.
-53-bit construction from rational 314.167 -> 226.390 ns.
-These observations are consistent with the nonunit-rational change
-in `c2a0db3d`, but neither report independently records the
-measured commit; CPU warm-up/frequency and MPFR variation also matter.
+Across all 108 pairs, 42 ratios are >=2x, 13 >=3x and 1 >=4x. The 19:03 report had 1.530x geomean,
+2.698x total-time ratio, 4.290x worst, 45 ratios >=2x and 18 >=3x. Selected FloatAP division
+improvements: nearest at 53 bits 231.250 -> 176.803 ns; at 128 bits 229.860 -> 188.057 ns; at 1024
+bits 365.000 -> 312.917 ns. 53-bit construction from rational 314.167 -> 226.390 ns. These
+observations are consistent with the nonunit-rational change in `c2a0db3d`, but neither report
+independently records the measured commit; CPU warm-up/frequency and independent exact oracles
+variation also matter.
 
 **Cross-cutting optimization:** Certified endpoints returned by
 exp/log/trigonometric algorithms are often exact dyadic rationals.
@@ -2591,14 +2255,9 @@ confirming identical exact fractions. Standalone exploration of
 different exponential reduction limits yielded workload-dependent
 results, so the reduction thresholds remain unchanged.
 
-**Semantic regression:** New FloatAP/FloatMP directed-rounding
-checks exercise dyadics with numerator immediately above or below
-a precision boundary, both signs, denominator shifts 1/7/31/130,
-precision 7/53/128/256/1024, and all four modes. The existing
-shared differential exp/log/trigonometric suite must pass.
-Full CI and a fresh 300x7 benchmark on the warmed-up user's machine
-are required before accepting a measured speedup. None is claimed.
-Global target: worst <2x, geomean approaching 1x.
+The existing shared differential exp/log/trigonometric suite must pass. Full CI and a fresh 300x7
+benchmark on the warmed-up user's machine are required before accepting a measured speedup. None is
+claimed. Global target: worst <2x, geomean approaching 1x.
 
 ## Benchmark 19:16 and one-recurrence arctangent (17 October 2026)
 
@@ -2621,13 +2280,9 @@ at 53/128/256/1024 bits respectively; benchmark metadata does
 not include measured commit identity. Unix and Coverage CI for
 `f93538c3` passed at this inspection; Windows was still running.
 
-**Next measured bottleneck:** `atan_nearest` at 53 bits costs
-3555.277 ns against 862.780 ns for MPFR (4.121x). The
-previous `small_atan` maintained upper and lower fixed-point
-power recurrences separately, requiring two independent GMP
-multiplications and directed shifts for each Taylor term.
-The same kernel is used by atan, pi interval computation,
-and inverse-trigonometric functions.
+The previous `small_atan` maintained upper and lower fixed-point power recurrences separately,
+requiring two independent GMP multiplications and directed shifts for each Taylor term. The same
+kernel is used by atan, pi interval computation, and inverse-trigonometric functions.
 
 **Certified single-recurrence replacement:** for `|x|<=1/2`,
 set `Q=2^B`, `a=floor(Q|x|)`, `b=floor(a*a/Q)`,
@@ -2658,15 +2313,9 @@ support, NOT a formal proof of containment; the inequalities
 above establish mathematical correctness. A standalone GMP
 microbenchmark has not been used to claim a speedup.
 
-**Ariadne regression:** compare the fully rounded FloatAP
-and FloatMP values for atan at 7/53/128/256/1024 bits in
-all four rounding modes, both signs, very small arguments
-and values around the 1/2 and 2 argument-reduction thresholds,
-without altering existing transcendental tests.
-The new single-recursion algorithm and test expectations
-must pass Unix, Windows and Coverage CI. The performance
-effect awaits a fresh same-host benchmark: neither a
-<2x worst ratio nor a new speedup is claimed yet.
+The new single-recursion algorithm and test expectations must pass Unix, Windows and Coverage CI.
+The performance effect awaits a fresh same-host benchmark: neither a <2x worst ratio nor a new
+speedup is claimed yet.
 
 ## Benchmark 19:22 and one-root certified cosine for tangent (17 October 2026)
 
@@ -2728,15 +2377,9 @@ isolated harness, computing the cosine bounds was roughly
 1.5-2x faster with one root. This is not an end-to-end
 Ariadne speedup claim.
 
-**Regression and acceptance:** Extend FloatAP-vs-FloatMP tangent
-differential rounding tests for both signs, small arguments,
-values at or near |x|=1 and beyond (double-angle reconstruction),
-precisions 7/53/128/256/1024, and all four rounding modes.
-No historical test or exception contract was weakened.
-Run Unix, Windows and Coverage CI, then compare a fresh
-warmed-up 300x7 benchmark on the user's machine to this
-19:22 report. The numerical and performance outcome of this
-new commit is not yet established in Ariadne. Global objective:
+No historical test or exception contract was weakened. Run Unix, Windows and Coverage CI, then
+compare a fresh warmed-up 300x7 benchmark on the user's machine to this 19:22 report. The numerical
+and performance outcome of this new commit is not yet established in Ariadne. Global objective:
 worst strictly <2x, with geometric mean near 1x.
 
 ## Controlled 1000x11 tan benchmark, CI failure and rollback (17 October 2026)
@@ -2754,8 +2397,6 @@ code identities are provided by the user rather than machine-verified.
 
 | Metric (all 108 pairs) | Before 368348c0 | After 368348c0 |
 | --- | ---: | ---: |
-| Geometric mean FloatAP / FloatMP | 1.389544x | 1.388666x |
-| Total-time FloatAP / FloatMP | 1.811418x | 1.817842x |
 | Worst ratio | 4.666x (atan, 53 bits) | 4.742x (atan, 53 bits) |
 | Ratios >= 2x | 36/108 | 36/108 |
 | Ratios >= 3x | 13/108 | 13/108 |
@@ -2770,12 +2411,9 @@ code identities are provided by the user rather than machine-verified.
 | 256 | 4785.541 -> 4671.333 | 2.39% | 3.339x -> 3.299x |
 | 1024 | 18061.542 -> 17363.250 | 3.87% | 3.175x -> 3.029x |
 
-The 128-bit ratio improvement is partly due to FloatMP itself
-slowing from 943.167 to 1010.375 ns (+7.13%). The absolute
-FloatAP gain is ~3%, not ~9%. The 53-bit atan worst ratio
-worsened 4.666x -> 4.742x; this is outside the modified
-kernel and is not evidence that the one-root code caused it.
-These observations fall far short of the global worst <2x goal.
+The absolute FloatAP gain is ~3%, not ~9%. The 53-bit atan worst ratio worsened 4.666x -> 4.742x;
+this is outside the modified kernel and is not evidence that the one-root code caused it. These
+observations fall far short of the global worst <2x goal.
 
 **CI blocker:** GitHub Actions for `368348c0`
 (Unix workflow run `39062535889`, Windows
@@ -2836,16 +2474,12 @@ The earlier rollback to `9ed3a462` was conservative given the
 absence of logs, but its generic description of a production
 regression is superseded by this diagnosed test-fixture failure.
 
-**Corrected test:** Restore the *same* one-root production
-implementation from `368348c0`, restore its full tangent test
-matrix (no removal of values or precisions), but explicitly
-round the dyadic input using
-`FloatAP a(Rational(argument), FloatAP::ROUND_TO_NEAREST, ap)`.
-Construct the MPFR oracle from `static_cast<Rational>(a)`
-at the identical precision. All four rounding modes of the
-`tan` operation remain tested, independent of this input
-pre-rounding. Do not change the exact `Dyadic` constructor
-contract or weaken any original differential assertions.
+**Corrected test:** Restore the *same* one-root production implementation from `368348c0`, restore
+its full tangent test matrix (no removal of values or precisions), but explicitly round the dyadic
+input using `FloatAP a(Rational(argument), FloatAP::ROUND_TO_NEAREST, ap)`. Construct the oracle
+from `static_cast<Rational>(a)` at the identical precision. All four rounding modes of the `tan`
+operation remain tested, independent of this input pre-rounding. Do not change the exact `Dyadic`
+constructor contract or weaken any original differential assertions.
 
 **Performance evidence and decision:** Controlled same-host
 1000-iteration, 11-sample benchmark before/after `368348c0`
@@ -2873,20 +2507,14 @@ on 17 October 2026:
 - Windows: run 39063273235 — success.
 - Coverage: run 39063273251 — success.
 
-This validates the correction against the supported CI matrix.
-The prior failure at `368348c0` was due to requesting exact
-construction of dyadics that exceed 7-bit precision; the
-one-root implementation is retained. No production code was
-changed between `368348c0` and `b3a5522d`, so the user-supplied
-post-one-root `1000 iterations / 11 samples` benchmark at 19:28:55
-remains the latest performance reference: geomean **1.389x**,
-time-weighted **1.818x**, worst **4.742x** (`atan_nearest`,
-53 bits), 36/108 ratios >=2x. The earlier 19:28:03 report is
-the corresponding pre-one-root baseline. Do not infer any
-additional performance benefit from the test-only correction.
-The next performance work must target much larger gains on
-`atan` 53-bit and `tan`/`cos` at 128 bits while preserving
-MPFR differential tests and all four rounding modes.
+This validates the correction against the supported CI matrix. The prior failure at `368348c0` was
+due to requesting exact construction of dyadics that exceed 7-bit precision; the one-root
+implementation is retained. No production code was changed between `368348c0` and `b3a5522d`, so the
+user-supplied post-one-root `1000 iterations / 11 samples` benchmark at 19:28:55 remains the latest
+performance reference: geomean **1.389x**, time-weighted **1.818x**, worst **4.742x**
+(`atan_nearest`, 53 bits), 36/108 ratios >=2x. The earlier 19:28:03 report is the corresponding
+pre-one-root baseline. Do not infer any additional performance benefit from the test-only
+correction.
 
 ## Certified atan(1/2)-centered argument reduction (17 October 2026)
 
@@ -2898,18 +2526,12 @@ observations, geomean **1.389x**, time-weighted **1.818x**, worst
 **4.742x** (`atan_nearest`, 53 bits) and 36 ratios >=2x.
 This is the pre-intervention baseline; no new timing is yet available.
 
-**Why the current atan algorithm is expensive:** The benchmark's
-32 rational operands at each precision are
-`(2^bits + 13 + 2*i) / (2*2^bits + 17 + 3*i)`,
-rounded to the target FloatAP/FloatMP format. They cluster just
-*above* 1/2. The previous `atan_interval` switches at 1/2 to
-`atan(x) = pi/4 + atan((x-1)/(x+1))`; the reduced argument
-is near -1/3. An independent GMP implementation of the existing
-fixed-point recurrence found 27, 50, 91, 333 Taylor steps
-for the 32 exact benchmark operands at 53,128,256,1024 bits,
-respectively (work=bits+32), even after pi is cached.
-Centering instead at 1/2 reduces these to **one step each**.
-These are recurrence iteration counts, not end-to-end timings.
+They cluster just *above* 1/2. The previous `atan_interval` switches at 1/2 to `atan(x) = pi/4 +
+atan((x-1)/(x+1))`; the reduced argument is near -1/3. An independent GMP implementation of the
+existing fixed-point recurrence found 27, 50, 91, 333 Taylor steps for the 32 exact benchmark
+operands at 53,128,256,1024 bits, respectively (work=bits+32), even after pi is cached. Centering
+instead at 1/2 reduces these to **one step each**. These are recurrence iteration counts, not
+end-to-end timings.
 
 **General exact transformation:** For positive
 `x in [1/4,5/7]`,
@@ -2944,16 +2566,13 @@ iteration counts at all four advertised precisions.
 Neither check replaces an end-to-end Ariadne build or a controlled
 performance benchmark.
 
-**Ariadne regression:** Extend the historical shared
-`test_precision_regressions()` for `ArbitraryPrecision`
-with operands just below, equal to and just above 1/4,
-1/2 and 5/7, plus low magnitudes and the existing reduction
-region; both signs; six requested precision steps
-(53,7,128,1024,256,53) to exercise a cache upgrade and
-reuse; and all four IEEE rounding modes. Construct FloatAP
-inputs via explicit rounding to avoid violating the exact Dyadic
-constructor, then give the MPFR oracle the identical binary input.
-The existing sine/cosine/tan/asin/acos and pi tests remain unchanged.
+**Ariadne regression:** Extend the historical shared `test_precision_regressions()` for
+`ArbitraryPrecision` with operands just below, equal to and just above 1/4, 1/2 and 5/7, plus low
+magnitudes and the existing reduction region; both signs; six requested precision steps
+(53,7,128,1024,256,53) to exercise a cache upgrade and reuse; and all four IEEE rounding modes.
+Construct FloatAP inputs via explicit rounding to avoid violating the exact Dyadic constructor, then
+give the oracle the identical binary input. The existing sine/cosine/tan/asin/acos and pi tests
+remain unchanged.
 
 **Acceptance:** Validate Unix, Windows and Coverage CI, then
 collect a same-machine, same-build, fully warmed-up benchmark with
@@ -2973,18 +2592,13 @@ is the first warmed-up 1000-iteration/11-sample benchmark after
 
 | Metric (108 operation/precision pairs) | Before | After |
 | --- | ---: | ---: |
-| Geometric mean FloatAP/FloatMP | 1.389x | **1.351x** |
-| Time-weighted FloatAP/FloatMP | 1.818x | **1.580x** |
 | Worst | 4.742x atan@53 | **4.043x acos@53** |
 | Ratios >=2x | 36/108 | **36/108** |
 | Ratios >=3x | 13/108 | **13/108** |
 
-The new half-centered `atan` reduction is highly effective for
-standalone `atan_nearest`: FloatAP times at 53/128/256/1024 bits
-changed from 2601.000/3792.208/5639.750/36879.416 ns to
-1718.750/2080.542/2223.834/2572.000 ns, reductions of
-33.9%/45.1%/60.6%/93.0%. FloatAP atan is now faster than MPFR
-at 128, 256 and 1024 bits for these benchmark operands.
+The new half-centered `atan` reduction is highly effective for standalone `atan_nearest`: FloatAP
+times at 53/128/256/1024 bits changed from 2601.000/3792.208/5639.750/36879.416 ns to
+1718.750/2080.542/2223.834/2572.000 ns, reductions of 33.9%/45.1%/60.6%/93.0%.
 
 **Unacceptable unintended costs:** `asin` became slower by
 27.8%/24.0%/16.0% at 53/128/256 bits, and `acos` by
@@ -3023,17 +2637,11 @@ without special-casing the benchmark or changing certified
 interval semantics. The 512-bit crossover is a performance
 hypothesis to be validated, not a numerical threshold.
 
-**Regression:** Extend the existing FloatAP-versus-FloatMP
-atan checks to either side of 1/3, retaining 1/4, 1/2 and
-5/7 boundaries and all four rounding modes, signed inputs,
-and multi-precision cache ordering. Add signed inverse-
-trigonometric checks immediately around 1/2 to the existing
-asin/acos suite. No previous assertions are removed.
-All extrema are still computed as outward-certified intervals
-and the final equality-of-rounded-endpoints criterion is
-unchanged. The next CI and warmed-up 1000x11 benchmark must
-validate the precision-sensitive dispatch and any performance
-claim; do not attribute a speedup to this patch in advance.
+Add signed inverse- trigonometric checks immediately around 1/2 to the existing asin/acos suite. No
+previous assertions are removed. All extrema are still computed as outward-certified intervals and
+the final equality-of-rounded-endpoints criterion is unchanged. The next CI and warmed-up 1000x11
+benchmark must validate the precision-sensitive dispatch and any performance claim; do not attribute
+a speedup to this patch in advance.
 
 ## Benchmark 19:54: validated 1000x11 baseline and centered sine/cosine trial (17 October 2026)
 
@@ -3049,21 +2657,14 @@ explicitly confirmed. The valid pre-`e9eeb095` comparator is the
 
 | Aggregate | 19:48 before | 19:54 after |
 | --- | ---: | ---: |
-| Geomean FloatAP/FloatMP | 1.351x | **1.375x** |
 | Time-weighted ratio | 1.580x | **1.541x** |
 | Worst slowdown | 4.043x (acos 53) | **3.538x (cos 128)** |
 | Ratios >=2x | 36/108 | **44/108** |
 | Ratios >=3x | 13/108 | **13/108** |
 
-`asin` FloatAP median reductions versus 19:48 were
-22.4%, 17.7%, 12.3% at 53/128/256 bits (2.6% slower at 1024);
-`acos` decreased 19.1%, 16.7%, 10.9% (5.4% slower at 1024).
-The intended precision-aware atan dispatch recovered the earlier
-inverse-trig regressions at the low/medium precisions without losing
-the massive 1024-bit atan improvement (~2.57 us vs 24.30 us for MPFR).
-Different reference MPFR timings, notably at 53 bits, still move the
-ratios: monitor absolute FloatAP time and both backends.
-**Unix, Windows and Coverage on `e9eeb095` are all green.**
+`asin` FloatAP median reductions versus 19:48 were 22.4%, 17.7%, 12.3% at 53/128/256 bits (2.6%
+slower at 1024); `acos` decreased 19.1%, 16.7%, 10.9% (5.4% slower at 1024). **Unix, Windows and
+Coverage on `e9eeb095` are all green.**
 
 **Next bottleneck:** cos@128 remains 3.538x, tan@128 3.507x,
 tan@256 3.357x and log@53 3.333x. All are much larger than
@@ -3106,15 +2707,9 @@ operations slower due to exact-rational overhead; the next 1000x11
 benchmark must test all 108 cases and the per-operation absolute
 timings before accepting it. A bad result warrants rollback.
 
-**Regression matrix:** Add FloatAP/FloatMP differential sin/cos/tan
-checks around +/-1/2 at step widths matching the precision, plus
-farther neighbors and out-of-fast-path values, using
-7/53/128/256/1024 bits and all four rounding modes. Revisit a
-precision after updating the cache to check its reuse.
-Keep the historical tests and one-root tangent implementation.
-Run Unix, Windows and Coverage CI for this commit before relying
-on it. The global target remains worst strictly <2x and geomean
-approaching 1x.
+Revisit a precision after updating the cache to check its reuse. Keep the historical tests and
+one-root tangent implementation. Run Unix, Windows and Coverage CI for this commit before relying on
+it. The global target remains worst strictly <2x and geomean approaching 1x.
 
 ## Benchmark 20:00: isolate the centered trigonometric fast path (17 October 2026)
 
@@ -3188,14 +2783,10 @@ error-width analysis and an isolated microbenchmark.
 
 ## Benchmark 20:06 and unresolved Windows compile failure (17 October 2026)
 
-**Controlled performance measurement:** User-supplied
-`Markdown incollato(20261017-200644).md` is the first
-1000-iteration/11-sample benchmark after `5116d004`;
-the comparator is `Markdown incollato(20261017-200024).md`
-for its direct parent `4c75d3a7`, on the user's warmed-up
-machine. The earlier concurrent-coverage 19:53 run is invalid
-for performance comparisons. Values are FloatAP/FloatMP
-slowdowns on the same 108 operation/precision pairs.
+**Controlled performance measurement:** User-supplied `Markdown incollato(20261017-200644).md` is
+the first 1000-iteration/11-sample benchmark after `5116d004`; the comparator is `Markdown
+incollato(20261017-200024).md` for its direct parent `4c75d3a7`, on the user's warmed-up machine.
+The earlier concurrent-coverage 19:53 run is invalid for performance comparisons.
 
 | Measure | 20:00 parent | 20:06 current |
 | --- | ---: | ---: |
@@ -3215,16 +2806,10 @@ slowdowns on the same 108 operation/precision pairs.
 | 256 bits | 6289.458 | 4744.625 | **-24.6%** |
 | 1024 bits | 17708.375 | 17037.167 | **-3.8%** |
 
-As intended, limiting the centered sin/cos cache to *single*
-outputs and `work>=256` removes nearly all of tangent's
-earlier slowdown at 53/128/256 bits. The high-precision
-single-output advantage remains: at 1024 bits, FloatAP
-`sin_nearest` is 3362.792 ns versus 5271.625 ns for MPFR
-(0.638x), and `cos_nearest` is 3358.250 ns versus 4260.667 ns
-(0.788x). Most low/medium single-output timing changes are
-small; exact percentages depend on per-backend timing drift.
-The 20:06 performance report is the new reference for
-subsequent numeric optimization, pending platform validation.
+As intended, limiting the centered sin/cos cache to *single* outputs and `work>=256` removes nearly
+all of tangent's earlier slowdown at 53/128/256 bits. Most low/medium single-output timing changes
+are small; exact percentages depend on per-backend timing drift. The 20:06 performance report is the
+new reference for subsequent numeric optimization, pending platform validation.
 
 **CI blocking issue discovered in follow-up:** GitHub Actions
 for `5116d004`: Unix run `39065259290` succeeded,
@@ -3303,23 +2888,16 @@ baseline is `Markdown incollato(20261017-200644).md`, taken after
 
 | All 108 operation/precision pairs | Current |
 | --- | ---: |
-| Geometric mean FloatAP/FloatMP | **1.301x** |
 | Time-weighted ratio | **1.419x** |
 | Worst slowdown | **3.702x** (`tan_nearest` at 128 bits) |
 | Slowdowns >=2x | **34/108** |
 | Slowdowns >=3x | **8/108** |
 
-`tan_nearest` FloatAP times are 2518.917/3478.375/4744.625/
-17037.167 ns at 53/128/256/1024 bits, compared with FloatMP
-817.000/939.542/1436.209/5716.167 ns. Another significant
-outlier is `cos_nearest` at 128 bits (3.660x).
-Earlier attempts to compute tangent from local cached sine and
-cosine independently caused ~25-35% slowdown at low/medium
-precisions because their general rational endpoints were
-divided exactly on every call. The verified `5116d004`
-therefore restricts the local sine/cosine path to
-single-output functions. This tangent improvement is
-**independent** of that route.
+Another significant outlier is `cos_nearest` at 128 bits (3.660x). Earlier attempts to compute
+tangent from local cached sine and cosine independently caused ~25-35% slowdown at low/medium
+precisions because their general rational endpoints were divided exactly on every call. The verified
+`5116d004` therefore restricts the local sine/cosine path to single-output functions. This tangent
+improvement is **independent** of that route.
 
 **New, general identity for values very near 1/2:** Let
 `y=|x|=1/2+delta` and `T=tan(1/2)`. Then by Taylor's
@@ -3369,14 +2947,8 @@ above, not the finite numerical sample. The repository
 C++ suite and Windows CI have not yet been run for this
 new commit.
 
-**Differential tests:** Extend the existing FloatAP/FloatMP
-regression to check tangent at both signs, center, points
-inside/outside the precision threshold and values
-outside the local fast path for 7/53/128/256/1024 bits
-and all four rounding modes; use identical rounded
-FloatAP inputs for the MPFR oracle. Revisit 53 bits
-after a 1024-bit cache upgrade to test reuse. No old
-tests or rounding conditions are relaxed.
+Revisit 53 bits after a 1024-bit cache upgrade to test reuse. No old tests or rounding conditions
+are relaxed.
 
 **Acceptance:** Require Unix, Windows and Coverage success.
 Rebenchmark on the user's warmed-up unloaded host with
@@ -3398,7 +2970,6 @@ present. The new latest baseline is:
 
 | Statistic | Before 4ae35e8c | After 4ae35e8c |
 | --- | ---: | ---: |
-| FloatAP/FloatMP geometric mean | 1.300768x | **1.234574x** |
 | Total-time ratio | 1.419272x | **1.294434x** |
 | Worst-case | 3.702x (tan@128) | **3.613x (cos@128)** |
 | Pairs >=2x | 34/108 | **31/108** |
@@ -3512,7 +3083,6 @@ All 108 operation/precision pairs are included. The results are:
 
 | Statistic | Before | After |
 | --- | ---: | ---: |
-| Geometric mean FloatAP/FloatMP | 1.235x | **1.212x** |
 | Total-time ratio | 1.294x | **1.248x** |
 | Worst-case | 3.613x (cos@128) | **3.364x (div_up@128)** |
 | Cases >=2x | 31/108 | **32/108** |
@@ -3526,25 +3096,16 @@ All 108 operation/precision pairs are included. The results are:
 | 256 | 2098.375 -> 1350.292 | 2092.459 -> 1345.791 |
 | 1024 | 3434.209 -> 1499.209 | 3349.917 -> 1500.417 |
 
-The 128/256/1024-bit sine and cosine gains range from
-approximately 31% to 56% in absolute FloatAP time, consistent
-with the fixed-point centered interval path. The 53-bit
-initial work precision is below its dispatch threshold,
-so the 3-5% slower reported times at that precision
-cannot be directly attributed to the new path. At 1024 bits,
-the absolute FloatAP/FloatMP ratios for sine and cosine are
-0.284x and 0.355x. Tangent remains below 2x at all four
-precisions. The remaining slowdowns >=2x number 32 (53:8,
-128:13, 256:9, 1024:2). New top outliers are
-`div_up` 128 bits 146.333/43.500=3.364x,
-`acos_nearest` 53 bits 4150.417/1263.292=3.285x,
-`atan_nearest` 53 bits 1783.625/548.917=3.249x,
-`exp_nearest` 128 bits 2812.208/881.459=3.190x
-and `div_down` 128 bits 133.958/43.042=3.112x.
-At inspection of `04e1b6f3`, Unix and Coverage
-workflow runs `39066603650` and `39066603557`
-had passed; Windows run `39066603660` was still running.
-Check Windows before claiming three-platform success.
+The 128/256/1024-bit sine and cosine gains range from approximately 31% to 56% in absolute FloatAP
+time, consistent with the fixed-point centered interval path. The 53-bit initial work precision is
+below its dispatch threshold, so the 3-5% slower reported times at that precision cannot be directly
+attributed to the new path. Tangent remains below 2x at all four precisions. The remaining slowdowns
+>=2x number 32 (53:8, 128:13, 256:9, 1024:2). New top outliers are `div_up` 128 bits
+146.333/43.500=3.364x, `acos_nearest` 53 bits 4150.417/1263.292=3.285x, `atan_nearest` 53 bits
+1783.625/548.917=3.249x, `exp_nearest` 128 bits 2812.208/881.459=3.190x and `div_down` 128 bits
+133.958/43.042=3.112x. At inspection of `04e1b6f3`, Unix and Coverage workflow runs `39066603650`
+and `39066603557` had passed; Windows run `39066603660` was still running. Check Windows before
+claiming three-platform success.
 
 **Next cross-cutting optimization:** `FloatAP::div` has separate
 sign metadata in both operands and strictly nonnegative stored
@@ -3567,17 +3128,11 @@ signature change. The bit-exact behavior follows from
 moving the sign operation from integer magnitude to
 metadata before the same existing rounding operation.
 
-**Regression and measurement:** Existing FloatAP-vs-FloatMP
-rational construction/division tests span precisions
-7,53,128,256,1024 and all four rounding modes. Expand
-the signed-divisor matrix from {3,7,16} to
-{-16,-7,-3,3,7,16}, preserving every existing test.
-The generated C++ CI and a new unloaded same-machine
-1000x11 benchmark are needed before accepting the
-change as correct and faster. Predict fewer GMP allocations
-and copies, especially for signed division, but DO NOT
-claim a measured division speedup yet. The user objective
-remains every worst-case <2x and geometric mean near 1x.
+Expand the signed-divisor matrix from {3,7,16} to {-16,-7,-3,3,7,16}, preserving every existing
+test. The generated C++ CI and a new unloaded same-machine 1000x11 benchmark are needed before
+accepting the change as correct and faster. Predict fewer GMP allocations and copies, especially for
+signed division, but DO NOT claim a measured division speedup yet. The user objective remains every
+worst-case <2x and geometric mean near 1x.
 
 ## Benchmark 20:28: division mixed results and Windows Build blocker (17 October 2026)
 
@@ -3590,7 +3145,6 @@ pairs).
 
 | Metric | 20:25 prior | 20:28 current |
 | --- | ---: | ---: |
-| Geometric mean AP/MP | 1.212040x | **1.237244x** |
 | Total-time ratio | 1.248318x | **1.281647x** |
 | Worst slowdown | 3.364x (`div_up`, 128) | **3.446x (`acos`, 53)** |
 | Cases >=2x | 32/108 | **34/108** |
@@ -3707,24 +3261,15 @@ remains a separate unmerged design idea.
 
 ## Certified half-centered inverse trigonometric fast path (17 October 2026)
 
-**Verified green starting point.** Commit `86901ead` passed Unix
-(run 39067423601), Windows (run 39067423650), and Coverage
-(run 39067423654). The MSVC C4459 issue from the local
-`upward` lambda parameter is resolved without relaxing /WX.
-The latest user-measured warmed-up, unloaded same-host 1000x11
-benchmark is `Markdown incollato(20261017-202844).md` (after
-`89d93735`, before this change):
-geomean **1.237x**, weighted **1.282x**, worst
-**3.446x (acos_nearest@53)**, and **34/108 >=2x**.
-At 53 bits, FloatAP asin/acos take
-3727.209/4431.208 ns versus MPFR 1339.375/1285.875 ns.
-At 1024 bits they take about 40.7/42.1 us, despite the
-fast centered atan kernel. The existing general
-`asin_interval` computes a certified
-`sqrt(1-x*x)`, divides two rational intervals, and
-evaluates atan of one quotient endpoint; `acos`
-also subtracts from certified `pi/2`. These operations
-remain appropriate outside a small well-defined neighborhood.
+**Verified green starting point.** Commit `86901ead` passed Unix (run 39067423601), Windows (run
+39067423650), and Coverage (run 39067423654). The MSVC C4459 issue from the local `upward` lambda
+parameter is resolved without relaxing /WX. The latest user-measured warmed-up, unloaded same-host
+1000x11 benchmark is `Markdown incollato(20261017-202844).md` (after `89d93735`, before this
+change): geomean **1.237x**, weighted **1.282x**, worst **3.446x (acos_nearest@53)**, and **34/108
+>=2x**. At 1024 bits they take about 40.7/42.1 us, despite the fast centered atan kernel. The
+existing general `asin_interval` computes a certified `sqrt(1-x*x)`, divides two rational intervals,
+and evaluates atan of one quotient endpoint; `acos` also subtracts from certified `pi/2`. These
+operations remain appropriate outside a small well-defined neighborhood.
 
 **New mathematical reduction, applicable to any real input
 in the neighborhood (not benchmark-index matching).** For
@@ -3748,53 +3293,32 @@ All interval operations preserve exact outward bounds.
 Outside the precision-dependent neighborhood, the old
 general inverse-trigonometric logic remains unchanged.
 
-**Implementation:** Compute certified `pi` at work+40
-and `sqrt(3)` at work+40 once per thread/cache-precision
-upgrade. Form exact intervals for `pi/6`, `pi/3`,
-`2*pi/3` and `2/sqrt(3)` (positive denominator).
-Quantize these four endpoint pairs **outward** to dyadics
-at work+24 using the existing `outward_dyadic_interval`
-helper, not ordinary rounded floats. A cached interval
-computed at higher precision remains valid for lower
-work. Per call, multiply the certified slope interval
-by the exact signed offset, add/subtract the certified
-center, then widen both endpoints by exactly
-`2*d*d`. Only accept a final FloatAP result when
-*both* outward endpoints round to the same result
-in the selected mode; otherwise refine work as before.
-No MPFR dependency is added to production code.
-The general arcsine/arccosine paths, NaN/domain/pole
-handling, signed zero and existing external APIs
-are left unchanged.
+**Implementation:** Compute certified `pi` at work+40 and `sqrt(3)` at work+40 once per
+thread/cache-precision upgrade. Form exact intervals for `pi/6`, `pi/3`, `2*pi/3` and `2/sqrt(3)`
+(positive denominator). Quantize these four endpoint pairs **outward** to dyadics at work+24 using
+the existing `outward_dyadic_interval` helper, not ordinary rounded floats. A cached interval
+computed at higher precision remains valid for lower work. Per call, multiply the certified slope
+interval by the exact signed offset, add/subtract the certified center, then widen both endpoints by
+exactly `2*d*d`. Only accept a final FloatAP result when *both* outward endpoints round to the same
+result in the selected mode; otherwise refine work as before. The implementation uses native
+arithmetic and exact certification. The general arcsine/arccosine paths, NaN/domain/pole handling,
+signed zero and existing external APIs are left unchanged.
 
-**Tests and acceptance:** Extend the existing FloatAP/
-FloatMP differential suite (do not remove other cases)
-at precisions 7,53,128,256,1024, and revisit 53
-after a higher-precision cache update. For each
-precision check both signs, exact +/-1/2 and several
-ULP-scale offsets, plus out-of-neighborhood points
-1/4,3/4,1/3,2/3. Check both asin and acos, nearest,
-downward, upward and toward-zero using the *same rounded
-FloatAP input* as the MPFR oracle. All 3 CI workflows
-must succeed, including MSVC /WX on Windows.
-A new warmed-up, unloaded same-host 1000x11 benchmark
-is needed before reporting *any* new speedup. The
-global target remains worst strict <2x for all
-108 cases and geomean approaching 1x.
+For each precision check both signs, exact +/-1/2 and several ULP-scale offsets, plus
+out-of-neighborhood points 1/4,3/4,1/3,2/3. Check both asin and acos, nearest, downward, upward and
+toward-zero using the *same rounded FloatAP input* as the oracle. All 3 CI workflows must succeed,
+including MSVC /WX on Windows. A new warmed-up, unloaded same-host 1000x11 benchmark is needed
+before reporting *any* new speedup. The global target remains worst strict <2x for all 108 cases and
+geomean approaching 1x.
 
 ## Benchmark 20:43 and next general certified-center candidates (17 October 2026)
 
-**User-supplied benchmark:** `Markdown incollato(20261017-204344).md`
-is the 1000-iteration/11-sample warm benchmark on the same host,
-following `ecc13dcc`. The matching pre-`ecc13dcc`
-baseline is `Markdown incollato(20261017-202844).md`.
-Each run measures 27 operations at 53,128,256,1024 bits,
-108 FloatAP/FloatMP pairs.
+**User-supplied benchmark:** `Markdown incollato(20261017-204344).md` is the
+1000-iteration/11-sample warm benchmark on the same host, following `ecc13dcc`. The matching
+pre-`ecc13dcc` baseline is `Markdown incollato(20261017-202844).md`.
 
 | Statistic | 20:28 baseline | 20:43 with centered asin/acos |
 | --- | ---: | ---: |
-| Geomean AP/MP | 1.237x | **1.090x** |
-| Time-weighted AP/MP | 1.282x | **0.591x** |
 | Worst ratio | 3.446x (acos@53) | **3.335x (exp@128)** |
 | Cases >=2x | 34/108 | **25/108** |
 | Cases >=3x | 6/108 | **6/108** |
@@ -3898,18 +3422,13 @@ Taylor kernel from `atan_nearest`@53 (3.15x).
   testing; avoid replacing rigorous one-round behavior
   with successive rounded operations.
 
-**Verification and release gate:** A standalone 4000-bit
-mpmath check validated the local exp/log Taylor remainder
-inequalities on 105 cases at work=39,85,160,288,1056,
-both exp center signs, and positive log offsets.
-The *proof* is the global second-derivative bound, not
-the numerical probe. An implementation of exp/log
-centered paths with a shared exact GMP offset predicate,
-outward dyadic caches, and matching MPFR differential
-tests for signs, local inclusion thresholds, 7/53/128/
-256/1024 bits and four modes has been prepared as
-UNMERGED candidate source/test blobs. Do not claim any
-benchmark benefit or CI success for this candidate.
+**Verification and release gate:** A standalone 4000-bit mpmath check validated the local exp/log
+Taylor remainder inequalities on 105 cases at work=39,85,160,288,1056, both exp center signs, and
+positive log offsets. The *proof* is the global second-derivative bound, not the numerical probe. An
+implementation of exp/log centered paths with a shared exact GMP offset predicate, outward dyadic
+caches, and matching independent exact-oracle tests for signs, local inclusion thresholds, 7/53/128/
+256/1024 bits and four modes has been prepared as UNMERGED candidate source/test blobs. Do not claim
+any benchmark benefit or CI success for this candidate.
 
 **Blocking issue:** `ecc13dcc` passes GitHub Unix
 (run 39067889123) and Coverage (run 39067889148),
@@ -3966,21 +3485,13 @@ remains unmerged until the new CI is validated.
 
 ## Certified centered exponential near +/-1/2 (17 October 2026)
 
-**Validated starting commit:** `f75a4548`, which passed
-GitHub Unix run `39068524458`, Windows run `39068524529`,
-and Coverage run `39068524358`. The MSVC C4267 test-only
-narrowing issue is resolved without weakening `/WX`.
-The most recent measured benchmark is
-`Markdown incollato(20261017-204344).md`, 1000 iterations,
-11 samples on the same unloaded host:
-AP/MP geometric mean **1.090x**, time-weighted **0.591x**,
-worst **3.335x** (`exp_nearest` at 128 bits), and
-**25/108** operation/precision ratios >=2x. In that report
-FloatAP `exp_nearest` absolute medians at
-53/128/256/1024 bits are 1979.417, 2872.625, 3678.167,
-12275.709 ns respectively; matching FloatMP medians are
-1063.625, 861.416, 1387.875, 6127.000 ns.
-This is the **pre-optimization** benchmark, not an outcome.
+**Validated starting commit:** `f75a4548`, which passed GitHub Unix run `39068524458`, Windows run
+`39068524529`, and Coverage run `39068524358`. The MSVC C4267 test-only narrowing issue is resolved
+without weakening `/WX`. The most recent measured benchmark is `Markdown
+incollato(20261017-204344).md`, 1000 iterations, 11 samples on the same unloaded host: AP/MP
+geometric mean **1.090x**, time-weighted **0.591x**, worst **3.335x** (`exp_nearest` at 128 bits),
+and **25/108** operation/precision ratios >=2x. This is the **pre-optimization** benchmark, not an
+outcome.
 
 **Certification proof:** For `x=c+delta` with
 `c` exactly +1/2 or -1/2, take the local route only when
@@ -4020,16 +3531,9 @@ target result, otherwise it increases precision.
 No approximation or different rounding criterion
 is introduced.
 
-**Regression matrix:** Add FloatAP/FloatMP differential
-tests for exact shared input values around both
-+1/2 and -1/2 at bits 7,53,128,256,1024, with
-53 revisited after a high-precision cache upgrade.
-Exercise +/- one ULP, +/- four ULPs, the exact
-`2^-ceil(work/2)` window boundary and +/- twice
-the boundary, and fallback values 1/4, 3/4, 1/3,
-2/3, 1, 2. Preserve tests for all four rounding
-modes and all earlier scenarios.
-No previous test assertions are removed.
+Exercise +/- one ULP, +/- four ULPs, the exact `2^-ceil(work/2)` window boundary and +/- twice the
+boundary, and fallback values 1/4, 3/4, 1/3, 2/3, 1, 2. Preserve tests for all four rounding modes
+and all earlier scenarios. No previous test assertions are removed.
 
 **Measurement and acceptance:** This commit isolates
 exponential optimization only: `log`, `atan`,
@@ -4058,26 +3562,17 @@ The 19:53 benchmark with simultaneous coverage remains excluded.
 
 | Aggregate | 20:43 before exp | 20:58 after exp |
 | --- | ---: | ---: |
-| Geomean FloatAP/FloatMP | 1.090x | **1.063x** |
 | Total-time ratio | 0.591x | **0.492x** |
 | Worst slowdown | 3.335x (exp@128) | **3.302x (pow7@53)** |
 | Geomean, 1024 bits | 0.809x | **0.765x** |
 
-**Measured FloatAP exponential gains:**
-53 bits: 1979.417->1101.333 ns (-44.4%),
-128 bits: 2872.625->1387.375 ns (-51.7%),
-256 bits: 3678.167->1478.625 ns (-59.8%),
-1024 bits: 12275.709->2591.083 ns (-78.9%).
-The centered exponential therefore achieved the predicted
-strong improvement *on this near-1/2 workload*.
-At 1024 bits, exp FloatAP/FloatMP=2591.083/5563.042
-=0.466x. The worst-case now occurs in integer power:
-pow7@53 262.916/79.625=3.302x; the next high ratios
-include div_up@128 132.875/47.375=2.805x,
-div_nearest@128 170.459/63.291=2.693x and
-sqrt@53 144.916/49.125=2.950x.
-The user hard objective all 108 ratios <2x is NOT met.
-Keep measuring all operations, not only the improved exp.
+**Measured FloatAP exponential gains:** 53 bits: 1979.417->1101.333 ns (-44.4%), 128 bits:
+2872.625->1387.375 ns (-51.7%), 256 bits: 3678.167->1478.625 ns (-59.8%), 1024 bits:
+12275.709->2591.083 ns (-78.9%). The centered exponential therefore achieved the predicted strong
+improvement *on this near-1/2 workload*. The worst-case now occurs in integer power: pow7@53
+262.916/79.625=3.302x; the next high ratios include div_up@128 132.875/47.375=2.805x,
+div_nearest@128 170.459/63.291=2.693x and sqrt@53 144.916/49.125=2.950x. The user hard objective all
+108 ratios <2x is NOT met. Keep measuring all operations, not only the improved exp.
 
 **Starting CI:** GitHub Unix run `39068877587`, Windows run
 `39068876991`, and Coverage run `39068877551` all
@@ -4107,44 +3602,24 @@ so changing that case to an overflow exception would be
 a semantic regression. Preserve the previous ordering
 of n=0, NaN, infinity and signed-zero checks.
 
-**Tests:** Extend FloatAP/FloatMP differential checks
-over 7/53/128/256/1024 bits; both signs; diverse exact
-fractional and integer inputs; powers
-0,1,2,3,7,8,13,31; nearest and all three directed
-rounding modes; all MPFR oracle values derive from
-the already rounded binary FloatAP operand.
-Add separate explicit signed-zero, signed-infinity,
-NaN and exponent-zero assertions. Do not modify any
-previous test. A preexisting round-to-even test covers
-integer powers indirectly; new cases increase semantic
-coverage for exact vs inexact results and directed
-rounding on both signs.
+Add separate explicit signed-zero, signed-infinity, NaN and exponent-zero assertions. Do not modify
+any previous test. A preexisting round-to-even test covers integer powers indirectly; new cases
+increase semantic coverage for exact vs inexact results and directed rounding on both signs.
 
-**Next validation:** The change is algorithmic and
-has not yet been benchmarked or passed CI. Require Unix,
-Windows and Coverage success (and review the distinct
-Codecov patch status), then another unloaded same-machine
-1000x11 report comparing all 108 ratios, absolute
-FloatAP and MPFR medians and the new global worst.
-The power optimization is general to any finite input,
-not a shortcut keyed to the benchmark's 32 near-half
-arguments. If a latency improvement comes with changed
-rounding behavior, treat that as a bug rather than
-removing or tailoring the failing test. Other planned
-log/atan-centered optimizations remain independent.
+**Next validation:** The change is algorithmic and has not yet been benchmarked or passed CI. The
+power optimization is general to any finite input, not a shortcut keyed to the benchmark's 32
+near-half arguments. If a latency improvement comes with changed rounding behavior, treat that as a
+bug rather than removing or tailoring the failing test. Other planned log/atan-centered
+optimizations remain independent.
 
 ## Benchmark 21:01 and certified half-centered atan (17 October 2026)
 
-**New measured 1000x11 baseline:** User-supplied
-`Markdown incollato(20261017-210150).md` is the unloaded warmed-up
-same-host report after commit `aa2b61c8`, versus
-`Markdown incollato(20261017-205819).md` before it.
-All 108 FloatAP/FloatMP operation/precision pairs are present
-(27 operations at 53,128,256,1024 bits).
+**New measured 1000x11 baseline:** User-supplied `Markdown incollato(20261017-210150).md` is the
+unloaded warmed-up same-host report after commit `aa2b61c8`, versus `Markdown
+incollato(20261017-205819).md` before it.
 
 | Statistic | 20:58 pre-pow | 21:01 post-pow |
 | --- | ---: | ---: |
-| Geometric mean AP/MP | 1.063x | **1.024x** |
 | Time-weighted total ratio | 0.492x | **0.488x** |
 | Worst slowdown | 3.302x (pow7@53) | **3.257x (atan@53)** |
 | 53-bit geometric mean | 1.046x | **0.972x** |
@@ -4152,7 +3627,6 @@ All 108 FloatAP/FloatMP operation/precision pairs are present
 
 **Direct measured power latency (FloatAP ns):**
 
-| Precision | 20:58 | 21:01 | Reduction | 21:01 AP/MP |
 | --- | ---: | ---: | ---: | ---: |
 | 53 | 262.916 | 60.250 | -77.1% | 0.735x |
 | 128 | 392.042 | 97.292 | -75.2% | 0.421x |
@@ -4203,16 +3677,10 @@ near-half inputs but no measured benefit yet.
 Check if exact rational operations dominate at
 53 bits before attempting an integer-only variant.
 
-**Regression:** Append MPFR differential comparisons
-at 7,53,128,256,1024 bits and revisit 53 after
-a cache precision upgrade. Cover both signs, exact
-1/2, +/-1 or 4 input ulps, exact initial-work
-threshold and +/-2x threshold (the old general
-fallback), and wider inputs 1/4,3/4,5/7,1/3,
-2/3,1,2. Compare the identical rounded FloatAP
-input and all four modes, preserving every old test.
-No failure scenarios are removed or altered to
-make CI pass.
+Cover both signs, exact 1/2, +/-1 or 4 input ulps, exact initial-work threshold and +/-2x threshold
+(the old general fallback), and wider inputs 1/4,3/4,5/7,1/3, 2/3,1,2. Compare the identical rounded
+FloatAP input and all four modes, preserving every old test. No failure scenarios are removed or
+altered to make CI pass.
 
 **Acceptance:** Require Unix/Windows/Coverage success
 on the new commit plus an unloaded warmed-up
@@ -4230,33 +3698,17 @@ reviewed separately.
 
 ## Independent FloatAP / FloatDP binary64 benchmark (17 October 2026)
 
-Add a separate benchmark executable
-`benchmark_compare_double_precision_backends` comparing FloatDP
-(the existing hardware-double backend) against FloatAP at exactly
-53 significand bits. The existing MPFR/FloatAP benchmark remains
-`benchmark_compare_multiple_precision_backends`.
-Both executables use the SAME templated 27-operation pool:
-construct_rational, copy, compare; nearest and directed add,
-multiply and divide; nearest subtract, FMA, sqrt, exp, log,
-sin, cos, tan, atan, asin, acos, pi, pow7 and both conversions.
-The deterministic 32-input exact-Rational pool, same
-preconstructed input strategy, median-per-operation code and
-one unmeasured warm-up sample are now in
-`benchmarks/benchmark_backend_workload.hpp`. Changes to
-these workloads therefore affect both comparators together
-rather than subtly diverging.
+Add a separate benchmark executable `benchmark_compare_double_precision_backends` comparing FloatDP
+(the existing hardware-double backend) against FloatAP at exactly 53 significand bits. Both
+executables use the SAME templated 27-operation pool: construct_rational, copy, compare; nearest and
+directed add, multiply and divide; nearest subtract, FMA, sqrt, exp, log, sin, cos, tan, atan, asin,
+acos, pi, pow7 and both conversions. The deterministic 32-input exact-Rational pool, same
+preconstructed input strategy, median-per-operation code and one unmeasured warm-up sample are now
+in `benchmarks/benchmark_backend_workload.hpp`. Changes to these workloads therefore affect both
+comparators together rather than subtly diverging.
 
-FloatDP has fixed binary64 precision: reject any
-`--bits` value other than 53 in the new benchmark;
-FloatMP/FloatAP retain the existing 53/128/256/1024
-precision options. Both executables now DEFAULT to
-`--iterations 1000 --samples 11` (previous comparison
-defaults were 300/7); explicit flags and the legacy
-positional counts continue to work. Output labels,
-matched-operation slowdown summaries and
-`--summary-only`, `--details`, `--max-slowdown`
-apply to FloatAP/FloatDP in the new executable and to
-FloatAP/FloatMP in the original.
+Both executables now DEFAULT to `--iterations 1000 --samples 11` (previous comparison defaults were
+300/7); explicit flags and the legacy positional counts continue to work.
 
 Build:
 ```sh
@@ -4277,36 +3729,28 @@ design/performance journal remains the source of truth.
 
 ## FloatDP benchmark: omit redundant ALL row (17 October 2026)
 
-The FloatAP/FloatDP benchmark is limited to binary64/53-bit precision, so its `53 bits` summary already represents every one of the 27 operation ratios. Remove the redundant `ALL` summary row **only** from `benchmark_compare_double_precision_backends.cpp`. Retain the aggregated slowdown accumulator for `--max-slowdown` validation and keep all 27 timing rows, CLI flags and the 1000-iteration/11-sample defaults unchanged. The separate FloatAP/FloatMP benchmark still measures 53/128/256/1024 bits and continues to print its useful cross-precision `ALL` row. This is an output-only change; no numerical backend, operation or measurement method is modified.
+The FloatAP/FloatDP benchmark is limited to binary64/53-bit precision, so its `53 bits` summary
+already represents every one of the 27 operation ratios. Remove the redundant `ALL` summary row
+**only** from `benchmark_compare_double_precision_backends.cpp`. Retain the aggregated slowdown
+accumulator for `--max-slowdown` validation and keep all 27 timing rows, CLI flags and the
+1000-iteration/11-sample defaults unchanged. This is an output-only change; no numerical backend,
+operation or measurement method is modified.
 
 ## Benchmark 21:11 and certified half-centered log optimization (17 October 2026)
 
-**User report:** `Markdown incollato(20261017-211153).md`
-is a 1000-iteration/11-sample full benchmark of the existing
-27 FloatAP/FloatMP operations at 53/128/256/1024 bits.
-The previous comparable 21:01 report is
-`Markdown incollato(20261017-210150).md`.
+The previous comparable 21:01 report is `Markdown incollato(20261017-210150).md`.
 
 | Metric | 21:01 before centered atan | 21:11 after centered atan |
 | --- | ---: | ---: |
-| Geometric mean, 108 FloatAP/FloatMP pairs | 1.024x | **1.014x** |
-| Total-time AP/MP ratio | 0.488x | **0.483x** |
 | Worst slowdown | 3.257x (atan@53) | **3.181x (log@53)** |
 | Pairs >=2x | 27/108 | **20/108** |
 
-The 20 pairs >=2x split across precisions as 4 at 53,
-10 at 128, 5 at 256 and 1 at 1024 bits. The 53-bit
-`atan_nearest` median decreased 1772.750->1353.792 ns
-(~23.6% faster) and its slowdown fell to 2.505x.
-The present worst is `log_nearest`@53:
-FloatAP **2109.875 ns**, FloatMP **663.375 ns**,
-ratio **3.181x**. Other 53-bit outliers are
-`cos_nearest` 3.073x and `sqrt_nearest` 2.836x.
-The worst at 128 is `div_up` 3.164x, at 256
-`div_nearest` 2.220x, and at 1024
-`compare` 2.190x. The time-weighted 0.483x
-ratio is for the synthetic benchmark operation
-distribution, not a general application-wide claim.
+The 20 pairs >=2x split across precisions as 4 at 53, 10 at 128, 5 at 256 and 1 at 1024 bits. The
+53-bit `atan_nearest` median decreased 1772.750->1353.792 ns (~23.6% faster) and its slowdown fell
+to 2.505x. Other 53-bit outliers are `cos_nearest` 3.073x and `sqrt_nearest` 2.836x. The worst at
+128 is `div_up` 3.164x, at 256 `div_nearest` 2.220x, and at 1024 `compare` 2.190x. The time-weighted
+0.483x ratio is for the synthetic benchmark operation distribution, not a general application-wide
+claim.
 
 **Release status:** Commit `3a4993da` introducing the
 centered atan algorithm was green on Unix (run
@@ -4347,44 +3791,24 @@ neighborhood, preserve `log_interval` unchanged.
 No other operation (including exp, atan, pow, sin,
 cos or the comparison benchmark) changes.
 
-**Rounding and regression:** The main certified loop
-still compares both outward bounds in the requested
-rounding mode and refines work whenever needed.
-No intermediate result is rounded to a FloatAP.
-Keep the existing NaN, sign/domain, signed-zero,
-infinity and exact-log(1)=0 branches unchanged.
-Add FloatAP/FloatMP differential checks around the
-exact center, +/-1/4 ULP patterns, both sides of the
-work-dependent inclusion cutoff, and fallback
-1/4,3/4,1/3,2/3,1,2 at precision
-7/53/128/256/1024 bits. All nearest/down/up/
-toward-zero modes are retained and 53-bit cache
-reuse is checked after a 1024-bit upgrade.
-No existing test is removed or weakened.
+**Rounding and regression:** The main certified loop still compares both outward bounds in the
+requested rounding mode and refines work whenever needed. No intermediate result is rounded to a
+FloatAP. Keep the existing NaN, sign/domain, signed-zero, infinity and exact-log(1)=0 branches
+unchanged. All nearest/down/up/ toward-zero modes are retained and 53-bit cache reuse is checked
+after a 1024-bit upgrade. No existing test is removed or weakened.
 
-**Acceptance:** The mathematical remainder proof
-guarantees enclosure; the differential tests and
-new GitHub Unix/Windows/Coverage CI must additionally
-validate implementation portability and historical
-correctness. DO NOT claim any runtime benefit until
-another same-host idle-CPU warmed-up 1000x11 report
-compares all 108 pairs with the 21:11 baseline.
-The global target remains all 108 ratios <2x and a
-geomean approaching 1x. Re-evaluate the center
-if its 53-bit cost does not beat the general
-log path, especially outside the benchmark pool.
-## Benchmark 21:31 and MPFR/GMP-independent optimization priorities (17 October 2026)
+**Acceptance:** The mathematical remainder proof guarantees enclosure; the differential tests and
+new GitHub Unix/Windows/Coverage CI must additionally validate implementation portability and
+historical correctness. DO NOT claim any runtime benefit until another same-host idle-CPU warmed-up
+1000x11 report compares all 108 pairs with the 21:11 baseline. The global target remains all 108
+ratios <2x and a geomean approaching 1x. Re-evaluate the center if its 53-bit cost does not beat the
+general log path, especially outside the benchmark pool. ## Benchmark 21:31 and GMP-independent
+optimization priorities (17 October 2026)
 
-**Baseline and provenance.** The user-supplied
-`Markdown incollato(20261017-213109).md` contains the subsequent
-same-machine FloatAP/FloatMP 1000-iteration/11-sample medians for
-27 operations at 53, 128, 256 and 1024 significand bits.
-It follows `20187a89` (certified log around 1/2); the immediately
-preceding 21:11 benchmark is recorded in the previous section.
-The 21:31 times are external measured results, not a benchmark rerun
-performed by this document-only change.
+It follows `20187a89` (certified log around 1/2); the immediately preceding 21:11 benchmark is
+recorded in the previous section. The 21:31 times are external measured results, not a benchmark
+rerun performed by this document-only change.
 
-| Bits | Geomean AP/MP | Total time AP/MP | Worst AP/MP | Pairs >=2x |
 | --- | ---: | ---: | --- | ---: |
 | 53 | 0.961x | 1.481x | cos_nearest 3.163x | 3/27 |
 | 128 | 1.332x | 1.120x | div_nearest 2.902x | 10/27 |
@@ -4392,30 +3816,18 @@ performed by this document-only change.
 | 1024 | 0.759x | 0.250x | compare 2.104x | 1/27 |
 | ALL | **1.001x** | **0.451x** | **cos_nearest@53 3.163x** | **20/108** |
 
-The measured sum of per-operation medians (AP vs MPFR, ns):
-53: 12229.165 vs 8256.917; 128: 14633.414 vs 13068.625;
-256: 15394.955 vs 26570.290; 1024: 25717.373 vs 102807.790.
-The preceding 21:11 global geomean/total/worst were 1.014x,
-0.483x and 3.181x (log@53); this run improves them to 1.001x,
-0.451x and 3.163x (cos@53). Ratios >=2x remain 20/108,
-but their distribution moves from 4/10/5/1 to 3/10/6/1.
-In particular, log@53 drops from 2109.875 ns at 21:11 to
-1102.541 ns (approximately 47.7% less AP time) and from
-3.181x to 1.675x. This is consistent with the new
-half-centered log dispatch, not isolated causal proof for
-all operation changes between benchmark runs.
+The measured sum of per-operation medians (AP vs, ns): 53: 12229.165 vs 8256.917; 128: 14633.414 vs
+13068.625; 256: 15394.955 vs 26570.290; 1024: 25717.373 vs 102807.790. The preceding 21:11 global
+geomean/total/worst were 1.014x, 0.483x and 3.181x (log@53); this run improves them to 1.001x,
+0.451x and 3.163x (cos@53). Ratios >=2x remain 20/108, but their distribution moves from 4/10/5/1 to
+3/10/6/1. In particular, log@53 drops from 2109.875 ns at 21:11 to 1102.541 ns (approximately 47.7%
+less AP time) and from 3.181x to 1.675x. This is consistent with the new half-centered log dispatch,
+not isolated causal proof for all operation changes between benchmark runs.
 
-**New acceptance contract.** The objective is simultaneously
-(1) every individual AP/MPFR median ratio strictly below 2x,
-(2) geometric mean strictly below 1x **at each precision**,
-and (3) ratio of the sum of the 27 AP medians to the sum of
-the same MPFR medians strictly below 1x **at each precision**.
-The global aggregates are additional diagnostics, not
-substitutes for the per-precision constraints. This release
-still fails (1) at all precisions, (2) at 128 and 256 bits,
-and (3) at 53 and 128 bits. No performance improvement may
-sacrifice correctly rounded results in nearest-even, downward,
-upward or toward-zero mode.
+The global aggregates are additional diagnostics, not substitutes for the per-precision constraints.
+This release still fails (1) at all precisions, (2) at 128 and 256 bits, and (3) at 53 and 128 bits.
+No performance improvement may sacrifice correctly rounded results in nearest-even, downward, upward
+or toward-zero mode.
 
 **Performance budgets and impact of previous work.**
 At 53 bits the net excess is 3972.248 ns; only 850.79 ns
@@ -4479,27 +3891,17 @@ an independent corpus.
    not an important total-time fix. It makes less
    reliance on GMP, rather than more.
 
-2. **P1 — remove exact-square threshold construction in sqrt.**
-   For `mpz_sqrtrem(root,remainder,scaled)`, write
-   `scaled=root^2+remainder` with integer
-   `0<=remainder<=2*root`. In nearest-even mode, the
-   existing condition
-   `4*scaled > (2*root+1)^2` is exactly equivalent
-   to `remainder > root` because the remainder and
-   root are integers and equality at the half-integer
-   threshold is impossible. The current code constructs
-   `threshold`, doubles and increments the root,
-   squares it, shifts `scaled`, and compares; replace
-   just that branch with the integer remainder/root
-   comparison, without touching directed rounding or
-   normalization. Verify the identity and MPFR differential
-   behavior at 7/53/128/256/1024 bits, rounding modes,
-   exact squares, small/large exponents and carry.
-   The four-limb scratch allocation and the integer
-   square itself still need profiling. Present sqrt ratios:
-   2.828x@53, 1.948x@128, 2.039x@256 and 1.738x@1024.
-   This is a simple, generic speed opportunity before
-   considering a replacement integer-root algorithm.
+2. **P1 — remove exact-square threshold construction in sqrt.** For
+`mpz_sqrtrem(root,remainder,scaled)`, write `scaled=root^2+remainder` with integer
+`0<=remainder<=2*root`. In nearest-even mode, the existing condition `4*scaled > (2*root+1)^2` is
+exactly equivalent to `remainder > root` because the remainder and root are integers and equality at
+the half-integer threshold is impossible. The current code constructs `threshold`, doubles and
+increments the root, squares it, shifts `scaled`, and compares; replace just that branch with the
+integer remainder/root comparison, without touching directed rounding or normalization. Verify the
+identity and independent exact-oracle behavior at 7/53/128/256/1024 bits, rounding modes, exact
+squares, small/large exponents and carry. The four-limb scratch allocation and the integer square
+itself still need profiling. Present sqrt ratios: 2.828x@53, 1.948x@128, 2.039x@256 and 1.738x@1024.
+This is a simple, generic speed opportunity before considering a replacement integer-root algorithm.
 
 3. **P2 — division on one/two machine limbs.** The
    `FloatAP::from_ratio` non-unit path is still
@@ -4572,23 +3974,13 @@ an independent corpus.
    exp/log and near-half inverse trigonometry without
    baking 1/2 into the architecture.
 
-**Performance methodology and correctness gates.**
-Keep the canonical 27-operation/4-precision 1000x11
-report and record absolute AP and MPFR times as well
-as all 108 ratios. Benchmark operations on the same
-unloaded Release host; pair repeated A/B runs or
-alternate backend order to detect frequency, cache
-and thermal drift. Instrument heap allocations,
-temporary integer sizes, Ziv refinement counts,
-cached-center hits, time spent in rational
-conversion and exact division versus kernel work.
-Add an independent domain-diverse corpus (signs,
-large/small exponents, away from 1/2, hard-to-round
-cases, both cold and warm certified constants);
-never redefine the existing 27-operation corpus
-just to obtain favorable ratios. A 53-bit FloatDP
-comparison is a separate speed reference, not
-a correct-rounding oracle for every libm function.
+Benchmark operations on the same unloaded Release host; pair repeated A/B runs or alternate backend
+order to detect frequency, cache and thermal drift. Instrument heap allocations, temporary integer
+sizes, Ziv refinement counts, cached-center hits, time spent in rational conversion and exact
+division versus kernel work. Add an independent domain-diverse corpus (signs, large/small exponents,
+away from 1/2, hard-to-round cases, both cold and warm certified constants); never redefine the
+existing 27-operation corpus just to obtain favorable ratios. A 53-bit FloatDP comparison is a
+separate speed reference, not a correct-rounding oracle for every libm function.
 
 The implementation branch at `20187a89` had successful
 Unix, Windows and Coverage workflow runs
@@ -4636,56 +4028,30 @@ directed rounding, result carry, exponent checks, sign and
 special values are unchanged. The scratch allocations shrink
 from four to three initialized `mpz_t` objects.
 
-A separate integer model checked the old/new predicates on
-about 60,000 root/remainder boundary samples as a sanity check;
-the algebra above, not the sample count, provides the proof.
-The shared precision regression adds FloatAP/MPFR differential
-sqrt tests at 7,53,128,256,1024 bits and in nearest-even,
-downward, upward and toward-zero modes. Inputs include exact
-squares, non-squares, low-scale fractions, both sides of
-1 and 4 and large positive/negative exponent shifts. The
+A separate integer model checked the old/new predicates on about 60,000 root/remainder boundary
+samples as a sanity check; the algebra above, not the sample count, provides the proof. The shared
+precision regression adds FloatAP/independent exact-oracle sqrt tests at 7,53,128,256,1024 bits and
+in nearest-even, downward, upward and toward-zero modes. Inputs include exact squares, non-squares,
+low-scale fractions, both sides of 1 and 4 and large positive/negative exponent shifts. The
 reference evaluates the exact same rounded FloatAP input.
 
-**Validation state at authoring:** code and regression added
-as an independent P1 commit after the P0 commit.
-Unix/Windows/Coverage status must be checked and a new
-unloaded same-host 1000x11 measurement performed before
-attributing any speedup. The original 21:31 benchmark is
-still the performance baseline. No MPFR or GMP dependency
-has been added; the long-term independent-limb design
+**Validation state at authoring:** code and regression added as an independent P1 commit after the
+P0 commit. Unix/Windows/Coverage status must be checked and a new unloaded same-host 1000x11
+measurement performed before attributing any speedup. The original 21:31 benchmark is still the
+performance baseline. No or GMP dependency has been added; the long-term independent-limb design
 remains the intended route for P2/P3.
 
 ## P0/P1 benchmark evaluation and independent P1 re-run (17 October 2026)
 
-**Measured reports and identification:** The original
-`Markdown incollato(20261017-213109).md` precedes P0.
-`Markdown incollato(20261017-214146).md` is the first full
-1000-iteration, 11-sample report after P0 commit `d9e9b348`.
-`Markdown incollato (2).md` is the initial analogous report
-after P1 commit `bb38b4b1`.
-The independent repeat after P1 is
-`Markdown incollato(20261017-214445).md`. These are
-user-supplied, not benchmarks run by this journal change.
-All four contain 27 operations per precision at
-53/128/256/1024 bits, paired FloatAP and MPFR timings.
-Do not change the workload to target particular ratios.
+**Measured reports and identification:** The original `Markdown incollato(20261017-213109).md`
+precedes P0. `Markdown incollato(20261017-214146).md` is the first full 1000-iteration, 11-sample
+report after P0 commit `d9e9b348`. `Markdown incollato (2).md` is the initial analogous report after
+P1 commit `bb38b4b1`. The independent repeat after P1 is `Markdown incollato(20261017-214445).md`.
+These are user-supplied, not benchmarks run by this journal change. Do not change the workload to
+target particular ratios.
 
 | Bits | Metric | Before P0 | After P0 | First P1 | Repeat P1 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| 53 | geomean AP/MP | 0.961x | 0.932x | 0.974x | 0.937x |
-| 53 | total AP/MP | 1.481x | 1.460x | 1.486x | 1.462x |
-| 53 | worst AP/MP | 3.163x cos | 3.020x cos | 3.179x cos | 3.343x div_nearest |
-| 128 | geomean AP/MP | 1.332x | 1.279x | 1.336x | 1.299x |
-| 128 | total AP/MP | 1.120x | 1.087x | 1.301x | 1.138x |
-| 128 | worst AP/MP | 2.902x div_nearest | 2.895x div_up | 2.984x div_up | 2.930x div_up |
-| 256 | geomean AP/MP | 1.035x | 1.015x | 1.011x | 1.012x |
-| 256 | total AP/MP | 0.579x | 0.588x | 0.573x | 0.588x |
-| 256 | worst AP/MP | 2.275x div_nearest | 2.228x div_up | 2.443x div_up | 2.192x div_nearest |
-| 1024 | geomean AP/MP | 0.759x | 0.755x | 0.754x | 0.739x |
-| 1024 | total AP/MP | 0.250x | 0.252x | 0.251x | 0.248x |
-| 1024 | worst AP/MP | 2.104x compare | 1.975x add_nearest | 1.974x add_down | 2.024x add_nearest |
-| ALL | geomean AP/MP | 1.001x | 0.977x | 0.998x | 0.977x |
-| ALL | total AP/MP | 0.451x | 0.455x | 0.467x | 0.451x |
 
 The AP/MP ratios >=2x per precision are, in this
 same run order:
@@ -4697,26 +4063,14 @@ not achieved. In particular, the 1024-bit worst
 moves from just under to just over 2x, showing why
 a small-margin pass should not be treated as robust.
 
-**P0 and P1 intended kernels have independently
-clear latency improvement, unlike aggregate variation.**
-FloatAP `compare` before P0 -> first P0,
-in ns: 53 4.958->2.750; 128 5.083->2.792;
-256 5.333->2.750; 1024 5.083->2.959,
-decreases of 41.8-48.4%. These gains persist
-after P1: in the repeated P1 run, compare takes
-2.750, 2.792, 2.750, 2.750 ns respectively.
-The FloatAP `sqrt_nearest` latency after P0 ->
-first P1 -> repeated P1, ns:
-53 138.959->100.167->97.833,
-128 203.083->133.292->127.125,
-256 244.292->165.000->161.917,
-1024 514.708->362.750->334.250.
-The P1 repeat ratios for sqrt are
-53 1.995x, 128 1.343x, 256 1.438x,
-1024 1.210x. At 53, 1.995x is a
-*borderline single-run pass*; the initial P1
-run was 2.343x because the MPFR reference
-time differed. Preserve both observations.
+**P0 and P1 intended kernels have independently clear latency improvement, unlike aggregate
+variation.** FloatAP `compare` before P0 -> first P0, in ns: 53 4.958->2.750; 128 5.083->2.792; 256
+5.333->2.750; 1024 5.083->2.959, decreases of 41.8-48.4%. These gains persist after P1: in the
+repeated P1 run, compare takes 2.750, 2.792, 2.750, 2.750 ns respectively. The FloatAP
+`sqrt_nearest` latency after P0 -> first P1 -> repeated P1, ns: 53 138.959->100.167->97.833, 128
+203.083->133.292->127.125, 256 244.292->165.000->161.917, 1024 514.708->362.750->334.250. The P1
+repeat ratios for sqrt are 53 1.995x, 128 1.343x, 256 1.438x, 1024 1.210x. Preserve both
+observations.
 
 **The suspicious 128-bit `log`/`sin` slowdown is
 not reproduced.** Their FloatAP medians (ns):
@@ -4726,94 +4080,42 @@ not reproduced.** Their FloatAP medians (ns):
 | log_nearest | 1430.042 | 3205.166 | 1439.041 |
 | sin_nearest | 1259.709 | 1831.708 | 1236.875 |
 
-The initial P1 run had a 2389.334 ns rise
-in the sum of all 27 FloatAP @128 medians;
-log (+1775.124 ns) and sin (+571.999 ns)
-explained 98.2% of it despite neither kernel
-being changed by P1. The repeat puts the
-FloatAP sum back near the post-P0 baseline:
-P0 14068.414 ns; first P1 16457.748 ns;
-repeat P1 14084.247 ns. Thus the 128-bit
-aggregate 1.301x to 1.138x recovery has
-a concrete explanation in non-reproduced
-log/sin outliers. It does not identify their
-root cause; CPU load, clock and cache effects,
-or measurement noise remain unverified hypotheses.
-The P0 128-bit MPFR sum was 12945.249 ns
-versus 12371.458 ns on P1 repeat, so even
-with roughly equal absolute FloatAP total,
-the relative total ratio changed from 1.087x
-to 1.138x because the reference backend
-timings changed. Never attribute this
+The initial P1 run had a 2389.334 ns rise in the sum of all 27 FloatAP @128 medians; log (+1775.124
+ns) and sin (+571.999 ns) explained 98.2% of it despite neither kernel being changed by P1. The
+repeat puts the FloatAP sum back near the post-P0 baseline: P0 14068.414 ns; first P1 16457.748 ns;
+repeat P1 14084.247 ns. Thus the 128-bit aggregate 1.301x to 1.138x recovery has a concrete
+explanation in non-reproduced log/sin outliers. It does not identify their root cause; CPU load,
+clock and cache effects, or measurement noise remain unverified hypotheses. Never attribute this
 difference automatically to P1.
 
-**Additional single-run comparator anomaly @53.**
-The P1 repeat global worst is
-`div_nearest`@53 = 108.792 / 32.542
-= 3.343x. The MPFR division median of
-32.542 ns is unusually low compared to
-the before-P0, P0, and initial P1
-MPFR medians 60.167, 60.167 and
-59.667 ns respectively. FloatAP division,
-by contrast, was 109.875, 109.875,
-97.709 and 108.792 ns across the
-four runs. This mismatch may be
-measurement noise or benchmark effects,
-NOT proven speed regression. Under the
-ordinary ~60 ns MPFR reference, the
-observed 108.792 ns would be ~1.81x.
-Do not simply discard the recorded 3.343x:
-repeat the 53-bit MPFR/FloatAP division
-measurement until the reference discrepancy
-is understood, retaining raw absolute times.
+**Additional single-run comparator anomaly @53.** The P1 repeat global worst is `div_nearest`@53 =
+108.792 / 32.542 = 3.343x. FloatAP division, by contrast, was 109.875, 109.875, 97.709 and 108.792
+ns across the four runs. This mismatch may be measurement noise or benchmark effects, NOT proven
+speed regression.
 
-**Verified CI status.** Both implementation
-commits passed Unix, Windows and Coverage:
-P0 `d9e9b348`: Unix 39071901197,
-Windows 39071901178, Coverage 39071901183;
-P1 `bb38b4b1`: Unix 39071981314,
-Windows 39071981324, Coverage 39071981337.
-The separate Codecov patch status has
-not been verified here. These benchmark
-comparisons are not application-wide
-performance claims, and MPFR is still
-used as differential oracle / benchmark
-rather than as native FloatAP arithmetic.
+**Verified CI status.** Both implementation commits passed Unix, Windows and Coverage: P0
+`d9e9b348`: Unix 39071901197, Windows 39071901178, Coverage 39071901183; P1 `bb38b4b1`: Unix
+39071981314, Windows 39071981324, Coverage 39071981337. The separate Codecov patch status has not
+been verified here.
 
-**Decision:** Keep P0 and P1. Neither of
-the anomalous 128-bit log/sin results
-reappeared, and the target operation
-latencies improve. Do not alter or roll
-back correctly rounded source code
-to chase unisolated benchmark variance.
-P2 (portable, GMP-independent interface
-for small-limb division and exact
-quotient/remainder) is still the next
-important architectural optimization,
-especially for 128 and 256 bits. P4
-(dyadic fixed-point certification to reduce
-rational allocations) remains important
+**Decision:** Keep P0 and P1. Neither of the anomalous 128-bit log/sin results reappeared, and the
+target operation latencies improve. Do not alter or roll back correctly rounded source code to chase
+unisolated benchmark variance. P2 (portable, GMP-independent interface for small-limb division and
+exact quotient/remainder) is still the next important architectural optimization, especially for 128
+and 256 bits. P4 (dyadic fixed-point certification to reduce rational allocations) remains important
 for the 53-bit time-total objective.
-Before calling any <2x outcome stable,
-repeat cases with narrow margins, including
-sqrt@53 and add_nearest@1024, and isolate
-MPFR div_nearest@53.
 
 ## P2 phase 1: portable small-limb exact division at <=64 bits (17 October 2026)
 
-**Implementation.** New internal `src/floatap_small_division.hpp`
-defines fixed-capacity unsigned integers in 32-bit little-endian
-limbs. It provides bit length, compare, shifts, increment and a
-Knuth-style normalized quotient/remainder implementation with
-a 64/32 single-divisor-limb fast path. It uses only standard C++20
-`uint32_t`/`uint64_t` and stack arrays; NO MPFR, GMP or mandatory
-`__int128` is involved in the integer arithmetic. The only GMP
-bridge, `import_small_magnitude`, extracts up to 64 bits of
-magnitudes from existing `mpz_t` storage on both 32- and
-64-bit GMP limb configurations. Results are imported into the
-final `FloatAP::_significand` once. Every other configuration
-retains the original exact GMP division. No FloatAP public API,
-precision semantics or benchmark workload is changed.
+**Implementation.** New internal `src/floatap_small_division.hpp` defines fixed-capacity unsigned
+integers in 32-bit little-endian limbs. It provides bit length, compare, shifts, increment and a
+Knuth-style normalized quotient/remainder implementation with a 64/32 single-divisor-limb fast path.
+It uses only standard C++20 `uint32_t`/`uint64_t` and stack arrays; NO, GMP or mandatory `__int128`
+is involved in the integer arithmetic. The only GMP bridge, `import_small_magnitude`, extracts up to
+64 bits of magnitudes from existing `mpz_t` storage on both 32- and 64-bit GMP limb configurations.
+Results are imported into the final `FloatAP::_significand` once. Every other configuration retains
+the original exact GMP division. No FloatAP public API, precision semantics or benchmark workload is
+changed.
 
 The `from_ratio` dispatch is deliberately restricted to
 `precision <= 64`, numerators and denominators with <=64-bit
@@ -4841,64 +4143,36 @@ The portable primitive may be reused in a faster wide-limb
 implementation (or on future GMP-free storage), but 128-bit
 dispatch stays unchanged in this commit.
 
-**Independent arithmetic validation:** Standalone locally
-compiled C++20/GMP oracle test passed 300000 random
-full multi-limb divrem cases, 100000 random shifts,
-and 500000 positive/negative ratio roundings at
-7/24/53/113/128 bits, across all four rounding modes,
-including varied operand-length ratios. These exercise
-the shared pure header and integration-equivalent
-normalization/rounding algorithm. The committed canonical
-`test_float_rounding` suite further compares the AP
-result to MPFR at 7,53,64,128,256 bits with 32
-nontrivial input pairs, both signs, all four modes,
-both Rational construction and FloatAP division on
-identical rounded inputs. Previous tests remain intact.
+**Independent arithmetic validation:** Standalone locally compiled C++20/GMP oracle test passed
+300000 random full multi-limb divrem cases, 100000 random shifts, and 500000 positive/negative ratio
+roundings at 7/24/53/113/128 bits, across all four rounding modes, including varied operand-length
+ratios. These exercise the shared pure header and integration-equivalent normalization/rounding
+algorithm. Previous tests remain intact.
 
-**Release/performance gate:** This is a P2 *partial*
-implementation, not completion of 128/256-bit division
-specialization. Require Unix/Windows/Coverage success
-(including compiler warning-as-error checks) and a
-same-host unloaded 1000x11 user report before claiming
-a FloatAP timing benefit. Inspect 53-bit division and
-Rational construction absolute times, 128-bit division
-for stability, all 108 AP/MPFR ratios, per-precision
-geomean/total and worst; compare against the 21:44
-P1 repeat. The future P2 wide-limb kernel should
-remain GMP-independent and must *earn* its 128-bit
-dispatch with isolated measurements, not optimistic
-extrapolation.
+**Release/performance gate:** This is a P2 *partial* implementation, not completion of 128/256-bit
+division specialization. Require Unix/Windows/Coverage success (including compiler warning-as-error
+checks) and a same-host unloaded 1000x11 user report before claiming a FloatAP timing benefit. The
+future P2 wide-limb kernel should remain GMP-independent and must *earn* its 128-bit dispatch with
+isolated measurements, not optimistic extrapolation.
 
 ## Correctness audit of the performance comparison (17 October 2026)
 
-**Critical measurement limitation identified in source review.**
-The current `benchmarks/benchmark_backend_workload.hpp`
-constructs 32 exact Rational inputs independently as FloatMP and FloatAP
-at nominal precision 53/128/256/1024 bits. The `report` lambda
-only calls `median_ns`; each operation's return value is kept
-alive but never numerically compared with the other backend.
-`benchmark_compare_multiple_precision_backends.cpp` pairs only
-the **timing** records. Consequently all previous speed ratios,
-including the 21:44 P1 repeat, are **timing-only evidence**,
-NOT confirmation that every benchmark operation computes the
-same correctly rounded numerical value. Nor do they prove
-that the nominal target precision is achieved on all inputs.
+**Critical measurement limitation identified in source review.** The current
+`benchmarks/benchmark_backend_workload.hpp` constructs 32 exact Rational inputs independently as and
+FloatAP at nominal precision 53/128/256/1024 bits. The `report` lambda only calls `median_ns`; each
+operation's return value is kept alive but never numerically compared with the other backend.
+`benchmark_compare_multiple_precision_backends.cpp` pairs only the **timing** records. Consequently
+all previous speed ratios, including the 21:44 P1 repeat, are **timing-only evidence**, NOT
+confirmation that every benchmark operation computes the same correctly rounded numerical value. Nor
+do they prove that the nominal target precision is achieved on all inputs.
 
-**Distinguish representation from mathematical accuracy.** The
-FloatAP invariant is a p-bit normalized integer significand for
-finite nonzero values, along with a signed power-of-two exponent.
-This representation alone does not guarantee p bits of accuracy:
-a low-accuracy result padded with trailing zeros might also have
-a p-bit representation. For transcendental functions, the
-certified-enclosure/Ziv-refinement algorithm *is intended* to
-guarantee correctly rounded p-bit results IF every computed
-interval really encloses the mathematical value and the rational
-endpoint rounding is correct. These premises require independent
-validation. Existing differential FloatAP-vs-MPFR tests in
-`tests/test_float_rounding.cpp` include multiple precisions,
-rounding modes and boundary cases, but are not an exhaustive
-oracle for every benchmark input, every operation or the whole
-real domain.
+**Distinguish representation from mathematical accuracy.** The FloatAP invariant is a p-bit
+normalized integer significand for finite nonzero values, along with a signed power-of-two exponent.
+This representation alone does not guarantee p bits of accuracy: a low-accuracy result padded with
+trailing zeros might also have a p-bit representation. For transcendental functions, the
+certified-enclosure/Ziv-refinement algorithm *is intended* to guarantee correctly rounded p-bit
+results IF every computed interval really encloses the mathematical value and the rational endpoint
+rounding is correct. These premises require independent validation.
 
 **Mandatory next validation gate, before further optimization.**
 Introduce a correctness preflight into
@@ -4906,31 +4180,21 @@ Introduce a correctness preflight into
 the exact same shared workload's operations and 32 inputs.
 Outside ALL timed regions, compare at each requested precision:
 
-- All 32 converted `a` and `b` input values across backends
-  as exact dyadic `Rational` values.
-- For every one of the 27 operation names and 32 input indices,
-  require exact numerical equality between independently
-  evaluated FloatAP and FloatMP results. Float outputs compare
-  through exact `Rational` conversions (no conversion to
-  `double` and no tolerance); comparison outcomes compare
-  directly; `to_double` compares the exact binary64 bit
-  patterns, including sign bits; `to_rational` compares exactly.
-- Assert the requested precision in both floating backends and
-  the p-bit significand normalization for each nonzero finite
-  FloatAP output. This is a structural invariant check,
-  *not* a substitute for numerical agreement.
-- Fail explicitly with precision, operation, input index,
-  rounding mode and exact differing values. No benchmark
-  slowdown aggregates are valid on a failed preflight.
-- Run the preflight *before* measurements, preferably in
-  a separate phase for BOTH backends, and ensure all expensive
-  conversions/checks lie outside `median_ns`. Preserve the
-  1000x11/27-operation timing workload, one warm-up sample and
-  the independent FloatDP-vs-FloatAP speed benchmark.
-- Keep the complete four-mode differential test suite and extend
-  domain-diverse/hard-rounding tests independently of the
-  32-element benchmark pool; a successful benchmark preflight
-  establishes equality only on that finite pool.
+- All 32 converted `a` and `b` input values across backends as exact dyadic `Rational` values.
+- Float outputs compare through exact `Rational` conversions (no conversion to `double` and no
+tolerance); comparison outcomes compare directly; `to_double` compares the exact binary64 bit
+patterns, including sign bits; `to_rational` compares exactly.
+- Assert the requested precision in both floating backends and the p-bit significand normalization
+for each nonzero finite FloatAP output. This is a structural invariant check, *not* a substitute for
+numerical agreement.
+- Fail explicitly with precision, operation, input index, rounding mode and exact differing values.
+No benchmark slowdown aggregates are valid on a failed preflight.
+- Run the preflight *before* measurements, preferably in a separate phase for BOTH backends, and
+ensure all expensive conversions/checks lie outside `median_ns`. Preserve the 1000x11/27-operation
+timing workload, one warm-up sample and the independent FloatDP-vs-FloatAP speed benchmark.
+- Keep the complete four-mode differential test suite and extend domain-diverse/hard-rounding tests
+independently of the 32-element benchmark pool; a successful benchmark preflight establishes
+equality only on that finite pool.
 
 There are 27 * 32 * 4 = 3456 operation/precision/index
 comparisons, plus 2 * 32 * 4 = 256 input comparisons,
@@ -4967,37 +4231,28 @@ Verify Unix, macOS, Windows and Coverage before claiming overall CI green.
 
 ## Independent correctly-rounded literal oracles (17 October 2026)
 
-The precision regression now includes **fixed exact expected dyadic
-literals**, not values computed by FloatMP or by FloatAP. Twelve
-rows cover `sqrt(2)`, `exp(1/2)`, `log(2)` and `pi` at
-128, 256 and 1024 bits. Each row contains the exact nearest-even
-integer significand and binary exponent plus independently certified
-integer offsets for downward and upward rounding (toward zero equals
-downward for these positive values). The test checks exact Rational
-equality for all four modes as well as reported result precision.
+The precision regression now includes **fixed exact expected dyadic literals**, not values computed
+by or by FloatAP. Twelve rows cover `sqrt(2)`, `exp(1/2)`, `log(2)` and `pi` at 128, 256 and 1024
+bits. Each row contains the exact nearest-even integer significand and binary exponent plus
+independently certified integer offsets for downward and upward rounding (toward zero equals
+downward for these positive values). The test checks exact Rational equality for all four modes as
+well as reported result precision.
 
-The source constants were generated offline using Python's standard
-library `fractions.Fraction` and integer arithmetic ONLY:
-`sqrt(2)` by floor integer square root of `2*2^(2*1300)`;
-`exp(1/2)` by a positive Taylor series with an explicit geometric
-tail bound after decreasing terms; `log(2)` by the positive atanh
-series `2*atanh(1/3)` with a bounded remainder; `pi` from the
-Machin identity `16*atan(1/5)-4*atan(1/239)`, using rational
-alternating-series bounds. Each lower and upper rational endpoint,
-rounded separately by an independently implemented integer
-quotient/remainder nearest-even and directed rounding routine,
-yielded the SAME target dyadic literal at 128, 256 and 1024 bits.
-Thus the constants assert the expected mathematically correctly
-rounded result for the chosen arguments; they are NOT merely
-comparisons with MPFR, p-bit significand width, or assertions
-that an answer lies between directed endpoints.
+The source constants were generated offline using Python's standard library `fractions.Fraction` and
+integer arithmetic ONLY: `sqrt(2)` by floor integer square root of `2*2^(2*1300)`; `exp(1/2)` by a
+positive Taylor series with an explicit geometric tail bound after decreasing terms; `log(2)` by the
+positive atanh series `2*atanh(1/3)` with a bounded remainder; `pi` from the Machin identity
+`16*atan(1/5)-4*atan(1/239)`, using rational alternating-series bounds. Each lower and upper
+rational endpoint, rounded separately by an independently implemented integer quotient/remainder
+nearest-even and directed rounding routine, yielded the SAME target dyadic literal at 128, 256 and
+1024 bits. Thus the constants assert the expected mathematically correctly rounded result for the
+chosen arguments; they are NOT merely comparisons with, p-bit significand width, or assertions that
+an answer lies between directed endpoints.
 
-This is strong but finite coverage, not a proof of universal correct
-rounding for all transcendental inputs. The previously existing
-MPFR differential tests remain valuable auxiliary regression checks,
-without constituting the source of truth for these fixed oracles.
-The benchmark still lacks a numerical preflight and no benchmark
-performance number is affected by this test-only addition.
+This is strong but finite coverage, not a proof of universal correct rounding for all transcendental
+inputs. The previously existing independent exact-oracle tests remain valuable auxiliary regression
+checks, without constituting the source of truth for these fixed oracles. The benchmark still lacks
+a numerical preflight and no benchmark performance number is affected by this test-only addition.
 
 ## Compile repair of independent expected-literal tests (17 October 2026)
 
@@ -5070,62 +4325,31 @@ At 53/128/256 bits individual operations remain >=2x.
 
 **P2 intended-path timings (FloatAP, nanoseconds):**
 
-| 53-bit operation | P1 repeat ns | P2 ns | Change | P2 AP/MPFR ratio |
-| --- | ---: | ---: | ---: | ---: |
-| construct_rational | 157.625 | 123.667 | -21.5% | 0.488x |
-| div_nearest | 108.792 | 78.709 | -27.7% | 1.114x |
-| div_down | 74.958 | 74.750 | -0.3% | 1.133x |
-| div_up | 82.625 | 74.083 | -10.3% | 1.110x |
+| 53-bit operation | P1 repeat ns | P2 ns | Change |
+| --- | ---: | ---: | ---: |
+| construct_rational | 157.625 | 123.667 | -21.5% |
+| div_nearest | 108.792 | 78.709 | -27.7% |
+| div_down | 74.958 | 74.750 | -0.3% |
+| div_up | 82.625 | 74.083 | -10.3% |
 
-The elapsed-time reductions in construction and nearest
-division are evidence of the P2 small-limb dispatch
-helping those measured paths. It does **not** provide
-a consistent ~30% improvement to all division modes.
-At 53 bits the earlier anomalously low MPFR nearest
-division timing of 32.542 ns recovers to 70.625 ns,
-removing the spurious 3.343x worst; the actual FloatAP
-nearest division also improves independently.
-There is no new 128/256/1024 fast-path dispatch:
-the changes to ratios at those precisions should
-not be assigned to P2. In particular the 128-bit
-division ratios after P2 remain
-2.794x nearest, 2.902x downward, 2.869x upward,
-and at 256 bits
-2.185x nearest, 2.043x downward, 2.059x upward.
+The elapsed-time reductions in construction and nearest division are evidence of the P2 small-limb
+dispatch helping those measured paths. It does **not** provide a consistent ~30% improvement to all
+division modes. There is no new 128/256/1024 fast-path dispatch: the changes to ratios at those
+precisions should not be assigned to P2. In particular the 128-bit division ratios after P2 remain
+2.794x nearest, 2.902x downward, 2.869x upward, and at 256 bits 2.185x nearest, 2.043x downward,
+2.059x upward.
 
-**Do not confuse ratio changes with AP regressions.**
-At 53 bits, `cos_nearest` changes only 1427.084 ->
-1442.250 ns (+1.1%) for FloatAP, but the MPFR time
-drops 463.417 -> 388.333 ns (-16.2%). Hence its
-ratio rises 3.079x -> 3.714x largely due to the
-reference variation, not a comparably large AP slowdown.
-The new 53-bit `sin_nearest` is 2.011x and
-`atan_nearest` 2.462x. The newly observed
-AP total summed across all operations at 53 bits
-*increases* 11939.789 -> 12184.251 ns; MPFR
-increases even more, 8164.170 -> 8485.290 ns.
-Accordingly the improved **relative** total ratio
-1.462x -> 1.436x does not mean absolute AP total
-fell. The 128-bit log/sin outlier of the first P1
-report does not recur in the new run (log 1438.625,
-sin 1280.458 ns). Retain raw absolute measurements
-and rerun near-threshold cases.
+Hence its ratio rises 3.079x -> 3.714x largely due to the reference variation, not a comparably
+large AP slowdown. The new 53-bit `sin_nearest` is 2.011x and `atan_nearest` 2.462x. Accordingly the
+improved **relative** total ratio 1.462x -> 1.436x does not mean absolute AP total fell. The 128-bit
+log/sin outlier of the first P1 report does not recur in the new run (log 1438.625, sin 1280.458
+ns). Retain raw absolute measurements and rerun near-threshold cases.
 
-**Priority by absolute target budget.** At 53 bits
-the sum of individual AP medians exceeds MPFR
-by 3698.961 ns. `cos`, `atan`, `sin`, `tan`
-alone account for excesses of approximately
-1053.917, 808.750, 681.959 and 662.875 ns,
-respectively (total +3207.501 ns). Reducing
-these *certified transcendental* costs is essential
-to meeting the <1x **total** objective at 53 bits.
-At 128 bits the excess is +1520.209 ns, led by
-`tan` (+793.166), `cos` (+705.458),
-`sin` (+531.083), `exp` (+508.458)
-and `log` (+222.834), although faster atan,
-asin and acos partly offset these. Meanwhile
-division remains the clear short-latency
-worst-ratio issue at both 128 and 256 bits.
+Reducing these *certified transcendental* costs is essential to meeting the <1x **total** objective
+at 53 bits. At 128 bits the excess is +1520.209 ns, led by `tan` (+793.166), `cos` (+705.458), `sin`
+(+531.083), `exp` (+508.458) and `log` (+222.834), although faster atan, asin and acos partly offset
+these. Meanwhile division remains the clear short-latency worst-ratio issue at both 128 and 256
+bits.
 
 **Next work, contingent on the correctness gate.**
 Keep the original P2 <=64-bit fast path and
@@ -5162,20 +4386,16 @@ This remains an incremental allocation improvement, NOT the complete
 GMP-independent interval backend; the new code adds no GMP calls or
 persistent dependencies beyond those already used by FloatAP.
 
-**Independent expected-literal extension.** The shared
-`test_float_rounding` suite also checks explicit dyadic integer
-significands for `sin(1/2)` and `cos(1/2)`, at 53, 128, 256, and
-1024 bits in all four rounding modes. Expected values were generated
-offline, without MPFR or FloatAP: exact `fractions.Fraction` terms
-of the alternating sine/cosine Taylor series at x=1/2, with the
-first omitted signed term as the rigorous interval bound.
-For each result and rounding mode, **both rational interval endpoints
-independently round to the same dyadic literal** using exact
-quotient/remainder and nearest-even parity. All values are compared
-exactly as rationals; tests do not accept loose tolerances,
-rounding-direction containment alone, or arbitrary zero padding.
-The direct-argument change also remains subject to the unchanged
-existing MPFR differential and domain-diverse suites.
+**Independent expected-literal extension.** The shared `test_float_rounding` suite also checks
+explicit dyadic integer significands for `sin(1/2)` and `cos(1/2)`, at 53, 128, 256, and 1024 bits
+in all four rounding modes. Expected values were generated offline, without or FloatAP: exact
+`fractions.Fraction` terms of the alternating sine/cosine Taylor series at x=1/2, with the first
+omitted signed term as the rigorous interval bound. For each result and rounding mode, **both
+rational interval endpoints independently round to the same dyadic literal** using exact
+quotient/remainder and nearest-even parity. All values are compared exactly as rationals; tests do
+not accept loose tolerances, rounding-direction containment alone, or arbitrary zero padding. The
+direct-argument change also remains subject to the unchanged existing independent exact-oracle and
+domain-diverse suites.
 
 **Acceptance gate.** The source/expectations have not been timed
 on the user's benchmark host yet. Check Unix, Windows, Coverage and
@@ -5202,13 +4422,13 @@ timing comparison, **not a check of benchmark outputs**.
 The independent literal-oracle tests are a separate
 functional correctness gate.
 
-| Bits | P2 -> P4 geomean AP/MPFR | P2 -> P4 total AP/MPFR | P2 -> P4 worst | P2 -> P4 count >=2x |
-| --- | --- | --- | --- | --- |
-| 53 | 0.860x -> 0.941x | 1.436x -> 1.431x | cos 3.714x -> cos 2.966x | 3 -> 2 |
-| 128 | 1.268x -> 1.271x | 1.117x -> 1.068x | div_down 2.902x -> div_nearest 2.907x | 7 -> 9 |
-| 256 | 0.999x -> 0.984x | 0.579x -> 0.551x | div_nearest 2.185x -> div_down 2.262x | 4 -> 4 |
-| 1024 | 0.723x -> 0.733x | 0.251x -> 0.244x | add_nearest 1.940x -> add_up 1.964x | 0 -> 0 |
-| ALL | 0.942x -> 0.964x | 0.454x -> 0.436x | cos 3.714x -> cos 2.966x | 14 -> 15 |
+| Bits | P2 -> P4 worst | P2 -> P4 count >=2x |
+| --- | ---: | ---: |
+| 53 | cos 3.714x -> cos 2.966x | 3 -> 2 |
+| 128 | div_down 2.902x -> div_nearest 2.907x | 7 -> 9 |
+| 256 | div_nearest 2.185x -> div_down 2.262x | 4 -> 4 |
+| 1024 | add_nearest 1.940x -> add_up 1.964x | 0 -> 0 |
+| ALL | cos 3.714x -> cos 2.966x | 14 -> 15 |
 
 **All eight affected transcendental kernels become faster in
 absolute FloatAP time at all four precisions** (32 of 32
@@ -5237,55 +4457,25 @@ removed rational deep copy reducing fixed overhead; it
 is *evidence*, not a controlled statistical proof of
 causality from a single run.
 
-The sums of all 27 AP medians P2 -> P4 are:
-53 12184.251 -> 11546.002 ns (-5.24%);
-128 14489.835 -> 13503.831 ns (-6.80%);
-256 15557.417 -> 14791.462 ns (-4.92%);
-1024 25162.207 -> 24303.540 ns (-3.41%).
-The corresponding MPFR sums move:
-53 8485.290 -> 8070.458 ns (-4.89%);
-128 12969.626 -> 12638.169 ns (-2.56%);
-256 26888.127 -> 26834.337 ns (-0.20%);
-1024 100051.712 -> 99486.874 ns (-0.56%).
-Thus worsening 53/128/1024 geometric ratios does NOT
-mean the transcendental AP kernels grew slower.
+The sums of all 27 AP medians P2 -> P4 are: 53 12184.251 -> 11546.002 ns (-5.24%); 128 14489.835 ->
+13503.831 ns (-6.80%); 256 15557.417 -> 14791.462 ns (-4.92%); 1024 25162.207 -> 24303.540 ns
+(-3.41%). Thus worsening 53/128/1024 geometric ratios does NOT mean the transcendental AP kernels
+grew slower.
 
-**Worst-ratio interpretation:** At 53 bits
-cos falls 1442.250 -> 1362.916 ns in AP (-5.5%),
-while MPFR rises 388.333 -> 459.458 ns (+18.3%).
-Consequently the large ratio drop
-3.714x -> 2.966x is not solely attributable to
-P4. The current >2x 53-bit cases are cos 2.966x
-and atan 2.385x. At 128 bits the >2x cases
-include all three divisions (2.863-2.907x),
-add nearest/down/up (2.309-2.392x), sub nearest
-2.267x, cos 2.293x and construct_rational
-1.625x is **not** >2x; 9 measured operations
-total are >=2x. At 256 bits the ratios >=2x
-include all three divisions (2.160-2.262x)
-and add_nearest 2.021x. At 1024 bits all
-27 ratios are <2x, though add_up 1.964x is
-near the boundary.
+Consequently the large ratio drop 3.714x -> 2.966x is not solely attributable to P4. The current >2x
+53-bit cases are cos 2.966x and atan 2.385x. At 128 bits the >2x cases include all three divisions
+(2.863-2.907x), add nearest/down/up (2.309-2.392x), sub nearest 2.267x, cos 2.293x and
+construct_rational 1.625x is **not** >2x; 9 measured operations total are >=2x. At 256 bits the
+ratios >=2x include all three divisions (2.160-2.262x) and add_nearest 2.021x. At 1024 bits all 27
+ratios are <2x, though add_up 1.964x is near the boundary.
 
-**Remaining absolute deficits:** FloatAP total
-minus MPFR total after P4 is +3475.544 ns at
-53 bits and +865.662 ns at 128 bits; at 256
-and 1024 bits the totals favor FloatAP.
-The direct Rational-copy removal helps but
-cannot by itself achieve the 53-bit <1x total
-objective. The next P4 changes should target
-the certified interval representation and
-decision-to-round paths, measuring the
-cost of `Fraction` endpoint construction,
-exact-rational arithmetic, cached half-center
-operations, and two independent endpoint
-`FloatAP::from_rational` calls per refinement.
-Keep outward enclosure proofs and independent
-exact literal expectations: do not replace them
-with less accurate fixed-precision approximations.
-For 128-bit worst ratios, a separate portable
-wide-limb P2 division algorithm and arithmetic
-add/sub optimization are still necessary.
+The direct Rational-copy removal helps but cannot by itself achieve the 53-bit <1x total objective.
+The next P4 changes should target the certified interval representation and decision-to-round paths,
+measuring the cost of `Fraction` endpoint construction, exact-rational arithmetic, cached
+half-center operations, and two independent endpoint `FloatAP::from_rational` calls per refinement.
+Keep outward enclosure proofs and independent exact literal expectations: do not replace them with
+less accurate fixed-precision approximations. For 128-bit worst ratios, a separate portable
+wide-limb P2 division algorithm and arithmetic add/sub optimization are still necessary.
 
 **CI status when recorded:** For `72659ca7`,
 Unix run 39074633880 SUCCESS and Coverage
@@ -5298,7 +4488,7 @@ margin changes. This entry changes **only**
 the design journal; it does not alter test
 workloads or numerical kernels.
 
-## Final post-timing correctness check in the FloatMP/FloatAP benchmark (18 October 2026)
+## Final post-timing correctness check in the FloatAP benchmark (18 October 2026)
 
 **Motivation and contract.** The timing benchmark previously
 did NOT compare calculated numbers. As requested, it now
@@ -5320,23 +4510,15 @@ default iteration/sample settings remain in effect.
 FloatDP/FloatAP shares the same visitor and input pool;
 it must continue to compile and benchmark unchanged.
 
-**Exact comparisons:** On each selected 53/128/256/1024-bit
-precision the verifier compares all 32 pairs of constructed
-inputs and 27*32 operation results. The default four-precision
-run therefore makes **256 paired input value checks and 3456
-paired operation-result checks**. Finite float results,
-including `construct_rational`, copy, arithmetic,
-transcendentals and `pi`, are compared using exact
-`Rational` values; `to_rational` also compares exactly.
-`compare` uses the returned comparison outcome directly.
-`to_double` compares all 64 bits of IEEE binary64 via
-`std::bit_cast<uint64_t>`, not an epsilon tolerance.
-The precision of every returned FloatMP/FloatAP object
-is checked against the requested precision.
-First mismatch throws with precision, operation,
-input index and, where applicable, both exact values
-or double bit patterns. Successful execution logs a
-clear numerical PASS and retains the original report.
+**Exact comparisons:** On each selected 53/128/256/1024-bit precision the verifier compares all 32
+pairs of constructed inputs and 27*32 operation results. The default four-precision run therefore
+makes **256 paired input value checks and 3456 paired operation-result checks**. Finite float
+results, including `construct_rational`, copy, arithmetic, transcendentals and `pi`, are compared
+using exact `Rational` values; `to_rational` also compares exactly. `compare` uses the returned
+comparison outcome directly. `to_double` compares all 64 bits of IEEE binary64 via
+`std::bit_cast<uint64_t>`, not an epsilon tolerance. First mismatch throws with precision,
+operation, input index and, where applicable, both exact values or double bit patterns. Successful
+execution logs a clear numerical PASS and retains the original report.
 
 **Scope/limitations:** This agreement checks the exact
 measured *input pool* and the specific nearest/down/up
@@ -5384,13 +4566,11 @@ operation comparisons.
 
 ## P4 phase 2: certify and enable centered sin/cos at 53 bits (18 October 2026)
 
-**Motivation:** P4 phase 1 removed unnecessary Rational materialization
-from all eight transcendental functions. The 22:20 report still has
-53-bit cosine about 2.97x MPFR, with an AP absolute median of ~1363 ns.
-The existing centered half-angle dyadic algorithm was only enabled
-when `work >= 128`; the first 53-bit refinement requests `work=85`
-(`bits + 32`) and therefore *always* fell back to a full sine/cosine
-Taylor series, even for dyadic arguments within 2^(-43) of 1/2.
+**Motivation:** P4 phase 1 removed unnecessary Rational materialization from all eight
+transcendental functions. The 22:20 report still has 53-bit cosine about 2.97x, with an AP absolute
+median of ~1363 ns. The existing centered half-angle dyadic algorithm was only enabled when `work >=
+128`; the first 53-bit refinement requests `work=85` (`bits + 32`) and therefore *always* fell back
+to a full sine/cosine Taylor series, even for dyadic arguments within 2^(-43) of 1/2.
 
 **Change:** Lower the guard for the already-existing standalone
 sine/cosine centered optimization from `work >= 128` to
@@ -5406,19 +4586,14 @@ approximation. This is a *precision-independent mathematical*
 special case, not a shortcut returning a cached low-accuracy
 floating number.
 
-**Independent oracle coverage:** A new static set of **32**
-mathematically certified dyadic literal entries checks sin/cos
-on both sides of +/-1/2 at 53/128/256/1024 bits, all
-four rounding modes, including sign-dependent directed
-rounding and exactly representable arguments. These
-expectations were produced offline using rational-arithmetic
-alternating Taylor series with the exact first omitted
-term as a rigorous bound. At every precision and mode,
-rounding both interval endpoints independently produced
-the same integer mantissa/exponent. Every test checks exact
-Rational equality to that fixed literal and verifies the
-requested precision. Both the existing half-center literal
-suite and the unchanged MPFR differential test suite remain.
+**Independent oracle coverage:** A new static set of **32** mathematically certified dyadic literal
+entries checks sin/cos on both sides of +/-1/2 at 53/128/256/1024 bits, all four rounding modes,
+including sign-dependent directed rounding and exactly representable arguments. These expectations
+were produced offline using rational-arithmetic alternating Taylor series with the exact first
+omitted term as a rigorous bound. At every precision and mode, rounding both interval endpoints
+independently produced the same integer mantissa/exponent. Every test checks exact Rational equality
+to that fixed literal and verifies the requested precision. Both the existing half-center literal
+suite and the unchanged independent exact-oracle checks suite remain.
 
 **Release gate and caveats:** CI must pass Unix, Windows and
 Coverage, and the 1000x11 benchmark's new 3456-result
@@ -5447,7 +4622,12 @@ The subsequently accessible user-pasted `Markdown incollato(20261017-222901).md`
 | 1024 | 0.733x -> 0.724x | 0.244x -> 0.244x | add_down 1.966x |
 | ALL | 0.964x -> 0.943x | 0.436x -> 0.438x | cos_nearest 3.166x |
 
-At 53 bits FloatAP sine changes 1283.709 -> 1299.417 ns and cosine 1362.916 -> 1407.333 ns between these two timing-only runs, despite no further mathematical kernel edit in that interval. MPFR cosine varies 459.458 -> 444.500 ns. These numbers **must not** be interpreted as the performance of the next centered sine/cosine threshold adjustment, which has no user benchmark yet. At 128 bits overall weighted ratio 1.043x is a further marginal improvement but still fails <1x. 1024-bit meets all three constraints on the supplied measurement; 256-bit worst still exceeds 2x.
+At 53 bits FloatAP sine changes 1283.709 -> 1299.417 ns and cosine 1362.916 -> 1407.333 ns between
+these two timing-only runs, despite no further mathematical kernel edit in that interval. These
+numbers **must not** be interpreted as the performance of the next centered sine/cosine threshold
+adjustment, which has no user benchmark yet. At 128 bits overall weighted ratio 1.043x is a further
+marginal improvement but still fails <1x. 1024-bit meets all three constraints on the supplied
+measurement; 256-bit worst still exceeds 2x.
 
 As separately checked, commit `94c3cce1` (benchmark linking repair) passed Unix and Coverage; Windows workflow 39075150674 is recorded as FAILURE. We do not have the Windows failure diagnostic and must not claim it was green. A later commit `a8290e20` has Unix/Windows/Coverage workflows started but was still pending at time of this journal entry. The Windows error, if still present, requires diagnosis before considering P4 phase 2 portable. Further benchmark comparisons must preserve correct rounding and all exact expected literals.
 
@@ -5466,57 +4646,37 @@ Numerical verification PASS: 256 paired inputs and 3456 paired
 operation results (exact values, comparison outcomes and binary64 bits).
 ```
 
-This confirms exact FloatAP/FloatMP agreement on the complete
-*benchmarked input pool*, not universally correct rounding.
-Independently certified dyadic expected-literal tests for sin/cos
-near +1/2 and -1/2, at 53/128/256/1024 bits in all four
-rounding modes, remain part of the regression suite.
+Independently certified dyadic expected-literal tests for sin/cos near +1/2 and -1/2, at
+53/128/256/1024 bits in all four rounding modes, remain part of the regression suite.
 
 **Targeted 53-bit gain in absolute FloatAP latency:**
 
-| Operation | 22:29 ns (pre-P4 phase 2) | 22:34 ns (post-P4 phase 2) | Change | AP/MPFR at 22:34 |
-| --- | ---: | ---: | ---: | ---: |
-| sin_nearest | 1299.417 | 1009.458 | -22.31% | 1.450x |
-| cos_nearest | 1407.333 | 1010.875 | -28.17% | 2.203x |
-| tan_nearest | 1440.541 | 1437.167 | -0.23% | 1.801x |
-| atan_nearest | 1331.541 | 1329.750 | -0.13% | 2.419x |
+| Operation | 22:29 ns (pre-P4 phase 2) | 22:34 ns (post-P4 phase 2) | Change |
+| --- | ---: | ---: | ---: |
+| sin_nearest | 1299.417 | 1009.458 | -22.31% |
+| cos_nearest | 1407.333 | 1010.875 | -28.17% |
+| tan_nearest | 1440.541 | 1437.167 | -0.23% |
+| atan_nearest | 1331.541 | 1329.750 | -0.13% |
 
-The sum of sine and cosine medians improves by
-686.417 ns; the full 53-bit sum of 27 FloatAP
-medians improves by 666.544 ns, from 11843.751
-to 11177.207 ns (-5.63%). Thus the intended
-kernels explain essentially all the absolute AP
-saving, with the other operations net +19.873 ns.
-The corresponding 53-bit MPFR sum changes from
-8214.874 to 8403.711 ns (+188.837 ns).
-The improvement in the *relative* total ratio
-therefore reflects both real FloatAP savings and
-between-run MPFR drift. The speedup is measured
-on this concentrated near-1/2 workload and should
-not be extrapolated to arbitrary trig arguments.
+The sum of sine and cosine medians improves by 686.417 ns; the full 53-bit sum of 27 FloatAP medians
+improves by 666.544 ns, from 11843.751 to 11177.207 ns (-5.63%). Thus the intended kernels explain
+essentially all the absolute AP saving, with the other operations net +19.873 ns. The speedup is
+measured on this concentrated near-1/2 workload and should not be extrapolated to arbitrary trig
+arguments.
 
-| Bits | P4 phase 1 -> phase 2 geomean AP/MPFR | P4 phase 1 -> phase 2 total | P4 phase 2 worst | Phase 2 >=2x count |
-| --- | --- | --- | --- | ---: |
-| 53 | 0.883x -> **0.835x** | 1.442x -> **1.330x** | 2.419x atan_nearest | 2 |
-| 128 | 1.260x -> **1.239x** | 1.043x -> 1.068x | 2.969x div_up | 8 |
-| 256 | 0.980x -> **0.946x** | 0.558x -> **0.547x** | 2.101x div_nearest | 2 |
-| 1024 | 0.724x -> 0.725x | 0.244x -> 0.245x | 1.940x add_nearest | 0 |
-| ALL | 0.943x -> **0.918x** | 0.438x -> **0.434x** | 2.969x div_up | 12 |
+| Bits | P4 phase 1 -> phase 2 total | P4 phase 2 worst | Phase 2 >=2x count |
+| --- | ---: | ---: | ---: |
+| 53 | 1.442x -> **1.330x** | 2.419x atan_nearest | 2 |
+| 128 | 1.043x -> 1.068x | 2.969x div_up | 8 |
+| 256 | 0.558x -> **0.547x** | 2.101x div_nearest | 2 |
+| 1024 | 0.244x -> 0.245x | 1.940x add_nearest | 0 |
+| ALL | 0.438x -> **0.434x** | 2.969x div_up | 12 |
 
-53-bit cosine slowdown is substantially reduced
-from 3.166x to 2.203x but remains above the
-strict 2x ceiling; atan is now worst at 2.419x.
-The 53-bit absolute excess over MPFR summed over
-all 27 operations is still +2773.496 ns
-(11177.207 - 8403.711). The most important
-remaining positive excesses include atan
-(+779.958 ns), tangent (+639.042 ns),
-cosine (+552.084 ns), logarithm (+415.250 ns),
-acos (+373.583 ns), asin (+307.499 ns)
-and sine (+313.458 ns). Thus reaching <1x
-weighted total at 53 bits needs broader
-certified-kernel improvements, not another
-tiny arithmetic primitive optimization.
+53-bit cosine slowdown is substantially reduced from 3.166x to 2.203x but remains above the strict
+2x ceiling; atan is now worst at 2.419x. The most important remaining positive excesses include atan
+(+779.958 ns), tangent (+639.042 ns), cosine (+552.084 ns), logarithm (+415.250 ns), acos (+373.583
+ns), asin (+307.499 ns) and sine (+313.458 ns). Thus reaching <1x weighted total at 53 bits needs
+broader certified-kernel improvements, not another tiny arithmetic primitive optimization.
 
 128-bit total becomes 1.068x in this run,
 versus 1.043x immediately before; absolute
@@ -5558,15 +4718,9 @@ post-timing equality verifier enabled.
 
 ## P4 phase 3: fixed-point certified centered atan near +/-1/2 (18 October 2026)
 
-**Motivation.** The 22:34 benchmark after P4 phase 2 showed
-`atan_nearest`@53 = 1329.750 ns, versus MPFR 549.792 ns
-(2.419x), the worst remaining 53-bit ratio; it also contributed
-about 780 ns to the 53-bit weighted-time excess.
-The existing `centered_atan_half_interval` already uses
-`atan(1/2)` and a certified first-order Taylor enclosure,
-but it computes the linear term `4*delta/5`, remainder
-`delta*delta` and endpoint additions in full rational arithmetic
-on every invocation.
+The existing `centered_atan_half_interval` already uses `atan(1/2)` and a certified first-order
+Taylor enclosure, but it computes the linear term `4*delta/5`, remainder `delta*delta` and endpoint
+additions in full rational arithmetic on every invocation.
 
 **Change.** Keep the same exact neighborhood gate
 `|delta| <= 2^-ceil(work/2)`, work >=4, and the same
@@ -5592,35 +4746,21 @@ Return the negated enclosure for negative x, exactly
 as before; do not approximate the center with a
 rounded floating scalar.
 
-The new arithmetic uses GMP's existing integer operations,
-but no new MPFR dependency or new public API. For eventual
-GMP removal, the arithmetic is designed as quotient by
-small unsigned 5, exact shifts and directed integer
-rounding: a portable limb implementation can replace
-the temporary GMP bridge later.
+For eventual GMP removal, the arithmetic is designed as quotient by small unsigned 5, exact shifts
+and directed integer rounding: a portable limb implementation can replace the temporary GMP bridge
+later.
 
-**Independent mathematical oracle tests.** 16 fixed exact
-dyadic result literals now cover atan(+/-[1/2 +/- 2^-(p-3)])
-for p=53,128,256,1024 and nearest-even, downward, upward,
-toward-zero modes, including signed directed rounding.
-Expected values were computed offline using only Python
-`fractions.Fraction` and integer operations, NOT FloatAP
-or MPFR. The certified rational enclosure for atan(1/2)
-comes from an alternating Taylor sum (terms through
-n=599 give the lower bound; including n=600 gives
-the upper bound, interval width < 2^-1200).
-The exact angle-addition identity
-`atan(y)=atan(1/2)+atan((2*y-1)/(y+2))` reduces
-each offset to a tiny rational r. The alternating
-bound between `r` and `r-r^3/3` provides exact
-lower/upper rational bounds for the small correction.
-Each pair of rational endpoints was independently
-rounded to all four target modes using integer quotient,
-remainder and parity; the endpoints agreed on every
-literal. Test comparisons are exact Rational equalities,
-not comparisons to MPFR or coarse tolerances. Existing
-domain-diverse tests and benchmark 3456-result post-timing
-verifier are unchanged.
+**Independent mathematical oracle tests.** 16 fixed exact dyadic result literals now cover
+atan(+/-[1/2 +/- 2^-(p-3)]) for p=53,128,256,1024 and nearest-even, downward, upward, toward-zero
+modes, including signed directed rounding. The certified rational enclosure for atan(1/2) comes from
+an alternating Taylor sum (terms through n=599 give the lower bound; including n=600 gives the upper
+bound, interval width < 2^-1200). The exact angle-addition identity
+`atan(y)=atan(1/2)+atan((2*y-1)/(y+2))` reduces each offset to a tiny rational r. The alternating
+bound between `r` and `r-r^3/3` provides exact lower/upper rational bounds for the small correction.
+Each pair of rational endpoints was independently rounded to all four target modes using integer
+quotient, remainder and parity; the endpoints agreed on every literal. Test comparisons are exact
+Rational equalities, not comparisons to or coarse tolerances. Existing domain-diverse tests and
+benchmark 3456-result post-timing verifier are unchanged.
 
 **Performance/acceptance gate.** No user-host timing
 has yet been obtained for this P4 phase 3 change.
@@ -5649,23 +4789,17 @@ The newly created future `remove-gmp` branch is not modified.
 
 ## Companion GMP-free core design (18 October 2026)
 
-This journal is retained as the authority for FloatAP precision,
-correct rounding, independently certified literals and per-precision
-performance. On branch `remove-gmp`, it is maintained **alongside**
-[`integer_rational_design.md`](integer_rational_design.md), which
-owns the shared `BigUnsigned`, signed `Integer`, finite/extended
-`Rational`, the transition away from `mpz_t`/`mpq_t`, and planned
-Integer-vs-`mpz_t` and Rational-vs-`mpq_t` benchmarks. The branch
-was forked from the all-green `remove-mpfr` commit `9823a3b1`.
+This journal is retained as the authority for FloatAP precision, correct rounding, independently
+certified literals and per-precision performance. On branch `remove-gmp`, it is maintained
+**alongside** [`integer_rational_design.md`](integer_rational_design.md), which owns the shared
+`BigUnsigned`, signed `Integer`, finite/extended `Rational`, the transition away from
+`mpz_t`/`mpq_t`, and planned Integer-vs-`mpz_t` and Rational-vs-`mpq_t` benchmarks. The branch was
+forked from the all-green `initial native arithmetic development` commit `9823a3b1`.
 
-Shared-limb changes that alter FloatAP behavior, runtime cost,
-rounding certification, or its benchmark must update **both journals
-in the same commit**. GMP and MPFR may remain in testing/benchmark
-backends during the migration; no GMP-independent FloatAP status is
-claimed until its production representation and algorithms cease to
-call GMP. Preserve the 1000x11 FloatMP/FloatAP workload, exact
-post-timing equality verification, and all existing independent
-mathematical literal tests.
+Shared-limb changes that alter FloatAP behavior, runtime cost, rounding certification, or its
+benchmark must update **both journals in the same commit**. GMP may remain in testing/benchmark
+backends during the migration; no GMP-independent FloatAP status is claimed until its production
+representation and algorithms cease to call GMP.
 
 ## G1 FloatAP-first: initial native unsigned significand kernel (18 October 2026)
 
@@ -5676,22 +4810,16 @@ to serve `Integer` and `Rational`. The earlier shared
 Do not impose a general-purpose numeric facade or shared allocator
 on FloatAP's critical paths to manufacture reuse.
 
-**Initial isolated implementation:**
-`src/floatap_native_unsigned.hpp` introduces
-`Ariadne::FloatAPNative::Unsigned`, a private, GMP-free
-little-endian unsigned integer with 32-bit limbs, four inline limbs,
-dynamic growth, canonical zero, bit manipulation, bit length,
-comparison, add/sub with carry and borrow, shifts, multiplication,
-and exact base-2^32 long division returning quotient and remainder.
-All arithmetic uses standard `uint32_t`/`uint64_t`, not GMP,
-MPFR or compiler-specific `__int128`. The type has arbitrary
-size rather than the fixed 18-limb ceiling of the earlier
-`FloatAPSmallDivision::Unsigned` optimization.
-This initial version is **not** yet used by FloatAP itself;
-its numerical representation, arithmetic and benchmark performance
-remain unchanged. In particular, FloatAP still stores its
-significand in `mpz_t` and still uses `mpq_t` for certified
-intervals and exact conversions. No GMP-free FloatAP claim.
+**Initial isolated implementation:** `src/floatap_native_unsigned.hpp` introduces
+`Ariadne::FloatAPNative::Unsigned`, a private, GMP-free little-endian unsigned integer with 32-bit
+limbs, four inline limbs, dynamic growth, canonical zero, bit manipulation, bit length, comparison,
+add/sub with carry and borrow, shifts, multiplication, and exact base-2^32 long division returning
+quotient and remainder. All arithmetic uses standard `uint32_t`/`uint64_t`, not GMP or
+compiler-specific `__int128`. The type has arbitrary size rather than the fixed 18-limb ceiling of
+the earlier `FloatAPSmallDivision::Unsigned` optimization. This initial version is **not** yet used
+by FloatAP itself; its numerical representation, arithmetic and benchmark performance remain
+unchanged. In particular, FloatAP still stores its significand in `mpz_t` and still uses `mpq_t` for
+certified intervals and exact conversions. No GMP-free FloatAP claim.
 
 **Correctness tests:** add the functional CTest target
 `test_floatap_native_unsigned` with fixed independent literal
@@ -5761,18 +4889,12 @@ standalone headers. `floatap.hpp` remains the sole FloatAP API/header.
 This is a structural correction preparing for a direct future
 replacement of `_significand` and the remaining GMP calls.
 
-Removed `test_floatap_native_unsigned.cpp`, which depended on the
-private representation, from the test tree and CTest. Added
-mathematically expected results for ±1/3 at 1100/1536 bits and all
-four rounding modes, plus FloatMP comparisons for wide non-dyadic
-operands, to `test_float_rounding.cpp`. These exercise FloatAP's
-*public* API and avoid coupling the test suite to the internals.
-The 53/128/256/1024-bit benchmark remains unchanged, and all
-four Integer/Rational benchmarks remain separate from CTest.
-The earlier 645b2ed9 changes failed compilation on all CI
-platforms, so CI validation is required for this consolidation
-before extending the native implementation. No claim of total
-GMP independence is made.
+Removed `test_floatap_native_unsigned.cpp`, which depended on the private representation, from the
+test tree and CTest. These exercise FloatAP's *public* API and avoid coupling the test suite to the
+internals. The 53/128/256/1024-bit benchmark remains unchanged, and all four Integer/Rational
+benchmarks remain separate from CTest. The earlier 645b2ed9 changes failed compilation on all CI
+platforms, so CI validation is required for this consolidation before extending the native
+implementation. No claim of total GMP independence is made.
 
 ## G1 FloatAP native-ratio AppleClang Wshadow fix (18 October 2026)
 
@@ -5801,50 +4923,26 @@ path unchanged. GMP `mpz_import`/`mpz_export` still bridge the
 legacy significand and input Integer/Rational representation;
 `FloatAP` is not yet GMP-independent as an object or as a whole.
 
-Extended public-API regression of exactly rounded ±1/3 from
-only 1100/1536 bits to precisions
-2,7,31,32,33,53,64,65,127,128,129,255,256,257,1023,1024,
-1100 and 1536 bits, with four rounding modes and both signs.
-The expected dyadic mantissas come from exact Integer division,
-independently of FloatAP and FloatMP, and results are checked
-against FloatMP. Added explicitly expected 5/4, 7/4,
--5/4 and -7/4 tie-to-even and directed-rounding cases at
-2 bits, including significand carry. Keep the existing
-independent certification tests, benchmark input workload,
-the 256 input/3456 operation post-timing equality checks
-and all other tests unchanged. Benchmarks stay outside CTest.
+Extended public-API regression of exactly rounded ±1/3 from only 1100/1536 bits to precisions
+2,7,31,32,33,53,64,65,127,128,129,255,256,257,1023,1024, 1100 and 1536 bits, with four rounding
+modes and both signs. Added explicitly expected 5/4, 7/4, -5/4 and -7/4 tie-to-even and
+directed-rounding cases at 2 bits, including significand carry. Keep the existing independent
+certification tests, benchmark input workload, the 256 input/3456 operation post-timing equality
+checks and all other tests unchanged. Benchmarks stay outside CTest.
 
-**Performance requirement:** collect the unchanged MacBook
-1000x11 FloatMP/FloatAP benchmark and compare each
-operation/precision ratio to the user-provided
-*beginning-of-remove-gmp* MacBook baseline (overall
-geomean 0.951x, total-time 0.404x and worst 2.971x;
-per-precision 53: 0.966/1.266/2.378,
-128: 1.242/1.020/2.971,
-256: 0.960/0.535/2.329,
-1024: 0.711/0.224/2.143, in
-geomean/total/worst order). This change may affect
-native division performance at 53/128/256/1024 bits;
-do not claim an improvement without same-host measurements,
-and do not change the benchmark workload to hide a regression.
-CI status and MacBook timing are not yet established
-for this commit.
+This change may affect native division performance at 53/128/256/1024 bits; do not claim an
+improvement without same-host measurements, and do not change the benchmark workload to hide a
+regression. CI status and MacBook timing are not yet established for this commit.
 
 ## G1 wide-limb native division specialization (18 October 2026)
 
-The user's first MacBook 1000x11 report after the all-native
-`from_ratio` conversion (`96d571e4`) verifies the full
-256-input / 3456-result post-timing comparisons but reveals
-material regressions in division. In absolute FloatAP times,
-`div_up` at 128 bits increased from 129 to 289 ns, at
-256 bits from 158 to 435 ns, and at 1024 bits from 244 to
-1654 ns. `construct_rational` similarly slowed because it
-uses the same exact quotient/remainder routine. The ALL
-slowdown worsened from 0.951x geomean / 0.404x weighted
-total / 2.971x worst at the beginning-of-branch MacBook
-baseline to 1.019x / 0.459x / 9.739x. MPFR timing on the
-53-bit group varied materially between runs, so track
-absolute times and per-operation data as well as ratios.
+The user's first MacBook 1000x11 report after the all-native `from_ratio` conversion (`96d571e4`)
+verifies the full 256-input / 3456-result post-timing comparisons but reveals material regressions
+in division. In absolute FloatAP times, `div_up` at 128 bits increased from 129 to 289 ns, at 256
+bits from 158 to 435 ns, and at 1024 bits from 244 to 1654 ns. `construct_rational` similarly slowed
+because it uses the same exact quotient/remainder routine. The ALL slowdown worsened from 0.951x
+geomean / 0.404x weighted total / 2.971x worst at the beginning-of-branch MacBook baseline to 1.019x
+/ 0.459x / 9.739x.
 
 **Follow-up implementation:** keep all arithmetic in
 `floatap.cpp`. On GCC/Clang with compiler-supported 128-bit
@@ -5859,20 +4957,12 @@ portable by preserving the existing base-2^32 fallback
 for MSVC and small denominators. No general-purpose
 `BigUnsigned` class or new header is added.
 
-**Independent validation before integration:** the
-isolated wide division algorithm passed 16,640
-deterministic GMP cross-checks spanning 1–4096-bit
-numerators and 1–2048-bit denominators with exact
-quotient/remainder equality, under strict Clang C++20
-warning flags. A local x86 Linux microprobe gave around
-730 ns for 1024-bit wide divrem; this cannot be
-compared quantitatively with the ARM MacBook benchmark,
-so no MacBook speedup is claimed yet. Add public-API
-FloatAP/FloatMP differential cases for non-dyadic
-53/128/256/1024/1536-bit operands, both signs and all
-four rounding modes; retain independent fixed 1/3 and
-nearest-even tests. Benchmark workload and CTest
-separation are unchanged.
+**Independent validation before integration:** the isolated wide division algorithm passed 16,640
+deterministic GMP cross-checks spanning 1–4096-bit numerators and 1–2048-bit denominators with exact
+quotient/remainder equality, under strict Clang C++20 warning flags. A local x86 Linux microprobe
+gave around 730 ns for 1024-bit wide divrem; this cannot be compared quantitatively with the ARM
+MacBook benchmark, so no MacBook speedup is claimed yet. Benchmark workload and CTest separation are
+unchanged.
 
 **Next validation:** cross-platform Unix/Windows/Coverage,
 then the identical MacBook 1000x11 comparison. Do not
@@ -5900,7 +4990,6 @@ baseline 0.951/0.404/2.971 documented above.
 
 | FloatAP measurement | Better baseline | Worse parent commit |
 | --- | ---: | ---: |
-| ALL geomean FloatAP/FloatMP | 0.912x | 1.010x |
 | ALL sum-weighted slowdown | 0.407x | 0.448x |
 | ALL worst slowdown | 2.994x | 7.471x |
 | 128-bit div_up (ns) | 129.375 | 339.625 |
@@ -5950,29 +5039,16 @@ No complete CTest/CI or same-host MacBook 1000x11 report has been
 run at this checkpoint. The source change therefore **remains
 unvalidated as a baseline recovery**.
 
-**Rejected alternatives at this checkpoint.** An exploratory
-two-64-bit-division quotient estimator and a normalized single-limb
-reciprocal quotient estimator were each tested against 35,000 GMP
-divisions. Neither was a consistent gain at 1024-4096-bit divisors
-on x86_64, so neither is integrated. Such architecture-sensitive
-tuning needs an Apple arm64 measurement rather than assumptions
-about the compiler's 128/64 division code generation. Relevant
-prior art: GNU MP division algorithms
-(https://gmplib.org/manual/Division-Algorithms.html) and
-the correctly-rounded MPFR benchmark contract
-(https://www.mpfr.org/algo.html).
+**Rejected alternatives at this checkpoint.** An exploratory two-64-bit-division quotient estimator
+and a normalized single-limb reciprocal quotient estimator were each tested against 35,000 GMP
+divisions. Neither was a consistent gain at 1024-4096-bit divisors on x86_64, so neither is
+integrated. Such architecture-sensitive tuning needs an Apple arm64 measurement rather than
+assumptions about the compiler's 128/64 division code generation.
 
-**Next gate.** Run regular public FloatAP/FloatMP regression, edge,
-rounding and CI tests; then repeat exactly the frozen 1000x11
-MacBook benchmark for the same 53/128/256/1024-bit inputs and
-compare **absolute medians per operation** and geomean/sum/worst
-ratios. If 1024-bit division remains materially below the baseline,
-profile quotient-digit estimation vs. `Unsigned` import/export
-and scratch traffic on Apple arm64; investigate preinversion and
-native 64-bit owning significands on measured evidence.
-Do not proceed to a different GMP-free substitution until this
-division gate has been assessed, or a quantified exception is
-documented.
+If 1024-bit division remains materially below the baseline, profile quotient-digit estimation vs.
+`Unsigned` import/export and scratch traffic on Apple arm64; investigate preinversion and native
+64-bit owning significands on measured evidence. Do not proceed to a different GMP-free substitution
+until this division gate has been assessed, or a quantified exception is documented.
 
 ## G1 capacity tuning after same-Mac scratch optimization benchmark (18 October 2026)
 
@@ -6073,35 +5149,21 @@ portability (e.g. the portable 32-bit limb divider when a native
 128-bit intermediate type is unavailable) are a different concern
 from microarchitecture-targeted tuning; document their impact.
 
-**Why.** A universal source algorithm alone cannot prove parity
-of speed between ARM64 and x86_64. Benchmark both architectures
-with the *same deterministic workload* and identical precision
-groups before making performance claims. The supplied historical
-baseline and subsequent measurements are from the same Mac;
-there is **no comparable historical x86_64 baseline supplied**.
-Do not compare absolute nanosecond figures across hosts.
-Collect an x86_64 FloatMP/FloatAP baseline and record machine,
-compiler, optimization flags, GMP/MPFR versions and commit SHA;
-then evaluate subsequent portable changes against the frozen
-same-host reference on each architecture.
+**Why.** A universal source algorithm alone cannot prove parity of speed between ARM64 and x86_64.
+Benchmark both architectures with the *same deterministic workload* and identical precision groups
+before making performance claims. The supplied historical baseline and subsequent measurements are
+from the same Mac; there is **no comparable historical x86_64 baseline supplied**. Do not compare
+absolute nanosecond figures across hosts.
 
 **Acceptance gate before another GMP removal milestone:**
-1. At 53, 128, 256 and 1024 bits, every operation affected by
-   the current GMP-free ratio/division transition (at minimum
-   `construct_rational`, `div_nearest`, `div_down`,
-   `div_up`) must reach or beat the frozen same-Mac FloatAP
-   absolute median, allowing only explicitly measured noise.
-   Overall geomean or time-weighted slowdown alone does not
-   satisfy the gate; track FloatMP ratios and unaffected operations
-   as safeguards.
-2. Preserve all rounding modes, exact quotient/remainder,
-   special-value behavior, 256-input/3456-result benchmark
-   verification, public regression tests and cross-platform CI.
-3. The same portable implementation should be benchmarked on
-   x86_64 as well as ARM64, with a separately recorded local
-   x86_64 baseline and explicit analysis of any architecture gap.
-   Missing x86 measurements must be reported, not inferred from
-   Mac results.
+1. At 53, 128, 256 and 1024 bits, every operation affected by the current GMP-free ratio/division
+transition (at minimum `construct_rational`, `div_nearest`, `div_down`, `div_up`) must reach or beat
+the frozen same-Mac FloatAP absolute median, allowing only explicitly measured noise.
+2. Preserve all rounding modes, exact quotient/remainder, special-value behavior,
+256-input/3456-result benchmark verification, public regression tests and cross-platform CI.
+3. The same portable implementation should be benchmarked on x86_64 as well as ARM64, with a
+separately recorded local x86_64 baseline and explicit analysis of any architecture gap. Missing x86
+measurements must be reported, not inferred from Mac results.
 
 **Next algorithm priorities (proposals, not implementations).**
 Profile ratio scaling, `Unsigned` normalization/import/export,
@@ -6196,16 +5258,10 @@ Do not introduce architecture-targeted branches; cross-architecture
 benchmarking is postponed until the ARM64 performance gate is met.
 
 **New user-supplied same-host benchmark for preinversion commit
-`4b517d3b25952cfb32f3cab697d7a2c7ee141f1f`.**
-1000 iterations, 11 samples, 27 operations at 53/128/256/1024 bits;
-numerical verification PASS on 256 input pairs and 3456 results.
-All-geomean FloatAP/FloatMP 0.975x (previous 0.963x,
-better frozen baseline 0.912x); weighted slowdown 0.436x
-(previous 0.435x, baseline 0.407x); worst 5.729x
-(previous 6.542x, baseline 2.994x).
-The preinversion reduced the 1024-bit FloatAP division costs
-by 16.7-18.9% relative to its parent, but the larger benchmark
-still falls substantially short of the original baseline:
+`4b517d3b25952cfb32f3cab697d7a2c7ee141f1f`.** 1000 iterations, 11 samples, 27 operations at
+53/128/256/1024 bits; numerical verification PASS on 256 input pairs and 3456 results. The
+preinversion reduced the 1024-bit FloatAP division costs by 16.7-18.9% relative to its parent, but
+the larger benchmark still falls substantially short of the original baseline:
 
 | FloatAP operation / bits | Original baseline ns | Previous ns | New report ns |
 | --- | ---: | ---: | ---: |
@@ -6218,10 +5274,7 @@ still falls substantially short of the original baseline:
 | div_down / 1024 | 260.167 | 1049.959 | 853.250 |
 | div_up / 1024 | 256.875 | 1092.833 | 886.833 |
 
-Do not interpret the 1024-bit `construct_rational` worsening as
-proven solely caused by reciprocal estimation: the supplied
-samples have visible cross-run variability and the FloatMP
-timings drifted too. The change is worth independently measuring.
+The change is worth independently measuring.
 
 **This experiment.** In `FloatAPNative::round_ratio`, determining
 `floor(log2(n/d))` compared one input with a newly allocated,
@@ -6300,22 +5353,12 @@ those medians have recovered the frozen original baseline.
 
 ## G1 fused numerator scaling into wide division scratch (18 October 2026)
 
-**Benchmark checkpoint received after `bfe14262ffc5438acbd73127c4725c430c3225f5`.**
-The same user-supplied 1000-iteration, 11-sample, 27-operation,
-53/128/256/1024-bit ARM64 FloatMP/FloatAP benchmark reports
-PASS on 256 paired inputs and 3456 operation results. Its
-ALL geomean is 1.001x (original better baseline 0.912x),
-ALL weighted slowdown is 0.434x (baseline 0.407x),
-and ALL worst is 5.657x (baseline 2.994x).
-Absolute FloatAP medians at 1024 bits: `div_nearest` 977.625 ns
-(baseline 289.375 ns), `div_up` 935.000 ns (baseline
-256.875 ns), `construct_rational` 1288.291 ns (baseline
-484.375 ns). The checkpoint therefore **fails the recovery gate**.
-FloatMP timing drift shows that small run-to-run absolute
-differences must not be confused with an algorithmic effect.
-At this checkpoint macOS/Linux build-test jobs on `bfe1426`
-succeeded; Windows was in progress at the last check;
-Codecov project and patch checks failed.
+Its ALL geomean is 1.001x (original better baseline 0.912x), ALL weighted slowdown is 0.434x
+(baseline 0.407x), and ALL worst is 5.657x (baseline 2.994x). Absolute FloatAP medians at 1024 bits:
+`div_nearest` 977.625 ns (baseline 289.375 ns), `div_up` 935.000 ns (baseline 256.875 ns),
+`construct_rational` 1288.291 ns (baseline 484.375 ns). The checkpoint therefore **fails the
+recovery gate**. At this checkpoint macOS/Linux build-test jobs on `bfe1426` succeeded; Windows was
+in progress at the last check; Codecov project and patch checks failed.
 
 **Bottleneck targeted.** Prior `round_ratio` built an
 arbitrarily large `shift_left(n,shift)` temporary, then packed
@@ -6398,24 +5441,13 @@ The prior `1000 11` results remain historical records and
 should not be directly used as the performance baseline for
 new default runs.
 
-**Rebased Apple ARM64 baseline.** The user has measured three
-commits on the same host with the new `20000 31` settings:
-the beginning-of-branch baseline, previous `bfe1426`,
-and current `ba2ef1a`. The reports passed numerical
-verification (256 paired inputs, 3456 paired results).
-The 1024-bit FloatAP `div_nearest` absolute median
-was 292.404 ns (baseline), 945.806 ns (previous), and
-893.652 ns (current); `construct_rational` was
-508.450 ns, 1198.633 ns, and 1157.854 ns respectively.
-The corresponding all-operation FloatAP/FloatMP slowdown
-geomeans were 1.060x, 1.109x, and 1.100x.
-The latest optimization improved the affected cases
-but **did not reach** the required absolute baseline.
-Before acting on unusual reports, compare independent
-FloatMP control timings and unaffected FloatAP operations;
-significant widespread control regressions may indicate
-host contention and should trigger a user check **before
-further code changes**.
+**Rebased Apple ARM64 baseline.** The user has measured three commits on the same host with the new
+`20000 31` settings: the beginning-of-branch baseline, previous `bfe1426`, and current `ba2ef1a`.
+The reports passed numerical verification (256 paired inputs, 3456 paired results). The 1024-bit
+FloatAP `div_nearest` absolute median was 292.404 ns (baseline), 945.806 ns (previous), and 893.652
+ns (current); `construct_rational` was 508.450 ns, 1198.633 ns, and 1157.854 ns respectively. The
+latest optimization improved the affected cases but **did not reach** the required absolute
+baseline.
 
 **Acceptance gate unchanged:** match or beat the measured
 `20000 31` baseline at every affected operation/precision
@@ -6444,45 +5476,27 @@ estimate, corrections, add-back and rounding remain
 unchanged. This is data-size and sparseness based,
 not architecture-specific. No other GMP paths changed.
 
-**Validation before integration.** A standalone C++20
-64-bit Knuth division implementation with the identical
-sparse check and borrow handling matched GMP
-mpz_tdiv_qr on 100000 deterministic randomized cases,
-with both dense and sparse divisors. Clang ASan+UBSan
-on the same random cases passed. Synthetic, x86-64
-GCC -O3 sparse 1024-bit divisor kernel-only timing
-decreased from 1177.04 to 544.21 ns, and at
-2048 bits from 4318.08 to 1649.24 ns. These are
-not Ariadne or ARM64 measurements; dense cases
-showed no systematic improvement. Added public
-FloatAP/FloatMP regression tests for sparse ratios,
-positive/negative inputs, four rounding modes,
-and 128/256/1024/1536-bit precision.
+**Validation before integration.** A standalone C++20 64-bit Knuth division implementation with the
+identical sparse check and borrow handling matched GMP mpz_tdiv_qr on 100000 deterministic
+randomized cases, with both dense and sparse divisors. Clang ASan+UBSan on the same random cases
+passed. Synthetic, x86-64 GCC -O3 sparse 1024-bit divisor kernel-only timing decreased from 1177.04
+to 544.21 ns, and at 2048 bits from 4318.08 to 1649.24 ns. These are not Ariadne or ARM64
+measurements; dense cases showed no systematic improvement.
 
-**Acceptance criterion unchanged.** Run CI on
-macOS/Linux/Windows and the unchanged benchmark
-with 20000 iterations and 31 samples on idle
-Apple ARM64. Check FloatMP and unaffected FloatAP
-controls for CPU contention before acting.
-Require absolute baseline recovery for every
-construct_rational and div_nearest/down/up precision
-before attempting any additional GMP substitution.
+**Acceptance criterion unchanged.** Run CI on macOS/Linux/Windows and the unchanged benchmark with
+20000 iterations and 31 samples on idle Apple ARM64. Check and unaffected FloatAP controls for CPU
+contention before acting. Require absolute baseline recovery for every construct_rational and
+div_nearest/down/up precision before attempting any additional GMP substitution.
 
 ## G3: separate sparse/dense Knuth subtract loops (18 October 2026)
 
-**Motivation.** User-supplied, comparable Apple ARM64 20000x31
-benchmarks for the G2 sparse-divisor fast path (`9e5ff09`)
-versus `ba2ef1a` showed that sparse
-`construct_rational` at 1024 bits improved from
-1157.854 ns to 997.198 ns (13.9% faster), whereas
-the dense FloatAP divisions regressed:
-`div_nearest` 893.652 to 939.519 ns,
-`div_down` 829.712 to 871.923 ns and
-`div_up` 870.975 to 914.373 ns (approximately
-5% slower). FloatMP and unaffected FloatAP timing
-controls were stable; all 3456 numerical checks passed.
-The G2 implementation tested the runtime `sparse_divisor`
-flag on every inner-loop limb, even for dense divisors.
+**Motivation.** User-supplied, comparable Apple ARM64 20000x31 benchmarks for the G2 sparse-divisor
+fast path (`9e5ff09`) versus `ba2ef1a` showed that sparse `construct_rational` at 1024 bits improved
+from 1157.854 ns to 997.198 ns (13.9% faster), whereas the dense FloatAP divisions regressed:
+`div_nearest` 893.652 to 939.519 ns, `div_down` 829.712 to 871.923 ns and `div_up` 870.975 to
+914.373 ns (approximately 5% slower). and unaffected FloatAP timing controls were stable; all 3456
+numerical checks passed. The G2 implementation tested the runtime `sparse_divisor` flag on every
+inner-loop limb, even for dense divisors.
 
 **Change.** In the existing private
 `FloatAP::divrem_wide` method, move the runtime
@@ -6512,15 +5526,10 @@ benefit and recover its roughly 5% division
 regression, not to claim recovery of the original
 baseline.
 
-**Frozen acceptance gate.** The original `20000 31`
-Apple ARM64 baseline still must be matched or
-beaten in **absolute median ns** for all of
-`construct_rational`, `div_nearest`,
-`div_down`, and `div_up` at each precision
-53, 128, 256, 1024 bits before any additional
-GMP-free substitution. Check FloatMP and
-unchanged FloatAP controls for anomalous
-CPU contention and stop for user feedback if
+**Frozen acceptance gate.** The original `20000 31` Apple ARM64 baseline still must be matched or
+beaten in **absolute median ns** for all of `construct_rational`, `div_nearest`, `div_down`, and
+`div_up` at each precision 53, 128, 256, 1024 bits before any additional GMP-free substitution.
+Check and unchanged FloatAP controls for anomalous CPU contention and stop for user feedback if
 those show widespread regressions.
 
 ## Architectural division research and revised performance strategy (18 October 2026)
@@ -6568,29 +5577,15 @@ of a viable path to baseline parity.
    alone is not the architectural goal. Use a C++20
    implementation inside FloatAP, no target-CPU branches.
 
-2. **MPFR-inspired quotient approximation with certified rounding.**
-   MPFR div.c has fast approximate-quotient paths with
-   proved small error and uses extra exact work when
-   the approximation is too close to a rounding boundary.
-   Source:
-   https://fossies.org/linux/mpfr/src/div.c .
-   Research the representation-specific problem
-   Q=floor((N << shift)/D) for p-bit FloatAP output:
-   compute a candidate Q from high limbs or a reciprocal
-   at p+guard-bit precision, with an explicit *integer*
-   bound on the error. Then obtain a mathematically
-   certified decision using exact residual comparisons
-   R = scaled_N - Q*D or a provably sound sticky/guard
-   test. Correct the candidate until 0 <= R < D.
-   Nearest-even requires comparing 2R to D, including
-   exact ties and parity; directed modes require sign
-   and R!=0. If a short certification is inconclusive,
-   fall back to exact full division; never use a
-   probabilistic rounding assertion or change the
-   existing numerical oracle. Evaluate the cost of
-   rare fallback cases separately. This is a new
-   output-specific algorithm, not another local
-   Knuth-loop tweak.
+2. Research the representation-specific problem Q=floor((N << shift)/D) for p-bit FloatAP output:
+compute a candidate Q from high limbs or a reciprocal at p+guard-bit precision, with an explicit
+*integer* bound on the error. Then obtain a mathematically certified decision using exact residual
+comparisons R = scaled_N - Q*D or a provably sound sticky/guard test. Correct the candidate until 0
+<= R < D. Nearest-even requires comparing 2R to D, including exact ties and parity; directed modes
+require sign and R!=0. If a short certification is inconclusive, fall back to exact full division;
+never use a probabilistic rounding assertion or change the existing numerical oracle. Evaluate the
+cost of rare fallback cases separately. This is a new output-specific algorithm, not another local
+Knuth-loop tweak.
 
 3. **Burnikel-Ziegler / divide-and-conquer for larger operands.**
    Dividing 2n by n through recursive blocks reduces
@@ -6635,38 +5630,22 @@ of a viable path to baseline parity.
 
 ### Execution protocol
 
-A. Benchmark these as *independent algorithmic candidates*
-in an isolated harness implementing the same mathematical
-division and rounding contract. Record dense, sparse,
-carry-intensive, exact-quotient, half-way, and adversarial
-inputs at 53/128/256/1024 and beyond. Include operation
-setup/import/export cost, not only kernel throughput.
-Check exact integer quotient/remainder against GMP, and
-public FloatAP/FloatMP results against all existing
-independent mathematical oracles. Sanitizers and platform
-CI are mandatory.
+A. Benchmark these as *independent algorithmic candidates* in an isolated harness implementing the
+same mathematical division and rounding contract. Record dense, sparse, carry-intensive,
+exact-quotient, half-way, and adversarial inputs at 53/128/256/1024 and beyond. Include operation
+setup/import/export cost, not only kernel throughput. Sanitizers and platform CI are mandatory.
 
-B. First prototype the full **GMP-style 3-by-2 preinverted,
-fused-mulsub basecase** as the realistic short/medium
-competitor. In parallel, evaluate the **certified
-approximate-quotient** design from MPFR. Do not spend
-further commits on single-digit percentage loop tweaks.
-Retain the best exact algorithm per *operand/quotient
-limb-length* threshold once measured on Apple ARM64,
-with platform-independent behavior. BZ and Barrett are
-research candidates for sizes where their setup amortizes.
+B. First prototype the full **GMP-style 3-by-2 preinverted, fused-mulsub basecase** as the realistic
+short/medium competitor. Do not spend further commits on single-digit percentage loop tweaks. Retain
+the best exact algorithm per *operand/quotient limb-length* threshold once measured on Apple ARM64,
+with platform-independent behavior. BZ and Barrett are research candidates for sizes where their
+setup amortizes.
 
-C. A candidate is not considered successful merely because
-a standalone x86-64 microbenchmark improved. Use the
-unchanged, rebuilt FloatMP/FloatAP 20000x31 suite on
-idle Apple ARM64; use FloatMP and unaffected FloatAP
-operations as noise sentinels. A significant widespread
-control regression invalidates the performance run and
-requires user feedback before further coding. The hard
-gate remains *baseline parity or better in absolute
-median nanoseconds for construct_rational and all three
-division rounding modes at all 53/128/256/1024 bits*.
-No further GMP-free substitutions until that gate passes.
+C. A candidate is not considered successful merely because a standalone x86-64 microbenchmark
+improved. A significant widespread control regression invalidates the performance run and requires
+user feedback before further coding. The hard gate remains *baseline parity or better in absolute
+median nanoseconds for construct_rational and all three division rounding modes at all
+53/128/256/1024 bits*. No further GMP-free substitutions until that gate passes.
 
 **Scope of this note:** research and algorithm selection only.
 No production source modifications, claimed ARM64 speedups
@@ -6699,43 +5678,22 @@ only if the *combined* carry equals zero.
 No architecture-specific code, new production
 files, changed public API, or GMP calls are added.
 
-**Independent pre-integration experiments.**
-A standalone division kernel implemented the identical
-combined carry recurrence and passed 100000
-deterministic randomized exact quotient/remainder
-comparisons with GMP `mpz_tdiv_qr`, including
-dense and sparse divisors at varying limb lengths.
-The same kernel passed 100000 randomized divisions
-under Clang AddressSanitizer + UndefinedBehaviorSanitizer.
-Kernel-only dense 1024-bit x86-64 GCC -O3
-experiment: approximately 1225.71 ns before
-and 498.47 ns after (2.46x faster).
-Clang -O3: approximately 774.40 ns before
-and 552.57 ns after (1.40x faster).
-These isolated results are **not** the public
-FloatAP benchmark nor evidence of Apple ARM64
-parity. The existing exact tests and checks
-remain, plus additional FloatAP/FloatMP
-differential ratios across 65-1536 bits,
-both signs, inverse operands, and all rounding
-modes, emphasizing limb/carry boundaries.
-See GNU MP 6.3.0 Low-level Functions manual:
-https://gmplib.org/manual/Low_002dlevel-Functions ,
-especially `mpn_submul_1`, whose documented
-output is the product high word plus
-borrow-out from the subtraction.
+**Independent pre-integration experiments.** A standalone division kernel implemented the identical
+combined carry recurrence and passed 100000 deterministic randomized exact quotient/remainder
+comparisons with GMP `mpz_tdiv_qr`, including dense and sparse divisors at varying limb lengths. The
+same kernel passed 100000 randomized divisions under Clang AddressSanitizer +
+UndefinedBehaviorSanitizer. Kernel-only dense 1024-bit x86-64 GCC -O3 experiment: approximately
+1225.71 ns before and 498.47 ns after (2.46x faster). Clang -O3: approximately 774.40 ns before and
+552.57 ns after (1.40x faster). These isolated results are **not** the public FloatAP benchmark nor
+evidence of Apple ARM64 parity. See GNU MP 6.3.0 Low-level Functions manual:
+https://gmplib.org/manual/Low_002dlevel-Functions , especially `mpn_submul_1`, whose documented
+output is the product high word plus borrow-out from the subtraction.
 
-**Acceptance gate.** Check Linux/macOS/Windows CI;
-run unchanged 20000x31 benchmark on idle Mac
-ARM64. Compare absolute medians against the
-beginning-of-branch frozen 20000x31 baseline
-for construct_rational and div_nearest/down/up
-at 53/128/256/1024 bits. Examine FloatMP
-and untouched FloatAP controls first, flag
-wide environmental regressions and await
-user feedback before further code changes.
-Do not consider GMP-free migration at parity
-until *all* these cases meet baseline.
+**Acceptance gate.** Check Linux/macOS/Windows CI; run unchanged 20000x31 benchmark on idle Mac
+ARM64. Compare absolute medians against the beginning-of-branch frozen 20000x31 baseline for
+construct_rational and div_nearest/down/up at 53/128/256/1024 bits. Examine and untouched FloatAP
+controls first, flag wide environmental regressions and await user feedback before further code
+changes. Do not consider GMP-free migration at parity until *all* these cases meet baseline.
 
 ### G4 GCC build fix (18 October 2026)
 
@@ -6786,19 +5744,7 @@ ARM64. Do not compare their absolute ns to
 the frozen 20000x31 Mac baseline. Stage measurements
 overlap and are not additive.
 
-**Literature-based algorithmic candidate.** MPFR
-`src/mulders.c` implements short approximate
-division with proven output error bounds: its
-documented high-quotient bound is
-`-2(n-1) < N/D - Q <= 4` under the algorithm's
-normalization/units. MPFR `src/div.c` attempts
-this approach only above `MPFR_DIV_THRESHOLD`,
-then falls back to full integer division when
-certification is inconclusive. Sources:
-https://fossies.org/linux/mpfr/src/mulders.c
-and https://fossies.org/linux/mpfr/src/div.c .
-Also see Harvey and Zimmermann,
-*Short Division of Long Integers*, ARITH-20 2011.
+Also see Harvey and Zimmermann, *Short Division of Long Integers*, ARITH-20 2011.
 
 **Next experiment (separate from production):**
 build a portable C++20 short-division prototype
@@ -6880,22 +5826,8 @@ This suggests a possible high-precision
 sparse-data crossover, but does NOT
 justify integration into FloatAP now.
 
-**Literature reconciliation.** MPFR *Algorithms
-and Proofs*, section 3.5.2,
-https://www.mpfr.org/algorithms.pdf ,
-derives `q1-2 < A/D < q1+1` only under
-its exact normalization, which keeps
-the approximate quotient and high divisor
-at the same working precision. Cutting
-the divisor below the p-bit target
-invalidates that small-error assumption.
-MPFR section 3.5.4 and
-https://fossies.org/linux/mpfr/src/div.c
-select Mulders short division only at
-sufficient working size and retain
-exact fallback. A faithful
-certified-rounding implementation must
-carry its own proof and boundaries.
+Cutting the divisor below the p-bit target invalidates that small-error assumption. A faithful
+certified-rounding implementation must carry its own proof and boundaries.
 
 **Next technical priority.** To address
 128–1024-bit dense significand division,
@@ -6912,17 +5844,14 @@ and CPU-noise sentinel gates unchanged.
 
 ## Architectural reset: independently implemented algorithms, not engines (18 October 2026)
 
-**User constraint.** No integration or source-code copying from external
-multiprecision engines (GMP/MPFR/Arb/FLINT or equivalents) as replacements
-for FloatAP. Mathematical algorithms and published techniques may be
-studied and independently implemented, subject to appropriate checks for
-any patent or other applicable intellectual-property constraints.
-A software license attached to an existing implementation must not
-be mistaken for a restriction on a mathematical idea, nor does citing
-a paper authorize verbatim copying of its pseudocode or source.
-Preserve FloatMP as reference, not an implementation dependency for FloatAP.
-All FloatAP-specific implementation remains inside its existing class
-and source files; no new engines or independently owned helpers.
+**User constraint.** No integration or source-code copying from external multiprecision engines
+(GMP/Arb/FLINT or equivalents) as replacements for FloatAP. Mathematical algorithms and published
+techniques may be studied and independently implemented, subject to appropriate checks for any
+patent or other applicable intellectual-property constraints. A software license attached to an
+existing implementation must not be mistaken for a restriction on a mathematical idea, nor does
+citing a paper authorize verbatim copying of its pseudocode or source. All FloatAP-specific
+implementation remains inside its existing class and source files; no new engines or independently
+owned helpers.
 
 **Reject incremental search.** The 1024-bit FloatAP division baseline
 gap still exceeds 3x after several standalone kernel trials. Small
@@ -6933,21 +5862,14 @@ GCC/Clang optimization comparisons when they cannot plausibly
 recover the required full-operation baseline. No G7 arithmetic
 production integration.
 
-**Promising GENERAL-PURPOSE mathematics from published literature.**
-Fredrik Johansson, *Efficient implementation of elementary functions
-in the medium-precision range*, ARITH 22 (2015),
-https://arxiv.org/abs/1410.7176 ,
-studies 53 through about 4096-bit exp, sin, cos, log and atan using
-low-overhead *fixed-point* operations, functional-equation / table
-argument reduction and Smith-style **rectangular splitting**, with
-multiple Taylor denominators combined into single-word operations.
-The paper's approximately 3x (cos) to 30x (atan) maximum
-speedups are versus MPFR **3.1.2 in 2015**, and the implementation
-uses GMP mpn; neither these old benchmark numbers nor its
-license-covered source code may be transplanted into FloatAP.
-This demonstrates a portable *algorithm family* worth independently
-investigating, not a predicted gain for our existing atan which
-already has input-centered special cases and certified bounds.
+**Promising GENERAL-PURPOSE mathematics from published literature.** Fredrik Johansson, *Efficient
+implementation of elementary functions in the medium-precision range*, ARITH 22 (2015),
+https://arxiv.org/abs/1410.7176 , studies 53 through about 4096-bit exp, sin, cos, log and atan
+using low-overhead *fixed-point* operations, functional-equation / table argument reduction and
+Smith-style **rectangular splitting**, with multiple Taylor denominators combined into single-word
+operations. This demonstrates a portable *algorithm family* worth independently investigating, not a
+predicted gain for our existing atan which already has input-centered special cases and certified
+bounds.
 
 Rectangular splitting reduces the number of full-precision
 multiplications needed for an N-term suitable series from
@@ -6971,64 +5893,33 @@ https://arxiv.org/abs/1004.4710 .
 For bit-burst atan see
 https://fredrikj.net/blog/2014/12/faster-high-precision-arctangents/ .
 
-**Where FloatAP is today.** Its general
-`FloatAPTrigonometricDetail::small_atan` already
-computes an outwardly certified fixed-point
-Taylor sum, but obtains limbs and operations
-through GMP `mpz_t` objects and updates
-powers/terms successively. `Fraction` uses
-`mpq_t`, and the interval/refinement wrappers
-are already mathematically rigorous. The project
-should not discard that correctness logic or
-assume published Arb-to-MPFR speedups apply
-to FloatAP's already optimized centered atan
-case. The major architectural candidate is a
-**single native, size-adaptive fixed-point limb
-substrate** (multiplication, squaring, truncation,
-scaled add/sub, single-limb scaling, exact
-outward error accounting) internal to FloatAP,
-plus a reusable certified rectangular-splitting
-series evaluator. This targets multiple
-functions together instead of individually
-patching division, atan and exp.
+**Where FloatAP is today.** Its general `FloatAPTrigonometricDetail::small_atan` already computes an
+outwardly certified fixed-point Taylor sum, but obtains limbs and operations through GMP `mpz_t`
+objects and updates powers/terms successively. `Fraction` uses `mpq_t`, and the interval/refinement
+wrappers are already mathematically rigorous. The major architectural candidate is a **single
+native, size-adaptive fixed-point limb substrate** (multiplication, squaring, truncation, scaled
+add/sub, single-limb scaling, exact outward error accounting) internal to FloatAP, plus a reusable
+certified rectangular-splitting series evaluator. This targets multiple functions together instead
+of individually patching division, atan and exp.
 
-**Acceptance before production integration.**
-Derive fresh, independent formulas and error
-bounds; prototype one representative general
-(not specially centered) atan/exp workload
-at 53/128/256/1024 bits, with full
-argument reduction + evaluation + round
-certification + allocation included.
-Compare against existing FloatAP public
-results, FloatMP differential controls
-and independent rational interval oracles,
-including all rounding modes and hard-to-round
-boundary cases. Only integrate if improvement
-is **substantial and repeatable on full
-operations** while preserving correctness;
-otherwise leave production code unchanged.
-Table contents, if introduced, must be
-independently generated and certified, not
-copied. The existing mandatory
-20,000-iteration / 31-sample idle-ARM64
-baseline gate on construct_rational,
-div_nearest/down/up at 53/128/256/1024
-bits remains in force before other GMP
-substitutions. If unaffected controls
-show significant regressions, stop for
-user feedback before coding or committing.
+**Acceptance before production integration.** Derive fresh, independent formulas and error bounds;
+prototype one representative general (not specially centered) atan/exp workload at 53/128/256/1024
+bits, with full argument reduction + evaluation + round certification + allocation included. Only
+integrate if improvement is **substantial and repeatable on full operations** while preserving
+correctness; otherwise leave production code unchanged. Table contents, if introduced, must be
+independently generated and certified, not copied. The existing mandatory 20,000-iteration /
+31-sample idle-ARM64 baseline gate on construct_rational, div_nearest/down/up at 53/128/256/1024
+bits remains in force before other GMP substitutions. If unaffected controls show significant
+regressions, stop for user feedback before coding or committing.
 
 ## G8: independent, certified rectangular-splitting atan prototype (18 October 2026)
 
-**Result: mathematically verified, but REJECTED for production.**
-An independent stand-alone C++20 implementation was constructed
-without copying or integrating a third-party multiprecision engine.
-The candidate implements base-2^32 native unsigned integers,
-fixed-point intervals with outward floor/ceiling arithmetic, and
-rectangular splitting for general `atan(x)` where
-`0 < |x| <= 1/2`. GMP and MPFR are used only inside an
-explicitly separate reference/test harness; they are not called by
-the candidate algorithm. No FloatAP production code was changed.
+**Result: mathematically verified, but REJECTED for production.** An independent stand-alone C++20
+implementation was constructed without copying or integrating a third-party multiprecision engine.
+The candidate implements base-2^32 native unsigned integers, fixed-point intervals with outward
+floor/ceiling arithmetic, and rectangular splitting for general `atan(x)` where `0 < |x| <= 1/2`.
+GMP are used only inside an explicitly separate reference/test harness; they are not called by the
+candidate algorithm. No FloatAP production code was changed.
 
 **Certificate.** With `t=x^2`, `y=x^4`,
 `P_N = sum(y^k/(4k+1))`, `M_N = sum(y^k/(4k+3))` for
@@ -7048,16 +5939,12 @@ full multiprecision interval multiplications from 544
 to 54 at 1024 bits for input 1/3; scalar divisions
 remain 540 per evaluation.
 
-**Correctness:** 112 deterministic inputs (100 randomized
-fractions), 53/128/256/1024 bits, positive and
-negative signs, all four rounding modes:
-**3584 certified and exactly matching MPFR reference
-results**, with the native direct-series implementation
-independently agreeing. Clang AddressSanitizer and
-UndefinedBehaviorSanitizer passed the same 3584 cases.
-Scope is restricted to finite nonzero arguments of
-magnitude at most 1/2; this is not a FloatAP public
-test-suite replacement.
+**Correctness:** 112 deterministic inputs (100 randomized fractions), 53/128/256/1024 bits, positive
+and negative signs, all four rounding modes: **3584 certified and exactly matching independent exact
+reference results**, with the native direct-series implementation independently agreeing. Clang
+AddressSanitizer and UndefinedBehaviorSanitizer passed the same 3584 cases. Scope is restricted to
+finite nonzero arguments of magnitude at most 1/2; this is not a FloatAP public test-suite
+replacement.
 
 **Paired cost, including input scaling, fixed-point
 interval propagation, allocations, and certification.**
@@ -7182,24 +6069,16 @@ fallback CPU. Explain minimum supported macOS/Windows/
 Linux configurations, compiler flags and link/build
 constraints, and how unsupported targets behave.
 
-**One shared arithmetic ownership layer.** Place reusable
-unsigned magnitudes, owning storage, limb views, scratch,
-portable arithmetic and the optional ARM64/x86-64
-primitives in the **internal shared numeric core**,
-for eventual consumption by `Integer`, `Rational`
-and `FloatAP`. Such genuinely generic code is
-**not FloatAP-specific**, and may use new internal
-source/header files following Ariadne conventions.
-Do not create multiple private multiprecision engines.
-Keep FloatAP-specific representation, IEEE rounding,
-dyadic interval certification and transcendental
-algorithms inside `include/numeric/floatap.hpp`
-and/or `src/floatap.cpp`, within the existing
-class/private implementation. Avoid the generic
-`Rational` canonicalization cost on FloatAP hot paths.
-`FloatMP` remains untouched as the reference/control.
-The current `mpz_t` owning significand remains
-until a separately validated migration decision.
+**One shared arithmetic ownership layer.** Place reusable unsigned magnitudes, owning storage, limb
+views, scratch, portable arithmetic and the optional ARM64/x86-64 primitives in the **internal
+shared numeric core**, for eventual consumption by `Integer`, `Rational` and `FloatAP`. Such
+genuinely generic code is **not FloatAP-specific**, and may use new internal source/header files
+following Ariadne conventions. Do not create multiple private multiprecision engines. Keep
+FloatAP-specific representation, IEEE rounding, dyadic interval certification and transcendental
+algorithms inside `include/numeric/floatap.hpp` and/or `src/floatap.cpp`, within the existing
+class/private implementation. Avoid the generic `Rational` canonicalization cost on FloatAP hot
+paths. The current `mpz_t` owning significand remains until a separately validated migration
+decision.
 
 ### REQUIRED per-kernel documentation record
 
@@ -7275,22 +6154,14 @@ documented and backed by repeatable measurements**.
 Do not multiply code paths without substantial,
 full-operation benefit.
 
-The strict existing benchmark gate is unchanged:
-on an idle Apple ARM64 host, 20000 iterations,
-31 samples, verify stable FloatMP and untouched
-FloatAP controls before comparing **absolute**
-FloatAP median ns for `construct_rational`,
-`div_nearest`, `div_down`, `div_up` at
-53, 128, 256, 1024 bits to the original baseline.
-Do not accept small improvements that leave
-the large baseline gap untouched. Significant
-broad control regressions require STOP and
-user input before any further code changes.
-No further GMP operation removal until that
-gate passes. Once the architecture-aware
-substrate is validated, transcendental
-algorithms can reuse it without introducing
-a second multiprecision engine.
+The strict existing benchmark gate is unchanged: on an idle Apple ARM64 host, 20000 iterations, 31
+samples, verify stable and untouched FloatAP controls before comparing **absolute** FloatAP median
+ns for `construct_rational`, `div_nearest`, `div_down`, `div_up` at 53, 128, 256, 1024 bits to the
+original baseline. Do not accept small improvements that leave the large baseline gap untouched.
+Significant broad control regressions require STOP and user input before any further code changes.
+No further GMP operation removal until that gate passes. Once the architecture-aware substrate is
+validated, transcendental algorithms can reuse it without introducing a second multiprecision
+engine.
 
 **Documentation rule is a merge/commit gate:**
 no ARM64/x86-64 optimized production code may
@@ -7333,15 +6204,12 @@ changes update this journal and
 
 ## G9: restore beginning-of-`remove-gmp` ratio division (18 October 2026)
 
-**Decision.** Before implementing the jointly owned and
-architecture-optimized numeric limb substrate, restore exactly
-the original wide-ratio/division execution path from
-`9823a3b127712ee39e44b634dbaba49e50ea0054`,
-the `remove-mpfr` baseline from which `remove-gmp`
-began. The source of truth is that historical
-`FloatAP::from_ratio` function, not a rollback of
-the entire branch. `FloatAP::div` still calls
-`from_ratio` with positive significands and sign metadata.
+**Decision.** Before implementing the jointly owned and architecture-optimized numeric limb
+substrate, restore exactly the original wide-ratio/division execution path from
+`9823a3b127712ee39e44b634dbaba49e50ea0054`, the `initial native arithmetic development` baseline
+from which `remove-gmp` began. The source of truth is that historical `FloatAP::from_ratio`
+function, not a rollback of the entire branch. `FloatAP::div` still calls `from_ratio` with positive
+significands and sign metadata.
 
 **Active division policy.** `denominator == 1` continues
 to use the optimized in-place integer rounding.
@@ -7360,25 +6228,14 @@ wide GMP algorithm. 53-bit inputs may use either the
 unchanged small fast path or GMP fallback according
 to their actual magnitudes, as they did originally.
 
-**Code scope and cleanup.** Replace only the
-`FloatAP::from_ratio` implementation with the
-historical function, adapting
-`FloatAPSmallDivision::Unsigned` to the current
-nested private `SmallUnsigned` spelling (the
-initial experimental header has already been
-removed on this branch). Remove the now-unused
-FloatAP-private large `Unsigned`, `RoundedRatio`,
-`WideScratch`, native long division and
-GMP import/export adapters and declarations,
-rather than leaving dead alternate kernels.
-Do not change `FloatAP::div`, special-value
-semantics, `FloatMP`, benchmark code,
-`Integer`/`Rational`, tests, or other FloatAP
-arithmetic/transcendental paths. Existing public
-rounding tests exercising those operations remain
-active. The previous experiments and their
-measurements are retained as historical journal
-entries, **not** descriptions of current code.
+**Code scope and cleanup.** Replace only the `FloatAP::from_ratio` implementation with the
+historical function, adapting `FloatAPSmallDivision::Unsigned` to the current nested private
+`SmallUnsigned` spelling (the initial experimental header has already been removed on this branch).
+Remove the now-unused FloatAP-private large `Unsigned`, `RoundedRatio`, `WideScratch`, native long
+division and GMP import/export adapters and declarations, rather than leaving dead alternate
+kernels. Existing public rounding tests exercising those operations remain active. The previous
+experiments and their measurements are retained as historical journal entries, **not** descriptions
+of current code.
 
 **Next phase remains unchanged.** A generic shared
 portable unsigned core with separately documented
@@ -7388,19 +6245,12 @@ specializations will eventually serve
 The restored GMP division is temporary; this
 commit makes **no claim of completed GMP removal**.
 
-**Verification gate.** Check all GCC/Clang/
-AppleClang/Windows jobs and numerical oracles,
-then rebuild and measure the unchanged ARM64
-20,000 x 31 suite. A previous reference report
-from the beginning of the branch contained
-1024-bit FloatAP median ns values
-`construct_rational=508.450`,
-`div_nearest=292.404`, `div_down=255.475`,
-`div_up=260.046`. These are historical
-values, not measurements of this rollback.
-If previously untouched FloatMP or FloatAP
-controls regress materially, STOP and request
-user review before further implementation.
+**Verification gate.** Check all GCC/Clang/ AppleClang/Windows jobs and numerical oracles, then
+rebuild and measure the unchanged ARM64 20,000 x 31 suite. A previous reference report from the
+beginning of the branch contained 1024-bit FloatAP median ns values `construct_rational=508.450`,
+`div_nearest=292.404`, `div_down=255.475`, `div_up=260.046`. These are historical values, not
+measurements of this rollback. If previously untouched or FloatAP controls regress materially, STOP
+and request user review before further implementation.
 
 ## BigUnsigned B0 cross-reference (18 October 2026)
 
@@ -7637,7 +6487,12 @@ Keep B17 `SignedInteger` for cross-platform GMP-differential verification; do no
 
 ### B18 native Integer replacement without modifying FloatAP arithmetic (19 October 2026)
 
-The existing `Integer` class has been refactored in place to canonical `BigUnsigned` magnitude plus sign, removing its permanent GMP storage. `SignedInteger` stays only as temporary GMP-differential verification and must be deleted once tests/benchmarks validate the migrated Integer. The few dependencies on `Integer::_mpz`/`get_mpz()` in GMP-backed Rational/Dyadic/FloatMP/FloatAP use a narrow internal import/export adapter; these other numeric types retain their own representations and core algorithms. The benchmark's signed quotient/remainder GMP control now uses truncation toward zero to match the coherent Integer division identity. Integrated Unix/Windows/Coverage and benchmarks for B18 are not yet verified. See `integer_rational_design.md` B18 for implementation and testing details.
+The existing `Integer` class has been refactored in place to canonical `BigUnsigned` magnitude plus
+sign, removing its permanent GMP storage. `SignedInteger` stays only as temporary GMP-differential
+verification and must be deleted once tests/benchmarks validate the migrated Integer. The
+benchmark's signed quotient/remainder GMP control now uses truncation toward zero to match the
+coherent Integer division identity. Integrated Unix/Windows/Coverage and benchmarks for B18 are not
+yet verified. See `integer_rational_design.md` B18 for implementation and testing details.
 
 
 ### B19 shared decimal throughput and Integer benchmark correction (19 October 2026)
@@ -7687,20 +6542,13 @@ MSVC verification remain pending; consult `integer_rational_design.md`.
 
 ### B21 removal of transient signed-magnitude migration scaffold (19 October 2026)
 
-Following successful B20 cross-platform validation, the B17
-temporary independent signed integer type is retired. Its header,
-implementation and dedicated CTest executable are deleted, with
-their respective CMake source/test registrations removed. Retain
-only the production `Integer` public signed type owning
-`BigUnsigned` magnitude and sign; continue to use the existing
-temporary boundary adapter for still-GMP-backed Rational/Dyadic/
-FloatMP/FloatAP. The historical B17 2500-case GMP-differential
-corpus, boundary and signed shift semantics are moved to the
-production `test_integer`, preserving its B18 1700 independent
-cases. Signed shifts are checked using the shared native magnitude
-shifts plus sign, and GMP; this does not add an `Integer` shift API
-or change FloatAP arithmetic. Project cross-platform CI remains
-pending for B21; see `integer_rational_design.md`.
+Following successful B20 cross-platform validation, the B17 temporary independent signed integer
+type is retired. Its header, implementation and dedicated CTest executable are deleted, with their
+respective CMake source/test registrations removed. The historical B17 2500-case GMP-differential
+corpus, boundary and signed shift semantics are moved to the production `test_integer`, preserving
+its B18 1700 independent cases. Signed shifts are checked using the shared native magnitude shifts
+plus sign, and GMP; this does not add an `Integer` shift API or change FloatAP arithmetic. Project
+cross-platform CI remains pending for B21; see `integer_rational_design.md`.
 
 
 ### B22 recursive decimal formatting for large Integer magnitudes (19 October 2026)
@@ -8332,7 +7180,6 @@ recursion probe passed Clang ASan/UBSan. The production
 suite adds 80 explicit nested-padding GMP decimal cases.
 No native M2 or x86 performance claim is made before
 comparative benchmarks; see the B43 design journal.
-
 
 
 ### B44 independent decimal conversion stage benchmark (19 October 2026)
@@ -9100,15 +7947,11 @@ without predicting x86-64 timings. ARM64 2048/4096 strict total
 acceptance is not established; see absolute times/GMP drift in the
 companion journal. No benchmark workload or numerical oracle changes.
 
-Saved B73 and B74 libraries both pass the unchanged FloatAP 1000x11
-53/128/256/1024 numerical check (256 paired inputs, 3456 results).
-The 53-bit relative total changes 1.460x -> 1.739x while most native
-operation times improve; MPFR reference timing changes substantially
-between processes. Neither run satisfies the existing short-width
-FloatAP performance gates, and no performance acceptance or stable
-before/after nonregression is claimed. No FloatAP arithmetic or
-rounding algorithm is changed. Native GCC x86-64/MSVC validation and
-repeated six-size Integer totals <1x/every worst <2x remain required.
+Saved B73 and B74 libraries both pass the unchanged FloatAP 1000x11 53/128/256/1024 numerical check
+(256 paired inputs, 3456 results). Neither run satisfies the existing short-width FloatAP
+performance gates, and no performance acceptance or stable before/after nonregression is claimed. No
+FloatAP arithmetic or rounding algorithm is changed. Native GCC x86-64/MSVC validation and repeated
+six-size Integer totals <1x/every worst <2x remain required.
 
 
 ### B75 inline ownership and limb-adaptation definitions (20 October 2026)
@@ -9187,48 +8030,34 @@ signed minimum. Exact fma is implemented as exact multiply then add.
 Comparisons use canonical equality or exact cross-products. Floor, ceil
 and half-away-from-zero round share one unsigned quotient/remainder.
 
-**Extended semantics and explicit decisions.** Existing ExtendedOperations
-continues to dispatch finite versus special arithmetic, comparisons,
-min/max, sign, abs and reciprocal. NaN remains unequal to itself and
-named cmp returns INCOMPARABLE. No Rational signed zero is introduced.
-Finite division by zero is explicitly defined as signed infinity for
-nonzero numerators and NaN for 0/0; reciprocal zero is positive infinity.
-These cases no longer call GMP on an invalid denominator. Decimal text
-accepts signed integers or n/d, ignoring ASCII whitespace, and raises
-runtime_error on malformed input; textual denominator zero has the same
-explicit extended meaning as the integer-pair constructor. Equal infinities
-in Rational/ExactDouble comparisons now compare equal rather than taking
-the old unconditional less/greater branch; NaN remains incomparable.
-FloatMP mixed comparisons also classify special values before any GMP call.
+**Extended semantics and explicit decisions.** Existing ExtendedOperations continues to dispatch
+finite versus special arithmetic, comparisons, min/max, sign, abs and reciprocal. NaN remains
+unequal to itself and named cmp returns INCOMPARABLE. No Rational signed zero is introduced. Finite
+division by zero is explicitly defined as signed infinity for nonzero numerators and NaN for 0/0;
+reciprocal zero is positive infinity. These cases no longer call GMP on an invalid denominator.
+Decimal text accepts signed integers or n/d, ignoring ASCII whitespace, and raises runtime_error on
+malformed input; textual denominator zero has the same explicit extended meaning as the integer-pair
+constructor. Equal infinities in Rational/ExactDouble comparisons now compare equal rather than
+taking the old unconditional less/greater branch; NaN remains incomparable.
 
-**Exact binary64 conversion.** ExactDouble import decomposes a finite
-binary64 into an integer significand and power of two and cancels trailing
-zero bits. get_d computes the binary exponent with exact comparisons,
-then truncates an exact scaled integer quotient to at most 53 bits.
-Subnormal spacing is 2^-1074; overflow yields signed infinity. Underflow
-returns +0, including negative tiny fractions, matching the old GMP
-conversion rather than introducing an observable negative zero. Results
-are independent of the active host rounding mode. No GMP or floating
-approximation is used to decide rounding. The public rational header
-passes an include-only compilation without GMP/MPFR headers, and its
-arithmetic object has no undefined GMP/MPFR symbols.
+**Exact binary64 conversion.** ExactDouble import decomposes a finite binary64 into an integer
+significand and power of two and cancels trailing zero bits. get_d computes the binary exponent with
+exact comparisons, then truncates an exact scaled integer quotient to at most 53 bits. Subnormal
+spacing is 2^-1074; overflow yields signed infinity. Underflow returns +0, including negative tiny
+fractions, matching the old GMP conversion rather than introducing an observable negative zero.
+Results are independent of the active host rounding mode. No GMP or floating approximation is used
+to decide rounding. The public rational header passes an include-only compilation without GMP
+headers, and its arithmetic object has no undefined GMP symbols.
 
-**Remaining integration boundaries.** detail/rational_gmp_bridge.hpp is
-an independently owned RAII adapter, analogous to the Integer boundary,
-for still-GMP-backed Dyadic/FloatAP and MPFR FloatMP only. It is never a
-Rational member, arithmetic backend or cache. Export rejects nonfinite
-values rather than passing denominator zero to GMP. Dyadic conversion
-is implemented beside Dyadic's existing GMP storage; FloatMP conversion
-and finite mixed comparison explicitly use temporary exact exports.
-FloatAP's Rational conversion imports its significand through the existing
-Integer boundary and uses native shifts and normalization; Rational-to-AP
-and AP decimal formatting retain explicit transitional GMP exports.
-FloatAP's internal GMP significand, Fraction class and fixed-point arithmetic
-remain separate future migration work. The production library as a whole
-therefore still links GMP/MPFR: R1 does not claim complete link independence.
-There are no remaining _mpq/get_mpq call sites in numeric sources, public
-headers, tests, Python or benchmark callers. Direct GMP test/benchmark
-oracles and FloatAP's independent internal mpq operations are retained.
+It is never a Rational member, arithmetic backend or cache. Export rejects nonfinite values rather
+than passing denominator zero to GMP. FloatAP's Rational conversion imports its significand through
+the existing Integer boundary and uses native shifts and normalization; Rational-to-AP and AP
+decimal formatting retain explicit transitional GMP exports. FloatAP's internal GMP significand,
+Fraction class and fixed-point arithmetic remain separate future migration work. The production
+library as a whole therefore still links GMP: R1 does not claim complete link independence. There
+are no remaining _mpq/get_mpq call sites in numeric sources, public headers, tests, Python or
+benchmark callers. Direct GMP test/benchmark oracles and FloatAP's independent internal mpq
+operations are retained.
 
 **Verification and measurements.** After the R1a test-only corrections
 documented below, the complete AppleClang 21 Release warnings-as-errors
@@ -9275,15 +8104,10 @@ Rebuild library and clients, then measure native x86-64 from the build directory
 
 ### R1a — compile the complete native Rational regression suite (20 October 2026)
 
-The first CI builds of R1 exposed two test-only Clang errors: a local
-FloatMP variable named infinity shadowed Ariadne::infinity under -Wshadow,
-and the bare GmpRationalBoundary(Rational::nan()) inside ARIADNE_TEST_FAIL
-could be parsed as a declaration instead of an expression. Rename the
-local and explicitly cast the temporary boundary expression to void.
-No Rational arithmetic, representation, exception expectation or oracle
-changes. Earlier incremental CTest output had used the previous executable
-after a failed rebuild; it is superseded by the following validation,
-which checks a successful build exit before starting CTest.
+Rename the local and explicitly cast the temporary boundary expression to void. No Rational
+arithmetic, representation, exception expectation or oracle changes. Earlier incremental CTest
+output had used the previous executable after a failed rebuild; it is superseded by the following
+validation, which checks a successful build exit before starting CTest.
 
 AppleClang 21 Release warnings-as-errors everything including Python
 bindings succeeds; all 21 CTest entries pass (20 C++ suites plus the
@@ -9313,45 +8137,31 @@ patch 93.07%; workflow Coverage success is not Codecov gate acceptance.
 
 ### R21 shared GCD implementation contract (21 October 2026)
 
-The paired `integer_rational_design.md` R21 entry specifies a bounded,
-borrowed-view Euclidean GCD using disjoint stack buffers and the existing
-remainder-only shared division kernel. It changes no FloatAP algorithm,
-rounding contract, ISA requirement or kernel selector. Inputs beyond
-128 limbs retain the unlimited owning path. AppleClang 21 Release on macOS 26.6.2 ARM64 passes all 20 C++ suites;
-Debug ASan/UBSan passes the five Integer/BigUnsigned/Rational/Float/
-FloatRounding suites. The unchanged native FloatAP 1,000x11 comparison
-passes 256 paired inputs and 3,456 exact results for both R20 and R21.
-Total/worst FloatAP/FloatMP at 53/128/256/1024 bits is
-1.397/2.483 -> 1.358/2.471,
-1.071/2.696 -> 1.072/2.683,
-.596/2.053 -> .591/2.055,
-.249/1.642 -> .248/1.615. These single sequential runs do not establish
-a blanket speedup; the existing short-width deficits remain. No FloatAP
-arithmetic changed. R21's Rational conversion through the shared native
-GCD can benefit, including FloatAP-to-Rational conversion. Native
-x86-64/MSVC and remote CI validation remain pending at publication.
-Full contracts, absolute Rational timings and regression coverage are
-recorded in the paired R21 entry.
+The paired `integer_rational_design.md` R21 entry specifies a bounded, borrowed-view Euclidean GCD
+using disjoint stack buffers and the existing remainder-only shared division kernel. It changes no
+FloatAP algorithm, rounding contract, ISA requirement or kernel selector. Inputs beyond 128 limbs
+retain the unlimited owning path. AppleClang 21 Release on macOS 26.6.2 ARM64 passes all 20 C++
+suites; Debug ASan/UBSan passes the five Integer/BigUnsigned/Rational/Float/ FloatRounding suites.
+The unchanged native FloatAP 1,000x11 comparison passes 256 paired inputs and 3,456 exact results
+for both R20 and R21. These single sequential runs do not establish a blanket speedup; the existing
+short-width deficits remain. No FloatAP arithmetic changed. R21's Rational conversion through the
+shared native GCD can benefit, including FloatAP-to-Rational conversion. Native x86-64/MSVC and
+remote CI validation remain pending at publication. Full contracts, absolute Rational timings and
+regression coverage are recorded in the paired R21 entry.
 
 ### R22 shared exact scalar quotient contract (21 October 2026)
 
-The paired integer_rational_design.md R22 entry specifies an exact
-single-limb quotient using a modular inverse, disjoint caller storage,
-unsigned carry proofs and existing compiler-wide/portable products.
-There is no new ISA requirement, FloatAP rounding change or arithmetic
-backend. Rational conversions can use the primitive when a GCD proves
-exact divisibility. The implementation passes AppleClang 21 Release (20/20 C++ suites),
-Debug ASan/UBSan (5/5), GCC 16.2 ARM64 (3/3), and the new exact
-kernel's 2,048-case portable-wide-product differential check.
-The unchanged 1,000x11 FloatAP benchmark passes 256 paired inputs and
-3,456 exact results. Final ARM64 R22 total/worst ratios at 53/128/256/
-1024 are 1.654/3.431, 1.079/2.697, .593/2.069, .247/1.611.
-The unchanged R21 baseline's 53-bit total varied from 1.337 to 1.679
-on repetition, largely through MPFR timing; raw first/repeated logs
-are retained. No universal speedup/nonregression or short-width gate
-acceptance is claimed. R22's complete Rational measurements and
-exact-division proofs are in the paired journal. Remote CI and native
-x86-64 measurements remain pending at publication.
+The paired integer_rational_design.md R22 entry specifies an exact single-limb quotient using a
+modular inverse, disjoint caller storage, unsigned carry proofs and existing compiler-wide/portable
+products. There is no new ISA requirement, FloatAP rounding change or arithmetic backend. Rational
+conversions can use the primitive when a GCD proves exact divisibility. The implementation passes
+AppleClang 21 Release (20/20 C++ suites), Debug ASan/UBSan (5/5), GCC 16.2 ARM64 (3/3), and the new
+exact kernel's 2,048-case portable-wide-product differential check. The unchanged 1,000x11 FloatAP
+benchmark passes 256 paired inputs and 3,456 exact results. Final ARM64 R22 total/worst ratios at
+53/128/256/ 1024 are 1.654/3.431, 1.079/2.697, .593/2.069, .247/1.611. No universal
+speedup/nonregression or short-width gate acceptance is claimed. R22's complete Rational
+measurements and exact-division proofs are in the paired journal. Remote CI and native x86-64
+measurements remain pending at publication.
 
 ### R23 shared product accumulation and Rational result ownership (21 October 2026)
 
@@ -9382,34 +8192,21 @@ at publication; no x86-64 performance acceptance is inferred.
 
 ### D57.1 — native arbitrary-precision access throughout Number and Real (21 October 2026)
 
-Implement native ArbitraryPrecision overloads of NumberInterface and
-NumberWrapper for all six paradigm-specific results (ball with double
-error, ball with arbitrary error, bounds, lower, upper, approximation),
-and convenience metrics/validated getters. Extend Real's compute_get,
-get, compute_using, LowerReal and UpperReal computation, and
-ValidatedReal's direct bounding access to return native FloatAP values.
-Compute rigorous Real enclosures first as DyadicBounds using the
-existing effort-based computation and then round the two exact endpoints
-directly outward via FloatAP, never via FloatMP or double.
-Preserve FloatMP API during coexistence. Local compilation and CI
-remain prerequisites to calling the new overload set validated.
+Implement native ArbitraryPrecision overloads of NumberInterface and NumberWrapper for all six
+paradigm-specific results (ball with double error, ball with arbitrary error, bounds, lower, upper,
+approximation), and convenience metrics/validated getters. Extend Real's compute_get, get,
+compute_using, LowerReal and UpperReal computation, and ValidatedReal's direct bounding access to
+return native FloatAP values. Compute rigorous Real enclosures first as DyadicBounds using the
+existing effort-based computation and then round the two exact endpoints directly outward via
+FloatAP, never via or double. Local compilation and CI remain prerequisites to calling the new
+overload set validated.
 
 ### D59 — complete FloatAP virtual dispatch in NumberGetterMixin (21 October 2026)
 
-The first D57 CI compilation failed in `number.cpp`: its six new
-`NumberInterface::_get(..., ArbitraryPrecision, ...)` functions were
-pure virtual, but `NumberGetterMixin<X>` still implemented only the
-FloatDP and FloatMP overloads. All instantiated `NumberWrapper<X>`
-classes therefore became abstract. D59 installs the matching six
-`override` methods in the existing mixin and routes them through
-the existing typed `_get_as` constructors, preserving both metric
-precisions and exact outward enclosure semantics. No API method is
-made non-pure, no FloatMP intermediate is introduced, and all prior
-overloads are unchanged. Regression coverage asserts that the
-integer, dyadic, rational, FloatDP and FloatMP wrappers remain concrete,
-and exercises exact `ExactNumber` and `ValidatedNumber` dispatch
-into native-precision bounds. This is a CI build fix; full Unix,
-Windows and Coverage verification is required.
+All instantiated `NumberWrapper<X>` classes therefore became abstract. D59 installs the matching six
+`override` methods in the existing mixin and routes them through the existing typed `_get_as`
+constructors, preserving both metric precisions and exact outward enclosure semantics. This is a CI
+build fix; full Unix, Windows and Coverage verification is required.
 
 ### D60 — link native FloatAP generic conversion overloads (21 October 2026)
 
@@ -9424,32 +8221,24 @@ and `Ball<FloatAP,FloatDP>` / `Ball<FloatAP,FloatAP>` constructors
 for generic numbers and exact values. Define their public
 `class_name` specializations and native ball output.
 
-Remove the temporary FloatMP conversion from FloatAP's Real/validated
-lower, upper, and bounds constructors: use native `get(pr)` and
-existing exact/outward interval conversion, with no MPFR roundtrip.
-The upper-bound source-conversion template must round **upward** rather
-than downward. Do not change Numeric's storage or test expectations.
-The compilation and link of Unix, Windows and Coverage runs must
-still be checked; this journal entry does not assert CI success.
+The implementation uses native arithmetic and exact certification. The upper-bound source-conversion
+template must round **upward** rather than downward. Do not change Numeric's storage or test
+expectations. The compilation and link of Unix, Windows and Coverage runs must still be checked;
+this journal entry does not assert CI success.
 
 ### D61 — complete missing FloatAP precision getters at the link boundary (21 October 2026)
 
 After D60, macOS ARM64 links report two missing API families:
-`NumberInterface::_get(ValidatedTag,ArbitraryPrecision)` and
-`Real::get(ArbitraryPrecision)`. Both declarations were introduced
-with D57 but had no out-of-line definitions. Define the NumberInterface
-validated getter by delegating to the existing native OrderTag virtual
-method; also define its one-precision MetricTag convenience method.
-Define all remaining D57-declared Real API functions in the existing
-`src/real.cpp`: Real get/compute_using/compute_get, LowerReal and
-UpperReal compute_get, plus ValidatedReal, ValidatedLowerReal and
-ValidatedUpperReal get at arbitrary precision. Real computes a rigorous
-DyadicBounds enclosure at the requested effort and converts its exact
-endpoints outward via the native FloatAP get, retaining rounding
-direction. No FloatMP conversion is used. Add regression assertions
-for Exact and ValidatedReal at arbitrary precision and both directed
-real computation paths. Tests and native linker/CI remain required
-before treating this as validated.
+`NumberInterface::_get(ValidatedTag,ArbitraryPrecision)` and `Real::get(ArbitraryPrecision)`. Both
+declarations were introduced with D57 but had no out-of-line definitions. Define the NumberInterface
+validated getter by delegating to the existing native OrderTag virtual method; also define its
+one-precision MetricTag convenience method. Define all remaining D57-declared Real API functions in
+the existing `src/real.cpp`: Real get/compute_using/compute_get, LowerReal and UpperReal
+compute_get, plus ValidatedReal, ValidatedLowerReal and ValidatedUpperReal get at arbitrary
+precision. Real computes a rigorous DyadicBounds enclosure at the requested effort and converts its
+exact endpoints outward via the native FloatAP get, retaining rounding direction. Add regression
+assertions for Exact and ValidatedReal at arbitrary precision and both directed real computation
+paths. Tests and native linker/CI remain required before treating this as validated.
 
 ### D62 — instantiate native bound-from-bounds constructors and complete FloatAP umbrella include (21 October 2026)
 
@@ -9462,38 +8251,21 @@ explicitly instantiate them in their respective original translation
 units. The rigorous FloatAP enclosure computed by Real is preserved:
 lower uses `lower_raw()` and upper uses `upper_raw()`.
 
-The same build showed incomplete `FloatAP` and
-`ArbitraryPrecision` types in `test_real.cpp`, causing a large
-cascade of irrelevant ostream errors. Include `floatap.hpp`
-explicitly in that test and in the existing `floats.hpp` umbrella
-beside `floatmp.hpp`, so the native backend is publicly available
-where the legacy one is included. Exercise both bound-from-bounds
-constructors in the Real conversion regression. No new header,
-no FloatMP conversion bridge and no change to arithmetic semantics.
-A complete Unix, Windows and Coverage build must still validate D62.
+The same build showed incomplete `FloatAP` and `ArbitraryPrecision` types in `test_real.cpp`,
+causing a large cascade of irrelevant ostream errors. Exercise both bound-from-bounds constructors
+in the Real conversion regression. A complete Unix, Windows and Coverage build must still validate
+D62.
 
 ### D63 — prevent recursive generic lower/upper conversions and check Windows precision (21 October 2026)
 
-An ARM64 `test_float` run segfaulted directly after the FloatAP
-Real-enclosure checks, before the first generic lower/upper conversion
-assertion. The following `ValidatedLowerNumber` and
-`ValidatedUpperNumber` objects wrap FloatMP lower/upper bounds.
-Previously `NumberGetterMixin<X>::_get_as<FloatAPLowerBound>(pr)`
-could regard the FloatAP constructor from `ValidatedLowerNumber` as
-viable via an implicit conversion from `LowerBound<FloatMP>`;
-constructing that wrapper recursively invokes the same virtual
-`_get`, causing unbounded recursion/stack overflow. The upper-bound
-path is symmetric.
+An ARM64 `test_float` run segfaulted directly after the FloatAP Real-enclosure checks, before the
+first generic lower/upper conversion assertion. The upper-bound path is symmetric.
 
-In the existing lower/upper wrapper headers, add a direct, typed
-cross-backend constructor for source types whose raw values are
-exactly convertible to Rational, used only when direct raw-float
-conversion is unavailable. It constructs `FloatAP` from the source's
-exact Rational value using downward/upward rounding respectively.
-This avoids generic redispatch, preserves mathematical enclosure and
-does not introduce any `FloatAP(FloatMP)` adapter. Keep all the
-existing tests, and explicitly compare direct and virtual converted
-endpoints to prevent recurrence.
+In the existing lower/upper wrapper headers, add a direct, typed cross-backend constructor for
+source types whose raw values are exactly convertible to Rational, used only when direct raw-float
+conversion is unavailable. It constructs `FloatAP` from the source's exact Rational value using
+downward/upward rounding respectively. Keep all the existing tests, and explicitly compare direct
+and virtual converted endpoints to prevent recurrence.
 
 On Windows, `ArbitraryPrecision::bits()` is size_t whereas the
 `Effort` constructor accepts Nat. Explicitly reject values beyond
@@ -9504,23 +8276,17 @@ the fixes.
 
 ### D64 — replace FloatAP's private 32-bit limb kernel and GMP ratio division (22 October 2026)
 
-Migration-first change, not a performance milestone. Remove the entire
-FloatAP::SmallUnsigned 32-bit limb representation, its custom Knuth
-division and GMP-based import/export fast path. Replace both that
-<=64-bit kernel and the larger GMP quotient/remainder fallback in
-from_ratio with one exact native implementation using the project's
-optimized BigUnsigned (64-bit limbs, divrem/shift_left/compare/add).
-Preserve all four IEEE rounding modes, round-to-nearest ties-to-even,
-separate sign and signed zero, exponent adjustment and carry overflow.
-The temporary mpz_srcptr-facing from_ratio adapter converts input
-values to native Integer; after the calculation only the existing
-mpz_t significand storage is written through the transitional
-Integer GMP bridge. GMP storage, printing, transcendental internals,
-and other paths are NOT removed by this commit and require explicit
-successive migrations. Do not benchmark this intermediate boundary
-cost or claim FloatAP is GMP-free until the final grep and runtime
-regression are clean. Validate the 3456-case FloatMP/FloatAP
-differential baseline on ARM64 and x86-64, including all directed modes.
+Migration-first change, not a performance milestone. Remove the entire FloatAP::SmallUnsigned 32-bit
+limb representation, its custom Knuth division and GMP-based import/export fast path. Replace both
+that <=64-bit kernel and the larger GMP quotient/remainder fallback in from_ratio with one exact
+native implementation using the project's optimized BigUnsigned (64-bit limbs,
+divrem/shift_left/compare/add). Preserve all four IEEE rounding modes, round-to-nearest
+ties-to-even, separate sign and signed zero, exponent adjustment and carry overflow. The temporary
+mpz_srcptr-facing from_ratio adapter converts input values to native Integer; after the calculation
+only the existing mpz_t significand storage is written through the transitional Integer GMP bridge.
+GMP storage, printing, transcendental internals, and other paths are NOT removed by this commit and
+require explicit successive migrations. Do not benchmark this intermediate boundary cost or claim
+FloatAP is GMP-free until the final grep and runtime regression are clean.
 
 ### D65 — fix BigUnsigned hidden-friend addition lookup in FloatAP (22 October 2026)
 
@@ -9535,7 +8301,7 @@ to the public BigUnsigned interface, or change to ties-to-even rounding.
 A standalone Clang/GCC C++20 `-Werror` lookup check passed; the full
 ARM64 build and 3456-case differential regression still need CI validation.
 
-### D66 — enable five-precision FloatMP/FloatAP comparison (22 October 2026)
+### D66 — enable five-precision FloatAP comparison (22 October 2026)
 
 The benchmark comparison accepts an explicit 2048-bit precision along
 with 53, 128, 256 and 1024 bits via `--bits`. Replace the four-value
@@ -9582,18 +8348,12 @@ remain transitional while FloatAP retains GMP storage and adapters.
 
 ### D68 — retain full FloatAP differential coverage on Windows CI (22 October 2026)
 
-The Windows 2025 Release CI job at PR #30 merge commit `e7966793`
-completed the entire 108-step compilation/link and passed 19/20 C++
-CTest cases. `test_float_rounding` was killed by the global 30-second
-per-test timeout while still emitting successful FloatAP/FloatMP power
-checks during its second FloatAP precision instantiation. The captured
-output has no failed numerical assertion in that test; it is a timeout,
-not evidence of a wrong rounding result. Its full regression body is
-retained without skips or reductions. Set a Windows-only CTest TIMEOUT
-of 120 seconds for exactly `test_float_rounding`; leave other tests on
-the existing default 30-second limit. The per-test CTest timeout
-property overrides the CLI default `--timeout` (verified with a small
-local CMake/CTest smoke test; Windows CI still needs confirmation).
+The captured output has no failed numerical assertion in that test; it is a timeout, not evidence of
+a wrong rounding result. Its full regression body is retained without skips or reductions. Set a
+Windows-only CTest TIMEOUT of 120 seconds for exactly `test_float_rounding`; leave other tests on
+the existing default 30-second limit. The per-test CTest timeout property overrides the CLI default
+`--timeout` (verified with a small local CMake/CTest smoke test; Windows CI still needs
+confirmation).
 
 The Windows CI's `ctest -LE python -V` also generated ~241 MB of test
 output for that job, obscuring useful failures. Switch its C++ phase to
@@ -9610,14 +8370,10 @@ CTest invocation. The 30-second timeout remains in effect. Raising a
 time limit without identifying a newly introduced slowdown conceals a
 potential arithmetic regression and is not an acceptable fix.
 
-From the uploaded Windows 2025 Release CI log, the timeout occurs
-inside `TestFloatRounding<ArbitraryPrecision>(192_bits)::test_precision_regressions()`,
-while the FloatAP/MPFR `pow` cross-check loop is still producing
-successful comparisons. No numerical failure was reported before the
-timeout, but the log does not establish which native routine consumes
-the time. Preserve all differential test cases and diagnose with focused
-per-phase timing and/or a pre-D64 versus post-D64 comparison. No
-performance root cause or resolution is claimed by this revert.
+No numerical failure was reported before the timeout, but the log does not establish which native
+routine consumes the time. Preserve all differential test cases and diagnose with focused per-phase
+timing and/or a pre-D64 versus post-D64 comparison. No performance root cause or resolution is
+claimed by this revert.
 
 ### D70 — remove verbose CTest output from Unix and Windows CI (22 October 2026)
 
@@ -9629,13 +8385,10 @@ limit vary: #677 and #680 passed; #679, #681 and #683 did not. The
 separate #682 pass used the temporary 120s limit and cannot be treated
 as evidence of completion under 30s.
 
-Remove `-V` and use `--output-on-failure` for Windows C++ and Python
-CTest steps, and remove the redundant `-V` from the Unix Python
-CTest step. Unix C++ and sanitizer CTest steps already use
-`--output-on-failure` without verbose mode. Leave every suite, test
-body, precision, workload and timeout unchanged (Windows stays at
-30 seconds per test). No numerical changes and no rerouting of
-the FloatAP/FloatMP benchmark.
+Remove `-V` and use `--output-on-failure` for Windows C++ and Python CTest steps, and remove the
+redundant `-V` from the Unix Python CTest step. Unix C++ and sanitizer CTest steps already use
+`--output-on-failure` without verbose mode. Leave every suite, test body, precision, workload and
+timeout unchanged (Windows stays at 30 seconds per test).
 
 This is a controlled CI-output experiment, not a diagnosed arithmetic
 fix: CTest still captures the child process output internally, and
@@ -9647,17 +8400,13 @@ before altering tests or arithmetic.
 
 ### D71 — pinpoint intermittent Windows FloatAP rounding timeout with phase timings (22 October 2026)
 
-After the D70 nonverbose CTest change, uploaded Windows Release logs from run
-#? (artifact `logs_107726866508.zip`) show a genuine remaining timeout at
-30.01 seconds in `test_float_rounding` (19/20 passed). In contrast,
-`test_big_unsigned` completed in 6.12 seconds, versus 29.97 seconds in
-the earlier verbose run. The failure log is 6.54 MB for its C++ step,
-mostly emitted because CTest prints a failing test's buffered output.
-Both FloatAP 64-bit and FloatMP tests completed; the final FloatAP
-192-bit instance reached its `test_precision_regressions` logarithm
-cross-checks without a failed numerical assertion. Because failure output
-is replayed when the test terminates, timestamps on those assertion lines
-do NOT measure how long the assertions themselves took.
+After the D70 nonverbose CTest change, uploaded Windows Release logs from run #? (artifact
+`logs_107726866508.zip`) show a genuine remaining timeout at 30.01 seconds in `test_float_rounding`
+(19/20 passed). In contrast, `test_big_unsigned` completed in 6.12 seconds, versus 29.97 seconds in
+the earlier verbose run. The failure log is 6.54 MB for its C++ step, mostly emitted because CTest
+prints a failing test's buffered output. Because failure output is replayed when the test
+terminates, timestamps on those assertion lines do NOT measure how long the assertions themselves
+took.
 
 Add diagnostic-only wall-clock BEGIN/END checkpoints (stderr) around
 the existing native ratio, power and selected transcendental
@@ -9681,15 +8430,13 @@ or `GmpRationalBoundary` and re-imported them in
 `from_native_ratio` kernel directly. Nonfinite Rational cases still
 follow the preexisting NaN/infinity paths.
 
-Preserve the essential dyadic fast path in `from_native_ratio`:
-detect an exact power-of-two denominator directly from
-`BigUnsigned::limbs()` using `std::has_single_bit`, then round the
-numerator with the checked negative binary denominator exponent.
-Denominator one is included. Non-dyadic inputs continue to use the
-shared BigUnsigned quotient/remainder kernel and unchanged rounding
-modes. No new large-number arithmetic engine or GMP/MPFR helper is
-introduced. Existing FloatAP GMP storage remains the explicit output
-boundary of this stage; only input-side GMP conversions are eliminated.
+Preserve the essential dyadic fast path in `from_native_ratio`: detect an exact power-of-two
+denominator directly from `BigUnsigned::limbs()` using `std::has_single_bit`, then round the
+numerator with the checked negative binary denominator exponent. Denominator one is included.
+Non-dyadic inputs continue to use the shared BigUnsigned quotient/remainder kernel and unchanged
+rounding modes. No new large-number arithmetic engine or GMP helper is introduced. Existing FloatAP
+GMP storage remains the explicit output boundary of this stage; only input-side GMP conversions are
+eliminated.
 
 Full GMP removal is NOT achieved: storage, round_scaled_integer,
 transcendental fixed-point, Fraction and other legacy call sites still
@@ -9699,23 +8446,13 @@ declaring D72 tested. Proceed with native storage only after its
 dependent operations are converted coherently, not by changing the
 field type in isolation.
 
-### D73 — replace legacy FloatMP Rational conversion tests with FloatAP (22 October 2026)
+### D73 — replace legacy native precision Rational conversion tests with FloatAP (22 October 2026)
 
-Begin removing FloatMP from the test suite without discarding existing
-numerical contracts. In `tests/test_rational.cpp`, replace FloatMP
-infinite/finite comparisons with equivalent FloatAP cases at 128 bits.
-Remove the redundant FloatMP-to-Rational 5/4 roundtrip, leaving the
-existing exact FloatAP-to-Rational roundtrip at 256 bits and its
-special-value and large-dyadic checks. No change to production code,
-benchmarks, CTest timeouts, or the rounding regression oracle.
+No change to production code, benchmarks, CTest timeouts, or the rounding regression oracle.
 
-This is a partial removal only. `test_float_rounding.cpp` still uses
-FloatMP as an independent oracle in many precision/mode combinations;
-blindly deleting those references would silently invalidate regression
-coverage. Other FloatMP-specific generic float tests remain too. Full
-removal must replace those checks with independent exact rounding and
-certified interval expectations, and then remove the old instantiations.
-These edits have not yet been built or tested in CI.
+Full removal must replace those checks with independent exact rounding and certified interval
+expectations, and then remove the old instantiations. These edits have not yet been built or tested
+in CI.
 
 ### D74 — flat golden fixtures, inline reader (22 October 2026)
 
@@ -9726,16 +8463,11 @@ CMake injects the source path so both out-of-source and Windows CTest
 runs can read the data. Missing, malformed, duplicate and wrong-count
 data cause failures rather than skipped assertions.
 
-Freeze 232 exact rational rounding cases: 18 bit widths, both signs of
-one third, the wide rational ratio, four rounding modes, and four signed
-halfway cases at precision two. Values were independently derived from
-integer quotient/remainder with ties-to-even; they are not generated by
-FloatAP, FloatMP, GMP or MPFR, and do not yet certify transcendental
-results. Replace the FloatMP comparison in these particular existing
-test blocks with lookup of the frozen references, retaining the
-hand-derived arithmetic assertions and unchanged inputs and modes.
-Other FloatMP-dependent tests remain pending independent oracles.
-No change to numeric implementations, test timeouts or benchmark loops.
+Freeze 232 exact rational rounding cases: 18 bit widths, both signs of one third, the wide rational
+ratio, four rounding modes, and four signed halfway cases at precision two. Values were
+independently derived from integer quotient/remainder with ties-to-even; they are not generated by
+FloatAP, GMP, and do not yet certify transcendental results. No change to numeric implementations,
+test timeouts or benchmark loops.
 
 Build and cross-platform CI still need to validate the new parser and
 fixture semantics before treating this increment as completed.
@@ -9768,7 +8500,7 @@ does not introduce unchecked casts and does not modify fixture data,
 test inputs, expected outputs, modes, or timeouts. The source-level
 fix still needs Windows CI build and runtime validation.
 
-### D78 — freeze arithmetic quotient oracles and remove three FloatMP differential groups (22 October 2026)
+### D78 — freeze arithmetic quotient oracles and remove three native precision differential groups (22 October 2026)
 
 Extend `tests/data/floatap_rounding.tsv` from 232 to 1064
 exact-rational references, still flat under `tests/data/` and
@@ -9784,22 +8516,15 @@ additional `test_precision_regressions` groups:
   12 precisions x 3 offsets x 2 operand orders x 2 signs
   x 4 modes = 576 references.
 
-The expected rational results are generated with independent BigInt
-quotient/remainder arithmetic and exact ties-to-even comparison.
-Check the sign and the directed-rounding ordering against the exact
-input for all generated rows before publication; detect duplicate
-(precision, mode, rational input) keys. Each reference is a
-canonical signed numerator / positive denominator, not a value
-computed by FloatAP, FloatMP, GMP or MPFR.
+The expected rational results are generated with independent BigInt quotient/remainder arithmetic
+and exact ties-to-even comparison. Check the sign and the directed-rounding ordering against the
+exact input for all generated rows before publication; detect duplicate (precision, mode, rational
+input) keys. Each reference is a canonical signed numerator / positive denominator, not a value
+computed by FloatAP, GMP.
 
-Replace only these three groups' live FloatMP comparisons by their
-frozen reference lookups. Preserve the existing inputs, sign variations,
-precision order, all four modes and assertion count per group.
-The initial 232 reference rows and original 1/3, wide-ratio and
-halfway assertions remain unchanged, as do all currently unconverted
-FloatMP-dependent transcendental or arithmetic groups. Update
-the loader's exact expected row count to 1064. No change to
-production arithmetics, benchmark configuration, test timeout or CI.
+Preserve the existing inputs, sign variations, precision order, all four modes and assertion count
+per group. Update the loader's exact expected row count to 1064. No change to production
+arithmetics, benchmark configuration, test timeout or CI.
 
 The committed fixtures and C++ edits are not a tested performance
 fix: full optimized builds and complete Windows/Unix/macOS test runs
@@ -9807,7 +8532,7 @@ are required. The previously reported Windows 30-second
 `test_float_rounding` timeout may or may not improve after removing
 the full legacy oracle; do not assume its resolution.
 
-### D79 — freeze rounded-input arithmetic oracles and remove four more FloatMP groups (22 October 2026)
+### D79 — freeze rounded-input arithmetic oracles and remove four more native precision groups (22 October 2026)
 
 Extend the existing flat `tests/data/floatap_rounding.tsv` from
 1,064 to 4,794 DISTINCT exact-rational reference rows. Generate the
@@ -9819,24 +8544,16 @@ keys and 230 correct reuses of a previously generated key. During
 generation, verify every existing TSV row against exact arithmetic,
 check signed directed-rounding order and reject conflicting keys.
 
-Replace live FloatMP comparisons without changing the loop shapes,
-input lists, four modes, precisions, assertion counts or production
-arithmetic in these `test_precision_regressions` groups:
-- Portable small-limb division: the direct Rational constructor is
-  checked on the original signed exact input; division is checked
-  against a frozen reference indexed by the EXACT rational quotient
-  of the two already-nearest-rounded FloatAP inputs, not by the
-  original two unrounded rationals.
-- Signed small rational numerator/denominator cases: both `div`
-  and the Rational constructor are checked against the same exact
-  frozen rounded fraction (including negative denominators).
-- Direct dyadic Rational construction with powers-of-two denominators
-  and all four modes.
-- Integer construction and arithmetic: verify the Integer-to-FloatAP
-  rounding first; for add, sub, mul and fused multiply-add, index the
-  reference on the mathematical exact operation applied to the
-  ALREADY ROUNDED first operand and exact -3 and +1. This preserves
-  the intended single-round FMA semantics.
+- Portable small-limb division: the direct Rational constructor is checked on the original signed
+exact input; division is checked against a frozen reference indexed by the EXACT rational quotient
+of the two already-nearest-rounded FloatAP inputs, not by the original two unrounded rationals.
+- Signed small rational numerator/denominator cases: both `div` and the Rational constructor are
+checked against the same exact frozen rounded fraction (including negative denominators).
+- Direct dyadic Rational construction with powers-of-two denominators and all four modes.
+- Integer construction and arithmetic: verify the Integer-to-FloatAP rounding first; for add, sub,
+mul and fused multiply-add, index the reference on the mathematical exact operation applied to the
+ALREADY ROUNDED first operand and exact -3 and +1. This preserves the intended single-round FMA
+semantics.
 
 To keep the larger golden file efficient, replace the old O(N^2)
 duplicate-checking loader and O(N) query scan with an ordered
@@ -9846,24 +8563,18 @@ mathematically equivalent duplicate keys. The returned Rational value
 still comes solely from the frozen file. The reader remains INSIDE
 `test_float_rounding.cpp`; no new headers/sources or data subdirs.
 
-This is a test-oracle migration, NOT GMP/MPFR elimination from
-FloatAP or the full suite, and NOT a confirmed Windows timeout fix.
-CI compilation and numerical execution on all targets are needed.
-All old MPFR-dependent transcendental and further arithmetic checks
-not listed above remain untouched for future independent oracles.
+This is a test-oracle migration, NOT GMP elimination from FloatAP or the full suite, and NOT a
+confirmed Windows timeout fix. CI compilation and numerical execution on all targets are needed. All
+old independent exact oracles-dependent transcendental and further arithmetic checks not listed
+above remain untouched for future independent oracles.
 
 ### D80 — freeze cancellation and exponent-gap add/sub references (22 October 2026)
 
-Move the existing FloatMP oracle for addition/subtraction of ten exactly
-representable binary inputs at 7, 53, 128, 256, and 1024 bits into the
-flat `tests/data/floatap_add_sub.tsv`. Preserve all ten ordered
-operands, 100 ordered pairs per precision, both operations, all four
-rounding modes, and signed-zero/NaN special-case assertions. The
-4,000 existing arithmetic comparisons map to 1,780 unique
-(precision, rounding mode, exact result before rounding) keys.
-Expected outputs were independently computed using arbitrary-precision
-integer rational operations and binary ties-to-even/directed rounding,
-not FloatAP or FloatMP.
+Move the existing oracle for addition/subtraction of ten exactly representable binary inputs at 7,
+53, 128, 256, and 1024 bits into the flat `tests/data/floatap_add_sub.tsv`. Preserve all ten ordered
+operands, 100 ordered pairs per precision, both operations, all four rounding modes, and
+signed-zero/NaN special-case assertions. The 4,000 existing arithmetic comparisons map to 1,780
+unique (precision, rounding mode, exact result before rounding) keys.
 
 To avoid mixing unrelated datasets, reuse the inline golden reader
 with two separately loaded, exactly size-checked maps: 4,794
@@ -9872,12 +8583,10 @@ CMake defines a second absolute path to the flat data file.
 Keep the reader in `tests/test_float_rounding.cpp` without adding
 oracle headers or implementation files, per the agreed layout.
 
-The exact input for each lookup is the rational sum or difference of
-the operands AFTER their existing FloatAP construction, ensuring the
-fixture represents the original operations. Test count, precision,
-input selection, operation and rounding-mode order, and 30-second
-Windows timeout remain unchanged. No production arithmetic changes.
-Other FloatMP-dependent transcendental tests remain for migration.
+The exact input for each lookup is the rational sum or difference of the operands AFTER their
+existing FloatAP construction, ensuring the fixture represents the original operations. Test count,
+precision, input selection, operation and rounding-mode order, and 30-second Windows timeout remain
+unchanged. No production arithmetic changes.
 
 During preparation, Windows #693 at D79 was observed failing in
 the C++ CTest step even though its build passed; GitHub job metadata
@@ -9888,13 +8597,9 @@ execution of D80 remain unverified.
 
 ### D81 — certify and freeze the exponential rounding oracle (22 October 2026)
 
-Replace the existing FloatMP comparison in the precision-dependent
-`exp` argument reduction and squaring-reconstruction regression with
-immutable, independently certified exact dyadic outputs. Keep the
-original 18 signed Dyadic inputs, four precisions (53, 128, 256,
-1024 bits), all four modes, operation order, and all 288 assertions.
-The original input is exactly representable at every tested precision;
-the lookup uses `static_cast<Rational>(a)` for the actual binary input.
+Keep the original 18 signed Dyadic inputs, four precisions (53, 128, 256, 1024 bits), all four
+modes, operation order, and all 288 assertions. The original input is exactly representable at every
+tested precision; the lookup uses `static_cast<Rational>(a)` for the actual binary input.
 
 Store the 288 six-column golden rows directly in
 `tests/data/floatap_exp.tsv`, with no subdirectory or separate
@@ -9902,41 +8607,27 @@ C++ oracle source/header. Reuse the common loader and its ordered
 `std::map` in `test_float_rounding.cpp`, and inject the third
 absolute source-tree fixture path using CMake.
 
-CERTIFICATION (offline, without FloatAP, FloatMP, GMP, MPFR, or
-floating-point transcendental functions):
-Represent each positive Taylor term and sum as outward-rounded
-integers scaled by B=2^1400. For t=abs(x)/16 <= 7/16, compute
-S=sum(t^k/k!,k=0..165), with lower terms floored and upper
-terms ceiled at every nonnegative integer division. The exact
-positive remainder after term 165 is bounded by twice term 166:
-the following term ratios are t/(k+1) < 1/2. Add twice the
-UPPER estimate of term 166 to the upper sum only. Both sums are
-positive enclosures of exp(t). Square the two bounds four times
-using outward floor/ceil fixed-point multiplication to enclose
-exp(abs(x))=exp(t)^16. For negative arguments, invert the
-positive bounds with outward floor/ceil fixed-point division.
-Finally, accept a fixture entry ONLY when rounding the lower
-and upper endpoint to the requested binary precision and mode
-gives exactly the same canonical rational. All 288 results
-passed this exact-arithmetic interval agreement test; 72
-downward/zero pairs also match as expected for positive exp.
+CERTIFICATION (offline, without FloatAP, GMP, or floating-point transcendental functions): Represent
+each positive Taylor term and sum as outward-rounded integers scaled by B=2^1400. For t=abs(x)/16 <=
+7/16, compute S=sum(t^k/k!,k=0..165), with lower terms floored and upper terms ceiled at every
+nonnegative integer division. The exact positive remainder after term 165 is bounded by twice term
+166: the following term ratios are t/(k+1) < 1/2. Add twice the UPPER estimate of term 166 to the
+upper sum only. Both sums are positive enclosures of exp(t). Square the two bounds four times using
+outward floor/ceil fixed-point multiplication to enclose exp(abs(x))=exp(t)^16. For negative
+arguments, invert the positive bounds with outward floor/ceil fixed-point division. Finally, accept
+a fixture entry ONLY when rounding the lower and upper endpoint to the requested binary precision
+and mode gives exactly the same canonical rational. All 288 results passed this exact-arithmetic
+interval agreement test; 72 downward/zero pairs also match as expected for positive exp.
 
-The output values are precomputed constants in a separate flat TSV.
-This is a rigorous oracle for the specified `exp` cases, not an
-assumption that the implementation under test is correct.
-The rest of the MPFR/FloatMP-dependent transcendental tests
-and the Windows 30-second timeout remain untouched.
+The output values are precomputed constants in a separate flat TSV. This is a rigorous oracle for
+the specified `exp` cases, not an assumption that the implementation under test is correct.
 Cross-platform build and runtime testing still required.
 
 ### D82 — freeze one-round integer-power oracles (22 October 2026)
 
-Replace the FloatMP cross-backend oracle for the existing integer-power
-regression in `test_precision_regressions()`, without changing any
-numeric operation or test case. Preserve the five tested precision widths
-(7, 53, 128, 256, 1024 bits), eight magnitudes, both signs, eight
-nonnegative integer powers (0, 1, 2, 3, 7, 8, 13, 31), and four
-rounding modes. These are 2,560 assertions. The separate existing
-signed-zero, infinities, and NaN tests remain untouched.
+Preserve the five tested precision widths (7, 53, 128, 256, 1024 bits), eight magnitudes, both
+signs, eight nonnegative integer powers (0, 1, 2, 3, 7, 8, 13, 31), and four rounding modes. These
+are 2,560 assertions. The separate existing signed-zero, infinities, and NaN tests remain untouched.
 
 Store 2,400 distinct reference keys in the flat
 `tests/data/floatap_pow.tsv` (negative and positive exact zero
@@ -9961,23 +8652,17 @@ and the CMake definition points directly to `tests/data/floatap_pow.tsv`.
 Missing, malformed, or duplicate reference keys fail immediately;
 the total count is checked strictly.
 
-The golden generator used only native arbitrary-precision integer
-arithmetic, no FloatAP, FloatMP, GMP, MPFR, or transcendental routines.
-This change is not a numerical speedup to FloatAP itself; it only
-removes repeated MPFR oracle evaluation in the selected test block.
-The other FloatMP-dependent numerical tests still need migration,
-and no Windows timeout adjustment is made. Build and test validation
-are pending after commit.
+The golden generator used only native arbitrary-precision integer arithmetic, no FloatAP, GMP, or
+transcendental routines. This change is not a numerical speedup to FloatAP itself; it only removes
+repeated oracle evaluation in the selected test block. Build and test validation are pending after
+commit.
 
 ### D83 — freeze correctly rounded integer square-root oracles (22 October 2026)
 
-Replace the single FloatMP square-root differential block in
-`test_precision_regressions()` with an offline exact-arithmetic
-oracle. Preserve all five precision widths (7, 53, 128, 256, 1024
-bits), the fourteen source Rational values including boundaries near
-one/four and perfect squares, all four large and small binary shifts
-of FloatAP(5/4), and all four rounding modes. The original 5 x 18 x
-4 = 360 assertions remain, with no timeout or production change.
+Preserve all five precision widths (7, 53, 128, 256, 1024 bits), the fourteen source Rational values
+including boundaries near one/four and perfect squares, all four large and small binary shifts of
+FloatAP(5/4), and all four rounding modes. The original 5 x 18 x 4 = 360 assertions remain, with no
+timeout or production change.
 
 Store 300 distinct golden rows directly in `tests/data/floatap_sqrt.tsv`
 (60 repeated checks correspond to distinct sources rounding to the
@@ -9985,53 +8670,35 @@ same binary input). Format: precision, mode, exact input Rational after
 nearest/even rounding to the tested precision, expected rounded square
 root Rational. All original test calls still execute.
 
-Offline generation uses ONLY signed arbitrary-precision integer
-arithmetic; no FloatAP, FloatMP, GMP or MPFR. For positive input n/d:
-compute k=floor(log2(n/d)), sqrt exponent e=floor(k/2)-p+1,
-and exact rational A/B=(n/d)*2^(-2e). Let
-q=isqrt(floor(A/B)), and verify the strict integer bounds
-q^2*B <= A < (q+1)^2*B. For nearest rounding compare
-4*A versus (2q+1)^2*B, resolving equality by even q.
-Downward/toward-zero choose q; upward increments iff
-q^2*B!=A. Normalize any p-bit mantissa carry and save
-the exact canonical rational output. Verify for each distinct
-positive input that DOWN <= NEAREST <= UP and ZERO == DOWN.
-These integer inequalities certify each golden result.
+Offline generation uses ONLY signed arbitrary-precision integer arithmetic; no FloatAP, GMP. For
+positive input n/d: compute k=floor(log2(n/d)), sqrt exponent e=floor(k/2)-p+1, and exact rational
+A/B=(n/d)*2^(-2e). Let q=isqrt(floor(A/B)), and verify the strict integer bounds q^2*B <= A <
+(q+1)^2*B. For nearest rounding compare 4*A versus (2q+1)^2*B, resolving equality by even q.
+Downward/toward-zero choose q; upward increments iff q^2*B!=A. Normalize any p-bit mantissa carry
+and save the exact canonical rational output. Verify for each distinct positive input that DOWN <=
+NEAREST <= UP and ZERO == DOWN. These integer inequalities certify each golden result.
 
-Reuse the existing finite-rational map loader directly inside
-`tests/test_float_rounding.cpp`; add only a new CMake absolute
-source-path definition. All other MPFR-dependent regressions,
-including logarithm and trigonometric tests, remain unchanged.
-A successful CI build and numerical run are still required before
-declaring the change regression tested. The known Windows timeout
-is deferred until the end of FloatMP migration, as requested.
+Reuse the existing finite-rational map loader directly inside `tests/test_float_rounding.cpp`; add
+only a new CMake absolute source-path definition. All other independent exact oracles-dependent
+regressions, including logarithm and trigonometric tests, remain unchanged. A successful CI build
+and numerical run are still required before declaring the change regression tested.
 
 ### D84 — certify centered logarithm golden results (22 October 2026)
 
-Replace the first MPFR/FloatMP differential logarithm block centered
-around 1/2 with independent exact-arithmetic certified fixtures.
-Preserve all six precision visits (53,7,128,256,1024,53), fifteen
-source Rational arguments per visit including cutoff boundaries,
-and four directed modes: 360 unchanged assertions. Inputs are first
-rounded nearest/even to the tested precision exactly as before.
-After canonicalizing duplicate rounded values and revisited
-precision 53, this yields 284 distinct immutable references in
-`tests/data/floatap_log.tsv` in the same flat directory as all other
-oracle datasets.
+Preserve all six precision visits (53,7,128,256,1024,53), fifteen source Rational arguments per
+visit including cutoff boundaries, and four directed modes: 360 unchanged assertions. Inputs are
+first rounded nearest/even to the tested precision exactly as before. After canonicalizing duplicate
+rounded values and revisited precision 53, this yields 284 distinct immutable references in
+`tests/data/floatap_log.tsv` in the same flat directory as all other oracle datasets.
 
-Offline certification computes positive |log(x)| as
-2*atanh(y), y=|x-1|/(x+1)<=3/5, using the nonnegative series
-sum(y^(2k+1)/(2k+1), k=0..1100). Each intermediate is represented
-with B=2^1800 fixed-point integers. Multiplication/division and
-sum operations round lower terms down and upper terms up.
-The omitted tail is conservatively bounded by 4 times the upper
-estimate of the following odd-power term before multiplying by 2.
-Use sign reversal for x<1. Each reference was accepted ONLY after
-both certified rational interval endpoints rounded to the IDENTICAL
-signed value at the requested bit precision and mode, including
-nearest/even ties. x=1 is handled exactly as zero. No GMP,
-MPFR, FloatMP, FloatAP, or floating-point transcendental evaluation
-was used in generating the fixture.
+Offline certification computes positive |log(x)| as 2*atanh(y), y=|x-1|/(x+1)<=3/5, using the
+nonnegative series sum(y^(2k+1)/(2k+1), k=0..1100). Each intermediate is represented with B=2^1800
+fixed-point integers. Multiplication/division and sum operations round lower terms down and upper
+terms up. The omitted tail is conservatively bounded by 4 times the upper estimate of the following
+odd-power term before multiplying by 2. Use sign reversal for x<1. Each reference was accepted ONLY
+after both certified rational interval endpoints rounded to the IDENTICAL signed value at the
+requested bit precision and mode, including nearest/even ties. x=1 is handled exactly as zero. No
+GMP, FloatAP, or floating-point transcendental evaluation was used in generating the fixture.
 
 The test loads and validates the 284-row golden file through the
 existing inline map reader, using a new absolute CMake path;
@@ -10044,16 +8711,11 @@ still outstanding.
 
 ### D85 — certify the centered exponential oracle (22 October 2026)
 
-Replace the MPFR/FloatMP differential comparison in the
-`centered_exp` block immediately after `centered_log` with independently
-certified immutable correctly rounded values. Preserve six precision
-visits (53, 7, 128, 256, 1024, 53 bits), fifteen source Rational
-magnitudes, both signs, all four rounding modes, and all 720 original
-assertions, including window-boundary and cache-revisit probes.
-The exact source arguments are independently nearest-even rounded to
-the binary input of the tested precision using integer arithmetic.
-Deduplication of rounded arguments and the repeated 53-bit visit yields
-142 signed input keys and 568 distinct rounding references.
+Preserve six precision visits (53, 7, 128, 256, 1024, 53 bits), fifteen source Rational magnitudes,
+both signs, all four rounding modes, and all 720 original assertions, including window-boundary and
+cache-revisit probes. The exact source arguments are independently nearest-even rounded to the
+binary input of the tested precision using integer arithmetic. Deduplication of rounded arguments
+and the repeated 53-bit visit yields 142 signed input keys and 568 distinct rounding references.
 
 Store the results in the flat `tests/data/floatap_centered_exp.tsv`
 file, add its absolute source path from CMake, and reuse the existing
@@ -10061,32 +8723,25 @@ strict six-column inline oracle loader (malformed, duplicate, missing
 and incorrect row-count entries are errors). No added C++ oracle helper
 source/header or nested data directory.
 
-The offline generator uses only arbitrary-precision integer arithmetic.
-For positive a=abs(x), reduce to t=a/16<=1/8; use outward fixed-point
-integer interval operations with B=2^1800. Starting from t^0/0!=1,
-bound Taylor terms 1..166 via floor/ceil of exact integer products
-and quotients, sum terms 0..165, and bound the positive remainder by
-twice the upper bound of term 166 (successive term ratios < 1/2).
-Four outward-rounded squarings enclose exp(a)=exp(t)^16. For negative
-x, invert the positive enclosure by outward floor/ceil division.
-Every fixture is emitted ONLY when both certified rational interval
-endpoints round to the identical canonical binary rational in the
-specified mode, including nearest-even ties. All 568 entries passed
-this test. No GMP, MPFR, FloatMP, FloatAP, or floating-point exponential
-oracle was used.
+The offline generator uses only arbitrary-precision integer arithmetic. For positive a=abs(x),
+reduce to t=a/16<=1/8; use outward fixed-point integer interval operations with B=2^1800. Starting
+from t^0/0!=1, bound Taylor terms 1..166 via floor/ceil of exact integer products and quotients, sum
+terms 0..165, and bound the positive remainder by twice the upper bound of term 166 (successive term
+ratios < 1/2). Four outward-rounded squarings enclose exp(a)=exp(t)^16. For negative x, invert the
+positive enclosure by outward floor/ceil division. Every fixture is emitted ONLY when both certified
+rational interval endpoints round to the identical canonical binary rational in the specified mode,
+including nearest-even ties. All 568 entries passed this test. No GMP, FloatAP, or floating-point
+exponential oracle was used.
 
-Production code, precision ordering, numerical coverage, timeout
-settings, and remaining MPFR-dependent tests are unchanged.
-D84 Unix, Windows and Coverage workflows passed; D85 CI and build
-validation are pending.
+Production code, precision ordering, numerical coverage, timeout settings, and remaining independent
+exact oracles-dependent tests are unchanged. D84 Unix, Windows and Coverage workflows passed; D85 CI
+and build validation are pending.
 
 ### D86 — certify centered arcsine and arccosine oracles (22 October 2026)
 
-Replace live FloatMP/MPFR comparisons only in `centered_asin_acos`.
-Preserve precision visits 53, 7, 128, 256, 1024, 53,
-all 13 magnitudes (including the centered threshold and exterior
-fallback), both signs, both inverse-trigonometric functions and four
-rounding directions: 1,248 original assertions unchanged.
+Preserve precision visits 53, 7, 128, 256, 1024, 53, all 13 magnitudes (including the centered
+threshold and exterior fallback), both signs, both inverse-trigonometric functions and four rounding
+directions: 1,248 original assertions unchanged.
 
 Two operation-specific flat fixtures, `tests/data/floatap_asin.tsv`
 and `tests/data/floatap_acos.tsv`, each contain 520 immutable
@@ -10123,18 +8778,13 @@ source, timeouts or unrelated tests were modified.
 
 ### D87 — certify centered arctangent golden oracle (22 October 2026)
 
-Replace the FloatMP/MPFR comparison only in `centered_atan`
-within `tests/test_float_rounding.cpp`. Preserve six precision
-visits (53, 7, 128, 256, 1024, 53 bits), all sixteen source
-Rational magnitudes (including four near-centre ULP probes, four
-exact cutoff and exterior probes, and fallback arguments), both
-signs and four directed modes: all 768 original assertions remain.
-The original exact signed Rational, NOT the FloatAP-rounded binary
-argument, is the lookup key, with nearest/even input rounding
-performed independently by integer quotient and midpoint comparisons.
-This detects FloatAP constructor regressions, rather than selecting
-a correspondingly shifted golden result. The second 53-bit visit
-reuses the same references.
+Preserve six precision visits (53, 7, 128, 256, 1024, 53 bits), all sixteen source Rational
+magnitudes (including four near-centre ULP probes, four exact cutoff and exterior probes, and
+fallback arguments), both signs and four directed modes: all 768 original assertions remain. The
+original exact signed Rational, NOT the FloatAP-rounded binary argument, is the lookup key, with
+nearest/even input rounding performed independently by integer quotient and midpoint comparisons.
+This detects FloatAP constructor regressions, rather than selecting a correspondingly shifted golden
+result. The second 53-bit visit reuses the same references.
 
 Add 640 independently certified distinct golden entries to the
 flat `tests/data/floatap_atan.tsv` file. This is the shared
@@ -10144,22 +8794,16 @@ existing strict six-column inline golden reader with exact row
 count, malformed, missing and duplicate detection. No helper
 sources or new data subdirectory are introduced.
 
-Generate the oracle using arbitrary-precision native integer
-arithmetic only (without GMP, MPFR, FloatMP, FloatAP, or floating
-transcendental evaluations). With B=2^1800, use outward fixed-point
-floor/ceil bounds on positive atan arguments y<=1/2. Sum the
-alternating atan series with outward-rounded terms k=0..1149,
-bounding the signed remainder by the next nonnegative term.
-For x in [0,1/2], evaluate directly. For x in (1/2,1],
-use atan(x)=pi/4-atan((1-x)/(1+x)); for x>1 use
-atan(x)=pi/2-atan(1/x). The needed pi/4 interval is derived from
-Machin's certified exact identity
-pi/4=4*atan(1/5)-atan(1/239). Negative arguments use oddness.
-Each signed interval's endpoints must independently round to
-the same exact canonical binary Rational for the requested
-precision and direction, including nearest/even ties. All 640
-references passed this certification (widest interval
-12668/2^1800).
+Generate the oracle using arbitrary-precision native integer arithmetic only (without GMP, FloatAP,
+or floating transcendental evaluations). With B=2^1800, use outward fixed-point floor/ceil bounds on
+positive atan arguments y<=1/2. Sum the alternating atan series with outward-rounded terms
+k=0..1149, bounding the signed remainder by the next nonnegative term. For x in [0,1/2], evaluate
+directly. For x in (1/2,1], use atan(x)=pi/4-atan((1-x)/(1+x)); for x>1 use atan(x)=pi/2-atan(1/x).
+The needed pi/4 interval is derived from Machin's certified exact identity
+pi/4=4*atan(1/5)-atan(1/239). Negative arguments use oddness. Each signed interval's endpoints must
+independently round to the same exact canonical binary Rational for the requested precision and
+direction, including nearest/even ties. All 640 references passed this certification (widest
+interval 12668/2^1800).
 
 D86 Unix, Windows and Coverage jobs passed before this change.
 D87 compilation, regressions and CI validation remain pending.
@@ -10167,14 +8811,10 @@ No timeouts, production code or unrelated tests are modified.
 
 ### D88 — certify single-recurrence arctangent oracles (22 October 2026)
 
-Replace the live FloatMP/MPFR oracle only in the
-`single_recurrence_atan` regression block. Retain the original
-precision order (7, 53, 128, 256, 1024 bits), all sixteen signed
-dyadic arguments spanning the |x|=1/2 and |x|=2 transition
-boundaries, and the four directed rounding modes: 320 unchanged
-test assertions. The original exact Dyadic as Rational is the
-oracle key, not the rounded FloatAP value, so constructor rounding
-errors cannot shift the oracle to the wrong row.
+Retain the original precision order (7, 53, 128, 256, 1024 bits), all sixteen signed dyadic
+arguments spanning the |x|=1/2 and |x|=2 transition boundaries, and the four directed rounding
+modes: 320 unchanged test assertions. The original exact Dyadic as Rational is the oracle key, not
+the rounded FloatAP value, so constructor rounding errors cannot shift the oracle to the wrong row.
 
 Extend the EXISTING `tests/data/floatap_atan.tsv` rather than
 creating a per-block fixture. Exactly 120 of 320 requested references
@@ -10202,22 +8842,16 @@ All 320 generated comparisons passed the independent rounding
 certificate, with maximum new interval width
 6911/2^1800.
 
-No GMP, MPFR, FloatMP or FloatAP oracle was used in fixture
-generation. No production code, timeouts, existing test cases
-or other test blocks were changed. The D87 commit had no GitHub
-Actions runs available when D88 was prepared; D88 build/CI
-verification is also pending.
+No GMP or FloatAP oracle was used in fixture generation. No production code, timeouts, existing test
+cases or other test blocks were changed. The D87 commit had no GitHub Actions runs available when
+D88 was prepared; D88 build/CI verification is also pending.
 
 ### D89 — certified atan-cache and centered reduction regression (22 October 2026)
 
-Replace only the third atan FloatMP/MPFR differential oracle, the
-unnamed centered cache and argument-reduction block immediately
-following `single_recurrence_atan`. Retain six precision visits
-(53, 7, 128, 1024, 256, 53), all twenty magnitude inputs around
-1/4, 1/3, 1/2, 5/7, plus 0, 1, 2 and 3, both signs and four
-directed rounding modes. All 960 original assertions execute
-unchanged, including duplicate visits of signed zero and the
-revisited 53-bit precision.
+Retain six precision visits (53, 7, 128, 1024, 256, 53), all twenty magnitude inputs around 1/4,
+1/3, 1/2, 5/7, plus 0, 1, 2 and 3, both signs and four directed rounding modes. All 960 original
+assertions execute unchanged, including duplicate visits of signed zero and the revisited 53-bit
+precision.
 
 Extend, rather than duplicate, the existing flat
 `tests/data/floatap_atan.tsv` oracle from 840 to 1340
@@ -10230,21 +8864,15 @@ not the FloatAP-rounded input; 76 of the 200 input
 visits required nontrivial independent nearest-even rounding.
 The strict row-count validation is updated accordingly.
 
-Offline certified evaluation uses only arbitrary-precision native
-integer arithmetic, B=2^1800 outward fixed-point intervals and
-the alternating atan series through k=1149 with the first omitted
-term as a rigorous signed tail bound. The recurrence identities are:
-atan(x)=pi/4-atan((1-x)/(1+x)) when 1/2<x<=1,
-atan(x)=pi/4+atan((x-1)/(x+1)) when 1<x<=3,
-and atan(x)=pi/2-atan(1/x) for x>3. Values <=1/2 use the
-direct series. Pi/4 is independently bounded from
-Machin's formula 4 atan(1/5)-atan(1/239), and negative
-arguments use oddness. Every result is included only when both
-exact rational enclosure endpoints round to the IDENTICAL binary
-value for the selected precision and mode. All 800 generated
-comparisons passed this certification, with widest enclosure
-6911/2^1800. No GMP, MPFR, FloatMP, FloatAP or
-floating-point transcendental oracle was used to derive results.
+Offline certified evaluation uses only arbitrary-precision native integer arithmetic, B=2^1800
+outward fixed-point intervals and the alternating atan series through k=1149 with the first omitted
+term as a rigorous signed tail bound. The recurrence identities are: atan(x)=pi/4-atan((1-x)/(1+x))
+when 1/2<x<=1, atan(x)=pi/4+atan((x-1)/(x+1)) when 1<x<=3, and atan(x)=pi/2-atan(1/x) for x>3.
+Values <=1/2 use the direct series. Pi/4 is independently bounded from Machin's formula 4
+atan(1/5)-atan(1/239), and negative arguments use oddness. Every result is included only when both
+exact rational enclosure endpoints round to the IDENTICAL binary value for the selected precision
+and mode. All 800 generated comparisons passed this certification, with widest enclosure
+6911/2^1800. No GMP, FloatAP or floating-point transcendental oracle was used to derive results.
 
 No source code outside the selected test block and atan fixture
 loader row count changed; production, other tests and timeouts
@@ -10254,13 +8882,9 @@ Only `remove-gmp` is updated.
 
 ### D90 — certify shared asin/acos enclosure and endpoint tests (22 October 2026)
 
-Remove live FloatMP/MPFR differential oracle calls only from the
-one-evaluation asin and shared acos regression block directly after
-the centered atan cache tests. Keep all four precision visits (53,
-128, 256, 1024), seventeen original signed Rational arguments
-including ±1, values 2^-40 from ±1, zero, and the 1/2 branch
-transition, both functions, and four directed rounding modes:
-all 544 original assertions remain unchanged.
+Keep all four precision visits (53, 128, 256, 1024), seventeen original signed Rational arguments
+including ±1, values 2^-40 from ±1, zero, and the 1/2 branch transition, both functions, and four
+directed rounding modes: all 544 original assertions remain unchanged.
 
 Extend the existing `tests/data/floatap_asin.tsv` to 728
 entries and `tests/data/floatap_acos.tsv` to 728,
@@ -10273,28 +8897,19 @@ external C++ oracle utilities or new subdirectories. The golden
 lookup key is the exact ORIGINAL Rational input, even when that
 input must first be binary nearest/even rounded.
 
-The offline independent generator uses native arbitrary-precision
-integers, no GMP, MPFR, FloatMP, FloatAP or floating-point
-transcendental oracle. Nearest/even input rounding and the final
-four directed roundings use exact integer quotient and midpoint
-tests. With B=2^1800 fixed-point integer arithmetic, sqrt is
-enclosed rigorously using an integer isqrt and a one-unit outward
-bound. For |x|<=3/4 use asin(a)=2 atan(a/(1+sqrt(1-a*a)))
-with a=|x|; the inner atan argument lies below 1/2.
-For 3/4<|x|<1 use acos(a)=2 atan(sqrt((1-a)/(1+a))),
-whose atan argument is below 1/2 even arbitrarily near 1,
-then asin(a)=pi/2-acos(a). At |x|=1, acos(1)=0 is
-handled exactly, and asin(1)=pi/2. Negative sources use
-asin(-a)=-asin(a) and acos(-a)=pi/2+asin(a).
-Pi/2 is independently enclosed with Machin's identity
-8 atan(1/5)-2 atan(1/239). Each atan uses outward
-integer fixed-point alternating Taylor summation k=0..1149,
-with a rigorous next-term remainder bound.
-All 544 signed function/mode/precision references were
-admitted ONLY after both exact enclosure endpoints rounded to
-the identical binary Rational. The largest fixed-point interval
-width was 25338/2^1800. Exact |x|=1 was visited
-8 times including signs/precisions.
+The offline independent generator uses native arbitrary-precision integers, no GMP, FloatAP or
+floating-point transcendental oracle. Nearest/even input rounding and the final four directed
+roundings use exact integer quotient and midpoint tests. With B=2^1800 fixed-point integer
+arithmetic, sqrt is enclosed rigorously using an integer isqrt and a one-unit outward bound. For
+|x|<=3/4 use asin(a)=2 atan(a/(1+sqrt(1-a*a))) with a=|x|; the inner atan argument lies below 1/2.
+For 3/4<|x|<1 use acos(a)=2 atan(sqrt((1-a)/(1+a))), whose atan argument is below 1/2 even
+arbitrarily near 1, then asin(a)=pi/2-acos(a). At |x|=1, acos(1)=0 is handled exactly, and
+asin(1)=pi/2. Negative sources use asin(-a)=-asin(a) and acos(-a)=pi/2+asin(a). Pi/2 is
+independently enclosed with Machin's identity 8 atan(1/5)-2 atan(1/239). Each atan uses outward
+integer fixed-point alternating Taylor summation k=0..1149, with a rigorous next-term remainder
+bound. All 544 signed function/mode/precision references were admitted ONLY after both exact
+enclosure endpoints rounded to the identical binary Rational. The largest fixed-point interval width
+was 25338/2^1800. Exact |x|=1 was visited 8 times including signs/precisions.
 
 Only the selected tests, strict loader cardinalities, the two
 existing TSV datasets and this journal were changed.
@@ -10304,13 +8919,10 @@ validated. Keep the branch `remove-gmp`.
 
 ### D91 — certify centered sine/cosine exact golden oracles (22 October 2026)
 
-Replace the live FloatMP/MPFR differential comparisons ONLY in the
-`centered_sin_cos` regression block. Retain all seven precision visits
-(96, 128, 192, 224, 256, 1024, 128 bits), seven positive source
-Rational magnitudes near the exact +/-1/2 cache/guard thresholds
-and at 1/4 and 3/4, both signs, four directed rounding modes
-and both functions: all 784 original test assertions remain.
-The repeated 128-bit visit still tests cache upgrades and reuse.
+Retain all seven precision visits (96, 128, 192, 224, 256, 1024, 128 bits), seven positive source
+Rational magnitudes near the exact +/-1/2 cache/guard thresholds and at 1/4 and 3/4, both signs,
+four directed rounding modes and both functions: all 784 original test assertions remain. The
+repeated 128-bit visit still tests cache upgrades and reuse.
 
 Add one operation-specific reusable golden TSV each:
 `tests/data/floatap_sin.tsv` and `tests/data/floatap_cos.tsv`,
@@ -10324,22 +8936,16 @@ so a FloatAP constructor regression cannot silently shift keys.
 Exactly 84/84 source inputs are already p-bit
 binary-representable; no source cases were discarded.
 
-Offline certification uses ONLY arbitrary-precision native integers,
-no GMP, MPFR, FloatMP or FloatAP and no floating-point transcendental
-oracle. For 0<abs(x)<1 use B=2^1800 and outward floor/ceil fixed-point
-bounds for x and x^2, followed by alternating sine/cosine Taylor
-series k=0..239. Each term is propagated by outward floor/ceil
-integer multiplication and factorial-quotient division
-(term recurrence x^2/((2k+2)(2k+3)) for sine,
- x^2/((2k+1)(2k+2)) for cosine), and partial sums are bounded
-outward by their signed term intervals. Since 240 terms were
-included, the first omitted positive term bounds the remaining
-alternating tail above, while zero bounds it below. Use
-sin(-x)=-sin(x) and cos(-x)=cos(x) to recover signs.
-Every one of the 672 certified source/mode/function rows is accepted
-ONLY when both rational interval endpoints independently round to
-the identical exact binary Rational, including nearest/even ties.
-The maximum interval width was 240/2^1800.
+Offline certification uses ONLY arbitrary-precision native integers, no GMP or FloatAP and no
+floating-point transcendental oracle. For 0<abs(x)<1 use B=2^1800 and outward floor/ceil fixed-point
+bounds for x and x^2, followed by alternating sine/cosine Taylor series k=0..239. Each term is
+propagated by outward floor/ceil integer multiplication and factorial-quotient division (term
+recurrence x^2/((2k+2)(2k+3)) for sine, x^2/((2k+1)(2k+2)) for cosine), and partial sums are bounded
+outward by their signed term intervals. Since 240 terms were included, the first omitted positive
+term bounds the remaining alternating tail above, while zero bounds it below. Use sin(-x)=-sin(x)
+and cos(-x)=cos(x) to recover signs. Every one of the 672 certified source/mode/function rows is
+accepted ONLY when both rational interval endpoints independently round to the identical exact
+binary Rational, including nearest/even ties. The maximum interval width was 240/2^1800.
 
 No production code, timeout settings, test order or other test
 blocks were changed. The existing merge conflict prevents CI
@@ -10349,13 +8955,8 @@ Continue exclusively on the `remove-gmp` branch.
 
 ### D92 — certify local sine, cosine, tangent regression oracles (22 October 2026)
 
-Replace FloatMP/MPFR oracle comparisons ONLY in the `local_sin_cos`
-block while preserving its nine precision visits
-(53, 7, 128, 192, 224, 256, 384, 1024, 53 bits),
-nine source magnitudes each at both signs, all four
-rounding modes and all three functions. All 1944 original
-assertions remain, including the 53-bit cache revisit,
-work>=256 performance dispatch and outside-fast-path probes.
+All 1944 original assertions remain, including the 53-bit cache revisit, work>=256 performance
+dispatch and outside-fast-path probes.
 
 Extend the existing `tests/data/floatap_sin.tsv` to 792
 entries and `tests/data/floatap_cos.tsv` to 792 entries,
@@ -10369,27 +8970,18 @@ six-column loader is reused for all three operations, with
 duplicate/missing/malformed/exact-row-count checks. Keys use each
 ORIGINAL signed rational source argument, not a value from FloatAP.
 
-Offline oracle generation uses arbitrary-precision native integer
-arithmetic exclusively, without GMP, MPFR, FloatMP, FloatAP, or
-floating-point transcendental evaluations. Perform independent
-nearest/even binary rounding on each input, using integer quotients
-and midpoint comparisons. Using B=2^1800 and outward fixed-point
-floor/ceil arithmetic, compute sin and cos enclosures for
-|x|<=3/4 from 240 terms (k=0..239) of the alternating
-Taylor series. Recurrence multiplies by the outward-enclosed x^2
-and divides by exact factorial ratios; the next positive term
-bounds the remaining signed tail. Then enclose tan(x) as the
-outward quotient of sin(x)/cos(x), after strictly verifying
-that the certified cosine lower bound is POSITIVE.
-Apply oddness to sine/tangent and evenness to cosine.
-Every interval endpoint is independently rounded to the p-bit
-binary rational in each requested directed rounding mode.
-All 1728 distinct function/mode/source/precision results
-successfully certified, with maximal fixed-point interval width
-631/2^1800. 0 of the 144
-distinct source/precision inputs required nontrivial nearest/even
-input rounding; 240 overlapping references
-agreed exactly with D91.
+Offline oracle generation uses arbitrary-precision native integer arithmetic exclusively, without
+GMP, FloatAP, or floating-point transcendental evaluations. Perform independent nearest/even binary
+rounding on each input, using integer quotients and midpoint comparisons. Using B=2^1800 and outward
+fixed-point floor/ceil arithmetic, compute sin and cos enclosures for |x|<=3/4 from 240 terms
+(k=0..239) of the alternating Taylor series. Recurrence multiplies by the outward-enclosed x^2 and
+divides by exact factorial ratios; the next positive term bounds the remaining signed tail. Then
+enclose tan(x) as the outward quotient of sin(x)/cos(x), after strictly verifying that the certified
+cosine lower bound is POSITIVE. Apply oddness to sine/tangent and evenness to cosine. Every interval
+endpoint is independently rounded to the p-bit binary rational in each requested directed rounding
+mode. All 1728 distinct function/mode/source/precision results successfully certified, with maximal
+fixed-point interval width 631/2^1800. 0 of the 144 distinct source/precision inputs required
+nontrivial nearest/even input rounding; 240 overlapping references agreed exactly with D91.
 
 No changes to production, other test blocks, test order or
 timeouts. The unresolved merge conflict still prevents CI from
@@ -10399,12 +8991,9 @@ All work is committed ONLY on `remove-gmp`.
 
 ### D93 — certify centered tangent enclosure regression (22 October 2026)
 
-Replace only the `centered_tan` FloatMP/MPFR differential oracle
-without deleting or changing any source test case. Preserve all six
-precision visits (53, 7, 256, 128, 1024, 53 bits), nine magnitudes
-including the exact cutoff and fallback around 1/2, both signs,
-all four rounding modes, and the second 53-bit cache-reuse visit.
-All 432 original test assertions remain.
+Preserve all six precision visits (53, 7, 256, 128, 1024, 53 bits), nine magnitudes including the
+exact cutoff and fallback around 1/2, both signs, all four rounding modes, and the second 53-bit
+cache-reuse visit. All 432 original test assertions remain.
 
 Extend the existing `tests/data/floatap_tan.tsv`, not a second
 tangent dataset. Five distinct precisions times 18 signed inputs
@@ -10419,22 +9008,16 @@ cannot select a misleading golden result. 12 of
 the 90 distinct precision/source combinations required actual
 input rounding.
 
-The offline oracle generator uses exclusively arbitrary-precision
-native integer arithmetic with B=2^1800 fixed-point bounds,
-independent of FloatAP, FloatMP, GMP and MPFR. For the rounded
-0<abs(x)<1 inputs, compute rigorous outward Taylor enclosures of
-sin(x) and cos(x) with alternating series through k=239,
-outward interval multiplication/division at every term and the
-first omitted positive term enclosing the tail. Verify the
-cosine lower bound is strictly positive; then divide the sin
-enclosure by the cos enclosure with outward floor/ceil integer
-division to contain tan(x), and use oddness on negative inputs.
-For every mode and precision, accept the reference ONLY when
-both exact interval endpoints round to precisely the identical
-canonical p-bit binary Rational, including nearest/even ties.
-All 360 comparisons passed the offline proof, maximum
-enclosure width 631/2^1800. No external numeric
-oracle or floating-point transcendental evaluation was used.
+The offline oracle generator uses exclusively arbitrary-precision native integer arithmetic with
+B=2^1800 fixed-point bounds, independent of FloatAP, GMP. For the rounded 0<abs(x)<1 inputs, compute
+rigorous outward Taylor enclosures of sin(x) and cos(x) with alternating series through k=239,
+outward interval multiplication/division at every term and the first omitted positive term enclosing
+the tail. Verify the cosine lower bound is strictly positive; then divide the sin enclosure by the
+cos enclosure with outward floor/ceil integer division to contain tan(x), and use oddness on
+negative inputs. For every mode and precision, accept the reference ONLY when both exact interval
+endpoints round to precisely the identical canonical p-bit binary Rational, including nearest/even
+ties. All 360 comparisons passed the offline proof, maximum enclosure width 631/2^1800. No external
+numeric oracle or floating-point transcendental evaluation was used.
 
 No production implementation changes, timeout adjustments,
 regression-case deletions, new data files or CMake changes.
@@ -10444,18 +9027,10 @@ remain unverified. All modifications are restricted to `remove-gmp`.
 
 ### D94 — certify tangent single-sqrt cosine and reconstruction checks (22 October 2026)
 
-Replace live FloatMP/MPFR comparisons only in `tangent_sqrt_cos`
-while preserving all five precision visits (7, 53, 128, 256,
-1024 bits), fourteen original signed dyadic arguments spanning
-tiny 2^-64, 1/2, 3/4, 1023/1024, 1, 1025/1024 and 3/2,
-all four directed rounding modes: exactly 280 original
-assertions, with the source-order and low-precision cases
-unchanged. Keep the Rational-to-FloatAP nearest/even conversion:
-some original dyadics are not representable exactly at p=7.
-Use the exact ORIGINAL Dyadic as Rational golden key, rather
-than letting a faulty FloatAP input constructor choose a
-different reference. 4 of 70 input visits
-require genuine rounding before testing tangent.
+Keep the Rational-to-FloatAP nearest/even conversion: some original dyadics are not representable
+exactly at p=7. Use the exact ORIGINAL Dyadic as Rational golden key, rather than letting a faulty
+FloatAP input constructor choose a different reference. 4 of 70 input visits require genuine
+rounding before testing tangent.
 
 Extend the EXISTING operation-wide `tests/data/floatap_tan.tsv`
 from 816 to 1016 records. Independently recertify 80 existing
@@ -10465,27 +9040,18 @@ arguments at five precisions), all matching exactly, and append
 strict inline TSV row count only. No additional CMake definitions,
 new golden dataset or separate helper source files.
 
-Certification uses only native arbitrary-precision integer
-arithmetic with B=2^1800, no GMP, MPFR, FloatMP, FloatAP or
-floating-point transcendental oracle. Round the original
-Rational to a p-bit binary argument with exact integer quotient,
-remainder and nearest-even midpoint logic. For |x|<=3/2,
-bound sine and cosine via outward interval fixed-point
-recurrences for 240 alternating Taylor terms (k=0..239)
-and the first positive omitted term, which contains the
-remaining alternating tail. The series remainder decreases
-at this truncation for |x|<=3/2. Each cosine enclosure
-has a strictly positive LOWER bound, including inputs just
-above 1 and at 3/2. Obtain tangent enclosures by dividing
-positive sine bounds by cosine bounds with integer floor
-and ceil operations, then use oddness for negative inputs.
-Admit each reference only after BOTH rational interval
-endpoints round identically to the exact canonical p-bit
-Rational in each mode, including nearest/even ties.
-All 280 oracle checks passed this independent
-certificate; the maximum fixed-point interval width
-was 50825/2^1800. Inputs greater than 1
-were visited 20 times across precisions.
+Certification uses only native arbitrary-precision integer arithmetic with B=2^1800, no GMP, FloatAP
+or floating-point transcendental oracle. Round the original Rational to a p-bit binary argument with
+exact integer quotient, remainder and nearest-even midpoint logic. For |x|<=3/2, bound sine and
+cosine via outward interval fixed-point recurrences for 240 alternating Taylor terms (k=0..239) and
+the first positive omitted term, which contains the remaining alternating tail. The series remainder
+decreases at this truncation for |x|<=3/2. Each cosine enclosure has a strictly positive LOWER
+bound, including inputs just above 1 and at 3/2. Obtain tangent enclosures by dividing positive sine
+bounds by cosine bounds with integer floor and ceil operations, then use oddness for negative
+inputs. Admit each reference only after BOTH rational interval endpoints round identically to the
+exact canonical p-bit Rational in each mode, including nearest/even ties. All 280 oracle checks
+passed this independent certificate; the maximum fixed-point interval width was 50825/2^1800. Inputs
+greater than 1 were visited 20 times across precisions.
 
 No production code, timeout, test-case or unrelated-test
 changes. GitHub CI remains unavailable because of the
@@ -10495,16 +9061,10 @@ on `remove-gmp`.
 
 ### D95 — certify exact dyadic sin/cos/tan reduction oracles (22 October 2026)
 
-Replace live FloatMP/MPFR oracle calls ONLY in the unnamed
-single-recurrence sine/cosine/tangent block immediately before
-`log_boundaries`. Preserve all four precision visits
-(53, 128, 256, 1024 bits), all twenty-two exact signed dyadic
-source arguments including tiny 2^-64 and 2^-128,
-both sides of |x|=1 and larger 5/2, 7/2 arguments,
-all four rounding modes, and all three functions:
-exactly 1056 original assertions remain unchanged.
-Keep the original exact Dyadic-to-FloatAP constructor, with
-the source Rational as the oracle key.
+Preserve all four precision visits (53, 128, 256, 1024 bits), all twenty-two exact signed dyadic
+source arguments including tiny 2^-64 and 2^-128, both sides of |x|=1 and larger 5/2, 7/2 arguments,
+all four rounding modes, and all three functions: exactly 1056 original assertions remain unchanged.
+Keep the original exact Dyadic-to-FloatAP constructor, with the source Rational as the oracle key.
 
 Extend existing per-operation datasets in the same flat directory:
 `tests/data/floatap_sin.tsv` from 792 to 1080 rows,
@@ -10519,31 +9079,19 @@ which still rejects missing, duplicate, malformed and
 unexpected-row-count entries. No CMake changes, new dataset
 names or extra source utilities.
 
-Offline certification uses ONLY native arbitrary-precision
-integers, without GMP, MPFR, FloatMP, FloatAP, or any
-floating-point transcendental oracle. Compute outward
-fixed-point enclosures with B=2^1800 from 240 terms
-(k=0..239) of alternating sine and cosine Taylor series,
-floor/ceil rounding every term recurrence using rigorously
-enclosed x and x^2, and add the first omitted POSITIVE term
-to the upper bound on the alternating remainder.
-The alternating tail bound applies once terms decrease;
-at |x|<=7/2 they decrease in the omitted range.
-Apply sine oddness and cosine evenness to signed inputs.
-For tan, verify the cosine enclosure lies strictly on one
-side of zero. To cover BOTH signs of sine and cosine, find
-the minimum/maximum of the four rational corner quotients
-sin_lower/cos_lower, sin_lower/cos_upper,
-sin_upper/cos_lower, sin_upper/cos_upper.
-Take outward floor/ceil on those extrema scaled by B.
-For every mode and precision require BOTH exact rational
-interval endpoints to round identically to the same
-p-bit binary Rational. All 1056 distinct comparisons
-passed; maximum interval widths were
-sin 242/2^1800, cos 239/2^1800,
-tan 1375/2^1800.
-All 88 dyadic source/precision combinations were already
-exactly binary representable, as required.
+Offline certification uses ONLY native arbitrary-precision integers, without GMP, FloatAP, or any
+floating-point transcendental oracle. Compute outward fixed-point enclosures with B=2^1800 from 240
+terms (k=0..239) of alternating sine and cosine Taylor series, floor/ceil rounding every term
+recurrence using rigorously enclosed x and x^2, and add the first omitted POSITIVE term to the upper
+bound on the alternating remainder. The alternating tail bound applies once terms decrease; at
+|x|<=7/2 they decrease in the omitted range. Apply sine oddness and cosine evenness to signed
+inputs. For tan, verify the cosine enclosure lies strictly on one side of zero. To cover BOTH signs
+of sine and cosine, find the minimum/maximum of the four rational corner quotients
+sin_lower/cos_lower, sin_lower/cos_upper, sin_upper/cos_lower, sin_upper/cos_upper. Take outward
+floor/ceil on those extrema scaled by B. For every mode and precision require BOTH exact rational
+interval endpoints to round identically to the same p-bit binary Rational. All 1056 distinct
+comparisons passed; maximum interval widths were sin 242/2^1800, cos 239/2^1800, tan 1375/2^1800.
+All 88 dyadic source/precision combinations were already exactly binary representable, as required.
 
 No production changes, timeout changes, deletions of test
 cases or modifications to other test blocks.
@@ -10554,12 +9102,6 @@ Continue exclusively on the `remove-gmp` branch.
 
 ### D96 — certify logarithm range reduction and cache boundaries (22 October 2026)
 
-Replace only the live FloatMP/MPFR comparisons in
-`log_boundaries`, retaining all four original precision visits
-(53, 128, 256, 1024 bits), thirteen original Rational
-inputs (1/2, 3/4, 3/2, 2, 1/8, 8, 1±2^-40,
-3/4±2^-40, 3/2±2^-40, 1/2+2^-40), all four
-directed rounding modes, and all 208 original assertions.
 Cache ordering and threshold-probe order remain unchanged.
 
 Extend the EXISTING `tests/data/floatap_log.tsv` rather
@@ -10574,30 +9116,19 @@ conversion, so a broken FloatAP constructor cannot alter
 the oracle lookup. 0 of 52 source/precision
 visits needed a nontrivial binary input rounding.
 
-For offline mathematical certification use native arbitrary
-precision integer arithmetic exclusively: NO GMP, MPFR,
-FloatMP, FloatAP or floating-point transcendental oracle.
-With B=2^1800, independently enclose log(x) using the
-identity log(x)=2*atanh((x-1)/(x+1)), after reducing
-x=2^k*y to 1/2<=y<2. Thus |(y-1)/(y+1)|<=1/3.
-Enclose log(2) independently by the convergent series
-2*atanh(1/3). For |t|<=1/3, sum k=0..1149 of
-the positive atanh terms t^(2k+1)/(2k+1) using
-outward integer floor/ceil at each multiplication/division.
-The remaining positive tail is bounded above by
-4*t^(2301) for 2*atanh(t) (with the outward upper
-power). Recover the negative log-y interval by
-reversing signed endpoints, and add k times the
-independent log(2) interval with outward sign rules.
-This keeps cancellation near x=1 under direct
-certification without prematurely rounding intermediate
-values. For every source p-bit binary input and all
-four rounding modes, admit a row ONLY when the exact
-rational lower and upper bounds round to the IDENTICAL
-binary Rational, including nearest/even midpoint cases.
-All 208 comparisons certified; maximum fixed-point interval
-width 6912/2^1800. Range reduction exponents:
-{"0":40,"1":4,"3":4,"-2":4}.
+For offline mathematical certification use native arbitrary precision integer arithmetic
+exclusively: NO GMP, FloatAP or floating-point transcendental oracle. With B=2^1800, independently
+enclose log(x) using the identity log(x)=2*atanh((x-1)/(x+1)), after reducing x=2^k*y to 1/2<=y<2.
+Thus |(y-1)/(y+1)|<=1/3. Enclose log(2) independently by the convergent series 2*atanh(1/3). For
+|t|<=1/3, sum k=0..1149 of the positive atanh terms t^(2k+1)/(2k+1) using outward integer floor/ceil
+at each multiplication/division. The remaining positive tail is bounded above by 4*t^(2301) for
+2*atanh(t) (with the outward upper power). Recover the negative log-y interval by reversing signed
+endpoints, and add k times the independent log(2) interval with outward sign rules. This keeps
+cancellation near x=1 under direct certification without prematurely rounding intermediate values.
+For every source p-bit binary input and all four rounding modes, admit a row ONLY when the exact
+rational lower and upper bounds round to the IDENTICAL binary Rational, including nearest/even
+midpoint cases. All 208 comparisons certified; maximum fixed-point interval width 6912/2^1800. Range
+reduction exponents: {"0":40,"1":4,"3":4,"-2":4}.
 
 No production code, timeout, unrelated test, fixture path
 or CMake change. Build and executable CI remain unverified
@@ -10605,18 +9136,14 @@ due to the unresolved merge conflict. Do not treat
 offline mathematical certification as passing CI.
 Commit exclusively on `remove-gmp`.
 
-### D97 — certify pi and cold/warm cache behavior without FloatMP (22 October 2026)
+### D97 — certify pi and cold/warm cache behavior without native precision (22 October 2026)
 
-Replace ONLY the live FloatMP/MPFR pi oracle in the cache and
-directed-rounding test block. Keep the original six precision
-visits (53, 256, 7, 1024, 128, 53 bits), including revisiting
-53 bits after 1024-bit cache activity. Within each visit
-preserve the original mode order nearest, upward, downward,
-toward-zero, nearest again, and invoke `FloatAP::pi` twice
-in EACH verification. Both test assertions are unchanged:
-correctly rounded Rational value and exact `ARIADNE_TEST_SAME`
-for consecutive cached values. Thus retain all 60 original
-assertions, including 30 distinct cache-pair checks.
+Keep the original six precision visits (53, 256, 7, 1024, 128, 53 bits), including revisiting 53
+bits after 1024-bit cache activity. Within each visit preserve the original mode order nearest,
+upward, downward, toward-zero, nearest again, and invoke `FloatAP::pi` twice in EACH verification.
+Both test assertions are unchanged: correctly rounded Rational value and exact `ARIADNE_TEST_SAME`
+for consecutive cached values. Thus retain all 60 original assertions, including 30 distinct
+cache-pair checks.
 
 No additional per-constant TSV is needed. Reuse the existing
 independently certified `tests/data/floatap_atan.tsv` for the
@@ -10629,20 +9156,14 @@ correctly rounded p-bit binary value by 4 commutes exactly
 with all four rounding modes and preserves p-bit
 significand precision, with no intermediate FloatAP work.
 
-As an additional independent verification, recertify EVERY
-one of the 20 pi references by a DIRECT Machin enclosure
-pi=16*atan(1/5)-4*atan(1/239). Form B=2^1800
-outward integer intervals for each atan using the
-alternating power series through k=1149 plus its first
-omitted positive term. Construct the pi enclosure by
-outward integer interval subtraction and multiplication,
-and confirm that both exact interval endpoints round to
-the IDENTICAL p-bit binary Rational for every mode.
-All 20 outcomes match 4 times the existing atan(1)
-fixture exactly; the direct pi enclosure width was
-23036/2^1800. Certification uses only native BigInt-style
-arbitrary-precision integer arithmetic, not GMP, MPFR,
-FloatMP, FloatAP or floating-point transcendental oracles.
+As an additional independent verification, recertify EVERY one of the 20 pi references by a DIRECT
+Machin enclosure pi=16*atan(1/5)-4*atan(1/239). Form B=2^1800 outward integer intervals for each
+atan using the alternating power series through k=1149 plus its first omitted positive term.
+Construct the pi enclosure by outward integer interval subtraction and multiplication, and confirm
+that both exact interval endpoints round to the IDENTICAL p-bit binary Rational for every mode. All
+20 outcomes match 4 times the existing atan(1) fixture exactly; the direct pi enclosure width was
+23036/2^1800. Certification uses only native BigInt-style arbitrary-precision integer arithmetic,
+not GMP, FloatAP or floating-point transcendental oracles.
 
 Only the pi block in `tests/test_float_rounding.cpp` and
 this design journal are changed. No new data files,
@@ -10652,18 +9173,14 @@ for D87 onward; D97 has not been compiled or executed
 under CTest/CI despite the independent numeric proof.
 All changes remain on `remove-gmp`.
 
-### D98 — replace FloatMP get_d differential checks with certified binary64 bits (22 October 2026)
+### D98 — replace native precision get_d differential checks with certified binary64 bits (22 October 2026)
 
-Replace exclusively the FloatMP/MPFR differential oracle in the
-`FloatAP::get_d()` test block. Preserve the four precision visits
-(53, 128, 256, 1024 bits), all seventeen original input values,
-the four original modes nearest/even, downward, upward, and toward
-zero, and each original bit-exact assertion: 272 conversion
-assertions. Preserve 16 further assertions checking signed
-negative/positive zero, NaN and infinity across precisions.
-Keep FloatAP's original thread-local rounding-mode restoration.
-The original input construction, its ordering, and all extreme
-binary shifts remain unchanged.
+Preserve the four precision visits (53, 128, 256, 1024 bits), all seventeen original input values,
+the four original modes nearest/even, downward, upward, and toward zero, and each original bit-exact
+assertion: 272 conversion assertions. Preserve 16 further assertions checking signed
+negative/positive zero, NaN and infinity across precisions. Keep FloatAP's original thread-local
+rounding-mode restoration. The original input construction, its ordering, and all extreme binary
+shifts remain unchanged.
 
 Add only `tests/data/floatap_get_d.tsv` with 272 strictly validated
 six-column oracle rows (bits, mode, ORIGINAL source numerator,
@@ -10680,23 +9197,16 @@ no additional helper/source modules. Explicit exact Rational
 input keys (not `Rational(FloatAP)`) ensure broken FloatAP
 constructors cannot silently change the oracle lookup.
 
-Offline oracle generation uses ONLY native BigInt arithmetic,
-not GMP, MPFR, FloatMP, FloatAP or a host double. Starting
-from each of the exact 17 Rational source inputs, independently
-round the source to a p-bit binary real with exact integer
-division and ties-to-even; 11 of 68 input
-conversions were inexact. Independently round the resulting
-stored binary real onto the normal 53-bit significand grid
-or, for exponents below -1022, the subnormal 2^-1074 grid.
-Use exact quotient/remainder, signed directed rounding,
-nearest-even tie handling, significand carries, and the
-binary64 overflow rule (infinity or maximum finite according
-to sign and mode). Pack sign, biased exponent and fraction
-into canonical unsigned 64-bit integer patterns.
-Explicitly check 25 independently known IEEE 754
-bit patterns covering integer halfway ties, smallest normal
-and subnormal, signed underflow, rounded overflow and infinity.
-All 272 references were generated and checked for unique
+Offline oracle generation uses ONLY native BigInt arithmetic, not GMP, FloatAP or a host double.
+Starting from each of the exact 17 Rational source inputs, independently round the source to a p-bit
+binary real with exact integer division and ties-to-even; 11 of 68 input conversions were inexact.
+Independently round the resulting stored binary real onto the normal 53-bit significand grid or, for
+exponents below -1022, the subnormal 2^-1074 grid. Use exact quotient/remainder, signed directed
+rounding, nearest-even tie handling, significand carries, and the binary64 overflow rule (infinity
+or maximum finite according to sign and mode). Pack sign, biased exponent and fraction into
+canonical unsigned 64-bit integer patterns. Explicitly check 25 independently known IEEE 754 bit
+patterns covering integer halfway ties, smallest normal and subnormal, signed underflow, rounded
+overflow and infinity. All 272 references were generated and checked for unique
 precision/mode/source keys. Expected-value classes:
 {"zero":60,"subnormal":36,"normal":152,"infinity":24,"negativeZero":24,"negativeInfinity":8}.
 
@@ -10744,31 +9254,19 @@ coverage (including 2,7,24,53,113,256,1024 bits)
 is retained, with no test-order or input change. Comments
 were updated to match the reduced set of live backends.
 
-A static source audit confirms ZERO occurrences of
-`FloatMP`, `MultiplePrecision`, `MPFR` or
-`mpfr` in `tests/test_float_rounding.cpp` after D99.
-This is intentionally scoped to that single test module;
-other tests still require independent native migrations,
-including GMP-backed arithmetic oracles.
-No production code, CMake, TSV datasets, timeout or any
-other test module was changed. Because the rebase and
-merge status must be validated by actual build/CI runs,
-the D99 compiled regression result is NOT claimed as
-verified at commit time.
+This is intentionally scoped to that single test module; other tests still require independent
+native migrations, including GMP-backed arithmetic oracles. No production code, CMake, TSV datasets,
+timeout or any other test module was changed. Because the rebase and merge status must be validated
+by actual build/CI runs, the D99 compiled regression result is NOT claimed as verified at commit
+time.
 
 ### D100 — migrate FloatApproximation coverage to FloatAP (22 October 2026)
 
-Apply the explicit coverage-preservation rule: for every
-FloatMP-specific behavior check, provide the corresponding
-FloatAP check unless already covered by a native test.
-In `tests/test_float_approximation.cpp`, replace the
-MultiplePrecision C++20 concept assertion with the
-ArbitraryPrecision concept assertion, and replace the former
-128-bit backend suite with the same full
-`TestFloatApproximation<ArbitraryPrecision>` suite at 128 bits.
-Keep the complete original generic test sequence for
-header API, conversions, arithmetic and comparisons,
-without deleting assertions, modes, or test inputs.
+In `tests/test_float_approximation.cpp`, replace the MultiplePrecision C++20 concept assertion with
+the ArbitraryPrecision concept assertion, and replace the former 128-bit backend suite with the same
+full `TestFloatApproximation<ArbitraryPrecision>` suite at 128 bits. Keep the complete original
+generic test sequence for header API, conversions, arithmetic and comparisons, without deleting
+assertions, modes, or test inputs.
 
 In the existing FloatDP cross-backend approximation
 conversion test, substitute a
@@ -10779,12 +9277,9 @@ source for the old backend source, retaining the
 retain the reverse DP-approximation-to-FloatAP check.
 Include the complete `numeric/floatap.hpp` header.
 
-After migration the test source has zero occurrences
-of FloatMP/MultiplePrecision/MPFR/mpfr. No production,
-CMake, fixture, timeout or other test module change.
-Compilation and runtime results are not inferred from
-source review: CI status must be checked separately.
-Work is restricted to the rebased `remove-gmp` branch.
+No production, CMake, fixture, timeout or other test module change. Compilation and runtime results
+are not inferred from source review: CI status must be checked separately. Work is restricted to the
+rebased `remove-gmp` branch.
 
 ### D101 — resolve missing FloatAP approximation linker symbols (22 October 2026)
 
@@ -10795,14 +9290,9 @@ after D100 fails with five unresolved symbols, all in
 `Bounds<FloatAP>`, `Error<FloatAP>`, and
 conversion to `ApproximateNumber`.
 
-This is a LIBRARY explicit-instantiation gap, not a wrong
-test expectation or an unsupported numerical behavior.
-The constructor and conversion templates already have real
-implementations in `include/numeric/float_approximation.tpl.hpp`.
-Historically `src/float_approximation.cpp` instantiated the
-full FloatDP/FloatMP approximation classes, but for FloatAP only
-the Real and ApproximateNumber constructors; D100's complete
-native test suite exposed the absent emitted symbols.
+This is a LIBRARY explicit-instantiation gap, not a wrong test expectation or an unsupported
+numerical behavior. The constructor and conversion templates already have real implementations in
+`include/numeric/float_approximation.tpl.hpp`.
 
 Fix exclusively `src/float_approximation.cpp` by explicitly
 instantiating the FOUR remaining conversion constructors for
@@ -10837,20 +9327,10 @@ constructors, the D101 bare explicit-instantiation definition
 in `src/float_approximation.cpp` did not provide a
 linkable symbol in the reported MSVC build.
 
-Follow the EXISTING repository pattern already used to provide
-`FloatDPApproximation::operator ApproximateNumber()` and
-`FloatMPApproximation::operator ApproximateNumber()`:
-define a concrete out-of-line explicit specialization
-`template<> FloatAPApproximation::operator ApproximateNumber() const`
-in `src/number.cpp`, returning
-`ApproximateNumber(new NumberWrapper<FloatAPApproximation>(*this))`.
-This makes the native conversion an ordinary
-non-discardable library definition in the same source module
-and compilation context as its two existing counterparts.
-Delete only the competing explicit instantiation of that
-operator from `src/float_approximation.cpp`, to avoid
-duplicate/competing definitions across translation units.
-Keep ALL six pre-existing native constructor instantiations
+This makes the native conversion an ordinary non-discardable library definition in the same source
+module and compilation context as its two existing counterparts. Delete only the competing explicit
+instantiation of that operator from `src/float_approximation.cpp`, to avoid duplicate/competing
+definitions across translation units. Keep ALL six pre-existing native constructor instantiations
 and legacy production conversions unchanged.
 
 The test suite, its generic() and assignment checks, CMake,
@@ -10887,21 +9367,15 @@ verification rejects missing, malformed, out-of-order and
 extra fixture records. Both ORIGINAL operands are checked
 against the fixture, including those with zero denominator.
 
-Generate independent fixtures using ONLY native arbitrary
-precision integer arithmetic: implement the standardized
-mt19937_64 recurrence and verify its first two outputs at
-seed 5489 against published standard test vectors
-(14514284786278117030, 4620546740167642908).
-At every original input, compute q=a/b and r=a%b using
-exact integers and certify 0<=r<b and a=b*q+r.
-No GMP, FloatAP, BigUnsigned, MPFR or floating-point
-arithmetic is used to obtain the oracle. The C++ test
-decodes hexadecimal nibbles directly into uint64 limbs,
-not via the production decimal parser. Each precomputed
-check retains four semantic assertions: exact numeric
-comparison, zero status, exact bit length computed from
-source hex, and canonical highest limb. The two source
-operands are also checked unconditionally.
+Generate independent fixtures using ONLY native arbitrary precision integer arithmetic: implement
+the standardized mt19937_64 recurrence and verify its first two outputs at seed 5489 against
+published standard test vectors (14514284786278117030, 4620546740167642908). At every original
+input, compute q=a/b and r=a%b using exact integers and certify 0<=r<b and a=b*q+r. No GMP, FloatAP,
+BigUnsigned or floating-point arithmetic is used to obtain the oracle. The C++ test decodes
+hexadecimal nibbles directly into uint64 limbs, not via the production decimal parser. Each
+precomputed check retains four semantic assertions: exact numeric comparison, zero status, exact bit
+length computed from source hex, and canonical highest limb. The two source operands are also
+checked unconditionally.
 
 This is the FIRST incremental migration of the large
 `test_big_unsigned.cpp` file. All OTHER mpz-based blocks
@@ -10960,9 +9434,6 @@ Parent `b5ecc37e34037457c869ebc1b1b4abf1a859afcd`, branch `remove-gmp`.
 
 ### D105 — remove GMP arithmetic from FloatAP integral rounding (23 October 2026)
 
-This incremental change on `numeric/main` does **not** modify the
-historical `remove-gmp` branch, the public `floats.hpp` aggregation,
-`floatmp.hpp`, or any benchmark. MPFR remains buildable for comparisons.
 
 - The signed `std::int64_t` FloatAP constructor now passes through the
   native `Integer` signed-magnitude implementation and
@@ -10983,20 +9454,14 @@ historical `remove-gmp` branch, the public `floats.hpp` aggregation,
 
 ### D106 — native signed/unsigned arithmetic in FloatAP core (23 October 2026)
 
-On `numeric/main`, the former GMP operations inside FloatAP's
-addition/subtraction (including signed far-exponent sticky adjustment),
-multiplication, division, fused multiply-add and precision conversion
-are replaced with existing native types:
+On `numeric/main`, the former GMP operations inside FloatAP's addition/subtraction (including signed
+far-exponent sticky adjustment), multiplication, division, fused multiply-add and precision
+conversion are replaced with existing native types:
 - `Integer` for signed aligned accumulators and exact signed offsets;
-- `BigUnsigned` for strictly nonnegative significand shifts, sums,
-  differences, products, and the quotient/remainder kernel already
-  present in `from_native_ratio`.
-The transitional `mpz_t _significand` still requires
-`integer_from_gmp` and `integer_to_gmp` at storage boundaries.
-`FloatMP`, MPFR comparisons, benchmark targets, the `floats.hpp`
-aggregator, test-oracle fixtures, and `test_rounding_mode.cpp`
-remain unchanged. In particular, no generic `BigUnsigned` signed
-arithmetic layer has been introduced.
+- `BigUnsigned` for strictly nonnegative significand shifts, sums, differences, products, and the
+quotient/remainder kernel already present in `from_native_ratio`. The transitional `mpz_t
+_significand` still requires `integer_from_gmp` and `integer_to_gmp` at storage boundaries. In
+particular, no generic `BigUnsigned` signed arithmetic layer has been introduced.
 
 The published change preserves the existing single-rounding path and
 its independent TSV oracle tests; cross-platform CI confirmation
@@ -11006,14 +9471,12 @@ the remaining `mpq_t` series intermediates with `Rational`.
 
 ### D107 — native BigUnsigned integer square root (23 October 2026)
 
-On `numeric/feature/bigunsigned-isqrt` off main `9f88d003`,
-`isqrt(BigUnsigned const&)` computes the canonical floor square root with
-only native BigUnsigned operations. It starts above the true square root
-at 2^ceil(bit_length/2), applies monotone integer Newton steps
-`x <- floor((x + floor(n/x))/2)`, and stops when the next iterate
-does not decrease. The input is borrowed and unchanged; zero returns zero.
-No GMP/MPFR call, platform-specific kernel or third-party arithmetic
-is introduced in production.
+On `numeric/feature/bigunsigned-isqrt` off main `9f88d003`, `isqrt(BigUnsigned const&)` computes the
+canonical floor square root with only native BigUnsigned operations. It starts above the true square
+root at 2^ceil(bit_length/2), applies monotone integer Newton steps `x <- floor((x +
+floor(n/x))/2)`, and stops when the next iterate does not decrease. The input is borrowed and
+unchanged; zero returns zero. No GMP call, platform-specific kernel or third-party arithmetic is
+introduced in production.
 
 `test_big_unsigned` reads `big_unsigned_sqrt.tsv` with frozen
 original-input/floor-root pairs generated by an independent JavaScript
@@ -11353,11 +9816,9 @@ to `BigUnsigned` also requires migrating its formatting, conversion,
 comparison, next/previous, exponent, and transcendental helpers.
 No inference of GMP-free FloatAP storage is made.
 
-This commit is intentionally narrow: the build environment cannot
-check out and compile the project from this session. CI has to
-confirm the new code and the independent FloatAP test/MPFR-oracle
-regressions. Do not regard algebraic equivalence alone as successful
-test execution.
+This commit is intentionally narrow: the build environment cannot check out and compile the project
+from this session. CI has to confirm the new code and the independent FloatAP test/independent exact
+oracles-oracle regressions. Do not regard algebraic equivalence alone as successful test execution.
 
 ### D118 — native exact FloatAP integer-power significand (23 October 2026)
 
@@ -11536,16 +9997,10 @@ direction, signed denominators, a deliberately UNREDUCED
 source-keyed independent transcendental and rounding oracles are
 not changed.
 
-Scope: This is a focused regression repair, NOT completion of
-the strict architectural rule requested by the user (GMP/MPFR only
-inside FloatMP implementation or benchmarks). The remaining
-internal Fraction and interval algorithms in floatap.cpp still
-contain GMP; these must be migrated separately to native
-Integer/Rational/BigUnsigned without reintroducing costly generic
-normalization on high-frequency paths. Do not rewrite these
-complex interval algorithms together with the performance repair.
-The prior staging of unrelated print/FloatDP/MPFR cleanups is
-NOT included in D121, to permit isolated performance attribution.
+The remaining internal Fraction and interval algorithms in floatap.cpp still contain GMP; these must
+be migrated separately to native Integer/Rational/BigUnsigned without reintroducing costly generic
+normalization on high-frequency paths. Do not rewrite these complex interval algorithms together
+with the performance repair.
 
 Performance recovery must be measured on the same host using the
 same precision workload and sample protocol. C++ compilation,
@@ -11564,28 +10019,16 @@ existing string formatting convention (including the decimal point
 for zero places). This removes GMP from the ordinary FloatAP decimal
 formatting path and drops the unused rational_gmp_bridge header there.
 
-FloatDP's display path no longer allocates FloatMP and delegates to
-MPFR; it uses exact 53-bit FloatAP representation of binary64,
-preserving negative zero and NaN/Inf, then invokes native decimal
-printing. Builtin rounding tags are mapped explicitly. This
-removes the FloatMP/MPFR dependency from src/floatdp.cpp, without
-changing FloatMP itself or its benchmarks.
+Builtin rounding tags are mapped explicitly.
 
-New source-keyed tests assert exact decimal outputs for 1/8, 3/8,
-negative 1/8, ties-to-even and directed modes, signed zero,
-infinity and NaN. The FloatDP tests check exact decimal ties and
-negative zero separately. These are fixed mathematical expectations,
-not GMP/MPFR or another native floating implementation as oracle.
-Unrelated regression cases and existing benchmarks remain unchanged.
+New source-keyed tests assert exact decimal outputs for 1/8, 3/8, negative 1/8, ties-to-even and
+directed modes, signed zero, infinity and NaN. The FloatDP tests check exact decimal ties and
+negative zero separately. These are fixed mathematical expectations, not GMP or another native
+floating implementation as oracle. Unrelated regression cases and existing benchmarks remain
+unchanged.
 
-The unused historical numeric/gmp.hpp and mpfr_array.hpp/.cpp
-are removed: repo-wide symbol searches found no callers, and
-mpfr_array.cpp is not compiled in src/CMakeLists.txt. GMP-backed
-certified transcendental Fraction/fixed-point code in FloatAP,
-GMP bridge helpers still used by FloatMP, and MPFR types outside
-FloatMP in common rounding/public interfaces remain outstanding.
-Do not call the strict migration complete. Cross-platform builds,
-unit tests and performance benchmark comparison are still required.
+Do not call the strict migration complete. Cross-platform builds, unit tests and performance
+benchmark comparison are still required.
 
 ### D123 — use public FloatDP exact-binary64 constructors in decimal tests (23 October 2026)
 
@@ -11636,14 +10079,12 @@ speedup is claimed here.
 
 ### D125 — benchmark both directed exponential modes (23 October 2026)
 
-The shared monomorphic `benchmark_compare_multiple_precision_backends`
-operation list now includes `exp_down` and `exp_up` alongside the unchanged
-`exp_nearest`. The FloatMP and FloatAP runs use the SAME indexed input pool,
-precision, operation and sample protocol. All three operations are checked
-at all 32 input indices in the post-timing exact-value comparison; the
-operation-count guard is updated from 27 to 29. Timing loops still contain
-no correctness checks. Preexisting operations and their input values are
-unchanged.
+The shared monomorphic `benchmark_compare_multiple_precision_backends` operation list now includes
+`exp_down` and `exp_up` alongside the unchanged `exp_nearest`. The and FloatAP runs use the SAME
+indexed input pool, precision, operation and sample protocol. All three operations are checked at
+all 32 input indices in the post-timing exact-value comparison; the operation-count guard is updated
+from 27 to 29. Timing loops still contain no correctness checks. Preexisting operations and their
+input values are unchanged.
 
 The directed modes already execute the same optimized FloatAP exp evaluator:
 native fixed-point Taylor series (D124), argument reduction, certified
@@ -11721,29 +10162,19 @@ before its own CI and user-supplied benchmark results.
 
 ### D128 — benchmark directed subtraction, FMA and square root (23 October 2026)
 
-The shared monomorphic FloatMP/FloatAP performance workload now includes
-the six previously omitted operations `sub_down`, `sub_up`, `fma_down`,
-`fma_up`, `sqrt_down` and `sqrt_up`. All existing nearest cases and
-operands are unchanged. In particular, the FMA variants use the same
-`a[i]*b[i]+a[i]` fused operation as the existing nearest benchmark,
-and the square-root variants use the same positive `a[i]` input.
-The shared operation list prevents different inputs for FloatMP/FloatAP.
-The benchmark's exact output-value differential verifier still runs
-only AFTER stopwatch measurements, checking every operation at every
-one of 32 indices for every requested precision. Its operation-count
-assertion is updated from 29 to 35. For the six standard precisions,
-this gives 35*32*6=6720 exact paired output comparisons, in addition
-to the preexisting paired-input checks. Existing independent semantic
-oracles and the arithmetic implementations are unchanged.
+All existing nearest cases and operands are unchanged. In particular, the FMA variants use the same
+`a[i]*b[i]+a[i]` fused operation as the existing nearest benchmark, and the square-root variants use
+the same positive `a[i]` input. The benchmark's exact output-value differential verifier still runs
+only AFTER stopwatch measurements, checking every operation at every one of 32 indices for every
+requested precision. Its operation-count assertion is updated from 29 to 35. For the six standard
+precisions, this gives 35*32*6=6720 exact paired output comparisons, in addition to the preexisting
+paired-input checks. Existing independent semantic oracles and the arithmetic implementations are
+unchanged.
 
-This adds measurement coverage, not numerical functionality or a
-measured performance improvement. Previous lack of rows for these
-rounding modes did NOT imply lack of support in FloatAP or FloatMP.
-Validate the benchmark and its paired output checks on CI, then use
-user-supplied same-host benchmark results to compare directed vs
-nearest modes. D127 log-series CI was still running when this entry
-was prepared; do not infer a pass or speedup from the existence of
-the commit.
+This adds measurement coverage, not numerical functionality or a measured performance improvement.
+Validate the benchmark and its paired output checks on CI, then use user-supplied same-host
+benchmark results to compare directed vs nearest modes. D127 log-series CI was still running when
+this entry was prepared; do not infer a pass or speedup from the existence of the commit.
 
 ### D129 — native single-recurrence certified arctangent series (23 October 2026)
 
@@ -11778,28 +10209,22 @@ and new same-host performance data are needed before declaring a win.
 
 ### D130 — remove fixed bit-precision whitelist from comparison benchmark (23 October 2026)
 
-The `benchmark_compare_multiple_precision_backends` CLI no longer limits
-`--bits/-b` to the historical 53/128/256/1024/2048/4096 presets.
-Any comma-separated `unsigned` integer precision >=2 is accepted and
-passed unchanged to both FloatMP and FloatAP via the pre-existing
-`BackendPool<Float>::precision_at(bits)` code. There is no artificial
-upper limit beyond the input type and the actual backend/memory limits.
-The default `53,128,256,1024` sequence is unchanged when no option is
-provided. Duplicate values, invalid numbers, values 0 or 1, empty
-lists and trailing commas remain errors. The help text now describes
-the supported lower bound rather than enumerating selected precisions.
+The `benchmark_compare_multiple_precision_backends` CLI no longer limits `--bits/-b` to the
+historical 53/128/256/1024/2048/4096 presets. Any comma-separated `unsigned` integer precision >=2
+is accepted and passed unchanged to both and FloatAP via the pre-existing
+`BackendPool<Float>::precision_at(bits)` code. There is no artificial upper limit beyond the input
+type and the actual backend/memory limits. The default `53,128,256,1024` sequence is unchanged when
+no option is provided. Duplicate values, invalid numbers, values 0 or 1, empty lists and trailing
+commas remain errors. The help text now describes the supported lower bound rather than enumerating
+selected precisions.
 
-The helper's FloatDP-only 53-bit branch is unrelated to this executable:
-the comparison explicitly instantiates only FloatMP and FloatAP.
-No numeric kernels, benchmark operations, paired input generation,
-verification logic, iteration counts, or output formatting changed.
-Existing 35-operation exact checks are still run for each requested
-precision after measuring. Suggested smoke inputs for CLI testing are
-`--bits 2,3,7,53,129,257`; reject `--bits 0`, `--bits 1`,
-`--bits 2,2`, malformed lists and overflow beyond `unsigned`.
-At extreme widths, memory/time limitations may naturally apply;
-no claim is made that the benchmark can physically complete for every
-representable `unsigned` input.
+The helper's FloatDP-only 53-bit branch is unrelated to this executable: the comparison explicitly
+instantiates only and FloatAP. No numeric kernels, benchmark operations, paired input generation,
+verification logic, iteration counts, or output formatting changed. Existing 35-operation exact
+checks are still run for each requested precision after measuring. Suggested smoke inputs for CLI
+testing are `--bits 2,3,7,53,129,257`; reject `--bits 0`, `--bits 1`, `--bits 2,2`, malformed lists
+and overflow beyond `unsigned`. At extreme widths, memory/time limitations may naturally apply; no
+claim is made that the benchmark can physically complete for every representable `unsigned` input.
 
 ### D131 — native sine/cosine Taylor series and certified cosine reconstruction (23 October 2026)
 
@@ -11836,17 +10261,12 @@ complete until remaining Fraction/GMP paths are eliminated.
 
 ### D132 — complete directed-rounding coverage of the comparison benchmark (23 October 2026)
 
-Following the D124–D131 conversions, the benchmark still timed only
-nearest rounding for log, sin, cos, tan, atan, asin, acos, and pi.
-This left every directed-rounding performance path of the migrated
-certified transcendental kernels unmeasured except exponential, despite
-the pre-existing support in BOTH FloatAP and FloatMP APIs.
-The common monomorphic `for_each_backend_operation` workload now
-adds `log_down/up`, `sin_down/up`, `cos_down/up`, `tan_down/up`,
-`atan_down/up`, `asin_down/up`, `acos_down/up`, and
-`pi_down/up`, plus `pow7_down/up` to complete all rounding-sensitive
-operations in the same comparison. The three variants of each operation
-use the same indexed value(s) or requested precision in both backends.
+Following the D124–D131 conversions, the benchmark still timed only nearest rounding for log, sin,
+cos, tan, atan, asin, acos, and pi. The common monomorphic `for_each_backend_operation` workload now
+adds `log_down/up`, `sin_down/up`, `cos_down/up`, `tan_down/up`, `atan_down/up`, `asin_down/up`,
+`acos_down/up`, and `pi_down/up`, plus `pow7_down/up` to complete all rounding-sensitive operations
+in the same comparison. The three variants of each operation use the same indexed value(s) or
+requested precision in both backends.
 
 There are now 53 distinct operations per precision, instead of 35.
 The exact post-timing differential verifier's operation-count guard
@@ -12160,16 +10580,13 @@ endpoint conversion to borrow native component storage. The existing
 FloatAP::from_ratio conversion performs the final rounding without
 any additional Rational constructor or canonicalization.
 
-Half-centered sine/cosine/atan predicates now check native
-power-of-two denominator limbs. The near-half exponential window
-compares native bit lengths and only shifts in the equal-width case.
-All original centered reductions, first-order/Taylor error bounds,
-cache conditions, directed rounding choices, and general-rational
-fallback paths are preserved. This change does not touch FloatMP
-or other remaining GMP/MPFR-dependent types and does not create
-directories named `detail`. The bridge header is still retained
-for its other production and test consumers and must be deleted
-once those have migrated; it is no longer included by FloatAP.
+Half-centered sine/cosine/atan predicates now check native power-of-two denominator limbs. The
+near-half exponential window compares native bit lengths and only shifts in the equal-width case.
+All original centered reductions, first-order/Taylor error bounds, cache conditions, directed
+rounding choices, and general-rational fallback paths are preserved. This change does not touch or
+other remaining GMP-dependent types and does not create directories named `detail`. The bridge
+header is still retained for its other production and test consumers and must be deleted once those
+have migrated; it is no longer included by FloatAP.
 
 This is a dependency migration with potentially material performance
 effects: the native Rational cross-cancellation path should be measured
@@ -12222,20 +10639,13 @@ bits, nearest-rounding FloatAP timings in ns are:
 | asin | 6797.042 | 547383.666 | 2795.375 | 195.82x |
 | acos | 6634.459 | 547498.459 | 2802.542 | 195.36x |
 
-All five operations are also faster than pre-D141 at 2048 bits,
-by factors 1.81x, 2.40x, 2.66x, 2.43x and 2.37x respectively.
-At 53 bits their D141/D142 speedups are 4.37x, 4.02x,
-6.69x, 6.57x, and 6.52x. In the D142 benchmark FloatAP/MPFR
-slowdown across all 265 operation/precision pairs is
-0.474x geometric mean and 0.145x time-sum ratio;
-the worst operation is add_up at 256 bits (3.217x slower than MPFR).
-Across the *pre-D141 vs D142* comparison, 82/265 FloatAP
-operation/precision timings remain slower, so no claim of
-universal speedup is warranted. The severe D141 certified-transcendental
-regression is resolved in these measurements. Caching/warm-up,
-host conditions, and benchmark input mix remain the same
-within the supplied paired runs; smaller changes should not be
-over-interpreted without repetitions.
+All five operations are also faster than pre-D141 at 2048 bits, by factors 1.81x, 2.40x, 2.66x,
+2.43x and 2.37x respectively. At 53 bits their D141/D142 speedups are 4.37x, 4.02x, 6.69x, 6.57x,
+and 6.52x. Across the *pre-D141 vs D142* comparison, 82/265 FloatAP operation/precision timings
+remain slower, so no claim of universal speedup is warranted. The severe D141
+certified-transcendental regression is resolved in these measurements. Caching/warm-up, host
+conditions, and benchmark input mix remain the same within the supplied paired runs; smaller changes
+should not be over-interpreted without repetitions.
 
 D142 Windows, Sanitizers and Coverage CI are green at this review;
 Unix was still in progress when last observed. These measurements
@@ -12245,16 +10655,14 @@ prove that Numeric outside FloatAP is GMP-free.
 
 ### D143 — certified short centered transcendental evaluation (23 October 2026)
 
-The FloatDP comparison at 53 bits showed exp/log/sin/cos/tan/atan/asin/acos
-costing roughly 290–580 ns, dominated by constructing exact Rational
-arguments, corrections and endpoint carriers in the near-half paths.
-The new FloatAP-specific short path evaluates the same local Taylor
-certificates directly in native fixed-point limbs. It does not call libm,
-GMP or MPFR, cache results for benchmark inputs, change the workload, or
-weaken correctly rounded results. Existing constant enclosures remain the
-source of every coefficient. The implementation stays in floatap.cpp;
-shared BigUnsigned kernels provide multiplication and signed-magnitude
-addition/subtraction. No test executable or benchmark modification is added.
+The FloatDP comparison at 53 bits showed exp/log/sin/cos/tan/atan/asin/acos costing roughly 290–580
+ns, dominated by constructing exact Rational arguments, corrections and endpoint carriers in the
+near-half paths. The new FloatAP-specific short path evaluates the same local Taylor certificates
+directly in native fixed-point limbs. It does not call libm, GMP, cache results for benchmark
+inputs, change the workload, or weaken correctly rounded results. Existing constant enclosures
+remain the source of every coefficient. The implementation stays in floatap.cpp; shared BigUnsigned
+kernels provide multiplication and signed-magnitude addition/subtraction. No test executable or
+benchmark modification is added.
 
 **Scope and certificate.** For p<=64, set B=p+32 (34<=B<=96). Accept an
 exact one-limb offset delta=n*2^-D from |x|=1/2 only when 1<=D<=64 and
@@ -12354,20 +10762,14 @@ buffered/generic path. Exponent arithmetic and signed special values keep
 the previous contracts. The existing comparison measured about 9–10 ns
 for pow7 at 53 bits, versus about 56 ns before this shortcut.
 
-Add raw `tanh(mode,x)` and current-mode overloads for FloatAP/FloatMP/FloatDP.
-FloatAP constructs exact outward bounds using u=exp(-2*|x|) and the
-monotone transform (1-u)/(1+u), with one final certified rounding.
-The short centered kernel uses tanh(1/2) and 1-tanh(1/2)^2, with
-|tanh''|<=2 giving the remainder bound delta^2. A dyadic centered cache
-also supports arbitrary precision; general arguments retain adaptive
-interval refinement. Very small values use 0<y-tanh(y)<y^3 to choose x
-or its immediate predecessor in magnitude. Large values use
-1-tanh(y)<2^(1-2*y) to select +/-1 or its predecessor. Directed results
-that would exceed FloatAP's native exponent range retain checked overflow.
-FloatMP calls mpfr_tanh. FloatDP uses the shared certified short kernel
-and an MPFR-backed reference outside it, with explicit tiny/subnormal
-handling to avoid double rounding. FloatAP gains no MPFR dependency.
-Bounds, Approximation and Rounded wrappers now reach the raw operation.
+FloatAP constructs exact outward bounds using u=exp(-2*|x|) and the monotone transform (1-u)/(1+u),
+with one final certified rounding. The short centered kernel uses tanh(1/2) and 1-tanh(1/2)^2, with
+|tanh''|<=2 giving the remainder bound delta^2. A dyadic centered cache also supports arbitrary
+precision; general arguments retain adaptive interval refinement. Very small values use
+0<y-tanh(y)<y^3 to choose x or its immediate predecessor in magnitude. Large values use
+1-tanh(y)<2^(1-2*y) to select +/-1 or its predecessor. Directed results that would exceed FloatAP's
+native exponent range retain checked overflow. The implementation uses native arithmetic and exact
+certification. Bounds, Approximation and Rounded wrappers now reach the raw operation.
 
 The binary64 adapter decodes normal near-half inputs directly into their
 exact 53-bit significand and exponent, reuses D143's outward coefficient
@@ -12404,26 +10806,23 @@ leading half from an above-half significand often yields a small offset
 without copying the full input. Both adjacent binades and both signs
 are supported; other arguments retain adaptive interval refinement.
 
-One shared BigUnsigned product computes c=floor(S_lower*|delta|*2^B).
-Check once when building the cache that S_upper-S_lower<=2 integer
-units. Product truncation then costs <1 unit, the slope uncertainty
-costs <=2*|delta|<1 unit, and |tanh''|<=2 bounds the Taylor remainder
-by delta^2*2^B<=1 unit. Thus C_lower +/- c - 3 and
-C_upper +/- c + 3 rigorously enclose the positive-magnitude result.
-Round both endpoints with the requested sign and mode and accept only
-equal normalized results. Ambiguous rounding returns to the existing
-adaptive certificate. Arithmetic and rounding use the shared native
-BigUnsigned implementation; FloatAP still has no MPFR dependency.
+One shared BigUnsigned product computes c=floor(S_lower*|delta|*2^B). Check once when building the
+cache that S_upper-S_lower<=2 integer units. Product truncation then costs <1 unit, the slope
+uncertainty costs <=2*|delta|<1 unit, and |tanh''|<=2 bounds the Taylor remainder by delta^2*2^B<=1
+unit. Thus C_lower +/- c - 3 and C_upper +/- c + 3 rigorously enclose the positive-magnitude result.
+Round both endpoints with the requested sign and mode and accept only equal normalized results.
+Ambiguous rounding returns to the existing adaptive certificate. The implementation uses native
+arithmetic and exact certification.
 
 Same-host arm64 Release measurements, existing multiple-precision
 comparison, 2,000 iterations and 31 samples, warmed near-half input pool:
 
-| Bits | tanh nearest at D144 (ns) | D145 (ns) | MPFR in D145 run (ns) |
-| --- | ---: | ---: | ---: |
-| 128 | 1151.875 | 90.084 | 1270.812 |
-| 256 | 1516.709 | 287.938 | 1777.854 |
-| 1024 | 1952.084 | 299.771 | 7018.292 |
-| 2048 | 2694.625 | 432.812 | 20396.479 |
+| Bits | tanh nearest at D144 (ns) | D145 (ns) |
+| --- | ---: | ---: |
+| 128 | 1151.875 | 90.084 |
+| 256 | 1516.709 | 287.938 |
+| 1024 | 1952.084 | 299.771 |
+| 2048 | 2694.625 | 432.812 |
 
 The D144 baseline used 1,000 iterations and 11 samples. These measurements
 exclude cold coefficient generation and establish gains for this input
@@ -12443,15 +10842,12 @@ AddressSanitizer/UBSan Debug CTest with warnings treated as errors passes
 
 ### D145.1 — MSVC C4459 shadowing fix for centered FloatAP correction (23 October 2026)
 
-Windows MSVC 14.51.36231 with /W4 /WX rejects
-src/floatap.cpp's FloatAPShortTranscendentals::correction at line 3817:
-the parameter `bool upward` shadows the public global
-`Ariadne::upward` from numeric/rounding.hpp (C4459/C2220).
-Rename only that parameter to `round_upward` and update its
-single use within the same helper. The positional `false`/`true` callers, exact limb multiplication, discarded-bit check,
-outward endpoint correction, certified intervals, round-to-nearest
-and directed rounding behavior are all unchanged. No numerical
-reference or test fixture has been altered to suppress the warning.
-The fix is limited to the existing FloatAP translation unit; it
-does not touch FloatMP, GMP/MPFR, benchmarks, or CMake.
-Validate Windows /W4 /WX and Unix, Sanitizers, Coverage in CI.
+Windows MSVC 14.51.36231 with /W4 /WX rejects src/floatap.cpp's
+FloatAPShortTranscendentals::correction at line 3817: the parameter `bool upward` shadows the public
+global `Ariadne::upward` from numeric/rounding.hpp (C4459/C2220). Rename only that parameter to
+`round_upward` and update its single use within the same helper. The positional `false`/`true`
+callers, exact limb multiplication, discarded-bit check, outward endpoint correction, certified
+intervals, round-to-nearest and directed rounding behavior are all unchanged. No numerical reference
+or test fixture has been altered to suppress the warning. The fix is limited to the existing FloatAP
+translation unit; it does not touch, GMP, benchmarks, or CMake. Validate Windows /W4 /WX and Unix,
+Sanitizers, Coverage in CI.

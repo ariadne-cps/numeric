@@ -5,11 +5,22 @@ The original files were certified independently. Sampling is performed only on t
 * BigUnsigned power: all ten width counts, modes 0/1/2/3/7 (zero, saturation, top-bit, dense, alternate saturation) and exponents 0/1/2/8/16/17 (identities, squaring, dispatch/high-bit boundaries). Every S (irregular base) and B (1024-bit limit) row is retained. 1513 -> 373 rows (4.06x).
 * BigUnsigned short division: all 36 limb-width pairs (including empty dividend/divisor, equal widths, and the 4/5-limb edge); modes 0/1/2/3/4/5/11/17/23 preserve each distinct mode%6 category plus multiple dense high modes. 864 -> 324 rows (2.67x).
 
-A tenfold reduction is not justified for these two datasets without dropping valuable operand widths or power/boundary classes. Future independent GMP/MPFR replacements should prefer source-keyed TSV fixtures and preserve algorithm thresholds, rounding modes, operand signs, equal/unequal widths, aliasing and exceptional inputs; record per-dataset counts. This step does not claim to remove all remaining runtime GMP/MPFR uses.
+A tenfold reduction is not justified for these two datasets without dropping valuable operand widths
+or power/boundary classes. Future independent GMP replacements should prefer source-keyed TSV
+fixtures and preserve algorithm thresholds, rounding modes, operand signs, equal/unequal widths,
+aliasing and exceptional inputs; record per-dataset counts. This step does not claim to remove all
+remaining runtime GMP uses.
 
 * BigUnsigned B41 subtraction: source-keyed 9 structural classes at each of 11 nonzero limb widths (and canonical zero), keeping both operand directions and underflow expectations: 768 -> 100 operand pairs (7.68x). Original generator state reproduced exactly (the first five draws were cross-checked against C++ std::mt19937_64), then all expected results computed independently with exact integers. Source includes no GMP in this test function.
 
-* Integer B18: 1,700 randomized GMP differential repetitions -> 170 frozen exact arithmetic sources/results (10x). Integer B17: 2,500 repetitions -> 250 frozen exact arithmetic/shift cases (10x). Source streams use the original std::mt19937_64 seeds verified against independent compiled C++ outputs. Select rep=10*k+(7*k+3)%10; the 250 B17 samples cover every rep%130 shift count, all 8 decimal lengths, all six sign states, and 16 zero dividends. The 170 B18 samples cover all 7 decimal lengths, all sign states, and 9 zero dividends. Offline results use native exact signed integers and C++ truncation-toward-zero quotient/remainder, not Integer-under-test, GMP or MPFR. Runtime loops iterate only sampled TSV cases and check input-derived structural invariants.
+* Integer B18: 1,700 randomized GMP differential repetitions -> 170 frozen exact arithmetic
+sources/results (10x). Integer B17: 2,500 repetitions -> 250 frozen exact arithmetic/shift cases
+(10x). Source streams use the original std::mt19937_64 seeds verified against independent compiled
+C++ outputs. Select rep=10*k+(7*k+3)%10; the 250 B17 samples cover every rep%130 shift count, all 8
+decimal lengths, all six sign states, and 16 zero dividends. The 170 B18 samples cover all 7 decimal
+lengths, all sign states, and 9 zero dividends. Offline results use native exact signed integers and
+C++ truncation-toward-zero quotient/remainder, not Integer-under-test, GMP. Runtime loops iterate
+only sampled TSV cases and check input-derived structural invariants.
 
 * Integer B33 (square aliasing): 9 widths x 16 modes = 144 -> 9 x 8 = 72 source cases (2x); all eight unique mode%8 structures and 7/8/9-limb boundary preserved. Integer B37 (large signed power): 6 widths x 12 repetitions x 3 powers = 216 -> 6 x 4 x 3 = 72 checks (3x); retain saturation, single-top-bit, positive/negative dense, exponents 2/3/5. Integer B38 (pow3): 5 widths x 24 repetitions = 120 -> 5 x 6 = 30 (4x); all six mode%6 structures, signs and 128-limb maximum preserved. Independent exact BigInt integers produce all expected values, and the generated sources use mt19937_64 streams checked against C++ first-five draws; runtime GMP removed from these three test blocks.
 
@@ -37,7 +48,11 @@ A tenfold reduction is not justified for these two datasets without dropping val
 
 * Rational R8 comparisons: 16/16 original one-limb ratio orderings retained in `rational_r8.tsv` with exact independent integer cross-products. Rational R28 256-bit heap-crossing signed add/sub: 36/36 original cases retained in `rational_r28.tsv`, with original inputs and canonical exact signed results. No GMP oracle calls in these blocks. Reverse GMP conversion tests in Rational have been removed; 600-digit Integer parsing/output now tested natively. CMake exports only the shared data directory to test_rational. Reverse methods `GmpIntegerBoundary::to_integer` and `GmpRationalBoundary::to_rational` removed from the transitional adapters. Remaining `integer_from_gmp` is used in FloatAP's still-GMP-backed significand and ratio paths and cannot be removed without migrating those paths.
 
-* R4 independently frozen floor/ceil: 54 of 54 original rational cases kept (all nine classes at 53/128/256/1024/2048/4096 bits), with source fractions and canonical expected integer bounds in rational_r4.tsv. The remaining 1,200 randomized GMP differential iterations compare native floor/ceil by exporting the actual Integer into GMP for direct mpz_cmp, never converting an expected mpz_t to Integer. Legacy FloatMP finite-to-Rational conversion uses exact p-bit base-2 MPFR digits and a native BigUnsigned; FloatMP remains scheduled for removal and receives no new arithmetic or optimization work.
+* R4 independently frozen floor/ceil: 54 of 54 original rational cases kept (all nine classes at
+53/128/256/1024/2048/4096 bits), with source fractions and canonical expected integer bounds in
+rational_r4.tsv. The remaining 1,200 randomized GMP differential iterations compare native
+floor/ceil by exporting the actual Integer into GMP for direct mpz_cmp, never converting an expected
+mpz_t to Integer.
 
 * Rational R16: 84/84 deterministic operand cases (6 widths x 7 GCD classes x both orders) frozen as exact canonical fraction TSV. Independent native big-integer arithmetic calculates sum, difference, doubling and zero outcomes. In-place aliases and replacement of special destinations retain all original expectations. All GMP arithmetic oracle calls eliminated from R16; original 53/128/256/1024/2048/4096-bit boundaries preserved.
 

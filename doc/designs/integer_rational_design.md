@@ -1,8 +1,10 @@
 # Integer, Rational, and GMP-independent arithmetic core
 
+> **Current design perspective — October 2026.** This journal treats each native arithmetic component as an autonomous implementation. Progress is measured by exact, independently generated oracles, cross-platform regression tests, absolute operation latency, and speedups between revisions of the *same* algorithm. Historical cross-backend performance ratios and retired adapter details are omitted; mathematical proofs and native implementation decisions are retained.
+
 **Status:** native Integer and Rational implemented; remaining GMP-backed types and performance work are in progress.
 **Work branch:** `remove-gmp`.  
-**Baseline:** `remove-mpfr` commit `9823a3b127712ee39e44b634dbaba49e50ea0054`, with Unix, Windows and Coverage passing.  
+**Initial stage:** baseline arithmetic interfaces with Unix, Windows and Coverage passing.
 **Companion journal:** [`floatap_design.md`](floatap_design.md).
 
 This is the **living design and implementation journal** for removing GMP
@@ -13,35 +15,25 @@ is affected. Avoid recording prospective changes as implemented.
 
 ## Goals and non-goals
 
-1. Remove GMP from **production** `Integer`, `Natural`, `Rational`,
-   `FloatAP`, and all other numeric paths using GMP. No hidden GMP
-   dependency through conversions, helper classes, or cached constants.
-2. Share one portable, tested **unsigned limb arithmetic core**.
-   Preserve separate algorithms and storage strategies where needed:
-   `FloatAP` must not pay for generic rational canonicalization.
-3. Preserve the mathematical **correctness** contracts needed by the
-   library (exact values, comparisons, rounding where applicable, and
-   Rational NaN/positive/negative infinity), but **do not preserve**
-   legacy GMP-wrapper implementation details, public GMP fields,
-   constructor/accessor ABI, or unnecessary API quirks. Explicitly
-   decide and test any change in the observable arithmetic contract
-   before adapting the rest of Ariadne.
-4. Target C++20, GCC, Clang/AppleClang and MSVC with warnings-as-errors.
-   Do not require `__int128`, GCC-only intrinsics, or platform GMP
-   limb layout. Accelerated code can be optional with portable fallback.
-5. Keep **FloatAP** as the primary regression/performance gate:
-   at each of 53, 128, 256, 1024 bits require worst operation
-   AP/MPFR slowdown **<2x**, geomean **<1x**, sum of operation times
-   **<1x**, as the established targets. Also report absolute times.
-   These are objectives, **not** established guarantees.
-6. Benchmark future native `Integer` against GMP `mpz_t`, and native
-   `Rational` against GMP `mpq_t` (not `mpz_t`, which cannot
-   represent a general rational). Correctness checks are mandatory
-   outside timing regions.
+1. Remove GMP from **production** `Integer`, `Natural`, `Rational`, `FloatAP`, and all other numeric
+paths using GMP. No hidden GMP dependency through conversions, helper classes, or cached constants.
+2. Share one portable, tested **unsigned limb arithmetic core**. Preserve separate algorithms and
+storage strategies where needed: `FloatAP` must not pay for generic rational canonicalization.
+3. Preserve the mathematical **correctness** contracts needed by the library (exact values,
+comparisons, rounding where applicable, and Rational NaN/positive/negative infinity), but **do not
+preserve** legacy GMP-wrapper implementation details, public GMP fields, constructor/accessor ABI,
+or unnecessary API quirks. Explicitly decide and test any change in the observable arithmetic
+contract before adapting the rest of Ariadne.
+4. Target C++20, GCC, Clang/AppleClang and MSVC with warnings-as-errors. Do not require `__int128`,
+GCC-only intrinsics, or platform GMP limb layout. Accelerated code can be optional with portable
+fallback.
+5. Also report absolute times. These are objectives, **not** established guarantees.
+6. Benchmark future native `Integer` against GMP `mpz_t`, and native `Rational` against GMP `mpq_t`
+(not `mpz_t`, which cannot represent a general rational). Correctness checks are mandatory outside
+timing regions.
 
-GMP/MPFR may remain installed **in benchmark and differential-test
-targets** during migration. The eventual production link must be
-independent of both. This project does not require removing
+GMP may remain installed **in benchmark and differential-test targets** during migration. The
+eventual production link must be independent of both. This project does not require removing
 comparison backends or diagnostic tools before the native types work.
 
 ## Existing code and compatibility inventory
@@ -333,37 +325,21 @@ substitute for end-to-end rational benchmarks.
 
 ## Validation and performance contracts
 
-**Functional correctness first.** Keep and grow
-the existing test suites. Baseline is
-`remove-mpfr` at `9823a3b1`: Unix, Windows
-and Coverage green at branch creation.
+**Functional correctness first.** Keep and grow the existing test suites. Baseline is `initial
+native arithmetic development` at `9823a3b1`: Unix, Windows and Coverage green at branch creation.
 
-- Integer: fixed exact expected values independent
-  of GMP for add/sub/mul/quot/rem/shifts/pow, negative
-  operands, zero, sign/magnitude boundaries, 32/64-bit
-  limb transitions, 53/128/256/1024-bit and larger
-  values; randomized cross-checks with `mpz_t` as
-  *secondary* oracle.
-- Rational: fixed independent expected fractions
-  and special-value outputs; test normalized
-  numerator/denominator, arithmetic, compare,
-  sign, ±inf/NaN and exception policies; randomized
-  `mpq_t` differential testing as secondary oracle.
-- FloatAP: preserve exact certified-literal tests
-  at four precisions and all rounding modes;
-  benchmark continues to compare the 32 paired inputs
-  plus 3456 operation results with FloatMP **after**
-  timing (not inside `median_ns`). Also test
-  non-centered domains and hard rounding cases.
-- In all benchmarks, compute the *same* input and
-  operation definitions for both backends and verify
-  equality **outside timing**. No tolerance or
-  double-conversion when comparing exact values.
-  Fail with operation, operand sizes/signs, index
-  and both results. Compare special-value kinds
-  explicitly. The 1000x11 settings and original
-  FloatAP operation pool must not be changed to
-  manufacture better ratios.
+- Integer: fixed exact expected values independent of GMP for add/sub/mul/quot/rem/shifts/pow,
+negative operands, zero, sign/magnitude boundaries, 32/64-bit limb transitions, 53/128/256/1024-bit
+and larger values; randomized cross-checks with `mpz_t` as *secondary* oracle.
+- Rational: fixed independent expected fractions and special-value outputs; test normalized
+numerator/denominator, arithmetic, compare, sign, ±inf/NaN and exception policies; randomized
+`mpq_t` differential testing as secondary oracle.
+- Also test non-centered domains and hard rounding cases.
+- In all benchmarks, compute the *same* input and operation definitions for both backends and verify
+equality **outside timing**. No tolerance or double-conversion when comparing exact values. Fail
+with operation, operand sizes/signs, index and both results. Compare special-value kinds explicitly.
+The 1000x11 settings and original FloatAP operation pool must not be changed to manufacture better
+ratios.
 
 ### Planned integer benchmark
 
@@ -513,12 +489,10 @@ and test-phase dependencies when diagnosing failures.
 
 ## Migration phases
 
-**G0 — Inventory/architecture (this commit):**
-create `remove-gmp` from the verified `remove-mpfr`
-head, retain its history and FloatAP journal, add
-this design and the two planned benchmark contracts.
-No GMP replacement, benchmark code or numerical
-behavior change is claimed.
+**G0 — Inventory/architecture (this commit):** create `remove-gmp` from the verified `initial native
+arithmetic development` head, retain its history and FloatAP journal, add this design and the two
+planned benchmark contracts. No GMP replacement, benchmark code or numerical behavior change is
+claimed.
 
 **G1 — Portable unsigned foundation:** extract
 `src/floatap_small_division.hpp` into a reusable,
@@ -550,13 +524,10 @@ performance benchmark. G2-G4 may proceed in
 parallel through adapters provided each commit is
 fully tested.
 
-**G5 — Project-wide removal:** audit remaining
-`mpz`, `mpq`, `mpf`, GMP C++ bindings, Python
-bindings, dependencies and CMake/package exports.
-Production binaries must build and run with GMP
-and MPFR absent; comparison-only benchmarks/tests
-may link both explicitly. Do not remove GMP from
-build configuration while native code still needs it.
+**G5 — Project-wide removal:** audit remaining `mpz`, `mpq`, `mpf`, GMP C++ bindings, Python
+bindings, dependencies and CMake/package exports. Production binaries must build and run with GMP
+absent; comparison-only benchmarks/tests may link both explicitly. Do not remove GMP from build
+configuration while native code still needs it.
 
 ## Decision G1 architecture: shared limb kernels, separate ownership (18 October 2026)
 
@@ -674,16 +645,12 @@ performance improvement is claimed before same-host measurements.
 
 ### G0 — Branch creation and design baseline (18 October 2026)
 
-Created `remove-gmp` from verified `remove-mpfr`
-`9823a3b1`. Chose a **common unsigned arithmetic
-core with specialized higher-level implementations**,
-not multiple incompatible integer engines and not
-a general Rational allocation path for FloatAP.
-The first milestone is the living design only.
-No new numerical implementation or benchmark
-has yet been added. The FloatAP journal remains
-the performance reference and is to be updated
-in parallel when core changes affect FloatAP.
+Created `remove-gmp` from verified `initial native arithmetic development` `9823a3b1`. Chose a
+**common unsigned arithmetic core with specialized higher-level implementations**, not multiple
+incompatible integer engines and not a general Rational allocation path for FloatAP. The first
+milestone is the living design only. No new numerical implementation or benchmark has yet been
+added. The FloatAP journal remains the performance reference and is to be updated in parallel when
+core changes affect FloatAP.
 
 ### G0 clarification — wrapper compatibility is not a goal (18 October 2026)
 
@@ -819,29 +786,21 @@ migration. This entry describes the initial isolated
 kernel only, not completion of GMP removal.
 ### Migration priority refinement — one FloatAP source pair (18 October 2026)
 
-The user explicitly requires only `floatap.hpp` and `floatap.cpp`
-for FloatAP, not a separate header per arithmetic algorithm.
-All unsigned kernels and quotient/remainder rounding have been
-moved into `floatap.cpp`, with no changes to the public header.
-Future GMP removal should directly refactor the existing FloatAP
-representation and implementation, retaining FloatMP as a
-differential reference and independent fixed-answer rounding
-tests. Do not build a temporary compatibility layer or factor
-out code for Integer/Rational before measuring an actual need.
-Private implementation tests have been replaced with tests of
-the FloatAP public mathematical behavior, under CTest.
-Benchmark targets remain separate.
+The user explicitly requires only `floatap.hpp` and `floatap.cpp` for FloatAP, not a separate header
+per arithmetic algorithm. All unsigned kernels and quotient/remainder rounding have been moved into
+`floatap.cpp`, with no changes to the public header. Do not build a temporary compatibility layer or
+factor out code for Integer/Rational before measuring an actual need. Private implementation tests
+have been replaced with tests of the FloatAP public mathematical behavior, under CTest. Benchmark
+targets remain separate.
 
 
 ### BigUnsigned phase B0 — portable storage and foundation (18 October 2026)
 
-**Implementation introduced**, independently of FloatAP and with no GMP
-dependency in `include/numeric/big_unsigned.hpp` or
-`src/big_unsigned.cpp`, built into `NUMERIC_SRC`. The
-`tests/test_big_unsigned.cpp` CTest target validates it against GMP
-as a **test-only reference**. `FloatAP`, `Integer` and `Rational`
-retain their current production representations; no operations have
-been rewired to use BigUnsigned. FloatMP is unchanged.
+**Implementation introduced**, independently of FloatAP and with no GMP dependency in
+`include/numeric/big_unsigned.hpp` or `src/big_unsigned.cpp`, built into `NUMERIC_SRC`. The
+`tests/test_big_unsigned.cpp` CTest target validates it against GMP as a **test-only reference**.
+`FloatAP`, `Integer` and `Rational` retain their current production representations; no operations
+have been rewired to use BigUnsigned.
 
 **Storage contract.** Nonnegative exact values are stored as a
 little-endian sequence of 64-bit unsigned limbs; each represents a
@@ -1536,12 +1495,8 @@ An isolated Clang C++20 harness with warnings-as-errors passed 5000 native limb-
 
 ### B17 native signed-magnitude foundation, before Integer facade migration (19 October 2026)
 
-B16 CI `3ea38f4` is green on Unix, Windows and Coverage. Directly
-replacing `Integer::_mpz` is not yet isolated: live consumers in
-`rational.cpp`, `dyadic.cpp`, and `floatmp.cpp` use exposed GMP
-members/accessors, while the existing Integer header and constructors
-expose GMP types. A one-commit replacement could break unrelated
-numeric semantics and leave test failures hard to localize.
+B16 CI `3ea38f4` is green on Unix, Windows and Coverage. A one-commit replacement could break
+unrelated numeric semantics and leave test failures hard to localize.
 
 B17 therefore introduces a separate `SignedInteger` native
 signed-magnitude class in `include/numeric/signed_integer.hpp` and
@@ -1571,7 +1526,8 @@ Full B17 cross-platform project CI remains pending.
 
 The user clarified that B17's `SignedInteger` **must remain temporarily** to independently validate sign-magnitude behavior against GMP before the in-place public `Integer` migration. This corrects the previous inclination to immediately revert B17; **no revert was applied**. There must be **only one signed arbitrary-precision type in the final architecture: `Integer`**.
 
-Acceptance sequence: (1) validate the standalone B17 `SignedInteger` implementation and its GMP-differential tests across Unix, Windows and Coverage; (2) move its verified signed-magnitude invariants and operations into existing `include/numeric/integer.hpp` and `src/integer.cpp`, using `BigUnsigned` directly, without a permanent wrapper; (3) migrate dependent `Rational`, `Dyadic`, `FloatMP` and other consumers of `_mpz`/`get_mpz` using explicit conversions or narrow integration adapters, retaining existing meaningful semantics and the agreed signed division convention; (4) transfer and expand verification into existing `tests/test_integer.cpp`; (5) **delete** `include/numeric/signed_integer.hpp`, `src/signed_integer.cpp`, `tests/test_signed_integer.cpp` and their CMake target/source entries. Check that no code or build reference to `SignedInteger` remains. This deletion is a required completion gate for the migration, not optional cleanup.
+Check that no code or build reference to `SignedInteger` remains. This deletion is a required
+completion gate for the migration, not optional cleanup.
 
 B17 remains an intermediate development and test stage; it does not establish a second production API. This documentation-only clarification does not alter B17 code or its CI results.
 
@@ -1582,9 +1538,19 @@ B17 `SignedInteger` Unix, Windows and Coverage CI succeeded at `31c81e1`; the te
 
 Signed quotient/remainder are deliberately coherent: division truncates toward zero, the remainder has the dividend's sign, and `a=b*q+r` with `abs(r)<abs(b)`; this replaces the previous mixed `mpz_div` quotient and `mpz_cdiv_r` remainder behavior. The existing Integer-vs-GMP benchmark retains its corpus, timing controls and exact operations, but its direct GMP quotient/remainder oracle now uses `mpz_tdiv_q` and `mpz_tdiv_r` to compare mathematically identical semantics. Checked extraction is explicit on overflow; it no longer silently truncates via `mpz_get_si`.
 
-An **internal, temporary boundary adapter** `include/numeric/detail/integer_gmp_bridge.hpp` converts signed `Integer` values to/from GMP with exact `mpz_export`/`mpz_import` on 64-bit limbs and canonical sign. The few existing interface sites in `rational.cpp`, `dyadic.cpp`, `floatmp.cpp` and `floatap.cpp` that previously accessed `Integer::_mpz`/`get_mpz` now use the adapter; these classes **continue to store GMP** and retain their arithmetic, except that rational round/ceil/floor use native Integer operations after extraction rather than abusing Integer as mutable GMP scratch. No broad rewrite of these classes or FloatAP algorithm is intended. The bridge is not Integer storage and is excluded from native Integer arithmetic hot paths.
+An **internal, temporary boundary adapter** `include/numeric/detail/integer_gmp_bridge.hpp` converts
+signed `Integer` values to/from GMP with exact `mpz_export`/`mpz_import` on 64-bit limbs and
+canonical sign. No broad rewrite of these classes or FloatAP algorithm is intended. The bridge is
+not Integer storage and is excluded from native Integer arithmetic hot paths.
 
-Extend `test_integer.cpp` with independent signed boundary assertions, all sign combinations for truncating quotient/remainder, malformed decimal rejection, 64-bit min/max, checked conversions, canonical zero, powers and 1700 GMP-differential randomized cases over signed wide decimal operands. Keep all existing `test_integer` coverage and B17 standalone `test_signed_integer` tests. **Cross-platform CI / project CTest and native benchmark performance evidence are pending; no performance claim.** After successful B18 migration regression and benchmarking, remove the temporary `SignedInteger` source/header/CTest target and transfer any unique validation into `test_integer`. The internal GMP adapter may remain temporarily while Rational/Dyadic/FloatMP/FloatAP themselves still use GMP; it must not reinstate GMP-dependent fields in Integer.
+Extend `test_integer.cpp` with independent signed boundary assertions, all sign combinations for
+truncating quotient/remainder, malformed decimal rejection, 64-bit min/max, checked conversions,
+canonical zero, powers and 1700 GMP-differential randomized cases over signed wide decimal operands.
+Keep all existing `test_integer` coverage and B17 standalone `test_signed_integer` tests.
+**Cross-platform CI / project CTest and native benchmark performance evidence are pending; no
+performance claim.** After successful B18 migration regression and benchmarking, remove the
+temporary `SignedInteger` source/header/CTest target and transfer any unique validation into
+`test_integer`.
 
 
 ### B19 decimal format speed and representative division benchmark (19 October 2026)
@@ -3440,7 +3406,6 @@ exponents, with independent `mpz_get_str` oracles.
 All earlier B22/B25/B31/B42 decimal scenarios and the
 official 84-operation benchmark are retained.
 B43 CI and same-M2 performance measurements are pending.
-
 
 
 ### B44 standalone production-decimal stage diagnostic (19 October 2026)
@@ -5836,13 +5801,10 @@ ARM64 total/GMP reference -> two candidate runs:
 repeat on the target rather than claiming either unconditional
 parity or a native slowdown from ratios alone.
 
-The unchanged FloatAP 1000x11 four-size benchmark verifies 256
-paired inputs and 3456 results for both the saved B73 library and
-B74. Its 53-bit relative total changes 1.460x -> 1.739x while native
-operation times generally improve and many MPFR times fall sharply
-(e.g. exp 1234.709 -> 693.625 ns). These runs do not establish
-FloatAP performance acceptance; its pre-existing short-size limits
-remain unmet. No floating-point arithmetic/rounding algorithm changed.
+The unchanged FloatAP 1000x11 four-size benchmark verifies 256 paired inputs and 3456 results for
+both the saved B73 library and B74. These runs do not establish FloatAP performance acceptance; its
+pre-existing short-size limits remain unmet. No floating-point arithmetic/rounding algorithm
+changed.
 
 B74 is committed directly on remove-gmp per user instruction.
 Native GCC x86-64 and Windows CI/performance remain pending. The
@@ -5980,48 +5942,34 @@ signed minimum. Exact fma is implemented as exact multiply then add.
 Comparisons use canonical equality or exact cross-products. Floor, ceil
 and half-away-from-zero round share one unsigned quotient/remainder.
 
-**Extended semantics and explicit decisions.** Existing ExtendedOperations
-continues to dispatch finite versus special arithmetic, comparisons,
-min/max, sign, abs and reciprocal. NaN remains unequal to itself and
-named cmp returns INCOMPARABLE. No Rational signed zero is introduced.
-Finite division by zero is explicitly defined as signed infinity for
-nonzero numerators and NaN for 0/0; reciprocal zero is positive infinity.
-These cases no longer call GMP on an invalid denominator. Decimal text
-accepts signed integers or n/d, ignoring ASCII whitespace, and raises
-runtime_error on malformed input; textual denominator zero has the same
-explicit extended meaning as the integer-pair constructor. Equal infinities
-in Rational/ExactDouble comparisons now compare equal rather than taking
-the old unconditional less/greater branch; NaN remains incomparable.
-FloatMP mixed comparisons also classify special values before any GMP call.
+**Extended semantics and explicit decisions.** Existing ExtendedOperations continues to dispatch
+finite versus special arithmetic, comparisons, min/max, sign, abs and reciprocal. NaN remains
+unequal to itself and named cmp returns INCOMPARABLE. No Rational signed zero is introduced. Finite
+division by zero is explicitly defined as signed infinity for nonzero numerators and NaN for 0/0;
+reciprocal zero is positive infinity. These cases no longer call GMP on an invalid denominator.
+Decimal text accepts signed integers or n/d, ignoring ASCII whitespace, and raises runtime_error on
+malformed input; textual denominator zero has the same explicit extended meaning as the integer-pair
+constructor. Equal infinities in Rational/ExactDouble comparisons now compare equal rather than
+taking the old unconditional less/greater branch; NaN remains incomparable.
 
-**Exact binary64 conversion.** ExactDouble import decomposes a finite
-binary64 into an integer significand and power of two and cancels trailing
-zero bits. get_d computes the binary exponent with exact comparisons,
-then truncates an exact scaled integer quotient to at most 53 bits.
-Subnormal spacing is 2^-1074; overflow yields signed infinity. Underflow
-returns +0, including negative tiny fractions, matching the old GMP
-conversion rather than introducing an observable negative zero. Results
-are independent of the active host rounding mode. No GMP or floating
-approximation is used to decide rounding. The public rational header
-passes an include-only compilation without GMP/MPFR headers, and its
-arithmetic object has no undefined GMP/MPFR symbols.
+**Exact binary64 conversion.** ExactDouble import decomposes a finite binary64 into an integer
+significand and power of two and cancels trailing zero bits. get_d computes the binary exponent with
+exact comparisons, then truncates an exact scaled integer quotient to at most 53 bits. Subnormal
+spacing is 2^-1074; overflow yields signed infinity. Underflow returns +0, including negative tiny
+fractions, matching the old GMP conversion rather than introducing an observable negative zero.
+Results are independent of the active host rounding mode. No GMP or floating approximation is used
+to decide rounding. The public rational header passes an include-only compilation without GMP
+headers, and its arithmetic object has no undefined GMP symbols.
 
-**Remaining integration boundaries.** detail/rational_gmp_bridge.hpp is
-an independently owned RAII adapter, analogous to the Integer boundary,
-for still-GMP-backed Dyadic/FloatAP and MPFR FloatMP only. It is never a
-Rational member, arithmetic backend or cache. Export rejects nonfinite
-values rather than passing denominator zero to GMP. Dyadic conversion
-is implemented beside Dyadic's existing GMP storage; FloatMP conversion
-and finite mixed comparison explicitly use temporary exact exports.
-FloatAP's Rational conversion imports its significand through the existing
-Integer boundary and uses native shifts and normalization; Rational-to-AP
-and AP decimal formatting retain explicit transitional GMP exports.
-FloatAP's internal GMP significand, Fraction class and fixed-point arithmetic
-remain separate future migration work. The production library as a whole
-therefore still links GMP/MPFR: R1 does not claim complete link independence.
-There are no remaining _mpq/get_mpq call sites in numeric sources, public
-headers, tests, Python or benchmark callers. Direct GMP test/benchmark
-oracles and FloatAP's independent internal mpq operations are retained.
+It is never a Rational member, arithmetic backend or cache. Export rejects nonfinite values rather
+than passing denominator zero to GMP. FloatAP's Rational conversion imports its significand through
+the existing Integer boundary and uses native shifts and normalization; Rational-to-AP and AP
+decimal formatting retain explicit transitional GMP exports. FloatAP's internal GMP significand,
+Fraction class and fixed-point arithmetic remain separate future migration work. The production
+library as a whole therefore still links GMP: R1 does not claim complete link independence. There
+are no remaining _mpq/get_mpq call sites in numeric sources, public headers, tests, Python or
+benchmark callers. Direct GMP test/benchmark oracles and FloatAP's independent internal mpq
+operations are retained.
 
 **Verification and measurements.** After the R1a test-only corrections
 documented below, the complete AppleClang 21 Release warnings-as-errors
@@ -6068,15 +6016,10 @@ Rebuild library and clients, then measure native x86-64 from the build directory
 
 ### R1a — compile the complete native Rational regression suite (20 October 2026)
 
-The first CI builds of R1 exposed two test-only Clang errors: a local
-FloatMP variable named infinity shadowed Ariadne::infinity under -Wshadow,
-and the bare GmpRationalBoundary(Rational::nan()) inside ARIADNE_TEST_FAIL
-could be parsed as a declaration instead of an expression. Rename the
-local and explicitly cast the temporary boundary expression to void.
-No Rational arithmetic, representation, exception expectation or oracle
-changes. Earlier incremental CTest output had used the previous executable
-after a failed rebuild; it is superseded by the following validation,
-which checks a successful build exit before starting CTest.
+Rename the local and explicitly cast the temporary boundary expression to void. No Rational
+arithmetic, representation, exception expectation or oracle changes. Earlier incremental CTest
+output had used the previous executable after a failed rebuild; it is superseded by the following
+validation, which checks a successful build exit before starting CTest.
 
 AppleClang 21 Release warnings-as-errors everything including Python
 bindings succeeds; all 21 CTest entries pass (20 C++ suites plus the
@@ -7187,20 +7130,14 @@ Sum of native medians at 1024 bits: 3325.132 -> 3321.063 ns.
 Sum of native medians at 2048 bits: 5470.241 -> 5485.076 ns.
 Sum of native medians at 4096 bits: 10695.727 -> 10704.573 ns.
 
-Integer 20,000x31 passes 768 inputs/2,688 results. Aggregate total/
-worst is .951/1.614 -> .947/1.619; individual marginal long-width
-ratios continue to vary around 1x. No Integer gate guarantee is added.
-FloatAP 1,000x11 passes 256 inputs/3,456 exact results for both
-revisions. Final R22 total/worst at 53/128/256/1024 is
-1.654/3.431, 1.079/2.697, .593/2.069, .247/1.611.
-The unchanged R21 baseline itself varied at 53 bits from total 1.337
-in the first run to 1.679 in a repeat, largely through the MPFR timing
-denominator. Do not interpret the first-run ratio change as a measured
-FloatAP arithmetic regression or claim universal nonregression. The
-existing short-width FloatAP gates remain unmet; no FloatAP arithmetic
-was changed. Raw first/repeated runs are retained for comparison.
-Native x86-64 GCC/Clang measurements and Unix/Windows/Coverage CI for
-R22 remain pending at publication.
+Integer 20,000x31 passes 768 inputs/2,688 results. Aggregate total/ worst is .951/1.614 ->
+.947/1.619; individual marginal long-width ratios continue to vary around 1x. No Integer gate
+guarantee is added. FloatAP 1,000x11 passes 256 inputs/3,456 exact results for both revisions. Final
+R22 total/worst at 53/128/256/1024 is 1.654/3.431, 1.079/2.697, .593/2.069, .247/1.611. Do not
+interpret the first-run ratio change as a measured FloatAP arithmetic regression or claim universal
+nonregression. The existing short-width FloatAP gates remain unmet; no FloatAP arithmetic was
+changed. Raw first/repeated runs are retained for comparison. Native x86-64 GCC/Clang measurements
+and Unix/Windows/Coverage CI for R22 remain pending at publication.
 
 ### R23 — fused unsigned product accumulation for Rational sums (21 October 2026)
 
@@ -7330,19 +7267,15 @@ production BigUnsigned::gcd with directly invoked mpz_gcd; both own
 their returned values, and shared timing uses the same warmed
 sample-median harness as the existing official benchmark.
 
-A diagnostic stack-backed binary GCD (Stein) runs only for magnitudes
-of at most 8 limbs, using independent local buffers for shift and
-subtraction and a final exact common-power-of-two restoration. No
-production BigUnsigned dispatch, arithmetic, Rational invariant or
-GMP/MPFR bridge changes. For larger inputs, the binary candidate
-falls back to the production algorithm for independent correctness
-boundary checks and is reported as inapplicable in timing data.
-Every fixture result is compared to an independently computed GMP gcd
-**outside** timing. Further deterministic 0-9-limb boundary/random
-cases, including zero, equal operands and the 8/9-limb transition,
-are also GMP-oracle checked before measurement. No input set, oracle,
-operation weight, threshold, or reporting field of the original
-official Rational benchmark is changed.
+A diagnostic stack-backed binary GCD (Stein) runs only for magnitudes of at most 8 limbs, using
+independent local buffers for shift and subtraction and a final exact common-power-of-two
+restoration. No production BigUnsigned dispatch, arithmetic, Rational invariant or GMP bridge
+changes. For larger inputs, the binary candidate falls back to the production algorithm for
+independent correctness boundary checks and is reported as inapplicable in timing data. Every
+fixture result is compared to an independently computed GMP gcd **outside** timing. Further
+deterministic 0-9-limb boundary/random cases, including zero, equal operands and the 8/9-limb
+transition, are also GMP-oracle checked before measurement. No input set, oracle, operation weight,
+threshold, or reporting field of the original official Rational benchmark is changed.
 
 **Hosted x86-64 measurement.** The existing two-compiler benchmark
 workflow now builds and runs the R24 diagnostic on its candidate only,
@@ -7990,7 +7923,11 @@ As part of the `remove-gmp` test migration, replace the R8 and R28 GMP different
 
 ### R33.1 — remaining reverse-conversion callers (22 October 2026)
 
-The removal of `GmpIntegerBoundary::to_integer()` exposed missed callers in FloatMP and Rational. FloatMP is legacy and scheduled for removal; a strictly compatibility-oriented binary MPFR digit export now constructs its exact native Rational value without reviving an mpz_t-to-Integer converter. Rational R4 moves all 54 canonical floor/ceil cases to an independently computed TSV. The 1,200-case random GMP differential loop still uses GMP as an oracle, but now compares GMP integers by exporting the tested Integer through the existing forward `integer_to_gmp` path. These changes do not change numerical kernels or performance requirements. Build/CI validation required before claiming closure.
+The removal of `GmpIntegerBoundary::to_integer()` exposed missed callers in and Rational. Rational
+R4 moves all 54 canonical floor/ceil cases to an independently computed TSV. The 1,200-case random
+GMP differential loop still uses GMP as an oracle, but now compares GMP integers by exporting the
+tested Integer through the existing forward `integer_to_gmp` path. These changes do not change
+numerical kernels or performance requirements. Build/CI validation required before claiming closure.
 
 
 ### R33.2 — R16 reference fixture migration (22 October 2026)
@@ -8029,77 +7966,60 @@ numerator and denominator frozen separately. Preserve all 252 R17
 7 x 6 x 6 comparison signs and 6 R3 boundary comparisons, including
 both operand orders, negative reversals and zero ordering.
 
-TSV data was calculated offline using signed arbitrary-precision
-integer exact cross-products and Euclidean gcd, with no calls into
-Numeric's Integer or Rational, no GMP/MPFR and no runtime expectation
-generation. Readers reject missing, misordered and extra rows.
-Do not weaken canonical numerator/denominator assertions to only
-Rational equivalence: the constructor's normalized representation
-remains an explicit tested contract. The R31/R32, R5/R7/R12/R13/R29
-binary64 conversion cases and bridge-specific exception test are
-separate remaining GMP consumers, not silently discarded. The
-BigUnsigned and Integer GMP differential test families also remain
-to be frozen in subsequent migrations. FloatMP and its benchmark
-baseline, build linkage and all CMake files are intentionally untouched.
+TSV data was calculated offline using signed arbitrary-precision integer exact cross-products and
+Euclidean gcd, with no calls into Numeric's Integer or Rational, no GMP and no runtime expectation
+generation. Readers reject missing, misordered and extra rows. Do not weaken canonical
+numerator/denominator assertions to only Rational equivalence: the constructor's normalized
+representation remains an explicit tested contract. The R31/R32, R5/R7/R12/R13/R29 binary64
+conversion cases and bridge-specific exception test are separate remaining GMP consumers, not
+silently discarded. The BigUnsigned and Integer GMP differential test families also remain to be
+frozen in subsequent migrations. and its benchmark baseline, build linkage and all CMake files are
+intentionally untouched.
 
 Cross-platform CI and source-keyed historical test suites must pass
 before accepting this as production test migration.
 
 ### R33.8 — source-keyed R31/R32 canonical arithmetic oracle (23 October 2026)
 
-Replace the entire original R31/R32 runtime GMP/mpq differential block
-with exact signed-integer fixed TSV expectations. Retain all ten widths
-128/192/255/256/320/448/512/1024/2048/4096 bits, all 24 tail
-configurations and all four operand-sign combinations at each width
-(960 original operand pairs). Keep direct add/sub/mul/div and in-place
-+=, *=, /= checks: 6720 operation outputs, plus canonical source
-left/right operand checks (1920 source fractions). The TSV inputs
-and expected outputs are computed independently using signed arbitrary-
-precision integer cross products and Euclidean gcd, not GMP/MPFR or
-the Numeric Integer/Rational implementation. Compare canonical signed
-numerator and positive denominator components, not only rational
-equality, so reduction errors cannot be disguised by expected-value
-normalization.
+Replace the entire original R31/R32 runtime GMP/mpq differential block with exact signed-integer
+fixed TSV expectations. Retain all ten widths 128/192/255/256/320/448/512/1024/2048/4096 bits, all
+24 tail configurations and all four operand-sign combinations at each width (960 original operand
+pairs). Keep direct add/sub/mul/div and in-place +=, *=, /= checks: 6720 operation outputs, plus
+canonical source left/right operand checks (1920 source fractions). The TSV inputs and expected
+outputs are computed independently using signed arbitrary- precision integer cross products and
+Euclidean gcd, not GMP or the Numeric Integer/Rational implementation. Compare canonical signed
+numerator and positive denominator components, not only rational equality, so reduction errors
+cannot be disguised by expected-value normalization.
 
-Files tests/data/rational_r31_<bits>_<chunk>.tsv cover all 960
-cases without sampling. The 2048-bit rows are divided into two
-12-index chunks and 4096-bit rows into four 6-index chunks because
-the GitHub blob connector limits very large single-file transfers.
-All other precisions use one chunk. Runtime readers enforce the
-original iteration/index/sign sequence, missing rows and no trailing
-rows in every chunk; the file split does not change numerical test
-semantics. No change to benchmark, CMake, production Rational,
-FloatMP or FloatAP. Remaining GMP uses include native binary64
-conversion (R5/R7/R12/R13/R29), BigUnsigned tests, Integer
-bridge-specific verification, and the separate bridge exception
-check. Treat this commit as unvalidated until fresh cross-platform
-CI confirms it.
+Files tests/data/rational_r31_<bits>_<chunk>.tsv cover all 960 cases without sampling. The 2048-bit
+rows are divided into two 12-index chunks and 4096-bit rows into four 6-index chunks because the
+GitHub blob connector limits very large single-file transfers. All other precisions use one chunk.
+Runtime readers enforce the original iteration/index/sign sequence, missing rows and no trailing
+rows in every chunk; the file split does not change numerical test semantics. No change to
+benchmark, CMake, production Rational or FloatAP. Remaining GMP uses include native binary64
+conversion (R5/R7/R12/R13/R29), BigUnsigned tests, Integer bridge-specific verification, and the
+separate bridge exception check. Treat this commit as unvalidated until fresh cross-platform CI
+confirms it.
 
 ### R33.9 — independently frozen R7 binary64 conversion oracle (23 October 2026)
 
-Migrate the deterministic R7 multiprecision Rational::get_d() test
-from the runtime GMP mpq_get_d oracle to source-keyed exact IEEE-754
-binary64 bit patterns in tests/data/rational_r7.tsv. Preserve all
-8 original widths (53/128/256/448/512/1024/2048/4096), all
-12 original near-boundary/repeating/negative/overflow rational probes
-and all four FE_* host rounding modes: 384 expected values, no
-sampling. Inputs still come from the original explicit Rational
-construction expressions; expected bits were computed independently
-from exact signed arbitrary-precision integer numerator/denominator
-pairs by finding the exact binary exponent and truncating the exact
-significand quotient toward zero, with full IEEE overflow and
-subnormal handling. These expectations do not call GMP/MPFR or Numeric.
-Unlike a numeric float comparison, raw-bit equality catches sign,
+Migrate the deterministic R7 multiprecision Rational::get_d() test from the runtime GMP mpq_get_d
+oracle to source-keyed exact IEEE-754 binary64 bit patterns in tests/data/rational_r7.tsv. Preserve
+all 8 original widths (53/128/256/448/512/1024/2048/4096), all 12 original
+near-boundary/repeating/negative/overflow rational probes and all four FE_* host rounding modes: 384
+expected values, no sampling. Inputs still come from the original explicit Rational construction
+expressions; expected bits were computed independently from exact signed arbitrary-precision integer
+numerator/denominator pairs by finding the exact binary exponent and truncating the exact
+significand quotient toward zero, with full IEEE overflow and subnormal handling. These expectations
+do not call GMP or Numeric. Unlike a numeric float comparison, raw-bit equality catches sign,
 last-bit, infinity and rounding-mode errors.
 
-The reader checks mode/width/probe source keys and rejects missing,
-out-of-order and extra rows. Preserve the original R5/R12/R13/R29
-random streams and cases, including every GMP differential test in
-those still-unmigrated blocks, without changing PRNG state or workload.
-Test-independent CMake, FloatMP and benchmark sources are unchanged.
-Run complete cross-platform CI before considering this candidate
-validated; remaining runtime GMP checks require their own independent
-source-keyed migrations.
+The reader checks mode/width/probe source keys and rejects missing, out-of-order and extra rows.
+Preserve the original R5/R12/R13/R29 random streams and cases, including every GMP differential test
+in those still-unmigrated blocks, without changing PRNG state or workload. Test-independent CMake
+and benchmark sources are unchanged. Run complete cross-platform CI before considering this
+candidate validated; remaining runtime GMP checks require their own independent source-keyed
+migrations.
 
 ### FloatAP D143 — skip a known-zero leading quotient digit (23 October 2026)
 
@@ -8128,72 +8048,54 @@ numerator and denominator next to each expected positive/negative
 uint64 bit pattern. Test readers verify original source values,
 mode/index order, missing rows and excess rows.
 
-Offline expectations use independent signed-integer binary bit lengths,
-exact quotient and exponent construction, and IEEE-754 binary64
-sign/exponent/significand encoding; no GMP, MPFR, Numeric Rational or
-Numeric BigUnsigned algorithms are used to produce them. The
-std::mt19937_64 sequence was validated against a separate compiled
-C++20 generator for both seeds used in the conversion group.
-The bit-level oracle targets the historical mpq_get_d truncation
-contract irrespective of active host FE rounding mode. All original
-R5/R7/R13/R29 conversion checks and subsequent random-stream
-consumption remain unchanged. The remaining GMP bridge exception
-test and BigUnsigned/Integer GMP suites are separate tasks.
+Offline expectations use independent signed-integer binary bit lengths, exact quotient and exponent
+construction, and IEEE-754 binary64 sign/exponent/significand encoding; no GMP, Numeric Rational or
+Numeric BigUnsigned algorithms are used to produce them. The std::mt19937_64 sequence was validated
+against a separate compiled C++20 generator for both seeds used in the conversion group. The
+bit-level oracle targets the historical mpq_get_d truncation contract irrespective of active host FE
+rounding mode. All original R5/R7/R13/R29 conversion checks and subsequent random-stream consumption
+remain unchanged. The remaining GMP bridge exception test and BigUnsigned/Integer GMP suites are
+separate tasks.
 
-Production numeric code, FloatMP, benchmarks and CMake are untouched.
-Cross-platform CI is required before declaring this migration verified.
+Production numeric code, benchmarks and CMake are untouched. Cross-platform CI is required before
+declaring this migration verified.
 
 ### R33.11 — migrate R29 and R13 binary64 conversion oracles (23 October 2026)
 
-Migrate the complete remaining R29 sparse-prefix and R13 dense random
-Rational::get_d() differential blocks to independently computed
-source-keyed TSV expectations. R29 preserves 4 host modes, 6 widths,
-3 numerator and 3 denominator high-word coefficients, and both signs:
-216 source rows, 432 exact binary64 outcomes. R13 preserves 4 host
-modes, 4 widths (5..8 limbs), all 96 original cases per width: 1536
-source rows and exact binary64 outputs. No random cases are skipped.
-The original std::mt19937_64 generator state and all draws remain
-unchanged, including the 1200 legacy R0 visits and the following R5
-input generation. Frozen TSV signed numerator and denominator
-values are checked against the generated source integers on every
-row; bit-exact IEEE-754 outcomes are computed independently with
-arbitrary-precision integer division and bit lengths, without Numeric,
-GMP or MPFR. R13 TSVs are split by mode and limb count for manageable
-GitHub transfers, without changing the original 1536 cases.
-Each reader rejects missing, misordered and extra rows.
-R5 and bridge-specific GMP tests remain unchanged; benchmark, CMake,
-FloatMP and production algorithms are untouched.
-Cross-platform CI is required before treating this migration as verified.
+Migrate the complete remaining R29 sparse-prefix and R13 dense random Rational::get_d() differential
+blocks to independently computed source-keyed TSV expectations. R29 preserves 4 host modes, 6
+widths, 3 numerator and 3 denominator high-word coefficients, and both signs: 216 source rows, 432
+exact binary64 outcomes. R13 preserves 4 host modes, 4 widths (5..8 limbs), all 96 original cases
+per width: 1536 source rows and exact binary64 outputs. No random cases are skipped. The original
+std::mt19937_64 generator state and all draws remain unchanged, including the 1200 legacy R0 visits
+and the following R5 input generation. Frozen TSV signed numerator and denominator values are
+checked against the generated source integers on every row; bit-exact IEEE-754 outcomes are computed
+independently with arbitrary-precision integer division and bit lengths, without Numeric, GMP. R13
+TSVs are split by mode and limb count for manageable GitHub transfers, without changing the original
+1536 cases. Each reader rejects missing, misordered and extra rows. R5 and bridge-specific GMP tests
+remain unchanged; benchmark, CMake and production algorithms are untouched. Cross-platform CI is
+required before treating this migration as verified.
 
 ### R33.12 — migrate remaining R5 get_d GMP oracle (23 October 2026)
 
-Migrate the original R5 conversion differential block from runtime
-GMP mpq_get_d to source-keyed, independently computed exact
-IEEE-754 binary64 bits in tests/data/rational_r5.tsv. Preserve
-the original 12 shifts (0/1/52/53/1022/1023/1024/1073/1074/
-1075/1076/2048), four FE rounding modes and four signed numerator/
-denominator scale patterns per visit: 48 exact source pairs and
-192 raw binary64 checks. No sampling, operand substitution or
-changes to the historical std::mt19937_64 stream. Offline source
-generation reproduces the previously advanced R0 and R29/R13
-generator consumption, and was checked against a separately compiled
-C++20 std::mt19937_64 source producer including five R5 samples.
-The exact output oracle derives binary64 exponent/significand by
-BigInt quotient with truncation and handles subnormals, overflow
-and the historical positive-zero underflow contract; it never
-calls Numeric, GMP or MPFR. Compare all four raw uint64 patterns
-and check exact generated source inputs, row order and no extra
-or missing rows. Maintain explicit mismatch diagnostics for
-mode, shift, operation, actual and expected patterns.
+Migrate the original R5 conversion differential block from runtime GMP mpq_get_d to source-keyed,
+independently computed exact IEEE-754 binary64 bits in tests/data/rational_r5.tsv. Preserve the
+original 12 shifts (0/1/52/53/1022/1023/1024/1073/1074/ 1075/1076/2048), four FE rounding modes and
+four signed numerator/ denominator scale patterns per visit: 48 exact source pairs and 192 raw
+binary64 checks. No sampling, operand substitution or changes to the historical std::mt19937_64
+stream. Offline source generation reproduces the previously advanced R0 and R29/R13 generator
+consumption, and was checked against a separately compiled C++20 std::mt19937_64 source producer
+including five R5 samples. The exact output oracle derives binary64 exponent/significand by BigInt
+quotient with truncation and handles subnormals, overflow and the historical positive-zero underflow
+contract; it never calls Numeric, GMP. Compare all four raw uint64 patterns and check exact
+generated source inputs, row order and no extra or missing rows. Maintain explicit mismatch
+diagnostics for mode, shift, operation, actual and expected patterns.
 
-This completes migration of R5/R7/R12/R13/R29 runtime GMP
-conversion oracles. The standalone test_gmp_differential naming
-and the exceptional GMP rational bridge constructor check remain
-because the bridge is a separate interoperability concern; likewise,
-BigUnsigned and Integer still have GMP oracle code. Production
-arithmetic, FloatMP, benchmark reference, and all CMake files
-are unchanged. Require Unix/Windows/Sanitizers/Coverage CI before
-declaring the test migration validated.
+This completes migration of R5/R7/R12/R13/R29 runtime GMP conversion oracles. The standalone
+test_gmp_differential naming and the exceptional GMP rational bridge constructor check remain
+because the bridge is a separate interoperability concern; likewise, BigUnsigned and Integer still
+have GMP oracle code. Production arithmetic, benchmark reference, and all CMake files are unchanged.
+Require Unix/Windows/Sanitizers/Coverage CI before declaring the test migration validated.
 
 ### R33.13 — make frozen GMP-replacement TSV parsers safe on Windows (23 October 2026)
 
@@ -8218,11 +8120,10 @@ checks, avoids eager evaluation of overloaded Boolean || and makes
 cross-platform diagnostics specific. This also avoids a platform-
 dependent istream numeric-extraction issue for uint64 bit patterns.
 
-All independently frozen TSV data, all original source streams, test
-case counts, signs, modes, exact comparisons, test names, benchmarks,
-FloatMP, CMake and production implementations remain unchanged.
-Do not regard this as validated until Windows plus Unix, Sanitizers
-and Coverage pass after this commit.
+All independently frozen TSV data, all original source streams, test case counts, signs, modes,
+exact comparisons, test names, benchmarks, CMake and production implementations remain unchanged. Do
+not regard this as validated until Windows plus Unix, Sanitizers and Coverage pass after this
+commit.
 
 ### R33.14 — frozen GCD oracles for BigUnsigned R6/R8/R10/R11 (23 October 2026)
 
@@ -8237,21 +8138,17 @@ Total 841 records, no sampling. R8 source stream was checked
 against a separate compiled C++20 generator for its first twelve
 output words; skipped conditional draws remain skipped.
 
-TSV rows include original source-key parameters, exact canonical
-hexadecimal left/right operands, and independently computed exact
-unsigned Euclidean gcd values. Each test verifies canonical inputs,
-GCD(a,b) and GCD(b,a) against the same frozen oracle, then verifies
-source values again to preserve the original borrowed operand
-immutability assertions. The TSV readers reject missing, reordered,
-malformed and excess rows. Oracle generation uses exact BigInt and
-does not depend on Numeric or GMP/MPFR. The new bidirectional GCD
-assertions strengthen some original checks without eliminating
-any original source scenario, storage threshold or alias case.
+TSV rows include original source-key parameters, exact canonical hexadecimal left/right operands,
+and independently computed exact unsigned Euclidean gcd values. Each test verifies canonical inputs,
+GCD(a,b) and GCD(b,a) against the same frozen oracle, then verifies source values again to preserve
+the original borrowed operand immutability assertions. The TSV readers reject missing, reordered,
+malformed and excess rows. Oracle generation uses exact BigInt and does not depend on Numeric or
+GMP. The new bidirectional GCD assertions strengthen some original checks without eliminating any
+original source scenario, storage threshold or alias case.
 
-Other GMP-based GCD families (R26/R27 etc.), division, products,
-decimal formatting, randomized arithmetic and integer/GMP bridge
-tests remain intentionally unchanged. No FloatMP, CMake, production
-source or benchmark edits. Require four-workflow CI validation.
+Other GMP-based GCD families (R26/R27 etc.), division, products, decimal formatting, randomized
+arithmetic and integer/GMP bridge tests remain intentionally unchanged. No, CMake, production source
+or benchmark edits. Require four-workflow CI validation.
 
 ### R33.15 — freeze BigUnsigned GCD R26/R27/R21 runtime GMP oracles (23 October 2026)
 
@@ -8266,16 +8163,13 @@ R21 retains all 10 x 4 dense samples = 40, plus existing exact
 fixed-factor identities at every width. Total 4720 original GCD
 source/result checks, without sampling or case substitution.
 
-All generated inputs and their Euclidean GCD expectations are frozen
-from unsigned arbitrary-precision BigInt, with no GMP/MPFR/Numeric
-calls. The three mt19937_64 seeds were independently crosschecked
-against compiled C++20 engine outputs. Tests enforce exact source
-hexadecimal, order/keys, missing/excess rows, canonical limbs and bit
-length, both argument orders and immutability. The R26 cases are
-split by width for manageable data files only, not for sampling.
-Other GMP test families remain; do not remove or weaken them.
-No edits to CMake, FloatMP, benchmarks or production numeric code.
-Require four-workflow CI before declaring R33.15 validated.
+All generated inputs and their Euclidean GCD expectations are frozen from unsigned
+arbitrary-precision BigInt, with no GMP/Numeric calls. The three mt19937_64 seeds were independently
+crosschecked against compiled C++20 engine outputs. Tests enforce exact source hexadecimal,
+order/keys, missing/excess rows, canonical limbs and bit length, both argument orders and
+immutability. The R26 cases are split by width for manageable data files only, not for sampling.
+Other GMP test families remain; do not remove or weaken them. No edits to CMake, benchmarks or
+production numeric code. Require four-workflow CI before declaring R33.15 validated.
 
 ### B76 — freeze all 2,800 seeded BigUnsigned GCD/decimal oracles (23 October 2026)
 
@@ -8287,33 +8181,37 @@ and override order (zero limbs / UINT64_MAX), all 2800 cases,
 input immutability, exact unsigned GCD, canonical bit-length,
 decimal formatting and decimal roundtrip checks. No sampling.
 
-The 14 TSV fixture files tests/data/big_unsigned_b76_gcd_decimal_
-<chunk>.tsv contain all 2800 original source visits in ordered
-200-row chunks. Every record freezes iteration, raw requested n/m
-lengths, both exact unsigned source magnitudes in hexadecimal,
-their exact Euclidean gcd in hexadecimal, and the independently
-derived source magnitude in base 10. The offline oracle computes
-these using arbitrary-size integers, Euclid, and exact decimal
-rendering independent from GMP, MPFR or Ariadne. The first 12
-source visits were crosschecked against a separately compiled
-C++20 std::mt19937_64 generator, including the width override,
-zero/MAX fills and conditional random draws. Sources and outcomes
-are checked against TSV on every visit, with strict row, file
-boundary and extra-row validation. Also verify gcd(y,x) and source
-operands after arithmetic to retain and strengthen borrowed-source
-immutability/commutativity checking. The original to_decimal/
+The 14 TSV fixture files tests/data/big_unsigned_b76_gcd_decimal_ <chunk>.tsv contain all 2800
+original source visits in ordered 200-row chunks. Every record freezes iteration, raw requested n/m
+lengths, both exact unsigned source magnitudes in hexadecimal, their exact Euclidean gcd in
+hexadecimal, and the independently derived source magnitude in base 10. The offline oracle computes
+these using arbitrary-size integers, Euclid, and exact decimal rendering independent from GMP or
+Ariadne. The first 12 source visits were crosschecked against a separately compiled C++20
+std::mt19937_64 generator, including the width override, zero/MAX fills and conditional random
+draws. Sources and outcomes are checked against TSV on every visit, with strict row, file boundary
+and extra-row validation. Also verify gcd(y,x) and source operands after arithmetic to retain and
+strengthen borrowed-source immutability/commutativity checking. The original to_decimal/
 from_decimal canonicality and roundtrip assertions remain.
 
-The subsequent 1800-visit random decimal parser test and all later
-seeded radix parse cases continue from the identical generator state.
-Their existing independent GMP checks are retained until separately
-migrated; other BigUnsigned GMP families and Integer bridge still
-remain. No change to production code, CMake, FloatMP or benchmarks.
-Cross-platform CI is required before B76 is considered validated.
+The subsequent 1800-visit random decimal parser test and all later seeded radix parse cases continue
+from the identical generator state. Their existing independent GMP checks are retained until
+separately migrated; other BigUnsigned GMP families and Integer bridge still remain. No change to
+production code, CMake or benchmarks. Cross-platform CI is required before B76 is considered
+validated.
 
 ### B77 — reproducible standalone C++20 oracle generators (23 October 2026)
 
-Version tests/data/generator_big_unsigned_gcd.cpp, generator_big_unsigned_b76.cpp, oracle_exact_integer.hpp and README-generators.md. These standard C++20 sources use neither Numeric nor GMP, MPFR, FloatMP or Boost. They independently regenerate all 15 GCD and 14 B76 GCD/decimal TSVs using independent base-2^64 limbs, binary GCD, exact decimal conversion and unchanged std::mt19937_64 streams. Both GCC and Clang C++20 warnings-as-errors builds reproduced all 29 committed TSV files byte for byte without changing them. By default --verify does not write files; --write explicitly regenerates them. tests/CMakeLists.txt compiles both programs as dependencies of the aggregate tests build target, without registering them for CTest or running them during compilation. Existing numeric test cases, GMP reference code, production, root CMake, FloatMP and benchmarks are untouched. Other TSVs, including certified FloatAP transcendental fixtures, still have no versioned generator. Full CI remains required.
+Version tests/data/generator_big_unsigned_gcd.cpp, generator_big_unsigned_b76.cpp,
+oracle_exact_integer.hpp and README-generators.md. These standard C++20 sources use neither Numeric
+nor GMP or Boost. They independently regenerate all 15 GCD and 14 B76 GCD/decimal TSVs using
+independent base-2^64 limbs, binary GCD, exact decimal conversion and unchanged std::mt19937_64
+streams. Both GCC and Clang C++20 warnings-as-errors builds reproduced all 29 committed TSV files
+byte for byte without changing them. By default --verify does not write files; --write explicitly
+regenerates them. tests/CMakeLists.txt compiles both programs as dependencies of the aggregate tests
+build target, without registering them for CTest or running them during compilation. Existing
+numeric test cases, GMP reference code, production, root CMake and benchmarks are untouched. Other
+TSVs, including certified FloatAP transcendental fixtures, still have no versioned generator. Full
+CI remains required.
 
 ### B77.1 — strict Clang signed-conversion fix for independent oracle helper (23 October 2026)
 
@@ -8331,42 +8229,34 @@ should still be checked independently after this commit.
 
 ### B78 — version five independent exact data generators (23 October 2026)
 
-Add standalone C++20 `tests/data/generator_exact_small.cpp` for the
-already frozen datasets `rational_r3.tsv` (6 ordered comparisons),
-`rational_r4.tsv` (54 exact floor/ceil samples), `rational_r8.tsv`
-(16 near-2^64 rational comparisons), `integer_power.tsv` (100 signed
-powers), and `big_unsigned_r14.tsv` (28 squares). It uses only the
-standard-library B77 exact unsigned limb helper; independent
-shift-and-add multiplication, quotient/remainder, and signed decimal
-output reproduce the original source-keyed expectations without
-Numeric, GMP, MPFR, FloatMP, or Boost. R4 retains the canonical 1/1
-case for base/base; R14 consumes all 12 source-RNG visits per width
-before selecting the original four structural classes. No extra
-sampling, seed changes or test modifications are introduced.
+Add standalone C++20 `tests/data/generator_exact_small.cpp` for the already frozen datasets
+`rational_r3.tsv` (6 ordered comparisons), `rational_r4.tsv` (54 exact floor/ceil samples),
+`rational_r8.tsv` (16 near-2^64 rational comparisons), `integer_power.tsv` (100 signed powers), and
+`big_unsigned_r14.tsv` (28 squares). It uses only the standard-library B77 exact unsigned limb
+helper; independent shift-and-add multiplication, quotient/remainder, and signed decimal output
+reproduce the original source-keyed expectations without Numeric, GMP, or Boost. R4 retains the
+canonical 1/1 case for base/base; R14 consumes all 12 source-RNG visits per width before selecting
+the original four structural classes. No extra sampling, seed changes or test modifications are
+introduced.
 
-GCC 14 and Clang 17 with full strict warning flags (including
--Wsign-conversion -Werror) compiled and verified the generator.
-All five regenerated datasets matched their original Git blob SHA-1
-IDs exactly; `--verify` rejected an intentionally corrupted test TSV
-without writing it. Only the generator, its build-only registration,
-the generator README and this journal changed. Existing frozen files,
-consumer tests, runtime GMP oracles, production code, root CMake,
-FloatMP and benchmarks are untouched. The independent source corpus
-is now reproducible for 34 TSV files (29 B77 plus five B78).
-Full Unix/Windows/Sanitizers/Coverage CI remains to be checked.
+GCC 14 and Clang 17 with full strict warning flags (including -Wsign-conversion -Werror) compiled
+and verified the generator. All five regenerated datasets matched their original Git blob SHA-1 IDs
+exactly; `--verify` rejected an intentionally corrupted test TSV without writing it. Only the
+generator, its build-only registration, the generator README and this journal changed. Existing
+frozen files, consumer tests, runtime GMP oracles, production code, root CMake and benchmarks are
+untouched. The independent source corpus is now reproducible for 34 TSV files (29 B77 plus five
+B78). Full Unix/Windows/Sanitizers/Coverage CI remains to be checked.
 
 ### B79 — reproduce BigUnsigned D104 power and D103 short-division fixtures (23 October 2026)
 
-Version standalone `tests/data/generator_big_unsigned_power_div.cpp` and
-register it as a build-only generator target. It independently reproduces
-`tests/data/big_unsigned_power.tsv` (373 existing source/result rows) and
-`tests/data/big_unsigned_short_div.tsv` (324 existing rows) using only
-standard C++20 and the independent unsigned-limb B77 oracle helper.
-Multiplication and powering use binary shift/add and exponentiation by
-squaring; quotient and remainder use bit-aligned repeated subtraction.
-All expected values are computed without Numeric, GMP, MPFR, FloatMP,
-or Boost. For division, each reference verifies `a=b*q+r` and `0<=r<b`,
-with a separate explicit no-result representation for zero divisors.
+Version standalone `tests/data/generator_big_unsigned_power_div.cpp` and register it as a build-only
+generator target. It independently reproduces `tests/data/big_unsigned_power.tsv` (373 existing
+source/result rows) and `tests/data/big_unsigned_short_div.tsv` (324 existing rows) using only
+standard C++20 and the independent unsigned-limb B77 oracle helper. Multiplication and powering use
+binary shift/add and exponentiation by squaring; quotient and remainder use bit-aligned repeated
+subtraction. All expected values are computed without Numeric, GMP, or Boost. For division, each
+reference verifies `a=b*q+r` and `0<=r<b`, with a separate explicit no-result representation for
+zero divisors.
 
 For the D104 random corpus, replay each of the original `mt19937_64`
 (0xB7400A11) source visits across 10 widths and 12 modes, including
@@ -8377,43 +8267,32 @@ and 57 1024-bit-boundary power rows. For D103, replay the entire seeded
 reproduce all nine selected modes per width pair, including the
 exceptional zero-divisor cases. No sampled row was discarded or added.
 
-GCC 14 and Clang 17 compiled and passed `--verify` with the full strict
-CI-style warning list (`-Wsign-conversion -Wshadow -Werror` included).
-Both regenerated files exactly matched the existing Git blob hashes
-(c0dd421950bbdcfbc86adbda19d76c1773f84d61 and
-5a0c2d9d5b2bd19f5ab6f0b44415ca10e6e27b8e). Corrupting a
-fixture causes read-only verification to fail. The generator README
-is updated; 36 committed TSVs now have versioned independent generators.
-Production arithmetic, legacy GMP oracles, consumers, all frozen TSVs,
-FloatMP, benchmarks and root CMake remain unchanged. Full repository
-CI (Unix, Windows, Sanitizers, Coverage) is still required.
+GCC 14 and Clang 17 compiled and passed `--verify` with the full strict CI-style warning list
+(`-Wsign-conversion -Wshadow -Werror` included). Both regenerated files exactly matched the existing
+Git blob hashes (c0dd421950bbdcfbc86adbda19d76c1773f84d61 and
+5a0c2d9d5b2bd19f5ab6f0b44415ca10e6e27b8e). Corrupting a fixture causes read-only verification to
+fail. The generator README is updated; 36 committed TSVs now have versioned independent generators.
+Production arithmetic, legacy GMP oracles, consumers, all frozen TSVs, benchmarks and root CMake
+remain unchanged. Full repository CI (Unix, Windows, Sanitizers, Coverage) is still required.
 
 ### B80 — independent rational R28/R30/R22 fixture generators (23 October 2026)
 
-Add standalone standard-C++20 `tests/data/generator_rational_exact.cpp` to
-reproduce 36 R28 exact signed add/sub rows, all 1,689 R30 exact canonical
-normalization rows (including nine 128..8192-bit dense fallbacks), and all
-160 R22 scalar signed multiplication/division rows. Exact signed fraction
-arithmetic uses independent base-2^64 limbs and binary shift/add
-multiplication, long division, normalization by binary GCD, with no
-Numeric/GMP/MPFR/FloatMP/Boost dependencies. R28's raw operand columns
-remain unreduced as in the original frozen fixture, while resulting sum
-and difference columns are canonical. Seeds, source parameters, sign
-classes and row ordering are unchanged; no sampling or new test cases.
+Add standalone standard-C++20 `tests/data/generator_rational_exact.cpp` to reproduce 36 R28 exact
+signed add/sub rows, all 1,689 R30 exact canonical normalization rows (including nine 128..8192-bit
+dense fallbacks), and all 160 R22 scalar signed multiplication/division rows. R28's raw operand
+columns remain unreduced as in the original frozen fixture, while resulting sum and difference
+columns are canonical. Seeds, source parameters, sign classes and row ordering are unchanged; no
+sampling or new test cases.
 
-The C++20 generator was compiled and --verify executed with GCC and Clang
-using CI-style strict warnings including -Wsign-conversion -Wshadow -Werror.
-Regenerated outputs matched all previously committed Git object hashes:
-R28 7292632988a8b8d7e02f9e2a866704f46fce73d2;
-R30 3381e112eac6cbc56c30dcaa18a858053894014e;
-R22 fe5f8415bab7db3f4980c34bf41360e13d4b67b0.
-Read-only verification also rejected a deliberately corrupted fixture.
-Update tests/CMakeLists.txt only to compile the generator as a dependency
-of the aggregate `tests` target; it is not automatically run. Update
-README-generators.md. Existing test consumers, all original TSV data,
-production code, GMP oracles, root CMake, FloatMP and benchmarks remain
-untouched. Coverage rises from 36 to 39 versioned source-reproducible TSVs.
-Full Unix, Windows, Sanitizers and Coverage CI remains required.
+The C++20 generator was compiled and --verify executed with GCC and Clang using CI-style strict
+warnings including -Wsign-conversion -Wshadow -Werror. Regenerated outputs matched all previously
+committed Git object hashes: R28 7292632988a8b8d7e02f9e2a866704f46fce73d2; R30
+3381e112eac6cbc56c30dcaa18a858053894014e; R22 fe5f8415bab7db3f4980c34bf41360e13d4b67b0. Read-only
+verification also rejected a deliberately corrupted fixture. Update tests/CMakeLists.txt only to
+compile the generator as a dependency of the aggregate `tests` target; it is not automatically run.
+Update README-generators.md. Existing test consumers, all original TSV data, production code, GMP
+oracles, root CMake and benchmarks remain untouched. Coverage rises from 36 to 39 versioned
+source-reproducible TSVs. Full Unix, Windows, Sanitizers and Coverage CI remains required.
 
 Scheduling decision: defer a CMake `generate-data` target, removal of
 versioned TSVs, and any build-tree fixture generation until all fixture
@@ -8432,21 +8311,16 @@ self-alias rows; R20 all 10 x 4 x 4 = 160 signed cross-add/sub rows.
 In R20 pair_index=3 deliberately repeats the same Rational on both sides;
 this preserves all original exact cancellation cases.
 
-Independent JavaScript BigInt exact arithmetic regenerated all three
-complete byte streams, independently confirming their Git blob SHA-1s:
-R16 ed55680b1d2ced1b911c5581276f62c9009b0902;
-R19 09fafdc815bd0bc58c0d41fd0385743f4218dd17;
-R20 f7895eb61aef5b04e4a23fa2d66bd8a26b2fe720.
-Existing original TSVs are unchanged; verification is read-only by
-default and explicit `--write` remains required for regeneration.
-`tests/CMakeLists.txt` already registers this generator; no new target
-or `generate-data` rule is added. No production numeric code, test
-consumer, GMP-oracle code, FloatMP, benchmark or original frozen data
-changes. Source-reproducible coverage reaches 42 of 115 TSV files.
-Check full Unix/Windows/Sanitizers/Coverage CI after commit. The
-preceding B80 macOS Coverage failure was in the Upload Code Coverage
-step, while its Ubuntu Coverage job and Windows workflow succeeded;
-this should not be misclassified as a generator compilation failure.
+Independent JavaScript BigInt exact arithmetic regenerated all three complete byte streams,
+independently confirming their Git blob SHA-1s: R16 ed55680b1d2ced1b911c5581276f62c9009b0902; R19
+09fafdc815bd0bc58c0d41fd0385743f4218dd17; R20 f7895eb61aef5b04e4a23fa2d66bd8a26b2fe720. Existing
+original TSVs are unchanged; verification is read-only by default and explicit `--write` remains
+required for regeneration. `tests/CMakeLists.txt` already registers this generator; no new target or
+`generate-data` rule is added. No production numeric code, test consumer, GMP-oracle code, benchmark
+or original frozen data changes. Source-reproducible coverage reaches 42 of 115 TSV files. Check
+full Unix/Windows/Sanitizers/Coverage CI after commit. The preceding B80 macOS Coverage failure was
+in the Upload Code Coverage step, while its Ubuntu Coverage job and Windows workflow succeeded; this
+should not be misclassified as a generator compilation failure.
 
 ### B82 — reproduce B72 and R17 source-keyed exact fixtures (23 October 2026)
 
@@ -8462,18 +8336,14 @@ multiplier. Reproduce the existing `rational_r17.tsv` across all
 exact sign handling and cross-product comparison. Inputs are derived
 from the original test source; no TSV inputs are re-used as an oracle.
 
-Compiled and generated both TSVs with GCC 14 and Clang 17 C++20
-`-Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror`.
-All generated Git object IDs match the previous frozen blobs:
-`big_unsigned_b72.tsv` 87e5d405d7374f9a19963936b56761e089417f4a;
-`rational_r17.tsv` 3b53a0dc9a8c0908083ece7039778c2631c19696.
-Register generator as a build-only tests dependency and update README.
-No changes to original fixtures, consumers, GMP checks, FloatMP,
-production algorithms, root CMake, benchmarks or source fixture paths.
-44 of 115 TSV files now have independent versioned generators.
-Full CI remains to be checked. As directed, do not introduce
-`generate-data` or remove versioned TSVs before full generator coverage
-and GMP-oracle migration.
+Compiled and generated both TSVs with GCC 14 and Clang 17 C++20 `-Wall -Wextra -Wpedantic
+-Wsign-conversion -Wshadow -Werror`. All generated Git object IDs match the previous frozen blobs:
+`big_unsigned_b72.tsv` 87e5d405d7374f9a19963936b56761e089417f4a; `rational_r17.tsv`
+3b53a0dc9a8c0908083ece7039778c2631c19696. Register generator as a build-only tests dependency and
+update README. No changes to original fixtures, consumers, GMP checks, production algorithms, root
+CMake, benchmarks or source fixture paths. 44 of 115 TSV files now have independent versioned
+generators. Full CI remains to be checked. As directed, do not introduce `generate-data` or remove
+versioned TSVs before full generator coverage and GMP-oracle migration.
 
 ### B83 — dedicated generators and explicit generate-data CMake targets (23 October 2026)
 
@@ -8500,28 +8370,22 @@ source-tree files. The choice of whether to stop version-controlling
 TSV fixtures remains postponed until full 115-file generation coverage
 and replacement of remaining GMP oracles.
 
-Verified the target dependency and command-sequence behavior with a
-standalone CMake/Ninja probe: default `all` and `tests` build no
-generator; `generators` builds both sample executable targets; and
-`generate-data` builds dependencies and runs every `--write`
-command with the absolute source-data directory. This probe is not a
-full Numeric CI run. No production sources, test consumer code, GMP
-oracle behavior, generator algorithms, existing TSVs, root CMake,
-FloatMP or benchmarks are changed.
+Verified the target dependency and command-sequence behavior with a standalone CMake/Ninja probe:
+default `all` and `tests` build no generator; `generators` builds both sample executable targets;
+and `generate-data` builds dependencies and runs every `--write` command with the absolute
+source-data directory. This probe is not a full Numeric CI run. No production sources, test consumer
+code, GMP oracle behavior, generator algorithms, existing TSVs, root CMake or benchmarks are
+changed.
 
 ### B84 — version exact structural Integer/BigUnsigned generators (23 October 2026)
 
-Add the self-contained C++20 `tests/data/generator_integer_structural.cpp`
-as a seventh standalone generator. It independently derives the original
-source operands and exact expected outputs for `integer_b66.tsv` (360 rows),
-`integer_sub.tsv` (192 rows), `big_unsigned_sub.tsv` (100 rows),
-`integer_b33.tsv` (72 rows), `integer_b37.tsv` (72 rows) and
-`integer_b38.tsv` (30 rows). Replay the entire original mt19937_64 seeded
-streams, including the visits discarded by the historical structural
-sampling. Preserve exponent boundaries, all signed masks, alias cases,
-underflow markers, and canonical zero. Sources and results derive from
-independent base-2^64 limb add/sub, binary shift/add multiplication and
-integer powering, without Numeric/GMP/MPFR/FloatMP/Boost involvement.
+Add the self-contained C++20 `tests/data/generator_integer_structural.cpp` as a seventh standalone
+generator. It independently derives the original source operands and exact expected outputs for
+`integer_b66.tsv` (360 rows), `integer_sub.tsv` (192 rows), `big_unsigned_sub.tsv` (100 rows),
+`integer_b33.tsv` (72 rows), `integer_b37.tsv` (72 rows) and `integer_b38.tsv` (30 rows). Replay the
+entire original mt19937_64 seeded streams, including the visits discarded by the historical
+structural sampling. Preserve exponent boundaries, all signed masks, alias cases, underflow markers,
+and canonical zero.
 
 GCC and Clang compiled the same generator with C++20 `-O2 -Wall -Wextra
 -Wpedantic -Wsign-conversion -Wshadow -Werror`; both wrote identical
@@ -8534,26 +8398,21 @@ integer_b33 ff92f80126f7e409904d933ff2eee065626ba557;
 integer_b37 c1a2861fc851a2c048f73dd1e1817f2ecdcdc9e3;
 integer_b38 cf359723cc0f5d70984fab635ea03a49ec32442b.
 
-Register the program in the `ORACLE_GENERATORS` list so explicit
-`generators` compiles it and explicit `generate-data` runs it with
-`--write`; unit-test builds remain independent. Update generator README.
-50 of the 115 versioned TSVs are now source-reproducible. Leave the
-other 65 files, test consumers, production arithmetic, FloatMP,
-benchmarks, GMP runtime oracles and root CMake unchanged. No fixture
-contents changed. The complete platform CI remains to be checked.
+Register the program in the `ORACLE_GENERATORS` list so explicit `generators` compiles it and
+explicit `generate-data` runs it with `--write`; unit-test builds remain independent. Update
+generator README. 50 of the 115 versioned TSVs are now source-reproducible. Leave the other 65
+files, test consumers, production arithmetic, benchmarks, GMP runtime oracles and root CMake
+unchanged. No fixture contents changed. The complete platform CI remains to be checked.
 
 ### B85 — independent BigUnsigned B35/B37/B38 golden generators (23 October 2026)
 
-Add `tests/data/generator_big_unsigned_mul.cpp` as a standalone C++20
-source for `big_unsigned_b35.tsv` (14 x 5 = 70 cases),
-`big_unsigned_b37.tsv` (13 x 7 = 91 squares) and
-`big_unsigned_b38.tsv` (14 x 8 = 112 multiplication/truncation cases).
-The generator replays the complete original C++ mt19937_64 streams
-including all unselected visits: 32, 96 and 24 per original width pair,
-respectively. It reproduces all historic transformations and ordering,
-then derives products using independent binary shift-and-add unsigned-limb
-arithmetic and six low-limb results by exact truncation of the product.
-No Numeric/GMP/MPFR/Boost/FloatMP oracle is involved.
+Add `tests/data/generator_big_unsigned_mul.cpp` as a standalone C++20 source for
+`big_unsigned_b35.tsv` (14 x 5 = 70 cases), `big_unsigned_b37.tsv` (13 x 7 = 91 squares) and
+`big_unsigned_b38.tsv` (14 x 8 = 112 multiplication/truncation cases). The generator replays the
+complete original C++ mt19937_64 streams including all unselected visits: 32, 96 and 24 per original
+width pair, respectively. It reproduces all historic transformations and ordering, then derives
+products using independent binary shift-and-add unsigned-limb arithmetic and six low-limb results by
+exact truncation of the product. No Numeric/GMP/Boost/ oracle is involved.
 
 Compiled with GCC and Clang under C++20 -O2 -Wall -Wextra -Wpedantic
 -Wsign-conversion -Wshadow -Werror. Regenerated Git blob IDs exactly
@@ -8570,14 +8429,11 @@ oracle, production code or root CMake was changed. Full CI remains pending.
 
 ### B86 — B39/B40/B54 source-reproducible multiplication fixtures (23 October 2026)
 
-Add independent standard-C++20 `tests/data/generator_big_unsigned_dispatch.cpp`
-for B39 (19 x 8 = 152 cases), B40 (18 x 9 = 162), B54 products
-(17 x 8 = 136) and B54 squares (13 x 8 = 104). Original 20/16/32/64
-mode cycles and source RNG draws are fully replayed; B54's product and
-square stages share the seeded mt19937_64(0xB54A6C4) stream, including
-all 17 x 32 product-source iterations before its first square.
-Independent shift/add unsigned-limb arithmetic computes exact full,
-square and truncated results with no Numeric/GMP/MPFR/Boost/FloatMP.
+Add independent standard-C++20 `tests/data/generator_big_unsigned_dispatch.cpp` for B39 (19 x 8 =
+152 cases), B40 (18 x 9 = 162), B54 products (17 x 8 = 136) and B54 squares (13 x 8 = 104). Original
+20/16/32/64 mode cycles and source RNG draws are fully replayed; B54's product and square stages
+share the seeded mt19937_64(0xB54A6C4) stream, including all 17 x 32 product-source iterations
+before its first square.
 
 The original four TSV object IDs were reproduced byte-for-byte:
 B39 82c2d5dfa3c171bc2d0588393aa1ee3a5a6dd671;
@@ -8595,16 +8451,13 @@ Full multi-platform repository CI remains to be checked.
 
 ### B87 — restore source-keyed signed randomized B17/B18 generators (23 October 2026)
 
-Add `tests/data/generator_integer_random.cpp`, standalone standard-C++20
-source replaying all 2500 B17 and 1700 B18 original mt19937_64 visits,
-concatenated decimal string operands, sign rules and zero cases. The
-historical one-per-ten sampling positions are preserved exactly:
-`rep=10*k+(7*k+3)%10`, yielding 250 B17 and 170 B18 cases.
-The independent radix-2^64 limb implementation computes signed
-add/subtract, shift/add product, bit-aligned long quotient/remainder with
-truncation toward zero and sign-of-dividend remainder, and B17 signed
-right/left shifts including all 0..129 bit boundaries. No Numeric,
-GMP, MPFR, FloatMP or Boost dependency exists.
+Add `tests/data/generator_integer_random.cpp`, standalone standard-C++20 source replaying all 2500
+B17 and 1700 B18 original mt19937_64 visits, concatenated decimal string operands, sign rules and
+zero cases. The historical one-per-ten sampling positions are preserved exactly:
+`rep=10*k+(7*k+3)%10`, yielding 250 B17 and 170 B18 cases. The independent radix-2^64 limb
+implementation computes signed add/subtract, shift/add product, bit-aligned long quotient/remainder
+with truncation toward zero and sign-of-dividend remainder, and B17 signed right/left shifts
+including all 0..129 bit boundaries. No Numeric, GMP or Boost dependency exists.
 
 A separate exact JavaScript BigInt/MT19937-64 implementation reproduced
 both original TSV contents independently, followed by direct C++20 GCC
@@ -8620,16 +8473,13 @@ Full platform CI remains to be checked.
 
 ### B88 — independent Rational R7/R12 binary64 truncation fixtures (23 October 2026)
 
-Add standalone `tests/data/generator_rational_binary64.cpp` for the
-original R7 4 x 8 x 12 = 384 source-keyed rational double-conversion
-cases and R12 4 x 512 = 2048 one-limb random conversion cases (both
-positive and negative outputs). Reproduce source numerators and
-denominators by exact powers of two and the original mt19937_64
-(0x1200530012812026) replay, respectively. The expected raw IEEE-754
-binary64 patterns are derived by exact bit lengths, bit-aligned integer
-quotient, normal/subnormal exponent/significand construction and explicit
-truncation toward zero. They do not depend on Numeric, GMP, MPFR, Boost,
-FloatMP, host doubles, or the current hardware rounding mode.
+Add standalone `tests/data/generator_rational_binary64.cpp` for the original R7 4 x 8 x 12 = 384
+source-keyed rational double-conversion cases and R12 4 x 512 = 2048 one-limb random conversion
+cases (both positive and negative outputs). Reproduce source numerators and denominators by exact
+powers of two and the original mt19937_64 (0x1200530012812026) replay, respectively. The expected
+raw IEEE-754 binary64 patterns are derived by exact bit lengths, bit-aligned integer quotient,
+normal/subnormal exponent/significand construction and explicit truncation toward zero. They do not
+depend on Numeric, GMP, Boost, host doubles, or the current hardware rounding mode.
 
 GCC and Clang compiled and verified all output with C++20
 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror. Both generated
@@ -8644,20 +8494,17 @@ Full platform CI remains to be checked.
 
 ### B89 — shared RNG exact R29/R13/R5 generator (23 October 2026)
 
-Add standalone `tests/data/generator_rational_shared_stream.cpp` for
-`rational_r29.tsv` (216 source-keyed sparse-prefix binary64 cases), all
-16 `rational_r13_mode{0..3}_limbs{5..8}.tsv` files (96 exact signed
-dense-limb conversion cases each), and `rational_r5.tsv` (48 shifts,
-four signed conversion expectations per row). Reconstruct every source
-input using the original mt19937_64(0x6672616374696f6e) sequence:
-first consume every original 1,200 R0 visit schedule (four operands,
-each with all limbs plus one sign draw). For each of four subsequent host
-rounding modes, generate R29 followed by R13 limbs 5,6,7,8 followed
-by R5's 12 shift probes. This original interleaving is essential;
-advancing all R29 modes before R13 changes the random-source values.
-Expected binary64 bits are derived by exact integer quotient, bit length,
-normal/subnormal mantissa/exponent construction and round-toward-zero,
-without Numeric, GMP, MPFR, Boost, FloatMP or host FP operations.
+Add standalone `tests/data/generator_rational_shared_stream.cpp` for `rational_r29.tsv` (216
+source-keyed sparse-prefix binary64 cases), all 16 `rational_r13_mode{0..3}_limbs{5..8}.tsv` files
+(96 exact signed dense-limb conversion cases each), and `rational_r5.tsv` (48 shifts, four signed
+conversion expectations per row). Reconstruct every source input using the original
+mt19937_64(0x6672616374696f6e) sequence: first consume every original 1,200 R0 visit schedule (four
+operands, each with all limbs plus one sign draw). For each of four subsequent host rounding modes,
+generate R29 followed by R13 limbs 5,6,7,8 followed by R5's 12 shift probes. This original
+interleaving is essential; advancing all R29 modes before R13 changes the random-source values.
+Expected binary64 bits are derived by exact integer quotient, bit length, normal/subnormal
+mantissa/exponent construction and round-toward-zero, without Numeric, GMP, Boost or host FP
+operations.
 
 GCC and Clang C++20 compilations succeeded with -Wall -Wextra -Wpedantic
 -Wsign-conversion -Wshadow -Werror. An additional Clang build used the
@@ -8693,26 +8540,20 @@ deterministic and reads no original TSV as input. The complete generator
 ran locally in about 2.3 seconds excluding compilation on Linux;
 this is a diagnostic, not a bound for other machines.
 
-Register the thirteenth standalone generator in `ORACLE_GENERATORS`
-for the explicit `generators` and `generate-data` targets, leaving
-`tests` decoupled. Update README. Source-reproducible coverage rises
-from 79 to 93 of 115 versioned TSVs. No existing TSV, test consumer,
-production code, GMP oracle, root CMake, FloatMP or benchmark changes.
-Full platform CI is still required.
+Register the thirteenth standalone generator in `ORACLE_GENERATORS` for the explicit `generators`
+and `generate-data` targets, leaving `tests` decoupled. Update README. Source-reproducible coverage
+rises from 79 to 93 of 115 versioned TSVs. No existing TSV, test consumer, production code, GMP
+oracle, root CMake or benchmark changes. Full platform CI is still required.
 
 ### B91 — independent source-keyed Rational R0 random fixture (23 October 2026)
 
-Add standalone `tests/data/generator_rational_random.cpp` to reproduce
-the complete preexisting `rational_random.tsv` from its original
-mt19937_64(0x6672616374696f6e) stream. Replay all 1,200 original
-visits (47,860 RNG draws), including four operand limb vectors and
-four sign draws at each iteration, keeping the 120 exact adaptive
-one-per-ten selected indices. Source integers, signed canonical
-fractions, add/subtract/multiply, square, half, optional division
-and reciprocal, floor/ceil, comparison and raw hexadecimal IEEE-754
-binary64 bits are all computed with independent standard-C++20
-base-2^64 limb arithmetic. No Numeric/GMP/MPFR/FloatMP/Boost runtime
-oracle or fixture input is involved.
+Add standalone `tests/data/generator_rational_random.cpp` to reproduce the complete preexisting
+`rational_random.tsv` from its original mt19937_64(0x6672616374696f6e) stream. Replay all 1,200
+original visits (47,860 RNG draws), including four operand limb vectors and four sign draws at each
+iteration, keeping the 120 exact adaptive one-per-ten selected indices. Source integers, signed
+canonical fractions, add/subtract/multiply, square, half, optional division and reciprocal,
+floor/ceil, comparison and raw hexadecimal IEEE-754 binary64 bits are all computed with independent
+standard-C++20 base-2^64 limb arithmetic.
 
 An independent exact BigInt replay reproduced all 120 original
 19-field rows. GCC 14 and Clang 17 compiled with strict C++20 warnings
@@ -8750,48 +8591,37 @@ leaving tests and default all decoupled. Total exact source-reproducible
 fixtures: 95/115. Existing TSVs, test consumers, GMP runtime oracles,
 production code and root CMake are unchanged. Full CI pending.
 
-### B93 — GMP/MPFR-free FloatAP directed rational bounds generator (23 October 2026)
+### B93 — GMP/native arithmetic-free FloatAP directed rational bounds generator (23 October 2026)
 
-Add standalone standard-C++20 `tests/data/generator_floatap_directed_bounds.cpp`
-which reproduces every original input and exact directed dyadic bound
-in `floatap_directed_bounds.tsv`: six significand precisions
-(7, 32, 53, 64, 128, 192) times fifteen signed, zero or dyadic
-rational inputs. Determine floor(log2|q|) using exact unsigned limb
-bit lengths and shifts; independently floor/ceil the magnitude on
-its p-bit lattice using long quotient/remainder; reverse bounds for
-negative values; reduce resulting rational numerators/denominators
-using binary GCD and exact division. No GMP, MPFR, FloatAP, Numeric,
-Boost, native double or host FP rounding is used. Source inputs are
-reconstructed from the original test's explicit 15-element input set,
-not copied from the frozen TSV.
+Add standalone standard-C++20 `tests/data/generator_floatap_directed_bounds.cpp` which reproduces
+every original input and exact directed dyadic bound in `floatap_directed_bounds.tsv`: six
+significand precisions (7, 32, 53, 64, 128, 192) times fifteen signed, zero or dyadic rational
+inputs. Determine floor(log2|q|) using exact unsigned limb bit lengths and shifts; independently
+floor/ceil the magnitude on its p-bit lattice using long quotient/remainder; reverse bounds for
+negative values; reduce resulting rational numerators/denominators using binary GCD and exact
+division. No GMP, FloatAP, Numeric, Boost, native double or host FP rounding is used. Source inputs
+are reconstructed from the original test's explicit 15-element input set, not copied from the frozen
+TSV.
 
-GCC 14 and Clang 17 -O2 -std=c++20 -Wall -Wextra -Wpedantic
--Wsign-conversion -Wshadow -Werror compiled and ran successfully,
-producing identical 7,742-byte fixtures matching the original SHA-1
-`ef8e337b8d4271371c919044d3eec16ca6fb731c` byte for byte.
-An optimization-specific GCC array-bounds warning from a temporary
-Nat copy was eliminated by constructing the scaled Nat from its
-original unsigned source rather than disabling warnings.
-Register the sixteenth generator in `ORACLE_GENERATORS` for the
-explicit `generators` and `generate-data`, not `tests`.
-Source-reproducible fixture coverage rises from 95 to 96 of 115.
-No versioned data, production arithmetic, test consumer, GMP oracle,
-root CMake or FloatMP source was changed. Full CI remains pending.
+GCC 14 and Clang 17 -O2 -std=c++20 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror
+compiled and ran successfully, producing identical 7,742-byte fixtures matching the original SHA-1
+`ef8e337b8d4271371c919044d3eec16ca6fb731c` byte for byte. An optimization-specific GCC array-bounds
+warning from a temporary Nat copy was eliminated by constructing the scaled Nat from its original
+unsigned source rather than disabling warnings. Register the sixteenth generator in
+`ORACLE_GENERATORS` for the explicit `generators` and `generate-data`, not `tests`.
+Source-reproducible fixture coverage rises from 95 to 96 of 115. Full CI remains pending.
 
 ### B94 — independent certified integer-only FloatAP pi fixture (23 October 2026)
 
-Add standalone C++20 `tests/data/generator_floatap_pi.cpp` to reproduce
-`floatap_pi.tsv` from Machin's formula pi=16*atan(1/5)-4*atan(1/239).
-Derive a rigorous integer-only fixed-point interval at scale 2^1200
-using 400 Taylor terms per arctangent. Each series term is bracketed
-by its exact integer floor and ceiling, with a rigorous alternating
-next-term tail bound. Signed interval combination yields bounds for pi.
-Prove both endpoints lie in a common 384-bit directed-rounding cell;
-prove both give the same 320-bit nearest-even result. Emit the exact
-canonical reduced rational lower/upper and nearest-even expected values.
-The algorithm uses standard C++20, independent radix-2^64 limbs, and
-portable binary small-divisor long division, without GMP, MPFR,
-FloatAP, Numeric, Boost or native floating-point approximations.
+Add standalone C++20 `tests/data/generator_floatap_pi.cpp` to reproduce `floatap_pi.tsv` from
+Machin's formula pi=16*atan(1/5)-4*atan(1/239). Derive a rigorous integer-only fixed-point interval
+at scale 2^1200 using 400 Taylor terms per arctangent. Each series term is bracketed by its exact
+integer floor and ceiling, with a rigorous alternating next-term tail bound. Signed interval
+combination yields bounds for pi. Prove both endpoints lie in a common 384-bit directed-rounding
+cell; prove both give the same 320-bit nearest-even result. Emit the exact canonical reduced
+rational lower/upper and nearest-even expected values. The algorithm uses standard C++20,
+independent radix-2^64 limbs, and portable binary small-divisor long division, without GMP, FloatAP,
+Numeric, Boost or native floating-point approximations.
 
 GCC 14 and Clang 17 compiled under -O2 -std=c++20 -Wall -Wextra
 -Wpedantic -Wsign-conversion -Wshadow -Werror. Both generated the
@@ -8805,20 +8635,16 @@ production arithmetic or root CMake is modified. Full CI pending.
 
 ### B95 — independent two-stage FloatAP get_d binary64 oracle (23 October 2026)
 
-Add `tests/data/generator_floatap_get_d.cpp` as standalone C++20
-source for all 272 original `floatap_get_d.tsv` conversions. Recreate
-the original 17 input Rationals by their exact algebraic definitions:
-integers and thirds, binary halfway ties, extremely small dyadics,
-positive and negative exponent boundaries and the IEEE overflow tie.
-For precisions p=53,128,256,1024, first nearest-even round the original
-rational to the exact p-bit binary dyadic value. Then perform a separate
-correctly rounded conversion to IEEE-754 binary64 under N/D/U/Z,
-including biased normal exponent/mantissa, 2^-1074 subnormal grid,
-negative zero, positive/negative infinity, highest finite value and
-signed/toward-zero overflow saturation. All steps use independent
-radix-2^64 integer long division, exact remainders, bit lengths and
-explicit midpoint-even tie rules. No GMP, MPFR, FloatAP, Numeric,
-Boost or native host FP operations are used.
+Add `tests/data/generator_floatap_get_d.cpp` as standalone C++20 source for all 272 original
+`floatap_get_d.tsv` conversions. Recreate the original 17 input Rationals by their exact algebraic
+definitions: integers and thirds, binary halfway ties, extremely small dyadics, positive and
+negative exponent boundaries and the IEEE overflow tie. For precisions p=53,128,256,1024, first
+nearest-even round the original rational to the exact p-bit binary dyadic value. Then perform a
+separate correctly rounded conversion to IEEE-754 binary64 under N/D/U/Z, including biased normal
+exponent/mantissa, 2^-1074 subnormal grid, negative zero, positive/negative infinity, highest finite
+value and signed/toward-zero overflow saturation. All steps use independent radix-2^64 integer long
+division, exact remainders, bit lengths and explicit midpoint-even tie rules. No GMP, FloatAP,
+Numeric, Boost or native host FP operations are used.
 
 Independent Python BigInt and C++20 implementations both generate the
 same original 272 source-keyed records. GCC 14 and Clang 17 compiled
@@ -8836,19 +8662,16 @@ unchanged. Full platform CI remains to be checked.
 
 ### B96 — independent exact FloatAP integer-power generator (23 October 2026)
 
-Add standalone `tests/data/generator_floatap_power_exact.cpp` for all
-2,400 original `floatap_pow.tsv` keys: five p-bit precisions (7, 53,
-128, 256, 1024); eight original input magnitudes with both signs,
-with duplicate signed zeros deduplicated; eight degrees (0,1,2,3,7,
-8,13,31); four directed rounding modes. Inputs are reconstructed from
-the original source enumeration. Each signed source Rational first
-undergoes exact nearest-even input quantization to p binary digits.
-Compute the exact integer power using independent binary shift/add
-radix-2^64 multiplication, keeping the exact dyadic scale, followed
-by one final p-bit round with exact discarded-bit/tie comparison for
-N/D/U/Z modes. All expected numerators/denominators are canonicalized
-by stripping common factors of two. Handle 0^0=+1, negative odd powers,
-and binade carry without native FP, GMP, MPFR, Numeric or Boost.
+Add standalone `tests/data/generator_floatap_power_exact.cpp` for all 2,400 original
+`floatap_pow.tsv` keys: five p-bit precisions (7, 53, 128, 256, 1024); eight original input
+magnitudes with both signs, with duplicate signed zeros deduplicated; eight degrees (0,1,2,3,7,
+8,13,31); four directed rounding modes. Inputs are reconstructed from the original source
+enumeration. Each signed source Rational first undergoes exact nearest-even input quantization to p
+binary digits. Compute the exact integer power using independent binary shift/add radix-2^64
+multiplication, keeping the exact dyadic scale, followed by one final p-bit round with exact
+discarded-bit/tie comparison for N/D/U/Z modes. All expected numerators/denominators are
+canonicalized by stripping common factors of two. Handle 0^0=+1, negative odd powers, and binade
+carry without native FP, GMP, Numeric or Boost.
 
 GCC 14 and Clang 17 both compiled using C++20 -O2 -Wall -Wextra
 -Wpedantic -Wsign-conversion -Wshadow -Werror. The generated TSV
@@ -8873,16 +8696,13 @@ modes preserve all 360 original test visits. Exactly 300 source-keyed
 references remain after explicit duplicate rounded-input removal,
 matching the original fixture ordering and comments.
 
-Independently nearest-even round source operands using exact radix-2^64
-quotient/remainder. For the positive dyadic x at precision p, compute
-its square-root target unit from floor(log2(x)) with correct floor
-semantics for negative binary exponents. Form the exact ratio A/B,
-calculate its integer quotient, and use independent digit-pair restoring
-integer isqrt. Certify both q^2*B<=A and (q+1)^2*B>A, compare exact
-4*A against (2*q+1)^2*B for nearest-even, and perform outward rounding
-for upward while keeping downward and toward-zero exact. Normalize all
-output fractions by cancelling binary powers. No native FP, Numeric,
-GMP, MPFR, Boost or FloatAP is used.
+Independently nearest-even round source operands using exact radix-2^64 quotient/remainder. For the
+positive dyadic x at precision p, compute its square-root target unit from floor(log2(x)) with
+correct floor semantics for negative binary exponents. Form the exact ratio A/B, calculate its
+integer quotient, and use independent digit-pair restoring integer isqrt. Certify both q^2*B<=A and
+(q+1)^2*B>A, compare exact 4*A against (2*q+1)^2*B for nearest-even, and perform outward rounding
+for upward while keeping downward and toward-zero exact. Normalize all output fractions by
+cancelling binary powers. No native FP, Numeric, GMP, Boost or FloatAP is used.
 
 GCC 14 and Clang 17 strict C++20 warning builds and execution produced
 exactly 76,870 bytes and Git blob SHA-1
@@ -8927,20 +8747,17 @@ production sources or root CMake have changed. Full platform CI pending.
 
 ### B99 — independently reproducible RoundedFloat directed fixture (24 October 2026)
 
-Add standalone standard C++20 `tests/data/generator_rounded_float_directed.cpp`
-for all 24 exact source rows / 48 strict comparisons in the existing
-`rounded_float_directed.tsv`. Reconstruct all original exp/log/atan rational
-sources algebraically. Use signed integer fixed-point intervals at B=2^1400,
-with outward rounding at each arithmetic operation; exp uses 241 Taylor
-terms on |x|/16 plus a twice-next-term tail and four squarings (negative
-arguments via reciprocal), log uses 271 positive atanh terms plus an
-explicit 4*y^543 tail, and atan uses 271 alternating terms and
-Machin-certified pi/4 reduction for inputs near +/-1. Certify that both
-interval endpoints agree when rounded independently downward and upward
-to 128 binary significant bits, including negative values and canonical
-reduced dyadic fractions. No original TSV operand literals or expected
-values are copied as computed references, and no Numeric, GMP, MPFR,
-FloatMP, Boost or host floating-point evaluation is involved.
+Add standalone standard C++20 `tests/data/generator_rounded_float_directed.cpp` for all 24 exact
+source rows / 48 strict comparisons in the existing `rounded_float_directed.tsv`. Reconstruct all
+original exp/log/atan rational sources algebraically. Use signed integer fixed-point intervals at
+B=2^1400, with outward rounding at each arithmetic operation; exp uses 241 Taylor terms on |x|/16
+plus a twice-next-term tail and four squarings (negative arguments via reciprocal), log uses 271
+positive atanh terms plus an explicit 4*y^543 tail, and atan uses 271 alternating terms and
+Machin-certified pi/4 reduction for inputs near +/-1. Certify that both interval endpoints agree
+when rounded independently downward and upward to 128 binary significant bits, including negative
+values and canonical reduced dyadic fractions. No original TSV operand literals or expected values
+are copied as computed references, and no Numeric, GMP, Boost or host floating-point evaluation is
+involved.
 
 Strict -std=c++20 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow
 -Werror builds with GCC and Clang regenerate 5,181 identical bytes;
@@ -9006,25 +8823,19 @@ CI for B101 is pending.
 
 ### B102 — certified logarithm fixture regeneration (24 October 2026)
 
-Add standalone standard-library C++20 `generator_floatap_log.cpp`
-covering all 444 source-keyed `floatap_log.tsv` rows, including 284
-centered-log unique references from six precision visits and 160 D96
-additions. Preserve original source order, nearest-even input rounding
-for centered cases and unrounded original rational lookup keys in D96.
-Certify log via an integer fixed-point B=2^1800 enclosure of
-2*atanh(|x-1|/(x+1)), with 1101 positive series terms plus rigorous
-4*y^2205 remainder. At x=8 or 1/8 use 3*log(2) identity to obtain a
-sufficiently tight enclosure for 1024-bit output. Round both interval
-endpoints independently under N/D/U/Z and require exact agreement;
-negate with correct sign-aware directed rounding. All 444 reference
-values, including exact log(1)=0, are computed independently with no
-Numeric, GMP, MPFR, FloatAP or host transcendental oracle. Restore the
-D96 header in its original mid-file position. GCC and Clang strict
-warnings-as-errors builds and read-only --verify pass, corruption fails.
-Generated 122,768 bytes with SHA-1
-`7cae466575432ff238dd73ecdeeb599b7e17ceed`, matching main's
-original Git blob exactly. Generator #25 joins opt-in CMake targets;
-coverage 105/115. No original fixtures or test/production code changed.
+Add standalone standard-library C++20 `generator_floatap_log.cpp` covering all 444 source-keyed
+`floatap_log.tsv` rows, including 284 centered-log unique references from six precision visits and
+160 D96 additions. Preserve original source order, nearest-even input rounding for centered cases
+and unrounded original rational lookup keys in D96. Certify log via an integer fixed-point B=2^1800
+enclosure of 2*atanh(|x-1|/(x+1)), with 1101 positive series terms plus rigorous 4*y^2205 remainder.
+At x=8 or 1/8 use 3*log(2) identity to obtain a sufficiently tight enclosure for 1024-bit output.
+Round both interval endpoints independently under N/D/U/Z and require exact agreement; negate with
+correct sign-aware directed rounding. All 444 reference values, including exact log(1)=0, are
+computed independently with no Numeric, GMP, FloatAP or host transcendental oracle. Restore the D96
+header in its original mid-file position. GCC and Clang strict warnings-as-errors builds and
+read-only --verify pass, corruption fails. Generated 122,768 bytes with SHA-1
+`7cae466575432ff238dd73ecdeeb599b7e17ceed`, matching main's original Git blob exactly. Generator #25
+joins opt-in CMake targets; coverage 105/115. No original fixtures or test/production code changed.
 
 ### B103 — certified independent sine and cosine fixture regeneration (24 October 2026)
 
@@ -9039,17 +8850,14 @@ independent nearest-even input rounding, first-seen duplicate removal
 and all 4 output rounding modes. D91 adds 336 rows per file, D92 456,
 and D95 288. Preserve mid-file D92 and D95 explanatory comments.
 
-Evaluate both sine and cosine through 240 signed alternating Taylor
-terms at fixed-point B=2^1800, computing all term enclosures using
-portable 32-bit digit multiplication, exact Nat division and directed
-outward integer rounding. Add a rigorous enclosure of the first
-omitted term; odd/even identities handle negative input. Independently
-round both signed interval endpoints N/D/U/Z at the requested output
-precision, rejecting any case for which they disagree. Caching on
-the exact nearest-even rounded input magnitude shares the certified
-sin and cos evaluation across all four modes, signs, precision visits
-and overlapping test groups. No implementation-under-test or GMP/
-MPFR/Boost floating-point oracle is used to compute outputs.
+Evaluate both sine and cosine through 240 signed alternating Taylor terms at fixed-point B=2^1800,
+computing all term enclosures using portable 32-bit digit multiplication, exact Nat division and
+directed outward integer rounding. Add a rigorous enclosure of the first omitted term; odd/even
+identities handle negative input. Independently round both signed interval endpoints N/D/U/Z at the
+requested output precision, rejecting any case for which they disagree. Caching on the exact
+nearest-even rounded input magnitude shares the certified sin and cos evaluation across all four
+modes, signs, precision visits and overlapping test groups. No implementation-under-test or GMP/
+independent exact oracles/Boost floating-point oracle is used to compute outputs.
 
 Strict GCC/Clang C++20 -Wall -Wextra -Wpedantic -Wsign-conversion
 -Wshadow -Werror compile and --verify pass for both files; corrupted
@@ -9063,65 +8871,49 @@ runtime GMP oracles remain unchanged. Full CI of B103 pending.
 
 ### B104 — correctly rounded centered FloatAP exponential fixture (24 October 2026)
 
-Add independent standalone C++20 `generator_floatap_centered_exp.cpp`.
-Reconstruct the original D85 source algorithm: six precision visits
-(53,7,128,256,1024,53), 15 magnitudes around 1/2 and at 1/4,3/4,
-1/3,2/3,1,2, both signs, four rounding directions. Independently
-round every source Rational to nearest-even at p bits and deduplicate
-first-seen (p,mode,signed rounded dyadic) keys, giving 568 fixture
-rows while preserving 720 original checks. All values are rigorously
-certified by outward fixed-point integer enclosures (B=2^1800) of
-exp(|x|/16) through term 165, twice-next-term tail, four squarings,
-and directed reciprocals for negative inputs; interval endpoints
-must round to precisely the same p-bit N/D/U/Z rational. No Numeric,
-FloatAP, GMP, MPFR, FloatMP, Boost or floating-point exponential
-oracle is involved. Strict GCC/Clang C++20 builds, --verify and
-corruption rejection pass. Regenerated 170,882 bytes have Git blob
-`a221dfa3cc3e8feff2b425aff8290180fe994d3a`, identical to the
-original TSV. Register generator #27 in explicit `generators`,
-`generate-data` and `verify-data`; coverage reaches 108/115.
-No fixtures, consumers, production code or runtime GMP tests changed.
+Add independent standalone C++20 `generator_floatap_centered_exp.cpp`. Reconstruct the original D85
+source algorithm: six precision visits (53,7,128,256,1024,53), 15 magnitudes around 1/2 and at
+1/4,3/4, 1/3,2/3,1,2, both signs, four rounding directions. Independently round every source
+Rational to nearest-even at p bits and deduplicate first-seen (p,mode,signed rounded dyadic) keys,
+giving 568 fixture rows while preserving 720 original checks. All values are rigorously certified by
+outward fixed-point integer enclosures (B=2^1800) of exp(|x|/16) through term 165, twice-next-term
+tail, four squarings, and directed reciprocals for negative inputs; interval endpoints must round to
+precisely the same p-bit N/D/U/Z rational. No Numeric, FloatAP, GMP, Boost or floating-point
+exponential oracle is involved. Strict GCC/Clang C++20 builds, --verify and corruption rejection
+pass. Regenerated 170,882 bytes have Git blob `a221dfa3cc3e8feff2b425aff8290180fe994d3a`, identical
+to the original TSV. Register generator #27 in explicit `generators`, `generate-data` and
+`verify-data`; coverage reaches 108/115. No fixtures, consumers, production code or runtime GMP
+tests changed.
 
 ### B105 — certified atan oracle regeneration (24 October 2026)
 
-Add C++20 independent `generator_floatap_atan.cpp`. Rebuild D87,
-D88 and D89 original source-keyed references (640/200/500 rows),
-including all precision visits, signed operands, exact original
-Rational keys, and independent nearest-even input quantization.
-Use signed outward fixed-point integer intervals at B=2^1800,
-1,150 alternating atan Taylor terms at maximum, Machin's certified
-pi/4, direct Taylor at <=1/2, complementary pi/4 argument reduction
-for 1/2<x<1, and pi/2-atan(1/x) above 1. An early break when
-the next power interval is below 2^180 (at B=2^1800) preserves a
-rigorous symmetric omitted-tail enclosure, greatly improving runtime.
-Every p-bit N/D/U/Z result is accepted only if independently rounded
-lower/upper interval endpoints agree. No Numeric, GMP, MPFR, FloatMP,
-Boost, or host floating-point atan oracle; no TSV source values used.
-Strict GCC and Clang C++20 compilation, --verify and deliberate
-corruption rejection succeed. Exact original 309,281-byte Git blob
-`9daa471b286fb3b3b5cd0d4a804a4977cfd16079` is reproduced.
-Register generator #28 in opt-in targets; coverage becomes 109/115.
-Existing fixtures, consumers, production code, and runtime GMP tests
-remain unchanged. CI for B105 is pending.
+Add C++20 independent `generator_floatap_atan.cpp`. Rebuild D87, D88 and D89 original source-keyed
+references (640/200/500 rows), including all precision visits, signed operands, exact original
+Rational keys, and independent nearest-even input quantization. Use signed outward fixed-point
+integer intervals at B=2^1800, 1,150 alternating atan Taylor terms at maximum, Machin's certified
+pi/4, direct Taylor at <=1/2, complementary pi/4 argument reduction for 1/2<x<1, and pi/2-atan(1/x)
+above 1. An early break when the next power interval is below 2^180 (at B=2^1800) preserves a
+rigorous symmetric omitted-tail enclosure, greatly improving runtime. Every p-bit N/D/U/Z result is
+accepted only if independently rounded lower/upper interval endpoints agree. No Numeric, GMP, Boost,
+or host floating-point atan oracle; no TSV source values used. Strict GCC and Clang C++20
+compilation, --verify and deliberate corruption rejection succeed. Exact original 309,281-byte Git
+blob `9daa471b286fb3b3b5cd0d4a804a4977cfd16079` is reproduced. Register generator #28 in opt-in
+targets; coverage becomes 109/115. Existing fixtures, consumers, production code, and runtime GMP
+tests remain unchanged. CI for B105 is pending.
 
 ### B106 — independently certified tangent fixture regeneration (24 October 2026)
 
-Add standalone standard C++20 `tests/data/generator_floatap_tan.cpp`,
-reproducing `floatap_tan.tsv` exactly (303,143 bytes / 1,208 rows).
-Rebuild D92 (576 unique keys), D93 (240 new), D94 (200 new), and
-D95 (192 new) from their original test loops: local p-bit rational
-offsets from 1/2, centered p/2+16 offsets, wider binary rational
-sources, signed order, precision visits and first-seen deduplication.
-Independently round the original Rational source to nearest-even
-p-bit binary before evaluating tangent. Use 240 outward alternating
-integer-only Taylor terms for sin/cos at B=2^1800; enclose omitted
-term, require cosine interval exclude zero, divide signed numerator
-interval by signed denominator with four endpoint combinations,
-rigorously outward floor/ceil, and use oddness at negative sources.
-Support negative cosine for |x|>pi/2, not merely the near-1/2 window.
-Require identical rounded exact rational from both endpoint bounds
-in every N/D/U/Z mode. No Numeric, GMP, MPFR, FloatMP, Boost,
-host floating-point tangent or expected TSV source values are used.
+Add standalone standard C++20 `tests/data/generator_floatap_tan.cpp`, reproducing `floatap_tan.tsv`
+exactly (303,143 bytes / 1,208 rows). Rebuild D92 (576 unique keys), D93 (240 new), D94 (200 new),
+and D95 (192 new) from their original test loops: local p-bit rational offsets from 1/2, centered
+p/2+16 offsets, wider binary rational sources, signed order, precision visits and first-seen
+deduplication. Independently round the original Rational source to nearest-even p-bit binary before
+evaluating tangent. Use 240 outward alternating integer-only Taylor terms for sin/cos at B=2^1800;
+enclose omitted term, require cosine interval exclude zero, divide signed numerator interval by
+signed denominator with four endpoint combinations, rigorously outward floor/ceil, and use oddness
+at negative sources. Support negative cosine for |x|>pi/2, not merely the near-1/2 window. Require
+identical rounded exact rational from both endpoint bounds in every N/D/U/Z mode. No Numeric, GMP,
+Boost, host floating-point tangent or expected TSV source values are used.
 
 Strict GCC and Clang -std=c++20 -Wall -Wextra -Wpedantic
 -Wsign-conversion -Wshadow -Werror compile, and read-only --verify
@@ -9136,20 +8928,16 @@ source was changed. Full CI for B106 is pending.
 
 ### B107 — independent certified asin/acos golden regeneration (24 October 2026)
 
-Add `tests/data/generator_floatap_asin_acos.cpp` using standard
-C++20-only arbitrary-width integer limbs. Reconstruct all D86 (520)
-and additional D90 (208) keys from the original signed Rational
-source and precision visitation rules, rounding each operand nearest
-even before evaluation. For each original magnitude independently
-certify sqrt(1-x^2) through floor integer square root of
-floor((d^2-n^2)*B^2/d^2), including exactness detection for the
-upper interval endpoint, where B=2^1800. Bound atan of the resulting
-ratio x/(1+sqrt(1-x^2)) at both ordered endpoints, multiply by two,
-and use certified pi/2 subtraction for acos (exactly zero at x=+1).
-Arctangent uses the existing independent signed fixed-point interval
-and Machin reduction routines, no FloatAP, Numeric, GMP, MPFR,
-FloatMP, Boost or host transcendentals. Both interval endpoints must
-round to identical binary rationals for all N/D/U/Z modes.
+Add `tests/data/generator_floatap_asin_acos.cpp` using standard C++20-only arbitrary-width integer
+limbs. Reconstruct all D86 (520) and additional D90 (208) keys from the original signed Rational
+source and precision visitation rules, rounding each operand nearest even before evaluation. For
+each original magnitude independently certify sqrt(1-x^2) through floor integer square root of
+floor((d^2-n^2)*B^2/d^2), including exactness detection for the upper interval endpoint, where
+B=2^1800. Bound atan of the resulting ratio x/(1+sqrt(1-x^2)) at both ordered endpoints, multiply by
+two, and use certified pi/2 subtraction for acos (exactly zero at x=+1). Arctangent uses the
+existing independent signed fixed-point interval and Machin reduction routines, no FloatAP, Numeric,
+GMP, Boost or host transcendentals. Both interval endpoints must round to identical binary rationals
+for all N/D/U/Z modes.
 
 GCC and Clang strict C++20 warnings-as-errors compiles and --verify
 of both fixtures passed; intentional corruption is detected.
@@ -9430,23 +9218,17 @@ canonical input/quotient shape, source immutability, output guards and
 all invalid/inexact/unchanged-buffer exception checks. The consumer
 rejects missing, reordered or extra records.
 
-Existing independent C++20 `generator_big_unsigned_power_div.cpp`
-regenerates the datasets via Nat::mul_small and independently checks
-the exact inverse using the bitwise single-limb divide implementation;
-no Numeric, GMP, MPFR or Boost dependency. Independently replaying
-all 6,200 original std::mt19937_64 cases compiled with both GCC and
-Clang and Python arbitrary-precision multiplication reproduces every
-fixture byte-for-byte. Git blobs, respectively small (4,960 rows)
-`d4a68ff02f44a9273ca8bf0a30aa4874a57ab295`, length 65
-(620 rows) `6a5c0cdee6d167bfedaff54917cc725bd73793ae`,
-length 129 first 78 divisors (312 rows)
-`0697660ce3945381db5840683f408ee73de55e1d` and remaining
-77 divisors (308 rows)
-`c42a99815380e11bce4f3976773b8507483f47bb`.
-No production sources changed; the same 32 generator executables now
-cover 127 TSVs. A1–A7 cumulative migrated visits: 22,984.
-A7 consumer CI is to be checked after publication, separately
-from local fixture verification and opt-in `verify-data`.
+Existing independent C++20 `generator_big_unsigned_power_div.cpp` regenerates the datasets via
+Nat::mul_small and independently checks the exact inverse using the bitwise single-limb divide
+implementation; no Numeric, GMP or Boost dependency. Independently replaying all 6,200 original
+std::mt19937_64 cases compiled with both GCC and Clang and Python arbitrary-precision multiplication
+reproduces every fixture byte-for-byte. Git blobs, respectively small (4,960 rows)
+`d4a68ff02f44a9273ca8bf0a30aa4874a57ab295`, length 65 (620 rows)
+`6a5c0cdee6d167bfedaff54917cc725bd73793ae`, length 129 first 78 divisors (312 rows)
+`0697660ce3945381db5840683f408ee73de55e1d` and remaining 77 divisors (308 rows)
+`c42a99815380e11bce4f3976773b8507483f47bb`. No production sources changed; the same 32 generator
+executables now cover 127 TSVs. A1–A7 cumulative migrated visits: 22,984. A7 consumer CI is to be
+checked after publication, separately from local fixture verification and opt-in `verify-data`.
 
 ### A8 — B57 power-of-two multiprecision division oracle (25 October 2026)
 
@@ -9495,22 +9277,15 @@ operands, quotient and remainder on `divrem`, `quot`, `rem` and
 scratch-guard assertions remain. All rows must appear in original
 order, with none missing or extra. GMP blocks outside B55 remain.
 
-Extend the existing independent C++20 power/division generator
-with B55 input replay, independent Nat aligned-subtraction long
-division and shift/add Euclidean identity checks; no Numeric,
-GMP, MPFR or Boost is used. Separately regenerate source inputs
-with std::mt19937_64 compiled using GCC and Clang, and use Python
-arbitrary-precision divmod to certify every result. Exact bytewise
-Git blob identities: B55 short (216 visits, 178,716 bytes)
-`929963b14605a7a0eaa3f78aeacb8b398e615858`;
-medium (144 visits, 221,212 bytes)
-`3d8e5a3070ff80af9b01cd59a8b0a01a4da53882`;
-large (72 visits, 239,017 bytes)
-`7837342521a24a6cb672dbd364b37f0f4f44ab70`.
-Total: 133 versioned TSV fixtures and 32 existing generator
-executables; A1–A9 cumulative migrated test visits: 25,576.
-No production code changes. Full consumer CI and opt-in
-`verify-data` must be reported separately from oracle checks.
+Extend the existing independent C++20 power/division generator with B55 input replay, independent
+Nat aligned-subtraction long division and shift/add Euclidean identity checks; no Numeric, GMP or
+Boost is used. Separately regenerate source inputs with std::mt19937_64 compiled using GCC and
+Clang, and use Python arbitrary-precision divmod to certify every result. Exact bytewise Git blob
+identities: B55 short (216 visits, 178,716 bytes) `929963b14605a7a0eaa3f78aeacb8b398e615858`; medium
+(144 visits, 221,212 bytes) `3d8e5a3070ff80af9b01cd59a8b0a01a4da53882`; large (72 visits, 239,017
+bytes) `7837342521a24a6cb672dbd364b37f0f4f44ab70`. Total: 133 versioned TSV fixtures and 32 existing
+generator executables; A1–A9 cumulative migrated test visits: 25,576. No production code changes.
+Full consumer CI and opt-in `verify-data` must be reported separately from oracle checks.
 
 ### A10 — B27 fused division oracle migration (25 October 2026)
 
@@ -9523,15 +9298,11 @@ immutability, scratch sizing and remainder bounds, and detects
 missing or extra records. The shared GMP oracle remains for other
 B28/B36/B29/B45 tests, which are unchanged.
 
-The existing independent C++20 generator regenerates the two B27
-TSVs via aligned-subtraction Nat division, independently checks the
-Euclidean identity using binary shift/add multiplication, without
-GMP/MPFR/Boost/Numeric. Reproduction through independently ported
-mt19937_64 and Python bigint division yields the committed blobs:
-first (1,026 rows, 847,088 bytes)
-`a4a2aa7f948a8bd9a673700f48bcd5efbb5ed101`;
-second (1,024 rows, 844,784 bytes)
-`18448ac0544c03bddb54c22488f507dd6778ffb2`.
-135 fixtures, 32 standalone executables, 27,626 cumulatively
-migrated A1-A10 visits. Production code remains untouched.
-Consumer CI and optional verify-data are separate checks.
+The existing independent C++20 generator regenerates the two B27 TSVs via aligned-subtraction Nat
+division, independently checks the Euclidean identity using binary shift/add multiplication, without
+GMP/Boost/Numeric. Reproduction through independently ported mt19937_64 and Python bigint division
+yields the committed blobs: first (1,026 rows, 847,088 bytes)
+`a4a2aa7f948a8bd9a673700f48bcd5efbb5ed101`; second (1,024 rows, 844,784 bytes)
+`18448ac0544c03bddb54c22488f507dd6778ffb2`. 135 fixtures, 32 standalone executables, 27,626
+cumulatively migrated A1-A10 visits. Production code remains untouched. Consumer CI and optional
+verify-data are separate checks.

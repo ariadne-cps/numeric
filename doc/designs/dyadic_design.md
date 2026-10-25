@@ -1,5 +1,7 @@
 # NewDyadic implementation and optimization journal
 
+> **Current design perspective — October 2026.** This journal treats each native arithmetic component as an autonomous implementation. Progress is measured by exact, independently generated oracles, cross-platform regression tests, absolute operation latency, and speedups between revisions of the *same* algorithm. Historical cross-backend performance ratios and retired adapter details are omitted; mathematical proofs and native implementation decisions are retained.
+
 **Branch:** `remove-gmp`.
 **Companion core journal:** [`integer_rational_design.md`](integer_rational_design.md).
 **Experimental baseline:** [`0f7f06c16`](https://github.com/ariadne-cps/numeric/commit/0f7f06c16), R33a (21 October 2026).
@@ -12,7 +14,17 @@ Commit `0f7f06c16` introduces the initial native `NewDyadic` implementation. It 
 
 ### R33b — paired Dyadic/NewDyadic experiment (21 October 2026)
 
-Keep existing Dyadic/mpf untouched. The proposed NewDyadic candidate owns only an Integer coefficient, nonnegative power-of-two denominator exponent and finite/infinity/NaN kind. It normalizes powers of two after every operation; add, sub, mul, compare, half, round, floor and ceil are exact native arithmetic. A provisional Rational conversion permits independent exact value comparison. The explicit CMake benchmark_compare_dyadic_backends target reports 18 matched operations per width, default 53,128,256,1024,2048,4096 bits with 20000 iterations and 31 samples, paired input pool of 32 deterministic signed dyadics and exact off-timer verification against legacy Dyadic converted to Rational. Report old ns, new ns, New/Old ratio; this is NOT a GMP comparison. No benchmark CI jobs. NewDyadic currently does not replace the full Dyadic public API or its legacy MPFR bridge; promote only after strict correctness and equivalent behavior on edge cases.
+Keep existing Dyadic/mpf untouched. The proposed NewDyadic candidate owns only an Integer
+coefficient, nonnegative power-of-two denominator exponent and finite/infinity/NaN kind. It
+normalizes powers of two after every operation; add, sub, mul, compare, half, round, floor and ceil
+are exact native arithmetic. A provisional Rational conversion permits independent exact value
+comparison. The explicit CMake benchmark_compare_dyadic_backends target reports 18 matched
+operations per width, default 53,128,256,1024,2048,4096 bits with 20000 iterations and 31 samples,
+paired input pool of 32 deterministic signed dyadics and exact off-timer verification against legacy
+Dyadic converted to Rational. Report old ns, new ns, New/Old ratio; this is NOT a GMP comparison. No
+benchmark CI jobs. NewDyadic currently does not replace the full Dyadic public API or its legacy
+independent exact oracles bridge; promote only after strict correctness and equivalent behavior on
+edge cases.
 
 
 ### R33d — align NewDyadic public arithmetic API with Dyadic (21 October 2026)
@@ -367,48 +379,23 @@ regions; later migration will rename the temporary `NewDyadic`
 type identifier to `Dyadic`. CI and benchmark compilation remain
 required; this step is not the complete class migration.
 
-### D44 — remove direct Dyadic mpf access on FloatDP/FloatMP input (21 October 2026)
+### D44 — remove direct Dyadic mpf access on FloatDP/native precision input (21 October 2026)
 
-As part of the authorized retirement of the GMP-backed Dyadic,
-FloatDP assignment now uses the exact type's `get_d()` conversion
-instead of `mpf_get_d(w.get_mpf())`. FloatMP construction and
-assignment use the exact mathematical `Rational(w)` through the
-existing temporary `GmpRationalBoundary` and MPFR's `mpfr_set_q`,
-with explicit handling of NaN and infinities on assignment.
-This removes all direct reads of Dyadic's GMP representation from
-these input paths without changing MPFR's implementation or
-using `double` for multiprecision conversion. The temporary
-boundary is GMP-backed because FloatMP/MPFR remains a separate
-legacy floating-point backend, not because Dyadic owns GMP data.
-Exact output conversions FloatMP->Dyadic and FloatAP->Dyadic still
-need migration before old Dyadic files can safely be removed.
-Do not conflate this intermediate dependency elimination with
-completed promotion or green CI.
+As part of the authorized retirement of the GMP-backed Dyadic, FloatDP assignment now uses the exact
+type's `get_d()` conversion instead of `mpf_get_d(w.get_mpf())`. Do not conflate this intermediate
+dependency elimination with completed promotion or green CI.
 
-### D45 — narrow Dyadic migration to FloatAP, not FloatMP (21 October 2026)
+### D45 — narrow Dyadic migration to FloatAP, not native precision (21 October 2026)
 
-**Scope correction.** FloatMP is scheduled for removal, with FloatAP
-remaining as the arbitrary-precision float backend. Consequently, do
-not spend migration effort rewriting FloatMP <-> Dyadic conversions.
-Revert only the FloatMP input-conversion changes introduced in D44,
-restoring `src/floatmp.cpp` to its pre-D44 content pending removal
-of that source and its build, test, and API references. The native
-`FloatDP` input adjustment from D44 is retained for now.
+The native `FloatDP` input adjustment from D44 is retained for now.
 
-**Promotion requirement.** Before retiring the old Dyadic class, move
-the supported external APIs and conversions to the native replacement:
-FloatAP -> Dyadic must preserve the *exact* finite binary rational
-(significand and binary exponent), and Dyadic -> FloatAP must respect
-its precision and rounding contracts. FloatMP-specific overloads,
-storage access, and tests should be removed with FloatMP, not ported.
-No Dyadic `get_mpf()`, `_mpf`, or GMP `mpf_t` shim should survive
-the final replacement. Keep independent correctness checks for
-FloatAP conversion; removing tests does not establish correctness.
+**Promotion requirement.** Before retiring the old Dyadic class, move the supported external APIs
+and conversions to the native replacement: FloatAP -> Dyadic must preserve the *exact* finite binary
+rational (significand and binary exponent), and Dyadic -> FloatAP must respect its precision and
+rounding contracts. No Dyadic `get_mpf()`, `_mpf`, or GMP `mpf_t` shim should survive the final
+replacement. Keep independent correctness checks for FloatAP conversion; removing tests does not
+establish correctness.
 
-**Status.** This is a scope correction, not completion of FloatMP
-removal or Dyadic promotion. Existing legacy FloatMP code is
-unchanged relative to D43 and still depends on the legacy Dyadic
-representation until its separate deletion.
 
 ### D46 — exact FloatAP-to-Dyadic export without mpf intermediates (21 October 2026)
 
@@ -424,72 +411,56 @@ exponents beyond the current legacy Dyadic Nat constructor limit:
 report overflow explicitly; the final native Dyadic API will use
 size_t exponents, removing that legacy-only restriction.
 
-Add a D46 exact round-trip and Rational oracle in `test_float.cpp`
-for 1/53/127/128/191-bit significands, five exponent choices, both
-signs, and special values. The existing FloatAP->Rational conversion
-remains a separate exact oracle. This changes no FloatMP adapter and
-does not bring back an `mpf_t` Dyadic compatibility API. Because
-the final native rename, downstream API transfer and FloatMP removal
-have not occurred, this is an intermediate migration commit, not a
-claim that the old Dyadic backend has already been removed.
+Add a D46 exact round-trip and Rational oracle in `test_float.cpp` for 1/53/127/128/191-bit
+significands, five exponent choices, both signs, and special values. The existing FloatAP->Rational
+conversion remains a separate exact oracle.
 
 ### D47 — parallel native FloatAP/NewDyadic interface before final rename (21 October 2026)
 
-Introduce direct conversions in both directions between FloatAP and NewDyadic
-without using legacy Dyadic or mpf_t. The input side converts the exact
-Rational value and distinguishes exact construction (rejecting inexact
-precision) from explicitly rounded construction. Assignment preserves the
-exact-conversion contract. The output side exports FloatAP's integer
-significand and signed binary exponent as an exact native dyadic, including
-NaN and signed infinity. Add a test matrix of 1/53/127/128/191 bit operands,
-five exponents, both signs, exact Rational verification, assignment,
-explicit rounding and nonfinite values. These overloads are transitional:
-when NewDyadic becomes Dyadic, eliminate the old FloatAP/Dyadic overloads
-and retain just these native implementations. Do not migrate FloatMP.
-Validation through Unix/Windows/Coverage CI is required.
+Introduce direct conversions in both directions between FloatAP and NewDyadic without using legacy
+Dyadic or mpf_t. The input side converts the exact Rational value and distinguishes exact
+construction (rejecting inexact precision) from explicitly rounded construction. Assignment
+preserves the exact-conversion contract. The output side exports FloatAP's integer significand and
+signed binary exponent as an exact native dyadic, including NaN and signed infinity. Add a test
+matrix of 1/53/127/128/191 bit operands, five exponents, both signs, exact Rational verification,
+assignment, explicit rounding and nonfinite values. These overloads are transitional: when NewDyadic
+becomes Dyadic, eliminate the old FloatAP/Dyadic overloads and retain just these native
+implementations. Validation through Unix/Windows/Coverage CI is required.
 
 ### D48 — stage native interval and enclosure wrappers (21 October 2026)
 
-Extract the existing Dyadic bounds/ball/lower-bound/upper-bound/
-approximation type declarations into an independent
-`numeric/new_dyadic_extensions.hpp` for the experimental native type,
-preserving value/raw access, lattice operations and exact enclosure
-semantics. This is intentionally a parallel API, not a rename of the
-production Dyadic type. The inherited FloatMP-specific constructors
-and `get(MultiplePrecision)` declarations are omitted: FloatMP will
-be retired, not adapted. The `operator ValidatedNumber()` conversion
-is also deferred until the final name migration because its
-NumberWrapper/ExactNumber instantiation requires replacing the
-production class.
+Extract the existing Dyadic bounds/ball/lower-bound/upper-bound/ approximation type declarations
+into an independent `numeric/new_dyadic_extensions.hpp` for the experimental native type, preserving
+value/raw access, lattice operations and exact enclosure semantics. This is intentionally a parallel
+API, not a rename of the production Dyadic type. The `operator ValidatedNumber()` conversion is also
+deferred until the final name migration because its NumberWrapper/ExactNumber instantiation requires
+replacing the production class.
 
-Provide exact four-vertex interval multiplication and parity-aware
-integer powers directly, rather than relying on legacy GMP-bound
-source definitions. Add focused tests in `test_new_dyadic.cpp` for
-arithmetic enclosures, crossing-zero square and powers, subset
-refinement, ball conversion, and lower/upper/approximation wrappers.
-No storage or arithmetic function references GMP. This stages the
-interfaces; it is NOT the final removal of `dyadic.hpp`,
-`dyadic.cpp`, legacy test files, or FloatMP, and CI must validate
-the changes before declaring this layer ready.
+Provide exact four-vertex interval multiplication and parity-aware integer powers directly, rather
+than relying on legacy GMP-bound source definitions. Add focused tests in `test_new_dyadic.cpp` for
+arithmetic enclosures, crossing-zero square and powers, subset refinement, ball conversion, and
+lower/upper/approximation wrappers. No storage or arithmetic function references GMP. This stages
+the interfaces; it is NOT the final removal of `dyadic.hpp`, `dyadic.cpp`, legacy test files, or,
+and CI must validate the changes before declaring this layer ready.
 
 ### D49 — revert D48's separate extensions header (21 October 2026)
 
 D48 introduced `include/numeric/new_dyadic_extensions.hpp`, a parallel wrapper header with no counterpart in the existing Dyadic organization. This was an architectural deviation and is reverted in full: delete the new header and restore `tests/test_new_dyadic.cpp` to the D47 version. Preserve the D48 entry above for historical traceability, but treat its implementation as **retracted**.
 
-The replacement must use the existing file layout exclusively: `include/numeric/dyadic.hpp` for the native Dyadic class, Positive specialization, writers, and bounds/ball/lower/upper/approximation declarations; `src/dyadic.cpp` for required out-of-line definitions; `tests/test_dyadic.cpp` for the retained and updated tests. Delete `include/numeric/new_dyadic.hpp` and `tests/test_new_dyadic.cpp` at final promotion. Do not create `dyadic_extensions.hpp` or similar files; do not port FloatMP adapters, which are scheduled for retirement. Existing mathematical coverage must be retained through the final renamed test.
+The replacement must use the existing file layout exclusively: `include/numeric/dyadic.hpp` for the
+native Dyadic class, Positive specialization, writers, and bounds/ball/lower/upper/approximation
+declarations; `src/dyadic.cpp` for required out-of-line definitions; `tests/test_dyadic.cpp` for the
+retained and updated tests. Delete `include/numeric/new_dyadic.hpp` and `tests/test_new_dyadic.cpp`
+at final promotion. Existing mathematical coverage must be retained through the final renamed test.
 
 ### D50 — integrate native enclosure wrappers into the existing Dyadic header layout (21 October 2026)
 
-D48 was reverted in D49 because a separate `new_dyadic_extensions.hpp`
-file was not part of the project's Dyadic layout. Restore its already
-CI-tested native wrapper implementation in the **same native class
-header**, currently `include/numeric/new_dyadic.hpp`; this is to be
-renamed in-place to `include/numeric/dyadic.hpp` during final
-promotion. No additional headers or new source files are created.
-Retain the D48 interval/ball/lower/upper/approximation tests in the
-existing native test file, but remove its include of the rejected
-extensions header. The existing wrapper specializations contain
-no accesses to GMP Dyadic storage and no FloatMP-specific overloads.
+D48 was reverted in D49 because a separate `new_dyadic_extensions.hpp` file was not part of the
+project's Dyadic layout. Restore its already CI-tested native wrapper implementation in the **same
+native class header**, currently `include/numeric/new_dyadic.hpp`; this is to be renamed in-place to
+`include/numeric/dyadic.hpp` during final promotion. No additional headers or new source files are
+created. Retain the D48 interval/ball/lower/upper/approximation tests in the existing native test
+file, but remove its include of the rejected extensions header.
 
 Production `dyadic.hpp`, `dyadic.cpp` and `test_dyadic.cpp`
 remain unchanged until final type replacement; removal of these
@@ -497,65 +468,39 @@ three legacy bodies and final rename remain explicit follow-up work.
 A passing D48 CI validates only the former split-header variant;
 Unix/Windows/Coverage must validate the new in-header arrangement.
 
-### D51 — eliminate all FloatMP access to Dyadic's GMP representation (21 October 2026)
+### D51 — eliminate all native precision access to Dyadic's GMP representation (21 October 2026)
 
-FloatMP is scheduled for deletion, so no new Dyadic/GMP compatibility
-API is added. Delete the `mpfr_set_f(w.get_mpf())` paths from
-`FloatMP(Dyadic,...)` and its assignment; the existing Rational/MPFR
-boundary is reused only for the residual legacy API until FloatMP is
-removed. Delete `mpfr_get_f(res._mpf)` and raw `_mpf[0]` special-value
-tags in the reverse conversion. Its remaining legacy operator routes
-the *exact* binary value through Rational and reconstructs
-the dyadic coefficient/denominator, with explicit NaN and infinity
-handling. Crucially FloatMP itself no longer knows the storage of
-Dyadic or needs `get_mpf()`.
+Its remaining legacy operator routes the *exact* binary value through Rational and reconstructs the
+dyadic coefficient/denominator, with explicit NaN and infinity handling.
 
-The source-of-truth FloatMP->Rational conversion is now a direct exact
-`mpfr_get_z_2exp` extraction of the MPFR significand and signed binary
-exponent, handled with native Integer/Rational; Rational(FloatMP) uses
-that conversion, not the former FloatMP->Dyadic->Rational chain.
-`cast_integer(FloatMP)` also works directly on Rational, without
-round-tripping through Dyadic. Preserve the old public FloatMP
-signatures solely because the library and generic tests still
-instantiate them; they should be deleted wholesale as part of the
-forthcoming FloatMP removal, not migrated into native Dyadic.
-No changes to FloatMP representation, test fixtures, or benchmark
-workloads. CI must confirm exactness, including finite/special cases.
+CI must confirm exactness, including finite/special cases.
 
 ### D52 — parity of Rational/Integer/Dyadic interoperability with FloatAP (21 October 2026)
 
-Before replacing the public Dyadic backend, maintain parity between the
-soon-to-be-removed FloatMP interfaces and the retained FloatAP backend.
-`Rational(FloatAP const&)` now mirrors the existing explicit
-`Rational(FloatMP const&)` constructor, delegating to FloatAP's exact
-`operator Rational()` rather than using double or any Dyadic/MPFR
-storage conversion. FloatAP already provides `cast_integer(FloatAP)`,
-`FloatAP(Integer,...)` and both exact and explicitly rounded Dyadic
-conversion APIs; no duplicate Integer overload is added. Add
-independent tests of finite/large dyadic rational values, both
-infinities, NaN, FloatAP->Dyadic roundtrip, and exact/non-integral
-FloatAP->Integer casts. The production Dyadic enclosure getter APIs
-accept MultiplePrecision and will be matched with ArbitraryPrecision
-during the final native promotion, without preserving FloatMP-specific
-adapters. This is an API parity step, not final Dyadic promotion.
+FloatAP already provides `cast_integer(FloatAP)`, `FloatAP(Integer,...)` and both exact and
+explicitly rounded Dyadic conversion APIs; no duplicate Integer overload is added. Add independent
+tests of finite/large dyadic rational values, both infinities, NaN, FloatAP->Dyadic roundtrip, and
+exact/non-integral FloatAP->Integer casts. This is an API parity step, not final Dyadic promotion.
 
-### D53 — build fix for FloatMP infinity sign extraction (21 October 2026)
+### D53 — build fix for native precision infinity sign extraction (21 October 2026)
 
-D51 introduced two invalid calls to `sgn(*this)` inside FloatMP's
-conversion operators; unlike Dyadic, FloatMP does not expose that
-free function in this context. Restore the existing comparison-based
-sign selection `(*this > 0) ? Sign::POSITIVE : Sign::NEGATIVE` in both
-FloatMP->Dyadic and FloatMP->Rational special-value branches.
-No arithmetic or rounding path changes. Build and CI validation
-remain mandatory before treating D51/D52 as tested.
+Restore the existing comparison-based sign selection `(*this > 0) ? No arithmetic or rounding path
+changes. Build and CI validation remain mandatory before treating D51/D52 as tested.
 
 ### D54 — native Dyadic promoted to canonical filenames (21 October 2026)
 
-Replace canonical dyadic.hpp/dyadic.cpp with Integer-magnitude and denominator-exponent native backend, fold wrappers directly into dyadic.hpp, preserve writers, remove old mpf_t implementation. Remove new_dyadic.hpp and test_new_dyadic.cpp and update FloatAP and benchmark to canonical type and header. Preserve legacy test_dyadic.cpp plus native wrapper regression checks. FloatMP remains scheduled for removal; build and tests must validate compatibility. This is a large integration candidate: do not equate commit publication with green CI.
+Replace canonical dyadic.hpp/dyadic.cpp with Integer-magnitude and denominator-exponent native
+backend, fold wrappers directly into dyadic.hpp, preserve writers, remove old mpf_t implementation.
+Remove new_dyadic.hpp and test_new_dyadic.cpp and update FloatAP and benchmark to canonical type and
+header. Preserve legacy test_dyadic.cpp plus native wrapper regression checks. This is a large
+integration candidate: do not equate commit publication with green CI.
 
 ### D55 — restore Dyadic public integration after canonical migration (21 October 2026)
 
-Address compile errors from D54: checked Natural exponent extraction uses the inherited Integer::get<std::size_t>() API, not nonexistent get_ui(); remove three obsolete DyadicBounds definitions from rational.cpp now implemented in dyadic.hpp; include complete float enclosure types where out-of-line getters are defined; retain the already used FloatMP getter declarations until its separate deletion without reintroducing mpf_t into Dyadic; convert legacy FloatMP lower/upper inputs via their exact Rational value. Restore missing rational-valued reciprocal/division contracts for Dyadic and explicit mixed RationalBounds/DyadicBounds operations and comparisons required by NumberWrapper. The exact interval arithmetic is unchanged. No test fixtures suppressed. These are build fixes and still require native compilation/CI validation.
+Restore missing rational-valued reciprocal/division contracts for Dyadic and explicit mixed
+RationalBounds/DyadicBounds operations and comparisons required by NumberWrapper. The exact interval
+arithmetic is unchanged. No test fixtures suppressed. These are build fixes and still require native
+compilation/CI validation.
 
 ### D56 — native Dyadic API and migrated-test build repair (21 October 2026)
 
