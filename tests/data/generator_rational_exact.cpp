@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Independent, reproducible R28, R30 and R22 rational golden data.
-// Standalone C++20: standard library only; no Numeric, GMP, MPFR or Boost.
+// Standalone C++20: standard library only; no Numeric, GMP, independent exact arithmetic or Boost.
 #include "oracle_exact_integer.hpp"
 
 namespace {

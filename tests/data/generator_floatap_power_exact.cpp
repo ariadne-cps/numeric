@@ -113,7 +113,7 @@ std::string generate() {
         "# This preserves the original input list and its 0^0 = +1 behavior.\n"
         "# Signed-zero behavior is checked separately using dedicated assertions.\n"
         "# Derived solely by signed arbitrary-precision integer division and exponentiation;\n"
-        "# no FloatAP, FloatMP, GMP, MPFR, or floating-point rounding invoked.\n"
+        "# no FloatAP, independent exact arithmetic, GMP, independent exact arithmetic, or floating-point rounding invoked.\n"
         "# Four modes: N nearest even, D downward, U upward, Z toward zero.\n"
         "# 5 bit widths x 8 magnitudes x 2 signs x 8 powers x 4 modes = 2560\n"
         "# exercised cases, 2400 distinct reference keys (negative and positive zero merge).\n";

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Independent correctly rounded FloatAP asin/acos references, C++20 only.
-// Standalone standard C++20; never uses Numeric, GMP, MPFR, FloatMP or host floats.
+// Standalone standard C++20; never uses Numeric, GMP, independent exact arithmetic, independent exact arithmetic or host floats.
 #include "oracle_exact_integer.hpp"
 #include <bit>
 #include <cstdint>
@@ -351,7 +351,7 @@ struct Generator {
         "# pi/2 = 8 atan(1/5)-2 atan(1/239); asin=2 atan(x/(1+sqrt(1-x^2))).\n"
         "# Accept a value only when BOTH enclosure endpoints round to the same\n"
         "# exact binary Rational at the requested bits and direction.\n"
-        "# No GMP, MPFR, FloatMP, FloatAP, or external transcendental oracle.\n";
+        "# No GMP, independent exact arithmetic, independent exact arithmetic, FloatAP, or external transcendental oracle.\n";
     std::string acos_out=asin_out;
     std::set<std::tuple<unsigned,char,std::string,std::string>> seen;
     std::map<std::pair<std::string,std::string>,Interval> cache;

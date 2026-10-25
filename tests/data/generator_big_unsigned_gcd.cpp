@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproducible original R6/R8/R10/R11/R21/R26/R27 GCD golden fixtures.
-// Standalone portable C++20, exact unsigned limbs; no Numeric/GMP/MPFR/Boost.
+// Standalone portable C++20, exact unsigned limbs; no Numeric/GMP/independent exact arithmetic/Boost.
 #include "oracle_exact_integer.hpp"
 using independent_oracle::Nat;
 using independent_oracle::row;

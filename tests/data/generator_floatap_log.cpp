@@ -174,7 +174,7 @@ std::string generate(){
         "# The sign of log(x) is recovered by reversing bounds when x<1.\n"
         "# Accept ONLY when lower and upper endpoints yield the SAME signed binary rounding.\n"
         "# Modes: N nearest-even, D downward, U upward, Z toward zero.\n"
-        "# No GMP, MPFR, FloatAP or floating-point transcendental oracle used in generation.\n"
+        "# No GMP, independent exact arithmetic, FloatAP or floating-point transcendental oracle used in generation.\n"
         "# 284 unique data rows for 360 original checks.\n";
     std::set<std::tuple<unsigned,char,std::string,std::string>> keys;
     std::size_t count=0;

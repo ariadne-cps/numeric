@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Source-reproducible Integer and BigUnsigned structural exact oracles.
-// Standalone C++20. No Numeric, GMP, MPFR, FloatMP or Boost.
+// Standalone C++20. No Numeric, GMP, independent exact arithmetic, independent exact arithmetic or Boost.
 #include "oracle_exact_integer.hpp"
 
 namespace {
