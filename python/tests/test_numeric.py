@@ -317,3 +317,6 @@ def test_concrete():
 
 
 def test_ball_string_is_utf8():
+    ap = ArbitraryPrecision(128)
+    ball = FloatAPBall("1.0", "0.1", ap)
+    assert "±" in str(ball)
