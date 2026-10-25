@@ -9334,3 +9334,29 @@ Other division/GMP blocks, all production sources and all previously
 committed fixtures remain unchanged. Consumer regression/CI results
 must be checked separately after publication; the opt-in full
 `verify-data` target is not part of standard CI.
+
+### A4 — random 6,000-case GMP oracle migrated (25 October 2026)
+
+Convert the original first 6,000 visits of `TestBigUnsigned::test_division_limb()`
+from runtime GMP to source-keyed `big_unsigned_div_limb_random.tsv`.
+Preserve `mt19937_64(0xD1D1D1)`, every random draw, original
+0/64/1..7-limb selection and ordered modulo-13/17/19 transforms,
+all divisor selection branches and both owning/non-owning division calls.
+Every row contains repetition, exact decimal divisor, canonical dividend,
+exact quotient and full 64-bit remainder. The consumer verifies input
+identity, ordered keys, both quotient paths, full-width remainder,
+scratch/output guard clearing, source immutability, and all-row exhaustion.
+
+Extend the already registered C++20
+`generator_big_unsigned_power_div.cpp` with independent aligned-subtraction
+long division and binary shift/add multiplication; certify Euclidean
+identity n=q*d+r and remainder<divisor independently, not from Numeric
+or GMP. A second Python implementation of arbitrary-precision division
+and an independent mt19937_64 engine reproduces all 6,000 cases
+byte-for-byte; the first eight random draws also match a compiled
+std::mt19937_64 C++20 witness. Fixture 1,194,017 bytes, Git blob
+`5e9b7c6801c1fe9c6220a23235b50f592c8b1b84`.
+119 TSVs across 32 existing generators. B48, B49, B57/B63 and B61
+GMP blocks remain for later steps, as do GMP tests in other methods.
+No production code or prior fixture changed. Standard CI does not
+run the opt-in all-fixture `verify-data` target.

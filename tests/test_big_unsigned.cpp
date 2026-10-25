@@ -51,6 +51,7 @@ namespace {
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_SHORT_DIV_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_short_div.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_DIV128_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_div128by64.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_DIV_LIMB_RANDOM_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_div_limb_random.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -1687,11 +1688,16 @@ void TestBigUnsigned::test_division_limb()
     ARIADNE_TEST_ASSERT(wide_rem==wide_remainder);
     ARIADNE_TEST_ASSERT(divrem_limb(BigUnsigned{},1u).first.is_zero());
 
-    GmpInteger n,d,q,r,check,native_remainder;
+    GmpInteger n,d,q,r,native_remainder; // Still needed by later GMP blocks.
+    std::ifstream random_div_golden(ARIADNE_BIG_UNSIGNED_DIV_LIMB_RANDOM_ORACLE_PATH);
+    if (!random_div_golden)
+        throw std::runtime_error("Missing A4 random limb division TSV");
+    std::string random_div_header;
+    while (random_div_golden.peek()=='#')
+        std::getline(random_div_golden,random_div_header);
     std::mt19937_64 engine(0xD1D1D1ULL);
     BigUnsigned::Scratch scratch;
-    // Cover zero, all-ones, exact powers of radix, the inline
-    // 4/5-limb boundary, and large dividends with varied divisors.
+    // Retain all 6,000 original RNG visits and size/transform cases.
     for (unsigned repetition=0u;repetition<6000u;++repetition) {
         const std::size_t count=repetition%23u==0u ? 0u :
                                 repetition%29u==0u ? 64u :
@@ -1714,29 +1720,32 @@ void TestBigUnsigned::test_division_limb()
                                     repetition%11u==2u ? std::uint64_t{1}<<63u :
                                     repetition%11u==3u ? 2u :
                                     engine()|std::uint64_t{1};
-        mpz_import(n.value,digits.size(),-1,sizeof(std::uint64_t),
-                   0,0,digits.data());
-        mpz_import(d.value,1u,-1,sizeof(std::uint64_t),0,0,&divisor);
-        mpz_tdiv_qr(q.value,r.value,n.value,d.value);
+        unsigned source_repetition=0u;
+        std::uint64_t source_divisor=0u;
+        std::string source_hex,quotient_hex,remainder_hex;
+        if (!(random_div_golden >> source_repetition >> source_divisor
+                                >> source_hex >> quotient_hex >> remainder_hex)
+            || source_repetition!=repetition || source_divisor!=divisor)
+            throw std::runtime_error("Missing or unordered A4 random division row");
+        check_against_precomputed_hex(value,source_hex);
         const auto [actual,rem]=divrem_limb(value,divisor);
-        check_against_gmp(actual,q.value);
-        // mpz_get_ui returns unsigned long (32 bits on Windows x64).
-        // Import all 64 bits of the native remainder for an exact oracle.
-        mpz_import(native_remainder.value,1u,-1,sizeof(rem),0,0,&rem);
-        ARIADNE_TEST_ASSERT(mpz_cmp(native_remainder.value,r.value)==0);
+        check_against_precomputed_hex(actual,quotient_hex);
+        check_against_precomputed_hex(BigUnsigned(rem),remainder_hex);
+        ARIADNE_TEST_ASSERT(rem<divisor);
 
         auto output=scratch.acquire(value.size()+2u);
         std::fill(output.begin(),output.end(),max);
         const auto low=BigUnsigned::divrem_limb_into(
             value.limbs(),divisor,output);
         ARIADNE_TEST_ASSERT(low==rem);
-        check_against_gmp(BigUnsigned(output),q.value);
+        check_against_precomputed_hex(BigUnsigned(output),quotient_hex);
         ARIADNE_TEST_ASSERT(output[value.size()]==0u);
         ARIADNE_TEST_ASSERT(output[value.size()+1u]==0u);
-        mpz_mul(check.value,q.value,d.value);
-        mpz_add(check.value,check.value,r.value);
-        ARIADNE_TEST_ASSERT(mpz_cmp(check.value,n.value)==0);
+        check_against_precomputed_hex(value,source_hex);
     }
+    std::string random_div_extra;
+    if (random_div_golden >> random_div_extra)
+        throw std::runtime_error("Extra A4 random division TSV rows");
 
     // A3: independent source-keyed exact quotient and remainder for all
     // 192 original 128/64 edge visits and all 2,048 original B26 visits.

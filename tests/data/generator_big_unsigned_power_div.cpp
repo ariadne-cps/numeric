@@ -199,6 +199,47 @@ std::string div128_fixture() {
     if (rows!=2240u) throw std::runtime_error("wrong A3 case count");
     return out;
 }
+
+std::string div_limb_random_fixture() {
+    // A4: exact regeneration of all original 6,000 visits and RNG draws.
+    std::string out=
+        "# A4 exact original random BigUnsigned limb division, 6000 source-keyed visits.\n"
+        "# repetition divisor_decimal dividend_hex quotient_hex remainder_hex\n"
+        "# Full mt19937_64(0xD1D1D1) draw sequence including overwritten inputs.\n"
+        "# Exact Euclidean arithmetic, 0 as canonical zero; no GMP/MPFR/Numeric.\n";
+    std::mt19937_64 engine(0xD1D1D1ULL);
+    std::size_t rows=0u;
+    for (unsigned repetition=0u;repetition<6000u;++repetition) {
+        const std::size_t count=repetition%23u==0u ? 0u :
+                                repetition%29u==0u ? 64u :
+                                repetition%7u+1u;
+        std::vector<std::uint64_t> digits(count);
+        for (auto& limb:digits) limb=engine();
+        if (repetition%13u==0u)
+            std::fill(digits.begin(),digits.end(),UINT64_MAX);
+        if (repetition%17u==0u)
+            std::fill(digits.begin(),digits.end(),0u);
+        if (repetition%19u==0u && !digits.empty()) {
+            std::fill(digits.begin(),digits.end(),0u);
+            digits.back()=1u;
+        }
+        const std::uint64_t divisor=repetition%11u==0u ? 1u :
+                                    repetition%11u==1u ? UINT64_MAX :
+                                    repetition%11u==2u ? std::uint64_t{1}<<63u :
+                                    repetition%11u==3u ? 2u :
+                                    engine()|std::uint64_t{1};
+        const Nat n(std::move(digits)),d(divisor);
+        const auto [q,r]=divide(n,d);
+        if (r.compare(d)>=0 ||
+            Nat::add(multiply(q,d),r).compare(n)!=0)
+            throw std::runtime_error("invalid A4 Euclidean identity");
+        out+=row({std::to_string(repetition),std::to_string(divisor),
+                  n.hex(),q.hex(),r.hex()});
+        ++rows;
+    }
+    if (rows!=6000u) throw std::runtime_error("wrong A4 row count");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -207,6 +248,7 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_power.tsv",power_fixture(),write);
         independent_oracle::output(dir,"big_unsigned_short_div.tsv",short_div_fixture(),write);
         independent_oracle::output(dir,"big_unsigned_div128by64.tsv",div128_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_div_limb_random.tsv",div_limb_random_fixture(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';
