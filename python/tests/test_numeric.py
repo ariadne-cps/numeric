@@ -26,8 +26,10 @@ from pyariadne import *
 def test_generics():
     assert(DP==DoublePrecision)
     assert(MP==MultiplePrecision)
+    assert(AP==ArbitraryPrecision)
     assert(Float[DP]==FloatDP)
     assert(Float[MP]==FloatMP)
+    assert(Float[AP]==FloatAP)
     assert(Ball[FloatDP]==FloatDPBall)
     assert(Ball[FloatMP]==FloatMPBall)
     assert(Bounds[FloatDP]==FloatDPBounds)
@@ -41,6 +43,13 @@ def test_generics():
     assert(Ball[FloatDP,FloatDP]==FloatDPBall)
     assert(Ball[FloatMP,FloatDP]==FloatMPDPBall)
     assert(Ball[FloatMP,FloatMP]==FloatMPBall)
+    assert(Ball[FloatAP]==FloatAPBall)
+    assert(Bounds[FloatAP]==FloatAPBounds)
+    assert(UpperBound[FloatAP]==FloatAPUpperBound)
+    assert(LowerBound[FloatAP]==FloatAPLowerBound)
+    assert(Approximation[FloatAP]==FloatAPApproximation)
+    assert(Ball[FloatAP,FloatDP]==FloatAPDPBall)
+    assert(Ball[FloatAP,FloatAP]==FloatAPBall)
 
 def test_regression():
     # New regression tests
@@ -245,10 +254,12 @@ def test_rounded():
     w=Dyadic(3,1); q=Rational(1,3);
     dp=DoublePrecision(); RoundedFloatDP(w,dp); RoundedFloatDP(q,dp); 
     mp=MultiplePrecision(128); RoundedFloatMP(w,mp); RoundedFloatMP(q,mp); 
+    ap=ArbitraryPrecision(128); RoundedFloatAP(w,ap); RoundedFloatAP(q,ap); 
     dp=DoublePrecision(); FloatDP(w,dp); FloatDP(q,up,dp); FloatDP.eps(dp);
     mp=MultiplePrecision(128); FloatMP(w,mp); FloatMP(q,up,mp); FloatMP.eps(mp);
     check_rounded(FloatDP(w,dp))
     check_rounded(FloatMP(w,mp))
+    check_rounded(FloatAP(w,ap))
 
 
 def test_concrete():
