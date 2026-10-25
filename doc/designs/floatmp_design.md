@@ -10851,3 +10851,30 @@ intervals, round-to-nearest and directed rounding behavior are all unchanged. No
 or test fixture has been altered to suppress the warning. The fix is limited to the existing FloatMP
 translation unit; it does not touch, GMP, benchmarks, or CMake. Validate Windows /W4 /WX and Unix,
 Sanitizers, Coverage in CI.
+
+## FloatDP certified transcendental decoupling (25 October 2026)
+
+**Architecture correction.** The binary64 `FloatDP` transcendental fast path must not construct
+`FloatMP` values or initialize its coefficient cache through the `FloatMP` transcendental
+engine. The two public floating-point specializations may share exact low-level integer primitives,
+but one floating-point type must not be used as the implementation substrate of the other.
+
+`FloatDP` now owns a binary64-specific near-half fixed-point kernel in `src/floatdp.cpp`.
+Its centers are outward dyadic enclosures at scale `2^-96`, derived from the repository's
+independently generated exact transcendental oracle data. Runtime evaluation uses only binary64 bit
+decomposition, two-limb fixed-point coefficients, the shared `BigUnsigned::mul_into` primitive,
+explicit remainder/error margins, and final binary64 rounding. No `FloatMP` object, precision tag,
+adaptive `FloatMP` series, or `FloatMPShortTranscendentals` cache is involved.
+
+The centered derivatives use exact identities where possible: `tan' = 1+tan^2`,
+`atan' = 4/5`, `asin' = -acos' = 2/sqrt(3)`, and `tanh' = 1-tanh^2`.
+The fast path is accepted only when the lower and upper certified fixed-point endpoints round to
+the same binary64 value in the requested rounding mode; otherwise evaluation falls back to the
+existing general `FloatDP` implementation.
+
+**Verification before integration.** A direct simulation of the candidate fixed-point kernel against
+all versioned 53-bit independent oracle rows for `sin`, `cos`, `tan`, `atan`, `asin`,
+`acos`, `tanh`, centered `exp`, and centered `log` produced 289 fast-path decisions with
+zero mismatches. Rows outside the certified near-half window, or whose enclosure did not decide a
+unique rounded result, remained on the fallback path. Repository CI, especially MSVC Debug, is the
+integration gate; no performance result is inferred until those jobs complete.

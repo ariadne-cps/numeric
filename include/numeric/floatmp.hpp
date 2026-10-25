@@ -701,12 +701,6 @@ template<> class Float<MultiplePrecision> {
     FloatMP const& c, unsigned long precision, Rounding mode);
 };
 
-// Shared certified short kernel; the binary64 adapter preserves the
-// same enclosure/rounding contract without constructing Rational inputs.
-namespace Detail {
-    bool try_floatdp_transcendental(FloatTranscendental function,
-        FloatMP::Rounding mode,double input,double& output);
-}
 
 template<class R, class A> R integer_cast(A const& value);
 template<> inline Int integer_cast(const FloatMP& x) { return static_cast<Int>(x.get_d()); }

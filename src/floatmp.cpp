@@ -3954,34 +3954,8 @@ struct FloatMPShortTranscendentals {
         return std::nullopt;
     }
 
-    static bool evaluate_double(Function function,FloatMP::Rounding mode,
-                                double value,double& output) {
-        if constexpr (sizeof(double)==sizeof(std::uint64_t) &&
-                      std::numeric_limits<double>::is_iec559 &&
-                      std::numeric_limits<double>::digits==53) {
-            const auto encoded=std::bit_cast<std::uint64_t>(value);
-            const auto exponent=(encoded>>52u)&0x7ffu;
-            // The certified window is around |x|=1/2, so every eligible
-            // binary64 input is normal in one of these two binades.
-            if (exponent!=1021u && exponent!=1022u) return false;
-            FloatMP input(53ul);
-            input._negative=(encoded>>63u)!=0u;
-            input._exponent=static_cast<FloatMP::Exponent>(exponent)-1023-52;
-            input._significand=BigUnsigned((encoded&((std::uint64_t{1}<<52u)-1u)) |
-                                           (std::uint64_t{1}<<52u));
-            if (auto result=evaluate(function,mode,input)) {
-                output=result->get_d(); // exact normal binary64 encoding
-                return true;
-            }
-        }
-        return false;
-    }
 };
 
-bool try_floatdp_transcendental(FloatTranscendental function,
-        FloatMP::Rounding mode,double input,double& output) {
-    return FloatMPShortTranscendentals::evaluate_double(function,mode,input,output);
-}
 
 Interval evaluate(Function function, Fraction const& x, unsigned long work) {
     switch (function) {
