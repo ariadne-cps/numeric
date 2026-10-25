@@ -181,10 +181,6 @@ inline rounding_mode_t get_builtin_rounding_mode() { return ROUND_TO_NEAREST; }
 #endif
 
 
-/************  Import MPFR rounding mode controls *******************/
-
-#include <mpfr.h>
-
 /************  Publicly-accessible rounding-mode changing *******************/
 
 namespace Ariadne {
@@ -196,9 +192,6 @@ namespace Ariadne {
 
 //! \brief The rounding mode type used for builtin floating-point objects such as FloatDP. \ingroup NumericModule
 typedef rounding_mode_t BuiltinRoundingModeType;
-//! \brief The rounding mode type used for multiple-precision floating-point objects such as FloatMP. \ingroup NumericModule
-typedef mpfr_rnd_t MPFRRoundingModeType;
-
 //! \brief The floating-point environment value for rounding arithmetic to the nearest exactly-representable value.
 extern const BuiltinRoundingModeType ROUND_TO_NEAREST;
 //! \brief The floating-point environment value for upwards-rounded arithmetic.
@@ -228,33 +221,25 @@ void set_builtin_rounding_toward_zero();
 //! \brief Set the rounding mode to the expected default rounding mode.
 void set_default_builtin_rounding();
 
-//! \brief The rounding mode type used for multiple-precision floating-point objects such as FloatMP. \ingroup NumericModule
-typedef mpfr_rnd_t MPFRRoundingModeType;
-
 //! \brief Tag class for downward rounding. Constants \ref downward, \ref down. \ingroup NumericModule
 struct RoundDownward {
     constexpr operator BuiltinRoundingModeType() const { return ROUND_DOWNWARD; }
-    constexpr operator MPFRRoundingModeType() const { return MPFR_RNDD; }
 };
 //! \brief Tag class for rounding to nearest. Constants \ref to_nearest, \ref near. \ingroup NumericModule
 struct RoundToNearest {
     constexpr operator BuiltinRoundingModeType() const { return ROUND_TO_NEAREST; }
-    constexpr operator MPFRRoundingModeType() const { return MPFR_RNDN; }
 };
 //! \brief Tag class for upward rounding. Constants \ref upward, \ref up. \ingroup NumericModule
 struct RoundUpward {
     constexpr operator BuiltinRoundingModeType() const { return ROUND_UPWARD; }
-    constexpr operator MPFRRoundingModeType() const { return MPFR_RNDU; }
 };
 //! \brief Tag class for rounding towards zero. %Constant \ref toward_zero. \ingroup NumericModule
 struct RoundTowardZero {
     constexpr operator BuiltinRoundingModeType() const { return ROUND_TOWARD_ZERO; }
-    constexpr operator MPFRRoundingModeType() const { return MPFR_RNDZ; }
 };
 //! \brief Tag class for approximate rounding. %Constant \ref approx. \ingroup NumericModule
 struct RoundApproximately {
     constexpr operator BuiltinRoundingModeType() const { return ROUND_TO_NEAREST; }
-    constexpr operator MPFRRoundingModeType() const { return MPFR_RNDN; }
 };
 
 struct CurrentRoundingMode { };
@@ -262,16 +247,19 @@ static const CurrentRoundingMode rounded = CurrentRoundingMode();
 
 //! \brief General rounding mode class. \ingroup NumericModule
 class Rounding {
-    BuiltinRoundingModeType _rbp; MPFRRoundingModeType _rmp;
+    BuiltinRoundingModeType _rbp;
   public:
-    Rounding(BuiltinRoundingModeType rbp, MPFRRoundingModeType rmp) : _rbp(rbp), _rmp(rmp) { } //!< <p/>
-    Rounding(RoundDownward) : Rounding(ROUND_DOWNWARD,MPFR_RNDD) { } //!< <p/>
-    Rounding(RoundToNearest) : Rounding(ROUND_TO_NEAREST,MPFR_RNDN) { } //!< <p/>
-    Rounding(RoundUpward) :  Rounding(ROUND_UPWARD,MPFR_RNDU) { } //!< <p/>
+    explicit Rounding(BuiltinRoundingModeType rbp) : _rbp(rbp) { } //!< <p/>
+    Rounding(RoundDownward) : _rbp(ROUND_DOWNWARD) { } //!< <p/>
+    Rounding(RoundToNearest) : _rbp(ROUND_TO_NEAREST) { } //!< <p/>
+    Rounding(RoundUpward) : _rbp(ROUND_UPWARD) { } //!< <p/>
+    Rounding(RoundTowardZero) : _rbp(ROUND_TOWARD_ZERO) { } //!< <p/>
+    Rounding(RoundApproximately) : _rbp(ROUND_TO_NEAREST) { } //!< <p/>
     operator BuiltinRoundingModeType() const { return _rbp; } //!< <p/>
-    operator MPFRRoundingModeType() const { return _rmp; } //!< <p/>
     friend OutputStream& operator<<(OutputStream& os, Rounding const& rnd) {
-        return os << ( rnd._rbp == ROUND_TO_NEAREST ? "near" : (rnd._rbp == ROUND_DOWNWARD ? "down" : "up") ); } //!< <p/>
+        return os << (rnd._rbp == ROUND_TO_NEAREST ? "near"
+                      : rnd._rbp == ROUND_DOWNWARD ? "down"
+                      : rnd._rbp == ROUND_UPWARD ? "up" : "zero"); } //!< <p/>
 };
 
 

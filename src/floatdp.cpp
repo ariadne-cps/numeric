@@ -235,35 +235,41 @@ FloatDP acos(FloatDP::RoundingModeType mode,FloatDP x) {
     return FloatDP::_apply_rnd(&acos_rnd,mode,x);
 }
 
-// The new raw tanh API promises a single correctly rounded result.
-// MPFR supplies the legacy binary64 reference; FloatAP remains independent.
+// The raw tanh API returns a single correctly rounded binary64 result.
+// Use the native FloatAP transcendental kernel as the general fallback.
 FloatDP tanh(FloatDP::RoundingModeType mode,FloatDP x) {
-    mpfr_rnd_t mpfr_mode;
-    if (mode==FloatDP::ROUND_TO_NEAREST) mpfr_mode=MPFR_RNDN;
-    else if (mode==FloatDP::ROUND_DOWNWARD) mpfr_mode=MPFR_RNDD;
-    else if (mode==FloatDP::ROUND_UPWARD) mpfr_mode=MPFR_RNDU;
-    else if (mode==FloatDP::ROUND_TOWARD_ZERO) mpfr_mode=MPFR_RNDZ;
-    else throw std::invalid_argument("FloatDP unknown tanh rounding mode");
+    FloatAP::Rounding native_mode=FloatAP::Rounding::ToNearest;
+    if (mode==FloatDP::ROUND_DOWNWARD) native_mode=FloatAP::Rounding::Downward;
+    else if (mode==FloatDP::ROUND_UPWARD) native_mode=FloatAP::Rounding::Upward;
+    else if (mode==FloatDP::ROUND_TOWARD_ZERO) native_mode=FloatAP::Rounding::TowardZero;
+    else if (mode!=FloatDP::ROUND_TO_NEAREST)
+        throw std::invalid_argument("FloatDP unknown tanh rounding mode");
+
     const double value=x.dbl;
     if (std::isnan(value) || value==0.0) return x;
     if (std::isinf(value)) return FloatDP(ExactDouble(std::copysign(1.0,value)),x.precision());
-    // Avoid any second rounding at the binary64 subnormal boundary.
-    // Here |x-tanh(x)|<|x|^3 is below half the spacing beneath x.
+
+    // Avoid double rounding at the binary64 subnormal boundary. Here
+    // |x-tanh(x)|<|x|^3 is below half the spacing immediately beneath x.
     if (std::fabs(value)<0x1p-28) {
-        const bool rounds_toward_zero=mpfr_mode==MPFR_RNDZ ||
-            (mpfr_mode==MPFR_RNDD && value>0.0) || (mpfr_mode==MPFR_RNDU && value<0.0);
-        return FloatDP(ExactDouble(rounds_toward_zero ? std::nextafter(value,0.0) : value),x.precision());
+        const bool rounds_toward_zero=mode==FloatDP::ROUND_TOWARD_ZERO ||
+            (mode==FloatDP::ROUND_DOWNWARD && value>0.0) ||
+            (mode==FloatDP::ROUND_UPWARD && value<0.0);
+        return FloatDP(ExactDouble(rounds_toward_zero ? std::nextafter(value,0.0) : value),
+                       x.precision());
     }
+
     double short_output;
     if (shared_transcendental(Detail::FloatTranscendental::hyperbolic_tangent,
             mode,value,short_output)) return FloatDP(short_output);
-    mpfr_t argument,result;
-    mpfr_init2(argument,53); mpfr_init2(result,53);
-    mpfr_set_d(argument,value,MPFR_RNDN);
-    mpfr_tanh(result,argument,mpfr_mode);
-    const double output=mpfr_get_d(result,MPFR_RNDN); // normal binary64, exact
-    mpfr_clear(result); mpfr_clear(argument);
-    return FloatDP(ExactDouble(output),x.precision());
+
+    // Outside the subnormal window the result is a normal binary64 value.
+    // A correctly rounded 53-bit FloatAP therefore has exactly the target
+    // significand and can be converted to double without another rounding.
+    const ArbitraryPrecision native_precision(std::size_t{53});
+    const FloatAP native_input(ExactDouble(value),native_precision);
+    const FloatAP native_output=tanh(native_mode,native_input);
+    return FloatDP(ExactDouble(native_output.get_d()),x.precision());
 }
 
 FloatDP::Float(FloatDP const& x, RoundingModeType, PrecisionType)
