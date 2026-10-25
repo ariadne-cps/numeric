@@ -71,6 +71,7 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_B27_SECOND_PATH[] = ARIADNE_TEST_DATA
 inline constexpr char ARIADNE_BIG_UNSIGNED_B48_MULTIPRECISION_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b48_multiprecision.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_A12_FIRST_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a12_randomized_first.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_A13_SECOND_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a13_randomized_second.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_A14_THIRD_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a14_randomized_third.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -3782,6 +3783,10 @@ void TestBigUnsigned::test_randomized()
     if (!a13_golden) throw std::runtime_error("Missing A13 randomized TSV");
     std::string a13_header;
     while (a13_golden.peek()=='#') std::getline(a13_golden,a13_header);
+    std::ifstream a14_golden(ARIADNE_BIG_UNSIGNED_A14_THIRD_PATH);
+    if (!a14_golden) throw std::runtime_error("Missing A14 randomized TSV");
+    std::string a14_header;
+    while (a14_golden.peek()=='#') std::getline(a14_golden,a14_header);
     for (unsigned repetition=0; repetition<10000u; ++repetition) {
         const std::size_t n = engine()%20u;
         const std::size_t m = engine()%20u;
@@ -3793,8 +3798,9 @@ void TestBigUnsigned::test_randomized()
         const BigUnsigned x(std::span(na.data(),n));
         const BigUnsigned y(std::span(nb.data(),m));
         const std::size_t bits=engine()%1030u;
-        if (repetition<2500u) {
-            std::ifstream& golden=repetition<1250u?a12_golden:a13_golden;
+        if (repetition<3750u) {
+            std::ifstream& golden=repetition<1250u?a12_golden:
+                repetition<2500u?a13_golden:a14_golden;
             unsigned ref_rep=0u;
             std::size_t ref_n=0u,ref_m=0u,ref_bits=0u;
             int ref_cmp=0;
@@ -3848,6 +3854,9 @@ void TestBigUnsigned::test_randomized()
     std::string a13_extra;
     if (a13_golden >> a13_extra)
         throw std::runtime_error("Extra A13 randomized TSV rows");
+    std::string a14_extra;
+    if (a14_golden >> a14_extra)
+        throw std::runtime_error("Extra A14 randomized TSV rows");
 }
 
 } // namespace

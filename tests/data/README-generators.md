@@ -963,3 +963,12 @@ certified exact results and continues using GMP for visits 2,500–9,999.
 Exact fixture 1,217,436 bytes, Git blob
 `ae3a7c98ef3ac9dedea8e44d5a2d410daccb342e`.
 The audit is updated in `doc/designs/gmp_migration.md`.
+
+### A14 — third 1,250 randomized arithmetic oracle visits
+
+Migrate original visits 2,500–3,749 to independent
+`big_unsigned_a14_randomized_third.tsv`, with source-keyed
+input, shift and expected arithmetic. The generator replays the full
+original source stream. Fixture Git SHA
+`bdb0b5f9235005b2bc31d18a7e3b21c2af474abe`, 1,250 rows.
+Migration inventory: `doc/designs/gmp_migration.md`.
