@@ -85,6 +85,8 @@ double print_results_and_totals(std::vector<BenchmarkDatum> const& data,
                     << "  " << std::right << std::setw(timing_width) << "Median (ns)")
     LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
 
+    std::vector<double> precision_totals;
+    precision_totals.reserve(precisions.size());
     double all_precisions_total_ns=0.0;
     std::size_t offset=0u;
     for(const unsigned bits:precisions) {
@@ -105,21 +107,29 @@ double print_results_and_totals(std::vector<BenchmarkDatum> const& data,
         if(count!=backend_operation_count)
             throw std::runtime_error("benchmark operation count changed for precision "
                                      +std::to_string(bits));
+        precision_totals.push_back(precision_total_ns);
         all_precisions_total_ns+=precision_total_ns;
-        LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
-        LOGGING_PRINTLN(std::left << std::setw(operation_width) << "TOTAL"
-                        << "  " << std::setw(6) << bits
-                        << "  " << std::right << std::setw(timing_width)
-                        << std::fixed << std::setprecision(3) << precision_total_ns)
-        LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'='))
+        if(offset!=data.size())
+            LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
     }
     if(offset!=data.size())
-        throw std::runtime_error("unexpected benchmark rows after precision totals");
+        throw std::runtime_error("unexpected benchmark rows after precision groups");
 
+    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'='))
+    LOGGING_PRINTLN("Totals")
+    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
+    for(std::size_t i=0u;i<precisions.size();++i) {
+        LOGGING_PRINTLN(std::left << std::setw(operation_width) << "TOTAL"
+                        << "  " << std::setw(6) << precisions[i]
+                        << "  " << std::right << std::setw(timing_width)
+                        << std::fixed << std::setprecision(3) << precision_totals[i])
+    }
+    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
     LOGGING_PRINTLN(std::left << std::setw(operation_width) << "TOTAL ALL"
                     << "  " << std::setw(6) << "-"
                     << "  " << std::right << std::setw(timing_width)
                     << std::fixed << std::setprecision(3) << all_precisions_total_ns)
+    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'='))
     LOGGING_PRINTLN("Totals are sums of the per-operation median nanoseconds.")
     return all_precisions_total_ns;
 }
@@ -143,9 +153,12 @@ int main(int argc, const char* argv[]) {
 
         std::vector<BenchmarkDatum> measurements;
         measurements.reserve(selection.precisions.size()*backend_operation_count);
-        for(const unsigned bits:selection.precisions)
+        for(const unsigned bits:selection.precisions) {
+            LOGGING_PRINTLN("Measuring " << bits << " bits ...")
             run_backend<FloatAP>("floatap",bits,selection.iterations,selection.samples,
                                  measurements);
+            LOGGING_PRINTLN("Completed " << bits << " bits")
+        }
 
         print_results_and_totals(measurements,selection.precisions,
                                  selection.iterations,selection.samples);
