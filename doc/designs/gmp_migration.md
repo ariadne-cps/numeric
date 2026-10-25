@@ -13,11 +13,11 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A32
+## Current state — A33
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
-| `test_division()` | 15,330 | 1,184 |
+| `test_division()` | 15,874 | 640 |
 | `test_views_and_scratch()` | 11,600 | 0 |
 | `test_multiply_kernel_paths()` | 11,432 | 0 |
 | `test_randomized()` | 10,000 | 0 |
@@ -26,14 +26,14 @@ progress reporting, barring a documented correction to the audit.
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **75,139** | **1,184** |
+| **Total** | **75,683** | **640** |
 
-Progress: **75,139 / 76,323 = 98.449%**.
+Progress: **75,683 / 76,323 = 99.161%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
-- `test_division()`: B45 shifted 504; B45 decimal 40; normalization 640 = 1,184.
+- `test_division()`: normalization 640.
 
 ## Commit milestones
 
@@ -62,6 +62,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A30 — B28 equal-high division | 2,048 | 72,835 |
 | A31 — B36 high-ratio division | 1,280 | 74,115 |
 | A32 — B29 sparse division | 1,024 | 75,139 |
+| A33 — B45 zero-low/decimal division | 544 | 75,683 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -401,3 +402,16 @@ only the numerical GMP oracle is removed.
 
 No production changes. Remaining audited numerical GMP-oracle visits are
 B45 shifted 504, B45 decimal 40, and normalization 640 = 1,184 total.
+
+## A33 — B45 zero-low/decimal division (25 October 2026)
+
+Migrate all 544 B45 numerical GMP-oracle visits: 504 zero-low-limb shifted
+divisor cases plus 40 decimal-power divisor cases. The original seeded
+`mt19937_64(0xB450D1D1)` stream, source transforms, divrem/quot/rem checks,
+`divrem_into` sizing, zero-tail assertions and scratch guards are preserved.
+The source-keyed fixture records numerator, denominator, quotient and remainder.
+
+The standalone remaining-division generator emits
+`big_unsigned_a33_b45.tsv` without Numeric/GMP/Boost. No production code
+changes. Remaining audited numerical GMP-oracle visits: the 640 divisor
+normalization cases only.

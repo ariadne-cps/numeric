@@ -2778,27 +2778,6 @@ void TestBigUnsigned::test_division()
         check_against_precomputed_hex(numerator,a_hex);
         check_against_precomputed_hex(denominator,b_hex);
     };
-    const auto check_fused_division=[&](
-            BigUnsigned const& numerator,BigUnsigned const& denominator) {
-        mpz_import(a.value,numerator.size(),-1,sizeof(std::uint64_t),
-                   0,0,numerator.limbs().data());
-        mpz_import(b.value,denominator.size(),-1,sizeof(std::uint64_t),
-                   0,0,denominator.limbs().data());
-        mpz_tdiv_qr(q.value,r.value,a.value,b.value);
-        const auto [native_q,native_r]=divrem(numerator,denominator);
-        check_against_gmp(native_q,q.value);
-        check_against_gmp(native_r,r.value);
-        check_against_gmp(quot(numerator,denominator),q.value);
-        check_against_gmp(rem(numerator,denominator),r.value);
-        const auto needed=BigUnsigned::divrem_scratch_limbs(
-            numerator.size(),denominator.size());
-        if (denominator.size()>=2u &&
-                numerator.size()>=denominator.size()) {
-            ARIADNE_TEST_ASSERT(needed==
-                numerator.size()+denominator.size()+1u);
-        }
-        ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
-    };
     check_b27('F',0u,
         BigUnsigned(std::array<std::uint64_t,4>{
             max,max,max,max}),
@@ -3131,9 +3110,37 @@ void TestBigUnsigned::test_division()
             throw std::runtime_error("Extra A32 B29 TSV rows");
     }
 
-    // B45: independent GMP checks of whole-zero low divisor limbs.
-    // Include inline/heap boundaries, equal/small/large quotients,
-    // arbitrary low remainders, all output modes and guard contracts.
+    // A33/B45: preserve all zero-low-limb and decimal-power cases
+    // with one sequential source-keyed exact fixture.
+    std::ifstream a33_b45(
+        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_a33_b45.tsv");
+    if (!a33_b45) throw std::runtime_error("Missing A33 B45 TSV");
+    std::string a33_header;
+    while (a33_b45.peek()=='#') std::getline(a33_b45,a33_header);
+    const auto check_a33=[&](char kind,std::size_t key1,std::size_t key2,
+            std::uint64_t key3,BigUnsigned const& numerator,
+            BigUnsigned const& denominator) {
+        std::string ref_kind,numerator_hex,denominator_hex,quotient_hex,remainder_hex;
+        std::size_t ref_key1=0u,ref_key2=0u;
+        std::uint64_t ref_key3=0u;
+        if (!(a33_b45 >> ref_kind >> ref_key1 >> ref_key2 >> ref_key3
+              >> numerator_hex >> denominator_hex >> quotient_hex >> remainder_hex) ||
+            ref_kind!=std::string(1,kind) || ref_key1!=key1 ||
+            ref_key2!=key2 || ref_key3!=key3)
+            throw std::runtime_error("Missing or unordered A33 B45 TSV row");
+        check_against_precomputed_hex(numerator,numerator_hex);
+        check_against_precomputed_hex(denominator,denominator_hex);
+        const auto [native_q,native_r]=divrem(numerator,denominator);
+        check_against_precomputed_hex(native_q,quotient_hex);
+        check_against_precomputed_hex(native_r,remainder_hex);
+        check_against_precomputed_hex(quot(numerator,denominator),quotient_hex);
+        check_against_precomputed_hex(rem(numerator,denominator),remainder_hex);
+        ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
+        ARIADNE_TEST_ASSERT(compare(
+            add(mul(native_q,denominator),native_r),numerator)==0);
+        return std::pair<std::string,std::string>{quotient_hex,remainder_hex};
+    };
+
     std::mt19937_64 shifted_engine(0xB450D1D1ULL);
     for (const std::size_t m:{2u,3u,5u,8u,16u,32u,64u}) {
         for (const std::size_t zeros:
@@ -3159,7 +3166,8 @@ void TestBigUnsigned::test_division()
                     std::fill(left.begin(),left.end(),max);
                 }
                 const BigUnsigned numerator(left),denominator(right);
-                check_fused_division(numerator,denominator);
+                const auto expected=check_a33(
+                    'S',m,zeros,repetition,numerator,denominator);
                 const auto needed=BigUnsigned::divrem_scratch_limbs(
                     numerator.size(),denominator.size());
                 std::vector<std::uint64_t> qout(
@@ -3171,24 +3179,20 @@ void TestBigUnsigned::test_division()
                     numerator.limbs(),denominator.limbs(),qout,rout,
                     BigUnsigned::MutableLimbView(
                         guards.data()+1u,needed));
-                check_against_gmp(BigUnsigned(qout),q.value);
-                check_against_gmp(BigUnsigned(rout),r.value);
-                for (std::size_t i=numerator.size();i<qout.size();++i) {
+                check_against_precomputed_hex(BigUnsigned(qout),expected.first);
+                check_against_precomputed_hex(BigUnsigned(rout),expected.second);
+                for (std::size_t i=numerator.size();i<qout.size();++i)
                     ARIADNE_TEST_ASSERT(qout[i]==0u);
-                }
                 const std::size_t rem_count=
                     std::min(numerator.size(),denominator.size());
-                for (std::size_t i=rem_count;i<rout.size();++i) {
+                for (std::size_t i=rem_count;i<rout.size();++i)
                     ARIADNE_TEST_ASSERT(rout[i]==0u);
-                }
                 ARIADNE_TEST_ASSERT(guards.front()==max);
                 ARIADNE_TEST_ASSERT(guards.back()==max);
             }
         }
     }
 
-    // B45: the decimal divisors of B22 recursion contain large
-    // powers of two; exercise the exact official sparse input shape.
     for (const unsigned digits:{72u,144u,288u,576u}) {
         const BigUnsigned decimal_power=from_decimal(
             std::string("1")+std::string(digits,'0'));
@@ -3199,10 +3203,14 @@ void TestBigUnsigned::test_division()
                     {0u,1u,13u,127u,1023u}) {
                 const BigUnsigned numerator=add(
                     binary_power,BigUnsigned(offset));
-                check_fused_division(numerator,decimal_power);
+                (void)check_a33(
+                    'D',digits,bits,offset,numerator,decimal_power);
             }
         }
     }
+    std::string a33_extra;
+    if (a33_b45 >> a33_extra)
+        throw std::runtime_error("Extra A33 B45 TSV rows");
 
     // Force all 64 divisor-normalization shifts. Vary the dividend's
     // top words and saturated bottom words to exercise quotient

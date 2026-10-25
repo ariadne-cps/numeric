@@ -1200,3 +1200,13 @@ remainder-only paths remain checked against frozen exact results.
 The remaining-division generator emits two 512-row fixtures; blobs:
 `f56baf8176a40e6b0f51967d653754a0d5451735` and
 `0b74ec4c834107fe055776195f80b8e9f2e5c721`.
+
+### A33 — B45 zero-low and decimal-power division
+
+`generator_big_unsigned_division_remaining.cpp` now also emits
+`big_unsigned_a33_b45.tsv`, covering 504 shifted zero-low-limb divisor cases
+and 40 decimal-power divisor cases. The original seeded stream and all source
+transforms are preserved; each row is source-keyed and contains exact quotient
+and remainder computed by the standalone long-division oracle. The fixture has
+544 rows, 743,901 bytes and Git blob
+`a29d884326073e4972fae8a47c4610721de10003`.

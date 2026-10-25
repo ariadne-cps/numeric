@@ -209,6 +209,68 @@ std::array<std::string,2u> a32_b29() {
     return out;
 }
 
+
+Nat parse_decimal(std::string const& digits) {
+    Nat value;
+    for (char ch:digits) {
+        value=value.mul_small(10u);
+        value=Nat::add(value,Nat(static_cast<std::uint64_t>(ch-'0')));
+    }
+    return value;
+}
+
+std::string a33_b45() {
+    std::string out=
+        "# A33 B45 zero-low-limb and decimal-power division oracle.\n"
+        "# kind key1 key2 key3 numerator_hex denominator_hex quotient_hex remainder_hex\n"
+        "# S: m zeros repetition; D: digits bits offset. Exact original sources; no GMP/Numeric/Boost.\n";
+    const auto max=UINT64_MAX;
+    std::mt19937_64 engine(0xB450D1D1ULL);
+    std::size_t rows=0u;
+    const auto append=[&](char kind,std::size_t key1,std::size_t key2,
+                          std::uint64_t key3,Nat const& numerator,
+                          Nat const& denominator) {
+        const auto [quotient,remainder]=divide(numerator,denominator);
+        if (Nat::add(multiply(quotient,denominator),remainder).compare(numerator)!=0 ||
+            remainder.compare(denominator)>=0)
+            throw std::runtime_error("invalid A33 Euclidean identity");
+        out+=row({std::string(1,kind),std::to_string(key1),std::to_string(key2),
+                  std::to_string(key3),numerator.hex(),denominator.hex(),
+                  quotient.hex(),remainder.hex()});
+        ++rows;
+    };
+    for (const std::size_t m:{2u,3u,5u,8u,16u,32u,64u}) {
+        for (const std::size_t zeros:{std::size_t{1},m/2u,m-1u}) {
+            for (unsigned repetition=0u;repetition<24u;++repetition) {
+                const std::size_t n=m+
+                    (repetition%4u==0u?0u:repetition%4u==1u?1u:
+                     repetition%4u==2u?m:2u*m);
+                std::vector<std::uint64_t> left(n),right(m);
+                for (auto& word:left) word=engine();
+                for (auto& word:right) word=engine();
+                std::fill_n(right.begin(),zeros,0u);
+                right.back()|=std::uint64_t{1}<<63u;
+                left.back()|=std::uint64_t{1}<<63u;
+                if (repetition%6u==0u && n==m) left=right;
+                else if (repetition%6u==1u && n==m) left.back()=right.back()-1u;
+                else if (repetition%6u==2u) std::fill_n(left.begin(),zeros,0u);
+                else if (repetition%6u==3u) std::fill(left.begin(),left.end(),max);
+                append('S',m,zeros,repetition,Nat(std::move(left)),Nat(std::move(right)));
+            }
+        }
+    }
+    for (const unsigned digits:{72u,144u,288u,576u}) {
+        const Nat denominator=parse_decimal("1"+std::string(digits,'0'));
+        for (const std::size_t bits:{2048u,4096u}) {
+            const Nat base=Nat::power2(bits-1u);
+            for (const std::uint64_t offset:{0u,1u,13u,127u,1023u})
+                append('D',digits,bits,offset,Nat::add(base,Nat(offset)),denominator);
+        }
+    }
+    if (rows!=544u) throw std::runtime_error("wrong A33 row count");
+    return out;
+}
+
 }
 
 int main(int argc,char** argv) {
@@ -235,6 +297,8 @@ int main(int argc,char** argv) {
             independent_oracle::output(
                 dir,"big_unsigned_a32_b29_"+std::to_string(part)+".tsv",
                 a32[part],write);
+        independent_oracle::output(
+            dir,"big_unsigned_a33_b45.tsv",a33_b45(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"BigUnsigned remaining division generator: "
