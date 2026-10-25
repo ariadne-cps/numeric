@@ -32,6 +32,7 @@
 #include "numeric/bits.hpp"
 #include "numeric/float.decl.hpp"
 #include "numeric/number.decl.hpp"
+#include "numeric/number.hpp"
 #include "numeric/sign.hpp"
 #include "numeric/big_unsigned.hpp"
 #include <bit>
