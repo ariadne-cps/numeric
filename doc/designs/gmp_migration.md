@@ -13,7 +13,7 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A21
+## Current state — A22
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
@@ -21,14 +21,14 @@ progress reporting, barring a documented correction to the audit.
 | `test_views_and_scratch()` | 0 | 11,600 |
 | `test_multiply_kernel_paths()` | 0 | 11,432 |
 | `test_randomized()` | 10,000 | 0 |
-| `test_gcd_decimal()` | 2,284 | 1,509 |
+| `test_gcd_decimal()` | 3,793 | 0 |
 | `test_division_limb()` | 12,944 | 0 |
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **40,246** | **36,077** |
+| **Total** | **41,755** | **34,568** |
 
-Progress: **40,246 / 76,323 = 52.731%**.
+Progress: **41,755 / 76,323 = 54.708%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
@@ -39,7 +39,6 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
   R38 shifted operation visits.
 - `test_multiply_kernel_paths()`: 11,432, comprising B52/B53,
   general kernels, B8 and Karatsuba.
-- `test_gcd_decimal()`: 1,509 decimal formatting visits.
 
 ## Commit milestones
 
@@ -57,6 +56,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A19 — randomized arithmetic, final segment | 1,250 | 37,962 |
 | A20 — randomized decimal parsing | 1,800 | 39,762 |
 | A21 — structured decimal parsing | 484 | 40,246 |
+| A22 — decimal formatting | 1,509 | 41,755 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -241,3 +241,21 @@ reproduction produced the same blob. Runtime GMP parsing and decimal
 conversion are removed from these 484 cases. The only remaining numerical
 GMP oracle visits in `test_gcd_decimal()` are 1,509 decimal-formatting
 cases; production code and prior fixtures are unchanged.
+
+## A22 — decimal formatting (25 October 2026)
+
+Migrate the final 1,509 numerical GMP oracle visits in
+`test_gcd_decimal()` to `big_unsigned_a22_decimal_format.tsv`.
+Every row contains the canonical source magnitude in hexadecimal and an
+independently generated decimal expectation. The consumer retains the
+original random limb streams and dispatch-boundary constructions, checks
+each native source against the frozen hex, then compares `to_decimal()`
+with the TSV expectation and retains the native parse roundtrip assertion.
+
+Coverage is B25 50, B25.1 18, B30 128, B42 208, B46 352, B51 288,
+B59 216, B43 80, B31 119 and the final radix-power block 50, totaling
+1,509 visits. The standalone decimal generator emits a 1,404,780-byte
+fixture with Git blob `095b30979096b45222ebf019bbd5482588deb3dd`.
+A separately compiled C++20 reproduction generated the same blob.
+After A22, `test_gcd_decimal()` has no remaining numerical GMP oracle
+visits; the fixed audit therefore moves this method to 3,793/3,793 migrated.

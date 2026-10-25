@@ -134,7 +134,7 @@ review every diff before committing. No sampling is used.
 |---|---|---:|
 | `generator_big_unsigned_gcd.cpp` | `big_unsigned_r6.tsv`, `r8`, `r10`, `r11`, `r21`, all nine `r26_*`, `r27` | 5,561 source-and-GCD checks, including 3,240 R26 variants |
 | `generator_big_unsigned_b76.cpp` | all fourteen `big_unsigned_b76_gcd_decimal_*.tsv` | 2,800 source-keyed GCD/decimal cases |
-| `generator_big_unsigned_decimal.cpp` | `big_unsigned_a20_decimal_random.tsv`, `big_unsigned_a21_decimal_structured.tsv` | 1,800 randomized + 484 structured source-keyed decimal parsing cases |
+| `generator_big_unsigned_decimal.cpp` | `big_unsigned_a20_decimal_random.tsv`, `big_unsigned_a21_decimal_structured.tsv`, `big_unsigned_a22_decimal_format.tsv` | 1,800 randomized parsing + 484 structured parsing + 1,509 formatting cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
@@ -1013,3 +1013,22 @@ The fixture contains 484 rows, 279,466 bytes and Git blob
 reproduction generated the identical blob. After A21 no numerical GMP
 oracle remains in decimal parsing; only decimal formatting cases remain in
 `test_gcd_decimal()`.
+
+### A22 — decimal formatting oracle migration
+
+Migrate all 1,509 remaining decimal-formatting visits in
+`test_gcd_decimal()` to `big_unsigned_a22_decimal_format.tsv`.
+Each row freezes the exact source magnitude in canonical hexadecimal and
+the independently generated decimal rendering. Source construction in the
+consumer preserves the original limb patterns and seeded streams; decimal
+power cases are rebuilt natively from the same mathematical inputs before
+being checked against the frozen source hex.
+
+The fixture covers B25 (50), B25.1 (18), B30 (128), B42 (208), B46 (352),
+B51 (288), B59 (216), B43 (80), B31 (119), and the final radix-power block
+(50), for 1,509 visits total. `generator_big_unsigned_decimal.cpp` uses
+only standalone `Nat` arithmetic and exact decimal conversion. The fixture
+is 1,404,780 bytes with Git blob
+`095b30979096b45222ebf019bbd5482588deb3dd`; a separately compiled C++20
+reproduction generated the identical blob. After A22, `test_gcd_decimal()`
+contains no numerical GMP oracle calls.

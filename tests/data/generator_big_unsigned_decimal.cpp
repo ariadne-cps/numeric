@@ -133,6 +133,227 @@ std::string a21_decimal_structured_fixture() {
         throw std::runtime_error("wrong A21 structured decimal case count");
     return out;
 }
+
+std::string a22_decimal_format_fixture() {
+    std::string out=
+        "# A22: all 1509 decimal-formatting oracle visits from test_gcd_decimal().\n"
+        "# ordinal source_hex expected_decimal\n"
+        "# Preserves original source streams and boundary constructions; no GMP/Numeric/Boost.\n";
+    std::size_t ordinal=0u;
+    const auto append=[&](Nat const& source) {
+        out+=row({std::to_string(ordinal++),source.hex(),source.dec()});
+    };
+    const auto max=std::numeric_limits<std::uint64_t>::max();
+
+    std::mt19937_64 leaf_engine(0xB250C0DEULL);
+    for (const std::size_t count:
+            {7u,8u,9u,10u,15u,16u,17u,32u,64u,128u}) {
+        for (unsigned mode=0u;mode<5u;++mode) {
+            std::vector<std::uint64_t> words(count,0u);
+            if (mode==0u) {
+                words.back()=1u;
+            } else if (mode==1u) {
+                std::fill(words.begin(),words.end(),max);
+            } else if (mode==2u) {
+                words.front()=1u;
+                words.back()=1u;
+            } else {
+                for (auto& word:words) word=leaf_engine();
+                if (mode==4u)
+                    for (std::size_t i=1u;i+1u<count;++i) words[i]=0u;
+                words.back()|=std::uint64_t{1}<<63u;
+            }
+            append(Nat(std::move(words)));
+        }
+    }
+
+    for (const unsigned long groups:{8ul,9ul,10ul,16ul,17ul,18ul}) {
+        const Nat power=parse_decimal(
+            "1"+std::string(18ul*groups,'0'));
+        append(power);
+        append(Nat::sub(power,Nat(1u)));
+        append(Nat::add(power,Nat(1u)));
+    }
+
+    std::mt19937_64 divq_decimal_engine(0xB300DEC1ULL);
+    for (const std::size_t count:{8u,9u,10u,12u,16u,17u,32u,64u}) {
+        for (unsigned mode=0u;mode<16u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=divq_decimal_engine();
+            if (mode%8u==0u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u; words.back()=1u;
+            } else if (mode%8u==1u) {
+                std::fill(words.begin(),words.end(),max);
+            } else if (mode%8u==2u) {
+                std::fill(words.begin(),words.end(),0u); words.back()=1u;
+            } else if (mode%8u==3u) {
+                std::fill(words.begin(),words.end(),0u); words.back()=max;
+            } else if (mode%8u==4u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u; words.back()=std::uint64_t{1}<<63u;
+            } else if (mode%8u==5u) {
+                for (std::size_t i=1u;i+1u<count;++i) words[i]=0u;
+            }
+            words.back()|=1u;
+            append(Nat(std::move(words)));
+        }
+    }
+
+    std::mt19937_64 b42_engine(0xB42DEC1A7ULL);
+    for (const std::size_t count:
+            {8u,9u,10u,15u,16u,17u,18u,32u,33u,64u,65u,128u,256u}) {
+        for (unsigned mode=0u;mode<16u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=b42_engine();
+            switch (mode%8u) {
+            case 0u: std::fill(words.begin(),words.end(),0u); break;
+            case 1u: std::fill(words.begin(),words.end(),max); break;
+            case 2u:
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u; break;
+            case 3u:
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u; words.back()=std::uint64_t{1}<<63u; break;
+            case 4u:
+                for (std::size_t i=0u;i<count;i+=2u) words[i]=0u;
+                break;
+            case 5u:
+                std::fill(words.begin(),words.end(),
+                          std::uint64_t{999999999999999999ULL}); break;
+            case 6u: words.back()=1u; break;
+            default: break;
+            }
+            append(Nat(std::move(words)));
+        }
+    }
+
+    std::mt19937_64 b46_engine(0xB460DEC1A7ULL);
+    for (const std::size_t count:
+            {8u,9u,10u,11u,12u,13u,14u,15u,16u,17u,32u}) {
+        for (unsigned mode=0u;mode<32u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=b46_engine();
+            if (mode%8u==0u) std::fill(words.begin(),words.end(),max);
+            else if (mode%8u==1u) {
+                std::fill(words.begin(),words.end(),0u); words.back()=1u;
+            } else if (mode%8u==2u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u; words.back()=1u;
+            } else if (mode%8u==3u) {
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u;
+            } else if (mode%8u==4u) {
+                std::fill_n(words.begin(),count/2u,0u);
+            } else if (mode%8u==5u) {
+                for (std::size_t i=0u;i<count;i+=2u) words[i]=0u;
+            } else if (mode%8u==6u) {
+                std::fill(words.begin(),words.end(),
+                          std::uint64_t{999999999999999999ULL});
+            }
+            words.back()|=1u;
+            append(Nat(std::move(words)));
+        }
+    }
+
+    std::mt19937_64 b51_engine(0xB510D3C1ULL);
+    for (const std::size_t count:
+            {7u,8u,9u,10u,12u,15u,16u,17u,18u,32u,33u,64u}) {
+        for (unsigned mode=0u;mode<24u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=b51_engine();
+            switch (mode%8u) {
+            case 0u: std::fill(words.begin(),words.end(),max); break;
+            case 1u:
+                std::fill(words.begin(),words.end(),0u); words.back()=1u; break;
+            case 2u:
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u; words.back()=1u; break;
+            case 3u:
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u; break;
+            case 4u: std::fill_n(words.begin(),count/2u,0u); break;
+            case 5u:
+                for (std::size_t i=0u;i<count;i+=2u) words[i]=0u;
+                break;
+            case 6u:
+                std::fill(words.begin(),words.end(),
+                          std::uint64_t{999999999999999999ULL}); break;
+            default: break;
+            }
+            words.back()|=1u;
+            append(Nat(std::move(words)));
+        }
+    }
+
+    std::mt19937_64 b59_engine(0xB590DEC1ULL);
+    for (const std::size_t count:
+            {15u,16u,17u,31u,32u,33u,63u,64u,65u}) {
+        for (unsigned mode=0u;mode<24u;++mode) {
+            std::vector<std::uint64_t> words(count);
+            for (auto& word:words) word=b59_engine();
+            switch (mode%8u) {
+            case 0u:
+                std::fill(words.begin(),words.end(),0u); words.back()=1u; break;
+            case 1u: std::fill(words.begin(),words.end(),max); break;
+            case 2u:
+                std::fill(words.begin(),words.end(),0u);
+                words.front()=1u; words.back()=max; break;
+            case 3u:
+                std::fill(words.begin(),words.end(),0u);
+                words.back()=std::uint64_t{1}<<63u; break;
+            case 4u:
+                for (std::size_t i=0u;i<count;i+=2u) words[i]=0u;
+                break;
+            case 5u:
+                std::fill(words.begin(),words.end(),
+                          std::uint64_t{999999999999999999ULL}); break;
+            case 6u:
+                for (std::size_t i=1u;i+1u<count;++i) words[i]=0u;
+                break;
+            default: break;
+            }
+            words.back()|=std::uint64_t{1}<<63u;
+            append(Nat(std::move(words)));
+        }
+    }
+
+    for (const unsigned long digits:
+            {144ul,288ul,576ul,1152ul,2304ul}) {
+        const Nat power=parse_decimal("1"+std::string(digits,'0'));
+        for (const unsigned long factor:{1ul,7ul,1234567ul,9999999ul}) {
+            const Nat base=power.mul_small(factor);
+            for (const unsigned long offset:{0ul,1ul,11ul,99ul})
+                append(Nat::add(base,Nat(offset)));
+        }
+    }
+
+    for (const unsigned long digits:
+            {9ul,18ul,27ul,72ul,144ul,288ul,576ul}) {
+        const Nat power=parse_decimal("1"+std::string(digits,'0'));
+        for (const unsigned long offset:
+                {0ul,1ul,9ul,10ul,11ul,99ul,100ul,101ul,999ul}) {
+            append(Nat::add(power,Nat(offset)));
+            if (offset!=0ul) append(Nat::sub(power,Nat(offset)));
+        }
+    }
+
+    for (unsigned k=0u;k<=9u;++k) {
+        const unsigned long digits=9ul*(1ul<<k);
+        const Nat power=parse_decimal("1"+std::string(digits,'0'));
+        append(power);
+        append(Nat::sub(power,Nat(1u)));
+        append(Nat::add(power,Nat(1u)));
+        append(Nat::add(power,Nat(9u)));
+        append(parse_decimal(
+            std::string("123456789")+std::string(digits,'0')+
+            std::string("000000001")));
+    }
+    if (ordinal!=1509u)
+        throw std::runtime_error("wrong A22 decimal formatting case count");
+    return out;
+}
+
 }
 
 int main(int argc,char** argv) {
@@ -145,6 +366,9 @@ int main(int argc,char** argv) {
         independent_oracle::output(
             dir,"big_unsigned_a21_decimal_structured.tsv",
             a21_decimal_structured_fixture(),write);
+        independent_oracle::output(
+            dir,"big_unsigned_a22_decimal_format.tsv",
+            a22_decimal_format_fixture(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"BigUnsigned decimal generator: "<<error.what()<<'\n';

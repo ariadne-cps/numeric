@@ -630,7 +630,7 @@ void TestBigUnsigned::test_boundaries()
 
 // B41: the highest differing limb determines both unsigned order
 // and the maximum required result width. Exercise common-prefix
-// elimination against an independent GMP oracle in both directions,
+// elimination against the independent A22 oracle in both directions,
 // including underflow, canonical zero, dense inputs and long borrows.
 void TestBigUnsigned::test_subtraction_common_prefix()
 {
@@ -3229,7 +3229,6 @@ void TestBigUnsigned::test_gcd_decimal()
     }
 
     std::mt19937_64 engine(0xB16B00B5ULL);
-    GmpInteger a,b,expected;
     // B76: every original seeded GCD/decimal case has an independent,
     // immutable exact TSV oracle, including its original source operands.
     std::ifstream b76_fixture;
@@ -3401,7 +3400,7 @@ void TestBigUnsigned::test_gcd_decimal()
     // B47: the wide input path now starts at 32 digits, including
     // 128-, 256- and 1024-bit benchmark magnitudes. Stress first
     // short groups, full 18-digit boundaries and both sides of
-    // the old 309/310 threshold against independently parsed GMP.
+    // the old 309/310 threshold against the independent A21 TSV.
     for (const std::size_t length:
             {16u,17u,18u,19u,31u,32u,33u,35u,36u,37u,38u,
              39u,40u,53u,54u,55u,76u,77u,78u,79u,
@@ -3424,7 +3423,7 @@ void TestBigUnsigned::test_gcd_decimal()
     // B50: radix-10^19 parsing must handle all boundaries of
     // complete 19-digit groups, the 31/32-digit selector, the
     // 308-digit 1024-bit input, and 2048/4096-bit inputs. Check
-    // exact parsed magnitudes against GMP, including leading zeros,
+    // exact parsed magnitudes against A21, including leading zeros,
     // all nines, sparse digits, and independently randomized text.
     for (const std::size_t length:
             {18u,19u,20u,31u,32u,33u,36u,37u,38u,39u,40u,
@@ -3475,30 +3474,32 @@ void TestBigUnsigned::test_gcd_decimal()
         ARIADNE_TEST_ASSERT(threw);
     }
 
-    // Balanced decimal formatting B22: exact radix-10^(9*2^k)
-    // boundaries, long zero runs and carry chains, plus signed-free
-    // decimal formatting beyond the standard 4096-bit benchmark.
-    // The independent GMP oracle uses binary export, not from_decimal.
-    const auto check_decimal_boundary=[&](mpz_srcptr reference) {
-        const std::size_t words_needed=
-            (mpz_sizeinbase(reference,2u)+63u)/64u+1u;
-        std::vector<std::uint64_t> words(words_needed,0u);
-        std::size_t used=0u;
-        mpz_export(words.data(),&used,-1,sizeof(std::uint64_t),
-                   0,0,reference);
-        const BigUnsigned native(std::span(words.data(),used));
-        std::string expected_decimal(
-            mpz_sizeinbase(reference,10u)+2u,'\0');
-        mpz_get_str(expected_decimal.data(),10,reference);
-        expected_decimal.resize(
-            std::char_traits<char>::length(expected_decimal.c_str()));
-
+    // A22: all decimal-formatting cases use a source-keyed independent
+    // TSV oracle. Native sources keep the original construction paths.
+    std::ifstream a22_decimal_format(
+        std::string(ARIADNE_TEST_DATA_DIR)+
+        "/big_unsigned_a22_decimal_format.tsv");
+    if (!a22_decimal_format)
+        throw std::runtime_error("Missing A22 decimal formatting TSV");
+    std::string a22_header;
+    while (a22_decimal_format.peek()=='#')
+        std::getline(a22_decimal_format,a22_header);
+    std::size_t a22_ordinal=0u;
+    const auto check_decimal_boundary=[&](BigUnsigned const& native) {
+        std::size_t source_ordinal=0u;
+        std::string source_hex,expected_decimal;
+        if (!(a22_decimal_format >> source_ordinal >> source_hex
+              >> expected_decimal) ||
+            source_ordinal!=a22_ordinal++)
+            throw std::runtime_error(
+                "Missing or unordered A22 decimal formatting TSV row");
+        check_against_precomputed_hex(native,source_hex);
         const std::string decimal=to_decimal(native);
         ARIADNE_TEST_ASSERT(decimal==expected_decimal);
         ARIADNE_TEST_ASSERT(
             compare(from_decimal(decimal),native)==0);
     };
-    // B25: independent GMP-oracle regression around the 8/9-limb
+    // B25: independent A22 oracle regression around the 8/9-limb
     // radix-10^9 / radix-10^18 selector and at recursive leaf sizes.
     // Include all-ones carries, powers of the binary limb radix,
     // long internal zeros and random 64-bit limb patterns.
@@ -3522,28 +3523,25 @@ void TestBigUnsigned::test_gcd_decimal()
                 }
                 words.back()|=std::uint64_t{1}<<63u;
             }
-            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
-                       0,0,words.data());
-            check_decimal_boundary(a.value);
+            check_decimal_boundary(BigUnsigned(words));
         }
     }
 
     // B25.1: on supported ARM64 these exercise the 18-digit leaf
-    // formatter, while x86-64/portable builds must match GMP via
+    // formatter, while x86-64/portable builds must match A22 via
     // the B19 9-digit fallback. Probe carries and zero-padding at
     // decimal block boundaries near the 8/9/16-limb cutoffs.
     for (const unsigned long groups: {8ul,9ul,10ul,16ul,17ul,18ul}) {
         const unsigned long digits=18ul*groups;
-        mpz_ui_pow_ui(a.value,10ul,digits);
-        check_decimal_boundary(a.value); // exact power of 10^18
-        mpz_sub_ui(a.value,a.value,1ul);
-        check_decimal_boundary(a.value); // every low block is 9...
-        mpz_add_ui(a.value,a.value,2ul);
-        check_decimal_boundary(a.value); // one plus power; zero runs
+        const BigUnsigned power=from_decimal(
+            "1"+std::string(digits,'0'));
+        check_decimal_boundary(power);
+        check_decimal_boundary(sub(power,one));
+        check_decimal_boundary(add(power,one));
     }
 
     // B30/B30.1: preserve the 8/9-limb boundary and 10^18
-    // decimal carry fixtures against an independent GMP oracle.
+    // decimal carry fixtures against the independent A22 oracle.
     // ARM64 selects radix 10^18; x86-64 and other targets now
     // exercise the restored B29 radix-10^9 implementation.
     std::mt19937_64 divq_decimal_engine(0xB300DEC1ULL);
@@ -3575,13 +3573,11 @@ void TestBigUnsigned::test_gcd_decimal()
                 }
             }
             words.back()|=1u;
-            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
-                       0,0,words.data());
-            check_decimal_boundary(a.value);
+            check_decimal_boundary(BigUnsigned(words));
         }
     }
 
-    // B42: GMP-oracle regression at the 8/9/16/17-limb wide
+    // B42: A22 oracle regression at the 8/9/16/17-limb wide
     // decimal formatter boundaries, plus large dense/sparse inputs.
     std::mt19937_64 b42_engine(0xB42DEC1A7ULL);
     for (const std::size_t count:
@@ -3614,9 +3610,7 @@ void TestBigUnsigned::test_gcd_decimal()
             case 6u: words.back()=1u; break;
             default: break;
             }
-            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
-                       0,0,words.data());
-            check_decimal_boundary(a.value);
+            check_decimal_boundary(BigUnsigned(words));
         }
     }
 
@@ -3624,7 +3618,7 @@ void TestBigUnsigned::test_gcd_decimal()
     // the unsigned 128/64 runtime divide. Exercise random dense and
     // sparse 9..16-limb leaves, their 8/9 dispatch edge, the 16/17
     // recursion boundary, carries and long internal zero runs. On
-    // every host compare against GMP, not a native roundtrip alone.
+    // every host compare against A22, not a native roundtrip alone.
     std::mt19937_64 b46_engine(0xB460DEC1A7ULL);
     for (const std::size_t count:
             {8u,9u,10u,11u,12u,13u,14u,15u,16u,17u,32u}) {
@@ -3655,14 +3649,12 @@ void TestBigUnsigned::test_gcd_decimal()
                           std::uint64_t{999999999999999999ULL});
             }
             words.back()|=1u;
-            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
-                       0,0,words.data());
-            check_decimal_boundary(a.value);
+            check_decimal_boundary(BigUnsigned(words));
         }
     }
 
     // B51: the multiply-only B46 wide leaf is now also selected
-    // for x86-64 GCC/Clang at 9+ limbs. Independent GMP oracles
+    // for x86-64 GCC/Clang at 9+ limbs. Independent A22 oracles
     // cover the 8/9-limb selector, the 16/17-limb recursive cutoff,
     // dense/sparse operands, carry boundaries and zero runs. Keep
     // the portable/MSVC radix-10^9 regression path equally checked.
@@ -3705,16 +3697,14 @@ void TestBigUnsigned::test_gcd_decimal()
             default: break;
             }
             words.back()|=1u;
-            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
-                       0,0,words.data());
-            check_decimal_boundary(a.value);
+            check_decimal_boundary(BigUnsigned(words));
         }
     }
 
     // B59: oracle-checked x86 GCC 16 -> 32-limb recursion cutoff,
     // especially 31/32/33-limb transition and 63/64/65 inputs.
     // Other hosts use the unmodified 16-limb selector. Reuse the
-    // independent GMP binary-export + mpz_get_str oracle.
+    // independent A22 source-keyed oracle.
     std::mt19937_64 b59_engine(0xB590DEC1ULL);
     for (const std::size_t count:
             {15u,16u,17u,31u,32u,33u,63u,64u,65u}) {
@@ -3753,27 +3743,25 @@ void TestBigUnsigned::test_gcd_decimal()
             }
             // Keep the raw magnitude at the intended selector size.
             words.back()|=std::uint64_t{1}<<63u;
-            mpz_import(a.value,words.size(),-1,sizeof(std::uint64_t),
-                       0,0,words.data());
-            check_decimal_boundary(a.value);
+            check_decimal_boundary(BigUnsigned(words));
         }
     }
 
     // B43: append-only recursive formatting must preserve the
     // *entire* fixed-width lower field even when the remainder
-    // itself needs further recursive divisions. GMP independently
+    // itself needs further recursive divisions. A22 independently
     // supplies the reference, never a native decimal roundtrip.
     for (const unsigned long digits:
             {144ul,288ul,576ul,1152ul,2304ul}) {
-        mpz_ui_pow_ui(a.value,10ul,digits);
+        const BigUnsigned power=from_decimal(
+            "1"+std::string(digits,'0'));
         for (const unsigned long factor:
                 {1ul,7ul,1234567ul,9999999ul}) {
-            mpz_mul_ui(b.value,a.value,factor);
+            const BigUnsigned base=mul(power,BigUnsigned(factor));
             for (const unsigned long offset:
                     {0ul,1ul,11ul,99ul}) {
-                mpz_add_ui(b.value,b.value,offset);
-                check_decimal_boundary(b.value);
-                mpz_sub_ui(b.value,b.value,offset);
+                check_decimal_boundary(
+                    add(base,BigUnsigned(offset)));
             }
         }
     }
@@ -3781,42 +3769,40 @@ void TestBigUnsigned::test_gcd_decimal()
     // B31: the new pair-wise base-10^9 renderer must preserve every
     // zero-padded two-digit group (00, 01, 09, 10, 99), carry across
     // decimal blocks, and the variable-width most-significant block.
-    // GMP supplies the independent exact decimal oracle on every host.
+    // A22 supplies the independent exact decimal oracle on every host.
     for (const unsigned long digits:
             {9ul,18ul,27ul,72ul,144ul,288ul,576ul}) {
-        mpz_ui_pow_ui(a.value,10ul,digits);
+        const BigUnsigned power=from_decimal(
+            "1"+std::string(digits,'0'));
         for (const unsigned long offset:
                 {0ul,1ul,9ul,10ul,11ul,99ul,100ul,101ul,999ul}) {
-            mpz_set(b.value,a.value);
-            mpz_add_ui(b.value,b.value,offset);
-            check_decimal_boundary(b.value);
-            if (offset!=0ul) {
-                mpz_sub_ui(b.value,a.value,offset);
-                check_decimal_boundary(b.value);
-            }
+            check_decimal_boundary(add(power,BigUnsigned(offset)));
+            if (offset!=0ul)
+                check_decimal_boundary(sub(power,BigUnsigned(offset)));
         }
     }
 
     for (unsigned k=0u;k<=9u;++k) {
         const unsigned long digits=9ul*(1ul<<k);
-        mpz_ui_pow_ui(a.value,10ul,digits);
-        check_decimal_boundary(a.value);             // 10^digits
-        mpz_sub_ui(a.value,a.value,1ul);
-        check_decimal_boundary(a.value);             // 99...99
-        mpz_add_ui(a.value,a.value,2ul);
-        check_decimal_boundary(a.value);             // 10^digits+1
-        mpz_add_ui(a.value,a.value,8ul);
-        check_decimal_boundary(a.value);             // 10^digits+9
+        const BigUnsigned power=from_decimal(
+            "1"+std::string(digits,'0'));
+        check_decimal_boundary(power);
+        check_decimal_boundary(sub(power,one));
+        check_decimal_boundary(add(power,one));
+        check_decimal_boundary(add(power,BigUnsigned(std::uint64_t{9})));
 
         // A nonzero suffix after many complete zero-filled radix
         // groups; tests width padding in recursive low partitions.
         const std::string blocks=
             std::string("123456789")+std::string(digits,'0')+
             std::string("000000001");
-        ARIADNE_TEST_ASSERT(
-            mpz_set_str(a.value,blocks.c_str(),10)==0);
-        check_decimal_boundary(a.value);
+        check_decimal_boundary(from_decimal(blocks));
     }
+    if (a22_ordinal!=1509u)
+        throw std::runtime_error("Wrong A22 decimal formatting row count");
+    std::string a22_extra;
+    if (a22_decimal_format >> a22_extra)
+        throw std::runtime_error("Extra A22 decimal formatting TSV rows");
 }
 
 void TestBigUnsigned::test_randomized()
