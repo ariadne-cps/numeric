@@ -1155,9 +1155,19 @@ void TestBigUnsigned::test_views_and_scratch()
     x.assign(x.limbs().first(1u));
     ARIADNE_TEST_ASSERT(x.size() == 1u);
 
-    GmpInteger aa,bb,expected;
     BigUnsigned::Scratch output;
     std::mt19937_64 engine(0xB22B22ULL);
+    std::array<std::ifstream,5u> a23_golden;
+    for (std::size_t part=0u;part<a23_golden.size();++part) {
+        const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
+            "/big_unsigned_a23_views_"+std::to_string(part)+".tsv";
+        a23_golden[part].open(path);
+        if (!a23_golden[part])
+            throw std::runtime_error("Missing A23 views TSV: "+path);
+        std::string header;
+        while (a23_golden[part].peek()=='#')
+            std::getline(a23_golden[part],header);
+    }
     static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 65u*64u);
     for (unsigned repetition=0u; repetition<5000u; ++repetition) {
         const std::size_t n = engine()%28u;
@@ -1173,8 +1183,23 @@ void TestBigUnsigned::test_views_and_scratch()
         }
         const BigUnsigned lhs(std::span(da.data(),n));
         const BigUnsigned rhs(std::span(db.data(),m));
-        mpz_import(aa.value,n,-1,8,0,0,da.data());
-        mpz_import(bb.value,m,-1,8,0,0,db.data());
+
+        const std::size_t low = repetition%5u==0u ? 0u :
+            repetition%5u==1u ? 1u : repetition%5u==2u ? 4u :
+            repetition%5u==3u ? 15u : engine()%65u;
+        unsigned source_repetition=0u;
+        std::size_t source_n=0u,source_m=0u,source_low=0u;
+        std::string lhs_hex,rhs_hex,sum_hex,difference_hex,product_hex;
+        std::ifstream& golden=a23_golden[repetition/1000u];
+        if (!(golden >> source_repetition >> source_n >> source_m
+              >> source_low >> lhs_hex >> rhs_hex >> sum_hex
+              >> difference_hex >> product_hex) ||
+            source_repetition!=repetition || source_n!=n ||
+            source_m!=m || source_low!=low)
+            throw std::runtime_error(
+                "Missing or unordered A23 views TSV row");
+        check_against_precomputed_hex(lhs,lhs_hex);
+        check_against_precomputed_hex(rhs,rhs_hex);
 
         const std::size_t count = std::max(lhs.size(),rhs.size());
         auto sum_view = output.acquire(count+2u);
@@ -1182,30 +1207,32 @@ void TestBigUnsigned::test_views_and_scratch()
             lhs.limbs(),rhs.limbs(),sum_view.first(count));
         sum_view[count] = carry;
         ARIADNE_TEST_ASSERT(sum_view[count+1u] == 0u);
-        mpz_add(expected.value,aa.value,bb.value);
-        check_against_gmp(BigUnsigned(sum_view),expected.value);
+        check_against_precomputed_hex(BigUnsigned(sum_view),sum_hex);
 
         auto difference_view = output.acquire(count+1u);
         const auto borrow = BigUnsigned::sub_into(
             lhs.limbs(),rhs.limbs(),difference_view);
         ARIADNE_TEST_ASSERT(difference_view[count] == 0u);
-        if (mpz_cmp(aa.value,bb.value) >= 0) {
+        if (difference_hex!="-") {
+            ARIADNE_TEST_ASSERT(compare(lhs,rhs)>=0);
             ARIADNE_TEST_ASSERT(borrow == 0u);
-            mpz_sub(expected.value,aa.value,bb.value);
-            check_against_gmp(BigUnsigned(difference_view),expected.value);
-        } else if (count != 0u) {
-            ARIADNE_TEST_ASSERT(borrow == 1u);
+            check_against_precomputed_hex(
+                BigUnsigned(difference_view),difference_hex);
+        } else {
+            ARIADNE_TEST_ASSERT(compare(lhs,rhs)<0);
+            if (count != 0u) ARIADNE_TEST_ASSERT(borrow == 1u);
         }
 
-        const std::size_t low = repetition%5u==0u ? 0u :
-            repetition%5u==1u ? 1u : repetition%5u==2u ? 4u :
-            repetition%5u==3u ? 15u : engine()%65u;
         auto product_view = output.acquire(low);
         BigUnsigned::mul_low_into(lhs.limbs(),rhs.limbs(),product_view);
-        mpz_mul(expected.value,aa.value,bb.value);
-        mpz_fdiv_r_2exp(expected.value,expected.value,
-                        static_cast<mp_bitcnt_t>(64u*low));
-        check_against_gmp(BigUnsigned(product_view),expected.value);
+        check_against_precomputed_hex(BigUnsigned(product_view),product_hex);
+        check_against_precomputed_hex(lhs,lhs_hex);
+        check_against_precomputed_hex(rhs,rhs_hex);
+    }
+    for (auto& golden:a23_golden) {
+        std::string extra;
+        if (golden >> extra)
+            throw std::runtime_error("Extra A23 views TSV rows");
     }
     // R38: exact GMP oracle for the owned shifted sum/difference,
     // including 16/17/31/32/33/64/65-limb dispatch boundaries,

@@ -1,7 +1,7 @@
 # Reproducible exact golden-data generators
 
 The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
-`generator_big_unsigned_decimal.cpp`, `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
+`generator_big_unsigned_decimal.cpp`, `generator_big_unsigned_views.cpp`, `generator_exact_small.cpp`, `generator_big_unsigned_power_div.cpp`, `generator_rational_exact.cpp`,
 `generator_exact_b72_r17.cpp`, `generator_integer_structural.cpp`, `generator_big_unsigned_mul.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`,
@@ -55,6 +55,7 @@ From the repository root, using a C++20 compiler:
 ```sh
 c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_gcd.cpp -o /tmp/numeric-oracle-gcd
 c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_b76.cpp -o /tmp/numeric-oracle-b76
+c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_views.cpp -o /tmp/numeric-oracle-views
 c++ -std=c++20 -O2 -Wall -Wextra -Werror tests/data/generator_big_unsigned_decimal.cpp -o /tmp/numeric-oracle-decimal
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_exact_small.cpp -o /tmp/numeric-oracle-exact-small
 c++ -std=c++20 -O2 -Wall -Wextra -Wsign-conversion -Werror tests/data/generator_big_unsigned_power_div.cpp -o /tmp/numeric-oracle-power-div
@@ -135,6 +136,7 @@ review every diff before committing. No sampling is used.
 | `generator_big_unsigned_gcd.cpp` | `big_unsigned_r6.tsv`, `r8`, `r10`, `r11`, `r21`, all nine `r26_*`, `r27` | 5,561 source-and-GCD checks, including 3,240 R26 variants |
 | `generator_big_unsigned_b76.cpp` | all fourteen `big_unsigned_b76_gcd_decimal_*.tsv` | 2,800 source-keyed GCD/decimal cases |
 | `generator_big_unsigned_decimal.cpp` | `big_unsigned_a20_decimal_random.tsv`, `big_unsigned_a21_decimal_structured.tsv`, `big_unsigned_a22_decimal_format.tsv` | 1,800 randomized parsing + 484 structured parsing + 1,509 formatting cases |
+| `generator_big_unsigned_views.cpp` | five `big_unsigned_a23_views_*.tsv` files | 5,000 source-keyed scratch-buffer add/sub/truncated-product cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
@@ -1032,3 +1034,24 @@ is 1,404,780 bytes with Git blob
 `095b30979096b45222ebf019bbd5482588deb3dd`; a separately compiled C++20
 reproduction generated the identical blob. After A22, `test_gcd_decimal()`
 contains no numerical GMP oracle calls.
+
+### A23 — scratch-buffer arithmetic oracle migration
+
+Migrate the 5,000 original buffer arithmetic visits in
+`test_views_and_scratch()` to five source-keyed TSV segments of 1,000
+visits each. The consumer preserves the single original
+`mt19937_64(0xB22B22)` stream, all-ones transformations and the conditional
+`low` draw performed only for repetitions congruent to 4 modulo 5. Each
+row freezes generated widths, `low`, both source magnitudes, exact sum,
+conditional nonnegative difference and truncated product.
+
+`generator_big_unsigned_views.cpp` is standalone C++20 and computes the
+expectations with independent `Nat` add/sub plus shift-add multiplication.
+The five fixture blob SHAs are
+`596e3b10f9ba28a70b36ed6da6fce94080839380`,
+`6a51e17a1a70c6247a54c7652b881b2ee357bb5d`,
+`cb3d6a863d56721b6dc6f959141f539adbd4a829`,
+`9f16abdf7e4cff8845e0b1ef13ae91cc4d0e5738`, and
+`d2cc565c0eadd9b8fe34fda785c072891bb40d81`. A separate C++20
+multiprecision witness reproduced all five files byte-for-byte. R38 shifted
+operations remain on their existing oracle for A24.

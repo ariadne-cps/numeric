@@ -13,12 +13,12 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A22
+## Current state — A23
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
 | `test_division()` | 4,978 | 11,536 |
-| `test_views_and_scratch()` | 0 | 11,600 |
+| `test_views_and_scratch()` | 5,000 | 6,600 |
 | `test_multiply_kernel_paths()` | 0 | 11,432 |
 | `test_randomized()` | 10,000 | 0 |
 | `test_gcd_decimal()` | 3,793 | 0 |
@@ -26,17 +26,16 @@ progress reporting, barring a documented correction to the audit.
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **41,755** | **34,568** |
+| **Total** | **46,755** | **29,568** |
 
-Progress: **41,755 / 76,323 = 54.708%**.
+Progress: **46,755 / 76,323 = 61.259%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
 - `test_division()`: generalized random 6,000; B28, B36, B29, B45,
   normalization and remaining special division cases 5,536.
-- `test_views_and_scratch()`: 5,000 buffer arithmetic plus 6,600
-  R38 shifted operation visits.
+- `test_views_and_scratch()`: 6,600 R38 shifted operation visits.
 - `test_multiply_kernel_paths()`: 11,432, comprising B52/B53,
   general kernels, B8 and Karatsuba.
 
@@ -57,6 +56,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A20 — randomized decimal parsing | 1,800 | 39,762 |
 | A21 — structured decimal parsing | 484 | 40,246 |
 | A22 — decimal formatting | 1,509 | 41,755 |
+| A23 — scratch-buffer arithmetic | 5,000 | 46,755 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -259,3 +259,18 @@ fixture with Git blob `095b30979096b45222ebf019bbd5482588deb3dd`.
 A separately compiled C++20 reproduction generated the same blob.
 After A22, `test_gcd_decimal()` has no remaining numerical GMP oracle
 visits; the fixed audit therefore moves this method to 3,793/3,793 migrated.
+
+## A23 — scratch-buffer arithmetic (25 October 2026)
+
+Migrate the first 5,000 visits of `test_views_and_scratch()` to five
+1,000-row source-keyed TSVs. The original `mt19937_64(0xB22B22)` stream,
+all generated widths, all-ones source transformations and the conditional
+truncated-product length draw are unchanged. Each row independently fixes
+the source magnitudes and exact add/sub/truncated-product expectations.
+
+The standalone `generator_big_unsigned_views.cpp` uses independent `Nat`
+arithmetic and shift-add multiplication with no Numeric, GMP or Boost
+dependency. A separately compiled C++20 multiprecision witness reproduced
+all five Git blobs exactly. No production code changes. The remaining
+`test_views_and_scratch()` inventory is exactly the 6,600 R38 shifted
+add/sub visits planned for A24.

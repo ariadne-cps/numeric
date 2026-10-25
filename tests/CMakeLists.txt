@@ -54,6 +54,7 @@ set(ORACLE_GENERATORS
     generator_big_unsigned_gcd
     generator_big_unsigned_b76
     generator_big_unsigned_decimal
+    generator_big_unsigned_views
     generator_exact_small
     generator_big_unsigned_power_div
     generator_rational_exact
