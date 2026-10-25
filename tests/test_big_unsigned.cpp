@@ -1168,7 +1168,6 @@ void TestBigUnsigned::test_views_and_scratch()
         while (a23_golden[part].peek()=='#')
             std::getline(a23_golden[part],header);
     }
-    static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 65u*64u);
     for (unsigned repetition=0u; repetition<5000u; ++repetition) {
         const std::size_t n = engine()%28u;
         const std::size_t m = engine()%28u;
@@ -1234,11 +1233,32 @@ void TestBigUnsigned::test_views_and_scratch()
         if (golden >> extra)
             throw std::runtime_error("Extra A23 views TSV rows");
     }
-    // R38: exact GMP oracle for the owned shifted sum/difference,
-    // including 16/17/31/32/33/64/65-limb dispatch boundaries,
-    // carries, borrows, zeros, and shifts on both operands.
-    GmpInteger shifted_a,shifted_b,shifted_expected;
+    // A24/R38: preserve all shifted add/sub source cases and shift
+    // combinations using independent source-keyed TSV expectations.
+    std::ifstream a24_sources(
+        std::string(ARIADNE_TEST_DATA_DIR)+
+        "/big_unsigned_a24_shifted_sources.tsv");
+    if (!a24_sources)
+        throw std::runtime_error("Missing A24 shifted source TSV");
+    std::string a24_header;
+    while (a24_sources.peek()=='#') std::getline(a24_sources,a24_header);
+    std::array<std::ifstream,10u> a24_golden;
+    for (std::size_t part=0u;part<a24_golden.size();++part) {
+        const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
+            "/big_unsigned_a24_shifted_"+std::to_string(part)+".tsv";
+        a24_golden[part].open(path);
+        if (!a24_golden[part])
+            throw std::runtime_error("Missing A24 shifted TSV: "+path);
+        std::string header;
+        while (a24_golden[part].peek()=='#')
+            std::getline(a24_golden[part],header);
+    }
+    const auto a24_part=[](std::size_t ordinal) {
+        return ordinal<5775u ? ordinal/825u :
+            7u+(ordinal-5775u)/275u;
+    };
     std::mt19937_64 shifted_engine(0xB38038ULL);
+    std::size_t source_ordinal=0u,ordinal=0u;
     for (std::size_t width:{0u,1u,4u,16u,17u,31u,32u,33u,64u,65u,129u}) {
         for (unsigned case_index=0u;case_index<24u;++case_index) {
             const std::size_t length_b=case_index%5u==0u ? width :
@@ -1255,36 +1275,60 @@ void TestBigUnsigned::test_views_and_scratch()
                           std::numeric_limits<std::uint64_t>::max());
             }
             const BigUnsigned a(da),b(db);
-            mpz_import(shifted_a.value,a.size(),-1,8,0,0,a.limbs().data());
-            mpz_import(shifted_b.value,b.size(),-1,8,0,0,b.limbs().data());
+            std::size_t source_ref=0u,source_width=0u,source_length_b=0u;
+            unsigned source_case=0u;
+            std::string a_hex,b_hex;
+            if (!(a24_sources >> source_ref >> source_width >> source_case
+                  >> source_length_b >> a_hex >> b_hex) ||
+                source_ref!=source_ordinal++ || source_width!=width ||
+                source_case!=case_index || source_length_b!=length_b)
+                throw std::runtime_error(
+                    "Missing or unordered A24 shifted source row");
+            check_against_precomputed_hex(a,a_hex);
+            check_against_precomputed_hex(b,b_hex);
+
             for (unsigned sa:{0u,1u,7u,31u,63u}) {
                 for (unsigned sb:{0u,1u,7u,31u,63u}) {
-                    mpz_mul_2exp(shifted_a.value,shifted_a.value,
-                                 static_cast<mp_bitcnt_t>(sa));
-                    mpz_mul_2exp(shifted_b.value,shifted_b.value,
-                                 static_cast<mp_bitcnt_t>(sb));
-                    mpz_add(shifted_expected.value,shifted_a.value,
-                            shifted_b.value);
-                    check_against_gmp(BigUnsigned::add_shifted(
-                        a.limbs(),sa,b.limbs(),sb),shifted_expected.value);
-                    if (mpz_cmp(shifted_a.value,shifted_b.value)>=0) {
-                        mpz_sub(shifted_expected.value,shifted_a.value,
-                                shifted_b.value);
-                        check_against_gmp(BigUnsigned::sub_shifted(
-                            a.limbs(),sa,b.limbs(),sb),shifted_expected.value);
+                    std::ifstream& golden=a24_golden[a24_part(ordinal)];
+                    std::size_t ref_ordinal=0u,ref_width=0u;
+                    unsigned ref_case=0u,ref_sa=0u,ref_sb=0u;
+                    int ref_comparison=0;
+                    std::string sum_hex,difference_hex;
+                    if (!(golden >> ref_ordinal >> ref_width >> ref_case
+                          >> ref_sa >> ref_sb >> ref_comparison
+                          >> sum_hex >> difference_hex) ||
+                        ref_ordinal!=ordinal++ || ref_width!=width ||
+                        ref_case!=case_index || ref_sa!=sa || ref_sb!=sb ||
+                        ref_comparison < -1 || ref_comparison > 1)
+                        throw std::runtime_error(
+                            "Missing or unordered A24 shifted oracle row");
+                    check_against_precomputed_hex(
+                        BigUnsigned::add_shifted(
+                            a.limbs(),sa,b.limbs(),sb),sum_hex);
+                    if (ref_comparison>=0) {
+                        check_against_precomputed_hex(
+                            BigUnsigned::sub_shifted(
+                                a.limbs(),sa,b.limbs(),sb),difference_hex);
                     } else {
-                        mpz_sub(shifted_expected.value,shifted_b.value,
-                                shifted_a.value);
-                        check_against_gmp(BigUnsigned::sub_shifted(
-                            b.limbs(),sb,a.limbs(),sa),shifted_expected.value);
+                        check_against_precomputed_hex(
+                            BigUnsigned::sub_shifted(
+                                b.limbs(),sb,a.limbs(),sa),difference_hex);
                     }
-                    mpz_tdiv_q_2exp(shifted_a.value,shifted_a.value,
-                                   static_cast<mp_bitcnt_t>(sa));
-                    mpz_tdiv_q_2exp(shifted_b.value,shifted_b.value,
-                                   static_cast<mp_bitcnt_t>(sb));
                 }
             }
+            check_against_precomputed_hex(a,a_hex);
+            check_against_precomputed_hex(b,b_hex);
         }
+    }
+    if (source_ordinal!=264u || ordinal!=6600u)
+        throw std::runtime_error("Wrong A24 shifted oracle row count");
+    std::string a24_source_extra;
+    if (a24_sources >> a24_source_extra)
+        throw std::runtime_error("Extra A24 shifted source rows");
+    for (auto& golden:a24_golden) {
+        std::string extra;
+        if (golden >> extra)
+            throw std::runtime_error("Extra A24 shifted oracle rows");
     }
     // R38: shifted subtraction rejects a negative result.
     ARIADNE_TEST_ASSERT(([] {

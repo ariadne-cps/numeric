@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Reproduce A23/A24 test_views_and_scratch exact oracle fixtures.
 // Standalone C++20; no Numeric, GMP, Boost or external runtime.
-#include "oracle_exact_integer.hpp"
+#include <limits>\n#include "oracle_exact_integer.hpp"
 
 namespace {
 using independent_oracle::Nat;
@@ -56,6 +56,75 @@ std::array<std::string,5u> a23_buffer_arithmetic_fixtures() {
     }
     return out;
 }
+
+std::size_t a24_part(std::size_t ordinal) {
+    return ordinal<5775u ? ordinal/825u :
+        7u+(ordinal-5775u)/275u;
+}
+
+struct A24Fixtures {
+    std::string sources;
+    std::array<std::string,10u> expected;
+};
+
+A24Fixtures a24_shifted_fixtures() {
+    A24Fixtures result;
+    result.sources=
+        "# A24 R38 shifted-operation base sources.\n"
+        "# source_ordinal width case_index length_b a_hex b_hex\n";
+    for (std::size_t part=0u;part<result.expected.size();++part) {
+        const std::size_t first=part<7u ? part*825u :
+            5775u+(part-7u)*275u;
+        const std::size_t count=part<7u ? 825u : 275u;
+        result.expected[part]=
+            "# A24 R38 shifted-operation visits "+
+            std::to_string(first)+".."+
+            std::to_string(first+count-1u)+".\n"
+            "# ordinal width case_index sa sb comparison sum_hex difference_hex\n";
+    }
+    const auto max=std::numeric_limits<std::uint64_t>::max();
+    std::mt19937_64 engine(0xB38038ULL);
+    std::size_t source_ordinal=0u,ordinal=0u;
+    for (const std::size_t width:
+            {0u,1u,4u,16u,17u,31u,32u,33u,64u,65u,129u}) {
+        for (unsigned case_index=0u;case_index<24u;++case_index) {
+            const std::size_t length_b=case_index%5u==0u ? width :
+                case_index%5u==1u ? 0u :
+                case_index%5u==2u ? 1u :
+                case_index%5u==3u ? width/2u : width+1u;
+            std::vector<std::uint64_t> left(width),right(length_b);
+            for (auto& word:left) word=engine();
+            for (auto& word:right) word=engine();
+            if (case_index%7u==0u) {
+                std::fill(left.begin(),left.end(),max);
+                std::fill(right.begin(),right.end(),max);
+            }
+            const Nat a(left),b(right);
+            result.sources+=row({
+                std::to_string(source_ordinal++),std::to_string(width),
+                std::to_string(case_index),std::to_string(length_b),
+                a.hex(),b.hex()});
+            for (const unsigned sa:{0u,1u,7u,31u,63u}) {
+                for (const unsigned sb:{0u,1u,7u,31u,63u}) {
+                    const Nat shifted_a=a.shl(sa);
+                    const Nat shifted_b=b.shl(sb);
+                    const int comparison=shifted_a.compare(shifted_b);
+                    const Nat difference=comparison>=0 ?
+                        Nat::sub(shifted_a,shifted_b) :
+                        Nat::sub(shifted_b,shifted_a);
+                    result.expected[a24_part(ordinal)]+=row({
+                        std::to_string(ordinal++),std::to_string(width),
+                        std::to_string(case_index),std::to_string(sa),
+                        std::to_string(sb),std::to_string(comparison),
+                        Nat::add(shifted_a,shifted_b).hex(),difference.hex()});
+                }
+            }
+        }
+    }
+    if (source_ordinal!=264u || ordinal!=6600u)
+        throw std::runtime_error("wrong A24 shifted case count");
+    return result;
+}
 }
 
 int main(int argc,char** argv) {
@@ -67,6 +136,15 @@ int main(int argc,char** argv) {
             independent_oracle::output(
                 dir,"big_unsigned_a23_views_"+std::to_string(part)+".tsv",
                 a23[part],write);
+        }
+        const auto a24=a24_shifted_fixtures();
+        independent_oracle::output(
+            dir,"big_unsigned_a24_shifted_sources.tsv",
+            a24.sources,write);
+        for (std::size_t part=0u;part<a24.expected.size();++part) {
+            independent_oracle::output(
+                dir,"big_unsigned_a24_shifted_"+std::to_string(part)+".tsv",
+                a24.expected[part],write);
         }
         return 0;
     } catch (std::exception const& error) {

@@ -13,12 +13,12 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A23
+## Current state — A24
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
 | `test_division()` | 4,978 | 11,536 |
-| `test_views_and_scratch()` | 5,000 | 6,600 |
+| `test_views_and_scratch()` | 11,600 | 0 |
 | `test_multiply_kernel_paths()` | 0 | 11,432 |
 | `test_randomized()` | 10,000 | 0 |
 | `test_gcd_decimal()` | 3,793 | 0 |
@@ -26,16 +26,15 @@ progress reporting, barring a documented correction to the audit.
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **46,755** | **29,568** |
+| **Total** | **53,355** | **22,968** |
 
-Progress: **46,755 / 76,323 = 61.259%**.
+Progress: **53,355 / 76,323 = 69.907%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
 - `test_division()`: generalized random 6,000; B28, B36, B29, B45,
   normalization and remaining special division cases 5,536.
-- `test_views_and_scratch()`: 6,600 R38 shifted operation visits.
 - `test_multiply_kernel_paths()`: 11,432, comprising B52/B53,
   general kernels, B8 and Karatsuba.
 
@@ -57,6 +56,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A21 — structured decimal parsing | 484 | 40,246 |
 | A22 — decimal formatting | 1,509 | 41,755 |
 | A23 — scratch-buffer arithmetic | 5,000 | 46,755 |
+| A24 — R38 shifted add/sub | 6,600 | 53,355 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -274,3 +274,19 @@ dependency. A separately compiled C++20 multiprecision witness reproduced
 all five Git blobs exactly. No production code changes. The remaining
 `test_views_and_scratch()` inventory is exactly the 6,600 R38 shifted
 add/sub visits planned for A24.
+
+## A24 — R38 shifted add/sub (25 October 2026)
+
+Migrate the remaining 6,600 visits of `test_views_and_scratch()` to an
+independent source TSV plus ten expectation TSV segments. The 264 original
+base pairs preserve the exact `mt19937_64(0xB38038)` stream, generated
+widths and all-ones transformations. Every one of the 25 shift pairs per
+source is keyed by width, case index and both shifts, with independently
+computed sum, comparison direction and absolute difference.
+
+The standalone views generator uses only `Nat::shl`, add/sub and source
+serialization; a separate C++20 multiprecision witness reproduced all 11
+A24 blobs exactly. No production code changes. After A24,
+`test_views_and_scratch()` is fully migrated at 11,600/11,600 visits, so
+the fixed audit has only `test_division()` and
+`test_multiply_kernel_paths()` remaining.

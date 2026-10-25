@@ -136,7 +136,7 @@ review every diff before committing. No sampling is used.
 | `generator_big_unsigned_gcd.cpp` | `big_unsigned_r6.tsv`, `r8`, `r10`, `r11`, `r21`, all nine `r26_*`, `r27` | 5,561 source-and-GCD checks, including 3,240 R26 variants |
 | `generator_big_unsigned_b76.cpp` | all fourteen `big_unsigned_b76_gcd_decimal_*.tsv` | 2,800 source-keyed GCD/decimal cases |
 | `generator_big_unsigned_decimal.cpp` | `big_unsigned_a20_decimal_random.tsv`, `big_unsigned_a21_decimal_structured.tsv`, `big_unsigned_a22_decimal_format.tsv` | 1,800 randomized parsing + 484 structured parsing + 1,509 formatting cases |
-| `generator_big_unsigned_views.cpp` | five `big_unsigned_a23_views_*.tsv` files | 5,000 source-keyed scratch-buffer add/sub/truncated-product cases |
+| `generator_big_unsigned_views.cpp` | five `big_unsigned_a23_views_*.tsv`, `big_unsigned_a24_shifted_sources.tsv`, ten `big_unsigned_a24_shifted_*.tsv` | 5,000 scratch-buffer arithmetic + 6,600 source-keyed shifted add/sub cases |
 | `generator_exact_small.cpp` | `rational_r3.tsv`, `rational_r4.tsv`, `rational_r8.tsv`, `integer_power.tsv`, `big_unsigned_r14.tsv` | 6 + 54 + 16 + 100 + 28 = 204 exact cases |
 | `generator_big_unsigned_power_div.cpp` | `big_unsigned_power.tsv`, `big_unsigned_short_div.tsv` | 373 exact power cases, 324 exact division cases; full input RNG replay |
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
@@ -1055,3 +1055,30 @@ The five fixture blob SHAs are
 `d2cc565c0eadd9b8fe34fda785c072891bb40d81`. A separate C++20
 multiprecision witness reproduced all five files byte-for-byte. R38 shifted
 operations remain on their existing oracle for A24.
+
+### A24 — shifted add/sub oracle migration
+
+Migrate all 6,600 R38 shifted add/sub visits in
+`test_views_and_scratch()`. The 264 base source pairs are frozen once in
+`big_unsigned_a24_shifted_sources.tsv`; ten expectation files cover the
+25 shift-pair combinations per base pair. The first seven expectation files
+contain 825 rows each and the three 129-limb-heavy tail files contain 275
+rows each, avoiding duplication of the large base operands while preserving
+source keys `(width, case_index, sa, sb)` for every visit.
+
+The generator replays the exact `mt19937_64(0xB38038)` stream and all
+all-ones transformations, then computes shifted values, sums and absolute
+differences with standalone `Nat` arithmetic. A separate C++20
+multiprecision witness reproduced the source TSV and all ten expectation
+TSVs byte-for-byte. Source blob: `5fd306317e0dc7f71bae8af3b5d894d991101589`.
+Expectation blobs: `ed88323a46cd24ce210a77b2299fda63c7aaae08`,
+`e35de3e0fc8e5c1d499653a87c777be53a2cd398`,
+`0c760d3f73e91f0b8a56c26d2ad317cf4b38a947`,
+`b3ea7798c97b96eaf8c473b01c915b85756e2397`,
+`71f88fc348dab5a9869b0ffa7fe3ce4a56c27f74`,
+`b05c52c00db7e6fffbd16a630873f541292f9ac5`,
+`ad4f6c8420a9ce90ea72cec26a972b6e3904e561`,
+`ada36cb9605cf4f70b0026ad8ebbd58f89d93155`,
+`0d684e99ccad45c483eda803b8dab2e9be86ab99`, and
+`2fc3a3aa79ac055a4daf38f786664481d0525ed2`.
+After A24, `test_views_and_scratch()` contains no numerical GMP oracle.
