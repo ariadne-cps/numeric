@@ -13,30 +13,30 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A25
+## Current state — A26
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
 | `test_division()` | 4,978 | 11,536 |
 | `test_views_and_scratch()` | 11,600 | 0 |
-| `test_multiply_kernel_paths()` | 288 | 11,144 |
+| `test_multiply_kernel_paths()` | 2,592 | 8,840 |
 | `test_randomized()` | 10,000 | 0 |
 | `test_gcd_decimal()` | 3,793 | 0 |
 | `test_division_limb()` | 12,944 | 0 |
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **53,643** | **22,680** |
+| **Total** | **55,947** | **20,376** |
 
-Progress: **53,643 / 76,323 = 70.284%**.
+Progress: **55,947 / 76,323 = 73.303%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
 - `test_division()`: generalized random 6,000; B28, B36, B29, B45,
   normalization and remaining special division cases 5,536.
-- `test_multiply_kernel_paths()`: 11,144, comprising B53,
-  general kernels, B8 and Karatsuba.
+- `test_multiply_kernel_paths()`: 8,840, comprising general kernels,
+  B8 and Karatsuba.
 
 ## Commit milestones
 
@@ -58,6 +58,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A23 — scratch-buffer arithmetic | 5,000 | 46,755 |
 | A24 — R38 shifted add/sub | 6,600 | 53,355 |
 | A25 — B52 multiply-kernel | 288 | 53,643 |
+| A26 — B53 sparse-row multiply | 2,304 | 55,947 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -307,3 +308,16 @@ product. The fixture has 288 rows, 774,359 bytes and Git blob
 fixture changes. Remaining `test_multiply_kernel_paths()` inventory is
 2,304 B53 visits, 6,000 general-kernel visits, 2,800 B8 cutoff visits and
 40 fixed Karatsuba cutoff visits, for 11,144 total.
+
+## A26 — B53 sparse-row multiply oracle (25 October 2026)
+
+Migrate all 2,304 B53 truncation visits to a 384-row source-keyed fixture,
+with six expected low products per original source pair. Preserve all 16
+width pairs, 24 modes, exact seeded draws, zero-row density transforms,
+selected/fused/x86 carry agreement and original truncation lengths.
+
+The standalone multiplication generator uses independent shift/add arithmetic;
+`big_unsigned_a26_b53.tsv` is 2,112,618 bytes with Git blob
+`a22d13dc7e098789870a45cd38625a0f00078ebd`. No production changes.
+Remaining `test_multiply_kernel_paths()` inventory is 6,000 general-kernel
+visits, 2,800 B8 cutoff visits and 40 fixed Karatsuba visits = 8,840.

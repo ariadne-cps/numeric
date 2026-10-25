@@ -1447,6 +1447,11 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     // 63/64/65 adaptive-density thresholds, unbalanced rows and
     // truncated/oversized outputs. Raw views include noncanonical
     // zero-high limbs, so skipping must not depend on normalization.
+    std::ifstream a26_b53(
+        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_a26_b53.tsv");
+    if (!a26_b53) throw std::runtime_error("Missing A26 B53 TSV");
+    std::string a26_b53_header;
+    while (a26_b53.peek()=='#') std::getline(a26_b53,a26_b53_header);
     std::mt19937_64 b53_engine(0xB530B040ULL);
     for (const auto& [n,m]:
             {std::pair<std::size_t,std::size_t>{1u,1u},
@@ -1491,15 +1496,26 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                 break;
             default: break;
             }
-            mpz_import(a.value,n,-1,sizeof(std::uint64_t),
-                       0,0,left.data());
-            mpz_import(b.value,m,-1,sizeof(std::uint64_t),
-                       0,0,right.data());
-            mpz_mul(expected.value,a.value,b.value);
-
+            const BigUnsigned lhs(left),rhs(right);
+            std::size_t ref_n=0u,ref_m=0u;
+            unsigned ref_mode=0u;
+            std::string lhs_hex,rhs_hex;
+            if (!(a26_b53 >> ref_n >> ref_m >> ref_mode
+                  >> lhs_hex >> rhs_hex) ||
+                ref_n!=n || ref_m!=m || ref_mode!=mode)
+                throw std::runtime_error(
+                    "Missing or unordered A26 B53 TSV row");
+            check_against_precomputed_hex(lhs,lhs_hex);
+            check_against_precomputed_hex(rhs,rhs_hex);
             for (const std::size_t length:
                     {std::size_t{0u},std::size_t{1u},
                      (n+m)/2u,n+m-1u,n+m,n+m+2u}) {
+                std::size_t ref_length=0u;
+                std::string low_hex;
+                if (!(a26_b53 >> ref_length >> low_hex) ||
+                    ref_length!=length)
+                    throw std::runtime_error(
+                        "Wrong A26 B53 low-product length");
                 std::vector<std::uint64_t> selected(length,max);
                 std::vector<std::uint64_t> fused(length,max);
                 std::vector<std::uint64_t> carry(length,max);
@@ -1509,13 +1525,14 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                     left,right,carry);
                 ARIADNE_TEST_ASSERT(selected==fused);
                 ARIADNE_TEST_ASSERT(selected==carry);
-                mpz_fdiv_r_2exp(
-                    rounded.value,expected.value,
-                    static_cast<mp_bitcnt_t>(64u*length));
-                check_against_gmp(BigUnsigned(selected),rounded.value);
+                check_against_precomputed_hex(
+                    BigUnsigned(selected),low_hex);
             }
         }
     }
+    std::string a26_b53_extra;
+    if (a26_b53 >> a26_b53_extra)
+        throw std::runtime_error("Extra A26 B53 TSV rows");
 
     // Multiple writes reuse the same result space; both implementations
     // must overwrite all digits, including untouched high destinations.
