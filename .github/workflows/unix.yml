@@ -50,13 +50,13 @@ jobs:
 
       - name: Set up macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install ninja gmp mpfr pkg-config
+        run: brew install ninja gmp pkg-config
 
       - name: Set up Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build pkg-config ${{ matrix.config.pkg }} libgmp-dev libmpfr-dev
+          sudo apt-get install -y cmake ninja-build pkg-config ${{ matrix.config.pkg }} libgmp-dev
 
       - name: Configure CMake
         run: |

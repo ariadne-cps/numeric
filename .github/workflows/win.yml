@@ -52,10 +52,10 @@ jobs:
         restore-keys: |
           vcpkg-windows-release-${{ env.VCPKG_REV }}-
 
-    - name: Install GMP and MPFR with vcpkg
+    - name: Install GMP with vcpkg
       shell: pwsh
       run: |
-        & C:/vcpkg/vcpkg.exe install gmp:x64-windows-release mpfr:x64-windows-release --host-triplet=x64-windows-release --overlay-triplets="$env:GITHUB_WORKSPACE/cmake/triplets"
+        & C:/vcpkg/vcpkg.exe install gmp:x64-windows-release --host-triplet=x64-windows-release --overlay-triplets="$env:GITHUB_WORKSPACE/cmake/triplets"
 
     - name: Save vcpkg binary cache
       if: steps.vcpkg-cache.outputs.cache-hit != 'true'

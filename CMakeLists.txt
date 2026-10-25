@@ -27,7 +27,6 @@ setup_project()
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 find_package(GMP REQUIRED)
-find_package(MPFR REQUIRED)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
@@ -41,7 +40,6 @@ target_include_directories(numeric INTERFACE
 target_link_libraries(numeric INTERFACE
     foundation
     GMP::GMP
-    MPFR::MPFR
 )
 if(WIN32)
     target_compile_definitions(numeric INTERFACE ARIADNE_NUMERIC_STATIC)
