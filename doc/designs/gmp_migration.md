@@ -11,22 +11,22 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A11
+## Current state — A12
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
 | `test_division()` | 4,978 | 11,536 |
 | `test_views_and_scratch()` | 0 | 11,600 |
 | `test_multiply_kernel_paths()` | 0 | 11,432 |
-| `test_randomized()` | 0 | 10,000 |
+| `test_randomized()` | 1,250 | 8,750 |
 | `test_gcd_decimal()` | 0 | 3,793 |
 | `test_division_limb()` | 12,944 | 0 |
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **27,962** | **48,361** |
+| **Total** | **29,212** | **47,111** |
 
-Progress: **27,962 / 76,323 = 36.635%**.
+Progress: **29,212 / 76,323 = 38.274%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
@@ -37,7 +37,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
   R38 shifted operation visits.
 - `test_multiply_kernel_paths()`: 11,432, comprising B52/B53,
   general kernels, B8 and Karatsuba.
-- `test_randomized()`: 10,000 seeded arithmetic/shift visits.
+- `test_randomized()`: 8,750 seeded arithmetic/shift visits.
 - `test_gcd_decimal()`: 2,284 decimal parsing visits and 1,509
   decimal formatting visits.
 
@@ -47,6 +47,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | --- | ---: | ---: |
 | A1–A10 | 27,626 | 27,626 |
 | A11 — multiprecision B48 | 336 | 27,962 |
+| A12 — randomized arithmetic, first segment | 1,250 | 29,212 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three
 original modes, all PRNG draws, and separately validates exact
@@ -65,3 +66,17 @@ migrated/remaining numbers, percentage using the 76,323 baseline,
 method-level remaining cases, and observed CI status separately from
 fixture checks. Do not count multiple assertions on a single input as
 multiple visits or infer `verify-data` success from ordinary CI.
+
+## A12 implementation
+
+A12 replaces GMP only for the first 1,250 seeded visits of
+`test_randomized()`, using `big_unsigned_a12_randomized_first.tsv`.
+The remaining 8,750 cases deliberately retain GMP. All 10,000 visits
+continue to use the same single MT19937_64 engine and consume the same
+shift draw each time; comparison, addition, conditional subtraction,
+and both shifts have exact independent expectations. The C++20
+standalone generator uses independent Nat arithmetic and the exact
+fixture was cross-checked using a separately compiled GCC/Clang
+random-input witness plus Python arbitrary-precision arithmetic.
+The fixture is 1,202,560 bytes, Git blob
+`487f06f3921d72d2de9caee06bf9c23957ee6012`.

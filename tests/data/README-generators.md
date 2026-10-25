@@ -943,3 +943,12 @@ exact results, checking the Euclidean identity. Git blob
 `11042c7f930f66082d8a89d6670376c03786938d` (305,944 bytes).
 The GMP oracle for B28 and other division groups remains unchanged.
 The audit is maintained separately at `doc/designs/gmp_migration.md`.
+
+### A12 — first 1,250 randomized BigUnsigned GMP-oracle visits
+
+Use an independent source-keyed TSV for visits 0..1249 in
+`test_randomized()`, retaining GMP for visits 1250..9999. The
+original seeded random stream is shared across both branches.
+Exact comparison, addition, conditional subtraction and both shifts
+are verified; fixture blob `487f06f3921d72d2de9caee06bf9c23957ee6012`.
+Progress tracked in `doc/designs/gmp_migration.md`.

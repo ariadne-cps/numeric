@@ -69,6 +69,7 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_B55_LARGE_PATH[] = ARIADNE_TEST_DATA_
 inline constexpr char ARIADNE_BIG_UNSIGNED_B27_FIRST_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b27_first.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B27_SECOND_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b27_second.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B48_MULTIPRECISION_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b48_multiprecision.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_A12_FIRST_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a12_randomized_first.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -3772,6 +3773,10 @@ void TestBigUnsigned::test_randomized()
     // mp_bitcnt_t (notably with 64-bit size_t on Windows/MSVC).
     static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 1029u);
 
+    std::ifstream a12_golden(ARIADNE_BIG_UNSIGNED_A12_FIRST_PATH);
+    if (!a12_golden) throw std::runtime_error("Missing A12 randomized TSV");
+    std::string a12_header;
+    while (a12_golden.peek()=='#') std::getline(a12_golden,a12_header);
     for (unsigned repetition=0; repetition<10000u; ++repetition) {
         const std::size_t n = engine()%20u;
         const std::size_t m = engine()%20u;
@@ -3782,6 +3787,33 @@ void TestBigUnsigned::test_randomized()
         if (repetition%11u == 0u) nb.fill(0u);
         const BigUnsigned x(std::span(na.data(),n));
         const BigUnsigned y(std::span(nb.data(),m));
+        const std::size_t bits=engine()%1030u;
+        if (repetition<1250u) {
+            unsigned ref_rep=0u;
+            std::size_t ref_n=0u,ref_m=0u,ref_bits=0u;
+            int ref_cmp=0;
+            std::string xhex,yhex,sumhex,diffhex,lhex,rhex;
+            if (!(a12_golden >> ref_rep >> ref_n >> ref_m >> ref_bits
+                >> xhex >> yhex >> ref_cmp >> sumhex >> diffhex
+                >> lhex >> rhex) ||
+                ref_rep!=repetition || ref_n!=n || ref_m!=m ||
+                ref_bits!=bits || ref_cmp < -1 || ref_cmp > 1)
+                throw std::runtime_error("Missing or unordered A12 randomized row");
+            check_against_precomputed_hex(x,xhex);
+            check_against_precomputed_hex(y,yhex);
+            ARIADNE_TEST_ASSERT(compare(x,y)==ref_cmp);
+            check_against_precomputed_hex(add(x,y),sumhex);
+            if (ref_cmp>=0) {
+                if (diffhex=="-")
+                    throw std::runtime_error("Missing A12 subtraction oracle");
+                check_against_precomputed_hex(sub(x,y),diffhex);
+            } else if (diffhex!="-")
+                throw std::runtime_error("Unexpected A12 subtraction oracle");
+            check_against_precomputed_hex(shift_left(x,bits),lhex);
+            check_against_precomputed_hex(shift_right(x,bits),rhex);
+            check_against_precomputed_hex(x,xhex);
+            check_against_precomputed_hex(y,yhex);
+        } else {
         mpz_import(a.value,n,-1,8,0,0,na.data());
         mpz_import(b.value,m,-1,8,0,0,nb.data());
         ARIADNE_TEST_ASSERT(compare(x,y)==mpz_cmp(a.value,b.value) ||
@@ -3793,7 +3825,8 @@ void TestBigUnsigned::test_randomized()
             mpz_sub(c.value,a.value,b.value);
             check_against_gmp(sub(x,y),c.value);
         }
-        const std::size_t bits = engine()%1030u;
+        // The original shift draw is shared with the TSV branch.
+
         const auto gmp_bits = static_cast<mp_bitcnt_t>(bits);
 
         mpz_mul_2exp(c.value,a.value,gmp_bits);
@@ -3801,7 +3834,11 @@ void TestBigUnsigned::test_randomized()
 
         mpz_fdiv_q_2exp(c.value,a.value,gmp_bits);
         check_against_gmp(shift_right(x,bits),c.value);
+        }
     }
+    std::string a12_extra;
+    if (a12_golden >> a12_extra)
+        throw std::runtime_error("Extra A12 randomized TSV rows");
 }
 
 } // namespace
