@@ -2,7 +2,7 @@
 # kind ordinal divisor_hex low_hex high_hex numerator_hex quotient_hex remainder_hex
 # E: original 8*4*6 edge cases; B: original mt19937_64(0xB260D1B1) visits.
 # All original conditional PRNG draws and 128/64 preconditions retained.
-# Independent aligned-subtraction integer long division, no GMP/MPFR/Boost/Numeric.
+# Independent aligned-subtraction integer long division, no GMP/independent exact arithmetic/Boost/Numeric.
 E	0	1	0	0	0	0	0
 E	1	1	1	0	1	1	0
 E	2	1	ffffffff	0	ffffffff	ffffffff	0

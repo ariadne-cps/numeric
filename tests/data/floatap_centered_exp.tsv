@@ -8,7 +8,7 @@
 # Four outward-rounded squarings enclose exp(abs(x)); reciprocal bounds for x<0.
 # Both rational interval endpoints must round identically in the indicated mode.
 # N: nearest even; D: downward; U: upward; Z: toward zero.
-# No GMP, MPFR, FloatAP, FloatMP or floating-point exponential oracle used.
+# No GMP, independent exact arithmetic, FloatAP, independent exact arithmetic or floating-point exponential oracle used.
 53	N	-1	2	2731571253070597	4503599627370496
 53	D	-1	2	5463142506141193	9007199254740992
 53	U	-1	2	2731571253070597	4503599627370496

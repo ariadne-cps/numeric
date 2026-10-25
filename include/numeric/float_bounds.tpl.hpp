@@ -138,7 +138,7 @@ template<class F> auto Operations<Bounds<F>>::_cast_integer(Bounds<F> const& x) 
 template<class F> auto Operations<Bounds<F>>::_write(OutputStream& os, Bounds<F> const& x) -> OutputStream& {
     // Display using a number of fractional places so that the larger number in absolute value is displayed to the given precision.
     F amax=max(-x._l,x._u);
-    // Match the existing FloatDP/FloatMP zero-interval stream contract.
+    // Match the existing FloatDP/independent exact arithmetic zero-interval stream contract.
     if(amax==0) { return os << "0.0[:]"; }
 
     Int zdgts=abslog10floor(amax.get_d())+1;

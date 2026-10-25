@@ -1,7 +1,7 @@
 # A11 B48 multiprecision division, 336 original visits.
 # count divisor_decimal mode numerator_hex quotient_hex remainder_hex
 # mt19937_64(0xB48A11D1), all original random draws and transforms.
-# Independent Euclidean arithmetic, no GMP/MPFR/Numeric/Boost.
+# Independent Euclidean arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.
 2	1	0	ffffffffffffffffffffffffffffffff	ffffffffffffffffffffffffffffffff	0
 2	1	1	10000000000000000	10000000000000000	0
 2	1	2	8798ea012d1531cd2e0b1ce730d46b0f	8798ea012d1531cd2e0b1ce730d46b0f	0
