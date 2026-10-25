@@ -972,3 +972,15 @@ input, shift and expected arithmetic. The generator replays the full
 original source stream. Fixture Git SHA
 `bdb0b5f9235005b2bc31d18a7e3b21c2af474abe`, 1,250 rows.
 Migration inventory: `doc/designs/gmp_migration.md`.
+
+### A15 — fourth 1,250 randomized arithmetic oracle visits
+
+Migrate original visits 3,750–4,999 to independent
+`big_unsigned_a15_randomized_fourth.tsv`, retaining the single original
+random engine and all source/input/shift transformations. GMP remains only
+for visits 5,000–9,999 in `test_randomized()`. The fixture has 1,250 rows,
+1,216,271 bytes and Git blob
+`e23f97770356c28d0b76aef3c7d9d5c7dee8a0c5`.
+The independent Python arbitrary-precision witness reproduces the preceding
+A14 blob byte-for-byte before generating A15. Migration inventory:
+`doc/designs/gmp_migration.md`.

@@ -11,22 +11,22 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A14
+## Current state — A15
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
 | `test_division()` | 4,978 | 11,536 |
 | `test_views_and_scratch()` | 0 | 11,600 |
 | `test_multiply_kernel_paths()` | 0 | 11,432 |
-| `test_randomized()` | 3,750 | 6,250 |
+| `test_randomized()` | 5,000 | 5,000 |
 | `test_gcd_decimal()` | 0 | 3,793 |
 | `test_division_limb()` | 12,944 | 0 |
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **31,712** | **44,611** |
+| **Total** | **32,962** | **43,361** |
 
-Progress: **31,712 / 76,323 = 41.550%**.
+Progress: **32,962 / 76,323 = 43.188%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
@@ -37,7 +37,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
   R38 shifted operation visits.
 - `test_multiply_kernel_paths()`: 11,432, comprising B52/B53,
   general kernels, B8 and Karatsuba.
-- `test_randomized()`: 6,250 seeded arithmetic/shift visits.
+- `test_randomized()`: 5,000 seeded arithmetic/shift visits.
 - `test_gcd_decimal()`: 2,284 decimal parsing visits and 1,509
   decimal formatting visits.
 
@@ -50,6 +50,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A12 — randomized arithmetic, first segment | 1,250 | 29,212 |
 | A13 — randomized arithmetic, second segment | 1,250 | 30,462 |
 | A14 — randomized arithmetic, third segment | 1,250 | 31,712 |
+| A15 — randomized arithmetic, fourth segment | 1,250 | 32,962 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three
 original modes, all PRNG draws, and separately validates exact
@@ -113,3 +114,19 @@ preceding visits and records results computed using independent Nat
 arithmetic. The independently computed fixture has 1,250 records,
 1,191,197 bytes and Git blob
 `bdb0b5f9235005b2bc31d18a7e3b21c2af474abe`.
+
+## A15 — randomized visits 3,750–4,999 (25 October 2026)
+
+Migrate 1,250 additional visits with
+`big_unsigned_a15_randomized_fourth.tsv`. The consumer still executes the
+single original `mt19937_64(0xBA17B00D)` stream for all 10,000 visits and
+retains comparison, addition, conditional subtraction and both shifts.
+GMP remains the numerical oracle only for visits 5,000–9,999.
+
+The standalone C++20 generator replays visits 0–3,749 before emitting A15.
+A separate Python arbitrary-precision implementation reproduces the complete
+A14 fixture exactly, including Git blob
+`bdb0b5f9235005b2bc31d18a7e3b21c2af474abe`, then independently computes
+A15. The A15 fixture has 1,250 records, 1,216,271 bytes and Git blob
+`e23f97770356c28d0b76aef3c7d9d5c7dee8a0c5`. No production code or prior
+fixture is changed. Generator-wide `verify-data` is not implied by normal CI.
