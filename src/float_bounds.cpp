@@ -64,6 +64,7 @@ template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(Bounds<FloatDP> const
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(FloatDP const&, Bounds<FloatDP> const&);
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(Bounds<FloatDP> const&, FloatDP const&);
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(FloatDP const&, Bounds<FloatDP> const&);
+template OutputStream& Operations<Bounds<FloatDP>>::_write(OutputStream&,Bounds<FloatDP> const&);
 template InputStream& Operations<Bounds<FloatDP>>::_read(InputStream&, Bounds<FloatDP>&);
 template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_sin(Bounds<FloatAP> const&);
 template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_cos(Bounds<FloatAP> const&);
