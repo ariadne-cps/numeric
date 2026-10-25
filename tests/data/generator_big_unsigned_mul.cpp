@@ -307,6 +307,45 @@ std::string a26_b53() {
     return out;
 }
 
+
+std::array<std::string,6u> a27_general_multiply() {
+    std::array<std::string,6u> out;
+    for (std::size_t part=0u;part<out.size();++part) {
+        out[part]=
+            "# A27 general multiply-kernel oracle part "+std::to_string(part)+
+            ": visits "+std::to_string(part*1000u)+".."+
+            std::to_string(part*1000u+999u)+".\n"
+            "# repetition n m low lhs_hex rhs_hex product_hex low_product_hex\n"
+            "# Exact mt19937_64(0xB3B3B3) stream and conditional low-length draws preserved.\n"
+            "# No Numeric/GMP/Boost dependency.\n";
+    }
+    std::mt19937_64 rng(0xB3B3B3ULL);
+    for (unsigned repetition=0u;repetition<6000u;++repetition) {
+        const std::size_t n=rng()%38u;
+        const std::size_t m=rng()%38u;
+        std::array<std::uint64_t,38u> da{},db{};
+        for (std::size_t i=0u;i<n;++i) da[i]=rng();
+        for (std::size_t i=0u;i<m;++i) db[i]=rng();
+        if (repetition%7u==0u) std::fill_n(da.begin(),n,UINT64_MAX);
+        if (repetition%11u==0u) std::fill_n(db.begin(),m,UINT64_MAX);
+        if (repetition%13u==0u) std::fill_n(da.begin(),n,0u);
+        if (repetition%17u==0u) std::fill_n(db.begin(),m,0u);
+        const Nat lhs(Words(da.begin(),da.begin()+n));
+        const Nat rhs(Words(db.begin(),db.begin()+m));
+        const Nat product=multiply(lhs,rhs);
+        const std::size_t low=repetition%5u==0u ? 0u :
+            repetition%5u==1u ? 1u :
+            repetition%5u==2u ? 4u :
+            repetition%5u==3u ? 5u :
+            static_cast<std::size_t>(rng()%80u);
+        out[repetition/1000u]+=row({
+            std::to_string(repetition),std::to_string(n),std::to_string(m),
+            std::to_string(low),lhs.hex(),rhs.hex(),product.hex(),
+            low_product(product,low).hex()});
+    }
+    return out;
+}
+
 // A1: preserve every original 9*32*3*2 seeded product-accumulation visit.
 // Expected values use exact signed arithmetic modulo the entire destination
 // width, not any BigUnsigned accumulation or multiplication implementation.
@@ -378,6 +417,11 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_b32.tsv",b32(),write);
         independent_oracle::output(dir,"big_unsigned_a25_b52.tsv",a25_b52(),write);
         independent_oracle::output(dir,"big_unsigned_a26_b53.tsv",a26_b53(),write);
+        const auto a27=a27_general_multiply();
+        for (std::size_t part=0u;part<a27.size();++part)
+            independent_oracle::output(
+                dir,"big_unsigned_a27_general_"+std::to_string(part)+".tsv",
+                a27[part],write);
         independent_oracle::output(dir,"big_unsigned_accumulation.tsv",accumulation(),write);
         return 0;
     } catch(std::exception const& ex) {

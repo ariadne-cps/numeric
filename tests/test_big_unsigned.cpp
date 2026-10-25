@@ -1534,6 +1534,19 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     if (a26_b53 >> a26_b53_extra)
         throw std::runtime_error("Extra A26 B53 TSV rows");
 
+    // A27: preserve all 6,000 original general-kernel visits using six
+    // sequential source-keyed TSV segments, while keeping one RNG stream.
+    std::array<std::ifstream,6u> a27_general;
+    for (std::size_t part=0u;part<a27_general.size();++part) {
+        const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
+            "/big_unsigned_a27_general_"+std::to_string(part)+".tsv";
+        a27_general[part].open(path);
+        if (!a27_general[part])
+            throw std::runtime_error("Missing A27 general multiply TSV: "+path);
+        std::string header;
+        while (a27_general[part].peek()=='#')
+            std::getline(a27_general[part],header);
+    }
     // Multiple writes reuse the same result space; both implementations
     // must overwrite all digits, including untouched high destinations.
     for (unsigned repetition=0u; repetition<6000u; ++repetition) {
@@ -1548,14 +1561,26 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         if (repetition%17u==0u) std::fill_n(db.begin(),m,0u);
         const BigUnsigned lhs(std::span(da.data(),n));
         const BigUnsigned rhs(std::span(db.data(),m));
-        mpz_import(a.value,n,-1,8,0,0,da.data());
-        mpz_import(b.value,m,-1,8,0,0,db.data());
-        mpz_mul(expected.value,a.value,b.value);
+        const std::size_t low = repetition%5u==0u ? 0u :
+            repetition%5u==1u ? 1u : repetition%5u==2u ? 4u :
+            repetition%5u==3u ? 5u : engine()%80u;
+        std::ifstream& golden=a27_general[repetition/1000u];
+        unsigned ref_repetition=0u;
+        std::size_t ref_n=0u,ref_m=0u,ref_low=0u;
+        std::string lhs_hex,rhs_hex,product_hex,low_hex;
+        if (!(golden >> ref_repetition >> ref_n >> ref_m >> ref_low
+              >> lhs_hex >> rhs_hex >> product_hex >> low_hex) ||
+            ref_repetition!=repetition || ref_n!=n || ref_m!=m ||
+            ref_low!=low)
+            throw std::runtime_error(
+                "Missing or unordered A27 general multiply TSV row");
+        check_against_precomputed_hex(lhs,lhs_hex);
+        check_against_precomputed_hex(rhs,rhs_hex);
 
         const std::size_t length = lhs.size()+rhs.size()+2u;
         auto selected = scratch.acquire(length);
         BigUnsigned::mul_into(lhs.limbs(),rhs.limbs(),selected);
-        check_against_gmp(BigUnsigned(selected),expected.value);
+        check_against_precomputed_hex(BigUnsigned(selected),product_hex);
         const auto selected_copy = std::vector<std::uint64_t>(
             selected.begin(),selected.end());
 
@@ -1563,7 +1588,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         BigUnsigned::mul_into_portable(lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),expected.value);
+        check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
         // The experimental Comba kernel must match the B3 portable
         // reference word-for-word, also for oversized full destinations.
@@ -1571,19 +1596,19 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         BigUnsigned::mul_into_comba(lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),expected.value);
+        check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
         selected = scratch.acquire(length);
         BigUnsigned::mul_into_fused(lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),expected.value);
+        check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
         selected = scratch.acquire(length);
         BigUnsigned::mul_into_arm64_carry(lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),expected.value);
+        check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
         // The explicit x86-64 carry-chain uses the same GMP oracle,
         // including all-ones, empty, asymmetric and reused output cases.
@@ -1592,7 +1617,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),expected.value);
+        check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
         // Explicit B3 schoolbook remains available even if the
         // selected kernel changes on GCC x86-64.
@@ -1600,7 +1625,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         BigUnsigned::mul_into_schoolbook(lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),expected.value);
+        check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
         const auto needed=BigUnsigned::karatsuba_scratch_limbs(
             lhs.size(),rhs.size());
@@ -1610,18 +1635,13 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             lhs.limbs(),rhs.limbs(),selected,work);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),expected.value);
+        check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
-        const std::size_t low = repetition%5u==0u ? 0u :
-            repetition%5u==1u ? 1u : repetition%5u==2u ? 4u :
-            repetition%5u==3u ? 5u : engine()%80u;
         selected = scratch.acquire(low);
         BigUnsigned::mul_low_into(lhs.limbs(),rhs.limbs(),selected);
         const auto low_copy = std::vector<std::uint64_t>(
             selected.begin(),selected.end());
-        mpz_fdiv_r_2exp(rounded.value,expected.value,
-                        static_cast<mp_bitcnt_t>(64u*low));
-        check_against_gmp(BigUnsigned(selected),rounded.value);
+        check_against_precomputed_hex(BigUnsigned(selected),low_hex);
         selected = scratch.acquire(low);
         BigUnsigned::mul_low_into_portable(
             lhs.limbs(),rhs.limbs(),selected);
@@ -1632,34 +1652,40 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         BigUnsigned::mul_low_into_comba(lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),rounded.value);
+        check_against_precomputed_hex(BigUnsigned(selected),low_hex);
 
         selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_fused(lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),rounded.value);
+        check_against_precomputed_hex(BigUnsigned(selected),low_hex);
 
         selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_arm64_carry(
             lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),rounded.value);
+        check_against_precomputed_hex(BigUnsigned(selected),low_hex);
 
         selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_x86_64_carry(
             lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),rounded.value);
+        check_against_precomputed_hex(BigUnsigned(selected),low_hex);
 
         selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_schoolbook(
             lhs.limbs(),rhs.limbs(),selected);
         ARIADNE_TEST_ASSERT(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
-        check_against_gmp(BigUnsigned(selected),rounded.value);
+        check_against_precomputed_hex(BigUnsigned(selected),low_hex);
+    }
+
+    for (std::size_t part=0u;part<a27_general.size();++part) {
+        std::string extra;
+        if (a27_general[part] >> extra)
+            throw std::runtime_error("Extra A27 general multiply TSV rows");
     }
 
     const std::array<std::uint64_t,1> one{1u};

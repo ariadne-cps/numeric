@@ -13,30 +13,29 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A26
+## Current state — A27
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
 | `test_division()` | 4,978 | 11,536 |
 | `test_views_and_scratch()` | 11,600 | 0 |
-| `test_multiply_kernel_paths()` | 2,592 | 8,840 |
+| `test_multiply_kernel_paths()` | 8,592 | 2,840 |
 | `test_randomized()` | 10,000 | 0 |
 | `test_gcd_decimal()` | 3,793 | 0 |
 | `test_division_limb()` | 12,944 | 0 |
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **55,947** | **20,376** |
+| **Total** | **61,947** | **14,376** |
 
-Progress: **55,947 / 76,323 = 73.303%**.
+Progress: **61,947 / 76,323 = 81.164%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
 - `test_division()`: generalized random 6,000; B28, B36, B29, B45,
   normalization and remaining special division cases 5,536.
-- `test_multiply_kernel_paths()`: 8,840, comprising general kernels,
-  B8 and Karatsuba.
+- `test_multiply_kernel_paths()`: 2,840, comprising B8 and Karatsuba.
 
 ## Commit milestones
 
@@ -59,6 +58,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A24 — R38 shifted add/sub | 6,600 | 53,355 |
 | A25 — B52 multiply-kernel | 288 | 53,643 |
 | A26 — B53 sparse-row multiply | 2,304 | 55,947 |
+| A27 — general multiply kernels | 6,000 | 61,947 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -321,3 +321,17 @@ The standalone multiplication generator uses independent shift/add arithmetic;
 `a22d13dc7e098789870a45cd38625a0f00078ebd`. No production changes.
 Remaining `test_multiply_kernel_paths()` inventory is 6,000 general-kernel
 visits, 2,800 B8 cutoff visits and 40 fixed Karatsuba visits = 8,840.
+
+## A27 — general multiply kernels (25 October 2026)
+
+Migrate all 6,000 original general multiply-kernel visits to six sequential
+1,000-row source-keyed TSVs. Preserve the single `mt19937_64(0xB3B3B3)`
+stream, operand widths, every source transformation and the conditional
+low-product-length draw. The test retains selected, portable, Comba, fused,
+ARM64 carry, x86 carry, schoolbook and Karatsuba agreement checks; only the
+full and truncated numerical oracle moves from GMP to the fixtures.
+
+The standalone multiplication generator computes exact products using
+independent shift/add `Nat` arithmetic. No production code changes.
+Remaining `test_multiply_kernel_paths()` inventory is 2,800 B8 cutoff
+visits and 40 fixed Karatsuba cutoff visits = 2,840.
