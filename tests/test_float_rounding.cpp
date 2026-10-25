@@ -3023,7 +3023,7 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
             const Rational window(Integer(1),pow(Integer(2),Nat(43u)));
             for (auto const& [key,expected]:golden) {
                 if (key.bits!=53u || (key.mode=='N' && !check_nearest)) continue;
-                const FloatDP input(ExactDouble(key.input.get_d()),dp);
+                const FloatDP input(key.input,FloatDP::ROUND_TO_NEAREST,dp);
                 if (abs(abs(static_cast<Rational>(input))-Rational(1,2))>window) continue;
                 const auto check=[&](auto mode) {
                     const auto old=FloatDP::get_rounding_mode();
