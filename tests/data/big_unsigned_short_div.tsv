@@ -4,7 +4,7 @@
 # Original source words and all mode%6 transformations are preserved.
 # Canonical lowercase hexadecimal, zero is 0, division-by-zero results are - -.
 # Expected values certified by native arbitrary-precision integer quotient/remainder,
-# and checked with a=b*q+r and 0<=r<b. No GMP, MPFR, FloatAP, BigUnsigned oracle.
+# and checked with a=b*q+r and 0<=r<b. No GMP, independent exact arithmetic, FloatAP, BigUnsigned oracle.
 0	0	0	0	0	-	-
 0	0	1	0	0	-	-
 0	0	2	0	0	-	-
