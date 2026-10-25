@@ -27,7 +27,7 @@ contract before adapting the rest of Ariadne.
 4. Target C++20, GCC, Clang/AppleClang and MSVC with warnings-as-errors. Do not require `__int128`,
 GCC-only intrinsics, or platform GMP limb layout. Accelerated code can be optional with portable
 fallback.
-5. Also report absolute times. These are objectives, **not** established guarantees.
+5. Track absolute timings and same-implementation revision speedups; these are objectives, **not** established guarantees.
 6. Benchmark future native `Integer` against GMP `mpz_t`, and native `Rational` against GMP `mpq_t`
 (not `mpz_t`, which cannot represent a general rational). Correctness checks are mandatory outside
 timing regions.

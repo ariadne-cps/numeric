@@ -148,10 +148,10 @@ function-specific internal namespaces.
 expensive GMP rational intermediates. The first exception is the new fixed-point `log_series`.
 Extreme exponents, range conventions, correctness of directed conversions and hard-to-round behavior
 need continued verification.
-- The dual-backend comparison is already running. Timings supplied on 16 October 2026 show
-approximately **5x** slower basic additions at 53 bits and **352x / 1,488x / 8,987x** slower `log`
-at 53 / 128 / 256 bits **before** the fixed-point change. These are baseline measurements, not a
-measured improvement.
+- Initial native-operation profiling identified logarithm, inverse trigonometry,
+  and rational intermediate allocation as the dominant costs. The fixed-point
+  redesign is assessed against the native baseline at each precision; older
+  cross-implementation ratios are not a useful measure of native progress.
 - CI for commit `8eb5c97` has succeeded on the listed Linux and macOS configurations, but Windows
 Release and Codecov checks are failing; full cross-platform validation is **not** complete.
 - Historical sections below describe decisions *at the date made*. A historical statement that an
@@ -584,7 +584,7 @@ the dual-backend opt-in must not yet be removed. Newly added branches will need 
 report.
 
 
-## Permanent dual-backend benchmark configuration (16 October 2026)
+## Permanent native benchmark configuration (16 October 2026)
 
 No CMake variables `BUILD_FLOATAP_COMPARISON` or `BUILD_NUMERIC_MIGRATION_BENCHMARKS`, and no
 `ARIADNE_NUMERIC_ENABLE_FLOATAP` preprocessor macro, are used by the benchmark or the dedicated
@@ -617,7 +617,7 @@ Historical references to build flags in earlier sections describe
 prior states of this development branch, not the current build contract.
 
 
-## Complete native trigonometric interface and unconditional comparison (16 October 2026)
+## Complete native trigonometric interface and certification (16 October 2026)
 
 The native `Float<ArbitraryPrecision>` specialization now implements the entire set of operations
 requested by the comparison benchmark: `sin`, `cos`, `tan`, `atan`, `asin`, `acos`, and `pi`, in

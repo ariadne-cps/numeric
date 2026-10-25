@@ -22,8 +22,8 @@ comparison. The explicit CMake benchmark_compare_dyadic_backends target reports 
 operations per width, default 53,128,256,1024,2048,4096 bits with 20000 iterations and 31 samples,
 paired input pool of 32 deterministic signed dyadics and exact off-timer verification against legacy
 Dyadic converted to Rational. Report old ns, new ns, New/Old ratio; this is NOT a GMP comparison. No
-benchmark CI jobs. NewDyadic currently does not replace the full Dyadic public API or its legacy
-independent exact oracles bridge; promote only after strict correctness and equivalent behavior on
+benchmark CI jobs. NewDyadic currently does not replace the full Dyadic public API or its historical
+conversion bridge; promote only after strict correctness and equivalent behavior on
 edge cases.
 
 
@@ -379,13 +379,13 @@ regions; later migration will rename the temporary `NewDyadic`
 type identifier to `Dyadic`. CI and benchmark compilation remain
 required; this step is not the complete class migration.
 
-### D44 — remove direct Dyadic mpf access on FloatDP/native precision input (21 October 2026)
+### D44 — remove direct Dyadic mpf access from floating-point inputs (21 October 2026)
 
 As part of the authorized retirement of the GMP-backed Dyadic, FloatDP assignment now uses the exact
 type's `get_d()` conversion instead of `mpf_get_d(w.get_mpf())`. Do not conflate this intermediate
 dependency elimination with completed promotion or green CI.
 
-### D45 — narrow Dyadic migration to FloatAP, not native precision (21 October 2026)
+### D45 — focus Dyadic integration on native FloatAP (21 October 2026)
 
 The native `FloatDP` input adjustment from D44 is retained for now.
 
@@ -468,7 +468,7 @@ three legacy bodies and final rename remain explicit follow-up work.
 A passing D48 CI validates only the former split-header variant;
 Unix/Windows/Coverage must validate the new in-header arrangement.
 
-### D51 — eliminate all native precision access to Dyadic's GMP representation (21 October 2026)
+### D51 — isolate Dyadic's GMP representation from retired adapters (21 October 2026)
 
 Its remaining legacy operator routes the *exact* binary value through Rational and reconstructs the
 dyadic coefficient/denominator, with explicit NaN and infinity handling.
@@ -482,7 +482,7 @@ explicitly rounded Dyadic conversion APIs; no duplicate Integer overload is adde
 tests of finite/large dyadic rational values, both infinities, NaN, FloatAP->Dyadic roundtrip, and
 exact/non-integral FloatAP->Integer casts. This is an API parity step, not final Dyadic promotion.
 
-### D53 — build fix for native precision infinity sign extraction (21 October 2026)
+### D53 — infinity sign extraction during API migration (21 October 2026)
 
 Restore the existing comparison-based sign selection `(*this > 0) ? No arithmetic or rounding path
 changes. Build and CI validation remain mandatory before treating D51/D52 as tested.
