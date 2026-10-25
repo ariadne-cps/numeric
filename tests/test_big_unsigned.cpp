@@ -2977,11 +2977,20 @@ void TestBigUnsigned::test_division()
             throw std::runtime_error("Extra A30 B28 TSV rows");
     }
 
-    // B36: equal-size quotients that can be classified from the
-    // most-significant limbs without Knuth normalization. GMP is the
-    // independent oracle for q=0, q=1, q>=2, and boundary ratios.
-    // Exercise all three public division modes via check_fused_division.
+    // A31/B36: classify equal-size quotient paths against two exact TSVs.
+    std::array<std::ifstream,2u> a31_b36;
+    for (std::size_t part=0u;part<a31_b36.size();++part) {
+        const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
+            "/big_unsigned_a31_b36_"+std::to_string(part)+".tsv";
+        a31_b36[part].open(path);
+        if (!a31_b36[part])
+            throw std::runtime_error("Missing A31 B36 TSV: "+path);
+        std::string header;
+        while (a31_b36[part].peek()=='#')
+            std::getline(a31_b36[part],header);
+    }
     std::mt19937_64 high_ratio_engine(0xB360A11ULL);
+    std::size_t a31_ordinal=0u;
     for (const std::size_t count:
             {2u,3u,4u,7u,8u,16u,32u,64u,96u,128u}) {
         for (unsigned repetition=0u;repetition<128u;++repetition) {
@@ -3024,8 +3033,38 @@ void TestBigUnsigned::test_division()
                 left.back()|=1u; right.back()|=1u;
                 break;
             }
-            check_fused_division(BigUnsigned(left),BigUnsigned(right));
+            const BigUnsigned numerator(left),denominator(right);
+            std::ifstream& golden=a31_b36[a31_ordinal/640u];
+            std::size_t ref_ordinal=0u,ref_count=0u;
+            unsigned ref_repetition=0u;
+            std::string numerator_hex,denominator_hex,quotient_hex,remainder_hex;
+            if (!(golden >> ref_ordinal >> ref_count >> ref_repetition
+                  >> numerator_hex >> denominator_hex
+                  >> quotient_hex >> remainder_hex) ||
+                ref_ordinal!=a31_ordinal || ref_count!=count ||
+                ref_repetition!=repetition)
+                throw std::runtime_error(
+                    "Missing or unordered A31 B36 TSV row");
+            ++a31_ordinal;
+            check_against_precomputed_hex(numerator,numerator_hex);
+            check_against_precomputed_hex(denominator,denominator_hex);
+            const auto [native_q,native_r]=divrem(numerator,denominator);
+            check_against_precomputed_hex(native_q,quotient_hex);
+            check_against_precomputed_hex(native_r,remainder_hex);
+            check_against_precomputed_hex(
+                quot(numerator,denominator),quotient_hex);
+            check_against_precomputed_hex(
+                rem(numerator,denominator),remainder_hex);
+            ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
         }
+    }
+
+    if (a31_ordinal!=1280u)
+        throw std::runtime_error("Wrong A31 B36 row count");
+    for (std::size_t part=0u;part<a31_b36.size();++part) {
+        std::string extra;
+        if (a31_b36[part] >> extra)
+            throw std::runtime_error("Extra A31 B36 TSV rows");
     }
 
     // B29: deterministic sparse normalized divisors with long runs

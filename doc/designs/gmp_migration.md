@@ -13,11 +13,11 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A30
+## Current state — A31
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
-| `test_division()` | 13,026 | 3,488 |
+| `test_division()` | 14,306 | 2,208 |
 | `test_views_and_scratch()` | 11,600 | 0 |
 | `test_multiply_kernel_paths()` | 11,432 | 0 |
 | `test_randomized()` | 10,000 | 0 |
@@ -26,15 +26,15 @@ progress reporting, barring a documented correction to the audit.
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **72,835** | **3,488** |
+| **Total** | **74,115** | **2,208** |
 
-Progress: **72,835 / 76,323 = 95.430%**.
+Progress: **74,115 / 76,323 = 97.107%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
-- `test_division()`: B36 1,280; B29 1,024; B45 shifted 504;
-  B45 decimal 40; normalization 640 = 3,488.
+- `test_division()`: B29 1,024; B45 shifted 504; B45 decimal 40;
+  normalization 640 = 2,208.
 
 ## Commit milestones
 
@@ -61,6 +61,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A28 — B8 + fixed Karatsuba | 2,840 | 64,787 |
 | A29 — general division | 6,000 | 70,787 |
 | A30 — B28 equal-high division | 2,048 | 72,835 |
+| A31 — B36 high-ratio division | 1,280 | 74,115 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -380,3 +381,13 @@ The standalone remaining-division generator emits two 1,024-row fixtures
 using independent long division. No production code changes. Remaining
 numerical GMP-oracle inventory is B36 1,280, B29 1,024, B45 544 and
 normalization 640 = 3,488 visits.
+
+## A31 — B36 high-ratio division (25 October 2026)
+
+Migrate all 1,280 B36 visits to exact source-keyed TSVs while preserving all
+widths, seeded draws and quotient-ratio classes. The consumer still executes
+joint, quotient-only and remainder-only paths and verifies remainder bounds;
+only the numerical expected values move off GMP.
+
+No production changes. Remaining audited numerical GMP-oracle visits are
+B29 1,024, B45 544 and normalization 640 = 2,208 total.

@@ -123,6 +123,57 @@ std::array<std::string,2u> a30_b28() {
     return out;
 }
 
+
+std::array<std::string,2u> a31_b36() {
+    std::array<std::string,2u> out{
+        "# A31 B36 high-ratio division oracle part 0.\n"
+        "# ordinal count repetition numerator_hex denominator_hex quotient_hex remainder_hex\n"
+        "# Exact mt19937_64(0xB360A11) stream and high-ratio classifications preserved.\n"
+        "# No Numeric/GMP/Boost dependency.\n",
+        "# A31 B36 high-ratio division oracle part 1.\n"
+        "# ordinal count repetition numerator_hex denominator_hex quotient_hex remainder_hex\n"
+        "# Exact mt19937_64(0xB360A11) stream and high-ratio classifications preserved.\n"
+        "# No Numeric/GMP/Boost dependency.\n"};
+    std::mt19937_64 engine(0xB360A11ULL);
+    const auto max=UINT64_MAX;
+    std::size_t ordinal=0u;
+    for (const std::size_t count:
+            {2u,3u,4u,7u,8u,16u,32u,64u,96u,128u}) {
+        for (unsigned repetition=0u;repetition<128u;++repetition) {
+            std::vector<std::uint64_t> left(count),right(count);
+            for (auto& limb:left) limb=engine();
+            for (auto& limb:right) limb=engine();
+            if (repetition%11u==0u) {
+                std::fill(left.begin(),left.end(),max);
+                std::fill(right.begin(),right.end(),max);
+            } else if (repetition%11u==1u) {
+                std::fill(left.begin(),left.end(),0u);
+                std::fill(right.begin(),right.end(),0u);
+            }
+            const std::uint64_t high=std::uint64_t{1}<<63u;
+            switch (repetition%8u) {
+            case 0u: left.back()=high-1u; right.back()=high; break;
+            case 1u: left.back()=high+123u; right.back()=high; break;
+            case 2u: left.back()=high; right.back()=high; break;
+            case 3u: left.back()=high; right.back()=2u; break;
+            case 4u: left.back()=max; right.back()=high; break;
+            case 5u: left.back()=high; right.back()=high/2u; break;
+            case 6u: left.back()=high; right.back()=max; break;
+            default: left.back()|=1u; right.back()|=1u; break;
+            }
+            const Nat numerator(std::move(left)),denominator(std::move(right));
+            const auto [quotient,remainder]=divide(numerator,denominator);
+            out[ordinal/640u]+=row({
+                std::to_string(ordinal),std::to_string(count),
+                std::to_string(repetition),numerator.hex(),denominator.hex(),
+                quotient.hex(),remainder.hex()});
+            ++ordinal;
+        }
+    }
+    if (ordinal!=1280u) throw std::runtime_error("wrong A31 row count");
+    return out;
+}
+
 }
 
 int main(int argc,char** argv) {
@@ -139,6 +190,11 @@ int main(int argc,char** argv) {
             independent_oracle::output(
                 dir,"big_unsigned_a30_b28_"+std::to_string(part)+".tsv",
                 a30[part],write);
+        const auto a31=a31_b36();
+        for (std::size_t part=0u;part<a31.size();++part)
+            independent_oracle::output(
+                dir,"big_unsigned_a31_b36_"+std::to_string(part)+".tsv",
+                a31[part],write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"BigUnsigned remaining division generator: "
