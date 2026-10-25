@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Independently certified FloatAP arctangent fixtures, standard C++20 integers only.
-// Standalone standard C++20; never uses Numeric, GMP, MPFR, FloatMP or host floats.
+// Standalone standard C++20; never uses Numeric, GMP, independent exact arithmetic, independent exact arithmetic or host floats.
 #include "oracle_exact_integer.hpp"
 #include <bit>
 #include <cstdint>
@@ -308,7 +308,7 @@ struct Generator {
         "# For x>1: pi/2-atan(1/x). Handle negative inputs by oddness.\n"
         "# pi/4=4*atan(1/5)-atan(1/239) certified with the same integer intervals.\n"
         "# Emit rows ONLY when both exact interval endpoints round to same binary rational.\n"
-        "# No GMP, MPFR, FloatMP, FloatAP or floating-point transcendental calculations.\n";
+        "# No GMP, independent exact arithmetic, independent exact arithmetic, FloatAP or floating-point transcendental calculations.\n";
     std::set<std::tuple<unsigned,char,std::string,std::string>> seen;
     std::map<std::pair<std::string,std::string>,Interval> cache;
     std::size_t count=0;

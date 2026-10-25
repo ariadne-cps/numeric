@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproduce original D104 power and D103 short division frozen test fixtures.
-// Standalone C++20; no Numeric, GMP, MPFR, Boost or other oracle dependency.
+// Standalone C++20; no Numeric, GMP, independent exact arithmetic, Boost or other oracle dependency.
 #include "oracle_exact_integer.hpp"
 
 namespace {
@@ -98,7 +98,7 @@ std::string short_div_fixture() {
         "# Original source words and all mode%6 transformations are preserved.\n"
         "# Canonical lowercase hexadecimal, zero is 0, division-by-zero results are - -.\n"
         "# Expected values certified by native arbitrary-precision integer quotient/remainder,\n"
-        "# and checked with a=b*q+r and 0<=r<b. No GMP, MPFR, FloatAP, BigUnsigned oracle.\n";
+        "# and checked with a=b*q+r and 0<=r<b. No GMP, independent exact arithmetic, FloatAP, BigUnsigned oracle.\n";
     std::mt19937_64 generator(0xB74D1A1DEULL);
     for (std::size_t n=0u;n<=5u;++n) {
         for (std::size_t m=0u;m<=5u;++m) {
@@ -150,7 +150,7 @@ std::string div128_fixture() {
         "# kind ordinal divisor_hex low_hex high_hex numerator_hex quotient_hex remainder_hex\n"
         "# E: original 8*4*6 edge cases; B: original mt19937_64(0xB260D1B1) visits.\n"
         "# All original conditional PRNG draws and 128/64 preconditions retained.\n"
-        "# Independent aligned-subtraction integer long division, no GMP/MPFR/Boost/Numeric.\n";
+        "# Independent aligned-subtraction integer long division, no GMP/independent exact arithmetic/Boost/Numeric.\n";
     std::size_t rows=0u;
     const auto append=[&](char kind,std::size_t ordinal,
                           std::uint64_t divisor,std::uint64_t low,
@@ -206,7 +206,7 @@ std::string div_limb_random_fixture() {
         "# A4 exact original random BigUnsigned limb division, 6000 source-keyed visits.\n"
         "# repetition divisor_decimal dividend_hex quotient_hex remainder_hex\n"
         "# Full mt19937_64(0xD1D1D1) draw sequence including overwritten inputs.\n"
-        "# Exact Euclidean arithmetic, 0 as canonical zero; no GMP/MPFR/Numeric.\n";
+        "# Exact Euclidean arithmetic, 0 as canonical zero; no GMP/independent exact arithmetic/Numeric.\n";
     std::mt19937_64 engine(0xD1D1D1ULL);
     std::size_t rows=0u;
     for (unsigned repetition=0u;repetition<6000u;++repetition) {
@@ -268,19 +268,19 @@ std::array<std::string,4> limb_stress_fixtures() {
         "# A5 B48 independent exact limb division, all 560 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB48032D0) with all overwritten draws preserved.\n"
-        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
+        "# Exact independent Euclidean division; no Numeric, GMP, independent exact arithmetic or Boost.\n",
         "# A5 B49 independent exact limb division, all 784 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB490C0DE) with all overwritten draws preserved.\n"
-        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
+        "# Exact independent Euclidean division; no Numeric, GMP, independent exact arithmetic or Boost.\n",
         "# A5 B57 independent exact limb division, all 1800 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB570641) with all overwritten draws preserved.\n"
-        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
+        "# Exact independent Euclidean division; no Numeric, GMP, independent exact arithmetic or Boost.\n",
         "# A5 B61 independent exact limb division, all 1560 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB610D1A6) with all overwritten draws preserved.\n"
-        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n"};
+        "# Exact independent Euclidean division; no Numeric, GMP, independent exact arithmetic or Boost.\n"};
     std::array<std::size_t,4> rows{};
     const auto append=[&](std::size_t group,std::size_t count,
                           std::uint64_t divisor,unsigned mode,
@@ -525,7 +525,7 @@ std::array<std::string,3> b55_fixtures() {
             std::to_string(visits)+" original visits.\n"
             "# m extra mode dividend_hex divisor_hex quotient_hex remainder_hex\n"
             "# Original mt19937_64(0xB550DEC1), all conditional overwrites preserved.\n"
-            "# Exact independent Euclidean quotient/remainder; no GMP/MPFR/Numeric.\n";
+            "# Exact independent Euclidean quotient/remainder; no GMP/independent exact arithmetic/Numeric.\n";
     };
     std::array<std::string,3> out{header(216u),header(144u),header(72u)};
     std::array<std::size_t,3> rows{};
@@ -654,7 +654,7 @@ std::string b48_multiprecision_fixture() {
         "# A11 B48 multiprecision division, 336 original visits.\n"
         "# count divisor_decimal mode numerator_hex quotient_hex remainder_hex\n"
         "# mt19937_64(0xB48A11D1), all original random draws and transforms.\n"
-        "# Independent Euclidean arithmetic, no GMP/MPFR/Numeric/Boost.\n";
+        "# Independent Euclidean arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xB48A11D1ULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -691,7 +691,7 @@ std::string randomized_a12_first_fixture() {
         "# A12 randomized BigUnsigned arithmetic, original visits 0..1249.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independent exact Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
+        "# Independent exact Python bigint arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     for (unsigned repetition=0u;repetition<1250u;++repetition) {
@@ -720,7 +720,7 @@ std::string randomized_a13_second_fixture() {
         "# A13 randomized BigUnsigned arithmetic, original visits 1250..2499.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently computed Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
+        "# Independently computed Python bigint arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -754,7 +754,7 @@ std::string randomized_a14_third_fixture() {
         "# A14 randomized BigUnsigned arithmetic, original visits 2500..3749.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently computed Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
+        "# Independently computed Python bigint arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -789,7 +789,7 @@ std::string randomized_a15_fourth_fixture() {
         "# A15 randomized BigUnsigned arithmetic, original visits 3750..4999.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently computed Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
+        "# Independently computed Python bigint arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -824,7 +824,7 @@ std::string randomized_a16_fifth_fixture() {
         "# A16 randomized BigUnsigned arithmetic, original visits 5000..6249.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
+        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -859,7 +859,7 @@ std::string randomized_a17_sixth_fixture() {
         "# A17 randomized BigUnsigned arithmetic, original visits 6250..7499.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
+        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -894,7 +894,7 @@ std::string randomized_a18_seventh_fixture() {
         "# A18 randomized BigUnsigned arithmetic, original visits 7500..8749.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
+        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -929,7 +929,7 @@ std::string randomized_a19_eighth_fixture() {
         "# A19 randomized BigUnsigned arithmetic, original visits 8750..9999.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
+        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Independently certified sine and cosine fixtures, standard C++20 only.
-// No Numeric, GMP, MPFR, FloatMP, Boost or host floating-point arithmetic.
+// No Numeric, GMP, independent exact arithmetic, independent exact arithmetic, Boost or host floating-point arithmetic.
 #include "oracle_exact_integer.hpp"
 #include <array>
 #include <map>
@@ -209,7 +209,7 @@ std::string header(bool cosine) {
         "# sin/cos terms with outward floor/ceil for EVERY product and division.\n"
         "# First omitted positive term bounds remainder; negative sine uses oddness.\n"
         "# Both exact interval endpoints round to the IDENTICAL p-bit binary Rational.\n"
-        "# No GMP, MPFR, FloatMP, FloatAP or floating point transcendental oracle used.\n";
+        "# No GMP, independent exact arithmetic, independent exact arithmetic, FloatAP or floating point transcendental oracle used.\n";
 }
 struct Oracle {
     std::string sin_data=header(false),cos_data=header(true);

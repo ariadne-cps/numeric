@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Rigorously certified original centered FloatAP exponential fixture.
-// Standalone standard C++20; no GMP, MPFR, Numeric, Boost, or host floats.
+// Standalone standard C++20; no GMP, independent exact arithmetic, Numeric, Boost, or host floats.
 #include "oracle_exact_integer.hpp"
 #include <array>
 #include <bit>
@@ -193,7 +193,7 @@ std::string generate(){
         "# Four outward-rounded squarings enclose exp(abs(x)); reciprocal bounds for x<0.\n"
         "# Both rational interval endpoints must round identically in the indicated mode.\n"
         "# N: nearest even; D: downward; U: upward; Z: toward zero.\n"
-        "# No GMP, MPFR, FloatAP, FloatMP or floating-point exponential oracle used.\n";
+        "# No GMP, independent exact arithmetic, FloatAP, independent exact arithmetic or floating-point exponential oracle used.\n";
     std::set<std::tuple<unsigned,char,std::string,std::string>> seen;
     std::map<std::pair<std::string,std::string>,Interval> intervals;
     std::size_t count=0;
