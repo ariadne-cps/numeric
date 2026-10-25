@@ -818,6 +818,41 @@ std::string randomized_a15_fourth_fixture() {
     if (rows!=1250u) throw std::runtime_error("wrong A15 source visits");
     return out;
 }
+
+std::string randomized_a16_fifth_fixture() {
+    std::string out=
+        "# A16 randomized BigUnsigned arithmetic, original visits 5000..6249.\n"
+        "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
+        "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
+        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
+    std::mt19937_64 engine(0xBA17B00DULL);
+    const auto max=UINT64_MAX;
+    std::size_t rows=0u;
+    // Replay all preceding draws before emitting A16, including the
+    // shift draw of every prior visit.
+    for (unsigned repetition=0u;repetition<6250u;++repetition) {
+        const std::size_t n=engine()%20u,m=engine()%20u;
+        std::array<std::uint64_t,20> na{},nb{};
+        for (std::size_t j=0u;j<n;++j) na[j]=engine();
+        for (std::size_t j=0u;j<m;++j) nb[j]=engine();
+        if (repetition%7u==0u) na.fill(max);
+        if (repetition%11u==0u) nb.fill(0u);
+        const std::size_t bits=engine()%1030u;
+        if (repetition<5000u) continue;
+        const Nat a(std::vector<std::uint64_t>(na.begin(),na.begin()+n));
+        const Nat b(std::vector<std::uint64_t>(nb.begin(),nb.begin()+m));
+        const int cmp=a.compare(b);
+        const Nat sum=Nat::add(a,b);
+        const std::string difference=cmp>=0?Nat::sub(a,b).hex():"-";
+        out+=row({std::to_string(repetition),std::to_string(n),
+                  std::to_string(m),std::to_string(bits),a.hex(),b.hex(),
+                  std::to_string(cmp),sum.hex(),difference,
+                  a.shl(bits).hex(),a.shr(bits).hex()});
+        ++rows;
+    }
+    if (rows!=1250u) throw std::runtime_error("wrong A16 source visits");
+    return out;
+}
 }
 int main(int argc,char** argv) {
     try {
@@ -853,6 +888,7 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_a13_randomized_second.tsv",randomized_a13_second_fixture(),write);
         independent_oracle::output(dir,"big_unsigned_a14_randomized_third.tsv",randomized_a14_third_fixture(),write);
         independent_oracle::output(dir,"big_unsigned_a15_randomized_fourth.tsv",randomized_a15_fourth_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_a16_randomized_fifth.tsv",randomized_a16_fifth_fixture(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';

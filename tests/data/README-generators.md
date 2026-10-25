@@ -984,3 +984,14 @@ for visits 5,000–9,999 in `test_randomized()`. The fixture has 1,250 rows,
 The independent Python arbitrary-precision witness reproduces the preceding
 A14 blob byte-for-byte before generating A15. Migration inventory:
 `doc/designs/gmp_migration.md`.
+
+### A16 — fifth 1,250 randomized arithmetic oracle visits
+
+Migrate original visits 5,000–6,249 to independent
+`big_unsigned_a16_randomized_fifth.tsv`, preserving the single original
+`mt19937_64(0xBA17B00D)` stream, all input transforms and the shift draw.
+GMP remains only for visits 6,250–9,999 in `test_randomized()`.
+The fixture has 1,250 rows, 1,204,292 bytes and Git blob
+`bbb0fc03a3dae88154205334fafdff5fb04f9619`. A separate arbitrary-precision witness first reproduces
+the complete A15 fixture byte-for-byte before computing A16. Migration
+inventory: `doc/designs/gmp_migration.md`.

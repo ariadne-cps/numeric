@@ -73,6 +73,7 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_A12_FIRST_PATH[] = ARIADNE_TEST_DATA_
 inline constexpr char ARIADNE_BIG_UNSIGNED_A13_SECOND_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a13_randomized_second.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_A14_THIRD_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a14_randomized_third.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_A15_FOURTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a15_randomized_fourth.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_A16_FIFTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a16_randomized_fifth.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -3792,6 +3793,10 @@ void TestBigUnsigned::test_randomized()
     if (!a15_golden) throw std::runtime_error("Missing A15 randomized TSV");
     std::string a15_header;
     while (a15_golden.peek()=='#') std::getline(a15_golden,a15_header);
+    std::ifstream a16_golden(ARIADNE_BIG_UNSIGNED_A16_FIFTH_PATH);
+    if (!a16_golden) throw std::runtime_error("Missing A16 randomized TSV");
+    std::string a16_header;
+    while (a16_golden.peek()=='#') std::getline(a16_golden,a16_header);
     for (unsigned repetition=0; repetition<10000u; ++repetition) {
         const std::size_t n = engine()%20u;
         const std::size_t m = engine()%20u;
@@ -3803,10 +3808,11 @@ void TestBigUnsigned::test_randomized()
         const BigUnsigned x(std::span(na.data(),n));
         const BigUnsigned y(std::span(nb.data(),m));
         const std::size_t bits=engine()%1030u;
-        if (repetition<5000u) {
+        if (repetition<6250u) {
             std::ifstream& golden=repetition<1250u?a12_golden:
                 repetition<2500u?a13_golden:
-                repetition<3750u?a14_golden:a15_golden;
+                repetition<3750u?a14_golden:
+                repetition<5000u?a15_golden:a16_golden;
             unsigned ref_rep=0u;
             std::size_t ref_n=0u,ref_m=0u,ref_bits=0u;
             int ref_cmp=0;
@@ -3816,17 +3822,17 @@ void TestBigUnsigned::test_randomized()
                 >> lhex >> rhex) ||
                 ref_rep!=repetition || ref_n!=n || ref_m!=m ||
                 ref_bits!=bits || ref_cmp < -1 || ref_cmp > 1)
-                throw std::runtime_error("Missing or unordered A12-A15 randomized row");
+                throw std::runtime_error("Missing or unordered A12-A16 randomized row");
             check_against_precomputed_hex(x,xhex);
             check_against_precomputed_hex(y,yhex);
             ARIADNE_TEST_ASSERT(compare(x,y)==ref_cmp);
             check_against_precomputed_hex(add(x,y),sumhex);
             if (ref_cmp>=0) {
                 if (diffhex=="-")
-                    throw std::runtime_error("Missing A12-A15 subtraction oracle");
+                    throw std::runtime_error("Missing A12-A16 subtraction oracle");
                 check_against_precomputed_hex(sub(x,y),diffhex);
             } else if (diffhex!="-")
-                throw std::runtime_error("Unexpected A12-A15 subtraction oracle");
+                throw std::runtime_error("Unexpected A12-A16 subtraction oracle");
             check_against_precomputed_hex(shift_left(x,bits),lhex);
             check_against_precomputed_hex(shift_right(x,bits),rhex);
             check_against_precomputed_hex(x,xhex);
@@ -3866,6 +3872,9 @@ void TestBigUnsigned::test_randomized()
     std::string a15_extra;
     if (a15_golden >> a15_extra)
         throw std::runtime_error("Extra A15 randomized TSV rows");
+    std::string a16_extra;
+    if (a16_golden >> a16_extra)
+        throw std::runtime_error("Extra A16 randomized TSV rows");
 }
 
 } // namespace
