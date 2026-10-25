@@ -7,7 +7,7 @@
 # sin/cos terms with outward floor/ceil for EVERY product and division.
 # First omitted positive term bounds remainder; negative sine uses oddness.
 # Both exact interval endpoints round to the IDENTICAL p-bit binary Rational.
-# No GMP, MPFR, FloatMP, FloatAP or floating point transcendental oracle used.
+# No GMP, independent exact arithmetic, independent exact arithmetic, FloatAP or floating point transcendental oracle used.
 96	N	-1	2	-9496001121505626555564147557	19807040628566084398385987584
 96	D	-1	2	-9496001121505626555564147557	19807040628566084398385987584
 96	U	-1	2	-75968008972045012444513180455	158456325028528675187087900672

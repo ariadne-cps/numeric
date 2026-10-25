@@ -7,7 +7,7 @@
 # A/B = (n/d)*2^(-2e). Calculate q=isqrt(floor(A/B)).
 # Verify q^2*B <= A < (q+1)^2*B (integer square root floor).
 # Nearest: compare 4*A to (2*q+1)^2*B; ties-to-even. Directed: exact iff A=q^2*B.
-# Result q*2^e, canonical rational. No FloatAP, FloatMP, GMP or MPFR required.
+# Result q*2^e, canonical rational. No FloatAP, independent exact arithmetic, GMP or independent exact arithmetic required.
 7	N	1	1	1	1
 7	D	1	1	1	1
 7	U	1	1	1	1

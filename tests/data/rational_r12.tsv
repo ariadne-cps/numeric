@@ -1,7 +1,7 @@
 # R12 exact unsigned one-limb Rational::get_d oracle (all seeded sources).
 # mode_index sample numerator denominator expected_positive_bits expected_negative_bits
 # Four FE rounding modes, 512 visits each, both signs: 4096 bit-exact conversion outcomes.
-# Expected binary64 sign/exponent/significand computed independently using exact BigInt quotient and bit lengths, no GMP/MPFR/Numeric.
+# Expected binary64 sign/exponent/significand computed independently using exact BigInt quotient and bit lengths, no GMP/independent exact arithmetic/Numeric.
 0	0	9007199254781272	18014398509565255	4602678819172645556	13826050856027421364
 0	1	4503599627370496	16	4823355200913801216	14046727237768577024
 0	2	307	2069540751514794449	4370005508975464220	13593377545830240028

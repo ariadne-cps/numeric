@@ -5,7 +5,7 @@
 # k=0..239 plus next positive omitted term; cos lower bound strictly >0.
 # Divide sin enclosure by cos enclosure with outward floor/ceil, apply oddness.
 # Emit only when the bounds round to identical exact binary rationals.
-# No GMP, MPFR, FloatMP, FloatAP or floating transcendental oracle.
+# No GMP, independent exact arithmetic, independent exact arithmetic, FloatAP or floating transcendental oracle.
 53	N	-1	2	-2460327689692069	4503599627370496
 53	D	-1	2	-4920655379384139	9007199254740992
 53	U	-1	2	-2460327689692069	4503599627370496

@@ -8,7 +8,7 @@
 # The sign of log(x) is recovered by reversing bounds when x<1.
 # Accept ONLY when lower and upper endpoints yield the SAME signed binary rounding.
 # Modes: N nearest-even, D downward, U upward, Z toward zero.
-# No GMP, MPFR, FloatAP or floating-point transcendental oracle used in generation.
+# No GMP, independent exact arithmetic, FloatAP or floating-point transcendental oracle used in generation.
 # 284 unique data rows for 360 original checks.
 53	N	1	2	-6243314768165359	9007199254740992
 53	D	1	2	-390207173010335	562949953421312
