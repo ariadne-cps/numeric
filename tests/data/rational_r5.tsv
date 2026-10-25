@@ -1,7 +1,7 @@
 # R5: exact frozen IEEE-754 binary64 truncation oracle for original random shift probes.
 # mode_index shift original_num original_den pos_div_bits neg_div_bits pos_mul_bits neg_mul_bits
 # 4 modes x 12 shifts x 4 signed quotient cases: all 192 original results, no thinning.
-# All source mt19937_64 words and expected exact binary64 patterns independently derived, no GMP/MPFR/Numeric.
+# All source mt19937_64 words and expected exact binary64 patterns independently derived, no GMP/independent exact arithmetic/Numeric.
 0	0	5953658705297530619	1667829632833804139	4615220678403641119	13838592715258416927	4615220678403641119	13838592715258416927
 0	1	10599649688917686653	10024400804673406031	4602937257628092552	13826309294482868360	4611944456882833544	13835316493737609352
 0	52	5473412925981372081	13970960038230408419	4366541952979151902	13589913989833927710	4834916314225683486	14058288351080459294

@@ -1,4 +1,4 @@
-# Certified exp(x) correctly rounded results; independent of GMP/MPFR/FloatAP.
+# Certified exp(x) correctly rounded results; independent of GMP/independent exact arithmetic/FloatAP.
 # precision_bits mode input_num input_den expected_num expected_den
 # W=1400, B=2^W, t=abs(x)/16 <= 7/16, Taylor N=165.
 # Every term t^k/k! bounded with outward floor/ceil fixed-point division.

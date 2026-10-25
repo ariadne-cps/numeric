@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Reproduce BigUnsigned B39/B40/B54 exact fixture source streams.
-// Independent standard C++20; no Numeric, GMP, MPFR, Boost or FloatMP.
+// Independent standard C++20; no Numeric, GMP, independent exact arithmetic, Boost or independent exact arithmetic.
 #include "oracle_exact_integer.hpp"
 
 namespace {
