@@ -13,29 +13,28 @@ coverage and migrations preceding A1. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-## Current state — A27
+## Current state — A28
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
 | `test_division()` | 4,978 | 11,536 |
 | `test_views_and_scratch()` | 11,600 | 0 |
-| `test_multiply_kernel_paths()` | 8,592 | 2,840 |
+| `test_multiply_kernel_paths()` | 11,432 | 0 |
 | `test_randomized()` | 10,000 | 0 |
 | `test_gcd_decimal()` | 3,793 | 0 |
 | `test_division_limb()` | 12,944 | 0 |
 | `test_exact_division_limb()` | 6,200 | 0 |
 | `test_multiplication()` | 2,112 | 0 |
 | `test_product_accumulation()` | 1,728 | 0 |
-| **Total** | **61,947** | **14,376** |
+| **Total** | **64,787** | **11,536** |
 
-Progress: **61,947 / 76,323 = 81.164%**.
+Progress: **64,787 / 76,323 = 84.885%**.
 A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ## Remaining inventory
 
 - `test_division()`: generalized random 6,000; B28, B36, B29, B45,
   normalization and remaining special division cases 5,536.
-- `test_multiply_kernel_paths()`: 2,840, comprising B8 and Karatsuba.
 
 ## Commit milestones
 
@@ -59,6 +58,7 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 | A25 — B52 multiply-kernel | 288 | 53,643 |
 | A26 — B53 sparse-row multiply | 2,304 | 55,947 |
 | A27 — general multiply kernels | 6,000 | 61,947 |
+| A28 — B8 + fixed Karatsuba | 2,840 | 64,787 |
 
 A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
@@ -335,3 +335,19 @@ The standalone multiplication generator computes exact products using
 independent shift/add `Nat` arithmetic. No production code changes.
 Remaining `test_multiply_kernel_paths()` inventory is 2,800 B8 cutoff
 visits and 40 fixed Karatsuba cutoff visits = 2,840.
+
+## A28 — B8 and fixed Karatsuba oracle (25 October 2026)
+
+Migrate the final 2,840 visits of `test_multiply_kernel_paths()` using two
+source-keyed exact fixtures. B8 contributes 700 original sources x four
+cutoffs; the fixed stress corpus contributes eight sources x five cutoffs.
+The latter continues the exact B8 random engine state, preserving every
+historical draw. All scratch/guard/output invariants remain in the consumer.
+
+The standalone multiplication generator computes products with independent
+shift/add arithmetic. The B8 fixture blob is
+`16848b2efecd3cdc5535e03e0e4694df1890e09f`; the fixed fixture blob is
+`51233e8a709ad097bfd1435c0a9171fdef7dcdb6`. No production changes.
+After A28, `test_multiply_kernel_paths()` is 11,432/11,432 migrated and the
+only remaining audited numerical GMP-oracle method is `test_division()`
+with 11,536 visits.

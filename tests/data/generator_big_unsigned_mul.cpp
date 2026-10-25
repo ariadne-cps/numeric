@@ -346,6 +346,55 @@ std::array<std::string,6u> a27_general_multiply() {
     return out;
 }
 
+
+std::array<std::string,2u> a28_karatsuba() {
+    std::array<std::string,2u> out{
+        "# A28 B8 Karatsuba cutoff oracle: 700 sources x 4 cutoffs = 2800 visits.\n"
+        "# repetition n m lhs_hex rhs_hex product_hex\n"
+        "# Exact mt19937_64(0xB8B8B8) stream; expected product independent of cutoff.\n"
+        "# No Numeric/GMP/Boost dependency.\n",
+        "# A28 fixed Karatsuba cutoff oracle: 8 sources x 5 cutoffs = 40 visits.\n"
+        "# index n m lhs_hex rhs_hex product_hex\n"
+        "# Continues the exact B8 mt19937_64(0xB8B8B8) stream after 700 source visits.\n"
+        "# No Numeric/GMP/Boost dependency.\n"};
+    std::mt19937_64 rng(0xB8B8B8ULL);
+    for (unsigned repetition=0u;repetition<700u;++repetition) {
+        const std::size_t n=repetition%7u==0u ? 128u :
+            9u+static_cast<std::size_t>(rng()%95u);
+        const std::size_t m=repetition%11u==0u ? 1u :
+            9u+static_cast<std::size_t>(rng()%95u);
+        std::array<std::uint64_t,128u> da{},db{};
+        for (std::size_t i=0u;i<n;++i) da[i]=rng();
+        for (std::size_t i=0u;i<m;++i) db[i]=rng();
+        if (repetition%13u==0u) std::fill_n(da.begin(),n,UINT64_MAX);
+        if (repetition%17u==0u) std::fill_n(db.begin(),m,UINT64_MAX);
+        if (repetition%19u==0u) std::fill_n(da.begin(),n,0u);
+        if (repetition%23u==0u) std::fill_n(db.begin(),m,0u);
+        const Nat lhs(Words(da.begin(),da.begin()+n));
+        const Nat rhs(Words(db.begin(),db.begin()+m));
+        out[0u]+=row({std::to_string(repetition),std::to_string(n),
+                      std::to_string(m),lhs.hex(),rhs.hex(),
+                      multiply(lhs,rhs).hex()});
+    }
+    const std::array<Pair,8u> widths{{
+        {17u,17u},{31u,33u},{63u,67u},{79u,80u},{127u,129u},
+        {255u,257u},{1u,180u},{8u,8u}}};
+    std::size_t index=0u;
+    for (const auto& [n,m]:widths) {
+        Words left(n,UINT64_MAX),right(m,UINT64_MAX);
+        for (std::size_t i=0u;i<n;++i)
+            if (i%5u==1u) left[i]=rng();
+        for (std::size_t i=0u;i<m;++i)
+            if (i%7u==2u) right[i]=rng();
+        const Nat lhs(std::move(left)),rhs(std::move(right));
+        out[1u]+=row({std::to_string(index++),std::to_string(n),
+                      std::to_string(m),lhs.hex(),rhs.hex(),
+                      multiply(lhs,rhs).hex()});
+    }
+    if (index!=8u) throw std::runtime_error("wrong A28 fixed row count");
+    return out;
+}
+
 // A1: preserve every original 9*32*3*2 seeded product-accumulation visit.
 // Expected values use exact signed arithmetic modulo the entire destination
 // width, not any BigUnsigned accumulation or multiplication implementation.
@@ -422,6 +471,11 @@ int main(int argc,char** argv) {
             independent_oracle::output(
                 dir,"big_unsigned_a27_general_"+std::to_string(part)+".tsv",
                 a27[part],write);
+        const auto a28=a28_karatsuba();
+        independent_oracle::output(
+            dir,"big_unsigned_a28_b8.tsv",a28[0u],write);
+        independent_oracle::output(
+            dir,"big_unsigned_a28_karatsuba_fixed.tsv",a28[1u],write);
         independent_oracle::output(dir,"big_unsigned_accumulation.tsv",accumulation(),write);
         return 0;
     } catch(std::exception const& ex) {

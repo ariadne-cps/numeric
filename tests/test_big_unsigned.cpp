@@ -1348,8 +1348,6 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     std::mt19937_64 engine(0xB3B3B3ULL);
     BigUnsigned::Scratch scratch;
     BigUnsigned::Scratch karatsuba_workspace;
-    GmpInteger a,b,expected,rounded;
-    static_assert(std::numeric_limits<mp_bitcnt_t>::max() >= 64u*80u);
 
     // B52: data-driven 32x32 GCC x86-64 full-product dispatch
     // to the baseline MULQ/ADCQ kernel. GMP is the independent
@@ -1786,7 +1784,13 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         ARIADNE_TEST_ASSERT(value==max);
     }
 
-    // B8 needs coverage beyond the B3/B6 38-limb randomized range.
+    // A28: B8 retains all 700 original sources and four cutoff visits
+    // per source, with an independent exact product TSV.
+    std::ifstream a28_b8(
+        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_a28_b8.tsv");
+    if (!a28_b8) throw std::runtime_error("Missing A28 B8 TSV");
+    std::string a28_b8_header;
+    while (a28_b8.peek()=='#') std::getline(a28_b8,a28_b8_header);
     std::mt19937_64 wider_engine(0xB8B8B8ULL);
     for (unsigned repetition=0u; repetition<700u; ++repetition) {
         const std::size_t n=repetition%7u==0u ? 128u :
@@ -1802,9 +1806,15 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         if (repetition%23u==0u) std::fill_n(db.begin(),m,0u);
         const BigUnsigned lhs(std::span(da.data(),n));
         const BigUnsigned rhs(std::span(db.data(),m));
-        mpz_import(a.value,n,-1,8,0,0,da.data());
-        mpz_import(b.value,m,-1,8,0,0,db.data());
-        mpz_mul(expected.value,a.value,b.value);
+        unsigned ref_repetition=0u;
+        std::size_t ref_n=0u,ref_m=0u;
+        std::string lhs_hex,rhs_hex,product_hex;
+        if (!(a28_b8 >> ref_repetition >> ref_n >> ref_m
+              >> lhs_hex >> rhs_hex >> product_hex) ||
+            ref_repetition!=repetition || ref_n!=n || ref_m!=m)
+            throw std::runtime_error("Missing or unordered A28 B8 TSV row");
+        check_against_precomputed_hex(lhs,lhs_hex);
+        check_against_precomputed_hex(rhs,rhs_hex);
         for (std::size_t cutoff: {8u,16u,32u,64u}) {
             auto product_view=scratch.acquire(lhs.size()+rhs.size()+2u);
             auto work=karatsuba_workspace.acquire(
@@ -1812,7 +1822,8 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                     lhs.size(),rhs.size(),cutoff));
             BigUnsigned::mul_into_karatsuba(
                 lhs.limbs(),rhs.limbs(),product_view,work,cutoff);
-            check_against_gmp(BigUnsigned(product_view),expected.value);
+            check_against_precomputed_hex(
+                BigUnsigned(product_view),product_hex);
             for (std::size_t i=lhs.size()+rhs.size();
                     i<product_view.size();++i) {
                 ARIADNE_TEST_ASSERT(product_view[i]==0u);
@@ -1820,6 +1831,19 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         }
     }
 
+    std::string a28_b8_extra;
+    if (a28_b8 >> a28_b8_extra)
+        throw std::runtime_error("Extra A28 B8 TSV rows");
+
+    // A28: fixed Karatsuba sources continue the same wider_engine stream.
+    std::ifstream a28_fixed(
+        std::string(ARIADNE_TEST_DATA_DIR)+
+        "/big_unsigned_a28_karatsuba_fixed.tsv");
+    if (!a28_fixed) throw std::runtime_error("Missing A28 fixed Karatsuba TSV");
+    std::string a28_fixed_header;
+    while (a28_fixed.peek()=='#')
+        std::getline(a28_fixed,a28_fixed_header);
+    std::size_t a28_fixed_index=0u;
     // Karatsuba output is prefilled with nonzero data to prove that the
     // z0/z2 recursion fully overwrites even unbalanced and odd splits.
     // The scratch guard limbs expose any off-by-one workspace overruns.
@@ -1834,9 +1858,16 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         for (std::size_t i=0u;i<m;++i) {
             if (i%7u==2u) db[i]=wider_engine();
         }
-        mpz_import(a.value,n,-1,8,0,0,da.data());
-        mpz_import(b.value,m,-1,8,0,0,db.data());
-        mpz_mul(expected.value,a.value,b.value);
+        const BigUnsigned lhs(da),rhs(db);
+        std::size_t ref_index=0u,ref_n=0u,ref_m=0u;
+        std::string lhs_hex,rhs_hex,product_hex;
+        if (!(a28_fixed >> ref_index >> ref_n >> ref_m
+              >> lhs_hex >> rhs_hex >> product_hex) ||
+            ref_index!=a28_fixed_index++ || ref_n!=n || ref_m!=m)
+            throw std::runtime_error(
+                "Missing or unordered A28 fixed Karatsuba TSV row");
+        check_against_precomputed_hex(lhs,lhs_hex);
+        check_against_precomputed_hex(rhs,rhs_hex);
         std::vector<std::uint64_t> product(n+m+3u,max);
         for (std::size_t cutoff: {8u,16u,32u,64u,128u}) {
             const auto needed=BigUnsigned::karatsuba_scratch_limbs(n,m,cutoff);
@@ -1845,7 +1876,8 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                 guards.data()+1u,needed);
             std::fill(product.begin(),product.end(),max);
             BigUnsigned::mul_into_karatsuba(da,db,product,work,cutoff);
-            check_against_gmp(BigUnsigned(product),expected.value);
+            check_against_precomputed_hex(
+                BigUnsigned(product),product_hex);
             for (std::size_t i=n+m;i<product.size();++i) {
                 ARIADNE_TEST_ASSERT(product[i]==0u);
             }
@@ -1853,6 +1885,11 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             ARIADNE_TEST_ASSERT(guards.back()==max);
         }
     }
+    if (a28_fixed_index!=8u)
+        throw std::runtime_error("Wrong A28 fixed Karatsuba row count");
+    std::string a28_fixed_extra;
+    if (a28_fixed >> a28_fixed_extra)
+        throw std::runtime_error("Extra A28 fixed Karatsuba TSV rows");
 
 }
 

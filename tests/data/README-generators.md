@@ -142,7 +142,7 @@ review every diff before committing. No sampling is used.
 | `generator_rational_exact.cpp` | `rational_r28.tsv`, `rational_r30.tsv`, `rational_r22.tsv`, `rational_r16.tsv`, `rational_r19.tsv`, `rational_r20.tsv` | 36 signed add/sub, 1,689 normalization, 160 scalar mul/div, 84 R16 alias/add/sub, 102 R19 product/division, 160 R20 cross-add/sub |
 | `generator_exact_b72_r17.cpp` | `big_unsigned_b72.tsv`, `rational_r17.tsv` | 288 B72 products/squares and 252 R17 comparisons |
 | `generator_integer_structural.cpp` | `integer_b66.tsv`, `integer_sub.tsv`, `big_unsigned_sub.tsv`, `integer_b33.tsv`, `integer_b37.tsv`, `integer_b38.tsv` | 360 power, 192 signed subtract, 100 unsigned subtract, 72 signed squares, 72 signed powers, 30 signed cubes |
-| `generator_big_unsigned_mul.cpp` | `big_unsigned_b35.tsv`, `big_unsigned_b37.tsv`, `big_unsigned_b38.tsv`, `big_unsigned_a25_b52.tsv`, `big_unsigned_a26_b53.tsv`, six `big_unsigned_a27_general_*.tsv` files | 70 Karatsuba products, 91 squares, 112 products with six truncated variants, 288 B52 cases, 2,304 B53 visits, and 6,000 general-kernel visits |
+| `generator_big_unsigned_mul.cpp` | `big_unsigned_b35.tsv`, `big_unsigned_b37.tsv`, `big_unsigned_b38.tsv`, `big_unsigned_a25_b52.tsv`, `big_unsigned_a26_b53.tsv`, six `big_unsigned_a27_general_*.tsv` files, `big_unsigned_a28_b8.tsv`, `big_unsigned_a28_karatsuba_fixed.tsv` | 70 Karatsuba products, 91 squares, 112 products with six truncated variants, 288 B52, 2,304 B53, 6,000 general, 2,800 B8 and 40 fixed Karatsuba visits |
 | `generator_big_unsigned_dispatch.cpp` | `big_unsigned_b39.tsv`, `big_unsigned_b40.tsv`, `big_unsigned_b54_product.tsv`, `big_unsigned_b54_square.tsv` | 152 B39, 162 B40, 136 B54 products, 104 B54 squares |
 | `generator_integer_random.cpp` | `integer_b17.tsv`, `integer_b18.tsv` | 250 signed arithmetic/shift cases and 170 signed arithmetic/division cases |
 | `generator_rational_binary64.cpp` | `rational_r7.tsv`, `rational_r12.tsv` | 384 R7 rational probes; 2,048 R12 one-limb seeded conversions (both signs) |
@@ -1127,3 +1127,18 @@ truncated product for the original `low` length.
 shift/add `Nat` multiplication. Segmenting is only for repository/tooling
 size; execution order and RNG state are unchanged. No production code is
 modified. Normal CI and `verify-data` remain separate gates.
+
+### A28 — B8 and fixed Karatsuba oracle migration
+
+Migrate the final 2,840 visits in `test_multiply_kernel_paths()`: 700 B8
+sources exercised at four cutoffs (2,800 visits) and eight fixed sources at
+five cutoffs (40 visits). The fixed corpus continues the exact
+`mt19937_64(0xB8B8B8)` stream after all 700 B8 sources. The consumer keeps
+all scratch sizing, high-zero output checks, guard-limb assertions and
+cutoff-specific execution; only the exact product oracle moves to TSV.
+
+`generator_big_unsigned_mul.cpp` emits `big_unsigned_a28_b8.tsv` and
+`big_unsigned_a28_karatsuba_fixed.tsv` with independent shift/add `Nat`
+multiplication. The B8 fixture is 2,445,194 bytes (blob
+`16848b2efecd3cdc5535e03e0e4694df1890e09f`); the fixed fixture is 43,579
+bytes (blob `51233e8a709ad097bfd1435c0a9171fdef7dcdb6`).
