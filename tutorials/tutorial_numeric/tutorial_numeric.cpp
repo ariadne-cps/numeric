@@ -59,7 +59,7 @@ void tutorial_numeric() {
      *
      * Ariadne distinguishes several exact representations of numbers.
      *
-     * Integer  represents arbitrary-precision integers.
+     * Integer  represents multiple-precision integers.
      * Dyadic   represents rational numbers whose denominator is a power of 2.
      * Decimal  represents numbers given by a finite decimal expansion.
      * Rational represents arbitrary rational numbers.
@@ -100,7 +100,7 @@ void tutorial_numeric() {
     print("Decimal 9.81", decimal);
 
     /*
-     * Rational stores an exact quotient of arbitrary-precision integers.
+     * Rational stores an exact quotient of multiple-precision integers.
      */
     Rational rational(11,8);
     print("Rational 11/8", rational);
@@ -206,14 +206,14 @@ void tutorial_numeric() {
      * representation.
      *
      * DoublePrecision selects the ordinary double-precision backend.
-     * ArbitraryPrecision allows the number of binary precision bits to be
+     * MultiplePrecision allows the number of binary precision bits to be
      * chosen explicitly.
      */
 
     section("Floating-point precision");
 
     DoublePrecision dp;
-    ArbitraryPrecision ap(128);
+    MultiplePrecision mp(128);
 
     /*
      * Asking a Real for a concrete representation produces validated bounds
@@ -223,7 +223,7 @@ void tutorial_numeric() {
      * floating-point precisions.
      */
     FloatDPBounds pi_dp = pi_value.get(dp);
-    FloatAPBounds pi_mp = pi_value.get(ap);
+    FloatMPBounds pi_mp = pi_value.get(mp);
 
     print("pi with double precision", pi_dp);
     print("pi with 128-bit multiple precision", pi_mp);
@@ -269,7 +269,7 @@ void tutorial_numeric() {
      * Once computed, the validated result can again be materialised using a
      * chosen floating-point precision.
      */
-    FloatAPBounds accurate_pi_mp = accurate_pi.get(ap);
+    FloatMPBounds accurate_pi_mp = accurate_pi.get(mp);
     print("validated pi at 128-bit precision", accurate_pi_mp);
     print("validated pi error", accurate_pi_mp.error());
 
@@ -300,7 +300,7 @@ void tutorial_numeric() {
      * 7. Raw floating-point numbers
      * ----------------------------------------------------------------------
      *
-     * FloatDP and FloatAP are concrete floating-point values.
+     * FloatDP and FloatMP are concrete floating-point values.
      *
      * Unlike Bounds, they do not by themselves describe an interval known to
      * contain an exact mathematical value. They represent a floating-point
@@ -310,10 +310,10 @@ void tutorial_numeric() {
     section("Raw floating-point numbers");
 
     FloatDP raw_dp(1.75_x,dp);
-    FloatAP raw_mp(1.75_x,ap);
+    FloatMP raw_mp(1.75_x,mp);
 
     print("FloatDP 1.75", raw_dp);
-    print("FloatAP 1.75", raw_mp);
+    print("FloatMP 1.75", raw_mp);
 
 
     /*
@@ -323,7 +323,7 @@ void tutorial_numeric() {
      *
      * Bounds are one of the central tools for rigorous numerics.
      *
-     * FloatDPBounds and FloatAPBounds represent an unknown mathematical value
+     * FloatDPBounds and FloatMPBounds represent an unknown mathematical value
      * together with guaranteed lower and upper floating-point bounds.
      *
      * Arithmetic is outwardly rounded so that the resulting interval still
@@ -375,8 +375,8 @@ void tutorial_numeric() {
 
     section("Multiple-precision bounds");
 
-    FloatAPBounds mp_decimal_bounds(Decimal("1.2"),ap);
-    FloatAPBounds mp_interval(Rational(11,10),Rational(14,10),ap);
+    FloatMPBounds mp_decimal_bounds(Decimal("1.2"),mp);
+    FloatMPBounds mp_interval(Rational(11,10),Rational(14,10),mp);
 
     print("128-bit bounds for decimal 1.2", mp_decimal_bounds);
     print("128-bit bounds for [11/10,14/10]", mp_interval);
@@ -403,7 +403,7 @@ void tutorial_numeric() {
     section("Floating-point approximations");
 
     FloatDPApproximation approximation_dp(1.23,dp);
-    FloatAPApproximation approximation_mp(1.23,ap);
+    FloatMPApproximation approximation_mp(1.23,mp);
 
     print("double-precision approximation to 1.23", approximation_dp);
     print("multiple-precision approximation to 1.23", approximation_mp);
@@ -432,7 +432,7 @@ void tutorial_numeric() {
 
     section("Validated balls");
 
-    FloatAPBall pi_ball(pi_value.compute(Accuracy(128_bits)).get(ap));
+    FloatMPBall pi_ball(pi_value.compute(Accuracy(128_bits)).get(mp));
     print("pi represented as a multiple-precision ball", pi_ball);
     print("ball error", pi_ball.error());
 
@@ -524,7 +524,7 @@ void tutorial_numeric() {
     Real result = exp(-x) * sin(pi_value/4);
 
     ValidatedReal validated_result = result.compute(Accuracy(128_bits));
-    FloatAPBounds result_bounds = validated_result.get(ap);
+    FloatMPBounds result_bounds = validated_result.get(mp);
 
     print("result as a Real", result);
     print("result with requested accuracy", validated_result);

@@ -25,24 +25,24 @@ from pyariadne import *
 
 def test_generics():
     assert(DP==DoublePrecision)
-    assert(AP==ArbitraryPrecision)
-    assert(type(precision(128))==ArbitraryPrecision)
+    assert(MP==MultiplePrecision)
+    assert(type(precision(128))==MultiplePrecision)
     assert(precision(128).bits()==128)
     assert(Float[DP]==FloatDP)
-    assert(Float[AP]==FloatAP)
+    assert(Float[MP]==FloatMP)
     assert(Ball[FloatDP]==FloatDPBall)
     assert(Bounds[FloatDP]==FloatDPBounds)
     assert(UpperBound[FloatDP]==FloatDPUpperBound)
     assert(LowerBound[FloatDP]==FloatDPLowerBound)
     assert(Approximation[FloatDP]==FloatDPApproximation)
     assert(Ball[FloatDP,FloatDP]==FloatDPBall)
-    assert(Ball[FloatAP]==FloatAPBall)
-    assert(Bounds[FloatAP]==FloatAPBounds)
-    assert(UpperBound[FloatAP]==FloatAPUpperBound)
-    assert(LowerBound[FloatAP]==FloatAPLowerBound)
-    assert(Approximation[FloatAP]==FloatAPApproximation)
-    assert(Ball[FloatAP,FloatDP]==FloatAPDPBall)
-    assert(Ball[FloatAP,FloatAP]==FloatAPBall)
+    assert(Ball[FloatMP]==FloatMPBall)
+    assert(Bounds[FloatMP]==FloatMPBounds)
+    assert(UpperBound[FloatMP]==FloatMPUpperBound)
+    assert(LowerBound[FloatMP]==FloatMPLowerBound)
+    assert(Approximation[FloatMP]==FloatMPApproximation)
+    assert(Ball[FloatMP,FloatDP]==FloatMPDPBall)
+    assert(Ball[FloatMP,FloatMP]==FloatMPBall)
 
 def test_regression():
     # New regression tests
@@ -51,8 +51,8 @@ def test_regression():
     ExactDouble(1.3) # Can we construct ExactDouble when input probably not exact?
     Dyadic(exact(1.375))
     FloatDP("1.375",dp)
-    ap=ArbitraryPrecision(128)
-    fa=FloatAP(Dyadic(11,3),ap)
+    mp=MultiplePrecision(128)
+    fa=FloatMP(Dyadic(11,3),mp)
     assert(Dyadic(fa)==Dyadic(11,3))
 
     z=Integer(1)
@@ -247,10 +247,10 @@ def check_rounded(x):
 def test_rounded():
     w=Dyadic(3,1); q=Rational(1,3);
     dp=DoublePrecision(); RoundedFloatDP(w,dp); RoundedFloatDP(q,dp); 
-    ap=ArbitraryPrecision(128); RoundedFloatAP(w,ap); RoundedFloatAP(q,ap); 
+    mp=MultiplePrecision(128); RoundedFloatMP(w,mp); RoundedFloatMP(q,mp); 
     dp=DoublePrecision(); FloatDP(w,dp); FloatDP(q,up,dp); FloatDP.eps(dp);
     check_rounded(FloatDP(w,dp))
-    check_rounded(FloatAP(w,ap))
+    check_rounded(FloatMP(w,mp))
 
 
 def test_concrete():
@@ -322,6 +322,6 @@ def test_concrete():
 
 
 def test_ball_string_is_utf8():
-    ap = ArbitraryPrecision(128)
-    ball = FloatAPBall("1.0", "0.1", ap)
+    mp = MultiplePrecision(128)
+    ball = FloatMPBall("1.0", "0.1", mp)
     assert "±" in str(ball)

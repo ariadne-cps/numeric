@@ -31,7 +31,7 @@
 
 #include "float.decl.hpp"
 #include "floatdp.hpp"
-#include "floatap.hpp"
+#include "floatmp.hpp"
 #include "numeric/operators.hpp"
 
 namespace Ariadne {

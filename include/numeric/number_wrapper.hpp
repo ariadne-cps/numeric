@@ -44,7 +44,7 @@
 #include "foundation/logical.hpp"
 #include "builtin.hpp"
 #include "floatdp.hpp"
-#include "floatap.hpp"
+#include "floatmp.hpp"
 #include "float_ball.hpp"
 #include "float_bounds.hpp"
 #include "float_upper_bound.hpp"
@@ -82,16 +82,16 @@ Approximation<FloatDP> asin(Approximation<FloatDP> const& x);
 Approximation<FloatDP> acos(Approximation<FloatDP> const& x);
 Approximation<FloatDP> pow(Approximation<FloatDP> const& x, Integer const& z);
 
-Approximation<FloatAP> div(Approximation<FloatAP> const& x1, Approximation<FloatAP> const& x2);
-Approximation<FloatAP> sqr(Approximation<FloatAP> const& x);
-Approximation<FloatAP> rec(Approximation<FloatAP> const& x);
-Approximation<FloatAP> sin(Approximation<FloatAP> const& x);
-Approximation<FloatAP> cos(Approximation<FloatAP> const& x);
-Approximation<FloatAP> tan(Approximation<FloatAP> const& x);
-Approximation<FloatAP> tanh(Approximation<FloatAP> const& x);
-Approximation<FloatAP> asin(Approximation<FloatAP> const& x);
-Approximation<FloatAP> acos(Approximation<FloatAP> const& x);
-Approximation<FloatAP> pow(Approximation<FloatAP> const& x, Integer const& z);
+Approximation<FloatMP> div(Approximation<FloatMP> const& x1, Approximation<FloatMP> const& x2);
+Approximation<FloatMP> sqr(Approximation<FloatMP> const& x);
+Approximation<FloatMP> rec(Approximation<FloatMP> const& x);
+Approximation<FloatMP> sin(Approximation<FloatMP> const& x);
+Approximation<FloatMP> cos(Approximation<FloatMP> const& x);
+Approximation<FloatMP> tan(Approximation<FloatMP> const& x);
+Approximation<FloatMP> tanh(Approximation<FloatMP> const& x);
+Approximation<FloatMP> asin(Approximation<FloatMP> const& x);
+Approximation<FloatMP> acos(Approximation<FloatMP> const& x);
+Approximation<FloatMP> pow(Approximation<FloatMP> const& x, Integer const& z);
 
 // Declare fallbacks for use by Dyadic/RationalBounds
 template<class B> concept AlgebraicBounds = SameAs<B,DyadicBounds> || SameAs<B,DecimalBounds> || SameAs<B,RationalBounds>;
@@ -324,7 +324,7 @@ template<> struct DispatcherTraits<DyadicBounds> { typedef ValidatedAlgebraicNum
 template<> struct DispatcherTraits<RationalBounds> { typedef ValidatedAlgebraicNumberInterface Interface; };
 
 template<> struct DispatcherTraits<FloatDP> { typedef ConcreteNumberInterface<FloatDP> Interface; };
-template<> struct DispatcherTraits<FloatAP> { typedef ConcreteNumberInterface<FloatAP> Interface; };
+template<> struct DispatcherTraits<FloatMP> { typedef ConcreteNumberInterface<FloatMP> Interface; };
 
 template<class F> struct DispatcherTraits<Ball<F>> { typedef ConcreteNumberInterface<F> Interface; };
 template<class F> struct DispatcherTraits<Bounds<F>> { typedef ConcreteNumberInterface<F> Interface; };
@@ -496,18 +496,18 @@ template<class X> class NumberGetterMixin : public virtual NumberInterface {
 
     // Keep the same paradigm-specific return types and the supplied
     // Preserve the supplied centre/error precision in the native backend.
-    virtual FloatAPDPBall _get(MetricTag, ArbitraryPrecision pr, DoublePrecision pre) const override {
-        return this->_get_as<FloatAPDPBall>(pr,pre); }
-    virtual FloatAPBall _get(MetricTag, ArbitraryPrecision pr, ArbitraryPrecision pre) const override {
-        return this->_get_as<FloatAPBall>(pr,pre); }
-    virtual FloatAPBounds _get(OrderTag, ArbitraryPrecision pr) const override {
-        return this->_get_as<FloatAPBounds>(pr); }
-    virtual FloatAPUpperBound _get(UpperTag, ArbitraryPrecision pr) const override {
-        return this->_get_as<FloatAPUpperBound>(pr); }
-    virtual FloatAPLowerBound _get(LowerTag, ArbitraryPrecision pr) const override {
-        return this->_get_as<FloatAPLowerBound>(pr); }
-    virtual FloatAPApproximation _get(ApproximateTag, ArbitraryPrecision pr) const override {
-        return this->_get_as<FloatAPApproximation>(pr); }
+    virtual FloatMPDPBall _get(MetricTag, MultiplePrecision pr, DoublePrecision pre) const override {
+        return this->_get_as<FloatMPDPBall>(pr,pre); }
+    virtual FloatMPBall _get(MetricTag, MultiplePrecision pr, MultiplePrecision pre) const override {
+        return this->_get_as<FloatMPBall>(pr,pre); }
+    virtual FloatMPBounds _get(OrderTag, MultiplePrecision pr) const override {
+        return this->_get_as<FloatMPBounds>(pr); }
+    virtual FloatMPUpperBound _get(UpperTag, MultiplePrecision pr) const override {
+        return this->_get_as<FloatMPUpperBound>(pr); }
+    virtual FloatMPLowerBound _get(LowerTag, MultiplePrecision pr) const override {
+        return this->_get_as<FloatMPLowerBound>(pr); }
+    virtual FloatMPApproximation _get(ApproximateTag, MultiplePrecision pr) const override {
+        return this->_get_as<FloatMPApproximation>(pr); }
 
     virtual ParadigmCode _paradigm() const override { return P::code(); }
     virtual String _class_name() const override { return class_name<X>(); }

@@ -109,7 +109,7 @@ typedef Float<DP> FloatDP;
 //! Note that the value of a built-in floating-point value may differ from the mathematical value of the literal.
 //! For example, while <c>%FloatDP(3.25)</c> is represented exactly, <c>%FloatDP(3.3)</c> has a value of \f$3.2999999999999998224\ldots\f$.
 //! \note In the future, the construction of a \c %FloatDP from a string literal may be supported.
-//! \sa Float<MP>, Real, FloatBall, FloatBounds, FloatUpperBound, FloatLowerBound, FloatApproximation, FloatError
+//! \sa Float<MP>, Real, FloatBall, FloatBounds, FloatUpperBound, FloatLowerBound, FloatMPproximation, FloatError
 template<> class Float<DP>
     : public DeclareRoundedOperations<Float<DP>>
 {
@@ -190,8 +190,8 @@ template<> class Float<DP>
     explicit Float(Dyadic const& w, RoundingModeType rnd, PrecisionType pr);
     //! \brief Construct from a decimal number with given rounding
     explicit Float(Decimal const& d, RoundingModeType rnd, PrecisionType pr);
-    //! \brief Construct from a FloatAP using given rounding
-    explicit Float(FloatAP const& d, RoundingModeType rnd, PrecisionType pr);
+    //! \brief Construct from a FloatMP using given rounding
+    explicit Float(FloatMP const& d, RoundingModeType rnd, PrecisionType pr);
     //! \brief Construct from a rational number with given rounding
     explicit Float(Rational const& q, RoundingModeType rnd, PrecisionType pr);
     //! \brief Convert to a dyadic number.

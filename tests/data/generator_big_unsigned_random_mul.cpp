@@ -26,7 +26,7 @@ Nat low(Nat p,std::size_t count) {
 }
 std::string generate() {
     std::string result=
-        "# Frozen original-source BigUnsigned randomized multiplication; independent arbitrary-precision exact integer oracle.\n"
+        "# Frozen original-source BigUnsigned randomized multiplication; independent multiple-precision exact integer oracle.\n"
         "# rep source_n source_m low_limbs source_x_hex source_y_hex full_product_hex square_x_hex low_product_hex\n"
         "# std::mt19937_64(0x1282561024) after R14 draws, first 10 original source metadata independently compared with compiled C++.\n"
         "# One repetition per consecutive block of ten; coverage-aware greedy choice, not naive fixed modulus.\n"

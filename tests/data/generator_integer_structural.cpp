@@ -49,7 +49,7 @@ std::string integer_b66() {
         "# Original std::mt19937_64(0xB660F00D) stream consumed for 12 modes at each width.\n"
         "# Modes 0,1,2,3 retain zero, saturated negative, single-top-bit positive and dense negative.\n"
         "# All 18 original exponents kept, including 0^0, 31/32/33, 63/64/65 boundaries.\n"
-        "# Offline expected result generated with exact arbitrary-precision signed exponentiation.\n";
+        "# Offline expected result generated with exact multiple-precision signed exponentiation.\n";
     std::mt19937_64 rng(0xB660F00DULL);
     for (std::size_t count:{0u,1u,2u,3u,4u}) {
         for (unsigned mode=0u;mode<12u;++mode) {

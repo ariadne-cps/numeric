@@ -3,8 +3,8 @@
 # 864 input visits: standardized mt19937_64 seed 0xB74D1A1DE, 6x6x24.
 # Original source words and all mode%6 transformations are preserved.
 # Canonical lowercase hexadecimal, zero is 0, division-by-zero results are - -.
-# Expected values certified by native arbitrary-precision integer quotient/remainder,
-# and checked with a=b*q+r and 0<=r<b. No GMP, independent exact arithmetic, FloatAP, BigUnsigned oracle.
+# Expected values certified by native multiple-precision integer quotient/remainder,
+# and checked with a=b*q+r and 0<=r<b. No GMP, independent exact arithmetic, FloatMP, BigUnsigned oracle.
 0	0	0	0	0	-	-
 0	0	1	0	0	-	-
 0	0	2	0	0	-	-

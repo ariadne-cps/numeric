@@ -44,7 +44,7 @@ template<class PR> class FloatFactory {
     PR precision() const { return this->_pr; }
     PR characteristics() const { return this->_pr; }
   public:
-    FloatApproximation<PR> create(ApproximateNumber const& y);
+    FloatMPproximation<PR> create(ApproximateNumber const& y);
     FloatLowerBound<PR> create(ValidatedLowerNumber const& y);
     FloatUpperBound<PR> create(ValidatedUpperNumber const& y);
     FloatBounds<PR> create(ValidatedNumber const& y);
@@ -59,8 +59,8 @@ template<class PR> class FloatFactory {
     Float<PR> create(Integer const& y, ExactTag);
     template<BuiltinSignedIntegral N> Float<PR> create(N const& y);
     template<BuiltinUnsignedIntegral M> PositiveFloat<PR> create(M const& y);
-    template<BuiltinFloatingPoint D> FloatApproximation<PR> create(D const& y);
-    PositiveFloatApproximation<PR> create(PositiveApproximateNumber const& y);
+    template<BuiltinFloatingPoint D> FloatMPproximation<PR> create(D const& y);
+    PositiveFloatMPproximation<PR> create(PositiveApproximateNumber const& y);
     PositiveFloatLowerBound<PR> create(PositiveValidatedLowerNumber const& y);
     PositiveFloatUpperBound<PR> create(PositiveValidatedUpperNumber const& y);
     PositiveFloatBounds<PR> create(PositiveValidatedNumber const& y);

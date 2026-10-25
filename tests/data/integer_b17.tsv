@@ -1,4 +1,4 @@
-# B17 independent signed arithmetic/shift oracle using exact arbitrary-precision integer calculations.
+# B17 independent signed arithmetic/shift oracle using exact multiple-precision integer calculations.
 # rep lhs rhs sum difference product trunc_quotient trunc_remainder trunc_right_shift signed_left_shift (decimal)
 # Original C++ mt19937_64(0x51C0FFEE), generated in full then sampled 1/10: rep = 10*k+(7*k+3)%10.
 # bits=rep%130; every shift count 0..129 survives, including 31/32/33, 63/64/65 and 127/128/129.

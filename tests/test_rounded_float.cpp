@@ -99,13 +99,13 @@ constexpr bool check_rounded_float_concept()
 }
 
 static_assert(check_rounded_float_concept<FloatDP>());
-static_assert(check_rounded_float_concept<FloatAP>());
+static_assert(check_rounded_float_concept<FloatMP>());
 
 Void test_numeric_casts()
 {
     FloatDP dp_two(2,dp);
-    const ArbitraryPrecision ap(128_bits);
-    FloatAP ap_two(2,ap);
+    const MultiplePrecision mp(128_bits);
+    FloatMP ap_two(2,mp);
     Dyadic dy_two(2);
     Real real_two(2);
     FloatDPBounds bounds_two(2,dp);
@@ -116,9 +116,9 @@ Void test_numeric_casts()
     ARIADNE_TEST_EQUALS(numeric_cast<Int>(ap_two),Int(2));
     // The public numeric_cast API must match the legacy backend on
     // positive, negative and non-integral finite inputs.
-    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatAP(-2,ap)),Int(-2));
-    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatAP(ExactDouble(2.5),ap)),Int(2));
-    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatAP(ExactDouble(-2.5),ap)),Int(-2));
+    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatMP(-2,mp)),Int(-2));
+    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatMP(ExactDouble(2.5),mp)),Int(2));
+    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatMP(ExactDouble(-2.5),mp)),Int(-2));
 
     ARIADNE_TEST_EQUALS(numeric_cast<double>(dp_two),2.0);
     ARIADNE_TEST_EQUALS(numeric_cast<double>(dy_two),2.0);
@@ -179,7 +179,7 @@ Int main() {
     ARIADNE_TEST_CALL(test_numeric_casts());
 
     TestRounded<FloatDP>(dp).test();
-    TestRounded<FloatAP>(ArbitraryPrecision(128_bits)).test();
+    TestRounded<FloatMP>(MultiplePrecision(128_bits)).test();
 
     return ARIADNE_TEST_FAILURES;
 }

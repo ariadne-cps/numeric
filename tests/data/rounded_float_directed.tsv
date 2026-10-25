@@ -9,7 +9,7 @@
 # via pi/4 + atan((abs(x)-1)/(abs(x)+1)), where pi/4 is certified
 # from 4*atan(1/5)-atan(1/239) using the same integer intervals.
 # The 128-bit DOWN and UP rounding of both interval endpoints must coincide.
-# No FloatAP, independent exact arithmetic, independent exact arithmetic, GMP or floating-point transcendentals as oracle.
+# No FloatMP, independent exact arithmetic, independent exact arithmetic, GMP or floating-point transcendentals as oracle.
 # FloatDP output is checked strictly > 128-bit upper or < 128-bit lower,
 # matching the original tests; NOT for equality at 53-bit precision.
 exp	-2	1	184208842030680689678503443570508475279	1361129467683753853853498429727072845824	11513052626917543104906465223156779705	85070591730234615865843651857942052864

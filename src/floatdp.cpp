@@ -42,7 +42,7 @@
 #include "numeric/rational.hpp"
 #include "numeric/rounding.hpp"
 #include "numeric/floatdp.hpp"
-#include "numeric/floatap.hpp"
+#include "numeric/floatmp.hpp"
 #include "numeric/rounded_float.hpp"
 #include "numeric/float_approximation.hpp"
 #include "numeric/float_lower_bound.hpp"
@@ -152,16 +152,16 @@ FloatDP::Float(Rational const& q, RoundingModeType rnd, PrecisionType)
 {
 }
 
-// Convert the exact FloatAP value directly at double precision with the
+// Convert the exact FloatMP value directly at double precision with the
 // requested rounding. Preserve the non-finite cases and signed zero, which
 // are not faithfully represented by ordinary finite rational arithmetic.
-FloatDP::Float(FloatAP const& value, RoundingModeType rnd, PrecisionType pr)
+FloatDP::Float(FloatMP const& value, RoundingModeType rnd, PrecisionType pr)
     : FloatDP(value.is_nan() ? FloatDP::nan(pr)
               : value.is_inf() ? FloatDP::inf(value.negative() ? Sign::NEGATIVE : Sign::POSITIVE,pr)
               : value.is_zero() ? FloatDP(ExactDouble(value.negative() ? -0.0 : 0.0),pr)
               : FloatDP(static_cast<Rational>(value),rnd,pr))
 {
-    // Reject unsupported rounding modes for every kind of FloatAP input,
+    // Reject unsupported rounding modes for every kind of FloatMP input,
     // including exact values, infinities, NaNs, and signed zero.
     ARIADNE_PRECONDITION(rnd==ROUND_TO_NEAREST || rnd==ROUND_DOWNWARD
                       || rnd==ROUND_UPWARD || rnd==ROUND_TOWARD_ZERO);
@@ -173,15 +173,15 @@ bool shared_transcendental(Detail::FloatTranscendental function,
     using Function=Detail::FloatTranscendental;
     // Preserve the cheaper existing nearest paths for exp/log/tan/atan.
     // The other nearest functions and directed operations benefit from
-    // the same exact certificate and outward coefficient cache as FloatAP.
+    // the same exact certificate and outward coefficient cache as FloatMP.
     if (mode==FloatDP::ROUND_TO_NEAREST &&
         function!=Function::sine && function!=Function::cosine &&
         function!=Function::arcsine && function!=Function::arccosine &&
         function!=Function::hyperbolic_tangent) return false;
-    FloatAP::Rounding rounding=FloatAP::Rounding::ToNearest;
-    if (mode==FloatDP::ROUND_DOWNWARD) rounding=FloatAP::Rounding::Downward;
-    else if (mode==FloatDP::ROUND_UPWARD) rounding=FloatAP::Rounding::Upward;
-    else if (mode==FloatDP::ROUND_TOWARD_ZERO) rounding=FloatAP::Rounding::TowardZero;
+    FloatMP::Rounding rounding=FloatMP::Rounding::ToNearest;
+    if (mode==FloatDP::ROUND_DOWNWARD) rounding=FloatMP::Rounding::Downward;
+    else if (mode==FloatDP::ROUND_UPWARD) rounding=FloatMP::Rounding::Upward;
+    else if (mode==FloatDP::ROUND_TOWARD_ZERO) rounding=FloatMP::Rounding::TowardZero;
     else if (mode!=FloatDP::ROUND_TO_NEAREST) return false;
     return Detail::try_floatdp_transcendental(function,rounding,input,output);
 }
@@ -381,23 +381,23 @@ OutputStream& write(OutputStream& os, FloatDP const& x, Nat bits, BuiltinRoundin
 */
 
 // Preserve exact binary64 inputs, including signed zero and IEEE
-// special values. Decimal rounding uses the native arbitrary-precision
+// special values. Decimal rounding uses the native multiple-precision
 // formatter without foreign floating-point temporaries.
 namespace {
-FloatAP::RoundingModeType native_decimal_mode(BuiltinRoundingModeType mode) {
+FloatMP::RoundingModeType native_decimal_mode(BuiltinRoundingModeType mode) {
     ARIADNE_PRECONDITION(mode==ROUND_TO_NEAREST ||
                          mode==ROUND_DOWNWARD || mode==ROUND_UPWARD);
-    return mode==ROUND_TO_NEAREST ? FloatAP::ROUND_TO_NEAREST :
-           mode==ROUND_DOWNWARD ? FloatAP::ROUND_DOWNWARD :
-                                  FloatAP::ROUND_UPWARD;
+    return mode==ROUND_TO_NEAREST ? FloatMP::ROUND_TO_NEAREST :
+           mode==ROUND_DOWNWARD ? FloatMP::ROUND_DOWNWARD :
+                                  FloatMP::ROUND_UPWARD;
 }
-FloatAP native_binary64(FloatDP const& x) {
+FloatMP native_binary64(FloatDP const& x) {
     constexpr unsigned long bits=53u;
     const double value=x.get_d();
-    if(std::isnan(value)) return FloatAP::nan(bits);
-    if(std::isinf(value)) return FloatAP::infinity(bits,std::signbit(value));
-    if(value==0.0) return FloatAP::zero(bits,std::signbit(value));
-    return FloatAP(ExactDouble(value),ArbitraryPrecision(std::size_t{bits}));
+    if(std::isnan(value)) return FloatMP::nan(bits);
+    if(std::isinf(value)) return FloatMP::infinity(bits,std::signbit(value));
+    if(value==0.0) return FloatMP::zero(bits,std::signbit(value));
+    return FloatMP(ExactDouble(value),MultiplePrecision(std::size_t{bits}));
 }
 } // namespace
 

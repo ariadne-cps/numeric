@@ -1,4 +1,4 @@
-# B18 independent arithmetic oracle using exact arbitrary-precision signed integer calculations.
+# B18 independent arithmetic oracle using exact multiple-precision signed integer calculations.
 # rep lhs rhs sum difference product trunc_quotient trunc_remainder (all decimal)
 # Original C++ mt19937_64(0x1A7E6EED), generated in full then sampled 1/10: rep = 10*k+(7*k+3)%10.
 # Includes all 7 operand-length modes, 6 sign combinations and original zero-dividend cases.

@@ -64,7 +64,7 @@ class ApproximateReal
     //! with precision \a pr.
     //! Note that increasing the precision typically does not yield arbitrarily
     //! accurate approximation, as the object already has some error.
-    FloatAPApproximation get(ArbitraryPrecision pr) const;
+    FloatMPApproximation get(MultiplePrecision pr) const;
     //! \brief Write to an output stream.
     friend OutputStream& operator<<(OutputStream&, ApproximateReal const&);
 };

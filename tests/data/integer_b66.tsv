@@ -3,7 +3,7 @@
 # Original std::mt19937_64(0xB660F00D) stream consumed for 12 modes at each width.
 # Modes 0,1,2,3 retain zero, saturated negative, single-top-bit positive and dense negative.
 # All 18 original exponents kept, including 0^0, 31/32/33, 63/64/65 boundaries.
-# Offline expected result generated with exact arbitrary-precision signed exponentiation.
+# Offline expected result generated with exact multiple-precision signed exponentiation.
 0	0	0	0	1
 0	0	1	0	0
 0	0	2	0	0

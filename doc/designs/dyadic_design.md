@@ -385,21 +385,21 @@ As part of the authorized retirement of the GMP-backed Dyadic, FloatDP assignmen
 type's `get_d()` conversion instead of `mpf_get_d(w.get_mpf())`. Do not conflate this intermediate
 dependency elimination with completed promotion or green CI.
 
-### D45 — focus Dyadic integration on native FloatAP (21 October 2026)
+### D45 — focus Dyadic integration on native FloatMP (21 October 2026)
 
 The native `FloatDP` input adjustment from D44 is retained for now.
 
 **Promotion requirement.** Before retiring the old Dyadic class, move the supported external APIs
-and conversions to the native replacement: FloatAP -> Dyadic must preserve the *exact* finite binary
-rational (significand and binary exponent), and Dyadic -> FloatAP must respect its precision and
+and conversions to the native replacement: FloatMP -> Dyadic must preserve the *exact* finite binary
+rational (significand and binary exponent), and Dyadic -> FloatMP must respect its precision and
 rounding contracts. No Dyadic `get_mpf()`, `_mpf`, or GMP `mpf_t` shim should survive the final
-replacement. Keep independent correctness checks for FloatAP conversion; removing tests does not
+replacement. Keep independent correctness checks for FloatMP conversion; removing tests does not
 establish correctness.
 
 
-### D46 — exact FloatAP-to-Dyadic export without mpf intermediates (21 October 2026)
+### D46 — exact FloatMP-to-Dyadic export without mpf intermediates (21 October 2026)
 
-FloatAP finite values already carry an integer significand and a signed
+FloatMP finite values already carry an integer significand and a signed
 binary exponent. Replace the former `mpf_init2 / mpf_set_z /
 mpf_mul_2exp / mpf_div_2exp / Dyadic(mpf_t)` conversion with
 `integer_from_gmp(_significand)` to a native BigUnsigned, followed
@@ -412,19 +412,19 @@ report overflow explicitly; the final native Dyadic API will use
 size_t exponents, removing that legacy-only restriction.
 
 Add a D46 exact round-trip and Rational oracle in `test_float.cpp` for 1/53/127/128/191-bit
-significands, five exponent choices, both signs, and special values. The existing FloatAP->Rational
+significands, five exponent choices, both signs, and special values. The existing FloatMP->Rational
 conversion remains a separate exact oracle.
 
-### D47 — parallel native FloatAP/NewDyadic interface before final rename (21 October 2026)
+### D47 — parallel native FloatMP/NewDyadic interface before final rename (21 October 2026)
 
-Introduce direct conversions in both directions between FloatAP and NewDyadic without using legacy
+Introduce direct conversions in both directions between FloatMP and NewDyadic without using legacy
 Dyadic or mpf_t. The input side converts the exact Rational value and distinguishes exact
 construction (rejecting inexact precision) from explicitly rounded construction. Assignment
-preserves the exact-conversion contract. The output side exports FloatAP's integer significand and
+preserves the exact-conversion contract. The output side exports FloatMP's integer significand and
 signed binary exponent as an exact native dyadic, including NaN and signed infinity. Add a test
 matrix of 1/53/127/128/191 bit operands, five exponents, both signs, exact Rational verification,
 assignment, explicit rounding and nonfinite values. These overloads are transitional: when NewDyadic
-becomes Dyadic, eliminate the old FloatAP/Dyadic overloads and retain just these native
+becomes Dyadic, eliminate the old FloatMP/Dyadic overloads and retain just these native
 implementations. Validation through Unix/Windows/Coverage CI is required.
 
 ### D48 — stage native interval and enclosure wrappers (21 October 2026)
@@ -475,12 +475,12 @@ dyadic coefficient/denominator, with explicit NaN and infinity handling.
 
 CI must confirm exactness, including finite/special cases.
 
-### D52 — parity of Rational/Integer/Dyadic interoperability with FloatAP (21 October 2026)
+### D52 — parity of Rational/Integer/Dyadic interoperability with FloatMP (21 October 2026)
 
-FloatAP already provides `cast_integer(FloatAP)`, `FloatAP(Integer,...)` and both exact and
+FloatMP already provides `cast_integer(FloatMP)`, `FloatMP(Integer,...)` and both exact and
 explicitly rounded Dyadic conversion APIs; no duplicate Integer overload is added. Add independent
-tests of finite/large dyadic rational values, both infinities, NaN, FloatAP->Dyadic roundtrip, and
-exact/non-integral FloatAP->Integer casts. This is an API parity step, not final Dyadic promotion.
+tests of finite/large dyadic rational values, both infinities, NaN, FloatMP->Dyadic roundtrip, and
+exact/non-integral FloatMP->Integer casts. This is an API parity step, not final Dyadic promotion.
 
 ### D53 — infinity sign extraction during API migration (21 October 2026)
 
@@ -491,7 +491,7 @@ changes. Build and CI validation remain mandatory before treating D51/D52 as tes
 
 Replace canonical dyadic.hpp/dyadic.cpp with Integer-magnitude and denominator-exponent native
 backend, fold wrappers directly into dyadic.hpp, preserve writers, remove old mpf_t implementation.
-Remove new_dyadic.hpp and test_new_dyadic.cpp and update FloatAP and benchmark to canonical type and
+Remove new_dyadic.hpp and test_new_dyadic.cpp and update FloatMP and benchmark to canonical type and
 header. Preserve legacy test_dyadic.cpp plus native wrapper regression checks. This is a large
 integration candidate: do not equate commit publication with green CI.
 

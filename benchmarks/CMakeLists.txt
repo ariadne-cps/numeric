@@ -3,7 +3,7 @@ set(BENCHMARKS
     benchmark_big_unsigned_multiply
     benchmark_big_unsigned_arithmetic
     benchmark_big_unsigned_division_profile
-    benchmark_floatap
+    benchmark_floatmp
     benchmark_compare_double_precision_backends
     benchmark_compare_integer_backends
     benchmark_integer_alias_dispatch

@@ -59,7 +59,7 @@ using DP = DoublePrecision;
 template<class FLT> class Rounded;
 
 using RoundedFloatDP = Rounded<FloatDP>;
-using RoundedFloatAP = Rounded<FloatAP>;
+using RoundedFloatMP = Rounded<FloatMP>;
 
 template<> class Rounded<FloatDP>
 {

@@ -106,7 +106,7 @@ class LowerReal
     ValidatedLowerReal compute(Effort eff) const;
     DyadicLowerBound compute_get(Effort eff) const;
     FloatDPLowerBound compute_get(Effort eff, DoublePrecision pr) const;
-    FloatAPLowerBound compute_get(Effort eff, ArbitraryPrecision pr) const;
+    FloatMPLowerBound compute_get(Effort eff, MultiplePrecision pr) const;
     //!@}
   public:
     //!@{
@@ -208,7 +208,7 @@ class ValidatedLowerReal
     ValidatedLowerReal(ValidatedReal const&);
     DyadicLowerBound get() const;
     FloatDPLowerBound get(DoublePrecision) const;
-    FloatAPLowerBound get(ArbitraryPrecision) const;
+    FloatMPLowerBound get(MultiplePrecision) const;
     friend OutputStream& operator<<(OutputStream&, ValidatedLowerReal const&);
 };
 

@@ -30,7 +30,7 @@
 #include "numeric/dyadic.hpp"
 #include "numeric/number.hpp"
 #include "numeric/floatdp.hpp"
-#include "numeric/floatap.hpp"
+#include "numeric/floatmp.hpp"
 #include "foundation/logical.hpp"
 
 #include <array>
@@ -162,21 +162,21 @@ void TestRational::test_conversions() {
 
     FloatDP fdp(Dyadic(5,2u),dp);
     ARIADNE_TEST_EQUAL(Rational(fdp),Rational(5,4));
-    // Exact FloatAP-to-Rational conversion must not depend on another floating-point backend.
-    const ArbitraryPrecision ap_precision(256_bits);
-    const FloatAP ap(Dyadic(5,2u),ap_precision);
-    ARIADNE_TEST_EQUAL(Rational(ap),Rational(5,4));
+    // Exact FloatMP-to-Rational conversion must not depend on another floating-point backend.
+    const MultiplePrecision ap_precision(256_bits);
+    const FloatMP mp(Dyadic(5,2u),ap_precision);
+    ARIADNE_TEST_EQUAL(Rational(mp),Rational(5,4));
     const Integer wide_numerator(String("123456789012345678901234567890123456789"));
     const Dyadic wide_dyadic(wide_numerator,73u);
-    const FloatAP wide_ap(wide_dyadic,ap_precision);
+    const FloatMP wide_ap(wide_dyadic,ap_precision);
     ARIADNE_TEST_EQUAL(Rational(wide_ap),Rational(wide_dyadic));
     ARIADNE_TEST_EQUAL(static_cast<Dyadic>(wide_ap),wide_dyadic);
-    ARIADNE_TEST_EQUAL(cast_integer(FloatAP(Integer(-17),ap_precision)),Integer(-17));
-    ARIADNE_TEST_FAIL(cast_integer(ap));
-    ARIADNE_TEST_ASSERT(is_nan(Rational(FloatAP::nan(ap_precision))));
-    ARIADNE_TEST_EQUAL(Rational(FloatAP::inf(Sign::POSITIVE,ap_precision)),
+    ARIADNE_TEST_EQUAL(cast_integer(FloatMP(Integer(-17),ap_precision)),Integer(-17));
+    ARIADNE_TEST_FAIL(cast_integer(mp));
+    ARIADNE_TEST_ASSERT(is_nan(Rational(FloatMP::nan(ap_precision))));
+    ARIADNE_TEST_EQUAL(Rational(FloatMP::inf(Sign::POSITIVE,ap_precision)),
                        Rational::inf(Sign::POSITIVE));
-    ARIADNE_TEST_EQUAL(Rational(FloatAP::inf(Sign::NEGATIVE,ap_precision)),
+    ARIADNE_TEST_EQUAL(Rational(FloatMP::inf(Sign::NEGATIVE,ap_precision)),
                        Rational::inf(Sign::NEGATIVE));
 
     ARIADNE_TEST_EQUAL(Rational(String("7/9")),Rational(7,9));
@@ -404,9 +404,9 @@ void TestRational::test_native_contract() {
     ARIADNE_TEST_EQUALS(cmp(Rational::inf(),ExactDouble::inf()),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(-Rational::inf(),-ExactDouble::inf()),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(Rational::nan(),ExactDouble::inf()),Comparison::INCOMPARABLE);
-    const ArbitraryPrecision precision(128_bits);
-    const FloatAP infinite_float(ExactDouble::inf(),precision);
-    const FloatAP finite(ExactDouble(1.0),precision);
+    const MultiplePrecision precision(128_bits);
+    const FloatMP infinite_float(ExactDouble::inf(),precision);
+    const FloatMP finite(ExactDouble(1.0),precision);
     ARIADNE_TEST_EQUALS(cmp(infinite_float,Rational::inf()),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(Rational::inf(),infinite_float),Comparison::EQUAL);
     ARIADNE_TEST_EQUALS(cmp(finite,Rational::inf()),Comparison::LESS);

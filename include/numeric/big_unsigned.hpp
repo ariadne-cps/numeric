@@ -42,7 +42,7 @@ namespace Ariadne {
 
 //! \ingroup NumericModule
 //! \brief Canonical nonnegative integer with little-endian 64-bit limbs.
-//! \sa Integer, Rational, FloatAP
+//! \sa Integer, Rational, FloatMP
 class BigUnsigned
 {
   public:

@@ -24,7 +24,7 @@
 
 #include "float_ball.hpp"
 #include "float_ball.tpl.hpp"
-#include "floatap.hpp"
+#include "floatmp.hpp"
 
 namespace Ariadne {
 
@@ -39,47 +39,47 @@ template Ball<FloatDP,FloatDP> Operations<Ball<FloatDP,FloatDP>>::_trunc(Ball<Fl
 template Ball<FloatDP,FloatDP> Operations<Ball<FloatDP,FloatDP>>::_trunc(Ball<FloatDP,FloatDP> const&, Nat);
 template Integer Operations<Ball<FloatDP,FloatDP>>::_cast_integer(Ball<FloatDP,FloatDP> const&);
 template InputStream& Operations<Ball<FloatDP,FloatDP>>::_read(InputStream&, Ball<FloatDP,FloatDP>&);
-// Explicit instantiations for the FloatAP centre with double-precision error.
-template OutputStream& Operations<Ball<FloatAP,FloatDP>>::_write(
-    OutputStream&, Ball<FloatAP,FloatDP> const&);
+// Explicit instantiations for the FloatMP centre with double-precision error.
+template OutputStream& Operations<Ball<FloatMP,FloatDP>>::_write(
+    OutputStream&, Ball<FloatMP,FloatDP> const&);
 
 
-// precisions. The generic template definitions use exact FloatAP values
+// precisions. The generic template definitions use exact FloatMP values
 // and round errors upward in the error precision.
-template OutputStream& Operations<Ball<FloatAP,FloatAP>>::_write(
-    OutputStream&, Ball<FloatAP,FloatAP> const&);
+template OutputStream& Operations<Ball<FloatMP,FloatMP>>::_write(
+    OutputStream&, Ball<FloatMP,FloatMP> const&);
 
 // NumberGetterMixin and the native interval algorithms require these
 // constructors at link time. Use their shared, outward-rounded definitions.
 
 
 // Export both native centre/error precision combinations with the same
-template class Ball<FloatAP,FloatDP>;
-template class Ball<FloatAP,FloatAP>;
-template Ball<FloatAP,FloatDP> Operations<Ball<FloatAP,FloatDP>>::_trunc(Ball<FloatAP,FloatDP> const&);
-template Ball<FloatAP,FloatDP> Operations<Ball<FloatAP,FloatDP>>::_trunc(Ball<FloatAP,FloatDP> const&, Nat);
-template Integer Operations<Ball<FloatAP,FloatDP>>::_cast_integer(Ball<FloatAP,FloatDP> const&);
-template InputStream& Operations<Ball<FloatAP,FloatDP>>::_read(InputStream&, Ball<FloatAP,FloatDP>&);
-template Ball<FloatAP,FloatAP> Operations<Ball<FloatAP,FloatAP>>::_trunc(Ball<FloatAP,FloatAP> const&);
-template Ball<FloatAP,FloatAP> Operations<Ball<FloatAP,FloatAP>>::_trunc(Ball<FloatAP,FloatAP> const&, Nat);
-template Integer Operations<Ball<FloatAP,FloatAP>>::_cast_integer(Ball<FloatAP,FloatAP> const&);
-template InputStream& Operations<Ball<FloatAP,FloatAP>>::_read(InputStream&, Ball<FloatAP,FloatAP>&);
+template class Ball<FloatMP,FloatDP>;
+template class Ball<FloatMP,FloatMP>;
+template Ball<FloatMP,FloatDP> Operations<Ball<FloatMP,FloatDP>>::_trunc(Ball<FloatMP,FloatDP> const&);
+template Ball<FloatMP,FloatDP> Operations<Ball<FloatMP,FloatDP>>::_trunc(Ball<FloatMP,FloatDP> const&, Nat);
+template Integer Operations<Ball<FloatMP,FloatDP>>::_cast_integer(Ball<FloatMP,FloatDP> const&);
+template InputStream& Operations<Ball<FloatMP,FloatDP>>::_read(InputStream&, Ball<FloatMP,FloatDP>&);
+template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&);
+template Ball<FloatMP,FloatMP> Operations<Ball<FloatMP,FloatMP>>::_trunc(Ball<FloatMP,FloatMP> const&, Nat);
+template Integer Operations<Ball<FloatMP,FloatMP>>::_cast_integer(Ball<FloatMP,FloatMP> const&);
+template InputStream& Operations<Ball<FloatMP,FloatMP>>::_read(InputStream&, Ball<FloatMP,FloatMP>&);
 
 
 template<> String class_name<Ball<FloatDP>>() { return "FloatDPBall"; }
-template<> String class_name<Ball<FloatAP,FloatDP>>() { return "FloatAPDPBall"; }
-template<> String class_name<Ball<FloatAP,FloatAP>>() { return "FloatAPBall"; }
+template<> String class_name<Ball<FloatMP,FloatDP>>() { return "FloatMPDPBall"; }
+template<> String class_name<Ball<FloatMP,FloatMP>>() { return "FloatMPBall"; }
 
 Ball<FloatDP> FloatDP::pm(Error<FloatDP> const& e) const { return Ball<FloatDP>(*this,e); }
-Ball<FloatAP,FloatAP> FloatAP::pm(Error<FloatAP> const& e) const { return Ball<FloatAP,FloatAP>(*this,e); }
-Ball<FloatAP,FloatDP> FloatAP::pm(Error<FloatDP> const& e) const { return Ball<FloatAP,FloatDP>(*this,e); }
+Ball<FloatMP,FloatMP> FloatMP::pm(Error<FloatMP> const& e) const { return Ball<FloatMP,FloatMP>(*this,e); }
+Ball<FloatMP,FloatDP> FloatMP::pm(Error<FloatDP> const& e) const { return Ball<FloatMP,FloatDP>(*this,e); }
 
 
 template<> OutputStream& Operations<FloatBall<DoublePrecision>>::_write(OutputStream& os, FloatBall<DoublePrecision> const& x) {
-    const ArbitraryPrecision prec(std::size_t{64});
-    return os << FloatBall<ArbitraryPrecision>(
-        FloatAP(ExactDouble(x.value_raw().get_d()),prec),
-        FloatAP(ExactDouble(x.error_raw().get_d()),prec));
+    const MultiplePrecision prec(std::size_t{64});
+    return os << FloatBall<MultiplePrecision>(
+        FloatMP(ExactDouble(x.value_raw().get_d()),prec),
+        FloatMP(ExactDouble(x.error_raw().get_d()),prec));
 }
 
 } // namespace Ariadne

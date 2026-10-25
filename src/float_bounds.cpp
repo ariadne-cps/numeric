@@ -27,26 +27,26 @@
 #include "float_bounds.tpl.hpp"
 
 #include "floatdp.hpp"
-#include "floatap.hpp"
+#include "floatmp.hpp"
 
 #include "concepts.hpp"
 
 namespace Ariadne {
 
 FloatDP midpoint(Bounds<FloatDP> const& x) { return x.value(); } // DEPRECATED
-FloatAP midpoint(Bounds<FloatAP> const& x) { return x.value(); } // DEPRECATED
+FloatMP midpoint(Bounds<FloatMP> const& x) { return x.value(); } // DEPRECATED
 
 
 template<> Bounds<FloatDP>::Bounds(Real const&, DoublePrecision);
-template<> Bounds<FloatAP>::Bounds(Real const& value, ArbitraryPrecision pr)
-    : Bounds<FloatAP>(value.get(pr)) { }
+template<> Bounds<FloatMP>::Bounds(Real const& value, MultiplePrecision pr)
+    : Bounds<FloatMP>(value.get(pr)) { }
 
 // NumberWrapper calls this when converting generic validated values
 // to native outward-rounded intervals.
 template<> Bounds<FloatDP>::operator ValidatedNumber() const;
 // This specialization is defined in number.cpp. Declare it before the
 // explicit class instantiation below, preventing a second definition on MSVC.
-template<> Bounds<FloatAP>::operator ValidatedNumber() const;
+template<> Bounds<FloatMP>::operator ValidatedNumber() const;
 
 template class Bounds<FloatDP>;
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_pi(DoublePrecision);
@@ -66,37 +66,37 @@ template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(Bounds<FloatDP> const
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(FloatDP const&, Bounds<FloatDP> const&);
 template OutputStream& Operations<Bounds<FloatDP>>::_write(OutputStream&,Bounds<FloatDP> const&);
 template InputStream& Operations<Bounds<FloatDP>>::_read(InputStream&, Bounds<FloatDP>&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_sin(Bounds<FloatAP> const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_cos(Bounds<FloatAP> const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_tan(Bounds<FloatAP> const&);
-template OutputStream& Operations<Bounds<FloatAP>>::_write(OutputStream&,Bounds<FloatAP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sin(Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_cos(Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_tan(Bounds<FloatMP> const&);
+template OutputStream& Operations<Bounds<FloatMP>>::_write(OutputStream&,Bounds<FloatMP> const&);
 
-template class Bounds<FloatAP>;
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_pi(ArbitraryPrecision);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_trunc(Bounds<FloatAP> const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_trunc(Bounds<FloatAP> const&, Nat);
-template Integer Operations<Bounds<FloatAP>>::_cast_integer(Bounds<FloatAP> const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_add(Bounds<FloatAP> const&, FloatAP const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_add(FloatAP const&, Bounds<FloatAP> const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_sub(Bounds<FloatAP> const&, FloatAP const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_sub(FloatAP const&, Bounds<FloatAP> const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_mul(Bounds<FloatAP> const&, FloatAP const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_mul(FloatAP const&, Bounds<FloatAP> const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_div(Bounds<FloatAP> const&, FloatAP const&);
-template Bounds<FloatAP> Operations<Bounds<FloatAP>>::_div(FloatAP const&, Bounds<FloatAP> const&);
-template InputStream& Operations<Bounds<FloatAP>>::_read(InputStream&, Bounds<FloatAP>&);
+template class Bounds<FloatMP>;
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_pi(MultiplePrecision);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(Bounds<FloatMP> const&, Nat);
+template Integer Operations<Bounds<FloatMP>>::_cast_integer(Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(Bounds<FloatMP> const&, FloatMP const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(FloatMP const&, Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(Bounds<FloatMP> const&, FloatMP const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(FloatMP const&, Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(Bounds<FloatMP> const&, FloatMP const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(FloatMP const&, Bounds<FloatMP> const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(Bounds<FloatMP> const&, FloatMP const&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(FloatMP const&, Bounds<FloatMP> const&);
+template InputStream& Operations<Bounds<FloatMP>>::_read(InputStream&, Bounds<FloatMP>&);
 
 
 template<> String class_name<Bounds<FloatDP>>() { return "FloatDPBounds"; }
-template<> String class_name<Bounds<FloatAP>>() { return "FloatAPBounds"; }
+template<> String class_name<Bounds<FloatMP>>() { return "FloatMPBounds"; }
 
 static_assert(TranscendentalField<Bounds<FloatDP>>);
-static_assert(TranscendentalField<Bounds<FloatAP>>);
+static_assert(TranscendentalField<Bounds<FloatMP>>);
 
 static_assert(OrderedLattice<Bounds<FloatDP>>);
-static_assert(OrderedLattice<Bounds<FloatAP>>);
+static_assert(OrderedLattice<Bounds<FloatMP>>);
 
 static_assert(WidenTranscendentalField<FloatDP>);
-static_assert(WidenTranscendentalField<FloatAP>);
+static_assert(WidenTranscendentalField<FloatMP>);
 
 } // namespace Ariadne

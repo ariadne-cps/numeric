@@ -66,22 +66,22 @@ set(ORACLE_GENERATORS
     generator_rational_r31
     generator_rational_random
     generator_big_unsigned_random_mul
-    generator_floatap_directed_bounds
-    generator_floatap_pi
-    generator_floatap_get_d
-    generator_floatap_power_exact
-    generator_floatap_sqrt
-    generator_floatap_pow_short
+    generator_floatmp_directed_bounds
+    generator_floatmp_pi
+    generator_floatmp_get_d
+    generator_floatmp_power_exact
+    generator_floatmp_sqrt
+    generator_floatmp_pow_short
     generator_rounded_float_directed
-    generator_floatap_exp
-    generator_floatap_log
-    generator_floatap_sin_cos
-    generator_floatap_centered_exp
-    generator_floatap_atan
-    generator_floatap_tan
-    generator_floatap_asin_acos
-    generator_floatap_tanh
-    generator_floatap_rounding
+    generator_floatmp_exp
+    generator_floatmp_log
+    generator_floatmp_sin_cos
+    generator_floatmp_centered_exp
+    generator_floatmp_atan
+    generator_floatmp_tan
+    generator_floatmp_asin_acos
+    generator_floatmp_tanh
+    generator_floatmp_rounding
     generator_big_unsigned_sqrt
 )
 set(ORACLE_GENERATOR_COMMANDS)

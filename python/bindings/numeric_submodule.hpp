@@ -34,7 +34,7 @@ namespace Ariadne {
 
 template<class T> std::string numeric_class_tag();
 template<> inline std::string numeric_class_tag<DoublePrecision>() { return "DP"; }
-template<> inline std::string numeric_class_tag<ArbitraryPrecision>() { return "AP"; }
+template<> inline std::string numeric_class_tag<MultiplePrecision>() { return "MP"; }
 
 
 template<> struct PythonTemplateName<Positive> { static std::string get() { return "Positive"; } };
@@ -52,7 +52,7 @@ template<> struct PythonTemplateName<Number> { static std::string get() { return
 
 
 template<> struct PythonClassName<FloatDP> { static std::string get() { return "FloatDP"; } };
-template<> struct PythonClassName<FloatAP> { static std::string get() { return "FloatAP"; } };
+template<> struct PythonClassName<FloatMP> { static std::string get() { return "FloatMP"; } };
 
 template<template<class>class T, class X> struct PythonClassName<T<X>> {
     static std::string get() { return python_class_name<X>()+python_template_name<T>(); }
@@ -66,7 +66,7 @@ OutputStream& operator<<(OutputStream& os, const PythonRepresentation<Decimal>& 
 OutputStream& operator<<(OutputStream& os, const PythonRepresentation<Rational>& repr);
 OutputStream& operator<<(OutputStream& os, const PythonRepresentation<Real>& repr);
 OutputStream& operator<<(OutputStream& os, const PythonRepresentation<FloatDP>& repr);
-OutputStream& operator<<(OutputStream& os, const PythonRepresentation<FloatAP>& repr);
+OutputStream& operator<<(OutputStream& os, const PythonRepresentation<FloatMP>& repr);
 
 template<class P> OutputStream& operator<<(OutputStream& os, const PythonRepresentation<Number<P>>& repr);
 
@@ -84,7 +84,7 @@ OutputStream& operator<<(OutputStream& os, const PythonLiteral<Rational>& lit);
 OutputStream& operator<<(OutputStream& os, const PythonLiteral<Real>& lit);
 
 OutputStream& operator<<(OutputStream& os, const PythonLiteral<FloatDP>& lit);
-OutputStream& operator<<(OutputStream& os, const PythonLiteral<FloatAP>& lit);
+OutputStream& operator<<(OutputStream& os, const PythonLiteral<FloatMP>& lit);
 template<class F> OutputStream& operator<<(OutputStream& os, const PythonLiteral<Approximation<F>>& lit);
 template<class F> OutputStream& operator<<(OutputStream& os, const PythonLiteral<LowerBound<F>>& lit);
 template<class F> OutputStream& operator<<(OutputStream& os, const PythonLiteral<UpperBound<F>>& lit);

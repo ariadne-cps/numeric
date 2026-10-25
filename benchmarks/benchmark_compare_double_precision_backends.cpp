@@ -24,7 +24,7 @@
 
 // Same monomorphic test code is instantiated for each implementation: no virtual dispatch.
 #include "numeric/floatdp.hpp"
-#include "numeric/floatap.hpp"
+#include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"
 #include "logging/logging.hpp"
 #include "logging/command_line.hpp"
@@ -57,7 +57,7 @@ void print_results(std::vector<BenchmarkDatum> const& data,
     constexpr int operation_width=24;
     constexpr int timing_width=15;
     constexpr int table_width=backend_width+operation_width+timing_width+12;
-    LOGGING_PRINTLN("FloatDP / FloatAP benchmark | iterations=" << iterations
+    LOGGING_PRINTLN("FloatDP / FloatMP benchmark | iterations=" << iterations
                     << " | samples=" << samples)
     LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '='))
     LOGGING_PRINTLN(std::left << std::setw(backend_width) << "Backend"
@@ -88,7 +88,7 @@ bool details, double max_slowdown) {
         std::size_t count = 0;
         double logarithmic_sum = 0.0;
         double floatdp_sum = 0.0;
-        double floatap_sum = 0.0;
+        double floatmp_sum = 0.0;
         double worst_ratio = 0.0;
         std::string worst_operation;
         unsigned worst_bits = 0;
@@ -102,7 +102,7 @@ bool details, double max_slowdown) {
             ++count;
             logarithmic_sum += std::log(ratio);
             floatdp_sum += reference;
-            floatap_sum += candidate;
+            floatmp_sum += candidate;
             if (ratio > worst_ratio) {
                 worst_ratio = ratio;
                 worst_operation = name;
@@ -117,7 +117,7 @@ bool details, double max_slowdown) {
                 << "  ops=" << std::setw(3) << count
                 << "  geomean=" << std::fixed << std::setprecision(3)
                 << std::exp(logarithmic_sum / static_cast<double>(count)) << "x"
-                << "  total_time=" << floatap_sum / floatdp_sum << "x"
+                << "  total_time=" << floatmp_sum / floatdp_sum << "x"
                 << "  worst=" << worst_ratio << "x (" << worst_operation
                 << ", " << worst_bits << " bits)")
         }
@@ -132,23 +132,23 @@ bool details, double max_slowdown) {
         }
     }
     if (reference.size() != candidate.size() || reference.empty()) {
-        throw std::runtime_error("FloatAP and FloatDP benchmark rows are not paired");
+        throw std::runtime_error("FloatMP and FloatDP benchmark rows are not paired");
     }
     std::map< unsigned, Aggregate > per_precision;
     Aggregate overall;
     if (details) {
         LOGGING_PRINTLN(" ")
-        LOGGING_PRINTLN("Detailed comparisons (FloatAP / FloatDP)")
+        LOGGING_PRINTLN("Detailed comparisons (FloatMP / FloatDP)")
         LOGGING_PRINTLN(std::string(79u,'-'))
         LOGGING_PRINTLN(std::left << std::setw(24) << "Operation"
                         << std::setw(8) << "Bits"
                         << std::setw(16) << "FloatDP (ns)"
-                        << std::setw(16) << "FloatAP (ns)" << "Slowdown")
+                        << std::setw(16) << "FloatMP (ns)" << "Slowdown")
     }
     for (auto const& [key, reference_ns] : reference) {
         auto it = candidate.find(key);
         if (it == candidate.end()) {
-            throw std::runtime_error("FloatAP benchmark operation missing: " + key.second);
+            throw std::runtime_error("FloatMP benchmark operation missing: " + key.second);
         }
         auto& precision_summary = per_precision[key.first];
         precision_summary.add(key.second, key.first, reference_ns, it->second);
@@ -163,7 +163,7 @@ bool details, double max_slowdown) {
     }
     LOGGING_PRINTLN(" ")
     LOGGING_PRINTLN(std::string(78u, '='))
-    LOGGING_PRINTLN("FloatAP / FloatDP slowdown (x; >1 means slower)")
+    LOGGING_PRINTLN("FloatMP / FloatDP slowdown (x; >1 means slower)")
     LOGGING_PRINTLN(std::string(78u, '-'))
     for (auto const& [bits, summary] : per_precision) {
         summary.print(std::to_string(bits) + " bits");
@@ -173,7 +173,7 @@ bool details, double max_slowdown) {
                     "total_time weights by measured cost.")
     if (std::isfinite(max_slowdown) && overall.worst_ratio > max_slowdown) {
         throw std::runtime_error(
-        "FloatAP slowdown exceeds --max-slowdown: "
+        "FloatMP slowdown exceeds --max-slowdown: "
         + std::to_string(overall.worst_ratio) + "x > "
         + std::to_string(max_slowdown) + "x");
     }
@@ -235,11 +235,11 @@ List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelecti
         [&selection] { selection.summary_only=true; }));
 
     parsers.append(make_unvalued_argument_parser(
-        "","details","Print each matched FloatDP/FloatAP slowdown",
+        "","details","Print each matched FloatDP/FloatMP slowdown",
         [&selection] { selection.details=true; }));
 
     parsers.append(make_valued_argument_parser(
-        "","max-slowdown","Fail if worst FloatAP/FloatDP slowdown exceeds this ratio",
+        "","max-slowdown","Fail if worst FloatMP/FloatDP slowdown exceeds this ratio",
         [&selection](String const& value) -> VoidFunction {
             const std::string text(value);
             std::size_t used=0u;
@@ -280,7 +280,7 @@ int main(int argc, const char* argv[]) {
         const bool details=selection.details;
         const double max_slowdown=selection.max_slowdown;
 
-        LOGGING_PRINTLN("FloatDP / FloatAP benchmark - running "
+        LOGGING_PRINTLN("FloatDP / FloatMP benchmark - running "
                         << precisions.size() << " precision groups")
         LOGGING_PRINTLN("Iterations: " << iterations << "  |  Samples: " << samples)
         LOGGING_PRINTLN(std::string(78u, '='))
@@ -288,7 +288,7 @@ int main(int argc, const char* argv[]) {
         for (unsigned bits : precisions) {
             LOGGING_PRINTLN("Measuring " << bits << " bits ...")
             run_backend<FloatDP>("floatdp",bits,iterations,samples,measurements);
-            run_backend<FloatAP>("floatap",bits,iterations,samples,measurements);
+            run_backend<FloatMP>("floatmp",bits,iterations,samples,measurements);
             LOGGING_PRINTLN("Completed " << bits << " bits")
             LOGGING_PRINTLN(std::string(78u, '-'))
         }

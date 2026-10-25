@@ -88,9 +88,9 @@ FloatLowerBound<DoublePrecision> operator""_lower(long double lx) {
 }
 
 
-FloatApproximation<DoublePrecision> operator""_approx(long double lx) {
+FloatMPproximation<DoublePrecision> operator""_approx(long double lx) {
     double x=static_cast<double>(lx);
-    return FloatApproximation<DoublePrecision>(FloatDP(cast_exact(x),dp));
+    return FloatMPproximation<DoublePrecision>(FloatDP(cast_exact(x),dp));
 }
 
 } // namespace Ariadne

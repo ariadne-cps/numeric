@@ -399,7 +399,7 @@ void TestBigUnsigned::test_power()
 
     // Deterministic boundary-class sampling; skipped visits still consume RNG.
     // Exact source/result reference pairs were frozen independently
-    // using native arbitrary-precision integer exponentiation.
+    // using native multiple-precision integer exponentiation.
     std::ifstream golden(ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH);
     if (!golden) throw std::runtime_error("Missing BigUnsigned power golden TSV");
     std::string header;

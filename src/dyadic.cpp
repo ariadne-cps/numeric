@@ -4,7 +4,7 @@
  ****************************************************************************/
 #include "numeric/dyadic.hpp"
 #include "numeric/floatdp.hpp"
-#include "numeric/floatap.hpp"
+#include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/twoexp.hpp"
 #include "numeric/decimal.hpp"
@@ -23,7 +23,7 @@ namespace Ariadne {
 const Dyadic infty=Dyadic::inf();
 Rational::Rational(Dyadic const& x) { *this=x.to_rational(); }
 Dyadic::Dyadic(FloatDP const& x) : Dyadic(Rational(x)) { }
-Dyadic::Dyadic(FloatAP const& x) : Dyadic(Rational(x)) { }
+Dyadic::Dyadic(FloatMP const& x) : Dyadic(Rational(x)) { }
 
 Dyadic operator+(TwoExp y) { return Dyadic(y); }
 Dyadic operator-(TwoExp y) { return -Dyadic(y); }
@@ -104,21 +104,21 @@ auto RepresentationWriter<Dyadic>::_write(OutputStream& os, Dyadic const& x) con
 Dyadic make_dyadic(unsigned long long int n) { return Dyadic(Integer(n)); }
 Dyadic hlf(Integer const& n) { return hlf(Dyadic(n)); }
 // Exact dyadic endpoint values with directed rounding to each target.
-Bounds<FloatAP> Bounds<Dyadic>::get(ArbitraryPrecision pr) const {
-    return Bounds<FloatAP>(FloatAP(lower_raw(),FloatAP::ROUND_DOWNWARD,pr),
-                           FloatAP(upper_raw(),FloatAP::ROUND_UPWARD,pr));
+Bounds<FloatMP> Bounds<Dyadic>::get(MultiplePrecision pr) const {
+    return Bounds<FloatMP>(FloatMP(lower_raw(),FloatMP::ROUND_DOWNWARD,pr),
+                           FloatMP(upper_raw(),FloatMP::ROUND_UPWARD,pr));
 }
-LowerBound<FloatAP> LowerBound<Dyadic>::get(ArbitraryPrecision pr) const {
-    return LowerBound<FloatAP>(FloatAP(raw(),FloatAP::ROUND_DOWNWARD,pr));
+LowerBound<FloatMP> LowerBound<Dyadic>::get(MultiplePrecision pr) const {
+    return LowerBound<FloatMP>(FloatMP(raw(),FloatMP::ROUND_DOWNWARD,pr));
 }
-UpperBound<FloatAP> UpperBound<Dyadic>::get(ArbitraryPrecision pr) const {
-    return UpperBound<FloatAP>(FloatAP(raw(),FloatAP::ROUND_UPWARD,pr));
+UpperBound<FloatMP> UpperBound<Dyadic>::get(MultiplePrecision pr) const {
+    return UpperBound<FloatMP>(FloatMP(raw(),FloatMP::ROUND_UPWARD,pr));
 }
 Approximation<FloatDP> Approximation<Dyadic>::get(DoublePrecision pr) const {
     return Approximation<FloatDP>(FloatDP(raw(),FloatDP::ROUND_TO_NEAREST,pr));
 }
-Approximation<FloatAP> Approximation<Dyadic>::get(ArbitraryPrecision pr) const {
-    return Approximation<FloatAP>(FloatAP(raw(),FloatAP::ROUND_TO_NEAREST,pr));
+Approximation<FloatMP> Approximation<Dyadic>::get(MultiplePrecision pr) const {
+    return Approximation<FloatMP>(FloatMP(raw(),FloatMP::ROUND_TO_NEAREST,pr));
 }
 template<> String class_name<Dyadic>() { return "Dyadic"; }
 template<> String class_name<DyadicBounds>() { return "DyadicBounds"; }

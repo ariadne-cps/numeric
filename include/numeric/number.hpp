@@ -69,7 +69,7 @@ struct DispatchException : public std::runtime_error {
 
 template<class PR> struct IsPrecisionTrait : False { };
 template<> struct IsPrecisionTrait<DoublePrecision> : True { };
-template<> struct IsPrecisionTrait<ArbitraryPrecision> : True { };
+template<> struct IsPrecisionTrait<MultiplePrecision> : True { };
 
 template<class PR> concept IsPrecision = IsPrecisionTrait<PR>::value;
 
@@ -170,8 +170,8 @@ template<class P> class Number
     //! \brief Get the value of the number as a double-precision floating-point type
     ResultFloatType<DoublePrecision> get(DoublePrecision const& prec) const { return this->ref()._get(P(),prec); }
     //! \brief Get the value of the number as a multiple-precision floating-point type
-    //! Native arbitrary precision, preserving the same paradigm and rounding contract.
-    ResultFloatType<ArbitraryPrecision> get(ArbitraryPrecision const& prec) const { return this->ref()._get(P(),prec); }
+    //! Native multiple precision, preserving the same paradigm and rounding contract.
+    ResultFloatType<MultiplePrecision> get(MultiplePrecision const& prec) const { return this->ref()._get(P(),prec); }
 
     //! \brief Get the value of the number as a floating-point ball with the given precision and error precision.
     template<class PR, class PRE> requires IsPrecision<PR> and IsPrecision<PRE> and WeakerThan<ValidatedTag,P>

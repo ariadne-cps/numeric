@@ -6,13 +6,13 @@ The files `generator_big_unsigned_gcd.cpp`, `generator_big_unsigned_b76.cpp`,
 `generator_big_unsigned_dispatch.cpp`, `generator_integer_random.cpp`,
 `generator_rational_binary64.cpp`, `generator_rational_shared_stream.cpp`,
 `generator_rational_r31.cpp`, `generator_rational_random.cpp`,
-`generator_big_unsigned_random_mul.cpp`, `generator_floatap_directed_bounds.cpp`,
-`generator_floatap_pi.cpp`, `generator_floatap_get_d.cpp`, `generator_floatap_power_exact.cpp`,
-`generator_floatap_sqrt.cpp`, `generator_floatap_pow_short.cpp`,
-`generator_rounded_float_directed.cpp`, `generator_floatap_exp.cpp`, `generator_floatap_log.cpp`,
-`generator_floatap_sin_cos.cpp`, `generator_floatap_centered_exp.cpp`, `generator_floatap_atan.cpp`,
-`generator_floatap_tan.cpp`, `generator_floatap_asin_acos.cpp`, `generator_floatap_tanh.cpp`,
-`generator_floatap_rounding.cpp`, `generator_big_unsigned_sqrt.cpp`, and `oracle_exact_integer.hpp`
+`generator_big_unsigned_random_mul.cpp`, `generator_floatmp_directed_bounds.cpp`,
+`generator_floatmp_pi.cpp`, `generator_floatmp_get_d.cpp`, `generator_floatmp_power_exact.cpp`,
+`generator_floatmp_sqrt.cpp`, `generator_floatmp_pow_short.cpp`,
+`generator_rounded_float_directed.cpp`, `generator_floatmp_exp.cpp`, `generator_floatmp_log.cpp`,
+`generator_floatmp_sin_cos.cpp`, `generator_floatmp_centered_exp.cpp`, `generator_floatmp_atan.cpp`,
+`generator_floatmp_tan.cpp`, `generator_floatmp_asin_acos.cpp`, `generator_floatmp_tanh.cpp`,
+`generator_floatmp_rounding.cpp`, `generator_big_unsigned_sqrt.cpp`, and `oracle_exact_integer.hpp`
 are **standalone C++20** sources. They use only the standard library, with an independent
 unsigned-limb implementation for exact arithmetic. In particular, **do not link them to Numeric, GMP
 or Boost**: expected values must not come from the code being tested.
@@ -68,22 +68,22 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_r31.cpp -o /tmp/numeric-oracle-r31
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rational_random.cpp -o /tmp/numeric-oracle-r0
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_big_unsigned_random_mul.cpp -o /tmp/numeric-oracle-random-mul
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_directed_bounds.cpp -o /tmp/numeric-oracle-floatap-bounds
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_pi.cpp -o /tmp/numeric-oracle-pi
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_get_d.cpp -o /tmp/numeric-oracle-get-d
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_power_exact.cpp -o /tmp/numeric-oracle-power
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_sqrt.cpp -o /tmp/numeric-oracle-floatap-sqrt
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_pow_short.cpp -o /tmp/numeric-oracle-short-pow
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_directed_bounds.cpp -o /tmp/numeric-oracle-floatmp-bounds
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_pi.cpp -o /tmp/numeric-oracle-pi
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_get_d.cpp -o /tmp/numeric-oracle-get-d
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_power_exact.cpp -o /tmp/numeric-oracle-power
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_sqrt.cpp -o /tmp/numeric-oracle-floatmp-sqrt
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_pow_short.cpp -o /tmp/numeric-oracle-short-pow
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_rounded_float_directed.cpp -o /tmp/numeric-oracle-rounded-directed
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_exp.cpp -o /tmp/numeric-oracle-floatap-exp
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_log.cpp -o /tmp/numeric-oracle-floatap-log
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_sin_cos.cpp -o /tmp/numeric-oracle-floatap-sin-cos
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_centered_exp.cpp -o /tmp/numeric-oracle-floatap-centered-exp
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_atan.cpp -o /tmp/numeric-oracle-floatap-atan
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_tan.cpp -o /tmp/numeric-oracle-floatap-tan
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_asin_acos.cpp -o /tmp/numeric-oracle-floatap-asin-acos
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_tanh.cpp -o /tmp/numeric-oracle-floatap-tanh
-c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatap_rounding.cpp -o /tmp/numeric-oracle-floatap-rounding
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_exp.cpp -o /tmp/numeric-oracle-floatmp-exp
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_log.cpp -o /tmp/numeric-oracle-floatmp-log
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_sin_cos.cpp -o /tmp/numeric-oracle-floatmp-sin-cos
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_centered_exp.cpp -o /tmp/numeric-oracle-floatmp-centered-exp
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_atan.cpp -o /tmp/numeric-oracle-floatmp-atan
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_tan.cpp -o /tmp/numeric-oracle-floatmp-tan
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_asin_acos.cpp -o /tmp/numeric-oracle-floatmp-asin-acos
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_tanh.cpp -o /tmp/numeric-oracle-floatmp-tanh
+c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_floatmp_rounding.cpp -o /tmp/numeric-oracle-floatmp-rounding
 c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror tests/data/generator_big_unsigned_sqrt.cpp -o /tmp/numeric-oracle-bigunsigned-sqrt
 /tmp/numeric-oracle-gcd --verify --data-dir tests/data
 /tmp/numeric-oracle-b76 --verify --data-dir tests/data
@@ -100,22 +100,22 @@ c++ -std=c++20 -O2 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror t
 /tmp/numeric-oracle-r31 --verify --data-dir tests/data
 /tmp/numeric-oracle-r0 --verify --data-dir tests/data
 /tmp/numeric-oracle-random-mul --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-bounds --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-bounds --verify --data-dir tests/data
 /tmp/numeric-oracle-pi --verify --data-dir tests/data
 /tmp/numeric-oracle-get-d --verify --data-dir tests/data
 /tmp/numeric-oracle-power --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-sqrt --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-sqrt --verify --data-dir tests/data
 /tmp/numeric-oracle-short-pow --verify --data-dir tests/data
 /tmp/numeric-oracle-rounded-directed --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-exp --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-log --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-sin-cos --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-centered-exp --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-atan --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-tan --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-asin-acos --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-tanh --verify --data-dir tests/data
-/tmp/numeric-oracle-floatap-rounding --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-exp --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-log --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-sin-cos --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-centered-exp --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-atan --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-tan --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-asin-acos --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-tanh --verify --data-dir tests/data
+/tmp/numeric-oracle-floatmp-rounding --verify --data-dir tests/data
 /tmp/numeric-oracle-bigunsigned-sqrt --verify --data-dir tests/data
 ```
 
@@ -146,26 +146,26 @@ review every diff before committing. No sampling is used.
 | `generator_rational_r31.cpp` | 14 `rational_r31_<bits>_<chunk>.tsv` fixtures | All 960 R31/R32 cases, 10 widths, 24 source indices, four signs; preserve 2048/4096-bit chunks |
 | `generator_rational_random.cpp` | `rational_random.tsv` | Full 1,200-visit RNG replay and all 120 original stratified exact R0 cases |
 | `generator_big_unsigned_random_mul.cpp` | `big_unsigned_random_mul.tsv` | All 6,000 original seeded multiplication visits, 600 selected source-keyed full, square and low products |
-| `generator_floatap_directed_bounds.cpp` | `floatap_directed_bounds.tsv` | 90 certified exact rational lower/upper dyadic bounds, 6 precisions × 15 signed inputs |
-| `generator_floatap_pi.cpp` | `floatap_pi.tsv` | Machin's formula: 400-term rigorous 1,200-bit integer interval, directed 384-bit and nearest-even 320-bit π |
-| `generator_floatap_get_d.cpp` | `floatap_get_d.tsv` | 272 exact p-bit FloatAP-to-binary64 conversions, four precisions and four IEEE rounding modes |
-| `generator_floatap_power_exact.cpp` | `floatap_pow.tsv` | 2,400 original signed integer-power references at five precisions, eight degrees and four rounding modes |
-| `generator_floatap_sqrt.cpp` | `floatap_sqrt.tsv` | 300 unique input/mode exact rounded square roots; 360 source checks retained by consumer |
-| `generator_floatap_pow_short.cpp` | `floatap_pow_short.tsv` | 3,680 exact boundary-focused integer powers, 5 precisions, 7 degrees, 4 directed modes |
+| `generator_floatmp_directed_bounds.cpp` | `floatmp_directed_bounds.tsv` | 90 certified exact rational lower/upper dyadic bounds, 6 precisions × 15 signed inputs |
+| `generator_floatmp_pi.cpp` | `floatmp_pi.tsv` | Machin's formula: 400-term rigorous 1,200-bit integer interval, directed 384-bit and nearest-even 320-bit π |
+| `generator_floatmp_get_d.cpp` | `floatmp_get_d.tsv` | 272 exact p-bit FloatMP-to-binary64 conversions, four precisions and four IEEE rounding modes |
+| `generator_floatmp_power_exact.cpp` | `floatmp_pow.tsv` | 2,400 original signed integer-power references at five precisions, eight degrees and four rounding modes |
+| `generator_floatmp_sqrt.cpp` | `floatmp_sqrt.tsv` | 300 unique input/mode exact rounded square roots; 360 source checks retained by consumer |
+| `generator_floatmp_pow_short.cpp` | `floatmp_pow_short.tsv` | 3,680 exact boundary-focused integer powers, 5 precisions, 7 degrees, 4 directed modes |
 | `generator_rounded_float_directed.cpp` | `rounded_float_directed.tsv` | 24 rigorous 128-bit exp/log/atan directed pairs, 48 original strict bound comparisons |
-| `generator_floatap_exp.cpp` | `floatap_exp.tsv` | 288 certified, correctly rounded exp results across 18 signed inputs, 4 precisions and 4 rounding modes |
-| `generator_floatap_log.cpp` | `floatap_log.tsv` | 444 certified correctly rounded logs, including 284 original centered inputs and 160 D96 cases |
-| `generator_floatap_sin_cos.cpp` | `floatap_sin.tsv`, `floatap_cos.tsv` | 1,080 exact source-keyed independently certified outputs each, across D91, D92, D95 original test families |
-| `generator_floatap_centered_exp.cpp` | `floatap_centered_exp.tsv` | 568 exact certified reference rows from all 720 original centered-exp visits |
-| `generator_floatap_atan.cpp` | `floatap_atan.tsv` | 1,340 certified atan references reproducing all original D87, D88, D89 lookup keys |
-| `generator_floatap_tan.cpp` | `floatap_tan.tsv` | 1,208 certified tangent values across D92, D93, D94 and D95 original sources |
-| `generator_floatap_asin_acos.cpp` | `floatap_asin.tsv`, `floatap_acos.tsv` | 728 certified inverse-trigonometric references per TSV, preserving D86/D90 original sources |
-| `generator_floatap_tanh.cpp` | `floatap_tanh.tsv` | 1,148 certified tanh references from all original 13 precisions, 4 modes and signed/cutoff/saturation probes |
-| `generator_floatap_rounding.cpp` | `floatap_rounding.tsv`, `floatap_add_sub.tsv` | 4,794 exact-rational rounding rows and 1,780 independent D80 add/sub rows; both existing TSVs unchanged |
+| `generator_floatmp_exp.cpp` | `floatmp_exp.tsv` | 288 certified, correctly rounded exp results across 18 signed inputs, 4 precisions and 4 rounding modes |
+| `generator_floatmp_log.cpp` | `floatmp_log.tsv` | 444 certified correctly rounded logs, including 284 original centered inputs and 160 D96 cases |
+| `generator_floatmp_sin_cos.cpp` | `floatmp_sin.tsv`, `floatmp_cos.tsv` | 1,080 exact source-keyed independently certified outputs each, across D91, D92, D95 original test families |
+| `generator_floatmp_centered_exp.cpp` | `floatmp_centered_exp.tsv` | 568 exact certified reference rows from all 720 original centered-exp visits |
+| `generator_floatmp_atan.cpp` | `floatmp_atan.tsv` | 1,340 certified atan references reproducing all original D87, D88, D89 lookup keys |
+| `generator_floatmp_tan.cpp` | `floatmp_tan.tsv` | 1,208 certified tangent values across D92, D93, D94 and D95 original sources |
+| `generator_floatmp_asin_acos.cpp` | `floatmp_asin.tsv`, `floatmp_acos.tsv` | 728 certified inverse-trigonometric references per TSV, preserving D86/D90 original sources |
+| `generator_floatmp_tanh.cpp` | `floatmp_tanh.tsv` | 1,148 certified tanh references from all original 13 precisions, 4 modes and signed/cutoff/saturation probes |
+| `generator_floatmp_rounding.cpp` | `floatmp_rounding.tsv`, `floatmp_add_sub.tsv` | 4,794 exact-rational rounding rows and 1,780 independent D80 add/sub rows; both existing TSVs unchanged |
 | `generator_big_unsigned_sqrt.cpp` | `big_unsigned_sqrt.tsv` | 161 exact sqrtrem triples; fully specified seeded SplitMix64 input generation, same 37 random width profiles and 33 square-neighbor cases |
 
 **Scope limitation:** the repository contains many other TSVs, including
-`floatap_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
+`floatmp_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
 independent generator sources are **not yet versioned**. A descriptive TSV
 header is not a substitute for an executable generator. These sources do
 not claim to reproduce or validate those other fixtures. In particular,
@@ -315,14 +315,14 @@ truncation yield the original 942,214-byte TSV and its exact Git SHA-1.
 GCC and Clang strict C++20 builds succeed. Explicit `generators` and
 `generate-data` include the fifteenth program; test builds remain separate.
 
-B93 reproduces `floatap_directed_bounds.tsv` from original rational inputs, computing exact
+B93 reproduces `floatmp_directed_bounds.tsv` from original rational inputs, computing exact
 floor/ceil on a power-of-two lattice and canonical dyadic fractions at precisions 7, 32, 53, 64, 128
 and 192. Both GCC 14 and Clang 17 compile and regenerate all 90 rows with strict C++20 warnings,
 producing the original 7,742-byte Git blob. The independent generator uses no host floating-point
-calculations or runtime GMP/FloatAP. Its addition to the explicit `generators` and `generate-data`
+calculations or runtime GMP/FloatMP. Its addition to the explicit `generators` and `generate-data`
 targets does not change tests, existing fixtures or the default build.
 
-B94 independently recreates `floatap_pi.tsv` using exact integer fixed-point Taylor intervals for
+B94 independently recreates `floatmp_pi.tsv` using exact integer fixed-point Taylor intervals for
 Machin's formula, 400 terms per atan at scale 2^1200. Explicit integer interval widths and next-term
 remainders certify directed 384-bit endpoints and the same nearest-even 320-bit value from BOTH ends
 of the interval. GCC and Clang C++20 strict builds reproduce the original 1,250-byte Git blob
@@ -330,8 +330,8 @@ without GMP, Numeric or host floating point. The seventeenth generator is availa
 `generators` and `generate-data`; all data remains versioned and `tests` does not depend on
 generators.
 
-B95 reproduces `floatap_get_d.tsv`: independently round each of the 17
-original exact rational sources to an intermediate p-bit FloatAP number
+B95 reproduces `floatmp_get_d.tsv`: independently round each of the 17
+original exact rational sources to an intermediate p-bit FloatMP number
 (precision 53, 128, 256 or 1024) with nearest-even ties, then convert
 the exact dyadic result to IEEE-754 binary64 in each of four directed
 modes. Signed zero, normal/subnormal, carry, midpoint-even and saturating
@@ -341,7 +341,7 @@ GCC/Clang strict build and 65,751-byte original Git blob comparison.
 This eighteenth generator belongs to `generators`/`generate-data`, not
 `tests`, and neither GMP nor original fixture values are consulted.
 
-B96 reproduces all 2,400 exact FloatAP integer-power fixture keys from 15 distinct original signed
+B96 reproduces all 2,400 exact FloatMP integer-power fixture keys from 15 distinct original signed
 input rationals, five binary precisions, eight exponent choices and all four output rounding modes.
 The input is rounded to p-bit nearest/even using independent integer quotient and remainder, its
 exact dyadic significand raised to the original exponent, and the final result rounded ONCE to
@@ -350,12 +350,12 @@ GCC 14 and Clang 17 strict C++20 builds and independent execution match the orig
 Git blob; neither Numeric nor GMP/Boost are used. The nineteenth generator participates in explicit
 `generators` and `generate-data`, not `tests`; all TSVs remain versioned.
 
-B97 recreates FloatAP square root expectations from the ORIGINAL 14 positive
+B97 recreates FloatMP square root expectations from the ORIGINAL 14 positive
 rational sources and four shifted nearest-rounded inputs at each of five
 precisions, preserving source order and deduplicating identical rounded keys.
 Exact binary integer division, pairwise restoring isqrt, signed scale
 bookkeeping, and strict midpoint-even comparisons generate 300 reference
-rows matching the original 76,870-byte `floatap_sqrt.tsv` Git blob.
+rows matching the original 76,870-byte `floatmp_sqrt.tsv` Git blob.
 GCC and Clang C++20 strict builds and cross-compiler read-only --verify
 pass. The twentieth generator is included only in explicit `generators`
 and `generate-data`, while all original fixtures remain versioned.
@@ -369,7 +369,7 @@ threshold at even precision p=64. All signed distinct source inputs
 are ordered by numeric rational value and degree, nearest-even rounded
 at p bits before exponentiation, and finally independently rounded under
 N/D/U/Z. GCC 14 and Clang 17 strict builds reproduce all 462,642 bytes
-of the original `floatap_pow_short.tsv`; no frozen operand values or
+of the original `floatmp_pow_short.tsv`; no frozen operand values or
 expected outputs are copied into source. Generator #21 participates only
 in the explicit `generators`/`generate-data` targets.
 
@@ -388,7 +388,7 @@ registered in `generators`, `generate-data` and the new non-writing
 `verify-data` CMake target. Generator coverage is 102 of 115 TSVs.
 No existing fixture, consumer, runtime oracle or production source changed.
 
-B100 independently regenerates `floatap_add_sub.tsv`: the complete
+B100 independently regenerates `floatmp_add_sub.tsv`: the complete
 10 x 10 ordered source pair corpus, both exact additions/subtractions,
 all four directed/nearest output modes, and precision sets 7, 53, 128,
 256 and 1024 bits. The original 7/11 source is first nearest-even
@@ -407,7 +407,7 @@ original committed blob. This adds generator #23 to the explicit
 modifying a TSV, test consumer, production source or runtime GMP oracle.
 Coverage is now 103 of 115 TSVs; all-platform CI is pending.
 
-B101 independently regenerates `floatap_exp.tsv` with correctly rounded, rigorously certified
+B101 independently regenerates `floatmp_exp.tsv` with correctly rounded, rigorously certified
 exponential values. Recreate nine exact rational magnitudes (1/4, 3/4, 1/2, 1, 3, 7, 2^-16, 2^-64
 and 1023/1024) and both signs, in the original order, then emit four bit widths (53/128/256/1024)
 and N/D/U/Z modes for all 288 original checks. At B=2^1400, compute outward integer interval Taylor
@@ -415,7 +415,7 @@ terms k=0..165 for exp(|x|/16) and bound the positive remainder by twice term 16
 outward squares enclose exp(|x|), and exp(-|x|) is the outward reciprocal of this positive interval.
 Round BOTH interval endpoints independently in each mode and require matching exact dyadic rational
 outputs before accepting any row. C++20 standard-library-only with independently implemented 32-bit
-digit multiplication and exact limb division; no GMP, FloatAP, Numeric, Boost or host floating exp.
+digit multiplication and exact limb division; no GMP, FloatMP, Numeric, Boost or host floating exp.
 Strict GCC and Clang warnings-as-errors builds passed; `--verify` passed on both and rejected
 deliberately corrupted source data. Regenerated exactly 288 rows / 68,122 bytes, identical to Git
 blob SHA-1 `92ce3c0eeda7f73f5e0385abf483f93367792891` on main. The 24th independent generator
@@ -424,7 +424,7 @@ TSV, test consumer, production source or runtime GMP oracle was changed. Generat
 104/115. Full CI pending for this commit.
 
 B102 independently reproduces all 444 rows (122,768 bytes) in
-`floatap_log.tsv`. Recreate the original six centered-precision visits,
+`floatmp_log.tsv`. Recreate the original six centered-precision visits,
 all 15 centered rational source operands, nearest-even input rounding,
 unique-key de-duplication, and the original D96 input sequence at four
 precisions. Use exact integer limb arithmetic at B=2^1800 and outward
@@ -440,10 +440,10 @@ is identical to main's original fixture. Generator #25 is opt-in through
 `generators`, `generate-data`, `verify-data`. Coverage now 105/115.
 No fixture, consumer, runtime GMP oracle or production source changed.
 
-B103 independently regenerates both `floatap_sin.tsv` and `floatap_cos.tsv` without changing their
+B103 independently regenerates both `floatmp_sin.tsv` and `floatmp_cos.tsv` without changing their
 original contents. The standalone C++20 generator reconstructs precisely the three input families
 (D91 centered offsets p/2+16, D92 local offsets p, D95 wider exact binary dyadics), preserving the
-full precision-visit order, signed source lookup keys, original nearest-even FloatAP input
+full precision-visit order, signed source lookup keys, original nearest-even FloatMP input
 quantization and first-seen key deduplication. There are exactly 336 D91, 456 D92 and 288 D95 unique
 source/mode rows for each function (1,080 each). Evaluate 240 alternating integer Taylor terms for
 sin and cos with outward integer interval products/quotients at B=2^1800; separately enclose the
@@ -452,15 +452,15 @@ N/D/U/Z roundings require both enclosures to agree in the target precision; a sh
 exact rounded input magnitudes. The generator does not read TSV files to obtain either input
 operands or expected answers, and uses no Numeric, GMP, Boost or host floating-point sine/cosine.
 GCC and Clang strict C++20 builds and --verify pass on both original files; deliberate corruption
-fails. Original Git blob SHAs are unchanged: `floatap_sin.tsv`:
-`9b75d8fd4992f62e288c151e8f930dedd66a778e`, 281,134 bytes; `floatap_cos.tsv`:
+fails. Original Git blob SHAs are unchanged: `floatmp_sin.tsv`:
+`9b75d8fd4992f62e288c151e8f930dedd66a778e`, 281,134 bytes; `floatmp_cos.tsv`:
 `31475db715e25928b31b34d31e32735e2cbb97be`, 278,016 bytes. Generator #26 participates only in the
 opt-in targets `generators`, `generate-data`, `verify-data` and increases coverage to 107/115,
 leaving eight original TSV files without generators. No tests, production source or runtime GMP
 oracle were changed.
 
-B104 adds the standard-library-only `generator_floatap_centered_exp.cpp`
-covering all 568 distinct rows of `floatap_centered_exp.tsv`. Recreate
+B104 adds the standard-library-only `generator_floatmp_centered_exp.cpp`
+covering all 568 distinct rows of `floatmp_centered_exp.tsv`. Recreate
 all six precision visits, all 15 rational magnitudes and both signs,
 quantizing the source independently to nearest-even p-bit binary before
 forming each original lookup key. Deduplicate only repeated keys,
@@ -476,7 +476,7 @@ Generated 170,882 bytes identical to the original blob SHA-1
 No original TSV, test consumer, runtime GMP oracle or production code
 has been modified. Cross-platform CI for B104 is pending.
 
-B105 independently regenerates all 1,340 original `floatap_atan.tsv`
+B105 independently regenerates all 1,340 original `floatmp_atan.tsv`
 source-keyed references (309,281 bytes). Preserve D87 centered-source
 precision visits, D88 Dyadic regression probes and D89 cache/centered
 argument-reduction cases in exact visit order; independently round
@@ -494,7 +494,7 @@ Generator #28 joins only opt-in CMake targets, reaching 109/115.
 No input fixture, test consumer, runtime GMP oracle or production code
 has changed.
 
-B106 independently regenerates all 1,208 original `floatap_tan.tsv`
+B106 independently regenerates all 1,208 original `floatmp_tan.tsv`
 references: 576 D92 local sin/cos/tan, 240 D93 centered tangent,
 200 D94 one-square-root cosine tangent and 192 D95 exact dyadic
 trigonometric recurrence/regression references. Reconstruct every
@@ -532,8 +532,8 @@ Generator #30 joins the opt-in targets, reaching 112/115 TSVs.
 No existing TSVs, test consumers, runtime GMP oracles, or production
 sources are changed.
 
-B108 adds independent C++20 `generator_floatap_tanh.cpp`, recreating
-all 1,148 source-sorted `floatap_tanh.tsv` rows. All 13 original
+B108 adds independent C++20 `generator_floatmp_tanh.cpp`, recreating
+all 1,148 source-sorted `floatmp_tanh.tsv` rows. All 13 original
 precision sets and mode groups are generated algebraically (17, 29,
 or 18 source rationals per mode); exact source keys are independently
 rounded nearest-even before applying a certified tanh. Use B=2^2304,
@@ -553,7 +553,7 @@ the original fixture. Generator #31 joins opt-in targets, reaching
 113/115 TSV files. No original TSV, test consumer, runtime GMP
 oracle or production code changes.
 
-B109 independently regenerates all 4,794 references in `floatap_rounding.tsv` without consulting
+B109 independently regenerates all 4,794 references in `floatmp_rounding.tsv` without consulting
 source TSV operands or expected values. Rebuild 232 base rows, 832 additional multiprecision
 quotient rows and 3,730 D79 references in precisely their original first-visit order, preserving the
 original mid-file section comments. The D79 inputs include 320 source ratios, 320 dyadics, 2,520
@@ -593,11 +593,11 @@ of B110 must still be confirmed. No original TSV, test consumer,
 production source, or runtime GMP oracle changed. Generator #33
 joins opt-in targets `generators`, `generate-data`, `verify-data`.
 
-B111 consolidation: `generator_floatap_rounding.cpp` now emits both
-`floatap_rounding.tsv` (4,794 rows, SHA `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b`)
-and `floatap_add_sub.tsv` (1,780 rows, SHA
+B111 consolidation: `generator_floatmp_rounding.cpp` now emits both
+`floatmp_rounding.tsv` (4,794 rows, SHA `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b`)
+and `floatmp_add_sub.tsv` (1,780 rows, SHA
 `b4552cfbdea659730486dd5bcdb3bb3a62be7984`). These two files
-remain byte-for-byte unchanged; remove `generator_floatap_add_sub.cpp`
+remain byte-for-byte unchanged; remove `generator_floatmp_add_sub.cpp`
 and its CMake executable. Generator count becomes 32 for all 115 TSVs.
 
 The previously unrecoverable 48 legacy input-only seeds in
@@ -685,7 +685,7 @@ GMP nor production division is used in the generator. Exactly
 2,240 rows, 227,016 bytes, Git blob
 `f9084b5d88d01b2acf356e5f4b0cb9a0435ff7cd`.
 Strict GCC/Clang C++20 compilations agree byte-for-byte; a separately
-implemented Python mt19937_64 and built-in arbitrary-precision
+implemented Python mt19937_64 and built-in multiple-precision
 division reproduce all 2,240 source keys, quotients and remainders.
 118 source TSV fixtures are registered across the same 32 generators.
 Other division/GMP blocks, all production sources and all previously
@@ -709,7 +709,7 @@ Extend the already registered C++20
 `generator_big_unsigned_power_div.cpp` with independent aligned-subtraction
 long division and binary shift/add multiplication; certify Euclidean
 identity n=q*d+r and remainder<divisor independently, not from Numeric
-or GMP. A second Python implementation of arbitrary-precision division
+or GMP. A second Python implementation of multiple-precision division
 and an independent mt19937_64 engine reproduces all 6,000 cases
 byte-for-byte; the first eight random draws also match a compiled
 std::mt19937_64 C++20 witness. Fixture 1,194,017 bytes, Git blob
@@ -791,7 +791,7 @@ rejects missing, reordered or extra records.
 Existing independent C++20 `generator_big_unsigned_power_div.cpp` regenerates the datasets via
 Nat::mul_small and independently checks the exact inverse using the bitwise single-limb divide
 implementation; no Numeric, GMP or Boost dependency. Independently replaying all 6,200 original
-std::mt19937_64 cases compiled with both GCC and Clang and Python arbitrary-precision multiplication
+std::mt19937_64 cases compiled with both GCC and Clang and Python multiple-precision multiplication
 reproduces every fixture byte-for-byte. Git blobs, respectively small (4,960 rows)
 `d4a68ff02f44a9273ca8bf0a30aa4874a57ab295`, length 65 (620 rows)
 `6a5c0cdee6d167bfedaff54917cc725bd73793ae`, length 129 first 78 divisors (312 rows)
@@ -850,7 +850,7 @@ order, with none missing or extra. GMP blocks outside B55 remain.
 Extend the existing independent C++20 power/division generator with B55 input replay, independent
 Nat aligned-subtraction long division and shift/add Euclidean identity checks; no Numeric, GMP or
 Boost is used. Separately regenerate source inputs with std::mt19937_64 compiled using GCC and
-Clang, and use Python arbitrary-precision divmod to certify every result. Exact bytewise Git blob
+Clang, and use Python multiple-precision divmod to certify every result. Exact bytewise Git blob
 identities: B55 short (216 visits, 178,716 bytes) `929963b14605a7a0eaa3f78aeacb8b398e615858`; medium
 (144 visits, 221,212 bytes) `3d8e5a3070ff80af9b01cd59a8b0a01a4da53882`; large (72 visits, 239,017
 bytes) `7837342521a24a6cb672dbd364b37f0f4f44ab70`. Total: 133 versioned TSV fixtures and 32 existing
@@ -926,7 +926,7 @@ random engine and all source/input/shift transformations. GMP remains only
 for visits 5,000–9,999 in `test_randomized()`. The fixture has 1,250 rows,
 1,216,271 bytes and Git blob
 `e23f97770356c28d0b76aef3c7d9d5c7dee8a0c5`.
-The independent Python arbitrary-precision witness reproduces the preceding
+The independent Python multiple-precision witness reproduces the preceding
 A14 blob byte-for-byte before generating A15. Migration inventory:
 `doc/designs/gmp_migration.md`.
 
@@ -937,7 +937,7 @@ Migrate original visits 5,000–6,249 to independent
 `mt19937_64(0xBA17B00D)` stream, all input transforms and the shift draw.
 GMP remains only for visits 6,250–9,999 in `test_randomized()`.
 The fixture has 1,250 rows, 1,204,292 bytes and Git blob
-`bbb0fc03a3dae88154205334fafdff5fb04f9619`. A separate arbitrary-precision witness first reproduces
+`bbb0fc03a3dae88154205334fafdff5fb04f9619`. A separate multiple-precision witness first reproduces
 the complete A15 fixture byte-for-byte before computing A16. Migration
 inventory: `doc/designs/gmp_migration.md`.
 
@@ -948,7 +948,7 @@ Migrate original visits 6,250–7,499 to independent
 `mt19937_64(0xBA17B00D)` stream, conditional input transformations and shift
 draw. GMP remains only for visits 7,500–9,999 in `test_randomized()`.
 The fixture has 1,250 rows, 1,224,250 bytes and Git blob
-`2b595bab5b7a83fc2c9a27c188d2fba204b6c30e`. A separate arbitrary-precision witness first reproduces
+`2b595bab5b7a83fc2c9a27c188d2fba204b6c30e`. A separate multiple-precision witness first reproduces
 the A16 fixture exactly before independently computing A17. Migration
 inventory: `doc/designs/gmp_migration.md`.
 
@@ -959,7 +959,7 @@ Migrate original visits 7,500–8,749 to independent
 `mt19937_64(0xBA17B00D)` stream, conditional input transformations and shift
 draw. GMP remains only for visits 8,750–9,999 in `test_randomized()`.
 The fixture has 1,250 rows, 1,212,953 bytes and Git blob
-`b1c7416dd60cc79511d545a706df56b18b70bf74`. A separate arbitrary-precision witness first reproduces
+`b1c7416dd60cc79511d545a706df56b18b70bf74`. A separate multiple-precision witness first reproduces
 the A17 fixture exactly before independently computing A18. Migration
 inventory: `doc/designs/gmp_migration.md`.
 
@@ -971,6 +971,6 @@ Migrate original visits 8,750–9,999 to independent
 draw. This removes the remaining numerical GMP branch from
 `test_randomized()`; all 10,000 original visits now use source-keyed exact
 external expectations. The fixture has 1,250 rows, 1,202,168 bytes and Git
-blob `15f9d3656bf5fe77ac2b97e0ba6faee3b0883ea3`. A separate arbitrary-precision witness first
+blob `15f9d3656bf5fe77ac2b97e0ba6faee3b0883ea3`. A separate multiple-precision witness first
 reproduces the A18 fixture exactly before independently computing A19.
 Migration inventory: `doc/designs/gmp_migration.md`.

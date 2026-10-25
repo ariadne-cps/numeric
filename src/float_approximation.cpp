@@ -26,7 +26,7 @@
 #include "float_approximation.tpl.hpp"
 
 #include "floatdp.hpp"
-#include "floatap.hpp"
+#include "floatmp.hpp"
 
 namespace Ariadne {
 
@@ -36,17 +36,17 @@ template<> Approximation<FloatDP>::operator ApproximateNumber() const;
 template class Approximation<FloatDP>;
 
 // Native constructors are implemented in float_approximation.tpl.hpp.
-// Instantiate every constructor used by the complete FloatAP approximation
+// Instantiate every constructor used by the complete FloatMP approximation
 // test suite, rather than suppressing its semantic regression coverage.
-template Approximation<FloatAP>::Approximation(Real const&, ArbitraryPrecision);
-template Approximation<FloatAP>::Approximation(ApproximateNumber const&, ArbitraryPrecision);
-template Approximation<FloatAP>::Approximation(LowerBound<FloatAP> const&);
-template Approximation<FloatAP>::Approximation(UpperBound<FloatAP> const&);
-template Approximation<FloatAP>::Approximation(Bounds<FloatAP> const&);
-template Approximation<FloatAP>::Approximation(Error<FloatAP> const&);
+template Approximation<FloatMP>::Approximation(Real const&, MultiplePrecision);
+template Approximation<FloatMP>::Approximation(ApproximateNumber const&, MultiplePrecision);
+template Approximation<FloatMP>::Approximation(LowerBound<FloatMP> const&);
+template Approximation<FloatMP>::Approximation(UpperBound<FloatMP> const&);
+template Approximation<FloatMP>::Approximation(Bounds<FloatMP> const&);
+template Approximation<FloatMP>::Approximation(Error<FloatMP> const&);
 
 template<> String class_name<Approximation<FloatDP>>() { return "FloatDPApproximation"; }
-template<> String class_name<Approximation<FloatAP>>() { return "FloatAPApproximation"; }
+template<> String class_name<Approximation<FloatMP>>() { return "FloatMPApproximation"; }
 
 // The native ApproximateNumber conversion has a concrete specialization in
 // instantiation here was not emitted as a linkable symbol by MSVC.

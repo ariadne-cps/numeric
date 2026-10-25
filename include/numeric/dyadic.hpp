@@ -213,7 +213,7 @@ public:
     explicit Dyadic(double d) : Dyadic(Rational(ExactDouble(d))) { }
     explicit Dyadic(String const& s) : Dyadic(Rational(Decimal(s))) { }
     explicit Dyadic(FloatDP const& d);
-    explicit Dyadic(FloatAP const& d);
+    explicit Dyadic(FloatMP const& d);
     Dyadic(TwoExp const& power) {
         const Int e=power.exponent();
         if (e>=0) {
@@ -816,7 +816,7 @@ template<> class Bounds<Dyadic> {
     Dyadic lower_raw() const { return _l; }
     Dyadic upper_raw() const { return _u; }
     Bounds<FloatDP> get(DoublePrecision pr) const;
-    Bounds<FloatAP> get(ArbitraryPrecision pr) const;
+    Bounds<FloatMP> get(MultiplePrecision pr) const;
     friend Bounds<Dyadic> operator+(Bounds<Dyadic> const& w) { return Bounds<Dyadic>(+w._l,w._u); }
     friend Bounds<Dyadic> operator-(Bounds<Dyadic> const& w) { return Bounds<Dyadic>(-w._u,-w._l); }
     friend Bounds<Dyadic> operator+(Bounds<Dyadic> const& w1, Bounds<Dyadic> const& w2) {
@@ -933,10 +933,10 @@ template<> class LowerBound<Dyadic> {
     LowerBound(Dyadic l) : _l(l) { }
     LowerBound(Bounds<Dyadic> lu) : _l(lu.lower_raw()) { }
     LowerBound(LowerBound<FloatDP> const& x);
-    LowerBound(LowerBound<FloatAP> const& x);
+    LowerBound(LowerBound<FloatMP> const& x);
     Dyadic raw() const { return _l; }
     LowerBound<FloatDP> get(DoublePrecision pr) const;
-    LowerBound<FloatAP> get(ArbitraryPrecision pr) const;
+    LowerBound<FloatMP> get(MultiplePrecision pr) const;
     friend OutputStream& operator<<(OutputStream& os, LowerBound<Dyadic> const& y) { return os << y._l << ":"; }
 };
 
@@ -946,10 +946,10 @@ template<> class UpperBound<Dyadic> {
     explicit UpperBound(Dyadic u) : _u(u) { }
     UpperBound(Bounds<Dyadic> lu) : _u(lu.upper_raw()) { }
     UpperBound(UpperBound<FloatDP> const& x);
-    UpperBound(UpperBound<FloatAP> const& x);
+    UpperBound(UpperBound<FloatMP> const& x);
     Dyadic raw() const { return _u; }
     UpperBound<FloatDP> get(DoublePrecision pr) const;
-    UpperBound<FloatAP> get(ArbitraryPrecision pr) const;
+    UpperBound<FloatMP> get(MultiplePrecision pr) const;
     friend OutputStream& operator<<(OutputStream& os, UpperBound<Dyadic> const& y) { return os << ":" << y._u; }
 };
 
@@ -960,7 +960,7 @@ template<> class Approximation<Dyadic> {
     Approximation(Approximation<FloatDP> const& x);
     Dyadic raw() const { return _a; }
     Approximation<FloatDP> get(DoublePrecision pr) const;
-    Approximation<FloatAP> get(ArbitraryPrecision pr) const;
+    Approximation<FloatMP> get(MultiplePrecision pr) const;
     friend OutputStream& operator<<(OutputStream& os, Approximation<Dyadic> const& y) {
         return os << y._a;
     }

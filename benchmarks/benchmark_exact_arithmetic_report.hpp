@@ -436,7 +436,7 @@ int run_exact_arithmetic_benchmark(int argc,const char* argv[]) {
         }
         print_exact_measurements(data,title,selection.iterations,
                                  selection.samples,selection.summary_only);
-        // Match the FloatAP comparison: numerical verification is entirely
+        // Match the FloatMP comparison: numerical verification is entirely
         // outside measurement loops and precedes slowdown reporting.
         if constexpr (Comparison) {
             if constexpr (integer) {

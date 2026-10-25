@@ -11,7 +11,7 @@ add_library(NUMERIC_SRC OBJECT
     complex.cpp
     number.cpp
     floatdp.cpp
-    floatap.cpp
+    floatmp.cpp
     float_approximation.cpp
     float_lower_bound.cpp
     float_upper_bound.cpp

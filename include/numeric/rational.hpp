@@ -80,7 +80,7 @@ class Rational
     template<BuiltinIntegral N> Rational(N n);
     Rational(Int64);
     explicit Rational(FloatDP const&);
-    explicit Rational(FloatAP const&);
+    explicit Rational(FloatMP const&);
     Rational(const ExactDouble&);
     Rational(const Integer&);
     //! Construct an exact n/2^bits without a generic multiprecision GCD.

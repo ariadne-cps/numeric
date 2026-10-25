@@ -256,7 +256,7 @@ std::string generate() {
         "# via pi/4 + atan((abs(x)-1)/(abs(x)+1)), where pi/4 is certified\n"
         "# from 4*atan(1/5)-atan(1/239) using the same integer intervals.\n"
         "# The 128-bit DOWN and UP rounding of both interval endpoints must coincide.\n"
-        "# No FloatAP, independent exact arithmetic, independent exact arithmetic, GMP or floating-point transcendentals as oracle.\n"
+        "# No FloatMP, independent exact arithmetic, independent exact arithmetic, GMP or floating-point transcendentals as oracle.\n"
         "# FloatDP output is checked strictly > 128-bit upper or < 128-bit lower,\n"
         "# matching the original tests; NOT for equality at 53-bit precision.\n";
     const auto append=[&](char const* kind,std::int64_t n,std::uint64_t d,Interval const& value) {

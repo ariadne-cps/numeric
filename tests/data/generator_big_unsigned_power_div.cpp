@@ -49,9 +49,9 @@ std::string power_fixture() {
         "# kind key1 key2 exponent source_hex result_hex.\n"
         "# R=original limb count and mode, S=sample base, B=boundary bit count.\n"
         "# All sources and outputs canonical lowercase hexadecimal, zero is 0.\n"
-        "# Generated from independent std::mt19937_64 exact state and arbitrary-precision integers.\n"
+        "# Generated from independent std::mt19937_64 exact state and multiple-precision integers.\n"
         "# Each result checked both by built-in exponentiation and repeated squaring.\n"
-        "# No GMP/mpz/FloatAP/BigUnsigned or runtime transcendental oracle is used.\n";
+        "# No GMP/mpz/FloatMP/BigUnsigned or runtime transcendental oracle is used.\n";
     auto append=[&](char kind, std::size_t key1, std::size_t key2,
                     unsigned exponent,Nat const& base) {
         out+=row({std::string(1,kind),std::to_string(key1),std::to_string(key2),
@@ -97,8 +97,8 @@ std::string short_div_fixture() {
         "# 864 input visits: standardized mt19937_64 seed 0xB74D1A1DE, 6x6x24.\n"
         "# Original source words and all mode%6 transformations are preserved.\n"
         "# Canonical lowercase hexadecimal, zero is 0, division-by-zero results are - -.\n"
-        "# Expected values certified by native arbitrary-precision integer quotient/remainder,\n"
-        "# and checked with a=b*q+r and 0<=r<b. No GMP, independent exact arithmetic, FloatAP, BigUnsigned oracle.\n";
+        "# Expected values certified by native multiple-precision integer quotient/remainder,\n"
+        "# and checked with a=b*q+r and 0<=r<b. No GMP, independent exact arithmetic, FloatMP, BigUnsigned oracle.\n";
     std::mt19937_64 generator(0xB74D1A1DEULL);
     for (std::size_t n=0u;n<=5u;++n) {
         for (std::size_t m=0u;m<=5u;++m) {
@@ -824,7 +824,7 @@ std::string randomized_a16_fifth_fixture() {
         "# A16 randomized BigUnsigned arithmetic, original visits 5000..6249.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently cross-checked multiple-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -859,7 +859,7 @@ std::string randomized_a17_sixth_fixture() {
         "# A17 randomized BigUnsigned arithmetic, original visits 6250..7499.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently cross-checked multiple-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -894,7 +894,7 @@ std::string randomized_a18_seventh_fixture() {
         "# A18 randomized BigUnsigned arithmetic, original visits 7500..8749.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently cross-checked multiple-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -929,7 +929,7 @@ std::string randomized_a19_eighth_fixture() {
         "# A19 randomized BigUnsigned arithmetic, original visits 8750..9999.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently cross-checked multiple-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;

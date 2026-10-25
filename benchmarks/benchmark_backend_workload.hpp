@@ -1,7 +1,7 @@
 /***************************************************************************
  *            benchmark_backend_workload.hpp
  *
- *  Shared operation pool for FloatAP and FloatDP/FloatAP.
+ *  Shared operation pool for FloatMP and FloatDP/FloatMP.
  ****************************************************************************/
 
 #ifndef ARIADNE_NUMERIC_BENCHMARK_BACKEND_WORKLOAD_HPP

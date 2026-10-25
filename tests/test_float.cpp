@@ -53,7 +53,7 @@
 #include "numeric/rounded_float.hpp"
 #include "numeric/casts.hpp"
 
-#include "numeric/floatap.hpp"
+#include "numeric/floatmp.hpp"
 #include "macro/testing.hpp"
 #include "test_floats.hpp"
 
@@ -68,11 +68,11 @@ namespace {
 
 // These exact directed-rounding fixtures are generated offline using signed
 // integer division only. The test must never use another float implementation
-// as an oracle for FloatAP.
-Void test_floatap_directed_bound_oracles() {
-    constexpr char filename[]=ARIADNE_TEST_DATA_DIR "/floatap_directed_bounds.tsv";
+// as an oracle for FloatMP.
+Void test_floatmp_directed_bound_oracles() {
+    constexpr char filename[]=ARIADNE_TEST_DATA_DIR "/floatmp_directed_bounds.tsv";
     std::ifstream data(filename);
-    if (!data) throw std::runtime_error(std::string("Missing FloatAP oracle: ")+filename);
+    if (!data) throw std::runtime_error(std::string("Missing FloatMP oracle: ")+filename);
     std::set<std::string> unique_keys;
     std::string line;
     Nat rows=0u;
@@ -82,20 +82,20 @@ Void test_floatap_directed_bound_oracles() {
         std::size_t bits=0;
         std::string n,d,lo_n,lo_d,hi_n,hi_d,extra;
         if (!(fields>>bits>>n>>d>>lo_n>>lo_d>>hi_n>>hi_d) || (fields>>extra))
-            throw std::runtime_error("Malformed FloatAP directed-bound oracle row");
+            throw std::runtime_error("Malformed FloatMP directed-bound oracle row");
         if (!unique_keys.emplace(std::to_string(bits)+":"+n+"/"+d).second)
-            throw std::runtime_error("Duplicate FloatAP directed-bound oracle input");
-        const ArbitraryPrecision prec(bits);
+            throw std::runtime_error("Duplicate FloatMP directed-bound oracle input");
+        const MultiplePrecision prec(bits);
         const Rational input{Integer(String(n)),Integer(String(d))};
         const Rational lower_expected{Integer(String(lo_n)),Integer(String(lo_d))};
         const Rational upper_expected{Integer(String(hi_n)),Integer(String(hi_d))};
         ARIADNE_TEST_ASSERT(lower_expected<=input && input<=upper_expected);
-        const LowerBound<FloatAP> direct_lower(input,prec);
-        const UpperBound<FloatAP> direct_upper(input,prec);
+        const LowerBound<FloatMP> direct_lower(input,prec);
+        const UpperBound<FloatMP> direct_upper(input,prec);
         const ValidatedLowerNumber exact_generic_lower(input);
         const ValidatedUpperNumber exact_generic_upper(input);
-        const LowerBound<FloatAP> generic_lower(exact_generic_lower,prec);
-        const UpperBound<FloatAP> generic_upper(exact_generic_upper,prec);
+        const LowerBound<FloatMP> generic_lower(exact_generic_lower,prec);
+        const UpperBound<FloatMP> generic_upper(exact_generic_upper,prec);
         ARIADNE_TEST_EQUALS(static_cast<Rational>(direct_lower.raw()),lower_expected);
         ARIADNE_TEST_EQUALS(static_cast<Rational>(direct_upper.raw()),upper_expected);
         ARIADNE_TEST_EQUALS(static_cast<Rational>(generic_lower.raw()),lower_expected);
@@ -104,7 +104,7 @@ Void test_floatap_directed_bound_oracles() {
         ARIADNE_TEST_EQUALS(direct_upper.precision(),prec);
         ++rows;
     }
-    if (rows!=90u) throw std::runtime_error("Unexpected FloatAP directed-bound oracle row count");
+    if (rows!=90u) throw std::runtime_error("Unexpected FloatMP directed-bound oracle row count");
 }
 
 
@@ -131,7 +131,7 @@ constexpr bool check_float_concept()
 }
 
 static_assert(check_float_concept<DoublePrecision>());
-static_assert(check_float_concept<ArbitraryPrecision>());
+static_assert(check_float_concept<MultiplePrecision>());
 
 
 } // namespace
@@ -221,7 +221,7 @@ TestFloat<PR>::test_conversions()
     FloatError<PR> error(1u,precision);
     ARIADNE_TEST_EQUALS(cast_exact(error),error.raw());
 
-    FloatApproximation<PR> approximation(2u,precision);
+    FloatMPproximation<PR> approximation(2u,precision);
     ARIADNE_TEST_EQUALS(cast_exact(approximation),approximation.raw());
 
     if constexpr (Same<PR,DoublePrecision>) {
@@ -264,7 +264,7 @@ TestFloat<PR>::test_conversions()
         ARIADNE_TEST_EQUALS(class_name<ApproximateDouble>(),String("ApproximateDouble"));
         ARIADNE_TEST_EQUALS(class_name<ExactDouble>(),String("ExactDouble"));
         ARIADNE_TEST_EQUALS(class_name<Rounded<FloatDP>>(),String("Rounded<FloatDP>"));
-    } else if constexpr (Same<PR,ArbitraryPrecision>) {
+    } else if constexpr (Same<PR,MultiplePrecision>) {
         PR pr=precision;
 
         ARIADNE_TEST_ASSERT(PR(64_bits)<=PR(128_bits));
@@ -308,7 +308,7 @@ TestFloat<PR>::test_conversions()
         ARIADNE_TEST_ASSERT(same(scaled,FloatType(6,pr)));
         ARIADNE_TEST_EQUALS(integer_cast<Nat>(FloatType(7u,pr)),Nat(7u));
 
-        if constexpr (Same<PR,ArbitraryPrecision>) {
+        if constexpr (Same<PR,MultiplePrecision>) {
             // The FloatDP conversion must preserve IEEE exceptional values,
             // including the sign of zero, without converting them to Rational.
             ARIADNE_TEST_ASSERT(std::isnan(FloatDP(FloatType::nan(pr),
@@ -341,16 +341,16 @@ TestFloat<PR>::test_conversions()
                 FloatDP(static_cast<Rational>(third),FloatDP::ROUND_UPWARD,dp));
         }
 
-        if constexpr (Same<PR,ArbitraryPrecision>) {
+        if constexpr (Same<PR,MultiplePrecision>) {
             // Preserve the public zero-interval representation,
             // rather than the old generic formatter's "{0.:0.}" spelling.
             std::ostringstream ap_zero_stream;
-            ap_zero_stream << Bounds<FloatAP>(0,pr);
+            ap_zero_stream << Bounds<FloatMP>(0,pr);
             ARIADNE_TEST_EQUALS(ap_zero_stream.str(),String("0.0[:]"));
 
-            // Verify sign-sensitive interval arithmetic in the FloatAP
+            // Verify sign-sensitive interval arithmetic in the FloatMP
             // specialization, including all endpoint sign combinations.
-            using B=Bounds<FloatAP>;
+            using B=Bounds<FloatMP>;
             const B positive(1,2,pr);
             const B negative(-4,-2,pr);
             const B crossing(-2,3,pr);
@@ -374,7 +374,7 @@ TestFloat<PR>::test_conversions()
             ARIADNE_TEST_ASSERT(possibly(eq(positive,crossing)));
             // Touching intervals are consistent but not identical singletons.
             // This exercises the false outcome of the second conjunct in
-            // Bounds<F>::eq for the FloatAP instantiation.
+            // Bounds<F>::eq for the FloatMP instantiation.
             const B touching_left(1,2,pr);
             const B touching_right(0,1,pr);
             ARIADNE_TEST_ASSERT(possibly(eq(touching_left,touching_right)));
@@ -400,41 +400,41 @@ TestFloat<PR>::test_conversions()
             ARIADNE_TEST_ASSERT(division_negative.upper_raw()>=FloatType(Dyadic(-1,2u),pr));
         }
 
-        if constexpr (Same<PR,ArbitraryPrecision>) {
-            // Verify the concrete FloatAP wrapper specializations, including
+        if constexpr (Same<PR,MultiplePrecision>) {
+            // Verify the concrete FloatMP wrapper specializations, including
             // rigorous enclosure when converting from generic real numbers.
-            ARIADNE_TEST_EQUALS(class_name<Bounds<FloatAP>>(),String("FloatAPBounds"));
-            ARIADNE_TEST_EQUALS(class_name<LowerBound<FloatAP>>(),String("FloatAPLowerBound"));
-            ARIADNE_TEST_EQUALS(class_name<UpperBound<FloatAP>>(),String("FloatAPUpperBound"));
+            ARIADNE_TEST_EQUALS(class_name<Bounds<FloatMP>>(),String("FloatMPBounds"));
+            ARIADNE_TEST_EQUALS(class_name<LowerBound<FloatMP>>(),String("FloatMPLowerBound"));
+            ARIADNE_TEST_EQUALS(class_name<UpperBound<FloatMP>>(),String("FloatMPUpperBound"));
 
             const Rational exact_third(1,3);
             const Decimal exact_decimal(Integer(125),3u);
-            const FloatAP decimal_nearest(exact_decimal,FloatAP::ROUND_TO_NEAREST,pr);
+            const FloatMP decimal_nearest(exact_decimal,FloatMP::ROUND_TO_NEAREST,pr);
             ARIADNE_TEST_EQUALS(static_cast<Rational>(decimal_nearest),Rational(1,8));
-            const Bounds<FloatAP> real_enclosure(Real(exact_third),pr);
+            const Bounds<FloatMP> real_enclosure(Real(exact_third),pr);
             ARIADNE_TEST_ASSERT(cmp(real_enclosure.lower_raw(),exact_third)!=Comparison::GREATER);
             ARIADNE_TEST_ASSERT(cmp(real_enclosure.upper_raw(),exact_third)!=Comparison::LESS);
 
-            // The direct and polymorphic FloatAP conversion paths are tested
+            // The direct and polymorphic FloatMP conversion paths are tested
             // against a frozen, independently computed Rational TSV oracle.
             // No external floating-point backend is used as an oracle.
         }
 
         // Exercise native precision controls and decimal formatting.
-        // The independent exact arithmetic raw-pointer path has no counterpart in FloatAP.
-        const ArbitraryPrecision from_bits(53_bits);
+        // The independent exact arithmetic raw-pointer path has no counterpart in FloatMP.
+        const MultiplePrecision from_bits(53_bits);
         ARIADNE_TEST_EQUALS(from_bits.bits(),53u);
 
         std::ostringstream precision_repr;
-        repr(precision_repr,ArbitraryPrecision(96_bits));
-        ARIADNE_TEST_EQUALS(precision_repr.str(),String("ArbitraryPrecision(96)"));
+        repr(precision_repr,MultiplePrecision(96_bits));
+        ARIADNE_TEST_EQUALS(precision_repr.str(),String("MultiplePrecision(96)"));
 
         FloatType source(Dyadic(3,2u),pr);
         ARIADNE_TEST_EQUALS(static_cast<Rational>(source),Rational(3,4));
 
-        const ArbitraryPrecision old_default=FloatType::get_default_precision();
-        FloatType::set_default_precision(ArbitraryPrecision(96_bits));
-        ARIADNE_TEST_EQUALS(FloatType::get_default_precision(),ArbitraryPrecision(96_bits));
+        const MultiplePrecision old_default=FloatType::get_default_precision();
+        FloatType::set_default_precision(MultiplePrecision(96_bits));
+        ARIADNE_TEST_EQUALS(FloatType::get_default_precision(),MultiplePrecision(96_bits));
         FloatType::set_default_precision(old_default);
 
         resized=Integer(2);
@@ -748,7 +748,7 @@ TestFloat<PR>::test_operations()
         ARIADNE_TEST_EXECUTE(dp_prefailed >> parsed);
     }
 
-    if constexpr (Same<PR,ArbitraryPrecision>) {
+    if constexpr (Same<PR,MultiplePrecision>) {
         FloatType a(2,pr);
         FloatType b(1,pr);
         FloatDP dpa(1,dp);
@@ -813,7 +813,7 @@ TestFloat<PR>::test_operations()
         ARIADNE_TEST_EQUALS(FloatType::output_places,Nat(7u));
         ARIADNE_TEST_EQUALS(class_name<Rounded<FloatType>>(),String("Rounded<")+class_name<FloatType>()+String(">"));
 
-        if constexpr (Same<PR,ArbitraryPrecision>) {
+        if constexpr (Same<PR,MultiplePrecision>) {
             ARIADNE_TEST_EXECUTE(FloatDP(a,FloatDP::ROUND_TO_NEAREST,dp));
             ARIADNE_TEST_EXECUTE(FloatDP(a,FloatDP::ROUND_TOWARD_ZERO,dp));
             const auto bad_mode=static_cast<FloatDP::RoundingModeType>(0xffffu);
@@ -857,7 +857,7 @@ TestFloat<PR>::test_predicates()
         ARIADNE_TEST_EQUALS(cmp(zero,FloatDP::inf(Sign::NEGATIVE,dp)),Comparison::GREATER);
     }
 
-    if constexpr (Same<PR,ArbitraryPrecision>) {
+    if constexpr (Same<PR,MultiplePrecision>) {
         Float<PR> x(Dyadic(3,1u),pr);
         Float<PR> one(1,pr);
         Float<PR> two_native(2,pr);
@@ -1049,9 +1049,9 @@ Void test_double_runtime()
     set_builtin_rounding_to_nearest();
 }
 
-// D46: exact FloatAP -> Dyadic conversion without mpf_t intermediary.
-Void test_floatap_exact_dyadic_export() {
-    const auto precision=ArbitraryPrecision(256_bits);
+// D46: exact FloatMP -> Dyadic conversion without mpf_t intermediary.
+Void test_floatmp_exact_dyadic_export() {
+    const auto precision=MultiplePrecision(256_bits);
     for (unsigned width:{1u,53u,127u,128u,191u}) {
         const BigUnsigned magnitude=add(
             shift_left(BigUnsigned(1u),width-1u),BigUnsigned(13u));
@@ -1060,7 +1060,7 @@ Void test_floatap_exact_dyadic_export() {
                 const Integer coefficient=Integer::from_magnitude(
                     magnitude,negative);
                 const Dyadic source(coefficient,denominator_exponent);
-                const FloatAP exact(source,precision);
+                const FloatMP exact(source,precision);
                 const Dyadic restored=static_cast<Dyadic>(exact);
                 ARIADNE_TEST_EQUALS(Rational(restored),Rational(source));
                 ARIADNE_TEST_EQUALS(Rational(restored),
@@ -1069,10 +1069,10 @@ Void test_floatap_exact_dyadic_export() {
         }
     }
     ARIADNE_TEST_ASSERT(is_nan(static_cast<Dyadic>(
-        FloatAP::nan(precision))));
+        FloatMP::nan(precision))));
     ARIADNE_TEST_ASSERT(is_inf(static_cast<Dyadic>(
-        FloatAP::inf(Sign::POSITIVE,precision))));
-    ARIADNE_TEST_EQUALS(static_cast<Dyadic>(FloatAP(0,precision)),Dyadic(0));
+        FloatMP::inf(Sign::POSITIVE,precision))));
+    ARIADNE_TEST_EQUALS(static_cast<Dyadic>(FloatMP(0,precision)),Dyadic(0));
 }
 
 // Native-storage regression uses exact binary significand/exponent facts,
@@ -1080,15 +1080,15 @@ Void test_floatap_exact_dyadic_export() {
 // Frozen mathematical expectations for direct native ratio rounding.
 // In particular, the huge common factor exercises a non-reduced
 // numerator/denominator without constructing a canonical Rational.
-Void test_floatap_native_ratio_rounding() {
-    const ArbitraryPrecision p(7_bits);
-    const auto nearest=FloatAP::ROUND_TO_NEAREST;
-    const auto round_up=FloatAP::ROUND_UPWARD;
-    const auto round_down=FloatAP::ROUND_DOWNWARD;
-    const FloatAP thirds=FloatAP::from_ratio(Integer(1),Integer(3),nearest,p);
-    const FloatAP thirds_up=FloatAP::from_ratio(Integer(1),Integer(3),round_up,p);
-    const FloatAP negative_thirds=FloatAP::from_ratio(Integer(-1),Integer(3),round_down,p);
-    const FloatAP negative_denominator=FloatAP::from_ratio(
+Void test_floatmp_native_ratio_rounding() {
+    const MultiplePrecision p(7_bits);
+    const auto nearest=FloatMP::ROUND_TO_NEAREST;
+    const auto round_up=FloatMP::ROUND_UPWARD;
+    const auto round_down=FloatMP::ROUND_DOWNWARD;
+    const FloatMP thirds=FloatMP::from_ratio(Integer(1),Integer(3),nearest,p);
+    const FloatMP thirds_up=FloatMP::from_ratio(Integer(1),Integer(3),round_up,p);
+    const FloatMP negative_thirds=FloatMP::from_ratio(Integer(-1),Integer(3),round_down,p);
+    const FloatMP negative_denominator=FloatMP::from_ratio(
         Integer(1),Integer(-3),round_up,p);
     ARIADNE_TEST_ASSERT(compare(thirds.significand(),BigUnsigned(85u))==0);
     ARIADNE_TEST_ASSERT(compare(thirds_up.significand(),BigUnsigned(86u))==0);
@@ -1104,15 +1104,15 @@ Void test_floatap_native_ratio_rounding() {
     const Integer numerator=Integer::from_magnitude(common,false);
     const Integer denominator=Integer::from_magnitude(
         mul(common,BigUnsigned(3u)),false);
-    const FloatAP nonreduced=FloatAP::from_ratio(numerator,denominator,nearest,p);
+    const FloatMP nonreduced=FloatMP::from_ratio(numerator,denominator,nearest,p);
     ARIADNE_TEST_ASSERT(compare(nonreduced.significand(),BigUnsigned(85u))==0);
     ARIADNE_TEST_ASSERT(nonreduced.exponent()==-8);
-    const FloatAP exact=FloatAP::from_ratio(Integer(5),Integer(8),nearest,p);
+    const FloatMP exact=FloatMP::from_ratio(Integer(5),Integer(8),nearest,p);
     ARIADNE_TEST_ASSERT(compare(exact.significand(),BigUnsigned(80u))==0);
     ARIADNE_TEST_ASSERT(exact.exponent()==-7);
 
     bool threw=false;
-    try { (void)FloatAP::from_ratio(Integer(1),Integer(0),nearest,p); }
+    try { (void)FloatMP::from_ratio(Integer(1),Integer(0),nearest,p); }
     catch(std::domain_error const&) { threw=true; }
     ARIADNE_TEST_ASSERT(threw);
 }
@@ -1120,35 +1120,35 @@ Void test_floatap_native_ratio_rounding() {
 // Decimal-format oracle: exact binary rationals with frozen expected
 // strings. No GMP or other floating implementation generates the answers.
 Void test_native_decimal_format() {
-    const ArbitraryPrecision precision(53_bits);
-    const FloatAP one_eighth(Rational(Integer(1),Integer(8)),
-                             FloatAP::ROUND_TO_NEAREST,precision);
-    const FloatAP negative_eighth(Rational(Integer(-1),Integer(8)),
-                                  FloatAP::ROUND_TO_NEAREST,precision);
-    const FloatAP three_eighths(Rational(Integer(3),Integer(8)),
-                                FloatAP::ROUND_TO_NEAREST,precision);
+    const MultiplePrecision precision(53_bits);
+    const FloatMP one_eighth(Rational(Integer(1),Integer(8)),
+                             FloatMP::ROUND_TO_NEAREST,precision);
+    const FloatMP negative_eighth(Rational(Integer(-1),Integer(8)),
+                                  FloatMP::ROUND_TO_NEAREST,precision);
+    const FloatMP three_eighths(Rational(Integer(3),Integer(8)),
+                                FloatMP::ROUND_TO_NEAREST,precision);
     ARIADNE_TEST_EQUALS(print(one_eighth,DecimalPlaces(2u),
-                              FloatAP::ROUND_TO_NEAREST),String("0.12"));
+                              FloatMP::ROUND_TO_NEAREST),String("0.12"));
     ARIADNE_TEST_EQUALS(print(one_eighth,DecimalPlaces(2u),
-                              FloatAP::ROUND_UPWARD),String("0.13"));
+                              FloatMP::ROUND_UPWARD),String("0.13"));
     ARIADNE_TEST_EQUALS(print(one_eighth,DecimalPlaces(3u),
-                              FloatAP::ROUND_TO_NEAREST),String("0.125"));
+                              FloatMP::ROUND_TO_NEAREST),String("0.125"));
     ARIADNE_TEST_EQUALS(print(negative_eighth,DecimalPlaces(2u),
-                              FloatAP::ROUND_TO_NEAREST),String("-0.12"));
+                              FloatMP::ROUND_TO_NEAREST),String("-0.12"));
     ARIADNE_TEST_EQUALS(print(negative_eighth,DecimalPlaces(2u),
-                              FloatAP::ROUND_DOWNWARD),String("-0.13"));
+                              FloatMP::ROUND_DOWNWARD),String("-0.13"));
     ARIADNE_TEST_EQUALS(print(three_eighths,DecimalPlaces(2u),
-                              FloatAP::ROUND_TO_NEAREST),String("0.38"));
+                              FloatMP::ROUND_TO_NEAREST),String("0.38"));
     ARIADNE_TEST_EQUALS(print(three_eighths,DecimalPlaces(2u),
-                              FloatAP::ROUND_TOWARD_ZERO),String("0.37"));
-    ARIADNE_TEST_EQUALS(print(FloatAP(2,precision),DecimalPlaces(0u),
-                              FloatAP::ROUND_TO_NEAREST),String("2."));
-    ARIADNE_TEST_EQUALS(print(FloatAP::zero(53u,true),DecimalPlaces(2u),
-                              FloatAP::ROUND_TO_NEAREST),String("-0.00"));
-    ARIADNE_TEST_EQUALS(print(FloatAP::infinity(53u,true),DecimalPlaces(2u),
-                              FloatAP::ROUND_TO_NEAREST),String("-inf"));
-    ARIADNE_TEST_EQUALS(print(FloatAP::nan(53u),DecimalPlaces(2u),
-                              FloatAP::ROUND_TO_NEAREST),String("nan"));
+                              FloatMP::ROUND_TOWARD_ZERO),String("0.37"));
+    ARIADNE_TEST_EQUALS(print(FloatMP(2,precision),DecimalPlaces(0u),
+                              FloatMP::ROUND_TO_NEAREST),String("2."));
+    ARIADNE_TEST_EQUALS(print(FloatMP::zero(53u,true),DecimalPlaces(2u),
+                              FloatMP::ROUND_TO_NEAREST),String("-0.00"));
+    ARIADNE_TEST_EQUALS(print(FloatMP::infinity(53u,true),DecimalPlaces(2u),
+                              FloatMP::ROUND_TO_NEAREST),String("-inf"));
+    ARIADNE_TEST_EQUALS(print(FloatMP::nan(53u),DecimalPlaces(2u),
+                              FloatMP::ROUND_TO_NEAREST),String("nan"));
 
     // The separate binary64 formatter also preserves exact halfway
     // rounding and the signed-zero payload.
@@ -1163,14 +1163,14 @@ Void test_native_decimal_format() {
     ARIADNE_TEST_EQUALS(dp_zero_stream.str(),String("-0.00"));
 }
 
-Void test_floatap_native_significand_storage() {
+Void test_floatmp_native_significand_storage() {
     for (std::size_t bits:{7u,53u,128u,256u}) {
-        const ArbitraryPrecision precision(bits);
+        const MultiplePrecision precision(bits);
         const BigUnsigned leading=shift_left(BigUnsigned(1u),bits-1u);
         const BigUnsigned all_ones=sub(shift_left(BigUnsigned(1u),bits),
                                       BigUnsigned(1u));
-        const FloatAP one(std::int64_t{1},precision);
-        const FloatAP negative_one(std::int64_t{-1},precision);
+        const FloatMP one(std::int64_t{1},precision);
+        const FloatMP negative_one(std::int64_t{-1},precision);
         ARIADNE_TEST_ASSERT(compare(one.significand(),leading)==0);
         ARIADNE_TEST_ASSERT(compare(negative_one.significand(),leading)==0);
         ARIADNE_TEST_ASSERT(!one.negative() && negative_one.negative());
@@ -1181,15 +1181,15 @@ Void test_floatap_native_significand_storage() {
 
         // Immediately below +1 and immediately above -1, the p-bit
         // significand wraps to 2^p-1 with the exponent decremented.
-        const FloatAP before_one=next(RoundDownward{},one);
-        const FloatAP after_negative_one=next(RoundUpward{},negative_one);
+        const FloatMP before_one=next(RoundDownward{},one);
+        const FloatMP after_negative_one=next(RoundUpward{},negative_one);
         ARIADNE_TEST_ASSERT(compare(before_one.significand(),all_ones)==0);
         ARIADNE_TEST_ASSERT(compare(after_negative_one.significand(),all_ones)==0);
         ARIADNE_TEST_ASSERT(before_one.exponent()==one.exponent()-1);
         ARIADNE_TEST_ASSERT(after_negative_one.exponent()==one.exponent()-1);
 
-        const FloatAP after_one=next(RoundUpward{},one);
-        const FloatAP before_negative_one=next(RoundDownward{},negative_one);
+        const FloatMP after_one=next(RoundUpward{},one);
+        const FloatMP before_negative_one=next(RoundDownward{},negative_one);
         const BigUnsigned incremented=add(leading,BigUnsigned(1u));
         ARIADNE_TEST_ASSERT(compare(after_one.significand(),incremented)==0);
         ARIADNE_TEST_ASSERT(compare(before_negative_one.significand(),incremented)==0);
@@ -1197,24 +1197,24 @@ Void test_floatap_native_significand_storage() {
         ARIADNE_TEST_ASSERT(before_negative_one.exponent()==one.exponent());
 
         // Storage copy/assignment and canonical signed zero are explicit.
-        FloatAP copied=one;
+        FloatMP copied=one;
         ARIADNE_TEST_ASSERT(compare(copied.significand(),leading)==0);
         copied=negative_one;
         ARIADNE_TEST_ASSERT(copied.negative());
         ARIADNE_TEST_ASSERT(compare(copied.significand(),leading)==0);
-        const FloatAP negative_zero=FloatAP::zero(
+        const FloatMP negative_zero=FloatMP::zero(
             static_cast<unsigned long>(bits),true);
         ARIADNE_TEST_ASSERT(negative_zero.is_zero() && negative_zero.negative());
         ARIADNE_TEST_ASSERT(negative_zero.significand().is_zero());
 
-        const FloatAP smallest=FloatAP::min(precision);
-        const FloatAP largest=FloatAP::max(precision);
+        const FloatMP smallest=FloatMP::min(precision);
+        const FloatMP largest=FloatMP::max(precision);
         ARIADNE_TEST_ASSERT(compare(smallest.significand(),leading)==0);
         ARIADNE_TEST_ASSERT(compare(largest.significand(),all_ones)==0);
         ARIADNE_TEST_ASSERT(smallest.exponent()==
-            std::numeric_limits<FloatAP::Exponent>::min());
+            std::numeric_limits<FloatMP::Exponent>::min());
         ARIADNE_TEST_ASSERT(largest.exponent()==
-            std::numeric_limits<FloatAP::Exponent>::max());
+            std::numeric_limits<FloatMP::Exponent>::max());
     }
 }
 
@@ -1223,14 +1223,14 @@ Int main() {
     std::cerr<<std::setprecision(20);
     
     test_float_literals();
-    test_floatap_directed_bound_oracles();
+    test_floatmp_directed_bound_oracles();
     test_builtin_runtime();
     test_double_runtime();
     TestFloat<DoublePrecision>(dp).test();
-        TestFloat<ArbitraryPrecision>(ArbitraryPrecision(128_bits)).test();
-    test_floatap_exact_dyadic_export();
-    test_floatap_native_significand_storage();
-    test_floatap_native_ratio_rounding();
+        TestFloat<MultiplePrecision>(MultiplePrecision(128_bits)).test();
+    test_floatmp_exact_dyadic_export();
+    test_floatmp_native_significand_storage();
+    test_floatmp_native_ratio_rounding();
     test_native_decimal_format();
 
 

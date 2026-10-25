@@ -82,7 +82,7 @@ shift draw each time; comparison, addition, conditional subtraction,
 and both shifts have exact independent expectations. The C++20
 standalone generator uses independent Nat arithmetic and the exact
 fixture was cross-checked using a separately compiled GCC/Clang
-random-input witness plus Python arbitrary-precision arithmetic.
+random-input witness plus Python multiple-precision arithmetic.
 The fixture is 1,202,560 bytes, Git blob
 `487f06f3921d72d2de9caee06bf9c23957ee6012`.
 
@@ -99,7 +99,7 @@ The independent generator replays the first 1,250 full visits before
 emitting the next 1,250, with GMP retained for visits 2,500–9,999.
 
 GCC and Clang C++20 source witnesses generate identical 1,250 inputs.
-Python built-in arbitrary-precision arithmetic separately generates
+Python built-in multiple-precision arithmetic separately generates
 all expected values, confirmed byte-for-byte against the Git fixture
 blob SHA `ae3a7c98ef3ac9dedea8e44d5a2d410daccb342e`
 (1,217,436 bytes). Generator and consumer share no production arithmetic.
@@ -126,7 +126,7 @@ retains comparison, addition, conditional subtraction and both shifts.
 GMP remains the numerical oracle only for visits 5,000–9,999.
 
 The standalone C++20 generator replays visits 0–3,749 before emitting A15.
-A separate Python arbitrary-precision implementation reproduces the complete
+A separate Python multiple-precision implementation reproduces the complete
 A14 fixture exactly, including Git blob
 `bdb0b5f9235005b2bc31d18a7e3b21c2af474abe`, then independently computes
 A15. The A15 fixture has 1,250 records, 1,216,271 bytes and Git blob
@@ -144,7 +144,7 @@ checked against exact external expectations. GMP remains the numerical oracle
 for visits 6,250–9,999.
 
 The standalone C++20 generator replays visits 0–4,999 before emitting A16.
-A separate arbitrary-precision implementation reproduces A15 exactly, including
+A separate multiple-precision implementation reproduces A15 exactly, including
 Git blob `e23f97770356c28d0b76aef3c7d9d5c7dee8a0c5`, before independently
 computing A16. The A16 fixture contains 1,250 records, 1,204,292
 bytes and Git blob `bbb0fc03a3dae88154205334fafdff5fb04f9619`. No production code or previous fixture
@@ -161,7 +161,7 @@ checked against exact external expectations. GMP remains the numerical oracle
 for visits 7,500–9,999.
 
 The standalone C++20 generator replays visits 0–6,249 before emitting A17.
-A separate arbitrary-precision implementation reproduces A16 exactly,
+A separate multiple-precision implementation reproduces A16 exactly,
 including Git blob `bbb0fc03a3dae88154205334fafdff5fb04f9619`, before
 independently computing A17. The A17 fixture contains 1,250 records,
 1,224,250 bytes and Git blob `2b595bab5b7a83fc2c9a27c188d2fba204b6c30e`. No production code or prior
@@ -178,7 +178,7 @@ and both shifts are checked against exact external expectations. GMP remains
 the numerical oracle for visits 8,750–9,999.
 
 The standalone C++20 generator replays visits 0–7,499 before emitting A18.
-A separate arbitrary-precision implementation reproduces A17 exactly,
+A separate multiple-precision implementation reproduces A17 exactly,
 including Git blob `2b595bab5b7a83fc2c9a27c188d2fba204b6c30e`, before
 independently computing A18. The A18 fixture contains 1,250 records,
 1,212,953 bytes and Git blob `b1c7416dd60cc79511d545a706df56b18b70bf74`. No production code or prior
@@ -195,7 +195,7 @@ for all 10,000 visits; the runtime numerical GMP branch is removed from this
 method.
 
 The standalone C++20 generator replays visits 0–8,749 before emitting A19.
-A separate arbitrary-precision implementation reproduces A18 exactly,
+A separate multiple-precision implementation reproduces A18 exactly,
 including Git blob `b1c7416dd60cc79511d545a706df56b18b70bf74`, before
 independently computing A19. The A19 fixture contains 1,250 records,
 1,202,168 bytes and Git blob `15f9d3656bf5fe77ac2b97e0ba6faee3b0883ea3`. No production code or prior

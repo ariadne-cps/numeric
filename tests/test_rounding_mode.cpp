@@ -26,7 +26,7 @@
 #include <sstream>
 
 #include "numeric/rounding.hpp"
-#include "numeric/floatap.hpp"
+#include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"
 
 #include "macro/testing.hpp"
@@ -82,13 +82,13 @@ void TestRoundingMode::test() const {
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(toward_zero),ROUND_TOWARD_ZERO);
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(approximately),ROUND_TO_NEAREST);
 
-    // Verify the same rounding tags map to the native arbitrary-precision
+    // Verify the same rounding tags map to the native multiple-precision
     // backend, using only the native rounding representation.
-    ARIADNE_TEST_ASSERT(FloatAP::Rounding(downward)==FloatAP::ROUND_DOWNWARD);
-    ARIADNE_TEST_ASSERT(FloatAP::Rounding(to_nearest)==FloatAP::ROUND_TO_NEAREST);
-    ARIADNE_TEST_ASSERT(FloatAP::Rounding(upward)==FloatAP::ROUND_UPWARD);
-    ARIADNE_TEST_ASSERT(FloatAP::Rounding(toward_zero)==FloatAP::ROUND_TOWARD_ZERO);
-    ARIADNE_TEST_ASSERT(FloatAP::Rounding(approximately)==FloatAP::ROUND_TO_NEAREST);
+    ARIADNE_TEST_ASSERT(FloatMP::Rounding(downward)==FloatMP::ROUND_DOWNWARD);
+    ARIADNE_TEST_ASSERT(FloatMP::Rounding(to_nearest)==FloatMP::ROUND_TO_NEAREST);
+    ARIADNE_TEST_ASSERT(FloatMP::Rounding(upward)==FloatMP::ROUND_UPWARD);
+    ARIADNE_TEST_ASSERT(FloatMP::Rounding(toward_zero)==FloatMP::ROUND_TOWARD_ZERO);
+    ARIADNE_TEST_ASSERT(FloatMP::Rounding(approximately)==FloatMP::ROUND_TO_NEAREST);
 
     Rounding rnd_near(to_nearest);
     Rounding rnd_down(downward);
@@ -101,23 +101,23 @@ void TestRoundingMode::test() const {
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_zero),ROUND_TOWARD_ZERO);
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_approx),ROUND_TO_NEAREST);
 
-    const auto saved_native=FloatAP::get_rounding_mode();
-    FloatAP::set_rounding_to_nearest();
-    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_TO_NEAREST);
-    FloatAP::set_rounding_downward();
-    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_DOWNWARD);
-    FloatAP::set_rounding_upward();
-    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_UPWARD);
-    FloatAP::set_rounding_toward_zero();
-    ARIADNE_TEST_ASSERT(FloatAP::get_rounding_mode()==FloatAP::ROUND_TOWARD_ZERO);
-    FloatAP::set_rounding_mode(saved_native);
+    const auto saved_native=FloatMP::get_rounding_mode();
+    FloatMP::set_rounding_to_nearest();
+    ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==FloatMP::ROUND_TO_NEAREST);
+    FloatMP::set_rounding_downward();
+    ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==FloatMP::ROUND_DOWNWARD);
+    FloatMP::set_rounding_upward();
+    ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==FloatMP::ROUND_UPWARD);
+    FloatMP::set_rounding_toward_zero();
+    ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==FloatMP::ROUND_TOWARD_ZERO);
+    FloatMP::set_rounding_mode(saved_native);
 
-    const ArbitraryPrecision native_precision(128_bits);
+    const MultiplePrecision native_precision(128_bits);
     const Rational third(1,3);
-    const FloatAP lower(third,FloatAP::ROUND_DOWNWARD,native_precision);
-    const FloatAP upper(third,FloatAP::ROUND_UPWARD,native_precision);
-    const FloatAP toward_zero_positive(third,FloatAP::ROUND_TOWARD_ZERO,native_precision);
-    const FloatAP toward_zero_negative(-third,FloatAP::ROUND_TOWARD_ZERO,native_precision);
+    const FloatMP lower(third,FloatMP::ROUND_DOWNWARD,native_precision);
+    const FloatMP upper(third,FloatMP::ROUND_UPWARD,native_precision);
+    const FloatMP toward_zero_positive(third,FloatMP::ROUND_TOWARD_ZERO,native_precision);
+    const FloatMP toward_zero_negative(-third,FloatMP::ROUND_TOWARD_ZERO,native_precision);
     ARIADNE_TEST_ASSERT(Rational(lower)<third);
     ARIADNE_TEST_ASSERT(third<Rational(upper));
     ARIADNE_TEST_EQUALS(toward_zero_positive,lower);
