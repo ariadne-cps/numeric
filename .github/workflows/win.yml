@@ -89,18 +89,6 @@ jobs:
         if: matrix.build_type == 'Debug'
         run: cmake --build build --parallel --target tests
 
-      - name: Time slow Debug tests without captured output
-        if: matrix.build_type == 'Debug'
-        shell: pwsh
-        run: |
-          $env:PATH = "$env:GITHUB_WORKSPACE\build;$env:PATH"
-          foreach ($test in @("test_float_rounding","test_big_unsigned","test_real")) {
-            $exe = "$env:GITHUB_WORKSPACE\build\tests\$test.exe"
-            $elapsed = Measure-Command { & $exe *> $null }
-            if ($LASTEXITCODE -ne 0) { throw "$test failed with exit code $LASTEXITCODE" }
-            Write-Host ("[timing] {0} direct_null={1:N3}s" -f $test,$elapsed.TotalSeconds)
-          }
-
       - name: Run Debug C++ tests
         if: matrix.build_type == 'Debug'
         run: ctest --test-dir build -j $env:NUMBER_OF_PROCESSORS -LE python --output-on-failure
