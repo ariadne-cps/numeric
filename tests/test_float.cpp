@@ -295,9 +295,10 @@ TestFloat<PR>::test_conversions()
         // Regression: UniformArray exposes CheckedAssignable<FloatMP>.
         // Its precision-preserving T assignment must hide FloatMP's base
         // copy assignment rather than compete with a by-value overload.
-        UniformArray<FloatMP> checked_values(1u,FloatMP(0,pr));
+        UniformArray<FloatMP> checked_values(1u,pr);
         checked_values[0u]=FloatMP(3,pr);
         ARIADNE_TEST_EQUALS(checked_values[0u],FloatMP(3,pr));
+        ARIADNE_TEST_EQUALS(checked_values[0u].characteristics(),pr);
 
         FloatType zero(pr);
         ARIADNE_TEST_ASSERT(is_zero(zero));

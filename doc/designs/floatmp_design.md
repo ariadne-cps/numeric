@@ -10896,4 +10896,7 @@ failure, while `operator=(FloatMP&&) noexcept` swaps owned state. This keeps
 the standalone representation and copy-swap semantics while allowing the
 checked container overload to hide the base copy assignment as designed.
 A `UniformArray<FloatMP>` regression test exercises assignment through
-`CheckedAssignable<FloatMP>`.
+`CheckedAssignable<FloatMP>`. The raw backend also exposes
+`characteristics()` as the exact alias of `precision()`, completing the
+`CharacteristicsTrait<FloatMP> = MultiplePrecision` contract required by
+characteristic-checked containers.

@@ -349,6 +349,9 @@ template<> class Float<MultiplePrecision> {
     PrecisionType precision() const noexcept {
         return PrecisionType(_precision);
     }
+    PrecisionType characteristics() const noexcept {
+        return precision();
+    }
     Exponent exponent() const noexcept {
         return _exponent;
     }
