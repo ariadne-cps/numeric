@@ -79,7 +79,7 @@ template<class PR>
 class TestDirectedFloats
     : public TestFloats<PR>
 {
-    typedef FloatType<ApproximateTag,PR> FloatMPproximationType;
+    typedef FloatType<ApproximateTag,PR> FloatApproximationType;
     typedef FloatType<LowerTag,PR> FloatLowerBoundType;
     typedef FloatType<UpperTag,PR> FloatUpperBoundType;
     typedef FloatType<BoundedTag,PR> FloatBoundsType;

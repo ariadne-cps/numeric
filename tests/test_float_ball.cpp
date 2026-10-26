@@ -53,7 +53,7 @@ class TestFloatBall
     : public TestFloats<PR>
 {
     typedef RawFloat<PR> RawFloatType;
-    typedef FloatType<ApproximateTag,PR> FloatMPproximationType;
+    typedef FloatType<ApproximateTag,PR> FloatApproximationType;
     typedef FloatType<LowerTag,PR> FloatLowerBoundType;
     typedef FloatType<UpperTag,PR> FloatUpperBoundType;
     typedef FloatType<BoundedTag,PR> FloatBoundsType;

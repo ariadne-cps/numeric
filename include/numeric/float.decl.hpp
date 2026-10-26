@@ -107,13 +107,13 @@ template<class F, class FE=F> using PositiveBall = Positive<Ball<F>>; //!< <p/>
 //
 //!@{
 //! \ingroup NumericModule
-template<class PR> using FloatMPproximation = Approximation<RawFloatType<PR>>; //!< <p/> \ingroup NumericModule
+template<class PR> using FloatApproximation = Approximation<RawFloatType<PR>>; //!< <p/> \ingroup NumericModule
 template<class PR> using FloatLowerBound = LowerBound<RawFloatType<PR>>; //!< <p/> \ingroup NumericModule
 template<class PR> using FloatUpperBound = UpperBound<RawFloatType<PR>>; //!< <p/> \ingroup NumericModule
 template<class PR> using FloatBounds = Bounds<RawFloatType<PR>>; //!< <p/> \ingroup NumericModule
 template<class PR, class PRE=PR> using FloatBall = Ball<RawFloatType<PR>,RawFloatType<PRE>>; //!< <p/> \ingroup NumericModule
 
-template<class PR> using PositiveFloatMPproximation = Positive<FloatMPproximation<PR>>; //!< <p/> \ingroup NumericModule
+template<class PR> using PositiveFloatApproximation = Positive<FloatApproximation<PR>>; //!< <p/> \ingroup NumericModule
 template<class PR> using PositiveFloatLowerBound = Positive<FloatLowerBound<PR>>; //!< <p/> \ingroup NumericModule
 template<class PR> using PositiveFloatUpperBound = Positive<FloatUpperBound<PR>>; //!< <p/> \ingroup NumericModule
 template<class PR> using PositiveFloatBounds = Positive<FloatBounds<PR>>; //!< <p/> \ingroup NumericModule
@@ -124,7 +124,7 @@ template<class PR> using FloatError = Error<RawFloatType<PR>>; //!< <p/> \ingrou
 //!@}
 
 template<class P, class PR, class PRE=PR> struct FloatTypedef;
-template<class PR> struct FloatTypedef<ApproximationTag,PR> { typedef FloatMPproximation<PR> Type; };
+template<class PR> struct FloatTypedef<ApproximationTag,PR> { typedef FloatApproximation<PR> Type; };
 template<class PR> struct FloatTypedef<LowerTag,PR> { typedef FloatLowerBound<PR> Type; };
 template<class PR> struct FloatTypedef<UpperTag,PR> { typedef FloatUpperBound<PR> Type; };
 template<class PR> struct FloatTypedef<OrderTag,PR> { typedef FloatBounds<PR> Type; };
@@ -132,7 +132,7 @@ template<class PR, class PRE> struct FloatTypedef<MetricTag,PR,PRE> { typedef Fl
 template<class PR> struct FloatTypedef<ExactTag,PR> { typedef Float<PR> Type; };
 template<class PR> struct FloatTypedef<ErrorTag,PR> { typedef FloatError<PR> Type; };
 
-template<class PR> struct FloatTypedef<ApproximateTag,PR> { typedef FloatMPproximation<PR> Type; };
+template<class PR> struct FloatTypedef<ApproximateTag,PR> { typedef FloatApproximation<PR> Type; };
 template<class PR> struct FloatTypedef<ValidatedTag,PR> { typedef FloatBounds<PR> Type; };
 template<class PR> struct FloatTypedef<EffectiveTag,PR> { typedef FloatBounds<PR> Type; };
 template<class PR, class PRE> struct FloatTypedef<ValidatedTag,PR,PRE> { typedef FloatBall<PR,PRE> Type; };
@@ -153,7 +153,7 @@ using FloatDPBall = FloatBall<DoublePrecision>; //!< <p/>
 using FloatDPBounds = FloatBounds<DoublePrecision>; //!< <p/>
 using FloatDPUpperBound = FloatUpperBound<DoublePrecision>; //!< <p/>
 using FloatDPLowerBound = FloatLowerBound<DoublePrecision>; //!< <p/>
-using FloatDPApproximation = FloatMPproximation<DoublePrecision>; //!< <p/>
+using FloatDPApproximation = FloatApproximation<DoublePrecision>; //!< <p/>
 
 using FloatDPError = FloatError<DoublePrecision>; //!< <p/>
 
@@ -162,7 +162,7 @@ using PositiveFloatDPBall = PositiveFloatBall<DoublePrecision>; //!< <p/>
 using PositiveFloatDPBounds = PositiveFloatBounds<DoublePrecision>; //!< <p/>
 using PositiveFloatDPUpperBound = PositiveFloatUpperBound<DoublePrecision>; //!< <p/>
 using PositiveFloatDPLowerBound = PositiveFloatLowerBound<DoublePrecision>; //!< <p/>
-using PositiveFloatDPApproximation = PositiveFloatMPproximation<DoublePrecision>; //!< <p/>
+using PositiveFloatDPApproximation = PositiveFloatApproximation<DoublePrecision>; //!< <p/>
 
 //!@}
 
@@ -174,14 +174,14 @@ using FloatMPBall = FloatBall<MultiplePrecision>;
 using FloatMPBounds = FloatBounds<MultiplePrecision>;
 using FloatMPUpperBound = FloatUpperBound<MultiplePrecision>;
 using FloatMPLowerBound = FloatLowerBound<MultiplePrecision>;
-using FloatMPApproximation = FloatMPproximation<MultiplePrecision>;
+using FloatMPApproximation = FloatApproximation<MultiplePrecision>;
 using FloatMPError = FloatError<MultiplePrecision>;
 using PositiveFloatMP = PositiveFloat<MultiplePrecision>;
 using PositiveFloatMPBall = PositiveFloatBall<MultiplePrecision>;
 using PositiveFloatMPBounds = PositiveFloatBounds<MultiplePrecision>;
 using PositiveFloatMPUpperBound = PositiveFloatUpperBound<MultiplePrecision>;
 using PositiveFloatMPLowerBound = PositiveFloatLowerBound<MultiplePrecision>;
-using PositiveFloatMPApproximation = PositiveFloatMPproximation<MultiplePrecision>;
+using PositiveFloatMPApproximation = PositiveFloatApproximation<MultiplePrecision>;
 
 //!@}
 

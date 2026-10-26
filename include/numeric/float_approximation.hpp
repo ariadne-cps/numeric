@@ -286,10 +286,10 @@ template<class PR> Approximation(ApproximateNumber, PR) -> Approximation<RawFloa
 template<class F> Approximation(F) -> Approximation<F>;
 
 template<class F> inline FloatFactory<PrecisionType<F>> factory(Approximation<F> const& flt) { return FloatFactory<PrecisionType<F>>(flt.precision()); }
-template<class PR> inline FloatMPproximation<PR> FloatFactory<PR>::create(ApproximateNumber const& y) { return FloatMPproximation<PR>(y,_pr); }
-template<class PR> inline PositiveFloatMPproximation<PR> FloatFactory<PR>::create(PositiveApproximateNumber const& y) { return PositiveFloatMPproximation<PR>(y,_pr); }
+template<class PR> inline FloatApproximation<PR> FloatFactory<PR>::create(ApproximateNumber const& y) { return FloatApproximation<PR>(y,_pr); }
+template<class PR> inline PositiveFloatApproximation<PR> FloatFactory<PR>::create(PositiveApproximateNumber const& y) { return PositiveFloatApproximation<PR>(y,_pr); }
 template<class PR> template<BuiltinFloatingPoint D> inline
-    FloatMPproximation<PR> FloatFactory<PR>::create(D const& y) { return FloatMPproximation<PR>(y,_pr); }
+    FloatApproximation<PR> FloatFactory<PR>::create(D const& y) { return FloatApproximation<PR>(y,_pr); }
 
 template<class F> class Positive<Approximation<F>> : public Approximation<F>
     , public DeclarePositiveFloatOperations<PositiveApproximation<F>>

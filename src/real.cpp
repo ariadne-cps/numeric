@@ -266,7 +266,7 @@ template<class PR> FloatBall<PR>::Float(Real const& x) : FloatBall<PR>(x.lower()
 template<class PR> FloatBounds<PR>::Float(Real const& x) : FloatBounds<PR>(x.lower(),x.upper()) { }
 template<class PR> FloatUpperBound<PR>::Float(Real const& x) : FloatUpperBound<PR>(x.upper()) { }
 template<class PR> FloatLowerBound<PR>::Float(Real const& x) : FloatLowerBound<PR>(x.lower()) { }
-template<class PR> FloatMPproximation<PR>::Float(Real const& x) : FloatMPproximation<PR>(x.approx()) { }
+template<class PR> FloatApproximation<PR>::Float(Real const& x) : FloatApproximation<PR>(x.approx()) { }
 */
 
 Real::Real(std::uint64_t m, Void*) : Real(Integer(m)) { }

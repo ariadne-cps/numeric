@@ -670,7 +670,7 @@ void export_numbers(pymodule& module)
 
     define_mixed_arithmetic<ValidatedNumber,FloatBall<DP,DP>>(module,validated_number_class);
     define_mixed_arithmetic<ValidatedNumber,FloatBounds<DP>>(module,validated_number_class);
-    define_mixed_arithmetic<ApproximateNumber,FloatMPproximation<DP>>(module,approximate_number_class);
+    define_mixed_arithmetic<ApproximateNumber,FloatApproximation<DP>>(module,approximate_number_class);
 }
 
 
@@ -1149,10 +1149,10 @@ template<class PR> void export_float_upper_bound(pymodule& module)
     float_upper_bound_class.def("__le__", &__le__<FloatUpperBound<PR>,FloatLowerBound<PR>>);
 
 //    float_upper_bound_class.def(self > FloatBounds<PR>());
-//    float_upper_bound_class.def(self > FloatMPproximation<PR>());
+//    float_upper_bound_class.def(self > FloatApproximation<PR>());
 //    float_upper_bound_class.def(self < FloatLowerBound<PR>());
 //    float_upper_bound_class.def(self >= FloatBounds<PR>());
-//    float_upper_bound_class.def(self >= FloatMPproximation<PR>());
+//    float_upper_bound_class.def(self >= FloatApproximation<PR>());
 //    float_upper_bound_class.def(self <= FloatLowerBound<PR>());
 
 //    float_upper_bound_class.define_mixed_arithmetic<ApproximateNumericType>();
@@ -1200,10 +1200,10 @@ template<class PR> void export_float_lower_bound(pymodule& module)
     float_lower_bound_class.def("__le__", &__le__<FloatLowerBound<PR>,FloatUpperBound<PR>>);
 
 //    float_lower_bound_class.def(self < FloatBounds<PR>());
-//    float_lower_bound_class.def(self < FloatMPproximation<PR>());
+//    float_lower_bound_class.def(self < FloatApproximation<PR>());
 //    float_lower_bound_class.def(self > FloatUpperBound<PR>());
 //    float_lower_bound_class.def(self <= FloatBounds<PR>());
-//    float_lower_bound_class.def(self <= FloatMPproximation<PR>());
+//    float_lower_bound_class.def(self <= FloatApproximation<PR>());
 //    float_lower_bound_class.def(self >= FloatUpperBound<PR>());
 //    float_lower_bound_class.def("raw", (RawFloat<PR>const&(FloatLowerBound<PR>::*)()const)&FloatLowerBound<PR>::raw);
 
@@ -1223,7 +1223,7 @@ template<class PR> void export_float_lower_bound(pymodule& module)
 
 template<class PR> void export_float_approximation(pymodule& module)
 {
-    pybind11::class_<FloatMPproximation<PR>> float_approximation_class(module,class_name<FloatMPproximation<PR>>().c_str());
+    pybind11::class_<FloatApproximation<PR>> float_approximation_class(module,class_name<FloatApproximation<PR>>().c_str());
 
     float_approximation_class.def(init<PR>());
     float_approximation_class.def(init<RawFloat<PR>>());
@@ -1237,38 +1237,38 @@ template<class PR> void export_float_approximation(pymodule& module)
     float_approximation_class.def(init<FloatBounds<PR>>());
     float_approximation_class.def(init<FloatLowerBound<PR>>());
     float_approximation_class.def(init<FloatUpperBound<PR>>());
-    float_approximation_class.def(init<FloatMPproximation<PR>>());
+    float_approximation_class.def(init<FloatApproximation<PR>>());
 
-    float_approximation_class.def(pybind11::init([](String a, PR pr){return FloatMPproximation<PR>(Decimal(a),pr);}));
+    float_approximation_class.def(pybind11::init([](String a, PR pr){return FloatApproximation<PR>(Decimal(a),pr);}));
 
-    float_approximation_class.def("precision", &FloatMPproximation<PR>::precision);
-    float_approximation_class.def("raw", (RawFloat<PR>const&(FloatMPproximation<PR>::*)()const)&FloatMPproximation<PR>::raw);
-    float_approximation_class.def("get_d", &FloatMPproximation<PR>::get_d);
+    float_approximation_class.def("precision", &FloatApproximation<PR>::precision);
+    float_approximation_class.def("raw", (RawFloat<PR>const&(FloatApproximation<PR>::*)()const)&FloatApproximation<PR>::raw);
+    float_approximation_class.def("get_d", &FloatApproximation<PR>::get_d);
 
-    define_mixed_arithmetic<FloatMPproximation<PR>,double>(module,float_approximation_class);
-    define_mixed_arithmetic<FloatMPproximation<PR>,ApproximateNumber>(module,float_approximation_class);
-    define_elementary<FloatMPproximation<PR>>(module,float_approximation_class);
-    define_lattice<FloatMPproximation<PR>>(module,float_approximation_class);
-    define_mixed_lattice<FloatMPproximation<PR>,ApproximateNumber>(module,float_approximation_class);
-    define_comparisons<FloatMPproximation<PR>>(module,float_approximation_class);
-    define_mixed_comparisons<FloatMPproximation<PR>,ApproximateNumber>(module,float_approximation_class);
+    define_mixed_arithmetic<FloatApproximation<PR>,double>(module,float_approximation_class);
+    define_mixed_arithmetic<FloatApproximation<PR>,ApproximateNumber>(module,float_approximation_class);
+    define_elementary<FloatApproximation<PR>>(module,float_approximation_class);
+    define_lattice<FloatApproximation<PR>>(module,float_approximation_class);
+    define_mixed_lattice<FloatApproximation<PR>,ApproximateNumber>(module,float_approximation_class);
+    define_comparisons<FloatApproximation<PR>>(module,float_approximation_class);
+    define_mixed_comparisons<FloatApproximation<PR>,ApproximateNumber>(module,float_approximation_class);
 
-    float_approximation_class.def("__str__", &__cstr__<FloatMPproximation<PR>>);
-    float_approximation_class.def("__repr__", &__repr__<FloatMPproximation<PR>>);
+    float_approximation_class.def("__str__", &__cstr__<FloatApproximation<PR>>);
+    float_approximation_class.def("__repr__", &__repr__<FloatApproximation<PR>>);
 
-    float_approximation_class.def_static("set_output_places",&FloatMPproximation<PR>::set_output_places);
+    float_approximation_class.def_static("set_output_places",&FloatApproximation<PR>::set_output_places);
 
-    //implicitly_convertible<double,FloatMPproximation<PR>>();
-    implicitly_convertible<Float<PR>,FloatMPproximation<PR>>();
-    implicitly_convertible<FloatBall<PR>,FloatMPproximation<PR>>();
-    implicitly_convertible<FloatBounds<PR>,FloatMPproximation<PR>>();
-    implicitly_convertible<FloatUpperBound<PR>,FloatMPproximation<PR>>();
-    implicitly_convertible<FloatLowerBound<PR>,FloatMPproximation<PR>>();
+    //implicitly_convertible<double,FloatApproximation<PR>>();
+    implicitly_convertible<Float<PR>,FloatApproximation<PR>>();
+    implicitly_convertible<FloatBall<PR>,FloatApproximation<PR>>();
+    implicitly_convertible<FloatBounds<PR>,FloatApproximation<PR>>();
+    implicitly_convertible<FloatUpperBound<PR>,FloatApproximation<PR>>();
+    implicitly_convertible<FloatLowerBound<PR>,FloatApproximation<PR>>();
 
-    module.def("cast_exact",(Float<PR>const&(*)(FloatMPproximation<PR> const&)) &cast_exact);
+    module.def("cast_exact",(Float<PR>const&(*)(FloatApproximation<PR> const&)) &cast_exact);
     module.def("cast_exact",(Float<PR>const&(*)(RawFloat<PR> const&)) &cast_exact);
 
-    export_positive_type<FloatMPproximation<PR>>(module);
+    export_positive_type<FloatApproximation<PR>>(module);
 }
 
 
@@ -1334,7 +1334,7 @@ template<class PR> Void export_float_to_number_conversions(pymodule&) {
 // FIXME: Reintroduce these conversions
 //        implicitly_convertible<FloatUpperBound<PR>,ValidatedUpperNumber>();
 //        implicitly_convertible<FloatLowerBound<PR>,ValidatedLowerNumber>();
-        implicitly_convertible<FloatMPproximation<PR>,ApproximateNumber>();
+        implicitly_convertible<FloatApproximation<PR>,ApproximateNumber>();
     }
 }
 

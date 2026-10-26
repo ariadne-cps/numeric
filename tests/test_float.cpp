@@ -222,7 +222,7 @@ TestFloat<PR>::test_conversions()
     FloatError<PR> error(1u,precision);
     ARIADNE_TEST_EQUALS(cast_exact(error),error.raw());
 
-    FloatMPproximation<PR> approximation(2u,precision);
+    FloatApproximation<PR> approximation(2u,precision);
     ARIADNE_TEST_EQUALS(cast_exact(approximation),approximation.raw());
 
     if constexpr (Same<PR,DoublePrecision>) {
