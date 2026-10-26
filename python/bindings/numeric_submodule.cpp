@@ -72,6 +72,8 @@ OutputStream& operator<<(OutputStream& os, PythonLiteral<Real> const& lit) {
 
 OutputStream& operator<<(OutputStream& os, PythonLiteral<FloatDP> const& lit) {
     return os << "\"" << lit.reference().literal() << "\""; }
+OutputStream& operator<<(OutputStream& os, PythonLiteral<FloatMP> const& lit) {
+    return os << "\"" << lit.reference().literal() << "\""; }
 template<class F, class FE> OutputStream& operator<<(OutputStream& os, PythonLiteral<Ball<F,FE>> const& lit) {
     return os << "\"" << lit.reference().value().raw().literal(near) << "\",\"" << lit.reference().error().raw().literal(down) << "\""; }
 template<class F> OutputStream& operator<<(OutputStream& os, PythonLiteral<Bounds<F>> const& lit) {
