@@ -430,24 +430,3 @@ The standalone remaining-division generator emits
 code changes. This completes the fixed BigUnsigned audit at **76,323 / 76,323
 = 100.000%** migrated numerical GMP-oracle visits. GMP interoperability tests
 remain outside this denominator by definition.
-
-
-## MSVC runtime-check wide-division isolation (25 October 2026)
-
-Windows Debug is now exercised by the same Release/Debug CI split as the other
-standalone modules. With `/Od /RTC1`, the first direct run exposed widespread
-30-second per-test stalls while the complete Unix Debug suite remained within
-tens of seconds. A minimal path in `test_rounding_mode` reaches
-`FloatMP(Rational(1,3), ..., 128_bits)`, whose general native-ratio conversion
-reduces to the single-limb `BigUnsigned::divrem_limb_into` path and therefore
-to `divide_wide`.
-
-MSVC defines `__MSVC_RUNTIME_CHECKS` whenever an `/RTC` option is active.
-For that diagnostic configuration only, `divide_wide` now selects the existing
-exact portable 128/64 implementation instead of `_udiv128`. Optimized MSVC
-builds retain the native intrinsic unchanged. This is intentionally a narrow
-isolation/fix: no arithmetic contract, oracle, Release dispatch, or non-MSVC
-path changes. Windows Debug CI determines whether the intrinsic/runtime-check
-interaction is the common bottleneck; if stalls remain, the next investigation
-must continue below the first surviving primitive rather than relaxing CTest
-timeouts.

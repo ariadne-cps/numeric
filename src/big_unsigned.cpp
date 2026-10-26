@@ -977,20 +977,11 @@ std::pair<std::uint64_t,std::uint64_t> divide_wide(
     }
 #endif
 #if defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(__clang__)
-#if defined(__MSVC_RUNTIME_CHECKS)
-    // MSVC runtime-check builds (/RTC*) expose a pathological execution
-    // cost in the _udiv128 path. Keep the exact, allocation-free portable
-    // 128/64 divider for those diagnostic builds; Release continues to use
-    // the native intrinsic. Both implementations satisfy the same
-    // high<divisor precondition and return the exact quotient/remainder.
-    return divide_wide_portable(high,low,divisor);
-#else
     // MSVC x64 intrinsic available since Visual Studio 2019.
     unsigned __int64 remainder=0u;
     const unsigned __int64 quotient=_udiv128(
         high,low,divisor,&remainder);
     return {quotient,remainder};
-#endif
 #elif defined(ARIADNE_BIG_UNSIGNED_X86_64) && (defined(__GNUC__) || defined(__clang__)) && \
         !defined(_MSC_VER)
     // B26: DIVQ divides RDX:RAX by a 64-bit operand, returning
