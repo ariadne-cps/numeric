@@ -22,6 +22,11 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
             "foundation|configuration"
             "logging|configuration"
     )
+    require_same_dependency_commit(Utility
+        CHAINS
+            "foundation|utility"
+            "logging|utility"
+    )
 endif()
 
 setup_project()
