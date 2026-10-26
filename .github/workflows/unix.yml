@@ -22,7 +22,7 @@ jobs:
         config:
           - { name: "macOS 26 AppleClang 21", os: macos-26, cxx: "/usr/bin/clang++" }
           - { name: "Ubuntu 24.04 Clang 16", os: ubuntu-24.04, cxx: "clang++-16", pkg: "clang-16" }
-          - { name: "Ubuntu 24.04 GCC 13", os: ubuntu-24.04, cxx: "g++-13", pkg: "g++-13" }
+          - { name: "Ubuntu 24.04 GCC 13", os: ubuntu-24.04, cxx: "g++-13", pkg: "g++-13", libstdcxx_debug: true }
 
     steps:
       - uses: actions/checkout@v3
@@ -59,6 +59,8 @@ jobs:
           sudo apt-get install -y cmake ninja-build pkg-config ${{ matrix.config.pkg }}
 
       - name: Configure CMake
+        env:
+          CXXFLAGS: ${{ matrix.build_type == 'Debug' && matrix.config.libstdcxx_debug && '-D_GLIBCXX_DEBUG' || '' }}
         run: |
           cmake -S . -B "${{ runner.workspace }}/build" -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
