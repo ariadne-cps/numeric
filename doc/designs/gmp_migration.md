@@ -430,3 +430,20 @@ The standalone remaining-division generator emits
 code changes. This completes the fixed BigUnsigned audit at **76,323 / 76,323
 = 100.000%** migrated numerical GMP-oracle visits. GMP interoperability tests
 remain outside this denominator by definition.
+
+
+## MSVC checked-span range fix (26 October 2026)
+
+Windows Debug with `/RTC1` exposed a deterministic stall in the first
+unequal-width subtraction (`2` limbs minus `1` limb). The arithmetic loop
+itself was finite; the bug was the tail clearing range passed to
+`std::fill`: its begin iterator came from `output.subspan(count)` while its
+end iterator came from the original `output` span. That happens to behave like
+a pointer range on some standard libraries, but it is not a valid checked
+iterator pair on MSVC Debug.
+
+All three occurrences in `BigUnsigned` (add, subtract and Karatsuba tail
+clearing) now bind the subspan to a local `tail` and pass
+`tail.begin(), tail.end()` to the algorithm. Regression coverage includes
+explicit 2-limb/1-limb addition and subtraction. The temporary Windows tracing
+used to isolate the problem was removed after the fix.

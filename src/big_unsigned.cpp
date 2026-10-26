@@ -677,7 +677,8 @@ BigUnsigned::Limb BigUnsigned::add_into(
         output[i] = value;
     }
 
-    std::fill(output.subspan(count).begin(),output.end(),Limb{0});
+    const auto tail=output.subspan(count);
+    std::fill(tail.begin(),tail.end(),Limb{0});
     return carry;
 }
 
@@ -700,7 +701,8 @@ BigUnsigned::Limb BigUnsigned::sub_into(
         output[i] = value;
     }
 
-    std::fill(output.subspan(count).begin(),output.end(),Limb{0});
+    const auto tail=output.subspan(count);
+    std::fill(tail.begin(),tail.end(),Limb{0});
     return borrow;
 }
 
@@ -4107,7 +4109,8 @@ void BigUnsigned::mul_into_karatsuba(
 
     // Recursion writes all count result limbs, including its base cases.
     // Only extra destination words need explicit clearing.
-    std::fill(output.subspan(count).begin(),output.end(),Limb{0});
+    const auto tail=output.subspan(count);
+    std::fill(tail.begin(),tail.end(),Limb{0});
     karatsuba_recursive(
         a,b,output.first(count),scratch.first(required),cutoff);
 }

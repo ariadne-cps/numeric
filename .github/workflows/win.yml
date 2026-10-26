@@ -89,23 +89,6 @@ jobs:
         if: matrix.build_type == 'Debug'
         run: cmake --build build --parallel --target tests
 
-      - name: Trace BigUnsigned Debug test
-        if: matrix.build_type == 'Debug'
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $env:PATH = "$env:GITHUB_WORKSPACE\build;$env:PATH"
-          $stdout = Join-Path $env:RUNNER_TEMP "test_big_unsigned.stdout"
-          $stderr = Join-Path $env:RUNNER_TEMP "test_big_unsigned.stderr"
-          $process = Start-Process -FilePath "$env:GITHUB_WORKSPACE\build\tests\test_big_unsigned.exe" -NoNewWindow -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-          if (-not $process.WaitForExit(60000)) {
-            Stop-Process -Id $process.Id -Force
-            Write-Host "[diag] test_big_unsigned exceeded 60 seconds and was terminated"
-          } else {
-            Write-Host "[diag] test_big_unsigned exit code $($process.ExitCode)"
-          }
-          Get-Content $stderr
-
       - name: Run Debug C++ tests
         if: matrix.build_type == 'Debug'
         run: ctest --test-dir build -j $env:NUMBER_OF_PROCESSORS -LE python --output-on-failure

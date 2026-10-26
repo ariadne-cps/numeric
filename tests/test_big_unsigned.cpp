@@ -26,7 +26,6 @@
 
 #include <algorithm>
 #include <bit>
-#include <chrono>
 #include <fstream>
 #include <initializer_list>
 #include <array>
@@ -591,6 +590,16 @@ void TestBigUnsigned::test_boundaries()
     ARIADNE_TEST_ASSERT(threw);
     ARIADNE_TEST_ASSERT(compare(add(all,BigUnsigned{}),all)==0);
 
+    // MSVC checked std::span iterators require both algorithm endpoints to
+    // originate from the same view. Exercise unequal-width add/sub paths,
+    // which reach add_into/sub_into instead of the one-limb fast paths.
+    const std::array<std::uint64_t,2u> two64_words{0u,1u};
+    const BigUnsigned two64(two64_words);
+    const std::array<std::uint64_t,2u> two64_plus_one_words{1u,1u};
+    ARIADNE_TEST_ASSERT(compare(
+        add(two64,one),BigUnsigned(two64_plus_one_words))==0);
+    ARIADNE_TEST_ASSERT(compare(sub(two64,one),all)==0);
+
     // Scan across equal high limbs in heap storage. The first
     // differing limb is near the bottom, or does not exist at all.
     std::array<std::uint64_t,64> equal_high{};
@@ -620,19 +629,10 @@ void TestBigUnsigned::test_subtraction_common_prefix()
     if (!golden) throw std::runtime_error("Missing BigUnsigned subtraction TSV");
     std::string header;
     while (golden.peek()=='#') std::getline(golden,header);
-    const auto trace_start=std::chrono::steady_clock::now();
-    const auto trace=[&](std::size_t width,unsigned mode,char const* phase) {
-        const auto elapsed=std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now()-trace_start).count();
-        std::cerr << "[diag] subtraction width=" << width
-                  << " mode=" << mode << " phase=" << phase
-                  << " elapsed_ms=" << elapsed << std::endl;
-    };
     for (const std::size_t width:
             {0u,1u,2u,7u,8u,16u,31u,32u,63u,64u,65u,128u}) {
         const unsigned classes=width==0u ? 1u : 9u;
         for (unsigned mode=0u;mode<classes;++mode) {
-            trace(width,mode,"begin");
             std::size_t row_width=0u;
             unsigned row_mode=0u;
             std::string lhs_hex,rhs_hex,forward_hex,reverse_hex;
@@ -645,7 +645,6 @@ void TestBigUnsigned::test_subtraction_common_prefix()
             const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
             check_against_precomputed_hex(lhs,lhs_hex);
             check_against_precomputed_hex(rhs,rhs_hex);
-            trace(width,mode,"operands");
             const auto verify=[&](BigUnsigned const& a,BigUnsigned const& b,
                                   std::string const& expected_hex) {
                 if (expected_hex=="-") {
@@ -658,15 +657,11 @@ void TestBigUnsigned::test_subtraction_common_prefix()
                 }
             };
             verify(lhs,rhs,forward_hex);
-            trace(width,mode,"forward");
             verify(rhs,lhs,reverse_hex);
-            trace(width,mode,"reverse");
         }
     }
-    trace(0u,0u,"before-eof");
     std::string extra;
     if (golden >> extra) throw std::runtime_error("Extra subtraction TSV rows");
-    trace(0u,0u,"after-eof");
 }
 
 
