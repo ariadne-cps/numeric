@@ -54,6 +54,7 @@
 #include "numeric/casts.hpp"
 
 #include "numeric/floatmp.hpp"
+#include "utility/uniform_array.hpp"
 #include "macro/testing.hpp"
 #include "test_floats.hpp"
 
@@ -290,6 +291,13 @@ TestFloat<PR>::test_conversions()
         FloatType exact_assignment(0,PR(64_bits));
         ARIADNE_TEST_EQUALS((exact_assignment=Dyadic(2)),Dyadic(2));
         ARIADNE_TEST_FAIL(exact_assignment=too_wide);
+
+        // Regression: UniformArray exposes CheckedAssignable<FloatMP>.
+        // Its precision-preserving T assignment must hide FloatMP's base
+        // copy assignment rather than compete with a by-value overload.
+        UniformArray<FloatMP> checked_values(1u,FloatMP(0,pr));
+        checked_values[0u]=FloatMP(3,pr);
+        ARIADNE_TEST_EQUALS(checked_values[0u],FloatMP(3,pr));
 
         FloatType zero(pr);
         ARIADNE_TEST_ASSERT(is_zero(zero));

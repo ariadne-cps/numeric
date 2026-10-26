@@ -298,8 +298,17 @@ template<> class Float<MultiplePrecision> {
     Float(FloatMP&& x) noexcept
     : _significand(std::move(x._significand)), _precision(x._precision),
       _exponent(x._exponent), _kind(x._kind), _negative(x._negative) { }
-    FloatMP& operator=(FloatMP x) noexcept {
-        swap(x);
+    FloatMP& operator=(FloatMP const& x) {
+        if (this != &x) {
+            FloatMP copy(x);
+            swap(copy);
+        }
+        return *this;
+    }
+    FloatMP& operator=(FloatMP&& x) noexcept {
+        if (this != &x) {
+            swap(x);
+        }
         return *this;
     }
     FloatMP& operator=(Integer const& n);

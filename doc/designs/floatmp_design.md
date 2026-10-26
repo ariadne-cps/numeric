@@ -10878,3 +10878,22 @@ all versioned 53-bit independent oracle rows for `sin`, `cos`, `tan`, `atan`, `a
 zero mismatches. Rows outside the certified near-half window, or whose enclosure did not decide a
 unique rounded result, remained on the fallback path. Repository CI, especially MSVC Debug, is the
 integration gate; no performance result is inferred until those jobs complete.
+
+
+### Assignment compatibility with characteristic-checked containers (26 October 2026)
+
+The standalone `FloatMP` backend initially used a single copy-swap
+`operator=(FloatMP)` overload. That signature is incompatible with
+`utility::CheckedAssignable<T>`, whose derived `operator=(T const&)`
+checks that container element characteristics (for `FloatMP`, precision)
+are preserved while also importing the remaining base assignment overloads.
+For a `const FloatMP&` source, Clang correctly sees both the derived
+`T const&` overload and the inherited by-value overload as equally viable.
+
+Restore the public copy/move assignment shape used by the previous backend:
+`operator=(FloatMP const&)` performs copy-swap and may propagate allocation
+failure, while `operator=(FloatMP&&) noexcept` swaps owned state. This keeps
+the standalone representation and copy-swap semantics while allowing the
+checked container overload to hide the base copy assignment as designed.
+A `UniformArray<FloatMP>` regression test exercises assignment through
+`CheckedAssignable<FloatMP>`.
