@@ -1094,8 +1094,8 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
                 quotient[i]=(a[i]>>bits)|(upper<<(64u-bits));
             }
         }
-        std::fill(quotient.subspan(a.size()).begin(),quotient.end(),
-                  Limb{0});
+        const auto tail=quotient.subspan(a.size());
+        std::fill(tail.begin(),tail.end(),Limb{0});
         return a.empty()?Limb{0}:(a.front()&(divisor-1u));
     }
 
@@ -1124,8 +1124,8 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
             quotient[i-1u]=digit;
             rem=next;
         }
-        std::fill(quotient.subspan(a.size()).begin(),quotient.end(),
-                  Limb{0});
+        const auto tail=quotient.subspan(a.size());
+        std::fill(tail.begin(),tail.end(),Limb{0});
         return rem>>shift;
     }
 #endif
@@ -1168,8 +1168,8 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
             quotient[i-1u]=(high_digit<<32u)|low_digit;
             remainder=next;
         }
-        std::fill(quotient.subspan(a.size()).begin(),quotient.end(),
-                  Limb{0});
+        const auto tail=quotient.subspan(a.size());
+        std::fill(tail.begin(),tail.end(),Limb{0});
         return remainder;
     }
 #endif
@@ -1188,7 +1188,8 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
         quotient[i-1u]=digit;
         remainder=next;
     }
-    std::fill(quotient.subspan(a.size()).begin(),quotient.end(),Limb{0});
+    const auto tail=quotient.subspan(a.size());
+    std::fill(tail.begin(),tail.end(),Limb{0});
     return remainder;
 }
 
@@ -1895,7 +1896,8 @@ void BigUnsigned::divexact_limb_into(LimbView a,Limb divisor,MutableLimbView quo
         quotient[i]=digit;
     }
     if (carry!=0u) { throw std::domain_error("BigUnsigned nonexact division"); }
-    std::fill(quotient.subspan(a.size()).begin(),quotient.end(),Limb{0});
+    const auto tail=quotient.subspan(a.size());
+    std::fill(tail.begin(),tail.end(),Limb{0});
 }
 
 BigUnsigned quot_exact(BigUnsigned const& a,BigUnsigned const& b)

@@ -447,3 +447,12 @@ clearing) now bind the subspan to a local `tail` and pass
 `tail.begin(), tail.end()` to the algorithm. Regression coverage includes
 explicit 2-limb/1-limb addition and subtraction. The temporary Windows tracing
 used to isolate the problem was removed after the fix.
+
+
+A follow-up Windows Debug run exposed five additional instances of the same
+invalid iterator pairing in the single-limb and exact-division tail clearing:
+`quotient.subspan(a.size()).begin()` was paired with `quotient.end()`.
+Those sites are now fixed identically by naming the tail subspan and using
+both iterators from that same view. Existing division tests already exercise
+oversized quotient buffers, so no synthetic coverage reduction or replacement
+was needed.
