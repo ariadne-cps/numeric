@@ -273,6 +273,10 @@ TestFloat<PR>::test_conversions()
         FloatType from_string(String("1.25"),pr);
         ARIADNE_TEST_EQUALS(from_string,Dyadic(5,2u));
 
+        const std::uint64_t max_unsigned=std::numeric_limits<std::uint64_t>::max();
+        const FloatType from_max_unsigned(max_unsigned,pr);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(from_max_unsigned),Rational(Integer(max_unsigned)));
+
         FloatType parsed(7,pr);
         std::istringstream empty_input("");
         ARIADNE_TEST_EXECUTE(empty_input >> parsed);

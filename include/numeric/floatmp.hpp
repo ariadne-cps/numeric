@@ -231,6 +231,9 @@ template<> class Float<MultiplePrecision> {
     : Float(static_cast<unsigned long>(precision.bits())) {
     }
     Float(std::int64_t n, PrecisionType precision);
+    template<BuiltinUnsignedIntegral M>
+    Float(M n, PrecisionType precision)
+        : Float(Integer(n), ROUND_TO_NEAREST, precision) { }
     Float(ExactDouble const& n, PrecisionType precision);
     Float(Dyadic const& n, PrecisionType precision);
     explicit Float(std::string const& value, PrecisionType precision);
