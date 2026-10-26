@@ -89,6 +89,11 @@ jobs:
         if: matrix.build_type == 'Debug'
         run: cmake --build build --parallel --target tests
 
+      - name: Trace BigUnsigned Debug test
+        if: matrix.build_type == 'Debug'
+        continue-on-error: true
+        run: ctest --test-dir build -R "^test_big_unsigned$" -V --timeout 60 --output-on-failure
+
       - name: Run Debug C++ tests
         if: matrix.build_type == 'Debug'
         run: ctest --test-dir build -j $env:NUMBER_OF_PROCESSORS -LE python --output-on-failure
