@@ -650,8 +650,11 @@ void TestBigUnsigned::test_subtraction_common_prefix()
             verify(rhs,lhs,reverse_hex);
         }
     }
+    std::cout << "[diag] subtraction: before EOF probe" << std::endl;
     std::string extra;
     if (golden >> extra) throw std::runtime_error("Extra subtraction TSV rows");
+    std::cout << "[diag] subtraction: after EOF probe" << std::endl;
+    std::cout << "[diag] subtraction: leaving test_subtraction_common_prefix" << std::endl;
 }
 
 
