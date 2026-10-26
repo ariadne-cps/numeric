@@ -20,6 +20,7 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
         CHAINS
             "configuration"
             "foundation|configuration"
+            "logging|configuration"
     )
 endif()
 
