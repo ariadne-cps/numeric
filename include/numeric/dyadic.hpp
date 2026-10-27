@@ -91,20 +91,18 @@ private:
     }
 
     void normalize() {
-        if (_kind!=Kind::Finite || _coefficient.magnitude().is_zero()) {
+        // All callers construct a finite coefficient or check is_finite first.
+        if (_coefficient.magnitude().is_zero()) {
             _denominator_exponent=0u;
             return;
         }
         auto const& magnitude=_coefficient.magnitude();
         std::size_t trailing=0u;
-        for (std::size_t i=0u;i<magnitude.size();++i) {
-            const std::uint64_t limb=magnitude.limb(i);
-            if (limb!=0u) {
-                trailing+=static_cast<std::size_t>(std::countr_zero(limb));
-                break;
-            }
-            trailing+=64u;
-        }
+        // A nonzero canonical magnitude contains a nonzero limb, so this
+        // scan always stops before the end of its storage.
+        std::size_t i=0u;
+        while (magnitude.limb(i)==0u) { trailing+=64u; ++i; }
+        trailing+=static_cast<std::size_t>(std::countr_zero(magnitude.limb(i)));
         const std::size_t reduce=std::min(trailing,_denominator_exponent);
         if (reduce!=0u) {
             _coefficient=Integer::from_magnitude(
@@ -124,7 +122,9 @@ private:
     static int compare_scaled(BigUnsigned const& n,std::size_t en,
                               BigUnsigned const& m,std::size_t em) noexcept {
         if (n.is_zero() || m.is_zero()) {
-            return n.is_zero() ? (m.is_zero() ? 0 : -1) : 1;
+            // cmp() has already handled two zeros; the owned arithmetic
+            // caller requires at least one large, nonzero magnitude.
+            return n.is_zero() ? -1 : 1;
         }
         const std::size_t nb=n.bit_length(),mb=m.bit_length();
         const bool ng=nb>=en,mg=mb>=em;
@@ -152,7 +152,9 @@ private:
                 if (j<b.size()) {
                     word=part==0u ? b.limb(j) : b.limb(j)<<part;
                 }
-                if (part!=0u && j!=0u && j-1u<b.size()) {
+                // Aligning the leading bits gives j<=b.size(); with j>0
+                // the carry source j-1 is therefore always in bounds.
+                if (part!=0u && j!=0u) {
                     word|=b.limb(j-1u)>>(64u-part);
                 }
             }
@@ -198,9 +200,8 @@ public:
         }
         auto const denominator=q.denominator();
         auto const& magnitude=denominator.magnitude();
-        if (magnitude.is_zero() || magnitude.bit_length()==0u) {
-            throw std::invalid_argument("invalid Dyadic denominator");
-        }
+        // A finite Rational has a nonzero denominator. Nonfinite kinds
+        // were handled above, so bit_length()-1 is well-defined here.
         const std::size_t exp=magnitude.bit_length()-1u;
         if (compare(magnitude,shift_left(BigUnsigned(1u),exp))!=0) {
             throw std::invalid_argument("Rational is not a Dyadic");
@@ -327,7 +328,9 @@ public:
             const unsigned drop=static_cast<unsigned>(-1022-exponent);
             value=std::ldexp(static_cast<double>(significand>>drop),-1074);
         }
-        return value==0.0 ? 0.0 : (negative ? -value : value);
+        // Underflow returned above. The retained leading bit yields at
+        // least one subnormal unit, so value is strictly positive here.
+        return negative ? -value : value;
     }
 
     friend Dyadic operator-(Dyadic const& x) {
@@ -367,19 +370,17 @@ public:
     // but regresses at 32..64 limbs. Keep a single exact algorithm,
     // changing only the architecture-specific crossover to fallback.
     // All other architectures conservatively use the shorter crossover.
-    static constexpr std::size_t aligned_add_sub_max_limbs() noexcept {
 #if defined(__aarch64__) || defined(_M_ARM64)
-        return 64u;
+    static constexpr std::size_t aligned_add_sub_max_limbs=64u;
 #else
-        return 16u;
+    static constexpr std::size_t aligned_add_sub_max_limbs=16u;
 #endif
-    }
 
     static bool prefer_aligned_add_sub(Dyadic const& a,
                                        Dyadic const& b) noexcept {
         const std::size_t as=a._coefficient.magnitude().size();
         const std::size_t bs=b._coefficient.magnitude().size();
-        const std::size_t limit=aligned_add_sub_max_limbs();
+        const std::size_t limit=aligned_add_sub_max_limbs;
         const std::size_t max_exponent=std::max(
             a._denominator_exponent,b._denominator_exponent);
         const std::size_t min_exponent=std::min(
