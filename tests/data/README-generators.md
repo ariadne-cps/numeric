@@ -1227,3 +1227,12 @@ pairs covering equal values with different scales, unequal values, signs,
 zero, sums and products. Expectations use bounded standard `int64_t`
 arithmetic (input coefficients <=1250 and scales <=3), independently of
 Numeric, GMP and Boost. It supports the usual `--write` / `--verify` modes.
+
+### Integer conversion boundaries
+
+`generator_integer_conversion.cpp` emits `integer_conversion.tsv`: 27 signed
+sources around 2^31, 2^32, 2^63 and 2^64 with independently computed signed
+and unsigned 32/64-bit representability. The consumer checks all four native
+long/long-long destination types already present in the coverage report,
+selecting the frozen expectation by the platform's destination width.
+The generator uses only the standalone exact Nat helper.

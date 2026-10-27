@@ -37,6 +37,7 @@
 #include <iomanip>
 #include <fstream>
 #include <sstream>
+#include <set>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -341,6 +342,47 @@ void TestInteger::test_arithmetic() {
 }
 
 void TestInteger::test_small_types() {
+    ARIADNE_TEST_EQUALS(Integer(Int32(-9)),Integer(-9));
+    const Positive<Integer> positive_default;
+    const Natural natural_default;
+    ARIADNE_TEST_EQUALS(positive_default,Integer(0));
+    ARIADNE_TEST_EQUALS(natural_default,Integer(0));
+
+    // Exercise both concrete get() instantiations, including their public
+    // failure contracts for multi-limb and excessive negative magnitudes.
+    std::ifstream conversions(ARIADNE_TEST_DATA_DIR "/integer_conversion.tsv");
+    if (!conversions) throw std::runtime_error("Missing integer_conversion.tsv");
+    std::string conversion_line;
+    std::set<std::string> conversion_sources;
+    while (std::getline(conversions,conversion_line)) {
+        if (conversion_line.empty() || conversion_line[0]=='#') continue;
+        std::istringstream fields(conversion_line);
+        std::string source,extra;
+        int signed_ok,unsigned_ok,signed32_ok,unsigned32_ok;
+        if (!(fields>>source>>signed_ok>>unsigned_ok>>signed32_ok>>unsigned32_ok) || (fields>>extra)
+            || !conversion_sources.insert(source).second)
+            throw std::runtime_error("Malformed integer_conversion.tsv");
+        const Integer value{String(source)};
+        std::cout << "Integer conversion oracle: " << source << std::endl;
+        auto check_conversion=[&]<class T>() {
+            constexpr int digits=std::numeric_limits<T>::digits;
+            static_assert(digits==31 || digits==32 || digits==63 || digits==64);
+            const int expected_ok=digits==63?signed_ok:digits==64?unsigned_ok:
+                                  digits==31?signed32_ok:unsigned32_ok;
+            bool threw=false;
+            try { ARIADNE_TEST_EQUALS(std::to_string(value.get<T>()),source); }
+            catch (std::out_of_range const&) { threw=true; }
+            ARIADNE_TEST_EQUALS(threw,expected_ok==0);
+        };
+        // These four public destination types already occur in the report.
+        check_conversion.template operator()<long>();
+        check_conversion.template operator()<unsigned long>();
+        check_conversion.template operator()<long long>();
+        check_conversion.template operator()<unsigned long long>();
+    }
+    if (conversion_sources.size()!=27u)
+        throw std::runtime_error("Incomplete integer_conversion.tsv");
+
     Nat32 n32;
     Nat64 n64;
     Int32 i32;
