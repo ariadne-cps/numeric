@@ -1291,3 +1291,13 @@ singletons, disjoint/overlapping intervals and positive/negative domains
 exercise the public mixed Dyadic/Rational wrappers. Quotients use divisors
 excluding zero. A separate Python Fraction witness verifies arithmetic and
 powers. The standalone generator supports byte-for-byte --verify.
+
+### FloatMP rounded min/max
+
+`generator_floatmp_minmax.cpp` emits `floatmp_minmax.tsv` with 648 exact
+source-keyed cases covering NaN, infinities, signed zeros, finite order,
+precision reduction and all four rounding modes. Small bounded signed
+integer fractions provide all numerical expectations, including the first
+nearest/even quantization to each input precision. A separate enumerated
+Python Fraction witness reproduces every row. The generator supports
+--write and byte-for-byte --verify independently of Numeric/GMP/MPFR.

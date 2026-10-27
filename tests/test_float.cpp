@@ -1257,10 +1257,59 @@ void test_floatdp_unary_wrappers() {
     if (inputs.size()!=8u) throw std::runtime_error("Incomplete floatdp_wrappers.tsv");
 }
 
+void test_floatmp_minmax_oracle() {
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatmp_minmax.tsv");
+    if (!data) throw std::runtime_error("Missing floatmp_minmax.tsv");
+    std::string line;
+    std::set<unsigned> ids;
+    const auto saved=FloatMP::get_rounding_mode();
+    while (std::getline(data,line)) {
+        if (line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        unsigned id,ap,bp,p;
+        int negative;
+        char mode,kind;
+        std::string op,a,b,n,d,extra;
+        if (!(fields>>id>>op>>mode>>ap>>a>>bp>>b>>p>>kind>>n>>d>>negative)
+            || (fields>>extra) || !ids.insert(id).second)
+            throw std::runtime_error("Malformed floatmp_minmax.tsv");
+        const auto rounding=mode=='N'?FloatMP::ROUND_TO_NEAREST:mode=='D'?FloatMP::ROUND_DOWNWARD:
+                            mode=='U'?FloatMP::ROUND_UPWARD:FloatMP::ROUND_TOWARD_ZERO;
+        const auto input=[](std::string const& source,unsigned bits) {
+            const MultiplePrecision precision(static_cast<std::size_t>(bits));
+            if (source=="nan") return FloatMP::nan(precision);
+            if (source=="inf" || source=="-inf") return FloatMP::inf(source[0]=='-'?Sign::NEGATIVE:Sign::POSITIVE,precision);
+            if (source=="+0" || source=="-0") return FloatMP::zero(static_cast<unsigned long>(bits),source[0]=='-');
+            return FloatMP(Rational(String(source)),FloatMP::ROUND_TO_NEAREST,precision);
+        };
+        const FloatMP left=input(a,ap),right=input(b,bp);
+        const FloatMP actual=op=="min"?min(rounding,left,right):max(rounding,left,right);
+        std::cout << "FloatMP min/max oracle row " << id << std::endl;
+        ARIADNE_TEST_EQUALS(actual.precision().bits(),static_cast<std::size_t>(p));
+        ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==saved);
+        if (kind=='N') {
+            ARIADNE_TEST_ASSERT(actual.kind()==FloatMP::Kind::NaN);
+            ARIADNE_TEST_ASSERT(is_nan(actual));
+        } else if (kind=='I') {
+            ARIADNE_TEST_ASSERT(actual.kind()==FloatMP::Kind::Infinity);
+            ARIADNE_TEST_ASSERT(is_inf(actual));
+            ARIADNE_TEST_EQUALS(actual.negative(),negative!=0);
+        } else if (kind=='F') {
+            ARIADNE_TEST_ASSERT(actual.kind()==FloatMP::Kind::Finite);
+            ARIADNE_TEST_ASSERT(is_finite(actual));
+            ARIADNE_TEST_EQUALS(static_cast<Rational>(actual),(Rational(Integer(String(n)),Integer(String(d)))));
+            ARIADNE_TEST_EQUALS(actual.negative(),negative!=0);
+        } else throw std::runtime_error("Unknown FloatMP min/max actual kind");
+    }
+    if (ids.size()!=648u || *ids.begin()!=0u || *ids.rbegin()!=647u)
+        throw std::runtime_error("Incomplete floatmp_minmax.tsv");
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
+    test_floatmp_minmax_oracle();
     test_floatdp_unary_wrappers();
     test_float_literals();
     test_floatmp_directed_bound_oracles();
