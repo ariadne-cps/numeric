@@ -90,6 +90,8 @@ void TestRoundingMode::test() const {
     ARIADNE_TEST_ASSERT(FloatMP::Rounding(toward_zero)==FloatMP::ROUND_TOWARD_ZERO);
     ARIADNE_TEST_ASSERT(FloatMP::Rounding(approximately)==FloatMP::ROUND_TO_NEAREST);
 
+    Rounding rnd_builtin(ROUND_DOWNWARD);
+    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_builtin),ROUND_DOWNWARD);
     Rounding rnd_near(to_nearest);
     Rounding rnd_down(downward);
     Rounding rnd_up(upward);

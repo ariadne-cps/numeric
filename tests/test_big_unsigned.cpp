@@ -559,6 +559,16 @@ void TestBigUnsigned::test_storage()
     ARIADNE_TEST_ASSERT(moved.is_zero());
     ARIADNE_TEST_ASSERT(compare(copy,long_value)==0);
 
+    // Self-move must preserve both inline and heap-owned values.
+    // Use an alias to exercise the public assignment without a compiler
+    // diagnostic for a syntactically obvious self-move.
+    auto* heap_alias=&copy;
+    copy=std::move(*heap_alias);
+    ARIADNE_TEST_ASSERT(compare(copy,long_value)==0);
+    auto* inline_alias=&one;
+    one=std::move(*inline_alias);
+    ARIADNE_TEST_ASSERT(one.limb(0u)==1u && one.size()==1u);
+
     zero.swap(copy);
     ARIADNE_TEST_ASSERT(zero.size()==5u);
     ARIADNE_TEST_ASSERT(copy.is_zero());

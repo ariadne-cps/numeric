@@ -627,6 +627,12 @@ void TestReal::test_sequence() {
 
 
 int main() {
+    // The precision is validated before any significand storage is allocated.
+    if constexpr (std::numeric_limits<std::size_t>::max()>std::numeric_limits<Nat>::max()) {
+        const MultiplePrecision excessive(static_cast<std::size_t>(std::numeric_limits<Nat>::max())+1u);
+        ARIADNE_TEST_FAIL(Real(1).get(excessive));
+    }
+
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
 
