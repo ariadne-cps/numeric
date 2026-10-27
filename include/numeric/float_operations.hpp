@@ -127,8 +127,7 @@ template<class OP, class Y1, class Y2> requires HaveCmp<Y1,Y2> Boolean _cmp(OP o
     // Comparing that sentinel with EQUAL (=0) makes NaN spuriously less
     // than ordinary numbers. Preserve the same unordered behavior as independent exact arithmetic.
     if(comparison==Comparison::INCOMPARABLE) {
-        if constexpr (SameAs<OP,Ne>) { return true; }
-        else { return false; }
+        return SameAs<OP,Ne>;
     }
     return op(comparison,Comparison::EQUAL); }
 

@@ -47,6 +47,7 @@
 #include <utility>
 #include <vector>
 #include <sstream>
+#include <set>
 
 #include "macro/testing.hpp"
 
@@ -1417,6 +1418,35 @@ void TestRational::test_bounds() {
 
 
 int main() {
+    {
+        std::ifstream data(ARIADNE_TEST_DATA_DIR "/scalar_comparison.tsv");
+        if (!data) throw std::runtime_error("Missing scalar_comparison.tsv");
+        std::string line;
+        std::set<std::string> keys;
+        while (std::getline(data,line)) {
+            if (line.empty() || line[0]=='#') continue;
+            std::istringstream fields(line);
+            Int lhs,n,d,expected;
+            std::string extra;
+            if (!(fields>>lhs>>n>>d>>expected) || (fields>>extra) || !keys.insert(line).second)
+                throw std::runtime_error("Malformed scalar_comparison.tsv");
+            const Rational rhs(n,d);
+            const Integer integer(lhs);
+            const bool ordered=expected!=-128;
+            std::cout << "Scalar comparison oracle: " << line << std::endl;
+            ARIADNE_TEST_EQUALS(cmp(lhs,rhs),static_cast<Comparison>(expected));
+            const Boolean generic_unequal=Ariadne::operator!=<Rational,Integer>(rhs,integer);
+            ARIADNE_TEST_EQUALS(generic_unequal,Boolean(!ordered || expected!=0));
+            ARIADNE_TEST_EQUALS(rhs!=integer,Boolean(!ordered || expected!=0));
+            ARIADNE_TEST_EQUALS(rhs==integer,Boolean(ordered && expected==0));
+            ARIADNE_TEST_EQUALS(rhs<integer,Boolean(ordered && expected>0));
+            ARIADNE_TEST_EQUALS(rhs>integer,Boolean(ordered && expected<0));
+            ARIADNE_TEST_EQUALS(rhs<=integer,Boolean(ordered && expected>=0));
+            ARIADNE_TEST_EQUALS(rhs>=integer,Boolean(ordered && expected<=0));
+        }
+        if (keys.size()!=27u) throw std::runtime_error("Incomplete scalar_comparison.tsv");
+    }
+
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
 

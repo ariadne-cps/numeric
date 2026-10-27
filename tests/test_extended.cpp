@@ -39,6 +39,9 @@ void test_rational_extended()
     ARIADNE_TEST_ASSERT(is_inf(sqr(pinf)));
     ARIADNE_TEST_ASSERT(is_nan(sqr(nan)));
     ARIADNE_TEST_ASSERT(is_nan(rec(nan)));
+    ARIADNE_TEST_EQUALS(hlf(pinf),pinf);
+    ARIADNE_TEST_EQUALS(hlf(ninf),ninf);
+    ARIADNE_TEST_ASSERT(is_nan(hlf(nan)));
 
     ARIADNE_TEST_ASSERT(is_nan(max(Rational(0),nan)));
     ARIADNE_TEST_EQUALS(max(pinf,Rational(-2)),pinf);

@@ -1236,3 +1236,17 @@ and unsigned 32/64-bit representability. The consumer checks all four native
 long/long-long destination types already present in the coverage report,
 selecting the frozen expectation by the platform's destination width.
 The generator uses only the standalone exact Nat helper.
+
+### Scalar comparisons and binary64 wrappers
+
+`generator_scalar_comparison.cpp` emits 27 Int/Rational comparison rows,
+using bounded exact cross-products and explicit infinity/NaN ordering.
+The consumer tests the native Int comparison and generic Integer comparisons,
+including the explicit public generic inequality overload on unordered values.
+
+`generator_floatdp_wrappers.cpp` emits eight IEEE binary64 bit patterns
+(both zero signs, 1/2, 3/2, 2^60 and their negatives) and their exact unary
+zero, identity, negation and half results. Expectations are integer bit-field
+transformations; no host floating arithmetic or Numeric oracle is involved.
+Every result is checked bit-for-bit in all four builtin rounding modes.
+Both standalone generators support write and byte-for-byte verify.

@@ -52,6 +52,8 @@ add_dependencies(tests ${UNIT_TESTS} check_numeric)
 # Standalone C++20 generators are independent of unit-test builds.
 set(ORACLE_GENERATORS
     generator_decimal_exact
+    generator_floatdp_wrappers
+    generator_scalar_comparison
     generator_integer_conversion
     generator_big_unsigned_gcd
     generator_big_unsigned_b76

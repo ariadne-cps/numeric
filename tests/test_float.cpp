@@ -26,6 +26,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <bit>
 #include <sstream>
 #include <string>
 #include <cmath>
@@ -1231,10 +1232,36 @@ Void test_floatmp_native_significand_storage() {
     }
 }
 
+void test_floatdp_unary_wrappers() {
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatdp_wrappers.tsv");
+    if (!data) throw std::runtime_error("Missing floatdp_wrappers.tsv");
+    std::string line;
+    std::set<std::uint64_t> inputs;
+    while (std::getline(data,line)) {
+        if (line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        std::uint64_t input,zero,positive,negative,half;
+        std::string extra;
+        if (!(fields>>std::hex>>input>>zero>>positive>>negative>>half) || (fields>>extra)
+            || !inputs.insert(input).second)
+            throw std::runtime_error("Malformed floatdp_wrappers.tsv");
+        const ExactDouble source(std::bit_cast<double>(input));
+        for (auto mode:{ROUND_TO_NEAREST,ROUND_DOWNWARD,ROUND_UPWARD,ROUND_TOWARD_ZERO}) {
+            const FloatDP x(source,mode,dp);
+            ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(nul(mode,x).get_d()),zero);
+            ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(pos(mode,x).get_d()),positive);
+            ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(neg(mode,x).get_d()),negative);
+            ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(hlf(mode,x).get_d()),half);
+        }
+    }
+    if (inputs.size()!=8u) throw std::runtime_error("Incomplete floatdp_wrappers.tsv");
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
+    test_floatdp_unary_wrappers();
     test_float_literals();
     test_floatmp_directed_bound_oracles();
     test_builtin_runtime();
