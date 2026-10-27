@@ -1301,3 +1301,12 @@ integer fractions provide all numerical expectations, including the first
 nearest/even quantization to each input precision. A separate enumerated
 Python Fraction witness reproduces every row. The generator supports
 --write and byte-for-byte --verify independently of Numeric/GMP/MPFR.
+
+### FloatMP exact construction
+
+`generator_floatmp_construction.cpp` emits 42 exact constructor values in
+`floatmp_construction.tsv`, reducing small signed fractions with the standard
+integer GCD. Inputs fit eight significant bits, so all results are exact at
+8/53/512 bits. The consumer checks default and directed constructor wrappers,
+precision preservation, empty construction and self-move with inline and heap
+storage. No Numeric, GMP or floating-point oracle is used.

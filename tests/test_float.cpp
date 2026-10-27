@@ -1305,10 +1305,79 @@ void test_floatmp_minmax_oracle() {
         throw std::runtime_error("Incomplete floatmp_minmax.tsv");
 }
 
+void test_floatmp_construction_oracle() {
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatmp_construction.tsv");
+    if (!data) throw std::runtime_error("Missing floatmp_construction.tsv");
+    std::string line;
+    std::set<unsigned> ids;
+    while (std::getline(data,line)) {
+        if (line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        unsigned id,bits;
+        int n,d;
+        std::string en,ed,extra;
+        if (!(fields>>id>>n>>d>>bits>>en>>ed) || (fields>>extra) || !ids.insert(id).second)
+            throw std::runtime_error("Malformed floatmp_construction.tsv");
+        const MultiplePrecision precision(static_cast<std::size_t>(bits));
+        const Rational expected{Integer(String(en)),Integer(String(ed))};
+        std::cout << "FloatMP construction oracle row " << id << std::endl;
+        const FloatMP from_rational(Rational(n,d),precision);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(from_rational),expected);
+        ARIADNE_TEST_EQUALS(from_rational.precision(),precision);
+        const FloatMP empty(precision);
+        ARIADNE_TEST_ASSERT(empty.is_zero() && !empty.negative());
+        if (d==1) {
+            const FloatMP from_integer(Integer(n),precision);
+            ARIADNE_TEST_EQUALS(static_cast<Rational>(from_integer),expected);
+            for (const auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                                  FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+                ARIADNE_TEST_EQUALS(static_cast<Rational>(FloatMP(n,mode,precision)),expected);
+                if (n>=0) {
+                    const auto natural=static_cast<unsigned>(n);
+                    ARIADNE_TEST_EQUALS(static_cast<Rational>(FloatMP(natural,mode,precision)),expected);
+                }
+            }
+        }
+        FloatMP self_move=from_rational;
+        auto* alias=&self_move;
+        self_move=std::move(*alias);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(self_move),expected);
+        ARIADNE_TEST_EQUALS(self_move.precision(),precision);
+    }
+    if (ids.size()!=42u || *ids.begin()!=0u || *ids.rbegin()!=41u)
+        throw std::runtime_error("Incomplete floatmp_construction.tsv");
+}
+
+void test_floatmp_precision_contracts() {
+    const MultiplePrecision low(2u),high(7u);
+    ARIADNE_TEST_ASSERT(low<high && !(high<low));
+    ARIADNE_TEST_ASSERT(high>low && !(low>high));
+    ARIADNE_TEST_ASSERT(high>=low && low>=low && !(low>=high));
+    ARIADNE_TEST_EQUALS(max(low,high),high);
+    ARIADNE_TEST_EQUALS(max(high,low),high);
+    std::ostringstream rendered;
+    rendered << high;
+    ARIADNE_TEST_EQUALS(rendered.str(),std::string("mp(7)"));
+    ARIADNE_TEST_FAIL(FloatMP(0ul));
+    ARIADNE_TEST_FAIL(FloatMP(1ul));
+    ARIADNE_TEST_FAIL((FloatMP(MultiplePrecision(1u))));
+    if constexpr (std::numeric_limits<unsigned long>::digits>std::numeric_limits<FloatMP::Exponent>::digits) {
+        ARIADNE_TEST_FAIL(static_cast<void>(FloatMP(std::numeric_limits<unsigned long>::max())));
+    }
+    ARIADNE_TEST_EQUALS(floatmp_exponent_from_bit_length(0u),std::int64_t(0));
+    if constexpr (std::numeric_limits<std::size_t>::digits>std::numeric_limits<std::int64_t>::digits) {
+        const auto boundary=static_cast<std::size_t>(std::numeric_limits<std::int64_t>::max());
+        ARIADNE_TEST_EQUALS(floatmp_exponent_from_bit_length(boundary),std::numeric_limits<std::int64_t>::max());
+        ARIADNE_TEST_FAIL(floatmp_exponent_from_bit_length(boundary+1u));
+    }
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
+    test_floatmp_precision_contracts();
+    test_floatmp_construction_oracle();
     test_floatmp_minmax_oracle();
     test_floatdp_unary_wrappers();
     test_float_literals();
