@@ -1274,3 +1274,16 @@ round trips; every source verifies an exact 2048-bit FloatMP round trip and
 Approximation conversion. The fixture has an independent Python witness
 checking the decoded result's adjacent-representable interval and exact
 floor/ceil. Standalone --write/--verify are supported.
+
+### Mixed exact interval operations and powers
+
+`generator_dyadic_mixed_bounds.cpp` emits dyadic_mixed_bounds.tsv (285
+arithmetic rows), dyadic_mixed_comparisons.tsv (300 three-valued comparison
+rows), and dyadic_bounds_power.tsv (25 power rows). Small signed rational
+cross-products fit int64_t throughout. Bounds are computed from endpoint
+vertices; even powers include zero when the input crosses it. Comparisons
+certify every result as true, false or indeterminate. Both operand orders,
+singletons, disjoint/overlapping intervals and positive/negative domains
+exercise the public mixed Dyadic/Rational wrappers. Quotients use divisors
+excluding zero. A separate Python Fraction witness verifies arithmetic and
+powers. The standalone generator supports byte-for-byte --verify.

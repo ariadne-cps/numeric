@@ -527,6 +527,7 @@ void test_dyadic_conversion_oracle() {
         const Dyadic source(Integer(String(coefficient)),static_cast<std::size_t>(exponent));
         std::cout << "Dyadic conversion row " << id << std::endl;
         ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(source.get_d()),expected);
+        if (exponent==0u) ARIADNE_TEST_EQUALS(source.literal(),String(coefficient));
         ARIADNE_TEST_EQUALS(floor(source),Integer(String(floor_expected)));
         ARIADNE_TEST_EQUALS(ceil(source),Integer(String(ceil_expected)));
         ARIADNE_TEST_EQUALS(hlf(source),Dyadic(Integer(String(coefficient)),static_cast<std::size_t>(exponent)+1u));
@@ -603,6 +604,96 @@ void test_dyadic_public_contracts() {
     ARIADNE_TEST_EQUALS(stream.str(),std::string("1.5"));
 }
 
+void test_dyadic_mixed_bounds_oracles() {
+    for (bool logical:{false,true}) {
+        const std::string name=logical?"dyadic_mixed_comparisons.tsv":"dyadic_mixed_bounds.tsv";
+        std::ifstream data(std::string(ARIADNE_TEST_DATA_DIR)+"/"+name);
+        if (!data) throw std::runtime_error("Missing "+name);
+        std::string line;
+        std::set<unsigned> ids;
+        while (std::getline(data,line)) {
+            if (line.empty() || line[0]=='#') continue;
+            std::istringstream fields(line);
+            unsigned id,reverse;
+            Int dl,du,dd,ql,qu,qd;
+            std::string op,extra;
+            if (!(fields>>id>>op>>reverse>>dl>>du>>dd>>ql>>qu>>qd)
+                || !ids.insert(id).second || dd!=2 || qd!=3)
+                throw std::runtime_error("Malformed "+name);
+            const DyadicBounds d(Dyadic(dl,1u),Dyadic(du,1u));
+            const RationalBounds q(Rational(ql,qd),Rational(qu,qd));
+            std::cout << name << " row " << id << std::endl;
+            if (!logical) {
+                Int ln,ld,un,ud;
+                if (!(fields>>ln>>ld>>un>>ud) || (fields>>extra))
+                    throw std::runtime_error("Malformed interval result");
+                const auto evaluate=[&]<class A,class B>(A const& a,B const& b)->RationalBounds {
+                    if (op=="add") return add(a,b);
+                    if (op=="sub") return sub(a,b);
+                    if (op=="mul") return mul(a,b);
+                    if (op=="div") return div(a,b);
+                    if (op=="max") return max(a,b);
+                    if (op=="min") return min(a,b);
+                    throw std::runtime_error("Unknown mixed interval operation");
+                };
+                const auto result=reverse?evaluate(q,d):evaluate(d,q);
+                ARIADNE_TEST_EQUALS(result.lower(),Rational(ln,ld));
+                ARIADNE_TEST_EQUALS(result.upper(),Rational(un,ud));
+                if (op=="div" && ql%qd==0 && qu%qd==0) {
+                    const DyadicBounds other(Dyadic(ql/qd),Dyadic(qu/qd));
+                    const auto direct=reverse?div(other,d):div(d,other);
+                    ARIADNE_TEST_EQUALS(direct.lower(),Rational(ln,ld));
+                    ARIADNE_TEST_EQUALS(direct.upper(),Rational(un,ud));
+                }
+            } else {
+                int expected;
+                if (!(fields>>expected) || (fields>>extra))
+                    throw std::runtime_error("Malformed logical result");
+                const auto evaluate=[&]<class A,class B>(A const& a,B const& b)->ValidatedKleenean {
+                    if (op=="eq") return a==b;
+                    if (op=="ne") return a!=b;
+                    if (op=="lt") return a<b;
+                    if (op=="le") return a<=b;
+                    if (op=="gt") return a>b;
+                    if (op=="ge") return a>=b;
+                    throw std::runtime_error("Unknown mixed interval comparison");
+                };
+                const auto result=reverse?evaluate(q,d):evaluate(d,q);
+                const int truth=definitely(result)?1:definitely(!result)?-1:0;
+                ARIADNE_TEST_EQUALS(truth,expected);
+            }
+        }
+        const unsigned expected_rows=logical?300u:285u;
+        if (ids.size()!=expected_rows || *ids.begin()!=0u || *ids.rbegin()!=expected_rows-1u)
+            throw std::runtime_error("Incomplete "+name);
+    }
+}
+
+void test_dyadic_bounds_power_oracle() {
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/dyadic_bounds_power.tsv");
+    if (!data) throw std::runtime_error("Missing dyadic_bounds_power.tsv");
+    std::string line;
+    std::set<unsigned> ids;
+    while (std::getline(data,line)) {
+        if (line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        unsigned id,degree;
+        Int l,u,ln,ld,un,ud;
+        std::string extra;
+        if (!(fields>>id>>l>>u>>degree>>ln>>ld>>un>>ud) || (fields>>extra)
+            || !ids.insert(id).second)
+            throw std::runtime_error("Malformed dyadic_bounds_power.tsv");
+        const DyadicBounds input(Dyadic(l,1u),Dyadic(u,1u));
+        for (auto result:{pow(input,static_cast<Nat>(degree)),pow(input,static_cast<Int>(degree))}) {
+            ARIADNE_TEST_EQUALS(Rational(result.lower()),Rational(ln,ld));
+            ARIADNE_TEST_EQUALS(Rational(result.upper()),Rational(un,ud));
+        }
+    }
+    if (ids.size()!=25u || *ids.begin()!=0u || *ids.rbegin()!=24u)
+        throw std::runtime_error("Incomplete dyadic_bounds_power.tsv");
+    ARIADNE_TEST_FAIL(pow(DyadicBounds(Dyadic(1)),Int(-1)));
+}
+
 int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
@@ -611,6 +702,8 @@ int main() {
     ARIADNE_TEST_CALL(test_dyadic_add_sub_oracles());
     ARIADNE_TEST_CALL(test_dyadic_conversion_oracle());
     ARIADNE_TEST_CALL(test_dyadic_public_contracts());
+    ARIADNE_TEST_CALL(test_dyadic_mixed_bounds_oracles());
+    ARIADNE_TEST_CALL(test_dyadic_bounds_power_oracle());
 
     return ARIADNE_TEST_FAILURES;
 }
