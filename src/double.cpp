@@ -119,8 +119,10 @@ double pow_rnd(double x, Int n)
 {
     if(n>=0) { return pow_rnd(x,Nat(n)); }
     ARIADNE_PRECONDITION(x!=0.0);
-    if(x>0.0 || (n%2==-1)) { volatile double r=1.0/x; return pow_rnd(r,Nat(-n)); }
-    else { volatile double r=-1.0/x; return pow_rnd(r,Nat(-n)); }
+    // Form |n| without negating INT_MIN in its signed type.
+    const Nat magnitude=Nat(-(n+1))+Nat(1);
+    if(x>0.0 || (n%2==-1)) { volatile double r=1.0/x; return pow_rnd(r,magnitude); }
+    else { volatile double r=-1.0/x; return pow_rnd(r,magnitude); }
 }
 
 double sqrt_rnd(double x)

@@ -42,6 +42,9 @@
 #include "macro/testing.hpp"
 
 #include <sstream>
+#include <fstream>
+#include <stdexcept>
+#include <set>
 
 using namespace std;
 using namespace Ariadne;
@@ -437,6 +440,41 @@ TestNumbers::test_misc()
     ARIADNE_TEST_EXECUTE(pow(dp_approximation,Integer(3)));
     FloatMPApproximation ap_power_approximation(2u,mp);
     ARIADNE_TEST_EXECUTE(pow(ap_power_approximation,Integer(3)));
+    // The wrapper's exponent type is Int=int, which can be narrower than
+    // the long returned by get_si(). Reuse the independent frozen limits.
+    std::ifstream exponent_data(ARIADNE_TEST_DATA_DIR "/integer_conversion.tsv");
+    if (!exponent_data) throw std::runtime_error("Missing integer_conversion.tsv");
+    std::string exponent_line;
+    std::set<std::string> exponent_sources;
+    while (std::getline(exponent_data,exponent_line)) {
+        if (exponent_line.empty() || exponent_line[0]=='#') continue;
+        std::istringstream fields(exponent_line);
+        std::string source,extra;
+        int signed64_ok,unsigned64_ok,signed32_ok,unsigned32_ok;
+        if (!(fields>>source>>signed64_ok>>unsigned64_ok>>signed32_ok>>unsigned32_ok)
+            || (fields>>extra) || !exponent_sources.insert(source).second)
+            throw std::runtime_error("Malformed exponent oracle");
+        const Integer exponent{String(source)};
+        const bool expected_ok=std::numeric_limits<Int>::digits==31?signed32_ok!=0:signed64_ok!=0;
+        // Binary64 base one verifies every valid boundary, including INT_MIN.
+        const Approximation<FloatDP> dp_one(FloatDP(1,dp));
+        const Approximation<FloatMP> mp_one(FloatMP(1,MultiplePrecision(64_bits)));
+        bool dp_threw=false;
+        try { ARIADNE_TEST_EQUALS(pow(dp_one,exponent).raw().get_d(),1.0); }
+        catch (std::out_of_range const&) { dp_threw=true; }
+        ARIADNE_TEST_EQUALS(dp_threw,!expected_ok);
+        // FloatMP forms an exact significand power before final rounding;
+        // validate all rejection boundaries before that work, plus small
+        // valid powers. Integer's own corpus checks every valid conversion.
+        if (!expected_ok || source=="0" || source=="1" || source=="-1") {
+            bool mp_threw=false;
+            try { ARIADNE_TEST_EQUALS(pow(mp_one,exponent).raw().get_d(),1.0); }
+            catch (std::out_of_range const&) { mp_threw=true; }
+            ARIADNE_TEST_EQUALS(mp_threw,!expected_ok);
+        }
+    }
+    if (exponent_sources.size()!=27u) throw std::runtime_error("Incomplete exponent oracle");
+
     Integer huge_power{String("9223372036854775808")};
     ARIADNE_TEST_FAIL(pow(dp_approximation,huge_power));
     ARIADNE_TEST_FAIL(pow(ap_power_approximation,huge_power));

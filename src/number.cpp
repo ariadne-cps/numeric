@@ -57,13 +57,11 @@ namespace Ariadne {
 
 // Required by graded dispatch on directed floating-point bounds.
 Approximation<FloatDP> pow(Approximation<FloatDP> const& x, Integer const& z) {
-    Int n=z.get_si();
-    // get_si() already rejects every Integer outside the host Int range.
+    const Int n=z.get<Int>();
     return Approximation<FloatDP>(pow(approx,x._a,n));
 }
 Approximation<FloatMP> pow(Approximation<FloatMP> const& x, Integer const& z) {
-    Int n=z.get_si();
-    // get_si() already rejects every Integer outside the host Int range.
+    const Int n=z.get<Int>();
     return Approximation<FloatMP>(pow(approx,x._a,n));
 }
 

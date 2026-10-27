@@ -375,6 +375,7 @@ void TestInteger::test_small_types() {
             ARIADNE_TEST_EQUALS(threw,expected_ok==0);
         };
         // These four public destination types already occur in the report.
+        check_conversion.template operator()<int>();
         check_conversion.template operator()<long>();
         check_conversion.template operator()<unsigned long>();
         check_conversion.template operator()<long long>();
