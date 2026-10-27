@@ -129,11 +129,11 @@ Rat rounded(Rat const& a,unsigned precision,char mode) {
 std::string decimal(Rat const& a) {return (a.neg?"-":"")+a.n.dec();}
 struct Generator {
     std::string data=
-        "# FloatMP exact rational rounding oracle v1\n"
+        "# FloatAP exact rational rounding oracle v1\n"
         "# precision_bits mode input_num input_den expected_num expected_den\n"
         "# N nearest ties-to-even; D down; U up; Z toward zero\n"
         "# Base-10 integers, positive denominators; exact rational values.\n"
-        "# Derived from independent integer divrem and ties-to-even (no FloatMP, independent exact arithmetic, GMP, independent exact arithmetic).\n"
+        "# Derived from independent integer divrem and ties-to-even (no FloatAP, FloatMP, GMP, MPFR).\n"
         "# This is NOT a transcendental oracle. Cases 4794.\n";
     std::set<std::tuple<unsigned,char,std::string,std::string>> seen;
     std::size_t count=0;
@@ -250,14 +250,14 @@ struct Generator {
 // and first-seen key semantics are preserved exactly.
 std::string generate_add_sub() {
     std::string out=
-        "# FloatMP exact add/sub oracle v1: 10x10 ordered pairs x 2 operations x 4 rounding modes x 5 precisions.\n"
+        "# FloatAP exact add/sub oracle v1: 10x10 ordered pairs x 2 operations x 4 rounding modes x 5 precisions.\n"
         "# precision_bits mode input_num input_den expected_num expected_den\n"
         "# Modes N nearest/ties-even, D downward, U upward, Z toward zero.\n"
-        "# Operands are exact FloatMP-representable dyadics: 1, -1, rounded(7/11), its negation,\n"
+        "# Operands are exact FloatAP-representable dyadics: 1, -1, rounded(7/11), its negation,\n"
         "# +/-2^(-bits), +/- powers of two with exponent +/-200 and +/-1400.\n"
         "# Input is the exact sum or difference BEFORE final rounding.\n"
-        "# Values computed using independent multiple-precision integer/rational algorithms.\n"
-        "# D80; no FloatMP/independent exact arithmetic/GMP/independent exact arithmetic involved in generation.\n";
+        "# Values computed using independent arbitrary-precision integer/rational algorithms.\n"
+        "# D80; no FloatAP/FloatMP/GMP/MPFR involved in generation.\n";
     std::set<std::tuple<unsigned,char,std::string,std::string>> seen;
     for(unsigned p:{7u,53u,128u,256u,1024u}) {
         const Rat one=integer(1);

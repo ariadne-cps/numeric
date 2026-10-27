@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Reproduce A23/A24 test_views_and_scratch exact oracle fixtures.
 // Standalone C++20; no Numeric, GMP, Boost or external runtime.
-#include <limits>\n#include "oracle_exact_integer.hpp"
+#include <limits>
+#include "oracle_exact_integer.hpp"
 
 namespace {
 using independent_oracle::Nat;
@@ -112,7 +113,9 @@ A24Fixtures a24_shifted_fixtures() {
                     const Nat difference=comparison>=0 ?
                         Nat::sub(shifted_a,shifted_b) :
                         Nat::sub(shifted_b,shifted_a);
-                    result.expected[a24_part(ordinal)]+=row({
+                    // Freeze the segment before row construction increments ordinal.
+                    const auto part=a24_part(ordinal);
+                    result.expected[part]+=row({
                         std::to_string(ordinal++),std::to_string(width),
                         std::to_string(case_index),std::to_string(sa),
                         std::to_string(sb),std::to_string(comparison),

@@ -144,7 +144,7 @@ int order(Fraction const& a,Fraction const& b) {
 }
 std::string generate() {
     std::string out=
-        "# R0 frozen original-source signed Rational reference; no GMP/independent exact arithmetic runtime arithmetic.\n"
+        "# R0 frozen original-source signed Rational reference; no GMP/MPFR runtime arithmetic.\n"
         "# original_iteration limb_count raw_an raw_ad raw_bn raw_bd canon_a canon_b sum diff product square half quotient inverse floor ceil order mpq_get_d_bits_hex\n"
         "# 120 cases selected adaptively, exactly one from each ten original mt19937_64(0x6672616374696f6e) visits.\n"
         "# All 17 limb widths and original sign, zero and order classes preserved; GMP binary64 truncation cross-checked with independent compiled C++ values (visits 0..9).\n";

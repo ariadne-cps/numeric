@@ -33,7 +33,7 @@ std::string b32() {
         "# count repetition input_hex square_hex\n"
         "# Original mt19937_64(0xB3205A7E) stream; all draws preserved, even when overwritten.\n"
         "# Expected squares computed with independent binary shift/add multiplication.\n"
-        "# No Numeric, GMP, independent exact arithmetic, independent exact arithmetic or Boost.\n";
+        "# No Numeric, GMP, MPFR, FloatMP or Boost.\n";
     std::mt19937_64 rng(0xB3205A7EULL);
     std::size_t rows=0u;
     for(std::size_t count:{1u,2u,7u,8u,9u,12u,16u,32u,64u,96u,128u}) {
@@ -405,7 +405,7 @@ std::string accumulation() {
         "# Inputs replay all original mt19937_64(0x23ACC00) draws, including overwritten ones.\n"
         "# Product uses independent radix-2^32 arithmetic; escape and low result modulo 2^(64*count).\n"
         "# Each 9 x 32 x 3 x 2 case preserves its original requested buffer count and subtraction direction.\n"
-        "# No Numeric, GMP, independent exact arithmetic, independent exact arithmetic or Boost linked to this standalone C++20 generator.\n";
+        "# No Numeric, GMP, MPFR, FloatMP or Boost linked to this standalone C++20 generator.\n";
     std::mt19937_64 random(0x23ACC00ULL);
     std::size_t count_rows=0u;
     for(std::size_t length:{0u,1u,2u,4u,5u,8u,9u,16u,64u}) {

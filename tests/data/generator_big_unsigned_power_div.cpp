@@ -206,7 +206,7 @@ std::string div_limb_random_fixture() {
         "# A4 exact original random BigUnsigned limb division, 6000 source-keyed visits.\n"
         "# repetition divisor_decimal dividend_hex quotient_hex remainder_hex\n"
         "# Full mt19937_64(0xD1D1D1) draw sequence including overwritten inputs.\n"
-        "# Exact Euclidean arithmetic, 0 as canonical zero; no GMP/independent exact arithmetic/Numeric.\n";
+        "# Exact Euclidean arithmetic, 0 as canonical zero; no GMP/MPFR/Numeric.\n";
     std::mt19937_64 engine(0xD1D1D1ULL);
     std::size_t rows=0u;
     for (unsigned repetition=0u;repetition<6000u;++repetition) {
@@ -268,19 +268,19 @@ std::array<std::string,4> limb_stress_fixtures() {
         "# A5 B48 independent exact limb division, all 560 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB48032D0) with all overwritten draws preserved.\n"
-        "# Exact independent Euclidean division; no Numeric, GMP, independent exact arithmetic or Boost.\n",
+        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
         "# A5 B49 independent exact limb division, all 784 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB490C0DE) with all overwritten draws preserved.\n"
-        "# Exact independent Euclidean division; no Numeric, GMP, independent exact arithmetic or Boost.\n",
+        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
         "# A5 B57 independent exact limb division, all 1800 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB570641) with all overwritten draws preserved.\n"
-        "# Exact independent Euclidean division; no Numeric, GMP, independent exact arithmetic or Boost.\n",
+        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
         "# A5 B61 independent exact limb division, all 1560 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB610D1A6) with all overwritten draws preserved.\n"
-        "# Exact independent Euclidean division; no Numeric, GMP, independent exact arithmetic or Boost.\n"};
+        "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n"};
     std::array<std::size_t,4> rows{};
     const auto append=[&](std::size_t group,std::size_t count,
                           std::uint64_t divisor,unsigned mode,
@@ -691,7 +691,7 @@ std::string randomized_a12_first_fixture() {
         "# A12 randomized BigUnsigned arithmetic, original visits 0..1249.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independent exact Python bigint arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independent exact Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     for (unsigned repetition=0u;repetition<1250u;++repetition) {
@@ -720,7 +720,7 @@ std::string randomized_a13_second_fixture() {
         "# A13 randomized BigUnsigned arithmetic, original visits 1250..2499.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently computed Python bigint arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently computed Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -754,7 +754,7 @@ std::string randomized_a14_third_fixture() {
         "# A14 randomized BigUnsigned arithmetic, original visits 2500..3749.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently computed Python bigint arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently computed Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -789,7 +789,7 @@ std::string randomized_a15_fourth_fixture() {
         "# A15 randomized BigUnsigned arithmetic, original visits 3750..4999.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently computed Python bigint arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently computed Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -824,7 +824,7 @@ std::string randomized_a16_fifth_fixture() {
         "# A16 randomized BigUnsigned arithmetic, original visits 5000..6249.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked multiple-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -859,7 +859,7 @@ std::string randomized_a17_sixth_fixture() {
         "# A17 randomized BigUnsigned arithmetic, original visits 6250..7499.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked multiple-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -894,7 +894,7 @@ std::string randomized_a18_seventh_fixture() {
         "# A18 randomized BigUnsigned arithmetic, original visits 7500..8749.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked multiple-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
@@ -929,7 +929,7 @@ std::string randomized_a19_eighth_fixture() {
         "# A19 randomized BigUnsigned arithmetic, original visits 8750..9999.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
-        "# Independently cross-checked multiple-precision integer arithmetic; no GMP/independent exact arithmetic/Numeric/Boost.\n";
+        "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;

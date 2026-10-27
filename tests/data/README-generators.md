@@ -35,7 +35,8 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (115 of 115 at B110).
+overwrites only the currently covered TSV files (203 of 203 after the
+27 October 2026 coverage iteration).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
 byte. The other TSVs remain committed and untouched. The generators' own
@@ -170,14 +171,17 @@ review every diff before committing. No sampling is used.
 | `generator_floatmp_rounding.cpp` | `floatmp_rounding.tsv`, `floatmp_add_sub.tsv` | 4,794 exact-rational rounding rows and 1,780 independent D80 add/sub rows; both existing TSVs unchanged |
 | `generator_big_unsigned_sqrt.cpp` | `big_unsigned_sqrt.tsv` | 161 exact sqrtrem triples; fully specified seeded SplitMix64 input generation, same 37 random width profiles and 33 square-neighbor cases |
 
-**Scope limitation:** the repository contains many other TSVs, including
-`floatmp_*.tsv`, other `rational_*.tsv`, and other `integer_*.tsv`, whose
-independent generator sources are **not yet versioned**. A descriptive TSV
-header is not a substitute for an executable generator. These sources do
-not claim to reproduce or validate those other fixtures. In particular,
-floating-point transcendental oracles require rigorously outward-rounded
-intervals with a proof that both endpoints round to the identical binary
-result; approximate `double`/`long double` outputs are not accepted.
+**Current reproducibility scope (27 October 2026):** all 203 versioned TSVs
+are covered by the 42 registered standalone generators, including the 16
+new fixtures described below. The complete set is checked byte-for-byte by
+`verify-data`; ordinary CTest still consumes committed fixtures without
+running generators. Historical counts and implementation notes below record
+the migration sequence rather than the current inventory. Original frozen
+header text, including historical FloatAP names and provenance descriptions,
+is preserved as part of the byte-level reproducibility contract.
+Transcendental oracles continue to require certified outward bounds that
+round to the same exact result; approximate host floating-point outputs
+are not accepted.
 
 The exact-limb helper is a small isolated oracle implementation, **not** a
 new Numeric production arithmetic backend. It uses a binary GCD, radix-2^64
@@ -1232,7 +1236,7 @@ Numeric, GMP and Boost. It supports the usual `--write` / `--verify` modes.
 
 `generator_integer_conversion.cpp` emits `integer_conversion.tsv`: 27 signed
 sources around 2^31, 2^32, 2^63 and 2^64 with independently computed signed
-and unsigned 32/64-bit representability. The consumer checks all four native
+and unsigned 32/64-bit representability. The consumer checks native int plus all four
 long/long-long destination types already present in the coverage report,
 selecting the frozen expectation by the platform's destination width.
 The generator uses only the standalone exact Nat helper.
