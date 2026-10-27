@@ -1219,3 +1219,11 @@ and remainder computed by the standalone long-division oracle. The fixture has
 exact quotient/remainder; the fixture has 640 rows, 86,823 bytes and Git blob
 `da602174c15f52d33838659fe2596e63cdcbdc24`. This completes the fixed
 76,323-visit BigUnsigned numerical GMP-oracle migration audit.
+
+### Decimal exact coverage oracle
+
+`generator_decimal_exact.cpp` emits `decimal_exact.tsv`: 64 source-keyed
+pairs covering equal values with different scales, unequal values, signs,
+zero, sums and products. Expectations use bounded standard `int64_t`
+arithmetic (input coefficients <=1250 and scales <=3), independently of
+Numeric, GMP and Boost. It supports the usual `--write` / `--verify` modes.

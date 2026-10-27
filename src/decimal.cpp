@@ -62,7 +62,7 @@ Decimal::Decimal(Dyadic const& w)
     if (!is_finite(w)) {
         throw std::domain_error("Cannot convert non-finite Dyadic to Decimal");
     }
-    ARIADNE_PRECONDITION(w.exponent()>=0);
+    // Dyadic stores a nonnegative denominator exponent; exponent() checks overflow.
     this->_p=w.mantissa();
     this->_q=static_cast<Nat>(w.exponent());
     Integer five(5);

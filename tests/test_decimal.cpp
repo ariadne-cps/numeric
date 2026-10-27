@@ -23,6 +23,9 @@
  */
 
 #include <sstream>
+#include <fstream>
+#include <stdexcept>
+#include <set>
 
 #include "numeric/decimal.hpp"
 #include "numeric/dyadic.hpp"
@@ -48,6 +51,32 @@ constexpr bool check_concept()
 }
 
 static_assert(check_concept());
+
+// Coefficients and scales identify each input independently of its rendering.
+void test_decimal_oracle()
+{
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/decimal_exact.tsv");
+    if (!data) throw std::runtime_error("Missing decimal_exact.tsv");
+    std::string line;
+    std::set<unsigned> ids;
+    while (std::getline(data,line)) {
+        if (line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        unsigned id,aq,bq,sq,pq;
+        std::string ap,bp,sp,pp,extra;
+        int unequal;
+        if (!(fields>>id>>ap>>aq>>bp>>bq>>sp>>sq>>pp>>pq>>unequal)
+            || (fields>>extra) || !ids.insert(id).second)
+            throw std::runtime_error("Malformed decimal_exact.tsv row");
+        const Decimal a(Integer(String(ap)),aq),b(Integer(String(bp)),bq);
+        std::cout << "Decimal oracle row " << id << std::endl;
+        ARIADNE_TEST_EQUALS(a!=b,Boolean(unequal!=0));
+        ARIADNE_TEST_EQUALS(a+b,Decimal(Integer(String(sp)),sq));
+        ARIADNE_TEST_EQUALS(a*b,Decimal(Integer(String(pp)),pq));
+    }
+    if (ids.size()!=64u || *ids.begin()!=0u || *ids.rbegin()!=63u)
+        throw std::runtime_error("Incomplete decimal_exact.tsv");
+}
 
 void test_decimal()
 {
@@ -135,5 +164,6 @@ void test_decimal()
 int main()
 {
     ARIADNE_TEST_CALL(test_decimal());
+    ARIADNE_TEST_CALL(test_decimal_oracle());
     return ARIADNE_TEST_FAILURES;
 }
