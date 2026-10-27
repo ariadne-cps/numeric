@@ -53,6 +53,7 @@ add_dependencies(tests ${UNIT_TESTS} check_numeric)
 set(ORACLE_GENERATORS
     generator_decimal_exact
     generator_dyadic_add_sub
+    generator_dyadic_conversion
     generator_floatdp_wrappers
     generator_scalar_comparison
     generator_integer_conversion

@@ -34,6 +34,10 @@
 #include "numeric/rational.hpp"
 #include "foundation/logical.hpp"
 
+#include "numeric/floatdp.hpp"
+#include "numeric/floatmp.hpp"
+#include "numeric/float_approximation.hpp"
+#include <bit>
 #include <iomanip>
 #include <fstream>
 #include <sstream>
@@ -504,12 +508,109 @@ void test_dyadic_add_sub_oracles() {
     }
 }
 
+void test_dyadic_conversion_oracle() {
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/dyadic_conversion.tsv");
+    if (!data) throw std::runtime_error("Missing dyadic_conversion.tsv");
+    std::string line;
+    std::set<unsigned> ids;
+    const MultiplePrecision precision(2048_bits);
+    while (std::getline(data,line)) {
+        if (line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        unsigned id,exponent;
+        std::uint64_t expected;
+        int exact;
+        std::string coefficient,denominator,floor_expected,ceil_expected,extra;
+        if (!(fields>>id>>coefficient>>exponent>>expected>>exact>>denominator>>floor_expected>>ceil_expected) || (fields>>extra)
+            || !ids.insert(id).second)
+            throw std::runtime_error("Malformed dyadic_conversion.tsv");
+        const Dyadic source(Integer(String(coefficient)),static_cast<std::size_t>(exponent));
+        std::cout << "Dyadic conversion row " << id << std::endl;
+        ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(source.get_d()),expected);
+        ARIADNE_TEST_EQUALS(floor(source),Integer(String(floor_expected)));
+        ARIADNE_TEST_EQUALS(ceil(source),Integer(String(ceil_expected)));
+        ARIADNE_TEST_EQUALS(hlf(source),Dyadic(Integer(String(coefficient)),static_cast<std::size_t>(exponent)+1u));
+        ARIADNE_TEST_EQUALS(fma(source,Dyadic(1),Dyadic(0)),source);
+        const Rational exact_value{Integer(String(coefficient)),Integer(String(denominator))};
+        const Rational reciprocal{Integer(String(denominator)),Integer(String(coefficient))};
+        ARIADNE_TEST_EQUALS(div(source,Integer(1)),exact_value);
+        ARIADNE_TEST_EQUALS(div(Integer(1),source),reciprocal);
+        const FloatMP mp(source,FloatMP::ROUND_TO_NEAREST,precision);
+        ARIADNE_TEST_EQUALS(Dyadic(mp),source);
+        const Approximation<Dyadic> approximate(source);
+        ARIADNE_TEST_EQUALS(Dyadic(approximate.get(precision).raw()),source);
+        if (exact!=0) {
+            const double value=std::bit_cast<double>(expected);
+            const FloatDP fp(ExactDouble(value),dp);
+            ARIADNE_TEST_EQUALS(Dyadic(fp),source);
+            ARIADNE_TEST_EQUALS(Dyadic(ExactDouble(value)),source);
+            ARIADNE_TEST_EQUALS(Dyadic(value),source);
+            ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(approximate.get(dp).raw().get_d()),expected);
+        }
+    }
+    if (ids.size()!=168u || *ids.begin()!=0u || *ids.rbegin()!=167u)
+        throw std::runtime_error("Incomplete dyadic_conversion.tsv");
+}
+
+void test_dyadic_public_contracts() {
+    const std::size_t largest=std::numeric_limits<std::size_t>::max();
+    const Dyadic tiny(Integer(1),largest);
+    ARIADNE_TEST_FAIL(tiny.exponent());
+    ARIADNE_TEST_FAIL(tiny.literal());
+    ARIADNE_TEST_FAIL(tiny*Dyadic(1,1u));
+    ARIADNE_TEST_FAIL(hlf(tiny));
+    const Integer outside_size=Integer::from_magnitude(shift_left(BigUnsigned(1u),
+        std::numeric_limits<std::size_t>::digits),false);
+    const Natural too_large(outside_size);
+    ARIADNE_TEST_FAIL((Dyadic(Integer(1),too_large)));
+    ARIADNE_TEST_FAIL(Dyadic(1)/3);
+
+    const PositiveDyadic default_positive;
+    const Dyadic positive(3,1u),negative(-3,1u);
+    const PositiveDyadic copied_positive(positive);
+    ARIADNE_TEST_EQUALS(default_positive,Dyadic(0));
+    ARIADNE_TEST_EQUALS(copied_positive,positive);
+    ARIADNE_TEST_EQUALS(cast_positive(positive),positive);
+    ARIADNE_TEST_FAIL(cast_positive(negative));
+    ARIADNE_TEST_ASSERT(positive.kind()==Dyadic::Kind::Finite);
+    ARIADNE_TEST_ASSERT(Dyadic::inf().kind()==Dyadic::Kind::PositiveInfinity);
+    ARIADNE_TEST_ASSERT((-Dyadic::inf()).kind()==Dyadic::Kind::NegativeInfinity);
+    ARIADNE_TEST_ASSERT(Dyadic::nan().kind()==Dyadic::Kind::NaN);
+    ARIADNE_TEST_EQUALS(Dyadic::nan().literal(),String("NaN"));
+    ARIADNE_TEST_EQUALS(Dyadic::inf().literal(),String("inf"));
+    ARIADNE_TEST_EQUALS((-Dyadic::inf()).literal(),String("-inf"));
+    ARIADNE_TEST_ASSERT(is_nan(Dyadic(Rational::nan())));
+    ARIADNE_TEST_EQUALS(Dyadic(Rational::inf()),Dyadic::inf());
+    ARIADNE_TEST_EQUALS(Dyadic(-Rational::inf()),-Dyadic::inf());
+    ARIADNE_TEST_ASSERT(is_nan(Dyadic::inf(Sign::ZERO)));
+    ARIADNE_TEST_ASSERT(is_nan(-Dyadic::nan()));
+    ARIADNE_TEST_ASSERT(is_nan(Dyadic(0)*Dyadic::inf()));
+    ARIADNE_TEST_ASSERT(is_nan(Dyadic::inf()*Dyadic(0)));
+    ARIADNE_TEST_ASSERT(is_nan(Dyadic::nan()*positive));
+    ARIADNE_TEST_ASSERT(is_nan(positive*Dyadic::nan()));
+    ARIADNE_TEST_EQUALS(cmp(Int(1),positive),Comparison::LESS);
+    ARIADNE_TEST_ASSERT(positive!=negative);
+    ARIADNE_TEST_ASSERT(!eq(positive,Dyadic::nan()));
+    ARIADNE_TEST_ASSERT(!eq(positive,Dyadic(3)));
+    ARIADNE_TEST_ASSERT(!lt(positive,Dyadic::nan()));
+    ARIADNE_TEST_ASSERT(!lt(Dyadic::nan(),positive));
+    ARIADNE_TEST_ASSERT(is_nan(max(positive,Dyadic::nan())));
+
+    ARIADNE_TEST_EQUALS(Dyadic(String("1.5")),positive);
+    ARIADNE_TEST_EQUALS(dy_(1.5L),positive);
+    std::ostringstream stream;
+    stream << Approximation<Dyadic>(positive);
+    ARIADNE_TEST_EQUALS(stream.str(),std::string("1.5"));
+}
+
 int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
 
     ARIADNE_TEST_CLASS(Dyadic,TestDyadic());
     ARIADNE_TEST_CALL(test_dyadic_add_sub_oracles());
+    ARIADNE_TEST_CALL(test_dyadic_conversion_oracle());
+    ARIADNE_TEST_CALL(test_dyadic_public_contracts());
 
     return ARIADNE_TEST_FAILURES;
 }

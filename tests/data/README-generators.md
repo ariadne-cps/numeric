@@ -1261,3 +1261,16 @@ zero, equal and adjacent mantissas cover cancellation, carry and borrow.
 The second exponent base also exercises comparison of fractions below one.
 Expectations use independent signed Nat arithmetic with a common power-of-two
 denominator and canonicalization. No production code is used or linked.
+
+### Dyadic binary64 conversion and rounding
+
+`generator_dyadic_conversion.cpp` emits 168 source-keyed dyadics with exact
+truncating binary64 bit patterns, representability flags, power-of-two
+denominators, floor and ceil. Expected IEEE results are assembled with
+integer bit fields, without host floating arithmetic. Sources cover both
+signs, zero, 53/64/117/128-bit extraction boundaries, overflow and subnormal
+or underflow boundaries. Exactly representable rows also verify FloatDP
+round trips; every source verifies an exact 2048-bit FloatMP round trip and
+Approximation conversion. The fixture has an independent Python witness
+checking the decoded result's adjacent-representable interval and exact
+floor/ceil. Standalone --write/--verify are supported.
