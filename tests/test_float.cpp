@@ -1372,10 +1372,59 @@ void test_floatmp_precision_contracts() {
     }
 }
 
+void test_floatmp_exponent_limit_oracle() {
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatmp_exponent_limits.tsv");
+    if (!data) throw std::runtime_error("Missing floatmp_exponent_limits.tsv");
+    std::string line;
+    std::set<unsigned> ids;
+    while (std::getline(data,line)) {
+        if (line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        unsigned id,bits;
+        char mode;
+        FloatMP::Exponent expected_exponent;
+        std::string op,a,b,status,magnitude,extra;
+        if (!(fields>>id>>op>>mode>>bits>>a>>b>>status>>magnitude>>expected_exponent)
+            || (fields>>extra) || !ids.insert(id).second)
+            throw std::runtime_error("Malformed floatmp_exponent_limits.tsv");
+        const MultiplePrecision precision(static_cast<std::size_t>(bits));
+        const auto input=[&](std::string const& token) {
+            if (token=="min") return FloatMP::min(precision);
+            if (token=="max") return FloatMP::max(precision);
+            throw std::runtime_error("Unknown native exponent source");
+        };
+        const auto rounding=mode=='N'?FloatMP::ROUND_TO_NEAREST:mode=='D'?FloatMP::ROUND_DOWNWARD:
+                            mode=='U'?FloatMP::ROUND_UPWARD:FloatMP::ROUND_TOWARD_ZERO;
+        const FloatMP left=input(a);
+        bool overflow=false;
+        std::cout << "FloatMP exponent limit row " << id << std::endl;
+        try {
+            const auto evaluate=[&]() {
+                if (op=="shift") return shft(left,static_cast<Int>(std::stoi(b)));
+                const FloatMP right=input(b);
+                if (op=="div") return div(rounding,left,right);
+                if (op=="mul") return mul(rounding,left,right);
+                throw std::runtime_error("Unknown native exponent operation");
+            };
+            const FloatMP actual=evaluate();
+            ARIADNE_TEST_EQUALS(status,std::string("finite"));
+            ARIADNE_TEST_ASSERT(actual.kind()==FloatMP::Kind::Finite);
+            ARIADNE_TEST_ASSERT(!actual.negative());
+            ARIADNE_TEST_EQUALS(actual.precision(),precision);
+            ARIADNE_TEST_EQUALS(actual.exponent(),expected_exponent);
+            ARIADNE_TEST_EQUALS(Integer::from_magnitude(actual.significand(),false),Integer(String(magnitude)));
+        } catch (std::overflow_error const&) { overflow=true; }
+        ARIADNE_TEST_EQUALS(overflow,status=="overflow");
+    }
+    if (ids.size()!=76u || *ids.begin()!=0u || *ids.rbegin()!=75u)
+        throw std::runtime_error("Incomplete floatmp_exponent_limits.tsv");
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
+    test_floatmp_exponent_limit_oracle();
     test_floatmp_precision_contracts();
     test_floatmp_construction_oracle();
     test_floatmp_minmax_oracle();

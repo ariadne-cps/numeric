@@ -51,6 +51,7 @@ add_dependencies(tests ${UNIT_TESTS} check_numeric)
 
 # Standalone C++20 generators are independent of unit-test builds.
 set(ORACLE_GENERATORS
+    generator_floatmp_exponent_limits
     generator_floatmp_construction
     generator_floatmp_minmax
     generator_decimal_exact

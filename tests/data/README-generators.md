@@ -1310,3 +1310,13 @@ integer GCD. Inputs fit eight significant bits, so all results are exact at
 8/53/512 bits. The consumer checks default and directed constructor wrappers,
 precision preservation, empty construction and self-move with inline and heap
 storage. No Numeric, GMP or floating-point oracle is used.
+
+### FloatMP native exponent limits
+
+`generator_floatmp_exponent_limits.cpp` emits 76 rows in
+`floatmp_exponent_limits.tsv`. Signed arbitrary-size exponent arithmetic
+and bounded exact significand rounding compute finite native fields or
+prove an overflow. Cases use native min/max values at 2/7 bits, four rounding
+modes, and neighboring shifts. The consumer checks significand, exponent,
+precision and kind directly, avoiding enormous power-of-two allocations.
+A Python arbitrary-integer/Fraction witness independently verifies all rows.
