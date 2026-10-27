@@ -35,6 +35,10 @@
 #include "foundation/logical.hpp"
 
 #include <iomanip>
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <set>
 
 #include "macro/testing.hpp"
 
@@ -465,11 +469,47 @@ void TestDyadic::test_infinity() {
 }
 
 
+void test_dyadic_add_sub_oracles() {
+    for (unsigned limbs:{1u,5u,16u,17u,31u,32u,64u,65u}) {
+        const std::string name="dyadic_add_sub_"+std::to_string(limbs)+".tsv";
+        std::ifstream data(std::string(ARIADNE_TEST_DATA_DIR)+"/"+name);
+        if (!data) throw std::runtime_error("Missing "+name);
+        std::string line;
+        std::set<unsigned> ids;
+        while (std::getline(data,line)) {
+            if (line.empty() || line[0]=='#') continue;
+            std::istringstream fields(line);
+            unsigned id;
+            std::size_t ae,be,se,de;
+            std::string an,bn,sn,dn,extra;
+            if (!(fields>>id>>an>>ae>>bn>>be>>sn>>se>>dn>>de) || (fields>>extra)
+                || !ids.insert(id).second)
+                throw std::runtime_error("Malformed "+name);
+            const Dyadic a(Integer(String(an)),ae),b(Integer(String(bn)),be);
+            const Dyadic sum_expected(Integer(String(sn)),se),difference_expected(Integer(String(dn)),de);
+            std::cout << name << " row " << id << std::endl;
+            ARIADNE_TEST_EQUALS(a+b,sum_expected);
+            ARIADNE_TEST_EQUALS(b+a,sum_expected);
+            ARIADNE_TEST_EQUALS(a-b,difference_expected);
+            ARIADNE_TEST_EQUALS(b-a,-difference_expected);
+            // Canonicalization is observable through the public accessors.
+            const auto sum=a+b,difference=a-b;
+            ARIADNE_TEST_EQUALS(sum.coefficient().literal(),String(sn));
+            ARIADNE_TEST_EQUALS(sum.denominator_exponent(),se);
+            ARIADNE_TEST_EQUALS(difference.coefficient().literal(),String(dn));
+            ARIADNE_TEST_EQUALS(difference.denominator_exponent(),de);
+        }
+        if (ids.size()!=256u || *ids.begin()!=0u || *ids.rbegin()!=255u)
+            throw std::runtime_error("Incomplete "+name);
+    }
+}
+
 int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
 
     ARIADNE_TEST_CLASS(Dyadic,TestDyadic());
+    ARIADNE_TEST_CALL(test_dyadic_add_sub_oracles());
 
     return ARIADNE_TEST_FAILURES;
 }

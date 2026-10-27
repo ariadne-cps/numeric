@@ -1250,3 +1250,14 @@ zero, identity, negation and half results. Expectations are integer bit-field
 transformations; no host floating arithmetic or Numeric oracle is involved.
 Every result is checked bit-for-bit in all four builtin rounding modes.
 Both standalone generators support write and byte-for-byte verify.
+
+### Dyadic signed addition/subtraction dispatch
+
+`generator_dyadic_add_sub.cpp` emits eight `dyadic_add_sub_<limbs>.tsv`
+fixtures, 256 rows each. Widths 1/5/16/17/31/32/64/65 bracket both platform
+crossovers between shifted, stack-aligned and owned algorithms. Exponent
+gaps 0/1/63/64 bracket virtual-shift dispatch; both exponent orders, signs,
+zero, equal and adjacent mantissas cover cancellation, carry and borrow.
+The second exponent base also exercises comparison of fractions below one.
+Expectations use independent signed Nat arithmetic with a common power-of-two
+denominator and canonicalization. No production code is used or linked.

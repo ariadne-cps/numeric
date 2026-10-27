@@ -38,7 +38,7 @@ endforeach()
 # Absolute fixture base directory for the oracle-using test targets.
 # The TSV file names live beside their consumers in the C++ test files.
 # Absolute path preserves out-of-source builds and Windows CTest.
-foreach(TEST IN ITEMS test_big_unsigned test_integer test_rational test_float_rounding test_float test_rounded_float test_real test_decimal)
+foreach(TEST IN ITEMS test_big_unsigned test_integer test_rational test_float_rounding test_float test_rounded_float test_real test_decimal test_dyadic)
     target_compile_definitions(${TEST} PRIVATE
         "ARIADNE_TEST_DATA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/data\"")
 endforeach()
@@ -52,6 +52,7 @@ add_dependencies(tests ${UNIT_TESTS} check_numeric)
 # Standalone C++20 generators are independent of unit-test builds.
 set(ORACLE_GENERATORS
     generator_decimal_exact
+    generator_dyadic_add_sub
     generator_floatdp_wrappers
     generator_scalar_comparison
     generator_integer_conversion
