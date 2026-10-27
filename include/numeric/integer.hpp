@@ -224,16 +224,24 @@ template<BuiltinIntegral N> inline N Integer::get() const {
         if (value>min_magnitude) {
             throw std::out_of_range("Integer does not fit destination type");
         }
-        const std::int64_t signed_value=value==min_magnitude
-            ? std::numeric_limits<std::int64_t>::min()
-            : -static_cast<std::int64_t>(value);
-        if (!std::in_range<N>(signed_value)) {
+        if constexpr (BuiltinUnsignedIntegral<N>) {
+            throw std::out_of_range("Integer does not fit destination type");
+        } else {
+            const std::int64_t signed_value=value==min_magnitude
+                ? std::numeric_limits<std::int64_t>::min()
+                : -static_cast<std::int64_t>(value);
+            if constexpr (std::numeric_limits<N>::digits<63) {
+                if (!std::in_range<N>(signed_value)) {
+                    throw std::out_of_range("Integer does not fit destination type");
+                }
+            }
+            return static_cast<N>(signed_value);
+        }
+    }
+    if constexpr (std::numeric_limits<N>::digits<64) {
+        if (!std::in_range<N>(value)) {
             throw std::out_of_range("Integer does not fit destination type");
         }
-        return static_cast<N>(signed_value);
-    }
-    if (!std::in_range<N>(value)) {
-        throw std::out_of_range("Integer does not fit destination type");
     }
     return static_cast<N>(value);
 }
