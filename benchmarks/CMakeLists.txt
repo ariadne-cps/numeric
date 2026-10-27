@@ -10,7 +10,7 @@ endif()
 
 foreach(BENCHMARK ${BENCHMARKS})
     add_executable(${BENCHMARK} ${BENCHMARK}.cpp)
-    target_link_libraries(${BENCHMARK} PRIVATE ariadne-numeric numeric logging LOGGING_SRC)
+    target_link_libraries(${BENCHMARK} PRIVATE ariadne-numeric numeric)
 endforeach()
 
 add_dependencies(benchmarks ${BENCHMARKS})

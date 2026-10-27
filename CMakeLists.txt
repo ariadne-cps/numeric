@@ -42,6 +42,7 @@ target_include_directories(numeric INTERFACE
 )
 target_link_libraries(numeric INTERFACE
     foundation
+    logging
 )
 if(WIN32)
     target_compile_definitions(numeric INTERFACE ARIADNE_NUMERIC_STATIC)
