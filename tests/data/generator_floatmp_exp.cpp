@@ -10,7 +10,7 @@
 namespace {
 using independent_oracle::Nat;
 using independent_oracle::row;
-constexpr std::size_t work_bits=1400u;
+constexpr std::size_t work_bits=1800u;
 std::size_t bits(Nat const& n) {
     return n.zero()?0u:(n.w.size()-1u)*64u+64u-
         static_cast<std::size_t>(std::countl_zero(n.w.back()));
@@ -93,11 +93,12 @@ Interval divpositive(Interval const& a,Interval const& b){
 Interval exp_abs(std::uint64_t n,Nat const& d){
     const auto z=ratio(n,d.shl(4u));
     Interval term=integer(1u),sum=term;
-    for(unsigned k=1u;k<=165u;++k){
+    const unsigned terms=Nat(n).compare(d.mul_small(7u))>0 ? 400u : 165u;
+    for(unsigned k=1u;k<=terms;++k){
         term=divpositive(mul(term,z),integer(k));
         sum=add(sum,term);
     }
-    const auto next=divpositive(mul(term,z),integer(166u));
+    const auto next=divpositive(mul(term,z),integer(terms+1u));
     sum.hi=Nat::add(sum.hi,next.hi.mul_small(2u));
     for(unsigned j=0u;j<4u;++j)sum=sqr(sum);
     return sum;
@@ -143,14 +144,14 @@ std::string generate(){
     std::string out=
         "# Certified exp(x) correctly rounded results; independent of GMP/independent exact arithmetic/FloatMP.\n"
         "# precision_bits mode input_num input_den expected_num expected_den\n"
-        "# W=1400, B=2^W, t=abs(x)/16 <= 7/16, Taylor N=165.\n"
+        "# W=1800, B=2^W, t=abs(x)/16 <= 16; Taylor N=165 for |x|<=7, N=400 otherwise.\n"
         "# Every term t^k/k! bounded with outward floor/ceil fixed-point division.\n"
-        "# Omitted positive tail bounded by twice the upper estimate of term N+1.\n"
+        "# Omitted positive tail < twice term N+1, since t/(N+2)<1/2.\n"
         "# Both bounds squared four times, outward rounded; for negative x invert.\n"
         "# Every stored result is the identical rational binary rounding of both endpoints.\n"
         "# N nearest-even, D downward, U upward, Z toward zero.\n"
-        "# 18 inputs, 4 bit widths, 4 rounding modes: 288 certified rows.\n";
-    const std::array<std::pair<std::uint64_t,Nat>,9u> inputs={{{1,Nat(4u)},{3,Nat(4u)},{1,Nat(2u)},{1,Nat(1u)},{3,Nat(1u)},{7,Nat(1u)},{1,Nat::power2(16u)},{1,Nat::power2(64u)},{1023,Nat(1024u)}}};
+        "# 20 inputs, 4 bit widths, 4 rounding modes: 320 certified rows.\n";
+    const std::array<std::pair<std::uint64_t,Nat>,10u> inputs={{{1,Nat(4u)},{3,Nat(4u)},{1,Nat(2u)},{1,Nat(1u)},{3,Nat(1u)},{7,Nat(1u)},{1,Nat::power2(16u)},{1,Nat::power2(64u)},{1023,Nat(1024u)},{256,Nat(1u)}}};
     for(const auto& [n,d]:inputs){
         for(bool negative:{false,true}){
             Interval bounds=exp_abs(n,d);

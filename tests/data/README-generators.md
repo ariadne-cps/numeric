@@ -160,7 +160,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatmp_sqrt.cpp` | `floatmp_sqrt.tsv` | 300 unique input/mode exact rounded square roots; 360 source checks retained by consumer |
 | `generator_floatmp_pow_short.cpp` | `floatmp_pow_short.tsv` | 3,680 exact boundary-focused integer powers, 5 precisions, 7 degrees, 4 directed modes |
 | `generator_rounded_float_directed.cpp` | `rounded_float_directed.tsv` | 24 rigorous 128-bit exp/log/atan directed pairs, 48 original strict bound comparisons |
-| `generator_floatmp_exp.cpp` | `floatmp_exp.tsv` | 288 certified, correctly rounded exp results across 18 signed inputs, 4 precisions and 4 rounding modes |
+| `generator_floatmp_exp.cpp` | `floatmp_exp.tsv` | 320 certified, correctly rounded exp results across 20 signed inputs, 4 precisions and 4 rounding modes |
 | `generator_floatmp_log.cpp` | `floatmp_log.tsv` | 444 certified correctly rounded logs, including 284 original centered inputs and 160 D96 cases |
 | `generator_floatmp_sin_cos.cpp` | `floatmp_sin.tsv`, `floatmp_cos.tsv` | 1,080 exact source-keyed independently certified outputs each, across D91, D92, D95 original test families |
 | `generator_floatmp_centered_exp.cpp` | `floatmp_centered_exp.tsv` | 568 exact certified reference rows from all 720 original centered-exp visits |
@@ -1320,3 +1320,11 @@ prove an overflow. Cases use native min/max values at 2/7 bits, four rounding
 modes, and neighboring shifts. The consumer checks significand, exponent,
 precision and kind directly, avoiding enormous power-of-two allocations.
 A Python arbitrary-integer/Fraction witness independently verifies all rows.
+
+The coverage extension adds exp(+256) and exp(-256) at the same four precisions and
+rounding modes, for 320 total rows. The independent fixed scale is now B=2^1800;
+Taylor degree 400 covers |x|/16<=16 while degree 165 remains sufficient for the
+original inputs. The tail ratio after the first omitted term is below 1/2.
+Both outward endpoints must certify the same result. All original 288 numerical
+rows remain unchanged. The added negative input exercises a zero intermediate
+lower endpoint and subsequent precision refinement during reconstruction.

@@ -184,7 +184,7 @@ Rational const& floatmp_exp_golden(std::size_t bits,
                                    FloatMP::RoundingModeType mode,
                                    Rational const& input) {
     static const auto rows=load_floatmp_golden_rows(
-        ARIADNE_FLOATMP_EXP_ORACLE_PATH,288u);
+        ARIADNE_FLOATMP_EXP_ORACLE_PATH,320u);
     return find_floatmp_golden(rows,bits,mode,input);
 }
 Rational const& floatmp_sqrt_golden(std::size_t bits,
@@ -1411,9 +1411,10 @@ TestFloatRounding<PR>::test_precision_regressions()
                       Dyadic(-3,0u),Dyadic(7,0u),Dyadic(-7,0u),
                       Dyadic(1,16u),Dyadic(-1,16u),
                       Dyadic(1,64u),Dyadic(-1,64u),
-                      Dyadic(1023,10u),Dyadic(-1023,10u)}) {
+                      Dyadic(1023,10u),Dyadic(-1023,10u),
+                      Dyadic(256,0u),Dyadic(-256,0u)}) {
                     const FloatMP a(argument,mp);
-                    const Rational exact_input=static_cast<Rational>(a);
+                    const Rational exact_input(argument);
                     const auto compare_exponential=[&](auto ap_mode) {
                         ARIADNE_TEST_EQUALS(
                             static_cast<Rational>(exp(ap_mode,a)),
