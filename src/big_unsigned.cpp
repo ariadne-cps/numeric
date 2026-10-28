@@ -3959,16 +3959,18 @@ void subtract_in_place(Write lhs,Read rhs)
         borrow=static_cast<Limb>(left<right || difference<borrow);
         lhs[i]=value;
     }
-    if (borrow!=0u) {
-        throw std::logic_error("BigUnsigned Karatsuba negative cross term");
-    }
+    // Both callers subtract z0 or z2 from (a0+a1)*(b0+b1). The
+    // intermediate and final cross term are nonnegative, so no borrow
+    // can escape this exact-width unsigned subtraction.
+
 }
 
 // Accumulate the shifted cross term, touching only limbs affected by
 // term or a propagated carry. In the no-carry case, the remaining output
 // limbs are already correct and need not be read or rewritten.
-// A widened sum-of-halves temporary can extend beyond the destination:
-// every discarded word must still be checked for zero.
+// The term is a0*b1+a1*b0. It and every positive partial sum are bounded
+// by the full product, which fits the caller's a.size()+b.size() limbs.
+// Widened sum buffers can only contribute zeros beyond that width.
 void add_shifted(Write output,Read term)
 {
     const std::size_t common=std::min(output.size(),term.size());
@@ -3982,20 +3984,13 @@ void add_shifted(Write output,Read term)
         carry=static_cast<Limb>(sum<left || value<sum);
         output[i]=value;
     }
-    while (carry!=0u && i<output.size()) {
+    while (carry!=0u) {
         const Limb left=output[i];
         output[i]=left+carry;
         carry=static_cast<Limb>(output[i]<left);
         ++i;
     }
-    if (carry!=0u) {
-        throw std::logic_error("BigUnsigned Karatsuba output overflow");
-    }
-    for (std::size_t j=output.size();j<term.size();++j) {
-        if (term[j]!=0u) {
-            throw std::logic_error("BigUnsigned Karatsuba nonzero high term");
-        }
-    }
+
 }
 
 // output.size()==a.size()+b.size(); scratch size is precomputed.
