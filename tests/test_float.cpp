@@ -1772,6 +1772,17 @@ void test_checked_precision_arithmetic() {
     ARIADNE_TEST_EQUALS(checked_unsigned_cast<std::uint8_t>(255ul,message),std::uint8_t(255u));
     ARIADNE_TEST_FAIL(checked_unsigned_cast<std::uint8_t>(256ul,message));
     ARIADNE_TEST_EQUALS(checked_unsigned_cast<unsigned long>(std::uint8_t(255u),message),255ul);
+    ARIADNE_TEST_ASSERT(Detail::unsigned_fits<unsigned long>(std::uint8_t(255u)));
+    const auto check_product_bounds=[&]<class CountType>() {
+        const auto limit=std::numeric_limits<CountType>::max();
+        ARIADNE_TEST_EQUALS(Detail::checked_unsigned_multiply(limit,CountType{0u},message),CountType{0u});
+        ARIADNE_TEST_EQUALS(Detail::checked_unsigned_multiply(CountType{0u},limit,message),CountType{0u});
+        ARIADNE_TEST_EQUALS(Detail::checked_unsigned_multiply(limit,CountType{1u},message),limit);
+        ARIADNE_TEST_EQUALS(Detail::checked_unsigned_multiply(limit/CountType{2u},CountType{2u},message),limit-CountType{1u});
+        ARIADNE_TEST_FAIL(Detail::checked_unsigned_multiply(limit/CountType{2u}+CountType{1u},CountType{2u},message));
+    };
+    check_product_bounds.template operator()<unsigned long>();
+    check_product_bounds.template operator()<std::size_t>();
 }
 
 // Public IEEE boundary behavior, using exact constants and elementary pi bounds.

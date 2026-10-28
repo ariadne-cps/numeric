@@ -2318,10 +2318,8 @@ bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
     // entire segment around +/-1/2 lies inside [-3/4,3/4].
     if (work<4ul) return false;
     const unsigned long cutoff_bits=work/2ul+work%2ul;
-    if (static_cast<std::uintmax_t>(cutoff_bits)>
-            static_cast<std::uintmax_t>(
-                std::numeric_limits<std::size_t>::max())) {
-        return false;
+    if constexpr(Detail::unsigned_narrowing<std::size_t,unsigned long>) {
+        if(!Detail::unsigned_fits<std::size_t>(cutoff_bits)) return false;
     }
     return within_dyadic_window(delta,cutoff_bits);
 }
@@ -2675,10 +2673,8 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
             const unsigned long twice_n=2ul*n;
             const unsigned long a=sine ? twice_n+2ul : twice_n+1ul;
             const unsigned long b=sine ? twice_n+3ul : twice_n+2ul;
-            if (a>std::numeric_limits<unsigned long>::max()/b) {
-                throw std::overflow_error("FloatMP sine/cosine factorial overflow");
-            }
-            const Limb divisor=static_cast<Limb>(a*b);
+            const Limb divisor=static_cast<Limb>(Detail::checked_unsigned_multiply(
+                a,b,"FloatMP sine/cosine factorial overflow"));
 
             scaled_product(term,square,next_term);
             quotient.resize(next_term.size());
@@ -2908,10 +2904,8 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
 // has a certified remainder below one bit at the requested work.
 bool sufficiently_near_half(Fraction const& delta, unsigned long work) {
     const unsigned long half_work=work/2ul+work%2ul;
-    if (static_cast<std::uintmax_t>(half_work)>
-            static_cast<std::uintmax_t>(
-                std::numeric_limits<std::size_t>::max())) {
-        return false;
+    if constexpr(Detail::unsigned_narrowing<std::size_t,unsigned long>) {
+        if(!Detail::unsigned_fits<std::size_t>(half_work)) return false;
     }
     return within_dyadic_window(delta,half_work);
 }
@@ -3212,13 +3206,13 @@ Interval square_root_interval(Fraction const& x, unsigned long work) {
     // The argument is an exact positive fraction. Its integer quotient
     // and exact square-root remainder are native; the final
     // interval endpoints stay in the native Fraction carrier.
-    if (work > std::numeric_limits<std::size_t>::max() / 2u) {
-        throw std::overflow_error("FloatMP radical precision too large");
-    }
+    constexpr char shift_error[]="FloatMP radical precision too large";
+    const auto work_shift=Detail::checked_unsigned_cast<std::size_t>(work,shift_error);
+    const auto squared_shift=Detail::checked_unsigned_multiply(work_shift,std::size_t{2u},shift_error);
     const Integer& numerator=x.numerator();
     const BigUnsigned& denominator=x.denominator();
     auto [quotient,division_remainder]=divrem(
-        shift_left(numerator.magnitude(),static_cast<std::size_t>(2u*work)),
+        shift_left(numerator.magnitude(),squared_shift),
         denominator);
     auto [root,square_remainder]=sqrtrem(quotient);
     const Fraction lower(root,work);
@@ -3330,24 +3324,26 @@ Interval centered_atan_half_interval(Fraction const& input,
     // Preserve the rational computation on a target whose size_t cannot
     // represent the working binary scale. On ordinary 32/64-bit ABIs,
     // size_t is at least as wide as unsigned long.
-    if (bits+2ul>std::numeric_limits<std::size_t>::max()) {
-        struct Cache {
-            unsigned long work = 0;
-            std::optional<Interval> center;
-        };
-        static thread_local Cache cached_rational;
-        if (!cached_rational.center || cached_rational.work < work) {
-            cached_rational.center = outward_dyadic_interval(
-                atan_half_interval(checked_work), work + 24ul);
-            cached_rational.work = work;
+    if constexpr(Detail::unsigned_narrowing<std::size_t,unsigned long>) {
+        if(!Detail::unsigned_fits<std::size_t>(bits+2ul)) {
+            struct Cache {
+                unsigned long work = 0;
+                std::optional<Interval> center;
+            };
+            static thread_local Cache cached_rational;
+            if (!cached_rational.center || cached_rational.work < work) {
+                cached_rational.center = outward_dyadic_interval(
+                    atan_half_interval(checked_work), work + 24ul);
+                cached_rational.work = work;
+            }
+            const Fraction linear = Fraction(4L) * delta / Fraction(5L);
+            const Fraction remainder = delta * delta;
+            const Interval positive{
+                cached_rational.center->lower + linear - remainder,
+                cached_rational.center->upper + linear + remainder
+            };
+            return input.sign() < 0 ? negative(positive) : positive;
         }
-        const Fraction linear = Fraction(4L) * delta / Fraction(5L);
-        const Fraction remainder = delta * delta;
-        const Interval positive{
-            cached_rational.center->lower + linear - remainder,
-            cached_rational.center->upper + linear + remainder
-        };
-        return input.sign() < 0 ? negative(positive) : positive;
     }
     const std::size_t delta_shift = delta.dyadic_denominator_bits().value();
 

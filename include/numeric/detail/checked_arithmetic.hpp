@@ -13,6 +13,27 @@
 
 namespace Ariadne::Detail {
 
+template<std::unsigned_integral To,std::unsigned_integral From>
+inline constexpr bool unsigned_narrowing=
+    std::numeric_limits<To>::digits<std::numeric_limits<From>::digits;
+
+template<std::unsigned_integral To,std::unsigned_integral From>
+constexpr bool unsigned_fits(From value) noexcept {
+    if constexpr(unsigned_narrowing<To,From>) {
+        return value<=static_cast<From>(std::numeric_limits<To>::max());
+    } else {
+        (void)value;
+        return true;
+    }
+}
+
+template<std::unsigned_integral T>
+constexpr T checked_unsigned_multiply(T left,T right,char const* message) {
+    if(right!=0 && left>std::numeric_limits<T>::max()/right)
+        throw std::overflow_error(message);
+    return static_cast<T>(left*right);
+}
+
 template<std::unsigned_integral T>
 constexpr T checked_unsigned_add(T left,T right,char const* message) {
     if(left>std::numeric_limits<T>::max()-right) throw std::overflow_error(message);
@@ -21,8 +42,8 @@ constexpr T checked_unsigned_add(T left,T right,char const* message) {
 
 template<std::unsigned_integral To,std::unsigned_integral From>
 constexpr To checked_unsigned_cast(From value,char const* message) {
-    if constexpr(std::numeric_limits<To>::digits<std::numeric_limits<From>::digits) {
-        if(value>static_cast<From>(std::numeric_limits<To>::max()))
+    if constexpr(unsigned_narrowing<To,From>) {
+        if(!unsigned_fits<To>(value))
             throw std::overflow_error(message);
     }
     return static_cast<To>(value);
