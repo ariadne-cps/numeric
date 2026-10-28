@@ -706,6 +706,16 @@ BigUnsigned::Limb BigUnsigned::sub_into(
     return borrow;
 }
 
+bool BigUnsigned::any_bits_below(LimbView source,std::size_t limit) noexcept {
+    const std::size_t whole=std::min(limit/64u,source.size());
+    for(std::size_t i=0u;i<whole;++i) {
+        if(source[i]!=0u) return true;
+    }
+    const unsigned partial=static_cast<unsigned>(limit%64u);
+    return partial!=0u && whole<source.size() &&
+        (source[whole]&((Limb{1}<<partial)-1u))!=0u;
+}
+
 std::size_t BigUnsigned::shift_right_into(
         LimbView source,std::size_t bits,MutableLimbView output)
 {

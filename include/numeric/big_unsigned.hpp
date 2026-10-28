@@ -155,6 +155,9 @@ class BigUnsigned
     //! Inputs and output must be disjoint.
     static Limb sub_into(LimbView a,LimbView b,MutableLimbView output);
 
+    //! Whether any bit in [0,limit) is set. Noncanonical and empty views,
+    //! and limits beyond the complete source, are supported without allocation.
+    static bool any_bits_below(LimbView source,std::size_t limit) noexcept;
     //! Required destination size for shift_right_into, before normalization.
     static std::size_t shift_right_output_limbs(std::size_t input_limbs,
                                                std::size_t bits) noexcept {

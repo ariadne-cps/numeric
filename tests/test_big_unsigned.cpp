@@ -608,6 +608,20 @@ void TestBigUnsigned::test_storage()
 void TestBigUnsigned::test_boundaries()
 {
     const auto max=std::numeric_limits<std::uint64_t>::max();
+    struct DiscardedRow { std::array<BigUnsigned::Limb,2u> words; std::size_t limit; bool expected; };
+    for(auto const& row:{
+        DiscardedRow{{0u,0u},0u,false},DiscardedRow{{1u,0u},0u,false},
+        DiscardedRow{{1u,0u},1u,true},DiscardedRow{{2u,0u},1u,false},
+        DiscardedRow{{2u,0u},2u,true},DiscardedRow{{0x8000000000000000ULL,0u},63u,false},
+        DiscardedRow{{0x8000000000000000ULL,0u},64u,true},
+        DiscardedRow{{0u,1u},64u,false},DiscardedRow{{0u,1u},65u,true},
+        DiscardedRow{{0u,2u},65u,false},DiscardedRow{{0u,2u},66u,true},
+        DiscardedRow{{0u,0u},128u,false},
+        DiscardedRow{{0u,0u},std::numeric_limits<std::size_t>::max(),false},
+        DiscardedRow{{0u,1u},std::numeric_limits<std::size_t>::max(),true}}) {
+        ARIADNE_TEST_EQUALS(BigUnsigned::any_bits_below(row.words,row.limit),row.expected);
+    }
+    ARIADNE_TEST_ASSERT(!BigUnsigned::any_bits_below({},std::numeric_limits<std::size_t>::max()));
     const BigUnsigned all(max);
     const BigUnsigned one(std::uint64_t{1});
 

@@ -230,15 +230,7 @@ bool tanh_test_bit(BigUnsigned const& value,std::size_t bit) noexcept
 
 bool tanh_any_bits_below(BigUnsigned const& value,std::size_t limit) noexcept
 {
-    const auto digits=value.limbs();
-    const std::size_t whole=limit/64u;
-    const std::size_t complete=whole<digits.size() ? whole : digits.size();
-    for(std::size_t i=0u;i<complete;++i) {
-        if(digits[i]!=0u) return true;
-    }
-    const unsigned partial=static_cast<unsigned>(limit%64u);
-    return partial!=0u && whole<digits.size() &&
-        (digits[whole]&((BigUnsigned::Limb{1}<<partial)-1u))!=0u;
+    return BigUnsigned::any_bits_below(value.limbs(),limit);
 }
 
 BigUnsigned tanh_ceil_shift_right(BigUnsigned const& value,std::size_t shift)

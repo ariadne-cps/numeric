@@ -70,13 +70,7 @@ bool floatmp_test_bit(BigUnsigned const& n,std::size_t bit) noexcept {
     return floatmp_test_bit(n.limbs(),bit);
 }
 bool floatmp_any_bits_below(BigUnsigned::LimbView digits,std::size_t limit) noexcept {
-    const std::size_t whole=std::min(limit/64u,digits.size());
-    for(std::size_t i=0u;i<whole;++i) {
-        if(digits[i]!=0u) return true;
-    }
-    const unsigned partial=static_cast<unsigned>(limit%64u);
-    return partial!=0u && whole<digits.size() &&
-        (digits[whole]&((BigUnsigned::Limb{1}<<partial)-1u))!=0u;
+    return BigUnsigned::any_bits_below(digits,limit);
 }
 bool floatmp_any_bits_below(BigUnsigned const& n,std::size_t limit) noexcept {
     return floatmp_any_bits_below(n.limbs(),limit);
@@ -1010,19 +1004,6 @@ FloatMP next(RoundDownward, FloatMP const& x) {
 // In particular, signed minimum exponents never trigger huge 2^k allocations.
 namespace {
 
-bool has_discarded_bits(BigUnsigned const& magnitude,std::size_t shift) {
-    const std::size_t whole=shift/64u;
-    const std::size_t partial=shift%64u;
-    const auto limbs=magnitude.limbs();
-    for(std::size_t i=0;i<std::min(whole,limbs.size());++i) {
-        if(limbs[i]!=0u) return true;
-    }
-    if(partial!=0u && whole<limbs.size()) {
-        const std::uint64_t mask=(std::uint64_t{1}<<partial)-1u;
-        return (limbs[whole]&mask)!=0u;
-    }
-    return false;
-}
 
 bool has_bit(BigUnsigned const& magnitude,std::size_t index) {
     return (magnitude.limb(index/64u) &
@@ -1050,7 +1031,7 @@ FloatMP floor(FloatMP const& x) {
     }
     const std::size_t dropped=static_cast<std::size_t>(shift);
     BigUnsigned integral=shift_right(magnitude,dropped);
-    if(x._negative && has_discarded_bits(magnitude,dropped)) {
+    if(x._negative && floatmp_any_bits_below(magnitude,dropped)) {
         integral=add_big_unsigned(integral,BigUnsigned(1u));
     }
     return signed_integral_float(std::move(integral),x._negative,x.precision());
@@ -1066,7 +1047,7 @@ FloatMP ceil(FloatMP const& x) {
     }
     const std::size_t dropped=static_cast<std::size_t>(shift);
     BigUnsigned integral=shift_right(magnitude,dropped);
-    if(!x._negative && has_discarded_bits(magnitude,dropped)) {
+    if(!x._negative && floatmp_any_bits_below(magnitude,dropped)) {
         integral=add_big_unsigned(integral,BigUnsigned(1u));
     }
     return signed_integral_float(std::move(integral),x._negative,x.precision());
@@ -2026,8 +2007,6 @@ Interval exp_interval(Fraction x, unsigned long work) {
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
     const std::size_t shift=fixed_shift_size;
-    const std::size_t whole=shift/64u;
-    const unsigned partial=static_cast<unsigned>(shift%64u);
 
     // Quantize the two initial certified rational bounds. The
     // lower is rounded down and the upper rounded up at the same
@@ -2070,16 +2049,8 @@ Interval exp_interval(Fraction x, unsigned long work) {
         BigUnsigned::mul_into(value,value,product);
         trim(product);
 
-        bool discarded=false;
-        if (round_upward) {
-            for (std::size_t j=0u;j<std::min(whole,product.size());++j) {
-                discarded = discarded || product[j]!=0u;
-            }
-            if (partial!=0u && product.size()>whole) {
-                discarded = discarded ||
-                    (product[whole] & ((Limb{1}<<partial)-1u))!=0u;
-            }
-        }
+        const bool discarded=round_upward &&
+            BigUnsigned::any_bits_below(product,shift);
 
         result.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
         result.resize(BigUnsigned::shift_right_into(product,shift,result));
@@ -2124,8 +2095,6 @@ Interval log_series(Fraction const& z, unsigned long work) {
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
     const std::size_t shift=fixed_shift_size;
-    const std::size_t whole=shift/64u;
-    const unsigned partial=static_cast<unsigned>(shift%64u);
     const Fraction magnitude=absolute(z);
     const Integer& num=magnitude.numerator();
     const BigUnsigned& den=magnitude.denominator();
@@ -2170,16 +2139,8 @@ Interval log_series(Fraction const& z, unsigned long work) {
         BigUnsigned::mul_into(left,right,product);
         trim(product);
 
-        bool discarded=false;
-        if (outward) {
-            for (std::size_t i=0u;i<std::min(whole,product.size());++i) {
-                discarded = discarded || product[i]!=0u;
-            }
-            if (partial!=0u && product.size()>whole) {
-                discarded = discarded ||
-                    (product[whole] & ((Limb{1}<<partial)-1u))!=0u;
-            }
-        }
+        const bool discarded=outward &&
+            BigUnsigned::any_bits_below(product,shift);
 
         output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
         output.resize(BigUnsigned::shift_right_into(product,shift,output));
@@ -2892,16 +2853,7 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
         // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(lhs.size()+rhs.size());
         BigUnsigned::mul_into(lhs.limbs(),rhs.limbs(),product);
-        const std::size_t whole=shift/64u;
-        const unsigned partial=static_cast<unsigned>(shift%64u);
-        bool discarded=false;
-        for (std::size_t i=0u;i<std::min(whole,product.size());++i) {
-            discarded=discarded || product[i]!=0u;
-        }
-        if (partial!=0u && whole<product.size()) {
-            discarded=discarded ||
-                (product[whole]&((Limb{1}<<partial)-1u))!=0u;
-        }
+        const bool discarded=BigUnsigned::any_bits_below(product,shift);
         scaled.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
         scaled.resize(BigUnsigned::shift_right_into(product,shift,scaled));
         const bool negative=coefficient.negative()!=delta_numerator.negative();
