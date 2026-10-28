@@ -121,8 +121,8 @@ void FloatMP::round_short(FloatMP& result,BigUnsigned::LimbView magnitude,
             case Rounding::Upward:
                 increment=!result._negative && floatmp_any_bits_below(magnitude,dropped);
                 break;
-            case Rounding::TowardZero: break;
-            default: throw std::invalid_argument("FloatMP unknown rounding mode");
+            default: // TowardZero: the fourth value of the closed rounding type.
+                break;
         }
     }
     if (increment) ++retained;
@@ -170,10 +170,8 @@ void FloatMP::round_scaled_integer(FloatMP& result, Exponent scale, Rounding mod
             case Rounding::Upward:
                 increment = !result._negative;
                 break;
-            case Rounding::TowardZero:
+            default: // TowardZero: the fourth value of the closed rounding type.
                 break;
-            default:
-                throw std::invalid_argument("FloatMP unknown rounding mode");
         }
     }
     result._significand=shift_right(result._significand,dropped);
@@ -288,8 +286,8 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
                     break;
                 case Rounding::Downward: increment=negative; break;
                 case Rounding::Upward: increment=!negative; break;
-                case Rounding::TowardZero: break;
-                default: throw std::invalid_argument("FloatMP unknown rounding mode");
+                default: // TowardZero: the fourth value of the closed rounding type.
+                break;
             }
         }
         result._exponent=checked_add(scale,k-static_cast<Exponent>(precision-1u));
@@ -337,8 +335,8 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
             }
             case Rounding::Downward: increment=result._negative; break;
             case Rounding::Upward: increment=!result._negative; break;
-            case Rounding::TowardZero: break;
-            default: throw std::invalid_argument("FloatMP unknown rounding mode");
+            default: // TowardZero: the fourth value of the closed rounding type.
+                break;
         }
     }
     if (increment) quotient=add_big_unsigned(quotient,BigUnsigned(1u));
@@ -553,16 +551,8 @@ void FloatMP::set_default_precision(PrecisionType precision) {
 }
 
 void FloatMP::set_rounding_mode(RoundingModeType mode) {
-    switch (mode.value()) {
-        case Rounding::ToNearest:
-        case Rounding::Downward:
-        case Rounding::Upward:
-        case Rounding::TowardZero:
-            floatmp_current_rounding = mode;
-            return;
-        default:
-            throw std::invalid_argument("FloatMP unknown rounding mode");
-    }
+    // Every defined Rounding value denotes one of the four supported modes.
+    floatmp_current_rounding=mode;
 }
 
 FloatMP::Rounding::Rounding(RoundToNearest const&) noexcept : _value(ToNearest) { }
@@ -807,8 +797,8 @@ std::string decimal_fixed(FloatMP const& x, unsigned int places,
             }
             case FloatMP::Rounding::Downward: increase=neg; break;
             case FloatMP::Rounding::Upward: increase=!neg; break;
-            case FloatMP::Rounding::TowardZero: break;
-            default: throw std::invalid_argument("Invalid FloatMP decimal rounding mode");
+            default: // TowardZero: the fourth value of the closed rounding type.
+                break;
         }
         if(increase) quotient=add(quotient,BigUnsigned(1u));
     }
@@ -1397,10 +1387,8 @@ double FloatMP::get_d_general() const {
                 increment=!_negative &&
                     floatmp_any_bits_below(_significand,dropped);
                 break;
-            case Rounding::TowardZero:
+            default: // TowardZero: the fourth value of the closed rounding type.
                 break;
-            default:
-                throw std::invalid_argument("FloatMP unknown double conversion mode");
         }
         if (increment) {
             ++mantissa;
@@ -1576,10 +1564,8 @@ FloatMP sqrt(FloatMP::RoundingModeType mode, FloatMP const& value) {
                 increment = true;
                 break;
             case FloatMP::Rounding::Downward:
-            case FloatMP::Rounding::TowardZero:
+            default: // TowardZero: the fourth value of the closed rounding type.
                 break;
-            default:
-                throw std::invalid_argument("FloatMP unknown square-root rounding mode");
         }
     }
     if (increment) {
@@ -1665,15 +1651,15 @@ FloatMP pow(FloatMP::RoundingModeType mode, FloatMP const& value, Nat exponent) 
                 auto retained=near_upper ? upper-correction : lower+correction;
                 if (distance!=0u) {
                     switch(mode.value()) {
-                        case FloatMP::Rounding::ToNearest:
-                        case FloatMP::Rounding::TowardZero: break;
+                        case FloatMP::Rounding::ToNearest: break;
                         case FloatMP::Rounding::Downward:
                             if (result._negative) ++retained;
                             break;
                         case FloatMP::Rounding::Upward:
                             if (!result._negative) ++retained;
                             break;
-                        default: throw std::invalid_argument("FloatMP unknown power rounding mode");
+                        default: // TowardZero.
+                            break;
                     }
                 }
                 result._exponent=FloatMP::checked_add(product_scale,
@@ -4194,14 +4180,9 @@ FloatMP acos(FloatMP::RoundingModeType mode, FloatMP const& x) {
 
 FloatMP Float<MultiplePrecision>::pi(RoundingModeType mode, PrecisionType precision) {
     using namespace Detail;
-    unsigned index;
-    switch (mode.value()) {
-        case Rounding::ToNearest: index = 0u; break;
-        case Rounding::Downward: index = 1u; break;
-        case Rounding::Upward: index = 2u; break;
-        case Rounding::TowardZero: index = 3u; break;
-        default: throw std::invalid_argument("Invalid FloatMP pi rounding mode");
-    }
+    static_assert(Rounding::ToNearest==0 && Rounding::Downward==1 &&
+                  Rounding::Upward==2 && Rounding::TowardZero==3);
+    const auto index=static_cast<unsigned>(mode.value());
 
     // Unlike the certified interval cache, the rounded result is specific
     // to BOTH target precision and rounding mode. Keep four values for

@@ -136,6 +136,8 @@ template<> class Float<MultiplePrecision> {
     // directly to it, without making the GMP kernel depend on independent exact arithmetic.
     class Rounding {
       public:
+        // Without a fixed underlying type, the value range is exactly 0..3.
+        // Every defined value therefore names one of these four modes.
         enum Value { ToNearest, Downward, Upward, TowardZero };
       private:
         Value _value;
