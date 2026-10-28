@@ -779,9 +779,9 @@ std::string decimal_fixed(FloatMP const& x, unsigned int places,
         // Avoid negating INT64_MIN; preserve the checked shift domain.
         const auto distance=static_cast<std::uint64_t>(
             -(binary_exponent+1))+1u;
-        if(distance>std::numeric_limits<std::size_t>::max())
-            throw std::overflow_error("FloatMP decimal exponent shift out of range");
-        denominator=shift_left(denominator,static_cast<std::size_t>(distance));
+        const auto address_distance=Detail::checked_unsigned_cast<std::size_t>(distance,
+            "FloatMP decimal exponent shift out of range");
+        denominator=shift_left(denominator,address_distance);
     }
     const bool neg=x.negative();
     const BigUnsigned scale=pow(BigUnsigned(10u),
@@ -1752,16 +1752,15 @@ public:
         const std::uint64_t distance=exponent<0
             ? static_cast<std::uint64_t>(-exponent)
             : static_cast<std::uint64_t>(exponent);
-        if (distance>std::numeric_limits<std::size_t>::max()) {
-            throw std::overflow_error("FloatMP native interval shift overflow");
-        }
+        const auto address_distance=Detail::checked_unsigned_cast<std::size_t>(distance,
+            "FloatMP native interval shift overflow");
         BigUnsigned magnitude=binary.significand();
         if (exponent>0) {
-            magnitude=shift_left(magnitude,static_cast<std::size_t>(distance));
+            magnitude=shift_left(magnitude,address_distance);
         }
         _value=Rational::from_dyadic(
             Integer::from_magnitude(std::move(magnitude),binary.negative()),
-            exponent<0 ? static_cast<std::size_t>(distance) : 0u);
+            exponent<0 ? address_distance : 0u);
     }
 
     Fraction(BigUnsigned const& magnitude,unsigned long denominator_bits)
@@ -2026,17 +2025,16 @@ Interval exp_interval(Fraction x, unsigned long work) {
         }
         x.halve();
     }
-    if (work > std::numeric_limits<unsigned long>::max() -
-                    static_cast<unsigned long>(halvings) - 64ul) {
-        throw std::overflow_error("FloatMP exponential reconstruction precision overflow");
-    }
-    const unsigned long reduced_work = work + halvings + 8ul;
+    constexpr char reconstruction_error[]="FloatMP exponential reconstruction precision overflow";
+    const auto fixed_bits=Detail::checked_unsigned_add(
+        Detail::checked_unsigned_add(work,static_cast<unsigned long>(halvings),reconstruction_error),
+        64ul,reconstruction_error);
+    const unsigned long reduced_work=fixed_bits-56ul;
     Interval interval = exp_series(x, reduced_work);
     if (halvings == 0u) {
         return interval;
     }
 
-    const unsigned long fixed_bits = work + halvings + 64ul;
     const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
         "FloatMP exponential reconstruction shift overflow");
     using Limb=BigUnsigned::Limb;
@@ -2410,14 +2408,12 @@ bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
 Integer outward_dyadic_integer(Fraction const& exact,
                                unsigned long bits,
                                bool round_toward_positive) {
-    if (static_cast<std::uintmax_t>(bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
-        throw std::overflow_error("FloatMP dyadic endpoint shift overflow");
-    }
+    const auto shift=Detail::checked_unsigned_cast<std::size_t>(bits,
+        "FloatMP dyadic endpoint shift overflow");
     const Integer& numerator=exact.numerator();
     const BigUnsigned& denominator=exact.denominator();
     auto [magnitude,remainder]=divrem(
-        shift_left(numerator.magnitude(),static_cast<std::size_t>(bits)),
+        shift_left(numerator.magnitude(),shift),
         denominator);
     const bool negative=numerator.negative();
     const bool round_magnitude_up=negative
@@ -2456,11 +2452,10 @@ ExponentialHalfCenters const& exponential_half_centers(unsigned long work) {
     };
     static thread_local Cache cache;
     if (!cache.enclosure || cache.work < work) {
-        if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
-            throw std::overflow_error("FloatMP exponential half precision overflow");
-        }
+        const auto checked_work=Detail::checked_unsigned_add(work,40ul,
+            "FloatMP exponential half precision overflow");
         const Fraction half = Fraction(1L) / Fraction(2L);
-        const Interval positive = exp_interval(half, work + 40ul);
+        const Interval positive = exp_interval(half, checked_work);
         // Both bounds are strictly positive, so reciprocity reverses
         // their order and yields an exact interval for exp(-1/2).
         const Interval negative{
@@ -2519,10 +2514,9 @@ Interval log_half_centered_or_general(Fraction const& input,
     };
     static thread_local Cache cache;
     if (!cache.negative_log_two || cache.work < work) {
-        if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
-            throw std::overflow_error("FloatMP centered log precision overflow");
-        }
-        const Interval certified_log_two = log2_interval(work + 40ul);
+        const auto checked_work=Detail::checked_unsigned_add(work,40ul,
+            "FloatMP centered log precision overflow");
+        const Interval certified_log_two = log2_interval(checked_work);
         const Interval negative_center{
             Fraction{} - certified_log_two.upper,
             Fraction{} - certified_log_two.lower
@@ -2546,19 +2540,18 @@ FloatMP certified(Evaluate evaluate, FloatMP::RoundingModeType mode,
     const unsigned long bits = static_cast<unsigned long>(precision.bits());
     unsigned long extra = 32;
     for (;;) {
-        if (extra > std::numeric_limits<unsigned long>::max() - bits - 16) {
-            throw std::overflow_error("FloatMP certified precision overflow");
-        }
-        const Interval interval = evaluate(bits + extra);
+        constexpr char precision_error[]="FloatMP certified precision overflow";
+        const auto guarded_work=Detail::checked_unsigned_add(
+            Detail::checked_unsigned_add(bits,extra,precision_error),16ul,precision_error);
+        const auto work=guarded_work-16ul;
+        const Interval interval = evaluate(work);
         const FloatMP lower = interval.lower.rounded(bits,mode);
         const FloatMP upper = interval.upper.rounded(bits,mode);
         if (lower == upper) {
             return lower;
         }
-        if (extra > std::numeric_limits<unsigned long>::max() / 2) {
-            throw std::overflow_error("FloatMP certified refinement overflow");
-        }
-        extra *= 2;
+        extra=Detail::checked_unsigned_add(extra,extra,
+            "FloatMP certified refinement overflow");
     }
 }
 
@@ -2895,12 +2888,11 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
     static thread_local Cache fixed_center;
 
     if (fixed_center.work < work) {
-        if (work > std::numeric_limits<unsigned long>::max() - 32ul) {
-            throw std::overflow_error("FloatMP centered fixed-point precision overflow");
-        }
+        const auto checked_work=Detail::checked_unsigned_add(work,32ul,
+            "FloatMP centered fixed-point precision overflow");
         const unsigned long target_bits = work + 16ul;
         const auto& [sine, cosine] =
-            half_trigonometric_intervals(work + 32ul);
+            half_trigonometric_intervals(checked_work);
         // Keep signed native coefficients for the complete cached work
         // precision. Their construction is one-time, on cache upgrade.
         fixed_center.sine_lower =
@@ -3293,11 +3285,10 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
             if (delta.is_dyadic()) {
                 return centered_trigonometric_dyadic(x, delta, work, outputs);
             }
-            if (work > std::numeric_limits<unsigned long>::max() - 16ul) {
-                throw std::overflow_error("FloatMP centered trigonometric precision overflow");
-            }
+            const auto checked_work=Detail::checked_unsigned_add(work,16ul,
+                "FloatMP centered trigonometric precision overflow");
             const auto& [center_sine, center_cosine] =
-                half_trigonometric_intervals(work + 16ul);
+                half_trigonometric_intervals(checked_work);
             const Fraction remainder = (delta * delta) / Fraction(2L);
             Interval sine = point(Fraction{});
             Interval cosine = point(Fraction{});
@@ -3412,9 +3403,9 @@ Interval tanh_centered_or_general(Fraction const& input,unsigned long work) {
     };
     static thread_local Cache cache;
     if (cache.work<work) {
-        if (work>std::numeric_limits<unsigned long>::max()-40ul)
-            throw std::overflow_error("FloatMP tanh center precision overflow");
-        const auto center=tanh_interval(Fraction(1L)/Fraction(2L),work+40ul);
+        const auto checked_work=Detail::checked_unsigned_add(work,40ul,
+            "FloatMP tanh center precision overflow");
+        const auto center=tanh_interval(Fraction(1L)/Fraction(2L),checked_work);
         const Fraction one(1L);
         const Interval slope{one-center.upper*center.upper,
                              one-center.lower*center.lower};
@@ -3454,9 +3445,8 @@ Interval centered_atan_half_interval(Fraction const& input,
     // x is a p-bit FloatMP and work >= p+32. Near 1/2, x (and therefore
     // delta) is dyadic with at most p+1 denominator bits. Hence the exact
     // integer correction below always has a nonnegative shift.
-    if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
-        throw std::overflow_error("FloatMP centered atan precision overflow");
-    }
+    const auto checked_work=Detail::checked_unsigned_add(work,40ul,
+        "FloatMP centered atan precision overflow");
     const unsigned long bits = work + 24ul;
     // Preserve the rational computation on a target whose size_t cannot
     // represent the working binary scale. On ordinary 32/64-bit ABIs,
@@ -3469,7 +3459,7 @@ Interval centered_atan_half_interval(Fraction const& input,
         static thread_local Cache cached_rational;
         if (!cached_rational.center || cached_rational.work < work) {
             cached_rational.center = outward_dyadic_interval(
-                atan_half_interval(work + 40ul), work + 24ul);
+                atan_half_interval(checked_work), work + 24ul);
             cached_rational.work = work;
         }
         const Fraction linear = Fraction(4L) * delta / Fraction(5L);
@@ -3490,7 +3480,7 @@ Interval centered_atan_half_interval(Fraction const& input,
     };
     static thread_local Cache centered;
     if (centered.work < work) {
-        const Interval certified_center=atan_half_interval(work+40ul);
+        const Interval certified_center=atan_half_interval(checked_work);
         centered.lower=outward_dyadic_integer(
             certified_center.lower,bits,false);
         centered.upper=outward_dyadic_integer(
@@ -3549,11 +3539,10 @@ TangentHalfEnclosures const& tangent_half_enclosures(unsigned long work) {
     };
     static thread_local Cache cache;
     if (!cache.enclosures || cache.work < work) {
-        if (work > std::numeric_limits<unsigned long>::max() - 48ul) {
-            throw std::overflow_error("FloatMP tangent cache work precision overflow");
-        }
+        const auto checked_work=Detail::checked_unsigned_add(work,48ul,
+            "FloatMP tangent cache work precision overflow");
         const unsigned long target_bits = work + 32ul;
-        const auto& [sine, cosine] = half_trigonometric_intervals(work + 48ul);
+        const auto& [sine, cosine] = half_trigonometric_intervals(checked_work);
         const Interval tangent_ratio_bounds = divide(sine, cosine);
         const Interval cached_tangent_bounds = outward_dyadic_interval(tangent_ratio_bounds, target_bits);
         if (cached_tangent_bounds.lower.sign() <= 0) {
@@ -3611,11 +3600,10 @@ InverseHalfEnclosures const& inverse_half_enclosures(unsigned long work) {
     };
     static thread_local Cache center_cache;
     if (!center_cache.bounds || center_cache.work < work) {
-        if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
-            throw std::overflow_error("FloatMP inverse-half precision overflow");
-        }
+        const auto checked_work=Detail::checked_unsigned_add(work,40ul,
+            "FloatMP inverse-half precision overflow");
         const unsigned long dyadic_bits = work + 24ul;
-        const Interval certified_pi = pi_interval(work + 40ul);
+        const Interval certified_pi = pi_interval(checked_work);
         const Interval asin_half_bounds =
             divide(certified_pi, point(Fraction(6L)));
         const Interval acos_positive_bounds =
@@ -3623,7 +3611,7 @@ InverseHalfEnclosures const& inverse_half_enclosures(unsigned long work) {
         const Interval acos_negative_bounds =
             multiply(point(Fraction(2L)), acos_positive_bounds);
         const Interval certified_sqrt_three =
-            square_root_interval(Fraction(3L), work + 40ul);
+            square_root_interval(Fraction(3L), checked_work);
         const Interval slope_bounds =
             divide(point(Fraction(2L)), certified_sqrt_three);
         center_cache.bounds = InverseHalfEnclosures{
@@ -3958,21 +3946,20 @@ FloatMP certified(Function function, Fraction const& x,
     const unsigned long bits = static_cast<unsigned long>(precision.bits());
     unsigned long extra = 32u;
     for (;;) {
-        if (extra > std::numeric_limits<unsigned long>::max() - bits - 32u) {
-            throw std::overflow_error("FloatMP trigonometric precision too large");
-        }
+        constexpr char precision_error[]="FloatMP trigonometric precision too large";
+        const auto guarded_work=Detail::checked_unsigned_add(
+            Detail::checked_unsigned_add(bits,extra,precision_error),32ul,precision_error);
+        const auto work=guarded_work-32ul;
 
-        const Interval bounds = evaluate(function, x, bits + extra);
+        const Interval bounds = evaluate(function,x,work);
         const FloatMP low = bounds.lower.rounded(bits,mode);
         const FloatMP high = bounds.upper.rounded(bits,mode);
         if (low == high) {
             return low;
         }
 
-        if (extra > std::numeric_limits<unsigned long>::max() / 2u) {
-            throw std::overflow_error("FloatMP trigonometric refinement overflow");
-        }
-        extra *= 2u;
+        extra=Detail::checked_unsigned_add(extra,extra,
+            "FloatMP trigonometric refinement overflow");
     }
 }
 
