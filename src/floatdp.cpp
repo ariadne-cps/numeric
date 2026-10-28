@@ -323,13 +323,13 @@ constexpr FloatDPCenter floatdp_center(bool negative) {
 // 2048 binary64 values below 1/2 and 1025 at or above it. The model uses
 // 32-bit partial products, independently of the runtime limb multiplier.
 consteval std::uint64_t floatdp_certificate_correction(
-    FloatDPFixed85 slope,std::uint64_t offset,unsigned bits,bool upward) {
+    FloatDPFixed85 slope,std::uint64_t offset,unsigned bits,bool round_upward) {
     const std::uint64_t bottom=(slope.low&0xffffffffu)*offset;
     const std::uint64_t top=(slope.low>>32u)*offset+(bottom>>32u);
     const std::uint64_t low=(top<<32u)|(bottom&0xffffffffu);
     const std::uint64_t high=slope.high*offset+(top>>32u);
     const std::uint64_t remainder=low&((std::uint64_t{1}<<bits)-1u);
-    return (low>>bits)+(high<<(64u-bits))+(upward && remainder!=0u);
+    return (low>>bits)+(high<<(64u-bits))+(round_upward && remainder!=0u);
 }
 
 consteval FloatDPFixed85 floatdp_certificate_endpoint(
