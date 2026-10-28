@@ -1092,7 +1092,9 @@ Void test_floatmp_exact_dyadic_export() {
                     magnitude,negative);
                 const Dyadic source(coefficient,denominator_exponent);
                 const FloatMP exact(source,precision);
-                const Dyadic restored=static_cast<Dyadic>(exact);
+                const Dyadic restored=exact.operator Dyadic();
+                const Dyadic constructed(exact);
+                ARIADNE_TEST_EQUALS(Rational(constructed),Rational(source));
                 ARIADNE_TEST_EQUALS(Rational(restored),Rational(source));
                 ARIADNE_TEST_EQUALS(Rational(restored),
                                     static_cast<Rational>(exact));
@@ -1104,6 +1106,16 @@ Void test_floatmp_exact_dyadic_export() {
     ARIADNE_TEST_ASSERT(is_inf(static_cast<Dyadic>(
         FloatMP::inf(Sign::POSITIVE,precision))));
     ARIADNE_TEST_EQUALS(static_cast<Dyadic>(FloatMP(0,precision)),Dyadic(0));
+    ARIADNE_TEST_ASSERT(is_nan(FloatMP::nan(precision).operator Dyadic()));
+    for(bool negative:{false,true}) {
+        const auto infinite=FloatMP::infinity(256u,negative).operator Dyadic();
+        ARIADNE_TEST_ASSERT(is_inf(infinite));
+        ARIADNE_TEST_EQUALS(std::signbit(infinite.get_d()),negative);
+        ARIADNE_TEST_EQUALS(FloatMP::zero(256u,negative).operator Dyadic(),Dyadic(0));
+    }
+    const FloatMP positive_scale(TwoExp(512),precision);
+    ARIADNE_TEST_EQUALS(positive_scale.operator Dyadic(),Dyadic(TwoExp(512)));
+
 }
 
 // Native-storage regression uses exact binary significand/exponent facts,
@@ -1877,6 +1889,96 @@ void test_floatmp_tiny_transcendentals() {
     }
 }
 
+void test_floatmp_ieee_conversion_boundaries() {
+    const MultiplePrecision precision(128_bits);
+    const auto largest=FloatMP::max(precision);
+    const auto smallest=FloatMP::min(precision);
+    const FloatMP outside_double(TwoExp(2048),precision);
+    const FloatMP near_two(Dyadic(Integer(0x3fffffffffffffULL),53u),precision);
+    std::array<BigUnsigned::Limb,16u> boundary_words{};
+    boundary_words.back()=0xfffffffffffffc00ULL; // 2^1024-2^970, the overflow halfway point.
+    const FloatMP overflow_halfway(Integer::from_magnitude(BigUnsigned(boundary_words),false),precision);
+    struct Row {
+        FloatMP::Rounding mode;
+        std::uint64_t overflow_positive,overflow_negative;
+        std::uint64_t underflow_positive,underflow_negative;
+        std::uint64_t carry_positive,carry_negative;
+    };
+    const std::array<Row,4u> rows={
+        Row{FloatMP::ROUND_TO_NEAREST,0x7ff0000000000000ULL,0xfff0000000000000ULL,
+            0u,0x8000000000000000ULL,0x4000000000000000ULL,0xc000000000000000ULL},
+        Row{FloatMP::ROUND_DOWNWARD,0x7fefffffffffffffULL,0xfff0000000000000ULL,
+            0u,0x8000000000000001ULL,0x3fffffffffffffffULL,0xc000000000000000ULL},
+        Row{FloatMP::ROUND_UPWARD,0x7ff0000000000000ULL,0xffefffffffffffffULL,
+            1u,0x8000000000000000ULL,0x4000000000000000ULL,0xbfffffffffffffffULL},
+        Row{FloatMP::ROUND_TOWARD_ZERO,0x7fefffffffffffffULL,0xffefffffffffffffULL,
+            0u,0x8000000000000000ULL,0x3fffffffffffffffULL,0xbfffffffffffffffULL}};
+    RoundingSession<FloatMP> ambient;
+    for(auto const& row:rows) {
+        ambient.set(row.mode);
+        for(auto const& value:{largest,outside_double,overflow_halfway}) {
+            ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(value.get_d()),row.overflow_positive);
+            ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>((-value).get_d()),row.overflow_negative);
+        }
+        ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(smallest.get_d()),row.underflow_positive);
+        ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>((-smallest).get_d()),row.underflow_negative);
+        ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(near_two.get_d()),row.carry_positive);
+        ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>((-near_two).get_d()),row.carry_negative);
+        const FloatMP short_one(1,MultiplePrecision(2_bits));
+        ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(short_one.get_d()),0x3ff0000000000000ULL);
+    }
+}
+
+void test_floatmp_elementary_specials() {
+    const MultiplePrecision precision(128_bits);
+    const auto quiet_nan=FloatMP::nan(precision);
+    ARIADNE_TEST_ASSERT(is_nan(sqrt(near,quiet_nan)));
+    ARIADNE_TEST_ASSERT(is_nan(sqrt(near,FloatMP(-1,precision))));
+    ARIADNE_TEST_ASSERT(is_nan(log(near,quiet_nan)));
+    ARIADNE_TEST_ASSERT(is_nan(log(near,FloatMP(-1,precision))));
+    ARIADNE_TEST_ASSERT(is_nan(exp(near,quiet_nan)));
+    using Integral=FloatMP(*)(FloatMP const&);
+    const std::array<Integral,3u> integral_operations={
+        +[](FloatMP const& x){return floor(x);},
+        +[](FloatMP const& x){return ceil(x);},
+        +[](FloatMP const& x){return round(x);}};
+    for(auto operation:integral_operations) {
+        ARIADNE_TEST_ASSERT(is_nan(operation(quiet_nan)));
+        const FloatMP scaled_integer(4,MultiplePrecision(2_bits));
+        ARIADNE_TEST_ASSERT(operation(scaled_integer)==scaled_integer);
+        for(bool negative:{false,true}) {
+            const auto infinity_image=operation(FloatMP::infinity(128u,negative));
+            ARIADNE_TEST_ASSERT(infinity_image.is_inf());
+            ARIADNE_TEST_EQUALS(infinity_image.negative(),negative);
+            const auto zero_image=operation(FloatMP::zero(128u,negative));
+            ARIADNE_TEST_ASSERT(zero_image.is_zero());
+            ARIADNE_TEST_EQUALS(zero_image.negative(),negative);
+        }
+    }
+    for(bool negative:{false,true}) {
+        const auto infinite_source=FloatMP::infinity(128u,negative);
+        const auto root_image=sqrt(near,infinite_source);
+        const auto log_image=log(near,infinite_source);
+        const auto exp_image=exp(near,infinite_source);
+        if(negative) {
+            ARIADNE_TEST_ASSERT(root_image.is_nan());
+            ARIADNE_TEST_ASSERT(log_image.is_nan());
+            ARIADNE_TEST_ASSERT(exp_image.is_zero() && !exp_image.negative());
+        } else {
+            ARIADNE_TEST_ASSERT(root_image.is_inf() && !root_image.negative());
+            ARIADNE_TEST_ASSERT(log_image.is_inf() && !log_image.negative());
+            ARIADNE_TEST_ASSERT(exp_image.is_inf() && !exp_image.negative());
+        }
+        const auto zero=FloatMP::zero(128u,negative);
+        const auto root_zero=sqrt(near,zero);
+        ARIADNE_TEST_ASSERT(root_zero.is_zero());
+        ARIADNE_TEST_EQUALS(root_zero.negative(),negative);
+        const auto log_zero=log(near,zero);
+        ARIADNE_TEST_ASSERT(log_zero.is_inf() && log_zero.negative());
+        ARIADNE_TEST_ASSERT(exp(near,zero)==FloatMP(1,precision));
+    }
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
@@ -1887,6 +1989,8 @@ Int main() {
     test_floatmp_neighbor_limits();
     test_floatmp_transcendental_specials();
     test_floatmp_tiny_transcendentals();
+    test_floatmp_ieee_conversion_boundaries();
+    test_floatmp_elementary_specials();
     test_floatmp_ratio_ties_and_carry();
     test_floatmp_negative_power_specials();
     test_floatmp_mixed_precision_arithmetic();
