@@ -1136,7 +1136,7 @@ BigUnsigned::Limb BigUnsigned::divrem_limb_into(
     // precomputed R=floor(2^64/divisor) replaces both divisions
     // with UMULH and at most one correction per 32-bit half.
     // The small-input path stays unchanged to avoid setup overhead.
-    if (a.size()>=8u && divisor>1u &&
+    if (a.size()>=8u &&
             divisor<=Limb{0xffffffffu}) {
         __extension__ using Wide=unsigned __int128;
         const Limb maximum=std::numeric_limits<Limb>::max();
@@ -1994,9 +1994,8 @@ BigUnsigned BigUnsigned::gcd_bounded(LimbView a,LimbView b)
     std::array<Limb,2u*capacity+1u> workspace;
     const auto subtract_views=[](LimbView x,LimbView y,MutableLimbView output) {
         std::size_t count=x.size();
-        if (count==y.size()) {
-            while (count!=0u && x[count-1u]==y[count-1u]) { --count; }
-        }
+        // Both call sites have already established equal input lengths.
+        while (count!=0u && x[count-1u]==y[count-1u]) { --count; }
         (void)sub_into(x.first(count),y.first(std::min(count,y.size())),
                        output.first(count));
         while (count!=0u && output[count-1u]==0u) { --count; }
@@ -2560,7 +2559,7 @@ std::string decimal_with_cutoff(BigUnsigned const& value)
     powers.push_back({BigUnsigned(std::uint64_t{1000000000u}),9u});
     const std::size_t bit_length=value.bit_length();
     const std::size_t midpoint=bit_length/2u;
-    while (true) {
+    for (;;) {
         const auto& last=powers.back();
         const std::size_t bits=last.value.bit_length();
         // The square has at least 2*bits-1 bits; avoid the large
@@ -2582,7 +2581,13 @@ std::string decimal_with_cutoff(BigUnsigned const& value)
     // log10(2)<1/3. Reserve once and avoid repeated intermediate
     // string allocation/copying, for both x86-64 and ARM64.
     const std::size_t digit_capacity=bit_length/3u+1u;
-    if (digit_capacity<=result.max_size()) {
+    // Some standard-library string layouts can admit every possible
+    // bits/3+1 bound. Retain the runtime guard only for narrower layouts.
+    constexpr bool bound_always_fits=
+        std::numeric_limits<std::size_t>::max()/3u+1u<=std::string{}.max_size();
+    if constexpr (bound_always_fits) {
+        result.reserve(digit_capacity);
+    } else if (digit_capacity<=result.max_size()) {
         result.reserve(digit_capacity);
     }
     append_decimal_recursive_with_cutoff<CutoffLimbs>(value,powers,result,0u);
@@ -3508,11 +3513,13 @@ void sqrt_divide(BigUnsigned::MutableLimbView numerator,
     const std::size_t h=divisor.size();
     const SqrtLimb top=divisor.back();
     const std::size_t k=quotient.size()-1u;
-    // r < 2*s implies the leading quotient digit is zero or one.
+    // r<=2*s and mid<B^k imply floor((r*B^k+mid)/2)/B^k<=s.
+    // Thus upper never exceeds divisor; the high quotient digit is one
+    // exactly when the two prefixes are equal.
     auto upper=numerator.subspan(k);
     std::size_t i=h;
     while (i!=0u && upper[i-1u]==divisor[i-1u]) --i;
-    quotient[k]=static_cast<SqrtLimb>(i==0u || upper[i-1u]>divisor[i-1u]);
+    quotient[k]=static_cast<SqrtLimb>(i==0u);
     if (quotient[k]!=0u) sqrt_subtract(upper,divisor);
     if (h==1u) {
         for (std::size_t j=k;j!=0u;--j) {
@@ -3626,7 +3633,8 @@ void BigUnsigned::sqrt_recursive_into(
     const Limb low_bit=value[k]&1u;
     for (std::size_t i=0u;i<=n;++i) {
         const std::size_t j=k+i;
-        const Limb low=j<value.size() ? value[j] : 0u;
+        // n>=2 and j<=n+floor(n/2)<2*n=value.size().
+        const Limb low=value[j];
         const Limb high=j+1u<value.size() ? value[j+1u] : 0u;
         numerator[i]=(low>>1u)|(high<<63u);
     }
@@ -3670,15 +3678,17 @@ void BigUnsigned::sqrt_recursive_into(
         }
     }
     if (negative) {
-        for (std::size_t i=0u;i<root.size();++i) {
-            if (root[i]--!=0u) break;
-        }
+        // A negative residual requires q^2>0, so the low trial digit
+        // is nonzero and decrement cannot borrow out of the root buffer.
+        std::size_t root_index=0u;
+        while (root[root_index]--==0u) { ++root_index; }
         if constexpr(WantRemainder) {
             // n-(candidate-1)^2 = old_residual+2*new_root+1.
             sqrt_add_multiple(value,root,2u);
-            for (std::size_t i=0u;i<value.size();++i) {
-                if (++value[i]!=0u) break;
-            }
+            // The corrected remainder is <=2*root and fits the 2*n-word
+            // buffer, so increment cannot carry out of it.
+            std::size_t remainder_index=0u;
+            while (++value[remainder_index]==0u) { ++remainder_index; }
         }
     }
 }
@@ -3710,7 +3720,8 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_buffered(BigUnsigned const&
         input[i+skip]=(word<<bits)|carry;
         carry=bits==0u ? 0u : word>>(64u-bits);
     }
-    if (value.size()+skip<input.size()) input.back()=carry;
+    // For even input lengths skip=0, for odd lengths skip=1; in both
+    // cases value.size()+skip==2*n. Normalization consumes no extra word.
     sqrt_recursive_into<WantRemainder>(input,root,scratch);
     if constexpr(WantRemainder) {
         if (shift!=0u) {
