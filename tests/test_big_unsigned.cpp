@@ -610,6 +610,18 @@ void TestBigUnsigned::test_boundaries()
     const auto max=std::numeric_limits<std::uint64_t>::max();
     const BigUnsigned all(max);
     const BigUnsigned one(std::uint64_t{1});
+
+    const std::array<BigUnsigned::Limb,3u> noncanonical_shift{1u,0u,0u};
+    std::array<BigUnsigned::Limb,4u> shift_destination{7u,7u,7u,7u};
+    ARIADNE_TEST_EQUALS(BigUnsigned::shift_right_into(
+        noncanonical_shift,0u,shift_destination),std::size_t{1u});
+    ARIADNE_TEST_ASSERT((shift_destination==std::array<BigUnsigned::Limb,4u>{1u,0u,0u,0u}));
+    ARIADNE_TEST_EQUALS(BigUnsigned::shift_right_into(
+        noncanonical_shift,std::numeric_limits<std::size_t>::max(),{}),std::size_t{0u});
+    ARIADNE_TEST_EQUALS(BigUnsigned::shift_right_into({},0u,{}),std::size_t{0u});
+    std::array<BigUnsigned::Limb,1u> short_shift_output{7u};
+    ARIADNE_TEST_FAIL(BigUnsigned::shift_right_into(noncanonical_shift,0u,short_shift_output));
+    ARIADNE_TEST_EQUALS(short_shift_output[0u],BigUnsigned::Limb{7u});
     ARIADNE_TEST_ASSERT(add(all,one).size()==2u);
     ARIADNE_TEST_ASSERT(add(all,one).limb(0)==0u);
     ARIADNE_TEST_ASSERT(add(all,one).limb(1)==1u);
@@ -4246,6 +4258,16 @@ void TestBigUnsigned::test_randomized()
             throw std::runtime_error("Unexpected A12-A19 subtraction oracle");
         check_against_precomputed_hex(shift_left(x,bits),lhex);
         check_against_precomputed_hex(shift_right(x,bits),rhex);
+        // The borrowed kernel uses the same independently frozen result,
+        // including raw leading zeros and a poisoned oversized destination.
+        std::array<BigUnsigned::Limb,22u> shifted_words;
+        shifted_words.fill(std::numeric_limits<BigUnsigned::Limb>::max());
+        const auto shifted_used=BigUnsigned::shift_right_into(
+            BigUnsigned::LimbView(na.data(),n),bits,shifted_words);
+        check_against_precomputed_hex(BigUnsigned(BigUnsigned::LimbView(
+            shifted_words.data(),shifted_used)),rhex);
+        ARIADNE_TEST_ASSERT(std::all_of(shifted_words.begin()+shifted_used,
+            shifted_words.end(),[](auto digit){return digit==0u;}));
         check_against_precomputed_hex(x,xhex);
         check_against_precomputed_hex(y,yhex);
     }

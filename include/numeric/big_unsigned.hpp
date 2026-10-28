@@ -155,6 +155,19 @@ class BigUnsigned
     //! Inputs and output must be disjoint.
     static Limb sub_into(LimbView a,LimbView b,MutableLimbView output);
 
+    //! Required destination size for shift_right_into, before normalization.
+    static std::size_t shift_right_output_limbs(std::size_t input_limbs,
+                                               std::size_t bits) noexcept {
+        const std::size_t whole=bits/64u;
+        return whole<input_limbs ? input_limbs-whole : 0u;
+    }
+    //! Allocation-free floor(source/2^bits), accepting noncanonical views.
+    //! Inputs and output must be disjoint. Output capacity must be at least
+    //! max(0,source.size()-bits/64); every destination limb is overwritten.
+    //! Returns the canonical used length; higher output limbs are zero.
+    static std::size_t shift_right_into(LimbView source,std::size_t bits,
+                                        MutableLimbView output);
+
     //! Exact sum (a << shift_a) + (b << shift_b), allocating only
     //! the returned canonical magnitude. Shifts must be below 64.
     //! Source views are borrowed and never modified.

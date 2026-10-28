@@ -706,6 +706,27 @@ BigUnsigned::Limb BigUnsigned::sub_into(
     return borrow;
 }
 
+std::size_t BigUnsigned::shift_right_into(
+        LimbView source,std::size_t bits,MutableLimbView output)
+{
+    const std::size_t whole=bits/64u;
+    const auto count=shift_right_output_limbs(source.size(),bits);
+    if(output.size()<count) {
+        throw std::length_error("BigUnsigned shift_right_into output too small");
+    }
+    const unsigned partial=static_cast<unsigned>(bits%64u);
+    for(std::size_t i=0u;i<count;++i) {
+        const Limb low=source[whole+i];
+        const Limb high=i+1u<count ? source[whole+i+1u] : Limb{0};
+        output[i]=partial==0u ? low : (low>>partial)|(high<<(64u-partial));
+    }
+    const auto tail=output.subspan(count);
+    std::fill(tail.begin(),tail.end(),Limb{0});
+    auto used=count;
+    while(used!=0u && output[used-1u]==0u) --used;
+    return used;
+}
+
 // R38: compute a short-bit-shifted sum/difference directly into
 // BigUnsigned's own storage. Neither input is ever materialized as
 // a shifted BigUnsigned. The Subtract mode assumes a>=b after shifts
@@ -897,27 +918,13 @@ BigUnsigned shift_left(BigUnsigned const& a, std::size_t bits) {
 }
 
 BigUnsigned shift_right(BigUnsigned const& a, std::size_t bits) {
-    const std::size_t words = bits/64u;
-
-    if (words >= a._size) {
-        return BigUnsigned{};
-    }
-
-    const unsigned offset = static_cast<unsigned>(bits%64u);
+    const std::size_t words=bits/64u;
+    if(words>=a._size) return BigUnsigned{};
     BigUnsigned result;
     result.resize_for_result(a._size-words);
-    auto* digits = result.mutable_data();
-
-    for (std::size_t i=words; i<a._size; ++i) {
-        const auto low = a.limb(i);
-        const auto high = i+1u < a._size ? a.limb(i+1u) : 0u;
-
-        digits[i-words] = offset == 0u ? low :
-            ((low>>offset)|(high<<(64u-offset)));
-    }
-
+    (void)BigUnsigned::shift_right_into(a.limbs(),bits,
+        BigUnsigned::MutableLimbView(result.mutable_data(),result._size));
     result.normalize();
-
     return result;
 }
 

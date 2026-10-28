@@ -1957,23 +1957,9 @@ Interval exp_series(Fraction const& x, unsigned long work) {
             trim(product);
         }
 
-        BigUnsigned::LimbView right_shifted;
-        if (product.size()>whole) {
-            const std::size_t length=product.size()-whole;
-            if (partial==0u) {
-                right_shifted=BigUnsigned::LimbView(product.data()+whole,length);
-            } else {
-                shifted.resize(length);
-                for (std::size_t i=0u;i<length;++i) {
-                    const Limb low=product[whole+i]>>partial;
-                    const Limb high=i+1u<length
-                        ? product[whole+i+1u]<<(64u-partial) : Limb{0};
-                    shifted[i]=low|high;
-                }
-                trim(shifted);
-                right_shifted=shifted;
-            }
-        }
+        shifted.resize(BigUnsigned::shift_right_output_limbs(product.size(),fixed_shift));
+        shifted.resize(BigUnsigned::shift_right_into(product,fixed_shift,shifted));
+        const BigUnsigned::LimbView right_shifted=shifted;
         next_term.resize(right_shifted.size());
         (void)BigUnsigned::divrem_limb_into(
             right_shifted,static_cast<Limb>(n),next_term);
@@ -2095,19 +2081,8 @@ Interval exp_interval(Fraction x, unsigned long work) {
             }
         }
 
-        if (product.size()<=whole) {
-            result.clear();
-        } else {
-            const std::size_t count=product.size()-whole;
-            result.resize(count);
-            for (std::size_t j=0u;j<count;++j) {
-                const Limb low=product[whole+j]>>partial;
-                const Limb high=partial!=0u && j+1u<count
-                    ? product[whole+j+1u]<<(64u-partial) : Limb{0};
-                result[j]=low|high;
-            }
-            trim(result);
-        }
+        result.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
+        result.resize(BigUnsigned::shift_right_into(product,shift,result));
         if (round_upward && discarded) increment(result);
     };
 
@@ -2206,19 +2181,8 @@ Interval log_series(Fraction const& z, unsigned long work) {
             }
         }
 
-        if (product.size()<=whole) {
-            output.clear();
-        } else {
-            const std::size_t count=product.size()-whole;
-            output.resize(count);
-            for (std::size_t i=0u;i<count;++i) {
-                const Limb low=product[whole+i]>>partial;
-                const Limb high=partial!=0u && i+1u<count
-                    ? product[whole+i+1u]<<(64u-partial) : Limb{0};
-                output[i]=low|high;
-            }
-            trim(output);
-        }
+        output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
+        output.resize(BigUnsigned::shift_right_into(product,shift,output));
         if (outward && discarded) increment(output);
     };
 
@@ -2651,8 +2615,6 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
     const std::size_t shift=fixed_shift_size;
-    const std::size_t whole=shift/64u;
-    const unsigned partial=static_cast<unsigned>(shift%64u);
     const Fraction magnitude=absolute(x);
     const Integer& numerator=magnitude.numerator();
     const BigUnsigned& denominator=magnitude.denominator();
@@ -2726,19 +2688,8 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         product.resize(left.size()+right.size());
         BigUnsigned::mul_into(left,right,product);
         trim(product);
-        if (product.size()<=whole) {
-            output.clear();
-            return;
-        }
-        const std::size_t count=product.size()-whole;
-        output.resize(count);
-        for (std::size_t i=0u;i<count;++i) {
-            const Limb low=product[whole+i]>>partial;
-            const Limb high=partial!=0u && i+1u<count
-                ? product[whole+i+1u]<<(64u-partial) : Limb{0};
-            output[i]=low|high;
-        }
-        trim(output);
+        output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
+        output.resize(BigUnsigned::shift_right_into(product,shift,output));
     };
     Words argument_words(argument.limbs().begin(),argument.limbs().end());
     scaled_product(argument_words,argument_words,square);
@@ -2924,9 +2875,6 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
     Words product,scaled;
-    const auto trim=[](Words& digits) {
-        while (!digits.empty() && digits.back()==0u) digits.pop_back();
-    };
     const auto increment=[](Words& digits) {
         for (std::size_t i=0u;i<digits.size();++i) {
             if (++digits[i]!=0u) return;
@@ -2954,19 +2902,8 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
             discarded=discarded ||
                 (product[whole]&((Limb{1}<<partial)-1u))!=0u;
         }
-        if (whole>=product.size()) {
-            scaled.clear();
-        } else {
-            const std::size_t count=product.size()-whole;
-            scaled.resize(count);
-            for (std::size_t i=0u;i<count;++i) {
-                const Limb low=product[whole+i]>>partial;
-                const Limb high=partial!=0u && i+1u<count
-                    ? product[whole+i+1u]<<(64u-partial) : Limb{0};
-                scaled[i]=low|high;
-            }
-            trim(scaled);
-        }
+        scaled.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
+        scaled.resize(BigUnsigned::shift_right_into(product,shift,scaled));
         const bool negative=coefficient.negative()!=delta_numerator.negative();
         if (discarded && (negative ? !round_toward_positive
                                    : round_toward_positive)) {
@@ -3045,8 +2982,6 @@ Interval small_atan(Fraction const& x, unsigned long work) {
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
     const std::size_t shift=fixed_shift_size;
-    const std::size_t whole=shift/64u;
-    const unsigned partial=static_cast<unsigned>(shift%64u);
     const Fraction magnitude=absolute(x);
     const Integer numerator=magnitude.numerator();
     const BigUnsigned& denominator=magnitude.denominator();
@@ -3073,19 +3008,8 @@ Interval small_atan(Fraction const& x, unsigned long work) {
         product.resize(left.size()+right.size());
         BigUnsigned::mul_into(left,right,product);
         trim(product);
-        if (product.size()<=whole) {
-            output.clear();
-            return;
-        }
-        const std::size_t count=product.size()-whole;
-        output.resize(count);
-        for (std::size_t i=0u;i<count;++i) {
-            const Limb low=product[whole+i]>>partial;
-            const Limb high=partial!=0u && i+1u<count
-                ? product[whole+i+1u]<<(64u-partial) : Limb{0};
-            output[i]=low|high;
-        }
-        trim(output);
+        output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
+        output.resize(BigUnsigned::shift_right_into(product,shift,output));
     };
 
     // Alternating partial sums are nonnegative: terms decrease for
