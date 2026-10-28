@@ -1589,11 +1589,113 @@ Void test_floatmp_mixed_precision_arithmetic() {
     ARIADNE_TEST_ASSERT(!(FloatMP::nan(8u)>=Rational(2)));
 }
 
+// Exponent limits are scalar metadata: these neighbors need no huge allocation.
+void test_floatmp_neighbor_limits() {
+    for (unsigned bits:{2u,65u}) {
+        const MultiplePrecision precision(std::size_t{bits});
+        const auto smallest=FloatMP::min(precision);
+        const auto largest=FloatMP::max(precision);
+        const auto positive_infinity=FloatMP::inf(precision);
+        const auto negative_infinity=FloatMP::inf(Sign::NEGATIVE,precision);
+        const auto quiet_nan=FloatMP::nan(precision);
+        ARIADNE_TEST_ASSERT(is_nan(next(up,quiet_nan)));
+        ARIADNE_TEST_ASSERT(is_nan(next(down,quiet_nan)));
+        ARIADNE_TEST_EQUALS(next(up,positive_infinity),positive_infinity);
+        ARIADNE_TEST_EQUALS(next(down,negative_infinity),negative_infinity);
+        ARIADNE_TEST_EQUALS(next(down,positive_infinity),largest);
+        ARIADNE_TEST_EQUALS(next(up,negative_infinity),-largest);
+        ARIADNE_TEST_EQUALS(next(up,largest),positive_infinity);
+        ARIADNE_TEST_EQUALS(next(down,-largest),negative_infinity);
+        for (bool negative:{false,true}) {
+            const auto zero=FloatMP::zero(bits,negative);
+            ARIADNE_TEST_EQUALS(next(up,zero),smallest);
+            ARIADNE_TEST_EQUALS(next(down,zero),-smallest);
+        }
+        const auto negative_zero=next(up,-smallest);
+        const auto positive_zero=next(down,smallest);
+        ARIADNE_TEST_ASSERT(negative_zero.is_zero() && negative_zero.negative());
+        ARIADNE_TEST_ASSERT(positive_zero.is_zero() && !positive_zero.negative());
+        const auto first_above_min=next(up,smallest);
+        ARIADNE_TEST_EQUALS(first_above_min.exponent(),smallest.exponent());
+        ARIADNE_TEST_ASSERT(compare(first_above_min.significand(),
+                                  add(smallest.significand(),BigUnsigned(1u)))==0);
+        ARIADNE_TEST_EQUALS(next(down,first_above_min),smallest);
+        ARIADNE_TEST_EQUALS(next(up,-first_above_min),-smallest);
+        const auto last_below_max=next(down,largest);
+        ARIADNE_TEST_EQUALS(next(up,last_below_max),largest);
+        ARIADNE_TEST_EQUALS(next(down,-last_below_max),-largest);
+
+        // At a power of two, the predecessor has twice as fine a spacing.
+        const auto predecessor=next(down,FloatMP(1,precision));
+        ARIADNE_TEST_EQUALS(predecessor.exponent(),-static_cast<FloatMP::Exponent>(bits));
+        ARIADNE_TEST_ASSERT(compare(predecessor.significand(),
+            sub(shift_left(BigUnsigned(1u),bits),BigUnsigned(1u)))==0);
+        ARIADNE_TEST_EQUALS(next(up,predecessor),FloatMP(1,precision));
+        ARIADNE_TEST_EQUALS(next(up,FloatMP(-1,precision)),-predecessor);
+        ARIADNE_TEST_EQUALS(next(down,-predecessor),FloatMP(-1,precision));
+    }
+}
+
+void test_floatmp_ratio_ties_and_carry() {
+    const MultiplePrecision precision(2_bits);
+    // n/3 exercises scalar normalization with zero and negative shifts.
+    struct Row { int numerator; int nearest; int lower; int upper; };
+    for (auto row:{Row{7,2,2,3},Row{15,4,4,6},Row{21,8,6,8},Row{100,32,32,48}}) {
+        for (bool negative:{false,true}) {
+            const Integer numerator(negative ? -row.numerator : row.numerator);
+            const auto value=[&](auto mode) {
+                return static_cast<Rational>(FloatMP::from_ratio(numerator,Integer(3),mode,precision));
+            };
+            ARIADNE_TEST_EQUALS(value(near),Rational(negative ? -row.nearest : row.nearest));
+            ARIADNE_TEST_EQUALS(value(down),Rational(negative ? -row.upper : row.lower));
+            ARIADNE_TEST_EQUALS(value(up),Rational(negative ? -row.lower : row.upper));
+            ARIADNE_TEST_EQUALS(value(toward_zero),Rational(negative ? -row.lower : row.lower));
+        }
+    }
+    // Common factors preserve exact halfway values while forcing multi-limb division.
+    const Integer two65=pow(Integer(2),Nat(65u));
+    for (int extra:{1,3}) {
+        const Integer numerator=3*(two65+Integer(extra));
+        const auto rounded_value=FloatMP::from_ratio(numerator,Integer(3),near,MultiplePrecision(65_bits));
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(rounded_value),Rational(two65+Integer(extra==1 ? 0 : 4)));
+    }
+    // 11/3 * 2^MAX rounds from the largest 2-bit finite significand into infinity.
+    auto source=FloatMP::max(MultiplePrecision(4_bits));
+    for (unsigned step=0u;step<4u;++step) source=next(down,source);
+    const FloatMP denominator(3,precision);
+    ARIADNE_TEST_EQUALS(div(down,source,denominator),FloatMP::max(precision));
+    ARIADNE_TEST_ASSERT(is_inf(div(near,source,denominator)));
+}
+
+void test_floatmp_negative_power_specials() {
+    const MultiplePrecision precision(65_bits);
+    ARIADNE_TEST_ASSERT(is_nan(pow(near,FloatMP::nan(precision),Int(-1))));
+    for (bool negative:{false,true}) {
+        for (Int exponent:{-1,-2}) {
+            const bool expected_negative=negative && exponent==-1;
+            const auto zero_power=pow(near,FloatMP::zero(65u,negative),exponent);
+            const auto infinite_power=pow(near,FloatMP::infinity(65u,negative),exponent);
+            ARIADNE_TEST_ASSERT(is_inf(zero_power));
+            ARIADNE_TEST_EQUALS(zero_power.negative(),expected_negative);
+            ARIADNE_TEST_ASSERT(infinite_power.is_zero());
+            ARIADNE_TEST_EQUALS(infinite_power.negative(),expected_negative);
+        }
+    }
+    const auto tiny=FloatMP::min(precision);
+    ARIADNE_TEST_EQUALS(floor(-tiny),FloatMP(-1,precision));
+    ARIADNE_TEST_EQUALS(ceil(tiny),FloatMP(1,precision));
+    ARIADNE_TEST_ASSERT(round(tiny).is_zero());
+    ARIADNE_TEST_ASSERT(round(-tiny).is_zero() && round(-tiny).negative());
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
     test_floatmp_special_arithmetic();
+    test_floatmp_neighbor_limits();
+    test_floatmp_ratio_ties_and_carry();
+    test_floatmp_negative_power_specials();
     test_floatmp_mixed_precision_arithmetic();
     test_floatmp_exponent_limit_oracle();
     test_floatmp_precision_contracts();
