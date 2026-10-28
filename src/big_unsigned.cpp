@@ -1524,26 +1524,11 @@ void BigUnsigned::divrem_selected_into(
         MutableLimbView remainder,MutableLimbView scratch)
 {
     static_assert(WantQuotient || WantRemainder);
-    if (b.empty()) {
-        throw std::domain_error("BigUnsigned division by zero");
-    }
+    // Private callers provide a nonzero canonical divisor, exact output
+    // capacities and scratch from divrem_scratch_limbs(). The public span
+    // adapter validates all of these before entering any specialization.
     const std::size_t quotient_limbs=
         a.size()<b.size() ? 0u : a.size()-b.size()+1u;
-    const std::size_t remainder_limbs=std::min(a.size(),b.size());
-    if constexpr (WantQuotient) {
-        if (quotient.size()<quotient_limbs) {
-            throw std::length_error("BigUnsigned quotient output too small");
-        }
-    }
-    if constexpr (WantRemainder) {
-        if (remainder.size()<remainder_limbs) {
-            throw std::length_error("BigUnsigned remainder output too small");
-        }
-    }
-    const auto required=divrem_scratch_limbs(a.size(),b.size());
-    if (scratch.size()<required) {
-        throw std::length_error("BigUnsigned division scratch too small");
-    }
 
     if constexpr (WantQuotient) {
         std::fill(quotient.begin(),quotient.end(),Limb{0});
@@ -1777,6 +1762,10 @@ void BigUnsigned::divrem_into(
     if (quotient.size()<a.size() ||
             remainder.size()<std::min(a.size(),b.size())) {
         throw std::length_error("BigUnsigned division output too small");
+    }
+    const auto required=divrem_scratch_limbs(a.size(),b.size());
+    if (scratch.size()<required) {
+        throw std::length_error("BigUnsigned division scratch too small");
     }
     divrem_selected_into<true,true>(a,b,quotient,remainder,scratch);
 }

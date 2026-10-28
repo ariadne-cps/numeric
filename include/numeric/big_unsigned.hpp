@@ -78,7 +78,9 @@ class BigUnsigned
         LimbView a,unsigned shift_a,LimbView b,unsigned shift_b);
 
     // Compile-time modes avoid unneeded outputs during division.
-    // The all-output divrem_into contract remains unchanged.
+    // The public divrem_into adapter validates its full contract. Private
+    // calls supply nonzero canonical b, selected output sizes and exact
+    // divrem_scratch_limbs() storage, with all live spans disjoint.
     template<bool WantQuotient,bool WantRemainder>
     static void divrem_selected_into(
         LimbView a,LimbView b,MutableLimbView quotient,

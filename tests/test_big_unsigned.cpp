@@ -4249,6 +4249,7 @@ void test_big_unsigned_contracts_and_controls() {
     const BigUnsigned a(17u), b(5u);
     const std::array<Limb,2u> wide={3u,1u};
     std::array<Limb,2u> output={91u,92u};
+    std::array<Limb,2u> remainder={81u,82u};
     const auto empty=BigUnsigned::MutableLimbView{};
     ARIADNE_TEST_FAIL(BigUnsigned::add_into(a.limbs(),b.limbs(),empty));
     ARIADNE_TEST_FAIL(BigUnsigned::sub_into(a.limbs(),b.limbs(),empty));
@@ -4257,9 +4258,17 @@ void test_big_unsigned_contracts_and_controls() {
     ARIADNE_TEST_FAIL(BigUnsigned::add_shifted(a.limbs(),0u,b.limbs(),64u));
     ARIADNE_TEST_FAIL(BigUnsigned::sub_shifted(a.limbs(),64u,b.limbs(),0u));
     ARIADNE_TEST_FAIL(BigUnsigned::sub_shifted(a.limbs(),0u,b.limbs(),64u));
-    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),{},output,output,{}));
-    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),b.limbs(),empty,output,{}));
+    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),{},output,remainder,{}));
+    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),b.limbs(),empty,remainder,{}));
     ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),b.limbs(),output,empty,{}));
+    const std::array<Limb,2u> divisor_words={2u,1u};
+    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(wide,divisor_words,output,remainder,{}));
+    // Every preflight failure leaves both destination spans untouched.
+    ARIADNE_TEST_EQUALS(output[0u],91u);
+    ARIADNE_TEST_EQUALS(output[1u],92u);
+    ARIADNE_TEST_EQUALS(remainder[0u],81u);
+    ARIADNE_TEST_EQUALS(remainder[1u],82u);
+    ARIADNE_TEST_FAIL(BigUnsigned::mul_into_karatsuba(a.limbs(),b.limbs(),output,{},7u));
     ARIADNE_TEST_FAIL(BigUnsigned::divrem_scratch_limbs(
         std::numeric_limits<std::size_t>::max(),2u));
     ARIADNE_TEST_FAIL(BigUnsigned::divrem_scratch_limbs(
