@@ -64,7 +64,10 @@ namespace Ariadne {
 // 64-bit-limb BigUnsigned; the nonnegative significand is owned directly.
 namespace {
 bool floatmp_test_bit(BigUnsigned::LimbView n,std::size_t bit) noexcept {
-    return bit/64u<n.size() && ((n[bit/64u]>>(bit%64u))&1u)!=0u;
+    // round_short/round_scaled_integer retain at least two bits, so their
+    // guard/parity bit is inside the canonical input. get_d_general only
+    // reaches this helper for discarded<=width, including the smallest tie.
+    return ((n[bit/64u]>>(bit%64u))&1u)!=0u;
 }
 bool floatmp_test_bit(BigUnsigned const& n,std::size_t bit) noexcept {
     return floatmp_test_bit(n.limbs(),bit);
@@ -1723,9 +1726,8 @@ public:
     explicit Fraction(long integer) : _value(Integer(integer)) { }
 
     explicit Fraction(FloatMP const& binary) {
-        if (!binary.is_finite()) {
-            throw std::domain_error("FloatMP nonfinite to rational interval");
-        }
+        // Every call is through rational_argument, after unary, exp, log
+        // or tanh has dispatched IEEE special values and its zero cases.
         const auto exponent=binary.exponent();
         if (exponent==std::numeric_limits<FloatMP::Exponent>::min()) {
             throw std::overflow_error("FloatMP exponent shift overflow");
@@ -1780,8 +1782,9 @@ public:
             exponent=64u*i+
                 static_cast<std::size_t>(std::countr_zero(digits[i]));
         }
-        return found ? std::optional<std::size_t>(exponent)
-                     : std::nullopt;
+        // Fraction owns a finite Rational with a positive denominator.
+        // Reaching the end therefore found exactly one nonzero limb.
+        return std::optional<std::size_t>(exponent);
     }
     bool is_dyadic() const noexcept {
         return dyadic_denominator_bits().has_value();
@@ -3839,59 +3842,51 @@ FloatMP certified(Function function, Fraction const& x,
     }
 }
 
-FloatMP unary(Function function, FloatMP::RoundingModeType mode,
-              FloatMP const& x) {
-    const unsigned long bits = static_cast<unsigned long>(x.precision().bits());
-    if (x.is_nan()) {
-        return FloatMP::nan(bits);
-    }
-
-    if (x.is_inf()) {
-        if (function == Function::arctangent) {
-            return certified(x.negative() ? Function::negative_half_pi :
-                           Function::half_pi, Fraction{}, mode, x.precision());
-        }
-        return FloatMP::nan(bits);
-    }
-
-    if (x.is_zero()) {
-        switch (function) {
-            case Function::sine:
-            case Function::tangent:
-            case Function::arctangent:
-            case Function::arcsine:
-                return FloatMP::zero(bits, x.negative());
-            case Function::cosine:
-                return FloatMP(std::int64_t{1}, x.precision());
-            case Function::arccosine:
-                return certified(Function::arccosine, Fraction{}, mode, x.precision());
-            case Function::pi:
-            case Function::half_pi:
-            case Function::negative_half_pi:
-            default:
-                break;
-        }
-    }
-
-    if (auto short_result=FloatMPShortTranscendentals::evaluate(function,mode,x)) return std::move(*short_result);
-    const Fraction argument = rational_argument(x);
-    if (function == Function::arcsine || function == Function::arccosine) {
-        if (compare(absolute(argument), Fraction(1L)) > 0) {
+// The six public unary wrappers fix their operation at compile time.
+// Pi constants and the separately handled exp/log/tanh APIs never enter here.
+template<Function OperationKind>
+FloatMP unary(FloatMP::RoundingModeType mode,FloatMP const& x) {
+    static_assert(OperationKind==Function::sine || OperationKind==Function::cosine ||
+                  OperationKind==Function::tangent || OperationKind==Function::arctangent ||
+                  OperationKind==Function::arcsine || OperationKind==Function::arccosine);
+    const unsigned long bits=static_cast<unsigned long>(x.precision().bits());
+    if(x.is_nan()) return FloatMP::nan(bits);
+    if(x.is_inf()) {
+        if constexpr(OperationKind==Function::arctangent) {
+            return certified(x.negative() ? Function::negative_half_pi : Function::half_pi,
+                             Fraction{},mode,x.precision());
+        } else {
             return FloatMP::nan(bits);
         }
-        if (compare(argument, Fraction(1L)) == 0) {
-            if (function == Function::arccosine) {
-                return FloatMP::zero(bits);
-            }
-            return certified(Function::half_pi, Fraction{}, mode, x.precision());
-        }
-        if (compare(argument, Fraction(-1L)) == 0) {
-            return certified(function == Function::arcsine ?
-                             Function::negative_half_pi : Function::pi,
-                             Fraction{}, mode, x.precision());
+    }
+    if(x.is_zero()) {
+        if constexpr(OperationKind==Function::cosine) {
+            return FloatMP(std::int64_t{1},x.precision());
+        } else if constexpr(OperationKind==Function::arccosine) {
+            return certified(OperationKind,Fraction{},mode,x.precision());
+        } else {
+            return FloatMP::zero(bits,x.negative());
         }
     }
-    return certified(function, argument, mode, x.precision());
+    if(auto short_result=FloatMPShortTranscendentals::evaluate(OperationKind,mode,x))
+        return std::move(*short_result);
+    const Fraction argument=rational_argument(x);
+    if constexpr(OperationKind==Function::arcsine || OperationKind==Function::arccosine) {
+        if(compare(absolute(argument),Fraction(1L))>0) return FloatMP::nan(bits);
+        if(compare(argument,Fraction(1L))==0) {
+            if constexpr(OperationKind==Function::arccosine) {
+                return FloatMP::zero(bits);
+            } else {
+                return certified(Function::half_pi,Fraction{},mode,x.precision());
+            }
+        }
+        if(compare(argument,Fraction(-1L))==0) {
+            constexpr Function boundary=OperationKind==Function::arcsine
+                ? Function::negative_half_pi : Function::pi;
+            return certified(boundary,Fraction{},mode,x.precision());
+        }
+    }
+    return certified(OperationKind,argument,mode,x.precision());
 }
 
 } // namespace Detail
@@ -3981,32 +3976,32 @@ FloatMP tanh(FloatMP::RoundingModeType mode,FloatMP const& x) {
 
 FloatMP sin(FloatMP::RoundingModeType mode, FloatMP const& x) {
     using namespace Detail;
-    return unary(Function::sine, mode, x);
+    return unary<Function::sine>(mode,x);
 }
 
 FloatMP cos(FloatMP::RoundingModeType mode, FloatMP const& x) {
     using namespace Detail;
-    return unary(Function::cosine, mode, x);
+    return unary<Function::cosine>(mode,x);
 }
 
 FloatMP tan(FloatMP::RoundingModeType mode, FloatMP const& x) {
     using namespace Detail;
-    return unary(Function::tangent, mode, x);
+    return unary<Function::tangent>(mode,x);
 }
 
 FloatMP atan(FloatMP::RoundingModeType mode, FloatMP const& x) {
     using namespace Detail;
-    return unary(Function::arctangent, mode, x);
+    return unary<Function::arctangent>(mode,x);
 }
 
 FloatMP asin(FloatMP::RoundingModeType mode, FloatMP const& x) {
     using namespace Detail;
-    return unary(Function::arcsine, mode, x);
+    return unary<Function::arcsine>(mode,x);
 }
 
 FloatMP acos(FloatMP::RoundingModeType mode, FloatMP const& x) {
     using namespace Detail;
-    return unary(Function::arccosine, mode, x);
+    return unary<Function::arccosine>(mode,x);
 }
 
 FloatMP Float<MultiplePrecision>::pi(RoundingModeType mode, PrecisionType precision) {
