@@ -1417,7 +1417,21 @@ void TestRational::test_bounds() {
 
 
 
+void test_rational_contract_edges() {
+    Rational self(11,13);
+    const Rational* alias=&self;
+    self=*alias;
+    ARIADNE_TEST_EQUALS(self,Rational(11,13));
+    ARIADNE_TEST_EQUALS(Rational(String("\t -12\n /\r -18\f\v")),Rational(2,3));
+    ARIADNE_TEST_EQUALS(pow(Rational::inf(Sign::POSITIVE),Nat(3)),Rational::inf(Sign::POSITIVE));
+    ARIADNE_TEST_EQUALS(pow(Rational::inf(Sign::NEGATIVE),Nat(3)),Rational::inf(Sign::NEGATIVE));
+    ARIADNE_TEST_EQUALS(pow(Rational::inf(Sign::NEGATIVE),Nat(2)),Rational::inf(Sign::POSITIVE));
+    // Cancellation scans complete zero limbs before the first set bit.
+    ARIADNE_TEST_EQUALS(Rational::from_dyadic(Integer(String("18446744073709551616")),65u),Rational(1,2));
+}
+
 int main() {
+    ARIADNE_TEST_CALL(test_rational_contract_edges());
     {
         std::ifstream data(ARIADNE_TEST_DATA_DIR "/scalar_comparison.tsv");
         if (!data) throw std::runtime_error("Missing scalar_comparison.tsv");

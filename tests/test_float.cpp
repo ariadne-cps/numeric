@@ -1444,6 +1444,76 @@ void test_floatmp_exponent_limit_oracle() {
         throw std::runtime_error("Incomplete floatmp_exponent_limits.tsv");
 }
 
+Void test_floatmp_special_arithmetic() {
+    const auto old=FloatMP::get_rounding_mode();
+    FloatMP::set_rounding_downward();
+    const FloatMP::Rounding current(CurrentRoundingMode{});
+    ARIADNE_TEST_ASSERT(current==FloatMP::ROUND_DOWNWARD);
+    FloatMP::set_rounding_mode(old);
+    const MultiplePrecision precision(128_bits);
+    const FloatMP zero=FloatMP::zero(128u),one(1,precision),two_value(2,precision);
+    const FloatMP pinf=FloatMP::infinity(128u),ninf=FloatMP::infinity(128u,true);
+    const FloatMP nan=FloatMP::nan(128u);
+    ARIADNE_TEST_ASSERT(is_nan(neg(nan)));
+    ARIADNE_TEST_ASSERT(is_nan(add(near,nan,one)));
+    ARIADNE_TEST_ASSERT(is_nan(add(near,one,nan)));
+    ARIADNE_TEST_ASSERT(is_nan(add(near,pinf,ninf)));
+    ARIADNE_TEST_EQUALS(add(near,pinf,pinf),pinf);
+    ARIADNE_TEST_EQUALS(add(near,one,ninf),ninf);
+    ARIADNE_TEST_EQUALS(add(near,ninf,one),ninf);
+    ARIADNE_TEST_ASSERT(is_nan(mul(near,nan,one)));
+    ARIADNE_TEST_ASSERT(is_nan(mul(near,one,nan)));
+    ARIADNE_TEST_ASSERT(is_nan(mul(near,zero,pinf)));
+    ARIADNE_TEST_ASSERT(is_nan(mul(near,ninf,zero)));
+    ARIADNE_TEST_EQUALS(mul(near,one,ninf),ninf);
+    ARIADNE_TEST_EQUALS(mul(near,ninf,-one),pinf);
+    ARIADNE_TEST_ASSERT(is_nan(div(near,nan,one)));
+    ARIADNE_TEST_ASSERT(is_nan(div(near,one,nan)));
+    ARIADNE_TEST_ASSERT(is_nan(div(near,zero,zero)));
+    ARIADNE_TEST_ASSERT(is_nan(div(near,pinf,ninf)));
+    ARIADNE_TEST_EQUALS(div(near,ninf,one),ninf);
+    ARIADNE_TEST_EQUALS(div(near,-one,zero),ninf);
+    ARIADNE_TEST_ASSERT(div(near,zero,-one).negative());
+    ARIADNE_TEST_ASSERT(div(near,one,ninf).negative());
+    ARIADNE_TEST_ASSERT(is_nan(fma(near,nan,one,one)));
+    ARIADNE_TEST_ASSERT(is_nan(fma(near,one,nan,one)));
+    ARIADNE_TEST_ASSERT(is_nan(fma(near,one,one,nan)));
+    ARIADNE_TEST_ASSERT(is_nan(fma(near,zero,pinf,one)));
+    ARIADNE_TEST_ASSERT(is_nan(fma(near,pinf,zero,one)));
+    ARIADNE_TEST_ASSERT(is_nan(fma(near,pinf,one,ninf)));
+    ARIADNE_TEST_EQUALS(fma(near,pinf,one,pinf),pinf);
+    ARIADNE_TEST_EQUALS(fma(near,one,ninf,one),ninf);
+    ARIADNE_TEST_EQUALS(fma(near,one,one,ninf),ninf);
+    ARIADNE_TEST_EQUALS(fma(near,zero,one,two_value),two_value);
+    ARIADNE_TEST_EQUALS(fma(near,one,zero,two_value),two_value);
+    for (auto value : {nan,pinf,ninf,FloatMP::zero(128u,true)}) {
+        const FloatMP narrowed(value,near,MultiplePrecision(8_bits));
+        ARIADNE_TEST_EQUALS(narrowed.precision(),MultiplePrecision(8_bits));
+        ARIADNE_TEST_ASSERT(narrowed.is_nan()==value.is_nan());
+        ARIADNE_TEST_ASSERT(narrowed.is_inf()==value.is_inf());
+        ARIADNE_TEST_ASSERT(narrowed.negative()==value.negative());
+        value.set_precision(precision); // unchanged precision is an explicit no-op.
+        value.set_precision(MultiplePrecision(8_bits));
+        ARIADNE_TEST_EQUALS(value.precision(),MultiplePrecision(8_bits));
+        ARIADNE_TEST_ASSERT(value.is_nan()==narrowed.is_nan());
+        ARIADNE_TEST_ASSERT(value.is_inf()==narrowed.is_inf());
+        ARIADNE_TEST_ASSERT(value.negative()==narrowed.negative());
+    }
+    ARIADNE_TEST_ASSERT(is_nan(static_cast<Dyadic>(nan)));
+    ARIADNE_TEST_ASSERT(is_inf(static_cast<Dyadic>(pinf)));
+    ARIADNE_TEST_ASSERT(is_inf(static_cast<Dyadic>(ninf)));
+    ARIADNE_TEST_EQUALS(static_cast<Dyadic>(zero),Dyadic(0));
+    ARIADNE_TEST_EQUALS(static_cast<Dyadic>(FloatMP(256,MultiplePrecision(8_bits))),Dyadic(256));
+    ARIADNE_TEST_FAIL(cast_integer(nan));
+    ARIADNE_TEST_FAIL(cast_integer(pinf));
+    StringStream implicit_repr,explicit_repr;
+    repr(implicit_repr,two_value);
+    repr(explicit_repr,two_value,FloatMP::get_rounding_mode());
+    ARIADNE_TEST_EQUALS(implicit_repr.str(),explicit_repr.str());
+    // Call the raw binary64 adapter, which is distinct from tagged tanh.
+    ARIADNE_TEST_EQUALS(tanh_rnd(FloatDP(0,dp)),FloatDP(0,dp));
+}
+
 // Exact small integers isolate precision selection from numerical rounding.
 Void test_floatmp_mixed_precision_arithmetic() {
     for (auto sizes : {std::pair{8u,16u},std::pair{16u,8u},std::pair{8u,8u}}) {
@@ -1479,6 +1549,7 @@ Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
+    test_floatmp_special_arithmetic();
     test_floatmp_mixed_precision_arithmetic();
     test_floatmp_exponent_limit_oracle();
     test_floatmp_precision_contracts();

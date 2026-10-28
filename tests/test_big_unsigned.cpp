@@ -40,6 +40,16 @@
 
 #include "macro/testing.hpp"
 
+namespace Ariadne {
+BigUnsigned rem_limb_divq_diagnostic(BigUnsigned const&,BigUnsigned const&);
+BigUnsigned rem_limb_preinverse_diagnostic(BigUnsigned const&,BigUnsigned const&);
+BigUnsigned mul_short_stack_selected_diagnostic(BigUnsigned const&,BigUnsigned const&);
+BigUnsigned mul_short_stack_fused_diagnostic(BigUnsigned const&,BigUnsigned const&);
+BigUnsigned square_short_symmetric_diagnostic(BigUnsigned const&);
+std::string to_decimal_cutoff16_diagnostic(BigUnsigned const&);
+std::string to_decimal_cutoff32_diagnostic(BigUnsigned const&);
+}
+
 using namespace Ariadne;
 
 namespace {
@@ -3636,6 +3646,8 @@ void TestBigUnsigned::test_gcd_decimal()
         ARIADNE_TEST_ASSERT(to_decimal(parsed)==
             to_decimal(from_decimal(to_decimal(parsed))));
         ARIADNE_TEST_ASSERT(to_decimal(parsed)==expected_decimal);
+        ARIADNE_TEST_EQUALS(to_decimal_cutoff16_diagnostic(parsed),expected_decimal);
+        ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(parsed),expected_decimal);
     }
     std::string a20_extra;
     if (a20_decimal_random >> a20_extra)
@@ -4232,8 +4244,56 @@ void TestBigUnsigned::test_randomized()
 
 } // namespace
 
+void test_big_unsigned_contracts_and_controls() {
+    using Limb=BigUnsigned::Limb;
+    const BigUnsigned a(17u), b(5u);
+    const std::array<Limb,2u> wide={3u,1u};
+    std::array<Limb,2u> output={91u,92u};
+    const auto empty=BigUnsigned::MutableLimbView{};
+    ARIADNE_TEST_FAIL(BigUnsigned::add_into(a.limbs(),b.limbs(),empty));
+    ARIADNE_TEST_FAIL(BigUnsigned::sub_into(a.limbs(),b.limbs(),empty));
+    ARIADNE_TEST_EQUALS(output[0u],91u);
+    ARIADNE_TEST_FAIL(BigUnsigned::add_shifted(a.limbs(),64u,b.limbs(),0u));
+    ARIADNE_TEST_FAIL(BigUnsigned::add_shifted(a.limbs(),0u,b.limbs(),64u));
+    ARIADNE_TEST_FAIL(BigUnsigned::sub_shifted(a.limbs(),64u,b.limbs(),0u));
+    ARIADNE_TEST_FAIL(BigUnsigned::sub_shifted(a.limbs(),0u,b.limbs(),64u));
+    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),{},output,output,{}));
+    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),b.limbs(),empty,output,{}));
+    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),b.limbs(),output,empty,{}));
+    ARIADNE_TEST_FAIL(BigUnsigned::divrem_scratch_limbs(
+        std::numeric_limits<std::size_t>::max(),2u));
+    ARIADNE_TEST_FAIL(BigUnsigned::divrem_scratch_limbs(
+        std::numeric_limits<std::size_t>::max(),std::numeric_limits<std::size_t>::max()));
+    ARIADNE_TEST_FAIL(BigUnsigned::karatsuba_scratch_limbs(10u,10u,7u));
+    for (auto const& input : {BigUnsigned{},a,BigUnsigned(wide)}) {
+        // 17 mod 5 = 2; (2^64+3) mod 5 = 4.
+        const Limb expected=input.is_zero() ? 0u : input.size()==1u ? 2u : 4u;
+        ARIADNE_TEST_EQUALS(rem_limb_divq_diagnostic(input,b).limb(0u),expected);
+        ARIADNE_TEST_EQUALS(rem_limb_preinverse_diagnostic(input,b).limb(0u),expected);
+    }
+    ARIADNE_TEST_ASSERT(compare(rem_limb_divq_diagnostic(a,BigUnsigned(wide)),a)==0);
+    ARIADNE_TEST_EQUALS(mul_short_stack_selected_diagnostic(a,b).limb(0u),85u);
+    ARIADNE_TEST_EQUALS(mul_short_stack_fused_diagnostic(a,b).limb(0u),85u);
+    ARIADNE_TEST_ASSERT(mul_short_stack_selected_diagnostic(a,BigUnsigned{}).is_zero());
+    ARIADNE_TEST_ASSERT(mul_short_stack_fused_diagnostic(BigUnsigned{},b).is_zero());
+    ARIADNE_TEST_EQUALS(square_short_symmetric_diagnostic(a).limb(0u),289u);
+    ARIADNE_TEST_ASSERT(square_short_symmetric_diagnostic(BigUnsigned{}).is_zero());
+    ARIADNE_TEST_EQUALS(to_decimal_cutoff16_diagnostic(BigUnsigned{}),std::string("0"));
+    ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(BigUnsigned{}),std::string("0"));
+#if defined(__aarch64__) || defined(_M_ARM64)
+    ARIADNE_TEST_ASSERT(BigUnsigned::has_native_multiply());
+    ARIADNE_TEST_ASSERT(!BigUnsigned::has_x86_64_carry_multiply());
+    ARIADNE_TEST_ASSERT(!BigUnsigned::has_x86_64_multiply());
+#elif defined(__x86_64__) || defined(_M_X64)
+    ARIADNE_TEST_ASSERT(BigUnsigned::has_native_multiply());
+    ARIADNE_TEST_ASSERT(BigUnsigned::has_x86_64_carry_multiply());
+    ARIADNE_TEST_ASSERT(BigUnsigned::has_x86_64_multiply());
+#endif
+}
+
 int main()
 {
+    ARIADNE_TEST_CALL(test_big_unsigned_contracts_and_controls());
     ARIADNE_TEST_CLASS(BigUnsigned,TestBigUnsigned());
     return ARIADNE_TEST_FAILURES;
 }
