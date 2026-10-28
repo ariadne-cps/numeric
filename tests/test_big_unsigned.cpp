@@ -3568,6 +3568,13 @@ void TestBigUnsigned::test_gcd_decimal()
     const std::string cutoff32_decimal="1"+std::string(1152u,'0');
     ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(cutoff32_boundary),cutoff32_decimal);
     ARIADNE_TEST_EQUALS(to_decimal_cutoff16_diagnostic(cutoff32_boundary),cutoff32_decimal);
+    // The root split uses 10^1152. Its low block 10^1000 is larger
+    // than 32 limbs and splits again while preserving all 1152 digits.
+    const BigUnsigned padded_low=add(
+        pow(BigUnsigned(std::uint64_t{10}),std::uint64_t{2304}),
+        pow(BigUnsigned(std::uint64_t{10}),std::uint64_t{1000}));
+    const std::string padded_decimal="1"+std::string(1303u,'0')+"1"+std::string(1000u,'0');
+    ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(padded_low),padded_decimal);
     ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
     ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
     ARIADNE_TEST_ASSERT(to_decimal(from_decimal("000"))=="0");

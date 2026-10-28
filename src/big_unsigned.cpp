@@ -3619,18 +3619,21 @@ void BigUnsigned::sqrt_recursive_into(
     MutableLimbView value,MutableLimbView root,MutableLimbView scratch)
 {
     const std::size_t n=root.size();
-    if (n==1u) {
-        __extension__ using Wide=unsigned __int128;
-        const Limb s=sqrt_two_limbs(value[0u],value[1u]);
-        root[0u]=s;
-        if constexpr(WantRemainder) {
+    // Remainder-free evaluation is top-level only, with n>=2. Every
+    // recursive call needs a remainder and uses the true specialization.
+    if constexpr(WantRemainder) {
+        if (n==1u) {
+            __extension__ using Wide=unsigned __int128;
+            const Limb s=sqrt_two_limbs(value[0u],value[1u]);
+            root[0u]=s;
             const Wide rem=((static_cast<Wide>(value[1u])<<64u)|value[0u])-
                 static_cast<Wide>(s)*s;
             value[0u]=static_cast<Limb>(rem);
             value[1u]=static_cast<Limb>(rem>>64u);
+            return;
         }
-        return;
     }
+
     const std::size_t k=n/2u,h=n-k;
     auto s=root.subspan(k);
     sqrt_recursive_into<true>(value.subspan(2u*k),s,scratch);
