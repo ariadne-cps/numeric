@@ -717,11 +717,9 @@ BigUnsigned BigUnsigned::shifted_combine(
     if (shift_a>=64u || shift_b>=64u) {
         throw std::invalid_argument("shifted_combine requires shifts <64");
     }
-    if (a.size()>std::numeric_limits<std::size_t>::max()-2u ||
-            b.size()>std::numeric_limits<std::size_t>::max()-2u) {
-        throw std::length_error("shifted_combine operand size overflow");
-    }
 
+    // Each valid 64-bit limb range has at most SIZE_MAX/8 elements;
+    // one spill word and one carry word still fit the size type.
     const std::size_t size_a=a.size()+(shift_a!=0u && !a.empty() ? 1u : 0u);
     const std::size_t size_b=b.size()+(shift_b!=0u && !b.empty() ? 1u : 0u);
     const std::size_t count=std::max(size_a,size_b);
@@ -812,9 +810,6 @@ BigUnsigned BigUnsigned::sub_shifted(
 
 BigUnsigned add(BigUnsigned const& a, BigUnsigned const& b) {
     const std::size_t count = std::max(a._size,b._size);
-    if (count == std::numeric_limits<std::size_t>::max()) {
-        throw std::length_error("BigUnsigned addition size overflow");
-    }
     if (count==0u) return BigUnsigned{};
     if (count==1u) {
         const auto left=a._size==0u ? BigUnsigned::Limb{0} : a._inline_limbs[0u];
@@ -883,10 +878,8 @@ BigUnsigned shift_left(BigUnsigned const& a, std::size_t bits) {
     const std::size_t words = bits/64u;
     const unsigned offset = static_cast<unsigned>(bits%64u);
 
-    if (words >= std::numeric_limits<std::size_t>::max()-a._size-1u) {
-        throw std::length_error("BigUnsigned left shift size overflow");
-    }
-
+    // a has at most SIZE_MAX/8 limbs, words<=SIZE_MAX/64; their sum
+    // plus the spill limb fits size_t, even for the largest bit count.
     BigUnsigned result;
     result.resize_for_result(a._size+words+1u);
     auto* digits = result.mutable_data();
@@ -2841,8 +2834,9 @@ void check_full_product_size(
     if (a.empty() || b.empty()) {
         return;
     }
-    if (a.size() > std::numeric_limits<std::size_t>::max()-b.size()
-            || output.size() < a.size()+b.size()) {
+    // Real limb ranges occupy sizeof(Limb) bytes per element. Their
+    // lengths sum to at most SIZE_MAX/4 on the supported 8-bit-byte ABIs.
+    if (output.size() < a.size()+b.size()) {
         throw std::length_error("BigUnsigned mul_into output too small");
     }
 }
@@ -2893,8 +2887,7 @@ BigUnsigned::Limb BigUnsigned::accumulate_product_into(
         LimbView a,LimbView b,MutableLimbView output,bool subtract)
 {
     if (a.empty() || b.empty()) { return 0u; }
-    if (a.size()>std::numeric_limits<std::size_t>::max()-b.size() ||
-            output.size()<a.size()+b.size()) {
+    if (output.size()<a.size()+b.size()) {
         throw std::length_error("BigUnsigned product accumulator too small");
     }
     return subtract ? accumulate_product<true>(a,b,output)
@@ -2915,9 +2908,6 @@ BigUnsigned mul_low(BigUnsigned const& a,BigUnsigned const& b,
         return BigUnsigned{};
     }
 
-    if (a._size > std::numeric_limits<std::size_t>::max()-b._size) {
-        throw std::length_error("BigUnsigned product size overflow");
-    }
 
     const std::size_t result_size = std::min(limb_count,a._size+b._size);
     BigUnsigned result;
@@ -2935,9 +2925,6 @@ BigUnsigned mul(BigUnsigned const& a,BigUnsigned const& b)
         return BigUnsigned{};
     }
 
-    if (a._size > std::numeric_limits<std::size_t>::max()-b._size) {
-        throw std::length_error("BigUnsigned product size overflow");
-    }
 
     // R14: self-product dispatch belongs to the unsigned magnitude
     // engine, not Integer. Preserve the exact B33/B37 platform and
@@ -3201,9 +3188,6 @@ BigUnsigned square(BigUnsigned const& a)
     defined(ARIADNE_BIG_UNSIGNED_X86_64) && defined(__SIZEOF_INT128__) && \
     defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER)
     if (a._size>=8u) {
-        if (a._size>std::numeric_limits<std::size_t>::max()/2u) {
-            throw std::length_error("BigUnsigned square size overflow");
-        }
         BigUnsigned result;
         result.resize_for_result(2u*a._size);
         square_limbs_symmetric(
@@ -3219,9 +3203,6 @@ BigUnsigned square(BigUnsigned const& a)
     // computing a generic product twice for each off-diagonal pair.
     // Leave small inputs on the already-tuned carry-chain schoolbook.
     if (a._size>=8u) {
-        if (a._size>std::numeric_limits<std::size_t>::max()/2u) {
-            throw std::length_error("BigUnsigned square size overflow");
-        }
         BigUnsigned result;
         result.resize_for_result(2u*a._size);
         Detail::square_into_symmetric_arm64(
@@ -3711,9 +3692,8 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_buffered(BigUnsigned const&
 {
     const std::size_t n=value.size()/2u+value.size()%2u;
     // 2*n input + n root + (2*n+2) sequential division workspace.
-    if (n>(std::numeric_limits<std::size_t>::max()-2u)/5u) {
-        throw std::length_error("BigUnsigned sqrt workspace overflow");
-    }
+    // Since value.size()<=SIZE_MAX/8 and n=ceil(value.size()/2),
+    // 5*n+2 fits size_t. The destination vector checks its own max_size.
     const std::size_t count=5u*n+2u;
     std::array<Limb,512u> local;
     std::vector<Limb> heap;
