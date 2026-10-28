@@ -1689,6 +1689,50 @@ void test_floatmp_negative_power_specials() {
     ARIADNE_TEST_ASSERT(round(-tiny).is_zero() && round(-tiny).negative());
 }
 
+void test_floatmp_decimal_extreme_scales() {
+    const MultiplePrecision precision(2_bits);
+    const FloatMP small(TwoExp(-2000),precision);
+    // Exact integer certificates: 85*2^2000 < 10^604 < 90*2^2000.
+    // Thus 2^-2000 lies between 8.5 and 9 units at decimal place 603.
+    const std::string prefix="0."+std::string(602u,'0');
+    ARIADNE_TEST_EQUALS(print(small,DecimalPrecision(1u),near),prefix+"9");
+    ARIADNE_TEST_EQUALS(print(small,DecimalPrecision(1u),down),prefix+"8");
+    ARIADNE_TEST_EQUALS(print(small,DecimalPrecision(1u),up),prefix+"9");
+    ARIADNE_TEST_EQUALS(print(-small,DecimalPrecision(1u),up),"-"+prefix+"8");
+    ARIADNE_TEST_EQUALS(print(-small,DecimalPrecision(1u),down),"-"+prefix+"9");
+
+    // Reuse the independently generated exact decimal oracle for 2^2047.
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/big_unsigned_a21_decimal_structured.tsv");
+    if(!data) throw std::runtime_error("Missing structured decimal oracle");
+    std::string line,large_expected;
+    while(std::getline(data,line)) {
+        if(line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        unsigned ordinal;
+        std::string source_decimal,source_hex,canonical;
+        if(!(fields>>ordinal>>source_decimal>>source_hex>>canonical))
+            throw std::runtime_error("Malformed structured decimal oracle");
+        if(source_hex=="8"+std::string(511u,'0')) large_expected=canonical+".";
+    }
+    if(large_expected.empty()) throw std::runtime_error("Missing power-of-two decimal oracle");
+    const FloatMP large(TwoExp(2047),precision);
+    ARIADNE_TEST_EQUALS(print(large,DecimalPrecision(1u),near),large_expected);
+    ARIADNE_TEST_EQUALS(print(-large,DecimalPrecision(1u),near),"-"+large_expected);
+    RoundingSession<FloatMP> ambient;
+    for(auto ambient_mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                           FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+        ambient.set(ambient_mode);
+        ARIADNE_TEST_EQUALS(print(small,DecimalPrecision(1u),near),prefix+"9");
+        ARIADNE_TEST_EQUALS(print(-small,DecimalPrecision(1u),near),"-"+prefix+"9");
+        ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==ambient_mode);
+    }
+    // Reject an unrepresentable decimal-place count before attempting storage.
+    bool places_overflow=false;
+    try { (void)print(FloatMP::min(precision),DecimalPrecision(1u),near); }
+    catch(std::overflow_error const&) { places_overflow=true; }
+    ARIADNE_TEST_ASSERT(places_overflow);
+}
+
 // Scalar boundaries exercise metadata failure paths without allocating giant values.
 void test_checked_precision_arithmetic() {
     using Detail::checked_unsigned_add;
@@ -1711,6 +1755,7 @@ Int main() {
     std::cerr<<std::setprecision(20);
     
     test_checked_precision_arithmetic();
+    test_floatmp_decimal_extreme_scales();
     test_floatmp_special_arithmetic();
     test_floatmp_neighbor_limits();
     test_floatmp_ratio_ties_and_carry();

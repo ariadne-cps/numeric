@@ -819,20 +819,33 @@ std::string print(FloatMP const& x, DecimalPlaces places, FloatMP::RoundingModeT
 
 std::string print(FloatMP const& x, DecimalPrecision figures, FloatMP::RoundingModeType mode) {
     if(!x.is_finite() || x.is_zero()) return decimal_fixed(x,0,mode);
-    const double absolute=std::fabs(x.get_d());
+    double absolute;
+    {
+        // A directed binary64 conversion can turn a tiny source into the
+        // smallest subnormal, giving it the wrong decimal scale. Use a
+        // nearest conversion for this estimate and restore the caller's mode.
+        RoundingSession<FloatMP> session;
+        session.set(FloatMP::ROUND_TO_NEAREST);
+        absolute=std::fabs(x.get_d());
+    }
     // DecimalPrecision is a count of significant figures rather than places.
     // For values outside the range of double, derive the base-10 exponent
     // from the full integer significand and binary exponent.
-    int magnitude=0;
+    long long magnitude=0;
     if(std::isfinite(absolute) && absolute>0) {
-        magnitude=static_cast<int>(std::floor(std::log10(absolute)));
+        magnitude=static_cast<long long>(std::floor(std::log10(absolute)));
     } else {
         const double estimated=(static_cast<double>(x.significand().bit_length())-1.0
                                +static_cast<double>(x.exponent()))*0.3010299956639812;
-        magnitude=static_cast<int>(std::floor(estimated));
+        // Both the significand width and exponent fit Exponent. Their
+        // sum times log10(2) lies strictly inside the signed 64-bit range.
+        // An int is insufficient for valid extreme binary exponents.
+        magnitude=static_cast<long long>(std::floor(estimated));
     }
     const long long places=static_cast<long long>(static_cast<unsigned int>(figures))-1-magnitude;
-    return decimal_fixed(x,places>0?static_cast<unsigned int>(places):0u,mode);
+    const auto decimal_places=places>0 ? Detail::checked_unsigned_cast<unsigned int>(
+        static_cast<unsigned long long>(places),"FloatMP decimal places out of range") : 0u;
+    return decimal_fixed(x,decimal_places,mode);
 }
 
 OutputStream& write(OutputStream& out, FloatMP const& x, DecimalPlaces places, FloatMP::RoundingModeType mode) {
