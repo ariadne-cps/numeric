@@ -59,6 +59,8 @@
 #include "macro/testing.hpp"
 #include "test_floats.hpp"
 
+namespace Ariadne { int abslog10floor(double); }
+
 using namespace Ariadne;
 using namespace std;
 
@@ -1029,6 +1031,10 @@ Void test_double_runtime()
 
     const double infinity_value=std::numeric_limits<double>::infinity();
     const double nan=std::numeric_limits<double>::quiet_NaN();
+    ARIADNE_TEST_EQUALS(abslog10floor(0.0),std::numeric_limits<int>::min());
+    ARIADNE_TEST_EQUALS(abslog10floor(-0.0),std::numeric_limits<int>::min());
+    ARIADNE_TEST_EQUALS(abslog10floor(infinity_value),0);
+    ARIADNE_TEST_EQUALS(abslog10floor(nan),0);
     ARIADNE_TEST_ASSERT(std::isnan(sqrt_rnd(nan)));
     ARIADNE_TEST_ASSERT(std::isinf(sqrt_rnd(infinity_value)));
     ARIADNE_TEST_EQUALS(sqrt_rnd(0.0),0.0);
@@ -1058,6 +1064,11 @@ Void test_double_runtime()
     ARIADNE_TEST_ASSERT(std::abs(tan_rnd(-4.0)-std::tan(-4.0))<1e-11);
     ARIADNE_TEST_ASSERT(std::isnan(tan_rnd(infinity_value)));
 
+    set_builtin_rounding_upward();
+    const double positive_atan_upper=atan_rnd(1.0);
+    set_builtin_rounding_downward();
+    ARIADNE_TEST_EQUALS(atan_rnd(-1.0),-positive_atan_upper);
+    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_DOWNWARD);
     set_builtin_rounding_toward_zero();
     ARIADNE_TEST_EXECUTE(atan_rnd(-0.5));
     set_builtin_rounding_to_nearest();
@@ -1175,6 +1186,19 @@ Void test_native_decimal_format() {
     ARIADNE_TEST_EQUALS(dp_upward_stream.str(),String("0.13"));
     ARIADNE_TEST_EQUALS(dp_tie_stream.str(),String("0.38"));
     ARIADNE_TEST_EQUALS(dp_zero_stream.str(),String("-0.00"));
+    for (auto value : {FloatDP::nan(dp),FloatDP::inf(Sign::POSITIVE,dp),
+                       FloatDP::inf(Sign::NEGATIVE,dp)}) {
+        StringStream stream;
+        write(stream,value,DecimalPlaces(2u),FloatDP::ROUND_TO_NEAREST);
+        const String expected=is_nan(value) ? String("nan") :
+                              value.get_d()<0.0 ? String("-inf") : String("inf");
+        ARIADNE_TEST_EQUALS(stream.str(),expected);
+    }
+    const auto old_mode=FloatDP::get_rounding_mode();
+    FloatDP::set_rounding_to_nearest();
+    const FloatDP zero(ExactDouble(-0.0),dp);
+    ARIADNE_TEST_ASSERT(std::signbit(tanh(CurrentRoundingMode{},zero).get_d()));
+    FloatDP::set_rounding_mode(old_mode);
 }
 
 Void test_floatmp_native_significand_storage() {
@@ -1420,10 +1444,42 @@ void test_floatmp_exponent_limit_oracle() {
         throw std::runtime_error("Incomplete floatmp_exponent_limits.tsv");
 }
 
+// Exact small integers isolate precision selection from numerical rounding.
+Void test_floatmp_mixed_precision_arithmetic() {
+    for (auto sizes : {std::pair{8u,16u},std::pair{16u,8u},std::pair{8u,8u}}) {
+        const MultiplePrecision pa(std::size_t{sizes.first});
+        const MultiplePrecision pb(std::size_t{sizes.second});
+        const MultiplePrecision expected(std::size_t{std::min(sizes.first,sizes.second)});
+        const FloatMP a(2,pa), b(4,pb);
+        const auto check=[&](FloatMP const& result, int value) {
+            ARIADNE_TEST_EQUALS(result.precision(),expected);
+            ARIADNE_TEST_EQUALS(static_cast<Rational>(result),Rational(value));
+        };
+        check(add(near,a,b),6);
+        check(mul(near,a,b),8);
+        ARIADNE_TEST_EQUALS(div(near,a,b).precision(),expected);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(div(near,a,b)),Rational(1,2));
+        check(med(near,a,b),3);
+        check(rad(near,a,b),1);
+        for (std::size_t c_bits : {4u,32u}) {
+            const FloatMP c(1,MultiplePrecision(c_bits));
+            const auto result=fma(near,a,b,c);
+            ARIADNE_TEST_EQUALS(result.precision(),MultiplePrecision(std::min(expected.bits(),c_bits)));
+            ARIADNE_TEST_EQUALS(static_cast<Rational>(result),Rational(9));
+        }
+    }
+    const FloatMP value_two(2,MultiplePrecision(8_bits));
+    ARIADNE_TEST_ASSERT(value_two>=Rational(1));
+    ARIADNE_TEST_ASSERT(value_two>=Rational(2));
+    ARIADNE_TEST_ASSERT(!(value_two>=Rational(3)));
+    ARIADNE_TEST_ASSERT(!(FloatMP::nan(8u)>=Rational(2)));
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
+    test_floatmp_mixed_precision_arithmetic();
     test_floatmp_exponent_limit_oracle();
     test_floatmp_precision_contracts();
     test_floatmp_construction_oracle();
