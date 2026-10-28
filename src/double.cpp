@@ -225,14 +225,11 @@ struct TanhFixedInterval {
 
 bool tanh_test_bit(BigUnsigned const& value,std::size_t bit) noexcept
 {
-    const auto digits=value.limbs();
-    const std::size_t word=bit/64u;
-    return word<digits.size() && ((digits[word]>>(bit%64u))&1u)!=0u;
+    return ((value.limb(bit/64u)>>(bit%64u))&1u)!=0u;
 }
 
 bool tanh_any_bits_below(BigUnsigned const& value,std::size_t limit) noexcept
 {
-    if(limit==0u) return false;
     const auto digits=value.limbs();
     const std::size_t whole=limit/64u;
     const std::size_t complete=whole<digits.size() ? whole : digits.size();
@@ -297,15 +294,19 @@ TanhFixedInterval tanh_fixed_interval(double x,std::size_t work)
     int exponent;
     const double fraction=std::frexp(x,&exponent);
     const auto significand=static_cast<BigUnsigned::Limb>(std::ldexp(fraction,53));
-    const std::int64_t shift=static_cast<std::int64_t>(work)+exponent-60;
-    if(shift<0) throw std::logic_error("tanh fixed-point scale too small");
+    // x is in [2^-28,20), hence -27<=exponent<=5. The caller starts
+    // work at 128 and only increases it; unsigned subtraction is exact.
+    const std::size_t shift=work-static_cast<std::size_t>(60-exponent);
 
     const BigUnsigned one=shift_left(BigUnsigned(1u),work);
-    const BigUnsigned argument=shift_left(BigUnsigned(significand),
-                                          static_cast<std::size_t>(shift));
+    const BigUnsigned argument=shift_left(BigUnsigned(significand),shift);
     TanhFixedInterval term{one,one};
     TanhFixedInterval exponential{one,one};
 
+    // z=x/128<1/4, so each upper term is at most ceil(previous/4).
+    // Starting at 2^work, at most ceil(work/2) steps reach one unit.
+    // Thus k fits a 64-bit limb on supported size_t<=64-bit targets;
+    // no arbitrary Taylor iteration cap is needed.
     for(BigUnsigned::Limb k=1u;;++k) {
         term=tanh_next_exp_term(term,argument,work,k);
         exponential.lower=add(exponential.lower,term.lower);
@@ -316,7 +317,6 @@ TanhFixedInterval tanh_fixed_interval(double x,std::size_t work)
             exponential.upper=add(exponential.upper,BigUnsigned(2u));
             break;
         }
-        if(k==4096u) throw std::overflow_error("tanh exponential series did not terminate");
     }
 
     for(unsigned i=0u;i<8u;++i) {
@@ -337,33 +337,30 @@ TanhFixedInterval tanh_fixed_interval(double x,std::size_t work)
 double tanh_round_fixed_positive(BigUnsigned const& value,std::size_t work,
                                  rounding_mode_t mode)
 {
-    if(value.is_zero()) return 0.0;
+    // The lower exponential starts at least at 1+z; each of its eight
+    // fixed-point squares is at least 1+twice the previous increment.
+    // Hence the lower tanh endpoint is at least floor(2^work*x/(1+x)),
+    // which is >=2^(work-29) for x>=2^-28. Both endpoints therefore have
+    // at least work-28>=100 bits; zero, short and unshifted cases cannot
+    // reach this private normal-binary64 converter.
     const std::size_t width=value.bit_length();
-    BigUnsigned retained;
-    std::size_t shift=0u;
-    if(width<53u) {
-        retained=shift_left(value,53u-width);
-    } else {
-        shift=width-53u;
-        retained=shift_right(value,shift);
-    }
-
+    const std::size_t shift=width-53u;
+    BigUnsigned retained=shift_right(value,shift);
     bool increment=false;
-    if(shift!=0u) {
-        if(mode==ROUND_TO_NEAREST) {
-            increment=tanh_test_bit(value,shift-1u) &&
-                (((retained.limb(0u)&1u)!=0u) ||
-                 tanh_any_bits_below(value,shift-1u));
-        } else if(mode==ROUND_UPWARD) {
-            increment=tanh_any_bits_below(value,shift);
-        }
+    if(mode==ROUND_TO_NEAREST) {
+        increment=tanh_test_bit(value,shift-1u) &&
+            (((retained.limb(0u)&1u)!=0u) ||
+             tanh_any_bits_below(value,shift-1u));
+    } else if(mode==ROUND_UPWARD) {
+        increment=tanh_any_bits_below(value,shift);
     }
     if(increment) retained=add(retained,BigUnsigned(1u));
 
-    const std::int64_t scale=static_cast<std::int64_t>(width)-
-        static_cast<std::int64_t>(work)-53;
-    return std::ldexp(static_cast<double>(retained.limb(0u)),
-                      static_cast<int>(scale));
+    // Endpoints are <=2^work, so width-work lies in [-28,1]. Form
+    // the small difference before narrowing, even at large work scales.
+    const int difference=width>=work ? static_cast<int>(width-work)
+                                    : -static_cast<int>(work-width);
+    return std::ldexp(static_cast<double>(retained.limb(0u)),difference-53);
 }
 
 double tanh_positive_rnd(double x,rounding_mode_t mode)
