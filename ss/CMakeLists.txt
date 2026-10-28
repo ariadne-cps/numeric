@@ -1,9 +1,7 @@
 if(NOT TARGET foundation)
-    ensure_submodule_initialized(foundation)
-    add_subdirectory(foundation)
+    ariadne_add_submodule(foundation)
 endif()
 
 if(NOT TARGET logging)
-    ensure_submodule_initialized(logging)
-    add_subdirectory(logging)
+    ariadne_add_submodule(logging)
 endif()

@@ -1,9 +1,9 @@
-[submodule "ss/configuration"]
-	path = ss/configuration
+[submodule "cfg"]
+	path = ss/cfg
 	url = https://github.com/ariadne-cps/configuration
-[submodule "ss/foundation"]
-	path = ss/foundation
+[submodule "fou"]
+	path = ss/fou
 	url = https://github.com/ariadne-cps/foundation
-[submodule "ss/logging"]
-	path = ss/logging
+[submodule "log"]
+	path = ss/log
 	url = https://github.com/ariadne-cps/logging
