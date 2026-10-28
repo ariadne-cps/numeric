@@ -1823,6 +1823,60 @@ void test_floatmp_transcendental_specials() {
     ARIADNE_TEST_ASSERT(typed_zero==FloatMP::ROUND_TOWARD_ZERO);
 }
 
+// Exact power-of-two inputs force zero coefficients at the first working
+// precision. Taylor inequalities determine the final neighboring p-bit
+// answer independently of any floating-point implementation or oracle.
+void test_floatmp_tiny_transcendentals() {
+    const MultiplePrecision precision(128_bits);
+    const FloatMP tiny(TwoExp(-256),precision);
+    const BigUnsigned leading(std::array<BigUnsigned::Limb,2u>{0u,0x8000000000000000ULL});
+    const BigUnsigned below(std::array<BigUnsigned::Limb,2u>{0xffffffffffffffffULL,0xffffffffffffffffULL});
+    const BigUnsigned above(std::array<BigUnsigned::Limb,2u>{1u,0x8000000000000000ULL});
+    const auto check=[&](FloatMP const& value,BigUnsigned const& significand,
+                         FloatMP::Exponent exponent,bool negative) {
+        ARIADNE_TEST_ASSERT(value.is_finite() && !value.is_zero());
+        ARIADNE_TEST_ASSERT(compare(value.significand(),significand)==0);
+        ARIADNE_TEST_EQUALS(value.exponent(),exponent);
+        ARIADNE_TEST_EQUALS(value.negative(),negative);
+        ARIADNE_TEST_EQUALS(value.precision(),precision);
+    };
+    using Unary=FloatMP(*)(FloatMP::RoundingModeType,FloatMP const&);
+    const std::array<Unary,3u> below_magnitude={
+        +[](FloatMP::RoundingModeType mode,FloatMP const& x){return sin(mode,x);},
+        +[](FloatMP::RoundingModeType mode,FloatMP const& x){return atan(mode,x);},
+        +[](FloatMP::RoundingModeType mode,FloatMP const& x){return tanh(mode,x);}};
+    const std::array<Unary,2u> above_magnitude={
+        +[](FloatMP::RoundingModeType mode,FloatMP const& x){return tan(mode,x);},
+        +[](FloatMP::RoundingModeType mode,FloatMP const& x){return asin(mode,x);}};
+    for(bool negative:{false,true}) {
+        const FloatMP argument=negative ? -tiny : tiny;
+        for(auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                       FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+            const bool toward_zero_result=mode==FloatMP::ROUND_TOWARD_ZERO ||
+                (mode==FloatMP::ROUND_DOWNWARD && !negative) ||
+                (mode==FloatMP::ROUND_UPWARD && negative);
+            // sin, atan and tanh have magnitude just below |x|;
+            // their error is O(x^3), far below half an ulp at x=2^-256.
+            for(auto operation:below_magnitude)
+                check(operation(mode,argument),toward_zero_result ? below : leading,
+                      toward_zero_result ? -384 : -383,negative);
+            const bool away_from_zero=(mode==FloatMP::ROUND_UPWARD && !negative) ||
+                (mode==FloatMP::ROUND_DOWNWARD && negative);
+            // tan and asin have magnitude just above |x| by O(x^3).
+            for(auto operation:above_magnitude)
+                check(operation(mode,argument),away_from_zero ? above : leading,-383,negative);
+            // cos(x)<1 by O(x^2), and exp(x) is just above/below 1.
+            const bool cos_below=mode==FloatMP::ROUND_DOWNWARD || mode==FloatMP::ROUND_TOWARD_ZERO;
+            check(cos(mode,argument),cos_below ? below : leading,cos_below ? -128 : -127,false);
+            const bool exp_below=negative &&
+                (mode==FloatMP::ROUND_DOWNWARD || mode==FloatMP::ROUND_TOWARD_ZERO);
+            const bool exp_above=!negative && mode==FloatMP::ROUND_UPWARD;
+            check(exp(mode,argument),exp_below ? below : exp_above ? above : leading,
+                  exp_below ? -128 : -127,false);
+        }
+    }
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
@@ -1832,6 +1886,7 @@ Int main() {
     test_floatmp_special_arithmetic();
     test_floatmp_neighbor_limits();
     test_floatmp_transcendental_specials();
+    test_floatmp_tiny_transcendentals();
     test_floatmp_ratio_ties_and_carry();
     test_floatmp_negative_power_specials();
     test_floatmp_mixed_precision_arithmetic();
