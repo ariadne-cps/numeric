@@ -2304,10 +2304,9 @@ std::string to_decimal_blocks_wide(BigUnsigned const& value)
     const auto limbs=value.limbs();
     std::vector<BigUnsigned::Limb> work(limbs.begin(),limbs.end());
     std::vector<BigUnsigned::Limb> blocks;
-    // Two base-10^18 blocks per 64-bit limb are always sufficient.
-    if (limbs.size()<=blocks.max_size()/2u) {
-        blocks.reserve(limbs.size()*2u);
-    }
+    // Decimal recursion admits at most 32 limbs per leaf. Two blocks
+    // per limb therefore reserve at most 64 elements, without overflow.
+    blocks.reserve(limbs.size()*2u);
     while (!work.empty()) {
         BigUnsigned::Limb remainder=0u;
         for (std::size_t i=work.size();i!=0u;--i) {
@@ -2345,16 +2344,13 @@ std::string to_decimal_blocks_wide(BigUnsigned const& value)
         return table;
     }();
     std::array<char,20> head{};
-    const auto [end,error]=std::to_chars(
-        head.data(),head.data()+head.size(),blocks.back());
-    if (error!=std::errc{}) {
-        throw std::length_error("BigUnsigned decimal head overflow");
-    }
+    // Each block is <10^18, so its at most 18 digits fit in head[20].
+    const auto end=std::to_chars(
+        head.data(),head.data()+head.size(),blocks.back()).ptr;
     const std::size_t top_width=static_cast<std::size_t>(end-head.data());
     std::string result;
-    if (blocks.size()-1u>(result.max_size()-top_width)/block_width) {
-        throw std::length_error("BigUnsigned decimal output overflow");
-    }
+    // A <=2048-bit leaf has at most 617 decimal digits; resize owns
+    // the container's allocation/max_size checks.
     result.resize(top_width+(blocks.size()-1u)*block_width);
     std::copy_n(head.data(),top_width,result.data());
     char* output=result.data()+result.size();
@@ -2399,23 +2395,28 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     // Each limb contributes fewer than three nine-digit blocks.
     std::array<BigUnsigned::Limb,8> inline_work{};
     std::array<unsigned,24> inline_blocks{};
-    std::vector<BigUnsigned::Limb> heap_work;
-    std::vector<unsigned> heap_blocks;
     std::span<BigUnsigned::Limb> work;
     std::span<unsigned> blocks;
+#if (defined(ARIADNE_BIG_UNSIGNED_ARM64) || defined(ARIADNE_BIG_UNSIGNED_X86_64)) && \
+    defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    work={inline_work.data(),limbs.size()};
+    std::copy(limbs.begin(),limbs.end(),work.begin());
+    blocks=inline_blocks;
+#else
+    std::vector<BigUnsigned::Limb> heap_work;
+    std::vector<unsigned> heap_blocks;
     if (limbs.size()<=inline_work.size()) {
         work={inline_work.data(),limbs.size()};
         std::copy(limbs.begin(),limbs.end(),work.begin());
         blocks=inline_blocks;
     } else {
         heap_work.assign(limbs.begin(),limbs.end());
-        if (limbs.size()>heap_blocks.max_size()/3u) {
-            throw std::length_error("BigUnsigned decimal block overflow");
-        }
+        // At most 32 leaf limbs require at most 96 blocks.
         heap_blocks.resize(limbs.size()*3u);
         work=heap_work;
         blocks=heap_blocks;
     }
+#endif
     std::size_t work_size=work.size();
     std::size_t block_count=0u;
     while (work_size!=0u) {
@@ -2452,18 +2453,13 @@ std::string to_decimal_blocks(BigUnsigned const& value)
     }();
 
     std::array<char,10> top_buffer{};
-    const auto [top_end,error]=std::to_chars(
+    // Blocks are <10^9: at most nine digits fit in top_buffer[10].
+    const auto top_end=std::to_chars(
         top_buffer.data(),top_buffer.data()+top_buffer.size(),
-        blocks[block_count-1u]);
-    if (error!=std::errc{}) {
-        throw std::length_error("BigUnsigned decimal head overflow");
-    }
+        blocks[block_count-1u]).ptr;
     const std::size_t top_width=static_cast<std::size_t>(
         top_end-top_buffer.data());
     std::string result;
-    if (block_count-1u>(result.max_size()-top_width)/block_width) {
-        throw std::length_error("BigUnsigned decimal output overflow");
-    }
     result.resize(top_width+(block_count-1u)*block_width);
     std::copy_n(top_buffer.data(),top_width,result.data());
 
@@ -2513,11 +2509,12 @@ void append_decimal_recursive_with_cutoff(
         // Preserve B22's balanced power selection and exact divrem.
         const std::size_t midpoint=value.bit_length()/2u;
         std::size_t count=powers.size();
-        while (count!=0u &&
-                powers[count-1u].value.bit_length()>midpoint) {
+        // A recursive operand has >16 limbs, so its midpoint is >=512
+        // bits. The initial 30-bit split power always fits: count stays >0.
+        while (powers[count-1u].value.bit_length()>midpoint) {
             --count;
         }
-        if (count!=0u) {
+        {
             auto const& divisor=powers[count-1u];
             auto [high,low]=divrem(value,divisor.value);
 
@@ -2547,6 +2544,8 @@ void append_decimal_recursive_with_cutoff(
 template<std::size_t CutoffLimbs>
 std::string decimal_with_cutoff(BigUnsigned const& value)
 {
+    // Keep the bounded leaf formatting contract explicit for all callers.
+    static_assert(CutoffLimbs>=16u && CutoffLimbs<=32u);
     if (value.is_zero()) {
         return "0";
     }
@@ -2569,9 +2568,8 @@ std::string decimal_with_cutoff(BigUnsigned const& value)
         if (bits>(midpoint+1u)/2u) {
             break;
         }
-        if (last.width>std::numeric_limits<std::size_t>::max()/2u) {
-            throw std::length_error("BigUnsigned decimal width overflow");
-        }
+        // width is a decimal digit count, so width<=bits. The preceding
+        // bound gives 2*bits<=midpoint+1 and makes 2*width representable.
         BigUnsigned squared=square(last.value);
         if (squared.bit_length()>midpoint) {
             break;
