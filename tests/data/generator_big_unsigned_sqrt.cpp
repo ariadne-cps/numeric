@@ -112,7 +112,24 @@ std::string generate() {
         const auto sq=independent_square(root);
         append(Nat::sub(sq,Nat(1u)));append(sq);append(Nat::add(sq,Nat(1u)));
     }
-    if(count!=161u)throw std::runtime_error("wrong sqrt row count");
+    // Exact buffered-division boundaries. The first forces carries in
+    // the corrected remainder; the second borrows across a root limb;
+    // the third makes the high quotient prefix equal to the divisor.
+    append(Nat::add(Nat::power2(254u),Nat::power2(128u)));
+    append(Nat::add(Nat::power2(510u),Nat::power2(320u)));
+    append(Nat::add(Nat::power2(254u),Nat::power2(192u)));
+    // For N=((s+1)^2-2)*B^16, r=2*s-1. In the first trial digit,
+    // high==top. Choose the second-highest limb so low+top either fits
+    // or wraps; this checks both residual-overflow certificate outcomes.
+    for (std::uint64_t second : {0x1000000000000000ULL,0xf000000000000000ULL}) {
+        std::vector<std::uint64_t> words(8u,0u);
+        words[0u]=1u;
+        words[6u]=second;
+        words[7u]=0x8000000000000000ULL;
+        const auto next=Nat::add(Nat(std::move(words)),Nat(1u));
+        append(Nat::sub(independent_square(next),Nat(2u)).shl(1024u));
+    }
+    if(count!=166u)throw std::runtime_error("wrong sqrt row count");
     return out;
 }
 }

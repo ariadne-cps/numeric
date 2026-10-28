@@ -356,7 +356,7 @@ void TestBigUnsigned::test_sqrt()
         ARIADNE_TEST_ASSERT(compare(input,original)==0);
         ++rows;
     }
-    if (golden.bad() || rows<100u) {
+    if (golden.bad() || rows!=166u) {
         throw std::runtime_error("Incomplete BigUnsigned sqrt golden TSV");
     }
 
@@ -4293,6 +4293,10 @@ void test_big_unsigned_contracts_and_controls() {
     ARIADNE_TEST_FAIL(BigUnsigned::divrem_scratch_limbs(
         std::numeric_limits<std::size_t>::max(),std::numeric_limits<std::size_t>::max()));
     ARIADNE_TEST_FAIL(BigUnsigned::karatsuba_scratch_limbs(10u,10u,7u));
+    ARIADNE_TEST_FAIL(BigUnsigned::karatsuba_scratch_limbs(
+        std::numeric_limits<std::size_t>::max(),1u));
+    ARIADNE_TEST_EQUALS(BigUnsigned::karatsuba_scratch_limbs(
+        std::numeric_limits<std::size_t>::max(),0u),0u);
     for (auto const& input : {BigUnsigned{},a,BigUnsigned(wide)}) {
         // 17 mod 5 = 2; (2^64+3) mod 5 = 4.
         const Limb expected=input.is_zero() ? 0u : input.size()==1u ? 2u : 4u;

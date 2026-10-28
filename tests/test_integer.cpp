@@ -202,7 +202,7 @@ void TestInteger::test_sqrt()
         }
         ++cases;
     }
-    if (golden.bad() || cases!=161u) {
+    if (golden.bad() || cases!=166u) {
         throw std::runtime_error("Incomplete Integer sqrt oracle fixture");
     }
 }

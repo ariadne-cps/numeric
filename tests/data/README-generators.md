@@ -169,7 +169,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatmp_asin_acos.cpp` | `floatmp_asin.tsv`, `floatmp_acos.tsv` | 728 certified inverse-trigonometric references per TSV, preserving D86/D90 original sources |
 | `generator_floatmp_tanh.cpp` | `floatmp_tanh.tsv` | 1,148 certified tanh references from all original 13 precisions, 4 modes and signed/cutoff/saturation probes |
 | `generator_floatmp_rounding.cpp` | `floatmp_rounding.tsv`, `floatmp_add_sub.tsv` | 4,794 exact-rational rounding rows and 1,780 independent D80 add/sub rows; both existing TSVs unchanged |
-| `generator_big_unsigned_sqrt.cpp` | `big_unsigned_sqrt.tsv` | 161 exact sqrtrem triples; fully specified seeded SplitMix64 input generation, same 37 random width profiles and 33 square-neighbor cases |
+| `generator_big_unsigned_sqrt.cpp` | `big_unsigned_sqrt.tsv` | 166 exact sqrtrem triples; fully specified seeded SplitMix64 input generation, 37 random width profiles, 33 square-neighbor cases and 5 buffered-division/correction boundaries |
 
 **Current reproducibility scope (27 October 2026):** all 203 versioned TSVs
 are covered by the 42 registered standalone generators, including the 16
