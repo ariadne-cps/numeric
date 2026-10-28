@@ -4286,7 +4286,14 @@ void test_big_unsigned_contracts_and_controls() {
     ARIADNE_TEST_ASSERT(!BigUnsigned::has_x86_64_multiply());
 #elif defined(__x86_64__) || defined(_M_X64)
     ARIADNE_TEST_ASSERT(BigUnsigned::has_native_multiply());
+    // The MULQ/ADCQ carry-chain kernel uses GNU-style inline assembly.
+    // MSVC (including clang-cl) retains the native x86-64 kernel but
+    // does not build this GNU/Clang-only carry variant.
+#if (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
     ARIADNE_TEST_ASSERT(BigUnsigned::has_x86_64_carry_multiply());
+#else
+    ARIADNE_TEST_ASSERT(!BigUnsigned::has_x86_64_carry_multiply());
+#endif
     ARIADNE_TEST_ASSERT(BigUnsigned::has_x86_64_multiply());
 #endif
 }
