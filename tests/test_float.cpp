@@ -1260,6 +1260,21 @@ Void test_floatmp_native_significand_storage() {
     }
 }
 
+// A failed explicitly rounded operation must preserve its caller's mode.
+void test_floatdp_rounding_exception_safety() {
+    RoundingSession<FloatDP> restore;
+    for (auto mode:{FloatDP::ROUND_DOWNWARD,FloatDP::ROUND_TO_NEAREST}) {
+        restore.set(mode);
+        ARIADNE_TEST_FAIL(log(FloatDP::ROUND_UPWARD,FloatDP(-0.5_x,dp)));
+        ARIADNE_TEST_EQUALS(FloatDP::get_rounding_mode(),mode);
+        restore.set(FloatDP::ROUND_UPWARD);
+        restore.set(mode);
+        ARIADNE_TEST_FAIL(pow(FloatDP::ROUND_UPWARD,FloatDP(0,dp),Int(-1)));
+        ARIADNE_TEST_EQUALS(FloatDP::get_rounding_mode(),mode);
+        restore.set(FloatDP::ROUND_UPWARD);
+    }
+}
+
 void test_floatdp_unary_wrappers() {
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatdp_wrappers.tsv");
     if (!data) throw std::runtime_error("Missing floatdp_wrappers.tsv");
@@ -1560,6 +1575,7 @@ Int main() {
     test_floatmp_construction_oracle();
     test_floatmp_minmax_oracle();
     test_floatdp_unary_wrappers();
+    test_floatdp_rounding_exception_safety();
     test_float_literals();
     test_floatmp_directed_bound_oracles();
     test_builtin_runtime();

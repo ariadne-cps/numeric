@@ -353,20 +353,24 @@ template<> class Float<DP>
     //!@}
   private:
     template<class OP> static FloatDP _apply_rnd(OP op, RoundingModeType rnd, FloatDP x1, FloatDP x2, FloatDP x3) {
-        auto old_rnd=FloatDP::get_rounding_mode(); FloatDP::set_rounding_mode(rnd);
-        FloatDP r=FloatDP(op(x1.dbl,x2.dbl,x3.dbl)); FloatDP::set_rounding_mode(old_rnd); return r;
+        RoundingSession<FloatDP> session;
+        session.set(rnd);
+        return FloatDP(op(x1.dbl,x2.dbl,x3.dbl));
     }
     template<class OP> static FloatDP _apply_rnd(OP op, RoundingModeType rnd, FloatDP x1, FloatDP x2) {
-        auto old_rnd=FloatDP::get_rounding_mode(); FloatDP::set_rounding_mode(rnd);
-        FloatDP r=FloatDP(op(x1.dbl,x2.dbl)); FloatDP::set_rounding_mode(old_rnd); return r;
+        RoundingSession<FloatDP> session;
+        session.set(rnd);
+        return FloatDP(op(x1.dbl,x2.dbl));
     }
     template<class OP> static FloatDP _apply_rnd(OP op, RoundingModeType rnd, FloatDP x) {
-        auto old_rnd=FloatDP::get_rounding_mode(); FloatDP::set_rounding_mode(rnd);
-        FloatDP r=FloatDP(op(x.dbl)); FloatDP::set_rounding_mode(old_rnd); return r;
+        RoundingSession<FloatDP> session;
+        session.set(rnd);
+        return FloatDP(op(x.dbl));
     }
     template<class OP, BuiltinIntegral N> static FloatDP _apply_rnd(OP op, RoundingModeType rnd, FloatDP x, N n) {
-        auto old_rnd=FloatDP::get_rounding_mode(); FloatDP::set_rounding_mode(rnd);
-        FloatDP r=FloatDP(op(x.dbl,n)); FloatDP::set_rounding_mode(old_rnd); return r;
+        RoundingSession<FloatDP> session;
+        session.set(rnd);
+        return FloatDP(op(x.dbl,n));
     }
   public:
     //! \name Explicitly rounded operations
