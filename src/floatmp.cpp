@@ -27,6 +27,7 @@
  */
 
 #include "numeric/floatmp.hpp"
+#include "numeric/detail/checked_arithmetic.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
@@ -1894,18 +1895,14 @@ Interval exp_series(Fraction const& x, unsigned long work) {
     const unsigned long max_terms = work / 2ul + 64ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(max_terms));
-    if (work > std::numeric_limits<unsigned long>::max() - guard) {
-        throw std::overflow_error("FloatMP exponential work precision overflow");
-    }
-    const unsigned long fixed_bits = work + guard;
-    if (static_cast<std::uintmax_t>(fixed_bits) >
-        static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
-        throw std::overflow_error("FloatMP exponential fixed-point shift overflow");
-    }
+    const unsigned long fixed_bits=Detail::checked_unsigned_add(work,guard,
+        "FloatMP exponential work precision overflow");
+    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+        "FloatMP exponential fixed-point shift overflow");
 
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
-    const auto fixed_shift=static_cast<std::size_t>(fixed_bits);
+    const auto fixed_shift=fixed_shift_size;
     const std::size_t whole=fixed_shift/64u;
     const unsigned partial=static_cast<unsigned>(fixed_shift%64u);
     const Integer& native_numerator=magnitude.numerator();
@@ -1942,9 +1939,7 @@ Interval exp_series(Fraction const& x, unsigned long work) {
         if (term.empty() || argument.is_zero()) {
             product.clear();
         } else {
-            if (term.size()>std::numeric_limits<std::size_t>::max()-argument.size()) {
-                throw std::overflow_error("FloatMP exponential limb count overflow");
-            }
+            // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
             product.resize(term.size()+argument.size());
             BigUnsigned::mul_into(term,argument.limbs(),product);
             trim(product);
@@ -2029,15 +2024,11 @@ Interval exp_interval(Fraction x, unsigned long work) {
     }
 
     const unsigned long fixed_bits = work + halvings + 64ul;
-    if (static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
-        static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
-        throw std::overflow_error("FloatMP exponential reconstruction shift overflow");
-    }
+    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+        "FloatMP exponential reconstruction shift overflow");
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
-    const std::size_t shift=static_cast<std::size_t>(fixed_bits);
+    const std::size_t shift=fixed_shift_size;
     const std::size_t whole=shift/64u;
     const unsigned partial=static_cast<unsigned>(shift%64u);
 
@@ -2077,9 +2068,7 @@ Interval exp_interval(Fraction x, unsigned long work) {
             result.clear();
             return;
         }
-        if (value.size()>std::numeric_limits<std::size_t>::max()/2u) {
-            throw std::overflow_error("FloatMP exponential square size overflow");
-        }
+        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(2u*value.size());
         BigUnsigned::mul_into(value,value,product);
         trim(product);
@@ -2141,20 +2130,14 @@ Interval log_series(Fraction const& z, unsigned long work) {
     const unsigned long terms = work / 3ul + 4ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(terms));
-    if (work > std::numeric_limits<unsigned long>::max() - guard) {
-        throw std::overflow_error("FloatMP logarithm work precision overflow");
-    }
-    const unsigned long fixed_bits = work + guard;
-    if (static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
-        static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
-        throw std::overflow_error("FloatMP logarithm fixed-point shift overflow");
-    }
+    const unsigned long fixed_bits=Detail::checked_unsigned_add(work,guard,
+        "FloatMP logarithm work precision overflow");
+    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+        "FloatMP logarithm fixed-point shift overflow");
 
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
-    const std::size_t shift=static_cast<std::size_t>(fixed_bits);
+    const std::size_t shift=fixed_shift_size;
     const std::size_t whole=shift/64u;
     const unsigned partial=static_cast<unsigned>(shift%64u);
     const Fraction magnitude=absolute(z);
@@ -2196,9 +2179,7 @@ Interval log_series(Fraction const& z, unsigned long work) {
             output.clear();
             return;
         }
-        if (left.size()>std::numeric_limits<std::size_t>::max()-right.size()) {
-            throw std::overflow_error("FloatMP logarithm product size overflow");
-        }
+        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(left.size()+right.size());
         BigUnsigned::mul_into(left,right,product);
         trim(product);
@@ -2263,9 +2244,7 @@ Interval log_series(Fraction const& z, unsigned long work) {
     // The original proof and work-dependent bound are unchanged.
     // The Taylor tail after each term is <= 3 * upper odd power.
     for (unsigned long n=0u;n<terms;++n) {
-        if (n>(std::numeric_limits<unsigned long>::max()-1ul)/2ul) {
-            throw std::overflow_error("FloatMP logarithm series index overflow");
-        }
+        // n < work/3+4 and work+guard fits, with guard>=32; 2*n+1 fits.
         const Limb divisor=static_cast<Limb>(2ul*n+1ul);
         quotient.resize(power_lo.size());
         (void)BigUnsigned::divrem_limb_into(power_lo,divisor,quotient);
@@ -2658,20 +2637,14 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
     const unsigned long max_terms = work / 2ul + 48ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(max_terms));
-    if (work > std::numeric_limits<unsigned long>::max() - guard) {
-        throw std::overflow_error("FloatMP sine/cosine work precision overflow");
-    }
-    const unsigned long fixed_bits = work + guard;
-    if (static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
-        static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
-        throw std::overflow_error("FloatMP sine/cosine fixed-point shift overflow");
-    }
+    const unsigned long fixed_bits=Detail::checked_unsigned_add(work,guard,
+        "FloatMP sine/cosine work precision overflow");
+    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+        "FloatMP sine/cosine fixed-point shift overflow");
 
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
-    const std::size_t shift=static_cast<std::size_t>(fixed_bits);
+    const std::size_t shift=fixed_shift_size;
     const std::size_t whole=shift/64u;
     const unsigned partial=static_cast<unsigned>(shift%64u);
     const Fraction magnitude=absolute(x);
@@ -2743,9 +2716,7 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
             output.clear();
             return;
         }
-        if (left.size()>std::numeric_limits<std::size_t>::max()-right.size()) {
-            throw std::overflow_error("FloatMP sine/cosine product size overflow");
-        }
+        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(left.size()+right.size());
         BigUnsigned::mul_into(left,right,product);
         trim(product);
@@ -2935,11 +2906,7 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
     // with |offset| <= 2^-ceil(work/2). The carrier is native.
     const std::size_t denominator_shift =
         offset.dyadic_denominator_bits().value();
-    if (static_cast<std::uintmax_t>(denominator_shift) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
-        throw std::overflow_error("FloatMP centered delta shift overflow");
-    }
-    const std::size_t shift=static_cast<std::size_t>(denominator_shift);
+    const std::size_t shift=denominator_shift;
     const Integer& delta_numerator=offset.numerator();
 
     // The original Taylor certificate is |R|<=delta^2/2,
@@ -2969,9 +2936,7 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
         const BigUnsigned& lhs=coefficient.magnitude();
         const BigUnsigned& rhs=delta_numerator.magnitude();
         if (lhs.is_zero() || rhs.is_zero()) return Integer{};
-        if (lhs.size()>std::numeric_limits<std::size_t>::max()-rhs.size()) {
-            throw std::overflow_error("FloatMP centered product size overflow");
-        }
+        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(lhs.size()+rhs.size());
         BigUnsigned::mul_into(lhs.limbs(),rhs.limbs(),product);
         const std::size_t whole=shift/64u;
@@ -3067,20 +3032,14 @@ Interval small_atan(Fraction const& x, unsigned long work) {
     const unsigned long max_terms = work / 2ul + 4ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(max_terms));
-    if (work > std::numeric_limits<unsigned long>::max() - guard) {
-        throw std::overflow_error("FloatMP arctangent work precision overflow");
-    }
-    const unsigned long fixed_bits = work + guard;
-    if (static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
-        static_cast<std::uintmax_t>(fixed_bits) >
-            static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max())) {
-        throw std::overflow_error("FloatMP arctangent fixed-point shift overflow");
-    }
+    const unsigned long fixed_bits=Detail::checked_unsigned_add(work,guard,
+        "FloatMP arctangent work precision overflow");
+    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+        "FloatMP arctangent fixed-point shift overflow");
 
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
-    const std::size_t shift=static_cast<std::size_t>(fixed_bits);
+    const std::size_t shift=fixed_shift_size;
     const std::size_t whole=shift/64u;
     const unsigned partial=static_cast<unsigned>(shift%64u);
     const Fraction magnitude=absolute(x);
@@ -3105,9 +3064,7 @@ Interval small_atan(Fraction const& x, unsigned long work) {
             output.clear();
             return;
         }
-        if (left.size()>std::numeric_limits<std::size_t>::max()-right.size()) {
-            throw std::overflow_error("FloatMP arctangent product size overflow");
-        }
+        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(left.size()+right.size());
         BigUnsigned::mul_into(left,right,product);
         trim(product);
@@ -3174,9 +3131,7 @@ Interval small_atan(Fraction const& x, unsigned long work) {
     // and 5-unit per-term error certificates.
     scaled_product(power,power,square);
     for (unsigned long n=0u;n<max_terms;++n) {
-        if (n>(std::numeric_limits<unsigned long>::max()-1ul)/2ul) {
-            throw std::overflow_error("FloatMP arctangent series index overflow");
-        }
+        // n < work/2+4, so 2*n+1 <= work+7 < work+guard.
         const Limb divisor=static_cast<Limb>(2ul*n+1ul);
         term.resize(power.size());
         (void)BigUnsigned::divrem_limb_into(power,divisor,term);

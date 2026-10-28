@@ -23,6 +23,7 @@
  */
 
 #include <cassert>
+#include "numeric/detail/checked_arithmetic.hpp"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -1688,10 +1689,28 @@ void test_floatmp_negative_power_specials() {
     ARIADNE_TEST_ASSERT(round(-tiny).is_zero() && round(-tiny).negative());
 }
 
+// Scalar boundaries exercise metadata failure paths without allocating giant values.
+void test_checked_precision_arithmetic() {
+    using Detail::checked_unsigned_add;
+    using Detail::checked_unsigned_cast;
+    constexpr char message[]="test precision overflow";
+    const auto largest=std::numeric_limits<unsigned long>::max();
+    ARIADNE_TEST_EQUALS(checked_unsigned_add(0ul,0ul,message),0ul);
+    ARIADNE_TEST_EQUALS(checked_unsigned_add(largest,0ul,message),largest);
+    ARIADNE_TEST_EQUALS(checked_unsigned_add(0ul,largest,message),largest);
+    ARIADNE_TEST_EQUALS(checked_unsigned_add(largest-5ul,5ul,message),largest);
+    ARIADNE_TEST_FAIL(checked_unsigned_add(largest-5ul,6ul,message));
+    // A narrowing destination models the portability check independently of this ABI.
+    ARIADNE_TEST_EQUALS(checked_unsigned_cast<std::uint8_t>(255ul,message),std::uint8_t(255u));
+    ARIADNE_TEST_FAIL(checked_unsigned_cast<std::uint8_t>(256ul,message));
+    ARIADNE_TEST_EQUALS(checked_unsigned_cast<unsigned long>(std::uint8_t(255u),message),255ul);
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     
+    test_checked_precision_arithmetic();
     test_floatmp_special_arithmetic();
     test_floatmp_neighbor_limits();
     test_floatmp_ratio_ties_and_carry();
