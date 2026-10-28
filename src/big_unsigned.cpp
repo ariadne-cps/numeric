@@ -935,6 +935,9 @@ BigUnsigned shift_right(BigUnsigned const& a, std::size_t bits) {
 // Used for both single-limb division and multiprecision quotient estimates.
 namespace {
 
+#if !(defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))) && \
+    !(defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(__clang__)) && \
+    !(defined(ARIADNE_BIG_UNSIGNED_X86_64) && (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER))
 // Retain the correctness-first, ISA-independent C++20 fallback.
 [[maybe_unused]] std::pair<std::uint64_t,std::uint64_t> divide_wide_portable(
         std::uint64_t high,std::uint64_t low,std::uint64_t divisor) noexcept
@@ -951,6 +954,8 @@ namespace {
     }
     return {quotient,remainder};
 }
+
+#endif
 
 std::pair<std::uint64_t,std::uint64_t> divide_wide(
         std::uint64_t high,std::uint64_t low,std::uint64_t divisor) noexcept
@@ -1320,6 +1325,8 @@ std::size_t BigUnsigned::divrem_scratch_limbs(
 
 namespace {
 
+#if !(defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))) && \
+    !(defined(_MSC_VER) && defined(ARIADNE_BIG_UNSIGNED_X86_64) && !defined(__clang__))
 // Portable 64x64 -> 128 fallback for the fused division step. The
 // same algebra as the reference multiply kernel: no wide integer or
 // optional CPU instruction is required.
@@ -1334,6 +1341,8 @@ multiply_digit_portable(BigUnsigned::Limb x,BigUnsigned::Limb y) noexcept
     return {(p00&mask)|(middle<<32u),
             p11+(p01>>32u)+(p10>>32u)+(middle>>32u)};
 }
+
+#endif
 
 template<bool Subtract>
 BigUnsigned::Limb accumulate_product(
@@ -3287,6 +3296,7 @@ SqrtLimb sqrt_two_limbs(SqrtLimb low,SqrtLimb high)
 }
 #endif
 
+#if !(defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__)))
 // Select exactly 'width' bits from the borrowed canonical operand,
 // beginning at 'offset', into a canonical BigUnsigned value.
 // Small chunks stay in fixed stack storage; no temporary GMP objects.
@@ -3319,8 +3329,11 @@ BigUnsigned sqrt_chunk(BigUnsigned const& value,
     return BigUnsigned(std::span<SqrtLimb const>(words.data(),count));
 }
 
+#endif
+
 } // namespace
 
+#if !(defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__)))
 BigUnsigned BigUnsigned::concat_sqrt_limbs(
     LimbView higher,LimbView lower,std::size_t lower_count)
 {
@@ -3342,6 +3355,8 @@ BigUnsigned BigUnsigned::concat_sqrt_limbs(
     return joined;
 }
 
+#endif
+
 // Divide-and-conquer square root (radix 2^k), with an optional final
 // remainder. Split n = high*B^2 + mid*B + low and recursively form
 // sqrtrem(high)=(s,r). The trial digit q=floor((r*B+mid)/(2*s))
@@ -3353,7 +3368,7 @@ BigUnsigned BigUnsigned::concat_sqrt_limbs(
 // BigUnsigned operations. Recurse only on half-size inputs.
 template<bool WantRemainder>
 std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
-    BigUnsigned const& value,Scratch& workspace)
+    BigUnsigned const& value,[[maybe_unused]] Scratch& workspace)
 {
     if (value.is_zero()) return {BigUnsigned{},BigUnsigned{}};
     if (value.size()==1u) {
@@ -3366,7 +3381,10 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
         }
     }
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
-    if (value.size()==2u) {
+    // Both public entry points dispatch all inputs larger than two limbs
+    // to sqrt_buffered on wide-integer targets. Only the two-limb base
+    // case remains after zero and single-limb inputs above.
+    {
         const SqrtLimb root=sqrt_two_limbs(value.limb(0u),value.limb(1u));
         if constexpr(WantRemainder) {
             __extension__ using Wide=unsigned __int128;
@@ -3382,7 +3400,7 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
             return {BigUnsigned(root),BigUnsigned{}};
         }
     }
-#endif
+#else
 
     const std::size_t bits=value.bit_length();
     const std::size_t root_bits=bits/2u+bits%2u;
@@ -3475,6 +3493,7 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
     } else {
         return {std::move(candidate),BigUnsigned{}};
     }
+#endif
 }
 
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
