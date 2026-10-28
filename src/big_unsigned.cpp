@@ -788,10 +788,8 @@ BigUnsigned BigUnsigned::shifted_combine(
         if (carry_or_borrow!=0u) {
             throw std::underflow_error("negative shifted difference");
         }
-        out[count]=Limb{0};
-    } else {
-        out[count]=carry_or_borrow;
     }
+    out[count]=Subtract ? Limb{0} : carry_or_borrow;
     result.normalize();
     return result;
 }
@@ -1790,6 +1788,11 @@ std::pair<BigUnsigned,BigUnsigned> divrem(
 template<bool WantQuotient>
 BigUnsigned BigUnsigned::divide_short(BigUnsigned const& a,BigUnsigned const& b)
 {
+    // Fixed result scratch is uninitialized; the selected kernel writes
+    // every output and used scratch element before reading it. Scalar
+    // exits never touch these arrays.
+    std::array<Limb,inline_capacity> digits;
+    std::array<Limb,2u*inline_capacity+1u> workspace;
     if (a._size<b._size) {
         if constexpr (WantQuotient) {
             return BigUnsigned{};
@@ -1829,8 +1832,6 @@ BigUnsigned BigUnsigned::divide_short(BigUnsigned const& a,BigUnsigned const& b)
     // For n,m<=inline_capacity, n+m+1<=9. Retain the exact
     // selected single-limb/Knuth/power-of-two arithmetic while
     // avoiding the larger generic Scratch and owning intermediates.
-    std::array<Limb,inline_capacity> digits{};
-    std::array<Limb,2u*inline_capacity+1u> workspace{};
     const std::size_t count=WantQuotient
         ? a._size-b._size+1u : b._size;
     const auto output=MutableLimbView(digits.data(),count);
@@ -2583,6 +2584,7 @@ std::string decimal_with_cutoff(BigUnsigned const& value)
     const std::size_t digit_capacity=bit_length/3u+1u;
     // Some standard-library string layouts can admit every possible
     // bits/3+1 bound. Retain the runtime guard only for narrower layouts.
+#if defined(__cpp_lib_constexpr_string) && __cpp_lib_constexpr_string>=201907L
     constexpr bool bound_always_fits=
         std::numeric_limits<std::size_t>::max()/3u+1u<=std::string{}.max_size();
     if constexpr (bound_always_fits) {
@@ -2590,6 +2592,12 @@ std::string decimal_with_cutoff(BigUnsigned const& value)
     } else if (digit_capacity<=result.max_size()) {
         result.reserve(digit_capacity);
     }
+#else
+    // Retain support for the project's older C++20 library baselines.
+    if (digit_capacity<=result.max_size()) {
+        result.reserve(digit_capacity);
+    }
+#endif
     append_decimal_recursive_with_cutoff<CutoffLimbs>(value,powers,result,0u);
     return result;
 }
@@ -3345,11 +3353,11 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
     if (value.size()==1u) {
         const SqrtLimb digit=value.limb(0u);
         const SqrtLimb root=sqrt_limb(digit);
+        BigUnsigned remainder;
         if constexpr(WantRemainder) {
-            return {BigUnsigned(root),BigUnsigned(digit-root*root)};
-        } else {
-            return {BigUnsigned(root),BigUnsigned{}};
+            remainder=BigUnsigned(digit-root*root);
         }
+        return {BigUnsigned(root),std::move(remainder)};
     }
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
     // Both public entry points dispatch all inputs larger than two limbs
@@ -3357,6 +3365,7 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
     // case remains after zero and single-limb inputs above.
     {
         const SqrtLimb root=sqrt_two_limbs(value.limb(0u),value.limb(1u));
+        BigUnsigned remainder;
         if constexpr(WantRemainder) {
             __extension__ using Wide=unsigned __int128;
             const Wide n=(static_cast<Wide>(value.limb(1u))<<64u)|
@@ -3366,10 +3375,9 @@ std::pair<BigUnsigned,BigUnsigned> BigUnsigned::sqrt_recursive(
                 static_cast<SqrtLimb>(rem),
                 static_cast<SqrtLimb>(rem>>64u)
             };
-            return {BigUnsigned(root),BigUnsigned(words)};
-        } else {
-            return {BigUnsigned(root),BigUnsigned{}};
+            remainder=BigUnsigned(words);
         }
+        return {BigUnsigned(root),std::move(remainder)};
     }
 #else
 

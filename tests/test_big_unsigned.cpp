@@ -4287,6 +4287,20 @@ void test_big_unsigned_contracts_and_controls() {
     ARIADNE_TEST_EQUALS(output[1u],92u);
     ARIADNE_TEST_EQUALS(remainder[0u],81u);
     ARIADNE_TEST_EQUALS(remainder[1u],82u);
+    // Scratch contents are unspecified by the public API. Poison every
+    // word: (B^2+5)/(B+3) = B-3, with remainder 14, B=2^64.
+    const std::array<Limb,3u> dividend_words={5u,0u,1u};
+    const std::array<Limb,2u> dirty_divisor={3u,1u};
+    std::array<Limb,3u> dirty_quotient;
+    std::array<Limb,2u> dirty_remainder;
+    std::array<Limb,6u> dirty_scratch;
+    dirty_scratch.fill(std::numeric_limits<Limb>::max());
+    BigUnsigned::divrem_into(dividend_words,dirty_divisor,dirty_quotient,dirty_remainder,dirty_scratch);
+    ARIADNE_TEST_EQUALS(dirty_quotient[0u],std::numeric_limits<Limb>::max()-2u);
+    ARIADNE_TEST_EQUALS(dirty_quotient[1u],0u);
+    ARIADNE_TEST_EQUALS(dirty_quotient[2u],0u);
+    ARIADNE_TEST_EQUALS(dirty_remainder[0u],14u);
+    ARIADNE_TEST_EQUALS(dirty_remainder[1u],0u);
     ARIADNE_TEST_FAIL(BigUnsigned::mul_into_karatsuba(a.limbs(),b.limbs(),output,{},7u));
     ARIADNE_TEST_FAIL(BigUnsigned::divrem_scratch_limbs(
         std::numeric_limits<std::size_t>::max(),2u));
