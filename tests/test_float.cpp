@@ -23,6 +23,7 @@
  */
 
 #include <cassert>
+#include <array>
 #include "numeric/detail/checked_arithmetic.hpp"
 #include <iostream>
 #include <iomanip>
@@ -1561,7 +1562,7 @@ Void test_floatmp_special_arithmetic() {
 
 // Exact small integers isolate precision selection from numerical rounding.
 Void test_floatmp_mixed_precision_arithmetic() {
-    for (auto sizes : {std::pair{8u,16u},std::pair{16u,8u},std::pair{8u,8u}}) {
+    for (auto sizes : {std::pair{8u,16u},std::pair{16u,8u},std::pair{8u,8u},std::pair{8u,129u},std::pair{129u,8u}}) {
         const MultiplePrecision pa(std::size_t{sizes.first});
         const MultiplePrecision pb(std::size_t{sizes.second});
         const MultiplePrecision expected(std::size_t{std::min(sizes.first,sizes.second)});
@@ -1666,6 +1667,17 @@ void test_floatmp_ratio_ties_and_carry() {
     const FloatMP denominator(3,precision);
     ARIADNE_TEST_EQUALS(div(down,source,denominator),FloatMP::max(precision));
     ARIADNE_TEST_ASSERT(is_inf(div(near,source,denominator)));
+
+    // The same rounding carry at 65-bit precision uses the general ratio kernel.
+    // Scale (2^130-2^65-1) to exponent MAX through supported arithmetic.
+    const Integer wide_denominator=two65-Integer(1);
+    FloatMP wide_source(wide_denominator*two65-Integer(1),MultiplePrecision(130_bits));
+    const auto scale=rec(near,FloatMP::min(MultiplePrecision(2_bits)));
+    imul(near,wide_source,scale);
+    const FloatMP wide_divisor(wide_denominator,MultiplePrecision(65_bits));
+    ARIADNE_TEST_ASSERT(div(down,wide_source,wide_divisor)==FloatMP::max(MultiplePrecision(65_bits)));
+    ARIADNE_TEST_ASSERT(is_inf(div(near,wide_source,wide_divisor)));
+    ARIADNE_TEST_ASSERT(is_inf(div(down,-wide_source,wide_divisor)));
 }
 
 void test_floatmp_negative_power_specials() {
@@ -1750,6 +1762,67 @@ void test_checked_precision_arithmetic() {
     ARIADNE_TEST_EQUALS(checked_unsigned_cast<unsigned long>(std::uint8_t(255u),message),255ul);
 }
 
+// Public IEEE boundary behavior, using exact constants and elementary pi bounds.
+void test_floatmp_transcendental_specials() {
+    const MultiplePrecision precision(128_bits);
+    using Unary=FloatMP(*)(FloatMP const&);
+    const std::array<Unary,5u> bounded_domain={
+        +[](FloatMP const& x){return sin(near,x);},
+        +[](FloatMP const& x){return cos(near,x);},
+        +[](FloatMP const& x){return tan(near,x);},
+        +[](FloatMP const& x){return asin(near,x);},
+        +[](FloatMP const& x){return acos(near,x);}};
+    const auto quiet_nan=FloatMP::nan(precision);
+    for(auto operation:bounded_domain) {
+        ARIADNE_TEST_ASSERT(is_nan(operation(quiet_nan)));
+        ARIADNE_TEST_ASSERT(is_nan(operation(FloatMP::inf(precision))));
+        ARIADNE_TEST_ASSERT(is_nan(operation(FloatMP::inf(Sign::NEGATIVE,precision))));
+    }
+    ARIADNE_TEST_ASSERT(is_nan(atan(near,quiet_nan)));
+    const std::array<Unary,4u> odd_functions={
+        +[](FloatMP const& x){return sin(near,x);},
+        +[](FloatMP const& x){return tan(near,x);},
+        +[](FloatMP const& x){return asin(near,x);},
+        +[](FloatMP const& x){return atan(near,x);}};
+    for(bool negative:{false,true}) {
+        const auto zero=FloatMP::zero(128u,negative);
+        for(auto operation:odd_functions) {
+            const auto zero_image=operation(zero);
+            ARIADNE_TEST_ASSERT(zero_image.is_zero());
+            ARIADNE_TEST_EQUALS(zero_image.negative(),negative);
+            ARIADNE_TEST_EQUALS(zero_image.precision(),precision);
+        }
+        ARIADNE_TEST_EQUALS(cos(near,zero),FloatMP(1,precision));
+        const auto right_angle=acos(near,zero);
+        ARIADNE_TEST_ASSERT(right_angle>FloatMP(1,precision));
+        ARIADNE_TEST_ASSERT(right_angle<FloatMP(2,precision));
+        const auto infinite_argument=FloatMP::infinity(128u,negative);
+        const auto infinite_atan=atan(near,infinite_argument);
+        ARIADNE_TEST_ASSERT(abs(infinite_atan)>FloatMP(1,precision));
+        ARIADNE_TEST_ASSERT(abs(infinite_atan)<FloatMP(2,precision));
+        ARIADNE_TEST_EQUALS(infinite_atan.negative(),negative);
+    }
+    for(int sign:{-1,1}) {
+        const auto boundary_asin=asin(near,FloatMP(sign,precision));
+        ARIADNE_TEST_ASSERT(abs(boundary_asin)>FloatMP(1,precision));
+        ARIADNE_TEST_ASSERT(abs(boundary_asin)<FloatMP(2,precision));
+        ARIADNE_TEST_EQUALS(boundary_asin.negative(),sign<0);
+        ARIADNE_TEST_ASSERT(is_nan(asin(near,FloatMP(sign*2,precision))));
+        ARIADNE_TEST_ASSERT(is_nan(acos(near,FloatMP(sign*2,precision))));
+    }
+    ARIADNE_TEST_ASSERT(acos(near,FloatMP(1,precision)).is_zero());
+    const auto straight_angle=acos(near,FloatMP(-1,precision));
+    ARIADNE_TEST_ASSERT(straight_angle>FloatMP(3,precision));
+    ARIADNE_TEST_ASSERT(straight_angle<FloatMP(4,precision));
+    // An exact positive binary scale also exercises rational conversion
+    // with a positive exponent, rather than a fractional significand.
+    const auto large_log=log(near,FloatMP(1024,MultiplePrecision(8_bits)));
+    ARIADNE_TEST_ASSERT(large_log>FloatMP(6,MultiplePrecision(8_bits)));
+    ARIADNE_TEST_ASSERT(large_log<FloatMP(7,MultiplePrecision(8_bits)));
+    const FloatMP::Rounding typed_zero{Ariadne::Rounding(toward_zero)};
+    ARIADNE_TEST_ASSERT(typed_zero==FloatMP::ROUND_TOWARD_ZERO);
+}
+
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
@@ -1758,6 +1831,7 @@ Int main() {
     test_floatmp_decimal_extreme_scales();
     test_floatmp_special_arithmetic();
     test_floatmp_neighbor_limits();
+    test_floatmp_transcendental_specials();
     test_floatmp_ratio_ties_and_carry();
     test_floatmp_negative_power_specials();
     test_floatmp_mixed_precision_arithmetic();
