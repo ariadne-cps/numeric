@@ -1069,6 +1069,10 @@ Void test_double_runtime()
     set_builtin_rounding_downward();
     ARIADNE_TEST_EQUALS(atan_rnd(-1.0),-positive_atan_upper);
     ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_DOWNWARD);
+    set_builtin_rounding_to_nearest();
+    const double positive_atan_nearest=atan_rnd(1.0);
+    ARIADNE_TEST_EQUALS(atan_rnd(-1.0),-positive_atan_nearest);
+    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_TO_NEAREST);
     set_builtin_rounding_toward_zero();
     ARIADNE_TEST_EXECUTE(atan_rnd(-0.5));
     set_builtin_rounding_to_nearest();

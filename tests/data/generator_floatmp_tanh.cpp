@@ -238,7 +238,7 @@ std::string generate() {
         "# Independent correctly rounded tanh oracle.\n"
         "# bits mode input_num input_den expected_num expected_den\n"
         "# Exact input is first rounded nearest-even to p bits.\n"
-        "# Generated offline using only Python signed integers and Fraction arithmetic:\n"
+        "# Generated offline using only standard C++20 unsigned integer arithmetic:\n"
         "# outward fixed-point exp Taylor recurrence on |t|<=1/4, tail <= last term,\n"
         "# outward repeated squaring, then (exp(2|x|)-1)/(exp(2|x|)+1).\n"
         "# Both rigorous endpoint bounds independently round to the same literal.\n"
@@ -261,6 +261,12 @@ std::string generate() {
                 append_signed(sources,fraction_of(n,e));
             sources.push_back(fraction_of(0u));
         }
+        if(p==53u) {
+            // Binary64 fixed-point rounding across a 64-bit discarded-word
+            // boundary, including an even retained significand with sticky bits.
+            append_signed(sources,fraction_of(1u,11u));
+            append_signed(sources,fraction_of(9007199254740991ULL,64u));
+        }
         if(p!=2u&&p!=7u) {
             const unsigned cutoff=original?(p+31u)/2u:(p+33u)/2u;
             append_signed(sources,centered(p,1u,0,false));
@@ -278,7 +284,7 @@ std::string generate() {
         }
         std::sort(sources.begin(),sources.end(),[](auto const& a,auto const& b){return compare_rational(a,b)<0;});
         sources.erase(std::unique(sources.begin(),sources.end(),[](auto const& a,auto const& b){return compare_rational(a,b)==0;}),sources.end());
-        const auto expected=(p==2u||p==7u)?17u:original?29u:18u;
+        const auto expected=(p==2u||p==7u)?17u:p==53u?33u:original?29u:18u;
         if(sources.size()!=expected)throw std::runtime_error("incorrect source count p="+std::to_string(p));
         for(char mode:{'D','N','U','Z'})for(auto const& source:sources) {
             const std::string input_n=(source.negative?"-":"")+source.n.dec();
@@ -293,7 +299,7 @@ std::string generate() {
             ++rows;
         }
     }
-    if(rows!=1148u)throw std::runtime_error("tanh row count: "+std::to_string(rows));
+    if(rows!=1164u)throw std::runtime_error("tanh row count: "+std::to_string(rows));
     return out;
 }
 }
