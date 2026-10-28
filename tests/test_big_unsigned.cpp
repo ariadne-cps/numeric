@@ -30,6 +30,7 @@
 #include <initializer_list>
 #include <array>
 #include <cstdint>
+#include <cfenv>
 #include <limits>
 #include <random>
 #include <sstream>
@@ -305,6 +306,24 @@ class TestBigUnsigned
 
 void TestBigUnsigned::test_sqrt()
 {
+    // Exact squares whose floating seeds round on either side under
+    // directed modes. The expected roots are integer identities.
+    const auto saved_mode=std::fegetround();
+    const std::array<BigUnsigned::Limb,2u> high_square={1u,0x4000000000000001ULL};
+    const std::array<BigUnsigned::Limb,2u> max_square={1u,0xfffffffffffffffeULL};
+    for (auto mode : {FE_TONEAREST,FE_DOWNWARD,FE_UPWARD,FE_TOWARDZERO}) {
+        std::fesetround(mode);
+        for (auto const& [input,expected] : {
+                std::pair{BigUnsigned(0xfffffffe00000001ULL),std::uint64_t{0xffffffffULL}},
+                std::pair{BigUnsigned(high_square),std::uint64_t{0x8000000000000001ULL}},
+                std::pair{BigUnsigned(max_square),std::uint64_t{0xffffffffffffffffULL}}}) {
+            const auto [root,remainder]=sqrtrem(input);
+            ARIADNE_TEST_EQUALS(root.limb(0u),expected);
+            ARIADNE_TEST_ASSERT(remainder.is_zero());
+            ARIADNE_TEST_EQUALS(isqrt(input).limb(0u),expected);
+        }
+    }
+    std::fesetround(saved_mode);
     // Independent, frozen exact triples generated with BigInt digit-pair
     // restoring arithmetic (and cross-checked with a binary-search oracle).
     // This block never consults GMP, even though older tests elsewhere do.

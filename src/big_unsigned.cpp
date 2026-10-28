@@ -3223,13 +3223,12 @@ using SqrtLimb=BigUnsigned::Limb;
 // integer quotients enforce the exact floor, including near 2^64.
 SqrtLimb sqrt_limb(SqrtLimb n)
 {
-    if (n==0u) return 0u;
+    // The public zero case returns before this nonzero-limb base case.
     SqrtLimb root=static_cast<SqrtLimb>(
         std::sqrt(static_cast<double>(n)));
-    if (root==0u) root=1u;
     while (root>n/root) --root;
-    while (root<std::numeric_limits<SqrtLimb>::max() &&
-           root+1u<=n/(root+1u)) ++root;
+    // sqrt(uint64) is at most 2^32, so root+1 cannot overflow a limb.
+    while (root+1u<=n/(root+1u)) ++root;
     return root;
 }
 
@@ -3252,14 +3251,13 @@ SqrtLimb sqrt_two_limbs(SqrtLimb low,SqrtLimb high)
     constexpr SqrtLimb maximum=std::numeric_limits<SqrtLimb>::max();
     SqrtLimb root=estimate>=radix ? maximum :
                   static_cast<SqrtLimb>(estimate);
-    if (root==0u) root=1u;
+    // The high limb is nonzero, so the seed is at least 2^32.
     const Wide next=(static_cast<Wide>(root)+wide/root)>>1u;
     root=next>maximum ? maximum : static_cast<SqrtLimb>(next);
-    // Products rather than 128-bit divisions enforce exact rounding.
-    // The correction loops also handle any valid floating-point seed.
+    // The exact Newton average is >=sqrt(wide), hence its integer floor
+    // (also after clamping to maximum) is >=floor(sqrt(wide)). The sum
+    // fits Wide since root>=2^32. Only downward correction is needed.
     while (static_cast<Wide>(root)*root>wide) --root;
-    while (root<maximum &&
-           static_cast<Wide>(root+1u)*(root+1u)<=wide) ++root;
     return root;
 }
 #endif
