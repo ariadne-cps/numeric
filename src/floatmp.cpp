@@ -3507,27 +3507,24 @@ Interval centered_atan_half_interval(Fraction const& input,
     // Preserve the rational computation on a target whose size_t cannot
     // represent the working binary scale. On ordinary 32/64-bit ABIs,
     // size_t is at least as wide as unsigned long.
-    if constexpr (std::numeric_limits<std::size_t>::digits <
-                  std::numeric_limits<unsigned long>::digits) {
-        if (bits+2ul>std::numeric_limits<std::size_t>::max()) {
-            struct Cache {
-                unsigned long work = 0;
-                std::optional<Interval> center;
-            };
-            static thread_local Cache cached_rational;
-            if (!cached_rational.center || cached_rational.work < work) {
-                cached_rational.center = outward_dyadic_interval(
-                    atan_half_interval(work + 40ul), work + 24ul);
-                cached_rational.work = work;
-            }
-            const Fraction linear = Fraction(4L) * delta / Fraction(5L);
-            const Fraction remainder = delta * delta;
-            const Interval positive{
-                cached_rational.center->lower + linear - remainder,
-                cached_rational.center->upper + linear + remainder
-            };
-            return input.sign() < 0 ? negative(positive) : positive;
+    if (bits+2ul>std::numeric_limits<std::size_t>::max()) {
+        struct Cache {
+            unsigned long work = 0;
+            std::optional<Interval> center;
+        };
+        static thread_local Cache cached_rational;
+        if (!cached_rational.center || cached_rational.work < work) {
+            cached_rational.center = outward_dyadic_interval(
+                atan_half_interval(work + 40ul), work + 24ul);
+            cached_rational.work = work;
         }
+        const Fraction linear = Fraction(4L) * delta / Fraction(5L);
+        const Fraction remainder = delta * delta;
+        const Interval positive{
+            cached_rational.center->lower + linear - remainder,
+            cached_rational.center->upper + linear + remainder
+        };
+        return input.sign() < 0 ? negative(positive) : positive;
     }
     const std::size_t delta_shift = delta.dyadic_denominator_bits().value();
 
