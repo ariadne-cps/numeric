@@ -74,7 +74,10 @@ BigUnsigned unsigned_mul(BigUnsigned const& a,BigUnsigned const& b) { return mul
 // R3: compare bounded cross-products directly in fixed stack storage.
 // The two product spans are independent of both inputs; no temporary
 // heap-owned BigUnsigned is needed for magnitudes up to eight limbs.
-int compare_cross_products(BigUnsigned const& an,BigUnsigned const& bd,
+// Called only for reduced finite fractions with different denominators and
+// equal signs. Equal magnitudes would have the same reduced denominator,
+// so the two cross-products are necessarily distinct.
+int compare_distinct_cross_products(BigUnsigned const& an,BigUnsigned const& bd,
                            BigUnsigned const& bn,BigUnsigned const& ad) {
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
     // R8: four single-limb magnitudes need just two exact 64x64 products.
@@ -84,7 +87,7 @@ int compare_cross_products(BigUnsigned const& an,BigUnsigned const& bd,
         __extension__ using Wide=unsigned __int128;
         const Wide left=static_cast<Wide>(an.limb(0u))*bd.limb(0u);
         const Wide right=static_cast<Wide>(bn.limb(0u))*ad.limb(0u);
-        return left<right ? -1 : left>right ? 1 : 0;
+        return left<right ? -1 : 1;
     }
 #endif
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
@@ -99,8 +102,7 @@ int compare_cross_products(BigUnsigned const& an,BigUnsigned const& bd,
     if (an.size()>=2u && bd.size()>=2u &&
             bn.size()>=2u && ad.size()>=2u &&
             an.size()+bd.size()==bn.size()+ad.size() &&
-            (an.size()>2u || bd.size()>2u ||
-             bn.size()>2u || ad.size()>2u)) {
+            (an.size()>2u || bd.size()>2u)) {
         using Limb=BigUnsigned::Limb;
         __extension__ using Wide=unsigned __int128;
         std::array<Limb,4u> left{},right{};
@@ -162,12 +164,12 @@ int compare_cross_products(BigUnsigned const& an,BigUnsigned const& bd,
             BigUnsigned::MutableLimbView(right.data(),right_size));
         // Products can have a zero high limb. Compare all potentially
         // significant words and leave unwritten trailing words zero.
-        for (std::size_t i=std::max(left_size,right_size);i!=0u;--i) {
+        for (std::size_t i=std::max(left_size,right_size);i>1u;--i) {
             if (left[i-1u]!=right[i-1u]) {
                 return left[i-1u]<right[i-1u] ? -1 : 1;
             }
         }
-        return 0;
+        return left[0u]<right[0u] ? -1 : 1;
     }
     return compare(unsigned_mul(an,bd),unsigned_mul(bn,ad));
 }
@@ -176,15 +178,12 @@ Integer multiply_magnitude(Integer const& n,BigUnsigned const& m) {
     if (unsigned_is_one(m)) { return n; }
     return Integer::from_magnitude(mul(n.magnitude(),m),n.negative());
 }
-// R28: exact comparison against a logically shifted magnitude.
-// Compare bit lengths first; read the shifted limbs without allocating.
+// Compare magnitudes whose bit lengths have already been aligned by the
+// exponent calculation in get_d(). In particular, b.bit_length()+shift is
+// exactly a.bit_length(), and cannot overflow size_t.
 int compare_shifted_unsigned(BigUnsigned const& a,BigUnsigned const& b,
                              std::size_t shift) {
     using Limb=BigUnsigned::Limb;
-    const std::size_t abits=a.bit_length(),bbits=b.bit_length();
-    if (shift>std::numeric_limits<std::size_t>::max()-bbits) { return -1; }
-    const std::size_t scaled_bits=bbits+shift;
-    if (abits!=scaled_bits) { return abits<scaled_bits ? -1 : 1; }
     const auto left=a.limbs(),right=b.limbs();
     const std::size_t whole=shift/64u;
     const unsigned part=static_cast<unsigned>(shift%64u);
@@ -196,7 +195,7 @@ int compare_shifted_unsigned(BigUnsigned const& a,BigUnsigned const& b,
             if (j<right.size()) {
                 shifted=part==0u ? right[j] : right[j]<<part;
             }
-            if (part!=0u && j!=0u && j-1u<right.size()) {
+            if (part!=0u && j!=0u) {
                 shifted|=right[j-1u]>>(64u-part);
             }
         }
@@ -348,7 +347,8 @@ BigUnsigned multiply_cancelled(BigUnsigned const& lhs,BigUnsigned const& lhs_div
             if (unit) { return n.limbs(); }
             BigUnsigned::divexact_limb_into(n.limbs(),d.limb(0u),output);
             std::size_t count=n.size();
-            while (count!=0u && output[count-1u]==0u) { --count; }
+            // Exact cancellation of a nonzero numerator cannot produce zero.
+            while (count>1u && output[count-1u]==0u) { --count; }
             return BigUnsigned::LimbView(output.data(),count);
         };
         const auto a=cancelled(lhs,lhs_divisor,left_unit,left);
@@ -493,10 +493,10 @@ template<> class FiniteOperations<Rational> {
             return a._numerator.negative() ? Comparison::LESS : Comparison::GREATER;
         }
         if (compare(a._denominator,b._denominator)==0) { return integer_cmp(a._numerator,b._numerator); }
-        int order=compare_cross_products(a._numerator.magnitude(),b._denominator,
+        int order=compare_distinct_cross_products(a._numerator.magnitude(),b._denominator,
                                          b._numerator.magnitude(),a._denominator);
         if (a._numerator.negative()) { order=-order; }
-        return order<0 ? Comparison::LESS : order>0 ? Comparison::GREATER : Comparison::EQUAL;
+        return order<0 ? Comparison::LESS : Comparison::GREATER;
     }
     static Boolean eq(Rational const& a,Rational const& b) {
         return a._numerator==b._numerator && compare(a._denominator,b._denominator)==0;
@@ -524,14 +524,12 @@ Rational::Rational(Integer const& z) : _numerator(z) { }
 Rational Rational::from_dyadic(Integer numerator,std::size_t bits) {
     if (numerator.magnitude().is_zero()) return Rational{};
     const BigUnsigned& magnitude=numerator.magnitude();
-    std::size_t trailing=0u;
-    for (auto limb:magnitude.limbs()) {
-        if (limb!=0u) {
-            trailing+=static_cast<std::size_t>(std::countr_zero(limb));
-            break;
-        }
-        trailing+=64u;
-    }
+    // The early zero return and canonical magnitude guarantee a set bit.
+    const auto limbs=magnitude.limbs();
+    std::size_t first=0u;
+    while (limbs[first]==0u) { ++first; }
+    const std::size_t trailing=64u*first+
+        static_cast<std::size_t>(std::countr_zero(limbs[first]));
     const std::size_t remove=std::min(trailing,bits);
     if (remove!=0u) {
         numerator=Integer::from_magnitude(
@@ -584,8 +582,9 @@ Rational::Rational(String const& str) {
         const Integer d=slash==std::string::npos ? Integer(1) : Integer(String(token.substr(slash+1u)));
         *this=Rational(n,d);
     } catch (std::invalid_argument const&) {
-        ARIADNE_THROW(std::runtime_error,"Rational(string)",
-                      "String \""<<str<<"\" does not have a valid rational number format.");
+        throw std::runtime_error(
+            "std::runtime_error in Rational(string): String \""+str+
+            "\" does not have a valid rational number format.");
     }
 }
 
@@ -699,37 +698,38 @@ double Rational::get_d() const {
         // Avoid converting a floating value outside the uint64 domain.
         // Clamping also handles an estimate rounding to 2^53 at a
         // representational boundary. Exact tests decide acceptance.
-        if (std::isfinite(approximate) && approximate>=0.0) {
-            const std::uint64_t rounded_significand=static_cast<std::uint64_t>(
-                std::clamp(approximate,static_cast<double>(smallest),
-                          static_cast<double>(largest)));
-            const std::uint64_t guessed=std::min(rounded_significand,largest);
-            std::array<Limb,capacity> scaled{};
-            std::array<Limb,capacity> product{};
-            const unsigned offset=shift/64u;
-            const unsigned low_shift=shift%64u;
-            for (std::size_t i=0u;i<count;++i) {
-                scaled[i+offset]|=n.limb(i)<<low_shift;
-                if (low_shift!=0u) {
-                    scaled[i+offset+1u]|=n.limb(i)>>(64u-low_shift);
+        // The top limbs are nonzero 64-bit integers and shift is in
+        // [0,63]. Their scaled ratio is positive, finite and below 2^127.
+        const std::uint64_t rounded_significand=static_cast<std::uint64_t>(
+            std::clamp(approximate,static_cast<double>(smallest),
+                      static_cast<double>(largest)));
+        const std::uint64_t guessed=std::min(rounded_significand,largest);
+        std::array<Limb,capacity> scaled{};
+        std::array<Limb,capacity> product{};
+        const unsigned low_shift=shift;
+        for (std::size_t i=0u;i<count;++i) {
+            scaled[i]|=n.limb(i)<<low_shift;
+            if (low_shift!=0u) {
+                scaled[i+1u]|=n.limb(i)>>(64u-low_shift);
+            }
+        }
+        const auto compared=[&](std::uint64_t coefficient) {
+            product.fill(0u);
+            const std::array<Limb,1u> multiplier={coefficient};
+            BigUnsigned::mul_into(_denominator.limbs(),multiplier,
+                BigUnsigned::MutableLimbView(product.data(),count+1u));
+            // Equality would require the reduced denominator to divide
+            // 2^shift. Its >4 limbs rule that out for shift<=63.
+            for (std::size_t i=capacity;i>1u;--i) {
+                if (scaled[i-1u]!=product[i-1u]) {
+                    return scaled[i-1u]<product[i-1u] ? -1 : 1;
                 }
             }
-            const auto compared=[&](std::uint64_t coefficient) {
-                product.fill(0u);
-                const std::array<Limb,1u> multiplier={coefficient};
-                BigUnsigned::mul_into(_denominator.limbs(),multiplier,
-                    BigUnsigned::MutableLimbView(product.data(),count+1u));
-                for (std::size_t i=capacity;i!=0u;--i) {
-                    if (scaled[i-1u]!=product[i-1u]) {
-                        return scaled[i-1u]<product[i-1u] ? -1 : 1;
-                    }
-                }
-                return 0;
-            };
-            if (compared(guessed)>=0 && compared(guessed+1u)<0) {
-                return std::copysign(
-                    std::ldexp(static_cast<double>(guessed),scale),sign);
-            }
+            return scaled[0u]<product[0u] ? -1 : 1;
+        };
+        if (compared(guessed)>=0 && compared(guessed+1u)<0) {
+            return std::copysign(
+                std::ldexp(static_cast<double>(guessed),scale),sign);
         }
     }
 #endif
@@ -831,7 +831,7 @@ double Rational::get_d() const {
     // proves the upper bound. For normal values, the exact binary
     // exponent independently guarantees q>=2^52.
     // Ambiguous prefixes always use the original full-width division.
-    if (scale<0 && scale>=-63 && exponent>=-1022 &&
+    if (scale<0 && scale>=-63 &&
             n.size()==_denominator.size() && n.size()>4u) {
         constexpr std::size_t retained_limbs=3u;
         const std::size_t drop=n.size()-retained_limbs;
@@ -839,10 +839,11 @@ double Rational::get_d() const {
         const BigUnsigned high_n(n.limbs().subspan(drop));
         const BigUnsigned high_d(_denominator.limbs().subspan(drop));
         auto [candidate,remainder]=divrem(shift_left(high_n,shift),high_d);
+        // Three retained limbs give a prefix quotient within one unit
+        // of the normalized 53-bit quotient, so candidate fits one limb.
         const bool lower_proven=compare(remainder,candidate)>=0 ||
-            (candidate.size()==1u &&
-             candidate.limb(0u)==(std::uint64_t{1}<<52u));
-        if (candidate.size()==1u && lower_proven &&
+            candidate.limb(0u)==(std::uint64_t{1}<<52u);
+        if (lower_proven &&
                 compare(add(remainder,shift_left(BigUnsigned(1u),shift)),
                         high_d)<0) {
             return std::copysign(

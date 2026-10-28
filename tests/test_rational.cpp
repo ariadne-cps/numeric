@@ -1417,7 +1417,42 @@ void TestRational::test_bounds() {
 
 
 
+void test_rational_integral_binary64_scale() {
+    // The ratio is strictly between 2^53-1 and 2^53. It occupies five
+    // limbs on both sides, while its binary64 truncation has scale zero.
+    const Rational source(pow(Integer(2),Nat(319))+1,pow(Integer(2),Nat(266))+1);
+    const auto old=std::fegetround();
+    for (auto mode : {FE_TONEAREST,FE_DOWNWARD,FE_UPWARD,FE_TOWARDZERO}) {
+        std::fesetround(mode);
+        ARIADNE_TEST_EQUALS(source.get_d(),9007199254740991.0);
+        ARIADNE_TEST_EQUALS((-source).get_d(),-9007199254740991.0);
+    }
+    std::fesetround(old);
+}
+
+void test_rational_distinct_prefixes() {
+    // Every 128-bit prefix is all ones. Both prefix upper bounds overflow;
+    // the full products decide 1+2/(P-3) < 1+2/(P-7).
+    const Integer radix=pow(Integer(2),Nat(192));
+    const Rational left(radix-1,radix-3),right(radix-5,radix-7);
+    ARIADNE_TEST_EQUALS(cmp(left,right),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(right,left),Comparison::GREATER);
+    ARIADNE_TEST_EQUALS(cmp(-left,-right),Comparison::GREATER);
+    ARIADNE_TEST_EQUALS(cmp(left,left),Comparison::EQUAL);
+    // Equal reduced values bypass distinct-denominator cross-products.
+    ARIADNE_TEST_EQUALS(cmp(Rational(2,6),Rational(3,9)),Comparison::EQUAL);
+}
+
 void test_rational_contract_edges() {
+    bool rejected=false;
+    try {
+        const Rational invalid(String("bad/3"));
+    } catch (std::runtime_error const& error) {
+        rejected=true;
+        ARIADNE_TEST_EQUALS(std::string(error.what()),std::string(
+            "std::runtime_error in Rational(string): String \"bad/3\" does not have a valid rational number format."));
+    }
+    ARIADNE_TEST_ASSERT(rejected);
     Rational self(11,13);
     const Rational* alias=&self;
     self=*alias;
@@ -1431,6 +1466,8 @@ void test_rational_contract_edges() {
 }
 
 int main() {
+    ARIADNE_TEST_CALL(test_rational_integral_binary64_scale());
+    ARIADNE_TEST_CALL(test_rational_distinct_prefixes());
     ARIADNE_TEST_CALL(test_rational_contract_edges());
     {
         std::ifstream data(ARIADNE_TEST_DATA_DIR "/scalar_comparison.tsv");
