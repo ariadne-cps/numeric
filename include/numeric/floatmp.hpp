@@ -199,11 +199,16 @@ template<> class Float<MultiplePrecision> {
         return checked_add(a,- b);
     }
     static std::size_t shift_amount(Exponent n) {
-        // Every native shift must fit size_t, including on 32-bit targets.
-        // Call sites provide a nonnegative exponent or a checked distance.
-        if (n<0 || static_cast<std::uintmax_t>(n)>
-                   std::numeric_limits<std::size_t>::max()) {
-            throw std::overflow_error("FloatMP shift out of range");
+        // Every caller supplies a nonnegative shift: a guarded exponent,
+        // a checked distance between ordered exponents, precision padding,
+        // or the square-root shift (at most the validated precision).
+        // Only targets narrower than Exponent require a range check.
+        if constexpr (std::numeric_limits<std::size_t>::digits <
+                      std::numeric_limits<Exponent>::digits) {
+            if (static_cast<std::uintmax_t>(n)>
+                std::numeric_limits<std::size_t>::max()) {
+                throw std::overflow_error("FloatMP shift out of range");
+            }
         }
         return static_cast<std::size_t>(n);
     }

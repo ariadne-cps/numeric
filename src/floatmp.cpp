@@ -305,19 +305,12 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
 
     Exponent k=checked_sub(floatmp_exponent_from_bit_length(n.bit_length()),
                            floatmp_exponent_from_bit_length(d.bit_length()));
-    const auto nonnegative_shift=[](Exponent e) -> std::size_t {
-        if (e<0 || static_cast<std::uintmax_t>(e)>
-                     std::numeric_limits<std::size_t>::max()) {
-            throw std::overflow_error("FloatMP native shift out of range");
-        }
-        return static_cast<std::size_t>(e);
-    };
     if (k>=0) {
-        if (compare(n,shift_left(d,nonnegative_shift(k)))<0) {
+        if (compare(n,shift_left(d,shift_amount(k)))<0) {
             k=checked_sub(k,1);
         }
     } else {
-        if (compare(shift_left(n,nonnegative_shift(checked_sub(0,k))),d)<0) {
+        if (compare(shift_left(n,shift_amount(checked_sub(0,k))),d)<0) {
             k=checked_sub(k,1);
         }
     }
@@ -326,11 +319,11 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
     BigUnsigned dividend;
     BigUnsigned divisor;
     if (shift>=0) {
-        dividend=shift_left(n,nonnegative_shift(shift));
+        dividend=shift_left(n,shift_amount(shift));
         divisor=d;
     } else {
         dividend=n;
-        divisor=shift_left(d,nonnegative_shift(checked_sub(0,shift)));
+        divisor=shift_left(d,shift_amount(checked_sub(0,shift)));
     }
     auto [quotient,remainder]=divrem(dividend,divisor);
     bool increment=false;
@@ -3503,48 +3496,40 @@ Interval outward_dyadic_interval(Interval const& input, unsigned long bits) {
 Interval centered_atan_half_interval(Fraction const& input,
                                       Fraction const& delta,
                                       unsigned long work) {
-    // All FloatMP arguments are dyadic. For a sufficiently small delta,
-    // evaluate the linear correction (4/5)*delta and the certified
-    // quadratic error with integer significands on a cached binary
-    // scale. No rational multiplication/division is needed per call.
-    // The generic exact-rational branch remains as a fallback.
-    const auto rational_fallback = [&]() {
-        struct Cache {
-            unsigned long work = 0;
-            std::optional<Interval> center;
-        };
-        static thread_local Cache cached_rational;
-        if (!cached_rational.center || cached_rational.work < work) {
-            if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
-                throw std::overflow_error("FloatMP centered atan precision overflow");
-            }
-            cached_rational.center = outward_dyadic_interval(
-                atan_half_interval(work + 40ul), work + 24ul);
-            cached_rational.work = work;
-        }
-        const Fraction linear = Fraction(4L) * delta / Fraction(5L);
-        const Fraction remainder = delta * delta;
-        const Interval positive{
-            cached_rational.center->lower + linear - remainder,
-            cached_rational.center->upper + linear + remainder
-        };
-        return input.sign() < 0 ? negative(positive) : positive;
-    };
-
+    // This helper is reached only from certified(arctangent, x), where
+    // x is a p-bit FloatMP and work >= p+32. Near 1/2, x (and therefore
+    // delta) is dyadic with at most p+1 denominator bits. Hence the exact
+    // integer correction below always has a nonnegative shift.
     if (work > std::numeric_limits<unsigned long>::max() - 40ul) {
         throw std::overflow_error("FloatMP centered atan precision overflow");
     }
     const unsigned long bits = work + 24ul;
-    if (static_cast<std::uintmax_t>(bits + 2ul) >
-        static_cast<std::uintmax_t>(std::numeric_limits<std::size_t>::max()) ||
-        !delta.is_dyadic()) {
-        return rational_fallback();
+    // Preserve the rational computation on a target whose size_t cannot
+    // represent the working binary scale. On ordinary 32/64-bit ABIs,
+    // size_t is at least as wide as unsigned long.
+    if constexpr (std::numeric_limits<std::size_t>::digits <
+                  std::numeric_limits<unsigned long>::digits) {
+        if (bits+2ul>std::numeric_limits<std::size_t>::max()) {
+            struct Cache {
+                unsigned long work = 0;
+                std::optional<Interval> center;
+            };
+            static thread_local Cache cached_rational;
+            if (!cached_rational.center || cached_rational.work < work) {
+                cached_rational.center = outward_dyadic_interval(
+                    atan_half_interval(work + 40ul), work + 24ul);
+                cached_rational.work = work;
+            }
+            const Fraction linear = Fraction(4L) * delta / Fraction(5L);
+            const Fraction remainder = delta * delta;
+            const Interval positive{
+                cached_rational.center->lower + linear - remainder,
+                cached_rational.center->upper + linear + remainder
+            };
+            return input.sign() < 0 ? negative(positive) : positive;
+        }
     }
-    const std::size_t delta_shift =
-        delta.dyadic_denominator_bits().value();
-    if (delta_shift > static_cast<std::size_t>(bits + 2ul)) {
-        return rational_fallback();
-    }
+    const std::size_t delta_shift = delta.dyadic_denominator_bits().value();
 
     struct Cache {
         unsigned long work = 0;
