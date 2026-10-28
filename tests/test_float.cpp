@@ -1275,6 +1275,18 @@ void test_floatdp_rounding_exception_safety() {
     }
 }
 
+// Invalid raw mode integers must be rejected before touching the hardware.
+void test_floatdp_rounding_mode_contract() {
+    const auto initial=FloatDP::get_rounding_mode();
+    const auto invalid=std::numeric_limits<FloatDP::RoundingModeType>::max();
+    ARIADNE_TEST_FAIL(FloatDP::set_rounding_mode(invalid));
+    ARIADNE_TEST_EQUALS(FloatDP::get_rounding_mode(),initial);
+    ARIADNE_TEST_FAIL(sin(invalid,FloatDP(0.5_x,dp)));
+    ARIADNE_TEST_EQUALS(FloatDP::get_rounding_mode(),initial);
+    ARIADNE_TEST_FAIL(cos(invalid,FloatDP(2,dp)));
+    ARIADNE_TEST_EQUALS(FloatDP::get_rounding_mode(),initial);
+}
+
 void test_floatdp_unary_wrappers() {
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatdp_wrappers.tsv");
     if (!data) throw std::runtime_error("Missing floatdp_wrappers.tsv");
@@ -1576,6 +1588,7 @@ Int main() {
     test_floatmp_minmax_oracle();
     test_floatdp_unary_wrappers();
     test_floatdp_rounding_exception_safety();
+    test_floatdp_rounding_mode_contract();
     test_float_literals();
     test_floatmp_directed_bound_oracles();
     test_builtin_runtime();

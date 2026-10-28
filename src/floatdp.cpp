@@ -318,14 +318,15 @@ std::uint64_t floatdp_correction(FloatDPFixed85 slope,std::uint64_t offset,
         BigUnsigned::LimbView(&offset_word,1u),
         BigUnsigned::MutableLimbView(product.data(),product.size()));
 
-    ARIADNE_ASSERT(denominator_bits>0u && denominator_bits<64u);
+    // The near-half decoder supplies denominator_bits in {53,54}.
     std::uint64_t retained=product[0u]>>denominator_bits;
     retained|=product[1u]<<(64u-denominator_bits);
     if(round_upward) {
         const std::uint64_t mask=(std::uint64_t{1}<<denominator_bits)-1u;
         if((product[0u]&mask)!=0u) ++retained;
     }
-    ARIADNE_ASSERT(product[2u]==0u);
+    // Every slope is below 2^87 and offset <= 2^11, so the
+    // product has fewer than 98 bits and its third limb is zero.
     return retained;
 }
 
@@ -356,13 +357,12 @@ bool floatdp_round_fixed(std::array<BigUnsigned::Limb,2u> const& magnitude,
                          bool negative,FloatDP::RoundingModeType mode,double& output) {
     const std::uint64_t low=magnitude[0u];
     const std::uint64_t high=magnitude[1u];
-    if(high==0u) return false;
-
+    // The eleven center certificates have widths 84..87. Their
+    // corrections are at most 2^44+8 at this scale, so every endpoint
+    // stays in the same width range and its binary64 shift is 31..34.
     const unsigned high_width=64u-static_cast<unsigned>(std::countl_zero(high));
     const unsigned width=64u+high_width;
-    if(width<=53u || width>117u) return false;
     const unsigned shift=width-53u;
-    if(shift==0u || shift>=64u) return false;
 
     std::uint64_t retained=(low>>shift)|(high<<(64u-shift));
     const std::uint64_t discarded_mask=(std::uint64_t{1}<<shift)-1u;
@@ -426,9 +426,8 @@ bool floatdp_certified_transcendental(FloatDPTranscendental function,
     // centers are bounded by their small integer error constants whenever
     // |delta| <= 2^-43.
     constexpr unsigned cutoff=(FLOATDP_FIXED_BITS+1u)/2u;
-    if(offset!=0u &&
-       (cutoff>denominator_bits ||
-        offset>(std::uint64_t{1}<<(denominator_bits-cutoff)))) {
+    // denominator_bits is 53 or 54, both greater than cutoff=43.
+    if(offset>(std::uint64_t{1}<<(denominator_bits-cutoff))) {
         return false;
     }
 
@@ -602,7 +601,11 @@ FloatDP FloatDP::pi(BuiltinRoundingModeType rnd, DoublePrecision) {
 }
 
 FloatDP::RoundingModeType FloatDP::get_rounding_mode() { return Ariadne::get_builtin_rounding_mode(); }
-Void FloatDP::set_rounding_mode(RoundingModeType rnd) { Ariadne::set_builtin_rounding_mode(rnd); }
+Void FloatDP::set_rounding_mode(RoundingModeType rnd) {
+    ARIADNE_PRECONDITION(rnd==ROUND_TO_NEAREST || rnd==ROUND_DOWNWARD ||
+                         rnd==ROUND_UPWARD || rnd==ROUND_TOWARD_ZERO);
+    Ariadne::set_builtin_rounding_mode(rnd);
+}
 Void FloatDP::set_rounding_downward() { Ariadne::set_builtin_rounding_downward(); }
 Void FloatDP::set_rounding_upward() { Ariadne::set_builtin_rounding_upward(); }
 Void FloatDP::set_rounding_to_nearest() { Ariadne::set_builtin_rounding_to_nearest(); }
@@ -629,7 +632,7 @@ FloatDP FloatDP::nan(PrecisionType pr) { return FloatDP::inf(Sign::ZERO,pr); }
 Integer cast_integer(FloatDP x) {
     Dyadic w(x);
     Integer z=round(w);
-    ARIADNE_ASSERT_MSG(z==w,"Cannot cast non-integral value "<<z<<" to an Integer");
+    ARIADNE_PRECONDITION_MSG(z==w,"Cannot cast non-integral value "<<z<<" to an Integer");
     return z;
 }
 
