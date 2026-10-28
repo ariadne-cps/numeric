@@ -1287,6 +1287,19 @@ void test_floatdp_rounding_mode_contract() {
     ARIADNE_TEST_EQUALS(FloatDP::get_rounding_mode(),initial);
 }
 
+void test_floatdp_sine_outside_certificate() {
+    const auto initial=FloatDP::get_rounding_mode();
+    const FloatDP input(0.75_x,dp);
+    for (auto mode:{FloatDP::ROUND_TO_NEAREST,FloatDP::ROUND_DOWNWARD,
+                    FloatDP::ROUND_UPWARD,FloatDP::ROUND_TOWARD_ZERO}) {
+        const auto sine_value=sin(mode,input);
+        // For 0<x<1, x-x^3/6 < sin(x) < x. Both bounds are exact dyadics.
+        ARIADNE_TEST_ASSERT(sine_value>FloatDP(0.6796875_x,dp));
+        ARIADNE_TEST_ASSERT(sine_value<input);
+        ARIADNE_TEST_EQUALS(FloatDP::get_rounding_mode(),initial);
+    }
+}
+
 void test_floatdp_unary_wrappers() {
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatdp_wrappers.tsv");
     if (!data) throw std::runtime_error("Missing floatdp_wrappers.tsv");
@@ -1589,6 +1602,7 @@ Int main() {
     test_floatdp_unary_wrappers();
     test_floatdp_rounding_exception_safety();
     test_floatdp_rounding_mode_contract();
+    test_floatdp_sine_outside_certificate();
     test_float_literals();
     test_floatmp_directed_bound_oracles();
     test_builtin_runtime();

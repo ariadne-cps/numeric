@@ -35,6 +35,7 @@
 #include <locale>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
 
 
@@ -210,102 +211,212 @@ constexpr FloatDPFixed85 fixed85(std::uint64_t low,std::uint64_t high) {
     return {low,high};
 }
 
-FloatDPCenter floatdp_center(FloatDPTranscendental function,bool negative) {
-    switch(function) {
-        case FloatDPTranscendental::sine:
+template<FloatDPTranscendental Function>
+constexpr FloatDPCenter floatdp_center(bool negative) {
+    if constexpr(Function==FloatDPTranscendental::sine) {
+        return {
+            fixed85(0x3a2582f7f43b25e1ULL,0x00000000000f5774ULL),
+            fixed85(0x3a2582f7f43b25e2ULL,0x00000000000f5774ULL),
+            fixed85(0x065b7d4f9db7bbb3ULL,0x00000000001c1528ULL),
+            fixed85(0x065b7d4f9db7bbb4ULL,0x00000000001c1528ULL),
+            1u,false,negative
+        };
+    }
+    else if constexpr(Function==FloatDPTranscendental::cosine) {
+        return {
+            fixed85(0x065b7d4f9db7bbb3ULL,0x00000000001c1528ULL),
+            fixed85(0x065b7d4f9db7bbb4ULL,0x00000000001c1528ULL),
+            fixed85(0x3a2582f7f43b25e1ULL,0x00000000000f5774ULL),
+            fixed85(0x3a2582f7f43b25e2ULL,0x00000000000f5774ULL),
+            1u,true,false
+        };
+    }
+    else if constexpr(Function==FloatDPTranscendental::tangent) {
+        return {
+            fixed85(0x5bf3474a43179648ULL,0x0000000000117b4fULL),
+            fixed85(0x5bf3474a43179649ULL,0x0000000000117b4fULL),
+            fixed85(0x7c8a28fc590a79f8ULL,0x0000000000298cdfULL),
+            fixed85(0x7c8a28fc590a79faULL,0x0000000000298cdfULL),
+            6u,false,negative
+        };
+    }
+    else if constexpr(Function==FloatDPTranscendental::arctangent) {
+        return {
+            fixed85(0x82b0dda7b456fe44ULL,0x00000000000ed633ULL),
+            fixed85(0x82b0dda7b456fe45ULL,0x00000000000ed633ULL),
+            fixed85(0x9999999999999999ULL,0x0000000000199999ULL),
+            fixed85(0x999999999999999aULL,0x0000000000199999ULL),
+            1u,false,negative
+        };
+    }
+    else if constexpr(Function==FloatDPTranscendental::arcsine) {
+        return {
+            fixed85(0x382d73658465bb32ULL,0x000000000010c152ULL),
+            fixed85(0x382d73658465bb33ULL,0x000000000010c152ULL),
+            fixed85(0x8b2066389a431f03ULL,0x000000000024f34eULL),
+            fixed85(0x8b2066389a431f04ULL,0x000000000024f34eULL),
+            2u,false,negative
+        };
+    }
+    else if constexpr(Function==FloatDPTranscendental::arccosine) {
+        if(negative) {
             return {
-                fixed85(0x3a2582f7f43b25e1ULL,0x00000000000f5774ULL),
-                fixed85(0x3a2582f7f43b25e2ULL,0x00000000000f5774ULL),
-                fixed85(0x065b7d4f9db7bbb3ULL,0x00000000001c1528ULL),
-                fixed85(0x065b7d4f9db7bbb4ULL,0x00000000001c1528ULL),
-                1u,false,negative
-            };
-        case FloatDPTranscendental::cosine:
-            return {
-                fixed85(0x065b7d4f9db7bbb3ULL,0x00000000001c1528ULL),
-                fixed85(0x065b7d4f9db7bbb4ULL,0x00000000001c1528ULL),
-                fixed85(0x3a2582f7f43b25e1ULL,0x00000000000f5774ULL),
-                fixed85(0x3a2582f7f43b25e2ULL,0x00000000000f5774ULL),
-                1u,true,false
-            };
-        case FloatDPTranscendental::tangent:
-            return {
-                fixed85(0x5bf3474a43179648ULL,0x0000000000117b4fULL),
-                fixed85(0x5bf3474a43179649ULL,0x0000000000117b4fULL),
-                fixed85(0x7c8a28fc590a79f8ULL,0x0000000000298cdfULL),
-                fixed85(0x7c8a28fc590a79faULL,0x0000000000298cdfULL),
-                6u,false,negative
-            };
-        case FloatDPTranscendental::arctangent:
-            return {
-                fixed85(0x82b0dda7b456fe44ULL,0x00000000000ed633ULL),
-                fixed85(0x82b0dda7b456fe45ULL,0x00000000000ed633ULL),
-                fixed85(0x9999999999999999ULL,0x0000000000199999ULL),
-                fixed85(0x999999999999999aULL,0x0000000000199999ULL),
-                1u,false,negative
-            };
-        case FloatDPTranscendental::arcsine:
-            return {
-                fixed85(0x382d73658465bb32ULL,0x000000000010c152ULL),
-                fixed85(0x382d73658465bb33ULL,0x000000000010c152ULL),
+                fixed85(0xe0b5cd961196eccbULL,0x0000000000430548ULL),
+                fixed85(0xe0b5cd961196ecccULL,0x0000000000430548ULL),
                 fixed85(0x8b2066389a431f03ULL,0x000000000024f34eULL),
                 fixed85(0x8b2066389a431f04ULL,0x000000000024f34eULL),
-                2u,false,negative
-            };
-        case FloatDPTranscendental::arccosine:
-            if(negative) {
-                return {
-                    fixed85(0xe0b5cd961196eccbULL,0x0000000000430548ULL),
-                    fixed85(0xe0b5cd961196ecccULL,0x0000000000430548ULL),
-                    fixed85(0x8b2066389a431f03ULL,0x000000000024f34eULL),
-                    fixed85(0x8b2066389a431f04ULL,0x000000000024f34eULL),
-                    2u,false,false
-                };
-            }
-            return {
-                fixed85(0x705ae6cb08cb7665ULL,0x00000000002182a4ULL),
-                fixed85(0x705ae6cb08cb7666ULL,0x00000000002182a4ULL),
-                fixed85(0x8b2066389a431f03ULL,0x000000000024f34eULL),
-                fixed85(0x8b2066389a431f04ULL,0x000000000024f34eULL),
-                2u,true,false
-            };
-        case FloatDPTranscendental::hyperbolic_tangent:
-            return {
-                fixed85(0xebab4579b2894771ULL,0x00000000000ec9a9ULL),
-                fixed85(0xebab4579b2894772ULL,0x00000000000ec9a9ULL),
-                fixed85(0x6fa343940dfe7c96ULL,0x0000000000192a94ULL),
-                fixed85(0x6fa343940dfe7c98ULL,0x0000000000192a94ULL),
-                1u,false,negative
-            };
-        case FloatDPTranscendental::exponential:
-            if(negative) {
-                return {
-                    fixed85(0xfc6f9609fe7aceb4ULL,0x00000000001368b2ULL),
-                    fixed85(0xfc6f9609fe7aceb5ULL,0x00000000001368b2ULL),
-                    fixed85(0xfc6f9609fe7aceb4ULL,0x00000000001368b2ULL),
-                    fixed85(0xfc6f9609fe7aceb5ULL,0x00000000001368b2ULL),
-                    2u,true,false
-                };
-            }
-            return {
-                fixed85(0x1c3c0d3792e5bfdfULL,0x000000000034c253ULL),
-                fixed85(0x1c3c0d3792e5bfe0ULL,0x000000000034c253ULL),
-                fixed85(0x1c3c0d3792e5bfdfULL,0x000000000034c253ULL),
-                fixed85(0x1c3c0d3792e5bfe0ULL,0x000000000034c253ULL),
                 2u,false,false
             };
-        case FloatDPTranscendental::logarithm:
+        }
+        return {
+            fixed85(0x705ae6cb08cb7665ULL,0x00000000002182a4ULL),
+            fixed85(0x705ae6cb08cb7666ULL,0x00000000002182a4ULL),
+            fixed85(0x8b2066389a431f03ULL,0x000000000024f34eULL),
+            fixed85(0x8b2066389a431f04ULL,0x000000000024f34eULL),
+            2u,true,false
+        };
+    }
+    else if constexpr(Function==FloatDPTranscendental::hyperbolic_tangent) {
+        return {
+            fixed85(0xebab4579b2894771ULL,0x00000000000ec9a9ULL),
+            fixed85(0xebab4579b2894772ULL,0x00000000000ec9a9ULL),
+            fixed85(0x6fa343940dfe7c96ULL,0x0000000000192a94ULL),
+            fixed85(0x6fa343940dfe7c98ULL,0x0000000000192a94ULL),
+            1u,false,negative
+        };
+    }
+    else if constexpr(Function==FloatDPTranscendental::exponential) {
+        if(negative) {
             return {
-                fixed85(0xfefa39ef35793c76ULL,0x0000000000162e42ULL),
-                fixed85(0xfefa39ef35793c77ULL,0x0000000000162e42ULL),
-                fixed85(0x0000000000000000ULL,0x0000000000400000ULL),
-                fixed85(0x0000000000000000ULL,0x0000000000400000ULL),
-                8u,true,true
+                fixed85(0xfc6f9609fe7aceb4ULL,0x00000000001368b2ULL),
+                fixed85(0xfc6f9609fe7aceb5ULL,0x00000000001368b2ULL),
+                fixed85(0xfc6f9609fe7aceb4ULL,0x00000000001368b2ULL),
+                fixed85(0xfc6f9609fe7aceb5ULL,0x00000000001368b2ULL),
+                2u,true,false
             };
-        default:
-            throw std::logic_error("Unknown FloatDP transcendental");
+        }
+        return {
+            fixed85(0x1c3c0d3792e5bfdfULL,0x000000000034c253ULL),
+            fixed85(0x1c3c0d3792e5bfe0ULL,0x000000000034c253ULL),
+            fixed85(0x1c3c0d3792e5bfdfULL,0x000000000034c253ULL),
+            fixed85(0x1c3c0d3792e5bfe0ULL,0x000000000034c253ULL),
+            2u,false,false
+        };
+    }
+    else if constexpr(Function==FloatDPTranscendental::logarithm) {
+        return {
+            fixed85(0xfefa39ef35793c76ULL,0x0000000000162e42ULL),
+            fixed85(0xfefa39ef35793c77ULL,0x0000000000162e42ULL),
+            fixed85(0x0000000000000000ULL,0x0000000000400000ULL),
+            fixed85(0x0000000000000000ULL,0x0000000000400000ULL),
+            8u,true,true
+        };
+    }
+    else {
+        static_assert(Function==FloatDPTranscendental::logarithm,
+                      "Unknown FloatDP transcendental");
     }
 }
+
+// Exhaust the complete near-half input lattice at compile time. This checks
+// the stored certificates, rather than relying on a sample of test inputs:
+// 2048 binary64 values below 1/2 and 1025 at or above it. The model uses
+// 32-bit partial products, independently of the runtime limb multiplier.
+consteval std::uint64_t floatdp_certificate_correction(
+    FloatDPFixed85 slope,std::uint64_t offset,unsigned bits,bool upward) {
+    const std::uint64_t bottom=(slope.low&0xffffffffu)*offset;
+    const std::uint64_t top=(slope.low>>32u)*offset+(bottom>>32u);
+    const std::uint64_t low=(top<<32u)|(bottom&0xffffffffu);
+    const std::uint64_t high=slope.high*offset+(top>>32u);
+    const std::uint64_t remainder=low&((std::uint64_t{1}<<bits)-1u);
+    return (low>>bits)+(high<<(64u-bits))+(upward && remainder!=0u);
+}
+
+consteval FloatDPFixed85 floatdp_certificate_endpoint(
+    FloatDPFixed85 center,std::uint64_t correction,bool subtract) {
+    const std::uint64_t low=subtract ? center.low-correction : center.low+correction;
+    const std::uint64_t high=subtract ? center.high-(center.low<correction)
+                                      : center.high+(low<center.low);
+    return {low,high};
+}
+
+consteval bool floatdp_verify_certificate_slice(
+    FloatDPCenter center,unsigned bits,unsigned first,unsigned last) {
+    // Leave at least a whole limb of margin at the endpoint width limits.
+    // All displacements are at most 2^44+8, and all products fit 98 bits.
+    if(center.lower.high<=(std::uint64_t{1}<<19u) ||
+       center.upper.high>=(std::uint64_t{1}<<23u)-1u ||
+       center.slope_upper.high>=(std::uint64_t{1}<<23u) ||
+       center.slope_lower.high>=(std::uint64_t{1}<<23u) || center.error>8u)
+        return false;
+    for(unsigned offset=first;offset<=last;++offset) {
+        const auto cl=floatdp_certificate_correction(center.slope_lower,offset,bits,false);
+        const auto cu=floatdp_certificate_correction(center.slope_upper,offset,bits,true);
+        const bool subtract=(bits==54u)!=center.slope_negative;
+        // Applying the error separately keeps this model entirely unsigned.
+        const auto lower=floatdp_certificate_endpoint(
+            floatdp_certificate_endpoint(center.lower,subtract ? cu : cl,subtract),
+            center.error,true);
+        const auto upper=floatdp_certificate_endpoint(
+            floatdp_certificate_endpoint(center.upper,subtract ? cl : cu,subtract),
+            center.error,false);
+        const unsigned width=128u-static_cast<unsigned>(std::countl_zero(lower.high));
+        const unsigned upper_width=128u-static_cast<unsigned>(std::countl_zero(upper.high));
+        if(width<84u || width>87u || upper_width!=width) return false;
+        const unsigned shift=width-53u;
+        const auto retained=[shift](FloatDPFixed85 value) {
+            return (value.low>>shift)|(value.high<<(64u-shift));
+        };
+        const auto l=retained(lower),u=retained(upper);
+        if(l!=u || l==(std::uint64_t{1}<<53u)-1u) return false;
+        const std::uint64_t mask=(std::uint64_t{1}<<shift)-1u;
+        const std::uint64_t half=std::uint64_t{1}<<(shift-1u);
+        const auto lr=lower.low&mask,ur=upper.low&mask;
+        // Both endpoints are inexact, never ties, with the same nearest
+        // result. Equal truncations also prove agreement in directed modes.
+        if(lr==0u || ur==0u || lr==half || ur==half || (lr>half)!=(ur>half))
+            return false;
+    }
+    return true;
+}
+
+// Separate small constant expressions respect default compiler evaluation
+// limits; they require no nonstandard increase of the constexpr step budget.
+template<FloatDPCenter Center,unsigned Bits,unsigned Slice>
+struct FloatDPCertificateSlice {
+    static constexpr unsigned first=Bits==54u ? 1u+Slice*256u : Slice*256u;
+    static constexpr unsigned last=Bits==54u ? (Slice+1u)*256u
+                                             : (Slice==4u ? 1024u : (Slice+1u)*256u-1u);
+    static constexpr bool valid=floatdp_verify_certificate_slice(Center,Bits,first,last);
+    static_assert(valid,"FloatDP near-half certificate no longer permits specialized rounding");
+};
+
+template<FloatDPTranscendental Function,bool Negative,std::size_t... I>
+consteval bool floatdp_verify_certificate(std::index_sequence<I...>) {
+    constexpr auto center=floatdp_center<Function>(Negative);
+    return (FloatDPCertificateSlice<center,54u,I>::valid && ...) &&
+           FloatDPCertificateSlice<center,53u,0u>::valid &&
+           FloatDPCertificateSlice<center,53u,1u>::valid &&
+           FloatDPCertificateSlice<center,53u,2u>::valid &&
+           FloatDPCertificateSlice<center,53u,3u>::valid &&
+           FloatDPCertificateSlice<center,53u,4u>::valid;
+}
+
+template<FloatDPTranscendental Function>
+consteval bool floatdp_verify_certificates() {
+    return floatdp_verify_certificate<Function,false>(std::make_index_sequence<8u>{}) &&
+           floatdp_verify_certificate<Function,true>(std::make_index_sequence<8u>{});
+}
+
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::sine>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::cosine>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::tangent>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::arctangent>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::arcsine>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::arccosine>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::exponential>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::logarithm>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::hyperbolic_tangent>());
 
 std::uint64_t floatdp_correction(FloatDPFixed85 slope,std::uint64_t offset,
                                  unsigned denominator_bits,bool round_upward) {
@@ -353,67 +464,55 @@ floatdp_endpoint(FloatDPFixed85 center,std::int64_t displacement) {
     return output;
 }
 
+// The exhaustive compile-time certificate proves that both endpoints are
+// inexact, never halfway, never carry into a new exponent, and round alike
+// in every supported mode. This private rounder uses exactly that domain.
 bool floatdp_round_fixed(std::array<BigUnsigned::Limb,2u> const& magnitude,
                          bool negative,FloatDP::RoundingModeType mode,double& output) {
     const std::uint64_t low=magnitude[0u];
     const std::uint64_t high=magnitude[1u];
-    // The eleven center certificates have widths 84..87. Their
-    // corrections are at most 2^44+8 at this scale, so every endpoint
-    // stays in the same width range and its binary64 shift is 31..34.
-    const unsigned high_width=64u-static_cast<unsigned>(std::countl_zero(high));
-    const unsigned width=64u+high_width;
+    const unsigned width=128u-static_cast<unsigned>(std::countl_zero(high));
     const unsigned shift=width-53u;
-
     std::uint64_t retained=(low>>shift)|(high<<(64u-shift));
-    const std::uint64_t discarded_mask=(std::uint64_t{1}<<shift)-1u;
-    const bool inexact=(low&discarded_mask)!=0u;
     bool increment=false;
-
     if(mode==FloatDP::ROUND_TO_NEAREST) {
         const std::uint64_t halfway=std::uint64_t{1}<<(shift-1u);
-        const bool above_half=(low&(halfway-1u))!=0u;
-        increment=(low&halfway)!=0u && (above_half || (retained&1u)!=0u);
+        increment=(low&halfway)!=0u;
     } else if(mode==FloatDP::ROUND_UPWARD) {
-        increment=!negative && inexact;
+        increment=!negative;
     } else if(mode==FloatDP::ROUND_DOWNWARD) {
-        increment=negative && inexact;
+        increment=negative;
     } else if(mode!=FloatDP::ROUND_TOWARD_ZERO) {
         return false;
     }
-
-    int highest=static_cast<int>(width)-1-static_cast<int>(FLOATDP_FIXED_BITS);
-    if(increment) {
-        ++retained;
-        if(retained==(std::uint64_t{1}<<53u)) {
-            retained>>=1u;
-            ++highest;
-        }
-    }
-
-    double result=std::ldexp(static_cast<double>(retained),highest-52);
+    if(increment) ++retained;
+    const int highest=static_cast<int>(width)-1-static_cast<int>(FLOATDP_FIXED_BITS);
+    const double result=std::ldexp(static_cast<double>(retained),highest-52);
     output=negative ? -result : result;
     return true;
 }
 
-bool floatdp_certified_transcendental(FloatDPTranscendental function,
+template<FloatDPTranscendental Function>
+bool floatdp_certified_transcendental(
                                       FloatDP::RoundingModeType mode,
                                       double input,double& output) {
     // Preserve the established inexpensive nearest-mode implementations
     // where the certified near-half path was never selected.
-    if(mode==FloatDP::ROUND_TO_NEAREST &&
-       function!=FloatDPTranscendental::sine &&
-       function!=FloatDPTranscendental::cosine &&
-       function!=FloatDPTranscendental::arcsine &&
-       function!=FloatDPTranscendental::arccosine &&
-       function!=FloatDPTranscendental::hyperbolic_tangent) {
-        return false;
+    if constexpr(Function!=FloatDPTranscendental::sine &&
+       Function!=FloatDPTranscendental::cosine &&
+       Function!=FloatDPTranscendental::arcsine &&
+       Function!=FloatDPTranscendental::arccosine &&
+       Function!=FloatDPTranscendental::hyperbolic_tangent) {
+        if(mode==FloatDP::ROUND_TO_NEAREST) return false;
     }
 
     const std::uint64_t encoded=std::bit_cast<std::uint64_t>(input);
     const bool negative=(encoded>>63u)!=0u;
     const std::uint64_t exponent=(encoded>>52u)&0x7ffu;
     if(exponent!=1021u && exponent!=1022u) return false;
-    if(function==FloatDPTranscendental::logarithm && negative) return false;
+    if constexpr(Function==FloatDPTranscendental::logarithm) {
+        if(negative) return false;
+    }
 
     const unsigned denominator_bits=static_cast<unsigned>(1023u+52u-exponent);
     const std::uint64_t half=std::uint64_t{1}<<(denominator_bits-1u);
@@ -431,90 +530,72 @@ bool floatdp_certified_transcendental(FloatDPTranscendental function,
         return false;
     }
 
-    const FloatDPCenter center=floatdp_center(function,negative);
-    const std::uint64_t correction_lower=floatdp_correction(
-        center.slope_lower,offset,denominator_bits,false);
-    const std::uint64_t correction_upper=floatdp_correction(
-        center.slope_upper,offset,denominator_bits,true);
+    const FloatDPCenter center=floatdp_center<Function>(negative);
     const bool subtract=offset_negative!=center.slope_negative;
-
+    const std::uint64_t correction=floatdp_correction(
+        subtract ? center.slope_upper : center.slope_lower,
+        offset,denominator_bits,subtract);
     const std::int64_t lower_offset=
-        (subtract ? -static_cast<std::int64_t>(correction_upper)
-                  :  static_cast<std::int64_t>(correction_lower))
+        (subtract ? -static_cast<std::int64_t>(correction)
+                  :  static_cast<std::int64_t>(correction))
         -static_cast<std::int64_t>(center.error);
-    const std::int64_t upper_offset=
-        (subtract ? -static_cast<std::int64_t>(correction_lower)
-                  :  static_cast<std::int64_t>(correction_upper))
-        +static_cast<std::int64_t>(center.error);
-
     const auto lower_magnitude=floatdp_endpoint(center.lower,lower_offset);
-    const auto upper_magnitude=floatdp_endpoint(center.upper,upper_offset);
-    double lower_result=0.0,upper_result=0.0;
-    if(!floatdp_round_fixed(lower_magnitude,center.result_negative,mode,lower_result) ||
-       !floatdp_round_fixed(upper_magnitude,center.result_negative,mode,upper_result)) {
-        return false;
-    }
-    if(std::bit_cast<std::uint64_t>(lower_result)!=
-       std::bit_cast<std::uint64_t>(upper_result)) {
-        return false;
-    }
-    output=lower_result;
-    return true;
+    return floatdp_round_fixed(lower_magnitude,center.result_negative,mode,output);
 }
 
 } // namespace
 
 FloatDP exp(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
-    if (floatdp_certified_transcendental(FloatDPTranscendental::exponential,mode,x.dbl,output)) return FloatDP(output);
+    if (floatdp_certified_transcendental<FloatDPTranscendental::exponential>(mode,x.dbl,output)) return FloatDP(output);
     return FloatDP::_apply_rnd(&exp_rnd,mode,x);
 }
 
 FloatDP log(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
-    if (floatdp_certified_transcendental(FloatDPTranscendental::logarithm,mode,x.dbl,output)) return FloatDP(output);
+    if (floatdp_certified_transcendental<FloatDPTranscendental::logarithm>(mode,x.dbl,output)) return FloatDP(output);
     return FloatDP::_apply_rnd(&log_rnd,mode,x);
 }
 
 FloatDP sin(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
-    if (floatdp_certified_transcendental(FloatDPTranscendental::sine,mode,x.dbl,output)) return FloatDP(output);
+    if (floatdp_certified_transcendental<FloatDPTranscendental::sine>(mode,x.dbl,output)) return FloatDP(output);
     return FloatDP::_apply_rnd(&sin_rnd,mode,x);
 }
 
 FloatDP cos(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
-    if (floatdp_certified_transcendental(FloatDPTranscendental::cosine,mode,x.dbl,output)) return FloatDP(output);
+    if (floatdp_certified_transcendental<FloatDPTranscendental::cosine>(mode,x.dbl,output)) return FloatDP(output);
     return FloatDP::_apply_rnd(&cos_rnd,mode,x);
 }
 
 FloatDP tan(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
-    if (floatdp_certified_transcendental(FloatDPTranscendental::tangent,mode,x.dbl,output)) return FloatDP(output);
+    if (floatdp_certified_transcendental<FloatDPTranscendental::tangent>(mode,x.dbl,output)) return FloatDP(output);
     return FloatDP::_apply_rnd(&tan_rnd,mode,x);
 }
 
 FloatDP atan(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
-    if (floatdp_certified_transcendental(FloatDPTranscendental::arctangent,mode,x.dbl,output)) return FloatDP(output);
+    if (floatdp_certified_transcendental<FloatDPTranscendental::arctangent>(mode,x.dbl,output)) return FloatDP(output);
     return FloatDP::_apply_rnd(&atan_rnd,mode,x);
 }
 
 FloatDP asin(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
-    if (floatdp_certified_transcendental(FloatDPTranscendental::arcsine,mode,x.dbl,output)) return FloatDP(output);
+    if (floatdp_certified_transcendental<FloatDPTranscendental::arcsine>(mode,x.dbl,output)) return FloatDP(output);
     return FloatDP::_apply_rnd(&asin_rnd,mode,x);
 }
 
 FloatDP acos(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
-    if (floatdp_certified_transcendental(FloatDPTranscendental::arccosine,mode,x.dbl,output)) return FloatDP(output);
+    if (floatdp_certified_transcendental<FloatDPTranscendental::arccosine>(mode,x.dbl,output)) return FloatDP(output);
     return FloatDP::_apply_rnd(&acos_rnd,mode,x);
 }
 
 FloatDP tanh(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
-    if (floatdp_certified_transcendental(FloatDPTranscendental::hyperbolic_tangent,
+    if (floatdp_certified_transcendental<FloatDPTranscendental::hyperbolic_tangent>(
             mode,x.dbl,output)) return FloatDP(output);
     return FloatDP::_apply_rnd(&tanh_rnd,mode,x);
 }
