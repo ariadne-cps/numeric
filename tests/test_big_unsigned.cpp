@@ -3561,6 +3561,13 @@ void TestBigUnsigned::test_gcd_decimal()
         }
         ensure_gcd_golden_end(golden,"R21");
     }
+    // 10^1152 has 3827 bits and midpoint 1913. The next split power
+    // 10^576 has 1914 bits, so cutoff-32 rejects the final square and
+    // must select a smaller power during its later recursive calls.
+    const BigUnsigned cutoff32_boundary=pow(BigUnsigned(std::uint64_t{10}),std::uint64_t{1152});
+    const std::string cutoff32_decimal="1"+std::string(1152u,'0');
+    ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(cutoff32_boundary),cutoff32_decimal);
+    ARIADNE_TEST_EQUALS(to_decimal_cutoff16_diagnostic(cutoff32_boundary),cutoff32_decimal);
     ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
     ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
     ARIADNE_TEST_ASSERT(to_decimal(from_decimal("000"))=="0");
