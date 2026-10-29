@@ -3603,15 +3603,15 @@ struct FloatMPShortTranscendentals {
             Wide low_value=native(center.lower);
             Wide high_value=native(center.upper);
             const auto adjust=[](Wide& value,std::int64_t displacement) {
-                const Wide magnitude=displacement<0
+                const Wide displacement_magnitude=displacement<0
                     ? static_cast<std::uint64_t>(-(displacement+1))+1u
                     : static_cast<std::uint64_t>(displacement);
                 if (displacement<0) {
-                    if (value<magnitude) return false;
-                    value-=magnitude;
+                    if (value<displacement_magnitude) return false;
+                    value-=displacement_magnitude;
                 } else {
-                    if (value>(~Wide{0})-magnitude) return false;
-                    value+=magnitude;
+                    if (value>(~Wide{0})-displacement_magnitude) return false;
+                    value+=displacement_magnitude;
                 }
                 return true;
             };

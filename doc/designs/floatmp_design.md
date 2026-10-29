@@ -11617,3 +11617,33 @@ other-operation noise to F4.
 native binary64 square root with FloatMP's integer sqrtrem
 algorithm or F1--F3's certified centered transcendental
 interventions. No F5 changes or new dependencies are included.
+
+
+### D148.2 — GCC 13 strict-build shadowing repair (29 October 2026, after F4)
+
+**Observed CI failure.** The user supplied the GitHub Actions Release
+build log for src/floatmp.cpp, compiled with GCC 13, -Wshadow and
+-Werror. The D148 evaluate<OperationKind> short certified interval path
+defines a local input-significand variable named \`magnitude\`, while
+its nested signed-displacement adjustment lambda also declared a local
+\`magnitude\`. GCC emits \`-Werror=shadow\` at approximately line 3606
+for every instantiated transcendental operation, causing compilation to
+stop. Repeated template diagnostics all originate in this one declaration;
+this is a **compile-time identifier collision**, not evidence of a
+failing numeric oracle or incorrect floating-point rounding.
+
+**Minimal change.** Rename only the lambda's local variable from
+\`magnitude\` to \`displacement_magnitude\` and update its three uses.
+The absolute signed-displacement calculation, subtraction/addition
+carry checks, certified endpoints, rounding and fallback paths remain
+bit-for-bit semantically identical. No F5 optimization is included.
+The purpose is to restore compatibility with the project's
+-Wshadow -Werror build while preserving the measured D148 and F1--F4
+numeric algorithms.
+
+**Verification status.** Reviewed the reported source location and the
+new identifier's unique scope in the full floatmp.cpp source. This
+journal entry does **not** claim a full GCC 13 build or passing CI.
+Rerun the same strict Release compile and the complete numeric
+tests, then check the independent frozen FloatMP oracle suite and
+F4 FloatDP sqrt tests. Do not relax the warning flags.
