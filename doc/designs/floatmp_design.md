@@ -11466,3 +11466,63 @@ F3's isolated benchmark. In particular avoid adding
 multiprecision facilities to the FloatDP centered
 kernel or changing the strong consteval certification
 without corresponding exhaustive independent tests.
+
+
+### F3.1 — user-measured p=53 performance after F3 (29 October 2026)
+
+The user supplied the paired 56-operation benchmark at 53-bit precision
+with 20,000 iterations and 31 samples after F3, the IEEE-754
+bit-assembly optimization. FloatMP/FloatDP **total_time=1.188x**,
+**geomean=2.033x**, and **worst=8.056x** (fma_nearest). The
+preceding F2 run measured 1.183x, 1.949x and 8.105x. The very small
+change in total_time is not strong evidence of a change in aggregate
+performance; per-operation measurements show a more informative
+pattern. The FloatMP timings remain broadly stable.
+
+For the nine transcendental functions in the comparison benchmark
+(exp, log, sin, cos, tan, tanh, atan, asin, acos), the unweighted
+sum of all 27 FloatDP per-operation medians changed from
+**246.292 ns (F2)** to **234.770 ns (F3)**, a reduction of
+**11.522 ns / 4.68%**. For the 18 directed (downward/upward)
+entries, the sum changed from **94.852 ns (F2)** to
+**85.397 ns (F3)**, a reduction of **9.455 ns / 9.97%**.
+Nearest-mode entries collectively changed from 151.440 ns to
+149.373 ns (approximately 1.36% lower). These are sums of
+independent median measurements, not measured sequential elapsed time.
+
+Representative individual FloatDP downward measurements (ns),
+F2 -> F3:
+* exp: 6.579 -> 6.419 (2.4% lower);
+* log: 4.281 -> 3.265 (23.7% lower);
+* sin: 5.254 -> 4.379 (16.7% lower);
+* cos: 4.771 -> 4.258 (10.8% lower);
+* tan: 5.473 -> 4.871 (11.0% lower);
+* tanh: 5.331 -> 4.804 (9.9% lower);
+* atan: 5.438 -> 4.708 (13.4% lower);
+* asin: 5.252 -> 4.460 (15.1% lower);
+* acos: 5.450 -> 5.169 (5.2% lower).
+
+The results are consistent with removing std::ldexp and integer-to-double
+conversion from the certified short path, but do not constitute an
+isolated instruction-level causal proof. They reflect one
+user-supplied run per version, without cross-run variance or
+interleaved A/B trials. F1, F2 and F3 together reduced the
+27-operation FloatDP transcendental median sum from
+**479.018 ns after D148 (before F1)** to **234.770 ns after F3**
+(about 51.0% lower), and the 18 directed median sum from
+**257.387 ns to 85.397 ns** (about 66.8% lower). Over that sequence
+the paired FloatMP/FloatDP total_time ratio moved from 0.947x
+to 1.188x. These comparisons use the actual fixed
+near-half-heavy benchmark pool, not arbitrary input distributions.
+
+**Final F1–F3 scope statement.** The three agreed incremental
+optimizations are complete and independently benchmarked by the user.
+src/floatdp.cpp contains no BigUnsigned dependency. Its certified
+near-half path now uses portable native-word multiplication (F1),
+portable native-word endpoint carry/borrow (F2), and IEEE-754
+binary64 bit assembly (F3), preserving all static consteval
+certificates. No F4 implementation is authorized or included by
+this benchmark entry. Full repository builds, independent frozen
+oracle execution, Windows/MSVC checks, sanitizers, coverage and
+additional controlled host repetitions remain outstanding as
+verification tasks; nothing here asserts those tests were executed.
