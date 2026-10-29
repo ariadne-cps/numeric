@@ -941,3 +941,60 @@ preservation. A new speedup is *not* claimed before this measured
 regression and cross-platform CI. The retained fenv paths remain the
 authoritative fallback on architectures with incompatible compiler
 rounding/FMA behavior.
+
+
+## D8 — faster directed FMA residual and exact pow loop cleanup (29 October 2026)
+
+**User measurement after D7.** At 53 bits, 20,000 iterations and 31
+samples on the user's host: FloatDP `fma_down/up` = 12.079/11.571 ns,
+`pow7_down/up` = 9.069/18.227 ns. Previous pre-D7 values were
+31.352/30.433 and 41.702/42.604 ns respectively. Other FloatDP
+arithmetic is now near 4–7 ns, so these two groups are the next targets.
+Nearest, transcendental and FloatMP code and the frozen workload are
+controls, not targets of D8.
+
+**FMA mathematical contract.** Let `r=RN(a*b+c)` (one fused result).
+If `r` and `c` have the same strict sign and their magnitudes are
+within a factor of two, Sterbenz's lemma guarantees that `c-r` is
+an *exact* floating-point subtraction. The correctly rounded
+`fma(a,b,c-r)` then preserves the sign of the exact residual
+`a*b+c-r`, provided any nonzero residual remains representable.
+D7's existing 2^-400 gates on `a,b,c,r` ensure nonzero residual
+magnitude cannot fall below the representable subnormal threshold.
+Therefore returning `r` or its adjacent binary64 neighbor based
+on that residual's sign provides the requested directed result with
+no hardware rounding-mode switch. Where the Sterbenz condition is
+not satisfied, retain D7's exact product error + TwoSum error
+certification, then the original hardware mode session on an
+uncertifiable input. Do not substitute multiply-plus-add for FMA,
+weaken signed-zero handling, or assume the Sterbenz criterion on
+opposite signs or zero.
+
+**Power.** The D7 certified repeated-squaring loop multiplied its
+initial accumulator by exact 1.0 and calculated one final unused
+square. Elide only those mathematical no-ops; preserve the ordering
+and results of every consequential directed multiplication, the
+same >16 exponent fallback, and all domain/fenv gates. For exponent
+zero the result remains exactly 1. If any step is uncertifiable,
+restart through the unchanged original `pow_rnd` adapter.
+
+**Independent validation.** An isolated C++20 differential probe,
+compiled under `-O2 -frounding-math -fno-fast-math
+-ffp-contract=off`, ran the Sterbenz FMA fast path on GCC and
+Clang against native FE_UPWARD/FE_DOWNWARD FMA: 4,000,000 source
+triples, over 3,097,000 accepted mode/case combinations per
+compiler, zero mismatches. It accepted all 32 source inputs of
+the frozen FMA benchmark. Another isolated differential probe
+tested the optimized directed pow loop, random exponents 0..16
+and positive IEEE-754 boundary/random values: over 619,000
+accepted mode/case combinations per compiler, zero mismatches.
+These probes are finite tests, not full Numeric CTest, native
+AppleClang/MSVC verification, or proof of a speedup.
+
+**Acceptance.** Preserve the existing test_float_rounding public-vs-
+hardware bitwise comparisons, all 20 CTests and golden oracles.
+Require cross-platform strict-fenv CI and an unchanged same-host
+20,000x31 run, specifically checking both FMA and pow7 directed
+absolute ns (including the anomalous pow7_up), plus unaffected
+nearest and transcendental controls. No D8 timing improvement is
+claimed before that measurement.

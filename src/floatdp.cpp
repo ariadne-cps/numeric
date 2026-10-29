@@ -118,6 +118,21 @@ bool exact_fma(FloatDP::RoundingModeType mode,double a,double b,
     if (!std::isnormal(r)||std::fabs(a)<certified_floor
         ||std::fabs(b)<certified_floor||std::fabs(c)<certified_floor
         ||std::fabs(r)<certified_floor)return false;
+    // D8: Sterbenz guarantees c-r is exact if c and r have the same
+    // sign and are within a factor of two.  One further correctly
+    // rounded FMA then gives the sign of the exact a*b+c-r residual.
+    // The existing 2^-400 gate keeps every nonzero residual normal
+    // or representable subnormal, so zero cannot hide underflow.
+    if ((r>0.0 && c>0.0)||(r<0.0 && c<0.0)) {
+        const double ar=std::fabs(r);
+        const double ac=std::fabs(c);
+        if (ar>=ac*0.5 && ac>=ar*0.5) {
+            result=adjusted(r,std::fma(a,b,c-r),mode);
+            return true;
+        }
+    }
+    // Retain D7's independently certified expansion when the
+    // Sterbenz fast path cannot be used.
     const double p=a*b;
     if (!std::isnormal(p)||std::fabs(p)<certified_floor)return false;
     const double s=p+c;
@@ -129,10 +144,16 @@ bool exact_fma(FloatDP::RoundingModeType mode,double a,double b,
 bool exact_pow(FloatDP::RoundingModeType mode,double x,Nat n,double& result) {
     if (!(x>0.0)||!std::isfinite(x)||x<certified_floor||n>16u)return false;
     double p=x,r=1.0;
+    bool first_factor=true;
     while(n!=0u) {
-        if ((n&1u)!=0u && !exact_mul(mode,r,p,r))return false;
-        if (!exact_mul(mode,p,p,p))return false;
+        if ((n&1u)!=0u) {
+            // Multiplying by the initial exact 1.0 cannot round.
+            if (first_factor) { r=p; first_factor=false; }
+            else if (!exact_mul(mode,r,p,r)) { return false; }
+        }
         n/=2u;
+        // The last square is discarded by the original algorithm.
+        if (n!=0u && !exact_mul(mode,p,p,p)) { return false; }
     }
     result=r;
     return true;
