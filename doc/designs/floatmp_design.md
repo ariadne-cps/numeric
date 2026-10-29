@@ -11526,3 +11526,94 @@ this benchmark entry. Full repository builds, independent frozen
 oracle execution, Windows/MSVC checks, sanitizers, coverage and
 additional controlled host repetitions remain outstanding as
 verification tasks; nothing here asserts those tests were executed.
+
+
+## F4 — correctly rounded native binary64 square root (29 October 2026)
+
+**User observation and optimization target.** The post-F3 user benchmark
+at 53 bits (20,000 iterations, 31 samples, 56 paired operations) reports
+FloatDP sqrt_down=95.900 ns and sqrt_up=96.781 ns, whereas FloatMP
+takes 25.873 ns and 37.644 ns, respectively. The corresponding
+FloatDP/FloatMP latency ratios are about 3.71x (down) and 2.57x (up).
+FloatDP sqrt_nearest=27.158 ns; FloatMP sqrt_nearest=34.560 ns.
+The entire post-F3 FloatMP/FloatDP benchmark reported total_time
+1.188x, geomean 2.033x and worst 8.056x (fma_nearest).
+The aim of F4 is to remove a demonstrably expensive, obsolete
+binary64 square-root algorithm; improvements are to be established
+in a new user benchmark, not assumed from this analysis.
+
+**Root-cause analysis.** The explicit FloatDP sqrt(mode,x) adapter in
+include/numeric/floatdp.hpp calls _apply_rnd(&sqrt_rnd,mode,x), which
+uses RoundingSession<FloatDP> to set and restore the requested hardware
+rounding mode. src/double.cpp::sqrt_rnd previously implemented square
+root via frexp normalization, an unbounded Newton iteration involving
+division and averaging until two consecutive approximations compared
+equal, and ldexp reconstruction. The repeated division operations
+make it costly, especially under directed rounding; the equality
+termination also does not itself provide a proof of a correctly
+rounded IEEE-754 result. This is not the certified transcendental
+path improved in F1--F3; it is an independent primitive.
+
+**F4 implementation.** Keep the existing NaN forwarding and the
+nonnegative-domain precondition. Replace only the Newton/frexp/ldexp
+body of src/double.cpp::sqrt_rnd with std::sqrt(x). Under the
+repository's strict floating-point compiler policy, CMake applies
+-frounding-math to GNU/Clang/AppleClang and /fp:strict to MSVC.
+On IEC-60559-conforming implementations, the hardware/native
+sqrt operation rounds to the ambient rounding direction, which
+_apply_rnd has already selected. The existing special-value path
+remains, and native sqrt preserves the sign of negative zero
+(previously the x==0 branch returned +0 for both signs).
+Explicit FloatDP mode selection and restoration remain unchanged.
+No BigUnsigned dependency is added to FloatDP; neither F1--F3
+nor any 53--64-bit FloatMP kernel is modified.
+
+**Correctness tests added to Numeric.** Extend the existing
+test_float_rounding.cpp arithmetic regression with
+DoublePrecision-only exact Rational checks over sqrt(2), sqrt(3),
+exact squares, powers and adjacent binade endpoints, smallest
+subnormal, smallest normal and largest finite binary64. For
+each test input, verify directed lower/upper output squared
+against the exact positive input; prove lower and upper outputs
+are equal or adjacent binary64 values; verify toward-zero equals
+downward; derive nearest output from the *exact rational squared
+midpoint* and tie-to-even encoding. Verify preservation of the
+ambient rounding mode after the four explicitly rounded calls,
+negative-zero sign, positive infinity and NaN.
+
+**Independent external arithmetic validation.** A standalone
+C++20 differential test compiled and run with GNU GCC 14.2 and
+Clang 17, -O2 -frounding-math -fno-fast-math, exercised 39,991
+finite positive nonzero binary64 inputs per compiler, including
+2,364 subnormals, exact squares, exponent extremes and values
+near binade boundaries, for all four runtime rounding modes.
+Exact dyadic decode and boost::multiprecision::cpp_int square
+comparisons checked directed lower^2<=x<=upper^2 and adjacency.
+Exact rational midpoint-squared comparisons tested nearest-even,
+including the tie rule, independently of the candidate's
+approximation. There were no mismatches on either compiler.
+The test also checked std::sqrt(-0) sign and infinities/NaNs.
+This is an independent host arithmetic check, NOT a compiled
+build of the Numeric repository, not a macOS/Windows check,
+and not a user timing measurement.
+
+**Integration and release checks.** Run Numeric's complete
+test suite, the new exact reference assertions, and tests
+of CurrentRoundingMode and explicit FloatDP sqrt adapters
+on Unix/AppleClang, GCC, Windows/MSVC and Sanitizers.
+The result depends on conforming runtime rounding semantics:
+validate compiler, libm, build flags and fenv interaction
+on the target architecture. Reject any compiler/target pair
+that uses an erroneously round-to-nearest-only sqrt despite
+the explicit rounding mode. Preserve source-keyed golden
+oracles and 100%-coverage behavior: do not adapt expected
+answers merely to make tests pass. Compare p=53 sqrt_down,
+sqrt_up and sqrt_nearest absolute timings to the F3 baselines
+95.900, 96.781 and 27.158 ns; compare overall paired
+total_time=1.188x and geomean=2.033x without attributing
+other-operation noise to F4.
+
+**Scope boundary.** This is F4 alone. Do not conflate the
+native binary64 square root with FloatMP's integer sqrtrem
+algorithm or F1--F3's certified centered transcendental
+interventions. No F5 changes or new dependencies are included.

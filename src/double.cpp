@@ -27,6 +27,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
+#include <cmath>
 #include <limits>
 #include <cstdint>
 #include <stdexcept>
@@ -129,23 +130,15 @@ double pow_rnd(double x, Int n)
 
 double sqrt_rnd(double x)
 {
-    // long int c[]={ 0, 6, -360, 15120, -604800, 23950080, -946218790, 37362124800 };
     if(std::isnan(x)) { return x; }
     ARIADNE_PRECONDITION(x>=0.0);
-    if(std::isinf(x)) { return x; }
 
-    if(x==0.0) { return 0.0; }
-    Int n; volatile double y,a,b;
-    y=frexp(x,&n);
-    if(n%2) { y=y*2; n-=1; }
-
-    a=0.0; b=y;
-    while(a!=b) {
-        a=b;
-        b=(a+y/a)/2;
-    }
-
-    return ldexp(b,n/2);
+    // F4: binary64 sqrt is a correctly rounded IEEE-754 primitive.
+    // FloatDP's explicit-mode wrapper already installs the requested
+    // hardware rounding mode (with -frounding-math or /fp:strict);
+    // Newton iteration here was both slower and harder to certify.
+    // std::sqrt also preserves the sign of negative zero.
+    return std::sqrt(x);
 }
 
 
