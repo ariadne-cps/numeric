@@ -465,6 +465,29 @@ static_assert(floatdp_endpoint({std::numeric_limits<std::uint64_t>::max(),3u},
                                 1).high==4u);
 static_assert(floatdp_endpoint({1u,3u},-1).low==0u);
 
+// F3: build an IEEE-754 binary64 normal number from the rigorously
+// certified 53-bit normalized significand and unbiased exponent.
+// Fixed85 certificates confine the output exponent to [-2,+1], exclude
+// rounding carries, and guarantee every endpoint is a normal result.
+static_assert(std::numeric_limits<double>::is_iec559 &&
+              std::numeric_limits<double>::radix==2 &&
+              std::numeric_limits<double>::digits==53 &&
+              sizeof(double)==sizeof(std::uint64_t));
+constexpr std::uint64_t floatdp_normal_bits(bool negative,int highest,
+                                           std::uint64_t significand) {
+    return (static_cast<std::uint64_t>(negative)<<63u) |
+           (static_cast<std::uint64_t>(highest+1023)<<52u) |
+           (significand&((std::uint64_t{1}<<52u)-1u));
+}
+static_assert(floatdp_normal_bits(false,0,std::uint64_t{1}<<52u)==
+              0x3ff0000000000000ULL);
+static_assert(floatdp_normal_bits(true,-1,std::uint64_t{1}<<52u)==
+              0xbfe0000000000000ULL);
+static_assert(floatdp_normal_bits(false,-2,std::uint64_t{3}<<51u)==
+              0x3fd8000000000000ULL);
+static_assert(floatdp_normal_bits(false,1,std::uint64_t{5}<<50u)==
+              0x4004000000000000ULL);
+
 // The exhaustive compile-time certificate proves that both endpoints are
 // inexact, never halfway, never carry into a new exponent, and round alike
 // in every supported mode. This private rounder uses exactly that domain.
@@ -488,8 +511,10 @@ bool floatdp_round_fixed(FloatDPFixed85 magnitude,
     }
     if(increment) ++retained;
     const int highest=static_cast<int>(width)-1-static_cast<int>(FLOATDP_FIXED_BITS);
-    const double result=std::ldexp(static_cast<double>(retained),highest-52);
-    output=negative ? -result : result;
+    // The former ldexp step only scaled an exact 53-bit integer by a
+    // power of two. Emit the same bits directly without floating-point
+    // arithmetic, regardless of the ambient hardware rounding mode.
+    output=std::bit_cast<double>(floatdp_normal_bits(negative,highest,retained));
     return true;
 }
 

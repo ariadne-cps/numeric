@@ -11362,3 +11362,107 @@ under the existing strict compile-time no-carry/no-tie
 certificate. Compare output bit patterns against frozen
 binary64 source-keyed oracles; retain all other floating-point
 operations in FloatDP unchanged.
+
+
+### F2.1 — user-measured 53-bit performance after F2 (29 October 2026)
+
+A new user-supplied paired run at p=53, 20,000 iterations and
+31 samples for 56 operations gives **FloatMP/FloatDP
+total_time=1.183x**, **geomean=1.949x**, **worst=8.105x**
+(fma_nearest); the previous F1 run reported 1.106x,
+1.651x and 8.105x. The FloatMP medians were essentially
+unchanged on this pair of runs. The 27 FloatDP transcendental
+nearest/down/up medians sum to **246.292 ns after F2**,
+compared with **305.266 ns after F1** (19.32% lower). Their
+18 directed/down-up medians sum to **94.852 ns after F2**,
+versus **137.645 ns after F1** (31.09% lower). Representative
+FloatDP downward values in ns, F1 -> F2:
+exp 7.765 -> 6.579; log 6.860 -> 4.281;
+sin 8.035 -> 5.254; cos 7.223 -> 4.771;
+tan 8.012 -> 5.473; atan 7.996 -> 5.438.
+This is a user measurement on the actual benchmark workload,
+not a local CI/build result. The stable FloatMP timings and
+the consistent FloatDP improvements across modes support
+F2's intended optimization, without proving improvements for
+arbitrary transcendental argument ranges.
+
+## F3 — IEEE-754 bitwise FloatDP result construction (29 October 2026)
+
+**Scope and sequencing.** After F1's fixed-point multiplication
+and F2's exact two-word endpoint arithmetic, the only requested
+remaining intervention is constructing the certified near-half
+FloatDP transcendental result directly as its binary64 encoding.
+This patch does NOT change F1 or F2, the center tables, compile-
+time certificates, input decoder, exact endpoint displacements,
+retained-significand calculation, any rounding decisions, or
+the public FloatDP APIs. It changes only the final conversion
+in floatdp_round_fixed, formerly a double conversion followed
+by std::ldexp and application of the sign.
+
+**Correctness argument.** The exhaustive consteval proofs
+floatdp_verify_certificates cover *every binary64 input*
+inside the certified near-half 53/54 denominator window for
+the nine supported transcendental operations and both signs.
+For all such inputs, the rounded magnitude has a normalized
+53-bit significand, never reaches an exact halfway case,
+never carries beyond 53 bits, and has a finite normal
+binary64 exponent. In this kernel the fixed-point scale is
+B=85; width is within [84,87], giving the unbiased output
+exponent 'highest=width-1-B' within [-2,+1]. Conversion
+of any 53-bit unsigned significand to double is exact,
+and scaling by 2^(highest-52) is exact throughout this
+normal exponent range. Constructing the binary64 bit
+pattern with sign bit 63, biased exponent (highest+1023)
+in bits 62..52 and the low 52 significand bits is therefore
+mathematically and bitwise identical to the previous
+std::ldexp(static_cast<double>(retained),highest-52).
+This holds in every ambient rounding mode and preserves
+negative results. Any input outside the certified window
+still uses the existing non-certified fallback, unchanged.
+
+**Implementation.** Introduce one internal constexpr
+floatdp_normal_bits(bool,int,uint64_t) mapper. Ensure the
+platform has IEEE-754 binary64 via static_assert of the
+standard double properties. Add constexpr asserts for
+the exact encodings of +1.0, -0.5, +0.375 and +2.5,
+covering sign, fractional significand and exponent limits.
+Call std::bit_cast<double>(floatdp_normal_bits(...)) in
+the last step of floatdp_round_fixed. Do NOT replace
+the separate FloatDP(TwoExp) constructor's use of ldexp:
+that API supports a different argument domain and is
+outside this single-change F3 optimization. F3 introduces
+no BigUnsigned; F2's no-BigUnsigned invariant stays true.
+
+**Independent validation.** An isolated C++20 test using
+-O2 -Wall -Wextra -Werror -frounding-math compared the
+former ldexp output (including negative sign) against
+the new integer encoding bit-for-bit for 4,000,000
+random, normalized, non-overflowing 53-bit significands
+covering width=84,85,86,87 and both output signs in
+each of the four ambient hardware rounding modes.
+All **4,000,000 cases passed on GCC 14.2** and all
+**4,000,000 on Clang 17**, with four constexpr encoded
+reference-value assertions. This is a standalone
+bit-identity check of the conversion, NOT the entire
+Numeric repository build, platform CI or a timing result.
+The existing F1 source-keyed frozen FloatDP oracles now
+also verify exact output bit patterns and remain unchanged.
+
+**Release gate.** After committing, benchmark F3 alone
+with the user's p=53, 20,000-iteration/31-sample paired
+setup. F2 baselines: FloatDP sum of 27 transcendental
+medians 246.292 ns; 18 directed transcendental medians
+94.852 ns; paired total_time 1.183x, geomean 1.949x.
+Compare individual operation absolute latencies rather
+than inferring a gain from the ratio alone. Confirm
+bitwise frozen-oracle checks, full source tests,
+Windows/MSVC, GCC/Clang/AppleClang, Sanitizers and
+Coverage. Do not claim any F3 speedup or integrated CI
+status until those measurements and checks are available.
+
+**Next work is separate from F3.** If more improvements
+are desired, scope new F4 work only after observing
+F3's isolated benchmark. In particular avoid adding
+multiprecision facilities to the FloatDP centered
+kernel or changing the strong consteval certification
+without corresponding exhaustive independent tests.
