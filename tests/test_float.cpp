@@ -34,6 +34,7 @@
 #include <cmath>
 #include <limits>
 #include <set>
+#include <tuple>
 #include <stdexcept>
 
 #include "numeric/builtin.hpp"
@@ -1940,6 +1941,40 @@ void test_floatmp_ieee_conversion_boundaries() {
     }
 }
 
+// Native exponent limits are represented as metadata, never enormous
+// Rational inputs. The fixture's exact results come from a standalone oracle.
+void test_floatmp_log_native_exponents() {
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatmp_log_native.tsv");
+    if (!data) throw std::runtime_error("Missing floatmp_log_native.tsv");
+    std::set<std::tuple<unsigned,char,std::string>> keys;
+    std::string line;
+    while(std::getline(data,line)) {
+        if(line.empty() || line[0]=='#') continue;
+        std::istringstream fields(line);
+        unsigned bits;
+        char mode;
+        std::string source,numerator,denominator,extra;
+        if(!(fields>>bits>>mode>>source>>numerator>>denominator) || (fields>>extra) ||
+            (mode!='N' && mode!='D' && mode!='U' && mode!='Z') ||
+            (source!="min" && source!="max") ||
+            !keys.emplace(bits,mode,source).second) {
+            throw std::runtime_error("Malformed floatmp_log_native.tsv");
+        }
+        const MultiplePrecision precision(static_cast<std::size_t>(bits));
+        const auto input=source=="min" ? FloatMP::min(precision) : FloatMP::max(precision);
+        const auto rounding=mode=='N'?FloatMP::ROUND_TO_NEAREST:
+            mode=='D'?FloatMP::ROUND_DOWNWARD:
+            mode=='U'?FloatMP::ROUND_UPWARD:FloatMP::ROUND_TOWARD_ZERO;
+        const Rational expected{Integer(String(numerator)),Integer(String(denominator))};
+        std::cout<<"log native "<<source<<" precision "<<bits<<" mode "<<mode<<std::endl;
+        const auto image=log(rounding,input);
+        ARIADNE_TEST_ASSERT(image.is_finite());
+        ARIADNE_TEST_EQUALS(image.precision(),precision);
+        ARIADNE_TEST_EQUALS(static_cast<Rational>(image),expected);
+    }
+    if(keys.size()!=32u) throw std::runtime_error("Incomplete native logarithm oracle");
+}
+
 void test_floatmp_elementary_specials() {
     const MultiplePrecision precision(128_bits);
     const auto quiet_nan=FloatMP::nan(precision);
@@ -2002,6 +2037,7 @@ Int main() {
     test_floatmp_tiny_transcendentals();
     test_floatmp_ieee_conversion_boundaries();
     test_floatmp_elementary_specials();
+    test_floatmp_log_native_exponents();
     test_floatmp_ratio_ties_and_carry();
     test_floatmp_negative_power_specials();
     test_floatmp_mixed_precision_arithmetic();

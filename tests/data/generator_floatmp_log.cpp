@@ -238,12 +238,46 @@ std::string generate(){
     if(count!=444u)throw std::runtime_error("unexpected log oracle row count: "+std::to_string(count));
     return out;
 }
+std::string generate_native(){
+    std::string out=
+        "# Certified FloatMP logarithms at native int64 exponent limits.\n"
+        "# precision_bits mode source expected_num expected_den\n"
+        "# min: 2^(INT64_MIN+p-1); max: (2^p-1)*2^INT64_MAX.\n"
+        "# Write log(s*2^e)=log(s/2^(p-1))+(e+p-1)*log(2).\n"
+        "# Enclose log(2) and the normalized significand by the independent\n"
+        "# outward atanh series at B=1800, then scale by the exact integer power.\n"
+        "# Both endpoints must agree under the requested N/D/U/Z rounding.\n"
+        "# No Numeric, GMP, Boost or floating-point transcendental oracle.\n";
+    const Interval ln2=log_abs(Nat(2u),Nat(1u));
+    const Nat exponent_half=Nat::power2(63u);
+    for(unsigned p:{53u,128u,256u,1024u}){
+        for(bool maximum:{false,true}){
+            const Nat count=maximum
+                ? Nat::add(exponent_half,Nat(p-2u))
+                : Nat::sub(exponent_half,Nat(p-1u));
+            Interval bound{multiply(ln2.lo,count),multiply(ln2.hi,count)};
+            if(maximum){
+                const auto correction=log_abs(Nat::sub(Nat::power2(p),Nat(1u)),
+                                              Nat::power2(p-1u));
+                bound=add(bound,correction);
+            }
+            for(char mode:{'N','D','U','Z'}){
+                const auto answer=certify(bound,p,mode,!maximum);
+                out+=row({std::to_string(p),std::string(1u,mode),
+                          maximum?"max":"min",number(answer),answer.d.dec()});
+            }
+        }
+    }
+    return out;
+}
+
 }
 int main(int argc,char**argv){
     try{
         bool write=false;
         const auto dir=independent_oracle::data_directory(argc,argv,write);
         independent_oracle::output(dir,"floatmp_log.tsv",generate(),write);
+        independent_oracle::output(dir,"floatmp_log_native.tsv",generate_native(),write);
         return 0;
     }catch(std::exception const& e){
         std::cerr<<"FloatMP log generator: "<<e.what()<<'\n';

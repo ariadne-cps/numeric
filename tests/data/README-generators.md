@@ -35,7 +35,7 @@ generator executables are also excluded from the default `all` target.
 **every registered generator in sequence** with `--write` and an absolute
 `--data-dir` pointing at the existing **source-tree** `tests/data`.
 This target executes on each invocation, even if no input changed; it
-overwrites only the currently covered TSV files (203 of 203 after the
+overwrites only the currently covered TSV files (204 of 204 after the
 27 October 2026 coverage iteration).
 `verify-data` instead builds and runs every registered generator with
 `--verify` and never rewrites fixtures. It fails on any missing or different
@@ -161,7 +161,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatmp_pow_short.cpp` | `floatmp_pow_short.tsv` | 3,680 exact boundary-focused integer powers, 5 precisions, 7 degrees, 4 directed modes |
 | `generator_rounded_float_directed.cpp` | `rounded_float_directed.tsv` | 24 rigorous 128-bit exp/log/atan directed pairs, 48 original strict bound comparisons |
 | `generator_floatmp_exp.cpp` | `floatmp_exp.tsv` | 320 certified, correctly rounded exp results across 20 signed inputs, 4 precisions and 4 rounding modes |
-| `generator_floatmp_log.cpp` | `floatmp_log.tsv` | 444 certified correctly rounded logs, including 284 original centered inputs and 160 D96 cases |
+| `generator_floatmp_log.cpp` | `floatmp_log.tsv`, `floatmp_log_native.tsv` | 444 certified logs plus 32 native exponent limit results at 53/128/256/1024 bits in all four modes |
 | `generator_floatmp_sin_cos.cpp` | `floatmp_sin.tsv`, `floatmp_cos.tsv` | 1,080 exact source-keyed independently certified outputs each, across D91, D92, D95 original test families |
 | `generator_floatmp_centered_exp.cpp` | `floatmp_centered_exp.tsv` | 568 exact certified reference rows from all 720 original centered-exp visits |
 | `generator_floatmp_atan.cpp` | `floatmp_atan.tsv` | 1,340 certified atan references reproducing all original D87, D88, D89 lookup keys |
@@ -1328,3 +1328,12 @@ original inputs. The tail ratio after the first omitted term is below 1/2.
 Both outward endpoints must certify the same result. All original 288 numerical
 rows remain unchanged. The added negative input exercises a zero intermediate
 lower endpoint and subsequent precision refinement during reconstruction.
+
+The native logarithm fixture uses `min` and `max` source metadata instead of
+materializing the input as a rational. For precision p these are exactly
+`2^(INT64_MIN+p-1)` and `(2^p-1)*2^INT64_MAX`. The generator encloses the
+logarithm of the normalized significand and adds the exact integer multiple
+of its independently bounded log(2). The native power is computed with the
+standalone unsigned limbs, including `INT64_MAX+p-1`, which can exceed a
+signed 64-bit integer. Both interval endpoints must round to the same signed
+p-bit value in each of the four modes. All original 444 log rows are preserved.

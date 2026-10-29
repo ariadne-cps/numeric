@@ -1725,6 +1725,7 @@ class Fraction {
 public:
     Fraction()=default;
     explicit Fraction(long integer) : _value(Integer(integer)) { }
+    explicit Fraction(Integer const& integer) : _value(integer) { }
 
     explicit Fraction(FloatMP const& binary) {
         // Every call is through rational_argument, after unary, exp, log
@@ -2251,31 +2252,24 @@ Interval log2_interval(unsigned long work) {
     return result;
 }
 
-Interval log_interval(Fraction x, unsigned long work) {
-    long power = 0;
-    const Fraction lower_limit = Fraction(3L) / Fraction(4L);
-    const Fraction upper_limit = Fraction(3L) / Fraction(2L);
-    // Reduce to [3/4,3/2], where |(x-1)/(x+1)| <= 1/5.
-    // This also moves numbers near a power of two close to 1,
-    // permitting the fixed-point series to terminate very early.
-    while (compare(x, upper_limit) > 0) {
-        if (++power > 2048) {
-            throw std::overflow_error("FloatMP log argument range");
-        }
+Interval log_interval(FloatMP const& binary, unsigned long work) {
+    // binary=s*2^e, 2^(p-1)<=s<2^p. Normalize only the p-bit
+    // significand: materializing 2^|e| is unnecessary even at native
+    // exponent limits. The exact power e+p-1 may exceed Exponent.
+    const auto precision=static_cast<unsigned long>(binary.precision().bits());
+    Fraction x(binary.significand(),precision-1ul);
+    Integer power=add(Integer(binary.exponent()),Integer(precision-1ul));
+    if (compare(x,Fraction(3L)/Fraction(2L))>0) {
         x.halve();
+        power=add(power,Integer(1));
     }
-    while (compare(x, lower_limit) < 0) {
-        if (--power < -2048) {
-            throw std::overflow_error("FloatMP log argument range");
-        }
-        x = x * Fraction(2L);
-    }
+    // x is now in [3/4,3/2], hence |(x-1)/(x+1)|<=1/5.
     const Fraction z = (x - Fraction(1L)) / (x + Fraction(1L));
     Interval result = log_series(z, work);
-    if (power != 0) {
+    if (!power.magnitude().is_zero()) {
         const Interval ln2 = log2_interval(work);
-        const Fraction count(power < 0 ? -power : power);
-        if (power > 0) {
+        const Fraction count(Integer::from_magnitude(power.magnitude(),false));
+        if (!power.negative()) {
             result = {result.lower + count * ln2.lower,
                       result.upper + count * ln2.upper};
         } else {
@@ -2430,13 +2424,8 @@ Interval exp_half_centered_or_general(Fraction const& input,
 // Consequently log(x)=-log(2)+2*delta+R, |R|<=8*delta^2.
 // Cache an outward interval of -log(2); the exact rational slope
 // costs no extra certified constant. Other arguments use log_interval.
-Interval log_half_centered_or_general(Fraction const& input,
-                                     unsigned long work) {
-    const Fraction delta = input - Fraction(1L) / Fraction(2L);
-    if (!exp_inside_half_window(delta, work)) {
-        return log_interval(input, work);
-    }
-
+Interval log_half_centered_interval(Fraction const& delta,
+                                    unsigned long work) {
     struct Cache {
         unsigned long work = 0;
         std::optional<Interval> negative_log_two;
@@ -3917,12 +3906,22 @@ FloatMP log(FloatMP::RoundingModeType mode, FloatMP const& x) {
         return FloatMP::infinity(bits);
     }
     if (auto short_result=FloatMPShortTranscendentals::evaluate(Function::logarithm,mode,x)) return std::move(*short_result);
-    const Fraction input = rational_argument(x);
-    if (compare(input, Fraction(1)) == 0) {
+    if (x.exponent()==-static_cast<FloatMP::Exponent>(bits-1ul) &&
+        floatmp_popcount(x.significand())==1u) {
         return FloatMP::zero(bits);
     }
     return certified([&](unsigned long work) {
-        return log_half_centered_or_general(input, work);
+        // Only [1/4,1) can meet the centered shortcut's window. Its
+        // dyadic denominator then has at most p+1 bits, independently
+        // of the full native exponent range handled by log_interval.
+        const auto half_exponent=-static_cast<FloatMP::Exponent>(bits);
+        if (x.exponent()==half_exponent || x.exponent()==half_exponent-1) {
+            const Fraction delta=rational_argument(x)-Fraction(1L)/Fraction(2L);
+            if (exp_inside_half_window(delta,work)) {
+                return log_half_centered_interval(delta,work);
+            }
+        }
+        return log_interval(x,work);
     }, mode, x.precision());
 }
 
