@@ -11161,3 +11161,82 @@ tests, then check the independent frozen FloatMP oracle suite and
 D4 FloatDP sqrt tests. Do not relax the warning flags.
 
 
+
+
+## M149 — certified short FloatMP square root (29 October 2026)
+
+**Goal / frozen baseline.** Transfer *certified-candidate optimization*
+from FloatDP D7-D13 to FloatMP's native integer arithmetic, without
+copying the FloatDP FMA3 algorithms or changing FloatMP's one-round
+semantics. The user-provided latest GCC 13 53-bit benchmark reports
+`sqrt_nearest/down/up` at 90.035/81.799/91.068 ns (20,000 iterations,
+31 samples), substantially slower than other short FloatMP arithmetic.
+This baseline must be repeated on the same host after M149. The
+benchmark operations, 32 rational inputs, oracle files and timing
+method are frozen.
+
+**Existing kernel.** For normalized positive p-bit significand m,
+`sqrt` scales by `s=p-1` or `s=p`, computes
+`root=floor(sqrt(m*2^s))` and the *exact integer remainder* with
+`BigUnsigned::sqrtrem`. Its rounding decision is based on the
+remainder: nearest increments iff remainder>root; upward increments
+iff remainder!=0; downward/toward zero truncate. The exact power
+and FMA kernels already round once, and FloatMP rounding modes are
+native/thread-local rather than hardware fenv sessions.
+
+**M149 kernel.** For p<=53, normalized m fits in one uint64 limb,
+and the scaled radicand fits within 106 bits of unsigned 128-bit
+integer. On GCC/Clang platforms with __int128, use an ordinary
+hardware binary64 sqrt of a double conversion of the scaled radicand
+*only as a candidate*. Adjust by at most one integer step toward
+floor(sqrt(radicand)), then certify
+`r*r <= radicand < (r+1)*(r+1)` using two 128-bit products
+(or, equivalently, remainder<2*r+1). Any candidate that cannot
+pass this exact integer test falls back to the original
+`BigUnsigned::sqrtrem` unmodified. Because the final decision
+uses only integer comparisons, the result is independent of the
+ambient hardware rounding mode; we do not assume correct rounding
+of the floating-point estimate itself. Reuse the *same* exponent
+formula and checked exponent carry as the original implementation.
+Special values, signs and p>53 continue through the existing
+branches. Windows/MSVC or other platforms without __int128
+use the original integer implementation. No new public API, external
+engine, shared limb abstraction or benchmark entry.
+
+**Floating environment qualification.** The estimate does not
+change the rounding *mode*, but a hardware conversion/sqrt can set
+floating-point status flags (e.g. FE_INEXACT); the original integer
+sqrt did not. Existing FloatMP numeric contracts enforce correct
+rounded results and mode independence, not flag transparency.
+The new regression checks ambient mode preservation. If exception
+flag transparency is later adopted as an explicit FloatMP API
+contract, this kernel will need a separately evaluated strategy,
+rather than silently asserting zero flag side effects.
+
+**Independent probe (NOT Numeric CTest).** Standalone C++20 GCC 14.2
+and Clang 17 builds with `-O3 -frounding-math -fno-fast-math
+-ffp-contract=off -Wshadow -Werror` independently checked
+2,912,000 combinations **per compiler**, including precisions
+2..53, nearest/down/up/toward-zero requested modes, all four
+ambient hardware modes and systematic edge significands.
+Compared to a separate pure-integer digit-by-digit 128-bit
+floor-square-root plus remainder implementation: no bitwise
+result differences, and no input required fallback. Most estimates
+were already the floor root; the remainder were one integer away.
+An isolated short-root probe measured about 6.5 ns for GCC and
+9.1 ns for Clang, versus ~178/187 ns for that *pure-integer
+probe reference*. These numbers are NOT the production Numeric
+`FloatMP::sqrt` and are not a predicted end-to-end speedup.
+
+**Integrated regression / acceptance.** In
+`tests/test_float_rounding.cpp`, retain the independent
+300-row `floatmp_sqrt.tsv` golden oracle over 7, 53, 128,
+256 and 1024 bits. Add deterministic exact Rational inequalities
+`down^2<=x<=up^2`, adjacency of directed outputs, nearest
+midpoint comparison and toward-zero equality for positive inputs;
+exercise p=2,7,16,31,53,54,64, exponents +/-512 and +/-1,
+all four requested modes, and all four ambient hardware modes.
+The 54/64-bit cases explicitly keep the original path under test.
+Require full Unix/Windows/Coverage/Sanitizers CI and exact
+unchanged 53/128/256/1024-bit benchmark equality checks before
+accepting numerical correctness or claiming production performance.

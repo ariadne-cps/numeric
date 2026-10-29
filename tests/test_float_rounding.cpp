@@ -1263,6 +1263,73 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
 
         if constexpr (Same<PR,MultiplePrecision>) {
+            // M149: independent exact-Rational enclosure and midpoint
+            // checks for the hardware-estimate/integer-certified sqrt.
+            // 54/64-bit cases additionally exercise the old fallback.
+            const auto saved_ambient=FloatDP::get_rounding_mode();
+            const auto saved_mp=FloatMP::get_rounding_mode();
+            std::uint64_t state=0xd1b54a32d192ed03ull;
+            for (auto ambient : {FloatDP::ROUND_TO_NEAREST,
+                                 FloatDP::ROUND_DOWNWARD,
+                                 FloatDP::ROUND_UPWARD,
+                                 FloatDP::ROUND_TOWARD_ZERO}) {
+                FloatDP::set_rounding_mode(ambient);
+                for (unsigned bits_value : {2u,7u,16u,31u,53u,54u,64u}) {
+                    const MultiplePrecision short_precision(
+                        static_cast<std::size_t>(bits_value));
+                    const std::uint64_t leading=
+                        std::uint64_t{1}<<(bits_value-1u);
+                    for (unsigned index=0u;index<24u;++index) {
+                        state^=state>>12u;
+                        state^=state<<25u;
+                        state^=state>>27u;
+                        const std::uint64_t raw=state*2685821657736338717ull;
+                        const std::uint64_t significand=
+                            leading | (raw & (leading-1u));
+                        const FloatMP base_value(
+                            Integer(significand),FloatMP::ROUND_TO_NEAREST,
+                            short_precision);
+                        for (Int shift_value : {Int(-512),Int(-1),Int(0),
+                                                Int(1),Int(512)}) {
+                            const FloatMP argument=shft(base_value,shift_value);
+                            const Rational exact_argument=
+                                static_cast<Rational>(argument);
+                            const FloatMP lower_result=
+                                sqrt(FloatMP::ROUND_DOWNWARD,argument);
+                            const FloatMP upper_result=
+                                sqrt(FloatMP::ROUND_UPWARD,argument);
+                            const FloatMP nearest_result=
+                                sqrt(FloatMP::ROUND_TO_NEAREST,argument);
+                            const FloatMP zero_result=
+                                sqrt(FloatMP::ROUND_TOWARD_ZERO,argument);
+                            const Rational lower_exact=
+                                static_cast<Rational>(lower_result);
+                            const Rational upper_exact=
+                                static_cast<Rational>(upper_result);
+                            ARIADNE_TEST_ASSERT(lower_exact*lower_exact<=exact_argument);
+                            ARIADNE_TEST_ASSERT(upper_exact*upper_exact>=exact_argument);
+                            ARIADNE_TEST_ASSERT(
+                                lower_result==upper_result ||
+                                upper_result==next(RoundUpward{},lower_result));
+                            ARIADNE_TEST_EQUALS(zero_result,lower_result);
+                            const Rational midpoint=
+                                (lower_exact+upper_exact)/Rational(2);
+                            const Rational midpoint_square=midpoint*midpoint;
+                            if (exact_argument<midpoint_square) {
+                                ARIADNE_TEST_EQUALS(nearest_result,lower_result);
+                            } else if (exact_argument>midpoint_square) {
+                                ARIADNE_TEST_EQUALS(nearest_result,upper_result);
+                            }
+                            ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),ambient);
+                            ARIADNE_TEST_EQUAL(FloatMP::get_rounding_mode(),saved_mp);
+                        }
+                    }
+                }
+            }
+            FloatDP::set_rounding_mode(saved_ambient);
+        }
+
+        if constexpr (Same<PR,MultiplePrecision>) {
             // Integer square-root remainder and halfway rounding:
             // freeze the correctly rounded results computed independently
             // from exact integer square root and midpoint comparisons.

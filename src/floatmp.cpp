@@ -1612,6 +1612,48 @@ FloatMP sqrt(FloatMP::RoundingModeType mode, FloatMP const& value) {
     result_exponent = FloatMP::checked_sub(
         result_exponent, static_cast<FloatMP::Exponent>(offset));
 
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    // M149: at precision <=53, the scaled radicand fits in 106 bits.
+    // A hardware sqrt is only a candidate: all rounding decisions are
+    // made from a certified 128-bit integer floor root and remainder.
+    // This path never changes the hardware rounding mode. On unusual
+    // rounding implementations an uncertifiable candidate uses sqrtrem.
+    if (bits<=53u) {
+        __extension__ using Wide=unsigned __int128;
+        const Wide scaled=static_cast<Wide>(value._significand.limb(0u))<<shift;
+        std::uint64_t candidate=static_cast<std::uint64_t>(
+            std::sqrt(static_cast<double>(scaled)));
+        const Wide candidate_square=static_cast<Wide>(candidate)*candidate;
+        if (candidate_square>scaled) {
+            --candidate;
+        } else if (scaled-candidate_square >= (static_cast<Wide>(candidate)<<1u)+1u) {
+            ++candidate;
+        }
+        const Wide lower_square=static_cast<Wide>(candidate)*candidate;
+        if (lower_square<=scaled) {
+            const Wide remainder=scaled-lower_square;
+            // The next consecutive square differs by exactly 2*r+1.
+            // Thus neither sqrt nor the floating-point estimate is an
+            // oracle; this integer inequality proves floor(sqrt(scaled)).
+            if (remainder < (static_cast<Wide>(candidate)<<1u)+1u) {
+                const bool increment=remainder!=0u &&
+                    (mode.value()==FloatMP::Rounding::Upward ||
+                     (mode.value()==FloatMP::Rounding::ToNearest &&
+                      remainder>candidate));
+                if (increment) ++candidate;
+                if (candidate==(std::uint64_t{1}<<bits)) {
+                    candidate>>=1u;
+                    result_exponent=FloatMP::checked_add(result_exponent,1);
+                }
+                FloatMP result(bits);
+                result._significand=BigUnsigned(candidate);
+                result._exponent=result_exponent;
+                return result;
+            }
+        }
+    }
+#endif
+
     // Compute the exact integer square root and remainder with native
     // unsigned limbs. GMP is not part of the root/rounding calculation.
     // Only the final owned significand export remains transitional.
