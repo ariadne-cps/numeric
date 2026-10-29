@@ -31,6 +31,7 @@
 
 #include <cassert>
 #include <cfloat>
+#include <cfenv>
 #include <cmath>
 #include <iostream>
 #include <iomanip>
@@ -175,7 +176,25 @@ class ExactDouble {
     friend Boolean operator> (ExactDouble const& x1, ExactDouble const& x2) { return x1._d> x2._d; }
     friend Boolean operator< (ExactDouble const& x1, ExactDouble const& x2) { return x1._d< x2._d; }
     friend ExactDouble operator""_x (long double lx) { return ExactDouble(lx); }
-    friend ExactDouble operator""_pr (long double lx) { double x=static_cast<double>(lx); return ExactDouble(x); }
+    friend ExactDouble operator""_pr (long double lx) {
+#if LDBL_MANT_DIG > DBL_MANT_DIG
+        // A directed rounding mode must not change a precision-rounded literal.
+        const int saved_rounding=std::fegetround();
+        ARIADNE_PRECONDITION(saved_rounding!=-1);
+        if(saved_rounding!=FE_TONEAREST) {
+            ARIADNE_PRECONDITION(std::fesetround(FE_TONEAREST)==0);
+        }
+        // Force the conversion under the selected mode, not at compile time.
+        volatile long double input=lx;
+        const double x=static_cast<double>(input);
+        if(saved_rounding!=FE_TONEAREST) {
+            ARIADNE_PRECONDITION(std::fesetround(saved_rounding)==0);
+        }
+#else
+        const double x=static_cast<double>(lx);
+#endif
+        return ExactDouble(x);
+    }
     friend OutputStream& operator<<(OutputStream& os, ExactDouble x) { return os << std::setprecision(18) << x.get_d(); }
 };
 

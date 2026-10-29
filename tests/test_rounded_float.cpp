@@ -719,6 +719,18 @@ TestRounded<FLT>::test_cosine()
 template<class FLT> Void
 TestRounded<FLT>::test_arctan()
 {
+    // _pr must round to nearest even regardless of the ambient FP mode.
+    if constexpr(std::is_same_v<FloatType,FloatDP>) {
+        auto saved_rounding=FloatDP::get_rounding_mode();
+        for(auto mode : {FloatDP::ROUND_TO_NEAREST,FloatDP::ROUND_DOWNWARD,
+                         FloatDP::ROUND_UPWARD,FloatDP::ROUND_TOWARD_ZERO}) {
+            FloatDP::set_rounding_mode(mode);
+            ARIADNE_TEST_EQUAL(3.1415926535897931_pr,0x1.921fb54442d18p+1_x);
+            ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),mode);
+        }
+        FloatDP::set_rounding_mode(saved_rounding);
+    }
+
     //pi~=3.14159265358979323846264338327950288419716939937510
     const RoundedFloatType pi_down(FloatType::pi(down,precision));
     const RoundedFloatType pi_near(FloatType::pi(near,precision));

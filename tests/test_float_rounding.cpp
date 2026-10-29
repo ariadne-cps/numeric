@@ -3118,7 +3118,9 @@ TestFloatRounding<PR>::test_arithmetic()
     Float five(5,precision);
     Float nine(9,precision);
 
-    ExactDouble expected_five_ninths_up=0.55555555555555558023_x;
+    // The exact binary64 upper bound; a decimal _x literal is not portable
+    // when long double has more than 64 bits of significand precision.
+    ExactDouble expected_five_ninths_up=0x1.1c71c71c71c72p-1_x;
     ARIADNE_TEST_COMPARE(div(down,five,nine),<,expected_five_ninths_up);
 
     ARIADNE_TEST_COMPARE(div(down,Float(5.0_x,precision),Float(9.0_x,precision)),<,div(up,Float(5.0_x,precision),Float(9.0_x,precision)));
