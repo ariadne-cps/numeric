@@ -2791,6 +2791,16 @@ TestFloatRounding<DoublePrecision>::test_directed_residuals()
             const FloatDP got_div=div(requested,input,other);
             const FloatDP got_fma=fma(requested,input,other,input);
             const FloatDP got_pow=pow(requested,input,Nat(7u));
+            // D12: exercise FMA3 repeated squaring beyond the fixed
+            // benchmark exponent, including zero and the fast-path limit.
+            const std::array<Nat,7u> degrees={
+                Nat(0u),Nat(1u),Nat(2u),Nat(3u),Nat(8u),Nat(15u),Nat(16u)};
+            std::array<std::uint64_t,7u> observed_powers{};
+            for (std::size_t degree_index=0u;
+                 degree_index<degrees.size();++degree_index) {
+                observed_powers[degree_index]=
+                    bits(pow(requested,input,degrees[degree_index]));
+            }
             ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),
                                FloatDP::ROUND_TO_NEAREST);
             RoundingSession<FloatDP> reference;
@@ -2799,6 +2809,11 @@ TestFloatRounding<DoublePrecision>::test_directed_residuals()
             ARIADNE_TEST_EQUAL(bits(got_div),bits(div(current,input,other)));
             ARIADNE_TEST_EQUAL(bits(got_fma),bits(fma(current,input,other,input)));
             ARIADNE_TEST_EQUAL(bits(got_pow),bits(pow(current,input,Nat(7u))));
+            for (std::size_t degree_index=0u;
+                 degree_index<degrees.size();++degree_index) {
+                ARIADNE_TEST_EQUAL(observed_powers[degree_index],
+                    bits(pow(current,input,degrees[degree_index])));
+            }
         }
         ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),
                            FloatDP::ROUND_TO_NEAREST);

@@ -1197,3 +1197,70 @@ Require all Unix/Windows/Coverage/Sanitizers workflows to
 pass, and compare unchanged 53-bit 20,000x31 benchmark
 medians on the user's x86-64 and ARM64 hardware before
 attributing real speedups.
+
+
+## D12 — inline FMA3 arithmetic without out-of-line kernel calls (29 October 2026)
+
+**User D10 versus D11 x86-64 data (20,000 iterations, 31 samples).**
+D11 improved `pow7_down/up` from 18.043/19.379 ns to
+13.254/13.918 ns and `div_down` from 15.050 to 12.222 ns.
+However, `mul_down/up` regressed from 10.828/10.523 ns to
+12.816/12.607 ns, and `div_up` moved 10.680 -> 11.438 ns.
+FMA directed only improved from 14.536/14.605 to 14.212/13.594 ns.
+The single-run changes may include host noise, but they show D11
+was not uniformly better. ARM64 was deliberately unaffected by
+the D11 platform specialization; its modest fluctuations are
+not attributable to an ARM kernel change.
+
+**Root-cause hypothesis and design.** D11's target("fma")
+functions cannot be inlined into baseline-ISA callers, which
+requires an extra function call and FMA3 runtime dispatch even
+for one multiplication. With GCC/Clang on non-Windows x86-64,
+a local inline-assembly primitive
+`vfmadd231sd source2, source1, accumulator` computes the
+single correctly rounded fused binary64 operation without
+changing MXCSR and without a target attribute. Use it inside
+the same complete certified kernels as D11, marked
+`always_inline`, so the compiler can inline the whole
+kernel into the caller and avoid the target-function call.
+The `__builtin_cpu_supports("fma")` check remains outside
+the execution of all such instructions; portable kernels
+retain their exact previous behavior on x86 without FMA3,
+ARM64, MSVC/Windows and other architectures. Do not globally
+add `-mfma` or allow FMA3 to execute before the runtime check.
+The original D7/D8 rounding acceptance gates, exact-residual
+sign, ULP adjustment, FMA Sterbenz branch and pow sequencing
+are unchanged; the only numerical primitive substitution is
+a native FMA3 instruction with the same IEEE-754 operation.
+
+**Independent compiler / differential checks.** On a local
+x86-64 host, a C++20 replica of the D11 kernels with this
+inline FMA3 primitive compiled under both GCC 14 and Clang 17
+at -O0/-O3 with -frounding-math, -fno-fast-math,
+-ffp-contract=off, -Wsign-conversion, -Wswitch-default,
+-Wshadow and -Werror. A separate random/edge differential
+test across all four ambient rounding modes compared the
+old target("fma") kernels and the inline-asm variants on
+5.6 million mode/input cases per compiler: zero differences
+in certification accept/reject status or any accepted binary64
+result. A strict-FP isolated 31-sample, 20,000-iteration
+microbenchmark gave representative GCC D11-target versus
+D12-inline results (ns): mul 2.81-2.89 -> 2.34-2.54,
+div 3.21-3.85 -> 2.74-2.85, fma 3.55-3.76 ->
+3.12-3.23, pow7 7.04-9.21 -> 6.77-8.12.
+Clang likewise improved in the isolated runs.
+These values exclude the Numeric public wrapper, are subject
+to measurement noise, and are **not** claims for the user's host.
+
+**Regression and acceptance.** Extend the existing source-keyed
+32-rational benchmark-input CTest with exponents 0, 1, 2, 3,
+8, 15 and 16 as well as 7; compare every public directed pow
+result bitwise to the hardware `CurrentRoundingMode` reference,
+evaluating the public result while the ambient mode is nearest
+and checking restoration. Existing mul/div/fma tests and all
+other original oracles remain unchanged. The shared benchmark,
+its input pool, repetitions, operation list and timing method
+remain frozen. Require full Unix/Windows/Coverage/Sanitizers
+CI and same-host x86-64 and ARM64 benchmark before claiming
+any integrated improvement; keep architecture-independent
+correctness ahead of speed.

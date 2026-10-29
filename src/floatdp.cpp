@@ -164,33 +164,41 @@ bool exact_pow(FloatDP::RoundingModeType mode,double x,Nat n,double& result) {
     return true;
 }
 
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-// D11: FMA3 is optional on x86-64. Build complete kernels with the
-// target attribute, and dispatch only once per public operation.
-// Plain x86-64, Windows/MSVC and non-x86 keep the original kernels.
-__attribute__((target("fma")))
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_WIN32)
+// D12: keep the complete D11 FMA3 kernels, but expose the instruction
+// through a local GNU/Clang x86-64 inline-assembly primitive, rather
+// than an out-of-line function with a different target attribute.
+// The caller selects this path only after checking CPU FMA3 support.
+// On Windows and other architectures the original portable kernel stays.
+__attribute__((always_inline)) inline double fma3_inline(double a,
+                                                           double b,double c) {
+    __asm__ volatile("vfmadd231sd %2, %1, %0"
+        : "+x"(c) : "x"(a), "x"(b));
+    return c;
+}
+__attribute__((always_inline)) inline
 bool exact_mul_fma3(FloatDP::RoundingModeType mode,
                     double a,double b,double& result) {
     const double p=a*b;
     if (!std::isnormal(p)||std::fabs(a)<certified_floor
         ||std::fabs(b)<certified_floor)return false;
-    result=adjusted(p,__builtin_fma(a,b,-p),mode);
+    result=adjusted(p,fma3_inline(a,b,-p),mode);
     return true;
 }
-__attribute__((target("fma")))
+__attribute__((always_inline)) inline
 bool exact_div_fma3(FloatDP::RoundingModeType mode,
                     double a,double b,double& result) {
     const double q=a/b;
     if (!std::isnormal(q)||std::fabs(a)<certified_floor
         ||std::fabs(b)<certified_floor||std::fabs(q)<certified_floor)return false;
-    const double e=__builtin_fma(-q,b,a);
+    const double e=fma3_inline(-q,b,a);
     result=adjusted(q,std::signbit(b)?-e:e,mode);
     return true;
 }
-__attribute__((target("fma")))
+__attribute__((always_inline)) inline
 bool exact_fma_fma3(FloatDP::RoundingModeType mode,
                     double a,double b,double c,double& result) {
-    const double r=__builtin_fma(a,b,c);
+    const double r=fma3_inline(a,b,c);
     if (!std::isnormal(r)||std::fabs(a)<certified_floor
         ||std::fabs(b)<certified_floor||std::fabs(c)<certified_floor
         ||std::fabs(r)<certified_floor)return false;
@@ -198,7 +206,7 @@ bool exact_fma_fma3(FloatDP::RoundingModeType mode,
         const double ar=std::fabs(r);
         const double ac=std::fabs(c);
         if (ar>=ac*0.5 && ac>=ar*0.5) {
-            result=adjusted(r,__builtin_fma(a,b,c-r),mode);
+            result=adjusted(r,fma3_inline(a,b,c-r),mode);
             return true;
         }
     }
@@ -206,11 +214,11 @@ bool exact_fma_fma3(FloatDP::RoundingModeType mode,
     if (!std::isnormal(p)||std::fabs(p)<certified_floor)return false;
     const double s=p+c;
     if (s!=r)return false;
-    const double e=__builtin_fma(a,b,-p)+two_sum_error(p,c,s);
+    const double e=fma3_inline(a,b,-p)+two_sum_error(p,c,s);
     result=adjusted(r,e,mode);
     return true;
 }
-__attribute__((target("fma")))
+__attribute__((always_inline)) inline
 bool exact_pow_fma3(FloatDP::RoundingModeType mode,
                     double x,Nat n,double& result) {
     if (!(x>0.0)||!std::isfinite(x)||x<certified_floor||n>16u)return false;
@@ -239,28 +247,28 @@ bool cpu_has_fma3() {
 
 bool exact_mul_dispatch(FloatDP::RoundingModeType mode,
                         double a,double b,double& result) {
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_WIN32)
     if (cpu_has_fma3()) return exact_mul_fma3(mode,a,b,result);
 #endif
     return exact_mul(mode,a,b,result);
 }
 bool exact_div_dispatch(FloatDP::RoundingModeType mode,
                         double a,double b,double& result) {
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_WIN32)
     if (cpu_has_fma3()) return exact_div_fma3(mode,a,b,result);
 #endif
     return exact_div(mode,a,b,result);
 }
 bool exact_fma_dispatch(FloatDP::RoundingModeType mode,
                         double a,double b,double c,double& result) {
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_WIN32)
     if (cpu_has_fma3()) return exact_fma_fma3(mode,a,b,c,result);
 #endif
     return exact_fma(mode,a,b,c,result);
 }
 bool exact_pow_dispatch(FloatDP::RoundingModeType mode,
                         double a,Nat n,double& result) {
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_WIN32)
     if (cpu_has_fma3()) return exact_pow_fma3(mode,a,n,result);
 #endif
     return exact_pow(mode,a,n,result);
