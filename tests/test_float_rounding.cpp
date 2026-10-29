@@ -649,22 +649,23 @@ TestFloatRounding<PR>::test_conversion_from_to()
                              FloatDP::ROUND_UPWARD,
                              FloatDP::ROUND_TOWARD_ZERO}) {
             FloatDP::set_rounding_mode(ambient);
-            for (auto [n,d] : fractions) {
+            for (auto [numerator_word,denominator_word] : fractions) {
                 for (bool negative : {false,true}) {
                     const Rational exact(
-                        negative ? -Integer(n) : Integer(n),Integer(d));
+                        negative ? -Integer(numerator_word) : Integer(numerator_word),
+                        Integer(denominator_word));
                     for (auto requested : {FloatDP::ROUND_TO_NEAREST,
                                            FloatDP::ROUND_DOWNWARD,
                                            FloatDP::ROUND_UPWARD,
                                            FloatDP::ROUND_TOWARD_ZERO}) {
-                        const FloatDP result(exact,requested,dp);
-                        const Rational actual(ExactDouble(result.get_d()));
+                        const FloatDP converted(exact,requested,dp);
+                        const Rational actual{ExactDouble(converted.get_d())};
                         const auto relation=cmp(actual,exact);
                         if (requested==FloatDP::ROUND_DOWNWARD) {
                             ARIADNE_TEST_ASSERT(relation!=Comparison::GREATER);
                         } else if (requested==FloatDP::ROUND_UPWARD) {
                             ARIADNE_TEST_ASSERT(relation!=Comparison::LESS);
-                        } else if (n!=d) {
+                        } else if (numerator_word!=denominator_word) {
                             // Historical nearest mode truncates toward zero.
                             ARIADNE_TEST_ASSERT(negative
                                 ? relation!=Comparison::LESS
