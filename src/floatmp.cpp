@@ -85,6 +85,13 @@ std::size_t floatmp_popcount(BigUnsigned const& n) noexcept {
     for(auto word:n.limbs()) count+=static_cast<std::size_t>(std::popcount(word));
     return count;
 }
+// Binary-ratio conversion and decimal formatting use the same exact
+// nearest/even decision: compare twice the remainder with its divisor.
+bool floatmp_half_even_increment(BigUnsigned const& remainder,
+                                 BigUnsigned const& divisor,bool odd) {
+    const int order=compare(shift_left(remainder,1u),divisor);
+    return order>0 || (order==0 && odd);
+}
 BigUnsigned add_big_unsigned(BigUnsigned const&,BigUnsigned const&);
 } // namespace
 // Round a borrowed, canonical nonzero magnitude to at most 64 bits.
@@ -332,12 +339,9 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
     bool increment=false;
     if (!remainder.is_zero()) {
         switch (mode.value()) {
-            case Rounding::ToNearest: {
-                auto const twice=add_big_unsigned(remainder,remainder);
-                int const order=compare(twice,divisor);
-                increment=order>0 || (order==0 && (quotient.limb(0u)&1u));
+            case Rounding::ToNearest:
+                increment=floatmp_half_even_increment(remainder,divisor,(quotient.limb(0u)&1u)!=0u);
                 break;
-            }
             case Rounding::Downward: increment=result._negative; break;
             case Rounding::Upward: increment=!result._negative; break;
             default: // TowardZero: the fourth value of the closed rounding type.
@@ -794,12 +798,10 @@ std::string decimal_fixed(FloatMP const& x, unsigned int places,
     if (!remainder.is_zero()) {
         bool increase=false;
         switch(mode.value()) {
-            case FloatMP::Rounding::ToNearest: {
-                const int order=compare(shift_left(remainder,1u),denominator);
-                increase=order>0 || (order==0 &&
+            case FloatMP::Rounding::ToNearest:
+                increase=floatmp_half_even_increment(remainder,denominator,
                     (quotient.limb(0u)&BigUnsigned::Limb{1})!=0u);
                 break;
-            }
             case FloatMP::Rounding::Downward: increase=neg; break;
             case FloatMP::Rounding::Upward: increase=!neg; break;
             default: // TowardZero: the fourth value of the closed rounding type.
