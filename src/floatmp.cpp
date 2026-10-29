@@ -1731,26 +1731,9 @@ public:
     explicit Fraction(long integer) : _value(Integer(integer)) { }
     explicit Fraction(Integer const& integer) : _value(integer) { }
 
-    explicit Fraction(FloatMP const& binary) {
-        // Every call is through rational_argument, after unary, exp, log
-        // or tanh has dispatched IEEE special values and its zero cases.
-        const auto exponent=binary.exponent();
-        if (exponent==std::numeric_limits<FloatMP::Exponent>::min()) {
-            throw std::overflow_error("FloatMP exponent shift overflow");
-        }
-        const std::uint64_t distance=exponent<0
-            ? static_cast<std::uint64_t>(-exponent)
-            : static_cast<std::uint64_t>(exponent);
-        const auto address_distance=Detail::checked_unsigned_cast<std::size_t>(distance,
-            "FloatMP native interval shift overflow");
-        BigUnsigned magnitude=binary.significand();
-        if (exponent>0) {
-            magnitude=shift_left(magnitude,address_distance);
-        }
-        _value=Rational::from_dyadic(
-            Integer::from_magnitude(std::move(magnitude),binary.negative()),
-            exponent<0 ? address_distance : 0u);
-    }
+    // Public conversion owns the exact native exponent/shift checks too.
+    // Callers dispatch IEEE special values before constructing a Fraction.
+    explicit Fraction(FloatMP const& binary) : _value(binary.operator Rational()) { }
 
     Fraction(BigUnsigned const& magnitude,unsigned long denominator_bits)
         : _value(Rational::from_dyadic(
@@ -1847,10 +1830,13 @@ public:
         if (a.sign()==0 || b.sign()==0) return Fraction(a._value*b._value);
         const auto a_bits=a.dyadic_denominator_bits();
         const auto b_bits=b.dyadic_denominator_bits();
-        if (a_bits && b_bits &&
-                *a_bits<=std::numeric_limits<std::size_t>::max()-*b_bits) {
+        if (a_bits && b_bits) {
+            // An unrepresentable binary scale is a resource error. Check
+            // scalar metadata before multiplying or allocating a denominator.
+            const auto bits=Detail::checked_unsigned_add(*a_bits,*b_bits,
+                "FloatMP dyadic product scale overflow");
             return Fraction(Rational::from_dyadic(
-                mul(a.numerator(),b.numerator()),*a_bits+*b_bits));
+                mul(a.numerator(),b.numerator()),bits));
         }
         return Fraction(a._value*b._value);
     }
@@ -1907,6 +1893,31 @@ void accumulate_fixed_terms(std::vector<BigUnsigned::Limb>& sum,
     }
     normalize_fixed_words(scratch);
     sum.swap(scratch);
+}
+
+// Shared floor/ceil(a*b/2^shift), with disjoint input/output/scratch.
+// Zero coefficients, exact products and rounding carries follow the same
+// native kernels for exp, log, sine/cosine and atan. All buffers retain capacity.
+void scaled_fixed_product(BigUnsigned::LimbView left,BigUnsigned::LimbView right,
+                          std::size_t shift,bool round_upward,
+                          std::vector<BigUnsigned::Limb>& output,
+                          std::vector<BigUnsigned::Limb>& product,
+                          std::vector<BigUnsigned::Limb>& increment_scratch) {
+    if (left.empty() || right.empty()) {
+        output.clear();
+        return;
+    }
+    // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
+    product.resize(left.size()+right.size());
+    BigUnsigned::mul_into(left,right,product);
+    normalize_fixed_words(product);
+    const bool discarded=round_upward && BigUnsigned::any_bits_below(product,shift);
+    output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
+    output.resize(BigUnsigned::shift_right_into(product,shift,output));
+    if (discarded) {
+        const BigUnsigned::Limb one=1u;
+        accumulate_fixed_terms(output,BigUnsigned::LimbView(&one,1u),false,increment_scratch);
+    }
 }
 
 // Evaluate exp on |x| <= 1/2 with a single downward-rounded
@@ -2059,30 +2070,8 @@ Interval exp_interval(Fraction x, unsigned long work) {
     Words upper=to_scaled(interval.upper,true);
     Words product,next_lower,next_upper;
     Words increment_scratch;
-    const auto increment=[&](Words& digits) {
-        const BigUnsigned::Limb one=1u;
-        accumulate_fixed_terms(digits,BigUnsigned::LimbView(&one,1u),false,increment_scratch);
-    };
-
-    // floor(y*y/2^B) or ceil(y*y/2^B) as required. The discarded
-    // full limbs and low partial-limb bits determine whether ceil
-    // increments. The same product and output scratch is reused.
-    const auto square_outward=[&](Words const& value,Words& result,bool round_upward) {
-        if (value.empty()) {
-            result.clear();
-            return;
-        }
-        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
-        product.resize(2u*value.size());
-        BigUnsigned::mul_into(value,value,product);
-        normalize_fixed_words(product);
-
-        const bool discarded=round_upward &&
-            BigUnsigned::any_bits_below(product,shift);
-
-        result.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
-        result.resize(BigUnsigned::shift_right_into(product,shift,result));
-        if (round_upward && discarded) increment(result);
+    const auto square_outward=[&](Words const& value,Words& output,bool round_upward) {
+        scaled_fixed_product(value,value,shift,round_upward,output,product,increment_scratch);
     };
 
     // Square only positive endpoint magnitudes, preserving the
@@ -2147,30 +2136,9 @@ Interval log_series(Fraction const& z, unsigned long work) {
         accumulate_fixed_terms(digits,BigUnsigned::LimbView(&one,1u),false,increment_scratch);
     };
 
-    // Given a,b >= 0, compute floor(a*b/2^B), or ceil when outward=true.
-    // The full product is borrowed from one scratch buffer: discarded
-    // bits, including the partial limb, determine the upward correction.
     const auto scaled_product=[&](Words const& left,Words const& right,
                                    bool outward,Words& output) {
-        // Initial lower power is positive: work>=p+32 and |z|>2^(-p-2).
-        // The outward recurrences keep upper-lower<4 units. If a lower
-        // power becomes zero, tail<12<2^guard ends that iteration, so
-        // it is never reused here. Upper powers are always positive.
-        if (right.empty()) {
-            output.clear();
-            return;
-        }
-        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
-        product.resize(left.size()+right.size());
-        BigUnsigned::mul_into(left,right,product);
-        normalize_fixed_words(product);
-
-        const bool discarded=outward &&
-            BigUnsigned::any_bits_below(product,shift);
-
-        output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
-        output.resize(BigUnsigned::shift_right_into(product,shift,output));
-        if (outward && discarded) increment(output);
+        scaled_fixed_product(left,right,shift,outward,output,product,increment_scratch);
     };
 
     Words next_sum;
@@ -2584,18 +2552,10 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
 
     // floor(a*b/2^B), with disjoint scratch and output limb storage.
     // Reuse product and result capacity across Taylor terms.
+    Words increment_scratch;
     const auto scaled_product=[&](Words const& left,Words const& right,
                                    Words& output) {
-        if (left.empty() || right.empty()) {
-            output.clear();
-            return;
-        }
-        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
-        product.resize(left.size()+right.size());
-        BigUnsigned::mul_into(left,right,product);
-        normalize_fixed_words(product);
-        output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
-        output.resize(BigUnsigned::shift_right_into(product,shift,output));
+        scaled_fixed_product(left,right,shift,false,output,product,increment_scratch);
     };
     Words argument_words(argument.limbs().begin(),argument.limbs().end());
     scaled_product(argument_words,argument_words,square);
@@ -2772,31 +2732,16 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
     using Words=std::vector<Limb>;
     Words product,scaled;
     Words increment_scratch;
-    const auto increment=[&](Words& digits) {
-        const BigUnsigned::Limb one=1u;
-        accumulate_fixed_terms(digits,BigUnsigned::LimbView(&one,1u),false,increment_scratch);
-    };
+
     // floor or ceil of coefficient*n / 2^k. There are only two
     // products per requested function. Both share the same scratch;
     // no GMP product/division or canonical Rational is constructed.
     const auto multiply_outward=[&](Integer const& coefficient,
                                     bool round_toward_positive) -> Integer {
-        const BigUnsigned& lhs=coefficient.magnitude();
-        const BigUnsigned& rhs=delta_numerator.magnitude();
-        // Cached sin(1/2) and cos(1/2) endpoints have positive
-        // magnitudes at every supported scale; only delta can be zero.
-        if (rhs.is_zero()) return Integer{};
-        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
-        product.resize(lhs.size()+rhs.size());
-        BigUnsigned::mul_into(lhs.limbs(),rhs.limbs(),product);
-        const bool discarded=BigUnsigned::any_bits_below(product,shift);
-        scaled.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
-        scaled.resize(BigUnsigned::shift_right_into(product,shift,scaled));
         const bool negative=coefficient.negative()!=delta_numerator.negative();
-        if (discarded && (negative ? !round_toward_positive
-                                   : round_toward_positive)) {
-            increment(scaled);
-        }
+        const bool round_magnitude_up=negative ? !round_toward_positive : round_toward_positive;
+        scaled_fixed_product(coefficient.magnitude().limbs(),delta_numerator.magnitude().limbs(),
+            shift,round_magnitude_up,scaled,product,increment_scratch);
         return Integer::from_magnitude(BigUnsigned(
             BigUnsigned::LimbView(scaled.data(),scaled.size())),negative);
     };
@@ -2879,18 +2824,10 @@ Interval small_atan(Fraction const& x, unsigned long work) {
 
     // All Taylor powers are nonnegative. Output and product retain their
     // capacity across terms; no owning BigUnsigned is made in the loop.
+    Words increment_scratch;
     const auto scaled_product=[&](Words const& left,Words const& right,
                                    Words& output) {
-        if (left.empty() || right.empty()) {
-            output.clear();
-            return;
-        }
-        // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
-        product.resize(left.size()+right.size());
-        BigUnsigned::mul_into(left,right,product);
-        normalize_fixed_words(product);
-        output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
-        output.resize(BigUnsigned::shift_right_into(product,shift,output));
+        scaled_fixed_product(left,right,shift,false,output,product,increment_scratch);
     };
 
     // Powers decrease for |x|<=1/2 and divisors increase. Before an
