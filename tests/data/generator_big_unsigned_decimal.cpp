@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Reproduce A20/A21 decimal-parsing oracle visits.
+// Reproduce B131/B132 decimal-parsing oracle visits.
 // Standalone C++20; no Numeric, GMP, Boost or external runtime.
 #include "oracle_exact_integer.hpp"
 
@@ -27,9 +27,9 @@ void replay_b76(std::mt19937_64& engine) {
     }
 }
 
-std::string a20_decimal_random_fixture() {
+std::string b131_decimal_random_fixture() {
     std::string out=
-        "# A20: original 1800 randomized decimal parsing visits from test_gcd_decimal().\n"
+        "# B131: original 1800 randomized decimal parsing visits from test_gcd_decimal().\n"
         "# repetition length source_decimal expected_hex canonical_decimal\n"
         "# Exact source stream after replaying all 2800 B76 mt19937_64(0xB16B00B5) visits.\n"
         "# Expected values computed with independent multiple-precision integer parsing; no GMP/Numeric/Boost.\n";
@@ -57,9 +57,9 @@ void replay_a20(std::mt19937_64& engine) {
     }
 }
 
-std::string a21_decimal_structured_fixture() {
+std::string b132_decimal_structured_fixture() {
     std::string out=
-        "# A21: all 484 structured decimal parsing visits from test_gcd_decimal().\n"
+        "# B132: all 484 structured decimal parsing visits from test_gcd_decimal().\n"
         "# ordinal source_decimal expected_hex canonical_decimal\n"
         "# Preserves every original check_long_parse input and the shared mt19937_64 stream.\n"
         "# Exact expectations computed with independent multiple-precision integers; no GMP/Numeric/Boost.\n";
@@ -130,13 +130,13 @@ std::string a21_decimal_structured_fixture() {
             append(Nat::add(base,Nat(offset)).dec());
     }
     if (ordinal!=484u)
-        throw std::runtime_error("wrong A21 structured decimal case count");
+        throw std::runtime_error("wrong B132 structured decimal case count");
     return out;
 }
 
-std::string a22_decimal_format_fixture() {
+std::string b133_decimal_format_fixture() {
     std::string out=
-        "# A22: all 1509 decimal-formatting oracle visits from test_gcd_decimal().\n"
+        "# B133: all 1509 decimal-formatting oracle visits from test_gcd_decimal().\n"
         "# ordinal source_hex expected_decimal\n"
         "# Preserves original source streams and boundary constructions; no GMP/Numeric/Boost.\n";
     std::size_t ordinal=0u;
@@ -350,7 +350,7 @@ std::string a22_decimal_format_fixture() {
             std::string("000000001")));
     }
     if (ordinal!=1509u)
-        throw std::runtime_error("wrong A22 decimal formatting case count");
+        throw std::runtime_error("wrong B133 decimal formatting case count");
     return out;
 }
 
@@ -361,14 +361,14 @@ int main(int argc,char** argv) {
         bool write=false;
         const auto dir=independent_oracle::data_directory(argc,argv,write);
         independent_oracle::output(
-            dir,"big_unsigned_a20_decimal_random.tsv",
-            a20_decimal_random_fixture(),write);
+            dir,"big_unsigned_b131_decimal_random.tsv",
+            b131_decimal_random_fixture(),write);
         independent_oracle::output(
-            dir,"big_unsigned_a21_decimal_structured.tsv",
-            a21_decimal_structured_fixture(),write);
+            dir,"big_unsigned_b132_decimal_structured.tsv",
+            b132_decimal_structured_fixture(),write);
         independent_oracle::output(
-            dir,"big_unsigned_a22_decimal_format.tsv",
-            a22_decimal_format_fixture(),write);
+            dir,"big_unsigned_b133_decimal_format.tsv",
+            b133_decimal_format_fixture(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"BigUnsigned decimal generator: "<<error.what()<<'\n';

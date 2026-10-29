@@ -997,10 +997,10 @@ The unchanged FloatMP 1000x11 four-size benchmark verifies 256 paired inputs and
 
 Native GCC x86-64 and Windows CI/performance remain pending. The binding acceptance is still all SIX official per-size totals <1x and EVERY operation/size <2x, with stable same-host repeated runs. No benchmark corpus, weights or oracle was altered.
 
-### FloatMP D143 — skip a known-zero leading quotient digit (23 October 2026)
+### FloatMP M143 — skip a known-zero leading quotient digit (23 October 2026)
 
 
-In its ordinary division loop, a leading dividend limb smaller than the nonzero divisor has quotient digit zero and is already the exact initial remainder. Initialize that digit/remainder directly and divide only the remaining words. Empty inputs and trailing output zeroing retain their contracts; preinverted and power-of-two selections are unchanged. This portable shortcut reuses all existing architecture-specific divide_wide implementations and adds none. See floatmp_design.md D143 for the encompassing branch and its local performance/validation scope.
+In its ordinary division loop, a leading dividend limb smaller than the nonzero divisor has quotient digit zero and is already the exact initial remainder. Initialize that digit/remainder directly and divide only the remaining words. Empty inputs and trailing output zeroing retain their contracts; preinverted and power-of-two selections are unchanged. This portable shortcut reuses all existing architecture-specific divide_wide implementations and adds none. See floatmp_design.md M143 for the encompassing branch and its local performance/validation scope.
 
 ### B76 — freeze all 2,800 seeded BigUnsigned GCD/decimal oracles (23 October 2026)
 
@@ -1028,12 +1028,12 @@ Add standalone C++20 `tests/data/generator_exact_small.cpp` for the already froz
 
 GCC 14 and Clang 17 with full strict warning flags (including -Wsign-conversion -Werror) compiled and verified the generator. All five regenerated datasets matched their original Git blob SHA-1 IDs exactly; `--verify` rejected an intentionally corrupted test TSV without writing it. Only the generator, its build-only registration, the generator README and this journal changed. The independent source corpus is now reproducible for 34 TSV files (29 B77 plus five B78). Full Unix/Windows/Sanitizers/Coverage CI remains to be checked.
 
-### B79 — reproduce BigUnsigned D104 power and D103 short-division fixtures (23 October 2026)
+### B79 — reproduce BigUnsigned M104 power and M103 short-division fixtures (23 October 2026)
 
 
 Version standalone `tests/data/generator_big_unsigned_power_div.cpp` and register it as a build-only generator target. It independently reproduces `tests/data/big_unsigned_power.tsv` (373 existing source/result rows) and `tests/data/big_unsigned_short_div.tsv` (324 existing rows) using only standard C++20 and the independent unsigned-limb B77 oracle helper. Multiplication and powering use binary shift/add and exponentiation by squaring; quotient and remainder use bit-aligned repeated subtraction. For division, each reference verifies `a=b*q+r` and `0<=r<b`, with a separate explicit no-result representation for zero divisors.
 
-For the D104 random corpus, replay each of the original `mt19937_64` (0xB7400A11) source visits across 10 widths and 12 modes, including unselected modes, before reproducing exactly the same five selected source modes and six selected exponents, followed by all 16 small sample and 57 1024-bit-boundary power rows. For D103, replay the entire seeded (0xB74D1A1DE) 6 x 6 x 24 source corpus and its original overwrite order; reproduce all nine selected modes per width pair, including the exceptional zero-divisor cases. No sampled row was discarded or added.
+For the M104 random corpus, replay each of the original `mt19937_64` (0xB7400A11) source visits across 10 widths and 12 modes, including unselected modes, before reproducing exactly the same five selected source modes and six selected exponents, followed by all 16 small sample and 57 1024-bit-boundary power rows. For M103, replay the entire seeded (0xB74D1A1DE) 6 x 6 x 24 source corpus and its original overwrite order; reproduce all nine selected modes per width pair, including the exceptional zero-divisor cases. No sampled row was discarded or added.
 
 GCC 14 and Clang 17 compiled and passed `--verify` with the full strict CI-style warning list (`-Wsign-conversion -Wshadow -Werror` included). Both regenerated files exactly matched the existing Git blob hashes (c0dd421950bbdcfbc86adbda19d76c1773f84d61 and 5a0c2d9d5b2bd19f5ab6f0b44415ca10e6e27b8e). Corrupting a fixture causes read-only verification to fail. The generator README is updated; 36 committed TSVs now have versioned independent generators. Full repository CI (Unix, Windows, Sanitizers, Coverage) is still required.
 
@@ -1142,12 +1142,12 @@ GCC/Clang strict C++20 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werr
 ### B102 — certified logarithm fixture regeneration (24 October 2026)
 
 
-Add standalone standard-library C++20 `generator_floatmp_log.cpp` covering all 444 source-keyed `floatmp_log.tsv` rows, including 284 centered-log unique references from six precision visits and 160 D96 additions. Preserve original source order, nearest-even input rounding for centered cases and unrounded original rational lookup keys in D96. Certify log via an integer fixed-point B=2^1800 enclosure of 2*atanh(|x-1|/(x+1)), with 1101 positive series terms plus rigorous 4*y^2205 remainder. At x=8 or 1/8 use 3*log(2) identity to obtain a sufficiently tight enclosure for 1024-bit output. Round both interval endpoints independently under N/D/U/Z and require exact agreement; negate with correct sign-aware directed rounding. Restore the D96 header in its original mid-file position. GCC and Clang strict warnings-as-errors builds and read-only --verify pass, corruption fails. Generated 122,768 bytes with SHA-1 `7cae466575432ff238dd73ecdeeb599b7e17ceed`, matching main's original Git blob exactly. Generator #25 joins opt-in CMake targets; coverage 105/115. No original fixtures or test/production code changed.
+Add standalone standard-library C++20 `generator_floatmp_log.cpp` covering all 444 source-keyed `floatmp_log.tsv` rows, including 284 centered-log unique references from six precision visits and 160 M96 additions. Preserve original source order, nearest-even input rounding for centered cases and unrounded original rational lookup keys in M96. Certify log via an integer fixed-point B=2^1800 enclosure of 2*atanh(|x-1|/(x+1)), with 1101 positive series terms plus rigorous 4*y^2205 remainder. At x=8 or 1/8 use 3*log(2) identity to obtain a sufficiently tight enclosure for 1024-bit output. Round both interval endpoints independently under N/D/U/Z and require exact agreement; negate with correct sign-aware directed rounding. Restore the M96 header in its original mid-file position. GCC and Clang strict warnings-as-errors builds and read-only --verify pass, corruption fails. Generated 122,768 bytes with SHA-1 `7cae466575432ff238dd73ecdeeb599b7e17ceed`, matching main's original Git blob exactly. Generator #25 joins opt-in CMake targets; coverage 105/115. No original fixtures or test/production code changed.
 
 ### B103 — certified independent sine and cosine fixture regeneration (24 October 2026)
 
 
-Add one standard C++20 generator `tests/data/generator_floatmp_sin_cos.cpp` reproducing the complete original `floatmp_sin.tsv` (281,134 bytes / 1,080 rows) and `floatmp_cos.tsv` (278,016 bytes / 1,080 rows) with independent arbitrary-width integer arithmetic. Rebuild every source Rational in D91, D92 and D95 from original test rules and retain the exact precision schedule, sign order, original source-keyed map semantics, independent nearest-even input rounding, first-seen duplicate removal and all 4 output rounding modes. D91 adds 336 rows per file, D92 456, and D95 288. Preserve mid-file D92 and D95 explanatory comments.
+Add one standard C++20 generator `tests/data/generator_floatmp_sin_cos.cpp` reproducing the complete original `floatmp_sin.tsv` (281,134 bytes / 1,080 rows) and `floatmp_cos.tsv` (278,016 bytes / 1,080 rows) with independent arbitrary-width integer arithmetic. Rebuild every source Rational in M91, M92 and M95 from original test rules and retain the exact precision schedule, sign order, original source-keyed map semantics, independent nearest-even input rounding, first-seen duplicate removal and all 4 output rounding modes. M91 adds 336 rows per file, M92 456, and M95 288. Preserve mid-file M92 and M95 explanatory comments.
 
 Evaluate both sine and cosine through 240 signed alternating Taylor terms at fixed-point B=2^1800, computing all term enclosures using portable 32-bit digit multiplication, exact Nat division and directed outward integer rounding. Add a rigorous enclosure of the first omitted term; odd/even identities handle negative input. Independently round both signed interval endpoints N/D/U/Z at the requested output precision, rejecting any case for which they disagree. Caching on the exact nearest-even rounded input magnitude shares the certified sin and cos evaluation across all four modes, signs, precision visits and overlapping test groups.
 
@@ -1156,24 +1156,24 @@ Strict GCC/Clang C++20 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werr
 ### B104 — correctly rounded centered FloatMP exponential fixture (24 October 2026)
 
 
-Add independent standalone C++20 `generator_floatmp_centered_exp.cpp`. Reconstruct the original D85 source algorithm: six precision visits (53,7,128,256,1024,53), 15 magnitudes around 1/2 and at 1/4,3/4, 1/3,2/3,1,2, both signs, four rounding directions. Independently round every source Rational to nearest-even at p bits and deduplicate first-seen (p,mode,signed rounded dyadic) keys, giving 568 fixture rows while preserving 720 original checks. All values are rigorously certified by outward fixed-point integer enclosures (B=2^1800) of exp(|x|/16) through term 165, twice-next-term tail, four squarings, and directed reciprocals for negative inputs; interval endpoints must round to precisely the same p-bit N/D/U/Z rational. Strict GCC/Clang C++20 builds, --verify and corruption rejection pass. Regenerated 170,882 bytes have Git blob `a221dfa3cc3e8feff2b425aff8290180fe994d3a`, identical to the original TSV. Register generator #27 in explicit `generators`, `generate-data` and `verify-data`; coverage reaches 108/115.
+Add independent standalone C++20 `generator_floatmp_centered_exp.cpp`. Reconstruct the original M85 source algorithm: six precision visits (53,7,128,256,1024,53), 15 magnitudes around 1/2 and at 1/4,3/4, 1/3,2/3,1,2, both signs, four rounding directions. Independently round every source Rational to nearest-even at p bits and deduplicate first-seen (p,mode,signed rounded dyadic) keys, giving 568 fixture rows while preserving 720 original checks. All values are rigorously certified by outward fixed-point integer enclosures (B=2^1800) of exp(|x|/16) through term 165, twice-next-term tail, four squarings, and directed reciprocals for negative inputs; interval endpoints must round to precisely the same p-bit N/D/U/Z rational. Strict GCC/Clang C++20 builds, --verify and corruption rejection pass. Regenerated 170,882 bytes have Git blob `a221dfa3cc3e8feff2b425aff8290180fe994d3a`, identical to the original TSV. Register generator #27 in explicit `generators`, `generate-data` and `verify-data`; coverage reaches 108/115.
 
 ### B105 — certified atan oracle regeneration (24 October 2026)
 
 
-Add C++20 independent `generator_floatmp_atan.cpp`. Rebuild D87, D88 and D89 original source-keyed references (640/200/500 rows), including all precision visits, signed operands, exact original Rational keys, and independent nearest-even input quantization. Use signed outward fixed-point integer intervals at B=2^1800, 1,150 alternating atan Taylor terms at maximum, Machin's certified pi/4, direct Taylor at <=1/2, complementary pi/4 argument reduction for 1/2<x<1, and pi/2-atan(1/x) above 1. An early break when the next power interval is below 2^180 (at B=2^1800) preserves a rigorous symmetric omitted-tail enclosure, greatly improving runtime. Every p-bit N/D/U/Z result is accepted only if independently rounded lower/upper interval endpoints agree. Strict GCC and Clang C++20 compilation, --verify and deliberate corruption rejection succeed. Exact original 309,281-byte Git blob `9daa471b286fb3b3b5cd0d4a804a4977cfd16079` is reproduced. Register generator #28 in opt-in targets; coverage becomes 109/115. CI for B105 is pending.
+Add C++20 independent `generator_floatmp_atan.cpp`. Rebuild M87, M88 and M89 original source-keyed references (640/200/500 rows), including all precision visits, signed operands, exact original Rational keys, and independent nearest-even input quantization. Use signed outward fixed-point integer intervals at B=2^1800, 1,150 alternating atan Taylor terms at maximum, Machin's certified pi/4, direct Taylor at <=1/2, complementary pi/4 argument reduction for 1/2<x<1, and pi/2-atan(1/x) above 1. An early break when the next power interval is below 2^180 (at B=2^1800) preserves a rigorous symmetric omitted-tail enclosure, greatly improving runtime. Every p-bit N/D/U/Z result is accepted only if independently rounded lower/upper interval endpoints agree. Strict GCC and Clang C++20 compilation, --verify and deliberate corruption rejection succeed. Exact original 309,281-byte Git blob `9daa471b286fb3b3b5cd0d4a804a4977cfd16079` is reproduced. Register generator #28 in opt-in targets; coverage becomes 109/115. CI for B105 is pending.
 
 ### B106 — independently certified tangent fixture regeneration (24 October 2026)
 
 
-Add standalone standard C++20 `tests/data/generator_floatmp_tan.cpp`, reproducing `floatmp_tan.tsv` exactly (303,143 bytes / 1,208 rows). Rebuild D92 (576 unique keys), D93 (240 new), D94 (200 new), and D95 (192 new) from their original test loops: local p-bit rational offsets from 1/2, centered p/2+16 offsets, wider binary rational sources, signed order, precision visits and first-seen deduplication. Independently round the original Rational source to nearest-even p-bit binary before evaluating tangent. Use 240 outward alternating integer-only Taylor terms for sin/cos at B=2^1800; enclose omitted term, require cosine interval exclude zero, divide signed numerator interval by signed denominator with four endpoint combinations, rigorously outward floor/ceil, and use oddness at negative sources. Support negative cosine for |x|>pi/2, not merely the near-1/2 window. Require identical rounded exact rational from both endpoint bounds in every N/D/U/Z mode.
+Add standalone standard C++20 `tests/data/generator_floatmp_tan.cpp`, reproducing `floatmp_tan.tsv` exactly (303,143 bytes / 1,208 rows). Rebuild M92 (576 unique keys), M93 (240 new), M94 (200 new), and M95 (192 new) from their original test loops: local p-bit rational offsets from 1/2, centered p/2+16 offsets, wider binary rational sources, signed order, precision visits and first-seen deduplication. Independently round the original Rational source to nearest-even p-bit binary before evaluating tangent. Use 240 outward alternating integer-only Taylor terms for sin/cos at B=2^1800; enclose omitted term, require cosine interval exclude zero, divide signed numerator interval by signed denominator with four endpoint combinations, rigorously outward floor/ceil, and use oddness at negative sources. Support negative cosine for |x|>pi/2, not merely the near-1/2 window. Require identical rounded exact rational from both endpoint bounds in every N/D/U/Z mode.
 
 Strict GCC and Clang -std=c++20 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror compile, and read-only --verify pass; a deliberately corrupted 303,143-byte fixture is rejected. The reproduced Git blob is exactly `0b73c09cd203961ace02c86c3af8c866db8c7ac4`, identical to the original version-controlled fixture. Add generator #29 to opt-in `generators`, `generate-data`, `verify-data` targets; coverage reaches 110/115, with five originals outstanding. Full CI for B106 is pending.
 
 ### B107 — independent certified asin/acos golden regeneration (24 October 2026)
 
 
-Add `tests/data/generator_floatmp_asin_acos.cpp` using standard C++20-only arbitrary-width integer limbs. Reconstruct all D86 (520) and additional D90 (208) keys from the original signed Rational source and precision visitation rules, rounding each operand nearest even before evaluation. For each original magnitude independently certify sqrt(1-x^2) through floor integer square root of floor((d^2-n^2)*B^2/d^2), including exactness detection for the upper interval endpoint, where B=2^1800. Both interval endpoints must round to identical binary rationals for all N/D/U/Z modes.
+Add `tests/data/generator_floatmp_asin_acos.cpp` using standard C++20-only arbitrary-width integer limbs. Reconstruct all M86 (520) and additional M90 (208) keys from the original signed Rational source and precision visitation rules, rounding each operand nearest even before evaluation. For each original magnitude independently certify sqrt(1-x^2) through floor integer square root of floor((d^2-n^2)*B^2/d^2), including exactness detection for the upper interval endpoint, where B=2^1800. Both interval endpoints must round to identical binary rationals for all N/D/U/Z modes.
 
 GCC and Clang strict C++20 warnings-as-errors compiles and --verify of both fixtures passed; intentional corruption is detected. Exact original Git blobs: asin 189,909 bytes / 728 rows, `50d8070f7cc049ad76840f51f2d4042ce9f73cb4`; acos 189,361 bytes / 728 rows, `9bc0e3b101c737783565f4dc67c0033ec6fa7c91`. Register generator #30 in opt-in CMake targets. Generator coverage is 112/115, with three original TSVs outstanding. CI for B107 pending.
 
@@ -1187,7 +1187,7 @@ Strict GCC and Clang C++20 warnings-as-errors, --verify and corruption rejection
 ### B109 — independently reproduced exact FloatMP rational rounding (24 October 2026)
 
 
-Add standard-C++20-only `tests/data/generator_floatmp_rounding.cpp`. The D79 section uses original exact source generation rules, including dividing operands after nearest-even input quantization and doing N/D/U/Z arithmetic with operands after the corresponding mode's quantization. Preserve original deduplication, five compound operations, midpoint ties-to-even and sign-aware directed rounding. No TSV data is read to construct source inputs or expected numbers. Implementation uses independently implemented exact radix-2^32 multiplication on Nat radix-2^64 limbs, signed exact rational arithmetic, binary GCD, quotient/remainder and p-bit rational canonicalization. Strict GCC and Clang builds and --verify pass and corrupted-file validation fails. Generated 4,794 rows / 1,225,939 bytes match Git blob exactly: `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b`. Register #32 in opt-in generator and verify-data targets, raising coverage to 114/115. No originals, consumer tests or production algorithms were changed. Remaining big_unsigned_sqrt.tsv still requires recovery of the original random source algorithm.
+Add standard-C++20-only `tests/data/generator_floatmp_rounding.cpp`. The M79 section uses original exact source generation rules, including dividing operands after nearest-even input quantization and doing N/D/U/Z arithmetic with operands after the corresponding mode's quantization. Preserve original deduplication, five compound operations, midpoint ties-to-even and sign-aware directed rounding. No TSV data is read to construct source inputs or expected numbers. Implementation uses independently implemented exact radix-2^32 multiplication on Nat radix-2^64 limbs, signed exact rational arithmetic, binary GCD, quotient/remainder and p-bit rational canonicalization. Strict GCC and Clang builds and --verify pass and corrupted-file validation fails. Generated 4,794 rows / 1,225,939 bytes match Git blob exactly: `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b`. Register #32 in opt-in generator and verify-data targets, raising coverage to 114/115. No originals, consumer tests or production algorithms were changed. Remaining big_unsigned_sqrt.tsv still requires recovery of the original random source algorithm.
 
 ### B110 — 115/115 fixtures with qualified historical entropy recovery (24 October 2026)
 
@@ -1199,80 +1199,80 @@ Register generator #33 into opt-in `generators`, `generate-data` and `verify-dat
 ### B111 — consolidated rounding generator, deterministic sqrt corpus (24 October 2026)
 
 
-Reduce generator executables 33 -> 32 by merging D80 add/sub into `generator_floatmp_rounding.cpp`. The shared standalone C++20 source outputs both pre-existing exact TSVs without byte changes: rounding 4,794 rows SHA `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b`, add/sub 1,780 rows SHA `b4552cfbdea659730486dd5bcdb3bb3a62be7984`. Delete the redundant generator executable/source but keep all original D80 visits, modes and first-visit deduplication.
+Reduce generator executables 33 -> 32 by merging M80 add/sub into `generator_floatmp_rounding.cpp`. The shared standalone C++20 source outputs both pre-existing exact TSVs without byte changes: rounding 4,794 rows SHA `8d5c927485bc2c171853bb1502ed6b9d0d2aa51b`, add/sub 1,780 rows SHA `b4552cfbdea659730486dd5bcdb3bb3a62be7984`. Delete the redundant generator executable/source but keep all original M80 visits, modes and first-visit deduplication.
 
 Replace the 48 historic non-reproducible sqrt entropy inputs by a new SplitMix64 recurrence directly in `generator_big_unsigned_sqrt.cpp`. Document 64-bit wrap, seed `0x526f6f74534d3230`, limb generation, width masking and exact top bits, and sparse low-word-zero variant. Delete frozen seed header. Keep all 161 test rows and original size classes: 91 fixed edge/power-of-two cases, 37 generated numbers, 33 neighboring-square cases from 11 generated roots. Expected roots and remainders for 70 changed input magnitudes are regenerated from independent restoring arithmetic; Python's math.isqrt cross-checks all 161 triples and the PRNG is separately reproduced. TSV Git blob `5ed4a8d6705a2b39dd44d5ebcf9f5f666019d2bd`, 48,272 bytes. Both GCC/Clang strict C++20 generator builds, --verify, and corruption rejection pass; no consumer or production source changed.
 
-### A1 — independently generated product-accumulation fixture (24 October 2026)
+### B112 — independently generated product-accumulation fixture (24 October 2026)
 
 
 Preserve the original full mt19937_64(0x23ACC00) draw stream, original source transforms including empty operands, two directional accumulate calls, exact output-buffer lengths and exceptional unchanged-buffer assertions. Consumer reads, validates every original source key, result and escaped bit with an independent canonical BigUnsigned-from-hex parser, checks full buffer size, source immutability and no missing or extra records. The existing independent shift/add product routine of `generator_big_unsigned_mul.cpp` also regenerates this dataset to minimize number of executables. Independent JS BigInt + mt19937_64 reference matches all original 1,728 visits: 1,441,196 bytes and Git SHA `2e1d31c8b7e9339693ddbaa7f22d2741d213012e`. Full CI validation of consumer and generator is pending.
 
-### A2 — B32 runtime external reference square numerical oracle migrated to TSV (25 October 2026)
+### B113 — B32 runtime external reference square numerical oracle migrated to TSV (25 October 2026)
 
 
-The seed `mt19937_64(0xB3205A7E)`, 11 original widths, all 192 repetitions, all random draws (including overwritten draws), and the ordered 13/17/19/23 divisibility transforms are unchanged. Each row freezes original width, repetition, canonical input hex and exact square. The consumer checks every source key and input, both `square(x)` and `mul(x,x)` against the independent exact expected square, source immutability and canonical shape; it rejects missing or extra rows. The existing `generator_big_unsigned_mul.cpp` uses its independent exact binary shift/add multiplication to produce the 2,112-row B32 fixture alongside B35/B37/B38 and A1: 117 TSVs, still 32 generator executables. The independently reproduced B32 fixture is 3,328,858 bytes, Git blob SHA `a9afcd45514a36df0faf7167fa275bb7569d6d1f`. GCC 14 and Clang 17 strict C++20 standalone source builds regenerate identical B32 bytes. Full CI/consumer validation is reported separately from generator-level validation; do not count it as passed until the test jobs complete. No production code was modified.
+The seed `mt19937_64(0xB3205A7E)`, 11 original widths, all 192 repetitions, all random draws (including overwritten draws), and the ordered 13/17/19/23 divisibility transforms are unchanged. Each row freezes original width, repetition, canonical input hex and exact square. The consumer checks every source key and input, both `square(x)` and `mul(x,x)` against the independent exact expected square, source immutability and canonical shape; it rejects missing or extra rows. The existing `generator_big_unsigned_mul.cpp` uses its independent exact binary shift/add multiplication to produce the 2,112-row B32 fixture alongside B35/B37/B38 and B112: 117 TSVs, still 32 generator executables. The independently reproduced B32 fixture is 3,328,858 bytes, Git blob SHA `a9afcd45514a36df0faf7167fa275bb7569d6d1f`. GCC 14 and Clang 17 strict C++20 standalone source builds regenerate identical B32 bytes. Full CI/consumer validation is reported separately from generator-level validation; do not count it as passed until the test jobs complete. No production code was modified.
 
-### A3 — 128/64 edge and B26 independent exact-reference fixtures migrated to TSV (25 October 2026)
+### B114 — 128/64 edge and B26 independent exact-reference fixtures migrated to TSV (25 October 2026)
 
 
 Migrate all 192 original 128/64 edge visits (8 divisors x 4 high-word choices x 6 low words) and all 2,048 B26 randomized DIVQ visits in `TestBigUnsigned::test_division_limb()`, without reducing coverage. The original `mt19937_64(0xB260D1B1)` source, conditional RNG draws, divisor/high/low selections and high<divisor precondition are preserved. The consumer verifies every ordered source key, canonical numerator and operands, exact full 64-bit remainder and quotient, unchanged source, original saturation assertions, and missing/extra TSV rows.
 
 The existing standalone C++20 `tests/data/generator_big_unsigned_power_div.cpp` now also emits `big_unsigned_div128by64.tsv` using independent aligned-subtraction long division and binary shift/add multiplication for the identity numerator=divisor*quotient+remainder and remainder<divisor. Exactly 2,240 rows, 227,016 bytes, Git blob `f9084b5d88d01b2acf356e5f4b0cb9a0435ff7cd`. Strict GCC/Clang C++20 compilations agree byte-for-byte; a separately implemented Python mt19937_64 and built-in multiple-precision division reproduce all 2,240 source keys, quotients and remainders. 118 source TSV fixtures are registered across the same 32 generators. Consumer regression/CI results must be checked separately after publication; the opt-in full `verify-data` target is not part of standard CI.
 
-### A4 — random 6,000-case independent exact-reference fixtures migrated (25 October 2026)
+### B115 — random 6,000-case independent exact-reference fixtures migrated (25 October 2026)
 
 
 Preserve `mt19937_64(0xD1D1D1)`, every random draw, original 0/64/1..7-limb selection and ordered modulo-13/17/19 transforms, all divisor selection branches and both owning/non-owning division calls. Every row contains repetition, exact decimal divisor, canonical dividend, exact quotient and full 64-bit remainder. The consumer verifies input identity, ordered keys, both quotient paths, full-width remainder, scratch/output guard clearing, source immutability, and all-row exhaustion.
 
 A second Python implementation of multiple-precision division and an independent mt19937_64 engine reproduces all 6,000 cases byte-for-byte; the first eight random draws also match a compiled std::mt19937_64 C++20 witness. Fixture 1,194,017 bytes, Git blob `5e9b7c6801c1fe9c6220a23235b50f592c8b1b84`. 119 TSVs across 32 existing generators. No production code or prior fixture changed. Standard CI does not run the opt-in all-fixture `verify-data` target.
 
-### A5 — B48/B49 numerical oracle conversion (25 October 2026)
+### B116 — B48/B49 numerical oracle conversion (25 October 2026)
 
 
 The consumer validates ordered width/divisor/mode, original source, canonical expected quotient/remainder, output guard clearing and TSV exhaustion.
 
-The consolidated C++20 power/division generator independently computes all four new A5 fixture files (B48 560; B49 784; B57 1,800; B61 1,560 visits) using portable bit-at-a-time division with a 65th remainder carry and independent binary shift/add Euclidean identity checks. C++20 GCC and Clang mt19937_64 input witnesses and exact Python big-integer division independently reproduce all four files. SHA Git blobs: B48 `1a56559c3f5c529a5c222fe1136b69be1d3aed28`, B49 `4f82aac238df03238128ad5d41be21b9e2b24a22`, B57 `dc2a5205d8aa4a912f73f9e675522b1531f65794`, B61 `f9e8a720ece587c13d68802588cfe75ebb006e67`. Only B48/B49 consumer conversions are counted as migrated here. CI for A5 is pending. No production changes.
+The consolidated C++20 power/division generator independently computes all four new B116 fixture files (B48 560; B49 784; B57 1,800; B61 1,560 visits) using portable bit-at-a-time division with a 65th remainder carry and independent binary shift/add Euclidean identity checks. C++20 GCC and Clang mt19937_64 input witnesses and exact Python big-integer division independently reproduce all four files. SHA Git blobs: B48 `1a56559c3f5c529a5c222fe1136b69be1d3aed28`, B49 `4f82aac238df03238128ad5d41be21b9e2b24a22`, B57 `dc2a5205d8aa4a912f73f9e675522b1531f65794`, B61 `f9e8a720ece587c13d68802588cfe75ebb006e67`. Only B48/B49 consumer conversions are counted as migrated here. CI for B116 is pending. No production changes.
 
-### A6 — complete runtime independent exact-reference fixtures of single-limb division (25 October 2026)
+### B117 — complete runtime independent exact-reference fixtures of single-limb division (25 October 2026)
 
 
-Use the existing independently certified `big_unsigned_b57.tsv` and `big_unsigned_b61.tsv` fixtures added in A5, retaining every original `mt19937_64` draw, all seven explicit transforms and the unchanged eighth random mode, original width and divisor sets and visited order.
+Use the existing independently certified `big_unsigned_b57.tsv` and `big_unsigned_b61.tsv` fixtures added in B116, retaining every original `mt19937_64` draw, all seven explicit transforms and the unchanged eighth random mode, original width and divisor sets and visited order.
 
 The B57 consumer validates the full quotient and 64-bit remainder from `divrem_limb_into` against the exact TSV, retaining output guard zeroing, then checks `divrem_limb` quotient and remainder against the certified result. B61 validates `divrem` quotient and full remainder against the exact TSV, preserving the independent `rem` call and checking it matches that certified remainder. All expected values are checked through the canonical hex parser, including zero, and TSV rows must be complete and ordered. Original invalid-input, short-output and unchanged-buffer exception assertions are retained.
 
-Total A1-A6 migrated test visits: 16,784. All existing 123 TSV fixtures retain their committed hashes; there are still 32 standalone generator executables. A5's independent Python and portable C++20 verification of B57/B61 fixture arithmetic is reused, not recharacterized as a new run. Full A6 consumer CI and opt-in `verify-data` remain separate checks; report CI as passed only when observed.
+Total B112-B117 migrated test visits: 16,784. All existing 123 TSV fixtures retain their committed hashes; there are still 32 standalone generator executables. B116's independent Python and portable C++20 verification of B57/B61 fixture arithmetic is reused, not recharacterized as a new run. Full B117 consumer CI and opt-in `verify-data` remain separate checks; report CI as passed only when observed.
 
-### A7 — exact single-limb division independent exact-reference fixtures (25 October 2026)
+### B118 — exact single-limb division independent exact-reference fixtures (25 October 2026)
 
 
 Preserve the full std::mt19937_64(0x22E1AC7) draw sequence, all original divisors, input-word transforms, both low-level `divexact_limb_into` and owning `quot_exact` result comparisons, canonical input/quotient shape, source immutability, output guards and all invalid/inexact/unchanged-buffer exception checks. The consumer rejects missing, reordered or extra records.
 
-Independently replaying all 6,200 original std::mt19937_64 cases compiled with both GCC and Clang and Python multiple-precision multiplication reproduces every fixture byte-for-byte. Git blobs, respectively small (4,960 rows) `d4a68ff02f44a9273ca8bf0a30aa4874a57ab295`, length 65 (620 rows) `6a5c0cdee6d167bfedaff54917cc725bd73793ae`, length 129 first 78 divisors (312 rows) `0697660ce3945381db5840683f408ee73de55e1d` and remaining 77 divisors (308 rows) `c42a99815380e11bce4f3976773b8507483f47bb`. No production sources changed; the same 32 generator executables now cover 127 TSVs. A1–A7 cumulative migrated visits: 22,984. A7 consumer CI is to be checked after publication, separately from local fixture verification and opt-in `verify-data`.
+Independently replaying all 6,200 original std::mt19937_64 cases compiled with both GCC and Clang and Python multiple-precision multiplication reproduces every fixture byte-for-byte. Git blobs, respectively small (4,960 rows) `d4a68ff02f44a9273ca8bf0a30aa4874a57ab295`, length 65 (620 rows) `6a5c0cdee6d167bfedaff54917cc725bd73793ae`, length 129 first 78 divisors (312 rows) `0697660ce3945381db5840683f408ee73de55e1d` and remaining 77 divisors (308 rows) `c42a99815380e11bce4f3976773b8507483f47bb`. No production sources changed; the same 32 generator executables now cover 127 TSVs. B112–B118 cumulative migrated visits: 22,984. B118 consumer CI is to be checked after publication, separately from local fixture verification and opt-in `verify-data`.
 
-### A8 — B57 power-of-two multiprecision division oracle (25 October 2026)
+### B119 — B57 power-of-two multiprecision division oracle (25 October 2026)
 
 
 Convert all 2,160 original B57 visits in `TestBigUnsigned::test_division()`: nine original dividend widths x eight divisor widths x five bit positions x six input modes. Preserve the complete seeded std::mt19937_64(0xB570B172) input stream, including draws subsequently overwritten, all original ordered transforms, the power-of-two divisors, and all owning and caller-owned division paths. Each source-keyed TSV row records original width, divisor width, bit position and mode, canonical dividend and divisor, exact quotient and remainder. Consumer checks every key and both sources, `divrem`, `quot`, `rem`, `divrem_into`, zeroed quotient/remainder output guards, scratch guard integrity and absence of extra records.
 
-The already registered independent standalone C++20 generator `generator_big_unsigned_power_div.cpp` produces three fixtures using Nat right shift and exact subtraction of the shifted quotient; it explicitly checks the Euclidean identity and remainder bound. GCC and Clang independently reproduce all 2,160 seeded input visits, while Python exact bit-shift and mask calculations produce the same source keys, dividends, divisors, quotients and remainders. Fixture blob SHAs and counts: short widths 1,2,8,16,32 (1,200 rows, 755,283 bytes) `35e1d41e2b862720d835a52fe477093aaeeb21a4`; medium 64,65 (480 rows, 826,491 bytes) `a4f0689a89079310a8bd85f066a9dfe69b687d45`; large 96,128 (480 rows, 1,301,002 bytes) `c5a0a0bf80b2de7a4cf1eecca40365822f0a1fe2`. The three committed Git blobs match Python-produced bytes exactly. The total is now 130 versioned TSVs across the unchanged 32 generator executables, 25,144 cumulative A1-A8 migrated visits. No production changes. Full consumer CI and opt-in generator-wide `verify-data` are separate validations.
+The already registered independent standalone C++20 generator `generator_big_unsigned_power_div.cpp` produces three fixtures using Nat right shift and exact subtraction of the shifted quotient; it explicitly checks the Euclidean identity and remainder bound. GCC and Clang independently reproduce all 2,160 seeded input visits, while Python exact bit-shift and mask calculations produce the same source keys, dividends, divisors, quotients and remainders. Fixture blob SHAs and counts: short widths 1,2,8,16,32 (1,200 rows, 755,283 bytes) `35e1d41e2b862720d835a52fe477093aaeeb21a4`; medium 64,65 (480 rows, 826,491 bytes) `a4f0689a89079310a8bd85f066a9dfe69b687d45`; large 96,128 (480 rows, 1,301,002 bytes) `c5a0a0bf80b2de7a4cf1eecca40365822f0a1fe2`. The three committed Git blobs match Python-produced bytes exactly. The total is now 130 versioned TSVs across the unchanged 32 generator executables, 25,144 cumulative B112-B119 migrated visits. No production changes. Full consumer CI and opt-in generator-wide `verify-data` are separate validations.
 
-### A9 — B55 multiprecision division independent exact-reference fixtures (25 October 2026)
+### B120 — B55 multiprecision division independent exact-reference fixtures (25 October 2026)
 
 
 Preserve the full `std::mt19937_64(0xB550DEC1)` draw stream, all ordered source transforms, the divisor high-bit normalization, and the 7/8/9 kernel dispatch boundary. Exact source-keyed fixtures check both operands, quotient and remainder on `divrem`, `quot`, `rem` and `divrem_into`; existing output-capacity, zero-surplus and scratch-guard assertions remain. All rows must appear in original order, with none missing or extra.
 
-Separately regenerate source inputs with std::mt19937_64 compiled using GCC and Clang, and use Python multiple-precision divmod to certify every result. Exact bytewise Git blob identities: B55 short (216 visits, 178,716 bytes) `929963b14605a7a0eaa3f78aeacb8b398e615858`; medium (144 visits, 221,212 bytes) `3d8e5a3070ff80af9b01cd59a8b0a01a4da53882`; large (72 visits, 239,017 bytes) `7837342521a24a6cb672dbd364b37f0f4f44ab70`. Total: 133 versioned TSV fixtures and 32 existing generator executables; A1–A9 cumulative migrated test visits: 25,576. No production code changes. Full consumer CI and opt-in `verify-data` must be reported separately from oracle checks.
+Separately regenerate source inputs with std::mt19937_64 compiled using GCC and Clang, and use Python multiple-precision divmod to certify every result. Exact bytewise Git blob identities: B55 short (216 visits, 178,716 bytes) `929963b14605a7a0eaa3f78aeacb8b398e615858`; medium (144 visits, 221,212 bytes) `3d8e5a3070ff80af9b01cd59a8b0a01a4da53882`; large (72 visits, 239,017 bytes) `7837342521a24a6cb672dbd364b37f0f4f44ab70`. Total: 133 versioned TSV fixtures and 32 existing generator executables; B112–B120 cumulative migrated test visits: 25,576. No production code changes. Full consumer CI and opt-in `verify-data` must be reported separately from oracle checks.
 
-### A10 — B27 fused division oracle migration (25 October 2026)
+### B121 — B27 fused division oracle migration (25 October 2026)
 
 
 Migrate both original fixed adversarial quotient-correction cases and all 2,048 original mt19937_64(0xB27071) randomized visits, preserving the original conditional RNG draws and ordered 13/19/23/29 transforms. The source-keyed consumer separately compares divrem, quot and rem against independent exact quotient and remainder, checks source immutability, scratch sizing and remainder bounds, and detects missing or extra records.
 
-Reproduction through independently ported mt19937_64 and Python bigint division yields the committed blobs: first (1,026 rows, 847,088 bytes) `a4a2aa7f948a8bd9a673700f48bcd5efbb5ed101`; second (1,024 rows, 844,784 bytes) `18448ac0544c03bddb54c22488f507dd6778ffb2`. 135 fixtures, 32 standalone executables, 27,626 cumulatively migrated A1-A10 visits. Production code remains untouched. Consumer CI and optional verify-data are separate checks.
+Reproduction through independently ported mt19937_64 and Python bigint division yields the committed blobs: first (1,026 rows, 847,088 bytes) `a4a2aa7f948a8bd9a673700f48bcd5efbb5ed101`; second (1,024 rows, 844,784 bytes) `18448ac0544c03bddb54c22488f507dd6778ffb2`. 135 fixtures, 32 standalone executables, 27,626 cumulatively migrated B112-B121 visits. Production code remains untouched. Consumer CI and optional verify-data are separate checks.
 
 
-## Independent GMP-oracle retirement — archived A11–A34 record (25–26 October 2026)
+## Independent GMP-oracle retirement — archived B122–B145 record (25–26 October 2026)
 
 The following inventory, milestone descriptions and validation outcomes were
 preserved from the former standalone GMP oracle migration journal before its
@@ -1285,18 +1285,18 @@ measurements are preserved.
 
 > **Current design perspective — October 2026.** This journal treats each native arithmetic component as an autonomous implementation. Progress is measured by exact, independently generated oracles, cross-platform regression tests, absolute operation latency, and speedups between revisions of the *same* algorithm. Historical cross-backend performance ratios and retired adapter details are omitted; mathematical proofs and native implementation decisions are retained.
 
-Baseline: `main` at `60306926d7093bcf8ebee0867ec5ffe2600401c9` (A10), 25 October 2026.
+Baseline: `main` at `60306926d7093bcf8ebee0867ec5ffe2600401c9` (B121), 25 October 2026.
 
 ### Scope and counting
 
 Count **one test visit** per original input/mode combination whose expected
 numeric output is supplied by GMP, regardless of the number of assertions.
 Exclude GMP interoperability tests (`test_gmp_bridge()`), code/branch
-coverage and migrations preceding A1. This inventory applies only to
+coverage and migrations preceding B112. This inventory applies only to
 `tests/test_big_unsigned.cpp`. The denominator remains **76,323** for
 progress reporting, barring a documented correction to the audit.
 
-### Current state — A34
+### Current state — B145
 
 | Method | Migrated | Remaining |
 | --- | ---: | ---: |
@@ -1312,7 +1312,7 @@ progress reporting, barring a documented correction to the audit.
 | **Total** | **76,323** | **0** |
 
 Progress: **76,323 / 76,323 = 100.000%**.
-A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
+B121 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 ### Remaining inventory
 
@@ -1321,33 +1321,33 @@ A10 baseline was 27,626 migrated and 48,697 remaining (36.196%).
 
 | Phase | Newly migrated | Cumulative migrated |
 | --- | ---: | ---: |
-| A1–A10 | 27,626 | 27,626 |
-| A11 — multiprecision B48 | 336 | 27,962 |
-| A12 — randomized arithmetic, first segment | 1,250 | 29,212 |
-| A13 — randomized arithmetic, second segment | 1,250 | 30,462 |
-| A14 — randomized arithmetic, third segment | 1,250 | 31,712 |
-| A15 — randomized arithmetic, fourth segment | 1,250 | 32,962 |
-| A16 — randomized arithmetic, fifth segment | 1,250 | 34,212 |
-| A17 — randomized arithmetic, sixth segment | 1,250 | 35,462 |
-| A18 — randomized arithmetic, seventh segment | 1,250 | 36,712 |
-| A19 — randomized arithmetic, final segment | 1,250 | 37,962 |
-| A20 — randomized decimal parsing | 1,800 | 39,762 |
-| A21 — structured decimal parsing | 484 | 40,246 |
-| A22 — decimal formatting | 1,509 | 41,755 |
-| A23 — scratch-buffer arithmetic | 5,000 | 46,755 |
-| A24 — R38 shifted add/sub | 6,600 | 53,355 |
-| A25 — B52 multiply-kernel | 288 | 53,643 |
-| A26 — B53 sparse-row multiply | 2,304 | 55,947 |
-| A27 — general multiply kernels | 6,000 | 61,947 |
-| A28 — B8 + fixed Karatsuba | 2,840 | 64,787 |
-| A29 — general division | 6,000 | 70,787 |
-| A30 — B28 equal-high division | 2,048 | 72,835 |
-| A31 — B36 high-ratio division | 1,280 | 74,115 |
-| A32 — B29 sparse division | 1,024 | 75,139 |
-| A33 — B45 zero-low/decimal division | 544 | 75,683 |
-| A34 — divisor normalization | 640 | 76,323 |
+| B112–B121 | 27,626 | 27,626 |
+| B122 — multiprecision B48 | 336 | 27,962 |
+| B123 — randomized arithmetic, first segment | 1,250 | 29,212 |
+| B124 — randomized arithmetic, second segment | 1,250 | 30,462 |
+| B125 — randomized arithmetic, third segment | 1,250 | 31,712 |
+| B126 — randomized arithmetic, fourth segment | 1,250 | 32,962 |
+| B127 — randomized arithmetic, fifth segment | 1,250 | 34,212 |
+| B128 — randomized arithmetic, sixth segment | 1,250 | 35,462 |
+| B129 — randomized arithmetic, seventh segment | 1,250 | 36,712 |
+| B130 — randomized arithmetic, final segment | 1,250 | 37,962 |
+| B131 — randomized decimal parsing | 1,800 | 39,762 |
+| B132 — structured decimal parsing | 484 | 40,246 |
+| B133 — decimal formatting | 1,509 | 41,755 |
+| B134 — scratch-buffer arithmetic | 5,000 | 46,755 |
+| B135 — Y38 shifted add/sub | 6,600 | 53,355 |
+| B136 — B52 multiply-kernel | 288 | 53,643 |
+| B137 — B53 sparse-row multiply | 2,304 | 55,947 |
+| B138 — general multiply kernels | 6,000 | 61,947 |
+| B139 — B8 + fixed Karatsuba | 2,840 | 64,787 |
+| B140 — general division | 6,000 | 70,787 |
+| B141 — B28 equal-high division | 2,048 | 72,835 |
+| B142 — B36 high-ratio division | 1,280 | 74,115 |
+| B143 — B29 sparse division | 1,024 | 75,139 |
+| B144 — B45 zero-low/decimal division | 544 | 75,683 |
+| B145 — divisor normalization | 640 | 76,323 |
 
-A11 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
+B122 maintains the eight dividend widths, fourteen divisors, three original modes, all PRNG draws,
 and separately validates exact `divrem`, `quot` and `rem` outputs and original scratch size
 invariants against a new independent source-keyed fixture.
 `tests/data/generator_big_unsigned_power_div.cpp` regenerates `big_unsigned_b48_multiprecision.tsv`
@@ -1362,10 +1362,10 @@ method-level remaining cases, and observed CI status separately from
 fixture checks. Do not count multiple assertions on a single input as
 multiple visits or infer `verify-data` success from ordinary CI.
 
-### A12 implementation
+### B123 implementation
 
-A12 replaces GMP only for the first 1,250 seeded visits of
-`test_randomized()`, using `big_unsigned_a12_randomized_first.tsv`.
+B123 replaces GMP only for the first 1,250 seeded visits of
+`test_randomized()`, using `big_unsigned_b123_randomized_first.tsv`.
 The remaining 8,750 cases deliberately retain GMP. All 10,000 visits
 continue to use the same single MT19937_64 engine and consume the same
 shift draw each time; comparison, addition, conditional subtraction,
@@ -1376,14 +1376,14 @@ random-input witness plus Python multiple-precision arithmetic.
 The fixture is 1,202,560 bytes, Git blob
 `487f06f3921d72d2de9caee06bf9c23957ee6012`.
 
-### A13 — randomized arithmetic, second 1,250 visits (25 October 2026)
+### B124 — randomized arithmetic, second 1,250 visits (25 October 2026)
 
 Migrate visits 1,250–2,499 of `test_randomized()` using the second
-source-keyed fixture `tests/data/big_unsigned_a13_randomized_second.tsv`.
+source-keyed fixture `tests/data/big_unsigned_b124_randomized_second.tsv`.
 The entire original mt19937_64(0xBA17B00D) draw stream and original
 n/m input selections, saturated/zero transformations, comparison,
 addition, conditional subtraction, and left/right shifts are retained.
-Both A12 and A13 are read sequentially from their own exact TSV; the
+Both B123 and B124 are read sequentially from their own exact TSV; the
 same C++20 random engine in the consumer serves all 10,000 visits.
 The independent generator replays the first 1,250 full visits before
 emitting the next 1,250, with GMP retained for visits 2,500–9,999.
@@ -1396,7 +1396,7 @@ blob SHA `ae3a7c98ef3ac9dedea8e44d5a2d410daccb342e`
 No production code or prior fixture was changed. Generator-wide
 `verify-data` is not implied by normal CI.
 
-### A14 — randomized visits 2,500–3,749 (25 October 2026)
+### B125 — randomized visits 2,500–3,749 (25 October 2026)
 
 Migrate 1,250 additional visits using an exact source-keyed TSV,
 retaining the single original random engine, comparison/addition,
@@ -1407,95 +1407,95 @@ arithmetic. The independently computed fixture has 1,250 records,
 1,191,197 bytes and Git blob
 `bdb0b5f9235005b2bc31d18a7e3b21c2af474abe`.
 
-### A15 — randomized visits 3,750–4,999 (25 October 2026)
+### B126 — randomized visits 3,750–4,999 (25 October 2026)
 
 Migrate 1,250 additional visits with
-`big_unsigned_a15_randomized_fourth.tsv`. The consumer still executes the
+`big_unsigned_b126_randomized_fourth.tsv`. The consumer still executes the
 single original `mt19937_64(0xBA17B00D)` stream for all 10,000 visits and
 retains comparison, addition, conditional subtraction and both shifts.
 GMP remains the numerical oracle only for visits 5,000–9,999.
 
-The standalone C++20 generator replays visits 0–3,749 before emitting A15.
+The standalone C++20 generator replays visits 0–3,749 before emitting B126.
 A separate Python multiple-precision implementation reproduces the complete
-A14 fixture exactly, including Git blob
+B125 fixture exactly, including Git blob
 `bdb0b5f9235005b2bc31d18a7e3b21c2af474abe`, then independently computes
-A15. The A15 fixture has 1,250 records, 1,216,271 bytes and Git blob
+B126. The B126 fixture has 1,250 records, 1,216,271 bytes and Git blob
 `e23f97770356c28d0b76aef3c7d9d5c7dee8a0c5`. No production code or prior
 fixture is changed. Generator-wide `verify-data` is not implied by normal CI.
 
-### A16 — randomized visits 5,000–6,249 (25 October 2026)
+### B127 — randomized visits 5,000–6,249 (25 October 2026)
 
 Migrate 1,250 additional visits using
-`big_unsigned_a16_randomized_fifth.tsv`. The consumer retains the original
+`big_unsigned_b127_randomized_fifth.tsv`. The consumer retains the original
 single `mt19937_64(0xBA17B00D)` engine across all 10,000 visits, including
 all operand draws, conditional full-array transformations and the shift draw.
 Comparison, addition, conditional subtraction and both shifts continue to be
 checked against exact external expectations. GMP remains the numerical oracle
 for visits 6,250–9,999.
 
-The standalone C++20 generator replays visits 0–4,999 before emitting A16.
-A separate multiple-precision implementation reproduces A15 exactly, including
+The standalone C++20 generator replays visits 0–4,999 before emitting B127.
+A separate multiple-precision implementation reproduces B126 exactly, including
 Git blob `e23f97770356c28d0b76aef3c7d9d5c7dee8a0c5`, before independently
-computing A16. The A16 fixture contains 1,250 records, 1,204,292
+computing B127. The B127 fixture contains 1,250 records, 1,204,292
 bytes and Git blob `bbb0fc03a3dae88154205334fafdff5fb04f9619`. No production code or previous fixture
 is changed. Generator-wide `verify-data` remains a separate check from CI.
 
-### A17 — randomized visits 6,250–7,499 (25 October 2026)
+### B128 — randomized visits 6,250–7,499 (25 October 2026)
 
 Migrate 1,250 additional visits using
-`big_unsigned_a17_randomized_sixth.tsv`. The consumer preserves the original
+`big_unsigned_b128_randomized_sixth.tsv`. The consumer preserves the original
 single `mt19937_64(0xBA17B00D)` engine across all 10,000 visits, including
 the complete operand draw stream, conditional full-array transformations and
 shift draw. Comparison, addition, conditional subtraction and both shifts are
 checked against exact external expectations. GMP remains the numerical oracle
 for visits 7,500–9,999.
 
-The standalone C++20 generator replays visits 0–6,249 before emitting A17.
-A separate multiple-precision implementation reproduces A16 exactly,
+The standalone C++20 generator replays visits 0–6,249 before emitting B128.
+A separate multiple-precision implementation reproduces B127 exactly,
 including Git blob `bbb0fc03a3dae88154205334fafdff5fb04f9619`, before
-independently computing A17. The A17 fixture contains 1,250 records,
+independently computing B128. The B128 fixture contains 1,250 records,
 1,224,250 bytes and Git blob `2b595bab5b7a83fc2c9a27c188d2fba204b6c30e`. No production code or prior
 fixture is changed. Generator-wide `verify-data` remains separate from CI.
 
-### A18 — randomized visits 7,500–8,749 (25 October 2026)
+### B129 — randomized visits 7,500–8,749 (25 October 2026)
 
 Migrate 1,250 additional visits using
-`big_unsigned_a18_randomized_seventh.tsv`. The consumer preserves the
+`big_unsigned_b129_randomized_seventh.tsv`. The consumer preserves the
 original single `mt19937_64(0xBA17B00D)` engine across all 10,000 visits,
 including the complete operand draw stream, conditional full-array
 transformations and shift draw. Comparison, addition, conditional subtraction
 and both shifts are checked against exact external expectations. GMP remains
 the numerical oracle for visits 8,750–9,999.
 
-The standalone C++20 generator replays visits 0–7,499 before emitting A18.
-A separate multiple-precision implementation reproduces A17 exactly,
+The standalone C++20 generator replays visits 0–7,499 before emitting B129.
+A separate multiple-precision implementation reproduces B128 exactly,
 including Git blob `2b595bab5b7a83fc2c9a27c188d2fba204b6c30e`, before
-independently computing A18. The A18 fixture contains 1,250 records,
+independently computing B129. The B129 fixture contains 1,250 records,
 1,212,953 bytes and Git blob `b1c7416dd60cc79511d545a706df56b18b70bf74`. No production code or prior
 fixture is changed. Generator-wide `verify-data` remains separate from CI.
 
-### A19 — randomized visits 8,750–9,999 (25 October 2026)
+### B130 — randomized visits 8,750–9,999 (25 October 2026)
 
 Migrate the final 1,250 `test_randomized()` visits using
-`big_unsigned_a19_randomized_eighth.tsv`. The original single
+`big_unsigned_b130_randomized_eighth.tsv`. The original single
 `mt19937_64(0xBA17B00D)` engine, operand draws, conditional full-array
 transformations and shift draws are unchanged. Comparison, addition,
 conditional subtraction and both shifts now use exact external expectations
 for all 10,000 visits; the runtime numerical GMP branch is removed from this
 method.
 
-The standalone C++20 generator replays visits 0–8,749 before emitting A19.
-A separate multiple-precision implementation reproduces A18 exactly,
+The standalone C++20 generator replays visits 0–8,749 before emitting B130.
+A separate multiple-precision implementation reproduces B129 exactly,
 including Git blob `b1c7416dd60cc79511d545a706df56b18b70bf74`, before
-independently computing A19. The A19 fixture contains 1,250 records,
+independently computing B130. The B130 fixture contains 1,250 records,
 1,202,168 bytes and Git blob `15f9d3656bf5fe77ac2b97e0ba6faee3b0883ea3`. No production code or prior
 fixture is changed. Generator-wide `verify-data` remains separate from CI.
 
-### A20 — randomized decimal parsing (25 October 2026)
+### B131 — randomized decimal parsing (25 October 2026)
 
 Migrate all 1,800 randomized decimal parsing visits in
 `test_gcd_decimal()` to the source-keyed
-`big_unsigned_a20_decimal_random.tsv` fixture. The consumer retains the
+`big_unsigned_b131_decimal_random.tsv` fixture. The consumer retains the
 single original `mt19937_64(0xB16B00B5)` engine after the complete B76
 stream, so every input length and every decimal digit is unchanged.
 Each row verifies repetition, length and the full source decimal before
@@ -1503,7 +1503,7 @@ checking the parsed value against an exact hexadecimal expectation and
 its canonical decimal representation.
 
 The standalone `generator_big_unsigned_decimal.cpp` replays the same
-2,800 B76 visits only to advance the random engine, then computes A20
+2,800 B76 visits only to advance the random engine, then computes B131
 expectations with the independent `Nat` implementation in
 `oracle_exact_integer.hpp`. It has no Numeric, GMP or Boost dependency.
 The 1,800-row fixture is 1,011,827 bytes with Git blob
@@ -1513,14 +1513,14 @@ previous fixture changes. The remaining numerical GMP oracle visits in
 `test_gcd_decimal()` are the 484 structured parsing cases and 1,509
 formatting cases.
 
-### A21 — structured decimal parsing (25 October 2026)
+### B132 — structured decimal parsing (25 October 2026)
 
 Migrate the remaining 484 structured decimal parsing visits in
-`test_gcd_decimal()` to `big_unsigned_a21_decimal_structured.tsv`.
+`test_gcd_decimal()` to `big_unsigned_b132_decimal_structured.tsv`.
 The fixture preserves every original input string in execution order:
 24 direct storage-boundary cases, 45 long B24 cases, 156 B47 cases,
 234 B50 cases and 25 exact `2^(bits-1)+offset` cases. B47/B50 randomized
-strings continue from the exact post-A20 state of the shared
+strings continue from the exact post-B131 state of the shared
 `mt19937_64(0xB16B00B5)` stream.
 
 The standalone decimal generator uses only the independent `Nat` helper
@@ -1531,10 +1531,10 @@ conversion are removed from these 484 cases. The only remaining numerical
 GMP oracle visits in `test_gcd_decimal()` are 1,509 decimal-formatting
 cases; production code and prior fixtures are unchanged.
 
-### A22 — decimal formatting (25 October 2026)
+### B133 — decimal formatting (25 October 2026)
 
 Migrate the final 1,509 numerical GMP oracle visits in
-`test_gcd_decimal()` to `big_unsigned_a22_decimal_format.tsv`.
+`test_gcd_decimal()` to `big_unsigned_b133_decimal_format.tsv`.
 Every row contains the canonical source magnitude in hexadecimal and an
 independently generated decimal expectation. The consumer retains the
 original random limb streams and dispatch-boundary constructions, checks
@@ -1546,10 +1546,10 @@ B59 216, B43 80, B31 119 and the final radix-power block 50, totaling
 1,509 visits. The standalone decimal generator emits a 1,404,780-byte
 fixture with Git blob `095b30979096b45222ebf019bbd5482588deb3dd`.
 A separately compiled C++20 reproduction generated the same blob.
-After A22, `test_gcd_decimal()` has no remaining numerical GMP oracle
+After B133, `test_gcd_decimal()` has no remaining numerical GMP oracle
 visits; the fixed audit therefore moves this method to 3,793/3,793 migrated.
 
-### A23 — scratch-buffer arithmetic (25 October 2026)
+### B134 — scratch-buffer arithmetic (25 October 2026)
 
 Migrate the first 5,000 visits of `test_views_and_scratch()` to five
 1,000-row source-keyed TSVs. The original `mt19937_64(0xB22B22)` stream,
@@ -1561,10 +1561,10 @@ The standalone `generator_big_unsigned_views.cpp` uses independent `Nat`
 arithmetic and shift-add multiplication with no Numeric, GMP or Boost
 dependency. A separately compiled C++20 multiprecision witness reproduced
 all five Git blobs exactly. No production code changes. The remaining
-`test_views_and_scratch()` inventory is exactly the 6,600 R38 shifted
-add/sub visits planned for A24.
+`test_views_and_scratch()` inventory is exactly the 6,600 Y38 shifted
+add/sub visits planned for B135.
 
-### A24 — R38 shifted add/sub (25 October 2026)
+### B135 — Y38 shifted add/sub (25 October 2026)
 
 Migrate the remaining 6,600 visits of `test_views_and_scratch()` to an
 independent source TSV plus ten expectation TSV segments. The 264 original
@@ -1575,15 +1575,15 @@ computed sum, comparison direction and absolute difference.
 
 The standalone views generator uses only `Nat::shl`, add/sub and source
 serialization; a separate C++20 multiprecision witness reproduced all 11
-A24 blobs exactly. No production code changes. After A24,
+B135 blobs exactly. No production code changes. After B135,
 `test_views_and_scratch()` is fully migrated at 11,600/11,600 visits, so
 the fixed audit has only `test_division()` and
 `test_multiply_kernel_paths()` remaining.
 
-### A25 — B52 multiply-kernel oracle (25 October 2026)
+### B136 — B52 multiply-kernel oracle (25 October 2026)
 
 Migrate all 288 B52 source visits in `test_multiply_kernel_paths()` to
-`big_unsigned_a25_b52.tsv`. The exact seeded source stream, structural
+`big_unsigned_b136_b52.tsv`. The exact seeded source stream, structural
 transforms, canonicalized operands, full-product checks, fused-kernel
 agreement, oversized destination guards and `full-1` low-product checks
 are preserved. Only the runtime numerical GMP oracle is replaced.
@@ -1596,7 +1596,7 @@ fixture changes. Remaining `test_multiply_kernel_paths()` inventory is
 2,304 B53 visits, 6,000 general-kernel visits, 2,800 B8 cutoff visits and
 40 fixed Karatsuba cutoff visits, for 11,144 total.
 
-### A26 — B53 sparse-row multiply oracle (25 October 2026)
+### B137 — B53 sparse-row multiply oracle (25 October 2026)
 
 Migrate all 2,304 B53 truncation visits to a 384-row source-keyed fixture,
 with six expected low products per original source pair. Preserve all 16
@@ -1604,12 +1604,12 @@ width pairs, 24 modes, exact seeded draws, zero-row density transforms,
 selected/fused/x86 carry agreement and original truncation lengths.
 
 The standalone multiplication generator uses independent shift/add arithmetic;
-`big_unsigned_a26_b53.tsv` is 2,112,618 bytes with Git blob
+`big_unsigned_b137_b53.tsv` is 2,112,618 bytes with Git blob
 `a22d13dc7e098789870a45cd38625a0f00078ebd`. No production changes.
 Remaining `test_multiply_kernel_paths()` inventory is 6,000 general-kernel
 visits, 2,800 B8 cutoff visits and 40 fixed Karatsuba visits = 8,840.
 
-### A27 — general multiply kernels (25 October 2026)
+### B138 — general multiply kernels (25 October 2026)
 
 Migrate all 6,000 original general multiply-kernel visits to six sequential
 1,000-row source-keyed TSVs. Preserve the single `mt19937_64(0xB3B3B3)`
@@ -1623,7 +1623,7 @@ independent shift/add `Nat` arithmetic. No production code changes.
 Remaining `test_multiply_kernel_paths()` inventory is 2,800 B8 cutoff
 visits and 40 fixed Karatsuba cutoff visits = 2,840.
 
-### A28 — B8 and fixed Karatsuba oracle (25 October 2026)
+### B139 — B8 and fixed Karatsuba oracle (25 October 2026)
 
 Migrate the final 2,840 visits of `test_multiply_kernel_paths()` using two
 source-keyed exact fixtures. B8 contributes 700 original sources x four
@@ -1635,11 +1635,11 @@ The standalone multiplication generator computes products with independent
 shift/add arithmetic. The B8 fixture blob is
 `16848b2efecd3cdc5535e03e0e4694df1890e09f`; the fixed fixture blob is
 `51233e8a709ad097bfd1435c0a9171fdef7dcdb6`. No production changes.
-After A28, `test_multiply_kernel_paths()` is 11,432/11,432 migrated and the
+After B139, `test_multiply_kernel_paths()` is 11,432/11,432 migrated and the
 only remaining audited numerical GMP-oracle method is `test_division()`
 with 11,536 visits.
 
-### A29 — general division oracle (25 October 2026)
+### B140 — general division oracle (25 October 2026)
 
 Migrate all 6,000 general randomized division visits to six sequential
 source-keyed TSVs while preserving the exact `mt19937_64(0xB15D1A1D)`
@@ -1653,7 +1653,7 @@ runtime dependency. No production code changes. Remaining audited numerical
 GMP-oracle visits: B28 2,048, B36 1,280, B29 1,024, B45 544 and normalization
 640 = 5,536 total.
 
-### A30 — B28 equal-high division (25 October 2026)
+### B141 — B28 equal-high division (25 October 2026)
 
 Migrate all 2,048 B28 equal-high-limb visits to two exact source-keyed TSVs.
 The original seeded stream, equality/borrow source transforms, joint and
@@ -1666,7 +1666,7 @@ using independent long division. No production code changes. Remaining
 numerical GMP-oracle inventory is B36 1,280, B29 1,024, B45 544 and
 normalization 640 = 3,488 visits.
 
-### A31 — B36 high-ratio division (25 October 2026)
+### B142 — B36 high-ratio division (25 October 2026)
 
 Migrate all 1,280 B36 visits to exact source-keyed TSVs while preserving all
 widths, seeded draws and quotient-ratio classes. The consumer still executes
@@ -1676,7 +1676,7 @@ only the numerical expected values move off GMP.
 No production changes. Remaining audited numerical GMP-oracle visits are
 B29 1,024, B45 544 and normalization 640 = 2,208 total.
 
-### A32 — B29 sparse division (25 October 2026)
+### B143 — B29 sparse division (25 October 2026)
 
 Migrate all 1,024 B29 visits to exact source-keyed TSVs while preserving the
 conditional random draw schedule and sparse/dense divisor shapes. The test
@@ -1686,7 +1686,7 @@ only the numerical GMP oracle is removed.
 No production changes. Remaining audited numerical GMP-oracle visits are
 B45 shifted 504, B45 decimal 40, and normalization 640 = 1,184 total.
 
-### A33 — B45 zero-low/decimal division (25 October 2026)
+### B144 — B45 zero-low/decimal division (25 October 2026)
 
 Migrate all 544 B45 numerical GMP-oracle visits: 504 zero-low-limb shifted
 divisor cases plus 40 decimal-power divisor cases. The original seeded
@@ -1695,11 +1695,11 @@ divisor cases plus 40 decimal-power divisor cases. The original seeded
 The source-keyed fixture records numerator, denominator, quotient and remainder.
 
 The standalone remaining-division generator emits
-`big_unsigned_a33_b45.tsv` without Numeric/GMP/Boost. No production code
+`big_unsigned_b144_b45.tsv` without Numeric/GMP/Boost. No production code
 changes. Remaining audited numerical GMP-oracle visits: the 640 divisor
 normalization cases only.
 
-### A34 — divisor normalization (25 October 2026)
+### B145 — divisor normalization (25 October 2026)
 
 Migrate the final 640 audited numerical GMP-oracle visits in
 `test_division()`: all 64 divisor-normalization shifts crossed with the ten
@@ -1709,7 +1709,7 @@ quotient and remainder, `quot`/`rem` agreement, remainder bounds and the
 native Euclidean identity.
 
 The standalone remaining-division generator emits
-`big_unsigned_a34_normalization.tsv` without Numeric/GMP/Boost. No production
+`big_unsigned_b145_normalization.tsv` without Numeric/GMP/Boost. No production
 code changes. This completes the fixed BigUnsigned audit at **76,323 / 76,323
 = 100.000%** migrated numerical GMP-oracle visits. GMP interoperability tests
 remain outside this denominator by definition.

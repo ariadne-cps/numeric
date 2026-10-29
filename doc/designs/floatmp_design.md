@@ -5,7 +5,7 @@
 This is the living design and implementation journal for the native `FloatMP`
 backend. Keep this document synchronized with every **FloatMP** change.
 For `FloatDP` architecture, the independent certified binary64 kernel,
-F1–F6 optimizations and their benchmark results, see the separate
+D1–D6 optimizations and their benchmark results, see the separate
 [`floatdp_design.md`](floatdp_design.md).
 The shared unsigned-limb arithmetic development is tracked on `remove-gmp`; see
 [`big_unsigned_design.md`](big_unsigned_design.md) for the shared unsigned limb core,
@@ -3869,7 +3869,7 @@ an independent corpus.
 
 **Proposed optimization sequence (NOT implemented here).**
 
-1. **P0 — remove trivial comparison overhead.** In
+1. **M0 — remove trivial comparison overhead.** In
    `cmp(FloatMP,FloatMP)` the input significands are
    normalized to exactly their declared bit precision.
    After special values, signed zeros and signs have been
@@ -3886,7 +3886,7 @@ an independent corpus.
    not an important total-time fix. It makes less
    reliance on GMP, rather than more.
 
-2. **P1 — remove exact-square threshold construction in sqrt.** For
+2. **M1 — remove exact-square threshold construction in sqrt.** For
 `mpz_sqrtrem(root,remainder,scaled)`, write `scaled=root^2+remainder` with integer
 `0<=remainder<=2*root`. In nearest-even mode, the existing condition `4*scaled > (2*root+1)^2` is
 exactly equivalent to `remainder > root` because the remainder and root are integers and equality at
@@ -3898,7 +3898,7 @@ squares, small/large exponents and carry. The four-limb scratch allocation and t
 itself still need profiling. Present sqrt ratios: 2.828x@53, 1.948x@128, 2.039x@256 and 1.738x@1024.
 This is a simple, generic speed opportunity before considering a replacement integer-root algorithm.
 
-3. **P2 — division on one/two machine limbs.** The
+3. **M2 — division on one/two machine limbs.** The
    `FloatMP::from_ratio` non-unit path is still
    generic GMP: four initialized scratch integers,
    normalization shifts, `mpz_tdiv_qr`, remainder
@@ -3918,7 +3918,7 @@ This is a simple, generic speed opportunity before considering a replacement int
    limb API to outlive GMP. Avoid another GMP-only
    micro-optimization as the primary architectural fix.
 
-4. **P3 — shared small-limb storage for add/sub/FMA and
+4. **M3 — shared small-limb storage for add/sub/FMA and
    construction.** At 128 bits, add nearest/down/up are
    2.209x/2.321x/2.475x, sub 2.239x, FMA 2.106x;
    at 256 bits FMA is 2.004x. `add_sub` still creates
@@ -3936,7 +3936,7 @@ This is a simple, generic speed opportunity before considering a replacement int
    signed zero, huge exponent gaps and FMA semantics.
    An eventual full GMP removal should reuse this work.
 
-5. **P4 — reduce rational/interval overhead in the
+5. **M4 — reduce rational/interval overhead in the
    certified transcendental hot paths.** The 32 inputs
    in `benchmark_backend_workload.hpp` are specifically
    near 1/2 (operand a) and 1/3 (operand b), with
@@ -3983,11 +3983,11 @@ Unix, Windows and Coverage workflow runs
 A passing Coverage workflow does not itself
 certify the separate Codecov patch-coverage status.
 This section is a **design/analysis-only** journal
-addition: none of P0-P4 is merged, no source
+addition: none of M0-M4 is merged, no source
 regressions are altered, and no new CI or
 benchmark speedups are claimed for proposed changes.
 
-## P0 implemented: normalized equal-precision comparison (17 October 2026)
+## M0 implemented: normalized equal-precision comparison (17 October 2026)
 
 The implementation of `cmp(FloatMP,FloatMP)` now returns immediately
 when both finite nonzero operands have matching precision but distinct
@@ -4009,7 +4009,7 @@ a complete CI run and same-host benchmark must be checked before
 claiming correctness on Unix/Windows or any measured speedup.
 The 21:31 benchmark above remains the last measured baseline.
 
-## P1 implemented: sqrt remainder-based nearest rounding (17 October 2026)
+## M1 implemented: sqrt remainder-based nearest rounding (17 October 2026)
 
 For the exact integer square root `mpz_sqrtrem(root,remainder,scaled)`
 with `scaled=root*root+remainder`, the old nearest-rounding
@@ -4030,77 +4030,77 @@ in nearest-even, downward, upward and toward-zero modes. Inputs include exact sq
 low-scale fractions, both sides of 1 and 4 and large positive/negative exponent shifts. The
 reference evaluates the exact same rounded FloatMP input.
 
-**Validation state at authoring:** code and regression added as an independent P1 commit after the
-P0 commit. Unix/Windows/Coverage status must be checked and a new unloaded same-host 1000x11
+**Validation state at authoring:** code and regression added as an independent M1 commit after the
+M0 commit. Unix/Windows/Coverage status must be checked and a new unloaded same-host 1000x11
 measurement performed before attributing any speedup. The original 21:31 benchmark is still the
 performance baseline. No or GMP dependency has been added; the long-term independent-limb design
-remains the intended route for P2/P3.
+remains the intended route for M2/M3.
 
-## P0/P1 benchmark evaluation and independent P1 re-run (17 October 2026)
+## M0/M1 benchmark evaluation and independent M1 re-run (17 October 2026)
 
 **Measured reports and identification:** The original `Markdown incollato(20261017-213109).md`
-precedes P0. `Markdown incollato(20261017-214146).md` is the first full 1000-iteration, 11-sample
-report after P0 commit `d9e9b348`. `Markdown incollato (2).md` is the initial analogous report after
-P1 commit `bb38b4b1`. The independent repeat after P1 is `Markdown incollato(20261017-214445).md`.
+precedes M0. `Markdown incollato(20261017-214146).md` is the first full 1000-iteration, 11-sample
+report after M0 commit `d9e9b348`. `Markdown incollato (2).md` is the initial analogous report after
+M1 commit `bb38b4b1`. The independent repeat after M1 is `Markdown incollato(20261017-214445).md`.
 These are user-supplied, not benchmarks run by this journal change. Do not change the workload to
 target particular ratios.
 
-| Bits | Metric | Before P0 | After P0 | First P1 | Repeat P1 |
+| Bits | Metric | Before M0 | After M0 | First M1 | Repeat M1 |
 | --- | --- | ---: | ---: | ---: | ---: |
 
 The MP/MP ratios >=2x per precision are, in this
 same run order:
 53: 3/3/4/3; 128: 10/9/10/8;
 256: 6/4/6/3; 1024: 1/0/0/1;
-ALL: 20/16/20/15. The second P1 run therefore has
+ALL: 20/16/20/15. The second M1 run therefore has
 15 of 108 pairs >=2x, but the stable <2x target is
 not achieved. In particular, the 1024-bit worst
 moves from just under to just over 2x, showing why
 a small-margin pass should not be treated as robust.
 
-**P0 and P1 intended kernels have independently clear latency improvement, unlike aggregate
-variation.** FloatMP `compare` before P0 -> first P0, in ns: 53 4.958->2.750; 128 5.083->2.792; 256
-5.333->2.750; 1024 5.083->2.959, decreases of 41.8-48.4%. These gains persist after P1: in the
-repeated P1 run, compare takes 2.750, 2.792, 2.750, 2.750 ns respectively. The FloatMP
-`sqrt_nearest` latency after P0 -> first P1 -> repeated P1, ns: 53 138.959->100.167->97.833, 128
-203.083->133.292->127.125, 256 244.292->165.000->161.917, 1024 514.708->362.750->334.250. The P1
+**M0 and M1 intended kernels have independently clear latency improvement, unlike aggregate
+variation.** FloatMP `compare` before M0 -> first M0, in ns: 53 4.958->2.750; 128 5.083->2.792; 256
+5.333->2.750; 1024 5.083->2.959, decreases of 41.8-48.4%. These gains persist after M1: in the
+repeated M1 run, compare takes 2.750, 2.792, 2.750, 2.750 ns respectively. The FloatMP
+`sqrt_nearest` latency after M0 -> first M1 -> repeated M1, ns: 53 138.959->100.167->97.833, 128
+203.083->133.292->127.125, 256 244.292->165.000->161.917, 1024 514.708->362.750->334.250. The M1
 repeat ratios for sqrt are 53 1.995x, 128 1.343x, 256 1.438x, 1024 1.210x. Preserve both
 observations.
 
 **The suspicious 128-bit `log`/`sin` slowdown is
 not reproduced.** Their FloatMP medians (ns):
 
-| Operation @128 | After P0 | First P1 | Repeat P1 |
+| Operation @128 | After M0 | First M1 | Repeat M1 |
 | --- | ---: | ---: | ---: |
 | log_nearest | 1430.042 | 3205.166 | 1439.041 |
 | sin_nearest | 1259.709 | 1831.708 | 1236.875 |
 
-The initial P1 run had a 2389.334 ns rise in the sum of all 27 FloatMP @128 medians; log (+1775.124
-ns) and sin (+571.999 ns) explained 98.2% of it despite neither kernel being changed by P1. The
-repeat puts the FloatMP sum back near the post-P0 baseline: P0 14068.414 ns; first P1 16457.748 ns;
-repeat P1 14084.247 ns. Thus the 128-bit aggregate 1.301x to 1.138x recovery has a concrete
+The initial M1 run had a 2389.334 ns rise in the sum of all 27 FloatMP @128 medians; log (+1775.124
+ns) and sin (+571.999 ns) explained 98.2% of it despite neither kernel being changed by M1. The
+repeat puts the FloatMP sum back near the post-M0 baseline: M0 14068.414 ns; first M1 16457.748 ns;
+repeat M1 14084.247 ns. Thus the 128-bit aggregate 1.301x to 1.138x recovery has a concrete
 explanation in non-reproduced log/sin outliers. It does not identify their root cause; CPU load,
 clock and cache effects, or measurement noise remain unverified hypotheses. Never attribute this
-difference automatically to P1.
+difference automatically to M1.
 
-**Additional single-run comparator anomaly @53.** The P1 repeat global worst is `div_nearest`@53 =
+**Additional single-run comparator anomaly @53.** The M1 repeat global worst is `div_nearest`@53 =
 108.792 / 32.542 = 3.343x. FloatMP division, by contrast, was 109.875, 109.875, 97.709 and 108.792
 ns across the four runs. This mismatch may be measurement noise or benchmark effects, NOT proven
 speed regression.
 
-**Verified CI status.** Both implementation commits passed Unix, Windows and Coverage: P0
-`d9e9b348`: Unix 39071901197, Windows 39071901178, Coverage 39071901183; P1 `bb38b4b1`: Unix
+**Verified CI status.** Both implementation commits passed Unix, Windows and Coverage: M0
+`d9e9b348`: Unix 39071901197, Windows 39071901178, Coverage 39071901183; M1 `bb38b4b1`: Unix
 39071981314, Windows 39071981324, Coverage 39071981337. The separate Codecov patch status has not
 been verified here.
 
-**Decision:** Keep P0 and P1. Neither of the anomalous 128-bit log/sin results reappeared, and the
+**Decision:** Keep M0 and M1. Neither of the anomalous 128-bit log/sin results reappeared, and the
 target operation latencies improve. Do not alter or roll back correctly rounded source code to chase
-unisolated benchmark variance. P2 (portable, GMP-independent interface for small-limb division and
+unisolated benchmark variance. M2 (portable, GMP-independent interface for small-limb division and
 exact quotient/remainder) is still the next important architectural optimization, especially for 128
-and 256 bits. P4 (dyadic fixed-point certification to reduce rational allocations) remains important
+and 256 bits. M4 (dyadic fixed-point certification to reduce rational allocations) remains important
 for the 53-bit time-total objective.
 
-## P2 phase 1: portable small-limb exact division at <=64 bits (17 October 2026)
+## M2 phase 1: portable small-limb exact division at <=64 bits (17 October 2026)
 
 **Implementation.** New internal `src/floatmp_small_division.hpp` defines fixed-capacity unsigned
 integers in 32-bit little-endian limbs. It provides bit length, compare, shifts, increment and a
@@ -4144,10 +4144,10 @@ roundings at 7/24/53/113/128 bits, across all four rounding modes, including var
 ratios. These exercise the shared pure header and integration-equivalent normalization/rounding
 algorithm. Previous tests remain intact.
 
-**Release/performance gate:** This is a P2 *partial* implementation, not completion of 128/256-bit
+**Release/performance gate:** This is a M2 *partial* implementation, not completion of 128/256-bit
 division specialization. Require Unix/Windows/Coverage success (including compiler warning-as-error
 checks) and a same-host unloaded 1000x11 user report before claiming a FloatMP timing benefit. The
-future P2 wide-limb kernel should remain GMP-independent and must *earn* its 128-bit dispatch with
+future M2 wide-limb kernel should remain GMP-independent and must *earn* its 128-bit dispatch with
 isolated measurements, not optimistic extrapolation.
 
 ## Correctness audit of the performance comparison (17 October 2026)
@@ -4157,7 +4157,7 @@ isolated measurements, not optimistic extrapolation.
 FloatMP at nominal precision 53/128/256/1024 bits. The `report` lambda only calls `median_ns`; each
 operation's return value is kept alive but never numerically compared with the other backend.
 `benchmark_compare_multiple_precision_backends.cpp` pairs only the **timing** records. Consequently
-all previous speed ratios, including the 21:44 P1 repeat, are **timing-only evidence**, NOT
+all previous speed ratios, including the 21:44 M1 repeat, are **timing-only evidence**, NOT
 confirmation that every benchmark operation computes the same correctly rounded numerical value. Nor
 do they prove that the nominal target precision is achieved on all inputs.
 
@@ -4198,7 +4198,7 @@ This numerical preflight is REQUIRED before treating
 <1x or <2x performance objectives as meaningful
 correct-rounding comparisons.
 
-**Independent CI blocker on P2.** As checked after commit
+**Independent CI blocker on M2.** As checked after commit
 `4e23c5db`, Unix run 39072784107 (GCC/Clang/macOS
 and sanitizer jobs), Windows run 39072784090, and
 Coverage run 39072784093 all have conclusion FAILURE,
@@ -4206,17 +4206,17 @@ with the named Build step failing. The GitHub connector
 does not expose the detailed build diagnostic through
 its allowed job-log endpoints, so the exact compiler
 error is NOT known. Do not guess a root cause or claim
-P2 functional correctness, portability or speedup.
+M2 functional correctness, portability or speedup.
 Resolve the actual compiler diagnostics first, rerun
 Unix/Windows/Coverage and separately review Codecov
-patch coverage. P0/P1 precede this failed P2 commit
+patch coverage. M0/M1 precede this failed M2 commit
 and were green. The validator design above is not yet
 implemented: this journal change makes no new source,
 test or benchmark performance claims.
 
-## P2 compile repair: countl_zero signedness (17 October 2026)
+## M2 compile repair: countl_zero signedness (17 October 2026)
 
-The user supplied the actual macOS AppleClang -Werror diagnostic from P2:
+The user supplied the actual macOS AppleClang -Werror diagnostic from M2:
 `std::countl_zero(uint32_t)` returns `int`, producing two
 `-Wsign-conversion` failures in `src/floatmp_small_division.hpp`:
 `bit_length` and the division normalizing shift. Explicit, range-safe
@@ -4260,7 +4260,7 @@ constructor explicitly supports dynamic precision counts. Construct
 No expected mantissa, rounding offset, case or comparison changes.
 Full CI pass must be confirmed before calling the test valid.
 
-## P2 compiler portability follow-up: GMP signed limb indices (17 October 2026)
+## M2 compiler portability follow-up: GMP signed limb indices (17 October 2026)
 
 GCC 13 with `-Wsign-conversion -Werror` reported that
 `mpz_getlimbn(input,i/2u)` passes `std::size_t` to the signed
@@ -4274,21 +4274,21 @@ correctness oracle, expected literal or timed workload is changed.
 This is a diagnostic-specific source fix: verify that the post-fix
 Unix/Windows/Coverage CI passes before claiming portability.
 
-## P2 Windows compiler repair: shadowed Ariadne rounding name (17 October 2026)
+## M2 Windows compiler repair: shadowed Ariadne rounding name (17 October 2026)
 
 MSVC 14.51 with `/W4 /WX` reported C4459 in `src/floatmp.cpp`: the `small_rounded_ratio` output argument `rounded` shadows the existing namespace-level `Ariadne::rounded` declaration (`include/numeric/rounding.hpp`). The output parameter has been renamed to `rounded_significand`, including its assignment, without touching calling syntax, algorithm, expected results, or the fallback. This is a source-level diagnostic correction, **not evidence that Windows or the full CI is green** until the next workflow completes.
 
-## P2 first full green CI and new-host 1000x11 performance (17 October 2026, 22:14)
+## M2 first full green CI and new-host 1000x11 performance (17 October 2026, 22:14)
 
 **Source and validity.** The user-provided
 `Markdown incollato(20261017-221453).md` is the first
-1000-iteration, 11-sample report after the P2 small-limb division
+1000-iteration, 11-sample report after the M2 small-limb division
 change (`4e23c5db`) and the subsequent compiler/portability fixes,
 with final implementation HEAD `272b6f59`. Its timing measurements
 are from the user's benchmark host, not an execution here.
-The immediately preceding baseline is the *repeated P1* report
+The immediately preceding baseline is the *repeated M1* report
 `Markdown incollato(20261017-214445).md`, with HEAD `bb38b4b1`
-(no P2 fast path). Same four precisions, 27 workloads per precision,
+(no M2 fast path). Same four precisions, 27 workloads per precision,
 both backends and original exact-rational input generator.
 
 **Build/test gate now green:** Verified directly from GitHub Actions:
@@ -4302,7 +4302,7 @@ universal mathematical proof. Separate Codecov patch status
 is not asserted. The benchmark still compares **timings** only:
 it does not compare output values on all 32 inputs per operation.
 
-| Bits | P1 repeat geomean | P2 geomean | P1 repeat total | P2 total | P1 repeat worst | P2 worst | P2 ratios >=2x |
+| Bits | M1 repeat geomean | M2 geomean | M1 repeat total | M2 total | M1 repeat worst | M2 worst | M2 ratios >=2x |
 | --- | ---: | ---: | ---: | ---: | --- | --- | ---: |
 | 53 | 0.937x | **0.860x** | 1.462x | **1.436x** | 3.343x div_nearest | 3.714x cos | 3 |
 | 128 | 1.299x | **1.268x** | 1.138x | **1.117x** | 2.930x div_up | 2.902x div_down | 7 |
@@ -4310,7 +4310,7 @@ it does not compare output values on all 32 inputs per operation.
 | 1024 | 0.739x | **0.723x** | **0.248x** | 0.251x | 2.024x add_nearest | **1.940x add_nearest** | 0 |
 | ALL | 0.977x | **0.942x** | 0.451x | 0.454x | 3.343x div_nearest | 3.714x cos | 14 |
 
-The first post-P2 report satisfies all three constraints at
+The first post-M2 report satisfies all three constraints at
 1024 bits. At 256 bits, the geomean 0.999x has an
 approximately 0.1% margin: this is a *borderline*
 single-run pass, not yet a stable achievement. At
@@ -4318,26 +4318,26 @@ single-run pass, not yet a stable achievement. At
 at 53 bits the total is still substantially too slow.
 At 53/128/256 bits individual operations remain >=2x.
 
-**P2 intended-path timings (FloatMP, nanoseconds):**
+**M2 intended-path timings (FloatMP, nanoseconds):**
 
-| 53-bit operation | P1 repeat ns | P2 ns | Change |
+| 53-bit operation | M1 repeat ns | M2 ns | Change |
 | --- | ---: | ---: | ---: |
 | construct_rational | 157.625 | 123.667 | -21.5% |
 | div_nearest | 108.792 | 78.709 | -27.7% |
 | div_down | 74.958 | 74.750 | -0.3% |
 | div_up | 82.625 | 74.083 | -10.3% |
 
-The elapsed-time reductions in construction and nearest division are evidence of the P2 small-limb
+The elapsed-time reductions in construction and nearest division are evidence of the M2 small-limb
 dispatch helping those measured paths. It does **not** provide a consistent ~30% improvement to all
 division modes. There is no new 128/256/1024 fast-path dispatch: the changes to ratios at those
-precisions should not be assigned to P2. In particular the 128-bit division ratios after P2 remain
+precisions should not be assigned to M2. In particular the 128-bit division ratios after M2 remain
 2.794x nearest, 2.902x downward, 2.869x upward, and at 256 bits 2.185x nearest, 2.043x downward,
 2.059x upward.
 
 Hence its ratio rises 3.079x -> 3.714x largely due to the reference variation, not a comparably
 large MP slowdown. The new 53-bit `sin_nearest` is 2.011x and `atan_nearest` 2.462x. Accordingly the
 improved **relative** total ratio 1.462x -> 1.436x does not mean absolute MP total fell. The 128-bit
-log/sin outlier of the first P1 report does not recur in the new run (log 1438.625, sin 1280.458
+log/sin outlier of the first M1 report does not recur in the new run (log 1438.625, sin 1280.458
 ns). Retain raw absolute measurements and rerun near-threshold cases.
 
 Reducing these *certified transcendental* costs is essential to meeting the <1x **total** objective
@@ -4347,14 +4347,14 @@ these. Meanwhile division remains the clear short-latency worst-ratio issue at b
 bits.
 
 **Next work, contingent on the correctness gate.**
-Keep the original P2 <=64-bit fast path and
+Keep the original M2 <=64-bit fast path and
 portable GMP-free unsigned-limb kernel.
 Do not raise the 128-bit fast-path threshold:
 the earlier isolated 32-bit-limb prototype was
 not faster than GMP there. Design a better
 portable wide-limb algorithm with fallback and
 measure it before dispatching. In parallel,
-the P4 fixed-point interval/certified-rounding
+the M4 fixed-point interval/certified-rounding
 work for 53 and 128 bits is now more important
 for *total-time* acceptance than additional
 53-bit division micro-optimizations. Preserve
@@ -4365,7 +4365,7 @@ add a correctness preflight to the benchmark
 outside all timed regions. No kernel or test
 source is modified by this journal-only entry.
 
-## P4 phase 1: remove duplicate exact-rational argument materialization (18 October 2026)
+## M4 phase 1: remove duplicate exact-rational argument materialization (18 October 2026)
 
 **Change.** The shared transcendental input adapter previously performed
 `FloatMP -> Rational -> Fraction`: `FloatMP::operator Rational()`
@@ -4402,22 +4402,22 @@ the exercised cases, not correctness over every transcendental input.
 Do not claim a speedup or prematurely dispatch centered algorithms
 at lower work precision without an A/B measurement.
 
-## P4 phase 1, first same-host 1000x11 measurement (17 October 2026, 22:20)
+## M4 phase 1, first same-host 1000x11 measurement (17 October 2026, 22:20)
 
 **Source and reproducibility.** User-supplied
 `Markdown incollato(20261017-222054).md` reports
 27 operations, 53/128/256/1024 bits, 1000 iterations and
-11 median samples per backend. It follows P4 commit
+11 median samples per backend. It follows M4 commit
 `72659ca7` (one exact FloatMP-to-Fraction materialization,
 without intermediate Rational deep copy), and is compared
-to the immediately preceding P2 measurement
+to the immediately preceding M2 measurement
 `Markdown incollato(20261017-221453).md`
 (implementation `272b6f59`). The report is a measured
 timing comparison, **not a check of benchmark outputs**.
 The independent literal-oracle tests are a separate
 functional correctness gate.
 
-| Bits | P2 -> P4 worst | P2 -> P4 count >=2x |
+| Bits | M2 -> M4 worst | M2 -> M4 count >=2x |
 | --- | ---: | ---: |
 | 53 | cos 3.714x -> cos 2.966x | 3 -> 2 |
 | 128 | div_down 2.902x -> div_nearest 2.907x | 7 -> 9 |
@@ -4440,7 +4440,7 @@ operation/precision comparisons in this first report):
 | asin | -5.6% | -10.0% | -4.5% | -2.9% |
 | acos | -4.0% | -6.4% | -4.3% | -4.1% |
 
-Sum of the *eight affected* FloatMP medians, P2 -> P4:
+Sum of the *eight affected* FloatMP medians, M2 -> M4:
 53: 11244.584 -> 10593.750 ns (-5.79%);
 128: 12951.665 -> 12003.666 ns (-7.32%);
 256: 13760.958 -> 13027.045 ns (-5.33%);
@@ -4452,12 +4452,12 @@ removed rational deep copy reducing fixed overhead; it
 is *evidence*, not a controlled statistical proof of
 causality from a single run.
 
-The sums of all 27 MP medians P2 -> P4 are: 53 12184.251 -> 11546.002 ns (-5.24%); 128 14489.835 ->
+The sums of all 27 MP medians M2 -> M4 are: 53 12184.251 -> 11546.002 ns (-5.24%); 128 14489.835 ->
 13503.831 ns (-6.80%); 256 15557.417 -> 14791.462 ns (-4.92%); 1024 25162.207 -> 24303.540 ns
 (-3.41%). Thus worsening 53/128/1024 geometric ratios does NOT mean the transcendental MP kernels
 grew slower.
 
-Consequently the large ratio drop 3.714x -> 2.966x is not solely attributable to P4. The current >2x
+Consequently the large ratio drop 3.714x -> 2.966x is not solely attributable to M4. The current >2x
 53-bit cases are cos 2.966x and atan 2.385x. At 128 bits the >2x cases include all three divisions
 (2.863-2.907x), add nearest/down/up (2.309-2.392x), sub nearest 2.267x, cos 2.293x and
 construct_rational 1.625x is **not** >2x; 9 measured operations total are >=2x. At 256 bits the
@@ -4465,12 +4465,12 @@ ratios >=2x include all three divisions (2.160-2.262x) and add_nearest 2.021x. A
 ratios are <2x, though add_up 1.964x is near the boundary.
 
 The direct Rational-copy removal helps but cannot by itself achieve the 53-bit <1x total objective.
-The next P4 changes should target the certified interval representation and decision-to-round paths,
+The next M4 changes should target the certified interval representation and decision-to-round paths,
 measuring the cost of `Fraction` endpoint construction, exact-rational arithmetic, cached
 half-center operations, and two independent endpoint `FloatMP::from_rational` calls per refinement.
 Keep outward enclosure proofs and independent exact literal expectations: do not replace them with
 less accurate fixed-precision approximations. For 128-bit worst ratios, a separate portable
-wide-limb P2 division algorithm and arithmetic add/sub optimization are still necessary.
+wide-limb M2 division algorithm and arithmetic add/sub optimization are still necessary.
 
 **CI status when recorded:** For `72659ca7`,
 Unix run 39074633880 SUCCESS and Coverage
@@ -4531,9 +4531,9 @@ CI/build and the user's benchmark run must validate
 the refactor; no timing advantage is claimed from
 this instrumentation.
 
-## P4 phase 2: certify and enable centered sin/cos at 53 bits (18 October 2026)
+## M4 phase 2: certify and enable centered sin/cos at 53 bits (18 October 2026)
 
-**Motivation:** P4 phase 1 removed unnecessary Rational materialization from all eight
+**Motivation:** M4 phase 1 removed unnecessary Rational materialization from all eight
 transcendental functions. The 22:20 report still has 53-bit cosine about 2.97x, with an MP absolute
 median of ~1363 ns. The existing centered half-angle dyadic algorithm was only enabled when `work >=
 128`; the first 53-bit refinement requests `work=85` (`bits + 32`) and therefore *always* fell back
@@ -4579,9 +4579,9 @@ a new accessible benchmark attachment at commit time.
 
 ## Post-comparison benchmark: exact value agreement and measured ratios (17 October 2026, 22:29)
 
-The subsequently accessible user-pasted `Markdown incollato(20261017-222901).md` contains an actual **numerical verification PASS**: 256 paired input values and 3456 paired operation results, including exact dyadic Rational equality, comparison outcomes, and 64-bit double conversion bit patterns. This is the first explicitly logged success of the new checker on the canonical 4-precision, 27-operation, 32-input 1000x11 workload. It confirms agreement **on those inputs**; it does not replace the fixed independently certified mathematical literal oracles or establish correctness on all inputs. Its measurements precede P4 phase 2 commit `a8290e20`, whose focused 53-bit centered trig optimization was committed separately after this report was produced.
+The subsequently accessible user-pasted `Markdown incollato(20261017-222901).md` contains an actual **numerical verification PASS**: 256 paired input values and 3456 paired operation results, including exact dyadic Rational equality, comparison outcomes, and 64-bit double conversion bit patterns. This is the first explicitly logged success of the new checker on the canonical 4-precision, 27-operation, 32-input 1000x11 workload. It confirms agreement **on those inputs**; it does not replace the fixed independently certified mathematical literal oracles or establish correctness on all inputs. Its measurements precede M4 phase 2 commit `a8290e20`, whose focused 53-bit centered trig optimization was committed separately after this report was produced.
 
-| Precision | 22:20 P4 geomean -> 22:29 | 22:20 total -> 22:29 | 22:29 worst |
+| Precision | 22:20 M4 geomean -> 22:29 | 22:20 total -> 22:29 | 22:29 worst |
 | --- | --- | --- | --- |
 | 53 | 0.941x -> 0.883x | 1.431x -> 1.442x | cos_nearest 3.166x |
 | 128 | 1.271x -> 1.260x | 1.068x -> 1.043x | div_up 3.098x |
@@ -4596,9 +4596,9 @@ adjustment, which has no user benchmark yet. At 128 bits overall weighted ratio 
 marginal improvement but still fails <1x. 1024-bit meets all three constraints on the supplied
 measurement; 256-bit worst still exceeds 2x.
 
-As separately checked, commit `94c3cce1` (benchmark linking repair) passed Unix and Coverage; Windows workflow 39075150674 is recorded as FAILURE. We do not have the Windows failure diagnostic and must not claim it was green. A later commit `a8290e20` has Unix/Windows/Coverage workflows started but was still pending at time of this journal entry. The Windows error, if still present, requires diagnosis before considering P4 phase 2 portable. Further benchmark comparisons must preserve correct rounding and all exact expected literals.
+As separately checked, commit `94c3cce1` (benchmark linking repair) passed Unix and Coverage; Windows workflow 39075150674 is recorded as FAILURE. We do not have the Windows failure diagnostic and must not claim it was green. A later commit `a8290e20` has Unix/Windows/Coverage workflows started but was still pending at time of this journal entry. The Windows error, if still present, requires diagnosis before considering M4 phase 2 portable. Further benchmark comparisons must preserve correct rounding and all exact expected literals.
 
-## P4 phase 2: first measured 53-bit centered sin/cos improvement (17 October 2026, 22:34)
+## M4 phase 2: first measured 53-bit centered sin/cos improvement (17 October 2026, 22:34)
 
 **Measured source:** User-supplied `Markdown incollato(20261017-223420).md`,
 1000 iterations, 11 samples, 27 operations at each of 53, 128,
@@ -4618,7 +4618,7 @@ Independently certified dyadic expected-literal tests for sin/cos near +1/2 and 
 
 **Targeted 53-bit gain in absolute FloatMP latency:**
 
-| Operation | 22:29 ns (pre-P4 phase 2) | 22:34 ns (post-P4 phase 2) | Change |
+| Operation | 22:29 ns (pre-M4 phase 2) | 22:34 ns (post-M4 phase 2) | Change |
 | --- | ---: | ---: | ---: |
 | sin_nearest | 1299.417 | 1009.458 | -22.31% |
 | cos_nearest | 1407.333 | 1010.875 | -28.17% |
@@ -4631,7 +4631,7 @@ essentially all the absolute MP saving, with the other operations net +19.873 ns
 measured on this concentrated near-1/2 workload and should not be extrapolated to arbitrary trig
 arguments.
 
-| Bits | P4 phase 1 -> phase 2 total | P4 phase 2 worst | Phase 2 >=2x count |
+| Bits | M4 phase 1 -> phase 2 total | M4 phase 2 worst | Phase 2 >=2x count |
 | --- | ---: | ---: | ---: |
 | 53 | 1.442x -> **1.330x** | 2.419x atan_nearest | 2 |
 | 128 | 1.043x -> 1.068x | 2.969x div_up | 8 |
@@ -4683,7 +4683,7 @@ literals before extending an optimized
 shortcut. Keep the exact benchmark
 post-timing equality verifier enabled.
 
-## P4 phase 3: fixed-point certified centered atan near +/-1/2 (18 October 2026)
+## M4 phase 3: fixed-point certified centered atan near +/-1/2 (18 October 2026)
 
 The existing `centered_atan_half_interval` already uses `atan(1/2)` and a certified first-order
 Taylor enclosure, but it computes the linear term `4*delta/5`, remainder `delta*delta` and endpoint
@@ -4730,7 +4730,7 @@ Rational equalities, not comparisons to or coarse tolerances. Existing domain-di
 benchmark 3456-result post-timing verifier are unchanged.
 
 **Performance/acceptance gate.** No user-host timing
-has yet been obtained for this P4 phase 3 change.
+has yet been obtained for this M4 phase 3 change.
 Unix, Windows and Coverage must pass first.
 Then rerun the exact 1000x11 four-precision
 benchmark and confirm 256 input / 3456 result
@@ -4738,7 +4738,7 @@ equality, plus absolute atan time and all per-precision
 worst/geomean/total ratios. No CMake/Windows build
 settings or benchmark workload are changed.
 
-## P4 phase 3 build repair: avoid rounding-name shadowing (17 October 2026)
+## M4 phase 3 build repair: avoid rounding-name shadowing (17 October 2026)
 
 The user supplied an AppleClang `-Wshadow -Werror` build failure in
 `tests/test_float_rounding.cpp` (lines 632-634 after commit
@@ -4768,7 +4768,7 @@ benchmark must update **both journals in the same commit**. GMP may remain in te
 backends during the migration; no GMP-independent FloatMP status is claimed until its production
 representation and algorithms cease to call GMP.
 
-## G1 FloatMP-first: initial native unsigned significand kernel (18 October 2026)
+## M11 FloatMP-first: initial native unsigned significand kernel (18 October 2026)
 
 **User priority change:** Complete the GMP removal from **FloatMP first**;
 only afterwards examine whether the implementation can be refactored
@@ -4812,7 +4812,7 @@ The old GMP-backed `Integer` and `Rational` may remain
 temporarily in production outside FloatMP while the FloatMP
 kernel is migrated. Do not conflate source independence
 with removing GMP from every linked object.
-## G1 FloatMP-native unsigned MSVC identifier correction (18 October 2026)
+## M11 FloatMP-native unsigned MSVC identifier correction (18 October 2026)
 
 The first native unsigned kernel built and passed the Unix and Coverage
 jobs at `dcab9609`, but its Windows/MSVC build failed in
@@ -4827,7 +4827,7 @@ cases, benchmark workload, public interface or rounding behavior
 is changed. Recheck Unix, Windows and Coverage before claiming
 portable build success.
 
-## G1 FloatMP-native exact ratio path above 1024 bits (18 October 2026)
+## M11 FloatMP-native exact ratio path above 1024 bits (18 October 2026)
 
 The newly introduced `floatmp_native_ratio.hpp` implements GMP-free
 quotient/remainder rounding for strictly positive unsigned magnitudes,
@@ -4863,7 +4863,7 @@ benchmarks remain separate from CTest. The earlier 645b2ed9 changes failed compi
 platforms, so CI validation is required for this consolidation before extending the native
 implementation. No claim of total GMP independence is made.
 
-## G1 FloatMP native-ratio AppleClang Wshadow fix (18 October 2026)
+## M11 FloatMP native-ratio AppleClang Wshadow fix (18 October 2026)
 
 At commit `a1ece3e3`, macOS AppleClang 21 with `-Wshadow -Werror`
 reports that the local result variable `rounded` in
@@ -4875,7 +4875,7 @@ the ratio algorithm, rounding modes, exponent carry, expected test
 values, precision thresholds, or benchmark workloads. The fix needs
 Unix, Windows and Coverage validation before further migration.
 
-## G1 FloatMP native division at all precisions (18 October 2026)
+## M11 FloatMP native division at all precisions (18 October 2026)
 
 The verified baseline for this step is `ae165e0b`, green on Unix,
 Windows and Coverage. Replaced the generic GMP
@@ -4901,7 +4901,7 @@ This change may affect native division performance at 53/128/256/1024 bits; do n
 improvement without same-host measurements, and do not change the benchmark workload to hide a
 regression. CI status and MacBook timing are not yet established for this commit.
 
-## G1 wide-limb native division specialization (18 October 2026)
+## M11 wide-limb native division specialization (18 October 2026)
 
 The user's first MacBook 1000x11 report after the all-native `from_ratio` conversion (`96d571e4`)
 verifies the full 256-input / 3456-result post-timing comparisons but reveals material regressions
@@ -4938,7 +4938,7 @@ rounding certification to improve timings. The production
 FloatMP class still stores `mpz_t`; this is only a
 division performance milestone, not complete GMP removal.
 
-## G1 wide-division scratch optimization: one GMP-free path at a time (18 October 2026)
+## M11 wide-division scratch optimization: one GMP-free path at a time (18 October 2026)
 
 **Scope and checkpoint.** Continue optimizing the already-introduced
 GMP-free `FloatMPNative::round_ratio` / `divrem_wide` path before
@@ -5017,7 +5017,7 @@ If 1024-bit division remains materially below the baseline, profile quotient-dig
 64-bit owning significands on measured evidence. Do not proceed to a different GMP-free substitution
 until this division gate has been assessed, or a quantified exception is documented.
 
-## G1 capacity tuning after same-Mac scratch optimization benchmark (18 October 2026)
+## M11 capacity tuning after same-Mac scratch optimization benchmark (18 October 2026)
 
 **Measured checkpoint supplied by the user.** Commit
 `a944c9814aba106b40e7f9bc55dc1571cd7c0d91` (three local
@@ -5102,7 +5102,7 @@ beneficial, revert rather than carry an unmeasured capacity choice.
 Continue optimizing this GMP-free ratio path before moving to a
 different GMP removal milestone.
 
-## G1 portability decision: defer architecture-specific division optimization (18 October 2026)
+## M11 portability decision: defer architecture-specific division optimization (18 October 2026)
 
 **Decision requested by project owner.** Do **not** introduce an
 ARM64-only or x86-only performance path while restoring the GMP-free
@@ -5148,7 +5148,7 @@ head before this documentation-only decision. The supplied Mac
 benchmark has not reached the gate, especially at 1024 bits.
 No new division performance optimization is introduced here.
 
-## G1 portable preinverted quotient digits, first complete integration candidate (18 October 2026)
+## M11 portable preinverted quotient digits, first complete integration candidate (18 October 2026)
 
 **Target and policy.** The project owner requires *at least* reaching
 the frozen better FloatMP baseline for all affected operations at
@@ -5215,7 +5215,7 @@ retaining correct nearest-even, directed rounding and ties.
 Do not initiate a different GMP-free substitution while this
 baseline gate remains open.
 
-## G1 no-allocation ratio exponent comparison (18 October 2026)
+## M11 no-allocation ratio exponent comparison (18 October 2026)
 
 **Frozen performance gate.** Continue optimizing only the existing
 GMP-free native ratio/division kernel until affected absolute FloatMP
@@ -5277,7 +5277,7 @@ without a material slowdown elsewhere. In particular, the
 more than this memory allocation improvement. Do not
 proceed to another GMP removal substitution yet.
 
-## G1 architectural correction: native arithmetic belongs to FloatMP (18 October 2026)
+## M11 architectural correction: native arithmetic belongs to FloatMP (18 October 2026)
 
 **User architecture requirement.** All production FloatMP arithmetic
 must be owned by the existing `FloatMP` class
@@ -5318,7 +5318,7 @@ particularly for `construct_rational` and `div_*`
 at 128, 256 and 1024 bits. No new GMP-free path before
 those medians have recovered the frozen original baseline.
 
-## G1 fused numerator scaling into wide division scratch (18 October 2026)
+## M11 fused numerator scaling into wide division scratch (18 October 2026)
 
 Its ALL geomean is 1.001x (original better baseline 0.912x), ALL weighted slowdown is 0.434x
 (baseline 0.407x), and ALL worst is 5.657x (baseline 2.994x). Absolute FloatMP medians at 1024 bits:
@@ -5422,7 +5422,7 @@ before proceeding to another GMP-free substitution. Measure
 on idle Apple ARM64 first; investigate x86-specific
 performance afterward. Do not loosen numerical oracles.
 
-## G2: sparse divisor products in FloatMP wide division (18 October 2026)
+## M12: sparse divisor products in FloatMP wide division (18 October 2026)
 
 **Problem and scope.** The 20000-iteration, 31-sample Mac ARM64
 baseline still outperforms native FloatMP quotient/remainder at
@@ -5455,14 +5455,14 @@ measurements; dense cases showed no systematic improvement.
 contention before acting. Require absolute baseline recovery for every construct_rational and
 div_nearest/down/up precision before attempting any additional GMP substitution.
 
-## G3: separate sparse/dense Knuth subtract loops (18 October 2026)
+## M13: separate sparse/dense Knuth subtract loops (18 October 2026)
 
-**Motivation.** User-supplied, comparable Apple ARM64 20000x31 benchmarks for the G2 sparse-divisor
+**Motivation.** User-supplied, comparable Apple ARM64 20000x31 benchmarks for the M12 sparse-divisor
 fast path (`9e5ff09`) versus `ba2ef1a` showed that sparse `construct_rational` at 1024 bits improved
 from 1157.854 ns to 997.198 ns (13.9% faster), whereas the dense FloatMP divisions regressed:
 `div_nearest` 893.652 to 939.519 ns, `div_down` 829.712 to 871.923 ns and `div_up` 870.975 to
 914.373 ns (approximately 5% slower). and unaffected FloatMP timing controls were stable; all 3456
-numerical checks passed. The G2 implementation tested the runtime `sparse_divisor` flag on every
+numerical checks passed. The M12 implementation tested the runtime `sparse_divisor` flag on every
 inner-loop limb, even for dense divisors.
 
 **Change.** In the existing private
@@ -5472,7 +5472,7 @@ Use one local C++20 templated lambda instantiated
 as two independent inner loops. `if constexpr (Sparse)`
 compile-time-elides all zero-limb condition checks
 from the dense specialization; the sparse version
-retains the exact G2 zero-product/borrow optimization.
+retains the exact M12 zero-product/borrow optimization.
 A shared body preserves exact product carry, subtraction
 borrow, quotient correction, addback and remainder
 behavior. No changes to thresholds, divisor
@@ -5487,8 +5487,8 @@ boundaries, signed inputs, four rounding modes,
 and independent exact mathematical oracles are
 unchanged. Repository CI and an independent
 Apple ARM64 `20000 31` benchmark are required
-before accepting any performance claim for G3.
-The goal is to keep G2's `construct_rational`
+before accepting any performance claim for M13.
+The goal is to keep M12's `construct_rational`
 benefit and recover its roughly 5% division
 regression, not to claim recovery of the original
 baseline.
@@ -5507,10 +5507,10 @@ On the comparable idle-host Apple ARM64 workload (20000 iterations,
 31 median samples), the beginning-of-branch 1024-bit reference
 FloatMP medians were 508.450 ns for construct_rational,
 292.404 ns for div_nearest, 255.475 ns for div_down and
-260.046 ns for div_up. At G2 (commit 9e5ff09),
+260.046 ns for div_up. At M12 (commit 9e5ff09),
 the respective measurements were 997.198 ns,
 939.519 ns, 871.923 ns and 914.373 ns.
-G3 (5a66ee2) currently has no validated ARM64 performance
+M13 (5a66ee2) currently has no validated ARM64 performance
 report; do not extrapolate its gain.
 The native division remains roughly 3.2 to 3.5 times
 slower than the initial baseline at 1024 bits, regardless
@@ -5618,7 +5618,7 @@ median nanoseconds for construct_rational and all three division rounding modes 
 No production source modifications, claimed ARM64 speedups
 or widened benchmark coverage are introduced here.
 
-## G4: fused multiply/subtract carry recurrence (18 October 2026)
+## M14: fused multiply/subtract carry recurrence (18 October 2026)
 
 **Algorithmic improvement.** After researching GNU MP's
 `mpn_submul_1` primitive, replace the two separate
@@ -5662,9 +5662,9 @@ construct_rational and div_nearest/down/up at 53/128/256/1024 bits. Examine and 
 controls first, flag wide environmental regressions and await user feedback before further code
 changes. Do not consider GMP-free migration at parity until *all* these cases meet baseline.
 
-### G4 GCC build fix (18 October 2026)
+### M14 GCC build fix (18 October 2026)
 
-The initial G4 commit `28f1068` passed Clang Linux Release,
+The initial M14 commit `28f1068` passed Clang Linux Release,
 AppleClang macOS Release/Coverage, Clang ThreadSanitizer and
 Windows Release but failed both GCC 13 Release and GCC 13
 Coverage at the build step with warnings-as-errors enabled.
@@ -6435,7 +6435,7 @@ see `big_unsigned_design.md` for details.
 B15.1 cross-platform CI was green. Shared `src/big_unsigned.cpp` gains Euclidean unsigned `gcd`, strict ASCII decimal parsing and canonical unsigned decimal formatting, using existing division and portable 32-bit half-product operations without GMP dependencies. No change to FloatMP, ISA dispatch or fallback source placement. An isolated warning-clean Clang harness passed 5000 limb-format GMP comparisons, 5000 decimal input GMP comparisons and 1100 GCD GMP comparisons. Project CTest and CI for B16 are pending. Consult `big_unsigned_design.md` for the contracts and migration sequencing.
 
 
-### B17 isolated signed-magnitude Integer substrate (19 October 2026)
+### I17 isolated signed-magnitude Integer substrate (19 October 2026)
 
 Following B16 CI green, the native `SignedInteger` class is added
 as a separate shared-core consumer of `BigUnsigned`. It implements
@@ -6444,27 +6444,27 @@ truncation-toward-zero divrem with dividend-sign remainder, powers,
 shifts and checked 64-bit casts, and has its own GMP-differential
 tests. Legacy `Integer::_mpz` and its GMP-dependent consumers remain
 unchanged while integration is staged. See `integer_design.md`
-for the migration boundaries; B17 CI is pending.
+for the migration boundaries; I17 CI is pending.
 
 
-### B17.1 clarification: transient SignedInteger test stage (19 October 2026)
+### I17.1 clarification: transient SignedInteger test stage (19 October 2026)
 
-Keep B17 `SignedInteger` for cross-platform GMP-differential verification; do not revert it before transferring validated operations to the existing `Integer`. After the direct `Integer` storage and dependency migration, delete the temporary `SignedInteger` header, source, CTest target and dedicated test (migrating coverage into `test_integer.cpp`). The final architecture must expose only the existing `Integer` as the signed multiprecision type; `BigUnsigned` remains its GMP-free magnitude engine. See `integer_design.md` B17.1 for mandatory completion gates.
+Keep I17 `SignedInteger` for cross-platform GMP-differential verification; do not revert it before transferring validated operations to the existing `Integer`. After the direct `Integer` storage and dependency migration, delete the temporary `SignedInteger` header, source, CTest target and dedicated test (migrating coverage into `test_integer.cpp`). The final architecture must expose only the existing `Integer` as the signed multiprecision type; `BigUnsigned` remains its GMP-free magnitude engine. See `integer_design.md` I17.1 for mandatory completion gates.
 
 
-### B18 native Integer replacement without modifying FloatMP arithmetic (19 October 2026)
+### I18 native Integer replacement without modifying FloatMP arithmetic (19 October 2026)
 
 The existing `Integer` class has been refactored in place to canonical `BigUnsigned` magnitude plus
 sign, removing its permanent GMP storage. `SignedInteger` stays only as temporary GMP-differential
 verification and must be deleted once tests/benchmarks validate the migrated Integer. The
 benchmark's signed quotient/remainder GMP control now uses truncation toward zero to match the
-coherent Integer division identity. Integrated Unix/Windows/Coverage and benchmarks for B18 are not
-yet verified. See `integer_design.md` B18 for implementation and testing details.
+coherent Integer division identity. Integrated Unix/Windows/Coverage and benchmarks for I18 are not
+yet verified. See `integer_design.md` I18 for implementation and testing details.
 
 
 ### B19 shared decimal throughput and Integer benchmark correction (19 October 2026)
 
-B18 native ARM64 and x86-64 measurements showed `to_decimal` dominating total time. In the shared `BigUnsigned` decimal conversion only, divide each radix-`2^64` word by `10^9` through two 32-bit halves using portable 64-bit arithmetic, avoiding 64-step bitwise division. Preserve `BigUnsigned::divrem_limb` and general `divrem` unchanged. The Integer-vs-GMP benchmark now compares one native `cmp` against one GMP `mpz_cmp` and adds separate nontrivial signed quotient/remainder rows without changing the original workload. All new values are verified exactly against GMP outside timing. A standalone 800,000-case mathematical oracle passed, but integrated CI and performance outcomes are pending. 4096-bit measurement remains available, though the next developer runs can temporarily specify `--bits 53,128,256,1024,2048`. See big_unsigned_design.md B19.
+I18 native ARM64 and x86-64 measurements showed `to_decimal` dominating total time. In the shared `BigUnsigned` decimal conversion only, divide each radix-`2^64` word by `10^9` through two 32-bit halves using portable 64-bit arithmetic, avoiding 64-step bitwise division. Preserve `BigUnsigned::divrem_limb` and general `divrem` unchanged. The Integer-vs-GMP benchmark now compares one native `cmp` against one GMP `mpz_cmp` and adds separate nontrivial signed quotient/remainder rows without changing the original workload. All new values are verified exactly against GMP outside timing. A standalone 800,000-case mathematical oracle passed, but integrated CI and performance outcomes are pending. 4096-bit measurement remains available, though the next developer runs can temporarily specify `--bits 53,128,256,1024,2048`. See big_unsigned_design.md B19.
 
 
 ### B19.1 decimal type alias fix (19 October 2026)
@@ -6507,20 +6507,20 @@ Integrated Unix/Windows/Coverage CI, native performance and
 MSVC verification remain pending; consult `big_unsigned_design.md`.
 
 
-### B21 removal of transient signed-magnitude migration scaffold (19 October 2026)
+### I21 removal of transient signed-magnitude migration scaffold (19 October 2026)
 
-Following successful B20 cross-platform validation, the B17 temporary independent signed integer
+Following successful B20 cross-platform validation, the I17 temporary independent signed integer
 type is retired. Its header, implementation and dedicated CTest executable are deleted, with their
-respective CMake source/test registrations removed. The historical B17 2500-case GMP-differential
+respective CMake source/test registrations removed. The historical I17 2500-case GMP-differential
 corpus, boundary and signed shift semantics are moved to the production `test_integer`, preserving
-its B18 1700 independent cases. Signed shifts are checked using the shared native magnitude shifts
+its I18 1700 independent cases. Signed shifts are checked using the shared native magnitude shifts
 plus sign, and GMP; this does not add an `Integer` shift API or change FloatMP arithmetic. Project
-cross-platform CI remains pending for B21; see `integer_design.md`.
+cross-platform CI remains pending for I21; see `integer_design.md`.
 
 
 ### B22 recursive decimal formatting for large Integer magnitudes (19 October 2026)
 
-Based on B21's cross-platform green CI and native ARM64/x86-64
+Based on I21's cross-platform green CI and native ARM64/x86-64
 benchmarks, optimize only `BigUnsigned::to_decimal` for large
 magnitudes. Retain the existing portable two-64/32 radix-10^9
 formatter up to 16 limbs; for larger values recursively divide
@@ -6815,7 +6815,7 @@ remain pending; consult B32 in
 `big_unsigned_design.md`.
 GitHub CI and Codecov are excluded by user request.
 
-### B33 Integer alias-self multiplication uses existing B32 square (19 October 2026)
+### I33 Integer alias-self multiplication uses existing B32 square (19 October 2026)
 
 When the same Integer object is passed twice to
 `Integer::mul`, a GCC x86-64 fused build with
@@ -6834,14 +6834,14 @@ zeros and saturated/large magnitudes. All FloatMP
 algorithms, shared BigUnsigned kernels, GMP adapters,
 build definitions and official benchmark workloads
 remain unchanged. An isolated x86-64 symmetric kernel
-speedup is known, but B33's integrated `Integer::square`
-benefit has **not yet been measured**. See B33 in
+speedup is known, but I33's integrated `Integer::square`
+benefit has **not yet been measured**. See I33 in
 `integer_design.md`. GitHub CI and Codecov
 remain unconsulted at user request.
 
-### B34 alias-dispatch diagnosis without arithmetic changes (19 October 2026)
+### I34 alias-dispatch diagnosis without arithmetic changes (19 October 2026)
 
-The official B33 x86-64 integrated benchmark measured large
+The official I33 x86-64 integrated benchmark measured large
 `square` improvements via the B32 symmetric kernel, but
 apparently slower generic `mul` for 53/128/256 bits.
 Synthetic same-host GCC A/B probes did not reproduce a
@@ -6857,30 +6857,30 @@ Keep the established Integer/GMP benchmark and its corpus
 unchanged. This auxiliary diagnostic has not yet been
 compiled/executed against the repository; cross-platform
 ARM64 Apple M2/M4 timing comparisons remain separate.
-See B34 in `integer_design.md`. Neither
+See I34 in `integer_design.md`. Neither
 GitHub CI nor Codecov was consulted.
 
-### B34.1 alias diagnostic measurements and warning fix (19 October 2026)
+### I34.1 alias diagnostic measurements and warning fix (19 October 2026)
 
-The separate B34 diagnostic was built on Apple ARM64
+The separate I34 diagnostic was built on Apple ARM64
 (`fused=false`) and GCC x86-64 (`fused=true`); both
 reported `GMP verification PASS`. GCC x86-64
 aliased `Integer` self-multiplication improved over
 generic `BigUnsigned::mul` by 7.4% at 512 bits,
 28.6% at 1024 bits, 37.8% at 2048 bits and
-39.8% at 4096 bits, confirming B33's dispatch.
+39.8% at 4096 bits, confirming I33's dispatch.
 Distinct x86-64 operands showed only approximately
 1.5/2.2/2.0 ns native-versus-reference gaps at
 53/128/256 bits, not proof of a guard-caused
-B33 regression. ARM64 native and reference paths
+I33 regression. ARM64 native and reference paths
 agreed closely. The diagnostic had a Clang
 `-Wswitch-default` warning, fixed by placing its
 already-existing defensive logic_error throw in
-the `default` arm. Keep B33 arithmetic and the
+the `default` arm. Keep I33 arithmetic and the
 official benchmark unchanged. The host model for
 the diagnostic ARM64 execution was not specified;
 do not conflate Apple M2 with M4.
-See B34.1 in `integer_design.md`;
+See I34.1 in `integer_design.md`;
 CI and Codecov remain excluded.
 
 ### B35 selective large owning Karatsuba on GCC x86-64 (19 October 2026)
@@ -6895,7 +6895,7 @@ one private correctly sized scratch vector supports
 the existing recursive kernel. All smaller or
 unbalanced inputs, Apple ARM64 M2/M4, Clang,
 MSVC/portable and fused-selector-OFF builds
-retain B33's schoolbook behavior. B32/B33
+retain I33's schoolbook behavior. B32/I33
 symmetric square and aliased Integer multiplication,
 `BigUnsigned::mul_into`, rational/FloatMP
 algorithms, APIs, GMP adapters and the official
@@ -6920,7 +6920,7 @@ in that test alone; operands, GMP oracle, iterations,
 arithmetics and benchmarks remain unchanged.
 The user's repeated x86-64 4096-bit integrated
 `Integer::mul` timings of 2752.212/2750.796 ns
-confirm approximately 10.3% gain against B33,
+confirm approximately 10.3% gain against I33,
 with numerical verification PASS. User authorization
 permits GitHub Actions CI checks beginning at this
 B35.1 commit. See the B35.1 entry in
@@ -7062,9 +7062,9 @@ Full project CI and same-host M2
 benchmark measurements remain pending;
 see B40 in `big_unsigned_design.md`.
 
-### B41 direct signed subtraction and high-prefix cancellation (19 October 2026)
+### I41 direct signed subtraction and high-prefix cancellation (19 October 2026)
 
-B41 removes the temporary negated
+I41 removes the temporary negated
 `Integer` allocation/copy from
 `Integer::sub(a,b)`: direct dispatch on
 operand signs adds unsigned magnitudes
@@ -7098,16 +7098,16 @@ regression additions comprise
 768 signed sign-pair GMP comparisons
 with assignment/alias checks.
 CI and native performance results are
-pending; see B41 in
+pending; see I41 in
 `integer_design.md`.
 
-### B41.1 Clang test-warning fix without arithmetic changes (19 October 2026)
+### I41.1 Clang test-warning fix without arithmetic changes (19 October 2026)
 
 Clang 16 Unix Release and ThreadSanitizer
-failed B41 compilation under `-Werror`
+failed I41 compilation under `-Werror`
 because the new deliberate aliasing
 test wrote `aliased-=aliased`, triggering
-`-Wself-assign-overloaded`. B41.1
+`-Wself-assign-overloaded`. I41.1
 writes `Integer const& same_object=aliased;`
 and `aliased-=same_object;`, preserving
 the exact self-alias relationship
@@ -7119,8 +7119,8 @@ and all functional tests remain
 unchanged. Clang 17 locally
 accepted this spelling with
 `-Wself-assign-overloaded -Werror`.
-Full CI on B41.1 is pending; see
-the B41.1 journal entry in
+Full CI on I41.1 is pending; see
+the I41.1 journal entry in
 `integer_design.md`.
 
 ### B42 decimal leaf formatting without temporary strings (19 October 2026)
@@ -7638,14 +7638,14 @@ reference. Public APIs, FloatMP arithmetic, official
 Integrated B63 CI and same-host official <1x per-size,
 <2x worst performance gates remain to be verified.
 
-### B64 short-width Integer power/square diagnostic (20 October 2026)
+### I64 short-width Integer power/square diagnostic (20 October 2026)
 
 The B63 official GMP-verified x86-64 results pass both
 acceptance limits at 1024 and 2048 bits, but 53/128/256
 bit total-time ratios remain 1.434x/1.468x/1.423x.
 Worst operation remains pow3 at 128 bits, 2.476x;
 256-bit square is 2.087x and 4096-bit compare 2.067x.
-B64 adds a standalone same-official-input diagnostic
+I64 adds a standalone same-official-input diagnostic
 for owning generic lazy-copy exponentiation, the
 unchanged production pow(z,3), diagnostic direct-cube
 chaining, production z*z and direct signed-magnitude
@@ -7654,20 +7654,20 @@ and multiplication oracles (including exponents
 0-9 as selected and signed/zero identity cases).
 No production arithmetic, FloatMP semantics, public
 APIs, original 84-case input pools or official
-benchmark code is changed. User-host B64 benchmark
+benchmark code is changed. User-host I64 benchmark
 and integration/CI verification remain pending.
-See integer_design.md B64.
+See integer_design.md I64.
 
-### B65 ARM64 lessons: short square and MSB-first power diagnostics (20 October 2026)
+### I65 ARM64 lessons: short square and MSB-first power diagnostics (20 October 2026)
 
 ARM64 B37 triangular symmetric square, B38 sparse zero-row
 elision and B39/B40 adaptive dense/sparse selection have
 already been transferred to x86 GCC as B32/B53/B54;
 both architectures use the symmetric square only for
->=8-limb owning inputs. User B64 GMP-verified owning
+>=8-limb owning inputs. User I64 GMP-verified owning
 timings showed direct cube 12-43% faster than production
 pow(z,3), while generic lazy exponentiation saves
-only 3-10%. B65 therefore adds diagnostic generic
+only 3-10%. I65 therefore adds diagnostic generic
 MSB-first exponentiation, which naturally produces
 square(x)*x at exponent 3 with no cube-only special
 case, and a forced 1..7-limb symmetric square
@@ -7677,18 +7677,18 @@ GMP-verified (including additional signed powers and
 No Integer, FloatMP or other production arithmetic,
 dispatch, ABI, original 84-case workload or official
 benchmark code changes. Same-host measurements/CI
-are pending; see integer journal B65.
+are pending; see integer journal I65.
 
-### B66 GCC x86-64 generic MSB-first Integer power (20 October 2026)
+### I66 GCC x86-64 generic MSB-first Integer power (20 October 2026)
 
-The user's B65 GMP-oracle benchmark measured a consistent
+The user's I65 GMP-oracle benchmark measured a consistent
 generic MSB-first signed pow(z,3) improvement of 8.0-34.5%
 across 53/128/256/1024/2048/4096-bit inputs; direct cube
 was faster still but is not a general exponentiation policy.
 A forced short symmetric square produced only ~5.5% at
 53 bits, negligible benefit at 128 and slight regression
 at 256, so the existing >=8-limb square selection remains.
-B66 selects the already oracle-verified generic MSB-first
+I66 selects the already oracle-verified generic MSB-first
 pow only on GCC x86-64 fused builds and preserves the
 old B32 schedule on ARM64, Clang/MSVC and other compilers.
 The general Nat exponent works including 0, 1, sparse
@@ -7697,18 +7697,18 @@ GMP-oracle combinations in integrated tests. No FloatMP
 production or the official 84-case arithmetic benchmark
 changes. Same-host full benchmark and CI remain necessary
 to validate actual production improvements; consult
-integer_design.md B66.
+integer_design.md I66.
 
-### B67 owning Integer versus primitive magnitude profile (20 October 2026)
+### I67 owning Integer versus primitive magnitude profile (20 October 2026)
 
-B66's 84-case user-host x86 GCC benchmark passed the
+I66's 84-case user-host x86 GCC benchmark passed the
 independent GMP oracle and reported overall total
 0.979x, worst pow3 at 128 bits 2.447x; every
 53/128/256-bit total still exceeds 1x and
 1024-bit total is 1.029x. Power improved relative
 to B63, but unrelated construction/division
 times drifted, so aggregate movement does not
-establish an MSB-first regression. B67 introduces
+establish an MSB-first regression. I67 introduces
 a new standalone benchmark reusing exactly the
 official integer and division input pools,
 with owning GMP, owning signed Integer and
@@ -7724,28 +7724,28 @@ inputs, test or API changes are included.
 Run on the user's machine before selecting a
 53/128/256-bit production optimization.
 
-### B68 isolate signed decimal adapters and small owning arithmetic (20 October 2026)
+### I68 isolate signed decimal adapters and small owning arithmetic (20 October 2026)
 
-B67's GMP-verified x86-64 53/128/256-bit results show
+I67's GMP-verified x86-64 53/128/256-bit results show
 apparent integer/unsigned-core ratios of 1.395/1.250/1.146x
 for decimal construction and 1.533/1.391/1.231x for
 decimal output; unsigned is not an exact signed-wrapper
-cost attribution. B68 extends the same standalone B67
+cost attribution. I68 extends the same standalone I67
 diagnostic with GMP-verified equal-semantics owning
 signed alternatives for String-based construction,
 String-returning decimal output, nonaliased product
 and self-alias square on exactly the existing signed
-32-case official input pools. The original B67
+32-case official input pools. The original I67
 unsigned-core reference, FloatMP/Integer production
 arithmetic, source APIs and 84-operation official
 benchmark remain unchanged. A/B measurements and
-complete CI are pending. See integer journal B68.
+complete CI are pending. See integer journal I68.
 
 ### B69 evaluate ARM64 carry-chain lessons on short GCC x86-64 (20 October 2026)
 
 The user's latest ARM64 GMP-verified official benchmark passes
 all per-size <1x totals except 4096 bits (1.008x), with
-global worst 1.805x. The B68 GCC x86 signed same-semantics
+global worst 1.805x. The I68 GCC x86 signed same-semantics
 A/B finds 11-28% lower formatter time and 7-23% lower
 signed decimal parser time at 53/128/256 bits, but
 manual multiply and square signed wrappers rarely help.
@@ -7761,7 +7761,7 @@ official benchmark cases or public APIs change.
 See big_unsigned_design.md B69. CI and on-target
 B69 timing must be verified before any selector switch.
 
-### B70 x86 fused production overhead diagnostic (20 October 2026)
+### I70 x86 fused production overhead diagnostic (20 October 2026)
 
 B69 x86 GCC same-host GMP-verified short benchmarks found
 forced fused faster than carry-chain in all 53/128/256
@@ -7771,19 +7771,19 @@ B69 forced fused signed owning was about 19-21%
 faster than production despite both using the same
 fused primitive; production crosses out-of-line
 Integer/BigUnsigned functions and constructs output
-differently. B70 extends the existing optional B69
+differently. I70 extends the existing optional B69
 profile with production-selected and forced fused
 kernel/owning A/B rows and a noinline wrapper control
 on exactly the original official GMP-verified 32-input
 corpus and 300 extra short stress pairs. No Integer,
 FloatMP, ABI, public headers, original 84-operation
 benchmark or arithmetic production dispatch changes.
-No speedup is claimed before B70 host measurements.
-See integer_design.md B70.
+No speedup is claimed before I70 host measurements.
+See integer_design.md I70.
 
 ### B71 same-library-TU owning short product diagnostics (20 October 2026)
 
-The B70 user-host GMP-verified x86 benchmark again found
+The I70 user-host GMP-verified x86 benchmark again found
 no consistent selected versus forced fused difference in
 preallocated or owning arithmetic; the inline/noinline
 whole-result controls incurred 6-10% call-hint overhead,
@@ -7842,9 +7842,9 @@ must be measured before claiming a production win.
 See big_unsigned_design.md B72.
 
 
-### B73 shared decimal temporary storage and Integer result ownership (20 October 2026)
+### I73 shared decimal temporary storage and Integer result ownership (20 October 2026)
 
-B73 removes temporary ownership in Integer/shared-core conversions:
+I73 removes temporary ownership in Integer/shared-core conversions:
 move the formatter buffer into the existing String return value,
 remove one private by-value signed-magnitude constructor move,
 parse at most 77 digits into four inline result limbs, build longer
@@ -7853,7 +7853,7 @@ for radix-10^9 leaves of at most eight limbs. The same existing
 19-/9-digit parsing recurrences are instantiated for inline and heap
 storage; radix thresholds, full input validation, recursive/wide
 formatting, signed semantics, selected ISA multiplication/division
-kernels and public object layouts remain unchanged. See B73 in
+kernels and public object layouts remain unchanged. See I73 in
 integer_design.md for bounds, lifetime and ownership details.
 No new FloatMP algorithm, rounding path or GMP production dependency.
 
@@ -7861,7 +7861,7 @@ Local Apple M2 Ultra / AppleClang 21 Release warnings-as-errors:
 20/20 CTest pass, including FloatMP tests; full Integer and BigUnsigned
 Debug ASan/UBSan suites pass. The complete GCC 16.2 ARM64 BigUnsigned
 suite passes. In the unchanged six-size 20000x31 Integer/GMP benchmark,
-all 768 paired inputs and 2688 results verify. Repeated B73 ARM64
+all 768 paired inputs and 2688 results verify. Repeated I73 ARM64
 per-size totals are 0.404..0.441x / 0.685..0.687x / 0.816..0.817x /
 0.847x / 1.001..1.002x / 0.994..0.995x. These do not certify the
 x86-64 target; ARM64 2048 still misses <1x, and its decimal parsing
@@ -7883,7 +7883,7 @@ not a before/after FloatMP performance acceptance result.
 
 ### B74 short owning arithmetic and bounded generic powers (20 October 2026)
 
-B74 follows the user's GMP-verified post-B73 x86-64 official run:
+B74 follows the user's GMP-verified post-I73 x86-64 official run:
 total/GMP 1.009/1.250/1.256/0.992/0.893/0.915x; worst
 2.003/2.125/2.025/1.982/1.918/1.943x at the six Integer widths.
 Only 53/128/256 still fail. Shared scalar add/cancelled subtraction
@@ -7914,21 +7914,21 @@ without predicting x86-64 timings. ARM64 2048/4096 strict total
 acceptance is not established; see absolute times/GMP drift in the
 companion journal. No benchmark workload or numerical oracle changes.
 
-Saved B73 and B74 libraries both pass the unchanged FloatMP 1000x11 53/128/256/1024 numerical check
+Saved I73 and B74 libraries both pass the unchanged FloatMP 1000x11 53/128/256/1024 numerical check
 (256 paired inputs, 3456 results). Neither run satisfies the existing short-width FloatMP
 performance gates, and no performance acceptance or stable before/after nonregression is claimed. No
 FloatMP arithmetic or rounding algorithm is changed. Native GCC x86-64/MSVC validation and repeated
 six-size Integer totals <1x/every worst <2x remain required.
 
 
-### B75 inline ownership and limb-adaptation definitions (20 October 2026)
+### I75 inline ownership and limb-adaptation definitions (20 October 2026)
 
 The user's post-B74 x86-64 official run verifies all 768 paired
 inputs and 2688 results. All 84 cases are below 2x (global worst
 1.989x). Per-size totals are 0.750/1.091/1.120/0.942/0.854/0.900x;
 128/256 still need 44.529/83.410 ns off their native sums.
 
-B75 relocates unchanged small ownership/accessor bodies into the
+I75 relocates unchanged small ownership/accessor bodies into the
 BigUnsigned/Integer class headers: scalar/move/limb adapters and
 signed result construction/copy/move/destruction. This gives callers
 visibility to optimize transfers and temporary lifetimes; no ISA,
@@ -7947,9 +7947,9 @@ ARM64 Integer runs verify all inputs/results; local native sums
 improve at 128/256, but do not predict x86 target timings. ARM64
 4096 totals are 1.001/1.005x, so its strict gate remains unproven.
 
-Matching saved B74 and rebuilt B75 FloatMP clients/libraries both
+Matching saved B74 and rebuilt I75 FloatMP clients/libraries both
 pass the unchanged 1000x11 53/128/256/1024 numerical check (256
-paired inputs, 3456 results). B75 total/worst are 1.513/2.764x,
+paired inputs, 3456 results). I75 total/worst are 1.513/2.764x,
 1.070/2.620x, 0.588/2.047x, 0.246/1.719x, compared with B74
 1.600/4.317x, 1.021/2.975x, 0.586/2.071x, 0.254/1.865x.
 These mixed single-run timings do not establish FloatMP performance
@@ -7960,7 +7960,7 @@ GCC x86-64 and MSVC validation and the six strict Integer per-size
 
 ### R1 — native finite and extended Rational (20 October 2026)
 
-The user accepted Integer as complete after the B75 x86-64 run:
+The user accepted Integer as complete after the I75 x86-64 run:
 per-size total/worst ratios at 53/128/256/1024/2048/4096 bits were
 0.535/1.296, 0.898/1.555, 0.987/1.597, 0.951/1.928,
 0.887/1.881 and 0.914/1.930x. Numerical verification passed
@@ -8055,7 +8055,7 @@ only, not performance acceptance or an x86-64 prediction. Rational normalization
 remain optimization work. No fixture, operation weight, GMP oracle,
 timing barrier or compiler/ISA selector was changed.
 
-Both saved B75 and rebuilt R1 FloatMP benchmarks pass the unchanged
+Both saved I75 and rebuilt R1 FloatMP benchmarks pass the unchanged
 1000x11 numerical check (256 inputs, 3456 results). Initial reference
 versus candidate total/worst ratios at 53/128/256/1024 bits are
 1.759/3.953 -> 1.694/4.063, 1.067/2.859 -> 1.068/2.750,
@@ -8098,7 +8098,7 @@ The optional local Clang 15 syntax experiment could not compile against
 the installed newer macOS SDK/libc++ combination and is not validation.
 Rational arithmetic and Integer/BigUnsigned remain unchanged.
 
-The separate Codecov status thresholds already failed on B75 (project
+The separate Codecov status thresholds already failed on I75 (project
 92.96%, patch 92.56%, target 99.20%). R1a reports project 92.94% and
 patch 93.07%; workflow Coverage success is not Codecov gate acceptance.
 
@@ -8157,7 +8157,7 @@ and total .869 -> .851. Full native measurements and proofs are in the
 paired R23 journal. Native x86-64 reports and remote CI remain pending
 at publication; no x86-64 performance acceptance is inferred.
 
-### D57.1 — native multiple-precision access throughout Number and Real (21 October 2026)
+### M57.1 — native multiple-precision access throughout Number and Real (21 October 2026)
 
 Implement native MultiplePrecision overloads of NumberInterface and NumberWrapper for all six
 paradigm-specific results (ball with double error, ball with arbitrary error, bounds, lower, upper,
@@ -8168,16 +8168,16 @@ existing effort-based computation and then round the two exact endpoints directl
 FloatMP, never via or double. Local compilation and CI remain prerequisites to calling the new
 overload set validated.
 
-### D59 — complete FloatMP virtual dispatch in NumberGetterMixin (21 October 2026)
+### M59 — complete FloatMP virtual dispatch in NumberGetterMixin (21 October 2026)
 
-All instantiated `NumberWrapper<X>` classes therefore became abstract. D59 installs the matching six
+All instantiated `NumberWrapper<X>` classes therefore became abstract. M59 installs the matching six
 `override` methods in the existing mixin and routes them through the existing typed `_get_as`
 constructors, preserving both metric precisions and exact outward enclosure semantics. This is a CI
 build fix; full Unix, Windows and Coverage verification is required.
 
-### D60 — link native FloatMP generic conversion overloads (21 October 2026)
+### M60 — link native FloatMP generic conversion overloads (21 October 2026)
 
-D59's six previously abstract virtual methods now compile, but native
+M59's six previously abstract virtual methods now compile, but native
 macOS/ARM64 linking fails because preexisting templated constructors
 for FloatMP specializations were never instantiated or exported.
 Supply the omitted native `LowerBound<FloatMP>(Real,MultiplePrecision)`
@@ -8193,13 +8193,13 @@ template must round **upward** rather than downward. Do not change Numeric's sto
 expectations. The compilation and link of Unix, Windows and Coverage runs must still be checked;
 this journal entry does not assert CI success.
 
-### D61 — complete missing FloatMP precision getters at the link boundary (21 October 2026)
+### M61 — complete missing FloatMP precision getters at the link boundary (21 October 2026)
 
-After D60, macOS ARM64 links report two missing API families:
+After M60, macOS ARM64 links report two missing API families:
 `NumberInterface::_get(ValidatedTag,MultiplePrecision)` and `Real::get(MultiplePrecision)`. Both
-declarations were introduced with D57 but had no out-of-line definitions. Define the NumberInterface
+declarations were introduced with M57 but had no out-of-line definitions. Define the NumberInterface
 validated getter by delegating to the existing native OrderTag virtual method; also define its
-one-precision MetricTag convenience method. Define all remaining D57-declared Real API functions in
+one-precision MetricTag convenience method. Define all remaining M57-declared Real API functions in
 the existing `src/real.cpp`: Real get/compute_using/compute_get, LowerReal and UpperReal
 compute_get, plus ValidatedReal, ValidatedLowerReal and ValidatedUpperReal get at arbitrary
 precision. Real computes a rigorous DyadicBounds enclosure at the requested effort and converts its
@@ -8207,9 +8207,9 @@ exact endpoints outward via the native FloatMP get, retaining rounding direction
 assertions for Exact and ValidatedReal at multiple precision and both directed real computation
 paths. Tests and native linker/CI remain required before treating this as validated.
 
-### D62 — instantiate native bound-from-bounds constructors and complete FloatMP umbrella include (21 October 2026)
+### M62 — instantiate native bound-from-bounds constructors and complete FloatMP umbrella include (21 October 2026)
 
-A macOS ARM64 build after D61 reported exactly two missing linker
+A macOS ARM64 build after M61 reported exactly two missing linker
 symbols: `LowerBound<FloatMP>::LowerBound(Bounds<FloatMP> const&)` and
 `UpperBound<FloatMP>::UpperBound(Bounds<FloatMP> const&)`.
 Both constructors are already correctly defined in the existing
@@ -8221,9 +8221,9 @@ lower uses `lower_raw()` and upper uses `upper_raw()`.
 The same build showed incomplete `FloatMP` and `MultiplePrecision` types in `test_real.cpp`,
 causing a large cascade of irrelevant ostream errors. Exercise both bound-from-bounds constructors
 in the Real conversion regression. A complete Unix, Windows and Coverage build must still validate
-D62.
+M62.
 
-### D63 — prevent recursive generic lower/upper conversions and check Windows precision (21 October 2026)
+### M63 — prevent recursive generic lower/upper conversions and check Windows precision (21 October 2026)
 
 An ARM64 `test_float` run segfaulted directly after the FloatMP Real-enclosure checks, before the
 first generic lower/upper conversion assertion. The upper-bound path is symmetric.
@@ -8241,7 +8241,7 @@ then cast to Nat, removing MSVC C4267 under /WX without silently
 truncating. ARM64 and Windows compilation and tests must still verify
 the fixes.
 
-### D64 — replace FloatMP's private 32-bit limb kernel and GMP ratio division (22 October 2026)
+### M64 — replace FloatMP's private 32-bit limb kernel and GMP ratio division (22 October 2026)
 
 Migration-first change, not a performance milestone. Remove the entire FloatMP::SmallUnsigned 32-bit
 limb representation, its custom Knuth division and GMP-based import/export fast path. Replace both
@@ -8255,9 +8255,9 @@ GMP storage, printing, transcendental internals, and other paths are NOT removed
 require explicit successive migrations. Do not benchmark this intermediate boundary cost or claim
 FloatMP is GMP-free until the final grep and runtime regression are clean.
 
-### D65 — fix BigUnsigned hidden-friend addition lookup in FloatMP (22 October 2026)
+### M65 — fix BigUnsigned hidden-friend addition lookup in FloatMP (22 October 2026)
 
-The first macOS ARM64 Clang build after D64 failed in
+The first macOS ARM64 Clang build after M64 failed in
 `FloatMP::from_native_ratio`: unqualified `add(BigUnsigned,BigUnsigned)`
 resolved to the four-argument `FloatMP::add` member instead of the
 `BigUnsigned` hidden-friend function. Define a private translation-unit
@@ -8268,7 +8268,7 @@ to the public BigUnsigned interface, or change to ties-to-even rounding.
 A standalone Clang/GCC C++20 `-Werror` lookup check passed; the full
 ARM64 build and 3456-case differential regression still need CI validation.
 
-### D66 — enable five-precision FloatMP comparison (22 October 2026)
+### M66 — enable five-precision FloatMP comparison (22 October 2026)
 
 The benchmark comparison accepts an explicit 2048-bit precision along
 with 53, 128, 256 and 1024 bits via `--bits`. Replace the four-value
@@ -8287,17 +8287,17 @@ five-precision command is:
 
 The timing loop is unchanged; exact cross-backend validation still checks
 all 27 operations and 32 deterministic inputs per precision after timing.
-These measurements must be labeled *transitional*: D64 still converts
+These measurements must be labeled *transitional*: M64 still converts
 through GMP bridges, and several FloatMP paths retain GMP arithmetic.
 A full optimized build and runtime regression are required before making
 quantitative 2048-bit performance claims.
 
-### D67 — extend dual-backend benchmark to 4096 bits (22 October 2026)
+### M67 — extend dual-backend benchmark to 4096 bits (22 October 2026)
 
 Accept an explicit 4096-bit group alongside 53, 128, 256, 1024 and
 2048 bits in `benchmark_compare_multiple_precision_backends`, without
 changing its four-precision default. `BackendPool::precision_at` already
-constructs the exact requested precision (D66); only the CLI whitelist,
+constructs the exact requested precision (M66); only the CLI whitelist,
 help text and benchmark documentation require a functional update.
 The full six-precision command is:
 
@@ -8313,7 +8313,7 @@ benchmark times, correctness and compiler/platform support must be
 validated with a full optimized build and actual runs. These numbers
 remain transitional while FloatMP retains GMP storage and adapters.
 
-### D68 — retain full FloatMP differential coverage on Windows CI (22 October 2026)
+### M68 — retain full FloatMP differential coverage on Windows CI (22 October 2026)
 
 The captured output has no failed numerical assertion in that test; it is a timeout, not evidence of
 a wrong rounding result. Its full regression body is retained without skips or reductions. Set a
@@ -8329,20 +8329,20 @@ suppressing per-assertion success logs. Do not alter numerical tests,
 workload sizes, algorithms, or precision selections. If the 120-second
 limit also fails, profile the actual slow operation before widening it.
 
-### D69 — revert Windows test timeout workaround; investigate regression (22 October 2026)
+### M69 — revert Windows test timeout workaround; investigate regression (22 October 2026)
 
-Revert the D68 increase of the `test_float_rounding` Windows CTest
-limit to 120 seconds and restore the pre-D68 Windows workflow's C++
+Revert the M68 increase of the `test_float_rounding` Windows CTest
+limit to 120 seconds and restore the pre-M68 Windows workflow's C++
 CTest invocation. The 30-second timeout remains in effect. Raising a
 time limit without identifying a newly introduced slowdown conceals a
 potential arithmetic regression and is not an acceptable fix.
 
 No numerical failure was reported before the timeout, but the log does not establish which native
 routine consumes the time. Preserve all differential test cases and diagnose with focused per-phase
-timing and/or a pre-D64 versus post-D64 comparison. No performance root cause or resolution is
+timing and/or a pre-M64 versus post-M64 comparison. No performance root cause or resolution is
 claimed by this revert.
 
-### D70 — remove verbose CTest output from Unix and Windows CI (22 October 2026)
+### M70 — remove verbose CTest output from Unix and Windows CI (22 October 2026)
 
 The Windows Release C++ workflow still passed `ctest -V` on every run,
 streaming millions of successful test assertions to GitHub Actions
@@ -8365,9 +8365,9 @@ runs, especially the durations of `test_big_unsigned` and
 phases and distinguish computation from stdout/capture overhead
 before altering tests or arithmetic.
 
-### D71 — pinpoint intermittent Windows FloatMP rounding timeout with phase timings (22 October 2026)
+### M71 — pinpoint intermittent Windows FloatMP rounding timeout with phase timings (22 October 2026)
 
-After the D70 nonverbose CTest change, uploaded Windows Release logs from run #? (artifact
+After the M70 nonverbose CTest change, uploaded Windows Release logs from run #? (artifact
 `logs_107726866508.zip`) show a genuine remaining timeout at 30.01 seconds in `test_float_rounding`
 (19/20 passed). In contrast, `test_big_unsigned` completed in 6.12 seconds, versus 29.97 seconds in
 the earlier verbose run. The failure log is 6.54 MB for its C++ step, mostly emitted because CTest
@@ -8382,18 +8382,18 @@ checkpoints identify incomplete sections and provide section durations on
 the next timeout. No test body, cases, oracle, expected result, rounding
 mode, cache access order, timeout, workflow, or numeric implementation is
 changed. The checkpoint overhead should be negligible but remains to be
-confirmed in the Windows CI run. Do not claim a performance fix from D71:
+confirmed in the Windows CI run. Do not claim a performance fix from M71:
 use checkpoint evidence to isolate the slow section and then profile
 native computational kernels versus test output overhead.
 
-### D72 — route FloatMP Integer/Rational construction through native values (22 October 2026)
+### M72 — route FloatMP Integer/Rational construction through native values (22 October 2026)
 
 Start preparing to replace the FloatMP `mpz_t _significand` member
 without breaking the several hundred still-GMP call sites in
 `floatmp.cpp`. The public constructors from `Integer` and `Rational`
 previously exported the already-native inputs into `GmpIntegerBoundary`
 or `GmpRationalBoundary` and re-imported them in
-`FloatMP::from_ratio`. They now call the D64
+`FloatMP::from_ratio`. They now call the M64
 `from_native_ratio` kernel directly. Nonfinite Rational cases still
 follow the preexisting NaN/infinity paths.
 
@@ -8409,11 +8409,11 @@ Full GMP removal is NOT achieved: storage, round_scaled_integer,
 transcendental fixed-point, Fraction and other legacy call sites still
 use GMP. Keep all existing differential tests unchanged; build and
 numerical validation are required on supported platforms before
-declaring D72 tested. Proceed with native storage only after its
+declaring M72 tested. Proceed with native storage only after its
 dependent operations are converted coherently, not by changing the
 field type in isolation.
 
-### D73 — replace legacy native precision Rational conversion tests with FloatMP (22 October 2026)
+### M73 — replace legacy native precision Rational conversion tests with FloatMP (22 October 2026)
 
 No change to production code, benchmarks, CTest timeouts, or the rounding regression oracle.
 
@@ -8421,7 +8421,7 @@ Full removal must replace those checks with independent exact rounding and certi
 expectations, and then remove the old instantiations. These edits have not yet been built or tested
 in CI.
 
-### D74 — flat golden fixtures, inline reader (22 October 2026)
+### M74 — flat golden fixtures, inline reader (22 October 2026)
 
 Place the oracle reader directly in `tests/test_float_rounding.cpp`,
 not separate hpp/cpp files. Place immutable TSV data directly under
@@ -8439,13 +8439,13 @@ test timeouts or benchmark loops.
 Build and cross-platform CI still need to validate the new parser and
 fixture semantics before treating this increment as completed.
 
-### D75 — correct CMake source-path expansion for flat oracle data (22 October 2026)
+### M75 — correct CMake source-path expansion for flat oracle data (22 October 2026)
 
 Remove an accidental CMake escape before `CMAKE_CURRENT_SOURCE_DIR` in the compile definition for `test_float_rounding`; the path must expand during configuration. A standalone quoted-path CMake compile passed; full project CI remains to be checked.
 
-### D76 — fix C++ most-vexing-parse in FloatMP golden fixture reader (22 October 2026)
+### M76 — fix C++ most-vexing-parse in FloatMP golden fixture reader (22 October 2026)
 
-D74's two Rational local variables in the inline TSV reader were parsed
+M74's two Rational local variables in the inline TSV reader were parsed
 by AppleClang as function declarations and failed compilation under
 -Werror. Replace both parenthesized initializations with brace
 initialization. The operator== and vector push_back errors reported by
@@ -8454,7 +8454,7 @@ The fixture set (232 entries), test inputs, expected values and checks
 are unchanged. This source-level change still requires CI compilation
 and execution; it is not evidence of a passing numerical regression.
 
-### D77 — preserve size_t bit precision in golden-oracle lookup (22 October 2026)
+### M77 — preserve size_t bit precision in golden-oracle lookup (22 October 2026)
 
 MSVC v14.51 on Windows failed `test_float_rounding.cpp` with three
 C4267 warnings under /W4 /WX: each call to `floatmp_golden(p.bits(),...)`
@@ -8467,7 +8467,7 @@ does not introduce unchecked casts and does not modify fixture data,
 test inputs, expected outputs, modes, or timeouts. The source-level
 fix still needs Windows CI build and runtime validation.
 
-### D78 — freeze arithmetic quotient oracles and remove three native precision differential groups (22 October 2026)
+### M78 — freeze arithmetic quotient oracles and remove three native precision differential groups (22 October 2026)
 
 Extend `tests/data/floatmp_rounding.tsv` from 232 to 1064
 exact-rational references, still flat under `tests/data/` and
@@ -8499,7 +8499,7 @@ are required. The previously reported Windows 30-second
 `test_float_rounding` timeout may or may not improve after removing
 the full legacy oracle; do not assume its resolution.
 
-### D79 — freeze rounded-input arithmetic oracles and remove four more native precision groups (22 October 2026)
+### M79 — freeze rounded-input arithmetic oracles and remove four more native precision groups (22 October 2026)
 
 Extend the existing flat `tests/data/floatmp_rounding.tsv` from
 1,064 to 4,794 DISTINCT exact-rational reference rows. Generate the
@@ -8535,7 +8535,7 @@ confirmed Windows timeout fix. CI compilation and numerical execution on all tar
 old independent exact oracles-dependent transcendental and further arithmetic checks not listed
 above remain untouched for future independent oracles.
 
-### D80 — freeze cancellation and exponent-gap add/sub references (22 October 2026)
+### M80 — freeze cancellation and exponent-gap add/sub references (22 October 2026)
 
 Move the existing oracle for addition/subtraction of ten exactly representable binary inputs at 7,
 53, 128, 256, and 1024 bits into the flat `tests/data/floatmp_add_sub.tsv`. Preserve all ten ordered
@@ -8555,14 +8555,14 @@ existing FloatMP construction, ensuring the fixture represents the original oper
 precision, input selection, operation and rounding-mode order, and 30-second Windows timeout remain
 unchanged. No production arithmetic changes.
 
-During preparation, Windows #693 at D79 was observed failing in
+During preparation, Windows #693 at M79 was observed failing in
 the C++ CTest step even though its build passed; GitHub job metadata
 alone cannot determine whether the failure is timeout or a numerical
-mismatch. D80 is not a fix for that unidentified failure; obtain
+mismatch. M80 is not a fix for that unidentified failure; obtain
 the full CTest failure log to diagnose it. Compilation and numerical
-execution of D80 remain unverified.
+execution of M80 remain unverified.
 
-### D81 — certify and freeze the exponential rounding oracle (22 October 2026)
+### M81 — certify and freeze the exponential rounding oracle (22 October 2026)
 
 Keep the original 18 signed Dyadic inputs, four precisions (53, 128, 256, 1024 bits), all four
 modes, operation order, and all 288 assertions. The original input is exactly representable at every
@@ -8590,7 +8590,7 @@ The output values are precomputed constants in a separate flat TSV. This is a ri
 the specified `exp` cases, not an assumption that the implementation under test is correct.
 Cross-platform build and runtime testing still required.
 
-### D82 — freeze one-round integer-power oracles (22 October 2026)
+### M82 — freeze one-round integer-power oracles (22 October 2026)
 
 Preserve the five tested precision widths (7, 53, 128, 256, 1024 bits), eight magnitudes, both
 signs, eight nonnegative integer powers (0, 1, 2, 3, 7, 8, 13, 31), and four rounding modes. These
@@ -8624,7 +8624,7 @@ transcendental routines. This change is not a numerical speedup to FloatMP itsel
 repeated oracle evaluation in the selected test block. Build and test validation are pending after
 commit.
 
-### D83 — freeze correctly rounded integer square-root oracles (22 October 2026)
+### M83 — freeze correctly rounded integer square-root oracles (22 October 2026)
 
 Preserve all five precision widths (7, 53, 128, 256, 1024 bits), the fourteen source Rational values
 including boundaries near one/four and perfect squares, all four large and small binary shifts of
@@ -8650,7 +8650,7 @@ only a new CMake absolute source-path definition. All other independent exact or
 regressions, including logarithm and trigonometric tests, remain unchanged. A successful CI build
 and numerical run are still required before declaring the change regression tested.
 
-### D84 — certify centered logarithm golden results (22 October 2026)
+### M84 — certify centered logarithm golden results (22 October 2026)
 
 Preserve all six precision visits (53,7,128,256,1024,53), fifteen source Rational arguments per
 visit including cutoff boundaries, and four directed modes: 360 unchanged assertions. Inputs are
@@ -8672,11 +8672,11 @@ existing inline map reader, using a new absolute CMake path;
 no external hpp/cpp oracle units or data subfolders are added.
 Other logarithm blocks and transcendental checks remain unchanged.
 No timeout adjustments or numerical production-code modifications.
-Windows at D83 compiled and passed; Unix D83 was still in progress
-when preparing this patch. CI and runtime verification of D84 are
+Windows at M83 compiled and passed; Unix M83 was still in progress
+when preparing this patch. CI and runtime verification of M84 are
 still outstanding.
 
-### D85 — certify the centered exponential oracle (22 October 2026)
+### M85 — certify the centered exponential oracle (22 October 2026)
 
 Preserve six precision visits (53, 7, 128, 256, 1024, 53 bits), fifteen source Rational magnitudes,
 both signs, all four rounding modes, and all 720 original assertions, including window-boundary and
@@ -8701,10 +8701,10 @@ including nearest-even ties. All 568 entries passed this test. No GMP, FloatMP, 
 exponential oracle was used.
 
 Production code, precision ordering, numerical coverage, timeout settings, and remaining independent
-exact oracles-dependent tests are unchanged. D84 Unix, Windows and Coverage workflows passed; D85 CI
+exact oracles-dependent tests are unchanged. M84 Unix, Windows and Coverage workflows passed; M85 CI
 and build validation are pending.
 
-### D86 — certify centered arcsine and arccosine oracles (22 October 2026)
+### M86 — certify centered arcsine and arccosine oracles (22 October 2026)
 
 Preserve precision visits 53, 7, 128, 256, 1024, 53, all 13 magnitudes (including the centered
 threshold and exterior fallback), both signs, both inverse-trigonometric functions and four rounding
@@ -8739,11 +8739,11 @@ direction, including nearest/even midpoint handling.
 All 1,040 entries passed certification; the maximum final
 interval width was 13826/2^1800.
 
-D85 Unix, Windows and Coverage workflows all passed before D86.
-D86 build and regression/CI status are pending. No production
+M85 Unix, Windows and Coverage workflows all passed before M86.
+M86 build and regression/CI status are pending. No production
 source, timeouts or unrelated tests were modified.
 
-### D87 — certify centered arctangent golden oracle (22 October 2026)
+### M87 — certify centered arctangent golden oracle (22 October 2026)
 
 Preserve six precision visits (53, 7, 128, 256, 1024, 53 bits), all sixteen source Rational
 magnitudes (including four near-centre ULP probes, four exact cutoff and exterior probes, and
@@ -8772,11 +8772,11 @@ independently round to the same exact canonical binary Rational for the requeste
 direction, including nearest/even ties. All 640 references passed this certification (widest
 interval 12668/2^1800).
 
-D86 Unix, Windows and Coverage jobs passed before this change.
-D87 compilation, regressions and CI validation remain pending.
+M86 Unix, Windows and Coverage jobs passed before this change.
+M87 compilation, regressions and CI validation remain pending.
 No timeouts, production code or unrelated tests are modified.
 
-### D88 — certify single-recurrence arctangent oracles (22 October 2026)
+### M88 — certify single-recurrence arctangent oracles (22 October 2026)
 
 Retain the original precision order (7, 53, 128, 256, 1024 bits), all sixteen signed dyadic
 arguments spanning the |x|=1/2 and |x|=2 transition boundaries, and the four directed rounding
@@ -8785,7 +8785,7 @@ the rounded FloatMP value, so constructor rounding errors cannot shift the oracl
 
 Extend the EXISTING `tests/data/floatmp_atan.tsv` rather than
 creating a per-block fixture. Exactly 120 of 320 requested references
-already occur in D87 (the ±1/2, ±1 and ±2 probes at each precision),
+already occur in M87 (the ±1/2, ±1 and ±2 probes at each precision),
 and all 120 were independently recomputed and matched exactly.
 Append 200 additional certified references, for a new total of
 840 rows; update the strict fixture row-count check accordingly.
@@ -8810,10 +8810,10 @@ certificate, with maximum new interval width
 6911/2^1800.
 
 No GMP or FloatMP oracle was used in fixture generation. No production code, timeouts, existing test
-cases or other test blocks were changed. The D87 commit had no GitHub Actions runs available when
-D88 was prepared; D88 build/CI verification is also pending.
+cases or other test blocks were changed. The M87 commit had no GitHub Actions runs available when
+M88 was prepared; M88 build/CI verification is also pending.
 
-### D89 — certified atan-cache and centered reduction regression (22 October 2026)
+### M89 — certified atan-cache and centered reduction regression (22 October 2026)
 
 Retain six precision visits (53, 7, 128, 1024, 256, 53), all twenty magnitude inputs around 1/4,
 1/3, 1/2, 5/7, plus 0, 1, 2 and 3, both signs and four directed rounding modes. All 960 original
@@ -8844,10 +8844,10 @@ and mode. All 800 generated comparisons passed this certification, with widest e
 No source code outside the selected test block and atan fixture
 loader row count changed; production, other tests and timeouts
 are untouched. Merge conflict currently blocks CI visibility,
-so D87/D88/D89 executable regressions remain unverified.
+so M87/M88/M89 executable regressions remain unverified.
 Only `remove-gmp` is updated.
 
-### D90 — certify shared asin/acos enclosure and endpoint tests (22 October 2026)
+### M90 — certify shared asin/acos enclosure and endpoint tests (22 October 2026)
 
 Keep all four precision visits (53, 128, 256, 1024), seventeen original signed Rational arguments
 including ±1, values 2^-40 from ±1, zero, and the 1/2 branch transition, both functions, and four
@@ -8858,7 +8858,7 @@ entries and `tests/data/floatmp_acos.tsv` to 728,
 adding 208 and 208
 independent correctly rounded reference values respectively.
 Reuse 64 asin and 64 acos results
-from D86, independently recertifying every overlap and detecting
+from M86, independently recertifying every overlap and detecting
 any disagreement. No additional fixture files, CMake path changes,
 external C++ oracle utilities or new subdirectories. The golden
 lookup key is the exact ORIGINAL Rational input, even when that
@@ -8884,7 +8884,7 @@ The unresolved merge conflict continues to prevent CI execution;
 this commit is offline-certified but NOT yet build/regression
 validated. Keep the branch `remove-gmp`.
 
-### D91 — certify centered sine/cosine exact golden oracles (22 October 2026)
+### M91 — certify centered sine/cosine exact golden oracles (22 October 2026)
 
 Retain all seven precision visits (96, 128, 192, 224, 256, 1024, 128 bits), seven positive source
 Rational magnitudes near the exact +/-1/2 cache/guard thresholds and at 1/4 and 3/4, both signs,
@@ -8916,11 +8916,11 @@ binary Rational, including nearest/even ties. The maximum interval width was 240
 
 No production code, timeout settings, test order or other test
 blocks were changed. The existing merge conflict prevents CI
-runs from being observed; D91 compilation/regression remains
+runs from being observed; M91 compilation/regression remains
 unverified despite independent offline numerical certification.
 Continue exclusively on the `remove-gmp` branch.
 
-### D92 — certify local sine, cosine, tangent regression oracles (22 October 2026)
+### M92 — certify local sine, cosine, tangent regression oracles (22 October 2026)
 
 All 1944 original assertions remain, including the 53-bit cache revisit, work>=256 performance
 dispatch and outside-fast-path probes.
@@ -8928,7 +8928,7 @@ dispatch and outside-fast-path probes.
 Extend the existing `tests/data/floatmp_sin.tsv` to 792
 entries and `tests/data/floatmp_cos.tsv` to 792 entries,
 reusing and independently rechecking 120 and 120
-preexisting D91 references. New references number
+preexisting M91 references. New references number
 456 and 456, respectively. Add only
 `tests/data/floatmp_tan.tsv`, with 576 certified results,
 as the reusable operation-wide tangent dataset. CMake gains the
@@ -8948,15 +8948,15 @@ cosine lower bound is POSITIVE. Apply oddness to sine/tangent and evenness to co
 endpoint is independently rounded to the p-bit binary rational in each requested directed rounding
 mode. All 1728 distinct function/mode/source/precision results successfully certified, with maximal
 fixed-point interval width 631/2^1800. 0 of the 144 distinct source/precision inputs required
-nontrivial nearest/even input rounding; 240 overlapping references agreed exactly with D91.
+nontrivial nearest/even input rounding; 240 overlapping references agreed exactly with M91.
 
 No changes to production, other test blocks, test order or
 timeouts. The unresolved merge conflict still prevents CI from
-running on D87-D92, so compilation/regression remains unverified;
+running on M87-M92, so compilation/regression remains unverified;
 the offline numerical oracle certification is complete.
 All work is committed ONLY on `remove-gmp`.
 
-### D93 — certify centered tangent enclosure regression (22 October 2026)
+### M93 — certify centered tangent enclosure regression (22 October 2026)
 
 Preserve all six precision visits (53, 7, 256, 128, 1024, 53 bits), nine magnitudes including the
 exact cutoff and fallback around 1/2, both signs, all four rounding modes, and the second 53-bit
@@ -8965,7 +8965,7 @@ cache-reuse visit. All 432 original test assertions remain.
 Extend the existing `tests/data/floatmp_tan.tsv`, not a second
 tangent dataset. Five distinct precisions times 18 signed inputs
 times four modes require 360 references, of which 120 overlapped
-the D92 dataset and were independently recalculated and checked
+the M92 dataset and were independently recalculated and checked
 to agree exactly. Append 240 new certified golden rows, yielding
 816 TSV records. Update only the existing strict row-count
 validation. The fixture key uses the ORIGINAL exact signed source
@@ -8988,11 +8988,11 @@ numeric oracle or floating-point transcendental evaluation was used.
 
 No production implementation changes, timeout adjustments,
 regression-case deletions, new data files or CMake changes.
-D87 onward still lacks CI coverage because of the unresolved
-merge conflict, so the D93 compilation and executable regressions
+M87 onward still lacks CI coverage because of the unresolved
+merge conflict, so the M93 compilation and executable regressions
 remain unverified. All modifications are restricted to `remove-gmp`.
 
-### D94 — certify tangent single-sqrt cosine and reconstruction checks (22 October 2026)
+### M94 — certify tangent single-sqrt cosine and reconstruction checks (22 October 2026)
 
 Keep the Rational-to-FloatMP nearest/even conversion: some original dyadics are not representable
 exactly at p=7. Use the exact ORIGINAL Dyadic as Rational golden key, rather than letting a faulty
@@ -9001,7 +9001,7 @@ rounding before testing tangent.
 
 Extend the EXISTING operation-wide `tests/data/floatmp_tan.tsv`
 from 816 to 1016 records. Independently recertify 80 existing
-references shared with D92/D93 (the +/-1/2 and +/-3/4
+references shared with M92/M93 (the +/-1/2 and +/-3/4
 arguments at five precisions), all matching exactly, and append
 200 additional immutable certified rows. Update the existing
 strict inline TSV row count only. No additional CMake definitions,
@@ -9022,11 +9022,11 @@ greater than 1 were visited 20 times across precisions.
 
 No production code, timeout, test-case or unrelated-test
 changes. GitHub CI remains unavailable because of the
-previously noted merge conflict: D94 build and executable
+previously noted merge conflict: M94 build and executable
 regression outcomes are NOT verified. Continue exclusively
 on `remove-gmp`.
 
-### D95 — certify exact dyadic sin/cos/tan reduction oracles (22 October 2026)
+### M95 — certify exact dyadic sin/cos/tan reduction oracles (22 October 2026)
 
 Preserve all four precision visits (53, 128, 256, 1024 bits), all twenty-two exact signed dyadic
 source arguments including tiny 2^-64 and 2^-128, both sides of |x|=1 and larger 5/2, 7/2 arguments,
@@ -9062,18 +9062,18 @@ All 88 dyadic source/precision combinations were already exactly binary represen
 
 No production changes, timeout changes, deletions of test
 cases or modifications to other test blocks.
-D95 executable tests and CI remain unverified because
+M95 executable tests and CI remain unverified because
 of the unresolved merge conflict; offline certified
 references are not a substitute for passing regressions.
 Continue exclusively on the `remove-gmp` branch.
 
-### D96 — certify logarithm range reduction and cache boundaries (22 October 2026)
+### M96 — certify logarithm range reduction and cache boundaries (22 October 2026)
 
 Cache ordering and threshold-probe order remain unchanged.
 
 Extend the EXISTING `tests/data/floatmp_log.tsv` rather
 than creating a second logarithm file. Verify all 48
-existing D84 source/mode/precision golden references
+existing M84 source/mode/precision golden references
 by a different independent certificate and append
 160 new six-column rows, yielding
 444 unique records; update the strict inline loader
@@ -9103,7 +9103,7 @@ due to the unresolved merge conflict. Do not treat
 offline mathematical certification as passing CI.
 Commit exclusively on `remove-gmp`.
 
-### D97 — certify pi and cold/warm cache behavior without native precision (22 October 2026)
+### M97 — certify pi and cold/warm cache behavior without native precision (22 October 2026)
 
 Keep the original six precision visits (53, 256, 7, 1024, 128, 53 bits), including revisiting 53
 bits after 1024-bit cache activity. Within each visit preserve the original mode order nearest,
@@ -9136,11 +9136,11 @@ Only the pi block in `tests/test_float_rounding.cpp` and
 this design journal are changed. No new data files,
 no CMake change, no production code and no test-case
 removal. The existing conflict still blocks visible CI
-for D87 onward; D97 has not been compiled or executed
+for M87 onward; M97 has not been compiled or executed
 under CTest/CI despite the independent numeric proof.
 All changes remain on `remove-gmp`.
 
-### D98 — replace native precision get_d differential checks with certified binary64 bits (22 October 2026)
+### M98 — replace native precision get_d differential checks with certified binary64 bits (22 October 2026)
 
 Preserve the four precision visits (53, 128, 256, 1024 bits), all seventeen original input values,
 the four original modes nearest/even, downward, upward, and toward zero, and each original bit-exact
@@ -9184,10 +9184,10 @@ correctness of the independent oracle calculation does NOT
 constitute an executed C++ regression result.
 All changes are committed only on `remove-gmp`.
 
-### D99 — remove legacy precision backend from rounding tests (22 October 2026)
+### M99 — remove legacy precision backend from rounding tests (22 October 2026)
 
 After the rebase of `remove-gmp` onto `main`, this commit
-is based on the new D98 HEAD `f872210be8bda99d8e2f6dee85262dca5a3f3933`, not on the former
+is based on the new M98 HEAD `f872210be8bda99d8e2f6dee85262dca5a3f3933`, not on the former
 pre-rebase commit IDs.
 
 Remove the legacy backend from `tests/test_float_rounding.cpp`
@@ -9224,10 +9224,10 @@ were updated to match the reduced set of live backends.
 This is intentionally scoped to that single test module; other tests still require independent
 native migrations, including GMP-backed arithmetic oracles. No production code, CMake, TSV datasets,
 timeout or any other test module was changed. Because the rebase and merge status must be validated
-by actual build/CI runs, the D99 compiled regression result is NOT claimed as verified at commit
+by actual build/CI runs, the M99 compiled regression result is NOT claimed as verified at commit
 time.
 
-### D100 — migrate FloatMPproximation coverage to FloatMP (22 October 2026)
+### M100 — migrate FloatMPproximation coverage to FloatMP (22 October 2026)
 
 In `tests/test_float_approximation.cpp`, replace the MultiplePrecision C++20 concept assertion with
 the MultiplePrecision concept assertion, and replace the former 128-bit backend suite with the same
@@ -9248,10 +9248,10 @@ No production, CMake, fixture, timeout or other test module change. Compilation 
 are not inferred from source review: CI status must be checked separately. Work is restricted to the
 rebased `remove-gmp` branch.
 
-### D101 — resolve missing FloatMP approximation linker symbols (22 October 2026)
+### M101 — resolve missing FloatMP approximation linker symbols (22 October 2026)
 
 A full macOS arm64 Release link of `tests/test_float_approximation`
-after D100 fails with five unresolved symbols, all in
+after M100 fails with five unresolved symbols, all in
 `Approximation<FloatMP>`: constructors from
 `LowerBound<FloatMP>`, `UpperBound<FloatMP>`,
 `Bounds<FloatMP>`, `Error<FloatMP>`, and
@@ -9273,7 +9273,7 @@ constructors and legacy production code intact; only add the
 five required symbols. Do not explicitly instantiate the whole
 Approximation<FloatMP> class or modify its numerical behavior.
 
-KEEP the entire D100 FloatMP approximation suite and all
+KEEP the entire M100 FloatMP approximation suite and all
 its original generic assertion sites, including generic number,
 lower/upper/bounds/error conversions and cross-precision paths;
 do not silence the link error by removing coverage. No test,
@@ -9283,14 +9283,14 @@ are declared and template-defined; compilation and regression
 results still require actual CI/build and are NOT asserted here.
 Working branch: `remove-gmp`, parent HEAD `f9802f5a4e8d4d8d26e8c4f7a1f01291a48c0c81`.
 
-### D102 — make native approximation generic conversion link on MSVC (22 October 2026)
+### M102 — make native approximation generic conversion link on MSVC (22 October 2026)
 
 The user reports the Windows x64 MSVC 14.51 linker STILL fails
-after D101: the ONLY remaining missing external in
+after M101: the ONLY remaining missing external in
 `tests/test_float_approximation.exe` is
 `Approximation<FloatMP>::operator ApproximateNumber() const`
 (LNK2019/LNK1120). Unlike the four missing conversion
-constructors, the D101 bare explicit-instantiation definition
+constructors, the M101 bare explicit-instantiation definition
 in `src/float_approximation.cpp` did not provide a
 linkable symbol in the reported MSVC build.
 
@@ -9311,7 +9311,7 @@ CI is not available from this editing context, the actual
 MSVC link must still be rerun to confirm resolution.
 Parent commit is `6da78909b92eb6577d32349cc364a467c2cb9c7e` on rebased `remove-gmp`.
 
-### D103 — precompute short-owned BigUnsigned division oracles (22 October 2026)
+### M103 — precompute short-owned BigUnsigned division oracles (22 October 2026)
 
 No loop counts were modified; a proposed sampling/repetition
 reduction was CANCELLED before any commit. Migrate only
@@ -9355,7 +9355,7 @@ the user goal is a roughly 10x reduction from 18 seconds,
 not a verified outcome of this source change.
 Parent HEAD: `98130207350c7cbd210f80484173522869b07c5a`.
 
-### D104 — repair hexadecimal bit-width warning and migrate exact unsigned powers (22 October 2026)
+### M104 — repair hexadecimal bit-width warning and migrate exact unsigned powers (22 October 2026)
 
 Fix the clang -Wsign-conversion warning at the golden hex bit-length
 calculation with an explicit `static_cast<std::size_t>` around
@@ -9399,7 +9399,7 @@ change, timeout or loop change. TSan timing/CI results
 require real runs; the 10x goal is not claimed achieved.
 Parent `b5ecc37e34037457c869ebc1b1b4abf1a859afcd`, branch `remove-gmp`.
 
-### D105 — remove GMP arithmetic from FloatMP integral rounding (23 October 2026)
+### M105 — remove GMP arithmetic from FloatMP integral rounding (23 October 2026)
 
 
 - The signed `std::int64_t` FloatMP constructor now passes through the
@@ -9419,7 +9419,7 @@ Parent `b5ecc37e34037457c869ebc1b1b4abf1a859afcd`, branch `remove-gmp`.
   or golden oracle is weakened, removed or rewritten to self-compare.
 - This step is source-reviewed only until cross-platform CI runs.
 
-### D106 — native signed/unsigned arithmetic in FloatMP core (23 October 2026)
+### M106 — native signed/unsigned arithmetic in FloatMP core (23 October 2026)
 
 On `numeric/main`, the former GMP operations inside FloatMP's addition/subtraction (including signed
 far-exponent sticky adjustment), multiplication, division, fused multiply-add and precision
@@ -9436,7 +9436,7 @@ is required before asserting behavioral equivalence. The next
 dedicated phase will replace the owned `mpz_t` storage and then
 the remaining `mpq_t` series intermediates with `Rational`.
 
-### D107 — native BigUnsigned integer square root (23 October 2026)
+### M107 — native BigUnsigned integer square root (23 October 2026)
 
 On `numeric/feature/bigunsigned-isqrt` off main `9f88d003`, `isqrt(BigUnsigned const&)` computes the
 canonical floor square root with only native BigUnsigned operations. It starts above the true square
@@ -9463,9 +9463,9 @@ alter its rounding, or weaken any existing oracle/benchmark workload.
 Benchmark timings and full cross-platform test results remain to
 be measured by actual builds/CI; no performance claim is made.
 
-### D108 — canonical square-root remainder, oracle and CI correction (23 October 2026)
+### M108 — canonical square-root remainder, oracle and CI correction (23 October 2026)
 
-Follow-up to D107: the public BigUnsigned magnitude layer now exposes
+Follow-up to M107: the public BigUnsigned magnitude layer now exposes
 `sqrtrem(n)` in addition to `isqrt(n)`. Both use the same GMP-free
 integer Newton root kernel. The first computes
 `n = root*root + remainder` with `0 <= remainder <= 2*root`, while
@@ -9497,16 +9497,16 @@ ownership matched and correctness verified only outside timing.
 Do not assert performance parity before same-host timing.
 This commit is intended for numeric/main directly, as requested.
 
-### D109 — balanced divide-and-conquer BigUnsigned integer square root (23 October 2026)
+### M109 — balanced divide-and-conquer BigUnsigned integer square root (23 October 2026)
 
-User-provided same-host integrated benchmark after D108 (owning operations,
+User-provided same-host integrated benchmark after M108 (owning operations,
 ns per call, 20000 iterations/31 median samples): isqrt/native versus GMP
 was 58.071/19.146 at 53 bits, 134.179/20.317 at 128,
 318.333/48.242 at 256, 2651.100/178.733 at 1024 and
 6801.533/287.534 at 2048. sqrtrem was 71.698/34.138,
 145.817/34.858, 333.725/67.250, 2729.400/169.033 and
 7042.066/310.400 respectively. The 2048-bit isqrt slowdown was
-23.655x. This is the PRE-CHANGE baseline, not an estimate of D109.
+23.655x. This is the PRE-CHANGE baseline, not an estimate of M109.
 
 Replace full-precision repeated Newton division with balanced binary
 divide-and-conquer square root. Split the original unsigned n into
@@ -9543,25 +9543,25 @@ the recursive arithmetic on boundary and random inputs through
 one million random 64-/128-bit integer specializations against exact
 multiprecision inequalities; this is not a full project build.
 Actual production build, cross-platform CI and repeat same-host
-performance measurements remain pending; no D109 speedup is claimed.
+performance measurements remain pending; no M109 speedup is claimed.
 
-### D110 — reuse trial-digit Euclidean remainder in BigUnsigned sqrt (23 October 2026)
+### M110 — reuse trial-digit Euclidean remainder in BigUnsigned sqrt (23 October 2026)
 
-The user measured the D109 divide-and-conquer version on the same
+The user measured the M109 divide-and-conquer version on the same
 20000-iteration, 31-sample integrated arithmetic benchmark, providing
-the first measured post-D109 comparison. Isqrt owning native/GMP ns:
+the first measured post-M109 comparison. Isqrt owning native/GMP ns:
 53 bits 3.442/19.156, 128 bits 26.471/20.350,
 256 bits 148.233/47.650, 1024 bits 953.667/172.934,
 2048 bits 1885.466/291.400. Sqrtrem native/GMP ns:
 53 bits 3.633/33.998, 128 bits 33.312/34.921,
 256 bits 169.958/67.375, 1024 bits 982.866/168.966,
-2048 bits 1992.333/311.600. The remaining D109 isqrt
+2048 bits 1992.333/311.600. The remaining M109 isqrt
 slowdown at 2048 bits is 6.470x; GMP parity is NOT achieved.
 
 Source inspection revealed the same expensive redundant calculation
 at every recursive step: compute q=quot(numerator,2*s), discard
 the division's remainder, then reconstruct it by
-numerator-(2*s)*q. D110 instead uses native divrem(numerator,2*s)
+numerator-(2*s)*q. M110 instead uses native divrem(numerator,2*s)
 to obtain q and its remainder in one invocation, then forms
 the next residual as (division_remainder << k)+low-q*q.
 Thus one multiprecision product and one subtraction per recursive
@@ -9577,17 +9577,17 @@ binary-search square root and nonnegative remainder. No oracle,
 existing test, benchmark input, iteration count, comparison lifetime
 or FloatMP semantic path was modified in this change.
 AppleClang/GCC/MSVC production compilation and actual same-host
-benchmark timings of D110 remain pending; no performance
+benchmark timings of M110 remain pending; no performance
 improvement is claimed until those measurements.
 
-### D111 — owning-only integrated arithmetic benchmark and aligned sqrt chunks (23 October 2026)
+### M111 — owning-only integrated arithmetic benchmark and aligned sqrt chunks (23 October 2026)
 
-The next user-supplied D110 benchmark measured isqrt native/GMP
+The next user-supplied M110 benchmark measured isqrt native/GMP
 3.427/19.133, 26.408/20.358, 139.692/47.808,
 906.367/173.266 and 1810.800/309.467 ns respectively
 for 53/128/256/1024/2048 bits. Sqrtrem native/GMP measured
 3.629/34.325, 33.229/34.867, 164.758/67.358,
-934.266/168.800, 1914.134/323.666 ns. D110 remains
+934.266/168.800, 1914.134/323.666 ns. M110 remains
 5.85x GMP at 2048 bits for isqrt and 5.91x for sqrtrem.
 
 The integrated BigUnsigned arithmetic benchmark is simplified
@@ -9612,7 +9612,7 @@ BigUnsigned, and the public isqrt/sqrtrem contract, frozen
 The production C++ CI and measured same-host performance for
 this implementation must be checked before any speedup claim.
 
-### D112 — native Integer square root and shared independent oracle (23 October 2026)
+### M112 — native Integer square root and shared independent oracle (23 October 2026)
 
 The signed Integer front-end now exposes `isqrt(Integer const&)`
 and `sqrtrem(Integer const&)`. Negative inputs throw
@@ -9642,9 +9642,9 @@ are not reintroduced and no existing measurements are removed.
 Actual cross-platform CI and same-host performance results remain
 to be collected; no new performance parity claim is made.
 
-### D113 — move Integer square-root comparisons into the existing Integer benchmark (23 October 2026)
+### M113 — move Integer square-root comparisons into the existing Integer benchmark (23 October 2026)
 
-Correct the D112 benchmark placement: `benchmark_big_unsigned_arithmetic`
+Correct the M112 benchmark placement: `benchmark_big_unsigned_arithmetic`
 must measure only unsigned primitives. Drop its temporary
 `int_isqrt` and `int_sqrtrem` rows, associated Integer include,
 and owning Integer input setup, restoring the original nine unsigned
@@ -9678,9 +9678,9 @@ CI compilation, test execution, and actual same-host timing for this
 reorganization remain to be confirmed; no benchmark performance
 claims are made on an unmeasured revision.
 
-### D114 — tight quotient division and exact binary64-seeded 128-bit sqrt (23 October 2026)
+### M114 — tight quotient division and exact binary64-seeded 128-bit sqrt (23 October 2026)
 
-The source after D113 still computes all large roots with a
+The source after M113 still computes all large roots with a
 balanced divide-and-conquer digit recurrence. This step preserves
 its split, quotient/remainder formula, one-step correction, public
 interfaces, signed Integer wrappers and both independent test oracles.
@@ -9716,15 +9716,15 @@ remain exactly unchanged. Actual production CI and cross-platform
 integrated benchmark medians must be verified before any claim
 of a measured full-workload improvement.
 
-### D115 — halve square-root trial division operands without changing exact remainder (23 October 2026)
+### M115 — halve square-root trial division operands without changing exact remainder (23 October 2026)
 
 The user's integrated `benchmark_compare_integer_backends` on 53/128/256/1024
-bits (20,000 iterations, 31 samples) measured the D114 Integer wrapper:
+bits (20,000 iterations, 31 samples) measured the M114 Integer wrapper:
 isqrt native/GMP 8.542/19.171, 13.133/20.979, 90.829/45.771,
 514.465/167.662 ns; sqrtrem native/GMP 8.192/41.475,
 16.656/42.958, 94.596/70.042, 552.362/175.402 ns.
-The 1024-bit sqrtrem slowdown was 3.149x. This is D114's
-PRE-CHANGE baseline, not a D115 performance prediction.
+The 1024-bit sqrtrem slowdown was 3.149x. This is M114's
+PRE-CHANGE baseline, not a M115 performance prediction.
 
 The exact divide-and-conquer digit recurrence needs
 q=floor(N/(2*s)), rho=N mod (2*s), where s is the already
@@ -9752,10 +9752,10 @@ A separate BigInt mathematical implementation checked
 15 trial-digit clamp occurrences and exact remainder validation.
 This establishes the recurrence algebra, not successful C++
 compilation of the new code. Production CI and same-host
-timings for D115 must still be checked before concluding that
+timings for M115 must still be checked before concluding that
 the lower-level division optimization improved overall results.
 
-### D116 — ARM64 square-root preinverse loop shadowing warning (23 October 2026)
+### M116 — ARM64 square-root preinverse loop shadowing warning (23 October 2026)
 
 The current `main` HEAD was refreshed to `5644d335` before this fix.
 In the ARM64 branch of `sqrt_divide`, the inner loop declared
@@ -9767,7 +9767,7 @@ semantics are unchanged; no oracle or benchmark inputs are changed.
 This removes the source-level `-Wshadow` warning at the reported
 location, pending AppleClang CI confirmation.
 
-### D117 — native FloatMP square root before significand storage migration (23 October 2026)
+### M117 — native FloatMP square root before significand storage migration (23 October 2026)
 
 `FloatMP::sqrt` now uses the established GMP-free `BigUnsigned::sqrtrem`
 to compute the exact scaled root and remainder and uses the native
@@ -9787,9 +9787,9 @@ This commit is intentionally narrow: the build environment cannot check out and 
 from this session. CI has to confirm the new code and the independent FloatMP test/independent exact
 oracles-oracle regressions. Do not regard algebraic equivalence alone as successful test execution.
 
-### D118 — native exact FloatMP integer-power significand (23 October 2026)
+### M118 — native exact FloatMP integer-power significand (23 October 2026)
 
-After the native `sqrtrem` change (D117), migrate the exact nonnegative
+After the native `sqrtrem` change (M117), migrate the exact nonnegative
 integer-power significand in `FloatMP::pow` from direct
 `mpz_pow_ui(result._significand, value._significand, degree)` to
 `pow(BigUnsigned, uint64_t)`. The existing signed parity rule,
@@ -9811,7 +9811,7 @@ the storage migration. The new power path and existing tests still
 require compilation and CI confirmation, plus performance measurements
 before any speed claim.
 
-### D119 — replace FloatMP mpz_t significand with BigUnsigned (23 October 2026)
+### M119 — replace FloatMP mpz_t significand with BigUnsigned (23 October 2026)
 
 This change replaces the storage member `FloatMP::_significand` from
 `mpz_t` to an owned canonical `BigUnsigned`. Its public
@@ -9864,9 +9864,9 @@ has yet been established. Treat CI as mandatory validation, and
 correct any compile failures or semantic regressions before
 claiming the migration is verified.
 
-### D120 — eliminate FloatMP GMP-pointer legacy interfaces (23 October 2026)
+### M120 — eliminate FloatMP GMP-pointer legacy interfaces (23 October 2026)
 
-Audit the storage conversion committed in D119. There are four
+Audit the storage conversion committed in M119. There are four
 obsolete members with GMP pointer signatures:
 `from_integer(mpz_srcptr)` (no callers),
 `from_ratio(mpz_srcptr,mpz_srcptr,...)` (only called by the
@@ -9918,30 +9918,30 @@ semantic oracle checks.
 
 The existing FloatMP independent directed-bound and
 transcendental regression suites must validate this change.
-CI compilation and test results for D120 are pending; the
+CI compilation and test results for M120 are pending; the
 local environment cannot clone the entire repository due
 lack of GitHub DNS access. Do not claim the tests passed
 without a CI result.
 
-### D121 — eliminate D120 certified-interval GCD performance regression (23 October 2026)
+### M121 — eliminate M120 certified-interval GCD performance regression (23 October 2026)
 
 User reported a substantial slowdown at all precisions following
-D120 (commit c38e3e23). Root cause verified in its diff:
+M120 (commit c38e3e23). Root cause verified in its diff:
 the certified transcendental endpoints previously went directly
 through FloatMP::from_rational(mpq_srcptr) (the dyadic case skipped
 division entirely; otherwise it imported two Integer operands and
-performed one exact native division/rounding). D120 instead called
+performed one exact native division/rounding). M120 instead called
 Fraction::native(), constructing an owning canonical Rational from
 both mpq components, then FloatMP(Rational,mode,precision).
 Canonicalizing Rational incurs a potentially very large GCD and
 additional allocation/copying on BOTH interval endpoints, on
-EVERY repeated certification iteration. D120 additionally made
+EVERY repeated certification iteration. M120 additionally made
 Fraction(FloatMP) convert through a canonical Rational, causing
 another unnecessary GCD before all transcendental evaluations.
 These intermediate gcd reductions are not needed mathematically:
 the exact ratio need not be reduced before correctly-rounded division.
 
-D121 adds a GMP-free PUBLIC static FloatMP::from_ratio overload
+M121 adds a GMP-free PUBLIC static FloatMP::from_ratio overload
 taking two native Integer operands, rounding mode and precision.
 It delegates immediately to the existing private from_native_ratio
 engine (including its exact power-of-two denominator fast path),
@@ -9974,7 +9974,7 @@ same precision workload and sample protocol. C++ compilation,
 independent correctness regressions, sanitizer runs and measured
 speedups are pending; algebraic analysis alone is not validation.
 
-### D122 — native decimal formatting and independent binary64 display (23 October 2026)
+### M122 — native decimal formatting and independent binary64 display (23 October 2026)
 
 FloatMP's fixed-decimal formatter now works directly from its exact
 BigUnsigned significand and signed binary exponent. It calculates
@@ -9997,14 +9997,14 @@ unchanged.
 Do not call the strict migration complete. Cross-platform builds, unit tests and performance
 benchmark comparison are still required.
 
-### D123 — use public FloatDP exact-binary64 constructors in decimal tests (23 October 2026)
+### M123 — use public FloatDP exact-binary64 constructors in decimal tests (23 October 2026)
 
-**Relocated to the FloatDP journal.** This D123 test-constructor
+**Relocated to the FloatDP journal.** This M123 test-constructor
 compatibility fix belongs to the binary64 backend and is documented
-in [`floatdp_design.md`](floatdp_design.md). The historical D123
+in [`floatdp_design.md`](floatdp_design.md). The historical M123
 identifier is retained here as a navigation reference only.
 
-### D124 — native fixed-point exp series with reusable limb buffers (23 October 2026)
+### M124 — native fixed-point exp series with reusable limb buffers (23 October 2026)
 
 The certified exponential Taylor evaluator migrates its hot fixed-point
 recurrence from in-place GMP mpz_t arithmetic to native BigUnsigned limb
@@ -10014,7 +10014,7 @@ and the upper enclosure uses sum(t_i)+t_n+6*(n+1). Negative arguments
 still use reciprocal endpoints in reverse order. The same guard width,
 termination threshold and argument reductions are retained.
 
-Unlike a direct expression-level BigUnsigned port, D124 holds the current
+Unlike a direct expression-level BigUnsigned port, M124 holds the current
 term, running sum, multiplication product, shifted product, next term
 and next sum in reusable std::vector<Limb> storage. The loop calls
 BigUnsigned::mul_into, divrem_limb_into and add_into on borrowed spans;
@@ -10038,7 +10038,7 @@ Only same-host results from benchmark_compare_multiple_precision_backends,
 provided by the user, can establish any performance conclusion. No
 speedup is claimed here.
 
-### D125 — benchmark both directed exponential modes (23 October 2026)
+### M125 — benchmark both directed exponential modes (23 October 2026)
 
 The shared monomorphic `benchmark_compare_multiple_precision_backends` operation list now includes
 `exp_down` and `exp_up` alongside the unchanged `exp_nearest`. The and FloatMP runs use the SAME
@@ -10048,7 +10048,7 @@ from 27 to 29. Timing loops still contain no correctness checks. Preexisting ope
 input values are unchanged.
 
 The directed modes already execute the same optimized FloatMP exp evaluator:
-native fixed-point Taylor series (D124), argument reduction, certified
+native fixed-point Taylor series (M124), argument reduction, certified
 half-centered exponential cache, and precision-refinement loop. The
 only mode-specific behavior is rounding the rigorous interval endpoints
 when deciding whether refinement can stop. No approximation obtained by
@@ -10065,7 +10065,7 @@ same-host repeated samples. Existing independent FloatMP exp oracle
 checks in four rounding modes remain unchanged, as do the certified
 exp kernels themselves.
 
-### D126 — native certified inverse-trigonometric square-root endpoints (23 October 2026)
+### M126 — native certified inverse-trigonometric square-root endpoints (23 October 2026)
 
 The positive-rational `square_root_interval` used by asin/acos now forms
 the exact scaled native quotient `q=floor(n*2^(2B)/d)` using native
@@ -10088,7 +10088,7 @@ assertions, and all benchmark workloads remain unchanged. Compilation,
 cross-platform CI, correctness regressions, and same-host benchmark
 performance must be verified before making speedup claims.
 
-### D127 — native two-sided fixed-point logarithm series (23 October 2026)
+### M127 — native two-sided fixed-point logarithm series (23 October 2026)
 
 The exact outward-certified `log_series` recurrence has been converted
 from `mpz_t` to `BigUnsigned` limb operations. The proof and all
@@ -10112,16 +10112,16 @@ Rational normalization or GCD occurs in a Taylor iteration.
 The two final positive dyadic endpoints are still imported into the
 legacy GMP-backed Fraction carrier, to be removed later.
 
-This phase also records the D126 same-host benchmark supplied by the
-user. D126 passed Unix, Windows, Sanitizers and Coverage. The observed
+This phase also records the M126 same-host benchmark supplied by the
+user. M126 passed Unix, Windows, Sanitizers and Coverage. The observed
 asin/acos timings changed slightly, but unrelated atan and exp also
-slowed in the new run: the benchmark does NOT establish a D126 speedup
+slowed in the new run: the benchmark does NOT establish a M126 speedup
 or regression without controlled repeated A/B runs. Preserve
 independent exact oracles, cached centered-log paths, other workloads,
-and all four rounding modes. D127 likewise makes no speed claim
+and all four rounding modes. M127 likewise makes no speed claim
 before its own CI and user-supplied benchmark results.
 
-### D128 — benchmark directed subtraction, FMA and square root (23 October 2026)
+### M128 — benchmark directed subtraction, FMA and square root (23 October 2026)
 
 All existing nearest cases and operands are unchanged. In particular, the FMA variants use the same
 `a[i]*b[i]+a[i]` fused operation as the existing nearest benchmark, and the square-root variants use
@@ -10134,10 +10134,10 @@ unchanged.
 
 This adds measurement coverage, not numerical functionality or a measured performance improvement.
 Validate the benchmark and its paired output checks on CI, then use user-supplied same-host
-benchmark results to compare directed vs nearest modes. D127 log-series CI was still running when
+benchmark results to compare directed vs nearest modes. M127 log-series CI was still running when
 this entry was prepared; do not infer a pass or speedup from the existence of the commit.
 
-### D129 — native single-recurrence certified arctangent series (23 October 2026)
+### M129 — native single-recurrence certified arctangent series (23 October 2026)
 
 The `small_atan` fixed-point Taylor kernel now evaluates integer products,
 power updates, the alternating partial sum and integer term divisions with
@@ -10161,14 +10161,14 @@ then cross the still-GMP-backed Fraction boundary exactly once.
 
 The change affects `atan` and arctangent components used by `asin`,
 `acos`, the half-angle cache and `pi`. Other centered approximations
-and exact oracles are untouched. The user-provided D128 benchmark
+and exact oracles are untouched. The user-provided M128 benchmark
 successfully compared 6720 exact operation outputs across 35 paired
 operations and six precisions; timings are baseline observations,
-not evidence that D129 improves performance. D129 must pass
+not evidence that M129 improves performance. M129 must pass
 cross-platform CI and unchanged independent all-rounding-mode oracles,
 and new same-host performance data are needed before declaring a win.
 
-### D130 — remove fixed bit-precision whitelist from comparison benchmark (23 October 2026)
+### M130 — remove fixed bit-precision whitelist from comparison benchmark (23 October 2026)
 
 The `benchmark_compare_multiple_precision_backends` CLI no longer limits `--bits/-b` to the
 historical 53/128/256/1024/2048/4096 presets. Any comma-separated `unsigned` integer precision >=2
@@ -10187,7 +10187,7 @@ testing are `--bits 2,3,7,53,129,257`; reject `--bits 0`, `--bits 1`, `--bits 2,
 and overflow beyond `unsigned`. At extreme widths, memory/time limitations may naturally apply; no
 claim is made that the benchmark can physically complete for every representable `unsigned` input.
 
-### D131 — native sine/cosine Taylor series and certified cosine reconstruction (23 October 2026)
+### M131 — native sine/cosine Taylor series and certified cosine reconstruction (23 October 2026)
 
 The `small_sine_cosine` kernel now computes `a=floor(2^B*abs(x))`,
 `b=floor(a*a/2^B)`, and each positive Taylor term entirely through
@@ -10213,16 +10213,16 @@ half-angle/argument reduction optimizations remain unchanged.
 
 Existing independent source-keyed sin/cos/tan/inverse-trig/pi
 oracles and the paired 35-operation benchmark remain unmodified.
-The D130 arbitrary-bit benchmark completed the supplied
+The M130 arbitrary-bit benchmark completed the supplied
 five-precision run with 5600 exact paired numerical comparisons;
-this provides no D131 performance evidence. Run the cross-platform
+this provides no M131 performance evidence. Run the cross-platform
 CI and obtain user-supplied same-host performance results before
 accepting any speedup claim. Native transcendental migration is not
 complete until remaining Fraction/GMP paths are eliminated.
 
-### D132 — complete directed-rounding coverage of the comparison benchmark (23 October 2026)
+### M132 — complete directed-rounding coverage of the comparison benchmark (23 October 2026)
 
-Following the D124–D131 conversions, the benchmark still timed only nearest rounding for log, sin,
+Following the M124–M131 conversions, the benchmark still timed only nearest rounding for log, sin,
 cos, tan, atan, asin, acos, and pi. The common monomorphic `for_each_backend_operation` workload now
 adds `log_down/up`, `sin_down/up`, `cos_down/up`, `tan_down/up`, `atan_down/up`, `asin_down/up`,
 `acos_down/up`, and `pi_down/up`, plus `pow7_down/up` to complete all rounding-sensitive operations
@@ -10245,7 +10245,7 @@ existing bugs and must not be relaxed to accept approximate numerical
 agreement. Benchmark CI and a post-change measurement by the user
 are required before any performance claims. No speedup is claimed.
 
-### D133 — native outward exponential interval reconstruction (23 October 2026)
+### M133 — native outward exponential interval reconstruction (23 October 2026)
 
 The argument-reduction and Taylor-certified `exp_interval` implementation
 retains its existing reduction limit, halving count, work precision,
@@ -10269,16 +10269,16 @@ squaring loop. This step does NOT migrate other remaining Fraction
 operations or all of FloatMP. The independent exp source-keyed oracle
 and all four rounding modes remain mandatory correctness gates.
 
-The user-provided D132 benchmark passed 8480 exact paired results on
+The user-provided M132 benchmark passed 8480 exact paired results on
 53 operations over five requested precisions. Its reported low-precision
-exp slowdown and high-precision advantage are BEFORE D133, not
+exp slowdown and high-precision advantage are BEFORE M133, not
 post-change performance evidence. Observe the new cross-platform CI
 and user-supplied same-host paired performance results before claiming
 any improvement; avoid losing the existing high-precision advantage.
 
-### D134 — repair Windows shadow warning and native signed dyadic endpoints (23 October 2026)
+### M134 — repair Windows shadow warning and native signed dyadic endpoints (23 October 2026)
 
-The Windows D133 pipeline found MSVC C4459 in `exp_interval`:
+The Windows M133 pipeline found MSVC C4459 in `exp_interval`:
 both lambda parameters named `upward` shadow the global
 `Ariadne::upward` defined in `rounding.hpp`, and the build uses
 `/W4 /WX`. Both parameter names and their uses are now
@@ -10304,9 +10304,9 @@ remain unchanged. Do not claim a speedup until the user's same-host
 paired benchmark and cross-platform CI have been checked; FloatMP
 still contains other GMP-backed Fraction code.
 
-### D135 — single Ariadne::Detail namespace and compiler scope fix (23 October 2026)
+### M135 — single Ariadne::Detail namespace and compiler scope fix (23 October 2026)
 
-The D134 Apple Clang compile failure exposed an unnecessary nested
+The M134 Apple Clang compile failure exposed an unnecessary nested
 namespace split: `outward_dyadic_endpoint` was inside
 `FloatMPExpLogDetail` while its trigonometric caller
 `outward_dyadic_interval` was inside
@@ -10333,14 +10333,14 @@ named `detail`, and third-party namespaces are not rewritten.
 
 This is intentionally a namespace/lookup refactor only; no
 integer arithmetic, rational semantics, numerical bounds, test
-oracles, benchmark work or rounding mode changes. Keep the D134
-Windows C4459 variable rename. The D134 error and earlier D133
+oracles, benchmark work or rounding mode changes. Keep the M134
+Windows C4459 variable rename. The M134 error and earlier M133
 Windows failure must both be considered unresolved until this
 exact commit passes compiler and semantic regression CI on
 Unix, Windows, Sanitizers and Coverage. Numerical performance
 claims require a fresh same-host benchmark.
 
-### D136 — eliminate general GCD for dyadic Fraction construction (23 October 2026)
+### M136 — eliminate general GCD for dyadic Fraction construction (23 October 2026)
 
 The remaining GMP-backed `Fraction` interval carrier was performing
 a full `mpq_canonicalize` for every dyadic endpoint created by the
@@ -10370,17 +10370,17 @@ benchmark. This is a targeted reduction of avoidable general GCD
 work, NOT a full GMP-free migration of Fraction. The independent
 source-keyed oracle tests and all four rounding modes remain
 mandatory, as does CI across Unix, Windows, Sanitizers and Coverage.
-The user-provided benchmark results are for the previous D133 code
-and cannot substantiate D136 performance until rerun on the same
-host and conditions. D135 Windows/Sanitizers/Coverage were green
-when D136 work began; Unix was still running.
+The user-provided benchmark results are for the previous M133 code
+and cannot substantiate M136 performance until rerun on the same
+host and conditions. M135 Windows/Sanitizers/Coverage were green
+when M136 work began; Unix was still running.
 
-### D137 — native centered-atangent signed fixed-point correction (23 October 2026)
+### M137 — native centered-atangent signed fixed-point correction (23 October 2026)
 
 The certified near-1/2 `atan` fast path keeps its original
 `|delta|<=2^-ceil(work/2)` window, the exact dyadic denominator
 check, its work-precision cache and the rigorous first-order
-Taylor remainder `2^-work`. D137 converts its cached center
+Taylor remainder `2^-work`. M137 converts its cached center
 endpoints from GMP `mpz_t` to native signed `Integer`; the
 shared `outward_dyadic_integer` helper exposes exact directed
 integer quotients at the cache boundary and retains the existing
@@ -10408,16 +10408,16 @@ case of a negative delta with a nonzero division remainder
 is explicitly handled to preserve floor/ceil semantics.
 This is a dependency-migration step, not a speedup claim:
 cross-platform compiler/semantic CI and fresh user-supplied
-same-host timings are required. No measured D137 performance
+same-host timings are required. No measured M137 performance
 result was available at commit creation.
 
-### D138 — allocation-free small GMP-to-native boundary imports (23 October 2026)
+### M138 — allocation-free small GMP-to-native boundary imports (23 October 2026)
 
 The temporary `integer_from_gmp` bridge is still needed by the
 legacy GMP-backed Fraction carrier and its certified endpoints.
 Previously every nonzero import allocated a `std::vector<uint64_t>`
 even when BigUnsigned could store all words inline (up to four
-64-bit limbs). D138 introduces a stack `std::array` matching
+64-bit limbs). M138 introduces a stack `std::array` matching
 `BigUnsigned::inline_capacity` and takes the vector fallback only
 when the exact GMP base-2 bit width exceeds four limbs. The resulting
 BigUnsigned is still independently owned and normalized; the
@@ -10438,10 +10438,10 @@ The established source-keyed FloatMP oracle tests remain untouched.
 
 Cross-platform compile/test CI and the user's paired same-host
 benchmark are required before claiming any measured speedup.
-D137's Windows CI succeeded at the start of this change; other
-D137 workflows were still running.
+M137's Windows CI succeeded at the start of this change; other
+M137 workflows were still running.
 
-### D139 — native centered sine/cosine fixed-point correction (23 October 2026)
+### M139 — native centered sine/cosine fixed-point correction (23 October 2026)
 
 The optimized `centered_trigonometric_dyadic` path around absolute
 argument 1/2 now keeps its four cached certified sine/cosine
@@ -10480,14 +10480,14 @@ source-keyed sin/cos/tan/asin/acos oracle tests, all rounding modes,
 and the four CI workflows are required before accepting the
 change. Retain the same-host comparison benchmark for the user's
 subsequent performance measurements. No files or directories
-under `detail` were created by D139.
+under `detail` were created by M139.
 
-### D140 — native exact half-window certification without GMP temporaries (23 October 2026)
+### M140 — native exact half-window certification without GMP temporaries (23 October 2026)
 
 The exp and trigonometric near-half predicates previously created
 temporary `mpz_t` values, copied and absolutized each exact Fraction
 numerator, shifted it by `ceil(work/2)`, and compared with the
-positive denominator. D140 deduplicates both predicates into one
+positive denominator. M140 deduplicates both predicates into one
 `Ariadne::Detail::within_dyadic_window` comparator for the same
 rigorous inequality `|num|*2^k <= den`; exp continues to reject
 `work<4`, and both keep their previous `mp_bitcnt_t` guard.
@@ -10517,9 +10517,9 @@ is used for implementation helpers.
 Cross-platform CI and the existing independent source-keyed
 exp/centered-exp/sin/cos/tan/atan/inverse-trig tests in all rounding
 modes must pass. A same-host benchmark from the user is needed
-before attributing a performance improvement to D140.
+before attributing a performance improvement to M140.
 
-### D141 — remove GMP-backed Fraction carrier from FloatMP (23 October 2026)
+### M141 — remove GMP-backed Fraction carrier from FloatMP (23 October 2026)
 
 The certified transcendental `Ariadne::Detail::Fraction` carrier now
 owns a native `Rational`, not `mpq_t`. All signed numerator and
@@ -10558,14 +10558,14 @@ comparison benchmark's post-timing paired exact checks. The new
 Unix/Windows/Sanitizers/Coverage CI must pass before acceptance;
 no speedup is claimed without user-supplied paired benchmarks.
 
-### D142 — exact dyadic Fraction arithmetic fast path (23 October 2026)
+### M142 — exact dyadic Fraction arithmetic fast path (23 October 2026)
 
-The two user-provided, same-host D141 benchmark snapshots reveal a
+The two user-provided, same-host M141 benchmark snapshots reveal a
 substantial selective regression following the native Rational migration:
 at 2048 bits the nearest FloatMP exp/log/tan/asin/acos measurements
 grew approximately 80.7x/24.3x/82.2x/80.5x/82.5x respectively, while
-sin and atan became faster. D141 passes Unix, Windows, Sanitizers and
-Coverage. These are D141 before/after results, NOT D142 measurements.
+sin and atan became faster. M141 passes Unix, Windows, Sanitizers and
+Coverage. These are M141 before/after results, NOT M142 measurements.
 
 The certified centered transcendental paths repeatedly add, subtract and
 multiply cached dyadic intervals and dyadic offsets. Their generic native
@@ -10586,13 +10586,13 @@ The source-keyed independent oracle datasets and paired benchmark
 comparisons are unchanged. Cross-platform CI and all FloatMP oracles
 remain mandatory.
 
-**D142 post-commit same-host benchmark (user supplied, 23 October 2026):**
+**M142 post-commit same-host benchmark (user supplied, 23 October 2026):**
 1000 iterations, 31 samples, five precisions (53/128/256/1024/2048),
 53 operations per precision. The exact post-timing verifier reports
 PASS for 320 paired inputs and 8480 paired operation results. At 2048
 bits, nearest-rounding FloatMP timings in ns are:
 
-| Operation | Pre-D141 | D141 | D142 | D141/D142 speedup |
+| Operation | Pre-M141 | M141 | M142 | M141/M142 speedup |
 | --- | ---: | ---: | ---: | ---: |
 | exp | 5548.458 | 447646.542 | 3062.083 | 146.19x |
 | log | 4624.625 | 112236.542 | 1928.583 | 58.20x |
@@ -10600,21 +10600,21 @@ bits, nearest-rounding FloatMP timings in ns are:
 | asin | 6797.042 | 547383.666 | 2795.375 | 195.82x |
 | acos | 6634.459 | 547498.459 | 2802.542 | 195.36x |
 
-All five operations are also faster than pre-D141 at 2048 bits, by factors 1.81x, 2.40x, 2.66x,
-2.43x and 2.37x respectively. At 53 bits their D141/D142 speedups are 4.37x, 4.02x, 6.69x, 6.57x,
-and 6.52x. Across the *pre-D141 vs D142* comparison, 82/265 FloatMP operation/precision timings
-remain slower, so no claim of universal speedup is warranted. The severe D141
+All five operations are also faster than pre-M141 at 2048 bits, by factors 1.81x, 2.40x, 2.66x,
+2.43x and 2.37x respectively. At 53 bits their M141/M142 speedups are 4.37x, 4.02x, 6.69x, 6.57x,
+and 6.52x. Across the *pre-M141 vs M142* comparison, 82/265 FloatMP operation/precision timings
+remain slower, so no claim of universal speedup is warranted. The severe M141
 certified-transcendental regression is resolved in these measurements. Caching/warm-up, host
 conditions, and benchmark input mix remain the same within the supplied paired runs; smaller changes
 should not be over-interpreted without repetitions.
 
-D142 Windows, Sanitizers and Coverage CI are green at this review;
+M142 Windows, Sanitizers and Coverage CI are green at this review;
 Unix was still in progress when last observed. These measurements
 do not, by themselves, establish all-platform semantic correctness or
 prove that Numeric outside FloatMP is GMP-free.
 
 
-### D143 — certified short centered transcendental evaluation (23 October 2026)
+### M143 — certified short centered transcendental evaluation (23 October 2026)
 
 The FloatDP comparison at 53 bits showed exp/log/sin/cos/tan/atan/asin/acos costing roughly 290–580
 ns, dominated by constructing exact Rational arguments, corrections and endpoint carriers in the
@@ -10706,7 +10706,7 @@ pass, run separately. Cross-platform CI is still required; local macOS checks
 do not establish Windows/Linux correctness or performance.
 
 
-### D144 — short integer powers, raw tanh and shared binary64 kernels (23 October 2026)
+### M144 — short integer powers, raw tanh and shared binary64 kernels (23 October 2026)
 
 `pow7` names the benchmark's call to the general integer-power operation,
 not a separate public function. For p<=64 and degrees 2..16, arguments
@@ -10733,7 +10733,7 @@ native exponent range retain checked overflow. The implementation uses native ar
 certification. Bounds, Approximation and Rounded wrappers now reach the raw operation.
 
 The binary64 adapter decodes normal near-half inputs directly into their
-exact 53-bit significand and exponent, reuses D143's outward coefficient
+exact 53-bit significand and exponent, reuses M143's outward coefficient
 cache and integer rounding, then encodes the exact binary64 result.
 FloatDP uses it for directed exp/log/sin/cos/tan/atan/asin/acos/tanh and
 nearest sin/cos/asin/acos/tanh. Keep the cheaper legacy nearest
@@ -10755,9 +10755,9 @@ Validation at this checkpoint: Release CTest 21/21 including Python;
 existing multiple-precision comparison verifies 384 paired inputs and
 10,752 operation results across 53/64/128/256/1024/2048 bits. The high-
 precision tanh performance work continues after this checkpoint. Sanitizer
-and cross-platform CI results for D144 are not yet claimed.
+and cross-platform CI results for M144 are not yet claimed.
 
-### D145 — native wide-precision centered tanh (23 October 2026)
+### M145 — native wide-precision centered tanh (23 October 2026)
 
 For p>64, evaluate tanh near +/-1/2 directly from the native significand
 and exponent, without constructing a Fraction per call. Use B=p+32 and
@@ -10778,14 +10778,14 @@ arithmetic and exact certification.
 Same-host arm64 Release measurements, existing multiple-precision
 comparison, 2,000 iterations and 31 samples, warmed near-half input pool:
 
-| Bits | tanh nearest at D144 (ns) | D145 (ns) |
+| Bits | tanh nearest at M144 (ns) | M145 (ns) |
 | --- | ---: | ---: |
 | 128 | 1151.875 | 90.084 |
 | 256 | 1516.709 | 287.938 |
 | 1024 | 1952.084 | 299.771 |
 | 2048 | 2694.625 | 432.812 |
 
-The D144 baseline used 1,000 iterations and 11 samples. These measurements
+The M144 baseline used 1,000 iterations and 11 samples. These measurements
 exclude cold coefficient generation and establish gains for this input
 pool; they do not establish gains for arbitrary tanh arguments. Down/up
 also use the native certificate. The 53/64-bit paths remain unchanged.
@@ -10799,9 +10799,9 @@ results across 53/64/128/256/1024/2048 bits. Cross-platform CI remains
 to be assessed.
 
 AddressSanitizer/UBSan Debug CTest with warnings treated as errors passes
-20/20 on the final D144/D145 source state, including the expanded oracles.
+20/20 on the final M144/M145 source state, including the expanded oracles.
 
-### D145.1 — MSVC C4459 shadowing fix for centered FloatMP correction (23 October 2026)
+### M145.1 — MSVC C4459 shadowing fix for centered FloatMP correction (23 October 2026)
 
 Windows MSVC 14.51.36231 with /W4 /WX rejects src/floatmp.cpp's
 FloatMPShortTranscendentals::correction at line 3817: the parameter `bool upward` shadows the public
@@ -10835,7 +10835,7 @@ A `UniformArray<FloatMP>` regression test exercises assignment through
 characteristic-checked containers.
 
 
-## D146 — FloatMP short-certified 53–64-bit hot-path specialization (29 October 2026)
+## M146 — FloatMP short-certified 53–64-bit hot-path specialization (29 October 2026)
 
 **Motivation, scope, and baseline.** Following the 100%-coverage refactoring
 campaign, the user reports that the FloatMP/FloatDP time-sum ratio on the
@@ -10843,11 +10843,11 @@ binary64 comparison benchmark increased to approximately 1.41, whereas
 an earlier run favored FloatMP. This observation has not yet been reproduced
 on the same host against a pinned pre-coverage commit. The independent FloatDP
 near-half kernel also changed on 25 October, so this relative ratio is not
-by itself evidence of an absolute FloatMP regression. The D146 patch changes
+by itself evidence of an absolute FloatMP regression. The M146 patch changes
 neither the 56-operation benchmark workload nor FloatDP; it is a deliberately
 small, independently measurable FloatMP short-path optimization.
 
-**D146.1 — exact endpoint equality.** Both the <=64-bit short-centered
+**M146.1 — exact endpoint equality.** Both the <=64-bit short-centered
 evaluator and the >64-bit centered-tanh evaluator return only when two
 independently rounded, certified interval endpoints compare equal.
 In the common finite, same-sign, same-exponent case, compare their
@@ -10858,7 +10858,7 @@ magnitudes. Retain full FloatMP operator== as fallback for all other
 representations, preserving signed-zero and special-value behavior.
 No tolerance, approximate predicate, or weaker certificate is introduced.
 
-**D146.2 — statically selected short center.** Change
+**M146.2 — statically selected short center.** Change
 FloatMPShortTranscendentals::evaluate from a function-pointer-based
 CenterFactory callback to a template parameterized by OperationKind.
 It directly calls the unchanged get_center<OperationKind>, preserving
@@ -10868,7 +10868,7 @@ allows, but does not guarantee, inlining of the selected center lookup;
 the Taylor enclosure values, window cutoff and error constants stay
 unchanged.
 
-**D146.3 — native 2x1 limb fixed-point correction.** For the short
+**M146.3 — native 2x1 limb fixed-point correction.** For the short
 certified operation, B=p+32 with p<=64. Its positive derivative-magnitude
 coefficient occupies at most two 64-bit limbs, the exact centered offset
 one limb, and the input's dyadic denominator shift is in [1,64]. On
@@ -10902,12 +10902,12 @@ Check zero and maximum accepted offset, exact/inexact corrections, the
 64-bit shift boundary, the undecidable-certificate Ziv fallback and
 wide-precision tanh endpoints (which must retain full-limb comparison).
 Run Unix, Windows/MSVC, Sanitizers and Coverage CI. Measure absolute
-per-operation FloatMP latency before/after each D146 subchange in the
+per-operation FloatMP latency before/after each M146 subchange in the
 same Apple ARM64 Release environment, warm/cold cache separately, and
 measure FloatDP independently. An improvement is NOT claimed until
 paired same-host timings are available.
 
-**Out of scope for D146.** Supporting the p=64 value immediately
+**Out of scope for M146.** Supporting the p=64 value immediately
 below one-half (which has normalized exponent -65) requires an
 extended exact offset decoder and shift handling. Direct two-endpoint
 rounding without temporary FloatMP objects, one-rounding direct FMA,
@@ -10916,15 +10916,15 @@ none is included in this commit. Do not tune algorithms to the benchmark
 pool at the expense of general correctness.
 
 
-### D146.4 — measured 53-bit results supplied by the user (29 October 2026)
+### M146.4 — measured 53-bit results supplied by the user (29 October 2026)
 
 On the user's host, at 53-bit precision, 20,000 iterations and 31 samples,
-the D146 build measured **FloatMP/FloatDP total_time=1.238x** (56
+the M146 build measured **FloatMP/FloatDP total_time=1.238x** (56
 operations), **geomean=1.585x** and **worst=10.387x** for
 fma_nearest. The preceding observation was approximately 1.5x on the
 total metric, but the precise previous environment/measurement breakdown
 was not supplied here, so do not treat the change as a controlled
-before/after speedup for each individual D146 optimization.
+before/after speedup for each individual M146 optimization.
 FloatMP fma_nearest=32.610 ns versus FloatDP=3.140 ns;
 fma_down=28.852 versus 29.979 ns; fma_up=29.144 versus 29.977 ns.
 The arithmetic-directed measurements, summed over add, sub, mul, div,
@@ -10939,9 +10939,9 @@ that FloatMP regressed in absolute terms: the separately optimized
 FloatDP remains a moving reference. This is a user-provided benchmark
 result, not a local or CI benchmark executed by this entry.
 
-## D147 — direct short fused multiply-add for 53–64 bits (29 October 2026)
+## M147 — direct short fused multiply-add for 53–64 bits (29 October 2026)
 
-**Motivation.** The D146 user benchmark identifies a 10.387x relative
+**Motivation.** The M146 user benchmark identifies a 10.387x relative
 cost for FloatMP fma_nearest at 53 bits: 32.610 ns versus 3.140 ns.
 The generic FloatMP fma path multiplies into an owned BigUnsigned,
 constructs a temporary FloatMP with the *full unrounded product
@@ -10950,7 +10950,7 @@ For single-limb input significands and target p<=64, it is possible
 to preserve the exact product and single rounding while avoiding the
 full-product FloatMP intermediary.
 
-**D147 direct path.** After the unchanged IEEE special-value and
+**M147 direct path.** After the unchanged IEEE special-value and
 zero handling, select p<=64, three one-limb nonzero finite inputs and
 a dyadic scale gap less than 64 bits between a*b and c. Compute the
 exact product using BigUnsigned::mul_into on two stack limbs. Align
@@ -11004,18 +11004,18 @@ Clang/AppleClang and MSVC; run all numeric suites, precision/mode
 oracles, Sanitizers and 100%-coverage checks. Re-run 53-bit and
 64-bit 20,000-iteration/31-sample paired benchmarks on the same
 host and compare absolute fma_nearest/down/up timings against
-D146=32.610/28.852/29.144 ns at 53 bits. Also confirm that all
+M146=32.610/28.852/29.144 ns at 53 bits. Also confirm that all
 other 56 operations are stable. No numeric speedup or CI success
 is claimed in advance. A small total_time gain from FMA alone
 does not address the still larger 27-transcendental gap; that
 remains the subsequent primary investigation.
 
 
-### D147.1 — user-measured 53-bit performance after D147 (29 October 2026)
+### M147.1 — user-measured 53-bit performance after M147 (29 October 2026)
 
 With 20,000 iterations, 31 samples, 56 paired operations at 53 bits,
 the user reports **total_time=1.234x**, **geomean=1.597x**, worst
-**7.805x** (fma_nearest). D146's earlier sample was respectively
+**7.805x** (fma_nearest). M146's earlier sample was respectively
 1.238x, 1.585x and 10.387x. The FMA FloatMP timings changed from
 **32.610 -> 26.310 ns** (nearest, 19.3% lower),
 **28.852 -> 23.598 ns** (downward, 18.2% lower) and
@@ -11027,16 +11027,16 @@ mean marginally worsened, and many operation latencies increased on
 both backends, indicating noise or execution-environment changes.
 Do not treat this as a controlled, per-operation causal benchmark.
 The current 27-transcendental median sums are FloatMP=941.483 ns,
-FloatDP=487.486 ns (1.931x), versus D146=905.711/474.502 ns
+FloatDP=487.486 ns (1.931x), versus M146=905.711/474.502 ns
 (1.909x). This remains the largest aggregate optimization target.
 
-## D148 — single-allocation short transcendental endpoint certification (29 October 2026)
+## M148 — single-allocation short transcendental endpoint certification (29 October 2026)
 
-**Goal.** Preserve the independently certified D143/D146 53..64-bit
+**Goal.** Preserve the independently certified M143/M146 53..64-bit
 near-half Taylor enclosures while avoiding two independently owned
 FloatMP results and two calls through FloatMP::round_short merely
 to test that both bounds round to one value. This change is deliberately
-isolated from the certified series, coefficient caches, D147 FMA and
+isolated from the certified series, coefficient caches, M147 FMA and
 the benchmark workload.
 
 **Native path.** After the existing short-centered eligibility,
@@ -11092,14 +11092,14 @@ eligibility window is a separate future change.
 the identical 20,000-iteration/31-sample benchmark at 53 bits,
 and running a corresponding FloatMP-only 64-bit benchmark.
 Compare absolute exp/log/sin/cos/tan/tanh/atan/asin/acos times
-to the D147 measurements, as well as total_time and geomean,
+to the M147 measurements, as well as total_time and geomean,
 because the FloatDP reference may move independently. Full
 repository compilation, CI, sanitizers, Windows/MSVC, coverage,
 source-keyed transcendental oracles and paired post-timing
 correctness checks are still required. Do not claim these have
 run merely because the isolated differential test passed.
 
-**Future work (not in D148).** A dedicated scalar correction-to-rounded
+**Future work (not in M148).** A dedicated scalar correction-to-rounded
 result that avoids generic limb adapters on all platforms, and
 a rigorously extended p=64 below-half inclusion window, are
 separate experiments. Any further changes should be evaluated
@@ -11107,7 +11107,7 @@ against the latest successful same-host benchmark and maintain
 100%-coverage obligations without suppressing real branches.
 
 
-### D148.1 — user-provided 53-bit measured result after D148 (29 October 2026)
+### M148.1 — user-provided 53-bit measured result after M148 (29 October 2026)
 
 The user reran the paired benchmark at p=53 with 20,000 iterations,
 31 samples and 56 operations. The reported FloatMP/FloatDP
@@ -11115,27 +11115,27 @@ The user reran the paired benchmark at p=53 with 20,000 iterations,
 **8.098x** (fma_nearest). Thus the aggregate sum of operation
 medians favors FloatMP by about 5.3% in this run, despite FloatDP
 retaining a strong advantage for simple nearest-mode operations.
-The corresponding D147 metrics were 1.234x, 1.597x, and 7.805x.
+The corresponding M147 metrics were 1.234x, 1.597x, and 7.805x.
 For the 27 exp/log/sin/cos/tan/tanh/atan/asin/acos measurements,
 FloatMP's unweighted sum of per-operation medians is 619.332 ns
-versus FloatDP's 479.018 ns (ratio 1.293x), compared with D147
+versus FloatDP's 479.018 ns (ratio 1.293x), compared with M147
 FloatMP=941.483 ns versus FloatDP=487.486 ns. The 34.2%
 change in the aggregate FloatMP transcendental medians is
-consistent with D148's elimination of redundant object rounding,
+consistent with M148's elimination of redundant object rounding,
 but cannot be assigned to a particular microarchitectural cause
 without controlled same-host profiling. This is supplied benchmark
 data, not locally executed CI or timing.
 
 
-**FloatDP optimization history (F1–F6)** is now maintained in the
-[`floatdp_design.md`](floatdp_design.md) journal. The D148.2 GCC
+**FloatDP optimization history (D1–D6)** is now maintained in the
+[`floatdp_design.md`](floatdp_design.md) journal. The M148.2 GCC
 shadowing fix below remains here because it changes `src/floatmp.cpp`.
 
-### D148.2 — GCC 13 strict-build shadowing repair (29 October 2026, after F4)
+### M148.2 — GCC 13 strict-build shadowing repair (29 October 2026, after D4)
 
 **Observed CI failure.** The user supplied the GitHub Actions Release
 build log for src/floatmp.cpp, compiled with GCC 13, -Wshadow and
--Werror. The D148 evaluate<OperationKind> short certified interval path
+-Werror. The M148 evaluate<OperationKind> short certified interval path
 defines a local input-significand variable named \`magnitude\`, while
 its nested signed-displacement adjustment lambda also declared a local
 \`magnitude\`. GCC emits \`-Werror=shadow\` at approximately line 3606
@@ -11148,9 +11148,9 @@ failing numeric oracle or incorrect floating-point rounding.
 \`magnitude\` to \`displacement_magnitude\` and update its three uses.
 The absolute signed-displacement calculation, subtraction/addition
 carry checks, certified endpoints, rounding and fallback paths remain
-bit-for-bit semantically identical. No F5 optimization is included.
+bit-for-bit semantically identical. No D5 optimization is included.
 The purpose is to restore compatibility with the project's
--Wshadow -Werror build while preserving the measured D148 and F1--F4
+-Wshadow -Werror build while preserving the measured M148 and D1--D4
 numeric algorithms.
 
 **Verification status.** Reviewed the reported source location and the
@@ -11158,6 +11158,6 @@ new identifier's unique scope in the full floatmp.cpp source. This
 journal entry does **not** claim a full GCC 13 build or passing CI.
 Rerun the same strict Release compile and the complete numeric
 tests, then check the independent frozen FloatMP oracle suite and
-F4 FloatDP sqrt tests. Do not relax the warning flags.
+D4 FloatDP sqrt tests. Do not relax the warning flags.
 
 

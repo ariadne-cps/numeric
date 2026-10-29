@@ -37,10 +37,10 @@ std::pair<Nat,Nat> divide(Nat remainder,Nat const& divisor) {
     return {quotient,remainder};
 }
 
-std::array<std::string,6u> a29_general() {
+std::array<std::string,6u> b140_general() {
     std::array<std::string,6u> out;
     for (std::size_t part=0u;part<out.size();++part) {
-        out[part]="# A29 general division oracle part "+std::to_string(part)+
+        out[part]="# B140 general division oracle part "+std::to_string(part)+
             ": visits "+std::to_string(part*1000u)+".."+
             std::to_string(part*1000u+999u)+".\n"
             "# repetition n m dividend_hex divisor_hex quotient_hex remainder_hex\n"
@@ -74,7 +74,7 @@ std::array<std::string,6u> a29_general() {
         const auto [quotient,remainder]=divide(dividend,divisor);
         if (Nat::add(multiply(quotient,divisor),remainder).compare(dividend)!=0 ||
             remainder.compare(divisor)>=0)
-            throw std::runtime_error("invalid A29 Euclidean identity");
+            throw std::runtime_error("invalid B140 Euclidean identity");
         out[repetition/1000u]+=row({
             std::to_string(repetition),std::to_string(n),std::to_string(m),
             dividend.hex(),divisor.hex(),quotient.hex(),remainder.hex()});
@@ -82,10 +82,10 @@ std::array<std::string,6u> a29_general() {
     return out;
 }
 
-std::array<std::string,2u> a30_b28() {
+std::array<std::string,2u> b141_b28() {
     std::array<std::string,2u> out;
     for (std::size_t part=0u;part<out.size();++part) {
-        out[part]="# A30 B28 equal-high division oracle part "+
+        out[part]="# B141 B28 equal-high division oracle part "+
             std::to_string(part)+": visits "+std::to_string(part*1024u)+
             ".."+std::to_string(part*1024u+1023u)+".\n"
             "# repetition count numerator_hex denominator_hex quotient_hex remainder_hex\n"
@@ -115,7 +115,7 @@ std::array<std::string,2u> a30_b28() {
         if (Nat::add(multiply(quotient,denominator),remainder)
                 .compare(numerator)!=0 ||
             remainder.compare(denominator)>=0)
-            throw std::runtime_error("invalid A30 Euclidean identity");
+            throw std::runtime_error("invalid B141 Euclidean identity");
         out[repetition/1024u]+=row({
             std::to_string(repetition),std::to_string(count),
             numerator.hex(),denominator.hex(),quotient.hex(),remainder.hex()});
@@ -124,13 +124,13 @@ std::array<std::string,2u> a30_b28() {
 }
 
 
-std::array<std::string,2u> a31_b36() {
+std::array<std::string,2u> b142_b36() {
     std::array<std::string,2u> out{
-        "# A31 B36 high-ratio division oracle part 0.\n"
+        "# B142 B36 high-ratio division oracle part 0.\n"
         "# ordinal count repetition numerator_hex denominator_hex quotient_hex remainder_hex\n"
         "# Exact mt19937_64(0xB360A11) stream and high-ratio classifications preserved.\n"
         "# No Numeric/GMP/Boost dependency.\n",
-        "# A31 B36 high-ratio division oracle part 1.\n"
+        "# B142 B36 high-ratio division oracle part 1.\n"
         "# ordinal count repetition numerator_hex denominator_hex quotient_hex remainder_hex\n"
         "# Exact mt19937_64(0xB360A11) stream and high-ratio classifications preserved.\n"
         "# No Numeric/GMP/Boost dependency.\n"};
@@ -170,18 +170,18 @@ std::array<std::string,2u> a31_b36() {
             ++ordinal;
         }
     }
-    if (ordinal!=1280u) throw std::runtime_error("wrong A31 row count");
+    if (ordinal!=1280u) throw std::runtime_error("wrong B142 row count");
     return out;
 }
 
 
-std::array<std::string,2u> a32_b29() {
+std::array<std::string,2u> b143_b29() {
     std::array<std::string,2u> out{
-        "# A32 B29 sparse division oracle part 0: visits 0..511.\n"
+        "# B143 B29 sparse division oracle part 0: visits 0..511.\n"
         "# repetition n m numerator_hex denominator_hex quotient_hex remainder_hex\n"
         "# Exact mt19937_64(0xB290D1F5) conditional source stream preserved.\n"
         "# No Numeric/GMP/Boost dependency.\n",
-        "# A32 B29 sparse division oracle part 1: visits 512..1023.\n"
+        "# B143 B29 sparse division oracle part 1: visits 512..1023.\n"
         "# repetition n m numerator_hex denominator_hex quotient_hex remainder_hex\n"
         "# Exact mt19937_64(0xB290D1F5) conditional source stream preserved.\n"
         "# No Numeric/GMP/Boost dependency.\n"};
@@ -219,9 +219,9 @@ Nat parse_decimal(std::string const& digits) {
     return value;
 }
 
-std::string a33_b45() {
+std::string b144_b45() {
     std::string out=
-        "# A33 B45 zero-low-limb and decimal-power division oracle.\n"
+        "# B144 B45 zero-low-limb and decimal-power division oracle.\n"
         "# kind key1 key2 key3 numerator_hex denominator_hex quotient_hex remainder_hex\n"
         "# S: m zeros repetition; D: digits bits offset. Exact original sources; no GMP/Numeric/Boost.\n";
     const auto max=UINT64_MAX;
@@ -233,7 +233,7 @@ std::string a33_b45() {
         const auto [quotient,remainder]=divide(numerator,denominator);
         if (Nat::add(multiply(quotient,denominator),remainder).compare(numerator)!=0 ||
             remainder.compare(denominator)>=0)
-            throw std::runtime_error("invalid A33 Euclidean identity");
+            throw std::runtime_error("invalid B144 Euclidean identity");
         out+=row({std::string(1,kind),std::to_string(key1),std::to_string(key2),
                   std::to_string(key3),numerator.hex(),denominator.hex(),
                   quotient.hex(),remainder.hex()});
@@ -267,14 +267,14 @@ std::string a33_b45() {
                 append('D',digits,bits,offset,Nat::add(base,Nat(offset)),denominator);
         }
     }
-    if (rows!=544u) throw std::runtime_error("wrong A33 row count");
+    if (rows!=544u) throw std::runtime_error("wrong B144 row count");
     return out;
 }
 
 
-std::string a34_normalization() {
+std::string b145_normalization() {
     std::string out=
-        "# A34 divisor-normalization division oracle.\n"
+        "# B145 divisor-normalization division oracle.\n"
         "# shift mode dividend_hex divisor_hex quotient_hex remainder_hex\n"
         "# All 64 normalization shifts x 10 modes; no GMP/Numeric/Boost.\n";
     const auto max=UINT64_MAX;
@@ -292,13 +292,13 @@ std::string a34_normalization() {
             const auto [quotient,remainder]=divide(dividend,divisor);
             if (Nat::add(multiply(quotient,divisor),remainder).compare(dividend)!=0 ||
                 remainder.compare(divisor)>=0)
-                throw std::runtime_error("invalid A34 Euclidean identity");
+                throw std::runtime_error("invalid B145 Euclidean identity");
             out+=row({std::to_string(shift),std::to_string(mode),
                       dividend.hex(),divisor.hex(),quotient.hex(),remainder.hex()});
             ++rows;
         }
     }
-    if (rows!=640u) throw std::runtime_error("wrong A34 row count");
+    if (rows!=640u) throw std::runtime_error("wrong B145 row count");
     return out;
 }
 
@@ -308,31 +308,31 @@ int main(int argc,char** argv) {
     try {
         bool write=false;
         const auto dir=independent_oracle::data_directory(argc,argv,write);
-        const auto a29=a29_general();
+        const auto a29=b140_general();
         for (std::size_t part=0u;part<a29.size();++part)
             independent_oracle::output(
-                dir,"big_unsigned_a29_division_"+std::to_string(part)+".tsv",
+                dir,"big_unsigned_b140_division_"+std::to_string(part)+".tsv",
                 a29[part],write);
-        const auto a30=a30_b28();
+        const auto a30=b141_b28();
         for (std::size_t part=0u;part<a30.size();++part)
             independent_oracle::output(
-                dir,"big_unsigned_a30_b28_"+std::to_string(part)+".tsv",
+                dir,"big_unsigned_b141_b28_"+std::to_string(part)+".tsv",
                 a30[part],write);
-        const auto a31=a31_b36();
+        const auto a31=b142_b36();
         for (std::size_t part=0u;part<a31.size();++part)
             independent_oracle::output(
-                dir,"big_unsigned_a31_b36_"+std::to_string(part)+".tsv",
+                dir,"big_unsigned_b142_b36_"+std::to_string(part)+".tsv",
                 a31[part],write);
-        const auto a32=a32_b29();
+        const auto a32=b143_b29();
         for (std::size_t part=0u;part<a32.size();++part)
             independent_oracle::output(
-                dir,"big_unsigned_a32_b29_"+std::to_string(part)+".tsv",
+                dir,"big_unsigned_b143_b29_"+std::to_string(part)+".tsv",
                 a32[part],write);
         independent_oracle::output(
-            dir,"big_unsigned_a33_b45.tsv",a33_b45(),write);
+            dir,"big_unsigned_b144_b45.tsv",b144_b45(),write);
         independent_oracle::output(
-            dir,"big_unsigned_a34_normalization.tsv",
-            a34_normalization(),write);
+            dir,"big_unsigned_b145_normalization.tsv",
+            b145_normalization(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"BigUnsigned remaining division generator: "

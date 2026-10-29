@@ -43,7 +43,7 @@ AppleClang 21 Release warnings-as-errors everything including Python bindings su
 
 Clang 16 rejects the intentional destination/=destination test under -Wself-assign-overloaded. Use the existing reference alias as the right operand, preserving exactly the same object-aliasing case and expected value without suppressing any warning. AppleClang 21 rebuild and the complete Rational suite pass. The previous R1a CI already passed macOS Release/Coverage, Ubuntu GCC 13 x86-64 Release/Coverage and Windows 2025 Release; Clang 16 Release/ThreadSanitizer requires this test spelling fix. The optional local Clang 15 syntax experiment could not compile against the installed newer macOS SDK/libc++ combination and is not validation. Rational arithmetic and Integer/BigUnsigned remain unchanged.
 
-The separate Codecov status thresholds already failed on B75 (project 92.96%, patch 92.56%, target 99.20%). R1a reports project 92.94% and patch 93.07%; workflow Coverage success is not Codecov gate acceptance.
+The separate Codecov status thresholds already failed on I75 (project 92.96%, patch 92.56%, target 99.20%). R1a reports project 92.94% and patch 93.07%; workflow Coverage success is not Codecov gate acceptance.
 
 ### R2 — remainder-only Euclidean GCD (20 October 2026)
 
@@ -188,7 +188,7 @@ All 384 paired input and 2,880 result numerical benchmark checks pass on each ma
 ### R14 — relocate self-alias square dispatch from Integer to BigUnsigned (20 October 2026)
 
 
-**Purpose:** restore the signed/unsigned responsibility boundary, without changing benchmarks or selected multiplication kernels. B33/B37 detected same-object `Integer` multiplication and routed 8+-limb operands to symmetric `BigUnsigned::square` on GCC x86-64 fused and ARM64 native backends. This is a magnitude optimization, not signed arithmetic, so place the exact same platform/size/identity check in `BigUnsigned mul(const&,const&)`. `Integer mul` now applies only the XOR of operand signs to the delegated unsigned product.
+**Purpose:** restore the signed/unsigned responsibility boundary, without changing benchmarks or selected multiplication kernels. I33/B37 detected same-object `Integer` multiplication and routed 8+-limb operands to symmetric `BigUnsigned::square` on GCC x86-64 fused and ARM64 native backends. This is a magnitude optimization, not signed arithmetic, so place the exact same platform/size/identity check in `BigUnsigned mul(const&,const&)`. `Integer mul` now applies only the XOR of operand signs to the delegated unsigned product.
 
 **Recursion safety:** the `square` fallback calls `mul(a,a)`, but the fast-path is reachable only at >=8 limbs on backends where `square` uses a dedicated symmetric kernel at the same threshold. For <8 limbs or all unsupported targets, `mul` does not dispatch to `square`. Zero and oversized product checks remain in their existing order. The new unsigned dispatch may also benefit other genuine self-alias callers, but no runtime value-pattern or benchmark shortcut is added.
 
@@ -512,7 +512,7 @@ The x86-64 256-bit total 0.990x has only a ~1% margin and the x86-64 128-bit wor
 
 ## NewDyadic continuation
 
-The experimental `NewDyadic` work beginning with commit [`0f7f06c16`](https://github.com/ariadne-cps/numeric/commit/0f7f06c16) (R33a), including R33b–R38, is maintained separately in [`dyadic_design.md`](dyadic_design.md). The shared BigUnsigned foundation is documented in [the BigUnsigned journal](big_unsigned_design.md), and signed Integer history in [the Integer journal](integer_design.md); Rational historical records remain in this journal. New shared-kernel changes that affect both projects should be cross-referenced in each journal.
+The experimental `NewDyadic` work beginning with commit [`0f7f06c16`](https://github.com/ariadne-cps/numeric/commit/0f7f06c16) (Y33a), including Y33b–Y38, is maintained separately in [`dyadic_design.md`](dyadic_design.md). The shared BigUnsigned foundation is documented in [the BigUnsigned journal](big_unsigned_design.md), and signed Integer history in [the Integer journal](integer_design.md); Rational historical records remain in this journal. New shared-kernel changes that affect both projects should be cross-referenced in each journal.
 
 ### R33 — oracle migration and removal of reverse Rational external reference bridge methods (22 October 2026)
 
@@ -618,7 +618,7 @@ R26 retains 9 limb widths (2/3/4/5/8/16/ 127/128/129), 40 trials per width and a
 
 The three mt19937_64 seeds were independently crosschecked against compiled C++20 engine outputs. Tests enforce exact source hexadecimal, order/keys, missing/excess rows, canonical limbs and bit length, both argument orders and immutability. The R26 cases are split by width for manageable data files only, not for sampling. No edits to CMake, benchmarks or production numeric code. Require four-workflow CI before declaring R33.15 validated.
 
-### B80 — independent rational R28/R30/R22 fixture generators (23 October 2026)
+### R80 — independent rational R28/R30/R22 fixture generators (23 October 2026)
 
 
 Add standalone standard-C++20 `tests/data/generator_rational_exact.cpp` to reproduce 36 R28 exact signed add/sub rows, all 1,689 R30 exact canonical normalization rows (including nine 128..8192-bit dense fallbacks), and all 160 R22 scalar signed multiplication/division rows. R28's raw operand columns remain unreduced as in the original frozen fixture, while resulting sum and difference columns are canonical. Seeds, source parameters, sign classes and row ordering are unchanged; no sampling or new test cases.
@@ -627,28 +627,28 @@ The C++20 generator was compiled and --verify executed with GCC and Clang using 
 
 Existing source-tree TSVs remain mandatory in the meantime.
 
-### B81 — version exact independent R16/R19/R20 arithmetic sources (23 October 2026)
+### R81 — version exact independent R16/R19/R20 arithmetic sources (23 October 2026)
 
 
 Extend `tests/data/generator_rational_exact.cpp`, reusing its independent unsigned-limb signed rational, binary GCD, aligned-subtraction division and shift/add multiplication support. Historical pre-TSV C++ test inputs were recovered and represented directly, not read from existing fixture inputs. Reproduce R16 all 6 x 7 x 2 = 84 signed add/sub, doubling and alias rows; R19 all 6 x (4 x 4 + 1) = 102 signed cross-factor multiply/divide and self-alias rows; R20 all 10 x 4 x 4 = 160 signed cross-add/sub rows. In R20 pair_index=3 deliberately repeats the same Rational on both sides; this preserves all original exact cancellation cases.
 
-Independent JavaScript BigInt exact arithmetic regenerated all three complete byte streams, independently confirming their Git blob SHA-1s: R16 ed55680b1d2ced1b911c5581276f62c9009b0902; R19 09fafdc815bd0bc58c0d41fd0385743f4218dd17; R20 f7895eb61aef5b04e4a23fa2d66bd8a26b2fe720. Existing original TSVs are unchanged; verification is read-only by default and explicit `--write` remains required for regeneration. `tests/CMakeLists.txt` already registers this generator; no new target or `generate-data` rule is added. Source-reproducible coverage reaches 42 of 115 TSV files. Check full Unix/Windows/Sanitizers/Coverage CI after commit. The preceding B80 macOS Coverage failure was in the Upload Code Coverage step, while its Ubuntu Coverage job and Windows workflow succeeded; this should not be misclassified as a generator compilation failure.
+Independent JavaScript BigInt exact arithmetic regenerated all three complete byte streams, independently confirming their Git blob SHA-1s: R16 ed55680b1d2ced1b911c5581276f62c9009b0902; R19 09fafdc815bd0bc58c0d41fd0385743f4218dd17; R20 f7895eb61aef5b04e4a23fa2d66bd8a26b2fe720. Existing original TSVs are unchanged; verification is read-only by default and explicit `--write` remains required for regeneration. `tests/CMakeLists.txt` already registers this generator; no new target or `generate-data` rule is added. Source-reproducible coverage reaches 42 of 115 TSV files. Check full Unix/Windows/Sanitizers/Coverage CI after commit. The preceding R80 macOS Coverage failure was in the Upload Code Coverage step, while its Ubuntu Coverage job and Windows workflow succeeded; this should not be misclassified as a generator compilation failure.
 
-### B88 — independent Rational R7/R12 binary64 truncation fixtures (23 October 2026)
+### R88 — independent Rational R7/R12 binary64 truncation fixtures (23 October 2026)
 
 
 Add standalone `tests/data/generator_rational_binary64.cpp` for the original R7 4 x 8 x 12 = 384 source-keyed rational double-conversion cases and R12 4 x 512 = 2048 one-limb random conversion cases (both positive and negative outputs). Reproduce source numerators and denominators by exact powers of two and the original mt19937_64 (0x1200530012812026) replay, respectively. The expected raw IEEE-754 binary64 patterns are derived by exact bit lengths, bit-aligned integer quotient, normal/subnormal exponent/significand construction and explicit truncation toward zero.
 
 GCC and Clang compiled and verified all output with C++20 -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror. Both generated TSVs match their original committed blob SHA-1 values exactly: R7 9d8e75190d09b49bf91b183cd68e2c6afaa7f4b4; R12 0ead6f9d1aac895ac4712dfb8a73041f2ea9002f. Read-only verification detects deliberate fixture corruption. Register the eleventh executable in explicit generators and generate-data targets, not the tests target. Coverage rises to 61/115 TSVs. Full platform CI remains to be checked.
 
-### B89 — shared RNG exact R29/R13/R5 generator (23 October 2026)
+### R89 — shared RNG exact R29/R13/R5 generator (23 October 2026)
 
 
 Add standalone `tests/data/generator_rational_shared_stream.cpp` for `rational_r29.tsv` (216 source-keyed sparse-prefix binary64 cases), all 16 `rational_r13_mode{0..3}_limbs{5..8}.tsv` files (96 exact signed dense-limb conversion cases each), and `rational_r5.tsv` (48 shifts, four signed conversion expectations per row). Reconstruct every source input using the original mt19937_64(0x6672616374696f6e) sequence: first consume every original 1,200 R0 visit schedule (four operands, each with all limbs plus one sign draw). For each of four subsequent host rounding modes, generate R29 followed by R13 limbs 5,6,7,8 followed by R5's 12 shift probes. This original interleaving is essential; advancing all R29 modes before R13 changes the random-source values.
 
 GCC and Clang C++20 compilations succeeded with -Wall -Wextra -Wpedantic -Wsign-conversion -Wshadow -Werror. An additional Clang build used the strict extended CI warning set. All 18 generated fixtures matched the existing Git blob SHA-1 IDs, as checked against the current main tree. --verify rejects deliberately corrupted data without rewriting it. Register the twelfth executable with the explicit generators and generate-data targets; tests and default all still exclude generators. Coverage rises from 61 to 79 of the 115 unchanged, versioned TSV files. Full platform CI remains to be checked.
 
-### B90 — complete deterministic Rational R31/R32 exact fixture regeneration (23 October 2026)
+### R90 — complete deterministic Rational R31/R32 exact fixture regeneration (23 October 2026)
 
 
 Add standalone standard-C++20 `tests/data/generator_rational_r31.cpp` using only the independent radix-2^64 `Nat` helper. Generate all 10 original widths (128, 192, 255, 256, 320, 448, 512, 1024, 2048, 4096 bits) x 24 original input index configurations x all four sign masks = 960 source-keyed rational add/sub/mul/div test rows. Numerators and denominators are reconstructed from the original test's formulas; all outputs are independently canonicalized using binary limb GCD and exact division, independent shift/add multiplication and signed fraction arithmetic. Retain all 14 original TSV file partitions: eight single chunks, two 2048-bit chunks of 12 indices, and four 4096-bit chunks of six indices, including exact original index-range header comments.
@@ -657,7 +657,7 @@ The generator compiled with GCC and Clang under strict C++20 warnings, including
 
 Register the thirteenth standalone generator in `ORACLE_GENERATORS` for the explicit `generators` and `generate-data` targets, leaving `tests` decoupled. Update README. Source-reproducible coverage rises from 79 to 93 of 115 versioned TSVs. Full platform CI is still required.
 
-### B91 — independent source-keyed Rational R0 random fixture (23 October 2026)
+### R91 — independent source-keyed Rational R0 random fixture (23 October 2026)
 
 
 Add standalone `tests/data/generator_rational_random.cpp` to reproduce the complete preexisting `rational_random.tsv` from its original mt19937_64(0x6672616374696f6e) stream. Replay all 1,200 original visits (47,860 RNG draws), including four operand limb vectors and four sign draws at each iteration, keeping the 120 exact adaptive one-per-ten selected indices. Source integers, signed canonical fractions, add/subtract/multiply, square, half, optional division and reciprocal, floor/ceil, comparison and raw hexadecimal IEEE-754 binary64 bits are all computed with independent standard-C++20 base-2^64 limb arithmetic.

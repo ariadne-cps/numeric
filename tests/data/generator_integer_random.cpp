@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Reproduce the original B17 and B18 source-keyed signed integer test data.
+// Reproduce the original I17 and I18 source-keyed signed integer test data.
 // Standalone C++20; no Numeric, GMP, independent exact arithmetic, Boost or independent exact arithmetic.
 #include "oracle_exact_integer.hpp"
 
@@ -69,9 +69,9 @@ std::pair<Signed,Signed> quotrem(Signed const& a,Signed const& b) {
     return {Signed(std::move(q),a.negative!=b.negative),
             Signed(std::move(r),a.negative)};
 }
-std::string b17() {
+std::string i17() {
     std::string out=
-        "# B17 independent signed arithmetic/shift oracle using exact multiple-precision integer calculations.\n"
+        "# I17 independent signed arithmetic/shift oracle using exact multiple-precision integer calculations.\n"
         "# rep lhs rhs sum difference product trunc_quotient trunc_remainder trunc_right_shift signed_left_shift (decimal)\n"
         "# Original C++ mt19937_64(0x51C0FFEE), generated in full then sampled 1/10: rep = 10*k+(7*k+3)%10.\n"
         "# bits=rep%130; every shift count 0..129 survives, including 31/32/33, 63/64/65 and 127/128/129.\n"
@@ -99,9 +99,9 @@ std::string b17() {
     }
     return out;
 }
-std::string b18() {
+std::string i18() {
     std::string out=
-        "# B18 independent arithmetic oracle using exact multiple-precision signed integer calculations.\n"
+        "# I18 independent arithmetic oracle using exact multiple-precision signed integer calculations.\n"
         "# rep lhs rhs sum difference product trunc_quotient trunc_remainder (all decimal)\n"
         "# Original C++ mt19937_64(0x1A7E6EED), generated in full then sampled 1/10: rep = 10*k+(7*k+3)%10.\n"
         "# Includes all 7 operand-length modes, 6 sign combinations and original zero-dividend cases.\n";
@@ -130,11 +130,11 @@ int main(int argc,char** argv) {
     try {
         bool write=false;
         const auto dir=independent_oracle::data_directory(argc,argv,write);
-        independent_oracle::output(dir,"integer_b17.tsv",b17(),write);
-        independent_oracle::output(dir,"integer_b18.tsv",b18(),write);
+        independent_oracle::output(dir,"integer_i17.tsv",i17(),write);
+        independent_oracle::output(dir,"integer_i18.tsv",i18(),write);
         return 0;
     } catch(std::exception const& error) {
-        std::cerr<<"Integer B17/B18 generator: "<<error.what()<<'\n';
+        std::cerr<<"Integer I17/I18 generator: "<<error.what()<<'\n';
         return 1;
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Reproduce B35/B37/B38 multiplication and A1 modular accumulation cases.
+// Reproduce B35/B37/B38 multiplication and B112 modular accumulation cases.
 // Standalone C++20; no Numeric, GMP, independent exact arithmetic, Boost or independent exact arithmetic.
 #include "oracle_exact_integer.hpp"
 
@@ -24,7 +24,7 @@ Nat low_product(Nat value,std::size_t limbs) {
     value.trim();
     return value;
 }
-// A2: reproduce all 11*192 original B32 square source visits exactly.
+// B113: reproduce all 11*192 original B32 square source visits exactly.
 // Each mt19937_64 draw is consumed before applying the original transforms;
 // expected squares use the independent shift/add exact multiplication above.
 std::string b32() {
@@ -184,9 +184,9 @@ std::string b38() {
 }
 
 
-std::string a25_b52() {
+std::string b136_b52() {
     std::string out=
-        "# A25 B52 multiply-kernel oracle: all 288 original n/m/mode visits.\n"
+        "# B136 B52 multiply-kernel oracle: all 288 original n/m/mode visits.\n"
         "# n m mode lhs_hex rhs_hex product_hex low_limbs low_product_hex\n"
         "# Exact mt19937_64(0xB5203232) source stream; independent exact integer multiplication.\n"
         "# No Numeric/GMP/Boost dependency.\n";
@@ -230,14 +230,14 @@ std::string a25_b52() {
             }
         }
     }
-    if (rows!=288u) throw std::runtime_error("wrong A25 B52 row count");
+    if (rows!=288u) throw std::runtime_error("wrong B136 B52 row count");
     return out;
 }
 
 
-std::string a26_b53() {
+std::string b137_b53() {
     std::string out=
-        "# A26 B53 source-keyed multiplication oracle: 384 source pairs, 2304 low-product visits.\n"
+        "# B137 B53 source-keyed multiplication oracle: 384 source pairs, 2304 low-product visits.\n"
         "# n m mode lhs_hex rhs_hex len0 low0 len1 low1 len2 low2 len3 low3 len4 low4 len5 low5\n"
         "# Exact mt19937_64(0xB530B040) stream; independent exact integer multiplication.\n"
         "# No Numeric/GMP/Boost dependency.\n";
@@ -303,16 +303,16 @@ std::string a26_b53() {
         }
     }
     if (rows!=384u || visits!=2304u)
-        throw std::runtime_error("wrong A26 B53 row/visit count");
+        throw std::runtime_error("wrong B137 B53 row/visit count");
     return out;
 }
 
 
-std::array<std::string,6u> a27_general_multiply() {
+std::array<std::string,6u> b138_general_multiply() {
     std::array<std::string,6u> out;
     for (std::size_t part=0u;part<out.size();++part) {
         out[part]=
-            "# A27 general multiply-kernel oracle part "+std::to_string(part)+
+            "# B138 general multiply-kernel oracle part "+std::to_string(part)+
             ": visits "+std::to_string(part*1000u)+".."+
             std::to_string(part*1000u+999u)+".\n"
             "# repetition n m low lhs_hex rhs_hex product_hex low_product_hex\n"
@@ -347,13 +347,13 @@ std::array<std::string,6u> a27_general_multiply() {
 }
 
 
-std::array<std::string,2u> a28_karatsuba() {
+std::array<std::string,2u> b139_karatsuba() {
     std::array<std::string,2u> out{
-        "# A28 B8 Karatsuba cutoff oracle: 700 sources x 4 cutoffs = 2800 visits.\n"
+        "# B139 B8 Karatsuba cutoff oracle: 700 sources x 4 cutoffs = 2800 visits.\n"
         "# repetition n m lhs_hex rhs_hex product_hex\n"
         "# Exact mt19937_64(0xB8B8B8) stream; expected product independent of cutoff.\n"
         "# No Numeric/GMP/Boost dependency.\n",
-        "# A28 fixed Karatsuba cutoff oracle: 8 sources x 5 cutoffs = 40 visits.\n"
+        "# B139 fixed Karatsuba cutoff oracle: 8 sources x 5 cutoffs = 40 visits.\n"
         "# index n m lhs_hex rhs_hex product_hex\n"
         "# Continues the exact B8 mt19937_64(0xB8B8B8) stream after 700 source visits.\n"
         "# No Numeric/GMP/Boost dependency.\n"};
@@ -391,16 +391,16 @@ std::array<std::string,2u> a28_karatsuba() {
                       std::to_string(m),lhs.hex(),rhs.hex(),
                       multiply(lhs,rhs).hex()});
     }
-    if (index!=8u) throw std::runtime_error("wrong A28 fixed row count");
+    if (index!=8u) throw std::runtime_error("wrong B139 fixed row count");
     return out;
 }
 
-// A1: preserve every original 9*32*3*2 seeded product-accumulation visit.
+// B112: preserve every original 9*32*3*2 seeded product-accumulation visit.
 // Expected values use exact signed arithmetic modulo the entire destination
 // width, not any BigUnsigned accumulation or multiplication implementation.
 std::string accumulation() {
     std::string out=
-        "# Independent BigUnsigned accumulate_product_into exact modular oracle, A1.\n"
+        "# Independent BigUnsigned accumulate_product_into exact modular oracle, B112.\n"
         "# length trial extra subtract left_hex right_hex initial_hex result_hex escaped\n"
         "# Inputs replay all original mt19937_64(0x23ACC00) draws, including overwritten ones.\n"
         "# Product uses independent radix-2^32 arithmetic; escape and low result modulo 2^(64*count).\n"
@@ -464,18 +464,18 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_b37.tsv",b37(),write);
         independent_oracle::output(dir,"big_unsigned_b38.tsv",b38(),write);
         independent_oracle::output(dir,"big_unsigned_b32.tsv",b32(),write);
-        independent_oracle::output(dir,"big_unsigned_a25_b52.tsv",a25_b52(),write);
-        independent_oracle::output(dir,"big_unsigned_a26_b53.tsv",a26_b53(),write);
-        const auto a27=a27_general_multiply();
+        independent_oracle::output(dir,"big_unsigned_b136_b52.tsv",b136_b52(),write);
+        independent_oracle::output(dir,"big_unsigned_b137_b53.tsv",b137_b53(),write);
+        const auto a27=b138_general_multiply();
         for (std::size_t part=0u;part<a27.size();++part)
             independent_oracle::output(
-                dir,"big_unsigned_a27_general_"+std::to_string(part)+".tsv",
+                dir,"big_unsigned_b138_general_"+std::to_string(part)+".tsv",
                 a27[part],write);
-        const auto a28=a28_karatsuba();
+        const auto a28=b139_karatsuba();
         independent_oracle::output(
-            dir,"big_unsigned_a28_b8.tsv",a28[0u],write);
+            dir,"big_unsigned_b139_b8.tsv",a28[0u],write);
         independent_oracle::output(
-            dir,"big_unsigned_a28_karatsuba_fixed.tsv",a28[1u],write);
+            dir,"big_unsigned_b139_karatsuba_fixed.tsv",a28[1u],write);
         independent_oracle::output(dir,"big_unsigned_accumulation.tsv",accumulation(),write);
         return 0;
     } catch(std::exception const& ex) {

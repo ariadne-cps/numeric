@@ -79,14 +79,14 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_B55_LARGE_PATH[] = ARIADNE_TEST_DATA_
 inline constexpr char ARIADNE_BIG_UNSIGNED_B27_FIRST_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b27_first.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B27_SECOND_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b27_second.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_B48_MULTIPRECISION_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b48_multiprecision.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_A12_FIRST_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a12_randomized_first.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_A13_SECOND_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a13_randomized_second.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_A14_THIRD_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a14_randomized_third.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_A15_FOURTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a15_randomized_fourth.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_A16_FIFTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a16_randomized_fifth.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_A17_SIXTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a17_randomized_sixth.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_A18_SEVENTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a18_randomized_seventh.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_A19_EIGHTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_a19_randomized_eighth.tsv";
+inline constexpr char ARIADNE_big_unsigned_b123_FIRST_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b123_randomized_first.tsv";
+inline constexpr char ARIADNE_big_unsigned_b124_SECOND_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b124_randomized_second.tsv";
+inline constexpr char ARIADNE_big_unsigned_b125_THIRD_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b125_randomized_third.tsv";
+inline constexpr char ARIADNE_big_unsigned_b126_FOURTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b126_randomized_fourth.tsv";
+inline constexpr char ARIADNE_big_unsigned_b127_FIFTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b127_randomized_fifth.tsv";
+inline constexpr char ARIADNE_big_unsigned_b128_SIXTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b128_randomized_sixth.tsv";
+inline constexpr char ARIADNE_big_unsigned_b129_SEVENTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b129_randomized_seventh.tsv";
+inline constexpr char ARIADNE_big_unsigned_b130_EIGHTH_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b130_randomized_eighth.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R6_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r6.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R8_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r8.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_R10_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r10.tsv";
@@ -146,7 +146,7 @@ void check_div128_golden(std::ifstream& golden,char kind,std::size_t ordinal,
     if (!(golden >> ref_kind >> ref_ordinal >> divisor_hex >> low_hex
                  >> high_hex >> source_hex >> quotient_hex >> remainder_hex)
         || ref_kind!=std::string(1,kind) || ref_ordinal!=ordinal)
-        throw std::runtime_error("Missing, malformed or unordered A3 div128 TSV row");
+        throw std::runtime_error("Missing, malformed or unordered B114 div128 TSV row");
     check_against_precomputed_hex(BigUnsigned(divisor),divisor_hex);
     check_against_precomputed_hex(BigUnsigned(low),low_hex);
     check_against_precomputed_hex(BigUnsigned(high),high_hex);
@@ -161,7 +161,7 @@ void check_div128_golden(std::ifstream& golden,char kind,std::size_t ordinal,
 struct LimbDivisionGolden {
     std::ifstream file;
     explicit LimbDivisionGolden(char const* path):file(path) {
-        if (!file) throw std::runtime_error("Missing A5 limb division TSV");
+        if (!file) throw std::runtime_error("Missing B116 limb division TSV");
         std::string header;
         while (file.peek()=='#') std::getline(file,header);
     }
@@ -175,7 +175,7 @@ struct LimbDivisionGolden {
         if (!(file >> ref_count >> ref_divisor >> ref_mode
                    >> source_hex >> quotient_hex >> remainder_hex) ||
             ref_count!=count || ref_divisor!=divisor || ref_mode!=mode)
-            throw std::runtime_error("Missing or unordered A5 limb division row");
+            throw std::runtime_error("Missing or unordered B116 limb division row");
         check_against_precomputed_hex(source,source_hex);
         check_against_precomputed_hex(quotient,quotient_hex);
         check_against_precomputed_hex(BigUnsigned(remainder),remainder_hex);
@@ -184,7 +184,7 @@ struct LimbDivisionGolden {
     }
     void finish() {
         std::string extra;
-        if (file >> extra) throw std::runtime_error("Extra A5 limb division rows");
+        if (file >> extra) throw std::runtime_error("Extra B116 limb division rows");
     }
 };
 
@@ -683,7 +683,7 @@ void TestBigUnsigned::test_boundaries()
 
 // B41: the highest differing limb determines both unsigned order
 // and the maximum required result width. Exercise common-prefix
-// elimination against the independent A22 oracle in both directions,
+// elimination against the independent B133 oracle in both directions,
 // including underflow, canonical zero, dense inputs and long borrows.
 void TestBigUnsigned::test_subtraction_common_prefix()
 {
@@ -1126,7 +1126,7 @@ void TestBigUnsigned::test_multiplication()
     if (b38_golden >> b38_extra)
         throw std::runtime_error("Extra B38 oracle rows");
 
-    // A2/B32: retain all 2,112 original random-source visits, including
+    // B113/B32: retain all 2,112 original random-source visits, including
     // overwritten mt19937_64 draws. Exact expectations are independent TSV
     // squares, not GMP computations at runtime.
     std::ifstream b32_golden(ARIADNE_BIG_UNSIGNED_B32_ORACLE_PATH);
@@ -1210,16 +1210,16 @@ void TestBigUnsigned::test_views_and_scratch()
 
     BigUnsigned::Scratch output;
     std::mt19937_64 engine(0xB22B22ULL);
-    std::array<std::ifstream,5u> a23_golden;
-    for (std::size_t part=0u;part<a23_golden.size();++part) {
+    std::array<std::ifstream,5u> b134_golden;
+    for (std::size_t part=0u;part<b134_golden.size();++part) {
         const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
-            "/big_unsigned_a23_views_"+std::to_string(part)+".tsv";
-        a23_golden[part].open(path);
-        if (!a23_golden[part])
-            throw std::runtime_error("Missing A23 views TSV: "+path);
+            "/big_unsigned_b134_views_"+std::to_string(part)+".tsv";
+        b134_golden[part].open(path);
+        if (!b134_golden[part])
+            throw std::runtime_error("Missing B134 views TSV: "+path);
         std::string header;
-        while (a23_golden[part].peek()=='#')
-            std::getline(a23_golden[part],header);
+        while (b134_golden[part].peek()=='#')
+            std::getline(b134_golden[part],header);
     }
     for (unsigned repetition=0u; repetition<5000u; ++repetition) {
         const std::size_t n = engine()%28u;
@@ -1242,14 +1242,14 @@ void TestBigUnsigned::test_views_and_scratch()
         unsigned source_repetition=0u;
         std::size_t source_n=0u,source_m=0u,source_low=0u;
         std::string lhs_hex,rhs_hex,sum_hex,difference_hex,product_hex;
-        std::ifstream& golden=a23_golden[repetition/1000u];
+        std::ifstream& golden=b134_golden[repetition/1000u];
         if (!(golden >> source_repetition >> source_n >> source_m
               >> source_low >> lhs_hex >> rhs_hex >> sum_hex
               >> difference_hex >> product_hex) ||
             source_repetition!=repetition || source_n!=n ||
             source_m!=m || source_low!=low)
             throw std::runtime_error(
-                "Missing or unordered A23 views TSV row");
+                "Missing or unordered B134 views TSV row");
         check_against_precomputed_hex(lhs,lhs_hex);
         check_against_precomputed_hex(rhs,rhs_hex);
 
@@ -1281,32 +1281,32 @@ void TestBigUnsigned::test_views_and_scratch()
         check_against_precomputed_hex(lhs,lhs_hex);
         check_against_precomputed_hex(rhs,rhs_hex);
     }
-    for (auto& golden:a23_golden) {
+    for (auto& golden:b134_golden) {
         std::string extra;
         if (golden >> extra)
-            throw std::runtime_error("Extra A23 views TSV rows");
+            throw std::runtime_error("Extra B134 views TSV rows");
     }
-    // A24/R38: preserve all shifted add/sub source cases and shift
+    // B135/R38: preserve all shifted add/sub source cases and shift
     // combinations using independent source-keyed TSV expectations.
-    std::ifstream a24_sources(
+    std::ifstream b135_sources(
         std::string(ARIADNE_TEST_DATA_DIR)+
-        "/big_unsigned_a24_shifted_sources.tsv");
-    if (!a24_sources)
-        throw std::runtime_error("Missing A24 shifted source TSV");
-    std::string a24_header;
-    while (a24_sources.peek()=='#') std::getline(a24_sources,a24_header);
-    std::array<std::ifstream,10u> a24_golden;
-    for (std::size_t part=0u;part<a24_golden.size();++part) {
+        "/big_unsigned_b135_shifted_sources.tsv");
+    if (!b135_sources)
+        throw std::runtime_error("Missing B135 shifted source TSV");
+    std::string b135_header;
+    while (b135_sources.peek()=='#') std::getline(b135_sources,b135_header);
+    std::array<std::ifstream,10u> b135_golden;
+    for (std::size_t part=0u;part<b135_golden.size();++part) {
         const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
-            "/big_unsigned_a24_shifted_"+std::to_string(part)+".tsv";
-        a24_golden[part].open(path);
-        if (!a24_golden[part])
-            throw std::runtime_error("Missing A24 shifted TSV: "+path);
+            "/big_unsigned_b135_shifted_"+std::to_string(part)+".tsv";
+        b135_golden[part].open(path);
+        if (!b135_golden[part])
+            throw std::runtime_error("Missing B135 shifted TSV: "+path);
         std::string header;
-        while (a24_golden[part].peek()=='#')
-            std::getline(a24_golden[part],header);
+        while (b135_golden[part].peek()=='#')
+            std::getline(b135_golden[part],header);
     }
-    const auto a24_part=[](std::size_t ordinal) {
+    const auto b135_part=[](std::size_t ordinal) {
         return ordinal<5775u ? ordinal/825u :
             7u+(ordinal-5775u)/275u;
     };
@@ -1331,18 +1331,18 @@ void TestBigUnsigned::test_views_and_scratch()
             std::size_t source_ref=0u,source_width=0u,source_length_b=0u;
             unsigned source_case=0u;
             std::string a_hex,b_hex;
-            if (!(a24_sources >> source_ref >> source_width >> source_case
+            if (!(b135_sources >> source_ref >> source_width >> source_case
                   >> source_length_b >> a_hex >> b_hex) ||
                 source_ref!=source_ordinal++ || source_width!=width ||
                 source_case!=case_index || source_length_b!=length_b)
                 throw std::runtime_error(
-                    "Missing or unordered A24 shifted source row");
+                    "Missing or unordered B135 shifted source row");
             check_against_precomputed_hex(a,a_hex);
             check_against_precomputed_hex(b,b_hex);
 
             for (unsigned sa:{0u,1u,7u,31u,63u}) {
                 for (unsigned sb:{0u,1u,7u,31u,63u}) {
-                    std::ifstream& golden=a24_golden[a24_part(ordinal)];
+                    std::ifstream& golden=b135_golden[b135_part(ordinal)];
                     std::size_t ref_ordinal=0u,ref_width=0u;
                     unsigned ref_case=0u,ref_sa=0u,ref_sb=0u;
                     int ref_comparison=0;
@@ -1354,7 +1354,7 @@ void TestBigUnsigned::test_views_and_scratch()
                         ref_case!=case_index || ref_sa!=sa || ref_sb!=sb ||
                         ref_comparison < -1 || ref_comparison > 1)
                         throw std::runtime_error(
-                            "Missing or unordered A24 shifted oracle row");
+                            "Missing or unordered B135 shifted oracle row");
                     check_against_precomputed_hex(
                         BigUnsigned::add_shifted(
                             a.limbs(),sa,b.limbs(),sb),sum_hex);
@@ -1374,14 +1374,14 @@ void TestBigUnsigned::test_views_and_scratch()
         }
     }
     if (source_ordinal!=264u || ordinal!=6600u)
-        throw std::runtime_error("Wrong A24 shifted oracle row count");
-    std::string a24_source_extra;
-    if (a24_sources >> a24_source_extra)
-        throw std::runtime_error("Extra A24 shifted source rows");
-    for (auto& golden:a24_golden) {
+        throw std::runtime_error("Wrong B135 shifted oracle row count");
+    std::string b135_source_extra;
+    if (b135_sources >> b135_source_extra)
+        throw std::runtime_error("Extra B135 shifted source rows");
+    for (auto& golden:b135_golden) {
         std::string extra;
         if (golden >> extra)
-            throw std::runtime_error("Extra A24 shifted oracle rows");
+            throw std::runtime_error("Extra B135 shifted oracle rows");
     }
     // R38: shifted subtraction rejects a negative result.
     ARIADNE_TEST_ASSERT(([] {
@@ -1407,11 +1407,11 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     // product oracle. Exercise 31/32/33-limb boundaries, including
     // noncanonical zero data, sparse rows, all-ones, extra output
     // capacity and low products. No workload fixtures are changed.
-    std::ifstream a25_b52(
-        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_a25_b52.tsv");
-    if (!a25_b52) throw std::runtime_error("Missing A25 B52 TSV");
-    std::string a25_b52_header;
-    while (a25_b52.peek()=='#') std::getline(a25_b52,a25_b52_header);
+    std::ifstream b136_b52(
+        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_b136_b52.tsv");
+    if (!b136_b52) throw std::runtime_error("Missing B136 B52 TSV");
+    std::string b136_b52_header;
+    while (b136_b52.peek()=='#') std::getline(b136_b52,b136_b52_header);
     std::mt19937_64 b52_engine(0xB5203232ULL);
     for (const std::size_t n:{31u,32u,33u}) {
         for (const std::size_t m:{31u,32u,33u}) {
@@ -1447,12 +1447,12 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                 std::size_t ref_n=0u,ref_m=0u,ref_low=0u;
                 unsigned ref_mode=0u;
                 std::string lhs_hex,rhs_hex,product_hex,low_hex;
-                if (!(a25_b52 >> ref_n >> ref_m >> ref_mode
+                if (!(b136_b52 >> ref_n >> ref_m >> ref_mode
                       >> lhs_hex >> rhs_hex >> product_hex
                       >> ref_low >> low_hex) ||
                     ref_n!=n || ref_m!=m || ref_mode!=mode)
                     throw std::runtime_error(
-                        "Missing or unordered A25 B52 TSV row");
+                        "Missing or unordered B136 B52 TSV row");
                 check_against_precomputed_hex(lhs,lhs_hex);
                 check_against_precomputed_hex(rhs,rhs_hex);
                 const std::size_t full=lhs.size()+rhs.size();
@@ -1478,7 +1478,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
 
                 const std::size_t low=full==0u?0u:full-1u;
                 if (ref_low!=low)
-                    throw std::runtime_error("Wrong A25 B52 low length");
+                    throw std::runtime_error("Wrong B136 B52 low length");
                 std::vector<std::uint64_t> truncated(low,max);
                 BigUnsigned::mul_low_into(
                     lhs.limbs(),rhs.limbs(),truncated);
@@ -1489,20 +1489,20 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             }
         }
     }
-    std::string a25_b52_extra;
-    if (a25_b52 >> a25_b52_extra)
-        throw std::runtime_error("Extra A25 B52 TSV rows");
+    std::string b136_b52_extra;
+    if (b136_b52 >> b136_b52_extra)
+        throw std::runtime_error("Extra B136 B52 TSV rows");
 
     // B53: independent GMP oracle for x86 GCC fused and GNU/Clang
     // assembly zero-row skipping. Include 31/32/33 B52 boundaries,
     // 63/64/65 adaptive-density thresholds, unbalanced rows and
     // truncated/oversized outputs. Raw views include noncanonical
     // zero-high limbs, so skipping must not depend on normalization.
-    std::ifstream a26_b53(
-        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_a26_b53.tsv");
-    if (!a26_b53) throw std::runtime_error("Missing A26 B53 TSV");
-    std::string a26_b53_header;
-    while (a26_b53.peek()=='#') std::getline(a26_b53,a26_b53_header);
+    std::ifstream b137_b53(
+        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_b137_b53.tsv");
+    if (!b137_b53) throw std::runtime_error("Missing B137 B53 TSV");
+    std::string b137_b53_header;
+    while (b137_b53.peek()=='#') std::getline(b137_b53,b137_b53_header);
     std::mt19937_64 b53_engine(0xB530B040ULL);
     for (const auto& [n,m]:
             {std::pair<std::size_t,std::size_t>{1u,1u},
@@ -1551,11 +1551,11 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             std::size_t ref_n=0u,ref_m=0u;
             unsigned ref_mode=0u;
             std::string lhs_hex,rhs_hex;
-            if (!(a26_b53 >> ref_n >> ref_m >> ref_mode
+            if (!(b137_b53 >> ref_n >> ref_m >> ref_mode
                   >> lhs_hex >> rhs_hex) ||
                 ref_n!=n || ref_m!=m || ref_mode!=mode)
                 throw std::runtime_error(
-                    "Missing or unordered A26 B53 TSV row");
+                    "Missing or unordered B137 B53 TSV row");
             check_against_precomputed_hex(lhs,lhs_hex);
             check_against_precomputed_hex(rhs,rhs_hex);
             for (const std::size_t length:
@@ -1563,10 +1563,10 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                      (n+m)/2u,n+m-1u,n+m,n+m+2u}) {
                 std::size_t ref_length=0u;
                 std::string low_hex;
-                if (!(a26_b53 >> ref_length >> low_hex) ||
+                if (!(b137_b53 >> ref_length >> low_hex) ||
                     ref_length!=length)
                     throw std::runtime_error(
-                        "Wrong A26 B53 low-product length");
+                        "Wrong B137 B53 low-product length");
                 std::vector<std::uint64_t> selected(length,max);
                 std::vector<std::uint64_t> fused(length,max);
                 std::vector<std::uint64_t> carry(length,max);
@@ -1581,22 +1581,22 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             }
         }
     }
-    std::string a26_b53_extra;
-    if (a26_b53 >> a26_b53_extra)
-        throw std::runtime_error("Extra A26 B53 TSV rows");
+    std::string b137_b53_extra;
+    if (b137_b53 >> b137_b53_extra)
+        throw std::runtime_error("Extra B137 B53 TSV rows");
 
-    // A27: preserve all 6,000 original general-kernel visits using six
+    // B138: preserve all 6,000 original general-kernel visits using six
     // sequential source-keyed TSV segments, while keeping one RNG stream.
-    std::array<std::ifstream,6u> a27_general;
-    for (std::size_t part=0u;part<a27_general.size();++part) {
+    std::array<std::ifstream,6u> b138_general;
+    for (std::size_t part=0u;part<b138_general.size();++part) {
         const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
-            "/big_unsigned_a27_general_"+std::to_string(part)+".tsv";
-        a27_general[part].open(path);
-        if (!a27_general[part])
-            throw std::runtime_error("Missing A27 general multiply TSV: "+path);
+            "/big_unsigned_b138_general_"+std::to_string(part)+".tsv";
+        b138_general[part].open(path);
+        if (!b138_general[part])
+            throw std::runtime_error("Missing B138 general multiply TSV: "+path);
         std::string header;
-        while (a27_general[part].peek()=='#')
-            std::getline(a27_general[part],header);
+        while (b138_general[part].peek()=='#')
+            std::getline(b138_general[part],header);
     }
     // Multiple writes reuse the same result space; both implementations
     // must overwrite all digits, including untouched high destinations.
@@ -1615,7 +1615,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         const std::size_t low = repetition%5u==0u ? 0u :
             repetition%5u==1u ? 1u : repetition%5u==2u ? 4u :
             repetition%5u==3u ? 5u : engine()%80u;
-        std::ifstream& golden=a27_general[repetition/1000u];
+        std::ifstream& golden=b138_general[repetition/1000u];
         unsigned ref_repetition=0u;
         std::size_t ref_n=0u,ref_m=0u,ref_low=0u;
         std::string lhs_hex,rhs_hex,product_hex,low_hex;
@@ -1624,7 +1624,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             ref_repetition!=repetition || ref_n!=n || ref_m!=m ||
             ref_low!=low)
             throw std::runtime_error(
-                "Missing or unordered A27 general multiply TSV row");
+                "Missing or unordered B138 general multiply TSV row");
         check_against_precomputed_hex(lhs,lhs_hex);
         check_against_precomputed_hex(rhs,rhs_hex);
 
@@ -1733,10 +1733,10 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         check_against_precomputed_hex(BigUnsigned(selected),low_hex);
     }
 
-    for (std::size_t part=0u;part<a27_general.size();++part) {
+    for (std::size_t part=0u;part<b138_general.size();++part) {
         std::string extra;
-        if (a27_general[part] >> extra)
-            throw std::runtime_error("Extra A27 general multiply TSV rows");
+        if (b138_general[part] >> extra)
+            throw std::runtime_error("Extra B138 general multiply TSV rows");
     }
 
     const std::array<std::uint64_t,1> one{1u};
@@ -1837,13 +1837,13 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         ARIADNE_TEST_ASSERT(value==max);
     }
 
-    // A28: B8 retains all 700 original sources and four cutoff visits
+    // B139: B8 retains all 700 original sources and four cutoff visits
     // per source, with an independent exact product TSV.
-    std::ifstream a28_b8(
-        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_a28_b8.tsv");
-    if (!a28_b8) throw std::runtime_error("Missing A28 B8 TSV");
-    std::string a28_b8_header;
-    while (a28_b8.peek()=='#') std::getline(a28_b8,a28_b8_header);
+    std::ifstream b139_b8(
+        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_b139_b8.tsv");
+    if (!b139_b8) throw std::runtime_error("Missing B139 B8 TSV");
+    std::string b139_b8_header;
+    while (b139_b8.peek()=='#') std::getline(b139_b8,b139_b8_header);
     std::mt19937_64 wider_engine(0xB8B8B8ULL);
     for (unsigned repetition=0u; repetition<700u; ++repetition) {
         const std::size_t n=repetition%7u==0u ? 128u :
@@ -1862,10 +1862,10 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         unsigned ref_repetition=0u;
         std::size_t ref_n=0u,ref_m=0u;
         std::string lhs_hex,rhs_hex,product_hex;
-        if (!(a28_b8 >> ref_repetition >> ref_n >> ref_m
+        if (!(b139_b8 >> ref_repetition >> ref_n >> ref_m
               >> lhs_hex >> rhs_hex >> product_hex) ||
             ref_repetition!=repetition || ref_n!=n || ref_m!=m)
-            throw std::runtime_error("Missing or unordered A28 B8 TSV row");
+            throw std::runtime_error("Missing or unordered B139 B8 TSV row");
         check_against_precomputed_hex(lhs,lhs_hex);
         check_against_precomputed_hex(rhs,rhs_hex);
         for (std::size_t cutoff: {8u,16u,32u,64u}) {
@@ -1884,19 +1884,19 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         }
     }
 
-    std::string a28_b8_extra;
-    if (a28_b8 >> a28_b8_extra)
-        throw std::runtime_error("Extra A28 B8 TSV rows");
+    std::string b139_b8_extra;
+    if (b139_b8 >> b139_b8_extra)
+        throw std::runtime_error("Extra B139 B8 TSV rows");
 
-    // A28: fixed Karatsuba sources continue the same wider_engine stream.
-    std::ifstream a28_fixed(
+    // B139: fixed Karatsuba sources continue the same wider_engine stream.
+    std::ifstream b139_fixed(
         std::string(ARIADNE_TEST_DATA_DIR)+
-        "/big_unsigned_a28_karatsuba_fixed.tsv");
-    if (!a28_fixed) throw std::runtime_error("Missing A28 fixed Karatsuba TSV");
-    std::string a28_fixed_header;
-    while (a28_fixed.peek()=='#')
-        std::getline(a28_fixed,a28_fixed_header);
-    std::size_t a28_fixed_index=0u;
+        "/big_unsigned_b139_karatsuba_fixed.tsv");
+    if (!b139_fixed) throw std::runtime_error("Missing B139 fixed Karatsuba TSV");
+    std::string b139_fixed_header;
+    while (b139_fixed.peek()=='#')
+        std::getline(b139_fixed,b139_fixed_header);
+    std::size_t b139_fixed_index=0u;
     // Karatsuba output is prefilled with nonzero data to prove that the
     // z0/z2 recursion fully overwrites even unbalanced and odd splits.
     // The scratch guard limbs expose any off-by-one workspace overruns.
@@ -1914,11 +1914,11 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         const BigUnsigned lhs(da),rhs(db);
         std::size_t ref_index=0u,ref_n=0u,ref_m=0u;
         std::string lhs_hex,rhs_hex,product_hex;
-        if (!(a28_fixed >> ref_index >> ref_n >> ref_m
+        if (!(b139_fixed >> ref_index >> ref_n >> ref_m
               >> lhs_hex >> rhs_hex >> product_hex) ||
-            ref_index!=a28_fixed_index++ || ref_n!=n || ref_m!=m)
+            ref_index!=b139_fixed_index++ || ref_n!=n || ref_m!=m)
             throw std::runtime_error(
-                "Missing or unordered A28 fixed Karatsuba TSV row");
+                "Missing or unordered B139 fixed Karatsuba TSV row");
         check_against_precomputed_hex(lhs,lhs_hex);
         check_against_precomputed_hex(rhs,rhs_hex);
         std::vector<std::uint64_t> product(n+m+3u,max);
@@ -1938,11 +1938,11 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             ARIADNE_TEST_ASSERT(guards.back()==max);
         }
     }
-    if (a28_fixed_index!=8u)
-        throw std::runtime_error("Wrong A28 fixed Karatsuba row count");
-    std::string a28_fixed_extra;
-    if (a28_fixed >> a28_fixed_extra)
-        throw std::runtime_error("Extra A28 fixed Karatsuba TSV rows");
+    if (b139_fixed_index!=8u)
+        throw std::runtime_error("Wrong B139 fixed Karatsuba row count");
+    std::string b139_fixed_extra;
+    if (b139_fixed >> b139_fixed_extra)
+        throw std::runtime_error("Extra B139 fixed Karatsuba TSV rows");
 
 }
 
@@ -1969,7 +1969,7 @@ void TestBigUnsigned::test_division_limb()
 
     std::ifstream random_div_golden(ARIADNE_BIG_UNSIGNED_DIV_LIMB_RANDOM_ORACLE_PATH);
     if (!random_div_golden)
-        throw std::runtime_error("Missing A4 random limb division TSV");
+        throw std::runtime_error("Missing B115 random limb division TSV");
     std::string random_div_header;
     while (random_div_golden.peek()=='#')
         std::getline(random_div_golden,random_div_header);
@@ -2004,7 +2004,7 @@ void TestBigUnsigned::test_division_limb()
         if (!(random_div_golden >> source_repetition >> source_divisor
                                 >> source_hex >> quotient_hex >> remainder_hex)
             || source_repetition!=repetition || source_divisor!=divisor)
-            throw std::runtime_error("Missing or unordered A4 random division row");
+            throw std::runtime_error("Missing or unordered B115 random division row");
         check_against_precomputed_hex(value,source_hex);
         const auto [actual,rem]=divrem_limb(value,divisor);
         check_against_precomputed_hex(actual,quotient_hex);
@@ -2023,13 +2023,13 @@ void TestBigUnsigned::test_division_limb()
     }
     std::string random_div_extra;
     if (random_div_golden >> random_div_extra)
-        throw std::runtime_error("Extra A4 random division TSV rows");
+        throw std::runtime_error("Extra B115 random division TSV rows");
 
-    // A3: independent source-keyed exact quotient and remainder for all
+    // B114: independent source-keyed exact quotient and remainder for all
     // 192 original 128/64 edge visits and all 2,048 original B26 visits.
     // Retain the original input order and conditional PRNG consumption.
     std::ifstream div128_golden(ARIADNE_BIG_UNSIGNED_DIV128_ORACLE_PATH);
-    if (!div128_golden) throw std::runtime_error("Missing A3 div128 TSV");
+    if (!div128_golden) throw std::runtime_error("Missing B114 div128 TSV");
     std::string div128_header;
     while (div128_golden.peek()=='#')
         std::getline(div128_golden,div128_header);
@@ -2086,7 +2086,7 @@ void TestBigUnsigned::test_division_limb()
     }
     std::string div128_extra;
     if (div128_golden >> div128_extra)
-        throw std::runtime_error("Extra A3 div128 TSV rows");
+        throw std::runtime_error("Extra B114 div128 TSV rows");
 
     // B48: the ARM64 32-bit-divisor fast path must return the exact
     // full quotient and 64-bit remainder, independently of the
@@ -2337,7 +2337,7 @@ void TestBigUnsigned::test_exact_division_limb()
         divisors.push_back((random()>>(63u-bit))|(Limb{1}<<bit));
     }
     for (Limb odd=1u;odd<32u;odd+=2u) { divisors.push_back(odd); }
-    // A7: original 6,200 source visits and RNG draws. Four independently
+    // B118: original 6,200 source visits and RNG draws. Four independently
     // certified fixtures avoid ever computing the exact dividend with GMP.
     std::array<std::ifstream,4> golden{
         std::ifstream(ARIADNE_BIG_UNSIGNED_EXACT_LIMB_SMALL_PATH),
@@ -2345,7 +2345,7 @@ void TestBigUnsigned::test_exact_division_limb()
         std::ifstream(ARIADNE_BIG_UNSIGNED_EXACT_LIMB_129A_PATH),
         std::ifstream(ARIADNE_BIG_UNSIGNED_EXACT_LIMB_129B_PATH)};
     for (auto& file:golden) {
-        if (!file) throw std::runtime_error("Missing A7 exact limb TSV");
+        if (!file) throw std::runtime_error("Missing B118 exact limb TSV");
         std::string header;
         while (file.peek()=='#') std::getline(file,header);
     }
@@ -2372,7 +2372,7 @@ void TestBigUnsigned::test_exact_division_limb()
                       >> ref_divisor >> quotient_hex >> dividend_hex) ||
                     ref_length!=length || ref_index!=divisor_index ||
                     ref_mode!=mode || ref_divisor!=divisor)
-                    throw std::runtime_error("Missing or unordered A7 exact limb row");
+                    throw std::runtime_error("Missing or unordered B118 exact limb row");
                 const BigUnsigned expected_quotient(words);
                 check_against_precomputed_hex(expected_quotient,quotient_hex);
                 const BigUnsigned source=big_unsigned_from_golden_hex(dividend_hex);
@@ -2391,7 +2391,7 @@ void TestBigUnsigned::test_exact_division_limb()
     }
     for (auto& file:golden) {
         std::string extra;
-        if (file >> extra) throw std::runtime_error("Extra A7 exact limb TSV rows");
+        if (file >> extra) throw std::runtime_error("Extra B118 exact limb TSV rows");
     }
     const std::array<Limb,2u> input={1u,1u};
     std::array<Limb,2u> output={max,max};
@@ -2504,16 +2504,16 @@ void TestBigUnsigned::test_division()
     const auto [q3,r3]=divrem(radix_squared,radix);
     ARIADNE_TEST_ASSERT(compare(q3,radix)==0 && r3.is_zero());
 
-    std::array<std::ifstream,6u> a29_general;
-    for (std::size_t part=0u;part<a29_general.size();++part) {
+    std::array<std::ifstream,6u> b140_general;
+    for (std::size_t part=0u;part<b140_general.size();++part) {
         const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
-            "/big_unsigned_a29_division_"+std::to_string(part)+".tsv";
-        a29_general[part].open(path);
-        if (!a29_general[part])
-            throw std::runtime_error("Missing A29 general division TSV: "+path);
+            "/big_unsigned_b140_division_"+std::to_string(part)+".tsv";
+        b140_general[part].open(path);
+        if (!b140_general[part])
+            throw std::runtime_error("Missing B140 general division TSV: "+path);
         std::string header;
-        while (a29_general[part].peek()=='#')
-            std::getline(a29_general[part],header);
+        while (b140_general[part].peek()=='#')
+            std::getline(b140_general[part],header);
     }
     std::mt19937_64 engine(0xB15D1A1DULL);
     for (unsigned repetition=0u;repetition<6000u;++repetition) {
@@ -2540,7 +2540,7 @@ void TestBigUnsigned::test_division()
         if (repetition%53u==0u && n==m) da=db;
         const BigUnsigned dividend(da),divisor(db);
 
-        std::ifstream& golden=a29_general[repetition/1000u];
+        std::ifstream& golden=b140_general[repetition/1000u];
         unsigned ref_repetition=0u;
         std::size_t ref_n=0u,ref_m=0u;
         std::string dividend_hex,divisor_hex,quotient_hex,remainder_hex;
@@ -2548,7 +2548,7 @@ void TestBigUnsigned::test_division()
               >> dividend_hex >> divisor_hex >> quotient_hex >> remainder_hex) ||
             ref_repetition!=repetition || ref_n!=n || ref_m!=m)
             throw std::runtime_error(
-                "Missing or unordered A29 general division TSV row");
+                "Missing or unordered B140 general division TSV row");
         check_against_precomputed_hex(dividend,dividend_hex);
         check_against_precomputed_hex(divisor,divisor_hex);
 
@@ -2585,10 +2585,10 @@ void TestBigUnsigned::test_division()
         check_against_precomputed_hex(dividend,dividend_hex);
         check_against_precomputed_hex(divisor,divisor_hex);
     }
-    for (std::size_t part=0u;part<a29_general.size();++part) {
+    for (std::size_t part=0u;part<b140_general.size();++part) {
         std::string extra;
-        if (a29_general[part] >> extra)
-            throw std::runtime_error("Extra A29 general division TSV rows");
+        if (b140_general[part] >> extra)
+            throw std::runtime_error("Extra B140 general division TSV rows");
     }
 // B57: all 3 output modes of normalized multiprecision
     // division by 2^(64*k+s), including high/low limb boundaries
@@ -2599,7 +2599,7 @@ void TestBigUnsigned::test_division()
         std::ifstream(ARIADNE_BIG_UNSIGNED_B57_POWER_MEDIUM_PATH),
         std::ifstream(ARIADNE_BIG_UNSIGNED_B57_POWER_LARGE_PATH)};
     for (auto& file:b57_power_golden) {
-        if (!file) throw std::runtime_error("Missing A8 B57 power TSV");
+        if (!file) throw std::runtime_error("Missing B119 B57 power TSV");
         std::string header;
         while (file.peek()=='#') std::getline(file,header);
     }
@@ -2639,7 +2639,7 @@ void TestBigUnsigned::test_division()
                           dividend_hex >> divisor_hex >> quotient_hex >> remainder_hex)
                         || ref_n!=nlimbs || ref_m!=mlimbs ||
                            ref_bit!=bit || ref_mode!=mode)
-                        throw std::runtime_error("Missing or unordered A8 B57 power row");
+                        throw std::runtime_error("Missing or unordered B119 B57 power row");
                     check_against_precomputed_hex(dividend,dividend_hex);
                     check_against_precomputed_hex(divisor,divisor_hex);
                     const auto [both_q,both_r]=divrem(dividend,divisor);
@@ -2680,7 +2680,7 @@ void TestBigUnsigned::test_division()
 
     for (auto& file:b57_power_golden) {
         std::string extra;
-        if (file >> extra) throw std::runtime_error("Extra A8 B57 power rows");
+        if (file >> extra) throw std::runtime_error("Extra B119 B57 power rows");
     }
 
     // B55: independently frozen numerical coverage of the native x86-64
@@ -2876,7 +2876,7 @@ void TestBigUnsigned::test_division()
     // semantics for the small divisors used in the unchanged
     // 32-case official benchmark; the independent TSV is the oracle.
     std::ifstream b48_golden(ARIADNE_BIG_UNSIGNED_B48_MULTIPRECISION_PATH);
-    if (!b48_golden) throw std::runtime_error("Missing A11 B48 TSV");
+    if (!b48_golden) throw std::runtime_error("Missing B122 B48 TSV");
     std::string b48_header;
     while (b48_golden.peek()=='#') std::getline(b48_golden,b48_header);
     std::mt19937_64 small_divisor_engine(0xB48A11D1ULL);
@@ -2902,7 +2902,7 @@ void TestBigUnsigned::test_division()
                 if (!(b48_golden >> ref_count >> ref_divisor >> ref_mode
                       >> input_hex >> quotient_hex >> remainder_hex)
                     || ref_count!=count || ref_divisor!=divisor || ref_mode!=mode)
-                    throw std::runtime_error("Missing or unordered A11 B48 row");
+                    throw std::runtime_error("Missing or unordered B122 B48 row");
                 const BigUnsigned numerator(words),denominator(divisor);
                 check_against_precomputed_hex(numerator,input_hex);
                 const auto [qvalue,rvalue]=divrem(numerator,denominator);
@@ -2924,19 +2924,19 @@ void TestBigUnsigned::test_division()
 
     std::string b48_extra;
     if (b48_golden >> b48_extra)
-        throw std::runtime_error("Extra A11 B48 rows");
+        throw std::runtime_error("Extra B122 B48 rows");
 
-    // A30/B28: equal-high fast-path cases use two sequential exact TSVs.
-    std::array<std::ifstream,2u> a30_b28;
-    for (std::size_t part=0u;part<a30_b28.size();++part) {
+    // B141/B28: equal-high fast-path cases use two sequential exact TSVs.
+    std::array<std::ifstream,2u> b141_b28;
+    for (std::size_t part=0u;part<b141_b28.size();++part) {
         const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
-            "/big_unsigned_a30_b28_"+std::to_string(part)+".tsv";
-        a30_b28[part].open(path);
-        if (!a30_b28[part])
-            throw std::runtime_error("Missing A30 B28 TSV: "+path);
+            "/big_unsigned_b141_b28_"+std::to_string(part)+".tsv";
+        b141_b28[part].open(path);
+        if (!b141_b28[part])
+            throw std::runtime_error("Missing B141 B28 TSV: "+path);
         std::string header;
-        while (a30_b28[part].peek()=='#')
-            std::getline(a30_b28[part],header);
+        while (b141_b28[part].peek()=='#')
+            std::getline(b141_b28[part],header);
     }
     std::mt19937_64 equal_high_engine(0xB280C27ULL);
     for (unsigned repetition=0u;repetition<2048u;++repetition) {
@@ -2957,7 +2957,7 @@ void TestBigUnsigned::test_division()
             ++right.front();
         }
         const BigUnsigned numerator(left),denominator(right);
-        std::ifstream& golden=a30_b28[repetition/1024u];
+        std::ifstream& golden=b141_b28[repetition/1024u];
         unsigned ref_repetition=0u;
         std::size_t ref_count=0u;
         std::string numerator_hex,denominator_hex,quotient_hex,remainder_hex;
@@ -2966,7 +2966,7 @@ void TestBigUnsigned::test_division()
               >> quotient_hex >> remainder_hex) ||
             ref_repetition!=repetition || ref_count!=count)
             throw std::runtime_error(
-                "Missing or unordered A30 B28 TSV row");
+                "Missing or unordered B141 B28 TSV row");
         check_against_precomputed_hex(numerator,numerator_hex);
         check_against_precomputed_hex(denominator,denominator_hex);
         const auto [native_q,native_r]=divrem(numerator,denominator);
@@ -3002,26 +3002,26 @@ void TestBigUnsigned::test_division()
         }
     }
 
-    for (std::size_t part=0u;part<a30_b28.size();++part) {
+    for (std::size_t part=0u;part<b141_b28.size();++part) {
         std::string extra;
-        if (a30_b28[part] >> extra)
-            throw std::runtime_error("Extra A30 B28 TSV rows");
+        if (b141_b28[part] >> extra)
+            throw std::runtime_error("Extra B141 B28 TSV rows");
     }
 
-    // A31/B36: classify equal-size quotient paths against two exact TSVs.
-    std::array<std::ifstream,2u> a31_b36;
-    for (std::size_t part=0u;part<a31_b36.size();++part) {
+    // B142/B36: classify equal-size quotient paths against two exact TSVs.
+    std::array<std::ifstream,2u> b142_b36;
+    for (std::size_t part=0u;part<b142_b36.size();++part) {
         const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
-            "/big_unsigned_a31_b36_"+std::to_string(part)+".tsv";
-        a31_b36[part].open(path);
-        if (!a31_b36[part])
-            throw std::runtime_error("Missing A31 B36 TSV: "+path);
+            "/big_unsigned_b142_b36_"+std::to_string(part)+".tsv";
+        b142_b36[part].open(path);
+        if (!b142_b36[part])
+            throw std::runtime_error("Missing B142 B36 TSV: "+path);
         std::string header;
-        while (a31_b36[part].peek()=='#')
-            std::getline(a31_b36[part],header);
+        while (b142_b36[part].peek()=='#')
+            std::getline(b142_b36[part],header);
     }
     std::mt19937_64 high_ratio_engine(0xB360A11ULL);
-    std::size_t a31_ordinal=0u;
+    std::size_t b142_ordinal=0u;
     for (const std::size_t count:
             {2u,3u,4u,7u,8u,16u,32u,64u,96u,128u}) {
         for (unsigned repetition=0u;repetition<128u;++repetition) {
@@ -3065,18 +3065,18 @@ void TestBigUnsigned::test_division()
                 break;
             }
             const BigUnsigned numerator(left),denominator(right);
-            std::ifstream& golden=a31_b36[a31_ordinal/640u];
+            std::ifstream& golden=b142_b36[b142_ordinal/640u];
             std::size_t ref_ordinal=0u,ref_count=0u;
             unsigned ref_repetition=0u;
             std::string numerator_hex,denominator_hex,quotient_hex,remainder_hex;
             if (!(golden >> ref_ordinal >> ref_count >> ref_repetition
                   >> numerator_hex >> denominator_hex
                   >> quotient_hex >> remainder_hex) ||
-                ref_ordinal!=a31_ordinal || ref_count!=count ||
+                ref_ordinal!=b142_ordinal || ref_count!=count ||
                 ref_repetition!=repetition)
                 throw std::runtime_error(
-                    "Missing or unordered A31 B36 TSV row");
-            ++a31_ordinal;
+                    "Missing or unordered B142 B36 TSV row");
+            ++b142_ordinal;
             check_against_precomputed_hex(numerator,numerator_hex);
             check_against_precomputed_hex(denominator,denominator_hex);
             const auto [native_q,native_r]=divrem(numerator,denominator);
@@ -3090,25 +3090,25 @@ void TestBigUnsigned::test_division()
         }
     }
 
-    if (a31_ordinal!=1280u)
-        throw std::runtime_error("Wrong A31 B36 row count");
-    for (std::size_t part=0u;part<a31_b36.size();++part) {
+    if (b142_ordinal!=1280u)
+        throw std::runtime_error("Wrong B142 B36 row count");
+    for (std::size_t part=0u;part<b142_b36.size();++part) {
         std::string extra;
-        if (a31_b36[part] >> extra)
-            throw std::runtime_error("Extra A31 B36 TSV rows");
+        if (b142_b36[part] >> extra)
+            throw std::runtime_error("Extra B142 B36 TSV rows");
     }
 
-    // A32/B29: deterministic sparse/dense divisor shapes use exact TSVs.
-    std::array<std::ifstream,2u> a32_b29;
-    for (std::size_t part=0u;part<a32_b29.size();++part) {
+    // B143/B29: deterministic sparse/dense divisor shapes use exact TSVs.
+    std::array<std::ifstream,2u> b143_b29;
+    for (std::size_t part=0u;part<b143_b29.size();++part) {
         const std::string path=std::string(ARIADNE_TEST_DATA_DIR)+
-            "/big_unsigned_a32_b29_"+std::to_string(part)+".tsv";
-        a32_b29[part].open(path);
-        if (!a32_b29[part])
-            throw std::runtime_error("Missing A32 B29 TSV: "+path);
+            "/big_unsigned_b143_b29_"+std::to_string(part)+".tsv";
+        b143_b29[part].open(path);
+        if (!b143_b29[part])
+            throw std::runtime_error("Missing B143 B29 TSV: "+path);
         std::string header;
-        while (a32_b29[part].peek()=='#')
-            std::getline(a32_b29[part],header);
+        while (b143_b29[part].peek()=='#')
+            std::getline(b143_b29[part],header);
     }
     std::mt19937_64 sparse_engine(0xB290D1F5ULL);
     for (unsigned repetition=0u;repetition<1024u;++repetition) {
@@ -3134,7 +3134,7 @@ void TestBigUnsigned::test_division()
             left.back()=1u;
         }
         const BigUnsigned numerator(left),denominator(right);
-        std::ifstream& golden=a32_b29[repetition/512u];
+        std::ifstream& golden=b143_b29[repetition/512u];
         unsigned ref_repetition=0u;
         std::size_t ref_n=0u,ref_m=0u;
         std::string numerator_hex,denominator_hex,quotient_hex,remainder_hex;
@@ -3143,7 +3143,7 @@ void TestBigUnsigned::test_division()
               >> quotient_hex >> remainder_hex) ||
             ref_repetition!=repetition || ref_n!=n || ref_m!=m)
             throw std::runtime_error(
-                "Missing or unordered A32 B29 TSV row");
+                "Missing or unordered B143 B29 TSV row");
         check_against_precomputed_hex(numerator,numerator_hex);
         check_against_precomputed_hex(denominator,denominator_hex);
         const auto [native_q,native_r]=divrem(numerator,denominator);
@@ -3156,30 +3156,30 @@ void TestBigUnsigned::test_division()
         ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
     }
 
-    for (std::size_t part=0u;part<a32_b29.size();++part) {
+    for (std::size_t part=0u;part<b143_b29.size();++part) {
         std::string extra;
-        if (a32_b29[part] >> extra)
-            throw std::runtime_error("Extra A32 B29 TSV rows");
+        if (b143_b29[part] >> extra)
+            throw std::runtime_error("Extra B143 B29 TSV rows");
     }
 
-    // A33/B45: preserve all zero-low-limb and decimal-power cases
+    // B144/B45: preserve all zero-low-limb and decimal-power cases
     // with one sequential source-keyed exact fixture.
-    std::ifstream a33_b45(
-        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_a33_b45.tsv");
-    if (!a33_b45) throw std::runtime_error("Missing A33 B45 TSV");
-    std::string a33_header;
-    while (a33_b45.peek()=='#') std::getline(a33_b45,a33_header);
+    std::ifstream b144_b45(
+        std::string(ARIADNE_TEST_DATA_DIR)+"/big_unsigned_b144_b45.tsv");
+    if (!b144_b45) throw std::runtime_error("Missing B144 B45 TSV");
+    std::string b144_header;
+    while (b144_b45.peek()=='#') std::getline(b144_b45,b144_header);
     const auto check_a33=[&](char kind,std::size_t key1,std::size_t key2,
             std::uint64_t key3,BigUnsigned const& numerator,
             BigUnsigned const& denominator) {
         std::string ref_kind,numerator_hex,denominator_hex,quotient_hex,remainder_hex;
         std::size_t ref_key1=0u,ref_key2=0u;
         std::uint64_t ref_key3=0u;
-        if (!(a33_b45 >> ref_kind >> ref_key1 >> ref_key2 >> ref_key3
+        if (!(b144_b45 >> ref_kind >> ref_key1 >> ref_key2 >> ref_key3
               >> numerator_hex >> denominator_hex >> quotient_hex >> remainder_hex) ||
             ref_kind!=std::string(1,kind) || ref_key1!=key1 ||
             ref_key2!=key2 || ref_key3!=key3)
-            throw std::runtime_error("Missing or unordered A33 B45 TSV row");
+            throw std::runtime_error("Missing or unordered B144 B45 TSV row");
         check_against_precomputed_hex(numerator,numerator_hex);
         check_against_precomputed_hex(denominator,denominator_hex);
         const auto [native_q,native_r]=divrem(numerator,denominator);
@@ -3260,20 +3260,20 @@ void TestBigUnsigned::test_division()
             }
         }
     }
-    std::string a33_extra;
-    if (a33_b45 >> a33_extra)
-        throw std::runtime_error("Extra A33 B45 TSV rows");
+    std::string b144_extra;
+    if (b144_b45 >> b144_extra)
+        throw std::runtime_error("Extra B144 B45 TSV rows");
 
-    // A34: force all 64 divisor-normalization shifts and preserve all
+    // B145: force all 64 divisor-normalization shifts and preserve all
     // ten original dividend modes with a deterministic source-keyed TSV.
-    std::ifstream a34_normalization(
+    std::ifstream b145_normalization(
         std::string(ARIADNE_TEST_DATA_DIR)+
-        "/big_unsigned_a34_normalization.tsv");
-    if (!a34_normalization)
-        throw std::runtime_error("Missing A34 normalization TSV");
-    std::string a34_header;
-    while (a34_normalization.peek()=='#')
-        std::getline(a34_normalization,a34_header);
+        "/big_unsigned_b145_normalization.tsv");
+    if (!b145_normalization)
+        throw std::runtime_error("Missing B145 normalization TSV");
+    std::string b145_header;
+    while (b145_normalization.peek()=='#')
+        std::getline(b145_normalization,b145_header);
     for (unsigned shift=0u;shift<64u;++shift) {
         const std::uint64_t top=max>>shift;
         for (unsigned mode=0u;mode<10u;++mode) {
@@ -3288,12 +3288,12 @@ void TestBigUnsigned::test_division()
             const BigUnsigned divisor_value(divisor_words);
             unsigned ref_shift=0u,ref_mode=0u;
             std::string dividend_hex,divisor_hex,quotient_hex,remainder_hex;
-            if (!(a34_normalization >> ref_shift >> ref_mode
+            if (!(b145_normalization >> ref_shift >> ref_mode
                   >> dividend_hex >> divisor_hex
                   >> quotient_hex >> remainder_hex) ||
                 ref_shift!=shift || ref_mode!=mode)
                 throw std::runtime_error(
-                    "Missing or unordered A34 normalization TSV row");
+                    "Missing or unordered B145 normalization TSV row");
             check_against_precomputed_hex(dividend_value,dividend_hex);
             check_against_precomputed_hex(divisor_value,divisor_hex);
             const auto [native_q,native_r]=divrem(
@@ -3310,9 +3310,9 @@ void TestBigUnsigned::test_division()
                 dividend_value)==0);
         }
     }
-    std::string a34_extra;
-    if (a34_normalization >> a34_extra)
-        throw std::runtime_error("Extra A34 normalization TSV rows");
+    std::string b145_extra;
+    if (b145_normalization >> b145_extra)
+        throw std::runtime_error("Extra B145 normalization TSV rows");
 
     // Focused zero, short dividend, exact quotient and single-limb
     // divisor cases; keep both divided-output implementations checked.
@@ -3673,17 +3673,17 @@ void TestBigUnsigned::test_gcd_decimal()
     std::string b76_extra;
     if (b76_fixture >> b76_extra)
         throw std::runtime_error("Extra B76 GCD/decimal TSV rows");
-    // A20: preserve the original 1,800 randomized decimal strings and
+    // B131: preserve the original 1,800 randomized decimal strings and
     // exact mt19937_64 stream, but consume source-keyed independent TSV
     // expectations instead of computing the numerical oracle with GMP.
-    std::ifstream a20_decimal_random(
+    std::ifstream b131_decimal_random(
         std::string(ARIADNE_TEST_DATA_DIR)+
-        "/big_unsigned_a20_decimal_random.tsv");
-    if (!a20_decimal_random)
-        throw std::runtime_error("Missing A20 randomized decimal TSV");
-    std::string a20_header;
-    while (a20_decimal_random.peek()=='#')
-        std::getline(a20_decimal_random,a20_header);
+        "/big_unsigned_b131_decimal_random.tsv");
+    if (!b131_decimal_random)
+        throw std::runtime_error("Missing B131 randomized decimal TSV");
+    std::string b131_header;
+    while (b131_decimal_random.peek()=='#')
+        std::getline(b131_decimal_random,b131_header);
     for (unsigned repetition=0u;repetition<1800u;++repetition) {
         const std::size_t length=repetition%149u==0u?1900u:
                                  1u+engine()%370u;
@@ -3694,12 +3694,12 @@ void TestBigUnsigned::test_gcd_decimal()
         unsigned source_repetition=0u;
         std::size_t source_length=0u;
         std::string source_digits,expected_hex,expected_decimal;
-        if (!(a20_decimal_random >> source_repetition >> source_length
+        if (!(b131_decimal_random >> source_repetition >> source_length
               >> source_digits >> expected_hex >> expected_decimal) ||
             source_repetition!=repetition || source_length!=length ||
             source_digits!=digits)
             throw std::runtime_error(
-                "Missing or unordered A20 randomized decimal TSV row");
+                "Missing or unordered B131 randomized decimal TSV row");
         const auto parsed=from_decimal(digits);
         check_against_precomputed_hex(parsed,expected_hex);
         ARIADNE_TEST_ASSERT(to_decimal(parsed)==
@@ -3708,28 +3708,28 @@ void TestBigUnsigned::test_gcd_decimal()
         ARIADNE_TEST_EQUALS(to_decimal_cutoff16_diagnostic(parsed),expected_decimal);
         ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(parsed),expected_decimal);
     }
-    std::string a20_extra;
-    if (a20_decimal_random >> a20_extra)
-        throw std::runtime_error("Extra A20 randomized decimal TSV rows");
-    // A21: all remaining structured decimal parsing cases use one
+    std::string b131_extra;
+    if (b131_decimal_random >> b131_extra)
+        throw std::runtime_error("Extra B131 randomized decimal TSV rows");
+    // B132: all remaining structured decimal parsing cases use one
     // sequential source-keyed fixture instead of a runtime GMP oracle.
-    std::ifstream a21_decimal_structured(
+    std::ifstream b132_decimal_structured(
         std::string(ARIADNE_TEST_DATA_DIR)+
-        "/big_unsigned_a21_decimal_structured.tsv");
-    if (!a21_decimal_structured)
-        throw std::runtime_error("Missing A21 structured decimal TSV");
-    std::string a21_header;
-    while (a21_decimal_structured.peek()=='#')
-        std::getline(a21_decimal_structured,a21_header);
-    std::size_t a21_ordinal=0u;
+        "/big_unsigned_b132_decimal_structured.tsv");
+    if (!b132_decimal_structured)
+        throw std::runtime_error("Missing B132 structured decimal TSV");
+    std::string b132_header;
+    while (b132_decimal_structured.peek()=='#')
+        std::getline(b132_decimal_structured,b132_header);
+    std::size_t b132_ordinal=0u;
     const auto read_a21=[&]() {
         std::size_t source_ordinal=0u;
         std::string source_decimal,expected_hex,expected_decimal;
-        if (!(a21_decimal_structured >> source_ordinal >> source_decimal
+        if (!(b132_decimal_structured >> source_ordinal >> source_decimal
               >> expected_hex >> expected_decimal) ||
-            source_ordinal!=a21_ordinal++)
+            source_ordinal!=b132_ordinal++)
             throw std::runtime_error(
-                "Missing or unordered A21 structured decimal TSV row");
+                "Missing or unordered B132 structured decimal TSV row");
         return std::array<std::string,3u>{
             std::move(source_decimal),std::move(expected_hex),
             std::move(expected_decimal)};
@@ -3738,7 +3738,7 @@ void TestBigUnsigned::test_gcd_decimal()
         const auto reference=read_a21();
         if (reference[0u]!=input)
             throw std::runtime_error(
-                "Wrong source in A21 structured decimal TSV row");
+                "Wrong source in B132 structured decimal TSV row");
         const BigUnsigned parsed=from_decimal(input);
         check_against_precomputed_hex(parsed,reference[1u]);
         ARIADNE_TEST_ASSERT(to_decimal(parsed)==reference[2u]);
@@ -3791,7 +3791,7 @@ void TestBigUnsigned::test_gcd_decimal()
     // B47: the wide input path now starts at 32 digits, including
     // 128-, 256- and 1024-bit benchmark magnitudes. Stress first
     // short groups, full 18-digit boundaries and both sides of
-    // the old 309/310 threshold against the independent A21 TSV.
+    // the old 309/310 threshold against the independent B132 TSV.
     for (const std::size_t length:
             {16u,17u,18u,19u,31u,32u,33u,35u,36u,37u,38u,
              39u,40u,53u,54u,55u,76u,77u,78u,79u,
@@ -3814,7 +3814,7 @@ void TestBigUnsigned::test_gcd_decimal()
     // B50: radix-10^19 parsing must handle all boundaries of
     // complete 19-digit groups, the 31/32-digit selector, the
     // 308-digit 1024-bit input, and 2048/4096-bit inputs. Check
-    // exact parsed magnitudes against A21, including leading zeros,
+    // exact parsed magnitudes against B132, including leading zeros,
     // all nines, sparse digits, and independently randomized text.
     for (const std::size_t length:
             {18u,19u,20u,31u,32u,33u,36u,37u,38u,39u,40u,
@@ -3837,7 +3837,7 @@ void TestBigUnsigned::test_gcd_decimal()
     }
 
     // B47: preserve exact powers 2^(bits-1) plus offsets. The source
-    // decimal is frozen in A21; native shift/add additionally ties each
+    // decimal is frozen in B132; native shift/add additionally ties each
     // sequential fixture row to the original bits/offset case.
     for (const unsigned bits:{128u,256u,1024u,2048u,4096u}) {
         for (const unsigned long offset:{0ul,13ul,31ul,75ul,187ul}) {
@@ -3847,11 +3847,11 @@ void TestBigUnsigned::test_gcd_decimal()
             ARIADNE_TEST_ASSERT(compare(parsed,expected)==0);
         }
     }
-    if (a21_ordinal!=484u)
-        throw std::runtime_error("Wrong A21 structured decimal row count");
-    std::string a21_extra;
-    if (a21_decimal_structured >> a21_extra)
-        throw std::runtime_error("Extra A21 structured decimal TSV rows");
+    if (b132_ordinal!=484u)
+        throw std::runtime_error("Wrong B132 structured decimal row count");
+    std::string b132_extra;
+    if (b132_decimal_structured >> b132_extra)
+        throw std::runtime_error("Extra B132 structured decimal TSV rows");
 
     // The long-string fast path must never bypass the shared
     // validation of every ASCII digit (including the final byte).
@@ -3865,32 +3865,32 @@ void TestBigUnsigned::test_gcd_decimal()
         ARIADNE_TEST_ASSERT(threw);
     }
 
-    // A22: all decimal-formatting cases use a source-keyed independent
+    // B133: all decimal-formatting cases use a source-keyed independent
     // TSV oracle. Native sources keep the original construction paths.
-    std::ifstream a22_decimal_format(
+    std::ifstream b133_decimal_format(
         std::string(ARIADNE_TEST_DATA_DIR)+
-        "/big_unsigned_a22_decimal_format.tsv");
-    if (!a22_decimal_format)
-        throw std::runtime_error("Missing A22 decimal formatting TSV");
-    std::string a22_header;
-    while (a22_decimal_format.peek()=='#')
-        std::getline(a22_decimal_format,a22_header);
-    std::size_t a22_ordinal=0u;
+        "/big_unsigned_b133_decimal_format.tsv");
+    if (!b133_decimal_format)
+        throw std::runtime_error("Missing B133 decimal formatting TSV");
+    std::string b133_header;
+    while (b133_decimal_format.peek()=='#')
+        std::getline(b133_decimal_format,b133_header);
+    std::size_t b133_ordinal=0u;
     const auto check_decimal_boundary=[&](BigUnsigned const& native) {
         std::size_t source_ordinal=0u;
         std::string source_hex,expected_decimal;
-        if (!(a22_decimal_format >> source_ordinal >> source_hex
+        if (!(b133_decimal_format >> source_ordinal >> source_hex
               >> expected_decimal) ||
-            source_ordinal!=a22_ordinal++)
+            source_ordinal!=b133_ordinal++)
             throw std::runtime_error(
-                "Missing or unordered A22 decimal formatting TSV row");
+                "Missing or unordered B133 decimal formatting TSV row");
         check_against_precomputed_hex(native,source_hex);
         const std::string decimal=to_decimal(native);
         ARIADNE_TEST_ASSERT(decimal==expected_decimal);
         ARIADNE_TEST_ASSERT(
             compare(from_decimal(decimal),native)==0);
     };
-    // B25: independent A22 oracle regression around the 8/9-limb
+    // B25: independent B133 oracle regression around the 8/9-limb
     // radix-10^9 / radix-10^18 selector and at recursive leaf sizes.
     // Include all-ones carries, powers of the binary limb radix,
     // long internal zeros and random 64-bit limb patterns.
@@ -3919,7 +3919,7 @@ void TestBigUnsigned::test_gcd_decimal()
     }
 
     // B25.1: on supported ARM64 these exercise the 18-digit leaf
-    // formatter, while x86-64/portable builds must match A22 via
+    // formatter, while x86-64/portable builds must match B133 via
     // the B19 9-digit fallback. Probe carries and zero-padding at
     // decimal block boundaries near the 8/9/16-limb cutoffs.
     for (const unsigned long groups: {8ul,9ul,10ul,16ul,17ul,18ul}) {
@@ -3932,7 +3932,7 @@ void TestBigUnsigned::test_gcd_decimal()
     }
 
     // B30/B30.1: preserve the 8/9-limb boundary and 10^18
-    // decimal carry fixtures against the independent A22 oracle.
+    // decimal carry fixtures against the independent B133 oracle.
     // ARM64 selects radix 10^18; x86-64 and other targets now
     // exercise the restored B29 radix-10^9 implementation.
     std::mt19937_64 divq_decimal_engine(0xB300DEC1ULL);
@@ -3968,7 +3968,7 @@ void TestBigUnsigned::test_gcd_decimal()
         }
     }
 
-    // B42: A22 oracle regression at the 8/9/16/17-limb wide
+    // B42: B133 oracle regression at the 8/9/16/17-limb wide
     // decimal formatter boundaries, plus large dense/sparse inputs.
     std::mt19937_64 b42_engine(0xB42DEC1A7ULL);
     for (const std::size_t count:
@@ -4009,7 +4009,7 @@ void TestBigUnsigned::test_gcd_decimal()
     // the unsigned 128/64 runtime divide. Exercise random dense and
     // sparse 9..16-limb leaves, their 8/9 dispatch edge, the 16/17
     // recursion boundary, carries and long internal zero runs. On
-    // every host compare against A22, not a native roundtrip alone.
+    // every host compare against B133, not a native roundtrip alone.
     std::mt19937_64 b46_engine(0xB460DEC1A7ULL);
     for (const std::size_t count:
             {8u,9u,10u,11u,12u,13u,14u,15u,16u,17u,32u}) {
@@ -4045,7 +4045,7 @@ void TestBigUnsigned::test_gcd_decimal()
     }
 
     // B51: the multiply-only B46 wide leaf is now also selected
-    // for x86-64 GCC/Clang at 9+ limbs. Independent A22 oracles
+    // for x86-64 GCC/Clang at 9+ limbs. Independent B133 oracles
     // cover the 8/9-limb selector, the 16/17-limb recursive cutoff,
     // dense/sparse operands, carry boundaries and zero runs. Keep
     // the portable/MSVC radix-10^9 regression path equally checked.
@@ -4095,7 +4095,7 @@ void TestBigUnsigned::test_gcd_decimal()
     // B59: oracle-checked x86 GCC 16 -> 32-limb recursion cutoff,
     // especially 31/32/33-limb transition and 63/64/65 inputs.
     // Other hosts use the unmodified 16-limb selector. Reuse the
-    // independent A22 source-keyed oracle.
+    // independent B133 source-keyed oracle.
     std::mt19937_64 b59_engine(0xB590DEC1ULL);
     for (const std::size_t count:
             {15u,16u,17u,31u,32u,33u,63u,64u,65u}) {
@@ -4140,7 +4140,7 @@ void TestBigUnsigned::test_gcd_decimal()
 
     // B43: append-only recursive formatting must preserve the
     // *entire* fixed-width lower field even when the remainder
-    // itself needs further recursive divisions. A22 independently
+    // itself needs further recursive divisions. B133 independently
     // supplies the reference, never a native decimal roundtrip.
     for (const unsigned long digits:
             {144ul,288ul,576ul,1152ul,2304ul}) {
@@ -4160,7 +4160,7 @@ void TestBigUnsigned::test_gcd_decimal()
     // B31: the new pair-wise base-10^9 renderer must preserve every
     // zero-padded two-digit group (00, 01, 09, 10, 99), carry across
     // decimal blocks, and the variable-width most-significant block.
-    // A22 supplies the independent exact decimal oracle on every host.
+    // B133 supplies the independent exact decimal oracle on every host.
     for (const unsigned long digits:
             {9ul,18ul,27ul,72ul,144ul,288ul,576ul}) {
         const BigUnsigned power=from_decimal(
@@ -4189,49 +4189,49 @@ void TestBigUnsigned::test_gcd_decimal()
             std::string("000000001");
         check_decimal_boundary(from_decimal(blocks));
     }
-    if (a22_ordinal!=1509u)
-        throw std::runtime_error("Wrong A22 decimal formatting row count");
-    std::string a22_extra;
-    if (a22_decimal_format >> a22_extra)
-        throw std::runtime_error("Extra A22 decimal formatting TSV rows");
+    if (b133_ordinal!=1509u)
+        throw std::runtime_error("Wrong B133 decimal formatting row count");
+    std::string b133_extra;
+    if (b133_decimal_format >> b133_extra)
+        throw std::runtime_error("Extra B133 decimal formatting TSV rows");
 }
 
 void TestBigUnsigned::test_randomized()
 {
     std::mt19937_64 engine(0xBA17B00DULL);
 
-    std::ifstream a12_golden(ARIADNE_BIG_UNSIGNED_A12_FIRST_PATH);
-    if (!a12_golden) throw std::runtime_error("Missing A12 randomized TSV");
-    std::string a12_header;
-    while (a12_golden.peek()=='#') std::getline(a12_golden,a12_header);
-    std::ifstream a13_golden(ARIADNE_BIG_UNSIGNED_A13_SECOND_PATH);
-    if (!a13_golden) throw std::runtime_error("Missing A13 randomized TSV");
-    std::string a13_header;
-    while (a13_golden.peek()=='#') std::getline(a13_golden,a13_header);
-    std::ifstream a14_golden(ARIADNE_BIG_UNSIGNED_A14_THIRD_PATH);
-    if (!a14_golden) throw std::runtime_error("Missing A14 randomized TSV");
-    std::string a14_header;
-    while (a14_golden.peek()=='#') std::getline(a14_golden,a14_header);
-    std::ifstream a15_golden(ARIADNE_BIG_UNSIGNED_A15_FOURTH_PATH);
-    if (!a15_golden) throw std::runtime_error("Missing A15 randomized TSV");
-    std::string a15_header;
-    while (a15_golden.peek()=='#') std::getline(a15_golden,a15_header);
-    std::ifstream a16_golden(ARIADNE_BIG_UNSIGNED_A16_FIFTH_PATH);
-    if (!a16_golden) throw std::runtime_error("Missing A16 randomized TSV");
-    std::string a16_header;
-    while (a16_golden.peek()=='#') std::getline(a16_golden,a16_header);
-    std::ifstream a17_golden(ARIADNE_BIG_UNSIGNED_A17_SIXTH_PATH);
-    if (!a17_golden) throw std::runtime_error("Missing A17 randomized TSV");
-    std::string a17_header;
-    while (a17_golden.peek()=='#') std::getline(a17_golden,a17_header);
-    std::ifstream a18_golden(ARIADNE_BIG_UNSIGNED_A18_SEVENTH_PATH);
-    if (!a18_golden) throw std::runtime_error("Missing A18 randomized TSV");
-    std::string a18_header;
-    while (a18_golden.peek()=='#') std::getline(a18_golden,a18_header);
-    std::ifstream a19_golden(ARIADNE_BIG_UNSIGNED_A19_EIGHTH_PATH);
-    if (!a19_golden) throw std::runtime_error("Missing A19 randomized TSV");
-    std::string a19_header;
-    while (a19_golden.peek()=='#') std::getline(a19_golden,a19_header);
+    std::ifstream b123_golden(ARIADNE_big_unsigned_b123_FIRST_PATH);
+    if (!b123_golden) throw std::runtime_error("Missing B123 randomized TSV");
+    std::string b123_header;
+    while (b123_golden.peek()=='#') std::getline(b123_golden,b123_header);
+    std::ifstream b124_golden(ARIADNE_big_unsigned_b124_SECOND_PATH);
+    if (!b124_golden) throw std::runtime_error("Missing B124 randomized TSV");
+    std::string b124_header;
+    while (b124_golden.peek()=='#') std::getline(b124_golden,b124_header);
+    std::ifstream b125_golden(ARIADNE_big_unsigned_b125_THIRD_PATH);
+    if (!b125_golden) throw std::runtime_error("Missing B125 randomized TSV");
+    std::string b125_header;
+    while (b125_golden.peek()=='#') std::getline(b125_golden,b125_header);
+    std::ifstream b126_golden(ARIADNE_big_unsigned_b126_FOURTH_PATH);
+    if (!b126_golden) throw std::runtime_error("Missing B126 randomized TSV");
+    std::string b126_header;
+    while (b126_golden.peek()=='#') std::getline(b126_golden,b126_header);
+    std::ifstream b127_golden(ARIADNE_big_unsigned_b127_FIFTH_PATH);
+    if (!b127_golden) throw std::runtime_error("Missing B127 randomized TSV");
+    std::string b127_header;
+    while (b127_golden.peek()=='#') std::getline(b127_golden,b127_header);
+    std::ifstream b128_golden(ARIADNE_big_unsigned_b128_SIXTH_PATH);
+    if (!b128_golden) throw std::runtime_error("Missing B128 randomized TSV");
+    std::string b128_header;
+    while (b128_golden.peek()=='#') std::getline(b128_golden,b128_header);
+    std::ifstream b129_golden(ARIADNE_big_unsigned_b129_SEVENTH_PATH);
+    if (!b129_golden) throw std::runtime_error("Missing B129 randomized TSV");
+    std::string b129_header;
+    while (b129_golden.peek()=='#') std::getline(b129_golden,b129_header);
+    std::ifstream b130_golden(ARIADNE_big_unsigned_b130_EIGHTH_PATH);
+    if (!b130_golden) throw std::runtime_error("Missing B130 randomized TSV");
+    std::string b130_header;
+    while (b130_golden.peek()=='#') std::getline(b130_golden,b130_header);
     for (unsigned repetition=0; repetition<10000u; ++repetition) {
         const std::size_t n = engine()%20u;
         const std::size_t m = engine()%20u;
@@ -4243,13 +4243,13 @@ void TestBigUnsigned::test_randomized()
         const BigUnsigned x(std::span(na.data(),n));
         const BigUnsigned y(std::span(nb.data(),m));
         const std::size_t bits=engine()%1030u;
-        std::ifstream& golden=repetition<1250u?a12_golden:
-            repetition<2500u?a13_golden:
-            repetition<3750u?a14_golden:
-            repetition<5000u?a15_golden:
-            repetition<6250u?a16_golden:
-            repetition<7500u?a17_golden:
-            repetition<8750u?a18_golden:a19_golden;
+        std::ifstream& golden=repetition<1250u?b123_golden:
+            repetition<2500u?b124_golden:
+            repetition<3750u?b125_golden:
+            repetition<5000u?b126_golden:
+            repetition<6250u?b127_golden:
+            repetition<7500u?b128_golden:
+            repetition<8750u?b129_golden:b130_golden;
         unsigned ref_rep=0u;
         std::size_t ref_n=0u,ref_m=0u,ref_bits=0u;
         int ref_cmp=0;
@@ -4259,17 +4259,17 @@ void TestBigUnsigned::test_randomized()
             >> lhex >> rhex) ||
             ref_rep!=repetition || ref_n!=n || ref_m!=m ||
             ref_bits!=bits || ref_cmp < -1 || ref_cmp > 1)
-            throw std::runtime_error("Missing or unordered A12-A19 randomized row");
+            throw std::runtime_error("Missing or unordered B123-B130 randomized row");
         check_against_precomputed_hex(x,xhex);
         check_against_precomputed_hex(y,yhex);
         ARIADNE_TEST_ASSERT(compare(x,y)==ref_cmp);
         check_against_precomputed_hex(add(x,y),sumhex);
         if (ref_cmp>=0) {
             if (diffhex=="-")
-                throw std::runtime_error("Missing A12-A19 subtraction oracle");
+                throw std::runtime_error("Missing B123-B130 subtraction oracle");
             check_against_precomputed_hex(sub(x,y),diffhex);
         } else if (diffhex!="-")
-            throw std::runtime_error("Unexpected A12-A19 subtraction oracle");
+            throw std::runtime_error("Unexpected B123-B130 subtraction oracle");
         check_against_precomputed_hex(shift_left(x,bits),lhex);
         check_against_precomputed_hex(shift_right(x,bits),rhex);
         // The borrowed kernel uses the same independently frozen result,
@@ -4285,30 +4285,30 @@ void TestBigUnsigned::test_randomized()
         check_against_precomputed_hex(x,xhex);
         check_against_precomputed_hex(y,yhex);
     }
-    std::string a12_extra;
-    if (a12_golden >> a12_extra)
-        throw std::runtime_error("Extra A12 randomized TSV rows");
-    std::string a13_extra;
-    if (a13_golden >> a13_extra)
-        throw std::runtime_error("Extra A13 randomized TSV rows");
-    std::string a14_extra;
-    if (a14_golden >> a14_extra)
-        throw std::runtime_error("Extra A14 randomized TSV rows");
-    std::string a15_extra;
-    if (a15_golden >> a15_extra)
-        throw std::runtime_error("Extra A15 randomized TSV rows");
-    std::string a16_extra;
-    if (a16_golden >> a16_extra)
-        throw std::runtime_error("Extra A16 randomized TSV rows");
-    std::string a17_extra;
-    if (a17_golden >> a17_extra)
-        throw std::runtime_error("Extra A17 randomized TSV rows");
-    std::string a18_extra;
-    if (a18_golden >> a18_extra)
-        throw std::runtime_error("Extra A18 randomized TSV rows");
-    std::string a19_extra;
-    if (a19_golden >> a19_extra)
-        throw std::runtime_error("Extra A19 randomized TSV rows");
+    std::string b123_extra;
+    if (b123_golden >> b123_extra)
+        throw std::runtime_error("Extra B123 randomized TSV rows");
+    std::string b124_extra;
+    if (b124_golden >> b124_extra)
+        throw std::runtime_error("Extra B124 randomized TSV rows");
+    std::string b125_extra;
+    if (b125_golden >> b125_extra)
+        throw std::runtime_error("Extra B125 randomized TSV rows");
+    std::string b126_extra;
+    if (b126_golden >> b126_extra)
+        throw std::runtime_error("Extra B126 randomized TSV rows");
+    std::string b127_extra;
+    if (b127_golden >> b127_extra)
+        throw std::runtime_error("Extra B127 randomized TSV rows");
+    std::string b128_extra;
+    if (b128_golden >> b128_extra)
+        throw std::runtime_error("Extra B128 randomized TSV rows");
+    std::string b129_extra;
+    if (b129_golden >> b129_extra)
+        throw std::runtime_error("Extra B129 randomized TSV rows");
+    std::string b130_extra;
+    if (b130_golden >> b130_extra)
+        throw std::runtime_error("Extra B130 randomized TSV rows");
 }
 
 } // namespace

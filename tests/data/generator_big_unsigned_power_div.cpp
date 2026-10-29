@@ -142,11 +142,11 @@ std::string short_div_fixture() {
     }
     return out;
 }
-// A3: exact 128/64 division edge and B26 fixture. Original input streams,
+// B114: exact 128/64 division edge and B26 fixture. Original input streams,
 // including all conditional mt19937_64 draws, are preserved byte-for-byte.
 std::string div128_fixture() {
     std::string out=
-        "# A3 exact 128/64 quotient/remainder oracle, 192 edge + 2048 B26 visits.\n"
+        "# B114 exact 128/64 quotient/remainder oracle, 192 edge + 2048 B26 visits.\n"
         "# kind ordinal divisor_hex low_hex high_hex numerator_hex quotient_hex remainder_hex\n"
         "# E: original 8*4*6 edge cases; B: original mt19937_64(0xB260D1B1) visits.\n"
         "# All original conditional PRNG draws and 128/64 preconditions retained.\n"
@@ -156,13 +156,13 @@ std::string div128_fixture() {
                           std::uint64_t divisor,std::uint64_t low,
                           std::uint64_t high) {
         if (divisor==0u || high>=divisor)
-            throw std::runtime_error("invalid A3 128/64 source");
+            throw std::runtime_error("invalid B114 128/64 source");
         const Nat source(std::vector<std::uint64_t>{low,high});
         const Nat d(divisor);
         const auto [q,r]=divide(source,d);
         if (r.compare(d)>=0 ||
             Nat::add(multiply(q,d),r).compare(source)!=0)
-            throw std::runtime_error("invalid A3 quotient/remainder identity");
+            throw std::runtime_error("invalid B114 quotient/remainder identity");
         out+=row({std::string(1,kind),std::to_string(ordinal),
                   d.hex(),Nat(low).hex(),Nat(high).hex(),
                   source.hex(),q.hex(),r.hex()});
@@ -196,14 +196,14 @@ std::string div128_fixture() {
             max : repetition%7u==1u ? 0u : wide_engine();
         append('B',repetition,divisor,low,high);
     }
-    if (rows!=2240u) throw std::runtime_error("wrong A3 case count");
+    if (rows!=2240u) throw std::runtime_error("wrong B114 case count");
     return out;
 }
 
 std::string div_limb_random_fixture() {
-    // A4: exact regeneration of all original 6,000 visits and RNG draws.
+    // B115: exact regeneration of all original 6,000 visits and RNG draws.
     std::string out=
-        "# A4 exact original random BigUnsigned limb division, 6000 source-keyed visits.\n"
+        "# B115 exact original random BigUnsigned limb division, 6000 source-keyed visits.\n"
         "# repetition divisor_decimal dividend_hex quotient_hex remainder_hex\n"
         "# Full mt19937_64(0xD1D1D1) draw sequence including overwritten inputs.\n"
         "# Exact Euclidean arithmetic, 0 as canonical zero; no GMP/MPFR/Numeric.\n";
@@ -232,16 +232,16 @@ std::string div_limb_random_fixture() {
         const auto [q,r]=divide(n,d);
         if (r.compare(d)>=0 ||
             Nat::add(multiply(q,d),r).compare(n)!=0)
-            throw std::runtime_error("invalid A4 Euclidean identity");
+            throw std::runtime_error("invalid B115 Euclidean identity");
         out+=row({std::to_string(repetition),std::to_string(divisor),
                   n.hex(),q.hex(),r.hex()});
         ++rows;
     }
-    if (rows!=6000u) throw std::runtime_error("wrong A4 row count");
+    if (rows!=6000u) throw std::runtime_error("wrong B115 row count");
     return out;
 }
 
-// A5: a separate portable base-2 bitwise division oracle for wide
+// B116: a separate portable base-2 bitwise division oracle for wide
 // dividend / 64-bit divisor. No production divide_wide or GMP involved.
 // The 65th remainder bit is tracked as a carry before modulo-2^64
 // subtraction, avoiding compiler-specific 128-bit integer types.
@@ -265,19 +265,19 @@ std::pair<Nat,std::uint64_t> divide_limb_bits(Nat const& n,
 }
 std::array<std::string,4> limb_stress_fixtures() {
     std::array<std::string,4> out{
-        "# A5 B48 independent exact limb division, all 560 original visits.\n"
+        "# B116 B48 independent exact limb division, all 560 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB48032D0) with all overwritten draws preserved.\n"
         "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
-        "# A5 B49 independent exact limb division, all 784 original visits.\n"
+        "# B116 B49 independent exact limb division, all 784 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB490C0DE) with all overwritten draws preserved.\n"
         "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
-        "# A5 B57 independent exact limb division, all 1800 original visits.\n"
+        "# B116 B57 independent exact limb division, all 1800 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB570641) with all overwritten draws preserved.\n"
         "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n",
-        "# A5 B61 independent exact limb division, all 1560 original visits.\n"
+        "# B116 B61 independent exact limb division, all 1560 original visits.\n"
         "# count divisor_decimal mode dividend_hex quotient_hex remainder_hex\n"
         "# Original mt19937_64(0xB610D1A6) with all overwritten draws preserved.\n"
         "# Exact independent Euclidean division; no Numeric, GMP, MPFR or Boost.\n"};
@@ -286,13 +286,13 @@ std::array<std::string,4> limb_stress_fixtures() {
                           std::uint64_t divisor,unsigned mode,
                           std::vector<std::uint64_t> const& words) {
         if (words.size()!=count)
-            throw std::runtime_error("wrong A5 source limb count");
+            throw std::runtime_error("wrong B116 source limb count");
         const Nat input(words);
         const auto [quotient,remainder]=divide_limb_bits(input,divisor);
         if (remainder>=divisor ||
             Nat::add(multiply(quotient,Nat(divisor)),Nat(remainder))
                 .compare(input)!=0)
-            throw std::runtime_error("wrong independent A5 Euclidean identity");
+            throw std::runtime_error("wrong independent B116 Euclidean identity");
         out[group]+=row({std::to_string(count),std::to_string(divisor),
                          std::to_string(mode),input.hex(),quotient.hex(),
                          Nat(remainder).hex()});
@@ -391,17 +391,17 @@ std::array<std::string,4> limb_stress_fixtures() {
     pi1(3u,0xB610D1A6ULL,
         {0u,1u,7u,8u,9u,15u,16u,31u,32u,63u,64u,65u,128u});
     if (rows!=std::array<std::size_t,4>{560u,784u,1800u,1560u})
-        throw std::runtime_error("wrong A5 fixture row counts");
+        throw std::runtime_error("wrong B116 fixture row counts");
     return out;
 }
 
-// A7: exact-limb dividend sources must be computed outside production
+// B118: exact-limb dividend sources must be computed outside production
 // arithmetic. Keep the complete original PRNG stream and all 6,200
 // quotient/divisor visits, including overwritten random input words.
 std::array<std::string,4> exact_limb_fixtures() {
     const auto header=[](std::string const& segment) {
         return std::string(
-            "# A7 exact single-limb division, original 6,200 visits.\n"
+            "# B118 exact single-limb division, original 6,200 visits.\n"
             "# length divisor_index mode divisor_decimal quotient_hex dividend_hex\n"
             "# ")+segment+"\n"
             "# Original mt19937_64(0x22E1AC7) including overwritten word draws.\n"
@@ -424,7 +424,7 @@ std::array<std::string,4> exact_limb_fixtures() {
     for (std::uint64_t odd=1u;odd<32u;odd+=2u)
         divisors.push_back(odd);
     if (divisors.size()!=155u)
-        throw std::runtime_error("invalid A7 divisor count");
+        throw std::runtime_error("invalid B118 divisor count");
     for (std::size_t length:{0u,1u,2u,4u,5u,8u,9u,16u,65u,129u}) {
         for (std::size_t index=0u;index<divisors.size();++index) {
             const std::uint64_t divisor=divisors[index];
@@ -446,7 +446,7 @@ std::array<std::string,4> exact_limb_fixtures() {
                 // quotient/remainder algorithm, not GMP or Numeric.
                 const auto [verified,rem]=divide_limb_bits(dividend,divisor);
                 if (rem!=0u || verified.compare(quotient)!=0)
-                    throw std::runtime_error("A7 exact-product division identity");
+                    throw std::runtime_error("B118 exact-product division identity");
                 const std::size_t group=length<=16u ? 0u :
                      length==65u ? 1u : index<78u ? 2u : 3u;
                 out[group]+=row({std::to_string(length),std::to_string(index),
@@ -457,16 +457,16 @@ std::array<std::string,4> exact_limb_fixtures() {
         }
     }
     if (rows!=std::array<std::size_t,4>{4960u,620u,312u,308u})
-        throw std::runtime_error("wrong A7 fixture row count");
+        throw std::runtime_error("wrong B118 fixture row count");
     return out;
 }
 
-// A8: B57 multi-limb division by powers of two. The original
+// B119: B57 multi-limb division by powers of two. The original
 // mt19937_64 stream is replayed in full; quotient/remainder are
 // computed via standalone Nat shifts, never Numeric's division.
 std::array<std::string,3> b57_power_fixtures() {
     const auto header=[](std::size_t visits) {
-        return std::string("# A8 B57 division by 2^(64*(m-1)+bit), ")+
+        return std::string("# B119 B57 division by 2^(64*(m-1)+bit), ")+
             std::to_string(visits)+
             " visits.\n"
             "# nlimbs mlimbs bit mode dividend_hex divisor_hex quotient_hex remainder_hex\n"
@@ -500,7 +500,7 @@ std::array<std::string,3> b57_power_fixtures() {
                     const Nat remainder=Nat::sub(dividend,quotient.shl(shift));
                     if (remainder.compare(divisor)>=0 ||
                         Nat::add(quotient.shl(shift),remainder).compare(dividend)!=0)
-                        throw std::runtime_error("invalid A8 Euclidean identity");
+                        throw std::runtime_error("invalid B119 Euclidean identity");
                     const std::size_t group=n<=32u?0u:n<=65u?1u:2u;
                     out[group]+=row({
                         std::to_string(n),std::to_string(m),
@@ -513,15 +513,15 @@ std::array<std::string,3> b57_power_fixtures() {
         }
     }
     if (rows!=std::array<std::size_t,3>{1200u,480u,480u})
-        throw std::runtime_error("wrong A8 visit counts");
+        throw std::runtime_error("wrong B119 visit counts");
     return out;
 }
 
-// A9: B55 native divisor-length selection cases. Restore original
+// B120: B55 native divisor-length selection cases. Restore original
 // randomized inputs and calculate division by independent Nat long division.
 std::array<std::string,3> b55_fixtures() {
     const auto header=[](std::size_t visits) {
-        return std::string("# A9 B55 seeded multiprecision division oracle, ")+
+        return std::string("# B120 B55 seeded multiprecision division oracle, ")+
             std::to_string(visits)+" original visits.\n"
             "# m extra mode dividend_hex divisor_hex quotient_hex remainder_hex\n"
             "# Original mt19937_64(0xB550DEC1), all conditional overwrites preserved.\n"
@@ -582,7 +582,7 @@ std::array<std::string,3> b55_fixtures() {
                 if (remainder.compare(divisor)>=0 ||
                     Nat::add(multiply(quotient,divisor),remainder)
                         .compare(dividend)!=0)
-                    throw std::runtime_error("invalid A9 exact division identity");
+                    throw std::runtime_error("invalid B120 exact division identity");
                 const std::size_t group=m<=9u?0u:m<=32u?1u:2u;
                 out[group]+=row({std::to_string(m),std::to_string(extra),
                                  std::to_string(mode),dividend.hex(),
@@ -592,14 +592,14 @@ std::array<std::string,3> b55_fixtures() {
         }
     }
     if (rows!=std::array<std::size_t,3>{216u,144u,72u})
-        throw std::runtime_error("wrong A9 source visit counts");
+        throw std::runtime_error("wrong B120 source visit counts");
     return out;
 }
 
 std::array<std::string,2> b27_fixtures() {
     const auto header=[] {
         return std::string(
-            "# A10 B27 fused division independent exact oracle, fixed 2 cases plus 2048 random.\n"
+            "# B121 B27 fused division independent exact oracle, fixed 2 cases plus 2048 random.\n"
             "# kind repetition numerator_hex denominator_hex quotient_hex remainder_hex\n"
             "# F fixed adversarial cases, R original mt19937_64(0xB27071) visits.\n"
             "# Euclidean integer quotient/remainder, no GMP or Numeric.\n");
@@ -612,7 +612,7 @@ std::array<std::string,2> b27_fixtures() {
         const Nat a(std::move(left)),b(std::move(right));
         const auto [q,r]=divide(a,b);
         if (r.compare(b)>=0 || Nat::add(multiply(q,b),r).compare(a)!=0)
-            throw std::runtime_error("invalid A10 exact division");
+            throw std::runtime_error("invalid B121 exact division");
         const std::size_t group=kind=='F'||index<1024u ? 0u : 1u;
         out[group]+=row({std::string(1,kind),std::to_string(index),
                          a.hex(),b.hex(),q.hex(),r.hex()});
@@ -645,13 +645,13 @@ std::array<std::string,2> b27_fixtures() {
         add('R',repetition,std::move(left),std::move(right));
     }
     if (rows!=std::array<std::size_t,2>{1026u,1024u})
-        throw std::runtime_error("wrong A10 case count");
+        throw std::runtime_error("wrong B121 case count");
     return out;
 }
 
 std::string b48_multiprecision_fixture() {
     std::string out=
-        "# A11 B48 multiprecision division, 336 original visits.\n"
+        "# B122 B48 multiprecision division, 336 original visits.\n"
         "# count divisor_decimal mode numerator_hex quotient_hex remainder_hex\n"
         "# mt19937_64(0xB48A11D1), all original random draws and transforms.\n"
         "# Independent Euclidean arithmetic, no GMP/independent exact arithmetic/Numeric/Boost.\n";
@@ -675,20 +675,20 @@ std::string b48_multiprecision_fixture() {
                 const auto [q,r]=divide(n,d);
                 if (r.compare(d)>=0 ||
                     Nat::add(multiply(q,d),r).compare(n)!=0)
-                    throw std::runtime_error("invalid A11 Euclidean identity");
+                    throw std::runtime_error("invalid B122 Euclidean identity");
                 out+=row({std::to_string(count),std::to_string(divisor),
                           std::to_string(mode),n.hex(),q.hex(),r.hex()});
                 ++rows;
             }
         }
     }
-    if (rows!=336u) throw std::runtime_error("wrong A11 visit count");
+    if (rows!=336u) throw std::runtime_error("wrong B122 visit count");
     return out;
 }
 
 std::string randomized_a12_first_fixture() {
     std::string out=
-        "# A12 randomized BigUnsigned arithmetic, original visits 0..1249.\n"
+        "# B123 randomized BigUnsigned arithmetic, original visits 0..1249.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
         "# Independent exact Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
@@ -717,14 +717,14 @@ std::string randomized_a12_first_fixture() {
 
 std::string randomized_a13_second_fixture() {
     std::string out=
-        "# A13 randomized BigUnsigned arithmetic, original visits 1250..2499.\n"
+        "# B124 randomized BigUnsigned arithmetic, original visits 1250..2499.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
         "# Independently computed Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
-    // Replay all preceding draws before emitting A13, including the
+    // Replay all preceding draws before emitting B124, including the
     // last, conditional shift draw of every prior visit.
     for (unsigned repetition=0u;repetition<2500u;++repetition) {
         const std::size_t n=engine()%20u,m=engine()%20u;
@@ -746,19 +746,19 @@ std::string randomized_a13_second_fixture() {
                   a.shl(bits).hex(),a.shr(bits).hex()});
         ++rows;
     }
-    if (rows!=1250u) throw std::runtime_error("wrong A13 source visits");
+    if (rows!=1250u) throw std::runtime_error("wrong B124 source visits");
     return out;
 }
 std::string randomized_a14_third_fixture() {
     std::string out=
-        "# A14 randomized BigUnsigned arithmetic, original visits 2500..3749.\n"
+        "# B125 randomized BigUnsigned arithmetic, original visits 2500..3749.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
         "# Independently computed Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
-    // Replay all preceding draws before emitting A13, including the
+    // Replay all preceding draws before emitting B124, including the
     // last, conditional shift draw of every prior visit.
     for (unsigned repetition=0u;repetition<3750u;++repetition) {
         const std::size_t n=engine()%20u,m=engine()%20u;
@@ -780,20 +780,20 @@ std::string randomized_a14_third_fixture() {
                   a.shl(bits).hex(),a.shr(bits).hex()});
         ++rows;
     }
-    if (rows!=1250u) throw std::runtime_error("wrong A14 source visits");
+    if (rows!=1250u) throw std::runtime_error("wrong B125 source visits");
     return out;
 }
 
 std::string randomized_a15_fourth_fixture() {
     std::string out=
-        "# A15 randomized BigUnsigned arithmetic, original visits 3750..4999.\n"
+        "# B126 randomized BigUnsigned arithmetic, original visits 3750..4999.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
         "# Independently computed Python bigint arithmetic, no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
-    // Replay all preceding draws before emitting A15, including the
+    // Replay all preceding draws before emitting B126, including the
     // shift draw of every prior visit.
     for (unsigned repetition=0u;repetition<5000u;++repetition) {
         const std::size_t n=engine()%20u,m=engine()%20u;
@@ -815,20 +815,20 @@ std::string randomized_a15_fourth_fixture() {
                   a.shl(bits).hex(),a.shr(bits).hex()});
         ++rows;
     }
-    if (rows!=1250u) throw std::runtime_error("wrong A15 source visits");
+    if (rows!=1250u) throw std::runtime_error("wrong B126 source visits");
     return out;
 }
 
 std::string randomized_a16_fifth_fixture() {
     std::string out=
-        "# A16 randomized BigUnsigned arithmetic, original visits 5000..6249.\n"
+        "# B127 randomized BigUnsigned arithmetic, original visits 5000..6249.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
         "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
-    // Replay all preceding draws before emitting A16, including the
+    // Replay all preceding draws before emitting B127, including the
     // shift draw of every prior visit.
     for (unsigned repetition=0u;repetition<6250u;++repetition) {
         const std::size_t n=engine()%20u,m=engine()%20u;
@@ -850,20 +850,20 @@ std::string randomized_a16_fifth_fixture() {
                   a.shl(bits).hex(),a.shr(bits).hex()});
         ++rows;
     }
-    if (rows!=1250u) throw std::runtime_error("wrong A16 source visits");
+    if (rows!=1250u) throw std::runtime_error("wrong B127 source visits");
     return out;
 }
 
 std::string randomized_a17_sixth_fixture() {
     std::string out=
-        "# A17 randomized BigUnsigned arithmetic, original visits 6250..7499.\n"
+        "# B128 randomized BigUnsigned arithmetic, original visits 6250..7499.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
         "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
-    // Replay all preceding draws before emitting A17, including the
+    // Replay all preceding draws before emitting B128, including the
     // shift draw of every prior visit.
     for (unsigned repetition=0u;repetition<7500u;++repetition) {
         const std::size_t n=engine()%20u,m=engine()%20u;
@@ -885,20 +885,20 @@ std::string randomized_a17_sixth_fixture() {
                   a.shl(bits).hex(),a.shr(bits).hex()});
         ++rows;
     }
-    if (rows!=1250u) throw std::runtime_error("wrong A17 source visits");
+    if (rows!=1250u) throw std::runtime_error("wrong B128 source visits");
     return out;
 }
 
 std::string randomized_a18_seventh_fixture() {
     std::string out=
-        "# A18 randomized BigUnsigned arithmetic, original visits 7500..8749.\n"
+        "# B129 randomized BigUnsigned arithmetic, original visits 7500..8749.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
         "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
-    // Replay all preceding draws before emitting A18, including the
+    // Replay all preceding draws before emitting B129, including the
     // shift draw of every prior visit.
     for (unsigned repetition=0u;repetition<8750u;++repetition) {
         const std::size_t n=engine()%20u,m=engine()%20u;
@@ -920,20 +920,20 @@ std::string randomized_a18_seventh_fixture() {
                   a.shl(bits).hex(),a.shr(bits).hex()});
         ++rows;
     }
-    if (rows!=1250u) throw std::runtime_error("wrong A18 source visits");
+    if (rows!=1250u) throw std::runtime_error("wrong B129 source visits");
     return out;
 }
 
 std::string randomized_a19_eighth_fixture() {
     std::string out=
-        "# A19 randomized BigUnsigned arithmetic, original visits 8750..9999.\n"
+        "# B130 randomized BigUnsigned arithmetic, original visits 8750..9999.\n"
         "# repetition n m bits lhs_hex rhs_hex comparison sum_hex difference_hex left_shift_hex right_shift_hex\n"
         "# Original mt19937_64(0xBA17B00D), conditional full-array fills and draws preserved.\n"
         "# Independently cross-checked arbitrary-precision integer arithmetic; no GMP/MPFR/Numeric/Boost.\n";
     std::mt19937_64 engine(0xBA17B00DULL);
     const auto max=UINT64_MAX;
     std::size_t rows=0u;
-    // Replay all preceding draws before emitting A19, including the
+    // Replay all preceding draws before emitting B130, including the
     // shift draw of every prior visit.
     for (unsigned repetition=0u;repetition<10000u;++repetition) {
         const std::size_t n=engine()%20u,m=engine()%20u;
@@ -955,7 +955,7 @@ std::string randomized_a19_eighth_fixture() {
                   a.shl(bits).hex(),a.shr(bits).hex()});
         ++rows;
     }
-    if (rows!=1250u) throw std::runtime_error("wrong A19 source visits");
+    if (rows!=1250u) throw std::runtime_error("wrong B130 source visits");
     return out;
 }
 }
@@ -989,14 +989,14 @@ int main(int argc,char** argv) {
         independent_oracle::output(dir,"big_unsigned_b27_first.tsv",a10[0u],write);
         independent_oracle::output(dir,"big_unsigned_b27_second.tsv",a10[1u],write);
         independent_oracle::output(dir,"big_unsigned_b48_multiprecision.tsv",b48_multiprecision_fixture(),write);
-        independent_oracle::output(dir,"big_unsigned_a12_randomized_first.tsv",randomized_a12_first_fixture(),write);
-        independent_oracle::output(dir,"big_unsigned_a13_randomized_second.tsv",randomized_a13_second_fixture(),write);
-        independent_oracle::output(dir,"big_unsigned_a14_randomized_third.tsv",randomized_a14_third_fixture(),write);
-        independent_oracle::output(dir,"big_unsigned_a15_randomized_fourth.tsv",randomized_a15_fourth_fixture(),write);
-        independent_oracle::output(dir,"big_unsigned_a16_randomized_fifth.tsv",randomized_a16_fifth_fixture(),write);
-        independent_oracle::output(dir,"big_unsigned_a17_randomized_sixth.tsv",randomized_a17_sixth_fixture(),write);
-        independent_oracle::output(dir,"big_unsigned_a18_randomized_seventh.tsv",randomized_a18_seventh_fixture(),write);
-        independent_oracle::output(dir,"big_unsigned_a19_randomized_eighth.tsv",randomized_a19_eighth_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_b123_randomized_first.tsv",randomized_a12_first_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_b124_randomized_second.tsv",randomized_a13_second_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_b125_randomized_third.tsv",randomized_a14_third_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_b126_randomized_fourth.tsv",randomized_a15_fourth_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_b127_randomized_fifth.tsv",randomized_a16_fifth_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_b128_randomized_sixth.tsv",randomized_a17_sixth_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_b129_randomized_seventh.tsv",randomized_a18_seventh_fixture(),write);
+        independent_oracle::output(dir,"big_unsigned_b130_randomized_eighth.tsv",randomized_a19_eighth_fixture(),write);
         return 0;
     } catch (std::exception const& error) {
         std::cerr<<"Power/division generator: "<<error.what()<<'\n';

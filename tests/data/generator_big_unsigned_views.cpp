@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Reproduce A23/A24 test_views_and_scratch exact oracle fixtures.
+// Reproduce B134/B135 test_views_and_scratch exact oracle fixtures.
 // Standalone C++20; no Numeric, GMP, Boost or external runtime.
 #include <limits>
 #include "oracle_exact_integer.hpp"
@@ -24,10 +24,10 @@ Nat low_limbs(Nat value,std::size_t count) {
     return value;
 }
 
-std::array<std::string,5u> a23_buffer_arithmetic_fixtures() {
+std::array<std::string,5u> b134_buffer_arithmetic_fixtures() {
     std::array<std::string,5u> out;
     for (std::size_t part=0u;part<out.size();++part) {
-        out[part]="# A23 buffer arithmetic visits "+
+        out[part]="# B134 buffer arithmetic visits "+
             std::to_string(part*1000u)+".."+
             std::to_string(part*1000u+999u)+".\n"
             "# repetition n m low lhs_hex rhs_hex sum_hex difference_hex product_low_hex\n";
@@ -58,7 +58,7 @@ std::array<std::string,5u> a23_buffer_arithmetic_fixtures() {
     return out;
 }
 
-std::size_t a24_part(std::size_t ordinal) {
+std::size_t b135_part(std::size_t ordinal) {
     return ordinal<5775u ? ordinal/825u :
         7u+(ordinal-5775u)/275u;
 }
@@ -68,17 +68,17 @@ struct A24Fixtures {
     std::array<std::string,10u> expected;
 };
 
-A24Fixtures a24_shifted_fixtures() {
+A24Fixtures b135_shifted_fixtures() {
     A24Fixtures result;
     result.sources=
-        "# A24 R38 shifted-operation base sources.\n"
+        "# B135 R38 shifted-operation base sources.\n"
         "# source_ordinal width case_index length_b a_hex b_hex\n";
     for (std::size_t part=0u;part<result.expected.size();++part) {
         const std::size_t first=part<7u ? part*825u :
             5775u+(part-7u)*275u;
         const std::size_t count=part<7u ? 825u : 275u;
         result.expected[part]=
-            "# A24 R38 shifted-operation visits "+
+            "# B135 R38 shifted-operation visits "+
             std::to_string(first)+".."+
             std::to_string(first+count-1u)+".\n"
             "# ordinal width case_index sa sb comparison sum_hex difference_hex\n";
@@ -114,7 +114,7 @@ A24Fixtures a24_shifted_fixtures() {
                         Nat::sub(shifted_a,shifted_b) :
                         Nat::sub(shifted_b,shifted_a);
                     // Freeze the segment before row construction increments ordinal.
-                    const auto part=a24_part(ordinal);
+                    const auto part=b135_part(ordinal);
                     result.expected[part]+=row({
                         std::to_string(ordinal++),std::to_string(width),
                         std::to_string(case_index),std::to_string(sa),
@@ -125,7 +125,7 @@ A24Fixtures a24_shifted_fixtures() {
         }
     }
     if (source_ordinal!=264u || ordinal!=6600u)
-        throw std::runtime_error("wrong A24 shifted case count");
+        throw std::runtime_error("wrong B135 shifted case count");
     return result;
 }
 }
@@ -134,19 +134,19 @@ int main(int argc,char** argv) {
     try {
         bool write=false;
         const auto dir=independent_oracle::data_directory(argc,argv,write);
-        const auto a23=a23_buffer_arithmetic_fixtures();
+        const auto a23=b134_buffer_arithmetic_fixtures();
         for (std::size_t part=0u;part<a23.size();++part) {
             independent_oracle::output(
-                dir,"big_unsigned_a23_views_"+std::to_string(part)+".tsv",
+                dir,"big_unsigned_b134_views_"+std::to_string(part)+".tsv",
                 a23[part],write);
         }
-        const auto a24=a24_shifted_fixtures();
+        const auto a24=b135_shifted_fixtures();
         independent_oracle::output(
-            dir,"big_unsigned_a24_shifted_sources.tsv",
+            dir,"big_unsigned_b135_shifted_sources.tsv",
             a24.sources,write);
         for (std::size_t part=0u;part<a24.expected.size();++part) {
             independent_oracle::output(
-                dir,"big_unsigned_a24_shifted_"+std::to_string(part)+".tsv",
+                dir,"big_unsigned_b135_shifted_"+std::to_string(part)+".tsv",
                 a24.expected[part],write);
         }
         return 0;

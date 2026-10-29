@@ -44,7 +44,7 @@ std::string unsigned_sub(Nat const& a,Nat const& b) {
 }
 std::string integer_b66() {
     std::string out=
-        "# B66: independent exact integer exponent oracle, no runtime GMP and no implementation-under-test.\n"
+        "# I66: independent exact integer exponent oracle, no runtime GMP and no implementation-under-test.\n"
         "# original_word_count mode exponent signed_source_decimal signed_result_decimal\n"
         "# Original std::mt19937_64(0xB660F00D) stream consumed for 12 modes at each width.\n"
         "# Modes 0,1,2,3 retain zero, saturated negative, single-top-bit positive and dense negative.\n"
@@ -76,7 +76,7 @@ std::string integer_b66() {
 }
 std::string integer_sub() {
     std::string out=
-        "# Independent B41 signed subtraction fixtures (C++ mt19937_64 seed 0xB41D1FF).\n"
+        "# Independent I41 signed subtraction fixtures (C++ mt19937_64 seed 0xB41D1FF).\n"
         "# width structural_mode sign_mask original_lhs_decimal original_rhs_decimal expected_difference_decimal\n"
         "# Six distinct structural classes, all sign pairs, all eight operand widths.\n";
     std::mt19937_64 rng(0xB41D1FFULL);
@@ -106,7 +106,7 @@ std::string integer_sub() {
 }
 std::string big_unsigned_sub() {
     std::string out=
-        "# B41: source-keyed unsigned subtraction oracle; exact independent integer arithmetic.\n"
+        "# I41: source-keyed unsigned subtraction oracle; exact independent integer arithmetic.\n"
         "# width class original_left_hex original_right_hex left_minus_right_hex right_minus_left_hex\n"
         "# '-' is expected underflow. 0-width case and nine classes at each other width.\n"
         "# Samples extracted from the original mt19937_64(0xB41CA11CE) stream; no GMP/BigUnsigned for expected values.\n";
@@ -150,7 +150,7 @@ std::string big_unsigned_sub() {
 }
 std::string integer_b33() {
     std::string out=
-        "# Independent exact signed square oracle B33, original mt19937_64 seed 0xB33A11A5.\n"
+        "# Independent exact signed square oracle I33, original mt19937_64 seed 0xB33A11A5.\n"
         "# width mode source_signed_decimal expected_square_decimal.\n"
         "# Eight distinct structural modes per width (0..7). Identity, distinct-copy and *= aliasing are all checked.\n";
     std::mt19937_64 rng(0xB33A11A5ULL);
@@ -227,12 +227,12 @@ int main(int argc,char**argv) {
     try {
         bool write=false;
         const auto dir=independent_oracle::data_directory(argc,argv,write);
-        independent_oracle::output(dir,"integer_b66.tsv",integer_b66(),write);
+        independent_oracle::output(dir,"integer_i66.tsv",integer_b66(),write);
         independent_oracle::output(dir,"integer_sub.tsv",integer_sub(),write);
         independent_oracle::output(dir,"big_unsigned_sub.tsv",big_unsigned_sub(),write);
-        independent_oracle::output(dir,"integer_b33.tsv",integer_b33(),write);
-        independent_oracle::output(dir,"integer_b37.tsv",integer_b37(),write);
-        independent_oracle::output(dir,"integer_b38.tsv",integer_b38(),write);
+        independent_oracle::output(dir,"integer_i33.tsv",integer_b33(),write);
+        independent_oracle::output(dir,"integer_i37.tsv",integer_b37(),write);
+        independent_oracle::output(dir,"integer_i38.tsv",integer_b38(),write);
         return 0;
     } catch (std::exception const& e) {
         std::cerr<<"Structural generator: "<<e.what()<<'\n';
