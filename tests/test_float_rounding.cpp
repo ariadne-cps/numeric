@@ -633,6 +633,51 @@ TestFloatRounding<PR>::test_conversion_from_to()
     ARIADNE_TEST_COMPARE(Rational(Float(Rational(num,den),upward,precision)),>,q);
     ARIADNE_TEST_COMPARE(Float(Rational(num,den),downward,precision),<,Float(Rational(num,den),upward,precision));
 
+    // D9: exact public short-rational conversion, independent of fenv.
+    if constexpr (Same<PR,DoublePrecision>) {
+        const auto saved=FloatDP::get_rounding_mode();
+        const std::array<std::pair<std::uint64_t,std::uint64_t>,12> fractions={{
+            {1u,3u},{2u,5u},{1u,1u},{3u,2u},{7u,13u},
+            {UINT64_MAX,UINT64_MAX-2u},
+            {UINT64_MAX,1u},{1u,UINT64_MAX},
+            {UINT64_MAX,3u},{(std::uint64_t{1}<<53u)+13u,(std::uint64_t{1}<<54u)+17u},
+            {((std::uint64_t{1}<<53u)+75u),((std::uint64_t{1}<<54u)+109u)},
+            {1u,std::uint64_t{1}<<63u}
+        }};
+        for (auto ambient : {FloatDP::ROUND_TO_NEAREST,
+                             FloatDP::ROUND_DOWNWARD,
+                             FloatDP::ROUND_UPWARD,
+                             FloatDP::ROUND_TOWARD_ZERO}) {
+            FloatDP::set_rounding_mode(ambient);
+            for (auto [n,d] : fractions) {
+                for (bool negative : {false,true}) {
+                    const Rational exact(
+                        negative ? -Integer(n) : Integer(n),Integer(d));
+                    for (auto requested : {FloatDP::ROUND_TO_NEAREST,
+                                           FloatDP::ROUND_DOWNWARD,
+                                           FloatDP::ROUND_UPWARD,
+                                           FloatDP::ROUND_TOWARD_ZERO}) {
+                        const FloatDP result(exact,requested,dp);
+                        const Rational actual(ExactDouble(result.get_d()));
+                        const auto relation=cmp(actual,exact);
+                        if (requested==FloatDP::ROUND_DOWNWARD) {
+                            ARIADNE_TEST_ASSERT(relation!=Comparison::GREATER);
+                        } else if (requested==FloatDP::ROUND_UPWARD) {
+                            ARIADNE_TEST_ASSERT(relation!=Comparison::LESS);
+                        } else if (n!=d) {
+                            // Historical nearest mode truncates toward zero.
+                            ARIADNE_TEST_ASSERT(negative
+                                ? relation!=Comparison::LESS
+                                : relation!=Comparison::GREATER);
+                        }
+                        ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),ambient);
+                    }
+                }
+            }
+        }
+        FloatDP::set_rounding_mode(saved);
+    }
+
     // Convert from a negative rational
     num=-2; den=5;
     ARIADNE_TEST_COMPARE(Rational(Float(q,downward,precision)),<,q);

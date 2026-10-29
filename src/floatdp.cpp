@@ -250,7 +250,73 @@ double rounded_dyadic_value(Dyadic const& w, BuiltinRoundingModeType rnd) {
 
 inline Rational cast_rational(double d) { return Rational(ExactDouble(d)); }
 
+// D9: Convert small finite fractions without constructing a second Rational,
+// comparing large cross-products or modifying the processor rounding mode.
+// A quotient of two nonzero uint64 values is always a normal binary64 value.
+bool rounded_short_rational_value(Rational const& q,
+                                  BuiltinRoundingModeType rnd,double& result) {
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+    if (!is_finite(q)) { return false; }
+    const Integer& numerator=q.numerator_reference();
+    const BigUnsigned& magnitude=numerator.magnitude();
+    const BigUnsigned& denominator=q.denominator_reference();
+    if (magnitude.size()!=1u || denominator.size()!=1u) { return false; }
+    const std::uint64_t n=magnitude.limb(0u);
+    const std::uint64_t d=denominator.limb(0u);
+    __extension__ using Wide=unsigned __int128;
+    const int bits_n=std::bit_width(n);
+    const int bits_d=std::bit_width(d);
+    const int candidate=bits_n-bits_d;
+    const bool below=candidate>=0
+        ? Wide(n)<(Wide(d)<<static_cast<unsigned>(candidate))
+        : (Wide(n)<<static_cast<unsigned>(-candidate))<Wide(d);
+    // For nonzero 64-bit operands the exact exponent is in [-64,63].
+    const int exponent=candidate-static_cast<int>(below);
+    const int scale=exponent-52;
+    Wide dividend=n;
+    Wide divisor=d;
+    if (scale<=0) { dividend<<=static_cast<unsigned>(-scale); }
+    else { divisor<<=static_cast<unsigned>(scale); }
+    // Both scaled magnitudes fit in 128 bits. The quotient is exactly
+    // in [2^52,2^53), hence is representable as a double without rounding.
+    std::uint64_t significand=0u;
+    Wide remainder=0u;
+#if defined(ARIADNE_BIG_UNSIGNED_X86_64)
+    if (scale<=0 && (dividend>>64u)<Wide(d)) {
+        // One native 128/64 DIVQ, also returning the exact remainder.
+        std::uint64_t low=static_cast<std::uint64_t>(dividend);
+        std::uint64_t high=static_cast<std::uint64_t>(dividend>>64u);
+        __asm__ volatile("divq %[divisor]"
+            : "+a"(low), "+d"(high)
+            : [divisor] "r"(d)
+            : "cc");
+        significand=low;
+        remainder=high;
+    } else
+#endif
+    {
+        significand=static_cast<std::uint64_t>(dividend/divisor);
+        remainder=dividend%divisor;
+    }
+    const bool negative=numerator.negative();
+    const bool away=(rnd==FloatDP::ROUND_UPWARD && !negative) ||
+                    (rnd==FloatDP::ROUND_DOWNWARD && negative);
+    // Preserve the existing nearest/toward-zero truncation contract;
+    // the remainder exactly distinguishes an inexact directed result.
+    if (away && remainder!=0u) { ++significand; }
+    result=std::copysign(
+        std::ldexp(static_cast<double>(significand),scale),
+        negative ? -1.0 : 1.0);
+    return true;
+#else
+    (void)q; (void)rnd; (void)result;
+    return false;
+#endif
+}
+
 double rounded_rational_value(Rational const& q, BuiltinRoundingModeType rnd) {
+    double fast;
+    if (rounded_short_rational_value(q,rnd,fast)) { return fast; }
     double d=q.get_d();
     if (is_finite(q)) {
         auto old_rnd=FloatDP::get_rounding_mode();

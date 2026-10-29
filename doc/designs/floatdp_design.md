@@ -998,3 +998,56 @@ Require cross-platform strict-fenv CI and an unchanged same-host
 absolute ns (including the anomalous pow7_up), plus unaffected
 nearest and transcendental controls. No D8 timing improvement is
 claimed before that measurement.
+
+
+## D9 — allocation-free small Rational to FloatDP construction (29 October 2026)
+
+**Measured starting point.** User-host 53-bit benchmark, 20,000
+iterations and 31 samples after D8: `construct_rational` =
+35.702 ns on ARM64 and 53.225 ns on x86-64. The hosts differ, so
+these absolute times must not be interpreted as an architecture-only
+comparison.
+
+**Root cause.** The old constructor invokes `Rational::get_d()`,
+which truncates the exact fraction, creates a new `Rational` from
+that binary64 value, compares it with the source rational and
+temporarily changes the hardware rounding mode for a possible ULP
+correction. That work is unnecessary for canonical numerator and
+denominator magnitudes each occupying one 64-bit limb.
+
+**Implementation.** D9 borrows the canonical numerator and denominator
+without copying. Compute the exact binary exponent by word bit lengths
+and one 128-bit comparison, shift either operand to obtain the 53-bit
+integer significand using exact unsigned 128-bit integer division and
+its remainder, and increment once only if directed rounding is
+requested away from zero and the remainder is nonzero. This uses no
+floating-point estimate, temporary Rational object or hardware fenv
+changes. The 64-bit/64-bit ratio is always normal binary64 (exponent
+between -63 and +63); all scaled operands fit in 128 bits. On x86-64
+with GCC/Clang, the common 128/64 division uses a single DIVQ for
+both quotient and remainder; all other supported GNU/Clang
+architectures use unsigned 128-bit arithmetic. Portable/MSVC and
+large/special/zero rationals retain the previous general path.
+The inexact nearest and toward-zero behavior is deliberately
+unchanged: the previous Rational conversion truncates in those modes;
+this optimization must not silently change that contract.
+
+**Independent sanity check.** A standalone C++20 GCC and Clang probe,
+under `-O3 -frounding-math -fno-fast-math -ffp-contract=off`, compared
+the exact integer division method with independently certified
+floating-division estimates on six million randomized 64-bit ratios,
+in both directed modes and under all four ambient rounding modes:
+no mismatches. On the available x86-64 host, a standalone 32-input
+microbenchmark measured approximate GCC medians 10.3 ns for the
+128-bit division method and 19.7 ns for the estimate-and-certificate
+alternative (Clang 14.4 vs 20.4 ns). These are not measurements of
+the Numeric public constructor, nor the user's host.
+
+**Regression and acceptance.** Add public constructor edge tests
+for signs, dense one-limb 64-bit boundaries and all four ambient
+and requested rounding modes. The exact rational comparisons test
+the direction of the output and preservation of the caller's fenv.
+Keep the unchanged source-keyed 32-rational benchmark and all existing
+rounding test oracles. Require full Unix, Windows, Sanitizers and
+Coverage CI and the same-host user benchmark before claiming an
+end-to-end FloatDP performance improvement.
