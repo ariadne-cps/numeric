@@ -2280,8 +2280,8 @@ bool within_dyadic_window(Fraction const& value,unsigned long binary_shift) {
 }
 
 bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
-    // certified starts with 32 guard bits and only increases them, so
-    // work>=32. Thus |delta|<=2^(-ceil(work/2)) keeps the entire
+    // certified starts with at least four guard bits and only increases
+    // them. Public precision>=2 therefore gives work>=6. Thus |delta|<=2^(-ceil(work/2)) keeps the entire
     // segment around +/-1/2 inside [-3/4,3/4].
     const unsigned long cutoff_bits=work/2ul+work%2ul;
     if constexpr(Detail::unsigned_narrowing<std::size_t,unsigned long>) {
@@ -2480,9 +2480,13 @@ Interval multiply(Interval const& a, Interval const& b) {
     return {std::move(lower), std::move(upper)};
 }
 
+// A finite dyadic argument cannot equal a trigonometric pole. A certified
+// denominator containing zero requests more precision, rather than a domain error.
+struct TrigonometricRefinementRequired { };
+
 Interval divide(Interval const& numerator, Interval const& denominator) {
     if (denominator.lower.sign() <= 0 && denominator.upper.sign() >= 0) {
-        throw std::domain_error("FloatMP trigonometric interval crosses a pole");
+        throw TrigonometricRefinementRequired{};
     }
 
     // Division by a negative interval is the negation of division by
@@ -2621,8 +2625,8 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         // The fixed-point certificate gives U-sin(|x|)<3*2^-work:
         // at termination t_next<=2^guard and n<=floor(work/2), so
         // the two accumulated error allowances and tails total less
-        // than 3*2^guard. Every caller supplies work>=50. Also
-        // sin(|x|)<=sin(1)<=1-1/6+1/120=101/120<8/9.
+        // than 3*2^guard. Every caller supplies work>=6. Also
+        // sin(|x|)<=sin(1)<=1-1/6+1/120=101/120, and 101/120+3*2^-6<8/9.
         // Thus 0<=L<=sin(|x|)<=U<8/9; clamping U or checking L>U
         // would only duplicate invariants of the enclosure construction.
         const BigUnsigned& lower=sine_lower_nonnegative;
@@ -2993,7 +2997,11 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
     // Double-angle reconstruction needs BOTH values, regardless of
     // which function the caller eventually requests.
     const TrigOutputs kernel_outputs = halvings == 0u ? outputs : TrigOutputs::both;
-    auto results = small_sine_cosine(x, work + halvings + 16u, kernel_outputs);
+    // Certification itself decides when the enclosure is tight enough;
+    // one bit per doubling compensates argument-reduction amplification.
+    const auto kernel_work=Detail::checked_unsigned_add(work,static_cast<unsigned long>(halvings),
+        "FloatMP trigonometric reconstruction precision overflow");
+    auto results = small_sine_cosine(x,kernel_work,kernel_outputs);
     for (unsigned n = 0; n < halvings; ++n) {
         const Interval sine = multiply(point(Fraction(2L)),
                                        multiply(results.first, results.second));
@@ -3225,8 +3233,8 @@ TangentHalfEnclosures const& tangent_half_enclosures(unsigned long work) {
         const Interval tangent_ratio_bounds = divide(sine, cosine);
         const Interval cached_tangent_bounds = outward_dyadic_interval(tangent_ratio_bounds, target_bits);
         // sin(1/2)>=23/48 and cos(1/2)<=1. The preceding kernel's
-        // error is <3*2^-checked_work, checked_work>=80; outward
-        // quantization loses <2^-target_bits, target_bits>=66. Its
+        // error is <3*2^-checked_work, checked_work>=54; outward
+        // quantization loses <2^-target_bits, target_bits>=38. Its
         // tangent lower endpoint is therefore strictly positive.
         const Interval raw_derivative{
             Fraction(1L) + cached_tangent_bounds.lower * cached_tangent_bounds.lower,
@@ -3589,7 +3597,7 @@ template<Function OperationKind>
 Interval evaluate(Fraction const& x, unsigned long work) {
     (void)x; // Pi evaluators have no operand.
     static_assert(OperationKind!=Function::exponential && OperationKind!=Function::logarithm);
-    // certified supplies work=precision+extra, extra>=32.
+    // certified supplies work=precision+extra, extra>=4.
     if constexpr(OperationKind==Function::hyperbolic_tangent) {
         return tanh_centered_or_general(x,work);
     } else if constexpr(OperationKind==Function::sine) {
@@ -3637,16 +3645,23 @@ using IntervalEvaluator=Interval(*)(Fraction const&,unsigned long);
 // enclosure round to exactly the same FloatMP. This includes directed
 // rounding and correctly handles the nearest-even halfway boundaries.
 FloatMP certified(IntervalEvaluator evaluator, Fraction const& x,
-                  FloatMP::RoundingModeType mode, FloatMP::PrecisionType precision) {
+                  FloatMP::RoundingModeType mode, FloatMP::PrecisionType precision,
+                  unsigned long extra=32u) {
     const unsigned long bits = static_cast<unsigned long>(precision.bits());
-    unsigned long extra = 32u;
     for (;;) {
         constexpr char precision_error[]="FloatMP trigonometric precision too large";
         const auto guarded_work=Detail::checked_unsigned_add(
             Detail::checked_unsigned_add(bits,extra,precision_error),32ul,precision_error);
         const auto work=guarded_work-32ul;
 
-        const Interval bounds = evaluator(x,work);
+        Interval bounds;
+        try {
+            bounds=evaluator(x,work);
+        } catch(TrigonometricRefinementRequired const&) {
+            extra=Detail::checked_unsigned_add(extra,extra,
+                "FloatMP trigonometric pole refinement overflow");
+            continue;
+        }
         const FloatMP low = bounds.lower.rounded(bits,mode);
         const FloatMP high = bounds.upper.rounded(bits,mode);
         if (low == high) {
@@ -3704,7 +3719,13 @@ FloatMP unary(FloatMP::RoundingModeType mode,FloatMP const& x) {
             }
         }
     }
-    return certified(evaluate<OperationKind>,argument,mode,x.precision());
+    if constexpr(OperationKind==Function::tangent) {
+        // Tangent often needs only a few guard bits. Ambiguous bounds,
+        // including a denominator spanning a pole, refine automatically.
+        return certified(evaluate<OperationKind>,argument,mode,x.precision(),4ul);
+    } else {
+        return certified(evaluate<OperationKind>,argument,mode,x.precision());
+    }
 }
 
 } // namespace Detail

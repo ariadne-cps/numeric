@@ -1354,3 +1354,10 @@ The atan fixture adds both signs of `1/2-5*2^-128`, at p=128 in all four
 modes (1348 rows, preserving the original 1340). Its centered derivative
 correction `(4/5)*delta` is exact on the working dyadic scale, including
 negative delta: neither endpoint may receive a spurious rounding unit.
+
+The tangent fixture adds both signs of the exact 97-bit dyadic
+`124451306656115542615260972311/2^96`, close to pi/2. Eight results in
+N/D/U/Z modes (1216 total rows) are independently certified at 1800 bits.
+The initial inexpensive production enclosure spans the pole and must be
+refined; the mathematical tangent of this dyadic is finite. Original
+1208 rows are preserved.

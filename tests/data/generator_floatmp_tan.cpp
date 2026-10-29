@@ -324,6 +324,10 @@ struct Generator {
                 for(bool negative:{false,true})
                     emit(p,Nat(numerator),Nat::power2(shift),negative);
         if(count!=1208u)throw std::runtime_error("D95 row count " + std::to_string(count));
+        out+="# Near-pole finite dyadic requiring adaptive denominator refinement.\n";
+        const Nat pole_n(std::vector<std::uint64_t>{4814775065449907479ULL,6746518852ULL});
+        for(bool negative:{false,true}) emit(97u,pole_n,Nat::power2(96u),negative);
+        if(count!=1216u)throw std::runtime_error("near-pole row count " + std::to_string(count));
     }
 };
 }

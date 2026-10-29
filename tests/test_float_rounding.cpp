@@ -258,7 +258,7 @@ Rational const& floatmp_tan_golden(std::size_t bits,
                                    FloatMP::RoundingModeType mode,
                                    Rational const& original_input) {
     static const auto rows=load_floatmp_golden_rows(
-        ARIADNE_FLOATMP_TAN_ORACLE_PATH,1208u);
+        ARIADNE_FLOATMP_TAN_ORACLE_PATH,1216u);
     return find_floatmp_golden(rows,bits,mode,original_input);
 }
 
@@ -1926,6 +1926,20 @@ TestFloatRounding<PR>::test_precision_regressions()
             // |x|<=1. Preserve both signs, low precision and reconstruction
             // across |x|=1, with certified exact source-keyed references.
             FloatMPPhaseTiming timing_tangent_sqrt_cos("tangent_sqrt_cos",precision.bits());
+            {
+                const MultiplePrecision pole_precision(97_bits);
+                const Rational pole_source{Integer(String("124451306656115542615260972311")),
+                                           pow(Integer(2),Nat(96))};
+                for(const auto& source:{pole_source,-pole_source}) {
+                    const FloatMP value(source,near,pole_precision);
+                    for(auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                                   FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+                        ARIADNE_TEST_EQUALS(static_cast<Rational>(tan(mode,value)),
+                                            floatmp_tan_golden(97u,mode,source));
+                    }
+                }
+            }
+
             for (Bits bits : {7_bits,53_bits,128_bits,256_bits,1024_bits}) {
                 const MultiplePrecision mp(bits);
                 for (Dyadic const& argument :
@@ -3096,7 +3110,7 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
             [](auto mode,FloatDP value) { return sin(mode,value); },true);
         verify(ARIADNE_FLOATMP_COS_ORACLE_PATH,1080u,
             [](auto mode,FloatDP value) { return cos(mode,value); },true);
-        verify(ARIADNE_FLOATMP_TAN_ORACLE_PATH,1208u,
+        verify(ARIADNE_FLOATMP_TAN_ORACLE_PATH,1216u,
             [](auto mode,FloatDP value) { return tan(mode,value); },false);
         verify(ARIADNE_FLOATMP_ATAN_ORACLE_PATH,1348u,
             [](auto mode,FloatDP value) { return atan(mode,value); },false);

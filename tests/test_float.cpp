@@ -2000,11 +2000,11 @@ void test_floatmp_exact_series_thresholds() {
         ARIADNE_TEST_ASSERT(exp(mode,exp_input)==positive_expected);
         ARIADNE_TEST_ASSERT(exp(mode,neg(exp_input))==negative_expected);
     }
-    // p=129 gives the cosine kernel work=177. For y=2^-88,
+    // p=129 gives the cosine kernel work=161. For y=2^-80,
     // its first omitted term Q*y*y/2 equals 2^guard exactly.
     // 0<1-cos(y)<y*y/2 is far below half the spacing beneath 1.
     const MultiplePrecision cos_precision(129_bits);
-    const FloatMP cos_input(Dyadic(1,88u),cos_precision);
+    const FloatMP cos_input(Dyadic(1,80u),cos_precision);
     const FloatMP cos_one(1,cos_precision);
     for(auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
                    FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
