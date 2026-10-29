@@ -196,7 +196,18 @@ inline Integer make_unsigned(Natural px) {
 // elementary functions (e.g. squaring an arbitrary one-sided bound).
 template<class R, class OP, class X> inline R _concrete_apply_unary(OP op, X const& x) {
     static_assert(Same<R,NumberInterface*>);
-    if constexpr (requires { op(x); }) {
+    // These AlgebraicBounds overloads exist only to report unsupported
+    // transcendental operations. They always throw: do not instantiate a
+    // value-returning expression around them (MSVC ARM64 diagnoses it as
+    // unreachable code under /WX).
+    if constexpr (AlgebraicBounds<X> &&
+                  (Same<OP,Sqrt> || Same<OP,Exp> || Same<OP,Log> ||
+                   Same<OP,Sin> || Same<OP,Cos> || Same<OP,Tan> ||
+                   Same<OP,Tanh> || Same<OP,Asin> || Same<OP,Acos> ||
+                   Same<OP,Atan>)) {
+        ARIADNE_THROW(DispatchException,"_concrete_apply(UnaryElementaryOperator)",
+                      "Unsupported unary operation on "<<class_name<X>());
+    } else if constexpr (requires { op(x); }) {
         return _make_number_wrapper(make_unsigned(op(x)));
     } else {
         ARIADNE_THROW(DispatchException,"_concrete_apply(UnaryElementaryOperator)",
