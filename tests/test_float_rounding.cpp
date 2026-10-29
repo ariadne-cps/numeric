@@ -3217,18 +3217,22 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
                 }
             }
         };
+        // F5: activate the previously skipped nearest-even frozen
+        // source-keyed oracles for log, tan and atan. They validate the
+        // same certified kernel used for the fast directed operations.
+        // exp_nearest remains on its previous independent fallback.
         verify(ARIADNE_FLOATMP_CENTERED_EXP_ORACLE_PATH,568u,
             [](auto mode,FloatDP value) { return exp(mode,value); },false);
         verify(ARIADNE_FLOATMP_LOG_ORACLE_PATH,452u,
-            [](auto mode,FloatDP value) { return log(mode,value); },false);
+            [](auto mode,FloatDP value) { return log(mode,value); },true);
         verify(ARIADNE_FLOATMP_SIN_ORACLE_PATH,1080u,
             [](auto mode,FloatDP value) { return sin(mode,value); },true);
         verify(ARIADNE_FLOATMP_COS_ORACLE_PATH,1080u,
             [](auto mode,FloatDP value) { return cos(mode,value); },true);
         verify(ARIADNE_FLOATMP_TAN_ORACLE_PATH,1216u,
-            [](auto mode,FloatDP value) { return tan(mode,value); },false);
+            [](auto mode,FloatDP value) { return tan(mode,value); },true);
         verify(ARIADNE_FLOATMP_ATAN_ORACLE_PATH,1348u,
-            [](auto mode,FloatDP value) { return atan(mode,value); },false);
+            [](auto mode,FloatDP value) { return atan(mode,value); },true);
         verify(ARIADNE_FLOATMP_ASIN_ORACLE_PATH,728u,
             [](auto mode,FloatDP value) { return asin(mode,value); },true);
         verify(ARIADNE_FLOATMP_ACOS_ORACLE_PATH,728u,

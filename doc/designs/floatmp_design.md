@@ -11716,3 +11716,91 @@ sanitizers, or coverage are passing. The preceding D148
 GCC-13 -Werror=shadow repair remains a separate, unverified
 CI fix. No F5 source modification is included in this
 documentation-only update.
+
+
+## F5 — enable certified nearest rounding for FloatDP log, tan and atan (29 October 2026)
+
+**Observation and root cause.** The user-measured post-F4 FloatDP
+p=53 benchmark (20,000 iterations, 31 samples, 56 operations)
+reported:
+- log_nearest=24.633 ns vs log_down=3.269 ns, log_up=3.398 ns;
+- tan_nearest=40.606 ns vs tan_down=4.871 ns, tan_up=4.981 ns;
+- atan_nearest=36.348 ns vs atan_down=4.704 ns, atan_up=4.754 ns.
+
+These three nearest operations were *explicitly excluded* by the
+initial guard in floatdp_certified_transcendental in
+src/floatdp.cpp: even when their binary64 argument was in the
+certified near-half window, nearest returned false and invoked
+the much slower general transcendental implementation in
+src/double.cpp. By contrast, the already certified directed
+modes used the F1/F2/F3 all-native fast path. This is a path
+selection discrepancy, not a consequence of an inherently
+harder nearest-even rounding operation.
+
+**Proof supporting the change.** Existing compile-time
+floatdp_verify_certificates<Function>() static_asserts already
+cover *all* near-half binary64 inputs admitted by the 53/54
+denominator decoder, both input signs where defined, and all
+nine supported transcendental centers. The exhaustive
+certificate explicitly checks equality of truncated endpoints,
+nonzero discarded remainder, no half-ULP ties for either
+endpoint, and identical nearest-increment decisions. The
+runtime floatdp_round_fixed already implements nearest
+rounding by testing the exact half-bit, relying on the
+compile-time proof to exclude ties. Thus the same
+mathematical and binary64 enclosure already used for
+downward/upward also certifies nearest for log, tangent and
+arctangent. No new Taylor constants, tolerances, heuristic
+thresholds or approximation algorithms are introduced.
+
+**F5 source change.** Replace the initial five-function
+allowlist for nearest with a deliberate exclusion of *only*
+FloatDPTranscendental::exponential in nearest mode.
+Consequently log, tan and atan now share the verified
+certified near-half path with their directed modes and
+with sin, cos, asin, acos and tanh nearest. Preserve the
+original exponential-nearest exception as an independent
+future candidate (no benchmark attribution mixing).
+The log input sign check remains: negative x cannot use
+log's positive-only near-half center. Out-of-window
+arguments retain the unchanged fallback transcendental
+implementations. The F1 fixed-point multiplication, F2
+native endpoint arithmetic, F3 direct IEEE encoding,
+F4 hardware sqrt, and all source-keyed oracle fixtures
+remain untouched. No BigUnsigned dependency returns
+to src/floatdp.cpp.
+
+**Independent regression coverage.** In the existing
+DoublePrecision golden-oracle verification block of
+tests/test_float_rounding.cpp, switch the log, tan and
+atan records from check_nearest=false to
+check_nearest=true. The tests use the existing independently
+generated FloatMP transcendental golden-oracle data and
+verify both exact dyadic Rational value and complete
+binary64 encoding, together with preservation of the
+caller's active rounding mode. Leave the exp-nearest
+oracle flag false to isolate F5. The existing exhaustive
+consteval certificate tests remain active and unchanged.
+Do not remove or weaken any independent-oracle checks.
+
+**Benchmark gate.** The anticipated improvement is
+specific to 53-bit inputs near one-half. Re-run the user's
+unchanged 56-operation paired benchmark with 20,000
+iterations and 31 samples. Compare FloatDP log_nearest,
+tan_nearest and atan_nearest against 24.633, 40.606
+and 36.348 ns, respectively; compare their directed
+counterparts to detect any regressions and exp_nearest
+to confirm it remains unchanged. Report FloatMP/FloatDP
+total_time and geomean, but compare absolute per-operation
+times as primary evidence of the intervention. No speedup,
+full repository compile or CI success is asserted at
+commit preparation. In particular, confirm the frozen
+nearest golden oracles, GCC/Clang/AppleClang, MSVC,
+sanitizers and coverage before considering this stable.
+
+**Scope boundary.** F5 is only a removal of an unnecessary
+nearest-mode fast-path exclusion for three operations.
+Do not conflate it with the separate previously suggested
+rounding-session optimization; that work remains
+unimplemented and would require additional correctness
+proofs for directed arithmetic.
