@@ -164,10 +164,10 @@ review every diff before committing. No sampling is used.
 | `generator_floatmp_log.cpp` | `floatmp_log.tsv`, `floatmp_log_native.tsv` | 452 certified logs plus 32 native exponent limit results at 53/128/256/1024 bits in all four modes |
 | `generator_floatmp_sin_cos.cpp` | `floatmp_sin.tsv`, `floatmp_cos.tsv` | 1,080 exact source-keyed independently certified outputs each, across D91, D92, D95 original test families |
 | `generator_floatmp_centered_exp.cpp` | `floatmp_centered_exp.tsv` | 568 exact certified reference rows from all 720 original centered-exp visits |
-| `generator_floatmp_atan.cpp` | `floatmp_atan.tsv` | 1,340 certified atan references reproducing all original D87, D88, D89 lookup keys |
-| `generator_floatmp_tan.cpp` | `floatmp_tan.tsv` | 1,208 certified tangent values across D92, D93, D94 and D95 original sources |
+| `generator_floatmp_atan.cpp` | `floatmp_atan.tsv` | 1,348 certified atan references, including original D87/D88/D89 keys and exact centered corrections |
+| `generator_floatmp_tan.cpp` | `floatmp_tan.tsv` | 1,216 certified tangent values, including original D92/D93/D94/D95 sources and finite near-pole arguments |
 | `generator_floatmp_asin_acos.cpp` | `floatmp_asin.tsv`, `floatmp_acos.tsv` | 728 certified inverse-trigonometric references per TSV, preserving D86/D90 original sources |
-| `generator_floatmp_tanh.cpp` | `floatmp_tanh.tsv` | 1,164 certified tanh references from 13 precisions, 4 modes, signed/cutoff/saturation probes and binary64 discarded-word boundaries |
+| `generator_floatmp_tanh.cpp` | `floatmp_tanh.tsv` | 1,204 certified tanh references from 13 precisions, including signed/cutoff/saturation probes, genuine refinement cases and binary64 boundaries |
 | `generator_floatmp_rounding.cpp` | `floatmp_rounding.tsv`, `floatmp_add_sub.tsv` | 4,794 exact-rational rounding rows and 1,780 independent D80 add/sub rows; both existing TSVs unchanged |
 | `generator_big_unsigned_sqrt.cpp` | `big_unsigned_sqrt.tsv` | 166 exact sqrtrem triples; fully specified seeded SplitMix64 input generation, 37 random width profiles, 33 square-neighbor cases and 5 buffered-division/correction boundaries |
 

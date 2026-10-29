@@ -28,6 +28,7 @@
 
 #include "numeric/floatmp.hpp"
 #include "numeric/detail/checked_arithmetic.hpp"
+#include "numeric/detail/fixed_point.hpp"
 #include "numeric/integer.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
@@ -1383,9 +1384,8 @@ double FloatMP::get_d_general() const {
         bool increment = false;
         switch (mode) {
             case Rounding::ToNearest:
-                increment=floatmp_test_bit(_significand,dropped-1u) &&
-                    ((mantissa&1u)!=0u ||
-                     floatmp_any_bits_below(_significand,dropped-1u));
+                increment=Detail::nearest_even_binary_increment(_significand.limbs(),dropped,
+                    (mantissa&1u)!=0u);
                 break;
             case Rounding::Downward:
                 increment=_negative &&
@@ -2306,15 +2306,11 @@ Integer outward_dyadic_integer(Fraction const& exact,
         "FloatMP dyadic endpoint shift overflow");
     const Integer& numerator=exact.numerator();
     const BigUnsigned& denominator=exact.denominator();
-    auto [magnitude,remainder]=divrem(
-        shift_left(numerator.magnitude(),shift),
-        denominator);
     const bool negative=numerator.negative();
     const bool round_magnitude_up=negative
         ? !round_toward_positive : round_toward_positive;
-    if (round_magnitude_up && !remainder.is_zero()) {
-        magnitude=add(magnitude,BigUnsigned(1u));
-    }
+    BigUnsigned magnitude=Detail::scaled_unsigned_quotient(
+        numerator.magnitude(),denominator,shift,round_magnitude_up);
     return Integer::from_magnitude(std::move(magnitude),negative);
 }
 

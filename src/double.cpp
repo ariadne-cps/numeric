@@ -41,6 +41,7 @@
 #include "numeric/rational.hpp"
 #include "numeric/big_unsigned.hpp"
 #include "numeric/detail/checked_arithmetic.hpp"
+#include "numeric/detail/fixed_point.hpp"
 #include "numeric/rounding.hpp"
 #include "numeric/floatdp.hpp"
 
@@ -224,11 +225,6 @@ struct TanhFixedInterval {
     BigUnsigned upper;
 };
 
-bool tanh_test_bit(BigUnsigned const& value,std::size_t bit) noexcept
-{
-    return ((value.limb(bit/64u)>>(bit%64u))&1u)!=0u;
-}
-
 bool tanh_any_bits_below(BigUnsigned const& value,std::size_t limit) noexcept
 {
     return BigUnsigned::any_bits_below(value.limbs(),limit);
@@ -273,9 +269,7 @@ BigUnsigned tanh_ceil_div_scaled(BigUnsigned const& numerator,
                                  BigUnsigned const& denominator,
                                  std::size_t work)
 {
-    auto [quotient,remainder]=divrem(shift_left(numerator,work),denominator);
-    if(!remainder.is_zero()) quotient=add(quotient,BigUnsigned(1u));
-    return quotient;
+    return Detail::scaled_unsigned_quotient(numerator,denominator,work,true);
 }
 
 // Rigorous fixed-point enclosure for tanh(x), x in [2^-28,20).
@@ -341,9 +335,8 @@ double tanh_round_fixed_positive(BigUnsigned const& value,std::size_t work,
     BigUnsigned retained=shift_right(value,shift);
     bool increment=false;
     if(mode==ROUND_TO_NEAREST) {
-        increment=tanh_test_bit(value,shift-1u) &&
-            (((retained.limb(0u)&1u)!=0u) ||
-             tanh_any_bits_below(value,shift-1u));
+        increment=Detail::nearest_even_binary_increment(value.limbs(),shift,
+            (retained.limb(0u)&1u)!=0u);
     } else if(mode==ROUND_UPWARD) {
         increment=tanh_any_bits_below(value,shift);
     }
