@@ -10981,3 +10981,98 @@ rounding without temporary FloatMP objects, one-rounding direct FMA,
 and 2-limb rational input conversion are separate proposed optimizations;
 none is included in this commit. Do not tune algorithms to the benchmark
 pool at the expense of general correctness.
+
+
+### D146.4 — measured 53-bit results supplied by the user (29 October 2026)
+
+On the user's host, at 53-bit precision, 20,000 iterations and 31 samples,
+the D146 build measured **FloatMP/FloatDP total_time=1.238x** (56
+operations), **geomean=1.585x** and **worst=10.387x** for
+fma_nearest. The preceding observation was approximately 1.5x on the
+total metric, but the precise previous environment/measurement breakdown
+was not supplied here, so do not treat the change as a controlled
+before/after speedup for each individual D146 optimization.
+FloatMP fma_nearest=32.610 ns versus FloatDP=3.140 ns;
+fma_down=28.852 versus 29.979 ns; fma_up=29.144 versus 29.977 ns.
+The arithmetic-directed measurements, summed over add, sub, mul, div,
+fma and their two directed modes, are 204.170 ns for FloatMP versus
+305.760 ns for FloatDP. The 27 exp/log/sin/cos/tan/tanh/atan/asin/acos
+measurements, each in nearest/down/up, sum to 905.711 ns for FloatMP
+versus 474.502 ns for FloatDP, a 1.909x ratio and an aggregate
+difference of 431.209 ns. Each sum is an *unweighted sum of separate
+median nanosecond measurements*, not actual elapsed batch time.
+These aggregates identify the expensive groups without suggesting
+that FloatMP regressed in absolute terms: the separately optimized
+FloatDP remains a moving reference. This is a user-provided benchmark
+result, not a local or CI benchmark executed by this entry.
+
+## D147 — direct short fused multiply-add for 53–64 bits (29 October 2026)
+
+**Motivation.** The D146 user benchmark identifies a 10.387x relative
+cost for FloatMP fma_nearest at 53 bits: 32.610 ns versus 3.140 ns.
+The generic FloatMP fma path multiplies into an owned BigUnsigned,
+constructs a temporary FloatMP with the *full unrounded product
+precision*, then invokes the generic add function to round once.
+For single-limb input significands and target p<=64, it is possible
+to preserve the exact product and single rounding while avoiding the
+full-product FloatMP intermediary.
+
+**D147 direct path.** After the unchanged IEEE special-value and
+zero handling, select p<=64, three one-limb nonzero finite inputs and
+a dyadic scale gap less than 64 bits between a*b and c. Compute the
+exact product using BigUnsigned::mul_into on two stack limbs. Align
+this exact product and c using the existing allocation-free
+BigUnsigned::add_shifted or sub_shifted limb kernels. If the terms
+have opposite signs, first compare their exact normalized bit lengths;
+equal lengths require a true comparison of the shifted magnitudes,
+not a rounded comparison. The result is an owned, exact native
+BigUnsigned magnitude; call round_scaled_integer once at the minimum
+dyadic exponent. Exact cancellation chooses negative zero only in
+ROUND_DOWNWARD, as the old general add did. All other precision,
+input-size and large-gap cases keep the existing proven FloatMP
+product-plus-add fallback unchanged, including the signed-sticky
+large-gap treatment, mixed precision, and specials. The exponent
+difference is computed by unsigned subtraction to avoid signed
+overflow.
+
+**Proof obligations and limitations.** The two positive input
+significands each occupy one 64-bit limb, so their exact product
+occupies at most two. A gap less than 64 ensures that both exact
+magnitudes can be aligned by the bounded shared shifted-combine
+kernel, regardless of cancellation. Sign selection is based on exact
+absolute magnitude comparison, not the leading exponent alone.
+The final rounding uses FloatMP's existing four-mode, tie-to-even
+implementation; there is no multiply-round/add-round double
+rounding. Large gaps intentionally remain with the certified
+generic branch. The new branch is general for p<=64; it is not keyed
+to the benchmark's particular input values.
+
+**Tests added.** Extend the existing independently rounded
+rational-arithmetic regression loop from p=53 to include p=54,
+p=63 and p=64, and exercise both same-sign and opposite-sign FMA,
+exact cancellation and negative-zero direction, short scale gaps
+including the addend dominating, and an explicit large-gap fallback.
+Check all four rounding modes against floatmp_golden/independent
+Rational exact values, preserving the rest of the suite.
+
+**Isolated arithmetic model validation.** An independent BigInt
+exact-dyadic model enumerated 150,000 randomized short operands/
+exponents with four rounding modes: 127,867 cases entered the
+bounded-scale path; 511,468 four-mode output comparisons were
+identical to the independently rounded exact signed sum. These
+include 64,227 same-sign paths, 63,640 opposite-sign paths,
+3,307 exact cancellations, 12,712 gap==63 cases, both exponent
+orderings, and 22,133 intended large-gap exclusions. This checks
+the mathematical algorithm in a standalone model, NOT compiled
+repository C++, the benchmark, or the full oracle suite.
+
+**Integration and performance gates.** Rebuild on at least GCC,
+Clang/AppleClang and MSVC; run all numeric suites, precision/mode
+oracles, Sanitizers and 100%-coverage checks. Re-run 53-bit and
+64-bit 20,000-iteration/31-sample paired benchmarks on the same
+host and compare absolute fma_nearest/down/up timings against
+D146=32.610/28.852/29.144 ns at 53 bits. Also confirm that all
+other 56 operations are stable. No numeric speedup or CI success
+is claimed in advance. A small total_time gain from FMA alone
+does not address the still larger 27-transcendental gap; that
+remains the subsequent primary investigation.

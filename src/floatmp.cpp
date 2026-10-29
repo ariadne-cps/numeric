@@ -528,6 +528,66 @@ FloatMP const& c, unsigned long p, Rounding mode) {
     }
     if (c.is_inf()) return infinity(p, c._negative);
     if (a.is_zero() || b.is_zero()) return add(zero(p, neg), c, p, mode);
+    // Short fused a*b+c: align the exact 128-bit product and the exact
+    // one-limb addend directly, then round ONCE. This avoids creating a
+    // full-precision temporary FloatMP and re-entering add_sub's generic
+    // special-value and exponent dispatch. All arithmetic remains exact.
+    if (p<=64u && a._significand.size()==1u &&
+        b._significand.size()==1u && c._significand.size()==1u) {
+        const Exponent product_scale=checked_add(a._exponent,b._exponent);
+        const bool product_high=product_scale>=c._exponent;
+        const std::uint64_t gap=product_high
+            ? static_cast<std::uint64_t>(product_scale)-
+              static_cast<std::uint64_t>(c._exponent)
+            : static_cast<std::uint64_t>(c._exponent)-
+              static_cast<std::uint64_t>(product_scale);
+        if (gap<64u) {
+            std::array<BigUnsigned::Limb,2u> product{};
+            BigUnsigned::mul_into(a._significand.limbs(),
+                b._significand.limbs(),product);
+            const auto used=product[1u]==0u ? 1u : 2u;
+            const BigUnsigned::LimbView product_words(product.data(),used);
+            const auto addend_words=c._significand.limbs();
+            const unsigned product_shift=product_high
+                ? static_cast<unsigned>(gap) : 0u;
+            const unsigned addend_shift=product_high
+                ? 0u : static_cast<unsigned>(gap);
+            FloatMP result(p);
+            result._negative=neg;
+            if (neg==c._negative) {
+                result._significand=BigUnsigned::add_shifted(
+                    product_words,product_shift,addend_words,addend_shift);
+            } else {
+                // Different signs can cancel. Decide the exact magnitude
+                // ordering before subtracting; equal leading widths require
+                // a full limb comparison, never a rounded approximation.
+                const std::size_t product_width=
+                    (used-1u)*64u+64u-static_cast<unsigned>(
+                        std::countl_zero(product[used-1u]))+product_shift;
+                const std::size_t addend_width=
+                    c._significand.bit_length()+addend_shift;
+                const bool product_larger=product_width>addend_width ||
+                    (product_width==addend_width &&
+                     compare(shift_left(BigUnsigned(product_words),product_shift),
+                             shift_left(c._significand,addend_shift))>=0);
+                result._significand=product_larger
+                    ? BigUnsigned::sub_shifted(product_words,product_shift,
+                                               addend_words,addend_shift)
+                    : BigUnsigned::sub_shifted(addend_words,addend_shift,
+                                               product_words,product_shift);
+                if (!product_larger) result._negative=!result._negative;
+            }
+            if (result._significand.is_zero()) {
+                result.set_zero(mode==Rounding::Downward);
+            } else {
+                round_scaled_integer(result,
+                    product_high ? c._exponent : product_scale,mode);
+            }
+            return result;
+        }
+    }
+    // Wide operands and large gaps retain the proven general single-round
+    // fused path, including signed-sticky alignment and mixed precisions.
     BigUnsigned product=mul_big_unsigned(a._significand,b._significand);
     FloatMP exact(static_cast<unsigned long>(product.bit_length()));
     exact._significand=std::move(product);

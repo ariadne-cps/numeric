@@ -855,7 +855,8 @@ TestFloatRounding<PR>::test_precision_regressions()
     // public arithmetic API over all required precisions and modes.
     if constexpr (Same<PR,MultiplePrecision>) {
         using F=RawFloat<PR>;
-        for (Bits bits : {2_bits,7_bits,24_bits,53_bits,113_bits,256_bits,1024_bits}) {
+        for (Bits bits : {2_bits,7_bits,24_bits,53_bits,54_bits,63_bits,64_bits,
+                          113_bits,256_bits,1024_bits}) {
             const PR pr(bits);
             for (auto mode : {F::ROUND_TO_NEAREST,F::ROUND_DOWNWARD,
                               F::ROUND_UPWARD,F::ROUND_TOWARD_ZERO}) {
@@ -871,6 +872,27 @@ TestFloatRounding<PR>::test_precision_regressions()
                 check(mul(mode,x,y),a*b);
                 check(div(mode,x,y),a/b);
                 check(fma(mode,x,y,x),a*b+a);
+                if (pr.bits()>=53u && pr.bits()<=64u) {
+                    // D147: exercise both signs, exact cancellation,
+                    // and the direct 2-limb-product + 1-limb-addend path.
+                    const F one(1,pr), negative_one(-1,pr);
+                    const F tiny=shft(one,-static_cast<Int>(pr.bits()));
+                    check(fma(mode,x,x,x),a*a+a);
+                    check(fma(mode,x,x,negative_one),a*a-Rational(1));
+                    check(fma(mode,one,one,negative_one),Rational(0));
+                    check(fma(mode,negative_one,one,one),Rational(0));
+                    check(fma(mode,x,y,tiny),
+                          a*b+static_cast<Rational>(tiny));
+                    // Unaligned large gaps deliberately stay on the
+                    // original generic path.
+                    const F distant=shft(one,Int(128));
+                    check(fma(mode,one,one,distant),
+                          Rational(1)+static_cast<Rational>(distant));
+                    if (mode==F::ROUND_DOWNWARD) {
+                        ARIADNE_TEST_ASSERT(fma(mode,one,one,negative_one).negative());
+                        ARIADNE_TEST_ASSERT(fma(mode,negative_one,one,one).negative());
+                    }
+                }
                 check(pow(mode,x,Nat(7u)),a*a*a*a*a*a*a);
 
                 ARIADNE_TEST_EQUALS(sqrt(mode,F(4,pr)),F(2,pr));
