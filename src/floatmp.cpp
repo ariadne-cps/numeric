@@ -1931,7 +1931,10 @@ Interval exp_series(Fraction const& x, unsigned long work) {
         return true;
     };
 
-    for (unsigned long n = 1ul; n <= max_terms; ++n) {
+    // t_n<=Q/(2^n*n!)<=Q/2^(2n-1), since n!>=2^(n-1).
+    // Thus by n=floor(work/2)+1 the positive threshold 2^guard is
+    // reached, strictly before max_terms. The counter cannot wrap.
+    for (unsigned long n = 1ul;; ++n) {
         // t_n=floor(floor(t_(n-1)*a/2^B)/n). Reuse the same
         // multiplication, shifting and short-division buffers.
         // t_0=2^B is nonzero; an empty later term is below the positive
@@ -1962,7 +1965,7 @@ Interval exp_series(Fraction const& x, unsigned long work) {
         trim(next_sum);
         sum_lower.swap(next_sum);
 
-        if (below_threshold(term) || n == max_terms) {
+        if (below_threshold(term)) {
             // The same proven enclosure: sum + term + 6*(n+1).
             const BigUnsigned lower(BigUnsigned::LimbView(
                 sum_lower.data(),sum_lower.size()));
@@ -1981,7 +1984,6 @@ Interval exp_series(Fraction const& x, unsigned long work) {
                     Fraction(1L) / positive.lower};
         }
     }
-    throw std::logic_error("FloatMP exponential series did not terminate");
 }
 
 Interval exp_interval(Fraction x, unsigned long work) {
@@ -2184,9 +2186,12 @@ Interval log_series(Fraction const& z, unsigned long work) {
     scaled_product(power_lo,power_lo,false,square_lo);
     scaled_product(power_hi,power_hi,true,square_hi);
 
-    // The original proof and work-dependent bound are unchanged.
-    // The Taylor tail after each term is <= 3 * upper odd power.
-    for (unsigned long n=0u;n<terms;++n) {
+    // Q>=2^32 and y_hi/Q<=1/3+1/Q imply square_hi/Q<1/8.
+    // Each upper power update is <=power/8+1, so after m updates
+    // power<=3*Q/(8*8^m)+8/7. At m=terms=floor(work/3)+4,
+    // 3*power<2^guard. Therefore the threshold terminates the loop
+    // by terms iterations, without a separate counter-limit fallback.
+    for (unsigned long n=0u;;++n) {
         // n < work/3+4 and work+guard fits, with guard>=32; 2*n+1 fits.
         const Limb divisor=static_cast<Limb>(2ul*n+1ul);
         quotient.resize(power_lo.size());
@@ -2206,16 +2211,13 @@ Interval log_series(Fraction const& z, unsigned long work) {
         scaled_product(power_hi,square_hi,true,next_power);
         power_hi.swap(next_power);
 
-        if (power_hi.empty()) {
-            tail.clear();
-        } else {
-            const Limb three=3u;
-            tail.resize(power_hi.size()+1u);
-            BigUnsigned::mul_into(power_hi,BigUnsigned::LimbView(&three,1u),
-                                  tail);
-            trim(tail);
-        }
-        if (within_threshold(tail) || n+1ul==terms) {
+        // Nonzero z has a positive upward-rounded initial power and
+        // square. Upward rounding preserves positivity at every update.
+        const Limb three=3u;
+        tail.resize(power_hi.size()+1u);
+        BigUnsigned::mul_into(power_hi,BigUnsigned::LimbView(&three,1u),tail);
+        trim(tail);
+        if (within_threshold(tail)) {
             break;
         }
     }
@@ -2653,7 +2655,10 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         term.assign(start.begin(),start.end());
         sum.clear();
 
-        for (unsigned long n=0u;n<max_terms;++n) {
+        // The first omitted term after iteration n is at most
+        // Q/(2n+2)!<=Q/2^(2n+1). It therefore reaches 2^guard
+        // before max_terms=work/2+48 iterations, without counter wrap.
+        for (unsigned long n=0u;;++n) {
             accumulate(term,n%2ul!=0ul);
 
             // At n=0 both factors fit. Reaching n>0 means the previous
@@ -2672,7 +2677,7 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
             trim(quotient);
             term.swap(quotient);
 
-            if (within_threshold(term) || n+1ul==max_terms) {
+            if (within_threshold(term)) {
                 // Identical certificate: 8*(n+1) accumulated units,
                 // followed by the first omitted term plus 8 units.
                 const BigUnsigned result(BigUnsigned::LimbView(
@@ -2699,7 +2704,6 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
                         Fraction(upper,fixed_bits)};
             }
         }
-        throw std::logic_error("FloatMP sine/cosine series did not terminate");
     };
 
     const bool want_sine=outputs!=TrigOutputs::cosine;
@@ -2998,7 +3002,10 @@ Interval small_atan(Fraction const& x, unsigned long work) {
     // p_(n+1)=floor(p_n*b/Q). Keep the original 4-unit power
     // and 5-unit per-term error certificates.
     scaled_product(power,power,square);
-    for (unsigned long n=0u;n<max_terms;++n) {
+    // After iteration n, power<=Q/2^(2n+3), since |x|<=1/2.
+    // It reaches 2^guard before max_terms=work/2+4 iterations,
+    // so neither a counter-limit exit nor counter wrap is possible.
+    for (unsigned long n=0u;;++n) {
         // n < work/2+4, so 2*n+1 <= work+7 < work+guard.
         const Limb divisor=static_cast<Limb>(2ul*n+1ul);
         term.resize(power.size());
@@ -3009,7 +3016,7 @@ Interval small_atan(Fraction const& x, unsigned long work) {
         scaled_product(power,square,next_power);
         power.swap(next_power);
 
-        if (under_limit(power) || n+1ul==max_terms) {
+        if (under_limit(power)) {
             // The first omitted alternating term is <= power+4.
             // n+1 included terms introduce at most 5*(n+1) units.
             const BigUnsigned result(BigUnsigned::LimbView(
@@ -3035,7 +3042,6 @@ Interval small_atan(Fraction const& x, unsigned long work) {
             return x.sign()<0 ? negative(positive) : positive;
         }
     }
-    throw std::logic_error("FloatMP arctangent series did not terminate");
 }
 
 Interval pi_interval(unsigned long work) {
