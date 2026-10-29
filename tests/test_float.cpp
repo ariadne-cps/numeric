@@ -1941,6 +1941,76 @@ void test_floatmp_ieee_conversion_boundaries() {
     }
 }
 
+void test_floatmp_public_edge_paths() {
+    const MultiplePrecision precision(128_bits);
+    const FloatMP one(1,precision);
+    ARIADNE_TEST_ASSERT(ceil(one)==one);
+    ARIADNE_TEST_ASSERT(round(FloatMP(Dyadic(9,3u),precision))==one);
+    ARIADNE_TEST_ASSERT(abs(near,one)==one);
+    ARIADNE_TEST_ASSERT(abs(near,neg(one))==one);
+
+    // Reading a malformed exponent preserves the old value. Uppercase E
+    // and nondigit mantissa prefixes are valid, and punctuation is retained.
+    FloatMP parsed(7,precision);
+    std::istringstream malformed("2e3.4:");
+    malformed>>parsed;
+    ARIADNE_TEST_ASSERT(malformed.fail());
+    ARIADNE_TEST_ASSERT(parsed==FloatMP(7,precision));
+    std::istringstream valid("-.5E+2:");
+    valid>>parsed;
+    ARIADNE_TEST_ASSERT(!valid.fail());
+    ARIADNE_TEST_ASSERT(parsed==FloatMP(-50,precision));
+    ARIADNE_TEST_EQUALS(valid.peek(),int(':'));
+
+    const MultiplePrecision two_bits(2_bits),three_bits(3_bits);
+    const FloatMP broad(8,three_bits),narrow(1,two_bits);
+    ARIADNE_TEST_EQUALS(cmp(broad,narrow),Comparison::GREATER);
+    ARIADNE_TEST_EQUALS(cmp(narrow,broad),Comparison::LESS);
+    ARIADNE_TEST_EQUALS(cmp(FloatMP(1,three_bits),narrow),Comparison::EQUAL);
+    ARIADNE_TEST_EQUALS(cmp(FloatMP(Dyadic(7,2u),three_bits),
+                            FloatMP(Dyadic(3,1u),two_bits)),Comparison::GREATER);
+
+    for(bool negative:{false,true}) {
+        const auto signed_zero=FloatMP::zero(128u,negative);
+        const auto shifted_zero=shft(signed_zero,Int(3));
+        ARIADNE_TEST_ASSERT(shifted_zero.is_zero());
+        ARIADNE_TEST_EQUALS(shifted_zero.negative(),negative);
+        const auto infinite_source=FloatMP::infinity(128u,negative);
+        const auto shifted_infinity=shft(infinite_source,Int(-3));
+        ARIADNE_TEST_ASSERT(shifted_infinity.is_inf());
+        ARIADNE_TEST_EQUALS(shifted_infinity.negative(),negative);
+        const auto squared_infinity=pow(near,infinite_source,Nat(2));
+        ARIADNE_TEST_ASSERT(squared_infinity.is_inf() && !squared_infinity.negative());
+        const auto cubed_infinity=pow(near,infinite_source,Nat(3));
+        ARIADNE_TEST_ASSERT(cubed_infinity.is_inf());
+        ARIADNE_TEST_EQUALS(cubed_infinity.negative(),negative);
+    }
+    ARIADNE_TEST_ASSERT(shft(FloatMP::nan(precision),Int(3)).is_nan());
+
+    // 0<y-tanh(y)<y^3, far below half the spacing at this y. Unlike
+    // an exact power of two, its predecessor keeps the same binade.
+    const FloatMP tiny(Dyadic(3,256u),precision);
+    const auto tiny_predecessor=next(RoundDownward{},tiny);
+    ARIADNE_TEST_ASSERT(tanh(near,tiny)==tiny);
+    ARIADNE_TEST_ASSERT(tanh(down,tiny)==tiny_predecessor);
+    ARIADNE_TEST_ASSERT(tanh(up,tiny)==tiny);
+    ARIADNE_TEST_ASSERT(tanh(FloatMP::ROUND_TOWARD_ZERO,tiny)==tiny_predecessor);
+    ARIADNE_TEST_ASSERT(tanh(near,neg(tiny))==neg(tiny));
+    ARIADNE_TEST_ASSERT(tanh(down,neg(tiny))==neg(tiny));
+    ARIADNE_TEST_ASSERT(tanh(up,neg(tiny))==neg(tiny_predecessor));
+    ARIADNE_TEST_ASSERT(tanh(FloatMP::ROUND_TOWARD_ZERO,neg(tiny))==neg(tiny_predecessor));
+
+    // sum(k=0..3,1/k!)<e<sum(k=0..4,1/k!)+1/100:
+    // 8/3<e<1631/600<30/11. Raising the positive bounds to the
+    // fourth power proves 48<exp(4)<56. At p=2 the enclosing
+    // representable values are 48 and 64, with midpoint 56.
+    const FloatMP four(4,two_bits);
+    ARIADNE_TEST_ASSERT(exp(near,four)==FloatMP(48,two_bits));
+    ARIADNE_TEST_ASSERT(exp(down,four)==FloatMP(48,two_bits));
+    ARIADNE_TEST_ASSERT(exp(up,four)==FloatMP(64,two_bits));
+    ARIADNE_TEST_ASSERT(exp(FloatMP::ROUND_TOWARD_ZERO,four)==FloatMP(48,two_bits));
+}
+
 // Native exponent limits are represented as metadata, never enormous
 // Rational inputs. The fixture's exact results come from a standalone oracle.
 void test_floatmp_log_native_exponents() {
@@ -2038,6 +2108,7 @@ Int main() {
     test_floatmp_ieee_conversion_boundaries();
     test_floatmp_elementary_specials();
     test_floatmp_log_native_exponents();
+    test_floatmp_public_edge_paths();
     test_floatmp_ratio_ties_and_carry();
     test_floatmp_negative_power_specials();
     test_floatmp_mixed_precision_arithmetic();
