@@ -232,7 +232,7 @@ Rational const& floatmp_atan_golden(std::size_t bits,
                                     FloatMP::RoundingModeType mode,
                                     Rational const& original_input) {
     static const auto rows=load_floatmp_golden_rows(
-        ARIADNE_FLOATMP_ATAN_ORACLE_PATH,1340u);
+        ARIADNE_FLOATMP_ATAN_ORACLE_PATH,1348u);
     return find_floatmp_golden(rows,bits,mode,original_input);
 }
 
@@ -1645,6 +1645,20 @@ TestFloatRounding<PR>::test_precision_regressions()
             // rounding, and cache precision upgrades/reuse. Reference
             // keyed by the ORIGINAL input, independently rounded offline.
             FloatMPPhaseTiming timing_centered_atan("centered_atan",precision.bits());
+            {
+                const MultiplePrecision exact_precision(128_bits);
+                const Rational center_offset(Dyadic(5,128u));
+                const Rational magnitude=Rational(1,2)-center_offset;
+                for(const auto& input:{magnitude,-magnitude}) {
+                    const FloatMP value(input,near,exact_precision);
+                    for(auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                                   FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+                        ARIADNE_TEST_EQUALS(static_cast<Rational>(atan(mode,value)),
+                                            floatmp_atan_golden(128u,mode,input));
+                    }
+                }
+            }
+
             for (Bits bits : {53_bits,7_bits,128_bits,256_bits,
                               1024_bits,53_bits}) {
                 const MultiplePrecision mp(bits);
@@ -3084,7 +3098,7 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
             [](auto mode,FloatDP value) { return cos(mode,value); },true);
         verify(ARIADNE_FLOATMP_TAN_ORACLE_PATH,1208u,
             [](auto mode,FloatDP value) { return tan(mode,value); },false);
-        verify(ARIADNE_FLOATMP_ATAN_ORACLE_PATH,1340u,
+        verify(ARIADNE_FLOATMP_ATAN_ORACLE_PATH,1348u,
             [](auto mode,FloatDP value) { return atan(mode,value); },false);
         verify(ARIADNE_FLOATMP_ASIN_ORACLE_PATH,728u,
             [](auto mode,FloatDP value) { return asin(mode,value); },true);

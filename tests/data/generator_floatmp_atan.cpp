@@ -374,6 +374,9 @@ struct Generator {
         for(unsigned p:{53u,7u,128u,1024u,256u,53u})
             for(auto const& v:d89)both(p,v);
         if(count!=1340u)throw std::runtime_error("D89 count "+std::to_string(count));
+        out+="# Exact dyadic centered slope correction: numerator divisible by five.\n";
+        both(128u,minus(rational(1u,2u),power_ratio(5u,128u)));
+        if(count!=1348u)throw std::runtime_error("exact correction count "+std::to_string(count));
     }
     static Rational rational_shift(Rational const& a,std::uint64_t factor) {
         return reduce({a.n.mul_small(factor),a.d});

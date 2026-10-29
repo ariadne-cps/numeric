@@ -1349,3 +1349,8 @@ Two additional exact logarithm sources `1-2^-98` and `1+2^-98`, at 128 bits
 in all four modes, exercise zero quantized lower coefficients and an exact
 upper coefficient square. The original 444 rows remain unchanged; the
 standard log fixture now has 452 rows, in addition to the 32 native limit rows.
+
+The atan fixture adds both signs of `1/2-5*2^-128`, at p=128 in all four
+modes (1348 rows, preserving the original 1340). Its centered derivative
+correction `(4/5)*delta` is exact on the working dyadic scale, including
+negative delta: neither endpoint may receive a spurious rounding unit.
