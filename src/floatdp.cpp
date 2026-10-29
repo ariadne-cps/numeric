@@ -75,9 +75,13 @@ constexpr double certified_floor=0x1p-400;
 double adjusted(double n,double residual,FloatDP::RoundingModeType mode) {
     if ((mode==FloatDP::ROUND_UPWARD && residual>0.0) ||
         (mode==FloatDP::ROUND_DOWNWARD && residual<0.0)) {
-        return std::nextafter(n,mode==FloatDP::ROUND_UPWARD
-            ? std::numeric_limits<double>::infinity()
-            : -std::numeric_limits<double>::infinity());
+        // D10: all callers certify finite normal binary64 results.
+        // Step the IEEE-754 encoding by one, reversing for negatives.
+        // This also preserves normal/subnormal and overflow boundaries.
+        auto bits=std::bit_cast<std::uint64_t>(n);
+        if ((n>0.0)==(mode==FloatDP::ROUND_UPWARD)) { ++bits; }
+        else { --bits; }
+        return std::bit_cast<double>(bits);
     }
     return n;
 }

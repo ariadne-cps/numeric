@@ -2772,6 +2772,28 @@ TestFloatRounding<DoublePrecision>::test_directed_residuals()
             }
         }
     }
+    // D10: the unchanged 32 rational benchmark inputs check that
+    // both pow7 directions match the direct hardware-rounding path.
+    FloatDP::set_rounding_to_nearest();
+    const Integer pow_base=pow(Integer(2),Nat(53u));
+    for (unsigned index=0u;index<32u;++index) {
+        const Rational source(
+            pow_base+Integer(13u+2u*index),
+            2*pow_base+Integer(17u+3u*index));
+        const FloatDP input(source,FloatDP::ROUND_TO_NEAREST,dp);
+        for (auto requested : {FloatDP::ROUND_DOWNWARD,
+                               FloatDP::ROUND_UPWARD}) {
+            const FloatDP obtained=pow(requested,input,Nat(7u));
+            ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),
+                               FloatDP::ROUND_TO_NEAREST);
+            RoundingSession<FloatDP> reference;
+            const CurrentRoundingMode current=reference.set(requested);
+            const FloatDP expected=pow(current,input,Nat(7u));
+            ARIADNE_TEST_EQUAL(bits(obtained),bits(expected));
+        }
+        ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),
+                           FloatDP::ROUND_TO_NEAREST);
+    }
     FloatDP::set_rounding_mode(original);
 }
 
