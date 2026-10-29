@@ -4377,7 +4377,15 @@ void test_big_unsigned_contracts_and_controls() {
     ARIADNE_TEST_EQUALS(to_decimal_cutoff16_diagnostic(BigUnsigned{}),std::string("0"));
     ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(BigUnsigned{}),std::string("0"));
 #if defined(__aarch64__) || defined(_M_ARM64)
+    // CMake builds the ARM64 assembly kernel only for GNU/Clang.
+    // MSVC ARM64 deliberately uses the tested portable C++20 fallback.
+#if defined(__GNUC__) || defined(__clang__)
     ARIADNE_TEST_ASSERT(BigUnsigned::has_native_multiply());
+    ARIADNE_TEST_ASSERT(BigUnsigned::has_arm64_multiply());
+#else
+    ARIADNE_TEST_ASSERT(!BigUnsigned::has_native_multiply());
+    ARIADNE_TEST_ASSERT(!BigUnsigned::has_arm64_multiply());
+#endif
     ARIADNE_TEST_ASSERT(!BigUnsigned::has_x86_64_carry_multiply());
     ARIADNE_TEST_ASSERT(!BigUnsigned::has_x86_64_multiply());
 #elif defined(__x86_64__) || defined(_M_X64)

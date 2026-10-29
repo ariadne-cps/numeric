@@ -1648,3 +1648,22 @@ code changes. This completes the fixed BigUnsigned audit at **76,323 / 76,323
 = 100.000%** migrated numerical GMP-oracle visits. GMP interoperability tests
 remain outside this denominator by definition.
 
+### B146 — Windows ARM64 compiler capability check (29 October 2026)
+
+Windows 11 ARM64 Debug exposed an incorrect *test expectation*, not a
+multiplication-result defect: `test_big_unsigned_contracts_and_controls()`
+asserted `has_native_multiply()` on every ARM64 CPU. The CMake selector
+intentionally compiles `ARIADNE_BIG_UNSIGNED_ARM64` only for GNU, Clang and
+AppleClang, because its MUL/UMULH/ADDS/ADC kernel uses GNU-style inline
+assembly. Native MSVC ARM64 instead uses the C++20 portable multiplication
+kernel. The capability query correctly returned false.
+
+The test now checks both `has_native_multiply()` and
+`has_arm64_multiply()` against the compiler-supported ARM64 backend:
+true on GNU/Clang and false on MSVC. Both x86-specific capability assertions
+remain in force on ARM64. All existing full/truncated multiplication checks,
+independent fixture comparisons, random sequences, and the production
+algorithm/dispatcher remain unchanged. In particular, the portable path
+remains covered on MSVC ARM64; this is not a test skip or suppressed failure.
+The Windows ARM64 CI must complete successfully before claiming validation.
+
