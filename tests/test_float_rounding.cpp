@@ -2818,6 +2818,29 @@ TestFloatRounding<DoublePrecision>::test_directed_residuals()
         ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),
                            FloatDP::ROUND_TO_NEAREST);
     }
+    // D13: exercise the degree-seven specialisation at finite and
+    // extreme magnitudes. Failed certification must reproduce the
+    // unchanged hardware-rounding fallback exactly, including overflow.
+    FloatDP::set_rounding_to_nearest();
+    const std::array<double,13u> power_seven_edges={{
+        0.0,-0.0,-1.0,1.0,0.5,2.0,0x1p-400,0x1p-200,
+        0x1p-70,0x1p-10,0x1p10,0x1p70,0x1p400
+    }};
+    for (double source_value : power_seven_edges) {
+        const FloatDP edge(ExactDouble(source_value),dp);
+        for (auto requested : {FloatDP::ROUND_DOWNWARD,
+                               FloatDP::ROUND_UPWARD}) {
+            const FloatDP obtained=pow(requested,edge,Nat(7u));
+            ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),
+                               FloatDP::ROUND_TO_NEAREST);
+            RoundingSession<FloatDP> reference;
+            const CurrentRoundingMode current=reference.set(requested);
+            const FloatDP expected=pow(current,edge,Nat(7u));
+            ARIADNE_TEST_EQUAL(bits(obtained),bits(expected));
+        }
+        ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),
+                           FloatDP::ROUND_TO_NEAREST);
+    }
     FloatDP::set_rounding_mode(original);
 }
 

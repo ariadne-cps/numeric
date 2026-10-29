@@ -222,6 +222,21 @@ __attribute__((always_inline)) inline
 bool exact_pow_fma3(FloatDP::RoundingModeType mode,
                     double x,Nat n,double& result) {
     if (!(x>0.0)||!std::isfinite(x)||x<certified_floor||n>16u)return false;
+#if defined(__GNUC__) && !defined(__clang__)
+    // D13: GCC does not fully specialize the general repeated-squaring
+    // loop for degree seven. Use the identical four directed products,
+    // in their original order, with the same certification/fallback gates.
+    // Clang already optimizes this loop effectively; leave it unchanged.
+    if (n==7u) {
+        double square,cube,fourth,seventh;
+        if (!exact_mul_fma3(mode,x,x,square)) return false;
+        if (!exact_mul_fma3(mode,x,square,cube)) return false;
+        if (!exact_mul_fma3(mode,square,square,fourth)) return false;
+        if (!exact_mul_fma3(mode,cube,fourth,seventh)) return false;
+        result=seventh;
+        return true;
+    }
+#endif
     double p=x,r=1.0;
     bool first_factor=true;
     while(n!=0u) {
