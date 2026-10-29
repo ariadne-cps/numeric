@@ -2780,16 +2780,25 @@ TestFloatRounding<DoublePrecision>::test_directed_residuals()
         const Rational source(
             pow_base+Integer(13u+2u*index),
             2*pow_base+Integer(17u+3u*index));
+        const Rational companion(
+            pow_base+Integer(31u+5u*index),
+            3*pow_base+Integer(19u+7u*index));
         const FloatDP input(source,FloatDP::ROUND_TO_NEAREST,dp);
+        const FloatDP other(companion,FloatDP::ROUND_TO_NEAREST,dp);
         for (auto requested : {FloatDP::ROUND_DOWNWARD,
                                FloatDP::ROUND_UPWARD}) {
-            const FloatDP obtained=pow(requested,input,Nat(7u));
+            const FloatDP got_mul=mul(requested,input,other);
+            const FloatDP got_div=div(requested,input,other);
+            const FloatDP got_fma=fma(requested,input,other,input);
+            const FloatDP got_pow=pow(requested,input,Nat(7u));
             ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),
                                FloatDP::ROUND_TO_NEAREST);
             RoundingSession<FloatDP> reference;
             const CurrentRoundingMode current=reference.set(requested);
-            const FloatDP expected=pow(current,input,Nat(7u));
-            ARIADNE_TEST_EQUAL(bits(obtained),bits(expected));
+            ARIADNE_TEST_EQUAL(bits(got_mul),bits(mul(current,input,other)));
+            ARIADNE_TEST_EQUAL(bits(got_div),bits(div(current,input,other)));
+            ARIADNE_TEST_EQUAL(bits(got_fma),bits(fma(current,input,other,input)));
+            ARIADNE_TEST_EQUAL(bits(got_pow),bits(pow(current,input,Nat(7u))));
         }
         ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),
                            FloatDP::ROUND_TO_NEAREST);

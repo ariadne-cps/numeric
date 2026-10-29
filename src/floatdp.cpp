@@ -159,9 +159,113 @@ bool exact_pow(FloatDP::RoundingModeType mode,double x,Nat n,double& result) {
         // The last square is discarded by the original algorithm.
         if (n!=0u && !exact_mul(mode,p,p,p)) { return false; }
     }
+
     result=r;
     return true;
 }
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+// D11: FMA3 is optional on x86-64. Build complete kernels with the
+// target attribute, and dispatch only once per public operation.
+// Plain x86-64, Windows/MSVC and non-x86 keep the original kernels.
+__attribute__((target("fma")))
+bool exact_mul_fma3(FloatDP::RoundingModeType mode,
+                    double a,double b,double& result) {
+    const double p=a*b;
+    if (!std::isnormal(p)||std::fabs(a)<certified_floor
+        ||std::fabs(b)<certified_floor)return false;
+    result=adjusted(p,__builtin_fma(a,b,-p),mode);
+    return true;
+}
+__attribute__((target("fma")))
+bool exact_div_fma3(FloatDP::RoundingModeType mode,
+                    double a,double b,double& result) {
+    const double q=a/b;
+    if (!std::isnormal(q)||std::fabs(a)<certified_floor
+        ||std::fabs(b)<certified_floor||std::fabs(q)<certified_floor)return false;
+    const double e=__builtin_fma(-q,b,a);
+    result=adjusted(q,std::signbit(b)?-e:e,mode);
+    return true;
+}
+__attribute__((target("fma")))
+bool exact_fma_fma3(FloatDP::RoundingModeType mode,
+                    double a,double b,double c,double& result) {
+    const double r=__builtin_fma(a,b,c);
+    if (!std::isnormal(r)||std::fabs(a)<certified_floor
+        ||std::fabs(b)<certified_floor||std::fabs(c)<certified_floor
+        ||std::fabs(r)<certified_floor)return false;
+    if ((r>0.0 && c>0.0)||(r<0.0 && c<0.0)) {
+        const double ar=std::fabs(r);
+        const double ac=std::fabs(c);
+        if (ar>=ac*0.5 && ac>=ar*0.5) {
+            result=adjusted(r,__builtin_fma(a,b,c-r),mode);
+            return true;
+        }
+    }
+    const double p=a*b;
+    if (!std::isnormal(p)||std::fabs(p)<certified_floor)return false;
+    const double s=p+c;
+    if (s!=r)return false;
+    const double e=__builtin_fma(a,b,-p)+two_sum_error(p,c,s);
+    result=adjusted(r,e,mode);
+    return true;
+}
+__attribute__((target("fma")))
+bool exact_pow_fma3(FloatDP::RoundingModeType mode,
+                    double x,Nat n,double& result) {
+    if (!(x>0.0)||!std::isfinite(x)||x<certified_floor||n>16u)return false;
+    double p=x,r=1.0;
+    bool first_factor=true;
+    while(n!=0u) {
+        if ((n&1u)!=0u) {
+            if (first_factor) { r=p; first_factor=false; }
+            else if (!exact_mul_fma3(mode,r,p,r)) { return false; }
+        }
+        n/=2u;
+        if (n!=0u && !exact_mul_fma3(mode,p,p,p)) { return false; }
+    }
+    result=r;
+    return true;
+}
+bool cpu_has_fma3() {
+#if defined(__FMA__)
+    return true;
+#else
+    static const bool available=__builtin_cpu_supports("fma");
+    return available;
+#endif
+}
+#endif
+
+bool exact_mul_dispatch(FloatDP::RoundingModeType mode,
+                        double a,double b,double& result) {
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    if (cpu_has_fma3()) return exact_mul_fma3(mode,a,b,result);
+#endif
+    return exact_mul(mode,a,b,result);
+}
+bool exact_div_dispatch(FloatDP::RoundingModeType mode,
+                        double a,double b,double& result) {
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    if (cpu_has_fma3()) return exact_div_fma3(mode,a,b,result);
+#endif
+    return exact_div(mode,a,b,result);
+}
+bool exact_fma_dispatch(FloatDP::RoundingModeType mode,
+                        double a,double b,double c,double& result) {
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    if (cpu_has_fma3()) return exact_fma_fma3(mode,a,b,c,result);
+#endif
+    return exact_fma(mode,a,b,c,result);
+}
+bool exact_pow_dispatch(FloatDP::RoundingModeType mode,
+                        double a,Nat n,double& result) {
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    if (cpu_has_fma3()) return exact_pow_fma3(mode,a,n,result);
+#endif
+    return exact_pow(mode,a,n,result);
+}
+
 } // namespace
 
 FloatDP FloatDP::_certified_add(RoundingModeType mode,FloatDP a,FloatDP b) {
@@ -176,17 +280,17 @@ FloatDP FloatDP::_certified_sub(RoundingModeType mode,FloatDP a,FloatDP b) {
 }
 FloatDP FloatDP::_certified_mul(RoundingModeType mode,FloatDP a,FloatDP b) {
     double r;
-    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_mul(mode,a.dbl,b.dbl,r))return FloatDP(r);
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_mul_dispatch(mode,a.dbl,b.dbl,r))return FloatDP(r);
     return _apply_rnd(&mul_rnd,mode,a,b);
 }
 FloatDP FloatDP::_certified_div(RoundingModeType mode,FloatDP a,FloatDP b) {
     double r;
-    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_div(mode,a.dbl,b.dbl,r))return FloatDP(r);
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_div_dispatch(mode,a.dbl,b.dbl,r))return FloatDP(r);
     return _apply_rnd(&div_rnd,mode,a,b);
 }
 FloatDP FloatDP::_certified_fma(RoundingModeType mode,FloatDP a,FloatDP b,FloatDP c) {
     double r;
-    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_fma(mode,a.dbl,b.dbl,c.dbl,r))return FloatDP(r);
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_fma_dispatch(mode,a.dbl,b.dbl,c.dbl,r))return FloatDP(r);
     return _apply_rnd(&fma_rnd,mode,a,b,c);
 }
 FloatDP FloatDP::_certified_sqrt(RoundingModeType mode,FloatDP a) {
@@ -196,7 +300,7 @@ FloatDP FloatDP::_certified_sqrt(RoundingModeType mode,FloatDP a) {
 }
 FloatDP FloatDP::_certified_pow(RoundingModeType mode,FloatDP a,Nat n) {
     double r;
-    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_pow(mode,a.dbl,n,r))return FloatDP(r);
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_pow_dispatch(mode,a.dbl,n,r))return FloatDP(r);
     return _apply_rnd((double(*)(double,unsigned int))&pow_rnd,mode,a,n);
 }
 

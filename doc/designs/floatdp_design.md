@@ -1123,3 +1123,77 @@ arithmetic, also checking ambient-mode restoration. Preserve all
 existing oracles and every benchmark input, operation and timing
 setting. Require complete Unix, Windows, Coverage and Sanitizers
 CI followed by same-host 20,000x31 user benchmark measurements.
+
+
+## D11 — runtime-selected native FMA3 kernels on x86-64 (29 October 2026)
+
+**Post-D10 measurements from user (ns, 20,000 iterations / 31 samples).**
+The directed FloatDP operations remain more expensive on x86-64
+than their corresponding nearest operations. At 53 bits:
+
+| operation | nearest | down | up |
+| --- | ---: | ---: | ---: |
+| mul | 4.862 | 10.828 | 10.523 |
+| div | 4.909 | 15.050 | 10.680 |
+| fma | 6.835 | 14.536 | 14.605 |
+| pow7 | 6.161 | 18.043 | 19.379 |
+
+These are x86-64 measurements; the ARM64 profile is not a paired
+same-machine baseline. The remaining directed overhead cannot be
+ascribed to the numerical operation alone: D7-D10's certified
+residual approach calls `std::fma` one or more times per operation.
+
+**Verified x86-64 code-generation bottleneck.** An isolated
+GCC/Clang compilation at `-O3 -frounding-math -fno-fast-math
+-ffp-contract=off` with generic x86-64 target emitted
+`call fma@PLT` for `std::fma`, rather than a fused FMA3
+instruction. A function marked `__attribute__((target("fma")))`
+and using `__builtin_fma` instead emitted a native scalar
+`vfmadd*sd` instruction. Merely wrapping the individual
+`std::fma` calls with an architecture dispatcher was not
+consistently faster; call overhead needs to be amortized.
+
+**Implementation.** Keep the four original portable certified
+kernels and fallback rounding sessions completely intact.
+On GNU/Clang x86-64 only, add individually FMA3-targeted copies
+of the complete `mul`, `div`, `fma` and bounded `pow`
+kernels. They retain all numerical gates, residual signs,
+adjacent-ULP adjustments, D8 Sterbenz certification, exact
+fallback conditions and D10 repeated-squaring order; only their
+`std::fma` primitives change to `__builtin_fma`.
+A cached `__builtin_cpu_supports("fma")` check selects the
+FMA3 version once per public operation; for a build already
+compiled with `__FMA__`, no runtime detection is necessary.
+On x86 systems without FMA3, and on ARM64, MSVC or other
+targets, the original portable path is retained. No project-wide
+`-mfma` option or minimum CPU requirement is introduced.
+The benchmark, input generator and its timing procedure are
+untouched. This change does not target FloatMP.
+
+**Independent checks before integration.** A standalone
+strict-floating-point C++20 differential executable compiled
+on x86-64 under GCC and Clang, with `-Wshadow -Werror`,
+compared the original kernels against their native-FMA3
+counterparts for 1,500,000 generated operand triples in both
+directions per compiler. There were zero differences in
+accepted/fallback outcomes or the exact bits of accepted
+results for all four kernels. A separate check compared direct
+FMA3 and libc `std::fma` on 800,000 inputs under each of four
+ambient rounding modes per compiler: zero differing results.
+An isolated 32-input 20,000-iteration microbenchmark of
+complete operation kernels gave local improvements of
+approximately 1.3-1.7x for mul/div/fma and 1.6-2.4x for pow7
+(depending on compiler/direction). These are **not** user-host
+or integrated Numeric performance measurements.
+
+**Integrated regression/acceptance.** Extend the D10 exact
+benchmark-input regression to exercise the original 32
+`FloatDP` operand pairs for `mul`, `div` and `fma`
+alongside `pow7`, each compared bit-for-bit against the
+`CurrentRoundingMode` hardware path with ambient mode
+restoration checks. Preserve existing 20 CTests, original
+oracle expectations and the x86-64 non-FMA3 fallback.
+Require all Unix/Windows/Coverage/Sanitizers workflows to
+pass, and compare unchanged 53-bit 20,000x31 benchmark
+medians on the user's x86-64 and ARM64 hardware before
+attributing real speedups.
