@@ -770,10 +770,11 @@ TestFloatRounding<PR>::test_precision_regressions()
                     ARIADNE_TEST_EQUALS(zero_result,
                         negative_input ? upper_result : lower_result);
                     const Rational midpoint=(lower_exact+upper_exact)/Rational(2);
-                    if (exact<midpoint)
+                    if (exact<midpoint) {
                         ARIADNE_TEST_EQUALS(nearest_result,lower_result);
-                    else if (exact>midpoint)
+                    } else if (exact>midpoint) {
                         ARIADNE_TEST_EQUALS(nearest_result,upper_result);
+                    }
                 }
             }
         }
