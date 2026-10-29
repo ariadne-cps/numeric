@@ -1776,6 +1776,12 @@ void test_checked_precision_arithmetic() {
     ARIADNE_TEST_ASSERT(Detail::unsigned_fits<unsigned long>(std::uint8_t(255u)));
     const auto check_product_bounds=[&]<class CountType>() {
         const auto limit=std::numeric_limits<CountType>::max();
+        ARIADNE_TEST_EQUALS(Detail::compare_unsigned_sum(limit,CountType{1u},limit),1);
+        ARIADNE_TEST_EQUALS(Detail::compare_unsigned_sum(limit,CountType{0u},limit),0);
+        ARIADNE_TEST_EQUALS(Detail::compare_unsigned_sum(CountType{0u},limit,limit),0);
+        ARIADNE_TEST_EQUALS(Detail::compare_unsigned_sum(CountType{0u},CountType{0u},limit),-1);
+        ARIADNE_TEST_EQUALS(Detail::compare_unsigned_sum(limit,CountType{0u},CountType{0u}),1);
+
         ARIADNE_TEST_EQUALS(Detail::checked_unsigned_multiply(limit,CountType{0u},message),CountType{0u});
         ARIADNE_TEST_EQUALS(Detail::checked_unsigned_multiply(CountType{0u},limit,message),CountType{0u});
         ARIADNE_TEST_EQUALS(Detail::checked_unsigned_multiply(limit,CountType{1u},message),limit);

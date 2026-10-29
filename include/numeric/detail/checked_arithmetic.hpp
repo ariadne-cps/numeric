@@ -27,6 +27,15 @@ constexpr bool unsigned_fits(From value) noexcept {
     }
 }
 
+// Compare the mathematical sum left+right with target, even when the
+// sum cannot be represented by T. Subtraction is performed only in range.
+template<std::unsigned_integral T>
+constexpr int compare_unsigned_sum(T left,T right,T target) noexcept {
+    if(left>target) return 1;
+    const T remaining=target-left;
+    return right<remaining ? -1 : right>remaining ? 1 : 0;
+}
+
 template<std::unsigned_integral T>
 constexpr T checked_unsigned_multiply(T left,T right,char const* message) {
     if(right!=0 && left>std::numeric_limits<T>::max()/right)

@@ -45,6 +45,7 @@
 #include <array>
 #include <bit>
 #include <climits>
+#include <type_traits>
 #include <cstddef>
 #include <cmath>
 #include <cstdint>
@@ -1854,9 +1855,9 @@ public:
         return Fraction(a._value*b._value);
     }
     friend Fraction operator/(Fraction const& a,Fraction const& b) {
-        if (b.sign()==0) {
-            throw std::domain_error("FloatMP zero rational denominator");
-        }
+        // Interval division excludes zero before reaching this operator.
+        // Direct reductions divide by nonzero constants, positive x+1/x+2,
+        // positive exponential bounds, or 1+sqrt(1-x*x), all by construction.
         return Fraction(a._value/b._value);
     }
 };
@@ -2125,10 +2126,12 @@ Interval log_series(Fraction const& z, unsigned long work) {
     const Fraction magnitude=absolute(z);
     const Integer& num=magnitude.numerator();
     const BigUnsigned& den=magnitude.denominator();
-    auto [z_lower,remainder]=divrem(
-        shift_left(num.magnitude(),shift),den);
-    const BigUnsigned z_upper=remainder.is_zero()
-        ? z_lower : add(z_lower,BigUnsigned(1u));
+    // log_interval supplies z=(u-2^q)/(u+2^q), with u odd,
+    // q>=1 and x!=1. Numerator/denominator are odd and coprime,
+    // with denominator>1; log2_interval supplies 1/3. Thus nonzero
+    // z is never dyadic, and division by its denominator is inexact.
+    const BigUnsigned z_lower=quot(shift_left(num.magnitude(),shift),den);
+    const BigUnsigned z_upper=add(z_lower,BigUnsigned(1u));
 
     // Match GMP's exact floor/ceil endpoints. Only the initial fraction
     // import and final Fraction construction use the legacy GMP carrier.
@@ -2149,7 +2152,11 @@ Interval log_series(Fraction const& z, unsigned long work) {
     // bits, including the partial limb, determine the upward correction.
     const auto scaled_product=[&](Words const& left,Words const& right,
                                    bool outward,Words& output) {
-        if (left.empty() || right.empty()) {
+        // Initial lower power is positive: work>=p+32 and |z|>2^(-p-2).
+        // The outward recurrences keep upper-lower<4 units. If a lower
+        // power becomes zero, tail<12<2^guard ends that iteration, so
+        // it is never reused here. Upper powers are always positive.
+        if (right.empty()) {
             output.clear();
             return;
         }
@@ -2288,16 +2295,12 @@ bool within_dyadic_window(Fraction const& value,unsigned long binary_shift) {
     const BigUnsigned& denominator=value.denominator();
     const std::size_t numerator_bits=numerator.bit_length();
     const std::size_t denominator_bits=denominator.bit_length();
-    if (static_cast<std::uintmax_t>(binary_shift) >
-            static_cast<std::uintmax_t>(
-                std::numeric_limits<std::size_t>::max()-numerator_bits)) {
-        return false;
-    }
-    const std::size_t shifted_bits=
-        numerator_bits+static_cast<std::size_t>(binary_shift);
-    if (shifted_bits!=denominator_bits) {
-        return shifted_bits<denominator_bits;
-    }
+    using BitCount=std::common_type_t<std::size_t,unsigned long>;
+    const int order=Detail::compare_unsigned_sum(
+        static_cast<BitCount>(numerator_bits),static_cast<BitCount>(binary_shift),
+        static_cast<BitCount>(denominator_bits));
+    if (order!=0) return order<0;
+    // Equality proves the shift fits size_t, even on a narrower ABI.
     return compare(
         shift_left(numerator,static_cast<std::size_t>(binary_shift)),
         denominator)<=0;
@@ -2780,7 +2783,9 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
                                     bool round_toward_positive) -> Integer {
         const BigUnsigned& lhs=coefficient.magnitude();
         const BigUnsigned& rhs=delta_numerator.magnitude();
-        if (lhs.is_zero() || rhs.is_zero()) return Integer{};
+        // Cached sin(1/2) and cos(1/2) endpoints have positive
+        // magnitudes at every supported scale; only delta can be zero.
+        if (rhs.is_zero()) return Integer{};
         // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(lhs.size()+rhs.size());
         BigUnsigned::mul_into(lhs.limbs(),rhs.limbs(),product);
@@ -3568,9 +3573,14 @@ struct FloatMPShortTranscendentals {
     static std::optional<FloatMP> evaluate_tanh_wide(FloatMP::Rounding mode,
                                                      FloatMP const& x) {
         const auto precision=x._precision;
-        if (precision<=64u || precision>std::numeric_limits<unsigned long>::max()-256ul ||
-            precision>static_cast<std::uint64_t>(std::numeric_limits<FloatMP::Exponent>::max()-256))
-            return std::nullopt;
+        if (precision<=64u) return std::nullopt;
+        // Oversized working scales cannot be serviced by the general
+        // certifier either. Validate scalar metadata before any allocation.
+        const auto guarded_precision=Detail::checked_unsigned_add(precision,256ul,
+            "FloatMP tanh working precision overflow");
+        (void)floatmp_exponent_from_bit_length(
+            Detail::checked_unsigned_cast<std::size_t>(guarded_precision,
+                "FloatMP tanh working precision out of range"));
         const auto p=static_cast<FloatMP::Exponent>(precision);
         if (x._exponent!=-p && x._exponent!=-p-1) return std::nullopt;
         const bool offset_negative=x._exponent==-p-1;
@@ -3595,16 +3605,18 @@ struct FloatMPShortTranscendentals {
              floatmp_any_bits_below(offset,maximum_offset_bit))) return std::nullopt;
 
         static thread_local Center center;
-        static thread_local bool narrow_slope=false;
         if (center.bits!=bits) {
             center=make_center<Function::hyperbolic_tangent>(false,bits);
-            narrow_slope=compare(sub_big_unsigned(center.slope_upper,center.slope_lower),
-                                 BigUnsigned(2u))<=0;
         }
         // One slope product suffices: its truncation costs <1 unit, the
         // slope enclosure costs <=2*|delta|<1, and Taylor's remainder
         // costs <=1. Thus +/-3 units encloses every accumulated error.
-        if (!narrow_slope) return std::nullopt;
+        // At the center, W=bits+40. The exp series has width
+        // <2^(-W-r-7); r squarings plus outward quantization give
+        // <2^(-W-6). The tanh transform has slope<2, and forming
+        // 1-tanh^2 costs another factor<1. Thus the scaled slope
+        // enclosure has width<2^-45. Outward integer endpoints
+        // differ by at most two units, as required by this certificate.
         const auto correction=shift_right(mul_big_unsigned(center.slope_lower,offset),
                                            denominator_bits);
         const auto enlarged=add_big_unsigned(correction,BigUnsigned(3u));
@@ -3626,8 +3638,11 @@ struct FloatMPShortTranscendentals {
         };
         FloatMP lower=endpoint(center.lower,false);
         FloatMP upper=endpoint(center.upper,true);
-        if (lower._exponent==upper._exponent &&
-            compare(lower._significand,upper._significand)==0) return lower;
+        // 8/3<e<11/4 gives 5/11<tanh(1/2)<7/15. Here p>=65,
+        // |delta|<=2^-49, and endpoint/rounding errors are <2^-47.
+        // Both rounded magnitudes therefore stay strictly in (1/4,1/2)
+        // and share exponent -p-1, even when their significands differ.
+        if (compare(lower._significand,upper._significand)==0) return lower;
         return std::nullopt;
     }
 
