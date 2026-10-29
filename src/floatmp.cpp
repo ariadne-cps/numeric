@@ -3449,6 +3449,14 @@ struct FloatMPShortTranscendentals {
         return retained;
     }
 
+    // Both short and wide kernels certify exactly the same postcondition:
+    // every enclosed value rounds to one finite FloatMP. Use the shared
+    // exact comparison instead of duplicating representation-specific tests.
+    static std::optional<FloatMP> certified_endpoints(FloatMP lower,FloatMP const& upper) {
+        if (lower==upper) return lower;
+        return std::nullopt;
+    }
+
     static std::optional<FloatMP> evaluate(CenterFactory factory,FloatMP::Rounding mode,
                                            FloatMP const& x) {
         const auto precision=x._precision;
@@ -3495,9 +3503,7 @@ struct FloatMPShortTranscendentals {
         // Equal rounded magnitude endpoints certify both positive and
         // negative enclosures. An ambiguous result uses the existing Ziv
         // refinement, including all difficult halfway/directed cases.
-        if (lower._exponent==upper._exponent &&
-            lower._significand.limb(0u)==upper._significand.limb(0u)) return lower;
-        return std::nullopt;
+        return certified_endpoints(std::move(lower),upper);
     }
     static std::optional<FloatMP> evaluate_tanh_wide(FloatMP::Rounding mode,
                                                      FloatMP const& x) {
@@ -3571,8 +3577,7 @@ struct FloatMPShortTranscendentals {
         // |delta|<=2^-49, and endpoint/rounding errors are <2^-47.
         // Both rounded magnitudes therefore stay strictly in (1/4,1/2)
         // and share exponent -p-1, even when their significands differ.
-        if (compare(lower._significand,upper._significand)==0) return lower;
-        return std::nullopt;
+        return certified_endpoints(std::move(lower),upper);
     }
 
 };
