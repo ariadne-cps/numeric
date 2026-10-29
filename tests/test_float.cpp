@@ -1944,6 +1944,16 @@ void test_floatmp_ieee_conversion_boundaries() {
 void test_floatmp_public_edge_paths() {
     const MultiplePrecision precision(128_bits);
     const FloatMP one(1,precision);
+    // A short subnormal reaches the general binary64 converter while
+    // retaining every source bit: there are no discarded bits to round.
+    const FloatMP exact_subnormal(Dyadic(1,1023u),MultiplePrecision(2_bits));
+    for(auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                   FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+        RoundingSession<FloatMP> rounding_scope;
+        rounding_scope.set(mode);
+        ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(exact_subnormal.get_d()),
+                            std::uint64_t{0x0008000000000000});
+    }
     ARIADNE_TEST_ASSERT(ceil(one)==one);
     ARIADNE_TEST_ASSERT(round(FloatMP(Dyadic(9,3u),precision))==one);
     ARIADNE_TEST_ASSERT(abs(near,one)==one);

@@ -1400,9 +1400,9 @@ double FloatMP::get_d_general() const {
         if (mantissa == (std::uint64_t{1} << digits)) {
             mantissa >>= 1u;
             if (highest == largest) {
-                return signed_value(rounds_away() ?
-                                    std::numeric_limits<double>::infinity() :
-                                    std::numeric_limits<double>::max());
+                // A carry requires increment: nearest rounding, or a directed
+                // mode away from zero. All three overflow to signed infinity.
+                return signed_value(std::numeric_limits<double>::infinity());
             }
             return signed_value(std::ldexp(
                 static_cast<double>(mantissa),
@@ -1788,9 +1788,6 @@ public:
         // Reaching the end therefore found exactly one nonzero limb.
         return std::optional<std::size_t>(exponent);
     }
-    bool is_dyadic() const noexcept {
-        return dyadic_denominator_bits().has_value();
-    }
     FloatMP rounded(unsigned long bits,FloatMP::RoundingModeType mode) const {
         return FloatMP::from_ratio(numerator(),
             Integer::from_magnitude(denominator(),false),
@@ -1885,10 +1882,8 @@ Fraction rational_argument(FloatMP const& x) {
 // rounded recurrence without relying on unproved negligible errors.
 // For negative x take the reciprocal, reversing endpoints.
 Interval exp_series(Fraction const& x, unsigned long work) {
-    if (x.sign() == 0) {
-        return {Fraction(1L), Fraction(1L)};
-    }
-
+    // Only exp_interval calls this kernel: exp/tanh dispatch zero before
+    // exact argument reduction, and all cached centers are nonzero.
     const Fraction magnitude = absolute(x);
     const unsigned long max_terms = work / 2ul + 64ul;
     const unsigned long guard =
@@ -2556,10 +2551,8 @@ enum class TrigOutputs { sine, cosine, both };
 std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
                                                unsigned long work,
                                                TrigOutputs outputs) {
-    if (x.sign() == 0) {
-        return {point(Fraction{}), point(Fraction(1L))};
-    }
-
+    // Public sin/cos/tan dispatch zero before exact reduction. The other
+    // caller computes the nonzero half-angle center, so x is nonzero.
     const unsigned long max_terms = work / 2ul + 48ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(max_terms));
@@ -3148,33 +3141,10 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
         const Fraction half = Fraction(1L) / Fraction(2L);
         const Fraction delta = absolute(x) - half;
         if (sufficiently_near_half(delta, work)) {
-            // A FloatMP input is dyadic. Use a single cached integer
-            // scale and outward-directed native shifts instead of creating
-            // general rational intermediate products every time.
-            if (delta.is_dyadic()) {
-                return centered_trigonometric_dyadic(x, delta, work, outputs);
-            }
-            const auto checked_work=Detail::checked_unsigned_add(work,16ul,
-                "FloatMP centered trigonometric precision overflow");
-            const auto& [center_sine, center_cosine] =
-                half_trigonometric_intervals(checked_work);
-            const Fraction remainder = (delta * delta) / Fraction(2L);
-            Interval sine = point(Fraction{});
-            Interval cosine = point(Fraction{});
-
-            if (outputs != TrigOutputs::cosine) {
-                sine = add(center_sine, multiply_by_fraction(center_cosine, delta));
-                sine.lower = sine.lower - remainder;
-                sine.upper = sine.upper + remainder;
-                if (x.sign() < 0) sine = negative(sine);
-            }
-            if (outputs != TrigOutputs::sine) {
-                cosine = subtract(center_cosine,
-                                  multiply_by_fraction(center_sine, delta));
-                cosine.lower = cosine.lower - remainder;
-                cosine.upper = cosine.upper + remainder;
-            }
-            return {std::move(sine), std::move(cosine)};
+            // The sole entry is evaluate(sin/cos/tan, rational_argument(x)):
+            // FloatMP inputs are dyadic, and exact halving, abs and subtraction
+            // of 1/2 preserve that property. No general-rational path is needed.
+            return centered_trigonometric_dyadic(x,delta,work,outputs);
         }
     }
 
@@ -3246,7 +3216,7 @@ Interval asin_interval(Fraction const& x, unsigned long work) {
 // tanh(y)=(1-u)/(1+u), a decreasing function of u. Apply this
 // transform to exact outward exponential endpoints before final rounding.
 Interval tanh_interval(Fraction const& x,unsigned long work) {
-    if (x.sign()==0) return point(Fraction{});
+    // Public tanh dispatches zero first; the cached center is exactly 1/2.
     const Fraction one(1L);
     const Interval exponential=exp_interval(Fraction(-2L)*absolute(x),work);
     const Interval positive{
