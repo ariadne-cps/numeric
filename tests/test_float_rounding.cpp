@@ -3033,7 +3033,7 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
         }
     }
     static const auto rows=load_floatmp_golden_rows(
-        ARIADNE_TEST_DATA_DIR "/floatmp_tanh.tsv",1180u);
+        ARIADNE_TEST_DATA_DIR "/floatmp_tanh.tsv",1204u);
     for (auto const& [key,expected]:rows) {
         if constexpr (Same<PR,DoublePrecision>) { if(key.bits!=53u) continue; }
         const auto pr=[&]() {

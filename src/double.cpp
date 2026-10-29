@@ -40,6 +40,7 @@
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/big_unsigned.hpp"
+#include "numeric/detail/checked_arithmetic.hpp"
 #include "numeric/rounding.hpp"
 #include "numeric/floatdp.hpp"
 
@@ -287,7 +288,7 @@ TanhFixedInterval tanh_fixed_interval(double x,std::size_t work)
     const double fraction=std::frexp(x,&exponent);
     const auto significand=static_cast<BigUnsigned::Limb>(std::ldexp(fraction,53));
     // x is in [2^-28,20), hence -27<=exponent<=5. The caller starts
-    // work at 128 and only increases it; unsigned subtraction is exact.
+    // work at 96 and only increases it; unsigned subtraction is exact.
     const std::size_t shift=work-static_cast<std::size_t>(60-exponent);
 
     const BigUnsigned one=shift_left(BigUnsigned(1u),work);
@@ -333,7 +334,7 @@ double tanh_round_fixed_positive(BigUnsigned const& value,std::size_t work,
     // fixed-point squares is at least 1+twice the previous increment.
     // Hence the lower tanh endpoint is at least floor(2^work*x/(1+x)),
     // which is >=2^(work-29) for x>=2^-28. Both endpoints therefore have
-    // at least work-28>=100 bits; zero, short and unshifted cases cannot
+    // at least work-28>=68 bits; zero, short and unshifted cases cannot
     // reach this private normal-binary64 converter.
     const std::size_t width=value.bit_length();
     const std::size_t shift=width-53u;
@@ -374,13 +375,13 @@ double tanh_positive_rnd(double x,rounding_mode_t mode)
 
     // Ziv refinement: the exact value is accepted only when both rigorous
     // fixed-point endpoints round to the same binary64 result.
-    for(std::size_t work=128u;;work+=64u) {
+    for(std::size_t work=96u;;) {
         const auto enclosure=tanh_fixed_interval(x,work);
         const double lower=tanh_round_fixed_positive(enclosure.lower,work,mode);
         const double upper=tanh_round_fixed_positive(enclosure.upper,work,mode);
         if(lower==upper) return lower;
-        if(work>std::numeric_limits<std::size_t>::max()-64u)
-            throw std::overflow_error("tanh certified precision overflow");
+        work=Detail::checked_unsigned_add(work,std::size_t{64u},
+            "tanh certified precision overflow");
     }
 }
 
