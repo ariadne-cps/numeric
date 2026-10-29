@@ -74,6 +74,14 @@ void TestRoundingMode::test() const {
     ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_UPWARD);
     set_builtin_rounding_toward_zero();
     ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_TOWARD_ZERO);
+
+    // The generic setter must also apply each mode, not silently ignore it
+    // on architectures without the x86/SSE control register.
+    for (auto mode : {ROUND_TO_NEAREST, ROUND_DOWNWARD,
+                      ROUND_UPWARD, ROUND_TOWARD_ZERO}) {
+        set_builtin_rounding_mode(mode);
+        ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),mode);
+    }
     set_builtin_rounding_mode(original_rounding);
 
     ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(downward),ROUND_DOWNWARD);

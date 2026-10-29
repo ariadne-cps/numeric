@@ -35,6 +35,9 @@
 
 #if defined _MSC_VER && defined _M_X64
     #define ARIADNE_SSE_ROUNDING
+#elif defined _MSC_VER && defined _M_ARM64
+    // ARM64 has no SSE; use the supported C floating-point environment.
+    #define ARIADNE_C99_ROUNDING
 #elif defined __GNUC__ && ( defined __i386__ || defined __x86_64 || defined _M_IX86 || defined _M_X86 || defined __arm__ || defined __aarch64__ )
     #if ( defined __SSE_MATH__ &&  defined __SSE2__ )
         #define ARIADNE_SSE_ROUNDING
