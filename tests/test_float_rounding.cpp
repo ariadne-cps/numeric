@@ -198,7 +198,7 @@ Rational const& floatmp_log_golden(std::size_t bits,
                                    FloatMP::RoundingModeType mode,
                                    Rational const& input) {
     static const auto rows=load_floatmp_golden_rows(
-        ARIADNE_FLOATMP_LOG_ORACLE_PATH,444u);
+        ARIADNE_FLOATMP_LOG_ORACLE_PATH,452u);
     return find_floatmp_golden(rows,bits,mode,input);
 }
  
@@ -1983,6 +1983,19 @@ TestFloatRounding<PR>::test_precision_regressions()
             // cached log(2) enclosures and all directed rounding modes
             // against independently certified original-input golden values.
             FloatMPPhaseTiming timing_log_boundaries("log_boundaries",precision.bits());
+            {
+                const MultiplePrecision cancellation_precision(128_bits);
+                const Rational epsilon(Dyadic(1,98u));
+                for(const auto& input:{Rational(1)-epsilon,Rational(1)+epsilon}) {
+                    const FloatMP value(input,near,cancellation_precision);
+                    for(auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                                   FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+                        ARIADNE_TEST_EQUALS(static_cast<Rational>(log(mode,value)),
+                                            floatmp_log_golden(128u,mode,input));
+                    }
+                }
+            }
+
             for (Bits bits : {53_bits,128_bits,256_bits,1024_bits}) {
                 const MultiplePrecision mp(bits);
                 const Rational epsilon(Dyadic(1,40u));
@@ -3063,7 +3076,7 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
         };
         verify(ARIADNE_FLOATMP_CENTERED_EXP_ORACLE_PATH,568u,
             [](auto mode,FloatDP value) { return exp(mode,value); },false);
-        verify(ARIADNE_FLOATMP_LOG_ORACLE_PATH,444u,
+        verify(ARIADNE_FLOATMP_LOG_ORACLE_PATH,452u,
             [](auto mode,FloatDP value) { return log(mode,value); },false);
         verify(ARIADNE_FLOATMP_SIN_ORACLE_PATH,1080u,
             [](auto mode,FloatDP value) { return sin(mode,value); },true);

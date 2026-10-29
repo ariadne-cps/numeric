@@ -235,7 +235,12 @@ std::string generate(){
             n=n.shr(cancel);d=d.shr(cancel);
             append(p,{std::move(n),std::move(d),false});
         }
-    if(count!=444u)throw std::runtime_error("unexpected log oracle row count: "+std::to_string(count));
+    // The upward fixed-point log coefficient becomes exactly 2^99
+    // at p=128 for 1+2^-98; its square has no discarded bits.
+    const Nat cancellation_denominator=Nat::power2(98u);
+    append(128u,{Nat::add(cancellation_denominator,Nat(1u)),cancellation_denominator,false});
+    append(128u,{Nat::sub(cancellation_denominator,Nat(1u)),cancellation_denominator,false});
+    if(count!=452u)throw std::runtime_error("unexpected log oracle row count: "+std::to_string(count));
     return out;
 }
 std::string generate_native(){

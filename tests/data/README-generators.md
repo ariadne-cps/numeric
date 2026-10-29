@@ -161,7 +161,7 @@ review every diff before committing. No sampling is used.
 | `generator_floatmp_pow_short.cpp` | `floatmp_pow_short.tsv` | 3,680 exact boundary-focused integer powers, 5 precisions, 7 degrees, 4 directed modes |
 | `generator_rounded_float_directed.cpp` | `rounded_float_directed.tsv` | 24 rigorous 128-bit exp/log/atan directed pairs, 48 original strict bound comparisons |
 | `generator_floatmp_exp.cpp` | `floatmp_exp.tsv` | 320 certified, correctly rounded exp results across 20 signed inputs, 4 precisions and 4 rounding modes |
-| `generator_floatmp_log.cpp` | `floatmp_log.tsv`, `floatmp_log_native.tsv` | 444 certified logs plus 32 native exponent limit results at 53/128/256/1024 bits in all four modes |
+| `generator_floatmp_log.cpp` | `floatmp_log.tsv`, `floatmp_log_native.tsv` | 452 certified logs plus 32 native exponent limit results at 53/128/256/1024 bits in all four modes |
 | `generator_floatmp_sin_cos.cpp` | `floatmp_sin.tsv`, `floatmp_cos.tsv` | 1,080 exact source-keyed independently certified outputs each, across D91, D92, D95 original test families |
 | `generator_floatmp_centered_exp.cpp` | `floatmp_centered_exp.tsv` | 568 exact certified reference rows from all 720 original centered-exp visits |
 | `generator_floatmp_atan.cpp` | `floatmp_atan.tsv` | 1,340 certified atan references reproducing all original D87, D88, D89 lookup keys |
@@ -1344,3 +1344,8 @@ Their affine center corrections lie at a directed rounding boundary and
 near a nearest-even midpoint. These 16 rows exercise the genuine ambiguity
 fallback. Expected results use the same independent outward exp certificate
 at 2304 bits; the original 1164 rows are retained (1180 rows in total).
+
+Two additional exact logarithm sources `1-2^-98` and `1+2^-98`, at 128 bits
+in all four modes, exercise zero quantized lower coefficients and an exact
+upper coefficient square. The original 444 rows remain unchanged; the
+standard log fixture now has 452 rows, in addition to the 32 native limit rows.

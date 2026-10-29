@@ -898,7 +898,8 @@ InputStream& operator>>(InputStream& is, FloatMP& value) {
         const String mantissa = token.substr(0, exponent_start);
         bool has_digit = false;
         for (char digit : mantissa) {
-            if (digit >= '0' && digit <= '9') {
+            // Tokenization permits only digits, signs and '.' before e/E.
+            if (digit >= '0') {
                 has_digit = true;
                 break;
             }
@@ -1680,7 +1681,9 @@ FloatMP pow(FloatMP::RoundingModeType mode, FloatMP const& value, Nat exponent) 
                 BigUnsigned::mul_into(current,right,
                     BigUnsigned::MutableLimbView(buffer.data(),count));
                 auto used=count;
-                while (used!=0u && buffer[used-1u]==0u) --used;
+                // Both factors are nonzero and the full product fits the
+                // supplied span. Normalization stops at its leading limb.
+                while (buffer[used-1u]==0u) --used;
                 current=BigUnsigned::LimbView(buffer.data(),used);
                 use_first=!use_first;
             };
@@ -1871,6 +1874,22 @@ Fraction rational_argument(FloatMP const& x) {
     return Fraction(x);
 }
 
+// Canonical scratch words and exact comparisons with a power-of-two
+// stopping threshold are common to all fixed-point series.
+void normalize_fixed_words(std::vector<BigUnsigned::Limb>& digits) {
+    while (!digits.empty() && digits.back()==0u) digits.pop_back();
+}
+
+bool within_fixed_threshold(std::vector<BigUnsigned::Limb> const& digits,
+                            unsigned long guard) {
+    const auto word=static_cast<std::size_t>(guard/64ul);
+    if (digits.size()<=word) return true;
+    if (digits.size()>word+1u) return false;
+    const auto leading=BigUnsigned::Limb{1}<<static_cast<unsigned>(guard%64ul);
+    if (digits.back()!=leading) return digits.back()<leading;
+    return !BigUnsigned::any_bits_below(digits,static_cast<std::size_t>(guard));
+}
+
 // Accumulate a fixed-point series with shared exact limb kernels. The
 // caller proves sum>=addend for subtraction (alternating decreasing terms).
 // Inputs and scratch are disjoint; swapping retains both buffers' capacities.
@@ -1885,7 +1904,7 @@ void accumulate_fixed_terms(std::vector<BigUnsigned::Limb>& sum,
         scratch[count]=BigUnsigned::add_into(sum,addend,
             BigUnsigned::MutableLimbView(scratch.data(),count));
     }
-    while (!scratch.empty() && scratch.back()==0u) scratch.pop_back();
+    normalize_fixed_words(scratch);
     sum.swap(scratch);
 }
 
@@ -1930,18 +1949,8 @@ Interval exp_series(Fraction const& x, unsigned long work) {
     term[whole]=Limb{1}<<partial;
     Words sum_lower=term;
     Words product,shifted,next_term,next_sum;
-    const BigUnsigned threshold=shift_left(BigUnsigned(1u),
-                                           static_cast<std::size_t>(guard));
-    const auto trim=[](Words& value) {
-        while (!value.empty() && value.back()==0u) value.pop_back();
-    };
-    const auto below_threshold=[&](Words const& value) {
-        const auto bound=threshold.limbs();
-        if (value.size()!=bound.size()) return value.size()<bound.size();
-        for (std::size_t i=value.size();i!=0u;--i) {
-            if (value[i-1u]!=bound[i-1u]) return value[i-1u]<bound[i-1u];
-        }
-        return true;
+    const auto below_threshold=[&](Words const& digits) {
+        return within_fixed_threshold(digits,guard);
     };
 
     // t_n<=Q/(2^n*n!)<=Q/2^(2n-1), since n!>=2^(n-1).
@@ -1958,7 +1967,7 @@ Interval exp_series(Fraction const& x, unsigned long work) {
             // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
             product.resize(term.size()+argument.size());
             BigUnsigned::mul_into(term,argument.limbs(),product);
-            trim(product);
+            normalize_fixed_words(product);
         }
 
         shifted.resize(BigUnsigned::shift_right_output_limbs(product.size(),fixed_shift));
@@ -1967,7 +1976,7 @@ Interval exp_series(Fraction const& x, unsigned long work) {
         next_term.resize(right_shifted.size());
         (void)BigUnsigned::divrem_limb_into(
             right_shifted,static_cast<Limb>(n),next_term);
-        trim(next_term);
+        normalize_fixed_words(next_term);
         term.swap(next_term);
 
         const std::size_t count=std::max(sum_lower.size(),term.size());
@@ -1975,7 +1984,7 @@ Interval exp_series(Fraction const& x, unsigned long work) {
         const Limb carry=BigUnsigned::add_into(
             sum_lower,term,BigUnsigned::MutableLimbView(next_sum.data(),count));
         next_sum[count]=carry;
-        trim(next_sum);
+        normalize_fixed_words(next_sum);
         sum_lower.swap(next_sum);
 
         if (below_threshold(term)) {
@@ -2048,14 +2057,10 @@ Interval exp_interval(Fraction x, unsigned long work) {
     Words lower=to_scaled(interval.lower,false);
     Words upper=to_scaled(interval.upper,true);
     Words product,next_lower,next_upper;
-    const auto trim=[](Words& digits) {
-        while (!digits.empty() && digits.back()==0u) digits.pop_back();
-    };
-    const auto increment=[](Words& digits) {
-        for (std::size_t i=0u;i<digits.size();++i) {
-            if (++digits[i]!=0u) return;
-        }
-        digits.push_back(Limb{1});
+    Words increment_scratch;
+    const auto increment=[&](Words& digits) {
+        const BigUnsigned::Limb one=1u;
+        accumulate_fixed_terms(digits,BigUnsigned::LimbView(&one,1u),false,increment_scratch);
     };
 
     // floor(y*y/2^B) or ceil(y*y/2^B) as required. The discarded
@@ -2069,7 +2074,7 @@ Interval exp_interval(Fraction x, unsigned long work) {
         // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(2u*value.size());
         BigUnsigned::mul_into(value,value,product);
-        trim(product);
+        normalize_fixed_words(product);
 
         const bool discarded=round_upward &&
             BigUnsigned::any_bits_below(product,shift);
@@ -2133,18 +2138,10 @@ Interval log_series(Fraction const& z, unsigned long work) {
     Words power_hi(z_upper.limbs().begin(),z_upper.limbs().end());
     Words square_lo,square_hi,sum_lo,sum_hi;
     Words product,next_power,quotient,tail;
-    const BigUnsigned threshold=shift_left(BigUnsigned(1u),
-                                            static_cast<std::size_t>(guard));
-    const auto trim=[](Words& v) {
-        while (!v.empty() && v.back()==0u) v.pop_back();
-    };
-    const auto increment=[](Words& v) {
-        std::size_t index=0u;
-        while (index<v.size()) {
-            if (++v[index]!=0u) return;
-            ++index;
-        }
-        v.push_back(Limb{1});
+    Words increment_scratch;
+    const auto increment=[&](Words& digits) {
+        const BigUnsigned::Limb one=1u;
+        accumulate_fixed_terms(digits,BigUnsigned::LimbView(&one,1u),false,increment_scratch);
     };
 
     // Given a,b >= 0, compute floor(a*b/2^B), or ceil when outward=true.
@@ -2159,7 +2156,7 @@ Interval log_series(Fraction const& z, unsigned long work) {
         // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(left.size()+right.size());
         BigUnsigned::mul_into(left,right,product);
-        trim(product);
+        normalize_fixed_words(product);
 
         const bool discarded=outward &&
             BigUnsigned::any_bits_below(product,shift);
@@ -2173,13 +2170,8 @@ Interval log_series(Fraction const& z, unsigned long work) {
     const auto accumulate=[&](Words& sum,Words const& addend) {
         accumulate_fixed_terms(sum,addend,false,next_sum);
     };
-    const auto within_threshold=[&](Words const& value) {
-        const auto bound=threshold.limbs();
-        if (value.size()!=bound.size()) return value.size()<bound.size();
-        for (std::size_t i=value.size();i!=0u;--i) {
-            if (value[i-1u]!=bound[i-1u]) return value[i-1u]<bound[i-1u];
-        }
-        return true;
+    const auto within_threshold=[&](Words const& digits) {
+        return within_fixed_threshold(digits,guard);
     };
 
     scaled_product(power_lo,power_lo,false,square_lo);
@@ -2195,13 +2187,13 @@ Interval log_series(Fraction const& z, unsigned long work) {
         const Limb divisor=static_cast<Limb>(2ul*n+1ul);
         quotient.resize(power_lo.size());
         (void)BigUnsigned::divrem_limb_into(power_lo,divisor,quotient);
-        trim(quotient);
+        normalize_fixed_words(quotient);
         accumulate(sum_lo,quotient);
 
         quotient.resize(power_hi.size());
         const Limb upper_remainder=
             BigUnsigned::divrem_limb_into(power_hi,divisor,quotient);
-        trim(quotient);
+        normalize_fixed_words(quotient);
         if (upper_remainder!=0u) increment(quotient);
         accumulate(sum_hi,quotient);
 
@@ -2215,7 +2207,7 @@ Interval log_series(Fraction const& z, unsigned long work) {
         const Limb three=3u;
         tail.resize(power_hi.size()+1u);
         BigUnsigned::mul_into(power_hi,BigUnsigned::LimbView(&three,1u),tail);
-        trim(tail);
+        normalize_fixed_words(tail);
         if (within_threshold(tail)) {
             break;
         }
@@ -2576,18 +2568,8 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         shift_left(numerator.magnitude(),shift),denominator);
 
     Words square,term,sum,product,next_term,quotient;
-    const BigUnsigned threshold=shift_left(BigUnsigned(1u),
-                                            static_cast<std::size_t>(guard));
-    const auto trim=[](Words& value) {
-        while (!value.empty() && value.back()==0u) value.pop_back();
-    };
-    const auto within_threshold=[&](Words const& value) {
-        const auto bound=threshold.limbs();
-        if (value.size()!=bound.size()) return value.size()<bound.size();
-        for (std::size_t i=value.size();i!=0u;--i) {
-            if (value[i-1u]!=bound[i-1u]) return value[i-1u]<bound[i-1u];
-        }
-        return true;
+    const auto within_threshold=[&](Words const& digits) {
+        return within_fixed_threshold(digits,guard);
     };
 
     // Before subtracting t_(2k+1), sum is nonnegative term pairs plus
@@ -2608,7 +2590,7 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(left.size()+right.size());
         BigUnsigned::mul_into(left,right,product);
-        trim(product);
+        normalize_fixed_words(product);
         output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
         output.resize(BigUnsigned::shift_right_into(product,shift,output));
     };
@@ -2642,7 +2624,7 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
             scaled_product(term,square,next_term);
             quotient.resize(next_term.size());
             (void)BigUnsigned::divrem_limb_into(next_term,divisor,quotient);
-            trim(quotient);
+            normalize_fixed_words(quotient);
             term.swap(quotient);
 
             if (within_threshold(term)) {
@@ -2786,11 +2768,10 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
     using Limb=BigUnsigned::Limb;
     using Words=std::vector<Limb>;
     Words product,scaled;
-    const auto increment=[](Words& digits) {
-        for (std::size_t i=0u;i<digits.size();++i) {
-            if (++digits[i]!=0u) return;
-        }
-        digits.push_back(Limb{1});
+    Words increment_scratch;
+    const auto increment=[&](Words& digits) {
+        const BigUnsigned::Limb one=1u;
+        accumulate_fixed_terms(digits,BigUnsigned::LimbView(&one,1u),false,increment_scratch);
     };
     // floor or ceil of coefficient*n / 2^k. There are only two
     // products per requested function. Both share the same scratch;
@@ -2890,11 +2871,6 @@ Interval small_atan(Fraction const& x, unsigned long work) {
 
     Words power(argument.limbs().begin(),argument.limbs().end());
     Words sum,square,term,product,next_power;
-    const BigUnsigned limit=shift_left(BigUnsigned(1u),
-                                       static_cast<std::size_t>(guard));
-    const auto trim=[](Words& digits) {
-        while (!digits.empty() && digits.back()==0u) digits.pop_back();
-    };
 
     // All Taylor powers are nonnegative. Output and product retain their
     // capacity across terms; no owning BigUnsigned is made in the loop.
@@ -2907,7 +2883,7 @@ Interval small_atan(Fraction const& x, unsigned long work) {
         // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
         product.resize(left.size()+right.size());
         BigUnsigned::mul_into(left,right,product);
-        trim(product);
+        normalize_fixed_words(product);
         output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
         output.resize(BigUnsigned::shift_right_into(product,shift,output));
     };
@@ -2920,12 +2896,7 @@ Interval small_atan(Fraction const& x, unsigned long work) {
         accumulate_fixed_terms(sum,addend,subtract,next_sum);
     };
     const auto under_limit=[&](Words const& digits) {
-        const auto bound=limit.limbs();
-        if (digits.size()!=bound.size()) return digits.size()<bound.size();
-        for (std::size_t i=digits.size();i!=0u;--i) {
-            if (digits[i-1u]!=bound[i-1u]) return digits[i-1u]<bound[i-1u];
-        }
-        return true;
+        return within_fixed_threshold(digits,guard);
     };
 
     // Q=2^B, a=floor(Q*|x|), b=floor(a*a/Q), then
@@ -2940,7 +2911,7 @@ Interval small_atan(Fraction const& x, unsigned long work) {
         const Limb divisor=static_cast<Limb>(2ul*n+1ul);
         term.resize(power.size());
         (void)BigUnsigned::divrem_limb_into(power,divisor,term);
-        trim(term);
+        normalize_fixed_words(term);
         accumulate(term,n%2ul!=0ul);
 
         scaled_product(power,square,next_power);
