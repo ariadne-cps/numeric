@@ -3587,6 +3587,101 @@ struct FloatMPShortTranscendentals {
             : static_cast<std::int64_t>(lo))-static_cast<std::int64_t>(center.error);
         const std::int64_t upper_offset=(subtract ? -static_cast<std::int64_t>(lo)
             : static_cast<std::int64_t>(hi))+static_cast<std::int64_t>(center.error);
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+        // D148: with p in [53,64], cached positive endpoints occupy at
+        // most 128 bits. Certify the two rounded scalar words before
+        // creating an owned FloatMP; the portable original path remains
+        // below for wider or otherwise unsupported magnitudes.
+        if (precision>=53u && center.lower.size()>0u &&
+            center.upper.size()>0u && center.lower.size()<=2u &&
+            center.upper.size()<=2u) {
+            __extension__ using Wide=unsigned __int128;
+            const auto native=[&](BigUnsigned const& value) -> Wide {
+                const Wide high=value.size()==2u ? value.limb(1u) : 0u;
+                return (high<<64u)|value.limb(0u);
+            };
+            Wide low_value=native(center.lower);
+            Wide high_value=native(center.upper);
+            const auto adjust=[](Wide& value,std::int64_t displacement) {
+                const Wide magnitude=displacement<0
+                    ? static_cast<std::uint64_t>(-(displacement+1))+1u
+                    : static_cast<std::uint64_t>(displacement);
+                if (displacement<0) {
+                    if (value<magnitude) return false;
+                    value-=magnitude;
+                } else {
+                    if (value>(~Wide{0})-magnitude) return false;
+                    value+=magnitude;
+                }
+                return true;
+            };
+            if (adjust(low_value,lower_offset) &&
+                adjust(high_value,upper_offset)) {
+                const auto width=[](Wide value) {
+                    const auto high=static_cast<std::uint64_t>(value>>64u);
+                    if (high!=0u) return 128u-static_cast<unsigned>(std::countl_zero(high));
+                    return 64u-static_cast<unsigned>(
+                        std::countl_zero(static_cast<std::uint64_t>(value)));
+                };
+                const unsigned lower_width=width(low_value);
+                const unsigned upper_width=width(high_value);
+                // Short-centered constants are strictly nonzero and
+                // have >p bits. Keep round_short as the exact fallback
+                // if a future center violates this proven local window.
+                if (lower_width>precision && upper_width>precision &&
+                    lower_width-precision<=64u && upper_width-precision<=64u) {
+                    struct Rounded {
+                        std::uint64_t significand;
+                        FloatMP::Exponent exponent;
+                    };
+                    const auto round=[&](Wide value,unsigned shift) -> Rounded {
+                        std::uint64_t kept=static_cast<std::uint64_t>(value>>shift);
+                        const Wide discarded=value&((Wide{1}<<shift)-1u);
+                        if (discarded!=0u) {
+                            bool increment=false;
+                            switch (mode.value()) {
+                                case FloatMP::Rounding::ToNearest: {
+                                    const Wide halfway=Wide{1}<<(shift-1u);
+                                    increment=discarded>halfway ||
+                                        (discarded==halfway && (kept&1u)!=0u);
+                                    break;
+                                }
+                                case FloatMP::Rounding::Downward:
+                                    increment=center.result_negative;
+                                    break;
+                                case FloatMP::Rounding::Upward:
+                                    increment=!center.result_negative;
+                                    break;
+                                default: // TowardZero.
+                                    break;
+                            }
+                            if (increment) ++kept;
+                        }
+                        FloatMP::Exponent exponent=
+                            static_cast<FloatMP::Exponent>(shift)-
+                            static_cast<FloatMP::Exponent>(bits);
+                        if (kept==0u || (precision<64u &&
+                            kept==(std::uint64_t{1}<<precision))) {
+                            kept=std::uint64_t{1}<<(precision-1u);
+                            ++exponent;
+                        }
+                        return {kept,exponent};
+                    };
+                    const auto low=round(low_value,lower_width-
+                        static_cast<unsigned>(precision));
+                    const auto high=round(high_value,upper_width-
+                        static_cast<unsigned>(precision));
+                    if (low.exponent!=high.exponent ||
+                        low.significand!=high.significand) return std::nullopt;
+                    FloatMP result(precision);
+                    result._negative=center.result_negative;
+                    result._exponent=low.exponent;
+                    result._significand=BigUnsigned(low.significand);
+                    return result;
+                }
+            }
+        }
+#endif
         const auto endpoint=[&](BigUnsigned const& constant,std::int64_t displacement) {
             const std::uint64_t absolute=static_cast<std::uint64_t>(
                 displacement<0 ? -displacement : displacement);

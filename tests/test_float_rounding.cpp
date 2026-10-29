@@ -2074,7 +2074,7 @@ TestFloatRounding<PR>::test_precision_regressions()
 
         // Transcendental directed-rounding checks at multiple precisions.
         // Exact mathematical identities supplement these enclosures.
-        for (Bits bits : {7_bits,24_bits,53_bits,113_bits}) {
+        for (Bits bits : {7_bits,24_bits,53_bits,54_bits,63_bits,64_bits,113_bits}) {
             const PR pr(bits);
             const F quarter(Dyadic(1,2u),pr);
             const F negative_quarter(Dyadic(-1,2u),pr);
@@ -2098,6 +2098,34 @@ TestFloatRounding<PR>::test_precision_regressions()
             enclosure([](auto mode,auto const& x){return atan(mode,x);},negative_quarter);
             enclosure([](auto mode,auto const& x){return asin(mode,x);},quarter);
             enclosure([](auto mode,auto const& x){return acos(mode,x);},quarter);
+            if constexpr (Same<PR,MultiplePrecision>) {
+                if (pr.bits()>=53u && pr.bits()<=64u) {
+                    // D148: all four modes around both signed centers.
+                    // The source-keyed p=53 golden oracles elsewhere test
+                    // exact output values; these additionally check p=54,
+                    // p=63 and p=64 enclosure ordering for every short
+                    // transcendental, including the outer fallback.
+                    const F half(Dyadic(1,1u),pr);
+                    const F epsilon(Dyadic(1,static_cast<unsigned>(pr.bits())),pr);
+                    const F below=sub(F::ROUND_TO_NEAREST,half,epsilon);
+                    const F above=add(F::ROUND_TO_NEAREST,half,epsilon);
+                    for (F const& x : {below,half,above}) {
+                        for (F const& signed_x : {x,neg(x)}) {
+                            enclosure([](auto m,auto const& v){return exp(m,v);},signed_x);
+                            enclosure([](auto m,auto const& v){return sin(m,v);},signed_x);
+                            enclosure([](auto m,auto const& v){return cos(m,v);},signed_x);
+                            enclosure([](auto m,auto const& v){return tan(m,v);},signed_x);
+                            enclosure([](auto m,auto const& v){return tanh(m,v);},signed_x);
+                            enclosure([](auto m,auto const& v){return atan(m,v);},signed_x);
+                            enclosure([](auto m,auto const& v){return asin(m,v);},signed_x);
+                            enclosure([](auto m,auto const& v){return acos(m,v);},signed_x);
+                            if (!signed_x.negative()) {
+                                enclosure([](auto m,auto const& v){return log(m,v);},signed_x);
+                            }
+                        }
+                    }
+                }
+            }
             ARIADNE_TEST_ASSERT(F::pi(F::ROUND_DOWNWARD,pr)<=
                                 F::pi(F::ROUND_TO_NEAREST,pr));
             ARIADNE_TEST_ASSERT(F::pi(F::ROUND_TO_NEAREST,pr)<=

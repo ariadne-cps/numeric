@@ -11076,3 +11076,99 @@ other 56 operations are stable. No numeric speedup or CI success
 is claimed in advance. A small total_time gain from FMA alone
 does not address the still larger 27-transcendental gap; that
 remains the subsequent primary investigation.
+
+
+### D147.1 — user-measured 53-bit performance after D147 (29 October 2026)
+
+With 20,000 iterations, 31 samples, 56 paired operations at 53 bits,
+the user reports **total_time=1.234x**, **geomean=1.597x**, worst
+**7.805x** (fma_nearest). D146's earlier sample was respectively
+1.238x, 1.585x and 10.387x. The FMA FloatMP timings changed from
+**32.610 -> 26.310 ns** (nearest, 19.3% lower),
+**28.852 -> 23.598 ns** (downward, 18.2% lower) and
+**29.144 -> 23.231 ns** (upward, 20.3% lower).
+The improvement is consistent across all three FMA modes and matches
+the expected benefit of eliminating the full-product intermediate.
+Nevertheless the aggregate ratio is nearly unchanged; the geometric
+mean marginally worsened, and many operation latencies increased on
+both backends, indicating noise or execution-environment changes.
+Do not treat this as a controlled, per-operation causal benchmark.
+The current 27-transcendental median sums are FloatMP=941.483 ns,
+FloatDP=487.486 ns (1.931x), versus D146=905.711/474.502 ns
+(1.909x). This remains the largest aggregate optimization target.
+
+## D148 — single-allocation short transcendental endpoint certification (29 October 2026)
+
+**Goal.** Preserve the independently certified D143/D146 53..64-bit
+near-half Taylor enclosures while avoiding two independently owned
+FloatMP results and two calls through FloatMP::round_short merely
+to test that both bounds round to one value. This change is deliberately
+isolated from the certified series, coefficient caches, D147 FMA and
+the benchmark workload.
+
+**Native path.** After the existing short-centered eligibility,
+get_center<OperationKind>, slope correction and exact lower/upper
+integer displacements, a new GCC/Clang unsigned __int128 path
+handles 53<=p<=64 with nonzero, at-most-two-limb positive cached
+center endpoints. Assemble each center from its exact low and high
+64-bit words, apply the signed correction exactly while checking
+underflow/overflow, then derive the exact integer bit length and the
+p-bit retained significand from the full 128-bit integer.
+Guard, sticky, and nearest-even tie handling use the exact discarded
+bits; directed increments use the unchanged final output sign.
+When incrementing the p-bit significand carries into a new binade
+(including uint64 overflow at p=64), renormalize and increment the
+dyadic exponent exactly as FloatMP::round_short does. Compare both
+resulting (significand,exponent) pairs. If they differ, return the same
+short-certificate failure as before and enter the unchanged Ziv
+adaptive refinement. If equal, construct **one** FloatMP object with
+the proven normalized result. No approximate equality is used.
+
+**Fallback and portability.** The original BigUnsigned::add_into/
+sub_into, FloatMP::round_short on both endpoints, and
+certified_endpoints remain intact and are used on targets without
+unsigned __int128 (including MSVC), at precisions <53, for wide or
+zero cached endpoints, for exact displacements that underflow or
+overflow the 128-bit carrier, or for an unexpected width/shift.
+Wide tanh remains unchanged. This transformation preserves
+correctly rounded nearest-even, downward, upward and toward-zero
+semantics; neither coefficients nor error margins are modified.
+
+**Verification.** An isolated C++20 differential program built with
+GCC 14.2 and Clang 17 at -O2 -Wall -Wextra -Werror checked
+**1,536,000 pairs of exact endpoints on each compiler**,
+including 19,488 constructed halfway cases, p=53..64, all four
+rounding modes, both output signs, perturbations and binade
+boundaries, against an independently computed
+boost::multiprecision::cpp_int reference. There were zero
+mismatches. This validates the scalar arithmetic model, NOT the
+full repository build, FloatMP oracle execution, or performance.
+
+**Test suite extension.** Add p=54,63,64 to the existing multi-mode
+transcendental directed-ordering checks, supplementing the existing
+independent source-keyed p=53 golden oracles. Check near-half,
+below-half, above-half, and both signs for exp, sin, cos, tan, tanh,
+atan, asin and acos; log is checked for the positive arguments.
+Keep frozen oracle fixtures and external reference independence
+unchanged. All four rounding modes must satisfy lower<=nearest,
+toward-zero<=upper and nearest<=upper. The p=64 below-half case
+still selects the original general certifier; expanding the
+eligibility window is a separate future change.
+
+**Release gate.** Do not claim a speedup without the user rerunning
+the identical 20,000-iteration/31-sample benchmark at 53 bits,
+and running a corresponding FloatMP-only 64-bit benchmark.
+Compare absolute exp/log/sin/cos/tan/tanh/atan/asin/acos times
+to the D147 measurements, as well as total_time and geomean,
+because the FloatDP reference may move independently. Full
+repository compilation, CI, sanitizers, Windows/MSVC, coverage,
+source-keyed transcendental oracles and paired post-timing
+correctness checks are still required. Do not claim these have
+run merely because the isolated differential test passed.
+
+**Future work (not in D148).** A dedicated scalar correction-to-rounded
+result that avoids generic limb adapters on all platforms, and
+a rigorously extended p=64 below-half inclusion window, are
+separate experiments. Any further changes should be evaluated
+against the latest successful same-host benchmark and maintain
+100%-coverage obligations without suppressing real branches.
