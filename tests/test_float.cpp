@@ -1727,7 +1727,7 @@ void test_floatmp_decimal_extreme_scales() {
     ARIADNE_TEST_EQUALS(print(-small,DecimalPrecision(1u),down),"-"+prefix+"9");
 
     // Reuse the independently generated exact decimal oracle for 2^2047.
-    std::ifstream data(ARIADNE_TEST_DATA_DIR "/big_unsigned_a21_decimal_structured.tsv");
+    std::ifstream data(ARIADNE_TEST_DATA_DIR "/big_unsigned_b132_decimal_structured.tsv");
     if(!data) throw std::runtime_error("Missing structured decimal oracle");
     std::string line,large_expected;
     while(std::getline(data,line)) {
