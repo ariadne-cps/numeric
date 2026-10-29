@@ -833,3 +833,31 @@ same-host/same-binary setup for final attribution. The
 FloatDP near-half code still has no BigUnsigned usage.
 No F7 optimization or changes to numeric sources are
 included in this journal update.
+
+## F4.2 — AppleClang strict test-build diagnostics (29 October 2026)
+
+A user-supplied macOS AppleClang Debug build log failed in the
+F4 source-keyed FloatDP square-root checks in
+`tests/test_float_rounding.cpp` with `-Werror -Wshadow` and
+`-Wvexing-parse`. Three independent test-source issues caused
+the diagnostics:
+
+- The local `DoublePrecision dp` declaration shadows the existing
+  `Ariadne::dp` constant. Rename it to `sqrt_precision` and update
+  the F4 test's constructors/special-value calls.
+- The local `FloatDP toward_zero` declaration shadows the existing
+  `Ariadne::toward_zero` rounding-mode token. Rename it to
+  `toward_zero_result` and update its single bitwise check.
+- `const Rational x(ExactDouble(exact_input));` is parsed as a
+  function declaration (most vexing parse). Use brace initialization
+  `const Rational x{ExactDouble(exact_input)};`. The subsequent
+  arithmetic comparison errors are downstream consequences of this
+  incorrect declaration.
+
+The exact test input set, all four rounding modes, mathematical
+inequalities, nearest-even midpoint check, infinity/NaN and signed-zero
+checks, and production algorithms remain unchanged. This repairs
+**compilation diagnostics in the tests**, not a failing numeric oracle.
+The full AppleClang build, CTest and other CI jobs have not been rerun
+or asserted successful in this documentation update. This record is
+included in the new backend-specific FloatDP journal.

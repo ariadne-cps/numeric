@@ -8,8 +8,8 @@ For `FloatDP` architecture, the independent certified binary64 kernel,
 F1–F6 optimizations and their benchmark results, see the separate
 [`floatdp_design.md`](floatdp_design.md).
 The shared unsigned-limb arithmetic development is tracked on `remove-gmp`; see
-[`integer_rational_design.md`](integer_rational_design.md) for the shared
-unsigned limb core and the `Integer`/`Rational` migration.
+[`integer_design.md`](integer_design.md) for the shared unsigned limb core and
+`Integer` migration, and [`rational_design.md`](rational_design.md) for Rational.
 
 ## Active implementation policy — architecture-specific substrate (18 October 2026)
 
@@ -29,7 +29,7 @@ No third-party multiprecision engine may be integrated or copied.
 the future GMP-free `Integer` (replacing `mpz_t`),
 `Rational` (replacing `mpq_t`) and `FloatMP`:
 it belongs to the common internal numeric arithmetic layer
-described in `integer_rational_design.md`, NOT solely
+described in `integer_design.md` and `rational_design.md`, NOT solely
 inside `FloatMP`. Shared generic primitives may have
 their own properly documented internal source files.
 **Only FloatMP-specific** representation, rounding,
@@ -4757,7 +4757,7 @@ The newly created future `remove-gmp` branch is not modified.
 
 This journal is retained as the authority for FloatMP precision, correct rounding, independently
 certified literals and per-precision performance. On branch `remove-gmp`, it is maintained
-**alongside** [`integer_rational_design.md`](integer_rational_design.md), which owns the shared
+**alongside** [`integer_design.md`](integer_design.md), which owns the shared
 `BigUnsigned`, signed `Integer`, finite/extended `Rational`, the transition away from
 `mpz_t`/`mpq_t`, and planned Integer-vs-`mpz_t` and Rational-vs-`mpq_t` benchmarks. The branch was
 forked from the all-green `initial native arithmetic development` commit `9823a3b1`.
@@ -6166,7 +6166,7 @@ requested immediate production migration of
 `Integer`/`Rational`; the initial performance
 and correctness target remains FloatMP. Shared-core
 changes update this journal and
-`integer_rational_design.md` in the same commit.
+`integer_design.md` in the same commit.
 
 ## G9: restore beginning-of-`remove-gmp` ratio division (18 October 2026)
 
@@ -6234,7 +6234,7 @@ are unchanged; ARM64 and x86-64 optimized
 kernels have **not** been implemented yet.
 The authoritative storage and arithmetic
 contracts for phase B0 are recorded in
-`integer_rational_design.md`.
+`integer_design.md`.
 
 ### Approved conditional architecture files (18 October 2026)
 
@@ -6263,65 +6263,65 @@ to address MSVC 14.51 parsing failures.
 Whitespace in the new files is brought closer
 to Ariadne style. This is not a new arithmetic
 algorithm or performance claim; see
-`integer_rational_design.md` for diagnostics.
+`integer_design.md` for diagnostics.
 
 ### Shared BigUnsigned B1 multiply contract (18 October 2026)
 
-Portable `BigUnsigned::mul`, `mul_low`, and `square` are available to the eventual FloatMP migration without linking external GMP in this shared arithmetic module. `mul_low` returns the exact low `k` 64-bit limbs, not an approximation or a rounded FloatMP result. `square` currently reuses `mul`. No FloatMP production code or frozen benchmark inputs have changed. The carry bound, independent GMP test oracle and B1 testing are documented in `integer_rational_design.md`.
+Portable `BigUnsigned::mul`, `mul_low`, and `square` are available to the eventual FloatMP migration without linking external GMP in this shared arithmetic module. `mul_low` returns the exact low `k` 64-bit limbs, not an approximation or a rounded FloatMP result. `square` currently reuses `mul`. No FloatMP production code or frozen benchmark inputs have changed. The carry bound, independent GMP test oracle and B1 testing are documented in `integer_design.md`.
 
 ### BigUnsigned B2 low-level reusable buffers (18 October 2026)
 
-The shared core now defines non-owning read-only/writable 64-bit limb views, per-instance reusable scratch, and `add_into`, `sub_into`, `mul_low_into` kernels for disjoint buffer inputs/outputs. `assign` supports self-referential limb subspans with canonical normalization. Scratch acquisitions invalidate earlier views and zero the acquired range. FloatMP code and its existing GMP wide division are unchanged; the detailed contracts and GMP-based tests live in `integer_rational_design.md`. No ISA specializations are implemented in B2.
+The shared core now defines non-owning read-only/writable 64-bit limb views, per-instance reusable scratch, and `add_into`, `sub_into`, `mul_low_into` kernels for disjoint buffer inputs/outputs. `assign` supports self-referential limb subspans with canonical normalization. Scratch acquisitions invalidate earlier views and zero the acquired range. FloatMP code and its existing GMP wide division are unchanged; the detailed contracts and GMP-based tests live in `integer_design.md`. No ISA specializations are implemented in B2.
 
 
 ### BigUnsigned B3: optional x86-64 wide products (18 October 2026)
 
-The shared unsigned limb layer adds full-product `mul_into` and explicitly callable portable `mul_into_portable`/`mul_low_into_portable` entry points. A separately compiled `src/big_unsigned_x86-64.cpp` may use baseline x86-64 wide multiplication (conditional GNU/Clang 128-bit unsigned type or MSVC `_umul128`), while `src/big_unsigned.cpp` retains the correct portable four-32x32 reference. Both compute the same exact schoolbook result, support modular low truncation, prohibit output/source overlap and allocate no workspace. No BMI2/ADX assumption or runtime ISA probing is introduced. The x86 code is compiled only for supported CPU/compiler pairs; other targets automatically use portable C++20. Explicit portable entry points make forced-path differential tests possible, without modifying FloatMP. No ARM64 kernel or FloatMP end-to-end improvement is claimed. Design proof, testing record, historic preallocated-kernel timings and validation gate are in `integer_rational_design.md`.
+The shared unsigned limb layer adds full-product `mul_into` and explicitly callable portable `mul_into_portable`/`mul_low_into_portable` entry points. A separately compiled `src/big_unsigned_x86-64.cpp` may use baseline x86-64 wide multiplication (conditional GNU/Clang 128-bit unsigned type or MSVC `_umul128`), while `src/big_unsigned.cpp` retains the correct portable four-32x32 reference. Both compute the same exact schoolbook result, support modular low truncation, prohibit output/source overlap and allocate no workspace. No BMI2/ADX assumption or runtime ISA probing is introduced. The x86 code is compiled only for supported CPU/compiler pairs; other targets automatically use portable C++20. Explicit portable entry points make forced-path differential tests possible, without modifying FloatMP. No ARM64 kernel or FloatMP end-to-end improvement is claimed. Design proof, testing record, historic preallocated-kernel timings and validation gate are in `integer_design.md`.
 
 
 ### BigUnsigned B4 optional Comba multiplication experiment (18 October 2026)
 
-Experimental `mul_low_into_comba`/`mul_into_comba` entry points expose a column-wise unsigned multiprecision multiplication kernel on x86-64; other architectures retain the portable schoolbook fallback. The ISA-specific source remains `src/big_unsigned_x86-64.cpp`, using baseline wide integer multiplication only, not BMI2/ADX. All three-word Comba accumulator/carry bounds, no-aliasing, exact low/full output contracts, no-allocation behavior, differential GMP checks and benchmark CLI are recorded in `integer_rational_design.md`. The existing B3 selected production path, public `BigUnsigned::mul` and all FloatMP/GMP-wide operations are unchanged. Optional `--include-comba` measures the alternative only after the four frozen B3 benchmark modes; it is not evidence of any end-to-end FloatMP speedup. Full CI and comparable same-host performance evidence remain prerequisites before introducing any new dispatch threshold.
+Experimental `mul_low_into_comba`/`mul_into_comba` entry points expose a column-wise unsigned multiprecision multiplication kernel on x86-64; other architectures retain the portable schoolbook fallback. The ISA-specific source remains `src/big_unsigned_x86-64.cpp`, using baseline wide integer multiplication only, not BMI2/ADX. All three-word Comba accumulator/carry bounds, no-aliasing, exact low/full output contracts, no-allocation behavior, differential GMP checks and benchmark CLI are recorded in `integer_design.md`. The existing B3 selected production path, public `BigUnsigned::mul` and all FloatMP/GMP-wide operations are unchanged. Optional `--include-comba` measures the alternative only after the four frozen B3 benchmark modes; it is not evidence of any end-to-end FloatMP speedup. Full CI and comparable same-host performance evidence remain prerequisites before introducing any new dispatch threshold.
 
 
 ### BigUnsigned B5 forced fused-product diagnostic (18 October 2026)
 
-The shared BigUnsigned arithmetic core now offers `mul_into_fused` and `mul_low_into_fused` as **experimental explicit-only** kernels on x86-64, for measuring a schoolbook inner step expressed as one exact unsigned 128-bit product-plus-destination-plus-carry. The bound `(2^64-1)^2+2(2^64-1)<2^128` guarantees mathematical exactness. GCC/Clang (including AppleClang) can compile the optional conditional `__int128` expression; MSVC x64 uses its existing B3 native kernel, and unsupported architectures use the portable C++20 reference. No new ISA extensions or changes to production dispatch, FloatMP's GMP wide division, operand pools, rounding contracts, or performance baselines. The optional `--include-fused` benchmark mode runs after the established four B3 modes and compares against GMP. Isolated GCC/Clang oracle and performance diagnostics show compiler-dependent results; detailed data and required acceptance gates are in `integer_rational_design.md`.
+The shared BigUnsigned arithmetic core now offers `mul_into_fused` and `mul_low_into_fused` as **experimental explicit-only** kernels on x86-64, for measuring a schoolbook inner step expressed as one exact unsigned 128-bit product-plus-destination-plus-carry. The bound `(2^64-1)^2+2(2^64-1)<2^128` guarantees mathematical exactness. GCC/Clang (including AppleClang) can compile the optional conditional `__int128` expression; MSVC x64 uses its existing B3 native kernel, and unsupported architectures use the portable C++20 reference. No new ISA extensions or changes to production dispatch, FloatMP's GMP wide division, operand pools, rounding contracts, or performance baselines. The optional `--include-fused` benchmark mode runs after the established four B3 modes and compares against GMP. Isolated GCC/Clang oracle and performance diagnostics show compiler-dependent results; detailed data and required acceptance gates are in `integer_design.md`.
 
 
 ### BigUnsigned B6 compiler-specific selected multiply (18 October 2026)
 
-Following the B5 user-reported integrated Ubuntu results, the shared BigUnsigned selected production `mul_low_into` uses the exact fused 64x64->128 product-plus-accumulator kernel on **GCC x86-64 only**, with `NUMERIC_BIG_UNSIGNED_GCC_FUSED_MULTIPLY=ON` (default); setting the option `OFF` restores B3 selected schoolbook. Clang/AppleClang/MSVC x86-64 retain B3 selected, and ARM64/other platforms retain portable C++20. No runtime dispatch or nonbaseline x86 ISA assumption. Forced B3 entry points `mul_into_schoolbook`/`mul_low_into_schoolbook` and `--include-schoolbook` in the benchmark allow precise same-build comparisons; explicit Comba/fused tests remain. The immutable input/no-output-alias/full-or-low/zeroed-output/no-internal-allocation contract, exact carry bound and GMP differential oracle continue to apply. User-reported 1024-bit selected B3/fused preallocated medians were 323.861/205.060 ns, compared to 136.262 ns for direct GMP; **this is not an end-to-end FloatMP speedup**. No FloatMP production code, rounding or historical benchmark workload changed. Further gates and full numerical table live in `integer_rational_design.md`.
+Following the B5 user-reported integrated Ubuntu results, the shared BigUnsigned selected production `mul_low_into` uses the exact fused 64x64->128 product-plus-accumulator kernel on **GCC x86-64 only**, with `NUMERIC_BIG_UNSIGNED_GCC_FUSED_MULTIPLY=ON` (default); setting the option `OFF` restores B3 selected schoolbook. Clang/AppleClang/MSVC x86-64 retain B3 selected, and ARM64/other platforms retain portable C++20. No runtime dispatch or nonbaseline x86 ISA assumption. Forced B3 entry points `mul_into_schoolbook`/`mul_low_into_schoolbook` and `--include-schoolbook` in the benchmark allow precise same-build comparisons; explicit Comba/fused tests remain. The immutable input/no-output-alias/full-or-low/zeroed-output/no-internal-allocation contract, exact carry bound and GMP differential oracle continue to apply. User-reported 1024-bit selected B3/fused preallocated medians were 323.861/205.060 ns, compared to 136.262 ns for direct GMP; **this is not an end-to-end FloatMP speedup**. No FloatMP production code, rounding or historical benchmark workload changed. Further gates and full numerical table live in `integer_design.md`.
 
 
 ### BigUnsigned B8 experimental portable Karatsuba (18 October 2026)
 
-A separate portable C++20 `src/big_unsigned_karatsuba.cpp` provides an **explicit-only** Karatsuba full multiply with caller-owned output and caller-owned reusable scratch; it does not replace GCC x86-64 fused production schoolbook or change any FloatMP code. For `min(n,m)>8` limbs and both upper halves nonempty, split at `floor(max(n,m)/2)`, calculate z0/z2 directly into disjoint result slices and use scratch for two exact half-sums and the cross term `(a0+a1)(b0+b1)-z0-z2`. The scratch recurrence and bounds, no-aliasing/no-internal-allocation contracts, GMP differential tests and benchmark controls are in `integer_rational_design.md`. The optional `--include-karatsuba` reports `prealloc_karatsuba`; isolated GCC/Clang probes found the implementation slower than fused schoolbook through 4096 bits and modestly faster near 8192 bits. No measured performance improvement for FloatMP, Integer or Rational may be inferred. No production selection threshold is enabled.
+A separate portable C++20 `src/big_unsigned_karatsuba.cpp` provides an **explicit-only** Karatsuba full multiply with caller-owned output and caller-owned reusable scratch; it does not replace GCC x86-64 fused production schoolbook or change any FloatMP code. For `min(n,m)>8` limbs and both upper halves nonempty, split at `floor(max(n,m)/2)`, calculate z0/z2 directly into disjoint result slices and use scratch for two exact half-sums and the cross term `(a0+a1)(b0+b1)-z0-z2`. The scratch recurrence and bounds, no-aliasing/no-internal-allocation contracts, GMP differential tests and benchmark controls are in `integer_design.md`. The optional `--include-karatsuba` reports `prealloc_karatsuba`; isolated GCC/Clang probes found the implementation slower than fused schoolbook through 4096 bits and modestly faster near 8192 bits. No measured performance improvement for FloatMP, Integer or Rational may be inferred. No production selection threshold is enabled.
 
 
 ### B8.1: Karatsuba cutoff diagnostic (18 October 2026)
 
-Integrated Ubuntu B8 results were slower than GCC fused schoolbook at 1024 through 8192 bits, with Karatsuba/selected ratios 1.680x, 1.576x, 1.413x and 1.079x. B8.1 adds opt-in recursion cutoff selection (minimum 8, unchanged default 8) and matching workspace sizing, plus --karatsuba-cutoff N with --include-karatsuba. The production selector and FloatMP remain unchanged. See integer_rational_design.md for evidence and test gates.
+Integrated Ubuntu B8 results were slower than GCC fused schoolbook at 1024 through 8192 bits, with Karatsuba/selected ratios 1.680x, 1.576x, 1.413x and 1.079x. B8.1 adds opt-in recursion cutoff selection (minimum 8, unchanged default 8) and matching workspace sizing, plus --karatsuba-cutoff N with --include-karatsuba. The production selector and FloatMP remain unchanged. See integer_design.md for evidence and test gates.
 
 
 ### BigUnsigned B8.1 Ubuntu cutoff measurements (18 October 2026)
 
-The complete user-run GCC x86-64 balanced-operand sweep of Karatsuba recursion cutoffs 8/16/32/64 found **32 limbs** to be the strongest of these candidates: 2629.425 ns versus selected fused 2971.200 ns at 4096 bits, and 8461.684 ns versus selected fused 12257.133 ns at 8192 bits, measured within the same respective runs. At 2048 bits cutoff 32 gave 815.782 versus selected fused 805.034 ns, so a practical crossover is not yet demonstrated below 4096 bits. The original fused production path stays selected, and no FloatMP performance claim or dispatch change follows. Full four-cutoff table, measurements, CI status and limitations are documented in `integer_rational_design.md`.
+The complete user-run GCC x86-64 balanced-operand sweep of Karatsuba recursion cutoffs 8/16/32/64 found **32 limbs** to be the strongest of these candidates: 2629.425 ns versus selected fused 2971.200 ns at 4096 bits, and 8461.684 ns versus selected fused 12257.133 ns at 8192 bits, measured within the same respective runs. At 2048 bits cutoff 32 gave 815.782 versus selected fused 805.034 ns, so a practical crossover is not yet demonstrated below 4096 bits. The original fused production path stays selected, and no FloatMP performance claim or dispatch change follows. Full four-cutoff table, measurements, CI status and limitations are documented in `integer_design.md`.
 
 
 ### B9 ARM64 fused kernel experiment (18 October 2026)
 
-ARM64 receives an explicit native fused `BigUnsigned::mul_into_fused` kernel, built in `src/big_unsigned_arm64.cpp` using baseline AArch64 multiply-high and fused 128-bit C++ arithmetic. The native ARM64 kernel is initially benchmark-only: `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY` defaults OFF until real macOS ARM64 benchmark evidence; ON explicitly selects it for production evaluation. Existing GMP differential multiplication tests exercise the native forced fused path, `--include-fused` is accepted on ARM64, x86-only candidates remain x86-only. GCC x86-64 production selection and FloatMP are unchanged. Details and validation conditions are in `integer_rational_design.md`.
+ARM64 receives an explicit native fused `BigUnsigned::mul_into_fused` kernel, built in `src/big_unsigned_arm64.cpp` using baseline AArch64 multiply-high and fused 128-bit C++ arithmetic. The native ARM64 kernel is initially benchmark-only: `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY` defaults OFF until real macOS ARM64 benchmark evidence; ON explicitly selects it for production evaluation. Existing GMP differential multiplication tests exercise the native forced fused path, `--include-fused` is accepted on ARM64, x86-only candidates remain x86-only. GCC x86-64 production selection and FloatMP are unchanged. Details and validation conditions are in `integer_design.md`.
 
 
 ### B9 Apple Silicon ARM64 integrated measurement (18 October 2026)
 
-The user measured the native ARM64 fused kernel with production dispatch still **portable** (CMake option OFF) and 20,000x31 original benchmarks. At 256/1024/2048 bits `prealloc_selected` took 26.977/349.917/1379.546 ns; explicit `prealloc_fused` took 16.592/180.819/802.565 ns (1.63x/1.94x/1.72x faster). GMP reused-output took 13.463/95.004/312.606 ns. The 128-bit GMP reused-output measurement appeared unusually high and merits rerun. This is a real user macOS integrated BigUnsigned measurement, **not** proof of FloatMP performance. The next experiment is a correctness-tested ARM64 CMake-option-ON build to measure actual selected owning behavior. See `integer_rational_design.md` for full rows, caveats and gates. No ARM64 default or FloatMP code change yet.
+The user measured the native ARM64 fused kernel with production dispatch still **portable** (CMake option OFF) and 20,000x31 original benchmarks. At 256/1024/2048 bits `prealloc_selected` took 26.977/349.917/1379.546 ns; explicit `prealloc_fused` took 16.592/180.819/802.565 ns (1.63x/1.94x/1.72x faster). GMP reused-output took 13.463/95.004/312.606 ns. The 128-bit GMP reused-output measurement appeared unusually high and merits rerun. This is a real user macOS integrated BigUnsigned measurement, **not** proof of FloatMP performance. The next experiment is a correctness-tested ARM64 CMake-option-ON build to measure actual selected owning behavior. See `integer_design.md` for full rows, caveats and gates. No ARM64 default or FloatMP code change yet.
 
 
 ### B9 ARM64 fused dispatch ON: measured owning gains (18 October 2026)
 
-With `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY=ON`, the user verified that `selected kernel=fused` is reported on Apple Silicon, and that the owning public `new_selected` operation improves relative to the earlier OFF build: 256 bits 44.527 to 32.946 ns, 1024 bits 368.960 to 202.990 ns, 2048 bits 1396.992 to 836.858 ns. Forced/preallocated fused measured 16.592/180.544/802.896 ns at those sizes, and selected preallocated 16.600/180.769/805.240 ns, corroborating the dispatch. The 2048-bit owning GMP `new_mpz` remains faster (336.356 ns). This confirms a shared BigUnsigned improvement on Apple Silicon, **not** a FloatMP end-to-end speedup. macOS ARM64 CTest verification in the option-ON build is still pending; the ARM64 default remains OFF. The full five-size measurements and comparative limitations are in `integer_rational_design.md`.
+With `NUMERIC_BIG_UNSIGNED_ARM64_FUSED_MULTIPLY=ON`, the user verified that `selected kernel=fused` is reported on Apple Silicon, and that the owning public `new_selected` operation improves relative to the earlier OFF build: 256 bits 44.527 to 32.946 ns, 1024 bits 368.960 to 202.990 ns, 2048 bits 1396.992 to 836.858 ns. Forced/preallocated fused measured 16.592/180.544/802.896 ns at those sizes, and selected preallocated 16.600/180.769/805.240 ns, corroborating the dispatch. The 2048-bit owning GMP `new_mpz` remains faster (336.356 ns). This confirms a shared BigUnsigned improvement on Apple Silicon, **not** a FloatMP end-to-end speedup. macOS ARM64 CTest verification in the option-ON build is still pending; the ARM64 default remains OFF. The full five-size measurements and comparative limitations are in `integer_design.md`.
 
 
 ### B9.1: native ARM64 fused kernel is the default without a toggle (18 October 2026)
@@ -6331,7 +6331,7 @@ Following user-confirmed green macOS ARM64 project tests and integrated owning/p
 
 ### B10 ARM64 carry-chain candidate (18 October 2026)
 
-BigUnsigned adds an experimental explicit carry-chain ARM64 kernel, exposed to the integrated benchmark with `--include-arm64-carry`, leaving selected fused ARM64 and FloatMP code unchanged. GMP oracle coverage extended; no production promotion or FloatMP speedup is claimed. Details in `integer_rational_design.md`.
+BigUnsigned adds an experimental explicit carry-chain ARM64 kernel, exposed to the integrated benchmark with `--include-arm64-carry`, leaving selected fused ARM64 and FloatMP code unchanged. GMP oracle coverage extended; no production promotion or FloatMP speedup is claimed. Details in `integer_design.md`.
 
 
 ### B10.1: shared BigUnsigned source layout (18 October 2026)
@@ -6341,32 +6341,32 @@ Karatsuba (including recursion, workspaces and cutoff APIs) is moved into `src/b
 
 ### B10.1 Apple Silicon ARM64 explicit carry results (18 October 2026)
 
-In the user-run integrated benchmark following source-layout consolidation, the ARM64 carry-chain candidate (`--include-arm64-carry`) measured 154.744 ns at 1024 bits and 571.048 ns at 2048 bits, versus selected fused 182.898 ns and 806.990 ns within the same run (1.18x and 1.41x throughput improvement). Reused-result GMP measured 95.062/320.725 ns. The selected owning BigUnsigned path is still fused; these numbers do **not** measure the effect of switching the public owning path or FloatMP end-to-end performance. Native macOS differential CTest on B10.1 is pending; the ARM64 dispatch remains unchanged. The exact data and acceptance gate are in `integer_rational_design.md`.
+In the user-run integrated benchmark following source-layout consolidation, the ARM64 carry-chain candidate (`--include-arm64-carry`) measured 154.744 ns at 1024 bits and 571.048 ns at 2048 bits, versus selected fused 182.898 ns and 806.990 ns within the same run (1.18x and 1.41x throughput improvement). Reused-result GMP measured 95.062/320.725 ns. The selected owning BigUnsigned path is still fused; these numbers do **not** measure the effect of switching the public owning path or FloatMP end-to-end performance. Native macOS differential CTest on B10.1 is pending; the ARM64 dispatch remains unchanged. The exact data and acceptance gate are in `integer_design.md`.
 
 
 ### Second B10.1 Apple Silicon carry benchmark (18 October 2026)
 
-In the user-run 256/1024/2048/4096-bit integrated BigUnsigned benchmark, the explicit ARM64 carry kernel took 17.831/153.998/570.777/2263.667 ns versus fused selected 22.617/179.512/796.533/3673.671 ns in the same run. The 1024/2048-bit speedups were reproduced across two user runs; the 256-bit result varied, and 4096 bits newly showed a 1.62x throughput gain versus the currently selected fused kernel. GMP reused-destination at 4096 bits took 986.669 ns. These results do not imply FloatMP end-to-end speedup and do not yet justify dispatch promotion without a reported native macOS ARM64 GMP-oracle CTest. No FloatMP source or production dispatch was modified. See `integer_rational_design.md` for the full measurements.
+In the user-run 256/1024/2048/4096-bit integrated BigUnsigned benchmark, the explicit ARM64 carry kernel took 17.831/153.998/570.777/2263.667 ns versus fused selected 22.617/179.512/796.533/3673.671 ns in the same run. The 1024/2048-bit speedups were reproduced across two user runs; the 256-bit result varied, and 4096 bits newly showed a 1.62x throughput gain versus the currently selected fused kernel. GMP reused-destination at 4096 bits took 986.669 ns. These results do not imply FloatMP end-to-end speedup and do not yet justify dispatch promotion without a reported native macOS ARM64 GMP-oracle CTest. No FloatMP source or production dispatch was modified. See `integer_design.md` for the full measurements.
 
 
 ### B10.2: default ARM64 BigUnsigned multiplication selects explicit carry chain (18 October 2026)
 
-Following two integrated Apple Silicon measurements and user-confirmed native GMP-differential `ctest` green in the prior build, the ARM64 selected BigUnsigned multiply now calls the existing architecture-specific `MUL/UMULH/ADDS/ADC` carry kernel. The shared `__int128` fused implementation and portable reference remain explicitly callable; no CMake flag or extra source file is introduced. x86-64 behavior and FloatMP code stay unchanged. A newly built ARM64 selected-path `ctest` and owning benchmark comparison remain pending; do not claim an end-to-end FloatMP speedup. See `integer_rational_design.md`.
+Following two integrated Apple Silicon measurements and user-confirmed native GMP-differential `ctest` green in the prior build, the ARM64 selected BigUnsigned multiply now calls the existing architecture-specific `MUL/UMULH/ADDS/ADC` carry kernel. The shared `__int128` fused implementation and portable reference remain explicitly callable; no CMake flag or extra source file is introduced. x86-64 behavior and FloatMP code stay unchanged. A newly built ARM64 selected-path `ctest` and owning benchmark comparison remain pending; do not claim an end-to-end FloatMP speedup. See `integer_design.md`.
 
 
 ### B10.2 measured selected ARM64 carry in public owning BigUnsigned multiply (18 October 2026)
 
-The user benchmarked a newly compiled B10.2 selected ARM64 carry build. Compared with the previous native ARM64 fused dispatch, owning `new_selected` at 1024 bits improved 202.990 to 172.594 ns (~1.18x) and at 2048 bits improved 836.858 to 605.933 ns (~1.38x); the 53/128/256-bit ownership times did not show clear changes. The new owning BigUnsigned/GMP ratios were 1.580x (1024) and 1.800x (2048) with matched result lifecycle. Forced and selected ARM64 carry matched at 256+ bits, supporting the dispatch; unusually different timings at 53/128 bits merit checking benchmark effects. User native macOS GMP differential CTest was green **before** the selected-kernel switch, with carry forced, but has not been reported anew after promotion. This is BigUnsigned-only benchmark evidence and does not demonstrate FloatMP end-to-end performance. Detailed measurements are in `integer_rational_design.md`.
+The user benchmarked a newly compiled B10.2 selected ARM64 carry build. Compared with the previous native ARM64 fused dispatch, owning `new_selected` at 1024 bits improved 202.990 to 172.594 ns (~1.18x) and at 2048 bits improved 836.858 to 605.933 ns (~1.38x); the 53/128/256-bit ownership times did not show clear changes. The new owning BigUnsigned/GMP ratios were 1.580x (1024) and 1.800x (2048) with matched result lifecycle. Forced and selected ARM64 carry matched at 256+ bits, supporting the dispatch; unusually different timings at 53/128 bits merit checking benchmark effects. User native macOS GMP differential CTest was green **before** the selected-kernel switch, with carry forced, but has not been reported anew after promotion. This is BigUnsigned-only benchmark evidence and does not demonstrate FloatMP end-to-end performance. Detailed measurements are in `integer_design.md`.
 
 
 ### B10.2 selected ARM64 carry validation closed (18 October 2026)
 
-The user confirmed the updated **post-dispatch-change** macOS ARM64 `ctest --output-on-failure` fully green. GitHub Actions Unix/Windows/Coverage on the functional ARM64 carry default commit `d01c505` also completed successfully. These results close the previously pending validation gate for production BigUnsigned ARM64 selected carry. The earlier native owning BigUnsigned benchmark and remaining GMP gap are recorded in `integer_rational_design.md`; no FloatMP end-to-end speedup is claimed.
+The user confirmed the updated **post-dispatch-change** macOS ARM64 `ctest --output-on-failure` fully green. GitHub Actions Unix/Windows/Coverage on the functional ARM64 carry default commit `d01c505` also completed successfully. These results close the previously pending validation gate for production BigUnsigned ARM64 selected carry. The earlier native owning BigUnsigned benchmark and remaining GMP gap are recorded in `integer_design.md`; no FloatMP end-to-end speedup is claimed.
 
 
 ### B11 x86-64 explicit carry-chain experiment (18 October 2026)
 
-BigUnsigned adds a **non-production** x86-64 GNU/Clang `MULQ/ADDQ/ADCQ` schoolbook specialization in the existing architecture-specific source file, with a GMP-differential test and opt-in `--include-x86-64-carry` benchmark. MSVC keeps the native B3 fallback and no new file or CMake flag is introduced. GCC x86-64 selected fused, ARM64 selected carry and FloatMP code are unchanged. An isolated GCC/Clang x86-64 correctness check passed 1.5 million random/edge tuples; project-level CI and user Ubuntu integrated measurements are still pending. See `integer_rational_design.md` for algorithm, constraints and acceptance criteria.
+BigUnsigned adds a **non-production** x86-64 GNU/Clang `MULQ/ADDQ/ADCQ` schoolbook specialization in the existing architecture-specific source file, with a GMP-differential test and opt-in `--include-x86-64-carry` benchmark. MSVC keeps the native B3 fallback and no new file or CMake flag is introduced. GCC x86-64 selected fused, ARM64 selected carry and FloatMP code are unchanged. An isolated GCC/Clang x86-64 correctness check passed 1.5 million random/edge tuples; project-level CI and user Ubuntu integrated measurements are still pending. See `integer_design.md` for algorithm, constraints and acceptance criteria.
 
 
 ### B11.1 portable BigUnsigned fallback in dedicated backend source (18 October 2026)
@@ -6376,22 +6376,22 @@ Source layout now uses `big_unsigned_fallback.cpp` for the portable C++20 refere
 
 ### B11 x86-64 integrated carry benchmark outcome (19 October 2026)
 
-The user benchmarked the B11 opt-in x86-64 `MULQ/ADDQ/ADCQ` multiply against the selected GCC fused kernel on the same Ubuntu machine at 53/128/256/1024/2048/4096 bits (20,000 iterations, 31 samples). Explicit assembly was slower at five widths (the remaining 128-bit case effectively tied), including 939.067 vs 761.449 ns at 2048 bits (+23.3%) and 3156.871 vs 2975.414 ns at 4096 bits (+6.1%). Therefore keep GCC fused selected and explicit x86 carry experimental, without modifying FloatMP. Both the B11 experiment commit and B11.1 three-backend source split passed GitHub Unix/Windows/Coverage CI. Full measurements and caution about owning GMP comparisons are in `integer_rational_design.md`.
+The user benchmarked the B11 opt-in x86-64 `MULQ/ADDQ/ADCQ` multiply against the selected GCC fused kernel on the same Ubuntu machine at 53/128/256/1024/2048/4096 bits (20,000 iterations, 31 samples). Explicit assembly was slower at five widths (the remaining 128-bit case effectively tied), including 939.067 vs 761.449 ns at 2048 bits (+23.3%) and 3156.871 vs 2975.414 ns at 4096 bits (+6.1%). Therefore keep GCC fused selected and explicit x86 carry experimental, without modifying FloatMP. Both the B11 experiment commit and B11.1 three-backend source split passed GitHub Unix/Windows/Coverage CI. Full measurements and caution about owning GMP comparisons are in `integer_design.md`.
 
 
 ### B12 experimental Karatsuba write optimization (19 October 2026)
 
-The existing common-source opt-in Karatsuba kernel was adjusted to avoid redundant output clearing and high-word scanning on shifted cross-term accumulation. Exact arithmetic and public API contracts are unchanged, and new GMP-oracle tests exercise prefilled outputs, odd/asymmetric recursive splits, workspace sentinel guards and cutoffs 8/16/32/64/128. GCC x86-64 fused and native ARM64 carry remain the selected production kernels; FloatMP code and design are not modified. New B12 test/CI and integrated performance measurements remain pending. Full rationale and suggested crossover experiment are in `integer_rational_design.md`.
+The existing common-source opt-in Karatsuba kernel was adjusted to avoid redundant output clearing and high-word scanning on shifted cross-term accumulation. Exact arithmetic and public API contracts are unchanged, and new GMP-oracle tests exercise prefilled outputs, odd/asymmetric recursive splits, workspace sentinel guards and cutoffs 8/16/32/64/128. GCC x86-64 fused and native ARM64 carry remain the selected production kernels; FloatMP code and design are not modified. New B12 test/CI and integrated performance measurements remain pending. Full rationale and suggested crossover experiment are in `integer_design.md`.
 
 
 ### B12 Ubuntu integrated cutoff-32 Karatsuba results (19 October 2026)
 
-The user's post-B12 balanced-operand x86-64 benchmark found opt-in preallocated Karatsuba with cutoff 32 faster than selected GCC fused at 2560/3072/3584/4096/8192 bits, but approximately tied at 2048. At 4096 bits Karatsuba measured 2582.760 ns vs fused 3023.645 ns (14.6% less time), and at 8192 bits 8264.658 vs 12387.829 ns (33.3% less time). CI (Unix, Windows, Coverage) for functional B12 commit `014eedd` passed. The opt-in Karatsuba benchmark excludes scratch allocation/sizing and does not model owning public `mul`; no default dispatch change or end-to-end FloatMP speedup can yet be justified. See `integer_rational_design.md` for complete data and fairness qualification.
+The user's post-B12 balanced-operand x86-64 benchmark found opt-in preallocated Karatsuba with cutoff 32 faster than selected GCC fused at 2560/3072/3584/4096/8192 bits, but approximately tied at 2048. At 4096 bits Karatsuba measured 2582.760 ns vs fused 3023.645 ns (14.6% less time), and at 8192 bits 8264.658 vs 12387.829 ns (33.3% less time). CI (Unix, Windows, Coverage) for functional B12 commit `014eedd` passed. The opt-in Karatsuba benchmark excludes scratch allocation/sizing and does not model owning public `mul`; no default dispatch change or end-to-end FloatMP speedup can yet be justified. See `integer_design.md` for complete data and fairness qualification.
 
 
 ### B13 shared unsigned primitive benchmark (19 October 2026)
 
-Introduced a benchmark-only `benchmark_big_unsigned_arithmetic` executable (no new arithmetic/backend source): add/sub with both preallocated and owning destinations, compare as nonallocating read-only, and two left/right shifts as owning operations, all against matching GMP lifetimes and independently checked exact results. Production `BigUnsigned`, `FloatMP`, `Integer` and ISA dispatch are unchanged. This prepares measurement before implementing the common unsigned division/remainder kernel. See `integer_rational_design.md` for the benchmark contract and CLI; CI and native measurements pending.
+Introduced a benchmark-only `benchmark_big_unsigned_arithmetic` executable (no new arithmetic/backend source): add/sub with both preallocated and owning destinations, compare as nonallocating read-only, and two left/right shifts as owning operations, all against matching GMP lifetimes and independently checked exact results. Production `BigUnsigned`, `FloatMP`, `Integer` and ISA dispatch are unchanged. This prepares measurement before implementing the common unsigned division/remainder kernel. See `integer_design.md` for the benchmark contract and CLI; CI and native measurements pending.
 
 
 ### B14 single-limb division and fallback-source rule (19 October 2026)
@@ -6409,12 +6409,12 @@ remainder above 32 bits; all existing randomized GMP-differential
 checks remain unchanged. Production `BigUnsigned`, `FloatMP`,
 architecture dispatch and backend source placement remain unchanged.
 Windows and other CI results for this correction are pending. See
-`integer_rational_design.md` for the detailed B14.1 record.
+`integer_design.md` for the detailed B14.1 record.
 
 
 ### B15 multi-limb shared BigUnsigned division (19 October 2026)
 
-Implemented exact owning and caller-buffer unsigned `divrem` in shared `src/big_unsigned.cpp`, using normalized radix-2^64 quotient-digit estimation with full-product correction, B14 single-limb delegation, and explicit scratch sizing. No change to selected architecture multiplication, portable ISA fallback or FloatMP. Six thousand GMP-differential project test cases and error/buffer regression checks are added. A standalone Linux prototype passed 90,000 GMP comparisons; Windows/Unix/Coverage CI for the integrated changes are pending. See `integer_rational_design.md` B15 for detailed contracts and validation limits.
+Implemented exact owning and caller-buffer unsigned `divrem` in shared `src/big_unsigned.cpp`, using normalized radix-2^64 quotient-digit estimation with full-product correction, B14 single-limb delegation, and explicit scratch sizing. No change to selected architecture multiplication, portable ISA fallback or FloatMP. Six thousand GMP-differential project test cases and error/buffer regression checks are added. A standalone Linux prototype passed 90,000 GMP comparisons; Windows/Unix/Coverage CI for the integrated changes are pending. See `integer_design.md` B15 for detailed contracts and validation limits.
 
 
 ### B15.1 compile fix: reuse shared checked subtraction (19 October 2026)
@@ -6426,12 +6426,12 @@ specifications under `-Werror`. Remove the duplicate and forward-declare
 the existing checked helper for division. Its final-borrow guard remains
 active for both consumers. No arithmetic, FloatMP, ISA dispatch, public
 API, tests or build flags change. B15.1 cross-platform CI is pending;
-see `integer_rational_design.md` for details.
+see `integer_design.md` for details.
 
 
 ### B16 shared BigUnsigned GCD and decimal IO (19 October 2026)
 
-B15.1 cross-platform CI was green. Shared `src/big_unsigned.cpp` gains Euclidean unsigned `gcd`, strict ASCII decimal parsing and canonical unsigned decimal formatting, using existing division and portable 32-bit half-product operations without GMP dependencies. No change to FloatMP, ISA dispatch or fallback source placement. An isolated warning-clean Clang harness passed 5000 limb-format GMP comparisons, 5000 decimal input GMP comparisons and 1100 GCD GMP comparisons. Project CTest and CI for B16 are pending. Consult `integer_rational_design.md` for the contracts and migration sequencing.
+B15.1 cross-platform CI was green. Shared `src/big_unsigned.cpp` gains Euclidean unsigned `gcd`, strict ASCII decimal parsing and canonical unsigned decimal formatting, using existing division and portable 32-bit half-product operations without GMP dependencies. No change to FloatMP, ISA dispatch or fallback source placement. An isolated warning-clean Clang harness passed 5000 limb-format GMP comparisons, 5000 decimal input GMP comparisons and 1100 GCD GMP comparisons. Project CTest and CI for B16 are pending. Consult `integer_design.md` for the contracts and migration sequencing.
 
 
 ### B17 isolated signed-magnitude Integer substrate (19 October 2026)
@@ -6442,13 +6442,13 @@ canonical sign/magnitude, decimal conversions, signed arithmetic,
 truncation-toward-zero divrem with dividend-sign remainder, powers,
 shifts and checked 64-bit casts, and has its own GMP-differential
 tests. Legacy `Integer::_mpz` and its GMP-dependent consumers remain
-unchanged while integration is staged. See `integer_rational_design.md`
+unchanged while integration is staged. See `integer_design.md`
 for the migration boundaries; B17 CI is pending.
 
 
 ### B17.1 clarification: transient SignedInteger test stage (19 October 2026)
 
-Keep B17 `SignedInteger` for cross-platform GMP-differential verification; do not revert it before transferring validated operations to the existing `Integer`. After the direct `Integer` storage and dependency migration, delete the temporary `SignedInteger` header, source, CTest target and dedicated test (migrating coverage into `test_integer.cpp`). The final architecture must expose only the existing `Integer` as the signed multiprecision type; `BigUnsigned` remains its GMP-free magnitude engine. See `integer_rational_design.md` B17.1 for mandatory completion gates.
+Keep B17 `SignedInteger` for cross-platform GMP-differential verification; do not revert it before transferring validated operations to the existing `Integer`. After the direct `Integer` storage and dependency migration, delete the temporary `SignedInteger` header, source, CTest target and dedicated test (migrating coverage into `test_integer.cpp`). The final architecture must expose only the existing `Integer` as the signed multiprecision type; `BigUnsigned` remains its GMP-free magnitude engine. See `integer_design.md` B17.1 for mandatory completion gates.
 
 
 ### B18 native Integer replacement without modifying FloatMP arithmetic (19 October 2026)
@@ -6458,12 +6458,12 @@ sign, removing its permanent GMP storage. `SignedInteger` stays only as temporar
 verification and must be deleted once tests/benchmarks validate the migrated Integer. The
 benchmark's signed quotient/remainder GMP control now uses truncation toward zero to match the
 coherent Integer division identity. Integrated Unix/Windows/Coverage and benchmarks for B18 are not
-yet verified. See `integer_rational_design.md` B18 for implementation and testing details.
+yet verified. See `integer_design.md` B18 for implementation and testing details.
 
 
 ### B19 shared decimal throughput and Integer benchmark correction (19 October 2026)
 
-B18 native ARM64 and x86-64 measurements showed `to_decimal` dominating total time. In the shared `BigUnsigned` decimal conversion only, divide each radix-`2^64` word by `10^9` through two 32-bit halves using portable 64-bit arithmetic, avoiding 64-step bitwise division. Preserve `BigUnsigned::divrem_limb` and general `divrem` unchanged. The Integer-vs-GMP benchmark now compares one native `cmp` against one GMP `mpz_cmp` and adds separate nontrivial signed quotient/remainder rows without changing the original workload. All new values are verified exactly against GMP outside timing. A standalone 800,000-case mathematical oracle passed, but integrated CI and performance outcomes are pending. 4096-bit measurement remains available, though the next developer runs can temporarily specify `--bits 53,128,256,1024,2048`. See integer_rational_design.md B19.
+B18 native ARM64 and x86-64 measurements showed `to_decimal` dominating total time. In the shared `BigUnsigned` decimal conversion only, divide each radix-`2^64` word by `10^9` through two 32-bit halves using portable 64-bit arithmetic, avoiding 64-step bitwise division. Preserve `BigUnsigned::divrem_limb` and general `divrem` unchanged. The Integer-vs-GMP benchmark now compares one native `cmp` against one GMP `mpz_cmp` and adds separate nontrivial signed quotient/remainder rows without changing the original workload. All new values are verified exactly against GMP outside timing. A standalone 800,000-case mathematical oracle passed, but integrated CI and performance outcomes are pending. 4096-bit measurement remains available, though the next developer runs can temporarily specify `--bits 53,128,256,1024,2048`. See integer_design.md B19.
 
 
 ### B19.1 decimal type alias fix (19 October 2026)
@@ -6483,7 +6483,7 @@ the original 32-element loop so the reported number of distinct
 inputs is accurate; all prior comparisons and timed operations
 remain intact. No FloatMP algorithm or architecture-specific kernel
 changes. Cross-platform CI and measured speedups pending; see
-`integer_rational_design.md` B19.2.
+`integer_design.md` B19.2.
 
 
 ### B20 shared 128/64 quotient-digit acceleration (19 October 2026)
@@ -6503,7 +6503,7 @@ focused GMP oracle boundaries for maximum quotients and all
 An independent GCC/Clang isolated reference check passed
 1,200,252 selected-vs-fallback cases on each compiler.
 Integrated Unix/Windows/Coverage CI, native performance and
-MSVC verification remain pending; consult `integer_rational_design.md`.
+MSVC verification remain pending; consult `integer_design.md`.
 
 
 ### B21 removal of transient signed-magnitude migration scaffold (19 October 2026)
@@ -6514,7 +6514,7 @@ respective CMake source/test registrations removed. The historical B17 2500-case
 corpus, boundary and signed shift semantics are moved to the production `test_integer`, preserving
 its B18 1700 independent cases. Signed shifts are checked using the shared native magnitude shifts
 plus sign, and GMP; this does not add an `Integer` shift API or change FloatMP arithmetic. Project
-cross-platform CI remains pending for B21; see `integer_rational_design.md`.
+cross-platform CI remains pending for B21; see `integer_design.md`.
 
 
 ### B22 recursive decimal formatting for large Integer magnitudes (19 October 2026)
@@ -6535,7 +6535,7 @@ cases to `test_big_unsigned` without removing any existing
 randomized validation. An isolated alternative Boost-based
 algorithm passed 6058 GMP differential cases, but integrated
 Unix/Windows/Coverage and native ARM64/x86-64 speedup evidence
-remain pending. See `integer_rational_design.md` B22.
+remain pending. See `integer_design.md` B22.
 
 
 ### B23 single-output division after B22 (19 October 2026)
@@ -6551,7 +6551,7 @@ No FloatMP, Rational, Dyadic, GMP adapter, arithmetic algorithm,
 benchmark definition or B22 decimal-formatting change. Existing
 GMP-randomized division tests are extended with single-output
 comparisons and boundary checks. Cross-platform CI and measured
-performance remain pending. Details: `integer_rational_design.md`.
+performance remain pending. Details: `integer_design.md`.
 
 
 ### B23.1 report label clarification (19 October 2026)
@@ -6564,7 +6564,7 @@ only reporting labels in `benchmark_exact_arithmetic_workload.hpp`,
 not sample inputs, benchmark order, GMP verification, production
 arithmetic or FloatMP. When comparing B23.1 with older reports,
 map both old names to their new counterparts; see
-`integer_rational_design.md`. B23.1 CI remains pending.
+`integer_design.md`. B23.1 CI remains pending.
 
 
 ### B24 decimal parsing with optional 128-bit accumulation (19 October 2026)
@@ -6583,7 +6583,7 @@ Add 45 independent GMP oracle parsing boundaries and four
 long malformed-input cases while retaining all existing tests.
 An isolated GCC/Clang/GMP probe passed and suggested possible
 large-input performance gains; integrated CI and native
-two-host benchmarks are pending. See `integer_rational_design.md`.
+two-host benchmarks are pending. See `integer_design.md`.
 
 
 ### B25 optional radix-10^18 leaf decimal output (19 October 2026)
@@ -6602,7 +6602,7 @@ checks across the 8/9-limb selector and large-number boundaries,
 preserving all earlier test coverage. An isolated GMP-validated
 x86 leaf-conversion probe suggested improvements but integrated
 cross-platform CI and native ARM64/x86-64 benchmark results
-are pending. See `integer_rational_design.md` B25.
+are pending. See `integer_design.md` B25.
 
 
 ### B25.1 compiler-native ARM64 decimal-format selector, no CMake flags (19 October 2026)
@@ -6620,7 +6620,7 @@ decimal-split or benchmark behavior changes. Add 18
 independent GMP-oracle radix-power boundary cases and
 retain all preceding tests. Cross-platform CI and host
 performance benchmarks for B25.1 remain pending;
-see `integer_rational_design.md`.
+see `integer_design.md`.
 
 
 ### B26 baseline x86-64 DIVQ for shared unsigned division (19 October 2026)
@@ -6643,7 +6643,7 @@ GCC/Clang/GMP checker passed 500072 cases against the
 wide C++ implementation and checked an independent
 GMP sample; GitHub CI and native performance measurements
 for B26 remain pending. See the B26 entry in
-`integer_rational_design.md`.
+`integer_design.md`.
 
 
 ### B27 fused long division and smaller scratch (19 October 2026)
@@ -6671,7 +6671,7 @@ GMP stress configurations (GCC wide, GCC portable
 and Clang wide), each with 256400 divisions, passed.
 Integrated Unix/Windows/Coverage CI and native
 two-host benchmarks remain pending. See B27 in
-`integer_rational_design.md`.
+`integer_design.md`.
 
 ### B28 equal-leading-limb exact division shortcut (19 October 2026)
 
@@ -6691,7 +6691,7 @@ including a Clang ASan/UBSan run. The production test suite gains
 subset is measurably faster on the isolated x86-64 GCC and Clang
 microprobes, but production ARM64/x86-64 benchmark benefits remain
 unverified, and full-mix timings can fluctuate. See B28 in
-`integer_rational_design.md`; GitHub CI/Codecov checks are deferred
+`integer_design.md`; GitHub CI/Codecov checks are deferred
 at user request.
 
 ### B29 selected sparse-divisor multiply/subtract kernel (19 October 2026)
@@ -6710,7 +6710,7 @@ test passed both GCC and Clang ASan/UBSan variants; production
 tests add 1024 targeted sparse/dense-mixed oracles without removing
 previous fixtures. Isolated x86-64 GCC/Clang profiling indicates
 a benefit for sparse half-width divisors; integrated ARM64/x86-64
-results remain pending. See B29 in `integer_rational_design.md`.
+results remain pending. See B29 in `integer_design.md`.
 
 ### B30 x86-64 DIVQ-based decimal output for shared BigUnsigned (19 October 2026)
 
@@ -6731,7 +6731,7 @@ speedup, but integrated performance is **not** established.
 A 30,000-case independent GMP differential formatter
 stress test passed GCC and Clang ASan/UBSan; add 128
 focused decimal GMP fixtures while preserving previous
-tests. See B30 in `integer_rational_design.md`.
+tests. See B30 in `integer_design.md`.
 GitHub CI and Codecov remain deferred by user request.
 
 ### B30.1 restore B29 x86-64 decimal conversion after measured regression (19 October 2026)
@@ -6753,7 +6753,7 @@ decimal regression cases are kept and their architecture
 comment updated. No FloatMP algorithm or representation
 changes. A new integrated B30.1 run is still needed;
 the B29 performance data are historical, not new
-measurements. See B30.1 in `integer_rational_design.md`.
+measurements. See B30.1 in `integer_design.md`.
 GitHub CI and Codecov are excluded by user request.
 
 ### B31 decimal leaf string rendering without temporary blocks (19 October 2026)
@@ -6776,7 +6776,7 @@ zero padding and radix carry boundaries. GCC/Clang
 isolated x86-64 leaf benchmarks favored the new
 string assembly at <=16 limbs, but integrated
 Integer and ARM64 effects remain unverified.
-See B31 in `integer_rational_design.md`.
+See B31 in `integer_design.md`.
 GitHub CI and Codecov are not consulted by user request.
 
 ### B31.1 B31 decimal pair table identifier fix (19 October 2026)
@@ -6811,7 +6811,7 @@ Add targeted GMP differential squares and
 130 signed Integer power cases. Integrated
 B32 benchmark and repository suite execution
 remain pending; consult B32 in
-`integer_rational_design.md`.
+`integer_design.md`.
 GitHub CI and Codecov are excluded by user request.
 
 ### B33 Integer alias-self multiplication uses existing B32 square (19 October 2026)
@@ -6835,7 +6835,7 @@ build definitions and official benchmark workloads
 remain unchanged. An isolated x86-64 symmetric kernel
 speedup is known, but B33's integrated `Integer::square`
 benefit has **not yet been measured**. See B33 in
-`integer_rational_design.md`. GitHub CI and Codecov
+`integer_design.md`. GitHub CI and Codecov
 remain unconsulted at user request.
 
 ### B34 alias-dispatch diagnosis without arithmetic changes (19 October 2026)
@@ -6856,7 +6856,7 @@ Keep the established Integer/GMP benchmark and its corpus
 unchanged. This auxiliary diagnostic has not yet been
 compiled/executed against the repository; cross-platform
 ARM64 Apple M2/M4 timing comparisons remain separate.
-See B34 in `integer_rational_design.md`. Neither
+See B34 in `integer_design.md`. Neither
 GitHub CI nor Codecov was consulted.
 
 ### B34.1 alias diagnostic measurements and warning fix (19 October 2026)
@@ -6879,7 +6879,7 @@ the `default` arm. Keep B33 arithmetic and the
 official benchmark unchanged. The host model for
 the diagnostic ARM64 execution was not specified;
 do not conflate Apple M2 with M4.
-See B34.1 in `integer_rational_design.md`;
+See B34.1 in `integer_design.md`;
 CI and Codecov remain excluded.
 
 ### B35 selective large owning Karatsuba on GCC x86-64 (19 October 2026)
@@ -6906,7 +6906,7 @@ about 15.6%, but production performance remains
 unmeasured. Add 448 focused GMP differential
 pairs, including the 63/64 threshold and
 unbalanced cases; see B35 in
-`integer_rational_design.md`. GitHub CI and
+`integer_design.md`. GitHub CI and
 Codecov remain unconsulted by user request.
 
 ### B35.1 Clang structured-binding warning fix and CI authorization (19 October 2026)
@@ -6923,7 +6923,7 @@ confirm approximately 10.3% gain against B33,
 with numerical verification PASS. User authorization
 permits GitHub Actions CI checks beginning at this
 B35.1 commit. See the B35.1 entry in
-`integer_rational_design.md`.
+`integer_design.md`.
 
 ### B36 equal-length exact quotient-0/1 high-limb shortcut (19 October 2026)
 
@@ -6946,7 +6946,7 @@ The integrated performance and suite outcomes
 remain pending on the new commit. The user's
 authorization now permits monitoring GitHub Actions
 CI; note Codecov's external status separately.
-See B36 in `integer_rational_design.md`.
+See B36 in `integer_design.md`.
 
 ### B37 ARM64 dedicated symmetric square for Integer and pow (19 October 2026)
 
@@ -6971,7 +6971,7 @@ and AArch64 assembly cross-compilation passed.
 Production tests add 1248 unsigned GMP fixtures
 and 216 signed GMP power fixtures. Actual native
 Apple M2 speedups and the full B37 CI run are
-pending; see B37 in `integer_rational_design.md`.
+pending; see B37 in `integer_design.md`.
 
 ### B38 exact-zero ARM64 row elimination for generic multiplication/powers (19 October 2026)
 
@@ -7000,7 +7000,7 @@ six low-width checks in both operand orders
 for each, and 120 signed GMP power-three cases.
 Actual CI and M2 integrated B38 measurements
 remain outstanding; see B38 in
-`integer_rational_design.md`.
+`integer_design.md`.
 
 ### B39 architecture-selective ARM64 dense/sparse multiplication dispatch (19 October 2026)
 
@@ -7030,7 +7030,7 @@ owning multiplication with allocation wins.
 Add 380 GMP-oracle mixed-size and zero-density
 threshold tests; native B39 benchmarks and
 CI remain pending. See B39 in
-`integer_rational_design.md`.
+`integer_design.md`.
 
 ### B40 reduce ARM64 adaptive kernel prescans under 64 limbs (19 October 2026)
 
@@ -7059,7 +7059,7 @@ low-truncated multiplication, squares
 and explicit cutoff-32 Karatsuba bases.
 Full project CI and same-host M2
 benchmark measurements remain pending;
-see B40 in `integer_rational_design.md`.
+see B40 in `integer_design.md`.
 
 ### B41 direct signed subtraction and high-prefix cancellation (19 October 2026)
 
@@ -7098,7 +7098,7 @@ regression additions comprise
 with assignment/alias checks.
 CI and native performance results are
 pending; see B41 in
-`integer_rational_design.md`.
+`integer_design.md`.
 
 ### B41.1 Clang test-warning fix without arithmetic changes (19 October 2026)
 
@@ -7120,11 +7120,11 @@ accepted this spelling with
 `-Wself-assign-overloaded -Werror`.
 Full CI on B41.1 is pending; see
 the B41.1 journal entry in
-`integer_rational_design.md`.
+`integer_design.md`.
 
 ### B42 decimal leaf formatting without temporary strings (19 October 2026)
 
-B42 leaves the multiple precision arithmetic and recursive decimal conversion unchanged. On ARM64 only, the radix-10^18 leaf formatter now reserves quotient blocks, creates one exactly sized output string, and writes the leading block with `to_chars` and the other blocks as zero-padded digit pairs, eliminating individual `std::to_string` temporaries. The 128/64 wide division and all other platforms remain untouched; no workload or oracle alterations. A standalone 1800-case GMP/ASan/UBSan decimal verification passed. Add 208 production GMP decimal cases around the relevant boundary sizes. Full B42 CI and native timing results are pending. See the B42 entry in `integer_rational_design.md`.
+B42 leaves the multiple precision arithmetic and recursive decimal conversion unchanged. On ARM64 only, the radix-10^18 leaf formatter now reserves quotient blocks, creates one exactly sized output string, and writes the leading block with `to_chars` and the other blocks as zero-padded digit pairs, eliminating individual `std::to_string` temporaries. The 128/64 wide division and all other platforms remain untouched; no workload or oracle alterations. A standalone 1800-case GMP/ASan/UBSan decimal verification passed. Add 208 production GMP decimal cases around the relevant boundary sizes. Full B42 CI and native timing results are pending. See the B42 entry in `integer_design.md`.
 
 ### B43 shared recursive decimal output accumulator (19 October 2026)
 
@@ -7159,7 +7159,7 @@ additional benchmark target. Existing 84-operation Integer/GMP
 comparison, FloatMP algorithms, shared arithmetic, and CMake
 architecture selection are unchanged. Stage results are explicitly
 non-additive diagnostic proxies, not production call-stack
-percentages. See B44 in integer_rational_design.md. Native timings
+percentages. See B44 in integer_design.md. Native timings
 are pending.
 
 
@@ -7175,7 +7175,7 @@ B44 stage measurements show leaf conversion is the largest replay at
 2048 bits (1649.181 ns of a 2942.338 ns full conversion), whereas
 recursive `divrem` is the largest at 4096 bits (4440.488 ns of
 an 8236.562 ns full conversion). Replays are non-additive.
-See the B44.1 record in `integer_rational_design.md`.
+See the B44.1 record in `integer_design.md`.
 
 
 ### B45 exact whole-zero limb factoring in shared division (19 October 2026)
@@ -7190,7 +7190,7 @@ ISA selection, FloatMP algorithms, GMP independence, official
 benchmarks or public APIs. Independent GMP regressions cover
 arbitrary shifted divisors and B22 powers of ten. No native
 performance claim is made until same-host measurements. See B45
-in integer_rational_design.md.
+in integer_design.md.
 
 
 ### B46 ARM64-only exact constant-divisor reciprocal in decimal leaves (19 October 2026)
@@ -7206,7 +7206,7 @@ ASan/UBSan exact wide-division pairs and 9000 whole-formatter GMP
 comparisons; integrated tests additionally check 352 GMP boundaries.
 The user must still compare the untouched official benchmark and
 standalone stage diagnostic on Apple M2 to establish performance.
-See B46 in integer_rational_design.md.
+See B46 in integer_design.md.
 
 
 ### B47 wide radix-10^18 decimal input at 32+ digits (19 October 2026)
@@ -7224,7 +7224,7 @@ FloatMP semantics, and the unchanged Integer/GMP benchmarks.
 8400 independent GMP/ASan/UBSan standalone checks passed, plus
 181 new GMP parsing regressions included in production tests.
 Native same-host speedups remain to be verified; see B47 in
-integer_rational_design.md.
+integer_design.md.
 
 
 ### B48 ARM64 native 64-bit steps for small-divisor wide division (19 October 2026)
@@ -7238,7 +7238,7 @@ ARM64 divisors and fallback paths unchanged. GMP-differential
 tests were extended by 896 shape/divisor cases, including the
 official single-limb division shapes. No public API, FloatMP
 algorithm, benchmark workload, or GMP production dependency is
-changed. See B48 in integer_rational_design.md. Same-host
+changed. See B48 in integer_design.md. Same-host
 performance measurements are pending.
 
 
@@ -7257,7 +7257,7 @@ recurrence passed 1.2 million 128-bit checks and 5000 full
 multi-limb GMP checks under Clang ASan/UBSan. All performance
 comparisons must use the SAME Apple M4; earlier B42-B47 M2
 timings cannot be directly compared with the M4 results.
-See B49 in integer_rational_design.md.
+See B49 in integer_design.md.
 
 
 ### B50 19-digit radix decimal-input parsing (20 October 2026)
@@ -7275,7 +7275,7 @@ additional GMP parsing cases cover production boundaries.
 The unchanged official benchmark must be rerun on the
 same Apple M4 for a causal B49/B50 performance comparison;
 no speedup is claimed before that measurement.
-See B50 in integer_rational_design.md.
+See B50 in integer_design.md.
 
 
 ### B51 x86-64 integer-decimal output campaign (20 October 2026)
@@ -7292,7 +7292,7 @@ GCC/Clang 17/14 x86-64 comparison favors the reciprocal version
 but native integrated speedup is not yet established.
 Follow-on x86 tuning must first compare existing mulq/adcq,
 Comba, fused, Karatsuba and baseline kernels on the target
-CPU/compiler. See B51 in integer_rational_design.md.
+CPU/compiler. See B51 in integer_design.md.
 
 
 ### B52 native x86-64 GCC mixed 32-limb multiply dispatch (20 October 2026)
@@ -7313,7 +7313,7 @@ Integrated same-host B52 performance and CI remain pending.
 B51 decimal formatting was confirmed on the user's x86 host
 as 59.9%, 27.5% and 19.8% faster at 1024, 2048 and 4096
 bits respectively (full 84-operation total_time 2.052x
-to 1.842x). See B52 in integer_rational_design.md.
+to 1.842x). See B52 in integer_design.md.
 
 
 ### B53 ARM64 sparse multiplication lessons on x86-64 (20 October 2026)
@@ -7338,7 +7338,7 @@ lengths exercise 31/32/33, 63/64/65 and sparse
 threshold boundaries. On-target performance and CI
 remain to be measured; compare B52/B53 on the same
 x86-64 host, especially pow3 and dense-product
-regressions. See integer_rational_design.md B53.
+regressions. See integer_design.md B53.
 
 
 ### B53.1 x86-64 assembler source escape fix (20 October 2026)
@@ -7382,7 +7382,7 @@ Clang ASan/UBSan; 1376 extra integrated GMP test
 fixtures cover the selectors and carry boundaries.
 User-host B54 performance and full CI are pending;
 the official benchmark is unchanged. See B54 in
-integer_rational_design.md.
+integer_design.md.
 
 
 ### B55 baseline x86-64 multiply/subtract fused division step (20 October 2026)
@@ -7407,7 +7407,7 @@ added to production tests across 7/8/9,
 B54 on-target benchmark is the baseline;
 B55 integrated x86 performance remains
 pending, and all official benchmarks are unchanged.
-See B55 in integer_rational_design.md.
+See B55 in integer_design.md.
 
 
 ### B56 x86-64 division-case diagnostic (20 October 2026)
@@ -7428,7 +7428,7 @@ divrem timings, with oracle verification before and
 after timing. Original 84-case workload remains
 untouched. Same-host diagnostic results and CI are
 pending before any further x86 ISA or division change;
-see integer_rational_design.md B56.
+see integer_design.md B56.
 
 
 ### B56.1 diagnostic fixture move fix (20 October 2026)
@@ -7484,7 +7484,7 @@ The production test suite extends these to
 On-target integrated performance remains
 pending; use the B56 diagnostic and B55
 official timing baseline to accept or revert.
-See integer_rational_design.md B57.
+See integer_design.md B57.
 
 
 ### B57.1 x86 bit-count conversion warning fix (20 October 2026)
@@ -7572,7 +7572,7 @@ but misses 4096-bit total<1x (1.018x). Do not
 regress ARM64 while tuning x86. The 84-case GMP
 oracle and inputs remain unchanged. These are targets
 and user-reported baselines, not new performance results;
-see the integer_rational_design.md acceptance section.
+see the integer_design.md acceptance section.
 
 ### B60.1 correct diagnostic forward-declaration namespace (20 October 2026)
 
@@ -7655,7 +7655,7 @@ No production arithmetic, FloatMP semantics, public
 APIs, original 84-case input pools or official
 benchmark code is changed. User-host B64 benchmark
 and integration/CI verification remain pending.
-See integer_rational_design.md B64.
+See integer_design.md B64.
 
 ### B65 ARM64 lessons: short square and MSB-first power diagnostics (20 October 2026)
 
@@ -7696,7 +7696,7 @@ GMP-oracle combinations in integrated tests. No FloatMP
 production or the official 84-case arithmetic benchmark
 changes. Same-host full benchmark and CI remain necessary
 to validate actual production improvements; consult
-integer_rational_design.md B66.
+integer_design.md B66.
 
 ### B67 owning Integer versus primitive magnitude profile (20 October 2026)
 
@@ -7757,7 +7757,7 @@ verified on the unchanged 32-case pool and extra
 short random/sparse/saturated/zero values. No production
 Integer/FloatMP math, other architecture selectors,
 official benchmark cases or public APIs change.
-See integer_rational_design.md B69. CI and on-target
+See integer_design.md B69. CI and on-target
 B69 timing must be verified before any selector switch.
 
 ### B70 x86 fused production overhead diagnostic (20 October 2026)
@@ -7778,7 +7778,7 @@ corpus and 300 extra short stress pairs. No Integer,
 FloatMP, ABI, public headers, original 84-operation
 benchmark or arithmetic production dispatch changes.
 No speedup is claimed before B70 host measurements.
-See integer_rational_design.md B70.
+See integer_design.md B70.
 
 ### B71 same-library-TU owning short product diagnostics (20 October 2026)
 
@@ -7799,7 +7799,7 @@ sparse/random limb pairs before/after timing.
 This is not a production dispatch or benchmark
 workload change; FloatMP/Integer public arithmetic
 and ARM64 native carry remain unchanged.
-See integer_rational_design.md B71. CI and user-host
+See integer_design.md B71. CI and user-host
 B71 performance are pending.
 
 
@@ -7838,7 +7838,7 @@ No original 84-case workload/weights, FloatMP
 arithmetic, ABI or user-facing features change.
 Native compilation/CI and official performance
 must be measured before claiming a production win.
-See integer_rational_design.md B72.
+See integer_design.md B72.
 
 
 ### B73 shared decimal temporary storage and Integer result ownership (20 October 2026)
@@ -7853,7 +7853,7 @@ for radix-10^9 leaves of at most eight limbs. The same existing
 storage; radix thresholds, full input validation, recursive/wide
 formatting, signed semantics, selected ISA multiplication/division
 kernels and public object layouts remain unchanged. See B73 in
-integer_rational_design.md for bounds, lifetime and ownership details.
+integer_design.md for bounds, lifetime and ownership details.
 No new FloatMP algorithm, rounding path or GMP production dependency.
 
 Local Apple M2 Ultra / AppleClang 21 Release warnings-as-errors:
@@ -8103,7 +8103,7 @@ patch 93.07%; workflow Coverage success is not Codecov gate acceptance.
 
 ### R21 shared GCD implementation contract (21 October 2026)
 
-The paired `integer_rational_design.md` R21 entry specifies a bounded, borrowed-view Euclidean GCD
+The paired `rational_design.md` R21 entry specifies a bounded, borrowed-view Euclidean GCD
 using disjoint stack buffers and the existing remainder-only shared division kernel. It changes no
 FloatMP algorithm, rounding contract, ISA requirement or kernel selector. Inputs beyond 128 limbs
 retain the unlimited owning path. AppleClang 21 Release on macOS 26.6.2 ARM64 passes all 20 C++
@@ -8117,7 +8117,7 @@ regression coverage are recorded in the paired R21 entry.
 
 ### R22 shared exact scalar quotient contract (21 October 2026)
 
-The paired integer_rational_design.md R22 entry specifies an exact single-limb quotient using a
+The paired rational_design.md R22 entry specifies an exact single-limb quotient using a
 modular inverse, disjoint caller storage, unsigned carry proofs and existing compiler-wide/portable
 products. There is no new ISA requirement, FloatMP rounding change or arithmetic backend. Rational
 conversions can use the primitive when a GCD proves exact divisibility. The implementation passes
@@ -8131,7 +8131,7 @@ measurements remain pending at publication.
 
 ### R23 shared product accumulation and Rational result ownership (21 October 2026)
 
-The paired integer_rational_design.md R23 entry specifies the new
+The paired rational_design.md R23 entry specifies the new
 unsigned accumulate_product_into primitive, disjoint accumulator
 contract, exact overflow/borrow recurrence, and compiler-wide/MSVC/
 portable fallback products. Existing FloatMP arithmetic, ISA selection

@@ -856,7 +856,7 @@ TestFloatRounding<PR>::test_precision_regressions()
         // rational squares, not against the old iterative implementation.
         // Include subnormals, exponent extremes, exact squares and
         // values surrounding normal binade boundaries.
-        const DoublePrecision dp;
+        const DoublePrecision sqrt_precision;
         const double values[]={
             2.0,3.0,4.0,9.0,0.5,1.25,
             std::nextafter(1.0,0.0),
@@ -869,13 +869,13 @@ TestFloatRounding<PR>::test_precision_regressions()
             std::numeric_limits<double>::max()
         };
         for (double exact_input : values) {
-            const FloatDP value(ExactDouble(exact_input),dp);
-            const Rational x(ExactDouble(exact_input));
+            const FloatDP value(ExactDouble(exact_input),sqrt_precision);
+            const Rational x{ExactDouble(exact_input)};
             const auto prior=FloatDP::get_rounding_mode();
             const FloatDP lower=sqrt(FloatDP::ROUND_DOWNWARD,value);
             const FloatDP upper=sqrt(FloatDP::ROUND_UPWARD,value);
             const FloatDP nearest=sqrt(FloatDP::ROUND_TO_NEAREST,value);
-            const FloatDP toward_zero=sqrt(FloatDP::ROUND_TOWARD_ZERO,value);
+            const FloatDP toward_zero_result=sqrt(FloatDP::ROUND_TOWARD_ZERO,value);
             ARIADNE_TEST_EQUALS(FloatDP::get_rounding_mode(),prior);
             const Rational lo(ExactDouble(lower.get_d()));
             const Rational hi(ExactDouble(upper.get_d()));
@@ -885,7 +885,7 @@ TestFloatRounding<PR>::test_precision_regressions()
                 std::nextafter(lower.get_d(),
                     std::numeric_limits<double>::infinity())==upper.get_d());
             ARIADNE_TEST_EQUALS(
-                std::bit_cast<std::uint64_t>(toward_zero.get_d()),
+                std::bit_cast<std::uint64_t>(toward_zero_result.get_d()),
                 std::bit_cast<std::uint64_t>(lower.get_d()));
             const Rational midpoint=(lo+hi)/Rational(2);
             const Rational midpoint_square=midpoint*midpoint;
@@ -900,15 +900,15 @@ TestFloatRounding<PR>::test_precision_regressions()
         }
         // IEEE-754 distinguishes positive and negative zero; preserve
         // the sign across all four explicit rounding modes.
-        const FloatDP negative_zero(ExactDouble(-0.0),dp);
+        const FloatDP negative_zero(ExactDouble(-0.0),sqrt_precision);
         for (auto mode : {FloatDP::ROUND_TO_NEAREST,FloatDP::ROUND_DOWNWARD,
                           FloatDP::ROUND_UPWARD,FloatDP::ROUND_TOWARD_ZERO}) {
             ARIADNE_TEST_ASSERT(std::signbit(sqrt(mode,negative_zero).get_d()));
         }
         ARIADNE_TEST_ASSERT(is_nan(sqrt(FloatDP::ROUND_TO_NEAREST,
-            FloatDP::nan(dp))));
+            FloatDP::nan(sqrt_precision))));
         ARIADNE_TEST_ASSERT(is_inf(sqrt(FloatDP::ROUND_TO_NEAREST,
-            FloatDP::inf(dp))));
+            FloatDP::inf(sqrt_precision))));
     }
     // Preserve exact-rounding regression coverage for FloatMP with the
     // public arithmetic API over all required precisions and modes.
