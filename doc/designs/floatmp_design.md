@@ -10900,3 +10900,84 @@ A `UniformArray<FloatMP>` regression test exercises assignment through
 `characteristics()` as the exact alias of `precision()`, completing the
 `CharacteristicsTrait<FloatMP> = MultiplePrecision` contract required by
 characteristic-checked containers.
+
+
+## D146 — FloatMP short-certified 53–64-bit hot-path specialization (29 October 2026)
+
+**Motivation, scope, and baseline.** Following the 100%-coverage refactoring
+campaign, the user reports that the FloatMP/FloatDP time-sum ratio on the
+binary64 comparison benchmark increased to approximately 1.41, whereas
+an earlier run favored FloatMP. This observation has not yet been reproduced
+on the same host against a pinned pre-coverage commit. The independent FloatDP
+near-half kernel also changed on 25 October, so this relative ratio is not
+by itself evidence of an absolute FloatMP regression. The D146 patch changes
+neither the 56-operation benchmark workload nor FloatDP; it is a deliberately
+small, independently measurable FloatMP short-path optimization.
+
+**D146.1 — exact endpoint equality.** Both the <=64-bit short-centered
+evaluator and the >64-bit centered-tanh evaluator return only when two
+independently rounded, certified interval endpoints compare equal.
+In the common finite, same-sign, same-exponent case, compare their
+normalized significands directly instead of calling general FloatMP
+numeric ordering. Use the sole uint64_t significand limb only when BOTH
+endpoint precisions are <=64; otherwise compare the complete BigUnsigned
+magnitudes. Retain full FloatMP operator== as fallback for all other
+representations, preserving signed-zero and special-value behavior.
+No tolerance, approximate predicate, or weaker certificate is introduced.
+
+**D146.2 — statically selected short center.** Change
+FloatMPShortTranscendentals::evaluate from a function-pointer-based
+CenterFactory callback to a template parameterized by OperationKind.
+It directly calls the unchanged get_center<OperationKind>, preserving
+the distinct per-operation, per-sign, thread-local outward coefficient
+caches, their precision invalidation and the adaptive fallback. This
+allows, but does not guarantee, inlining of the selected center lookup;
+the Taylor enclosure values, window cutoff and error constants stay
+unchanged.
+
+**D146.3 — native 2x1 limb fixed-point correction.** For the short
+certified operation, B=p+32 with p<=64. Its positive derivative-magnitude
+coefficient occupies at most two 64-bit limbs, the exact centered offset
+one limb, and the input's dyadic denominator shift is in [1,64]. On
+GCC/Clang with unsigned __int128, multiply the low coefficient limb
+by the offset and the high limb by the offset plus the first product's
+carry, obtaining the exact low and middle product words. Derive
+floor(product / 2^shift) directly and derive its ceiling by inspecting
+the exact discarded low bits. The shift==64 branch is explicit: it never
+executes an undefined 64-bit shift. A zero offset/coefficient gives zero.
+If a third product limb exists or the specialized preconditions do not
+hold, use the original BigUnsigned::mul_into three-limb product and
+discarded-bit handling. Targets without supported native 128-bit
+integers, including MSVC in its current configuration, use the existing
+portable path unchanged. Neither the mathematical certificate nor the
+selected rounding direction is relaxed.
+
+**Focused arithmetic validation.** A standalone C++20 test compiled
+with GCC 14.2 (-O2 -Wall -Wextra -Werror) exercised 2,300,000 exact
+floor/ceil comparisons of the specialized two-word product against
+independent unsigned-128-bit full-product division/remainder, sampling
+p=53..64, D=p and D=p+1 where <=64, zero/one/maximum/random
+in-window offsets, both rounding directions and randomized normalized
+two-limb coefficients. All comparisons passed. This is an isolated
+arithmetic check, NOT a compilation or end-to-end test of the Numeric
+repository and NOT a benchmark measurement.
+
+**Mandatory integration gates.** Run independent source-keyed FloatMP
+oracle tests and the comparison benchmark's paired post-timing exact
+verification for both signs, p=53,54,63,64 and all four rounding modes.
+Check zero and maximum accepted offset, exact/inexact corrections, the
+64-bit shift boundary, the undecidable-certificate Ziv fallback and
+wide-precision tanh endpoints (which must retain full-limb comparison).
+Run Unix, Windows/MSVC, Sanitizers and Coverage CI. Measure absolute
+per-operation FloatMP latency before/after each D146 subchange in the
+same Apple ARM64 Release environment, warm/cold cache separately, and
+measure FloatDP independently. An improvement is NOT claimed until
+paired same-host timings are available.
+
+**Out of scope for D146.** Supporting the p=64 value immediately
+below one-half (which has normalized exponent -65) requires an
+extended exact offset decoder and shift handling. Direct two-endpoint
+rounding without temporary FloatMP objects, one-rounding direct FMA,
+and 2-limb rational input conversion are separate proposed optimizations;
+none is included in this commit. Do not tune algorithms to the benchmark
+pool at the expense of general correctness.

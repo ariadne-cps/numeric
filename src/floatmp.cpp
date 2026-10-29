@@ -3431,8 +3431,7 @@ struct FloatMPShortTranscendentals {
     }
 
     // Each statically selected operation owns its two signed caches.
-    // The evaluation kernel remains shared through this factory signature.
-    using CenterFactory=Center&(*)(bool,unsigned long);
+    // Statically selected center retrieval avoids an indirect callback.
     template<Function OperationKind>
     static Center& get_center(bool negative,unsigned long bits) {
         static thread_local std::array<Center,2u> centers;
@@ -3445,6 +3444,30 @@ struct FloatMPShortTranscendentals {
     // use the existing shared native multiplier, including portable builds.
     static std::uint64_t correction(BigUnsigned const& slope,std::uint64_t n,
                                      unsigned shift,bool round_upward) {
+        if (n==0u || slope.is_zero()) return 0u;
+#if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
+        // The p<=64 centered kernel uses at most two slope limbs, one
+        // offset limb and a shift in [1,64]. Use two exact 64x64
+        // products and their carry instead of general limb dispatch.
+        // A third product limb takes the exact original fallback.
+        if (shift>0u && shift<=64u && slope.size()<=2u) {
+            __extension__ using Wide=unsigned __int128;
+            const Wide first=static_cast<Wide>(slope.limb(0u))*n;
+            const Wide second=static_cast<Wide>(
+                slope.size()==2u ? slope.limb(1u) : 0u)*n+(first>>64u);
+            if ((second>>64u)==0u) {
+                const auto low=static_cast<std::uint64_t>(first);
+                const auto high=static_cast<std::uint64_t>(second);
+                const auto retained=shift==64u ? high
+                    : (low>>shift)|(high<<(64u-shift));
+                const bool discarded=shift==64u ? low!=0u
+                    : (low&((std::uint64_t{1}<<shift)-1u))!=0u;
+                return retained+static_cast<std::uint64_t>(round_upward && discarded);
+            }
+        }
+#endif
+        // Keep portable exact multiplication and remainder handling
+        // for MSVC and all out-of-contract inputs.
         std::array<BigUnsigned::Limb,3u> product;
         BigUnsigned::mul_into(slope.limbs(),BigUnsigned::LimbView(&n,1u),product);
         const auto word=shift/64u;
@@ -3459,11 +3482,24 @@ struct FloatMPShortTranscendentals {
     // every enclosed value rounds to one finite FloatMP. Use the shared
     // exact comparison instead of duplicating representation-specific tests.
     static std::optional<FloatMP> certified_endpoints(FloatMP lower,FloatMP const& upper) {
+        // Successful finite certificates can compare their normalized
+        // representation without entering general numeric ordering.
+        // Retain general equality for signed zeros and exceptional cases.
+        if (lower._kind==FloatMP::Kind::Finite &&
+            upper._kind==FloatMP::Kind::Finite &&
+            lower._negative==upper._negative &&
+            lower._exponent==upper._exponent &&
+            (lower._precision<=64u && upper._precision<=64u
+                ? lower._significand.limb(0u)==upper._significand.limb(0u)
+                : compare(lower._significand,upper._significand)==0)) {
+            return lower;
+        }
         if (lower==upper) return lower;
         return std::nullopt;
     }
 
-    static std::optional<FloatMP> evaluate(CenterFactory factory,FloatMP::Rounding mode,
+    template<Function OperationKind>
+    static std::optional<FloatMP> evaluate(FloatMP::Rounding mode,
                                            FloatMP const& x) {
         const auto precision=x._precision;
         // The supported short window has an exact one-word signed offset
@@ -3479,7 +3515,7 @@ struct FloatMPShortTranscendentals {
         if (offset!=0u && (cutoff>denominator_bits ||
             offset>(std::uint64_t{1}<<(denominator_bits-cutoff)))) return std::nullopt;
 
-        const auto& center=factory(x._negative,bits);
+        const auto& center=get_center<OperationKind>(x._negative,bits);
 
         const auto lo=correction(center.slope_lower,offset,denominator_bits,false);
         const auto hi=correction(center.slope_upper,offset,denominator_bits,true);
@@ -3697,7 +3733,7 @@ FloatMP unary(FloatMP::RoundingModeType mode,FloatMP const& x) {
             return FloatMP::zero(bits,x.negative());
         }
     }
-    if(auto short_result=FloatMPShortTranscendentals::evaluate(FloatMPShortTranscendentals::get_center<OperationKind>,mode,x))
+    if(auto short_result=FloatMPShortTranscendentals::evaluate<OperationKind>(mode,x))
         return std::move(*short_result);
     const Fraction argument=rational_argument(x);
     if constexpr(OperationKind==Function::arcsine || OperationKind==Function::arccosine) {
@@ -3740,7 +3776,7 @@ FloatMP exp(FloatMP::RoundingModeType mode, FloatMP const& x) {
     if (x.is_zero()) {
         return FloatMP(std::int64_t{1}, x.precision());
     }
-    if (auto short_result=FloatMPShortTranscendentals::evaluate(FloatMPShortTranscendentals::get_center<Function::exponential>,mode,x)) return std::move(*short_result);
+    if (auto short_result=FloatMPShortTranscendentals::evaluate<Function::exponential>(mode,x)) return std::move(*short_result);
     const Fraction input = rational_argument(x);
     return certified([&](unsigned long work) {
         return exp_half_centered_or_general(input, work);
@@ -3759,7 +3795,7 @@ FloatMP log(FloatMP::RoundingModeType mode, FloatMP const& x) {
     if (x.is_inf()) {
         return FloatMP::infinity(bits);
     }
-    if (auto short_result=FloatMPShortTranscendentals::evaluate(FloatMPShortTranscendentals::get_center<Function::logarithm>,mode,x)) return std::move(*short_result);
+    if (auto short_result=FloatMPShortTranscendentals::evaluate<Function::logarithm>(mode,x)) return std::move(*short_result);
     if (x.exponent()==-static_cast<FloatMP::Exponent>(bits-1ul) &&
         floatmp_popcount(x.significand())==1u) {
         return FloatMP::zero(bits);
@@ -3785,8 +3821,7 @@ FloatMP tanh(FloatMP::RoundingModeType mode,FloatMP const& x) {
     if (x.is_nan()) return FloatMP::nan(bits);
     if (x.is_zero()) return x;
     if (x.is_inf()) return FloatMP(x._negative ? -1 : 1,x.precision());
-    if (auto result=FloatMPShortTranscendentals::evaluate(
-            FloatMPShortTranscendentals::get_center<Function::hyperbolic_tangent>,mode,x)) return std::move(*result);
+    if (auto result=FloatMPShortTranscendentals::evaluate<Function::hyperbolic_tangent>(mode,x)) return std::move(*result);
     if (auto result=FloatMPShortTranscendentals::evaluate_tanh_wide(mode,x))
         return std::move(*result);
 
