@@ -11172,3 +11172,96 @@ a rigorously extended p=64 below-half inclusion window, are
 separate experiments. Any further changes should be evaluated
 against the latest successful same-host benchmark and maintain
 100%-coverage obligations without suppressing real branches.
+
+
+### D148.1 — user-provided 53-bit measured result after D148 (29 October 2026)
+
+The user reran the paired benchmark at p=53 with 20,000 iterations,
+31 samples and 56 operations. The reported FloatMP/FloatDP
+**total_time=0.947x**, **geomean=1.273x**, and worst
+**8.098x** (fma_nearest). Thus the aggregate sum of operation
+medians favors FloatMP by about 5.3% in this run, despite FloatDP
+retaining a strong advantage for simple nearest-mode operations.
+The corresponding D147 metrics were 1.234x, 1.597x, and 7.805x.
+For the 27 exp/log/sin/cos/tan/tanh/atan/asin/acos measurements,
+FloatMP's unweighted sum of per-operation medians is 619.332 ns
+versus FloatDP's 479.018 ns (ratio 1.293x), compared with D147
+FloatMP=941.483 ns versus FloatDP=487.486 ns. The 34.2%
+change in the aggregate FloatMP transcendental medians is
+consistent with D148's elimination of redundant object rounding,
+but cannot be assigned to a particular microarchitectural cause
+without controlled same-host profiling. This is supplied benchmark
+data, not locally executed CI or timing.
+
+## F1 — FloatDP native fixed-point correction without BigUnsigned multiplication (29 October 2026)
+
+**Naming policy and incremental plan.** Optimization interventions
+after D148 are numbered F1, F2, F3, etc. The user requests that
+three proposed FloatDP changes be **implemented and benchmarked one
+at a time** and that FloatDP ultimately use **no BigUnsigned**.
+F1 changes only multiplication for the near-half fixed-point
+correction; F2 will replace the remaining BigUnsigned calls for
+applying an endpoint displacement; F3 will replace the final
+std::ldexp-based conversion with direct IEEE-754 binary64 bit
+assembly. No F2 or F3 implementation is included in this commit,
+so latency changes can be attributed to a single local operation.
+
+**F1 scope and invariant.** In src/floatdp.cpp,
+floatdp_correction previously called BigUnsigned::mul_into on
+a 2-limb derivative bound and a 1-limb exact offset. The existing
+compile-time certificate proves the slope is <2^87, the offset
+is <=2^11, and the input denominator shift is 53 or 54. Replace
+the generic multiplication call with native unsigned 64-bit
+arithmetic on two 32-bit partial products of the lower word
+plus the derivative's upper word and carry:
+bottom=(slope.low&0xffffffff)*offset;
+top=(slope.low>>32)*offset+(bottom>>32);
+low=(top<<32)|(bottom&0xffffffff);
+high=slope.high*offset+(top>>32).
+Here low/high are the exact low 128 product bits; by the
+certificate the product has fewer than 98 significant bits and
+there is no missing third limb. The same exact right shift,
+discarded-bit test, and optional outward increment are preserved.
+This is strictly integer arithmetic, needs neither a compiler
+128-bit extension nor an additional library, and is portable
+across GCC, Clang/AppleClang and MSVC.
+
+**Independent arithmetic verification.** An isolated C++20
+differential program using boost::multiprecision::cpp_int as
+an independent exact full-product oracle completed **614,700**
+floor/ceil correction comparisons with GCC and separately
+**614,700** with Clang, with zero mismatches. Cases cover
+shift=53 and 54, offsets 0..2048, randomized bounded slopes,
+zero/highest coefficient words, all-one lower words, exact
+products and nonzero discarded remainders. These checks
+were run independently of the numeric repository; they do
+not constitute a complete build, CI pass, or timing result.
+
+**Regression extension.** The existing frozen
+FloatDP/FloatMP shared transcendental golden-oracle checks
+now additionally compare IEEE-754 encoded bits of the
+actual FloatDP result with the exact dyadic oracle's binary64
+encoding, not only Rational value equality. Current floating
+rounding mode preservation remains checked. No changes to
+oracle source data, certified windows, coefficient tables,
+or comparison benchmark.
+
+**Temporary BigUnsigned usage.** F1 does *not* yet remove the
+BigUnsigned include or its use inside floatdp_endpoint and
+floatdp_round_fixed; those belong to F2. F1 removes only the
+hot-path multiplication dependency in order to preserve
+one-change-at-a-time performance attribution. The requirement
+that FloatDP have **no BigUnsigned** is an explicit acceptance
+criterion for completion of F2; F3 is independent of that
+cleanup. Until then, the file still uses BigUnsigned.
+
+**Performance gate and future work.** Baseline for F1 is the
+user's post-D148 53-bit paired run: FloatMP/FloatDP total_time
+0.947x, geomean 1.273x, worst 8.098x. Independently sum
+FloatDP transcendental medians and compare to 479.018 ns.
+Rerun identical 53-bit inputs, 20,000 iterations and 31 samples
+on the same machine; do not infer a speedup from compilation or
+the mathematical proof. Run the full FloatDP source-keyed
+oracles, Unix/Windows/MSVC, Sanitizers and Coverage before
+regarding F1 as validated. F2 and F3 must only be implemented
+after observing the F1 benchmark independently.

@@ -3140,7 +3140,13 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
                 if (abs(abs(static_cast<Rational>(input))-Rational(1,2))>window) continue;
                 const auto check=[&](auto mode) {
                     const auto old=FloatDP::get_rounding_mode();
-                    ARIADNE_TEST_EQUALS(static_cast<Rational>(evaluate(mode,input)),expected);
+                    const FloatDP actual=evaluate(mode,input);
+                    ARIADNE_TEST_EQUALS(static_cast<Rational>(actual),expected);
+                    // F1: compare exact IEEE-754 encodings of the frozen
+                    // binary64 golden values, not only Rational values.
+                    ARIADNE_TEST_EQUALS(
+                        std::bit_cast<std::uint64_t>(actual.get_d()),
+                        std::bit_cast<std::uint64_t>(expected.get_d()));
                     ARIADNE_TEST_ASSERT(FloatDP::get_rounding_mode()==old);
                 };
                 switch(key.mode) {

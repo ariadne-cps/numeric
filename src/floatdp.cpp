@@ -420,25 +420,21 @@ static_assert(floatdp_verify_certificates<FloatDPTranscendental::hyperbolic_tang
 
 std::uint64_t floatdp_correction(FloatDPFixed85 slope,std::uint64_t offset,
                                  unsigned denominator_bits,bool round_upward) {
-    using Limb=BigUnsigned::Limb;
-    const std::array<Limb,2u> slope_words={slope.low,slope.high};
-    const Limb offset_word=offset;
-    std::array<Limb,3u> product={0u,0u,0u};
-    BigUnsigned::mul_into(
-        BigUnsigned::LimbView(slope_words.data(),slope_words.size()),
-        BigUnsigned::LimbView(&offset_word,1u),
-        BigUnsigned::MutableLimbView(product.data(),product.size()));
+    // F1: a 2x1-limb product with portable native uint64_t arithmetic.
+    // The exhaustive certificate bounds slope<2^87 and offset<=2^11;
+    // 32-bit partial products and carry additions cannot overflow.
+    // No general BigUnsigned multiplication or 128-bit extension is needed.
+    const std::uint64_t bottom=(slope.low&0xffffffffu)*offset;
+    const std::uint64_t top=(slope.low>>32u)*offset+(bottom>>32u);
+    const std::uint64_t low=(top<<32u)|(bottom&0xffffffffu);
+    const std::uint64_t high=slope.high*offset+(top>>32u);
 
-    // The near-half decoder supplies denominator_bits in {53,54}.
-    std::uint64_t retained=product[0u]>>denominator_bits;
-    retained|=product[1u]<<(64u-denominator_bits);
-    if(round_upward) {
-        const std::uint64_t mask=(std::uint64_t{1}<<denominator_bits)-1u;
-        if((product[0u]&mask)!=0u) ++retained;
-    }
-    // Every slope is below 2^87 and offset <= 2^11, so the
-    // product has fewer than 98 bits and its third limb is zero.
-    return retained;
+    // In the certified window denominator_bits is exactly 53 or 54.
+    const std::uint64_t remainder_mask=(std::uint64_t{1}<<denominator_bits)-1u;
+    const std::uint64_t retained=(low>>denominator_bits)|
+        (high<<(64u-denominator_bits));
+    return retained+static_cast<std::uint64_t>(
+        round_upward && (low&remainder_mask)!=0u);
 }
 
 std::array<BigUnsigned::Limb,2u>
