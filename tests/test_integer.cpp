@@ -47,14 +47,14 @@
 
 inline constexpr char ARIADNE_INTEGER_SUB_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_sub.tsv";
 
-inline constexpr char ARIADNE_integer_i17_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i17.tsv";
-inline constexpr char ARIADNE_integer_i18_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i18.tsv";
+inline constexpr char ARIADNE_INTEGER_I17_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i17.tsv";
+inline constexpr char ARIADNE_INTEGER_I18_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i18.tsv";
 
-inline constexpr char ARIADNE_integer_i33_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i33.tsv";
-inline constexpr char ARIADNE_integer_i37_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i37.tsv";
-inline constexpr char ARIADNE_integer_i38_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i38.tsv";
+inline constexpr char ARIADNE_INTEGER_I33_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i33.tsv";
+inline constexpr char ARIADNE_INTEGER_I37_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i37.tsv";
+inline constexpr char ARIADNE_INTEGER_I38_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i38.tsv";
 
-inline constexpr char ARIADNE_integer_i66_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i66.tsv";
+inline constexpr char ARIADNE_INTEGER_I66_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_i66.tsv";
 
 #ifndef ARIADNE_TEST_DATA_DIR
 #error "Provide the absolute test data directory from CMake"
@@ -641,7 +641,7 @@ void TestInteger::test_native() {
     // Four distinct input-pattern classes are retained from the source
     // mt19937_64 sequence. Results were frozen using independent exact
     // integer arithmetic (no GMP or Integer-under-test at runtime).
-    std::ifstream exponent_oracle(ARIADNE_integer_i66_ORACLE_PATH);
+    std::ifstream exponent_oracle(ARIADNE_INTEGER_I66_ORACLE_PATH);
     if (!exponent_oracle) throw std::runtime_error("Missing Integer I66 TSV");
     std::string exponent_header;
     while (exponent_oracle.peek()=='#')
@@ -672,7 +672,7 @@ void TestInteger::test_native() {
 
     // I33: independent exact source-keyed squares for all eight distinct
     // structural classes at every original width; includes x*=x aliasing.
-    std::ifstream square_oracle(ARIADNE_integer_i33_ORACLE_PATH);
+    std::ifstream square_oracle(ARIADNE_INTEGER_I33_ORACLE_PATH);
     if (!square_oracle) throw std::runtime_error("Missing Integer I33 TSV");
     std::string square_comment;
     while (square_oracle.peek()=='#') std::getline(square_oracle,square_comment);
@@ -701,7 +701,7 @@ void TestInteger::test_native() {
 
     // B37: keep the saturation/high-bit/dense sign classes across
     // the 7/8/9-limb square dispatch and all original wider widths.
-    std::ifstream large_power_oracle(ARIADNE_integer_i37_ORACLE_PATH);
+    std::ifstream large_power_oracle(ARIADNE_INTEGER_I37_ORACLE_PATH);
     if (!large_power_oracle) throw std::runtime_error("Missing Integer B37 TSV");
     std::string large_power_comment;
     while (large_power_oracle.peek()=='#')
@@ -730,7 +730,7 @@ void TestInteger::test_native() {
 
     // B38: all six sparse/dense structural cases at 8..128 limbs,
     // including the alternating-zero, saturated and both sign classes.
-    std::ifstream cubic_oracle(ARIADNE_integer_i38_ORACLE_PATH);
+    std::ifstream cubic_oracle(ARIADNE_INTEGER_I38_ORACLE_PATH);
     if (!cubic_oracle) throw std::runtime_error("Missing Integer B38 TSV");
     std::string cubic_comment;
     while (cubic_oracle.peek()=='#') std::getline(cubic_oracle,cubic_comment);
@@ -754,7 +754,7 @@ void TestInteger::test_native() {
 
     // I18: frozen exact signed arithmetic on 170 strategically sampled
     // originals out of 1700; expected results never use GMP at runtime.
-    std::ifstream golden(ARIADNE_integer_i18_ORACLE_PATH);
+    std::ifstream golden(ARIADNE_INTEGER_I18_ORACLE_PATH);
     if (!golden) throw std::runtime_error("Missing Integer I18 oracle TSV");
     std::string comment;
     while (golden.peek()=='#') std::getline(golden,comment);
@@ -833,7 +833,7 @@ void TestInteger::test_signed_regression() {
 
     // I17: 250 source-keyed references, one per ten original visits.
     // All 130 shift counts survive along with signed and zero cases.
-    std::ifstream golden(ARIADNE_integer_i17_ORACLE_PATH);
+    std::ifstream golden(ARIADNE_INTEGER_I17_ORACLE_PATH);
     if (!golden) throw std::runtime_error("Missing Integer I17 oracle TSV");
     std::string comment;
     while (golden.peek()=='#') std::getline(golden,comment);

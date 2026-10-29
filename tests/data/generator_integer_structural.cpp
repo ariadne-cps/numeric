@@ -42,7 +42,7 @@ Signed subtract(Signed const& a,Signed const& b) {
 std::string unsigned_sub(Nat const& a,Nat const& b) {
     return a.compare(b)<0 ? "-" : Nat::sub(a,b).hex();
 }
-std::string integer_b66() {
+std::string integer_i66() {
     std::string out=
         "# I66: independent exact integer exponent oracle, no runtime GMP and no implementation-under-test.\n"
         "# original_word_count mode exponent signed_source_decimal signed_result_decimal\n"
@@ -148,7 +148,7 @@ std::string big_unsigned_sub() {
     }
     return out;
 }
-std::string integer_b33() {
+std::string integer_i33() {
     std::string out=
         "# Independent exact signed square oracle I33, original mt19937_64 seed 0xB33A11A5.\n"
         "# width mode source_signed_decimal expected_square_decimal.\n"
@@ -174,7 +174,7 @@ std::string integer_b33() {
     }
     return out;
 }
-std::string integer_b37() {
+std::string integer_i37() {
     std::string out=
         "# Independent exact signed power oracle B37, original mt19937_64 seed 0xB37C03.\n"
         "# width repetition exponent source_signed_decimal result_signed_decimal.\n"
@@ -198,7 +198,7 @@ std::string integer_b37() {
     }
     return out;
 }
-std::string integer_b38() {
+std::string integer_i38() {
     std::string out=
         "# Independent exact signed pow3 oracle B38, original mt19937_64 seed 0xB38C03.\n"
         "# width repetition source_signed_decimal result_signed_decimal.\n"
@@ -227,12 +227,12 @@ int main(int argc,char**argv) {
     try {
         bool write=false;
         const auto dir=independent_oracle::data_directory(argc,argv,write);
-        independent_oracle::output(dir,"integer_i66.tsv",integer_b66(),write);
+        independent_oracle::output(dir,"integer_i66.tsv",integer_i66(),write);
         independent_oracle::output(dir,"integer_sub.tsv",integer_sub(),write);
         independent_oracle::output(dir,"big_unsigned_sub.tsv",big_unsigned_sub(),write);
-        independent_oracle::output(dir,"integer_i33.tsv",integer_b33(),write);
-        independent_oracle::output(dir,"integer_i37.tsv",integer_b37(),write);
-        independent_oracle::output(dir,"integer_i38.tsv",integer_b38(),write);
+        independent_oracle::output(dir,"integer_i33.tsv",integer_i33(),write);
+        independent_oracle::output(dir,"integer_i37.tsv",integer_i37(),write);
+        independent_oracle::output(dir,"integer_i38.tsv",integer_i38(),write);
         return 0;
     } catch (std::exception const& e) {
         std::cerr<<"Structural generator: "<<e.what()<<'\n';
