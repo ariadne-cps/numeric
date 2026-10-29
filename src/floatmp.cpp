@@ -292,7 +292,12 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
         }
         result._exponent=checked_add(scale,k-static_cast<Exponent>(precision-1u));
         if (increment) ++retained;
-        if (retained==0u || (precision<64u && retained==(std::uint64_t{1}<<precision))) {
+        // The normalized quotient is positive. At p=64 it cannot reach
+        // UINT64_MAX: for k<0, its gap below 2^64 is >=2^64/d>1.
+        // For k>=0, q=UINT64_MAX would force S=2^(63-k)>=d;
+        // the gap is then >=S/d>=1, with equality only for the excluded
+        // power-of-two denominator d=S. Increment therefore cannot wrap.
+        if (precision<64u && retained==(std::uint64_t{1}<<precision)) {
             retained=std::uint64_t{1}<<(precision-1u);
             if (result._exponent==std::numeric_limits<Exponent>::max()) return infinity(precision,negative);
             result._exponent=checked_add(result._exponent,1);
@@ -2480,32 +2485,19 @@ Interval divide(Interval const& numerator, Interval const& denominator) {
         throw std::domain_error("FloatMP trigonometric interval crosses a pole");
     }
 
-    // Monotonicity and endpoint signs identify the extrema. Only two
-    // exact rational divisions are needed instead of two reciprocals
-    // and four interval cross-products.
-    if (denominator.lower.sign() > 0) {
-        if (numerator.lower.sign() >= 0) {
-            return {numerator.lower / denominator.upper,
-                    numerator.upper / denominator.lower};
-        }
-        if (numerator.upper.sign() <= 0) {
-            return {numerator.lower / denominator.lower,
-                    numerator.upper / denominator.upper};
-        }
-        return {numerator.lower / denominator.lower,
-                numerator.upper / denominator.lower};
+    // Division by a negative interval is the negation of division by
+    // its positive reflection. Reuse one monotonic endpoint selection
+    // for both signs, including numerators that straddle zero.
+    if (denominator.upper.sign()<0) {
+        return negative(divide(numerator,negative(denominator)));
     }
-
-    if (numerator.lower.sign() >= 0) {
-        return {numerator.upper / denominator.upper,
-                numerator.lower / denominator.lower};
+    if (numerator.lower.sign()>=0) {
+        return {numerator.lower/denominator.upper,numerator.upper/denominator.lower};
     }
-    if (numerator.upper.sign() <= 0) {
-        return {numerator.upper / denominator.lower,
-                numerator.lower / denominator.upper};
+    if (numerator.upper.sign()<=0) {
+        return {numerator.lower/denominator.lower,numerator.upper/denominator.upper};
     }
-    return {numerator.upper / denominator.upper,
-            numerator.lower / denominator.upper};
+    return {numerator.lower/denominator.lower,numerator.upper/denominator.lower};
 }
 
 // For |x| <= 1, sine and cosine have alternating, decreasing Taylor

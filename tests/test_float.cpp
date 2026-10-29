@@ -1947,6 +1947,42 @@ void test_floatmp_ieee_conversion_boundaries() {
     }
 }
 
+void test_floatmp_scalar_ratio_limits() {
+    const auto largest_word=std::numeric_limits<std::uint64_t>::max();
+    const MultiplePrecision precision(64_bits);
+    const Rational source{Integer(largest_word-1u),Integer(largest_word)};
+    // 2^64*(d-1)/d=2^64-1-1/d, so the floor is 2^64-2;
+    // nearest and upward retain 2^64-1. A final increment never wraps.
+    for(auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                   FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+        const auto image=FloatMP(source,mode,precision);
+        const auto expected=(mode==FloatMP::ROUND_DOWNWARD || mode==FloatMP::ROUND_TOWARD_ZERO)
+            ? largest_word-1u : largest_word;
+        ARIADNE_TEST_EQUALS(image.significand().limb(0u),expected);
+        ARIADNE_TEST_EQUALS(image.exponent(),FloatMP::Exponent(-64));
+    }
+    const MultiplePrecision short_precision(2_bits);
+    const Rational short_source(11,3);
+    ARIADNE_TEST_ASSERT(FloatMP(short_source,near,short_precision)==FloatMP(4,short_precision));
+    ARIADNE_TEST_ASSERT(FloatMP(short_source,up,short_precision)==FloatMP(4,short_precision));
+    ARIADNE_TEST_ASSERT(FloatMP(short_source,down,short_precision)==FloatMP(3,short_precision));
+}
+
+void test_floatmp_computational_limits() {
+    const MultiplePrecision precision(128_bits);
+    const auto expect_overflow=[](auto operation) {
+        bool raised=false;
+        try { (void)operation(); }
+        catch(std::overflow_error const&) { raised=true; }
+        ARIADNE_TEST_ASSERT(raised);
+    };
+    // These compact native inputs hit resource guards BEFORE a Taylor
+    // series or an enormous exact rational power can be constructed.
+    expect_overflow([&]{return exp(near,FloatMP(TwoExp(2050),precision));});
+    expect_overflow([&]{return sin(near,FloatMP(TwoExp(4097),precision));});
+    expect_overflow([&]{return pow(near,FloatMP::min(precision),Nat(2));});
+}
+
 void test_floatmp_exact_series_thresholds() {
     // With p=128 exp_series receives work=p+40=168. This input
     // makes its first fixed-point term EXACTLY the stopping threshold.
@@ -2159,6 +2195,8 @@ Int main() {
     test_floatmp_log_native_exponents();
     test_floatmp_public_edge_paths();
     test_floatmp_exact_series_thresholds();
+    test_floatmp_scalar_ratio_limits();
+    test_floatmp_computational_limits();
     test_floatmp_ratio_ties_and_carry();
     test_floatmp_negative_power_specials();
     test_floatmp_mixed_precision_arithmetic();
