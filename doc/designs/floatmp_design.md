@@ -11884,3 +11884,62 @@ consteval proof with benchmark-specific assumptions.
 **Next work.** No F7 optimization is included. This
 concludes the operation-specific nearest exclusions
 of the existing FloatDP short transcendental certifier.
+
+
+### F6.1 — user-measured combined F5/F6 nearest improvements (29 October 2026)
+
+The user supplied the complete 56-operation FloatDP/FloatMP paired
+benchmark at p=53 after both F5 and F6, using 20,000 iterations
+and 31 samples. Relative FloatMP/FloatDP results:
+**geomean=2.670x, total_time=1.761x, worst=11.054x**
+(sqrt_nearest). The last user benchmark before F5 (after F4)
+reported geomean=2.207x, total_time=1.430x and worst=11.385x
+(sqrt_nearest). There is no intermediate measurement after
+F5 but before F6, so the new global result includes both
+changes and any concurrent benchmark-host variation.
+
+Absolute FloatDP nearest latencies in nanoseconds, previous
+post-F4 -> new post-F6, with reduction relative to the
+earlier measured value:
+- exp_nearest: 22.935 -> 6.815 ns (70.3% lower, F6 target).
+- log_nearest: 24.633 -> 3.154 ns (87.2% lower, F5 target).
+- tan_nearest: 40.606 -> 5.065 ns (87.5% lower, F5 target).
+- atan_nearest: 36.348 -> 4.429 ns (87.8% lower, F5 target).
+
+Their sum of four separate medians changed from **124.522 ns**
+to **19.463 ns** (84.37% reduction); log/tan/atan alone
+changed from **101.587 ns** to **12.648 ns** (87.55% reduction).
+Those sums are not a contiguous combined benchmark duration,
+but they provide a transparent absolute-latency comparison.
+The corresponding directed operations in the new run remain
+fast (exp_down/up 6.294/6.465 ns,
+log_down/up 3.421/3.321 ns,
+tan_down/up 4.754/4.717 ns,
+atan_down/up 4.369/4.485 ns), broadly matching their
+nearest-mode performance. This is strong workload-specific
+evidence that F5/F6 removed the previous dispatch overhead.
+
+**Important cross-run confounder.** Some operations not changed
+by F5/F6 also shifted materially: for example FloatDP
+construct_rational 37.175 -> 20.546 ns and copy 0.631 ->
+0.417 ns, while FloatMP construct_rational moved 28.800 ->
+30.065 ns. Changes of this scale can reflect a different
+runtime machine, compiler, build, OS, thermal/frequency,
+measurement setup, or other uncontrolled factors. Therefore
+do NOT claim that the entire global total_time ratio change
+from 1.430x to 1.761x is causally explained by F5/F6.
+The four specifically targeted operations improved by much
+larger, consistent factors and now have nearest latencies
+comparable to their own directed modes in the *same run*.
+
+**Verification and next step.** The user-supplied benchmark
+is a timing result, not evidence of completed full test
+execution, CI, independent source-keyed oracle success,
+GCC/Clang/MSVC compatibility, or sanitizers/coverage.
+Confirm all the nearest source-keyed oracles activated in
+F5/F6, retain their existing rigorous compile-time fixed85
+certificates and re-run the paired benchmark on a controlled
+same-host/same-binary setup for final attribution. The
+FloatDP near-half code still has no BigUnsigned usage.
+No F7 optimization or changes to numeric sources are
+included in this journal update.
