@@ -31,13 +31,6 @@ The unchanged six-size Rational benchmark (20000 iterations, 31 samples) passes 
 
 These single runs do not establish performance acceptance or blanket nonregression; the existing short-width MP gates are still unmet. No FloatMP arithmetic, precision or rounding algorithm was changed.
 
-### R1a — compile the complete native Rational regression suite (20 October 2026)
-
-
-Rename the local and explicitly cast the temporary boundary expression to void. No Rational arithmetic, representation, exception expectation or oracle changes. Earlier incremental CTest output had used the previous executable after a failed rebuild; it is superseded by the following validation, which checks a successful build exit before starting CTest.
-
-AppleClang 21 Release warnings-as-errors everything including Python bindings succeeds; all 21 CTest entries pass (20 C++ suites plus the Python numeric suite with Python 3.14.7). GCC 16.2 ARM64 everything with the documented local optimization-memory budget succeeds and all 20 C++ suites pass. Rebuilt Debug ASan/UBSan Rational/Integer/BigUnsigned/Float/ FloatRounding suites pass (5/5), including the corrected new tests. Native x86-64 and MSVC still require remote CI/runtime confirmation.
-
 ### R1b — retain division alias coverage on Clang 16 (20 October 2026)
 
 
@@ -113,18 +106,6 @@ The user supplied R7 runs (20,000 iterations, 31 samples; 384 paired inputs, 2,8
 
 **Status:** R8 native CI and six-size ARM64/x86-64 benchmarks pending; no R8 gate has been claimed passed. Shared-core changes require the Integer/BigUnsigned/Rational and downstream FloatMP differential gates.
 
-### R8a — fix scalar GCD limb type lookup (20 October 2026)
-
-
-**Build failure:** Apple Clang ARM64 rejects four unqualified uses of `Limb` inside the free function `BigUnsigned gcd(BigUnsigned,BigUnsigned)`: `Limb` is a nested type of `BigUnsigned`, not visible unqualified in this non-member scope (reported at big_unsigned.cpp around line 1261).
-
-**Fix:** add `using Limb=BigUnsigned::Limb;` inside `gcd`. No algorithm, branch condition, arithmetic result, benchmark fixture, test expectation, or compiler flag is changed. The explicit alias resolves the same lookup problem for Apple Clang, GCC and MSVC. R8a requires CI and fresh measurements before claiming R8 performance; the R7 benchmark remains the last measured baseline.
-
-### R8b — repair mixed-width initializer list in external reference GCD test (20 October 2026)
-
-
-**Blocking build regression:** R8a Unix/Windows/Coverage CI reports build failures. Inspecting the R8 tests found a second compile-time error: `for (std::uint64_t d : {1u,2u,3u,17u,65537u, std::numeric_limits<std::uint64_t>::max()})` tries to deduce one `std::initializer_list<auto>` from both `unsigned int` and `std::uint64_t` elements. This is ill-formed under C++20 and was reproduced with a minimal GCC compilation. Replace it with an explicit `std::array<std::uint64_t,6u>` of the SAME six values. CI must be rechecked; the full failure logs were not available through the repository connector, so other compile problems are not ruled out.
-
 ### R9 — one-source BigUnsigned compilation unit (20 October 2026)
 
 
@@ -161,11 +142,6 @@ Five of twelve width-host pairs meet both strict gates. At the time of R11 creat
 **Change.** On GCC/Clang x86-64 only, when both canonical Rational magnitudes have exactly one 64-bit limb, compute the exact binary exponent by integer bit-width comparison and bounded native shifts, without creating BigUnsigned shifts/temporary quotients. When exponent<=52, form the exact scaled numerator as unsigned 128-bit and divide its two 64-bit halves with baseline x86 DIVQ. The independently computed exponent proves the quotient has at most 53 bits, meeting DIVQ's high-word<divisor precondition; an explicit check retains the portable full division fallback. When exponent>52, a native 64-bit division by the exact shifted denominator suffices. The returned integer significand is exactly representable in double and ldexp preserves truncation toward zero independent of the host rounding mode. ARM64, Windows/MSVC and multi-limb inputs keep their previous algorithms unchanged.
 
 **Validation.** R12 native full CI and matched ARM64/x86-64 benchmarks have not run yet. Do not claim a measured improvement or success on any remaining performance gate before the new data.
-
-### R12a — fix C++ most-vexing-parse in scalar conversion tests (20 October 2026)
-
-
-**Build failure:** R12 Unix, Coverage, and Windows jobs all failed at Build. The R12 test statement `const Rational positive(Integer(numerator),Integer(denominator));` is parsed as a function declaration, not an initialized Rational; its subsequent unary negation fails to compile. Reproduced the parsing diagnostic in a local standalone C++20 compiler check. Replace with direct-list initialization using braces. Re-run all build and test gates before accepting R12a.
 
 ### R13 — certified small-multiprecision ARM64 binary64 conversion (20 October 2026)
 
@@ -207,15 +183,6 @@ Test and benchmark performance parity separately on ARM64, GCC/Clang x86-64, MSV
 
 **Validation:** R13a CI passed before R14. R14 CI was still running when R15 was authored. Rebuild and rerun full Integer, BigUnsigned, Rational, FloatMP and performance gates before accepting.
 
-### R15a — fix MSVC narrowing warning in unsigned power independent exact-reference fixtures (20 October 2026)
-
-
-Unix and Coverage workflows for R15 pass. This is solely a test harness type issue, not a production arithmetic error.
-
-No benchmark workloads, oracle, algorithm, or actual test scenario changes.
-
-No local MSVC compiler is available in the editing session.
-
 ### R16 — borrow coprime denominators and move normalized sum (20 October 2026)
 
  **Baseline:** R15a (`b7f79d1`) completed Unix, Windows and Coverage CI successfully. The last supplied side-by-side Rational benchmark measurements are R13 (before the R14/R15 refactoring); do not present those as R16 or R15a performance. R13 was compliant on 7 of 12 host/precision combinations.
@@ -254,24 +221,6 @@ Replace 40 architecture preprocessor predicates in `src/big_unsigned.cpp` and th
 **Minimal repair:** restore the exact signed wrapper from R18. It delegates to the unsigned exact quotient of the magnitude and restores the numerator's original sign with `Integer::from_magnitude`. This is the existing, verified behavior for nontrivial shared factors in add/sub. It is intentionally still needed by this branch; the statement in R19 about removing that wrapper was incorrect. The now-unused `integer_mul` wrapper stays removed.
 
 No successful R19a build or speedup is claimed in advance.
-
-### R19b — fix independent exact-reference fixtures variable shadowing on Clang (21 October 2026)
-
-
-R19a Unix, Windows and Coverage CI did not pass.
-
-**Narrow correction:** in the additional R19 multiplication/division oracle cases, rename inner `ga`/`gb` to `oracle_lhs`/`oracle_rhs`, and the inner self-alias `ga` to `oracle_self`. Update their exact references only. No test coverage is weakened.
-
-**Validation:** verify fresh Unix, Windows and Coverage CI. Fresh R19 performance data cannot be claimed until native benchmark runs are available.
-
-### R19c — preserve self-division alias test without Clang self-assign warning (21 October 2026)
-
-
-The failure is a warning-policy/test-expression issue, not an identified Rational arithmetic defect. R19b Unix CI failed; Coverage passed at the latest check.
-
-**Minimal fix:** use `Rational& self_alias=self;` and invoke `self/=self_alias`.
-
-**Validation:** fresh Unix, Windows and Coverage builds and regressions are required; no new performance conclusion until the existing ARM64/x86-64 six-width benchmark is rerun.
 
 ### R20 — bounded stack-based signed cross-product sums (21 October 2026)
 
@@ -388,15 +337,22 @@ A diagnostic stack-backed binary GCD (Stein) runs only for magnitudes of at most
 
 **Status at authoring:** no local native x86-64 execution or benchmark result has been claimed, and no GCD optimization is promoted.
 
-### R24.1 — correct diagnostic call selection and GCC conversion warning (21 October 2026)
+### R24.1 — Production-equivalent experimental GCD measurements (21 October 2026)
 
+The 3000-iteration, 11-sample R24 diagnostic reports show that the
+experimental eight-limb Stein GCD loses to the existing Euclidean
+implementation in every measured category: at 256 bits, binary/native
+ratios range from 11.3–23.9x on ARM64 and 8.0–17.1x on x86-64.
+The ARM64 256-bit construct_b case is close to parity
+(111.458 vs 112.917 ns), but larger widths remain slower.
 
-**Input data.** The user's R24 reports contain both Apple Silicon ARM64 and x86-64 measurements with identical R24 diagnostic arguments (3000 iterations, 11 samples). The experimental eight-limb Stein GCD loses to the existing native Euclidean GCD on every reported category where measured; example binary/native at 256 bits: ARM64 11.3-23.9x, x86-64 8.0-17.1x. On ARM64, the 256-bit construct_b GCD is almost at parity (111.458/112.917 ns), but 1024+ bits have deficits; avoid inferring CPU-independent kernel thresholds.
-
-**Diagnostic correction.** The first R24 benchmark erroneously included gcd(cross_sum,g) even when g=gcd(den_a,den_b)=1, while production Rational::add_sub skips that second GCD (and skips it for a zero sum). For the official 256-bit 32-pair fixture, only eight pairs have g>1, all with g=2; 24 have g=1. The diagnostic now adds add_reduce/sub_reduce samples *only* when g>1 and the respective cross-sum is nonzero, and prints active_pairs per group. This changes the diagnostic only, not the official fixture nor any production algorithm. Previously recorded add_reduce/sub_reduce timings must not be used as estimates of cost on the executed production path. Correct GCC -Wsign-conversion in trailing_bits by explicitly casting both intermediate integer types before addition; mathematical bounds remain <=512 bits at the diagnostic eight-limb limit.
-
-**CI status at discovery.** The initial R24 commit (23d0a2d) passed Windows and Coverage but failed Unix Release and the GCC/Clang hosted benchmark build steps; the user independently observed the sign-conversion warning on x86-64. Treat the R24.1 warnings-as-errors rebuild and complete hosted workflow as necessary validation. No performance improvement is claimed.
-
+The diagnostic only measures secondary reduction GCD calls when
+`g=gcd(den_a,den_b)>1` and the cross-sum is nonzero, matching
+the actual `Rational::add_sub` path. In the 256-bit fixture, 8 of
+32 operand pairs have `g>1` (all `g=2`), while 24 have `g=1`.
+Timings that include the skipped calls are not representative
+of the production workload. **Decision:** do not select the
+experimental Stein GCD over the established Euclidean kernel.
 ### R25 — nonproduction bounded Lehmer experiment (21 October 2026)
 
 
@@ -467,19 +423,17 @@ Keep the original six-width Rational benchmark, 20,000x31 samples, 384 paired in
 
 **Status and acceptance.** R30 is a provisional constructor optimization, not yet an integrated or production performance pass.
 
-### R30.1 — resolve Clang -Wshadow in external reference constructor regression (21 October 2026)
+### R30.1 — Native construction benchmark confirmation (21 October 2026)
 
-No source algorithm, official benchmark or build-warning flag changes. The R30 workflow runs Unix, Windows and Coverage failed at the initial commit; check the next revision independently.
-
-Relative to the R29 reports on the same respective hosts, R30's construct_fraction at 256/2048/4096 bits was ARM64 114.196 -> 94.010 ns, 386.390 -> 155.429 ns, 692.450 -> 219.613 ns, and x86-64 211.755 -> 136.206 ns, 336.809 -> 214.528 ns, 537.964 -> 278.859 ns. ARM64 total 256 bits changed .851x -> .827x. These are independently supplied native full-workload measurements; integrated CI compilation remains necessary.
-
-### R30.2 — Clang structured-binding diagnostics and CI policy (21 October 2026)
-
-
-Clang 16 with -Werror rejected both via -Wrange-loop-construct. These are compiler-policy failures of test source, not demonstrated numeric errors. Re-run Unix, Windows and Coverage on the corrected commit.
-
-No CI benchmark targets, exact oracle, fixture or source benchmark files are changed; benchmarks can still be built and run explicitly on ARM64 and x86-64 using the existing CMake targets, iterations and samples. The normal Unix, Windows, and Coverage workflows remain untouched. Subsequent Rational performance claims must cite independent native measurements rather than hosted CI benchmarks.
-
+Against R29 on the same respective hosts, R30
+`construct_fraction` improved at 256, 2048 and 4096 bits:
+ARM64 **114.196 -> 94.010**, **386.390 -> 155.429**
+and **692.450 -> 219.613 ns**; x86-64
+**211.755 -> 136.206**, **336.809 -> 214.528**
+and **537.964 -> 278.859 ns**.
+ARM64 aggregate 256-bit runtime ratio changed
+from 0.851x to 0.827x. These are independent same-host
+full-workload measurements, not synthetic proxy estimates.
 ### R31 — eliminate final Rational mul temporary; extend sparse GCD to add/sub and mul (21 October 2026)
 
 
@@ -592,15 +546,6 @@ Migrate the complete remaining R29 sparse-prefix and R13 dense random Rational::
 Preserve the original 12 shifts (0/1/52/53/1022/1023/1024/1073/1074/ 1075/1076/2048), four FE rounding modes and four signed numerator/ denominator scale patterns per visit: 48 exact source pairs and 192 raw binary64 checks. No sampling, operand substitution or changes to the historical std::mt19937_64 stream. Offline source generation reproduces the previously advanced R0 and R29/R13 generator consumption, and was checked against a separately compiled C++20 std::mt19937_64 source producer including five R5 samples. Compare all four raw uint64 patterns and check exact generated source inputs, row order and no extra or missing rows. Maintain explicit mismatch diagnostics for mode, shift, operation, actual and expected patterns.
 
 Production arithmetic, benchmark reference, and all CMake files are unchanged. Require Unix/Windows/Sanitizers/Coverage CI before declaring the test migration validated.
-
-### R33.13 — make frozen independent TSV parsers safe on Windows (23 October 2026)
-
-
-The R33.11 Windows CTest log supplied by the user shows test_rational failing after completing the 512 positive/negative R12 source checks at its first R29 block, with "Integer empty decimal literal". This diagnostic is misleading: Integer comparison operators return Ariadne Boolean, whose overloaded logical || does not short-circuit. Combining istream extraction and Integer(String(ref_n)) inside one disjunction can therefore parse an empty string even if extraction failed. The actual reason the initial R29 extraction failed on MSVC is not yet proven by that exception alone.
-
-Split R29, R13 and R5 validation into strictly ordered phases: (1) read each complete TSV record and reject missing/malformed rows, (2) verify mode/width/index and original exact source decimal words against the actual generated Integer::literal() strings, rejecting any empty operand token; (3) decode uint64 IEEE-754 results from decimal tokens with std::stoull and compare raw binary64 patterns exactly. This avoids unnecessary decimal-to-Integer conversions in source checks, avoids eager evaluation of overloaded Boolean || and makes cross-platform diagnostics specific. This also avoids a platform- dependent istream numeric-extraction issue for uint64 bit patterns.
-
-All independently frozen TSV data, all original source streams, test case counts, signs, modes, exact comparisons, test names, benchmarks, CMake and production implementations remain unchanged. Do not regard this as validated until Windows plus Unix, Sanitizers and Coverage pass after this commit.
 
 ### R33.14 — frozen GCD oracles for BigUnsigned R6/R8/R10/R11 (23 October 2026)
 

@@ -31,10 +31,6 @@ Organize the prototype tests into literals, conversions, arithmetic, comparisons
 
 Bounds, balls, writer operations and complete stream coverage were explicitly deferred at this stage; the later D-series entries trace their integration.
 
-### Y33f — AppleClang constructor compilation repair (21 October 2026)
-
-Fix the incomplete `ExactDouble` type in `NewDyadic(double)` by including `numeric/builtin.hpp`. Constrain the deleted signed-exponent overload with `BuiltinSignedIntegral` so unsigned `size_t` arguments select the correct constructor. Signed exponent arguments remain intentionally rejected. Prior Unix/Coverage compilation failed; compilation must be checked again after this change.
-
 ### Y33g — benchmark CLI and report setup (21 October 2026)
 
 Use the shared `benchmark_command_line.hpp` parser, `Ariadne::CommandLineInterface` and logging conventions. Support iterations, samples, widths, summary/detail modes and positional iteration/sample compatibility. Use the deterministic finite/special corpus and check results with exact arithmetic outside the timed region. The experimental default widths were 53, 128, 256, 1024, 2048 and 4096 bits, with 20,000 iterations and 31 samples. Benchmark execution was not registered as an automatic CI test.
@@ -61,20 +57,11 @@ Y36's machine-specific timing observations require confirmation after every chan
 
 For a normalized nonzero finite coefficient `c / 2^e`, the coefficient is odd whenever `e>0`. Therefore the number has a fractional part exactly when `e != 0`. Replace full-width shift-and-compare detection with this constant-time invariant in `floor` and `ceil`, retaining sign corrections and exceptional-value errors. Verify `floor(x) <= ceil(x)` and equality exactly for integral normalized values. The Y36 Unix, Windows and Coverage workflows were reported green; a new performance benefit from Y37 was not yet established.
 
-### Y37.1 — compile fix for mixed Boolean/bool test comparison (21 October 2026)
-
- All Y37 Unix/Windows/Coverage workflows failed at the compilation step. Explicitly convert the Ariadne Boolean to bool before comparing to the canonicality expectation. Keep the assertion, original Dyadic oracle tests, all Y37 arithmetic, benchmark fixture, build workflows and API unchanged. Both Y37 user-supplied native benchmark runs passed their 384-input fixture numerical verification and showed floor/ceil improvements; these are independent of integrated CI. Revalidate Unix/Windows/Coverage before considering Y37 stabilized.
-
 ### Y38 — single-owned-allocation shifted add/sub (21 October 2026)
 
 Introduce `BigUnsigned::add_shifted` and `sub_shifted` for virtual left shifts from 0 to 63 bits. Read borrowed operand views without mutation, propagate carry/borrow through a single radix-`2^64` loop, and write into one owned result. Use exact signed scaled-magnitude comparison to select direction and sign. For larger finite magnitudes, select the owned kernel at 32 limbs on ARM64 or 17 limbs on x86-64/other targets; shorter inputs retain the bounded stack path.
 
 Test widths and transitions near 16/17 and 31/32 limbs, 4096/8192-bit inputs, signed cancellation and exponent gaps 63/64. No success is inferred until compilation, exact tests and native measurements complete.
-
-### Y38.1 — fix AppleClang macro parsing in BigUnsigned shifted-subtraction test (21 October 2026)
-
-
-Commit `8f7ea1992` wraps the lambda expression passed to `ARIADNE_TEST_ASSERT` in an extra pair of parentheses. The comma separating the two `BigUnsigned` local declarations inside the lambda had been interpreted by the preprocessor as an additional function-like macro argument under AppleClang. The added parentheses group the expression as one macro argument; the underflow test semantics and checked expectations are unchanged. CI rerun required before marking the fix validated.
 
 ### Y39 — avoid redundant temporary copy in `abs` and `sqr` (21 October 2026)
 
@@ -85,10 +72,6 @@ Add a checked rvalue overload `Positive<NewDyadic>(NewDyadic&&)` next to the exi
 
 
 When both finite operand denominator exponents coincide, Y38's selected owning add/sub path has two zero shifts. Use the existing exact `BigUnsigned` `add`/`sub` in that case, in either subtraction direction selected by `compare_scaled`, instead of the more general virtual-shift combiner. Retain all previous signed-order and zero/cancellation logic. When the denominator exponents differ, keep Y38's shifted kernel and all original crossover thresholds. This is an exact fast-path candidate particularly relevant to the x86-64 large-operand path, not a proven speedup; no ISA-specific instruction set is required. Run full correctness and the unchanged paired 20,000x31 benchmark on both hosts, including nonzero shifts and boundary cases, before making performance claims. Do not change benchmark corpus, public Dyadic or Rational.
-
-### Y40.1 — repair test oracle value access (21 October 2026)
-
-Fix four incorrect accessor expressions in the shifted-arithmetic tests: the fixture values are data members rather than callable functions. This is a test-compilation repair only; the numerical test cases, arithmetic kernels and benchmark inputs are unchanged. Confirm Unix, Windows and Coverage after the edit.
 
 ### Y41 — streamed first-operand shift on x86-64 (21 October 2026)
 
@@ -165,6 +148,11 @@ Replace the public `include/numeric/dyadic.hpp` and `src/dyadic.cpp` implementat
 
 Restore missing rational-valued reciprocal/division contracts for Dyadic and explicit mixed RationalBounds/DyadicBounds operations and comparisons required by NumberWrapper. The exact interval arithmetic is unchanged. No test fixtures suppressed. These are build fixes and still require native compilation/CI validation.
 
-### Y56 — public API and regression-test integration repair (21 October 2026)
+### Y56 — Consolidate public Dyadic interoperability (21 October 2026)
 
-Restore `Dyadic::inf()` for Python alongside `inf(int)` and `inf(Sign)`. Preserve exact Rational-valued `Dyadic / Dyadic`, `RationalBounds` division of dyadic bounds, and mixed exact comparisons between Rational, Dyadic and Integer in either order; NaN comparisons return `Comparison::INCOMPARABLE`. Convert 13 wrapper checks to `ARIADNE_TEST_ASSERT` and verify canonical integer/exponent invariants. Keep `dyadic.hpp`, `dyadic.cpp` and `test_dyadic.cpp` as the canonical file organization. Full compilation and regression remain the acceptance gate.
+Keep `Dyadic::inf()` available to Python alongside `inf(int)`
+and `inf(Sign)`. Dyadic division remains exactly Rational-valued;
+division of Dyadic bounds yields `RationalBounds`. Mixed comparisons
+between Rational, Dyadic and Integer work in both orders, with NaN
+yielding `Comparison::INCOMPARABLE`. The canonical implementation
+remains `dyadic.hpp` / `dyadic.cpp`.

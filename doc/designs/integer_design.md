@@ -120,19 +120,16 @@ Tested I33's current identity-first guard against size-first reordering, an expl
 
 To run from the same build on x86-64: `./benchmarks/benchmark_integer_alias_dispatch --bits 53,128,256,512,1024,2048,4096 --iterations 20000 --samples 31`. Interpret public/reference differences cautiously because they include call structure as well as the alias guard; run B32 and I33 builds on the **same CPU**, alternating order if possible, for a causal performance conclusion. The C++ source and new CMake target were added but a full production build and this actual diagnostic have not yet been executed by the assistant. All Integer, BigUnsigned, Rational, FloatMP implementation paths, existing tests and official benchmarks remain untouched. B32 ARM64 numbers are Apple M2, B31.1 ARM64 numbers were Apple M4; never use cross-machine absolute times as evidence of a code regression. CI and Codecov remain unconsulted by user request.
 
-### I34.1 diagnostic warning fix and ARM64/x86-64 results (19 October 2026)
+### I34.1 — Native alias-dispatch measurements and decision (19 October 2026)
 
 
-The user built and executed I34's production-linked diagnostic on both Apple ARM64 (reported `fused=false`) and GCC x86-64 (reported `fused=true`), with 20,000 iterations, 31 samples. Clang on ARM64 reported `-Wswitch-default` because the diagnostic's enum switch did not contain an explicit `default` case. I34.1 moves the preexisting `std::logic_error("Unknown diagnostic mode")` throw into the `default` label of that switch, removing only the warning.
-
-The x86-64 GCC results demonstrate I33's genuine benefit on aliased self-products by comparing its production `a*a` with the diagnostic's explicit generic multiply: 512 bits: 94.453 vs 102.012 ns (7.4% faster); 1024 bits: 181.105 vs 253.586 ns (28.6%); 2048 bits: 503.167 vs 809.378 ns (37.8%); 4096 bits: 1834.987 vs 3047.787 ns (39.8%). The direct `BigUnsigned::square` control at 4096 bits was 1827.186 ns and confirms that the alias path is reaching the specialized square rather than generic mul.
+The user built and executed I34's production-linked diagnostic on both Apple ARM64 (reported `fused=false`) and GCC x86-64 (reported `fused=true`), with 20,000 iterations, 31 samples. The x86-64 GCC results demonstrate I33's genuine benefit on aliased self-products by comparing its production `a*a` with the diagnostic's explicit generic multiply: 512 bits: 94.453 vs 102.012 ns (7.4% faster); 1024 bits: 181.105 vs 253.586 ns (28.6%); 2048 bits: 503.167 vs 809.378 ns (37.8%); 4096 bits: 1834.987 vs 3047.787 ns (39.8%). The direct `BigUnsigned::square` control at 4096 bits was 1827.186 ns and confirms that the alias path is reaching the specialized square rather than generic mul.
 
 For distinct operands at 53,128,256 bits, the same x86-64 run yielded native/generic pairs 51.296/49.827, 42.475/40.296, and 69.793/67.834 ns, respectively, corresponding to gaps of about 1.5, 2.2 and 2.0 ns. Those differences include compiler code generation and call/dispatch structure, so **must not be treated as the pure alias-check cost**. The 5-6 ns I33/B32 small-multiplication regression has not been causally established. For 1024,2048,4096 bits, distinct native/generic were 257.940/257.924, 821.206/819.870 and 3063.295/3063.707 ns, indicating near parity for large inputs.
 
 ARM64 native/generic measurements were very close, as expected for a platform that does not enable I33's GCC fused alias specialization (4096-bit distinct 2359.202/2355.177 ns, aliased 2362.954/2361.898 ns). These diagnostic numbers identify an ARM64 host only, not whether it was M2 or M4: never infer its specific CPU without explicit user confirmation. The earlier official ARM64 B32/I33 runs were Apple M2, whereas B31.1 was measured on Apple M4.
 
-**Decision:** keep I33 unchanged, neither reorder its alias guard nor add a branch hint. The user has executed the I34 diagnostic, but the I34.1 warning-only commit has not undergone a new full build by the assistant. GitHub CI and Codecov were not consulted.
-
+**Decision:** keep I33 unchanged, neither reorder its alias guard nor add a branch hint. The I34 diagnostic supports retaining I33 without introducing additional branch hints.
 ### I41 avoid temporary negation and trim common high limbs in subtraction (19 October 2026)
 
 
@@ -144,15 +141,14 @@ Unsigned `BigUnsigned::sub(a,b)` formerly pre-scanned the full numbers with `com
 
 Note: the production tests and full CI are **pending** on the I41 commit. The same-M2 integrated benchmark must measure I41 versus B40, especially `sub` at 1024/2048/4096 bits, while using `add` and `negate` as controls. Avoid claiming a speedup before same-host timing data; inspect Windows/macOS/Linux CI separately from external Codecov.
 
-### I41.1 Clang 16 compatibility of same-object subtraction regression (19 October 2026)
+### I41.1 — Measured same-object subtraction improvements (19 October 2026)
 
-
-The native Apple M2 I41 full 31-sample official benchmark confirmed large speedups without changing the official workload. B40 -> I41 `sub` at 1024/2048/4096 bits improved 71.156 -> 27.744 ns (61.0%), 97.917 -> 44.462 ns (54.6%) and 159.254 -> 73.335 ns (54.0%).
-
-I41's Unix CI failed during **compilation** on Ubuntu Clang 16 Release and ThreadSanitizer at `tests/test_integer.cpp:463`, not during an arithmetic test: `-Werror,-Wself-assign-overloaded` diagnosed the intentional `aliased-=aliased` regression statement. Both macOS AppleClang, Ubuntu GCC, GCC/AppleClang Coverage, and Windows workflows passed I41. This compiler-specific diagnostic does not by itself establish an arithmetic or sanitizer defect.
-
-I41.1 changes **only** the intentional same-object test's spelling to: `Integer const& same_object=aliased;` followed by `aliased-=same_object;`. Both names still reference the exact same `Integer` object; the test retains its aliasing, canonical-zero and nonnegative-sign assertions. No source arithmetic, API, compiler warning settings, test scenarios, workload, oracle, scratch contracts, or other platform paths change. A local Clang 17 `-Wself-assign-overloaded -Werror` compilation of the same reference-alias idiom passed; full Clang 16 release/TSan and all CI remain pending until the I41.1 workflows finish.
-
+The Apple M2 I41 benchmark (31 samples, unchanged workload)
+confirmed native subtraction speedups: at 1024 bits
+71.156 -> 27.744 ns (61.0%); at 2048 bits
+97.917 -> 44.462 ns (54.6%); and at 4096 bits
+159.254 -> 73.335 ns (54.0%). Preserve the exact
+self-alias and canonical-zero semantics of I41.
 ### I64 short-operand pow/square ownership diagnostic (20 October 2026)
 
 

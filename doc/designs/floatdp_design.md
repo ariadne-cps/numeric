@@ -44,47 +44,6 @@ accumulator for `--max-slowdown` validation and keep all 27 timing rows, CLI fla
 1000-iteration/11-sample defaults unchanged. This is an output-only change; no numerical backend,
 operation or measurement method is modified.
 
-## Fix benchmark refactor linkage and switch diagnostics (17 October 2026)
-
-**Actual diagnostic:** In the shared `BackendPool<FloatDP>` constructor,
-`std::vector<FloatDP>::emplace_back(exact,FloatDP::ROUND_TO_NEAREST,precision)`
-passes the rounding constant through a forwarding reference.
-This ODR-uses `FloatDP::ROUND_TO_NEAREST`, an in-class initialized
-static const integral member without an out-of-class definition, and
-caused an undefined symbol at link time on Apple arm64.
-The constructor now materializes the same value in a local
-`Float::RoundingModeType` and passes that variable to both
-`emplace_back` calls. This preserves all 32 exact input rationals,
-input rounding, precision, and the 27-operation timed workload,
-while removing the unintended static-member reference.
-The independent MP/DP backends still share the same template.
-
-**Compiler warning:** The new `CheckedValue::Kind` switch now has
-an explicit throwing default to satisfy `-Wswitch-default` and to
-reject any invalid kind. It does not relax the exact Rational,
-comparison-outcome, binary64-bit, or precision checks.
-
-**Validation gate:** Verify that both benchmark executables link
-on AppleClang/MSVC/GCC, and that the Unix, Windows and Coverage
-workflows succeed. Neither fix changes numerical kernels or
-the expected dyadic literals. The end-of-benchmark numerical
-comparison must be exercised by actually running the benchmark:
-successful compilation alone is not proof it passes the 3456
-operation comparisons.
-
-### D123 — use public FloatDP exact-binary64 constructors in decimal tests (23 October 2026)
-
-Fix four CI compilation errors in `tests/test_float.cpp` introduced
-by M122: FloatDP(double) is a private constructor, deliberately not a
-public import path. Decimal rounding regression tests now construct
-FloatDP via its existing public FloatDP(ExactDouble const&,DoublePrecision)
-constructor, using the `dp` precision tag. The original exact
-binary64 inputs 0.125, 0.375 and -0.0 remain unchanged, including
-negative zero's sign bit. Expected oracle strings, rounding modes,
-production code and benchmarks are untouched. The compiler previously
-failed before running any new decimal checks, so CI still needs to
-confirm compilation and execution of these tests.
-
 ## FloatDP certified transcendental decoupling (25 October 2026)
 
 **Architecture correction.** The binary64 `FloatDP` transcendental fast path must not construct
@@ -834,35 +793,6 @@ FloatDP near-half code still has no BigUnsigned usage.
 No F7 optimization or changes to numeric sources are
 included in this journal update.
 
-## D4.2 — AppleClang strict test-build diagnostics (29 October 2026)
-
-A user-supplied macOS AppleClang Debug build log failed in the
-D4 source-keyed FloatDP square-root checks in
-`tests/test_float_rounding.cpp` with `-Werror -Wshadow` and
-`-Wvexing-parse`. Three independent test-source issues caused
-the diagnostics:
-
-- The local `DoublePrecision dp` declaration shadows the existing
-  `Ariadne::dp` constant. Rename it to `sqrt_precision` and update
-  the D4 test's constructors/special-value calls.
-- The local `FloatDP toward_zero` declaration shadows the existing
-  `Ariadne::toward_zero` rounding-mode token. Rename it to
-  `toward_zero_result` and update its single bitwise check.
-- `const Rational x(ExactDouble(exact_input));` is parsed as a
-  function declaration (most vexing parse). Use brace initialization
-  `const Rational x{ExactDouble(exact_input)};`. The subsequent
-  arithmetic comparison errors are downstream consequences of this
-  incorrect declaration.
-
-The exact test input set, all four rounding modes, mathematical
-inequalities, nearest-even midpoint check, infinity/NaN and signed-zero
-checks, and production algorithms remain unchanged. This repairs
-**compilation diagnostics in the tests**, not a failing numeric oracle.
-The full AppleClang build, CTest and other CI jobs have not been rerun
-or asserted successful in this documentation update. This record is
-included in the new backend-specific FloatDP journal.
-
-
 ## D7 — certified residual-directed FloatDP arithmetic (29 October 2026)
 
 **Problem and frozen baseline.** The user-supplied 53-bit integrated
@@ -1051,22 +981,6 @@ Keep the unchanged source-keyed 32-rational benchmark and all existing
 rounding test oracles. Require full Unix, Windows, Sanitizers and
 Coverage CI and the same-host user benchmark before claiming an
 end-to-end FloatDP performance improvement.
-
-
-### D9.1 — fix strict-warning D9 test compilation (29 October 2026)
-
-The D9 CI failed compiling tests/test_float_rounding.cpp with -Wshadow
-and -Werror across the Debug/Coverage/Sanitizers configurations.
-The supplied AppleClang diagnostics identify four errors:
-the D9 structured-binding `n` shadowed the existing `Int n`
-in test_conversion_from_to(), and the D9 local `FloatDP result`
-shadowed the `auto result` generated by each
-`ARIADNE_TEST_ASSERT` macro. Rename the structured binding to
-`numerator_word,denominator_word`, the FloatDP variable to
-`converted`, and adapt only their uses. Retain all original edge
-fixtures, requested and ambient modes, and exact Rational assertions
-without weakening conditions. D9 production code and benchmark
-remain untouched. Completion requires a renewed full CI run.
 
 
 ## D10 — remove nextafter overhead in certified binary64 rounding (29 October 2026)

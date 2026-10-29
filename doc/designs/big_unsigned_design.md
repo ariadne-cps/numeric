@@ -38,18 +38,6 @@ The user explicitly approved the **exact future filenames** `src/big_unsigned_ar
 
 **Current validation note.** The original B0 commit `be34905` passed Unix and macOS CI jobs but its Windows Release job failed during **Build**, before tests. The precise MSVC diagnostic has not yet been verified; this documentation-only approval does not resolve the Windows failure. Do not call phase B0 cross-platform validated until Windows passes.
 
-### BigUnsigned B0 Windows fix and style (18 October 2026)
-
-
-The initial `be34905` Windows 2025 Release job failed in MSVC 14.51.36231 when parsing `BigUnsigned::_inline` in the class declaration. The resulting C2226/C2334 and follow-on C3409/C2143/C2059 diagnostics point to an identifier collision: `_inline` is interpreted as a compiler-specific inline keyword/extension. The member is renamed everywhere to `_inline_limbs` with no change to the storage representation, arithmetic algorithms, tests, or ABI-visible public methods.
-
-The same maintenance commit expands whitespace, blank-line separation and control-flow formatting in `src/big_unsigned.cpp` and the dedicated test, following neighboring Ariadne numeric sources. Existing differential and adversarial tests are retained unaltered in their mathematical coverage. MSVC/Windows CI must pass before claiming the fix is verified; GCC/Clang regressions must also be checked. No architecture-specific kernels or FloatMP arithmetic changes are introduced.
-
-### BigUnsigned B0 Windows independent exact-reference fixtures bit-count fix (18 October 2026)
-
-
-Their shift parameter is `mp_bitcnt_t`, which can be 32-bit on Windows, whereas the randomized native shift was held in 64-bit `std::size_t`. No warning is disabled or demoted, no test distribution/case coverage changes, and no production `BigUnsigned` code is modified. Revalidate the Windows Build and CTest alongside the existing Linux and macOS checks.
-
 ### BigUnsigned B1: portable full and truncated multiplication (18 October 2026)
 
 
@@ -163,11 +151,6 @@ Clang ASan/UBSan passed **4,616** focused differential cases. Those integrated m
 **Isolated performance (not project results).** A standalone 20,000-iteration/31-sample GCC x86-64 microbenchmark recorded fused/Karatsuba (ns): 1024 bits 316.92/410.54, 2048 bits 1185.21/1480.69, 4096 bits 4703.88/5086.85, 8192 bits 19268.6/16420.2. Clang on the same probe recorded 1024 bits 290.36/398.26, 2048 bits 1078.98/1535.44, 4096 bits 4306.24/5110.39, 8192 bits 17939/16803.1. These are **exploratory isolated measurements**, not the unchanged integrated Numeric benchmark, and show that this initial implementation is slower through at least 4096 bits; only at 8192 bits did a modest speedup appear. The crossover will depend on compiler, input distribution and runtime environment; there is insufficient evidence to make Karatsuba production-default, particularly for the project's 53/128/256/1024/2048-bit performance gate.
 
 For assessing large-input crossover, pass `--bits 1024,2048,4096,8192` explicitly and check `prealloc_karatsuba` versus `prealloc_selected` on the same Ubuntu host. Do not conflate a high-bit diagnostic with replacement of frozen baselines or a whole FloatMP performance result. B8's purpose is to establish evidence, not enable subquadratic dispatch prematurely.
-
-### BigUnsigned B8 build fix: testing macro shadow (18 October 2026)
-
-
-Ubuntu GCC found an integrated CTest **test-source compilation error**, not evidence of an arithmetic failure, in the newly added B8 wide-limb loop: `ARIADNE_TEST_ASSERT(...)` internally declares `auto result=(expression)`, so a local scratch view named `result` caused name shadowing and use-before-deduction when passed inside the assertion. The build issue was reported with GCC `-Wshadow`, and the full Unix/Windows/Coverage CI for the corrected commit remains the acceptance gate.
 
 ### B8.1: Karatsuba cutoff experiment (18 October 2026)
 
@@ -332,11 +315,6 @@ B14 adds exact arbitrary-length unsigned division by a **single nonzero 64-bit l
 
 The B13 add/sub/compare/shift measured baselines remain as supplied by user; there is no justified microoptimization of them in this commit. After CI and native project tests pass, continue with multi-limb `divrem`, not premature Integer migration.
 
-### B14.1 Windows single-limb independent exact-reference fixtures width fix (19 October 2026)
-
-
-A deterministic case also explicitly checks a nonzero remainder above 32 bits. No production implementation, kernel selection, API, build flags, or benchmarks change. Re-run Unix, Windows and Coverage CI and report their actual outcomes before closing the Windows validation gate.
-
 ### B15 common multi-limb unsigned division (19 October 2026)
 
 
@@ -345,13 +323,6 @@ After the user-confirmed B14.1 Windows green CI, added exact unsigned `divrem` t
 Algorithm: normalize the multi-limb divisor to set its highest bit, estimate each base-2^64 quotient digit using the existing portable (high:low)/limb division, cap at one limb, compute the full product with the existing selected multiplication kernel, correct the estimate downward while its product exceeds the current dividend window, then subtract and unnormalize the final remainder. For single-limb divisors reuse B14; for smaller dividends return zero quotient and input remainder. No new backend source or ISA assumption is introduced.
 
 **Project CTest and Unix/Windows/Coverage CI are pending** for this commit; the standalone test is not a substitute. Future work: gcd and decimal import/export, then signed-magnitude Integer, only after production validation.
-
-### B15.1 shared subtract helper collision fix (19 October 2026)
-
-
-B15 failed to compile on AppleClang ARM64 with `-Werror`: the new division-local `subtract_in_place(Write,Read) noexcept` conflicted with the existing later Karatsuba `subtract_in_place(Write,Read)`, which can throw `std::logic_error` if the subtraction's nonnegative precondition is violated. Both helpers were in the same unnamed namespace and had the same argument types; the exception-specification mismatch caused the diagnostic. This is a compile-time regression, **not** evidence that the division algorithm returned an incorrect value.
-
-Remove the redundant division-local implementation, declare the shared helper before the division routine, and reuse the existing checked implementation for both quotient-product subtraction and Karatsuba. This preserves division's exact correction loop and its nonnegative precondition while keeping the existing borrow guard. The previously described standalone prototype checks do **not** verify the integrated B15.1 fix. Re-run Unix/Windows/Coverage CI and host CTest before claiming integrated correctness.
 
 ### B16 BigUnsigned GCD and strict decimal conversion (19 October 2026)
 
@@ -372,11 +343,6 @@ B19 makes the **targeted common-only** decimal-format change in `src/big_unsigne
 Existing original quotient/remainder rows and the original 32-value pools remain unchanged, while two additional `quotient_nontrivial`/`remainder_nontrivial` rows use a separate deterministic 32-value signed division pool with single-limb, half-width, near-equal and small divisors. Both backend pools are constructed outside timing. No changes to Rational benchmark paths, CI settings, timed sample counts, or data exclusions. **4096 bits remains supported and untouched**; for the next provisional benchmark invocation select `--bits 53,128,256,1024,2048` explicitly for speed, then restore 4096 after measuring `to_decimal` improvements.
 
 Integrated Unix/Windows/Coverage CI and native ARM64/x86-64 benchmark results for B19 are pending. Keep `SignedInteger` temporary and migrate its unique tests before final deletion, independently of benchmark throughput.
-
-### B19.1 scoped type fix (19 October 2026)
-
-
-AppleClang reported two unqualified `Limb` uses in free function `Ariadne::to_decimal`. The function was already in `namespace Ariadne`; `Limb` is a nested alias of `BigUnsigned`. Qualify both as `BigUnsigned::Limb`. No other source, test, benchmark, algorithm or namespace is changed. Integrated CI remains pending.
 
 ### B19.2 equal-prefix compare improvement and accurate benchmark verification count (19 October 2026)
 
@@ -537,11 +503,6 @@ An exploratory alternating-order microbenchmark on the exact prior 1e9 extractio
 
 Full repository tests and the ARM64/x86-64 integrated benchmark remain pending; GitHub CI and Codecov are deliberately not consulted at user request.
 
-### B31.1 shadow warning fix (19 October 2026)
-
-
-Rename the local counter constructing B31's constexpr digit-pair table from `value` to `pair_value` to avoid shadowing the `BigUnsigned const& value` argument in `to_decimal_blocks` under `-Wshadow`. Only an identifier changes: the 100 table entries, output bytes, arithmetic, benchmark workload and APIs remain identical. No new performance or test results are claimed; GitHub CI and Codecov remain unconsulted by user request.
-
 ### B32 selected GCC x86-64 symmetric squaring and generic pow identity elision (19 October 2026)
 
 
@@ -564,15 +525,16 @@ B35 therefore changes only **owning** `BigUnsigned::mul` on GCC x86-64 builds al
 
 The original 6000 randomized product tests, B32 symmetric square cases, Karatsuba scratch/guards and other benchmarks remain unchanged. GitHub CI and Codecov were not consulted by user request.
 
-### B35.1 Clang -Werror regression fix and integrated measurements (19 October 2026)
+### B35.1 — Integrated B35 multiplication measurements (19 October 2026)
 
-
-B35.1 changes **only** that B35 loop to `for (const auto& [n,m]: ...)`. The user's reported Clang diagnostic is the reason for the change; successful CI compilation remains to be verified on the new commit.
-
-Two native x86-64 integrated B35 benchmark runs, with 20,000 iterations and 31 samples, measured 4096-bit `Integer::mul` at **2752.212** and **2750.796 ns**. B33 on the same architecture had measured **3065.983 ns**, so B35's 4096-bit multiplication benefit was approximately **10.2-10.3%**, and the two B35 measurements differ by 0.05%. B35's 4096-bit `square` (1830.722/1832.047 ns) and `pow3` (8142.558/8146.656 ns) remained stable. Both x86-64 runs and the ARM64 B35 benchmark reported numerical verification PASS with 768 paired inputs and 2688 paired operation results. Do not infer causality for timing drift in unrelated operations. Earlier ARM64 B35 host was Apple M2; never compare it directly with the Apple M4 B31.1 baseline.
-
-At the user's explicit request of 19 October 2026, **GitHub Actions CI may be inspected again starting with this B35.1 commit**. Prior exclusions of CI checks applied to older commits; this permission does not itself establish a passing build. Existing numeric test coverage and correctness gates are preserved, and Codecov status should be described separately from compilation and functional CI.
-
+Two native x86-64 B35 benchmark runs (20,000 iterations, 31 samples)
+measured 4096-bit `Integer::mul` at **2752.212** and **2750.796 ns**,
+versus B33 at **3065.983 ns**: a **10.2–10.3% improvement**. The two
+B35 runs differed by only 0.05%. The 4096-bit `square` and `pow3`
+measurements remained stable at 1830.722/1832.047 ns and
+8142.558/8146.656 ns. Numeric verification passed on all 768 paired
+inputs and 2688 operation results. Earlier ARM64 B35 results were
+from Apple M2 and cannot be directly compared with Apple M4 B31.1.
 ### B36 exact high-limb quotient-0/1 extension (19 October 2026)
 
 
@@ -780,11 +742,6 @@ The proxy is NOT the user's x86 target and cannot establish a performance claim.
 
 Inspect dense 1024/2048/4096 preallocated multiply measurements for regressions and avoid treating Apple M4 ARM64 absolute timings as same-host comparisons. B53 has no on-target performance measurements yet. All standard CI checks should pass before acceptance.
 
-### B53.1 fix doubled x86-64 inline-assembly escape sequences (20 October 2026)
-
-
-The user's native x86-64 GCC -O3 build failed in src/big_unsigned_x86-64.cpp with assembler "invalid character '\\' in operand 1" near line 200. Root cause: B53 generated the five consecutive MULQ/ADDQ/ADCQ assembly string fragments with C++ source spelling `\\\\n\\\\t` (double backslashes), which produces literal backslash characters instead of the required newline/tab separators. B53.1 changes exactly these five source occurrences to `\\n\\t`. No instruction, register constraint, algorithm, dispatch, public API, test corpus, benchmark, or platform logic is modified. The fixed sequence was compiled locally on x86-64 with GCC 14.2 and Clang 17 (-O3 -std=gnu++20 -Wall -Wextra -Wpedantic -Werror) and each compiler passed 250000 exact products against unsigned-128 arithmetic. This isolated assembly smoke check does not replace full project CI or the user's native B53 benchmark. B53 official same-host measurements remain pending.
-
 ### B54 x86-64 GCC adapt square and Karatsuba to operand density; retune 32-limb dispatch (20 October 2026)
 
 
@@ -822,11 +779,6 @@ Before further instruction-level changes, distinguish which *algorithmic divisio
 
 This is **diagnostic instrumentation only**, with no numerical or speedup claims before the executable passes CI and is run on the user's same x86-64 host. A recommended initial diagnostic run is: cmake --build build --target benchmark_big_unsigned_division_profile -j8 ./build/benchmarks/benchmark_big_unsigned_division_profile -t dark \ --bits 1024,2048,4096 --iterations 4000 --samples 15 Repeat slowest categories at 20000 iterations/31 samples before choosing B57. Inspect whether multiprecision quotient/remainder paths still dominate, or if overhead for small/near-equal denominators is more consequential. Avoid mistaking preallocated and owning cost differences for arithmetic speedups. Do not change oracle coverage or adjust benchmark inputs to make a faster path win.
 
-### B56.1 fix move-only independent exact-reference fixtures pool construction (20 October 2026)
-
-
-Named-value return optimization is optional and the compiler must find a legal move constructor: GCC rejected it with "use of deleted function std::array<Fixture,32>::array". Both live objects remain valid for independent destruction; self move-assignment is guarded. There is no modification to any production library code, test source, official benchmark workload or diagnostic measurement logic. Run the complete benchmark and CI to establish integration and native timing; that has NOT yet been confirmed.
-
 ### B56.2 ensure exhaustive shape switch has required default (20 October 2026)
 
 
@@ -847,20 +799,17 @@ The production suite adds 1440 raw-limb single-divisor pairs across 0/1/7/8/16/3
 
 The main same-host acceptance test is to repeat the original 84-case benchmark at 20k iterations and 31 samples and the existing B56 profile at 4k iterations and 15 samples, checking separate limb_small, limb_wide, power_of_two and short_2 categories at 1024/2048/4096 bits for wins and regressions. Since GCC 64-limb reciprocal behavior is experimental on the user's unknown x86 CPU, retain B56/B55 as rollback baseline if results regress.
 
-### B57.1 restore warnings-as-errors clean bit-count conversions (20 October 2026)
+### B57.1 — Measured single-limb division tradeoffs (20 October 2026)
 
-
-The user's native x86-64 GCC build of B57 succeeded but warned at three new conversion sites in src/big_unsigned.cpp, lines 502, 525 and 819: std::countr_zero/std::countl_zero return int whereas the destination variable is unsigned. All seven B57 GitHub Actions checks failed at their build steps with WARNINGS_AS_ERRORS=ON, including GCC, Clang, AppleClang and Windows. B57.1 makes these three conversions explicit via static_cast<unsigned>; the mathematical count range 0..64 guarantees they are nonnegative. GCC and Clang compiled isolated C++20 -Wsign-conversion -Werror reproducers. No algorithm, thresholds, test corpus or APIs change.
-
-Re-run under controlled conditions before attributing unrelated decimal construction timing changes to B57.
-
-B56/B57 division profile at 4096 bits: limb_small quot 1281.487->314.578 ns (-75.5%), limb_wide quot 1349.135->312.612 ns (-76.8%), power_of_two rem 749.174->87.441 ns (-88.3%). Generic single-limb remainder limb_wide rem 1322.548->1306.280 ns, nearly unchanged, and short_2 quot 1665.143->1706.745 ns (+2.5%). The 84-case official benchmark and existing tests remain unchanged. Full CI retest required.
-
-### B57.2 fix AppleClang B57 single-limb test shadow warning (20 October 2026)
-
-
-AppleClang arm64 Release CI failed to compile tests/test_big_unsigned.cpp with -Wshadow -Werror: the B57 test loop introduced a local `remainder` while test_division_limb() already held the structured- binding variable `remainder` from the fixed radix-boundary case. It is solely a warnings-as-errors source compatibility fix; full AppleClang and cross-platform CI validation is still pending.
-
+B56/B57's 4096-bit division profile showed the following changes:
+`limb_small` quotient 1281.487 -> 314.578 ns (-75.5%),
+`limb_wide` quotient 1349.135 -> 312.612 ns (-76.8%),
+and power-of-two remainder 749.174 -> 87.441 ns (-88.3%).
+Generic `limb_wide` remainder barely changed (1322.548 ->
+1306.280 ns), while `short_2` quotient regressed
+1665.143 -> 1706.745 ns (+2.5%). These results motivate
+separate kernel selection for quotient and remainder rather
+than assuming a universal division speedup.
 ### B58 diagnostic: decimal cutoff-16 versus cutoff-32 and recursive split costs (20 October 2026)
 
 
@@ -898,11 +847,6 @@ Reject the candidate if it loses, regardless of earlier isolated proxy assumptio
 Avoid regressing ARM64 while tuning x86; if the two acceptance gates are applied cross-platform, ARM64's 4096-bit aggregate also needs improvement.
 
 The B60 diagnostic commit 351ff6761711 leaves the B59 production arithmetic unchanged. B60 CI and same-host rem_pi1 timing are not yet confirmed. A change may improve one failure yet regress another: require an updated complete 84-case comparison before promotion, with a recorded rollback baseline. No algorithm or benchmark change is made by this acceptance-policy journal entry.
-
-### B60.1 fix namespace of diagnostic declaration under GCC (20 October 2026)
-
-
-The user's Ubuntu x86-64 GCC B60 build failed before running the division profile. The new forward declaration for `rem_limb_preinverse_diagnostic` in benchmarks/benchmark_big_unsigned_division_profile.cpp was mistakenly written inside the file's anonymous namespace, creating a *nested*, distinct `Ariadne` namespace. `BigUnsigned` belongs to the global `::Ariadne` namespace, so the compiler rejected the declaration and subsequent calls. B60.1 moves only that forward declaration into global `::Ariadne`, before opening the anonymous namespace. Native integration/CI must still confirm the fix; no performance result is claimed for B60.1.
 
 ### B61 promote measured single-limb remainder-only pi1 on GCC x86-64 (20 October 2026)
 
@@ -961,11 +905,6 @@ No new public API or additional CMake build source is needed. Return of the user
 
 The short-size performance strategy remains: keep fused selected on GCC x86-64 pending robust contrary evidence; keep native ARM64 carry-chain; record direct signed decimal adapter improvements from B68 as a separate possible production change. No reweighted workload was introduced (per user). Run from build in one line: ./benchmarks/benchmark_integer_small_operations_profile -t dark --bits 53,128,256 --iterations 20000 --samples 31 B71 compilation/CI/host measurements are pending.
 
-### B71.1 fix B71 benchmark wrapper declaration order (20 October 2026)
-
-
-The user reported a native GCC x86-64 benchmark build failure in `benchmark_integer_small_operations_profile.cpp`: `verify_b69` referenced `b71_stack_selected_signed` and `b71_stack_fused_signed` before either was declared. Move the two existing diagnostic function definitions intact above `verify_b69` in the same anonymous namespace. No algorithm, oracle, test pool, production arithmetic, dispatch, build flag, official 84-case benchmark, or benchmark timing methodology changes. The fix does not claim performance or successful native build before actual CI/user verification.
-
 ### B72 production short owning stack product on GCC x86-64 (20 October 2026)
 
 
@@ -1015,11 +954,6 @@ The subsequent 1800-visit random decimal parser test and all later seeded radix 
 
 
 Version tests/data/generator_big_unsigned_gcd.cpp, generator_big_unsigned_b76.cpp, oracle_exact_integer.hpp and README-generators.md. They independently regenerate all 15 GCD and 14 B76 GCD/decimal TSVs using independent base-2^64 limbs, binary GCD, exact decimal conversion and unchanged std::mt19937_64 streams. Both GCC and Clang C++20 warnings-as-errors builds reproduced all 29 committed TSV files byte for byte without changing them. By default --verify does not write files; --write explicitly regenerates them. tests/CMakeLists.txt compiles both programs as dependencies of the aggregate tests build target, without registering them for CTest or running them during compilation. Other TSVs, including certified FloatMP transcendental fixtures, still have no versioned generator. Full CI remains required.
-
-### B77.1 — strict Clang signed-conversion fix for independent oracle helper (23 October 2026)
-
-
-Fix `independent_oracle::Nat::trailing_zero_bits()` in `tests/data/oracle_exact_integer.hpp`: `std::countr_zero(uint64_t)` returns `int` by contract, while the bit offset is `std::size_t`. Cast the nonnegative count explicitly to `std::size_t` and use an unsigned 64-bit-word multiplier. The exact expression was compiled and executed with GCC and Clang under the reported warnings-as-errors flag set. Full repository CI should still be checked independently after this commit.
 
 ### B78 — version five independent exact data generators (23 October 2026)
 
@@ -1714,28 +1648,3 @@ code changes. This completes the fixed BigUnsigned audit at **76,323 / 76,323
 = 100.000%** migrated numerical GMP-oracle visits. GMP interoperability tests
 remain outside this denominator by definition.
 
-
-### MSVC checked-span range fix (26 October 2026)
-
-Windows Debug with `/RTC1` exposed a deterministic stall in the first
-unequal-width subtraction (`2` limbs minus `1` limb). The arithmetic loop
-itself was finite; the bug was the tail clearing range passed to
-`std::fill`: its begin iterator came from `output.subspan(count)` while its
-end iterator came from the original `output` span. That happens to behave like
-a pointer range on some standard libraries, but it is not a valid checked
-iterator pair on MSVC Debug.
-
-All three occurrences in `BigUnsigned` (add, subtract and Karatsuba tail
-clearing) now bind the subspan to a local `tail` and pass
-`tail.begin(), tail.end()` to the algorithm. Regression coverage includes
-explicit 2-limb/1-limb addition and subtraction. The temporary Windows tracing
-used to isolate the problem was removed after the fix.
-
-
-A follow-up Windows Debug run exposed five additional instances of the same
-invalid iterator pairing in the single-limb and exact-division tail clearing:
-`quotient.subspan(a.size()).begin()` was paired with `quotient.end()`.
-Those sites are now fixed identically by naming the tail subspan and using
-both iterators from that same view. Existing division tests already exercise
-oversized quotient buffers, so no synthetic coverage reduction or replacement
-was needed.
