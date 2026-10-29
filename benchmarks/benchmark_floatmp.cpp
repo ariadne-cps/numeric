@@ -7,7 +7,7 @@
 
 #include "numeric/floatmp.hpp"
 #include "logging/logging.hpp"
-#include "logging/command_line.hpp"
+#include "logging/logging_command_line_interface.hpp"
 #include "benchmark_command_line.hpp"
 #include "benchmark_backend_workload.hpp"
 
@@ -140,8 +140,7 @@ int main(int argc, const char* argv[]) {
     BenchmarkCommandLine::initialize_logging();
     try {
         Selection selection;
-        CommandLineInterface command_line;
-        command_line.add(logging_command_line());
+        LoggingCommandLineInterface command_line;
         command_line.add(CommandLineContribution("numeric-floatmp-benchmark",
                                                   make_argument_parsers(selection)));
         const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(

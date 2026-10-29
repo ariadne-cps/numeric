@@ -5,7 +5,7 @@
 #include "numeric/dyadic.hpp"
 #include "benchmark_command_line.hpp"
 #include "logging/logging.hpp"
-#include "logging/command_line.hpp"
+#include "logging/logging_command_line_interface.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -195,8 +195,7 @@ int main(int argc,char const* argv[]) {
     BenchmarkCommandLine::initialize_logging();
     try {
         Selection selection;
-        CommandLineInterface cli;
-        cli.add(logging_command_line());
+        LoggingCommandLineInterface cli;
         cli.add(CommandLineContribution(
             "numeric-dyadic-benchmark",benchmark_parsers(selection)));
         const auto args=BenchmarkCommandLine::normalize_legacy_arguments(
