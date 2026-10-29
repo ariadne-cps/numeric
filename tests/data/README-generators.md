@@ -1337,3 +1337,10 @@ of its independently bounded log(2). The native power is computed with the
 standalone unsigned limbs, including `INT64_MAX+p-1`, which can exceed a
 signed 64-bit integer. Both interval endpoints must round to the same signed
 p-bit value in each of the four modes. All original 444 log rows are preserved.
+
+The tanh fixture now also includes both signs of two exact p=128 inputs,
+`1/2+162899406*2^-128` and `1/2+562322472*2^-128`, in all four modes.
+Their affine center corrections lie at a directed rounding boundary and
+near a nearest-even midpoint. These 16 rows exercise the genuine ambiguity
+fallback. Expected results use the same independent outward exp certificate
+at 2304 bits; the original 1164 rows are retained (1180 rows in total).

@@ -282,9 +282,19 @@ std::string generate() {
                 }
             }
         }
+        if(p==128u) {
+            // Affine center corrections land at a directed rounding boundary
+            // and one unit below a nearest-even midpoint, respectively.
+            // The inputs are exact p-bit dyadics; expected answers still
+            // come exclusively from the independent outward exp enclosure.
+            for(std::uint64_t offset:{162899406u,562322472u}) {
+                append_signed(sources,dyadic(
+                    Nat::add(Nat::power2(127u),Nat(offset)),128u,false));
+            }
+        }
         std::sort(sources.begin(),sources.end(),[](auto const& a,auto const& b){return compare_rational(a,b)<0;});
         sources.erase(std::unique(sources.begin(),sources.end(),[](auto const& a,auto const& b){return compare_rational(a,b)==0;}),sources.end());
-        const auto expected=(p==2u||p==7u)?17u:p==53u?33u:original?29u:18u;
+        const auto expected=(p==2u||p==7u)?17u:(p==53u||p==128u)?33u:original?29u:18u;
         if(sources.size()!=expected)throw std::runtime_error("incorrect source count p="+std::to_string(p));
         for(char mode:{'D','N','U','Z'})for(auto const& source:sources) {
             const std::string input_n=(source.negative?"-":"")+source.n.dec();
@@ -299,7 +309,7 @@ std::string generate() {
             ++rows;
         }
     }
-    if(rows!=1164u)throw std::runtime_error("tanh row count: "+std::to_string(rows));
+    if(rows!=1180u)throw std::runtime_error("tanh row count: "+std::to_string(rows));
     return out;
 }
 }
