@@ -281,10 +281,27 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
             dividend[0u]=numerator;
             divisor<<=static_cast<unsigned>(-shift);
         }
-        const std::uint64_t remainder=BigUnsigned::divrem_limb_into(
+        std::uint64_t remainder=0u;
+        std::uint64_t retained=0u;
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_WIN32)
+        // M150: the normalized quotient fits one limb, so the upper
+        // dividend word is strictly below the divisor. One DIVQ gives
+        // the *exact* quotient and remainder, without a general limb
+        // view, output array clearing or a second division.
+        std::uint64_t low=dividend[0u];
+        std::uint64_t high=dividend[1u];
+        __asm__ volatile("divq %[d]"
+            : "+&a"(low), "+&d"(high)
+            : [d] "r"(divisor)
+            : "cc");
+        retained=low;
+        remainder=high;
+#else
+        remainder=BigUnsigned::divrem_limb_into(
             BigUnsigned::LimbView(dividend.data(),dividend[1u]!=0u ? 2u : 1u),
             divisor,quotient);
-        std::uint64_t retained=quotient[0u];
+        retained=quotient[0u];
+#endif
         bool increment=false;
         if (remainder!=0u) {
             switch(mode.value()) {

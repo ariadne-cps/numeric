@@ -10616,3 +10616,61 @@ Require full Unix/Windows/Coverage/Sanitizers CI and exact
 unchanged 53/128/256/1024-bit benchmark equality checks before
 accepting numerical correctness or claiming production performance.
 
+
+
+## M150 — exact scalar quotient/remainder for short FloatMP ratios (29 October 2026)
+
+**Motivation and scope.** After M149, the latest user-measured p=53
+FloatMP times were ARM64 `construct_rational=29.921 ns`,
+`div_nearest/down/up=23.498/23.062/23.054 ns`; GCC x86-64
+`construct_rational=81.537 ns`,
+`div_nearest/down/up=53.149/49.227/49.651 ns`.
+Both operations use `FloatMP::from_unsigned_ratio`. Its existing
+p<=64 single-limb path produces an exact quotient and remainder via
+the general shared `BigUnsigned::divrem_limb_into`, which operates
+on spans and writes a quotient buffer. The shared divider must retain
+its complete general-purpose contracts; the caller already proves
+more: the normalized quotient fits one 64-bit word.
+
+**Selected experiment.** For GCC/Clang x86-64 on non-Windows
+targets, replace only that one short-path division call with one
+native `DIVQ` instruction reading the existing two-word
+scaled dividend and scalar divisor. Its quotient and remainder
+are both exact; the existing sign-aware four-mode rounding,
+nearest-even remainder comparison, exponent normalization and
+carry handling are unchanged. The normalized p<=64 result
+guarantees that the high dividend word is strictly smaller than
+the divisor, so the instruction cannot raise a quotient-overflow
+exception. The `+&a`/`+&d` constraints prevent the divisor
+register from aliasing the outputs. Other platforms, multi-limb
+operands and precision above 64 keep the original shared divider
+and its independent arithmetic behavior. Neither FloatDP nor
+the shared BigUnsigned kernel is modified.
+
+**Isolated experimental evidence, not an integrated benchmark.**
+A strict-FP standalone C++20 scalar model was compiled on
+x86-64 using GCC 14.2 and Clang 17 with
+`-O3 -frounding-math -fno-fast-math -ffp-contract=off
+-Wall -Wextra -Wshadow -Werror`. It compared the quotient,
+remainder, normalization exponent and divisor against the
+original-style two-word generic division loop over
+1,080,000 randomly constructed nonzero fractions per
+compiler (p=2,7,31,53,63,64), plus all 32 original
+benchmark-pool inputs at each precision. Zero mismatches.
+In isolated 20,000x31 microbenchmarks, the one-instruction
+division generally reduced the scalar core cost, but these
+measurements exclude object construction, other FloatMP
+dispatch, and user's host conditions, so no production speedup
+is claimed. This is a limited ISA-specific optimization,
+not a new division algorithm.
+
+**Regression and acceptance.** Extend the source-level exact
+Rational conversion tests at p=2,7,31,53,63,64 for 11 distinct
+limb-boundary fractions, positive and negative sign, and all
+four modes, verifying directed enclosures, adjacent results,
+toward-zero and nearest relative to the exact rational midpoint.
+Preserve existing original source-keyed oracles and benchmark
+inputs, iterations and samples. Require full Unix, Windows,
+Coverage and Sanitizers workflows and same-host GCC/Clang
+x86-64 and ARM64 benchmark measurements before declaring
+the integrated optimization profitable.

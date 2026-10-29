@@ -731,6 +731,52 @@ TestFloatRounding<PR>::test_precision_regressions()
     // API; the expected 1/3 mantissas follow exactly from integer division
     // of 2^(p+1) by three, independently of FloatMP.
     if constexpr (Same<PR,MultiplePrecision>) {
+        // M150: independent exact-Rational checks exercise short
+        // quotient/remainder rounding on scalar boundaries and signs.
+        // These also cover p=64 and cases crossing a power of two.
+        const std::array<std::pair<std::uint64_t,std::uint64_t>,11u> ratios={{
+            {1u,3u},{2u,5u},{3u,7u},{7u,13u},
+            {std::uint64_t{1}<<53u,3u},
+            {(std::uint64_t{1}<<53u)+13u,
+             (std::uint64_t{1}<<54u)+17u},
+            {std::uint64_t{1}<<63u,3u},
+            {std::uint64_t{1}<<63u,(std::uint64_t{1}<<63u)-1u},
+            {UINT64_MAX,UINT64_MAX-2u},
+            {UINT64_MAX,3u},{1u,UINT64_MAX}
+        }};
+        for (unsigned target_bits : {2u,7u,31u,53u,63u,64u}) {
+            const MultiplePrecision target_precision(
+                static_cast<std::size_t>(target_bits));
+            for (auto [numerator_word,denominator_word] : ratios) {
+                for (bool negative_input : {false,true}) {
+                    const Rational exact(
+                        negative_input ? -Integer(numerator_word)
+                                       : Integer(numerator_word),
+                        Integer(denominator_word));
+                    const FloatMP lower_result(
+                        exact,FloatMP::ROUND_DOWNWARD,target_precision);
+                    const FloatMP upper_result(
+                        exact,FloatMP::ROUND_UPWARD,target_precision);
+                    const FloatMP nearest_result(
+                        exact,FloatMP::ROUND_TO_NEAREST,target_precision);
+                    const FloatMP zero_result(
+                        exact,FloatMP::ROUND_TOWARD_ZERO,target_precision);
+                    const Rational lower_exact=static_cast<Rational>(lower_result);
+                    const Rational upper_exact=static_cast<Rational>(upper_result);
+                    ARIADNE_TEST_ASSERT(lower_exact<=exact);
+                    ARIADNE_TEST_ASSERT(upper_exact>=exact);
+                    ARIADNE_TEST_ASSERT(lower_result==upper_result ||
+                        upper_result==next(RoundUpward{},lower_result));
+                    ARIADNE_TEST_EQUALS(zero_result,
+                        negative_input ? upper_result : lower_result);
+                    const Rational midpoint=(lower_exact+upper_exact)/Rational(2);
+                    if (exact<midpoint)
+                        ARIADNE_TEST_EQUALS(nearest_result,lower_result);
+                    else if (exact>midpoint)
+                        ARIADNE_TEST_EQUALS(nearest_result,upper_result);
+                }
+            }
+        }
         FloatMPPhaseTiming timing_native_ratio("native_ratio",precision.bits());
         for (Bits bits : {2_bits,7_bits,31_bits,32_bits,33_bits,53_bits,
                           64_bits,65_bits,127_bits,128_bits,129_bits,
