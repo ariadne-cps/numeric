@@ -27,7 +27,6 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
-#include <array>
 #include <bit>
 #include <cstdint>
 #include <cmath>
@@ -46,7 +45,6 @@
 #include "numeric/decimal.hpp"
 #include "numeric/rational.hpp"
 #include "numeric/rounding.hpp"
-#include "numeric/big_unsigned.hpp"
 #include "numeric/floatdp.hpp"
 #include "numeric/floatmp.hpp"
 #include "numeric/rounded_float.hpp"
@@ -423,7 +421,7 @@ std::uint64_t floatdp_correction(FloatDPFixed85 slope,std::uint64_t offset,
     // F1: a 2x1-limb product with portable native uint64_t arithmetic.
     // The exhaustive certificate bounds slope<2^87 and offset<=2^11;
     // 32-bit partial products and carry additions cannot overflow.
-    // No general BigUnsigned multiplication or 128-bit extension is needed.
+    // No general multiprecision multiplication or 128-bit extension is needed.
     const std::uint64_t bottom=(slope.low&0xffffffffu)*offset;
     const std::uint64_t top=(slope.low>>32u)*offset+(bottom>>32u);
     const std::uint64_t low=(top<<32u)|(bottom&0xffffffffu);
@@ -437,36 +435,43 @@ std::uint64_t floatdp_correction(FloatDPFixed85 slope,std::uint64_t offset,
         round_upward && (low&remainder_mask)!=0u);
 }
 
-std::array<BigUnsigned::Limb,2u>
-floatdp_endpoint(FloatDPFixed85 center,std::int64_t displacement) {
-    using Limb=BigUnsigned::Limb;
-    const std::array<Limb,2u> input={center.low,center.high};
-    std::array<Limb,2u> output={0u,0u};
+constexpr FloatDPFixed85 floatdp_endpoint(FloatDPFixed85 center,
+                                         std::int64_t displacement) {
+    // F2: the certified endpoint is exactly two uint64_t words.
+    // Apply the one-word signed correction with a native carry or borrow.
+    // The existing consteval certificate guarantees no 128-bit overflow
+    // or underflow for any argument accepted by this short kernel.
     const std::uint64_t absolute=displacement<0
         ? std::uint64_t{0}-static_cast<std::uint64_t>(displacement)
         : static_cast<std::uint64_t>(displacement);
-    const Limb increment=absolute;
     if(displacement<0) {
-        BigUnsigned::sub_into(
-            BigUnsigned::LimbView(input.data(),input.size()),
-            BigUnsigned::LimbView(&increment,1u),
-            BigUnsigned::MutableLimbView(output.data(),output.size()));
-    } else {
-        BigUnsigned::add_into(
-            BigUnsigned::LimbView(input.data(),input.size()),
-            BigUnsigned::LimbView(&increment,1u),
-            BigUnsigned::MutableLimbView(output.data(),output.size()));
+        const std::uint64_t low=center.low-absolute;
+        return {low,center.high-static_cast<std::uint64_t>(
+            center.low<absolute)};
     }
-    return output;
+    const std::uint64_t low=center.low+absolute;
+    return {low,center.high+static_cast<std::uint64_t>(
+        low<center.low)};
 }
+
+// Explicit exact word-boundary checks complement the source-keyed
+// binary64 transcendental oracles and exhaustive center certificates.
+static_assert(floatdp_endpoint({0u,3u},-1).low==
+              std::numeric_limits<std::uint64_t>::max());
+static_assert(floatdp_endpoint({0u,3u},-1).high==2u);
+static_assert(floatdp_endpoint({std::numeric_limits<std::uint64_t>::max(),3u},
+                                1).low==0u);
+static_assert(floatdp_endpoint({std::numeric_limits<std::uint64_t>::max(),3u},
+                                1).high==4u);
+static_assert(floatdp_endpoint({1u,3u},-1).low==0u);
 
 // The exhaustive compile-time certificate proves that both endpoints are
 // inexact, never halfway, never carry into a new exponent, and round alike
 // in every supported mode. This private rounder uses exactly that domain.
-bool floatdp_round_fixed(std::array<BigUnsigned::Limb,2u> const& magnitude,
+bool floatdp_round_fixed(FloatDPFixed85 magnitude,
                          bool negative,FloatDP::RoundingModeType mode,double& output) {
-    const std::uint64_t low=magnitude[0u];
-    const std::uint64_t high=magnitude[1u];
+    const std::uint64_t low=magnitude.low;
+    const std::uint64_t high=magnitude.high;
     const unsigned width=128u-static_cast<unsigned>(std::countl_zero(high));
     const unsigned shift=width-53u;
     std::uint64_t retained=(low>>shift)|(high<<(64u-shift));

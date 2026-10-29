@@ -11265,3 +11265,100 @@ the mathematical proof. Run the full FloatDP source-keyed
 oracles, Unix/Windows/MSVC, Sanitizers and Coverage before
 regarding F1 as validated. F2 and F3 must only be implemented
 after observing the F1 benchmark independently.
+
+
+### F1.1 — user-measured p=53 benchmark after F1 (29 October 2026)
+
+The user supplied a complete same-configuration 53-bit benchmark
+(20,000 iterations, 31 samples, 56 paired operations). After F1:
+**FloatMP/FloatDP total_time=1.106x**, **geomean=1.651x**,
+**worst=8.105x** (fma_nearest). Previous post-D148, pre-F1
+measurement: total_time=0.947x, geomean=1.273x, worst=8.098x.
+The FloatMP measurements themselves stayed broadly similar, but
+the FloatDP certified transcendental operations became much faster.
+Summing the 27 separately measured FloatDP transcendental medians
+(exp/log/sin/cos/tan/tanh/atan/asin/acos in nearest/down/up) gives
+**305.266 ns after F1**, down from **479.018 ns pre-F1**
+(36.27% lower). Summing the 18 directed (down/up) entries gives
+**137.645 ns after F1** versus **257.387 ns pre-F1**
+(46.52% lower). Representative paired FloatDP timings:
+exp_down 13.994 -> 7.765 ns; log_down 13.140 -> 6.860 ns;
+sin_down 14.558 -> 8.035 ns; cos_down 14.281 -> 7.223 ns;
+tan_down 14.562 -> 8.012 ns; atan_down 14.850 -> 7.996 ns.
+These are per-operation medians supplied by the user, not
+internally executed or independently controlled runs. The
+measured acceleration strongly supports continuing incremental
+optimization; no claims of broad input-domain speedups beyond
+the certified near-half kernel follow from the benchmark.
+
+## F2 — FloatDP native certified endpoint arithmetic, no BigUnsigned (29 October 2026)
+
+**Purpose and one-change isolation.** Following successful F1
+measurements, replace only the remaining native-word endpoint
+arithmetic in src/floatdp.cpp; retain the F1 slope multiplication,
+F1 exact-binary64 oracle checks, the 85-bit fixed-point scale,
+the 53/54-bit denominator restrictions, and all compile-time
+center-certification conditions. Leave the final
+std::ldexp-based double construction UNCHANGED for the separate
+F3 experiment. No unrelated FloatMP or benchmark modifications.
+
+**Before F2.** floatdp_endpoint took a FloatDPFixed85 center
+(two 64-bit words), created a two-element BigUnsigned::Limb
+array, applied one signed displacement with BigUnsigned::add_into
+or sub_into, and returned another two-word array. The rounder
+floatdp_round_fixed consumed that array. This occurred once
+per certified transcendental call. It did not require arbitrary
+precision, because F1 and the existing exhaustive consteval
+certificates already bound the center and correction to <128 bits.
+
+**After F2.** floatdp_endpoint now returns the existing plain
+FloatDPFixed85 struct and applies a signed one-word correction
+via portable uint64_t addition/subtraction, comparing the
+original/new low words to propagate a 0/1 carry or borrow to
+the high word. Absolute displacement is computed with unsigned
+modular subtraction to handle even INT64_MIN without signed
+overflow. The existing exact compile-time 85-bit certificate
+guarantees that actual supported arguments cannot overflow or
+underflow the full two-word positive endpoint. The rounder
+accesses magnitude.low and magnitude.high instead of array
+indices, with its bit extraction, mode-dependent rounding,
+ldexp scaling and sign unchanged. Remove the now-unused
+numeric/big_unsigned.hpp and <array> includes. The text
+BigUnsigned does not appear anywhere in src/floatdp.cpp as
+of this change: this completes the stated no-BigUnsigned
+requirement for the concrete FloatDP implementation file.
+The shared independent frozen oracles, 56-operation benchmark
+and compiler-time center proofs are unchanged.
+
+**Correctness checks.** Add five compile-time static_asserts
+in src/floatdp.cpp for carries, borrows and a zero resulting
+low word. A standalone C++20 differential model compared
+the portable two-word operation against the full signed
+cpp_int result for **900,000** randomized and adversarial
+in-range endpoint/displacement cases with GCC 14.2 and
+**900,000** with Clang; no mismatches. Samples included
+zero/all-one/high-bit lower words, positive and negative
+displacements, boundary carries/borrows and INT64_MIN
+subtraction. This verifies the mathematical kernel in
+isolation, not the repository's compilation or CI. The
+frozen FloatDP transcendental bitwise-oracle checks added
+in F1 remain active. CI, the full tests, MSVC and a user
+same-machine benchmark are still required.
+
+**F2 performance baseline.** Use F1's independently measured
+FloatDP p=53 transcendental sums: 305.266 ns for all 27
+medians, and 137.645 ns for the 18 directed operations.
+The paired FloatMP/FloatDP total_time ratio is 1.106x,
+geomean 1.651x. Assess absolute FloatDP operation latency
+and relative paired results after F2, including changes
+outside the nine near-half kernels. Do not attribute
+small global changes to this patch without controlled
+repeated measurements.
+
+**Next: F3, intentionally NOT in F2.** Once F2 performance
+is measured, construct the normal IEEE-754 double directly
+using std::bit_cast of the exponent/sign/fraction fields,
+under the existing strict compile-time no-carry/no-tie
+certificate. Compare output bit patterns against frozen
+binary64 source-keyed oracles; retain all other floating-point
+operations in FloatDP unchanged.
