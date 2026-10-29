@@ -1321,7 +1321,7 @@ TestFloatRounding<PR>::test_precision_regressions()
                                 ARIADNE_TEST_EQUALS(nearest_result,upper_result);
                             }
                             ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),ambient);
-                            ARIADNE_TEST_EQUAL(FloatMP::get_rounding_mode(),saved_mp);
+                            ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==saved_mp);
                         }
                     }
                 }

@@ -11240,3 +11240,18 @@ The 54/64-bit cases explicitly keep the original path under test.
 Require full Unix/Windows/Coverage/Sanitizers CI and exact
 unchanged 53/128/256/1024-bit benchmark equality checks before
 accepting numerical correctness or claiming production performance.
+
+
+### M149.1 — fix regression test's non-streamable rounding mode (29 October 2026)
+
+M149 release benchmarks show large improvements for 53-bit sqrt on both
+ARM64 and x86-64; however, the initial Unix, Coverage, and Sanitizers
+CI runs fail at test compilation. The supplied AppleClang 21 log
+pinpoints tests/test_float_rounding.cpp:1324: ARIADNE_TEST_EQUAL
+attempts to stream the opaque FloatMP::Rounding enumeration, which
+has no matching operator<<. Change the assertion to
+ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==saved_mp).
+The boolean condition and all numerical test fixtures, checks, oracles,
+benchmark inputs, and M149 production code remain unchanged.
+The error diagnosis follows the actual compiler diagnostic; renewed
+full-platform CI is required to establish overall correctness.
