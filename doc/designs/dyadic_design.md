@@ -2,7 +2,7 @@
 
 **Repository:** `ariadne-cps/numeric` · **branch:** `main`
 **Scope:** exact binary-rational `Dyadic`, its shared integer substrate, floating-point conversions, and validated enclosure wrappers.
-**Companion core journal:** [Integer and BigUnsigned](integer_design.md) · [Rational](rational_design.md)
+**Companion core journal:** [Integer](integer_design.md) · [BigUnsigned](big_unsigned_design.md) · [Rational](rational_design.md)
 
 This journal records the evolution from the early `NewDyadic` prototype to the canonical `Dyadic` implementation. Historical revision labels are preserved, but each record focuses on algorithms, semantic behavior, independent tests, benchmarks of the native implementation, and outstanding CI requirements. Earlier experimental class names do not imply that those types remain active on `main`.
 

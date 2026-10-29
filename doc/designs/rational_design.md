@@ -2,13 +2,13 @@
 
 **Repository:** `ariadne-cps/numeric` · **branch:** `main`
 **Scope:** `Rational` finite and extended arithmetic, numerator/denominator canonicalization, GCD and cancellation use, comparisons, conversions, exact oracles, and R-series performance and correctness history.
-**Companion:** [Integer and BigUnsigned](integer_design.md) · [Dyadic](dyadic_design.md) · [FloatMP](floatmp_design.md)
+**Companion:** [Integer](integer_design.md) · [BigUnsigned](big_unsigned_design.md) · [Dyadic](dyadic_design.md) · [FloatMP](floatmp_design.md)
 
 Each historical milestone is preserved verbatim below with its original date and identifier; older entries document the state at the time, not necessarily the final implementation. Full validation and CI must be verified independently.
 
 ## Current architecture and correctness contract
 
-A finite `Rational` has an `Integer` numerator and a positive `BigUnsigned` denominator; zero is canonical and nonzero finite fractions are reduced. Positive/negative infinity and NaN are explicit states. Preserve signed arithmetic, cancellation before large products, exact comparisons, floor/ceil/round, IEEE-754 conversion, and independently certified test fixtures. The portable and native unsigned primitives, division and GCD substrate are documented in [`integer_design.md`](integer_design.md).
+A finite `Rational` has an `Integer` numerator and a positive `BigUnsigned` denominator; zero is canonical and nonzero finite fractions are reduced. Positive/negative infinity and NaN are explicit states. Preserve signed arithmetic, cancellation before large products, exact comparisons, floor/ceil/round, IEEE-754 conversion, and independently certified test fixtures. The portable and native unsigned primitives, division and GCD substrate are documented in [`big_unsigned_design.md`](big_unsigned_design.md).
 
 ## Implementation and optimization timeline
 
@@ -512,7 +512,7 @@ The x86-64 256-bit total 0.990x has only a ~1% margin and the x86-64 128-bit wor
 
 ## NewDyadic continuation
 
-The experimental `NewDyadic` work beginning with commit [`0f7f06c16`](https://github.com/ariadne-cps/numeric/commit/0f7f06c16) (R33a), including R33b–R38, is maintained separately in [`dyadic_design.md`](dyadic_design.md). The shared BigUnsigned foundation and Integer historical records are in [the Integer journal](integer_design.md); Rational historical records remain in this journal. New shared-kernel changes that affect both projects should be cross-referenced in each journal.
+The experimental `NewDyadic` work beginning with commit [`0f7f06c16`](https://github.com/ariadne-cps/numeric/commit/0f7f06c16) (R33a), including R33b–R38, is maintained separately in [`dyadic_design.md`](dyadic_design.md). The shared BigUnsigned foundation is documented in [the BigUnsigned journal](big_unsigned_design.md), and signed Integer history in [the Integer journal](integer_design.md); Rational historical records remain in this journal. New shared-kernel changes that affect both projects should be cross-referenced in each journal.
 
 ### R33 — oracle migration and removal of reverse Rational external reference bridge methods (22 October 2026)
 
