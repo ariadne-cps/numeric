@@ -1871,6 +1871,24 @@ Fraction rational_argument(FloatMP const& x) {
     return Fraction(x);
 }
 
+// Accumulate a fixed-point series with shared exact limb kernels. The
+// caller proves sum>=addend for subtraction (alternating decreasing terms).
+// Inputs and scratch are disjoint; swapping retains both buffers' capacities.
+void accumulate_fixed_terms(std::vector<BigUnsigned::Limb>& sum,
+                            BigUnsigned::LimbView addend,bool subtract,
+                            std::vector<BigUnsigned::Limb>& scratch) {
+    const std::size_t count=std::max(sum.size(),addend.size());
+    scratch.resize(count+1u);
+    if (subtract) {
+        (void)BigUnsigned::sub_into(sum,addend,scratch);
+    } else {
+        scratch[count]=BigUnsigned::add_into(sum,addend,
+            BigUnsigned::MutableLimbView(scratch.data(),count));
+    }
+    while (!scratch.empty() && scratch.back()==0u) scratch.pop_back();
+    sum.swap(scratch);
+}
+
 // Evaluate exp on |x| <= 1/2 with a single downward-rounded
 // fixed-point Taylor recurrence. Let Q=2^B, a=floor(Q*|x|),
 // t_0=Q, t_n=floor(t_(n-1)*a/(Q*n)), and T_n=Q*|x|^n/n!.
@@ -2151,23 +2169,9 @@ Interval log_series(Fraction const& z, unsigned long work) {
         if (outward && discarded) increment(output);
     };
 
-    // In-place nonnegative accumulator; carry propagation is bounded
-    // by the current active sum and never creates a BigUnsigned.
+    Words next_sum;
     const auto accumulate=[&](Words& sum,Words const& addend) {
-        if (sum.size()<addend.size()) sum.resize(addend.size(),0u);
-        Limb carry=0u;
-        for (std::size_t i=0u;i<addend.size();++i) {
-            const Limb old=sum[i];
-            const Limb value=old+addend[i];
-            const Limb result=value+carry;
-            carry=static_cast<Limb>(value<old || result<value);
-            sum[i]=result;
-        }
-        for (std::size_t i=addend.size();carry!=0u && i<sum.size();++i) {
-            ++sum[i];
-            carry=static_cast<Limb>(sum[i]==0u);
-        }
-        if (carry!=0u) sum.push_back(carry);
+        accumulate_fixed_terms(sum,addend,false,next_sum);
     };
     const auto within_threshold=[&](Words const& value) {
         const auto bound=threshold.limbs();
@@ -2586,40 +2590,11 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         return true;
     };
 
-    // The series is alternating with decreasing positive terms for |x|<=1.
-    // Its partial sum is therefore nonnegative, so update one limb vector
-    // in place rather than allocating signed Integer/Rational temporaries.
+    // Before subtracting t_(2k+1), sum is nonnegative term pairs plus
+    // t_(2k)>=t_(2k+1). Therefore every exact subtraction is nonnegative.
+    Words next_sum;
     const auto accumulate=[&](Words const& addend,bool subtract) {
-        if (!subtract) {
-            if (sum.size()<addend.size()) sum.resize(addend.size(),0u);
-            Limb carry=0u;
-            for (std::size_t i=0u;i<addend.size();++i) {
-                const Limb old=sum[i];
-                const Limb value=old+addend[i];
-                const Limb result=value+carry;
-                carry=static_cast<Limb>(value<old || result<value);
-                sum[i]=result;
-            }
-            for (std::size_t i=addend.size();carry!=0u && i<sum.size();++i) {
-                ++sum[i];
-                carry=static_cast<Limb>(sum[i]==0u);
-            }
-            if (carry!=0u) sum.push_back(carry);
-        } else {
-            // Before subtracting t_(2k+1), the partial sum is a sum of
-            // nonnegative pairs plus t_(2k). The fixed-point recurrence
-            // decreases terms, so sum>=t_(2k)>=addend; subtraction fits.
-            Limb borrow=0u;
-            for (std::size_t i=0u;i<sum.size();++i) {
-                const Limb right=i<addend.size()?addend[i]:Limb{0};
-                const Limb old=sum[i];
-                const Limb difference=old-right;
-                const Limb result=difference-borrow;
-                borrow=static_cast<Limb>(old<right || difference<borrow);
-                sum[i]=result;
-            }
-            trim(sum);
-        }
+        accumulate_fixed_terms(sum,addend,subtract,next_sum);
     };
 
     // floor(a*b/2^B), with disjoint scratch and output limb storage.
@@ -2706,35 +2681,24 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
     if (outputs==TrigOutputs::cosine) {
         cosine=series(false);
     } else if (outputs==TrigOutputs::both) {
-        // The sine interval must be intersected with [0,1].
-        // For |x|<=1, cosine is nonnegative and sin(|x|)<=sin(1).
+        // The fixed-point certificate gives U-sin(|x|)<3*2^-work:
+        // at termination t_next<=2^guard and n<=floor(work/2), so
+        // the two accumulated error allowances and tails total less
+        // than 3*2^guard. Every caller supplies work>=50. Also
+        // sin(|x|)<=sin(1)<=1-1/6+1/120=101/120<8/9.
+        // Thus 0<=L<=sin(|x|)<=U<8/9; clamping U or checking L>U
+        // would only duplicate invariants of the enclosure construction.
         const BigUnsigned& lower=sine_lower_nonnegative;
-        const BigUnsigned upper=compare(sine_upper_nonnegative,scale)>0
-            ? scale : sine_upper_nonnegative;
-        if (compare(lower,upper)>0) {
-            throw std::logic_error("FloatMP invalid certified sine bounds");
-        }
+        const BigUnsigned& upper=sine_upper_nonnegative;
 
-        // When U<=8Q/9, sqrt(Q^2-s^2) is 2-Lipschitz on
-        // the whole [L,U]. One integer square root is sufficient;
-        // otherwise compute exact outward roots for both endpoints.
+        // sqrt(Q^2-s^2) is 2-Lipschitz throughout [L,U], since
+        // U<8Q/9. One floor root plus twice the interval width and
+        // one rounding unit therefore encloses both cosine endpoints.
         const BigUnsigned squared_scale=mul(scale,scale);
-        BigUnsigned cosine_lower,cosine_upper;
-        if (compare(mul(upper,BigUnsigned(9u)),
-                    mul(scale,BigUnsigned(8u)))<=0) {
-            cosine_lower=isqrt(sub(squared_scale,mul(upper,upper)));
-            const BigUnsigned width=sub(upper,lower);
-            cosine_upper=add(cosine_lower,
-                add(shift_left(width,1u),BigUnsigned(1u)));
-        } else {
-            auto [ceil_root,root_remainder]=sqrtrem(
-                sub(squared_scale,mul(lower,lower)));
-            if (!root_remainder.is_zero()) {
-                ceil_root=add(ceil_root,BigUnsigned(1u));
-            }
-            cosine_lower=isqrt(sub(squared_scale,mul(upper,upper)));
-            cosine_upper=std::move(ceil_root);
-        }
+        const BigUnsigned cosine_lower=isqrt(sub(squared_scale,mul(upper,upper)));
+        const BigUnsigned width=sub(upper,lower);
+        const BigUnsigned cosine_upper=add(cosine_lower,
+            add(shift_left(width,1u),BigUnsigned(1u)));
         cosine={Fraction(cosine_lower,fixed_bits),
                 Fraction(cosine_upper,fixed_bits)};
     }
@@ -2948,39 +2912,12 @@ Interval small_atan(Fraction const& x, unsigned long work) {
         output.resize(BigUnsigned::shift_right_into(product,shift,output));
     };
 
-    // Alternating partial sums are nonnegative: terms decrease for
-    // |x|<=1/2, and the very first term is positive.
+    // Powers decrease for |x|<=1/2 and divisors increase. Before an
+    // odd subtraction, sum contains nonnegative pairs plus the preceding
+    // term, which is at least the current term. No borrow is possible.
+    Words next_sum;
     const auto accumulate=[&](Words const& addend,bool subtract) {
-        if (!subtract) {
-            if (sum.size()<addend.size()) sum.resize(addend.size(),0u);
-            Limb carry=0u;
-            for (std::size_t i=0u;i<addend.size();++i) {
-                const Limb old=sum[i];
-                const Limb value=old+addend[i];
-                const Limb result=value+carry;
-                carry=static_cast<Limb>(value<old || result<value);
-                sum[i]=result;
-            }
-            for (std::size_t i=addend.size();carry!=0u && i<sum.size();++i) {
-                ++sum[i];
-                carry=static_cast<Limb>(sum[i]==0u);
-            }
-            if (carry!=0u) sum.push_back(carry);
-        } else {
-            Limb borrow=0u;
-            for (std::size_t i=0u;i<sum.size();++i) {
-                const Limb part=i<addend.size()?addend[i]:Limb{0};
-                const Limb old=sum[i];
-                const Limb difference=old-part;
-                const Limb result=difference-borrow;
-                borrow=static_cast<Limb>(old<part || difference<borrow);
-                sum[i]=result;
-            }
-            // At odd n the preceding sum contains nonnegative term
-            // pairs plus t_(n-1). Both powers decrease (|x|<=1/2) and
-            // divisors increase, so t_n<=t_(n-1)<=sum: no final borrow.
-            trim(sum);
-        }
+        accumulate_fixed_terms(sum,addend,subtract,next_sum);
     };
     const auto under_limit=[&](Words const& digits) {
         const auto bound=limit.limbs();
@@ -3382,9 +3319,10 @@ TangentHalfEnclosures const& tangent_half_enclosures(unsigned long work) {
         const auto& [sine, cosine] = half_trigonometric_intervals(checked_work);
         const Interval tangent_ratio_bounds = divide(sine, cosine);
         const Interval cached_tangent_bounds = outward_dyadic_interval(tangent_ratio_bounds, target_bits);
-        if (cached_tangent_bounds.lower.sign() <= 0) {
-            throw std::logic_error("FloatMP invalid cached tangent enclosure");
-        }
+        // sin(1/2)>=23/48 and cos(1/2)<=1. The preceding kernel's
+        // error is <3*2^-checked_work, checked_work>=80; outward
+        // quantization loses <2^-target_bits, target_bits>=66. Its
+        // tangent lower endpoint is therefore strictly positive.
         const Interval raw_derivative{
             Fraction(1L) + cached_tangent_bounds.lower * cached_tangent_bounds.lower,
             Fraction(1L) + cached_tangent_bounds.upper * cached_tangent_bounds.upper

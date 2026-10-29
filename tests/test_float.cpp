@@ -1941,6 +1941,39 @@ void test_floatmp_ieee_conversion_boundaries() {
     }
 }
 
+void test_floatmp_exact_series_thresholds() {
+    // With p=128 exp_series receives work=p+40=168. This input
+    // makes its first fixed-point term EXACTLY the stopping threshold.
+    // 0<exp(y)-1<2y and 0<1-exp(-y)<y put both inside half an ulp.
+    const MultiplePrecision exp_precision(128_bits);
+    const FloatMP exp_input(Dyadic(1,168u),exp_precision);
+    const FloatMP exp_one(1,exp_precision);
+    for(auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                   FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+        const auto positive_expected=mode==FloatMP::ROUND_UPWARD
+            ? next(RoundUpward{},exp_one) : exp_one;
+        const auto negative_expected=(mode==FloatMP::ROUND_DOWNWARD ||
+                                      mode==FloatMP::ROUND_TOWARD_ZERO)
+            ? next(RoundDownward{},exp_one) : exp_one;
+        ARIADNE_TEST_ASSERT(exp(mode,exp_input)==positive_expected);
+        ARIADNE_TEST_ASSERT(exp(mode,neg(exp_input))==negative_expected);
+    }
+    // p=129 gives the cosine kernel work=177. For y=2^-88,
+    // its first omitted term Q*y*y/2 equals 2^guard exactly.
+    // 0<1-cos(y)<y*y/2 is far below half the spacing beneath 1.
+    const MultiplePrecision cos_precision(129_bits);
+    const FloatMP cos_input(Dyadic(1,88u),cos_precision);
+    const FloatMP cos_one(1,cos_precision);
+    for(auto mode:{FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                   FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+        const auto expected=(mode==FloatMP::ROUND_DOWNWARD ||
+                             mode==FloatMP::ROUND_TOWARD_ZERO)
+            ? next(RoundDownward{},cos_one) : cos_one;
+        ARIADNE_TEST_ASSERT(cos(mode,cos_input)==expected);
+        ARIADNE_TEST_ASSERT(cos(mode,neg(cos_input))==expected);
+    }
+}
+
 void test_floatmp_public_edge_paths() {
     const MultiplePrecision precision(128_bits);
     const FloatMP one(1,precision);
@@ -2119,6 +2152,7 @@ Int main() {
     test_floatmp_elementary_specials();
     test_floatmp_log_native_exponents();
     test_floatmp_public_edge_paths();
+    test_floatmp_exact_series_thresholds();
     test_floatmp_ratio_ties_and_carry();
     test_floatmp_negative_power_specials();
     test_floatmp_mixed_precision_arithmetic();
