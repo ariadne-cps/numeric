@@ -10674,3 +10674,38 @@ inputs, iterations and samples. Require full Unix, Windows,
 Coverage and Sanitizers workflows and same-host GCC/Clang
 x86-64 and ARM64 benchmark measurements before declaring
 the integrated optimization profitable.
+
+
+### M150 — measured four-precision result (29 October 2026)
+
+The user ran the *unchanged FloatMP-only benchmark* with 20,000
+iterations and 31 samples, providing paired measurements in order:
+ARM64 before/after, x86-64 GCC before/after. The short-ratio
+native `DIVQ` path is enabled only on GNU/Clang non-Windows
+x86-64, for p<=64 and one-limb ratio operands.
+
+| FloatMP 53-bit operation | ARM64 before -> after (ns) | x86-64 GCC before -> after (ns) |
+| --- | --- | --- |
+| construct_rational | 32.417 -> 50.631 (+56.2%) | 109.751 -> 103.306 (-5.9%) |
+| div_nearest | 24.090 -> 23.679 (-1.7%) | 53.039 -> 47.480 (-10.5%) |
+| div_down | 22.729 -> 22.925 (+0.9%) | 49.593 -> 43.327 (-12.6%) |
+| div_up | 23.835 -> 22.871 (-4.0%) | 49.504 -> 44.245 (-10.6%) |
+
+**Decision.** Retain M150's x86-64 short-ratio specialization
+provisionally: it improves all three directed/nearest division
+measurements and rational construction on the GCC host, with
+the unchanged 128/256/1024-bit division paths broadly stable.
+The ARM64 construct_rational rise is notable but cannot be
+attributed to this x86-64-only path: ARM64 copy and compare
+also rose by 35-36%, while sqrt and mul were essentially
+unchanged. This suggests changed runtime conditions or
+code-generation/environment variation, not a demonstrated
+effect of M150. Confirm it by controlled repeated same-host
+measurements before drawing causal conclusions.
+
+The x86-64 128/256/1024-bit paths remained within about
+1.3% for the three division directions, with the new
+instruction outside their dispatch. These are benchmark
+measurements, not proof of numerical correctness; retain
+the exact-Rational regressions and require all platform CI
+checks before treating the implementation as fully validated.

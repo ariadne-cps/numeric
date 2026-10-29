@@ -269,7 +269,7 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
         if (k>=0 ? numerator<(denominator<<static_cast<unsigned>(k))
                  : (numerator<<static_cast<unsigned>(-k))<denominator) --k;
         const Exponent shift=static_cast<Exponent>(precision-1u)-k;
-        std::array<std::uint64_t,2u> dividend{},quotient{};
+        std::array<std::uint64_t,2u> dividend{};
         std::uint64_t divisor=denominator;
         if (shift>=64) {
             dividend[1u]=numerator<<static_cast<unsigned>(shift-64);
@@ -297,6 +297,7 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
         retained=low;
         remainder=high;
 #else
+        std::array<std::uint64_t,2u> quotient{};
         remainder=BigUnsigned::divrem_limb_into(
             BigUnsigned::LimbView(dividend.data(),dividend[1u]!=0u ? 2u : 1u),
             divisor,quotient);
