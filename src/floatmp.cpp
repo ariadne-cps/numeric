@@ -1016,9 +1016,9 @@ bool has_bit(BigUnsigned const& magnitude,std::size_t index) {
 
 FloatMP signed_integral_float(BigUnsigned magnitude,bool negative,
                               MultiplePrecision precision) {
-    if(magnitude.is_zero()) {
-        return FloatMP::zero(static_cast<unsigned long>(precision.bits()),negative);
-    }
+    // floor/ceil return subunit cases before calling this helper. For round,
+    // a shift equal to the width retains zero but its leading guard bit
+    // increments that zero to one. Every caller therefore supplies |n|>=1.
     return FloatMP(Integer::from_magnitude(std::move(magnitude),negative),
                    FloatMP::ROUND_TO_NEAREST,precision);
 }
@@ -1933,7 +1933,9 @@ Interval exp_series(Fraction const& x, unsigned long work) {
     for (unsigned long n = 1ul; n <= max_terms; ++n) {
         // t_n=floor(floor(t_(n-1)*a/2^B)/n). Reuse the same
         // multiplication, shifting and short-division buffers.
-        if (term.empty() || argument.is_zero()) {
+        // t_0=2^B is nonzero; an empty later term is below the positive
+        // threshold and returns at the end of its own iteration.
+        if (argument.is_zero()) {
             product.clear();
         } else {
             // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
@@ -2315,9 +2317,9 @@ bool within_dyadic_window(Fraction const& value,unsigned long binary_shift) {
 }
 
 bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
-    // |delta| <= 2^(-ceil(work/2)), with work>=4 guaranteeing the
-    // entire segment around +/-1/2 lies inside [-3/4,3/4].
-    if (work<4ul) return false;
+    // certified starts with 32 guard bits and only increases them, so
+    // work>=32. Thus |delta|<=2^(-ceil(work/2)) keeps the entire
+    // segment around +/-1/2 inside [-3/4,3/4].
     const unsigned long cutoff_bits=work/2ul+work%2ul;
     if constexpr(Detail::unsigned_narrowing<std::size_t,unsigned long>) {
         if(!Detail::unsigned_fits<std::size_t>(cutoff_bits)) return false;
@@ -2620,9 +2622,9 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
             }
             if (carry!=0u) sum.push_back(carry);
         } else {
-            if (addend.size()>sum.size()) {
-                throw std::logic_error("FloatMP sine/cosine series sum underflow");
-            }
+            // Before subtracting t_(2k+1), the partial sum is a sum of
+            // nonnegative pairs plus t_(2k). The fixed-point recurrence
+            // decreases terms, so sum>=t_(2k)>=addend; subtraction fits.
             Limb borrow=0u;
             for (std::size_t i=0u;i<sum.size();++i) {
                 const Limb right=i<addend.size()?addend[i]:Limb{0};
@@ -2631,9 +2633,6 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
                 const Limb result=difference-borrow;
                 borrow=static_cast<Limb>(old<right || difference<borrow);
                 sum[i]=result;
-            }
-            if (borrow!=0u) {
-                throw std::logic_error("FloatMP sine/cosine series sum underflow");
             }
             trim(sum);
         }
@@ -2668,9 +2667,10 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         for (unsigned long n=0u;n<max_terms;++n) {
             accumulate(term,n%2ul!=0ul);
 
-            if (n>(std::numeric_limits<unsigned long>::max()-3ul)/2ul) {
-                throw std::overflow_error("FloatMP sine/cosine series index");
-            }
+            // At n=0 both factors fit. Reaching n>0 means the previous
+            // checked product, at least (2n-1)*(2n), fit in unsigned long.
+            // Since unsigned long has at least 32 bits, this also bounds
+            // the current linear factors by 2n+3<=ULONG_MAX.
             const unsigned long twice_n=2ul*n;
             const unsigned long a=sine ? twice_n+2ul : twice_n+1ul;
             const unsigned long b=sine ? twice_n+3ul : twice_n+2ul;
@@ -2990,9 +2990,9 @@ Interval small_atan(Fraction const& x, unsigned long work) {
                 borrow=static_cast<Limb>(old<part || difference<borrow);
                 sum[i]=result;
             }
-            if (borrow!=0u || addend.size()>sum.size()) {
-                throw std::logic_error("FloatMP arctangent series sum underflow");
-            }
+            // At odd n the preceding sum contains nonnegative term
+            // pairs plus t_(n-1). Both powers decrease (|x|<=1/2) and
+            // divisors increase, so t_n<=t_(n-1)<=sum: no final borrow.
             trim(sum);
         }
     };
@@ -3198,12 +3198,8 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
 }
 
 Interval square_root_interval(Fraction const& x, unsigned long work) {
-    if (x.sign() < 0) {
-        throw std::domain_error("FloatMP inverse trigonometric domain");
-    }
-    if (x.sign() == 0) {
-        return point(Fraction{});
-    }
+    // The two callers supply 3 or 1-x*x with |x|<1. Public inverse
+    // trigonometric dispatch handles endpoints and domain errors first.
     // The argument is an exact positive fraction. Its integer quotient
     // and exact square-root remainder are native; the final
     // interval endpoints stay in the native Fraction carrier.
@@ -3758,6 +3754,7 @@ struct FloatMPShortTranscendentals {
 
 
 Interval evaluate(Function function, Fraction const& x, unsigned long work) {
+    // The sole caller certified supplies work=precision+extra, extra>=32.
     switch (function) {
         case Function::hyperbolic_tangent:
             return tanh_centered_or_general(x,work);
@@ -3781,7 +3778,7 @@ Interval evaluate(Function function, Fraction const& x, unsigned long work) {
         case Function::arctangent: {
             const Fraction delta = absolute(x) -
                 Fraction(1L) / Fraction(2L);
-            if (work >= 4ul && sufficiently_near_half(delta, work)) {
+            if (sufficiently_near_half(delta, work)) {
                 return centered_atan_half_interval(x, delta, work);
             }
             return atan_interval(x, work);
@@ -3789,7 +3786,7 @@ Interval evaluate(Function function, Fraction const& x, unsigned long work) {
         case Function::arcsine: {
             const Fraction offset = absolute(x) -
                 Fraction(1L) / Fraction(2L);
-            if (work >= 4ul && sufficiently_near_half(offset, work)) {
+            if (sufficiently_near_half(offset, work)) {
                 return centered_inverse_half_interval(x, offset, work, false);
             }
             return asin_interval(x, work);
@@ -3797,7 +3794,7 @@ Interval evaluate(Function function, Fraction const& x, unsigned long work) {
         case Function::arccosine: {
             const Fraction offset = absolute(x) -
                 Fraction(1L) / Fraction(2L);
-            if (work >= 4ul && sufficiently_near_half(offset, work)) {
+            if (sufficiently_near_half(offset, work)) {
                 return centered_inverse_half_interval(x, offset, work, true);
             }
             return subtract(divide(pi_interval(work), point(Fraction(2L))),
