@@ -11647,3 +11647,72 @@ journal entry does **not** claim a full GCC 13 build or passing CI.
 Rerun the same strict Release compile and the complete numeric
 tests, then check the independent frozen FloatMP oracle suite and
 F4 FloatDP sqrt tests. Do not relax the warning flags.
+
+
+### F4.1 — user-provided p=53 results after F4 (29 October 2026)
+
+The user supplied the 56-operation comparison benchmark after F4,
+at p=53, 20,000 iterations and 31 samples. The measured
+FloatMP/FloatDP ratio is **total_time=1.430x**,
+**geomean=2.207x**, with worst=**11.385x**
+for sqrt_nearest. The pre-F4 (post-F3) run reported
+total_time=1.188x, geomean=2.033x and worst=8.056x
+(fma_nearest). These metrics are sums and geometric means of
+per-operation median latencies, not whole-program elapsed time.
+
+The primary F4 target improved substantially, in ns:
+
+| binary64 operation | pre-F4 | F4 | reduction |
+| --- | ---: | ---: | ---: |
+| sqrt_nearest | 27.158 | 3.140 | 88.4% |
+| sqrt_down | 95.900 | 29.967 | 68.8% |
+| sqrt_up | 96.781 | 30.369 | 68.6% |
+
+The sum of the three FloatDP square-root medians decreased from
+219.839 ns to 63.476 ns (approximately 71.1% lower). The
+corresponding FloatMP measurements in this latest benchmark are
+35.746 ns nearest, 25.627 ns downward, and 37.721 ns upward.
+FloatDP's nearest square root is therefore about 11.385x faster
+than FloatMP's; the worst reported FloatMP/FloatDP ratio now
+occurs at this operation. The FloatMP square-root values and
+the other FloatMP operations remained broadly stable.
+
+**Interpretation and next bottleneck.** The native IEEE-754 sqrt
+primitive has removed the Newton-loop overhead. Its
+nearest-mode result now costs only about 3.140 ns, whereas
+the directed modes still cost around 30 ns. Inspection of
+include/numeric/floatdp.hpp confirms that sqrt(mode,x) goes
+through _apply_rnd(&sqrt_rnd,mode,x), which constructs a
+RoundingSession<FloatDP>, reads the ambient rounding mode,
+sets the requested mode if different, and restores the
+original mode on destruction. This also explains the
+~30-ns directed arithmetic latencies visible for unrelated
+FloatDP add/sub/mul/div/fma operations. Thus rounding-mode
+save/set/restore is the leading **hypothesis** for the
+remaining ~27-ns directed sqrt difference; this was not
+confirmed by instruction-level profiling, and the hardware
+rounding mode may already equal the requested mode in
+other call patterns.
+
+**Measurement caution.** Relative total_time changed
+substantially but still reflects both backends and unrelated
+run-to-run noise. The strong and targeted absolute square-root
+improvement is the meaningful F4 result. To attribute the
+remaining difference to fenv overhead, separately benchmark
+native sqrt with CurrentRoundingMode in a single batched
+RoundingSession and with per-operation save/set/restore,
+using the same inputs. Any future F5 attempt that avoids
+changing the hardware rounding mode must independently
+prove correctly rounded directed results for all finite
+normal/subnormal binary64 values, exact squares, tie cases,
+signed zero and exceptional inputs. Do not assume a
+round-to-nearest sqrt followed by nextafter is sufficient
+without an exact comparison and underflow analysis.
+
+**Status.** F4 was compiled and timed by the user to obtain
+these values; this entry does not imply that GCC/Clang/MSVC
+CI, the full independent source-keyed numeric oracle suite,
+sanitizers, or coverage are passing. The preceding D148
+GCC-13 -Werror=shadow repair remains a separate, unverified
+CI fix. No F5 source modification is included in this
+documentation-only update.
