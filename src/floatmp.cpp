@@ -3514,72 +3514,82 @@ struct FloatMPShortTranscendentals {
         target.slope_upper=outward_dyadic_integer(slope.upper,bits,true).magnitude();
     }
 
-    static Center make_center(Function function,bool negative,unsigned long bits) {
+    template<Function OperationKind>
+    static Center make_center(bool negative,unsigned long bits) {
+        static_assert(OperationKind==Function::exponential ||
+                      OperationKind==Function::logarithm ||
+                      OperationKind==Function::hyperbolic_tangent ||
+                      OperationKind==Function::sine || OperationKind==Function::cosine ||
+                      OperationKind==Function::tangent || OperationKind==Function::arctangent ||
+                      OperationKind==Function::arcsine || OperationKind==Function::arccosine);
+        (void)negative; // The logarithm center is independent of this argument.
         Center result;
-        switch(function) {
-            case Function::exponential: {
-                const auto& centers=exponential_half_centers(bits);
-                const auto& center=negative ? centers.negative : centers.positive;
-                coefficients(result,center,center,bits);
-                result.error=2u;
-                result.slope_negative=negative;
-                break;
-            }
-            case Function::hyperbolic_tangent: {
-                const auto center=tanh_interval(Fraction(1L)/Fraction(2L),bits+40ul);
-                const Fraction one(1L);
-                const Interval slope{one-center.upper*center.upper,
-                                     one-center.lower*center.lower};
-                coefficients(result,center,slope,bits);
-                // |tanh''|=2*|tanh|*(1-tanh^2)<=2 globally.
-                result.error=1u;
+        if constexpr(OperationKind==Function::exponential) {
+            const auto& centers=exponential_half_centers(bits);
+            const auto& center=negative ? centers.negative : centers.positive;
+            coefficients(result,center,center,bits);
+            result.error=2u;
+            result.slope_negative=negative;
+        } else if constexpr(OperationKind==Function::hyperbolic_tangent) {
+            const auto center=tanh_interval(Fraction(1L)/Fraction(2L),bits+40ul);
+            const Fraction one(1L);
+            const Interval slope{one-center.upper*center.upper,
+                                 one-center.lower*center.lower};
+            coefficients(result,center,slope,bits);
+            // |tanh''|=2*|tanh|*(1-tanh^2)<=2 globally.
+            result.error=1u;
+            result.result_negative=negative;
+        } else if constexpr(OperationKind==Function::logarithm) {
+            coefficients(result,log2_interval(bits+32ul),point(Fraction(2L)),bits);
+            result.error=8u;
+            result.slope_negative=true;
+            result.result_negative=true;
+        } else if constexpr(OperationKind==Function::sine || OperationKind==Function::cosine) {
+            const auto& [sine,cosine]=half_trigonometric_intervals(bits+32ul);
+            if constexpr(OperationKind==Function::sine) {
+                coefficients(result,sine,cosine,bits);
                 result.result_negative=negative;
-                break;
-            }
-            case Function::logarithm:
-                coefficients(result,log2_interval(bits+32ul),point(Fraction(2L)),bits);
-                result.error=8u;
+            } else {
+                coefficients(result,cosine,sine,bits);
                 result.slope_negative=true;
-                result.result_negative=true;
-                break;
-            case Function::sine:
-            case Function::cosine: {
-                const auto& [sine,cosine]=half_trigonometric_intervals(bits+32ul);
-                coefficients(result,function==Function::sine ? sine : cosine,
-                    function==Function::sine ? cosine : sine,bits);
-                result.error=1u;
-                result.slope_negative=function==Function::cosine;
-                result.result_negative=function==Function::sine && negative;
-                break;
             }
-            case Function::tangent: {
-                const auto& center=tangent_half_enclosures(bits);
-                coefficients(result,center.tangent,center.derivative,bits);
-                result.error=6u;
+            result.error=1u;
+        } else if constexpr(OperationKind==Function::tangent) {
+            const auto& center=tangent_half_enclosures(bits);
+            coefficients(result,center.tangent,center.derivative,bits);
+            result.error=6u;
+            result.result_negative=negative;
+        } else if constexpr(OperationKind==Function::arctangent) {
+            coefficients(result,atan_half_interval(bits+32ul),
+                divide(point(Fraction(4L)),point(Fraction(5L))),bits);
+            result.error=1u;
+            result.result_negative=negative;
+        } else {
+            const auto& center=inverse_half_enclosures(bits);
+            if constexpr(OperationKind==Function::arcsine) {
+                coefficients(result,center.arcsine_half,center.slope_half,bits);
                 result.result_negative=negative;
-                break;
-            }
-            case Function::arctangent:
-                coefficients(result,atan_half_interval(bits+32ul),
-                    divide(point(Fraction(4L)),point(Fraction(5L))),bits);
-                result.error=1u;
-                result.result_negative=negative;
-                break;
-            case Function::arcsine:
-            case Function::arccosine: {
-                const auto& center=inverse_half_enclosures(bits);
-                const auto& value=function==Function::arcsine ? center.arcsine_half :
-                    (negative ? center.arccosine_negative_half : center.arccosine_positive_half);
+            } else {
+                const auto& value=negative ? center.arccosine_negative_half
+                                          : center.arccosine_positive_half;
                 coefficients(result,value,center.slope_half,bits);
-                result.error=2u;
-                result.slope_negative=function==Function::arccosine && !negative;
-                result.result_negative=function==Function::arcsine && negative;
-                break;
+                result.slope_negative=!negative;
             }
-            default: throw std::logic_error("FloatMP invalid short transcendental");
+            result.error=2u;
         }
         result.bits=bits;
         return result;
+    }
+
+    // Each statically selected operation owns its two signed caches.
+    // The evaluation kernel remains shared through this factory signature.
+    using CenterFactory=Center&(*)(bool,unsigned long);
+    template<Function OperationKind>
+    static Center& get_center(bool negative,unsigned long bits) {
+        static thread_local std::array<Center,2u> centers;
+        auto& center=centers[static_cast<unsigned>(negative)];
+        if (center.bits!=bits) center=make_center<OperationKind>(negative,bits);
+        return center;
     }
 
     // Return floor(slope*n/2^shift), and optionally its ceiling. Products
@@ -3596,7 +3606,7 @@ struct FloatMPShortTranscendentals {
         return retained;
     }
 
-    static std::optional<FloatMP> evaluate(Function function,FloatMP::Rounding mode,
+    static std::optional<FloatMP> evaluate(CenterFactory factory,FloatMP::Rounding mode,
                                            FloatMP const& x) {
         const auto precision=x._precision;
         // The supported short window has an exact one-word signed offset
@@ -3612,10 +3622,7 @@ struct FloatMPShortTranscendentals {
         if (offset!=0u && (cutoff>denominator_bits ||
             offset>(std::uint64_t{1}<<(denominator_bits-cutoff)))) return std::nullopt;
 
-        static thread_local std::array<Center,
-            2u*(static_cast<std::size_t>(Function::hyperbolic_tangent)+1u)> centers;
-        auto& center=centers[2u*static_cast<std::size_t>(function)+static_cast<unsigned>(x._negative)];
-        if (center.bits!=bits) center=make_center(function,x._negative,bits);
+        const auto& center=factory(x._negative,bits);
 
         const auto lo=correction(center.slope_lower,offset,denominator_bits,false);
         const auto hi=correction(center.slope_upper,offset,denominator_bits,true);
@@ -3681,7 +3688,7 @@ struct FloatMPShortTranscendentals {
         static thread_local Center center;
         static thread_local bool narrow_slope=false;
         if (center.bits!=bits) {
-            center=make_center(Function::hyperbolic_tangent,false,bits);
+            center=make_center<Function::hyperbolic_tangent>(false,bits);
             narrow_slope=compare(sub_big_unsigned(center.slope_upper,center.slope_lower),
                                  BigUnsigned(2u))<=0;
         }
@@ -3718,68 +3725,60 @@ struct FloatMPShortTranscendentals {
 };
 
 
-Interval evaluate(Function function, Fraction const& x, unsigned long work) {
-    // The sole caller certified supplies work=precision+extra, extra>=32.
-    switch (function) {
-        case Function::hyperbolic_tangent:
-            return tanh_centered_or_general(x,work);
-        case Function::sine:
-            return sine_cosine_intervals(x, work, TrigOutputs::sine).first;
-        case Function::cosine:
-            return sine_cosine_intervals(x, work, TrigOutputs::cosine).second;
-        case Function::tangent: {
-            // Short-circuit repeated near-half evaluations without
-            // recomputing sin/cos and dividing two non-dyadic intervals.
-            // Outside this exact precision-dependent neighborhood, retain
-            // the complete general-purpose certified path and pole checks.
-            const Fraction delta = absolute(x) - Fraction(1L) / Fraction(2L);
-            if (sufficiently_near_half(delta, work)) {
-                return centered_tangent_interval(x, delta, work);
-            }
-            const auto [sine, cosine] =
-                sine_cosine_intervals(x, work, TrigOutputs::both);
-            return divide(sine, cosine);
+// The callers select their operation statically. The adaptive certification
+// loop accepts its evaluator directly, keeping one shared refinement policy.
+template<Function OperationKind>
+Interval evaluate(Fraction const& x, unsigned long work) {
+    (void)x; // Pi evaluators have no operand.
+    static_assert(OperationKind!=Function::exponential && OperationKind!=Function::logarithm);
+    // certified supplies work=precision+extra, extra>=32.
+    if constexpr(OperationKind==Function::hyperbolic_tangent) {
+        return tanh_centered_or_general(x,work);
+    } else if constexpr(OperationKind==Function::sine) {
+        return sine_cosine_intervals(x,work,TrigOutputs::sine).first;
+    } else if constexpr(OperationKind==Function::cosine) {
+        return sine_cosine_intervals(x,work,TrigOutputs::cosine).second;
+    } else if constexpr(OperationKind==Function::tangent) {
+        const Fraction delta=absolute(x)-Fraction(1L)/Fraction(2L);
+        if (sufficiently_near_half(delta,work)) {
+            return centered_tangent_interval(x,delta,work);
         }
-        case Function::arctangent: {
-            const Fraction delta = absolute(x) -
-                Fraction(1L) / Fraction(2L);
-            if (sufficiently_near_half(delta, work)) {
-                return centered_atan_half_interval(x, delta, work);
-            }
-            return atan_interval(x, work);
+        const auto [sine,cosine]=sine_cosine_intervals(x,work,TrigOutputs::both);
+        return divide(sine,cosine);
+    } else if constexpr(OperationKind==Function::arctangent) {
+        const Fraction delta=absolute(x)-Fraction(1L)/Fraction(2L);
+        if (sufficiently_near_half(delta,work)) {
+            return centered_atan_half_interval(x,delta,work);
         }
-        case Function::arcsine: {
-            const Fraction offset = absolute(x) -
-                Fraction(1L) / Fraction(2L);
-            if (sufficiently_near_half(offset, work)) {
-                return centered_inverse_half_interval(x, offset, work, false);
-            }
-            return asin_interval(x, work);
+        return atan_interval(x,work);
+    } else if constexpr(OperationKind==Function::arcsine) {
+        const Fraction offset=absolute(x)-Fraction(1L)/Fraction(2L);
+        if (sufficiently_near_half(offset,work)) {
+            return centered_inverse_half_interval(x,offset,work,false);
         }
-        case Function::arccosine: {
-            const Fraction offset = absolute(x) -
-                Fraction(1L) / Fraction(2L);
-            if (sufficiently_near_half(offset, work)) {
-                return centered_inverse_half_interval(x, offset, work, true);
-            }
-            return subtract(divide(pi_interval(work), point(Fraction(2L))),
-                            asin_interval(x, work));
+        return asin_interval(x,work);
+    } else if constexpr(OperationKind==Function::arccosine) {
+        const Fraction offset=absolute(x)-Fraction(1L)/Fraction(2L);
+        if (sufficiently_near_half(offset,work)) {
+            return centered_inverse_half_interval(x,offset,work,true);
         }
-        case Function::pi:
-            return pi_interval(work);
-        case Function::half_pi:
-            return divide(pi_interval(work), point(Fraction(2L)));
-        case Function::negative_half_pi:
-            return negative(divide(pi_interval(work), point(Fraction(2L))));
-        default:
-            throw std::invalid_argument("FloatMP unknown trigonometric function");
+        return subtract(divide(pi_interval(work),point(Fraction(2L))),asin_interval(x,work));
+    } else if constexpr(OperationKind==Function::pi) {
+        return pi_interval(work);
+    } else if constexpr(OperationKind==Function::half_pi) {
+        return divide(pi_interval(work),point(Fraction(2L)));
+    } else {
+        static_assert(OperationKind==Function::negative_half_pi);
+        return negative(divide(pi_interval(work),point(Fraction(2L))));
     }
 }
+
+using IntervalEvaluator=Interval(*)(Fraction const&,unsigned long);
 
 // A result is returned only when all real values in its certified
 // enclosure round to exactly the same FloatMP. This includes directed
 // rounding and correctly handles the nearest-even halfway boundaries.
-FloatMP certified(Function function, Fraction const& x,
+FloatMP certified(IntervalEvaluator evaluator, Fraction const& x,
                   FloatMP::RoundingModeType mode, FloatMP::PrecisionType precision) {
     const unsigned long bits = static_cast<unsigned long>(precision.bits());
     unsigned long extra = 32u;
@@ -3789,7 +3788,7 @@ FloatMP certified(Function function, Fraction const& x,
             Detail::checked_unsigned_add(bits,extra,precision_error),32ul,precision_error);
         const auto work=guarded_work-32ul;
 
-        const Interval bounds = evaluate(function,x,work);
+        const Interval bounds = evaluator(x,work);
         const FloatMP low = bounds.lower.rounded(bits,mode);
         const FloatMP high = bounds.upper.rounded(bits,mode);
         if (low == high) {
@@ -3812,7 +3811,7 @@ FloatMP unary(FloatMP::RoundingModeType mode,FloatMP const& x) {
     if(x.is_nan()) return FloatMP::nan(bits);
     if(x.is_inf()) {
         if constexpr(OperationKind==Function::arctangent) {
-            return certified(x.negative() ? Function::negative_half_pi : Function::half_pi,
+            return certified(x.negative() ? evaluate<Function::negative_half_pi> : evaluate<Function::half_pi>,
                              Fraction{},mode,x.precision());
         } else {
             return FloatMP::nan(bits);
@@ -3822,12 +3821,12 @@ FloatMP unary(FloatMP::RoundingModeType mode,FloatMP const& x) {
         if constexpr(OperationKind==Function::cosine) {
             return FloatMP(std::int64_t{1},x.precision());
         } else if constexpr(OperationKind==Function::arccosine) {
-            return certified(OperationKind,Fraction{},mode,x.precision());
+            return certified(evaluate<OperationKind>,Fraction{},mode,x.precision());
         } else {
             return FloatMP::zero(bits,x.negative());
         }
     }
-    if(auto short_result=FloatMPShortTranscendentals::evaluate(OperationKind,mode,x))
+    if(auto short_result=FloatMPShortTranscendentals::evaluate(FloatMPShortTranscendentals::get_center<OperationKind>,mode,x))
         return std::move(*short_result);
     const Fraction argument=rational_argument(x);
     if constexpr(OperationKind==Function::arcsine || OperationKind==Function::arccosine) {
@@ -3836,16 +3835,18 @@ FloatMP unary(FloatMP::RoundingModeType mode,FloatMP const& x) {
             if constexpr(OperationKind==Function::arccosine) {
                 return FloatMP::zero(bits);
             } else {
-                return certified(Function::half_pi,Fraction{},mode,x.precision());
+                return certified(evaluate<Function::half_pi>,Fraction{},mode,x.precision());
             }
         }
         if(compare(argument,Fraction(-1L))==0) {
-            constexpr Function boundary=OperationKind==Function::arcsine
-                ? Function::negative_half_pi : Function::pi;
-            return certified(boundary,Fraction{},mode,x.precision());
+            if constexpr(OperationKind==Function::arcsine) {
+                return certified(evaluate<Function::negative_half_pi>,Fraction{},mode,x.precision());
+            } else {
+                return certified(evaluate<Function::pi>,Fraction{},mode,x.precision());
+            }
         }
     }
-    return certified(OperationKind,argument,mode,x.precision());
+    return certified(evaluate<OperationKind>,argument,mode,x.precision());
 }
 
 } // namespace Detail
@@ -3862,7 +3863,7 @@ FloatMP exp(FloatMP::RoundingModeType mode, FloatMP const& x) {
     if (x.is_zero()) {
         return FloatMP(std::int64_t{1}, x.precision());
     }
-    if (auto short_result=FloatMPShortTranscendentals::evaluate(Function::exponential,mode,x)) return std::move(*short_result);
+    if (auto short_result=FloatMPShortTranscendentals::evaluate(FloatMPShortTranscendentals::get_center<Function::exponential>,mode,x)) return std::move(*short_result);
     const Fraction input = rational_argument(x);
     return certified([&](unsigned long work) {
         return exp_half_centered_or_general(input, work);
@@ -3881,7 +3882,7 @@ FloatMP log(FloatMP::RoundingModeType mode, FloatMP const& x) {
     if (x.is_inf()) {
         return FloatMP::infinity(bits);
     }
-    if (auto short_result=FloatMPShortTranscendentals::evaluate(Function::logarithm,mode,x)) return std::move(*short_result);
+    if (auto short_result=FloatMPShortTranscendentals::evaluate(FloatMPShortTranscendentals::get_center<Function::logarithm>,mode,x)) return std::move(*short_result);
     if (x.exponent()==-static_cast<FloatMP::Exponent>(bits-1ul) &&
         floatmp_popcount(x.significand())==1u) {
         return FloatMP::zero(bits);
@@ -3908,7 +3909,7 @@ FloatMP tanh(FloatMP::RoundingModeType mode,FloatMP const& x) {
     if (x.is_zero()) return x;
     if (x.is_inf()) return FloatMP(x._negative ? -1 : 1,x.precision());
     if (auto result=FloatMPShortTranscendentals::evaluate(
-            Function::hyperbolic_tangent,mode,x)) return std::move(*result);
+            FloatMPShortTranscendentals::get_center<Function::hyperbolic_tangent>,mode,x)) return std::move(*result);
     if (auto result=FloatMPShortTranscendentals::evaluate_tanh_wide(mode,x))
         return std::move(*result);
 
@@ -3940,7 +3941,7 @@ FloatMP tanh(FloatMP::RoundingModeType mode,FloatMP const& x) {
         } else result._significand=sub_big_unsigned(x._significand,BigUnsigned(1u));
         return result;
     }
-    return certified(Function::hyperbolic_tangent,rational_argument(x),mode,x.precision());
+    return certified(evaluate<Function::hyperbolic_tangent>,rational_argument(x),mode,x.precision());
 }
 
 FloatMP sin(FloatMP::RoundingModeType mode, FloatMP const& x) {
@@ -3997,7 +3998,7 @@ FloatMP Float<MultiplePrecision>::pi(RoundingModeType mode, PrecisionType precis
     }
     auto& entry = cache.rounded[index];
     if (!entry) {
-        entry.emplace(certified(Function::pi, Fraction{}, mode, precision));
+        entry.emplace(certified(evaluate<Function::pi>, Fraction{}, mode, precision));
     }
     return *entry;
 }
