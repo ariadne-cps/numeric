@@ -23,6 +23,8 @@
  */
 
 #include <bit>
+#include <array>
+#include <cmath>
 #include <chrono>
 #include <cstddef>
 #include <iostream>
@@ -403,6 +405,7 @@ class TestFloatRounding
     Void test_rounding_mode();
     Void test_rounding_session();
     Void test_double_rounding();
+    Void test_directed_residuals();
     Void test_arithmetic();
     Void test_cosine();
     Void test_arctan();
@@ -443,6 +446,7 @@ TestFloatRounding<PR>::test()
     ARIADNE_TEST_CALL(test_stream());
     ARIADNE_TEST_CALL(test_comparison());
     ARIADNE_TEST_CALL(test_double_rounding());
+    ARIADNE_TEST_CALL(test_directed_residuals());
     ARIADNE_TEST_CALL(test_arithmetic());
     ARIADNE_TEST_CALL(test_function());
     ARIADNE_TEST_CALL(test_cosine());
@@ -2664,6 +2668,71 @@ TestFloatRounding<PR>::test_rounding_session()
     Float::set_rounding_mode(original);
 }
 
+
+
+template<> Void
+TestFloatRounding<DoublePrecision>::test_directed_residuals()
+{
+    // D7: compare every public directed result against the independent
+    // current-hardware-rounding adapter (not the certified path).
+    const auto original=FloatDP::get_rounding_mode();
+    const std::array<double,15> boundaries={
+        0.0,-0.0,1.0,-1.0,0.5,-0.5,
+        2.0,-2.0,0x1p-400,0x1p-450,0x1p400,
+        std::numeric_limits<double>::min(),
+        std::numeric_limits<double>::denorm_min(),
+        std::numeric_limits<double>::max(),
+        -std::numeric_limits<double>::max()
+    };
+    std::uint64_t state=0x9e3779b97f4a7c15ull;
+    auto next=[&]() -> double {
+        state^=state>>12;
+        state^=state<<25;
+        state^=state>>27;
+        const std::uint64_t value=state*2685821657736338717ull;
+        const double mantissa=0.5+double(value>>11)*0x1p-54;
+        return std::ldexp((value&1u)?-mantissa:mantissa,
+                          static_cast<int>((value>>5)%1801u)-900);
+    };
+    auto bits=[](FloatDP x) { return std::bit_cast<std::uint64_t>(x.get_d()); };
+    for(const auto ambient : {FloatDP::ROUND_TO_NEAREST,FloatDP::ROUND_DOWNWARD}) {
+        FloatDP::set_rounding_mode(ambient);
+        for(const auto requested : {FloatDP::ROUND_DOWNWARD,FloatDP::ROUND_UPWARD}) {
+            for(unsigned index=0;index<800u;++index) {
+                const double a=index<boundaries.size()?boundaries[index]:next();
+                const double b=index<boundaries.size()?boundaries[(index+7u)%boundaries.size()]:next();
+                const double c=index<boundaries.size()?boundaries[(index+11u)%boundaries.size()]:next();
+                const FloatDP x(ExactDouble(a),precision);
+                const FloatDP y(ExactDouble(b),precision);
+                const FloatDP z(ExactDouble(c),precision);
+                const FloatDP positive(ExactDouble(std::fabs(a)),precision);
+                const FloatDP actual_add=add(requested,x,y);
+                const FloatDP actual_sub=sub(requested,x,y);
+                const FloatDP actual_mul=mul(requested,x,y);
+                const FloatDP actual_div=div(requested,x,y);
+                const FloatDP actual_fma=fma(requested,x,y,z);
+                const FloatDP actual_sqrt=sqrt(requested,positive);
+                const FloatDP actual_pow=pow(requested,positive,Nat(7u));
+                ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),ambient);
+                RoundingSession<FloatDP> reference_rounding;
+                const CurrentRoundingMode current=reference_rounding.set(requested);
+                ARIADNE_TEST_EQUAL(bits(actual_add),bits(add(current,x,y)));
+                ARIADNE_TEST_EQUAL(bits(actual_sub),bits(sub(current,x,y)));
+                ARIADNE_TEST_EQUAL(bits(actual_mul),bits(mul(current,x,y)));
+                ARIADNE_TEST_EQUAL(bits(actual_div),bits(div(current,x,y)));
+                ARIADNE_TEST_EQUAL(bits(actual_fma),bits(fma(current,x,y,z)));
+                ARIADNE_TEST_EQUAL(bits(actual_sqrt),bits(sqrt(current,positive)));
+                ARIADNE_TEST_EQUAL(bits(actual_pow),bits(pow(current,positive,Nat(7u))));
+            }
+        }
+    }
+    FloatDP::set_rounding_mode(original);
+}
+
+template<class PR> Void
+TestFloatRounding<PR>::test_directed_residuals()
+{
+}
 
 template<> Void
 TestFloatRounding<DoublePrecision>::test_double_rounding()

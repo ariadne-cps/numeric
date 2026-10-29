@@ -67,6 +67,114 @@ int abslog10floor(double x);
 
 static_assert(not GenericNumber<FloatDP>);
 
+namespace {
+// Only run this path under ambient RN.  Conservative operand gates
+// exclude any nonzero residual smaller than 2^-904, including the
+// otherwise dangerous subnormal/underflow corner cases.
+constexpr double certified_floor=0x1p-400;
+double adjusted(double n,double residual,FloatDP::RoundingModeType mode) {
+    if ((mode==FloatDP::ROUND_UPWARD && residual>0.0) ||
+        (mode==FloatDP::ROUND_DOWNWARD && residual<0.0)) {
+        return std::nextafter(n,mode==FloatDP::ROUND_UPWARD
+            ? std::numeric_limits<double>::infinity()
+            : -std::numeric_limits<double>::infinity());
+    }
+    return n;
+}
+double two_sum_error(double a,double b,double s) {
+    const double t=s-a;
+    return (a-(s-t))+(b-t);
+}
+bool exact_add(FloatDP::RoundingModeType mode,double a,double b,double& result) {
+    const double s=a+b;
+    if (!std::isnormal(s)||!std::isfinite(a)||!std::isfinite(b))return false;
+    result=adjusted(s,two_sum_error(a,b,s),mode);
+    return true;
+}
+bool exact_mul(FloatDP::RoundingModeType mode,double a,double b,double& result) {
+    const double p=a*b;
+    if (!std::isnormal(p)||std::fabs(a)<certified_floor
+        ||std::fabs(b)<certified_floor)return false;
+    result=adjusted(p,std::fma(a,b,-p),mode);
+    return true;
+}
+bool exact_div(FloatDP::RoundingModeType mode,double a,double b,double& result) {
+    const double q=a/b;
+    if (!std::isnormal(q)||std::fabs(a)<certified_floor
+        ||std::fabs(b)<certified_floor||std::fabs(q)<certified_floor)return false;
+    const double e=std::fma(-q,b,a); // sign(a/b-q) = sign(e/b)
+    result=adjusted(q,std::signbit(b)?-e:e,mode);
+    return true;
+}
+bool exact_sqrt(FloatDP::RoundingModeType mode,double a,double& result) {
+    const double r=std::sqrt(a);
+    if (!std::isnormal(r)||r<certified_floor)return false;
+    result=adjusted(r,std::fma(-r,r,a),mode);
+    return true;
+}
+bool exact_fma(FloatDP::RoundingModeType mode,double a,double b,
+               double c,double& result) {
+    const double r=std::fma(a,b,c);
+    if (!std::isnormal(r)||std::fabs(a)<certified_floor
+        ||std::fabs(b)<certified_floor||std::fabs(c)<certified_floor
+        ||std::fabs(r)<certified_floor)return false;
+    const double p=a*b;
+    if (!std::isnormal(p)||std::fabs(p)<certified_floor)return false;
+    const double s=p+c;
+    if (s!=r)return false;
+    const double e=std::fma(a,b,-p)+two_sum_error(p,c,s);
+    result=adjusted(r,e,mode);
+    return true;
+}
+bool exact_pow(FloatDP::RoundingModeType mode,double x,Nat n,double& result) {
+    if (!(x>0.0)||!std::isfinite(x)||x<certified_floor||n>16u)return false;
+    double p=x,r=1.0;
+    while(n!=0u) {
+        if ((n&1u)!=0u && !exact_mul(mode,r,p,r))return false;
+        if (!exact_mul(mode,p,p,p))return false;
+        n/=2u;
+    }
+    result=r;
+    return true;
+}
+} // namespace
+
+FloatDP FloatDP::_certified_add(RoundingModeType mode,FloatDP a,FloatDP b) {
+    double r;
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_add(mode,a.dbl,b.dbl,r))return FloatDP(r);
+    return _apply_rnd(&add_rnd,mode,a,b);
+}
+FloatDP FloatDP::_certified_sub(RoundingModeType mode,FloatDP a,FloatDP b) {
+    double r;
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_add(mode,a.dbl,-b.dbl,r))return FloatDP(r);
+    return _apply_rnd(&sub_rnd,mode,a,b);
+}
+FloatDP FloatDP::_certified_mul(RoundingModeType mode,FloatDP a,FloatDP b) {
+    double r;
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_mul(mode,a.dbl,b.dbl,r))return FloatDP(r);
+    return _apply_rnd(&mul_rnd,mode,a,b);
+}
+FloatDP FloatDP::_certified_div(RoundingModeType mode,FloatDP a,FloatDP b) {
+    double r;
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_div(mode,a.dbl,b.dbl,r))return FloatDP(r);
+    return _apply_rnd(&div_rnd,mode,a,b);
+}
+FloatDP FloatDP::_certified_fma(RoundingModeType mode,FloatDP a,FloatDP b,FloatDP c) {
+    double r;
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_fma(mode,a.dbl,b.dbl,c.dbl,r))return FloatDP(r);
+    return _apply_rnd(&fma_rnd,mode,a,b,c);
+}
+FloatDP FloatDP::_certified_sqrt(RoundingModeType mode,FloatDP a) {
+    double r;
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_sqrt(mode,a.dbl,r))return FloatDP(r);
+    return _apply_rnd(&sqrt_rnd,mode,a);
+}
+FloatDP FloatDP::_certified_pow(RoundingModeType mode,FloatDP a,Nat n) {
+    double r;
+    if(get_rounding_mode()==ROUND_TO_NEAREST && exact_pow(mode,a.dbl,n,r))return FloatDP(r);
+    return _apply_rnd((double(*)(double,unsigned int))&pow_rnd,mode,a,n);
+}
+
 Rounded<FloatDP>::Rounded(Approximation<FloatDP> const& x)
     : Rounded(x.raw())
 {

@@ -861,3 +861,83 @@ checks, and production algorithms remain unchanged. This repairs
 The full AppleClang build, CTest and other CI jobs have not been rerun
 or asserted successful in this documentation update. This record is
 included in the new backend-specific FloatDP journal.
+
+
+## D7 — certified residual-directed FloatDP arithmetic (29 October 2026)
+
+**Problem and frozen baseline.** The user-supplied 53-bit integrated
+20,000-iteration/31-sample comparison after D6 measures (ns):
+
+| operation | nearest | down | up |
+| --- | ---: | ---: | ---: |
+| add | 3.281 | 32.192 | 31.646 |
+| sub | 3.285 | 31.348 | 31.492 |
+| mul | 3.383 | 31.625 | 31.354 |
+| div | 3.292 | 33.788 | 33.527 |
+| fma | 3.381 | 31.352 | 30.433 |
+| sqrt | 3.396 | 31.212 | 30.340 |
+| pow7 | 5.548 | 41.702 | 42.604 |
+
+The slowdown was not arithmetic complexity: the explicit-mode
+FloatDP adapters previously constructed an RoundingSession per call,
+including get/set/restore of the hardware fenv. The benchmark evaluates
+one **independent public API call per measured operation**, so batching
+or pre-setting the mode in the benchmark would change the workload
+and is **not** a valid optimization of these results.
+
+**Implementation.** Preserve all original session-backed adapters as
+fallbacks, and preserve the exact nearest-mode public dispatch. For
+upward/downward when the *ambient* hardware mode is nearest-even, try
+a residual-certified direct binary64 operation without changing fenv:
+- add/sub: Knuth's TwoSum error of the hardware nearest sum, with
+  subtraction represented as addition of the negated operand.
+- mul: exact product residual `fma(a,b,-rounded_product)`.
+- div: exact sign of `fma(-rounded_quotient,denominator,numerator)`,
+  reversed for a negative denominator.
+- sqrt: exact sign of `fma(-rounded_root,rounded_root,radicand)`.
+- fma: nearest fused result, compared against the separately rounded
+  product-plus-addition; only when these nearest values agree is the
+  combined exact residual `fma(a,b,-rounded_product)+TwoSumError(product,c)`
+  used. Otherwise fall back to the native fused session (not multiply+add).
+- pow: for positive finite bases and bounded nonnegative exponents,
+  perform precisely the original per-multiplication directed repeated-
+  squaring sequence, replacing each rounded multiplication with the
+  certified residual path. Fallback restarts the original complete
+  operation if any intermediate is outside the certification domain.
+
+The sign of the exact residual selects either the nearest result or
+its immediately adjacent binary64 neighbor in the requested direction.
+The cutoff `2^-400` on relevant operands/intermediates guarantees any
+nonzero residual of multiplication/division/FMA/sqrt has binary exponent
+no lower than -904 (53-bit significands, at most two exact products),
+avoiding the otherwise unsafe inference of exactness from an underflowed
+zero residual. Add/sub uses exact TwoSum and requires a normal finite
+sum. All exceptional cases, signed-zero cancellation, overflow,
+subnormals not covered by the proof, ambient non-nearest fenv and
+uncertifiable FMA cases delegate to the old hardware-rounded functions.
+There is no change to public signatures, decimal or transcendental
+kernels, FloatMP, test input corpus, or benchmark timing procedures.
+
+**Differential checks.** A separate standalone C++20 harness, compiled
+with GCC and Clang under `-O2 -frounding-math -fno-fast-math`, compared
+directed nearest-residual candidates against actual FE_DOWNWARD/
+FE_UPWARD reference operations, restoring RN between calls. Across
+900,000 input/mode cases per operator (7 operators), including random
+bit patterns, cancellation, exponent extremes, signed zero and special
+values, *no mismatch occurred among the candidates accepted by the
+proof gates*. This is 6.3 million inputs tested per compiler but does
+**not** replace a built Numeric test or independent high-precision
+oracle. `test_float_rounding` adds explicit public-vs-current-hardware
+bitwise comparisons over deterministic edge/randomized inputs and
+checks ambient-mode restoration, including the non-nearest fallback.
+
+**Acceptance gates.** Build and execute the complete Numeric test
+suite and source-keyed oracles on AppleClang ARM64, GCC/Clang x86-64
+and MSVC with strict floating point; do not weaken a failing oracle.
+Measure the unchanged 20,000x31 user benchmark on the same host.
+Compare each of the 14 directed medians above in absolute nanoseconds;
+watch nearest timings, all transcendental controls and rounding-mode
+preservation. A new speedup is *not* claimed before this measured
+regression and cross-platform CI. The retained fenv paths remain the
+authoritative fallback on architectures with incompatible compiler
+rounding/FMA behavior.

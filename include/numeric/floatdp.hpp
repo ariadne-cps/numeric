@@ -372,6 +372,14 @@ template<> class Float<DP>
         session.set(rnd);
         return FloatDP(op(x.dbl,n));
     }
+    // D7: certified nearest-mode residual path for directed IEEE-754 arithmetic.
+    static FloatDP _certified_add(RoundingModeType, FloatDP, FloatDP);
+    static FloatDP _certified_sub(RoundingModeType, FloatDP, FloatDP);
+    static FloatDP _certified_mul(RoundingModeType, FloatDP, FloatDP);
+    static FloatDP _certified_div(RoundingModeType, FloatDP, FloatDP);
+    static FloatDP _certified_fma(RoundingModeType, FloatDP, FloatDP, FloatDP);
+    static FloatDP _certified_sqrt(RoundingModeType, FloatDP);
+    static FloatDP _certified_pow(RoundingModeType, FloatDP, Nat);
   public:
     //! \name Explicitly rounded operations
     //!@{
@@ -391,16 +399,16 @@ template<> class Float<DP>
     friend FloatDP pos(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&pos_rnd,rnd,x); } //!< <p/>
     friend FloatDP neg(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&neg_rnd,rnd,x); } //!< <p/>
     friend FloatDP hlf(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&hlf_rnd,rnd,x); } //!< <p/>
-    friend FloatDP add(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return _apply_rnd(&add_rnd,rnd,x1,x2); } //!< <p/>
-    friend FloatDP sub(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return _apply_rnd(&sub_rnd,rnd,x1,x2); } //!< <p/>
-    friend FloatDP mul(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return _apply_rnd(&mul_rnd,rnd,x1,x2); } //!< <p/>
-    friend FloatDP div(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return _apply_rnd(&div_rnd,rnd,x1,x2); } //!< <p/>
-    friend FloatDP fma(RoundingModeType rnd, FloatDP x1, FloatDP x2, FloatDP x3) { return _apply_rnd(&fma_rnd,rnd,x1,x2,x3); } //!< <p/>
-    friend FloatDP pow(RoundingModeType rnd, FloatDP x, Nat m) { return _apply_rnd((double(*)(double,unsigned int))&pow_rnd,rnd,x,m); } //!< <p/>
+    friend FloatDP add(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd==ROUND_DOWNWARD || rnd==ROUND_UPWARD) ? _certified_add(rnd,x1,x2) : _apply_rnd(&add_rnd,rnd,x1,x2); } //!< <p/>
+    friend FloatDP sub(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd==ROUND_DOWNWARD || rnd==ROUND_UPWARD) ? _certified_sub(rnd,x1,x2) : _apply_rnd(&sub_rnd,rnd,x1,x2); } //!< <p/>
+    friend FloatDP mul(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd==ROUND_DOWNWARD || rnd==ROUND_UPWARD) ? _certified_mul(rnd,x1,x2) : _apply_rnd(&mul_rnd,rnd,x1,x2); } //!< <p/>
+    friend FloatDP div(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd==ROUND_DOWNWARD || rnd==ROUND_UPWARD) ? _certified_div(rnd,x1,x2) : _apply_rnd(&div_rnd,rnd,x1,x2); } //!< <p/>
+    friend FloatDP fma(RoundingModeType rnd, FloatDP x1, FloatDP x2, FloatDP x3) { return (rnd==ROUND_DOWNWARD || rnd==ROUND_UPWARD) ? _certified_fma(rnd,x1,x2,x3) : _apply_rnd(&fma_rnd,rnd,x1,x2,x3); } //!< <p/>
+    friend FloatDP pow(RoundingModeType rnd, FloatDP x, Nat m) { return (rnd==ROUND_DOWNWARD || rnd==ROUND_UPWARD) ? _certified_pow(rnd,x,m) : _apply_rnd((double(*)(double,unsigned int))&pow_rnd,rnd,x,m); } //!< <p/>
     friend FloatDP pow(RoundingModeType rnd, FloatDP x, Int n) { return _apply_rnd((double(*)(double,int))&pow_rnd,rnd,x,n); } //!< <p/>
     friend FloatDP sqr(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&sqr_rnd,rnd,x); } //!< <p/>
     friend FloatDP rec(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&rec_rnd,rnd,x); } //!< <p/>
-    friend FloatDP sqrt(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&sqrt_rnd,rnd,x); } //!< <p/>
+    friend FloatDP sqrt(RoundingModeType rnd, FloatDP x) { return (rnd==ROUND_DOWNWARD || rnd==ROUND_UPWARD) ? _certified_sqrt(rnd,x) : _apply_rnd(&sqrt_rnd,rnd,x); } //!< <p/>
     friend FloatDP exp(RoundingModeType rnd, FloatDP x);
     friend FloatDP log(RoundingModeType rnd, FloatDP x);
     friend FloatDP sin(RoundingModeType rnd, FloatDP x);
