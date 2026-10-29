@@ -11804,3 +11804,83 @@ Do not conflate it with the separate previously suggested
 rounding-session optimization; that work remains
 unimplemented and would require additional correctness
 proofs for directed arithmetic.
+
+
+## F6 — enable certified nearest for FloatDP exponential (29 October 2026)
+
+**Scope and remaining exclusion.** After F5 allowed log, tan and atan
+nearest into the short certified FloatDP transcendental kernel, the
+initial guard in src/floatdp.cpp still excluded only
+FloatDPTranscendental::exponential in ROUND_TO_NEAREST mode. The
+same near-half fast path already served exp_down and exp_up. F6 removes
+that last operation-specific nearest exclusion and leaves the
+precisely bounded input decoder and general fallback untouched.
+Consequently, *all nine existing certified operations* are now
+eligible in nearest mode when their input lies inside the already
+certified near-half window. This is not an extension to inputs
+outside that window and does not alter unsupported domains.
+
+**Correctness basis.** The existing consteval
+floatdp_verify_certificates<FloatDPTranscendental::exponential>()
+static_assert rigorously verifies every admitted binary64 input
+in the two 53/54-denominator windows, both signs and the
+rounding behavior of both error-bounded interval endpoints.
+The proof includes nonzero discarded fractions, absence of
+halfway cases, equality of retained significands and agreement
+of the two endpoints' nearest increment decisions. The
+F1/F2/F3 native-word fixed-point evaluator already supports
+ROUND_TO_NEAREST via floatdp_round_fixed; only the dispatch
+guard prevented its use. F6 changes no coefficients, derivative
+bounds, rounding formula, binary64 encoding, input windows,
+or special-case fallbacks. It introduces no BigUnsigned to
+FloatDP. Outside the short certified domain, exp_nearest uses
+the original general path unchanged.
+
+**Independent regression coverage.** Switch the existing
+independent source-keyed exp golden oracle invocation in
+tests/test_float_rounding.cpp
+(ARIADNE_FLOATMP_CENTERED_EXP_ORACLE_PATH, 568 rows)
+from check_nearest=false to true. For the admitted
+p=53 near-half arguments, the test already compares exact
+dyadic Rational results, exact IEEE-754 binary64 encodings,
+and the preservation of ambient rounding mode. This adds
+coverage that was intentionally skipped for exp nearest
+without regenerating, weakening or reinterpreting any
+oracle fixture. The already-active consteval exhaustive
+certificates remain unchanged.
+
+**Baseline and measurement isolation.** In the latest
+user-supplied F4 benchmark at 53 bits (20,000 iterations,
+31 samples, 56 operations), FloatDP exp_nearest took
+**22.935 ns** while exp_down and exp_up took respectively
+**6.421 ns** and **6.544 ns**. The last reported paired
+FloatMP/FloatDP total_time was **1.430x** and geomean
+**2.207x**, but F5 was committed subsequently and its
+own benchmark has not yet been supplied in this session.
+Therefore those aggregate values are *pre-F5/pre-F6*
+references, not a controlled baseline uniquely for F6.
+A new run should compare absolute exp_nearest latency
+against ~22.9 ns and the directed exp times against
+~6.4–6.5 ns; additionally verify that log_nearest,
+tan_nearest and atan_nearest exhibit the expected
+F5 behavior. As F5 and F6 were not benchmarked in between,
+a new global aggregate ratio measures the cumulative F5+F6
+effect, not F6 alone.
+
+**Verification status and release gates.** Checked the
+source conditions and the presence of the unmodified
+exponential static_assert, the original near-half
+window restriction, the independent golden-oracle
+harness, and absence of BigUnsigned from FloatDP.
+This does *not* constitute an integrated Numeric build
+or successful CI. Re-run GCC 13 strict -Wshadow/-Werror,
+Clang/AppleClang, MSVC with strict floating point,
+the complete independent binary64 oracle tests, all
+modes and exceptional argument fallbacks, sanitizers,
+and coverage checks. In particular avoid changing
+the source-keyed fixtures or replacing the strong
+consteval proof with benchmark-specific assumptions.
+
+**Next work.** No F7 optimization is included. This
+concludes the operation-specific nearest exclusions
+of the existing FloatDP short transcendental certifier.

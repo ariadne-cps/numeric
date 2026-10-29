@@ -3221,8 +3221,10 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
         // source-keyed oracles for log, tan and atan. They validate the
         // same certified kernel used for the fast directed operations.
         // exp_nearest remains on its previous independent fallback.
+        // F6: the existing independent centered-exp golden oracle also
+        // checks nearest-even (previously excluded from the fast kernel).
         verify(ARIADNE_FLOATMP_CENTERED_EXP_ORACLE_PATH,568u,
-            [](auto mode,FloatDP value) { return exp(mode,value); },false);
+            [](auto mode,FloatDP value) { return exp(mode,value); },true);
         verify(ARIADNE_FLOATMP_LOG_ORACLE_PATH,452u,
             [](auto mode,FloatDP value) { return log(mode,value); },true);
         verify(ARIADNE_FLOATMP_SIN_ORACLE_PATH,1080u,

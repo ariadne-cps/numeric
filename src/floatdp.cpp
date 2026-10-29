@@ -522,14 +522,10 @@ template<FloatDPTranscendental Function>
 bool floatdp_certified_transcendental(
                                       FloatDP::RoundingModeType mode,
                                       double input,double& output) {
-    // F5: the exhaustive consteval certificates cover nearest-even for
-    // log, tan and atan too, including both signs where defined. Allow
-    // those operations to use the same near-half kernel as directed modes.
-    // Keep exponential nearest on its established path so this experiment
-    // changes exactly three operations in the benchmark.
-    if constexpr(Function==FloatDPTranscendental::exponential) {
-        if(mode==FloatDP::ROUND_TO_NEAREST) return false;
-    }
+    // F6: every near-half operation, including exp_nearest, is covered
+    // by the existing exhaustive consteval nearest-even certificate.
+    // No special nearest-mode exclusion remains; inputs outside the
+    // certified window still use their original fallback.
 
     const std::uint64_t encoded=std::bit_cast<std::uint64_t>(input);
     const bool negative=(encoded>>63u)!=0u;
