@@ -44,23 +44,23 @@ class TestRoundingMode : public Ariadne::Testing::ContextFixture
 
 void TestRoundingMode::test() {
     #if defined ARIADNE_C99_ROUNDING
-        std::cout << "Using standard fenv.hpp C header file for setting the rounding mode." << std::endl;
+        ARIADNE_TESTING_NOTE("Using standard fenv.hpp C header file for setting the rounding mode.");
     #elif defined ARIADNE_BOOST_ROUNDING
         #if defined BOOST_NUMERIC_INTERVAL_DETAIL_C99_ROUNDING_CONTROL_HPP
-            std::cout << "Using Boost interval library standard fenv.hpp C header for setting the rounding mode." << std::endl;
+            ARIADNE_TESTING_NOTE("Using Boost interval library standard fenv.hpp C header for setting the rounding mode.");
         #else
-            std::cout << "Using Boost interval library hardware rounding for setting the rounding mode." << std::endl;
+            ARIADNE_TESTING_NOTE("Using Boost interval library hardware rounding for setting the rounding mode.");
         #endif
     #elif defined ARIADNE_GCC_ROUNDING
-        std::cout << "Using ordinary GCC inline assembler for setting the rounding mode." << std::endl;
+        ARIADNE_TESTING_NOTE("Using ordinary GCC inline assembler for setting the rounding mode.");
     #elif defined ARIADNE_EGCC_ROUNDING
-        std::cout << "Using extended GCC inline assembler for setting the rounding mode." << std::endl;
+        ARIADNE_TESTING_NOTE("Using extended GCC inline assembler for setting the rounding mode.");
     #elif defined ARIADNE_SSE_ROUNDING
-        std::cout << "Using SSE <xmmintrin.h> header file for setting the rounding mode." << std::endl;
+        ARIADNE_TESTING_NOTE("Using SSE <xmmintrin.h> header file for setting the rounding mode.");
     #elif defined ARIADNE_MSVC_ROUNDING
-        std::cout << "Using Microsoft Visual Studio inline assembler for setting the rounding mode." << std::endl;
+        ARIADNE_TESTING_NOTE("Using Microsoft Visual Studio inline assembler for setting the rounding mode.");
     #else
-        std::cout << "Error: no rounding mode available." << std::endl;
+        ARIADNE_TESTING_NOTE("Error: no rounding mode available.");
         ARIADNE_TESTING_PROVE( false);
     #endif
 
