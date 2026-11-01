@@ -1666,16 +1666,16 @@ void TestFloatStandalone::test_floatmp_neighbor_limits() {
         const auto quiet_nan=FloatMP::nan(precision);
         ARIADNE_TESTING_PROVE(is_nan(next(up,quiet_nan)));
         ARIADNE_TESTING_PROVE(is_nan(next(down,quiet_nan)));
-        ARIADNE_TESTING_EXPECT_EQUAL(next(up,positive_infinity),positive_infinity);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(down,negative_infinity),negative_infinity);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(down,positive_infinity),largest);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(up,negative_infinity),-largest);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(up,largest),positive_infinity);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(down,-largest),negative_infinity);
+        ARIADNE_TESTING_PROVE((next(up,positive_infinity))==(positive_infinity));
+        ARIADNE_TESTING_PROVE((next(down,negative_infinity))==(negative_infinity));
+        ARIADNE_TESTING_PROVE((next(down,positive_infinity))==(largest));
+        ARIADNE_TESTING_PROVE((next(up,negative_infinity))==(-largest));
+        ARIADNE_TESTING_PROVE((next(up,largest))==(positive_infinity));
+        ARIADNE_TESTING_PROVE((next(down,-largest))==(negative_infinity));
         for (bool negative:{false,true}) {
             const auto zero=FloatMP::zero(bits,negative);
-            ARIADNE_TESTING_EXPECT_EQUAL(next(up,zero),smallest);
-            ARIADNE_TESTING_EXPECT_EQUAL(next(down,zero),-smallest);
+            ARIADNE_TESTING_PROVE((next(up,zero))==(smallest));
+            ARIADNE_TESTING_PROVE((next(down,zero))==(-smallest));
         }
         const auto negative_zero=next(up,-smallest);
         const auto positive_zero=next(down,smallest);
@@ -1685,20 +1685,20 @@ void TestFloatStandalone::test_floatmp_neighbor_limits() {
         ARIADNE_TESTING_EXPECT_EQUAL(first_above_min.exponent(),smallest.exponent());
         ARIADNE_TESTING_PROVE(compare(first_above_min.significand(),
                                   add(smallest.significand(),BigUnsigned(1u)))==0);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(down,first_above_min),smallest);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(up,-first_above_min),-smallest);
+        ARIADNE_TESTING_PROVE((next(down,first_above_min))==(smallest));
+        ARIADNE_TESTING_PROVE((next(up,-first_above_min))==(-smallest));
         const auto last_below_max=next(down,largest);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(up,last_below_max),largest);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(down,-last_below_max),-largest);
+        ARIADNE_TESTING_PROVE((next(up,last_below_max))==(largest));
+        ARIADNE_TESTING_PROVE((next(down,-last_below_max))==(-largest));
 
         // At a power of two, the predecessor has twice as fine a spacing.
         const auto predecessor=next(down,FloatMP(1,precision));
         ARIADNE_TESTING_EXPECT_EQUAL(predecessor.exponent(),-static_cast<FloatMP::Exponent>(bits));
         ARIADNE_TESTING_PROVE(compare(predecessor.significand(),
             sub(shift_left(BigUnsigned(1u),bits),BigUnsigned(1u)))==0);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(up,predecessor),FloatMP(1,precision));
-        ARIADNE_TESTING_EXPECT_EQUAL(next(up,FloatMP(-1,precision)),-predecessor);
-        ARIADNE_TESTING_EXPECT_EQUAL(next(down,-predecessor),FloatMP(-1,precision));
+        ARIADNE_TESTING_PROVE((next(up,predecessor))==(FloatMP(1,precision)));
+        ARIADNE_TESTING_PROVE((next(up,FloatMP(-1,precision)))==(-predecessor));
+        ARIADNE_TESTING_PROVE((next(down,-predecessor))==(FloatMP(-1,precision)));
     }
 }
 
@@ -1729,7 +1729,7 @@ void TestFloatStandalone::test_floatmp_ratio_ties_and_carry() {
     auto source=FloatMP::max(MultiplePrecision(4_bits));
     for (unsigned step=0u;step<4u;++step) source=next(down,source);
     const FloatMP denominator(3,precision);
-    ARIADNE_TESTING_EXPECT_EQUAL(div(down,source,denominator),FloatMP::max(precision));
+    ARIADNE_TESTING_PROVE((div(down,source,denominator))==(FloatMP::max(precision)));
     ARIADNE_TESTING_PROVE(is_inf(div(near,source,denominator)));
 
     // The same rounding carry at 65-bit precision uses the general ratio kernel.

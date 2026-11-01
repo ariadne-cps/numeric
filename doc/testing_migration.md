@@ -638,3 +638,34 @@ test inputs and expectations unchanged. Audited the other captureless
 lambda in `test_float` (the FloatMP min/max oracle input parser),
 which invokes no fixture assertion and does not require capture.
 The fix is source-reviewed, not yet compiler-/CI-verified.
+
+## 2026-11-01: FloatMP extreme-value equality rendering fix
+
+CI reported two `std::bad_alloc` errors in `test_float`:
+`floatmp_neighbor_limits` on comparing `next(down,positive_infinity)`
+to `largest`, and `floatmp_ratio_ties_and_carry` when comparing
+`div(down,source,denominator)` with `FloatMP::max(precision)`.
+
+These are *diagnostic-rendering* hazards introduced by the new
+`ARIADNE_TESTING_EXPECT_EQUAL` helper, which renders both operands
+unconditionally, including on a successful comparison.
+`FloatMP::operator<<` converts its input to an exact `Rational`.
+Values near its minimum/maximum exponent require prohibitively
+large powers of two to materialize during this conversion.
+
+For the 15 `FloatMP` value-to-value comparisons in
+`test_floatmp_neighbor_limits`, and the one comparison with
+`FloatMP::max(precision)` in `test_floatmp_ratio_ties_and_carry`,
+substitute `ARIADNE_TESTING_PROVE((lhs)==(rhs))`. The numeric
+equality operator and expressions are exactly the same as those
+used by `EXPECT_EQUAL`; this avoids rendering the enormous numbers
+while retaining a decisive, reported boolean assertion.
+The two small integral exponent comparisons and the rational
+precision/tie oracle checks retain `EXPECT_EQUAL` and their
+value diagnostics. Test case count, loop order, oracles, numeric
+expectations, and total assertion count are unchanged.
+
+This is an intentionally local mitigation. Any future change to
+Ariadne Testing's generic rendering policy should preserve useful
+diagnostics while avoiding unsafe eager materialization of extreme
+numeric values. Full CI acceptance on this new commit is required.
