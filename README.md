@@ -118,3 +118,15 @@ including indeterminate evidence and exceptional paths, with a green
 GCC/Clang/MSVC CI matrix. Subsequent Numeric experiments should cover
 frozen TSV-oracle replay, precision-parametrized cases and state restoration;
 no reference datasets are regenerated as part of testing migration.
+
+### Float-rounding suite migration
+
+The full `test_float_rounding` executable is migrated to the canonical
+Ariadne Testing API. It retains the legacy three-precision order, all 16
+phases per precision, and their original numerical loops/oracles. Each
+phase is now a separate case, allowing later phases to execute after an
+exception. The `floatmp_sin/cos/tan` oracle checks gain nested precision,
+original-input and rounding-mode diagnostic scopes; the frozen TSV files
+and independent generators remain untouched. Legacy print/notification
+macros become non-asserting structured diagnostics. Compare all baseline
+assertions and failures in GCC/Clang/MSVC CI before accepting the migration.

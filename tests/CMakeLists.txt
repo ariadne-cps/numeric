@@ -33,7 +33,7 @@ foreach(TEST ${UNIT_TESTS})
     add_executable(${TEST} ${TEST}.cpp)
     target_link_libraries(${TEST} ariadne-numeric numeric)
     # Migrate representative Numeric tests without changing the other targets.
-    if("${TEST}" STREQUAL "test_logical_sequence" OR "${TEST}" STREQUAL "test_rounding_mode")
+    if("${TEST}" STREQUAL "test_logical_sequence" OR "${TEST}" STREQUAL "test_rounding_mode" OR "${TEST}" STREQUAL "test_float_rounding")
         target_link_libraries(${TEST} ariadne-testing)
     endif()
     add_test(NAME ${TEST} COMMAND $<TARGET_FILE:${TEST}>)
