@@ -396,13 +396,10 @@ class FloatMPPhaseTiming {
 
 
 template<class PR>
-class TestFloatRounding
+class TestFloatRounding : public Ariadne::Testing::ContextFixture
 {
     using Float = RawFloat<PR>;
     PR precision;
-    Ariadne::Testing::Context& context;
-
-    Ariadne::Testing::Context& ctx() noexcept { return context; }
 
   public:
     TestFloatRounding(PR prec, Ariadne::Testing::Context& ctx);
@@ -429,7 +426,7 @@ class TestFloatRounding
 
 template<class PR>
 TestFloatRounding<PR>::TestFloatRounding(PR pr, Ariadne::Testing::Context& ctx)
-    : precision(pr), context(ctx)
+    : Ariadne::Testing::ContextFixture(ctx), precision(pr)
 {
 }
 
@@ -441,39 +438,39 @@ TestFloatRounding<PR>::test_class()
 {
     cout << ARIADNE_PRETTY_FUNCTION << endl;
     // Construct from an Int
-    Float f1(2,precision); context.inspect("f1", f1);
+    Float f1(2,precision); this->ctx().inspect("f1", f1);
     ARIADNE_TESTING_EXPECT_EQUAL( f1, 2);
     // Construct from an ExactDouble
-    Float f2(1.25_x,precision); context.inspect("f2", f2);
+    Float f2(1.25_x,precision); this->ctx().inspect("f2", f2);
     ARIADNE_TESTING_EXPECT_EQUAL( f2, 1.25_x);
     // Copy constructor
-    Float f3(f2); context.inspect("f3", f3);
+    Float f3(f2); this->ctx().inspect("f3", f3);
     ARIADNE_TESTING_EXPECT_EQUAL( f3, f2);
 
 
     // Assign from an Int
-    context.note("execute: f1=3"); f1=3;
+    this->ctx().note("execute: f1=3"); f1=3;
     ARIADNE_TESTING_EXPECT_EQUAL( f1, 3);
     // Assign from a double
-    context.note("execute: f2=2.25_x"); f2=2.25_x;
+    this->ctx().note("execute: f2=2.25_x"); f2=2.25_x;
     ARIADNE_TESTING_EXPECT_EQUAL( f2, 2.25_x);
     // Copy assignment
-    context.note("execute: f3=f2"); f3=f2;
+    this->ctx().note("execute: f3=f2"); f3=f2;
     ARIADNE_TESTING_EXPECT_EQUAL( f3, f2);
     // Self-assignment
-    context.note("execute: self-assignment f3"); Float& self=f3; f3=self;
+    this->ctx().note("execute: self-assignment f3"); Float& self=f3; f3=self;
     ARIADNE_TESTING_EXPECT_EQUAL( f3, f2);
 
     if(not (precision==Float::get_default_precision())) {
         PR low_precision=min(precision,Float::get_default_precision());
         PR high_precision=max(precision,Float::get_default_precision());
-        Float f4(2.25_x,high_precision); context.inspect("f4", f4);
-        Float f5(3.75_x,low_precision); context.inspect("f5", f5);
-        context.note("execute: f5=f4"); f5=f4;
+        Float f4(2.25_x,high_precision); this->ctx().inspect("f4", f4);
+        Float f5(3.75_x,low_precision); this->ctx().inspect("f5", f5);
+        this->ctx().note("execute: f5=f4"); f5=f4;
         ARIADNE_TESTING_EXPECT_EQUAL( f5.precision(), high_precision);
         ARIADNE_TESTING_EXPECT_EQUAL( f5, f4);
-        Float f6(low_precision); context.inspect("f6", f6);
-        context.note("execute: f6=std::move(f4)"); f6=std::move(f4);
+        Float f6(low_precision); this->ctx().inspect("f6", f6);
+        this->ctx().note("execute: f6=std::move(f4)"); f6=std::move(f4);
         ARIADNE_TESTING_EXPECT_EQUAL( f6.precision(), high_precision);
         ARIADNE_TESTING_EXPECT_EQUAL( f6, f5);
     }
@@ -503,7 +500,7 @@ TestFloatRounding<PR>::test_limits()
     Float zinf=Float::inf(Sign::ZERO,precision);
     Float nan=Float::nan(precision);
 
-    context.inspect("eps", eps);
+    this->ctx().inspect("eps", eps);
     ARIADNE_TESTING_EXPECT_GREATER( add(down,one,eps), one);
     ARIADNE_TESTING_EXPECT_EQUAL( add(down,one,div(up,eps,two_value)), one);
 
@@ -2125,11 +2122,11 @@ TestFloatRounding<PR>::test_precision_regressions()
                       Dyadic(1,128u),Dyadic(-1,128u)}) {
                     const FloatMP a(argument,mp);
                     const Rational source(argument);
-                    auto oracle_scope=context.scope("oracles", "floatmp_sin.tsv, floatmp_cos.tsv, floatmp_tan.tsv");
-                    auto bits_scope=context.scope("bits",mp.bits());
-                    auto input_scope=context.scope("original_input",source);
+                    auto oracle_scope=this->ctx().scope("oracles", "floatmp_sin.tsv, floatmp_cos.tsv, floatmp_tan.tsv");
+                    auto bits_scope=this->ctx().scope("bits",mp.bits());
+                    auto input_scope=this->ctx().scope("original_input",source);
                     const auto compare_trigonometric=[&](auto ap_mode) {
-                        auto rounding_scope=context.scope("rounding",floatmp_rounding_label(ap_mode));
+                        auto rounding_scope=this->ctx().scope("rounding",floatmp_rounding_label(ap_mode));
                         ARIADNE_TESTING_EXPECT_EQUAL( static_cast<Rational>(sin(ap_mode,a)), floatmp_sin_golden(mp.bits(),ap_mode,source));
                         ARIADNE_TESTING_EXPECT_EQUAL( static_cast<Rational>(cos(ap_mode,a)), floatmp_cos_golden(mp.bits(),ap_mode,source));
                         ARIADNE_TESTING_EXPECT_EQUAL( static_cast<Rational>(tan(ap_mode,a)), floatmp_tan_golden(mp.bits(),ap_mode,source));
@@ -2394,7 +2391,7 @@ TestFloatRounding<PR>::test_stream()
         ss >> f4;
         cout << f4 << endl;
         if(f4!=23.75_x) {
-            context.warning(std::string("Cannot create Float<")+class_name<PR>()+"> from string literal in exponential form 2.375e1");
+            this->ctx().warning(std::string("Cannot create Float<")+class_name<PR>()+"> from string literal in exponential form 2.375e1");
         }
     }
     catch(const std::exception& e) {
@@ -2405,7 +2402,7 @@ TestFloatRounding<PR>::test_stream()
         ss >> f5;
         cout << f5 << endl;
         if(f4!=23.5_x) {
-            context.warning(std::string("Cannot create Float<")+class_name<PR>()+"> from string literal in exponential form 2.35e1");
+            this->ctx().warning(std::string("Cannot create Float<")+class_name<PR>()+"> from string literal in exponential form 2.35e1");
         }
     }
     catch(const std::exception& e) {
@@ -2456,11 +2453,11 @@ TestFloatRounding<PR>::test_comparison()
 {
     cout << ARIADNE_PRETTY_FUNCTION << endl;
 
-    Float f0(3.00_x,precision); context.inspect("f0", f0);
-    Float f1(1.25_x,precision); context.inspect("f1", f1);
-    Float f2(-1.25_x,precision); context.inspect("f2", f2);
-    Float f3(-2.25_x,precision); context.inspect("f3", f3);
-    Float f4(1.25_x,precision); context.inspect("f4", f4);
+    Float f0(3.00_x,precision); this->ctx().inspect("f0", f0);
+    Float f1(1.25_x,precision); this->ctx().inspect("f1", f1);
+    Float f2(-1.25_x,precision); this->ctx().inspect("f2", f2);
+    Float f3(-2.25_x,precision); this->ctx().inspect("f3", f3);
+    Float f4(1.25_x,precision); this->ctx().inspect("f4", f4);
 
     // Test comparison of two equal numbers
     ARIADNE_TESTING_PROVE( f1==f4); ARIADNE_TESTING_PROVE( !(f1!=f4));
@@ -2501,14 +2498,14 @@ TestFloatRounding<PR>::test_comparison()
     ARIADNE_TESTING_PROVE( x1>=f2); ARIADNE_TESTING_PROVE( !(x1< f2));
 
     // Test comparison with an integer
-    Integer z0(-3); context.inspect("z0", z0);
+    Integer z0(-3); this->ctx().inspect("z0", z0);
     ARIADNE_TESTING_PROVE( !(f1==z0)); ARIADNE_TESTING_PROVE( f1!=z0);
     ARIADNE_TESTING_PROVE( !(f1<=z0)); ARIADNE_TESTING_PROVE( f1> z0);
     ARIADNE_TESTING_PROVE( f1>=z0); ARIADNE_TESTING_PROVE( !(f1< z0));
     ARIADNE_TESTING_PROVE( !(z0==f1)); ARIADNE_TESTING_PROVE( z0<f1);
 
     // Test comparison with a dyadic
-    Dyadic w2(-5,2u); context.inspect("w2", w2);
+    Dyadic w2(-5,2u); this->ctx().inspect("w2", w2);
     ARIADNE_TESTING_PROVE( !(f1==w2)); ARIADNE_TESTING_PROVE( f1!=w2);
     ARIADNE_TESTING_PROVE( !(w2==f1)); ARIADNE_TESTING_PROVE( w2<f1);
     ARIADNE_TESTING_PROVE( !(f1<=w2)); ARIADNE_TESTING_PROVE( f1> w2);
@@ -2516,7 +2513,7 @@ TestFloatRounding<PR>::test_comparison()
     ARIADNE_TESTING_PROVE( f2==w2); ARIADNE_TESTING_PROVE( !(f2!=w2));
 
     // Test comparison with a rational
-    Rational q2(-5,4); context.inspect("q2", q2);
+    Rational q2(-5,4); this->ctx().inspect("q2", q2);
     ARIADNE_TESTING_PROVE( !(f1==q2)); ARIADNE_TESTING_PROVE( f1!=q2);
     ARIADNE_TESTING_PROVE( !(f1<=q2)); ARIADNE_TESTING_PROVE( f1> q2);
     ARIADNE_TESTING_PROVE( f1>=q2); ARIADNE_TESTING_PROVE( !(f1< q2));
@@ -2623,18 +2620,18 @@ TestFloatRounding<PR>::test_rounding_mode()
     third_up=rec(up,three);
     third_rnd=rec(rounded,three);
     if (third_rnd==third_up) {
-        context.note("Performing upward-rounded operation changes rounding mode for future operations.");
+        this->ctx().note("Performing upward-rounded operation changes rounding mode for future operations.");
     } else {
-        context.note("Performing upward-rounded operation preserves rounding mode for future operations.");
+        this->ctx().note("Performing upward-rounded operation preserves rounding mode for future operations.");
     }
 
     Float::set_rounding_mode(upward);
     third_down=rec(down,three);
     third_rnd=rec(rounded,three);
     if (third_rnd==third_down) {
-        context.note("Performing downward-rounded operation changes rounding mode for future operations.");
+        this->ctx().note("Performing downward-rounded operation changes rounding mode for future operations.");
     } else {
-        context.note("Performing downward-rounded operation preserves rounding mode for future operations.");
+        this->ctx().note("Performing downward-rounded operation preserves rounding mode for future operations.");
     }
 
     third_near=rec(near,three);
@@ -2646,9 +2643,9 @@ TestFloatRounding<PR>::test_rounding_mode()
     third_near=rec(near,three);
     third_rnd=rec(rounded,three);
     if (third_rnd==third_near) {
-        context.note("Performing to-nearest-rounded operation changes rounding mode for future operations.");
+        this->ctx().note("Performing to-nearest-rounded operation changes rounding mode for future operations.");
     } else {
-        context.note("Performing to-nearest-rounded operation preserves rounding mode for future operations.");
+        this->ctx().note("Performing to-nearest-rounded operation preserves rounding mode for future operations.");
     }
 }
 
@@ -2969,7 +2966,7 @@ TestFloatRounding<PR>::test_arithmetic()
     ARIADNE_TESTING_EXPECT_GREATER( add(up,one,hlf(eps)), 1.0_x);
     ARIADNE_TESTING_EXPECT_GREATER( add(down,one,eps), 1.0_x);
     if(add(down,one,hlf(eps)) != one) {
-        context.warning("Results of floating-point operations stored to higher-precision in registers than memory.");
+        this->ctx().warning("Results of floating-point operations stored to higher-precision in registers than memory.");
         ARIADNE_TESTING_EXPECT_GREATER( add(down,one,shft(eps,-11)), one);
     }
     ARIADNE_TESTING_EXPECT_EQUAL( add(down,one,shft(eps,-12)), one);
@@ -3121,8 +3118,8 @@ TestFloatRounding<PR>::test_function()
     Float ra=exp(near,x);
     Float rl=next(down,ra);
     Float ru=next(up,ra);
-    context.inspect("rl", rl);
-    context.inspect("ru", ru);
+    this->ctx().inspect("rl", rl);
+    this->ctx().inspect("ru", ru);
     ARIADNE_TESTING_PROVE( rl<ru);
     ARIADNE_TESTING_PROVE( 2.71_dec<rl);
     ARIADNE_TESTING_PROVE( ru<2.72_dec);
@@ -3263,7 +3260,7 @@ TestFloatRounding<PR>::test_arctan()
     //pi~=3.14159265358979323846264338327950288419716939937510
     const Float pi_down=Float::pi(down,precision);
     const Float pi_near=Float::pi(near,precision);
-    context.inspect("pi_near",pi_near);
+    this->ctx().inspect("pi_near",pi_near);
     const Float pi_up  =Float::pi(up,precision);
 
     Float three=Float(3,precision);
