@@ -97,14 +97,38 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_B76_GCD_ORACLE_PREFIX[] = ARIADNE_TES
 inline constexpr char ARIADNE_BIG_UNSIGNED_SQRT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_sqrt.tsv";
 inline constexpr char ARIADNE_BIG_UNSIGNED_ACCUMULATION_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_accumulation.tsv";
 
-unsigned golden_hex_nibble(char c)
+inline constexpr char ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_product.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B54_SQUARE_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_square.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B32_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b32.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B37_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b37.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B38_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b38.tsv";
+
+inline constexpr char ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b39.tsv";
+
+inline constexpr char ARIADNE_BIG_UNSIGNED_B40_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b40.tsv";
+
+inline constexpr char ARIADNE_BIG_UNSIGNED_B35_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b35.tsv";
+
+inline constexpr char ARIADNE_BIG_UNSIGNED_RANDOM_MUL_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_random_mul.tsv";
+
+inline constexpr char ARIADNE_BIG_UNSIGNED_R14_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r14.tsv";
+inline constexpr char ARIADNE_BIG_UNSIGNED_B72_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b72.tsv";
+
+inline constexpr char ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_sub.tsv";
+
+inline constexpr char ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_power.tsv";
+
+class TestBigUnsigned
+{
+  private:
+static unsigned golden_hex_nibble(char c)
 {
     if (c>='0' && c<='9') return static_cast<unsigned>(c-'0');
     if (c>='a' && c<='f') return static_cast<unsigned>(c-'a'+10);
     throw std::invalid_argument("Invalid hexadecimal BigUnsigned golden digit");
 }
 
-BigUnsigned big_unsigned_from_golden_hex(std::string const& hex)
+static BigUnsigned big_unsigned_from_golden_hex(std::string const& hex)
 {
     if (hex.empty() || (hex.size()>1u && hex.front()=='0')) {
         throw std::invalid_argument("Noncanonical BigUnsigned golden input");
@@ -117,7 +141,7 @@ BigUnsigned big_unsigned_from_golden_hex(std::string const& hex)
     return BigUnsigned(words);
 }
 
-void check_against_precomputed_hex(BigUnsigned const& value, std::string const& hex)
+static void check_against_precomputed_hex(BigUnsigned const& value, std::string const& hex)
 {
     if (hex.empty() || (hex.size()>1u && hex.front()=='0')) {
         throw std::invalid_argument("Noncanonical BigUnsigned golden input");
@@ -135,7 +159,7 @@ void check_against_precomputed_hex(BigUnsigned const& value, std::string const& 
 
 
 
-void check_div128_golden(std::ifstream& golden,char kind,std::size_t ordinal,
+static void check_div128_golden(std::ifstream& golden,char kind,std::size_t ordinal,
                          std::uint64_t divisor,std::uint64_t low,
                          std::uint64_t high,BigUnsigned const& dividend,
                          BigUnsigned const& quotient,std::uint64_t remainder)
@@ -188,28 +212,7 @@ struct LimbDivisionGolden {
     }
 };
 
-inline constexpr char ARIADNE_BIG_UNSIGNED_B54_PRODUCT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_product.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_B54_SQUARE_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b54_square.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_B32_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b32.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_B37_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b37.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_B38_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b38.tsv";
-
-inline constexpr char ARIADNE_BIG_UNSIGNED_B39_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b39.tsv";
-
-inline constexpr char ARIADNE_BIG_UNSIGNED_B40_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b40.tsv";
-
-inline constexpr char ARIADNE_BIG_UNSIGNED_B35_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b35.tsv";
-
-inline constexpr char ARIADNE_BIG_UNSIGNED_RANDOM_MUL_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_random_mul.tsv";
-
-inline constexpr char ARIADNE_BIG_UNSIGNED_R14_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_r14.tsv";
-inline constexpr char ARIADNE_BIG_UNSIGNED_B72_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_b72.tsv";
-
-inline constexpr char ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_sub.tsv";
-
-inline constexpr char ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_power.tsv";
-
-void check_against_power_golden(std::ifstream& golden,char kind,
+static void check_against_power_golden(std::ifstream& golden,char kind,
                                 std::size_t param1,std::size_t param2,
                                 unsigned exponent,
                                 BigUnsigned const& input,
@@ -233,18 +236,18 @@ void check_against_power_golden(std::ifstream& golden,char kind,
 
 // Source-keyed independent exact GCD, including source immutability,
 // canonical representation and every original bit-width boundary.
-void require_gcd_golden(std::ifstream& golden,char const* group) {
+static void require_gcd_golden(std::ifstream& golden,char const* group) {
     if (!golden)
         throw std::runtime_error(std::string("Missing BigUnsigned ")+group+" GCD TSV");
     std::string header;
     while (golden.peek()=='#') std::getline(golden,header);
 }
-void ensure_gcd_golden_end(std::ifstream& golden,char const* group) {
+static void ensure_gcd_golden_end(std::ifstream& golden,char const* group) {
     std::string extra;
     if (golden >> extra)
         throw std::runtime_error(std::string("Extra BigUnsigned ")+group+" GCD TSV rows");
 }
-void check_gcd_golden(std::ifstream& golden,
+static void check_gcd_golden(std::ifstream& golden,
                       std::initializer_list<std::string> keys,
                       BigUnsigned const& left,BigUnsigned const& right) {
     for (auto const& expected_key:keys) {
@@ -264,10 +267,10 @@ void check_gcd_golden(std::ifstream& golden,
 }
 
 
-class TestBigUnsigned
-{
+
   public:
     void test() {
+        ARIADNE_TEST_CALL(test_big_unsigned_contracts_and_controls());
         ARIADNE_TEST_CALL(test_storage());
         ARIADNE_TEST_CALL(test_boundaries());
         ARIADNE_TEST_CALL(test_subtraction_common_prefix());
@@ -286,6 +289,7 @@ class TestBigUnsigned
     }
 
   private:
+    void test_big_unsigned_contracts_and_controls();
     void test_storage();
     void test_boundaries();
     void test_subtraction_common_prefix();
@@ -4313,7 +4317,7 @@ void TestBigUnsigned::test_randomized()
 
 } // namespace
 
-void test_big_unsigned_contracts_and_controls() {
+void TestBigUnsigned::test_big_unsigned_contracts_and_controls() {
     using Limb=BigUnsigned::Limb;
     const BigUnsigned a(17u), b(5u);
     const std::array<Limb,2u> wide={3u,1u};
@@ -4404,7 +4408,6 @@ void test_big_unsigned_contracts_and_controls() {
 
 int main()
 {
-    ARIADNE_TEST_CALL(test_big_unsigned_contracts_and_controls());
     ARIADNE_TEST_CLASS(BigUnsigned,TestBigUnsigned());
     return ARIADNE_TEST_FAILURES;
 }

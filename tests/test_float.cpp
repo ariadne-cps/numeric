@@ -73,10 +73,46 @@ using namespace std;
 
 namespace {
 
+class TestFloatStandalone {
+  public:
+    void test_floatmp_directed_bound_oracles();
+    void test_float_literals();
+    void test_builtin_runtime();
+    void test_double_runtime();
+    void test_floatmp_exact_dyadic_export();
+    void test_floatmp_native_ratio_rounding();
+    void test_native_decimal_format();
+    void test_floatmp_native_significand_storage();
+    void test_floatdp_rounding_exception_safety();
+    void test_floatdp_rounding_mode_contract();
+    void test_floatdp_sine_outside_certificate();
+    void test_floatdp_unary_wrappers();
+    void test_floatmp_minmax_oracle();
+    void test_floatmp_construction_oracle();
+    void test_floatmp_precision_contracts();
+    void test_floatmp_exponent_limit_oracle();
+    void test_floatmp_special_arithmetic();
+    void test_floatmp_mixed_precision_arithmetic();
+    void test_floatmp_neighbor_limits();
+    void test_floatmp_ratio_ties_and_carry();
+    void test_floatmp_negative_power_specials();
+    void test_floatmp_decimal_extreme_scales();
+    void test_checked_precision_arithmetic();
+    void test_floatmp_transcendental_specials();
+    void test_floatmp_tiny_transcendentals();
+    void test_floatmp_ieee_conversion_boundaries();
+    void test_floatmp_scalar_ratio_limits();
+    void test_floatmp_computational_limits();
+    void test_floatmp_exact_series_thresholds();
+    void test_floatmp_public_edge_paths();
+    void test_floatmp_log_native_exponents();
+    void test_floatmp_elementary_specials();
+};
+
 // These exact directed-rounding fixtures are generated offline using signed
 // integer division only. The test must never use another float implementation
 // as an oracle for FloatMP.
-Void test_floatmp_directed_bound_oracles() {
+Void TestFloatStandalone::test_floatmp_directed_bound_oracles() {
     constexpr char filename[]=ARIADNE_TEST_DATA_DIR "/floatmp_directed_bounds.tsv";
     std::ifstream data(filename);
     if (!data) throw std::runtime_error(std::string("Missing FloatMP oracle: ")+filename);
@@ -144,7 +180,7 @@ static_assert(check_float_concept<MultiplePrecision>());
 } // namespace
 
 
-Void test_float_literals()
+Void TestFloatStandalone::test_float_literals()
 {
     FloatDP half(ExactDouble(0.5),dp);
 
@@ -907,7 +943,7 @@ TestFloat<PR>::test_predicates()
 }
 
 
-Void test_builtin_runtime()
+Void TestFloatStandalone::test_builtin_runtime()
 {
     ApproximateDouble default_approximation;
     ApproximateDouble a(2.0);
@@ -1017,7 +1053,7 @@ Void test_builtin_runtime()
     ARIADNE_TEST_EQUALS(ApproximateDouble(ExactDouble(1.25)).get_d(),1.25);
 }
 
-Void test_double_runtime()
+Void TestFloatStandalone::test_double_runtime()
 {
     set_default_builtin_rounding();
     ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_UPWARD);
@@ -1082,7 +1118,7 @@ Void test_double_runtime()
 }
 
 // D46: exact FloatMP -> Dyadic conversion without mpf_t intermediary.
-Void test_floatmp_exact_dyadic_export() {
+Void TestFloatStandalone::test_floatmp_exact_dyadic_export() {
     const auto precision=MultiplePrecision(256_bits);
     for (unsigned width:{1u,53u,127u,128u,191u}) {
         const BigUnsigned magnitude=add(
@@ -1124,7 +1160,7 @@ Void test_floatmp_exact_dyadic_export() {
 // Frozen mathematical expectations for direct native ratio rounding.
 // In particular, the huge common factor exercises a non-reduced
 // numerator/denominator without constructing a canonical Rational.
-Void test_floatmp_native_ratio_rounding() {
+Void TestFloatStandalone::test_floatmp_native_ratio_rounding() {
     const MultiplePrecision p(7_bits);
     const auto nearest=FloatMP::ROUND_TO_NEAREST;
     const auto round_up=FloatMP::ROUND_UPWARD;
@@ -1163,7 +1199,7 @@ Void test_floatmp_native_ratio_rounding() {
 
 // Decimal-format oracle: exact binary rationals with frozen expected
 // strings. No GMP or other floating implementation generates the answers.
-Void test_native_decimal_format() {
+Void TestFloatStandalone::test_native_decimal_format() {
     const MultiplePrecision precision(53_bits);
     const FloatMP one_eighth(Rational(Integer(1),Integer(8)),
                              FloatMP::ROUND_TO_NEAREST,precision);
@@ -1220,7 +1256,7 @@ Void test_native_decimal_format() {
     FloatDP::set_rounding_mode(old_mode);
 }
 
-Void test_floatmp_native_significand_storage() {
+Void TestFloatStandalone::test_floatmp_native_significand_storage() {
     for (std::size_t bits:{7u,53u,128u,256u}) {
         const MultiplePrecision precision(bits);
         const BigUnsigned leading=shift_left(BigUnsigned(1u),bits-1u);
@@ -1276,7 +1312,7 @@ Void test_floatmp_native_significand_storage() {
 }
 
 // A failed explicitly rounded operation must preserve its caller's mode.
-void test_floatdp_rounding_exception_safety() {
+void TestFloatStandalone::test_floatdp_rounding_exception_safety() {
     RoundingSession<FloatDP> restore;
     for (auto mode:{FloatDP::ROUND_DOWNWARD,FloatDP::ROUND_TO_NEAREST}) {
         restore.set(mode);
@@ -1291,7 +1327,7 @@ void test_floatdp_rounding_exception_safety() {
 }
 
 // Invalid raw mode integers must be rejected before touching the hardware.
-void test_floatdp_rounding_mode_contract() {
+void TestFloatStandalone::test_floatdp_rounding_mode_contract() {
     const auto initial=FloatDP::get_rounding_mode();
     const auto invalid=std::numeric_limits<FloatDP::RoundingModeType>::max();
     ARIADNE_TEST_FAIL(FloatDP::set_rounding_mode(invalid));
@@ -1302,7 +1338,7 @@ void test_floatdp_rounding_mode_contract() {
     ARIADNE_TEST_EQUALS(FloatDP::get_rounding_mode(),initial);
 }
 
-void test_floatdp_sine_outside_certificate() {
+void TestFloatStandalone::test_floatdp_sine_outside_certificate() {
     const auto initial=FloatDP::get_rounding_mode();
     const FloatDP input(0.75_x,dp);
     for (auto mode:{FloatDP::ROUND_TO_NEAREST,FloatDP::ROUND_DOWNWARD,
@@ -1315,7 +1351,7 @@ void test_floatdp_sine_outside_certificate() {
     }
 }
 
-void test_floatdp_unary_wrappers() {
+void TestFloatStandalone::test_floatdp_unary_wrappers() {
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatdp_wrappers.tsv");
     if (!data) throw std::runtime_error("Missing floatdp_wrappers.tsv");
     std::string line;
@@ -1340,7 +1376,7 @@ void test_floatdp_unary_wrappers() {
     if (inputs.size()!=8u) throw std::runtime_error("Incomplete floatdp_wrappers.tsv");
 }
 
-void test_floatmp_minmax_oracle() {
+void TestFloatStandalone::test_floatmp_minmax_oracle() {
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatmp_minmax.tsv");
     if (!data) throw std::runtime_error("Missing floatmp_minmax.tsv");
     std::string line;
@@ -1388,7 +1424,7 @@ void test_floatmp_minmax_oracle() {
         throw std::runtime_error("Incomplete floatmp_minmax.tsv");
 }
 
-void test_floatmp_construction_oracle() {
+void TestFloatStandalone::test_floatmp_construction_oracle() {
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatmp_construction.tsv");
     if (!data) throw std::runtime_error("Missing floatmp_construction.tsv");
     std::string line;
@@ -1431,7 +1467,7 @@ void test_floatmp_construction_oracle() {
         throw std::runtime_error("Incomplete floatmp_construction.tsv");
 }
 
-void test_floatmp_precision_contracts() {
+void TestFloatStandalone::test_floatmp_precision_contracts() {
     const MultiplePrecision low(2u),high(7u);
     ARIADNE_TEST_ASSERT(low<high && !(high<low));
     ARIADNE_TEST_ASSERT(high>low && !(low>high));
@@ -1455,7 +1491,7 @@ void test_floatmp_precision_contracts() {
     }
 }
 
-void test_floatmp_exponent_limit_oracle() {
+void TestFloatStandalone::test_floatmp_exponent_limit_oracle() {
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatmp_exponent_limits.tsv");
     if (!data) throw std::runtime_error("Missing floatmp_exponent_limits.tsv");
     std::string line;
@@ -1503,7 +1539,7 @@ void test_floatmp_exponent_limit_oracle() {
         throw std::runtime_error("Incomplete floatmp_exponent_limits.tsv");
 }
 
-Void test_floatmp_special_arithmetic() {
+Void TestFloatStandalone::test_floatmp_special_arithmetic() {
     const auto old=FloatMP::get_rounding_mode();
     FloatMP::set_rounding_downward();
     const FloatMP::Rounding current(CurrentRoundingMode{});
@@ -1574,7 +1610,7 @@ Void test_floatmp_special_arithmetic() {
 }
 
 // Exact small integers isolate precision selection from numerical rounding.
-Void test_floatmp_mixed_precision_arithmetic() {
+Void TestFloatStandalone::test_floatmp_mixed_precision_arithmetic() {
     for (auto sizes : {std::pair{8u,16u},std::pair{16u,8u},std::pair{8u,8u},std::pair{8u,129u},std::pair{129u,8u}}) {
         const MultiplePrecision pa(std::size_t{sizes.first});
         const MultiplePrecision pb(std::size_t{sizes.second});
@@ -1605,7 +1641,7 @@ Void test_floatmp_mixed_precision_arithmetic() {
 }
 
 // Exponent limits are scalar metadata: these neighbors need no huge allocation.
-void test_floatmp_neighbor_limits() {
+void TestFloatStandalone::test_floatmp_neighbor_limits() {
     for (unsigned bits:{2u,65u}) {
         const MultiplePrecision precision(std::size_t{bits});
         const auto smallest=FloatMP::min(precision);
@@ -1651,7 +1687,7 @@ void test_floatmp_neighbor_limits() {
     }
 }
 
-void test_floatmp_ratio_ties_and_carry() {
+void TestFloatStandalone::test_floatmp_ratio_ties_and_carry() {
     const MultiplePrecision precision(2_bits);
     // n/3 exercises scalar normalization with zero and negative shifts.
     struct Row { int numerator; int nearest; int lower; int upper; };
@@ -1693,7 +1729,7 @@ void test_floatmp_ratio_ties_and_carry() {
     ARIADNE_TEST_ASSERT(is_inf(div(down,-wide_source,wide_divisor)));
 }
 
-void test_floatmp_negative_power_specials() {
+void TestFloatStandalone::test_floatmp_negative_power_specials() {
     const MultiplePrecision precision(65_bits);
     ARIADNE_TEST_ASSERT(is_nan(pow(near,FloatMP::nan(precision),Int(-1))));
     for (bool negative:{false,true}) {
@@ -1714,7 +1750,7 @@ void test_floatmp_negative_power_specials() {
     ARIADNE_TEST_ASSERT(round(-tiny).is_zero() && round(-tiny).negative());
 }
 
-void test_floatmp_decimal_extreme_scales() {
+void TestFloatStandalone::test_floatmp_decimal_extreme_scales() {
     const MultiplePrecision precision(2_bits);
     const FloatMP small(TwoExp(-2000),precision);
     // Exact integer certificates: 85*2^2000 < 10^604 < 90*2^2000.
@@ -1759,7 +1795,7 @@ void test_floatmp_decimal_extreme_scales() {
 }
 
 // Scalar boundaries exercise metadata failure paths without allocating giant values.
-void test_checked_precision_arithmetic() {
+void TestFloatStandalone::test_checked_precision_arithmetic() {
     using Detail::checked_unsigned_add;
     using Detail::checked_unsigned_cast;
     constexpr char message[]="test precision overflow";
@@ -1793,7 +1829,7 @@ void test_checked_precision_arithmetic() {
 }
 
 // Public IEEE boundary behavior, using exact constants and elementary pi bounds.
-void test_floatmp_transcendental_specials() {
+void TestFloatStandalone::test_floatmp_transcendental_specials() {
     const MultiplePrecision precision(128_bits);
     using Unary=FloatMP(*)(FloatMP const&);
     const std::array<Unary,5u> bounded_domain={
@@ -1856,7 +1892,7 @@ void test_floatmp_transcendental_specials() {
 // Exact power-of-two inputs force zero coefficients at the first working
 // precision. Taylor inequalities determine the final neighboring p-bit
 // answer independently of any floating-point implementation or oracle.
-void test_floatmp_tiny_transcendentals() {
+void TestFloatStandalone::test_floatmp_tiny_transcendentals() {
     const MultiplePrecision precision(128_bits);
     const FloatMP tiny(TwoExp(-256),precision);
     const BigUnsigned leading(std::array<BigUnsigned::Limb,2u>{0u,0x8000000000000000ULL});
@@ -1907,7 +1943,7 @@ void test_floatmp_tiny_transcendentals() {
     }
 }
 
-void test_floatmp_ieee_conversion_boundaries() {
+void TestFloatStandalone::test_floatmp_ieee_conversion_boundaries() {
     const MultiplePrecision precision(128_bits);
     const auto largest=FloatMP::max(precision);
     const auto smallest=FloatMP::min(precision);
@@ -1947,7 +1983,7 @@ void test_floatmp_ieee_conversion_boundaries() {
     }
 }
 
-void test_floatmp_scalar_ratio_limits() {
+void TestFloatStandalone::test_floatmp_scalar_ratio_limits() {
     const auto largest_word=std::numeric_limits<std::uint64_t>::max();
     const MultiplePrecision precision(64_bits);
     const Rational source{Integer(largest_word-1u),Integer(largest_word)};
@@ -1968,7 +2004,7 @@ void test_floatmp_scalar_ratio_limits() {
     ARIADNE_TEST_ASSERT(FloatMP(short_source,down,short_precision)==FloatMP(3,short_precision));
 }
 
-void test_floatmp_computational_limits() {
+void TestFloatStandalone::test_floatmp_computational_limits() {
     const MultiplePrecision precision(128_bits);
     const auto expect_overflow=[](auto operation) {
         bool raised=false;
@@ -1983,7 +2019,7 @@ void test_floatmp_computational_limits() {
     expect_overflow([&]{return pow(near,FloatMP::min(precision),Nat(2));});
 }
 
-void test_floatmp_exact_series_thresholds() {
+void TestFloatStandalone::test_floatmp_exact_series_thresholds() {
     // With p=128 exp_series receives work=p+40=168. This input
     // makes its first fixed-point term EXACTLY the stopping threshold.
     // 0<exp(y)-1<2y and 0<1-exp(-y)<y put both inside half an ulp.
@@ -2016,7 +2052,7 @@ void test_floatmp_exact_series_thresholds() {
     }
 }
 
-void test_floatmp_public_edge_paths() {
+void TestFloatStandalone::test_floatmp_public_edge_paths() {
     const MultiplePrecision precision(128_bits);
     const FloatMP one(1,precision);
     // A short subnormal reaches the general binary64 converter while
@@ -2098,7 +2134,7 @@ void test_floatmp_public_edge_paths() {
 
 // Native exponent limits are represented as metadata, never enormous
 // Rational inputs. The fixture's exact results come from a standalone oracle.
-void test_floatmp_log_native_exponents() {
+void TestFloatStandalone::test_floatmp_log_native_exponents() {
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/floatmp_log_native.tsv");
     if (!data) throw std::runtime_error("Missing floatmp_log_native.tsv");
     std::set<std::tuple<unsigned,char,std::string>> keys;
@@ -2130,7 +2166,7 @@ void test_floatmp_log_native_exponents() {
     if(keys.size()!=32u) throw std::runtime_error("Incomplete native logarithm oracle");
 }
 
-void test_floatmp_elementary_specials() {
+void TestFloatStandalone::test_floatmp_elementary_specials() {
     const MultiplePrecision precision(128_bits);
     const auto quiet_nan=FloatMP::nan(precision);
     ARIADNE_TEST_ASSERT(is_nan(sqrt(near,quiet_nan)));
@@ -2183,41 +2219,42 @@ void test_floatmp_elementary_specials() {
 Int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
+    TestFloatStandalone standalone;
     
-    test_checked_precision_arithmetic();
-    test_floatmp_decimal_extreme_scales();
-    test_floatmp_special_arithmetic();
-    test_floatmp_neighbor_limits();
-    test_floatmp_transcendental_specials();
-    test_floatmp_tiny_transcendentals();
-    test_floatmp_ieee_conversion_boundaries();
-    test_floatmp_elementary_specials();
-    test_floatmp_log_native_exponents();
-    test_floatmp_public_edge_paths();
-    test_floatmp_exact_series_thresholds();
-    test_floatmp_scalar_ratio_limits();
-    test_floatmp_computational_limits();
-    test_floatmp_ratio_ties_and_carry();
-    test_floatmp_negative_power_specials();
-    test_floatmp_mixed_precision_arithmetic();
-    test_floatmp_exponent_limit_oracle();
-    test_floatmp_precision_contracts();
-    test_floatmp_construction_oracle();
-    test_floatmp_minmax_oracle();
-    test_floatdp_unary_wrappers();
-    test_floatdp_rounding_exception_safety();
-    test_floatdp_rounding_mode_contract();
-    test_floatdp_sine_outside_certificate();
-    test_float_literals();
-    test_floatmp_directed_bound_oracles();
-    test_builtin_runtime();
-    test_double_runtime();
+    standalone.test_checked_precision_arithmetic();
+    standalone.test_floatmp_decimal_extreme_scales();
+    standalone.test_floatmp_special_arithmetic();
+    standalone.test_floatmp_neighbor_limits();
+    standalone.test_floatmp_transcendental_specials();
+    standalone.test_floatmp_tiny_transcendentals();
+    standalone.test_floatmp_ieee_conversion_boundaries();
+    standalone.test_floatmp_elementary_specials();
+    standalone.test_floatmp_log_native_exponents();
+    standalone.test_floatmp_public_edge_paths();
+    standalone.test_floatmp_exact_series_thresholds();
+    standalone.test_floatmp_scalar_ratio_limits();
+    standalone.test_floatmp_computational_limits();
+    standalone.test_floatmp_ratio_ties_and_carry();
+    standalone.test_floatmp_negative_power_specials();
+    standalone.test_floatmp_mixed_precision_arithmetic();
+    standalone.test_floatmp_exponent_limit_oracle();
+    standalone.test_floatmp_precision_contracts();
+    standalone.test_floatmp_construction_oracle();
+    standalone.test_floatmp_minmax_oracle();
+    standalone.test_floatdp_unary_wrappers();
+    standalone.test_floatdp_rounding_exception_safety();
+    standalone.test_floatdp_rounding_mode_contract();
+    standalone.test_floatdp_sine_outside_certificate();
+    standalone.test_float_literals();
+    standalone.test_floatmp_directed_bound_oracles();
+    standalone.test_builtin_runtime();
+    standalone.test_double_runtime();
     TestFloat<DoublePrecision>(dp).test();
         TestFloat<MultiplePrecision>(MultiplePrecision(128_bits)).test();
-    test_floatmp_exact_dyadic_export();
-    test_floatmp_native_significand_storage();
-    test_floatmp_native_ratio_rounding();
-    test_native_decimal_format();
+    standalone.test_floatmp_exact_dyadic_export();
+    standalone.test_floatmp_native_significand_storage();
+    standalone.test_floatmp_native_ratio_rounding();
+    standalone.test_native_decimal_format();
 
 
     return ARIADNE_TEST_FAILURES;

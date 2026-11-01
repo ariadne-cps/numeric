@@ -102,8 +102,14 @@ static_assert(check_real_concept());
 #ifndef ARIADNE_TEST_DATA_DIR
 #error "Missing test data directory"
 #endif
+} // namespace
+
+
+class TestReal
+{
+  private:
 struct CertifiedPi { Rational lower,upper,near; };
-CertifiedPi certified_pi() {
+static CertifiedPi certified_pi() {
     std::ifstream file(ARIADNE_TEST_DATA_DIR "/floatmp_pi.tsv");
     if(!file) throw std::runtime_error("Missing certified pi oracle");
     std::string line; CertifiedPi result; bool found=false;
@@ -126,14 +132,11 @@ CertifiedPi certified_pi() {
 }
 
 
-} // namespace
 
-
-class TestReal
-{
   public:
     void test();
   private:
+    void test_precision_preflight();
     void test_expression_evaluation();
     void test_constructors();
     void test_conversions();
@@ -148,6 +151,7 @@ class TestReal
 
 void TestReal::test()
 {
+    ARIADNE_TEST_CALL(test_precision_preflight());
     FloatDPApproximation::set_output_places(18);
     ARIADNE_TEST_CALL(test_expression_evaluation());
     ARIADNE_TEST_CALL(test_constructors());
@@ -159,6 +163,16 @@ void TestReal::test()
     ARIADNE_TEST_CALL(test_rounding());
     ARIADNE_TEST_CALL(test_accuracy());
     ARIADNE_TEST_CALL(test_sequence());
+}
+
+void TestReal::test_precision_preflight()
+{
+    // The precision is validated before any significand storage is allocated.
+    if constexpr (std::numeric_limits<std::size_t>::max()>std::numeric_limits<Nat>::max()) {
+        const MultiplePrecision excessive(static_cast<std::size_t>(std::numeric_limits<Nat>::max())+1u);
+        ARIADNE_TEST_FAIL(Real(1).get(excessive));
+    }
+
 }
 
 void TestReal::test_expression_evaluation() {
@@ -627,12 +641,6 @@ void TestReal::test_sequence() {
 
 
 int main() {
-    // The precision is validated before any significand storage is allocated.
-    if constexpr (std::numeric_limits<std::size_t>::max()>std::numeric_limits<Nat>::max()) {
-        const MultiplePrecision excessive(static_cast<std::size_t>(std::numeric_limits<Nat>::max())+1u);
-        ARIADNE_TEST_FAIL(Real(1).get(excessive));
-    }
-
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
 

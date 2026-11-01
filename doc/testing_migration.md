@@ -277,3 +277,33 @@ only build parameterized Suite entries, not run assertions. Mathematical and
 compile-time oracle values remain unchanged. All these edits require CI before
 acceptance; preserving source expressions is not the same as verified runtime
 equivalence.
+
+## 2026-11-01: Legacy Numeric runtime helpers moved into test classes
+
+All 32 standalone runtime test functions from `test_float` are now methods
+of the internal `TestFloatStandalone` class; `main` invokes the same methods
+at the same points, interleaved with the same FloatDP/FloatMP parametrized
+fixture invocations. `test_big_unsigned_contracts_and_controls` is now
+a `TestBigUnsigned` method, called first in the original test sequence.
+Its eight oracle/helper functions and the `LimbDivisionGolden` reader type
+are private members/nested helpers of that same class; the immutable oracle
+path constants stay namespace-scope configuration.
+
+In `test_number`, the four local model predicates are members of
+`TestNumber<Y>`, and `test_number_get` with its ExactNumber and
+ApproximateNumber specializations is now a class member. The original
+template specialization behavior and call sites remain. `test_real`
+moves the excessive-precision runtime preflight out of `main` and into
+`TestReal` before all original test phases; the certified pi TSV reader
+and its result struct are private class members. The `Ariadne` namespace's
+literal operator remains a non-member because C++ requires user-defined
+literal operators to be declared at namespace scope.
+
+This commit is a structural refactor of the four yet-unmigrated executables,
+not a conversion of their legacy runner/macro API. Original check macro counts
+and numeric oracles were compared before and after the transformation:
+BigUnsigned 265 ASSERT / 30 EQUALS / 16 FAIL, Real 39 ASSERT / 62 EQUALS
+/ 3 FAIL / 7 WITHIN, Number 43 ASSERT / 28 EQUALS / 5 FAIL
+/ 49 BINARY_PREDICATE / 4 WITHIN, and Float 289 ASSERT / 389 EQUALS
+/ 39 FAIL / 28 BINARY_PREDICATE, all unchanged. Full CI is required for
+acceptance; only the classes and call qualification have changed.

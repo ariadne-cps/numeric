@@ -135,16 +135,6 @@ static_assert(check_directed_number_concept<EffectiveLowerNumber,EffectiveUpperN
 
 
 
-template<class F, class FE> Bool models(Ball<F,FE> const& x, Rational const& q) {
-    return abs(Dyadic(x.value().raw())-q)<=Dyadic(x.error().raw()); }
-template<class F> Bool models(Bounds<F> const& x, Rational const& q) {
-    return Dyadic(x.lower().raw())<=q && q <= Dyadic(x.upper().raw()); }
-template<class F> Bool models(LowerBound<F> const& x, Rational const& q) {
-    return Dyadic(x.raw())<=q; }
-template<class F> Bool models(UpperBound<F> const& x, Rational const& q) {
-    return q<=Dyadic(x.raw()); }
-
-
 class TestNumbers
 {
   public:
@@ -534,6 +524,17 @@ template<class Y> class TestNumber
   public:
     Void test();
   private:
+    Void test_number_get();
+    // Local predicates for the Number fixture's numeric model checks.
+    template<class F, class FE> Bool models(Ball<F,FE> const& x, Rational const& q) {
+        return abs(Dyadic(x.value().raw())-q)<=Dyadic(x.error().raw()); }
+    template<class F> Bool models(Bounds<F> const& x, Rational const& q) {
+        return Dyadic(x.lower().raw())<=q && q <= Dyadic(x.upper().raw()); }
+    template<class F> Bool models(LowerBound<F> const& x, Rational const& q) {
+        return Dyadic(x.raw())<=q; }
+    template<class F> Bool models(UpperBound<F> const& x, Rational const& q) {
+        return q<=Dyadic(x.raw()); }
+
     Void test_class();
     Void test_get();
     Void test_operations();
@@ -550,7 +551,7 @@ TestNumber<Y>::test()
     ARIADNE_TEST_CALL(test_comparisons());
 }
 
-template<class Y> void test_number_get() {
+template<class Y> void TestNumber<Y>::test_number_get() {
     Rational q=3/5_q;
     Real r(q);
     Y y(r);
@@ -578,9 +579,9 @@ template<class Y> void test_number_get() {
     ARIADNE_TEST_SAME_TYPE(decltype(y.get(mp,ape)),FloatMPBall);
 }
 
-template<> void test_number_get<ExactNumber>() { }
+template<> void TestNumber<ExactNumber>::test_number_get() { }
 
-template<> void test_number_get<ApproximateNumber>() {
+template<> void TestNumber<ApproximateNumber>::test_number_get() {
     Rational q=3/5_q;
     ApproximateNumber y(q);
     MultiplePrecision mp(128_bits);
@@ -603,7 +604,7 @@ template<> void test_number_get<ApproximateNumber>() {
 template<class Y> Void
 TestNumber<Y>::test_get()
 {
-    test_number_get<Y>();
+    test_number_get();
 
 }
 
