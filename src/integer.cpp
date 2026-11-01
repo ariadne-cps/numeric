@@ -26,7 +26,7 @@
 
 #include "integer.hpp"
 
-#include "macro/general.hpp"
+#include "utility/macros.hpp"
 #include "utility/string.hpp"
 #include "foundation/logical.hpp"
 

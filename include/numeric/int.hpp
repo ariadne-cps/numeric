@@ -30,7 +30,7 @@
 #define ARIADNE_INT_HPP
 
 #include <limits>
-#include "macro/general.hpp"
+#include "utility/macros.hpp"
 #include "numeric/concepts.hpp"
 
 namespace Ariadne {

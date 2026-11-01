@@ -40,7 +40,7 @@
 #include <utility>
 
 #include "utility/typedefs.hpp"
-#include "macro/general.hpp"
+#include "utility/macros.hpp"
 #include "utility/metaprogramming.hpp"
 #include "numeric/sign.hpp"
 #include "foundation/logical.hpp"

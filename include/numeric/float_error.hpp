@@ -29,7 +29,7 @@
 #ifndef ARIADNE_FLOAT_ERROR_HPP
 #define ARIADNE_FLOAT_ERROR_HPP
 
-#include "macro/general.hpp"
+#include "utility/macros.hpp"
 #include "utility/metaprogramming.hpp"
 
 #include "foundation/logical.decl.hpp"

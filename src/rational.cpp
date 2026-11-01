@@ -29,7 +29,7 @@
 
 
 #include "utility/stdlib.hpp"
-#include "macro/general.hpp"
+#include "utility/macros.hpp"
 #include "utility/typedefs.hpp"
 
 #include "rational.hpp"

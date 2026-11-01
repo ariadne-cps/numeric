@@ -32,9 +32,11 @@ set(UNIT_TESTS
 foreach(TEST ${UNIT_TESTS})
     add_executable(${TEST} ${TEST}.cpp)
     target_link_libraries(${TEST} ariadne-numeric numeric)
-    # Migrate representative Numeric tests without changing the other targets.
+    # Use Testing for migrated suites; preserve the other existing test executables.
     if("${TEST}" STREQUAL "test_logical_sequence" OR "${TEST}" STREQUAL "test_rounding_mode" OR "${TEST}" STREQUAL "test_float_rounding")
         target_link_libraries(${TEST} ariadne-testing)
+    else()
+        target_include_directories(${TEST} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ss/mac/include")
     endif()
     add_test(NAME ${TEST} COMMAND $<TARGET_FILE:${TEST}>)
     if(WIN32)

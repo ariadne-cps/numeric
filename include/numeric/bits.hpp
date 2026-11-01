@@ -31,7 +31,7 @@
 
 #include <iosfwd>
 #include "utility/typedefs.hpp"
-#include "macro/general.hpp"
+#include "utility/macros.hpp"
 
 namespace Ariadne {
 

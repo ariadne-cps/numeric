@@ -29,7 +29,7 @@
 #ifndef ARIADNE_FLOAT_BALL_HPP
 #define ARIADNE_FLOAT_BALL_HPP
 
-#include "macro/general.hpp"
+#include "utility/macros.hpp"
 
 #include "foundation/logical.decl.hpp"
 #include "number.decl.hpp"

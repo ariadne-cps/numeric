@@ -25,7 +25,7 @@
 #include <cmath>
 #include <limits>
 
-#include "macro/general.hpp"
+#include "utility/macros.hpp"
 
 #include "float_error.hpp"
 #include "float_ball.hpp"
