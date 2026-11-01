@@ -39,7 +39,7 @@
 #include <utility>
 #include <vector>
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 namespace Ariadne {
 BigUnsigned rem_limb_divq_diagnostic(BigUnsigned const&,BigUnsigned const&);
@@ -118,7 +118,7 @@ inline constexpr char ARIADNE_BIG_UNSIGNED_SUB_ORACLE_PATH[] = ARIADNE_TEST_DATA
 
 inline constexpr char ARIADNE_BIG_UNSIGNED_POWER_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_power.tsv";
 
-class TestBigUnsigned
+class TestBigUnsigned : public Ariadne::Testing::ContextFixture
 {
   private:
 static unsigned golden_hex_nibble(char c)
@@ -141,7 +141,7 @@ static BigUnsigned big_unsigned_from_golden_hex(std::string const& hex)
     return BigUnsigned(words);
 }
 
-static void check_against_precomputed_hex(BigUnsigned const& value, std::string const& hex)
+void check_against_precomputed_hex(BigUnsigned const& value, std::string const& hex)
 {
     if (hex.empty() || (hex.size()>1u && hex.front()=='0')) {
         throw std::invalid_argument("Noncanonical BigUnsigned golden input");
@@ -151,15 +151,15 @@ static void check_against_precomputed_hex(BigUnsigned const& value, std::string 
         4u*(hex.size()-1u)+static_cast<std::size_t>(
             std::bit_width(golden_hex_nibble(hex.front())));
     const auto limbs=value.limbs();
-    ARIADNE_TEST_ASSERT(compare(value,expected)==0);
-    ARIADNE_TEST_ASSERT(value.is_zero()==(bits==0u));
-    ARIADNE_TEST_ASSERT(value.bit_length()==bits);
-    ARIADNE_TEST_ASSERT(limbs.empty() || limbs.back()!=0u);
+    ARIADNE_TESTING_PROVE(compare(value,expected)==0);
+    ARIADNE_TESTING_PROVE(value.is_zero()==(bits==0u));
+    ARIADNE_TESTING_PROVE(value.bit_length()==bits);
+    ARIADNE_TESTING_PROVE(limbs.empty() || limbs.back()!=0u);
 }
 
 
 
-static void check_div128_golden(std::ifstream& golden,char kind,std::size_t ordinal,
+void check_div128_golden(std::ifstream& golden,char kind,std::size_t ordinal,
                          std::uint64_t divisor,std::uint64_t low,
                          std::uint64_t high,BigUnsigned const& dividend,
                          BigUnsigned const& quotient,std::uint64_t remainder)
@@ -177,14 +177,16 @@ static void check_div128_golden(std::ifstream& golden,char kind,std::size_t ordi
     check_against_precomputed_hex(dividend,source_hex);
     check_against_precomputed_hex(quotient,quotient_hex);
     check_against_precomputed_hex(BigUnsigned(remainder),remainder_hex);
-    ARIADNE_TEST_ASSERT(remainder<divisor);
+    ARIADNE_TESTING_PROVE(remainder<divisor);
     check_against_precomputed_hex(dividend,source_hex);
 }
 
 
 struct LimbDivisionGolden {
     std::ifstream file;
-    explicit LimbDivisionGolden(char const* path):file(path) {
+    TestBigUnsigned& owner;
+    explicit LimbDivisionGolden(char const* path, TestBigUnsigned& fixture)
+        : file(path), owner(fixture) {
         if (!file) throw std::runtime_error("Missing B116 limb division TSV");
         std::string header;
         while (file.peek()=='#') std::getline(file,header);
@@ -200,11 +202,11 @@ struct LimbDivisionGolden {
                    >> source_hex >> quotient_hex >> remainder_hex) ||
             ref_count!=count || ref_divisor!=divisor || ref_mode!=mode)
             throw std::runtime_error("Missing or unordered B116 limb division row");
-        check_against_precomputed_hex(source,source_hex);
-        check_against_precomputed_hex(quotient,quotient_hex);
-        check_against_precomputed_hex(BigUnsigned(remainder),remainder_hex);
-        ARIADNE_TEST_ASSERT(remainder<divisor);
-        check_against_precomputed_hex(source,source_hex);
+        owner.check_against_precomputed_hex(source,source_hex);
+        owner.check_against_precomputed_hex(quotient,quotient_hex);
+        owner.check_against_precomputed_hex(BigUnsigned(remainder),remainder_hex);
+        ARIADNE_TESTING_PROVE_CTX(owner.ctx(),remainder<divisor);
+        owner.check_against_precomputed_hex(source,source_hex);
     }
     void finish() {
         std::string extra;
@@ -212,7 +214,7 @@ struct LimbDivisionGolden {
     }
 };
 
-static void check_against_power_golden(std::ifstream& golden,char kind,
+void check_against_power_golden(std::ifstream& golden,char kind,
                                 std::size_t param1,std::size_t param2,
                                 unsigned exponent,
                                 BigUnsigned const& input,
@@ -247,7 +249,7 @@ static void ensure_gcd_golden_end(std::ifstream& golden,char const* group) {
     if (golden >> extra)
         throw std::runtime_error(std::string("Extra BigUnsigned ")+group+" GCD TSV rows");
 }
-static void check_gcd_golden(std::ifstream& golden,
+void check_gcd_golden(std::ifstream& golden,
                       std::initializer_list<std::string> keys,
                       BigUnsigned const& left,BigUnsigned const& right) {
     for (auto const& expected_key:keys) {
@@ -269,23 +271,26 @@ static void check_gcd_golden(std::ifstream& golden,
 
 
   public:
-    void test() {
-        ARIADNE_TEST_CALL(test_big_unsigned_contracts_and_controls());
-        ARIADNE_TEST_CALL(test_storage());
-        ARIADNE_TEST_CALL(test_boundaries());
-        ARIADNE_TEST_CALL(test_subtraction_common_prefix());
-        ARIADNE_TEST_CALL(test_randomized());
-        ARIADNE_TEST_CALL(test_multiplication());
-        ARIADNE_TEST_CALL(test_division_limb());
-        ARIADNE_TEST_CALL(test_exact_division_limb());
-        ARIADNE_TEST_CALL(test_product_accumulation());
-        ARIADNE_TEST_CALL(test_division());
-        ARIADNE_TEST_CALL(test_gcd_decimal());
-        ARIADNE_TEST_CALL(test_views_and_scratch());
-        ARIADNE_TEST_CALL(test_multiply_kernel_paths());
-        ARIADNE_TEST_CALL(test_power());
-        ARIADNE_TEST_CALL(test_sqrt());
-        ARIADNE_TEST_CALL(test_short_owned_division());
+    using ContextFixture::ContextFixture;
+
+    // Keep fixture registration in this class in the original call order.
+    static void add_cases(Ariadne::Testing::Suite& suite) {
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_big_unsigned_contracts_and_controls);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_storage);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_boundaries);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_subtraction_common_prefix);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_randomized);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_multiplication);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_division_limb);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_exact_division_limb);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_product_accumulation);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_division);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_gcd_decimal);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_views_and_scratch);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_multiply_kernel_paths);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_power);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_sqrt);
+        ARIADNE_TESTING_ADD_TEST_TO(suite, TestBigUnsigned, test_short_owned_division);
     }
 
   private:
@@ -322,9 +327,9 @@ void TestBigUnsigned::test_sqrt()
                 std::pair{BigUnsigned(high_square),std::uint64_t{0x8000000000000001ULL}},
                 std::pair{BigUnsigned(max_square),std::uint64_t{0xffffffffffffffffULL}}}) {
             const auto [root,remainder]=sqrtrem(input);
-            ARIADNE_TEST_EQUALS(root.limb(0u),expected);
-            ARIADNE_TEST_ASSERT(remainder.is_zero());
-            ARIADNE_TEST_EQUALS(isqrt(input).limb(0u),expected);
+            ARIADNE_TESTING_EXPECT_EQUAL(root.limb(0u),expected);
+            ARIADNE_TESTING_PROVE(remainder.is_zero());
+            ARIADNE_TESTING_EXPECT_EQUAL(isqrt(input).limb(0u),expected);
         }
     }
     std::fesetround(saved_mode);
@@ -350,14 +355,14 @@ void TestBigUnsigned::test_sqrt()
         check_against_precomputed_hex(root_with_remainder,root_hex);
         check_against_precomputed_hex(remainder,remainder_hex);
         // Algebraic properties supplement, never replace the frozen oracle.
-        ARIADNE_TEST_ASSERT(compare(square(root),input)<=0);
+        ARIADNE_TESTING_PROVE(compare(square(root),input)<=0);
         const BigUnsigned successor=add(root,BigUnsigned(std::uint64_t{1}));
-        ARIADNE_TEST_ASSERT(compare(square(successor),input)>0);
-        ARIADNE_TEST_ASSERT(compare(
+        ARIADNE_TESTING_PROVE(compare(square(successor),input)>0);
+        ARIADNE_TESTING_PROVE(compare(
             add(square(root_with_remainder),remainder),input)==0);
-        ARIADNE_TEST_ASSERT(compare(remainder,
+        ARIADNE_TESTING_PROVE(compare(remainder,
             add(root_with_remainder,root_with_remainder))<=0);
-        ARIADNE_TEST_ASSERT(compare(input,original)==0);
+        ARIADNE_TESTING_PROVE(compare(input,original)==0);
         ++rows;
     }
     if (golden.bad() || rows!=166u) {
@@ -382,11 +387,11 @@ void TestBigUnsigned::test_sqrt()
                                   BigUnsigned const& expected_root,
                                   BigUnsigned const& expected_remainder) {
                 const BigUnsigned original=input;
-                ARIADNE_TEST_ASSERT(compare(isqrt(input),expected_root)==0);
+                ARIADNE_TESTING_PROVE(compare(isqrt(input),expected_root)==0);
                 const auto [root,remainder]=sqrtrem(input);
-                ARIADNE_TEST_ASSERT(compare(root,expected_root)==0);
-                ARIADNE_TEST_ASSERT(compare(remainder,expected_remainder)==0);
-                ARIADNE_TEST_ASSERT(compare(input,original)==0);
+                ARIADNE_TESTING_PROVE(compare(root,expected_root)==0);
+                ARIADNE_TESTING_PROVE(compare(remainder,expected_remainder)==0);
+                ARIADNE_TESTING_PROVE(compare(input,original)==0);
             };
             verify(squared,s,BigUnsigned{});
             verify(sub(squared,one),sub(s,one),sub(twice,two));
@@ -399,14 +404,14 @@ void TestBigUnsigned::test_sqrt()
 void TestBigUnsigned::test_power()
 {
     const BigUnsigned zero,one(std::uint64_t{1});
-    ARIADNE_TEST_ASSERT(compare(pow(zero,0u),one)==0);
-    ARIADNE_TEST_ASSERT(pow(zero,std::numeric_limits<std::uint64_t>::max()).is_zero());
-    ARIADNE_TEST_ASSERT(compare(pow(one,std::numeric_limits<std::uint64_t>::max()),one)==0);
-    ARIADNE_TEST_ASSERT(compare(pow(BigUnsigned(std::uint64_t{3}),5u),
+    ARIADNE_TESTING_PROVE(compare(pow(zero,0u),one)==0);
+    ARIADNE_TESTING_PROVE(pow(zero,std::numeric_limits<std::uint64_t>::max()).is_zero());
+    ARIADNE_TESTING_PROVE(compare(pow(one,std::numeric_limits<std::uint64_t>::max()),one)==0);
+    ARIADNE_TESTING_PROVE(compare(pow(BigUnsigned(std::uint64_t{3}),5u),
                               BigUnsigned(std::uint64_t{243}))==0);
     const std::array<std::uint64_t,2u> two64{0u,1u};
     const std::array<std::uint64_t,3u> two128{0u,0u,1u};
-    ARIADNE_TEST_ASSERT(compare(pow(BigUnsigned(two64),2u),BigUnsigned(two128))==0);
+    ARIADNE_TESTING_PROVE(compare(pow(BigUnsigned(two64),2u),BigUnsigned(two128))==0);
 
     // Deterministic boundary-class sampling; skipped visits still consume RNG.
     // Exact source/result reference pairs were frozen independently
@@ -537,7 +542,7 @@ void TestBigUnsigned::test_short_owned_division()
                     bool q_threw=false,r_threw=false;
                     try { (void)quot(a,b); } catch (std::domain_error const&) { q_threw=true; }
                     try { (void)rem(a,b); } catch (std::domain_error const&) { r_threw=true; }
-                    ARIADNE_TEST_ASSERT(q_threw && r_threw);
+                    ARIADNE_TESTING_PROVE(q_threw && r_threw);
                 } else {
                     if (ref_q=="-" || ref_r=="-") {
                         throw std::runtime_error("Missing nonzero-division golden values");
@@ -557,56 +562,56 @@ void TestBigUnsigned::test_short_owned_division()
     BigUnsigned moved(std::numeric_limits<std::uint64_t>::max());
     const BigUnsigned owned(std::move(moved));
     const BigUnsigned one(std::uint64_t{1});
-    ARIADNE_TEST_ASSERT(compare(add(moved,one),one)==0);
-    ARIADNE_TEST_ASSERT(compare(add(one,moved),one)==0);
+    ARIADNE_TESTING_PROVE(compare(add(moved,one),one)==0);
+    ARIADNE_TESTING_PROVE(compare(add(one,moved),one)==0);
     const std::array<std::uint64_t,2u> carry{0u,1u};
-    ARIADNE_TEST_ASSERT(compare(add(owned,one),BigUnsigned(carry))==0);
+    ARIADNE_TESTING_PROVE(compare(add(owned,one),BigUnsigned(carry))==0);
 }
 
 void TestBigUnsigned::test_storage()
 {
     BigUnsigned zero;
-    ARIADNE_TEST_ASSERT(zero.is_zero());
-    ARIADNE_TEST_ASSERT(zero.limbs().empty());
-    ARIADNE_TEST_ASSERT(zero.bit_length()==0u);
+    ARIADNE_TESTING_PROVE(zero.is_zero());
+    ARIADNE_TESTING_PROVE(zero.limbs().empty());
+    ARIADNE_TESTING_PROVE(zero.bit_length()==0u);
 
     BigUnsigned one(std::uint64_t{1});
-    ARIADNE_TEST_ASSERT(one.limb(0)==1u);
-    ARIADNE_TEST_ASSERT(one.limb(500)==0u);
-    ARIADNE_TEST_ASSERT(one.bit_length()==1u);
+    ARIADNE_TESTING_PROVE(one.limb(0)==1u);
+    ARIADNE_TESTING_PROVE(one.limb(500)==0u);
+    ARIADNE_TESTING_PROVE(one.bit_length()==1u);
 
     std::array<std::uint64_t,7> raw{1,2,3,4,5,0,0};
     BigUnsigned long_value(raw);
-    ARIADNE_TEST_ASSERT(long_value.size()==5u);
-    ARIADNE_TEST_ASSERT(long_value.limb(4)==5u);
+    ARIADNE_TESTING_PROVE(long_value.size()==5u);
+    ARIADNE_TESTING_PROVE(long_value.limb(4)==5u);
 
     BigUnsigned copy(long_value);
-    ARIADNE_TEST_ASSERT(compare(copy,long_value)==0);
+    ARIADNE_TESTING_PROVE(compare(copy,long_value)==0);
 
     BigUnsigned moved(std::move(copy));
-    ARIADNE_TEST_ASSERT(copy.is_zero());
-    ARIADNE_TEST_ASSERT(compare(moved,long_value)==0);
+    ARIADNE_TESTING_PROVE(copy.is_zero());
+    ARIADNE_TESTING_PROVE(compare(moved,long_value)==0);
 
     copy=one;
     copy=std::move(moved);
-    ARIADNE_TEST_ASSERT(moved.is_zero());
-    ARIADNE_TEST_ASSERT(compare(copy,long_value)==0);
+    ARIADNE_TESTING_PROVE(moved.is_zero());
+    ARIADNE_TESTING_PROVE(compare(copy,long_value)==0);
 
     // Self-move must preserve both inline and heap-owned values.
     // Use an alias to exercise the public assignment without a compiler
     // diagnostic for a syntactically obvious self-move.
     auto* heap_alias=&copy;
     copy=std::move(*heap_alias);
-    ARIADNE_TEST_ASSERT(compare(copy,long_value)==0);
+    ARIADNE_TESTING_PROVE(compare(copy,long_value)==0);
     auto* inline_alias=&one;
     one=std::move(*inline_alias);
-    ARIADNE_TEST_ASSERT(one.limb(0u)==1u && one.size()==1u);
+    ARIADNE_TESTING_PROVE(one.limb(0u)==1u && one.size()==1u);
 
     zero.swap(copy);
-    ARIADNE_TEST_ASSERT(zero.size()==5u);
-    ARIADNE_TEST_ASSERT(copy.is_zero());
+    ARIADNE_TESTING_PROVE(zero.size()==5u);
+    ARIADNE_TESTING_PROVE(copy.is_zero());
     const std::array<std::uint64_t,5> zeros{};
-    ARIADNE_TEST_ASSERT(BigUnsigned(zeros).is_zero());
+    ARIADNE_TESTING_PROVE(BigUnsigned(zeros).is_zero());
 }
 
 void TestBigUnsigned::test_boundaries()
@@ -623,32 +628,32 @@ void TestBigUnsigned::test_boundaries()
         DiscardedRow{{0u,0u},128u,false},
         DiscardedRow{{0u,0u},std::numeric_limits<std::size_t>::max(),false},
         DiscardedRow{{0u,1u},std::numeric_limits<std::size_t>::max(),true}}) {
-        ARIADNE_TEST_EQUALS(BigUnsigned::any_bits_below(row.words,row.limit),row.expected);
+        ARIADNE_TESTING_EXPECT_EQUAL(BigUnsigned::any_bits_below(row.words,row.limit),row.expected);
     }
-    ARIADNE_TEST_ASSERT(!BigUnsigned::any_bits_below({},std::numeric_limits<std::size_t>::max()));
+    ARIADNE_TESTING_PROVE(!BigUnsigned::any_bits_below({},std::numeric_limits<std::size_t>::max()));
     const BigUnsigned all(max);
     const BigUnsigned one(std::uint64_t{1});
 
     const std::array<BigUnsigned::Limb,3u> noncanonical_shift{1u,0u,0u};
     std::array<BigUnsigned::Limb,4u> shift_destination{7u,7u,7u,7u};
-    ARIADNE_TEST_EQUALS(BigUnsigned::shift_right_into(
+    ARIADNE_TESTING_EXPECT_EQUAL(BigUnsigned::shift_right_into(
         noncanonical_shift,0u,shift_destination),std::size_t{1u});
-    ARIADNE_TEST_ASSERT((shift_destination==std::array<BigUnsigned::Limb,4u>{1u,0u,0u,0u}));
-    ARIADNE_TEST_EQUALS(BigUnsigned::shift_right_into(
+    ARIADNE_TESTING_PROVE((shift_destination==std::array<BigUnsigned::Limb,4u>{1u,0u,0u,0u}));
+    ARIADNE_TESTING_EXPECT_EQUAL(BigUnsigned::shift_right_into(
         noncanonical_shift,std::numeric_limits<std::size_t>::max(),{}),std::size_t{0u});
-    ARIADNE_TEST_EQUALS(BigUnsigned::shift_right_into({},0u,{}),std::size_t{0u});
+    ARIADNE_TESTING_EXPECT_EQUAL(BigUnsigned::shift_right_into({},0u,{}),std::size_t{0u});
     std::array<BigUnsigned::Limb,1u> short_shift_output{7u};
-    ARIADNE_TEST_FAIL(BigUnsigned::shift_right_into(noncanonical_shift,0u,short_shift_output));
-    ARIADNE_TEST_EQUALS(short_shift_output[0u],BigUnsigned::Limb{7u});
-    ARIADNE_TEST_ASSERT(add(all,one).size()==2u);
-    ARIADNE_TEST_ASSERT(add(all,one).limb(0)==0u);
-    ARIADNE_TEST_ASSERT(add(all,one).limb(1)==1u);
-    ARIADNE_TEST_ASSERT(compare(sub(all,all),BigUnsigned{})==0);
-    ARIADNE_TEST_ASSERT(compare(shift_right(shift_left(all,257u),257u),all)==0);
-    ARIADNE_TEST_ASSERT(compare(shift_right(all,64u),BigUnsigned{})==0);
-    ARIADNE_TEST_ASSERT(compare(shift_left(one,256u),BigUnsigned(
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::shift_right_into(noncanonical_shift,0u,short_shift_output));
+    ARIADNE_TESTING_EXPECT_EQUAL(short_shift_output[0u],BigUnsigned::Limb{7u});
+    ARIADNE_TESTING_PROVE(add(all,one).size()==2u);
+    ARIADNE_TESTING_PROVE(add(all,one).limb(0)==0u);
+    ARIADNE_TESTING_PROVE(add(all,one).limb(1)==1u);
+    ARIADNE_TESTING_PROVE(compare(sub(all,all),BigUnsigned{})==0);
+    ARIADNE_TESTING_PROVE(compare(shift_right(shift_left(all,257u),257u),all)==0);
+    ARIADNE_TESTING_PROVE(compare(shift_right(all,64u),BigUnsigned{})==0);
+    ARIADNE_TESTING_PROVE(compare(shift_left(one,256u),BigUnsigned(
         std::array<std::uint64_t,5>{0,0,0,0,1}))==0);
-    ARIADNE_TEST_ASSERT(compare(shift_right(shift_left(one,63u),63u),one)==0);
+    ARIADNE_TESTING_PROVE(compare(shift_right(shift_left(one,63u),63u),one)==0);
 
     bool threw = false;
     try {
@@ -656,8 +661,8 @@ void TestBigUnsigned::test_boundaries()
     } catch (std::underflow_error const&) {
         threw = true;
     }
-    ARIADNE_TEST_ASSERT(threw);
-    ARIADNE_TEST_ASSERT(compare(add(all,BigUnsigned{}),all)==0);
+    ARIADNE_TESTING_PROVE(threw);
+    ARIADNE_TESTING_PROVE(compare(add(all,BigUnsigned{}),all)==0);
 
     // MSVC checked std::span iterators require both algorithm endpoints to
     // originate from the same view. Exercise unequal-width add/sub paths,
@@ -665,9 +670,9 @@ void TestBigUnsigned::test_boundaries()
     const std::array<std::uint64_t,2u> two64_words{0u,1u};
     const BigUnsigned two64(two64_words);
     const std::array<std::uint64_t,2u> two64_plus_one_words{1u,1u};
-    ARIADNE_TEST_ASSERT(compare(
+    ARIADNE_TESTING_PROVE(compare(
         add(two64,one),BigUnsigned(two64_plus_one_words))==0);
-    ARIADNE_TEST_ASSERT(compare(sub(two64,one),all)==0);
+    ARIADNE_TESTING_PROVE(compare(sub(two64,one),all)==0);
 
     // Scan across equal high limbs in heap storage. The first
     // differing limb is near the bottom, or does not exist at all.
@@ -677,12 +682,12 @@ void TestBigUnsigned::test_boundaries()
     low_different[0u]=max-1u;
     const BigUnsigned high(equal_high);
     const BigUnsigned low(low_different);
-    ARIADNE_TEST_ASSERT(compare(low,high)<0);
-    ARIADNE_TEST_ASSERT(compare(high,low)>0);
-    ARIADNE_TEST_ASSERT(compare(high,high)==0);
-    ARIADNE_TEST_ASSERT(compare(high,one)>0);
+    ARIADNE_TESTING_PROVE(compare(low,high)<0);
+    ARIADNE_TESTING_PROVE(compare(high,low)>0);
+    ARIADNE_TESTING_PROVE(compare(high,high)==0);
+    ARIADNE_TESTING_PROVE(compare(high,one)>0);
     low_different[63u]=max-1u;
-    ARIADNE_TEST_ASSERT(compare(BigUnsigned(low_different),high)<0);
+    ARIADNE_TESTING_PROVE(compare(BigUnsigned(low_different),high)<0);
 }
 
 // B41: the highest differing limb determines both unsigned order
@@ -720,7 +725,7 @@ void TestBigUnsigned::test_subtraction_common_prefix()
                     bool threw=false;
                     try { (void)sub(a,b); }
                     catch (std::underflow_error const&) { threw=true; }
-                    ARIADNE_TEST_ASSERT(threw);
+                    ARIADNE_TESTING_PROVE(threw);
                 } else {
                     check_against_precomputed_hex(sub(a,b),expected_hex);
                 }
@@ -741,10 +746,10 @@ void TestBigUnsigned::test_multiplication()
     const std::array<std::uint64_t,4> four_max{max,max,max,max};
     const BigUnsigned four(four_max);
 
-    ARIADNE_TEST_ASSERT(mul_low(four,one,0u).is_zero());
-    ARIADNE_TEST_ASSERT(compare(mul_low(four,one,1u),BigUnsigned(max)) == 0);
-    ARIADNE_TEST_ASSERT(compare(mul(four,one),four) == 0);
-    ARIADNE_TEST_ASSERT(compare(square(one),one) == 0);
+    ARIADNE_TESTING_PROVE(mul_low(four,one,0u).is_zero());
+    ARIADNE_TESTING_PROVE(compare(mul_low(four,one,1u),BigUnsigned(max)) == 0);
+    ARIADNE_TESTING_PROVE(compare(mul(four,one),four) == 0);
+    ARIADNE_TESTING_PROVE(compare(square(one),one) == 0);
 
     std::mt19937_64 engine(0x1282561024ULL);
     // R14: independent frozen self-product references. Preserve all
@@ -876,8 +881,8 @@ void TestBigUnsigned::test_multiplication()
         previous_repetition=repetition;
         const BigUnsigned x=big_unsigned_from_golden_hex(source_x);
         const BigUnsigned y=big_unsigned_from_golden_hex(source_y);
-        ARIADNE_TEST_ASSERT(x.size()<=original_n);
-        ARIADNE_TEST_ASSERT(y.size()<=original_m);
+        ARIADNE_TESTING_PROVE(x.size()<=original_n);
+        ARIADNE_TESTING_PROVE(y.size()<=original_m);
         check_against_precomputed_hex(mul(x,y),product);
         check_against_precomputed_hex(mul(y,x),product);
         check_against_precomputed_hex(square(x),squared);
@@ -913,12 +918,12 @@ void TestBigUnsigned::test_multiplication()
             }
             const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
             const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
-            ARIADNE_TEST_ASSERT(lhs.size()==n);
-            ARIADNE_TEST_ASSERT(rhs.size()==m);
+            ARIADNE_TESTING_PROVE(lhs.size()==n);
+            ARIADNE_TESTING_PROVE(rhs.size()==m);
             const BigUnsigned expected_product=
                 big_unsigned_from_golden_hex(product_hex);
             check_against_precomputed_hex(mul(lhs,rhs),product_hex);
-            ARIADNE_TEST_ASSERT(compare(mul(rhs,lhs),expected_product)==0);
+            ARIADNE_TESTING_PROVE(compare(mul(rhs,lhs),expected_product)==0);
         }
     }
     std::string b35_extra;
@@ -951,7 +956,7 @@ void TestBigUnsigned::test_multiplication()
             }
             const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
             const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
-            ARIADNE_TEST_ASSERT(lhs.size()==n && rhs.size()==m);
+            ARIADNE_TESTING_PROVE(lhs.size()==n && rhs.size()==m);
             check_against_precomputed_hex(mul(lhs,rhs),prod_hex);
             check_against_precomputed_hex(mul(rhs,lhs),prod_hex);
             const std::size_t low=repetition%2u==0u?1u:n+m-1u;
@@ -999,10 +1004,10 @@ void TestBigUnsigned::test_multiplication()
             }
             const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
             const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
-            ARIADNE_TEST_ASSERT(lhs.size()==n && rhs.size()==m);
+            ARIADNE_TESTING_PROVE(lhs.size()==n && rhs.size()==m);
             const BigUnsigned product=mul(lhs,rhs);
             check_against_precomputed_hex(product,product_hex);
-            ARIADNE_TEST_ASSERT(compare(mul(rhs,lhs),product)==0);
+            ARIADNE_TESTING_PROVE(compare(mul(rhs,lhs),product)==0);
             check_against_precomputed_hex(square(lhs),square_hex);
             const std::size_t low=repetition%2u==0u
                 ? (n+m)/2u : n+m-1u;
@@ -1029,7 +1034,7 @@ void TestBigUnsigned::test_multiplication()
                 throw std::runtime_error("Missing or unordered B54 TSV row");
             const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
             const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
-            ARIADNE_TEST_ASSERT(lhs.size()==n && rhs.size()==m);
+            ARIADNE_TESTING_PROVE(lhs.size()==n && rhs.size()==m);
             check_against_precomputed_hex(mul(lhs,rhs),result_hex);
             check_against_precomputed_hex(mul(rhs,lhs),result_hex);
             std::vector<std::uint64_t> fused(n+m);
@@ -1058,7 +1063,7 @@ void TestBigUnsigned::test_multiplication()
                 || ref_n!=n || ref_mode!=mode)
                 throw std::runtime_error("Missing or unordered B54 square TSV row");
             const BigUnsigned input=big_unsigned_from_golden_hex(input_hex);
-            ARIADNE_TEST_ASSERT(input.size()==n);
+            ARIADNE_TESTING_PROVE(input.size()==n);
             check_against_precomputed_hex(square(input),result_hex);
             check_against_precomputed_hex(mul(input,input),result_hex);
         }
@@ -1083,7 +1088,7 @@ void TestBigUnsigned::test_multiplication()
                 || ref_count!=count || ref_repetition!=repetition)
                 throw std::runtime_error("Missing or unordered B37 oracle row");
             const BigUnsigned input=big_unsigned_from_golden_hex(raw_input);
-            ARIADNE_TEST_ASSERT(input.size()<=count);
+            ARIADNE_TESTING_PROVE(input.size()<=count);
             check_against_precomputed_hex(square(input),raw_square);
             check_against_precomputed_hex(mul(input,input),raw_square);
         }
@@ -1113,7 +1118,7 @@ void TestBigUnsigned::test_multiplication()
                 throw std::runtime_error("Missing or unordered B38 oracle row");
             const BigUnsigned lhs=big_unsigned_from_golden_hex(lhs_hex);
             const BigUnsigned rhs=big_unsigned_from_golden_hex(rhs_hex);
-            ARIADNE_TEST_ASSERT(lhs.size()==n && rhs.size()==m);
+            ARIADNE_TESTING_PROVE(lhs.size()==n && rhs.size()==m);
             check_against_precomputed_hex(mul(lhs,rhs),product_hex);
             check_against_precomputed_hex(mul(rhs,lhs),product_hex);
             const std::array<std::size_t,6u> low_lengths{
@@ -1163,7 +1168,7 @@ void TestBigUnsigned::test_multiplication()
                 || source_count!=count || source_repetition!=repetition)
                 throw std::runtime_error("Missing or unordered B32 TSV row");
             const BigUnsigned value(words);
-            ARIADNE_TEST_ASSERT(value.size()<=count);
+            ARIADNE_TESTING_PROVE(value.size()<=count);
             check_against_precomputed_hex(value,input_hex);
             check_against_precomputed_hex(square(value),square_hex);
             check_against_precomputed_hex(mul(value,value),square_hex);
@@ -1179,38 +1184,38 @@ void TestBigUnsigned::test_views_and_scratch()
 {
     const auto max = std::numeric_limits<std::uint64_t>::max();
     BigUnsigned::Scratch scratch;
-    ARIADNE_TEST_ASSERT(scratch.capacity() >= 16u);
+    ARIADNE_TESTING_PROVE(scratch.capacity() >= 16u);
 
     auto short_view = scratch.acquire(4u);
     for (auto limb : short_view) {
-        ARIADNE_TEST_ASSERT(limb == 0u);
+        ARIADNE_TESTING_PROVE(limb == 0u);
     }
     short_view[0] = 11u;
     BigUnsigned x;
     x.assign(short_view);
-    ARIADNE_TEST_ASSERT(x.size() == 1u);
-    ARIADNE_TEST_ASSERT(x.limb(0) == 11u);
+    ARIADNE_TESTING_PROVE(x.size() == 1u);
+    ARIADNE_TESTING_PROVE(x.limb(0) == 11u);
 
     auto heap_view = scratch.acquire(35u);
-    ARIADNE_TEST_ASSERT(scratch.capacity() >= 35u);
+    ARIADNE_TESTING_PROVE(scratch.capacity() >= 35u);
     for (std::size_t i=0u; i<heap_view.size(); ++i) {
         heap_view[i] = max;
     }
     x.assign(heap_view);
-    ARIADNE_TEST_ASSERT(x.size() == 35u);
+    ARIADNE_TESTING_PROVE(x.size() == 35u);
     const auto* old_heap = heap_view.data();
     heap_view = scratch.acquire(25u);
-    ARIADNE_TEST_ASSERT(heap_view.data() == old_heap);
+    ARIADNE_TESTING_PROVE(heap_view.data() == old_heap);
     for (auto limb : heap_view) {
-        ARIADNE_TEST_ASSERT(limb == 0u);
+        ARIADNE_TESTING_PROVE(limb == 0u);
     }
 
     x.assign(x.limbs());
-    ARIADNE_TEST_ASSERT(x.size() == 35u);
+    ARIADNE_TESTING_PROVE(x.size() == 35u);
     x.assign(x.limbs().subspan(3u,2u));
-    ARIADNE_TEST_ASSERT(x.size() == 2u);
+    ARIADNE_TESTING_PROVE(x.size() == 2u);
     x.assign(x.limbs().first(1u));
-    ARIADNE_TEST_ASSERT(x.size() == 1u);
+    ARIADNE_TESTING_PROVE(x.size() == 1u);
 
     BigUnsigned::Scratch output;
     std::mt19937_64 engine(0xB22B22ULL);
@@ -1262,21 +1267,21 @@ void TestBigUnsigned::test_views_and_scratch()
         const auto carry = BigUnsigned::add_into(
             lhs.limbs(),rhs.limbs(),sum_view.first(count));
         sum_view[count] = carry;
-        ARIADNE_TEST_ASSERT(sum_view[count+1u] == 0u);
+        ARIADNE_TESTING_PROVE(sum_view[count+1u] == 0u);
         check_against_precomputed_hex(BigUnsigned(sum_view),sum_hex);
 
         auto difference_view = output.acquire(count+1u);
         const auto borrow = BigUnsigned::sub_into(
             lhs.limbs(),rhs.limbs(),difference_view);
-        ARIADNE_TEST_ASSERT(difference_view[count] == 0u);
+        ARIADNE_TESTING_PROVE(difference_view[count] == 0u);
         if (difference_hex!="-") {
-            ARIADNE_TEST_ASSERT(compare(lhs,rhs)>=0);
-            ARIADNE_TEST_ASSERT(borrow == 0u);
+            ARIADNE_TESTING_PROVE(compare(lhs,rhs)>=0);
+            ARIADNE_TESTING_PROVE(borrow == 0u);
             check_against_precomputed_hex(
                 BigUnsigned(difference_view),difference_hex);
         } else {
-            ARIADNE_TEST_ASSERT(compare(lhs,rhs)<0);
-            if (count != 0u) ARIADNE_TEST_ASSERT(borrow == 1u);
+            ARIADNE_TESTING_PROVE(compare(lhs,rhs)<0);
+            if (count != 0u) ARIADNE_TESTING_PROVE(borrow == 1u);
         }
 
         auto product_view = output.acquire(low);
@@ -1388,7 +1393,7 @@ void TestBigUnsigned::test_views_and_scratch()
             throw std::runtime_error("Extra B135 shifted oracle rows");
     }
     // R38: shifted subtraction rejects a negative result.
-    ARIADNE_TEST_ASSERT(([] {
+    ARIADNE_TESTING_PROVE(([] {
         const BigUnsigned one(std::uint64_t{1}),two(std::uint64_t{2});
         try {
             (void)BigUnsigned::sub_shifted(one.limbs(),0u,two.limbs(),0u);
@@ -1470,15 +1475,15 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                 std::vector<std::uint64_t> fused(full,max);
                 BigUnsigned::mul_into_fused(
                     lhs.limbs(),rhs.limbs(),fused);
-                ARIADNE_TEST_ASSERT(selected==fused);
+                ARIADNE_TESTING_PROVE(selected==fused);
 
                 std::vector<std::uint64_t> oversized(full+2u,max);
                 BigUnsigned::mul_into(
                     lhs.limbs(),rhs.limbs(),oversized);
                 check_against_precomputed_hex(
                     BigUnsigned(oversized),product_hex);
-                ARIADNE_TEST_ASSERT(oversized[full]==0u);
-                ARIADNE_TEST_ASSERT(oversized[full+1u]==0u);
+                ARIADNE_TESTING_PROVE(oversized[full]==0u);
+                ARIADNE_TESTING_PROVE(oversized[full+1u]==0u);
 
                 const std::size_t low=full==0u?0u:full-1u;
                 if (ref_low!=low)
@@ -1578,8 +1583,8 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                 BigUnsigned::mul_low_into_fused(left,right,fused);
                 BigUnsigned::mul_low_into_x86_64_carry(
                     left,right,carry);
-                ARIADNE_TEST_ASSERT(selected==fused);
-                ARIADNE_TEST_ASSERT(selected==carry);
+                ARIADNE_TESTING_PROVE(selected==fused);
+                ARIADNE_TESTING_PROVE(selected==carry);
                 check_against_precomputed_hex(
                     BigUnsigned(selected),low_hex);
             }
@@ -1641,7 +1646,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
 
         selected = scratch.acquire(length);
         BigUnsigned::mul_into_portable(lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
@@ -1649,19 +1654,19 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         // reference word-for-word, also for oversized full destinations.
         selected = scratch.acquire(length);
         BigUnsigned::mul_into_comba(lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
         selected = scratch.acquire(length);
         BigUnsigned::mul_into_fused(lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
         selected = scratch.acquire(length);
         BigUnsigned::mul_into_arm64_carry(lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
@@ -1670,7 +1675,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         selected=scratch.acquire(length);
         BigUnsigned::mul_into_x86_64_carry(
             lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
@@ -1678,7 +1683,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         // selected kernel changes on GCC x86-64.
         selected = scratch.acquire(length);
         BigUnsigned::mul_into_schoolbook(lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
@@ -1688,7 +1693,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         selected=scratch.acquire(length);
         BigUnsigned::mul_into_karatsuba(
             lhs.limbs(),rhs.limbs(),selected,work);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),selected_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),product_hex);
 
@@ -1700,39 +1705,39 @@ void TestBigUnsigned::test_multiply_kernel_paths()
         selected = scratch.acquire(low);
         BigUnsigned::mul_low_into_portable(
             lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
 
         selected = scratch.acquire(low);
         BigUnsigned::mul_low_into_comba(lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),low_hex);
 
         selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_fused(lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),low_hex);
 
         selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_arm64_carry(
             lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),low_hex);
 
         selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_x86_64_carry(
             lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),low_hex);
 
         selected=scratch.acquire(low);
         BigUnsigned::mul_low_into_schoolbook(
             lhs.limbs(),rhs.limbs(),selected);
-        ARIADNE_TEST_ASSERT(std::equal(
+        ARIADNE_TESTING_PROVE(std::equal(
             selected.begin(),selected.end(),low_copy.begin()));
         check_against_precomputed_hex(BigUnsigned(selected),low_hex);
     }
@@ -1753,16 +1758,16 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     bool carry_threw = false;
     bool x86_carry_threw = false;
     bool karatsuba_threw = false;
-    ARIADNE_TEST_ASSERT(
+    ARIADNE_TESTING_PROVE(
         !BigUnsigned::selected_multiply_uses_fused()
         || BigUnsigned::has_native_multiply());
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-    ARIADNE_TEST_ASSERT(BigUnsigned::has_x86_64_carry_multiply());
+    ARIADNE_TESTING_PROVE(BigUnsigned::has_x86_64_carry_multiply());
 #endif
 #if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
     // Native ARM64 uses the specialized carry-chain, not common fused.
-    ARIADNE_TEST_ASSERT(BigUnsigned::has_arm64_multiply());
-    ARIADNE_TEST_ASSERT(!BigUnsigned::selected_multiply_uses_fused());
+    ARIADNE_TESTING_PROVE(BigUnsigned::has_arm64_multiply());
+    ARIADNE_TESTING_PROVE(!BigUnsigned::selected_multiply_uses_fused());
 #endif
     try {
         BigUnsigned::mul_into(one,one,too_short);
@@ -1804,7 +1809,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     } catch (std::length_error const&) {
         karatsuba_threw = true;
     }
-    ARIADNE_TEST_ASSERT(selected_threw && portable_threw &&
+    ARIADNE_TESTING_PROVE(selected_threw && portable_threw &&
                         comba_threw && fused_threw && carry_threw &&
                         x86_carry_threw && schoolbook_threw &&
                         karatsuba_threw);
@@ -1815,12 +1820,12 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     };
     std::array<std::uint64_t,34> guarded;
     guarded.fill(max);
-    ARIADNE_TEST_ASSERT(
+    ARIADNE_TESTING_PROVE(
         BigUnsigned::karatsuba_scratch_limbs(17u,17u)>0u);
-    ARIADNE_TEST_ASSERT(
+    ARIADNE_TESTING_PROVE(
         BigUnsigned::karatsuba_scratch_limbs(17u,17u,8u) ==
         BigUnsigned::karatsuba_scratch_limbs(17u,17u));
-    ARIADNE_TEST_ASSERT(
+    ARIADNE_TESTING_PROVE(
         BigUnsigned::karatsuba_scratch_limbs(17u,17u,64u)==0u);
     bool invalid_cutoff_threw=false;
     try {
@@ -1828,7 +1833,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     } catch (std::invalid_argument const&) {
         invalid_cutoff_threw=true;
     }
-    ARIADNE_TEST_ASSERT(invalid_cutoff_threw);
+    ARIADNE_TESTING_PROVE(invalid_cutoff_threw);
     bool scratch_threw=false;
     try {
         BigUnsigned::mul_into_karatsuba(
@@ -1836,9 +1841,9 @@ void TestBigUnsigned::test_multiply_kernel_paths()
     } catch (std::length_error const&) {
         scratch_threw=true;
     }
-    ARIADNE_TEST_ASSERT(scratch_threw);
+    ARIADNE_TESTING_PROVE(scratch_threw);
     for (auto value: guarded) {
-        ARIADNE_TEST_ASSERT(value==max);
+        ARIADNE_TESTING_PROVE(value==max);
     }
 
     // B139: B8 retains all 700 original sources and four cutoff visits
@@ -1883,7 +1888,7 @@ void TestBigUnsigned::test_multiply_kernel_paths()
                 BigUnsigned(product_view),product_hex);
             for (std::size_t i=lhs.size()+rhs.size();
                     i<product_view.size();++i) {
-                ARIADNE_TEST_ASSERT(product_view[i]==0u);
+                ARIADNE_TESTING_PROVE(product_view[i]==0u);
             }
         }
     }
@@ -1936,10 +1941,10 @@ void TestBigUnsigned::test_multiply_kernel_paths()
             check_against_precomputed_hex(
                 BigUnsigned(product),product_hex);
             for (std::size_t i=n+m;i<product.size();++i) {
-                ARIADNE_TEST_ASSERT(product[i]==0u);
+                ARIADNE_TESTING_PROVE(product[i]==0u);
             }
-            ARIADNE_TEST_ASSERT(guards.front()==max);
-            ARIADNE_TEST_ASSERT(guards.back()==max);
+            ARIADNE_TESTING_PROVE(guards.front()==max);
+            ARIADNE_TESTING_PROVE(guards.back()==max);
         }
     }
     if (b139_fixed_index!=8u)
@@ -1957,19 +1962,19 @@ void TestBigUnsigned::test_division_limb()
     const std::array<std::uint64_t,2> all_ones{max,max};
     const std::array<std::uint64_t,2> power_of_base{0u,1u};
     const auto [whole,zero_remainder]=divrem_limb(BigUnsigned(all_ones),max);
-    ARIADNE_TEST_ASSERT(compare(whole,BigUnsigned(
+    ARIADNE_TESTING_PROVE(compare(whole,BigUnsigned(
         std::array<std::uint64_t,2>{1u,1u}))==0);
-    ARIADNE_TEST_ASSERT(zero_remainder==0u);
+    ARIADNE_TESTING_PROVE(zero_remainder==0u);
     const auto [one,remainder]=divrem_limb(BigUnsigned(power_of_base),max);
-    ARIADNE_TEST_ASSERT(compare(one,BigUnsigned(std::uint64_t{1}))==0);
-    ARIADNE_TEST_ASSERT(remainder==1u);
+    ARIADNE_TESTING_PROVE(compare(one,BigUnsigned(std::uint64_t{1}))==0);
+    ARIADNE_TESTING_PROVE(remainder==1u);
     // A nonzero high half of the remainder must survive on LLP64 hosts.
     const std::uint64_t wide_remainder=(std::uint64_t{1}<<40u)+17u;
     const auto [zero_quotient,wide_rem]=divrem_limb(
         BigUnsigned(wide_remainder),max);
-    ARIADNE_TEST_ASSERT(zero_quotient.is_zero());
-    ARIADNE_TEST_ASSERT(wide_rem==wide_remainder);
-    ARIADNE_TEST_ASSERT(divrem_limb(BigUnsigned{},1u).first.is_zero());
+    ARIADNE_TESTING_PROVE(zero_quotient.is_zero());
+    ARIADNE_TESTING_PROVE(wide_rem==wide_remainder);
+    ARIADNE_TESTING_PROVE(divrem_limb(BigUnsigned{},1u).first.is_zero());
 
     std::ifstream random_div_golden(ARIADNE_BIG_UNSIGNED_DIV_LIMB_RANDOM_ORACLE_PATH);
     if (!random_div_golden)
@@ -2013,16 +2018,16 @@ void TestBigUnsigned::test_division_limb()
         const auto [actual,rem]=divrem_limb(value,divisor);
         check_against_precomputed_hex(actual,quotient_hex);
         check_against_precomputed_hex(BigUnsigned(rem),remainder_hex);
-        ARIADNE_TEST_ASSERT(rem<divisor);
+        ARIADNE_TESTING_PROVE(rem<divisor);
 
         auto output=scratch.acquire(value.size()+2u);
         std::fill(output.begin(),output.end(),max);
         const auto low=BigUnsigned::divrem_limb_into(
             value.limbs(),divisor,output);
-        ARIADNE_TEST_ASSERT(low==rem);
+        ARIADNE_TESTING_PROVE(low==rem);
         check_against_precomputed_hex(BigUnsigned(output),quotient_hex);
-        ARIADNE_TEST_ASSERT(output[value.size()]==0u);
-        ARIADNE_TEST_ASSERT(output[value.size()+1u]==0u);
+        ARIADNE_TESTING_PROVE(output[value.size()]==0u);
+        ARIADNE_TESTING_PROVE(output[value.size()+1u]==0u);
         check_against_precomputed_hex(value,source_hex);
     }
     std::string random_div_extra;
@@ -2058,10 +2063,10 @@ void TestBigUnsigned::test_division_limb()
                 const auto [native_q,native_r]=divrem_limb(value,divisor);
                 check_div128_golden(div128_golden,'E',edge_index++,
                                     divisor,low,high,value,native_q,native_r);
-                ARIADNE_TEST_ASSERT(native_r<divisor);
+                ARIADNE_TESTING_PROVE(native_r<divisor);
                 if (high==divisor-1u && low==max) {
-                    ARIADNE_TEST_ASSERT(native_q.limb(0u)==max);
-                    ARIADNE_TEST_ASSERT(native_r==divisor-1u);
+                    ARIADNE_TESTING_PROVE(native_q.limb(0u)==max);
+                    ARIADNE_TESTING_PROVE(native_r==divisor-1u);
                 }
             }
         }
@@ -2086,7 +2091,7 @@ void TestBigUnsigned::test_division_limb()
         const auto [native_q,native_r]=divrem_limb(value,divisor);
         check_div128_golden(div128_golden,'B',repetition,
                             divisor,low,high,value,native_q,native_r);
-        ARIADNE_TEST_ASSERT(native_r<divisor);
+        ARIADNE_TESTING_PROVE(native_r<divisor);
     }
     std::string div128_extra;
     if (div128_golden >> div128_extra)
@@ -2097,7 +2102,7 @@ void TestBigUnsigned::test_division_limb()
     // production divide_wide implementation. Include saturated and
     // sparse operands across inline/heap storage boundaries and
     // the 2^32 divisor selector boundary.
-    LimbDivisionGolden golden_b48(ARIADNE_BIG_UNSIGNED_B48_ORACLE_PATH);
+    LimbDivisionGolden golden_b48(ARIADNE_BIG_UNSIGNED_B48_ORACLE_PATH,*this);
     std::mt19937_64 narrow_engine(0xB48032D0ULL);
     for (const std::size_t count:
             {1u,2u,3u,4u,5u,8u,16u,32u,64u,96u}) {
@@ -2127,10 +2132,10 @@ void TestBigUnsigned::test_division_limb()
                 std::fill(out.begin(),out.end(),max);
                 const auto low=BigUnsigned::divrem_limb_into(
                     value.limbs(),divisor,out);
-                ARIADNE_TEST_ASSERT(low==got_remainder);
-                ARIADNE_TEST_ASSERT(compare(BigUnsigned(out),got_quotient)==0);
-                ARIADNE_TEST_ASSERT(out[value.size()]==0u);
-                ARIADNE_TEST_ASSERT(out[value.size()+1u]==0u);
+                ARIADNE_TESTING_PROVE(low==got_remainder);
+                ARIADNE_TESTING_PROVE(compare(BigUnsigned(out),got_quotient)==0);
+                ARIADNE_TESTING_PROVE(out[value.size()]==0u);
+                ARIADNE_TESTING_PROVE(out[value.size()+1u]==0u);
             }
         }
     }
@@ -2141,7 +2146,7 @@ void TestBigUnsigned::test_division_limb()
     // across 7/8/9 limb dispatch boundaries and longer dividends.
     // GMP is the independent oracle for full quotient, remainder and
     // all output limbs. Test divisor 1, 2^32-1 and 2^32 fallback too.
-    LimbDivisionGolden golden_b49(ARIADNE_BIG_UNSIGNED_B49_ORACLE_PATH);
+    LimbDivisionGolden golden_b49(ARIADNE_BIG_UNSIGNED_B49_ORACLE_PATH,*this);
     std::mt19937_64 reciprocal_engine(0xB490C0DEULL);
     for (const std::size_t count:
             {7u,8u,9u,16u,32u,64u,96u,128u}) {
@@ -2182,10 +2187,10 @@ void TestBigUnsigned::test_division_limb()
                 std::fill(output.begin(),output.end(),max);
                 const auto rem_out=BigUnsigned::divrem_limb_into(
                     value.limbs(),divisor,output);
-                ARIADNE_TEST_ASSERT(rem_out==actual_r);
-                ARIADNE_TEST_ASSERT(compare(BigUnsigned(output),actual_q)==0);
-                ARIADNE_TEST_ASSERT(output[value.size()]==0u);
-                ARIADNE_TEST_ASSERT(output[value.size()+1u]==0u);
+                ARIADNE_TESTING_PROVE(rem_out==actual_r);
+                ARIADNE_TESTING_PROVE(compare(BigUnsigned(output),actual_q)==0);
+                ARIADNE_TESTING_PROVE(output[value.size()]==0u);
+                ARIADNE_TESTING_PROVE(output[value.size()+1u]==0u);
             }
         }
     }
@@ -2196,7 +2201,7 @@ void TestBigUnsigned::test_division_limb()
     // limbs on GCC x86-64, and universal one-limb powers-of-two.
     // Independent B57 TSV covers saturated, random, sparse and denormalized
     // operands and the 15/16/17, 31/32/33, 63/64/65 boundaries.
-    LimbDivisionGolden golden_b57(ARIADNE_BIG_UNSIGNED_B57_ORACLE_PATH);
+    LimbDivisionGolden golden_b57(ARIADNE_BIG_UNSIGNED_B57_ORACLE_PATH,*this);
     std::mt19937_64 b57_engine(0xB570641ULL);
     for (const std::size_t count:
             {0u,1u,7u,8u,15u,16u,17u,31u,32u,33u,63u,64u,65u,96u,128u}) {
@@ -2236,12 +2241,12 @@ void TestBigUnsigned::test_division_limb()
                 const BigUnsigned value(words);
                 golden_b57.check(count,divisor,mode,value,
                                  BigUnsigned(out),limb_remainder);
-                ARIADNE_TEST_ASSERT(out[count]==0u);
-                ARIADNE_TEST_ASSERT(out[count+1u]==0u);
+                ARIADNE_TESTING_PROVE(out[count]==0u);
+                ARIADNE_TESTING_PROVE(out[count+1u]==0u);
                 const auto [owned_q,owned_r]=
                     divrem_limb(value,divisor);
-                ARIADNE_TEST_ASSERT(compare(owned_q,BigUnsigned(out))==0);
-                ARIADNE_TEST_ASSERT(owned_r==limb_remainder);
+                ARIADNE_TESTING_PROVE(compare(owned_q,BigUnsigned(out))==0);
+                ARIADNE_TESTING_PROVE(owned_r==limb_remainder);
             }
         }
     }
@@ -2252,7 +2257,7 @@ void TestBigUnsigned::test_division_limb()
     // dispatch boundary at 7/8/9 limbs; use independent B61
     // source-keyed TSV for zero, saturated, sparse and random dividends.
     // Also guard the existing 63/64/65-limb quotient pi1 boundary.
-    LimbDivisionGolden golden_b61(ARIADNE_BIG_UNSIGNED_B61_ORACLE_PATH);
+    LimbDivisionGolden golden_b61(ARIADNE_BIG_UNSIGNED_B61_ORACLE_PATH,*this);
     std::mt19937_64 b61_engine(0xB610D1A6ULL);
     for (const std::size_t count:
             {0u,1u,7u,8u,9u,15u,16u,31u,32u,63u,64u,65u,128u}) {
@@ -2288,10 +2293,10 @@ void TestBigUnsigned::test_division_limb()
                 const BigUnsigned value(words);
                 const BigUnsigned by(divisor);
                 const auto [full_q,full_r]=divrem(value,by);
-                ARIADNE_TEST_ASSERT(full_r.size()<=1u);
+                ARIADNE_TESTING_PROVE(full_r.size()<=1u);
                 golden_b61.check(count,divisor,mode,value,full_q,
                                  full_r.limb(0u));
-                ARIADNE_TEST_ASSERT(compare(rem(value,by),full_r)==0);
+                ARIADNE_TESTING_PROVE(compare(rem(value,by),full_r)==0);
             }
         }
     }
@@ -2317,9 +2322,9 @@ void TestBigUnsigned::test_division_limb()
     } catch (std::length_error const&) {
         short_threw=true;
     }
-    ARIADNE_TEST_ASSERT(zero_threw && owning_zero_threw && short_threw);
+    ARIADNE_TESTING_PROVE(zero_threw && owning_zero_threw && short_threw);
     for (auto limb:output) {
-        ARIADNE_TEST_ASSERT(limb==max);
+        ARIADNE_TESTING_PROVE(limb==max);
     }
 }
 
@@ -2329,10 +2334,10 @@ void TestBigUnsigned::test_exact_division_limb()
     using Limb=BigUnsigned::Limb;
     const Limb max=std::numeric_limits<Limb>::max();
     // Fixed values independent of the native product and division paths.
-    ARIADNE_TEST_ASSERT(to_decimal(quot_exact(
+    ARIADNE_TESTING_PROVE(to_decimal(quot_exact(
         from_decimal("340282366920938463463374607431768211455"),BigUnsigned(Limb{3})))
         =="113427455640312821154458202477256070485");
-    ARIADNE_TEST_ASSERT(to_decimal(quot_exact(
+    ARIADNE_TESTING_PROVE(to_decimal(quot_exact(
         from_decimal("36893488147419103230"),BigUnsigned(max)))=="2");
     std::mt19937_64 random(0x22E1AC7ULL);
     std::vector<Limb> divisors={1u,2u,3u,6u,7u,10u,12u,17u,65537u,max,max-1u};
@@ -2388,8 +2393,8 @@ void TestBigUnsigned::test_exact_division_limb()
                 check_against_precomputed_hex(
                     quot_exact(source,BigUnsigned(divisor)),quotient_hex);
                 check_against_precomputed_hex(source,dividend_hex);
-                ARIADNE_TEST_ASSERT(compare(source,source_before)==0);
-                ARIADNE_TEST_ASSERT(output[count]==0u && output[count+1u]==0u);
+                ARIADNE_TESTING_PROVE(compare(source,source_before)==0);
+                ARIADNE_TESTING_PROVE(output[count]==0u && output[count+1u]==0u);
             }
         }
     }
@@ -2404,12 +2409,12 @@ void TestBigUnsigned::test_exact_division_limb()
     catch (std::domain_error const&) { zero_threw=true; }
     try { BigUnsigned::divexact_limb_into(input,3u,std::span(output).first(1u)); }
     catch (std::length_error const&) { short_threw=true; }
-    ARIADNE_TEST_ASSERT(zero_threw && short_threw && output[0u]==max && output[1u]==max);
+    ARIADNE_TESTING_PROVE(zero_threw && short_threw && output[0u]==max && output[1u]==max);
     for (Limb divisor:std::array<Limb,4u>{2u,3u,6u,max}) {
         bool inexact_threw=false;
         try { BigUnsigned::divexact_limb_into(input,divisor,output); }
         catch (std::domain_error const&) { inexact_threw=true; }
-        ARIADNE_TEST_ASSERT(inexact_threw);
+        ARIADNE_TESTING_PROVE(inexact_threw);
     }
 }
 
@@ -2419,10 +2424,10 @@ void TestBigUnsigned::test_product_accumulation()
     const Limb max=std::numeric_limits<Limb>::max();
     const std::array<Limb,1u> one={1u};
     std::array<Limb,2u> fixed={max,max};
-    ARIADNE_TEST_ASSERT(BigUnsigned::accumulate_product_into(one,one,fixed,false)==1u);
-    ARIADNE_TEST_ASSERT(fixed[0u]==0u && fixed[1u]==0u);
-    ARIADNE_TEST_ASSERT(BigUnsigned::accumulate_product_into(one,one,fixed,true)==1u);
-    ARIADNE_TEST_ASSERT(fixed[0u]==max && fixed[1u]==max);
+    ARIADNE_TESTING_PROVE(BigUnsigned::accumulate_product_into(one,one,fixed,false)==1u);
+    ARIADNE_TESTING_PROVE(fixed[0u]==0u && fixed[1u]==0u);
+    ARIADNE_TESTING_PROVE(BigUnsigned::accumulate_product_into(one,one,fixed,true)==1u);
+    ARIADNE_TESTING_PROVE(fixed[0u]==max && fixed[1u]==max);
 
     // Keep all 1,728 original seeded visits and their full RNG consumption.
     // Reference values and source keys are independently regenerated by
@@ -2469,8 +2474,8 @@ void TestBigUnsigned::test_product_accumulation()
                     auto output=original;
                     const Limb escaped=BigUnsigned::accumulate_product_into(
                         left.limbs(),right.limbs(),output,subtract);
-                    ARIADNE_TEST_ASSERT(escaped==static_cast<Limb>(row_escaped));
-                    ARIADNE_TEST_ASSERT(output.size()==count);
+                    ARIADNE_TESTING_PROVE(escaped==static_cast<Limb>(row_escaped));
+                    ARIADNE_TESTING_PROVE(output.size()==count);
                     check_against_precomputed_hex(BigUnsigned(output),result_hex);
                     check_against_precomputed_hex(left,lhs_hex);
                     check_against_precomputed_hex(right,rhs_hex);
@@ -2488,7 +2493,7 @@ void TestBigUnsigned::test_product_accumulation()
     fixed={7u,11u};
     try { (void)BigUnsigned::accumulate_product_into(one,one,std::span(fixed).first(1u),false); }
     catch (std::length_error const&) { short_threw=true; }
-    ARIADNE_TEST_ASSERT(short_threw && fixed[0u]==7u && fixed[1u]==11u);
+    ARIADNE_TESTING_PROVE(short_threw && fixed[0u]==7u && fixed[1u]==11u);
 }
 
 void TestBigUnsigned::test_division()
@@ -2500,13 +2505,13 @@ void TestBigUnsigned::test_division()
     const BigUnsigned radix_squared(
         std::array<std::uint64_t,3>{0u,0u,1u});
     const auto [q0,r0]=divrem(zero,radix);
-    ARIADNE_TEST_ASSERT(q0.is_zero() && r0.is_zero());
+    ARIADNE_TESTING_PROVE(q0.is_zero() && r0.is_zero());
     const auto [q1,r1]=divrem(one,radix);
-    ARIADNE_TEST_ASSERT(q1.is_zero() && compare(r1,one)==0);
+    ARIADNE_TESTING_PROVE(q1.is_zero() && compare(r1,one)==0);
     const auto [q2,r2]=divrem(radix,radix);
-    ARIADNE_TEST_ASSERT(compare(q2,one)==0 && r2.is_zero());
+    ARIADNE_TESTING_PROVE(compare(q2,one)==0 && r2.is_zero());
     const auto [q3,r3]=divrem(radix_squared,radix);
-    ARIADNE_TEST_ASSERT(compare(q3,radix)==0 && r3.is_zero());
+    ARIADNE_TESTING_PROVE(compare(q3,radix)==0 && r3.is_zero());
 
     std::array<std::ifstream,6u> b140_general;
     for (std::size_t part=0u;part<b140_general.size();++part) {
@@ -2561,10 +2566,10 @@ void TestBigUnsigned::test_division()
         check_against_precomputed_hex(actual_r,remainder_hex);
         check_against_precomputed_hex(quot(dividend,divisor),quotient_hex);
         check_against_precomputed_hex(rem(dividend,divisor),remainder_hex);
-        ARIADNE_TEST_ASSERT(compare(quot(dividend,divisor),actual_q)==0);
-        ARIADNE_TEST_ASSERT(compare(rem(dividend,divisor),actual_r)==0);
-        ARIADNE_TEST_ASSERT(compare(actual_r,divisor)<0);
-        ARIADNE_TEST_ASSERT(
+        ARIADNE_TESTING_PROVE(compare(quot(dividend,divisor),actual_q)==0);
+        ARIADNE_TESTING_PROVE(compare(rem(dividend,divisor),actual_r)==0);
+        ARIADNE_TESTING_PROVE(compare(actual_r,divisor)<0);
+        ARIADNE_TESTING_PROVE(
             compare(add(mul(actual_q,divisor),actual_r),dividend)==0);
 
         const auto needed=BigUnsigned::divrem_scratch_limbs(
@@ -2580,12 +2585,12 @@ void TestBigUnsigned::test_division()
         check_against_precomputed_hex(BigUnsigned(qout),quotient_hex);
         check_against_precomputed_hex(BigUnsigned(rout),remainder_hex);
         for (std::size_t i=dividend.size();i<qout.size();++i)
-            ARIADNE_TEST_ASSERT(qout[i]==0u);
+            ARIADNE_TESTING_PROVE(qout[i]==0u);
         for (std::size_t i=std::min(dividend.size(),divisor.size());
                 i<rout.size();++i)
-            ARIADNE_TEST_ASSERT(rout[i]==0u);
-        ARIADNE_TEST_ASSERT(guards.front()==max);
-        ARIADNE_TEST_ASSERT(guards.back()==max);
+            ARIADNE_TESTING_PROVE(rout[i]==0u);
+        ARIADNE_TESTING_PROVE(guards.front()==max);
+        ARIADNE_TESTING_PROVE(guards.back()==max);
         check_against_precomputed_hex(dividend,dividend_hex);
         check_against_precomputed_hex(divisor,divisor_hex);
     }
@@ -2651,7 +2656,7 @@ void TestBigUnsigned::test_division()
                     check_against_precomputed_hex(both_r,remainder_hex);
                     check_against_precomputed_hex(quot(dividend,divisor),quotient_hex);
                     check_against_precomputed_hex(rem(dividend,divisor),remainder_hex);
-                    ARIADNE_TEST_ASSERT(compare(both_r,divisor)<0);
+                    ARIADNE_TESTING_PROVE(compare(both_r,divisor)<0);
                     check_against_precomputed_hex(dividend,dividend_hex);
                     const std::size_t needed=
                         BigUnsigned::divrem_scratch_limbs(
@@ -2668,15 +2673,15 @@ void TestBigUnsigned::test_division()
                             storage.data()+1u,needed));
                     check_against_precomputed_hex(BigUnsigned(qwords),quotient_hex);
                     check_against_precomputed_hex(BigUnsigned(rwords),remainder_hex);
-                    ARIADNE_TEST_ASSERT(
+                    ARIADNE_TESTING_PROVE(
                         qwords[dividend.size()]==0u &&
                         qwords[dividend.size()+1u]==0u);
                     const std::size_t m=
                         std::min(dividend.size(),divisor.size());
-                    ARIADNE_TEST_ASSERT(rwords[m]==0u &&
+                    ARIADNE_TESTING_PROVE(rwords[m]==0u &&
                                         rwords[m+1u]==0u);
-                    ARIADNE_TEST_ASSERT(storage.front()==max);
-                    ARIADNE_TEST_ASSERT(storage.back()==max);
+                    ARIADNE_TESTING_PROVE(storage.front()==max);
+                    ARIADNE_TESTING_PROVE(storage.back()==max);
                 }
             }
         }
@@ -2781,12 +2786,12 @@ void TestBigUnsigned::test_division()
                         workspace.data()+1u,needed));
                 check_against_precomputed_hex(BigUnsigned(qwords),quotient_hex);
                 check_against_precomputed_hex(BigUnsigned(rwords),remainder_hex);
-                ARIADNE_TEST_ASSERT(qwords[dividend.size()]==0u);
-                ARIADNE_TEST_ASSERT(qwords[dividend.size()+1u]==0u);
-                ARIADNE_TEST_ASSERT(rwords[divisor.size()]==0u);
-                ARIADNE_TEST_ASSERT(rwords[divisor.size()+1u]==0u);
-                ARIADNE_TEST_ASSERT(workspace.front()==max);
-                ARIADNE_TEST_ASSERT(workspace.back()==max);
+                ARIADNE_TESTING_PROVE(qwords[dividend.size()]==0u);
+                ARIADNE_TESTING_PROVE(qwords[dividend.size()+1u]==0u);
+                ARIADNE_TESTING_PROVE(rwords[divisor.size()]==0u);
+                ARIADNE_TESTING_PROVE(rwords[divisor.size()+1u]==0u);
+                ARIADNE_TESTING_PROVE(workspace.front()==max);
+                ARIADNE_TESTING_PROVE(workspace.back()==max);
             }
         }
     }
@@ -2828,9 +2833,9 @@ void TestBigUnsigned::test_division()
             numerator.size(),denominator.size());
         if (denominator.size()>=2u &&
                 numerator.size()>=denominator.size())
-            ARIADNE_TEST_ASSERT(needed==
+            ARIADNE_TESTING_PROVE(needed==
                 numerator.size()+denominator.size()+1u);
-        ARIADNE_TEST_ASSERT(compare(rvalue,denominator)<0);
+        ARIADNE_TESTING_PROVE(compare(rvalue,denominator)<0);
         check_against_precomputed_hex(numerator,a_hex);
         check_against_precomputed_hex(denominator,b_hex);
     };
@@ -2918,9 +2923,9 @@ void TestBigUnsigned::test_division()
                     numerator.size(),denominator.size());
                 if (denominator.size()>=2u &&
                     numerator.size()>=denominator.size())
-                    ARIADNE_TEST_ASSERT(needed==
+                    ARIADNE_TESTING_PROVE(needed==
                         numerator.size()+denominator.size()+1u);
-                ARIADNE_TEST_ASSERT(compare(rvalue,denominator)<0);
+                ARIADNE_TESTING_PROVE(compare(rvalue,denominator)<0);
                 check_against_precomputed_hex(numerator,input_hex);
             }
         }
@@ -2980,7 +2985,7 @@ void TestBigUnsigned::test_division()
             quot(numerator,denominator),quotient_hex);
         check_against_precomputed_hex(
             rem(numerator,denominator),remainder_hex);
-        ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
+        ARIADNE_TESTING_PROVE(compare(native_r,denominator)<0);
 
         // The public joint-output contract still requires the same
         // scratch size and clears surplus output limbs. This fast path
@@ -2996,13 +3001,13 @@ void TestBigUnsigned::test_division()
         check_against_precomputed_hex(BigUnsigned(qout),quotient_hex);
         check_against_precomputed_hex(BigUnsigned(rout),remainder_hex);
         for (const auto word:guards) {
-            ARIADNE_TEST_ASSERT(word==max);
+            ARIADNE_TESTING_PROVE(word==max);
         }
         for (std::size_t i=numerator.size();i<qout.size();++i) {
-            ARIADNE_TEST_ASSERT(qout[i]==0u);
+            ARIADNE_TESTING_PROVE(qout[i]==0u);
         }
         for (std::size_t i=denominator.size();i<rout.size();++i) {
-            ARIADNE_TEST_ASSERT(rout[i]==0u);
+            ARIADNE_TESTING_PROVE(rout[i]==0u);
         }
     }
 
@@ -3090,7 +3095,7 @@ void TestBigUnsigned::test_division()
                 quot(numerator,denominator),quotient_hex);
             check_against_precomputed_hex(
                 rem(numerator,denominator),remainder_hex);
-            ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
+            ARIADNE_TESTING_PROVE(compare(native_r,denominator)<0);
         }
     }
 
@@ -3157,7 +3162,7 @@ void TestBigUnsigned::test_division()
             quot(numerator,denominator),quotient_hex);
         check_against_precomputed_hex(
             rem(numerator,denominator),remainder_hex);
-        ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
+        ARIADNE_TESTING_PROVE(compare(native_r,denominator)<0);
     }
 
     for (std::size_t part=0u;part<b143_b29.size();++part) {
@@ -3191,8 +3196,8 @@ void TestBigUnsigned::test_division()
         check_against_precomputed_hex(native_r,remainder_hex);
         check_against_precomputed_hex(quot(numerator,denominator),quotient_hex);
         check_against_precomputed_hex(rem(numerator,denominator),remainder_hex);
-        ARIADNE_TEST_ASSERT(compare(native_r,denominator)<0);
-        ARIADNE_TEST_ASSERT(compare(
+        ARIADNE_TESTING_PROVE(compare(native_r,denominator)<0);
+        ARIADNE_TESTING_PROVE(compare(
             add(mul(native_q,denominator),native_r),numerator)==0);
         return std::pair<std::string,std::string>{quotient_hex,remainder_hex};
     };
@@ -3238,13 +3243,13 @@ void TestBigUnsigned::test_division()
                 check_against_precomputed_hex(BigUnsigned(qout),expected.first);
                 check_against_precomputed_hex(BigUnsigned(rout),expected.second);
                 for (std::size_t i=numerator.size();i<qout.size();++i)
-                    ARIADNE_TEST_ASSERT(qout[i]==0u);
+                    ARIADNE_TESTING_PROVE(qout[i]==0u);
                 const std::size_t rem_count=
                     std::min(numerator.size(),denominator.size());
                 for (std::size_t i=rem_count;i<rout.size();++i)
-                    ARIADNE_TEST_ASSERT(rout[i]==0u);
-                ARIADNE_TEST_ASSERT(guards.front()==max);
-                ARIADNE_TEST_ASSERT(guards.back()==max);
+                    ARIADNE_TESTING_PROVE(rout[i]==0u);
+                ARIADNE_TESTING_PROVE(guards.front()==max);
+                ARIADNE_TESTING_PROVE(guards.back()==max);
             }
         }
     }
@@ -3308,8 +3313,8 @@ void TestBigUnsigned::test_division()
                 quot(dividend_value,divisor_value),quotient_hex);
             check_against_precomputed_hex(
                 rem(dividend_value,divisor_value),remainder_hex);
-            ARIADNE_TEST_ASSERT(compare(native_r,divisor_value)<0);
-            ARIADNE_TEST_ASSERT(compare(
+            ARIADNE_TESTING_PROVE(compare(native_r,divisor_value)<0);
+            ARIADNE_TESTING_PROVE(compare(
                 add(mul(native_q,divisor_value),native_r),
                 dividend_value)==0);
         }
@@ -3329,9 +3334,9 @@ void TestBigUnsigned::test_division()
                 BigUnsigned(std::array<std::uint64_t,2>{max,max}),
                 BigUnsigned(std::array<std::uint64_t,5>{0u,0u,0u,0u,1u})}) {
             const auto both=divrem(numerator,denominator);
-            ARIADNE_TEST_ASSERT(compare(
+            ARIADNE_TESTING_PROVE(compare(
                 quot(numerator,denominator),both.first)==0);
-            ARIADNE_TEST_ASSERT(compare(
+            ARIADNE_TESTING_PROVE(compare(
                 rem(numerator,denominator),both.second)==0);
         }
     }
@@ -3356,7 +3361,7 @@ void TestBigUnsigned::test_division()
     catch (std::domain_error const&) { quotient_zero_threw=true; }
     try { (void)rem(BigUnsigned(dividend),zero); }
     catch (std::domain_error const&) { remainder_zero_threw=true; }
-    ARIADNE_TEST_ASSERT(quotient_zero_threw && remainder_zero_threw);
+    ARIADNE_TESTING_PROVE(quotient_zero_threw && remainder_zero_threw);
     try {
         BigUnsigned::divrem_into(
             dividend,divisor,std::span(qout).first(2u),rout,scratch);
@@ -3369,17 +3374,17 @@ void TestBigUnsigned::test_division()
         BigUnsigned::divrem_into(
             dividend,divisor,qout,rout,std::span(scratch).first(needed-1u));
     } catch (std::length_error const&) { short_scratch=true; }
-    ARIADNE_TEST_ASSERT(zero_threw && owning_zero_threw &&
+    ARIADNE_TESTING_PROVE(zero_threw && owning_zero_threw &&
                         short_quotient && short_remainder && short_scratch);
-    for (auto digit:qout) ARIADNE_TEST_ASSERT(digit==max);
-    for (auto digit:rout) ARIADNE_TEST_ASSERT(digit==max);
-    for (auto digit:scratch) ARIADNE_TEST_ASSERT(digit==max);
+    for (auto digit:qout) ARIADNE_TESTING_PROVE(digit==max);
+    for (auto digit:rout) ARIADNE_TESTING_PROVE(digit==max);
+    for (auto digit:scratch) ARIADNE_TESTING_PROVE(digit==max);
     bool overflow_threw=false;
     try {
         (void)BigUnsigned::divrem_scratch_limbs(
             std::numeric_limits<std::size_t>::max(),2u);
     } catch (std::length_error const&) { overflow_threw=true; }
-    ARIADNE_TEST_ASSERT(overflow_threw);
+    ARIADNE_TESTING_PROVE(overflow_threw);
 }
 
 
@@ -3387,10 +3392,10 @@ void TestBigUnsigned::test_gcd_decimal()
 {
     const auto zero=BigUnsigned{};
     const auto one=BigUnsigned(std::uint64_t{1});
-    ARIADNE_TEST_ASSERT(gcd(zero,zero).is_zero());
-    ARIADNE_TEST_ASSERT(compare(gcd(zero,one),one)==0);
-    ARIADNE_TEST_ASSERT(compare(gcd(one,zero),one)==0);
-    ARIADNE_TEST_ASSERT(compare(
+    ARIADNE_TESTING_PROVE(gcd(zero,zero).is_zero());
+    ARIADNE_TESTING_PROVE(compare(gcd(zero,one),one)==0);
+    ARIADNE_TESTING_PROVE(compare(gcd(one,zero),one)==0);
+    ARIADNE_TESTING_PROVE(compare(
         gcd(BigUnsigned(std::uint64_t{48}),BigUnsigned(std::uint64_t{18})),
         BigUnsigned(std::uint64_t{6}))==0);
     // R6: original 7 widths x 4 offsets x both operand orders.
@@ -3577,8 +3582,8 @@ void TestBigUnsigned::test_gcd_decimal()
             const BigUnsigned power=shift_left(one,64u*count-2u);
             const BigUnsigned left=mul(sub(power,one),factor);
             const BigUnsigned right=mul(add(power,one),factor);
-            ARIADNE_TEST_ASSERT(compare(gcd(left,right),factor)==0);
-            ARIADNE_TEST_ASSERT(compare(gcd(right,left),factor)==0);
+            ARIADNE_TESTING_PROVE(compare(gcd(left,right),factor)==0);
+            ARIADNE_TESTING_PROVE(compare(gcd(right,left),factor)==0);
             for (unsigned trial=0u;trial<4u;++trial) {
                 std::vector<std::uint64_t> x(count),y(count);
                 for (auto& word:x) word=random();
@@ -3596,21 +3601,21 @@ void TestBigUnsigned::test_gcd_decimal()
     // must select a smaller power during its later recursive calls.
     const BigUnsigned cutoff32_boundary=pow(BigUnsigned(std::uint64_t{10}),std::uint64_t{1152});
     const std::string cutoff32_decimal="1"+std::string(1152u,'0');
-    ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(cutoff32_boundary),cutoff32_decimal);
-    ARIADNE_TEST_EQUALS(to_decimal_cutoff16_diagnostic(cutoff32_boundary),cutoff32_decimal);
+    ARIADNE_TESTING_EXPECT_EQUAL(to_decimal_cutoff32_diagnostic(cutoff32_boundary),cutoff32_decimal);
+    ARIADNE_TESTING_EXPECT_EQUAL(to_decimal_cutoff16_diagnostic(cutoff32_boundary),cutoff32_decimal);
     // The root split uses 10^1152. Its low block 10^1000 is larger
     // than 32 limbs and splits again while preserving all 1152 digits.
     const BigUnsigned padded_low=add(
         pow(BigUnsigned(std::uint64_t{10}),std::uint64_t{2304}),
         pow(BigUnsigned(std::uint64_t{10}),std::uint64_t{1000}));
     const std::string padded_decimal="1"+std::string(1303u,'0')+"1"+std::string(1000u,'0');
-    ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(padded_low),padded_decimal);
-    ARIADNE_TEST_ASSERT(to_decimal(zero)=="0");
-    ARIADNE_TEST_ASSERT(to_decimal(one)=="1");
-    ARIADNE_TEST_ASSERT(to_decimal(from_decimal("000"))=="0");
-    ARIADNE_TEST_ASSERT(to_decimal(from_decimal("00018446744073709551616"))
+    ARIADNE_TESTING_EXPECT_EQUAL(to_decimal_cutoff32_diagnostic(padded_low),padded_decimal);
+    ARIADNE_TESTING_PROVE(to_decimal(zero)=="0");
+    ARIADNE_TESTING_PROVE(to_decimal(one)=="1");
+    ARIADNE_TESTING_PROVE(to_decimal(from_decimal("000"))=="0");
+    ARIADNE_TESTING_PROVE(to_decimal(from_decimal("00018446744073709551616"))
                         =="18446744073709551616");
-    ARIADNE_TEST_ASSERT(to_decimal(from_decimal(
+    ARIADNE_TESTING_PROVE(to_decimal(from_decimal(
         "340282366920938463463374607431768211455"))
         =="340282366920938463463374607431768211455");
 
@@ -3618,7 +3623,7 @@ void TestBigUnsigned::test_gcd_decimal()
         bool threw=false;
         try { (void)from_decimal(bad); }
         catch (std::invalid_argument const&) { threw=true; }
-        ARIADNE_TEST_ASSERT(threw);
+        ARIADNE_TESTING_PROVE(threw);
     }
 
     std::mt19937_64 engine(0xB16B00B5ULL);
@@ -3667,10 +3672,10 @@ void TestBigUnsigned::test_gcd_decimal()
         check_against_precomputed_hex(gcd(x,y),expected_gcd);
         check_against_precomputed_hex(gcd(y,x),expected_gcd);
         const auto decimal=to_decimal(x);
-        ARIADNE_TEST_ASSERT(compare(from_decimal(decimal),x)==0);
-        ARIADNE_TEST_ASSERT(decimal.front()>='0' && decimal.front()<='9');
-        if (!x.is_zero()) ARIADNE_TEST_ASSERT(decimal.front()!='0');
-        ARIADNE_TEST_ASSERT(decimal==expected_decimal);
+        ARIADNE_TESTING_PROVE(compare(from_decimal(decimal),x)==0);
+        ARIADNE_TESTING_PROVE(decimal.front()>='0' && decimal.front()<='9');
+        if (!x.is_zero()) ARIADNE_TESTING_PROVE(decimal.front()!='0');
+        ARIADNE_TESTING_PROVE(decimal==expected_decimal);
         check_against_precomputed_hex(x,source_x);
         check_against_precomputed_hex(y,source_y);
     }
@@ -3706,11 +3711,11 @@ void TestBigUnsigned::test_gcd_decimal()
                 "Missing or unordered B131 randomized decimal TSV row");
         const auto parsed=from_decimal(digits);
         check_against_precomputed_hex(parsed,expected_hex);
-        ARIADNE_TEST_ASSERT(to_decimal(parsed)==
+        ARIADNE_TESTING_PROVE(to_decimal(parsed)==
             to_decimal(from_decimal(to_decimal(parsed))));
-        ARIADNE_TEST_ASSERT(to_decimal(parsed)==expected_decimal);
-        ARIADNE_TEST_EQUALS(to_decimal_cutoff16_diagnostic(parsed),expected_decimal);
-        ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(parsed),expected_decimal);
+        ARIADNE_TESTING_PROVE(to_decimal(parsed)==expected_decimal);
+        ARIADNE_TESTING_EXPECT_EQUAL(to_decimal_cutoff16_diagnostic(parsed),expected_decimal);
+        ARIADNE_TESTING_EXPECT_EQUAL(to_decimal_cutoff32_diagnostic(parsed),expected_decimal);
     }
     std::string b131_extra;
     if (b131_decimal_random >> b131_extra)
@@ -3745,14 +3750,14 @@ void TestBigUnsigned::test_gcd_decimal()
                 "Wrong source in B132 structured decimal TSV row");
         const BigUnsigned parsed=from_decimal(input);
         check_against_precomputed_hex(parsed,reference[1u]);
-        ARIADNE_TEST_ASSERT(to_decimal(parsed)==reference[2u]);
+        ARIADNE_TESTING_PROVE(to_decimal(parsed)==reference[2u]);
         return parsed;
     };
     const auto check_long_parse_fixture_source=[&]() {
         const auto reference=read_a21();
         const BigUnsigned parsed=from_decimal(reference[0u]);
         check_against_precomputed_hex(parsed,reference[1u]);
-        ARIADNE_TEST_ASSERT(to_decimal(parsed)==reference[2u]);
+        ARIADNE_TESTING_PROVE(to_decimal(parsed)==reference[2u]);
         return parsed;
     };
     // Direct result construction may reserve more limbs than the
@@ -3770,7 +3775,7 @@ void TestBigUnsigned::test_gcd_decimal()
                 bool threw=false;
                 try { (void)from_decimal(input); }
                 catch (std::invalid_argument const&) { threw=true; }
-                ARIADNE_TEST_ASSERT(threw);
+                ARIADNE_TESTING_PROVE(threw);
             }
         }
     }
@@ -3848,7 +3853,7 @@ void TestBigUnsigned::test_gcd_decimal()
             const BigUnsigned parsed=check_long_parse_fixture_source();
             const BigUnsigned expected=add(
                 shift_left(one,bits-1u),BigUnsigned(offset));
-            ARIADNE_TEST_ASSERT(compare(parsed,expected)==0);
+            ARIADNE_TESTING_PROVE(compare(parsed,expected)==0);
         }
     }
     if (b132_ordinal!=484u)
@@ -3866,7 +3871,7 @@ void TestBigUnsigned::test_gcd_decimal()
         bool threw=false;
         try { (void)from_decimal(invalid); }
         catch (std::invalid_argument const&) { threw=true; }
-        ARIADNE_TEST_ASSERT(threw);
+        ARIADNE_TESTING_PROVE(threw);
     }
 
     // B133: all decimal-formatting cases use a source-keyed independent
@@ -3890,8 +3895,8 @@ void TestBigUnsigned::test_gcd_decimal()
                 "Missing or unordered B133 decimal formatting TSV row");
         check_against_precomputed_hex(native,source_hex);
         const std::string decimal=to_decimal(native);
-        ARIADNE_TEST_ASSERT(decimal==expected_decimal);
-        ARIADNE_TEST_ASSERT(
+        ARIADNE_TESTING_PROVE(decimal==expected_decimal);
+        ARIADNE_TESTING_PROVE(
             compare(from_decimal(decimal),native)==0);
     };
     // B25: independent B133 oracle regression around the 8/9-limb
@@ -4266,7 +4271,7 @@ void TestBigUnsigned::test_randomized()
             throw std::runtime_error("Missing or unordered B123-B130 randomized row");
         check_against_precomputed_hex(x,xhex);
         check_against_precomputed_hex(y,yhex);
-        ARIADNE_TEST_ASSERT(compare(x,y)==ref_cmp);
+        ARIADNE_TESTING_PROVE(compare(x,y)==ref_cmp);
         check_against_precomputed_hex(add(x,y),sumhex);
         if (ref_cmp>=0) {
             if (diffhex=="-")
@@ -4284,7 +4289,7 @@ void TestBigUnsigned::test_randomized()
             BigUnsigned::LimbView(na.data(),n),bits,shifted_words);
         check_against_precomputed_hex(BigUnsigned(BigUnsigned::LimbView(
             shifted_words.data(),shifted_used)),rhex);
-        ARIADNE_TEST_ASSERT(std::all_of(shifted_words.begin()+shifted_used,
+        ARIADNE_TESTING_PROVE(std::all_of(shifted_words.begin()+shifted_used,
             shifted_words.end(),[](auto digit){return digit==0u;}));
         check_against_precomputed_hex(x,xhex);
         check_against_precomputed_hex(y,yhex);
@@ -4324,23 +4329,23 @@ void TestBigUnsigned::test_big_unsigned_contracts_and_controls() {
     std::array<Limb,2u> output={91u,92u};
     std::array<Limb,2u> remainder={81u,82u};
     const auto empty=BigUnsigned::MutableLimbView{};
-    ARIADNE_TEST_FAIL(BigUnsigned::add_into(a.limbs(),b.limbs(),empty));
-    ARIADNE_TEST_FAIL(BigUnsigned::sub_into(a.limbs(),b.limbs(),empty));
-    ARIADNE_TEST_EQUALS(output[0u],91u);
-    ARIADNE_TEST_FAIL(BigUnsigned::add_shifted(a.limbs(),64u,b.limbs(),0u));
-    ARIADNE_TEST_FAIL(BigUnsigned::add_shifted(a.limbs(),0u,b.limbs(),64u));
-    ARIADNE_TEST_FAIL(BigUnsigned::sub_shifted(a.limbs(),64u,b.limbs(),0u));
-    ARIADNE_TEST_FAIL(BigUnsigned::sub_shifted(a.limbs(),0u,b.limbs(),64u));
-    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),{},output,remainder,{}));
-    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),b.limbs(),empty,remainder,{}));
-    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(a.limbs(),b.limbs(),output,empty,{}));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::add_into(a.limbs(),b.limbs(),empty));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::sub_into(a.limbs(),b.limbs(),empty));
+    ARIADNE_TESTING_EXPECT_EQUAL(output[0u],91u);
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::add_shifted(a.limbs(),64u,b.limbs(),0u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::add_shifted(a.limbs(),0u,b.limbs(),64u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::sub_shifted(a.limbs(),64u,b.limbs(),0u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::sub_shifted(a.limbs(),0u,b.limbs(),64u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::divrem_into(a.limbs(),{},output,remainder,{}));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::divrem_into(a.limbs(),b.limbs(),empty,remainder,{}));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::divrem_into(a.limbs(),b.limbs(),output,empty,{}));
     const std::array<Limb,2u> divisor_words={2u,1u};
-    ARIADNE_TEST_FAIL(BigUnsigned::divrem_into(wide,divisor_words,output,remainder,{}));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::divrem_into(wide,divisor_words,output,remainder,{}));
     // Every preflight failure leaves both destination spans untouched.
-    ARIADNE_TEST_EQUALS(output[0u],91u);
-    ARIADNE_TEST_EQUALS(output[1u],92u);
-    ARIADNE_TEST_EQUALS(remainder[0u],81u);
-    ARIADNE_TEST_EQUALS(remainder[1u],82u);
+    ARIADNE_TESTING_EXPECT_EQUAL(output[0u],91u);
+    ARIADNE_TESTING_EXPECT_EQUAL(output[1u],92u);
+    ARIADNE_TESTING_EXPECT_EQUAL(remainder[0u],81u);
+    ARIADNE_TESTING_EXPECT_EQUAL(remainder[1u],82u);
     // Scratch contents are unspecified by the public API. Poison every
     // word: (B^2+5)/(B+3) = B-3, with remainder 14, B=2^64.
     const std::array<Limb,3u> dividend_words={5u,0u,1u};
@@ -4350,64 +4355,65 @@ void TestBigUnsigned::test_big_unsigned_contracts_and_controls() {
     std::array<Limb,6u> dirty_scratch;
     dirty_scratch.fill(std::numeric_limits<Limb>::max());
     BigUnsigned::divrem_into(dividend_words,dirty_divisor,dirty_quotient,dirty_remainder,dirty_scratch);
-    ARIADNE_TEST_EQUALS(dirty_quotient[0u],std::numeric_limits<Limb>::max()-2u);
-    ARIADNE_TEST_EQUALS(dirty_quotient[1u],0u);
-    ARIADNE_TEST_EQUALS(dirty_quotient[2u],0u);
-    ARIADNE_TEST_EQUALS(dirty_remainder[0u],14u);
-    ARIADNE_TEST_EQUALS(dirty_remainder[1u],0u);
-    ARIADNE_TEST_FAIL(BigUnsigned::mul_into_karatsuba(a.limbs(),b.limbs(),output,{},7u));
-    ARIADNE_TEST_FAIL(BigUnsigned::divrem_scratch_limbs(
+    ARIADNE_TESTING_EXPECT_EQUAL(dirty_quotient[0u],std::numeric_limits<Limb>::max()-2u);
+    ARIADNE_TESTING_EXPECT_EQUAL(dirty_quotient[1u],0u);
+    ARIADNE_TESTING_EXPECT_EQUAL(dirty_quotient[2u],0u);
+    ARIADNE_TESTING_EXPECT_EQUAL(dirty_remainder[0u],14u);
+    ARIADNE_TESTING_EXPECT_EQUAL(dirty_remainder[1u],0u);
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::mul_into_karatsuba(a.limbs(),b.limbs(),output,{},7u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::divrem_scratch_limbs(
         std::numeric_limits<std::size_t>::max(),2u));
-    ARIADNE_TEST_FAIL(BigUnsigned::divrem_scratch_limbs(
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::divrem_scratch_limbs(
         std::numeric_limits<std::size_t>::max(),std::numeric_limits<std::size_t>::max()));
-    ARIADNE_TEST_FAIL(BigUnsigned::karatsuba_scratch_limbs(10u,10u,7u));
-    ARIADNE_TEST_FAIL(BigUnsigned::karatsuba_scratch_limbs(
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::karatsuba_scratch_limbs(10u,10u,7u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(BigUnsigned::karatsuba_scratch_limbs(
         std::numeric_limits<std::size_t>::max(),1u));
-    ARIADNE_TEST_EQUALS(BigUnsigned::karatsuba_scratch_limbs(
+    ARIADNE_TESTING_EXPECT_EQUAL(BigUnsigned::karatsuba_scratch_limbs(
         std::numeric_limits<std::size_t>::max(),0u),0u);
     for (auto const& input : {BigUnsigned{},a,BigUnsigned(wide)}) {
         // 17 mod 5 = 2; (2^64+3) mod 5 = 4.
         const Limb expected=input.is_zero() ? 0u : input.size()==1u ? 2u : 4u;
-        ARIADNE_TEST_EQUALS(rem_limb_divq_diagnostic(input,b).limb(0u),expected);
-        ARIADNE_TEST_EQUALS(rem_limb_preinverse_diagnostic(input,b).limb(0u),expected);
+        ARIADNE_TESTING_EXPECT_EQUAL(rem_limb_divq_diagnostic(input,b).limb(0u),expected);
+        ARIADNE_TESTING_EXPECT_EQUAL(rem_limb_preinverse_diagnostic(input,b).limb(0u),expected);
     }
-    ARIADNE_TEST_ASSERT(compare(rem_limb_divq_diagnostic(a,BigUnsigned(wide)),a)==0);
-    ARIADNE_TEST_EQUALS(mul_short_stack_selected_diagnostic(a,b).limb(0u),85u);
-    ARIADNE_TEST_EQUALS(mul_short_stack_fused_diagnostic(a,b).limb(0u),85u);
-    ARIADNE_TEST_ASSERT(mul_short_stack_selected_diagnostic(a,BigUnsigned{}).is_zero());
-    ARIADNE_TEST_ASSERT(mul_short_stack_fused_diagnostic(BigUnsigned{},b).is_zero());
-    ARIADNE_TEST_EQUALS(square_short_symmetric_diagnostic(a).limb(0u),289u);
-    ARIADNE_TEST_ASSERT(square_short_symmetric_diagnostic(BigUnsigned{}).is_zero());
-    ARIADNE_TEST_EQUALS(to_decimal_cutoff16_diagnostic(BigUnsigned{}),std::string("0"));
-    ARIADNE_TEST_EQUALS(to_decimal_cutoff32_diagnostic(BigUnsigned{}),std::string("0"));
+    ARIADNE_TESTING_PROVE(compare(rem_limb_divq_diagnostic(a,BigUnsigned(wide)),a)==0);
+    ARIADNE_TESTING_EXPECT_EQUAL(mul_short_stack_selected_diagnostic(a,b).limb(0u),85u);
+    ARIADNE_TESTING_EXPECT_EQUAL(mul_short_stack_fused_diagnostic(a,b).limb(0u),85u);
+    ARIADNE_TESTING_PROVE(mul_short_stack_selected_diagnostic(a,BigUnsigned{}).is_zero());
+    ARIADNE_TESTING_PROVE(mul_short_stack_fused_diagnostic(BigUnsigned{},b).is_zero());
+    ARIADNE_TESTING_EXPECT_EQUAL(square_short_symmetric_diagnostic(a).limb(0u),289u);
+    ARIADNE_TESTING_PROVE(square_short_symmetric_diagnostic(BigUnsigned{}).is_zero());
+    ARIADNE_TESTING_EXPECT_EQUAL(to_decimal_cutoff16_diagnostic(BigUnsigned{}),std::string("0"));
+    ARIADNE_TESTING_EXPECT_EQUAL(to_decimal_cutoff32_diagnostic(BigUnsigned{}),std::string("0"));
 #if defined(__aarch64__) || defined(_M_ARM64)
     // CMake builds the ARM64 assembly kernel only for GNU/Clang.
     // MSVC ARM64 deliberately uses the tested portable C++20 fallback.
 #if defined(__GNUC__) || defined(__clang__)
-    ARIADNE_TEST_ASSERT(BigUnsigned::has_native_multiply());
-    ARIADNE_TEST_ASSERT(BigUnsigned::has_arm64_multiply());
+    ARIADNE_TESTING_PROVE(BigUnsigned::has_native_multiply());
+    ARIADNE_TESTING_PROVE(BigUnsigned::has_arm64_multiply());
 #else
-    ARIADNE_TEST_ASSERT(!BigUnsigned::has_native_multiply());
-    ARIADNE_TEST_ASSERT(!BigUnsigned::has_arm64_multiply());
+    ARIADNE_TESTING_PROVE(!BigUnsigned::has_native_multiply());
+    ARIADNE_TESTING_PROVE(!BigUnsigned::has_arm64_multiply());
 #endif
-    ARIADNE_TEST_ASSERT(!BigUnsigned::has_x86_64_carry_multiply());
-    ARIADNE_TEST_ASSERT(!BigUnsigned::has_x86_64_multiply());
+    ARIADNE_TESTING_PROVE(!BigUnsigned::has_x86_64_carry_multiply());
+    ARIADNE_TESTING_PROVE(!BigUnsigned::has_x86_64_multiply());
 #elif defined(__x86_64__) || defined(_M_X64)
-    ARIADNE_TEST_ASSERT(BigUnsigned::has_native_multiply());
+    ARIADNE_TESTING_PROVE(BigUnsigned::has_native_multiply());
     // The MULQ/ADCQ carry-chain kernel uses GNU-style inline assembly.
     // MSVC (including clang-cl) retains the native x86-64 kernel but
     // does not build this GNU/Clang-only carry variant.
 #if (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
-    ARIADNE_TEST_ASSERT(BigUnsigned::has_x86_64_carry_multiply());
+    ARIADNE_TESTING_PROVE(BigUnsigned::has_x86_64_carry_multiply());
 #else
-    ARIADNE_TEST_ASSERT(!BigUnsigned::has_x86_64_carry_multiply());
+    ARIADNE_TESTING_PROVE(!BigUnsigned::has_x86_64_carry_multiply());
 #endif
-    ARIADNE_TEST_ASSERT(BigUnsigned::has_x86_64_multiply());
+    ARIADNE_TESTING_PROVE(BigUnsigned::has_x86_64_multiply());
 #endif
 }
 
-int main()
+int main(int argc, char** argv)
 {
-    ARIADNE_TEST_CLASS(BigUnsigned,TestBigUnsigned());
-    return ARIADNE_TEST_FAILURES;
+    Ariadne::Testing::Suite suite("big_unsigned");
+    TestBigUnsigned::add_cases(suite);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }

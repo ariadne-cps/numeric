@@ -558,3 +558,35 @@ Configuration and Utility consistency checks. The checks cover the
 currently pinned Git commits rather than just whether the target exists.
 The actual Testing gitlink stays unchanged; no numerical tests or
 oracles are modified.
+
+## 2026-11-01: Migrate BigUnsigned tests to Ariadne Testing
+
+Migrated `test_big_unsigned` to a ContextFixture-based Ariadne Testing
+suite. The original 16 functional groups remain independently registered
+in their exact previous order: contracts and controls, storage, boundaries,
+common-prefix subtraction, randomized, multiplication, limb division,
+exact limb division, product accumulation, division, decimal GCD,
+views/scratch, multiplication kernel paths, power, square root,
+and short owned division. The static `TestBigUnsigned::add_cases`
+registers the fixture methods; all runtime test bodies remain in the
+fixture.
+
+Preserved all 265 source assertions, 30 equality expectations and 16
+expected exceptions. The migrated macros are 264 fixture `PROVE` checks,
+one explicit-context `PROVE_CTX` in the nested limb golden reader, 30
+`EXPECT_EQUAL` checks, and 16 `EXPECT_EXCEPTION` checks. No expected
+numeric value, arithmetic expression, TSV oracle, row-completeness
+condition, or execution sequence was altered. The assertion-bearing
+hexadecimal, div128, power, and GCD golden helpers become instance
+methods so their checks report into the active case context. The nested
+limb-division reader receives an explicit owner fixture reference and
+uses the same context, without relying on a global reporter.
+
+CTest still invokes the executable with `--concise`, which the new
+`run_suite` now handles. CMake links `test_big_unsigned` against
+`ariadne-testing` rather than the legacy macro include path.
+Source-level conservation checks verified the registration and assertion
+counts, the fixture helper wiring, and removal of old runtime macros.
+No local compilation was possible. The complete Numeric CI matrix
+(Ubuntu, macOS, Windows, Sanitizers, Coverage) remains an acceptance
+gate, and failures must be classified before any oracle modification.
