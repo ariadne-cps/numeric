@@ -434,7 +434,18 @@ void TestReal::test_transcendental() {
     expect_certified_value(exp(Real(0)), Dyadic(1.0_dy), "exp(Real(0)) certified within 2^-40 of 1.0_dy");
     expect_certified_value(log(Real(1)), Dyadic(0.0_dy), "log(Real(1)) certified within 2^-40 of 0.0_dy");
 
-    ARIADNE_TESTING_EXPECT_WITHIN(sqrt(x),sqrt(ax),eps);
+    // Work at the same original eps, but resolve the error against a
+    // certified enclosure of sqrt(x) rather than an indeterminate Real
+    // comparison close to the tolerance threshold.
+    {
+        [[maybe_unused]] auto comparison_scope =
+            this->ctx().scope("sqrt(x) within eps of sqrt(ax)");
+        const Dyadic sqrt_approximation(sqrt(ax).raw());
+        const DyadicBounds sqrt_enclosure =
+            sqrt(x).compute(Accuracy(128_bits)).get();
+        ARIADNE_TESTING_PROVE(sqrt_enclosure.lower_raw() >= sqrt_approximation - eps);
+        ARIADNE_TESTING_PROVE(sqrt_enclosure.upper_raw() <= sqrt_approximation + eps);
+    }
     ARIADNE_TESTING_EXPECT_WITHIN(exp(x),exp(ax),8*eps);
     ARIADNE_TESTING_EXPECT_WITHIN(log(x),log(ax),eps);
     ARIADNE_TESTING_EXPECT_WITHIN(sin(x),sin(ax),2*eps);

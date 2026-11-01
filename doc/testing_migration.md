@@ -392,3 +392,26 @@ Sanitizers, and Coverage CI matrix; CI success is not inferred from the
 static source audit. In particular, the bound-width expectation is a
 numerical property that must be checked at runtime, not weakened merely
 to silence an inconclusive outcome.
+
+## 2026-11-01: Remove deprecated Real(FloatDP) and certify sqrt tolerance
+
+Deleted the public `Real(FloatDP)` constructor declaration from
+`include/numeric/real.hpp` and its implementation from `src/real.cpp`.
+This intentionally removes a deprecated API; callers should use
+`Real(Dyadic(float_value))` or `Real(ExactDouble(float_value.get_d()))`
+when preserving the exact binary64 value. Existing
+`numeric_cast<Real>(FloatDP)` remains supported by its already explicit
+ExactDouble specialization, rather than via the removed constructor.
+
+The new certified-value tests fixed the nondecidable-equality inconclusive
+cases, but `test_real / transcendental` remained inconclusive on the
+original `sqrt(x)` versus `sqrt(ax)` tolerance check. The general
+`EXPECT_WITHIN` observes a Real-valued distance and may return unknown
+when its interval overlaps the exact boundary. The sqrt case now evaluates
+the FloatDPApproximation `sqrt(ax)` into its *exact* dyadic raw value and
+computes certified 128-bit-accuracy dyadic bounds for `sqrt(x)`. It checks
+both enclosure endpoints are within the **same original eps** of that raw
+reference; no tolerance increase, ignored unknown, or numeric-oracle change.
+The other six tolerance assertions are unchanged.
+
+The whole Numeric CI matrix must pass before accepting this patch.
