@@ -38,7 +38,7 @@
 #include "numeric/numeric.hpp"
 #include "numeric/dyadic.hpp"
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 using namespace std;
 using namespace Ariadne;
@@ -101,7 +101,7 @@ constexpr bool check_rounded_float_concept()
 static_assert(check_rounded_float_concept<FloatDP>());
 static_assert(check_rounded_float_concept<FloatMP>());
 
-Void test_numeric_casts()
+Void test_numeric_casts(Ariadne::Testing::Context& context)
 {
     FloatDP dp_two(2,dp);
     const MultiplePrecision mp(128_bits);
@@ -112,44 +112,44 @@ Void test_numeric_casts()
     FloatDPApproximation approximation_two(2,dp);
     double double_two=2.0;
 
-    ARIADNE_TEST_EQUALS(numeric_cast<Int>(dp_two),Int(2));
-    ARIADNE_TEST_EQUALS(numeric_cast<Int>(ap_two),Int(2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(dp_two),Int(2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(ap_two),Int(2));
     // The public numeric_cast API must match the legacy backend on
     // positive, negative and non-integral finite inputs.
-    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatMP(-2,mp)),Int(-2));
-    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatMP(ExactDouble(2.5),mp)),Int(2));
-    ARIADNE_TEST_EQUALS(numeric_cast<Int>(FloatMP(ExactDouble(-2.5),mp)),Int(-2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(FloatMP(-2,mp)),Int(-2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(FloatMP(ExactDouble(2.5),mp)),Int(2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(FloatMP(ExactDouble(-2.5),mp)),Int(-2));
 
-    ARIADNE_TEST_EQUALS(numeric_cast<double>(dp_two),2.0);
-    ARIADNE_TEST_EQUALS(numeric_cast<double>(dy_two),2.0);
-    ARIADNE_TEST_EQUALS(numeric_cast<double>(real_two),2.0);
-    ARIADNE_TEST_EQUALS(numeric_cast<double>(bounds_two),2.0);
-    ARIADNE_TEST_EQUALS(numeric_cast<double>(approximation_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(dp_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(dy_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(real_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(bounds_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(approximation_two),2.0);
 
-    ARIADNE_TEST_EQUALS(numeric_cast<float>(double_two),2.0f);
-    ARIADNE_TEST_EQUALS(numeric_cast<float>(dp_two),2.0f);
-    ARIADNE_TEST_EQUALS(numeric_cast<float>(real_two),2.0f);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<float>(double_two),2.0f);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<float>(dp_two),2.0f);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<float>(real_two),2.0f);
 
-    ARIADNE_TEST_EQUALS(numeric_cast<FloatDP>(dp_two),dp_two);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<FloatDP>(dp_two),dp_two);
 
     Real real_from_dp=numeric_cast<Real>(dp_two);
     Real real_from_bounds=numeric_cast<Real>(bounds_two);
-    ARIADNE_TEST_BINARY_PREDICATE(models,real_from_dp.get(dp),dp_two);
-    ARIADNE_TEST_BINARY_PREDICATE(models,real_from_bounds.get(dp),dp_two);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE_CTX(context, models,real_from_dp.get(dp),dp_two);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE_CTX(context, models,real_from_bounds.get(dp),dp_two);
 
     FloatDPBall ball_from_real=numeric_cast<FloatDPBall>(real_two);
     FloatDPBounds bounds_from_real=numeric_cast<FloatDPBounds>(real_two);
     FloatDPApproximation approximation_from_real=numeric_cast<FloatDPApproximation>(real_two);
-    ARIADNE_TEST_BINARY_PREDICATE(models,ball_from_real,dp_two);
-    ARIADNE_TEST_BINARY_PREDICATE(models,bounds_from_real,dp_two);
-    ARIADNE_TEST_EQUALS(approximation_from_real.raw(),dp_two);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE_CTX(context, models,ball_from_real,dp_two);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE_CTX(context, models,bounds_from_real,dp_two);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, approximation_from_real.raw(),dp_two);
 }
 
 } // namespace
 
 
 template<class FLT>
-class TestRounded
+class TestRounded : public Ariadne::Testing::ContextFixture
 {
     using FloatType = FLT;
     using RoundedFloatType = Rounded<FLT>;
@@ -157,9 +157,7 @@ class TestRounded
     PR precision;
 
   public:
-    TestRounded(PR prec);
-    Void test();
-  private:
+    TestRounded(Ariadne::Testing::Context& context, PR prec);
     Void test_header_api();
     Void test_class();
     Void test_conversion_from_to();
@@ -172,38 +170,14 @@ class TestRounded
 };
 
 
-Int main() {
-    std::cout<<std::setprecision(20);
-    std::cerr<<std::setprecision(20);
-
-    ARIADNE_TEST_CALL(test_numeric_casts());
-
-    TestRounded<FloatDP>(dp).test();
-    TestRounded<FloatMP>(MultiplePrecision(128_bits)).test();
-
-    return ARIADNE_TEST_FAILURES;
-}
 
 
 template<class FLT>
-TestRounded<FLT>::TestRounded(PR pr)
-    : precision(pr)
+TestRounded<FLT>::TestRounded(Ariadne::Testing::Context& context, PR pr)
+    : ContextFixture(context), precision(pr)
 {
 }
 
-template<class FLT> Void
-TestRounded<FLT>::test()
-{
-    ARIADNE_TEST_CALL(test_header_api());
-    ARIADNE_TEST_CALL(test_class());
-    ARIADNE_TEST_CALL(test_conversion_from_to());
-    ARIADNE_TEST_CALL(test_comparison());
-    ARIADNE_TEST_CALL(test_arithmetic());
-    ARIADNE_TEST_CALL(test_function());
-    ARIADNE_TEST_CALL(test_sine());
-    ARIADNE_TEST_CALL(test_cosine());
-    ARIADNE_TEST_CALL(test_arctan());
-}
 
 
 // Test that the type implements all operations of
@@ -217,71 +191,71 @@ TestRounded<FLT>::test_header_api()
     RoundedFloatType four(4,precision);
     RoundedFloatType quotient=four;
     quotient/=two_value;
-    ARIADNE_TEST_EQUALS(quotient,two_value);
+    ARIADNE_TESTING_EXPECT_EQUAL(quotient,two_value);
 
     if constexpr (Same<FloatType,FloatDP>) {
         auto saved_rounding=RoundedFloatType::get_rounding_mode();
-        ARIADNE_TEST_EXECUTE(RoundedFloatType::set_rounding_toward_zero());
-        ARIADNE_TEST_EXECUTE(RoundedFloatType::set_rounding_mode(saved_rounding));
+        ARIADNE_TESTING_EXPECT_NO_THROW(RoundedFloatType::set_rounding_toward_zero());
+        ARIADNE_TESTING_EXPECT_NO_THROW(RoundedFloatType::set_rounding_mode(saved_rounding));
 
         FloatDP raw_two(2,dp);
         RoundedFloatType from_raw_precision(raw_two,dp);
-        ARIADNE_TEST_EQUALS(from_raw_precision,ExactDouble(2));
+        ARIADNE_TESTING_EXPECT_EQUAL(from_raw_precision,ExactDouble(2));
 
         RoundedFloatType assigned(0,dp);
-        ARIADNE_TEST_EXECUTE(assigned=raw_two);
-        ARIADNE_TEST_EQUALS(assigned,ExactDouble(2));
+        ARIADNE_TESTING_EXPECT_NO_THROW(assigned=raw_two);
+        ARIADNE_TESTING_EXPECT_EQUAL(assigned,ExactDouble(2));
 
         FloatDP raw_copy=static_cast<FloatDP>(assigned);
-        ARIADNE_TEST_EQUALS(raw_copy,raw_two);
-        ARIADNE_TEST_EQUALS(assigned.precision(),dp);
-        ARIADNE_TEST_EQUALS(assigned.characteristics(),dp);
+        ARIADNE_TESTING_EXPECT_EQUAL(raw_copy,raw_two);
+        ARIADNE_TESTING_EXPECT_EQUAL(assigned.precision(),dp);
+        ARIADNE_TESTING_EXPECT_EQUAL(assigned.characteristics(),dp);
 
         RoundedFloatType nan_value(FloatDP::nan(dp));
-        ARIADNE_TEST_ASSERT(is_nan(nan_value));
+        ARIADNE_TESTING_PROVE(is_nan(nan_value));
 
         RoundedFloatType positive(0.5_x,dp);
         RoundedFloatType negative(-0.5_x,dp);
         RoundedFloatType one(1,dp);
 
-        ARIADNE_TEST_EXECUTE(round(positive));
-        ARIADNE_TEST_EXECUTE(nul(positive));
-        ARIADNE_TEST_EXECUTE(pos(positive));
-        ARIADNE_TEST_EXECUTE(rec(positive));
-        ARIADNE_TEST_EXECUTE(fma(positive,one,one));
-        ARIADNE_TEST_EXECUTE(tan(positive));
-        ARIADNE_TEST_EXECUTE(tanh(positive));
-        ARIADNE_TEST_EXECUTE(tanh(negative));
-        ARIADNE_TEST_EXECUTE(asin(positive));
-        ARIADNE_TEST_EXECUTE(acos(positive));
-        ARIADNE_TEST_EXECUTE(mag(negative));
-        ARIADNE_TEST_EXECUTE(mig(negative));
+        ARIADNE_TESTING_EXPECT_NO_THROW(round(positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(nul(positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(pos(positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(rec(positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(fma(positive,one,one));
+        ARIADNE_TESTING_EXPECT_NO_THROW(tan(positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(tanh(positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(tanh(negative));
+        ARIADNE_TESTING_EXPECT_NO_THROW(asin(positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(acos(positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(mag(negative));
+        ARIADNE_TESTING_EXPECT_NO_THROW(mig(negative));
 
-        ARIADNE_TEST_EXECUTE(positive+one);
-        ARIADNE_TEST_EXECUTE(positive*one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(positive+one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(positive*one);
 
         RoundedFloatType compound(2,dp);
-        ARIADNE_TEST_EXECUTE(compound+=one);
-        ARIADNE_TEST_EXECUTE(compound-=one);
-        ARIADNE_TEST_EXECUTE(compound*=one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(compound+=one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(compound-=one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(compound*=one);
 
         ExactDouble exact_one(1);
-        ARIADNE_TEST_EXECUTE(positive+exact_one);
-        ARIADNE_TEST_EXECUTE(positive-exact_one);
-        ARIADNE_TEST_EXECUTE(exact_one+positive);
-        ARIADNE_TEST_EXECUTE(exact_one-positive);
+        ARIADNE_TESTING_EXPECT_NO_THROW(positive+exact_one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(positive-exact_one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(exact_one+positive);
+        ARIADNE_TESTING_EXPECT_NO_THROW(exact_one-positive);
 
-        ARIADNE_TEST_EXECUTE(compound+=exact_one);
-        ARIADNE_TEST_EXECUTE(compound-=exact_one);
-        ARIADNE_TEST_EXECUTE(compound*=exact_one);
-        ARIADNE_TEST_EXECUTE(compound/=exact_one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(compound+=exact_one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(compound-=exact_one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(compound*=exact_one);
+        ARIADNE_TESTING_EXPECT_NO_THROW(compound/=exact_one);
 
-        ARIADNE_TEST_EXECUTE(max(positive,exact_one));
-        ARIADNE_TEST_EXECUTE(min(positive,exact_one));
-        ARIADNE_TEST_EXECUTE(max(exact_one,positive));
-        ARIADNE_TEST_EXECUTE(min(exact_one,positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(max(positive,exact_one));
+        ARIADNE_TESTING_EXPECT_NO_THROW(min(positive,exact_one));
+        ARIADNE_TESTING_EXPECT_NO_THROW(max(exact_one,positive));
+        ARIADNE_TESTING_EXPECT_NO_THROW(min(exact_one,positive));
 
-        ARIADNE_TEST_ASSERT(same(positive,RoundedFloatType(0.5_x,dp)));
+        ARIADNE_TESTING_PROVE(same(positive,RoundedFloatType(0.5_x,dp)));
     }
 }
 
@@ -289,43 +263,49 @@ TestRounded<FLT>::test_header_api()
 template<class FLT> Void
 TestRounded<FLT>::test_class()
 {
-    cout << ARIADNE_PRETTY_FUNCTION << endl;
+    ARIADNE_TESTING_NOTE(ARIADNE_PRETTY_FUNCTION);
     // Construct from an Int
-    ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f1,(2,precision));
-    ARIADNE_TEST_EQUALS(f1,2);
+    RoundedFloatType f1(2,precision);
+    ARIADNE_TESTING_INSPECT("constructed f1", f1);
+    ARIADNE_TESTING_EXPECT_EQUAL(f1,2);
     // Construct from a double
-    ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f2,(1.25_x,precision));
-    ARIADNE_TEST_EQUALS(f2,1.25_x);
+    RoundedFloatType f2(1.25_x,precision);
+    ARIADNE_TESTING_INSPECT("constructed f2", f2);
+    ARIADNE_TESTING_EXPECT_EQUAL(f2,1.25_x);
     // Copy constructor
-    ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f3,(f2));
-    ARIADNE_TEST_EQUAL(f3,f2);
+    RoundedFloatType f3(f2);
+    ARIADNE_TESTING_INSPECT("constructed f3", f3);
+    ARIADNE_TESTING_EXPECT_EQUAL(f3,f2);
 
 
     // Assign from an Int
-    ARIADNE_TEST_EXECUTE(f1=3);
-    ARIADNE_TEST_EQUALS(f1,3);
+    ARIADNE_TESTING_EXPECT_NO_THROW(f1=3);
+    ARIADNE_TESTING_EXPECT_EQUAL(f1,3);
     // Assign from a double
-    ARIADNE_TEST_EXECUTE(f2=2.25_x);
-    ARIADNE_TEST_EQUALS(f2,2.25_x);
+    ARIADNE_TESTING_EXPECT_NO_THROW(f2=2.25_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(f2,2.25_x);
     // Copy assignment
-    ARIADNE_TEST_EXECUTE(f3=f2);
-    ARIADNE_TEST_EQUAL(f3,f2);
+    ARIADNE_TESTING_EXPECT_NO_THROW(f3=f2);
+    ARIADNE_TESTING_EXPECT_EQUAL(f3,f2);
     // Self-assignment
-    ARIADNE_TEST_EXECUTE(f3=f3);
-    ARIADNE_TEST_EQUAL(f3,f2);
+    ARIADNE_TESTING_EXPECT_NO_THROW(f3=f3);
+    ARIADNE_TESTING_EXPECT_EQUAL(f3,f2);
 
     if(not (precision==FloatType::get_default_precision())) {
         PR low_precision=min(precision,FloatType::get_default_precision());
         PR high_precision=max(precision,FloatType::get_default_precision());
-        ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f4,(2.25_x,high_precision));
-        ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f5,(3.75_x,low_precision));
-        ARIADNE_TEST_EXECUTE(f5=f4);
-        ARIADNE_TEST_EQUAL(f5.precision(),high_precision);
-        ARIADNE_TEST_EQUAL(f5,f4);
-        ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f6,(low_precision));
-        ARIADNE_TEST_EXECUTE(f6=std::move(f4));
-        ARIADNE_TEST_EQUAL(f6.precision(),high_precision);
-        ARIADNE_TEST_EQUAL(f6,f5);
+        RoundedFloatType f4(2.25_x,high_precision);
+    ARIADNE_TESTING_INSPECT("constructed f4", f4);
+        RoundedFloatType f5(3.75_x,low_precision);
+    ARIADNE_TESTING_INSPECT("constructed f5", f5);
+        ARIADNE_TESTING_EXPECT_NO_THROW(f5=f4);
+        ARIADNE_TESTING_EXPECT_EQUAL(f5.precision(),high_precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(f5,f4);
+        RoundedFloatType f6(low_precision);
+    ARIADNE_TESTING_INSPECT("constructed f6", f6);
+        ARIADNE_TESTING_EXPECT_NO_THROW(f6=std::move(f4));
+        ARIADNE_TESTING_EXPECT_EQUAL(f6.precision(),high_precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(f6,f5);
     }
 
 
@@ -338,94 +318,99 @@ TestRounded<FLT>::test_conversion_from_to()
 {
     // Convert from dyadic
     RoundedFloatType f1(Dyadic(5,2u),precision);
-    ARIADNE_TEST_EQUAL(f1,1.25_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(f1,1.25_x);
 
     // Convert from self
     RoundedFloatType f2(f1,precision);
-    ARIADNE_TEST_EQUAL(f1,f2);
+    ARIADNE_TESTING_EXPECT_EQUAL(f1,f2);
     RoundedFloatType f3(f1,precision);
-    ARIADNE_TEST_EQUAL(f1,f3);
+    ARIADNE_TESTING_EXPECT_EQUAL(f1,f3);
 
     // Convert from integers
     Int n;
     n=std::numeric_limits<Int>::min();
-    ARIADNE_TEST_ASSERT(RoundedFloatType(n,precision)==n);
+    ARIADNE_TESTING_PROVE(RoundedFloatType(n,precision)==n);
     n=std::numeric_limits<Int>::max();
-    ARIADNE_TEST_ASSERT(RoundedFloatType(n,precision)==n);
+    ARIADNE_TESTING_PROVE(RoundedFloatType(n,precision)==n);
     Nat m = std::numeric_limits<Nat>::max();
-    ARIADNE_TEST_ASSERT(RoundedFloatType(m,precision)==m);
+    ARIADNE_TESTING_PROVE(RoundedFloatType(m,precision)==m);
 
     // Convert from a rational
     Int num=1; Int den=3;
     Rational q(1,3);
     RoundedFloatType::set_rounding_downward();
-    ARIADNE_TEST_COMPARE(Rational(RoundedFloatType(q,precision).raw()),<,q);
+    ARIADNE_TESTING_EXPECT_LESS(Rational(RoundedFloatType(q,precision).raw()), q);
     RoundedFloatType::set_rounding_upward();
-    ARIADNE_TEST_COMPARE(Rational(RoundedFloatType(Rational(num,den),precision).raw()),>,q);
+    ARIADNE_TESTING_EXPECT_GREATER(Rational(RoundedFloatType(Rational(num,den),precision).raw()), q);
 
     // Convert from a negative rational
     num=-2; den=5;
     RoundedFloatType::set_rounding_downward();
-    ARIADNE_TEST_COMPARE(Rational(RoundedFloatType(q,precision).raw()),<,q);
+    ARIADNE_TESTING_EXPECT_LESS(Rational(RoundedFloatType(q,precision).raw()), q);
     RoundedFloatType::set_rounding_upward();
-    ARIADNE_TEST_COMPARE(Rational(RoundedFloatType(q,precision).raw()),>,q);
+    ARIADNE_TESTING_EXPECT_GREATER(Rational(RoundedFloatType(q,precision).raw()), q);
 }
 
 template<class FLT> Void
 TestRounded<FLT>::test_comparison()
 {
-    cout << ARIADNE_PRETTY_FUNCTION << endl;
+    ARIADNE_TESTING_NOTE(ARIADNE_PRETTY_FUNCTION);
 
-    ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f0,(3.00_x,precision));
-    ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f1,(1.25_x,precision));
-    ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f2,(-1.25_x,precision));
-    ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f3,(-2.25_x,precision));
-    ARIADNE_TEST_CONSTRUCT(RoundedFloatType,f4,(1.25_x,precision));
+    RoundedFloatType f0(3.00_x,precision);
+    ARIADNE_TESTING_INSPECT("constructed f0", f0);
+    RoundedFloatType f1(1.25_x,precision);
+    ARIADNE_TESTING_INSPECT("constructed f1", f1);
+    RoundedFloatType f2(-1.25_x,precision);
+    ARIADNE_TESTING_INSPECT("constructed f2", f2);
+    RoundedFloatType f3(-2.25_x,precision);
+    ARIADNE_TESTING_INSPECT("constructed f3", f3);
+    RoundedFloatType f4(1.25_x,precision);
+    ARIADNE_TESTING_INSPECT("constructed f4", f4);
 
     // Test comparison of two equal numbers
-    ARIADNE_TEST_ASSERT(f1==f4); ARIADNE_TEST_ASSERT(!(f1!=f4));
-    ARIADNE_TEST_ASSERT(f1<=f4); ARIADNE_TEST_ASSERT(!(f1> f4));
-    ARIADNE_TEST_ASSERT(f1>=f4); ARIADNE_TEST_ASSERT(!(f1< f4));
+    ARIADNE_TESTING_PROVE(f1==f4); ARIADNE_TESTING_PROVE(!(f1!=f4));
+    ARIADNE_TESTING_PROVE(f1<=f4); ARIADNE_TESTING_PROVE(!(f1> f4));
+    ARIADNE_TESTING_PROVE(f1>=f4); ARIADNE_TESTING_PROVE(!(f1< f4));
 
 
     // Test comparison of two different numbers
-    ARIADNE_TEST_ASSERT(!(f1==f2)); ARIADNE_TEST_ASSERT(f1!=f2);
-    ARIADNE_TEST_ASSERT(!(f1<=f2)); ARIADNE_TEST_ASSERT(f1> f2);
-    ARIADNE_TEST_ASSERT(f1>=f2); ARIADNE_TEST_ASSERT(!(f1< f2));
+    ARIADNE_TESTING_PROVE(!(f1==f2)); ARIADNE_TESTING_PROVE(f1!=f2);
+    ARIADNE_TESTING_PROVE(!(f1<=f2)); ARIADNE_TESTING_PROVE(f1> f2);
+    ARIADNE_TESTING_PROVE(f1>=f2); ARIADNE_TESTING_PROVE(!(f1< f2));
 
     // Test comparison of two negative numbers
-    ARIADNE_TEST_ASSERT(!(f2==f3)); ARIADNE_TEST_ASSERT(f2!=f3);
-    ARIADNE_TEST_ASSERT(!(f2<=f3)); ARIADNE_TEST_ASSERT(f2> f3);
-    ARIADNE_TEST_ASSERT(f2>=f3); ARIADNE_TEST_ASSERT(!(f2< f3));
+    ARIADNE_TESTING_PROVE(!(f2==f3)); ARIADNE_TESTING_PROVE(f2!=f3);
+    ARIADNE_TESTING_PROVE(!(f2<=f3)); ARIADNE_TESTING_PROVE(f2> f3);
+    ARIADNE_TESTING_PROVE(f2>=f3); ARIADNE_TESTING_PROVE(!(f2< f3));
 
     // Test comparison with in int
     Int i2=1;
-    ARIADNE_TEST_ASSERT(!(f1==i2)); ARIADNE_TEST_ASSERT(f1!=i2);
-    ARIADNE_TEST_ASSERT(!(f1<=i2)); ARIADNE_TEST_ASSERT(f1> i2);
-    ARIADNE_TEST_ASSERT(f1>=i2); ARIADNE_TEST_ASSERT(!(f1< i2));
+    ARIADNE_TESTING_PROVE(!(f1==i2)); ARIADNE_TESTING_PROVE(f1!=i2);
+    ARIADNE_TESTING_PROVE(!(f1<=i2)); ARIADNE_TESTING_PROVE(f1> i2);
+    ARIADNE_TESTING_PROVE(f1>=i2); ARIADNE_TESTING_PROVE(!(f1< i2));
 
     Int i1=1;
-    ARIADNE_TEST_ASSERT(!(i1==f2)); ARIADNE_TEST_ASSERT(i1!=f2);
-    ARIADNE_TEST_ASSERT(!(i1<=f2)); ARIADNE_TEST_ASSERT(i1> f2);
-    ARIADNE_TEST_ASSERT(i1>=f2); ARIADNE_TEST_ASSERT(!(i1< f2));
+    ARIADNE_TESTING_PROVE(!(i1==f2)); ARIADNE_TESTING_PROVE(i1!=f2);
+    ARIADNE_TESTING_PROVE(!(i1<=f2)); ARIADNE_TESTING_PROVE(i1> f2);
+    ARIADNE_TESTING_PROVE(i1>=f2); ARIADNE_TESTING_PROVE(!(i1< f2));
 
     // Test comparison with an exact double
     ExactDouble x2=1.0_x;
-    ARIADNE_TEST_ASSERT(!(f1==x2)); ARIADNE_TEST_ASSERT(f1!=x2);
-    ARIADNE_TEST_ASSERT(!(f1<=x2)); ARIADNE_TEST_ASSERT(f1> x2);
-    ARIADNE_TEST_ASSERT(f1>=x2); ARIADNE_TEST_ASSERT(!(f1< x2));
+    ARIADNE_TESTING_PROVE(!(f1==x2)); ARIADNE_TESTING_PROVE(f1!=x2);
+    ARIADNE_TESTING_PROVE(!(f1<=x2)); ARIADNE_TESTING_PROVE(f1> x2);
+    ARIADNE_TESTING_PROVE(f1>=x2); ARIADNE_TESTING_PROVE(!(f1< x2));
 
     ExactDouble x1=1.0_x;
-    ARIADNE_TEST_ASSERT(!(x1==f2)); ARIADNE_TEST_ASSERT(x1!=f2);
-    ARIADNE_TEST_ASSERT(!(x1<=f2)); ARIADNE_TEST_ASSERT(x1> f2);
-    ARIADNE_TEST_ASSERT(x1>=f2); ARIADNE_TEST_ASSERT(!(x1< f2));
+    ARIADNE_TESTING_PROVE(!(x1==f2)); ARIADNE_TESTING_PROVE(x1!=f2);
+    ARIADNE_TESTING_PROVE(!(x1<=f2)); ARIADNE_TESTING_PROVE(x1> f2);
+    ARIADNE_TESTING_PROVE(x1>=f2); ARIADNE_TESTING_PROVE(!(x1< f2));
 
 }
 
 template<class FLT> Void
 TestRounded<FLT>::test_arithmetic()
 {
-    cout << ARIADNE_PRETTY_FUNCTION << endl;
+    ARIADNE_TESTING_NOTE(ARIADNE_PRETTY_FUNCTION);
 
     static bool full_precision_warning = false;
     RoundedFloatType::set_rounding_to_nearest();
@@ -435,7 +420,7 @@ TestRounded<FLT>::test_arithmetic()
     if( cast_exact(pi_near * 4.0_x) != cast_exact(mul(pi_near,four)) ) {
         if(not full_precision_warning) {
             full_precision_warning=true;
-            ARIADNE_TEST_WARN("Mixed RoundedFloatType/BuiltinTag operations may not use full precision.");
+            this->ctx().warning("Mixed RoundedFloatType/BuiltinTag operations may not use full precision.");
         }
     }
 
@@ -451,60 +436,61 @@ TestRounded<FLT>::test_arithmetic()
 
     // Minimum (this should always remain exact)
     f4=min(f1,f2);
-    cout << "min(" << f1 << "," << f2 << ") = " << f4 << endl;
-    ARIADNE_TEST_ASSERT(f4==f1);
+    ARIADNE_TESTING_NOTE("min(" << f1 << "," << f2 << ") = " << f4);
+    ARIADNE_TESTING_PROVE(f4==f1);
     f4=min(f1,f3);
-    cout << "min(" << f1 << "," << f3 << ") = " << f4 << endl;
-    ARIADNE_TEST_ASSERT(f4==f3);
+    ARIADNE_TESTING_NOTE("min(" << f1 << "," << f3 << ") = " << f4);
+    ARIADNE_TESTING_PROVE(f4==f3);
 
     // Maximum (this should always remain exact)
     f4=max(f1,f2);
-    cout << "max(" << f1 << "," << f2 << ") = " << f4 << endl;
-    ARIADNE_TEST_ASSERT(f4==f2);
+    ARIADNE_TESTING_NOTE("max(" << f1 << "," << f2 << ") = " << f4);
+    ARIADNE_TESTING_PROVE(f4==f2);
     f4=max(f1,f3);
-    cout << "max(" << f1 << "," << f3 << ") = " << f4 << endl;
-    ARIADNE_TEST_ASSERT(f4==f1);
+    ARIADNE_TESTING_NOTE("max(" << f1 << "," << f3 << ") = " << f4);
+    ARIADNE_TESTING_PROVE(f4==f1);
 
     // Absolute value (this should always remain exact)
     f4=abs(f1);
-    cout << "abs(" << f1 << ") = " << f4 << endl;
-    ARIADNE_TEST_ASSERT(f4==1.25_x);
+    ARIADNE_TESTING_NOTE("abs(" << f1 << ") = " << f4);
+    ARIADNE_TESTING_PROVE(f4==1.25_x);
     f5=abs(f3);
-    cout << "abs(" << f3 << ") = " << f5 << endl;
-    ARIADNE_TEST_ASSERT(f5==3.25_x);
+    ARIADNE_TESTING_NOTE("abs(" << f3 << ") = " << f5);
+    ARIADNE_TESTING_PROVE(f5==3.25_x);
 
     // Median (this should remain exact here)
     f3=med(f1,f2);
-    cout << f1 << " <= med(" << f1 << "," << f2 << ")=" << f3 << " <= " << f2 << endl;
-    ARIADNE_TEST_ASSERT(f1<=f3); ARIADNE_TEST_ASSERT(f3<=f2);
-    ARIADNE_TEST_ASSERT(f3==1.75_x);
+    ARIADNE_TESTING_NOTE(f1 << " <= med(" << f1 << "," << f2 << ")=" << f3 << " <= " << f2);
+    ARIADNE_TESTING_PROVE(f1<=f3); ARIADNE_TESTING_PROVE(f3<=f2);
+    ARIADNE_TESTING_PROVE(f3==1.75_x);
 
     // Negation (this should always remain exact)
     f3=neg(f1);
-    cout << "neg(" << f1 << ") = " << f3 << endl;
+    ARIADNE_TESTING_NOTE("neg(" << f1 << ") = " << f3);
     f3=-f1;
-    cout << "- " << f1 << " = " << f3 << endl;
-    ARIADNE_TEST_ASSERT(f3==-1.25_x);
+    ARIADNE_TESTING_NOTE("- " << f1 << " = " << f3);
+    ARIADNE_TESTING_PROVE(f3==-1.25_x);
 
     // Addition (this should remain exact here)
     f3=add(f1,f2);
     f4=add(f1,f2);
-    cout << f3 << " <= " << f1 << " + " << f2 << " <= " << f4 << endl;
-    ARIADNE_TEST_ASSERT(f3<=3.5_x); ARIADNE_TEST_ASSERT(f4>=3.5_x);
+    ARIADNE_TESTING_NOTE(f3 << " <= " << f1 << " + " << f2 << " <= " << f4);
+    ARIADNE_TESTING_PROVE(f3<=3.5_x); ARIADNE_TESTING_PROVE(f4>=3.5_x);
     // Addition
-    ARIADNE_TEST_EXECUTE(RoundedFloatType::set_rounding_upward());
-    ARIADNE_TEST_COMPARE(add(one,eps/2),>,1.0_x);
-    ARIADNE_TEST_EXECUTE(RoundedFloatType::set_rounding_downward());
-    ARIADNE_TEST_COMPARE(add(one,eps/2),>=,1.0_x);
+    ARIADNE_TESTING_EXPECT_NO_THROW(RoundedFloatType::set_rounding_upward());
+    ARIADNE_TESTING_EXPECT_GREATER(add(one,eps/2), 1.0_x);
+    ARIADNE_TESTING_EXPECT_NO_THROW(RoundedFloatType::set_rounding_downward());
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(add(one,eps/2), 1.0_x);
     if(cast_exact(add(one,eps/2)) != 1.0_x) {
-        ARIADNE_TEST_WARN("Results of floating-point operations stored to higher-pr in registers than memory.");
-        ARIADNE_TEST_COMPARE(add(one,eps/(1<<11)),>,1.0_x);
+        this->ctx().warning("Results of floating-point operations stored to higher-pr in registers than memory.");
+        ARIADNE_TESTING_EXPECT_GREATER(add(one,eps/(1<<11)), 1.0_x);
     }
-    ARIADNE_TEST_COMPARE(add(one,eps/(1<<12)),==,RoundedFloatType(1.0_x,pr));
-    ARIADNE_TEST_CONSTRUCT(RoundedFloatType,one_add_down_half_epsilon,(add(one,eps/2)));
-    ARIADNE_TEST_COMPARE(one_add_down_half_epsilon,==,RoundedFloatType(1.0_x,pr));
-    ARIADNE_TEST_EQUAL(one,1.0_x);
-    ARIADNE_TEST_COMPARE(one,==,1.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(add(one,eps/(1<<12)), RoundedFloatType(1.0_x,pr));
+    RoundedFloatType one_add_down_half_epsilon(add(one,eps/2));
+    ARIADNE_TESTING_INSPECT("constructed one_add_down_half_epsilon", one_add_down_half_epsilon);
+    ARIADNE_TESTING_EXPECT_EQUAL(one_add_down_half_epsilon, RoundedFloatType(1.0_x,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(one,1.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(one, 1.0_x);
 
 
     // Subtraction (this should remain exact here)
@@ -512,16 +498,16 @@ TestRounded<FLT>::test_arithmetic()
     f3=sub(f1,f2);
     RoundedFloatType::set_rounding_upward();
     f4=sub(f1,f2);
-    cout << f3 << " <= " << f1 << " - " << f2 << " <= " << f4 << endl;
-    ARIADNE_TEST_ASSERT(f3<=-1); ARIADNE_TEST_ASSERT(f4>=-1);
+    ARIADNE_TESTING_NOTE(f3 << " <= " << f1 << " - " << f2 << " <= " << f4);
+    ARIADNE_TESTING_PROVE(f3<=-1); ARIADNE_TESTING_PROVE(f4>=-1);
 
     // Multiplication (this should remain exact here)
     RoundedFloatType::set_rounding_downward();
     f3=mul(f1,f2);
     RoundedFloatType::set_rounding_upward();
     f4=mul(f1,f2);
-    cout << f3 << " <= " << f1 << " * " << f2 << " <= " << f4 << endl;
-    ARIADNE_TEST_ASSERT(f3<=2.8125_x); ARIADNE_TEST_ASSERT(f4>=2.8125_x);
+    ARIADNE_TESTING_NOTE(f3 << " <= " << f1 << " * " << f2 << " <= " << f4);
+    ARIADNE_TESTING_PROVE(f3<=2.8125_x); ARIADNE_TESTING_PROVE(f4>=2.8125_x);
 
     // Division (not exact; should catch errors here)
     RoundedFloatType::set_rounding_downward();
@@ -530,7 +516,7 @@ TestRounded<FLT>::test_arithmetic()
     f4=div(f1,f2);
     RoundedFloatType::set_rounding_to_nearest();
     f5=div(f1,f2);
-    cout << f3 << " <= " << f1 << " / " << f2 << " <= " << f4 << endl;
+    ARIADNE_TESTING_NOTE(f3 << " <= " << f1 << " / " << f2 << " <= " << f4);
 
     RoundedFloatType five(5,precision);
     RoundedFloatType nine(9,precision);
@@ -538,11 +524,11 @@ TestRounded<FLT>::test_arithmetic()
     if (Same<FloatType,FloatDP>) {
         RoundedFloatType expected_five_ninths_up(0.55555555555555558023_pr,pr);
         RoundedFloatType::set_rounding_downward();
-        ARIADNE_TEST_COMPARE(five/nine,<,expected_five_ninths_up);
-        ARIADNE_TEST_COMPARE(div(five,nine),<,expected_five_ninths_up);
+        ARIADNE_TESTING_EXPECT_LESS(five/nine, expected_five_ninths_up);
+        ARIADNE_TESTING_EXPECT_LESS(div(five,nine), expected_five_ninths_up);
         RoundedFloatType five_divby_nine_down=five;
         five_divby_nine_down/=nine;
-        ARIADNE_TEST_COMPARE(five_divby_nine_down,<,expected_five_ninths_up);
+        ARIADNE_TESTING_EXPECT_LESS(five_divby_nine_down, expected_five_ninths_up);
     }
 
     RoundedFloatType::set_rounding_downward();
@@ -551,9 +537,9 @@ TestRounded<FLT>::test_arithmetic()
     RoundedFloatType::set_rounding_upward();
     RoundedFloatType five_ninths_up = div(five,nine);
     RoundedFloatType five_up = mul(five_ninths_up,nine);
-    ARIADNE_TEST_COMPARE(five_ninths_down, < , five_ninths_up);
-    ARIADNE_TEST_COMPARE(five_down, < , five);
-    ARIADNE_TEST_COMPARE(five_up, > , five);
+    ARIADNE_TESTING_EXPECT_LESS(five_ninths_down, five_ninths_up);
+    ARIADNE_TESTING_EXPECT_LESS(five_down, five);
+    ARIADNE_TESTING_EXPECT_GREATER(five_up, five);
 
 
     // Power (not exact; should catch errors here)
@@ -561,23 +547,23 @@ TestRounded<FLT>::test_arithmetic()
     f3=pow(f1,3);
     RoundedFloatType::set_rounding_upward();
     f4=pow(f1,3);
-    cout << f3 << " <= pow(" << f1 << ",3) <= " << f4 << endl;
-    ARIADNE_TEST_ASSERT(f3<=1.953125_x); ARIADNE_TEST_ASSERT(f4>=1.953125_x);
+    ARIADNE_TESTING_NOTE(f3 << " <= pow(" << f1 << ",3) <= " << f4);
+    ARIADNE_TESTING_PROVE(f3<=1.953125_x); ARIADNE_TESTING_PROVE(f4>=1.953125_x);
 
     RoundedFloatType::set_rounding_downward();
     f3=pow(f1,-2);
     RoundedFloatType::set_rounding_upward();
     f4=pow(f1,-2);
-    cout << f3 << " <= pow(" << f1 << ",-2) <= " << f4 << endl;
-    //ARIADNE_TEST_ASSERT(Rational(f3)<Rational(16,25));
-    //ARIADNE_TEST_ASSERT(Rational(f4)>Rational(16,25));
+    ARIADNE_TESTING_NOTE(f3 << " <= pow(" << f1 << ",-2) <= " << f4);
+    //ARIADNE_TESTING_PROVE(Rational(f3)<Rational(16,25));
+    //ARIADNE_TESTING_PROVE(Rational(f4)>Rational(16,25));
 
     // Floor and ceiling
     f2=RoundedFloatType(-3.25_x,precision); f3=RoundedFloatType(-2,precision);
 
-    ARIADNE_TEST_ASSERT(floor(f1)==1); ARIADNE_TEST_ASSERT(ceil(f1)==2);
-    ARIADNE_TEST_ASSERT(floor(f2)==-4); ARIADNE_TEST_ASSERT(ceil(f2)==-3);
-    ARIADNE_TEST_ASSERT(floor(f3)==-2); ARIADNE_TEST_ASSERT(ceil(f3)==-2);
+    ARIADNE_TESTING_PROVE(floor(f1)==1); ARIADNE_TESTING_PROVE(ceil(f1)==2);
+    ARIADNE_TESTING_PROVE(floor(f2)==-4); ARIADNE_TESTING_PROVE(ceil(f2)==-3);
+    ARIADNE_TESTING_PROVE(floor(f3)==-2); ARIADNE_TESTING_PROVE(ceil(f3)==-2);
 
     // Check interval conversions
     RoundedFloatType z(0,pr); RoundedFloatType o(1,pr); RoundedFloatType t(3,pr);
@@ -586,21 +572,21 @@ TestRounded<FLT>::test_arithmetic()
     RoundedFloatType odtd=div(o,t);
     RoundedFloatType::set_rounding_upward();
     RoundedFloatType odtu=div(o,t);
-    cout << odtd << " <= 1/3 <= " << odtu << endl;
-    ARIADNE_TEST_COMPARE(odtd,<,odtu);
+    ARIADNE_TESTING_NOTE(odtd << " <= 1/3 <= " << odtu);
+    ARIADNE_TESTING_EXPECT_LESS(odtd, odtu);
     // Regression test to catch errors when RoundedFloatType result is not assigned to a variable
 
-    ARIADNE_TEST_COMPARE(med(RoundedFloatType(2,pr),RoundedFloatType(3,pr)),==,2.5_x);
-    ARIADNE_TEST_COMPARE(rad(RoundedFloatType(2,pr),RoundedFloatType(3,pr)),==,0.5_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(med(RoundedFloatType(2,pr),RoundedFloatType(3,pr)), 2.5_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(rad(RoundedFloatType(2,pr),RoundedFloatType(3,pr)), 0.5_x);
 }
 
 
 template<class FLT> Void
 TestRounded<FLT>::test_function()
 {
-    cout << ARIADNE_PRETTY_FUNCTION << endl;
+    ARIADNE_TESTING_NOTE(ARIADNE_PRETTY_FUNCTION);
 
-    cout << setprecision(20);
+    // Stream precision is configured in main; NOTE diagnostics are independent.
 
     // Set up some variables
     RoundedFloatType x(precision); RoundedFloatType ra(precision); RoundedFloatType rl(precision); RoundedFloatType ru(precision);
@@ -611,45 +597,45 @@ TestRounded<FLT>::test_function()
     RoundedFloatType half=RoundedFloatType(0.5_x,precision);
 
     RoundedFloatType::set_rounding_mode(upward);
-    ARIADNE_TEST_COMPARE(exp(zero),==,one);
-    ARIADNE_TEST_COMPARE(log(one),==,zero);
-    ARIADNE_TEST_COMPARE(log(exp(one)),>,one);
-    ARIADNE_TEST_COMPARE(log(exp(-one)),>,-one);
-    ARIADNE_TEST_COMPARE(log(exp(two_value)),>,two_value);
-    ARIADNE_TEST_COMPARE(log(exp(-two_value)),>,-two_value);
-    ARIADNE_TEST_COMPARE(mul(exp(two_value),exp(-two_value)),>,one);
-    ARIADNE_TEST_COMPARE(exp(log(two_value)),>,two_value);
-    ARIADNE_TEST_COMPARE(add(log(two_value),log(half)),>,zero);
+    ARIADNE_TESTING_EXPECT_EQUAL(exp(zero), one);
+    ARIADNE_TESTING_EXPECT_EQUAL(log(one), zero);
+    ARIADNE_TESTING_EXPECT_GREATER(log(exp(one)), one);
+    ARIADNE_TESTING_EXPECT_GREATER(log(exp(-one)), -one);
+    ARIADNE_TESTING_EXPECT_GREATER(log(exp(two_value)), two_value);
+    ARIADNE_TESTING_EXPECT_GREATER(log(exp(-two_value)), -two_value);
+    ARIADNE_TESTING_EXPECT_GREATER(mul(exp(two_value),exp(-two_value)), one);
+    ARIADNE_TESTING_EXPECT_GREATER(exp(log(two_value)), two_value);
+    ARIADNE_TESTING_EXPECT_GREATER(add(log(two_value),log(half)), zero);
     RoundedFloatType::set_rounding_mode(downward);
-    ARIADNE_TEST_COMPARE(exp(zero),==,one);
-    ARIADNE_TEST_COMPARE(log(one),==,zero);
-    ARIADNE_TEST_COMPARE(log(exp(one)),<,one);
-    ARIADNE_TEST_COMPARE(log(exp(-one)),<,-one);
-    ARIADNE_TEST_COMPARE(log(exp(two_value)),<,two_value);
-    ARIADNE_TEST_COMPARE(log(exp(-two_value)),<,-two_value);
-    ARIADNE_TEST_COMPARE(mul(exp(two_value),exp(-two_value)),<,one);
-    ARIADNE_TEST_COMPARE(exp(log(two_value)),<,two_value);
-    ARIADNE_TEST_COMPARE(add(log(two_value),log(half)),<,zero);
+    ARIADNE_TESTING_EXPECT_EQUAL(exp(zero), one);
+    ARIADNE_TESTING_EXPECT_EQUAL(log(one), zero);
+    ARIADNE_TESTING_EXPECT_LESS(log(exp(one)), one);
+    ARIADNE_TESTING_EXPECT_LESS(log(exp(-one)), -one);
+    ARIADNE_TESTING_EXPECT_LESS(log(exp(two_value)), two_value);
+    ARIADNE_TESTING_EXPECT_LESS(log(exp(-two_value)), -two_value);
+    ARIADNE_TESTING_EXPECT_LESS(mul(exp(two_value),exp(-two_value)), one);
+    ARIADNE_TESTING_EXPECT_LESS(exp(log(two_value)), two_value);
+    ARIADNE_TESTING_EXPECT_LESS(add(log(two_value),log(half)), zero);
 
     if constexpr (Same<FLT,FloatDP>) {
         std::vector<ExactDouble> wexp={-2.0_x,-1.5_x,-1.0_x,-0.75_x,-0.5_x,-0.375_x,0.375_x,0.5_x,0.75_x,1.0_x,1.5_x,2.0_x};
         for (auto w : wexp) {
-            ARIADNE_TEST_PRINT(w);
+            ARIADNE_TESTING_INSPECT("w",w);
             const CertifiedRounding expected=certified_rounding("exp",Rational(w));
             RoundedFloatType::set_rounding_mode(upward);
-            ARIADNE_TEST_COMPARE(Rational(cast_exact(exp(RoundedFloatType(w,dp)))),>,expected.up);
+            ARIADNE_TESTING_EXPECT_GREATER(Rational(cast_exact(exp(RoundedFloatType(w,dp)))), expected.up);
             RoundedFloatType::set_rounding_mode(downward);
-            ARIADNE_TEST_COMPARE(Rational(cast_exact(exp(RoundedFloatType(w,dp)))),<,expected.down);
+            ARIADNE_TESTING_EXPECT_LESS(Rational(cast_exact(exp(RoundedFloatType(w,dp)))), expected.down);
         }
 
         std::vector<ExactDouble> wlog={3.0_x,2.0_x,0.75_x,0.625_x,0.5_x,0.375_x};
         for (auto w : wlog) {
-            ARIADNE_TEST_PRINT(w);
+            ARIADNE_TESTING_INSPECT("w",w);
             const CertifiedRounding expected=certified_rounding("log",Rational(w));
             RoundedFloatType::set_rounding_mode(upward);
-            ARIADNE_TEST_COMPARE(Rational(cast_exact(log(RoundedFloatType(w,dp)))),>,expected.up);
+            ARIADNE_TESTING_EXPECT_GREATER(Rational(cast_exact(log(RoundedFloatType(w,dp)))), expected.up);
             RoundedFloatType::set_rounding_mode(downward);
-            ARIADNE_TEST_COMPARE(Rational(cast_exact(log(RoundedFloatType(w,dp)))),<,expected.down);
+            ARIADNE_TESTING_EXPECT_LESS(Rational(cast_exact(log(RoundedFloatType(w,dp)))), expected.down);
         }
     }
 
@@ -665,9 +651,9 @@ TestRounded<FLT>::test_sine()
     RoundedFloatType sin_rnd_down_one=sin(one);
     RoundedFloatType::set_rounding_mode(to_nearest);
     RoundedFloatType sin_rnd_approx_one=sin(one);
-    ARIADNE_TEST_COMPARE(sin_rnd_down_one,<=,sin_rnd_approx_one);
-    ARIADNE_TEST_COMPARE(sin_rnd_approx_one,<=,sin_rnd_up_one);
-    ARIADNE_TEST_COMPARE(sin_rnd_down_one,< ,sin_rnd_up_one);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(sin_rnd_down_one, sin_rnd_approx_one);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(sin_rnd_approx_one, sin_rnd_up_one);
+    ARIADNE_TESTING_EXPECT_LESS(sin_rnd_down_one, sin_rnd_up_one);
 
 }
 
@@ -687,31 +673,31 @@ TestRounded<FLT>::test_cosine()
     static const RoundedFloatType third_pi_up  =div(pi_up  ,three);
 
     RoundedFloatType::set_rounding_mode(upward);
-    ARIADNE_TEST_COMPARE(cos(hlf(pi_down)),>,0.0_x);
-    ARIADNE_TEST_EQUAL(cos(zero),1.0_x);
-    ARIADNE_TEST_COMPARE(cos(third_pi_down),>,0.5_x);
-    ARIADNE_TEST_COMPARE(sqr(cos(pi_down/4)),>,0.5_x);
-    ARIADNE_TEST_COMPARE(cos(pi_down/2),>,0.0_x);
-    ARIADNE_TEST_COMPARE(cos(pi_up/2),<=,0.0_x);
-    ARIADNE_TEST_COMPARE(cos(pi_down),>,-1.0_x);
-    ARIADNE_TEST_COMPARE(cos(pi_up),>,-1.0_x);
-    ARIADNE_TEST_COMPARE(cos(2*pi_down),==,1.0_x);
-    ARIADNE_TEST_COMPARE(cos(2*pi_up),==,1.0_x);
-    ARIADNE_TEST_COMPARE(cos(3*pi_down),>,-1.0_x);
-    ARIADNE_TEST_COMPARE(cos(3*pi_up),>,-1.0_x);
+    ARIADNE_TESTING_EXPECT_GREATER(cos(hlf(pi_down)), 0.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(cos(zero),1.0_x);
+    ARIADNE_TESTING_EXPECT_GREATER(cos(third_pi_down), 0.5_x);
+    ARIADNE_TESTING_EXPECT_GREATER(sqr(cos(pi_down/4)), 0.5_x);
+    ARIADNE_TESTING_EXPECT_GREATER(cos(pi_down/2), 0.0_x);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(cos(pi_up/2), 0.0_x);
+    ARIADNE_TESTING_EXPECT_GREATER(cos(pi_down), -1.0_x);
+    ARIADNE_TESTING_EXPECT_GREATER(cos(pi_up), -1.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(cos(2*pi_down), 1.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(cos(2*pi_up), 1.0_x);
+    ARIADNE_TESTING_EXPECT_GREATER(cos(3*pi_down), -1.0_x);
+    ARIADNE_TESTING_EXPECT_GREATER(cos(3*pi_up), -1.0_x);
 
     RoundedFloatType::set_rounding_mode(downward);
-    ARIADNE_TEST_EQUAL(cos(zero),1.0_x);
-    ARIADNE_TEST_COMPARE(cos(third_pi_up),<,0.5_x);
-    ARIADNE_TEST_COMPARE(sqr(cos(pi_up/4)),<,0.5_x);
-    ARIADNE_TEST_COMPARE(cos(pi_down/2),>=,0.0_x);
-    ARIADNE_TEST_COMPARE(cos(pi_up/2),<,0.0_x);
-    ARIADNE_TEST_COMPARE(cos(pi_down),==,-1.0_x);
-    ARIADNE_TEST_COMPARE(cos(pi_up),==,-1.0_x);
-    ARIADNE_TEST_COMPARE(cos(2*pi_down),<,1.0_x);
-    ARIADNE_TEST_COMPARE(cos(2*pi_up),<,1.0_x);
-    ARIADNE_TEST_COMPARE(cos(3*pi_down),==,-1.0_x);
-    ARIADNE_TEST_COMPARE(cos(3*pi_up),==,-1.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(cos(zero),1.0_x);
+    ARIADNE_TESTING_EXPECT_LESS(cos(third_pi_up), 0.5_x);
+    ARIADNE_TESTING_EXPECT_LESS(sqr(cos(pi_up/4)), 0.5_x);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(cos(pi_down/2), 0.0_x);
+    ARIADNE_TESTING_EXPECT_LESS(cos(pi_up/2), 0.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(cos(pi_down), -1.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(cos(pi_up), -1.0_x);
+    ARIADNE_TESTING_EXPECT_LESS(cos(2*pi_down), 1.0_x);
+    ARIADNE_TESTING_EXPECT_LESS(cos(2*pi_up), 1.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(cos(3*pi_down), -1.0_x);
+    ARIADNE_TESTING_EXPECT_EQUAL(cos(3*pi_up), -1.0_x);
 }
 
 
@@ -725,8 +711,8 @@ TestRounded<FLT>::test_arctan()
         for(auto mode : {FloatDP::ROUND_TO_NEAREST,FloatDP::ROUND_DOWNWARD,
                          FloatDP::ROUND_UPWARD,FloatDP::ROUND_TOWARD_ZERO}) {
             FloatDP::set_rounding_mode(mode);
-            ARIADNE_TEST_EQUAL(3.1415926535897931_pr,0x1.921fb54442d18p+1_x);
-            ARIADNE_TEST_EQUAL(FloatDP::get_rounding_mode(),mode);
+            ARIADNE_TESTING_EXPECT_EQUAL(3.1415926535897931_pr,0x1.921fb54442d18p+1_x);
+            ARIADNE_TESTING_EXPECT_EQUAL(FloatDP::get_rounding_mode(),mode);
         }
         FloatDP::set_rounding_mode(saved_rounding);
     }
@@ -737,9 +723,9 @@ TestRounded<FLT>::test_arctan()
     const RoundedFloatType pi_up  (FloatType::pi(up,precision));
 
     if constexpr(std::is_same<FloatType,FloatDP>::value) {
-        ARIADNE_TEST_EQUAL(pi_down.raw(),3.1415926535897931_pr);
-        ARIADNE_TEST_EQUAL(pi_near.raw(),3.1415926535897931_pr);
-        ARIADNE_TEST_EQUAL(pi_up.raw(),  3.1415926535897936_pr);
+        ARIADNE_TESTING_EXPECT_EQUAL(pi_down.raw(),3.1415926535897931_pr);
+        ARIADNE_TESTING_EXPECT_EQUAL(pi_near.raw(),3.1415926535897931_pr);
+        ARIADNE_TESTING_EXPECT_EQUAL(pi_up.raw(),  3.1415926535897936_pr);
     }
 
     RoundedFloatType three=RoundedFloatType(3,precision);
@@ -755,33 +741,33 @@ TestRounded<FLT>::test_arctan()
     const RoundedFloatType eps(FloatType::eps(precision));
 
     RoundedFloatType::set_rounding_mode(upward);
-    ARIADNE_TEST_EQUAL(atan(zero),zero);
-    ARIADNE_TEST_COMPARE(mul(atan(+one),four),>=,pi_up);
-    ARIADNE_TEST_COMPARE(mul(atan(-one),four),>=,-pi_down);
-    ARIADNE_TEST_COMPARE(mul(atan(+sqrt_three_up),three),>=,pi_up);
-    ARIADNE_TEST_COMPARE(mul(atan(-sqrt_three_down),three),>=,-pi_down);
-    ARIADNE_TEST_COMPARE(mul(atan(+1/sqrt_three_down),six),>=,pi_up);
-    ARIADNE_TEST_COMPARE(mul(atan(-1/sqrt_three_up),six),>=,-pi_down);
+    ARIADNE_TESTING_EXPECT_EQUAL(atan(zero),zero);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(mul(atan(+one),four), pi_up);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(mul(atan(-one),four), -pi_down);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(mul(atan(+sqrt_three_up),three), pi_up);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(mul(atan(-sqrt_three_down),three), -pi_down);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(mul(atan(+1/sqrt_three_down),six), pi_up);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(mul(atan(-1/sqrt_three_up),six), -pi_down);
 
     RoundedFloatType::set_rounding_mode(downward);
-    ARIADNE_TEST_EQUAL(atan(zero),zero);
-    ARIADNE_TEST_COMPARE(mul(atan(+one),four),<=,pi_down);
-    ARIADNE_TEST_COMPARE(mul(atan(-one),four),<=,-pi_up);
-    ARIADNE_TEST_COMPARE(mul(atan(+sqrt_three_down),three),<=,pi_down);
-    ARIADNE_TEST_COMPARE(mul(atan(-sqrt_three_up),three),<=,-pi_up);
-    ARIADNE_TEST_COMPARE(mul(atan(+1/sqrt_three_up),six),<=,pi_down);
-    ARIADNE_TEST_COMPARE(mul(atan(-1/sqrt_three_down),six),<=,-pi_up);
+    ARIADNE_TESTING_EXPECT_EQUAL(atan(zero),zero);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(mul(atan(+one),four), pi_down);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(mul(atan(-one),four), -pi_up);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(mul(atan(+sqrt_three_down),three), pi_down);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(mul(atan(-sqrt_three_up),three), -pi_up);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(mul(atan(+1/sqrt_three_up),six), pi_down);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(mul(atan(-1/sqrt_three_down),six), -pi_up);
 
-    ARIADNE_TEST_COMPARE(sub(mul(atan(one),four),pi_up),<=,4*eps);
-    ARIADNE_TEST_COMPARE(sub(mul(atan(sqrt_three_up),three),pi_up),<=,4*eps);
-    ARIADNE_TEST_COMPARE(sub(mul(atan(1/sqrt_three_down),six),pi_up),<=,4*eps);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(sub(mul(atan(one),four),pi_up), 4*eps);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(sub(mul(atan(sqrt_three_up),three),pi_up), 4*eps);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(sub(mul(atan(1/sqrt_three_down),six),pi_up), 4*eps);
 
-    ARIADNE_TEST_COMPARE(atan(one)*4-pi_up,<=,4*eps);
-    ARIADNE_TEST_COMPARE(atan(sqrt_three_up)*3-pi_up,<=,4*eps);
-    ARIADNE_TEST_COMPARE(atan(1/sqrt_three_down)*6-pi_up,<=,4*eps);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(atan(one)*4-pi_up, 4*eps);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(atan(sqrt_three_up)*3-pi_up, 4*eps);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(atan(1/sqrt_three_down)*6-pi_up, 4*eps);
 
     // Regression test
-    ARIADNE_TEST_COMPARE(pi_down/4,<,pi_up/4);
+    ARIADNE_TESTING_EXPECT_LESS(pi_down/4, pi_up/4);
 
 
     if constexpr (Same<FLT,FloatDP>) {
@@ -790,12 +776,45 @@ TestRounded<FLT>::test_arctan()
         // Same six boundary inputs, now tested against certified directed results.
         std::vector<Dyadic> tests({1+e,1,1-e,-1+e,-1,-1-e});
         for (Dyadic w : tests) {
-            ARIADNE_TEST_PRINT(w);
+            ARIADNE_TESTING_INSPECT("w",w);
             const CertifiedRounding expected=certified_rounding("atan",Rational(w));
             RoundedFloatType::set_rounding_mode(upward);
-            ARIADNE_TEST_COMPARE(Rational(cast_exact(atan(RoundedFloatType(w,dp)))),>,expected.up);
+            ARIADNE_TESTING_EXPECT_GREATER(Rational(cast_exact(atan(RoundedFloatType(w,dp)))), expected.up);
             RoundedFloatType::set_rounding_mode(downward);
-            ARIADNE_TEST_COMPARE(Rational(cast_exact(atan(RoundedFloatType(w,dp)))),<,expected.down);
+            ARIADNE_TESTING_EXPECT_LESS(Rational(cast_exact(atan(RoundedFloatType(w,dp)))), expected.down);
         }
     }
+}
+
+
+template<class FLT>
+void add_rounded_cases(Ariadne::Testing::Suite& suite,
+                       std::string const& variant,
+                       typename FLT::PrecisionType precision) {
+    using Fixture=TestRounded<FLT>;
+    auto add=[&](std::string const& name, auto method) {
+        suite.add(variant+" / "+name, [precision,method](Ariadne::Testing::Context& context) {
+            Fixture fixture(context,precision);
+            (fixture.*method)();
+        });
+    };
+    add("header api", &Fixture::test_header_api);
+    add("class", &Fixture::test_class);
+    add("conversion from to", &Fixture::test_conversion_from_to);
+    add("comparison", &Fixture::test_comparison);
+    add("arithmetic", &Fixture::test_arithmetic);
+    add("function", &Fixture::test_function);
+    add("sine", &Fixture::test_sine);
+    add("cosine", &Fixture::test_cosine);
+    add("arctan", &Fixture::test_arctan);
+}
+
+int main(int argc, char** argv) {
+    std::cout<<std::setprecision(20);
+    std::cerr<<std::setprecision(20);
+    Ariadne::Testing::Suite suite("rounded floats");
+    suite.add("numeric casts", test_numeric_casts);
+    add_rounded_cases<FloatDP>(suite,"FloatDP",dp);
+    add_rounded_cases<FloatMP>(suite,"FloatMP",MultiplePrecision(128_bits));
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }

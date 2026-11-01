@@ -134,3 +134,33 @@ terminating punctuation for new assertions. No C++ binary was built locally:
 acceptance requires the full Numeric CI matrix on the new commit. If any
 test fails, classify the regression as test migration, test expectation,
 or Numeric behavior rather than weakening or deleting the oracle.
+
+## 2026-11-01: Rounded float suite migration
+
+Migrated `test_rounded_float` on branch `testing`, retaining its original
+sequence: numeric cast checks, then nine rounded-float method groups for
+FloatDP, then the same nine groups for FloatMP at 128-bit precision (19
+Ariadne Testing cases). The fixture method declarations, rounding-mode
+transitions, compile-time concepts, certified oracle TSV data and exact
+directed comparison thresholds are retained. Each case receives the same
+precision as before. The test suite executes cases serially and in the
+original order; existing shared floating-point rounding-mode transitions are
+not artificially reset between method groups.
+
+All active legacy assertions are converted to matching Ariadne Testing
+checks: 86 relational checks preserve their exact relation, 71 propositions
+remain propositions, the 25 EQUALS and 20 EQUAL comparisons remain equality
+checks, and four `models` predicates retain their predicate. The 40 legacy
+execution-only operations become no-throw checks, 12 explicit constructor
+declarations remain in their original scope, and three print inspections
+become typed diagnostics. The 20 direct progress `cout` messages now emit
+reporter notes rather than bypassing `--concise`; the two existing warnings
+remain warnings. The former anonymous-namespace numeric-cast function
+accepts an explicit `Testing::Context&`, and only its assertions use
+`_CTX` macros.
+
+CTest already supplies `--concise`; CMake now links the target with
+`ariadne-testing`, and direct invocation defaults to full diagnostics.
+Source-level macro/terminator audits were performed, but compilation and
+the full Numeric CI matrix are still required for acceptance. Do not alter
+oracle expectations to make the converted tests pass.
