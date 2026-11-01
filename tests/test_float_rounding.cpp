@@ -504,8 +504,8 @@ TestFloatRounding<PR>::test_limits()
     ARIADNE_TESTING_EXPECT_GREATER( add(down,one,eps), one);
     ARIADNE_TESTING_EXPECT_EQUAL( add(down,one,div(up,eps,two_value)), one);
 
-    ARIADNE_TESTING_PROVE( min>zero);
-    ARIADNE_TESTING_PROVE( max<inf_);
+    ARIADNE_TESTING_EXPECT_GREATER(min, zero);
+    ARIADNE_TESTING_EXPECT_LESS(max, inf_);
 
     ARIADNE_TESTING_PROVE( add(down,inf_,min)==inf_);
     ARIADNE_TESTING_PROVE( add(up,max,min)==inf_);
@@ -527,7 +527,7 @@ TestFloatRounding<PR>::test_limits()
         const FloatMP wide_high(max,wider);
         // Rescaling FloatMP at INT64_MAX must not construct a gigantic Rational.
         ARIADNE_TESTING_PROVE( wide_high.precision()==wider);
-        ARIADNE_TESTING_PROVE( wide_high==max);
+        ARIADNE_TESTING_EXPECT_EQUAL(wide_high, max);
         ARIADNE_TESTING_PROVE( FloatMP(wide_high,precision)==max);
         ARIADNE_TESTING_PROVE( FloatMP(-max,wider)==-wide_high);
         ARIADNE_TESTING_PROVE( iadd(up,wide_tiny,max)==next(up,wide_high));
@@ -738,8 +738,8 @@ TestFloatRounding<PR>::test_precision_regressions()
                         exact,FloatMP::ROUND_TOWARD_ZERO,target_precision);
                     const Rational lower_exact=static_cast<Rational>(lower_result);
                     const Rational upper_exact=static_cast<Rational>(upper_result);
-                    ARIADNE_TESTING_PROVE( lower_exact<=exact);
-                    ARIADNE_TESTING_PROVE( upper_exact>=exact);
+                    ARIADNE_TESTING_EXPECT_LESS_EQUAL(lower_exact, exact);
+                    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(upper_exact, exact);
                     ARIADNE_TESTING_PROVE( lower_result==upper_result ||
                         upper_result==next(RoundUpward{},lower_result));
                     ARIADNE_TESTING_EXPECT_EQUAL( zero_result, negative_input ? upper_result : lower_result);
@@ -941,8 +941,8 @@ TestFloatRounding<PR>::test_precision_regressions()
             ARIADNE_TESTING_EXPECT_EQUAL( FloatDP::get_rounding_mode(), prior);
             const Rational lo(ExactDouble(lower.get_d()));
             const Rational hi(ExactDouble(upper.get_d()));
-            ARIADNE_TESTING_PROVE( lo*lo<=x);
-            ARIADNE_TESTING_PROVE( hi*hi>=x);
+            ARIADNE_TESTING_EXPECT_LESS_EQUAL(lo*lo, x);
+            ARIADNE_TESTING_EXPECT_GREATER_EQUAL(hi*hi, x);
             ARIADNE_TESTING_PROVE( upper.get_d()==lower.get_d() ||
                 std::nextafter(lower.get_d(),
                     std::numeric_limits<double>::infinity())==upper.get_d());
@@ -1031,8 +1031,8 @@ TestFloatRounding<PR>::test_precision_regressions()
                     sqrt(F::ROUND_DOWNWARD,two_value));
                 const Rational root_upper=static_cast<Rational>(
                     sqrt(F::ROUND_UPWARD,two_value));
-                ARIADNE_TESTING_PROVE( root_lower*root_lower<=Rational(2));
-                ARIADNE_TESTING_PROVE( root_upper*root_upper>=Rational(2));
+                ARIADNE_TESTING_EXPECT_LESS_EQUAL(root_lower*root_lower, Rational(2));
+                ARIADNE_TESTING_EXPECT_GREATER_EQUAL(root_upper*root_upper, Rational(2));
             }
         }
 
@@ -1313,8 +1313,8 @@ TestFloatRounding<PR>::test_precision_regressions()
                                 static_cast<Rational>(lower_result);
                             const Rational upper_exact=
                                 static_cast<Rational>(upper_result);
-                            ARIADNE_TESTING_PROVE( lower_exact*lower_exact<=exact_argument);
-                            ARIADNE_TESTING_PROVE( upper_exact*upper_exact>=exact_argument);
+                            ARIADNE_TESTING_EXPECT_LESS_EQUAL(lower_exact*lower_exact, exact_argument);
+                            ARIADNE_TESTING_EXPECT_GREATER_EQUAL(upper_exact*upper_exact, exact_argument);
                             ARIADNE_TESTING_PROVE( lower_result==upper_result ||
                                 upper_result==next(RoundUpward{},lower_result));
                             ARIADNE_TESTING_EXPECT_EQUAL( zero_result, lower_result);
@@ -1405,7 +1405,7 @@ TestFloatRounding<PR>::test_precision_regressions()
 
                 const FloatMP smallest=FloatMP::min(mp);
                 const FloatMP largest=FloatMP::max(mp);
-                ARIADNE_TESTING_PROVE( largest>smallest);
+                ARIADNE_TESTING_EXPECT_GREATER(largest, smallest);
                 ARIADNE_TESTING_PROVE( neg(largest)<neg(smallest));
                 ARIADNE_TESTING_PROVE( largest>neg(largest));
                 ARIADNE_TESTING_PROVE( smallest>neg(smallest));
@@ -2460,64 +2460,64 @@ TestFloatRounding<PR>::test_comparison()
     Float f4(1.25_x,precision); this->ctx().inspect("f4", f4);
 
     // Test comparison of two equal numbers
-    ARIADNE_TESTING_PROVE( f1==f4); ARIADNE_TESTING_PROVE( !(f1!=f4));
-    ARIADNE_TESTING_PROVE( f1<=f4); ARIADNE_TESTING_PROVE( !(f1> f4));
-    ARIADNE_TESTING_PROVE( f1>=f4); ARIADNE_TESTING_PROVE( !(f1< f4));
+    ARIADNE_TESTING_EXPECT_EQUAL(f1, f4); ARIADNE_TESTING_PROVE( !(f1!=f4));
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(f1, f4); ARIADNE_TESTING_PROVE( !(f1> f4));
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f1, f4); ARIADNE_TESTING_PROVE( !(f1< f4));
 
 
     // Test comparison of two different numbers
-    ARIADNE_TESTING_PROVE( !(f1==f2)); ARIADNE_TESTING_PROVE( f1!=f2);
-    ARIADNE_TESTING_PROVE( !(f1<=f2)); ARIADNE_TESTING_PROVE( f1> f2);
-    ARIADNE_TESTING_PROVE( f1>=f2); ARIADNE_TESTING_PROVE( !(f1< f2));
+    ARIADNE_TESTING_PROVE( !(f1==f2)); ARIADNE_TESTING_EXPECT_NOT_EQUAL(f1, f2);
+    ARIADNE_TESTING_PROVE( !(f1<=f2)); ARIADNE_TESTING_EXPECT_GREATER(f1, f2);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f1, f2); ARIADNE_TESTING_PROVE( !(f1< f2));
 
     // Test comparison of two negative numbers
-    ARIADNE_TESTING_PROVE( !(f2==f3)); ARIADNE_TESTING_PROVE( f2!=f3);
-    ARIADNE_TESTING_PROVE( !(f2<=f3)); ARIADNE_TESTING_PROVE( f2> f3);
-    ARIADNE_TESTING_PROVE( f2>=f3); ARIADNE_TESTING_PROVE( !(f2< f3));
+    ARIADNE_TESTING_PROVE( !(f2==f3)); ARIADNE_TESTING_EXPECT_NOT_EQUAL(f2, f3);
+    ARIADNE_TESTING_PROVE( !(f2<=f3)); ARIADNE_TESTING_EXPECT_GREATER(f2, f3);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f2, f3); ARIADNE_TESTING_PROVE( !(f2< f3));
 
     // Test comparison with in int
     Int i2=1;
-    ARIADNE_TESTING_PROVE( !(f1==i2)); ARIADNE_TESTING_PROVE( f1!=i2);
-    ARIADNE_TESTING_PROVE( !(f1<=i2)); ARIADNE_TESTING_PROVE( f1> i2);
-    ARIADNE_TESTING_PROVE( f1>=i2); ARIADNE_TESTING_PROVE( !(f1< i2));
+    ARIADNE_TESTING_PROVE( !(f1==i2)); ARIADNE_TESTING_EXPECT_NOT_EQUAL(f1, i2);
+    ARIADNE_TESTING_PROVE( !(f1<=i2)); ARIADNE_TESTING_EXPECT_GREATER(f1, i2);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f1, i2); ARIADNE_TESTING_PROVE( !(f1< i2));
 
     Int i1=1;
-    ARIADNE_TESTING_PROVE( !(i1==f2)); ARIADNE_TESTING_PROVE( i1!=f2);
-    ARIADNE_TESTING_PROVE( !(i1<=f2)); ARIADNE_TESTING_PROVE( i1> f2);
-    ARIADNE_TESTING_PROVE( i1>=f2); ARIADNE_TESTING_PROVE( !(i1< f2));
+    ARIADNE_TESTING_PROVE( !(i1==f2)); ARIADNE_TESTING_EXPECT_NOT_EQUAL(i1, f2);
+    ARIADNE_TESTING_PROVE( !(i1<=f2)); ARIADNE_TESTING_EXPECT_GREATER(i1, f2);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(i1, f2); ARIADNE_TESTING_PROVE( !(i1< f2));
 
     // Test comparison with a double
     ExactDouble x2=1.0_x;
-    ARIADNE_TESTING_PROVE( !(f1==x2)); ARIADNE_TESTING_PROVE( f1!=x2);
-    ARIADNE_TESTING_PROVE( !(f1<=x2)); ARIADNE_TESTING_PROVE( f1> x2);
-    ARIADNE_TESTING_PROVE( f1>=x2); ARIADNE_TESTING_PROVE( !(f1< x2));
+    ARIADNE_TESTING_PROVE( !(f1==x2)); ARIADNE_TESTING_EXPECT_NOT_EQUAL(f1, x2);
+    ARIADNE_TESTING_PROVE( !(f1<=x2)); ARIADNE_TESTING_EXPECT_GREATER(f1, x2);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f1, x2); ARIADNE_TESTING_PROVE( !(f1< x2));
 
     ExactDouble x1=1.0_x;
-    ARIADNE_TESTING_PROVE( !(x1==f2)); ARIADNE_TESTING_PROVE( x1!=f2);
-    ARIADNE_TESTING_PROVE( !(x1<=f2)); ARIADNE_TESTING_PROVE( x1> f2);
-    ARIADNE_TESTING_PROVE( x1>=f2); ARIADNE_TESTING_PROVE( !(x1< f2));
+    ARIADNE_TESTING_PROVE( !(x1==f2)); ARIADNE_TESTING_EXPECT_NOT_EQUAL(x1, f2);
+    ARIADNE_TESTING_PROVE( !(x1<=f2)); ARIADNE_TESTING_EXPECT_GREATER(x1, f2);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(x1, f2); ARIADNE_TESTING_PROVE( !(x1< f2));
 
     // Test comparison with an integer
     Integer z0(-3); this->ctx().inspect("z0", z0);
-    ARIADNE_TESTING_PROVE( !(f1==z0)); ARIADNE_TESTING_PROVE( f1!=z0);
-    ARIADNE_TESTING_PROVE( !(f1<=z0)); ARIADNE_TESTING_PROVE( f1> z0);
-    ARIADNE_TESTING_PROVE( f1>=z0); ARIADNE_TESTING_PROVE( !(f1< z0));
-    ARIADNE_TESTING_PROVE( !(z0==f1)); ARIADNE_TESTING_PROVE( z0<f1);
+    ARIADNE_TESTING_PROVE( !(f1==z0)); ARIADNE_TESTING_EXPECT_NOT_EQUAL(f1, z0);
+    ARIADNE_TESTING_PROVE( !(f1<=z0)); ARIADNE_TESTING_EXPECT_GREATER(f1, z0);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f1, z0); ARIADNE_TESTING_PROVE( !(f1< z0));
+    ARIADNE_TESTING_PROVE( !(z0==f1)); ARIADNE_TESTING_EXPECT_LESS(z0, f1);
 
     // Test comparison with a dyadic
     Dyadic w2(-5,2u); this->ctx().inspect("w2", w2);
-    ARIADNE_TESTING_PROVE( !(f1==w2)); ARIADNE_TESTING_PROVE( f1!=w2);
-    ARIADNE_TESTING_PROVE( !(w2==f1)); ARIADNE_TESTING_PROVE( w2<f1);
-    ARIADNE_TESTING_PROVE( !(f1<=w2)); ARIADNE_TESTING_PROVE( f1> w2);
-    ARIADNE_TESTING_PROVE( f1>=w2); ARIADNE_TESTING_PROVE( !(f1< w2));
-    ARIADNE_TESTING_PROVE( f2==w2); ARIADNE_TESTING_PROVE( !(f2!=w2));
+    ARIADNE_TESTING_PROVE( !(f1==w2)); ARIADNE_TESTING_EXPECT_NOT_EQUAL(f1, w2);
+    ARIADNE_TESTING_PROVE( !(w2==f1)); ARIADNE_TESTING_EXPECT_LESS(w2, f1);
+    ARIADNE_TESTING_PROVE( !(f1<=w2)); ARIADNE_TESTING_EXPECT_GREATER(f1, w2);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f1, w2); ARIADNE_TESTING_PROVE( !(f1< w2));
+    ARIADNE_TESTING_EXPECT_EQUAL(f2, w2); ARIADNE_TESTING_PROVE( !(f2!=w2));
 
     // Test comparison with a rational
     Rational q2(-5,4); this->ctx().inspect("q2", q2);
-    ARIADNE_TESTING_PROVE( !(f1==q2)); ARIADNE_TESTING_PROVE( f1!=q2);
-    ARIADNE_TESTING_PROVE( !(f1<=q2)); ARIADNE_TESTING_PROVE( f1> q2);
-    ARIADNE_TESTING_PROVE( f1>=q2); ARIADNE_TESTING_PROVE( !(f1< q2));
-    ARIADNE_TESTING_PROVE( f2==q2); ARIADNE_TESTING_PROVE( !(f2!=q2));
+    ARIADNE_TESTING_PROVE( !(f1==q2)); ARIADNE_TESTING_EXPECT_NOT_EQUAL(f1, q2);
+    ARIADNE_TESTING_PROVE( !(f1<=q2)); ARIADNE_TESTING_EXPECT_GREATER(f1, q2);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f1, q2); ARIADNE_TESTING_PROVE( !(f1< q2));
+    ARIADNE_TESTING_EXPECT_EQUAL(f2, q2); ARIADNE_TESTING_PROVE( !(f2!=q2));
 
     if constexpr (Same<PR,MultiplePrecision>) {
         // Exercise the public Rational-left comparison API in all three
@@ -2526,26 +2526,26 @@ TestFloatRounding<PR>::test_comparison()
         const Rational lower(-9,4);
         const Rational higher(5,4);
 
-        ARIADNE_TESTING_PROVE( equal==f2);
+        ARIADNE_TESTING_EXPECT_EQUAL(equal, f2);
         ARIADNE_TESTING_PROVE( !(equal!=f2));
         ARIADNE_TESTING_PROVE( !(equal< f2));
         ARIADNE_TESTING_PROVE( !(equal> f2));
-        ARIADNE_TESTING_PROVE( equal<=f2);
-        ARIADNE_TESTING_PROVE( equal>=f2);
+        ARIADNE_TESTING_EXPECT_LESS_EQUAL(equal, f2);
+        ARIADNE_TESTING_EXPECT_GREATER_EQUAL(equal, f2);
 
         ARIADNE_TESTING_PROVE( !(lower==f2));
-        ARIADNE_TESTING_PROVE( lower!=f2);
-        ARIADNE_TESTING_PROVE( lower< f2);
+        ARIADNE_TESTING_EXPECT_NOT_EQUAL(lower, f2);
+        ARIADNE_TESTING_EXPECT_LESS(lower, f2);
         ARIADNE_TESTING_PROVE( !(lower> f2));
-        ARIADNE_TESTING_PROVE( lower<=f2);
+        ARIADNE_TESTING_EXPECT_LESS_EQUAL(lower, f2);
         ARIADNE_TESTING_PROVE( !(lower>=f2));
 
         ARIADNE_TESTING_PROVE( !(higher==f2));
-        ARIADNE_TESTING_PROVE( higher!=f2);
+        ARIADNE_TESTING_EXPECT_NOT_EQUAL(higher, f2);
         ARIADNE_TESTING_PROVE( !(higher< f2));
-        ARIADNE_TESTING_PROVE( higher> f2);
+        ARIADNE_TESTING_EXPECT_GREATER(higher, f2);
         ARIADNE_TESTING_PROVE( !(higher<=f2));
-        ARIADNE_TESTING_PROVE( higher>=f2);
+        ARIADNE_TESTING_EXPECT_GREATER_EQUAL(higher, f2);
 
         // Both directions must reject unordered operands before trying
         // to materialize a nonfinite Rational from the FloatMP value.
@@ -2564,48 +2564,48 @@ TestFloatRounding<PR>::test_comparison()
         const FloatDP dp_higher(1.25_x,dp);
 
         // FloatMP on the left: equal, less, greater.
-        ARIADNE_TESTING_PROVE( f2==dp_equal);
+        ARIADNE_TESTING_EXPECT_EQUAL(f2, dp_equal);
         ARIADNE_TESTING_PROVE( !(f2!=dp_equal));
         ARIADNE_TESTING_PROVE( !(f2<dp_equal));
         ARIADNE_TESTING_PROVE( !(f2>dp_equal));
-        ARIADNE_TESTING_PROVE( f2<=dp_equal);
-        ARIADNE_TESTING_PROVE( f2>=dp_equal);
+        ARIADNE_TESTING_EXPECT_LESS_EQUAL(f2, dp_equal);
+        ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f2, dp_equal);
 
         ARIADNE_TESTING_PROVE( !(f2==dp_lower));
-        ARIADNE_TESTING_PROVE( f2!=dp_lower);
+        ARIADNE_TESTING_EXPECT_NOT_EQUAL(f2, dp_lower);
         ARIADNE_TESTING_PROVE( !(f2<dp_lower));
-        ARIADNE_TESTING_PROVE( f2>dp_lower);
+        ARIADNE_TESTING_EXPECT_GREATER(f2, dp_lower);
         ARIADNE_TESTING_PROVE( !(f2<=dp_lower));
-        ARIADNE_TESTING_PROVE( f2>=dp_lower);
+        ARIADNE_TESTING_EXPECT_GREATER_EQUAL(f2, dp_lower);
 
         ARIADNE_TESTING_PROVE( !(f2==dp_higher));
-        ARIADNE_TESTING_PROVE( f2!=dp_higher);
-        ARIADNE_TESTING_PROVE( f2<dp_higher);
+        ARIADNE_TESTING_EXPECT_NOT_EQUAL(f2, dp_higher);
+        ARIADNE_TESTING_EXPECT_LESS(f2, dp_higher);
         ARIADNE_TESTING_PROVE( !(f2>dp_higher));
-        ARIADNE_TESTING_PROVE( f2<=dp_higher);
+        ARIADNE_TESTING_EXPECT_LESS_EQUAL(f2, dp_higher);
         ARIADNE_TESTING_PROVE( !(f2>=dp_higher));
 
         // FloatDP on the left: exercise the distinct mixed overloads.
-        ARIADNE_TESTING_PROVE( dp_equal==f2);
+        ARIADNE_TESTING_EXPECT_EQUAL(dp_equal, f2);
         ARIADNE_TESTING_PROVE( !(dp_equal!=f2));
         ARIADNE_TESTING_PROVE( !(dp_equal<f2));
         ARIADNE_TESTING_PROVE( !(dp_equal>f2));
-        ARIADNE_TESTING_PROVE( dp_equal<=f2);
-        ARIADNE_TESTING_PROVE( dp_equal>=f2);
+        ARIADNE_TESTING_EXPECT_LESS_EQUAL(dp_equal, f2);
+        ARIADNE_TESTING_EXPECT_GREATER_EQUAL(dp_equal, f2);
 
         ARIADNE_TESTING_PROVE( !(dp_lower==f2));
-        ARIADNE_TESTING_PROVE( dp_lower!=f2);
-        ARIADNE_TESTING_PROVE( dp_lower<f2);
+        ARIADNE_TESTING_EXPECT_NOT_EQUAL(dp_lower, f2);
+        ARIADNE_TESTING_EXPECT_LESS(dp_lower, f2);
         ARIADNE_TESTING_PROVE( !(dp_lower>f2));
-        ARIADNE_TESTING_PROVE( dp_lower<=f2);
+        ARIADNE_TESTING_EXPECT_LESS_EQUAL(dp_lower, f2);
         ARIADNE_TESTING_PROVE( !(dp_lower>=f2));
 
         ARIADNE_TESTING_PROVE( !(dp_higher==f2));
-        ARIADNE_TESTING_PROVE( dp_higher!=f2);
+        ARIADNE_TESTING_EXPECT_NOT_EQUAL(dp_higher, f2);
         ARIADNE_TESTING_PROVE( !(dp_higher<f2));
-        ARIADNE_TESTING_PROVE( dp_higher>f2);
+        ARIADNE_TESTING_EXPECT_GREATER(dp_higher, f2);
         ARIADNE_TESTING_PROVE( !(dp_higher<=f2));
-        ARIADNE_TESTING_PROVE( dp_higher>=f2);
+        ARIADNE_TESTING_EXPECT_GREATER_EQUAL(dp_higher, f2);
     }
 
 }
@@ -2917,18 +2917,18 @@ TestFloatRounding<PR>::test_arithmetic()
     // Minimum (this should always remain exact)
     f4=min(f1,f2);
     cout << "min(" << f1 << "," << f2 << ") = " << f4 << endl;
-    ARIADNE_TESTING_PROVE( f4==f1);
+    ARIADNE_TESTING_EXPECT_EQUAL(f4, f1);
     f4=min(f1,f3);
     cout << "min(" << f1 << "," << f3 << ") = " << f4 << endl;
-    ARIADNE_TESTING_PROVE( f4==f3);
+    ARIADNE_TESTING_EXPECT_EQUAL(f4, f3);
 
     // Maximum (this should always remain exact)
     f4=max(f1,f2);
     cout << "max(" << f1 << "," << f2 << ") = " << f4 << endl;
-    ARIADNE_TESTING_PROVE( f4==f2);
+    ARIADNE_TESTING_EXPECT_EQUAL(f4, f2);
     f4=max(f1,f3);
     cout << "max(" << f1 << "," << f3 << ") = " << f4 << endl;
-    ARIADNE_TESTING_PROVE( f4==f1);
+    ARIADNE_TESTING_EXPECT_EQUAL(f4, f1);
 
     // Absolute value (this should always remain exact)
     f4=abs(f1);
@@ -2941,7 +2941,7 @@ TestFloatRounding<PR>::test_arithmetic()
     // Median (this should remain exact here)
     f3=med(near,f1,f2);
     cout << f1 << " <= med(" << f1 << "," << f2 << ")=" << f3 << " <= " << f2 << endl;
-    ARIADNE_TESTING_PROVE( f1<=f3); ARIADNE_TESTING_PROVE( f3<=f2);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(f1, f3); ARIADNE_TESTING_EXPECT_LESS_EQUAL(f3, f2);
     ARIADNE_TESTING_PROVE( f3==1.75_x);
 
     // Negation (this should always remain exact)
@@ -3120,7 +3120,7 @@ TestFloatRounding<PR>::test_function()
     Float ru=next(up,ra);
     this->ctx().inspect("rl", rl);
     this->ctx().inspect("ru", ru);
-    ARIADNE_TESTING_PROVE( rl<ru);
+    ARIADNE_TESTING_EXPECT_LESS(rl, ru);
     ARIADNE_TESTING_PROVE( 2.71_dec<rl);
     ARIADNE_TESTING_PROVE( ru<2.72_dec);
 

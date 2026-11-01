@@ -134,9 +134,9 @@ void test_decimal(Ariadne::Testing::Context& ctx)
 
     Decimal comparison_low("1.25");
     Decimal comparison_high("2.5");
-    ARIADNE_TESTING_PROVE_CTX(ctx,comparison_low<=comparison_high);
-    ARIADNE_TESTING_PROVE_CTX(ctx,comparison_high>=comparison_low);
-    ARIADNE_TESTING_PROVE_CTX(ctx,comparison_high>comparison_low);
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL_CTX(ctx,comparison_low,comparison_high);
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL_CTX(ctx,comparison_high,comparison_low);
+    ARIADNE_TESTING_EXPECT_GREATER_CTX(ctx,comparison_high,comparison_low);
 
     PositiveDecimal positive_default;
     PositiveDecimal positive_value(Decimal("1.25"));
