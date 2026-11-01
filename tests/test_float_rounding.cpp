@@ -2799,7 +2799,7 @@ TestFloatRounding<DoublePrecision>::test_directed_residuals()
                 observed_powers[degree_index]=
                     bits(pow(requested,input,degrees[degree_index]));
             }
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, FloatDP::get_rounding_mode(), FloatDP::ROUND_TO_NEAREST);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, FloatDP::get_rounding_mode(), static_cast<FloatDP::RoundingModeType>(FloatDP::ROUND_TO_NEAREST));
             RoundingSession<FloatDP> reference;
             const CurrentRoundingMode current=reference.set(requested);
             ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, bits(got_mul), bits(mul(current,input,other)));
@@ -2811,7 +2811,7 @@ TestFloatRounding<DoublePrecision>::test_directed_residuals()
                 ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, observed_powers[degree_index], bits(pow(current,input,degrees[degree_index])));
             }
         }
-        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, FloatDP::get_rounding_mode(), FloatDP::ROUND_TO_NEAREST);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, FloatDP::get_rounding_mode(), static_cast<FloatDP::RoundingModeType>(FloatDP::ROUND_TO_NEAREST));
     }
     // D13: exercise the degree-seven specialisation at finite and
     // extreme magnitudes. Failed certification must reproduce the
@@ -2826,13 +2826,13 @@ TestFloatRounding<DoublePrecision>::test_directed_residuals()
         for (auto requested : {FloatDP::ROUND_DOWNWARD,
                                FloatDP::ROUND_UPWARD}) {
             const FloatDP obtained=pow(requested,edge,Nat(7u));
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, FloatDP::get_rounding_mode(), FloatDP::ROUND_TO_NEAREST);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, FloatDP::get_rounding_mode(), static_cast<FloatDP::RoundingModeType>(FloatDP::ROUND_TO_NEAREST));
             RoundingSession<FloatDP> reference;
             const CurrentRoundingMode current=reference.set(requested);
             const FloatDP expected=pow(current,edge,Nat(7u));
             ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, bits(obtained), bits(expected));
         }
-        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, FloatDP::get_rounding_mode(), FloatDP::ROUND_TO_NEAREST);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, FloatDP::get_rounding_mode(), static_cast<FloatDP::RoundingModeType>(FloatDP::ROUND_TO_NEAREST));
     }
     FloatDP::set_rounding_mode(original);
 }
