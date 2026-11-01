@@ -504,7 +504,7 @@ TestFloatRounding<PR>::test_limits()
     ARIADNE_TESTING_EXPECT_GREATER( add(down,one,eps), one);
     ARIADNE_TESTING_EXPECT_EQUAL( add(down,one,div(up,eps,two_value)), one);
 
-    ARIADNE_TESTING_EXPECT_GREATER(min, zero);
+    ARIADNE_TESTING_PROVE(min>zero);
     ARIADNE_TESTING_EXPECT_LESS(max, inf_);
 
     ARIADNE_TESTING_PROVE( add(down,inf_,min)==inf_);
@@ -1405,7 +1405,7 @@ TestFloatRounding<PR>::test_precision_regressions()
 
                 const FloatMP smallest=FloatMP::min(mp);
                 const FloatMP largest=FloatMP::max(mp);
-                ARIADNE_TESTING_EXPECT_GREATER(largest, smallest);
+                ARIADNE_TESTING_PROVE(largest>smallest);
                 ARIADNE_TESTING_PROVE( neg(largest)<neg(smallest));
                 ARIADNE_TESTING_PROVE( largest>neg(largest));
                 ARIADNE_TESTING_PROVE( smallest>neg(smallest));
