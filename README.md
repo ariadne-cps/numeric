@@ -89,3 +89,32 @@ If you would like to contribute to Numeric, please contact the developer:
 ## License
 
 Numeric is released under the GNU General Public License v3.0.
+
+## Testing framework experiment (`testing` branch)
+
+The `testing` branch introduces [Ariadne Testing](https://github.com/ariadne-cps/testing)
+**only in standalone tests**, pinned in `ss/tst`. All existing CTest
+executables and the compile-only `check_numeric` target remain registered;
+production targets, public headers, Python bindings and install rules do not
+link to the new testing library.
+
+The first two migrated consumers are `test_logical_sequence` (explicit
+mathematical evidence expectations, including possibly/not-possibly) and
+`test_rounding_mode` (real backend rounding modes and equality checks).
+All other executables still use the legacy testing macros. This is a
+controlled migration experiment, **not** evidence that the entire Numeric
+suite has been migrated.
+
+```bash
+git clone --branch testing --recurse-submodules https://github.com/ariadne-cps/numeric.git
+cd numeric
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON_BINDINGS=OFF
+cmake --build build-debug --parallel --target tests
+ctest --test-dir build-debug --output-on-failure
+```
+
+Before merging any migration, compare the old and new checks and outcomes,
+including indeterminate evidence and exceptional paths, with a green
+GCC/Clang/MSVC CI matrix. Subsequent Numeric experiments should cover
+frozen TSV-oracle replay, precision-parametrized cases and state restoration;
+no reference datasets are regenerated as part of testing migration.

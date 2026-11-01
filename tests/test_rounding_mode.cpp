@@ -29,7 +29,7 @@
 #include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 namespace Ariadne { }
 
@@ -39,10 +39,10 @@ class TestRoundingMode
 {
   public:
     TestRoundingMode() { }
-    void test() const;
+    void test(Ariadne::Testing::Context& context) const;
 };
 
-void TestRoundingMode::test() const {
+void TestRoundingMode::test(Ariadne::Testing::Context& context) const {
     #if defined ARIADNE_C99_ROUNDING
         std::cout << "Using standard fenv.hpp C header file for setting the rounding mode." << std::endl;
     #elif defined ARIADNE_BOOST_ROUNDING
@@ -61,65 +61,65 @@ void TestRoundingMode::test() const {
         std::cout << "Using Microsoft Visual Studio inline assembler for setting the rounding mode." << std::endl;
     #else
         std::cout << "Error: no rounding mode available." << std::endl;
-        ++ARIADNE_TEST_FAILURES;
+        ARIADNE_TESTING_PROVE_CTX(context, false);
     #endif
 
     auto original_rounding=get_builtin_rounding_mode();
 
     set_builtin_rounding_to_nearest();
-    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_TO_NEAREST);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, get_builtin_rounding_mode(),ROUND_TO_NEAREST);
     set_builtin_rounding_downward();
-    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_DOWNWARD);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, get_builtin_rounding_mode(),ROUND_DOWNWARD);
     set_builtin_rounding_upward();
-    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_UPWARD);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, get_builtin_rounding_mode(),ROUND_UPWARD);
     set_builtin_rounding_toward_zero();
-    ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),ROUND_TOWARD_ZERO);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, get_builtin_rounding_mode(),ROUND_TOWARD_ZERO);
 
     // The generic setter must also apply each mode, not silently ignore it
     // on architectures without the x86/SSE control register.
     for (auto mode : {ROUND_TO_NEAREST, ROUND_DOWNWARD,
                       ROUND_UPWARD, ROUND_TOWARD_ZERO}) {
         set_builtin_rounding_mode(mode);
-        ARIADNE_TEST_EQUALS(get_builtin_rounding_mode(),mode);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, get_builtin_rounding_mode(),mode);
     }
     set_builtin_rounding_mode(original_rounding);
 
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(downward),ROUND_DOWNWARD);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(to_nearest),ROUND_TO_NEAREST);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(upward),ROUND_UPWARD);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(toward_zero),ROUND_TOWARD_ZERO);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(approximately),ROUND_TO_NEAREST);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(downward),ROUND_DOWNWARD);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(to_nearest),ROUND_TO_NEAREST);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(upward),ROUND_UPWARD);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(toward_zero),ROUND_TOWARD_ZERO);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(approximately),ROUND_TO_NEAREST);
 
     // Verify the same rounding tags map to the native multiple-precision
     // backend, using only the native rounding representation.
-    ARIADNE_TEST_ASSERT(FloatMP::Rounding(downward)==FloatMP::ROUND_DOWNWARD);
-    ARIADNE_TEST_ASSERT(FloatMP::Rounding(to_nearest)==FloatMP::ROUND_TO_NEAREST);
-    ARIADNE_TEST_ASSERT(FloatMP::Rounding(upward)==FloatMP::ROUND_UPWARD);
-    ARIADNE_TEST_ASSERT(FloatMP::Rounding(toward_zero)==FloatMP::ROUND_TOWARD_ZERO);
-    ARIADNE_TEST_ASSERT(FloatMP::Rounding(approximately)==FloatMP::ROUND_TO_NEAREST);
+    ARIADNE_TESTING_PROVE_CTX(context, FloatMP::Rounding(downward)==FloatMP::ROUND_DOWNWARD);
+    ARIADNE_TESTING_PROVE_CTX(context, FloatMP::Rounding(to_nearest)==FloatMP::ROUND_TO_NEAREST);
+    ARIADNE_TESTING_PROVE_CTX(context, FloatMP::Rounding(upward)==FloatMP::ROUND_UPWARD);
+    ARIADNE_TESTING_PROVE_CTX(context, FloatMP::Rounding(toward_zero)==FloatMP::ROUND_TOWARD_ZERO);
+    ARIADNE_TESTING_PROVE_CTX(context, FloatMP::Rounding(approximately)==FloatMP::ROUND_TO_NEAREST);
 
     Rounding rnd_builtin(ROUND_DOWNWARD);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_builtin),ROUND_DOWNWARD);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(rnd_builtin),ROUND_DOWNWARD);
     Rounding rnd_near(to_nearest);
     Rounding rnd_down(downward);
     Rounding rnd_up(upward);
     Rounding rnd_zero(toward_zero);
     Rounding rnd_approx(approximately);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_near),ROUND_TO_NEAREST);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_down),ROUND_DOWNWARD);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_up),ROUND_UPWARD);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_zero),ROUND_TOWARD_ZERO);
-    ARIADNE_TEST_EQUALS(static_cast<BuiltinRoundingModeType>(rnd_approx),ROUND_TO_NEAREST);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(rnd_near),ROUND_TO_NEAREST);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(rnd_down),ROUND_DOWNWARD);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(rnd_up),ROUND_UPWARD);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(rnd_zero),ROUND_TOWARD_ZERO);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, static_cast<BuiltinRoundingModeType>(rnd_approx),ROUND_TO_NEAREST);
 
     const auto saved_native=FloatMP::get_rounding_mode();
     FloatMP::set_rounding_to_nearest();
-    ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==FloatMP::ROUND_TO_NEAREST);
+    ARIADNE_TESTING_PROVE_CTX(context, FloatMP::get_rounding_mode()==FloatMP::ROUND_TO_NEAREST);
     FloatMP::set_rounding_downward();
-    ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==FloatMP::ROUND_DOWNWARD);
+    ARIADNE_TESTING_PROVE_CTX(context, FloatMP::get_rounding_mode()==FloatMP::ROUND_DOWNWARD);
     FloatMP::set_rounding_upward();
-    ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==FloatMP::ROUND_UPWARD);
+    ARIADNE_TESTING_PROVE_CTX(context, FloatMP::get_rounding_mode()==FloatMP::ROUND_UPWARD);
     FloatMP::set_rounding_toward_zero();
-    ARIADNE_TEST_ASSERT(FloatMP::get_rounding_mode()==FloatMP::ROUND_TOWARD_ZERO);
+    ARIADNE_TESTING_PROVE_CTX(context, FloatMP::get_rounding_mode()==FloatMP::ROUND_TOWARD_ZERO);
     FloatMP::set_rounding_mode(saved_native);
 
     const MultiplePrecision native_precision(128_bits);
@@ -128,19 +128,22 @@ void TestRoundingMode::test() const {
     const FloatMP upper(third,FloatMP::ROUND_UPWARD,native_precision);
     const FloatMP toward_zero_positive(third,FloatMP::ROUND_TOWARD_ZERO,native_precision);
     const FloatMP toward_zero_negative(-third,FloatMP::ROUND_TOWARD_ZERO,native_precision);
-    ARIADNE_TEST_ASSERT(Rational(lower)<third);
-    ARIADNE_TEST_ASSERT(third<Rational(upper));
-    ARIADNE_TEST_EQUALS(toward_zero_positive,lower);
-    ARIADNE_TEST_EQUALS(toward_zero_negative,-lower);
+    ARIADNE_TESTING_PROVE_CTX(context, Rational(lower)<third);
+    ARIADNE_TESTING_PROVE_CTX(context, third<Rational(upper));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, toward_zero_positive,lower);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, toward_zero_negative,-lower);
 
     std::ostringstream stream;
     stream << rnd_near << " " << rnd_down << " " << rnd_up << " " << rnd_zero;
-    ARIADNE_TEST_EQUALS(stream.str(),std::string("near down up zero"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, stream.str(),std::string("near down up zero"));
 }
 
 
 int main() {
-   TestRoundingMode().test();
-   return ARIADNE_TEST_FAILURES;
+    Ariadne::Testing::Suite suite("rounding_mode");
+    suite.add("rounding mode contracts", [](Ariadne::Testing::Context& context) {
+        TestRoundingMode().test(context);
+    });
+    return Ariadne::Testing::run_suite(suite);
 }
 
