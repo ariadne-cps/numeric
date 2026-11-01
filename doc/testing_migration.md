@@ -29,3 +29,11 @@ flushed `[RUN]` and `[CHECK]` records identify the failing case and
 last reached assertion in CI's `--output-on-failure` transcript. Revert
 to `--concise` once the root cause is fixed and tested across platforms.
 This is a diagnostic change, not a relaxation or deletion of assertions.
+
+## 2026-11-01: Restore concise after crash breadcrumb support
+
+The temporary `--full` CTest exception for `test_float_lower_upper_bound`
+is removed. The Testing submodule now emits fatal-signal-only current-case
+and last-CHECK breadcrumbs in `--concise`; all normal runs retain the
+summary-only contract. The previously observed Debug SIGSEGV is not itself
+fixed by this change and remains a separate regression to investigate.

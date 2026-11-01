@@ -38,14 +38,7 @@ foreach(TEST ${UNIT_TESTS})
     else()
         target_include_directories(${TEST} PRIVATE "${PROJECT_SOURCE_DIR}/ss/mac/include")
     endif()
-    # Temporary crash diagnosis: streaming/full mode flushes every check so
-    # CTest --output-on-failure can show the last check before a SIGSEGV.
-    # All other tests retain concise CI output.
-    if("${TEST}" STREQUAL "test_float_lower_upper_bound")
-        add_test(NAME ${TEST} COMMAND $<TARGET_FILE:${TEST}> --full)
-    else()
-        add_test(NAME ${TEST} COMMAND $<TARGET_FILE:${TEST}> --concise)
-    endif()
+    add_test(NAME ${TEST} COMMAND $<TARGET_FILE:${TEST}> --concise)
     if(WIN32)
         set_tests_properties(${TEST} PROPERTIES
             ENVIRONMENT_MODIFICATION
