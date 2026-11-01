@@ -37,3 +37,16 @@ is removed. The Testing submodule now emits fatal-signal-only current-case
 and last-CHECK breadcrumbs in `--concise`; all normal runs retain the
 summary-only contract. The previously observed Debug SIGSEGV is not itself
 fixed by this change and remains a separate regression to investigate.
+
+## 2026-11-01: Fix MSVC generic fixture method registration
+
+MSVC rejected the explicitly spelled dependent pointer-to-member parameter
+`void (Fixture::*method)()` in the two newly migrated precision-parametric
+suites (`test_float_ball` and `test_float_lower_upper_bound`) with C2653 /
+C2091 and cascading C2664 failures. Both local add-case lambdas now use
+`auto method`, allowing the compiler to deduce the exact member pointer
+from `&Fixture::test_...`. Invocation through `(fixture.*method)()`,
+registration order, precision variants, test bodies and assertions are
+unchanged. The generic-lambda shape was syntax-checked with GCC and Clang
+under C++20 -Wall -Wextra -Wpedantic -Werror. MSVC acceptance and downstream
+runtime verification remain CI gates.

@@ -386,7 +386,7 @@ TestDirectedFloats<PR>::test_comparison() {
 template<class PR>
 void add_directed_float_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision) {
     using Fixture=TestDirectedFloats<PR>;
-    auto add=[&](std::string const& name, void (Fixture::*method)()) {
+    auto add=[&](std::string const& name, auto method) {
         suite.add(variant+" / "+name, [precision,method](Ariadne::Testing::Context& context) {
             Fixture fixture(context,precision);
             (fixture.*method)();

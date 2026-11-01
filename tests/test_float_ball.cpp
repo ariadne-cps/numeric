@@ -325,7 +325,7 @@ TestFloatBall<PR,PRE>::test_rounded_arithmetic()
 template<class PR, class PRE=PR>
 void add_float_ball_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision) {
     using Fixture=TestFloatBall<PR,PRE>;
-    auto add=[&](std::string const& name, void (Fixture::*method)()) {
+    auto add=[&](std::string const& name, auto method) {
         suite.add(variant+" / "+name, [precision,method](Ariadne::Testing::Context& context) {
             Fixture fixture(context,precision);
             (fixture.*method)();
