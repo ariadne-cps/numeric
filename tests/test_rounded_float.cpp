@@ -156,16 +156,22 @@ constexpr bool check_rounded_float_concept()
 static_assert(check_rounded_float_concept<FloatDP>());
 static_assert(check_rounded_float_concept<FloatMP>());
 
-Void test_numeric_casts(Ariadne::Testing::Context& context)
+class TestNumericCasts : public Ariadne::Testing::ContextFixture {
+  public:
+    using ContextFixture::ContextFixture;
+    void test_numeric_casts();
+};
+
+Void TestNumericCasts::test_numeric_casts()
 {
     // A heuristic decision is distinct from a proof. Check both outcomes:
     // accepting an approximate 'true' must not also accept 'false'.
     const ApproximateKleenean likely_true(true), likely_false(false);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rounded_test_verdict(likely_true), true);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rounded_test_verdict(likely_false), false);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context,
+    ARIADNE_TESTING_EXPECT_EQUAL( rounded_test_verdict(likely_true), true);
+    ARIADNE_TESTING_EXPECT_EQUAL( rounded_test_verdict(likely_false), false);
+    ARIADNE_TESTING_EXPECT_EQUAL(
         Testing::Detail::evidence(likely_true), Testing::Evidence::Indeterminate);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context,
+    ARIADNE_TESTING_EXPECT_EQUAL(
         Testing::Detail::evidence(likely_false), Testing::Evidence::Indeterminate);
     FloatDP dp_two(2,dp);
     const MultiplePrecision mp(128_bits);
@@ -176,37 +182,37 @@ Void test_numeric_casts(Ariadne::Testing::Context& context)
     FloatDPApproximation approximation_two(2,dp);
     double double_two=2.0;
 
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(dp_two),Int(2));
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(ap_two),Int(2));
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<Int>(dp_two),Int(2));
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<Int>(ap_two),Int(2));
     // The public numeric_cast API must match the legacy backend on
     // positive, negative and non-integral finite inputs.
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(FloatMP(-2,mp)),Int(-2));
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(FloatMP(ExactDouble(2.5),mp)),Int(2));
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<Int>(FloatMP(ExactDouble(-2.5),mp)),Int(-2));
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<Int>(FloatMP(-2,mp)),Int(-2));
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<Int>(FloatMP(ExactDouble(2.5),mp)),Int(2));
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<Int>(FloatMP(ExactDouble(-2.5),mp)),Int(-2));
 
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(dp_two),2.0);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(dy_two),2.0);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(real_two),2.0);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(bounds_two),2.0);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<double>(approximation_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<double>(dp_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<double>(dy_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<double>(real_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<double>(bounds_two),2.0);
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<double>(approximation_two),2.0);
 
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<float>(double_two),2.0f);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<float>(dp_two),2.0f);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<float>(real_two),2.0f);
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<float>(double_two),2.0f);
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<float>(dp_two),2.0f);
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<float>(real_two),2.0f);
 
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, numeric_cast<FloatDP>(dp_two),dp_two);
+    ARIADNE_TESTING_EXPECT_EQUAL( numeric_cast<FloatDP>(dp_two),dp_two);
 
     Real real_from_dp=numeric_cast<Real>(dp_two);
     Real real_from_bounds=numeric_cast<Real>(bounds_two);
-    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE_CTX(context, models,real_from_dp.get(dp),dp_two);
-    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE_CTX(context, models,real_from_bounds.get(dp),dp_two);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE( models,real_from_dp.get(dp),dp_two);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE( models,real_from_bounds.get(dp),dp_two);
 
     FloatDPBall ball_from_real=numeric_cast<FloatDPBall>(real_two);
     FloatDPBounds bounds_from_real=numeric_cast<FloatDPBounds>(real_two);
     FloatDPApproximation approximation_from_real=numeric_cast<FloatDPApproximation>(real_two);
-    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE_CTX(context, models,ball_from_real,dp_two);
-    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE_CTX(context, models,bounds_from_real,dp_two);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, approximation_from_real.raw(),dp_two);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE( models,ball_from_real,dp_two);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE( models,bounds_from_real,dp_two);
+    ARIADNE_TESTING_EXPECT_EQUAL( approximation_from_real.raw(),dp_two);
 }
 
 } // namespace
@@ -877,7 +883,7 @@ int main(int argc, char** argv) {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     Ariadne::Testing::Suite suite("rounded floats");
-    suite.add("numeric casts", test_numeric_casts);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestNumericCasts, test_numeric_casts);
     add_rounded_cases<FloatDP>(suite,"FloatDP",dp);
     add_rounded_cases<FloatMP>(suite,"FloatMP",MultiplePrecision(128_bits));
     return Ariadne::Testing::run_suite(suite, argc, argv);

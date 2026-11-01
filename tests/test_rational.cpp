@@ -122,6 +122,10 @@ class TestRational : public Ariadne::Testing::ContextFixture
     void test_native_contract();
     void test_native_double();
     void test_differential();
+    void test_rational_integral_binary64_scale();
+    void test_rational_distinct_prefixes();
+    void test_rational_contract_edges();
+    void test_rational_scalar_comparison_oracle();
 };
 
 void TestRational::test_literal() {
@@ -1405,56 +1409,56 @@ void TestRational::test_bounds() {
 
 
 
-void test_rational_integral_binary64_scale(Ariadne::Testing::Context& context) {
+void TestRational::test_rational_integral_binary64_scale() {
     // The ratio is strictly between 2^53-1 and 2^53. It occupies five
     // limbs on both sides, while its binary64 truncation has scale zero.
     const Rational source(pow(Integer(2),Nat(319))+1,pow(Integer(2),Nat(266))+1);
     const auto old=std::fegetround();
     for (auto mode : {FE_TONEAREST,FE_DOWNWARD,FE_UPWARD,FE_TOWARDZERO}) {
         std::fesetround(mode);
-        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, source.get_d(),9007199254740991.0);
-        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, (-source).get_d(),-9007199254740991.0);
+        ARIADNE_TESTING_EXPECT_EQUAL(source.get_d(),9007199254740991.0);
+        ARIADNE_TESTING_EXPECT_EQUAL((-source).get_d(),-9007199254740991.0);
     }
     std::fesetround(old);
 }
 
-void test_rational_distinct_prefixes(Ariadne::Testing::Context& context) {
+void TestRational::test_rational_distinct_prefixes() {
     // Every 128-bit prefix is all ones. Both prefix upper bounds overflow;
     // the full products decide 1+2/(P-3) < 1+2/(P-7).
     const Integer radix=pow(Integer(2),Nat(192));
     const Rational left(radix-1,radix-3),right(radix-5,radix-7);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(left,right),Comparison::LESS);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(right,left),Comparison::GREATER);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(-left,-right),Comparison::GREATER);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(left,left),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(left,right),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(right,left),Comparison::GREATER);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(-left,-right),Comparison::GREATER);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(left,left),Comparison::EQUAL);
     // Equal reduced values bypass distinct-denominator cross-products.
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(Rational(2,6),Rational(3,9)),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational(2,6),Rational(3,9)),Comparison::EQUAL);
 }
 
-void test_rational_contract_edges(Ariadne::Testing::Context& context) {
+void TestRational::test_rational_contract_edges() {
     bool rejected=false;
     try {
         const Rational invalid(String("bad/3"));
     } catch (std::runtime_error const& error) {
         rejected=true;
-        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, std::string(error.what()),std::string(
+        ARIADNE_TESTING_EXPECT_EQUAL(std::string(error.what()),std::string(
             "std::runtime_error in Rational(string): String \"bad/3\" does not have a valid rational number format."));
     }
-    ARIADNE_TESTING_PROVE_CTX(context, rejected);
+    ARIADNE_TESTING_PROVE(rejected);
     Rational self(11,13);
     const Rational* alias=&self;
     self=*alias;
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, self,Rational(11,13));
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Rational(String("\t -12\n /\r -18\f\v")),Rational(2,3));
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, pow(Rational::inf(Sign::POSITIVE),Nat(3)),Rational::inf(Sign::POSITIVE));
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, pow(Rational::inf(Sign::NEGATIVE),Nat(3)),Rational::inf(Sign::NEGATIVE));
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, pow(Rational::inf(Sign::NEGATIVE),Nat(2)),Rational::inf(Sign::POSITIVE));
+    ARIADNE_TESTING_EXPECT_EQUAL(self,Rational(11,13));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(String("\t -12\n /\r -18\f\v")),Rational(2,3));
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(Rational::inf(Sign::POSITIVE),Nat(3)),Rational::inf(Sign::POSITIVE));
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(Rational::inf(Sign::NEGATIVE),Nat(3)),Rational::inf(Sign::NEGATIVE));
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(Rational::inf(Sign::NEGATIVE),Nat(2)),Rational::inf(Sign::POSITIVE));
     // Cancellation scans complete zero limbs before the first set bit.
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Rational::from_dyadic(Integer(String("18446744073709551616")),65u),Rational(1,2));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::from_dyadic(Integer(String("18446744073709551616")),65u),Rational(1,2));
 }
 
 
-void test_rational_scalar_comparison_oracle(Ariadne::Testing::Context& context) {
+void TestRational::test_rational_scalar_comparison_oracle() {
         std::ifstream data(ARIADNE_TEST_DATA_DIR "/scalar_comparison.tsv");
         if (!data) throw std::runtime_error("Missing scalar_comparison.tsv");
         std::string line;
@@ -1469,16 +1473,16 @@ void test_rational_scalar_comparison_oracle(Ariadne::Testing::Context& context) 
             const Rational rhs(n,d);
             const Integer integer(lhs);
             const bool ordered=expected!=-128;
-            [[maybe_unused]] auto row_scope = context.scope("scalar comparison oracle",line);
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(lhs,rhs),static_cast<Comparison>(expected));
+            [[maybe_unused]] auto row_scope = this->ctx().scope("scalar comparison oracle",line);
+            ARIADNE_TESTING_EXPECT_EQUAL(cmp(lhs,rhs),static_cast<Comparison>(expected));
             const Boolean generic_unequal=Ariadne::operator!=<Rational,Integer>(rhs,integer);
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, generic_unequal,Boolean(!ordered || expected!=0));
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs!=integer,Boolean(!ordered || expected!=0));
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs==integer,Boolean(ordered && expected==0));
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs<integer,Boolean(ordered && expected>0));
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs>integer,Boolean(ordered && expected<0));
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs<=integer,Boolean(ordered && expected>=0));
-            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs>=integer,Boolean(ordered && expected<=0));
+            ARIADNE_TESTING_EXPECT_EQUAL(generic_unequal,Boolean(!ordered || expected!=0));
+            ARIADNE_TESTING_EXPECT_EQUAL(rhs!=integer,Boolean(!ordered || expected!=0));
+            ARIADNE_TESTING_EXPECT_EQUAL(rhs==integer,Boolean(ordered && expected==0));
+            ARIADNE_TESTING_EXPECT_EQUAL(rhs<integer,Boolean(ordered && expected>0));
+            ARIADNE_TESTING_EXPECT_EQUAL(rhs>integer,Boolean(ordered && expected<0));
+            ARIADNE_TESTING_EXPECT_EQUAL(rhs<=integer,Boolean(ordered && expected>=0));
+            ARIADNE_TESTING_EXPECT_EQUAL(rhs>=integer,Boolean(ordered && expected<=0));
         }
         if (keys.size()!=27u) throw std::runtime_error("Incomplete scalar_comparison.tsv");
     }
@@ -1487,10 +1491,10 @@ int main(int argc, char** argv) {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
     Ariadne::Testing::Suite suite("rational");
-    suite.add("binary64 scale", test_rational_integral_binary64_scale);
-    suite.add("distinct prefixes", test_rational_distinct_prefixes);
-    suite.add("contract edges", test_rational_contract_edges);
-    suite.add("scalar comparison oracle", test_rational_scalar_comparison_oracle);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_rational_integral_binary64_scale);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_rational_distinct_prefixes);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_rational_contract_edges);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_rational_scalar_comparison_oracle);
     ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_literal);
     ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_conversions);
     ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_arithmetic);

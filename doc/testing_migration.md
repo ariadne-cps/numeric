@@ -254,3 +254,26 @@ are unchanged.
 
 Acceptance requires the complete Numeric CI matrix on this exact commit;
 prior failed builds of `test_rational` do not qualify as validated.
+
+## 2026-11-01: Consolidate runtime test bodies inside fixtures
+
+As a coding convention, every runtime test body in the application repositories
+belongs to a ContextFixture-derived class. Standalone functions are reserved
+for true compile-time checks and oracle generator executables; the Testing
+framework itself deliberately exercises its explicit-Context API separately.
+
+This change moves the four standalone Rational cases into TestRational while
+preserving their order ahead of the ten existing cases, complete TSV coverage
+and all original comparisons. It introduces TestDecimal and TestExtended
+fixtures for their two and three existing cases, respectively, and a templated
+TestFloatError fixture for the original FloatDP and FloatMP parameterizations.
+The numeric-casts case becomes TestNumericCasts; the Fourier case becomes a
+method of TestComplex, retaining its expected-no-throw check and constructor
+configuration. The templated operator metadata helper is moved into
+TestOperators, where it uses fixture assertion macros.
+
+Test-only registration helper functions remain outside the fixtures if they
+only build parameterized Suite entries, not run assertions. Mathematical and
+compile-time oracle values remain unchanged. All these edits require CI before
+acceptance; preserving source expressions is not the same as verified runtime
+equivalence.

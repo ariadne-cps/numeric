@@ -28,19 +28,19 @@ struct CodeKind {
     OperatorKind kind;
 };
 
-template<class OP>
-void test_metadata(Ariadne::Testing::Context& context, OP op,
-                   OperatorCode code, OperatorKind kind) {
-    Operator generic(op);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, generic.code(), code);
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, generic.kind(), kind);
-}
-
 } // namespace
 
 class TestOperators : public Ariadne::Testing::ContextFixture {
   public:
     using ContextFixture::ContextFixture;
+    template<class OP>
+    void test_metadata(OP op, OperatorCode code, OperatorKind kind) {
+        Operator generic(op);
+        ARIADNE_TESTING_EXPECT_EQUAL(generic.code(), code);
+        ARIADNE_TESTING_EXPECT_EQUAL(generic.kind(), kind);
+    }
+
+
     void test_kinds() {
         const std::array kinds={
             CodeKind{OperatorCode::CNST,OperatorKind::NULLARY},
@@ -185,46 +185,46 @@ class TestOperators : public Ariadne::Testing::ContextFixture {
     }
 
     void test_objects() {
-        test_metadata(this->ctx(), Gtr{},OperatorCode::GT,OperatorKind::COMPARISON);
-        test_metadata(this->ctx(), Less{},OperatorCode::LT,OperatorKind::COMPARISON);
-        test_metadata(this->ctx(), Geq{},OperatorCode::GEQ,OperatorKind::COMPARISON);
-        test_metadata(this->ctx(), Leq{},OperatorCode::LEQ,OperatorKind::COMPARISON);
-        test_metadata(this->ctx(), Equal{},OperatorCode::EQ,OperatorKind::COMPARISON);
-        test_metadata(this->ctx(), Unequal{},OperatorCode::NEQ,OperatorKind::COMPARISON);
-        test_metadata(this->ctx(), XOrOp{},OperatorCode::XOR,OperatorKind::BINARY);
-        test_metadata(this->ctx(), AndOp{},OperatorCode::AND,OperatorKind::BINARY);
-        test_metadata(this->ctx(), OrOp{},OperatorCode::OR,OperatorKind::BINARY);
-        test_metadata(this->ctx(), NotOp{},OperatorCode::NOT,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Cnst{},OperatorCode::CNST,OperatorKind::NULLARY);
-        test_metadata(this->ctx(), Ind{},OperatorCode::IND,OperatorKind::COORDINATE);
-        test_metadata(this->ctx(), Var{},OperatorCode::VAR,OperatorKind::VARIABLE);
-        test_metadata(this->ctx(), Add{},OperatorCode::ADD,OperatorKind::BINARY);
-        test_metadata(this->ctx(), Sub{},OperatorCode::SUB,OperatorKind::BINARY);
-        test_metadata(this->ctx(), Mul{},OperatorCode::MUL,OperatorKind::BINARY);
-        test_metadata(this->ctx(), Div{},OperatorCode::DIV,OperatorKind::BINARY);
-        test_metadata(this->ctx(), Pow{},OperatorCode::POW,OperatorKind::GRADED);
-        test_metadata(this->ctx(), Root{},OperatorCode::ROOT,OperatorKind::GRADED);
-        test_metadata(this->ctx(), Fma{},OperatorCode::FMA,OperatorKind::TERNARY);
-        test_metadata(this->ctx(), Nul{},OperatorCode::NUL,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Pos{},OperatorCode::POS,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Neg{},OperatorCode::NEG,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Hlf{},OperatorCode::HLF,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Rec{},OperatorCode::REC,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Sqr{},OperatorCode::SQR,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Sqrt{},OperatorCode::SQRT,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Exp{},OperatorCode::EXP,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Log{},OperatorCode::LOG,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Sin{},OperatorCode::SIN,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Cos{},OperatorCode::COS,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Tan{},OperatorCode::TAN,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Tanh{},OperatorCode::TANH,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Asin{},OperatorCode::ASIN,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Acos{},OperatorCode::ACOS,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Atan{},OperatorCode::ATAN,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Max{},OperatorCode::MAX,OperatorKind::BINARY);
-        test_metadata(this->ctx(), Min{},OperatorCode::MIN,OperatorKind::BINARY);
-        test_metadata(this->ctx(), Abs{},OperatorCode::ABS,OperatorKind::UNARY);
-        test_metadata(this->ctx(), Sgn{},OperatorCode::SGN,OperatorKind::PREDICATE);
+        test_metadata(Gtr{},OperatorCode::GT,OperatorKind::COMPARISON);
+        test_metadata(Less{},OperatorCode::LT,OperatorKind::COMPARISON);
+        test_metadata(Geq{},OperatorCode::GEQ,OperatorKind::COMPARISON);
+        test_metadata(Leq{},OperatorCode::LEQ,OperatorKind::COMPARISON);
+        test_metadata(Equal{},OperatorCode::EQ,OperatorKind::COMPARISON);
+        test_metadata(Unequal{},OperatorCode::NEQ,OperatorKind::COMPARISON);
+        test_metadata(XOrOp{},OperatorCode::XOR,OperatorKind::BINARY);
+        test_metadata(AndOp{},OperatorCode::AND,OperatorKind::BINARY);
+        test_metadata(OrOp{},OperatorCode::OR,OperatorKind::BINARY);
+        test_metadata(NotOp{},OperatorCode::NOT,OperatorKind::UNARY);
+        test_metadata(Cnst{},OperatorCode::CNST,OperatorKind::NULLARY);
+        test_metadata(Ind{},OperatorCode::IND,OperatorKind::COORDINATE);
+        test_metadata(Var{},OperatorCode::VAR,OperatorKind::VARIABLE);
+        test_metadata(Add{},OperatorCode::ADD,OperatorKind::BINARY);
+        test_metadata(Sub{},OperatorCode::SUB,OperatorKind::BINARY);
+        test_metadata(Mul{},OperatorCode::MUL,OperatorKind::BINARY);
+        test_metadata(Div{},OperatorCode::DIV,OperatorKind::BINARY);
+        test_metadata(Pow{},OperatorCode::POW,OperatorKind::GRADED);
+        test_metadata(Root{},OperatorCode::ROOT,OperatorKind::GRADED);
+        test_metadata(Fma{},OperatorCode::FMA,OperatorKind::TERNARY);
+        test_metadata(Nul{},OperatorCode::NUL,OperatorKind::UNARY);
+        test_metadata(Pos{},OperatorCode::POS,OperatorKind::UNARY);
+        test_metadata(Neg{},OperatorCode::NEG,OperatorKind::UNARY);
+        test_metadata(Hlf{},OperatorCode::HLF,OperatorKind::UNARY);
+        test_metadata(Rec{},OperatorCode::REC,OperatorKind::UNARY);
+        test_metadata(Sqr{},OperatorCode::SQR,OperatorKind::UNARY);
+        test_metadata(Sqrt{},OperatorCode::SQRT,OperatorKind::UNARY);
+        test_metadata(Exp{},OperatorCode::EXP,OperatorKind::UNARY);
+        test_metadata(Log{},OperatorCode::LOG,OperatorKind::UNARY);
+        test_metadata(Sin{},OperatorCode::SIN,OperatorKind::UNARY);
+        test_metadata(Cos{},OperatorCode::COS,OperatorKind::UNARY);
+        test_metadata(Tan{},OperatorCode::TAN,OperatorKind::UNARY);
+        test_metadata(Tanh{},OperatorCode::TANH,OperatorKind::UNARY);
+        test_metadata(Asin{},OperatorCode::ASIN,OperatorKind::UNARY);
+        test_metadata(Acos{},OperatorCode::ACOS,OperatorKind::UNARY);
+        test_metadata(Atan{},OperatorCode::ATAN,OperatorKind::UNARY);
+        test_metadata(Max{},OperatorCode::MAX,OperatorKind::BINARY);
+        test_metadata(Min{},OperatorCode::MIN,OperatorKind::BINARY);
+        test_metadata(Abs{},OperatorCode::ABS,OperatorKind::UNARY);
+        test_metadata(Sgn{},OperatorCode::SGN,OperatorKind::PREDICATE);
 
         std::ostringstream comparisons;
         comparisons << Less{} << Gtr{} << Leq{} << Geq{} << Equal{} << Unequal{};

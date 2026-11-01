@@ -81,6 +81,7 @@ template<class X> class TestComplex : public Ariadne::Testing::ContextFixture
     void test_polar();
     void test_transcendental();
     void test_comparison();
+    void test_fourier();
 };
 
 template<class X> void TestComplex<X>::test_conversions() {
@@ -185,8 +186,8 @@ template<class X> void TestComplex<X>::test_comparison() {
 }
 
 
-void test_fourier() {
-    typedef FloatDPBounds X;
+template<class X> void TestComplex<X>::test_fourier() {
+    ARIADNE_TESTING_EXPECT_NO_THROW(([&] {
     auto pr=dp;
 
     SizeType N=32;
@@ -200,6 +201,7 @@ void test_fourier() {
     for(SizeType k=0; k!=32; ++k) {
         r=r+cs[k]*exp(i*k*x);
     }
+    }()));
 }
 
 
@@ -218,8 +220,6 @@ int main(int argc, char** argv) {
     add_complex_case("transcendental", &TestComplex<FloatDPBounds>::test_transcendental);
     add_complex_case("polar", &TestComplex<FloatDPBounds>::test_polar);
     add_complex_case("comparison", &TestComplex<FloatDPBounds>::test_comparison);
-    suite.add("fourier", [](Ariadne::Testing::Context& context) {
-        context.expect_no_throw([] { test_fourier(); }, "fourier series");
-    });
+    add_complex_case("fourier", &TestComplex<FloatDPBounds>::test_fourier);
     return Ariadne::Testing::run_suite(suite, argc, argv);
 }
