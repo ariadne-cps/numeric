@@ -576,7 +576,7 @@ void TestRational::test_native_contract() {
                     throw std::runtime_error("Missing or unordered R31 TSV row");
                 }
                 // Check canonicality, not merely fraction equivalence.
-                const auto check_result=[](Rational const& actual,
+                const auto check_result=[this](Rational const& actual,
                                            std::string const& num,
                                            std::string const& den) {
                     ARIADNE_TESTING_EXPECT_EQUAL(actual.numerator(),Integer(String(num)));
@@ -785,7 +785,7 @@ void TestRational::test_differential() {
     std::string random_header;
     while (random_fixture.peek()=='#')
         std::getline(random_fixture,random_header);
-    const auto verify_fraction=[](Rational const& actual,
+    const auto verify_fraction=[this](Rational const& actual,
                                   std::string const& expected_text) {
         const std::size_t slash=expected_text.find('/');
         if (slash==std::string::npos)
@@ -1268,7 +1268,7 @@ void TestRational::test_differential() {
 }
 
 void TestRational::test_bounds() {
-    auto check_bounds=[](RationalBounds const& actual, Rational const& lower, Rational const& upper) {
+    auto check_bounds=[this](RationalBounds const& actual, Rational const& lower, Rational const& upper) {
         ARIADNE_TESTING_EXPECT_EQUAL(actual.lower_raw(),lower);
         ARIADNE_TESTING_EXPECT_EQUAL(actual.upper_raw(),upper);
     };
@@ -1380,7 +1380,7 @@ void TestRational::test_bounds() {
 
     ARIADNE_TESTING_EXPECT_EQUAL(class_name<RationalBounds>(),String("RationalBounds"));
 
-    auto check_dyadic=[](DyadicBounds const& actual, Dyadic const& lower, Dyadic const& upper) {
+    auto check_dyadic=[this](DyadicBounds const& actual, Dyadic const& lower, Dyadic const& upper) {
         ARIADNE_TESTING_EXPECT_EQUAL(actual.lower_raw(),lower);
         ARIADNE_TESTING_EXPECT_EQUAL(actual.upper_raw(),upper);
     };

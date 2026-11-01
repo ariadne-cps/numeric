@@ -229,3 +229,28 @@ that no fixture-only assertion shorthand is used in the free functions,
 and that all converted assertion invocations terminate correctly.
 Full CI of this commit remains mandatory; do not relax oracle coverage
 or numerical expectations to make the regression green.
+
+## 2026-11-01: Unify Dyadic fixtures and repair Rational lambda captures
+
+All five formerly free-standing Dyadic oracle/contract functions are now
+`TestDyadic` fixture methods. This keeps the original order of all 13 cases
+and their isolated fixture instances, while registering every method with
+`ARIADNE_TESTING_ADD_TEST_TO(suite, TestDyadic, ...)`. Within these five
+methods, all 66 checks (41 equalities, 17 propositions, 8 exception checks)
+use the regular fixture form rather than `_CTX(context, ...)`; three
+diagnostic TSV-row scopes now use `this->ctx().scope(...)`. No oracle row,
+expected value, completeness condition, or computation was changed.
+There is no need for free functions in this suite; free-standing tests are
+still supported by the framework via explicit `_CTX` macros in general.
+
+The preceding Rational migration (commit `c59dde8`) could not compile:
+four local `[]` lambdas in `TestRational` contained checks that expand to
+`this->ctx()`. The lambdas `check_result`, `verify_fraction`,
+`check_bounds`, and `check_dyadic` now capture `[this]` explicitly.
+The independent `parse_r16` lambda remains capture-free. The eight
+affected expectation statements are unchanged; this is a capture-only
+compilation fix, not a changed numeric oracle. CMake and framework sources
+are unchanged.
+
+Acceptance requires the complete Numeric CI matrix on this exact commit;
+prior failed builds of `test_rational` do not qualify as validated.
