@@ -35,11 +35,10 @@ foreach(TEST ${UNIT_TESTS})
     target_link_libraries(${TEST} ariadne-numeric numeric)
     if("${TEST}" STREQUAL "test_logical_sequence" OR "${TEST}" STREQUAL "test_rounding_mode" OR "${TEST}" STREQUAL "test_float_rounding" OR "${TEST}" STREQUAL "test_extended" OR "${TEST}" STREQUAL "test_decimal" OR "${TEST}" STREQUAL "test_float_error" OR "${TEST}" STREQUAL "test_float_approximation")
         target_link_libraries(${TEST} ariadne-testing)
-        add_test(NAME ${TEST} COMMAND $<TARGET_FILE:${TEST}> --concise)
     else()
         target_include_directories(${TEST} PRIVATE "${PROJECT_SOURCE_DIR}/ss/mac/include")
-        add_test(NAME ${TEST} COMMAND $<TARGET_FILE:${TEST}>)
     endif()
+    add_test(NAME ${TEST} COMMAND $<TARGET_FILE:${TEST}> --concise)
     if(WIN32)
         set_tests_properties(${TEST} PROPERTIES
             ENVIRONMENT_MODIFICATION
