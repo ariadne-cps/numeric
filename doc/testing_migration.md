@@ -50,3 +50,24 @@ registration order, precision variants, test bodies and assertions are
 unchanged. The generic-lambda shape was syntax-checked with GCC and Clang
 under C++20 -Wall -Wextra -Wpedantic -Werror. MSVC acceptance and downstream
 runtime verification remain CI gates.
+
+## 2026-11-01: FloatBounds precision suites
+
+Migrated `test_float_bounds` to Ariadne Testing: 16 existing functional groups
+registered in their original order for FloatDP, FloatMP at 53 bits and FloatMP
+at 128 bits (48 independent cases). The fixture preserves the precision choice,
+all numeric oracles, compile-time contracts and all active assertions. Existing
+`COMPARE` assertions now use the corresponding relation-specific checks; this
+requires the short-lived operand snapshot support already pinned in `ss/tst`.
+The previous `SAME` predicates remain identity checks and are not weakened
+to equality. Eight print-only diagnostics are retained as typed inspection
+events; three warnings retain their warning severity. One-line checks missing
+trailing semicolons under the old block macros now have explicit terminators.
+The migrated executable accepts `--concise` and is linked to `ariadne-testing`.
+Windows member-method registration uses generic-lambda deduction to avoid the
+MSVC pointer-to-member parsing failure previously seen in the ball/directed
+suites. All three original precision instantiations remain enabled.
+
+This is a source-level migration, not a completed build validation: verify the
+numeric Ubuntu, Windows, macOS, Sanitizers and Coverage CI matrix before
+accepting it, and classify any failure rather than modifying numerical oracles.
