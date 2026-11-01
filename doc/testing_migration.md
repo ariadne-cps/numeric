@@ -18,3 +18,14 @@ CMake links the two migrated executables with `ariadne-testing`; all other targe
 - Each original method is registered in its original order, with fresh precision-specific fixtures. Existing assertions, precision choices, exception expectations and numeric predicates remain present. Binary predicates use explicit evidence-preserving macro checks; relational comparisons map to their matching relation checks.
 - Direct invocation defaults to full console traces. CTest's pre-existing `--concise` argument now takes effect for these two targets. Both link against `ariadne-testing` rather than solely including the legacy macro headers.
 - Validation pending on the new commit's CI matrix; the previous green CI results cover `test_operators` and `test_complex` only.
+
+## 2026-11-01: Temporary crash diagnostics for directed bounds
+
+The first CI of `bf0c061` passes Release but reports SIGSEGV for
+`test_float_lower_upper_bound` in Debug. Concise intentionally emits
+nothing until `suite_finished`, which a SIGSEGV bypasses. Temporarily
+register ONLY this executable with `--full` in CTest so that the
+flushed `[RUN]` and `[CHECK]` records identify the failing case and
+last reached assertion in CI's `--output-on-failure` transcript. Revert
+to `--concise` once the root cause is fixed and tested across platforms.
+This is a diagnostic change, not a relaxation or deletion of assertions.
