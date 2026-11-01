@@ -53,6 +53,13 @@ constexpr bool check_concept()
 static_assert(check_concept());
 
 // Coefficients and scales identify each input independently of its rendering.
+class TestDecimal : public Ariadne::Testing::ContextFixture {
+  public:
+    using ContextFixture::ContextFixture;
+    void test_decimal();
+    void test_decimal_oracle();
+};
+
 void TestDecimal::test_decimal_oracle()
 {
     auto oracle_scope=this->ctx().scope("oracle", "decimal_exact.tsv");
@@ -78,13 +85,6 @@ void TestDecimal::test_decimal_oracle()
     if (ids.size()!=64u || *ids.begin()!=0u || *ids.rbegin()!=63u)
         throw std::runtime_error("Incomplete decimal_exact.tsv");
 }
-
-class TestDecimal : public Ariadne::Testing::ContextFixture {
-  public:
-    using ContextFixture::ContextFixture;
-    void test_decimal();
-    void test_decimal_oracle();
-};
 
 void TestDecimal::test_decimal()
 {
