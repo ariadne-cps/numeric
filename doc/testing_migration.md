@@ -489,3 +489,41 @@ The source and assertion counts have been audited. No local binary
 was built because the build environment cannot access GitHub;
 the Numeric CI matrix remains the acceptance gate, and any failing
 numeric predicate must be classified before changing an oracle.
+
+## 2026-11-01: Sync dependencies and certify Number approximation tolerances
+
+Bumped `ss/fou` to `8c907955aaebbf766ce4edef96fd9d6548c49afb` and
+`ss/log` to `e31295ba0d10a85b8bd07f00b0f438e0827f61d7`.
+Both now pin the same Configuration (`d57304ec`), Testing (`cf1b9ad`),
+and Utility (`38e5013`) commits. Added the direct `testing|configuration`
+chain to the Configuration consistency check and added a Testing check
+across the direct `testing` gitlink and the `foundation|testing` and
+`logging|testing` chains. Other dependency gitlinks are unchanged.
+
+The migrated `test_number` previously had three inconclusive `get`
+cases: approximate output differences were small enough but the
+`EXPECT_WITHIN` relation on `FloatDPApproximation` or
+`FloatMPApproximation` could not yield definite evidence. All four
+original approximate-get tolerance checks now convert the *raw binary
+floating-point output* to an exact Dyadic and then Rational; they check
+that the resulting exact rational absolute error is <= the original
+tolerance using a conclusive ordering assertion. The original `2^-52`,
+`2^-128`, and `3e-16` tolerances are unchanged. In particular
+`Dyadic(3e-16)` preserves the literal's exact binary64 value rather
+than substituting a rounded decimal or a larger margin. Diagnostic
+scopes still identify the original checked expression, and both
+precision paths and the 3/5 oracle remain active.
+
+Three expected `ParadigmError` regression checks deliberately invoke
+unsupported conversions from `FloatDPApproximation` to `Rational`,
+`FloatDPBounds` and `FloatDPBall`. The three
+`NumberGetterMixin::_get_as` branches now throw the *same exception*
+without writing unsolicited `Warning: Cannot convert` lines directly
+to stderr. All successful conversion code paths remain unchanged;
+the failing conversion paths remain observable to callers via the
+exception and to the test framework via `EXPECT_THROWS`.
+
+This is source-level validation only. The full Numeric CI matrix
+(Ubuntu, macOS, Windows, Sanitizers, Coverage) must pass on this commit
+before treating the change as runtime-verified. Do not weaken numerical
+expectations or silence unclassified failures.

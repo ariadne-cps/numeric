@@ -518,6 +518,17 @@ template<class Y> class TestNumber : public Ariadne::Testing::ContextFixture
     static void add_cases(Ariadne::Testing::Suite& suite, std::string const& variant);
   private:
     Void test_number_get();
+    // A Float approximation's raw value is an exact binary rational. Check
+    // the original tolerance without an undecidable approximate comparison.
+    template<class F>
+    Void expect_exact_approximation_within(
+        Approximation<F> const& actual, Rational const& expected,
+        Dyadic const& tolerance, char const* expression) {
+        auto diagnostic_scope=this->ctx().scope("approximation",expression);
+        const Rational exact_value{Dyadic(actual.raw())};
+        const Rational exact_error=abs(exact_value-expected);
+        ARIADNE_TESTING_EXPECT_LESS_EQUAL(exact_error,Rational(tolerance));
+    }
     // Local predicates for the Number fixture's numeric model checks.
     template<class F, class FE> Bool models(Ball<F,FE> const& x, Rational const& q) {
         return abs(Dyadic(x.value().raw())-q)<=Dyadic(x.error().raw()); }
@@ -557,8 +568,12 @@ template<class Y> void TestNumber<Y>::test_number_get() {
     MultiplePrecision mp(192_bits);
     MultiplePrecision ape(128_bits);
 
-    ARIADNE_TESTING_EXPECT_WITHIN(ApproximateNumber(y).get(dp),q,Dyadic(TwoExp(-52)));
-    ARIADNE_TESTING_EXPECT_WITHIN(ApproximateNumber(y).get(mp),q,Dyadic(TwoExp(-128)));
+    expect_exact_approximation_within(
+        ApproximateNumber(y).get(dp),q,Dyadic(TwoExp(-52)),
+        "ApproximateNumber(y).get(dp)");
+    expect_exact_approximation_within(
+        ApproximateNumber(y).get(mp),q,Dyadic(TwoExp(-128)),
+        "ApproximateNumber(y).get(mp)");
 
     ARIADNE_TESTING_PROVE(models(ValidatedLowerNumber(y).get(dp),q));
     ARIADNE_TESTING_PROVE(models(ValidatedLowerNumber(y).get(mp),q));
@@ -584,8 +599,9 @@ template<> void TestNumber<ApproximateNumber>::test_number_get() {
     Rational q=3/5_q;
     ApproximateNumber y(q);
     MultiplePrecision mp(128_bits);
-    ARIADNE_TESTING_EXPECT_WITHIN(y.get(dp),q,3e-16);
-    ARIADNE_TESTING_EXPECT_WITHIN(y.get(mp),q,3e-16);
+    // Dyadic(3e-16) preserves the exact binary64 value of the old threshold.
+    expect_exact_approximation_within(y.get(dp),q,Dyadic(3e-16),"y.get(dp)");
+    expect_exact_approximation_within(y.get(mp),q,Dyadic(3e-16),"y.get(mp)");
 
     // Regression tests for native FloatDP/FloatMP conversion.
     Dbl d=-0.6;

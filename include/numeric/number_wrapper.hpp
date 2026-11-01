@@ -527,13 +527,13 @@ template<class X> class NumberGetterMixin : public virtual NumberInterface {
   private:
     template<class R> inline R _get_as() const {
         if constexpr (Constructible<R,X>) { return static_cast<R>(_cast(*this)); }
-        else { std::cerr<<"Warning: Cannot convert " << _cast(*this) << " of type " << this->_class_name() << " to " << class_name<R>() << "\n"; throw ParadigmError(); } }
+        else { throw ParadigmError(); } }
     template<class R, class PR> inline R _get_as(PR pr) const {
         if constexpr (Constructible<R,X,PR>) { return R(_cast(*this),pr); }
-        else { std::cerr<<"Warning: Cannot convert " << _cast(*this) << " of type " << this->_class_name() << " to " << class_name<R>() << " with precision " << pr << "\n"; throw ParadigmError(); } }
+        else { (void)pr; throw ParadigmError(); } }
     template<class R, class PR, class PRE> inline R _get_as(PR pr, PRE pre) const {
         if constexpr (Constructible<R,X,PR,PRE>) { return R(_cast(*this),pr,pre); }
-        else { std::cerr<<"Warning: Cannot convert " << _cast(*this) << " of type " << this->_class_name() << " to " << class_name<R>() << " with precision " << pr << " and error precision " << pre << "\n"; throw ParadigmError(); } }
+        else { (void)pr; (void)pre; throw ParadigmError(); } }
 };
 
 template<class X> class NumberMixin
