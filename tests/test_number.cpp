@@ -39,9 +39,11 @@
 #include "numeric/float_approximation.hpp"
 #include "numeric/float_error.hpp"
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 #include <sstream>
+#include <string>
+#include <iomanip>
 #include <fstream>
 #include <stdexcept>
 #include <set>
@@ -135,23 +137,15 @@ static_assert(check_directed_number_concept<EffectiveLowerNumber,EffectiveUpperN
 
 
 
-class TestNumbers
+class TestNumbers : public Ariadne::Testing::ContextFixture
 {
   public:
-    Void test();
+    using ContextFixture::ContextFixture;
     Void test_operations();
     Void test_dyadic_behaviour();
     Void test_float_value_behaviour();
     Void test_misc();
 };
-
-Void TestNumbers::test()
-{
-    ARIADNE_TEST_CALL(test_operations());
-    ARIADNE_TEST_CALL(test_dyadic_behaviour());
-    ARIADNE_TEST_CALL(test_float_value_behaviour());
-    ARIADNE_TEST_CALL(test_misc());
-}
 
 Void
 TestNumbers::test_dyadic_behaviour()
@@ -161,20 +155,20 @@ TestNumbers::test_dyadic_behaviour()
     const MultiplePrecision native_precision(128_bits);
     const ExactNumber exact(Dyadic(13,2u));
     const FloatMPBounds native=exact.get(native_precision);
-    ARIADNE_TEST_ASSERT(static_cast<Rational>(native.lower_raw())<=Rational(13,4));
-    ARIADNE_TEST_ASSERT(static_cast<Rational>(native.upper_raw())>=Rational(13,4));
+    ARIADNE_TESTING_PROVE(static_cast<Rational>(native.lower_raw())<=Rational(13,4));
+    ARIADNE_TESTING_PROVE(static_cast<Rational>(native.upper_raw())>=Rational(13,4));
     const ValidatedNumber validated(DyadicBounds(Dyadic(1,3u),Dyadic(3,3u)));
     const FloatMPBounds enclosure=validated.get(native_precision);
-    ARIADNE_TEST_ASSERT(static_cast<Rational>(enclosure.lower_raw())<=Rational(1,8));
-    ARIADNE_TEST_ASSERT(static_cast<Rational>(enclosure.upper_raw())>=Rational(3,8));
+    ARIADNE_TESTING_PROVE(static_cast<Rational>(enclosure.lower_raw())<=Rational(1,8));
+    ARIADNE_TESTING_PROVE(static_cast<Rational>(enclosure.upper_raw())>=Rational(3,8));
     ExactNumber y(Dyadic(1));
     try {
         ExactNumber r = y+y;
-        ARIADNE_TEST_NOTIFY("Binary addition on Dyadic within ExactNumber yields "<<r.class_name());
+        ARIADNE_TESTING_NOTE("Binary addition on Dyadic within ExactNumber yields "<<r.class_name());
         r = y/y;
-        ARIADNE_TEST_NOTIFY("Binary division on Dyadic within ExactNumber yields "<<r.class_name());
+        ARIADNE_TESTING_NOTE("Binary division on Dyadic within ExactNumber yields "<<r.class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary operations on Dyadic give error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary operations on Dyadic give error:\n    "<<e.what());
     }
 }
 
@@ -188,10 +182,10 @@ TestNumbers::test_float_value_behaviour()
     const FloatMP fc(Rational(-1,5),FloatMP::ROUND_TO_NEAREST,ap_precision);
     const Bounds<FloatMP> enclosed=fma(fa,fb,fc);
     const Rational expected=static_cast<Rational>(fa)*static_cast<Rational>(fb)+static_cast<Rational>(fc);
-    ARIADNE_TEST_ASSERT(static_cast<Rational>(enclosed.lower_raw())<=expected);
-    ARIADNE_TEST_ASSERT(expected<=static_cast<Rational>(enclosed.upper_raw()));
-    ARIADNE_TEST_EQUALS(enclosed.lower_raw(),fma(FloatMP::ROUND_DOWNWARD,fa,fb,fc));
-    ARIADNE_TEST_EQUALS(enclosed.upper_raw(),fma(FloatMP::ROUND_UPWARD,fa,fb,fc));
+    ARIADNE_TESTING_PROVE(static_cast<Rational>(enclosed.lower_raw())<=expected);
+    ARIADNE_TESTING_PROVE(expected<=static_cast<Rational>(enclosed.upper_raw()));
+    ARIADNE_TESTING_EXPECT_EQUAL(enclosed.lower_raw(),fma(FloatMP::ROUND_DOWNWARD,fa,fb,fc));
+    ARIADNE_TESTING_EXPECT_EQUAL(enclosed.upper_raw(),fma(FloatMP::ROUND_UPWARD,fa,fb,fc));
 
     ExactNumber n(Int(1));
     ExactNumber z(Integer(1));
@@ -200,65 +194,65 @@ TestNumbers::test_float_value_behaviour()
     ExactNumber y(FloatDP(1,dp));
     ExactNumber r;
     try {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> within ExactNumber yields "<<(y+y).class_name());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> within ExactNumber yields "<<(y+y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary division on Float<DP> within ExactNumber yields "<<(y/y).class_name());
+        ARIADNE_TESTING_NOTE("Binary division on Float<DP> within ExactNumber yields "<<(y/y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary division on Float<DP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary division on Float<DP> within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary maximum on Float<DP> within ExactNumber yields "<<max(y,y).class_name());
+        ARIADNE_TESTING_NOTE("Binary maximum on Float<DP> within ExactNumber yields "<<max(y,y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary maximum on Float<DP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary maximum on Float<DP> within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> and Int within ExactNumber yields "<<(y+n).class_name());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> and Int within ExactNumber yields "<<(y+n).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> and Int within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> and Int within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> and Integer within ExactNumber yields "<<(y+z).class_name());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> and Integer within ExactNumber yields "<<(y+z).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> and Integer within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> and Integer within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> and Dyadic within ExactNumber yields "<<(y+w).class_name());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> and Dyadic within ExactNumber yields "<<(y+w).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> and Dyadic within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> and Dyadic within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> and Rational within ExactNumber yields "<<(y+q).class_name());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> and Rational within ExactNumber yields "<<(y+q).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<DP> and Rational within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<DP> and Rational within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary addition on Dyadic and Float<DP> within ExactNumber yields "<<(w+y).class_name());
+        ARIADNE_TESTING_NOTE("Binary addition on Dyadic and Float<DP> within ExactNumber yields "<<(w+y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary addition on Dyadic and Float<DP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary addition on Dyadic and Float<DP> within ExactNumber gives error:\n    "<<e.what());
     } 
     try {
-        ARIADNE_TEST_NOTIFY("Binary addition on Rational and Float<DP> within ExactNumber yields "<<(q+y).class_name());
+        ARIADNE_TESTING_NOTE("Binary addition on Rational and Float<DP> within ExactNumber yields "<<(q+y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary addition on Rational and Float<DP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary addition on Rational and Float<DP> within ExactNumber gives error:\n    "<<e.what());
     } 
     y=ExactNumber(FloatMP(1,MultiplePrecision(64_bits)));
     try {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<MP> within ExactNumber yields "<<(y+y).class_name());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<MP> within ExactNumber yields "<<(y+y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary addition on Float<MP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary addition on Float<MP> within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary division on Float<MP> within ExactNumber yields "<<(y/y).class_name());
+        ARIADNE_TESTING_NOTE("Binary division on Float<MP> within ExactNumber yields "<<(y/y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary division on Float<MP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary division on Float<MP> within ExactNumber gives error:\n    "<<e.what());
     }
     try {
-        ARIADNE_TEST_NOTIFY("Binary maximum on Float<MP> within ExactNumber yields "<<max(y,y).class_name());
+        ARIADNE_TESTING_NOTE("Binary maximum on Float<MP> within ExactNumber yields "<<max(y,y).class_name());
     } catch (const DispatchException& e) {
-        ARIADNE_TEST_NOTIFY("Binary maximum on Float<MP> within ExactNumber gives error:\n    "<<e.what());
+        ARIADNE_TESTING_NOTE("Binary maximum on Float<MP> within ExactNumber gives error:\n    "<<e.what());
     }
 }
 
@@ -278,40 +272,40 @@ TestNumbers::test_operations()
     ExactNumber y2(x2);
     ExactNumber y3(x3);
 
-    ARIADNE_TEST_THROWS(y2/y3, DispatchException);
-    ARIADNE_TEST_THROWS(q2/y3, DispatchException);
-    ARIADNE_TEST_THROWS(y2/q3, DispatchException);
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,y2/y3);
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,q2/y3);
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,y2/q3);
 
-    ARIADNE_TEST_FAIL(add(yv,yv));
-    ARIADNE_TEST_PRINT(add(yb,yb));
-    ARIADNE_TEST_PRINT(add(yb,yv));
-    ARIADNE_TEST_PRINT(add(b,yb));
-    ARIADNE_TEST_PRINT(add(yb,yn));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(add(yv,yv));
+    ARIADNE_TESTING_INSPECT("add(yb,yb)",(add(yb,yb)));
+    ARIADNE_TESTING_INSPECT("add(yb,yv)",(add(yb,yv)));
+    ARIADNE_TESTING_INSPECT("add(b,yb)",(add(b,yb)));
+    ARIADNE_TESTING_INSPECT("add(yb,yn)",(add(yb,yn)));
 
     ValidatedErrorNumber ym=max(en,ev);
-    ARIADNE_TEST_PRINT(max(en,ev));
-    ARIADNE_TEST_PRINT(max(en,ev).handle().pointer());
-    ARIADNE_TEST_PRINT(max(en,ev).class_name());
-    ARIADNE_TEST_PRINT(max(en,ev));
+    ARIADNE_TESTING_INSPECT("max(en,ev)",(max(en,ev)));
+    ARIADNE_TESTING_INSPECT("max(en,ev).handle().pointer()",(max(en,ev).handle().pointer()));
+    ARIADNE_TESTING_INSPECT("max(en,ev).class_name()",(max(en,ev).class_name()));
+    ARIADNE_TESTING_INSPECT("max(en,ev)",(max(en,ev)));
 
-    ARIADNE_TEST_FAIL(add(ExactNumber(1),ExactNumber(FloatDP(2,dp))));
-    ARIADNE_TEST_FAIL(add(ExactNumber(FloatDP(1,dp)),ExactNumber(FloatDP(2,dp))));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(add(ExactNumber(1),ExactNumber(FloatDP(2,dp))));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(add(ExactNumber(FloatDP(1,dp)),ExactNumber(FloatDP(2,dp))));
 
-    ARIADNE_TEST_PRINT(max(ExactNumber(1),ExactNumber(2)));
-    ARIADNE_TEST_PRINT(max(ExactNumber(FloatDP(1,dp)),ExactNumber(FloatDP(2,dp))));
-    ARIADNE_TEST_PRINT(max(ExactNumber(1),ExactNumber(FloatDP(2,dp))));
+    ARIADNE_TESTING_INSPECT("max(ExactNumber(1),ExactNumber(2))",(max(ExactNumber(1),ExactNumber(2))));
+    ARIADNE_TESTING_INSPECT("max(ExactNumber(FloatDP(1,dp)),ExactNumber(FloatDP(2,dp)))",(max(ExactNumber(FloatDP(1,dp)),ExactNumber(FloatDP(2,dp)))));
+    ARIADNE_TESTING_INSPECT("max(ExactNumber(1),ExactNumber(FloatDP(2,dp)))",(max(ExactNumber(1),ExactNumber(FloatDP(2,dp)))));
 
-    ARIADNE_TEST_PRINT(max(ExactNumber(1),ExactNumber(FloatDP(2,dp))));
+    ARIADNE_TESTING_INSPECT("max(ExactNumber(1),ExactNumber(FloatDP(2,dp)))",(max(ExactNumber(1),ExactNumber(FloatDP(2,dp)))));
 
-    ARIADNE_TEST_PRINT(max(ExactNumber(Dyadic(1)),ExactNumber(FloatDP(2,dp))));
-    ARIADNE_TEST_PRINT(max(ExactNumber(FloatDP(1,dp)),ExactNumber(Dyadic(2))));
+    ARIADNE_TESTING_INSPECT("max(ExactNumber(Dyadic(1)),ExactNumber(FloatDP(2,dp)))",(max(ExactNumber(Dyadic(1)),ExactNumber(FloatDP(2,dp)))));
+    ARIADNE_TESTING_INSPECT("max(ExactNumber(FloatDP(1,dp)),ExactNumber(Dyadic(2)))",(max(ExactNumber(FloatDP(1,dp)),ExactNumber(Dyadic(2)))));
 
-    ARIADNE_TEST_PRINT(min(ExactNumber(1),ExactNumber(2)));
-    ARIADNE_TEST_PRINT(min(ExactNumber(FloatDP(1,dp)),ExactNumber(FloatDP(2,dp))));
-    ARIADNE_TEST_PRINT(min(ExactNumber(1),ExactNumber(FloatDP(2,dp))));
-    ARIADNE_TEST_PRINT(min(ExactNumber(FloatDP(1,dp)),ExactNumber(2)));
-    ARIADNE_TEST_PRINT(min(ExactNumber(Dyadic(1)),ExactNumber(FloatDP(2,dp))));
-    ARIADNE_TEST_PRINT(min(ExactNumber(FloatDP(1,dp)),ExactNumber(Dyadic(2))));
+    ARIADNE_TESTING_INSPECT("min(ExactNumber(1),ExactNumber(2))",(min(ExactNumber(1),ExactNumber(2))));
+    ARIADNE_TESTING_INSPECT("min(ExactNumber(FloatDP(1,dp)),ExactNumber(FloatDP(2,dp)))",(min(ExactNumber(FloatDP(1,dp)),ExactNumber(FloatDP(2,dp)))));
+    ARIADNE_TESTING_INSPECT("min(ExactNumber(1),ExactNumber(FloatDP(2,dp)))",(min(ExactNumber(1),ExactNumber(FloatDP(2,dp)))));
+    ARIADNE_TESTING_INSPECT("min(ExactNumber(FloatDP(1,dp)),ExactNumber(2))",(min(ExactNumber(FloatDP(1,dp)),ExactNumber(2))));
+    ARIADNE_TESTING_INSPECT("min(ExactNumber(Dyadic(1)),ExactNumber(FloatDP(2,dp)))",(min(ExactNumber(Dyadic(1)),ExactNumber(FloatDP(2,dp)))));
+    ARIADNE_TESTING_INSPECT("min(ExactNumber(FloatDP(1,dp)),ExactNumber(Dyadic(2)))",(min(ExactNumber(FloatDP(1,dp)),ExactNumber(Dyadic(2)))));
 
 }
 
@@ -319,117 +313,117 @@ TestNumbers::test_operations()
 Void
 TestNumbers::test_misc()
 {
-    ARIADNE_TEST_CONSTRUCT(Bounds<FloatDP>,x,(2,3,dp));
+    Bounds<FloatDP> x (2,3,dp); ARIADNE_TESTING_INSPECT("x",x);
 //    ARIADNE_TEST_ASSIGN_CONSTRUCT(ValidatedNumber,y,x);
-    ARIADNE_TEST_ASSIGN_CONSTRUCT(ValidatedNumber,y,x.operator ValidatedNumber());
-    ARIADNE_TEST_CONSTRUCT(ValidatedLowerNumber,yyl,(y));
+    ValidatedNumber y = x.operator ValidatedNumber(); ARIADNE_TESTING_INSPECT("y",y);
+    ValidatedLowerNumber yyl (y); ARIADNE_TESTING_INSPECT("yyl",yyl);
 
-    ARIADNE_TEST_CONSTRUCT(LowerBound<FloatDP>,xl,(2u,dp));
+    LowerBound<FloatDP> xl (2u,dp); ARIADNE_TESTING_INSPECT("xl",xl);
 //    ARIADNE_TEST_ASSIGN_CONSTRUCT(ValidatedLowerNumber,yl,xl);
-    ARIADNE_TEST_ASSIGN_CONSTRUCT(ValidatedLowerNumber,yl,xl.operator ValidatedLowerNumber());
-    ARIADNE_TEST_ASSIGN(yl,xl+xl);
-    ARIADNE_TEST_ASSIGN_CONSTRUCT(ValidatedLowerNumber,z,yl);
-    ARIADNE_TEST_ASSIGN(z,yl+yl);
+    ValidatedLowerNumber yl = xl.operator ValidatedLowerNumber(); ARIADNE_TESTING_INSPECT("yl",yl);
+    ARIADNE_TESTING_EXPECT_NO_THROW(yl=(xl+xl));
+    ValidatedLowerNumber z = yl; ARIADNE_TESTING_INSPECT("z",z);
+    ARIADNE_TESTING_EXPECT_NO_THROW(z=(yl+yl));
 
     MultiplePrecision mp(128_bits);
 
     DyadicBounds dyadic_bounds(Dyadic(1),Dyadic(2));
     ValidatedNumber dyadic_number=dyadic_bounds.operator ValidatedNumber();
-    ARIADNE_TEST_EQUALS(dyadic_number.class_name(),String("DyadicBounds"));
+    ARIADNE_TESTING_EXPECT_EQUAL(dyadic_number.class_name(),String("DyadicBounds"));
 
     FloatDPError dp_error(1u,dp);
     ValidatedErrorNumber dp_error_number=dp_error.operator ValidatedErrorNumber();
-    ARIADNE_TEST_EQUALS(dp_error_number.class_name(),String("FloatDP"));
+    ARIADNE_TESTING_EXPECT_EQUAL(dp_error_number.class_name(),String("FloatDP"));
 
     // Verify the native backend's concrete type is preserved through generic
     // validated, approximate, and error wrappers without independent exact arithmetic intermediates.
     FloatMPError ap_error(1u,mp);
     ValidatedErrorNumber ap_error_number=ap_error.operator ValidatedErrorNumber();
-    ARIADNE_TEST_EQUALS(ap_error_number.class_name(),String("FloatMP"));
+    ARIADNE_TESTING_EXPECT_EQUAL(ap_error_number.class_name(),String("FloatMP"));
 
     FloatMPApproximation ap_approximation(2u,mp);
     ApproximateNumber approximation_number=ap_approximation.operator ApproximateNumber();
-    ARIADNE_TEST_EQUALS(approximation_number.class_name(),String("FloatMPApproximation"));
+    ARIADNE_TESTING_EXPECT_EQUAL(approximation_number.class_name(),String("FloatMPApproximation"));
 
     FloatMPBounds ap_bounds(2u,mp);
     ValidatedNumber ap_bounds_number=ap_bounds.operator ValidatedNumber();
-    ARIADNE_TEST_EQUALS(ap_bounds_number.class_name(),String("FloatMPBounds"));
+    ARIADNE_TESTING_EXPECT_EQUAL(ap_bounds_number.class_name(),String("FloatMPBounds"));
 
     ValidatedUpperNumber upper_dyadic(Dyadic(2));
     ValidatedLowerNumber lower_dyadic(Dyadic(2));
-    ARIADNE_TEST_EQUALS(cast_exact(upper_dyadic).class_name(),String("Dyadic"));
-    ARIADNE_TEST_EQUALS(cast_exact(lower_dyadic).class_name(),String("Dyadic"));
+    ARIADNE_TESTING_EXPECT_EQUAL(cast_exact(upper_dyadic).class_name(),String("Dyadic"));
+    ARIADNE_TESTING_EXPECT_EQUAL(cast_exact(lower_dyadic).class_name(),String("Dyadic"));
 
     ValidatedNumber metric_number(Real(Rational(3,5)));
-    ARIADNE_TEST_EXECUTE(metric_number.ref()._get(MetricTag(),dp));
-    ARIADNE_TEST_EXECUTE(metric_number.ref()._get(MetricTag(),mp));
+    ARIADNE_TESTING_EXPECT_NO_THROW(metric_number.ref()._get(MetricTag(),dp));
+    ARIADNE_TESTING_EXPECT_NO_THROW(metric_number.ref()._get(MetricTag(),mp));
 
     ExactNumber integer_one(Integer(1));
     ExactNumber integer_two(Integer(2));
     ExactNumber float_one(FloatDP(1,dp));
     ExactNumber float_two(FloatDP(2,dp));
 
-    ARIADNE_TEST_ASSERT(Ariadne::extract<Integer>(&integer_one.ref())!=nullptr);
-    ARIADNE_TEST_ASSERT(Ariadne::extract<FloatDP>(&integer_one.ref())==nullptr);
-    ARIADNE_TEST_EQUALS(integer_one.ref()._get_q(),Rational(1));
+    ARIADNE_TESTING_PROVE(Ariadne::extract<Integer>(&integer_one.ref())!=nullptr);
+    ARIADNE_TESTING_PROVE(Ariadne::extract<FloatDP>(&integer_one.ref())==nullptr);
+    ARIADNE_TESTING_EXPECT_EQUAL(integer_one.ref()._get_q(),Rational(1));
 
-    ARIADNE_TEST_EQUALS(cmp(float_one.ref(),float_two.ref()),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(cmp(float_one.ref(),integer_two.ref()),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(cmp(integer_one.ref(),float_two.ref()),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(cmp(integer_one.ref(),integer_two.ref()),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(integer_one.ref()._paradigm(),ParadigmCode::EXACT);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(float_one.ref(),float_two.ref()),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(float_one.ref(),integer_two.ref()),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(integer_one.ref(),float_two.ref()),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(integer_one.ref(),integer_two.ref()),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL(integer_one.ref()._paradigm(),ParadigmCode::EXACT);
 
     ExactNumber mixed_dp(FloatDP(1,dp));
     ExactNumber mixed_ap(FloatMP(2,mp));
-    ARIADNE_TEST_THROWS(add(mixed_dp,mixed_ap),DispatchException);
-    ARIADNE_TEST_THROWS((void)(mixed_dp<mixed_ap),DispatchException);
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,add(mixed_dp,mixed_ap));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,(void)(mixed_dp<mixed_ap));
 
     ApproximateNumber unsupported_conversion(FloatDPApproximation(1u,dp));
-    ARIADNE_TEST_THROWS(unsupported_conversion.ref()._get_q(),ParadigmError);
-    ARIADNE_TEST_THROWS(unsupported_conversion.ref()._get(OrderTag(),dp),ParadigmError);
+    ARIADNE_TESTING_EXPECT_THROWS(ParadigmError,unsupported_conversion.ref()._get_q());
+    ARIADNE_TESTING_EXPECT_THROWS(ParadigmError,unsupported_conversion.ref()._get(OrderTag(),dp));
     NumberWrapper<FloatDPApproximation> unsupported_wrapper(FloatDPApproximation(1u,dp));
-    ARIADNE_TEST_THROWS(unsupported_wrapper._get(MetricTag(),dp,dp),ParadigmError);
+    ARIADNE_TESTING_EXPECT_THROWS(ParadigmError,unsupported_wrapper._get(MetricTag(),dp,dp));
 
     std::ostringstream interface_stream;
     interface_stream << integer_one.ref();
-    ARIADNE_TEST_ASSERT(not interface_stream.str().empty());
+    ARIADNE_TESTING_PROVE(not interface_stream.str().empty());
 
     std::ostringstream paradigm_stream;
     paradigm_stream << ParadigmCode::EXACT << ParadigmCode::VALIDATED
                     << ParadigmCode::APPROXIMATE << ParadigmCode::EFFECTIVE;
-    ARIADNE_TEST_EQUALS(paradigm_stream.str(),String("EXACTVALIDATEDAPPROXIMATEUNKNOWN"));
+    ARIADNE_TESTING_EXPECT_EQUAL(paradigm_stream.str(),String("EXACTVALIDATEDAPPROXIMATEUNKNOWN"));
 
     NumberWrapper<Integer> integer_wrapper(Integer(3));
     NumberInterface* copied=integer_wrapper._copy();
-    ARIADNE_TEST_EQUALS(copied->_class_name(),String("Integer"));
+    ARIADNE_TESTING_EXPECT_EQUAL(copied->_class_name(),String("Integer"));
     delete copied;
     NumberInterface* moved=integer_wrapper._move();
-    ARIADNE_TEST_EQUALS(moved->_class_name(),String("Integer"));
+    ARIADNE_TESTING_EXPECT_EQUAL(moved->_class_name(),String("Integer"));
     delete moved;
 
-    ARIADNE_TEST_EXECUTE(pow(integer_one,Int(3)));
-    ARIADNE_TEST_EXECUTE(abs(ExactNumber(Integer(-2))));
-    ARIADNE_TEST_EXECUTE(abs(ExactNumber(Dyadic(-2))));
-    ARIADNE_TEST_EXECUTE(abs(EffectiveNumber(Real(-2))));
+    ARIADNE_TESTING_EXPECT_NO_THROW(pow(integer_one,Int(3)));
+    ARIADNE_TESTING_EXPECT_NO_THROW(abs(ExactNumber(Integer(-2))));
+    ARIADNE_TESTING_EXPECT_NO_THROW(abs(ExactNumber(Dyadic(-2))));
+    ARIADNE_TESTING_EXPECT_NO_THROW(abs(EffectiveNumber(Real(-2))));
 
     ValidatedLowerNumber positive_dyadic(Dyadic(1));
-    ARIADNE_TEST_ASSERT(definitely(positive_dyadic > ValidatedLowerNumber::Zero{}));
+    ARIADNE_TESTING_PROVE(definitely(positive_dyadic > ValidatedLowerNumber::Zero{}));
     ValidatedLowerNumber positive_float(FloatDPLowerBound(1u,dp));
-    ARIADNE_TEST_ASSERT(definitely(positive_float > ValidatedLowerNumber::Zero{}));
+    ARIADNE_TESTING_PROVE(definitely(positive_float > ValidatedLowerNumber::Zero{}));
     EffectiveLowerNumber positive_real(Real(1));
-    ARIADNE_TEST_ASSERT(definitely(positive_real > EffectiveLowerNumber::Zero{}));
+    ARIADNE_TESTING_PROVE(definitely(positive_real > EffectiveLowerNumber::Zero{}));
 
     // Comparison results must preserve their logical value and own the returned object.
     ValidatedLowerNumber negative_dyadic(Dyadic(-1));
-    ARIADNE_TEST_ASSERT(not definitely(negative_dyadic > ValidatedLowerNumber::Zero{}));
-    ARIADNE_TEST_ASSERT(possibly(negative_dyadic < ValidatedLowerNumber::Zero{}));
+    ARIADNE_TESTING_PROVE(not definitely(negative_dyadic > ValidatedLowerNumber::Zero{}));
+    ARIADNE_TESTING_PROVE(possibly(negative_dyadic < ValidatedLowerNumber::Zero{}));
     ValidatedLowerNumber zero_dyadic(Dyadic(0));
-    ARIADNE_TEST_ASSERT(not definitely(zero_dyadic > ValidatedLowerNumber::Zero{}));
+    ARIADNE_TESTING_PROVE(not definitely(zero_dyadic > ValidatedLowerNumber::Zero{}));
 
     FloatDPApproximation dp_approximation(2u,dp);
-    ARIADNE_TEST_EXECUTE(pow(dp_approximation,Integer(3)));
+    ARIADNE_TESTING_EXPECT_NO_THROW(pow(dp_approximation,Integer(3)));
     FloatMPApproximation ap_power_approximation(2u,mp);
-    ARIADNE_TEST_EXECUTE(pow(ap_power_approximation,Integer(3)));
+    ARIADNE_TESTING_EXPECT_NO_THROW(pow(ap_power_approximation,Integer(3)));
     // The wrapper's exponent type is Int=int, which can be narrower than
     // the long returned by get_si(). Reuse the independent frozen limits.
     std::ifstream exponent_data(ARIADNE_TEST_DATA_DIR "/integer_conversion.tsv");
@@ -450,79 +444,78 @@ TestNumbers::test_misc()
         const Approximation<FloatDP> dp_one(FloatDP(1,dp));
         const Approximation<FloatMP> mp_one(FloatMP(1,MultiplePrecision(64_bits)));
         bool dp_threw=false;
-        try { ARIADNE_TEST_EQUALS(pow(dp_one,exponent).raw().get_d(),1.0); }
+        try { ARIADNE_TESTING_EXPECT_EQUAL(pow(dp_one,exponent).raw().get_d(),1.0); }
         catch (std::out_of_range const&) { dp_threw=true; }
-        ARIADNE_TEST_EQUALS(dp_threw,!expected_ok);
+        ARIADNE_TESTING_EXPECT_EQUAL(dp_threw,!expected_ok);
         // FloatMP forms an exact significand power before final rounding;
         // validate all rejection boundaries before that work, plus small
         // valid powers. Integer's own corpus checks every valid conversion.
         if (!expected_ok || source=="0" || source=="1" || source=="-1") {
             bool mp_threw=false;
-            try { ARIADNE_TEST_EQUALS(pow(mp_one,exponent).raw().get_d(),1.0); }
+            try { ARIADNE_TESTING_EXPECT_EQUAL(pow(mp_one,exponent).raw().get_d(),1.0); }
             catch (std::out_of_range const&) { mp_threw=true; }
-            ARIADNE_TEST_EQUALS(mp_threw,!expected_ok);
+            ARIADNE_TESTING_EXPECT_EQUAL(mp_threw,!expected_ok);
         }
     }
     if (exponent_sources.size()!=27u) throw std::runtime_error("Incomplete exponent oracle");
 
     Integer huge_power{String("9223372036854775808")};
-    ARIADNE_TEST_FAIL(pow(dp_approximation,huge_power));
-    ARIADNE_TEST_FAIL(pow(ap_power_approximation,huge_power));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(pow(dp_approximation,huge_power));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(pow(ap_power_approximation,huge_power));
 
     ExactNumber unary(Integer(1));
-    ARIADNE_TEST_EXECUTE(nul(unary));
-    ARIADNE_TEST_EXECUTE(pos(unary));
-    ARIADNE_TEST_EXECUTE(neg(unary));
-    ARIADNE_TEST_EXECUTE(sqr(unary));
-    ARIADNE_TEST_EXECUTE(hlf(unary));
-    ARIADNE_TEST_EXECUTE(rec(unary));
-    ARIADNE_TEST_EXECUTE(sqrt(unary));
-    ARIADNE_TEST_EXECUTE(exp(unary));
-    ARIADNE_TEST_EXECUTE(log(unary));
-    ARIADNE_TEST_EXECUTE(sin(unary));
-    ARIADNE_TEST_EXECUTE(cos(unary));
-    ARIADNE_TEST_EXECUTE(tan(unary));
-    ARIADNE_TEST_EXECUTE(tanh(unary));
-    ARIADNE_TEST_EXECUTE(asin(unary));
-    ARIADNE_TEST_EXECUTE(acos(unary));
-    ARIADNE_TEST_EXECUTE(atan(unary));
-    ARIADNE_TEST_EXECUTE(abs(unary));
-    ARIADNE_TEST_THROWS(
-        unary.ref()._apply(UnaryElementaryOperator(OperatorCode::ADD)),
-        DispatchException);
+    ARIADNE_TESTING_EXPECT_NO_THROW(nul(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(pos(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(neg(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(sqr(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(hlf(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(rec(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(sqrt(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(exp(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(log(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(sin(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(cos(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(tan(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(tanh(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(asin(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(acos(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(atan(unary));
+    ARIADNE_TESTING_EXPECT_NO_THROW(abs(unary));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,unary.ref()._apply(UnaryElementaryOperator(OperatorCode::ADD)));
 
     DyadicBounds algebraic_dyadic(Dyadic(1),Dyadic(2));
     RationalBounds algebraic_rational(Rational(1),Rational(2));
-    ARIADNE_TEST_ASSERT(definitely(algebraic_dyadic>0));
-    ARIADNE_TEST_ASSERT(definitely(algebraic_rational>0));
+    ARIADNE_TESTING_PROVE(definitely(algebraic_dyadic>0));
+    ARIADNE_TESTING_PROVE(definitely(algebraic_rational>0));
     ValidatedNumber dyadic_dispatch=algebraic_dyadic.operator ValidatedNumber();
     ValidatedNumber rational_dispatch=algebraic_rational.operator ValidatedNumber();
-    ARIADNE_TEST_THROWS(sqrt(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(exp(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(log(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(sin(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(cos(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(tan(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(tanh(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(asin(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(acos(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(atan(dyadic_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(sqrt(rational_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(exp(rational_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(log(rational_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(sin(rational_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(cos(rational_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(tan(rational_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(tanh(rational_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(asin(rational_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(acos(rational_dispatch),DispatchException);
-    ARIADNE_TEST_THROWS(atan(rational_dispatch),DispatchException);
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,sqrt(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,exp(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,log(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,sin(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,cos(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,tan(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,tanh(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,asin(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,acos(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,atan(dyadic_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,sqrt(rational_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,exp(rational_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,log(rational_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,sin(rational_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,cos(rational_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,tan(rational_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,tanh(rational_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,asin(rational_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,acos(rational_dispatch));
+    ARIADNE_TESTING_EXPECT_THROWS(DispatchException,atan(rational_dispatch));
 }
 
-template<class Y> class TestNumber
+template<class Y> class TestNumber : public Ariadne::Testing::ContextFixture
 {
   public:
-    Void test();
+    using ContextFixture::ContextFixture;
+    static void add_cases(Ariadne::Testing::Suite& suite, std::string const& variant);
   private:
     Void test_number_get();
     // Local predicates for the Number fixture's numeric model checks.
@@ -543,12 +536,18 @@ template<class Y> class TestNumber
 
 
 
-template<class Y> Void
-TestNumber<Y>::test()
+template<class Y> void TestNumber<Y>::add_cases(Ariadne::Testing::Suite& suite, std::string const& variant)
 {
-    ARIADNE_TEST_CALL(test_class());
-    ARIADNE_TEST_CALL(test_get());
-    ARIADNE_TEST_CALL(test_comparisons());
+    using Fixture=TestNumber<Y>;
+    auto add=[&](std::string const& name, auto method) {
+        suite.add(variant+" / "+name, [method](Ariadne::Testing::Context& context) {
+            Fixture fixture(context);
+            (fixture.*method)();
+        });
+    };
+    add("class", &Fixture::test_class);
+    add("get", &Fixture::test_get);
+    add("comparisons", &Fixture::test_comparisons);
 }
 
 template<class Y> void TestNumber<Y>::test_number_get() {
@@ -558,25 +557,25 @@ template<class Y> void TestNumber<Y>::test_number_get() {
     MultiplePrecision mp(192_bits);
     MultiplePrecision ape(128_bits);
 
-    ARIADNE_TEST_WITHIN(ApproximateNumber(y).get(dp),q,Dyadic(TwoExp(-52)));
-    ARIADNE_TEST_WITHIN(ApproximateNumber(y).get(mp),q,Dyadic(TwoExp(-128)));
+    ARIADNE_TESTING_EXPECT_WITHIN(ApproximateNumber(y).get(dp),q,Dyadic(TwoExp(-52)));
+    ARIADNE_TESTING_EXPECT_WITHIN(ApproximateNumber(y).get(mp),q,Dyadic(TwoExp(-128)));
 
-    ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedLowerNumber(y).get(dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedLowerNumber(y).get(mp),q);
+    ARIADNE_TESTING_PROVE(models(ValidatedLowerNumber(y).get(dp),q));
+    ARIADNE_TESTING_PROVE(models(ValidatedLowerNumber(y).get(mp),q));
 
-    ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedUpperNumber(y).get(dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,ValidatedUpperNumber(y).get(mp),q);
+    ARIADNE_TESTING_PROVE(models(ValidatedUpperNumber(y).get(dp),q));
+    ARIADNE_TESTING_PROVE(models(ValidatedUpperNumber(y).get(mp),q));
 
-    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(mp),q);
+    ARIADNE_TESTING_PROVE(models(y.get(dp),q));
+    ARIADNE_TESTING_PROVE(models(y.get(mp),q));
 
-    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(dp,dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(mp,dp),q);
-    ARIADNE_TEST_BINARY_PREDICATE(models,y.get(mp,ape),q);
+    ARIADNE_TESTING_PROVE(models(y.get(dp,dp),q));
+    ARIADNE_TESTING_PROVE(models(y.get(mp,dp),q));
+    ARIADNE_TESTING_PROVE(models(y.get(mp,ape),q));
 
-    ARIADNE_TEST_SAME_TYPE(decltype(y.get(dp,dp)),FloatDPBall);
-    ARIADNE_TEST_SAME_TYPE(decltype(y.get(mp,dp)),FloatMPDPBall);
-    ARIADNE_TEST_SAME_TYPE(decltype(y.get(mp,ape)),FloatMPBall);
+    ARIADNE_TESTING_COMPILE_SAME_TYPE(decltype(y.get(dp,dp)),FloatDPBall);
+    ARIADNE_TESTING_COMPILE_SAME_TYPE(decltype(y.get(mp,dp)),FloatMPDPBall);
+    ARIADNE_TESTING_COMPILE_SAME_TYPE(decltype(y.get(mp,ape)),FloatMPBall);
 }
 
 template<> void TestNumber<ExactNumber>::test_number_get() { }
@@ -585,19 +584,19 @@ template<> void TestNumber<ApproximateNumber>::test_number_get() {
     Rational q=3/5_q;
     ApproximateNumber y(q);
     MultiplePrecision mp(128_bits);
-    ARIADNE_TEST_WITHIN(y.get(dp),q,3e-16);
-    ARIADNE_TEST_WITHIN(y.get(mp),q,3e-16);
+    ARIADNE_TESTING_EXPECT_WITHIN(y.get(dp),q,3e-16);
+    ARIADNE_TESTING_EXPECT_WITHIN(y.get(mp),q,3e-16);
 
     // Regression tests for native FloatDP/FloatMP conversion.
     Dbl d=-0.6;
-    ARIADNE_TEST_ASSIGN(y,d);
-    ARIADNE_TEST_EXECUTE(y.get(dp));
-    ARIADNE_TEST_EXECUTE(y.get(mp));
+    ARIADNE_TESTING_EXPECT_NO_THROW(y=(d));
+    ARIADNE_TESTING_EXPECT_NO_THROW(y.get(dp));
+    ARIADNE_TESTING_EXPECT_NO_THROW(y.get(mp));
 
     FloatDPApproximation x(-2.5,double_precision);
-    ARIADNE_TEST_ASSIGN(y,x);
-    ARIADNE_TEST_EXECUTE(y.get(dp));
-    ARIADNE_TEST_EXECUTE(y.get(mp));
+    ARIADNE_TESTING_EXPECT_NO_THROW(y=(x));
+    ARIADNE_TESTING_EXPECT_NO_THROW(y.get(dp));
+    ARIADNE_TESTING_EXPECT_NO_THROW(y.get(mp));
 
 }
 
@@ -614,9 +613,9 @@ TestNumber<Y>::test_class()
     Int n=1; Integer z=1; FloatDP v(3,dp); FloatDPBounds b(3,dp);
     ExactNumber yn=n; ExactNumber yz=z; ExactNumber yv=v; ValidatedNumber yb=b;
 
-    ARIADNE_TEST_EQUAL(yz.class_name(),"Integer");
-    ARIADNE_TEST_EQUAL(yv.class_name(),"FloatDP");
-    ARIADNE_TEST_EQUAL(yb.class_name(),"FloatDPBounds");
+    ARIADNE_TESTING_EXPECT_EQUAL(yz.class_name(),"Integer");
+    ARIADNE_TESTING_EXPECT_EQUAL(yv.class_name(),"FloatDP");
+    ARIADNE_TESTING_EXPECT_EQUAL(yb.class_name(),"FloatDPBounds");
 }
 
 
@@ -626,109 +625,112 @@ TestNumber<Y>::test_comparisons() {
 
 template<> Void
 TestNumber<ExactNumber>::test_comparisons() {
-    ARIADNE_TEST_CONSTRUCT(ExactNumber,y1,(Rational(2,3)));
-    ARIADNE_TEST_CONSTRUCT(ExactNumber,y2,(Rational(683,1024)));
-    ARIADNE_TEST_CONSTRUCT(ExactNumber,pinf,(+ExactDouble::inf()));
-    ARIADNE_TEST_CONSTRUCT(ExactNumber,ninf,(-ExactDouble::inf()));
+    ExactNumber y1 (Rational(2,3)); ARIADNE_TESTING_INSPECT("y1",y1);
+    ExactNumber y2 (Rational(683,1024)); ARIADNE_TESTING_INSPECT("y2",y2);
+    ExactNumber pinf (+ExactDouble::inf()); ARIADNE_TESTING_INSPECT("pinf",pinf);
+    ExactNumber ninf (-ExactDouble::inf()); ARIADNE_TESTING_INSPECT("ninf",ninf);
 
-    ARIADNE_TEST_BINARY_PREDICATE( operator==,y1,y1);
-    ARIADNE_TEST_BINARY_PREDICATE(!operator!=,y1,y1);
-    ARIADNE_TEST_BINARY_PREDICATE( operator<=,y1,y1);
-    ARIADNE_TEST_BINARY_PREDICATE( operator>=,y1,y1);
-    ARIADNE_TEST_BINARY_PREDICATE(!operator< ,y1,y1);
-    ARIADNE_TEST_BINARY_PREDICATE(!operator> ,y1,y1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator==,y1,y1);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator!=,y1,y1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<=,y1,y1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator>=,y1,y1);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator<,y1,y1);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator>,y1,y1);
 
-    ARIADNE_TEST_BINARY_PREDICATE(!operator==,y1,y2);
-    ARIADNE_TEST_BINARY_PREDICATE( operator!=,y1,y2);
-    ARIADNE_TEST_BINARY_PREDICATE( operator<=,y1,y2);
-    ARIADNE_TEST_BINARY_PREDICATE(!operator>=,y1,y2);
-    ARIADNE_TEST_BINARY_PREDICATE( operator< ,y1,y2);
-    ARIADNE_TEST_BINARY_PREDICATE(!operator> ,y1,y2);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator==,y1,y2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator!=,y1,y2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<=,y1,y2);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator>=,y1,y2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,y1,y2);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator>,y1,y2);
 
-    ARIADNE_TEST_BINARY_PREDICATE(!operator==,y2,y1);
-    ARIADNE_TEST_BINARY_PREDICATE( operator!=,y2,y1);
-    ARIADNE_TEST_BINARY_PREDICATE(!operator<=,y2,y1);
-    ARIADNE_TEST_BINARY_PREDICATE( operator>=,y2,y1);
-    ARIADNE_TEST_BINARY_PREDICATE(!operator< ,y2,y1);
-    ARIADNE_TEST_BINARY_PREDICATE( operator> ,y2,y1);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator==,y2,y1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator!=,y2,y1);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator<=,y2,y1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator>=,y2,y1);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator<,y2,y1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator>,y2,y1);
 
-    ARIADNE_TEST_BINARY_PREDICATE( operator==,y2,y2);
-    ARIADNE_TEST_BINARY_PREDICATE(!operator< ,y2,y2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator==,y2,y2);
+    ARIADNE_TESTING_EXPECT_NOT_BINARY_PREDICATE(operator<,y2,y2);
 
-    ARIADNE_TEST_BINARY_PREDICATE(operator==,y1,y1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator==,y1,y1);
 
-    ARIADNE_TEST_BINARY_PREDICATE(operator==,pinf,pinf);
-    ARIADNE_TEST_BINARY_PREDICATE(operator!=,ninf,pinf);
-    ARIADNE_TEST_BINARY_PREDICATE(operator< ,ninf,pinf);
-    ARIADNE_TEST_BINARY_PREDICATE(operator!=,y1,pinf);
-    ARIADNE_TEST_BINARY_PREDICATE(operator!=,pinf,y1);
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,y1,pinf);
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,ninf,y1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator==,pinf,pinf);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator!=,ninf,pinf);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,ninf,pinf);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator!=,y1,pinf);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator!=,pinf,y1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,y1,pinf);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,ninf,y1);
 
-    ARIADNE_TEST_ASSERT(definitely(ValidatedUpperNumber(3)<ValidatedLowerNumber(4)));
-    ARIADNE_TEST_ASSERT(possibly(ValidatedUpperNumber(4)>ValidatedLowerNumber(3)));
-    ARIADNE_TEST_ASSERT(not definitely(ValidatedUpperNumber(4)>ValidatedLowerNumber(3)));
+    ARIADNE_TESTING_PROVE(definitely(ValidatedUpperNumber(3)<ValidatedLowerNumber(4)));
+    ARIADNE_TESTING_PROVE(possibly(ValidatedUpperNumber(4)>ValidatedLowerNumber(3)));
+    ARIADNE_TESTING_PROVE(not definitely(ValidatedUpperNumber(4)>ValidatedLowerNumber(3)));
 
-    ARIADNE_TEST_CONSTRUCT(Dyadic,w1,(1.25_x));
-    ARIADNE_TEST_CONSTRUCT(Dyadic,w2,(0.875_x));
-    ARIADNE_TEST_CONSTRUCT(FloatDP,d1,(w1,dp));
-    ARIADNE_TEST_CONSTRUCT(FloatDP,d2,(w2,dp));
-    ARIADNE_TEST_CONSTRUCT(ExactNumber,yw1,(w1));
-    ARIADNE_TEST_CONSTRUCT(ExactNumber,yw2,(w2));
-    ARIADNE_TEST_CONSTRUCT(ExactNumber,yd1,(d1));
-    ARIADNE_TEST_CONSTRUCT(ExactNumber,yd2,(d2));
+    Dyadic w1 (1.25_x); ARIADNE_TESTING_INSPECT("w1",w1);
+    Dyadic w2 (0.875_x); ARIADNE_TESTING_INSPECT("w2",w2);
+    FloatDP d1 (w1,dp); ARIADNE_TESTING_INSPECT("d1",d1);
+    FloatDP d2 (w2,dp); ARIADNE_TESTING_INSPECT("d2",d2);
+    ExactNumber yw1 (w1); ARIADNE_TESTING_INSPECT("yw1",yw1);
+    ExactNumber yw2 (w2); ARIADNE_TESTING_INSPECT("yw2",yw2);
+    ExactNumber yd1 (d1); ARIADNE_TESTING_INSPECT("yd1",yd1);
+    ExactNumber yd2 (d2); ARIADNE_TESTING_INSPECT("yd2",yd2);
 
-    ARIADNE_TEST_BINARY_PREDICATE(operator==,yw1,yd1);
-    ARIADNE_TEST_BINARY_PREDICATE(operator!=,yw1,yd2);
-    ARIADNE_TEST_BINARY_PREDICATE(operator> ,yw1,yd2);
-    ARIADNE_TEST_BINARY_PREDICATE(operator< ,yw2,yd1);
-    ARIADNE_TEST_BINARY_PREDICATE(operator>=,yw1,yd2);
-    ARIADNE_TEST_BINARY_PREDICATE(operator<=,yw2,yd1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator==,yw1,yd1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator!=,yw1,yd2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator>,yw1,yd2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,yw2,yd1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator>=,yw1,yd2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<=,yw2,yd1);
     
-    ARIADNE_TEST_BINARY_PREDICATE(operator==,yd1,yd1);
-    ARIADNE_TEST_BINARY_PREDICATE(operator!=,yd1,yd2);
-    ARIADNE_TEST_BINARY_PREDICATE(operator> ,yd1,yd2);
-    ARIADNE_TEST_BINARY_PREDICATE(operator< ,yd2,yd1);
-    ARIADNE_TEST_BINARY_PREDICATE(operator>=,yd1,yd2);
-    ARIADNE_TEST_BINARY_PREDICATE(operator<=,yd2,yd1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator==,yd1,yd1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator!=,yd1,yd2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator>,yd1,yd2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,yd2,yd1);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator>=,yd1,yd2);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<=,yd2,yd1);
     
 }
 
 template<> Void
 TestNumber<EffectiveNumber>::test_comparisons() {
-    ARIADNE_TEST_ASSERT(definitely(EffectiveNumber(Real(-inf))<EffectiveNumber(Real(0))));
-    ARIADNE_TEST_ASSERT(definitely(EffectiveNumber(Real(0))>EffectiveNumber(Real(-inf))));
-    ARIADNE_TEST_ASSERT(not possibly(EffectiveNumber(Real(-inf))>EffectiveNumber(Real(0))));
-    ARIADNE_TEST_ASSERT(not possibly(EffectiveNumber(Real(0))<EffectiveNumber(Real(-inf))));
-    ARIADNE_TEST_ASSERT(definitely(not (EffectiveNumber(Real(-inf))>EffectiveNumber(Real(0)))));
-    ARIADNE_TEST_ASSERT(definitely(not (EffectiveNumber(Real(0))<EffectiveNumber(Real(-inf)))));
-    ARIADNE_TEST_ASSERT(definitely(EffectiveNumber(Real(-inf))<=EffectiveNumber(Real(0))));
+    ARIADNE_TESTING_PROVE(definitely(EffectiveNumber(Real(-inf))<EffectiveNumber(Real(0))));
+    ARIADNE_TESTING_PROVE(definitely(EffectiveNumber(Real(0))>EffectiveNumber(Real(-inf))));
+    ARIADNE_TESTING_PROVE(not possibly(EffectiveNumber(Real(-inf))>EffectiveNumber(Real(0))));
+    ARIADNE_TESTING_PROVE(not possibly(EffectiveNumber(Real(0))<EffectiveNumber(Real(-inf))));
+    ARIADNE_TESTING_PROVE(definitely(not (EffectiveNumber(Real(-inf))>EffectiveNumber(Real(0)))));
+    ARIADNE_TESTING_PROVE(definitely(not (EffectiveNumber(Real(0))<EffectiveNumber(Real(-inf)))));
+    ARIADNE_TESTING_PROVE(definitely(EffectiveNumber(Real(-inf))<=EffectiveNumber(Real(0))));
 
-    ARIADNE_TEST_CONSTRUCT(Real,r1,(1/3_q));
-    ARIADNE_TEST_CONSTRUCT(Real,r2,(ExactDouble(0.333333333333333333)));
-    ARIADNE_TEST_ASSERT(not definitely((r1>r2).check(Effort(0))));
-    ARIADNE_TEST_ASSERT(possibly(not (r1>r2).check(Effort(0))));
-    ARIADNE_TEST_ASSERT(definitely((r1>r2).check(Effort(64))));
+    Real r1 (1/3_q); ARIADNE_TESTING_INSPECT("r1",r1);
+    Real r2 (ExactDouble(0.333333333333333333)); ARIADNE_TESTING_INSPECT("r2",r2);
+    ARIADNE_TESTING_PROVE(not definitely((r1>r2).check(Effort(0))));
+    ARIADNE_TESTING_PROVE(possibly(not (r1>r2).check(Effort(0))));
+    ARIADNE_TESTING_PROVE(definitely((r1>r2).check(Effort(64))));
 
-    ARIADNE_TEST_CONSTRUCT(EffectiveNumber,y1,(r1));
-    ARIADNE_TEST_CONSTRUCT(EffectiveNumber,y2,(r2));
-    ARIADNE_TEST_ASSERT(not definitely((y1>y2).check(Effort(0))));
-    ARIADNE_TEST_ASSERT(possibly(not (y1>y2).check(Effort(0))));
-    ARIADNE_TEST_ASSERT(definitely((y1>y2).check(Effort(64))));
+    EffectiveNumber y1 (r1); ARIADNE_TESTING_INSPECT("y1",y1);
+    EffectiveNumber y2 (r2); ARIADNE_TESTING_INSPECT("y2",y2);
+    ARIADNE_TESTING_PROVE(not definitely((y1>y2).check(Effort(0))));
+    ARIADNE_TESTING_PROVE(possibly(not (y1>y2).check(Effort(0))));
+    ARIADNE_TESTING_PROVE(definitely((y1>y2).check(Effort(64))));
 }
 
-template<class Y> class TestDirectedNumber
+template<class Y> class TestDirectedNumber : public Ariadne::Testing::ContextFixture
 {
   public:
-    Void test();
+    using ContextFixture::ContextFixture;
+    static void add_cases(Ariadne::Testing::Suite& suite, std::string const& variant);
   private:
     Void test_concept();
     Void test_operations();
 };
 
-template<class Y> Void
-TestDirectedNumber<Y>::test() {
-    test_operations();
+template<class Y> void TestDirectedNumber<Y>::add_cases(Ariadne::Testing::Suite& suite, std::string const& variant) {
+    suite.add(variant+" / operations", [](Ariadne::Testing::Context& context) {
+        TestDirectedNumber<Y> fixture(context);
+        fixture.test_operations();
+    });
 }
 
 template<class Y> Void
@@ -746,16 +748,16 @@ TestDirectedNumber<Y>::test_operations() {
         ValidatedUpperNumber yu(xu);
 
         // Tests
-        ARIADNE_TEST_ASSERT(not possibly (yu == yl));
-        ARIADNE_TEST_ASSERT(definitely (yu != yl));
-        ARIADNE_TEST_ASSERT(not definitely (yl > q));
-        ARIADNE_TEST_ASSERT(not definitely (-yl < -q));
-        ARIADNE_TEST_ASSERT(not definitely (yl+yl+yl > 1));
-        ARIADNE_TEST_ASSERT(not definitely (yl+yl+yl > 1));
-        ARIADNE_TEST_ASSERT(definitely (yu < yl));
-        ARIADNE_TEST_ASSERT(definitely (yl > yu));
+        ARIADNE_TESTING_PROVE(not possibly (yu == yl));
+        ARIADNE_TESTING_PROVE(definitely (yu != yl));
+        ARIADNE_TESTING_PROVE(not definitely (yl > q));
+        ARIADNE_TESTING_PROVE(not definitely (-yl < -q));
+        ARIADNE_TESTING_PROVE(not definitely (yl+yl+yl > 1));
+        ARIADNE_TESTING_PROVE(not definitely (yl+yl+yl > 1));
+        ARIADNE_TESTING_PROVE(definitely (yu < yl));
+        ARIADNE_TESTING_PROVE(definitely (yl > yu));
 
-        ARIADNE_TEST_ASSERT(not definitely (yl > q));
+        ARIADNE_TESTING_PROVE(not definitely (yl > q));
 
         static_assert(Same<DifferenceType<ExactNumber,ValidatedUpperNumber>,ValidatedLowerNumber>);
         static_assert(Same<DifferenceType<ValidatedLowerNumber,ValidatedUpperNumber>,ValidatedLowerNumber>);
@@ -771,46 +773,42 @@ TestDirectedNumber<Y>::test_operations() {
         static_assert(Same<decltype(BinaryElementaryOperator(Add()).operator()(xu,xu)),FloatDPApproximation>);
         static_assert(Same<decltype(BinaryElementaryOperator(Sub()).operator()(xu,xl)),FloatDPApproximation>);
 
-        ARIADNE_TEST_NOTIFY("BinaryElementaryOperator returns common arithmetical type, which may differ from type of actual operation.");
+        ARIADNE_TESTING_NOTE("BinaryElementaryOperator returns common arithmetical type, which may differ from type of actual operation.");
 
         Integer z(5);
         Dyadic w(1.375_x);
-        ARIADNE_TEST_PRINT(w<yu);
-        ARIADNE_TEST_PRINT(ExactNumber(w).class_name());
-        ARIADNE_TEST_PRINT(ValidatedLowerNumber(w).class_name());
+        ARIADNE_TESTING_INSPECT("w<yu",(w<yu));
+        ARIADNE_TESTING_INSPECT("ExactNumber(w).class_name()",(ExactNumber(w).class_name()));
+        ARIADNE_TESTING_INSPECT("ValidatedLowerNumber(w).class_name()",(ValidatedLowerNumber(w).class_name()));
 
-        ARIADNE_TEST_EQUALS(ExactNumber(w).class_name(),"Dyadic");
-        ARIADNE_TEST_EQUALS((yl+yl).class_name(),"FloatDPLowerBound");
-        ARIADNE_TEST_EQUALS((yl-yu).class_name(),"FloatDPLowerBound");
-        ARIADNE_TEST_EQUALS((yu+yu).class_name(),"FloatDPUpperBound");
-        ARIADNE_TEST_EQUALS((yu-yl).class_name(),"FloatDPUpperBound");
-        ARIADNE_TEST_EQUALS((ExactNumber(z)-yu).class_name(),"FloatDPLowerBound");
+        ARIADNE_TESTING_EXPECT_EQUAL(ExactNumber(w).class_name(),"Dyadic");
+        ARIADNE_TESTING_EXPECT_EQUAL((yl+yl).class_name(),"FloatDPLowerBound");
+        ARIADNE_TESTING_EXPECT_EQUAL((yl-yu).class_name(),"FloatDPLowerBound");
+        ARIADNE_TESTING_EXPECT_EQUAL((yu+yu).class_name(),"FloatDPUpperBound");
+        ARIADNE_TESTING_EXPECT_EQUAL((yu-yl).class_name(),"FloatDPUpperBound");
+        ARIADNE_TESTING_EXPECT_EQUAL((ExactNumber(z)-yu).class_name(),"FloatDPLowerBound");
 
-        ARIADNE_TEST_ASSERT(not possibly(w<yu));
+        ARIADNE_TESTING_PROVE(not possibly(w<yu));
 
     }
 }
 
 
-Int main() {
-    TestNumbers().test();
-
+int main(int argc, char** argv) {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
-
-    TestNumber<ApproximateNumber>().test();
-    TestNumber<ValidatedNumber>().test();
-    TestNumber<EffectiveNumber>().test();
-    TestNumber<ExactNumber>().test();
-
-    TestDirectedNumber<ValidatedLowerNumber>().test();
-    TestDirectedNumber<ValidatedUpperNumber>().test();
-    TestDirectedNumber<EffectiveLowerNumber>().test();
-    TestDirectedNumber<EffectiveUpperNumber>().test();
-
-    std::cerr<<"INCOMPLETE ";
-    return ARIADNE_TEST_FAILURES;
-//    TestNumber<ValidatedUpperNumber>().test();
-//    TestNumber<ValidatedLowerNumber>().test();
+    Ariadne::Testing::Suite suite("number");
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestNumbers, test_operations);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestNumbers, test_dyadic_behaviour);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestNumbers, test_float_value_behaviour);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestNumbers, test_misc);
+    TestNumber<ApproximateNumber>::add_cases(suite,"ApproximateNumber");
+    TestNumber<ValidatedNumber>::add_cases(suite,"ValidatedNumber");
+    TestNumber<EffectiveNumber>::add_cases(suite,"EffectiveNumber");
+    TestNumber<ExactNumber>::add_cases(suite,"ExactNumber");
+    TestDirectedNumber<ValidatedLowerNumber>::add_cases(suite,"ValidatedLowerNumber");
+    TestDirectedNumber<ValidatedUpperNumber>::add_cases(suite,"ValidatedUpperNumber");
+    TestDirectedNumber<EffectiveLowerNumber>::add_cases(suite,"EffectiveLowerNumber");
+    TestDirectedNumber<EffectiveUpperNumber>::add_cases(suite,"EffectiveUpperNumber");
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }
-

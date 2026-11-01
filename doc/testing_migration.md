@@ -458,3 +458,34 @@ original tolerance is not met. The seven case checks remain part of the
 single original transcendental case. No changes to numeric implementation,
 API, or generic Testing semantics are made by this patch. Acceptance
 requires the complete CI matrix.
+
+## 2026-11-01: Number suite conversion to Ariadne Testing
+
+Migrated `test_number` on branch `testing` to ContextFixture-based
+Ariadne Testing cases. Its original sequence is now 20 cases: the four
+TestNumbers groups; the original class/get/comparisons groups for each of
+ApproximateNumber, ValidatedNumber, EffectiveNumber and ExactNumber;
+and the original operations group for each of the four directed types.
+Empty specializations and previously unused methods remain inactive.
+
+All 43 ASSERT checks, 31 EQUAL/EQUALS checks, 29 typed exception checks,
+5 untyped exception checks, 4 tolerance checks and 49 binary predicate
+checks retain their expectations and original expressions. The 9
+`models` predicate calls are now fixture-local proposition checks, since
+the testing framework's generic binary-predicate macro deliberately uses
+a noncapturing lambda. Of the other binary predicates, 10 retain
+explicit negation via EXPECT_NOT_BINARY_PREDICATE. The 3 runtime
+same-type checks become compile-time contracts. All 29 smoke operations,
+4 assignments, 22 construction declarations and 23 explicit print
+inspections remain. The frozen 27-row Integer exponent oracle is intact.
+Notifications and progress diagnostics are reporter notes/inspections.
+
+The old unconditional `INCOMPLETE` stderr marker is not emitted during
+a successful concise run; the prior incompleteness of the suite remains
+visible in this journal, including the previously uninvoked methods.
+CTest now links the target to `ariadne-testing` and passes the already
+registered `--concise`; direct invocation uses full reporting.
+The source and assertion counts have been audited. No local binary
+was built because the build environment cannot access GitHub;
+the Numeric CI matrix remains the acceptance gate, and any failing
+numeric predicate must be classified before changing an oracle.
