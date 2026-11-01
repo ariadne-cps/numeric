@@ -12,7 +12,7 @@
 #include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
 #include "numeric/real.hpp"
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 using namespace Ariadne;
 
@@ -29,25 +29,18 @@ struct CodeKind {
 };
 
 template<class OP>
-void test_metadata(OP op, OperatorCode code, OperatorKind kind) {
+void test_metadata(Ariadne::Testing::Context& context, OP op,
+                   OperatorCode code, OperatorKind kind) {
     Operator generic(op);
-    ARIADNE_TEST_EQUALS(generic.code(),code);
-    ARIADNE_TEST_EQUALS(generic.kind(),kind);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, generic.code(), code);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, generic.kind(), kind);
 }
 
 } // namespace
 
-class TestOperators {
+class TestOperators : public Ariadne::Testing::ContextFixture {
   public:
-    void test() {
-        ARIADNE_TEST_CALL(test_kinds());
-        ARIADNE_TEST_CALL(test_names_and_symbols());
-        ARIADNE_TEST_CALL(test_objects());
-        ARIADNE_TEST_CALL(test_simple_operations());
-        ARIADNE_TEST_CALL(test_inverses());
-    }
-
-  private:
+    using ContextFixture::ContextFixture;
     void test_kinds() {
         const std::array kinds={
             CodeKind{OperatorCode::CNST,OperatorKind::NULLARY},
@@ -104,12 +97,12 @@ class TestOperators {
 
         for(auto const& entry:kinds) {
             Operator inferred(entry.code);
-            ARIADNE_TEST_EQUALS(inferred.code(),entry.code);
-            ARIADNE_TEST_EQUALS(inferred.kind(),entry.kind);
+            ARIADNE_TESTING_EXPECT_EQUAL(inferred.code(),entry.code);
+            ARIADNE_TESTING_EXPECT_EQUAL(inferred.kind(),entry.kind);
 
             Operator explicit_kind(entry.code,entry.kind);
-            ARIADNE_TEST_EQUALS(static_cast<OperatorCode>(explicit_kind),entry.code);
-            ARIADNE_TEST_EQUALS(explicit_kind.kind(),entry.kind);
+            ARIADNE_TESTING_EXPECT_EQUAL(static_cast<OperatorCode>(explicit_kind),entry.code);
+            ARIADNE_TESTING_EXPECT_EQUAL(explicit_kind.kind(),entry.kind);
         }
 
         const std::array kind_names={
@@ -127,13 +120,13 @@ class TestOperators {
         for(auto const& entry:kind_names) {
             std::ostringstream stream;
             stream << entry.first;
-            ARIADNE_TEST_EQUALS(stream.str(),std::string(entry.second));
+            ARIADNE_TESTING_EXPECT_EQUAL(stream.str(),std::string(entry.second));
         }
         std::ostringstream invalid_kind;
         invalid_kind << static_cast<OperatorKind>(127);
-        ARIADNE_TEST_EQUALS(invalid_kind.str(),std::string("UNKNOWN"));
+        ARIADNE_TESTING_EXPECT_EQUAL(invalid_kind.str(),std::string("UNKNOWN"));
 
-        ARIADNE_TEST_FAIL(static_cast<void>(Operator(static_cast<OperatorCode>(127))));
+        ARIADNE_TESTING_EXPECT_EXCEPTION(static_cast<void>(Operator(static_cast<OperatorCode>(127))));
     }
 
     void test_names_and_symbols() {
@@ -167,12 +160,12 @@ class TestOperators {
             CodeName{OperatorCode::DISJ,"disj"}
         };
         for(auto const& entry:names) {
-            ARIADNE_TEST_EQUALS(std::string(name(entry.code)),std::string(entry.text));
+            ARIADNE_TESTING_EXPECT_EQUAL(std::string(name(entry.code)),std::string(entry.text));
             std::ostringstream stream;
             stream << entry.code;
-            ARIADNE_TEST_EQUALS(stream.str(),std::string(entry.text));
+            ARIADNE_TESTING_EXPECT_EQUAL(stream.str(),std::string(entry.text));
         }
-        ARIADNE_TEST_EQUALS(std::string(name(static_cast<OperatorCode>(127))),std::string("UNKNOWN"));
+        ARIADNE_TESTING_EXPECT_EQUAL(std::string(name(static_cast<OperatorCode>(127))),std::string("UNKNOWN"));
 
         const std::array symbols={
             CodeName{OperatorCode::POS,"+"}, CodeName{OperatorCode::NEG,"-"},
@@ -186,71 +179,71 @@ class TestOperators {
             CodeName{OperatorCode::LT,"<"}, CodeName{OperatorCode::GT,">"}
         };
         for(auto const& entry:symbols) {
-            ARIADNE_TEST_EQUALS(std::string(symbol(entry.code)),std::string(entry.text));
+            ARIADNE_TESTING_EXPECT_EQUAL(std::string(symbol(entry.code)),std::string(entry.text));
         }
-        ARIADNE_TEST_EQUALS(std::string(symbol(OperatorCode::CNST)),std::string("???"));
+        ARIADNE_TESTING_EXPECT_EQUAL(std::string(symbol(OperatorCode::CNST)),std::string("???"));
     }
 
     void test_objects() {
-        test_metadata(Gtr{},OperatorCode::GT,OperatorKind::COMPARISON);
-        test_metadata(Less{},OperatorCode::LT,OperatorKind::COMPARISON);
-        test_metadata(Geq{},OperatorCode::GEQ,OperatorKind::COMPARISON);
-        test_metadata(Leq{},OperatorCode::LEQ,OperatorKind::COMPARISON);
-        test_metadata(Equal{},OperatorCode::EQ,OperatorKind::COMPARISON);
-        test_metadata(Unequal{},OperatorCode::NEQ,OperatorKind::COMPARISON);
-        test_metadata(XOrOp{},OperatorCode::XOR,OperatorKind::BINARY);
-        test_metadata(AndOp{},OperatorCode::AND,OperatorKind::BINARY);
-        test_metadata(OrOp{},OperatorCode::OR,OperatorKind::BINARY);
-        test_metadata(NotOp{},OperatorCode::NOT,OperatorKind::UNARY);
-        test_metadata(Cnst{},OperatorCode::CNST,OperatorKind::NULLARY);
-        test_metadata(Ind{},OperatorCode::IND,OperatorKind::COORDINATE);
-        test_metadata(Var{},OperatorCode::VAR,OperatorKind::VARIABLE);
-        test_metadata(Add{},OperatorCode::ADD,OperatorKind::BINARY);
-        test_metadata(Sub{},OperatorCode::SUB,OperatorKind::BINARY);
-        test_metadata(Mul{},OperatorCode::MUL,OperatorKind::BINARY);
-        test_metadata(Div{},OperatorCode::DIV,OperatorKind::BINARY);
-        test_metadata(Pow{},OperatorCode::POW,OperatorKind::GRADED);
-        test_metadata(Root{},OperatorCode::ROOT,OperatorKind::GRADED);
-        test_metadata(Fma{},OperatorCode::FMA,OperatorKind::TERNARY);
-        test_metadata(Nul{},OperatorCode::NUL,OperatorKind::UNARY);
-        test_metadata(Pos{},OperatorCode::POS,OperatorKind::UNARY);
-        test_metadata(Neg{},OperatorCode::NEG,OperatorKind::UNARY);
-        test_metadata(Hlf{},OperatorCode::HLF,OperatorKind::UNARY);
-        test_metadata(Rec{},OperatorCode::REC,OperatorKind::UNARY);
-        test_metadata(Sqr{},OperatorCode::SQR,OperatorKind::UNARY);
-        test_metadata(Sqrt{},OperatorCode::SQRT,OperatorKind::UNARY);
-        test_metadata(Exp{},OperatorCode::EXP,OperatorKind::UNARY);
-        test_metadata(Log{},OperatorCode::LOG,OperatorKind::UNARY);
-        test_metadata(Sin{},OperatorCode::SIN,OperatorKind::UNARY);
-        test_metadata(Cos{},OperatorCode::COS,OperatorKind::UNARY);
-        test_metadata(Tan{},OperatorCode::TAN,OperatorKind::UNARY);
-        test_metadata(Tanh{},OperatorCode::TANH,OperatorKind::UNARY);
-        test_metadata(Asin{},OperatorCode::ASIN,OperatorKind::UNARY);
-        test_metadata(Acos{},OperatorCode::ACOS,OperatorKind::UNARY);
-        test_metadata(Atan{},OperatorCode::ATAN,OperatorKind::UNARY);
-        test_metadata(Max{},OperatorCode::MAX,OperatorKind::BINARY);
-        test_metadata(Min{},OperatorCode::MIN,OperatorKind::BINARY);
-        test_metadata(Abs{},OperatorCode::ABS,OperatorKind::UNARY);
-        test_metadata(Sgn{},OperatorCode::SGN,OperatorKind::PREDICATE);
+        test_metadata(this->ctx(), Gtr{},OperatorCode::GT,OperatorKind::COMPARISON);
+        test_metadata(this->ctx(), Less{},OperatorCode::LT,OperatorKind::COMPARISON);
+        test_metadata(this->ctx(), Geq{},OperatorCode::GEQ,OperatorKind::COMPARISON);
+        test_metadata(this->ctx(), Leq{},OperatorCode::LEQ,OperatorKind::COMPARISON);
+        test_metadata(this->ctx(), Equal{},OperatorCode::EQ,OperatorKind::COMPARISON);
+        test_metadata(this->ctx(), Unequal{},OperatorCode::NEQ,OperatorKind::COMPARISON);
+        test_metadata(this->ctx(), XOrOp{},OperatorCode::XOR,OperatorKind::BINARY);
+        test_metadata(this->ctx(), AndOp{},OperatorCode::AND,OperatorKind::BINARY);
+        test_metadata(this->ctx(), OrOp{},OperatorCode::OR,OperatorKind::BINARY);
+        test_metadata(this->ctx(), NotOp{},OperatorCode::NOT,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Cnst{},OperatorCode::CNST,OperatorKind::NULLARY);
+        test_metadata(this->ctx(), Ind{},OperatorCode::IND,OperatorKind::COORDINATE);
+        test_metadata(this->ctx(), Var{},OperatorCode::VAR,OperatorKind::VARIABLE);
+        test_metadata(this->ctx(), Add{},OperatorCode::ADD,OperatorKind::BINARY);
+        test_metadata(this->ctx(), Sub{},OperatorCode::SUB,OperatorKind::BINARY);
+        test_metadata(this->ctx(), Mul{},OperatorCode::MUL,OperatorKind::BINARY);
+        test_metadata(this->ctx(), Div{},OperatorCode::DIV,OperatorKind::BINARY);
+        test_metadata(this->ctx(), Pow{},OperatorCode::POW,OperatorKind::GRADED);
+        test_metadata(this->ctx(), Root{},OperatorCode::ROOT,OperatorKind::GRADED);
+        test_metadata(this->ctx(), Fma{},OperatorCode::FMA,OperatorKind::TERNARY);
+        test_metadata(this->ctx(), Nul{},OperatorCode::NUL,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Pos{},OperatorCode::POS,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Neg{},OperatorCode::NEG,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Hlf{},OperatorCode::HLF,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Rec{},OperatorCode::REC,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Sqr{},OperatorCode::SQR,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Sqrt{},OperatorCode::SQRT,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Exp{},OperatorCode::EXP,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Log{},OperatorCode::LOG,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Sin{},OperatorCode::SIN,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Cos{},OperatorCode::COS,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Tan{},OperatorCode::TAN,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Tanh{},OperatorCode::TANH,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Asin{},OperatorCode::ASIN,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Acos{},OperatorCode::ACOS,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Atan{},OperatorCode::ATAN,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Max{},OperatorCode::MAX,OperatorKind::BINARY);
+        test_metadata(this->ctx(), Min{},OperatorCode::MIN,OperatorKind::BINARY);
+        test_metadata(this->ctx(), Abs{},OperatorCode::ABS,OperatorKind::UNARY);
+        test_metadata(this->ctx(), Sgn{},OperatorCode::SGN,OperatorKind::PREDICATE);
 
         std::ostringstream comparisons;
         comparisons << Less{} << Gtr{} << Leq{} << Geq{} << Equal{} << Unequal{};
-        ARIADNE_TEST_EQUALS(comparisons.str(),std::string("<><=>===!="));
+        ARIADNE_TESTING_EXPECT_EQUAL(comparisons.str(),std::string("<><=>===!="));
 
         std::ostringstream logical;
         logical << AndOp{} << OrOp{} << NotOp{};
-        ARIADNE_TEST_EQUALS(logical.str(),std::string("&&||!"));
+        ARIADNE_TESTING_EXPECT_EQUAL(logical.str(),std::string("&&||!"));
 
         std::ostringstream builtin;
         builtin << Plus{} << Minus{} << Times{} << Divides{};
-        ARIADNE_TEST_EQUALS(builtin.str(),std::string("+-*/"));
+        ARIADNE_TESTING_EXPECT_EQUAL(builtin.str(),std::string("+-*/"));
 
         std::ostringstream arithmetic;
         arithmetic << Add{} << Sub{} << Mul{} << Div{} << Pow{} << Root{} << Fma{}
                    << Nul{} << Pos{} << Neg{} << Hlf{} << Rec{} << Sqr{} << Sqrt{}
                    << Exp{} << Log{} << Sin{} << Cos{} << Tan{} << Tanh{} << Asin{}
                    << Acos{} << Atan{} << Max{} << Min{} << Abs{};
-        ARIADNE_TEST_ASSERT(not arithmetic.str().empty());
+        ARIADNE_TESTING_PROVE(not arithmetic.str().empty());
     }
 
     void test_simple_operations() {
@@ -258,93 +251,98 @@ class TestOperators {
         Integer z2(2);
         Integer z3(3);
 
-        ARIADNE_TEST_ASSERT(Less{}(z1,z2));
-        ARIADNE_TEST_ASSERT(Gtr{}(z2,z1));
-        ARIADNE_TEST_ASSERT(Leq{}(z1,z1));
-        ARIADNE_TEST_ASSERT(Geq{}(z2,z1));
-        ARIADNE_TEST_ASSERT(Equal{}(z2,z2));
-        ARIADNE_TEST_ASSERT(Unequal{}(z1,z2));
+        ARIADNE_TESTING_PROVE(Less{}(z1,z2));
+        ARIADNE_TESTING_PROVE(Gtr{}(z2,z1));
+        ARIADNE_TESTING_PROVE(Leq{}(z1,z1));
+        ARIADNE_TESTING_PROVE(Geq{}(z2,z1));
+        ARIADNE_TESTING_PROVE(Equal{}(z2,z2));
+        ARIADNE_TESTING_PROVE(Unequal{}(z1,z2));
 
-        ARIADNE_TEST_ASSERT(AndOp{}(true,true));
-        ARIADNE_TEST_ASSERT(!AndOp{}(false,true));
-        ARIADNE_TEST_ASSERT(!AndOp{}(true,false));
-        ARIADNE_TEST_ASSERT(OrOp{}(false,true));
-        ARIADNE_TEST_ASSERT(OrOp{}(true,false));
-        ARIADNE_TEST_ASSERT(!OrOp{}(false,false));
-        ARIADNE_TEST_ASSERT(XOrOp{}(true,false));
-        ARIADNE_TEST_ASSERT(NotOp{}(false));
+        ARIADNE_TESTING_PROVE(AndOp{}(true,true));
+        ARIADNE_TESTING_PROVE(!AndOp{}(false,true));
+        ARIADNE_TESTING_PROVE(!AndOp{}(true,false));
+        ARIADNE_TESTING_PROVE(OrOp{}(false,true));
+        ARIADNE_TESTING_PROVE(OrOp{}(true,false));
+        ARIADNE_TESTING_PROVE(!OrOp{}(false,false));
+        ARIADNE_TESTING_PROVE(XOrOp{}(true,false));
+        ARIADNE_TESTING_PROVE(NotOp{}(false));
 
-        ARIADNE_TEST_EQUALS(Plus{}(2),2);
-        ARIADNE_TEST_EQUALS(Plus{}(2,3),5);
-        ARIADNE_TEST_EQUALS(Minus{}(2),-2);
-        ARIADNE_TEST_EQUALS(Minus{}(5,3),2);
-        ARIADNE_TEST_EQUALS(Times{}(2,3),6);
-        ARIADNE_TEST_EQUALS(Divides{}(6,3),2);
+        ARIADNE_TESTING_EXPECT_EQUAL(Plus{}(2),2);
+        ARIADNE_TESTING_EXPECT_EQUAL(Plus{}(2,3),5);
+        ARIADNE_TESTING_EXPECT_EQUAL(Minus{}(2),-2);
+        ARIADNE_TESTING_EXPECT_EQUAL(Minus{}(5,3),2);
+        ARIADNE_TESTING_EXPECT_EQUAL(Times{}(2,3),6);
+        ARIADNE_TESTING_EXPECT_EQUAL(Divides{}(6,3),2);
 
-        ARIADNE_TEST_EQUALS(Add{}(z2,z3),Integer(5));
-        ARIADNE_TEST_EQUALS(Sub{}(z3,z2),Integer(1));
-        ARIADNE_TEST_EQUALS(Mul{}(z2,z3),Integer(6));
-        ARIADNE_TEST_EQUALS(Pow{}(z2,3u),Integer(8));
-        ARIADNE_TEST_EQUALS(Nul{}(z3),Integer(0));
-        ARIADNE_TEST_EQUALS(Pos{}(z3),Integer(3));
-        ARIADNE_TEST_EQUALS(Neg{}(z3),Integer(-3));
-        ARIADNE_TEST_EQUALS(Sqr{}(z3),Natural(9u));
-        ARIADNE_TEST_EQUALS(Max{}(z2,z3),Integer(3));
-        ARIADNE_TEST_EQUALS(Min{}(z2,z3),Integer(2));
-        ARIADNE_TEST_EQUALS(Abs{}(Integer(-3)),Natural(3u));
-        ARIADNE_TEST_EQUALS(Sgn{}(Integer(-3)),Sign::NEGATIVE);
+        ARIADNE_TESTING_EXPECT_EQUAL(Add{}(z2,z3),Integer(5));
+        ARIADNE_TESTING_EXPECT_EQUAL(Sub{}(z3,z2),Integer(1));
+        ARIADNE_TESTING_EXPECT_EQUAL(Mul{}(z2,z3),Integer(6));
+        ARIADNE_TESTING_EXPECT_EQUAL(Pow{}(z2,3u),Integer(8));
+        ARIADNE_TESTING_EXPECT_EQUAL(Nul{}(z3),Integer(0));
+        ARIADNE_TESTING_EXPECT_EQUAL(Pos{}(z3),Integer(3));
+        ARIADNE_TESTING_EXPECT_EQUAL(Neg{}(z3),Integer(-3));
+        ARIADNE_TESTING_EXPECT_EQUAL(Sqr{}(z3),Natural(9u));
+        ARIADNE_TESTING_EXPECT_EQUAL(Max{}(z2,z3),Integer(3));
+        ARIADNE_TESTING_EXPECT_EQUAL(Min{}(z2,z3),Integer(2));
+        ARIADNE_TESTING_EXPECT_EQUAL(Abs{}(Integer(-3)),Natural(3u));
+        ARIADNE_TESTING_EXPECT_EQUAL(Sgn{}(Integer(-3)),Sign::NEGATIVE);
 
-        ARIADNE_TEST_EQUALS(Hlf{}(Integer(4)),Dyadic(2));
-        ARIADNE_TEST_EQUALS(Rec{}(Integer(4)),Rational(1,4));
+        ARIADNE_TESTING_EXPECT_EQUAL(Hlf{}(Integer(4)),Dyadic(2));
+        ARIADNE_TESTING_EXPECT_EQUAL(Rec{}(Integer(4)),Rational(1,4));
 
         BinaryComparisonOperator less(Less{});
-        ARIADNE_TEST_ASSERT(less(z1,z2));
+        ARIADNE_TESTING_PROVE(less(z1,z2));
         BinaryRingOperator add(Add{});
-        ARIADNE_TEST_EQUALS(add(z2,z3),Integer(5));
+        ARIADNE_TESTING_EXPECT_EQUAL(add(z2,z3),Integer(5));
         GradedRingOperator power(Pow{});
-        ARIADNE_TEST_EQUALS(power(z2,3u),Integer(8));
+        ARIADNE_TESTING_EXPECT_EQUAL(power(z2,3u),Integer(8));
         GradedElementaryOperator elementary_power(Pow{});
-        ARIADNE_TEST_EQUALS(elementary_power(z2,3u),Integer(8));
+        ARIADNE_TESTING_EXPECT_EQUAL(elementary_power(z2,3u),Integer(8));
 
         Real x(Rational(1,4));
-        ARIADNE_TEST_EXECUTE(Tanh{}(x));
-        ARIADNE_TEST_EXECUTE(Asin{}(x));
-        ARIADNE_TEST_EXECUTE(Acos{}(x));
+        ARIADNE_TESTING_EXPECT_NO_THROW(Tanh{}(x));
+        ARIADNE_TESTING_EXPECT_NO_THROW(Asin{}(x));
+        ARIADNE_TESTING_EXPECT_NO_THROW(Acos{}(x));
 
         Sgn sgn_operator;
         auto sgn_real=static_cast<Kleenean (Sgn::*)(Real const&) const>(&Sgn::operator());
         Kleenean sign=(sgn_operator.*sgn_real)(Real(Integer(1)));
         std::ostringstream sign_stream;
         sign_stream << sign;
-        ARIADNE_TEST_ASSERT(not sign_stream.str().empty());
-        ARIADNE_TEST_ASSERT(definitely(sign.check(Effort(1))));
+        ARIADNE_TESTING_PROVE(not sign_stream.str().empty());
+        ARIADNE_TESTING_PROVE(definitely(sign.check(Effort(1))));
         LogicalInterface* sign_copy=sign.repr().pointer()->_copy();
-        ARIADNE_TEST_ASSERT(sign_copy->_check(Effort(1))==LogicalValue::TRUE);
+        ARIADNE_TESTING_PROVE(sign_copy->_check(Effort(1))==LogicalValue::TRUE);
         delete sign_copy;
 
     }
 
     void test_inverses() {
-        ARIADNE_TEST_EQUALS(inverse(Pos{}).code(),OperatorCode::POS);
-        ARIADNE_TEST_EQUALS(inverse(Neg{}).code(),OperatorCode::NEG);
-        ARIADNE_TEST_EQUALS(inverse(Rec{}).code(),OperatorCode::REC);
-        ARIADNE_TEST_EQUALS(inverse(Sqr{}).code(),OperatorCode::SQRT);
-        ARIADNE_TEST_EQUALS(inverse(Sqrt{}).code(),OperatorCode::SQR);
-        ARIADNE_TEST_EQUALS(inverse(Exp{}).code(),OperatorCode::LOG);
-        ARIADNE_TEST_EQUALS(inverse(Log{}).code(),OperatorCode::EXP);
-        ARIADNE_TEST_EQUALS(inverse(Tan{}).code(),OperatorCode::ATAN);
-        ARIADNE_TEST_EQUALS(inverse(Atan{}).code(),OperatorCode::TAN);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Pos{}).code(),OperatorCode::POS);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Neg{}).code(),OperatorCode::NEG);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Rec{}).code(),OperatorCode::REC);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Sqr{}).code(),OperatorCode::SQRT);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Sqrt{}).code(),OperatorCode::SQR);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Exp{}).code(),OperatorCode::LOG);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Log{}).code(),OperatorCode::EXP);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Tan{}).code(),OperatorCode::ATAN);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Atan{}).code(),OperatorCode::TAN);
 
         UnaryTranscendentalOperator exponential(Exp{});
         UnaryTranscendentalOperator logarithm(Log{});
         UnaryTranscendentalOperator sine(Sin{});
-        ARIADNE_TEST_ASSERT(are_inverses(exponential,logarithm));
-        ARIADNE_TEST_ASSERT(are_inverses(logarithm,exponential));
-        ARIADNE_TEST_ASSERT(not are_inverses(sine,logarithm));
+        ARIADNE_TESTING_PROVE(are_inverses(exponential,logarithm));
+        ARIADNE_TESTING_PROVE(are_inverses(logarithm,exponential));
+        ARIADNE_TESTING_PROVE(not are_inverses(sine,logarithm));
     }
 };
 
-int main() {
-    ARIADNE_TEST_CLASS(Operators,TestOperators());
-    return ARIADNE_TEST_FAILURES;
+int main(int argc, char** argv) {
+    Ariadne::Testing::Suite suite("operators");
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestOperators, test_kinds);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestOperators, test_names_and_symbols);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestOperators, test_objects);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestOperators, test_simple_operations);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestOperators, test_inverses);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }

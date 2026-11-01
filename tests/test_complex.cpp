@@ -42,7 +42,7 @@
 
 #include "numeric/complex.hpp"
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 using namespace Ariadne;
 
@@ -67,14 +67,14 @@ static_assert(check_concept<FloatDPBounds>());
 } // namespace
 
 
-template<class X> class TestComplex
+template<class X> class TestComplex : public Ariadne::Testing::ContextFixture
 {
     X _one;
     typedef Complex<X> ComplexType;
   public:
-    TestComplex(X const& one) : _one(one) { }
-    void test();
-  private:
+    TestComplex(Ariadne::Testing::Context& context, X const& one)
+        : ContextFixture(context), _one(one) { }
+  public:
     void test_constructors();
     void test_conversions();
     void test_arithmetic();
@@ -83,32 +83,21 @@ template<class X> class TestComplex
     void test_comparison();
 };
 
-template<class X> void TestComplex<X>::test()
-{
-    FloatDPApproximation::set_output_places(18);
-    ARIADNE_TEST_CALL(test_constructors());
-    ARIADNE_TEST_CALL(test_conversions());
-    ARIADNE_TEST_CALL(test_arithmetic());
-    ARIADNE_TEST_CALL(test_transcendental());
-    ARIADNE_TEST_CALL(test_polar());
-    ARIADNE_TEST_CALL(test_comparison());
-}
-
 template<class X> void TestComplex<X>::test_conversions() {
 //    auto one_dp=one.get(dp);
-//    ARIADNE_TEST_PRINT(one_dp);
+//    ARIADNE_TESTING_INSPECT("one_dp", one_dp);
 
 }
 
 template<class X> void TestComplex<X>::test_constructors() {
-    ARIADNE_TEST_EXECUTE(Positive<Real>(Real(1)));
+    ARIADNE_TESTING_EXPECT_NO_THROW(Positive<Real>(Real(1)));
 /*
     ARIADNE_TEST_CONSTRUCT(ComplexType,zz,);
-    ARIADNE_TEST_EQUALS(zz.get(dp),0);
+    ARIADNE_TESTING_EXPECT_EQUAL(zz.get(dp),0);
     ARIADNE_TEST_CONSTRUCT(ComplexType,zr,(1));
-    ARIADNE_TEST_EQUALS(zr.get(dp),1);
+    ARIADNE_TESTING_EXPECT_EQUAL(zr.get(dp),1);
     ARIADNE_TEST_CONSTRUCT(ComplexType,zc,(4,3));
-    ARIADNE_TEST_EQUALS(zc.get(dp).real_part(),4);
+    ARIADNE_TESTING_EXPECT_EQUAL(zc.get(dp).real_part(),4);
 */
 }
 
@@ -119,27 +108,27 @@ template<class X> void TestComplex<X>::test_arithmetic() {
 
     using Constants::i;
 
-    ARIADNE_TEST_EQUALS(x+i*y, ComplexType(x,y));
+    ARIADNE_TESTING_EXPECT_EQUAL(x+i*y, ComplexType(x,y));
 
-    ARIADNE_TEST_EQUALS(x, 2.5_dy);
-    ARIADNE_TEST_EQUALS(y, 4.0_dy);
-    ARIADNE_TEST_EQUALS(+x, 2.5_dy);
-    ARIADNE_TEST_EQUALS(-x,-2.5_dy);
-    ARIADNE_TEST_EQUALS(x+y, 6.5_dy);
-    ARIADNE_TEST_EQUALS(x-y,-1.5_dy);
-    ARIADNE_TEST_EQUALS(x*y,10.0_dy);
-    ARIADNE_TEST_EQUALS(x/y,0.625_dy);
-    ARIADNE_TEST_EQUALS(add(x,y), 6.5_dy);
-    ARIADNE_TEST_EQUALS(sub(x,y),-1.5_dy);
-    ARIADNE_TEST_EQUALS(mul(x,y),10.0_dy);
-    ARIADNE_TEST_EQUALS(div(x,y),0.625_dy);
-    ARIADNE_TEST_EQUALS(pow(x,3u),15.625_dy);
-    ARIADNE_TEST_EQUALS(pow(x,3),15.625_dy);
-    ARIADNE_TEST_EQUALS(pos(x),+2.5_dy);
-    ARIADNE_TEST_EQUALS(neg(x),-2.5_dy);
-    ARIADNE_TEST_EQUALS(hlf(x),1.25_dy);
-    ARIADNE_TEST_EQUALS(sqr(x),6.25_dy);
-    ARIADNE_TEST_EQUALS(rec(y),0.25_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(x, 2.5_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(y, 4.0_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(+x, 2.5_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(-x,-2.5_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(x+y, 6.5_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(x-y,-1.5_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(x*y,10.0_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(x/y,0.625_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(add(x,y), 6.5_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(sub(x,y),-1.5_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(mul(x,y),10.0_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(div(x,y),0.625_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(x,3u),15.625_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(x,3),15.625_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(pos(x),+2.5_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(neg(x),-2.5_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(hlf(x),1.25_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(sqr(x),6.25_dy);
+    ARIADNE_TESTING_EXPECT_EQUAL(rec(y),0.25_dy);
 }
 
 template<class X> void TestComplex<X>::test_transcendental() {
@@ -148,18 +137,18 @@ template<class X> void TestComplex<X>::test_transcendental() {
     Dyadic tol=1024*eps;
     Complex<X> x(3.0_dyadic*_one,4.0_dyadic*_one);
 
-    ARIADNE_TEST_WITHIN(sqrt(sqr(x)),x,tol);
-    ARIADNE_TEST_WITHIN(sqr(sqrt(x)),x,tol);
-    ARIADNE_TEST_WITHIN(log(exp(x))+2*pi*i,x,tol);
-    ARIADNE_TEST_WITHIN(exp(log(x)),x,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(sqrt(sqr(x)),x,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(sqr(sqrt(x)),x,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(log(exp(x))+2*pi*i,x,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(exp(log(x)),x,tol);
 
     auto minimum_abs=mig(x);
-    ARIADNE_TEST_EQUALS(minimum_abs.raw(),FloatDP(5,dp));
+    ARIADNE_TESTING_EXPECT_EQUAL(minimum_abs.raw(),FloatDP(5,dp));
 
-    ARIADNE_TEST_ASSERT(possibly(sqrt(Complex<X>(4*_one))==2.0_dy));
-    ARIADNE_TEST_ASSERT(possibly(log(Complex<X>(1*_one))==0.0_dy));
-    ARIADNE_TEST_ASSERT(possibly(exp(Complex<X>(0*_one))==1.0_dy));
-    ARIADNE_TEST_ASSERT(possibly(log(exp(Complex<X>(1*_one)))==1.0_dy));
+    ARIADNE_TESTING_PROVE(possibly(sqrt(Complex<X>(4*_one))==2.0_dy));
+    ARIADNE_TESTING_PROVE(possibly(log(Complex<X>(1*_one))==0.0_dy));
+    ARIADNE_TESTING_PROVE(possibly(exp(Complex<X>(0*_one))==1.0_dy));
+    ARIADNE_TESTING_PROVE(possibly(log(exp(Complex<X>(1*_one)))==1.0_dy));
 }
 
 
@@ -168,16 +157,16 @@ template<class X> void TestComplex<X>::test_polar() {
     Dyadic tol=16*eps;
     X zero=nul(_one);
     Complex<X> i=Complex<X>(zero,_one);
-    ARIADNE_TEST_FAIL(atan2(zero,zero));
-    ARIADNE_TEST_WITHIN(arg(exp(-3*i)),-3,tol);
-    ARIADNE_TEST_WITHIN(arg(exp(-2*i)),-2,tol);
-    ARIADNE_TEST_WITHIN(arg(exp(-1*i)),-1,tol);
-    ARIADNE_TEST_WITHIN(arg(exp(0*i)),0,tol);
-    ARIADNE_TEST_WITHIN(arg(exp(1*i)),1,tol);
-    ARIADNE_TEST_WITHIN(arg(exp(2*i)),2,tol);
-    ARIADNE_TEST_WITHIN(arg(exp(3*i)),3,tol);
-    ARIADNE_TEST_WITHIN(arg(exp(-pi/2*i)),-pi/2,tol);
-    ARIADNE_TEST_WITHIN(arg(exp(+pi/2*i)),+pi/2,tol);
+    ARIADNE_TESTING_EXPECT_EXCEPTION(atan2(zero,zero));
+    ARIADNE_TESTING_EXPECT_WITHIN(arg(exp(-3*i)),-3,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(arg(exp(-2*i)),-2,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(arg(exp(-1*i)),-1,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(arg(exp(0*i)),0,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(arg(exp(1*i)),1,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(arg(exp(2*i)),2,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(arg(exp(3*i)),3,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(arg(exp(-pi/2*i)),-pi/2,tol);
+    ARIADNE_TESTING_EXPECT_WITHIN(arg(exp(+pi/2*i)),+pi/2,tol);
 }
 
 template<class X> void TestComplex<X>::test_comparison() {
@@ -186,13 +175,13 @@ template<class X> void TestComplex<X>::test_comparison() {
     Complex<X> e=exp(one);
 //    Complex<X> elogpi=e*log(pi);
 //    ARIADNE_TEST_SAME(e,e);
-//    ARIADNE_TEST_EQUALS(log(e),one);
+//    ARIADNE_TESTING_EXPECT_EQUAL(log(e),one);
 
-    ARIADNE_TEST_PRINT(pi.get(dp));
-    ARIADNE_TEST_PRINT(e*log(pi).get(dp));
+    ARIADNE_TESTING_INSPECT("pi.get(dp)", pi.get(dp));
+    ARIADNE_TESTING_INSPECT("e*log(pi).get(dp)", e*log(pi).get(dp));
 
-//    ARIADNE_TEST_ASSERT(not check(pi==elogpi,effort));
-//    ARIADNE_TEST_ASSERT(check(pi!=elogpi,effort));
+//    ARIADNE_TESTING_PROVE(not check(pi==elogpi,effort));
+//    ARIADNE_TESTING_PROVE(check(pi!=elogpi,effort));
 }
 
 
@@ -214,19 +203,23 @@ void test_fourier() {
 }
 
 
-int main() {
-    std::cout<<std::setprecision(20);
-    std::cerr<<std::setprecision(20);
-    using Constants::i;
-
-    typedef FloatDPApproximation XA;
-    Complex<XA> x(4,3,dp);
-
-    FloatDP one(1,dp);
-//    TestComplex<Real>().test();
-//    TestComplex<FloatDPApproximation>(one).test();
-    TestComplex<FloatDPBounds>(one).test();
-    test_fourier();
-
-    return ARIADNE_TEST_FAILURES;
+int main(int argc, char** argv) {
+    FloatDPApproximation::set_output_places(18);
+    Ariadne::Testing::Suite suite("complex");
+    auto add_complex_case = [&](std::string name, void (TestComplex<FloatDPBounds>::*method)()) {
+        suite.add(std::move(name), [method](Ariadne::Testing::Context& context) {
+            TestComplex<FloatDPBounds> fixture(context, FloatDP(1, dp));
+            (fixture.*method)();
+        });
+    };
+    add_complex_case("constructors", &TestComplex<FloatDPBounds>::test_constructors);
+    add_complex_case("conversions", &TestComplex<FloatDPBounds>::test_conversions);
+    add_complex_case("arithmetic", &TestComplex<FloatDPBounds>::test_arithmetic);
+    add_complex_case("transcendental", &TestComplex<FloatDPBounds>::test_transcendental);
+    add_complex_case("polar", &TestComplex<FloatDPBounds>::test_polar);
+    add_complex_case("comparison", &TestComplex<FloatDPBounds>::test_comparison);
+    suite.add("fourier", [](Ariadne::Testing::Context& context) {
+        context.expect_no_throw([] { test_fourier(); }, "fourier series");
+    });
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }
