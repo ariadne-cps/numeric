@@ -322,3 +322,31 @@ Parameterized registration callbacks remain local to these methods, not
 free-standing runtime test functions. Compile-time concept checks, frozen
 oracle fixtures and generator programs are unaffected. CI is required for
 acceptance; no numerical oracle or expected result was altered.
+
+## 2026-11-01: Real test conversion to Ariadne Testing
+
+Migrated `test_real` from the legacy runner to Ariadne Testing. The
+`TestReal` fixture now derives from `ContextFixture`; its existing ten
+functional methods and the earlier excessive-precision preflight are
+registered as eleven separate cases in the previous execution order. Global
+FloatDP approximation output precision is still configured at the beginning
+of the expression-evaluation phase, immediately after preflight. The original
+certified-pi TSV loader stays a private fixture helper.
+
+All active expected numeric values, exception checks, executable smoke
+operations and oracle inputs are retained. The conversion covers 39 assertions,
+61 equality expectations, 3 exception expectations, 78 execute/no-throw
+operations, 7 within-tolerance checks, 4 unary-predicate checks,
+11 ordering comparisons, 12 explicit object constructions, and 36
+active print/inspection events. The `std::boolalpha` stream manipulator
+remains a process stream state change rather than being passed as an
+unresolved overloaded function to the typed inspection API.
+Two old statement-shaped equality macros were missing semicolons;
+these were added when converting to the new macros. One previously
+commented-out PRINT expression remains commented out.
+
+CTest runs `test_real --concise`, whereas direct invocation defaults to
+full reporter output. No independent oracle was rewritten and no failure
+expectation was relaxed. Compile and runtime CI on every platform are required
+before accepting the conversion; historical decision semantics for Real
+predicates must be examined if generic evidence makes any case inconclusive.
