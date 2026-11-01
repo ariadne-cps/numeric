@@ -505,7 +505,7 @@ TestFloatRounding<PR>::test_limits()
     ARIADNE_TESTING_EXPECT_EQUAL( add(down,one,div(up,eps,two_value)), one);
 
     ARIADNE_TESTING_PROVE(min>zero);
-    ARIADNE_TESTING_EXPECT_LESS(max, inf_);
+    ARIADNE_TESTING_PROVE(max<inf_);
 
     ARIADNE_TESTING_PROVE( add(down,inf_,min)==inf_);
     ARIADNE_TESTING_PROVE( add(up,max,min)==inf_);
@@ -527,7 +527,7 @@ TestFloatRounding<PR>::test_limits()
         const FloatMP wide_high(max,wider);
         // Rescaling FloatMP at INT64_MAX must not construct a gigantic Rational.
         ARIADNE_TESTING_PROVE( wide_high.precision()==wider);
-        ARIADNE_TESTING_EXPECT_EQUAL(wide_high, max);
+        ARIADNE_TESTING_PROVE(wide_high==max);
         ARIADNE_TESTING_PROVE( FloatMP(wide_high,precision)==max);
         ARIADNE_TESTING_PROVE( FloatMP(-max,wider)==-wide_high);
         ARIADNE_TESTING_PROVE( iadd(up,wide_tiny,max)==next(up,wide_high));
