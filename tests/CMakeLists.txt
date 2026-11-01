@@ -33,7 +33,7 @@ set(UNIT_TESTS
 foreach(TEST ${UNIT_TESTS})
     add_executable(${TEST} ${TEST}.cpp)
     target_link_libraries(${TEST} ariadne-numeric numeric)
-    if("${TEST}" STREQUAL "test_logical_sequence" OR "${TEST}" STREQUAL "test_rounding_mode" OR "${TEST}" STREQUAL "test_float_rounding" OR "${TEST}" STREQUAL "test_extended" OR "${TEST}" STREQUAL "test_decimal" OR "${TEST}" STREQUAL "test_float_error" OR "${TEST}" STREQUAL "test_float_approximation" OR "${TEST}" STREQUAL "test_operators" OR "${TEST}" STREQUAL "test_complex")
+    if("${TEST}" STREQUAL "test_logical_sequence" OR "${TEST}" STREQUAL "test_rounding_mode" OR "${TEST}" STREQUAL "test_float_rounding" OR "${TEST}" STREQUAL "test_extended" OR "${TEST}" STREQUAL "test_decimal" OR "${TEST}" STREQUAL "test_float_error" OR "${TEST}" STREQUAL "test_float_approximation" OR "${TEST}" STREQUAL "test_operators" OR "${TEST}" STREQUAL "test_complex" OR "${TEST}" STREQUAL "test_float_ball" OR "${TEST}" STREQUAL "test_float_lower_upper_bound")
         target_link_libraries(${TEST} ariadne-testing)
     else()
         target_include_directories(${TEST} PRIVATE "${PROJECT_SOURCE_DIR}/ss/mac/include")

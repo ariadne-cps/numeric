@@ -11,3 +11,10 @@
 CMake links the two migrated executables with `ariadne-testing`; all other targets retain their prior configuration and CTest arguments. Legacy test binaries may still ignore `--concise` until migrated.
 
 **Validation status:** The source transformation and CMake registration have been checked, but a C++ build or CTest run was not possible in this environment because GitHub cloning/network access is unavailable from the build container. Treat compilation and the Numeric CI matrix as a mandatory acceptance gate; do not interpret the migration as verified until those checks pass.
+
+## 2026-11-01: Float ball and directed floating-point bounds
+
+- Migrated `test_float_ball` (3 precision configurations x 4 groups = 12 cases) and `test_float_lower_upper_bound` (2 precision configurations x 6 groups = 12 cases) to Ariadne Testing's Context-based suites.
+- Each original method is registered in its original order, with fresh precision-specific fixtures. Existing assertions, precision choices, exception expectations and numeric predicates remain present. Binary predicates use explicit evidence-preserving macro checks; relational comparisons map to their matching relation checks.
+- Direct invocation defaults to full console traces. CTest's pre-existing `--concise` argument now takes effect for these two targets. Both link against `ariadne-testing` rather than solely including the legacy macro headers.
+- Validation pending on the new commit's CI matrix; the previous green CI results cover `test_operators` and `test_complex` only.
