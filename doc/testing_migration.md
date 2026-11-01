@@ -164,3 +164,36 @@ CTest already supplies `--concise`; CMake now links the target with
 Source-level macro/terminator audits were performed, but compilation and
 the full Numeric CI matrix are still required for acceptance. Do not alter
 oracle expectations to make the converted tests pass.
+
+## 2026-11-01: Resolve systematic inconclusive Rounded tests
+
+The first CI of `cfb7fc7` reported 18/19 cases as Inconclusive because
+`Rounded<FloatDP>` and `Rounded<FloatMP>` comparisons return
+`ApproximateKleenean`. Its `definitely` is never true and `possibly` is
+never false, so a generic evidence-preserving assertion cannot classify
+either a likely-true or an unlikely-false comparison. This classification
+is deliberate in `ariadne-testing`; the generic framework is unchanged.
+
+This test file now makes its historical *decision-based* semantics explicit:
+legacy EQUAL/EQUALS and COMPARE assertions use local, lifetime-safe decided
+relation checks, invoking ADL `decide` only when the predicate type is
+`ApproximateKleenean`. Other logical types continue through the framework's
+normal evidence classification. The local relation wrapper evaluates each
+operand once and snapshots both operands' display representations before
+temporaries expire. The original relation operators and numeric thresholds
+are unchanged. The original ASSERT checks use a locally named approximate
+decision check (and do not label a merely likely outcome as a mathematical
+proof); unlike the previous legacy warning-only handling for approximate
+ASSERTs, a false approximate decision now fails visibly, increasing test
+sensitivity rather than silently accepting a dubious result.
+
+The numeric-cast case now also checks that `ApproximateKleenean(true)` and
+`ApproximateKleenean(false)` make opposite decisions while both retain
+`Evidence::Indeterminate` under generic evidence classification. This
+guards against incorrectly treating all indeterminate evidence as passing.
+The suite still has 19 cases and all prior numerical oracles. No other
+consumer or test framework source is changed.
+
+Compilation of the test-local helper syntax under GCC/Clang C++20 was checked
+using a minimal standalone mock; acceptance still requires full Numeric CI
+for this exact commit on Ubuntu, macOS, Windows, Sanitizers, and Coverage.
