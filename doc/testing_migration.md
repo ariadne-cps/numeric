@@ -528,7 +528,7 @@ This is source-level validation only. The full Numeric CI matrix
 before treating the change as runtime-verified. Do not weaken numerical
 expectations or silence unclassified failures.
 
-## 2026-11-01: Restrict dependency checks to shared Configuration and Utility
+## 2026-11-01: Temporary removal of Testing consistency check (subsequently reverted)
 
 Follow-up to the dependency synchronization above: `Testing` itself is
 allowed to be pinned to different commits by Numeric, Foundation, and
@@ -541,3 +541,20 @@ The `Configuration` consistency check **still** includes
 Configuration gitlink must agree with the other Configuration chains.
 The pre-existing `Utility` consistency check remains unchanged.
 No gitlinks, numerical checks, or test bodies were altered.
+
+## 2026-11-01: Restore cross-path Testing consistency
+
+The preceding removal of `require_same_dependency_commit(Testing)` was
+incorrect and is reverted. All paths that can register the CMake
+`ariadne-testing` target must agree on the same Testing commit:
+`testing`, `foundation|testing`, and `logging|testing`. Otherwise a
+transitively added submodule may create the shared target first using a
+different version, causing conflicts or silently selecting the wrong
+framework implementation, depending on CMake target-creation order.
+
+Numeric therefore checks Testing gitlink consistency **before**
+`setup_project()` and `add_subdirectory(ss)`, alongside the existing
+Configuration and Utility consistency checks. The checks cover the
+currently pinned Git commits rather than just whether the target exists.
+The actual Testing gitlink stays unchanged; no numerical tests or
+oracles are modified.
