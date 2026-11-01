@@ -138,6 +138,11 @@ using LoN=ValidatedLowerNumber;
 using ApN=Number<ApproximateTag>;
 
 using ExF=FloatDP;
+
+// The deprecated Real(FloatDP) constructor is intentionally no longer an API.
+static_assert(!std::is_constructible_v<Real, FloatDP>);
+static_assert(std::is_constructible_v<Real, Dyadic>);
+static_assert(std::is_constructible_v<Real, ExactDouble>);
 using MeF=FloatDPBall;
 using BoF=FloatDPBounds;
 using UpF=FloatDPUpperBound;

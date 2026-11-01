@@ -285,7 +285,7 @@ void TestReal::test_constructors() {
     const FloatDP binary_float(1,pr);
     ARIADNE_TESTING_EXPECT_NO_THROW(Real(Dyadic(binary_float)));
     ARIADNE_TESTING_EXPECT_NO_THROW(Real(ExactDouble(binary_float.get_d())));
-    Real xe(1.5_exact);
+    Real xe{Dyadic(1.5_exact)};
     ARIADNE_TESTING_INSPECT("constructed xe", xe);
     ARIADNE_TESTING_NOTE("before xe.compute(eff).get()" );
     auto xe_bounds = xe.compute(eff).get();

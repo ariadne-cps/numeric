@@ -415,3 +415,17 @@ reference; no tolerance increase, ignored unknown, or numeric-oracle change.
 The other six tolerance assertions are unchanged.
 
 The whole Numeric CI matrix must pass before accepting this patch.
+
+## 2026-11-01: Remove final indirect FloatDP literal construction
+
+The public `Real(FloatDP)` declaration/definition had been removed, but the
+`test_real` constructor case still called it indirectly through
+`Real xe(1.5_exact)`: the `_exact` suffix produces `FloatDP`.
+Use `Real xe{Dyadic(1.5_exact)}`, preserving the original exact dyadic
+binary64 value and subsequent certified-bound test. This is the same
+conversion as the former deprecated implementation, now explicit.
+A compile-time contract in `tests/check_numeric.cpp` requires that
+`Real` not be constructible from `FloatDP`, and checks that the
+recommended `Dyadic` and `ExactDouble` alternatives are constructible.
+An audit of numeric test files found no other `Real` constructions
+from the `_exact` literal. The complete CI matrix is still required.
