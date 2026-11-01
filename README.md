@@ -102,7 +102,8 @@ The migrated consumers are `test_logical_sequence` (explicit mathematical
 evidence), `test_rounding_mode` (backend rounding modes), `test_float_rounding`
 (frozen rounding oracles and precision variants), `test_extended` (integer,
 rational and dyadic extensions), `test_decimal` (including all 64 rows of
-`decimal_exact.tsv`), and `test_float_error` (FloatDP and FloatMP variants).
+`decimal_exact.tsv`), and `test_float_error` (FloatDP and FloatMP variants), together with
+`test_float_approximation` (FloatDP and FloatMP-128, preserving identity checks).
 The remaining executables retain the legacy macros, with their headers
 restricted to those test targets. This is an incremental migration: it does
 not establish that the entire Numeric suite has been converted.
@@ -141,3 +142,12 @@ checks, and every existing frozen-oracle row still performs three comparisons;
 scopes identify the oracle and row ID in diagnostics. `test_float_error`
 retains its original two-precision sequence with one case per backend.
 Neither numerical expectation nor reference TSV is changed.
+
+### Float-approximation migration
+
+All eight phase/precision executions are registered as independent Testing
+cases. Both compile-time concept assertions and all mathematical identity,
+equality, and predicate checks are retained. Fixture-local checks use the
+implicit-context shorthand macros; free-function tests retain `_CTX`.
+The shared `test_floats.hpp` header no longer introduces legacy macros
+transitively; the remaining legacy consumers include that header explicitly.

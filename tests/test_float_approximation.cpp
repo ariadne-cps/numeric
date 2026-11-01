@@ -40,7 +40,7 @@
 #include "numeric/float_upper_bound.hpp"
 #include "numeric/float_error.hpp"
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 #include "test_floats.hpp"
 
 using namespace Ariadne;
@@ -73,7 +73,7 @@ static_assert(check_float_approximation_concept<MultiplePrecision>());
 
 template<class PR>
 class TestFloatApproximation
-    : public TestFloats<PR>
+    : public TestFloats<PR>, public Ariadne::Testing::ContextFixture
 {
     typedef FloatType<ApproximateTag,PR> FloatApproximationType;
 
@@ -82,24 +82,14 @@ class TestFloatApproximation
   private:
     PR precision;
   public:
-    TestFloatApproximation(PR prec) : precision(prec) { };
-    Void test();
-  private:
+    TestFloatApproximation(PR prec, Ariadne::Testing::Context& ctx)
+        : Ariadne::Testing::ContextFixture(ctx), precision(prec) { }
     Void test_header_api();
     Void test_conversions();
     Void test_arithmetic();
     Void test_comparison();
 };
 
-
-template<class PR> Void
-TestFloatApproximation<PR>::test()
-{
-    ARIADNE_TEST_CALL(test_header_api());
-    ARIADNE_TEST_CALL(test_conversions());
-    ARIADNE_TEST_CALL(test_arithmetic());
-    ARIADNE_TEST_CALL(test_comparison());
-}
 
 template<class PR> Void
 TestFloatApproximation<PR>::test_header_api()
@@ -110,32 +100,32 @@ TestFloatApproximation<PR>::test_header_api()
     PR pr=precision;
 
     A zero(pr);
-    ARIADNE_TEST_EQUALS(zero.raw(),F(0,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(zero.raw(),F(0,pr));
 
     A from_approximate_double(ApproximateDouble(1.5),pr);
-    ARIADNE_TEST_EQUALS(from_approximate_double.get_d(),1.5);
+    ARIADNE_TESTING_EXPECT_EQUAL(from_approximate_double.get_d(),1.5);
 
     A from_exact_double(ExactDouble(1.0),pr);
     A from_twoexp(TwoExp(1),pr);
     A from_integer(Integer(1),pr);
     A from_decimal(Decimal(String("1.5")),pr);
-    ARIADNE_TEST_EQUALS(from_exact_double.raw(),F(1,pr));
-    ARIADNE_TEST_EQUALS(from_twoexp.raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(from_integer.raw(),F(1,pr));
-    ARIADNE_TEST_EQUALS(from_decimal.get_d(),1.5);
+    ARIADNE_TESTING_EXPECT_EQUAL(from_exact_double.raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(from_twoexp.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(from_integer.raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(from_decimal.get_d(),1.5);
 
     A copied(from_integer,pr);
-    ARIADNE_TEST_EQUALS(copied.raw(),from_integer.raw());
+    ARIADNE_TESTING_EXPECT_EQUAL(copied.raw(),from_integer.raw());
 
     if constexpr (Same<PR,DoublePrecision>) {
         // Preserve the cross-backend conversion using the native type.
         FloatMPApproximation other(1,MultiplePrecision(128_bits));
         A cross(other,pr);
-        ARIADNE_TEST_EQUALS(cross.raw(),F(1,pr));
+        ARIADNE_TESTING_EXPECT_EQUAL(cross.raw(),F(1,pr));
     } else {
         FloatDPApproximation other(1,dp);
         A cross(other,pr);
-        ARIADNE_TEST_EQUALS(cross.raw(),F(1,pr));
+        ARIADNE_TESTING_EXPECT_EQUAL(cross.raw(),F(1,pr));
     }
 
     FloatLowerBound<PR> lower(1,pr);
@@ -145,76 +135,76 @@ TestFloatApproximation<PR>::test_header_api()
 
     A assigned(pr);
     assigned=lower;
-    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(assigned.raw(),F(1,pr));
     assigned=upper;
-    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(assigned.raw(),F(1,pr));
     assigned=bounds;
-    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(assigned.raw(),F(1,pr));
     assigned=raw_one;
-    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(assigned.raw(),F(1,pr));
 
     ApproximateNumber generic=assigned.generic();
     assigned=generic;
-    ARIADNE_TEST_EQUALS(assigned.raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(assigned.raw(),F(1,pr));
 
     A created=assigned.create(generic);
-    ARIADNE_TEST_EQUALS(created.raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(created.raw(),F(1,pr));
 
-    ARIADNE_TEST_EQUALS(assigned.characteristics(),pr);
+    ARIADNE_TESTING_EXPECT_EQUAL(assigned.characteristics(),pr);
     F raw_copy=static_cast<F>(assigned);
-    ARIADNE_TEST_EQUALS(raw_copy,F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(raw_copy,F(1,pr));
     ApproximateDouble approximate_double=static_cast<ApproximateDouble>(assigned);
-    ARIADNE_TEST_EQUALS(approximate_double.get_d(),1.0);
-    ARIADNE_TEST_EQUALS(assigned.get_d(),1.0);
+    ARIADNE_TESTING_EXPECT_EQUAL(approximate_double.get_d(),1.0);
+    ARIADNE_TESTING_EXPECT_EQUAL(assigned.get_d(),1.0);
 
     A positive(1,pr);
     A negative(-1,pr);
-    ARIADNE_TEST_ASSERT(tanh(positive).raw()>F(0,pr));
-    ARIADNE_TEST_ASSERT(tanh(negative).raw()<F(0,pr));
-    ARIADNE_TEST_EQUALS(asin(zero).raw(),F(0,pr));
-    ARIADNE_TEST_EQUALS(acos(A(1,pr)).raw(),F(0,pr));
+    ARIADNE_TESTING_PROVE(tanh(positive).raw()>F(0,pr));
+    ARIADNE_TESTING_PROVE(tanh(negative).raw()<F(0,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(asin(zero).raw(),F(0,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(acos(A(1,pr)).raw(),F(0,pr));
 
-    ARIADNE_TEST_SAME(assigned.pm(zero),assigned);
+    ARIADNE_TESTING_EXPECT_SAME(assigned.pm(zero),assigned);
 
     A generic_two(2,pr);
     Integer generic_one(1);
-    ARIADNE_TEST_EQUALS(sub(generic_two,generic_one).raw(),F(1,pr));
-    ARIADNE_TEST_EQUALS(mul(generic_two,generic_one).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(div(generic_two,generic_one).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(sub(generic_two,generic_one).raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(mul(generic_two,generic_one).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(div(generic_two,generic_one).raw(),F(2,pr));
 
-    ARIADNE_TEST_EQUALS(add(generic_one,generic_two).raw(),F(3,pr));
-    ARIADNE_TEST_EQUALS(sub(generic_one,generic_two).raw(),F(-1,pr));
-    ARIADNE_TEST_EQUALS(mul(generic_one,generic_two).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(div(generic_one,generic_two).raw(),F(Dyadic(1,1u),pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(add(generic_one,generic_two).raw(),F(3,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(sub(generic_one,generic_two).raw(),F(-1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(mul(generic_one,generic_two).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(div(generic_one,generic_two).raw(),F(Dyadic(1,1u),pr));
 
-    ARIADNE_TEST_EQUALS(max(generic_two,generic_one).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(min(generic_two,generic_one).raw(),F(1,pr));
-    ARIADNE_TEST_EQUALS(max(generic_one,generic_two).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(min(generic_one,generic_two).raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(max(generic_two,generic_one).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(min(generic_two,generic_one).raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(max(generic_one,generic_two).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL(min(generic_one,generic_two).raw(),F(1,pr));
 
-    ARIADNE_TEST_SAME(generic_two!=generic_one,ApproximateKleenean(true));
-    ARIADNE_TEST_SAME(generic_one==generic_two,ApproximateKleenean(false));
-    ARIADNE_TEST_SAME(generic_one!=generic_two,ApproximateKleenean(true));
-    ARIADNE_TEST_SAME(generic_one<=generic_two,ApproximateKleenean(true));
-    ARIADNE_TEST_SAME(generic_one>=generic_two,ApproximateKleenean(false));
-    ARIADNE_TEST_SAME(generic_one>generic_two,ApproximateKleenean(false));
+    ARIADNE_TESTING_EXPECT_SAME(generic_two!=generic_one,ApproximateKleenean(true));
+    ARIADNE_TESTING_EXPECT_SAME(generic_one==generic_two,ApproximateKleenean(false));
+    ARIADNE_TESTING_EXPECT_SAME(generic_one!=generic_two,ApproximateKleenean(true));
+    ARIADNE_TESTING_EXPECT_SAME(generic_one<=generic_two,ApproximateKleenean(true));
+    ARIADNE_TESTING_EXPECT_SAME(generic_one>=generic_two,ApproximateKleenean(false));
+    ARIADNE_TESTING_EXPECT_SAME(generic_one>generic_two,ApproximateKleenean(false));
 }
 
 template<class PR> Void
 TestFloatApproximation<PR>::test_conversions()
 {
     PR pr=precision;
-    ARIADNE_TEST_EQUALS(cast_integer(FloatApproximation<PR>(Dyadic(-3,1u),pr)),Integer(-2));
-    ARIADNE_TEST_EQUALS(cast_integer(FloatApproximation<PR>(Dyadic(2),pr)),Integer(2));
-    ARIADNE_TEST_EQUALS(cast_integer(FloatApproximation<PR>(Dyadic(3,1u),pr)),Integer(2));
-    ARIADNE_TEST_EQUALS(cast_integer(FloatApproximation<PR>(Dyadic(7,2u),pr)),Integer(2));
+    ARIADNE_TESTING_EXPECT_EQUAL(cast_integer(FloatApproximation<PR>(Dyadic(-3,1u),pr)),Integer(-2));
+    ARIADNE_TESTING_EXPECT_EQUAL(cast_integer(FloatApproximation<PR>(Dyadic(2),pr)),Integer(2));
+    ARIADNE_TESTING_EXPECT_EQUAL(cast_integer(FloatApproximation<PR>(Dyadic(3,1u),pr)),Integer(2));
+    ARIADNE_TESTING_EXPECT_EQUAL(cast_integer(FloatApproximation<PR>(Dyadic(7,2u),pr)),Integer(2));
 
     FloatLowerBound<PR> lower(Dyadic(5,2u),pr);
     FloatUpperBound<PR> upper(Dyadic(5,2u),pr);
     FloatError<PR> error(1u,pr);
-    ARIADNE_TEST_EQUALS(FloatApproximation<PR>(lower).raw(),lower.raw());
-    ARIADNE_TEST_EQUALS(FloatApproximation<PR>(upper).raw(),upper.raw());
-    ARIADNE_TEST_EQUALS(FloatApproximation<PR>(error).raw(),error.raw());
+    ARIADNE_TESTING_EXPECT_EQUAL(FloatApproximation<PR>(lower).raw(),lower.raw());
+    ARIADNE_TESTING_EXPECT_EQUAL(FloatApproximation<PR>(upper).raw(),upper.raw());
+    ARIADNE_TESTING_EXPECT_EQUAL(FloatApproximation<PR>(error).raw(),error.raw());
 }
 
 template<class PR> Void
@@ -224,58 +214,71 @@ TestFloatApproximation<PR>::test_arithmetic()
     RawFloat<PR> fifth(Rational(1,5),near,precision);
     RawFloat<PR> seventh(Rational(1,7),near,precision);
 
-    ARIADNE_TEST_SAME(max(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(third));
-    ARIADNE_TEST_SAME(min(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(fifth));
-    ARIADNE_TEST_SAME(abs(FloatApproximation<PR>(neg(third))),FloatApproximation<PR>(third));
+    ARIADNE_TESTING_EXPECT_SAME(max(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(third));
+    ARIADNE_TESTING_EXPECT_SAME(min(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(fifth));
+    ARIADNE_TESTING_EXPECT_SAME(abs(FloatApproximation<PR>(neg(third))),FloatApproximation<PR>(third));
 
-    ARIADNE_TEST_SAME(mag(FloatApproximation<PR>(neg(third))),PositiveFloatApproximation<PR>(third));
-    ARIADNE_TEST_SAME(mig(FloatApproximation<PR>(neg(third))),PositiveFloatApproximation<PR>(third));
+    ARIADNE_TESTING_EXPECT_SAME(mag(FloatApproximation<PR>(neg(third))),PositiveFloatApproximation<PR>(third));
+    ARIADNE_TESTING_EXPECT_SAME(mig(FloatApproximation<PR>(neg(third))),PositiveFloatApproximation<PR>(third));
 
-    ARIADNE_TEST_SAME(operator+(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(add(near,third,fifth)));
-    ARIADNE_TEST_SAME(operator-(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(sub(near,third,fifth)));
-    ARIADNE_TEST_SAME(operator*(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(mul(near,third,fifth)));
-    ARIADNE_TEST_SAME(operator/(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(div(near,third,fifth)));
+    ARIADNE_TESTING_EXPECT_SAME(operator+(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(add(near,third,fifth)));
+    ARIADNE_TESTING_EXPECT_SAME(operator-(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(sub(near,third,fifth)));
+    ARIADNE_TESTING_EXPECT_SAME(operator*(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(mul(near,third,fifth)));
+    ARIADNE_TESTING_EXPECT_SAME(operator/(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(div(near,third,fifth)));
 
-    ARIADNE_TEST_SAME(nul(FloatApproximation<PR>(third)),FloatApproximation<PR>(nul(third)));
-    ARIADNE_TEST_SAME(pos(FloatApproximation<PR>(third)),FloatApproximation<PR>(pos(third)));
-    ARIADNE_TEST_SAME(neg(FloatApproximation<PR>(third)),FloatApproximation<PR>(neg(third)));
-    ARIADNE_TEST_SAME(hlf(FloatApproximation<PR>(third)),FloatApproximation<PR>(hlf(third)));
-    ARIADNE_TEST_SAME(add(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(add(near,third,fifth)));
-    ARIADNE_TEST_SAME(sub(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(sub(near,third,fifth)));
-    ARIADNE_TEST_SAME(mul(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(mul(near,third,fifth)));
-    ARIADNE_TEST_SAME(div(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(div(near,third,fifth)));
-    ARIADNE_TEST_SAME(fma(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth),FloatApproximation<PR>(seventh)),
+    ARIADNE_TESTING_EXPECT_SAME(nul(FloatApproximation<PR>(third)),FloatApproximation<PR>(nul(third)));
+    ARIADNE_TESTING_EXPECT_SAME(pos(FloatApproximation<PR>(third)),FloatApproximation<PR>(pos(third)));
+    ARIADNE_TESTING_EXPECT_SAME(neg(FloatApproximation<PR>(third)),FloatApproximation<PR>(neg(third)));
+    ARIADNE_TESTING_EXPECT_SAME(hlf(FloatApproximation<PR>(third)),FloatApproximation<PR>(hlf(third)));
+    ARIADNE_TESTING_EXPECT_SAME(add(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(add(near,third,fifth)));
+    ARIADNE_TESTING_EXPECT_SAME(sub(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(sub(near,third,fifth)));
+    ARIADNE_TESTING_EXPECT_SAME(mul(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(mul(near,third,fifth)));
+    ARIADNE_TESTING_EXPECT_SAME(div(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth)),FloatApproximation<PR>(div(near,third,fifth)));
+    ARIADNE_TESTING_EXPECT_SAME(fma(FloatApproximation<PR>(third),FloatApproximation<PR>(fifth),FloatApproximation<PR>(seventh)),
                           FloatApproximation<PR>(fma(near,third,fifth,seventh)));
-    ARIADNE_TEST_SAME(pow(FloatApproximation<PR>(fifth),3),FloatApproximation<PR>(pow(near,fifth,3)));
+    ARIADNE_TESTING_EXPECT_SAME(pow(FloatApproximation<PR>(fifth),3),FloatApproximation<PR>(pow(near,fifth,3)));
 }
 
 template<class PR> Void
 TestFloatApproximation<PR>::test_comparison()
 {
     PR pr=precision;
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-2,pr)==FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-2,pr)!=FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-2,pr)< FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-2,pr)> FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-2,pr)<=FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-2,pr)>=FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-2,pr)==FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-2,pr)!=FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-2,pr)< FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-2,pr)> FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-2,pr)<=FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-2,pr)>=FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
 
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-1,pr)==FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-1,pr)!=FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-1,pr)< FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-1,pr)> FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-1,pr)<=FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
-    ARIADNE_TEST_SAME(FloatApproximation<PR>(-1,pr)>=FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-1,pr)==FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-1,pr)!=FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-1,pr)< FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-1,pr)> FloatApproximation<PR>(-1,pr),ApproximateKleenean(false));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-1,pr)<=FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
+    ARIADNE_TESTING_EXPECT_SAME(FloatApproximation<PR>(-1,pr)>=FloatApproximation<PR>(-1,pr),ApproximateKleenean(true));
 }
 
 
-Int main() {
+int main() {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
 
-    TestFloatApproximation<DoublePrecision>(dp).test();
-    TestFloatApproximation<MultiplePrecision>(MultiplePrecision(128_bits)).test();
-
-    return ARIADNE_TEST_FAILURES;
+    Ariadne::Testing::Suite suite("float_approximation");
+    auto register_precision = [&suite]<class PR>(std::string variant, PR precision) {
+        using Fixture = TestFloatApproximation<PR>;
+        auto add = [&](char const* phase, auto method) {
+            suite.add(variant + " / " + phase,
+                [precision, method](Ariadne::Testing::Context& ctx) {
+                    Fixture fixture(precision,ctx);
+                    (fixture.*method)();
+                }, Ariadne::Testing::CaseMetadata{{"float-approximation"},variant});
+        };
+        add("header_api", &Fixture::test_header_api);
+        add("conversions", &Fixture::test_conversions);
+        add("arithmetic", &Fixture::test_arithmetic);
+        add("comparison", &Fixture::test_comparison);
+    };
+    register_precision("FloatDP",dp);
+    register_precision("FloatMP-128",MultiplePrecision(128_bits));
+    return Ariadne::Testing::run_suite(suite);
 }
-
