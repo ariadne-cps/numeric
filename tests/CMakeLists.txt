@@ -5,7 +5,6 @@ include(CTest)
 if(NOT TARGET ariadne-testing)
     ariadne_add_submodule(testing)
 endif()
-ensure_submodule_initialized(macro)
 
 set(UNIT_TESTS
     test_logical_sequence
@@ -32,12 +31,7 @@ set(UNIT_TESTS
 
 foreach(TEST ${UNIT_TESTS})
     add_executable(${TEST} ${TEST}.cpp)
-    target_link_libraries(${TEST} ariadne-numeric numeric)
-    if("${TEST}" STREQUAL "test_logical_sequence" OR "${TEST}" STREQUAL "test_rounding_mode" OR "${TEST}" STREQUAL "test_float_rounding" OR "${TEST}" STREQUAL "test_extended" OR "${TEST}" STREQUAL "test_decimal" OR "${TEST}" STREQUAL "test_float_error" OR "${TEST}" STREQUAL "test_float_approximation" OR "${TEST}" STREQUAL "test_operators" OR "${TEST}" STREQUAL "test_complex" OR "${TEST}" STREQUAL "test_float_ball" OR "${TEST}" STREQUAL "test_float_lower_upper_bound" OR "${TEST}" STREQUAL "test_float_bounds" OR "${TEST}" STREQUAL "test_dyadic" OR "${TEST}" STREQUAL "test_integer" OR "${TEST}" STREQUAL "test_rounded_float" OR "${TEST}" STREQUAL "test_rational" OR "${TEST}" STREQUAL "test_real" OR "${TEST}" STREQUAL "test_number" OR "${TEST}" STREQUAL "test_big_unsigned" OR "${TEST}" STREQUAL "test_float")
-        target_link_libraries(${TEST} ariadne-testing)
-    else()
-        target_include_directories(${TEST} PRIVATE "${PROJECT_SOURCE_DIR}/ss/mac/include")
-    endif()
+    target_link_libraries(${TEST} ariadne-numeric numeric ariadne-testing)
     add_test(NAME ${TEST} COMMAND $<TARGET_FILE:${TEST}> --concise)
     if(WIN32)
         set_tests_properties(${TEST} PROPERTIES

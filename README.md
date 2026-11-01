@@ -90,7 +90,7 @@ If you would like to contribute to Numeric, please contact the developer:
 
 Numeric is released under the GNU General Public License v3.0.
 
-## Testing framework experiment (`testing` branch)
+## Testing framework (`testing` branch)
 
 The `testing` branch introduces [Ariadne Testing](https://github.com/ariadne-cps/testing)
 **only in standalone tests**, pinned in `ss/tst`. All existing CTest
@@ -98,15 +98,11 @@ executables and the compile-only `check_numeric` target remain registered;
 production targets, public headers, Python bindings and install rules do not
 link to the new testing library.
 
-The migrated consumers are `test_logical_sequence` (explicit mathematical
-evidence), `test_rounding_mode` (backend rounding modes), `test_float_rounding`
-(frozen rounding oracles and precision variants), `test_extended` (integer,
-rational and dyadic extensions), `test_decimal` (including all 64 rows of
-`decimal_exact.tsv`), and `test_float_error` (FloatDP and FloatMP variants), together with
-`test_float_approximation` (FloatDP and FloatMP-128, preserving identity checks).
-The remaining executables retain the legacy macros, with their headers
-restricted to those test targets. This is an incremental migration: it does
-not establish that the entire Numeric suite has been converted.
+All 20 CTest executables have been migrated to Ariadne Testing and link
+`ariadne-testing` directly, with no dependency on the retired `macro`
+submodule. The test suites preserve their numeric oracles, precision
+variants and mathematical evidence checks; `--concise` selects compact
+reporting. The compile-only `check_numeric` target remains unchanged.
 
 ```bash
 git clone --branch testing --recurse-submodules https://github.com/ariadne-cps/numeric.git
@@ -116,11 +112,15 @@ cmake --build build-debug --parallel --target tests
 ctest --test-dir build-debug --output-on-failure
 ```
 
-Before merging any migration, compare the old and new checks and outcomes,
-including indeterminate evidence and exceptional paths, with a green
-GCC/Clang/MSVC CI matrix. Subsequent Numeric experiments should cover
-frozen TSV-oracle replay, precision-parametrized cases and state restoration;
-no reference datasets are regenerated as part of testing migration.
+For subsequent changes, validate the original checks and outcomes,
+including indeterminate evidence and exceptional paths, on the full
+GCC/Clang/MSVC CI matrix. Frozen TSV-oracle replay,
+precision-parametrized cases and state restoration remain covered;
+testing migration does not regenerate reference datasets.
+
+The design journals now reside directly in `doc/`: `big_unsigned_design.md`,
+`integer_design.md`, `rational_design.md`, `dyadic_design.md`,
+`floatdp_design.md` and `floatmp_design.md`.
 
 ### Float-rounding suite migration
 
@@ -149,5 +149,5 @@ All eight phase/precision executions are registered as independent Testing
 cases. Both compile-time concept assertions and all mathematical identity,
 equality, and predicate checks are retained. Fixture-local checks use the
 implicit-context shorthand macros; free-function tests retain `_CTX`.
-The shared `test_floats.hpp` header no longer introduces legacy macros
-transitively; the remaining legacy consumers include that header explicitly.
+The shared `test_floats.hpp` header contains no legacy testing
+dependency. Test fixtures use the new framework consistently.

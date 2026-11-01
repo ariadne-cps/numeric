@@ -12,6 +12,3 @@
 	path = ss/tst
 	url = https://github.com/ariadne-cps/testing
 
-[submodule "mac"]
-	path = ss/mac
-	url = https://github.com/ariadne-cps/macro
