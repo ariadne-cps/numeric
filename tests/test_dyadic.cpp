@@ -526,16 +526,16 @@ void test_dyadic_add_sub_oracles(Ariadne::Testing::Context& context) {
             const Dyadic a(Integer(String(an)),ae),b(Integer(String(bn)),be);
             const Dyadic sum_expected(Integer(String(sn)),se),difference_expected(Integer(String(dn)),de);
             [[maybe_unused]] auto row_scope = context.scope(name + " row", id);
-            ARIADNE_TESTING_EXPECT_EQUAL(a+b,sum_expected);
-            ARIADNE_TESTING_EXPECT_EQUAL(b+a,sum_expected);
-            ARIADNE_TESTING_EXPECT_EQUAL(a-b,difference_expected);
-            ARIADNE_TESTING_EXPECT_EQUAL(b-a,-difference_expected);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, a+b,sum_expected);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, b+a,sum_expected);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, a-b,difference_expected);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, b-a,-difference_expected);
             // Canonicalization is observable through the public accessors.
             const auto sum=a+b,difference=a-b;
-            ARIADNE_TESTING_EXPECT_EQUAL(sum.coefficient().literal(),String(sn));
-            ARIADNE_TESTING_EXPECT_EQUAL(sum.denominator_exponent(),se);
-            ARIADNE_TESTING_EXPECT_EQUAL(difference.coefficient().literal(),String(dn));
-            ARIADNE_TESTING_EXPECT_EQUAL(difference.denominator_exponent(),de);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, sum.coefficient().literal(),String(sn));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, sum.denominator_exponent(),se);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, difference.coefficient().literal(),String(dn));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, difference.denominator_exponent(),de);
         }
         if (ids.size()!=256u || *ids.begin()!=0u || *ids.rbegin()!=255u)
             throw std::runtime_error("Incomplete "+name);
@@ -560,27 +560,27 @@ void test_dyadic_conversion_oracle(Ariadne::Testing::Context& context) {
             throw std::runtime_error("Malformed dyadic_conversion.tsv");
         const Dyadic source(Integer(String(coefficient)),static_cast<std::size_t>(exponent));
         [[maybe_unused]] auto row_scope = context.scope("dyadic conversion row", id);
-        ARIADNE_TESTING_EXPECT_EQUAL(std::bit_cast<std::uint64_t>(source.get_d()),expected);
-        if (exponent==0u) ARIADNE_TESTING_EXPECT_EQUAL(source.literal(),String(coefficient));
-        ARIADNE_TESTING_EXPECT_EQUAL(floor(source),Integer(String(floor_expected)));
-        ARIADNE_TESTING_EXPECT_EQUAL(ceil(source),Integer(String(ceil_expected)));
-        ARIADNE_TESTING_EXPECT_EQUAL(hlf(source),Dyadic(Integer(String(coefficient)),static_cast<std::size_t>(exponent)+1u));
-        ARIADNE_TESTING_EXPECT_EQUAL(fma(source,Dyadic(1),Dyadic(0)),source);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, std::bit_cast<std::uint64_t>(source.get_d()),expected);
+        if (exponent==0u) ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, source.literal(),String(coefficient));
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, floor(source),Integer(String(floor_expected)));
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, ceil(source),Integer(String(ceil_expected)));
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, hlf(source),Dyadic(Integer(String(coefficient)),static_cast<std::size_t>(exponent)+1u));
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, fma(source,Dyadic(1),Dyadic(0)),source);
         const Rational exact_value{Integer(String(coefficient)),Integer(String(denominator))};
         const Rational reciprocal{Integer(String(denominator)),Integer(String(coefficient))};
-        ARIADNE_TESTING_EXPECT_EQUAL(div(source,Integer(1)),exact_value);
-        ARIADNE_TESTING_EXPECT_EQUAL(div(Integer(1),source),reciprocal);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, div(source,Integer(1)),exact_value);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, div(Integer(1),source),reciprocal);
         const FloatMP mp(source,FloatMP::ROUND_TO_NEAREST,precision);
-        ARIADNE_TESTING_EXPECT_EQUAL(Dyadic(mp),source);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic(mp),source);
         const Approximation<Dyadic> approximate(source);
-        ARIADNE_TESTING_EXPECT_EQUAL(Dyadic(approximate.get(precision).raw()),source);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic(approximate.get(precision).raw()),source);
         if (exact!=0) {
             const double value=std::bit_cast<double>(expected);
             const FloatDP fp(ExactDouble(value),dp);
-            ARIADNE_TESTING_EXPECT_EQUAL(Dyadic(fp),source);
-            ARIADNE_TESTING_EXPECT_EQUAL(Dyadic(ExactDouble(value)),source);
-            ARIADNE_TESTING_EXPECT_EQUAL(Dyadic(value),source);
-            ARIADNE_TESTING_EXPECT_EQUAL(std::bit_cast<std::uint64_t>(approximate.get(dp).raw().get_d()),expected);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic(fp),source);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic(ExactDouble(value)),source);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic(value),source);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, std::bit_cast<std::uint64_t>(approximate.get(dp).raw().get_d()),expected);
         }
     }
     if (ids.size()!=168u || *ids.begin()!=0u || *ids.rbegin()!=167u)
@@ -590,52 +590,52 @@ void test_dyadic_conversion_oracle(Ariadne::Testing::Context& context) {
 void test_dyadic_public_contracts(Ariadne::Testing::Context& context) {
     const std::size_t largest=std::numeric_limits<std::size_t>::max();
     const Dyadic tiny(Integer(1),largest);
-    ARIADNE_TESTING_EXPECT_EXCEPTION(tiny.exponent());
-    ARIADNE_TESTING_EXPECT_EXCEPTION(tiny.literal());
-    ARIADNE_TESTING_EXPECT_EXCEPTION(tiny*Dyadic(1,1u));
-    ARIADNE_TESTING_EXPECT_EXCEPTION(hlf(tiny));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(context, tiny.exponent());
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(context, tiny.literal());
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(context, tiny*Dyadic(1,1u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(context, hlf(tiny));
     const Integer outside_size=Integer::from_magnitude(shift_left(BigUnsigned(1u),
         std::numeric_limits<std::size_t>::digits),false);
     const Natural too_large(outside_size);
-    ARIADNE_TESTING_EXPECT_EXCEPTION((Dyadic(Integer(1),too_large)));
-    ARIADNE_TESTING_EXPECT_EXCEPTION(Dyadic(1)/3);
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(context, (Dyadic(Integer(1),too_large)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(context, Dyadic(1)/3);
 
     const PositiveDyadic default_positive;
     const Dyadic positive(3,1u),negative(-3,1u);
     const PositiveDyadic copied_positive(positive);
-    ARIADNE_TESTING_EXPECT_EQUAL(default_positive,Dyadic(0));
-    ARIADNE_TESTING_EXPECT_EQUAL(copied_positive,positive);
-    ARIADNE_TESTING_EXPECT_EQUAL(cast_positive(positive),positive);
-    ARIADNE_TESTING_EXPECT_EXCEPTION(cast_positive(negative));
-    ARIADNE_TESTING_PROVE(positive.kind()==Dyadic::Kind::Finite);
-    ARIADNE_TESTING_PROVE(Dyadic::inf().kind()==Dyadic::Kind::PositiveInfinity);
-    ARIADNE_TESTING_PROVE((-Dyadic::inf()).kind()==Dyadic::Kind::NegativeInfinity);
-    ARIADNE_TESTING_PROVE(Dyadic::nan().kind()==Dyadic::Kind::NaN);
-    ARIADNE_TESTING_EXPECT_EQUAL(Dyadic::nan().literal(),String("NaN"));
-    ARIADNE_TESTING_EXPECT_EQUAL(Dyadic::inf().literal(),String("inf"));
-    ARIADNE_TESTING_EXPECT_EQUAL((-Dyadic::inf()).literal(),String("-inf"));
-    ARIADNE_TESTING_PROVE(is_nan(Dyadic(Rational::nan())));
-    ARIADNE_TESTING_EXPECT_EQUAL(Dyadic(Rational::inf()),Dyadic::inf());
-    ARIADNE_TESTING_EXPECT_EQUAL(Dyadic(-Rational::inf()),-Dyadic::inf());
-    ARIADNE_TESTING_PROVE(is_nan(Dyadic::inf(Sign::ZERO)));
-    ARIADNE_TESTING_PROVE(is_nan(-Dyadic::nan()));
-    ARIADNE_TESTING_PROVE(is_nan(Dyadic(0)*Dyadic::inf()));
-    ARIADNE_TESTING_PROVE(is_nan(Dyadic::inf()*Dyadic(0)));
-    ARIADNE_TESTING_PROVE(is_nan(Dyadic::nan()*positive));
-    ARIADNE_TESTING_PROVE(is_nan(positive*Dyadic::nan()));
-    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Int(1),positive),Comparison::LESS);
-    ARIADNE_TESTING_PROVE(positive!=negative);
-    ARIADNE_TESTING_PROVE(!eq(positive,Dyadic::nan()));
-    ARIADNE_TESTING_PROVE(!eq(positive,Dyadic(3)));
-    ARIADNE_TESTING_PROVE(!lt(positive,Dyadic::nan()));
-    ARIADNE_TESTING_PROVE(!lt(Dyadic::nan(),positive));
-    ARIADNE_TESTING_PROVE(is_nan(max(positive,Dyadic::nan())));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, default_positive,Dyadic(0));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, copied_positive,positive);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cast_positive(positive),positive);
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(context, cast_positive(negative));
+    ARIADNE_TESTING_PROVE_CTX(context, positive.kind()==Dyadic::Kind::Finite);
+    ARIADNE_TESTING_PROVE_CTX(context, Dyadic::inf().kind()==Dyadic::Kind::PositiveInfinity);
+    ARIADNE_TESTING_PROVE_CTX(context, (-Dyadic::inf()).kind()==Dyadic::Kind::NegativeInfinity);
+    ARIADNE_TESTING_PROVE_CTX(context, Dyadic::nan().kind()==Dyadic::Kind::NaN);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic::nan().literal(),String("NaN"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic::inf().literal(),String("inf"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, (-Dyadic::inf()).literal(),String("-inf"));
+    ARIADNE_TESTING_PROVE_CTX(context, is_nan(Dyadic(Rational::nan())));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic(Rational::inf()),Dyadic::inf());
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic(-Rational::inf()),-Dyadic::inf());
+    ARIADNE_TESTING_PROVE_CTX(context, is_nan(Dyadic::inf(Sign::ZERO)));
+    ARIADNE_TESTING_PROVE_CTX(context, is_nan(-Dyadic::nan()));
+    ARIADNE_TESTING_PROVE_CTX(context, is_nan(Dyadic(0)*Dyadic::inf()));
+    ARIADNE_TESTING_PROVE_CTX(context, is_nan(Dyadic::inf()*Dyadic(0)));
+    ARIADNE_TESTING_PROVE_CTX(context, is_nan(Dyadic::nan()*positive));
+    ARIADNE_TESTING_PROVE_CTX(context, is_nan(positive*Dyadic::nan()));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(Int(1),positive),Comparison::LESS);
+    ARIADNE_TESTING_PROVE_CTX(context, positive!=negative);
+    ARIADNE_TESTING_PROVE_CTX(context, !eq(positive,Dyadic::nan()));
+    ARIADNE_TESTING_PROVE_CTX(context, !eq(positive,Dyadic(3)));
+    ARIADNE_TESTING_PROVE_CTX(context, !lt(positive,Dyadic::nan()));
+    ARIADNE_TESTING_PROVE_CTX(context, !lt(Dyadic::nan(),positive));
+    ARIADNE_TESTING_PROVE_CTX(context, is_nan(max(positive,Dyadic::nan())));
 
-    ARIADNE_TESTING_EXPECT_EQUAL(Dyadic(String("1.5")),positive);
-    ARIADNE_TESTING_EXPECT_EQUAL(dy_(1.5L),positive);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Dyadic(String("1.5")),positive);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, dy_(1.5L),positive);
     std::ostringstream stream;
     stream << Approximation<Dyadic>(positive);
-    ARIADNE_TESTING_EXPECT_EQUAL(stream.str(),std::string("1.5"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, stream.str(),std::string("1.5"));
 }
 
 void test_dyadic_mixed_bounds_oracles(Ariadne::Testing::Context& context) {
@@ -671,13 +671,13 @@ void test_dyadic_mixed_bounds_oracles(Ariadne::Testing::Context& context) {
                     throw std::runtime_error("Unknown mixed interval operation");
                 };
                 const auto result=reverse?evaluate(q,d):evaluate(d,q);
-                ARIADNE_TESTING_EXPECT_EQUAL(result.lower(),Rational(ln,ld));
-                ARIADNE_TESTING_EXPECT_EQUAL(result.upper(),Rational(un,ud));
+                ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, result.lower(),Rational(ln,ld));
+                ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, result.upper(),Rational(un,ud));
                 if (op=="div" && ql%qd==0 && qu%qd==0) {
                     const DyadicBounds other(Dyadic(ql/qd),Dyadic(qu/qd));
                     const auto direct=reverse?div(other,d):div(d,other);
-                    ARIADNE_TESTING_EXPECT_EQUAL(direct.lower(),Rational(ln,ld));
-                    ARIADNE_TESTING_EXPECT_EQUAL(direct.upper(),Rational(un,ud));
+                    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, direct.lower(),Rational(ln,ld));
+                    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, direct.upper(),Rational(un,ud));
                 }
             } else {
                 int expected;
@@ -694,7 +694,7 @@ void test_dyadic_mixed_bounds_oracles(Ariadne::Testing::Context& context) {
                 };
                 const auto result=reverse?evaluate(q,d):evaluate(d,q);
                 const int truth=definitely(result)?1:definitely(!result)?-1:0;
-                ARIADNE_TESTING_EXPECT_EQUAL(truth,expected);
+                ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, truth,expected);
             }
         }
         const unsigned expected_rows=logical?300u:285u;
@@ -719,13 +719,13 @@ void test_dyadic_bounds_power_oracle(Ariadne::Testing::Context& context) {
             throw std::runtime_error("Malformed dyadic_bounds_power.tsv");
         const DyadicBounds input(Dyadic(l,1u),Dyadic(u,1u));
         for (auto result:{pow(input,static_cast<Nat>(degree)),pow(input,static_cast<Int>(degree))}) {
-            ARIADNE_TESTING_EXPECT_EQUAL(Rational(result.lower()),Rational(ln,ld));
-            ARIADNE_TESTING_EXPECT_EQUAL(Rational(result.upper()),Rational(un,ud));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Rational(result.lower()),Rational(ln,ld));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Rational(result.upper()),Rational(un,ud));
         }
     }
     if (ids.size()!=25u || *ids.begin()!=0u || *ids.rbegin()!=24u)
         throw std::runtime_error("Incomplete dyadic_bounds_power.tsv");
-    ARIADNE_TESTING_EXPECT_EXCEPTION(pow(DyadicBounds(Dyadic(1)),Int(-1)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(context, pow(DyadicBounds(Dyadic(1)),Int(-1)));
 }
 
 int main(int argc, char** argv) {

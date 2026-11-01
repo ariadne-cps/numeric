@@ -97,3 +97,15 @@ group ordering. Existing oracle values, numerical expectations, required
 exceptions, and precision choices have not been relaxed. The executable
 uses `run_suite(suite, argc, argv)` and links with `ariadne-testing`.
 CI validation on all five platforms/workflows remains the acceptance gate.
+
+## 2026-11-01: Repair explicit contexts in free-standing Dyadic oracle cases
+
+The initial Dyadic migration mistakenly left the fixture-only assertion
+shorthands in five standalone functions that accept `Testing::Context& context`.
+Those shorthands expand to `this->ctx()` and cannot compile outside a member
+function. Change every such assertion to its explicit `_CTX(context, ...)`
+form: 41 equalities, 17 propositions, and 8 expected-exception checks.
+All original predicates, expected values, exception requirements, case order,
+and TSV completeness oracles are unchanged. Fixture methods continue using
+the appropriate fixture shorthands. Acceptance requires rerunning the full
+Numeric CI matrix on the new commit; a source audit alone is insufficient.
