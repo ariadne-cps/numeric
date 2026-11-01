@@ -63,7 +63,7 @@ inline constexpr char ARIADNE_INTEGER_I66_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR 
 inline constexpr char ARIADNE_INTEGER_POWER_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/integer_power.tsv";
 inline constexpr char ARIADNE_INTEGER_SQRT_ORACLE_PATH[] = ARIADNE_TEST_DATA_DIR "/big_unsigned_sqrt.tsv";
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 using namespace std;
 using namespace Ariadne;
@@ -116,11 +116,10 @@ static_assert(check_concept());
 
 
 
-class TestInteger
+class TestInteger : public Ariadne::Testing::ContextFixture
 {
   public:
-    void test();
-  private:
+    using ContextFixture::ContextFixture;
     void test_literal();
     void test_constructors();
     void test_arithmetic();
@@ -132,20 +131,6 @@ class TestInteger
     void test_owned_results();
     void test_sqrt();
 };
-
-void TestInteger::test()
-{
-    ARIADNE_TEST_CALL(test_constructors());
-    ARIADNE_TEST_CALL(test_comparisons());
-    ARIADNE_TEST_CALL(test_literal());
-    ARIADNE_TEST_CALL(test_arithmetic());
-    ARIADNE_TEST_CALL(test_small_types());
-    ARIADNE_TEST_CALL(test_combinatorics());
-    ARIADNE_TEST_CALL(test_native());
-    ARIADNE_TEST_CALL(test_signed_regression());
-    ARIADNE_TEST_CALL(test_owned_results());
-    ARIADNE_TEST_CALL(test_sqrt());
-}
 
 void TestInteger::test_sqrt()
 {
@@ -171,33 +156,33 @@ void TestInteger::test_sqrt()
             sqrt_oracle_hex(remainder_hex),false);
         const Integer root=isqrt(input);
         const auto [paired_root,remainder]=sqrtrem(input);
-        ARIADNE_TEST_ASSERT(root==expected_root);
-        ARIADNE_TEST_ASSERT(paired_root==expected_root);
-        ARIADNE_TEST_ASSERT(remainder==expected_remainder);
-        ARIADNE_TEST_ASSERT(!root.negative() && !remainder.negative());
-        ARIADNE_TEST_ASSERT(!root.negative() && !paired_root.negative());
-        ARIADNE_TEST_ASSERT(paired_root*paired_root+remainder==input);
-        ARIADNE_TEST_ASSERT(remainder<=paired_root+paired_root);
-        ARIADNE_TEST_ASSERT(input==preserved);
+        ARIADNE_TESTING_PROVE(root==expected_root);
+        ARIADNE_TESTING_PROVE(paired_root==expected_root);
+        ARIADNE_TESTING_PROVE(remainder==expected_remainder);
+        ARIADNE_TESTING_PROVE(!root.negative() && !remainder.negative());
+        ARIADNE_TESTING_PROVE(!root.negative() && !paired_root.negative());
+        ARIADNE_TESTING_PROVE(paired_root*paired_root+remainder==input);
+        ARIADNE_TESTING_PROVE(remainder<=paired_root+paired_root);
+        ARIADNE_TESTING_PROVE(input==preserved);
 
         // Only zero accepts a canonicalized negative-zero source.
         const Integer negative_input=Integer::from_magnitude(
             input_magnitude,true);
         if (input_magnitude.is_zero()) {
-            ARIADNE_TEST_ASSERT(!negative_input.negative());
-            ARIADNE_TEST_ASSERT(isqrt(negative_input)==Integer(0));
+            ARIADNE_TESTING_PROVE(!negative_input.negative());
+            ARIADNE_TESTING_PROVE(isqrt(negative_input)==Integer(0));
             const auto [zero_root,zero_remainder]=sqrtrem(negative_input);
-            ARIADNE_TEST_ASSERT(zero_root==Integer(0));
-            ARIADNE_TEST_ASSERT(zero_remainder==Integer(0));
+            ARIADNE_TESTING_PROVE(zero_root==Integer(0));
+            ARIADNE_TESTING_PROVE(zero_remainder==Integer(0));
         } else {
             bool root_threw=false,remainder_threw=false;
             try { (void)isqrt(negative_input); }
             catch (std::domain_error const&) { root_threw=true; }
             try { (void)sqrtrem(negative_input); }
             catch (std::domain_error const&) { remainder_threw=true; }
-            ARIADNE_TEST_ASSERT(root_threw && remainder_threw);
-            ARIADNE_TEST_ASSERT(negative_input.negative());
-            ARIADNE_TEST_ASSERT(compare(
+            ARIADNE_TESTING_PROVE(root_threw && remainder_threw);
+            ARIADNE_TESTING_PROVE(negative_input.negative());
+            ARIADNE_TESTING_PROVE(compare(
                 negative_input.magnitude(),input_magnitude)==0);
         }
         ++cases;
@@ -217,38 +202,39 @@ void TestInteger::test_owned_results() {
         const BigUnsigned source(words);
         for (const bool negative:{false,true}) {
             const Integer copied=Integer::from_magnitude(source,negative);
-            ARIADNE_TEST_ASSERT(compare(copied.magnitude(),source)==0);
-            ARIADNE_TEST_ASSERT(copied.negative()==(negative && count!=0u));
+            ARIADNE_TESTING_PROVE(compare(copied.magnitude(),source)==0);
+            ARIADNE_TESTING_PROVE(copied.negative()==(negative && count!=0u));
             BigUnsigned magnitude=source;
             Integer owned=Integer::from_magnitude(std::move(magnitude),negative);
-            ARIADNE_TEST_ASSERT(magnitude.is_zero());
-            ARIADNE_TEST_ASSERT(owned==copied);
+            ARIADNE_TESTING_PROVE(magnitude.is_zero());
+            ARIADNE_TESTING_PROVE(owned==copied);
             const String text=owned.literal();
-            ARIADNE_TEST_ASSERT(Integer(text)==copied);
-            ARIADNE_TEST_ASSERT(compare(source,BigUnsigned(words))==0);
+            ARIADNE_TESTING_PROVE(Integer(text)==copied);
+            ARIADNE_TESTING_PROVE(compare(source,BigUnsigned(words))==0);
             std::ostringstream stream;
             stream << owned;
-            ARIADNE_TEST_ASSERT(stream.str()==std::string(text));
+            ARIADNE_TESTING_PROVE(stream.str()==std::string(text));
             owned=Integer(7);
-            ARIADNE_TEST_ASSERT(Integer(text)==copied);
+            ARIADNE_TESTING_PROVE(Integer(text)==copied);
         }
     }
-    ARIADNE_TEST_ASSERT(Integer::from_magnitude(BigUnsigned{},true).literal()=="0");
-    ARIADNE_TEST_ASSERT(Integer(-1).literal()=="-1");
-    ARIADNE_TEST_ASSERT(Integer(1).literal()=="1");
+    ARIADNE_TESTING_PROVE(Integer::from_magnitude(BigUnsigned{},true).literal()=="0");
+    ARIADNE_TESTING_PROVE(Integer(-1).literal()=="-1");
+    ARIADNE_TESTING_PROVE(Integer(1).literal()=="1");
 }
 
 void TestInteger::test_literal() {
-    ARIADNE_TEST_CONSTRUCT(Integer,z,(3_z));
-    ARIADNE_TEST_EQUALS(z,3);
-    ARIADNE_TEST_EQUALS(z,Integer(3));
-    ARIADNE_TEST_EQUALS(100000_z,Integer(100000));
-    ARIADNE_TEST_EQUAL(1000000000000_z,sqr(Integer(1000000)));
-    ARIADNE_TEST_EQUALS(1000000000000_z-sqr(Integer(1000000)),0);
-    ARIADNE_TEST_EQUALS(4294967295_z,4294967295u);
-    ARIADNE_TEST_EQUALS(-2147483647_z,-2147483647);
-    ARIADNE_TEST_EQUALS(4294967295_z,Integer(4294967295u));
-    ARIADNE_TEST_EQUALS(4611686016279904256_z,Integer(2147483647)*2147483647+2147483647);
+    Integer z(3_z);
+    ARIADNE_TESTING_INSPECT("constructed z", z);
+    ARIADNE_TESTING_EXPECT_EQUAL(z,3);
+    ARIADNE_TESTING_EXPECT_EQUAL(z,Integer(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(100000_z,Integer(100000));
+    ARIADNE_TESTING_EXPECT_EQUAL(1000000000000_z,sqr(Integer(1000000)));
+    ARIADNE_TESTING_EXPECT_EQUAL(1000000000000_z-sqr(Integer(1000000)),0);
+    ARIADNE_TESTING_EXPECT_EQUAL(4294967295_z,4294967295u);
+    ARIADNE_TESTING_EXPECT_EQUAL(-2147483647_z,-2147483647);
+    ARIADNE_TESTING_EXPECT_EQUAL(4294967295_z,Integer(4294967295u));
+    ARIADNE_TESTING_EXPECT_EQUAL(4611686016279904256_z,Integer(2147483647)*2147483647+2147483647);
 }
 
 void TestInteger::test_constructors() {
@@ -262,91 +248,103 @@ void TestInteger::test_constructors() {
     String sn="-2147483647";
     String sz="314159265358979323846264";
 
-    ARIADNE_TEST_ASSERT((not Constructible<Integer,float>));
-    ARIADNE_TEST_ASSERT((not Constructible<Integer,double>));
+    ARIADNE_TESTING_PROVE((not Constructible<Integer,float>));
+    ARIADNE_TESTING_PROVE((not Constructible<Integer,double>));
 
-    ARIADNE_TEST_CONSTRUCT(Integer,zum,(um));
-    ARIADNE_TEST_EQUALS(zum.get_si(),m);
-    ARIADNE_TEST_CONSTRUCT(Integer,zulm,(ulm));
-    ARIADNE_TEST_EQUALS(zulm.get_si(),m);
-    ARIADNE_TEST_CONSTRUCT(Integer,zullm,(ullm));
-    ARIADNE_TEST_EQUALS(zullm.get_si(),m);
-    ARIADNE_TEST_CONSTRUCT(Integer,zn,(n));
-    ARIADNE_TEST_EQUALS(zn.get_si(),n);
-    ARIADNE_TEST_CONSTRUCT(Integer,zln,(ln));
-    ARIADNE_TEST_EQUALS(zln.get_si(),n);
-    ARIADNE_TEST_CONSTRUCT(Integer,zlln,(lln));
-    ARIADNE_TEST_EQUALS(zlln.get_si(),n);
-    ARIADNE_TEST_CONSTRUCT(Integer,zsn,(sn));
-    ARIADNE_TEST_EQUALS(zsn.get_si(),n);
-    ARIADNE_TEST_CONSTRUCT(Integer,zsz,(sz));
-    ARIADNE_TEST_EQUALS(zsz,Integer(314159265358)*Integer(1000000000000)+Integer(979323846264));
+    Integer zum(um);
+    ARIADNE_TESTING_INSPECT("constructed zum", zum);
+    ARIADNE_TESTING_EXPECT_EQUAL(zum.get_si(),m);
+    Integer zulm(ulm);
+    ARIADNE_TESTING_INSPECT("constructed zulm", zulm);
+    ARIADNE_TESTING_EXPECT_EQUAL(zulm.get_si(),m);
+    Integer zullm(ullm);
+    ARIADNE_TESTING_INSPECT("constructed zullm", zullm);
+    ARIADNE_TESTING_EXPECT_EQUAL(zullm.get_si(),m);
+    Integer zn(n);
+    ARIADNE_TESTING_INSPECT("constructed zn", zn);
+    ARIADNE_TESTING_EXPECT_EQUAL(zn.get_si(),n);
+    Integer zln(ln);
+    ARIADNE_TESTING_INSPECT("constructed zln", zln);
+    ARIADNE_TESTING_EXPECT_EQUAL(zln.get_si(),n);
+    Integer zlln(lln);
+    ARIADNE_TESTING_INSPECT("constructed zlln", zlln);
+    ARIADNE_TESTING_EXPECT_EQUAL(zlln.get_si(),n);
+    Integer zsn(sn);
+    ARIADNE_TESTING_INSPECT("constructed zsn", zsn);
+    ARIADNE_TESTING_EXPECT_EQUAL(zsn.get_si(),n);
+    Integer zsz(sz);
+    ARIADNE_TESTING_INSPECT("constructed zsz", zsz);
+    ARIADNE_TESTING_EXPECT_EQUAL(zsz,Integer(314159265358)*Integer(1000000000000)+Integer(979323846264));
 
-    ARIADNE_TEST_CONSTRUCT(Integer,z1,(0));
-    ARIADNE_TEST_EQUALS(z1.get_si(),0);
-    ARIADNE_TEST_CONSTRUCT(Integer,z2,(-3));
-    ARIADNE_TEST_EQUALS(z2.get_si(),-3);
-    ARIADNE_TEST_CONSTRUCT(Integer,z3,(ullm*ullm+ullm));
-    ARIADNE_TEST_EQUALS(z3,zum*zum+zum);
-    ARIADNE_TEST_CONSTRUCT(Integer,z4,(lln*lln+lln));
-    ARIADNE_TEST_EQUALS(z4,zn*zn+zn);
+    Integer z1(0);
+    ARIADNE_TESTING_INSPECT("constructed z1", z1);
+    ARIADNE_TESTING_EXPECT_EQUAL(z1.get_si(),0);
+    Integer z2(-3);
+    ARIADNE_TESTING_INSPECT("constructed z2", z2);
+    ARIADNE_TESTING_EXPECT_EQUAL(z2.get_si(),-3);
+    Integer z3(ullm*ullm+ullm);
+    ARIADNE_TESTING_INSPECT("constructed z3", z3);
+    ARIADNE_TESTING_EXPECT_EQUAL(z3,zum*zum+zum);
+    Integer z4(lln*lln+lln);
+    ARIADNE_TESTING_INSPECT("constructed z4", z4);
+    ARIADNE_TESTING_EXPECT_EQUAL(z4,zn*zn+zn);
 
-    ARIADNE_TEST_EQUALS(Integer(Nat32(7)),Integer(7));
+    ARIADNE_TESTING_EXPECT_EQUAL(Integer(Nat32(7)),Integer(7));
 
     Integer assigned(1);
     Integer source(9);
     assigned=source;
-    ARIADNE_TEST_EQUALS(assigned,Integer(9));
+    ARIADNE_TESTING_EXPECT_EQUAL(assigned,Integer(9));
 }
 
 void TestInteger::test_arithmetic() {
-    ARIADNE_TEST_EQUALS(+Integer(-5),-5);
-    ARIADNE_TEST_EQUALS(-Integer(-5), 5);
-    ARIADNE_TEST_EQUALS(Integer(-5)+Integer(2),-3);
-    ARIADNE_TEST_EQUALS(Integer(-5)-Integer(2),-7);
-    ARIADNE_TEST_EQUALS(Integer(-5)*Integer(2),-10);
+    ARIADNE_TESTING_EXPECT_EQUAL(+Integer(-5),-5);
+    ARIADNE_TESTING_EXPECT_EQUAL(-Integer(-5), 5);
+    ARIADNE_TESTING_EXPECT_EQUAL(Integer(-5)+Integer(2),-3);
+    ARIADNE_TESTING_EXPECT_EQUAL(Integer(-5)-Integer(2),-7);
+    ARIADNE_TESTING_EXPECT_EQUAL(Integer(-5)*Integer(2),-10);
 
-    ARIADNE_TEST_EQUALS(pos(Integer(-5)),-5);
-    ARIADNE_TEST_EQUALS(neg(Integer(-5)), 5);
-    ARIADNE_TEST_EQUALS(sqr(Integer(-5)),25);
-    ARIADNE_TEST_EQUALS(pow(Integer(-5),3u),-125);
+    ARIADNE_TESTING_EXPECT_EQUAL(pos(Integer(-5)),-5);
+    ARIADNE_TESTING_EXPECT_EQUAL(neg(Integer(-5)), 5);
+    ARIADNE_TESTING_EXPECT_EQUAL(sqr(Integer(-5)),25);
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(Integer(-5),3u),-125);
 
 
-    ARIADNE_TEST_EQUALS((Integer)max(Integer(5),Integer(3)),5);
-    ARIADNE_TEST_EQUALS((Integer)max(Integer(-5),Integer(-3)),-3);
-    ARIADNE_TEST_EQUALS((Integer)min(Integer(5),Integer(3)),3);
-    ARIADNE_TEST_EQUALS((Integer)min(Integer(-5),Integer(-3)),-5);
-    ARIADNE_TEST_EQUALS(abs(Integer(-5)),5);
-    ARIADNE_TEST_EQUALS(abs(Integer( 0)),0);
-    ARIADNE_TEST_EQUALS(abs(Integer(+5)),5);
+    ARIADNE_TESTING_EXPECT_EQUAL((Integer)max(Integer(5),Integer(3)),5);
+    ARIADNE_TESTING_EXPECT_EQUAL((Integer)max(Integer(-5),Integer(-3)),-3);
+    ARIADNE_TESTING_EXPECT_EQUAL((Integer)min(Integer(5),Integer(3)),3);
+    ARIADNE_TESTING_EXPECT_EQUAL((Integer)min(Integer(-5),Integer(-3)),-5);
+    ARIADNE_TESTING_EXPECT_EQUAL(abs(Integer(-5)),5);
+    ARIADNE_TESTING_EXPECT_EQUAL(abs(Integer( 0)),0);
+    ARIADNE_TESTING_EXPECT_EQUAL(abs(Integer(+5)),5);
 
     Integer mutable_value(5);
     --mutable_value;
-    ARIADNE_TEST_EQUALS(mutable_value,Integer(4));
+    ARIADNE_TESTING_EXPECT_EQUAL(mutable_value,Integer(4));
     mutable_value-=Integer(3);
-    ARIADNE_TEST_EQUALS(mutable_value,Integer(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(mutable_value,Integer(1));
 
-    ARIADNE_TEST_ASSERT(not is_nan(Integer(1)));
-    ARIADNE_TEST_ASSERT(not is_inf(Integer(1)));
-    ARIADNE_TEST_ASSERT(is_finite(Integer(1)));
-    ARIADNE_TEST_ASSERT(is_zero(Integer(0)));
-    ARIADNE_TEST_ASSERT(not is_zero(Integer(1)));
-    ARIADNE_TEST_ASSERT(not is_zero(Integer(-1)));
-    ARIADNE_TEST_EQUALS(sgn(Integer(-1)),Sign::NEGATIVE);
-    ARIADNE_TEST_EQUALS(sgn(Integer(0)),Sign::ZERO);
-    ARIADNE_TEST_EQUALS(sgn(Integer(1)),Sign::POSITIVE);
+    ARIADNE_TESTING_PROVE(not is_nan(Integer(1)));
+    ARIADNE_TESTING_PROVE(not is_inf(Integer(1)));
+    ARIADNE_TESTING_PROVE(is_finite(Integer(1)));
+    ARIADNE_TESTING_PROVE(is_zero(Integer(0)));
+    ARIADNE_TESTING_PROVE(not is_zero(Integer(1)));
+    ARIADNE_TESTING_PROVE(not is_zero(Integer(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(sgn(Integer(-1)),Sign::NEGATIVE);
+    ARIADNE_TESTING_EXPECT_EQUAL(sgn(Integer(0)),Sign::ZERO);
+    ARIADNE_TESTING_EXPECT_EQUAL(sgn(Integer(1)),Sign::POSITIVE);
 
-    ARIADNE_TEST_EQUALS(cmp(Integer(2),Integer(3)),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(cmp(Integer(3),Integer(3)),Comparison::EQUAL);
-    ARIADNE_TEST_EQUALS(cmp(Integer(4),Integer(3)),Comparison::GREATER);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Integer(2),Integer(3)),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Integer(3),Integer(3)),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Integer(4),Integer(3)),Comparison::GREATER);
 }
 
 void TestInteger::test_small_types() {
-    ARIADNE_TEST_EQUALS(Integer(Int32(-9)),Integer(-9));
+    ARIADNE_TESTING_EXPECT_EQUAL(Integer(Int32(-9)),Integer(-9));
     const Positive<Integer> positive_default;
     const Natural natural_default;
-    ARIADNE_TEST_EQUALS(positive_default,Integer(0));
-    ARIADNE_TEST_EQUALS(natural_default,Integer(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(positive_default,Integer(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(natural_default,Integer(0));
 
     // Exercise both concrete get() instantiations, including their public
     // failure contracts for multi-limb and excessive negative magnitudes.
@@ -363,16 +361,16 @@ void TestInteger::test_small_types() {
             || !conversion_sources.insert(source).second)
             throw std::runtime_error("Malformed integer_conversion.tsv");
         const Integer value{String(source)};
-        std::cout << "Integer conversion oracle: " << source << std::endl;
+        [[maybe_unused]] auto conversion_scope = this->ctx().scope("integer conversion oracle", source);
         auto check_conversion=[&]<class T>() {
             constexpr int digits=std::numeric_limits<T>::digits;
             static_assert(digits==31 || digits==32 || digits==63 || digits==64);
             const int expected_ok=digits==63?signed_ok:digits==64?unsigned_ok:
                                   digits==31?signed32_ok:unsigned32_ok;
             bool threw=false;
-            try { ARIADNE_TEST_EQUALS(std::to_string(value.get<T>()),source); }
+            try { ARIADNE_TESTING_EXPECT_EQUAL(std::to_string(value.get<T>()),source); }
             catch (std::out_of_range const&) { threw=true; }
-            ARIADNE_TEST_EQUALS(threw,expected_ok==0);
+            ARIADNE_TESTING_EXPECT_EQUAL(threw,expected_ok==0);
         };
         // These four public destination types already occur in the report.
         check_conversion.template operator()<int>();
@@ -388,137 +386,137 @@ void TestInteger::test_small_types() {
     Nat64 n64;
     Int32 i32;
     Int64 i64;
-    ARIADNE_TEST_EQUALS(n32.get_ui(),uint32_t(0));
-    ARIADNE_TEST_EQUALS(n64.get_ui(),uint64_t(0));
-    ARIADNE_TEST_EQUALS(i32.get_si(),int32_t(0));
-    ARIADNE_TEST_EQUALS(i64.get_si(),int64_t(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(n32.get_ui(),uint32_t(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(n64.get_ui(),uint64_t(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(i32.get_si(),int32_t(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(i64.get_si(),int64_t(0));
 
-    ARIADNE_TEST_EQUALS(Nat32(uint16_t(7)).get_ui(),uint32_t(7));
-    ARIADNE_TEST_EQUALS(Nat32(int16_t(7)).get_ui(),uint32_t(7));
-    ARIADNE_TEST_EQUALS(Nat64(uint32_t(8)).get_ui(),uint64_t(8));
-    ARIADNE_TEST_EQUALS(Nat64(int32_t(8)).get_ui(),uint64_t(8));
-    ARIADNE_TEST_EQUALS(Int32(uint16_t(9)).get_si(),int32_t(9));
-    ARIADNE_TEST_EQUALS(Int32(int16_t(-9)).get_si(),int32_t(-9));
-    ARIADNE_TEST_EQUALS(Int64(uint32_t(10)).get_si(),int64_t(10));
-    ARIADNE_TEST_EQUALS(Int64(uint64_t(11)).get_si(),int64_t(11));
-    ARIADNE_TEST_EQUALS(Int64(int16_t(-10)).get_si(),int64_t(-10));
+    ARIADNE_TESTING_EXPECT_EQUAL(Nat32(uint16_t(7)).get_ui(),uint32_t(7));
+    ARIADNE_TESTING_EXPECT_EQUAL(Nat32(int16_t(7)).get_ui(),uint32_t(7));
+    ARIADNE_TESTING_EXPECT_EQUAL(Nat64(uint32_t(8)).get_ui(),uint64_t(8));
+    ARIADNE_TESTING_EXPECT_EQUAL(Nat64(int32_t(8)).get_ui(),uint64_t(8));
+    ARIADNE_TESTING_EXPECT_EQUAL(Int32(uint16_t(9)).get_si(),int32_t(9));
+    ARIADNE_TESTING_EXPECT_EQUAL(Int32(int16_t(-9)).get_si(),int32_t(-9));
+    ARIADNE_TESTING_EXPECT_EQUAL(Int64(uint32_t(10)).get_si(),int64_t(10));
+    ARIADNE_TESTING_EXPECT_EQUAL(Int64(uint64_t(11)).get_si(),int64_t(11));
+    ARIADNE_TESTING_EXPECT_EQUAL(Int64(int16_t(-10)).get_si(),int64_t(-10));
 
-    ARIADNE_TEST_FAIL(Nat32(uint64_t(4294967296ULL)));
-    ARIADNE_TEST_FAIL(Nat32(int64_t(-1)));
-    ARIADNE_TEST_FAIL(Nat32(int64_t(4294967296LL)));
-    ARIADNE_TEST_FAIL(Nat64(int64_t(-1)));
-    ARIADNE_TEST_FAIL(Int32(uint64_t(2147483648ULL)));
-    ARIADNE_TEST_FAIL(Int32(int64_t(-2147483649LL)));
-    ARIADNE_TEST_FAIL(Int32(int64_t(2147483648LL)));
-    ARIADNE_TEST_FAIL(Int64(uint64_t(9223372036854775808ULL)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Nat32(uint64_t(4294967296ULL)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Nat32(int64_t(-1)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Nat32(int64_t(4294967296LL)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Nat64(int64_t(-1)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Int32(uint64_t(2147483648ULL)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Int32(int64_t(-2147483649LL)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Int32(int64_t(2147483648LL)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Int64(uint64_t(9223372036854775808ULL)));
 
     Bits bits=8_bits;
-    ARIADNE_TEST_EQUALS(static_cast<unsigned long int>(bits),8ul);
+    ARIADNE_TESTING_EXPECT_EQUAL(static_cast<unsigned long int>(bits),8ul);
     std::ostringstream bits_stream;
     bits_stream << bits;
-    ARIADNE_TEST_EQUALS(bits_stream.str(),std::string("8_bits"));
+    ARIADNE_TESTING_EXPECT_EQUAL(bits_stream.str(),std::string("8_bits"));
 
     Accuracy direct_accuracy(Dyadic(1,8u));
-    ARIADNE_TEST_EQUALS(direct_accuracy.error(),Dyadic(1,8u));
-    ARIADNE_TEST_EQUALS(accuracy(8_bits).error(),Dyadic(1,8u));
+    ARIADNE_TESTING_EXPECT_EQUAL(direct_accuracy.error(),Dyadic(1,8u));
+    ARIADNE_TESTING_EXPECT_EQUAL(accuracy(8_bits).error(),Dyadic(1,8u));
 
     TwoExp p(3);
     TwoExp from_two(two);
-    ARIADNE_TEST_EQUALS(p.exponent(),3);
-    ARIADNE_TEST_EQUALS(from_two.exponent(),1);
-    ARIADNE_TEST_EQUALS(p.get_d(),8.0);
-    ARIADNE_TEST_EQUALS(rec(p).exponent(),-3);
-    ARIADNE_TEST_EQUALS(Ariadne::exp2(-2).exponent(),-2);
-    ARIADNE_TEST_EQUALS((two^static_cast<Nat>(4)).exponent(),4);
-    ARIADNE_TEST_EQUALS((two^static_cast<Int>(-4)).exponent(),-4);
-    ARIADNE_TEST_EQUALS(pow(two,-5).exponent(),-5);
+    ARIADNE_TESTING_EXPECT_EQUAL(p.exponent(),3);
+    ARIADNE_TESTING_EXPECT_EQUAL(from_two.exponent(),1);
+    ARIADNE_TESTING_EXPECT_EQUAL(p.get_d(),8.0);
+    ARIADNE_TESTING_EXPECT_EQUAL(rec(p).exponent(),-3);
+    ARIADNE_TESTING_EXPECT_EQUAL(Ariadne::exp2(-2).exponent(),-2);
+    ARIADNE_TESTING_EXPECT_EQUAL((two^static_cast<Nat>(4)).exponent(),4);
+    ARIADNE_TESTING_EXPECT_EQUAL((two^static_cast<Int>(-4)).exponent(),-4);
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(two,-5).exponent(),-5);
 
-    ARIADNE_TEST_EQUALS(-Sign::NEGATIVE,Sign::POSITIVE);
-    ARIADNE_TEST_EQUALS(Sign::NEGATIVE*Sign::NEGATIVE,Sign::POSITIVE);
-    ARIADNE_TEST_EQUALS(Sign::NEGATIVE*Sign::POSITIVE,Sign::NEGATIVE);
+    ARIADNE_TESTING_EXPECT_EQUAL(-Sign::NEGATIVE,Sign::POSITIVE);
+    ARIADNE_TESTING_EXPECT_EQUAL(Sign::NEGATIVE*Sign::NEGATIVE,Sign::POSITIVE);
+    ARIADNE_TESTING_EXPECT_EQUAL(Sign::NEGATIVE*Sign::POSITIVE,Sign::NEGATIVE);
 
-    ARIADNE_TEST_EQUALS(class_name<uint>(),String("uint"));
-    ARIADNE_TEST_EQUALS(class_name<int>(),String("int"));
-    ARIADNE_TEST_EQUALS(class_name<Integer>(),String("Integer"));
-    ARIADNE_TEST_EQUALS(class_name<Natural>(),String("Natural"));
+    ARIADNE_TESTING_EXPECT_EQUAL(class_name<uint>(),String("uint"));
+    ARIADNE_TESTING_EXPECT_EQUAL(class_name<int>(),String("int"));
+    ARIADNE_TESTING_EXPECT_EQUAL(class_name<Integer>(),String("Integer"));
+    ARIADNE_TESTING_EXPECT_EQUAL(class_name<Natural>(),String("Natural"));
 
     std::ostringstream sign_stream;
     sign_stream << Sign::ZERO << " " << Sign::NEGATIVE << " " << Sign::POSITIVE;
-    ARIADNE_TEST_EQUALS(sign_stream.str(),std::string("ZERO NEGATIVE POSITIVE"));
+    ARIADNE_TESTING_EXPECT_EQUAL(sign_stream.str(),std::string("ZERO NEGATIVE POSITIVE"));
 
     std::ostringstream comparison_stream;
     comparison_stream << LESS << " " << EQUAL << " " << GREATER << " " << INCOMPARABLE;
-    ARIADNE_TEST_EQUALS(comparison_stream.str(),std::string("LESS EQUAL GREATER INCOMPARABLE"));
+    ARIADNE_TESTING_EXPECT_EQUAL(comparison_stream.str(),std::string("LESS EQUAL GREATER INCOMPARABLE"));
     std::ostringstream invalid_comparison_stream;
-    ARIADNE_TEST_FAIL(invalid_comparison_stream << static_cast<Comparison>(42));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(invalid_comparison_stream << static_cast<Comparison>(42));
 
     Natural natural(2u);
     Natural other(3u);
     ++natural;
     natural+=other;
-    ARIADNE_TEST_EQUALS(natural,Integer(6));
-    ARIADNE_TEST_EQUALS(Natural(2u)+Natural(3u),Integer(5));
-    ARIADNE_TEST_EQUALS(Natural(2u)*Natural(3u),Integer(6));
-    ARIADNE_TEST_EQUALS(log2floor(Natural(0u)),-1);
-    ARIADNE_TEST_EQUALS(log2floor(Natural(1u)),0);
-    ARIADNE_TEST_EQUALS(log2floor(Natural(8u)),3);
-    ARIADNE_TEST_EQUALS(cast_positive(Integer(4)),Integer(4));
-    ARIADNE_TEST_FAIL(Positive<Integer>(Integer(-1)));
-    ARIADNE_TEST_FAIL(Natural(Integer(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(natural,Integer(6));
+    ARIADNE_TESTING_EXPECT_EQUAL(Natural(2u)+Natural(3u),Integer(5));
+    ARIADNE_TESTING_EXPECT_EQUAL(Natural(2u)*Natural(3u),Integer(6));
+    ARIADNE_TESTING_EXPECT_EQUAL(log2floor(Natural(0u)),-1);
+    ARIADNE_TESTING_EXPECT_EQUAL(log2floor(Natural(1u)),0);
+    ARIADNE_TESTING_EXPECT_EQUAL(log2floor(Natural(8u)),3);
+    ARIADNE_TESTING_EXPECT_EQUAL(cast_positive(Integer(4)),Integer(4));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Positive<Integer>(Integer(-1)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Natural(Integer(-1)));
 }
 
 void TestInteger::test_combinatorics() {
-    ARIADNE_TEST_EQUALS(fac(uint8_t(0)),uint32_t(1));
-    ARIADNE_TEST_EQUALS(fac(uint8_t(5)),uint32_t(120));
-    ARIADNE_TEST_FAIL(fac(uint8_t(13)));
-    ARIADNE_TEST_EQUALS(bin(uint8_t(5),uint8_t(0)),uint32_t(1));
-    ARIADNE_TEST_EQUALS(bin(uint8_t(5),uint8_t(2)),uint32_t(10));
-    ARIADNE_TEST_EQUALS(bin(uint8_t(5),uint8_t(6)),uint32_t(0));
-    ARIADNE_TEST_FAIL(bin(uint8_t(5),uint8_t(7)));
-    ARIADNE_TEST_FAIL(bin(uint8_t(32),uint8_t(1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(fac(uint8_t(0)),uint32_t(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(fac(uint8_t(5)),uint32_t(120));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(fac(uint8_t(13)));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint8_t(5),uint8_t(0)),uint32_t(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint8_t(5),uint8_t(2)),uint32_t(10));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint8_t(5),uint8_t(6)),uint32_t(0));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(bin(uint8_t(5),uint8_t(7)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(bin(uint8_t(32),uint8_t(1)));
 
-    ARIADNE_TEST_EQUALS(fac(uint16_t(0)),uint16_t(1));
-    ARIADNE_TEST_EQUALS(fac(uint16_t(5)),uint16_t(120));
-    ARIADNE_TEST_FAIL(fac(uint16_t(9)));
-    ARIADNE_TEST_EQUALS(bin(uint16_t(5),uint16_t(0)),uint16_t(1));
-    ARIADNE_TEST_EQUALS(bin(uint16_t(5),uint16_t(2)),uint16_t(10));
-    ARIADNE_TEST_EQUALS(bin(uint16_t(5),uint16_t(6)),uint16_t(0));
-    ARIADNE_TEST_FAIL(bin(uint16_t(5),uint16_t(7)));
-    ARIADNE_TEST_FAIL(bin(uint16_t(16),uint16_t(1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(fac(uint16_t(0)),uint16_t(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(fac(uint16_t(5)),uint16_t(120));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(fac(uint16_t(9)));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint16_t(5),uint16_t(0)),uint16_t(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint16_t(5),uint16_t(2)),uint16_t(10));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint16_t(5),uint16_t(6)),uint16_t(0));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(bin(uint16_t(5),uint16_t(7)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(bin(uint16_t(16),uint16_t(1)));
 
-    ARIADNE_TEST_EQUALS(fac(uint32_t(0)),uint32_t(1));
-    ARIADNE_TEST_EQUALS(fac(uint32_t(5)),uint32_t(120));
-    ARIADNE_TEST_FAIL(fac(uint32_t(13)));
-    ARIADNE_TEST_EQUALS(bin(uint32_t(5),uint32_t(0)),uint32_t(1));
-    ARIADNE_TEST_EQUALS(bin(uint32_t(5),uint32_t(2)),uint32_t(10));
-    ARIADNE_TEST_EQUALS(bin(uint32_t(5),uint32_t(6)),uint32_t(0));
-    ARIADNE_TEST_FAIL(bin(uint32_t(5),uint32_t(7)));
-    ARIADNE_TEST_FAIL(bin(uint32_t(31),uint32_t(1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(fac(uint32_t(0)),uint32_t(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(fac(uint32_t(5)),uint32_t(120));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(fac(uint32_t(13)));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint32_t(5),uint32_t(0)),uint32_t(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint32_t(5),uint32_t(2)),uint32_t(10));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint32_t(5),uint32_t(6)),uint32_t(0));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(bin(uint32_t(5),uint32_t(7)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(bin(uint32_t(31),uint32_t(1)));
 
-    ARIADNE_TEST_EQUALS(fac(uint64_t(0)),uint64_t(1));
-    ARIADNE_TEST_EQUALS(fac(uint64_t(5)),uint64_t(120));
-    ARIADNE_TEST_FAIL(fac(uint64_t(21)));
-    ARIADNE_TEST_EQUALS(bin(uint64_t(5),uint64_t(0)),uint64_t(1));
-    ARIADNE_TEST_EQUALS(bin(uint64_t(5),uint64_t(2)),uint64_t(10));
-    ARIADNE_TEST_EQUALS(bin(uint64_t(5),uint64_t(6)),uint64_t(0));
-    ARIADNE_TEST_FAIL(bin(uint64_t(5),uint64_t(7)));
-    ARIADNE_TEST_FAIL(bin(uint64_t(63),uint64_t(1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(fac(uint64_t(0)),uint64_t(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(fac(uint64_t(5)),uint64_t(120));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(fac(uint64_t(21)));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint64_t(5),uint64_t(0)),uint64_t(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint64_t(5),uint64_t(2)),uint64_t(10));
+    ARIADNE_TESTING_EXPECT_EQUAL(bin(uint64_t(5),uint64_t(6)),uint64_t(0));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(bin(uint64_t(5),uint64_t(7)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(bin(uint64_t(63),uint64_t(1)));
 }
 
 void TestInteger::test_comparisons() {
-    ARIADNE_TEST_COMPARE(Integer(3),==,3);
-    ARIADNE_TEST_COMPARE(3,==,Integer(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(Integer(3), 3);
+    ARIADNE_TESTING_EXPECT_EQUAL(3, Integer(3));
 
-    ARIADNE_TEST_COMPARE(Integer(2),==,Integer(2));
-    ARIADNE_TEST_COMPARE(Integer(0),==,Integer(-0));
-    ARIADNE_TEST_COMPARE(Integer(2),!=,Integer(-2));
-    ARIADNE_TEST_COMPARE(Integer(2),!=,Integer(-3));
-    ARIADNE_TEST_COMPARE(Integer(2),<=,Integer(23));
-    ARIADNE_TEST_COMPARE(Integer(2),<=,Integer(3));
-    ARIADNE_TEST_COMPARE(Integer(2),>=,Integer(2));
-    ARIADNE_TEST_COMPARE(Integer(2),>=,Integer(-3));
-    ARIADNE_TEST_COMPARE(Integer(2),< ,Integer(3));
-    ARIADNE_TEST_COMPARE(Integer(2),> ,Integer(-3));
+    ARIADNE_TESTING_EXPECT_EQUAL(Integer(2), Integer(2));
+    ARIADNE_TESTING_EXPECT_EQUAL(Integer(0), Integer(-0));
+    ARIADNE_TESTING_EXPECT_NOT_EQUAL(Integer(2), Integer(-2));
+    ARIADNE_TESTING_EXPECT_NOT_EQUAL(Integer(2), Integer(-3));
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(Integer(2), Integer(23));
+    ARIADNE_TESTING_EXPECT_LESS_EQUAL(Integer(2), Integer(3));
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(Integer(2), Integer(2));
+    ARIADNE_TESTING_EXPECT_GREATER_EQUAL(Integer(2), Integer(-3));
+    ARIADNE_TESTING_EXPECT_LESS(Integer(2), Integer(3));
+    ARIADNE_TESTING_EXPECT_GREATER(Integer(2), Integer(-3));
 }
 
 
@@ -526,32 +524,32 @@ void TestInteger::test_native() {
     const Integer zero(0);
     const Integer one(1);
     const Integer minus_one(-1);
-    ARIADNE_TEST_ASSERT(Integer(String("-0")).literal()=="0");
-    ARIADNE_TEST_ASSERT(Integer(String("+00000042")).literal()=="42");
-    ARIADNE_TEST_ASSERT(Integer(String("00000")).literal()=="0");
-    ARIADNE_TEST_ASSERT(Integer(String("18446744073709551616")).literal()
+    ARIADNE_TESTING_PROVE(Integer(String("-0")).literal()=="0");
+    ARIADNE_TESTING_PROVE(Integer(String("+00000042")).literal()=="42");
+    ARIADNE_TESTING_PROVE(Integer(String("00000")).literal()=="0");
+    ARIADNE_TESTING_PROVE(Integer(String("18446744073709551616")).literal()
                         =="18446744073709551616");
-    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::int64_t>::min())
+    ARIADNE_TESTING_PROVE(Integer(std::numeric_limits<std::int64_t>::min())
         .get<std::int64_t>()==std::numeric_limits<std::int64_t>::min());
-    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::uint64_t>::max())
+    ARIADNE_TESTING_PROVE(Integer(std::numeric_limits<std::uint64_t>::max())
         .get<std::uint64_t>()==std::numeric_limits<std::uint64_t>::max());
-    ARIADNE_TEST_ASSERT(pow(Integer(0),Nat(0u))==1);
-    ARIADNE_TEST_ASSERT(pow(Integer(-7),Nat(3u))==-343);
-    ARIADNE_TEST_ASSERT(pow(Integer(-7),Nat(4u))==2401);
-    ARIADNE_TEST_ASSERT(sqr(Integer(-13))==169);
-    ARIADNE_TEST_ASSERT(abs(Integer(-13))==13);
-    ARIADNE_TEST_ASSERT(log2floor(Natural(0u))==-1);
-    ARIADNE_TEST_ASSERT(log2floor(Natural(8u))==3);
-    ARIADNE_TEST_ASSERT(quot(Integer(-11),Integer(3))==-3);
-    ARIADNE_TEST_ASSERT(rem(Integer(-11),Integer(3))==-2);
-    ARIADNE_TEST_ASSERT(quot(Integer(11),Integer(-3))==-3);
-    ARIADNE_TEST_ASSERT(rem(Integer(11),Integer(-3))==2);
+    ARIADNE_TESTING_PROVE(pow(Integer(0),Nat(0u))==1);
+    ARIADNE_TESTING_PROVE(pow(Integer(-7),Nat(3u))==-343);
+    ARIADNE_TESTING_PROVE(pow(Integer(-7),Nat(4u))==2401);
+    ARIADNE_TESTING_PROVE(sqr(Integer(-13))==169);
+    ARIADNE_TESTING_PROVE(abs(Integer(-13))==13);
+    ARIADNE_TESTING_PROVE(log2floor(Natural(0u))==-1);
+    ARIADNE_TESTING_PROVE(log2floor(Natural(8u))==3);
+    ARIADNE_TESTING_PROVE(quot(Integer(-11),Integer(3))==-3);
+    ARIADNE_TESTING_PROVE(rem(Integer(-11),Integer(3))==-2);
+    ARIADNE_TESTING_PROVE(quot(Integer(11),Integer(-3))==-3);
+    ARIADNE_TESTING_PROVE(rem(Integer(11),Integer(-3))==2);
 
     for (const char* invalid: {"","-","+","-+1"," 1","1 ","1a","1.0"}) {
         bool threw=false;
         try { (void)Integer(String(invalid)); }
         catch (std::invalid_argument const&) { threw=true; }
-        ARIADNE_TEST_ASSERT(threw);
+        ARIADNE_TESTING_PROVE(threw);
     }
     bool negative_unsigned=false,positive_overflow=false,division_zero=false;
     try { (void)minus_one.get<std::uint64_t>(); }
@@ -560,7 +558,7 @@ void TestInteger::test_native() {
     catch (std::out_of_range const&) { positive_overflow=true; }
     try { (void)quot(one,zero); }
     catch (std::domain_error const&) { division_zero=true; }
-    ARIADNE_TEST_ASSERT(negative_unsigned && positive_overflow && division_zero);
+    ARIADNE_TESTING_PROVE(negative_unsigned && positive_overflow && division_zero);
 
     for (const char* a: {"-11","11","-12","12","0"}) {
         for (const char* b: {"-3","3","-5","5"}) {
@@ -568,9 +566,9 @@ void TestInteger::test_native() {
             Integer divisor{String(b)};
             const Integer quotient=quot(dividend,divisor);
             const Integer remainder=rem(dividend,divisor);
-            ARIADNE_TEST_ASSERT(dividend==quotient*divisor+remainder);
-            ARIADNE_TEST_ASSERT(abs(remainder)<abs(divisor));
-            ARIADNE_TEST_ASSERT(remainder==0 || sgn(remainder)==sgn(dividend));
+            ARIADNE_TESTING_PROVE(dividend==quotient*divisor+remainder);
+            ARIADNE_TESTING_PROVE(abs(remainder)<abs(divisor));
+            ARIADNE_TESTING_PROVE(remainder==0 || sgn(remainder)==sgn(dividend));
         }
     }
 
@@ -594,15 +592,15 @@ void TestInteger::test_native() {
                 }
                 const Integer lhs{String(raw_lhs)},rhs{String(raw_rhs)};
                 const Integer expected_sub{String(raw_expected)};
-                ARIADNE_TEST_EQUALS(lhs-rhs,expected_sub);
+                ARIADNE_TESTING_EXPECT_EQUAL(lhs-rhs,expected_sub);
                 Integer assigned=lhs;
                 assigned-=rhs;
-                ARIADNE_TEST_EQUALS(assigned,expected_sub);
+                ARIADNE_TESTING_EXPECT_EQUAL(assigned,expected_sub);
                 Integer aliased=lhs;
                 Integer const& same_object=aliased;
                 aliased-=same_object;
-                ARIADNE_TEST_ASSERT(aliased==0);
-                ARIADNE_TEST_ASSERT(!aliased.negative());
+                ARIADNE_TESTING_PROVE(aliased==0);
+                ARIADNE_TESTING_PROVE(!aliased.negative());
             }
         }
     }
@@ -628,7 +626,7 @@ void TestInteger::test_native() {
                 ref_base!=literal || ref_exponent!=exponent) {
                 throw std::runtime_error("Missing or unordered Integer power TSV row");
             }
-            ARIADNE_TEST_EQUALS(pow(input,Nat(exponent)),
+            ARIADNE_TESTING_EXPECT_EQUAL(pow(input,Nat(exponent)),
                                 Integer(String(ref_result)));
         }
     }
@@ -661,7 +659,7 @@ void TestInteger::test_native() {
                     throw std::runtime_error("Missing or unordered I66 TSV row");
                 }
                 const Integer base{String(raw_base)};
-                ARIADNE_TEST_EQUALS(pow(base,Nat(exponent)),
+                ARIADNE_TESTING_EXPECT_EQUAL(pow(base,Nat(exponent)),
                                     Integer(String(raw_result)));
             }
         }
@@ -687,12 +685,12 @@ void TestInteger::test_native() {
             }
             const Integer x{String(source)},copy=x;
             const Integer square{String(expected)};
-            ARIADNE_TEST_EQUALS(x*x,square);
-            ARIADNE_TEST_EQUALS(x*copy,square);
+            ARIADNE_TESTING_EXPECT_EQUAL(x*x,square);
+            ARIADNE_TESTING_EXPECT_EQUAL(x*copy,square);
             Integer assigned=x;
             assigned*=assigned;
-            ARIADNE_TEST_EQUALS(assigned,square);
-            ARIADNE_TEST_ASSERT(!assigned.negative());
+            ARIADNE_TESTING_EXPECT_EQUAL(assigned,square);
+            ARIADNE_TESTING_PROVE(!assigned.negative());
         }
     }
     std::string extra_square;
@@ -719,7 +717,7 @@ void TestInteger::test_native() {
                     throw std::runtime_error("Missing or unordered B37 TSV row");
                 }
                 const Integer x{String(source)};
-                ARIADNE_TEST_EQUALS(pow(x,Nat(exponent)),
+                ARIADNE_TESTING_EXPECT_EQUAL(pow(x,Nat(exponent)),
                                     Integer(String(expected)));
             }
         }
@@ -744,7 +742,7 @@ void TestInteger::test_native() {
                 || ref_width!=width || ref_repetition!=repetition) {
                 throw std::runtime_error("Missing or unordered B38 TSV row");
             }
-            ARIADNE_TEST_EQUALS(pow(Integer(String(source)),Nat(3u)),
+            ARIADNE_TESTING_EXPECT_EQUAL(pow(Integer(String(source)),Nat(3u)),
                                 Integer(String(expected)));
         }
     }
@@ -767,16 +765,16 @@ void TestInteger::test_native() {
             throw std::runtime_error("Missing or out-of-order Integer I18 oracle");
         }
         const Integer x{String(lhs)},y{String(rhs)};
-        ARIADNE_TEST_EQUALS(x+y,Integer(String(sum)));
-        ARIADNE_TEST_EQUALS(x-y,Integer(String(sub)));
-        ARIADNE_TEST_EQUALS(x*y,Integer(String(mul)));
+        ARIADNE_TESTING_EXPECT_EQUAL(x+y,Integer(String(sum)));
+        ARIADNE_TESTING_EXPECT_EQUAL(x-y,Integer(String(sub)));
+        ARIADNE_TESTING_EXPECT_EQUAL(x*y,Integer(String(mul)));
         const Integer q=quot(x,y),r=rem(x,y);
-        ARIADNE_TEST_EQUALS(q,Integer(String(q_expected)));
-        ARIADNE_TEST_EQUALS(r,Integer(String(r_expected)));
-        ARIADNE_TEST_ASSERT(q*y+r==x);
-        ARIADNE_TEST_ASSERT(abs(r)<abs(y));
-        ARIADNE_TEST_ASSERT(r==0 || sgn(r)==sgn(x));
-        ARIADNE_TEST_ASSERT(x.literal()==Integer(String(lhs)).literal());
+        ARIADNE_TESTING_EXPECT_EQUAL(q,Integer(String(q_expected)));
+        ARIADNE_TESTING_EXPECT_EQUAL(r,Integer(String(r_expected)));
+        ARIADNE_TESTING_PROVE(q*y+r==x);
+        ARIADNE_TESTING_PROVE(abs(r)<abs(y));
+        ARIADNE_TESTING_PROVE(r==0 || sgn(r)==sgn(x));
+        ARIADNE_TESTING_PROVE(x.literal()==Integer(String(lhs)).literal());
     }
     std::string extra;
     if (golden >> extra)
@@ -790,28 +788,28 @@ void TestInteger::test_signed_regression() {
     const Integer zero(0);
     const Integer one(1);
     const Integer minus_one(-1);
-    ARIADNE_TEST_ASSERT(sgn(zero)==Sign::ZERO);
-    ARIADNE_TEST_ASSERT(!Integer(String("-0")).negative());
-    ARIADNE_TEST_ASSERT(Integer(String("-00000")).literal()=="0");
-    ARIADNE_TEST_ASSERT(Integer(String("+000123")).literal()=="123");
-    ARIADNE_TEST_ASSERT(Integer::from_magnitude(BigUnsigned{},true)==zero);
-    ARIADNE_TEST_ASSERT(!Integer::from_magnitude(BigUnsigned{},true).negative());
-    ARIADNE_TEST_ASSERT(cmp(one,minus_one)==Comparison::GREATER);
-    ARIADNE_TEST_ASSERT(cmp(minus_one,zero)==Comparison::LESS);
-    ARIADNE_TEST_ASSERT(cmp(zero,zero)==Comparison::EQUAL);
-    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::int64_t>::min())
+    ARIADNE_TESTING_PROVE(sgn(zero)==Sign::ZERO);
+    ARIADNE_TESTING_PROVE(!Integer(String("-0")).negative());
+    ARIADNE_TESTING_PROVE(Integer(String("-00000")).literal()=="0");
+    ARIADNE_TESTING_PROVE(Integer(String("+000123")).literal()=="123");
+    ARIADNE_TESTING_PROVE(Integer::from_magnitude(BigUnsigned{},true)==zero);
+    ARIADNE_TESTING_PROVE(!Integer::from_magnitude(BigUnsigned{},true).negative());
+    ARIADNE_TESTING_PROVE(cmp(one,minus_one)==Comparison::GREATER);
+    ARIADNE_TESTING_PROVE(cmp(minus_one,zero)==Comparison::LESS);
+    ARIADNE_TESTING_PROVE(cmp(zero,zero)==Comparison::EQUAL);
+    ARIADNE_TESTING_PROVE(Integer(std::numeric_limits<std::int64_t>::min())
         .get<std::int64_t>()==std::numeric_limits<std::int64_t>::min());
-    ARIADNE_TEST_ASSERT(Integer(std::numeric_limits<std::uint64_t>::max())
+    ARIADNE_TESTING_PROVE(Integer(std::numeric_limits<std::uint64_t>::max())
         .get<std::uint64_t>()==std::numeric_limits<std::uint64_t>::max());
-    ARIADNE_TEST_ASSERT(pow(zero,Nat(0u)).literal()=="1");
-    ARIADNE_TEST_ASSERT(sqr(Integer(-13))==169);
-    ARIADNE_TEST_ASSERT(quot(Integer(-7),Integer(2))==-3);
+    ARIADNE_TESTING_PROVE(pow(zero,Nat(0u)).literal()=="1");
+    ARIADNE_TESTING_PROVE(sqr(Integer(-13))==169);
+    ARIADNE_TESTING_PROVE(quot(Integer(-7),Integer(2))==-3);
 
     for (const char* invalid: {"","-","+"," 1","1 ","1_0","--1"}) {
         bool threw=false;
         try { (void)Integer(String(invalid)); }
         catch (std::invalid_argument const&) { threw=true; }
-        ARIADNE_TEST_ASSERT(threw);
+        ARIADNE_TESTING_PROVE(threw);
     }
     bool negative_to_unsigned=false,positive_overflow=false;
     try { (void)minus_one.get<std::uint64_t>(); }
@@ -819,15 +817,15 @@ void TestInteger::test_signed_regression() {
     try { (void)Integer(String("9223372036854775808"))
                   .get<std::int64_t>(); }
     catch (std::out_of_range const&) { positive_overflow=true; }
-    ARIADNE_TEST_ASSERT(negative_to_unsigned && positive_overflow);
+    ARIADNE_TESTING_PROVE(negative_to_unsigned && positive_overflow);
 
     for (const char* left: {"-11","11","-12","12","0"}) {
         for (const char* right: {"-3","3","-5","5"}) {
             const Integer a{String(left)},b{String(right)};
             const Integer q=quot(a,b),r=rem(a,b);
-            ARIADNE_TEST_ASSERT(cmp(q*b+r,a)==Comparison::EQUAL);
-            ARIADNE_TEST_ASSERT(abs(r)<abs(b));
-            ARIADNE_TEST_ASSERT(is_zero(r) || sgn(r)==sgn(a));
+            ARIADNE_TESTING_PROVE(cmp(q*b+r,a)==Comparison::EQUAL);
+            ARIADNE_TESTING_PROVE(abs(r)<abs(b));
+            ARIADNE_TESTING_PROVE(is_zero(r) || sgn(r)==sgn(a));
         }
     }
 
@@ -838,10 +836,10 @@ void TestInteger::test_signed_regression() {
     std::string comment;
     while (golden.peek()=='#') std::getline(golden,comment);
     const auto check=[&](Integer const& actual,std::string const& reference) {
-        ARIADNE_TEST_EQUALS(actual,Integer(String(reference)));
-        ARIADNE_TEST_ASSERT(!is_zero(actual) || !actual.negative());
-        ARIADNE_TEST_ASSERT((reference=="0")==is_zero(actual));
-        ARIADNE_TEST_ASSERT((reference.front()=='-')==actual.negative());
+        ARIADNE_TESTING_EXPECT_EQUAL(actual,Integer(String(reference)));
+        ARIADNE_TESTING_PROVE(!is_zero(actual) || !actual.negative());
+        ARIADNE_TESTING_PROVE((reference=="0")==is_zero(actual));
+        ARIADNE_TESTING_PROVE((reference.front()=='-')==actual.negative());
     };
     for (unsigned sample=0u;sample<250u;++sample) {
         unsigned rep=0u;
@@ -860,9 +858,9 @@ void TestInteger::test_signed_regression() {
         const Integer q=quot(x,y),r=rem(x,y);
         check(q,q_expected);
         check(r,r_expected);
-        ARIADNE_TEST_ASSERT(q*y+r==x);
-        ARIADNE_TEST_ASSERT(abs(r)<abs(y));
-        ARIADNE_TEST_ASSERT(is_zero(r) || sgn(r)==sgn(x));
+        ARIADNE_TESTING_PROVE(q*y+r==x);
+        ARIADNE_TESTING_PROVE(abs(r)<abs(y));
+        ARIADNE_TESTING_PROVE(is_zero(r) || sgn(r)==sgn(x));
 
         const unsigned bits=rep%130u;
         const BigUnsigned scale=shift_left(
@@ -885,11 +883,20 @@ void TestInteger::test_signed_regression() {
     catch (std::domain_error const&) { quotient_zero=true; }
     try { (void)rem(one,zero); }
     catch (std::domain_error const&) { remainder_zero=true; }
-    ARIADNE_TEST_ASSERT(quotient_zero && remainder_zero);
+    ARIADNE_TESTING_PROVE(quotient_zero && remainder_zero);
 }
 
-int main() {
-    ARIADNE_TEST_CLASS(Integer,TestInteger());
-
-    return ARIADNE_TEST_FAILURES;
+int main(int argc, char** argv) {
+    Ariadne::Testing::Suite suite("integer");
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_constructors);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_comparisons);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_literal);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_arithmetic);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_small_types);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_combinatorics);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_native);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_signed_regression);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_owned_results);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestInteger, test_sqrt);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }

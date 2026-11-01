@@ -109,3 +109,28 @@ All original predicates, expected values, exception requirements, case order,
 and TSV completeness oracles are unchanged. Fixture methods continue using
 the appropriate fixture shorthands. Acceptance requires rerunning the full
 Numeric CI matrix on the new commit; a source audit alone is insufficient.
+
+## 2026-11-01: Integer suite migration
+
+Migrated `test_integer` from the legacy macro runner to Ariadne Testing on
+branch `testing`, preserving the ten method groups and their original order:
+constructors, comparisons, literals, arithmetic, small types, combinatorics,
+native operations, signed regression, owned results, and integer square root.
+The standalone test now accepts `--concise` through
+`run_suite(suite, argc, argv)` and links with `ariadne-testing`.
+
+All original computational expressions and oracle expected values are
+unchanged. Thirteen legacy constructor macros now declare the same named
+`Integer` variables in the original scope and emit typed construction
+diagnostics. Twelve legacy relational comparisons use the exact matching
+relation macro (including strict vs non-strict ordering and inequality).
+Existing assertions and expected-exception checks remain active, and the
+integer-conversion TSV retains its row completeness checks; each row now
+adds an assertion scope for diagnosing failures without a successful-run log
+flood. Compile-time concept checks remain unchanged.
+
+Static inspection verified the absence of active legacy macros and checked
+terminating punctuation for new assertions. No C++ binary was built locally:
+acceptance requires the full Numeric CI matrix on the new commit. If any
+test fails, classify the regression as test migration, test expectation,
+or Numeric behavior rather than weakening or deleting the oracle.
