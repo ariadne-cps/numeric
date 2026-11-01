@@ -71,3 +71,29 @@ suites. All three original precision instantiations remain enabled.
 This is a source-level migration, not a completed build validation: verify the
 numeric Ubuntu, Windows, macOS, Sanitizers and Coverage CI matrix before
 accepting it, and classify any failure rather than modifying numerical oracles.
+
+## 2026-11-01: Dyadic suite migration
+
+Migrated `test_dyadic` to Ariadne Testing: the original eight fixture
+methods and five standalone TSV/contract oracles remain registered in exactly
+their original order (13 cases). The original mathematical checks (159
+equality comparisons, 99 propositions, 9 binary predicates and 15 expected
+exceptions), compile-time concept check and file row-count/completeness
+conditions are retained. A nonasserting constructor smoke check still builds
+`Dyadic q(3.25_q2)` before the value checks.
+
+Oracle row identities have been moved from direct stdout lines to scoped
+Testing diagnostic contexts attached to every row assertion, providing useful
+row information in concise failure summaries without printing thousands of
+progress lines during CTest. The original 25 execution-only operations retain
+their no-throw checks; 15 ostream streaming operations use a local
+`std::ostringstream` instead of writing directly to stdout, with each
+rendered output captured through an inspection event (the seven original
+PRINT diagnostics are also retained). Thus default/full console output remains
+diagnostic while `--concise` stays silent on success.
+
+The test maintains the original default-writer state transitions and test
+group ordering. Existing oracle values, numerical expectations, required
+exceptions, and precision choices have not been relaxed. The executable
+uses `run_suite(suite, argc, argv)` and links with `ariadne-testing`.
+CI validation on all five platforms/workflows remains the acceptance gate.
