@@ -98,12 +98,14 @@ executables and the compile-only `check_numeric` target remain registered;
 production targets, public headers, Python bindings and install rules do not
 link to the new testing library.
 
-The first two migrated consumers are `test_logical_sequence` (explicit
-mathematical evidence expectations, including possibly/not-possibly) and
-`test_rounding_mode` (real backend rounding modes and equality checks).
-All other executables still use the legacy testing macros. This is a
-controlled migration experiment, **not** evidence that the entire Numeric
-suite has been migrated.
+The migrated consumers are `test_logical_sequence` (explicit mathematical
+evidence), `test_rounding_mode` (backend rounding modes), `test_float_rounding`
+(frozen rounding oracles and precision variants), `test_extended` (integer,
+rational and dyadic extensions), `test_decimal` (including all 64 rows of
+`decimal_exact.tsv`), and `test_float_error` (FloatDP and FloatMP variants).
+The remaining executables retain the legacy macros, with their headers
+restricted to those test targets. This is an incremental migration: it does
+not establish that the entire Numeric suite has been converted.
 
 ```bash
 git clone --branch testing --recurse-submodules https://github.com/ariadne-cps/numeric.git
@@ -130,3 +132,12 @@ original-input and rounding-mode diagnostic scopes; the frozen TSV files
 and independent generators remain untouched. Legacy print/notification
 macros become non-asserting structured diagnostics. Compare all baseline
 assertions and failures in GCC/Clang/MSVC CI before accepting the migration.
+
+### Additional migrated suites
+
+The `test_extended` phases become three independent cases. Decimal's static
+concept assertion remains compile-time, its eight expected exceptions remain
+checks, and every existing frozen-oracle row still performs three comparisons;
+scopes identify the oracle and row ID in diagnostics. `test_float_error`
+retains its original two-precision sequence with one case per backend.
+Neither numerical expectation nor reference TSV is changed.

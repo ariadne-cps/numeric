@@ -31,7 +31,7 @@
 #include "numeric/floatmp.hpp"
 #include "numeric/positive.hpp"
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 using namespace Ariadne;
 
@@ -59,147 +59,147 @@ static_assert(check_concept<FloatDP>());
 static_assert(check_concept<FloatMP>());
 
 template<class F>
-void test_float_error(typename F::PrecisionType pr)
+void test_float_error(typename F::PrecisionType pr, Ariadne::Testing::Context& ctx)
 {
     using E=Error<F>;
 
     Nat saved_output_places=E::output_places;
     E::set_output_places(4u);
-    ARIADNE_TEST_EQUALS(E::output_places,Nat(4u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,E::output_places,Nat(4u));
     E::set_output_places(saved_output_places);
 
     E zero(pr);
     E one(1u,pr);
     E two_error(2u,pr);
 
-    ARIADNE_TEST_EQUALS(zero.raw(),F(0,pr));
-    ARIADNE_TEST_EQUALS(one.raw(),F(1,pr));
-    ARIADNE_TEST_EQUALS(two_error.precision(),pr);
-    ARIADNE_TEST_EQUALS(two_error.characteristics(),pr);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,zero.raw(),F(0,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,one.raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,two_error.precision(),pr);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,two_error.characteristics(),pr);
 
     Positive<F> positive_two(F(2,pr));
     E from_positive(positive_two);
-    ARIADNE_TEST_EQUALS(from_positive.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,from_positive.raw(),F(2,pr));
 
     UpperBound<F> upper_two(F(2,pr));
     E from_upper(upper_two);
-    ARIADNE_TEST_EQUALS(from_upper.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,from_upper.raw(),F(2,pr));
 
-    ARIADNE_TEST_FAIL(E(F(-1,pr)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,E(F(-1,pr)));
     UpperBound<F> negative_upper(F(-1,pr));
-    ARIADNE_TEST_FAIL(E{negative_upper});
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,E{negative_upper});
 
     PositiveBounds<F> positive_bounds(F(1,pr),F(2,pr));
     E from_bounds(positive_bounds);
-    ARIADNE_TEST_EQUALS(from_bounds.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,from_bounds.raw(),F(2,pr));
 
     ValidatedUpperNumber generic_upper=upper_two;
     E from_generic_upper(generic_upper,pr);
-    ARIADNE_TEST_EQUALS(from_generic_upper.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,from_generic_upper.raw(),F(2,pr));
 
     UpperBound<F> converted_upper=from_upper;
-    ARIADNE_TEST_EQUALS(converted_upper.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,converted_upper.raw(),F(2,pr));
 
     E assigned_natural(pr);
     assigned_natural=Nat(2u);
-    ARIADNE_TEST_EQUALS(assigned_natural.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,assigned_natural.raw(),F(2,pr));
 
     E from_exact(ExactDouble(2),pr);
     E from_twoexp(TwoExp(1),pr);
-    ARIADNE_TEST_EQUALS(from_exact.raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(from_twoexp.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,from_exact.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,from_twoexp.raw(),F(2,pr));
 
-    ARIADNE_TEST_EQUALS((one+two_error).raw(),F(3,pr));
-    ARIADNE_TEST_EQUALS((two_error*two_error).raw(),F(4,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,(one+two_error).raw(),F(3,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,(two_error*two_error).raw(),F(4,pr));
 
     E accumulated=one;
     accumulated+=two_error;
-    ARIADNE_TEST_EQUALS(accumulated.raw(),F(3,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,accumulated.raw(),F(3,pr));
     accumulated*=two_error;
-    ARIADNE_TEST_EQUALS(accumulated.raw(),F(6,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,accumulated.raw(),F(6,pr));
 
-    ARIADNE_TEST_EQUALS((+two_error).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS((-two_error).raw(),F(-2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,(+two_error).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,(-two_error).raw(),F(-2,pr));
 
     auto symmetric=pm(two_error);
-    ARIADNE_TEST_EQUALS(symmetric.lower_raw(),F(-2,pr));
-    ARIADNE_TEST_EQUALS(symmetric.upper_raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,symmetric.lower_raw(),F(-2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,symmetric.upper_raw(),F(2,pr));
 
-    ARIADNE_TEST_EQUALS(nul(two_error).raw(),F(0,pr));
-    ARIADNE_TEST_EQUALS(pos(two_error).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(neg(two_error).raw(),F(-2,pr));
-    ARIADNE_TEST_EQUALS(add(one,two_error).raw(),F(3,pr));
-    ARIADNE_TEST_EQUALS(mul(two_error,two_error).raw(),F(4,pr));
-    ARIADNE_TEST_EQUALS(sqr(two_error).raw(),F(4,pr));
-    ARIADNE_TEST_EQUALS(pow(two_error,Nat(3u)).raw(),F(8,pr));
-    ARIADNE_TEST_EQUALS(fma(two_error,two_error,one).raw(),F(5,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,nul(two_error).raw(),F(0,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,pos(two_error).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,neg(two_error).raw(),F(-2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,add(one,two_error).raw(),F(3,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,mul(two_error,two_error).raw(),F(4,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,sqr(two_error).raw(),F(4,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,pow(two_error,Nat(3u)).raw(),F(8,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,fma(two_error,two_error,one).raw(),F(5,pr));
 
-    ARIADNE_TEST_EQUALS(sqrt(E(4u,pr)).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(exp(zero).raw(),F(1,pr));
-    ARIADNE_TEST_EQUALS(log(one).raw(),F(0,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,sqrt(E(4u,pr)).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,exp(zero).raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,log(one).raw(),F(0,pr));
 
-    ARIADNE_TEST_EQUALS(max(one,two_error).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(min(one,two_error).raw(),F(1,pr));
-    ARIADNE_TEST_EQUALS(abs(two_error).raw(),F(2,pr));
-    ARIADNE_TEST_EQUALS(mag(two_error).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,max(one,two_error).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,min(one,two_error).raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,abs(two_error).raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,mag(two_error).raw(),F(2,pr));
 
-    ARIADNE_TEST_EQUALS((two_error+Nat(3u)).raw(),F(5,pr));
-    ARIADNE_TEST_EQUALS((Nat(3u)+two_error).raw(),F(5,pr));
-    ARIADNE_TEST_EQUALS((two_error*Nat(3u)).raw(),F(6,pr));
-    ARIADNE_TEST_EQUALS((Nat(3u)*two_error).raw(),F(6,pr));
-    ARIADNE_TEST_EQUALS((two_error/Nat(2u)).raw(),F(1,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,(two_error+Nat(3u)).raw(),F(5,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,(Nat(3u)+two_error).raw(),F(5,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,(two_error*Nat(3u)).raw(),F(6,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,(Nat(3u)*two_error).raw(),F(6,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,(two_error/Nat(2u)).raw(),F(1,pr));
 
-    ARIADNE_TEST_ASSERT(same(one,E(1u,pr)));
-    ARIADNE_TEST_ASSERT(not same(one,two_error));
-    ARIADNE_TEST_ASSERT(refines(one,two_error));
-    ARIADNE_TEST_EQUALS(refinement(one,two_error).raw(),F(1,pr));
+    ARIADNE_TESTING_PROVE_CTX(ctx,same(one,E(1u,pr)));
+    ARIADNE_TESTING_PROVE_CTX(ctx,not same(one,two_error));
+    ARIADNE_TESTING_PROVE_CTX(ctx,refines(one,two_error));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,refinement(one,two_error).raw(),F(1,pr));
 
     ValidatedErrorNumber generic=two_error.generic();
     E assigned(pr);
     assigned=generic;
-    ARIADNE_TEST_EQUALS(assigned.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,assigned.raw(),F(2,pr));
     if constexpr (Same<F,FloatMP>) {
         // Native error conversion must retain the FloatMP backend.
-        ARIADNE_TEST_EQUALS(generic.class_name(),String("FloatMP"));
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,generic.class_name(),String("FloatMP"));
     }
 
     StringStream stream;
     Operations<E>::_write(stream,two_error);
-    ARIADNE_TEST_ASSERT(not stream.str().empty());
+    ARIADNE_TESTING_PROVE_CTX(ctx,not stream.str().empty());
 
     StringStream direct_output;
     direct_output << two_error;
-    ARIADNE_TEST_ASSERT(not direct_output.str().empty());
+    ARIADNE_TESTING_PROVE_CTX(ctx,not direct_output.str().empty());
 
     StringStream positive_input("2");
     E parsed(pr);
     Operations<E>::_read(positive_input,parsed);
-    ARIADNE_TEST_EQUALS(parsed.raw(),F(2,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,parsed.raw(),F(2,pr));
 
     StringStream direct_input("3");
     direct_input >> parsed;
-    ARIADNE_TEST_EQUALS(parsed.raw(),F(3,pr));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,parsed.raw(),F(3,pr));
 
     StringStream negative_input("-1");
-    ARIADNE_TEST_FAIL(Operations<E>::_read(negative_input,parsed));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,Operations<E>::_read(negative_input,parsed));
 
     StringStream direct_negative_input("-1");
-    ARIADNE_TEST_FAIL(direct_negative_input >> parsed);
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,direct_negative_input >> parsed);
 
     StringStream failed_input;
     failed_input.setstate(std::ios::badbit);
     Operations<E>::_read(failed_input,parsed);
-    ARIADNE_TEST_ASSERT(failed_input.bad());
+    ARIADNE_TESTING_PROVE_CTX(ctx,failed_input.bad());
 
     StringStream direct_failed_input;
     direct_failed_input.setstate(std::ios::badbit);
     direct_failed_input >> parsed;
-    ARIADNE_TEST_ASSERT(direct_failed_input.bad());
+    ARIADNE_TESTING_PROVE_CTX(ctx,direct_failed_input.bad());
 
     if constexpr (Same<F,FloatDP>) {
-        ARIADNE_TEST_EQUALS(class_name<E>(),String("FloatDPError"));
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,class_name<E>(),String("FloatDPError"));
     } else {
-        ARIADNE_TEST_EQUALS(class_name<E>(),String("FloatMPError"));
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,class_name<E>(),String("FloatMPError"));
     }
 }
 
@@ -207,7 +207,12 @@ void test_float_error(typename F::PrecisionType pr)
 
 int main()
 {
-    test_float_error<FloatDP>(dp);
-    test_float_error<FloatMP>(MultiplePrecision(128_bits));
-    return ARIADNE_TEST_FAILURES;
+    Ariadne::Testing::Suite suite("float_error");
+    suite.add("FloatDP", [](Ariadne::Testing::Context& ctx) {
+        test_float_error<FloatDP>(dp,ctx);
+    });
+    suite.add("FloatMP-128", [](Ariadne::Testing::Context& ctx) {
+        test_float_error<FloatMP>(MultiplePrecision(128_bits),ctx);
+    });
+    return Ariadne::Testing::run_suite(suite);
 }

@@ -33,7 +33,7 @@
 #include "numeric/number.hpp"
 #include "numeric/rational.hpp"
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 using namespace Ariadne;
 
@@ -53,8 +53,9 @@ constexpr bool check_concept()
 static_assert(check_concept());
 
 // Coefficients and scales identify each input independently of its rendering.
-void test_decimal_oracle()
+void test_decimal_oracle(Ariadne::Testing::Context& ctx)
 {
+    auto oracle_scope=ctx.scope("oracle", "decimal_exact.tsv");
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/decimal_exact.tsv");
     if (!data) throw std::runtime_error("Missing decimal_exact.tsv");
     std::string line;
@@ -69,93 +70,95 @@ void test_decimal_oracle()
             || (fields>>extra) || !ids.insert(id).second)
             throw std::runtime_error("Malformed decimal_exact.tsv row");
         const Decimal a(Integer(String(ap)),aq),b(Integer(String(bp)),bq);
-        std::cout << "Decimal oracle row " << id << std::endl;
-        ARIADNE_TEST_EQUALS(a!=b,Boolean(unequal!=0));
-        ARIADNE_TEST_EQUALS(a+b,Decimal(Integer(String(sp)),sq));
-        ARIADNE_TEST_EQUALS(a*b,Decimal(Integer(String(pp)),pq));
+        auto row_scope=ctx.scope("row", id);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,a!=b,Boolean(unequal!=0));
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,a+b,Decimal(Integer(String(sp)),sq));
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,a*b,Decimal(Integer(String(pp)),pq));
     }
     if (ids.size()!=64u || *ids.begin()!=0u || *ids.rbegin()!=63u)
         throw std::runtime_error("Incomplete decimal_exact.tsv");
 }
 
-void test_decimal()
+void test_decimal(Ariadne::Testing::Context& ctx)
 {
     Decimal d0;
-    ARIADNE_TEST_EQUALS(d0,Decimal(0,0u));
-    ARIADNE_TEST_CONSTRUCT(Decimal,d1,(23,1u));
-    ARIADNE_TEST_CONSTRUCT(Decimal,d2,(-42,2u));
-    ARIADNE_TEST_EQUALS(7_decimal,Decimal(7,0u));
-    ARIADNE_TEST_EQUALS(8_dec,Decimal(8,0u));
-    ARIADNE_TEST_EQUALS(Decimal(0.0),Decimal(0,0u));
-    ARIADNE_TEST_EQUALS(Decimal(-3.14),Decimal(-314,2u));
-    ARIADNE_TEST_EQUALS(Decimal(10000000000.0),Decimal(10000000000_z,0u));
-    ARIADNE_TEST_EQUALS(Decimal("-3.14"),Decimal(-314,2u));
-    ARIADNE_TEST_EQUALS(Decimal("+3.14"),Decimal(314,2u));
-    ARIADNE_TEST_FAIL(Decimal("1.2.3"));
-    ARIADNE_TEST_FAIL(Decimal("1a"));
-    ARIADNE_TEST_FAIL(Decimal("/1"));
-    ARIADNE_TEST_EQUALS(Decimal("3.141592653589793238462643383279"),Decimal(3141592653589793_z,15u)+Decimal(238462643383279_z,30u));
-    ARIADNE_TEST_EQUALS(Decimal("3.141592653589793238462643383279"),Decimal("3141592653589793238462643383279"_z,30u));
-    ARIADNE_TEST_FAIL(Decimal d(0.33333333333));
-    ARIADNE_TEST_EQUALS(Decimal(Dyadic(7,3u)),Decimal(875,3u));
-    ARIADNE_TEST_EQUALS(Decimal(Dyadic(140,1u)),Decimal(70,0u));
-    ARIADNE_TEST_FAIL(static_cast<void>(Decimal(Dyadic::inf())));
-    ARIADNE_TEST_FAIL(static_cast<void>(Decimal(-Dyadic::inf())));
-    ARIADNE_TEST_FAIL(static_cast<void>(Decimal(Dyadic::nan())));
-    ARIADNE_TEST_EQUALS(Decimal("-3.14"),Decimal(-314,2u));
-    ARIADNE_TEST_EQUALS(Decimal("-3.1400"),Decimal(-314,2u));
-    ARIADNE_TEST_EQUALS(Decimal("-0.0031400"),Decimal(-314,5u));
-    ARIADNE_TEST_EQUALS(Decimal("3140"),Decimal(3140,0u));
-    ARIADNE_TEST_EQUALS(Decimal("3.14159265")*Decimal("3.14159265"),Decimal("9.8696043785340225"));
-    ARIADNE_TEST_PRINT(Decimal("3.14159265")*Decimal("3.14159265"));
-    ARIADNE_TEST_EQUALS(Rational(d1),Rational(23,10));
-    ARIADNE_TEST_EQUALS(Rational(d2),Rational(-21,50));
-    ARIADNE_TEST_EQUAL(Rational(+d2),+Rational(d2));
-    ARIADNE_TEST_EQUAL(Rational(-d2),-Rational(d2));
-    ARIADNE_TEST_EQUAL(Rational(d1+d2),Rational(d1)+Rational(d2));
-    ARIADNE_TEST_EQUAL(Rational(d1-d2),Rational(d1)-Rational(d2));
-    ARIADNE_TEST_EQUAL(Rational(d1*d2),Rational(d1)*Rational(d2));
-    ARIADNE_TEST_EQUAL(d1/d2,Rational(d1)/Rational(d2));
-    ARIADNE_TEST_EQUAL(Decimal(1,2u)/Decimal(1,1u),Rational(1,10));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,d0,Decimal(0,0u));
+    Decimal d1(23,1u);
+    ctx.inspect("d1",d1);
+    Decimal d2(-42,2u);
+    ctx.inspect("d2",d2);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,7_decimal,Decimal(7,0u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,8_dec,Decimal(8,0u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal(0.0),Decimal(0,0u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal(-3.14),Decimal(-314,2u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal(10000000000.0),Decimal(10000000000_z,0u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("-3.14"),Decimal(-314,2u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("+3.14"),Decimal(314,2u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,Decimal("1.2.3"));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,Decimal("1a"));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,Decimal("/1"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("3.141592653589793238462643383279"),Decimal(3141592653589793_z,15u)+Decimal(238462643383279_z,30u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("3.141592653589793238462643383279"),Decimal("3141592653589793238462643383279"_z,30u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,Decimal d(0.33333333333));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal(Dyadic(7,3u)),Decimal(875,3u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal(Dyadic(140,1u)),Decimal(70,0u));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,static_cast<void>(Decimal(Dyadic::inf())));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,static_cast<void>(Decimal(-Dyadic::inf())));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,static_cast<void>(Decimal(Dyadic::nan())));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("-3.14"),Decimal(-314,2u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("-3.1400"),Decimal(-314,2u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("-0.0031400"),Decimal(-314,5u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("3140"),Decimal(3140,0u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("3.14159265")*Decimal("3.14159265"),Decimal("9.8696043785340225"));
+    ctx.inspect("Decimal pi approximation squared", Decimal("3.14159265")*Decimal("3.14159265"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Rational(d1),Rational(23,10));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Rational(d2),Rational(-21,50));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Rational(+d2),+Rational(d2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Rational(-d2),-Rational(d2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Rational(d1+d2),Rational(d1)+Rational(d2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Rational(d1-d2),Rational(d1)-Rational(d2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Rational(d1*d2),Rational(d1)*Rational(d2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,d1/d2,Rational(d1)/Rational(d2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal(1,2u)/Decimal(1,1u),Rational(1,10));
 
     Decimal accumulated(1);
     accumulated+=Decimal("2.5");
-    ARIADNE_TEST_EQUALS(accumulated,Decimal("3.5"));
-    ARIADNE_TEST_EQUALS(nul(d1),Decimal(0));
-    ARIADNE_TEST_EQUALS(sqr(Decimal("1.5")),Decimal("2.25"));
-    ARIADNE_TEST_EQUALS(hlf(Decimal(24,1u)),Decimal(12,1u));
-    ARIADNE_TEST_EQUALS(hlf(Decimal(3)),Decimal(15,1u));
-    ARIADNE_TEST_EQUALS(abs(Decimal("-2.5")),Decimal("2.5"));
-    ARIADNE_TEST_EQUALS(max(Decimal("-2.5"),Decimal("1.5")),Decimal("1.5"));
-    ARIADNE_TEST_EQUALS(min(Decimal("-2.5"),Decimal("1.5")),Decimal("-2.5"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,accumulated,Decimal("3.5"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,nul(d1),Decimal(0));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,sqr(Decimal("1.5")),Decimal("2.25"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,hlf(Decimal(24,1u)),Decimal(12,1u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,hlf(Decimal(3)),Decimal(15,1u));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,abs(Decimal("-2.5")),Decimal("2.5"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,max(Decimal("-2.5"),Decimal("1.5")),Decimal("1.5"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,min(Decimal("-2.5"),Decimal("1.5")),Decimal("-2.5"));
 
     Decimal comparison_low("1.25");
     Decimal comparison_high("2.5");
-    ARIADNE_TEST_ASSERT(comparison_low<=comparison_high);
-    ARIADNE_TEST_ASSERT(comparison_high>=comparison_low);
-    ARIADNE_TEST_ASSERT(comparison_high>comparison_low);
+    ARIADNE_TESTING_PROVE_CTX(ctx,comparison_low<=comparison_high);
+    ARIADNE_TESTING_PROVE_CTX(ctx,comparison_high>=comparison_low);
+    ARIADNE_TESTING_PROVE_CTX(ctx,comparison_high>comparison_low);
 
     PositiveDecimal positive_default;
     PositiveDecimal positive_value(Decimal("1.25"));
     PositiveDecimal positive_cast=cast_positive(Decimal("2.5"));
-    ARIADNE_TEST_EQUALS(positive_default,Decimal(0));
-    ARIADNE_TEST_EQUALS(positive_value,Decimal("1.25"));
-    ARIADNE_TEST_EQUALS(positive_cast,Decimal("2.5"));
-    ARIADNE_TEST_FAIL(PositiveDecimal(Decimal("-1")));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,positive_default,Decimal(0));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,positive_value,Decimal("1.25"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,positive_cast,Decimal("2.5"));
+    ARIADNE_TESTING_EXPECT_EXCEPTION_CTX(ctx,PositiveDecimal(Decimal("-1")));
 
     DecimalBounds point_bounds(Decimal("1.25"));
-    ARIADNE_TEST_EQUALS(point_bounds.lower(),Decimal("1.25"));
-    ARIADNE_TEST_EQUALS(point_bounds.upper(),Decimal("1.25"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,point_bounds.lower(),Decimal("1.25"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,point_bounds.upper(),Decimal("1.25"));
     std::ostringstream bounds_stream;
     bounds_stream << point_bounds;
-    ARIADNE_TEST_ASSERT(not bounds_stream.str().empty());
+    ARIADNE_TESTING_PROVE_CTX(ctx,not bounds_stream.str().empty());
 
-    ARIADNE_TEST_EQUALS(Decimal("3.014").literal(),String("3.014"));
-    ARIADNE_TEST_EQUALS(Decimal(3).literal(),String("3."));
-    ARIADNE_TEST_EQUALS(class_name<DecimalBounds>(),String("DecimalBounds"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal("3.014").literal(),String("3.014"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,Decimal(3).literal(),String("3."));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,class_name<DecimalBounds>(),String("DecimalBounds"));
 
     ExactNumber exact_decimal=static_cast<ExactNumber>(Decimal("1.25"));
-    ARIADNE_TEST_EQUALS(exact_decimal.class_name(),String("Rational"));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(ctx,exact_decimal.class_name(),String("Rational"));
 
 }
 
@@ -163,7 +166,12 @@ void test_decimal()
 
 int main()
 {
-    ARIADNE_TEST_CALL(test_decimal());
-    ARIADNE_TEST_CALL(test_decimal_oracle());
-    return ARIADNE_TEST_FAILURES;
+    Ariadne::Testing::Suite suite("decimal");
+    suite.add("decimal semantics", [](Ariadne::Testing::Context& ctx) {
+        test_decimal(ctx);
+    });
+    suite.add("decimal exact oracle", [](Ariadne::Testing::Context& ctx) {
+        test_decimal_oracle(ctx);
+    });
+    return Ariadne::Testing::run_suite(suite);
 }
