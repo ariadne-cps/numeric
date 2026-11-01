@@ -3457,7 +3457,7 @@ int main() {
     // Each phase has its own result; an exception does not hide later phases.
     auto register_precision = [&suite]<class PR>(std::string variant, PR precision) {
         using Fixture=TestFloatRounding<PR>;
-        auto add = [&](char const* phase, void (Fixture::*method)()) {
+        auto add = [&](char const* phase, auto method) {
             suite.add(variant + " / " + phase,
                 [variant, precision, method](Ariadne::Testing::Context& ctx) {
                     auto variant_scope=ctx.scope("precision_variant",variant);
