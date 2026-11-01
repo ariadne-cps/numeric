@@ -23,12 +23,6 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
             "logging|configuration"
             "testing|configuration"
     )
-    require_same_dependency_commit(Testing
-        CHAINS
-            "testing"
-            "foundation|testing"
-            "logging|testing"
-    )
     require_same_dependency_commit(Utility
         CHAINS
             "foundation|utility"

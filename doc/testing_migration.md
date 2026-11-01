@@ -527,3 +527,17 @@ This is source-level validation only. The full Numeric CI matrix
 (Ubuntu, macOS, Windows, Sanitizers, Coverage) must pass on this commit
 before treating the change as runtime-verified. Do not weaken numerical
 expectations or silence unclassified failures.
+
+## 2026-11-01: Restrict dependency checks to shared Configuration and Utility
+
+Follow-up to the dependency synchronization above: `Testing` itself is
+allowed to be pinned to different commits by Numeric, Foundation, and
+Logging. Removed the cross-chain `require_same_dependency_commit(Testing)`
+check; equal Testing gitlinks were a coincidental property of the
+currently selected dependency revisions, not an architectural requirement.
+
+The `Configuration` consistency check **still** includes
+`testing|configuration` as requested, so the direct Testing submodule's
+Configuration gitlink must agree with the other Configuration chains.
+The pre-existing `Utility` consistency check remains unchanged.
+No gitlinks, numerical checks, or test bodies were altered.
