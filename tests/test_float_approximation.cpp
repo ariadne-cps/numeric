@@ -259,7 +259,7 @@ TestFloatApproximation<PR>::test_comparison()
 }
 
 
-int main() {
+int main(int argc, char** argv) {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
 
@@ -280,5 +280,5 @@ int main() {
     };
     register_precision("FloatDP",dp);
     register_precision("FloatMP-128",MultiplePrecision(128_bits));
-    return Ariadne::Testing::run_suite(suite);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }

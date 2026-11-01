@@ -139,11 +139,11 @@ void TestRoundingMode::test() {
 }
 
 
-int main() {
+int main(int argc, char** argv) {
     Ariadne::Testing::Suite suite("rounding_mode");
     suite.add("rounding mode contracts", [](Ariadne::Testing::Context& context) {
         TestRoundingMode(context).test();
     });
-    return Ariadne::Testing::run_suite(suite);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }
 

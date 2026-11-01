@@ -164,7 +164,7 @@ void test_decimal(Ariadne::Testing::Context& ctx)
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     Ariadne::Testing::Suite suite("decimal");
     suite.add("decimal semantics", [](Ariadne::Testing::Context& ctx) {
@@ -173,5 +173,5 @@ int main()
     suite.add("decimal exact oracle", [](Ariadne::Testing::Context& ctx) {
         test_decimal_oracle(ctx);
     });
-    return Ariadne::Testing::run_suite(suite);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }

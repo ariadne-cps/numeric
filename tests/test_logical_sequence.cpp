@@ -12,12 +12,12 @@
 #include <iostream>
 using namespace Ariadne;
 class TestLogicalSequence : public Ariadne::Testing::ContextFixture { public: using ContextFixture::ContextFixture; Void test(); };
-int main() {
+int main(int argc, char** argv) {
     Ariadne::Testing::Suite suite("logical_sequence");
     suite.add("disjunction and conjunction", [](Ariadne::Testing::Context& context) {
         TestLogicalSequence(context).test();
     });
-    return Ariadne::Testing::run_suite(suite);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }
 Void TestLogicalSequence::test() {
     Sequence<LowerKleenean> seq([](Natural n){return n==2 ? LowerKleenean(true) : LowerKleenean(indeterminate);});

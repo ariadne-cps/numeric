@@ -3447,7 +3447,7 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
 
@@ -3484,5 +3484,5 @@ int main() {
     register_precision("FloatDP",dp);
     register_precision("FloatMP-64",MultiplePrecision(64_bits));
     register_precision("FloatMP-192",MultiplePrecision(192_bits));
-    return Ariadne::Testing::run_suite(suite);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }

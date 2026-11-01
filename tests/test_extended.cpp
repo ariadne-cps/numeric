@@ -108,7 +108,7 @@ void test_dyadic_extended(Ariadne::Testing::Context& ctx)
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     Ariadne::Testing::Suite suite("extended");
     suite.add("integer comparison", [](Ariadne::Testing::Context& ctx) {
@@ -120,5 +120,5 @@ int main()
     suite.add("dyadic extended", [](Ariadne::Testing::Context& ctx) {
         test_dyadic_extended(ctx);
     });
-    return Ariadne::Testing::run_suite(suite);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }

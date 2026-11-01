@@ -205,7 +205,7 @@ void test_float_error(typename F::PrecisionType pr, Ariadne::Testing::Context& c
 
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     Ariadne::Testing::Suite suite("float_error");
     suite.add("FloatDP", [](Ariadne::Testing::Context& ctx) {
@@ -214,5 +214,5 @@ int main()
     suite.add("FloatMP-128", [](Ariadne::Testing::Context& ctx) {
         test_float_error<FloatMP>(MultiplePrecision(128_bits),ctx);
     });
-    return Ariadne::Testing::run_suite(suite);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }
