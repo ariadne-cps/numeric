@@ -2021,7 +2021,8 @@ void TestFloatStandalone::test_floatmp_scalar_ratio_limits() {
 
 void TestFloatStandalone::test_floatmp_computational_limits() {
     const MultiplePrecision precision(128_bits);
-    const auto expect_overflow=[](auto operation) {
+    // The new fixture assertion requires ctx() from the enclosing instance.
+    const auto expect_overflow=[this](auto operation) {
         bool raised=false;
         try { (void)operation(); }
         catch(std::overflow_error const&) { raised=true; }

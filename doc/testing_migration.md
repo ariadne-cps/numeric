@@ -625,3 +625,16 @@ along with checking for active legacy macros. The source patch has not
 been locally compiled; accept it only after complete Numeric CI
 (Ubuntu, macOS, Windows, Sanitizers, Coverage). Inconclusive numerical
 evidence must be investigated rather than coerced into a pass.
+
+## 2026-11-01: Fix Float computational-limits fixture lambda capture
+
+The first `test_float` conversion CI revealed a compile error in
+`TestFloatStandalone::test_floatmp_computational_limits` in Debug
+builds: the local `expect_overflow` helper used a captureless lambda
+but contained `ARIADNE_TESTING_PROVE(raised)`, whose expansion requires
+`this->ctx()`. Capture `[this]` explicitly, leaving the
+`std::overflow_error` handling and all three exp/sin/pow resource-guard
+test inputs and expectations unchanged. Audited the other captureless
+lambda in `test_float` (the FloatMP min/max oracle input parser),
+which invokes no fixture assertion and does not require capture.
+The fix is source-reviewed, not yet compiler-/CI-verified.
