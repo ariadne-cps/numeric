@@ -197,3 +197,35 @@ consumer or test framework source is changed.
 Compilation of the test-local helper syntax under GCC/Clang C++20 was checked
 using a minimal standalone mock; acceptance still requires full Numeric CI
 for this exact commit on Ubuntu, macOS, Windows, Sanitizers, and Coverage.
+
+## 2026-11-01: Rational test suite migration
+
+Migrated `test_rational` to Ariadne Testing on `numeric/testing`, in the
+original test order. Three preliminary cases (`integral_binary64_scale`,
+`distinct_prefixes`, `contract_edges`) are followed by the independent
+27-row scalar comparison TSV case, then the ten existing `TestRational`
+method groups (14 cases total). The 10 fixture methods now inherit
+`ContextFixture`; all four free functions accept explicit
+`Testing::Context&` and use only `_CTX(context, ...)` assertions. The
+original numeric assertions, operator predicates, exception checks and
+expectations are unchanged, including comparisons involving infinities,
+NaNs, binary64 directed rounding and frozen TSV oracles.
+
+There are 230 equality expectations, 67 propositional assertions,
+26 binary-predicate checks, and 12 exception expectations, all retained.
+The single construction macro now creates the same named local `Rational`
+and emits an inspection. Scalar comparison row identities are attached as
+scoped diagnostics rather than printed unconditionally. Diagnostics for
+R5 double-conversion mismatches are routed through `Context::warning`
+instead of writing straight to stderr; the original conversion_matches
+flag and final assertion remain unchanged. One existing source expression
+lacked a trailing semicolon because the legacy macro was statement-shaped:
+an explicit semicolon was inserted for the new macro.
+
+CTest already passes `--concise`. CMake links this target to
+`ariadne-testing`, and its direct invocation defaults to full reporting.
+Source inspection confirmed that no active legacy assertion macro remains,
+that no fixture-only assertion shorthand is used in the free functions,
+and that all converted assertion invocations terminate correctly.
+Full CI of this commit remains mandatory; do not relax oracle coverage
+or numerical expectations to make the regression green.

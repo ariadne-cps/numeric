@@ -49,7 +49,7 @@
 #include <sstream>
 #include <set>
 
-#include "macro/testing.hpp"
+#include "ariadne-testing.hpp"
 
 using namespace std;
 using namespace Ariadne;
@@ -108,11 +108,10 @@ static_assert(check_concept());
 
 
 
-class TestRational
+class TestRational : public Ariadne::Testing::ContextFixture
 {
   public:
-    void test();
-  private:
+    using ContextFixture::ContextFixture;
     void test_literal();
     void test_conversions();
     void test_arithmetic();
@@ -123,156 +122,142 @@ class TestRational
     void test_native_contract();
     void test_native_double();
     void test_differential();
-
 };
 
-void TestRational::test()
-{
-    ARIADNE_TEST_CALL(test_literal());
-    ARIADNE_TEST_CALL(test_conversions());
-    ARIADNE_TEST_CALL(test_arithmetic());
-    ARIADNE_TEST_CALL(test_rounding());
-    ARIADNE_TEST_CALL(test_comparisons());
-    ARIADNE_TEST_CALL(test_infinity());
-    ARIADNE_TEST_CALL(test_bounds());
-    ARIADNE_TEST_CALL(test_native_contract());
-    ARIADNE_TEST_CALL(test_native_double());
-    ARIADNE_TEST_CALL(test_differential());
-}
-
 void TestRational::test_literal() {
-    ARIADNE_TEST_CONSTRUCT(Rational,q,(3.25_q));
-    ARIADNE_TEST_EQUALS(q,Rational(13,4));
-    ARIADNE_TEST_EQUALS(3.25_q,Rational(13,4));
-    ARIADNE_TEST_EQUALS(-11.375_q,Rational(-91,8));
-    ARIADNE_TEST_EQUALS(10.3_q,Rational(103,10));
-    ARIADNE_TEST_EQUALS(0.333333333333333333_q,Rational(1,3));
-    ARIADNE_TEST_EQUALS(0.2857142857142857_q,Rational(2,7));
-    ARIADNE_TEST_EQUALS(operator""_q(-0.333333333333333333L),Rational(-1,3));
-    ARIADNE_TEST_FAIL(operator""_q(1.0000000002L));
-    ARIADNE_TEST_FAIL(0.453591850358036834_q);
-    ARIADNE_TEST_FAIL(3.1415926535897931_q);
+    Rational q(3.25_q);
+    ARIADNE_TESTING_INSPECT("constructed q",q);
+    ARIADNE_TESTING_EXPECT_EQUAL(q,Rational(13,4));
+    ARIADNE_TESTING_EXPECT_EQUAL(3.25_q,Rational(13,4));
+    ARIADNE_TESTING_EXPECT_EQUAL(-11.375_q,Rational(-91,8));
+    ARIADNE_TESTING_EXPECT_EQUAL(10.3_q,Rational(103,10));
+    ARIADNE_TESTING_EXPECT_EQUAL(0.333333333333333333_q,Rational(1,3));
+    ARIADNE_TESTING_EXPECT_EQUAL(0.2857142857142857_q,Rational(2,7));
+    ARIADNE_TESTING_EXPECT_EQUAL(operator""_q(-0.333333333333333333L),Rational(-1,3));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(operator""_q(1.0000000002L));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(0.453591850358036834_q);
+    ARIADNE_TESTING_EXPECT_EXCEPTION(3.1415926535897931_q);
 }
 
 void TestRational::test_conversions() {
-    ARIADNE_TEST_EQUAL(Rational(Integer(-3)),Rational(-3,1));
-    ARIADNE_TEST_EQUAL(Rational(Dyadic(-13)),Rational(-13));
-    ARIADNE_TEST_EQUAL(Rational(Dyadic(-13,3u)),Rational(-13,8));
-    ARIADNE_TEST_EQUAL(Rational(Int64(int32_t(-7))),Rational(-7));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(Integer(-3)),Rational(-3,1));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(Dyadic(-13)),Rational(-13));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(Dyadic(-13,3u)),Rational(-13,8));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(Int64(int32_t(-7))),Rational(-7));
 
     FloatDP fdp(Dyadic(5,2u),dp);
-    ARIADNE_TEST_EQUAL(Rational(fdp),Rational(5,4));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(fdp),Rational(5,4));
     // Exact FloatMP-to-Rational conversion must not depend on another floating-point backend.
     const MultiplePrecision ap_precision(256_bits);
     const FloatMP mp(Dyadic(5,2u),ap_precision);
-    ARIADNE_TEST_EQUAL(Rational(mp),Rational(5,4));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(mp),Rational(5,4));
     const Integer wide_numerator(String("123456789012345678901234567890123456789"));
     const Dyadic wide_dyadic(wide_numerator,73u);
     const FloatMP wide_ap(wide_dyadic,ap_precision);
-    ARIADNE_TEST_EQUAL(Rational(wide_ap),Rational(wide_dyadic));
-    ARIADNE_TEST_EQUAL(static_cast<Dyadic>(wide_ap),wide_dyadic);
-    ARIADNE_TEST_EQUAL(cast_integer(FloatMP(Integer(-17),ap_precision)),Integer(-17));
-    ARIADNE_TEST_FAIL(cast_integer(mp));
-    ARIADNE_TEST_ASSERT(is_nan(Rational(FloatMP::nan(ap_precision))));
-    ARIADNE_TEST_EQUAL(Rational(FloatMP::inf(Sign::POSITIVE,ap_precision)),
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(wide_ap),Rational(wide_dyadic));
+    ARIADNE_TESTING_EXPECT_EQUAL(static_cast<Dyadic>(wide_ap),wide_dyadic);
+    ARIADNE_TESTING_EXPECT_EQUAL(cast_integer(FloatMP(Integer(-17),ap_precision)),Integer(-17));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(cast_integer(mp));
+    ARIADNE_TESTING_PROVE(is_nan(Rational(FloatMP::nan(ap_precision))));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(FloatMP::inf(Sign::POSITIVE,ap_precision)),
                        Rational::inf(Sign::POSITIVE));
-    ARIADNE_TEST_EQUAL(Rational(FloatMP::inf(Sign::NEGATIVE,ap_precision)),
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(FloatMP::inf(Sign::NEGATIVE,ap_precision)),
                        Rational::inf(Sign::NEGATIVE));
 
-    ARIADNE_TEST_EQUAL(Rational(String("7/9")),Rational(7,9));
-    ARIADNE_TEST_FAIL(Rational(String("not-a-rational")));
-    ARIADNE_TEST_ASSERT(is_nan(Rational(0,0)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(String("7/9")),Rational(7,9));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Rational(String("not-a-rational")));
+    ARIADNE_TESTING_PROVE(is_nan(Rational(0,0)));
 
     Rational assigned;
     Rational source(11,13);
     assigned=source;
-    ARIADNE_TEST_EQUAL(assigned,source);
+    ARIADNE_TESTING_EXPECT_EQUAL(assigned,source);
 
     std::istringstream input("17/19");
     Rational streamed;
     input >> streamed;
-    ARIADNE_TEST_EQUAL(streamed,Rational(17,19));
+    ARIADNE_TESTING_EXPECT_EQUAL(streamed,Rational(17,19));
 
     std::istringstream empty_input;
     Rational unchanged(5,7);
     empty_input >> unchanged;
-    ARIADNE_TEST_EQUAL(unchanged,Rational(5,7));
+    ARIADNE_TESTING_EXPECT_EQUAL(unchanged,Rational(5,7));
 
     String big_digits(600,'9');
     std::ostringstream big_output;
     big_output << Integer(big_digits);
-    ARIADNE_TEST_EQUALS(big_output.str(),std::string(600,'9'));
+    ARIADNE_TESTING_EXPECT_EQUAL(big_output.str(),std::string(600,'9'));
 }
 
 void TestRational::test_arithmetic() {
-    ARIADNE_TEST_EQUAL(Rational(4,5)+Rational(-2,7),Rational(18,35));
-    ARIADNE_TEST_EQUAL(Rational(-4,5)-Rational(-2,7),Rational(-18,35));
-    ARIADNE_TEST_EQUAL(Rational(4,5)*Rational(-2,7),Rational(-8,35));
-    ARIADNE_TEST_EQUAL(Rational(4,5)/Rational(-2,7),Rational(-14,5));
-    ARIADNE_TEST_EQUAL(div(Integer(3),Integer(4)),Rational(3,4));
-    ARIADNE_TEST_EQUAL(pow(Integer(2),Int(-3)),Rational(1,8));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(4,5)+Rational(-2,7),Rational(18,35));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(-4,5)-Rational(-2,7),Rational(-18,35));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(4,5)*Rational(-2,7),Rational(-8,35));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(4,5)/Rational(-2,7),Rational(-14,5));
+    ARIADNE_TESTING_EXPECT_EQUAL(div(Integer(3),Integer(4)),Rational(3,4));
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(Integer(2),Int(-3)),Rational(1,8));
 
     Rational accumulated(3,4);
-    ARIADNE_TEST_EQUAL((accumulated+=Rational(1,4)),Rational(1));
-    ARIADNE_TEST_EQUAL((accumulated-=Rational(1,2)),Rational(1,2));
-    ARIADNE_TEST_EQUAL((accumulated*=Rational(4)),Rational(2));
-    ARIADNE_TEST_EQUAL((accumulated/=Rational(8)),Rational(1,4));
+    ARIADNE_TESTING_EXPECT_EQUAL((accumulated+=Rational(1,4)),Rational(1));
+    ARIADNE_TESTING_EXPECT_EQUAL((accumulated-=Rational(1,2)),Rational(1,2));
+    ARIADNE_TESTING_EXPECT_EQUAL((accumulated*=Rational(4)),Rational(2));
+    ARIADNE_TESTING_EXPECT_EQUAL((accumulated/=Rational(8)),Rational(1,4));
 
     PositiveRational p2=cast_positive(Rational(2));
     PositiveRational p3=cast_positive(Rational(3));
-    ARIADNE_TEST_FAIL(cast_positive(Rational(-1)));
-    ARIADNE_TEST_EQUAL(max(Rational(-1),p2),Rational(2));
-    ARIADNE_TEST_EQUAL(max(p2,Rational(4)),Rational(4));
-    ARIADNE_TEST_EQUAL(max(p2,p3),Rational(3));
-    ARIADNE_TEST_EQUAL(min(p2,p3),Rational(2));
-    ARIADNE_TEST_EQUAL(mag(Rational(-5,3)),Rational(5,3));
-    ARIADNE_TEST_EQUAL(mig(Rational(-5,3)),Rational(5,3));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(cast_positive(Rational(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(max(Rational(-1),p2),Rational(2));
+    ARIADNE_TESTING_EXPECT_EQUAL(max(p2,Rational(4)),Rational(4));
+    ARIADNE_TESTING_EXPECT_EQUAL(max(p2,p3),Rational(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(min(p2,p3),Rational(2));
+    ARIADNE_TESTING_EXPECT_EQUAL(mag(Rational(-5,3)),Rational(5,3));
+    ARIADNE_TESTING_EXPECT_EQUAL(mig(Rational(-5,3)),Rational(5,3));
 }
 
 void TestRational::test_rounding() {
-    ARIADNE_TEST_EQUALS(round(Rational(0)),Integer(0));
-    ARIADNE_TEST_EQUALS(round(Rational(3)),Integer(3));
-    ARIADNE_TEST_EQUALS(round(Rational(-11,4)),Integer(-3));
-    ARIADNE_TEST_EQUALS(round(Rational(-10,4)),Integer(-3));
-    ARIADNE_TEST_EQUALS(round(Rational(-9,4)),Integer(-2));
-    ARIADNE_TEST_EQUALS(round(Rational(9,4)),Integer(2));
-    ARIADNE_TEST_EQUALS(round(Rational(10,4)),Integer(3));
-    ARIADNE_TEST_EQUALS(round(Rational(11,4)),Integer(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(round(Rational(0)),Integer(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(round(Rational(3)),Integer(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(round(Rational(-11,4)),Integer(-3));
+    ARIADNE_TESTING_EXPECT_EQUAL(round(Rational(-10,4)),Integer(-3));
+    ARIADNE_TESTING_EXPECT_EQUAL(round(Rational(-9,4)),Integer(-2));
+    ARIADNE_TESTING_EXPECT_EQUAL(round(Rational(9,4)),Integer(2));
+    ARIADNE_TESTING_EXPECT_EQUAL(round(Rational(10,4)),Integer(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(round(Rational(11,4)),Integer(3));
 
-    ARIADNE_TEST_EQUALS(ceil(Rational(-13,4)),Integer(-3));
-    ARIADNE_TEST_EQUALS(ceil(Rational(-12,4)),Integer(-3));
-    ARIADNE_TEST_EQUALS(ceil(Rational(0,4)),Integer(0));
-    ARIADNE_TEST_EQUALS(ceil(Rational(12,4)),Integer(3));
-    ARIADNE_TEST_EQUALS(ceil(Rational(13,4)),Integer(4));
+    ARIADNE_TESTING_EXPECT_EQUAL(ceil(Rational(-13,4)),Integer(-3));
+    ARIADNE_TESTING_EXPECT_EQUAL(ceil(Rational(-12,4)),Integer(-3));
+    ARIADNE_TESTING_EXPECT_EQUAL(ceil(Rational(0,4)),Integer(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(ceil(Rational(12,4)),Integer(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(ceil(Rational(13,4)),Integer(4));
 
-    ARIADNE_TEST_EQUALS(floor(Rational(-13,4)),Integer(-4));
-    ARIADNE_TEST_EQUALS(floor(Rational(-12,4)),Integer(-3));
-    ARIADNE_TEST_EQUALS(floor(Rational(0,4)),Integer(0));
-    ARIADNE_TEST_EQUALS(floor(Rational(12,4)),Integer(3));
-    ARIADNE_TEST_EQUALS(floor(Rational(13,4)),Integer(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(floor(Rational(-13,4)),Integer(-4));
+    ARIADNE_TESTING_EXPECT_EQUAL(floor(Rational(-12,4)),Integer(-3));
+    ARIADNE_TESTING_EXPECT_EQUAL(floor(Rational(0,4)),Integer(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(floor(Rational(12,4)),Integer(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(floor(Rational(13,4)),Integer(3));
 
-    ARIADNE_TEST_FAIL(round(Rational::inf()));
-    ARIADNE_TEST_FAIL(ceil(Rational::inf()));
-    ARIADNE_TEST_FAIL(floor(Rational::inf()));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(round(Rational::inf()));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(ceil(Rational::inf()));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(floor(Rational::inf()));
 }
 
 void TestRational::test_comparisons() {
     ExactDouble infinity_value=ExactDouble::inf();
     ExactDouble max=ExactDouble(std::numeric_limits<double>::max());
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-max),Rational(+max));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-max),Rational(-4,5));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-max),Rational(2,3));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-4,5),Rational(-2,7));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,-infinity_value,Rational(18,35));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(18,35),+infinity_value);
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(-max),Rational(+max));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(-max),Rational(-4,5));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(-max),Rational(2,3));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(-4,5),Rational(-2,7));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,-infinity_value,Rational(18,35));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(18,35),+infinity_value);
 
-    ARIADNE_TEST_EQUALS(cmp(Rational(1),ExactDouble(2)),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(cmp(Rational(2),ExactDouble(2)),Comparison::EQUAL);
-    ARIADNE_TEST_EQUALS(cmp(Rational(3),ExactDouble(2)),Comparison::GREATER);
-    ARIADNE_TEST_EQUALS(cmp(Rational(1),ExactDouble::inf()),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(cmp(Rational(1),-ExactDouble::inf()),Comparison::GREATER);
-    ARIADNE_TEST_EQUALS(cmp(ExactDouble(2),Rational(1)),Comparison::GREATER);
-    ARIADNE_TEST_FAIL(cmp(Rational(1),ExactDouble(std::numeric_limits<double>::quiet_NaN())));
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational(1),ExactDouble(2)),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational(2),ExactDouble(2)),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational(3),ExactDouble(2)),Comparison::GREATER);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational(1),ExactDouble::inf()),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational(1),-ExactDouble::inf()),Comparison::GREATER);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(ExactDouble(2),Rational(1)),Comparison::GREATER);
+    ARIADNE_TESTING_EXPECT_EXCEPTION(cmp(Rational(1),ExactDouble(std::numeric_limits<double>::quiet_NaN())));
 }
 
 void TestRational::test_infinity() {
@@ -280,137 +265,137 @@ void TestRational::test_infinity() {
     Rational qninf=Rational::inf(Sign::NEGATIVE);
     Rational qnan=Rational::nan();
 
-    ARIADNE_TEST_ASSERT(is_inf(Rational(ExactDouble(std::numeric_limits<double>::infinity()))));
-    ARIADNE_TEST_ASSERT(is_inf(Rational(ExactDouble(-std::numeric_limits<double>::infinity()))));
-    ARIADNE_TEST_ASSERT(is_nan(Rational(ExactDouble(std::numeric_limits<double>::quiet_NaN()))));
+    ARIADNE_TESTING_PROVE(is_inf(Rational(ExactDouble(std::numeric_limits<double>::infinity()))));
+    ARIADNE_TESTING_PROVE(is_inf(Rational(ExactDouble(-std::numeric_limits<double>::infinity()))));
+    ARIADNE_TESTING_PROVE(is_nan(Rational(ExactDouble(std::numeric_limits<double>::quiet_NaN()))));
 
-    ARIADNE_TEST_ASSERT(is_nan(Rational::nan()));
-    ARIADNE_TEST_ASSERT(not is_inf(Rational::nan()));
-    ARIADNE_TEST_ASSERT(not is_zero(Rational(1)));
-    ARIADNE_TEST_ASSERT(not is_zero(Rational::nan()));
-    ARIADNE_TEST_ASSERT(is_inf(Rational::inf()));
-    ARIADNE_TEST_ASSERT(is_inf(Rational::inf(Sign(+1))));
-    ARIADNE_TEST_ASSERT(is_inf(Rational::inf(Sign(-1))));
-    ARIADNE_TEST_ASSERT(is_finite(Rational(0)));
-    ARIADNE_TEST_ASSERT(is_zero(Rational(0)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(+1)),Rational::inf());
-    ARIADNE_TEST_ASSERT(Rational::inf(Sign(+1))>Rational(0));
-    ARIADNE_TEST_ASSERT(Rational::inf(Sign(-1))<Rational(0));
+    ARIADNE_TESTING_PROVE(is_nan(Rational::nan()));
+    ARIADNE_TESTING_PROVE(not is_inf(Rational::nan()));
+    ARIADNE_TESTING_PROVE(not is_zero(Rational(1)));
+    ARIADNE_TESTING_PROVE(not is_zero(Rational::nan()));
+    ARIADNE_TESTING_PROVE(is_inf(Rational::inf()));
+    ARIADNE_TESTING_PROVE(is_inf(Rational::inf(Sign(+1))));
+    ARIADNE_TESTING_PROVE(is_inf(Rational::inf(Sign(-1))));
+    ARIADNE_TESTING_PROVE(is_finite(Rational(0)));
+    ARIADNE_TESTING_PROVE(is_zero(Rational(0)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(+1)),Rational::inf());
+    ARIADNE_TESTING_PROVE(Rational::inf(Sign(+1))>Rational(0));
+    ARIADNE_TESTING_PROVE(Rational::inf(Sign(-1))<Rational(0));
 
-    ARIADNE_TEST_EQUALS(sgn(Rational::inf()), Sign::POSITIVE);
-    ARIADNE_TEST_EQUALS(sgn(Rational::nan()), Sign::ZERO);
-    ARIADNE_TEST_EQUALS(sgn(-Rational::inf()), Sign::NEGATIVE);
+    ARIADNE_TESTING_EXPECT_EQUAL(sgn(Rational::inf()), Sign::POSITIVE);
+    ARIADNE_TESTING_EXPECT_EQUAL(sgn(Rational::nan()), Sign::ZERO);
+    ARIADNE_TESTING_EXPECT_EQUAL(sgn(-Rational::inf()), Sign::NEGATIVE);
 
-    ARIADNE_TEST_ASSERT(std::isnan(Rational::nan().get_d()));
-    ARIADNE_TEST_EQUAL(Rational::inf(Sign::POSITIVE).get_d(),std::numeric_limits<double>::infinity());
-    ARIADNE_TEST_EQUAL(Rational::inf(Sign::NEGATIVE).get_d(),-std::numeric_limits<double>::infinity());
+    ARIADNE_TESTING_PROVE(std::isnan(Rational::nan().get_d()));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign::POSITIVE).get_d(),std::numeric_limits<double>::infinity());
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign::NEGATIVE).get_d(),-std::numeric_limits<double>::infinity());
 
-    ARIADNE_TEST_BINARY_PREDICATE(operator==,Rational(2,0),Rational(1,0));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-1,0),Rational(2,0));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-1,2),Rational(1,0));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(0,1),Rational(1,0));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(3,2),Rational(1,0));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-1,0),Rational(1,2));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-1,0),Rational(-3,2));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator==,Rational(2,0),Rational(1,0));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(-1,0),Rational(2,0));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(-1,2),Rational(1,0));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(0,1),Rational(1,0));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(3,2),Rational(1,0));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(-1,0),Rational(1,2));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(-1,0),Rational(-3,2));
 
-    ARIADNE_TEST_BINARY_PREDICATE(operator==,Rational::inf(),Rational::inf());
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(-1,4),Rational::inf());
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(0),Rational::inf());
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,Rational(3,2),Rational::inf());
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,-Rational::inf(),Rational::inf());
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,-Rational::inf(),Rational(1,4));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<,-Rational::inf(),Rational(-3,2));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator==,Rational::inf(),Rational::inf());
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(-1,4),Rational::inf());
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(0),Rational::inf());
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Rational(3,2),Rational::inf());
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,-Rational::inf(),Rational::inf());
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,-Rational::inf(),Rational(1,4));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,-Rational::inf(),Rational(-3,2));
 
-    ARIADNE_TEST_BINARY_PREDICATE(operator!=,Rational::inf(),Rational(1,2));
-    ARIADNE_TEST_BINARY_PREDICATE(operator>=,Rational::inf(),Rational(1,2));
-    ARIADNE_TEST_BINARY_PREDICATE(operator> ,Rational::inf(),Rational(1,2));
-    ARIADNE_TEST_BINARY_PREDICATE(operator!=,Rational::inf(Sign::NEGATIVE),Rational(-1,2));
-    ARIADNE_TEST_BINARY_PREDICATE(operator<=,Rational::inf(Sign::NEGATIVE),Rational(-1,2));
-    ARIADNE_TEST_BINARY_PREDICATE(operator< ,Rational::inf(Sign::NEGATIVE),Rational(-1,2));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator!=,Rational::inf(),Rational(1,2));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator>=,Rational::inf(),Rational(1,2));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator> ,Rational::inf(),Rational(1,2));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator!=,Rational::inf(Sign::NEGATIVE),Rational(-1,2));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<=,Rational::inf(Sign::NEGATIVE),Rational(-1,2));
+    ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator< ,Rational::inf(Sign::NEGATIVE),Rational(-1,2));
 
-    ARIADNE_TEST_ASSERT(is_nan(-Rational::nan()));
-    ARIADNE_TEST_EQUAL(-Rational::inf(Sign::POSITIVE),Rational::inf(Sign::NEGATIVE));
-    ARIADNE_TEST_EQUAL(-Rational::inf(Sign::NEGATIVE),Rational::inf(Sign::POSITIVE));
+    ARIADNE_TESTING_PROVE(is_nan(-Rational::nan()));
+    ARIADNE_TESTING_EXPECT_EQUAL(-Rational::inf(Sign::POSITIVE),Rational::inf(Sign::NEGATIVE));
+    ARIADNE_TESTING_EXPECT_EQUAL(-Rational::inf(Sign::NEGATIVE),Rational::inf(Sign::POSITIVE));
 
-    ARIADNE_TEST_ASSERT(is_nan(Rational::inf()+(-Rational::inf())));
-    ARIADNE_TEST_EQUALS(Rational::inf()+Rational::inf(),Rational::inf());
-    ARIADNE_TEST_EQUALS(Rational::inf()+Rational(-2),Rational::inf());
+    ARIADNE_TESTING_PROVE(is_nan(Rational::inf()+(-Rational::inf())));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf()+Rational::inf(),Rational::inf());
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf()+Rational(-2),Rational::inf());
 
-    ARIADNE_TEST_ASSERT(is_nan(Rational::inf()-Rational::inf()));
-    ARIADNE_TEST_EQUALS(Rational(2)-Rational::inf(),-Rational::inf())
+    ARIADNE_TESTING_PROVE(is_nan(Rational::inf()-Rational::inf()));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(2)-Rational::inf(),-Rational::inf());
 
-    ARIADNE_TEST_ASSERT(is_nan(Rational::inf(Sign(+1))*Rational(0)));
-    ARIADNE_TEST_ASSERT(is_nan(Rational::inf(Sign(-1))*Rational(0)));
-    ARIADNE_TEST_ASSERT(is_nan(Rational(0)*Rational::inf(Sign(+1))));
-    ARIADNE_TEST_ASSERT(is_nan(Rational(0)*Rational::inf(Sign(-1))));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(+1))*Rational::inf(Sign(+1)),Rational::inf(Sign(+1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(+1))*Rational::inf(Sign(-1)),Rational::inf(Sign(-1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(-1))*Rational::inf(Sign(+1)),Rational::inf(Sign(-1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(-1))*Rational::inf(Sign(-1)),Rational::inf(Sign(+1)));
-    ARIADNE_TEST_EQUALS(Rational(+2)*Rational::inf(Sign(+1)),Rational::inf(Sign(+1)));
-    ARIADNE_TEST_EQUALS(Rational(+2)*Rational::inf(Sign(-1)),Rational::inf(Sign(-1)));
-    ARIADNE_TEST_EQUALS(Rational(-2)*Rational::inf(Sign(+1)),Rational::inf(Sign(-1)));
-    ARIADNE_TEST_EQUALS(Rational(-2)*Rational::inf(Sign(-1)),Rational::inf(Sign(+1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(+1))*Rational(+2),Rational::inf(Sign(+1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(+1))*Rational(-2),Rational::inf(Sign(-1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(-1))*Rational(+2),Rational::inf(Sign(-1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(-1))*Rational(-2),Rational::inf(Sign(+1)));
+    ARIADNE_TESTING_PROVE(is_nan(Rational::inf(Sign(+1))*Rational(0)));
+    ARIADNE_TESTING_PROVE(is_nan(Rational::inf(Sign(-1))*Rational(0)));
+    ARIADNE_TESTING_PROVE(is_nan(Rational(0)*Rational::inf(Sign(+1))));
+    ARIADNE_TESTING_PROVE(is_nan(Rational(0)*Rational::inf(Sign(-1))));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(+1))*Rational::inf(Sign(+1)),Rational::inf(Sign(+1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(+1))*Rational::inf(Sign(-1)),Rational::inf(Sign(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(-1))*Rational::inf(Sign(+1)),Rational::inf(Sign(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(-1))*Rational::inf(Sign(-1)),Rational::inf(Sign(+1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(+2)*Rational::inf(Sign(+1)),Rational::inf(Sign(+1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(+2)*Rational::inf(Sign(-1)),Rational::inf(Sign(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(-2)*Rational::inf(Sign(+1)),Rational::inf(Sign(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(-2)*Rational::inf(Sign(-1)),Rational::inf(Sign(+1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(+1))*Rational(+2),Rational::inf(Sign(+1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(+1))*Rational(-2),Rational::inf(Sign(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(-1))*Rational(+2),Rational::inf(Sign(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(-1))*Rational(-2),Rational::inf(Sign(+1)));
 
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(+1))/Rational(+2),Rational::inf(Sign(+1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(+1))/Rational(-2),Rational::inf(Sign(-1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(-1))/Rational(+2),Rational::inf(Sign(-1)));
-    ARIADNE_TEST_EQUALS(Rational::inf(Sign(-1))/Rational(-2),Rational::inf(Sign(+1)));
-    ARIADNE_TEST_EQUALS(Rational(+2)/Rational::inf(Sign(+1)),Rational(0));
-    ARIADNE_TEST_EQUALS(Rational(-2)/Rational::inf(Sign(+1)),Rational(0));
-    ARIADNE_TEST_EQUALS(Rational(+2)/Rational::inf(Sign(-1)),Rational(0));
-    ARIADNE_TEST_EQUALS(Rational(-2)/Rational::inf(Sign(-1)),Rational(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(+1))/Rational(+2),Rational::inf(Sign(+1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(+1))/Rational(-2),Rational::inf(Sign(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(-1))/Rational(+2),Rational::inf(Sign(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational::inf(Sign(-1))/Rational(-2),Rational::inf(Sign(+1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(+2)/Rational::inf(Sign(+1)),Rational(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(-2)/Rational::inf(Sign(+1)),Rational(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(+2)/Rational::inf(Sign(-1)),Rational(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(-2)/Rational::inf(Sign(-1)),Rational(0));
 
-    ARIADNE_TEST_ASSERT(is_nan(abs(Rational::nan())));
-    ARIADNE_TEST_EQUALS(abs(Rational::inf()),Rational::inf());
-    ARIADNE_TEST_EQUALS(abs(-Rational::inf()),Rational::inf());
+    ARIADNE_TESTING_PROVE(is_nan(abs(Rational::nan())));
+    ARIADNE_TESTING_EXPECT_EQUAL(abs(Rational::inf()),Rational::inf());
+    ARIADNE_TESTING_EXPECT_EQUAL(abs(-Rational::inf()),Rational::inf());
 
-    ARIADNE_TEST_ASSERT(is_nan(max(Rational::nan(),Rational(0))));
-    ARIADNE_TEST_ASSERT(is_nan(max(Rational::nan(),Rational::inf())));
-    ARIADNE_TEST_EQUALS(max(Rational::inf(Sign(-1)),Rational::inf(Sign(-1))),Rational::inf(Sign(-1)));
-    ARIADNE_TEST_EQUALS(max(Rational::inf(Sign(-1)),Rational(-2)),Rational(-2));
-    ARIADNE_TEST_EQUALS(max(Rational(-2),Rational::inf(Sign(+1))),Rational::inf(Sign(+1)));
+    ARIADNE_TESTING_PROVE(is_nan(max(Rational::nan(),Rational(0))));
+    ARIADNE_TESTING_PROVE(is_nan(max(Rational::nan(),Rational::inf())));
+    ARIADNE_TESTING_EXPECT_EQUAL(max(Rational::inf(Sign(-1)),Rational::inf(Sign(-1))),Rational::inf(Sign(-1)));
+    ARIADNE_TESTING_EXPECT_EQUAL(max(Rational::inf(Sign(-1)),Rational(-2)),Rational(-2));
+    ARIADNE_TESTING_EXPECT_EQUAL(max(Rational(-2),Rational::inf(Sign(+1))),Rational::inf(Sign(+1)));
 
-    ARIADNE_TEST_EQUALS(Rational(Dyadic::inf(Sign::POSITIVE)),qinf);
-    ARIADNE_TEST_EQUALS(Rational(Dyadic::inf(Sign::NEGATIVE)),qninf);
-    ARIADNE_TEST_ASSERT(is_nan(Rational(Dyadic::inf(Sign::ZERO))));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(Dyadic::inf(Sign::POSITIVE)),qinf);
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(Dyadic::inf(Sign::NEGATIVE)),qninf);
+    ARIADNE_TESTING_PROVE(is_nan(Rational(Dyadic::inf(Sign::ZERO))));
 
 }
 
 void TestRational::test_native_contract() {
-    ARIADNE_TEST_EQUALS(Rational(6,-8).numerator(),Integer(-3));
-    ARIADNE_TEST_EQUALS(Rational(6,-8).denominator(),Natural(4u));
-    ARIADNE_TEST_EQUALS(Rational(0,-8).denominator(),Natural(1u));
-    ARIADNE_TEST_EQUALS(Rational(-6,-8),Rational(3,4));
-    ARIADNE_TEST_EQUALS(Rational(std::numeric_limits<std::uint64_t>::max()).numerator(),
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(6,-8).numerator(),Integer(-3));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(6,-8).denominator(),Natural(4u));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(0,-8).denominator(),Natural(1u));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(-6,-8),Rational(3,4));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(std::numeric_limits<std::uint64_t>::max()).numerator(),
                         Integer(String("18446744073709551615")));
-    ARIADNE_TEST_EQUALS(Rational(String("  -12 / -18  ")),Rational(2,3));
-    ARIADNE_TEST_EQUALS(Rational(String("+0042")),Rational(42));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(String("  -12 / -18  ")),Rational(2,3));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(String("+0042")),Rational(42));
     for (const char* text : {"", "/2", "2/", "1/2/3", "--1", "1.5"}) {
-        ARIADNE_TEST_FAIL(Rational(String(text)));
+        ARIADNE_TESTING_EXPECT_EXCEPTION(Rational(String(text)));
     }
-    ARIADNE_TEST_ASSERT(is_nan(Rational(String("0/0"))));
-    ARIADNE_TEST_EQUALS(Rational(String("-27/0")),Rational::inf(Sign::NEGATIVE));
-    ARIADNE_TEST_EQUALS(Rational(5)/Rational(0),Rational::inf());
-    ARIADNE_TEST_EQUALS(Rational(-5)/Rational(0),Rational::inf(Sign::NEGATIVE));
-    ARIADNE_TEST_ASSERT(is_nan(Rational(0)/Rational(0)));
-    ARIADNE_TEST_EQUALS(rec(Rational(0)),Rational::inf());
-    ARIADNE_TEST_EQUALS(rec(Rational::inf()),Rational(0));
-    ARIADNE_TEST_ASSERT(is_nan(Rational::inf()/Rational::inf()));
-    ARIADNE_TEST_EQUALS(cmp(Rational::inf(),ExactDouble::inf()),Comparison::EQUAL);
-    ARIADNE_TEST_EQUALS(cmp(-Rational::inf(),-ExactDouble::inf()),Comparison::EQUAL);
-    ARIADNE_TEST_EQUALS(cmp(Rational::nan(),ExactDouble::inf()),Comparison::INCOMPARABLE);
+    ARIADNE_TESTING_PROVE(is_nan(Rational(String("0/0"))));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(String("-27/0")),Rational::inf(Sign::NEGATIVE));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(5)/Rational(0),Rational::inf());
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(-5)/Rational(0),Rational::inf(Sign::NEGATIVE));
+    ARIADNE_TESTING_PROVE(is_nan(Rational(0)/Rational(0)));
+    ARIADNE_TESTING_EXPECT_EQUAL(rec(Rational(0)),Rational::inf());
+    ARIADNE_TESTING_EXPECT_EQUAL(rec(Rational::inf()),Rational(0));
+    ARIADNE_TESTING_PROVE(is_nan(Rational::inf()/Rational::inf()));
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational::inf(),ExactDouble::inf()),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(-Rational::inf(),-ExactDouble::inf()),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational::nan(),ExactDouble::inf()),Comparison::INCOMPARABLE);
     const MultiplePrecision precision(128_bits);
     const FloatMP infinite_float(ExactDouble::inf(),precision);
     const FloatMP finite(ExactDouble(1.0),precision);
-    ARIADNE_TEST_EQUALS(cmp(infinite_float,Rational::inf()),Comparison::EQUAL);
-    ARIADNE_TEST_EQUALS(cmp(Rational::inf(),infinite_float),Comparison::EQUAL);
-    ARIADNE_TEST_EQUALS(cmp(finite,Rational::inf()),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(cmp(Rational::nan(),finite),Comparison::INCOMPARABLE);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(infinite_float,Rational::inf()),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational::inf(),infinite_float),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(finite,Rational::inf()),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational::nan(),finite),Comparison::INCOMPARABLE);
 
     // R8: original 4x4 near-2^64 exact cross-product ordering.
     // Freeze independent expected signs; test reversed signed ordering too.
@@ -436,10 +421,10 @@ void TestRational::test_native_contract() {
                 }
                 const Comparison expected=order<0 ? Comparison::LESS
                     : order>0 ? Comparison::GREATER : Comparison::EQUAL;
-                ARIADNE_TEST_EQUALS(cmp(samples[i],samples[j]),expected);
+                ARIADNE_TESTING_EXPECT_EQUAL(cmp(samples[i],samples[j]),expected);
                 const Comparison reversed=order>0 ? Comparison::LESS
                     : order<0 ? Comparison::GREATER : Comparison::EQUAL;
-                ARIADNE_TEST_EQUALS(cmp(-samples[i],-samples[j]),reversed);
+                ARIADNE_TESTING_EXPECT_EQUAL(cmp(-samples[i],-samples[j]),reversed);
             }
         }
         std::string extra;
@@ -468,10 +453,10 @@ void TestRational::test_native_contract() {
                 const Rational b{Integer(String(bn)),Integer(String(bd))};
                 const Rational sum{Integer(String(sn)),Integer(String(sd))};
                 const Rational difference{Integer(String(dn)),Integer(String(dd))};
-                ARIADNE_TEST_EQUALS(a+b,sum);
-                ARIADNE_TEST_EQUALS(a-b,difference);
-                ARIADNE_TEST_EQUALS(a-a,Rational(0));
-                ARIADNE_TEST_EQUALS(b-b,Rational(0));
+                ARIADNE_TESTING_EXPECT_EQUAL(a+b,sum);
+                ARIADNE_TESTING_EXPECT_EQUAL(a-b,difference);
+                ARIADNE_TESTING_EXPECT_EQUAL(a-a,Rational(0));
+                ARIADNE_TESTING_EXPECT_EQUAL(b-b,Rational(0));
             }
         }
         std::string extra;
@@ -515,8 +500,8 @@ void TestRational::test_native_contract() {
                         ref_low!=low_index || ref_signs!=signs) {
                         throw std::runtime_error("Missing or unordered R30 TSV row");
                     }
-                    ARIADNE_TEST_EQUALS(fraction_result.numerator(),Integer(String(ref_num)));
-                    ARIADNE_TEST_EQUALS(fraction_result.denominator(),Integer(String(ref_den)));
+                    ARIADNE_TESTING_EXPECT_EQUAL(fraction_result.numerator(),Integer(String(ref_num)));
+                    ARIADNE_TESTING_EXPECT_EQUAL(fraction_result.denominator(),Integer(String(ref_den)));
                 }
             }
         }
@@ -531,8 +516,8 @@ void TestRational::test_native_contract() {
                 ref_bits!=bits || ref_high!=7u || ref_low!=0u || ref_signs!=0u) {
                 throw std::runtime_error("Missing or unordered R30 dense TSV row");
             }
-            ARIADNE_TEST_EQUALS(dense_result.numerator(),Integer(String(ref_num)));
-            ARIADNE_TEST_EQUALS(dense_result.denominator(),Integer(String(ref_den)));
+            ARIADNE_TESTING_EXPECT_EQUAL(dense_result.numerator(),Integer(String(ref_num)));
+            ARIADNE_TESTING_EXPECT_EQUAL(dense_result.denominator(),Integer(String(ref_den)));
         }
     }
     std::string r30_extra;
@@ -594,8 +579,8 @@ void TestRational::test_native_contract() {
                 const auto check_result=[](Rational const& actual,
                                            std::string const& num,
                                            std::string const& den) {
-                    ARIADNE_TEST_EQUALS(actual.numerator(),Integer(String(num)));
-                    ARIADNE_TEST_EQUALS(actual.denominator(),Integer(String(den)));
+                    ARIADNE_TESTING_EXPECT_EQUAL(actual.numerator(),Integer(String(num)));
+                    ARIADNE_TESTING_EXPECT_EQUAL(actual.denominator(),Integer(String(den)));
                 };
                 check_result(left,left_num,left_den);
                 check_result(right,right_num,right_den);
@@ -650,9 +635,9 @@ void TestRational::test_native_contract() {
                     : raw<0 ? Comparison::GREATER : Comparison::EQUAL;
                 const Rational& a=probes[i];
                 const Rational& b=probes[j];
-                ARIADNE_TEST_EQUALS(cmp(a,b),expected);
-                ARIADNE_TEST_EQUALS(cmp(b,a),reverse);
-                ARIADNE_TEST_EQUALS(cmp(-a,-b),reverse);
+                ARIADNE_TESTING_EXPECT_EQUAL(cmp(a,b),expected);
+                ARIADNE_TESTING_EXPECT_EQUAL(cmp(b,a),reverse);
+                ARIADNE_TESTING_EXPECT_EQUAL(cmp(-a,-b),reverse);
             }
         }
     }
@@ -684,10 +669,10 @@ void TestRational::test_native_contract() {
                 || ref_bits!=bits || ref_index!=index)
                 throw std::runtime_error("Missing or unordered R4 TSV row");
             const Rational& value=cases[index];
-            ARIADNE_TEST_EQUALS(value.numerator(),Integer(String(numerator)));
-            ARIADNE_TEST_EQUALS(value.denominator(),Integer(String(denominator)));
-            ARIADNE_TEST_EQUALS(floor(value),Integer(String(ref_floor)));
-            ARIADNE_TEST_EQUALS(ceil(value),Integer(String(ref_ceil)));
+            ARIADNE_TESTING_EXPECT_EQUAL(value.numerator(),Integer(String(numerator)));
+            ARIADNE_TESTING_EXPECT_EQUAL(value.denominator(),Integer(String(denominator)));
+            ARIADNE_TESTING_EXPECT_EQUAL(floor(value),Integer(String(ref_floor)));
+            ARIADNE_TESTING_EXPECT_EQUAL(ceil(value),Integer(String(ref_ceil)));
         }
     }
     std::string extra_r4;
@@ -713,70 +698,70 @@ void TestRational::test_native_contract() {
             : raw>0 ? Comparison::GREATER : Comparison::EQUAL;
         const Comparison reversed=raw>0 ? Comparison::LESS
             : raw<0 ? Comparison::GREATER : Comparison::EQUAL;
-        ARIADNE_TEST_EQUALS(cmp(a,b),expected);
-        ARIADNE_TEST_EQUALS(cmp(b,a),reversed);
-        ARIADNE_TEST_EQUALS(cmp(-a,-b),reversed);
-        ARIADNE_TEST_EQUALS(cmp(-b,-a),expected);
-        ARIADNE_TEST_EQUALS(cmp(Rational(0),a),Comparison::LESS);
-        ARIADNE_TEST_EQUALS(cmp(a,Rational(0)),Comparison::GREATER);
+        ARIADNE_TESTING_EXPECT_EQUAL(cmp(a,b),expected);
+        ARIADNE_TESTING_EXPECT_EQUAL(cmp(b,a),reversed);
+        ARIADNE_TESTING_EXPECT_EQUAL(cmp(-a,-b),reversed);
+        ARIADNE_TESTING_EXPECT_EQUAL(cmp(-b,-a),expected);
+        ARIADNE_TESTING_EXPECT_EQUAL(cmp(Rational(0),a),Comparison::LESS);
+        ARIADNE_TESTING_EXPECT_EQUAL(cmp(a,Rational(0)),Comparison::GREATER);
     }
     std::string r3_extra;
     if (r3_golden >> r3_extra)
         throw std::runtime_error("Extra R3 oracle TSV rows");
     const Integer factor=pow(Integer(2),Nat(320))+1;
     const Rational a(factor*7,11),b(11,factor*13);
-    ARIADNE_TEST_EQUALS(a*b,Rational(7,13));
-    ARIADNE_TEST_EQUALS(a/a,Rational(1));
-    ARIADNE_TEST_EQUALS(a-a,Rational(0));
-    ARIADNE_TEST_EQUALS((a-a).denominator(),Natural(1u));
-    ARIADNE_TEST_EQUALS(Rational(1,6)+Rational(1,10),Rational(4,15));
-    ARIADNE_TEST_EQUALS(hlf(Rational(-6,7)),Rational(-3,7));
-    ARIADNE_TEST_EQUALS(hlf(Rational(-3,7)),Rational(-3,14));
-    ARIADNE_TEST_EQUALS(sqr(Rational(-3,7)),Rational(9,49));
-    ARIADNE_TEST_EQUALS(fma(Rational(2,3),Rational(3,7),Rational(1,7)),Rational(3,7));
-    ARIADNE_TEST_EQUALS(pow(Rational(-2,3),Int(-3)),Rational(-27,8));
-    ARIADNE_TEST_EQUALS(pow(Rational(-1),std::numeric_limits<Int>::min()),Rational(1));
-    ARIADNE_TEST_EQUALS(pow(Integer(-1),std::numeric_limits<Int>::min()),Rational(1));
-    ARIADNE_TEST_EQUALS(pow(Rational::nan(),Nat(0)),Rational(1));
-    ARIADNE_TEST_ASSERT(is_nan(pow(Rational::nan(),Nat(3))));
+    ARIADNE_TESTING_EXPECT_EQUAL(a*b,Rational(7,13));
+    ARIADNE_TESTING_EXPECT_EQUAL(a/a,Rational(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(a-a,Rational(0));
+    ARIADNE_TESTING_EXPECT_EQUAL((a-a).denominator(),Natural(1u));
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(1,6)+Rational(1,10),Rational(4,15));
+    ARIADNE_TESTING_EXPECT_EQUAL(hlf(Rational(-6,7)),Rational(-3,7));
+    ARIADNE_TESTING_EXPECT_EQUAL(hlf(Rational(-3,7)),Rational(-3,14));
+    ARIADNE_TESTING_EXPECT_EQUAL(sqr(Rational(-3,7)),Rational(9,49));
+    ARIADNE_TESTING_EXPECT_EQUAL(fma(Rational(2,3),Rational(3,7),Rational(1,7)),Rational(3,7));
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(Rational(-2,3),Int(-3)),Rational(-27,8));
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(Rational(-1),std::numeric_limits<Int>::min()),Rational(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(Integer(-1),std::numeric_limits<Int>::min()),Rational(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(pow(Rational::nan(),Nat(0)),Rational(1));
+    ARIADNE_TESTING_PROVE(is_nan(pow(Rational::nan(),Nat(3))));
 
     Rational source(a),moved(std::move(source));
-    ARIADNE_TEST_EQUALS(moved,a);
-    ARIADNE_TEST_EQUALS(source,Rational(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(moved,a);
+    ARIADNE_TESTING_EXPECT_EQUAL(source,Rational(0));
     Rational destination(2,3);
     destination=std::move(moved);
-    ARIADNE_TEST_EQUALS(destination,a);
-    ARIADNE_TEST_EQUALS(moved,Rational(2,3));
+    ARIADNE_TESTING_EXPECT_EQUAL(destination,a);
+    ARIADNE_TESTING_EXPECT_EQUAL(moved,Rational(2,3));
     Rational& alias=destination;
     destination=std::move(alias);
-    ARIADNE_TEST_EQUALS(destination,a);
+    ARIADNE_TESTING_EXPECT_EQUAL(destination,a);
     destination*=destination;
-    ARIADNE_TEST_EQUALS(destination,sqr(a));
+    ARIADNE_TESTING_EXPECT_EQUAL(destination,sqr(a));
     destination/=alias;
-    ARIADNE_TEST_EQUALS(destination,Rational(1));
+    ARIADNE_TESTING_EXPECT_EQUAL(destination,Rational(1));
     Rational special=Rational::inf(Sign::NEGATIVE);
     Rational moved_special(std::move(special));
-    ARIADNE_TEST_EQUALS(moved_special,Rational::inf(Sign::NEGATIVE));
-    ARIADNE_TEST_EQUALS(special,Rational(0));
+    ARIADNE_TESTING_EXPECT_EQUAL(moved_special,Rational::inf(Sign::NEGATIVE));
+    ARIADNE_TESTING_EXPECT_EQUAL(special,Rational(0));
 }
 
 void TestRational::test_native_double() {
     const Integer two53=pow(Integer(2),Nat(53));
     const Integer two1074=pow(Integer(2),Nat(1074));
-    ARIADNE_TEST_EQUALS(Rational(1,3).get_d(),0x1.5555555555555p-2);
-    ARIADNE_TEST_EQUALS(Rational(-1,3).get_d(),-0x1.5555555555555p-2);
-    ARIADNE_TEST_EQUALS(Rational(two53+1,two53).get_d(),1.0);
-    ARIADNE_TEST_EQUALS(Rational(1,two1074).get_d(),std::numeric_limits<double>::denorm_min());
-    ARIADNE_TEST_EQUALS(Rational(3,two1074*2).get_d(),std::numeric_limits<double>::denorm_min());
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(1,3).get_d(),0x1.5555555555555p-2);
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(-1,3).get_d(),-0x1.5555555555555p-2);
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(two53+1,two53).get_d(),1.0);
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(1,two1074).get_d(),std::numeric_limits<double>::denorm_min());
+    ARIADNE_TESTING_EXPECT_EQUAL(Rational(3,two1074*2).get_d(),std::numeric_limits<double>::denorm_min());
     const double underflow=Rational(-1,two1074*2).get_d();
-    ARIADNE_TEST_EQUALS(underflow,0.0);
-    ARIADNE_TEST_ASSERT(!std::signbit(underflow));
-    ARIADNE_TEST_ASSERT(std::isinf(Rational(pow(Integer(2),Nat(1024))).get_d()));
+    ARIADNE_TESTING_EXPECT_EQUAL(underflow,0.0);
+    ARIADNE_TESTING_PROVE(!std::signbit(underflow));
+    ARIADNE_TESTING_PROVE(std::isinf(Rational(pow(Integer(2),Nat(1024))).get_d()));
     const std::array<double,9> fixed={0.0,-0.0,1.0,-1.0,0.1,
         std::numeric_limits<double>::denorm_min(),std::numeric_limits<double>::min(),
         std::numeric_limits<double>::max(),-std::numeric_limits<double>::max()};
     for (double value : fixed) {
-        ARIADNE_TEST_EQUALS(Rational(ExactDouble(value)).get_d(),value);
+        ARIADNE_TESTING_EXPECT_EQUAL(Rational(ExactDouble(value)).get_d(),value);
     }
     std::mt19937_64 random(0x726174696f6e616cULL);
     bool roundtrips=true;
@@ -785,7 +770,7 @@ void TestRational::test_native_double() {
         if (!std::isfinite(value)) { continue; }
         roundtrips=roundtrips && Rational(ExactDouble(value)).get_d()==value;
     }
-    ARIADNE_TEST_ASSERT(roundtrips);
+    ARIADNE_TESTING_PROVE(roundtrips);
 }
 
 void TestRational::test_differential() {
@@ -807,8 +792,8 @@ void TestRational::test_differential() {
             throw std::runtime_error("Invalid Rational exact TSV fraction");
         const Integer numerator{String(expected_text.substr(0u,slash))};
         const Integer denominator{String(expected_text.substr(slash+1u))};
-        ARIADNE_TEST_EQUALS(actual.numerator(),numerator);
-        ARIADNE_TEST_EQUALS(actual.denominator(),denominator);
+        ARIADNE_TESTING_EXPECT_EQUAL(actual.numerator(),numerator);
+        ARIADNE_TESTING_EXPECT_EQUAL(actual.denominator(),denominator);
     };
     for (unsigned sample=0u;sample<120u;++sample) {
         unsigned original=0u;
@@ -835,26 +820,26 @@ void TestRational::test_differential() {
         verify_fraction(sqr(a),squared);
         verify_fraction(hlf(a),halved);
         if (quotient=="-") {
-            ARIADNE_TEST_ASSERT(is_zero(b));
+            ARIADNE_TESTING_PROVE(is_zero(b));
         } else {
-            ARIADNE_TEST_ASSERT(!is_zero(b));
+            ARIADNE_TESTING_PROVE(!is_zero(b));
             verify_fraction(a/b,quotient);
         }
         if (reciprocal=="-") {
-            ARIADNE_TEST_ASSERT(is_zero(a));
+            ARIADNE_TESTING_PROVE(is_zero(a));
         } else {
-            ARIADNE_TEST_ASSERT(!is_zero(a));
+            ARIADNE_TESTING_PROVE(!is_zero(a));
             verify_fraction(rec(a),reciprocal);
         }
-        ARIADNE_TEST_EQUALS(floor(a),Integer(String(floored)));
-        ARIADNE_TEST_EQUALS(ceil(a),Integer(String(ceiled)));
+        ARIADNE_TESTING_EXPECT_EQUAL(floor(a),Integer(String(floored)));
+        ARIADNE_TESTING_EXPECT_EQUAL(ceil(a),Integer(String(ceiled)));
         const Comparison want=order<0 ? Comparison::LESS
             : order>0 ? Comparison::GREATER : Comparison::EQUAL;
-        ARIADNE_TEST_EQUALS(cmp(a,b),want);
-        ARIADNE_TEST_EQUALS(bool(a==b),order==0);
+        ARIADNE_TESTING_EXPECT_EQUAL(cmp(a,b),want);
+        ARIADNE_TESTING_EXPECT_EQUAL(bool(a==b),order==0);
         const std::uint64_t expected_bits=static_cast<std::uint64_t>(
             std::stoull(binary64,nullptr,16));
-        ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(a.get_d()),
+        ARIADNE_TESTING_EXPECT_EQUAL(std::bit_cast<std::uint64_t>(a.get_d()),
                             expected_bits);
     }
     std::string random_extra;
@@ -898,38 +883,38 @@ void TestRational::test_differential() {
                 const Rational expected_difference=parse_r16(difference);
                 const Rational expected_twice=parse_r16(doubled);
                 const Rational expected_zero=parse_r16(zero);
-                ARIADNE_TEST_EQUALS(a+b,expected_sum);
-                ARIADNE_TEST_EQUALS(a-b,expected_difference);
+                ARIADNE_TESTING_EXPECT_EQUAL(a+b,expected_sum);
+                ARIADNE_TESTING_EXPECT_EQUAL(a-b,expected_difference);
                 Rational direct=a;
                 direct+=b;
-                ARIADNE_TEST_EQUALS(direct,expected_sum);
+                ARIADNE_TESTING_EXPECT_EQUAL(direct,expected_sum);
                 direct=b;
                 direct=a+direct;
-                ARIADNE_TEST_EQUALS(direct,expected_sum);
+                ARIADNE_TESTING_EXPECT_EQUAL(direct,expected_sum);
                 direct=Rational::nan();
                 direct=a+b;
-                ARIADNE_TEST_EQUALS(direct,expected_sum);
+                ARIADNE_TESTING_EXPECT_EQUAL(direct,expected_sum);
                 direct=a;
                 direct-=b;
-                ARIADNE_TEST_EQUALS(direct,expected_difference);
+                ARIADNE_TESTING_EXPECT_EQUAL(direct,expected_difference);
                 direct=b;
                 direct=a-direct;
-                ARIADNE_TEST_EQUALS(direct,expected_difference);
+                ARIADNE_TESTING_EXPECT_EQUAL(direct,expected_difference);
                 direct=Rational::inf(Sign::NEGATIVE);
                 direct=a-b;
-                ARIADNE_TEST_EQUALS(direct,expected_difference);
+                ARIADNE_TESTING_EXPECT_EQUAL(direct,expected_difference);
                 Rational aliased=a;
                 aliased+=a;
-                ARIADNE_TEST_EQUALS(aliased,expected_twice);
+                ARIADNE_TESTING_EXPECT_EQUAL(aliased,expected_twice);
                 direct=a;
                 Rational& direct_alias=direct;
                 direct+=direct_alias;
-                ARIADNE_TEST_EQUALS(direct,expected_twice);
+                ARIADNE_TESTING_EXPECT_EQUAL(direct,expected_twice);
                 aliased=a;
                 aliased-=a;
-                ARIADNE_TEST_EQUALS(aliased,expected_zero);
+                ARIADNE_TESTING_EXPECT_EQUAL(aliased,expected_zero);
                 direct-=direct_alias;
-                ARIADNE_TEST_EQUALS(direct,expected_zero);
+                ARIADNE_TESTING_EXPECT_EQUAL(direct,expected_zero);
             }
         }
     }
@@ -1026,8 +1011,8 @@ void TestRational::test_differential() {
         const Rational a(15*(base+1),14*base);
         const std::array<Rational,4u> factors={
             Rational(1),Rational(1,15),Rational(14),Rational(14,15)};
-        ARIADNE_TEST_ASSERT(a*factors[3u]==Rational(base+1,base));
-        ARIADNE_TEST_ASSERT(a/Rational(15,14)==Rational(base+1,base));
+        ARIADNE_TESTING_PROVE(a*factors[3u]==Rational(base+1,base));
+        ARIADNE_TESTING_PROVE(a/Rational(15,14)==Rational(base+1,base));
         for (unsigned factor=0u;factor<4u;++factor) {
             for (unsigned mask=0u;mask<4u;++mask) {
                 unsigned ref_bits=0u,ref_factor=0u,ref_mask=0u;
@@ -1081,7 +1066,7 @@ void TestRational::test_differential() {
     while (r5_golden.peek()=='#') std::getline(r5_golden,r5_header);
     for (unsigned mode_index=0u;mode_index<modes.size();++mode_index) {
         const int mode=modes[mode_index];
-        ARIADNE_TEST_EQUALS(std::fesetround(mode),0);
+        ARIADNE_TESTING_EXPECT_EQUAL(std::fesetround(mode),0);
         // R12: all original one-limb sources and both signs, with
         // independently frozen bit-exact binary64 results. Validate each
         // source against the original mt19937_64 sequence as well.
@@ -1109,9 +1094,9 @@ void TestRational::test_differential() {
             }
             const Rational positive{Integer(numerator),Integer(denominator)};
             const Rational negative=-positive;
-            ARIADNE_TEST_EQUALS(
+            ARIADNE_TESTING_EXPECT_EQUAL(
                 std::bit_cast<std::uint64_t>(positive.get_d()),expected_positive);
-            ARIADNE_TEST_EQUALS(
+            ARIADNE_TESTING_EXPECT_EQUAL(
                 std::bit_cast<std::uint64_t>(negative.get_d()),expected_negative);
         }
         // R29: preserve every original sparse-prefix source and both signs.
@@ -1145,9 +1130,9 @@ void TestRational::test_differential() {
                     const std::uint64_t negative_bits=std::stoull(negative_token);
                     const Rational positive(n,d);
                     const Rational negative=-positive;
-                    ARIADNE_TEST_EQUALS(
+                    ARIADNE_TESTING_EXPECT_EQUAL(
                         std::bit_cast<std::uint64_t>(positive.get_d()),positive_bits);
-                    ARIADNE_TEST_EQUALS(
+                    ARIADNE_TESTING_EXPECT_EQUAL(
                         std::bit_cast<std::uint64_t>(negative.get_d()),negative_bits);
                 }
             }
@@ -1189,7 +1174,7 @@ void TestRational::test_differential() {
                 }
                 const std::uint64_t ref_bits=std::stoull(bits_token);
                 const Rational value(num,den);
-                ARIADNE_TEST_EQUALS(std::bit_cast<std::uint64_t>(value.get_d()),ref_bits);
+                ARIADNE_TESTING_EXPECT_EQUAL(std::bit_cast<std::uint64_t>(value.get_d()),ref_bits);
             }
             std::string extra;
             if (fixture >> extra) throw std::runtime_error("Extra R13 TSV rows");
@@ -1255,15 +1240,18 @@ void TestRational::test_differential() {
             for (unsigned index=0u;index<values.size();++index) {
                 const auto actual=std::bit_cast<std::uint64_t>(values[index].get_d());
                 if (actual!=expected_bits[index]) {
-                    std::cerr << "Rational double mismatch: mode=" << mode << " shift=" << shift
-                              << " case=" << index << " actual=" << actual
-                              << " expected=" << expected_bits[index] << '\n';
+                    std::ostringstream mismatch;
+                    mismatch << "Rational double mismatch: mode=" << mode
+                             << " shift=" << shift << " case=" << index
+                             << " actual=" << actual
+                             << " expected=" << expected_bits[index];
+                    this->ctx().warning(mismatch.str());
                     conversion_matches=false;
                 }
             }
         }
     }
-    ARIADNE_TEST_EQUALS(std::fesetround(saved_rounding),0);
+    ARIADNE_TESTING_EXPECT_EQUAL(std::fesetround(saved_rounding),0);
     std::string r7_extra;
     if (r7_golden >> r7_extra)
         throw std::runtime_error("Extra R7 oracle TSV rows");
@@ -1276,13 +1264,13 @@ void TestRational::test_differential() {
     std::string r5_extra;
     if (r5_golden >> r5_extra)
         throw std::runtime_error("Extra R5 oracle TSV rows");
-    ARIADNE_TEST_ASSERT(conversion_matches);
+    ARIADNE_TESTING_PROVE(conversion_matches);
 }
 
 void TestRational::test_bounds() {
     auto check_bounds=[](RationalBounds const& actual, Rational const& lower, Rational const& upper) {
-        ARIADNE_TEST_EQUALS(actual.lower_raw(),lower);
-        ARIADNE_TEST_EQUALS(actual.upper_raw(),upper);
+        ARIADNE_TESTING_EXPECT_EQUAL(actual.lower_raw(),lower);
+        ARIADNE_TESTING_EXPECT_EQUAL(actual.upper_raw(),upper);
     };
 
     RationalBounds p(2,3);
@@ -1290,8 +1278,8 @@ void TestRational::test_bounds() {
     RationalBounds m(-2,3);
 
     check_bounds(p.pm(1),1,4);
-    ARIADNE_TEST_EQUALS(p.lower(),Rational(2));
-    ARIADNE_TEST_EQUALS(p.upper(),Rational(3));
+    ARIADNE_TESTING_EXPECT_EQUAL(p.lower(),Rational(2));
+    ARIADNE_TESTING_EXPECT_EQUAL(p.upper(),Rational(3));
     check_bounds(+p,2,3);
     check_bounds(-p,-3,-2);
     check_bounds(p+n,-1,1);
@@ -1347,54 +1335,54 @@ void TestRational::test_bounds() {
     RationalBounds overlap2(2,4);
     RationalBounds point(2,2);
 
-    ARIADNE_TEST_ASSERT(definitely(point==point));
-    ARIADNE_TEST_ASSERT(not possibly(a==b));
-    ARIADNE_TEST_ASSERT(is_indeterminate(overlap==overlap2));
+    ARIADNE_TESTING_PROVE(definitely(point==point));
+    ARIADNE_TESTING_PROVE(not possibly(a==b));
+    ARIADNE_TESTING_PROVE(is_indeterminate(overlap==overlap2));
 
-    ARIADNE_TEST_ASSERT(definitely(a!=b));
-    ARIADNE_TEST_ASSERT(not possibly(point!=point));
-    ARIADNE_TEST_ASSERT(is_indeterminate(overlap!=overlap2));
+    ARIADNE_TESTING_PROVE(definitely(a!=b));
+    ARIADNE_TESTING_PROVE(not possibly(point!=point));
+    ARIADNE_TESTING_PROVE(is_indeterminate(overlap!=overlap2));
 
-    ARIADNE_TEST_ASSERT(definitely(a<=b));
-    ARIADNE_TEST_ASSERT(not possibly(b<=a));
-    ARIADNE_TEST_ASSERT(is_indeterminate(overlap<=overlap2));
+    ARIADNE_TESTING_PROVE(definitely(a<=b));
+    ARIADNE_TESTING_PROVE(not possibly(b<=a));
+    ARIADNE_TESTING_PROVE(is_indeterminate(overlap<=overlap2));
 
-    ARIADNE_TEST_ASSERT(definitely(b>=a));
-    ARIADNE_TEST_ASSERT(not possibly(a>=b));
-    ARIADNE_TEST_ASSERT(is_indeterminate(overlap>=overlap2));
+    ARIADNE_TESTING_PROVE(definitely(b>=a));
+    ARIADNE_TESTING_PROVE(not possibly(a>=b));
+    ARIADNE_TESTING_PROVE(is_indeterminate(overlap>=overlap2));
 
-    ARIADNE_TEST_ASSERT(definitely(a<b));
-    ARIADNE_TEST_ASSERT(not possibly(b<a));
-    ARIADNE_TEST_ASSERT(is_indeterminate(RationalBounds(1,2)<RationalBounds(2,3)));
+    ARIADNE_TESTING_PROVE(definitely(a<b));
+    ARIADNE_TESTING_PROVE(not possibly(b<a));
+    ARIADNE_TESTING_PROVE(is_indeterminate(RationalBounds(1,2)<RationalBounds(2,3)));
 
-    ARIADNE_TEST_ASSERT(definitely(b>a));
-    ARIADNE_TEST_ASSERT(not possibly(a>b));
-    ARIADNE_TEST_ASSERT(is_indeterminate(RationalBounds(2,3)>RationalBounds(1,2)));
+    ARIADNE_TESTING_PROVE(definitely(b>a));
+    ARIADNE_TESTING_PROVE(not possibly(a>b));
+    ARIADNE_TESTING_PROVE(is_indeterminate(RationalBounds(2,3)>RationalBounds(1,2)));
 
     RationalBounds left(0,1);
     RationalBounds right(2,3);
     RationalBounds containing(-1,4);
     RationalBounds crossing(1,2);
-    ARIADNE_TEST_ASSERT(inconsistent(right,left));
-    ARIADNE_TEST_ASSERT(inconsistent(left,right));
-    ARIADNE_TEST_ASSERT(not inconsistent(left,crossing));
+    ARIADNE_TESTING_PROVE(inconsistent(right,left));
+    ARIADNE_TESTING_PROVE(inconsistent(left,right));
+    ARIADNE_TESTING_PROVE(not inconsistent(left,crossing));
 
-    ARIADNE_TEST_ASSERT(refines(left,containing));
-    ARIADNE_TEST_ASSERT(not refines(containing,left));
-    ARIADNE_TEST_ASSERT(not refines(RationalBounds(-2,2),RationalBounds(-2,1)));
+    ARIADNE_TESTING_PROVE(refines(left,containing));
+    ARIADNE_TESTING_PROVE(not refines(containing,left));
+    ARIADNE_TESTING_PROVE(not refines(RationalBounds(-2,2),RationalBounds(-2,1)));
 
     check_bounds(refinement(RationalBounds(0,3),RationalBounds(1,4)),1,3);
     check_bounds(coarsening(RationalBounds(0,3),RationalBounds(1,4)),0,4);
 
     std::ostringstream bounds_stream;
     bounds_stream << RationalBounds(1,2);
-    ARIADNE_TEST_EQUALS(bounds_stream.str(),std::string("[1:2]"));
+    ARIADNE_TESTING_EXPECT_EQUAL(bounds_stream.str(),std::string("[1:2]"));
 
-    ARIADNE_TEST_EQUALS(class_name<RationalBounds>(),String("RationalBounds"));
+    ARIADNE_TESTING_EXPECT_EQUAL(class_name<RationalBounds>(),String("RationalBounds"));
 
     auto check_dyadic=[](DyadicBounds const& actual, Dyadic const& lower, Dyadic const& upper) {
-        ARIADNE_TEST_EQUALS(actual.lower_raw(),lower);
-        ARIADNE_TEST_EQUALS(actual.upper_raw(),upper);
+        ARIADNE_TESTING_EXPECT_EQUAL(actual.lower_raw(),lower);
+        ARIADNE_TESTING_EXPECT_EQUAL(actual.upper_raw(),upper);
     };
     DyadicBounds dpb(Dyadic(2),Dyadic(3));
     DyadicBounds dnb(Dyadic(-3),Dyadic(-2));
@@ -1410,66 +1398,63 @@ void TestRational::test_bounds() {
     check_dyadic(dmb*dmb,Dyadic(-6),Dyadic(9));
     check_dyadic(mul(dpb,dnb),Dyadic(-9),Dyadic(-4));
     check_dyadic(pow(dmb,Int(3)),Dyadic(-8),Dyadic(27));
-    ARIADNE_TEST_FAIL(pow(dmb,Int(-1)));
+    ARIADNE_TESTING_EXPECT_EXCEPTION(pow(dmb,Int(-1)));
 }
 
 
 
 
 
-void test_rational_integral_binary64_scale() {
+void test_rational_integral_binary64_scale(Ariadne::Testing::Context& context) {
     // The ratio is strictly between 2^53-1 and 2^53. It occupies five
     // limbs on both sides, while its binary64 truncation has scale zero.
     const Rational source(pow(Integer(2),Nat(319))+1,pow(Integer(2),Nat(266))+1);
     const auto old=std::fegetround();
     for (auto mode : {FE_TONEAREST,FE_DOWNWARD,FE_UPWARD,FE_TOWARDZERO}) {
         std::fesetround(mode);
-        ARIADNE_TEST_EQUALS(source.get_d(),9007199254740991.0);
-        ARIADNE_TEST_EQUALS((-source).get_d(),-9007199254740991.0);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, source.get_d(),9007199254740991.0);
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, (-source).get_d(),-9007199254740991.0);
     }
     std::fesetround(old);
 }
 
-void test_rational_distinct_prefixes() {
+void test_rational_distinct_prefixes(Ariadne::Testing::Context& context) {
     // Every 128-bit prefix is all ones. Both prefix upper bounds overflow;
     // the full products decide 1+2/(P-3) < 1+2/(P-7).
     const Integer radix=pow(Integer(2),Nat(192));
     const Rational left(radix-1,radix-3),right(radix-5,radix-7);
-    ARIADNE_TEST_EQUALS(cmp(left,right),Comparison::LESS);
-    ARIADNE_TEST_EQUALS(cmp(right,left),Comparison::GREATER);
-    ARIADNE_TEST_EQUALS(cmp(-left,-right),Comparison::GREATER);
-    ARIADNE_TEST_EQUALS(cmp(left,left),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(left,right),Comparison::LESS);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(right,left),Comparison::GREATER);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(-left,-right),Comparison::GREATER);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(left,left),Comparison::EQUAL);
     // Equal reduced values bypass distinct-denominator cross-products.
-    ARIADNE_TEST_EQUALS(cmp(Rational(2,6),Rational(3,9)),Comparison::EQUAL);
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(Rational(2,6),Rational(3,9)),Comparison::EQUAL);
 }
 
-void test_rational_contract_edges() {
+void test_rational_contract_edges(Ariadne::Testing::Context& context) {
     bool rejected=false;
     try {
         const Rational invalid(String("bad/3"));
     } catch (std::runtime_error const& error) {
         rejected=true;
-        ARIADNE_TEST_EQUALS(std::string(error.what()),std::string(
+        ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, std::string(error.what()),std::string(
             "std::runtime_error in Rational(string): String \"bad/3\" does not have a valid rational number format."));
     }
-    ARIADNE_TEST_ASSERT(rejected);
+    ARIADNE_TESTING_PROVE_CTX(context, rejected);
     Rational self(11,13);
     const Rational* alias=&self;
     self=*alias;
-    ARIADNE_TEST_EQUALS(self,Rational(11,13));
-    ARIADNE_TEST_EQUALS(Rational(String("\t -12\n /\r -18\f\v")),Rational(2,3));
-    ARIADNE_TEST_EQUALS(pow(Rational::inf(Sign::POSITIVE),Nat(3)),Rational::inf(Sign::POSITIVE));
-    ARIADNE_TEST_EQUALS(pow(Rational::inf(Sign::NEGATIVE),Nat(3)),Rational::inf(Sign::NEGATIVE));
-    ARIADNE_TEST_EQUALS(pow(Rational::inf(Sign::NEGATIVE),Nat(2)),Rational::inf(Sign::POSITIVE));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, self,Rational(11,13));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Rational(String("\t -12\n /\r -18\f\v")),Rational(2,3));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, pow(Rational::inf(Sign::POSITIVE),Nat(3)),Rational::inf(Sign::POSITIVE));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, pow(Rational::inf(Sign::NEGATIVE),Nat(3)),Rational::inf(Sign::NEGATIVE));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, pow(Rational::inf(Sign::NEGATIVE),Nat(2)),Rational::inf(Sign::POSITIVE));
     // Cancellation scans complete zero limbs before the first set bit.
-    ARIADNE_TEST_EQUALS(Rational::from_dyadic(Integer(String("18446744073709551616")),65u),Rational(1,2));
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, Rational::from_dyadic(Integer(String("18446744073709551616")),65u),Rational(1,2));
 }
 
-int main() {
-    ARIADNE_TEST_CALL(test_rational_integral_binary64_scale());
-    ARIADNE_TEST_CALL(test_rational_distinct_prefixes());
-    ARIADNE_TEST_CALL(test_rational_contract_edges());
-    {
+
+void test_rational_scalar_comparison_oracle(Ariadne::Testing::Context& context) {
         std::ifstream data(ARIADNE_TEST_DATA_DIR "/scalar_comparison.tsv");
         if (!data) throw std::runtime_error("Missing scalar_comparison.tsv");
         std::string line;
@@ -1484,24 +1469,37 @@ int main() {
             const Rational rhs(n,d);
             const Integer integer(lhs);
             const bool ordered=expected!=-128;
-            std::cout << "Scalar comparison oracle: " << line << std::endl;
-            ARIADNE_TEST_EQUALS(cmp(lhs,rhs),static_cast<Comparison>(expected));
+            [[maybe_unused]] auto row_scope = context.scope("scalar comparison oracle",line);
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, cmp(lhs,rhs),static_cast<Comparison>(expected));
             const Boolean generic_unequal=Ariadne::operator!=<Rational,Integer>(rhs,integer);
-            ARIADNE_TEST_EQUALS(generic_unequal,Boolean(!ordered || expected!=0));
-            ARIADNE_TEST_EQUALS(rhs!=integer,Boolean(!ordered || expected!=0));
-            ARIADNE_TEST_EQUALS(rhs==integer,Boolean(ordered && expected==0));
-            ARIADNE_TEST_EQUALS(rhs<integer,Boolean(ordered && expected>0));
-            ARIADNE_TEST_EQUALS(rhs>integer,Boolean(ordered && expected<0));
-            ARIADNE_TEST_EQUALS(rhs<=integer,Boolean(ordered && expected>=0));
-            ARIADNE_TEST_EQUALS(rhs>=integer,Boolean(ordered && expected<=0));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, generic_unequal,Boolean(!ordered || expected!=0));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs!=integer,Boolean(!ordered || expected!=0));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs==integer,Boolean(ordered && expected==0));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs<integer,Boolean(ordered && expected>0));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs>integer,Boolean(ordered && expected<0));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs<=integer,Boolean(ordered && expected>=0));
+            ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, rhs>=integer,Boolean(ordered && expected<=0));
         }
         if (keys.size()!=27u) throw std::runtime_error("Incomplete scalar_comparison.tsv");
     }
 
+int main(int argc, char** argv) {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
-
-    ARIADNE_TEST_CLASS(Rational,TestRational());
-
-    return ARIADNE_TEST_FAILURES;
+    Ariadne::Testing::Suite suite("rational");
+    suite.add("binary64 scale", test_rational_integral_binary64_scale);
+    suite.add("distinct prefixes", test_rational_distinct_prefixes);
+    suite.add("contract edges", test_rational_contract_edges);
+    suite.add("scalar comparison oracle", test_rational_scalar_comparison_oracle);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_literal);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_conversions);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_arithmetic);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_rounding);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_comparisons);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_infinity);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_bounds);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_native_contract);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_native_double);
+    ARIADNE_TESTING_ADD_TEST_TO(suite, TestRational, test_differential);
+    return Ariadne::Testing::run_suite(suite, argc, argv);
 }
