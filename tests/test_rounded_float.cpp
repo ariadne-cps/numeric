@@ -237,6 +237,7 @@ class TestRounded : public Ariadne::Testing::ContextFixture
     Void test_sine();
     Void test_cosine();
     Void test_arctan();
+    static void add_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision);
 };
 
 
@@ -858,7 +859,7 @@ TestRounded<FLT>::test_arctan()
 
 
 template<class FLT>
-void add_rounded_cases(Ariadne::Testing::Suite& suite,
+void TestRounded<FLT>::add_cases(Ariadne::Testing::Suite& suite,
                        std::string const& variant,
                        typename FLT::PrecisionType precision) {
     using Fixture=TestRounded<FLT>;
@@ -884,7 +885,7 @@ int main(int argc, char** argv) {
     std::cerr<<std::setprecision(20);
     Ariadne::Testing::Suite suite("rounded floats");
     ARIADNE_TESTING_ADD_TEST_TO(suite, TestNumericCasts, test_numeric_casts);
-    add_rounded_cases<FloatDP>(suite,"FloatDP",dp);
-    add_rounded_cases<FloatMP>(suite,"FloatMP",MultiplePrecision(128_bits));
+    TestRounded<FloatDP>::add_cases(suite,"FloatDP",dp);
+    TestRounded<FloatMP>::add_cases(suite,"FloatMP",MultiplePrecision(128_bits));
     return Ariadne::Testing::run_suite(suite, argc, argv);
 }

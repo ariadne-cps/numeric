@@ -104,6 +104,7 @@ class TestFloatBounds : public Ariadne::Testing::ContextFixture
     Void test_monotone_functions();
     Void test_trigonometric_functions();
     Void regression_tests();
+    static void add_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision);
 };
 
 
@@ -831,7 +832,7 @@ template<class PR> Void TestFloatBounds<PR>::regression_tests() {
 
 
 template<class PR>
-void add_float_bounds_cases(Ariadne::Testing::Suite& suite,
+void TestFloatBounds<PR>::add_cases(Ariadne::Testing::Suite& suite,
                             std::string const& variant, PR precision) {
     using Fixture = TestFloatBounds<PR>;
     auto add = [&](std::string const& name, auto method) {
@@ -861,9 +862,9 @@ void add_float_bounds_cases(Ariadne::Testing::Suite& suite,
 
 int main(int argc, char** argv) {
     Ariadne::Testing::Suite suite("float bounds");
-    add_float_bounds_cases<DoublePrecision>(suite, "FloatDP", dp);
-    add_float_bounds_cases<MultiplePrecision>(suite, "FloatMP 53", MultiplePrecision(53_bits));
-    add_float_bounds_cases<MultiplePrecision>(suite, "FloatMP 128", MultiplePrecision(128_bits));
+    TestFloatBounds<DoublePrecision>::add_cases(suite, "FloatDP", dp);
+    TestFloatBounds<MultiplePrecision>::add_cases(suite, "FloatMP 53", MultiplePrecision(53_bits));
+    TestFloatBounds<MultiplePrecision>::add_cases(suite, "FloatMP 128", MultiplePrecision(128_bits));
     return Ariadne::Testing::run_suite(suite, argc, argv);
 }
 

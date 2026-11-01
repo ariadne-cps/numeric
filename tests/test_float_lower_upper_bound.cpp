@@ -101,6 +101,7 @@ class TestDirectedFloats
     Void test_validation();
     Void test_rounded_arithmetic();
     Void test_comparison();
+    static void add_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision);
 };
 
 template<class PR> Void
@@ -384,7 +385,7 @@ TestDirectedFloats<PR>::test_comparison() {
 }
 
 template<class PR>
-void add_directed_float_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision) {
+void TestDirectedFloats<PR>::add_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision) {
     using Fixture=TestDirectedFloats<PR>;
     auto add=[&](std::string const& name, auto method) {
         suite.add(variant+" / "+name, [precision,method](Ariadne::Testing::Context& context) {
@@ -402,8 +403,8 @@ void add_directed_float_cases(Ariadne::Testing::Suite& suite, std::string const&
 
 int main(int argc, char** argv) {
     Ariadne::Testing::Suite suite("directed floats");
-    add_directed_float_cases<DoublePrecision>(suite,"FloatDP",dp);
-    add_directed_float_cases<MultiplePrecision>(suite,"FloatMP",MultiplePrecision(128_bits));
+    TestDirectedFloats<DoublePrecision>::add_cases(suite,"FloatDP",dp);
+    TestDirectedFloats<MultiplePrecision>::add_cases(suite,"FloatMP",MultiplePrecision(128_bits));
     return Ariadne::Testing::run_suite(suite, argc, argv);
 }
 

@@ -307,3 +307,18 @@ BigUnsigned 265 ASSERT / 30 EQUALS / 16 FAIL, Real 39 ASSERT / 62 EQUALS
 / 49 BINARY_PREDICATE / 4 WITHIN, and Float 289 ASSERT / 389 EQUALS
 / 39 FAIL / 28 BINARY_PREDICATE, all unchanged. Full CI is required for
 acceptance; only the classes and call qualification have changed.
+
+## 2026-11-01: Parameterized case registration belongs to fixture types
+
+Removed the remaining free-standing run-time case registration helpers in
+`test_rounded_float`, `test_float_lower_upper_bound`,
+`test_float_bounds`, and `test_float_ball`. Each corresponding fixture
+now declares a public static `add_cases(Suite&, variant, precision)`
+method. The implementation preserves all exact original case labels,
+precision variants, method pointers, construction semantics, and order.
+`main` calls `Fixture<...>::add_cases(...)` rather than a free function.
+
+Parameterized registration callbacks remain local to these methods, not
+free-standing runtime test functions. Compile-time concept checks, frozen
+oracle fixtures and generator programs are unaffected. CI is required for
+acceptance; no numerical oracle or expected result was altered.

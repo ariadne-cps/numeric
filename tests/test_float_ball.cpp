@@ -73,6 +73,7 @@ class TestFloatBall
     Void test_precision();
     Void test_conversions();
     Void test_rounded_arithmetic();
+    static void add_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision);
 };
 
 template<class PR, class PRE> Void
@@ -322,8 +323,8 @@ TestFloatBall<PR,PRE>::test_rounded_arithmetic()
 
 
 
-template<class PR, class PRE=PR>
-void add_float_ball_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision) {
+template<class PR, class PRE>
+void TestFloatBall<PR,PRE>::add_cases(Ariadne::Testing::Suite& suite, std::string const& variant, PR precision) {
     using Fixture=TestFloatBall<PR,PRE>;
     auto add=[&](std::string const& name, auto method) {
         suite.add(variant+" / "+name, [precision,method](Ariadne::Testing::Context& context) {
@@ -339,9 +340,9 @@ void add_float_ball_cases(Ariadne::Testing::Suite& suite, std::string const& var
 
 int main(int argc, char** argv) {
     Ariadne::Testing::Suite suite("float ball");
-    add_float_ball_cases<DoublePrecision,DoublePrecision>(suite,"FloatDPBall",dp);
-    add_float_ball_cases<MultiplePrecision>(suite,"FloatMPBall",MultiplePrecision(128_bits));
-    add_float_ball_cases<MultiplePrecision,DoublePrecision>(suite,"FloatMPDPBall",MultiplePrecision(128_bits));
+    TestFloatBall<DoublePrecision,DoublePrecision>::add_cases(suite,"FloatDPBall",dp);
+    TestFloatBall<MultiplePrecision>::add_cases(suite,"FloatMPBall",MultiplePrecision(128_bits));
+    TestFloatBall<MultiplePrecision,DoublePrecision>::add_cases(suite,"FloatMPDPBall",MultiplePrecision(128_bits));
     return Ariadne::Testing::run_suite(suite, argc, argv);
 }
 
