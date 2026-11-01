@@ -590,3 +590,38 @@ counts, the fixture helper wiring, and removal of old runtime macros.
 No local compilation was possible. The complete Numeric CI matrix
 (Ubuntu, macOS, Windows, Sanitizers, Coverage) remains an acceptance
 gate, and failures must be classified before any oracle modification.
+
+## 2026-11-01: Migrate test_float to Ariadne Testing
+
+Migrated the last large legacy float executable to ContextFixture-based
+Ariadne Testing: 32 existing standalone methods, plus the three
+conversion/operation/predicate methods on both FloatDP and FloatMP
+at the original 128-bit precision, for 38 independent cases.
+The registration retains the precise old main sequence: the first 28
+standalone cases, 3 FloatDP cases, 3 FloatMP cases, and the final 4
+standalone cases. Each case has a fresh fixture; precision parameters,
+state transitions inside bodies and startup iostream precision
+(20 digits) are preserved. The three previously combined templated
+methods are now independently reported.
+
+The full original test expressions remain active: 289 assertions,
+389 equality expectations, 39 expected exceptions, 59 execution-only
+smoke operations, 35 identity/sameness expectations and 26 active
+binary-predicate expectations. Execution-only operations are now
+explicit expected-no-throw assertions. Three intentionally negated
+binary predicates use the framework's negative-predicate macro.
+Two commented-out `models` checks remain commented out. No
+independent oracle data, numeric reference, threshold, rounding mode,
+or previously enabled check was removed or relaxed.
+
+Four FloatMP oracle progress messages now use Testing reporter notes
+rather than printing on stdout in concise mode. `test_float` links
+to `ariadne-testing` in CMake and processes `--concise` through
+`run_suite`. All runtime test bodies belong to ContextFixture
+classes and the static registration helpers live in their fixtures.
+
+An exact macro-conservation and registration-count audit completed,
+along with checking for active legacy macros. The source patch has not
+been locally compiled; accept it only after complete Numeric CI
+(Ubuntu, macOS, Windows, Sanitizers, Coverage). Inconclusive numerical
+evidence must be investigated rather than coerced into a pass.
