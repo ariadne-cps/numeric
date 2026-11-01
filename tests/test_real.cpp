@@ -159,6 +159,20 @@ static CertifiedPi certified_pi() {
         ARIADNE_TESTING_PROVE(bounds.upper_raw() - bounds.lower_raw() <= Dyadic(1,40u));
     }
 
+    // Real-valued distances cannot generally be decided. Instead certify
+    // both endpoints against the original exact dyadic tolerance.
+    void expect_certified_within(Real const& actual,
+                                 FloatDPApproximation const& reference,
+                                 Dyadic const& tolerance,
+                                 std::string description) {
+        [[maybe_unused]] auto value_scope = this->ctx().scope(description);
+        const Dyadic exact_reference(reference.raw());
+        const DyadicBounds enclosure =
+            actual.compute(Accuracy(128_bits)).get();
+        ARIADNE_TESTING_PROVE(enclosure.lower_raw() >= exact_reference - tolerance);
+        ARIADNE_TESTING_PROVE(enclosure.upper_raw() <= exact_reference + tolerance);
+    }
+
 };
 
 void TestReal::test_precision_preflight()
@@ -434,24 +448,20 @@ void TestReal::test_transcendental() {
     expect_certified_value(exp(Real(0)), Dyadic(1.0_dy), "exp(Real(0)) certified within 2^-40 of 1.0_dy");
     expect_certified_value(log(Real(1)), Dyadic(0.0_dy), "log(Real(1)) certified within 2^-40 of 0.0_dy");
 
-    // Work at the same original eps, but resolve the error against a
-    // certified enclosure of sqrt(x) rather than an indeterminate Real
-    // comparison close to the tolerance threshold.
-    {
-        [[maybe_unused]] auto comparison_scope =
-            this->ctx().scope("sqrt(x) within eps of sqrt(ax)");
-        const Dyadic sqrt_approximation(sqrt(ax).raw());
-        const DyadicBounds sqrt_enclosure =
-            sqrt(x).compute(Accuracy(128_bits)).get();
-        ARIADNE_TESTING_PROVE(sqrt_enclosure.lower_raw() >= sqrt_approximation - eps);
-        ARIADNE_TESTING_PROVE(sqrt_enclosure.upper_raw() <= sqrt_approximation + eps);
-    }
-    ARIADNE_TESTING_EXPECT_WITHIN(exp(x),exp(ax),8*eps);
-    ARIADNE_TESTING_EXPECT_WITHIN(log(x),log(ax),eps);
-    ARIADNE_TESTING_EXPECT_WITHIN(sin(x),sin(ax),2*eps);
-    ARIADNE_TESTING_EXPECT_WITHIN(cos(x),cos(ax),2*eps);
-    ARIADNE_TESTING_EXPECT_WITHIN(tan(x),tan(ax),3*eps);
-    ARIADNE_TESTING_EXPECT_WITHIN(atan(x),atan(ax),eps);
+    expect_certified_within(sqrt(x),sqrt(ax),eps,
+                            "sqrt(x) within eps of sqrt(ax)");
+    expect_certified_within(exp(x),exp(ax),8*eps,
+                            "exp(x) within 8*eps of exp(ax)");
+    expect_certified_within(log(x),log(ax),eps,
+                            "log(x) within eps of log(ax)");
+    expect_certified_within(sin(x),sin(ax),2*eps,
+                            "sin(x) within 2*eps of sin(ax)");
+    expect_certified_within(cos(x),cos(ax),2*eps,
+                            "cos(x) within 2*eps of cos(ax)");
+    expect_certified_within(tan(x),tan(ax),3*eps,
+                            "tan(x) within 3*eps of tan(ax)");
+    expect_certified_within(atan(x),atan(ax),eps,
+                            "atan(x) within eps of atan(ax)");
 }
 
 void TestReal::test_comparison() {

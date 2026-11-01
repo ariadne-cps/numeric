@@ -429,3 +429,32 @@ A compile-time contract in `tests/check_numeric.cpp` requires that
 recommended `Dyadic` and `ExactDouble` alternatives are constructible.
 An audit of numeric test files found no other `Real` constructions
 from the `_exact` literal. The complete CI matrix is still required.
+
+## 2026-11-01: Certify all seven Real transcendental tolerance tests
+
+The previous migration fixed the `sqrt(x)` tolerance assertion by comparing
+certified dyadic bounds against the exact dyadic value of the FloatDP
+approximation. CI then revealed the same inconclusive phenomenon in
+`exp(x) within 8*eps of exp(ax)`: `EXPECT_WITHIN` applied to a computable
+`Real` difference cannot, in general, produce a conclusive comparison
+at the prescribed tolerance. A displayed approximate error of `~0.~` is
+not a proof of the requested numerical bound.
+
+Rather than change the generic Testing framework, every transcendental
+comparison (`sqrt`, `exp`, `log`, `sin`, `cos`, `tan`, `atan`) now
+uses the fixture-local `expect_certified_within` helper. It evaluates the
+same Real expression to a certified DyadicBounds enclosure at Accuracy(128_bits),
+converts the same FloatDPApproximation expression's raw float to its exact
+Dyadic value, and checks the lower and upper endpoints against that exact
+reference minus/plus the **original tolerance**. All seven names and
+multipliers are unchanged: eps, 8*eps, eps, 2*eps, 2*eps, 3*eps, eps.
+The interval containment rule certifies that every possible value enclosed
+by the algorithm is within tolerance; it does not infer mathematical
+certainty from floating-point display or swallow inconclusive evidence.
+
+This strengthens the interpretation relative to treating unknown as a pass,
+and may legitimately fail if an actual numerical bound is too weak or the
+original tolerance is not met. The seven case checks remain part of the
+single original transcendental case. No changes to numeric implementation,
+API, or generic Testing semantics are made by this patch. Acceptance
+requires the complete CI matrix.
