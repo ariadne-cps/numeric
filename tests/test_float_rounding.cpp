@@ -424,46 +424,6 @@ class TestFloatRounding
 };
 
 
-int main() {
-    std::cout<<std::setprecision(20);
-    std::cerr<<std::setprecision(20);
-
-    Ariadne::Testing::Suite suite("float_rounding");
-    // Preserve the legacy order: 16 phases for FloatDP, FloatMP/64, FloatMP/192.
-    // Each phase has its own result; an exception does not hide later phases.
-    auto register_precision = [&suite]<class PR>(std::string variant, PR precision) {
-        using Fixture=TestFloatRounding<PR>;
-        auto add = [&](char const* phase, void (Fixture::*method)()) {
-            suite.add(variant + " / " + phase,
-                [variant, precision, method](Ariadne::Testing::Context& ctx) {
-                    auto variant_scope=ctx.scope("precision_variant",variant);
-                    Fixture fixture(precision,ctx);
-                    (fixture.*method)();
-                }, Ariadne::Testing::CaseMetadata{{"float-rounding"},variant});
-        };
-        add("test_rounding_mode", &Fixture::test_rounding_mode);
-        add("test_rounding_session", &Fixture::test_rounding_session);
-        add("test_class", &Fixture::test_class);
-        add("test_limits", &Fixture::test_limits);
-        add("test_conversion_from_to", &Fixture::test_conversion_from_to);
-        add("test_conversion_between", &Fixture::test_conversion_between);
-        add("test_stream", &Fixture::test_stream);
-        add("test_comparison", &Fixture::test_comparison);
-        add("test_double_rounding", &Fixture::test_double_rounding);
-        add("test_directed_residuals", &Fixture::test_directed_residuals);
-        add("test_arithmetic", &Fixture::test_arithmetic);
-        add("test_function", &Fixture::test_function);
-        add("test_cosine", &Fixture::test_cosine);
-        add("test_arctan", &Fixture::test_arctan);
-        add("test_precision_regressions", &Fixture::test_precision_regressions);
-        add("test_short_power_and_tanh", &Fixture::test_short_power_and_tanh);
-    };
-    register_precision("FloatDP",dp);
-    register_precision("FloatMP-64",MultiplePrecision(64_bits));
-    register_precision("FloatMP-192",MultiplePrecision(192_bits));
-    return Ariadne::Testing::run_suite(suite);
-}
-
 
 template<class PR>
 TestFloatRounding<PR>::TestFloatRounding(PR pr, Ariadne::Testing::Context& ctx)
@@ -499,7 +459,7 @@ TestFloatRounding<PR>::test_class()
     context.note("execute: f3=f2"); f3=f2;
     ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, f3, f2);
     // Self-assignment
-    context.note("execute: f3=f3"); f3=f3;
+    context.note("execute: self-assignment f3"); Float& self=f3; f3=self;
     ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, f3, f2);
 
     if(not (precision==Float::get_default_precision())) {
@@ -3301,6 +3261,7 @@ TestFloatRounding<PR>::test_arctan()
     //pi~=3.14159265358979323846264338327950288419716939937510
     const Float pi_down=Float::pi(down,precision);
     const Float pi_near=Float::pi(near,precision);
+    context.inspect("pi_near",pi_near);
     const Float pi_up  =Float::pi(up,precision);
 
     Float three=Float(3,precision);
@@ -3337,7 +3298,7 @@ TestFloatRounding<PR>::test_arctan()
     ARIADNE_TESTING_EXPECT_LESS_EQUAL_CTX(context, sub(down,mul(down,atan(down,sqrt_rec_three_down),six),pi_up), shft(eps,2));
 
     // Regression test
-    ARIADNE_TESTING_EXPECT_LESS_CTX(context, div(down,pi_down,4), div(up,pi_up,4));
+    ARIADNE_TESTING_EXPECT_LESS_CTX(context, div(down,pi_down,four), div(up,pi_up,four));
 
 }
 
@@ -3485,4 +3446,44 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
         ARIADNE_TESTING_PROVE_CTX(context, std::signbit(tanh(up,-least).get_d()));
         ARIADNE_TESTING_EXPECT_EQUAL_CTX(context, tanh(up,-least), negative_zero);
     }
+}
+
+int main() {
+    std::cout<<std::setprecision(20);
+    std::cerr<<std::setprecision(20);
+
+    Ariadne::Testing::Suite suite("float_rounding");
+    // Preserve the legacy order: 16 phases for FloatDP, FloatMP/64, FloatMP/192.
+    // Each phase has its own result; an exception does not hide later phases.
+    auto register_precision = [&suite]<class PR>(std::string variant, PR precision) {
+        using Fixture=TestFloatRounding<PR>;
+        auto add = [&](char const* phase, void (Fixture::*method)()) {
+            suite.add(variant + " / " + phase,
+                [variant, precision, method](Ariadne::Testing::Context& ctx) {
+                    auto variant_scope=ctx.scope("precision_variant",variant);
+                    Fixture fixture(precision,ctx);
+                    (fixture.*method)();
+                }, Ariadne::Testing::CaseMetadata{{"float-rounding"},variant});
+        };
+        add("test_rounding_mode", &Fixture::test_rounding_mode);
+        add("test_rounding_session", &Fixture::test_rounding_session);
+        add("test_class", &Fixture::test_class);
+        add("test_limits", &Fixture::test_limits);
+        add("test_conversion_from_to", &Fixture::test_conversion_from_to);
+        add("test_conversion_between", &Fixture::test_conversion_between);
+        add("test_stream", &Fixture::test_stream);
+        add("test_comparison", &Fixture::test_comparison);
+        add("test_double_rounding", &Fixture::test_double_rounding);
+        add("test_directed_residuals", &Fixture::test_directed_residuals);
+        add("test_arithmetic", &Fixture::test_arithmetic);
+        add("test_function", &Fixture::test_function);
+        add("test_cosine", &Fixture::test_cosine);
+        add("test_arctan", &Fixture::test_arctan);
+        add("test_precision_regressions", &Fixture::test_precision_regressions);
+        add("test_short_power_and_tanh", &Fixture::test_short_power_and_tanh);
+    };
+    register_precision("FloatDP",dp);
+    register_precision("FloatMP-64",MultiplePrecision(64_bits));
+    register_precision("FloatMP-192",MultiplePrecision(192_bits));
+    return Ariadne::Testing::run_suite(suite);
 }
