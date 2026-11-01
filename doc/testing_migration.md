@@ -350,3 +350,45 @@ full reporter output. No independent oracle was rewritten and no failure
 expectation was relaxed. Compile and runtime CI on every platform are required
 before accepting the conversion; historical decision semantics for Real
 predicates must be examined if generic evidence makes any case inconclusive.
+
+## 2026-11-01: Real incompleteness and deprecated FloatDP construction
+
+The initial `test_real` migration, commit `ba2ee99`, built and executed
+but CTest reported two INCONCLUSIVE cases (arithmetic, transcendental):
+`Real` equality is a non-decidable `NegatedSierpinskian` predicate.
+Rendering equal values such as `x == 2.5_dy` or
+`sqrt(Real(4)) == 2.0_dy` does not make generic evidence conclusive.
+Neither blanket `decide()` nor treating unknown as pass is justified.
+
+Twenty arithmetic and three transcendental equality checks with a `Real`
+operand were replaced with explicit independently certified value oracles.
+Each obtains `actual.compute(Accuracy(64_bits)).get()` as a rigorously
+validated `DyadicBounds`, verifies that the original dyadic-exact expected
+value belongs to the interval, and proves that the interval width is at
+most `Dyadic(1,40u)` (2^-40). These are strong but *finite-resolution*
+numerical checks, not claims of mathematically decidable equality.
+The original expressions, expected constants, operation sequence and
+other checks are unchanged. Every oracle carries its source expression
+as a named diagnostic scope so failures remain attributable.
+
+The two active `Real{deprecated_float}` constructor smoke tests are
+replaced by `Real(Dyadic(binary_float))` and
+`Real(ExactDouble(binary_float.get_d()))`, both preserving the exact
+binary64 value while invoking supported constructors. The public
+`Real(FloatDP)` API declaration and implementation remain for consumer
+compatibility; this change removes its deprecated *use* within Numeric.
+The separate `numeric_cast<Real>(FloatDP)` test is deliberately preserved:
+`numeric_cast` is already specialized to construct
+`Real(ExactDouble(a.get_d()))`, so it does not call the deprecated
+constructor and still provides valuable public API coverage.
+
+Eight remaining unconditional stdout debugging/progress diagnostics in
+`test_real` are routed through the test reporter (notes/inspection) to
+keep successful `--concise` execution quiet. The process's formatting
+manipulator remains untouched.
+
+This patch must be tested on Numeric's complete Ubuntu, macOS, Windows,
+Sanitizers, and Coverage CI matrix; CI success is not inferred from the
+static source audit. In particular, the bound-width expectation is a
+numerical property that must be checked at runtime, not weakened merely
+to silence an inconclusive outcome.

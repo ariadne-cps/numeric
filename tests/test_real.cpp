@@ -25,6 +25,7 @@
 #include <sstream>
 #include <fstream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "utility/module.hpp"
@@ -147,6 +148,17 @@ static CertifiedPi certified_pi() {
     void test_accuracy();
     void test_sequence();
   private:
+    // Equality of computable reals is not semidecidably provable. Instead
+    // verify an independently certified enclosure at a stated resolution.
+    void expect_certified_value(Real const& actual, Dyadic const& expected,
+                                std::string description) {
+        [[maybe_unused]] auto value_scope = this->ctx().scope(description);
+        const DyadicBounds bounds = actual.compute(Accuracy(64_bits)).get();
+        ARIADNE_TESTING_PROVE(bounds.lower_raw() <= expected);
+        ARIADNE_TESTING_PROVE(expected <= bounds.upper_raw());
+        ARIADNE_TESTING_PROVE(bounds.upper_raw() - bounds.lower_raw() <= Dyadic(1,40u));
+    }
+
 };
 
 void TestReal::test_precision_preflight()
@@ -270,22 +282,22 @@ void TestReal::test_constructors() {
     ARIADNE_TESTING_EXPECT_NO_THROW(Real(Decimal("1.25")));
     ARIADNE_TESTING_EXPECT_NO_THROW(Real(Rational(5,4)));
     ARIADNE_TESTING_EXPECT_NO_THROW(Real(EffectiveNumber(2)));
-    FloatDP deprecated_float(1,pr);
-    ARIADNE_TESTING_EXPECT_NO_THROW((Real{deprecated_float}));
-    ARIADNE_TESTING_EXPECT_NO_THROW((Real{deprecated_float}));
+    const FloatDP binary_float(1,pr);
+    ARIADNE_TESTING_EXPECT_NO_THROW(Real(Dyadic(binary_float)));
+    ARIADNE_TESTING_EXPECT_NO_THROW(Real(ExactDouble(binary_float.get_d())));
     Real xe(1.5_exact);
     ARIADNE_TESTING_INSPECT("constructed xe", xe);
-    std::cout << "before xe.compute(eff).get()" << std::endl;
+    ARIADNE_TESTING_NOTE("before xe.compute(eff).get()" );
     auto xe_bounds = xe.compute(eff).get();
-    std::cout << "after xe.compute(eff).get()" << std::endl;
+    ARIADNE_TESTING_NOTE("after xe.compute(eff).get()" );
     ARIADNE_TESTING_EXPECT_EQUAL(xe_bounds,1.5_dy);
-    std::cout << "after xe equality" << std::endl;
-    std::cout << "before rational literal" << std::endl;
+    ARIADNE_TESTING_NOTE("after xe equality" );
+    ARIADNE_TESTING_NOTE("before rational literal" );
     Rational qn = 1.1_q;
-    std::cout << "after rational literal: " << qn << std::endl;
-    std::cout << "before Real xn(qn)" << std::endl;
+    ARIADNE_TESTING_NOTE("after rational literal: " << qn );
+    ARIADNE_TESTING_NOTE("before Real xn(qn)" );
     Real xn(qn);
-    std::cout << "after Real xn(qn): " << xn << std::endl;
+    ARIADNE_TESTING_NOTE("after Real xn(qn): " << xn );
     ARIADNE_TESTING_EXPECT_LESS(Rational(xn.lower().compute(eff).get().raw()), Rational(11,10));
     ARIADNE_TESTING_EXPECT_GREATER(Rational(xn.upper().compute(eff).get().raw()), Rational(11,10));
     Real xq(Rational(11,10));
@@ -303,26 +315,26 @@ void TestReal::test_arithmetic() {
     FloatDPApproximation::set_output_places(18);
     Real x(2.5_dyadic);
     Real y(4.0_dyadic);
-    ARIADNE_TESTING_EXPECT_EQUAL(x, 2.5_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(y, 4.0_x);
-    ARIADNE_TESTING_EXPECT_EQUAL(+x, 2.5_x);
-    ARIADNE_TESTING_EXPECT_EQUAL(-x,-2.5_x);
-    ARIADNE_TESTING_EXPECT_EQUAL(x+y, 6.5_x);
-    ARIADNE_TESTING_EXPECT_EQUAL(x-y,-1.5_x);
-    ARIADNE_TESTING_EXPECT_EQUAL(x*y,10.0_x);
-    ARIADNE_TESTING_EXPECT_EQUAL(x/y,0.625_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(add(x,y), 6.5_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(sub(x,y),-1.5_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(mul(x,y),10.0_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(div(x,y),0.625_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(pow(x,3u),15.625_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(pow(x,3),15.625_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(pos(x),+2.5_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(neg(x),-2.5_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(hlf(x),1.25_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(sqr(x),6.25_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(rec(y),0.25_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(nul(x),0.0_dy);
+    expect_certified_value(x, Dyadic(2.5_dy), "x certified within 2^-40 of 2.5_dy");
+    expect_certified_value(y, Dyadic(4.0_x), "y certified within 2^-40 of 4.0_x");
+    expect_certified_value(+x, Dyadic(2.5_x), "+x certified within 2^-40 of 2.5_x");
+    expect_certified_value(-x, Dyadic(-2.5_x), "-x certified within 2^-40 of -2.5_x");
+    expect_certified_value(x+y, Dyadic(6.5_x), "x+y certified within 2^-40 of 6.5_x");
+    expect_certified_value(x-y, Dyadic(-1.5_x), "x-y certified within 2^-40 of -1.5_x");
+    expect_certified_value(x*y, Dyadic(10.0_x), "x*y certified within 2^-40 of 10.0_x");
+    expect_certified_value(x/y, Dyadic(0.625_dy), "x/y certified within 2^-40 of 0.625_dy");
+    expect_certified_value(add(x,y), Dyadic(6.5_dy), "add(x,y) certified within 2^-40 of 6.5_dy");
+    expect_certified_value(sub(x,y), Dyadic(-1.5_dy), "sub(x,y) certified within 2^-40 of -1.5_dy");
+    expect_certified_value(mul(x,y), Dyadic(10.0_dy), "mul(x,y) certified within 2^-40 of 10.0_dy");
+    expect_certified_value(div(x,y), Dyadic(0.625_dy), "div(x,y) certified within 2^-40 of 0.625_dy");
+    expect_certified_value(pow(x,3u), Dyadic(15.625_dy), "pow(x,3u) certified within 2^-40 of 15.625_dy");
+    expect_certified_value(pow(x,3), Dyadic(15.625_dy), "pow(x,3) certified within 2^-40 of 15.625_dy");
+    expect_certified_value(pos(x), Dyadic(+2.5_dy), "pos(x) certified within 2^-40 of +2.5_dy");
+    expect_certified_value(neg(x), Dyadic(-2.5_dy), "neg(x) certified within 2^-40 of -2.5_dy");
+    expect_certified_value(hlf(x), Dyadic(1.25_dy), "hlf(x) certified within 2^-40 of 1.25_dy");
+    expect_certified_value(sqr(x), Dyadic(6.25_dy), "sqr(x) certified within 2^-40 of 6.25_dy");
+    expect_certified_value(rec(y), Dyadic(0.25_dy), "rec(y) certified within 2^-40 of 0.25_dy");
+    expect_certified_value(nul(x), Dyadic(0.0_dy), "nul(x) certified within 2^-40 of 0.0_dy");
     ARIADNE_TESTING_PROVE(same(Real(2),Real(2)));
     ARIADNE_TESTING_PROVE(not same(Real(2),Real(3)));
     ARIADNE_TESTING_EXPECT_NO_THROW(mag(Real(-2)).compute_get(Effort(4u)));
@@ -418,9 +430,9 @@ void TestReal::test_transcendental() {
     Dyadic eps{FloatDP::eps(dp)};
     Real x(2.5_dyadic);
     FloatDPApproximation ax=x.get(dp);
-    ARIADNE_TESTING_EXPECT_EQUAL(sqrt(Real(4)),2.0_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(exp(Real(0)),1.0_dy);
-    ARIADNE_TESTING_EXPECT_EQUAL(log(Real(1)),0.0_dy);
+    expect_certified_value(sqrt(Real(4)), Dyadic(2.0_dy), "sqrt(Real(4)) certified within 2^-40 of 2.0_dy");
+    expect_certified_value(exp(Real(0)), Dyadic(1.0_dy), "exp(Real(0)) certified within 2^-40 of 1.0_dy");
+    expect_certified_value(log(Real(1)), Dyadic(0.0_dy), "log(Real(1)) certified within 2^-40 of 0.0_dy");
 
     ARIADNE_TESTING_EXPECT_WITHIN(sqrt(x),sqrt(ax),eps);
     ARIADNE_TESTING_EXPECT_WITHIN(exp(x),exp(ax),8*eps);
@@ -569,7 +581,7 @@ void TestReal::test_sequence() {
     bounds_limit_stream << bounds_limit;
     ARIADNE_TESTING_PROVE(not bounds_limit_stream.str().empty());
 
-    std::cout<<wlim.compute(Accuracy(256_bits))<<"\n";
+    ARIADNE_TESTING_INSPECT("wlim.compute(Accuracy(256_bits))", wlim.compute(Accuracy(256_bits)));
 
     std::function<Real(Natural)> rfn([&](Natural n){return exp(Real(-(n+1u)));});
     FastCauchySequence<Real> rseq(rfn);
