@@ -22,12 +22,16 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
             "foundation|configuration"
             "logging|configuration"
             "testing|configuration"
+            "foundation|utility|configuration"
+            "logging|utility|configuration"
     )
     require_same_dependency_commit(Testing
         CHAINS
             "testing"
             "foundation|testing"
             "logging|testing"
+            "foundation|utility|testing"
+            "logging|utility|testing"
     )
     require_same_dependency_commit(Utility
         CHAINS
