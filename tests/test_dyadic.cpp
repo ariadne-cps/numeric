@@ -84,16 +84,23 @@ static_assert(check_concept());
 // An opt-in diagnostic; inactive for normal tests and CI. Measure the
 // actual running time of each existing test case without altering any
 // oracle, assertion or the external Testing runner.
+bool dyadic_profile_enabled() {
+#if defined(_MSC_VER)
+    // std::getenv is deprecated by the MSVC CRT (C4996 with /WX).
+    std::size_t length=0;
+    char value[2]={};
+    return ::getenv_s(&length,value,sizeof(value),"ARIADNE_DYADIC_PROFILE")==0
+        && length==sizeof(value) && value[0]=='1';
+#else
+    const char* value=std::getenv("ARIADNE_DYADIC_PROFILE");
+    return value!=nullptr && value[0]=='1' && value[1]=='\0';
+#endif
+}
+
 class DyadicCaseTimer {
 public:
     explicit DyadicCaseTimer(std::string_view label)
-        : _label(label),
-          _enabled([] {
-              const char* profile_environment=std::getenv("ARIADNE_DYADIC_PROFILE");
-              return profile_environment!=nullptr
-                  && profile_environment[0]=='1'
-                  && profile_environment[1]=='\0';
-          }()),
+        : _label(label), _enabled(dyadic_profile_enabled()),
           _start(_enabled ? std::chrono::steady_clock::now()
                           : std::chrono::steady_clock::time_point{}) { }
 

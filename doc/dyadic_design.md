@@ -174,3 +174,16 @@ profiling output is produced in normal execution. Comparing per-case
 and per-limb timing in the two reporter modes separates the cost of
 math/oracle work from reporter I/O. Once identified, fix the actual source
 of regression, then remove or retain the opt-in diagnostic as appropriate.
+
+
+### MSVC portability of the opt-in diagnostic (3 November 2026)
+
+The first profiling commit introduced `std::getenv` into
+`test_dyadic.cpp`. Windows Debug CI subsequently failed at the build step,
+before running tests. MSVC deprecates `getenv` (warning C4996), which is
+incompatible with warning-as-error builds. The diagnostic now uses
+`getenv_s` on MSVC and retains `std::getenv` on other platforms,
+recognizing only the exact value `ARIADNE_DYADIC_PROFILE=1`.
+Test cases, checks, oracle data, normal runtime behavior and profiling
+output remain unchanged. The precise Windows failure must be checked
+against CI after this correction; no Dyadic speedup is claimed.
