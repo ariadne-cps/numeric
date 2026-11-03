@@ -220,3 +220,20 @@ For reproducibility, run the same executable/build configuration with
 These breakdowns must be measured before altering Numeric or Testing
 implementations, and the baseline below one second must be rechecked
 with the same compiler, build flags, machine and inputs.
+
+
+### Testing successful-value formatting sanity probe (3 November 2026)
+
+The local phase log reports about 69.33 s in the four arithmetic
+`ARIADNE_TESTING_EXPECT_EQUAL` calls per row, versus milliseconds for
+unasserted add/sub recomputation. The actual slowdown remains
+unexplained: it may be local Testing linkage, exact equality, or a
+nonpassing assertion's diagnostic payload. With
+`ARIADNE_DYADIC_PROFILE=1`, a separate synthetic passing comparison
+now prints `[DYADIC TESTING PROBE] renders=N assertions=1 passed=1`.
+For the pinned console reporter, `renders` should be zero. The probe
+runs in its own ephemeral Testing context and is **not** registered
+as a test case; it never skips or changes any oracle assertion.
+If the probe prints nonzero render calls, investigate the locally
+compiled Testing headers/library and submodule SHA before changing
+Dyadic arithmetic. A zero count does not by itself identify the cause.

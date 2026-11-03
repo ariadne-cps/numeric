@@ -157,6 +157,36 @@ private:
     Clock::time_point _started{};
 };
 
+// An opt-in probe for successful-value formatting by the active Testing
+// implementation. This is not a registered suite case or an oracle row.
+struct DyadicRenderProbe {
+    unsigned value;
+    std::size_t* renders;
+    friend bool operator==(DyadicRenderProbe const& a,DyadicRenderProbe const& b) {
+        return a.value==b.value;
+    }
+    friend std::ostream& operator<<(std::ostream& out,DyadicRenderProbe const& v) {
+        ++*v.renders;
+        return out << v.value;
+    }
+};
+
+void dyadic_render_probe() {
+    if (!dyadic_profile_enabled()) return;
+    Ariadne::Testing::CaseResult result;
+    result.name="passing-value rendering probe";
+    std::ostringstream output;
+    Ariadne::Testing::ConsoleReporter reporter(output,Ariadne::Testing::ConsoleDetail::Concise);
+    Ariadne::Testing::Context context(result,&reporter);
+    std::size_t renders=0;
+    const DyadicRenderProbe lhs{42u,&renders},rhs{42u,&renders};
+    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context,lhs,rhs);
+    std::cerr << "[DYADIC TESTING PROBE] renders=" << renders
+              << " assertions=" << result.assertions.size()
+              << " passed=" << (result.outcome==Ariadne::Testing::Outcome::Passed)
+              << '\n';
+}
+
 } // namespace
 
 
@@ -602,6 +632,7 @@ void TestDyadic::test_infinity() {
 
 void TestDyadic::test_dyadic_add_sub_oracles() {
     [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_add_sub_oracles");
+    dyadic_render_probe();
     for (unsigned limbs:{1u,5u,16u,17u,31u,32u,64u,65u}) {
         const std::string name="dyadic_add_sub_"+std::to_string(limbs)+".tsv";
         [[maybe_unused]] const DyadicCaseTimer dyadic_limb_timer(name);
