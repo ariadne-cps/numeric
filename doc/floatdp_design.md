@@ -15,6 +15,29 @@ The shared benchmark is defined in
 `benchmarks/benchmark_backend_workload.hpp` and its outputs require
 same-machine/same-configuration comparisons before causal attribution.
 
+## FloatDP directed-conversion nontermination fix (3 November 2026)
+
+The actual non-progress loop was found in the pre-existing
+`rounded_rational_value` and `rounded_dyadic_value` fallback conversion
+paths. They adjusted a binary64 candidate by repeatedly adding or
+subtracting `std::numeric_limits<double>::min()`. For ordinary numbers
+around 0.5, that adjustment can be rounded away, so an exact comparison
+remains unchanged indefinitely. The activation certification repeatedly
+rounded rational bounds near 0.5 and exposed this defect.
+
+Replace the adjustment with `std::nextafter` toward the corresponding
+infinity. Each step now advances to the adjacent representable number.
+No ambient processor rounding-mode mutation is needed. Retain the
+existing short-rational fast path. A regression in
+`test_float_rounding::test_sigmoid_softplus` constructs wide exact
+rational values immediately above and below 0.5 and checks that directed
+conversion returns the adjacent binary64 values.
+
+This is distinct from the cost of unbounded exact-rational activation
+series, addressed separately in the same corrective sequence. The
+measured completion of the full original benchmark and the full CI
+matrix remain mandatory validation criteria.
+
 ## Sigmoid/Softplus performance regression correction (3 November 2026)
 
 The initial activation implementation caused an apparent hang in

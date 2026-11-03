@@ -363,17 +363,17 @@ namespace {
 
 double rounded_dyadic_value(Dyadic const& w, BuiltinRoundingModeType rnd) {
     double d=w.get_d();
-    if (is_finite(w)) {
-        auto old_rnd=FloatDP::get_rounding_mode();
-        if(rnd==FloatDP::ROUND_UPWARD) {
-            FloatDP::set_rounding_upward();
-            while (Dyadic(d)<w) { d=d+std::numeric_limits<double>::min(); }
-            FloatDP::set_rounding_mode(old_rnd);
+    if (!is_finite(w)) return d;
+    // A fixed increment of DBL_MIN may round away to zero for normal
+    // values; std::nextafter always advances to the adjacent binary64.
+    // Avoid mutating ambient rounding mode: comparison is exact.
+    if(rnd==FloatDP::ROUND_UPWARD) {
+        while (Dyadic(d)<w) {
+            d=std::nextafter(d,std::numeric_limits<double>::infinity());
         }
-        if(rnd==FloatDP::ROUND_DOWNWARD) {
-            FloatDP::set_rounding_downward();
-            while (Dyadic(d)>w) { d=d-std::numeric_limits<double>::min(); }
-            FloatDP::set_rounding_mode(old_rnd);
+    } else if(rnd==FloatDP::ROUND_DOWNWARD) {
+        while (Dyadic(d)>w) {
+            d=std::nextafter(d,-std::numeric_limits<double>::infinity());
         }
     }
     return d;
@@ -449,17 +449,17 @@ double rounded_rational_value(Rational const& q, BuiltinRoundingModeType rnd) {
     double fast;
     if (rounded_short_rational_value(q,rnd,fast)) { return fast; }
     double d=q.get_d();
-    if (is_finite(q)) {
-        auto old_rnd=FloatDP::get_rounding_mode();
-        if(rnd==FloatDP::ROUND_UPWARD) {
-            FloatDP::set_rounding_upward();
-            while (cast_rational(d)<q) { d=d+std::numeric_limits<double>::min(); }
-            FloatDP::set_rounding_mode(old_rnd);
+    if (!is_finite(q)) return d;
+    // Move by exactly one representable binary64 value, not DBL_MIN:
+    // near 1/2 the old addition was rounded away and could never
+    // advance, causing nontermination in sigmoid/softplus benchmarks.
+    if(rnd==FloatDP::ROUND_UPWARD) {
+        while (cast_rational(d)<q) {
+            d=std::nextafter(d,std::numeric_limits<double>::infinity());
         }
-        if(rnd==FloatDP::ROUND_DOWNWARD) {
-            FloatDP::set_rounding_downward();
-            while (cast_rational(d)>q) { d=d-std::numeric_limits<double>::min(); }
-            FloatDP::set_rounding_mode(old_rnd);
+    } else if(rnd==FloatDP::ROUND_DOWNWARD) {
+        while (cast_rational(d)>q) {
+            d=std::nextafter(d,-std::numeric_limits<double>::infinity());
         }
     }
     return d;

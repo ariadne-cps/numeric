@@ -3496,6 +3496,18 @@ TestFloatRounding<PR>::test_sigmoid_softplus()
             >=Rational(1));
     }
     if constexpr (Same<PR,DoublePrecision>) {
+        // Force the wide-rational fallback: the exact value is one
+        // binary64-negligible amount above/below 1/2. Directed rounding
+        // must move by one ULP, without a stalled DBL_MIN increment.
+        const Integer scale=pow(Integer(2),Nat(201u));
+        const Rational above_half(scale+Integer(1),Integer(2)*scale);
+        const Rational below_half(scale-Integer(1),Integer(2)*scale);
+        const Float half_up(above_half,Float::ROUND_UPWARD,precision);
+        const Float half_down(below_half,Float::ROUND_DOWNWARD,precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            half_up.get_d(),std::nextafter(0.5,1.0));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            half_down.get_d(),std::nextafter(0.5,0.0));
         const Float forty(40,precision);
         const Float minus_eight_hundred(-800,precision);
         const Float below_one(ExactDouble(std::nextafter(1.0,0.0)),precision);
