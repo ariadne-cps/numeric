@@ -3549,6 +3549,22 @@ TestFloatRounding<PR>::test_sigmoid_softplus()
         ARIADNE_TESTING_EXPECT_EQUAL(
             softplus(up,negative_half),
             Float(ExactDouble(0x1.e5746fdb5c064p-2),precision));
+        // For every nonzero |x| < 2^-60, the exact sigmoid is strictly
+        // between 1/2 and its next representable value. Directed modes
+        // must select the correct adjacent binary64 number.
+        const Float tiny_positive(ExactDouble(std::numeric_limits<double>::denorm_min()),precision);
+        const Float tiny_negative=neg(tiny_positive);
+        const Float half_below(ExactDouble(std::nextafter(0.5,0.0)),precision);
+        const Float half_above(ExactDouble(std::nextafter(0.5,1.0)),precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,tiny_positive),half);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,tiny_positive),half);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,tiny_positive),half_above);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(toward_zero,tiny_positive),half);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,tiny_negative),half);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,tiny_negative),half_below);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,tiny_negative),half);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(toward_zero,tiny_negative),half_below);
+
         const Float forty(40,precision);
         const Float minus_eight_hundred(-800,precision);
         const Float below_one(ExactDouble(std::nextafter(1.0,0.0)),precision);
@@ -3556,6 +3572,22 @@ TestFloatRounding<PR>::test_sigmoid_softplus()
         ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,forty),below_one);
         ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,forty),one);
         ARIADNE_TESTING_EXPECT_EQUAL(softplus(down,forty),forty);
+        const Float forty_above(ExactDouble(std::nextafter(
+            40.0,std::numeric_limits<double>::infinity())),precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,forty),one);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(toward_zero,forty),below_one);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(up,forty),forty_above);
+
+        // The CurrentRoundingMode overloads must dispatch through the
+        // active mode; preserve the caller's original mode via RAII.
+        const auto original_mode=Float::get_rounding_mode();
+        {
+            RoundingSession<Float> session;
+            const CurrentRoundingMode current=session.set(up);
+            ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(current,tiny_positive),half_above);
+            ARIADNE_TESTING_EXPECT_EQUAL(softplus(current,forty),forty_above);
+        }
+        ARIADNE_TESTING_PROVE(Float::get_rounding_mode()==original_mode);
         ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,minus_eight_hundred),first_subnormal);
         ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,minus_eight_hundred),zero);
         ARIADNE_TESTING_EXPECT_EQUAL(softplus(up,minus_eight_hundred),first_subnormal);

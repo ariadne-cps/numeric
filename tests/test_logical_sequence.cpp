@@ -10,6 +10,7 @@
 #include "numeric/logical_sequence.hpp"
 #include "ariadne-testing.hpp"
 #include <iostream>
+#include <sstream>
 using namespace Ariadne;
 class TestLogicalSequence : public Ariadne::Testing::ContextFixture { public: using ContextFixture::ContextFixture; Void test(); };
 int main(int argc, char** argv) {
@@ -36,4 +37,20 @@ Void TestLogicalSequence::test() {
     LogicalInterface* all_copy=all.repr().pointer()->_copy();
     ARIADNE_TESTING_PROVE( all_copy->_check(3_eff)==LogicalValue::FALSE);
     delete all_copy;
+
+    // Verify the observable representation of the two lazy sequences.
+    // This also exercises the polymorphic _write implementations.
+    std::ostringstream disjunction_output;
+    some.repr().pointer()->_write(disjunction_output);
+    std::ostringstream expected_disjunction;
+    expected_disjunction << "disjunction(" << seq[0u] << "," << seq[1u]
+                         << "," << seq[2u] << ",...)";
+    ARIADNE_TESTING_EXPECT_EQUAL(disjunction_output.str(),expected_disjunction.str());
+
+    std::ostringstream conjunction_output;
+    all.repr().pointer()->_write(conjunction_output);
+    std::ostringstream expected_conjunction;
+    expected_conjunction << "conjunction(" << upper_seq[0u] << ","
+                         << upper_seq[1u] << "," << upper_seq[2u] << ",...)";
+    ARIADNE_TESTING_EXPECT_EQUAL(conjunction_output.str(),expected_conjunction.str());
 }
