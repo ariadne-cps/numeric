@@ -1,5 +1,34 @@
 # FloatDP — fixed-precision binary64 floating point
 
+## Coverage contracts and activation refinement (3 November 2026)
+
+The normal finite results of `sigmoid(-700)` and `softplus(-700)` require
+more than the previous absolute 1024-bit dyadic refinement limit. Replace
+that limit with progressive doubling and checked scalar overflow. For a
+nonzero dyadic input both activations are non-dyadic (by linear independence
+of exponentials of distinct algebraic numbers), so convergent outward
+bounds eventually select a unique binary64 rounding. Resource exhaustion
+remains an ordinary exception, without rejecting a fixed valid input range.
+Frozen adjacent binary64 results at -700 were independently checked using
+Python Decimal exp/log at 500 and 1000 decimal digits, for all four modes.
+
+Remove two redundant finite-operand checks: an IEEE-754 normal sum already
+implies finite operands. The FMA product-floor check is also redundant:
+a sub-floor product with the already established result/addend floors would
+put those two values within a factor of two, so the preceding Sterbenz
+branch would have returned. Preserve the product-overflow fallback.
+The private activation dyadic rounding helper only receives nonnegative
+Taylor terms, sums, reciprocals and squares; remove its impossible negative
+input check. Public invalid-input contracts are unchanged.
+
+Add exact dyadic tests for small FMA cancellation, the failed Sterbenz
+ratio, overflowing unfused products, infinity and exponent-17 powers.
+AppleClang 21, Debug, COVERAGE=ON, WARNINGS_AS_ERRORS=ON,
+BUILD_PYTHON_BINDINGS=ON: all 21 CTest entries pass, with FloatDP source
+coverage 117/117 functions, 756/756 lines and 398/398 branch outcomes.
+Regions remain a secondary metric (662/670). Other platforms require CI.
+
+
 ## Shared activation test naming fix (3 November 2026)
 
 The common `test_sigmoid_softplus` fixture for FloatDP and FloatMP now

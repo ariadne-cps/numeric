@@ -40,6 +40,7 @@
 
 #include "utility/macros.hpp"
 #include "numeric/builtin.hpp"
+#include "numeric/detail/checked_arithmetic.hpp"
 #include "numeric/twoexp.hpp"
 #include "numeric/dyadic.hpp"
 #include "numeric/decimal.hpp"
@@ -91,7 +92,8 @@ double two_sum_error(double a,double b,double s) {
 }
 bool exact_add(FloatDP::RoundingModeType mode,double a,double b,double& result) {
     const double s=a+b;
-    if (!std::isnormal(s)||!std::isfinite(a)||!std::isfinite(b))return false;
+    // A normal sum implies both operands are finite (IEEE-754).
+    if (!std::isnormal(s))return false;
     result=adjusted(s,two_sum_error(a,b,s),mode);
     return true;
 }
@@ -138,7 +140,10 @@ bool exact_fma(FloatDP::RoundingModeType mode,double a,double b,
     // Retain D7's independently certified expansion when the
     // Sterbenz fast path cannot be used.
     const double p=a*b;
-    if (!std::isnormal(p)||std::fabs(p)<certified_floor)return false;
+    // A product below certified_floor would leave r and c within a
+    // factor of two: |r| and |c| already passed that floor, so the
+    // Sterbenz path above would have returned. Only overflow remains.
+    if (!std::isnormal(p))return false;
     const double s=p+c;
     if (s!=r)return false;
     const double e=std::fma(a,b,-p)+two_sum_error(p,c,s);
@@ -211,7 +216,10 @@ bool exact_fma_fma3(FloatDP::RoundingModeType mode,
         }
     }
     const double p=a*b;
-    if (!std::isnormal(p)||std::fabs(p)<certified_floor)return false;
+    // A product below certified_floor would leave r and c within a
+    // factor of two: |r| and |c| already passed that floor, so the
+    // Sterbenz path above would have returned. Only overflow remains.
+    if (!std::isnormal(p))return false;
     const double s=p+c;
     if (s!=r)return false;
     const double e=fma3_inline(a,b,-p)+two_sum_error(p,c,s);
@@ -1014,9 +1022,8 @@ bool activation_unique_rounding(ActivationInterval const& interval,
 Rational activation_dyadic_round(Rational const& value,
                                   unsigned bits,bool round_up) {
     const Integer& numerator=value.numerator_reference();
-    if(numerator.negative()) {
-        throw std::logic_error("Activation dyadic bound must be nonnegative");
-    }
+    // Every caller builds nonnegative Taylor terms, sums, reciprocals
+    // or squares from |x| and exp(-|x|); negativity is impossible here.
     auto [quotient,remainder]=divrem(
         shift_left(numerator.magnitude(),bits),value.denominator_reference());
     if(round_up && !remainder.is_zero()) {
@@ -1149,7 +1156,11 @@ FloatDP certify_activation(FloatDP::RoundingModeType mode,FloatDP x,
     // dyadics keep each Taylor operation bounded while retaining proof
     // of every outward rounding step. Refinement raises precision, not
     // the size of recursively multiplied rational denominators.
-    for(unsigned bits=128u;bits<=1024u;bits*=2u) {
+    // Nonzero dyadic x gives non-dyadic sigmoid/softplus values, so a
+    // converging enclosure eventually selects one binary64 result. An
+    // absolute 1024-bit cap fails even for the normal result at x=-700.
+    for(unsigned bits=128u;;bits=Detail::checked_unsigned_add(
+            bits,bits,"FloatDP activation working precision overflow")) {
         const unsigned terms=bits/3u+16u;
         const auto refined=activation_exp_negative_fixed(
             negative ? Rational(0)-original : original,bits,terms);
@@ -1157,7 +1168,6 @@ FloatDP certify_activation(FloatDP::RoundingModeType mode,FloatDP x,
             transform(refined,negative,original,bits,terms),mode,certified_result))
             return certified_result;
     }
-    throw std::runtime_error("FloatDP activation certification did not converge");
 }
 
 FloatDP tiny_positive_activation(FloatDP::RoundingModeType mode) {

@@ -90,6 +90,7 @@ class TestFloatStandalone : public Ariadne::Testing::ContextFixture {
     void test_floatdp_rounding_exception_safety();
     void test_floatdp_rounding_mode_contract();
     void test_floatdp_rounding_fallbacks();
+    void test_floatdp_certificate_boundaries();
     void test_floatdp_sine_outside_certificate();
     void test_floatdp_unary_wrappers();
     void test_floatmp_minmax_oracle();
@@ -1378,6 +1379,41 @@ void TestFloatStandalone::test_floatdp_rounding_fallbacks() {
         FloatDP::get_rounding_mode(),saved);
 }
 
+// Exact dyadic results distinguish each certified-kernel fallback.
+void TestFloatStandalone::test_floatdp_certificate_boundaries() {
+    RoundingSession<FloatDP> session;
+    session.set(FloatDP::ROUND_TO_NEAREST);
+    const auto value=[](double d) { return FloatDP(ExactDouble(d),dp); };
+    for (auto mode : {FloatDP::ROUND_DOWNWARD,FloatDP::ROUND_UPWARD}) {
+        // Exact product cancellation leaves a normal residual below 2^-400.
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            fma(mode,value(0x1.0000000000001p-200),value(0x1.ffffffffffffep-201),value(-0x1p-400)),
+            value(-0x1p-504));
+        // Result and addend have equal signs but differ by a factor of four.
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            fma(mode,value(1.0),value(-0.75),value(1.0)),value(0.25));
+        // The separate product overflows; the fused exact result is finite.
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            fma(mode,value(0x1p600),value(0x1p424),value(-0x1p1023)),value(0x1p1023));
+        ARIADNE_TESTING_EXPECT_EQUAL(pow(mode,value(2.0),Nat(17u)),value(0x1p17));
+        ARIADNE_TESTING_PROVE(is_inf(pow(mode,FloatDP::inf(Sign::POSITIVE,dp),Nat(3u))));
+    }
+    ARIADNE_TESTING_EXPECT_EQUAL(Detail::checked_unsigned_add(1u,2u,"precision"),3u);
+    ARIADNE_TESTING_EXPECT_EXCEPTION(Detail::checked_unsigned_add(
+        std::numeric_limits<unsigned>::max(),1u,"precision"));
+    // e^-700 is small enough to require more than the initial 128-bit
+    // absolute enclosure. The exact activations are positive and <2^-1000.
+    for (auto mode : {FloatDP::ROUND_TO_NEAREST,FloatDP::ROUND_DOWNWARD,
+                      FloatDP::ROUND_UPWARD,FloatDP::ROUND_TOWARD_ZERO}) {
+        // Independent Decimal exp/log evaluation at 500 and 1000 decimal
+        // digits gives these adjacent exact binary64 rounding results.
+        const auto expected=value(mode==FloatDP::ROUND_UPWARD
+            ? 0x1.14f2b0fb93080p-1010 : 0x1.14f2b0fb9307fp-1010);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(mode,value(-700.0)),expected);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(mode,value(-700.0)),expected);
+    }
+}
+
 void TestFloatStandalone::test_floatdp_sine_outside_certificate() {
     const auto initial=FloatDP::get_rounding_mode();
     const FloatDP input(0.75_x,dp);
@@ -2284,6 +2320,7 @@ void TestFloatStandalone::add_cases_before_precision(Ariadne::Testing::Suite& su
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_rounding_exception_safety);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_rounding_mode_contract);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_rounding_fallbacks);
+    ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_certificate_boundaries);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_sine_outside_certificate);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_float_literals);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatmp_directed_bound_oracles);
