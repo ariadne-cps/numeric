@@ -122,6 +122,41 @@ private:
     std::chrono::steady_clock::time_point _start;
 };
 
+// Aggregate actual execution time within each frozen oracle row. No extra
+// arithmetic is performed, and all original assertions retain their order.
+class DyadicOraclePhases {
+public:
+    using Clock=std::chrono::steady_clock;
+    using Duration=Clock::duration;
+    explicit DyadicOraclePhases(std::string_view label)
+        : _label(label), _enabled(dyadic_profile_enabled()) { }
+    void start() {
+        if (_enabled) _started=Clock::now();
+    }
+    void stop(Duration& accumulator) {
+        if (_enabled) accumulator+=Clock::now()-_started;
+    }
+    void report() const {
+        if (!_enabled) return;
+        const auto millis=[](Duration time) {
+            return std::chrono::duration<double,std::milli>(time).count();
+        };
+        std::cerr << "[DYADIC PHASE] " << _label
+                  << " parse_ms=" << millis(parsing)
+                  << " construct_ms=" << millis(constructing)
+                  << " scope_ms=" << millis(scoping)
+                  << " arithmetic_checks_ms=" << millis(arithmetic_checks)
+                  << " recompute_ms=" << millis(recomputing)
+                  << " canonical_checks_ms=" << millis(canonical_checks) << '\n';
+    }
+    Duration parsing{}, constructing{}, scoping{}, arithmetic_checks{};
+    Duration recomputing{}, canonical_checks{};
+private:
+    std::string_view _label;
+    bool _enabled;
+    Clock::time_point _started{};
+};
+
 } // namespace
 
 
@@ -574,8 +609,10 @@ void TestDyadic::test_dyadic_add_sub_oracles() {
         if (!data) throw std::runtime_error("Missing "+name);
         std::string line;
         std::set<unsigned> ids;
+        DyadicOraclePhases phases(name);
         while (std::getline(data,line)) {
             if (line.empty() || line[0]=='#') continue;
+            phases.start();
             std::istringstream fields(line);
             unsigned id;
             std::size_t ae,be,se,de;
@@ -583,22 +620,34 @@ void TestDyadic::test_dyadic_add_sub_oracles() {
             if (!(fields>>id>>an>>ae>>bn>>be>>sn>>se>>dn>>de) || (fields>>extra)
                 || !ids.insert(id).second)
                 throw std::runtime_error("Malformed "+name);
+            phases.stop(phases.parsing);
+            phases.start();
             const Dyadic a(Integer(String(an)),ae),b(Integer(String(bn)),be);
             const Dyadic sum_expected(Integer(String(sn)),se),difference_expected(Integer(String(dn)),de);
+            phases.stop(phases.constructing);
+            phases.start();
             [[maybe_unused]] auto row_scope = this->ctx().scope(name + " row", id);
+            phases.stop(phases.scoping);
+            phases.start();
             ARIADNE_TESTING_EXPECT_EQUAL(a+b,sum_expected);
             ARIADNE_TESTING_EXPECT_EQUAL(b+a,sum_expected);
             ARIADNE_TESTING_EXPECT_EQUAL(a-b,difference_expected);
             ARIADNE_TESTING_EXPECT_EQUAL(b-a,-difference_expected);
+            phases.stop(phases.arithmetic_checks);
             // Canonicalization is observable through the public accessors.
+            phases.start();
             const auto sum=a+b,difference=a-b;
+            phases.stop(phases.recomputing);
+            phases.start();
             ARIADNE_TESTING_EXPECT_EQUAL(sum.coefficient().literal(),String(sn));
             ARIADNE_TESTING_EXPECT_EQUAL(sum.denominator_exponent(),se);
             ARIADNE_TESTING_EXPECT_EQUAL(difference.coefficient().literal(),String(dn));
             ARIADNE_TESTING_EXPECT_EQUAL(difference.denominator_exponent(),de);
+            phases.stop(phases.canonical_checks);
         }
         if (ids.size()!=256u || *ids.begin()!=0u || *ids.rbegin()!=255u)
             throw std::runtime_error("Incomplete "+name);
+        phases.report();
     }
 }
 

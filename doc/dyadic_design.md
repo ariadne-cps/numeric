@@ -187,3 +187,36 @@ recognizing only the exact value `ARIADNE_DYADIC_PROFILE=1`.
 Test cases, checks, oracle data, normal runtime behavior and profiling
 output remain unchanged. The precise Windows failure must be checked
 against CI after this correction; no Dyadic speedup is claimed.
+
+
+### Phase breakdown of 71-second oracle regression (3 November 2026)
+
+Both opt-in profiling logs report about 69-70 s in
+`test_dyadic_add_sub_oracles` (versus 2.3 s for conversion), with the
+64- and 65-limb groups accounting for about 43 s together. The
+`--full` run changes add/sub time by only about 1.1% versus
+`--concise`; console output itself is not the dominant cause on
+this host. A commit comparison against pre-migration `83ba8ae63`
+shows no changes in the Numeric Dyadic/Integer/BigUnsigned arithmetic
+implementation files. These observations do not identify whether the
+cost originates in the test's decimal I/O, operands, arithmetic, or the
+Testing assertions.
+
+Under the existing `ARIADNE_DYADIC_PROFILE=1` flag the eight add/sub
+width groups now emit one additional `[DYADIC PHASE]` line, with
+aggregate millisecond totals for TSV row parsing (`parse_ms`),
+construction of the four Dyadic operands (`construct_ms`), diagnostic
+row-scope setup (`scope_ms`), four exact arithmetic comparisons
+(`arithmetic_checks_ms`), separate add/sub recomputation
+(`recompute_ms`), and the four canonical-representation assertions
+(`canonical_checks_ms`). Time to read raw lines, destroy temporaries
+and other overhead remains in the existing width timer rather than a
+phase bucket. All original test expressions, counts, oracle files,
+error paths, fixture registration and runner modes are unchanged.
+There is no extra arithmetic benchmark or skipped assertion.
+
+For reproducibility, run the same executable/build configuration with
+`ARIADNE_DYADIC_PROFILE=1 ./test_dyadic --concise` and capture stderr.
+These breakdowns must be measured before altering Numeric or Testing
+implementations, and the baseline below one second must be rechecked
+with the same compiler, build flags, machine and inputs.
