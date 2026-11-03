@@ -81,6 +81,22 @@ bool floatmp_any_bits_below(BigUnsigned::LimbView digits,std::size_t limit) noex
 bool floatmp_any_bits_below(BigUnsigned const& n,std::size_t limit) noexcept {
     return floatmp_any_bits_below(n.limbs(),limit);
 }
+// Common rounding policy for the generic and native short kernels.
+// dropped>0; guard/parity bits are in the canonical source view.
+bool floatmp_rounding_increment(FloatMP::Rounding mode,bool negative,
+                                BigUnsigned::LimbView magnitude,
+                                std::size_t dropped,bool odd) {
+    switch(mode.value()) {
+        case FloatMP::Rounding::ToNearest:
+            return Detail::nearest_even_binary_increment(magnitude,dropped,odd);
+        case FloatMP::Rounding::Downward:
+            return negative && floatmp_any_bits_below(magnitude,dropped);
+        case FloatMP::Rounding::Upward:
+            return !negative && floatmp_any_bits_below(magnitude,dropped);
+        default: // TowardZero.
+            return false;
+    }
+}
 std::size_t floatmp_popcount(BigUnsigned const& n) noexcept {
     std::size_t count=0u;
     for(auto word:n.limbs()) count+=static_cast<std::size_t>(std::popcount(word));
@@ -117,21 +133,8 @@ void FloatMP::round_short(FloatMP& result,BigUnsigned::LimbView magnitude,
         const auto offset=static_cast<unsigned>(dropped%64u);
         retained=magnitude[word]>>offset;
         if (offset!=0u && word+1u<magnitude.size()) retained|=magnitude[word+1u]<<(64u-offset);
-        switch(mode.value()) {
-            case Rounding::ToNearest:
-                increment=floatmp_test_bit(magnitude,dropped-1u) &&
-                    ((retained&1u)!=0u ||
-                     floatmp_any_bits_below(magnitude,dropped-1u));
-                break;
-            case Rounding::Downward:
-                increment=result._negative && floatmp_any_bits_below(magnitude,dropped);
-                break;
-            case Rounding::Upward:
-                increment=!result._negative && floatmp_any_bits_below(magnitude,dropped);
-                break;
-            default: // TowardZero: the fourth value of the closed rounding type.
-                break;
-        }
+        increment=floatmp_rounding_increment(mode,result._negative,
+            magnitude,dropped,(retained&1u)!=0u);
     }
     if (increment) ++retained;
     // A 64-bit carry wraps to zero; narrower carries remain in the limb.
@@ -1631,43 +1634,31 @@ FloatMP sqrt(FloatMP::RoundingModeType mode, FloatMP const& value) {
         result_exponent, static_cast<FloatMP::Exponent>(offset));
 
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
-    // M149: at precision <=53, the scaled radicand fits in 106 bits.
-    // A hardware sqrt is only a candidate: all rounding decisions are
-    // made from a certified 128-bit integer floor root and remainder.
-    // This path never changes the hardware rounding mode. On unusual
-    // rounding implementations an uncertifiable candidate uses sqrtrem.
-    if (bits<=53u) {
-        __extension__ using Wide=unsigned __int128;
-        const Wide scaled=static_cast<Wide>(value._significand.limb(0u))<<shift;
-        std::uint64_t candidate=static_cast<std::uint64_t>(
-            std::sqrt(static_cast<double>(scaled)));
-        const Wide candidate_square=static_cast<Wide>(candidate)*candidate;
-        if (candidate_square>scaled) {
-            --candidate;
-        } else if (scaled-candidate_square >= (static_cast<Wide>(candidate)<<1u)+1u) {
-            ++candidate;
-        }
-        const Wide lower_square=static_cast<Wide>(candidate)*candidate;
-        if (lower_square<=scaled) {
-            const Wide remainder=scaled-lower_square;
-            // The next consecutive square differs by exactly 2*r+1.
-            // Thus neither sqrt nor the floating-point estimate is an
-            // oracle; this integer inequality proves floor(sqrt(scaled)).
-            if (remainder < (static_cast<Wide>(candidate)<<1u)+1u) {
-                const bool increment=remainder!=0u &&
-                    (mode.value()==FloatMP::Rounding::Upward ||
-                     (mode.value()==FloatMP::Rounding::ToNearest &&
-                      remainder>candidate));
-                if (increment) ++candidate;
-                if (candidate==(std::uint64_t{1}<<bits)) {
-                    candidate>>=1u;
-                    result_exponent=FloatMP::checked_add(result_exponent,1);
-                }
-                FloatMP result(bits);
-                result._significand=BigUnsigned(candidate);
-                result._exponent=result_exponent;
-                return result;
+    // With <=53 significant bits the scaled integer converts to double
+    // exactly. IEC-60559 sqrt rounds to a representable value between
+    // floor(sqrt(scaled)) and that integer plus one, in every ambient mode.
+    // A single downward correction therefore gives the exact floor root;
+    // neither an upward correction nor a failed certificate is possible.
+    if constexpr (std::numeric_limits<double>::is_iec559) {
+        if (bits<=53u) {
+            __extension__ using Wide=unsigned __int128;
+            const Wide scaled=static_cast<Wide>(value._significand.limb(0u))<<shift;
+            std::uint64_t candidate=static_cast<std::uint64_t>(
+                std::sqrt(static_cast<double>(scaled)));
+            if (static_cast<Wide>(candidate)*candidate>scaled) --candidate;
+            const Wide remainder=scaled-static_cast<Wide>(candidate)*candidate;
+            const bool increment=remainder!=0u &&
+                (mode.value()==FloatMP::Rounding::Upward ||
+                 (mode.value()==FloatMP::Rounding::ToNearest && remainder>candidate));
+            if (increment) ++candidate;
+            if (candidate==(std::uint64_t{1}<<bits)) {
+                candidate>>=1u;
+                result_exponent=FloatMP::checked_add(result_exponent,1);
             }
+            FloatMP result(bits);
+            result._significand=BigUnsigned(candidate);
+            result._exponent=result_exponent;
+            return result;
         }
     }
 #endif
@@ -3639,30 +3630,26 @@ struct FloatMPShortTranscendentals {
     // use the existing shared native multiplier, including portable builds.
     static std::uint64_t correction(BigUnsigned const& slope,std::uint64_t n,
                                      unsigned shift,bool round_upward) {
-        if (n==0u || slope.is_zero()) return 0u;
+        if (n==0u) return 0u;
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
-        // The p<=64 centered kernel uses at most two slope limbs, one
-        // offset limb and a shift in [1,64]. Use two exact 64x64
-        // products and their carry instead of general limb dispatch.
-        // A third product limb takes the exact original fallback.
-        if (shift>0u && shift<=64u && slope.size()<=2u) {
-            __extension__ using Wide=unsigned __int128;
-            const Wide first=static_cast<Wide>(slope.limb(0u))*n;
-            const Wide second=static_cast<Wide>(
-                slope.size()==2u ? slope.limb(1u) : 0u)*n+(first>>64u);
-            if ((second>>64u)==0u) {
-                const auto low=static_cast<std::uint64_t>(first);
-                const auto high=static_cast<std::uint64_t>(second);
-                const auto retained=shift==64u ? high
-                    : (low>>shift)|(high<<(64u-shift));
-                const bool discarded=shift==64u ? low!=0u
-                    : (low&((std::uint64_t{1}<<shift)-1u))!=0u;
-                return retained+static_cast<std::uint64_t>(round_upward && discarded);
-            }
-        }
-#endif
+        // evaluate supplies 1<=shift<=64, B=p+32<=96 and a strictly
+        // positive slope <=2+2^-B. Its offset n<=2^(shift-ceil(B/2))
+        // bounds the product by 2^114. Two slope limbs and two product
+        // limbs therefore suffice; no out-of-contract fallback is needed.
+        __extension__ using Wide=unsigned __int128;
+        const Wide first=static_cast<Wide>(slope.limb(0u))*n;
+        const Wide second=static_cast<Wide>(
+            slope.size()==2u ? slope.limb(1u) : 0u)*n+(first>>64u);
+        const auto low=static_cast<std::uint64_t>(first);
+        const auto high=static_cast<std::uint64_t>(second);
+        const auto retained=shift==64u ? high
+            : (low>>shift)|(high<<(64u-shift));
+        const bool discarded=shift==64u ? low!=0u
+            : (low&((std::uint64_t{1}<<shift)-1u))!=0u;
+        return retained+static_cast<std::uint64_t>(round_upward && discarded);
+#else
         // Keep portable exact multiplication and remainder handling
-        // for MSVC and all out-of-contract inputs.
+        // for targets without native 128-bit arithmetic.
         std::array<BigUnsigned::Limb,3u> product;
         BigUnsigned::mul_into(slope.limbs(),BigUnsigned::LimbView(&n,1u),product);
         const auto word=shift/64u;
@@ -3671,26 +3658,27 @@ struct FloatMPShortTranscendentals {
         if (offset!=0u) retained|=product[word+1u]<<(64u-offset);
         if (round_upward && floatmp_any_bits_below(BigUnsigned::LimbView(product),shift)) ++retained;
         return retained;
+#endif
     }
 
-    // Both short and wide kernels certify exactly the same postcondition:
-    // every enclosed value rounds to one finite FloatMP. Use the shared
-    // exact comparison instead of duplicating representation-specific tests.
+    // One acceptance policy for native words and general limb magnitudes.
+    // Constructing the lower endpoint before this call also lets portable
+    // callers transfer their existing result instead of rebuilding it.
+    static std::optional<FloatMP> certified_result(FloatMP lower,bool equal) {
+        if (!equal) return std::nullopt;
+        return lower;
+    }
+
     static std::optional<FloatMP> certified_endpoints(FloatMP lower,FloatMP const& upper) {
-        // Successful finite certificates can compare their normalized
-        // representation without entering general numeric ordering.
-        // Retain general equality for signed zeros and exceptional cases.
-        if (lower._kind==FloatMP::Kind::Finite &&
-            upper._kind==FloatMP::Kind::Finite &&
-            lower._negative==upper._negative &&
-            lower._exponent==upper._exponent &&
-            (lower._precision<=64u && upper._precision<=64u
-                ? lower._significand.limb(0u)==upper._significand.limb(0u)
-                : compare(lower._significand,upper._significand)==0)) {
-            return lower;
-        }
-        if (lower==upper) return lower;
-        return std::nullopt;
+        // Endpoints have equal precision/sign. For p>=8 the center's
+        // >17/1024 binade margin dominates both offset and final rounding.
+        // For p=2..7 the finitely many carry midpoints are >1/1024 away
+        // from all centers, while the offset is <=2^-17. Thus both
+        // rounded exponents agree. Wide tanh stays strictly in (1/4,1/2).
+        const bool equal=lower._precision<=64u
+            ? lower._significand.limb(0u)==upper._significand.limb(0u)
+            : compare(lower._significand,upper._significand)==0;
+        return certified_result(std::move(lower),equal);
     }
 
     template<Function OperationKind>
@@ -3724,97 +3712,50 @@ struct FloatMPShortTranscendentals {
             : static_cast<std::int64_t>(hi))+static_cast<std::int64_t>(center.error);
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
         // D148: with p in [53,64], cached positive endpoints occupy at
-        // most 128 bits. Certify the two rounded scalar words before
-        // creating an owned FloatMP; the portable original path remains
-        // below for wider or otherwise unsupported magnitudes.
-        if (precision>=53u && center.lower.size()>0u &&
-            center.upper.size()>0u && center.lower.size()<=2u &&
-            center.upper.size()<=2u) {
+        // most 128 bits. Round the two scalar words and pass the lower
+        // result to the shared acceptance policy. The portable path below
+        // handles precisions smaller than 53 or targets without Wide.
+        if (precision>=53u) {
             __extension__ using Wide=unsigned __int128;
-            const auto native=[&](BigUnsigned const& value) -> Wide {
-                const Wide high=value.size()==2u ? value.limb(1u) : 0u;
-                return (high<<64u)|value.limb(0u);
+            // Every supported center lies in (1/4,9/4), at least 1/64
+            // from its binade boundaries. With B in [85,96] and
+            // |delta|<=2^-ceil(B/2), adjusted endpoints occupy two limbs,
+            // remain positive, and cannot cross a binade on rounding.
+            const auto native=[](BigUnsigned const& value) -> Wide {
+                return (static_cast<Wide>(value.limb(1u))<<64u)|value.limb(0u);
             };
-            Wide low_value=native(center.lower);
-            Wide high_value=native(center.upper);
-            const auto adjust=[](Wide& value,std::int64_t displacement) {
-                const Wide displacement_magnitude=displacement<0
-                    ? static_cast<std::uint64_t>(-(displacement+1))+1u
-                    : static_cast<std::uint64_t>(displacement);
-                if (displacement<0) {
-                    if (value<displacement_magnitude) return false;
-                    value-=displacement_magnitude;
-                } else {
-                    if (value>(~Wide{0})-displacement_magnitude) return false;
-                    value+=displacement_magnitude;
-                }
-                return true;
+            const auto adjust=[](Wide value,std::int64_t displacement) -> Wide {
+                return displacement<0
+                    ? value-static_cast<std::uint64_t>(-displacement)
+                    : value+static_cast<std::uint64_t>(displacement);
             };
-            if (adjust(low_value,lower_offset) &&
-                adjust(high_value,upper_offset)) {
-                const auto width=[](Wide value) {
-                    const auto high=static_cast<std::uint64_t>(value>>64u);
-                    if (high!=0u) return 128u-static_cast<unsigned>(std::countl_zero(high));
-                    return 64u-static_cast<unsigned>(
-                        std::countl_zero(static_cast<std::uint64_t>(value)));
-                };
-                const unsigned lower_width=width(low_value);
-                const unsigned upper_width=width(high_value);
-                // Short-centered constants are strictly nonzero and
-                // have >p bits. Keep round_short as the exact fallback
-                // if a future center violates this proven local window.
-                if (lower_width>precision && upper_width>precision &&
-                    lower_width-precision<=64u && upper_width-precision<=64u) {
-                    struct Rounded {
-                        std::uint64_t significand;
-                        FloatMP::Exponent exponent;
-                    };
-                    const auto round=[&](Wide value,unsigned shift) -> Rounded {
-                        std::uint64_t kept=static_cast<std::uint64_t>(value>>shift);
-                        const Wide discarded=value&((Wide{1}<<shift)-1u);
-                        if (discarded!=0u) {
-                            bool increment=false;
-                            switch (mode.value()) {
-                                case FloatMP::Rounding::ToNearest: {
-                                    const Wide halfway=Wide{1}<<(shift-1u);
-                                    increment=discarded>halfway ||
-                                        (discarded==halfway && (kept&1u)!=0u);
-                                    break;
-                                }
-                                case FloatMP::Rounding::Downward:
-                                    increment=center.result_negative;
-                                    break;
-                                case FloatMP::Rounding::Upward:
-                                    increment=!center.result_negative;
-                                    break;
-                                default: // TowardZero.
-                                    break;
-                            }
-                            if (increment) ++kept;
-                        }
-                        FloatMP::Exponent exponent=
-                            static_cast<FloatMP::Exponent>(shift)-
-                            static_cast<FloatMP::Exponent>(bits);
-                        if (kept==0u || (precision<64u &&
-                            kept==(std::uint64_t{1}<<precision))) {
-                            kept=std::uint64_t{1}<<(precision-1u);
-                            ++exponent;
-                        }
-                        return {kept,exponent};
-                    };
-                    const auto low=round(low_value,lower_width-
-                        static_cast<unsigned>(precision));
-                    const auto high=round(high_value,upper_width-
-                        static_cast<unsigned>(precision));
-                    if (low.exponent!=high.exponent ||
-                        low.significand!=high.significand) return std::nullopt;
-                    FloatMP result(precision);
-                    result._negative=center.result_negative;
-                    result._exponent=low.exponent;
-                    result._significand=BigUnsigned(low.significand);
-                    return result;
-                }
-            }
+            const Wide low_value=adjust(native(center.lower),lower_offset);
+            const Wide high_value=adjust(native(center.upper),upper_offset);
+            const auto width=[](Wide value) {
+                return 128u-static_cast<unsigned>(std::countl_zero(
+                    static_cast<std::uint64_t>(value>>64u)));
+            };
+            struct Rounded {
+                std::uint64_t significand;
+                FloatMP::Exponent exponent;
+            };
+            const auto round=[&](Wide value,unsigned shift) -> Rounded {
+                auto kept=static_cast<std::uint64_t>(value>>shift);
+                const std::array<BigUnsigned::Limb,2u> words{
+                    static_cast<std::uint64_t>(value),
+                    static_cast<std::uint64_t>(value>>64u)};
+                if (floatmp_rounding_increment(mode,center.result_negative,
+                        BigUnsigned::LimbView(words),shift,(kept&1u)!=0u)) ++kept;
+                return {kept,static_cast<FloatMP::Exponent>(shift)-
+                             static_cast<FloatMP::Exponent>(bits)};
+            };
+            const auto low=round(low_value,width(low_value)-static_cast<unsigned>(precision));
+            const auto high=round(high_value,width(high_value)-static_cast<unsigned>(precision));
+            FloatMP result(precision);
+            result._negative=center.result_negative;
+            result._exponent=low.exponent;
+            result._significand=BigUnsigned(low.significand);
+            return certified_result(std::move(result),low.significand==high.significand);
         }
 #endif
         const auto endpoint=[&](BigUnsigned const& constant,std::int64_t displacement) {
@@ -4138,8 +4079,11 @@ FloatMP sigmoid(FloatMP::RoundingModeType mode,FloatMP const& x) {
     // At |x| << 2^-p the exact result lies strictly between 1/2
     // and its adjacent target float. Rounding is therefore determined by
     // sign and direction without constructing an immense exact dyadic.
-    if(bits < (static_cast<unsigned long>(std::numeric_limits<FloatMP::Exponent>::max())-16ul)/2ul
-       && x.exponent() <= -static_cast<FloatMP::Exponent>(2ul*bits+16ul)) {
+    // Compare 2*p+16 with -exponent without overflowing either signed
+    // or unsigned metadata, including the minimal signed exponent.
+    const auto exponent=x.exponent();
+    if(exponent<=-16 && bits<=
+       (static_cast<std::uint64_t>(-(exponent+1))+1u-16u)/2u) {
         const FloatMP half=hlf(one);
         if(x.negative()) {
             return (mode==FloatMP::Rounding::Downward || mode==FloatMP::Rounding::TowardZero)
@@ -4173,36 +4117,24 @@ FloatMP softplus(FloatMP::RoundingModeType mode,FloatMP const& x) {
         return mode==FloatMP::Rounding::Upward
             ? FloatMP::min(precision) : FloatMP::zero(bits);
     }
-    // The exact derivative of softplus lies strictly between 0 and 1.
-    // Therefore |softplus(x)-log(2)|<=|x|. When x is too small to
-    // import as a practical exact rational, certify the result by
-    // widening a high-precision log(2) enclosure by a known power-of-two
-    // bound on |x|, without constructing x as a rational.
-    if(bits < (static_cast<unsigned long>(std::numeric_limits<FloatMP::Exponent>::max())-256ul)/3ul
-       && x.exponent() <= -static_cast<FloatMP::Exponent>(3ul*bits+128ul)) {
-        unsigned long workbits=bits+96ul;
-        for(;;) {
-            if(workbits>static_cast<unsigned long>(
-                 std::numeric_limits<FloatMP::Exponent>::max())-bits-64ul) break;
-            if(x.exponent()>-static_cast<FloatMP::Exponent>(workbits+bits+32ul)) break;
-            const MultiplePrecision work_precision(workbits);
-            const FloatMP logarithm_argument(2,work_precision);
-            const FloatMP one_work(1,work_precision);
-            const FloatMP error=shft(one_work,-static_cast<Int>(workbits+32ul));
-            const FloatMP lower=sub(FloatMP::ROUND_DOWNWARD,
-                                    log(FloatMP::ROUND_DOWNWARD,logarithm_argument),error);
-            const FloatMP upper=add(FloatMP::ROUND_UPWARD,
-                                    log(FloatMP::ROUND_UPWARD,logarithm_argument),error);
-            const FloatMP rounded_lower(lower,mode,precision);
-            const FloatMP rounded_upper(upper,mode,precision);
-            if(rounded_lower==rounded_upper) return rounded_lower;
-            if(workbits>std::numeric_limits<unsigned long>::max()/2ul) break;
-            workbits*=2ul;
-        }
-    }
-    const Fraction argument=rational_argument(x);
+    // The derivative is in (0,1): |softplus(x)-log(2)|<|x|.
+    // Build tiny-input enclosures inside the shared adaptive certifier.
+    // This avoids both enormous rational imports and a separate capped
+    // refinement policy. If refinement makes x significant, its exact
+    // dyadic import then costs only the current working scale.
+    const auto highest=FloatMP::checked_add(x.exponent(),
+        static_cast<FloatMP::Exponent>(bits-1ul));
     return certified([&](unsigned long work) {
-        return softplus_interval(argument,work,bits);
+        constexpr char error[]="FloatMP softplus working precision overflow";
+        const auto radius_bits=Detail::checked_unsigned_add(work,16ul,error);
+        const auto radius_exponent=floatmp_exponent_from_bit_length(
+            Detail::checked_unsigned_cast<std::size_t>(radius_bits,error));
+        if(highest < -radius_exponent) {
+            const auto center=log2_interval(work);
+            const Fraction radius(BigUnsigned(1u),radius_bits);
+            return Interval{center.lower-radius,center.upper+radius};
+        }
+        return softplus_interval(rational_argument(x),work,bits);
     },mode,precision);
 }
 

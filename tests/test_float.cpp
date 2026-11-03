@@ -91,6 +91,7 @@ class TestFloatStandalone : public Ariadne::Testing::ContextFixture {
     void test_floatdp_rounding_mode_contract();
     void test_floatdp_rounding_fallbacks();
     void test_floatdp_certificate_boundaries();
+    void test_floatmp_certificate_boundaries();
     void test_floatdp_sine_outside_certificate();
     void test_floatdp_unary_wrappers();
     void test_floatmp_minmax_oracle();
@@ -1414,6 +1415,81 @@ void TestFloatStandalone::test_floatdp_certificate_boundaries() {
     }
 }
 
+void TestFloatStandalone::test_floatmp_certificate_boundaries() {
+    const MultiplePrecision precision(53u);
+    const FloatMP one_value(1,precision);
+    // A zero addend declines the one-word FMA kernel. With opposite signs
+    // and equal leading widths, compare the full magnitudes as well.
+    ARIADNE_TESTING_EXPECT_EQUAL(fma(near,one_value,one_value,FloatMP(0,precision)),one_value);
+    ARIADNE_TESTING_EXPECT_EQUAL(fma(near,one_value,one_value,FloatMP(-1.5_x,precision)),
+                               FloatMP(-0.5_x,precision));
+    // The hardware sqrt candidate is valid under every ambient mode;
+    // the requested FloatMP mode controls the final exact rounding.
+    RoundingSession<FloatDP> session;
+    for (auto ambient : {FloatDP::ROUND_TO_NEAREST,FloatDP::ROUND_DOWNWARD,
+                         FloatDP::ROUND_UPWARD,FloatDP::ROUND_TOWARD_ZERO}) {
+        auto ambient_scope=ctx().scope("ambient binary64 mode",static_cast<unsigned>(ambient));
+        session.set(ambient);
+        for (auto mode : {FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                          FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+            auto requested_scope=ctx().scope("requested FloatMP mode",static_cast<unsigned>(mode.value()));
+            const auto expected=FloatMP(ExactDouble(
+                mode==FloatMP::ROUND_TO_NEAREST || mode==FloatMP::ROUND_UPWARD
+                    ? 0x1.6a09e667f3bcdp0 : 0x1.6a09e667f3bccp0),precision);
+            ARIADNE_TESTING_EXPECT_EQUAL(sqrt(mode,FloatMP(2,precision)),expected);
+            ARIADNE_TESTING_EXPECT_EQUAL(FloatDP::get_rounding_mode(),ambient);
+        }
+    }
+    // At p=32, B=64: slopes below 1 occupy one limb, but exp(1/2)'s
+    // endpoint occupies two. Both signs of the smallest near-half offset
+    // exercise the boundary between these representations. Frozen answers
+    // were independently checked with Decimal at 150 and 300 digits.
+    const MultiplePrecision short_precision(32u);
+    const FloatMP above(ExactDouble(0x1.00000002p-1),short_precision);
+    const FloatMP below(ExactDouble(0x1.fffffffep-2),short_precision);
+    for (auto mode : {FloatMP::ROUND_TO_NEAREST,FloatMP::ROUND_DOWNWARD,
+                      FloatMP::ROUND_UPWARD,FloatMP::ROUND_TOWARD_ZERO}) {
+        auto requested_scope=ctx().scope("requested FloatMP mode",static_cast<unsigned>(mode.value()));
+        const auto upper_answer=FloatMP(ExactDouble(mode==FloatMP::ROUND_UPWARD
+            ? 0xec9a9ebdp-33 : 0xec9a9ebcp-33),short_precision);
+        const auto lower_answer=FloatMP(ExactDouble(mode==FloatMP::ROUND_DOWNWARD ||
+            mode==FloatMP::ROUND_TOWARD_ZERO ? 0xec9a9eb9p-33 : 0xec9a9ebap-33),short_precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(tanh(mode,above),upper_answer);
+        ARIADNE_TESTING_EXPECT_EQUAL(tanh(mode,below),lower_answer);
+        const auto exponential_answer=FloatMP(ExactDouble(mode==FloatMP::ROUND_DOWNWARD ||
+            mode==FloatMP::ROUND_TOWARD_ZERO ? 0xd3094c70p-31 : 0xd3094c71p-31),short_precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(exp(mode,FloatMP(0.5_x,short_precision)),exponential_answer);
+        // Minimal signed exponent also checks LLP64 platforms, where
+        // unsigned long cannot hold its magnitude.
+        const auto least=FloatMP::min(precision);
+        const auto sigmoid_positive=FloatMP(ExactDouble(mode==FloatMP::ROUND_UPWARD
+            ? 0x1.0000000000001p-1 : 0.5),precision);
+        const auto sigmoid_negative=FloatMP(ExactDouble(mode==FloatMP::ROUND_DOWNWARD ||
+            mode==FloatMP::ROUND_TOWARD_ZERO ? 0x1.fffffffffffffp-2 : 0.5),precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(mode,least),sigmoid_positive);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(mode,neg(least)),sigmoid_negative);
+        const auto tiny_logarithm=FloatMP(ExactDouble(mode==FloatMP::ROUND_UPWARD
+            ? 0x1.62e42fefa39f0p-1 : 0x1.62e42fefa39efp-1),precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(mode,least),tiny_logarithm);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(mode,neg(least)),tiny_logarithm);
+        // These exponents lie on either side of the tiny-input enclosure
+        // cutoff, and far beyond practical exact rational import.
+        for (Int shift : {Int(-100),Int(-102),Int(-1000000)}) {
+            auto exponent_scope=ctx().scope("tiny input exponent",shift);
+            const auto tiny_value=shft(one_value,shift);
+            const auto logarithm_answer=FloatMP(ExactDouble(mode==FloatMP::ROUND_UPWARD
+                ? 0x1.62e42fefa39f0p-1 : 0x1.62e42fefa39efp-1),precision);
+            ARIADNE_TESTING_EXPECT_EQUAL(softplus(mode,tiny_value),logarithm_answer);
+            ARIADNE_TESTING_EXPECT_EQUAL(softplus(mode,neg(tiny_value)),logarithm_answer);
+        }
+    }
+    // At p=2, sigmoid(1) is in (2/3,3/4), above the nearest midpoint.
+    const MultiplePrecision coarse_precision(2u);
+    ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,FloatMP(1,coarse_precision)),FloatMP(0.75_x,coarse_precision));
+    ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(FloatMP::ROUND_TOWARD_ZERO,neg(shft(one_value,Int(-200)))),
+                               FloatMP(ExactDouble(0x1.fffffffffffffp-2),precision));
+}
+
 void TestFloatStandalone::test_floatdp_sine_outside_certificate() {
     const auto initial=FloatDP::get_rounding_mode();
     const FloatDP input(0.75_x,dp);
@@ -2321,6 +2397,7 @@ void TestFloatStandalone::add_cases_before_precision(Ariadne::Testing::Suite& su
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_rounding_mode_contract);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_rounding_fallbacks);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_certificate_boundaries);
+    ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatmp_certificate_boundaries);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_sine_outside_certificate);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_float_literals);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatmp_directed_bound_oracles);

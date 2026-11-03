@@ -1,5 +1,85 @@
 # FloatMP — multiple-precision floating point
 
+## Coverage and centered-kernel invariants (3 November 2026)
+
+Share the generic/native short-word rounding policy and their finite
+certificate/construction. Both paths retain the same nearest-even,
+downward, upward and toward-zero semantics, including exact discarded
+words. Shared policy tests now include hardware sqrt with all 16
+requested/ambient rounding-mode combinations, and exact FMA cases with
+zero addend or equal-width product smaller than the opposite addend.
+
+The centered slope correction receives B=p+32<=96, denominator shift
+in [1,64], strictly positive slope <=2+2^-B and offset
+n<=2^(shift-ceil(B/2)). Therefore its exact product is <2^114 and fits
+two native limbs. Retain the original portable multiplication under
+`#else`; architecture-neutral p=32 tests exercise one-limb slopes and
+two-limb endpoints. Frozen tanh(1/2+2^-32), tanh(1/2-2^-33) and
+exp(1/2) outputs were independently checked with Decimal at 150 and
+300 decimal digits in all four requested modes.
+
+For p>=53, all adjusted center magnitudes are positive, occupy two limbs,
+and remain in their binade when rounded. The displacement is less than
+3*2^ceil(B/2)+9 while the center is >=2^(B-2). The following conservative
+intervals have denominator 1024; each contains the exact center magnitude
+and stays more than 17/1024 from the binade boundaries. This margin also
+dominates rounding for p>=8. For p=2..7 every nearest carry midpoint is
+more than 1/1024 away from these intervals; the short-window displacement
+is <=2^-17 (and for p<32 only the exact center is representable).
+Consequently both rounded endpoints share an exponent, including portable
+short evaluations. Wide tanh endpoints stay strictly within (1/4,1/2).
+
+| Center | Lower numerator | Upper numerator |
+| --- | ---: | ---: |
+| exp(+1/2) | 1688 | 1689 |
+| exp(-1/2) | 621 | 622 |
+| log(2) | 709 | 710 |
+| tanh(1/2) | 473 | 474 |
+| sigmoid(+1/2) | 637 | 638 |
+| sigmoid(-1/2) | 386 | 387 |
+| softplus(+1/2) | 997 | 998 |
+| softplus(-1/2) | 485 | 486 |
+| sin(1/2) | 490 | 491 |
+| cos(1/2) | 898 | 899 |
+| tan(1/2) | 559 | 560 |
+| atan(1/2) | 474 | 475 |
+| asin(1/2) | 536 | 537 |
+| acos(+1/2) | 1072 | 1073 |
+| acos(-1/2) | 2144 | 2145 |
+
+These invariants remove unreachable representation/overflow fallbacks,
+without admitting uncertified rounding. Unequal short significands and
+unequal wide magnitudes still decline to the adaptive certifier.
+
+For sqrt at p<=53, the scaled radicand has <=53 significant bits and
+converts to binary64 exactly. On IEC-60559 doubles, sqrt rounded in any
+ambient mode lies between the exactly representable integer floor root
+and that integer plus one. One decrement if its square is too large is
+therefore sufficient. Other double formats and targets without native
+128-bit arithmetic retain the general integer square-root path.
+
+The tiny sigmoid predicate now compares precision to the magnitude of
+its exponent without overflowing either type. Tiny softplus uses the
+shared adaptive certifier: if |x|<2^-(work+16), widen a log(2) interval
+by that radius using the derivative bound 0<softplus'(x)<1. Otherwise
+import x exactly; at that point the import fits the current working
+scale. This replaces a separate loop with unreachable resource guards
+and preserves correctness if additional refinement makes x significant.
+Tests cover both signs around this cutoff, at exponent -1000000 and at
+the minimal signed exponent, including LLP64-safe exponent magnitude
+arithmetic. Nested test scopes identify requested/ambient modes and input
+exponents.
+
+**Verification:** AppleClang 21, Debug, COVERAGE=ON,
+WARNINGS_AS_ERRORS=ON, BUILD_PYTHON_BINDINGS=ON, all 21 CTest entries
+pass. The complete measured source set has 3044/3044 functions,
+12368/12368 lines and 4815/4815 branch outcomes; FloatMP contributes
+298/298 functions, 3168/3168 lines and 1382/1382 outcomes. Regions
+remain a secondary metric. A separate build with __SIZEOF_INT128__
+undefined verifies the portable arithmetic paths on the same host;
+this is not a claim that Windows or Linux CI has completed.
+
+
 ## Shared activation test naming fix (3 November 2026)
 
 The common `test_sigmoid_softplus` fixture for FloatDP and FloatMP now
