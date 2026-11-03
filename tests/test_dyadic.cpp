@@ -43,10 +43,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <set>
-#include <chrono>
-#include <cstdlib>
-#include <iostream>
-#include <string_view>
 
 #include "ariadne-testing.hpp"
 
@@ -81,112 +77,6 @@ constexpr bool check_concept()
 
 static_assert(check_concept());
 
-// An opt-in diagnostic; inactive for normal tests and CI. Measure the
-// actual running time of each existing test case without altering any
-// oracle, assertion or the external Testing runner.
-bool dyadic_profile_enabled() {
-#if defined(_MSC_VER)
-    // std::getenv is deprecated by the MSVC CRT (C4996 with /WX).
-    std::size_t length=0;
-    char value[2]={};
-    return ::getenv_s(&length,value,sizeof(value),"ARIADNE_DYADIC_PROFILE")==0
-        && length==sizeof(value) && value[0]=='1';
-#else
-    const char* value=std::getenv("ARIADNE_DYADIC_PROFILE");
-    return value!=nullptr && value[0]=='1' && value[1]=='\0';
-#endif
-}
-
-class DyadicCaseTimer {
-public:
-    explicit DyadicCaseTimer(std::string_view label)
-        : _label(label), _enabled(dyadic_profile_enabled()),
-          _start(_enabled ? std::chrono::steady_clock::now()
-                          : std::chrono::steady_clock::time_point{}) { }
-
-    ~DyadicCaseTimer() noexcept {
-        if (!_enabled) return;
-        try {
-            const auto elapsed=std::chrono::steady_clock::now()-_start;
-            const auto millis=std::chrono::duration<double,std::milli>(elapsed).count();
-            std::cerr << "[DYADIC PROFILE] " << _label
-                      << " elapsed_ms=" << millis << '\n';
-        } catch (...) {
-            // Diagnostics must never replace an exception from a test.
-        }
-    }
-
-private:
-    std::string_view _label;
-    bool _enabled;
-    std::chrono::steady_clock::time_point _start;
-};
-
-// Aggregate actual execution time within each frozen oracle row. No extra
-// arithmetic is performed, and all original assertions retain their order.
-class DyadicOraclePhases {
-public:
-    using Clock=std::chrono::steady_clock;
-    using Duration=Clock::duration;
-    explicit DyadicOraclePhases(std::string_view label)
-        : _label(label), _enabled(dyadic_profile_enabled()) { }
-    void start() {
-        if (_enabled) _started=Clock::now();
-    }
-    void stop(Duration& accumulator) {
-        if (_enabled) accumulator+=Clock::now()-_started;
-    }
-    void report() const {
-        if (!_enabled) return;
-        const auto millis=[](Duration time) {
-            return std::chrono::duration<double,std::milli>(time).count();
-        };
-        std::cerr << "[DYADIC PHASE] " << _label
-                  << " parse_ms=" << millis(parsing)
-                  << " construct_ms=" << millis(constructing)
-                  << " scope_ms=" << millis(scoping)
-                  << " arithmetic_checks_ms=" << millis(arithmetic_checks)
-                  << " recompute_ms=" << millis(recomputing)
-                  << " canonical_checks_ms=" << millis(canonical_checks) << '\n';
-    }
-    Duration parsing{}, constructing{}, scoping{}, arithmetic_checks{};
-    Duration recomputing{}, canonical_checks{};
-private:
-    std::string_view _label;
-    bool _enabled;
-    Clock::time_point _started{};
-};
-
-// An opt-in probe for successful-value formatting by the active Testing
-// implementation. This is not a registered suite case or an oracle row.
-struct DyadicRenderProbe {
-    unsigned value;
-    std::size_t* renders;
-    friend bool operator==(DyadicRenderProbe const& a,DyadicRenderProbe const& b) {
-        return a.value==b.value;
-    }
-    friend std::ostream& operator<<(std::ostream& out,DyadicRenderProbe const& v) {
-        ++*v.renders;
-        return out << v.value;
-    }
-};
-
-void dyadic_render_probe() {
-    if (!dyadic_profile_enabled()) return;
-    Ariadne::Testing::CaseResult result;
-    result.name="passing-value rendering probe";
-    std::ostringstream output;
-    Ariadne::Testing::ConsoleReporter reporter(output,Ariadne::Testing::ConsoleDetail::Concise);
-    Ariadne::Testing::Context context(result,&reporter);
-    std::size_t renders=0;
-    const DyadicRenderProbe lhs{42u,&renders},rhs{42u,&renders};
-    ARIADNE_TESTING_EXPECT_EQUAL_CTX(context,lhs,rhs);
-    std::cerr << "[DYADIC TESTING PROBE] renders=" << renders
-              << " assertions=" << result.assertions.size()
-              << " passed=" << (result.outcome==Ariadne::Testing::Outcome::Passed)
-              << '\n';
-}
-
 } // namespace
 
 
@@ -213,7 +103,6 @@ class TestDyadic : public Ariadne::Testing::ContextFixture
 const Writer<Dyadic> fraction_write=FractionWriter();
 
 void TestDyadic::test_literal() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_literal");
     std::ostringstream diagnostic_stream;
     Dyadic q(3.25_q2);
     ARIADNE_TESTING_INSPECT("constructed q",q);
@@ -312,7 +201,6 @@ void TestDyadic::test_literal() {
 }
 
 void TestDyadic::test_conversions() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_conversions");
     Dyadic assigned;
     Dyadic assign_source(7,2u);
     assigned=assign_source;
@@ -356,7 +244,6 @@ void TestDyadic::test_conversions() {
 }
 
 void TestDyadic::test_arithmetic() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_arithmetic");
     Dyadic accumulated=1;
     accumulated+=Dyadic(2);
     ARIADNE_TESTING_EXPECT_EQUAL(accumulated,Dyadic(3));
@@ -368,7 +255,6 @@ void TestDyadic::test_arithmetic() {
 }
 
 void TestDyadic::test_bounds() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_bounds");
     std::ostringstream diagnostic_stream;
     DyadicBounds positive(1,3);
     DyadicBounds negative(-3,-1);
@@ -447,7 +333,6 @@ void TestDyadic::test_bounds() {
 }
 
 void TestDyadic::test_ball() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_ball");
     std::ostringstream diagnostic_stream;
     DyadicBall exact(Dyadic(2));
     DyadicBall uncertain(Dyadic(3),Dyadic(1));
@@ -487,13 +372,11 @@ void TestDyadic::test_ball() {
 }
 
 void TestDyadic::test_comparisons() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_comparisons");
     ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Dyadic(-4,3u),Dyadic(-1,2u));
 }
 
 // D48: native exact bounds and ball arithmetic, without GMP storage.
 void TestDyadic::test_native_wrappers() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_native_wrappers");
     const DyadicBounds positive(Dyadic(1),Dyadic(3));
     const DyadicBounds negative(Dyadic(-3),Dyadic(-1));
     const DyadicBounds crossing(Dyadic(-2),Dyadic(3));
@@ -523,7 +406,6 @@ void TestDyadic::test_native_wrappers() {
 
 
 void TestDyadic::test_infinity() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_infinity");
 
     // Verify the new canonical zero representation without GMP internals.
     const Dyadic z(0);
@@ -631,19 +513,14 @@ void TestDyadic::test_infinity() {
 
 
 void TestDyadic::test_dyadic_add_sub_oracles() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_add_sub_oracles");
-    dyadic_render_probe();
     for (unsigned limbs:{1u,5u,16u,17u,31u,32u,64u,65u}) {
         const std::string name="dyadic_add_sub_"+std::to_string(limbs)+".tsv";
-        [[maybe_unused]] const DyadicCaseTimer dyadic_limb_timer(name);
         std::ifstream data(std::string(ARIADNE_TEST_DATA_DIR)+"/"+name);
         if (!data) throw std::runtime_error("Missing "+name);
         std::string line;
         std::set<unsigned> ids;
-        DyadicOraclePhases phases(name);
         while (std::getline(data,line)) {
             if (line.empty() || line[0]=='#') continue;
-            phases.start();
             std::istringstream fields(line);
             unsigned id;
             std::size_t ae,be,se,de;
@@ -651,39 +528,26 @@ void TestDyadic::test_dyadic_add_sub_oracles() {
             if (!(fields>>id>>an>>ae>>bn>>be>>sn>>se>>dn>>de) || (fields>>extra)
                 || !ids.insert(id).second)
                 throw std::runtime_error("Malformed "+name);
-            phases.stop(phases.parsing);
-            phases.start();
             const Dyadic a(Integer(String(an)),ae),b(Integer(String(bn)),be);
             const Dyadic sum_expected(Integer(String(sn)),se),difference_expected(Integer(String(dn)),de);
-            phases.stop(phases.constructing);
-            phases.start();
             [[maybe_unused]] auto row_scope = this->ctx().scope(name + " row", id);
-            phases.stop(phases.scoping);
-            phases.start();
             ARIADNE_TESTING_EXPECT_EQUAL(a+b,sum_expected);
             ARIADNE_TESTING_EXPECT_EQUAL(b+a,sum_expected);
             ARIADNE_TESTING_EXPECT_EQUAL(a-b,difference_expected);
             ARIADNE_TESTING_EXPECT_EQUAL(b-a,-difference_expected);
-            phases.stop(phases.arithmetic_checks);
             // Canonicalization is observable through the public accessors.
-            phases.start();
             const auto sum=a+b,difference=a-b;
-            phases.stop(phases.recomputing);
-            phases.start();
             ARIADNE_TESTING_EXPECT_EQUAL(sum.coefficient().literal(),String(sn));
             ARIADNE_TESTING_EXPECT_EQUAL(sum.denominator_exponent(),se);
             ARIADNE_TESTING_EXPECT_EQUAL(difference.coefficient().literal(),String(dn));
             ARIADNE_TESTING_EXPECT_EQUAL(difference.denominator_exponent(),de);
-            phases.stop(phases.canonical_checks);
         }
         if (ids.size()!=256u || *ids.begin()!=0u || *ids.rbegin()!=255u)
             throw std::runtime_error("Incomplete "+name);
-        phases.report();
     }
 }
 
 void TestDyadic::test_dyadic_conversion_oracle() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_conversion_oracle");
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/dyadic_conversion.tsv");
     if (!data) throw std::runtime_error("Missing dyadic_conversion.tsv");
     std::string line;
@@ -729,7 +593,6 @@ void TestDyadic::test_dyadic_conversion_oracle() {
 }
 
 void TestDyadic::test_dyadic_public_contracts() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_public_contracts");
     const std::size_t largest=std::numeric_limits<std::size_t>::max();
     const Dyadic tiny(Integer(1),largest);
     ARIADNE_TESTING_EXPECT_EXCEPTION(tiny.exponent());
@@ -781,7 +644,6 @@ void TestDyadic::test_dyadic_public_contracts() {
 }
 
 void TestDyadic::test_dyadic_mixed_bounds_oracles() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_mixed_bounds_oracles");
     for (bool logical:{false,true}) {
         const std::string name=logical?"dyadic_mixed_comparisons.tsv":"dyadic_mixed_bounds.tsv";
         std::ifstream data(std::string(ARIADNE_TEST_DATA_DIR)+"/"+name);
@@ -847,7 +709,6 @@ void TestDyadic::test_dyadic_mixed_bounds_oracles() {
 }
 
 void TestDyadic::test_dyadic_bounds_power_oracle() {
-    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_bounds_power_oracle");
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/dyadic_bounds_power.tsv");
     if (!data) throw std::runtime_error("Missing dyadic_bounds_power.tsv");
     std::string line;

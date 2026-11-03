@@ -237,3 +237,48 @@ as a test case; it never skips or changes any oracle assertion.
 If the probe prints nonzero render calls, investigate the locally
 compiled Testing headers/library and submodule SHA before changing
 Dyadic arithmetic. A zero count does not by itself identify the cause.
+
+### Resolved local Testing build mismatch (3 November 2026)
+
+The regression was ultimately caused by locally stale/inconsistent build
+artifacts rather than the Dyadic algorithms or a change to the frozen
+oracle inputs. The first profiling run showed approximately 69.69 seconds
+in the add/sub oracle case; about 68 seconds were charged to the four
+`ARIADNE_TESTING_EXPECT_EQUAL` checks per oracle row, while computing
+the same add/sub operations directly took only milliseconds. Reporter
+`--concise` and `--full` timings differed little.
+
+A subsequent synthetic *passing* equality assertion using a concise
+`ConsoleReporter` rendered both operands (`renders=2`), contradicting
+the pinned Testing implementation, which explicitly disables successful
+operand rendering. After a fresh CMake configure and rebuild in a **new
+build directory**, the same probe returned `renders=0 assertions=1
+passed=true`. The 2048-row add/sub oracle test then took **347.251 ms**
+instead of approximately **69,688 ms** (roughly 200x faster);
+the conversion oracle took **11.098 ms** instead of approximately
+2,325 ms. The fresh-build timings are consistent with the originally
+reported sub-second execution.
+
+The evidence establishes a discrepancy between the old locally executed
+Testing code and the pinned implementation, resolved by rebuilding from
+scratch. It does **not** distinguish with certainty between stale object
+files, cached static library code, or other mixed-build artifacts.
+Normal production code, fixture registrations, all assertion scenarios
+and oracle data do not need changes. To prevent recurrence when updating
+Testing or its transitive gitlinks, reconfigure and rebuild in a clean
+out-of-source directory, after running
+`git submodule update --init --recursive`; if the problem recurs,
+check `git rev-parse HEAD:ss/tst` against
+`git -C ss/tst rev-parse HEAD` and rebuild `ariadne-testing`
+alongside `test_dyadic`.
+
+The temporary, opt-in `DyadicCaseTimer`, `DyadicOraclePhases`, and
+render-probe instrumentation introduced in diagnostic commits
+`0329192`, `315bad4`, and `0f2e9ac` has been removed from
+`tests/test_dyadic.cpp`. The file is restored byte-for-byte to its
+pre-diagnostic form at `577a8ddb`, retaining exactly the same 13
+registered cases and 162 source-level equality assertions. Historical
+investigation entries above are retained for traceability, but their
+profiling controls are no longer present. A passing CI build verifies
+portability and tests; it does not in itself reproduce the user's
+local latency measurement.
