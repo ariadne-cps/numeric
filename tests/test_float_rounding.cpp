@@ -3604,6 +3604,56 @@ TestFloatRounding<PR>::test_sigmoid_softplus()
         // Also exercises the independent log(2) enclosure for a tiny
         // nonzero softplus argument without huge rational imports.
         ARIADNE_TESTING_EXPECT_EQUAL(softplus(near,tiny),log(near,logarithm_argument));
+
+        // Both CurrentRoundingMode overloads must use the active MP mode.
+        const auto original_mode=Float::get_rounding_mode();
+        {
+            RoundingSession<Float> session;
+            CurrentRoundingMode current=session.set(up);
+            ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(current,tiny),half_above);
+            const Float positive(3,precision);
+            ARIADNE_TESTING_EXPECT_EQUAL(softplus(current,positive),softplus(up,positive));
+            current=session.set(down);
+            ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(current,neg(tiny)),half_below);
+            ARIADNE_TESTING_EXPECT_EQUAL(softplus(current,positive),softplus(down,positive));
+        }
+        ARIADNE_TESTING_PROVE(Float::get_rounding_mode()==original_mode);
+
+        // For x>=p+16 the positive sigmoid correction is too small to
+        // affect nearest rounding, but directed rounding still differs.
+        const Float large_positive(static_cast<int>(bits+32ul),precision);
+        const Float below_one=next(down,one);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,large_positive),below_one);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(toward_zero,large_positive),below_one);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,large_positive),one);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,large_positive),one);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(down,large_positive),large_positive);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(near,large_positive),large_positive);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(up,large_positive),next(up,large_positive));
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(toward_zero,large_positive),large_positive);
+
+        // exp(-2^64) lies below the minimum positive FloatMP value.
+        // The upward-rounded result nevertheless must remain nonzero.
+        const Float extreme_negative=neg(shft(one,Int(64)));
+        const Float least_positive=Float::min(precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,extreme_negative),least_positive);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,extreme_negative),zero);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,extreme_negative),zero);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(up,extreme_negative),least_positive);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(down,extreme_negative),zero);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(near,extreme_negative),zero);
+
+        if (bits==64ul) {
+            // |x|>64 forces the rigorous exp(+|x|) reciprocal enclosure,
+            // rather than the narrow fixed-point exp(-|x|) path.
+            const Float beyond_window(65,precision);
+            const Float opposite=neg(beyond_window);
+            ARIADNE_TESTING_PROVE(sigmoid(down,beyond_window)<=sigmoid(up,beyond_window));
+            ARIADNE_TESTING_PROVE(sigmoid(down,opposite)<=sigmoid(up,opposite));
+            ARIADNE_TESTING_EXPECT_EQUAL(softplus(up,beyond_window),next(up,beyond_window));
+            ARIADNE_TESTING_PROVE(softplus(down,opposite)>zero);
+            ARIADNE_TESTING_PROVE(softplus(down,opposite)<=softplus(up,opposite));
+        }
     }
 }
 
