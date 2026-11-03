@@ -61,6 +61,16 @@ The shared benchmark is defined in
 `benchmarks/benchmark_backend_workload.hpp` and its outputs require
 same-machine/same-configuration comparisons before causal attribution.
 
+## MSVC warning-as-error naming fix (3 November 2026)
+
+The `src/floatdp.cpp` activation fallback used local names `upward`
+(parameter in `activation_dyadic_round`) and `rounded` (temporary in
+`certify_activation`) that shadow namespace symbols in `rounding.hpp`.
+MSVC C4459 under `/W4 /WX` rejects the source. Rename them to
+`round_up` and `certified_result`, including all references. No
+algorithm, rounding semantics or test coverage changed. Build verification
+is required before concluding the Windows failure is fixed.
+
 ## FloatDP directed-conversion nontermination fix (3 November 2026)
 
 The actual non-progress loop was found in the pre-existing

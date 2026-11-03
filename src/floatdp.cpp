@@ -1012,14 +1012,14 @@ bool activation_unique_rounding(ActivationInterval const& interval,
 // growing factorially as in the original exact Taylor implementation.
 // Integer division and remainder are exact; all errors are outward.
 Rational activation_dyadic_round(Rational const& value,
-                                  unsigned bits,bool upward) {
+                                  unsigned bits,bool round_up) {
     const Integer& numerator=value.numerator_reference();
     if(numerator.negative()) {
         throw std::logic_error("Activation dyadic bound must be nonnegative");
     }
     auto [quotient,remainder]=divrem(
         shift_left(numerator.magnitude(),bits),value.denominator_reference());
-    if(upward && !remainder.is_zero()) {
+    if(round_up && !remainder.is_zero()) {
         quotient=add(quotient,BigUnsigned(1u));
     }
     return Rational::from_dyadic(
@@ -1141,9 +1141,9 @@ FloatDP certify_activation(FloatDP::RoundingModeType mode,FloatDP x,
     const ActivationInterval fast{
         static_cast<Rational>(elo),static_cast<Rational>(ehi)
     };
-    FloatDP rounded(0,dp);
+    FloatDP certified_result(0,dp);
     if(activation_unique_rounding(transform(fast,negative,original,0u,0u),
-                                  mode,rounded)) return rounded;
+                                  mode,certified_result)) return certified_result;
     // The exact-rational fallback used unbounded factorial denominators,
     // taking minutes inside the shared high-iteration benchmark. Fixed-width
     // dyadics keep each Taylor operation bounded while retaining proof
@@ -1154,8 +1154,8 @@ FloatDP certify_activation(FloatDP::RoundingModeType mode,FloatDP x,
         const auto refined=activation_exp_negative_fixed(
             negative ? Rational(0)-original : original,bits,terms);
         if(activation_unique_rounding(
-            transform(refined,negative,original,bits,terms),mode,rounded))
-            return rounded;
+            transform(refined,negative,original,bits,terms),mode,certified_result))
+            return certified_result;
     }
     throw std::runtime_error("FloatDP activation certification did not converge");
 }
