@@ -638,6 +638,22 @@ template<class PR> Void TestFloatBounds<PR>::test_aliasing() {
 
 template<class PR> Void TestFloatBounds<PR>::test_monotone_functions()
 {
+    // Neural activation enclosures are monotone and match independently
+    // rounded endpoint evaluation, for both precision specializations.
+    const FloatBoundsType activation_input(-2,3,pr);
+    const FloatBoundsType sig=sigmoid(activation_input);
+    const FloatBoundsType sp=softplus(activation_input);
+    ARIADNE_TESTING_EXPECT_EQUAL(
+        sig.lower_raw(),sigmoid(down,RawFloatType(-2,pr)));
+    ARIADNE_TESTING_EXPECT_EQUAL(
+        sig.upper_raw(),sigmoid(up,RawFloatType(3,pr)));
+    ARIADNE_TESTING_EXPECT_EQUAL(
+        sp.lower_raw(),softplus(down,RawFloatType(-2,pr)));
+    ARIADNE_TESTING_EXPECT_EQUAL(
+        sp.upper_raw(),softplus(up,RawFloatType(3,pr)));
+    ARIADNE_TESTING_PROVE(sig.lower_raw()<=sig.upper_raw());
+    ARIADNE_TESTING_PROVE(sp.lower_raw()<=sp.upper_raw());
+
     FloatBoundsType two_(2.0_x,pr);
     FloatBoundsType sqrt_two=sqrt(two_);
     FloatBoundsType sqr_sqrt_two=sqr(sqrt_two);

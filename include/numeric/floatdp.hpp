@@ -345,6 +345,10 @@ template<> class Float<DP>
     friend FloatDP sin(CurrentRoundingMode, FloatDP x) { return sin(FloatDP::get_rounding_mode(),x); }
     friend FloatDP cos(CurrentRoundingMode, FloatDP x) { return cos(FloatDP::get_rounding_mode(),x); }
     friend FloatDP tan(CurrentRoundingMode, FloatDP x) { return tan(FloatDP::get_rounding_mode(),x); }
+    //! \brief Correctly rounded logistic sigmoid (1/(1+exp(-x))).
+    friend FloatDP sigmoid(CurrentRoundingMode, FloatDP x) { return sigmoid(FloatDP::get_rounding_mode(),x); }
+    //! \brief Correctly rounded softplus (log(1+exp(x))).
+    friend FloatDP softplus(CurrentRoundingMode, FloatDP x) { return softplus(FloatDP::get_rounding_mode(),x); }
     friend FloatDP tanh(CurrentRoundingMode, FloatDP x) { return tanh(FloatDP::get_rounding_mode(),x); }
     friend FloatDP asin(CurrentRoundingMode, FloatDP x) { return asin(FloatDP::get_rounding_mode(),x); }
     friend FloatDP acos(CurrentRoundingMode, FloatDP x) { return acos(FloatDP::get_rounding_mode(),x); }
@@ -414,6 +418,10 @@ template<> class Float<DP>
     friend FloatDP sin(RoundingModeType rnd, FloatDP x);
     friend FloatDP cos(RoundingModeType rnd, FloatDP x);
     friend FloatDP tan(RoundingModeType rnd, FloatDP x);
+    //! \brief Correctly rounded logistic sigmoid in the given direction.
+    friend FloatDP sigmoid(RoundingModeType rnd, FloatDP x);
+    //! \brief Correctly rounded softplus in the given direction.
+    friend FloatDP softplus(RoundingModeType rnd, FloatDP x);
     friend FloatDP tanh(RoundingModeType rnd, FloatDP x);
     friend FloatDP asin(RoundingModeType rnd, FloatDP x);
     friend FloatDP acos(RoundingModeType rnd, FloatDP x);

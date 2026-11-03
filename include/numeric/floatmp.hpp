@@ -589,6 +589,10 @@ template<> class Float<MultiplePrecision> {
     friend FloatMP sin(CurrentRoundingMode, FloatMP const& x);
     friend FloatMP cos(CurrentRoundingMode, FloatMP const& x);
     friend FloatMP tan(CurrentRoundingMode, FloatMP const& x);
+    //! \brief Correctly rounded logistic sigmoid using the active rounding mode.
+    friend FloatMP sigmoid(CurrentRoundingMode, FloatMP const& x);
+    //! \brief Correctly rounded softplus using the active rounding mode.
+    friend FloatMP softplus(CurrentRoundingMode, FloatMP const& x);
     friend FloatMP tanh(CurrentRoundingMode, FloatMP const& x);
     friend FloatMP asin(CurrentRoundingMode, FloatMP const& x);
     friend FloatMP acos(CurrentRoundingMode, FloatMP const& x);
@@ -701,6 +705,10 @@ template<> class Float<MultiplePrecision> {
     friend FloatMP sin(RoundingModeType mode, FloatMP const& x);
     friend FloatMP cos(RoundingModeType mode, FloatMP const& x);
     friend FloatMP tan(RoundingModeType mode, FloatMP const& x);
+    //! \brief Correctly rounded logistic sigmoid.
+    friend FloatMP sigmoid(RoundingModeType mode, FloatMP const& x);
+    //! \brief Correctly rounded softplus.
+    friend FloatMP softplus(RoundingModeType mode, FloatMP const& x);
     friend FloatMP tanh(RoundingModeType mode, FloatMP const& x);
     friend FloatMP atan(RoundingModeType mode, FloatMP const& x);
     friend FloatMP asin(RoundingModeType mode, FloatMP const& x);

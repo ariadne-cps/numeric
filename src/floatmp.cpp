@@ -3223,6 +3223,52 @@ Interval tanh_centered_or_general(Fraction const& input,unsigned long work) {
     return input.sign()<0 ? negative(result) : result;
 }
 
+// Compute u=exp(-|x|) where the outward fixed-point exponential
+// has enough dynamic range. For larger |x|, compute exp(+|x|) and
+// invert the positive rigorous enclosure: a small u must not be
+// rounded to zero at the working *absolute* precision.
+Interval activation_small_exponential(Fraction const& magnitude,unsigned long work) {
+    const Fraction one(1L);
+    if(compare(magnitude,Fraction(64L))<=0) {
+        return exp_interval(Fraction{}-magnitude,work);
+    }
+    const Interval e=exp_interval(magnitude,work);
+    return {one/e.upper,one/e.lower};
+}
+
+// All interval arithmetic is exact rational arithmetic. The certified()
+// loop refines until both endpoints round to the same target float.
+Interval sigmoid_interval(Fraction const& x,unsigned long work) {
+    const Fraction one(1L);
+    const Interval u=activation_small_exponential(absolute(x),work);
+    if(x.sign()<0) {
+        return {u.lower/(one+u.lower),u.upper/(one+u.upper)};
+    }
+    return {one/(one+u.upper),one/(one+u.lower)};
+}
+
+// For u=exp(-|x|), softplus(x)=max(x,0)+log(1+u).
+// If u is tiny, u-u^2/2 <= log(1+u) <= u. Otherwise use the existing
+// exact-rational, rigorously bounded logarithmic series on z=u/(2+u).
+Interval softplus_interval(Fraction const& x,unsigned long work,
+                           unsigned long target_bits) {
+    const Fraction one(1L);
+    const Interval u=activation_small_exponential(absolute(x),work);
+    Interval correction;
+    const auto threshold_bits=Detail::checked_unsigned_add(
+        target_bits,8ul,"FloatMP softplus threshold overflow");
+    const Fraction threshold(BigUnsigned(1u),threshold_bits);
+    if(compare(u.upper,threshold)<0) {
+        correction={u.lower-u.upper*u.upper/Fraction(2L),u.upper};
+    } else {
+        const Interval lo=log_series(u.lower/(Fraction(2L)+u.lower),work);
+        const Interval hi=log_series(u.upper/(Fraction(2L)+u.upper),work);
+        correction={lo.lower,hi.upper};
+    }
+    if(x.sign()>0) return {x+correction.lower,x+correction.upper};
+    return correction;
+}
+
 using Function=FloatTranscendental;
 
 // Replace exact division in repeated near-half tangent evaluations with
@@ -4028,6 +4074,103 @@ FloatMP log(FloatMP::RoundingModeType mode, FloatMP const& x) {
         }
         return log_interval(x,work);
     }, mode, x.precision());
+}
+
+FloatMP sigmoid(CurrentRoundingMode,FloatMP const& x) {
+    return sigmoid(FloatMP::get_rounding_mode(),x);
+}
+
+FloatMP softplus(CurrentRoundingMode,FloatMP const& x) {
+    return softplus(FloatMP::get_rounding_mode(),x);
+}
+
+FloatMP sigmoid(FloatMP::RoundingModeType mode,FloatMP const& x) {
+    using namespace Detail;
+    const auto precision=x.precision();
+    const unsigned long bits=static_cast<unsigned long>(precision.bits());
+    if(x.is_nan()) return FloatMP::nan(bits);
+    if(x.is_inf()) return FloatMP(x.negative() ? 0 : 1,precision);
+    if(x.is_zero()) return hlf(FloatMP(1,precision)); // sigmoid(0) = 1/2 exactly
+    const FloatMP one(1,precision);
+    const FloatMP threshold(Integer(bits+16ul),FloatMP::ROUND_UPWARD,precision);
+    const FloatMP magnitude=abs(x);
+    if(!x.negative() && cmp(magnitude,threshold)!=Comparison::LESS) {
+        return (mode==FloatMP::Rounding::Downward || mode==FloatMP::Rounding::TowardZero)
+            ? next(down,one) : one;
+    }
+    if(x.negative() && cmp(magnitude,shft(one,Int(64)))!=Comparison::LESS) {
+        // exp(-2^64) is smaller than the least positive representable
+        // FloatMP number at every supported precision/exponent range.
+        return mode==FloatMP::Rounding::Upward
+            ? FloatMP::min(precision) : FloatMP::zero(bits);
+    }
+    // At |x| << 2^-p the exact result lies strictly between 1/2
+    // and its adjacent target float. Rounding is therefore determined by
+    // sign and direction without constructing an immense exact dyadic.
+    if(bits < (static_cast<unsigned long>(std::numeric_limits<FloatMP::Exponent>::max())-16ul)/2ul
+       && x.exponent() <= -static_cast<FloatMP::Exponent>(2ul*bits+16ul)) {
+        const FloatMP half=hlf(one);
+        if(x.negative()) {
+            return (mode==FloatMP::Rounding::Downward || mode==FloatMP::Rounding::TowardZero)
+                ? next(down,half) : half;
+        }
+        return mode==FloatMP::Rounding::Upward ? next(up,half) : half;
+    }
+    const Fraction argument=rational_argument(x);
+    return certified([&](unsigned long work) {
+        return sigmoid_interval(argument,work);
+    },mode,precision);
+}
+
+FloatMP softplus(FloatMP::RoundingModeType mode,FloatMP const& x) {
+    using namespace Detail;
+    const auto precision=x.precision();
+    const unsigned long bits=static_cast<unsigned long>(precision.bits());
+    if(x.is_nan()) return FloatMP::nan(bits);
+    if(x.is_inf()) return x.negative() ? FloatMP::zero(bits) : x;
+    if(x.is_zero()) return log(mode,FloatMP(2,precision));
+    const FloatMP one(1,precision);
+    const FloatMP threshold(Integer(bits+16ul),FloatMP::ROUND_UPWARD,precision);
+    const FloatMP magnitude=abs(x);
+    if(!x.negative() && cmp(magnitude,threshold)!=Comparison::LESS) {
+        // The positive correction is strictly between 0 and half an ulp.
+        return mode==FloatMP::Rounding::Upward ? next(up,x) : x;
+    }
+    if(x.negative() && cmp(magnitude,shft(one,Int(64)))!=Comparison::LESS) {
+        return mode==FloatMP::Rounding::Upward
+            ? FloatMP::min(precision) : FloatMP::zero(bits);
+    }
+    // The exact derivative of softplus lies strictly between 0 and 1.
+    // Therefore |softplus(x)-log(2)|<=|x|. When x is too small to
+    // import as a practical exact rational, certify the result by
+    // widening a high-precision log(2) enclosure by a known power-of-two
+    // bound on |x|, without constructing x as a rational.
+    if(bits < (static_cast<unsigned long>(std::numeric_limits<FloatMP::Exponent>::max())-256ul)/3ul
+       && x.exponent() <= -static_cast<FloatMP::Exponent>(3ul*bits+128ul)) {
+        unsigned long workbits=bits+96ul;
+        for(;;) {
+            if(workbits>static_cast<unsigned long>(
+                 std::numeric_limits<FloatMP::Exponent>::max())-bits-64ul) break;
+            if(x.exponent()>-static_cast<FloatMP::Exponent>(workbits+bits+32ul)) break;
+            const MultiplePrecision work_precision(workbits);
+            const FloatMP two(2,work_precision);
+            const FloatMP one_work(1,work_precision);
+            const FloatMP error=shft(one_work,-static_cast<Int>(workbits+32ul));
+            const FloatMP lower=sub(FloatMP::ROUND_DOWNWARD,
+                                    log(FloatMP::ROUND_DOWNWARD,two),error);
+            const FloatMP upper=add(FloatMP::ROUND_UPWARD,
+                                    log(FloatMP::ROUND_UPWARD,two),error);
+            const FloatMP rounded_lower(lower,mode,precision);
+            const FloatMP rounded_upper(upper,mode,precision);
+            if(rounded_lower==rounded_upper) return rounded_lower;
+            if(workbits>std::numeric_limits<unsigned long>::max()/2ul) break;
+            workbits*=2ul;
+        }
+    }
+    const Fraction argument=rational_argument(x);
+    return certified([&](unsigned long work) {
+        return softplus_interval(argument,work,bits);
+    },mode,precision);
 }
 
 FloatMP tanh(FloatMP::RoundingModeType mode,FloatMP const& x) {

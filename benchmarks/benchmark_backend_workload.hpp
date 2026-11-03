@@ -20,7 +20,7 @@
 namespace AriadneBenchmark {
 using namespace Ariadne;
 
-inline constexpr unsigned backend_operation_count=56u;
+inline constexpr unsigned backend_operation_count=68u;
 
 // Keep both comparison executables on the same operation battery
 // and identical, deterministic 32-element exact-rational input pool.
@@ -262,6 +262,43 @@ void for_each_backend_operation(BackendPool<Float> const& pool, Visit&& report) 
     });
     report("tanh_up",[&](unsigned i) {
         return tanh(Float::ROUND_UPWARD,a[index(i)]);
+    });
+    // Positive and negative activation domains, each at all directed modes.
+    report("sigmoid_pos_near",[&](unsigned i) {
+        return sigmoid(Float::ROUND_TO_NEAREST,a[index(i)]);
+    });
+    report("sigmoid_pos_down",[&](unsigned i) {
+        return sigmoid(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("sigmoid_pos_up",[&](unsigned i) {
+        return sigmoid(Float::ROUND_UPWARD,a[index(i)]);
+    });
+    report("sigmoid_neg_near",[&](unsigned i) {
+        return sigmoid(Float::ROUND_TO_NEAREST,neg(a[index(i)]));
+    });
+    report("sigmoid_neg_down",[&](unsigned i) {
+        return sigmoid(Float::ROUND_DOWNWARD,neg(a[index(i)]));
+    });
+    report("sigmoid_neg_up",[&](unsigned i) {
+        return sigmoid(Float::ROUND_UPWARD,neg(a[index(i)]));
+    });
+    report("softplus_pos_near",[&](unsigned i) {
+        return softplus(Float::ROUND_TO_NEAREST,a[index(i)]);
+    });
+    report("softplus_pos_down",[&](unsigned i) {
+        return softplus(Float::ROUND_DOWNWARD,a[index(i)]);
+    });
+    report("softplus_pos_up",[&](unsigned i) {
+        return softplus(Float::ROUND_UPWARD,a[index(i)]);
+    });
+    report("softplus_neg_near",[&](unsigned i) {
+        return softplus(Float::ROUND_TO_NEAREST,neg(a[index(i)]));
+    });
+    report("softplus_neg_down",[&](unsigned i) {
+        return softplus(Float::ROUND_DOWNWARD,neg(a[index(i)]));
+    });
+    report("softplus_neg_up",[&](unsigned i) {
+        return softplus(Float::ROUND_UPWARD,neg(a[index(i)]));
     });
     report("atan_nearest",[& ](unsigned i) {
         return atan(Float::ROUND_TO_NEAREST, a[index(i)]);

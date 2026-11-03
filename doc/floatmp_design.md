@@ -12,6 +12,36 @@ The shared unsigned-limb arithmetic development is tracked on `remove-gmp`; see
 [`integer_design.md`](integer_design.md) for signed Integer and
 [`rational_design.md`](rational_design.md) for Rational.
 
+## Sigmoid and Softplus: native correctly rounded activations (3 November 2026)
+
+Two independent scalar operations were added using the existing
+`FloatMP` certified exact-rational interval refinement. Sigmoid is
+`1/(1+exp(-x))`; softplus is `log(1+exp(x))`. The implementation
+avoids the unstable direct formulas: an outward exponential enclosure
+is transformed using monotonic rational expressions, and softplus
+uses `max(x,0)+log(1+exp(-abs(x)))`. Its logarithmic correction is
+bounded using the native rational `log_series` and the inequality
+`u-u*u/2 <= log(1+u) <= u` for small nonnegative `u`.
+
+Special-value and saturation branches preserve the stated rounding
+direction. A bound derived from the derivative of softplus controls
+extremely small arguments without generating an enormous dyadic
+rational. Validation must separately cover exponents far beyond common
+neural-network inputs; resource limits and performance are not proof.
+
+The shared `benchmark_backend_workload.hpp` battery grows from 56 to
+68 cases and supplies both original benchmark executables. The 12 new
+cases cover sigmoid and softplus on positive and negative inputs,
+each with nearest/down/up rounding; timings are comparable only
+under matched machine, build and workload conditions.
+
+**Tests:** `test_float_rounding` exercises FloatDP and FloatMP at 64
+and 192 bits, including special values, directed monotonicity and tiny
+arguments. `test_float_bounds` checks FloatDP and FloatMP (53 and 128
+bits) enclosure endpoints. Status: code and tests prepared; no local
+Ariadne build was possible in the current runtime because GitHub DNS
+resolution is unavailable. CI compilation/results remain unverified.
+
 ## Active implementation policy — architecture-specific substrate (18 October 2026)
 
 **CURRENT, superseding earlier architecture-neutrality restrictions

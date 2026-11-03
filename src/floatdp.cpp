@@ -940,6 +940,170 @@ FloatDP acos(FloatDP::RoundingModeType mode,FloatDP x) {
     return FloatDP::_apply_rnd(&acos_rnd,mode,x);
 }
 
+// Activation certification is independent of FloatMP. Use the existing
+// directed FloatDP transcendental operations as fast outward endpoints;
+// ambiguous cases refine with *exact rational* Taylor bounds. The native
+// Rational implementation supplies exact arithmetic, not another floating
+// point engine. Every accepted result is rounded only once from a proven
+// enclosure of the mathematical activation.
+namespace {
+
+struct ActivationInterval {
+    Rational lower;
+    Rational upper;
+};
+
+bool activation_unique_rounding(ActivationInterval const& interval,
+                                FloatDP::RoundingModeType mode,
+                                FloatDP& answer) {
+    const FloatDP lower(interval.lower,mode,dp);
+    const FloatDP upper(interval.upper,mode,dp);
+    if(lower.get_d()!=upper.get_d()) return false;
+    answer=lower;
+    return true;
+}
+
+// exp(-a) for exact 0<=a<=800. Argument reduction keeps the alternating
+// difficulty out of the Taylor sum: exp(a/2^k) has positive terms with
+// |a/2^k|<=1/2. For N>=2, the omitted positive tail is bounded by
+// 2*t_(N+1). Invert and square outward in exact rational arithmetic.
+ActivationInterval exp_negative_rational(Rational a,unsigned terms) {
+    const Rational one(1);
+    unsigned halvings=0u;
+    while(a>Rational(1,2)) {
+        a=a/Rational(2);
+        ++halvings;
+    }
+    Rational term(1),sum(1);
+    for(unsigned n=1u;n<=terms;++n) {
+        term=term*a/Rational(static_cast<int>(n));
+        sum=sum+term;
+    }
+    const Rational next=term*a/Rational(static_cast<int>(terms+1u));
+    ActivationInterval result{one/(sum+Rational(2)*next),one/sum};
+    for(unsigned i=0u;i<halvings;++i) {
+        result.lower=result.lower*result.lower;
+        result.upper=result.upper*result.upper;
+    }
+    return result;
+}
+
+ActivationInterval activation_exp_bounds(Rational const& abs_input,
+                                          unsigned terms) {
+    return exp_negative_rational(abs_input,terms);
+}
+
+// sigmoid(-a)=u/(1+u) and sigmoid(a)=1/(1+u), u=exp(-a).
+ActivationInterval sigmoid_bounds(ActivationInterval const& u,
+                                   bool negative) {
+    const Rational one(1);
+    return negative
+        ? ActivationInterval{u.lower/(one+u.lower),u.upper/(one+u.upper)}
+        : ActivationInterval{one/(one+u.upper),one/(one+u.lower)};
+}
+
+// z=u/(2+u) lies in [0,1/3] and
+// log(1+u)=2*(z+z^3/3+z^5/5+...).
+// The remainder after N terms is at most (9/4)*z^(2N+1).
+ActivationInterval log1p_rational(ActivationInterval const& u,
+                                  unsigned terms) {
+    const auto endpoint=[&](Rational const& value) {
+        const Rational z=value/(Rational(2)+value);
+        const Rational square=z*z;
+        Rational power=z,partial(0);
+        for(unsigned n=0;n<terms;++n) {
+            partial=partial+Rational(2)*power/Rational(static_cast<int>(2u*n+1u));
+            power=power*square;
+        }
+        return std::pair<Rational,Rational>{
+            partial, partial+Rational(9,4)*power
+        };
+    };
+    const auto l=endpoint(u.lower);
+    const auto h=endpoint(u.upper);
+    return {l.first,h.second};
+}
+
+ActivationInterval softplus_bounds(ActivationInterval const& u,
+                                    Rational const& x,unsigned terms) {
+    ActivationInterval value=log1p_rational(u,terms);
+    if(x>Rational(0)) {
+        value.lower=value.lower+x;
+        value.upper=value.upper+x;
+    }
+    return value;
+}
+
+// Certify with FloatDP-directed exp where possible; on ambiguous
+// rounding use the independent exact-rational refinement above.
+template<class Transform>
+FloatDP certify_activation(FloatDP::RoundingModeType mode,FloatDP x,
+                            Transform&& transform) {
+    const double v=x.get_d();
+    const bool negative=std::signbit(v);
+    const FloatDP argument(ExactDouble(-std::fabs(v)),dp);
+    const FloatDP elo=exp(FloatDP::ROUND_DOWNWARD,argument);
+    const FloatDP ehi=exp(FloatDP::ROUND_UPWARD,argument);
+    const Rational original=static_cast<Rational>(x);
+    const ActivationInterval fast{
+        static_cast<Rational>(elo),static_cast<Rational>(ehi)
+    };
+    FloatDP rounded(0,dp);
+    if(activation_unique_rounding(transform(fast,negative,original,0u),
+                                  mode,rounded)) return rounded;
+    for(unsigned terms=16u;terms<=256u;terms*=2u) {
+        const auto refined=activation_exp_bounds(
+            negative ? Rational(0)-original : original,terms);
+        if(activation_unique_rounding(
+            transform(refined,negative,original,terms),mode,rounded))
+            return rounded;
+    }
+    throw std::runtime_error("FloatDP activation certification did not converge");
+}
+
+FloatDP tiny_positive_activation(FloatDP::RoundingModeType mode) {
+    return mode==FloatDP::ROUND_UPWARD
+        ? FloatDP(ExactDouble(std::numeric_limits<double>::denorm_min()),dp)
+        : FloatDP(0,dp);
+}
+
+} // namespace
+
+FloatDP sigmoid(FloatDP::RoundingModeType mode,FloatDP x) {
+    const double v=x.get_d();
+    if(std::isnan(v)) return FloatDP::nan(dp);
+    if(v==0.0) return FloatDP(ExactDouble(0.5),dp);
+    if(v==-std::numeric_limits<double>::infinity()) return FloatDP(0,dp);
+    if(v==std::numeric_limits<double>::infinity()) return FloatDP(1,dp);
+    if(v<=-800.0) return tiny_positive_activation(mode);
+    if(v>=40.0) {
+        return (mode==FloatDP::ROUND_DOWNWARD || mode==FloatDP::ROUND_TOWARD_ZERO)
+            ? FloatDP(ExactDouble(std::nextafter(1.0,0.0)),dp) : FloatDP(1,dp);
+    }
+    return certify_activation(mode,x,[](ActivationInterval const& u,
+                                        bool negative,Rational const&,unsigned) {
+        return sigmoid_bounds(u,negative);
+    });
+}
+
+FloatDP softplus(FloatDP::RoundingModeType mode,FloatDP x) {
+    const double v=x.get_d();
+    if(std::isnan(v)) return FloatDP::nan(dp);
+    if(v==std::numeric_limits<double>::infinity()) return x;
+    if(v==-std::numeric_limits<double>::infinity()) return FloatDP(0,dp);
+    if(v==0.0) return log(mode,FloatDP(2,dp));
+    if(v<=-800.0) return tiny_positive_activation(mode);
+    if(v>=40.0) {
+        return mode==FloatDP::ROUND_UPWARD
+            ? FloatDP(ExactDouble(std::nextafter(v,std::numeric_limits<double>::infinity())),dp)
+            : x;
+    }
+    return certify_activation(mode,x,[](ActivationInterval const& u,
+                                        bool,Rational const& original,unsigned terms) {
+        return softplus_bounds(u,original,terms==0u ? 20u : terms);
+    });
+}
+
 FloatDP tanh(FloatDP::RoundingModeType mode,FloatDP x) {
     double output;
     if (floatdp_certified_transcendental<FloatDPTranscendental::hyperbolic_tangent>(

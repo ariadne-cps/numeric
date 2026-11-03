@@ -206,6 +206,12 @@ template<class F> class Approximation
         return Approximation<F>(cos(approx,x._a)); } //!< <p/>
     friend Approximation<F> tan(Approximation<F> const& x) {
         return Approximation<F>(tan(approx,x._a)); } //!< <p/>
+    //! \brief Logistic sigmoid rounded approximately to the active precision.
+    friend Approximation<F> sigmoid(Approximation<F> const& x) {
+        return Approximation<F>(sigmoid(near,x._a)); }
+    //! \brief Softplus rounded approximately to the active precision.
+    friend Approximation<F> softplus(Approximation<F> const& x) {
+        return Approximation<F>(softplus(near,x._a)); }
     friend Approximation<F> tanh(Approximation<F> const& x) { return Approximation<F>(tanh(approx,x._a)); } //!< <p/>
     friend Approximation<F> asin(Approximation<F> const& x) {
         return Approximation<F>(asin(approx,x._a)); } //!< <p/>

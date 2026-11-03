@@ -259,6 +259,14 @@ template<class F> class Bounds
         return Operations<Bounds<F>>::_cos(x); } //!< <p/>
     friend Bounds<F> tan(Bounds<F> const& x) {
         return Operations<Bounds<F>>::_tan(x); } //!< <p/>
+    //! \brief Monotone rigorous enclosure of the logistic sigmoid.
+    friend Bounds<F> sigmoid(Bounds<F> const& x) {
+        return Bounds<F>(sigmoid(down,x.lower_raw()),sigmoid(up,x.upper_raw()));
+    }
+    //! \brief Monotone rigorous enclosure of softplus.
+    friend Bounds<F> softplus(Bounds<F> const& x) {
+        return Bounds<F>(softplus(down,x.lower_raw()),softplus(up,x.upper_raw()));
+    }
     friend Bounds<F> tanh(Bounds<F> const& x) {
         return Bounds<F>(tanh(down,x.lower_raw()),tanh(up,x.upper_raw()));
     } //!< <p/>
@@ -508,6 +516,12 @@ template<class FE> inline Bounds<FE> make_bounds(Error<FE> const& e) { return pm
 FloatDP midpoint(Bounds<FloatDP> const& x); // DEPRECATED
 
 
+template<ARawFloat F> Bounds<F> sigmoid(F const& x) {
+    return sigmoid(Bounds<F>(x));
+}
+template<ARawFloat F> Bounds<F> softplus(F const& x) {
+    return softplus(Bounds<F>(x));
+}
 template<ARawFloat F> Bounds<F> tanh(F const& x) {
     return tanh(Bounds<F>(x));
 }

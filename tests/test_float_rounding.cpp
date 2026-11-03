@@ -419,6 +419,7 @@ class TestFloatRounding : public Ariadne::Testing::ContextFixture
     Void test_arctan();
     Void test_precision_regressions();
     Void test_short_power_and_tanh();
+    Void test_sigmoid_softplus();
     Void test_function();
 };
 
@@ -3447,6 +3448,79 @@ template<class PR> Void TestFloatRounding<PR>::test_short_power_and_tanh() {
     }
 }
 
+template<class PR> Void
+TestFloatRounding<PR>::test_sigmoid_softplus()
+{
+    const Float zero(0,precision);
+    const Float one(1,precision);
+    const Float two(2,precision);
+    const Float half(ExactDouble(0.5),precision);
+    ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,zero),half);
+    ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,zero),half);
+    ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,zero),half);
+    ARIADNE_TESTING_EXPECT_EQUAL(softplus(down,zero),log(down,two));
+    ARIADNE_TESTING_EXPECT_EQUAL(softplus(up,zero),log(up,two));
+    ARIADNE_TESTING_PROVE(is_nan(sigmoid(near,Float::nan(precision))));
+    ARIADNE_TESTING_PROVE(is_nan(softplus(near,Float::nan(precision))));
+    ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,Float::inf(Sign::POSITIVE,precision)),one);
+    ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,Float::inf(Sign::NEGATIVE,precision)),zero);
+    ARIADNE_TESTING_EXPECT_EQUAL(softplus(near,Float::inf(Sign::NEGATIVE,precision)),zero);
+    ARIADNE_TESTING_PROVE(is_inf(softplus(near,Float::inf(Sign::POSITIVE,precision))));
+
+    for(int i=-4;i<=4;++i) {
+        const Float x(i,precision);
+        const Float sig_lo=sigmoid(down,x);
+        const Float sig_hi=sigmoid(up,x);
+        const Float sig_near=sigmoid(near,x);
+        const Float sp_lo=softplus(down,x);
+        const Float sp_hi=softplus(up,x);
+        const Float sp_near=softplus(near,x);
+        ARIADNE_TESTING_PROVE(zero<=sig_lo);
+        ARIADNE_TESTING_PROVE(sig_lo<=sig_near);
+        ARIADNE_TESTING_PROVE(sig_near<=sig_hi);
+        ARIADNE_TESTING_PROVE(sig_hi<=one);
+        ARIADNE_TESTING_PROVE(zero<=sp_lo);
+        ARIADNE_TESTING_PROVE(sp_lo<=sp_near);
+        ARIADNE_TESTING_PROVE(sp_near<=sp_hi);
+        if(i>0) {
+            ARIADNE_TESTING_PROVE(sp_lo>x);
+        }
+        const Float reflected=sigmoid(up,neg(x));
+        const Float reflected_lower=sigmoid(down,neg(x));
+        ARIADNE_TESTING_PROVE(
+            static_cast<Rational>(sig_lo)+static_cast<Rational>(reflected_lower)
+            <=Rational(1));
+        ARIADNE_TESTING_PROVE(
+            static_cast<Rational>(sig_hi)+static_cast<Rational>(reflected)
+            >=Rational(1));
+    }
+    if constexpr (Same<PR,DoublePrecision>) {
+        const Float forty(40,precision);
+        const Float minus_eight_hundred(-800,precision);
+        const Float below_one(ExactDouble(std::nextafter(1.0,0.0)),precision);
+        const Float first_subnormal(ExactDouble(std::numeric_limits<double>::denorm_min()),precision);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,forty),below_one);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,forty),one);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(down,forty),forty);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,minus_eight_hundred),first_subnormal);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,minus_eight_hundred),zero);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(up,minus_eight_hundred),first_subnormal);
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(down,minus_eight_hundred),zero);
+    } else {
+        const unsigned long bits=static_cast<unsigned long>(precision.bits());
+        const Float tiny=shft(one,-static_cast<Int>(bits*4ul+64ul));
+        const Float half_below=next(down,half);
+        const Float half_above=next(up,half);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,tiny),half);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,tiny),half_above);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,neg(tiny)),half_below);
+        ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,neg(tiny)),half);
+        // Also exercises the independent log(2) enclosure for a tiny
+        // nonzero softplus argument without huge rational imports.
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(near,tiny),log(near,two));
+    }
+}
+
 int main(int argc, char** argv) {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
@@ -3480,6 +3554,7 @@ int main(int argc, char** argv) {
         add("test_arctan", &Fixture::test_arctan);
         add("test_precision_regressions", &Fixture::test_precision_regressions);
         add("test_short_power_and_tanh", &Fixture::test_short_power_and_tanh);
+        add("test_sigmoid_softplus", &Fixture::test_sigmoid_softplus);
     };
     register_precision("FloatDP",dp);
     register_precision("FloatMP-64",MultiplePrecision(64_bits));

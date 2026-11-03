@@ -15,6 +15,38 @@ The shared benchmark is defined in
 `benchmarks/benchmark_backend_workload.hpp` and its outputs require
 same-machine/same-configuration comparisons before causal attribution.
 
+## Sigmoid and Softplus: independent binary64 certification (3 November 2026)
+
+**Implementation choice:** `sigmoid` and `softplus` are numeric scalar
+operations, not neural-network-specific computations; ReLU is represented
+by `max(x, 0)` in `neural`. The binary64 implementation in
+`src/floatdp.cpp` does **not** construct or invoke `FloatMP`. It
+first uses directed `FloatDP exp` enclosures and exact rational
+transformations. When those endpoints do not decide one correctly rounded
+result, it refines the exponential and logarithmic series using exact
+`Rational` bounds, converts both endpoints in the selected rounding
+direction, and accepts only when they agree.
+
+The sigmoid identity uses `u=exp(-abs(x))` to avoid overflow.
+The softplus identity is `max(x,0)+log(1+u)` and evaluates the
+logarithmic correction via `z=u/(2+u)`, avoiding cancellation.
+Extremal binary64 inputs use analytically bounded saturation or
+subnormal rules. The fallback is deliberately correctness-first and may
+be slower than ordinary libm; actual latency must be measured, not assumed.
+
+The pre-existing, shared benchmark battery
+`benchmarks/benchmark_backend_workload.hpp` now includes 12 extra
+operation cases: sigmoid/softplus on positive/negative inputs with
+nearest, downward and upward rounding. Both
+`benchmark_compare_double_precision_backends` and `benchmark_floatmp`
+run these operations without new benchmark executables.
+
+**Tests:** `test_float_rounding` and `test_float_bounds` cover
+symmetry, special values, directed output ordering, interval endpoints,
+saturation, and extreme subnormal cases. CMake/CTest build and CI evidence
+remain pending until a completed run validates the revision. Do not
+treat a benchmark result as a numerical correctness certificate.
+
 ## Journal scope and chronology
 
 The following historical sections were moved here from
