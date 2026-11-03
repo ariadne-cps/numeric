@@ -15,6 +15,39 @@ The shared benchmark is defined in
 `benchmarks/benchmark_backend_workload.hpp` and its outputs require
 same-machine/same-configuration comparisons before causal attribution.
 
+## Sigmoid/Softplus performance regression correction (3 November 2026)
+
+The initial activation implementation caused an apparent hang in
+`benchmark_compare_double_precision_backends`: 12 new operation rows
+exercise the same repeated 32-element input pool over 20,000 iterations
+and 31 timing samples by default. The binary64 fallback evaluated
+long Taylor expansions as **unbounded exact rational products**;
+their factorially growing denominators are unsuitable for repeated
+primitive numeric operations. The original commit also broke build CI.
+
+The replacement uses an explicitly outward-rounded fixed-dyadic
+carrier for the exponential and logarithmic series: each intermediate
+value is quantized to `2^-bits` via exact integer quotient/remainder.
+The positive Taylor tail for reduced exponential arguments is
+bounded, the logistic transform uses monotone rational endpoints,
+and the logarithmic series uses a safe omitted-tail constant of
+`3*z^(2*N+1)` for `0<=z<=1/2`, including dyadic rounding upward
+above exactly 1/3. Refinement increases **working precision**, not
+unbounded rational denominator size. A small-input sigmoid path
+also respects directed rounding around 1/2.
+
+This correction does not use `FloatMP`, alter the input pool,
+remove operations, or reduce the benchmark sample counts. A focused
+`test_activation_benchmark_inputs` reproduces the benchmark's
+32 rational inputs (both signs and three rounding modes) as a
+regression gate at each supported test precision.
+
+**Verification state:** The previous commit failed all CI workflows;
+the precise compiler diagnostics and runtime performance figures
+have not been recovered in this environment. The new patch is
+subject to compilation, correctness and runtime checks. Do not
+interpret the intended complexity improvement as measured speedup.
+
 ## Sigmoid and Softplus: independent binary64 certification (3 November 2026)
 
 **Implementation choice:** `sigmoid` and `softplus` are numeric scalar

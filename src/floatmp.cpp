@@ -4153,13 +4153,13 @@ FloatMP softplus(FloatMP::RoundingModeType mode,FloatMP const& x) {
                  std::numeric_limits<FloatMP::Exponent>::max())-bits-64ul) break;
             if(x.exponent()>-static_cast<FloatMP::Exponent>(workbits+bits+32ul)) break;
             const MultiplePrecision work_precision(workbits);
-            const FloatMP two(2,work_precision);
+            const FloatMP logarithm_argument(2,work_precision);
             const FloatMP one_work(1,work_precision);
             const FloatMP error=shft(one_work,-static_cast<Int>(workbits+32ul));
             const FloatMP lower=sub(FloatMP::ROUND_DOWNWARD,
-                                    log(FloatMP::ROUND_DOWNWARD,two),error);
+                                    log(FloatMP::ROUND_DOWNWARD,logarithm_argument),error);
             const FloatMP upper=add(FloatMP::ROUND_UPWARD,
-                                    log(FloatMP::ROUND_UPWARD,two),error);
+                                    log(FloatMP::ROUND_UPWARD,logarithm_argument),error);
             const FloatMP rounded_lower(lower,mode,precision);
             const FloatMP rounded_upper(upper,mode,precision);
             if(rounded_lower==rounded_upper) return rounded_lower;

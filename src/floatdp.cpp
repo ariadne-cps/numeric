@@ -963,34 +963,66 @@ bool activation_unique_rounding(ActivationInterval const& interval,
     return true;
 }
 
-// exp(-a) for exact 0<=a<=800. Argument reduction keeps the alternating
-// difficulty out of the Taylor sum: exp(a/2^k) has positive terms with
-// |a/2^k|<=1/2. For N>=2, the omitted positive tail is bounded by
-// 2*t_(N+1). Invert and square outward in exact rational arithmetic.
-ActivationInterval exp_negative_rational(Rational a,unsigned terms) {
-    const Rational one(1);
-    unsigned halvings=0u;
-    while(a>Rational(1,2)) {
-        a=a/Rational(2);
-        ++halvings;
+// Bound a nonnegative exact rational by dyadic endpoints of fixed width.
+// Each intermediate rational denominator is bounded by 2^bits instead of
+// growing factorially as in the original exact Taylor implementation.
+// Integer division and remainder are exact; all errors are outward.
+Rational activation_dyadic_round(Rational const& value,
+                                  unsigned bits,bool upward) {
+    const Integer& numerator=value.numerator_reference();
+    if(numerator.negative()) {
+        throw std::logic_error("Activation dyadic bound must be nonnegative");
     }
-    Rational term(1),sum(1);
-    for(unsigned n=1u;n<=terms;++n) {
-        term=term*a/Rational(static_cast<int>(n));
-        sum=sum+term;
+    auto [quotient,remainder]=divrem(
+        shift_left(numerator.magnitude(),bits),value.denominator_reference());
+    if(upward && !remainder.is_zero()) {
+        quotient=add(quotient,BigUnsigned(1u));
     }
-    const Rational next=term*a/Rational(static_cast<int>(terms+1u));
-    ActivationInterval result{one/(sum+Rational(2)*next),one/sum};
-    for(unsigned i=0u;i<halvings;++i) {
-        result.lower=result.lower*result.lower;
-        result.upper=result.upper*result.upper;
-    }
-    return result;
+    return Rational::from_dyadic(
+        Integer::from_magnitude(std::move(quotient),false),bits);
 }
 
-ActivationInterval activation_exp_bounds(Rational const& abs_input,
-                                          unsigned terms) {
-    return exp_negative_rational(abs_input,terms);
+// exp(-a), for exact a>=0 and a<=800. Reduce to a/2^k<=1/2,
+// bound exp(a/2^k) with positive Taylor terms, then invert and
+// reconstruct using k outward-rounded squarings.
+// For t_n=a^n/n!, the omitted positive tail is <2*t_(N+1) when
+// a<=1/2. Every retained term is bounded by a directed dyadic
+// recurrence. Neither denominators nor arithmetic widths grow
+// with the number of Taylor terms.
+ActivationInterval activation_exp_negative_fixed(
+    Rational magnitude,unsigned bits,unsigned terms) {
+    const Rational one(1);
+    unsigned halvings=0u;
+    while(magnitude>Rational(1,2)) {
+        magnitude=magnitude/Rational(2);
+        ++halvings;
+    }
+    Rational term_lower(1),term_upper(1);
+    Rational sum_lower(1),sum_upper(1);
+    for(unsigned n=1u;n<=terms;++n) {
+        const Rational divisor(static_cast<int>(n));
+        term_lower=activation_dyadic_round(
+            term_lower*magnitude/divisor,bits,false);
+        term_upper=activation_dyadic_round(
+            term_upper*magnitude/divisor,bits,true);
+        sum_lower=sum_lower+term_lower;
+        sum_upper=sum_upper+term_upper;
+    }
+    const Rational next_upper=term_upper*magnitude/
+        Rational(static_cast<int>(terms+1u));
+    sum_upper=activation_dyadic_round(
+        sum_upper+Rational(2)*next_upper,bits,true);
+    ActivationInterval result{
+        activation_dyadic_round(one/sum_upper,bits,false),
+        activation_dyadic_round(one/sum_lower,bits,true)
+    };
+    for(unsigned k=0u;k<halvings;++k) {
+        result.lower=activation_dyadic_round(
+            result.lower*result.lower,bits,false);
+        result.upper=activation_dyadic_round(
+            result.upper*result.upper,bits,true);
+    }
+    return result;
 }
 
 // sigmoid(-a)=u/(1+u) and sigmoid(a)=1/(1+u), u=exp(-a).
@@ -1002,31 +1034,48 @@ ActivationInterval sigmoid_bounds(ActivationInterval const& u,
         : ActivationInterval{one/(one+u.upper),one/(one+u.lower)};
 }
 
-// z=u/(2+u) lies in [0,1/3] and
-// log(1+u)=2*(z+z^3/3+z^5/5+...).
-// The remainder after N terms is at most (9/4)*z^(2N+1).
+// log(1+u)=2*sum_{n>=0} z^(2n+1)/(2n+1),
+// z=u/(2+u) in [0,1/3] for u in [0,1].
+// Round every intermediate term outward to a fixed dyadic width
+// instead of constructing unbounded exact rational powers.
+// The omitted tail is <=3*z^(2*N+1) for 0<=z<=1/2.
+// The widened constant remains valid when upward dyadic rounding
+// places z just above 1/3.
 ActivationInterval log1p_rational(ActivationInterval const& u,
-                                  unsigned terms) {
-    const auto endpoint=[&](Rational const& value) {
-        const Rational z=value/(Rational(2)+value);
-        const Rational square=z*z;
-        Rational power=z,partial(0);
-        for(unsigned n=0;n<terms;++n) {
-            partial=partial+Rational(2)*power/Rational(static_cast<int>(2u*n+1u));
-            power=power*square;
-        }
-        return std::pair<Rational,Rational>{
-            partial, partial+Rational(9,4)*power
-        };
+                                  unsigned bits,unsigned terms) {
+    const Rational two_value(2);
+    const Rational z_lower=activation_dyadic_round(
+        u.lower/(two_value+u.lower),bits,false);
+    const Rational z_upper=activation_dyadic_round(
+        u.upper/(two_value+u.upper),bits,true);
+    const Rational square_lower=activation_dyadic_round(
+        z_lower*z_lower,bits,false);
+    const Rational square_upper=activation_dyadic_round(
+        z_upper*z_upper,bits,true);
+    Rational power_lower=z_lower,power_upper=z_upper;
+    Rational sum_lower(0),sum_upper(0);
+    for(unsigned n=0u;n<terms;++n) {
+        const Rational divisor(static_cast<int>(2u*n+1u));
+        sum_lower=sum_lower+activation_dyadic_round(
+            power_lower/divisor,bits,false);
+        sum_upper=sum_upper+activation_dyadic_round(
+            power_upper/divisor,bits,true);
+        power_lower=activation_dyadic_round(
+            power_lower*square_lower,bits,false);
+        power_upper=activation_dyadic_round(
+            power_upper*square_upper,bits,true);
+    }
+    return {
+        two_value*sum_lower,
+        activation_dyadic_round(
+            two_value*sum_upper+Rational(3)*power_upper,bits,true)
     };
-    const auto l=endpoint(u.lower);
-    const auto h=endpoint(u.upper);
-    return {l.first,h.second};
 }
 
 ActivationInterval softplus_bounds(ActivationInterval const& u,
-                                    Rational const& x,unsigned terms) {
-    ActivationInterval value=log1p_rational(u,terms);
+                                    Rational const& x,unsigned bits,
+                                    unsigned terms) {
+    ActivationInterval value=log1p_rational(u,bits,terms);
     if(x>Rational(0)) {
         value.lower=value.lower+x;
         value.upper=value.upper+x;
@@ -1049,13 +1098,19 @@ FloatDP certify_activation(FloatDP::RoundingModeType mode,FloatDP x,
         static_cast<Rational>(elo),static_cast<Rational>(ehi)
     };
     FloatDP rounded(0,dp);
-    if(activation_unique_rounding(transform(fast,negative,original,0u),
+    if(activation_unique_rounding(transform(fast,negative,original,0u,0u),
                                   mode,rounded)) return rounded;
-    for(unsigned terms=16u;terms<=256u;terms*=2u) {
-        const auto refined=activation_exp_bounds(
-            negative ? Rational(0)-original : original,terms);
+    // The exact-rational fallback used unbounded factorial denominators,
+    // taking minutes inside the shared high-iteration benchmark. Fixed-width
+    // dyadics keep each Taylor operation bounded while retaining proof
+    // of every outward rounding step. Refinement raises precision, not
+    // the size of recursively multiplied rational denominators.
+    for(unsigned bits=128u;bits<=1024u;bits*=2u) {
+        const unsigned terms=bits/3u+16u;
+        const auto refined=activation_exp_negative_fixed(
+            negative ? Rational(0)-original : original,bits,terms);
         if(activation_unique_rounding(
-            transform(refined,negative,original,terms),mode,rounded))
+            transform(refined,negative,original,bits,terms),mode,rounded))
             return rounded;
     }
     throw std::runtime_error("FloatDP activation certification did not converge");
@@ -1073,6 +1128,21 @@ FloatDP sigmoid(FloatDP::RoundingModeType mode,FloatDP x) {
     const double v=x.get_d();
     if(std::isnan(v)) return FloatDP::nan(dp);
     if(v==0.0) return FloatDP(ExactDouble(0.5),dp);
+    // sigmoid'(x)<=1/4. For |x|<2^-60, the exact sigmoid lies
+    // strictly between 1/2 and the adjacent float in x's direction,
+    // much closer to 1/2 than half a binary64 ulp.
+    // Directed rounding must still move one float in that direction.
+    if(std::fabs(v)<0x1p-60) {
+        const double half=0.5;
+        if(v<0.0) {
+            return (mode==FloatDP::ROUND_DOWNWARD || mode==FloatDP::ROUND_TOWARD_ZERO)
+                ? FloatDP(ExactDouble(std::nextafter(half,0.0)),dp)
+                : FloatDP(ExactDouble(half),dp);
+        }
+        return mode==FloatDP::ROUND_UPWARD
+            ? FloatDP(ExactDouble(std::nextafter(half,1.0)),dp)
+            : FloatDP(ExactDouble(half),dp);
+    }
     if(v==-std::numeric_limits<double>::infinity()) return FloatDP(0,dp);
     if(v==std::numeric_limits<double>::infinity()) return FloatDP(1,dp);
     if(v<=-800.0) return tiny_positive_activation(mode);
@@ -1081,7 +1151,7 @@ FloatDP sigmoid(FloatDP::RoundingModeType mode,FloatDP x) {
             ? FloatDP(ExactDouble(std::nextafter(1.0,0.0)),dp) : FloatDP(1,dp);
     }
     return certify_activation(mode,x,[](ActivationInterval const& u,
-                                        bool negative,Rational const&,unsigned) {
+                                        bool negative,Rational const&,unsigned,unsigned) {
         return sigmoid_bounds(u,negative);
     });
 }
@@ -1099,8 +1169,9 @@ FloatDP softplus(FloatDP::RoundingModeType mode,FloatDP x) {
             : x;
     }
     return certify_activation(mode,x,[](ActivationInterval const& u,
-                                        bool,Rational const& original,unsigned terms) {
-        return softplus_bounds(u,original,terms==0u ? 20u : terms);
+                                        bool,Rational const& original,unsigned bits,unsigned terms) {
+        return softplus_bounds(u,original,bits==0u ? 128u : bits,
+                               terms==0u ? 64u : terms);
     });
 }
 

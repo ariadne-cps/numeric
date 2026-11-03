@@ -12,6 +12,24 @@ The shared unsigned-limb arithmetic development is tracked on `remove-gmp`; see
 [`integer_design.md`](integer_design.md) for signed Integer and
 [`rational_design.md`](rational_design.md) for Rational.
 
+## Activation regression: shadow warning and benchmark parity (3 November 2026)
+
+Renamed the local multiple-precision `two` variable in the
+near-zero softplus certification branch to `logarithm_argument`,
+avoiding shadowing the existing namespace-level `Ariadne::two`
+constant reported with `-Wshadow`.
+
+The shared 68-operation benchmark suite is deliberately unchanged:
+the issue lies in per-call activation cost rather than sample count
+or measurement infrastructure. The new regression test exercises
+all 32 existing benchmark inputs for both signs and all three
+measured rounding modes, including FloatMP. FloatDP's corrected
+certification remains independent of FloatMP.
+
+Validation through CI and timing remain pending; do not claim the
+reported hang solved until the benchmark completes on representative
+builds with its original workload.
+
 ## Sigmoid and Softplus: native correctly rounded activations (3 November 2026)
 
 Two independent scalar operations were added using the existing

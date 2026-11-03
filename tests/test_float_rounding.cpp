@@ -420,6 +420,7 @@ class TestFloatRounding : public Ariadne::Testing::ContextFixture
     Void test_precision_regressions();
     Void test_short_power_and_tanh();
     Void test_sigmoid_softplus();
+    Void test_activation_benchmark_inputs();
     Void test_function();
 };
 
@@ -3521,6 +3522,42 @@ TestFloatRounding<PR>::test_sigmoid_softplus()
     }
 }
 
+// The shared benchmark evaluates 32 binary64- or MP-rounded rational
+// inputs around 1/2. Exercise exactly that distribution before attempting
+// a long benchmark so slow/nonconvergent certification is caught by CI.
+template<class PR> Void
+TestFloatRounding<PR>::test_activation_benchmark_inputs()
+{
+    unsigned bits=53u;
+    if constexpr (Same<PR,MultiplePrecision>) {
+        bits=static_cast<unsigned>(precision.bits());
+    }
+    const Integer base=pow(Integer(2),Nat(bits));
+    using Mode=typename Float::RoundingModeType;
+    const Mode modes[]={
+        Float::ROUND_TO_NEAREST,
+        Float::ROUND_DOWNWARD,
+        Float::ROUND_UPWARD
+    };
+    const Float zero(0,precision);
+    const Float one(1,precision);
+    for(unsigned i=0u;i<32u;++i) {
+        const Rational q(
+            base+Integer(13u+2u*i),
+            Integer(2)*base+Integer(17u+3u*i));
+        const Float x(q,Float::ROUND_TO_NEAREST,precision);
+        for(Mode mode : modes) {
+            for(const Float& input : {x,neg(x)}) {
+                const Float sig=sigmoid(mode,input);
+                const Float sp=softplus(mode,input);
+                ARIADNE_TESTING_PROVE(sig>=zero);
+                ARIADNE_TESTING_PROVE(sig<=one);
+                ARIADNE_TESTING_PROVE(sp>=zero);
+            }
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     std::cout<<std::setprecision(20);
     std::cerr<<std::setprecision(20);
@@ -3555,6 +3592,7 @@ int main(int argc, char** argv) {
         add("test_precision_regressions", &Fixture::test_precision_regressions);
         add("test_short_power_and_tanh", &Fixture::test_short_power_and_tanh);
         add("test_sigmoid_softplus", &Fixture::test_sigmoid_softplus);
+        add("test_activation_benchmark_inputs", &Fixture::test_activation_benchmark_inputs);
     };
     register_precision("FloatDP",dp);
     register_precision("FloatMP-64",MultiplePrecision(64_bits));
