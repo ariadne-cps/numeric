@@ -89,6 +89,7 @@ class TestFloatStandalone : public Ariadne::Testing::ContextFixture {
     void test_floatmp_native_significand_storage();
     void test_floatdp_rounding_exception_safety();
     void test_floatdp_rounding_mode_contract();
+    void test_floatdp_rounding_fallbacks();
     void test_floatdp_sine_outside_certificate();
     void test_floatdp_unary_wrappers();
     void test_floatmp_minmax_oracle();
@@ -1353,6 +1354,30 @@ void TestFloatStandalone::test_floatdp_rounding_mode_contract() {
     ARIADNE_TESTING_EXPECT_EQUAL(FloatDP::get_rounding_mode(),initial);
 }
 
+// Public FloatDP cases left uncovered by the existing directed-rounding
+// tests: signed rational fallback and the natural-exponent dispatch.
+void TestFloatStandalone::test_floatdp_rounding_fallbacks() {
+    const auto saved=FloatDP::get_rounding_mode();
+    const FloatDP two(2,dp);
+    // The Nat overload must not dispatch every request as downward/upward.
+    ARIADNE_TESTING_EXPECT_EQUAL(
+        pow(FloatDP::ROUND_TO_NEAREST,two,Nat(3u)),FloatDP(8,dp));
+    ARIADNE_TESTING_EXPECT_EQUAL(
+        pow(FloatDP::ROUND_TOWARD_ZERO,two,Nat(3u)),FloatDP(8,dp));
+
+    // This exact rational is immediately below -1/2, but conversion by
+    // truncation toward zero yields -1/2. Its 202-bit denominator makes
+    // the short native-rational converter decline the input, so the
+    // general directed-conversion path must step one binary64 ULP down.
+    const Integer scale=pow(Integer(2),Nat(201u));
+    const Rational below_negative_half(-scale-Integer(1),Integer(2)*scale);
+    const FloatDP rounded(below_negative_half,FloatDP::ROUND_DOWNWARD,dp);
+    ARIADNE_TESTING_EXPECT_EQUAL(
+        rounded.get_d(),std::nextafter(-0.5,-std::numeric_limits<double>::infinity()));
+    ARIADNE_TESTING_EXPECT_EQUAL(
+        FloatDP::get_rounding_mode(),saved);
+}
+
 void TestFloatStandalone::test_floatdp_sine_outside_certificate() {
     const auto initial=FloatDP::get_rounding_mode();
     const FloatDP input(0.75_x,dp);
@@ -2258,6 +2283,7 @@ void TestFloatStandalone::add_cases_before_precision(Ariadne::Testing::Suite& su
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_unary_wrappers);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_rounding_exception_safety);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_rounding_mode_contract);
+    ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_rounding_fallbacks);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatdp_sine_outside_certificate);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_float_literals);
     ARIADNE_TESTING_ADD_TEST_TO(suite,TestFloatStandalone,test_floatmp_directed_bound_oracles);
