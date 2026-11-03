@@ -1358,12 +1358,12 @@ void TestFloatStandalone::test_floatdp_rounding_mode_contract() {
 // tests: signed rational fallback and the natural-exponent dispatch.
 void TestFloatStandalone::test_floatdp_rounding_fallbacks() {
     const auto saved=FloatDP::get_rounding_mode();
-    const FloatDP two(2,dp);
+    const FloatDP base_value(2,dp);
     // The Nat overload must not dispatch every request as downward/upward.
     ARIADNE_TESTING_EXPECT_EQUAL(
-        pow(FloatDP::ROUND_TO_NEAREST,two,Nat(3u)),FloatDP(8,dp));
+        pow(FloatDP::ROUND_TO_NEAREST,base_value,Nat(3u)),FloatDP(8,dp));
     ARIADNE_TESTING_EXPECT_EQUAL(
-        pow(FloatDP::ROUND_TOWARD_ZERO,two,Nat(3u)),FloatDP(8,dp));
+        pow(FloatDP::ROUND_TOWARD_ZERO,base_value,Nat(3u)),FloatDP(8,dp));
 
     // This exact rational is immediately below -1/2, but conversion by
     // truncation toward zero yields -1/2. Its 202-bit denominator makes
@@ -1371,9 +1371,9 @@ void TestFloatStandalone::test_floatdp_rounding_fallbacks() {
     // general directed-conversion path must step one binary64 ULP down.
     const Integer scale=pow(Integer(2),Nat(201u));
     const Rational below_negative_half(-scale-Integer(1),Integer(2)*scale);
-    const FloatDP rounded(below_negative_half,FloatDP::ROUND_DOWNWARD,dp);
+    const FloatDP directed_value(below_negative_half,FloatDP::ROUND_DOWNWARD,dp);
     ARIADNE_TESTING_EXPECT_EQUAL(
-        rounded.get_d(),std::nextafter(-0.5,-std::numeric_limits<double>::infinity()));
+        directed_value.get_d(),std::nextafter(-0.5,-std::numeric_limits<double>::infinity()));
     ARIADNE_TESTING_EXPECT_EQUAL(
         FloatDP::get_rounding_mode(),saved);
 }
