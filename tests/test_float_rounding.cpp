@@ -3508,6 +3508,47 @@ TestFloatRounding<PR>::test_sigmoid_softplus()
             half_up.get_d(),std::nextafter(0.5,1.0));
         ARIADNE_TESTING_EXPECT_EQUAL(
             half_down.get_d(),std::nextafter(0.5,0.0));
+        // Independently established binary64 rounding oracles at +/-1/2.
+        // These exact hex literals also exercise the cached centers in
+        // every directed mode, not merely the relative output ordering.
+        const Float positive_half(ExactDouble(0.5),precision);
+        const Float negative_half=neg(positive_half);
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            sigmoid(near,positive_half),
+            Float(ExactDouble(0x1.3eb2fd4d34391p-1),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            sigmoid(down,positive_half),
+            Float(ExactDouble(0x1.3eb2fd4d34390p-1),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            sigmoid(up,positive_half),
+            Float(ExactDouble(0x1.3eb2fd4d34391p-1),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            sigmoid(near,negative_half),
+            Float(ExactDouble(0x1.829a0565978dfp-2),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            sigmoid(down,negative_half),
+            Float(ExactDouble(0x1.829a0565978dep-2),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            sigmoid(up,negative_half),
+            Float(ExactDouble(0x1.829a0565978dfp-2),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            softplus(near,positive_half),
+            Float(ExactDouble(0x1.f2ba37edae032p-1),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            softplus(down,positive_half),
+            Float(ExactDouble(0x1.f2ba37edae031p-1),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            softplus(up,positive_half),
+            Float(ExactDouble(0x1.f2ba37edae032p-1),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            softplus(near,negative_half),
+            Float(ExactDouble(0x1.e5746fdb5c064p-2),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            softplus(down,negative_half),
+            Float(ExactDouble(0x1.e5746fdb5c063p-2),precision));
+        ARIADNE_TESTING_EXPECT_EQUAL(
+            softplus(up,negative_half),
+            Float(ExactDouble(0x1.e5746fdb5c064p-2),precision));
         const Float forty(40,precision);
         const Float minus_eight_hundred(-800,precision);
         const Float below_one(ExactDouble(std::nextafter(1.0,0.0)),precision);

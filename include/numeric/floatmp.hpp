@@ -57,7 +57,8 @@ class TwoExp;
 namespace Detail {
     enum class FloatTranscendental {
         sine,cosine,tangent,arctangent,arcsine,arccosine,
-        pi,half_pi,negative_half_pi,exponential,logarithm,hyperbolic_tangent
+        pi,half_pi,negative_half_pi,exponential,logarithm,hyperbolic_tangent,
+        logistic_sigmoid,softplus
     };
     struct FloatMPShortTranscendentals;
 }

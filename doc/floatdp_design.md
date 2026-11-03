@@ -1,5 +1,41 @@
 # FloatDP — fixed-precision binary64 floating point
 
+## Sigmoid and Softplus centered fixed85 path (3 November 2026)
+
+This increment reuses the **existing** `floatdp_certified_transcendental`
+fixed85 kernel (including its compile-time exhaustive lattice checks)
+for two scalar activations. Near `x=+1/2` or `x=-1/2`,
+`sigmoid` and `softplus` use independently precomputed outward
+85-bit dyadic values and first derivatives. The same integer-limb
+slope-correction and final binary64 rounding infrastructure as
+`tanh` now handles both functions. The near-half domain is
+`|delta|<=2^-43`; `|sigmoid''(x)|<=1/4` and
+`|softplus''(x)|<=1/4` bound the quadratic remainder, which is
+covered by a conservative two-unit fixed85 margin.
+
+The public scalar interface does **not** split into positive and
+negative functions, and the shared benchmark has only six activation
+rows (`sigmoid_nearest/down/up` and `softplus_nearest/down/up`).
+Internal signed centers are an implementation detail. The existing
+slower interval/rational certification path remains as the fallback
+outside the certified near-half window; it is **not** a claimed
+general-purpose performance solution. In particular, all 32 inputs
+of the shared benchmark's 53-bit pool are near +1/2 and take the
+fixed85 path.
+
+The new regression oracles check binary64 bit-level values at
+`+/-1/2` under the three benchmark rounding modes. The exhaustive
+`static_assert` checks reuse the same certified-lattice structure
+as the other transcendentals, and catch arithmetic regressions
+during compilation. The outward constants must also retain their
+independent numerical provenance; a compiler certificate alone does
+not establish the mathematical correctness of an arbitrary table.
+
+**Verification:** Implementation and oracle tests submitted; awaiting
+compiler/CTest and full unchanged-workload benchmark evidence.
+No benchmark speedup is asserted before measurement.
+
+
 > **Current design perspective — 29 October 2026.** This is the living
 > architecture, correctness and optimization journal for the `FloatDP`
 > backend. FloatDP is implemented independently of `FloatMP`; the certified

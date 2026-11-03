@@ -501,7 +501,8 @@ namespace {
 
 enum class FloatDPTranscendental {
     sine, cosine, tangent, arctangent, arcsine, arccosine,
-    exponential, logarithm, hyperbolic_tangent
+    exponential, logarithm, hyperbolic_tangent,
+    logistic_sigmoid, softplus
 };
 
 // FloatDP's certified near-half kernel is deliberately independent of
@@ -627,6 +628,47 @@ constexpr FloatDPCenter floatdp_center(bool negative) {
             2u,false,false
         };
     }
+    else if constexpr(Function==FloatDPTranscendental::logistic_sigmoid) {
+        // 85-bit outward enclosures of sigmoid(+/-1/2) and its derivative.
+        // sigmoid''(x)=sigmoid'(x)*(1-2*sigmoid(x)); |sigmoid''|<=1/4.
+        // The near-half Taylor remainder contributes <1/8 fixed unit.
+        if(negative) {
+            return {
+                fixed85(0x2b2cbc6f41d94e51ULL,0x00000000000c14d0ULL),
+                fixed85(0x2b2cbc6f41d94e52ULL,0x00000000000c14d0ULL),
+                fixed85(0x814b05b07344b661ULL,0x0000000000078526ULL),
+                fixed85(0x814b05b07344b662ULL,0x0000000000078526ULL),
+                2u,true,false
+            };
+        }
+        return {
+            fixed85(0xd4d34390be26b1aeULL,0x000000000013eb2fULL),
+            fixed85(0xd4d34390be26b1afULL,0x000000000013eb2fULL),
+            fixed85(0x814b05b07344b661ULL,0x0000000000078526ULL),
+            fixed85(0x814b05b07344b662ULL,0x0000000000078526ULL),
+            2u,false,false
+        };
+    }
+    else if constexpr(Function==FloatDPTranscendental::softplus) {
+        // Outward enclosures of log(1+exp(+/-1/2)), slopes sigmoid(+/-1/2).
+        // softplus''(x)=sigmoid(x)*(1-sigmoid(x))<=1/4.
+        if(negative) {
+            return {
+                fixed85(0x7edae031f3445279ULL,0x00000000000f2ba3ULL),
+                fixed85(0x7edae031f344527aULL,0x00000000000f2ba3ULL),
+                fixed85(0x2b2cbc6f41d94e51ULL,0x00000000000c14d0ULL),
+                fixed85(0x2b2cbc6f41d94e52ULL,0x00000000000c14d0ULL),
+                2u,true,false
+            };
+        }
+        return {
+            fixed85(0x7edae031f3445279ULL,0x00000000001f2ba3ULL),
+            fixed85(0x7edae031f344527aULL,0x00000000001f2ba3ULL),
+            fixed85(0xd4d34390be26b1aeULL,0x000000000013eb2fULL),
+            fixed85(0xd4d34390be26b1afULL,0x000000000013eb2fULL),
+            2u,false,false
+        };
+    }
     else if constexpr(Function==FloatDPTranscendental::logarithm) {
         return {
             fixed85(0xfefa39ef35793c76ULL,0x0000000000162e42ULL),
@@ -741,6 +783,8 @@ static_assert(floatdp_verify_certificates<FloatDPTranscendental::arccosine>());
 static_assert(floatdp_verify_certificates<FloatDPTranscendental::exponential>());
 static_assert(floatdp_verify_certificates<FloatDPTranscendental::logarithm>());
 static_assert(floatdp_verify_certificates<FloatDPTranscendental::hyperbolic_tangent>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::logistic_sigmoid>());
+static_assert(floatdp_verify_certificates<FloatDPTranscendental::softplus>());
 
 std::uint64_t floatdp_correction(FloatDPFixed85 slope,std::uint64_t offset,
                                  unsigned denominator_bits,bool round_upward) {
@@ -1150,6 +1194,11 @@ FloatDP sigmoid(FloatDP::RoundingModeType mode,FloatDP x) {
         return (mode==FloatDP::ROUND_DOWNWARD || mode==FloatDP::ROUND_TOWARD_ZERO)
             ? FloatDP(ExactDouble(std::nextafter(1.0,0.0)),dp) : FloatDP(1,dp);
     }
+    // Same statically certified fixed85 kernel as tanh/exp/log near +/-1/2.
+    // No rational allocation, adaptive series, or change of rounding mode.
+    double fast;
+    if(floatdp_certified_transcendental<FloatDPTranscendental::logistic_sigmoid>(
+            mode,v,fast)) return FloatDP(fast);
     return certify_activation(mode,x,[](ActivationInterval const& u,
                                         bool negative,Rational const&,unsigned,unsigned) {
         return sigmoid_bounds(u,negative);
@@ -1168,6 +1217,9 @@ FloatDP softplus(FloatDP::RoundingModeType mode,FloatDP x) {
             ? FloatDP(ExactDouble(std::nextafter(v,std::numeric_limits<double>::infinity())),dp)
             : x;
     }
+    double fast;
+    if(floatdp_certified_transcendental<FloatDPTranscendental::softplus>(
+            mode,v,fast)) return FloatDP(fast);
     return certify_activation(mode,x,[](ActivationInterval const& u,
                                         bool,Rational const& original,unsigned bits,unsigned terms) {
         return softplus_bounds(u,original,bits==0u ? 128u : bits,

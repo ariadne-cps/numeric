@@ -1,5 +1,36 @@
 # FloatMP — multiple-precision floating point
 
+## Sigmoid and Softplus short-centered kernel (3 November 2026)
+
+Reused `FloatMPShortTranscendentals` as introduced for `tanh`
+rather than requiring fresh `Fraction`/Taylor evaluation on every
+call. Cached, outward dyadic centers for `sigmoid(+/-1/2)` and
+`softplus(+/-1/2)` are constructed once per precision and thread;
+the derivative enclosures are computed from sigmoid and its
+complement. Runtime evaluations in the existing short window use
+native `BigUnsigned` slope correction, endpoint rounding and
+the existing `certified_endpoints` equality test.
+
+The mathematical derivatives satisfy
+`0<sigmoid'(x)<=1/4`,
+`|sigmoid''(x)|<=1/4` and
+`0<softplus''(x)<=1/4`. A two-unit dyadic error allowance
+encloses the quadratic remainder and directed slope rounding in
+the centered region. Other arguments continue to use the earlier
+general certified-refinement logic; this is a deliberate **fast
+specialization**, not an assertion of uniformly low latency.
+
+Public API and benchmark labels remain unified by function
+(`sigmoid`, `softplus`), with one operation per rounding mode.
+The old 32-point near-half input pool should now exercise the fast
+kernel after its initial cached-center construction. MP performance
+at wider precisions and off-center inputs still requires measurement.
+
+**Validation:** Existing special-value and interval tests remain,
+plus the shared 32-point operation regression. Build, CTest and
+unchanged default benchmark completion remain to be verified.
+
+
 > **Current design perspective — October 2026.** This journal treats each native arithmetic component as an autonomous implementation. Progress is measured by exact, independently generated oracles, cross-platform regression tests, absolute operation latency, and speedups between revisions of the *same* algorithm. Historical cross-backend performance ratios and retired adapter details are omitted; mathematical proofs and native implementation decisions are retained.
 
 This is the living design and implementation journal for the native `FloatMP`

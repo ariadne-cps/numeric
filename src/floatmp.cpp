@@ -3534,6 +3534,8 @@ struct FloatMPShortTranscendentals {
         static_assert(OperationKind==Function::exponential ||
                       OperationKind==Function::logarithm ||
                       OperationKind==Function::hyperbolic_tangent ||
+                      OperationKind==Function::logistic_sigmoid ||
+                      OperationKind==Function::softplus ||
                       OperationKind==Function::sine || OperationKind==Function::cosine ||
                       OperationKind==Function::tangent || OperationKind==Function::arctangent ||
                       OperationKind==Function::arcsine || OperationKind==Function::arccosine);
@@ -3554,6 +3556,33 @@ struct FloatMPShortTranscendentals {
             // |tanh''|=2*|tanh|*(1-tanh^2)<=2 globally.
             result.error=1u;
             result.result_negative=negative;
+        } else if constexpr(OperationKind==Function::logistic_sigmoid ||
+                            OperationKind==Function::softplus) {
+            // Build rigorous dyadic center/slope bounds once per precision,
+            // and cache them exactly as for tanh. All repeated calls near
+            // +/-1/2 use only integer limb arithmetic and final rounding.
+            const Fraction half=Fraction(1L)/Fraction(2L);
+            const Fraction one(1L);
+            const Interval sigmoid_positive=sigmoid_interval(half,bits+48ul);
+            const Interval sigmoid_negative=subtract(point(one),sigmoid_positive);
+            Interval value;
+            Interval slope;
+            if constexpr(OperationKind==Function::logistic_sigmoid) {
+                value=negative ? sigmoid_negative : sigmoid_positive;
+                slope=multiply(sigmoid_positive,sigmoid_negative);
+            } else {
+                const Interval softplus_positive=softplus_interval(
+                    half,bits+48ul,bits);
+                value=negative ? subtract(softplus_positive,point(half))
+                               : softplus_positive;
+                slope=negative ? sigmoid_negative : sigmoid_positive;
+            }
+            coefficients(result,value,slope,bits);
+            // |sigmoid''|, |softplus''| <= 1/4 globally. At the supported
+            // offset |delta|<=2^-ceil(bits/2), a two-unit error covers
+            // quadratic remainder and outward slope quantization.
+            result.error=2u;
+            result.slope_negative=negative; // derivative with respect to |x|
         } else if constexpr(OperationKind==Function::logarithm) {
             coefficients(result,log2_interval(bits+32ul),point(Fraction(2L)),bits);
             result.error=8u;
@@ -4091,6 +4120,8 @@ FloatMP sigmoid(FloatMP::RoundingModeType mode,FloatMP const& x) {
     if(x.is_nan()) return FloatMP::nan(bits);
     if(x.is_inf()) return FloatMP(x.negative() ? 0 : 1,precision);
     if(x.is_zero()) return hlf(FloatMP(1,precision)); // sigmoid(0) = 1/2 exactly
+    if(auto result=FloatMPShortTranscendentals::evaluate<Function::logistic_sigmoid>(
+            mode,x)) return std::move(*result);
     const FloatMP one(1,precision);
     const FloatMP threshold(Integer(bits+16ul),FloatMP::ROUND_UPWARD,precision);
     const FloatMP magnitude=abs(x);
@@ -4129,6 +4160,8 @@ FloatMP softplus(FloatMP::RoundingModeType mode,FloatMP const& x) {
     if(x.is_nan()) return FloatMP::nan(bits);
     if(x.is_inf()) return x.negative() ? FloatMP::zero(bits) : x;
     if(x.is_zero()) return log(mode,FloatMP(2,precision));
+    if(auto result=FloatMPShortTranscendentals::evaluate<Function::softplus>(
+            mode,x)) return std::move(*result);
     const FloatMP one(1,precision);
     const FloatMP threshold(Integer(bits+16ul),FloatMP::ROUND_UPWARD,precision);
     const FloatMP magnitude=abs(x);
