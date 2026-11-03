@@ -156,3 +156,21 @@ division of Dyadic bounds yields `RationalBounds`. Mixed comparisons
 between Rational, Dyadic and Integer work in both orders, with NaN
 yielding `Comparison::INCOMPARABLE`. The canonical implementation
 remains `dyadic.hpp` / `dyadic.cpp`.
+### Profiling regression after Testing migration (3 November 2026)
+
+`test_dyadic` was reported to take approximately 70 seconds locally following
+migration to the Testing framework, compared with less than one second before
+migration. The previous unconditional successful-value rendering optimization
+in Testing did not resolve the reported local delay. The exact bottleneck is
+**not yet measured**, and the commit does not claim to fix it.
+
+For a focused, reproducible measurement, `tests/test_dyadic.cpp` now offers
+opt-in case timings without changing or skipping assertions, oracle rows,
+precision or runner configuration. Set `ARIADNE_DYADIC_PROFILE=1` to print
+one wall-time line per existing suite case and additional timing lines for
+the eight add/sub oracle input-width groups (1, 5, 16, 17, 31, 32, 64,
+and 65 limbs). This works under both `--concise` and `--full`; no
+profiling output is produced in normal execution. Comparing per-case
+and per-limb timing in the two reporter modes separates the cost of
+math/oracle work from reporter I/O. Once identified, fix the actual source
+of regression, then remove or retain the opt-in diagnostic as appropriate.

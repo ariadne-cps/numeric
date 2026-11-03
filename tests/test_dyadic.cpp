@@ -43,6 +43,10 @@
 #include <sstream>
 #include <stdexcept>
 #include <set>
+#include <chrono>
+#include <cstdlib>
+#include <iostream>
+#include <string_view>
 
 #include "ariadne-testing.hpp"
 
@@ -77,6 +81,40 @@ constexpr bool check_concept()
 
 static_assert(check_concept());
 
+// An opt-in diagnostic; inactive for normal tests and CI. Measure the
+// actual running time of each existing test case without altering any
+// oracle, assertion or the external Testing runner.
+class DyadicCaseTimer {
+public:
+    explicit DyadicCaseTimer(std::string_view label)
+        : _label(label),
+          _enabled([] {
+              const char* profile_environment=std::getenv("ARIADNE_DYADIC_PROFILE");
+              return profile_environment!=nullptr
+                  && profile_environment[0]=='1'
+                  && profile_environment[1]=='\0';
+          }()),
+          _start(_enabled ? std::chrono::steady_clock::now()
+                          : std::chrono::steady_clock::time_point{}) { }
+
+    ~DyadicCaseTimer() noexcept {
+        if (!_enabled) return;
+        try {
+            const auto elapsed=std::chrono::steady_clock::now()-_start;
+            const auto millis=std::chrono::duration<double,std::milli>(elapsed).count();
+            std::cerr << "[DYADIC PROFILE] " << _label
+                      << " elapsed_ms=" << millis << '\n';
+        } catch (...) {
+            // Diagnostics must never replace an exception from a test.
+        }
+    }
+
+private:
+    std::string_view _label;
+    bool _enabled;
+    std::chrono::steady_clock::time_point _start;
+};
+
 } // namespace
 
 
@@ -103,6 +141,7 @@ class TestDyadic : public Ariadne::Testing::ContextFixture
 const Writer<Dyadic> fraction_write=FractionWriter();
 
 void TestDyadic::test_literal() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_literal");
     std::ostringstream diagnostic_stream;
     Dyadic q(3.25_q2);
     ARIADNE_TESTING_INSPECT("constructed q",q);
@@ -201,6 +240,7 @@ void TestDyadic::test_literal() {
 }
 
 void TestDyadic::test_conversions() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_conversions");
     Dyadic assigned;
     Dyadic assign_source(7,2u);
     assigned=assign_source;
@@ -244,6 +284,7 @@ void TestDyadic::test_conversions() {
 }
 
 void TestDyadic::test_arithmetic() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_arithmetic");
     Dyadic accumulated=1;
     accumulated+=Dyadic(2);
     ARIADNE_TESTING_EXPECT_EQUAL(accumulated,Dyadic(3));
@@ -255,6 +296,7 @@ void TestDyadic::test_arithmetic() {
 }
 
 void TestDyadic::test_bounds() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_bounds");
     std::ostringstream diagnostic_stream;
     DyadicBounds positive(1,3);
     DyadicBounds negative(-3,-1);
@@ -333,6 +375,7 @@ void TestDyadic::test_bounds() {
 }
 
 void TestDyadic::test_ball() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_ball");
     std::ostringstream diagnostic_stream;
     DyadicBall exact(Dyadic(2));
     DyadicBall uncertain(Dyadic(3),Dyadic(1));
@@ -372,11 +415,13 @@ void TestDyadic::test_ball() {
 }
 
 void TestDyadic::test_comparisons() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_comparisons");
     ARIADNE_TESTING_EXPECT_BINARY_PREDICATE(operator<,Dyadic(-4,3u),Dyadic(-1,2u));
 }
 
 // D48: native exact bounds and ball arithmetic, without GMP storage.
 void TestDyadic::test_native_wrappers() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_native_wrappers");
     const DyadicBounds positive(Dyadic(1),Dyadic(3));
     const DyadicBounds negative(Dyadic(-3),Dyadic(-1));
     const DyadicBounds crossing(Dyadic(-2),Dyadic(3));
@@ -406,6 +451,7 @@ void TestDyadic::test_native_wrappers() {
 
 
 void TestDyadic::test_infinity() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_infinity");
 
     // Verify the new canonical zero representation without GMP internals.
     const Dyadic z(0);
@@ -513,8 +559,10 @@ void TestDyadic::test_infinity() {
 
 
 void TestDyadic::test_dyadic_add_sub_oracles() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_add_sub_oracles");
     for (unsigned limbs:{1u,5u,16u,17u,31u,32u,64u,65u}) {
         const std::string name="dyadic_add_sub_"+std::to_string(limbs)+".tsv";
+        [[maybe_unused]] const DyadicCaseTimer dyadic_limb_timer(name);
         std::ifstream data(std::string(ARIADNE_TEST_DATA_DIR)+"/"+name);
         if (!data) throw std::runtime_error("Missing "+name);
         std::string line;
@@ -548,6 +596,7 @@ void TestDyadic::test_dyadic_add_sub_oracles() {
 }
 
 void TestDyadic::test_dyadic_conversion_oracle() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_conversion_oracle");
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/dyadic_conversion.tsv");
     if (!data) throw std::runtime_error("Missing dyadic_conversion.tsv");
     std::string line;
@@ -593,6 +642,7 @@ void TestDyadic::test_dyadic_conversion_oracle() {
 }
 
 void TestDyadic::test_dyadic_public_contracts() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_public_contracts");
     const std::size_t largest=std::numeric_limits<std::size_t>::max();
     const Dyadic tiny(Integer(1),largest);
     ARIADNE_TESTING_EXPECT_EXCEPTION(tiny.exponent());
@@ -644,6 +694,7 @@ void TestDyadic::test_dyadic_public_contracts() {
 }
 
 void TestDyadic::test_dyadic_mixed_bounds_oracles() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_mixed_bounds_oracles");
     for (bool logical:{false,true}) {
         const std::string name=logical?"dyadic_mixed_comparisons.tsv":"dyadic_mixed_bounds.tsv";
         std::ifstream data(std::string(ARIADNE_TEST_DATA_DIR)+"/"+name);
@@ -709,6 +760,7 @@ void TestDyadic::test_dyadic_mixed_bounds_oracles() {
 }
 
 void TestDyadic::test_dyadic_bounds_power_oracle() {
+    [[maybe_unused]] const DyadicCaseTimer dyadic_case_timer("test_dyadic_bounds_power_oracle");
     std::ifstream data(ARIADNE_TEST_DATA_DIR "/dyadic_bounds_power.tsv");
     if (!data) throw std::runtime_error("Missing dyadic_bounds_power.tsv");
     std::string line;
