@@ -91,9 +91,9 @@ subnormal rules. The fallback is deliberately correctness-first and may
 be slower than ordinary libm; actual latency must be measured, not assumed.
 
 The pre-existing, shared benchmark battery
-`benchmarks/benchmark_backend_workload.hpp` now includes 12 extra
-operation cases: sigmoid/softplus on positive/negative inputs with
-nearest, downward and upward rounding. Both
+`benchmarks/benchmark_backend_workload.hpp` now includes 6 extra
+operation cases: sigmoid/softplus each with nearest, downward and
+upward rounding, following the existing tanh benchmark convention. Both
 `benchmark_compare_double_precision_backends` and `benchmark_floatmp`
 run these operations without new benchmark executables.
 
@@ -1335,3 +1335,13 @@ Require successful Unix, Windows, Coverage and
 Sanitizers workflows followed by an unchanged
 same-host 20,000x31 x86-64 benchmark. Do not
 change the benchmark or weaken expected results.
+
+## Unified activation benchmark entries (3 November 2026)
+
+The common benchmark workload follows the same per-operation naming pattern as
+`tanh`: `sigmoid_nearest`, `sigmoid_down`, `sigmoid_up`,
+`softplus_nearest`, `softplus_down`, and `softplus_up`. There are **no**
+`pos`/`neg` operation variants. Both original benchmark executables continue
+to use the identical 32-element input pool and unchanged timing harness.
+Backend-specific sign optimizations are internal implementation details.
+The shared operation count is 62 (56 original plus 6 activations).

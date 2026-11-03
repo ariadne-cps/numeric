@@ -19,10 +19,10 @@ near-zero softplus certification branch to `logarithm_argument`,
 avoiding shadowing the existing namespace-level `Ariadne::two`
 constant reported with `-Wshadow`.
 
-The shared 68-operation benchmark suite is deliberately unchanged:
+The shared 62-operation benchmark suite is deliberately unchanged:
 the issue lies in per-call activation cost rather than sample count
 or measurement infrastructure. The new regression test exercises
-all 32 existing benchmark inputs for both signs and all three
+all 32 existing benchmark inputs for both signs (in correctness tests, not separate benchmark rows) and all three
 measured rounding modes, including FloatMP. FloatDP's corrected
 certification remains independent of FloatMP.
 
@@ -48,9 +48,8 @@ rational. Validation must separately cover exponents far beyond common
 neural-network inputs; resource limits and performance are not proof.
 
 The shared `benchmark_backend_workload.hpp` battery grows from 56 to
-68 cases and supplies both original benchmark executables. The 12 new
-cases cover sigmoid and softplus on positive and negative inputs,
-each with nearest/down/up rounding; timings are comparable only
+62 cases and supplies both original benchmark executables. The 6 new
+cases cover sigmoid and softplus, each with nearest/down/up rounding; timings are comparable only
 under matched machine, build and workload conditions.
 
 **Tests:** `test_float_rounding` exercises FloatDP and FloatMP at 64
@@ -10757,3 +10756,13 @@ instruction outside their dispatch. These are benchmark
 measurements, not proof of numerical correctness; retain
 the exact-Rational regressions and require all platform CI
 checks before treating the implementation as fully validated.
+
+## Unified activation benchmark entries (3 November 2026)
+
+The common benchmark workload follows the same per-operation naming pattern as
+`tanh`: `sigmoid_nearest`, `sigmoid_down`, `sigmoid_up`,
+`softplus_nearest`, `softplus_down`, and `softplus_up`. There are **no**
+`pos`/`neg` operation variants. Both original benchmark executables continue
+to use the identical 32-element input pool and unchanged timing harness.
+Backend-specific sign optimizations are internal implementation details.
+The shared operation count is 62 (56 original plus 6 activations).
