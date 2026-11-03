@@ -3454,13 +3454,13 @@ TestFloatRounding<PR>::test_sigmoid_softplus()
 {
     const Float zero(0,precision);
     const Float one(1,precision);
-    const Float two(2,precision);
+    const Float logarithm_argument(2,precision);
     const Float half(ExactDouble(0.5),precision);
     ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,zero),half);
     ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(down,zero),half);
     ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(up,zero),half);
-    ARIADNE_TESTING_EXPECT_EQUAL(softplus(down,zero),log(down,two));
-    ARIADNE_TESTING_EXPECT_EQUAL(softplus(up,zero),log(up,two));
+    ARIADNE_TESTING_EXPECT_EQUAL(softplus(down,zero),log(down,logarithm_argument));
+    ARIADNE_TESTING_EXPECT_EQUAL(softplus(up,zero),log(up,logarithm_argument));
     ARIADNE_TESTING_PROVE(is_nan(sigmoid(near,Float::nan(precision))));
     ARIADNE_TESTING_PROVE(is_nan(softplus(near,Float::nan(precision))));
     ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,Float::inf(Sign::POSITIVE,precision)),one);
@@ -3571,7 +3571,7 @@ TestFloatRounding<PR>::test_sigmoid_softplus()
         ARIADNE_TESTING_EXPECT_EQUAL(sigmoid(near,neg(tiny)),half);
         // Also exercises the independent log(2) enclosure for a tiny
         // nonzero softplus argument without huge rational imports.
-        ARIADNE_TESTING_EXPECT_EQUAL(softplus(near,tiny),log(near,two));
+        ARIADNE_TESTING_EXPECT_EQUAL(softplus(near,tiny),log(near,logarithm_argument));
     }
 }
 

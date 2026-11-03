@@ -1,5 +1,15 @@
 # FloatMP — multiple-precision floating point
 
+## Shared activation test naming fix (3 November 2026)
+
+The common `test_sigmoid_softplus` fixture for FloatDP and FloatMP now
+uses `logarithm_argument` instead of the local variable `two` when
+checking `softplus(0)=log(2)` and the tiny-argument regression. This
+avoids `-Wshadow` against the existing namespace constant
+`Ariadne::two`. Assertions, test inputs and numeric algorithms are
+unchanged. Build verification remains subject to CI.
+
+
 ## Sigmoid and Softplus short-centered kernel (3 November 2026)
 
 Reused `FloatMPShortTranscendentals` as introduced for `tanh`
