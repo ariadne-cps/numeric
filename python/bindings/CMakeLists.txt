@@ -20,19 +20,20 @@ target_compile_definitions(pyariadne-numeric-submodule-obj PRIVATE
     ARIADNE_NUMERIC_EMBEDDED
 )
 set_target_properties(pyariadne-numeric-submodule-obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
-add_library(pyariadne-numeric INTERFACE)
-target_sources(pyariadne-numeric INTERFACE
+add_library(pyariadne-numeric-interface INTERFACE)
+target_sources(pyariadne-numeric-interface INTERFACE
     $<TARGET_OBJECTS:pyariadne-numeric-submodule-obj>
 )
-target_include_directories(pyariadne-numeric INTERFACE
+target_include_directories(pyariadne-numeric-interface INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-    $<TARGET_PROPERTY:pyariadne-foundation,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:pyariadne-foundation-interface,INTERFACE_INCLUDE_DIRECTORIES>
 )
-target_link_libraries(pyariadne-numeric INTERFACE
-    pyariadne-foundation
+target_link_libraries(pyariadne-numeric-interface INTERFACE
+    pyariadne-foundation-interface
 )
 
 ariadne_add_python_module(
     NAME numeric
+    INTERFACE_TARGET pyariadne-numeric-interface
     MODULE_SOURCE numeric_module.cpp
 )

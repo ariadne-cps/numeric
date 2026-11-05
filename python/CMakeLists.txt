@@ -12,14 +12,14 @@ if(Python3_FOUND)
     add_subdirectory(bindings)
 
     if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-        ariadne_finalize_python_module(NAME numeric)
+        ariadne_finalize_python_module(NAME numeric INTERFACE_TARGET pyariadne-numeric-interface MODULE_TARGET pyariadne-numeric)
 
         set(PYTHON_BINDINGS_INSTALL_DIR "${Python3_SITEARCH}"
             CACHE STRING "Install destination for Python targets")
-        install(TARGETS pyariadne DESTINATION "${PYTHON_BINDINGS_INSTALL_DIR}")
+        install(TARGETS pyariadne-numeric DESTINATION "${PYTHON_BINDINGS_INSTALL_DIR}")
 
         add_subdirectory(tests)
-        add_dependencies(bindings pyariadne)
+        add_dependencies(bindings pyariadne-numeric)
     endif()
 else()
     if(PYTHON_ENFORCE_TESTS)

@@ -86,10 +86,6 @@ If you would like to contribute to Numeric, please contact the developer:
 
 - Luca Geretti <luca.geretti@univr.it>
 
-## License
-
-Numeric is released under the GNU General Public License v3.0.
-
 ## Testing framework (`testing` branch)
 
 The `testing` branch introduces [Ariadne Testing](https://github.com/ariadne-cps/testing)
