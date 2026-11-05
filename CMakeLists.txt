@@ -16,6 +16,19 @@ if(NOT TARGET ariadne-build)
 endif()
 
 if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
+    require_same_dependency_commit(Build
+        CHAINS
+            "build"
+            "foundation|build"
+            "logging|build"
+            "testing|build"
+            "foundation|utility|build"
+            "logging|utility|build"
+            "foundation|testing|build"
+            "logging|testing|build"
+            "foundation|utility|testing|build"
+            "logging|utility|testing|build"
+    )
     require_same_dependency_commit(Testing
         CHAINS
             "testing"
