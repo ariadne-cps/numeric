@@ -35,5 +35,6 @@ target_link_libraries(pyariadne-numeric INTERFACE
 ariadne_add_python_module(
     NAME numeric
     INTERFACE_TARGET pyariadne-numeric
+    MODULE_IMPORT_NAME pyariadne_numeric
     MODULE_SOURCE numeric_module.cpp
 )
