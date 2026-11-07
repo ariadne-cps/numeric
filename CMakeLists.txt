@@ -6,9 +6,12 @@ option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 if(NOT TARGET ariadne-build)
     find_package(Git REQUIRED)
-    execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}"
-                    submodule update --init -- ss/bui
-                    RESULT_VARIABLE _result)
+    # Keep initial Build checkout messages in English.
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -E env "LC_ALL=C"
+                "${GIT_EXECUTABLE}" -C "${CMAKE_CURRENT_SOURCE_DIR}"
+                submodule update --init -- ss/bui
+        RESULT_VARIABLE _result)
     if(_result)
         message(FATAL_ERROR "Cannot initialize build submodule")
     endif()
@@ -16,32 +19,15 @@ if(NOT TARGET ariadne-build)
 endif()
 
 if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
-    require_same_dependency_commit(Build
-        CHAINS
-            "build"
-            "foundation|build"
-            "logging|build"
-            "testing|build"
-            "foundation|utility|build"
-            "logging|utility|build"
-            "foundation|testing|build"
-            "logging|testing|build"
-            "foundation|utility|testing|build"
-            "logging|utility|testing|build"
-    )
-    require_same_dependency_commit(Testing
-        CHAINS
-            "testing"
-            "foundation|testing"
-            "logging|testing"
-            "foundation|utility|testing"
-            "logging|utility|testing"
-    )
-    require_same_dependency_commit(Utility
-        CHAINS
-            "foundation|utility"
-            "logging|utility"
-    )
+    # Each pinned child repository guarantees its own internal consistency.
+    # Compare direct occurrences only: deeper paths are redundant and may
+    # initialize submodules that are not needed for this project.
+    require_same_dependency_commit(Build CHAINS
+        "build" "foundation|build" "logging|build" "testing|build")
+    require_same_dependency_commit(Testing CHAINS
+        "testing" "foundation|testing" "logging|testing")
+    require_same_dependency_commit(Utility CHAINS
+        "foundation|utility" "logging|utility")
 endif()
 
 setup_project()
