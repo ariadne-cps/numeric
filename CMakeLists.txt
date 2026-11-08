@@ -24,8 +24,6 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
     # initialize submodules that are not needed for this project.
     require_same_dependency_commit(Build CHAINS
         "build" "foundation|build" "logging|build" "testing|build")
-    require_same_dependency_commit(Testing CHAINS
-        "testing" "foundation|testing" "logging|testing")
     require_same_dependency_commit(Utility CHAINS
         "foundation|utility" "logging|utility")
 endif()
