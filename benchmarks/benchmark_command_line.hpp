@@ -26,7 +26,7 @@
 #define ARIADNE_NUMERIC_BENCHMARK_COMMAND_LINE_HPP
 
 #include "utility/command_line_interface.hpp"
-#include "logging/logging.hpp"
+#include "ariadne-benchmarking.hpp"
 
 #include <algorithm>
 #include <initializer_list>
@@ -39,37 +39,17 @@
 
 namespace Ariadne::BenchmarkCommandLine {
 
-// Logging scheduler switches require a thread registry. The benchmarks are
-// single-threaded and do not register extra application threads.
-class BenchmarkThreadRegistry : public ThreadRegistryInterface {
-  public:
-    Bool has_threads_registered() const override { return false; }
-};
-
+// Use the real ThreadManager-backed logger from Benchmarking instead of
+// attaching a synthetic registry that could hide actual worker threads.
 inline void initialize_logging() {
-    static BenchmarkThreadRegistry registry;
-    auto& logger=Logger::instance();
-    if (!logger.has_thread_registry_attached()) {
-        logger.attach_thread_registry(&registry);
-    }
-    logger.configuration().set_verbosity(1u);
+    Ariadne::Benchmarking::initialize_logging();
 }
-
 
 // Parse while acquiring the argument, so the standard Ariadne CLI reports
 // malformed values using its normal InvalidArgumentValueException mechanism.
 template<class UInt>
 UInt parse_unsigned(String const& value) {
-    const std::string text(value);
-    if (text.empty() || text.front() == '-') {
-        throw std::invalid_argument("expected nonnegative integer");
-    }
-    std::size_t used=0u;
-    const unsigned long long parsed=std::stoull(text,&used);
-    if (used!=text.size() || parsed>std::numeric_limits<UInt>::max()) {
-        throw std::invalid_argument("integer out of range");
-    }
-    return static_cast<UInt>(parsed);
+    return Ariadne::Benchmarking::parse_unsigned<UInt>(value);
 }
 
 // The CLI itself parses only named options. Translate legacy positional

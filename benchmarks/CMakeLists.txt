@@ -10,7 +10,9 @@ endif()
 
 foreach(BENCHMARK ${BENCHMARKS})
     add_executable(${BENCHMARK} ${BENCHMARK}.cpp)
-    target_link_libraries(${BENCHMARK} PRIVATE ariadne-numeric numeric)
+    # Only dedicated benchmark executables depend on Benchmarking.
+    target_link_libraries(${BENCHMARK} PRIVATE
+        ariadne-numeric numeric ariadne-benchmarking)
 endforeach()
 
 add_dependencies(benchmarks ${BENCHMARKS})

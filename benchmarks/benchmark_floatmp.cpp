@@ -6,8 +6,7 @@
  ****************************************************************************/
 
 #include "numeric/floatmp.hpp"
-#include "logging/logging.hpp"
-#include "logging/logging_command_line_interface.hpp"
+#include "ariadne-benchmarking.hpp"
 #include "benchmark_command_line.hpp"
 #include "benchmark_backend_workload.hpp"
 
@@ -68,70 +67,54 @@ List<ArgumentParser> make_argument_parsers(Selection& selection) {
 
 double print_results_and_totals(std::vector<BenchmarkDatum> const& data,
                                 std::vector<unsigned> const& precisions,
-                                unsigned iterations,
-                                unsigned samples) {
-    constexpr int operation_width=24;
-    constexpr int timing_width=15;
-    constexpr int table_width=operation_width+timing_width+12;
-
+                                unsigned iterations, unsigned samples,
+                                Ariadne::Benchmarking::SummaryFields const& selected) {
+    namespace Bench=Ariadne::Benchmarking;
     if(data.size()!=precisions.size()*backend_operation_count)
         throw std::runtime_error("benchmark operation count changed");
 
-    LOGGING_PRINTLN("FloatMP benchmark | iterations=" << iterations
-                    << " | samples=" << samples)
-    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'='))
-    LOGGING_PRINTLN(std::left << std::setw(operation_width) << "Operation"
-                    << "  " << std::setw(6) << "Bits"
-                    << "  " << std::right << std::setw(timing_width) << "Median (ns)")
-    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
-
-    std::vector<double> precision_totals;
-    precision_totals.reserve(precisions.size());
-    double all_precisions_total_ns=0.0;
+    Bench::TableOptions style=Bench::TableOptions::ruled();
+    style.group_columns={1u};
+    Bench::Report report("FloatMP benchmark",selected);
+    report.set_dimension_columns({
+        {"Operation"},
+        {"Bits",0u,Bench::TableAlignment::Right}
+    });
+    report.set_table_options(style);
+    Bench::Table totals({
+        {"Group"},
+        {"Bits",0u,Bench::TableAlignment::Right},
+        {"Sum of medians (ns)",0u,Bench::TableAlignment::Right}
+    },Bench::TableOptions::ruled());
+    double grand_total=0.0;
     std::size_t offset=0u;
-    for(const unsigned bits:precisions) {
-        double precision_total_ns=0.0;
+    for(unsigned bits:precisions) {
+        double precision_total=0.0;
         std::size_t count=0u;
         while(offset<data.size() && data[offset].bits==bits) {
-            const auto& datum=data[offset];
+            auto const& datum=data[offset++];
             if(datum.backend!="floatmp")
                 throw std::runtime_error("unexpected benchmark backend");
-            LOGGING_PRINTLN(std::left << std::setw(operation_width) << datum.operation
-                            << "  " << std::setw(6) << datum.bits
-                            << "  " << std::right << std::setw(timing_width)
-                            << std::fixed << std::setprecision(3) << datum.nanoseconds)
-            precision_total_ns+=datum.nanoseconds;
+            report.add_row({datum.operation,std::to_string(bits)},datum.statistics);
+            precision_total+=datum.nanoseconds;
             ++count;
-            ++offset;
         }
         if(count!=backend_operation_count)
             throw std::runtime_error("benchmark operation count changed for precision "
                                      +std::to_string(bits));
-        precision_totals.push_back(precision_total_ns);
-        all_precisions_total_ns+=precision_total_ns;
-        if(offset!=data.size())
-            LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
+        grand_total+=precision_total;
+        totals.add_row({"TOTAL",std::to_string(bits),
+                        Bench::Table::number(precision_total)});
     }
     if(offset!=data.size())
         throw std::runtime_error("unexpected benchmark rows after precision groups");
-
-    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'='))
-    LOGGING_PRINTLN("Totals")
-    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
-    for(std::size_t i=0u;i<precisions.size();++i) {
-        LOGGING_PRINTLN(std::left << std::setw(operation_width) << "TOTAL"
-                        << "  " << std::setw(6) << precisions[i]
-                        << "  " << std::right << std::setw(timing_width)
-                        << std::fixed << std::setprecision(3) << precision_totals[i])
-    }
-    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'-'))
-    LOGGING_PRINTLN(std::left << std::setw(operation_width) << "TOTAL ALL"
-                    << "  " << std::setw(6) << "-"
-                    << "  " << std::right << std::setw(timing_width)
-                    << std::fixed << std::setprecision(3) << all_precisions_total_ns)
-    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width),'='))
-    LOGGING_PRINTLN("Totals are sums of the per-operation median nanoseconds.")
-    return all_precisions_total_ns;
+    totals.add_row({"TOTAL ALL","-",Bench::Table::number(grand_total)});
+    LOGGING_PRINTLN("FloatMP benchmark | iterations="<<iterations
+        <<" | samples="<<samples)
+    report.print();
+    LOGGING_PRINTLN(totals.str())
+    LOGGING_PRINTLN("Totals are sums of per-operation median nanoseconds.")
+    return grand_total;
 }
 
 } // namespace
@@ -140,27 +123,30 @@ int main(int argc, const char* argv[]) {
     BenchmarkCommandLine::initialize_logging();
     try {
         Selection selection;
-        LoggingCommandLineInterface command_line;
+        Benchmarking::CommandLine command_line;
         command_line.add(CommandLineContribution("numeric-floatmp-benchmark",
                                                   make_argument_parsers(selection)));
         const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
             argc,argv,{"iterations","samples"},
             {"--iterations","-i","--samples","-n","--bits","-b",
-             "--scheduler","-s","--theme","-t","--verbosity","-v"});
+             "--scheduler","-s","--theme","-t","--verbosity","-v",
+              "--warmups","--summary","--concurrency"});
         if(!command_line.acquire(arguments))
             return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
 
+        Benchmarking::Runner runner(command_line,selection.precisions.size());
         std::vector<BenchmarkDatum> measurements;
         measurements.reserve(selection.precisions.size()*backend_operation_count);
         for(const unsigned bits:selection.precisions) {
             LOGGING_PRINTLN("Measuring " << bits << " bits ...")
             run_backend<FloatMP>("floatmp",bits,selection.iterations,selection.samples,
-                                 measurements);
+                                 runner,measurements);
             LOGGING_PRINTLN("Completed " << bits << " bits")
         }
 
         print_results_and_totals(measurements,selection.precisions,
-                                 selection.iterations,selection.samples);
+                                 selection.iterations,selection.samples,
+                                 command_line.summary_fields());
         return 0;
     } catch(std::exception const& e) {
         LOGGING_PRINTLN("benchmark_floatmp: " << e.what())

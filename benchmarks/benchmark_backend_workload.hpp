@@ -10,7 +10,7 @@
 #include "numeric/floatdp.hpp"
 #include "numeric/rational.hpp"
 #include <algorithm>
-#include <chrono>
+#include "ariadne-benchmarking.hpp"
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -25,34 +25,28 @@ inline constexpr unsigned backend_operation_count=62u;
 // Keep both comparison executables on the same operation battery
 // and identical, deterministic 32-element exact-rational input pool.
 // Changing the workload here deliberately changes all backend benchmarks.
-template< class T > inline void keep_alive(T const& value) {
-#if defined(__GNUC__) || defined(__clang__)
-    asm volatile("" : : "g"(& value) : "memory");
-#else
-    static void const* volatile sink = nullptr;
-    sink =& value;
-#endif
+template<class T> inline void keep_alive(T const& value) {
+    Ariadne::Benchmarking::keep_alive(value);
 }
 
-template< class Operation >
-double median_ns(Operation && operation, unsigned iterations, unsigned samples) {
-    std::vector<double> measurements;
-    measurements.reserve(samples);
-    for (unsigned sample = 0; sample <= samples;++sample) {
-        auto start = std::chrono::steady_clock::now();
-        for (unsigned i = 0; i < iterations;++i) {
-            auto result = operation(i);
-            keep_alive(result);
-        }
-        auto stop = std::chrono::steady_clock::now();
-        if (sample != 0) {
-            // unmeasured warm-up
-            measurements.push_back(
-            std::chrono::duration < double, std::nano >(stop - start).count() / iterations);
-        }
-    }
-    std::sort(measurements.begin(), measurements.end());
-    return measurements[samples / 2];
+template<class Operation>
+Ariadne::Benchmarking::Statistics measure_operation(
+        Ariadne::Benchmarking::Runner const& runner,
+        char const* name, Operation&& operation,
+        unsigned iterations, unsigned samples) {
+    // Preserve the original loop and its 32-entry deterministic operand pool.
+    // The runner now owns warm-ups, timing boundaries, and normalized samples.
+    auto values = runner.run(name, samples,
+        [] {},
+        [&] {
+            for (unsigned i=0u; i<iterations; ++i) {
+                auto result = operation(i);
+                Ariadne::Benchmarking::keep_alive(result);
+            }
+        },
+        [] {},
+        static_cast<double>(iterations));
+    return Ariadne::Benchmarking::summarize(values);
 }
 
 struct BenchmarkDatum {
@@ -60,11 +54,12 @@ struct BenchmarkDatum {
     std::string operation;
     unsigned bits;
     double nanoseconds;
+    Ariadne::Benchmarking::Statistics statistics;
 };
 
-// Both the timer and its post-measurement numerical checker use the
-// *same* input construction and the *same* operation callables.
-// A new operation cannot silently enter only one of the two paths.
+// The same deterministic input construction and operation callables are
+// used by the standalone FloatMP and paired FloatDP/FloatMP drivers.
+// The benchmark clock is owned by Runner, not by this workload header.
 template<class Float> struct BackendPool {
     using Precision = typename Float::PrecisionType;
     static constexpr unsigned pool_size = 32u;
@@ -342,11 +337,12 @@ void for_each_backend_operation(BackendPool<Float> const& pool, Visit&& report) 
 
 template<class Float>
 void run_backend(char const* backend, unsigned bits, unsigned iterations,
-                 unsigned samples, std::vector<BenchmarkDatum>& data) {
+                 unsigned samples, Ariadne::Benchmarking::Runner const& runner,
+                 std::vector<BenchmarkDatum>& data) {
     const BackendPool<Float> pool(bits);
     auto report = [&](char const* name, auto&& operation) {
-        const double ns = median_ns(operation, iterations, samples);
-        data.push_back({backend,name,bits,ns});
+        auto stats = measure_operation(runner,name,operation,iterations,samples);
+        data.push_back({backend,name,bits,stats.median,stats});
     };
     for_each_backend_operation(pool,report);
 }

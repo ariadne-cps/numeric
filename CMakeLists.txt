@@ -19,13 +19,10 @@ if(NOT TARGET ariadne-build)
 endif()
 
 if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
-    # Each pinned child repository guarantees its own internal consistency.
-    # Compare direct occurrences only: deeper paths are redundant and may
-    # initialize submodules that are not needed for this project.
+    # Compare only mandatory production dependency paths. Testing and
+    # Benchmarking are independent development-only gitlinks, not gates.
     require_same_dependency_commit(Build CHAINS
-        "build" "foundation|build" "logging|build" "testing|build")
-    require_same_dependency_commit(Utility CHAINS
-        "foundation|utility" "logging|utility")
+        "build" "foundation|build")
 endif()
 
 setup_project()
@@ -41,7 +38,6 @@ target_include_directories(numeric INTERFACE
 )
 target_link_libraries(numeric INTERFACE
     foundation
-    logging
 )
 if(WIN32)
     target_compile_definitions(numeric INTERFACE ARIADNE_NUMERIC_STATIC)
@@ -68,9 +64,9 @@ setup_project_library(
     LINK_LIBRARIES numeric
 )
 
-# Benchmarks are registered by setup_standalone_project_tests().
-
-setup_standalone_project_tests(
+# Build initializes optional Testing and Benchmarking independently.
+# Neither library is linked to Numeric's production interface.
+setup_standalone_project(
     TARGET ariadne-numeric
     TEST_DIRECTORY tests
     TEST_TARGET tests

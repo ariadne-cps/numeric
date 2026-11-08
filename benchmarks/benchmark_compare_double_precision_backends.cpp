@@ -26,8 +26,7 @@
 #include "numeric/floatdp.hpp"
 #include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"
-#include "logging/logging.hpp"
-#include "logging/logging_command_line_interface.hpp"
+#include "ariadne-benchmarking.hpp"
 #include "benchmark_command_line.hpp"
 #include <algorithm>
 #include <chrono>
@@ -39,6 +38,7 @@
 #include <sstream>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -47,138 +47,41 @@ using namespace Ariadne;
 #include "benchmark_backend_workload.hpp"
 using namespace AriadneBenchmark;
 
-// All reports use the Ariadne logger, following the integration benchmarks.
-void print_results(std::vector<BenchmarkDatum> const& data,
-                   unsigned iterations, unsigned samples,
-                   bool summary_only) {
-    if (summary_only) return;
-
-    constexpr int backend_width=10;
-    constexpr int operation_width=24;
-    constexpr int timing_width=15;
-    constexpr int table_width=backend_width+operation_width+timing_width+12;
-    LOGGING_PRINTLN("FloatDP / FloatMP benchmark | iterations=" << iterations
-                    << " | samples=" << samples)
-    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '='))
-    LOGGING_PRINTLN(std::left << std::setw(backend_width) << "Backend"
-                    << "  " << std::setw(operation_width) << "Operation"
-                    << "  " << std::setw(6) << "Bits"
-                    << "  " << std::right << std::setw(timing_width) << "Median (ns)")
-    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '-'))
-    unsigned previous_bits=0;
-    std::string previous_backend;
-    for (auto const& datum : data) {
-        if (previous_bits != 0u && (previous_bits != datum.bits || previous_backend != datum.backend)) {
-            LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '-'))
-        }
-        previous_bits=datum.bits;
-        previous_backend=datum.backend;
-        LOGGING_PRINTLN(std::left << std::setw(backend_width) << datum.backend
-                        << "  " << std::setw(operation_width) << datum.operation
-                        << "  " << std::setw(6) << datum.bits
-                        << "  " << std::right << std::setw(timing_width)
-                        << std::fixed << std::setprecision(3) << datum.nanoseconds)
+// ComparisonResults owns all samples, validates pairing and computes
+// geometric means, summed-time ratios and worst slowdowns. Report views
+// select columns without changing the underlying measurements.
+void print_comparison(
+        Ariadne::Benchmarking::ComparisonResults const& results,
+        bool summary_only, bool details, double max_slowdown,
+        Ariadne::Benchmarking::SummaryFields const& selected) {
+    namespace Bench=Ariadne::Benchmarking;
+    Bench::ComparisonReports reports;
+    if(!summary_only) {
+        std::vector<std::string> columns={"implementation","operation","param:bits"};
+        for(auto field:selected)
+            columns.push_back(std::string(Bench::summary_field_id(field)));
+        reports.add({"measurements",Bench::ComparisonReportKind::Measurements,
+                     std::move(columns)});
     }
-    LOGGING_PRINTLN(std::string(static_cast<std::size_t>(table_width), '='))
-}
-
-void print_slowdown_summary(std::vector<BenchmarkDatum> const& data,
-bool details, double max_slowdown) {
-    struct Aggregate {
-        std::size_t count = 0;
-        double logarithmic_sum = 0.0;
-        double floatdp_sum = 0.0;
-        double floatmp_sum = 0.0;
-        double worst_ratio = 0.0;
-        std::string worst_operation;
-        unsigned worst_bits = 0;
-
-        void add(std::string const& name, unsigned bits, double reference, double candidate) {
-            if (!(std::isfinite(reference) && std::isfinite(candidate))
-            || reference <= 0.0 || candidate <= 0.0) {
-                throw std::runtime_error("nonpositive/nonfinite benchmark timing");
-            }
-            const double ratio = candidate / reference;
-            ++count;
-            logarithmic_sum += std::log(ratio);
-            floatdp_sum += reference;
-            floatmp_sum += candidate;
-            if (ratio > worst_ratio) {
-                worst_ratio = ratio;
-                worst_operation = name;
-                worst_bits = bits;
-            }
-        }
-        void print(std::string const& name) const {
-            if (count == 0 || floatdp_sum <= 0.0) {
-                throw std::runtime_error("cannot summarize empty benchmark results");
-            }
-            LOGGING_PRINTLN(std::left << std::setw(12) << name
-                << "  ops=" << std::setw(3) << count
-                << "  geomean=" << std::fixed << std::setprecision(3)
-                << std::exp(logarithmic_sum / static_cast<double>(count)) << "x"
-                << "  total_time=" << floatmp_sum / floatdp_sum << "x"
-                << "  worst=" << worst_ratio << "x (" << worst_operation
-                << ", " << worst_bits << " bits)")
-        }
-    };
-
-    using Key = std::pair < unsigned, std::string >;
-    std::map< Key, double > reference, candidate;
-    for (auto const& datum : data) {
-        auto& collection = datum.backend == "floatdp" ? reference : candidate;
-        if (!collection.emplace(Key { datum.bits, datum.operation }, datum.nanoseconds).second) {
-            throw std::runtime_error("duplicate benchmark measurement");
-        }
+    if(details) {
+        reports.add({"pairs",Bench::ComparisonReportKind::Pairs,
+                     {"operation","reference_ns","candidate_ns","slowdown"}});
     }
-    if (reference.size() != candidate.size() || reference.empty()) {
-        throw std::runtime_error("FloatMP and FloatDP benchmark rows are not paired");
-    }
-    std::map< unsigned, Aggregate > per_precision;
-    Aggregate overall;
-    if (details) {
-        LOGGING_PRINTLN(" ")
-        LOGGING_PRINTLN("Detailed comparisons (FloatMP / FloatDP)")
-        LOGGING_PRINTLN(std::string(79u,'-'))
-        LOGGING_PRINTLN(std::left << std::setw(24) << "Operation"
-                        << std::setw(8) << "Bits"
-                        << std::setw(16) << "FloatDP (ns)"
-                        << std::setw(16) << "FloatMP (ns)" << "Slowdown")
-    }
-    for (auto const& [key, reference_ns] : reference) {
-        auto it = candidate.find(key);
-        if (it == candidate.end()) {
-            throw std::runtime_error("FloatMP benchmark operation missing: " + key.second);
+    auto aggregate=Bench::ComparisonReportDefinition(
+        "aggregate slowdowns",Bench::ComparisonReportKind::Aggregates,
+        {"candidate","operations","geomean","total_time",
+         "worst","worst_operation","worst_configuration"});
+    aggregate.by_configuration=false;
+    reports.add(std::move(aggregate));
+    reports.print_all(results,"floatdp");
+    for(auto const& row:results.aggregates("floatdp",false)) {
+        if(std::isfinite(max_slowdown) && row.worst>max_slowdown) {
+            throw std::runtime_error("FloatMP slowdown exceeds --max-slowdown: "
+                +std::to_string(row.worst)+"x > "
+                +std::to_string(max_slowdown)+"x");
         }
-        auto& precision_summary = per_precision[key.first];
-        precision_summary.add(key.second, key.first, reference_ns, it->second);
-        overall.add(key.second, key.first, reference_ns, it->second);
-        if (details) {
-            LOGGING_PRINTLN(std::left << std::setw(24) << key.second
-                            << std::setw(8) << key.first
-                            << std::setw(16) << std::fixed << std::setprecision(3)
-                            << reference_ns << std::setw(16) << it->second
-                            << std::setprecision(3) << it->second / reference_ns << "x")
-        }
-    }
-    LOGGING_PRINTLN(" ")
-    LOGGING_PRINTLN(std::string(78u, '='))
-    LOGGING_PRINTLN("FloatMP / FloatDP slowdown (x; >1 means slower)")
-    LOGGING_PRINTLN(std::string(78u, '-'))
-    for (auto const& [bits, summary] : per_precision) {
-        summary.print(std::to_string(bits) + " bits");
-    }
-    LOGGING_PRINTLN(std::string(78u, '='))
-    LOGGING_PRINTLN("geomean weighs each (operation, precision) equally; "
-                    "total_time weights by measured cost.")
-    if (std::isfinite(max_slowdown) && overall.worst_ratio > max_slowdown) {
-        throw std::runtime_error(
-        "FloatMP slowdown exceeds --max-slowdown: "
-        + std::to_string(overall.worst_ratio) + "x > "
-        + std::to_string(max_slowdown) + "x");
     }
 }
-
 
 struct ComparisonBenchmarkSelection {
     unsigned iterations=20000u;
@@ -259,7 +162,7 @@ int main(int argc, const char* argv[]) {
     BenchmarkCommandLine::initialize_logging();
     try {
         ComparisonBenchmarkSelection selection;
-        LoggingCommandLineInterface command_line;
+        Benchmarking::CommandLine command_line;
         command_line.add(CommandLineContribution(
             "numeric-double-precision-benchmark",
             make_comparison_argument_parsers(selection)));
@@ -267,7 +170,8 @@ int main(int argc, const char* argv[]) {
         const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
             argc,argv,{"iterations","samples"},
             {"--iterations","-i","--samples","-n","--bits","-b","--max-slowdown",
-             "--scheduler","-s","--theme","-t","--verbosity","-v"});
+             "--scheduler","-s","--theme","-t","--verbosity","-v",
+              "--warmups","--summary","--concurrency"});
         if (!command_line.acquire(arguments)) {
             return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
         }
@@ -283,16 +187,39 @@ int main(int argc, const char* argv[]) {
                         << precisions.size() << " precision groups")
         LOGGING_PRINTLN("Iterations: " << iterations << "  |  Samples: " << samples)
         LOGGING_PRINTLN(std::string(78u, '='))
-        std::vector<BenchmarkDatum> measurements;
-        for (unsigned bits : precisions) {
-            LOGGING_PRINTLN("Measuring " << bits << " bits ...")
-            run_backend<FloatDP>("floatdp",bits,iterations,samples,measurements);
-            run_backend<FloatMP>("floatmp",bits,iterations,samples,measurements);
-            LOGGING_PRINTLN("Completed " << bits << " bits")
-            LOGGING_PRINTLN(std::string(78u, '-'))
-        }
-        print_results(measurements,iterations,samples,summary_only);
-        print_slowdown_summary(measurements,details,max_slowdown);
+        // FloatDP is fixed to 53 bits. Register this axis even when it has
+        // only one value, so comparison rows retain their configuration.
+        Benchmarking::Parameter<unsigned> precision_axis(
+            "bits","Floating-point precision",precisions);
+        Benchmarking::Matrix matrix;
+        matrix.add(precision_axis);
+        Benchmarking::Runner runner(command_line,matrix.combinations());
+        Benchmarking::ComparisonBattery<FloatDP,FloatMP> battery(
+            {"floatdp","floatmp"});
+        matrix.for_each([&](Benchmarking::Configuration const& configuration) {
+            unsigned const bits=configuration.value(precision_axis);
+            LOGGING_PRINTLN("Measuring "<<bits<<" bits ...")
+            auto workload=[&]<class Backend>(auto&& record) {
+                BackendPool<Backend> pool(bits);
+                for_each_backend_operation(pool,[&](char const* name,auto&& operation) {
+                    // The record callback invokes Runner synchronously while
+                    // the pool and operation closure are still alive.
+                    record(name,[] {},
+                        [&] {
+                            for(unsigned i=0u;i<iterations;++i) {
+                                auto value=operation(i);
+                                Benchmarking::keep_alive(value);
+                            }
+                        },
+                        [] {},
+                        static_cast<double>(iterations));
+                });
+            };
+            battery.run(configuration,runner,samples,workload);
+            LOGGING_PRINTLN("Completed "<<bits<<" bits")
+        });
+        print_comparison(battery.results(),summary_only,details,max_slowdown,
+                         command_line.summary_fields());
         return 0;
     }
     catch (std::exception const& e) {

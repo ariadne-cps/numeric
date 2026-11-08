@@ -28,6 +28,8 @@ Numeric depends directly on:
 
 Foundation provides [ariadne-cps/utility](https://github.com/ariadne-cps/utility) transitively. Build configuration is shared through [ariadne-cps/build](https://github.com/ariadne-cps/build).
 
+Standalone development additionally pins [Ariadne Testing](https://github.com/ariadne-cps/testing) and [Ariadne Benchmarking](https://github.com/ariadne-cps/benchmarking). Both are independent, opt-in development dependencies: their gitlinks are deliberately excluded from production dependency-commit consistency checks. The direct Logging gitlink has been removed; Benchmarking obtains Logging through Threading. Neither Testing nor Benchmarking is linked to Numeric production targets or installed with Numeric.
+
 ## Build
 
 Clone the repository together with its Git submodules:
@@ -59,6 +61,20 @@ cmake --build build-debug --parallel --target tests
 ctest --test-dir build-debug -LE python --output-on-failure
 ctest --test-dir build-debug -L python --output-on-failure
 ```
+
+## Benchmarks
+
+The optional Benchmarking module registers the existing benchmark executables in the standalone `benchmarks` target. Build a Release configuration before drawing performance conclusions:
+
+```bash
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF
+cmake --build build-release --parallel --target benchmarks
+./build-release/benchmarks/benchmark_dyadic --bits 53,128 --iterations 1000 --samples 7 --warmups 1 --summary min,max,median,mad
+./build-release/benchmarks/benchmark_floatmp --bits 53,128 --iterations 1000 --samples 7 --warmups 1 --summary min,max,median,mad
+./build-release/benchmarks/benchmark_compare_double_precision_backends --bits 53 --iterations 1000 --samples 7 --warmups 1 --details
+```
+
+Measurements use Benchmarking's `Runner` (preparation, timed operation, verification, explicit warm-ups and normalized nanosecond samples), `Statistics` and reporting facilities. FloatDP/FloatMP comparisons use a typed `ComparisonBattery` and paired/aggregate reports. Existing operand pools, operation names and sample-count validation remain in the owning Numeric repository. The Dyadic pool retains its exact-arithmetic verification before timing; the original FloatMP backend drivers did not have per-round numerical verification callbacks, so the migration does not misrepresent the empty verification callback as an additional correctness oracle. The --summary option now selects the displayed statistics from retained samples; A/B ratios still use median by default. The new shared CLI defaults to zero warm-ups; specify `--warmups 1` to reproduce the earlier benchmark drivers' implicit warm-up count. The comparison requires 53-bit precision because FloatDP has fixed double precision.
 
 ## Sanitizers
 

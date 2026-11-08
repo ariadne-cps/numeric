@@ -30,7 +30,6 @@
 #define ARIADNE_ARIADNE_NUMERIC_HPP
 
 #include "ariadne-foundation.hpp"
-#include "ariadne-logging.hpp"
 
 #include "numeric/numeric.hpp"
 

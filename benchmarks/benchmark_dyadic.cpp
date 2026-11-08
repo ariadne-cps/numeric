@@ -4,8 +4,7 @@
  ****************************************************************************/
 #include "numeric/dyadic.hpp"
 #include "benchmark_command_line.hpp"
-#include "logging/logging.hpp"
-#include "logging/logging_command_line_interface.hpp"
+#include "ariadne-benchmarking.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -21,12 +20,7 @@ namespace {
 using namespace Ariadne;
 
 template<class T> void consume(T const& value) {
-#if defined(__GNUC__) || defined(__clang__)
-    asm volatile("" : : "g"(&value) : "memory");
-#else
-    static void const* volatile sink=nullptr;
-    sink=&value;
-#endif
+    Ariadne::Benchmarking::keep_alive(value);
 }
 
 struct Selection {
@@ -76,17 +70,18 @@ List<ArgumentParser> benchmark_parsers(Selection& s) {
     return parsers;
 }
 
-template<class F> double measure(F const& f,unsigned n,unsigned samples) {
-    using Clock=std::chrono::steady_clock;
-    std::vector<double> data;data.reserve(samples);
-    for(unsigned sample=0;sample<=samples;++sample) {
-        auto start=Clock::now();
-        for(unsigned i=0;i<n;++i) { auto value=f(i);consume(value); }
-        auto stop=Clock::now();
-        if(sample) data.push_back(std::chrono::duration<double,std::nano>(stop-start).count()/n);
-    }
-    std::sort(data.begin(),data.end());
-    return data[samples/2u];
+template<class F>
+Ariadne::Benchmarking::Statistics measure(
+        Ariadne::Benchmarking::Runner const& runner,
+        char const* name,F const& f,unsigned n,unsigned samples) {
+    auto times=runner.run(name,samples,
+        [] {},
+        [&] {
+            for(unsigned i=0;i<n;++i) { auto value=f(i);consume(value); }
+        },
+        [] {},
+        static_cast<double>(n));
+    return Ariadne::Benchmarking::summarize(times);
 }
 
 
@@ -127,17 +122,19 @@ struct Datum {
     std::string operation;
     unsigned bits;
     double nanoseconds;
+    Ariadne::Benchmarking::Statistics statistics;
 };
 
 void run(unsigned bits,unsigned iterations,unsigned samples,
+         Ariadne::Benchmarking::Runner const& runner,
          std::vector<Datum>& data) {
     const Pool x(bits);
     constexpr unsigned mask=31u;
     auto time=[&](char const* name,auto&& operation) {
-        const double ns=measure(operation,iterations,samples);
-        if(!std::isfinite(ns) || ns<=0.0)
+        auto stats=measure(runner,name,operation,iterations,samples);
+        if(!std::isfinite(stats.median) || stats.median<=0.0)
             throw std::runtime_error(std::string("invalid benchmark timing: ")+name);
-        data.push_back({name,bits,ns});
+        data.push_back({name,bits,stats.median,stats});
     };
     time("construct_integer",[&](unsigned i){return Dyadic(x.first[i&mask]);});
     time("construct_fraction",[&](unsigned i){return Dyadic(x.first[i&mask],x.exp);});
@@ -159,34 +156,39 @@ void run(unsigned bits,unsigned iterations,unsigned samples,
     time("pow3",[&](unsigned i){return pow(x.a[i&mask],Nat(3u));});
 }
 
-void print_times(std::vector<Datum> const& data,Selection const& s) {
-    std::map<unsigned,double> total;
+void print_times(std::vector<Datum> const& data,Selection const& s,
+                 Ariadne::Benchmarking::SummaryFields const& selected) {
+    namespace Bench=Ariadne::Benchmarking;
+    Bench::TableOptions style=Bench::TableOptions::ruled();
+    style.group_columns={1u};
+    Bench::Report report("Native Dyadic operation times",selected);
+    report.set_dimension_columns({
+        {"Operation"},
+        {"Bits",0u,Bench::TableAlignment::Right}
+    });
+    report.set_table_options(style);
+    std::map<unsigned,double> totals;
     double grand_total=0.0;
+    for(auto const& datum:data) {
+        totals[datum.bits]+=datum.nanoseconds;
+        grand_total+=datum.nanoseconds;
+        if(!s.summary_only)
+            report.add_row({datum.operation,std::to_string(datum.bits)},datum.statistics);
+    }
     if(!s.summary_only) {
         LOGGING_PRINTLN("Native Dyadic operation times | iterations="
                         <<s.iterations<<" | samples="<<s.samples)
-        LOGGING_PRINTLN(std::string(55u,'='))
-        LOGGING_PRINTLN(std::left<<std::setw(24)<<"Operation"
-            <<std::setw(8)<<"Bits"<<std::right<<std::setw(16)<<"Time (ns)")
-        LOGGING_PRINTLN(std::string(55u,'-'))
+        report.print();
     }
-    for(auto const& d:data) {
-        total[d.bits]+=d.nanoseconds;
-        grand_total+=d.nanoseconds;
-        if(!s.summary_only) {
-            LOGGING_PRINTLN(std::left<<std::setw(24)<<d.operation
-                <<std::setw(8)<<d.bits<<std::right<<std::fixed
-                <<std::setprecision(3)<<std::setw(16)<<d.nanoseconds)
-        }
-    }
-    if(!s.summary_only) LOGGING_PRINTLN(std::string(55u,'='))
-    LOGGING_PRINTLN("Sum of operation medians (ns per one of each operation):")
-    for(auto const& [bits,ns]:total) {
-        LOGGING_PRINTLN(std::setw(6)<<bits<<" bits: "<<std::fixed
-            <<std::setprecision(3)<<ns)
-    }
-    LOGGING_PRINTLN("All widths, sum (ns): "<<std::fixed
-        <<std::setprecision(3)<<grand_total)
+    Bench::Table summary({
+        {"Group"},
+        {"Bits",0u,Bench::TableAlignment::Right},
+        {"Sum of medians (ns)",0u,Bench::TableAlignment::Right}
+    },Bench::TableOptions::ruled());
+    for(auto const& [bits,ns]:totals)
+        summary.add_row({"TOTAL",std::to_string(bits),Bench::Table::number(ns)});
+    summary.add_row({"TOTAL ALL","-",Bench::Table::number(grand_total)});
+    LOGGING_PRINTLN(summary.str())
 }
 
 } // namespace
@@ -195,25 +197,27 @@ int main(int argc,char const* argv[]) {
     BenchmarkCommandLine::initialize_logging();
     try {
         Selection selection;
-        LoggingCommandLineInterface cli;
+        Benchmarking::CommandLine cli;
         cli.add(CommandLineContribution(
             "numeric-dyadic-benchmark",benchmark_parsers(selection)));
         const auto args=BenchmarkCommandLine::normalize_legacy_arguments(
             argc,argv,{"iterations","samples"},
             {"--iterations","-i","--samples","-n","--bits","-b",
-             "--scheduler","-s","--theme","-t","--verbosity","-v"});
+             "--scheduler","-s","--theme","-t","--verbosity","-v",
+              "--warmups","--summary","--concurrency"});
         if(!cli.acquire(args))
             return BenchmarkCommandLine::requests_help(args)?0:1;
         LOGGING_PRINTLN("Native Dyadic | iterations="
             <<selection.iterations<<" | samples="<<selection.samples)
+        Benchmarking::Runner runner(cli,selection.sizes.size());
         std::vector<Datum> data;
         data.reserve(selection.sizes.size()*18u);
         for(unsigned bits:selection.sizes) {
             LOGGING_PRINTLN("Measuring "<<bits<<" bits ...")
-            run(bits,selection.iterations,selection.samples,data);
+            run(bits,selection.iterations,selection.samples,runner,data);
             LOGGING_PRINTLN("Completed "<<bits<<" bits")
         }
-        print_times(data,selection);
+        print_times(data,selection,cli.summary_fields());
         return 0;
     } catch(std::exception const& error) {
         LOGGING_PRINTLN("Dyadic benchmark: "<<error.what())
