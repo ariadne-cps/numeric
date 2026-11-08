@@ -183,10 +183,10 @@ int main(int argc, const char* argv[]) {
         const bool details=selection.details;
         const double max_slowdown=selection.max_slowdown;
 
-        LOGGING_PRINTLN("FloatDP / FloatMP benchmark - running "
-                        << precisions.size() << " precision groups")
-        LOGGING_PRINTLN("Iterations: " << iterations << "  |  Samples: " << samples)
-        LOGGING_PRINTLN(std::string(78u, '='))
+        // FloatDP has a single supported precision (53 bits), so
+        // configuration progress messages add no information here.
+        LOGGING_PRINTLN("FloatDP / FloatMP comparison | iterations="
+                        <<iterations<<" | samples="<<samples)
         // FloatDP is fixed to 53 bits. Register this axis even when it has
         // only one value, so comparison rows retain their configuration.
         Benchmarking::Parameter<unsigned> precision_axis(
@@ -198,7 +198,6 @@ int main(int argc, const char* argv[]) {
             {"floatdp","floatmp"});
         matrix.for_each([&](Benchmarking::Configuration const& configuration) {
             unsigned const bits=configuration.value(precision_axis);
-            LOGGING_PRINTLN("Measuring "<<bits<<" bits ...")
             auto workload=[&]<class Backend>(auto&& record) {
                 BackendPool<Backend> pool(bits);
                 for_each_backend_operation(pool,[&](char const* name,auto&& operation) {
@@ -216,7 +215,6 @@ int main(int argc, const char* argv[]) {
                 });
             };
             battery.run(configuration,runner,samples,workload);
-            LOGGING_PRINTLN("Completed "<<bits<<" bits")
         });
         print_comparison(battery.results(),summary_only,details,max_slowdown,
                          command_line.summary_fields());
