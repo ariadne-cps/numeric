@@ -122,7 +122,6 @@ void measure_width(unsigned bits,
 } // namespace
 
 int main(int argc,char const* argv[]) {
-    Ariadne::
     try {
         AriadneBenchmark::AbsoluteSelection selection;
         Bench::CommandLine cli;

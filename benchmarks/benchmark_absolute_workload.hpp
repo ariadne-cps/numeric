@@ -43,6 +43,7 @@
 namespace AriadneBenchmark {
 
 namespace Bench = Ariadne::Benchmarking;
+using Ariadne::Logger; // Required by LOGGING_PRINTLN's unqualified lookup.
 
 struct AbsoluteSelection {
     unsigned iterations=20000u;
