@@ -57,7 +57,7 @@ void print_comparison(
     namespace Bench=Ariadne::Benchmarking;
     Bench::ComparisonReports reports;
     if(!summary_only) {
-        std::vector<std::string> columns={"implementation","operation","param:bits"};
+        std::vector<std::string> columns={"implementation","operation"};
         for(auto field:selected)
             columns.push_back(std::string(Bench::summary_field_id(field)));
         reports.add({"measurements",Bench::ComparisonReportKind::Measurements,
@@ -70,7 +70,7 @@ void print_comparison(
     auto aggregate=Bench::ComparisonReportDefinition(
         "aggregate slowdowns",Bench::ComparisonReportKind::Aggregates,
         {"candidate","operations","geomean","total_time",
-         "worst","worst_operation","worst_configuration"});
+         "worst","worst_operation"});
     aggregate.by_configuration=false;
     reports.add(std::move(aggregate));
     reports.print_all(results,"floatdp");
