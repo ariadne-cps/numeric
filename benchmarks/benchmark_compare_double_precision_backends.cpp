@@ -27,7 +27,6 @@
 #include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"
 #include "ariadne-benchmarking.hpp"
-#include "benchmark_command_line.hpp"
 #include <algorithm>
 #include <chrono>
 #include <iomanip>
@@ -98,7 +97,7 @@ List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelecti
     parsers.append(make_valued_argument_parser(
         "i","iterations","Number of operations in each measured sample (positive)",
         [&selection](String const& value) -> VoidFunction {
-            const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
+            const unsigned count=Benchmarking::parse_unsigned<unsigned>(value);
             if(count==0u) throw std::invalid_argument("iterations must be positive");
             return [&selection,count] { selection.iterations=count; };
         }));
@@ -106,7 +105,7 @@ List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelecti
     parsers.append(make_valued_argument_parser(
         "n","samples","Odd number of samples, at least three",
         [&selection](String const& value) -> VoidFunction {
-            const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
+            const unsigned count=Benchmarking::parse_unsigned<unsigned>(value);
             if(count<3u || count%2u==0u) throw std::invalid_argument("invalid sample count");
             return [&selection,count] { selection.samples=count; };
         }));
@@ -120,7 +119,7 @@ List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelecti
             std::istringstream input(text);
             std::string token;
             while(std::getline(input,token,',')) {
-                const unsigned bits=BenchmarkCommandLine::parse_unsigned<unsigned>(String(token));
+                const unsigned bits=Benchmarking::parse_unsigned<unsigned>(String(token));
                 if(bits!=53u) {
                     throw std::invalid_argument("unsupported precision");
                 }
@@ -159,7 +158,6 @@ List<ArgumentParser> make_comparison_argument_parsers(ComparisonBenchmarkSelecti
 int main(int argc, const char* argv[]) {
     // Verbosity defaults to 0, which mutes all LOGGING_PRINTLN calls.
     // Follow the integration benchmarks and enable level-1 reports.
-    BenchmarkCommandLine::initialize_logging();
     try {
         ComparisonBenchmarkSelection selection;
         Benchmarking::CommandLine command_line;
@@ -167,14 +165,7 @@ int main(int argc, const char* argv[]) {
             "numeric-double-precision-benchmark",
             make_comparison_argument_parsers(selection)));
 
-        const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
-            argc,argv,{"iterations","samples"},
-            {"--iterations","-i","--samples","-n","--bits","-b","--max-slowdown",
-             "--scheduler","-s","--theme","-t","--verbosity","-v",
-              "--warmups","--summary","--concurrency"});
-        if (!command_line.acquire(arguments)) {
-            return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
-        }
+        if (!command_line.acquire(argc,argv)) return 0;
 
         const unsigned iterations=selection.iterations;
         const unsigned samples=selection.samples;

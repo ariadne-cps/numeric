@@ -7,7 +7,6 @@
 
 #include "numeric/floatmp.hpp"
 #include "ariadne-benchmarking.hpp"
-#include "benchmark_command_line.hpp"
 #include "benchmark_backend_workload.hpp"
 
 #include <algorithm>
@@ -33,14 +32,14 @@ List<ArgumentParser> make_argument_parsers(Selection& selection) {
     parsers.append(make_valued_argument_parser(
         "i","iterations","Number of operations in each measured sample (positive)",
         [&selection](String const& value) -> VoidFunction {
-            const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
+            const unsigned count=Benchmarking::parse_unsigned<unsigned>(value);
             if(count==0u) throw std::invalid_argument("iterations must be positive");
             return [&selection,count] { selection.iterations=count; };
         }));
     parsers.append(make_valued_argument_parser(
         "n","samples","Odd number of samples, at least three",
         [&selection](String const& value) -> VoidFunction {
-            const unsigned count=BenchmarkCommandLine::parse_unsigned<unsigned>(value);
+            const unsigned count=Benchmarking::parse_unsigned<unsigned>(value);
             if(count<3u || count%2u==0u) throw std::invalid_argument("invalid sample count");
             return [&selection,count] { selection.samples=count; };
         }));
@@ -53,7 +52,7 @@ List<ArgumentParser> make_argument_parsers(Selection& selection) {
             std::istringstream input(text);
             std::string token;
             while(std::getline(input,token,',')) {
-                const unsigned bits=BenchmarkCommandLine::parse_unsigned<unsigned>(String(token));
+                const unsigned bits=Benchmarking::parse_unsigned<unsigned>(String(token));
                 if(bits<2u) throw std::invalid_argument("precision must be at least 2 bits");
                 if(std::find(parsed.begin(),parsed.end(),bits)!=parsed.end())
                     throw std::invalid_argument("duplicate precision");
@@ -120,19 +119,12 @@ double print_results_and_totals(std::vector<BenchmarkDatum> const& data,
 } // namespace
 
 int main(int argc, const char* argv[]) {
-    BenchmarkCommandLine::initialize_logging();
     try {
         Selection selection;
         Benchmarking::CommandLine command_line;
         command_line.add(CommandLineContribution("numeric-floatmp-benchmark",
                                                   make_argument_parsers(selection)));
-        const auto arguments=BenchmarkCommandLine::normalize_legacy_arguments(
-            argc,argv,{"iterations","samples"},
-            {"--iterations","-i","--samples","-n","--bits","-b",
-             "--scheduler","-s","--theme","-t","--verbosity","-v",
-              "--warmups","--summary","--concurrency"});
-        if(!command_line.acquire(arguments))
-            return BenchmarkCommandLine::requests_help(arguments) ? 0 : 1;
+        if(!command_line.acquire(argc,argv)) return 0;
 
         Benchmarking::Runner runner(command_line,selection.precisions.size());
         std::vector<BenchmarkDatum> measurements;

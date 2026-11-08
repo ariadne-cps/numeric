@@ -3,7 +3,6 @@
  * Absolute timing of the native dyadic arithmetic backend.
  ****************************************************************************/
 #include "numeric/dyadic.hpp"
-#include "benchmark_command_line.hpp"
 #include "ariadne-benchmarking.hpp"
 #include <algorithm>
 #include <chrono>
@@ -35,14 +34,14 @@ List<ArgumentParser> benchmark_parsers(Selection& s) {
     parsers.append(make_valued_argument_parser(
         "i","iterations","Number of operations in each measured sample (positive)",
         [&s](String const& v)->VoidFunction {
-            const unsigned n=BenchmarkCommandLine::parse_unsigned<unsigned>(v);
+            const unsigned n=Benchmarking::parse_unsigned<unsigned>(v);
             if(n==0u) throw std::invalid_argument("iterations must be positive");
             return [&s,n] { s.iterations=n; };
         }));
     parsers.append(make_valued_argument_parser(
         "n","samples","Odd number of samples, at least three",
         [&s](String const& v)->VoidFunction {
-            const unsigned n=BenchmarkCommandLine::parse_unsigned<unsigned>(v);
+            const unsigned n=Benchmarking::parse_unsigned<unsigned>(v);
             if(n<3u || n%2u==0u) throw std::invalid_argument("invalid sample count");
             return [&s,n] { s.samples=n; };
         }));
@@ -56,7 +55,7 @@ List<ArgumentParser> benchmark_parsers(Selection& s) {
             std::istringstream input(text);
             std::string token;
             while(std::getline(input,token,',')) {
-                const unsigned n=BenchmarkCommandLine::parse_unsigned<unsigned>(String(token));
+                const unsigned n=Benchmarking::parse_unsigned<unsigned>(String(token));
                 if(n==0u || std::find(sizes.begin(),sizes.end(),n)!=sizes.end())
                     throw std::invalid_argument("invalid or duplicate operand size");
                 sizes.push_back(n);
@@ -194,19 +193,12 @@ void print_times(std::vector<Datum> const& data,Selection const& s,
 } // namespace
 
 int main(int argc,char const* argv[]) {
-    BenchmarkCommandLine::initialize_logging();
     try {
         Selection selection;
         Benchmarking::CommandLine cli;
         cli.add(CommandLineContribution(
             "numeric-dyadic-benchmark",benchmark_parsers(selection)));
-        const auto args=BenchmarkCommandLine::normalize_legacy_arguments(
-            argc,argv,{"iterations","samples"},
-            {"--iterations","-i","--samples","-n","--bits","-b",
-             "--scheduler","-s","--theme","-t","--verbosity","-v",
-              "--warmups","--summary","--concurrency"});
-        if(!cli.acquire(args))
-            return BenchmarkCommandLine::requests_help(args)?0:1;
+        if(!cli.acquire(argc,argv)) return 0;
         LOGGING_PRINTLN("Native Dyadic | iterations="
             <<selection.iterations<<" | samples="<<selection.samples)
         Benchmarking::Runner runner(cli,selection.sizes.size());

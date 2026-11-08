@@ -30,7 +30,6 @@
 #define ARIADNE_NUMERIC_BENCHMARK_ABSOLUTE_WORKLOAD_HPP
 
 #include "ariadne-benchmarking.hpp"
-#include "benchmark_command_line.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -60,14 +59,14 @@ inline Ariadne::List<Ariadne::ArgumentParser> absolute_parsers(AbsoluteSelection
     parsers.append(make_valued_argument_parser(
         "i","iterations","Positive operations per measured sample",
         [&s](String const& input)->VoidFunction {
-            unsigned const count=BenchmarkCommandLine::parse_unsigned<unsigned>(input);
+            unsigned const count=Bench::parse_unsigned<unsigned>(input);
             if(count==0u) throw std::invalid_argument("iterations must be positive");
             return [&s,count] { s.iterations=count; };
         }));
     parsers.append(make_valued_argument_parser(
         "n","samples","Odd number of samples, at least three",
         [&s](String const& input)->VoidFunction {
-            unsigned const count=BenchmarkCommandLine::parse_unsigned<unsigned>(input);
+            unsigned const count=Bench::parse_unsigned<unsigned>(input);
             if(count<3u || count%2u==0u)
                 throw std::invalid_argument("samples must be odd and at least three");
             return [&s,count] { s.samples=count; };
@@ -82,7 +81,7 @@ inline Ariadne::List<Ariadne::ArgumentParser> absolute_parsers(AbsoluteSelection
             std::string token;
             std::vector<unsigned> values;
             while(std::getline(stream,token,',')) {
-                unsigned const value=BenchmarkCommandLine::parse_unsigned<unsigned>(
+                unsigned const value=Bench::parse_unsigned<unsigned>(
                     String(token));
                 if(value<2u || std::find(values.begin(),values.end(),value)!=values.end())
                     throw std::invalid_argument("invalid or repeated bit width");
@@ -180,16 +179,8 @@ inline bool acquire_absolute(AbsoluteSelection& selection,
                              char const* title,int argc,char const* argv[]) {
     using namespace Ariadne;
     cli.add(CommandLineContribution(title,absolute_parsers(selection)));
-    auto const args=BenchmarkCommandLine::normalize_legacy_arguments(
-        argc,argv,{"iterations","samples"},
-        {"--iterations","-i","--samples","-n","--bits","-b",
-         "--scheduler","-s","--theme","-t","--verbosity","-v",
-         "--warmups","--summary","--concurrency"});
-    if(!cli.acquire(args)) {
-        if(BenchmarkCommandLine::requests_help(args)) return false;
-        throw std::invalid_argument("invalid benchmark command line");
-    }
-    return true;
+    // The shared command-line parser already handles named options and help.
+    return cli.acquire(argc,argv);
 }
 
 } // namespace AriadneBenchmark
