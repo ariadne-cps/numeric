@@ -64,15 +64,28 @@ ctest --test-dir build-debug -L python --output-on-failure
 
 ## Benchmarks
 
-The optional Benchmarking module registers the existing benchmark executables in the standalone `benchmarks` target. Build a Release configuration before drawing performance conclusions:
+The optional Benchmarking module registers the benchmark executables in the standalone `benchmarks` target. Build a Release configuration before drawing performance conclusions:
 
 ```bash
 cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=OFF
 cmake --build build-release --parallel --target benchmarks
+./build-release/benchmarks/benchmark_big_unsigned --bits 53,128 --iterations 1000 --samples 7 --warmups 1 --summary min,max,median,mad
+./build-release/benchmarks/benchmark_rational --bits 53,128 --iterations 1000 --samples 7 --warmups 1 --summary min,max,median,mad
 ./build-release/benchmarks/benchmark_dyadic --bits 53,128 --iterations 1000 --samples 7 --warmups 1 --summary min,max,median,mad
 ./build-release/benchmarks/benchmark_floatmp --bits 53,128 --iterations 1000 --samples 7 --warmups 1 --summary min,max,median,mad
 ./build-release/benchmarks/benchmark_compare_double_precision_backends --bits 53 --iterations 1000 --samples 7 --warmups 1 --details
 ```
+
+BigUnsigned and Rational are **absolute, noncomparative** benchmarks. They
+measure the native implementations without GMP, reference backends, speedup
+ratios or slowdown thresholds. BigUnsigned includes the historical unsigned
+arithmetic and square-root operations plus native division, GCD, multiplication,
+power and decimal-conversion timings. Rational preserves all 15 original
+operation names, including construction, arithmetic, extraction, rounding and
+binary64 conversion. Immutable 32-element operand pools are constructed before
+timing, and algebraic correctness invariants are checked before samples.
+These checks do not assert performance equivalence with the former GMP runs;
+their timings must not be compared across changed workloads.
 
 Measurements use Benchmarking's `Runner` (preparation, timed operation, verification, explicit warm-ups and normalized nanosecond samples), `Statistics` and reporting facilities. FloatDP/FloatMP comparisons use a typed `ComparisonBattery` and paired/aggregate reports. Existing operand pools, operation names and sample-count validation remain in the owning Numeric repository. The Dyadic pool retains its exact-arithmetic verification before timing; the original FloatMP backend drivers did not have per-round numerical verification callbacks, so the migration does not misrepresent the empty verification callback as an additional correctness oracle. The --summary option now selects the displayed statistics from retained samples; A/B ratios still use median by default. The new shared CLI defaults to zero warm-ups; specify `--warmups 1` to reproduce the earlier benchmark drivers' implicit warm-up count. The comparison requires 53-bit precision because FloatDP has fixed double precision.
 

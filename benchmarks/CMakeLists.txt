@@ -2,6 +2,8 @@ set(BENCHMARKS
     benchmark_floatmp
     benchmark_compare_double_precision_backends
     benchmark_dyadic
+    benchmark_big_unsigned
+    benchmark_rational
 )
 
 if(NOT TARGET benchmarks)
