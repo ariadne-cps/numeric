@@ -1,5 +1,5 @@
 /***************************************************************************
- *            float-raw.hpp
+ *            numeric/float-raw.hpp
  *
  *  Copyright  2008-20  Pieter Collins
  *

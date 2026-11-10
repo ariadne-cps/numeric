@@ -1,5 +1,5 @@
 /***************************************************************************
- *            float_bounds.inl.hpp
+ *            numeric/float_bounds.inl.hpp
  *
  *  Copyright  2008-20  Pieter Collins
  *

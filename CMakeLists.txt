@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Numeric VERSION 1.0)
+project(Numeric VERSION 3.0)
 
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
@@ -18,70 +18,18 @@ if(NOT TARGET ariadne-build)
     include("${CMAKE_CURRENT_SOURCE_DIR}/ss/bui/cmake/ProjectOptions.cmake")
 endif()
 
-if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
-    # Compare only mandatory production dependency paths. Testing and
-    # Benchmarking are independent development-only gitlinks, not gates.
-    require_same_dependency_commit(Build CHAINS
-        "build" "foundation|build")
-endif()
+require_same_dependency_commit(Build CHAINS
+    "build" "foundation|build")
 
-setup_project()
+ariadne_setup_module(numeric)
 
-include_directories(${PROJECT_SOURCE_DIR}/include)
-
-add_subdirectory(ss)
-
-add_library(numeric INTERFACE)
-target_include_directories(numeric INTERFACE
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include/ariadne-numeric>
-)
-target_link_libraries(numeric INTERFACE
-    foundation
-)
+# Keep Numeric's ABI and strict floating-point compilation policy.
 if(WIN32)
     target_compile_definitions(numeric INTERFACE ARIADNE_NUMERIC_STATIC)
 endif()
-
-add_subdirectory(src)
-target_link_libraries(NUMERIC_SRC PRIVATE numeric)
 
 if(MSVC)
     target_compile_options(NUMERIC_SRC PRIVATE /fp:strict)
 else()
     target_compile_options(NUMERIC_SRC PRIVATE -frounding-math)
-endif()
-
-ariadne_register_public_headers(
-    TARGET numeric
-    DIRECTORIES "${PROJECT_SOURCE_DIR}/include/numeric"
-    FILES "${PROJECT_SOURCE_DIR}/include/ariadne-numeric.hpp"
-)
-
-setup_project_library(
-    TARGET ariadne-numeric
-    OBJECTS NUMERIC_SRC
-    LINK_LIBRARIES numeric
-)
-
-# Build initializes optional Testing and Benchmarking independently.
-# Neither library is linked to Numeric's production interface.
-setup_standalone_project(
-    TARGET ariadne-numeric
-    TEST_DIRECTORY tests
-    TEST_TARGET tests
-    SOURCES
-        "${PROJECT_SOURCE_DIR}/include"
-        "${PROJECT_SOURCE_DIR}/src"
-)
-
-if(BUILD_PYTHON_BINDINGS)
-    add_subdirectory(python)
-endif()
-
-if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
-    ariadne_install_dependency_bundle(
-        TARGET numeric
-        DESTINATION include/ariadne-numeric
-    )
 endif()

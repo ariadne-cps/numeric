@@ -78,7 +78,7 @@ jobs:
 
       - name: Prepare C++ numeric tutorial
         if: matrix.build_type == 'Release'
-        run: cmake -E copy_directory "$GITHUB_WORKSPACE/tutorials/tutorial_numeric" "${{ runner.workspace }}/tutorial_numeric"
+        run: cmake -E copy_directory "$GITHUB_WORKSPACE/tutorial" "${{ runner.workspace }}/tutorial_numeric"
 
       - name: Build and check C++ numeric tutorial
         if: matrix.build_type == 'Release'
@@ -97,7 +97,7 @@ jobs:
 
       - name: Check Python numeric tutorial
         if: matrix.build_type == 'Release'
-        working-directory: ${{ github.workspace }}/python/tutorials
+        working-directory: ${{ github.workspace }}/tutorial
         env:
           PYTHONPATH: ${{ runner.workspace }}/build/python
         run: python tutorial_numeric.py

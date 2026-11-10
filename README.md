@@ -28,7 +28,7 @@ Numeric depends directly on:
 
 Foundation provides [ariadne-cps/utility](https://github.com/ariadne-cps/utility) transitively. Build configuration is shared through [ariadne-cps/build](https://github.com/ariadne-cps/build).
 
-Standalone development additionally pins [Ariadne Testing](https://github.com/ariadne-cps/testing) and [Ariadne Benchmarking](https://github.com/ariadne-cps/benchmarking). Both are independent, opt-in development dependencies: their gitlinks are deliberately excluded from production dependency-commit consistency checks. The direct Logging gitlink has been removed; Benchmarking obtains Logging through Threading. Neither Testing nor Benchmarking is linked to Numeric production targets or installed with Numeric.
+Standalone development additionally pins [Ariadne Testing](https://github.com/ariadne-cps/testing) and [Ariadne Benchmarking](https://github.com/ariadne-cps/benchmarking). Both are independent, opt-in development dependencies: their gitlinks are deliberately excluded from production dependency-commit consistency checks. Logging is supplied by optional Benchmarking, not by Numeric's production library. Neither Testing nor Benchmarking is linked to Numeric production targets or installed with Numeric.
 
 ## Build
 
@@ -115,9 +115,9 @@ If you would like to contribute to Numeric, please contact the developer:
 
 - Luca Geretti <luca.geretti@univr.it>
 
-## Testing framework (`testing` branch)
+## Testing framework
 
-The `testing` branch introduces [Ariadne Testing](https://github.com/ariadne-cps/testing)
+The `main` branch uses [Ariadne Testing](https://github.com/ariadne-cps/testing)
 **only in standalone tests**, pinned in `ss/tst`. All existing CTest
 executables and the compile-only `check_numeric` target remain registered;
 production targets, public headers, Python bindings and install rules do not
@@ -130,7 +130,7 @@ variants and mathematical evidence checks; `--concise` selects compact
 reporting. The compile-only `check_numeric` target remains unchanged.
 
 ```bash
-git clone --branch testing --recurse-submodules https://github.com/ariadne-cps/numeric.git
+git clone --recurse-submodules https://github.com/ariadne-cps/numeric.git
 cd numeric
 cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON_BINDINGS=OFF
 cmake --build build-debug --parallel --target tests

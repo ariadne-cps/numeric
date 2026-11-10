@@ -1,5 +1,5 @@
 /***************************************************************************
- *            float_error.tpl.hpp
+ *            numeric/float_error.tpl.hpp
  *
  *  Copyright  2008-20  Pieter Collins
  *

@@ -1,5 +1,5 @@
 /***************************************************************************
- *            float_approximation.tpl.hpp
+ *            numeric/float_approximation.tpl.hpp
  *
  *  Copyright  2008-20  Pieter Collins
  *
