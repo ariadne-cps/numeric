@@ -29,23 +29,24 @@
 #ifndef ARIADNE_DECIMAL_HPP
 #define ARIADNE_DECIMAL_HPP
 
-#include <string>
 #include <iostream>
-#include "utility/typedefs.hpp"
-#include "numeric/number.decl.hpp"
+#include <string>
+
 #include "numeric/integer.hpp"
+#include "numeric/number.decl.hpp"
+#include "utility/typedefs.hpp"
 
 namespace Ariadne {
-
 
 //! \ingroup NumericModule
 //! \brief A decimal number.
 //! \sa Integer, Dyadic, Rational, Real
-class Decimal
-{
+class Decimal {
   public:
     static const Integer _ten;
-    Integer _p; Nat _q;
+    Integer _p;
+    Nat _q;
+
   public:
     typedef ExactTag Paradigm;
     //! \brief Default constructor creates the number 0 (zero).
@@ -54,106 +55,114 @@ class Decimal
     explicit Decimal(Integer p, Nat q);
     explicit Decimal(Integer p, Int q) = delete;
     //! \brief Construct from a builtin integral type.
-    template<BuiltinIntegral N> Decimal(N n);
+    template<BuiltinIntegral N>
+    Decimal(N n);
     //! \brief Construct from a double-precision floating-point number representation.
     explicit Decimal(double d);
     //! \brief Construct from a string representation.
-    explicit Decimal(String const&);
+    explicit Decimal(const String&);
     //! \brief Convert from a dyadic.
-    Decimal(Dyadic const&);
+    Decimal(const Dyadic&);
     //! \brief Convert to a rational number.
-    operator Rational () const;
+    operator Rational() const;
     //! \brief Convert to an generic number.
-    operator ExactNumber () const;
+    operator ExactNumber() const;
     //! \brief A string literal
     String literal() const;
 
     //! \name Arithmetic operators
     //!@{
-    friend Decimal operator+(Decimal const& d); //!< Unary plus \a +d.
-    friend Decimal operator-(Decimal const& d); //!< Unary minus \a -d.
-    friend Decimal operator+(Decimal const& d1, Decimal const& d2); //!< Plus \a d1+d2.
-    friend Decimal operator-(Decimal const& d1, Decimal const& d2); //!< Minus \a d1-d2.
-    friend Decimal operator*(Decimal const& d1, Decimal const& d2); //!< Times \a d1*d2.
-    friend Rational operator/(Decimal const& d1, Decimal const& d2); //!< Divides \a d1/d2, yielding a rational.
-    friend Decimal& operator+=(Decimal& d1, Decimal const& d2); //!< Inplace plus \a d1:=d1+d2.
+    friend Decimal operator+(const Decimal& d);                      //!< Unary plus \a +d.
+    friend Decimal operator-(const Decimal& d);                      //!< Unary minus \a -d.
+    friend Decimal operator+(const Decimal& d1, const Decimal& d2);  //!< Plus \a d1+d2.
+    friend Decimal operator-(const Decimal& d1, const Decimal& d2);  //!< Minus \a d1-d2.
+    friend Decimal operator*(const Decimal& d1, const Decimal& d2);  //!< Times \a d1*d2.
+    friend Rational operator/(const Decimal& d1, const Decimal& d2); //!< Divides \a d1/d2, yielding a rational.
+    friend Decimal& operator+=(Decimal& d1, const Decimal& d2);      //!< Inplace plus \a d1:=d1+d2.
     //!@}
 
     //!@{
     //! \name Comparison operators
-    friend Boolean operator==(Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)==Comparison::EQUAL; } //!< <p/>
-    friend Boolean operator!=(Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)!=Comparison::EQUAL; } //!< <p/>
-    friend Boolean operator<=(Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)!=Comparison::GREATER; } //!< <p/>
-    friend Boolean operator>=(Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)!=Comparison::LESS; } //!< <p/>
-    friend Boolean operator< (Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)==Comparison::LESS; } //!< <p/>
-    friend Boolean operator> (Decimal const& d1, Decimal const& d2) { return cmp(d1,d2)==Comparison::GREATER; } //!< <p/>
+    friend Boolean operator==(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::EQUAL; }   //!< <p/>
+    friend Boolean operator!=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::EQUAL; }   //!< <p/>
+    friend Boolean operator<=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::GREATER; } //!< <p/>
+    friend Boolean operator>=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::LESS; }    //!< <p/>
+    friend Boolean operator<(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::LESS; }     //!< <p/>
+    friend Boolean operator>(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::GREATER; }  //!< <p/>
     //!@}
 
     //!@{
     //! \name Arithmetic operations
-    friend Decimal nul(Decimal const& d); //!< Zero \a 0.
-    friend Decimal sqr(Decimal const& d); //!< Square \a d<sup>2</sup>.
-    friend Decimal hlf(Decimal const& d); //!< Half \a d/2.
+    friend Decimal nul(const Decimal& d); //!< Zero \a 0.
+    friend Decimal sqr(const Decimal& d); //!< Square \a d<sup>2</sup>.
+    friend Decimal hlf(const Decimal& d); //!< Half \a d/2.
     //!@}
 
     //!@{
     //! \name Lattice operations
-    friend Decimal abs(Decimal const& d); //!< Absolute value \a |d|.
-    friend Decimal min(Decimal const& d1, Decimal const& d2); //!< Minimum \a d1∧d2.
-    friend Decimal max(Decimal const& d1, Decimal const& d2); //!< Maximum \a d1∨d2.
+    friend Decimal abs(const Decimal& d);                     //!< Absolute value \a |d|.
+    friend Decimal min(const Decimal& d1, const Decimal& d2); //!< Minimum \a d1∧d2.
+    friend Decimal max(const Decimal& d1, const Decimal& d2); //!< Maximum \a d1∨d2.
     //!@}
 
     //!@{
     //! \name Comparison operations
-    friend Comparison cmp(Decimal const& d1, Decimal const& d2); //!< Comparison of two decimal values.
+    friend Comparison cmp(const Decimal& d1, const Decimal& d2); //!< Comparison of two decimal values.
     //!@}
 
     //! \brief Write to an output stream.
-    friend OutputStream& operator<<(OutputStream& os, Decimal const& d);
+    friend OutputStream& operator<<(OutputStream& os, const Decimal& d);
     //! \brief Construct from an integer literal.
-    friend Decimal operator""_decimal (unsigned long long int n);
+    friend Decimal operator""_decimal(unsigned long long int n);
     //! \brief Construct from a floating-point literal.
-    friend Decimal operator""_decimal (long double dbl);
+    friend Decimal operator""_decimal(long double dbl);
     //! \brief Construct from a string literal.
-    friend Decimal operator""_decimal (const char* str, std::size_t);
+    friend Decimal operator""_decimal(const char* str, std::size_t);
 
     //! \brief Shorthand for operator""_decimal.
-    friend Decimal operator""_dec (long double dbl);
+    friend Decimal operator""_dec(long double dbl);
 
     //! \brief Alternative for operator""_decimal for use in Python interface.
     friend Decimal dec_(long double dbl);
 
     void canonicalize();
 };
-Decimal operator""_dec (unsigned long long int n);
-Decimal operator""_dec (long double dbl);
-Decimal operator""_dec (const char* str, std::size_t);
-Decimal operator""_decimal (unsigned long long int n);
-Decimal operator""_decimal (long double dbl);
-Decimal operator""_decimal (const char* str, std::size_t);
+Decimal operator""_dec(unsigned long long int n);
+Decimal operator""_dec(long double dbl);
+Decimal operator""_dec(const char* str, std::size_t);
+Decimal operator""_decimal(unsigned long long int n);
+Decimal operator""_decimal(long double dbl);
+Decimal operator""_decimal(const char* str, std::size_t);
 
-template<BuiltinIntegral N> inline Decimal::Decimal(N n) : Decimal(n,0u) { }
+template<BuiltinIntegral N>
+inline Decimal::Decimal(N n) : Decimal(n, 0u) {}
 
-
-template<> class Positive<Decimal> : public Decimal {
+template<>
+class Positive<Decimal> : public Decimal {
   public:
-    Positive() : Decimal() { }
-    template<BuiltinUnsignedIntegral M> Positive(M m) : Decimal(m) { }
+    Positive() : Decimal() {}
+    template<BuiltinUnsignedIntegral M>
+    Positive(M m) : Decimal(m) {}
     Positive(int n) = delete;
-    explicit Positive(Decimal const& w) : Decimal(w) { ARIADNE_ASSERT(w>=0); }
+    explicit Positive(const Decimal& w) : Decimal(w) { ARIADNE_ASSERT(w >= 0); }
 };
-inline Positive<Decimal> cast_positive(Decimal const& w) { return Positive<Decimal>(w); }
+inline Positive<Decimal> cast_positive(const Decimal& w) { return Positive<Decimal>(w); }
 using PositiveDecimal = Positive<Decimal>;
 
-template<> class Bounds<Decimal> {
+template<>
+class Bounds<Decimal> {
     Decimal _l, _u;
+
   public:
-    Bounds(Decimal w) : _l(w), _u(w) { }
-    template<ConvertibleTo<Decimal> X> Bounds(X const& x)
-        : Bounds(Decimal(x)) { }
-    Bounds(Decimal l, Decimal u) : _l(l), _u(u) { }
-    template<class X> requires Constructible<Decimal,X> Bounds(Bounds<X> const& x)
-        : Bounds(Decimal(x.lower_raw()),Decimal(x.upper_raw())) { }
+    Bounds(Decimal w) : _l(w), _u(w) {}
+    template<ConvertibleTo<Decimal> X>
+    Bounds(const X& x)
+        : Bounds(Decimal(x)) {}
+    Bounds(Decimal l, Decimal u) : _l(l), _u(u) {}
+    template<class X>
+        requires Constructible<Decimal, X>
+    Bounds(const Bounds<X>& x)
+        : Bounds(Decimal(x.lower_raw()), Decimal(x.upper_raw())) {}
     operator ValidatedNumber() const;
     Decimal lower() const { return _l; }
     Decimal upper() const { return _u; }
@@ -161,7 +170,6 @@ template<> class Bounds<Decimal> {
     Decimal upper_raw() const { return _u; }
     friend OutputStream& operator<<(OutputStream& os, Bounds<Decimal> y) { return os << "[" << y._l << ":" << y._u << "]"; }
 };
-
 
 } // namespace Ariadne
 

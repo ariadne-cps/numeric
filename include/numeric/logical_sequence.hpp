@@ -26,8 +26,9 @@
 #define ARIADNE_NUMERIC_LOGICAL_SEQUENCE_HPP
 #include "foundation/logical.hpp"
 namespace Ariadne {
-template<class X> class Sequence;
-LowerKleenean disjunction(Sequence<LowerKleenean> const&);
-UpperKleenean conjunction(Sequence<UpperKleenean> const&);
-}
+template<class X>
+class Sequence;
+LowerKleenean disjunction(const Sequence<LowerKleenean>&);
+UpperKleenean conjunction(const Sequence<UpperKleenean>&);
+} // namespace Ariadne
 #endif

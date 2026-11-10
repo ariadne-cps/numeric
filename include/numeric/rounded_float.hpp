@@ -29,23 +29,21 @@
 #ifndef ARIADNE_ROUNDED_FLOAT_HPP
 #define ARIADNE_ROUNDED_FLOAT_HPP
 
-#include <iosfwd> // For std::floor std::ceil etc
-#include <cmath> // For std::floor std::ceil etc
 #include <algorithm> // For std::max, std::min
-#include <limits> // For std::numeric_limits<double>
+#include <cmath>     // For std::floor std::ceil etc
+#include <iosfwd>    // For std::floor std::ceil etc
+#include <limits>    // For std::numeric_limits<double>
 
+#include "numeric/builtin.hpp"
 #include "numeric/declarations.hpp"
+#include "numeric/float.decl.hpp"
+#include "numeric/floatdp.hpp"
+#include "numeric/number.decl.hpp"
 #include "numeric/operators.hpp"
 #include "numeric/rounding.hpp"
-#include "numeric/builtin.hpp"
 #include "numeric/sign.hpp"
-#include "numeric/number.decl.hpp"
-#include "numeric/float.decl.hpp"
-
-#include "numeric/floatdp.hpp"
 
 namespace Ariadne {
-
 
 class Rational;
 enum class Comparison : ComparableEnumerationType;
@@ -56,14 +54,16 @@ enum class Comparison : ComparableEnumerationType;
 class DoublePrecision;
 using DP = DoublePrecision;
 
-template<class FLT> class Rounded;
+template<class FLT>
+class Rounded;
 
 using RoundedFloatDP = Rounded<FloatDP>;
 using RoundedFloatMP = Rounded<FloatMP>;
 
-template<> class Rounded<FloatDP>
-{
+template<>
+class Rounded<FloatDP> {
     FloatDP _flt;
+
   public:
     typedef RawTag Paradigm;
     typedef FloatDP FloatType;
@@ -71,6 +71,7 @@ template<> class Rounded<FloatDP>
     typedef DoublePrecision PrecisionType;
     typedef DoublePrecision CharacteristicsType;
     typedef BuiltinRoundingModeType RoundingModeType;
+
   public:
     static RoundingModeType get_rounding_mode() { return FloatDP::get_rounding_mode(); }
     static Void set_rounding_mode(RoundingModeType rnd) { FloatDP::set_rounding_mode(rnd); }
@@ -78,43 +79,56 @@ template<> class Rounded<FloatDP>
     static Void set_rounding_upward() { FloatDP::set_rounding_upward(); }
     static Void set_rounding_to_nearest() { FloatDP::set_rounding_to_nearest(); }
     static Void set_rounding_toward_zero() { FloatDP::set_rounding_toward_zero(); }
+
   private:
-    explicit Rounded(double d) : _flt(d) { }
+    explicit Rounded(double d) : _flt(d) {}
+
   public:
-    explicit Rounded(PrecisionType) : _flt() { }
-    Rounded(FloatType x) : _flt(x.dbl) { }
+    explicit Rounded(PrecisionType) : _flt() {}
+    Rounded(FloatType x) : _flt(x.dbl) {}
 
     template<BuiltinIntegral N>
-        Rounded(N n, PrecisionType) : _flt(n) { }
-    Rounded(ExactDouble d, PrecisionType) : _flt(d.get_d()) { }
-    Rounded(Dyadic const& w, PrecisionType pr) : Rounded(FloatType(w,pr)) { }
-    Rounded(FloatType x, PrecisionType) : _flt(x.dbl) { }
-    Rounded(Rounded<FloatType> x, PrecisionType) : _flt(x._flt) { }
-    template<class Y> requires Constructible<FloatType,Y,RoundingModeType,PrecisionType> and (not BuiltinIntegral<Y>)
-        Rounded(Y const& y, PrecisionType pr) : Rounded(FloatType(y,FloatType::get_rounding_mode(),pr)) { }
+    Rounded(N n, PrecisionType) : _flt(n) {}
+    Rounded(ExactDouble d, PrecisionType) : _flt(d.get_d()) {}
+    Rounded(const Dyadic& w, PrecisionType pr) : Rounded(FloatType(w, pr)) {}
+    Rounded(FloatType x, PrecisionType) : _flt(x.dbl) {}
+    Rounded(Rounded<FloatType> x, PrecisionType) : _flt(x._flt) {}
+    template<class Y>
+        requires Constructible<FloatType, Y, RoundingModeType, PrecisionType> and (not BuiltinIntegral<Y>)
+    Rounded(const Y& y, PrecisionType pr) : Rounded(FloatType(y, FloatType::get_rounding_mode(), pr)) {}
 
     template<BuiltinIntegral N>
-        Rounded<FloatType>& operator=(N n) { this->_flt=n; return *this; }
-    Rounded<FloatType>& operator=(FloatType x) { this->_flt=x; return *this; }
-    Rounded<FloatType>& operator=(ExactDouble x) { this->_flt=x; return *this; }
-    template<class Y> requires Constructible<FloatType,Y,RoundingModeType,PrecisionType> and (not BuiltinIntegral<Y>)
-        Rounded<FloatType> operator=(Y const& y) { return (*this)=FloatType(y,FloatType::get_rounding_mode(),this->precision()); }
+    Rounded<FloatType>& operator=(N n) {
+        this->_flt = n;
+        return *this;
+    }
+    Rounded<FloatType>& operator=(FloatType x) {
+        this->_flt = x;
+        return *this;
+    }
+    Rounded<FloatType>& operator=(ExactDouble x) {
+        this->_flt = x;
+        return *this;
+    }
+    template<class Y>
+        requires Constructible<FloatType, Y, RoundingModeType, PrecisionType> and (not BuiltinIntegral<Y>)
+    Rounded<FloatType> operator=(const Y& y) { return (*this) = FloatType(y, FloatType::get_rounding_mode(), this->precision()); }
 
     // Approximation<FloatDP> contains a FloatDP member; it is not a FloatDP base subobject.
     // Reinterpreting the wrapper as FloatDP is not guaranteed by the C++ object model.
-    Rounded(Approximation<FloatDP> const& x);
-    operator Approximation<FloatDP> () const;
+    Rounded(const Approximation<FloatDP>& x);
+    operator Approximation<FloatDP>() const;
 
     double data() const { return this->_flt.dbl; }
-    FloatType const& raw() const { return this->_flt; }
+    const FloatType& raw() const { return this->_flt; }
     explicit operator FloatType() const { return this->_flt; }
     PrecisionType precision() const { return DoublePrecision(); }
-    CharacteristicsType characteristics() const { return DoublePrecision();  }
+    CharacteristicsType characteristics() const { return DoublePrecision(); }
 
     // Non-finiteness tests
     friend Bool is_nan(Rounded<FloatType> x) { return std::isnan(x._flt.dbl); }
 
-        // Integer conversions
+    // Integer conversions
     friend Rounded<FloatDP> floor(Rounded<FloatDP> x) { return Rounded<FloatDP>(std::floor(x._flt.dbl)); }
     friend Rounded<FloatDP> ceil(Rounded<FloatDP> x) { return Rounded<FloatDP>(std::ceil(x._flt.dbl)); }
     friend Rounded<FloatDP> round(Rounded<FloatDP> x) { return Rounded<FloatDP>(std::round(x._flt.dbl)); }
@@ -126,92 +140,105 @@ template<> class Rounded<FloatDP>
     friend Rounded<FloatDP> sqr(Rounded<FloatDP> x) { return Rounded<FloatDP>(sqr_rnd(x._flt.dbl)); }
     friend Rounded<FloatDP> hlf(Rounded<FloatDP> x) { return Rounded<FloatDP>(hlf_rnd(x._flt.dbl)); }
     friend Rounded<FloatDP> rec(Rounded<FloatDP> x) { return Rounded<FloatDP>(rec_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> add(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(add_rnd(x1._flt.dbl,x2._flt.dbl)); }
-    friend Rounded<FloatDP> sub(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(sub_rnd(x1._flt.dbl,x2._flt.dbl)); }
-    friend Rounded<FloatDP> mul(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(mul_rnd(x1._flt.dbl,x2._flt.dbl)); }
-    friend Rounded<FloatDP> div(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(div_rnd(x1._flt.dbl,x2._flt.dbl)); }
-    friend Rounded<FloatDP> fma(Rounded<FloatDP> x1, Rounded<FloatDP> x2, Rounded<FloatDP> x3) { return Rounded<FloatDP>(fma_rnd(x1._flt.dbl,x2._flt.dbl,x3._flt.dbl)); }
-    friend Rounded<FloatDP> pow(Rounded<FloatDP> x, Int n) { return Rounded<FloatDP>(pow_rnd(x._flt.dbl,n)); }
+    friend Rounded<FloatDP> add(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(add_rnd(x1._flt.dbl, x2._flt.dbl)); }
+    friend Rounded<FloatDP> sub(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(sub_rnd(x1._flt.dbl, x2._flt.dbl)); }
+    friend Rounded<FloatDP> mul(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(mul_rnd(x1._flt.dbl, x2._flt.dbl)); }
+    friend Rounded<FloatDP> div(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(div_rnd(x1._flt.dbl, x2._flt.dbl)); }
+    friend Rounded<FloatDP> fma(Rounded<FloatDP> x1, Rounded<FloatDP> x2, Rounded<FloatDP> x3) { return Rounded<FloatDP>(fma_rnd(x1._flt.dbl, x2._flt.dbl, x3._flt.dbl)); }
+    friend Rounded<FloatDP> pow(Rounded<FloatDP> x, Int n) { return Rounded<FloatDP>(pow_rnd(x._flt.dbl, n)); }
     friend Rounded<FloatDP> sqrt(Rounded<FloatDP> x) { return Rounded<FloatDP>(sqrt_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> exp(Rounded<FloatDP> x) { return Rounded<FloatDP>(exp(FloatDP::get_rounding_mode(),x._flt)); }
-    friend Rounded<FloatDP> log(Rounded<FloatDP> x) { return Rounded<FloatDP>(log(FloatDP::get_rounding_mode(),x._flt)); }
-    friend Rounded<FloatDP> sin(Rounded<FloatDP> x) { return Rounded<FloatDP>(sin(FloatDP::get_rounding_mode(),x._flt)); }
-    friend Rounded<FloatDP> cos(Rounded<FloatDP> x) { return Rounded<FloatDP>(cos(FloatDP::get_rounding_mode(),x._flt)); }
-    friend Rounded<FloatDP> tan(Rounded<FloatDP> x) { return Rounded<FloatDP>(tan(FloatDP::get_rounding_mode(),x._flt)); }
-    friend Rounded<FloatDP> tanh(Rounded<FloatDP> x) { return Rounded<FloatDP>(tanh(FloatDP::get_rounding_mode(),x._flt)); }
-    friend Rounded<FloatDP> asin(Rounded<FloatDP> x) { return Rounded<FloatDP>(asin(FloatDP::get_rounding_mode(),x._flt)); }
-    friend Rounded<FloatDP> acos(Rounded<FloatDP> x) { return Rounded<FloatDP>(acos(FloatDP::get_rounding_mode(),x._flt)); }
-    friend Rounded<FloatDP> atan(Rounded<FloatDP> x) { return Rounded<FloatDP>(atan(FloatDP::get_rounding_mode(),x._flt)); }
+    friend Rounded<FloatDP> exp(Rounded<FloatDP> x) { return Rounded<FloatDP>(exp(FloatDP::get_rounding_mode(), x._flt)); }
+    friend Rounded<FloatDP> log(Rounded<FloatDP> x) { return Rounded<FloatDP>(log(FloatDP::get_rounding_mode(), x._flt)); }
+    friend Rounded<FloatDP> sin(Rounded<FloatDP> x) { return Rounded<FloatDP>(sin(FloatDP::get_rounding_mode(), x._flt)); }
+    friend Rounded<FloatDP> cos(Rounded<FloatDP> x) { return Rounded<FloatDP>(cos(FloatDP::get_rounding_mode(), x._flt)); }
+    friend Rounded<FloatDP> tan(Rounded<FloatDP> x) { return Rounded<FloatDP>(tan(FloatDP::get_rounding_mode(), x._flt)); }
+    friend Rounded<FloatDP> tanh(Rounded<FloatDP> x) { return Rounded<FloatDP>(tanh(FloatDP::get_rounding_mode(), x._flt)); }
+    friend Rounded<FloatDP> asin(Rounded<FloatDP> x) { return Rounded<FloatDP>(asin(FloatDP::get_rounding_mode(), x._flt)); }
+    friend Rounded<FloatDP> acos(Rounded<FloatDP> x) { return Rounded<FloatDP>(acos(FloatDP::get_rounding_mode(), x._flt)); }
+    friend Rounded<FloatDP> atan(Rounded<FloatDP> x) { return Rounded<FloatDP>(atan(FloatDP::get_rounding_mode(), x._flt)); }
     static Rounded<FloatDP> pi(PrecisionType) { return Rounded<FloatDP>(pi_rnd()); }
 
     friend Rounded<FloatDP> abs(Rounded<FloatDP> x) { return Rounded<FloatDP>(abs_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> max(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(max_rnd(x1._flt.dbl,x2._flt.dbl)); }
-    friend Rounded<FloatDP> min(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(min_rnd(x1._flt.dbl,x2._flt.dbl)); }
+    friend Rounded<FloatDP> max(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(max_rnd(x1._flt.dbl, x2._flt.dbl)); }
+    friend Rounded<FloatDP> min(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(min_rnd(x1._flt.dbl, x2._flt.dbl)); }
     friend Rounded<FloatDP> mag(Rounded<FloatDP> x) { return Rounded<FloatDP>(abs_rnd(x._flt.dbl)); }
     friend Rounded<FloatDP> mig(Rounded<FloatDP> x) { return Rounded<FloatDP>(abs_rnd(x._flt.dbl)); }
 
-    friend Rounded<FloatDP> med(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(hlf_rnd(add_rnd(x1._flt.dbl,x2._flt.dbl))); }
-    friend Rounded<FloatDP> rad(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(hlf_rnd(sub_rnd(x2._flt.dbl,x1._flt.dbl))); }
+    friend Rounded<FloatDP> med(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(hlf_rnd(add_rnd(x1._flt.dbl, x2._flt.dbl))); }
+    friend Rounded<FloatDP> rad(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(hlf_rnd(sub_rnd(x2._flt.dbl, x1._flt.dbl))); }
 
     friend Rounded<FloatDP> operator+(Rounded<FloatDP> x) { return Rounded<FloatDP>(pos_rnd(x._flt.dbl)); }
     friend Rounded<FloatDP> operator-(Rounded<FloatDP> x) { return Rounded<FloatDP>(neg_rnd(x._flt.dbl)); }
-    friend Rounded<FloatDP> operator+(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(add_rnd(x1._flt.dbl,x2._flt.dbl)); }
-    friend Rounded<FloatDP> operator-(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(sub_rnd(x1._flt.dbl,x2._flt.dbl)); }
-    friend Rounded<FloatDP> operator*(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(mul_rnd(x1._flt.dbl,x2._flt.dbl)); }
-    friend Rounded<FloatDP> operator/(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(div_rnd(x1._flt.dbl,x2._flt.dbl)); }
-    friend Rounded<FloatDP>& operator+=(Rounded<FloatDP>& x1, Rounded<FloatDP> x2) { x1._flt.dbl=add_rnd(x1._flt.dbl,x2._flt.dbl); return x1; }
-    friend Rounded<FloatDP>& operator-=(Rounded<FloatDP>& x1, Rounded<FloatDP> x2) { x1._flt.dbl=sub_rnd(x1._flt.dbl,x2._flt.dbl); return x1; }
-    friend Rounded<FloatDP>& operator*=(Rounded<FloatDP>& x1, Rounded<FloatDP> x2) { x1._flt.dbl=mul_rnd(x1._flt.dbl,x2._flt.dbl); return x1; }
-    friend Rounded<FloatDP>& operator/=(Rounded<FloatDP>& x1, Rounded<FloatDP> x2) { x1._flt.dbl=div_rnd(x1._flt.dbl,x2._flt.dbl); return x1; }
+    friend Rounded<FloatDP> operator+(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(add_rnd(x1._flt.dbl, x2._flt.dbl)); }
+    friend Rounded<FloatDP> operator-(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(sub_rnd(x1._flt.dbl, x2._flt.dbl)); }
+    friend Rounded<FloatDP> operator*(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(mul_rnd(x1._flt.dbl, x2._flt.dbl)); }
+    friend Rounded<FloatDP> operator/(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(div_rnd(x1._flt.dbl, x2._flt.dbl)); }
+    friend Rounded<FloatDP>& operator+=(Rounded<FloatDP>& x1, Rounded<FloatDP> x2) {
+        x1._flt.dbl = add_rnd(x1._flt.dbl, x2._flt.dbl);
+        return x1;
+    }
+    friend Rounded<FloatDP>& operator-=(Rounded<FloatDP>& x1, Rounded<FloatDP> x2) {
+        x1._flt.dbl = sub_rnd(x1._flt.dbl, x2._flt.dbl);
+        return x1;
+    }
+    friend Rounded<FloatDP>& operator*=(Rounded<FloatDP>& x1, Rounded<FloatDP> x2) {
+        x1._flt.dbl = mul_rnd(x1._flt.dbl, x2._flt.dbl);
+        return x1;
+    }
+    friend Rounded<FloatDP>& operator/=(Rounded<FloatDP>& x1, Rounded<FloatDP> x2) {
+        x1._flt.dbl = div_rnd(x1._flt.dbl, x2._flt.dbl);
+        return x1;
+    }
 
-    friend Rounded<FloatDP> operator+(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(add_rnd(x1._flt.dbl,x2.get_d())); }
-    friend Rounded<FloatDP> operator-(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(sub_rnd(x1._flt.dbl,x2.get_d())); }
-    friend Rounded<FloatDP> operator*(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(mul_rnd(x1._flt.dbl,x2.get_d())); }
-    friend Rounded<FloatDP> operator/(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(div_rnd(x1._flt.dbl,x2.get_d())); }
-    friend Rounded<FloatDP> operator+(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(add_rnd(x1.get_d(),x2._flt.dbl)); }
-    friend Rounded<FloatDP> operator-(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(sub_rnd(x1.get_d(),x2._flt.dbl)); }
-    friend Rounded<FloatDP> operator*(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(mul_rnd(x1.get_d(),x2._flt.dbl)); }
-    friend Rounded<FloatDP> operator/(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(div_rnd(x1.get_d(),x2._flt.dbl)); }
-    friend Rounded<FloatDP>& operator+=(Rounded<FloatDP>& x1, ExactDouble x2) { return x1=x1+x2; }
-    friend Rounded<FloatDP>& operator-=(Rounded<FloatDP>& x1, ExactDouble x2) { return x1=x1-x2; }
-    friend Rounded<FloatDP>& operator*=(Rounded<FloatDP>& x1, ExactDouble x2) { return x1=x1*x2; }
-    friend Rounded<FloatDP>& operator/=(Rounded<FloatDP>& x1, ExactDouble x2) { return x1=x1/x2; }
+    friend Rounded<FloatDP> operator+(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(add_rnd(x1._flt.dbl, x2.get_d())); }
+    friend Rounded<FloatDP> operator-(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(sub_rnd(x1._flt.dbl, x2.get_d())); }
+    friend Rounded<FloatDP> operator*(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(mul_rnd(x1._flt.dbl, x2.get_d())); }
+    friend Rounded<FloatDP> operator/(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(div_rnd(x1._flt.dbl, x2.get_d())); }
+    friend Rounded<FloatDP> operator+(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(add_rnd(x1.get_d(), x2._flt.dbl)); }
+    friend Rounded<FloatDP> operator-(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(sub_rnd(x1.get_d(), x2._flt.dbl)); }
+    friend Rounded<FloatDP> operator*(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(mul_rnd(x1.get_d(), x2._flt.dbl)); }
+    friend Rounded<FloatDP> operator/(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(div_rnd(x1.get_d(), x2._flt.dbl)); }
+    friend Rounded<FloatDP>& operator+=(Rounded<FloatDP>& x1, ExactDouble x2) { return x1 = x1 + x2; }
+    friend Rounded<FloatDP>& operator-=(Rounded<FloatDP>& x1, ExactDouble x2) { return x1 = x1 - x2; }
+    friend Rounded<FloatDP>& operator*=(Rounded<FloatDP>& x1, ExactDouble x2) { return x1 = x1 * x2; }
+    friend Rounded<FloatDP>& operator/=(Rounded<FloatDP>& x1, ExactDouble x2) { return x1 = x1 / x2; }
 
-    friend Rounded<FloatDP> max(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(max_rnd(x1._flt.dbl,x2.get_d())); }
-    friend Rounded<FloatDP> min(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(min_rnd(x1._flt.dbl,x2.get_d())); }
-    friend Rounded<FloatDP> max(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(max_rnd(x1.get_d(),x2._flt.dbl)); }
-    friend Rounded<FloatDP> min(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(min_rnd(x1.get_d(),x2._flt.dbl)); }
+    friend Rounded<FloatDP> max(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(max_rnd(x1._flt.dbl, x2.get_d())); }
+    friend Rounded<FloatDP> min(Rounded<FloatDP> x1, ExactDouble x2) { return Rounded<FloatDP>(min_rnd(x1._flt.dbl, x2.get_d())); }
+    friend Rounded<FloatDP> max(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(max_rnd(x1.get_d(), x2._flt.dbl)); }
+    friend Rounded<FloatDP> min(ExactDouble x1, Rounded<FloatDP> x2) { return Rounded<FloatDP>(min_rnd(x1.get_d(), x2._flt.dbl)); }
 
     friend ApproximateKleenean operator==(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return x1._flt.dbl == x2._flt.dbl; }
     friend ApproximateKleenean operator!=(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return x1._flt.dbl != x2._flt.dbl; }
     friend ApproximateKleenean operator<=(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return x1._flt.dbl <= x2._flt.dbl; }
     friend ApproximateKleenean operator>=(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return x1._flt.dbl >= x2._flt.dbl; }
-    friend ApproximateKleenean operator< (Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return x1._flt.dbl <  x2._flt.dbl; }
-    friend ApproximateKleenean operator> (Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return x1._flt.dbl >  x2._flt.dbl; }
+    friend ApproximateKleenean operator<(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return x1._flt.dbl < x2._flt.dbl; }
+    friend ApproximateKleenean operator>(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return x1._flt.dbl > x2._flt.dbl; }
 
     friend ApproximateKleenean operator==(Rounded<FloatDP> x1, ExactDouble x2) { return x1._flt.dbl == x2.get_d(); }
     friend ApproximateKleenean operator!=(Rounded<FloatDP> x1, ExactDouble x2) { return x1._flt.dbl != x2.get_d(); }
     friend ApproximateKleenean operator<=(Rounded<FloatDP> x1, ExactDouble x2) { return x1._flt.dbl <= x2.get_d(); }
     friend ApproximateKleenean operator>=(Rounded<FloatDP> x1, ExactDouble x2) { return x1._flt.dbl >= x2.get_d(); }
-    friend ApproximateKleenean operator< (Rounded<FloatDP> x1, ExactDouble x2) { return x1._flt.dbl <  x2.get_d(); }
-    friend ApproximateKleenean operator> (Rounded<FloatDP> x1, ExactDouble x2) { return x1._flt.dbl >  x2.get_d(); }
+    friend ApproximateKleenean operator<(Rounded<FloatDP> x1, ExactDouble x2) { return x1._flt.dbl < x2.get_d(); }
+    friend ApproximateKleenean operator>(Rounded<FloatDP> x1, ExactDouble x2) { return x1._flt.dbl > x2.get_d(); }
 
     friend ApproximateKleenean operator==(ExactDouble x1, Rounded<FloatDP> x2) { return x1.get_d() == x2._flt.dbl; }
     friend ApproximateKleenean operator!=(ExactDouble x1, Rounded<FloatDP> x2) { return x1.get_d() != x2._flt.dbl; }
     friend ApproximateKleenean operator<=(ExactDouble x1, Rounded<FloatDP> x2) { return x1.get_d() <= x2._flt.dbl; }
     friend ApproximateKleenean operator>=(ExactDouble x1, Rounded<FloatDP> x2) { return x1.get_d() >= x2._flt.dbl; }
-    friend ApproximateKleenean operator< (ExactDouble x1, Rounded<FloatDP> x2) { return x1.get_d() <  x2._flt.dbl; }
-    friend ApproximateKleenean operator> (ExactDouble x1, Rounded<FloatDP> x2) { return x1.get_d() >  x2._flt.dbl; }
+    friend ApproximateKleenean operator<(ExactDouble x1, Rounded<FloatDP> x2) { return x1.get_d() < x2._flt.dbl; }
+    friend ApproximateKleenean operator>(ExactDouble x1, Rounded<FloatDP> x2) { return x1.get_d() > x2._flt.dbl; }
 
     friend Bool same(Rounded<FloatDP> x1, Rounded<FloatDP> x2) { return x1._flt == x2._flt; }
 
-    friend OutputStream& operator<<(OutputStream& os, Rounded<FloatDP> const& x) { return os << x.data(); }
+    friend OutputStream& operator<<(OutputStream& os, const Rounded<FloatDP>& x) { return os << x.data(); }
 };
 
-template<class FLT> class Rounded
-{
+template<class FLT>
+class Rounded {
     static const CurrentRoundingMode _rnd;
     FLT _flt;
+
   public:
     typedef RawTag Paradigm;
     typedef FLT FloatType;
@@ -219,6 +246,7 @@ template<class FLT> class Rounded
     typedef typename FloatType::PrecisionType PrecisionType;
     typedef typename FloatType::PrecisionType CharacteristicsType;
     typedef typename FloatType::RoundingModeType RoundingModeType;
+
   public:
     static RoundingModeType get_rounding_mode() { return FloatType::get_rounding_mode(); }
     static Void set_rounding_mode(RoundingModeType rnd) { FloatType::set_rounding_mode(rnd); }
@@ -226,28 +254,34 @@ template<class FLT> class Rounded
     static Void set_rounding_upward() { FloatType::set_rounding_upward(); }
     static Void set_rounding_to_nearest() { FloatType::set_rounding_to_nearest(); }
     static Void set_rounding_toward_zero() { FloatType::set_rounding_toward_zero(); }
+
   public:
     FloatType data() const { return _flt; }
     PrecisionType precision() const { return this->_flt.precision(); }
     CharacteristicsType characteristics() const { return this->_flt.precision(); }
 
-    explicit Rounded(PrecisionType pr) : _flt(pr) { }
-    Rounded(FloatType x) : _flt(x) { }
-    Rounded(Rounded<FloatType> x, PrecisionType) : _flt(x._flt) { }
+    explicit Rounded(PrecisionType pr) : _flt(pr) {}
+    Rounded(FloatType x) : _flt(x) {}
+    Rounded(Rounded<FloatType> x, PrecisionType) : _flt(x._flt) {}
 
-    template<class Y> requires Constructible<FloatType,Y,RoundingModeType,PrecisionType>
-        Rounded(Y const& y, PrecisionType pr) : Rounded(FloatType(y,FloatType::get_rounding_mode(),pr)) { }
+    template<class Y>
+        requires Constructible<FloatType, Y, RoundingModeType, PrecisionType>
+    Rounded(const Y& y, PrecisionType pr) : Rounded(FloatType(y, FloatType::get_rounding_mode(), pr)) {}
 
-    template<class Y> requires Constructible<FloatType,Y,RoundingModeType,PrecisionType>
-        Rounded<FloatType> operator=(Y const& y) { this->_flt=FloatType(y,FloatType::get_rounding_mode(),this->precision()); return *this; }
+    template<class Y>
+        requires Constructible<FloatType, Y, RoundingModeType, PrecisionType>
+    Rounded<FloatType> operator=(const Y& y) {
+        this->_flt = FloatType(y, FloatType::get_rounding_mode(), this->precision());
+        return *this;
+    }
 
     explicit operator FloatType() const { return FloatType(this->_flt); }
-    FloatType const& raw() const { return this->_flt; }
+    const FloatType& raw() const { return this->_flt; }
 
     // Approximation<FloatType> contains a FloatType member; it is not a FloatType base subobject.
-// Reinterpreting the wrapper as FloatType is not guaranteed by the C++ object model.
-Rounded(Approximation<FloatType> const& x) : Rounded(x.raw()) { }
-    operator Approximation<FloatType> () const;
+    // Reinterpreting the wrapper as FloatType is not guaranteed by the C++ object model.
+    Rounded(const Approximation<FloatType>& x) : Rounded(x.raw()) {}
+    operator Approximation<FloatType>() const;
 
     // Non-finiteness tests
     friend Bool is_nan(Rounded<FloatType> x) { return is_nan(x._flt); }
@@ -262,99 +296,106 @@ Rounded(Approximation<FloatType> const& x) : Rounded(x.raw()) { }
     friend Rounded<FloatType> pos(Rounded<FloatType> x) { return Rounded<FloatType>(pos(x._flt)); }
     friend Rounded<FloatType> neg(Rounded<FloatType> x) { return Rounded<FloatType>(neg(x._flt)); }
     friend Rounded<FloatType> hlf(Rounded<FloatType> x) { return Rounded<FloatType>(hlf(x._flt)); }
-    friend Rounded<FloatType> sqr(Rounded<FloatType> x) { return Rounded<FloatType>(sqr(_rnd,x._flt)); }
-    friend Rounded<FloatType> rec(Rounded<FloatType> x) { return Rounded<FloatType>(rec(_rnd,x._flt)); }
-    friend Rounded<FloatType> add(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(add(_rnd,x1._flt,x2._flt)); }
-    friend Rounded<FloatType> sub(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(sub(_rnd,x1._flt,x2._flt)); }
-    friend Rounded<FloatType> mul(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(mul(_rnd,x1._flt,x2._flt)); }
-    friend Rounded<FloatType> div(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(div(_rnd,x1._flt,x2._flt)); }
-    friend Rounded<FloatType> fma(Rounded<FloatType> x1, Rounded<FloatType> x2, Rounded<FloatType> x3) { return Rounded<FloatType>(fma(_rnd,x1._flt,x2._flt,x3._flt)); }
-    friend Rounded<FloatType> pow(Rounded<FloatType> x, Int n) { return Rounded<FloatType>(pow(_rnd,x._flt,n)); }
-    friend Rounded<FloatType> sqrt(Rounded<FloatType> x) { return Rounded<FloatType>(sqrt(_rnd,x._flt)); }
-    friend Rounded<FloatType> exp(Rounded<FloatType> x) { return Rounded<FloatType>(exp(_rnd,x._flt)); }
-    friend Rounded<FloatType> log(Rounded<FloatType> x) { return Rounded<FloatType>(log(_rnd,x._flt)); }
-    friend Rounded<FloatType> sin(Rounded<FloatType> x) { return Rounded<FloatType>(sin(_rnd,x._flt)); }
-    friend Rounded<FloatType> cos(Rounded<FloatType> x) { return Rounded<FloatType>(cos(_rnd,x._flt)); }
-    friend Rounded<FloatType> tan(Rounded<FloatType> x) { return Rounded<FloatType>(tan(_rnd,x._flt)); }
-    friend Rounded<FloatType> tanh(Rounded<FloatType> x) { return Rounded<FloatType>(tanh(_rnd,x._flt)); }
-    friend Rounded<FloatType> asin(Rounded<FloatType> x) { return Rounded<FloatType>(asin(_rnd,x._flt)); }
-    friend Rounded<FloatType> acos(Rounded<FloatType> x) { return Rounded<FloatType>(acos(_rnd,x._flt)); }
-    friend Rounded<FloatType> atan(Rounded<FloatType> x) { return Rounded<FloatType>(atan(_rnd,x._flt)); }
-    static Rounded<FloatType> pi(PrecisionType pr) { return Rounded<FloatType>(FloatType::pi(FloatType::get_rounding_mode(),pr)); }
+    friend Rounded<FloatType> sqr(Rounded<FloatType> x) { return Rounded<FloatType>(sqr(_rnd, x._flt)); }
+    friend Rounded<FloatType> rec(Rounded<FloatType> x) { return Rounded<FloatType>(rec(_rnd, x._flt)); }
+    friend Rounded<FloatType> add(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(add(_rnd, x1._flt, x2._flt)); }
+    friend Rounded<FloatType> sub(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(sub(_rnd, x1._flt, x2._flt)); }
+    friend Rounded<FloatType> mul(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(mul(_rnd, x1._flt, x2._flt)); }
+    friend Rounded<FloatType> div(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(div(_rnd, x1._flt, x2._flt)); }
+    friend Rounded<FloatType> fma(Rounded<FloatType> x1, Rounded<FloatType> x2, Rounded<FloatType> x3) { return Rounded<FloatType>(fma(_rnd, x1._flt, x2._flt, x3._flt)); }
+    friend Rounded<FloatType> pow(Rounded<FloatType> x, Int n) { return Rounded<FloatType>(pow(_rnd, x._flt, n)); }
+    friend Rounded<FloatType> sqrt(Rounded<FloatType> x) { return Rounded<FloatType>(sqrt(_rnd, x._flt)); }
+    friend Rounded<FloatType> exp(Rounded<FloatType> x) { return Rounded<FloatType>(exp(_rnd, x._flt)); }
+    friend Rounded<FloatType> log(Rounded<FloatType> x) { return Rounded<FloatType>(log(_rnd, x._flt)); }
+    friend Rounded<FloatType> sin(Rounded<FloatType> x) { return Rounded<FloatType>(sin(_rnd, x._flt)); }
+    friend Rounded<FloatType> cos(Rounded<FloatType> x) { return Rounded<FloatType>(cos(_rnd, x._flt)); }
+    friend Rounded<FloatType> tan(Rounded<FloatType> x) { return Rounded<FloatType>(tan(_rnd, x._flt)); }
+    friend Rounded<FloatType> tanh(Rounded<FloatType> x) { return Rounded<FloatType>(tanh(_rnd, x._flt)); }
+    friend Rounded<FloatType> asin(Rounded<FloatType> x) { return Rounded<FloatType>(asin(_rnd, x._flt)); }
+    friend Rounded<FloatType> acos(Rounded<FloatType> x) { return Rounded<FloatType>(acos(_rnd, x._flt)); }
+    friend Rounded<FloatType> atan(Rounded<FloatType> x) { return Rounded<FloatType>(atan(_rnd, x._flt)); }
+    static Rounded<FloatType> pi(PrecisionType pr) { return Rounded<FloatType>(FloatType::pi(FloatType::get_rounding_mode(), pr)); }
 
     friend Rounded<FloatType> abs(Rounded<FloatType> x) { return Rounded<FloatType>(abs(x._flt)); }
-    friend Rounded<FloatType> max(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(max(x1._flt,x2._flt)); }
-    friend Rounded<FloatType> min(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(min(x1._flt,x2._flt)); }
+    friend Rounded<FloatType> max(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(max(x1._flt, x2._flt)); }
+    friend Rounded<FloatType> min(Rounded<FloatType> x1, Rounded<FloatType> x2) { return Rounded<FloatType>(min(x1._flt, x2._flt)); }
     friend Rounded<FloatType> mag(Rounded<FloatType> x) { return Rounded<FloatType>(abs(x._flt)); }
     friend Rounded<FloatType> mig(Rounded<FloatType> x) { return Rounded<FloatType>(abs(x._flt)); }
 
     friend Rounded<FloatType> med(Rounded<FloatType> x1, Rounded<FloatType> x2) {
-        return Rounded<FloatType>(hlf(add(CurrentRoundingMode(),x1._flt,x2._flt))); }
+        return Rounded<FloatType>(hlf(add(CurrentRoundingMode(), x1._flt, x2._flt)));
+    }
     friend Rounded<FloatType> rad(Rounded<FloatType> x1, Rounded<FloatType> x2) {
-        return Rounded<FloatType>(hlf(sub(CurrentRoundingMode(),x2._flt,x1._flt))); }
+        return Rounded<FloatType>(hlf(sub(CurrentRoundingMode(), x2._flt, x1._flt)));
+    }
 
     friend Rounded<FloatType> operator+(Rounded<FloatType> x) { return Rounded<FloatType>(pos(x._flt)); }
     friend Rounded<FloatType> operator-(Rounded<FloatType> x) { return Rounded<FloatType>(neg(x._flt)); }
     friend Rounded<FloatType> operator+(Rounded<FloatType> x1, Rounded<FloatType> x2) {
-        return Rounded<FloatType>(add(_rnd,x1._flt,x2._flt)); }
+        return Rounded<FloatType>(add(_rnd, x1._flt, x2._flt));
+    }
     friend Rounded<FloatType> operator-(Rounded<FloatType> x1, Rounded<FloatType> x2) {
-        return Rounded<FloatType>(sub(_rnd,x1._flt,x2._flt)); }
+        return Rounded<FloatType>(sub(_rnd, x1._flt, x2._flt));
+    }
     friend Rounded<FloatType> operator*(Rounded<FloatType> x1, Rounded<FloatType> x2) {
-        return Rounded<FloatType>(mul(_rnd,x1._flt,x2._flt)); }
+        return Rounded<FloatType>(mul(_rnd, x1._flt, x2._flt));
+    }
     friend Rounded<FloatType> operator/(Rounded<FloatType> x1, Rounded<FloatType> x2) {
-        return Rounded<FloatType>(div(_rnd,x1._flt,x2._flt)); }
-    friend Rounded<FloatType>& operator+=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1=x1+x2; }
-    friend Rounded<FloatType>& operator-=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1=x1-x2; }
-    friend Rounded<FloatType>& operator*=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1=x1*x2; }
-    friend Rounded<FloatType>& operator/=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1=x1/x2; }
+        return Rounded<FloatType>(div(_rnd, x1._flt, x2._flt));
+    }
+    friend Rounded<FloatType>& operator+=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1 = x1 + x2; }
+    friend Rounded<FloatType>& operator-=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1 = x1 - x2; }
+    friend Rounded<FloatType>& operator*=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1 = x1 * x2; }
+    friend Rounded<FloatType>& operator/=(Rounded<FloatType>& x1, Rounded<FloatType> x2) { return x1 = x1 / x2; }
 
     // Convert mixed ExactDouble operands through the selected backend and
     // its active rounding mode; never hard-wire the independent exact arithmetic implementation.
-    friend Rounded<FloatType> operator+(Rounded<FloatType> x1, ExactDouble x2) { return x1+Rounded<FloatType>(x2,x1.precision()); }
-    friend Rounded<FloatType> operator-(Rounded<FloatType> x1, ExactDouble x2) { return x1-Rounded<FloatType>(x2,x1.precision()); }
-    friend Rounded<FloatType> operator*(Rounded<FloatType> x1, ExactDouble x2) { return x1*Rounded<FloatType>(x2,x1.precision()); }
-    friend Rounded<FloatType> operator/(Rounded<FloatType> x1, ExactDouble x2) { return x1/Rounded<FloatType>(x2,x1.precision()); }
-    friend Rounded<FloatType> operator+(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1,x2.precision())+x2; }
-    friend Rounded<FloatType> operator-(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1,x2.precision())-x2; }
-    friend Rounded<FloatType> operator*(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1,x2.precision())*x2; }
-    friend Rounded<FloatType> operator/(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1,x2.precision())/x2; }
-    friend Rounded<FloatType>& operator+=(Rounded<FloatType>& x1, ExactDouble x2) { return x1=x1+x2; }
-    friend Rounded<FloatType>& operator-=(Rounded<FloatType>& x1, ExactDouble x2) { return x1=x1-x2; }
-    friend Rounded<FloatType>& operator*=(Rounded<FloatType>& x1, ExactDouble x2) { return x1=x1*x2; }
-    friend Rounded<FloatType>& operator/=(Rounded<FloatType>& x1, ExactDouble x2) { return x1=x1/x2; }
+    friend Rounded<FloatType> operator+(Rounded<FloatType> x1, ExactDouble x2) { return x1 + Rounded<FloatType>(x2, x1.precision()); }
+    friend Rounded<FloatType> operator-(Rounded<FloatType> x1, ExactDouble x2) { return x1 - Rounded<FloatType>(x2, x1.precision()); }
+    friend Rounded<FloatType> operator*(Rounded<FloatType> x1, ExactDouble x2) { return x1 * Rounded<FloatType>(x2, x1.precision()); }
+    friend Rounded<FloatType> operator/(Rounded<FloatType> x1, ExactDouble x2) { return x1 / Rounded<FloatType>(x2, x1.precision()); }
+    friend Rounded<FloatType> operator+(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1, x2.precision()) + x2; }
+    friend Rounded<FloatType> operator-(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1, x2.precision()) - x2; }
+    friend Rounded<FloatType> operator*(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1, x2.precision()) * x2; }
+    friend Rounded<FloatType> operator/(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(x1, x2.precision()) / x2; }
+    friend Rounded<FloatType>& operator+=(Rounded<FloatType>& x1, ExactDouble x2) { return x1 = x1 + x2; }
+    friend Rounded<FloatType>& operator-=(Rounded<FloatType>& x1, ExactDouble x2) { return x1 = x1 - x2; }
+    friend Rounded<FloatType>& operator*=(Rounded<FloatType>& x1, ExactDouble x2) { return x1 = x1 * x2; }
+    friend Rounded<FloatType>& operator/=(Rounded<FloatType>& x1, ExactDouble x2) { return x1 = x1 / x2; }
 
-    friend Rounded<FloatType> max(Rounded<FloatType> x1, ExactDouble x2) { return Rounded<FloatType>(max(x1._flt,x2)); }
-    friend Rounded<FloatType> min(Rounded<FloatType> x1, ExactDouble x2) { return Rounded<FloatType>(min(x1._flt,x2)); }
-    friend Rounded<FloatType> max(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(max(x1,x2._flt)); }
-    friend Rounded<FloatType> min(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(min(x1,x2._flt)); }
+    friend Rounded<FloatType> max(Rounded<FloatType> x1, ExactDouble x2) { return Rounded<FloatType>(max(x1._flt, x2)); }
+    friend Rounded<FloatType> min(Rounded<FloatType> x1, ExactDouble x2) { return Rounded<FloatType>(min(x1._flt, x2)); }
+    friend Rounded<FloatType> max(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(max(x1, x2._flt)); }
+    friend Rounded<FloatType> min(ExactDouble x1, Rounded<FloatType> x2) { return Rounded<FloatType>(min(x1, x2._flt)); }
 
     friend ApproximateKleenean operator==(Rounded<FloatType> x1, Rounded<FloatType> x2) { return x1._flt == x2._flt; }
     friend ApproximateKleenean operator!=(Rounded<FloatType> x1, Rounded<FloatType> x2) { return x1._flt != x2._flt; }
     friend ApproximateKleenean operator<=(Rounded<FloatType> x1, Rounded<FloatType> x2) { return x1._flt <= x2._flt; }
     friend ApproximateKleenean operator>=(Rounded<FloatType> x1, Rounded<FloatType> x2) { return x1._flt >= x2._flt; }
-    friend ApproximateKleenean operator< (Rounded<FloatType> x1, Rounded<FloatType> x2) { return x1._flt <  x2._flt; }
-    friend ApproximateKleenean operator> (Rounded<FloatType> x1, Rounded<FloatType> x2) { return x1._flt >  x2._flt; }
+    friend ApproximateKleenean operator<(Rounded<FloatType> x1, Rounded<FloatType> x2) { return x1._flt < x2._flt; }
+    friend ApproximateKleenean operator>(Rounded<FloatType> x1, Rounded<FloatType> x2) { return x1._flt > x2._flt; }
 
     friend ApproximateKleenean operator==(Rounded<FloatType> x1, ExactDouble x2) { return x1._flt == x2; }
     friend ApproximateKleenean operator!=(Rounded<FloatType> x1, ExactDouble x2) { return x1._flt != x2; }
     friend ApproximateKleenean operator<=(Rounded<FloatType> x1, ExactDouble x2) { return x1._flt <= x2; }
     friend ApproximateKleenean operator>=(Rounded<FloatType> x1, ExactDouble x2) { return x1._flt >= x2; }
-    friend ApproximateKleenean operator< (Rounded<FloatType> x1, ExactDouble x2) { return x1._flt <  x2; }
-    friend ApproximateKleenean operator> (Rounded<FloatType> x1, ExactDouble x2) { return x1._flt >  x2; }
+    friend ApproximateKleenean operator<(Rounded<FloatType> x1, ExactDouble x2) { return x1._flt < x2; }
+    friend ApproximateKleenean operator>(Rounded<FloatType> x1, ExactDouble x2) { return x1._flt > x2; }
 
     friend ApproximateKleenean operator==(ExactDouble x1, Rounded<FloatType> x2) { return x1 == x2._flt; }
     friend ApproximateKleenean operator!=(ExactDouble x1, Rounded<FloatType> x2) { return x1 != x2._flt; }
     friend ApproximateKleenean operator<=(ExactDouble x1, Rounded<FloatType> x2) { return x1 <= x2._flt; }
     friend ApproximateKleenean operator>=(ExactDouble x1, Rounded<FloatType> x2) { return x1 >= x2._flt; }
-    friend ApproximateKleenean operator< (ExactDouble x1, Rounded<FloatType> x2) { return x1 <  x2._flt; }
-    friend ApproximateKleenean operator> (ExactDouble x1, Rounded<FloatType> x2) { return x1 >  x2._flt; }
+    friend ApproximateKleenean operator<(ExactDouble x1, Rounded<FloatType> x2) { return x1 < x2._flt; }
+    friend ApproximateKleenean operator>(ExactDouble x1, Rounded<FloatType> x2) { return x1 > x2._flt; }
 
     friend Bool same(Rounded<FloatType> x1, Rounded<FloatType> x2) { return x1._flt == x2._flt; }
 
-    friend OutputStream& operator<<(OutputStream& os, Rounded<FloatType> const& x) { return os << x.data(); }
+    friend OutputStream& operator<<(OutputStream& os, const Rounded<FloatType>& x) { return os << x.data(); }
 };
 
-template<class FLT> const CurrentRoundingMode Rounded<FLT>::_rnd=CurrentRoundingMode();
+template<class FLT>
+const CurrentRoundingMode Rounded<FLT>::_rnd = CurrentRoundingMode();
 
 } // namespace Ariadne
 

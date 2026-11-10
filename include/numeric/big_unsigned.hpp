@@ -43,19 +43,18 @@ namespace Ariadne {
 //! \ingroup NumericModule
 //! \brief Canonical nonnegative integer with little-endian 64-bit limbs.
 //! \sa Integer, Rational, FloatMP
-class BigUnsigned
-{
+class BigUnsigned {
   public:
     using Limb = std::uint64_t;
     static constexpr std::size_t inline_capacity = 4u;
-    using LimbView = std::span<Limb const>;
+    using LimbView = std::span<const Limb>;
     using MutableLimbView = std::span<Limb>;
 
     //! Reusable, independently owned, zeroed temporary limb storage.
     //! Every acquire invalidates the previous view; not thread-shared.
     class Scratch {
         static constexpr std::size_t inline_capacity = 16u;
-        std::array<Limb,inline_capacity> _inline_limbs{};
+        std::array<Limb, inline_capacity> _inline_limbs{};
         std::vector<Limb> _heap;
 
       public:
@@ -64,72 +63,71 @@ class BigUnsigned
     };
 
   private:
-    std::array<Limb,inline_capacity> _inline_limbs{};
+    std::array<Limb, inline_capacity> _inline_limbs{};
     std::vector<Limb> _heap;
     std::size_t _size = 0u;
 
     Limb* mutable_data() noexcept;
     void resize_for_result(std::size_t limbs);
     void normalize() noexcept;
-    void set_limbs(std::span<Limb const> digits);
+    void set_limbs(std::span<const Limb> digits);
     // One owned result, no shifted owning operands or scratch buffer.
     template<bool Subtract>
     static BigUnsigned shifted_combine(
-        LimbView a,unsigned shift_a,LimbView b,unsigned shift_b);
+        LimbView a, unsigned shift_a, LimbView b, unsigned shift_b);
 
     // Compile-time modes avoid unneeded outputs during division.
     // The public divrem_into adapter validates its full contract. Private
     // calls supply nonzero canonical b, selected output sizes and exact
     // divrem_scratch_limbs() storage, with all live spans disjoint.
-    template<bool WantQuotient,bool WantRemainder>
+    template<bool WantQuotient, bool WantRemainder>
     static void divrem_selected_into(
-        LimbView a,LimbView b,MutableLimbView quotient,
-        MutableLimbView remainder,MutableLimbView scratch);
+        LimbView a, LimbView b, MutableLimbView quotient,
+        MutableLimbView remainder, MutableLimbView scratch);
 
     // Owning division of at most inline_capacity dividend limbs.
     // The divisor is nonzero; larger divisors simply give q=0,r=a.
     template<bool WantQuotient>
-    static BigUnsigned divide_short(BigUnsigned const& a,BigUnsigned const& b);
+    static BigUnsigned divide_short(const BigUnsigned& a, const BigUnsigned& b);
 
     // Internal square-root recursion and direct concatenation of
     // naturally limb-aligned unsigned radix chunks.
     template<bool WantRemainder>
-    static std::pair<BigUnsigned,BigUnsigned> sqrt_recursive(
-        BigUnsigned const& value,Scratch& workspace);
+    static std::pair<BigUnsigned, BigUnsigned> sqrt_recursive(
+        const BigUnsigned& value, Scratch& workspace);
     // Normalized, destructive limb recursion; all buffers are disjoint.
     template<bool WantRemainder>
     static void sqrt_recursive_into(
-        MutableLimbView value,MutableLimbView root,MutableLimbView scratch);
+        MutableLimbView value, MutableLimbView root, MutableLimbView scratch);
     template<bool WantRemainder>
-    static std::pair<BigUnsigned,BigUnsigned> sqrt_buffered(BigUnsigned const& value);
+    static std::pair<BigUnsigned, BigUnsigned> sqrt_buffered(const BigUnsigned& value);
     static BigUnsigned concat_sqrt_limbs(
-        LimbView higher,LimbView lower,std::size_t lower_count);
+        LimbView higher, LimbView lower, std::size_t lower_count);
 
     // Bounded Euclid reuses disjoint limb buffers and remainder-only division.
-    static BigUnsigned gcd_bounded(LimbView a,LimbView b);
-    friend BigUnsigned gcd(BigUnsigned const& a,BigUnsigned const& b);
+    static BigUnsigned gcd_bounded(LimbView a, LimbView b);
+    friend BigUnsigned gcd(const BigUnsigned& a, const BigUnsigned& b);
 
   public:
     BigUnsigned() = default;
     explicit BigUnsigned(Limb value) noexcept {
-        _inline_limbs[0u]=value;
-        _size=value!=0u ? 1u : 0u;
+        _inline_limbs[0u] = value;
+        _size = value != 0u ? 1u : 0u;
     }
-    explicit BigUnsigned(std::span<Limb const> digits);
-    BigUnsigned(BigUnsigned const&) = default;
+    explicit BigUnsigned(std::span<const Limb> digits);
+    BigUnsigned(const BigUnsigned&) = default;
     BigUnsigned(BigUnsigned&& other) noexcept
         : _inline_limbs(other._inline_limbs),
-          _heap(std::move(other._heap)),_size(other._size)
-    {
-        other._size=0u;
+          _heap(std::move(other._heap)), _size(other._size) {
+        other._size = 0u;
     }
-    BigUnsigned& operator=(BigUnsigned const&) = default;
+    BigUnsigned& operator=(const BigUnsigned&) = default;
     BigUnsigned& operator=(BigUnsigned&& other) noexcept {
-        if (this!=&other) {
-            _inline_limbs=other._inline_limbs;
-            _heap=std::move(other._heap);
-            _size=other._size;
-            other._size=0u;
+        if (this != &other) {
+            _inline_limbs = other._inline_limbs;
+            _heap = std::move(other._heap);
+            _size = other._size;
+            other._size = 0u;
         }
         return *this;
     }
@@ -138,9 +136,9 @@ class BigUnsigned
     std::size_t size() const noexcept { return _size; }
     bool is_zero() const noexcept { return _size == 0u; }
     LimbView limbs() const noexcept {
-        return _size<=inline_capacity
-            ? LimbView(_inline_limbs.data(),_size)
-            : LimbView(_heap.data(),_size);
+        return _size <= inline_capacity
+                 ? LimbView(_inline_limbs.data(), _size)
+                 : LimbView(_heap.data(), _size);
     }
     //! Replace this magnitude with the canonical value of a limb view.
     //! Self-referential views are supported, including subspans.
@@ -149,37 +147,37 @@ class BigUnsigned
     //! Allocation-free exact limb kernels; inputs and output must be disjoint.
     //! Result is written to the first max(a.size(),b.size()) limbs;
     //! higher destination limbs are zero; the return value is carry (0 or 1).
-    static Limb add_into(LimbView a,LimbView b,MutableLimbView output);
+    static Limb add_into(LimbView a, LimbView b, MutableLimbView output);
     //! Unsigned subtraction modulo 2^(64*output.size()) when output
     //! is large enough for all input limbs. Returns borrow (0 or 1).
     //! Inputs and output must be disjoint.
-    static Limb sub_into(LimbView a,LimbView b,MutableLimbView output);
+    static Limb sub_into(LimbView a, LimbView b, MutableLimbView output);
 
     //! Whether any bit in [0,limit) is set. Noncanonical and empty views,
     //! and limits beyond the complete source, are supported without allocation.
-    static bool any_bits_below(LimbView source,std::size_t limit) noexcept;
+    static bool any_bits_below(LimbView source, std::size_t limit) noexcept;
     //! Required destination size for shift_right_into, before normalization.
     static std::size_t shift_right_output_limbs(std::size_t input_limbs,
-                                               std::size_t bits) noexcept {
-        const std::size_t whole=bits/64u;
-        return whole<input_limbs ? input_limbs-whole : 0u;
+                                                std::size_t bits) noexcept {
+        const std::size_t whole = bits / 64u;
+        return whole < input_limbs ? input_limbs - whole : 0u;
     }
     //! Allocation-free floor(source/2^bits), accepting noncanonical views.
     //! Inputs and output must be disjoint. Output capacity must be at least
     //! max(0,source.size()-bits/64); every destination limb is overwritten.
     //! Returns the canonical used length; higher output limbs are zero.
-    static std::size_t shift_right_into(LimbView source,std::size_t bits,
+    static std::size_t shift_right_into(LimbView source, std::size_t bits,
                                         MutableLimbView output);
 
     //! Exact sum (a << shift_a) + (b << shift_b), allocating only
     //! the returned canonical magnitude. Shifts must be below 64.
     //! Source views are borrowed and never modified.
     static BigUnsigned add_shifted(
-        LimbView a,unsigned shift_a,LimbView b,unsigned shift_b);
+        LimbView a, unsigned shift_a, LimbView b, unsigned shift_b);
     //! Exact difference (a << shift_a) - (b << shift_b); throws
     //! underflow_error if the result would be negative.
     static BigUnsigned sub_shifted(
-        LimbView a,unsigned shift_a,LimbView b,unsigned shift_b);
+        LimbView a, unsigned shift_a, LimbView b, unsigned shift_b);
     //! Divide a nonnegative limb view by a nonzero 64-bit limb.
     //! The quotient uses caller-owned storage of at least a.size()
     //! limbs; any extra output limbs are zeroed. Returns the exact
@@ -187,13 +185,13 @@ class BigUnsigned
     //! Throws on a zero divisor or insufficient destination size.
     //! This operation has no ISA-specific implementation.
     static Limb divrem_limb_into(
-        LimbView a,Limb divisor,MutableLimbView quotient);
+        LimbView a, Limb divisor, MutableLimbView quotient);
     //! Exact division by a nonzero limb into disjoint caller storage.
     //! Requires at least a.size() output limbs; extra limbs are zeroed.
     //! Throws domain_error for zero divisor or nonexact division, and
     //! length_error for insufficient output. Inputs are not modified.
     static void divexact_limb_into(
-        LimbView a,Limb divisor,MutableLimbView quotient);
+        LimbView a, Limb divisor, MutableLimbView quotient);
     //! Exact scratch for normalized source views of the supplied lengths.
     //! For dividend n >= divisor m >= 2, returns n+m+1 limbs:
     //! normalized dividend (n+1) and normalized divisor (m).
@@ -201,7 +199,7 @@ class BigUnsigned
     //! No scratch is needed for one-limb divisors or shorter dividends.
     //! Throws length_error on size overflow.
     static std::size_t divrem_scratch_limbs(
-        std::size_t dividend_limbs,std::size_t divisor_limbs);
+        std::size_t dividend_limbs, std::size_t divisor_limbs);
     //! Exact unsigned quotient and remainder in caller-owned storage.
     //! Input views must be canonical: no high zero limbs, except empty zero.
     //! Quotient requires a.size() limbs; remainder min(a.size(),b.size()).
@@ -209,73 +207,73 @@ class BigUnsigned
     //! pairwise disjoint; no allocation or mutation before size checks.
     //! Zero divisor raises domain_error, undersized storage length_error.
     static void divrem_into(
-        LimbView a,LimbView b,MutableLimbView quotient,
-        MutableLimbView remainder,MutableLimbView scratch);
+        LimbView a, LimbView b, MutableLimbView quotient,
+        MutableLimbView remainder, MutableLimbView scratch);
     //! Product modulo 2^(64*output.size()); output is fully overwritten.
     //! Inputs and output must be disjoint. No intermediate allocation.
     //! Uses the selected architecture kernel when it is available.
-    static void mul_low_into(LimbView a,LimbView b,MutableLimbView output);
+    static void mul_low_into(LimbView a, LimbView b, MutableLimbView output);
     //! Identical modular product using only portable C++20 arithmetic.
     //! Implemented in big_unsigned_fallback.cpp, built on every target
     //! for independent differential tests and fair benchmarks.
-    static void mul_low_into_portable(LimbView a,LimbView b,MutableLimbView output);
+    static void mul_low_into_portable(LimbView a, LimbView b, MutableLimbView output);
     //! Exact full product in caller storage; output must have at least
     //! a.size()+b.size() limbs for nonempty operands. Extra limbs are zeroed.
     //! Both input views must be disjoint from output. No allocations.
-    static void mul_into(LimbView a,LimbView b,MutableLimbView output);
+    static void mul_into(LimbView a, LimbView b, MutableLimbView output);
     //! Update an existing accumulator by +/-a*b modulo its limb width.
     //! Return the addition overflow or subtraction borrow bit. Nonempty
     //! factors require at least a.size()+b.size() output limbs; zero
     //! factors leave output unchanged. Inputs must be disjoint from
     //! output. No allocation; insufficient size throws before mutation.
     static Limb accumulate_product_into(
-        LimbView a,LimbView b,MutableLimbView output,bool subtract);
+        LimbView a, LimbView b, MutableLimbView output, bool subtract);
     //! Full product using the explicitly selected portable reference.
-    static void mul_into_portable(LimbView a,LimbView b,MutableLimbView output);
+    static void mul_into_portable(LimbView a, LimbView b, MutableLimbView output);
     //! Experimental column-wise Comba kernel for benchmarking on x86-64.
     //! On other architectures, uses the portable schoolbook reference.
     //! Result is the product modulo 2^(64*output.size()) and completely
     //! overwrites output. Output must be disjoint from both inputs.
     //! Does not alter the architecture-selected production path.
-    static void mul_low_into_comba(LimbView a,LimbView b,MutableLimbView output);
+    static void mul_low_into_comba(LimbView a, LimbView b, MutableLimbView output);
     //! Exact full Comba product into caller storage. Checks that output
     //! has a.size()+b.size() limbs for nonempty inputs; does not allocate.
     //! Overlap with either input is forbidden; extra limbs are zeroed.
-    static void mul_into_comba(LimbView a,LimbView b,MutableLimbView output);
+    static void mul_into_comba(LimbView a, LimbView b, MutableLimbView output);
     //! Shared fused 128-bit accumulation schoolbook for GCC/Clang x86-64
     //! and ARM64. MSVC x86-64 retains the native B3 schoolbook fallback;
     //! other architectures retain the portable C++20 reference.
     //! Output is disjoint from inputs and fully overwritten; computes the
     //! exact product modulo 2^(64*output.size()) without allocation.
-    static void mul_low_into_fused(LimbView a,LimbView b,MutableLimbView output);
+    static void mul_low_into_fused(LimbView a, LimbView b, MutableLimbView output);
     //! Explicit full fused product; same size and aliasing contracts
     //! as mul_into. Does not affect the production kernel selector.
-    static void mul_into_fused(LimbView a,LimbView b,MutableLimbView output);
+    static void mul_into_fused(LimbView a, LimbView b, MutableLimbView output);
     //! Explicit selected ARM64 MUL/UMULH/ADDS/ADC carry-chain
     //! schoolbook. Elsewhere uses the portable reference; this entry
     //! point remains available for benchmarking and regression.
     static void mul_low_into_arm64_carry(
-        LimbView a,LimbView b,MutableLimbView output);
+        LimbView a, LimbView b, MutableLimbView output);
     //! Exact full-product ARM64 carry-chain implementation.
     static void mul_into_arm64_carry(
-        LimbView a,LimbView b,MutableLimbView output);
+        LimbView a, LimbView b, MutableLimbView output);
     //! Experimental x86-64 MULQ/ADDQ/ADCQ carry-chain row schoolbook.
     //! Native GNU/Clang assembly, MSVC B3 fallback, portable elsewhere.
     //! Fully overwrites a disjoint output, without scratch allocation.
     //! Does not change the production dispatch.
     static void mul_low_into_x86_64_carry(
-        LimbView a,LimbView b,MutableLimbView output);
+        LimbView a, LimbView b, MutableLimbView output);
     //! Exact full-product counterpart with mul_into's output size contract.
     static void mul_into_x86_64_carry(
-        LimbView a,LimbView b,MutableLimbView output);
+        LimbView a, LimbView b, MutableLimbView output);
     //! Force the B3 x86-64 row-schoolbook reference chosen before B6.
     //! On unsupported architectures, uses the C++20 portable reference.
     //! Product is exact modulo 2^(64*output.size()); no overlap allowed.
     static void mul_low_into_schoolbook(
-        LimbView a,LimbView b,MutableLimbView output);
+        LimbView a, LimbView b, MutableLimbView output);
     //! Force B3 full-product selection using caller-owned output storage.
     static void mul_into_schoolbook(
-        LimbView a,LimbView b,MutableLimbView output);
+        LimbView a, LimbView b, MutableLimbView output);
     //! B8 experimental Karatsuba multiplication (full product only).
     //! Caller supplies output of at least a.size()+b.size() limbs and
     //! disjoint scratch obtained from karatsuba_scratch_limbs(). Both
@@ -284,21 +282,21 @@ class BigUnsigned
     //! this kernel nor its recursive calls allocate. Does NOT change the
     //! selected production multiply. The base case uses selected schoolbook.
     static void mul_into_karatsuba(
-        LimbView a,LimbView b,MutableLimbView output,
+        LimbView a, LimbView b, MutableLimbView output,
         MutableLimbView scratch);
     //! Required B8 scratch size in 64-bit limbs for given input lengths.
     //! Returns zero for base cases; may throw on size arithmetic overflow.
     static std::size_t karatsuba_scratch_limbs(
-        std::size_t a_limbs,std::size_t b_limbs);
+        std::size_t a_limbs, std::size_t b_limbs);
     //! Explicit B8.1 variant with a caller-selected recursion cutoff
     //! (minimum 8 limbs); below cutoff uses current selected schoolbook.
     //! Scratch must be computed using the SAME cutoff. No global state.
     static void mul_into_karatsuba(
-        LimbView a,LimbView b,MutableLimbView output,
-        MutableLimbView scratch,std::size_t cutoff);
+        LimbView a, LimbView b, MutableLimbView output,
+        MutableLimbView scratch, std::size_t cutoff);
     //! Scratch size for a caller-selected Karatsuba recursion cutoff.
     static std::size_t karatsuba_scratch_limbs(
-        std::size_t a_limbs,std::size_t b_limbs,std::size_t cutoff);
+        std::size_t a_limbs, std::size_t b_limbs, std::size_t cutoff);
     //! Whether a supported x86-64 or ARM64 native kernel was built.
     //! Native ARM64 selects the specialized carry-chain kernel by default.
     static bool has_native_multiply() noexcept;
@@ -313,75 +311,75 @@ class BigUnsigned
     //! native ARM64 instead selects the explicit carry-chain kernel.
     static bool selected_multiply_uses_fused() noexcept;
     Limb limb(std::size_t index) const noexcept {
-        return index<_size ? limbs()[index] : 0u;
+        return index < _size ? limbs()[index] : 0u;
     }
     std::size_t bit_length() const noexcept;
     void swap(BigUnsigned& other) noexcept;
 
     //! Compare exact unsigned values: -1, 0 or +1.
-    friend int compare(BigUnsigned const& a, BigUnsigned const& b) noexcept;
+    friend int compare(const BigUnsigned& a, const BigUnsigned& b) noexcept;
 
     //! Exact addition; inputs are never modified.
-    friend BigUnsigned add(BigUnsigned const& a, BigUnsigned const& b);
+    friend BigUnsigned add(const BigUnsigned& a, const BigUnsigned& b);
     //! Exact subtraction; throws std::underflow_error if a < b.
-    friend BigUnsigned sub(BigUnsigned const& a, BigUnsigned const& b);
+    friend BigUnsigned sub(const BigUnsigned& a, const BigUnsigned& b);
     //! Divide by one limb; return normalized quotient and exact remainder.
     //! Throws std::domain_error for a zero divisor.
-    friend std::pair<BigUnsigned,Limb> divrem_limb(
-        BigUnsigned const& a,Limb divisor);
+    friend std::pair<BigUnsigned, Limb> divrem_limb(
+        const BigUnsigned& a, Limb divisor);
     //! Euclidean unsigned quotient and remainder: a = b*q+r, 0 <= r < b.
     //! Returns canonical magnitudes, throws domain_error for b=0.
-    friend std::pair<BigUnsigned,BigUnsigned> divrem(
-        BigUnsigned const& a,BigUnsigned const& b);
+    friend std::pair<BigUnsigned, BigUnsigned> divrem(
+        const BigUnsigned& a, const BigUnsigned& b);
     //! Quotient alone, avoiding storage and normalization of the remainder.
-    friend BigUnsigned quot(BigUnsigned const& a,BigUnsigned const& b);
+    friend BigUnsigned quot(const BigUnsigned& a, const BigUnsigned& b);
     //! Quotient when b is nonzero and known to divide a exactly.
     //! Single-limb divisors use the shared exact-division kernel;
     //! multiprecision divisors retain the general quotient path.
-    friend BigUnsigned quot_exact(BigUnsigned const& a,BigUnsigned const& b);
+    friend BigUnsigned quot_exact(const BigUnsigned& a, const BigUnsigned& b);
     //! Remainder alone, avoiding storage and normalization of the quotient.
-    friend BigUnsigned rem(BigUnsigned const& a,BigUnsigned const& b);
+    friend BigUnsigned rem(const BigUnsigned& a, const BigUnsigned& b);
     //! Exact product of two unsigned magnitudes.
-    friend BigUnsigned mul(BigUnsigned const& a, BigUnsigned const& b);
+    friend BigUnsigned mul(const BigUnsigned& a, const BigUnsigned& b);
 
     //! Product modulo 2^(64*limb_count); zero limbs returns zero.
-    friend BigUnsigned mul_low(BigUnsigned const& a, BigUnsigned const& b,
+    friend BigUnsigned mul_low(const BigUnsigned& a, const BigUnsigned& b,
                                std::size_t limb_count);
 
     //! Exact square (currently uses the full multiplication kernel).
-    friend BigUnsigned square(BigUnsigned const& a);
+    friend BigUnsigned square(const BigUnsigned& a);
 
     //! Floor integer square root, returning the unique r with r*r <= a < (r+1)*(r+1).
     //! Zero maps to zero; does not mutate its input and never uses GMP.
-    friend BigUnsigned isqrt(BigUnsigned const& a);
+    friend BigUnsigned isqrt(const BigUnsigned& a);
     //! Exact unsigned square root and remainder: a = root*root + remainder,
     //! with remainder <= 2*root. Both results are canonical and independently
     //! owned; the input is borrowed, unchanged. Zero maps to {0,0}.
-    friend std::pair<BigUnsigned,BigUnsigned> sqrtrem(BigUnsigned const& a);
+    friend std::pair<BigUnsigned, BigUnsigned> sqrtrem(const BigUnsigned& a);
 
     //! Exact multiplication by 2^bits (no fixed precision limit).
-    friend BigUnsigned shift_left(BigUnsigned const& a, std::size_t bits);
+    friend BigUnsigned shift_left(const BigUnsigned& a, std::size_t bits);
     //! Floor division by 2^bits.
-    friend BigUnsigned shift_right(BigUnsigned const& a, std::size_t bits);
+    friend BigUnsigned shift_right(const BigUnsigned& a, std::size_t bits);
 
     //! Parse decimal digits directly into the owned result storage.
     friend BigUnsigned from_decimal(std::string_view digits);
 };
 
 //! Exact floor square root of an arbitrary nonnegative magnitude.
-BigUnsigned isqrt(BigUnsigned const& a);
+BigUnsigned isqrt(const BigUnsigned& a);
 
 //! Exact root and remainder for n = root^2 + remainder, 0 <= remainder <= 2*root.
-std::pair<BigUnsigned,BigUnsigned> sqrtrem(BigUnsigned const& a);
+std::pair<BigUnsigned, BigUnsigned> sqrtrem(const BigUnsigned& a);
 
 //! Euclidean greatest common divisor of unsigned magnitudes.
 //! gcd(0,0) is zero. Borrows its inputs for the initial Euclidean step.
-BigUnsigned gcd(BigUnsigned const& a,BigUnsigned const& b);
+BigUnsigned gcd(const BigUnsigned& a, const BigUnsigned& b);
 
 //! Exact unsigned power; exponent zero returns one, including 0^0.
 //! Bounded results use local alternating limb buffers; larger
 //! powers retain arbitrary-size owning exponentiation by squaring.
-BigUnsigned pow(BigUnsigned const& base,std::uint64_t exponent);
+BigUnsigned pow(const BigUnsigned& base, std::uint64_t exponent);
 
 //! Parse nonempty ASCII decimal digits into a canonical magnitude.
 //! Leading zeroes are accepted; whitespace and signs are rejected.
@@ -390,7 +388,7 @@ BigUnsigned from_decimal(std::string_view digits);
 
 //! Exact unsigned decimal representation, with no leading zeroes.
 //! Zero is rendered as "0"; does not mutate its argument.
-std::string to_decimal(BigUnsigned const& value);
+std::string to_decimal(const BigUnsigned& value);
 
 } // namespace Ariadne
 

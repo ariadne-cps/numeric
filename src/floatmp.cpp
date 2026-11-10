@@ -27,28 +27,13 @@
  */
 
 #include "numeric/floatmp.hpp"
-#include "numeric/detail/checked_arithmetic.hpp"
-#include "numeric/detail/fixed_point.hpp"
-#include "numeric/integer.hpp"
-#include "numeric/rational.hpp"
-#include "numeric/dyadic.hpp"
-
-#include "numeric/double.hpp"
-#include "numeric/floatdp.hpp"
-#include "numeric/rounding.hpp"
-#include "numeric/positive.hpp"
-#include "numeric/float_upper_bound.hpp"
-#include "numeric/float_lower_bound.hpp"
-#include "numeric/float_bounds.hpp"
-#include "numeric/decimal.hpp"
 
 #include <algorithm>
 #include <array>
 #include <bit>
 #include <climits>
-#include <type_traits>
-#include <cstddef>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <iomanip>
 #include <istream>
@@ -58,122 +43,141 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
+
+#include "numeric/decimal.hpp"
+#include "numeric/detail/checked_arithmetic.hpp"
+#include "numeric/detail/fixed_point.hpp"
+#include "numeric/double.hpp"
+#include "numeric/dyadic.hpp"
+#include "numeric/float_bounds.hpp"
+#include "numeric/float_lower_bound.hpp"
+#include "numeric/float_upper_bound.hpp"
+#include "numeric/floatdp.hpp"
+#include "numeric/integer.hpp"
+#include "numeric/positive.hpp"
+#include "numeric/rational.hpp"
+#include "numeric/rounding.hpp"
 
 namespace Ariadne {
 
 // All unsigned arithmetic in FloatMP uses the repository's optimized
 // 64-bit-limb BigUnsigned; the nonnegative significand is owned directly.
 namespace {
-bool floatmp_test_bit(BigUnsigned::LimbView n,std::size_t bit) noexcept {
+bool floatmp_test_bit(BigUnsigned::LimbView n, std::size_t bit) noexcept {
     // round_short/round_scaled_integer retain at least two bits, so their
     // guard/parity bit is inside the canonical input. get_d_general only
     // reaches this helper for discarded<=width, including the smallest tie.
-    return ((n[bit/64u]>>(bit%64u))&1u)!=0u;
+    return ((n[bit / 64u] >> (bit % 64u)) & 1u) != 0u;
 }
-bool floatmp_test_bit(BigUnsigned const& n,std::size_t bit) noexcept {
-    return floatmp_test_bit(n.limbs(),bit);
+bool floatmp_test_bit(const BigUnsigned& n, std::size_t bit) noexcept {
+    return floatmp_test_bit(n.limbs(), bit);
 }
-bool floatmp_any_bits_below(BigUnsigned::LimbView digits,std::size_t limit) noexcept {
-    return BigUnsigned::any_bits_below(digits,limit);
+bool floatmp_any_bits_below(BigUnsigned::LimbView digits, std::size_t limit) noexcept {
+    return BigUnsigned::any_bits_below(digits, limit);
 }
-bool floatmp_any_bits_below(BigUnsigned const& n,std::size_t limit) noexcept {
-    return floatmp_any_bits_below(n.limbs(),limit);
+bool floatmp_any_bits_below(const BigUnsigned& n, std::size_t limit) noexcept {
+    return floatmp_any_bits_below(n.limbs(), limit);
 }
 // Common rounding policy for the generic and native short kernels.
 // dropped>0; guard/parity bits are in the canonical source view.
-bool floatmp_rounding_increment(FloatMP::Rounding mode,bool negative,
+bool floatmp_rounding_increment(FloatMP::Rounding mode, bool negative,
                                 BigUnsigned::LimbView magnitude,
-                                std::size_t dropped,bool odd) {
-    switch(mode.value()) {
+                                std::size_t dropped, bool odd) {
+    switch (mode.value()) {
         case FloatMP::Rounding::ToNearest:
-            return Detail::nearest_even_binary_increment(magnitude,dropped,odd);
+            return Detail::nearest_even_binary_increment(magnitude, dropped, odd);
         case FloatMP::Rounding::Downward:
-            return negative && floatmp_any_bits_below(magnitude,dropped);
+            return negative && floatmp_any_bits_below(magnitude, dropped);
         case FloatMP::Rounding::Upward:
-            return !negative && floatmp_any_bits_below(magnitude,dropped);
+            return !negative && floatmp_any_bits_below(magnitude, dropped);
         default: // TowardZero.
             return false;
     }
 }
-std::size_t floatmp_popcount(BigUnsigned const& n) noexcept {
-    std::size_t count=0u;
-    for(auto word:n.limbs()) count+=static_cast<std::size_t>(std::popcount(word));
+std::size_t floatmp_popcount(const BigUnsigned& n) noexcept {
+    std::size_t count = 0u;
+    for (auto word: n.limbs())
+        count += static_cast<std::size_t>(std::popcount(word));
     return count;
 }
 // Binary-ratio conversion and decimal formatting use the same exact
 // nearest/even decision: compare twice the remainder with its divisor.
-bool floatmp_half_even_increment(BigUnsigned const& remainder,
-                                 BigUnsigned const& divisor,bool odd) {
-    const int order=compare(shift_left(remainder,1u),divisor);
-    return order>0 || (order==0 && odd);
+bool floatmp_half_even_increment(const BigUnsigned& remainder,
+                                 const BigUnsigned& divisor, bool odd) {
+    const int order = compare(shift_left(remainder, 1u), divisor);
+    return order > 0 || (order == 0 && odd);
 }
-BigUnsigned add_big_unsigned(BigUnsigned const&,BigUnsigned const&);
+BigUnsigned add_big_unsigned(const BigUnsigned&, const BigUnsigned&);
 } // namespace
 // Round a borrowed, canonical nonzero magnitude to at most 64 bits.
 // All bit inspection precedes the write, so the view may alias result.
-void FloatMP::round_short(FloatMP& result,BigUnsigned::LimbView magnitude,
-                          Exponent scale,Rounding mode) {
-    const auto precision=result._precision;
-    const auto width=floatmp_exponent_from_bit_length(
-        (magnitude.size()-1u)*64u+64u-static_cast<unsigned>(std::countl_zero(magnitude.back())));
-    const auto shift=checked_sub(width,static_cast<Exponent>(precision));
-    result._exponent=checked_add(scale,shift);
+void FloatMP::round_short(FloatMP& result, BigUnsigned::LimbView magnitude,
+                          Exponent scale, Rounding mode) {
+    const auto precision = result._precision;
+    const auto width = floatmp_exponent_from_bit_length(
+        (magnitude.size() - 1u) * 64u + 64u - static_cast<unsigned>(std::countl_zero(magnitude.back())));
+    const auto shift = checked_sub(width, static_cast<Exponent>(precision));
+    result._exponent = checked_add(scale, shift);
     // The retained significand fits a limb even when the exact input
     // (e.g. a product or power) spans many limbs. Read its leading
     // window and guard/sticky bits without constructing shifted owners.
     std::uint64_t retained;
-    bool increment=false;
+    bool increment = false;
     if (shift <= 0) {
-        retained=magnitude[0u] << static_cast<unsigned>(-shift);
+        retained = magnitude[0u] << static_cast<unsigned>(-shift);
     } else {
-        const auto dropped=static_cast<std::size_t>(shift);
-        const auto word=dropped/64u;
-        const auto offset=static_cast<unsigned>(dropped%64u);
-        retained=magnitude[word]>>offset;
-        if (offset!=0u && word+1u<magnitude.size()) retained|=magnitude[word+1u]<<(64u-offset);
-        increment=floatmp_rounding_increment(mode,result._negative,
-            magnitude,dropped,(retained&1u)!=0u);
+        const auto dropped = static_cast<std::size_t>(shift);
+        const auto word = dropped / 64u;
+        const auto offset = static_cast<unsigned>(dropped % 64u);
+        retained = magnitude[word] >> offset;
+        if (offset != 0u && word + 1u < magnitude.size())
+            retained |= magnitude[word + 1u] << (64u - offset);
+        increment = floatmp_rounding_increment(mode, result._negative,
+                                               magnitude, dropped, (retained & 1u) != 0u);
     }
-    if (increment) ++retained;
+    if (increment)
+        ++retained;
     // A 64-bit carry wraps to zero; narrower carries remain in the limb.
-    if (retained==0u || (precision<64u && retained==(std::uint64_t{1}<<precision))) {
-        retained=std::uint64_t{1}<<(precision-1u);
-        if (result._exponent==std::numeric_limits<Exponent>::max()) {
-            result=infinity(precision,result._negative);
+    if (retained == 0u || (precision < 64u && retained == (std::uint64_t{1} << precision))) {
+        retained = std::uint64_t{1} << (precision - 1u);
+        if (result._exponent == std::numeric_limits<Exponent>::max()) {
+            result = infinity(precision, result._negative);
             return;
         }
-        result._exponent=checked_add(result._exponent,1);
+        result._exponent = checked_add(result._exponent, 1);
     }
-    result._significand=BigUnsigned(retained);
+    result._significand = BigUnsigned(retained);
 }
 
 // Round a positive native magnitude in place, preserving tie-to-even.
 void FloatMP::round_scaled_integer(FloatMP& result, Exponent scale, Rounding mode) {
     const auto precision = result._precision;
-    if (precision<=64u) {
-        round_short(result,result._significand.limbs(),scale,mode);
+    if (precision <= 64u) {
+        round_short(result, result._significand.limbs(), scale, mode);
         return;
     }
     const Exponent shift = checked_sub(bit_length(result._significand),
                                        static_cast<Exponent>(precision));
     result._exponent = checked_add(scale, shift);
-    if (shift == 0) return;
+    if (shift == 0)
+        return;
     if (shift < 0) {
-        result._significand=shift_left(result._significand,
-            static_cast<std::size_t>(shift_amount(checked_sub(0,shift))));
+        result._significand = shift_left(result._significand,
+                                         static_cast<std::size_t>(shift_amount(checked_sub(0, shift))));
         return;
     }
-    const std::size_t dropped=static_cast<std::size_t>(shift_amount(shift));
-    const bool inexact=floatmp_any_bits_below(result._significand,dropped);
+    const std::size_t dropped = static_cast<std::size_t>(shift_amount(shift));
+    const bool inexact = floatmp_any_bits_below(result._significand, dropped);
     bool increment = false;
     if (inexact) {
         switch (mode.value()) {
             case Rounding::ToNearest:
-                increment=floatmp_test_bit(result._significand,dropped-1u) &&
-                    (floatmp_test_bit(result._significand,dropped) ||
-                     floatmp_any_bits_below(result._significand,dropped-1u));
+                increment = floatmp_test_bit(result._significand, dropped - 1u) &&
+                            (floatmp_test_bit(result._significand, dropped) ||
+                             floatmp_any_bits_below(result._significand, dropped - 1u));
                 break;
             case Rounding::Downward:
                 increment = result._negative;
@@ -185,11 +189,12 @@ void FloatMP::round_scaled_integer(FloatMP& result, Exponent scale, Rounding mod
                 break;
         }
     }
-    result._significand=shift_right(result._significand,dropped);
-    if (increment) result._significand=add_big_unsigned(
-        result._significand,BigUnsigned(1u));
-    if (bit_length(result._significand)>static_cast<Exponent>(precision)) {
-        result._significand=shift_right(result._significand,1u);
+    result._significand = shift_right(result._significand, dropped);
+    if (increment)
+        result._significand = add_big_unsigned(
+            result._significand, BigUnsigned(1u));
+    if (bit_length(result._significand) > static_cast<Exponent>(precision)) {
+        result._significand = shift_right(result._significand, 1u);
         // Crossing the maximal finite exponent by a rounded carry yields infinity.
         if (result._exponent == std::numeric_limits<Exponent>::max()) {
             result = infinity(precision, result._negative);
@@ -202,15 +207,15 @@ void FloatMP::round_scaled_integer(FloatMP& result, Exponent scale, Rounding mod
 namespace {
 // BigUnsigned's hidden-friend add relies on ADL, which is suppressed
 // by FloatMP::add during lookup inside FloatMP member functions.
-BigUnsigned add_big_unsigned(BigUnsigned const& a, BigUnsigned const& b) {
-    return add(a,b);
+BigUnsigned add_big_unsigned(const BigUnsigned& a, const BigUnsigned& b) {
+    return add(a, b);
 }
 // ADL for BigUnsigned's hidden friends is suppressed inside FloatMP::mul.
-BigUnsigned mul_big_unsigned(BigUnsigned const& a, BigUnsigned const& b) {
-    return mul(a,b);
+BigUnsigned mul_big_unsigned(const BigUnsigned& a, const BigUnsigned& b) {
+    return mul(a, b);
 }
-BigUnsigned sub_big_unsigned(BigUnsigned const& a, BigUnsigned const& b) {
-    return sub(a,b);
+BigUnsigned sub_big_unsigned(const BigUnsigned& a, const BigUnsigned& b) {
+    return sub(a, b);
 }
 } // namespace
 
@@ -218,19 +223,19 @@ BigUnsigned sub_big_unsigned(BigUnsigned const& a, BigUnsigned const& b) {
 // BigUnsigned kernels, including for the old <=64-bit fast path.
 // GMP is temporarily confined to the boundary wrapper and FloatMP
 // significand storage until the remaining storage migration.
-FloatMP FloatMP::from_native_ratio(Integer const& numerator,
-                                  Integer const& denominator,
-                                  Exponent scale, unsigned long precision,
-                                  Rounding mode, bool negative_zero,
-                                  bool invert_sign) {
-    return from_unsigned_ratio(numerator.magnitude(),denominator.magnitude(),
-        scale,precision,mode,
-        (numerator.negative()!=denominator.negative())!=invert_sign,negative_zero);
+FloatMP FloatMP::from_native_ratio(const Integer& numerator,
+                                   const Integer& denominator,
+                                   Exponent scale, unsigned long precision,
+                                   Rounding mode, bool negative_zero,
+                                   bool invert_sign) {
+    return from_unsigned_ratio(numerator.magnitude(), denominator.magnitude(),
+                               scale, precision, mode,
+                               (numerator.negative() != denominator.negative()) != invert_sign, negative_zero);
 }
 
-FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
-                                    Exponent scale,unsigned long precision,
-                                    Rounding mode,bool negative,bool negative_zero) {
+FloatMP FloatMP::from_unsigned_ratio(const BigUnsigned& n, const BigUnsigned& d,
+                                     Exponent scale, unsigned long precision,
+                                     Rounding mode, bool negative, bool negative_zero) {
     if (d.is_zero()) {
         throw std::domain_error("FloatMP zero denominator");
     }
@@ -239,15 +244,16 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
         result.set_zero(negative_zero);
         return result;
     }
-    result._negative=negative;
+    result._negative = negative;
 
     // Power-of-two denominators are exact binary scalings. Preserve
     // the fast path used by the old mpq_t constructor without creating a
     // GMP rational or executing a general multi-limb division.
     bool denominator_is_power_of_two = true;
     bool saw_nonzero_limb = false;
-    for (auto limb : d.limbs()) {
-        if (limb == 0u) continue;
+    for (auto limb: d.limbs()) {
+        if (limb == 0u)
+            continue;
         if (saw_nonzero_limb || !std::has_single_bit(limb)) {
             denominator_is_power_of_two = false;
             break;
@@ -256,162 +262,180 @@ FloatMP FloatMP::from_unsigned_ratio(BigUnsigned const& n,BigUnsigned const& d,
     }
     if (denominator_is_power_of_two) {
         const Exponent denominator_shift =
-            floatmp_exponent_from_bit_length(d.bit_length()-1u);
-        result._significand=n;
-        round_scaled_integer(result,checked_sub(scale,denominator_shift),mode);
+            floatmp_exponent_from_bit_length(d.bit_length() - 1u);
+        result._significand = n;
+        round_scaled_integer(result, checked_sub(scale, denominator_shift), mode);
         return result;
     }
 
-    if (precision<=64u && n.size()==1u && d.size()==1u) {
+    if (precision <= 64u && n.size() == 1u && d.size() == 1u) {
         // Normalize a short ratio using scalar metadata, then use the
         // shared exact 128/64 limb divider. The scaled numerator needs at
         // most p+bit_length(d) bits; the quotient always fits one limb.
-        const std::uint64_t numerator=n.limb(0u),denominator=d.limb(0u);
-        Exponent k=static_cast<Exponent>(std::countl_zero(denominator))-
-                   static_cast<Exponent>(std::countl_zero(numerator));
-        if (k>=0 ? numerator<(denominator<<static_cast<unsigned>(k))
-                 : (numerator<<static_cast<unsigned>(-k))<denominator) --k;
-        const Exponent shift=static_cast<Exponent>(precision-1u)-k;
-        std::array<std::uint64_t,2u> dividend{};
-        std::uint64_t divisor=denominator;
-        if (shift>=64) {
-            dividend[1u]=numerator<<static_cast<unsigned>(shift-64);
-        } else if (shift>=0) {
-            const auto s=static_cast<unsigned>(shift);
-            dividend[0u]=numerator<<s;
-            if (s!=0u) dividend[1u]=numerator>>(64u-s);
+        const std::uint64_t numerator = n.limb(0u), denominator = d.limb(0u);
+        Exponent k = static_cast<Exponent>(std::countl_zero(denominator)) -
+                     static_cast<Exponent>(std::countl_zero(numerator));
+        if (k >= 0 ? numerator < (denominator << static_cast<unsigned>(k))
+                   : (numerator << static_cast<unsigned>(-k)) < denominator)
+            --k;
+        const Exponent shift = static_cast<Exponent>(precision - 1u) - k;
+        std::array<std::uint64_t, 2u> dividend{};
+        std::uint64_t divisor = denominator;
+        if (shift >= 64) {
+            dividend[1u] = numerator << static_cast<unsigned>(shift - 64);
+        } else if (shift >= 0) {
+            const auto s = static_cast<unsigned>(shift);
+            dividend[0u] = numerator << s;
+            if (s != 0u)
+                dividend[1u] = numerator >> (64u - s);
         } else {
-            dividend[0u]=numerator;
-            divisor<<=static_cast<unsigned>(-shift);
+            dividend[0u] = numerator;
+            divisor <<= static_cast<unsigned>(-shift);
         }
-        std::uint64_t remainder=0u;
-        std::uint64_t retained=0u;
+        std::uint64_t remainder = 0u;
+        std::uint64_t retained = 0u;
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__)) && !defined(_WIN32)
         // M150: the normalized quotient fits one limb, so the upper
         // dividend word is strictly below the divisor. One DIVQ gives
         // the *exact* quotient and remainder, without a general limb
         // view, output array clearing or a second division.
-        std::uint64_t low=dividend[0u];
-        std::uint64_t high=dividend[1u];
+        std::uint64_t low = dividend[0u];
+        std::uint64_t high = dividend[1u];
         __asm__ volatile("divq %[d]"
-            : "+&a"(low), "+&d"(high)
-            : [d] "r"(divisor)
-            : "cc");
-        retained=low;
-        remainder=high;
+                         : "+&a"(low), "+&d"(high)
+                         : [d] "r"(divisor)
+                         : "cc");
+        retained = low;
+        remainder = high;
 #else
-        std::array<std::uint64_t,2u> quotient{};
-        remainder=BigUnsigned::divrem_limb_into(
-            BigUnsigned::LimbView(dividend.data(),dividend[1u]!=0u ? 2u : 1u),
-            divisor,quotient);
-        retained=quotient[0u];
+        std::array<std::uint64_t, 2u> quotient{};
+        remainder = BigUnsigned::divrem_limb_into(
+            BigUnsigned::LimbView(dividend.data(), dividend[1u] != 0u ? 2u : 1u),
+            divisor, quotient);
+        retained = quotient[0u];
 #endif
-        bool increment=false;
-        if (remainder!=0u) {
-            switch(mode.value()) {
+        bool increment = false;
+        if (remainder != 0u) {
+            switch (mode.value()) {
                 case Rounding::ToNearest:
-                    increment=remainder>divisor-remainder ||
-                        (remainder==divisor-remainder && (retained&1u)!=0u);
+                    increment = remainder > divisor - remainder ||
+                                (remainder == divisor - remainder && (retained & 1u) != 0u);
                     break;
-                case Rounding::Downward: increment=negative; break;
-                case Rounding::Upward: increment=!negative; break;
+                case Rounding::Downward:
+                    increment = negative;
+                    break;
+                case Rounding::Upward:
+                    increment = !negative;
+                    break;
                 default: // TowardZero: the fourth value of the closed rounding type.
-                break;
+                    break;
             }
         }
-        result._exponent=checked_add(scale,k-static_cast<Exponent>(precision-1u));
-        if (increment) ++retained;
+        result._exponent = checked_add(scale, k - static_cast<Exponent>(precision - 1u));
+        if (increment)
+            ++retained;
         // The normalized quotient is positive. At p=64 it cannot reach
         // UINT64_MAX: for k<0, its gap below 2^64 is >=2^64/d>1.
         // For k>=0, q=UINT64_MAX would force S=2^(63-k)>=d;
         // the gap is then >=S/d>=1, with equality only for the excluded
         // power-of-two denominator d=S. Increment therefore cannot wrap.
-        if (precision<64u && retained==(std::uint64_t{1}<<precision)) {
-            retained=std::uint64_t{1}<<(precision-1u);
-            if (result._exponent==std::numeric_limits<Exponent>::max()) return infinity(precision,negative);
-            result._exponent=checked_add(result._exponent,1);
+        if (precision < 64u && retained == (std::uint64_t{1} << precision)) {
+            retained = std::uint64_t{1} << (precision - 1u);
+            if (result._exponent == std::numeric_limits<Exponent>::max())
+                return infinity(precision, negative);
+            result._exponent = checked_add(result._exponent, 1);
         }
-        result._significand=BigUnsigned(retained);
+        result._significand = BigUnsigned(retained);
         return result;
     }
 
-    Exponent k=checked_sub(floatmp_exponent_from_bit_length(n.bit_length()),
-                           floatmp_exponent_from_bit_length(d.bit_length()));
-    if (k>=0) {
-        if (compare(n,shift_left(d,shift_amount(k)))<0) {
-            k=checked_sub(k,1);
+    Exponent k = checked_sub(floatmp_exponent_from_bit_length(n.bit_length()),
+                             floatmp_exponent_from_bit_length(d.bit_length()));
+    if (k >= 0) {
+        if (compare(n, shift_left(d, shift_amount(k))) < 0) {
+            k = checked_sub(k, 1);
         }
     } else {
-        if (compare(shift_left(n,shift_amount(checked_sub(0,k))),d)<0) {
-            k=checked_sub(k,1);
+        if (compare(shift_left(n, shift_amount(checked_sub(0, k))), d) < 0) {
+            k = checked_sub(k, 1);
         }
     }
 
-    Exponent const shift=checked_sub(static_cast<Exponent>(precision-1u),k);
+    const Exponent shift = checked_sub(static_cast<Exponent>(precision - 1u), k);
     BigUnsigned dividend;
     BigUnsigned divisor;
-    if (shift>=0) {
-        dividend=shift_left(n,shift_amount(shift));
-        divisor=d;
+    if (shift >= 0) {
+        dividend = shift_left(n, shift_amount(shift));
+        divisor = d;
     } else {
-        dividend=n;
-        divisor=shift_left(d,shift_amount(checked_sub(0,shift)));
+        dividend = n;
+        divisor = shift_left(d, shift_amount(checked_sub(0, shift)));
     }
-    auto [quotient,remainder]=divrem(dividend,divisor);
-    bool increment=false;
+    auto [quotient, remainder] = divrem(dividend, divisor);
+    bool increment = false;
     if (!remainder.is_zero()) {
         switch (mode.value()) {
             case Rounding::ToNearest:
-                increment=floatmp_half_even_increment(remainder,divisor,(quotient.limb(0u)&1u)!=0u);
+                increment = floatmp_half_even_increment(remainder, divisor, (quotient.limb(0u) & 1u) != 0u);
                 break;
-            case Rounding::Downward: increment=result._negative; break;
-            case Rounding::Upward: increment=!result._negative; break;
+            case Rounding::Downward:
+                increment = result._negative;
+                break;
+            case Rounding::Upward:
+                increment = !result._negative;
+                break;
             default: // TowardZero: the fourth value of the closed rounding type.
                 break;
         }
     }
-    if (increment) quotient=add_big_unsigned(quotient,BigUnsigned(1u));
-    result._exponent=checked_add(
-        scale,checked_sub(k,static_cast<Exponent>(precision-1u)));
-    if (quotient.bit_length()>precision) {
-        quotient=shift_right(quotient,1u);
-        if (result._exponent==std::numeric_limits<Exponent>::max()) {
-            return infinity(precision,result._negative);
+    if (increment)
+        quotient = add_big_unsigned(quotient, BigUnsigned(1u));
+    result._exponent = checked_add(
+        scale, checked_sub(k, static_cast<Exponent>(precision - 1u)));
+    if (quotient.bit_length() > precision) {
+        quotient = shift_right(quotient, 1u);
+        if (result._exponent == std::numeric_limits<Exponent>::max()) {
+            return infinity(precision, result._negative);
         }
-        result._exponent=checked_add(result._exponent,1);
+        result._exponent = checked_add(result._exponent, 1);
     }
-    result._significand=std::move(quotient);
+    result._significand = std::move(quotient);
     return result;
 }
 
 FloatMP FloatMP::negate(FloatMP x) {
-    if (!x.is_nan()) x._negative = !x._negative;
+    if (!x.is_nan())
+        x._negative = !x._negative;
     return x;
 }
 
-FloatMP FloatMP::add(FloatMP const& a, FloatMP const& b,
-unsigned long p, Rounding mode) {
+FloatMP FloatMP::add(const FloatMP& a, const FloatMP& b,
+                     unsigned long p, Rounding mode) {
     return add_sub(a, b, p, mode, false);
 }
 
-FloatMP FloatMP::sub(FloatMP const& a, FloatMP const& b,
-unsigned long p, Rounding mode) {
+FloatMP FloatMP::sub(const FloatMP& a, const FloatMP& b,
+                     unsigned long p, Rounding mode) {
     return add_sub(a, b, p, mode, true);
 }
 
-FloatMP FloatMP::add_sub(FloatMP const& a, FloatMP const& b,
-unsigned long p, Rounding mode, bool subtract) {
+FloatMP FloatMP::add_sub(const FloatMP& a, const FloatMP& b,
+                         unsigned long p, Rounding mode, bool subtract) {
     const bool b_negative = b._negative != subtract;
-    if (a.is_nan() || b.is_nan()) return nan(p);
+    if (a.is_nan() || b.is_nan())
+        return nan(p);
     if (a.is_inf() || b.is_inf()) {
-        if (a.is_inf() && b.is_inf() && a._negative != b_negative) return nan(p);
+        if (a.is_inf() && b.is_inf() && a._negative != b_negative)
+            return nan(p);
         return infinity(p, a.is_inf() ? a._negative : b_negative);
     }
     if (a.is_zero() && b.is_zero()) {
         return zero(p, a._negative == b_negative ? a._negative : mode == Rounding::Downward);
     }
-    if (a.is_zero()) return FloatMP(subtract ? negate(b) : b, mode, PrecisionType(p));
-    if (b.is_zero()) return FloatMP(a, mode, PrecisionType(p));
+    if (a.is_zero())
+        return FloatMP(subtract ? negate(b) : b, mode, PrecisionType(p));
+    if (b.is_zero())
+        return FloatMP(a, mode, PrecisionType(p));
 
     // Align the exact integers for ordinary gaps; for immense gaps use
     // a rigorously small, signed sticky term before a single rounding.
@@ -419,8 +443,8 @@ unsigned long p, Rounding mode, bool subtract) {
     // subtraction and ties, including when the tiny operand opposes the
     // large operand.
     const bool a_high = a._exponent >= b._exponent;
-    FloatMP const& high = a_high ? a : b;
-    FloatMP const& low = a_high ? b : a;
+    const FloatMP& high = a_high ? a : b;
+    const FloatMP& low = a_high ? b : a;
     const bool high_negative = a_high ? a._negative : b_negative;
     const bool low_negative = a_high ? b_negative : a._negative;
     // Unsigned subtraction handles even INT64_MAX - INT64_MIN exactly.
@@ -431,187 +455,204 @@ unsigned long p, Rounding mode, bool subtract) {
     const std::uint64_t high_bits = static_cast<std::uint64_t>(high._precision);
     const std::uint64_t low_bits = static_cast<std::uint64_t>(low._precision);
     const bool far_apart = gap > high_bits && gap - high_bits > low_bits &&
-        gap - high_bits - low_bits > static_cast<std::uint64_t>(p) + 2u;
+                           gap - high_bits - low_bits > static_cast<std::uint64_t>(p) + 2u;
     if (far_apart) {
         // Preserve the certified signed-sticky approximation using native
         // Integer for signed arithmetic and BigUnsigned for exact shifts.
-        const Exponent padding=checked_add(
+        const Exponent padding = checked_add(
             checked_add(static_cast<Exponent>(high._precision),
-                        static_cast<Exponent>(p)),2);
-        const auto shift=static_cast<std::size_t>(shift_amount(padding));
-        Integer exact=Integer::from_magnitude(
-            shift_left(high._significand,shift),high_negative);
-        exact=low_negative ? exact-Integer(1) : exact+Integer(1);
-        const Integer denominator=Integer::from_magnitude(
-            shift_left(BigUnsigned(1u),shift),false);
-        return from_native_ratio(exact,denominator,high._exponent,p,mode);
+                        static_cast<Exponent>(p)),
+            2);
+        const auto shift = static_cast<std::size_t>(shift_amount(padding));
+        Integer exact = Integer::from_magnitude(
+            shift_left(high._significand, shift), high_negative);
+        exact = low_negative ? exact - Integer(1) : exact + Integer(1);
+        const Integer denominator = Integer::from_magnitude(
+            shift_left(BigUnsigned(1u), shift), false);
+        return from_native_ratio(exact, denominator, high._exponent, p, mode);
     }
 
     // For short results, shared shifted-combine kernels avoid an owning
     // shifted operand, including product/addend alignment in a fused op.
-    if (p<=64u && gap<64u) {
+    if (p <= 64u && gap < 64u) {
         FloatMP result(p);
-        result._negative=high_negative;
-        const auto shift=static_cast<unsigned>(gap);
-        if (high_negative==low_negative) {
-            result._significand=BigUnsigned::add_shifted(
-                high._significand.limbs(),shift,low._significand.limbs(),0u);
+        result._negative = high_negative;
+        const auto shift = static_cast<unsigned>(gap);
+        if (high_negative == low_negative) {
+            result._significand = BigUnsigned::add_shifted(
+                high._significand.limbs(), shift, low._significand.limbs(), 0u);
         } else {
             // A larger exponent need not mean a larger magnitude when
             // input precisions differ. Compare without a shifted owner.
-            const auto high_width=static_cast<std::uint64_t>(high._significand.bit_length())+gap;
-            const auto low_width=static_cast<std::uint64_t>(low._significand.bit_length());
-            bool high_larger=high_width>low_width;
-            if (high_width==low_width) {
+            const auto high_width = static_cast<std::uint64_t>(high._significand.bit_length()) + gap;
+            const auto low_width = static_cast<std::uint64_t>(low._significand.bit_length());
+            bool high_larger = high_width > low_width;
+            if (high_width == low_width) {
                 // Equal widths are uncommon for mixed precisions. The
                 // shared exact comparison retains cancellation semantics.
-                high_larger=compare(shift_left(high._significand,shift),low._significand)>=0;
+                high_larger = compare(shift_left(high._significand, shift), low._significand) >= 0;
             }
-            result._significand=high_larger
-                ? BigUnsigned::sub_shifted(high._significand.limbs(),shift,low._significand.limbs(),0u)
-                : BigUnsigned::sub_shifted(low._significand.limbs(),0u,high._significand.limbs(),shift);
-            if (!high_larger) result._negative=!result._negative;
+            result._significand = high_larger
+                                    ? BigUnsigned::sub_shifted(high._significand.limbs(), shift, low._significand.limbs(), 0u)
+                                    : BigUnsigned::sub_shifted(low._significand.limbs(), 0u, high._significand.limbs(), shift);
+            if (!high_larger)
+                result._negative = !result._negative;
         }
-        if (result._significand.is_zero()) result.set_zero(mode==Rounding::Downward);
-        else round_scaled_integer(result,low._exponent,mode);
+        if (result._significand.is_zero())
+            result.set_zero(mode == Rounding::Downward);
+        else
+            round_scaled_integer(result, low._exponent, mode);
         return result;
     }
 
     // For ordinary larger gaps, align and combine positive magnitudes natively.
     // Preserve the independent sign metadata and a single final rounding.
     FloatMP result(p);
-    result._negative=high_negative;
-    BigUnsigned aligned=shift_left(high._significand,
-        static_cast<std::size_t>(
-            shift_amount(checked_sub(high._exponent,low._exponent))));
-    if(a._negative==b_negative) {
-        aligned=add_big_unsigned(aligned,low._significand);
+    result._negative = high_negative;
+    BigUnsigned aligned = shift_left(high._significand,
+                                     static_cast<std::size_t>(
+                                         shift_amount(checked_sub(high._exponent, low._exponent))));
+    if (a._negative == b_negative) {
+        aligned = add_big_unsigned(aligned, low._significand);
     } else {
-        if(compare(aligned,low._significand)<0) {
-            aligned=sub_big_unsigned(low._significand,aligned);
-            result._negative=!result._negative;
+        if (compare(aligned, low._significand) < 0) {
+            aligned = sub_big_unsigned(low._significand, aligned);
+            result._negative = !result._negative;
         } else {
-            aligned=sub_big_unsigned(aligned,low._significand);
+            aligned = sub_big_unsigned(aligned, low._significand);
         }
     }
-    if(aligned.is_zero()) {
-        result.set_zero(mode==Rounding::Downward);
+    if (aligned.is_zero()) {
+        result.set_zero(mode == Rounding::Downward);
         return result;
     }
-    result._significand=std::move(aligned);
-    round_scaled_integer(result,low._exponent,mode);
+    result._significand = std::move(aligned);
+    round_scaled_integer(result, low._exponent, mode);
     return result;
 }
 
-FloatMP FloatMP::mul(FloatMP const& a, FloatMP const& b,
-unsigned long p, Rounding mode) {
-    if (a.is_nan() || b.is_nan() || (a.is_inf() && b.is_zero()) || (a.is_zero() && b.is_inf())) return nan(p);
+FloatMP FloatMP::mul(const FloatMP& a, const FloatMP& b,
+                     unsigned long p, Rounding mode) {
+    if (a.is_nan() || b.is_nan() || (a.is_inf() && b.is_zero()) || (a.is_zero() && b.is_inf()))
+        return nan(p);
     const bool neg = a._negative != b._negative;
-    if (a.is_inf() || b.is_inf()) return infinity(p, neg);
-    if (a.is_zero() || b.is_zero()) return zero(p, neg);
+    if (a.is_inf() || b.is_inf())
+        return infinity(p, neg);
+    if (a.is_zero() || b.is_zero())
+        return zero(p, neg);
     FloatMP result(p);
     result._negative = neg;
-    if (p<=64u && a._significand.size()<=2u && b._significand.size()<=2u) {
-        std::array<BigUnsigned::Limb,4u> product;
-        const auto count=a._significand.size()+b._significand.size();
-        BigUnsigned::mul_into(a._significand.limbs(),b._significand.limbs(),
-            BigUnsigned::MutableLimbView(product.data(),count));
-        auto used=count;
-        while (product[used-1u]==0u) --used;
-        round_short(result,BigUnsigned::LimbView(product.data(),used),
-                    checked_add(a._exponent,b._exponent),mode);
+    if (p <= 64u && a._significand.size() <= 2u && b._significand.size() <= 2u) {
+        std::array<BigUnsigned::Limb, 4u> product;
+        const auto count = a._significand.size() + b._significand.size();
+        BigUnsigned::mul_into(a._significand.limbs(), b._significand.limbs(),
+                              BigUnsigned::MutableLimbView(product.data(), count));
+        auto used = count;
+        while (product[used - 1u] == 0u)
+            --used;
+        round_short(result, BigUnsigned::LimbView(product.data(), used),
+                    checked_add(a._exponent, b._exponent), mode);
         return result;
     }
-    result._significand=mul_big_unsigned(a._significand,b._significand);
-    round_scaled_integer(result,checked_add(a._exponent,b._exponent),mode);
+    result._significand = mul_big_unsigned(a._significand, b._significand);
+    round_scaled_integer(result, checked_add(a._exponent, b._exponent), mode);
     return result;
 }
 
-FloatMP FloatMP::div(FloatMP const& a, FloatMP const& b,
-unsigned long p, Rounding mode) {
-    if (a.is_nan() || b.is_nan() || (a.is_zero() && b.is_zero()) || (a.is_inf() && b.is_inf())) return nan(p);
+FloatMP FloatMP::div(const FloatMP& a, const FloatMP& b,
+                     unsigned long p, Rounding mode) {
+    if (a.is_nan() || b.is_nan() || (a.is_zero() && b.is_zero()) || (a.is_inf() && b.is_inf()))
+        return nan(p);
     const bool neg = a._negative != b._negative;
-    if (a.is_inf() || b.is_zero()) return infinity(p, neg);
-    if (a.is_zero() || b.is_inf()) return zero(p, neg);
+    if (a.is_inf() || b.is_zero())
+        return infinity(p, neg);
+    if (a.is_zero() || b.is_inf())
+        return zero(p, neg);
     // Borrow the unsigned magnitudes; no signed Integer copies are needed.
-    return from_unsigned_ratio(a._significand,b._significand,
-                             checked_sub(a._exponent,b._exponent),
-                             p,mode,neg);
+    return from_unsigned_ratio(a._significand, b._significand,
+                               checked_sub(a._exponent, b._exponent),
+                               p, mode, neg);
 }
 
-FloatMP FloatMP::fma(FloatMP const& a, FloatMP const& b,
-FloatMP const& c, unsigned long p, Rounding mode) {
-    if (a.is_nan() || b.is_nan() || c.is_nan() || (a.is_zero() && b.is_inf()) || (a.is_inf() && b.is_zero())) return nan(p);
+FloatMP FloatMP::fma(const FloatMP& a, const FloatMP& b,
+                     const FloatMP& c, unsigned long p, Rounding mode) {
+    if (a.is_nan() || b.is_nan() || c.is_nan() || (a.is_zero() && b.is_inf()) || (a.is_inf() && b.is_zero()))
+        return nan(p);
     const bool neg = a._negative != b._negative;
     if (a.is_inf() || b.is_inf()) {
-        if (c.is_inf() && c._negative != neg) return nan(p);
+        if (c.is_inf() && c._negative != neg)
+            return nan(p);
         return infinity(p, neg);
     }
-    if (c.is_inf()) return infinity(p, c._negative);
-    if (a.is_zero() || b.is_zero()) return add(zero(p, neg), c, p, mode);
+    if (c.is_inf())
+        return infinity(p, c._negative);
+    if (a.is_zero() || b.is_zero())
+        return add(zero(p, neg), c, p, mode);
     // Short fused a*b+c: align the exact 128-bit product and the exact
     // one-limb addend directly, then round ONCE. This avoids creating a
     // full-precision temporary FloatMP and re-entering add_sub's generic
     // special-value and exponent dispatch. All arithmetic remains exact.
-    if (p<=64u && a._significand.size()==1u &&
-        b._significand.size()==1u && c._significand.size()==1u) {
-        const Exponent product_scale=checked_add(a._exponent,b._exponent);
-        const bool product_high=product_scale>=c._exponent;
-        const std::uint64_t gap=product_high
-            ? static_cast<std::uint64_t>(product_scale)-
-              static_cast<std::uint64_t>(c._exponent)
-            : static_cast<std::uint64_t>(c._exponent)-
-              static_cast<std::uint64_t>(product_scale);
-        if (gap<64u) {
-            std::array<BigUnsigned::Limb,2u> product{};
+    if (p <= 64u && a._significand.size() == 1u &&
+        b._significand.size() == 1u && c._significand.size() == 1u) {
+        const Exponent product_scale = checked_add(a._exponent, b._exponent);
+        const bool product_high = product_scale >= c._exponent;
+        const std::uint64_t gap = product_high
+                                    ? static_cast<std::uint64_t>(product_scale) -
+                                          static_cast<std::uint64_t>(c._exponent)
+                                    : static_cast<std::uint64_t>(c._exponent) -
+                                          static_cast<std::uint64_t>(product_scale);
+        if (gap < 64u) {
+            std::array<BigUnsigned::Limb, 2u> product{};
             BigUnsigned::mul_into(a._significand.limbs(),
-                b._significand.limbs(),product);
-            const auto used=product[1u]==0u ? 1u : 2u;
-            const BigUnsigned::LimbView product_words(product.data(),used);
-            const auto addend_words=c._significand.limbs();
-            const unsigned product_shift=product_high
-                ? static_cast<unsigned>(gap) : 0u;
-            const unsigned addend_shift=product_high
-                ? 0u : static_cast<unsigned>(gap);
+                                  b._significand.limbs(), product);
+            const auto used = product[1u] == 0u ? 1u : 2u;
+            const BigUnsigned::LimbView product_words(product.data(), used);
+            const auto addend_words = c._significand.limbs();
+            const unsigned product_shift = product_high
+                                             ? static_cast<unsigned>(gap)
+                                             : 0u;
+            const unsigned addend_shift = product_high
+                                            ? 0u
+                                            : static_cast<unsigned>(gap);
             FloatMP result(p);
-            result._negative=neg;
-            if (neg==c._negative) {
-                result._significand=BigUnsigned::add_shifted(
-                    product_words,product_shift,addend_words,addend_shift);
+            result._negative = neg;
+            if (neg == c._negative) {
+                result._significand = BigUnsigned::add_shifted(
+                    product_words, product_shift, addend_words, addend_shift);
             } else {
                 // Different signs can cancel. Decide the exact magnitude
                 // ordering before subtracting; equal leading widths require
                 // a full limb comparison, never a rounded approximation.
-                const std::size_t product_width=
-                    (used-1u)*64u+64u-static_cast<unsigned>(
-                        std::countl_zero(product[used-1u]))+product_shift;
-                const std::size_t addend_width=
-                    c._significand.bit_length()+addend_shift;
-                const bool product_larger=product_width>addend_width ||
-                    (product_width==addend_width &&
-                     compare(shift_left(BigUnsigned(product_words),product_shift),
-                             shift_left(c._significand,addend_shift))>=0);
-                result._significand=product_larger
-                    ? BigUnsigned::sub_shifted(product_words,product_shift,
-                                               addend_words,addend_shift)
-                    : BigUnsigned::sub_shifted(addend_words,addend_shift,
-                                               product_words,product_shift);
-                if (!product_larger) result._negative=!result._negative;
+                const std::size_t product_width =
+                    (used - 1u) * 64u + 64u - static_cast<unsigned>(std::countl_zero(product[used - 1u])) + product_shift;
+                const std::size_t addend_width =
+                    c._significand.bit_length() + addend_shift;
+                const bool product_larger = product_width > addend_width ||
+                                            (product_width == addend_width &&
+                                             compare(shift_left(BigUnsigned(product_words), product_shift),
+                                                     shift_left(c._significand, addend_shift)) >= 0);
+                result._significand = product_larger
+                                        ? BigUnsigned::sub_shifted(product_words, product_shift,
+                                                                   addend_words, addend_shift)
+                                        : BigUnsigned::sub_shifted(addend_words, addend_shift,
+                                                                   product_words, product_shift);
+                if (!product_larger)
+                    result._negative = !result._negative;
             }
             if (result._significand.is_zero()) {
-                result.set_zero(mode==Rounding::Downward);
+                result.set_zero(mode == Rounding::Downward);
             } else {
                 round_scaled_integer(result,
-                    product_high ? c._exponent : product_scale,mode);
+                                     product_high ? c._exponent : product_scale, mode);
             }
             return result;
         }
     }
     // Wide operands and large gaps retain the proven general single-round
     // fused path, including signed-sticky alignment and mixed precisions.
-    BigUnsigned product=mul_big_unsigned(a._significand,b._significand);
+    BigUnsigned product = mul_big_unsigned(a._significand, b._significand);
     FloatMP exact(static_cast<unsigned long>(product.bit_length()));
-    exact._significand=std::move(product);
+    exact._significand = std::move(product);
     exact._negative = neg;
     exact._exponent = checked_add(a._exponent, b._exponent);
     return add(exact, c, p, mode);
@@ -620,13 +661,13 @@ FloatMP const& c, unsigned long p, Rounding mode) {
 // Integer owns a native signed magnitude; no mpz_t import is required,
 // including for INT64_MIN.
 FloatMP::Float(std::int64_t n, PrecisionType pr)
-    : Float(Integer(n), ROUND_TO_NEAREST, pr) { }
+    : Float(Integer(n), ROUND_TO_NEAREST, pr) {}
 
 namespace {
 thread_local FloatMP::RoundingModeType floatmp_current_rounding =
     FloatMP::ROUND_TO_NEAREST;
 thread_local std::size_t floatmp_default_precision = 53;
-}
+} // namespace
 
 FloatMP::RoundingModeType FloatMP::get_rounding_mode() noexcept {
     return floatmp_current_rounding;
@@ -643,71 +684,71 @@ void FloatMP::set_default_precision(PrecisionType precision) {
 
 void FloatMP::set_rounding_mode(RoundingModeType mode) {
     // Every defined Rounding value denotes one of the four supported modes.
-    floatmp_current_rounding=mode;
+    floatmp_current_rounding = mode;
 }
 
-FloatMP::Rounding::Rounding(RoundToNearest const&) noexcept : _value(ToNearest) { }
-FloatMP::Rounding::Rounding(RoundDownward const&) noexcept : _value(Downward) { }
-FloatMP::Rounding::Rounding(RoundUpward const&) noexcept : _value(Upward) { }
-FloatMP::Rounding::Rounding(RoundTowardZero const&) noexcept : _value(TowardZero) { }
-FloatMP::Rounding::Rounding(RoundApproximately const&) noexcept : _value(ToNearest) { }
-FloatMP::Rounding::Rounding(CurrentRoundingMode const&) noexcept
-    : _value(FloatMP::get_rounding_mode().value()) { }
+FloatMP::Rounding::Rounding(const RoundToNearest&) noexcept : _value(ToNearest) {}
+FloatMP::Rounding::Rounding(const RoundDownward&) noexcept : _value(Downward) {}
+FloatMP::Rounding::Rounding(const RoundUpward&) noexcept : _value(Upward) {}
+FloatMP::Rounding::Rounding(const RoundTowardZero&) noexcept : _value(TowardZero) {}
+FloatMP::Rounding::Rounding(const RoundApproximately&) noexcept : _value(ToNearest) {}
+FloatMP::Rounding::Rounding(const CurrentRoundingMode&) noexcept
+    : _value(FloatMP::get_rounding_mode().value()) {}
 
-FloatMP::Rounding::Rounding(Ariadne::Rounding const& mode) noexcept
-    : _value(static_cast<BuiltinRoundingModeType>(mode)==Ariadne::ROUND_DOWNWARD ? Downward
-             : static_cast<BuiltinRoundingModeType>(mode)==Ariadne::ROUND_UPWARD ? Upward
-             : static_cast<BuiltinRoundingModeType>(mode)==Ariadne::ROUND_TOWARD_ZERO ? TowardZero
-             : ToNearest) { }
+FloatMP::Rounding::Rounding(const Ariadne::Rounding& mode) noexcept
+    : _value(static_cast<BuiltinRoundingModeType>(mode) == Ariadne::ROUND_DOWNWARD      ? Downward
+             : static_cast<BuiltinRoundingModeType>(mode) == Ariadne::ROUND_UPWARD      ? Upward
+             : static_cast<BuiltinRoundingModeType>(mode) == Ariadne::ROUND_TOWARD_ZERO ? TowardZero
+                                                                                        : ToNearest) {}
 
 // Forward current-rounding operations to the existing native implementation.
-FloatMP sqr(CurrentRoundingMode, FloatMP const& x) { return sqr(FloatMP::get_rounding_mode(),x); }
-FloatMP rec(CurrentRoundingMode, FloatMP const& x) { return rec(FloatMP::get_rounding_mode(),x); }
-FloatMP add(CurrentRoundingMode, FloatMP const& x1, FloatMP const& x2) { return add(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP sub(CurrentRoundingMode, FloatMP const& x1, FloatMP const& x2) { return sub(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP mul(CurrentRoundingMode, FloatMP const& x1, FloatMP const& x2) { return mul(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP div(CurrentRoundingMode, FloatMP const& x1, FloatMP const& x2) { return div(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP fma(CurrentRoundingMode, FloatMP const& x1, FloatMP const& x2, FloatMP const& x3) { return fma(FloatMP::get_rounding_mode(),x1,x2,x3); }
-FloatMP pow(CurrentRoundingMode, FloatMP const& x, Nat m) { return pow(FloatMP::get_rounding_mode(),x,m); }
-FloatMP pow(CurrentRoundingMode, FloatMP const& x, Int n) { return pow(FloatMP::get_rounding_mode(),x,n); }
-FloatMP sqrt(CurrentRoundingMode, FloatMP const& x) { return sqrt(FloatMP::get_rounding_mode(),x); }
-FloatMP exp(CurrentRoundingMode, FloatMP const& x) { return exp(FloatMP::get_rounding_mode(),x); }
-FloatMP log(CurrentRoundingMode, FloatMP const& x) { return log(FloatMP::get_rounding_mode(),x); }
-FloatMP sin(CurrentRoundingMode, FloatMP const& x) { return sin(FloatMP::get_rounding_mode(),x); }
-FloatMP cos(CurrentRoundingMode, FloatMP const& x) { return cos(FloatMP::get_rounding_mode(),x); }
-FloatMP tan(CurrentRoundingMode, FloatMP const& x) { return tan(FloatMP::get_rounding_mode(),x); }
-FloatMP tanh(CurrentRoundingMode, FloatMP const& x) { return tanh(FloatMP::get_rounding_mode(),x); }
-FloatMP asin(CurrentRoundingMode, FloatMP const& x) { return asin(FloatMP::get_rounding_mode(),x); }
-FloatMP acos(CurrentRoundingMode, FloatMP const& x) { return acos(FloatMP::get_rounding_mode(),x); }
-FloatMP atan(CurrentRoundingMode, FloatMP const& x) { return atan(FloatMP::get_rounding_mode(),x); }
-FloatMP FloatMP::pi(CurrentRoundingMode, MultiplePrecision pr) { return pi(FloatMP::get_rounding_mode(),pr); }
-FloatMP add(CurrentRoundingMode, FloatMP const& x1, FloatDP const& x2) { return add(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP sub(CurrentRoundingMode, FloatMP const& x1, FloatDP const& x2) { return sub(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP mul(CurrentRoundingMode, FloatMP const& x1, FloatDP const& x2) { return mul(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP div(CurrentRoundingMode, FloatMP const& x1, FloatDP const& x2) { return div(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP add(CurrentRoundingMode, FloatDP const& x1, FloatMP const& x2) { return add(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP sub(CurrentRoundingMode, FloatDP const& x1, FloatMP const& x2) { return sub(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP mul(CurrentRoundingMode, FloatDP const& x1, FloatMP const& x2) { return mul(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP div(CurrentRoundingMode, FloatDP const& x1, FloatMP const& x2) { return div(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP add(CurrentRoundingMode, FloatMP const& x1, ExactDouble x2) { return add(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP sub(CurrentRoundingMode, FloatMP const& x1, ExactDouble x2) { return sub(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP mul(CurrentRoundingMode, FloatMP const& x1, ExactDouble x2) { return mul(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP div(CurrentRoundingMode, FloatMP const& x1, ExactDouble x2) { return div(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP add(CurrentRoundingMode, ExactDouble x1, FloatMP const& x2) { return add(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP sub(CurrentRoundingMode, ExactDouble x1, FloatMP const& x2) { return sub(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP mul(CurrentRoundingMode, ExactDouble x1, FloatMP const& x2) { return mul(FloatMP::get_rounding_mode(),x1,x2); }
-FloatMP div(CurrentRoundingMode, ExactDouble x1, FloatMP const& x2) { return div(FloatMP::get_rounding_mode(),x1,x2); }
+FloatMP sqr(CurrentRoundingMode, const FloatMP& x) { return sqr(FloatMP::get_rounding_mode(), x); }
+FloatMP rec(CurrentRoundingMode, const FloatMP& x) { return rec(FloatMP::get_rounding_mode(), x); }
+FloatMP add(CurrentRoundingMode, const FloatMP& x1, const FloatMP& x2) { return add(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP sub(CurrentRoundingMode, const FloatMP& x1, const FloatMP& x2) { return sub(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP mul(CurrentRoundingMode, const FloatMP& x1, const FloatMP& x2) { return mul(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP div(CurrentRoundingMode, const FloatMP& x1, const FloatMP& x2) { return div(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP fma(CurrentRoundingMode, const FloatMP& x1, const FloatMP& x2, const FloatMP& x3) { return fma(FloatMP::get_rounding_mode(), x1, x2, x3); }
+FloatMP pow(CurrentRoundingMode, const FloatMP& x, Nat m) { return pow(FloatMP::get_rounding_mode(), x, m); }
+FloatMP pow(CurrentRoundingMode, const FloatMP& x, Int n) { return pow(FloatMP::get_rounding_mode(), x, n); }
+FloatMP sqrt(CurrentRoundingMode, const FloatMP& x) { return sqrt(FloatMP::get_rounding_mode(), x); }
+FloatMP exp(CurrentRoundingMode, const FloatMP& x) { return exp(FloatMP::get_rounding_mode(), x); }
+FloatMP log(CurrentRoundingMode, const FloatMP& x) { return log(FloatMP::get_rounding_mode(), x); }
+FloatMP sin(CurrentRoundingMode, const FloatMP& x) { return sin(FloatMP::get_rounding_mode(), x); }
+FloatMP cos(CurrentRoundingMode, const FloatMP& x) { return cos(FloatMP::get_rounding_mode(), x); }
+FloatMP tan(CurrentRoundingMode, const FloatMP& x) { return tan(FloatMP::get_rounding_mode(), x); }
+FloatMP tanh(CurrentRoundingMode, const FloatMP& x) { return tanh(FloatMP::get_rounding_mode(), x); }
+FloatMP asin(CurrentRoundingMode, const FloatMP& x) { return asin(FloatMP::get_rounding_mode(), x); }
+FloatMP acos(CurrentRoundingMode, const FloatMP& x) { return acos(FloatMP::get_rounding_mode(), x); }
+FloatMP atan(CurrentRoundingMode, const FloatMP& x) { return atan(FloatMP::get_rounding_mode(), x); }
+FloatMP FloatMP::pi(CurrentRoundingMode, MultiplePrecision pr) { return pi(FloatMP::get_rounding_mode(), pr); }
+FloatMP add(CurrentRoundingMode, const FloatMP& x1, const FloatDP& x2) { return add(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP sub(CurrentRoundingMode, const FloatMP& x1, const FloatDP& x2) { return sub(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP mul(CurrentRoundingMode, const FloatMP& x1, const FloatDP& x2) { return mul(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP div(CurrentRoundingMode, const FloatMP& x1, const FloatDP& x2) { return div(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP add(CurrentRoundingMode, const FloatDP& x1, const FloatMP& x2) { return add(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP sub(CurrentRoundingMode, const FloatDP& x1, const FloatMP& x2) { return sub(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP mul(CurrentRoundingMode, const FloatDP& x1, const FloatMP& x2) { return mul(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP div(CurrentRoundingMode, const FloatDP& x1, const FloatMP& x2) { return div(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP add(CurrentRoundingMode, const FloatMP& x1, ExactDouble x2) { return add(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP sub(CurrentRoundingMode, const FloatMP& x1, ExactDouble x2) { return sub(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP mul(CurrentRoundingMode, const FloatMP& x1, ExactDouble x2) { return mul(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP div(CurrentRoundingMode, const FloatMP& x1, ExactDouble x2) { return div(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP add(CurrentRoundingMode, ExactDouble x1, const FloatMP& x2) { return add(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP sub(CurrentRoundingMode, ExactDouble x1, const FloatMP& x2) { return sub(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP mul(CurrentRoundingMode, ExactDouble x1, const FloatMP& x2) { return mul(FloatMP::get_rounding_mode(), x1, x2); }
+FloatMP div(CurrentRoundingMode, ExactDouble x1, const FloatMP& x2) { return div(FloatMP::get_rounding_mode(), x1, x2); }
 
-FloatMP::Float(FloatDP const& value, PrecisionType precision)
-    : Float(ExactDouble(value.get_d()), ROUND_TO_NEAREST, precision) { }
+FloatMP::Float(const FloatDP& value, PrecisionType precision)
+    : Float(ExactDouble(value.get_d()), ROUND_TO_NEAREST, precision) {}
 
-FloatMP::Float(FloatDP const& value, RoundingModeType mode, PrecisionType precision)
-    : Float(ExactDouble(value.get_d()), mode, precision) { }
+FloatMP::Float(const FloatDP& value, RoundingModeType mode, PrecisionType precision)
+    : Float(ExactDouble(value.get_d()), mode, precision) {}
 
-FloatMP::Float(FloatMP const& value, PrecisionType precision)
-    : Float(value, ROUND_TO_NEAREST, precision) { }
+FloatMP::Float(const FloatMP& value, PrecisionType precision)
+    : Float(value, ROUND_TO_NEAREST, precision) {}
 
-FloatMP::Float(FloatMP const& value, RoundingModeType mode, PrecisionType precision)
+FloatMP::Float(const FloatMP& value, RoundingModeType mode, PrecisionType precision)
     : Float(precision) {
     if (value._precision == _precision) {
         *this = value;
@@ -723,27 +764,27 @@ FloatMP::Float(FloatMP const& value, RoundingModeType mode, PrecisionType precis
         // Rescale the existing binary significand without materializing
         // significand * 2^exponent as an enormous Rational. This is
         // essential at the native exponent limits.
-        _significand=value._significand;
-        _negative=value._negative;
-        round_scaled_integer(*this,value._exponent,mode);
+        _significand = value._significand;
+        _negative = value._negative;
+        round_scaled_integer(*this, value._exponent, mode);
     }
 }
 
-FloatMP& FloatMP::operator=(Integer const& n) {
+FloatMP& FloatMP::operator=(const Integer& n) {
     return *this = FloatMP(n, get_rounding_mode(), precision());
 }
 
-FloatMP& FloatMP::operator=(Dyadic const& n) {
+FloatMP& FloatMP::operator=(const Dyadic& n) {
     // Preserve the exact-assignment contract of FloatMP. Constructing the
     // replacement first also leaves *this unchanged if it is inexact.
     return *this = FloatMP(n, precision());
 }
 
-FloatMP& FloatMP::operator=(TwoExp const& n) {
+FloatMP& FloatMP::operator=(const TwoExp& n) {
     return *this = FloatMP(n, precision());
 }
 
-FloatMP& FloatMP::operator=(ExactDouble const& n) {
+FloatMP& FloatMP::operator=(const ExactDouble& n) {
     return *this = FloatMP(n, get_rounding_mode(), precision());
 }
 
@@ -759,45 +800,47 @@ FloatMP::operator Dyadic() const {
         return Dyadic::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
     }
     // Export the exact native binary significand/exponent.
-    BigUnsigned magnitude=_significand;
-    if (magnitude.is_zero()) { return Dyadic(0); }
-    if (_exponent>=0) {
-        return Dyadic(Integer::from_magnitude(
-            shift_left(magnitude,shift_amount(_exponent)),_negative));
+    BigUnsigned magnitude = _significand;
+    if (magnitude.is_zero()) {
+        return Dyadic(0);
     }
-    const auto shift=shift_amount(checked_sub(0,_exponent));
-    return Dyadic(Integer::from_magnitude(std::move(magnitude),_negative),shift);
+    if (_exponent >= 0) {
+        return Dyadic(Integer::from_magnitude(
+            shift_left(magnitude, shift_amount(_exponent)), _negative));
+    }
+    const auto shift = shift_amount(checked_sub(0, _exponent));
+    return Dyadic(Integer::from_magnitude(std::move(magnitude), _negative), shift);
 }
 
-Integer cast_integer(FloatMP const& value) {
+Integer cast_integer(const FloatMP& value) {
     if (!value.is_finite()) {
         throw std::domain_error("FloatMP cannot cast a nonfinite value to Integer");
     }
     const Rational exact = static_cast<Rational>(value);
-    if (exact.denominator()!=1) {
+    if (exact.denominator() != 1) {
         throw std::domain_error("FloatMP is not an integer");
     }
     return exact.numerator();
 }
 
-Comparison cmp(FloatMP const& a, Rational const& b) {
+Comparison cmp(const FloatMP& a, const Rational& b) {
     if (a.is_nan() || is_nan(b)) {
         return Comparison::INCOMPARABLE;
     }
     return cmp(static_cast<Rational>(a), b);
 }
 
-Comparison cmp(Rational const& a, FloatMP const& b) {
+Comparison cmp(const Rational& a, const FloatMP& b) {
     if (b.is_nan() || is_nan(a)) {
         return Comparison::INCOMPARABLE;
     }
     return cmp(a, static_cast<Rational>(b));
 }
 
-FloatMP::Float(ExactDouble const& value, PrecisionType precision)
-    : Float(value, ROUND_TO_NEAREST, precision) { }
+FloatMP::Float(const ExactDouble& value, PrecisionType precision)
+    : Float(value, ROUND_TO_NEAREST, precision) {}
 
-FloatMP::Float(Dyadic const& value, PrecisionType precision)
+FloatMP::Float(const Dyadic& value, PrecisionType precision)
     : Float(Rational(value), ROUND_TO_NEAREST, precision) {
     // Unlike the explicitly rounded constructor, this conversion must be
     // exact. In particular, a Dyadic with more significant bits than the
@@ -807,27 +850,28 @@ FloatMP::Float(Dyadic const& value, PrecisionType precision)
     }
 }
 
-FloatMP::Float(TwoExp const& value, PrecisionType precision)
-    : Float(Dyadic(value), precision) { }
+FloatMP::Float(const TwoExp& value, PrecisionType precision)
+    : Float(Dyadic(value), precision) {}
 
-FloatMP::Float(std::string const& value, PrecisionType precision)
-    : Float(Dyadic(value), precision) { }
+FloatMP::Float(const std::string& value, PrecisionType precision)
+    : Float(Dyadic(value), precision) {}
 
-FloatMP::Float(ExactDouble const& value, RoundingModeType mode,
+FloatMP::Float(const ExactDouble& value, RoundingModeType mode,
                PrecisionType precision)
     : Float(Rational(value), mode, precision) {
     // Rational has one canonical zero. Preserve the source binary sign
     // before it is lost at this otherwise exact conversion boundary.
-    if (value.get_d()==0.0) set_zero(std::signbit(value.get_d()));
+    if (value.get_d() == 0.0)
+        set_zero(std::signbit(value.get_d()));
 }
 
-FloatMP::Float(Dyadic const& value, RoundingModeType mode,
+FloatMP::Float(const Dyadic& value, RoundingModeType mode,
                PrecisionType precision)
-    : Float(Rational(value), mode, precision) { }
+    : Float(Rational(value), mode, precision) {}
 
-FloatMP::Float(Decimal const& value, RoundingModeType mode,
+FloatMP::Float(const Decimal& value, RoundingModeType mode,
                PrecisionType precision)
-    : Float(Rational(value), mode, precision) { }
+    : Float(Rational(value), mode, precision) {}
 
 void FloatMP::set_precision(PrecisionType precision) {
     if (precision.bits() == _precision) {
@@ -844,69 +888,80 @@ void FloatMP::set_precision(PrecisionType precision) {
     }
 }
 
-
-Nat FloatMP::output_places=20;
-void FloatMP::set_output_places(Nat places) { output_places=places; }
+Nat FloatMP::output_places = 20;
+void FloatMP::set_output_places(Nat places) { output_places = places; }
 
 namespace {
 // Format an exact binary rational to fixed decimal places using integer
 // division and a single correctly directed decimal rounding step.
-std::string decimal_fixed(FloatMP const& x, unsigned int places,
+std::string decimal_fixed(const FloatMP& x, unsigned int places,
                           FloatMP::RoundingModeType mode) {
-    if (x.is_nan()) return "nan";
-    if (x.is_inf()) return x.negative() ? "-inf" : "inf";
+    if (x.is_nan())
+        return "nan";
+    if (x.is_inf())
+        return x.negative() ? "-inf" : "inf";
     // Preserve the exact dyadic value rather than constructing a
     // canonical Rational and a temporary GMP rational. Decimal digits
     // are obtained by one native unsigned division and a single exact
     // directed rounding decision.
-    BigUnsigned numerator=x.significand();
+    BigUnsigned numerator = x.significand();
     BigUnsigned denominator(1u);
-    const auto binary_exponent=x.exponent();
-    if(binary_exponent>0) {
-        numerator=shift_left(numerator,
-            static_cast<std::size_t>(binary_exponent));
-    } else if(binary_exponent<0) {
+    const auto binary_exponent = x.exponent();
+    if (binary_exponent > 0) {
+        numerator = shift_left(numerator,
+                               static_cast<std::size_t>(binary_exponent));
+    } else if (binary_exponent < 0) {
         // Avoid negating INT64_MIN; preserve the checked shift domain.
-        const auto distance=static_cast<std::uint64_t>(
-            -(binary_exponent+1))+1u;
-        const auto address_distance=Detail::checked_unsigned_cast<std::size_t>(distance,
-            "FloatMP decimal exponent shift out of range");
-        denominator=shift_left(denominator,address_distance);
+        const auto distance = static_cast<std::uint64_t>(
+                                  -(binary_exponent + 1)) +
+                              1u;
+        const auto address_distance = Detail::checked_unsigned_cast<std::size_t>(distance,
+                                                                                 "FloatMP decimal exponent shift out of range");
+        denominator = shift_left(denominator, address_distance);
     }
-    const bool neg=x.negative();
-    const BigUnsigned scale=pow(BigUnsigned(10u),
-        static_cast<std::uint64_t>(places));
-    auto [quotient,remainder]=divrem(mul(numerator,scale),denominator);
+    const bool neg = x.negative();
+    const BigUnsigned scale = pow(BigUnsigned(10u),
+                                  static_cast<std::uint64_t>(places));
+    auto [quotient, remainder] = divrem(mul(numerator, scale), denominator);
     if (!remainder.is_zero()) {
-        bool increase=false;
-        switch(mode.value()) {
+        bool increase = false;
+        switch (mode.value()) {
             case FloatMP::Rounding::ToNearest:
-                increase=floatmp_half_even_increment(remainder,denominator,
-                    (quotient.limb(0u)&BigUnsigned::Limb{1})!=0u);
+                increase = floatmp_half_even_increment(remainder, denominator,
+                                                       (quotient.limb(0u) & BigUnsigned::Limb{1}) != 0u);
                 break;
-            case FloatMP::Rounding::Downward: increase=neg; break;
-            case FloatMP::Rounding::Upward: increase=!neg; break;
+            case FloatMP::Rounding::Downward:
+                increase = neg;
+                break;
+            case FloatMP::Rounding::Upward:
+                increase = !neg;
+                break;
             default: // TowardZero: the fourth value of the closed rounding type.
                 break;
         }
-        if(increase) quotient=add(quotient,BigUnsigned(1u));
+        if (increase)
+            quotient = add(quotient, BigUnsigned(1u));
     }
-    std::string digits=to_decimal(quotient);
-    if(places>0) {
-        if(digits.size()<=places) digits.insert(0,places+1-digits.size(),'0');
-        digits.insert(digits.size()-places,1,'.');
-    } else digits.push_back('.');
-    if(neg) digits.insert(digits.begin(),'-');
+    std::string digits = to_decimal(quotient);
+    if (places > 0) {
+        if (digits.size() <= places)
+            digits.insert(0, places + 1 - digits.size(), '0');
+        digits.insert(digits.size() - places, 1, '.');
+    } else
+        digits.push_back('.');
+    if (neg)
+        digits.insert(digits.begin(), '-');
     return digits;
 }
+} // namespace
+
+std::string print(const FloatMP& x, DecimalPlaces places, FloatMP::RoundingModeType mode) {
+    return decimal_fixed(x, static_cast<unsigned int>(places), mode);
 }
 
-std::string print(FloatMP const& x, DecimalPlaces places, FloatMP::RoundingModeType mode) {
-    return decimal_fixed(x,static_cast<unsigned int>(places),mode);
-}
-
-std::string print(FloatMP const& x, DecimalPrecision figures, FloatMP::RoundingModeType mode) {
-    if(!x.is_finite() || x.is_zero()) return decimal_fixed(x,0,mode);
+std::string print(const FloatMP& x, DecimalPrecision figures, FloatMP::RoundingModeType mode) {
+    if (!x.is_finite() || x.is_zero())
+        return decimal_fixed(x, 0, mode);
     double absolute;
     {
         // A directed binary64 conversion can turn a tiny source into the
@@ -914,42 +969,42 @@ std::string print(FloatMP const& x, DecimalPrecision figures, FloatMP::RoundingM
         // nearest conversion for this estimate and restore the caller's mode.
         RoundingSession<FloatMP> session;
         session.set(FloatMP::ROUND_TO_NEAREST);
-        absolute=std::fabs(x.get_d());
+        absolute = std::fabs(x.get_d());
     }
     // DecimalPrecision is a count of significant figures rather than places.
     // For values outside the range of double, derive the base-10 exponent
     // from the full integer significand and binary exponent.
-    long long magnitude=0;
-    if(std::isfinite(absolute) && absolute>0) {
-        magnitude=static_cast<long long>(std::floor(std::log10(absolute)));
+    long long magnitude = 0;
+    if (std::isfinite(absolute) && absolute > 0) {
+        magnitude = static_cast<long long>(std::floor(std::log10(absolute)));
     } else {
-        const double estimated=(static_cast<double>(x.significand().bit_length())-1.0
-                               +static_cast<double>(x.exponent()))*0.3010299956639812;
+        const double estimated = (static_cast<double>(x.significand().bit_length()) - 1.0 + static_cast<double>(x.exponent())) * 0.3010299956639812;
         // Both the significand width and exponent fit Exponent. Their
         // sum times log10(2) lies strictly inside the signed 64-bit range.
         // An int is insufficient for valid extreme binary exponents.
-        magnitude=static_cast<long long>(std::floor(estimated));
+        magnitude = static_cast<long long>(std::floor(estimated));
     }
-    const long long places=static_cast<long long>(static_cast<unsigned int>(figures))-1-magnitude;
-    const auto decimal_places=places>0 ? Detail::checked_unsigned_cast<unsigned int>(
-        static_cast<unsigned long long>(places),"FloatMP decimal places out of range") : 0u;
-    return decimal_fixed(x,decimal_places,mode);
+    const long long places = static_cast<long long>(static_cast<unsigned int>(figures)) - 1 - magnitude;
+    const auto decimal_places = places > 0 ? Detail::checked_unsigned_cast<unsigned int>(
+                                                 static_cast<unsigned long long>(places), "FloatMP decimal places out of range")
+                                           : 0u;
+    return decimal_fixed(x, decimal_places, mode);
 }
 
-OutputStream& write(OutputStream& out, FloatMP const& x, DecimalPlaces places, FloatMP::RoundingModeType mode) {
-    return out<<print(x,places,mode);
+OutputStream& write(OutputStream& out, const FloatMP& x, DecimalPlaces places, FloatMP::RoundingModeType mode) {
+    return out << print(x, places, mode);
 }
 
-OutputStream& write(OutputStream& out, FloatMP const& x, DecimalPrecision figures, FloatMP::RoundingModeType mode) {
-    return out<<print(x,figures,mode);
+OutputStream& write(OutputStream& out, const FloatMP& x, DecimalPrecision figures, FloatMP::RoundingModeType mode) {
+    return out << print(x, figures, mode);
 }
 
-OutputStream& repr(OutputStream& out, FloatMP const& x, FloatMP::RoundingModeType mode) {
-    return write(out,x,DecimalPrecision(static_cast<Nat>(x.precision().bits()/3+4)),mode);
+OutputStream& repr(OutputStream& out, const FloatMP& x, FloatMP::RoundingModeType mode) {
+    return write(out, x, DecimalPrecision(static_cast<Nat>(x.precision().bits() / 3 + 4)), mode);
 }
 
-OutputStream& repr(OutputStream& out, FloatMP const& x) {
-    return repr(out,x,FloatMP::get_rounding_mode());
+OutputStream& repr(OutputStream& out, const FloatMP& x) {
+    return repr(out, x, FloatMP::get_rounding_mode());
 }
 
 std::string FloatMP::literal() const {
@@ -958,11 +1013,11 @@ std::string FloatMP::literal() const {
 
 std::string FloatMP::literal(RoundingModeType mode) const {
     std::ostringstream out;
-    repr(out,*this,mode);
+    repr(out, *this, mode);
     return out.str();
 }
 
-OutputStream& operator<<(OutputStream& os, FloatMP const& value) {
+OutputStream& operator<<(OutputStream& os, const FloatMP& value) {
     return os << static_cast<Rational>(value);
 }
 
@@ -987,7 +1042,7 @@ InputStream& operator>>(InputStream& is, FloatMP& value) {
         const std::size_t exponent_start = token.find_first_of("eE");
         const String mantissa = token.substr(0, exponent_start);
         bool has_digit = false;
-        for (char digit : mantissa) {
+        for (char digit: mantissa) {
             // Tokenization permits only digits, signs and '.' before e/E.
             if (digit >= '0') {
                 has_digit = true;
@@ -1021,24 +1076,27 @@ InputStream& operator>>(InputStream& is, FloatMP& value) {
     return is;
 }
 
-Positive<FloatMP> abs(FloatMP const& x) {
+Positive<FloatMP> abs(const FloatMP& x) {
     return cast_positive(x.negative() ? neg(x) : x);
 }
 
-PositiveUpperBound<FloatMP> mag(FloatMP const& x) {
+PositiveUpperBound<FloatMP> mag(const FloatMP& x) {
     return PositiveUpperBound<FloatMP>(abs(x));
 }
 
-PositiveLowerBound<FloatMP> mig(FloatMP const& x) {
+PositiveLowerBound<FloatMP> mig(const FloatMP& x) {
     return PositiveLowerBound<FloatMP>(abs(x));
 }
 
 // The immediate neighbors are computed on the p-bit integer significand;
 // the exponent only changes on a carry or at a power-of-two boundary.
-FloatMP next(RoundUpward, FloatMP const& x) {
-    if (x.is_nan() || (x.is_inf() && !x.negative())) return x;
-    if (x.is_inf()) return neg(FloatMP::max(x.precision()));
-    if (x.is_zero()) return FloatMP::min(x.precision());
+FloatMP next(RoundUpward, const FloatMP& x) {
+    if (x.is_nan() || (x.is_inf() && !x.negative()))
+        return x;
+    if (x.is_inf())
+        return neg(FloatMP::max(x.precision()));
+    if (x.is_zero())
+        return FloatMP::min(x.precision());
     FloatMP r(x);
     const bool all_ones = floatmp_popcount(r._significand) == r._precision;
     const bool first = floatmp_popcount(r._significand) == 1;
@@ -1047,28 +1105,31 @@ FloatMP next(RoundUpward, FloatMP const& x) {
             if (r._exponent == std::numeric_limits<FloatMP::Exponent>::min()) {
                 return FloatMP::zero(r._precision, true);
             }
-            r._significand=sub_big_unsigned(
-                shift_left(BigUnsigned(1u),r._precision),BigUnsigned(1u));
+            r._significand = sub_big_unsigned(
+                shift_left(BigUnsigned(1u), r._precision), BigUnsigned(1u));
             --r._exponent;
         } else {
-            r._significand=sub_big_unsigned(r._significand,BigUnsigned(1u));
+            r._significand = sub_big_unsigned(r._significand, BigUnsigned(1u));
         }
     } else if (all_ones) {
         if (r._exponent == std::numeric_limits<FloatMP::Exponent>::max()) {
             return FloatMP::inf(r.precision());
         }
-        r._significand=shift_left(BigUnsigned(1u),r._precision-1u);
+        r._significand = shift_left(BigUnsigned(1u), r._precision - 1u);
         ++r._exponent;
     } else {
-        r._significand=add_big_unsigned(r._significand,BigUnsigned(1u));
+        r._significand = add_big_unsigned(r._significand, BigUnsigned(1u));
     }
     return r;
 }
 
-FloatMP next(RoundDownward, FloatMP const& x) {
-    if (x.is_nan() || (x.is_inf() && x.negative())) return x;
-    if (x.is_inf()) return FloatMP::max(x.precision());
-    if (x.is_zero()) return neg(FloatMP::min(x.precision()));
+FloatMP next(RoundDownward, const FloatMP& x) {
+    if (x.is_nan() || (x.is_inf() && x.negative()))
+        return x;
+    if (x.is_inf())
+        return FloatMP::max(x.precision());
+    if (x.is_zero())
+        return neg(FloatMP::min(x.precision()));
     FloatMP r(x);
     const bool all_ones = floatmp_popcount(r._significand) == r._precision;
     const bool first = floatmp_popcount(r._significand) == 1;
@@ -1077,20 +1138,20 @@ FloatMP next(RoundDownward, FloatMP const& x) {
             if (r._exponent == std::numeric_limits<FloatMP::Exponent>::max()) {
                 return FloatMP::inf(Sign::NEGATIVE, r.precision());
             }
-            r._significand=shift_left(BigUnsigned(1u),r._precision-1u);
+            r._significand = shift_left(BigUnsigned(1u), r._precision - 1u);
             ++r._exponent;
         } else {
-            r._significand=add_big_unsigned(r._significand,BigUnsigned(1u));
+            r._significand = add_big_unsigned(r._significand, BigUnsigned(1u));
         }
     } else if (first) {
         if (r._exponent == std::numeric_limits<FloatMP::Exponent>::min()) {
             return FloatMP::zero(r._precision);
         }
-        r._significand=sub_big_unsigned(
-                shift_left(BigUnsigned(1u),r._precision),BigUnsigned(1u));
+        r._significand = sub_big_unsigned(
+            shift_left(BigUnsigned(1u), r._precision), BigUnsigned(1u));
         --r._exponent;
     } else {
-        r._significand=sub_big_unsigned(r._significand,BigUnsigned(1u));
+        r._significand = sub_big_unsigned(r._significand, BigUnsigned(1u));
     }
     return r;
 }
@@ -1099,246 +1160,254 @@ FloatMP next(RoundDownward, FloatMP const& x) {
 // In particular, signed minimum exponents never trigger huge 2^k allocations.
 namespace {
 
-
-bool has_bit(BigUnsigned const& magnitude,std::size_t index) {
-    return (magnitude.limb(index/64u) &
-            (std::uint64_t{1}<<(index%64u)))!=0u;
+bool has_bit(const BigUnsigned& magnitude, std::size_t index) {
+    return (magnitude.limb(index / 64u) &
+            (std::uint64_t{1} << (index % 64u))) != 0u;
 }
 
-FloatMP signed_integral_float(BigUnsigned magnitude,bool negative,
+FloatMP signed_integral_float(BigUnsigned magnitude, bool negative,
                               MultiplePrecision precision) {
     // floor/ceil return subunit cases before calling this helper. For round,
     // a shift equal to the width retains zero but its leading guard bit
     // increments that zero to one. Every caller therefore supplies |n|>=1.
-    return FloatMP(Integer::from_magnitude(std::move(magnitude),negative),
-                   FloatMP::ROUND_TO_NEAREST,precision);
+    return FloatMP(Integer::from_magnitude(std::move(magnitude), negative),
+                   FloatMP::ROUND_TO_NEAREST, precision);
 }
 
 } // namespace
 
-FloatMP floor(FloatMP const& x) {
-    if(!x.is_finite() || x.is_zero() || x._exponent>=0) return x;
-    const std::uint64_t shift=std::uint64_t{0}-
-        static_cast<std::uint64_t>(x._exponent);
-    const BigUnsigned& magnitude=x._significand;
-    if(shift>=magnitude.bit_length()) {
-        return FloatMP(x._negative ? std::int64_t{-1} : std::int64_t{0},x.precision());
+FloatMP floor(const FloatMP& x) {
+    if (!x.is_finite() || x.is_zero() || x._exponent >= 0)
+        return x;
+    const std::uint64_t shift = std::uint64_t{0} -
+                                static_cast<std::uint64_t>(x._exponent);
+    const BigUnsigned& magnitude = x._significand;
+    if (shift >= magnitude.bit_length()) {
+        return FloatMP(x._negative ? std::int64_t{-1} : std::int64_t{0}, x.precision());
     }
-    const std::size_t dropped=static_cast<std::size_t>(shift);
-    BigUnsigned integral=shift_right(magnitude,dropped);
-    if(x._negative && floatmp_any_bits_below(magnitude,dropped)) {
-        integral=add_big_unsigned(integral,BigUnsigned(1u));
+    const std::size_t dropped = static_cast<std::size_t>(shift);
+    BigUnsigned integral = shift_right(magnitude, dropped);
+    if (x._negative && floatmp_any_bits_below(magnitude, dropped)) {
+        integral = add_big_unsigned(integral, BigUnsigned(1u));
     }
-    return signed_integral_float(std::move(integral),x._negative,x.precision());
+    return signed_integral_float(std::move(integral), x._negative, x.precision());
 }
 
-FloatMP ceil(FloatMP const& x) {
-    if(!x.is_finite() || x.is_zero() || x._exponent>=0) return x;
-    const std::uint64_t shift=std::uint64_t{0}-
-        static_cast<std::uint64_t>(x._exponent);
-    const BigUnsigned& magnitude=x._significand;
-    if(shift>=magnitude.bit_length()) {
-        return FloatMP(x._negative ? std::int64_t{0} : std::int64_t{1},x.precision());
+FloatMP ceil(const FloatMP& x) {
+    if (!x.is_finite() || x.is_zero() || x._exponent >= 0)
+        return x;
+    const std::uint64_t shift = std::uint64_t{0} -
+                                static_cast<std::uint64_t>(x._exponent);
+    const BigUnsigned& magnitude = x._significand;
+    if (shift >= magnitude.bit_length()) {
+        return FloatMP(x._negative ? std::int64_t{0} : std::int64_t{1}, x.precision());
     }
-    const std::size_t dropped=static_cast<std::size_t>(shift);
-    BigUnsigned integral=shift_right(magnitude,dropped);
-    if(!x._negative && floatmp_any_bits_below(magnitude,dropped)) {
-        integral=add_big_unsigned(integral,BigUnsigned(1u));
+    const std::size_t dropped = static_cast<std::size_t>(shift);
+    BigUnsigned integral = shift_right(magnitude, dropped);
+    if (!x._negative && floatmp_any_bits_below(magnitude, dropped)) {
+        integral = add_big_unsigned(integral, BigUnsigned(1u));
     }
-    return signed_integral_float(std::move(integral),x._negative,x.precision());
+    return signed_integral_float(std::move(integral), x._negative, x.precision());
 }
 
-FloatMP round(FloatMP const& x) {
-    if(!x.is_finite() || x.is_zero() || x._exponent>=0) return x;
-    const std::uint64_t shift=std::uint64_t{0}-
-        static_cast<std::uint64_t>(x._exponent);
-    const BigUnsigned& magnitude=x._significand;
-    const std::size_t bits=magnitude.bit_length();
-    if(shift>bits) {
-        return FloatMP::zero(x._precision,x._negative);
+FloatMP round(const FloatMP& x) {
+    if (!x.is_finite() || x.is_zero() || x._exponent >= 0)
+        return x;
+    const std::uint64_t shift = std::uint64_t{0} -
+                                static_cast<std::uint64_t>(x._exponent);
+    const BigUnsigned& magnitude = x._significand;
+    const std::size_t bits = magnitude.bit_length();
+    if (shift > bits) {
+        return FloatMP::zero(x._precision, x._negative);
     }
-    const std::size_t dropped=static_cast<std::size_t>(shift);
-    BigUnsigned integral=shift_right(magnitude,dropped);
+    const std::size_t dropped = static_cast<std::size_t>(shift);
+    BigUnsigned integral = shift_right(magnitude, dropped);
     // Preserve the historical nearest-integer/ties-away-from-zero contract.
-    if(has_bit(magnitude,dropped-1u)) {
-        integral=add_big_unsigned(integral,BigUnsigned(1u));
+    if (has_bit(magnitude, dropped - 1u)) {
+        integral = add_big_unsigned(integral, BigUnsigned(1u));
     }
-    return signed_integral_float(std::move(integral),x._negative,x.precision());
+    return signed_integral_float(std::move(integral), x._negative, x.precision());
 }
 
-FloatMP abs(FloatMP::RoundingModeType, FloatMP const& x) {
+FloatMP abs(FloatMP::RoundingModeType, const FloatMP& x) {
     return x.negative() ? neg(x) : x;
 }
 
-FloatMP mag(FloatMP::RoundingModeType mode, FloatMP const& x) {
+FloatMP mag(FloatMP::RoundingModeType mode, const FloatMP& x) {
     return abs(mode, x);
 }
 
-FloatMP& iadd(FloatMP::RoundingModeType mode, FloatMP& a, FloatMP const& b) {
+FloatMP& iadd(FloatMP::RoundingModeType mode, FloatMP& a, const FloatMP& b) {
     return a = FloatMP::add(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
 }
 
-FloatMP& isub(FloatMP::RoundingModeType mode, FloatMP& a, FloatMP const& b) {
+FloatMP& isub(FloatMP::RoundingModeType mode, FloatMP& a, const FloatMP& b) {
     return a = FloatMP::sub(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
 }
 
-FloatMP& imul(FloatMP::RoundingModeType mode, FloatMP& a, FloatMP const& b) {
+FloatMP& imul(FloatMP::RoundingModeType mode, FloatMP& a, const FloatMP& b) {
     return a = FloatMP::mul(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
 }
 
-FloatMP& idiv(FloatMP::RoundingModeType mode, FloatMP& a, FloatMP const& b) {
+FloatMP& idiv(FloatMP::RoundingModeType mode, FloatMP& a, const FloatMP& b) {
     return a = FloatMP::div(a, b, static_cast<unsigned long>(a.precision().bits()), mode);
 }
 
-FloatMP add(FloatMP::RoundingModeType mode, FloatMP const& a, FloatDP const& b) {
+FloatMP add(FloatMP::RoundingModeType mode, const FloatMP& a, const FloatDP& b) {
     return FloatMP(Rational(a) + Rational(b), mode, a.precision());
 }
 
-FloatMP add(FloatMP::RoundingModeType mode, FloatDP const& a, FloatMP const& b) {
+FloatMP add(FloatMP::RoundingModeType mode, const FloatDP& a, const FloatMP& b) {
     return FloatMP(Rational(a) + Rational(b), mode, b.precision());
 }
 
-FloatMP sub(FloatMP::RoundingModeType mode, FloatMP const& a, FloatDP const& b) {
+FloatMP sub(FloatMP::RoundingModeType mode, const FloatMP& a, const FloatDP& b) {
     return FloatMP(Rational(a) - Rational(b), mode, a.precision());
 }
 
-FloatMP sub(FloatMP::RoundingModeType mode, FloatDP const& a, FloatMP const& b) {
+FloatMP sub(FloatMP::RoundingModeType mode, const FloatDP& a, const FloatMP& b) {
     return FloatMP(Rational(a) - Rational(b), mode, b.precision());
 }
 
-FloatMP mul(FloatMP::RoundingModeType mode, FloatMP const& a, FloatDP const& b) {
+FloatMP mul(FloatMP::RoundingModeType mode, const FloatMP& a, const FloatDP& b) {
     return FloatMP(Rational(a) * Rational(b), mode, a.precision());
 }
 
-FloatMP mul(FloatMP::RoundingModeType mode, FloatDP const& a, FloatMP const& b) {
+FloatMP mul(FloatMP::RoundingModeType mode, const FloatDP& a, const FloatMP& b) {
     return FloatMP(Rational(a) * Rational(b), mode, b.precision());
 }
 
-FloatMP div(FloatMP::RoundingModeType mode, FloatMP const& a, FloatDP const& b) {
+FloatMP div(FloatMP::RoundingModeType mode, const FloatMP& a, const FloatDP& b) {
     return FloatMP(Rational(a) / Rational(b), mode, a.precision());
 }
 
-FloatMP div(FloatMP::RoundingModeType mode, FloatDP const& a, FloatMP const& b) {
+FloatMP div(FloatMP::RoundingModeType mode, const FloatDP& a, const FloatMP& b) {
     return FloatMP(Rational(a) / Rational(b), mode, b.precision());
 }
 
-FloatMP add(FloatMP::RoundingModeType mode, FloatMP const& a, ExactDouble const& b) {
+FloatMP add(FloatMP::RoundingModeType mode, const FloatMP& a, const ExactDouble& b) {
     return FloatMP(Rational(a) + Rational(b), mode, a.precision());
 }
 
-FloatMP add(FloatMP::RoundingModeType mode, ExactDouble const& a, FloatMP const& b) {
+FloatMP add(FloatMP::RoundingModeType mode, const ExactDouble& a, const FloatMP& b) {
     return FloatMP(Rational(a) + Rational(b), mode, b.precision());
 }
 
-FloatMP sub(FloatMP::RoundingModeType mode, FloatMP const& a, ExactDouble const& b) {
+FloatMP sub(FloatMP::RoundingModeType mode, const FloatMP& a, const ExactDouble& b) {
     return FloatMP(Rational(a) - Rational(b), mode, a.precision());
 }
 
-FloatMP sub(FloatMP::RoundingModeType mode, ExactDouble const& a, FloatMP const& b) {
+FloatMP sub(FloatMP::RoundingModeType mode, const ExactDouble& a, const FloatMP& b) {
     return FloatMP(Rational(a) - Rational(b), mode, b.precision());
 }
 
-FloatMP mul(FloatMP::RoundingModeType mode, FloatMP const& a, ExactDouble const& b) {
+FloatMP mul(FloatMP::RoundingModeType mode, const FloatMP& a, const ExactDouble& b) {
     return FloatMP(Rational(a) * Rational(b), mode, a.precision());
 }
 
-FloatMP mul(FloatMP::RoundingModeType mode, ExactDouble const& a, FloatMP const& b) {
+FloatMP mul(FloatMP::RoundingModeType mode, const ExactDouble& a, const FloatMP& b) {
     return FloatMP(Rational(a) * Rational(b), mode, b.precision());
 }
 
-FloatMP div(FloatMP::RoundingModeType mode, FloatMP const& a, ExactDouble const& b) {
+FloatMP div(FloatMP::RoundingModeType mode, const FloatMP& a, const ExactDouble& b) {
     return FloatMP(Rational(a) / Rational(b), mode, a.precision());
 }
 
-FloatMP div(FloatMP::RoundingModeType mode, ExactDouble const& a, FloatMP const& b) {
+FloatMP div(FloatMP::RoundingModeType mode, const ExactDouble& a, const FloatMP& b) {
     return FloatMP(Rational(a) / Rational(b), mode, b.precision());
 }
 
-
-FloatMP operator*(TwoExp const& t, FloatMP const& x) {
+FloatMP operator*(const TwoExp& t, const FloatMP& x) {
     return shft(x, t.exponent());
 }
 
-FloatMP operator*(FloatMP const& x, TwoExp const& t) {
+FloatMP operator*(const FloatMP& x, const TwoExp& t) {
     return shft(x, t.exponent());
 }
 
-FloatMP operator/(FloatMP const& x, TwoExp const& t) {
+FloatMP operator/(const FloatMP& x, const TwoExp& t) {
     return shft(x, -t.exponent());
 }
 
-FloatMP mul(FloatMP const& x, TwoExp const& t) {
+FloatMP mul(const FloatMP& x, const TwoExp& t) {
     return shft(x, t.exponent());
 }
 
-FloatMP div(FloatMP const& x, TwoExp const& t) {
+FloatMP div(const FloatMP& x, const TwoExp& t) {
     return shft(x, -t.exponent());
 }
 
-FloatMP& operator*=(FloatMP& x, TwoExp const& t) {
+FloatMP& operator*=(FloatMP& x, const TwoExp& t) {
     return x = x * t;
 }
 
-FloatMP& operator/=(FloatMP& x, TwoExp const& t) {
+FloatMP& operator/=(FloatMP& x, const TwoExp& t) {
     return x = x / t;
 }
 
 // Native fused multiply-add: one outward rounding per endpoint.
-Bounds<FloatMP> fma(FloatMP const& a, FloatMP const& b, FloatMP const& c) {
-    return Bounds<FloatMP>(fma(FloatMP::ROUND_DOWNWARD,a,b,c),
-                           fma(FloatMP::ROUND_UPWARD,a,b,c));
+Bounds<FloatMP> fma(const FloatMP& a, const FloatMP& b, const FloatMP& c) {
+    return Bounds<FloatMP>(fma(FloatMP::ROUND_DOWNWARD, a, b, c),
+                           fma(FloatMP::ROUND_UPWARD, a, b, c));
 }
 
 // Other outward-rounded FloatMP operations are defined by Bounds<F> in
 // float_bounds.hpp; do not define competing overloads here.
-FloatMP pow(FloatMP::RoundingModeType mode, FloatMP const& x, Int exponent) {
+FloatMP pow(FloatMP::RoundingModeType mode, const FloatMP& x, Int exponent) {
     if (exponent >= 0) {
         return pow(mode, x, static_cast<Nat>(exponent));
     }
     const auto bits = static_cast<unsigned long>(x.precision().bits());
     const bool odd = (exponent % 2) != 0;
-    if (x.is_nan()) return FloatMP::nan(bits);
-    if (x.is_inf()) return FloatMP::zero(bits, x.negative() && odd);
-    if (x.is_zero()) return FloatMP::infinity(bits, x.negative() && odd);
+    if (x.is_nan())
+        return FloatMP::nan(bits);
+    if (x.is_inf())
+        return FloatMP::zero(bits, x.negative() && odd);
+    if (x.is_zero())
+        return FloatMP::infinity(bits, x.negative() && odd);
     // The reciprocal of a rounded power need not be correctly rounded:
     // compute the exact rational power, then round once.
     const Rational exact = pow(static_cast<Rational>(x), exponent);
     return FloatMP(exact, mode, x.precision());
 }
 
-Comparison cmp(FloatMP const& a, FloatDP const& b) {
+Comparison cmp(const FloatMP& a, const FloatDP& b) {
     return cmp(a, Rational(b));
 }
 
-Comparison cmp(FloatDP const& a, FloatMP const& b) {
+Comparison cmp(const FloatDP& a, const FloatMP& b) {
     return cmp(Rational(a), b);
 }
 
-bool operator==(FloatMP const& a, FloatDP const& b) { return cmp(a,b)==Comparison::EQUAL; }
-bool operator!=(FloatMP const& a, FloatDP const& b) { return cmp(a,b)!=Comparison::EQUAL; }
-bool operator< (FloatMP const& a, FloatDP const& b) { return cmp(a,b)==Comparison::LESS; }
-bool operator> (FloatMP const& a, FloatDP const& b) { return cmp(a,b)==Comparison::GREATER; }
-bool operator<=(FloatMP const& a, FloatDP const& b) {
-    auto c=cmp(a,b); return c==Comparison::LESS || c==Comparison::EQUAL;
+bool operator==(const FloatMP& a, const FloatDP& b) { return cmp(a, b) == Comparison::EQUAL; }
+bool operator!=(const FloatMP& a, const FloatDP& b) { return cmp(a, b) != Comparison::EQUAL; }
+bool operator<(const FloatMP& a, const FloatDP& b) { return cmp(a, b) == Comparison::LESS; }
+bool operator>(const FloatMP& a, const FloatDP& b) { return cmp(a, b) == Comparison::GREATER; }
+bool operator<=(const FloatMP& a, const FloatDP& b) {
+    auto c = cmp(a, b);
+    return c == Comparison::LESS || c == Comparison::EQUAL;
 }
 
-bool operator>=(FloatMP const& a, FloatDP const& b) {
-    auto c=cmp(a,b); return c==Comparison::GREATER || c==Comparison::EQUAL;
+bool operator>=(const FloatMP& a, const FloatDP& b) {
+    auto c = cmp(a, b);
+    return c == Comparison::GREATER || c == Comparison::EQUAL;
 }
 
-bool operator==(FloatDP const& a, FloatMP const& b) { return cmp(a,b)==Comparison::EQUAL; }
-bool operator!=(FloatDP const& a, FloatMP const& b) { return cmp(a,b)!=Comparison::EQUAL; }
-bool operator< (FloatDP const& a, FloatMP const& b) { return cmp(a,b)==Comparison::LESS; }
-bool operator> (FloatDP const& a, FloatMP const& b) { return cmp(a,b)==Comparison::GREATER; }
-bool operator<=(FloatDP const& a, FloatMP const& b) {
-    auto c=cmp(a,b); return c==Comparison::LESS || c==Comparison::EQUAL;
+bool operator==(const FloatDP& a, const FloatMP& b) { return cmp(a, b) == Comparison::EQUAL; }
+bool operator!=(const FloatDP& a, const FloatMP& b) { return cmp(a, b) != Comparison::EQUAL; }
+bool operator<(const FloatDP& a, const FloatMP& b) { return cmp(a, b) == Comparison::LESS; }
+bool operator>(const FloatDP& a, const FloatMP& b) { return cmp(a, b) == Comparison::GREATER; }
+bool operator<=(const FloatDP& a, const FloatMP& b) {
+    auto c = cmp(a, b);
+    return c == Comparison::LESS || c == Comparison::EQUAL;
 }
 
-bool operator>=(FloatDP const& a, FloatMP const& b) {
-    auto c=cmp(a,b); return c==Comparison::GREATER || c==Comparison::EQUAL;
+bool operator>=(const FloatDP& a, const FloatMP& b) {
+    auto c = cmp(a, b);
+    return c == Comparison::GREATER || c == Comparison::EQUAL;
 }
 
-FloatMP shft(FloatMP const& value, Int amount) {
+FloatMP shft(const FloatMP& value, Int amount) {
     FloatMP result(value);
     if (result.is_finite() && !result.is_zero()) {
         result._exponent = FloatMP::checked_add(
@@ -1347,52 +1416,56 @@ FloatMP shft(FloatMP const& value, Int amount) {
     return result;
 }
 
-FloatMP::Float(Integer const& n, RoundingModeType mode, PrecisionType pr)
-: Float(from_native_ratio(n,Integer(1u),0,
-                          static_cast<unsigned long>(pr.bits()),mode)) {
+FloatMP::Float(const Integer& n, RoundingModeType mode, PrecisionType pr)
+    : Float(from_native_ratio(n, Integer(1u), 0,
+                              static_cast<unsigned long>(pr.bits()), mode)) {
 }
 
 namespace {
 // Rational declares is_nan/is_inf as friend functions: ADL finds them,
 // whereas qualified lookup (Ariadne::is_nan) does not.
-bool rational_is_nan(Rational const& q) {
+bool rational_is_nan(const Rational& q) {
     return is_nan(q);
 }
 
-bool rational_is_inf(Rational const& q) {
+bool rational_is_inf(const Rational& q) {
     return is_inf(q);
 }
+} // namespace
+
+FloatMP FloatMP::from_ratio(const Integer& numerator,
+                            const Integer& denominator,
+                            RoundingModeType mode, PrecisionType precision) {
+    return from_native_ratio(numerator, denominator, 0,
+                             static_cast<unsigned long>(precision.bits()), mode);
 }
 
-FloatMP FloatMP::from_ratio(Integer const& numerator,
-                            Integer const& denominator,
-                            RoundingModeType mode,PrecisionType precision) {
-    return from_native_ratio(numerator,denominator,0,
-                             static_cast<unsigned long>(precision.bits()),mode);
-}
-
-FloatMP::Float(Rational const& q, RoundingModeType mode, PrecisionType pr)
-: Float(pr) {
+FloatMP::Float(const Rational& q, RoundingModeType mode, PrecisionType pr)
+    : Float(pr) {
     if (rational_is_nan(q)) {
-        *this=nan(_precision);
-    }
-    else if (rational_is_inf(q)) {
-        *this=infinity(_precision,q.numerator().negative());
+        *this = nan(_precision);
+    } else if (rational_is_inf(q)) {
+        *this = infinity(_precision, q.numerator().negative());
     } else {
         // Rational already owns canonical Integer/BigUnsigned values.
         // Avoid exporting them to GMP merely to import them back.
-        *this=from_native_ratio(q.numerator(),q.denominator(),0,_precision,mode);
+        *this = from_native_ratio(q.numerator(), q.denominator(), 0, _precision, mode);
     }
 }
 
 FloatMP::operator Rational() const {
-    if (is_nan()) return Rational::nan();
-    if (is_inf()) return Rational::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
-    BigUnsigned n=_significand;
-    if (_exponent>0) { n=shift_left(n,shift_amount(_exponent)); }
-    Integer numerator=Integer::from_magnitude(std::move(n),_negative);
-    if (_exponent<0) return Rational::from_dyadic(std::move(numerator),
-        shift_amount(checked_sub(0,_exponent)));
+    if (is_nan())
+        return Rational::nan();
+    if (is_inf())
+        return Rational::inf(negative() ? Sign::NEGATIVE : Sign::POSITIVE);
+    BigUnsigned n = _significand;
+    if (_exponent > 0) {
+        n = shift_left(n, shift_amount(_exponent));
+    }
+    Integer numerator = Integer::from_magnitude(std::move(n), _negative);
+    if (_exponent < 0)
+        return Rational::from_dyadic(std::move(numerator),
+                                     shift_amount(checked_sub(0, _exponent)));
     return Rational(std::move(numerator));
 }
 
@@ -1420,7 +1493,7 @@ double FloatMP::get_d_general() const {
     const auto signed_value = [this](double value) {
         return _negative ? -value : value;
     };
-    const auto rounds_away = [this,mode]() {
+    const auto rounds_away = [this, mode]() {
         return mode == Rounding::ToNearest ||
                (mode == Rounding::Upward && !_negative) ||
                (mode == Rounding::Downward && _negative);
@@ -1428,53 +1501,49 @@ double FloatMP::get_d_general() const {
 
     // The finite significand is positive and has at most _precision bits,
     // which itself fits Exponent by construction.
-    const Exponent top=static_cast<Exponent>(_significand.bit_length()-1u);
+    const Exponent top = static_cast<Exponent>(_significand.bit_length() - 1u);
     if (_exponent > 0 && top > std::numeric_limits<Exponent>::max() - _exponent) {
-        return signed_value(rounds_away() ?
-                            std::numeric_limits<double>::infinity() :
-                            std::numeric_limits<double>::max());
+        return signed_value(rounds_away() ? std::numeric_limits<double>::infinity() : std::numeric_limits<double>::max());
     }
     const Exponent highest = _exponent + top;
     if (highest > largest) {
-        return signed_value(rounds_away() ?
-                            std::numeric_limits<double>::infinity() :
-                            std::numeric_limits<double>::max());
+        return signed_value(rounds_away() ? std::numeric_limits<double>::infinity() : std::numeric_limits<double>::max());
     }
     if (highest < min_subnormal - 1) {
         const bool directed_away = (mode == Rounding::Upward && !_negative) ||
                                    (mode == Rounding::Downward && _negative);
-        return signed_value(directed_away ?
-                            std::numeric_limits<double>::denorm_min() : 0.0);
+        return signed_value(directed_away ? std::numeric_limits<double>::denorm_min() : 0.0);
     }
 
     // Extract the 53 leading bits exactly, truncating any low bits.
-    const std::size_t width=_significand.bit_length();
-    const BigUnsigned top_bits=width>static_cast<std::size_t>(digits)
-        ? shift_right(_significand,width-static_cast<std::size_t>(digits))
-        : shift_left(_significand,static_cast<std::size_t>(digits)-width);
-    const std::uint64_t leading=top_bits.limb(0u);
+    const std::size_t width = _significand.bit_length();
+    const BigUnsigned top_bits = width > static_cast<std::size_t>(digits)
+                                   ? shift_right(_significand, width - static_cast<std::size_t>(digits))
+                                   : shift_left(_significand, static_cast<std::size_t>(digits) - width);
+    const std::uint64_t leading = top_bits.limb(0u);
     const Exponent subnormal_shift = highest < min_normal
-                                    ? min_normal - highest : 0;
+                                       ? min_normal - highest
+                                       : 0;
     std::uint64_t mantissa = leading >> static_cast<unsigned>(subnormal_shift);
 
     // The original significand bits below this cut decide every rounding
     // mode, including IEEE halfway ties and the transition to subnormals.
     const Exponent discarded = top - (digits - 1) + subnormal_shift;
     if (discarded > 0) {
-        const std::size_t dropped=static_cast<std::size_t>(discarded);
+        const std::size_t dropped = static_cast<std::size_t>(discarded);
         bool increment = false;
         switch (mode) {
             case Rounding::ToNearest:
-                increment=Detail::nearest_even_binary_increment(_significand.limbs(),dropped,
-                    (mantissa&1u)!=0u);
+                increment = Detail::nearest_even_binary_increment(_significand.limbs(), dropped,
+                                                                  (mantissa & 1u) != 0u);
                 break;
             case Rounding::Downward:
-                increment=_negative &&
-                    floatmp_any_bits_below(_significand,dropped);
+                increment = _negative &&
+                            floatmp_any_bits_below(_significand, dropped);
                 break;
             case Rounding::Upward:
-                increment=!_negative &&
-                    floatmp_any_bits_below(_significand,dropped);
+                increment = !_negative &&
+                            floatmp_any_bits_below(_significand, dropped);
                 break;
             default: // TowardZero: the fourth value of the closed rounding type.
                 break;
@@ -1508,17 +1577,15 @@ double FloatMP::get_d_general() const {
         static_cast<double>(mantissa), static_cast<int>(min_subnormal)));
 }
 
-Comparison cmp(FloatMP const& a, FloatMP const& b) {
+Comparison cmp(const FloatMP& a, const FloatMP& b) {
     if (a.is_nan() || b.is_nan()) {
         return Comparison::INCOMPARABLE;
     }
     if (a.is_inf() || b.is_inf()) {
         if (a.is_inf() && b.is_inf()) {
-            return a.negative() == b.negative() ? Comparison::EQUAL :
-                   (a.negative() ? Comparison::LESS : Comparison::GREATER);
+            return a.negative() == b.negative() ? Comparison::EQUAL : (a.negative() ? Comparison::LESS : Comparison::GREATER);
         }
-        return a.is_inf() ? (a.negative() ? Comparison::LESS : Comparison::GREATER) :
-               (b.negative() ? Comparison::GREATER : Comparison::LESS);
+        return a.is_inf() ? (a.negative() ? Comparison::LESS : Comparison::GREATER) : (b.negative() ? Comparison::GREATER : Comparison::LESS);
     }
 
     // Signed zeros compare equal, independent of their stored sign.
@@ -1550,10 +1617,10 @@ Comparison cmp(FloatMP const& a, FloatMP const& b) {
     // any GMP temporaries or constructing Rational values.
     int magnitude = 0;
     if (a._exponent == b._exponent) {
-        magnitude = compare(a._significand,b._significand);
+        magnitude = compare(a._significand, b._significand);
     } else {
-        const std::size_t a_bits=a._significand.bit_length();
-        const std::size_t b_bits=b._significand.bit_length();
+        const std::size_t a_bits = a._significand.bit_length();
+        const std::size_t b_bits = b._significand.bit_length();
 
         if (a._exponent > b._exponent) {
             // Unsigned subtraction also handles a signed exponent gap
@@ -1569,10 +1636,10 @@ Comparison cmp(FloatMP const& a, FloatMP const& b) {
             } else {
                 // The leading positions coincide. Shift the smaller
                 // representation right; the discarded bits break ties.
-                const auto shift=static_cast<std::size_t>(gap);
-                const BigUnsigned truncated=shift_right(b._significand,shift);
-                magnitude=compare(a._significand,truncated);
-                if(magnitude==0 && floatmp_any_bits_below(b._significand,shift)) {
+                const auto shift = static_cast<std::size_t>(gap);
+                const BigUnsigned truncated = shift_right(b._significand, shift);
+                magnitude = compare(a._significand, truncated);
+                if (magnitude == 0 && floatmp_any_bits_below(b._significand, shift)) {
                     magnitude = -1;
                 }
             }
@@ -1586,10 +1653,10 @@ Comparison cmp(FloatMP const& a, FloatMP const& b) {
             } else if (gap < a_bits - b_bits) {
                 magnitude = 1;
             } else {
-                const auto shift=static_cast<std::size_t>(gap);
-                const BigUnsigned truncated=shift_right(a._significand,shift);
-                magnitude=compare(truncated,b._significand);
-                if(magnitude==0 && floatmp_any_bits_below(a._significand,shift)) {
+                const auto shift = static_cast<std::size_t>(gap);
+                const BigUnsigned truncated = shift_right(a._significand, shift);
+                magnitude = compare(truncated, b._significand);
+                if (magnitude == 0 && floatmp_any_bits_below(a._significand, shift)) {
                     magnitude = 1;
                 }
             }
@@ -1599,15 +1666,14 @@ Comparison cmp(FloatMP const& a, FloatMP const& b) {
     if (a._negative) {
         magnitude = -magnitude;
     }
-    return magnitude < 0 ? Comparison::LESS :
-           (magnitude > 0 ? Comparison::GREATER : Comparison::EQUAL);
+    return magnitude < 0 ? Comparison::LESS : (magnitude > 0 ? Comparison::GREATER : Comparison::EQUAL);
 }
 
 // The normalized significand has precisely p bits. After scaling it
 // by p-1 or p binary positions, its integer square root also has p
 // bits. The integer remainder determines the exact rounding direction.
 // This avoids adaptive approximations and any artificial iteration cap.
-FloatMP sqrt(FloatMP::RoundingModeType mode, FloatMP const& value) {
+FloatMP sqrt(FloatMP::RoundingModeType mode, const FloatMP& value) {
     const unsigned long bits = static_cast<unsigned long>(value.precision().bits());
     if (value.is_nan() || (value.negative() && !value.is_zero())) {
         return FloatMP::nan(bits);
@@ -1640,24 +1706,26 @@ FloatMP sqrt(FloatMP::RoundingModeType mode, FloatMP const& value) {
     // A single downward correction therefore gives the exact floor root;
     // neither an upward correction nor a failed certificate is possible.
     if constexpr (std::numeric_limits<double>::is_iec559) {
-        if (bits<=53u) {
-            __extension__ using Wide=unsigned __int128;
-            const Wide scaled=static_cast<Wide>(value._significand.limb(0u))<<shift;
-            std::uint64_t candidate=static_cast<std::uint64_t>(
+        if (bits <= 53u) {
+            __extension__ using Wide = unsigned __int128;
+            const Wide scaled = static_cast<Wide>(value._significand.limb(0u)) << shift;
+            std::uint64_t candidate = static_cast<std::uint64_t>(
                 std::sqrt(static_cast<double>(scaled)));
-            if (static_cast<Wide>(candidate)*candidate>scaled) --candidate;
-            const Wide remainder=scaled-static_cast<Wide>(candidate)*candidate;
-            const bool increment=remainder!=0u &&
-                (mode.value()==FloatMP::Rounding::Upward ||
-                 (mode.value()==FloatMP::Rounding::ToNearest && remainder>candidate));
-            if (increment) ++candidate;
-            if (candidate==(std::uint64_t{1}<<bits)) {
-                candidate>>=1u;
-                result_exponent=FloatMP::checked_add(result_exponent,1);
+            if (static_cast<Wide>(candidate) * candidate > scaled)
+                --candidate;
+            const Wide remainder = scaled - static_cast<Wide>(candidate) * candidate;
+            const bool increment = remainder != 0u &&
+                                   (mode.value() == FloatMP::Rounding::Upward ||
+                                    (mode.value() == FloatMP::Rounding::ToNearest && remainder > candidate));
+            if (increment)
+                ++candidate;
+            if (candidate == (std::uint64_t{1} << bits)) {
+                candidate >>= 1u;
+                result_exponent = FloatMP::checked_add(result_exponent, 1);
             }
             FloatMP result(bits);
-            result._significand=BigUnsigned(candidate);
-            result._exponent=result_exponent;
+            result._significand = BigUnsigned(candidate);
+            result._exponent = result_exponent;
             return result;
         }
     }
@@ -1666,10 +1734,10 @@ FloatMP sqrt(FloatMP::RoundingModeType mode, FloatMP const& value) {
     // Compute the exact integer square root and remainder with native
     // unsigned limbs. GMP is not part of the root/rounding calculation.
     // Only the final owned significand export remains transitional.
-    const BigUnsigned& magnitude=value._significand;
-    const BigUnsigned scaled=shift_left(magnitude,static_cast<std::size_t>(
-        FloatMP::shift_amount(static_cast<FloatMP::Exponent>(shift))));
-    auto [root,remainder]=sqrtrem(scaled);
+    const BigUnsigned& magnitude = value._significand;
+    const BigUnsigned scaled = shift_left(magnitude, static_cast<std::size_t>(
+                                                         FloatMP::shift_amount(static_cast<FloatMP::Exponent>(shift))));
+    auto [root, remainder] = sqrtrem(scaled);
 
     bool increment = false;
     if (!remainder.is_zero()) {
@@ -1677,7 +1745,7 @@ FloatMP sqrt(FloatMP::RoundingModeType mode, FloatMP const& value) {
             case FloatMP::Rounding::ToNearest:
                 // scaled=root*root+remainder. The exact nearest criterion
                 // is remainder>root; a halfway tie is impossible.
-                increment = compare(remainder,root)>0;
+                increment = compare(remainder, root) > 0;
                 break;
             case FloatMP::Rounding::Upward:
                 increment = true;
@@ -1688,20 +1756,20 @@ FloatMP sqrt(FloatMP::RoundingModeType mode, FloatMP const& value) {
         }
     }
     if (increment) {
-        root=add_big_unsigned(root,BigUnsigned(1u));
+        root = add_big_unsigned(root, BigUnsigned(1u));
     }
-    if (root.bit_length()>bits) {
-        root=shift_right(root,1u);
+    if (root.bit_length() > bits) {
+        root = shift_right(root, 1u);
         result_exponent = FloatMP::checked_add(result_exponent, 1);
     }
 
     FloatMP result(bits);
-    result._significand=std::move(root);
+    result._significand = std::move(root);
     result._exponent = result_exponent;
     return result;
 }
 
-FloatMP pow(FloatMP::RoundingModeType mode, FloatMP const& value, Nat exponent) {
+FloatMP pow(FloatMP::RoundingModeType mode, const FloatMP& value, Nat exponent) {
     const unsigned long bits = static_cast<unsigned long>(value.precision().bits());
     const unsigned long degree = static_cast<unsigned long>(exponent);
     if (degree == 0) {
@@ -1745,77 +1813,82 @@ FloatMP pow(FloatMP::RoundingModeType mode, FloatMP const& value, Nat exponent) 
                     doubled_scale, doubled_scale);
             }
         }
-    } catch (std::overflow_error const&) {
+    } catch (const std::overflow_error&) {
         scale_overflow = true;
     }
 
     if (!scale_overflow) {
         FloatMP result(bits);
         result._negative = value._negative && ((degree & 1ul) != 0ul);
-        if (bits<=64u && degree<=16ul) {
+        if (bits <= 64u && degree <= 16ul) {
             // Near either bounding power of two, the scaled exact power
             // is 2^q +/- n*d + R, with 0<R<1/2 for d!=0 under this
             // bound. Its integer part and inexactness are therefore known
             // without constructing the full p*n-bit integer power.
-            const auto word=value._significand.limb(0u);
-            const auto lower=std::uint64_t{1}<<(bits-1u);
-            const auto upper=bits==64u ? std::uint64_t{0} : std::uint64_t{1}<<bits;
-            const auto below=word-lower,above=upper-word;
-            const bool near_upper=above<below;
-            const auto distance=near_upper ? above : below;
-            const auto q=near_upper ? bits : bits-1u;
-            if (distance==0u || (q>=2u &&
-                distance<=(std::uint64_t{1}<<((q-2u)/2u))/degree)) {
-                const auto correction=distance*degree;
-                auto retained=near_upper ? upper-correction : lower+correction;
-                if (distance!=0u) {
-                    switch(mode.value()) {
-                        case FloatMP::Rounding::ToNearest: break;
+            const auto word = value._significand.limb(0u);
+            const auto lower = std::uint64_t{1} << (bits - 1u);
+            const auto upper = bits == 64u ? std::uint64_t{0} : std::uint64_t{1} << bits;
+            const auto below = word - lower, above = upper - word;
+            const bool near_upper = above < below;
+            const auto distance = near_upper ? above : below;
+            const auto q = near_upper ? bits : bits - 1u;
+            if (distance == 0u || (q >= 2u &&
+                                   distance <= (std::uint64_t{1} << ((q - 2u) / 2u)) / degree)) {
+                const auto correction = distance * degree;
+                auto retained = near_upper ? upper - correction : lower + correction;
+                if (distance != 0u) {
+                    switch (mode.value()) {
+                        case FloatMP::Rounding::ToNearest:
+                            break;
                         case FloatMP::Rounding::Downward:
-                            if (result._negative) ++retained;
+                            if (result._negative)
+                                ++retained;
                             break;
                         case FloatMP::Rounding::Upward:
-                            if (!result._negative) ++retained;
+                            if (!result._negative)
+                                ++retained;
                             break;
                         default: // TowardZero.
                             break;
                     }
                 }
-                result._exponent=FloatMP::checked_add(product_scale,
-                    static_cast<FloatMP::Exponent>(q*(degree-1ul)));
-                result._significand=BigUnsigned(retained);
+                result._exponent = FloatMP::checked_add(product_scale,
+                                                        static_cast<FloatMP::Exponent>(q * (degree - 1ul)));
+                result._significand = BigUnsigned(retained);
                 return result;
             }
             // Exact short floating-point powers need at most 1024 bits.
             // Keep intermediate products in two disjoint stack buffers;
             // all multiplication still uses the shared limb substrate.
             // Only the final significand owns storage and is rounded.
-            constexpr std::size_t capacity=17u;
-            std::array<BigUnsigned::Limb,capacity> first,second;
-            auto current=value._significand.limbs();
-            bool use_first=true;
-            const auto multiply=[&](BigUnsigned::LimbView right) {
-                auto& buffer=use_first ? first : second;
-                const auto count=current.size()+right.size();
-                BigUnsigned::mul_into(current,right,
-                    BigUnsigned::MutableLimbView(buffer.data(),count));
-                auto used=count;
+            constexpr std::size_t capacity = 17u;
+            std::array<BigUnsigned::Limb, capacity> first, second;
+            auto current = value._significand.limbs();
+            bool use_first = true;
+            const auto multiply = [&](BigUnsigned::LimbView right) {
+                auto& buffer = use_first ? first : second;
+                const auto count = current.size() + right.size();
+                BigUnsigned::mul_into(current, right,
+                                      BigUnsigned::MutableLimbView(buffer.data(), count));
+                auto used = count;
                 // Both factors are nonzero and the full product fits the
                 // supplied span. Normalization stops at its leading limb.
-                while (buffer[used-1u]==0u) --used;
-                current=BigUnsigned::LimbView(buffer.data(),used);
-                use_first=!use_first;
+                while (buffer[used - 1u] == 0u)
+                    --used;
+                current = BigUnsigned::LimbView(buffer.data(), used);
+                use_first = !use_first;
             };
-            for (auto bit=std::bit_floor(degree)>>1u;bit!=0ul;bit>>=1u) {
+            for (auto bit = std::bit_floor(degree) >> 1u; bit != 0ul; bit >>= 1u) {
                 multiply(current);
-                if ((degree&bit)!=0ul) multiply(value._significand.limbs());
+                if ((degree & bit) != 0ul)
+                    multiply(value._significand.limbs());
             }
-            FloatMP::round_short(result,current,product_scale,mode);
+            FloatMP::round_short(result, current, product_scale, mode);
             return result;
         }
         // Exact power on the already-owned unsigned magnitude.
-        result._significand=pow(value._significand,
-            static_cast<std::uint64_t>(degree));
+        result._significand = pow(value._significand,
+                                  static_cast<std::uint64_t>(degree));
         FloatMP::round_scaled_integer(result, product_scale, mode);
         return result;
     }
@@ -1823,14 +1896,16 @@ FloatMP pow(FloatMP::RoundingModeType mode, FloatMP const& value, Nat exponent) 
     // Rare normalization-cancellation/scale-overflow fallback.
     // Keep an exact rational result and one final rounding, without
     // roundtrips through mpq_t/mpz_t. Rational::pow is native.
-    const Rational exact=static_cast<Rational>(value);
-    return FloatMP(pow(exact,exponent),mode,value.precision());
+    const Rational exact = static_cast<Rational>(value);
+    return FloatMP(pow(exact, exponent), mode, value.precision());
 }
 
-template<> String class_name<MultiplePrecision>() { return "MultiplePrecision"; }
-template<> String class_name<FloatMP>() { return "FloatMP"; }
-template<> String class_name<Rounded<FloatMP>>() { return "Rounded<FloatMP>"; }
-
+template<>
+String class_name<MultiplePrecision>() { return "MultiplePrecision"; }
+template<>
+String class_name<FloatMP>() { return "FloatMP"; }
+template<>
+String class_name<Rounded<FloatMP>>() { return "Rounded<FloatMP>"; }
 
 // Exact rational intervals and certified transcendental helpers live in
 // one implementation namespace, shared by exp/log and trigonometry.
@@ -1842,127 +1917,130 @@ class Fraction {
     // those algorithms here would duplicate the optimized native core.
     Rational _value;
 
-    explicit Fraction(Rational value) : _value(std::move(value)) { }
+    explicit Fraction(Rational value) : _value(std::move(value)) {}
 
-public:
-    Fraction()=default;
-    explicit Fraction(long integer) : _value(Integer(integer)) { }
-    explicit Fraction(Integer const& integer) : _value(integer) { }
+  public:
+    Fraction() = default;
+    explicit Fraction(long integer) : _value(Integer(integer)) {}
+    explicit Fraction(const Integer& integer) : _value(integer) {}
 
     // Public conversion owns the exact native exponent/shift checks too.
     // Callers dispatch IEEE special values before constructing a Fraction.
-    explicit Fraction(FloatMP const& binary) : _value(binary.operator Rational()) { }
+    explicit Fraction(const FloatMP& binary) : _value(binary.operator Rational()) {}
 
-    Fraction(BigUnsigned const& magnitude,unsigned long denominator_bits)
+    Fraction(const BigUnsigned& magnitude, unsigned long denominator_bits)
         : _value(Rational::from_dyadic(
-              Integer::from_magnitude(magnitude,false),
-              static_cast<std::size_t>(denominator_bits))) { }
+              Integer::from_magnitude(magnitude, false),
+              static_cast<std::size_t>(denominator_bits))) {}
 
-    Fraction(BigUnsigned const& magnitude,unsigned long denominator_bits,
+    Fraction(const BigUnsigned& magnitude, unsigned long denominator_bits,
              bool negative)
         : _value(Rational::from_dyadic(
-              Integer::from_magnitude(magnitude,negative),
-              static_cast<std::size_t>(denominator_bits))) { }
+              Integer::from_magnitude(magnitude, negative),
+              static_cast<std::size_t>(denominator_bits))) {}
 
-    Fraction(Fraction const&)=default;
-    Fraction(Fraction&&)=default;
-    Fraction& operator=(Fraction const&)=default;
-    Fraction& operator=(Fraction&&)=default;
+    Fraction(const Fraction&) = default;
+    Fraction(Fraction&&) = default;
+    Fraction& operator=(const Fraction&) = default;
+    Fraction& operator=(Fraction&&) = default;
 
-    Integer const& numerator() const noexcept {
+    const Integer& numerator() const noexcept {
         return _value.numerator_reference();
     }
-    BigUnsigned const& denominator() const noexcept {
+    const BigUnsigned& denominator() const noexcept {
         return _value.denominator_reference();
     }
 
     std::optional<std::size_t> dyadic_denominator_bits() const noexcept {
-        auto digits=denominator().limbs();
-        bool found=false;
-        std::size_t exponent=0u;
-        for (std::size_t i=0u;i<digits.size();++i) {
-            if (digits[i]==0u) continue;
+        auto digits = denominator().limbs();
+        bool found = false;
+        std::size_t exponent = 0u;
+        for (std::size_t i = 0u; i < digits.size(); ++i) {
+            if (digits[i] == 0u)
+                continue;
             if (found || !std::has_single_bit(digits[i])) {
                 return std::nullopt;
             }
-            found=true;
-            exponent=64u*i+
-                static_cast<std::size_t>(std::countr_zero(digits[i]));
+            found = true;
+            exponent = 64u * i +
+                       static_cast<std::size_t>(std::countr_zero(digits[i]));
         }
         // Fraction owns a finite Rational with a positive denominator.
         // Reaching the end therefore found exactly one nonzero limb.
         return std::optional<std::size_t>(exponent);
     }
-    FloatMP rounded(unsigned long bits,FloatMP::RoundingModeType mode) const {
+    FloatMP rounded(unsigned long bits, FloatMP::RoundingModeType mode) const {
         return FloatMP::from_ratio(numerator(),
-            Integer::from_magnitude(denominator(),false),
-            mode,FloatMP::PrecisionType(bits));
+                                   Integer::from_magnitude(denominator(), false),
+                                   mode, FloatMP::PrecisionType(bits));
     }
     void halve() {
-        _value=hlf(_value);
+        _value = hlf(_value);
     }
     int sign() const noexcept {
-        return numerator().magnitude().is_zero() ? 0 :
-            numerator().negative() ? -1 : 1;
+        return numerator().magnitude().is_zero() ? 0 : numerator().negative() ? -1
+                                                                              : 1;
     }
-    friend int compare(Fraction const& a,Fraction const& b) {
-        const Comparison value=cmp(a._value,b._value);
-        return value==Comparison::LESS ? -1 :
-               value==Comparison::GREATER ? 1 : 0;
+    friend int compare(const Fraction& a, const Fraction& b) {
+        const Comparison value = cmp(a._value, b._value);
+        return value == Comparison::LESS ? -1 : value == Comparison::GREATER ? 1
+                                                                             : 0;
     }
     // Exact dyadic arithmetic bypasses the general Rational GCD:
     // align signed numerators for +/- or multiply numerators for *.
     // All non-dyadic operands retain the native Rational fallback.
-    static Fraction dyadic_sum(Fraction const& a,Fraction const& b,
-                               std::size_t a_bits,std::size_t b_bits,
+    static Fraction dyadic_sum(const Fraction& a, const Fraction& b,
+                               std::size_t a_bits, std::size_t b_bits,
                                bool subtract_rhs) {
-        const std::size_t bits=std::max(a_bits,b_bits);
-        const auto scaled=[](Integer const& n,std::size_t shift) {
-            return shift==0u ? n : Integer::from_magnitude(
-                shift_left(n.magnitude(),shift),n.negative());
+        const std::size_t bits = std::max(a_bits, b_bits);
+        const auto scaled = [](const Integer& n, std::size_t shift) {
+            return shift == 0u ? n : Integer::from_magnitude(shift_left(n.magnitude(), shift), n.negative());
         };
-        const Integer left=scaled(a.numerator(),bits-a_bits);
-        const Integer right=scaled(b.numerator(),bits-b_bits);
+        const Integer left = scaled(a.numerator(), bits - a_bits);
+        const Integer right = scaled(b.numerator(), bits - b_bits);
         return Fraction(Rational::from_dyadic(
-            subtract_rhs ? sub(left,right) : add(left,right),bits));
+            subtract_rhs ? sub(left, right) : add(left, right), bits));
     }
-    friend Fraction operator+(Fraction const& a,Fraction const& b) {
-        if (a.sign()==0 || b.sign()==0) return Fraction(a._value+b._value);
-        const auto a_bits=a.dyadic_denominator_bits();
-        const auto b_bits=b.dyadic_denominator_bits();
+    friend Fraction operator+(const Fraction& a, const Fraction& b) {
+        if (a.sign() == 0 || b.sign() == 0)
+            return Fraction(a._value + b._value);
+        const auto a_bits = a.dyadic_denominator_bits();
+        const auto b_bits = b.dyadic_denominator_bits();
         if (a_bits && b_bits) {
-            return dyadic_sum(a,b,*a_bits,*b_bits,false);
+            return dyadic_sum(a, b, *a_bits, *b_bits, false);
         }
-        return Fraction(a._value+b._value);
+        return Fraction(a._value + b._value);
     }
-    friend Fraction operator-(Fraction const& a,Fraction const& b) {
-        if (a.sign()==0 || b.sign()==0) return Fraction(a._value-b._value);
-        const auto a_bits=a.dyadic_denominator_bits();
-        const auto b_bits=b.dyadic_denominator_bits();
+    friend Fraction operator-(const Fraction& a, const Fraction& b) {
+        if (a.sign() == 0 || b.sign() == 0)
+            return Fraction(a._value - b._value);
+        const auto a_bits = a.dyadic_denominator_bits();
+        const auto b_bits = b.dyadic_denominator_bits();
         if (a_bits && b_bits) {
-            return dyadic_sum(a,b,*a_bits,*b_bits,true);
+            return dyadic_sum(a, b, *a_bits, *b_bits, true);
         }
-        return Fraction(a._value-b._value);
+        return Fraction(a._value - b._value);
     }
-    friend Fraction operator*(Fraction const& a,Fraction const& b) {
-        if (a.sign()==0 || b.sign()==0) return Fraction(a._value*b._value);
-        const auto a_bits=a.dyadic_denominator_bits();
-        const auto b_bits=b.dyadic_denominator_bits();
+    friend Fraction operator*(const Fraction& a, const Fraction& b) {
+        if (a.sign() == 0 || b.sign() == 0)
+            return Fraction(a._value * b._value);
+        const auto a_bits = a.dyadic_denominator_bits();
+        const auto b_bits = b.dyadic_denominator_bits();
         if (a_bits && b_bits) {
             // An unrepresentable binary scale is a resource error. Check
             // scalar metadata before multiplying or allocating a denominator.
-            const auto bits=Detail::checked_unsigned_add(*a_bits,*b_bits,
-                "FloatMP dyadic product scale overflow");
+            const auto bits = Detail::checked_unsigned_add(*a_bits, *b_bits,
+                                                           "FloatMP dyadic product scale overflow");
             return Fraction(Rational::from_dyadic(
-                mul(a.numerator(),b.numerator()),bits));
+                mul(a.numerator(), b.numerator()), bits));
         }
-        return Fraction(a._value*b._value);
+        return Fraction(a._value * b._value);
     }
-    friend Fraction operator/(Fraction const& a,Fraction const& b) {
+    friend Fraction operator/(const Fraction& a, const Fraction& b) {
         // Interval division excludes zero before reaching this operator.
         // Direct reductions divide by nonzero constants, positive x+1/x+2,
         // positive exponential bounds, or 1+sqrt(1-x*x), all by construction.
-        return Fraction(a._value/b._value);
+        return Fraction(a._value / b._value);
     }
 };
 
@@ -1971,43 +2049,47 @@ struct Interval {
     Fraction upper;
 };
 
-Fraction absolute(Fraction const& x) {
+Fraction absolute(const Fraction& x) {
     return x.sign() < 0 ? Fraction{} - x : x;
 }
 
-Fraction rational_argument(FloatMP const& x) {
+Fraction rational_argument(const FloatMP& x) {
     return Fraction(x);
 }
 
 // Canonical scratch words and exact comparisons with a power-of-two
 // stopping threshold are common to all fixed-point series.
 void normalize_fixed_words(std::vector<BigUnsigned::Limb>& digits) {
-    while (!digits.empty() && digits.back()==0u) digits.pop_back();
+    while (!digits.empty() && digits.back() == 0u)
+        digits.pop_back();
 }
 
-bool within_fixed_threshold(std::vector<BigUnsigned::Limb> const& digits,
+bool within_fixed_threshold(const std::vector<BigUnsigned::Limb>& digits,
                             unsigned long guard) {
-    const auto word=static_cast<std::size_t>(guard/64ul);
-    if (digits.size()<=word) return true;
-    if (digits.size()>word+1u) return false;
-    const auto leading=BigUnsigned::Limb{1}<<static_cast<unsigned>(guard%64ul);
-    if (digits.back()!=leading) return digits.back()<leading;
-    return !BigUnsigned::any_bits_below(digits,static_cast<std::size_t>(guard));
+    const auto word = static_cast<std::size_t>(guard / 64ul);
+    if (digits.size() <= word)
+        return true;
+    if (digits.size() > word + 1u)
+        return false;
+    const auto leading = BigUnsigned::Limb{1} << static_cast<unsigned>(guard % 64ul);
+    if (digits.back() != leading)
+        return digits.back() < leading;
+    return !BigUnsigned::any_bits_below(digits, static_cast<std::size_t>(guard));
 }
 
 // Accumulate a fixed-point series with shared exact limb kernels. The
 // caller proves sum>=addend for subtraction (alternating decreasing terms).
 // Inputs and scratch are disjoint; swapping retains both buffers' capacities.
 void accumulate_fixed_terms(std::vector<BigUnsigned::Limb>& sum,
-                            BigUnsigned::LimbView addend,bool subtract,
+                            BigUnsigned::LimbView addend, bool subtract,
                             std::vector<BigUnsigned::Limb>& scratch) {
-    const std::size_t count=std::max(sum.size(),addend.size());
-    scratch.resize(count+1u);
+    const std::size_t count = std::max(sum.size(), addend.size());
+    scratch.resize(count + 1u);
     if (subtract) {
-        (void)BigUnsigned::sub_into(sum,addend,scratch);
+        (void)BigUnsigned::sub_into(sum, addend, scratch);
     } else {
-        scratch[count]=BigUnsigned::add_into(sum,addend,
-            BigUnsigned::MutableLimbView(scratch.data(),count));
+        scratch[count] = BigUnsigned::add_into(sum, addend,
+                                               BigUnsigned::MutableLimbView(scratch.data(), count));
     }
     normalize_fixed_words(scratch);
     sum.swap(scratch);
@@ -2016,8 +2098,8 @@ void accumulate_fixed_terms(std::vector<BigUnsigned::Limb>& sum,
 // Shared floor/ceil(a*b/2^shift), with disjoint input/output/scratch.
 // Zero coefficients, exact products and rounding carries follow the same
 // native kernels for exp, log, sine/cosine and atan. All buffers retain capacity.
-void scaled_fixed_product(BigUnsigned::LimbView left,BigUnsigned::LimbView right,
-                          std::size_t shift,bool round_upward,
+void scaled_fixed_product(BigUnsigned::LimbView left, BigUnsigned::LimbView right,
+                          std::size_t shift, bool round_upward,
                           std::vector<BigUnsigned::Limb>& output,
                           std::vector<BigUnsigned::Limb>& product,
                           std::vector<BigUnsigned::Limb>& increment_scratch) {
@@ -2026,15 +2108,15 @@ void scaled_fixed_product(BigUnsigned::LimbView left,BigUnsigned::LimbView right
         return;
     }
     // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
-    product.resize(left.size()+right.size());
-    BigUnsigned::mul_into(left,right,product);
+    product.resize(left.size() + right.size());
+    BigUnsigned::mul_into(left, right, product);
     normalize_fixed_words(product);
-    const bool discarded=round_upward && BigUnsigned::any_bits_below(product,shift);
-    output.resize(BigUnsigned::shift_right_output_limbs(product.size(),shift));
-    output.resize(BigUnsigned::shift_right_into(product,shift,output));
+    const bool discarded = round_upward && BigUnsigned::any_bits_below(product, shift);
+    output.resize(BigUnsigned::shift_right_output_limbs(product.size(), shift));
+    output.resize(BigUnsigned::shift_right_into(product, shift, output));
     if (discarded) {
-        const BigUnsigned::Limb one=1u;
-        accumulate_fixed_terms(output,BigUnsigned::LimbView(&one,1u),false,increment_scratch);
+        const BigUnsigned::Limb one = 1u;
+        accumulate_fixed_terms(output, BigUnsigned::LimbView(&one, 1u), false, increment_scratch);
     }
 }
 
@@ -2048,39 +2130,39 @@ void scaled_fixed_product(BigUnsigned::LimbView left,BigUnsigned::LimbView right
 // [sum(t_i), sum(t_i)+t_n+6*(n+1)] / Q. This avoids a second
 // rounded recurrence without relying on unproved negligible errors.
 // For negative x take the reciprocal, reversing endpoints.
-Interval exp_series(Fraction const& x, unsigned long work) {
+Interval exp_series(const Fraction& x, unsigned long work) {
     // Only exp_interval calls this kernel: exp/tanh dispatch zero before
     // exact argument reduction, and all cached centers are nonzero.
     const Fraction magnitude = absolute(x);
     const unsigned long max_terms = work / 2ul + 64ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(max_terms));
-    const unsigned long fixed_bits=Detail::checked_unsigned_add(work,guard,
-        "FloatMP exponential work precision overflow");
-    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
-        "FloatMP exponential fixed-point shift overflow");
+    const unsigned long fixed_bits = Detail::checked_unsigned_add(work, guard,
+                                                                  "FloatMP exponential work precision overflow");
+    const auto fixed_shift_size = Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+                                                                             "FloatMP exponential fixed-point shift overflow");
 
-    using Limb=BigUnsigned::Limb;
-    using Words=std::vector<Limb>;
-    const auto fixed_shift=fixed_shift_size;
-    const std::size_t whole=fixed_shift/64u;
-    const unsigned partial=static_cast<unsigned>(fixed_shift%64u);
-    const Integer& native_numerator=magnitude.numerator();
-    const BigUnsigned& native_denominator=magnitude.denominator();
-    const BigUnsigned argument=quot(
-        shift_left(native_numerator.magnitude(),fixed_shift),
+    using Limb = BigUnsigned::Limb;
+    using Words = std::vector<Limb>;
+    const auto fixed_shift = fixed_shift_size;
+    const std::size_t whole = fixed_shift / 64u;
+    const unsigned partial = static_cast<unsigned>(fixed_shift % 64u);
+    const Integer& native_numerator = magnitude.numerator();
+    const BigUnsigned& native_denominator = magnitude.denominator();
+    const BigUnsigned argument = quot(
+        shift_left(native_numerator.magnitude(), fixed_shift),
         native_denominator);
 
     // The five buffers retain their capacities across all Taylor terms.
     // In contrast to chained owning arithmetic, no temporary BigUnsigned
     // or GMP integer is constructed for multiplication, shifting, division,
     // or accumulation in the recurrence.
-    Words term(whole+1u,0u);
-    term[whole]=Limb{1}<<partial;
-    Words sum_lower=term;
-    Words product,shifted,next_term,next_sum;
-    const auto below_threshold=[&](Words const& digits) {
-        return within_fixed_threshold(digits,guard);
+    Words term(whole + 1u, 0u);
+    term[whole] = Limb{1} << partial;
+    Words sum_lower = term;
+    Words product, shifted, next_term, next_sum;
+    const auto below_threshold = [&](const Words& digits) {
+        return within_fixed_threshold(digits, guard);
     };
 
     // t_n<=Q/(2^n*n!)<=Q/2^(2n-1), since n!>=2^(n-1).
@@ -2095,40 +2177,40 @@ Interval exp_series(Fraction const& x, unsigned long work) {
             product.clear();
         } else {
             // Existing 8-byte limb arrays bound the combined count below SIZE_MAX.
-            product.resize(term.size()+argument.size());
-            BigUnsigned::mul_into(term,argument.limbs(),product);
+            product.resize(term.size() + argument.size());
+            BigUnsigned::mul_into(term, argument.limbs(), product);
             normalize_fixed_words(product);
         }
 
-        shifted.resize(BigUnsigned::shift_right_output_limbs(product.size(),fixed_shift));
-        shifted.resize(BigUnsigned::shift_right_into(product,fixed_shift,shifted));
-        const BigUnsigned::LimbView right_shifted=shifted;
+        shifted.resize(BigUnsigned::shift_right_output_limbs(product.size(), fixed_shift));
+        shifted.resize(BigUnsigned::shift_right_into(product, fixed_shift, shifted));
+        const BigUnsigned::LimbView right_shifted = shifted;
         next_term.resize(right_shifted.size());
         (void)BigUnsigned::divrem_limb_into(
-            right_shifted,static_cast<Limb>(n),next_term);
+            right_shifted, static_cast<Limb>(n), next_term);
         normalize_fixed_words(next_term);
         term.swap(next_term);
 
-        const std::size_t count=std::max(sum_lower.size(),term.size());
-        next_sum.resize(count+1u);
-        const Limb carry=BigUnsigned::add_into(
-            sum_lower,term,BigUnsigned::MutableLimbView(next_sum.data(),count));
-        next_sum[count]=carry;
+        const std::size_t count = std::max(sum_lower.size(), term.size());
+        next_sum.resize(count + 1u);
+        const Limb carry = BigUnsigned::add_into(
+            sum_lower, term, BigUnsigned::MutableLimbView(next_sum.data(), count));
+        next_sum[count] = carry;
         normalize_fixed_words(next_sum);
         sum_lower.swap(next_sum);
 
         if (below_threshold(term)) {
             // The same proven enclosure: sum + term + 6*(n+1).
             const BigUnsigned lower(BigUnsigned::LimbView(
-                sum_lower.data(),sum_lower.size()));
+                sum_lower.data(), sum_lower.size()));
             const BigUnsigned last_term(BigUnsigned::LimbView(
-                term.data(),term.size()));
-            const BigUnsigned tail=mul(
-                add(BigUnsigned(static_cast<Limb>(n)),BigUnsigned(1u)),
+                term.data(), term.size()));
+            const BigUnsigned tail = mul(
+                add(BigUnsigned(static_cast<Limb>(n)), BigUnsigned(1u)),
                 BigUnsigned(6u));
-            const BigUnsigned upper=add(add(lower,last_term),tail);
-            const Interval positive{Fraction(lower,fixed_bits),
-                                    Fraction(upper,fixed_bits)};
+            const BigUnsigned upper = add(add(lower, last_term), tail);
+            const Interval positive{Fraction(lower, fixed_bits),
+                                    Fraction(upper, fixed_bits)};
             if (x.sign() > 0) {
                 return positive;
             }
@@ -2153,59 +2235,60 @@ Interval exp_interval(Fraction x, unsigned long work) {
         }
         x.halve();
     }
-    constexpr char reconstruction_error[]="FloatMP exponential reconstruction precision overflow";
-    const auto fixed_bits=Detail::checked_unsigned_add(
-        Detail::checked_unsigned_add(work,static_cast<unsigned long>(halvings),reconstruction_error),
-        64ul,reconstruction_error);
-    const unsigned long reduced_work=fixed_bits-56ul;
+    constexpr char reconstruction_error[] = "FloatMP exponential reconstruction precision overflow";
+    const auto fixed_bits = Detail::checked_unsigned_add(
+        Detail::checked_unsigned_add(work, static_cast<unsigned long>(halvings), reconstruction_error),
+        64ul, reconstruction_error);
+    const unsigned long reduced_work = fixed_bits - 56ul;
     Interval interval = exp_series(x, reduced_work);
     if (halvings == 0u) {
         return interval;
     }
 
-    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
-        "FloatMP exponential reconstruction shift overflow");
-    using Limb=BigUnsigned::Limb;
-    using Words=std::vector<Limb>;
-    const std::size_t shift=fixed_shift_size;
+    const auto fixed_shift_size = Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+                                                                             "FloatMP exponential reconstruction shift overflow");
+    using Limb = BigUnsigned::Limb;
+    using Words = std::vector<Limb>;
+    const std::size_t shift = fixed_shift_size;
 
     // Quantize the two initial certified rational bounds. The
     // lower is rounded down and the upper rounded up at the same
     // dyadic scale. Avoid canonical Rational/GCD round trips.
-    const auto to_scaled=[&](Fraction const& bound,bool round_upward) {
-        const Integer& numerator=bound.numerator();
-        const BigUnsigned& denominator=bound.denominator();
-        auto [value,remainder]=divrem(
-            shift_left(numerator.magnitude(),shift),
+    const auto to_scaled = [&](const Fraction& bound, bool round_upward) {
+        const Integer& numerator = bound.numerator();
+        const BigUnsigned& denominator = bound.denominator();
+        auto [value, remainder] = divrem(
+            shift_left(numerator.magnitude(), shift),
             denominator);
         if (round_upward && !remainder.is_zero()) {
-            value=add(value,BigUnsigned(1u));
+            value = add(value, BigUnsigned(1u));
         }
-        const auto digits=value.limbs();
-        return Words(digits.begin(),digits.end());
+        const auto digits = value.limbs();
+        return Words(digits.begin(), digits.end());
     };
-    Words lower=to_scaled(interval.lower,false);
-    Words upper=to_scaled(interval.upper,true);
-    Words product,next_lower,next_upper;
+    Words lower = to_scaled(interval.lower, false);
+    Words upper = to_scaled(interval.upper, true);
+    Words product, next_lower, next_upper;
     Words increment_scratch;
-    const auto square_outward=[&](Words const& value,Words& output,bool round_upward) {
-        scaled_fixed_product(value,value,shift,round_upward,output,product,increment_scratch);
+    const auto square_outward = [&](const Words& value, Words& output, bool round_upward) {
+        scaled_fixed_product(value, value, shift, round_upward, output, product, increment_scratch);
     };
 
     // Square only positive endpoint magnitudes, preserving the
     // certified enclosure through monotonicity of squaring.
-    for (unsigned i=0u;i<halvings;++i) {
-        square_outward(lower,next_lower,false);
+    for (unsigned i = 0u; i < halvings; ++i) {
+        square_outward(lower, next_lower, false);
         lower.swap(next_lower);
-        square_outward(upper,next_upper,true);
+        square_outward(upper, next_upper, true);
         upper.swap(next_upper);
     }
     return {
         Fraction(BigUnsigned(BigUnsigned::LimbView(
-                     lower.data(),lower.size())),fixed_bits),
+                     lower.data(), lower.size())),
+                 fixed_bits),
         Fraction(BigUnsigned(BigUnsigned::LimbView(
-                     upper.data(),upper.size())),fixed_bits)
-    };
+                     upper.data(), upper.size())),
+                 fixed_bits)};
 }
 
 // For |z| <= 1/3, log((1+z)/(1-z)) = 2 sum z^(2n+1)/(2n+1).
@@ -2214,7 +2297,7 @@ Interval exp_interval(Fraction x, unsigned long work) {
 // The first N terms are enclosed term by term. Since |z| <= 1/3,
 // the remaining tail is at most (9/4)*3^(-2N-1), strictly below
 // 2^(-work) for N = floor(work/3)+4.
-Interval log_series(Fraction const& z, unsigned long work) {
+Interval log_series(const Fraction& z, unsigned long work) {
     if (z.sign() == 0) {
         return {Fraction{}, Fraction{}};
     }
@@ -2222,101 +2305,103 @@ Interval log_series(Fraction const& z, unsigned long work) {
     const unsigned long terms = work / 3ul + 4ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(terms));
-    const unsigned long fixed_bits=Detail::checked_unsigned_add(work,guard,
-        "FloatMP logarithm work precision overflow");
-    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
-        "FloatMP logarithm fixed-point shift overflow");
+    const unsigned long fixed_bits = Detail::checked_unsigned_add(work, guard,
+                                                                  "FloatMP logarithm work precision overflow");
+    const auto fixed_shift_size = Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+                                                                             "FloatMP logarithm fixed-point shift overflow");
 
-    using Limb=BigUnsigned::Limb;
-    using Words=std::vector<Limb>;
-    const std::size_t shift=fixed_shift_size;
-    const Fraction magnitude=absolute(z);
-    const Integer& num=magnitude.numerator();
-    const BigUnsigned& den=magnitude.denominator();
+    using Limb = BigUnsigned::Limb;
+    using Words = std::vector<Limb>;
+    const std::size_t shift = fixed_shift_size;
+    const Fraction magnitude = absolute(z);
+    const Integer& num = magnitude.numerator();
+    const BigUnsigned& den = magnitude.denominator();
     // log_interval supplies z=(u-2^q)/(u+2^q), with u odd,
     // q>=1 and x!=1. Numerator/denominator are odd and coprime,
     // with denominator>1; log2_interval supplies 1/3. Thus nonzero
     // z is never dyadic, and division by its denominator is inexact.
-    const BigUnsigned z_lower=quot(shift_left(num.magnitude(),shift),den);
-    const BigUnsigned z_upper=add(z_lower,BigUnsigned(1u));
+    const BigUnsigned z_lower = quot(shift_left(num.magnitude(), shift), den);
+    const BigUnsigned z_upper = add(z_lower, BigUnsigned(1u));
 
     // Match GMP's exact floor/ceil endpoints. Only the initial fraction
     // import and final Fraction construction use the legacy GMP carrier.
     // Every fixed-point product, power, integer division and sum below
     // operates on reusable native caller-owned limb buffers.
-    Words power_lo(z_lower.limbs().begin(),z_lower.limbs().end());
-    Words power_hi(z_upper.limbs().begin(),z_upper.limbs().end());
-    Words square_lo,square_hi,sum_lo,sum_hi;
-    Words product,next_power,quotient,tail;
+    Words power_lo(z_lower.limbs().begin(), z_lower.limbs().end());
+    Words power_hi(z_upper.limbs().begin(), z_upper.limbs().end());
+    Words square_lo, square_hi, sum_lo, sum_hi;
+    Words product, next_power, quotient, tail;
     Words increment_scratch;
-    const auto increment=[&](Words& digits) {
-        const BigUnsigned::Limb one=1u;
-        accumulate_fixed_terms(digits,BigUnsigned::LimbView(&one,1u),false,increment_scratch);
+    const auto increment = [&](Words& digits) {
+        const BigUnsigned::Limb one = 1u;
+        accumulate_fixed_terms(digits, BigUnsigned::LimbView(&one, 1u), false, increment_scratch);
     };
 
-    const auto scaled_product=[&](Words const& left,Words const& right,
-                                   bool outward,Words& output) {
-        scaled_fixed_product(left,right,shift,outward,output,product,increment_scratch);
+    const auto scaled_product = [&](const Words& left, const Words& right,
+                                    bool outward, Words& output) {
+        scaled_fixed_product(left, right, shift, outward, output, product, increment_scratch);
     };
 
     Words next_sum;
-    const auto accumulate=[&](Words& sum,Words const& addend) {
-        accumulate_fixed_terms(sum,addend,false,next_sum);
+    const auto accumulate = [&](Words& sum, const Words& addend) {
+        accumulate_fixed_terms(sum, addend, false, next_sum);
     };
-    const auto within_threshold=[&](Words const& digits) {
-        return within_fixed_threshold(digits,guard);
+    const auto within_threshold = [&](const Words& digits) {
+        return within_fixed_threshold(digits, guard);
     };
 
-    scaled_product(power_lo,power_lo,false,square_lo);
-    scaled_product(power_hi,power_hi,true,square_hi);
+    scaled_product(power_lo, power_lo, false, square_lo);
+    scaled_product(power_hi, power_hi, true, square_hi);
 
     // Q>=2^32 and y_hi/Q<=1/3+1/Q imply square_hi/Q<1/8.
     // Each upper power update is <=power/8+1, so after m updates
     // power<=3*Q/(8*8^m)+8/7. At m=terms=floor(work/3)+4,
     // 3*power<2^guard. Therefore the threshold terminates the loop
     // by terms iterations, without a separate counter-limit fallback.
-    for (unsigned long n=0u;;++n) {
+    for (unsigned long n = 0u;; ++n) {
         // n < work/3+4 and work+guard fits, with guard>=32; 2*n+1 fits.
-        const Limb divisor=static_cast<Limb>(2ul*n+1ul);
+        const Limb divisor = static_cast<Limb>(2ul * n + 1ul);
         quotient.resize(power_lo.size());
-        (void)BigUnsigned::divrem_limb_into(power_lo,divisor,quotient);
+        (void)BigUnsigned::divrem_limb_into(power_lo, divisor, quotient);
         normalize_fixed_words(quotient);
-        accumulate(sum_lo,quotient);
+        accumulate(sum_lo, quotient);
 
         quotient.resize(power_hi.size());
-        const Limb upper_remainder=
-            BigUnsigned::divrem_limb_into(power_hi,divisor,quotient);
+        const Limb upper_remainder =
+            BigUnsigned::divrem_limb_into(power_hi, divisor, quotient);
         normalize_fixed_words(quotient);
-        if (upper_remainder!=0u) increment(quotient);
-        accumulate(sum_hi,quotient);
+        if (upper_remainder != 0u)
+            increment(quotient);
+        accumulate(sum_hi, quotient);
 
-        scaled_product(power_lo,square_lo,false,next_power);
+        scaled_product(power_lo, square_lo, false, next_power);
         power_lo.swap(next_power);
-        scaled_product(power_hi,square_hi,true,next_power);
+        scaled_product(power_hi, square_hi, true, next_power);
         power_hi.swap(next_power);
 
         // Nonzero z has a positive upward-rounded initial power and
         // square. Upward rounding preserves positivity at every update.
-        const Limb three=3u;
-        tail.resize(power_hi.size()+1u);
-        BigUnsigned::mul_into(power_hi,BigUnsigned::LimbView(&three,1u),tail);
+        const Limb three = 3u;
+        tail.resize(power_hi.size() + 1u);
+        BigUnsigned::mul_into(power_hi, BigUnsigned::LimbView(&three, 1u), tail);
         normalize_fixed_words(tail);
         if (within_threshold(tail)) {
             break;
         }
     }
 
-    const BigUnsigned lower=shift_left(
-        BigUnsigned(BigUnsigned::LimbView(sum_lo.data(),sum_lo.size())),1u);
-    const BigUnsigned upper=add(
+    const BigUnsigned lower = shift_left(
+        BigUnsigned(BigUnsigned::LimbView(sum_lo.data(), sum_lo.size())), 1u);
+    const BigUnsigned upper = add(
         shift_left(BigUnsigned(BigUnsigned::LimbView(
-            sum_hi.data(),sum_hi.size())),1u),
-        BigUnsigned(BigUnsigned::LimbView(tail.data(),tail.size())));
-    const Interval positive{Fraction(lower,fixed_bits),
-                            Fraction(upper,fixed_bits)};
-    return z.sign()<0
-        ? Interval{Fraction{}-positive.upper,Fraction{}-positive.lower}
-        : positive;
+                       sum_hi.data(), sum_hi.size())),
+                   1u),
+        BigUnsigned(BigUnsigned::LimbView(tail.data(), tail.size())));
+    const Interval positive{Fraction(lower, fixed_bits),
+                            Fraction(upper, fixed_bits)};
+    return z.sign() < 0
+             ? Interval{Fraction{} - positive.upper, Fraction{} - positive.lower}
+             : positive;
 }
 
 Interval log2_interval(unsigned long work) {
@@ -2338,23 +2423,23 @@ Interval log2_interval(unsigned long work) {
     return result;
 }
 
-Interval log_interval(FloatMP const& binary, unsigned long work) {
+Interval log_interval(const FloatMP& binary, unsigned long work) {
     // binary=s*2^e, 2^(p-1)<=s<2^p. Normalize only the p-bit
     // significand: materializing 2^|e| is unnecessary even at native
     // exponent limits. The exact power e+p-1 may exceed Exponent.
-    const auto precision=static_cast<unsigned long>(binary.precision().bits());
-    Fraction x(binary.significand(),precision-1ul);
-    Integer power=add(Integer(binary.exponent()),Integer(precision-1ul));
-    if (compare(x,Fraction(3L)/Fraction(2L))>0) {
+    const auto precision = static_cast<unsigned long>(binary.precision().bits());
+    Fraction x(binary.significand(), precision - 1ul);
+    Integer power = add(Integer(binary.exponent()), Integer(precision - 1ul));
+    if (compare(x, Fraction(3L) / Fraction(2L)) > 0) {
         x.halve();
-        power=add(power,Integer(1));
+        power = add(power, Integer(1));
     }
     // x is now in [3/4,3/2], hence |(x-1)/(x+1)|<=1/5.
     const Fraction z = (x - Fraction(1L)) / (x + Fraction(1L));
     Interval result = log_series(z, work);
     if (!power.magnitude().is_zero()) {
         const Interval ln2 = log2_interval(work);
-        const Fraction count(Integer::from_magnitude(power.magnitude(),false));
+        const Fraction count(Integer::from_magnitude(power.magnitude(), false));
         if (!power.negative()) {
             result = {result.lower + count * ln2.lower,
                       result.upper + count * ln2.upper};
@@ -2375,32 +2460,35 @@ Interval log_interval(FloatMP const& binary, unsigned long work) {
 // even a native multiprecision temporary. When their bit lengths match,
 // compare the actual native limbs; this is the only ambiguous case.
 // GMP is touched only to read the not-yet-migrated Fraction carrier.
-bool within_dyadic_window(Fraction const& value,unsigned long binary_shift) {
-    if (value.sign()==0) return true;
-    const BigUnsigned& numerator=value.numerator().magnitude();
-    const BigUnsigned& denominator=value.denominator();
-    const std::size_t numerator_bits=numerator.bit_length();
-    const std::size_t denominator_bits=denominator.bit_length();
-    using BitCount=std::common_type_t<std::size_t,unsigned long>;
-    const int order=Detail::compare_unsigned_sum(
-        static_cast<BitCount>(numerator_bits),static_cast<BitCount>(binary_shift),
+bool within_dyadic_window(const Fraction& value, unsigned long binary_shift) {
+    if (value.sign() == 0)
+        return true;
+    const BigUnsigned& numerator = value.numerator().magnitude();
+    const BigUnsigned& denominator = value.denominator();
+    const std::size_t numerator_bits = numerator.bit_length();
+    const std::size_t denominator_bits = denominator.bit_length();
+    using BitCount = std::common_type_t<std::size_t, unsigned long>;
+    const int order = Detail::compare_unsigned_sum(
+        static_cast<BitCount>(numerator_bits), static_cast<BitCount>(binary_shift),
         static_cast<BitCount>(denominator_bits));
-    if (order!=0) return order<0;
+    if (order != 0)
+        return order < 0;
     // Equality proves the shift fits size_t, even on a narrower ABI.
     return compare(
-        shift_left(numerator,static_cast<std::size_t>(binary_shift)),
-        denominator)<=0;
+               shift_left(numerator, static_cast<std::size_t>(binary_shift)),
+               denominator) <= 0;
 }
 
-bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
+bool exp_inside_half_window(const Fraction& delta, unsigned long work) {
     // certified starts with at least four guard bits and only increases
     // them. Public precision>=2 therefore gives work>=6. Thus |delta|<=2^(-ceil(work/2)) keeps the entire
     // segment around +/-1/2 inside [-3/4,3/4].
-    const unsigned long cutoff_bits=work/2ul+work%2ul;
-    if constexpr(Detail::unsigned_narrowing<std::size_t,unsigned long>) {
-        if(!Detail::unsigned_fits<std::size_t>(cutoff_bits)) return false;
+    const unsigned long cutoff_bits = work / 2ul + work % 2ul;
+    if constexpr (Detail::unsigned_narrowing<std::size_t, unsigned long>) {
+        if (!Detail::unsigned_fits<std::size_t>(cutoff_bits))
+            return false;
     }
-    return within_dyadic_window(delta,cutoff_bits);
+    return within_dyadic_window(delta, cutoff_bits);
 }
 
 // Convert a signed certified rational endpoint to an exact outward
@@ -2410,35 +2498,35 @@ bool exp_inside_half_window(Fraction const& delta, unsigned long work) {
 // Import one GMP-backed exact endpoint, but keep the integer quotient
 // and its sign native. This avoids importing the result back out of a
 // Fraction when a cached centered correction needs integer bounds.
-Integer outward_dyadic_integer(Fraction const& exact,
+Integer outward_dyadic_integer(const Fraction& exact,
                                unsigned long bits,
                                bool round_toward_positive) {
-    const auto shift=Detail::checked_unsigned_cast<std::size_t>(bits,
-        "FloatMP dyadic endpoint shift overflow");
-    const Integer& numerator=exact.numerator();
-    const BigUnsigned& denominator=exact.denominator();
-    const bool negative=numerator.negative();
-    const bool round_magnitude_up=negative
-        ? !round_toward_positive : round_toward_positive;
-    BigUnsigned magnitude=Detail::scaled_unsigned_quotient(
-        numerator.magnitude(),denominator,shift,round_magnitude_up);
-    return Integer::from_magnitude(std::move(magnitude),negative);
+    const auto shift = Detail::checked_unsigned_cast<std::size_t>(bits,
+                                                                  "FloatMP dyadic endpoint shift overflow");
+    const Integer& numerator = exact.numerator();
+    const BigUnsigned& denominator = exact.denominator();
+    const bool negative = numerator.negative();
+    const bool round_magnitude_up = negative
+                                      ? !round_toward_positive
+                                      : round_toward_positive;
+    BigUnsigned magnitude = Detail::scaled_unsigned_quotient(
+        numerator.magnitude(), denominator, shift, round_magnitude_up);
+    return Integer::from_magnitude(std::move(magnitude), negative);
 }
 
-Fraction outward_dyadic_endpoint(Fraction const& exact,
+Fraction outward_dyadic_endpoint(const Fraction& exact,
                                  unsigned long bits,
                                  bool round_toward_positive) {
-    const Integer result=outward_dyadic_integer(
-        exact,bits,round_toward_positive);
-    return Fraction(result.magnitude(),bits,result.negative());
+    const Integer result = outward_dyadic_integer(
+        exact, bits, round_toward_positive);
+    return Fraction(result.magnitude(), bits, result.negative());
 }
 
-Interval exp_outward_dyadic(Interval const& bounds,
+Interval exp_outward_dyadic(const Interval& bounds,
                             unsigned long denominator_bits) {
     return {
-        outward_dyadic_endpoint(bounds.lower,denominator_bits,false),
-        outward_dyadic_endpoint(bounds.upper,denominator_bits,true)
-    };
+        outward_dyadic_endpoint(bounds.lower, denominator_bits, false),
+        outward_dyadic_endpoint(bounds.upper, denominator_bits, true)};
 }
 
 struct ExponentialHalfCenters {
@@ -2446,35 +2534,33 @@ struct ExponentialHalfCenters {
     Interval negative;
 };
 
-ExponentialHalfCenters const& exponential_half_centers(unsigned long work) {
+const ExponentialHalfCenters& exponential_half_centers(unsigned long work) {
     struct Cache {
         unsigned long work = 0;
         std::optional<ExponentialHalfCenters> enclosure;
     };
     static thread_local Cache cache;
     if (!cache.enclosure || cache.work < work) {
-        const auto checked_work=Detail::checked_unsigned_add(work,40ul,
-            "FloatMP exponential half precision overflow");
+        const auto checked_work = Detail::checked_unsigned_add(work, 40ul,
+                                                               "FloatMP exponential half precision overflow");
         const Fraction half = Fraction(1L) / Fraction(2L);
         const Interval positive = exp_interval(half, checked_work);
         // Both bounds are strictly positive, so reciprocity reverses
         // their order and yields an exact interval for exp(-1/2).
         const Interval negative{
             Fraction(1L) / positive.upper,
-            Fraction(1L) / positive.lower
-        };
+            Fraction(1L) / positive.lower};
         ExponentialHalfCenters fresh{
             exp_outward_dyadic(positive, work + 24ul),
-            exp_outward_dyadic(negative, work + 24ul)
-        };
+            exp_outward_dyadic(negative, work + 24ul)};
         cache.enclosure = std::move(fresh);
         cache.work = work;
     }
     return *cache.enclosure;
 }
 
-Interval exp_half_centered_or_general(Fraction const& input,
-                                     unsigned long work) {
+Interval exp_half_centered_or_general(const Fraction& input,
+                                      unsigned long work) {
     const Fraction half = Fraction(1L) / Fraction(2L);
     const Fraction center = input.sign() < 0 ? Fraction{} - half : half;
     const Fraction delta = input - center;
@@ -2489,7 +2575,8 @@ Interval exp_half_centered_or_general(Fraction const& input,
     // preserves order. All operations below use exact rationals.
     const auto& cache = exponential_half_centers(work);
     const Interval& base = input.sign() < 0
-        ? cache.negative : cache.positive;
+                             ? cache.negative
+                             : cache.positive;
     const Fraction multiplier = Fraction(1L) + delta;
     const Fraction remainder = Fraction(2L) * delta * delta;
     return {base.lower * multiplier - remainder,
@@ -2502,7 +2589,7 @@ Interval exp_half_centered_or_general(Fraction const& input,
 // Consequently log(x)=-log(2)+2*delta+R, |R|<=8*delta^2.
 // Cache an outward interval of -log(2); the exact rational slope
 // costs no extra certified constant. Other arguments use log_interval.
-Interval log_half_centered_interval(Fraction const& delta,
+Interval log_half_centered_interval(const Fraction& delta,
                                     unsigned long work) {
     struct Cache {
         unsigned long work = 0;
@@ -2510,13 +2597,12 @@ Interval log_half_centered_interval(Fraction const& delta,
     };
     static thread_local Cache cache;
     if (!cache.negative_log_two || cache.work < work) {
-        const auto checked_work=Detail::checked_unsigned_add(work,40ul,
-            "FloatMP centered log precision overflow");
+        const auto checked_work = Detail::checked_unsigned_add(work, 40ul,
+                                                               "FloatMP centered log precision overflow");
         const Interval certified_log_two = log2_interval(checked_work);
         const Interval negative_center{
             Fraction{} - certified_log_two.upper,
-            Fraction{} - certified_log_two.lower
-        };
+            Fraction{} - certified_log_two.lower};
         // The helper rounds interval endpoints outward by exact GMP
         // floor/ceiling, including for negative values.
         cache.negative_log_two = exp_outward_dyadic(
@@ -2536,46 +2622,44 @@ FloatMP certified(Evaluate evaluate, FloatMP::RoundingModeType mode,
     const unsigned long bits = static_cast<unsigned long>(precision.bits());
     unsigned long extra = 32;
     for (;;) {
-        constexpr char precision_error[]="FloatMP certified precision overflow";
-        const auto guarded_work=Detail::checked_unsigned_add(
-            Detail::checked_unsigned_add(bits,extra,precision_error),16ul,precision_error);
-        const auto work=guarded_work-16ul;
+        constexpr char precision_error[] = "FloatMP certified precision overflow";
+        const auto guarded_work = Detail::checked_unsigned_add(
+            Detail::checked_unsigned_add(bits, extra, precision_error), 16ul, precision_error);
+        const auto work = guarded_work - 16ul;
         const Interval interval = evaluate(work);
-        const FloatMP lower = interval.lower.rounded(bits,mode);
-        const FloatMP upper = interval.upper.rounded(bits,mode);
+        const FloatMP lower = interval.lower.rounded(bits, mode);
+        const FloatMP upper = interval.upper.rounded(bits, mode);
         if (lower == upper) {
             return lower;
         }
-        extra=Detail::checked_unsigned_add(extra,extra,
-            "FloatMP certified refinement overflow");
+        extra = Detail::checked_unsigned_add(extra, extra,
+                                             "FloatMP certified refinement overflow");
     }
 }
-
 
 // Arithmetic on these fractions is exact. The approximation error is
 // represented only by the endpoints of Interval, never by floating point.
 
-Interval point(Fraction const& value) {
+Interval point(const Fraction& value) {
     return {value, value};
 }
 
-Interval add(Interval const& a, Interval const& b) {
+Interval add(const Interval& a, const Interval& b) {
     return {a.lower + b.lower, a.upper + b.upper};
 }
 
-Interval subtract(Interval const& a, Interval const& b) {
+Interval subtract(const Interval& a, const Interval& b) {
     return {a.lower - b.upper, a.upper - b.lower};
 }
 
-Interval negative(Interval const& value) {
+Interval negative(const Interval& value) {
     return {Fraction{} - value.upper, Fraction{} - value.lower};
 }
 
-Interval multiply(Interval const& a, Interval const& b) {
+Interval multiply(const Interval& a, const Interval& b) {
     const Fraction candidates[4] = {
         a.lower * b.lower, a.lower * b.upper,
-        a.upper * b.lower, a.upper * b.upper
-    };
+        a.upper * b.lower, a.upper * b.upper};
     Fraction lower(candidates[0]);
     Fraction upper(candidates[0]);
     for (unsigned i = 1; i < 4; ++i) {
@@ -2591,9 +2675,9 @@ Interval multiply(Interval const& a, Interval const& b) {
 
 // A finite dyadic argument cannot equal a trigonometric pole. A certified
 // denominator containing zero requests more precision, rather than a domain error.
-struct TrigonometricRefinementRequired { };
+struct TrigonometricRefinementRequired {};
 
-Interval divide(Interval const& numerator, Interval const& denominator) {
+Interval divide(const Interval& numerator, const Interval& denominator) {
     if (denominator.lower.sign() <= 0 && denominator.upper.sign() >= 0) {
         throw TrigonometricRefinementRequired{};
     }
@@ -2601,16 +2685,16 @@ Interval divide(Interval const& numerator, Interval const& denominator) {
     // Division by a negative interval is the negation of division by
     // its positive reflection. Reuse one monotonic endpoint selection
     // for both signs, including numerators that straddle zero.
-    if (denominator.upper.sign()<0) {
-        return negative(divide(numerator,negative(denominator)));
+    if (denominator.upper.sign() < 0) {
+        return negative(divide(numerator, negative(denominator)));
     }
-    if (numerator.lower.sign()>=0) {
-        return {numerator.lower/denominator.upper,numerator.upper/denominator.lower};
+    if (numerator.lower.sign() >= 0) {
+        return {numerator.lower / denominator.upper, numerator.upper / denominator.lower};
     }
-    if (numerator.upper.sign()<=0) {
-        return {numerator.lower/denominator.lower,numerator.upper/denominator.upper};
+    if (numerator.upper.sign() <= 0) {
+        return {numerator.lower / denominator.lower, numerator.upper / denominator.upper};
     }
-    return {numerator.lower/denominator.lower,numerator.upper/denominator.lower};
+    return {numerator.lower / denominator.lower, numerator.upper / denominator.lower};
 }
 
 // For |x| <= 1, sine and cosine have alternating, decreasing Taylor
@@ -2618,80 +2702,82 @@ Interval divide(Interval const& numerator, Interval const& denominator) {
 // downward recurrence and add a proven bound for every discarded bit.
 // The cosine needed by tangent is still derived from sine by a directed
 // integer square root, so only a single Taylor series is evaluated.
-enum class TrigOutputs { sine, cosine, both };
+enum class TrigOutputs { sine,
+                         cosine,
+                         both };
 
-std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
-                                               unsigned long work,
-                                               TrigOutputs outputs) {
+std::pair<Interval, Interval> small_sine_cosine(const Fraction& x,
+                                                unsigned long work,
+                                                TrigOutputs outputs) {
     // Public sin/cos/tan dispatch zero before exact reduction. The other
     // caller computes the nonzero half-angle center, so x is nonzero.
     const unsigned long max_terms = work / 2ul + 48ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(max_terms));
-    const unsigned long fixed_bits=Detail::checked_unsigned_add(work,guard,
-        "FloatMP sine/cosine work precision overflow");
-    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
-        "FloatMP sine/cosine fixed-point shift overflow");
+    const unsigned long fixed_bits = Detail::checked_unsigned_add(work, guard,
+                                                                  "FloatMP sine/cosine work precision overflow");
+    const auto fixed_shift_size = Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+                                                                             "FloatMP sine/cosine fixed-point shift overflow");
 
-    using Limb=BigUnsigned::Limb;
-    using Words=std::vector<Limb>;
-    const std::size_t shift=fixed_shift_size;
-    const Fraction magnitude=absolute(x);
-    const Integer& numerator=magnitude.numerator();
-    const BigUnsigned& denominator=magnitude.denominator();
-    const BigUnsigned scale=shift_left(BigUnsigned(1u),shift);
-    const BigUnsigned argument=quot(
-        shift_left(numerator.magnitude(),shift),denominator);
+    using Limb = BigUnsigned::Limb;
+    using Words = std::vector<Limb>;
+    const std::size_t shift = fixed_shift_size;
+    const Fraction magnitude = absolute(x);
+    const Integer& numerator = magnitude.numerator();
+    const BigUnsigned& denominator = magnitude.denominator();
+    const BigUnsigned scale = shift_left(BigUnsigned(1u), shift);
+    const BigUnsigned argument = quot(
+        shift_left(numerator.magnitude(), shift), denominator);
 
-    Words square,term,sum,product,next_term,quotient;
-    const auto within_threshold=[&](Words const& digits) {
-        return within_fixed_threshold(digits,guard);
+    Words square, term, sum, product, next_term, quotient;
+    const auto within_threshold = [&](const Words& digits) {
+        return within_fixed_threshold(digits, guard);
     };
 
     // Before subtracting t_(2k+1), sum is nonnegative term pairs plus
     // t_(2k)>=t_(2k+1). Therefore every exact subtraction is nonnegative.
     Words next_sum;
-    const auto accumulate=[&](Words const& addend,bool subtract) {
-        accumulate_fixed_terms(sum,addend,subtract,next_sum);
+    const auto accumulate = [&](const Words& addend, bool subtract) {
+        accumulate_fixed_terms(sum, addend, subtract, next_sum);
     };
 
     // floor(a*b/2^B), with disjoint scratch and output limb storage.
     // Reuse product and result capacity across Taylor terms.
     Words increment_scratch;
-    const auto scaled_product=[&](Words const& left,Words const& right,
-                                   Words& output) {
-        scaled_fixed_product(left,right,shift,false,output,product,increment_scratch);
+    const auto scaled_product = [&](const Words& left, const Words& right,
+                                    Words& output) {
+        scaled_fixed_product(left, right, shift, false, output, product, increment_scratch);
     };
-    Words argument_words(argument.limbs().begin(),argument.limbs().end());
-    scaled_product(argument_words,argument_words,square);
+    Words argument_words(argument.limbs().begin(), argument.limbs().end());
+    scaled_product(argument_words, argument_words, square);
 
     // When both functions are requested, derive cosine from the sine
     // enclosure; retain its native endpoints to avoid GMP round-trips.
-    BigUnsigned sine_lower_nonnegative,sine_upper_nonnegative;
-    const auto series=[&](bool sine) -> Interval {
-        const auto start=sine ? argument.limbs() : scale.limbs();
-        term.assign(start.begin(),start.end());
+    BigUnsigned sine_lower_nonnegative, sine_upper_nonnegative;
+    const auto series = [&](bool sine) -> Interval {
+        const auto start = sine ? argument.limbs() : scale.limbs();
+        term.assign(start.begin(), start.end());
         sum.clear();
 
         // The first omitted term after iteration n is at most
         // Q/(2n+2)!<=Q/2^(2n+1). It therefore reaches 2^guard
         // before max_terms=work/2+48 iterations, without counter wrap.
-        for (unsigned long n=0u;;++n) {
-            accumulate(term,n%2ul!=0ul);
+        for (unsigned long n = 0u;; ++n) {
+            accumulate(term, n % 2ul != 0ul);
 
             // At n=0 both factors fit. Reaching n>0 means the previous
             // checked product, at least (2n-1)*(2n), fit in unsigned long.
             // Since unsigned long has at least 32 bits, this also bounds
             // the current linear factors by 2n+3<=ULONG_MAX.
-            const unsigned long twice_n=2ul*n;
-            const unsigned long a=sine ? twice_n+2ul : twice_n+1ul;
-            const unsigned long b=sine ? twice_n+3ul : twice_n+2ul;
-            const Limb divisor=static_cast<Limb>(Detail::checked_unsigned_multiply(
-                a,b,"FloatMP sine/cosine factorial overflow"));
+            const unsigned long twice_n = 2ul * n;
+            const unsigned long a = sine ? twice_n + 2ul : twice_n + 1ul;
+            const unsigned long b = sine ? twice_n + 3ul : twice_n + 2ul;
+            const Limb divisor = static_cast<Limb>(Detail::checked_unsigned_multiply(
+                a, b, "FloatMP sine/cosine factorial overflow"));
 
-            scaled_product(term,square,next_term);
+            scaled_product(term, square, next_term);
             quotient.resize(next_term.size());
-            (void)BigUnsigned::divrem_limb_into(next_term,divisor,quotient);
+            (void)BigUnsigned::divrem_limb_into(next_term, divisor, quotient);
             normalize_fixed_words(quotient);
             term.swap(quotient);
 
@@ -2699,38 +2785,43 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
                 // Identical certificate: 8*(n+1) accumulated units,
                 // followed by the first omitted term plus 8 units.
                 const BigUnsigned result(BigUnsigned::LimbView(
-                    sum.data(),sum.size()));
-                const BigUnsigned error=mul(
-                    BigUnsigned(static_cast<Limb>(n+1ul)),BigUnsigned(8u));
-                const BigUnsigned tail=add(
+                    sum.data(), sum.size()));
+                const BigUnsigned error = mul(
+                    BigUnsigned(static_cast<Limb>(n + 1ul)), BigUnsigned(8u));
+                const BigUnsigned tail = add(
                     BigUnsigned(BigUnsigned::LimbView(
-                        term.data(),term.size())),BigUnsigned(8u));
-                const BigUnsigned lower_error=n%2ul==0ul
-                    ? add(error,tail) : error;
-                const BigUnsigned upper_error=n%2ul==0ul
-                    ? error : add(error,tail);
-                const bool lower_negative=compare(result,lower_error)<0;
-                const BigUnsigned lower=lower_negative
-                    ? sub(lower_error,result) : sub(result,lower_error);
-                const BigUnsigned upper=add(result,upper_error);
-                if (sine && outputs==TrigOutputs::both) {
-                    sine_lower_nonnegative=lower_negative
-                        ? BigUnsigned{} : lower;
-                    sine_upper_nonnegative=upper;
+                        term.data(), term.size())),
+                    BigUnsigned(8u));
+                const BigUnsigned lower_error = n % 2ul == 0ul
+                                                  ? add(error, tail)
+                                                  : error;
+                const BigUnsigned upper_error = n % 2ul == 0ul
+                                                  ? error
+                                                  : add(error, tail);
+                const bool lower_negative = compare(result, lower_error) < 0;
+                const BigUnsigned lower = lower_negative
+                                            ? sub(lower_error, result)
+                                            : sub(result, lower_error);
+                const BigUnsigned upper = add(result, upper_error);
+                if (sine && outputs == TrigOutputs::both) {
+                    sine_lower_nonnegative = lower_negative
+                                               ? BigUnsigned{}
+                                               : lower;
+                    sine_upper_nonnegative = upper;
                 }
-                return {Fraction(lower,fixed_bits,lower_negative),
-                        Fraction(upper,fixed_bits)};
+                return {Fraction(lower, fixed_bits, lower_negative),
+                        Fraction(upper, fixed_bits)};
             }
         }
     };
 
-    const bool want_sine=outputs!=TrigOutputs::cosine;
-    Interval sine=want_sine ? series(true) : point(Fraction{});
-    Interval cosine=point(Fraction{});
+    const bool want_sine = outputs != TrigOutputs::cosine;
+    Interval sine = want_sine ? series(true) : point(Fraction{});
+    Interval cosine = point(Fraction{});
 
-    if (outputs==TrigOutputs::cosine) {
-        cosine=series(false);
-    } else if (outputs==TrigOutputs::both) {
+    if (outputs == TrigOutputs::cosine) {
+        cosine = series(false);
+    } else if (outputs == TrigOutputs::both) {
         // The fixed-point certificate gives U-sin(|x|)<3*2^-work:
         // at termination t_next<=2^guard and n<=floor(work/2), so
         // the two accumulated error allowances and tails total less
@@ -2738,30 +2829,30 @@ std::pair<Interval, Interval> small_sine_cosine(Fraction const& x,
         // sin(|x|)<=sin(1)<=1-1/6+1/120=101/120, and 101/120+3*2^-6<8/9.
         // Thus 0<=L<=sin(|x|)<=U<8/9; clamping U or checking L>U
         // would only duplicate invariants of the enclosure construction.
-        const BigUnsigned& lower=sine_lower_nonnegative;
-        const BigUnsigned& upper=sine_upper_nonnegative;
+        const BigUnsigned& lower = sine_lower_nonnegative;
+        const BigUnsigned& upper = sine_upper_nonnegative;
 
         // sqrt(Q^2-s^2) is 2-Lipschitz throughout [L,U], since
         // U<8Q/9. One floor root plus twice the interval width and
         // one rounding unit therefore encloses both cosine endpoints.
-        const BigUnsigned squared_scale=mul(scale,scale);
-        const BigUnsigned cosine_lower=isqrt(sub(squared_scale,mul(upper,upper)));
-        const BigUnsigned width=sub(upper,lower);
-        const BigUnsigned cosine_upper=add(cosine_lower,
-            add(shift_left(width,1u),BigUnsigned(1u)));
-        cosine={Fraction(cosine_lower,fixed_bits),
-                Fraction(cosine_upper,fixed_bits)};
+        const BigUnsigned squared_scale = mul(scale, scale);
+        const BigUnsigned cosine_lower = isqrt(sub(squared_scale, mul(upper, upper)));
+        const BigUnsigned width = sub(upper, lower);
+        const BigUnsigned cosine_upper = add(cosine_lower,
+                                             add(shift_left(width, 1u), BigUnsigned(1u)));
+        cosine = {Fraction(cosine_lower, fixed_bits),
+                  Fraction(cosine_upper, fixed_bits)};
     }
 
-    if (want_sine && x.sign()<0) {
-        sine=negative(sine);
+    if (want_sine && x.sign() < 0) {
+        sine = negative(sine);
     }
-    return {std::move(sine),std::move(cosine)};
+    return {std::move(sine), std::move(cosine)};
 }
 
 // Multiply an interval by a signed exact scalar without evaluating four
 // products. This is used in the centered trigonometric enclosure.
-Interval multiply_by_fraction(Interval const& input, Fraction const& scalar) {
+Interval multiply_by_fraction(const Interval& input, const Fraction& scalar) {
     if (scalar.sign() >= 0) {
         return {input.lower * scalar, input.upper * scalar};
     }
@@ -2771,7 +2862,7 @@ Interval multiply_by_fraction(Interval const& input, Fraction const& scalar) {
 // Cache certified enclosures of sin(1/2) and cos(1/2), rather than
 // rounded scalars. The same (or tighter) intervals are valid for every
 // later request of no greater working precision on this thread.
-std::pair<Interval, Interval> const& half_trigonometric_intervals(unsigned long work) {
+const std::pair<Interval, Interval>& half_trigonometric_intervals(unsigned long work) {
     struct Cache {
         unsigned long work = 0;
         std::optional<std::pair<Interval, Interval>> bounds;
@@ -2790,7 +2881,7 @@ std::pair<Interval, Interval> const& half_trigonometric_intervals(unsigned long 
 // work-precision upgrade, then perform the local Taylor enclosure using
 // integer significands rather than generic rational arithmetic.
 std::pair<Interval, Interval> centered_trigonometric_dyadic(
-    Fraction const& argument, Fraction const& offset,
+    const Fraction& argument, const Fraction& offset,
     unsigned long work, TrigOutputs output) {
     struct Cache {
         unsigned long work = 0;
@@ -2800,21 +2891,21 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
     static thread_local Cache fixed_center;
 
     if (fixed_center.work < work) {
-        const auto checked_work=Detail::checked_unsigned_add(work,32ul,
-            "FloatMP centered fixed-point precision overflow");
+        const auto checked_work = Detail::checked_unsigned_add(work, 32ul,
+                                                               "FloatMP centered fixed-point precision overflow");
         const unsigned long target_bits = work + 16ul;
         const auto& [sine, cosine] =
             half_trigonometric_intervals(checked_work);
         // Keep signed native coefficients for the complete cached work
         // precision. Their construction is one-time, on cache upgrade.
         fixed_center.sine_lower =
-            outward_dyadic_integer(sine.lower,target_bits,false);
+            outward_dyadic_integer(sine.lower, target_bits, false);
         fixed_center.sine_upper =
-            outward_dyadic_integer(sine.upper,target_bits,true);
+            outward_dyadic_integer(sine.upper, target_bits, true);
         fixed_center.cosine_lower =
-            outward_dyadic_integer(cosine.lower,target_bits,false);
+            outward_dyadic_integer(cosine.lower, target_bits, false);
         fixed_center.cosine_upper =
-            outward_dyadic_integer(cosine.upper,target_bits,true);
+            outward_dyadic_integer(cosine.upper, target_bits, true);
         fixed_center.bits = target_bits;
         fixed_center.work = work;
     }
@@ -2823,78 +2914,86 @@ std::pair<Interval, Interval> centered_trigonometric_dyadic(
     // with |offset| <= 2^-ceil(work/2). The carrier is native.
     const std::size_t denominator_shift =
         offset.dyadic_denominator_bits().value();
-    const std::size_t shift=denominator_shift;
-    const Integer& delta_numerator=offset.numerator();
+    const std::size_t shift = denominator_shift;
+    const Integer& delta_numerator = offset.numerator();
 
     // The original Taylor certificate is |R|<=delta^2/2,
     // hence 2^(bits-work-1) integer units. The same bound is used
     // for both the sine and cosine first-order corrections.
-    const Integer error=Integer::from_magnitude(
+    const Integer error = Integer::from_magnitude(
         shift_left(BigUnsigned(1u),
-            static_cast<std::size_t>(fixed_center.bits-work-1ul)),false);
+                   static_cast<std::size_t>(fixed_center.bits - work - 1ul)),
+        false);
 
-    using Limb=BigUnsigned::Limb;
-    using Words=std::vector<Limb>;
-    Words product,scaled;
+    using Limb = BigUnsigned::Limb;
+    using Words = std::vector<Limb>;
+    Words product, scaled;
     Words increment_scratch;
 
     // floor or ceil of coefficient*n / 2^k. There are only two
     // products per requested function. Both share the same scratch;
     // no GMP product/division or canonical Rational is constructed.
-    const auto multiply_outward=[&](Integer const& coefficient,
-                                    bool round_toward_positive) -> Integer {
-        const bool negative=coefficient.negative()!=delta_numerator.negative();
-        const bool round_magnitude_up=negative ? !round_toward_positive : round_toward_positive;
-        scaled_fixed_product(coefficient.magnitude().limbs(),delta_numerator.magnitude().limbs(),
-            shift,round_magnitude_up,scaled,product,increment_scratch);
+    const auto multiply_outward = [&](const Integer& coefficient,
+                                      bool round_toward_positive) -> Integer {
+        const bool negative = coefficient.negative() != delta_numerator.negative();
+        const bool round_magnitude_up = negative ? !round_toward_positive : round_toward_positive;
+        scaled_fixed_product(coefficient.magnitude().limbs(), delta_numerator.magnitude().limbs(),
+                             shift, round_magnitude_up, scaled, product, increment_scratch);
         return Integer::from_magnitude(BigUnsigned(
-            BigUnsigned::LimbView(scaled.data(),scaled.size())),negative);
+                                           BigUnsigned::LimbView(scaled.data(), scaled.size())),
+                                       negative);
     };
 
-    const auto certified_endpoint=[&](Integer const& exact) {
-        return Fraction(exact.magnitude(),fixed_center.bits,exact.negative());
+    const auto certified_endpoint = [&](const Integer& exact) {
+        return Fraction(exact.magnitude(), fixed_center.bits, exact.negative());
     };
-    Interval sine_result=point(Fraction{});
-    Interval cosine_result=point(Fraction{});
-    if (output!=TrigOutputs::cosine) {
+    Interval sine_result = point(Fraction{});
+    Interval cosine_result = point(Fraction{});
+    if (output != TrigOutputs::cosine) {
         // sin(1/2+d) = S + C*d + R, |R| <= d^2/2.
-        const bool delta_negative=delta_numerator.negative();
-        const Integer correction_lower=multiply_outward(
+        const bool delta_negative = delta_numerator.negative();
+        const Integer correction_lower = multiply_outward(
             delta_negative ? fixed_center.cosine_upper
-                           : fixed_center.cosine_lower,false);
-        const Integer correction_upper=multiply_outward(
+                           : fixed_center.cosine_lower,
+            false);
+        const Integer correction_upper = multiply_outward(
             delta_negative ? fixed_center.cosine_lower
-                           : fixed_center.cosine_upper,true);
-        const Integer lower=fixed_center.sine_lower+correction_lower-error;
-        const Integer upper=fixed_center.sine_upper+correction_upper+error;
-        sine_result={certified_endpoint(lower),certified_endpoint(upper)};
-        if (argument.sign()<0) sine_result=negative(sine_result);
+                           : fixed_center.cosine_upper,
+            true);
+        const Integer lower = fixed_center.sine_lower + correction_lower - error;
+        const Integer upper = fixed_center.sine_upper + correction_upper + error;
+        sine_result = {certified_endpoint(lower), certified_endpoint(upper)};
+        if (argument.sign() < 0)
+            sine_result = negative(sine_result);
     }
-    if (output!=TrigOutputs::sine) {
+    if (output != TrigOutputs::sine) {
         // cos(1/2+d) = C - S*d + R, |R| <= d^2/2.
-        const Integer correction_lower=multiply_outward(
+        const Integer correction_lower = multiply_outward(
             delta_numerator.negative() ? fixed_center.sine_upper
-                                       : fixed_center.sine_lower,false);
-        const Integer correction_upper=multiply_outward(
+                                       : fixed_center.sine_lower,
+            false);
+        const Integer correction_upper = multiply_outward(
             delta_numerator.negative() ? fixed_center.sine_lower
-                                       : fixed_center.sine_upper,true);
-        const Integer lower=fixed_center.cosine_lower-correction_upper-error;
-        const Integer upper=fixed_center.cosine_upper-correction_lower+error;
-        cosine_result={certified_endpoint(lower),certified_endpoint(upper)};
+                                       : fixed_center.sine_upper,
+            true);
+        const Integer lower = fixed_center.cosine_lower - correction_upper - error;
+        const Integer upper = fixed_center.cosine_upper - correction_lower + error;
+        cosine_result = {certified_endpoint(lower), certified_endpoint(upper)};
     }
-    return {std::move(sine_result),std::move(cosine_result)};
+    return {std::move(sine_result), std::move(cosine_result)};
 }
 
 // For finite delta, test |delta| <= 2^(-ceil(work/2)) using exact
 // integer arithmetic. Then delta^2/2 <= 2^(-work-1) (work even)
 // or even smaller (work odd), so a first-order Taylor enclosure
 // has a certified remainder below one bit at the requested work.
-bool sufficiently_near_half(Fraction const& delta, unsigned long work) {
-    const unsigned long half_work=work/2ul+work%2ul;
-    if constexpr(Detail::unsigned_narrowing<std::size_t,unsigned long>) {
-        if(!Detail::unsigned_fits<std::size_t>(half_work)) return false;
+bool sufficiently_near_half(const Fraction& delta, unsigned long work) {
+    const unsigned long half_work = work / 2ul + work % 2ul;
+    if constexpr (Detail::unsigned_narrowing<std::size_t, unsigned long>) {
+        if (!Detail::unsigned_fits<std::size_t>(half_work))
+            return false;
     }
-    return within_dyadic_window(delta,half_work);
+    return within_dyadic_window(delta, half_work);
 }
 
 // Evaluate atan(x) for |x| <= 1/2 as an alternating Taylor series.
@@ -2902,7 +3001,7 @@ bool sufficiently_near_half(Fraction const& delta, unsigned long work) {
 // power and each term outward yields an enclosure of the partial sum.
 // The alternating remainder has the sign of the first omitted term and
 // magnitude bounded by that term. No GMP rational is allocated per term.
-Interval small_atan(Fraction const& x, unsigned long work) {
+Interval small_atan(const Fraction& x, unsigned long work) {
     if (x.sign() == 0) {
         return point(Fraction{});
     }
@@ -2910,84 +3009,87 @@ Interval small_atan(Fraction const& x, unsigned long work) {
     const unsigned long max_terms = work / 2ul + 4ul;
     const unsigned long guard =
         32ul + static_cast<unsigned long>(std::bit_width(max_terms));
-    const unsigned long fixed_bits=Detail::checked_unsigned_add(work,guard,
-        "FloatMP arctangent work precision overflow");
-    const auto fixed_shift_size=Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
-        "FloatMP arctangent fixed-point shift overflow");
+    const unsigned long fixed_bits = Detail::checked_unsigned_add(work, guard,
+                                                                  "FloatMP arctangent work precision overflow");
+    const auto fixed_shift_size = Detail::checked_unsigned_cast<std::size_t>(fixed_bits,
+                                                                             "FloatMP arctangent fixed-point shift overflow");
 
-    using Limb=BigUnsigned::Limb;
-    using Words=std::vector<Limb>;
-    const std::size_t shift=fixed_shift_size;
-    const Fraction magnitude=absolute(x);
-    const Integer numerator=magnitude.numerator();
-    const BigUnsigned& denominator=magnitude.denominator();
-    const BigUnsigned argument=quot(
-        shift_left(numerator.magnitude(),shift),denominator);
+    using Limb = BigUnsigned::Limb;
+    using Words = std::vector<Limb>;
+    const std::size_t shift = fixed_shift_size;
+    const Fraction magnitude = absolute(x);
+    const Integer numerator = magnitude.numerator();
+    const BigUnsigned& denominator = magnitude.denominator();
+    const BigUnsigned argument = quot(
+        shift_left(numerator.magnitude(), shift), denominator);
 
-    Words power(argument.limbs().begin(),argument.limbs().end());
-    Words sum,square,term,product,next_power;
+    Words power(argument.limbs().begin(), argument.limbs().end());
+    Words sum, square, term, product, next_power;
 
     // All Taylor powers are nonnegative. Output and product retain their
     // capacity across terms; no owning BigUnsigned is made in the loop.
     Words increment_scratch;
-    const auto scaled_product=[&](Words const& left,Words const& right,
-                                   Words& output) {
-        scaled_fixed_product(left,right,shift,false,output,product,increment_scratch);
+    const auto scaled_product = [&](const Words& left, const Words& right,
+                                    Words& output) {
+        scaled_fixed_product(left, right, shift, false, output, product, increment_scratch);
     };
 
     // Powers decrease for |x|<=1/2 and divisors increase. Before an
     // odd subtraction, sum contains nonnegative pairs plus the preceding
     // term, which is at least the current term. No borrow is possible.
     Words next_sum;
-    const auto accumulate=[&](Words const& addend,bool subtract) {
-        accumulate_fixed_terms(sum,addend,subtract,next_sum);
+    const auto accumulate = [&](const Words& addend, bool subtract) {
+        accumulate_fixed_terms(sum, addend, subtract, next_sum);
     };
-    const auto under_limit=[&](Words const& digits) {
-        return within_fixed_threshold(digits,guard);
+    const auto under_limit = [&](const Words& digits) {
+        return within_fixed_threshold(digits, guard);
     };
 
     // Q=2^B, a=floor(Q*|x|), b=floor(a*a/Q), then
     // p_(n+1)=floor(p_n*b/Q). Keep the original 4-unit power
     // and 5-unit per-term error certificates.
-    scaled_product(power,power,square);
+    scaled_product(power, power, square);
     // After iteration n, power<=Q/2^(2n+3), since |x|<=1/2.
     // It reaches 2^guard before max_terms=work/2+4 iterations,
     // so neither a counter-limit exit nor counter wrap is possible.
-    for (unsigned long n=0u;;++n) {
+    for (unsigned long n = 0u;; ++n) {
         // n < work/2+4, so 2*n+1 <= work+7 < work+guard.
-        const Limb divisor=static_cast<Limb>(2ul*n+1ul);
+        const Limb divisor = static_cast<Limb>(2ul * n + 1ul);
         term.resize(power.size());
-        (void)BigUnsigned::divrem_limb_into(power,divisor,term);
+        (void)BigUnsigned::divrem_limb_into(power, divisor, term);
         normalize_fixed_words(term);
-        accumulate(term,n%2ul!=0ul);
+        accumulate(term, n % 2ul != 0ul);
 
-        scaled_product(power,square,next_power);
+        scaled_product(power, square, next_power);
         power.swap(next_power);
 
         if (under_limit(power)) {
             // The first omitted alternating term is <= power+4.
             // n+1 included terms introduce at most 5*(n+1) units.
             const BigUnsigned result(BigUnsigned::LimbView(
-                sum.data(),sum.size()));
-            const BigUnsigned error=mul(
-                BigUnsigned(static_cast<Limb>(n+1ul)),BigUnsigned(5u));
-            const BigUnsigned tail=add(
+                sum.data(), sum.size()));
+            const BigUnsigned error = mul(
+                BigUnsigned(static_cast<Limb>(n + 1ul)), BigUnsigned(5u));
+            const BigUnsigned tail = add(
                 BigUnsigned(BigUnsigned::LimbView(
-                    power.data(),power.size())),BigUnsigned(4u));
-            const BigUnsigned lower_error=n%2ul==0ul
-                ? add(error,tail) : error;
-            const BigUnsigned upper_error=n%2ul==0ul
-                ? error : add(error,tail);
+                    power.data(), power.size())),
+                BigUnsigned(4u));
+            const BigUnsigned lower_error = n % 2ul == 0ul
+                                              ? add(error, tail)
+                                              : error;
+            const BigUnsigned upper_error = n % 2ul == 0ul
+                                              ? error
+                                              : add(error, tail);
 
-            const bool lower_negative=compare(result,lower_error)<0;
-            const BigUnsigned lower=lower_negative
-                ? sub(lower_error,result) : sub(result,lower_error);
-            const BigUnsigned upper=add(result,upper_error);
+            const bool lower_negative = compare(result, lower_error) < 0;
+            const BigUnsigned lower = lower_negative
+                                        ? sub(lower_error, result)
+                                        : sub(result, lower_error);
+            const BigUnsigned upper = add(result, upper_error);
             const Interval positive{
-                Fraction(lower,fixed_bits,lower_negative),
-                Fraction(upper,fixed_bits)
-            };
-            return x.sign()<0 ? negative(positive) : positive;
+                Fraction(lower, fixed_bits, lower_negative),
+                Fraction(upper, fixed_bits)};
+            return x.sign() < 0 ? negative(positive) : positive;
         }
     }
 }
@@ -3033,13 +3135,14 @@ Interval atan_half_interval(unsigned long work) {
     return result;
 }
 
-Interval atan_interval(Fraction const& x, unsigned long work) {
+Interval atan_interval(const Fraction& x, unsigned long work) {
     // The centered branch has additional certified-constant and rational
     // reduction costs. At moderate precision the direct Taylor kernel is
     // faster for small arguments (notably asin's argument near 2-sqrt(3)).
     // At high precision the saved Taylor iterations justify that overhead.
     const Fraction direct_limit = work <= 512ul
-        ? Fraction(1L) / Fraction(3L) : Fraction(1L) / Fraction(4L);
+                                    ? Fraction(1L) / Fraction(3L)
+                                    : Fraction(1L) / Fraction(4L);
     if (compare(absolute(x), direct_limit) < 0) {
         return small_atan(x, work);
     }
@@ -3070,8 +3173,8 @@ Interval atan_interval(Fraction const& x, unsigned long work) {
 }
 
 std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
-                                                   unsigned long work,
-                                                   TrigOutputs outputs) {
+                                                    unsigned long work,
+                                                    TrigOutputs outputs) {
     unsigned halvings = 0;
     while (compare(absolute(x), Fraction(1L)) > 0) {
         if (++halvings > 4096u) {
@@ -3099,7 +3202,7 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
             // The sole entry is evaluate(sin/cos/tan, rational_argument(x)):
             // FloatMP inputs are dyadic, and exact halving, abs and subtraction
             // of 1/2 preserve that property. No general-rational path is needed.
-            return centered_trigonometric_dyadic(x,delta,work,outputs);
+            return centered_trigonometric_dyadic(x, delta, work, outputs);
         }
     }
 
@@ -3108,45 +3211,45 @@ std::pair<Interval, Interval> sine_cosine_intervals(Fraction x,
     const TrigOutputs kernel_outputs = halvings == 0u ? outputs : TrigOutputs::both;
     // Certification itself decides when the enclosure is tight enough;
     // one bit per doubling compensates argument-reduction amplification.
-    const auto kernel_work=Detail::checked_unsigned_add(work,static_cast<unsigned long>(halvings),
-        "FloatMP trigonometric reconstruction precision overflow");
-    auto results = small_sine_cosine(x,kernel_work,kernel_outputs);
+    const auto kernel_work = Detail::checked_unsigned_add(work, static_cast<unsigned long>(halvings),
+                                                          "FloatMP trigonometric reconstruction precision overflow");
+    auto results = small_sine_cosine(x, kernel_work, kernel_outputs);
     for (unsigned n = 0; n < halvings; ++n) {
         const Interval sine = multiply(point(Fraction(2L)),
                                        multiply(results.first, results.second));
         const Interval cosine = subtract(multiply(results.second, results.second),
-                                          multiply(results.first, results.first));
+                                         multiply(results.first, results.first));
         results = {sine, cosine};
     }
     return results;
 }
 
-Interval square_root_interval(Fraction const& x, unsigned long work) {
+Interval square_root_interval(const Fraction& x, unsigned long work) {
     // The two callers supply 3 or 1-x*x with |x|<1. Public inverse
     // trigonometric dispatch handles endpoints and domain errors first.
     // The argument is an exact positive fraction. Its integer quotient
     // and exact square-root remainder are native; the final
     // interval endpoints stay in the native Fraction carrier.
-    constexpr char shift_error[]="FloatMP radical precision too large";
-    const auto work_shift=Detail::checked_unsigned_cast<std::size_t>(work,shift_error);
-    const auto squared_shift=Detail::checked_unsigned_multiply(work_shift,std::size_t{2u},shift_error);
-    const Integer& numerator=x.numerator();
-    const BigUnsigned& denominator=x.denominator();
-    auto [quotient,division_remainder]=divrem(
-        shift_left(numerator.magnitude(),squared_shift),
+    constexpr char shift_error[] = "FloatMP radical precision too large";
+    const auto work_shift = Detail::checked_unsigned_cast<std::size_t>(work, shift_error);
+    const auto squared_shift = Detail::checked_unsigned_multiply(work_shift, std::size_t{2u}, shift_error);
+    const Integer& numerator = x.numerator();
+    const BigUnsigned& denominator = x.denominator();
+    auto [quotient, division_remainder] = divrem(
+        shift_left(numerator.magnitude(), squared_shift),
         denominator);
-    auto [root,square_remainder]=sqrtrem(quotient);
-    const Fraction lower(root,work);
+    auto [root, square_remainder] = sqrtrem(quotient);
+    const Fraction lower(root, work);
     // Equality to the original rational requires BOTH exact integer
     // division and an exact square. No extra root^2 * denominator
     // multiply or canonical Rational/GCD construction is necessary.
     if (division_remainder.is_zero() && square_remainder.is_zero()) {
         return point(lower);
     }
-    return {lower,Fraction(add(root,BigUnsigned(1u)),work)};
+    return {lower, Fraction(add(root, BigUnsigned(1u)), work)};
 }
 
-Interval asin_interval(Fraction const& x, unsigned long work) {
+Interval asin_interval(const Fraction& x, unsigned long work) {
     // asin(x) = 2 atan(x / (1 + sqrt(1-x*x))).
     // Unlike atan(x/sqrt(1-x*x)), the denominator remains >= 1.
     const Interval radical = square_root_interval(
@@ -3174,102 +3277,102 @@ Interval asin_interval(Fraction const& x, unsigned long work) {
 // For y=|x|, u=exp(-2*y) lies in [0,1] and
 // tanh(y)=(1-u)/(1+u), a decreasing function of u. Apply this
 // transform to exact outward exponential endpoints before final rounding.
-Interval tanh_interval(Fraction const& x,unsigned long work) {
+Interval tanh_interval(const Fraction& x, unsigned long work) {
     // Public tanh dispatches zero first; the cached center is exactly 1/2.
     const Fraction one(1L);
-    const Interval exponential=exp_interval(Fraction(-2L)*absolute(x),work);
+    const Interval exponential = exp_interval(Fraction(-2L) * absolute(x), work);
     const Interval positive{
-        (one-exponential.upper)/(one+exponential.upper),
-        (one-exponential.lower)/(one+exponential.lower)
-    };
-    return x.sign()<0 ? negative(positive) : positive;
+        (one - exponential.upper) / (one + exponential.upper),
+        (one - exponential.lower) / (one + exponential.lower)};
+    return x.sign() < 0 ? negative(positive) : positive;
 }
 
 // The same first-order tanh enclosure also serves multiple precision.
 // Cache certified dyadic center/derivative bounds rather than repeatedly
 // evaluating exp(-2*x) for arguments close to +/-1/2.
-Interval tanh_centered_or_general(Fraction const& input,unsigned long work) {
-    const Fraction delta=absolute(input)-Fraction(1L)/Fraction(2L);
-    if (!exp_inside_half_window(delta,work)) return tanh_interval(input,work);
+Interval tanh_centered_or_general(const Fraction& input, unsigned long work) {
+    const Fraction delta = absolute(input) - Fraction(1L) / Fraction(2L);
+    if (!exp_inside_half_window(delta, work))
+        return tanh_interval(input, work);
     struct Cache {
-        unsigned long work=0;
-        Interval center,slope;
+        unsigned long work = 0;
+        Interval center, slope;
     };
     static thread_local Cache cache;
-    if (cache.work<work) {
-        const auto checked_work=Detail::checked_unsigned_add(work,40ul,
-            "FloatMP tanh center precision overflow");
-        const auto center=tanh_interval(Fraction(1L)/Fraction(2L),checked_work);
+    if (cache.work < work) {
+        const auto checked_work = Detail::checked_unsigned_add(work, 40ul,
+                                                               "FloatMP tanh center precision overflow");
+        const auto center = tanh_interval(Fraction(1L) / Fraction(2L), checked_work);
         const Fraction one(1L);
-        const Interval slope{one-center.upper*center.upper,
-                             one-center.lower*center.lower};
-        cache.center=exp_outward_dyadic(center,work+24ul);
-        cache.slope=exp_outward_dyadic(slope,work+24ul);
-        cache.work=work;
+        const Interval slope{one - center.upper * center.upper,
+                             one - center.lower * center.lower};
+        cache.center = exp_outward_dyadic(center, work + 24ul);
+        cache.slope = exp_outward_dyadic(slope, work + 24ul);
+        cache.work = work;
     }
-    auto result=add(cache.center,multiply_by_fraction(cache.slope,delta));
-    const Fraction error=delta*delta; // |tanh''|<=2, hence |R|<=delta^2
-    result.lower=result.lower-error;
-    result.upper=result.upper+error;
-    return input.sign()<0 ? negative(result) : result;
+    auto result = add(cache.center, multiply_by_fraction(cache.slope, delta));
+    const Fraction error = delta * delta; // |tanh''|<=2, hence |R|<=delta^2
+    result.lower = result.lower - error;
+    result.upper = result.upper + error;
+    return input.sign() < 0 ? negative(result) : result;
 }
 
 // Compute u=exp(-|x|) where the outward fixed-point exponential
 // has enough dynamic range. For larger |x|, compute exp(+|x|) and
 // invert the positive rigorous enclosure: a small u must not be
 // rounded to zero at the working *absolute* precision.
-Interval activation_small_exponential(Fraction const& magnitude,unsigned long work) {
+Interval activation_small_exponential(const Fraction& magnitude, unsigned long work) {
     const Fraction one(1L);
-    if(compare(magnitude,Fraction(64L))<=0) {
-        return exp_interval(Fraction{}-magnitude,work);
+    if (compare(magnitude, Fraction(64L)) <= 0) {
+        return exp_interval(Fraction{} - magnitude, work);
     }
-    const Interval e=exp_interval(magnitude,work);
-    return {one/e.upper,one/e.lower};
+    const Interval e = exp_interval(magnitude, work);
+    return {one / e.upper, one / e.lower};
 }
 
 // All interval arithmetic is exact rational arithmetic. The certified()
 // loop refines until both endpoints round to the same target float.
-Interval sigmoid_interval(Fraction const& x,unsigned long work) {
+Interval sigmoid_interval(const Fraction& x, unsigned long work) {
     const Fraction one(1L);
-    const Interval u=activation_small_exponential(absolute(x),work);
-    if(x.sign()<0) {
-        return {u.lower/(one+u.lower),u.upper/(one+u.upper)};
+    const Interval u = activation_small_exponential(absolute(x), work);
+    if (x.sign() < 0) {
+        return {u.lower / (one + u.lower), u.upper / (one + u.upper)};
     }
-    return {one/(one+u.upper),one/(one+u.lower)};
+    return {one / (one + u.upper), one / (one + u.lower)};
 }
 
 // For u=exp(-|x|), softplus(x)=max(x,0)+log(1+u).
 // If u is tiny, u-u^2/2 <= log(1+u) <= u. Otherwise use the existing
 // exact-rational, rigorously bounded logarithmic series on z=u/(2+u).
-Interval softplus_interval(Fraction const& x,unsigned long work,
+Interval softplus_interval(const Fraction& x, unsigned long work,
                            unsigned long target_bits) {
     const Fraction one(1L);
-    const Interval u=activation_small_exponential(absolute(x),work);
+    const Interval u = activation_small_exponential(absolute(x), work);
     Interval correction;
-    const auto threshold_bits=Detail::checked_unsigned_add(
-        target_bits,8ul,"FloatMP softplus threshold overflow");
-    const Fraction threshold(BigUnsigned(1u),threshold_bits);
-    if(compare(u.upper,threshold)<0) {
-        correction={u.lower-u.upper*u.upper/Fraction(2L),u.upper};
+    const auto threshold_bits = Detail::checked_unsigned_add(
+        target_bits, 8ul, "FloatMP softplus threshold overflow");
+    const Fraction threshold(BigUnsigned(1u), threshold_bits);
+    if (compare(u.upper, threshold) < 0) {
+        correction = {u.lower - u.upper * u.upper / Fraction(2L), u.upper};
     } else {
-        const Interval lo=log_series(u.lower/(Fraction(2L)+u.lower),work);
-        const Interval hi=log_series(u.upper/(Fraction(2L)+u.upper),work);
-        correction={lo.lower,hi.upper};
+        const Interval lo = log_series(u.lower / (Fraction(2L) + u.lower), work);
+        const Interval hi = log_series(u.upper / (Fraction(2L) + u.upper), work);
+        correction = {lo.lower, hi.upper};
     }
-    if(x.sign()>0) return {x+correction.lower,x+correction.upper};
+    if (x.sign() > 0)
+        return {x + correction.lower, x + correction.upper};
     return correction;
 }
 
-using Function=FloatTranscendental;
+using Function = FloatTranscendental;
 
 // Replace exact division in repeated near-half tangent evaluations with
 // dyadic outward endpoints. The initial general division is computed only
 // on a cache miss or when the requested work precision increases.
-Interval outward_dyadic_interval(Interval const& input, unsigned long bits) {
+Interval outward_dyadic_interval(const Interval& input, unsigned long bits) {
     return {
-        outward_dyadic_endpoint(input.lower,bits,false),
-        outward_dyadic_endpoint(input.upper,bits,true)
-    };
+        outward_dyadic_endpoint(input.lower, bits, false),
+        outward_dyadic_endpoint(input.upper, bits, true)};
 }
 
 // Certified linearization of atan around 1/2, for signed inputs.
@@ -3278,21 +3381,21 @@ Interval outward_dyadic_interval(Interval const& input, unsigned long bits) {
 // lies inside [1/4,3/4]. There
 // |atan''(y)|=2*y/(1+y*y)^2 <= 3/2, hence |R|<=delta^2.
 // The derivative 4/5 is an EXACT rational, not a second cache.
-Interval centered_atan_half_interval(Fraction const& input,
-                                      Fraction const& delta,
-                                      unsigned long work) {
+Interval centered_atan_half_interval(const Fraction& input,
+                                     const Fraction& delta,
+                                     unsigned long work) {
     // This helper is reached only from certified(arctangent, x), where
     // x is a p-bit FloatMP and work >= p+32. Near 1/2, x (and therefore
     // delta) is dyadic with at most p+1 denominator bits. Hence the exact
     // integer correction below always has a nonnegative shift.
-    const auto checked_work=Detail::checked_unsigned_add(work,40ul,
-        "FloatMP centered atan precision overflow");
+    const auto checked_work = Detail::checked_unsigned_add(work, 40ul,
+                                                           "FloatMP centered atan precision overflow");
     const unsigned long bits = work + 24ul;
     // Preserve the rational computation on a target whose size_t cannot
     // represent the working binary scale. On ordinary 32/64-bit ABIs,
     // size_t is at least as wide as unsigned long.
 #if SIZE_MAX < ULONG_MAX
-    if (!Detail::unsigned_fits<std::size_t>(bits+2ul)) {
+    if (!Detail::unsigned_fits<std::size_t>(bits + 2ul)) {
         struct Cache {
             unsigned long work = 0;
             std::optional<Interval> center;
@@ -3307,8 +3410,7 @@ Interval centered_atan_half_interval(Fraction const& input,
         const Fraction remainder = delta * delta;
         const Interval positive{
             cached_rational.center->lower + linear - remainder,
-            cached_rational.center->upper + linear + remainder
-        };
+            cached_rational.center->upper + linear + remainder};
         return input.sign() < 0 ? negative(positive) : positive;
     }
 #endif
@@ -3322,47 +3424,49 @@ Interval centered_atan_half_interval(Fraction const& input,
     };
     static thread_local Cache centered;
     if (centered.work < work) {
-        const Interval certified_center=atan_half_interval(checked_work);
-        centered.lower=outward_dyadic_integer(
-            certified_center.lower,bits,false);
-        centered.upper=outward_dyadic_integer(
-            certified_center.upper,bits,true);
-        centered.bits=bits;
-        centered.work=work;
+        const Interval certified_center = atan_half_interval(checked_work);
+        centered.lower = outward_dyadic_integer(
+            certified_center.lower, bits, false);
+        centered.upper = outward_dyadic_integer(
+            certified_center.upper, bits, true);
+        centered.bits = bits;
+        centered.work = work;
     }
 
     // delta=n/2^k: (4/5)*delta*2^B=n*2^(B+2-k)/5.
     // Quotient and remainder are computed once on a native magnitude.
     // For negative n, floor/ceil exchange the upward magnitude
     // correction; exact divisibility must not change either bound.
-    const Integer& delta_numerator=delta.numerator();
-    const std::size_t shift=static_cast<std::size_t>(
-        centered.bits+2ul-static_cast<unsigned long>(delta_shift));
-    auto [quotient,remainder_by_five]=divrem_limb(
-        shift_left(delta_numerator.magnitude(),shift),5u);
-    const bool delta_negative=delta_numerator.negative();
-    const bool nonexact=remainder_by_five!=0u;
-    const Integer linear_lower=Integer::from_magnitude(
+    const Integer& delta_numerator = delta.numerator();
+    const std::size_t shift = static_cast<std::size_t>(
+        centered.bits + 2ul - static_cast<unsigned long>(delta_shift));
+    auto [quotient, remainder_by_five] = divrem_limb(
+        shift_left(delta_numerator.magnitude(), shift), 5u);
+    const bool delta_negative = delta_numerator.negative();
+    const bool nonexact = remainder_by_five != 0u;
+    const Integer linear_lower = Integer::from_magnitude(
         delta_negative && nonexact
-            ? add(quotient,BigUnsigned(1u)) : quotient,
+            ? add(quotient, BigUnsigned(1u))
+            : quotient,
         delta_negative);
-    const Integer linear_upper=Integer::from_magnitude(
+    const Integer linear_upper = Integer::from_magnitude(
         !delta_negative && nonexact
-            ? add(quotient,BigUnsigned(1u)) : quotient,
+            ? add(quotient, BigUnsigned(1u))
+            : quotient,
         delta_negative);
 
     // |atan''(y)|<=3/2 for y in [1/4,3/4], so the same
     // first-order Taylor remainder is at most 2^-work.
-    const Integer error=Integer::from_magnitude(
+    const Integer error = Integer::from_magnitude(
         shift_left(BigUnsigned(1u),
-                   static_cast<std::size_t>(centered.bits-work)),false);
-    const Integer lower=centered.lower+linear_lower-error;
-    const Integer upper=centered.upper+linear_upper+error;
+                   static_cast<std::size_t>(centered.bits - work)),
+        false);
+    const Integer lower = centered.lower + linear_lower - error;
+    const Integer upper = centered.upper + linear_upper + error;
     const Interval positive{
-        Fraction(lower.magnitude(),centered.bits,lower.negative()),
-        Fraction(upper.magnitude(),centered.bits,upper.negative())
-    };
-    return input.sign()<0 ? negative(positive) : positive;
+        Fraction(lower.magnitude(), centered.bits, lower.negative()),
+        Fraction(upper.magnitude(), centered.bits, upper.negative())};
+    return input.sign() < 0 ? negative(positive) : positive;
 }
 
 struct TangentHalfEnclosures {
@@ -3374,15 +3478,15 @@ struct TangentHalfEnclosures {
 // sine/cosine kernel and round its endpoints OUTWARD to dyadics.
 // Because tan(1/2)>0, the derivative 1+tan(1/2)^2 is monotone
 // in the cached interval. Quantize the derivative outward too.
-TangentHalfEnclosures const& tangent_half_enclosures(unsigned long work) {
+const TangentHalfEnclosures& tangent_half_enclosures(unsigned long work) {
     struct Cache {
         unsigned long work = 0;
         std::optional<TangentHalfEnclosures> enclosures;
     };
     static thread_local Cache cache;
     if (!cache.enclosures || cache.work < work) {
-        const auto checked_work=Detail::checked_unsigned_add(work,48ul,
-            "FloatMP tangent cache work precision overflow");
+        const auto checked_work = Detail::checked_unsigned_add(work, 48ul,
+                                                               "FloatMP tangent cache work precision overflow");
         const unsigned long target_bits = work + 32ul;
         const auto& [sine, cosine] = half_trigonometric_intervals(checked_work);
         const Interval tangent_ratio_bounds = divide(sine, cosine);
@@ -3393,12 +3497,10 @@ TangentHalfEnclosures const& tangent_half_enclosures(unsigned long work) {
         // tangent lower endpoint is therefore strictly positive.
         const Interval raw_derivative{
             Fraction(1L) + cached_tangent_bounds.lower * cached_tangent_bounds.lower,
-            Fraction(1L) + cached_tangent_bounds.upper * cached_tangent_bounds.upper
-        };
+            Fraction(1L) + cached_tangent_bounds.upper * cached_tangent_bounds.upper};
         TangentHalfEnclosures fresh_enclosures{
             cached_tangent_bounds,
-            outward_dyadic_interval(raw_derivative, target_bits)
-        };
+            outward_dyadic_interval(raw_derivative, target_bits)};
         cache.enclosures = std::move(fresh_enclosures);
         cache.work = work;
     }
@@ -3412,8 +3514,8 @@ TangentHalfEnclosures const& tangent_half_enclosures(unsigned long work) {
 // sec(x)^2<=4, |tan''(x)|=|2*tan(x)*sec(x)^2|<=12.
 // Interval arithmetic with cached dyadic T and T' therefore
 // gives certified bounds for any sign and rounding mode.
-Interval centered_tangent_interval(Fraction const& x,
-                                   Fraction const& delta,
+Interval centered_tangent_interval(const Fraction& x,
+                                   const Fraction& delta,
                                    unsigned long work) {
     const auto& cache = tangent_half_enclosures(work);
     Interval result = add(cache.tangent,
@@ -3436,15 +3538,15 @@ struct InverseHalfEnclosures {
     Interval slope_half;
 };
 
-InverseHalfEnclosures const& inverse_half_enclosures(unsigned long work) {
+const InverseHalfEnclosures& inverse_half_enclosures(unsigned long work) {
     struct Cache {
         unsigned long work = 0;
         std::optional<InverseHalfEnclosures> bounds;
     };
     static thread_local Cache center_cache;
     if (!center_cache.bounds || center_cache.work < work) {
-        const auto checked_work=Detail::checked_unsigned_add(work,40ul,
-            "FloatMP inverse-half precision overflow");
+        const auto checked_work = Detail::checked_unsigned_add(work, 40ul,
+                                                               "FloatMP inverse-half precision overflow");
         const unsigned long dyadic_bits = work + 24ul;
         const Interval certified_pi = pi_interval(checked_work);
         const Interval asin_half_bounds =
@@ -3461,8 +3563,7 @@ InverseHalfEnclosures const& inverse_half_enclosures(unsigned long work) {
             outward_dyadic_interval(asin_half_bounds, dyadic_bits),
             outward_dyadic_interval(acos_positive_bounds, dyadic_bits),
             outward_dyadic_interval(acos_negative_bounds, dyadic_bits),
-            outward_dyadic_interval(slope_bounds, dyadic_bits)
-        };
+            outward_dyadic_interval(slope_bounds, dyadic_bits)};
         center_cache.work = work;
     }
     return *center_cache.bounds;
@@ -3473,8 +3574,8 @@ InverseHalfEnclosures const& inverse_half_enclosures(unsigned long work) {
 // y<=3/4, 1-y*y>=7/16 and sqrt(1-y*y)>1/2.
 // Taylor's theorem gives |R| <= 2*d*d, for BOTH asin and
 // acos. Use oddness of asin and acos(-y)=pi-acos(y).
-Interval centered_inverse_half_interval(Fraction const& input,
-                                        Fraction const& offset,
+Interval centered_inverse_half_interval(const Fraction& input,
+                                        const Fraction& offset,
                                         unsigned long work,
                                         bool evaluate_arccosine) {
     const auto& cached = inverse_half_enclosures(work);
@@ -3496,7 +3597,8 @@ Interval centered_inverse_half_interval(Fraction const& input,
     enclosure.lower = enclosure.lower - maximum_remainder;
     enclosure.upper = enclosure.upper + maximum_remainder;
     return (!evaluate_arccosine && input.sign() < 0)
-        ? negative(enclosure) : enclosure;
+             ? negative(enclosure)
+             : enclosure;
 }
 
 // Short centered evaluations use a common fixed binary scale and the same
@@ -3505,158 +3607,164 @@ Interval centered_inverse_half_interval(Fraction const& input,
 // shared by every rounding mode, never cached rounded function results.
 struct FloatMPShortTranscendentals {
     struct Center {
-        unsigned long bits=0;
-        BigUnsigned lower,upper,slope_lower,slope_upper;
-        unsigned error=0;
-        bool slope_negative=false;
-        bool result_negative=false;
+        unsigned long bits = 0;
+        BigUnsigned lower, upper, slope_lower, slope_upper;
+        unsigned error = 0;
+        bool slope_negative = false;
+        bool result_negative = false;
     };
 
-    static void coefficients(Center& target,Interval const& value,
-                             Interval const& slope,unsigned long bits) {
-        target.lower=outward_dyadic_integer(value.lower,bits,false).magnitude();
-        target.upper=outward_dyadic_integer(value.upper,bits,true).magnitude();
-        target.slope_lower=outward_dyadic_integer(slope.lower,bits,false).magnitude();
-        target.slope_upper=outward_dyadic_integer(slope.upper,bits,true).magnitude();
+    static void coefficients(Center& target, const Interval& value,
+                             const Interval& slope, unsigned long bits) {
+        target.lower = outward_dyadic_integer(value.lower, bits, false).magnitude();
+        target.upper = outward_dyadic_integer(value.upper, bits, true).magnitude();
+        target.slope_lower = outward_dyadic_integer(slope.lower, bits, false).magnitude();
+        target.slope_upper = outward_dyadic_integer(slope.upper, bits, true).magnitude();
     }
 
     template<Function OperationKind>
-    static Center make_center(bool negative,unsigned long bits) {
-        static_assert(OperationKind==Function::exponential ||
-                      OperationKind==Function::logarithm ||
-                      OperationKind==Function::hyperbolic_tangent ||
-                      OperationKind==Function::logistic_sigmoid ||
-                      OperationKind==Function::softplus ||
-                      OperationKind==Function::sine || OperationKind==Function::cosine ||
-                      OperationKind==Function::tangent || OperationKind==Function::arctangent ||
-                      OperationKind==Function::arcsine || OperationKind==Function::arccosine);
+    static Center make_center(bool negative, unsigned long bits) {
+        static_assert(OperationKind == Function::exponential ||
+                      OperationKind == Function::logarithm ||
+                      OperationKind == Function::hyperbolic_tangent ||
+                      OperationKind == Function::logistic_sigmoid ||
+                      OperationKind == Function::softplus ||
+                      OperationKind == Function::sine || OperationKind == Function::cosine ||
+                      OperationKind == Function::tangent || OperationKind == Function::arctangent ||
+                      OperationKind == Function::arcsine || OperationKind == Function::arccosine);
         (void)negative; // The logarithm center is independent of this argument.
         Center result;
-        if constexpr(OperationKind==Function::exponential) {
-            const auto& centers=exponential_half_centers(bits);
-            const auto& center=negative ? centers.negative : centers.positive;
-            coefficients(result,center,center,bits);
-            result.error=2u;
-            result.slope_negative=negative;
-        } else if constexpr(OperationKind==Function::hyperbolic_tangent) {
-            const auto center=tanh_interval(Fraction(1L)/Fraction(2L),bits+40ul);
+        if constexpr (OperationKind == Function::exponential) {
+            const auto& centers = exponential_half_centers(bits);
+            const auto& center = negative ? centers.negative : centers.positive;
+            coefficients(result, center, center, bits);
+            result.error = 2u;
+            result.slope_negative = negative;
+        } else if constexpr (OperationKind == Function::hyperbolic_tangent) {
+            const auto center = tanh_interval(Fraction(1L) / Fraction(2L), bits + 40ul);
             const Fraction one(1L);
-            const Interval slope{one-center.upper*center.upper,
-                                 one-center.lower*center.lower};
-            coefficients(result,center,slope,bits);
+            const Interval slope{one - center.upper * center.upper,
+                                 one - center.lower * center.lower};
+            coefficients(result, center, slope, bits);
             // |tanh''|=2*|tanh|*(1-tanh^2)<=2 globally.
-            result.error=1u;
-            result.result_negative=negative;
-        } else if constexpr(OperationKind==Function::logistic_sigmoid ||
-                            OperationKind==Function::softplus) {
+            result.error = 1u;
+            result.result_negative = negative;
+        } else if constexpr (OperationKind == Function::logistic_sigmoid ||
+                             OperationKind == Function::softplus) {
             // Build rigorous dyadic center/slope bounds once per precision,
             // and cache them exactly as for tanh. All repeated calls near
             // +/-1/2 use only integer limb arithmetic and final rounding.
-            const Fraction half=Fraction(1L)/Fraction(2L);
+            const Fraction half = Fraction(1L) / Fraction(2L);
             const Fraction one(1L);
-            const Interval sigmoid_positive=sigmoid_interval(half,bits+48ul);
-            const Interval sigmoid_negative=subtract(point(one),sigmoid_positive);
+            const Interval sigmoid_positive = sigmoid_interval(half, bits + 48ul);
+            const Interval sigmoid_negative = subtract(point(one), sigmoid_positive);
             Interval value;
             Interval slope;
-            if constexpr(OperationKind==Function::logistic_sigmoid) {
-                value=negative ? sigmoid_negative : sigmoid_positive;
-                slope=multiply(sigmoid_positive,sigmoid_negative);
+            if constexpr (OperationKind == Function::logistic_sigmoid) {
+                value = negative ? sigmoid_negative : sigmoid_positive;
+                slope = multiply(sigmoid_positive, sigmoid_negative);
             } else {
-                const Interval softplus_positive=softplus_interval(
-                    half,bits+48ul,bits);
-                value=negative ? subtract(softplus_positive,point(half))
-                               : softplus_positive;
-                slope=negative ? sigmoid_negative : sigmoid_positive;
+                const Interval softplus_positive = softplus_interval(
+                    half, bits + 48ul, bits);
+                value = negative ? subtract(softplus_positive, point(half))
+                                 : softplus_positive;
+                slope = negative ? sigmoid_negative : sigmoid_positive;
             }
-            coefficients(result,value,slope,bits);
+            coefficients(result, value, slope, bits);
             // |sigmoid''|, |softplus''| <= 1/4 globally. At the supported
             // offset |delta|<=2^-ceil(bits/2), a two-unit error covers
             // quadratic remainder and outward slope quantization.
-            result.error=2u;
-            result.slope_negative=negative; // derivative with respect to |x|
-        } else if constexpr(OperationKind==Function::logarithm) {
-            coefficients(result,log2_interval(bits+32ul),point(Fraction(2L)),bits);
-            result.error=8u;
-            result.slope_negative=true;
-            result.result_negative=true;
-        } else if constexpr(OperationKind==Function::sine || OperationKind==Function::cosine) {
-            const auto& [sine,cosine]=half_trigonometric_intervals(bits+32ul);
-            if constexpr(OperationKind==Function::sine) {
-                coefficients(result,sine,cosine,bits);
-                result.result_negative=negative;
+            result.error = 2u;
+            result.slope_negative = negative; // derivative with respect to |x|
+        } else if constexpr (OperationKind == Function::logarithm) {
+            coefficients(result, log2_interval(bits + 32ul), point(Fraction(2L)), bits);
+            result.error = 8u;
+            result.slope_negative = true;
+            result.result_negative = true;
+        } else if constexpr (OperationKind == Function::sine || OperationKind == Function::cosine) {
+            const auto& [sine, cosine] = half_trigonometric_intervals(bits + 32ul);
+            if constexpr (OperationKind == Function::sine) {
+                coefficients(result, sine, cosine, bits);
+                result.result_negative = negative;
             } else {
-                coefficients(result,cosine,sine,bits);
-                result.slope_negative=true;
+                coefficients(result, cosine, sine, bits);
+                result.slope_negative = true;
             }
-            result.error=1u;
-        } else if constexpr(OperationKind==Function::tangent) {
-            const auto& center=tangent_half_enclosures(bits);
-            coefficients(result,center.tangent,center.derivative,bits);
-            result.error=6u;
-            result.result_negative=negative;
-        } else if constexpr(OperationKind==Function::arctangent) {
-            coefficients(result,atan_half_interval(bits+32ul),
-                divide(point(Fraction(4L)),point(Fraction(5L))),bits);
-            result.error=1u;
-            result.result_negative=negative;
+            result.error = 1u;
+        } else if constexpr (OperationKind == Function::tangent) {
+            const auto& center = tangent_half_enclosures(bits);
+            coefficients(result, center.tangent, center.derivative, bits);
+            result.error = 6u;
+            result.result_negative = negative;
+        } else if constexpr (OperationKind == Function::arctangent) {
+            coefficients(result, atan_half_interval(bits + 32ul),
+                         divide(point(Fraction(4L)), point(Fraction(5L))), bits);
+            result.error = 1u;
+            result.result_negative = negative;
         } else {
-            const auto& center=inverse_half_enclosures(bits);
-            if constexpr(OperationKind==Function::arcsine) {
-                coefficients(result,center.arcsine_half,center.slope_half,bits);
-                result.result_negative=negative;
+            const auto& center = inverse_half_enclosures(bits);
+            if constexpr (OperationKind == Function::arcsine) {
+                coefficients(result, center.arcsine_half, center.slope_half, bits);
+                result.result_negative = negative;
             } else {
-                const auto& value=negative ? center.arccosine_negative_half
-                                          : center.arccosine_positive_half;
-                coefficients(result,value,center.slope_half,bits);
-                result.slope_negative=!negative;
+                const auto& value = negative ? center.arccosine_negative_half
+                                             : center.arccosine_positive_half;
+                coefficients(result, value, center.slope_half, bits);
+                result.slope_negative = !negative;
             }
-            result.error=2u;
+            result.error = 2u;
         }
-        result.bits=bits;
+        result.bits = bits;
         return result;
     }
 
     // Each statically selected operation owns its two signed caches.
     // Statically selected center retrieval avoids an indirect callback.
     template<Function OperationKind>
-    static Center& get_center(bool negative,unsigned long bits) {
-        static thread_local std::array<Center,2u> centers;
-        auto& center=centers[static_cast<unsigned>(negative)];
-        if (center.bits!=bits) center=make_center<OperationKind>(negative,bits);
+    static Center& get_center(bool negative, unsigned long bits) {
+        static thread_local std::array<Center, 2u> centers;
+        auto& center = centers[static_cast<unsigned>(negative)];
+        if (center.bits != bits)
+            center = make_center<OperationKind>(negative, bits);
         return center;
     }
 
     // Return floor(slope*n/2^shift), and optionally its ceiling. Products
     // use the existing shared native multiplier, including portable builds.
-    static std::uint64_t correction(BigUnsigned const& slope,std::uint64_t n,
-                                     unsigned shift,bool round_upward) {
-        if (n==0u) return 0u;
+    static std::uint64_t correction(const BigUnsigned& slope, std::uint64_t n,
+                                    unsigned shift, bool round_upward) {
+        if (n == 0u)
+            return 0u;
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
         // evaluate supplies 1<=shift<=64, B=p+32<=96 and a strictly
         // positive slope <=2+2^-B. Its offset n<=2^(shift-ceil(B/2))
         // bounds the product by 2^114. Two slope limbs and two product
         // limbs therefore suffice; no out-of-contract fallback is needed.
-        __extension__ using Wide=unsigned __int128;
-        const Wide first=static_cast<Wide>(slope.limb(0u))*n;
-        const Wide second=static_cast<Wide>(
-            slope.size()==2u ? slope.limb(1u) : 0u)*n+(first>>64u);
-        const auto low=static_cast<std::uint64_t>(first);
-        const auto high=static_cast<std::uint64_t>(second);
-        const auto retained=shift==64u ? high
-            : (low>>shift)|(high<<(64u-shift));
-        const bool discarded=shift==64u ? low!=0u
-            : (low&((std::uint64_t{1}<<shift)-1u))!=0u;
-        return retained+static_cast<std::uint64_t>(round_upward && discarded);
+        __extension__ using Wide = unsigned __int128;
+        const Wide first = static_cast<Wide>(slope.limb(0u)) * n;
+        const Wide second = static_cast<Wide>(
+                                slope.size() == 2u ? slope.limb(1u) : 0u) *
+                                n +
+                            (first >> 64u);
+        const auto low = static_cast<std::uint64_t>(first);
+        const auto high = static_cast<std::uint64_t>(second);
+        const auto retained = shift == 64u ? high
+                                           : (low >> shift) | (high << (64u - shift));
+        const bool discarded = shift == 64u ? low != 0u
+                                            : (low & ((std::uint64_t{1} << shift) - 1u)) != 0u;
+        return retained + static_cast<std::uint64_t>(round_upward && discarded);
 #else
         // Keep portable exact multiplication and remainder handling
         // for targets without native 128-bit arithmetic.
-        std::array<BigUnsigned::Limb,3u> product;
-        BigUnsigned::mul_into(slope.limbs(),BigUnsigned::LimbView(&n,1u),product);
-        const auto word=shift/64u;
-        const auto offset=shift%64u;
-        std::uint64_t retained=product[word]>>offset;
-        if (offset!=0u) retained|=product[word+1u]<<(64u-offset);
-        if (round_upward && floatmp_any_bits_below(BigUnsigned::LimbView(product),shift)) ++retained;
+        std::array<BigUnsigned::Limb, 3u> product;
+        BigUnsigned::mul_into(slope.limbs(), BigUnsigned::LimbView(&n, 1u), product);
+        const auto word = shift / 64u;
+        const auto offset = shift % 64u;
+        std::uint64_t retained = product[word] >> offset;
+        if (offset != 0u)
+            retained |= product[word + 1u] << (64u - offset);
+        if (round_upward && floatmp_any_bits_below(BigUnsigned::LimbView(product), shift))
+            ++retained;
         return retained;
 #endif
     }
@@ -3664,157 +3772,167 @@ struct FloatMPShortTranscendentals {
     // One acceptance policy for native words and general limb magnitudes.
     // Constructing the lower endpoint before this call also lets portable
     // callers transfer their existing result instead of rebuilding it.
-    static std::optional<FloatMP> certified_result(FloatMP lower,bool equal) {
-        if (!equal) return std::nullopt;
+    static std::optional<FloatMP> certified_result(FloatMP lower, bool equal) {
+        if (!equal)
+            return std::nullopt;
         return lower;
     }
 
-    static std::optional<FloatMP> certified_endpoints(FloatMP lower,FloatMP const& upper) {
+    static std::optional<FloatMP> certified_endpoints(FloatMP lower, const FloatMP& upper) {
         // Endpoints have equal precision/sign. For p>=8 the center's
         // >17/1024 binade margin dominates both offset and final rounding.
         // For p=2..7 the finitely many carry midpoints are >1/1024 away
         // from all centers, while the offset is <=2^-17. Thus both
         // rounded exponents agree. Wide tanh stays strictly in (1/4,1/2).
-        const bool equal=lower._precision<=64u
-            ? lower._significand.limb(0u)==upper._significand.limb(0u)
-            : compare(lower._significand,upper._significand)==0;
-        return certified_result(std::move(lower),equal);
+        const bool equal = lower._precision <= 64u
+                             ? lower._significand.limb(0u) == upper._significand.limb(0u)
+                             : compare(lower._significand, upper._significand) == 0;
+        return certified_result(std::move(lower), equal);
     }
 
     template<Function OperationKind>
     static std::optional<FloatMP> evaluate(FloatMP::Rounding mode,
-                                           FloatMP const& x) {
-        const auto precision=x._precision;
+                                           const FloatMP& x) {
+        const auto precision = x._precision;
         // The supported short window has an exact one-word signed offset
         // from |x|=1/2. Other arguments use the unchanged adaptive path.
-        if (precision>64u || x._exponent < -64 || x._exponent >= 0) return std::nullopt;
-        const unsigned denominator_bits=static_cast<unsigned>(-x._exponent);
-        const auto half=std::uint64_t{1}<<(denominator_bits-1u);
-        const auto magnitude=x._significand.limb(0u);
-        const bool offset_negative=magnitude<half;
-        const auto offset=offset_negative ? half-magnitude : magnitude-half;
-        const unsigned long bits=precision+32ul;
-        const auto cutoff=static_cast<unsigned>((bits+1ul)/2ul);
-        if (offset!=0u && (cutoff>denominator_bits ||
-            offset>(std::uint64_t{1}<<(denominator_bits-cutoff)))) return std::nullopt;
+        if (precision > 64u || x._exponent < -64 || x._exponent >= 0)
+            return std::nullopt;
+        const unsigned denominator_bits = static_cast<unsigned>(-x._exponent);
+        const auto half = std::uint64_t{1} << (denominator_bits - 1u);
+        const auto magnitude = x._significand.limb(0u);
+        const bool offset_negative = magnitude < half;
+        const auto offset = offset_negative ? half - magnitude : magnitude - half;
+        const unsigned long bits = precision + 32ul;
+        const auto cutoff = static_cast<unsigned>((bits + 1ul) / 2ul);
+        if (offset != 0u && (cutoff > denominator_bits ||
+                             offset > (std::uint64_t{1} << (denominator_bits - cutoff))))
+            return std::nullopt;
 
-        const auto& center=get_center<OperationKind>(x._negative,bits);
+        const auto& center = get_center<OperationKind>(x._negative, bits);
 
-        const auto lo=correction(center.slope_lower,offset,denominator_bits,false);
-        const auto hi=correction(center.slope_upper,offset,denominator_bits,true);
-        const bool subtract=offset_negative!=center.slope_negative;
+        const auto lo = correction(center.slope_lower, offset, denominator_bits, false);
+        const auto hi = correction(center.slope_upper, offset, denominator_bits, true);
+        const bool subtract = offset_negative != center.slope_negative;
         // Since |delta|<=2^-ceil(B/2), C*delta^2*2^B<=C.
         // The correction fits <=52 bits at B<=96, hence these signed
         // offsets cannot overflow. Centers stay positive in this window.
-        const std::int64_t lower_offset=(subtract ? -static_cast<std::int64_t>(hi)
-            : static_cast<std::int64_t>(lo))-static_cast<std::int64_t>(center.error);
-        const std::int64_t upper_offset=(subtract ? -static_cast<std::int64_t>(lo)
-            : static_cast<std::int64_t>(hi))+static_cast<std::int64_t>(center.error);
+        const std::int64_t lower_offset = (subtract ? -static_cast<std::int64_t>(hi)
+                                                    : static_cast<std::int64_t>(lo)) -
+                                          static_cast<std::int64_t>(center.error);
+        const std::int64_t upper_offset = (subtract ? -static_cast<std::int64_t>(lo)
+                                                    : static_cast<std::int64_t>(hi)) +
+                                          static_cast<std::int64_t>(center.error);
 #if defined(__SIZEOF_INT128__) && (defined(__GNUC__) || defined(__clang__))
         // D148: with p in [53,64], cached positive endpoints occupy at
         // most 128 bits. Round the two scalar words and pass the lower
         // result to the shared acceptance policy. The portable path below
         // handles precisions smaller than 53 or targets without Wide.
-        if (precision>=53u) {
-            __extension__ using Wide=unsigned __int128;
+        if (precision >= 53u) {
+            __extension__ using Wide = unsigned __int128;
             // Every supported center lies in (1/4,9/4), at least 1/64
             // from its binade boundaries. With B in [85,96] and
             // |delta|<=2^-ceil(B/2), adjusted endpoints occupy two limbs,
             // remain positive, and cannot cross a binade on rounding.
-            const auto native=[](BigUnsigned const& value) -> Wide {
-                return (static_cast<Wide>(value.limb(1u))<<64u)|value.limb(0u);
+            const auto native = [](const BigUnsigned& value) -> Wide {
+                return (static_cast<Wide>(value.limb(1u)) << 64u) | value.limb(0u);
             };
-            const auto adjust=[](Wide value,std::int64_t displacement) -> Wide {
-                return displacement<0
-                    ? value-static_cast<std::uint64_t>(-displacement)
-                    : value+static_cast<std::uint64_t>(displacement);
+            const auto adjust = [](Wide value, std::int64_t displacement) -> Wide {
+                return displacement < 0
+                         ? value - static_cast<std::uint64_t>(-displacement)
+                         : value + static_cast<std::uint64_t>(displacement);
             };
-            const Wide low_value=adjust(native(center.lower),lower_offset);
-            const Wide high_value=adjust(native(center.upper),upper_offset);
-            const auto width=[](Wide value) {
-                return 128u-static_cast<unsigned>(std::countl_zero(
-                    static_cast<std::uint64_t>(value>>64u)));
+            const Wide low_value = adjust(native(center.lower), lower_offset);
+            const Wide high_value = adjust(native(center.upper), upper_offset);
+            const auto width = [](Wide value) {
+                return 128u - static_cast<unsigned>(std::countl_zero(
+                                  static_cast<std::uint64_t>(value >> 64u)));
             };
             struct Rounded {
                 std::uint64_t significand;
                 FloatMP::Exponent exponent;
             };
-            const auto round=[&](Wide value,unsigned shift) -> Rounded {
-                auto kept=static_cast<std::uint64_t>(value>>shift);
-                const std::array<BigUnsigned::Limb,2u> words{
+            const auto round = [&](Wide value, unsigned shift) -> Rounded {
+                auto kept = static_cast<std::uint64_t>(value >> shift);
+                const std::array<BigUnsigned::Limb, 2u> words{
                     static_cast<std::uint64_t>(value),
-                    static_cast<std::uint64_t>(value>>64u)};
-                if (floatmp_rounding_increment(mode,center.result_negative,
-                        BigUnsigned::LimbView(words),shift,(kept&1u)!=0u)) ++kept;
-                return {kept,static_cast<FloatMP::Exponent>(shift)-
-                             static_cast<FloatMP::Exponent>(bits)};
+                    static_cast<std::uint64_t>(value >> 64u)};
+                if (floatmp_rounding_increment(mode, center.result_negative,
+                                               BigUnsigned::LimbView(words), shift, (kept & 1u) != 0u))
+                    ++kept;
+                return {kept, static_cast<FloatMP::Exponent>(shift) -
+                                  static_cast<FloatMP::Exponent>(bits)};
             };
-            const auto low=round(low_value,width(low_value)-static_cast<unsigned>(precision));
-            const auto high=round(high_value,width(high_value)-static_cast<unsigned>(precision));
+            const auto low = round(low_value, width(low_value) - static_cast<unsigned>(precision));
+            const auto high = round(high_value, width(high_value) - static_cast<unsigned>(precision));
             FloatMP result(precision);
-            result._negative=center.result_negative;
-            result._exponent=low.exponent;
-            result._significand=BigUnsigned(low.significand);
-            return certified_result(std::move(result),low.significand==high.significand);
+            result._negative = center.result_negative;
+            result._exponent = low.exponent;
+            result._significand = BigUnsigned(low.significand);
+            return certified_result(std::move(result), low.significand == high.significand);
         }
 #endif
-        const auto endpoint=[&](BigUnsigned const& constant,std::int64_t displacement) {
-            const std::uint64_t absolute=static_cast<std::uint64_t>(
-                displacement<0 ? -displacement : displacement);
-            const BigUnsigned::LimbView increment(&absolute,1u);
-            std::array<BigUnsigned::Limb,2u> output;
-            if (displacement<0) BigUnsigned::sub_into(constant.limbs(),increment,output);
-            else BigUnsigned::add_into(constant.limbs(),increment,output);
+        const auto endpoint = [&](const BigUnsigned& constant, std::int64_t displacement) {
+            const std::uint64_t absolute = static_cast<std::uint64_t>(
+                displacement < 0 ? -displacement : displacement);
+            const BigUnsigned::LimbView increment(&absolute, 1u);
+            std::array<BigUnsigned::Limb, 2u> output;
+            if (displacement < 0)
+                BigUnsigned::sub_into(constant.limbs(), increment, output);
+            else
+                BigUnsigned::add_into(constant.limbs(), increment, output);
             FloatMP result(precision);
-            result._negative=center.result_negative;
-            FloatMP::round_short(result,BigUnsigned::LimbView(output.data(),
-                output[1u]!=0u ? 2u : 1u),-static_cast<FloatMP::Exponent>(bits),mode);
+            result._negative = center.result_negative;
+            FloatMP::round_short(result, BigUnsigned::LimbView(output.data(), output[1u] != 0u ? 2u : 1u), -static_cast<FloatMP::Exponent>(bits), mode);
             return result;
         };
-        FloatMP lower=endpoint(center.lower,lower_offset);
-        FloatMP upper=endpoint(center.upper,upper_offset);
+        FloatMP lower = endpoint(center.lower, lower_offset);
+        FloatMP upper = endpoint(center.upper, upper_offset);
         // Equal rounded magnitude endpoints certify both positive and
         // negative enclosures. An ambiguous result uses the existing Ziv
         // refinement, including all difficult halfway/directed cases.
-        return certified_endpoints(std::move(lower),upper);
+        return certified_endpoints(std::move(lower), upper);
     }
     static std::optional<FloatMP> evaluate_tanh_wide(FloatMP::Rounding mode,
-                                                     FloatMP const& x) {
-        const auto precision=x._precision;
-        if (precision<=64u) return std::nullopt;
+                                                     const FloatMP& x) {
+        const auto precision = x._precision;
+        if (precision <= 64u)
+            return std::nullopt;
         // Oversized working scales cannot be serviced by the general
         // certifier either. Validate scalar metadata before any allocation.
-        const auto guarded_precision=Detail::checked_unsigned_add(precision,256ul,
-            "FloatMP tanh working precision overflow");
+        const auto guarded_precision = Detail::checked_unsigned_add(precision, 256ul,
+                                                                    "FloatMP tanh working precision overflow");
         (void)floatmp_exponent_from_bit_length(
             Detail::checked_unsigned_cast<std::size_t>(guarded_precision,
-                "FloatMP tanh working precision out of range"));
-        const auto p=static_cast<FloatMP::Exponent>(precision);
-        if (x._exponent!=-p && x._exponent!=-p-1) return std::nullopt;
-        const bool offset_negative=x._exponent==-p-1;
-        const auto denominator_bits=static_cast<std::size_t>(-x._exponent);
-        const unsigned long bits=precision+32ul;
+                                                       "FloatMP tanh working precision out of range"));
+        const auto p = static_cast<FloatMP::Exponent>(precision);
+        if (x._exponent != -p && x._exponent != -p - 1)
+            return std::nullopt;
+        const bool offset_negative = x._exponent == -p - 1;
+        const auto denominator_bits = static_cast<std::size_t>(-x._exponent);
+        const unsigned long bits = precision + 32ul;
         BigUnsigned offset;
-        const auto digits=x._significand.limbs();
-        const auto leading_bit=std::uint64_t{1}<<((precision-1ul)%64ul);
-        if (!offset_negative && digits.back()==leading_bit) {
+        const auto digits = x._significand.limbs();
+        const auto leading_bit = std::uint64_t{1} << ((precision - 1ul) % 64ul);
+        if (!offset_negative && digits.back() == leading_bit) {
             // Removing the leading half gives the exact offset. Trimming
             // zero high limbs avoids copying an entire high-precision input.
-            offset=BigUnsigned(digits.first(digits.size()-1u));
+            offset = BigUnsigned(digits.first(digits.size() - 1u));
         } else {
-            const auto half=shift_left(BigUnsigned(1u),denominator_bits-1u);
-            offset=offset_negative ? sub_big_unsigned(half,x._significand)
-                                   : sub_big_unsigned(x._significand,half);
+            const auto half = shift_left(BigUnsigned(1u), denominator_bits - 1u);
+            offset = offset_negative ? sub_big_unsigned(half, x._significand)
+                                     : sub_big_unsigned(x._significand, half);
         }
-        const auto maximum_offset_bit=denominator_bits-(bits+1ul)/2ul;
-        const auto width=offset.bit_length();
-        if (width>maximum_offset_bit+1u ||
-            (width==maximum_offset_bit+1u &&
-             floatmp_any_bits_below(offset,maximum_offset_bit))) return std::nullopt;
+        const auto maximum_offset_bit = denominator_bits - (bits + 1ul) / 2ul;
+        const auto width = offset.bit_length();
+        if (width > maximum_offset_bit + 1u ||
+            (width == maximum_offset_bit + 1u &&
+             floatmp_any_bits_below(offset, maximum_offset_bit)))
+            return std::nullopt;
 
         static thread_local Center center;
-        if (center.bits!=bits) {
-            center=make_center<Function::hyperbolic_tangent>(false,bits);
+        if (center.bits != bits) {
+            center = make_center<Function::hyperbolic_tangent>(false, bits);
         }
         // One slope product suffices: its truncation costs <1 unit, the
         // slope enclosure costs <=2*|delta|<1, and Taylor's remainder
@@ -3825,177 +3943,178 @@ struct FloatMPShortTranscendentals {
         // 1-tanh^2 costs another factor<1. Thus the scaled slope
         // enclosure has width<2^-45. Outward integer endpoints
         // differ by at most two units, as required by this certificate.
-        const auto correction=shift_right(mul_big_unsigned(center.slope_lower,offset),
-                                           denominator_bits);
-        const auto enlarged=add_big_unsigned(correction,BigUnsigned(3u));
-        const bool correction_at_least_three=compare(correction,BigUnsigned(3u))>=0;
-        const auto reduced=correction_at_least_three
-            ? sub_big_unsigned(correction,BigUnsigned(3u))
-            : sub_big_unsigned(BigUnsigned(3u),correction);
-        const auto endpoint=[&](BigUnsigned const& constant,bool upper) {
-            const bool enlarge=upper!=offset_negative;
-            const auto& displacement=enlarge ? enlarged : reduced;
-            bool subtract=offset_negative;
-            if (!enlarge && !correction_at_least_three) subtract=!subtract;
+        const auto correction = shift_right(mul_big_unsigned(center.slope_lower, offset),
+                                            denominator_bits);
+        const auto enlarged = add_big_unsigned(correction, BigUnsigned(3u));
+        const bool correction_at_least_three = compare(correction, BigUnsigned(3u)) >= 0;
+        const auto reduced = correction_at_least_three
+                               ? sub_big_unsigned(correction, BigUnsigned(3u))
+                               : sub_big_unsigned(BigUnsigned(3u), correction);
+        const auto endpoint = [&](const BigUnsigned& constant, bool upper) {
+            const bool enlarge = upper != offset_negative;
+            const auto& displacement = enlarge ? enlarged : reduced;
+            bool subtract = offset_negative;
+            if (!enlarge && !correction_at_least_three)
+                subtract = !subtract;
             FloatMP result(precision);
-            result._negative=x._negative;
-            result._significand=subtract ? sub_big_unsigned(constant,displacement)
-                                        : add_big_unsigned(constant,displacement);
-            FloatMP::round_scaled_integer(result,-static_cast<FloatMP::Exponent>(bits),mode);
+            result._negative = x._negative;
+            result._significand = subtract ? sub_big_unsigned(constant, displacement)
+                                           : add_big_unsigned(constant, displacement);
+            FloatMP::round_scaled_integer(result, -static_cast<FloatMP::Exponent>(bits), mode);
             return result;
         };
-        FloatMP lower=endpoint(center.lower,false);
-        FloatMP upper=endpoint(center.upper,true);
+        FloatMP lower = endpoint(center.lower, false);
+        FloatMP upper = endpoint(center.upper, true);
         // 8/3<e<11/4 gives 5/11<tanh(1/2)<7/15. Here p>=65,
         // |delta|<=2^-49, and endpoint/rounding errors are <2^-47.
         // Both rounded magnitudes therefore stay strictly in (1/4,1/2)
         // and share exponent -p-1, even when their significands differ.
-        return certified_endpoints(std::move(lower),upper);
+        return certified_endpoints(std::move(lower), upper);
     }
-
 };
-
 
 // The callers select their operation statically. The adaptive certification
 // loop accepts its evaluator directly, keeping one shared refinement policy.
 template<Function OperationKind>
-Interval evaluate(Fraction const& x, unsigned long work) {
+Interval evaluate(const Fraction& x, unsigned long work) {
     (void)x; // Pi evaluators have no operand.
-    static_assert(OperationKind!=Function::exponential && OperationKind!=Function::logarithm);
+    static_assert(OperationKind != Function::exponential && OperationKind != Function::logarithm);
     // certified supplies work=precision+extra, extra>=4.
-    if constexpr(OperationKind==Function::hyperbolic_tangent) {
-        return tanh_centered_or_general(x,work);
-    } else if constexpr(OperationKind==Function::sine) {
-        return sine_cosine_intervals(x,work,TrigOutputs::sine).first;
-    } else if constexpr(OperationKind==Function::cosine) {
-        return sine_cosine_intervals(x,work,TrigOutputs::cosine).second;
-    } else if constexpr(OperationKind==Function::tangent) {
-        const Fraction delta=absolute(x)-Fraction(1L)/Fraction(2L);
-        if (sufficiently_near_half(delta,work)) {
-            return centered_tangent_interval(x,delta,work);
+    if constexpr (OperationKind == Function::hyperbolic_tangent) {
+        return tanh_centered_or_general(x, work);
+    } else if constexpr (OperationKind == Function::sine) {
+        return sine_cosine_intervals(x, work, TrigOutputs::sine).first;
+    } else if constexpr (OperationKind == Function::cosine) {
+        return sine_cosine_intervals(x, work, TrigOutputs::cosine).second;
+    } else if constexpr (OperationKind == Function::tangent) {
+        const Fraction delta = absolute(x) - Fraction(1L) / Fraction(2L);
+        if (sufficiently_near_half(delta, work)) {
+            return centered_tangent_interval(x, delta, work);
         }
-        const auto [sine,cosine]=sine_cosine_intervals(x,work,TrigOutputs::both);
-        return divide(sine,cosine);
-    } else if constexpr(OperationKind==Function::arctangent) {
-        const Fraction delta=absolute(x)-Fraction(1L)/Fraction(2L);
-        if (sufficiently_near_half(delta,work)) {
-            return centered_atan_half_interval(x,delta,work);
+        const auto [sine, cosine] = sine_cosine_intervals(x, work, TrigOutputs::both);
+        return divide(sine, cosine);
+    } else if constexpr (OperationKind == Function::arctangent) {
+        const Fraction delta = absolute(x) - Fraction(1L) / Fraction(2L);
+        if (sufficiently_near_half(delta, work)) {
+            return centered_atan_half_interval(x, delta, work);
         }
-        return atan_interval(x,work);
-    } else if constexpr(OperationKind==Function::arcsine) {
-        const Fraction offset=absolute(x)-Fraction(1L)/Fraction(2L);
-        if (sufficiently_near_half(offset,work)) {
-            return centered_inverse_half_interval(x,offset,work,false);
+        return atan_interval(x, work);
+    } else if constexpr (OperationKind == Function::arcsine) {
+        const Fraction offset = absolute(x) - Fraction(1L) / Fraction(2L);
+        if (sufficiently_near_half(offset, work)) {
+            return centered_inverse_half_interval(x, offset, work, false);
         }
-        return asin_interval(x,work);
-    } else if constexpr(OperationKind==Function::arccosine) {
-        const Fraction offset=absolute(x)-Fraction(1L)/Fraction(2L);
-        if (sufficiently_near_half(offset,work)) {
-            return centered_inverse_half_interval(x,offset,work,true);
+        return asin_interval(x, work);
+    } else if constexpr (OperationKind == Function::arccosine) {
+        const Fraction offset = absolute(x) - Fraction(1L) / Fraction(2L);
+        if (sufficiently_near_half(offset, work)) {
+            return centered_inverse_half_interval(x, offset, work, true);
         }
-        return subtract(divide(pi_interval(work),point(Fraction(2L))),asin_interval(x,work));
-    } else if constexpr(OperationKind==Function::pi) {
+        return subtract(divide(pi_interval(work), point(Fraction(2L))), asin_interval(x, work));
+    } else if constexpr (OperationKind == Function::pi) {
         return pi_interval(work);
-    } else if constexpr(OperationKind==Function::half_pi) {
-        return divide(pi_interval(work),point(Fraction(2L)));
+    } else if constexpr (OperationKind == Function::half_pi) {
+        return divide(pi_interval(work), point(Fraction(2L)));
     } else {
-        static_assert(OperationKind==Function::negative_half_pi);
-        return negative(divide(pi_interval(work),point(Fraction(2L))));
+        static_assert(OperationKind == Function::negative_half_pi);
+        return negative(divide(pi_interval(work), point(Fraction(2L))));
     }
 }
 
-using IntervalEvaluator=Interval(*)(Fraction const&,unsigned long);
+using IntervalEvaluator = Interval (*)(const Fraction&, unsigned long);
 
 // A result is returned only when all real values in its certified
 // enclosure round to exactly the same FloatMP. This includes directed
 // rounding and correctly handles the nearest-even halfway boundaries.
-FloatMP certified(IntervalEvaluator evaluator, Fraction const& x,
+FloatMP certified(IntervalEvaluator evaluator, const Fraction& x,
                   FloatMP::RoundingModeType mode, FloatMP::PrecisionType precision,
-                  unsigned long extra=32u) {
+                  unsigned long extra = 32u) {
     const unsigned long bits = static_cast<unsigned long>(precision.bits());
     for (;;) {
-        constexpr char precision_error[]="FloatMP trigonometric precision too large";
-        const auto guarded_work=Detail::checked_unsigned_add(
-            Detail::checked_unsigned_add(bits,extra,precision_error),32ul,precision_error);
-        const auto work=guarded_work-32ul;
+        constexpr char precision_error[] = "FloatMP trigonometric precision too large";
+        const auto guarded_work = Detail::checked_unsigned_add(
+            Detail::checked_unsigned_add(bits, extra, precision_error), 32ul, precision_error);
+        const auto work = guarded_work - 32ul;
 
         Interval bounds;
         try {
-            bounds=evaluator(x,work);
-        } catch(TrigonometricRefinementRequired const&) {
-            extra=Detail::checked_unsigned_add(extra,extra,
-                "FloatMP trigonometric pole refinement overflow");
+            bounds = evaluator(x, work);
+        } catch (const TrigonometricRefinementRequired&) {
+            extra = Detail::checked_unsigned_add(extra, extra,
+                                                 "FloatMP trigonometric pole refinement overflow");
             continue;
         }
-        const FloatMP low = bounds.lower.rounded(bits,mode);
-        const FloatMP high = bounds.upper.rounded(bits,mode);
+        const FloatMP low = bounds.lower.rounded(bits, mode);
+        const FloatMP high = bounds.upper.rounded(bits, mode);
         if (low == high) {
             return low;
         }
 
-        extra=Detail::checked_unsigned_add(extra,extra,
-            "FloatMP trigonometric refinement overflow");
+        extra = Detail::checked_unsigned_add(extra, extra,
+                                             "FloatMP trigonometric refinement overflow");
     }
 }
 
 // The six public unary wrappers fix their operation at compile time.
 // Pi constants and the separately handled exp/log/tanh APIs never enter here.
 template<Function OperationKind>
-FloatMP unary(FloatMP::RoundingModeType mode,FloatMP const& x) {
-    static_assert(OperationKind==Function::sine || OperationKind==Function::cosine ||
-                  OperationKind==Function::tangent || OperationKind==Function::arctangent ||
-                  OperationKind==Function::arcsine || OperationKind==Function::arccosine);
-    const unsigned long bits=static_cast<unsigned long>(x.precision().bits());
-    if(x.is_nan()) return FloatMP::nan(bits);
-    if(x.is_inf()) {
-        if constexpr(OperationKind==Function::arctangent) {
+FloatMP unary(FloatMP::RoundingModeType mode, const FloatMP& x) {
+    static_assert(OperationKind == Function::sine || OperationKind == Function::cosine ||
+                  OperationKind == Function::tangent || OperationKind == Function::arctangent ||
+                  OperationKind == Function::arcsine || OperationKind == Function::arccosine);
+    const unsigned long bits = static_cast<unsigned long>(x.precision().bits());
+    if (x.is_nan())
+        return FloatMP::nan(bits);
+    if (x.is_inf()) {
+        if constexpr (OperationKind == Function::arctangent) {
             return certified(x.negative() ? evaluate<Function::negative_half_pi> : evaluate<Function::half_pi>,
-                             Fraction{},mode,x.precision());
+                             Fraction{}, mode, x.precision());
         } else {
             return FloatMP::nan(bits);
         }
     }
-    if(x.is_zero()) {
-        if constexpr(OperationKind==Function::cosine) {
-            return FloatMP(std::int64_t{1},x.precision());
-        } else if constexpr(OperationKind==Function::arccosine) {
-            return certified(evaluate<OperationKind>,Fraction{},mode,x.precision());
+    if (x.is_zero()) {
+        if constexpr (OperationKind == Function::cosine) {
+            return FloatMP(std::int64_t{1}, x.precision());
+        } else if constexpr (OperationKind == Function::arccosine) {
+            return certified(evaluate<OperationKind>, Fraction{}, mode, x.precision());
         } else {
-            return FloatMP::zero(bits,x.negative());
+            return FloatMP::zero(bits, x.negative());
         }
     }
-    if(auto short_result=FloatMPShortTranscendentals::evaluate<OperationKind>(mode,x))
+    if (auto short_result = FloatMPShortTranscendentals::evaluate<OperationKind>(mode, x))
         return std::move(*short_result);
-    const Fraction argument=rational_argument(x);
-    if constexpr(OperationKind==Function::arcsine || OperationKind==Function::arccosine) {
-        if(compare(absolute(argument),Fraction(1L))>0) return FloatMP::nan(bits);
-        if(compare(argument,Fraction(1L))==0) {
-            if constexpr(OperationKind==Function::arccosine) {
+    const Fraction argument = rational_argument(x);
+    if constexpr (OperationKind == Function::arcsine || OperationKind == Function::arccosine) {
+        if (compare(absolute(argument), Fraction(1L)) > 0)
+            return FloatMP::nan(bits);
+        if (compare(argument, Fraction(1L)) == 0) {
+            if constexpr (OperationKind == Function::arccosine) {
                 return FloatMP::zero(bits);
             } else {
-                return certified(evaluate<Function::half_pi>,Fraction{},mode,x.precision());
+                return certified(evaluate<Function::half_pi>, Fraction{}, mode, x.precision());
             }
         }
-        if(compare(argument,Fraction(-1L))==0) {
-            if constexpr(OperationKind==Function::arcsine) {
-                return certified(evaluate<Function::negative_half_pi>,Fraction{},mode,x.precision());
+        if (compare(argument, Fraction(-1L)) == 0) {
+            if constexpr (OperationKind == Function::arcsine) {
+                return certified(evaluate<Function::negative_half_pi>, Fraction{}, mode, x.precision());
             } else {
-                return certified(evaluate<Function::pi>,Fraction{},mode,x.precision());
+                return certified(evaluate<Function::pi>, Fraction{}, mode, x.precision());
             }
         }
     }
-    if constexpr(OperationKind==Function::tangent) {
+    if constexpr (OperationKind == Function::tangent) {
         // Tangent often needs only a few guard bits. Ambiguous bounds,
         // including a denominator spanning a pole, refine automatically.
-        return certified(evaluate<OperationKind>,argument,mode,x.precision(),4ul);
+        return certified(evaluate<OperationKind>, argument, mode, x.precision(), 4ul);
     } else {
-        return certified(evaluate<OperationKind>,argument,mode,x.precision());
+        return certified(evaluate<OperationKind>, argument, mode, x.precision());
     }
 }
 
 } // namespace Detail
 
-FloatMP exp(FloatMP::RoundingModeType mode, FloatMP const& x) {
+FloatMP exp(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
     const unsigned long bits = static_cast<unsigned long>(x.precision().bits());
     if (x.is_nan()) {
@@ -4007,14 +4126,16 @@ FloatMP exp(FloatMP::RoundingModeType mode, FloatMP const& x) {
     if (x.is_zero()) {
         return FloatMP(std::int64_t{1}, x.precision());
     }
-    if (auto short_result=FloatMPShortTranscendentals::evaluate<Function::exponential>(mode,x)) return std::move(*short_result);
+    if (auto short_result = FloatMPShortTranscendentals::evaluate<Function::exponential>(mode, x))
+        return std::move(*short_result);
     const Fraction input = rational_argument(x);
     return certified([&](unsigned long work) {
         return exp_half_centered_or_general(input, work);
-    }, mode, x.precision());
+    },
+                     mode, x.precision());
 }
 
-FloatMP log(FloatMP::RoundingModeType mode, FloatMP const& x) {
+FloatMP log(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
     const unsigned long bits = static_cast<unsigned long>(x.precision().bits());
     if (x.is_nan() || (x.negative() && !x.is_zero())) {
@@ -4026,194 +4147,216 @@ FloatMP log(FloatMP::RoundingModeType mode, FloatMP const& x) {
     if (x.is_inf()) {
         return FloatMP::infinity(bits);
     }
-    if (auto short_result=FloatMPShortTranscendentals::evaluate<Function::logarithm>(mode,x)) return std::move(*short_result);
-    if (x.exponent()==-static_cast<FloatMP::Exponent>(bits-1ul) &&
-        floatmp_popcount(x.significand())==1u) {
+    if (auto short_result = FloatMPShortTranscendentals::evaluate<Function::logarithm>(mode, x))
+        return std::move(*short_result);
+    if (x.exponent() == -static_cast<FloatMP::Exponent>(bits - 1ul) &&
+        floatmp_popcount(x.significand()) == 1u) {
         return FloatMP::zero(bits);
     }
     return certified([&](unsigned long work) {
         // Only [1/4,1) can meet the centered shortcut's window. Its
         // dyadic denominator then has at most p+1 bits, independently
         // of the full native exponent range handled by log_interval.
-        const auto half_exponent=-static_cast<FloatMP::Exponent>(bits);
-        if (x.exponent()==half_exponent || x.exponent()==half_exponent-1) {
-            const Fraction delta=rational_argument(x)-Fraction(1L)/Fraction(2L);
-            if (exp_inside_half_window(delta,work)) {
-                return log_half_centered_interval(delta,work);
+        const auto half_exponent = -static_cast<FloatMP::Exponent>(bits);
+        if (x.exponent() == half_exponent || x.exponent() == half_exponent - 1) {
+            const Fraction delta = rational_argument(x) - Fraction(1L) / Fraction(2L);
+            if (exp_inside_half_window(delta, work)) {
+                return log_half_centered_interval(delta, work);
             }
         }
-        return log_interval(x,work);
-    }, mode, x.precision());
+        return log_interval(x, work);
+    },
+                     mode, x.precision());
 }
 
-FloatMP sigmoid(CurrentRoundingMode,FloatMP const& x) {
-    return sigmoid(FloatMP::get_rounding_mode(),x);
+FloatMP sigmoid(CurrentRoundingMode, const FloatMP& x) {
+    return sigmoid(FloatMP::get_rounding_mode(), x);
 }
 
-FloatMP softplus(CurrentRoundingMode,FloatMP const& x) {
-    return softplus(FloatMP::get_rounding_mode(),x);
+FloatMP softplus(CurrentRoundingMode, const FloatMP& x) {
+    return softplus(FloatMP::get_rounding_mode(), x);
 }
 
-FloatMP sigmoid(FloatMP::RoundingModeType mode,FloatMP const& x) {
+FloatMP sigmoid(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
-    const auto precision=x.precision();
-    const unsigned long bits=static_cast<unsigned long>(precision.bits());
-    if(x.is_nan()) return FloatMP::nan(bits);
-    if(x.is_inf()) return FloatMP(x.negative() ? 0 : 1,precision);
-    if(x.is_zero()) return hlf(FloatMP(1,precision)); // sigmoid(0) = 1/2 exactly
-    if(auto result=FloatMPShortTranscendentals::evaluate<Function::logistic_sigmoid>(
-            mode,x)) return std::move(*result);
-    const FloatMP one(1,precision);
-    const FloatMP threshold(Integer(bits+16ul),FloatMP::ROUND_UPWARD,precision);
-    const FloatMP magnitude=abs(x);
-    if(!x.negative() && cmp(magnitude,threshold)!=Comparison::LESS) {
-        return (mode==FloatMP::Rounding::Downward || mode==FloatMP::Rounding::TowardZero)
-            ? next(down,one) : one;
+    const auto precision = x.precision();
+    const unsigned long bits = static_cast<unsigned long>(precision.bits());
+    if (x.is_nan())
+        return FloatMP::nan(bits);
+    if (x.is_inf())
+        return FloatMP(x.negative() ? 0 : 1, precision);
+    if (x.is_zero())
+        return hlf(FloatMP(1, precision)); // sigmoid(0) = 1/2 exactly
+    if (auto result = FloatMPShortTranscendentals::evaluate<Function::logistic_sigmoid>(
+            mode, x))
+        return std::move(*result);
+    const FloatMP one(1, precision);
+    const FloatMP threshold(Integer(bits + 16ul), FloatMP::ROUND_UPWARD, precision);
+    const FloatMP magnitude = abs(x);
+    if (!x.negative() && cmp(magnitude, threshold) != Comparison::LESS) {
+        return (mode == FloatMP::Rounding::Downward || mode == FloatMP::Rounding::TowardZero)
+                 ? next(down, one)
+                 : one;
     }
-    if(x.negative() && cmp(magnitude,shft(one,Int(64)))!=Comparison::LESS) {
+    if (x.negative() && cmp(magnitude, shft(one, Int(64))) != Comparison::LESS) {
         // exp(-2^64) is smaller than the least positive representable
         // FloatMP number at every supported precision/exponent range.
-        return mode==FloatMP::Rounding::Upward
-            ? FloatMP::min(precision) : FloatMP::zero(bits);
+        return mode == FloatMP::Rounding::Upward
+                 ? FloatMP::min(precision)
+                 : FloatMP::zero(bits);
     }
     // At |x| << 2^-p the exact result lies strictly between 1/2
     // and its adjacent target float. Rounding is therefore determined by
     // sign and direction without constructing an immense exact dyadic.
     // Compare 2*p+16 with -exponent without overflowing either signed
     // or unsigned metadata, including the minimal signed exponent.
-    const auto exponent=x.exponent();
-    if(exponent<=-16 && bits<=
-       (static_cast<std::uint64_t>(-(exponent+1))+1u-16u)/2u) {
-        const FloatMP half=hlf(one);
-        if(x.negative()) {
-            return (mode==FloatMP::Rounding::Downward || mode==FloatMP::Rounding::TowardZero)
-                ? next(down,half) : half;
+    const auto exponent = x.exponent();
+    if (exponent <= -16 && bits <=
+                               (static_cast<std::uint64_t>(-(exponent + 1)) + 1u - 16u) / 2u) {
+        const FloatMP half = hlf(one);
+        if (x.negative()) {
+            return (mode == FloatMP::Rounding::Downward || mode == FloatMP::Rounding::TowardZero)
+                     ? next(down, half)
+                     : half;
         }
-        return mode==FloatMP::Rounding::Upward ? next(up,half) : half;
+        return mode == FloatMP::Rounding::Upward ? next(up, half) : half;
     }
-    const Fraction argument=rational_argument(x);
+    const Fraction argument = rational_argument(x);
     return certified([&](unsigned long work) {
-        return sigmoid_interval(argument,work);
-    },mode,precision);
+        return sigmoid_interval(argument, work);
+    },
+                     mode, precision);
 }
 
-FloatMP softplus(FloatMP::RoundingModeType mode,FloatMP const& x) {
+FloatMP softplus(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
-    const auto precision=x.precision();
-    const unsigned long bits=static_cast<unsigned long>(precision.bits());
-    if(x.is_nan()) return FloatMP::nan(bits);
-    if(x.is_inf()) return x.negative() ? FloatMP::zero(bits) : x;
-    if(x.is_zero()) return log(mode,FloatMP(2,precision));
-    if(auto result=FloatMPShortTranscendentals::evaluate<Function::softplus>(
-            mode,x)) return std::move(*result);
-    const FloatMP one(1,precision);
-    const FloatMP threshold(Integer(bits+16ul),FloatMP::ROUND_UPWARD,precision);
-    const FloatMP magnitude=abs(x);
-    if(!x.negative() && cmp(magnitude,threshold)!=Comparison::LESS) {
+    const auto precision = x.precision();
+    const unsigned long bits = static_cast<unsigned long>(precision.bits());
+    if (x.is_nan())
+        return FloatMP::nan(bits);
+    if (x.is_inf())
+        return x.negative() ? FloatMP::zero(bits) : x;
+    if (x.is_zero())
+        return log(mode, FloatMP(2, precision));
+    if (auto result = FloatMPShortTranscendentals::evaluate<Function::softplus>(
+            mode, x))
+        return std::move(*result);
+    const FloatMP one(1, precision);
+    const FloatMP threshold(Integer(bits + 16ul), FloatMP::ROUND_UPWARD, precision);
+    const FloatMP magnitude = abs(x);
+    if (!x.negative() && cmp(magnitude, threshold) != Comparison::LESS) {
         // The positive correction is strictly between 0 and half an ulp.
-        return mode==FloatMP::Rounding::Upward ? next(up,x) : x;
+        return mode == FloatMP::Rounding::Upward ? next(up, x) : x;
     }
-    if(x.negative() && cmp(magnitude,shft(one,Int(64)))!=Comparison::LESS) {
-        return mode==FloatMP::Rounding::Upward
-            ? FloatMP::min(precision) : FloatMP::zero(bits);
+    if (x.negative() && cmp(magnitude, shft(one, Int(64))) != Comparison::LESS) {
+        return mode == FloatMP::Rounding::Upward
+                 ? FloatMP::min(precision)
+                 : FloatMP::zero(bits);
     }
     // The derivative is in (0,1): |softplus(x)-log(2)|<|x|.
     // Build tiny-input enclosures inside the shared adaptive certifier.
     // This avoids both enormous rational imports and a separate capped
     // refinement policy. If refinement makes x significant, its exact
     // dyadic import then costs only the current working scale.
-    const auto highest=FloatMP::checked_add(x.exponent(),
-        static_cast<FloatMP::Exponent>(bits-1ul));
+    const auto highest = FloatMP::checked_add(x.exponent(),
+                                              static_cast<FloatMP::Exponent>(bits - 1ul));
     return certified([&](unsigned long work) {
-        constexpr char error[]="FloatMP softplus working precision overflow";
-        const auto radius_bits=Detail::checked_unsigned_add(work,16ul,error);
-        const auto radius_exponent=floatmp_exponent_from_bit_length(
-            Detail::checked_unsigned_cast<std::size_t>(radius_bits,error));
-        if(highest < -radius_exponent) {
-            const auto center=log2_interval(work);
-            const Fraction radius(BigUnsigned(1u),radius_bits);
-            return Interval{center.lower-radius,center.upper+radius};
+        constexpr char error[] = "FloatMP softplus working precision overflow";
+        const auto radius_bits = Detail::checked_unsigned_add(work, 16ul, error);
+        const auto radius_exponent = floatmp_exponent_from_bit_length(
+            Detail::checked_unsigned_cast<std::size_t>(radius_bits, error));
+        if (highest < -radius_exponent) {
+            const auto center = log2_interval(work);
+            const Fraction radius(BigUnsigned(1u), radius_bits);
+            return Interval{center.lower - radius, center.upper + radius};
         }
-        return softplus_interval(rational_argument(x),work,bits);
-    },mode,precision);
+        return softplus_interval(rational_argument(x), work, bits);
+    },
+                     mode, precision);
 }
 
-FloatMP tanh(FloatMP::RoundingModeType mode,FloatMP const& x) {
+FloatMP tanh(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
-    const auto bits=x._precision;
-    if (x.is_nan()) return FloatMP::nan(bits);
-    if (x.is_zero()) return x;
-    if (x.is_inf()) return FloatMP(x._negative ? -1 : 1,x.precision());
-    if (auto result=FloatMPShortTranscendentals::evaluate<Function::hyperbolic_tangent>(mode,x)) return std::move(*result);
-    if (auto result=FloatMPShortTranscendentals::evaluate_tanh_wide(mode,x))
+    const auto bits = x._precision;
+    if (x.is_nan())
+        return FloatMP::nan(bits);
+    if (x.is_zero())
+        return x;
+    if (x.is_inf())
+        return FloatMP(x._negative ? -1 : 1, x.precision());
+    if (auto result = FloatMPShortTranscendentals::evaluate<Function::hyperbolic_tangent>(mode, x))
+        return std::move(*result);
+    if (auto result = FloatMPShortTranscendentals::evaluate_tanh_wide(mode, x))
         return std::move(*result);
 
-    const bool directed_toward_zero=mode==FloatMP::Rounding::TowardZero ||
-        (mode==FloatMP::Rounding::Downward && !x._negative) ||
-        (mode==FloatMP::Rounding::Upward && x._negative);
+    const bool directed_toward_zero = mode == FloatMP::Rounding::TowardZero ||
+                                      (mode == FloatMP::Rounding::Downward && !x._negative) ||
+                                      (mode == FloatMP::Rounding::Upward && x._negative);
     // e>2 implies 1-tanh(y)<2*exp(-2*y)<2^(1-2*y).
     // At y>=ceil((p+2)/2), this is below half an ulp beneath 1.
-    const FloatMP saturation(Integer((static_cast<std::uint64_t>(bits)+3u)/2u),x.precision());
-    if (cmp(abs(x),saturation)!=Comparison::LESS) {
-        FloatMP result(x._negative ? -1 : 1,x.precision());
+    const FloatMP saturation(Integer((static_cast<std::uint64_t>(bits) + 3u) / 2u), x.precision());
+    if (cmp(abs(x), saturation) != Comparison::LESS) {
+        FloatMP result(x._negative ? -1 : 1, x.precision());
         if (directed_toward_zero) {
-            result._significand=sub_big_unsigned(shift_left(BigUnsigned(1u),bits),BigUnsigned(1u));
-            result._exponent=-static_cast<FloatMP::Exponent>(bits);
+            result._significand = sub_big_unsigned(shift_left(BigUnsigned(1u), bits), BigUnsigned(1u));
+            result._exponent = -static_cast<FloatMP::Exponent>(bits);
         }
         return result;
     }
-    const auto highest=FloatMP::checked_add(x._exponent,
-        static_cast<FloatMP::Exponent>(bits-1u));
+    const auto highest = FloatMP::checked_add(x._exponent,
+                                              static_cast<FloatMP::Exponent>(bits - 1u));
     // 0<y-tanh(y)<y^3. This conservative small-input window
     // places the difference below half the spacing beneath y, including
     // binade boundaries. The exact answer is strictly closer to zero.
-    if (highest<=-static_cast<FloatMP::Exponent>(bits/2u+4u)) {
-        if (!directed_toward_zero) return x;
-        FloatMP result=x;
-        if (floatmp_popcount(x._significand)==1u) {
-            result._exponent=FloatMP::checked_sub(x._exponent,1);
-            result._significand=sub_big_unsigned(shift_left(BigUnsigned(1u),bits),BigUnsigned(1u));
-        } else result._significand=sub_big_unsigned(x._significand,BigUnsigned(1u));
+    if (highest <= -static_cast<FloatMP::Exponent>(bits / 2u + 4u)) {
+        if (!directed_toward_zero)
+            return x;
+        FloatMP result = x;
+        if (floatmp_popcount(x._significand) == 1u) {
+            result._exponent = FloatMP::checked_sub(x._exponent, 1);
+            result._significand = sub_big_unsigned(shift_left(BigUnsigned(1u), bits), BigUnsigned(1u));
+        } else
+            result._significand = sub_big_unsigned(x._significand, BigUnsigned(1u));
         return result;
     }
-    return certified(evaluate<Function::hyperbolic_tangent>,rational_argument(x),mode,x.precision());
+    return certified(evaluate<Function::hyperbolic_tangent>, rational_argument(x), mode, x.precision());
 }
 
-FloatMP sin(FloatMP::RoundingModeType mode, FloatMP const& x) {
+FloatMP sin(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
-    return unary<Function::sine>(mode,x);
+    return unary<Function::sine>(mode, x);
 }
 
-FloatMP cos(FloatMP::RoundingModeType mode, FloatMP const& x) {
+FloatMP cos(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
-    return unary<Function::cosine>(mode,x);
+    return unary<Function::cosine>(mode, x);
 }
 
-FloatMP tan(FloatMP::RoundingModeType mode, FloatMP const& x) {
+FloatMP tan(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
-    return unary<Function::tangent>(mode,x);
+    return unary<Function::tangent>(mode, x);
 }
 
-FloatMP atan(FloatMP::RoundingModeType mode, FloatMP const& x) {
+FloatMP atan(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
-    return unary<Function::arctangent>(mode,x);
+    return unary<Function::arctangent>(mode, x);
 }
 
-FloatMP asin(FloatMP::RoundingModeType mode, FloatMP const& x) {
+FloatMP asin(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
-    return unary<Function::arcsine>(mode,x);
+    return unary<Function::arcsine>(mode, x);
 }
 
-FloatMP acos(FloatMP::RoundingModeType mode, FloatMP const& x) {
+FloatMP acos(FloatMP::RoundingModeType mode, const FloatMP& x) {
     using namespace Detail;
-    return unary<Function::arccosine>(mode,x);
+    return unary<Function::arccosine>(mode, x);
 }
 
 FloatMP Float<MultiplePrecision>::pi(RoundingModeType mode, PrecisionType precision) {
     using namespace Detail;
-    static_assert(Rounding::ToNearest==0 && Rounding::Downward==1 &&
-                  Rounding::Upward==2 && Rounding::TowardZero==3);
-    const auto index=static_cast<unsigned>(mode.value());
+    static_assert(Rounding::ToNearest == 0 && Rounding::Downward == 1 &&
+                  Rounding::Upward == 2 && Rounding::TowardZero == 3);
+    const auto index = static_cast<unsigned>(mode.value());
 
     // Unlike the certified interval cache, the rounded result is specific
     // to BOTH target precision and rounding mode. Keep four values for
@@ -4226,7 +4369,7 @@ FloatMP Float<MultiplePrecision>::pi(RoundingModeType mode, PrecisionType precis
     static thread_local Cache cache;
     const unsigned long bits = static_cast<unsigned long>(precision.bits());
     if (cache.bits != bits) {
-        for (auto& entry : cache.rounded) {
+        for (auto& entry: cache.rounded) {
             entry.reset();
         }
         cache.bits = bits;

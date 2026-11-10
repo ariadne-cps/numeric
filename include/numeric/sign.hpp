@@ -26,34 +26,46 @@
  *  \brief
  */
 
-
 #ifndef ARIADNE_SIGN_HPP
 #define ARIADNE_SIGN_HPP
 
 #include <iosfwd>
-#include "utility/typedefs.hpp"
+
 #include "utility/macros.hpp"
+#include "utility/typedefs.hpp"
 
 namespace Ariadne {
 
-
-
 //! \brief The sign of a numerical value.
-enum class Sign : ComparableEnumerationType { NEGATIVE=-1, ZERO=0, POSITIVE=+1 };
+enum class Sign : ComparableEnumerationType { NEGATIVE = -1,
+                                              ZERO = 0,
+                                              POSITIVE = +1 };
 OutputStream& operator<<(OutputStream& os, Sign s);
 inline Sign operator-(Sign s) { return Sign(-static_cast<ComparableEnumerationType>(s)); }
-inline Sign operator*(Sign s1, Sign s2) { return Sign(static_cast<ComparableEnumerationType>(s1)*static_cast<ComparableEnumerationType>(s2)); }
+inline Sign operator*(Sign s1, Sign s2) { return Sign(static_cast<ComparableEnumerationType>(s1) * static_cast<ComparableEnumerationType>(s2)); }
 
 //! \brief The result of a comparison operation.
-enum class Comparison : ComparableEnumerationType { LESS=-1, EQUAL=0, GREATER=+1, INCOMPARABLE=ComparableEnumerationType(-128) };
+enum class Comparison : ComparableEnumerationType { LESS = -1,
+                                                    EQUAL = 0,
+                                                    GREATER = +1,
+                                                    INCOMPARABLE = ComparableEnumerationType(-128) };
 
-inline OutputStream& operator<<(OutputStream& os, Comparison const& cmp) {
-    switch(cmp) {
-        case Comparison::LESS: os << "LESS";  break;
-        case Comparison::EQUAL: os << "EQUAL";  break;
-        case Comparison::GREATER: os << "GREATER";  break;
-        case Comparison::INCOMPARABLE: os << "INCOMPARABLE"; break;
-        default: ARIADNE_FAIL_MSG("Unhandled Comparison for output streaming.");
+inline OutputStream& operator<<(OutputStream& os, const Comparison& cmp) {
+    switch (cmp) {
+        case Comparison::LESS:
+            os << "LESS";
+            break;
+        case Comparison::EQUAL:
+            os << "EQUAL";
+            break;
+        case Comparison::GREATER:
+            os << "GREATER";
+            break;
+        case Comparison::INCOMPARABLE:
+            os << "INCOMPARABLE";
+            break;
+        default:
+            ARIADNE_FAIL_MSG("Unhandled Comparison for output streaming.");
     }
     return os;
 }

@@ -22,7 +22,6 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #ifndef ARIADNE_FLOAT_BALL_INL_HPP
 #define ARIADNE_FLOAT_BALL_INL_HPP
 

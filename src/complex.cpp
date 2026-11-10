@@ -22,25 +22,22 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-#include "rational.hpp"
-#include "real.hpp"
 #include "complex.hpp"
 
-#include "floatdp.hpp"
-
 #include "float_approximation.hpp"
+#include "float_ball.hpp"
+#include "float_bounds.hpp"
+#include "float_error.hpp"
 #include "float_lower_bound.hpp"
 #include "float_upper_bound.hpp"
-#include "float_bounds.hpp"
-#include "float_ball.hpp"
-#include "float_error.hpp"
+#include "floatdp.hpp"
+#include "rational.hpp"
+#include "real.hpp"
 
 namespace Ariadne {
 
 namespace Constants {
-const Complex<Integer> i = Complex<Integer>(0,1);
+const Complex<Integer> i = Complex<Integer>(0, 1);
 }
-
 
 } // namespace Ariadne

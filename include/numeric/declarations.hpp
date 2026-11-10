@@ -22,28 +22,32 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #ifndef ARIADNE_NUMERIC_DECLARATIONS_HPP
 #define ARIADNE_NUMERIC_DECLARATIONS_HPP
 
 #include <iosfwd>
 
+#include "foundation/logical.decl.hpp"
+#include "foundation/paradigm.hpp"
+#include "numeric/float.decl.hpp"
+#include "numeric/number.decl.hpp"
 #include "utility/metaprogramming.hpp"
 #include "utility/typedefs.hpp"
 
-#include "foundation/paradigm.hpp"
-#include "foundation/logical.decl.hpp"
-
-#include "numeric/number.decl.hpp"
-#include "numeric/float.decl.hpp"
-
 namespace Ariadne {
 
-
-template<class X> struct InformationTypedef;
-template<> struct InformationTypedef<Real> { typedef EffectiveTag Type; };
-template<class P> struct InformationTypedef<Number<P>> { typedef P Type; };
-template<class X> using InformationTag = typename InformationTypedef<X>::Type;
+template<class X>
+struct InformationTypedef;
+template<>
+struct InformationTypedef<Real> {
+    typedef EffectiveTag Type;
+};
+template<class P>
+struct InformationTypedef<Number<P>> {
+    typedef P Type;
+};
+template<class X>
+using InformationTag = typename InformationTypedef<X>::Type;
 
 } // namespace Ariadne
 

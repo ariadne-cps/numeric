@@ -22,31 +22,33 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #ifndef ARIADNE_FLOAT_APPROXIMATION_TPL_HPP
 #define ARIADNE_FLOAT_APPROXIMATION_TPL_HPP
 
 #include "float_approximation.hpp"
-
-#include "float_error.hpp"
 #include "float_bounds.hpp"
-#include "float_upper_bound.hpp"
+#include "float_error.hpp"
 #include "float_lower_bound.hpp"
-
+#include "float_upper_bound.hpp"
 #include "number_wrapper.hpp"
 
 namespace Ariadne {
 
+template<class F>
+Approximation<F>::Approximation(const LowerBound<F>& x) : Approximation<F>(x.raw()) {}
+template<class F>
+Approximation<F>::Approximation(const UpperBound<F>& x) : Approximation<F>(x.raw()) {}
+template<class F>
+Approximation<F>::Approximation(const Bounds<F>& x) : Approximation<F>(x.value_raw()) {}
+template<class F>
+Approximation<F>::Approximation(const Error<F>& x) : Approximation<F>(x.raw()) {}
 
-template<class F> Approximation<F>::Approximation(LowerBound<F> const& x) : Approximation<F>(x.raw()) { }
-template<class F> Approximation<F>::Approximation(UpperBound<F> const& x) : Approximation<F>(x.raw()) { }
-template<class F> Approximation<F>::Approximation(Bounds<F> const& x) : Approximation<F>(x.value_raw()) { }
-template<class F> Approximation<F>::Approximation(Error<F> const& x) : Approximation<F>(x.raw()) { }
-
-template<class F> Approximation<F>::Approximation(Real const& r, PR pr) : Approximation<F>(r.get(pr)) {}
-template<class F> Approximation<F>::Approximation(ApproximateNumber const& y, PR pr) : Approximation<F>(y.get(pr)) {}
-template<class F> Approximation<F>::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<Approximation<F>>(*this));}
-
+template<class F>
+Approximation<F>::Approximation(const Real& r, PR pr) : Approximation<F>(r.get(pr)) {}
+template<class F>
+Approximation<F>::Approximation(const ApproximateNumber& y, PR pr) : Approximation<F>(y.get(pr)) {}
+template<class F>
+Approximation<F>::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<Approximation<F>>(*this)); }
 
 } // namespace Ariadne
 

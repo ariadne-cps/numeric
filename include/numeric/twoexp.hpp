@@ -30,6 +30,7 @@
 #define ARIADNE_TWOEXP_HPP
 
 #include <cmath>
+
 #include "float.decl.hpp"
 
 namespace Ariadne {
@@ -48,14 +49,15 @@ struct Two;
 //! Useful since floating-point numbers can be exactly multiplied and divided by powers of \c 2.
 class TwoExp {
     Int _n;
+
   public:
-    explicit TwoExp(Int n) : _n(n) { }
-    constexpr TwoExp(Two const&) : _n(1) { }
+    explicit TwoExp(Int n) : _n(n) {}
+    constexpr TwoExp(const Two&) : _n(1) {}
     Int exponent() const { return this->_n; }
     // NOTE: Use std::pow(2.0,_n) not (1<<_n) since latter does not handle very large exponents
     FloatDP get_raw(DoublePrecision pr) const;
     FloatMP get_raw(MultiplePrecision pr) const;
-    double get_d() const { return std::pow(2.0,this->_n); }
+    double get_d() const { return std::pow(2.0, this->_n); }
     friend TwoExp rec(TwoExp w) { return TwoExp(-w._n); }
     friend Dyadic operator+(TwoExp);
     friend Dyadic operator-(TwoExp);
@@ -69,8 +71,7 @@ inline TwoExp exp2(Int n) { return TwoExp(n); }
 //! \brief The integer constant 2. Only used for creating dyadic numbers.
 //! TODO: Should not be a subtype of std::integral_constant<uint,2u> to avoid conversion to builtin integers yielding e.g. 1/two=0.
 struct Two
-  : public std::integral_constant<uint,2u>
-{
+    : public std::integral_constant<uint, 2u> {
     friend Dyadic operator/(Int n, Two);
     friend Dyadic operator/(ExactDouble d, Two);
     friend Dyadic operator/(Integer z, Two);

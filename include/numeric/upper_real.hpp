@@ -26,29 +26,22 @@
  *  \brief Real numbers, including lower, upper and naive types, and validated versions.
  */
 
-
-
 #ifndef ARIADNE_UPPER_REAL_HPP
 #define ARIADNE_UPPER_REAL_HPP
 
-
-#include "utility/typedefs.hpp"
-#include "utility/pointer.hpp"
-#include "utility/handle.hpp"
-
 #include "foundation/logical.decl.hpp"
-#include "numeric/number.decl.hpp"
-#include "numeric/float.decl.hpp"
-
 #include "foundation/paradigm.hpp"
-#include "numeric/arithmetic.hpp"
-#include "numeric/sequence.hpp"
-
-#include "numeric/dyadic.hpp"
-
-#include "numeric/real.hpp"
-#include "numeric/validated_real.hpp"
 #include "numeric/approximate_real.hpp"
+#include "numeric/arithmetic.hpp"
+#include "numeric/dyadic.hpp"
+#include "numeric/float.decl.hpp"
+#include "numeric/number.decl.hpp"
+#include "numeric/real.hpp"
+#include "numeric/sequence.hpp"
+#include "numeric/validated_real.hpp"
+#include "utility/handle.hpp"
+#include "utility/pointer.hpp"
+#include "utility/typedefs.hpp"
 
 namespace Ariadne {
 
@@ -68,15 +61,12 @@ class ValidatedUpperReal;
 class ValidatedLowerReal;
 class ApproximateReal;
 
-
 class RealInterface;
 using LowerRealInterface = RealInterface;
 using UpperRealInterface = RealInterface;
 using NaiveRealInterface = RealInterface;
 
 class ValidatedRealInterface;
-
-
 
 //! \ingroup NumericModule
 //! \brief Upper real number type \f$\R_>\f$.
@@ -92,14 +82,15 @@ class ValidatedRealInterface;
 //! including the radius of a ball, or the measure of an closed set.
 //! \sa Real, LowerReal, NaiveReal
 class UpperReal
-    : public Handle<const UpperRealInterface>
-{
+    : public Handle<const UpperRealInterface> {
   public:
     typedef EffectiveTag Paradigm;
     typedef UpperReal NumericType;
+
   public:
     UpperReal(Real);
     explicit UpperReal(SharedPointer<const Interface>);
+
   public:
     //!@{
     //! \name Computation of rigorous validated upper bounds on the number
@@ -112,105 +103,103 @@ class UpperReal
   public:
     //!@{
     //! \name Lattice operations
-    friend PositiveNaiveReal abs(UpperReal const& r) = delete; //!< \em No absolute value operator!
-    friend UpperReal min(UpperReal const& r1, UpperReal const& r2); //!< The mimimum of \a r1 and \a r2.
-    friend UpperReal max(UpperReal const& r1, UpperReal const& r2); //!< The maximum of \a r1 and \a r2.
+    friend PositiveNaiveReal abs(const UpperReal &r) = delete;      //!< \em No absolute value operator!
+    friend UpperReal min(const UpperReal &r1, const UpperReal &r2); //!< The mimimum of \a r1 and \a r2.
+    friend UpperReal max(const UpperReal &r1, const UpperReal &r2); //!< The maximum of \a r1 and \a r2.
     //!@}
 
     //!@{
     //! \name Named arithmetical functions
-    friend UpperReal pos(UpperReal const& r); //!< Identity \a +r.
-    friend LowerReal neg(UpperReal const& r); //!< Negative \a -r.
-    friend UpperReal neg(LowerReal const& r); //!< Negative \a -r.
-    friend UpperReal hlf(UpperReal const& r); //!< Half \a r÷2.
-    friend UpperReal add(UpperReal const& r1, UpperReal const& r2); //!< \brief Sum \a r1+r2.
-    friend UpperReal sub(UpperReal const& r1, LowerReal const& r2); //!< \brief Difference \a r1-r2.
-    friend LowerReal sub(LowerReal const& r1, UpperReal const& r2); //!< \brief Difference \a r1-r2.
+    friend UpperReal pos(const UpperReal &r);                       //!< Identity \a +r.
+    friend LowerReal neg(const UpperReal &r);                       //!< Negative \a -r.
+    friend UpperReal neg(const LowerReal &r);                       //!< Negative \a -r.
+    friend UpperReal hlf(const UpperReal &r);                       //!< Half \a r÷2.
+    friend UpperReal add(const UpperReal &r1, const UpperReal &r2); //!< \brief Sum \a r1+r2.
+    friend UpperReal sub(const UpperReal &r1, const LowerReal &r2); //!< \brief Difference \a r1-r2.
+    friend LowerReal sub(const LowerReal &r1, const UpperReal &r2); //!< \brief Difference \a r1-r2.
 
-    friend NaiveReal mul(UpperReal const& r1, UpperReal const& r2) = delete; //!< \brief \em No multiplication operator, since non-monotone!
-    friend NaiveReal mul(UpperReal const& r1, LowerReal const& r2) = delete; //!< \brief \em No division operator, since non-monotone!
-    friend NaiveReal rec(UpperReal const& r) = delete; //!< \brief \em No reciprocal operation, since non-monotone!
+    friend NaiveReal mul(const UpperReal &r1, const UpperReal &r2) = delete; //!< \brief \em No multiplication operator, since non-monotone!
+    friend NaiveReal mul(const UpperReal &r1, const LowerReal &r2) = delete; //!< \brief \em No division operator, since non-monotone!
+    friend NaiveReal rec(const UpperReal &r) = delete;                       //!< \brief \em No reciprocal operation, since non-monotone!
     //!@}
 
     //!@{
     //! \name Named arithmetical functions on positive numbers
-    friend UpperReal mul(UpperReal const& r1, PositiveReal const& r2); //!< Multiplication \a r1×r2 preserves monotonicity.
-    friend UpperReal mul(PositiveReal const& r1, UpperReal const& r2); //!< Multiplication \a r1×r2 preserves monotonicity.
-    friend UpperReal div(UpperReal const& r1, PositiveReal const& r2); //!< Division \a r1÷r2 preserves monotonicity.
-    friend UpperReal div(PositiveReal const& r1, LowerReal const& r2); //!< Division \a r1÷r2 preserves monotonicity.
-    friend LowerReal div(PositiveReal const& r1, UpperReal const& r2); //!< Division \a r1÷r2 preserves monotonicity.
+    friend UpperReal mul(const UpperReal &r1, const PositiveReal &r2); //!< Multiplication \a r1×r2 preserves monotonicity.
+    friend UpperReal mul(const PositiveReal &r1, const UpperReal &r2); //!< Multiplication \a r1×r2 preserves monotonicity.
+    friend UpperReal div(const UpperReal &r1, const PositiveReal &r2); //!< Division \a r1÷r2 preserves monotonicity.
+    friend UpperReal div(const PositiveReal &r1, const LowerReal &r2); //!< Division \a r1÷r2 preserves monotonicity.
+    friend LowerReal div(const PositiveReal &r1, const UpperReal &r2); //!< Division \a r1÷r2 preserves monotonicity.
 
-    friend PositiveUpperReal add(PositiveUpperReal const& r1, PositiveUpperReal const& r2); //!< Addition \a r1+r2 preserves positivity.
-    friend PositiveUpperReal mul(PositiveUpperReal const& r1, PositiveUpperReal const& r2); //!< Multiplication \a r1×r2 preserves positivity.
-    friend PositiveUpperReal div(PositiveUpperReal const& r1, PositiveLowerReal const& r2); //!< Division \a r1÷r2 preserves positivity.
-    friend PositiveLowerReal div(PositiveLowerReal const& r1, PositiveUpperReal const& r2); //!< Division \a r1÷r2 preserves positivity.
-    friend PositiveUpperReal rec(PositiveLowerReal const& r); //!< Reciprocal \a 1/r preserves positivity.
-    friend PositiveLowerReal rec(PositiveUpperReal const& r); //!< Reciprocal \a 1/r preserves positivity.
+    friend PositiveUpperReal add(const PositiveUpperReal &r1, const PositiveUpperReal &r2); //!< Addition \a r1+r2 preserves positivity.
+    friend PositiveUpperReal mul(const PositiveUpperReal &r1, const PositiveUpperReal &r2); //!< Multiplication \a r1×r2 preserves positivity.
+    friend PositiveUpperReal div(const PositiveUpperReal &r1, const PositiveLowerReal &r2); //!< Division \a r1÷r2 preserves positivity.
+    friend PositiveLowerReal div(const PositiveLowerReal &r1, const PositiveUpperReal &r2); //!< Division \a r1÷r2 preserves positivity.
+    friend PositiveUpperReal rec(const PositiveLowerReal &r);                               //!< Reciprocal \a 1/r preserves positivity.
+    friend PositiveLowerReal rec(const PositiveUpperReal &r);                               //!< Reciprocal \a 1/r preserves positivity.
     //!@}
 
     //!@{
     //! \name Algebraic and transcendental functions
-    friend PositiveUpperReal sqrt(PositiveUpperReal const& r); //!< The square root of \a r, √\a r. Requires \a r ≥ 0.
-    friend PositiveUpperReal exp(UpperReal const& r); //!< The natural exponent of \a r, \em e<sup>r</sup>.
-    friend UpperReal log(PositiveUpperReal const& r); //!< The natural logarithm of \a r. Requires \a r ≥ 0.
-    friend UpperReal atan(UpperReal const& r); //!< The arc-tangent of \a r.
-    friend PositiveUpperReal atan(PositiveUpperReal const& r); //!< Arc-tangent preserves positivity
-    friend NaiveReal sin(UpperReal const& r); //!< No sine operation, since non-monotone!
-    friend NaiveReal cos(UpperReal const& r); //!< No cosine operation, since non-monotone!
-    friend NaiveReal tan(UpperReal const& r); //!< No tangent operation, since non-monotone!
+    friend PositiveUpperReal sqrt(const PositiveUpperReal &r); //!< The square root of \a r, √\a r. Requires \a r ≥ 0.
+    friend PositiveUpperReal exp(const UpperReal &r);          //!< The natural exponent of \a r, \em e<sup>r</sup>.
+    friend UpperReal log(const PositiveUpperReal &r);          //!< The natural logarithm of \a r. Requires \a r ≥ 0.
+    friend UpperReal atan(const UpperReal &r);                 //!< The arc-tangent of \a r.
+    friend PositiveUpperReal atan(const PositiveUpperReal &r); //!< Arc-tangent preserves positivity
+    friend NaiveReal sin(const UpperReal &r);                  //!< No sine operation, since non-monotone!
+    friend NaiveReal cos(const UpperReal &r);                  //!< No cosine operation, since non-monotone!
+    friend NaiveReal tan(const UpperReal &r);                  //!< No tangent operation, since non-monotone!
     //!@}
 
     //!@{
     //! \name Limit operations.
-    friend UpperReal limit(DecreasingSequence<Dyadic> const& qubs);
-        //!< Create a real number from an decreasing sequence of dyadic upper bounds.
+    friend UpperReal limit(const DecreasingSequence<Dyadic> &qubs);
+    //!< Create a real number from an decreasing sequence of dyadic upper bounds.
     //!@}
 
     //!@{
     //! \name Input/output operations
-    friend OutputStream& operator<<(OutputStream& os, UpperReal const& r); //< Write to an output stream.
+    friend OutputStream &operator<<(OutputStream &os, const UpperReal &r); //< Write to an output stream.
     //!@}
 
     //!@{
     //! \name Mixed operations
-    friend Real max(UpperReal const& ur1, Real const& r2);
-    friend Real max(Real r1, UpperReal const& ur2);
+    friend Real max(const UpperReal &ur1, const Real &r2);
+    friend Real max(Real r1, const UpperReal &ur2);
     //!@}
 };
 
 //! \ingroup UserNumericTypeSubModule
 //! \brief Computable upper real numbers defined by conversion to concrete floats.
-class PositiveUpperReal : public UpperReal
-{
+class PositiveUpperReal : public UpperReal {
   public:
-    PositiveUpperReal(PositiveReal r) : UpperReal(r) { }
-    explicit PositiveUpperReal(UpperReal r) : UpperReal(r) { }
+    PositiveUpperReal(PositiveReal r) : UpperReal(r) {}
+    explicit PositiveUpperReal(UpperReal r) : UpperReal(r) {}
     PositiveUpperBound<Dyadic> compute_get(Effort) const;
+
   public:
-    PositiveUpperReal rec(PositiveLowerReal const&);
-    PositiveLowerReal rec(PositiveUpperReal const&);
-    PositiveUpperReal add(PositiveUpperReal const&, PositiveUpperReal const&);
-    PositiveUpperReal mul(PositiveUpperReal const&, PositiveUpperReal const&);
-    PositiveUpperReal div(PositiveUpperReal const&, PositiveLowerReal const&);
-    PositiveLowerReal div(PositiveLowerReal const&, PositiveUpperReal const&);
+    PositiveUpperReal rec(const PositiveLowerReal &);
+    PositiveLowerReal rec(const PositiveUpperReal &);
+    PositiveUpperReal add(const PositiveUpperReal &, const PositiveUpperReal &);
+    PositiveUpperReal mul(const PositiveUpperReal &, const PositiveUpperReal &);
+    PositiveUpperReal div(const PositiveUpperReal &, const PositiveLowerReal &);
+    PositiveLowerReal div(const PositiveLowerReal &, const PositiveUpperReal &);
 };
 
-PositiveLowerReal rec(PositiveUpperReal const& pur);
-PositiveUpperReal add(PositiveUpperReal const& pur1, PositiveUpperReal const& pur2);
-PositiveUpperReal mul(PositiveUpperReal const& pur1, PositiveUpperReal const& pur2);
-PositiveUpperReal div(PositiveUpperReal const& pur1, PositiveLowerReal const& plr2);
-
+PositiveLowerReal rec(const PositiveUpperReal &pur);
+PositiveUpperReal add(const PositiveUpperReal &pur1, const PositiveUpperReal &pur2);
+PositiveUpperReal mul(const PositiveUpperReal &pur1, const PositiveUpperReal &pur2);
+PositiveUpperReal div(const PositiveUpperReal &pur1, const PositiveLowerReal &plr2);
 
 class ValidatedUpperReal
-    : public Handle<const ValidatedRealInterface>
-{
+    : public Handle<const ValidatedRealInterface> {
   public:
-    ValidatedUpperReal(DyadicUpperBound const&);
-    ValidatedUpperReal(ValidatedReal const&);
+    ValidatedUpperReal(const DyadicUpperBound &);
+    ValidatedUpperReal(const ValidatedReal &);
     DyadicUpperBound get() const;
     FloatDPUpperBound get(DoublePrecision) const;
     FloatMPUpperBound get(MultiplePrecision) const;
-    friend OutputStream& operator<<(OutputStream&, ValidatedUpperReal const&);
+    friend OutputStream &operator<<(OutputStream &, const ValidatedUpperReal &);
 };
 
 } // namespace Ariadne

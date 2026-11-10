@@ -22,34 +22,40 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #ifndef ARIADNE_FLOAT_UPPER_BOUND_TPL_HPP
 #define ARIADNE_FLOAT_UPPER_BOUND_TPL_HPP
 
-#include "float_upper_bound.hpp"
-
-#include "float_error.hpp"
 #include "float_bounds.hpp"
+#include "float_error.hpp"
 #include "float_lower_bound.hpp"
-
-#include "upper_number.hpp"
+#include "float_upper_bound.hpp"
 #include "number_wrapper.hpp"
+#include "upper_number.hpp"
 
 namespace Ariadne {
 
-template<class F> UpperBound<F>::UpperBound(F const& x, PR pr) : _u(x,upward,pr) {}
-template<class F> UpperBound<F>::UpperBound(Bounds<F> const& x, PR pr) : _u(x._u,upward,pr) {}
-template<class F> UpperBound<F>::UpperBound(UpperBound<F> const& x, PR pr) : _u(x._u,upward,pr) {}
+template<class F>
+UpperBound<F>::UpperBound(const F& x, PR pr) : _u(x, upward, pr) {}
+template<class F>
+UpperBound<F>::UpperBound(const Bounds<F>& x, PR pr) : _u(x._u, upward, pr) {}
+template<class F>
+UpperBound<F>::UpperBound(const UpperBound<F>& x, PR pr) : _u(x._u, upward, pr) {}
 
-template<class F> UpperBound<F>::UpperBound(Bounds<F> const& x) : UpperBound<F>(x.upper_raw()) { }
-template<class F> UpperBound<F>::UpperBound(Error<F> const& x) : UpperBound<F>(x.raw()) { }
+template<class F>
+UpperBound<F>::UpperBound(const Bounds<F>& x) : UpperBound<F>(x.upper_raw()) {}
+template<class F>
+UpperBound<F>::UpperBound(const Error<F>& x) : UpperBound<F>(x.raw()) {}
 
-template<class F> UpperBound<F>::UpperBound(Real const& r, PR pr) : UpperBound(r.get(pr)) {}
-template<class F> UpperBound<F>::UpperBound(ValidatedUpperNumber const& y, PR pr) : UpperBound(y.get(pr)) {}
-template<class F> UpperBound<F>::operator ValidatedUpperNumber() const {
+template<class F>
+UpperBound<F>::UpperBound(const Real& r, PR pr) : UpperBound(r.get(pr)) {}
+template<class F>
+UpperBound<F>::UpperBound(const ValidatedUpperNumber& y, PR pr) : UpperBound(y.get(pr)) {}
+template<class F>
+UpperBound<F>::operator ValidatedUpperNumber() const {
     return ValidatedUpperNumber(Handle<const NumberInterface>(new NumberWrapper<UpperBound<F>>(*this)));
 }
-template<class F> auto UpperBound<F>::generic() const -> GenericType { return this->operator GenericType(); }
+template<class F>
+auto UpperBound<F>::generic() const -> GenericType { return this->operator GenericType(); }
 
 } // namespace Ariadne
 

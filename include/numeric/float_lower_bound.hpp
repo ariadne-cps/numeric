@@ -29,28 +29,28 @@
 #ifndef FLOAT_LOWER_BOUND_H
 #define FLOAT_LOWER_BOUND_H
 
+#include "float.decl.hpp"
+#include "float_factory.hpp"
+#include "float_operations.hpp"
+#include "float_traits.hpp"
 #include "foundation/logical.decl.hpp"
 #include "number.decl.hpp"
-#include "float.decl.hpp"
-
 #include "positive.hpp"
 
-#include "float_traits.hpp"
-#include "float_operations.hpp"
-#include "float_factory.hpp"
-
 namespace Ariadne {
-
 
 //! \ingroup NumericModule
 //! \brief Floating-point lower bounds for real numbers.
 //! \sa LowerReal, FloatDP, Bounds, UpperBound.
-template<class F> class LowerBound
-    : public DefineDirectedFloatOperations<LowerBound<F>,UpperBound<F>>
-    , public DefineFloatOperations<Approximation<F>>
-{
+template<class F>
+class LowerBound
+    : public DefineDirectedFloatOperations<LowerBound<F>, UpperBound<F>>,
+      public DefineFloatOperations<Approximation<F>> {
   protected:
-    typedef LowerTag P; typedef typename F::RoundingModeType RND; typedef typename F::PrecisionType PR;
+    typedef LowerTag P;
+    typedef typename F::RoundingModeType RND;
+    typedef typename F::PrecisionType PR;
+
   public:
     //! <p/>
     typedef LowerTag Paradigm;
@@ -64,50 +64,53 @@ template<class F> class LowerBound
     typedef PR PrecisionType;
     //! <p/>
     typedef PR CharacteristicsType;
+
   public:
     //! A lower bound of zero with precision \a pr.
-    explicit LowerBound(PrecisionType pr) : _l(0.0_x,pr) { }
+    explicit LowerBound(PrecisionType pr) : _l(0.0_x, pr) {}
     //! A lower bound with value \a l.
-    LowerBound(RawType const& l) : _l(l) { }
+    LowerBound(const RawType& l) : _l(l) {}
 
-    template<BuiltinIntegral N> LowerBound(N n, PR pr) : LowerBound(ExactDouble(n),pr) { }
-    LowerBound(const ExactDouble& d, PR pr) : _l(d,pr) { }
-        LowerBound(const TwoExp& t, PR pr) : _l(t,pr) { }
-        LowerBound(const Integer& z, PR pr) : _l(z,down,pr) { }
-        LowerBound(const Dyadic& w, PR pr) : _l(w,down,pr) { }
-        LowerBound(const Decimal& d, PR pr) : _l(d,down,pr) { }
-        LowerBound(const Rational& q, PR pr) : _l(q,down,pr) { }
-        LowerBound(const Real& r, PR pr);
-        LowerBound(const F& x, PR pr);
-        LowerBound(const Bounds<F>& x, PR pr);
+    template<BuiltinIntegral N>
+    LowerBound(N n, PR pr) : LowerBound(ExactDouble(n), pr) {}
+    LowerBound(const ExactDouble& d, PR pr) : _l(d, pr) {}
+    LowerBound(const TwoExp& t, PR pr) : _l(t, pr) {}
+    LowerBound(const Integer& z, PR pr) : _l(z, down, pr) {}
+    LowerBound(const Dyadic& w, PR pr) : _l(w, down, pr) {}
+    LowerBound(const Decimal& d, PR pr) : _l(d, down, pr) {}
+    LowerBound(const Rational& q, PR pr) : _l(q, down, pr) {}
+    LowerBound(const Real& r, PR pr);
+    LowerBound(const F& x, PR pr);
+    LowerBound(const Bounds<F>& x, PR pr);
     LowerBound(const LowerBound<F>& x, PR pr);
     //! A lower bound of type \p F from a generic lower bound \a y.
     LowerBound(const ValidatedLowerNumber& y, PR pr);
-    template<class FF> requires Constructible<F,FF,RND,PR>
-        LowerBound(const LowerBound<FF>& x, PR pr) : _l(x.raw(),down,pr) { }
+    template<class FF>
+        requires Constructible<F, FF, RND, PR>
+    LowerBound(const LowerBound<FF>& x, PR pr) : _l(x.raw(), down, pr) {}
     // Exact cross-backend conversion without going through a generic
     // ValidatedLowerNumber, which would recursively redispatch to itself.
-    template<class FF> requires (!Constructible<F,FF,RND,PR>
-                                 && Constructible<Rational,FF>
-                                 && Constructible<F,Rational,RND,PR>)
-        LowerBound(const LowerBound<FF>& x, PR pr)
-            : _l(Rational(x.raw()),down,pr) { }
+    template<class FF>
+        requires(!Constructible<F, FF, RND, PR> && Constructible<Rational, FF> && Constructible<F, Rational, RND, PR>)
+    LowerBound(const LowerBound<FF>& x, PR pr)
+        : _l(Rational(x.raw()), down, pr) {}
 
     //! Convert from lower \em and upper bounds on a number.
-    LowerBound(Bounds<F> const& x);
-    template<class FE> LowerBound(Ball<F,FE> const& x);
+    LowerBound(const Bounds<F>& x);
+    template<class FE>
+    LowerBound(const Ball<F, FE>& x);
 
-        LowerBound<F>& operator=(const F& x) { return *this=LowerBound<F>(x); }
-        LowerBound<F>& operator=(const Bounds<F>& x) { return *this=x.lower(); }
+    LowerBound<F>& operator=(const F& x) { return *this = LowerBound<F>(x); }
+    LowerBound<F>& operator=(const Bounds<F>& x) { return *this = x.lower(); }
     //! Assign from the lower bound \a y, keeping the same properties.
-    LowerBound<F>& operator=(const ValidatedLowerNumber& y) { return *this=LowerBound<F>(y,this->precision()); }
+    LowerBound<F>& operator=(const ValidatedLowerNumber& y) { return *this = LowerBound<F>(y, this->precision()); }
     //! Create a lower bound from the generic lower bound \a y with the same properties as \a this.
-    LowerBound<F> create(const ValidatedLowerNumber& y) const { return LowerBound<F>(y,this->precision()); }
+    LowerBound<F> create(const ValidatedLowerNumber& y) const { return LowerBound<F>(y, this->precision()); }
     //! Create a upper bound from the generic upper bound \a y with the same properties as \a this.
-    UpperBound<F> create(const ValidatedUpperNumber& y) const { return UpperBound<F>(y,this->precision()); }
+    UpperBound<F> create(const ValidatedUpperNumber& y) const { return UpperBound<F>(y, this->precision()); }
 
     //! Downcast to a generic lower bound.
-    operator ValidatedLowerNumber () const;
+    operator ValidatedLowerNumber() const;
 
     //! The precision of the floating-point type used.
     PrecisionType precision() const { return _l.precision(); }
@@ -116,242 +119,325 @@ template<class F> class LowerBound
     //! Downcast to a generic lower bound.
     GenericType generic() const;
     //! The raw data used to represent the lower bound.
-    RawType const& raw() const { return _l; }
+    const RawType& raw() const { return _l; }
     //! A mutable reference to the raw data used to represent the lower bound.
     RawType& raw() { return _l; }
     //! Under-approximate by a builtin double-precision value. DEPRECATED \deprecated
     double get_d() const { return _l.get_d(); }
+
   public:
 #ifdef DOXYGEN
     //!@{
     //! \name Arithmetic operators
-    friend LowerBound<F> operator+(LowerBound<F> const& x); //!< <p/>
-    friend LowerBound<F> operator-(UpperBound<F> const& x); //!< <p/>
-    friend UpperBound<F> operator-(LowerBound<F> const& x); //!< <p/>
-    friend LowerBound<F> operator+(LowerBound<F> const& x1, LowerBound<F> const& x2); //!< <p/>
-    friend LowerBound<F> operator-(LowerBound<F> const& x1, UpperBound<F> const& x2); //!< <p/>
-    friend UpperBound<F> operator-(UpperBound<F> const& x1, LowerBound<F> const& x2); //!< <p/>
-    friend LowerBound<F>& operator+=(LowerBound<F>& x1, LowerBound<F> const& x2); //!< <p/>
-    friend LowerBound<F>& operator-=(LowerBound<F>& x1, UpperBound<F> const& x2); //!< <p/>
-    friend UpperBound<F>& operator-=(UpperBound<F>& x1, LowerBound<F> const& x2); //!< <p/>
+    friend LowerBound<F> operator+(const LowerBound<F>& x);                           //!< <p/>
+    friend LowerBound<F> operator-(const UpperBound<F>& x);                           //!< <p/>
+    friend UpperBound<F> operator-(const LowerBound<F>& x);                           //!< <p/>
+    friend LowerBound<F> operator+(const LowerBound<F>& x1, const LowerBound<F>& x2); //!< <p/>
+    friend LowerBound<F> operator-(const LowerBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
+    friend UpperBound<F> operator-(const UpperBound<F>& x1, const LowerBound<F>& x2); //!< <p/>
+    friend LowerBound<F>& operator+=(LowerBound<F>& x1, const LowerBound<F>& x2);     //!< <p/>
+    friend LowerBound<F>& operator-=(LowerBound<F>& x1, const UpperBound<F>& x2);     //!< <p/>
+    friend UpperBound<F>& operator-=(UpperBound<F>& x1, const LowerBound<F>& x2);     //!< <p/>
 
-    friend Positive<LowerBound<F>> operator+(Positive<LowerBound<F>> const& x1, Positive<LowerBound<F>> const& x2); //!< <p/>
-    friend Positive<LowerBound<F>> operator*(Positive<LowerBound<F>> const& x1, Positive<LowerBound<F>> const& x2); //!< <p/>
-    friend Positive<LowerBound<F>> operator/(Positive<LowerBound<F>> const& x1, Positive<UpperBound<F>> const& x2); //!< <p/>
-    friend Positive<UpperBound<F>> operator/(Positive<UpperBound<F>> const& x1, Positive<LowerBound<F>> const& x2); //!< <p/>
-    friend Positive<LowerBound<F>>& operator+=(Positive<LowerBound<F>> & x1, Positive<LowerBound<F>> const& x2); //!< <p/>
-    friend Positive<LowerBound<F>>& operator*=(Positive<LowerBound<F>> & x1, Positive<LowerBound<F>> const& x2); //!< <p/>
-    friend Positive<LowerBound<F>>& operator/=(Positive<LowerBound<F>> & x1, Positive<UpperBound<F>> const& x2); //!< <p/>
-    friend Positive<UpperBound<F>>& operator/=(Positive<UpperBound<F>> & x1, Positive<LowerBound<F>> const& x2); //!< <p/>
+    friend Positive<LowerBound<F>> operator+(const Positive<LowerBound<F>>& x1, const Positive<LowerBound<F>>& x2); //!< <p/>
+    friend Positive<LowerBound<F>> operator*(const Positive<LowerBound<F>>& x1, const Positive<LowerBound<F>>& x2); //!< <p/>
+    friend Positive<LowerBound<F>> operator/(const Positive<LowerBound<F>>& x1, const Positive<UpperBound<F>>& x2); //!< <p/>
+    friend Positive<UpperBound<F>> operator/(const Positive<UpperBound<F>>& x1, const Positive<LowerBound<F>>& x2); //!< <p/>
+    friend Positive<LowerBound<F>>& operator+=(Positive<LowerBound<F>>& x1, const Positive<LowerBound<F>>& x2);     //!< <p/>
+    friend Positive<LowerBound<F>>& operator*=(Positive<LowerBound<F>>& x1, const Positive<LowerBound<F>>& x2);     //!< <p/>
+    friend Positive<LowerBound<F>>& operator/=(Positive<LowerBound<F>>& x1, const Positive<UpperBound<F>>& x2);     //!< <p/>
+    friend Positive<UpperBound<F>>& operator/=(Positive<UpperBound<F>>& x1, const Positive<LowerBound<F>>& x2);     //!< <p/>
     //!@}
 
     //!@{
     //! \name Comparison operators
-    friend ValidatedUpperKleenean operator<=(LowerBound<F> const& x1, UpperBound<F> const& x2); //!< <p/>
-    friend ValidatedLowerKleenean operator>=(LowerBound<F> const& x1, UpperBound<F> const& x2); //!< <p/>
-    friend ValidatedUpperKleenean operator< (LowerBound<F> const& x1, UpperBound<F> const& x2); //!< <p/>
-    friend ValidatedLowerKleenean operator> (LowerBound<F> const& x1, UpperBound<F> const& x2); //!< <p/>
-    friend ValidatedLowerKleenean operator<=(UpperBound<F> const& x1, LowerBound<F> const& x2); //!< <p/>
-    friend ValidatedUpperKleenean operator>=(UpperBound<F> const& x1, LowerBound<F> const& x2); //!< <p/>
-    friend ValidatedLowerKleenean operator< (UpperBound<F> const& x1, LowerBound<F> const& x2); //!< <p/>
-    friend ValidatedUpperKleenean operator> (UpperBound<F> const& x1, LowerBound<F> const& x2); //!< <p/>
+    friend ValidatedUpperKleenean operator<=(const LowerBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
+    friend ValidatedLowerKleenean operator>=(const LowerBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
+    friend ValidatedUpperKleenean operator<(const LowerBound<F>& x1, const UpperBound<F>& x2);  //!< <p/>
+    friend ValidatedLowerKleenean operator>(const LowerBound<F>& x1, const UpperBound<F>& x2);  //!< <p/>
+    friend ValidatedLowerKleenean operator<=(const UpperBound<F>& x1, const LowerBound<F>& x2); //!< <p/>
+    friend ValidatedUpperKleenean operator>=(const UpperBound<F>& x1, const LowerBound<F>& x2); //!< <p/>
+    friend ValidatedLowerKleenean operator<(const UpperBound<F>& x1, const LowerBound<F>& x2);  //!< <p/>
+    friend ValidatedUpperKleenean operator>(const UpperBound<F>& x1, const LowerBound<F>& x2);  //!< <p/>
     //!@}
 #endif // DOXYGEN
 
     //!@{
     //! \name Monotone arithmetic operations
-    friend LowerBound<F> nul(LowerBound<F> const& x) {
-        return LowerBound<F>(nul(x._l)); } //!< <p/>
-    friend LowerBound<F> pos(LowerBound<F> const& x) {
-        return LowerBound<F>(pos(x._l)); } //!< <p/>
-    friend UpperBound<F> neg(LowerBound<F> const& x) {
-        return UpperBound<F>(neg(x._l)); } //!< <p/>
-    friend LowerBound<F> hlf(LowerBound<F> const& x) {
-        return LowerBound<F>(hlf(x._l)); } //!< <p/>
+    friend LowerBound<F> nul(const LowerBound<F>& x) {
+        return LowerBound<F>(nul(x._l));
+    } //!< <p/>
+    friend LowerBound<F> pos(const LowerBound<F>& x) {
+        return LowerBound<F>(pos(x._l));
+    } //!< <p/>
+    friend UpperBound<F> neg(const LowerBound<F>& x) {
+        return UpperBound<F>(neg(x._l));
+    } //!< <p/>
+    friend LowerBound<F> hlf(const LowerBound<F>& x) {
+        return LowerBound<F>(hlf(x._l));
+    } //!< <p/>
 
-    friend LowerBound<F> add(LowerBound<F> const& x1, LowerBound<F> const& x2) {
-        return LowerBound<F>(add(down,x1._l,x2._l)); } //!< <p/>
-//    friend Approximation<F> sub(LowerBound<F> const& x1, LowerBound<F> const& x2) {
-//        return UpperBound<F>(sub(near,x1._l,x2._l)); } //!< <p/>
-    friend LowerBound<F> sub(LowerBound<F> const& x1, UpperBound<F> const& x2) {
-        return LowerBound<F>(sub(down,x1._l,x2._u)); } //!< <p/>
+    friend LowerBound<F> add(const LowerBound<F>& x1, const LowerBound<F>& x2) {
+        return LowerBound<F>(add(down, x1._l, x2._l));
+    } //!< <p/>
+      //    friend Approximation<F> sub(LowerBound<F> const& x1, LowerBound<F> const& x2) {
+      //        return UpperBound<F>(sub(near,x1._l,x2._l)); } //!< <p/>
+    friend LowerBound<F> sub(const LowerBound<F>& x1, const UpperBound<F>& x2) {
+        return LowerBound<F>(sub(down, x1._l, x2._u));
+    } //!< <p/>
     //!@}
 
     //!@{
     //! \name Monotone algebraic and transcendental operations
-    friend LowerBound<F> sqrt(LowerBound<F> const& x) {
-        return LowerBound<F>(sqrt(down,x.raw())); } //!< <p/>
-    friend LowerBound<F> exp(LowerBound<F> const& x) {
-        return LowerBound<F>(exp(down,x.raw())); } //!< <p/>
-    friend LowerBound<F> log(LowerBound<F> const& x) {
-        return LowerBound<F>(log(down,x.raw())); } //!< <p/>
-    friend LowerBound<F> atan(LowerBound<F> const& x) {
-        return LowerBound<F>(atan(down,x.raw())); } //!< <p/>
-    friend LowerBound<F> tanh(LowerBound<F> const& x) {
-        return LowerBound<F>(tanh(Bounds<F>(x.raw())).lower_raw()); } //!< <p/>
+    friend LowerBound<F> sqrt(const LowerBound<F>& x) {
+        return LowerBound<F>(sqrt(down, x.raw()));
+    } //!< <p/>
+    friend LowerBound<F> exp(const LowerBound<F>& x) {
+        return LowerBound<F>(exp(down, x.raw()));
+    } //!< <p/>
+    friend LowerBound<F> log(const LowerBound<F>& x) {
+        return LowerBound<F>(log(down, x.raw()));
+    } //!< <p/>
+    friend LowerBound<F> atan(const LowerBound<F>& x) {
+        return LowerBound<F>(atan(down, x.raw()));
+    } //!< <p/>
+    friend LowerBound<F> tanh(const LowerBound<F>& x) {
+        return LowerBound<F>(tanh(Bounds<F>(x.raw())).lower_raw());
+    } //!< <p/>
     //!@}
 
     //!@{
     //! \name Lattice operations
-    friend Approximation<F> abs(LowerBound<F> const& x) {
-        return abs(Approximation<F>(x)); } //!< <p/>
-    friend LowerBound<F> max(LowerBound<F> const& x1, LowerBound<F> const& x2) {
-        return LowerBound<F>(max(x1._l,x2._l)); } //!< <p/>
-    friend LowerBound<F> min(LowerBound<F> const& x1, LowerBound<F> const& x2) {
-        return LowerBound<F>(min(x1._l,x2._l)); } //!< <p/>
+    friend Approximation<F> abs(const LowerBound<F>& x) {
+        return abs(Approximation<F>(x));
+    } //!< <p/>
+    friend LowerBound<F> max(const LowerBound<F>& x1, const LowerBound<F>& x2) {
+        return LowerBound<F>(max(x1._l, x2._l));
+    } //!< <p/>
+    friend LowerBound<F> min(const LowerBound<F>& x1, const LowerBound<F>& x2) {
+        return LowerBound<F>(min(x1._l, x2._l));
+    } //!< <p/>
     //!@}
 
     //!@{
     //! \name Comparison operations
-    friend ValidatedNegatedSierpinskian eq(LowerBound<F> const& x1, UpperBound<F> const& x2) {
-        if(x1._l>x2._u) { return false; } //!< <p/>
-        else { return ValidatedNegatedSierpinskian(LogicalValue::INDETERMINATE); } } //!< <p/>
-    friend ValidatedUpperKleenean lt(LowerBound<F> const& x1, UpperBound<F> const& x2) {
-        if(x1._l>=x2._u) { return false; } //!< <p/>
-        else { return ValidatedUpperKleenean(LogicalValue::LIKELY); } } //!< <p/>
+    friend ValidatedNegatedSierpinskian eq(const LowerBound<F>& x1, const UpperBound<F>& x2) {
+        if (x1._l > x2._u) {
+            return false;
+        } //!< <p/>
+        else {
+            return ValidatedNegatedSierpinskian(LogicalValue::INDETERMINATE);
+        }
+    } //!< <p/>
+    friend ValidatedUpperKleenean lt(const LowerBound<F>& x1, const UpperBound<F>& x2) {
+        if (x1._l >= x2._u) {
+            return false;
+        } //!< <p/>
+        else {
+            return ValidatedUpperKleenean(LogicalValue::LIKELY);
+        }
+    } //!< <p/>
     //!@}
 
     //!@{
     //! \name Rounding operations
-    friend Integer cast_integer(LowerBound<F> const& x) {
-        return floor(static_cast<Dyadic>(x._l)); } //!< <p/>
+    friend Integer cast_integer(const LowerBound<F>& x) {
+        return floor(static_cast<Dyadic>(x._l));
+    } //!< <p/>
     //!@}
 
     //!@{
     //! \name Special value tests
-    friend Bool is_nan(LowerBound<F> const& x) {
-        return is_nan(x._l); } //!< <p/>
+    friend Bool is_nan(const LowerBound<F>& x) {
+        return is_nan(x._l);
+    } //!< <p/>
     //!@}
 
     //!@{
     //! \name Validated information tests and operations
-    friend Bool same(LowerBound<F> const& x1, LowerBound<F> const& x2) {
-        return x1._l==x2._l; } //!< <p/>
-    friend Bool refines(LowerBound<F> const& x1, LowerBound<F> const& x2) {
-        return x1._l>=x2._l; } //!< <p/>
-    friend LowerBound<F> refinement(LowerBound<F> const& x1, LowerBound<F> const& x2) {
-        return LowerBound<F>(max(x1._l,x2._l)); } //!< <p/>
+    friend Bool same(const LowerBound<F>& x1, const LowerBound<F>& x2) {
+        return x1._l == x2._l;
+    } //!< <p/>
+    friend Bool refines(const LowerBound<F>& x1, const LowerBound<F>& x2) {
+        return x1._l >= x2._l;
+    } //!< <p/>
+    friend LowerBound<F> refinement(const LowerBound<F>& x1, const LowerBound<F>& x2) {
+        return LowerBound<F>(max(x1._l, x2._l));
+    } //!< <p/>
     //!@}
 
     //!@{
     //! \name Input/output operations
-    friend OutputStream& operator<<(OutputStream& os, LowerBound<F> const& x) {
-        return write(os,x.raw(),DecimalPrecision{Bounds<F>::output_places},downward); } //!< Write to an output stream.
+    friend OutputStream& operator<<(OutputStream& os, const LowerBound<F>& x) {
+        return write(os, x.raw(), DecimalPrecision{Bounds<F>::output_places}, downward);
+    } //!< Write to an output stream.
     friend InputStream& operator>>(InputStream&, LowerBound<F>&) {
-        ARIADNE_NOT_IMPLEMENTED; } //!< Read from an input stream.
-    //!@}
+        ARIADNE_NOT_IMPLEMENTED;
+    } //!< Read from an input stream.
+      //!@}
+
   public:
-    friend UpperBound<F> neg(LowerBound<F> const& x);
-    friend UpperBound<F> sub(UpperBound<F> const& x1, LowerBound<F> const& x2);
+    friend UpperBound<F> neg(const LowerBound<F>& x);
+    friend UpperBound<F> sub(const UpperBound<F>& x1, const LowerBound<F>& x2);
+
   public:
-    friend LowerBound<F> operator*(PositiveBounds<F> const& x1, LowerBound<F> const& x2) {
-        return LowerBound<F>(mul(down,x2.raw()>=0?x1.lower().raw():x1.upper().raw(),x2.raw())); }
-    friend LowerBound<F> operator*(LowerBound<F> const& x1, PositiveBounds<F> const& x2) {
-        return LowerBound<F>(mul(down,x1.raw(),x1.raw()>=0?x2.lower().raw():x2.upper().raw())); }
-    friend LowerBound<F> operator/(LowerBound<F> const& x1, PositiveBounds<F> const& x2) {
-        return LowerBound<F>(div(down,x1.raw(),x1.raw()>=0?x2.upper().raw():x2.lower().raw())); }
+    friend LowerBound<F> operator*(const PositiveBounds<F>& x1, const LowerBound<F>& x2) {
+        return LowerBound<F>(mul(down, x2.raw() >= 0 ? x1.lower().raw() : x1.upper().raw(), x2.raw()));
+    }
+    friend LowerBound<F> operator*(const LowerBound<F>& x1, const PositiveBounds<F>& x2) {
+        return LowerBound<F>(mul(down, x1.raw(), x1.raw() >= 0 ? x2.lower().raw() : x2.upper().raw()));
+    }
+    friend LowerBound<F> operator/(const LowerBound<F>& x1, const PositiveBounds<F>& x2) {
+        return LowerBound<F>(div(down, x1.raw(), x1.raw() >= 0 ? x2.upper().raw() : x2.lower().raw()));
+    }
     // Needed to prevent ambiguity; useful as implementation is easier than PositiveBounds version.
-    friend LowerBound<F> operator*(Positive<F> const& x1, LowerBound<F> const& x2) {
-        return LowerBound<F>(mul(down,x1,x2.raw())); }
-    friend LowerBound<F> operator*(LowerBound<F> const& x1, Positive<F> const& x2) {
-        return LowerBound<F>(mul(down,x1.raw(),x2)); }
-    friend LowerBound<F> operator/(LowerBound<F> const& x1, Positive<F> const& x2) {
-        return LowerBound<F>(div(down,x1.raw(),x2)); }
-  private: public:
+    friend LowerBound<F> operator*(const Positive<F>& x1, const LowerBound<F>& x2) {
+        return LowerBound<F>(mul(down, x1, x2.raw()));
+    }
+    friend LowerBound<F> operator*(const LowerBound<F>& x1, const Positive<F>& x2) {
+        return LowerBound<F>(mul(down, x1.raw(), x2));
+    }
+    friend LowerBound<F> operator/(const LowerBound<F>& x1, const Positive<F>& x2) {
+        return LowerBound<F>(div(down, x1.raw(), x2));
+    }
+
+  private:
+
+  public:
     RawType _l;
 };
 
-template<class F> template<class FE> LowerBound<F>::LowerBound(Ball<F,FE> const& x) : LowerBound(x.lower_raw()) { }
+template<class F>
+template<class FE>
+LowerBound<F>::LowerBound(const Ball<F, FE>& x) : LowerBound(x.lower_raw()) {}
 
-template<class PR> LowerBound(ValidatedLowerNumber, PR) -> LowerBound<RawFloatType<PR>>;
-template<class F> LowerBound(F) -> LowerBound<F>;
+template<class PR>
+LowerBound(ValidatedLowerNumber, PR) -> LowerBound<RawFloatType<PR>>;
+template<class F>
+LowerBound(F) -> LowerBound<F>;
 
-template<class F> inline FloatFactory<PrecisionType<F>> factory(LowerBound<F> const& flt) { return FloatFactory<PrecisionType<F>>(flt.precision()); }
-template<class PR> inline FloatLowerBound<PR> FloatFactory<PR>::create(ValidatedLowerNumber const& y) { return FloatLowerBound<PR>(y,_pr); }
-template<class PR> inline PositiveFloatLowerBound<PR> FloatFactory<PR>::create(PositiveValidatedLowerNumber const& y) { return PositiveFloatLowerBound<PR>(y,_pr); }
+template<class F>
+inline FloatFactory<PrecisionType<F>> factory(const LowerBound<F>& flt) { return FloatFactory<PrecisionType<F>>(flt.precision()); }
+template<class PR>
+inline FloatLowerBound<PR> FloatFactory<PR>::create(const ValidatedLowerNumber& y) { return FloatLowerBound<PR>(y, _pr); }
+template<class PR>
+inline PositiveFloatLowerBound<PR> FloatFactory<PR>::create(const PositiveValidatedLowerNumber& y) { return PositiveFloatLowerBound<PR>(y, _pr); }
 
-template<class F> class Positive<LowerBound<F>> : public LowerBound<F>
-    , DefineConcreteGenericOperators<PositiveLowerBound<F>>
-{
+template<class F>
+class Positive<LowerBound<F>> : public LowerBound<F>,
+                                DefineConcreteGenericOperators<PositiveLowerBound<F>> {
     using typename LowerBound<F>::PR;
+
   public:
-    Positive() : LowerBound<F>() { }
+    Positive() : LowerBound<F>() {}
     template<BuiltinUnsignedIntegral M>
-        Positive(M m, PR const& pr) : LowerBound<F>(m,pr) { }
-    explicit Positive(PR const& pr) : LowerBound<F>(pr) { }
-    explicit Positive(F const& x) : LowerBound<F>(x) { }
-    explicit Positive(LowerBound<F> const& x) : LowerBound<F>(x) { }
-    Positive(PositiveValidatedLowerNumber const& y, PR pr) : LowerBound<F>(y,pr) { }
-    Positive(Positive<F> const& x) : LowerBound<F>(x) { }
-    Positive(PositiveBounds<F> const& x) : LowerBound<F>(x) { }
-  public:
-    friend PositiveLowerBound<F> nul(PositiveLowerBound<F> const& x) {
-        return PositiveLowerBound<F>(nul(x.raw())); }
-    friend PositiveLowerBound<F> pos(PositiveLowerBound<F> const& x) {
-        return PositiveLowerBound<F>(pos(x.raw())); }
-    friend PositiveLowerBound<F> sqr(PositiveLowerBound<F> const& x) {
-        return PositiveLowerBound<F>(sqr(down,x.raw())); }
-    friend PositiveLowerBound<F> rec(PositiveUpperBound<F> const& x) {
-        return PositiveLowerBound<F>(rec(down,x.raw())); }
-    friend PositiveLowerBound<F> add(PositiveLowerBound<F> const& x1, PositiveLowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(add(down,x1.raw(),x2.raw())); }
-    friend PositiveLowerBound<F> mul(PositiveLowerBound<F> const& x1, PositiveLowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(mul(down,x1.raw(),x2.raw())); }
-    friend PositiveLowerBound<F> div(PositiveLowerBound<F> const& x1, PositiveUpperBound<F> const& x2) {
-        return PositiveLowerBound<F>(div(down,x1.raw(),x2.raw())); }
-    friend PositiveLowerBound<F> max(PositiveLowerBound<F> const& x1, PositiveLowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(max(x1.raw(),x2.raw())); }
-    friend PositiveLowerBound<F> max(PositiveLowerBound<F> const& x1, LowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(max(x1.raw(),x2.raw())); }
-    friend PositiveLowerBound<F> max(LowerBound<F> const& x1, PositiveLowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(max(x1.raw(),x2.raw())); }
-    friend PositiveLowerBound<F> min(PositiveLowerBound<F> const& x1, PositiveLowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(min(x1.raw(),x2.raw())); }
+    Positive(M m, PR const& pr) : LowerBound<F>(m, pr) {}
+    explicit Positive(PR const& pr) : LowerBound<F>(pr) {}
+    explicit Positive(const F& x) : LowerBound<F>(x) {}
+    explicit Positive(const LowerBound<F>& x) : LowerBound<F>(x) {}
+    Positive(const PositiveValidatedLowerNumber& y, PR pr) : LowerBound<F>(y, pr) {}
+    Positive(const Positive<F>& x) : LowerBound<F>(x) {}
+    Positive(const PositiveBounds<F>& x) : LowerBound<F>(x) {}
 
-    friend PositiveUpperBound<F> rec(PositiveLowerBound<F> const& x);
-    friend PositiveUpperBound<F> div(PositiveUpperBound<F> const& x1, PositiveLowerBound<F> const& x2);
-
-    friend PositiveLowerBound<F> pow(PositiveLowerBound<F> const& x, Nat m) {
-        return PositiveLowerBound<F>(pow(down,x.raw(),static_cast<int>(m))); }
-    friend Approximation<F> pow(LowerBound<F> const& x, Int n) {
-        return pow(Approximation<F>(x),n); }
   public:
-    friend PositiveLowerBound<F> operator+(PositiveLowerBound<F> const& x1, PositiveLowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(add(down,x1.raw(),x2.raw())); }
-    friend PositiveLowerBound<F> operator*(PositiveLowerBound<F> const& x1, PositiveLowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(mul(down,x1.raw(),x2.raw())); }
-    friend PositiveLowerBound<F> operator/(PositiveLowerBound<F> const& x1, PositiveUpperBound<F> const& x2) {
-        return PositiveLowerBound<F>(mul(down,x1.raw(),x2.raw())); }
-    friend PositiveLowerBound<F>& operator+=(PositiveLowerBound<F>& x1, PositiveLowerBound<F> const& x2) {
-        return x1=x1+x2; }
-    friend PositiveLowerBound<F>& operator*=(PositiveLowerBound<F>& x1, PositiveLowerBound<F> const& x2) {
-        return x1=x1*x2; }
-    friend PositiveLowerBound<F>& operator/=(PositiveLowerBound<F>& x1, PositiveUpperBound<F> const& x2) {
-        return x1=x1/x2; }
+    friend PositiveLowerBound<F> nul(const PositiveLowerBound<F>& x) {
+        return PositiveLowerBound<F>(nul(x.raw()));
+    }
+    friend PositiveLowerBound<F> pos(const PositiveLowerBound<F>& x) {
+        return PositiveLowerBound<F>(pos(x.raw()));
+    }
+    friend PositiveLowerBound<F> sqr(const PositiveLowerBound<F>& x) {
+        return PositiveLowerBound<F>(sqr(down, x.raw()));
+    }
+    friend PositiveLowerBound<F> rec(const PositiveUpperBound<F>& x) {
+        return PositiveLowerBound<F>(rec(down, x.raw()));
+    }
+    friend PositiveLowerBound<F> add(const PositiveLowerBound<F>& x1, const PositiveLowerBound<F>& x2) {
+        return PositiveLowerBound<F>(add(down, x1.raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F> mul(const PositiveLowerBound<F>& x1, const PositiveLowerBound<F>& x2) {
+        return PositiveLowerBound<F>(mul(down, x1.raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F> div(const PositiveLowerBound<F>& x1, const PositiveUpperBound<F>& x2) {
+        return PositiveLowerBound<F>(div(down, x1.raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F> max(const PositiveLowerBound<F>& x1, const PositiveLowerBound<F>& x2) {
+        return PositiveLowerBound<F>(max(x1.raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F> max(const PositiveLowerBound<F>& x1, const LowerBound<F>& x2) {
+        return PositiveLowerBound<F>(max(x1.raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F> max(const LowerBound<F>& x1, const PositiveLowerBound<F>& x2) {
+        return PositiveLowerBound<F>(max(x1.raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F> min(const PositiveLowerBound<F>& x1, const PositiveLowerBound<F>& x2) {
+        return PositiveLowerBound<F>(min(x1.raw(), x2.raw()));
+    }
+
+    friend PositiveUpperBound<F> rec(const PositiveLowerBound<F>& x);
+    friend PositiveUpperBound<F> div(const PositiveUpperBound<F>& x1, const PositiveLowerBound<F>& x2);
+
+    friend PositiveLowerBound<F> pow(const PositiveLowerBound<F>& x, Nat m) {
+        return PositiveLowerBound<F>(pow(down, x.raw(), static_cast<int>(m)));
+    }
+    friend Approximation<F> pow(const LowerBound<F>& x, Int n) {
+        return pow(Approximation<F>(x), n);
+    }
+
+  public:
+    friend PositiveLowerBound<F> operator+(const PositiveLowerBound<F>& x1, const PositiveLowerBound<F>& x2) {
+        return PositiveLowerBound<F>(add(down, x1.raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F> operator*(const PositiveLowerBound<F>& x1, const PositiveLowerBound<F>& x2) {
+        return PositiveLowerBound<F>(mul(down, x1.raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F> operator/(const PositiveLowerBound<F>& x1, const PositiveUpperBound<F>& x2) {
+        return PositiveLowerBound<F>(mul(down, x1.raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F>& operator+=(PositiveLowerBound<F>& x1, const PositiveLowerBound<F>& x2) {
+        return x1 = x1 + x2;
+    }
+    friend PositiveLowerBound<F>& operator*=(PositiveLowerBound<F>& x1, const PositiveLowerBound<F>& x2) {
+        return x1 = x1 * x2;
+    }
+    friend PositiveLowerBound<F>& operator/=(PositiveLowerBound<F>& x1, const PositiveUpperBound<F>& x2) {
+        return x1 = x1 / x2;
+    }
+
   public:
     // Needed to prevent ambiguity
-    friend PositiveLowerBound<F> operator*(PositiveBounds<F> const& x1, PositiveLowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(mul(down,x1.lower().raw(),x2.raw())); }
-    friend PositiveLowerBound<F> operator*(PositiveLowerBound<F> const& x1, PositiveBounds<F> const& x2) {
-        return PositiveLowerBound<F>(mul(down,x1.raw(),x2.lower().raw())); }
-    friend PositiveLowerBound<F> operator/(PositiveLowerBound<F> const& x1, PositiveBounds<F> const& x2) {
-        return PositiveLowerBound<F>(div(down,x1.raw(),x2.upper().raw())); }
-    friend PositiveLowerBound<F> operator*(Positive<F> const& x1, PositiveLowerBound<F> const& x2) {
-        return PositiveLowerBound<F>(mul(down,x1,x2.raw())); }
-    friend PositiveLowerBound<F> operator*(PositiveLowerBound<F> const& x1, Positive<F> const& x2) {
-        return PositiveLowerBound<F>(mul(down,x1.raw(),x2)); }
-    friend PositiveLowerBound<F> operator/(PositiveLowerBound<F> const& x1, Positive<F> const& x2) {
-        return PositiveLowerBound<F>(div(down,x1.raw(),x2)); }
-    friend PositiveLowerBound<F> operator/(Positive<F> const& x1, PositiveUpperBound<F> const& x2) {
-        return PositiveLowerBound<F>(div(down,x1,x2.raw())); }
-    friend PositiveLowerBound<F> operator/(PositiveLowerBound<F> const& x1, Nat m2) {
-        return PositiveLowerBound<F>(div(down,x1.raw(),F(m2,x1.precision()))); }
-    friend PositiveUpperBound<F> operator/(Positive<F> const& x1, PositiveLowerBound<F> const& x2);
+    friend PositiveLowerBound<F> operator*(const PositiveBounds<F>& x1, const PositiveLowerBound<F>& x2) {
+        return PositiveLowerBound<F>(mul(down, x1.lower().raw(), x2.raw()));
+    }
+    friend PositiveLowerBound<F> operator*(const PositiveLowerBound<F>& x1, const PositiveBounds<F>& x2) {
+        return PositiveLowerBound<F>(mul(down, x1.raw(), x2.lower().raw()));
+    }
+    friend PositiveLowerBound<F> operator/(const PositiveLowerBound<F>& x1, const PositiveBounds<F>& x2) {
+        return PositiveLowerBound<F>(div(down, x1.raw(), x2.upper().raw()));
+    }
+    friend PositiveLowerBound<F> operator*(const Positive<F>& x1, const PositiveLowerBound<F>& x2) {
+        return PositiveLowerBound<F>(mul(down, x1, x2.raw()));
+    }
+    friend PositiveLowerBound<F> operator*(const PositiveLowerBound<F>& x1, const Positive<F>& x2) {
+        return PositiveLowerBound<F>(mul(down, x1.raw(), x2));
+    }
+    friend PositiveLowerBound<F> operator/(const PositiveLowerBound<F>& x1, const Positive<F>& x2) {
+        return PositiveLowerBound<F>(div(down, x1.raw(), x2));
+    }
+    friend PositiveLowerBound<F> operator/(const Positive<F>& x1, const PositiveUpperBound<F>& x2) {
+        return PositiveLowerBound<F>(div(down, x1, x2.raw()));
+    }
+    friend PositiveLowerBound<F> operator/(const PositiveLowerBound<F>& x1, Nat m2) {
+        return PositiveLowerBound<F>(div(down, x1.raw(), F(m2, x1.precision())));
+    }
+    friend PositiveUpperBound<F> operator/(const Positive<F>& x1, const PositiveLowerBound<F>& x2);
 };
 
-template<class F> inline PositiveLowerBound<F> cast_positive(LowerBound<F> const& x) {
-    return PositiveLowerBound<F>(x); }
-
+template<class F>
+inline PositiveLowerBound<F> cast_positive(const LowerBound<F>& x) {
+    return PositiveLowerBound<F>(x);
 }
+
+} // namespace Ariadne
 
 #endif

@@ -29,23 +29,19 @@
 #ifndef ARIADNE_FLOATS_HPP
 #define ARIADNE_FLOATS_HPP
 
-#include "number.decl.hpp"
 #include "float.decl.hpp"
-#include "floatdp.hpp"
-#include "floatmp.hpp"
-
-#include "rounded_float.hpp"
-
 #include "float_approximation.hpp"
+#include "float_ball.hpp"
+#include "float_ball.inl.hpp"
+#include "float_bounds.hpp"
+#include "float_bounds.inl.hpp"
+#include "float_error.hpp"
+#include "float_literals.hpp"
 #include "float_lower_bound.hpp"
 #include "float_upper_bound.hpp"
-#include "float_bounds.hpp"
-#include "float_ball.hpp"
-#include "float_error.hpp"
-
-#include "float_bounds.inl.hpp"
-#include "float_ball.inl.hpp"
-
-#include "float_literals.hpp"
+#include "floatdp.hpp"
+#include "floatmp.hpp"
+#include "number.decl.hpp"
+#include "rounded_float.hpp"
 
 #endif

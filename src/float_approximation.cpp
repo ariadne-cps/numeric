@@ -23,30 +23,34 @@
  */
 
 #include "float_approximation.hpp"
-#include "float_approximation.tpl.hpp"
 
+#include "float_approximation.tpl.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
 
 namespace Ariadne {
 
-template<> Approximation<FloatDP>::Approximation(Real const&, DoublePrecision);
-template<> Approximation<FloatDP>::operator ApproximateNumber() const;
+template<>
+Approximation<FloatDP>::Approximation(const Real &, DoublePrecision);
+template<>
+Approximation<FloatDP>::operator ApproximateNumber() const;
 
 template class Approximation<FloatDP>;
 
 // Native constructors are implemented in float_approximation.tpl.hpp.
 // Instantiate every constructor used by the complete FloatMP approximation
 // test suite, rather than suppressing its semantic regression coverage.
-template Approximation<FloatMP>::Approximation(Real const&, MultiplePrecision);
-template Approximation<FloatMP>::Approximation(ApproximateNumber const&, MultiplePrecision);
-template Approximation<FloatMP>::Approximation(LowerBound<FloatMP> const&);
-template Approximation<FloatMP>::Approximation(UpperBound<FloatMP> const&);
-template Approximation<FloatMP>::Approximation(Bounds<FloatMP> const&);
-template Approximation<FloatMP>::Approximation(Error<FloatMP> const&);
+template Approximation<FloatMP>::Approximation(const Real &, MultiplePrecision);
+template Approximation<FloatMP>::Approximation(const ApproximateNumber &, MultiplePrecision);
+template Approximation<FloatMP>::Approximation(const LowerBound<FloatMP> &);
+template Approximation<FloatMP>::Approximation(const UpperBound<FloatMP> &);
+template Approximation<FloatMP>::Approximation(const Bounds<FloatMP> &);
+template Approximation<FloatMP>::Approximation(const Error<FloatMP> &);
 
-template<> String class_name<Approximation<FloatDP>>() { return "FloatDPApproximation"; }
-template<> String class_name<Approximation<FloatMP>>() { return "FloatMPApproximation"; }
+template<>
+String class_name<Approximation<FloatDP>>() { return "FloatDPApproximation"; }
+template<>
+String class_name<Approximation<FloatMP>>() { return "FloatMPApproximation"; }
 
 // The native ApproximateNumber conversion has a concrete specialization in
 // instantiation here was not emitted as a linkable symbol by MSVC.

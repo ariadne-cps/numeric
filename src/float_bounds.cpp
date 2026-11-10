@@ -23,72 +23,75 @@
  */
 
 #include "float_bounds.hpp"
+
+#include "concepts.hpp"
 #include "float_bounds.inl.hpp"
 #include "float_bounds.tpl.hpp"
-
 #include "floatdp.hpp"
 #include "floatmp.hpp"
 
-#include "concepts.hpp"
-
 namespace Ariadne {
 
-FloatDP midpoint(Bounds<FloatDP> const& x) { return x.value(); } // DEPRECATED
-FloatMP midpoint(Bounds<FloatMP> const& x) { return x.value(); } // DEPRECATED
+FloatDP midpoint(const Bounds<FloatDP> &x) { return x.value(); } // DEPRECATED
+FloatMP midpoint(const Bounds<FloatMP> &x) { return x.value(); } // DEPRECATED
 
-
-template<> Bounds<FloatDP>::Bounds(Real const&, DoublePrecision);
-template<> Bounds<FloatMP>::Bounds(Real const& value, MultiplePrecision pr)
-    : Bounds<FloatMP>(value.get(pr)) { }
+template<>
+Bounds<FloatDP>::Bounds(const Real &, DoublePrecision);
+template<>
+Bounds<FloatMP>::Bounds(const Real &value, MultiplePrecision pr)
+    : Bounds<FloatMP>(value.get(pr)) {}
 
 // NumberWrapper calls this when converting generic validated values
 // to native outward-rounded intervals.
-template<> Bounds<FloatDP>::operator ValidatedNumber() const;
+template<>
+Bounds<FloatDP>::operator ValidatedNumber() const;
 // This specialization is defined in number.cpp. Declare it before the
 // explicit class instantiation below, preventing a second definition on MSVC.
-template<> Bounds<FloatMP>::operator ValidatedNumber() const;
+template<>
+Bounds<FloatMP>::operator ValidatedNumber() const;
 
 template class Bounds<FloatDP>;
 template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_pi(DoublePrecision);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sin(Bounds<FloatDP> const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_cos(Bounds<FloatDP> const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_tan(Bounds<FloatDP> const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_trunc(Bounds<FloatDP> const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_trunc(Bounds<FloatDP> const&, Nat);
-template Integer Operations<Bounds<FloatDP>>::_cast_integer(Bounds<FloatDP> const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_add(Bounds<FloatDP> const&, FloatDP const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_add(FloatDP const&, Bounds<FloatDP> const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sub(Bounds<FloatDP> const&, FloatDP const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sub(FloatDP const&, Bounds<FloatDP> const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(Bounds<FloatDP> const&, FloatDP const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(FloatDP const&, Bounds<FloatDP> const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(Bounds<FloatDP> const&, FloatDP const&);
-template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(FloatDP const&, Bounds<FloatDP> const&);
-template OutputStream& Operations<Bounds<FloatDP>>::_write(OutputStream&,Bounds<FloatDP> const&);
-template InputStream& Operations<Bounds<FloatDP>>::_read(InputStream&, Bounds<FloatDP>&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sin(Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_cos(Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_tan(Bounds<FloatMP> const&);
-template OutputStream& Operations<Bounds<FloatMP>>::_write(OutputStream&,Bounds<FloatMP> const&);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sin(const Bounds<FloatDP> &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_cos(const Bounds<FloatDP> &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_tan(const Bounds<FloatDP> &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_trunc(const Bounds<FloatDP> &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_trunc(const Bounds<FloatDP> &, Nat);
+template Integer Operations<Bounds<FloatDP>>::_cast_integer(const Bounds<FloatDP> &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_add(const Bounds<FloatDP> &, const FloatDP &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_add(const FloatDP &, const Bounds<FloatDP> &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sub(const Bounds<FloatDP> &, const FloatDP &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_sub(const FloatDP &, const Bounds<FloatDP> &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(const Bounds<FloatDP> &, const FloatDP &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_mul(const FloatDP &, const Bounds<FloatDP> &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(const Bounds<FloatDP> &, const FloatDP &);
+template Bounds<FloatDP> Operations<Bounds<FloatDP>>::_div(const FloatDP &, const Bounds<FloatDP> &);
+template OutputStream &Operations<Bounds<FloatDP>>::_write(OutputStream &, const Bounds<FloatDP> &);
+template InputStream &Operations<Bounds<FloatDP>>::_read(InputStream &, Bounds<FloatDP> &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sin(const Bounds<FloatMP> &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_cos(const Bounds<FloatMP> &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_tan(const Bounds<FloatMP> &);
+template OutputStream &Operations<Bounds<FloatMP>>::_write(OutputStream &, const Bounds<FloatMP> &);
 
 template class Bounds<FloatMP>;
 template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_pi(MultiplePrecision);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(Bounds<FloatMP> const&, Nat);
-template Integer Operations<Bounds<FloatMP>>::_cast_integer(Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(Bounds<FloatMP> const&, FloatMP const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(FloatMP const&, Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(Bounds<FloatMP> const&, FloatMP const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(FloatMP const&, Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(Bounds<FloatMP> const&, FloatMP const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(FloatMP const&, Bounds<FloatMP> const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(Bounds<FloatMP> const&, FloatMP const&);
-template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(FloatMP const&, Bounds<FloatMP> const&);
-template InputStream& Operations<Bounds<FloatMP>>::_read(InputStream&, Bounds<FloatMP>&);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(const Bounds<FloatMP> &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_trunc(const Bounds<FloatMP> &, Nat);
+template Integer Operations<Bounds<FloatMP>>::_cast_integer(const Bounds<FloatMP> &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(const Bounds<FloatMP> &, const FloatMP &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_add(const FloatMP &, const Bounds<FloatMP> &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(const Bounds<FloatMP> &, const FloatMP &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_sub(const FloatMP &, const Bounds<FloatMP> &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(const Bounds<FloatMP> &, const FloatMP &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_mul(const FloatMP &, const Bounds<FloatMP> &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(const Bounds<FloatMP> &, const FloatMP &);
+template Bounds<FloatMP> Operations<Bounds<FloatMP>>::_div(const FloatMP &, const Bounds<FloatMP> &);
+template InputStream &Operations<Bounds<FloatMP>>::_read(InputStream &, Bounds<FloatMP> &);
 
-
-template<> String class_name<Bounds<FloatDP>>() { return "FloatDPBounds"; }
-template<> String class_name<Bounds<FloatMP>>() { return "FloatMPBounds"; }
+template<>
+String class_name<Bounds<FloatDP>>() { return "FloatDPBounds"; }
+template<>
+String class_name<Bounds<FloatMP>>() { return "FloatMPBounds"; }
 
 static_assert(TranscendentalField<Bounds<FloatDP>>);
 static_assert(TranscendentalField<Bounds<FloatMP>>);

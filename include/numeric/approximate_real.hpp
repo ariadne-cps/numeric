@@ -26,19 +26,15 @@
  *  \brief Real numbers, including lower, upper and naive types, and validated versions.
  */
 
-
-
 #ifndef ARIADNE_REALS_HPP
 #define ARIADNE_REALS_HPP
 
-
-#include "utility/typedefs.hpp"
-#include "utility/pointer.hpp"
-#include "utility/handle.hpp"
-
 #include "foundation/logical.decl.hpp"
-#include "numeric/number.decl.hpp"
 #include "numeric/float.decl.hpp"
+#include "numeric/number.decl.hpp"
+#include "utility/handle.hpp"
+#include "utility/pointer.hpp"
+#include "utility/typedefs.hpp"
 
 namespace Ariadne {
 
@@ -50,12 +46,11 @@ class ApproximateRealInterface;
 //! of unknown accuracy.
 //! \see Real, ValidatedReal
 class ApproximateReal
-    : public Handle<ApproximateRealInterface>
-{
+    : public Handle<ApproximateRealInterface> {
   public:
     typedef ApproximateRealInterface Interface;
 
-    ApproximateReal(DyadicApproximation const&);
+    ApproximateReal(const DyadicApproximation&);
     //! \brief Get a dyadic approximation to the number.
     DyadicApproximation get() const;
     //! \brief Get the approximation to the number, converting to double-precision.
@@ -66,9 +61,8 @@ class ApproximateReal
     //! accurate approximation, as the object already has some error.
     FloatMPApproximation get(MultiplePrecision pr) const;
     //! \brief Write to an output stream.
-    friend OutputStream& operator<<(OutputStream&, ApproximateReal const&);
+    friend OutputStream& operator<<(OutputStream&, const ApproximateReal&);
 };
-
 
 } // namespace Ariadne
 

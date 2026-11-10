@@ -22,32 +22,37 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #ifndef ARIADNE_FLOAT_LOWER_BOUND_TPL_HPP
 #define ARIADNE_FLOAT_LOWER_BOUND_TPL_HPP
 
-#include "float_lower_bound.hpp"
-
 #include "float_bounds.hpp"
+#include "float_lower_bound.hpp"
 #include "float_upper_bound.hpp"
-
 #include "lower_number.hpp"
 #include "number_wrapper.hpp"
 
 namespace Ariadne {
 
-template<class F> LowerBound<F>::LowerBound(F const& x, PR pr) : _l(x,downward,pr) {}
-template<class F> LowerBound<F>::LowerBound(Bounds<F> const& x, PR pr) : _l(x._l,downward,pr) {}
-template<class F> LowerBound<F>::LowerBound(LowerBound<F> const& x, PR pr) : _l(x._l,downward,pr) {}
+template<class F>
+LowerBound<F>::LowerBound(const F& x, PR pr) : _l(x, downward, pr) {}
+template<class F>
+LowerBound<F>::LowerBound(const Bounds<F>& x, PR pr) : _l(x._l, downward, pr) {}
+template<class F>
+LowerBound<F>::LowerBound(const LowerBound<F>& x, PR pr) : _l(x._l, downward, pr) {}
 
-template<class F> LowerBound<F>::LowerBound(Bounds<F> const& x) : LowerBound<F>(x.lower_raw()) { }
+template<class F>
+LowerBound<F>::LowerBound(const Bounds<F>& x) : LowerBound<F>(x.lower_raw()) {}
 
-template<class F> LowerBound<F>::LowerBound(Real const& r, PR pr) : LowerBound(r.get(pr)) {}
-template<class F> LowerBound<F>::LowerBound(ValidatedLowerNumber const& y, PR pr) : LowerBound(y.get(pr)) {}
-template<class F> LowerBound<F>::operator ValidatedLowerNumber() const {
+template<class F>
+LowerBound<F>::LowerBound(const Real& r, PR pr) : LowerBound(r.get(pr)) {}
+template<class F>
+LowerBound<F>::LowerBound(const ValidatedLowerNumber& y, PR pr) : LowerBound(y.get(pr)) {}
+template<class F>
+LowerBound<F>::operator ValidatedLowerNumber() const {
     return ValidatedLowerNumber(Handle<const NumberInterface>(new NumberWrapper<LowerBound<F>>(*this)));
 }
-template<class F> auto LowerBound<F>::generic() const -> GenericType { return this->operator GenericType(); }
+template<class F>
+auto LowerBound<F>::generic() const -> GenericType { return this->operator GenericType(); }
 
 } // namespace Ariadne
 

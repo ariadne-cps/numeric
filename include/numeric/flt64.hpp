@@ -32,21 +32,18 @@
 #include <cmath>
 #include <iostream>
 
-#include "utility/metaprogramming.hpp"
-#include "utility/typedefs.hpp"
-#include "foundation/paradigm.hpp"
-
-#include "numeric/sign.hpp"
-#include "numeric/is_number.hpp"
-
 #include "foundation/logical.decl.hpp"
+#include "foundation/logical.hpp"
+#include "foundation/paradigm.hpp"
 #include "numeric/float.decl.hpp"
+#include "numeric/is_number.hpp"
 #include "numeric/number.hpp"
 #include "numeric/real.hpp"
-#include "foundation/logical.hpp"
+#include "numeric/sign.hpp"
+#include "utility/metaprogramming.hpp"
+#include "utility/typedefs.hpp"
 
 namespace Ariadne {
-
 
 /************ Flt64 ********************************************************/
 
@@ -68,7 +65,8 @@ extern const RoundingModeType ROUND_ZERO;
 
 // ----------------- RawTag FloatDP class ---------------------------------------------------------
 
-template<BuiltinIntegral Z> Z integer_cast(Flt64);
+template<BuiltinIntegral Z>
+Z integer_cast(Flt64);
 
 // ----------------- RawTag FloatDP class ---------------------------------------------------------
 
@@ -95,15 +93,15 @@ template<BuiltinIntegral Z> Z integer_cast(Flt64);
 //! Although care must be taken, since compiler rounding may change the truth of certain comparisons.
 //! comparisons with \c double are performed as if the value were \c FloatDP.
 
-
 class Flt64 {
   public:
     volatile double d;
+
   public:
     typedef RawTag Paradigm;
     typedef Flt64 NumericType;
-    Flt64() : d(0.0) { }
-    Flt64(double dbl) : d(dbl) { }
+    Flt64() : d(0.0) {}
+    Flt64(double dbl) : d(dbl) {}
     explicit operator double() const { return d; }
     Flt64 raw() const { return *this; }
     Flt64 get_flt() const { return *this; }
@@ -122,36 +120,48 @@ class Flt64 {
 
     friend inline Flt64 operator+(Flt64 x) { return Flt64{+x.d}; }
     friend inline Flt64 operator-(Flt64 x) { return Flt64{-x.d}; }
-    friend inline Flt64 operator+(Flt64 x1, Flt64 x2) { return Flt64{x1.d+x2.d}; }
-    friend inline Flt64 operator-(Flt64 x1, Flt64 x2) { return Flt64{x1.d-x2.d}; }
-    friend inline Flt64 operator*(Flt64 x1, Flt64 x2) { return Flt64{x1.d*x2.d}; }
-    friend inline Flt64 operator/(Flt64 x1, Flt64 x2) { return Flt64{x1.d/x2.d}; }
-    friend inline Flt64 operator/(Flt64 x1, Int n2) { return Flt64{x1.d/n2}; }
-    friend inline Flt64& operator+=(Flt64& x1, Flt64 x2) { x1.d+=x2.d; return x1; }
-    friend inline Flt64& operator-=(Flt64& x1, Flt64 x2) { x1.d-=x2.d; return x1; }
-    friend inline Flt64& operator*=(Flt64& x1, Flt64 x2) { x1.d*=x2.d; return x1; }
-    friend inline Flt64& operator/=(Flt64& x1, Flt64 x2) { x1.d/=x2.d; return x1; }
+    friend inline Flt64 operator+(Flt64 x1, Flt64 x2) { return Flt64{x1.d + x2.d}; }
+    friend inline Flt64 operator-(Flt64 x1, Flt64 x2) { return Flt64{x1.d - x2.d}; }
+    friend inline Flt64 operator*(Flt64 x1, Flt64 x2) { return Flt64{x1.d * x2.d}; }
+    friend inline Flt64 operator/(Flt64 x1, Flt64 x2) { return Flt64{x1.d / x2.d}; }
+    friend inline Flt64 operator/(Flt64 x1, Int n2) { return Flt64{x1.d / n2}; }
+    friend inline Flt64& operator+=(Flt64& x1, Flt64 x2) {
+        x1.d += x2.d;
+        return x1;
+    }
+    friend inline Flt64& operator-=(Flt64& x1, Flt64 x2) {
+        x1.d -= x2.d;
+        return x1;
+    }
+    friend inline Flt64& operator*=(Flt64& x1, Flt64 x2) {
+        x1.d *= x2.d;
+        return x1;
+    }
+    friend inline Flt64& operator/=(Flt64& x1, Flt64 x2) {
+        x1.d /= x2.d;
+        return x1;
+    }
 
-    friend inline Flt64 min(Flt64 x1, Flt64 x2) { return Flt64{x2.d<x1.d?x2.d:x1.d}; }
-    friend inline Flt64 max(Flt64 x1, Flt64 x2) { return Flt64{x2.d>x1.d?x2.d:x1.d}; }
+    friend inline Flt64 min(Flt64 x1, Flt64 x2) { return Flt64{x2.d < x1.d ? x2.d : x1.d}; }
+    friend inline Flt64 max(Flt64 x1, Flt64 x2) { return Flt64{x2.d > x1.d ? x2.d : x1.d}; }
     friend inline Flt64 abs(Flt64 x) { return Flt64{std::fabs(x.d)}; }
     friend inline Flt64 mig(Flt64 x) { return abs(x); }
     friend inline Flt64 mag(Flt64 x) { return abs(x); }
 
-    friend inline Flt64 add(Flt64 x1, Flt64 x2) { return Flt64{x1.d+x2.d}; }
-    friend inline Flt64 sub(Flt64 x1, Flt64 x2) { return Flt64{x1.d-x2.d}; }
-    friend inline Flt64 mul(Flt64 x1, Flt64 x2) { return Flt64{x1.d*x2.d}; }
-    friend inline Flt64 div(Flt64 x1, Flt64 x2) { return Flt64{x1.d/x2.d}; }
+    friend inline Flt64 add(Flt64 x1, Flt64 x2) { return Flt64{x1.d + x2.d}; }
+    friend inline Flt64 sub(Flt64 x1, Flt64 x2) { return Flt64{x1.d - x2.d}; }
+    friend inline Flt64 mul(Flt64 x1, Flt64 x2) { return Flt64{x1.d * x2.d}; }
+    friend inline Flt64 div(Flt64 x1, Flt64 x2) { return Flt64{x1.d / x2.d}; }
 
     friend inline Flt64 pos(Flt64 x) { return Flt64{x.d}; }
-    friend inline Flt64 hlf(Flt64 x) { return Flt64{x.d/2}; }
-    friend inline Flt64 sqr(Flt64 x) { return Flt64{x.d*x.d}; }
+    friend inline Flt64 hlf(Flt64 x) { return Flt64{x.d / 2}; }
+    friend inline Flt64 sqr(Flt64 x) { return Flt64{x.d * x.d}; }
 
     friend inline Flt64 neg(Flt64 x) { return Flt64{-x.d}; }
-    friend inline Flt64 rec(Flt64 x) { return Flt64{1.0/x.d}; }
+    friend inline Flt64 rec(Flt64 x) { return Flt64{1.0 / x.d}; }
 
-    friend inline Flt64 pow(Flt64 x, Nat m) { return std::pow(x.d,m); }
-    friend inline Flt64 pow(Flt64 x, Int n) { return std::pow(x.d,n); }
+    friend inline Flt64 pow(Flt64 x, Nat m) { return std::pow(x.d, m); }
+    friend inline Flt64 pow(Flt64 x, Int n) { return std::pow(x.d, n); }
     friend inline Flt64 sqrt(Flt64 x) { return std::sqrt(x.d); }
     friend inline Flt64 exp(Flt64 x) { return std::exp(x.d); }
     friend inline Flt64 log(Flt64 x) { return std::log(x.d); }
@@ -171,76 +181,77 @@ class Flt64 {
     friend inline InputStream& operator>>(InputStream& is, Flt64& x) { return is >> reinterpret_cast<double&>(x); }
 
     friend inline Comparison cmp(Flt64 x1, Flt64 x2) {
-        return (x1.d==x2.d)?Comparison::EQUAL:(x1.d>x2.d)?Comparison::GREATER:Comparison::LESS; }
-    friend inline Bool operator==(Flt64 x1, Flt64 x2) { return x1.d==x2.d; }
-    friend inline Bool operator!=(Flt64 x1, Flt64 x2) { return !(x1==x2); }
-    friend inline Bool operator<=(Flt64 x1, Flt64 x2) { return x1.d<=x2.d; }
-    friend inline Bool operator>=(Flt64 x1, Flt64 x2) { return (x2<=x1); }
-    friend inline Bool operator< (Flt64 x1, Flt64 x2) { return !(x2<=x1); }
-    friend inline Bool operator> (Flt64 x1, Flt64 x2) { return !(x1<=x2); }
+        return (x1.d == x2.d) ? Comparison::EQUAL : (x1.d > x2.d) ? Comparison::GREATER
+                                                                  : Comparison::LESS;
+    }
+    friend inline Bool operator==(Flt64 x1, Flt64 x2) { return x1.d == x2.d; }
+    friend inline Bool operator!=(Flt64 x1, Flt64 x2) { return !(x1 == x2); }
+    friend inline Bool operator<=(Flt64 x1, Flt64 x2) { return x1.d <= x2.d; }
+    friend inline Bool operator>=(Flt64 x1, Flt64 x2) { return (x2 <= x1); }
+    friend inline Bool operator<(Flt64 x1, Flt64 x2) { return !(x2 <= x1); }
+    friend inline Bool operator>(Flt64 x1, Flt64 x2) { return !(x1 <= x2); }
 
-    friend inline Bool operator==(Flt64 x1, double x2) { return x1.d==x2; }
-    friend inline Bool operator!=(Flt64 x1, double x2) { return !(x1==x2); }
-    friend inline Bool operator<=(Flt64 x1, double x2) { return x1.d<=x2; }
-    friend inline Bool operator>=(Flt64 x1, double x2) { return (x2<=x1); }
-    friend inline Bool operator< (Flt64 x1, double x2) { return !(x2<=x1); }
-    friend inline Bool operator> (Flt64 x1, double x2) { return !(x1<=x2); }
-
+    friend inline Bool operator==(Flt64 x1, double x2) { return x1.d == x2; }
+    friend inline Bool operator!=(Flt64 x1, double x2) { return !(x1 == x2); }
+    friend inline Bool operator<=(Flt64 x1, double x2) { return x1.d <= x2; }
+    friend inline Bool operator>=(Flt64 x1, double x2) { return (x2 <= x1); }
+    friend inline Bool operator<(Flt64 x1, double x2) { return !(x2 <= x1); }
+    friend inline Bool operator>(Flt64 x1, double x2) { return !(x1 <= x2); }
 };
 
-inline Flt64 Flt64::inf() { return Flt64{1.0/0.0}; }
+inline Flt64 Flt64::inf() { return Flt64{1.0 / 0.0}; }
 
 /************ Rounded arithmetic of Flt64 ***************************************************/
 
-Flt64 hlf(exact,Flt64);
+Flt64 hlf(exact, Flt64);
 
-Flt64 next(down,Flt64);
-Flt64 next(up,Flt64);
+Flt64 next(down, Flt64);
+Flt64 next(up, Flt64);
 
-Flt64 add(near,Flt64, Flt64);
-Flt64 add(down,Flt64, Flt64);
-Flt64 add(up,Flt64, Flt64);
+Flt64 add(near, Flt64, Flt64);
+Flt64 add(down, Flt64, Flt64);
+Flt64 add(up, Flt64, Flt64);
 
-Flt64 sub(near,Flt64, Flt64);
-Flt64 sub(down,Flt64, Flt64);
-Flt64 sub(up,Flt64, Flt64);
+Flt64 sub(near, Flt64, Flt64);
+Flt64 sub(down, Flt64, Flt64);
+Flt64 sub(up, Flt64, Flt64);
 
-Flt64 mul(near,Flt64, Flt64);
-Flt64 mul(down,Flt64, Flt64);
-Flt64 mul(up,Flt64, Flt64);
+Flt64 mul(near, Flt64, Flt64);
+Flt64 mul(down, Flt64, Flt64);
+Flt64 mul(up, Flt64, Flt64);
 
-Flt64 div(near,Flt64, Flt64);
-Flt64 div(down,Flt64, Flt64);
-Flt64 div(up,Flt64, Flt64);
+Flt64 div(near, Flt64, Flt64);
+Flt64 div(down, Flt64, Flt64);
+Flt64 div(up, Flt64, Flt64);
 
-Flt64 rad(up,Flt64, Flt64);
-Flt64 med(near,Flt64, Flt64);
+Flt64 rad(up, Flt64, Flt64);
+Flt64 med(near, Flt64, Flt64);
 
-Flt64 pow(approx,Flt64, Int);
-Flt64 pow(down,Flt64, Int);
-Flt64 pow(up,Flt64, Int);
+Flt64 pow(approx, Flt64, Int);
+Flt64 pow(down, Flt64, Int);
+Flt64 pow(up, Flt64, Int);
 
-Flt64 sqrt(approx,Flt64);
-Flt64 sqrt(down,Flt64);
-Flt64 sqrt(up,Flt64);
-Flt64 exp(approx,Flt64);
-Flt64 exp(down,Flt64);
-Flt64 exp(up,Flt64);
-Flt64 log(approx,Flt64);
-Flt64 log(down,Flt64);
-Flt64 log(up,Flt64);
-Flt64 sin(approx,Flt64);
-Flt64 sin(down,Flt64);
-Flt64 sin(up,Flt64);
-Flt64 cos(approx,Flt64);
-Flt64 cos(down,Flt64);
-Flt64 cos(up,Flt64);
-Flt64 tan(approx,Flt64);
-Flt64 tan(down,Flt64);
-Flt64 tan(up,Flt64);
-Flt64 atan(approx,Flt64);
-Flt64 atan(down,Flt64);
-Flt64 atan(up,Flt64);
+Flt64 sqrt(approx, Flt64);
+Flt64 sqrt(down, Flt64);
+Flt64 sqrt(up, Flt64);
+Flt64 exp(approx, Flt64);
+Flt64 exp(down, Flt64);
+Flt64 exp(up, Flt64);
+Flt64 log(approx, Flt64);
+Flt64 log(down, Flt64);
+Flt64 log(up, Flt64);
+Flt64 sin(approx, Flt64);
+Flt64 sin(down, Flt64);
+Flt64 sin(up, Flt64);
+Flt64 cos(approx, Flt64);
+Flt64 cos(down, Flt64);
+Flt64 cos(up, Flt64);
+Flt64 tan(approx, Flt64);
+Flt64 tan(down, Flt64);
+Flt64 tan(up, Flt64);
+Flt64 atan(approx, Flt64);
+Flt64 atan(down, Flt64);
+Flt64 atan(up, Flt64);
 
 // Arithmetic respecting the rounding mode
 Flt64 add_rnd(Flt64 x, Flt64 y);

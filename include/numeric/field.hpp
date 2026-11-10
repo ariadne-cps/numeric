@@ -31,11 +31,10 @@
 
 namespace Ariadne {
 
-
 //! \brief Interface for a ring.
-template<class T> class RingInterface
-    : public virtual WritableInterface
-{
+template<class T>
+class RingInterface
+    : public virtual WritableInterface {
   public:
     //! \brief Virtual destructor.
     virtual ~RingInterface<T>() = default;
@@ -51,19 +50,19 @@ template<class T> class RingInterface
 };
 
 //! \brief Interface for a field.
-template<class T> class FieldInterface
-    : public virtual RingInterface<T>
-{
+template<class T>
+class FieldInterface
+    : public virtual RingInterface<T> {
   public:
-    virtual T* _div(T const&) const = 0;
+    virtual T* _div(const T&) const = 0;
     virtual T* _rec() const = 0;
     virtual T* _pow(Int n) const = 0;
 };
 
 //! \brief Interface for a field supporting transcendental operations.
-template<class T> class TranscendentalInterface
-    : public virtual FieldInterface<T>
-{
+template<class T>
+class TranscendentalInterface
+    : public virtual FieldInterface<T> {
   public:
     virtual T* _sqrt() const = 0;
     virtual T* _exp() const = 0;

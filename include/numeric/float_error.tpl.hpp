@@ -22,48 +22,51 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #ifndef ARIADNE_FLOAT_ERROR_TPL_HPP
 #define ARIADNE_FLOAT_ERROR_TPL_HPP
 
-#include "float_error.hpp"
-
 #include "float_bounds.hpp"
-
+#include "float_error.hpp"
 #include "upper_number.hpp"
 
 namespace Ariadne {
 
+template<class F>
+Error<F>::Error(const PositiveBounds<F>& x)
+    : _e(x._u) {}
 
-template<class F> Error<F>::Error(PositiveBounds<F> const& x)
-    : _e(x._u) { }
+template<class F>
+Error<F>::Error(const Positive<F>& x)
+    : _e(cast_unsigned(x)) {}
 
-template<class F> Error<F>::Error(Positive<F> const& x)
-    : _e(cast_unsigned(x)) { }
-
-template<class F> Error<F>& Error<F>::operator=(ValidatedErrorNumber y) {
-    return *this=cast_positive(y.get(this->precision()));
+template<class F>
+Error<F>& Error<F>::operator=(ValidatedErrorNumber y) {
+    return *this = cast_positive(y.get(this->precision()));
 }
 
-template<class F> auto Error<F>::generic() const -> ValidatedErrorNumber {
+template<class F>
+auto Error<F>::generic() const -> ValidatedErrorNumber {
     return this->operator ValidatedErrorNumber();
 }
 
-template<class F> struct Operations<Error<F>> {
-    static OutputStream& _write(OutputStream& os, Error<F> const& x) {
-        return write(os,x.raw(),DecimalPrecision{Error<F>::output_places},upward);
+template<class F>
+struct Operations<Error<F>> {
+    static OutputStream& _write(OutputStream& os, const Error<F>& x) {
+        return write(os, x.raw(), DecimalPrecision{Error<F>::output_places}, upward);
     }
     static InputStream& _read(InputStream& is, Error<F>& x) {
         F e(x.precision());
         is >> e;
-        if(!is) { return is; }
-        if(e<0) {
-            ARIADNE_THROW(std::runtime_error,"operator>>(InputStream&,Error<F>&)","negative error bound "<<e); }
-        x.raw()=e;
+        if (!is) {
+            return is;
+        }
+        if (e < 0) {
+            ARIADNE_THROW(std::runtime_error, "operator>>(InputStream&,Error<F>&)", "negative error bound " << e);
+        }
+        x.raw() = e;
         return is;
     }
 };
-
 
 } // namespace Ariadne
 

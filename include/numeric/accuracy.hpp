@@ -30,12 +30,12 @@
 #define ARIADNE_ACCURACY_HPP
 
 #include <iosfwd>
-#include "utility/typedefs.hpp"
-#include "dyadic.hpp"
+
 #include "bits.hpp"
+#include "dyadic.hpp"
+#include "utility/typedefs.hpp"
 
 namespace Ariadne {
-
 
 class Bits;
 
@@ -43,15 +43,16 @@ class Bits;
 //! \brief The accuracy of a computation of a value in a metric space.
 class Accuracy {
     Dyadic _error;
+
   public:
     //! <p/>
     Accuracy(Bits precision);
     //! <p/>
-    Accuracy(Dyadic error) : _error(error) { }
+    Accuracy(Dyadic error) : _error(error) {}
     //! <p/>
-    Dyadic const& error() const { return this->_error; }
+    const Dyadic& error() const { return this->_error; }
     //! <p/>
-    friend OutputStream& operator<<(OutputStream& os, Accuracy const& acc);
+    friend OutputStream& operator<<(OutputStream& os, const Accuracy& acc);
 };
 //! \relates Accuracy \brief <p/>
 inline Accuracy accuracy(Bits acc) { return Accuracy(acc); }

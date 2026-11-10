@@ -26,31 +26,26 @@
  *  \brief
  */
 
-
-
 #ifndef ARIADNE_NUMERIC_MODULE_HPP
 #define ARIADNE_NUMERIC_MODULE_HPP
 
-#include "utility/module.hpp"
-
-#include "foundation/logical.decl.hpp"
-#include "number.decl.hpp"
-#include "float.decl.hpp"
-
-#include "foundation/paradigm.hpp"
-#include "foundation/logical.hpp"
-#include "integer.hpp"
-#include "dyadic.hpp"
 #include "decimal.hpp"
-#include "rational.hpp"
-#include "real.hpp"
-#include "validated_real.hpp"
+#include "dyadic.hpp"
+#include "float.decl.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
-#include "number.hpp"
-#include "lower_number.hpp"
-#include "upper_number.hpp"
-
 #include "floats.hpp"
+#include "foundation/logical.decl.hpp"
+#include "foundation/logical.hpp"
+#include "foundation/paradigm.hpp"
+#include "integer.hpp"
+#include "lower_number.hpp"
+#include "number.decl.hpp"
+#include "number.hpp"
+#include "rational.hpp"
+#include "real.hpp"
+#include "upper_number.hpp"
+#include "utility/module.hpp"
+#include "validated_real.hpp"
 
 #endif

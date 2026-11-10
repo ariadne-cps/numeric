@@ -26,9 +26,9 @@
  *  \brief
  */
 
-#include "utility/typedefs.hpp"
 #include "foundation/paradigm.hpp"
 #include "numeric/concepts.hpp"
+#include "utility/typedefs.hpp"
 
 #ifndef ARIADNE_NUMERIC_ARCHETYPES_HPP
 #define ARIADNE_NUMERIC_ARCHETYPES_HPP
@@ -43,7 +43,8 @@ class DoublePrecision;
 struct DecimalPlaces;
 struct DecimalPrecision;
 
-template<class X> class Positive;
+template<class X>
+class Positive;
 
 class ApproximateDouble;
 class ExactDouble;
@@ -57,28 +58,39 @@ struct RoundUpward;
 struct RoundToNearest;
 struct RoundApproximately;
 
-template<class P> class Number;
-template<class P> class LowerNumber;
-template<class P> class UpperNumber;
+template<class P>
+class Number;
+template<class P>
+class LowerNumber;
+template<class P>
+class UpperNumber;
 using ValidatedLowerNumber = LowerNumber<ValidatedTag>;
 using ValidatedUpperNumber = UpperNumber<ValidatedTag>;
 
-template<class... PRS> class Float;
-using FloatDP=Float<DoublePrecision>;
+template<class... PRS>
+class Float;
+using FloatDP = Float<DoublePrecision>;
 
 class RoundedArchetype {
   public:
-    class RoundingModeType { public:
-        RoundingModeType(RoundDownward); RoundingModeType(RoundUpward); RoundingModeType(RoundToNearest); RoundingModeType(RoundApproximately);
+    class RoundingModeType {
+      public:
+        RoundingModeType(RoundDownward);
+        RoundingModeType(RoundUpward);
+        RoundingModeType(RoundToNearest);
+        RoundingModeType(RoundApproximately);
     };
-    class PrecisionType { public:
+    class PrecisionType {
+      public:
         friend bool operator==(PrecisionType, PrecisionType);
         friend PrecisionType max(PrecisionType, PrecisionType);
     };
+
   private:
-    using X=RoundedArchetype;
-    using RND=RoundingModeType;
-    using PR=PrecisionType;
+    using X = RoundedArchetype;
+    using RND = RoundingModeType;
+    using PR = PrecisionType;
+
   public:
     PrecisionType precision() const;
     RoundedArchetype();
@@ -90,7 +102,7 @@ class RoundedArchetype {
     explicit RoundedArchetype(ExactDouble, RoundingModeType, PrecisionType);
     explicit RoundedArchetype(Integer, RoundingModeType, PrecisionType);
     explicit RoundedArchetype(Dyadic, RoundingModeType, PrecisionType);
-    explicit RoundedArchetype(Decimal const&, RoundingModeType, PrecisionType);
+    explicit RoundedArchetype(const Decimal&, RoundingModeType, PrecisionType);
     explicit RoundedArchetype(Rational, RoundingModeType, PrecisionType);
     explicit RoundedArchetype(RoundedArchetype, RoundingModeType, PrecisionType);
 
@@ -98,7 +110,7 @@ class RoundedArchetype {
     static Void set_rounding_mode(RoundingModeType);
 
     static X inf(PR);
-    static X pi(RND,PR);
+    static X pi(RND, PR);
 
     friend X round(X);
 
@@ -118,50 +130,53 @@ class RoundedArchetype {
     friend auto pow(RoundingModeType, X, Int) -> X;
 
     friend auto med(RoundToNearest, X, X) -> X;
-/*
-    friend auto sqrt(RND, X) -> X;
-    friend auto exp(RND, X) -> X;
-    friend auto log(RND, X) -> X;
-    friend auto sin(RND, X) -> X;
-    friend auto cos(RND, X) -> X;
-    friend auto tan(RND, X) -> X;
-*/
+    /*
+        friend auto sqrt(RND, X) -> X;
+        friend auto exp(RND, X) -> X;
+        friend auto log(RND, X) -> X;
+        friend auto sin(RND, X) -> X;
+        friend auto cos(RND, X) -> X;
+        friend auto tan(RND, X) -> X;
+    */
     friend auto atan(RND, X) -> X;
     friend auto abs(X) -> X;
-    friend auto max(X,X) -> X;
-    friend auto min(X,X) -> X;
+    friend auto max(X, X) -> X;
+    friend auto min(X, X) -> X;
 
     friend bool operator<=(X, X);
-    friend bool operator> (X, X);
+    friend bool operator>(X, X);
     friend bool operator>=(X, X);
 
     friend bool operator==(X, Int);
-    friend bool operator< (X, Int);
+    friend bool operator<(X, Int);
     friend bool operator<=(X, Int);
-    friend bool operator> (X, Int);
+    friend bool operator>(X, Int);
     friend bool operator>=(X, Int);
 
-    friend OutputStream& operator<<(OutputStream&, X const&);
+    friend OutputStream& operator<<(OutputStream&, const X&);
     double get_d() const;
-
 };
-OutputStream& write(OutputStream&, RoundedArchetype,DecimalPrecision,RoundedArchetype::RoundingModeType);
-OutputStream& write(OutputStream&, RoundedArchetype,DecimalPlaces,RoundedArchetype::RoundingModeType);
+OutputStream& write(OutputStream&, RoundedArchetype, DecimalPrecision, RoundedArchetype::RoundingModeType);
+OutputStream& write(OutputStream&, RoundedArchetype, DecimalPlaces, RoundedArchetype::RoundingModeType);
 
-auto get_lower(Real const& r, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
-auto get_lower(ValidatedLowerNumber const& y, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
-auto get_upper(Real const& r, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
-auto get_upper(ValidatedUpperNumber const& y, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
-auto get_approx(Real const& r, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
-auto get_approx(ValidatedLowerNumber const& y, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
+auto get_lower(const Real& r, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
+auto get_lower(const ValidatedLowerNumber& y, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
+auto get_upper(const Real& r, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
+auto get_upper(const ValidatedUpperNumber& y, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
+auto get_approx(const Real& r, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
+auto get_approx(const ValidatedLowerNumber& y, RoundedArchetype::PrecisionType pr) -> RoundedArchetype;
 
 RoundedArchetype cast_raw_float(RoundedArchetype::PrecisionType);
 
-template<class PR> struct RawFloatTypedef;
-template<> struct RawFloatTypedef<RoundedArchetype::PrecisionType> { typedef RoundedArchetype Type; };
+template<class PR>
+struct RawFloatTypedef;
+template<>
+struct RawFloatTypedef<RoundedArchetype::PrecisionType> {
+    typedef RoundedArchetype Type;
+};
 
 static_assert(IsRoundedField<RoundedArchetype>);
-//template<class X> concept Rounded = RoundedMode<X,typename X::RoundingModeType>;
+// template<class X> concept Rounded = RoundedMode<X,typename X::RoundingModeType>;
 
 } // namespace Ariadne
 

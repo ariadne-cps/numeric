@@ -30,29 +30,30 @@
 #define ARIADNE_BUILTIN_HPP
 
 #include <cassert>
-#include <cfloat>
 #include <cfenv>
+#include <cfloat>
 #include <cmath>
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 #include <limits>
 
-#include "utility/metaprogramming.hpp"
-#include "utility/macros.hpp"
-#include "numeric/number.decl.hpp"
-
 #include "foundation/logical.hpp"
+#include "numeric/number.decl.hpp"
 #include "twoexp.hpp"
+#include "utility/macros.hpp"
+#include "utility/metaprogramming.hpp"
 
 namespace Ariadne {
-
 
 struct ExactTag;
 enum class Comparison : ComparableEnumerationType;
 
-template<class D> struct HasGetD {
-    template<class DD, class=decltype(std::declval<DD>().get_d())> static std::true_type test(int);
-    template<class DD> static std::false_type test(...);
+template<class D>
+struct HasGetD {
+    template<class DD, class = decltype(std::declval<DD>().get_d())>
+    static std::true_type test(int);
+    template<class DD>
+    static std::false_type test(...);
     static const bool value = decltype(test<D>(1))::value;
 };
 
@@ -61,57 +62,72 @@ template<class D> struct HasGetD {
 //! indicating that the stored value is an \em approximation to the value of a real quantity.
 class ApproximateDouble {
     double _d;
+
   public:
     typedef ApproximateTag Paradigm;
     typedef ApproximateDouble NumericType;
-    ApproximateDouble() : _d() { }
-    ApproximateDouble(double d) : _d(d) { }
-    ApproximateDouble(ExactDouble const& x);
-    ApproximateDouble(Real const& r0);
+    ApproximateDouble() : _d() {}
+    ApproximateDouble(double d) : _d(d) {}
+    ApproximateDouble(const ExactDouble& x);
+    ApproximateDouble(const Real& r0);
     explicit operator double() const { return _d; }
     double get_d() const { return this->_d; }
-    friend ApproximateDouble operator""_a (long double lx) { double x=static_cast<double>(lx); return ApproximateDouble(x); }
+    friend ApproximateDouble operator""_a(long double lx) {
+        double x = static_cast<double>(lx);
+        return ApproximateDouble(x);
+    }
     friend OutputStream& operator<<(OutputStream& os, ApproximateDouble x) { return os << x._d; }
 
     friend ApproximateDouble nul(ApproximateDouble) { return ApproximateDouble(0.0); }
     friend ApproximateDouble pos(ApproximateDouble x) { return ApproximateDouble(+x._d); }
     friend ApproximateDouble neg(ApproximateDouble x) { return ApproximateDouble(-x._d); }
-    friend ApproximateDouble add(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d+x2._d); }
-    friend ApproximateDouble sub(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d-x2._d); }
-    friend ApproximateDouble mul(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d*x2._d); }
-    friend ApproximateDouble div(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d/x2._d); }
-    friend ApproximateDouble abs(ApproximateDouble x) { return ApproximateDouble(x._d>=0?x._d:-x._d); }
-    friend ApproximateDouble max(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d>=x2._d?x1._d:x2._d); }
-    friend ApproximateDouble min(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d<=x2._d?x1._d:x2._d); }
+    friend ApproximateDouble add(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d + x2._d); }
+    friend ApproximateDouble sub(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d - x2._d); }
+    friend ApproximateDouble mul(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d * x2._d); }
+    friend ApproximateDouble div(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d / x2._d); }
+    friend ApproximateDouble abs(ApproximateDouble x) { return ApproximateDouble(x._d >= 0 ? x._d : -x._d); }
+    friend ApproximateDouble max(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d >= x2._d ? x1._d : x2._d); }
+    friend ApproximateDouble min(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d <= x2._d ? x1._d : x2._d); }
     friend ApproximateDouble mag(ApproximateDouble x) { return abs(x); }
     friend ApproximateDouble mig(ApproximateDouble x) { return abs(x); }
 
     friend ApproximateDouble operator+(ApproximateDouble x) { return ApproximateDouble(+x._d); }
     friend ApproximateDouble operator-(ApproximateDouble x) { return ApproximateDouble(-x._d); }
-    friend ApproximateDouble operator+(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d+x2._d); }
-    friend ApproximateDouble operator-(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d-x2._d); }
-    friend ApproximateDouble operator*(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d*x2._d); }
-    friend ApproximateDouble operator/(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d/x2._d); }
-    friend ApproximateDouble operator*(ApproximateDouble x, TwoExp p) { return ApproximateDouble(x.get_d()*p.get_d()); }
-    friend ApproximateDouble operator/(ApproximateDouble x, TwoExp p) { return ApproximateDouble(x.get_d()/p.get_d()); }
-    friend ApproximateDouble& operator+=(ApproximateDouble& x1, ApproximateDouble x2) { x1._d+=x2._d; return x1; }
-    friend ApproximateDouble& operator-=(ApproximateDouble& x1, ApproximateDouble x2) { x1._d-=x2._d; return x1; }
-    friend ApproximateDouble& operator*=(ApproximateDouble& x1, ApproximateDouble x2) { x1._d*=x2._d; return x1; }
-    friend ApproximateDouble& operator/=(ApproximateDouble& x1, ApproximateDouble x2) { x1._d/=x2._d; return x1; }
+    friend ApproximateDouble operator+(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d + x2._d); }
+    friend ApproximateDouble operator-(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d - x2._d); }
+    friend ApproximateDouble operator*(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d * x2._d); }
+    friend ApproximateDouble operator/(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d / x2._d); }
+    friend ApproximateDouble operator*(ApproximateDouble x, TwoExp p) { return ApproximateDouble(x.get_d() * p.get_d()); }
+    friend ApproximateDouble operator/(ApproximateDouble x, TwoExp p) { return ApproximateDouble(x.get_d() / p.get_d()); }
+    friend ApproximateDouble& operator+=(ApproximateDouble& x1, ApproximateDouble x2) {
+        x1._d += x2._d;
+        return x1;
+    }
+    friend ApproximateDouble& operator-=(ApproximateDouble& x1, ApproximateDouble x2) {
+        x1._d -= x2._d;
+        return x1;
+    }
+    friend ApproximateDouble& operator*=(ApproximateDouble& x1, ApproximateDouble x2) {
+        x1._d *= x2._d;
+        return x1;
+    }
+    friend ApproximateDouble& operator/=(ApproximateDouble& x1, ApproximateDouble x2) {
+        x1._d /= x2._d;
+        return x1;
+    }
 
-    friend Bool same(ApproximateDouble x1, ApproximateDouble x2) { return x1._d==x2._d; }
-    friend ApproximateKleenean operator==(ApproximateDouble x1, ApproximateDouble x2) { return x1._d==x2._d; }
-    friend ApproximateKleenean operator!=(ApproximateDouble x1, ApproximateDouble x2) { return x1._d!=x2._d; }
-    friend ApproximateKleenean operator> (ApproximateDouble x1, ApproximateDouble x2) { return x1._d> x2._d; }
-    friend ApproximateKleenean operator< (ApproximateDouble x1, ApproximateDouble x2) { return x1._d< x2._d; }
-    friend ApproximateKleenean operator>=(ApproximateDouble x1, ApproximateDouble x2) { return x1._d>=x2._d; }
-    friend ApproximateKleenean operator<=(ApproximateDouble x1, ApproximateDouble x2) { return x1._d<=x2._d; }
+    friend Bool same(ApproximateDouble x1, ApproximateDouble x2) { return x1._d == x2._d; }
+    friend ApproximateKleenean operator==(ApproximateDouble x1, ApproximateDouble x2) { return x1._d == x2._d; }
+    friend ApproximateKleenean operator!=(ApproximateDouble x1, ApproximateDouble x2) { return x1._d != x2._d; }
+    friend ApproximateKleenean operator>(ApproximateDouble x1, ApproximateDouble x2) { return x1._d > x2._d; }
+    friend ApproximateKleenean operator<(ApproximateDouble x1, ApproximateDouble x2) { return x1._d < x2._d; }
+    friend ApproximateKleenean operator>=(ApproximateDouble x1, ApproximateDouble x2) { return x1._d >= x2._d; }
+    friend ApproximateKleenean operator<=(ApproximateDouble x1, ApproximateDouble x2) { return x1._d <= x2._d; }
 };
 
 //! \ingroup NumericModule
 //! \brief Indicate that a floating-point literal only represents an double-precision approximation to a number.
-inline ApproximateDouble operator""_a (long double lx);
-
+inline ApproximateDouble operator""_a(long double lx);
 
 //! \ingroup NumericModule
 //! \brief A wrapper around a builtin double-precision floating-point number,
@@ -119,38 +135,41 @@ inline ApproximateDouble operator""_a (long double lx);
 class ExactDouble {
     double _d;
     static double _checked_signed(long long n) {
-        double d=static_cast<double>(n);
-        ARIADNE_PRECONDITION(d<std::ldexp(1.0,63));
-        ARIADNE_PRECONDITION(static_cast<long long>(d)==n);
+        double d = static_cast<double>(n);
+        ARIADNE_PRECONDITION(d < std::ldexp(1.0, 63));
+        ARIADNE_PRECONDITION(static_cast<long long>(d) == n);
         return d;
     }
     static double _checked_unsigned(unsigned long long n) {
-        double d=static_cast<double>(n);
-        ARIADNE_PRECONDITION(d<std::ldexp(1.0,64));
-        ARIADNE_PRECONDITION(static_cast<unsigned long long>(d)==n);
+        double d = static_cast<double>(n);
+        ARIADNE_PRECONDITION(d < std::ldexp(1.0, 64));
+        ARIADNE_PRECONDITION(static_cast<unsigned long long>(d) == n);
         return d;
     }
 #if LDBL_MANT_DIG > DBL_MANT_DIG
     static double _checked_long_double(long double x) {
-        double d=static_cast<double>(x);
-        ARIADNE_PRECONDITION(std::isnan(d) || static_cast<long double>(d)==x);
+        double d = static_cast<double>(x);
+        ARIADNE_PRECONDITION(std::isnan(d) || static_cast<long double>(d) == x);
         return d;
     }
 #endif
+
   public:
     typedef ExactTag Paradigm;
     double get_d() const { return this->_d; }
-    ExactDouble() : _d() { }
-    template<BuiltinIntegral N> requires std::is_signed_v<N>
-    ExactDouble(N n) : _d(_checked_signed(static_cast<long long>(n))) { }
-    template<BuiltinIntegral N> requires (!std::is_signed_v<N>)
-    ExactDouble(N n) : _d(_checked_unsigned(static_cast<unsigned long long>(n))) { }
-    explicit ExactDouble(float x) : _d(static_cast<double>(x)) { }
-    explicit ExactDouble(double x) : _d(x) { }
+    ExactDouble() : _d() {}
+    template<BuiltinIntegral N>
+        requires std::is_signed_v<N>
+    ExactDouble(N n) : _d(_checked_signed(static_cast<long long>(n))) {}
+    template<BuiltinIntegral N>
+        requires(!std::is_signed_v<N>)
+    ExactDouble(N n) : _d(_checked_unsigned(static_cast<unsigned long long>(n))) {}
+    explicit ExactDouble(float x) : _d(static_cast<double>(x)) {}
+    explicit ExactDouble(double x) : _d(x) {}
 #if LDBL_MANT_DIG > DBL_MANT_DIG
-    explicit ExactDouble(long double x) : _d(_checked_long_double(x)) { }
+    explicit ExactDouble(long double x) : _d(_checked_long_double(x)) {}
 #else
-    explicit ExactDouble(long double x) : _d(static_cast<double>(x)) { }
+    explicit ExactDouble(long double x) : _d(static_cast<double>(x)) {}
 #endif
     static ExactDouble infinity() { return ExactDouble(std::numeric_limits<double>::infinity()); }
     operator ExactNumber() const;
@@ -165,33 +184,35 @@ class ExactDouble {
     friend ApproximateDouble operator-(ApproximateDouble x1, ApproximateDouble x2);
     friend ApproximateDouble operator*(ApproximateDouble x1, ApproximateDouble x2);
     friend ApproximateDouble operator/(ApproximateDouble x1, ApproximateDouble x2);
-    friend ExactDouble operator*(ExactDouble x, TwoExp p) { return ExactDouble(x.get_d()*p.get_d()); }
-    friend ExactDouble operator/(ExactDouble x, TwoExp p) { return ExactDouble(x.get_d()/p.get_d()); }
-    friend Comparison cmp(ExactDouble const& x1, ExactDouble const& x2) {
-        return Comparison( (x1._d==x2._d) ? 0 : (x1._d<x2._d) ? -1 : +1 ); }
-    friend Boolean operator==(ExactDouble const& x1, ExactDouble const& x2) { return x1._d==x2._d; }
-    friend Boolean operator!=(ExactDouble const& x1, ExactDouble const& x2) { return x1._d!=x2._d; }
-    friend Boolean operator>=(ExactDouble const& x1, ExactDouble const& x2) { return x1._d>=x2._d; }
-    friend Boolean operator<=(ExactDouble const& x1, ExactDouble const& x2) { return x1._d<=x2._d; }
-    friend Boolean operator> (ExactDouble const& x1, ExactDouble const& x2) { return x1._d> x2._d; }
-    friend Boolean operator< (ExactDouble const& x1, ExactDouble const& x2) { return x1._d< x2._d; }
-    friend ExactDouble operator""_x (long double lx) { return ExactDouble(lx); }
-    friend ExactDouble operator""_pr (long double lx) {
+    friend ExactDouble operator*(ExactDouble x, TwoExp p) { return ExactDouble(x.get_d() * p.get_d()); }
+    friend ExactDouble operator/(ExactDouble x, TwoExp p) { return ExactDouble(x.get_d() / p.get_d()); }
+    friend Comparison cmp(const ExactDouble& x1, const ExactDouble& x2) {
+        return Comparison((x1._d == x2._d) ? 0 : (x1._d < x2._d) ? -1
+                                                                 : +1);
+    }
+    friend Boolean operator==(const ExactDouble& x1, const ExactDouble& x2) { return x1._d == x2._d; }
+    friend Boolean operator!=(const ExactDouble& x1, const ExactDouble& x2) { return x1._d != x2._d; }
+    friend Boolean operator>=(const ExactDouble& x1, const ExactDouble& x2) { return x1._d >= x2._d; }
+    friend Boolean operator<=(const ExactDouble& x1, const ExactDouble& x2) { return x1._d <= x2._d; }
+    friend Boolean operator>(const ExactDouble& x1, const ExactDouble& x2) { return x1._d > x2._d; }
+    friend Boolean operator<(const ExactDouble& x1, const ExactDouble& x2) { return x1._d < x2._d; }
+    friend ExactDouble operator""_x(long double lx) { return ExactDouble(lx); }
+    friend ExactDouble operator""_pr(long double lx) {
 #if LDBL_MANT_DIG > DBL_MANT_DIG
         // A directed rounding mode must not change a precision-rounded literal.
-        const int saved_rounding=std::fegetround();
-        ARIADNE_PRECONDITION(saved_rounding!=-1);
-        if(saved_rounding!=FE_TONEAREST) {
-            ARIADNE_PRECONDITION(std::fesetround(FE_TONEAREST)==0);
+        const int saved_rounding = std::fegetround();
+        ARIADNE_PRECONDITION(saved_rounding != -1);
+        if (saved_rounding != FE_TONEAREST) {
+            ARIADNE_PRECONDITION(std::fesetround(FE_TONEAREST) == 0);
         }
         // Force the conversion under the selected mode, not at compile time.
-        volatile long double input=lx;
-        const double x=static_cast<double>(input);
-        if(saved_rounding!=FE_TONEAREST) {
-            ARIADNE_PRECONDITION(std::fesetround(saved_rounding)==0);
+        volatile long double input = lx;
+        const double x = static_cast<double>(input);
+        if (saved_rounding != FE_TONEAREST) {
+            ARIADNE_PRECONDITION(std::fesetround(saved_rounding) == 0);
         }
 #else
-        const double x=static_cast<double>(lx);
+        const double x = static_cast<double>(lx);
 #endif
         return ExactDouble(x);
     }
@@ -209,12 +230,10 @@ ExactDouble operator""_x(long double lx);
 //! \brief Indicate that a floating-point literal is sufficiently precise that it can safely be taken to represent the closest double-precision floating-point number.
 inline ExactDouble exact(long double lx) { return operator""_x(lx); }
 
-
 //! \ingroup ExtendedLiteralsSubModule
 //! \brief Indicate that a floating-point literal is sufficiently precise that it can safely be taken to represent the closest double-precision floating-point number.
 //! \details For example, writing <c>0.14285714285714285_pr</c> claims that the exact decimal "0.14285714285714285" should be interpreted as the closest double-precision floating-point number, which has exact value \f$0.142857142857142849212692681248881854116916656494140625\f$.
-inline ExactDouble operator""_pr (long double lx);
-
+inline ExactDouble operator""_pr(long double lx);
 
 #ifdef DOXYGRN
 //! \ingroup ExtendedLiteralsSubModule
@@ -231,16 +250,16 @@ inline ExactDouble cast_exact(ApproximateDouble ax) { return ExactDouble(ax.get_
 
 static const ExactDouble inf = ExactDouble(std::numeric_limits<double>::infinity());
 
-
-
-template<class X> class Positive;
-template<> class Positive<ExactDouble> : public ExactDouble {
+template<class X>
+class Positive;
+template<>
+class Positive<ExactDouble> : public ExactDouble {
   public:
-    explicit Positive(ExactDouble x) : ExactDouble(x) { }
+    explicit Positive(ExactDouble x) : ExactDouble(x) {}
 };
 inline Positive<ExactDouble> cast_positive(ExactDouble x) { return Positive<ExactDouble>(x); }
 
-inline ApproximateDouble::ApproximateDouble(ExactDouble const& x) : _d(x.get_d()) { }
+inline ApproximateDouble::ApproximateDouble(const ExactDouble& x) : _d(x.get_d()) {}
 
 } // namespace Ariadne
 

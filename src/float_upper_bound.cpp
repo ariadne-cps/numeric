@@ -23,31 +23,34 @@
  */
 
 #include "float_upper_bound.hpp"
-#include "float_upper_bound.tpl.hpp"
 
+#include "float_upper_bound.tpl.hpp"
 #include "floatdp.hpp"
 #include "floatmp.hpp"
 
 namespace Ariadne {
 
-UpperBound<Dyadic>::UpperBound(UpperBound<FloatDP> const& x) : UpperBound(Dyadic(x.raw())) { }
-UpperBound<Dyadic>::UpperBound(UpperBound<FloatMP> const& x) : UpperBound(Dyadic(x.raw())) { }
-UpperBound<FloatDP> UpperBound<Dyadic>::get(DoublePrecision pr) const { return UpperBound<FloatDP>(FloatDP(this->raw(),up,pr)); }
+UpperBound<Dyadic>::UpperBound(const UpperBound<FloatDP>& x) : UpperBound(Dyadic(x.raw())) {}
+UpperBound<Dyadic>::UpperBound(const UpperBound<FloatMP>& x) : UpperBound(Dyadic(x.raw())) {}
+UpperBound<FloatDP> UpperBound<Dyadic>::get(DoublePrecision pr) const { return UpperBound<FloatDP>(FloatDP(this->raw(), up, pr)); }
 
-template<> UpperBound<FloatDP>::UpperBound(Real const&, DoublePrecision);
+template<>
+UpperBound<FloatDP>::UpperBound(const Real&, DoublePrecision);
 
 template class UpperBound<FloatDP>;
-template<> UpperBound<FloatMP>::UpperBound(ValidatedUpperNumber const& y, MultiplePrecision pr)
-    : UpperBound<FloatMP>(y.get(pr)) { }
+template<>
+UpperBound<FloatMP>::UpperBound(const ValidatedUpperNumber& y, MultiplePrecision pr)
+    : UpperBound<FloatMP>(y.get(pr)) {}
 
 // Upper endpoint construction mirrors LowerBound but rounds upward.
 // Mirror the lower endpoint constructor. The interval itself already
 // encloses the real value and upper_raw() is its upper endpoint.
 
-
 template class UpperBound<FloatMP>;
 
-template<> String class_name<UpperBound<FloatDP>>() { return "FloatDPUpperBound"; }
-template<> String class_name<UpperBound<FloatMP>>() { return "FloatMPUpperBound"; }
+template<>
+String class_name<UpperBound<FloatDP>>() { return "FloatDPUpperBound"; }
+template<>
+String class_name<UpperBound<FloatMP>>() { return "FloatMPUpperBound"; }
 
 } // namespace Ariadne

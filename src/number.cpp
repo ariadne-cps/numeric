@@ -26,43 +26,41 @@
  *  \brief
  */
 
-#include "utility/module.hpp"
-#include "foundation/paradigm.hpp"
+#include "number.hpp"
 
 #include "casts.hpp"
-#include "number.hpp"
-#include "lower_number.hpp"
-#include "upper_number.hpp"
-#include "foundation/logical.hpp"
-#include "integer.hpp"
 #include "decimal.hpp"
 #include "dyadic.hpp"
-#include "rational.hpp"
-#include "real.hpp"
-#include "floatdp.hpp"
-#include "floatmp.hpp"
-
-#include "number_interface.hpp"
-#include "number_wrapper.hpp"
-
+#include "float_approximation.hpp"
 #include "float_ball.hpp"
 #include "float_bounds.hpp"
-#include "float_upper_bound.hpp"
 #include "float_lower_bound.hpp"
-#include "float_approximation.hpp"
+#include "float_upper_bound.hpp"
+#include "floatdp.hpp"
+#include "floatmp.hpp"
+#include "foundation/logical.hpp"
+#include "foundation/paradigm.hpp"
+#include "integer.hpp"
+#include "lower_number.hpp"
+#include "number_interface.hpp"
+#include "number_wrapper.hpp"
+#include "rational.hpp"
+#include "real.hpp"
+#include "upper_number.hpp"
+#include "utility/module.hpp"
 
 /************ Number *********************************************************/
 
 namespace Ariadne {
 
 // Required by graded dispatch on directed floating-point bounds.
-Approximation<FloatDP> pow(Approximation<FloatDP> const& x, Integer const& z) {
-    const Int n=z.get<Int>();
-    return Approximation<FloatDP>(pow(approx,x._a,n));
+Approximation<FloatDP> pow(const Approximation<FloatDP>& x, const Integer& z) {
+    const Int n = z.get<Int>();
+    return Approximation<FloatDP>(pow(approx, x._a, n));
 }
-Approximation<FloatMP> pow(Approximation<FloatMP> const& x, Integer const& z) {
-    const Int n=z.get<Int>();
-    return Approximation<FloatMP>(pow(approx,x._a,n));
+Approximation<FloatMP> pow(const Approximation<FloatMP>& x, const Integer& z) {
+    const Int n = z.get<Int>();
+    return Approximation<FloatMP>(pow(approx, x._a, n));
 }
 
 ExactDouble::operator ExactNumber() const { return Dyadic(*this).operator ExactNumber(); }
@@ -71,48 +69,54 @@ Dyadic::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Dyad
 Rational::operator ExactNumber() const { return ExactNumber(new NumberWrapper<Rational>(*this)); }
 Real::operator EffectiveNumber() const { return EffectiveNumber(new NumberWrapper<Real>(*this)); }
 
-FloatDPBounds NumberInterface::_get(ValidatedTag, DoublePrecision pr) const { return this->_get(OrderTag(),pr); }
-FloatMPBounds NumberInterface::_get(ValidatedTag, MultiplePrecision pr) const { return this->_get(OrderTag(),pr); }
+FloatDPBounds NumberInterface::_get(ValidatedTag, DoublePrecision pr) const { return this->_get(OrderTag(), pr); }
+FloatMPBounds NumberInterface::_get(ValidatedTag, MultiplePrecision pr) const { return this->_get(OrderTag(), pr); }
 
-FloatDPBall NumberInterface::_get(MetricTag p, DoublePrecision pr) const { return this->_get(p,pr,pr); }
-FloatMPBall NumberInterface::_get(MetricTag p, MultiplePrecision pr) const { return this->_get(p,pr,pr); }
-
-
+FloatDPBall NumberInterface::_get(MetricTag p, DoublePrecision pr) const { return this->_get(p, pr, pr); }
+FloatMPBall NumberInterface::_get(MetricTag p, MultiplePrecision pr) const { return this->_get(p, pr, pr); }
 
 DyadicBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<DyadicBounds>(*this)); }
 DecimalBounds::operator ValidatedNumber() const { return RationalBounds(*this).operator ValidatedNumber(); }
 RationalBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<RationalBounds>(*this)); }
 
-template<> FloatDPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatDPApproximation>(*this)); }
-//template<> FloatDPLowerBound::operator ValidatedLowerNumber() const { return ValidatedLowerNumber(new NumberWrapper<FloatDPLowerBound>(*this)); }
-//template<> FloatDPUpperBound::operator ValidatedUpperNumber() const { return ValidatedUpperNumber(new NumberWrapper<FloatDPUpperBound>(*this)); }
-template<> FloatDPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatDPBounds>(*this)); }
-//template<> FloatDPBall::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatDPBall>(*this)); }
+template<>
+FloatDPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatDPApproximation>(*this)); }
+// template<> FloatDPLowerBound::operator ValidatedLowerNumber() const { return ValidatedLowerNumber(new NumberWrapper<FloatDPLowerBound>(*this)); }
+// template<> FloatDPUpperBound::operator ValidatedUpperNumber() const { return ValidatedUpperNumber(new NumberWrapper<FloatDPUpperBound>(*this)); }
+template<>
+FloatDPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatDPBounds>(*this)); }
+// template<> FloatDPBall::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatDPBall>(*this)); }
 FloatDP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatDP>(*this)); }
 
-//template<> FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDPError>(*this)); }
-template<> FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDP>(cast_exact(*this))); }
+// template<> FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDPError>(*this)); }
+template<>
+FloatDPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatDP>(cast_exact(*this))); }
 // Keep the native error conversion equivalent to the existing DP semantics.
-template<> FloatMPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatMP>(cast_exact(*this))); }
-
+template<>
+FloatMPError::operator ValidatedErrorNumber() const { return ValidatedErrorNumber(new NumberWrapper<FloatMP>(cast_exact(*this))); }
 
 // Keep the native generic-number conversion alongside the other concrete
 // specializations: MSVC must emit it in ariadne-numeric.lib for D100.
-template<> FloatMPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatMPApproximation>(*this)); }
-template<> FloatMPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBounds>(*this)); }
+template<>
+FloatMPApproximation::operator ApproximateNumber() const { return ApproximateNumber(new NumberWrapper<FloatMPApproximation>(*this)); }
+template<>
+FloatMPBounds::operator ValidatedNumber() const { return ValidatedNumber(new NumberWrapper<FloatMPBounds>(*this)); }
 FloatMP::operator ExactNumber() const { return ExactNumber(new NumberWrapper<FloatMP>(*this)); }
 
-ExactNumber cast_exact(ValidatedUpperNumber const& y) { return ExactNumber(y.handle()); }
-ExactNumber cast_exact(ValidatedLowerNumber const& y) { return ExactNumber(y.handle()); }
+ExactNumber cast_exact(const ValidatedUpperNumber& y) { return ExactNumber(y.handle()); }
+ExactNumber cast_exact(const ValidatedLowerNumber& y) { return ExactNumber(y.handle()); }
 
-
-
-
-template<> String class_name<ApproximateNumber>() { return "ApproximateNumber"; }
-template<> String class_name<ValidatedLowerNumber>() { return "ValidatedLowerNumber"; }
-template<> String class_name<ValidatedUpperNumber>() { return "ValidatedUpperNumber"; }
-template<> String class_name<ValidatedNumber>() { return "ValidatedNumber"; }
-template<> String class_name<EffectiveNumber>() { return "EffectiveNumber"; }
-template<> String class_name<ExactNumber>() { return "ExactNumber"; }
+template<>
+String class_name<ApproximateNumber>() { return "ApproximateNumber"; }
+template<>
+String class_name<ValidatedLowerNumber>() { return "ValidatedLowerNumber"; }
+template<>
+String class_name<ValidatedUpperNumber>() { return "ValidatedUpperNumber"; }
+template<>
+String class_name<ValidatedNumber>() { return "ValidatedNumber"; }
+template<>
+String class_name<EffectiveNumber>() { return "EffectiveNumber"; }
+template<>
+String class_name<ExactNumber>() { return "ExactNumber"; }
 
 } // namespace Ariadne

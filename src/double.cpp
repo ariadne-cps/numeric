@@ -22,31 +22,27 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "utility/standard.hpp"
-
-#include <iostream>
-#include <iomanip>
 #include <cassert>
 #include <cmath>
-#include <limits>
 #include <cstdint>
+#include <iomanip>
+#include <iostream>
+#include <limits>
 #include <stdexcept>
 
-
-
-#include "utility/macros.hpp"
-#include "numeric/builtin.hpp"
-#include "numeric/twoexp.hpp"
-#include "numeric/dyadic.hpp"
-#include "numeric/decimal.hpp"
-#include "numeric/rational.hpp"
 #include "numeric/big_unsigned.hpp"
+#include "numeric/builtin.hpp"
+#include "numeric/concepts.hpp"
+#include "numeric/decimal.hpp"
 #include "numeric/detail/checked_arithmetic.hpp"
 #include "numeric/detail/fixed_point.hpp"
-#include "numeric/rounding.hpp"
+#include "numeric/dyadic.hpp"
 #include "numeric/floatdp.hpp"
-
-#include "numeric/concepts.hpp"
+#include "numeric/rational.hpp"
+#include "numeric/rounding.hpp"
+#include "numeric/twoexp.hpp"
+#include "utility/macros.hpp"
+#include "utility/standard.hpp"
 
 namespace Ariadne {
 
@@ -54,84 +50,123 @@ namespace Ariadne {
 
 Void set_default_builtin_rounding() { set_builtin_rounding_upward(); }
 
-static const double _pi_up=3.1415926535897936;
-static const double _pi_down=3.1415926535897931;
+static const double _pi_up = 3.1415926535897936;
+static const double _pi_down = 3.1415926535897931;
 
-static const double _quarter_pi_approx=0.78539816339744828;
-static const double _pi_approx=3.1415926535897931;
-static const double _two_pi_approx=6.2831853071795862;
-static const double _sqrt2_approx=0.70710678118654757;
-static const double _log2_approx=0.6931471805599453094;
+static const double _quarter_pi_approx = 0.78539816339744828;
+static const double _pi_approx = 3.1415926535897931;
+static const double _two_pi_approx = 6.2831853071795862;
+static const double _sqrt2_approx = 0.70710678118654757;
+static const double _log2_approx = 0.6931471805599453094;
 
 // The floor of log_10(|x|). abslog10floor(x)+1 is the number of digits of x before the decimal point.
 // Returns the smallest representable  int  if x is zero
 int abslog10floor(double x) {
-    if (x == 0.0) { return std::numeric_limits<int>::min(); }
-    if (!std::isfinite(x)) { return 0; }
+    if (x == 0.0) {
+        return std::numeric_limits<int>::min();
+    }
+    if (!std::isfinite(x)) {
+        return 0;
+    }
     return static_cast<int>(std::floor(std::log10(std::abs(x))));
-    //static const double MIN_INT=-2147483648.;
-    //return std::max(std::floor(std::log10(std::abs(x))),MIN_INT);
+    // static const double MIN_INT=-2147483648.;
+    // return std::max(std::floor(std::log10(std::abs(x))),MIN_INT);
 }
 
 static inline double next_rnd(double x) {
-    volatile double y=+x; y=y+1e-300; y=y-1e-300; return +y;
+    volatile double y = +x;
+    y = y + 1e-300;
+    y = y - 1e-300;
+    return +y;
 }
 
 static inline double next_opp(double x) {
-    volatile double y=-x; y=y+1e-300; y=y-1e-300; return -y;
+    volatile double y = -x;
+    y = y + 1e-300;
+    y = y - 1e-300;
+    return -y;
 }
 
-
-static inline double horner_rnd(Int n, double x, const long long int* c)
-{
-    volatile double y=1./c[n];
-    for(Int i=n-1; i>=0; --i) {
-        y=1.0/c[i]+x*y;
+static inline double horner_rnd(Int n, double x, const long long int* c) {
+    volatile double y = 1. / c[n];
+    for (Int i = n - 1; i >= 0; --i) {
+        y = 1.0 / c[i] + x * y;
     }
     return y;
 }
 
-static inline double horner_opp(Int n, double x, const long long int* c)
-{
-    volatile double y=-1./c[n];
-    for(Int i=n-1; i>=0; --i) {
-        y=-1.0/c[i]+x*y;
+static inline double horner_opp(Int n, double x, const long long int* c) {
+    volatile double y = -1. / c[n];
+    for (Int i = n - 1; i >= 0; --i) {
+        y = -1.0 / c[i] + x * y;
     }
     return -y;
 }
 
 // Rounded-fused multiple-and-add
-double fma_rnd(double x, double y, double z)
-{
-    return std::fma((volatile double&)x,(volatile double&)y,(volatile double&)z);
+double fma_rnd(double x, double y, double z) {
+    return std::fma((volatile double&)x, (volatile double&)y, (volatile double&)z);
 }
 
 // Rounded power
-double pow_rnd(double x, Nat m)
-{
-    if(m==0) { return 1.0; }
-    if(x==0) { return 0.0; }
-    //if(x>=0.0 || (m%2==0)) { double r,p; r=1.0; p=(x>=0)?x:-x; while(m) { if(m%2) { r=mul_rnd(r,p); } p=mul_rnd(p,p); m/=2; } return r; }
-    //else { double r,p r=-1.0; p=x; while(m) { if(m%2) { r=mul_rnd(-r,p); } p=mul_rnd(-p,p); m/=2; } return r; }
-    if(x>0.0 || (m%2==0)) { volatile double r,p; r=1.0; p=std::abs(x); while(m) { if(m%2) { r=r*p; } p=p*p; m/=2; } return r; }
-    else { volatile double r,p; r=-1.0; p=x; while(m) { if(m%2) { r=(-r)*p; } p=(-p)*p; m/=2; } return r; }
+double pow_rnd(double x, Nat m) {
+    if (m == 0) {
+        return 1.0;
+    }
+    if (x == 0) {
+        return 0.0;
+    }
+    // if(x>=0.0 || (m%2==0)) { double r,p; r=1.0; p=(x>=0)?x:-x; while(m) { if(m%2) { r=mul_rnd(r,p); } p=mul_rnd(p,p); m/=2; } return r; }
+    // else { double r,p r=-1.0; p=x; while(m) { if(m%2) { r=mul_rnd(-r,p); } p=mul_rnd(-p,p); m/=2; } return r; }
+    if (x > 0.0 || (m % 2 == 0)) {
+        volatile double r, p;
+        r = 1.0;
+        p = std::abs(x);
+        while (m) {
+            if (m % 2) {
+                r = r * p;
+            }
+            p = p * p;
+            m /= 2;
+        }
+        return r;
+    } else {
+        volatile double r, p;
+        r = -1.0;
+        p = x;
+        while (m) {
+            if (m % 2) {
+                r = (-r) * p;
+            }
+            p = (-p) * p;
+            m /= 2;
+        }
+        return r;
+    }
 }
 
 // Rounded power
-double pow_rnd(double x, Int n)
-{
-    if(n>=0) { return pow_rnd(x,Nat(n)); }
-    ARIADNE_PRECONDITION(x!=0.0);
+double pow_rnd(double x, Int n) {
+    if (n >= 0) {
+        return pow_rnd(x, Nat(n));
+    }
+    ARIADNE_PRECONDITION(x != 0.0);
     // Form |n| without negating INT_MIN in its signed type.
-    const Nat magnitude=Nat(-(n+1))+Nat(1);
-    if(x>0.0 || (n%2==-1)) { volatile double r=1.0/x; return pow_rnd(r,magnitude); }
-    else { volatile double r=-1.0/x; return pow_rnd(r,magnitude); }
+    const Nat magnitude = Nat(-(n + 1)) + Nat(1);
+    if (x > 0.0 || (n % 2 == -1)) {
+        volatile double r = 1.0 / x;
+        return pow_rnd(r, magnitude);
+    } else {
+        volatile double r = -1.0 / x;
+        return pow_rnd(r, magnitude);
+    }
 }
 
-double sqrt_rnd(double x)
-{
-    if(std::isnan(x)) { return x; }
-    ARIADNE_PRECONDITION(x>=0.0);
+double sqrt_rnd(double x) {
+    if (std::isnan(x)) {
+        return x;
+    }
+    ARIADNE_PRECONDITION(x >= 0.0);
 
     // F4: binary64 sqrt is a correctly rounded IEEE-754 primitive.
     // FloatDP's explicit-mode wrapper already installs the requested
@@ -141,26 +176,26 @@ double sqrt_rnd(double x)
     return std::sqrt(x);
 }
 
-
 double pos_sin_rnd_series(double x);
 double neg_sin_rnd_series(double x);
 double pos_cos_rnd_series(double x);
 double neg_cos_rnd_series(double x);
 double tan_rnd_series(double x);
 
-
 double texp(double x) {
-    double r=1.0; double t=1.0;
-    for(Nat i=1; i!=20; ++i) {
-        t*=x; t/=i; r+=t;
+    double r = 1.0;
+    double t = 1.0;
+    for (Nat i = 1; i != 20; ++i) {
+        t *= x;
+        t /= i;
+        r += t;
     }
     return r;
 }
 
 // Correctly rounded exponential function
-double exp_rnd(double x)
-{
-    static const long long int c[7]={ 1LL, 6LL, -360LL, 15120LL, -604800LL, 23950080LL, -946218790LL };
+double exp_rnd(double x) {
+    static const long long int c[7] = {1LL, 6LL, -360LL, 15120LL, -604800LL, 23950080LL, -946218790LL};
 
     // Set w=r(exp(r)+1)/(exp(r)-1).
     // Then w=2 + s/c1 + s^2/c2 + ...
@@ -172,44 +207,49 @@ double exp_rnd(double x)
     // Note that dy/dr = 2w/(w-e)^2 > 0
     // and dy/dw = -2r/(w-r)^2, so if r<0 we need to under-approximate w
 
-    if(std::isnan(x)) { return x; }
-    if(x==std::numeric_limits<double>::infinity()) { return x; }
-    if(x==-std::numeric_limits<double>::infinity()) { return 0.0; }
-    if(x==0.0) { return 1.0; }
-    double n=std::floor(x/_log2_approx+0.5);
-    volatile double r,s,t,w,y;
+    if (std::isnan(x)) {
+        return x;
+    }
+    if (x == std::numeric_limits<double>::infinity()) {
+        return x;
+    }
+    if (x == -std::numeric_limits<double>::infinity()) {
+        return 0.0;
+    }
+    if (x == 0.0) {
+        return 1.0;
+    }
+    double n = std::floor(x / _log2_approx + 0.5);
+    volatile double r, s, t, w, y;
     volatile double log2;
-    log2=(n>0.0) ? next_opp(_log2_approx) : next_rnd(_log2_approx);
-    r=x+(-n)*log2;
+    log2 = (n > 0.0) ? next_opp(_log2_approx) : next_rnd(_log2_approx);
+    r = x + (-n) * log2;
 
-
-    if(r<0) {
+    if (r < 0) {
         // Compute w by standard Horner's rule gives correct rounding since w is monotone increasing in s
-        s = r*r;
-        w = 1+horner_rnd(6,s,c);
-        //c[0] + s * (1./c[1] + s * (1./c[2] + s * (1./c[3] + s * (1./c[4] + s * (1./c[5] + s * (1./c[6]) ) ) ) ) );
+        s = r * r;
+        w = 1 + horner_rnd(6, s, c);
+        // c[0] + s * (1./c[1] + s * (1./c[2] + s * (1./c[3] + s * (1./c[4] + s * (1./c[5] + s * (1./c[6]) ) ) ) ) );
     } else {
         // Compute -w by standard Horner's rule gives opposite rounding since w is monotone increasing in s
-        s = (-r)*r; s=-s;
-        w = horner_opp(6,s,c);
-        w = -1-w; w=-w;
-        //w = -c[0] + s * (-1./c[1] + s * (-1./c[2] + s * (-1./c[3] + s * (-1./c[4] + s * (-1./c[5] + s * (-1./c[6]) ) ) ) ) );
-        //w=-w;
+        s = (-r) * r;
+        s = -s;
+        w = horner_opp(6, s, c);
+        w = -1 - w;
+        w = -w;
+        // w = -c[0] + s * (-1./c[1] + s * (-1./c[2] + s * (-1./c[3] + s * (-1./c[4] + s * (-1./c[5] + s * (-1./c[6]) ) ) ) ) );
+        // w=-w;
     }
 
-    t=r-w;
-    y=(w+r)/(-t);
+    t = r - w;
+    y = (w + r) / (-t);
 
-
-    long int m=static_cast<long int>(n);
+    long int m = static_cast<long int>(n);
     Int e;
-    volatile double z=frexp(y,&e);
-    z=ldexp(z,m+e);
+    volatile double z = frexp(y, &e);
+    z = ldexp(z, m + e);
     return z;
 }
-
-
-
 
 namespace {
 
@@ -218,182 +258,179 @@ struct TanhFixedInterval {
     BigUnsigned upper;
 };
 
-bool tanh_any_bits_below(BigUnsigned const& value,std::size_t limit) noexcept
-{
-    return BigUnsigned::any_bits_below(value.limbs(),limit);
+bool tanh_any_bits_below(const BigUnsigned& value, std::size_t limit) noexcept {
+    return BigUnsigned::any_bits_below(value.limbs(), limit);
 }
 
-BigUnsigned tanh_ceil_shift_right(BigUnsigned const& value,std::size_t shift)
-{
-    BigUnsigned quotient=shift_right(value,shift);
-    if(tanh_any_bits_below(value,shift)) {
-        quotient=add(quotient,BigUnsigned(1u));
+BigUnsigned tanh_ceil_shift_right(const BigUnsigned& value, std::size_t shift) {
+    BigUnsigned quotient = shift_right(value, shift);
+    if (tanh_any_bits_below(value, shift)) {
+        quotient = add(quotient, BigUnsigned(1u));
     }
     return quotient;
 }
 
-BigUnsigned tanh_ceil_div_limb(BigUnsigned const& value,BigUnsigned::Limb divisor)
-{
-    auto [quotient,remainder]=divrem_limb(value,divisor);
-    if(remainder!=0u) quotient=add(quotient,BigUnsigned(1u));
+BigUnsigned tanh_ceil_div_limb(const BigUnsigned& value, BigUnsigned::Limb divisor) {
+    auto [quotient, remainder] = divrem_limb(value, divisor);
+    if (remainder != 0u)
+        quotient = add(quotient, BigUnsigned(1u));
     return quotient;
 }
 
-TanhFixedInterval tanh_next_exp_term(TanhFixedInterval const& term,
-                                     BigUnsigned const& argument,
+TanhFixedInterval tanh_next_exp_term(const TanhFixedInterval& term,
+                                     const BigUnsigned& argument,
                                      std::size_t work,
-                                     BigUnsigned::Limb divisor)
-{
-    BigUnsigned lower=shift_right(mul(term.lower,argument),work);
-    BigUnsigned upper=tanh_ceil_shift_right(mul(term.upper,argument),work);
-    auto [lower_quotient,lower_remainder]=divrem_limb(lower,divisor);
+                                     BigUnsigned::Limb divisor) {
+    BigUnsigned lower = shift_right(mul(term.lower, argument), work);
+    BigUnsigned upper = tanh_ceil_shift_right(mul(term.upper, argument), work);
+    auto [lower_quotient, lower_remainder] = divrem_limb(lower, divisor);
     (void)lower_remainder;
-    return {std::move(lower_quotient),tanh_ceil_div_limb(upper,divisor)};
+    return {std::move(lower_quotient), tanh_ceil_div_limb(upper, divisor)};
 }
 
-TanhFixedInterval tanh_square_fixed(TanhFixedInterval const& value,
-                                    std::size_t work)
-{
-    return {shift_right(square(value.lower),work),
-            tanh_ceil_shift_right(square(value.upper),work)};
+TanhFixedInterval tanh_square_fixed(const TanhFixedInterval& value,
+                                    std::size_t work) {
+    return {shift_right(square(value.lower), work),
+            tanh_ceil_shift_right(square(value.upper), work)};
 }
 
-BigUnsigned tanh_ceil_div_scaled(BigUnsigned const& numerator,
-                                 BigUnsigned const& denominator,
-                                 std::size_t work)
-{
-    return Detail::scaled_unsigned_quotient(numerator,denominator,work,true);
+BigUnsigned tanh_ceil_div_scaled(const BigUnsigned& numerator,
+                                 const BigUnsigned& denominator,
+                                 std::size_t work) {
+    return Detail::scaled_unsigned_quotient(numerator, denominator, work, true);
 }
 
 // Rigorous fixed-point enclosure for tanh(x), x in [2^-28,20).
 // Write z=x/128, enclose exp(z) by its positive Taylor series, then
 // square eight times to obtain exp(2*x). All lower endpoints round down
 // and all upper endpoints round up in integer arithmetic.
-TanhFixedInterval tanh_fixed_interval(double x,std::size_t work)
-{
+TanhFixedInterval tanh_fixed_interval(double x, std::size_t work) {
     int exponent;
-    const double fraction=std::frexp(x,&exponent);
-    const auto significand=static_cast<BigUnsigned::Limb>(std::ldexp(fraction,53));
+    const double fraction = std::frexp(x, &exponent);
+    const auto significand = static_cast<BigUnsigned::Limb>(std::ldexp(fraction, 53));
     // x is in [2^-28,20), hence -27<=exponent<=5. The caller starts
     // work at 96 and only increases it; unsigned subtraction is exact.
-    const std::size_t shift=work-static_cast<std::size_t>(60-exponent);
+    const std::size_t shift = work - static_cast<std::size_t>(60 - exponent);
 
-    const BigUnsigned one=shift_left(BigUnsigned(1u),work);
-    const BigUnsigned argument=shift_left(BigUnsigned(significand),shift);
-    TanhFixedInterval term{one,one};
-    TanhFixedInterval exponential{one,one};
+    const BigUnsigned one = shift_left(BigUnsigned(1u), work);
+    const BigUnsigned argument = shift_left(BigUnsigned(significand), shift);
+    TanhFixedInterval term{one, one};
+    TanhFixedInterval exponential{one, one};
 
     // z=x/128<1/4, so each upper term is at most ceil(previous/4).
     // Starting at 2^work, at most ceil(work/2) steps reach one unit.
     // Thus k fits a 64-bit limb on supported size_t<=64-bit targets;
     // no arbitrary Taylor iteration cap is needed.
-    for(BigUnsigned::Limb k=1u;;++k) {
-        term=tanh_next_exp_term(term,argument,work,k);
-        exponential.lower=add(exponential.lower,term.lower);
-        exponential.upper=add(exponential.upper,term.upper);
+    for (BigUnsigned::Limb k = 1u;; ++k) {
+        term = tanh_next_exp_term(term, argument, work, k);
+        exponential.lower = add(exponential.lower, term.lower);
+        exponential.upper = add(exponential.upper, term.upper);
         // Here z<=5/32. Once a complete term is at most one fixed-point
         // unit, all remaining positive Taylor terms total less than two.
-        if(term.upper.bit_length()<=1u) {
-            exponential.upper=add(exponential.upper,BigUnsigned(2u));
+        if (term.upper.bit_length() <= 1u) {
+            exponential.upper = add(exponential.upper, BigUnsigned(2u));
             break;
         }
     }
 
-    for(unsigned i=0u;i<8u;++i) {
-        exponential=tanh_square_fixed(exponential,work);
+    for (unsigned i = 0u; i < 8u; ++i) {
+        exponential = tanh_square_fixed(exponential, work);
     }
 
-    const BigUnsigned lower_numerator=sub(exponential.lower,one);
-    const BigUnsigned upper_numerator=sub(exponential.upper,one);
-    const BigUnsigned lower_denominator=add(exponential.lower,one);
-    const BigUnsigned upper_denominator=add(exponential.upper,one);
+    const BigUnsigned lower_numerator = sub(exponential.lower, one);
+    const BigUnsigned upper_numerator = sub(exponential.upper, one);
+    const BigUnsigned lower_denominator = add(exponential.lower, one);
+    const BigUnsigned upper_denominator = add(exponential.upper, one);
 
     return {
-        quot(shift_left(lower_numerator,work),lower_denominator),
-        tanh_ceil_div_scaled(upper_numerator,upper_denominator,work)
-    };
+        quot(shift_left(lower_numerator, work), lower_denominator),
+        tanh_ceil_div_scaled(upper_numerator, upper_denominator, work)};
 }
 
-double tanh_round_fixed_positive(BigUnsigned const& value,std::size_t work,
-                                 rounding_mode_t mode)
-{
+double tanh_round_fixed_positive(const BigUnsigned& value, std::size_t work,
+                                 rounding_mode_t mode) {
     // The lower exponential starts at least at 1+z; each of its eight
     // fixed-point squares is at least 1+twice the previous increment.
     // Hence the lower tanh endpoint is at least floor(2^work*x/(1+x)),
     // which is >=2^(work-29) for x>=2^-28. Both endpoints therefore have
     // at least work-28>=68 bits; zero, short and unshifted cases cannot
     // reach this private normal-binary64 converter.
-    const std::size_t width=value.bit_length();
-    const std::size_t shift=width-53u;
-    BigUnsigned retained=shift_right(value,shift);
-    bool increment=false;
-    if(mode==ROUND_TO_NEAREST) {
-        increment=Detail::nearest_even_binary_increment(value.limbs(),shift,
-            (retained.limb(0u)&1u)!=0u);
-    } else if(mode==ROUND_UPWARD) {
-        increment=tanh_any_bits_below(value,shift);
+    const std::size_t width = value.bit_length();
+    const std::size_t shift = width - 53u;
+    BigUnsigned retained = shift_right(value, shift);
+    bool increment = false;
+    if (mode == ROUND_TO_NEAREST) {
+        increment = Detail::nearest_even_binary_increment(value.limbs(), shift,
+                                                          (retained.limb(0u) & 1u) != 0u);
+    } else if (mode == ROUND_UPWARD) {
+        increment = tanh_any_bits_below(value, shift);
     }
-    if(increment) retained=add(retained,BigUnsigned(1u));
+    if (increment)
+        retained = add(retained, BigUnsigned(1u));
 
     // Endpoints are <=2^work, so width-work lies in [-28,1]. Form
     // the small difference before narrowing, even at large work scales.
-    const int difference=width>=work ? static_cast<int>(width-work)
-                                    : -static_cast<int>(work-width);
-    return std::ldexp(static_cast<double>(retained.limb(0u)),difference-53);
+    const int difference = width >= work ? static_cast<int>(width - work)
+                                         : -static_cast<int>(work - width);
+    return std::ldexp(static_cast<double>(retained.limb(0u)), difference - 53);
 }
 
-double tanh_positive_rnd(double x,rounding_mode_t mode)
-{
-    if(mode==ROUND_TOWARD_ZERO) mode=ROUND_DOWNWARD;
+double tanh_positive_rnd(double x, rounding_mode_t mode) {
+    if (mode == ROUND_TOWARD_ZERO)
+        mode = ROUND_DOWNWARD;
 
     // For sufficiently small positive binary64 x,
     // 0 < x-tanh(x) < x^3 lies below half the spacing beneath x.
-    if(x<0x1p-28) {
-        return mode==ROUND_DOWNWARD ? std::nextafter(x,0.0) : x;
+    if (x < 0x1p-28) {
+        return mode == ROUND_DOWNWARD ? std::nextafter(x, 0.0) : x;
     }
 
     // For x>=20, 0 < 1-tanh(x) < 2*exp(-40) < 2^-53.
     // Hence the directed lower result is predecessor(1), while nearest
     // and upward round to 1.
-    if(x>=20.0) {
-        return mode==ROUND_DOWNWARD ? std::nextafter(1.0,0.0) : 1.0;
+    if (x >= 20.0) {
+        return mode == ROUND_DOWNWARD ? std::nextafter(1.0, 0.0) : 1.0;
     }
 
     // Ziv refinement: the exact value is accepted only when both rigorous
     // fixed-point endpoints round to the same binary64 result.
-    for(std::size_t work=96u;;) {
-        const auto enclosure=tanh_fixed_interval(x,work);
-        const double lower=tanh_round_fixed_positive(enclosure.lower,work,mode);
-        const double upper=tanh_round_fixed_positive(enclosure.upper,work,mode);
-        if(lower==upper) return lower;
-        work=Detail::checked_unsigned_add(work,std::size_t{64u},
-            "tanh certified precision overflow");
+    for (std::size_t work = 96u;;) {
+        const auto enclosure = tanh_fixed_interval(x, work);
+        const double lower = tanh_round_fixed_positive(enclosure.lower, work, mode);
+        const double upper = tanh_round_fixed_positive(enclosure.upper, work, mode);
+        if (lower == upper)
+            return lower;
+        work = Detail::checked_unsigned_add(work, std::size_t{64u},
+                                            "tanh certified precision overflow");
     }
 }
 
 } // namespace
 
-double tanh_rnd(double x)
-{
-    if(std::isnan(x) || x==0.0) return x;
-    if(x==std::numeric_limits<double>::infinity()) return 1.0;
-    if(x==-std::numeric_limits<double>::infinity()) return -1.0;
+double tanh_rnd(double x) {
+    if (std::isnan(x) || x == 0.0)
+        return x;
+    if (x == std::numeric_limits<double>::infinity())
+        return 1.0;
+    if (x == -std::numeric_limits<double>::infinity())
+        return -1.0;
 
-    const rounding_mode_t mode=get_builtin_rounding_mode();
-    if(x>0.0) return tanh_positive_rnd(x,mode);
+    const rounding_mode_t mode = get_builtin_rounding_mode();
+    if (x > 0.0)
+        return tanh_positive_rnd(x, mode);
 
-    rounding_mode_t positive_mode=mode;
-    if(mode==ROUND_DOWNWARD) positive_mode=ROUND_UPWARD;
-    else if(mode==ROUND_UPWARD || mode==ROUND_TOWARD_ZERO)
-        positive_mode=ROUND_DOWNWARD;
-    return -tanh_positive_rnd(-x,positive_mode);
+    rounding_mode_t positive_mode = mode;
+    if (mode == ROUND_DOWNWARD)
+        positive_mode = ROUND_UPWARD;
+    else if (mode == ROUND_UPWARD || mode == ROUND_TOWARD_ZERO)
+        positive_mode = ROUND_DOWNWARD;
+    return -tanh_positive_rnd(-x, positive_mode);
 }
 
-
 double log_rnd(double x) {
-    static const long long int c[12]={ 1LL, 3LL, 5LL, 7LL, 9LL, 11LL, 13LL, 15LL, 17LL, 19LL, 21LL, 23LL };
+    static const long long int c[12] = {1LL, 3LL, 5LL, 7LL, 9LL, 11LL, 13LL, 15LL, 17LL, 19LL, 21LL, 23LL};
 
-    ARIADNE_PRECONDITION(x>=0.0);
+    ARIADNE_PRECONDITION(x >= 0.0);
     // Write x=2^ny with 1/sqrt(2) <= y <= sqrt(2)
     // Write log(y)=log(1+z)-log(1-z) where z=(y-1)/(y+1) and y=(1+z)/(1-z),
     // Note that y is monotone increasing in z (and vice-versa)
@@ -405,247 +442,324 @@ double log_rnd(double x) {
     // Note that if z<0 (corresponding to y<1) then we need to use
     // opposite rounding to compute s and w.
 
-    if(x==0.0) { return -std::numeric_limits<double>::infinity(); }
-    if(x==1.0) { return 0.0; }
-
-    Int n;
-    volatile double y,z,s,t,w,ly;
-
-    y=frexp(x,&n);
-    if(y<_sqrt2_approx) { y=y*2; --n; }
-
-    if(y>=1.0) {
-        t=-1-y;
-        z=(y-1)/(-t);
-        s=z*z;
-        w=horner_rnd(10,s,c);
-        ly=2*z*w;
-    } else {
-        t=1-y;
-        z=(-t)/(1+y);
-        s=(-z)*z;
-        s=-s;
-        w=horner_opp(10,s,c);
-        ly=2*z*w;
+    if (x == 0.0) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    if (x == 1.0) {
+        return 0.0;
     }
 
-    volatile double log2rnd = (n>=0) ? next_rnd(_log2_approx) : next_opp(_log2_approx);
-    return log2rnd*n+ly;
+    Int n;
+    volatile double y, z, s, t, w, ly;
+
+    y = frexp(x, &n);
+    if (y < _sqrt2_approx) {
+        y = y * 2;
+        --n;
+    }
+
+    if (y >= 1.0) {
+        t = -1 - y;
+        z = (y - 1) / (-t);
+        s = z * z;
+        w = horner_rnd(10, s, c);
+        ly = 2 * z * w;
+    } else {
+        t = 1 - y;
+        z = (-t) / (1 + y);
+        s = (-z) * z;
+        s = -s;
+        w = horner_opp(10, s, c);
+        ly = 2 * z * w;
+    }
+
+    volatile double log2rnd = (n >= 0) ? next_rnd(_log2_approx) : next_opp(_log2_approx);
+    return log2rnd * n + ly;
 }
 
 double pi_rnd() {
-    switch(get_builtin_rounding_mode()) {
-        case ROUND_TO_NEAREST: return _pi_approx;
-        case ROUND_DOWNWARD: return _pi_down;
-        case ROUND_UPWARD: return _pi_up;
-        default: return _pi_approx;
+    switch (get_builtin_rounding_mode()) {
+        case ROUND_TO_NEAREST:
+            return _pi_approx;
+        case ROUND_DOWNWARD:
+            return _pi_down;
+        case ROUND_UPWARD:
+            return _pi_up;
+        default:
+            return _pi_approx;
     }
 }
 
 double pi_opp() {
-    switch(get_builtin_rounding_mode()) {
-        case ROUND_TO_NEAREST: return _pi_approx;
-        case ROUND_DOWNWARD: return _pi_up;
-        case ROUND_UPWARD: return _pi_down;
-        default: return _pi_approx;
+    switch (get_builtin_rounding_mode()) {
+        case ROUND_TO_NEAREST:
+            return _pi_approx;
+        case ROUND_DOWNWARD:
+            return _pi_up;
+        case ROUND_UPWARD:
+            return _pi_down;
+        default:
+            return _pi_approx;
     }
 }
 
 double sin_rnd(double x) {
-    if(!std::isfinite(x)) { return std::numeric_limits<double>::quiet_NaN(); }
-    volatile double two_pi_rnd=2*pi_rnd();
-    volatile double two_pi_opp=2*pi_opp();
+    if (!std::isfinite(x)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    volatile double two_pi_rnd = 2 * pi_rnd();
+    volatile double two_pi_opp = 2 * pi_opp();
 
-    volatile double half_pi_rnd=two_pi_rnd/4;
-    volatile double half_pi_opp=two_pi_opp/4;
+    volatile double half_pi_rnd = two_pi_rnd / 4;
+    volatile double half_pi_opp = two_pi_opp / 4;
 
-    Int q = (long int)(std::floor(x/_quarter_pi_approx)) % 8;
-    if(q<-4) { q+=8; } if(q>=4) { q-=8; }
-    volatile double n=-std::floor(x/_two_pi_approx+0.5);
+    Int q = (long int)(std::floor(x / _quarter_pi_approx)) % 8;
+    if (q < -4) {
+        q += 8;
+    }
+    if (q >= 4) {
+        q -= 8;
+    }
+    volatile double n = -std::floor(x / _two_pi_approx + 0.5);
 
-    volatile double y,w;
+    volatile double y, w;
 
     // Set to true if sin is decreasing so we want opposite rounding
-    Bool want_opposite=(q<-2||q>=2);
+    Bool want_opposite = (q < -2 || q >= 2);
     // if n is negative then we need to switch rounding of two_pi
-    volatile double two_pi_corr=((n>=0.0) ^ want_opposite) ? two_pi_rnd : two_pi_opp;
+    volatile double two_pi_corr = ((n >= 0.0) ^ want_opposite) ? two_pi_rnd : two_pi_opp;
 
     // Scale onto interval from -pi to pi
-    if(want_opposite) { y=-x+(-n)*(two_pi_corr); y=-y; } else { y=x+n*two_pi_corr; }
+    if (want_opposite) {
+        y = -x + (-n) * (two_pi_corr);
+        y = -y;
+    } else {
+        y = x + n * two_pi_corr;
+    }
 
-
-    if(q==-4) { w = -y - 2*half_pi_opp; w=-w; return neg_sin_rnd_series(w); }
-    if(q==-3) { w = -y - 1*half_pi_rnd; w=+w; return neg_cos_rnd_series(w); }
-    if(q==-2) { w = +y + 1*half_pi_rnd; w=+w; return neg_cos_rnd_series(w); }
-    if(q==-1) { w = +y + 0*half_pi_opp; w=-w; return neg_sin_rnd_series(w); }
-    if(q== 0) { w = +y + 0*half_pi_opp; w=+w; return pos_sin_rnd_series(w); }
-    if(q==+1) { w = +y - 1*half_pi_opp; w=-w; return pos_cos_rnd_series(w); }
-    if(q==+2) { w = -y + 1*half_pi_rnd; w=-w; return pos_cos_rnd_series(w); }
-    w = -y + 2*half_pi_rnd; w=+w;
+    if (q == -4) {
+        w = -y - 2 * half_pi_opp;
+        w = -w;
+        return neg_sin_rnd_series(w);
+    }
+    if (q == -3) {
+        w = -y - 1 * half_pi_rnd;
+        w = +w;
+        return neg_cos_rnd_series(w);
+    }
+    if (q == -2) {
+        w = +y + 1 * half_pi_rnd;
+        w = +w;
+        return neg_cos_rnd_series(w);
+    }
+    if (q == -1) {
+        w = +y + 0 * half_pi_opp;
+        w = -w;
+        return neg_sin_rnd_series(w);
+    }
+    if (q == 0) {
+        w = +y + 0 * half_pi_opp;
+        w = +w;
+        return pos_sin_rnd_series(w);
+    }
+    if (q == +1) {
+        w = +y - 1 * half_pi_opp;
+        w = -w;
+        return pos_cos_rnd_series(w);
+    }
+    if (q == +2) {
+        w = -y + 1 * half_pi_rnd;
+        w = -w;
+        return pos_cos_rnd_series(w);
+    }
+    w = -y + 2 * half_pi_rnd;
+    w = +w;
     return pos_sin_rnd_series(w);
 }
 
 double nul_rnd(double) { return 0.0; }
 double pos_rnd(double x) { return +x; }
 double neg_rnd(double x) { return -x; }
-double hlf_rnd(double x) { return x/2; }
-double sqr_rnd(double x) { return (volatile double&)x*(volatile double&)x; }
-double rec_rnd(double x) { return 1.0/(volatile double&)x; }
-double add_rnd(double x1, double x2) { return (volatile double&)x1+(volatile double&)x2; }
-double sub_rnd(double x1, double x2) { return (volatile double&)x1-(volatile double&)x2; }
-double mul_rnd(double x1, double x2) { return (volatile double&)x1*(volatile double&)x2; }
-double div_rnd(double x1, double x2) { return (volatile double&)x1/(volatile double&)x2; }
+double hlf_rnd(double x) { return x / 2; }
+double sqr_rnd(double x) { return (volatile double&)x * (volatile double&)x; }
+double rec_rnd(double x) { return 1.0 / (volatile double&)x; }
+double add_rnd(double x1, double x2) { return (volatile double&)x1 + (volatile double&)x2; }
+double sub_rnd(double x1, double x2) { return (volatile double&)x1 - (volatile double&)x2; }
+double mul_rnd(double x1, double x2) { return (volatile double&)x1 * (volatile double&)x2; }
+double div_rnd(double x1, double x2) { return (volatile double&)x1 / (volatile double&)x2; }
 
 double abs_rnd(double x) { return std::abs(x); }
-double max_rnd(double x1, double x2) { return std::max(x1,x2); }
-double min_rnd(double x1, double x2) { return std::min(x1,x2); }
+double max_rnd(double x1, double x2) { return std::max(x1, x2); }
+double min_rnd(double x1, double x2) { return std::min(x1, x2); }
 
-double add_opp(double x, double y) { volatile double t=(-x)-y; return -t; }
-double sub_opp(double x, double y) { volatile double t=(-x)+y; return -t; }
-double mul_opp(double x, double y) { volatile double t=(-x)*y; return -t; }
-double div_opp(double x, double y) { volatile double t=(-x)/y; return -t; }
+double add_opp(double x, double y) {
+    volatile double t = (-x) - y;
+    return -t;
+}
+double sub_opp(double x, double y) {
+    volatile double t = (-x) + y;
+    return -t;
+}
+double mul_opp(double x, double y) {
+    volatile double t = (-x) * y;
+    return -t;
+}
+double div_opp(double x, double y) {
+    volatile double t = (-x) / y;
+    return -t;
+}
 
-double neg_rec_rnd(double x) { return (-1.0)/(volatile double&)x; }
-double neg_rec_opp(double x) { volatile double t=1.0/x; return -t; }
-
+double neg_rec_rnd(double x) { return (-1.0) / (volatile double&)x; }
+double neg_rec_opp(double x) {
+    volatile double t = 1.0 / x;
+    return -t;
+}
 
 double cos_rnd(double x) {
-    if(!std::isfinite(x)) { return std::numeric_limits<double>::quiet_NaN(); }
-    const double pi_rnd=Ariadne::pi_rnd();
-    const double pi_opp=Ariadne::pi_opp();
+    if (!std::isfinite(x)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    const double pi_rnd = Ariadne::pi_rnd();
+    const double pi_opp = Ariadne::pi_opp();
 
-    if(x==0.0) { return 1.0; }
+    if (x == 0.0) {
+        return 1.0;
+    }
 
     // Compute a constant n such that n*pi<x<(n+1)*pi
-    long int n_rnd=(long int)(std::floor(div_rnd(x,pi_opp)));
-    long int n_opp=(long int)(std::floor(div_opp(x,pi_rnd)));
+    long int n_rnd = (long int)(std::floor(div_rnd(x, pi_opp)));
+    long int n_opp = (long int)(std::floor(div_opp(x, pi_rnd)));
 
-    if(n_rnd!=n_opp) {
-        if(n_rnd>n_opp) {
+    if (n_rnd != n_opp) {
+        if (n_rnd > n_opp) {
             // Rounding upwards
-            if(n_rnd%2==0) { return 1.0; }
-            volatile double y1=sub_rnd(pi_rnd*n_rnd,x);
-            volatile double y2=sub_rnd(x,pi_opp*n_rnd);
-            volatile double w=std::max(y1,y2);
+            if (n_rnd % 2 == 0) {
+                return 1.0;
+            }
+            volatile double y1 = sub_rnd(pi_rnd * n_rnd, x);
+            volatile double y2 = sub_rnd(x, pi_opp * n_rnd);
+            volatile double w = std::max(y1, y2);
             return neg_cos_rnd_series(w);
         } else {
             // Rounding downwards
-            if(n_rnd%2==0) { return -1.0; }
-            volatile double y1=sub_opp(pi_opp*n_opp,x);
-            volatile double y2=sub_opp(x,pi_rnd*n_opp);
-            volatile double w=std::max(y1,y2);
+            if (n_rnd % 2 == 0) {
+                return -1.0;
+            }
+            volatile double y1 = sub_opp(pi_opp * n_opp, x);
+            volatile double y2 = sub_opp(x, pi_rnd * n_opp);
+            volatile double w = std::max(y1, y2);
             return pos_cos_rnd_series(w);
         }
     }
 
-
     // Set y=x-n*pi (with opposite rounding) if n is even
     // and to (n+1)*pi-x (with opposite rounding) if n is odd
     volatile double y;
-    if(n_rnd%2==0) {
-        y=sub_opp(x,mul_rnd(n_rnd,pi_rnd));
+    if (n_rnd % 2 == 0) {
+        y = sub_opp(x, mul_rnd(n_rnd, pi_rnd));
     } else {
-        y=sub_opp(mul_opp(n_rnd+1,pi_opp),x);
+        y = sub_opp(mul_opp(n_rnd + 1, pi_opp), x);
     }
 
-    Int q = (long int)(std::floor(y/_quarter_pi_approx)) % 8;
+    Int q = (long int)(std::floor(y / _quarter_pi_approx)) % 8;
 
     volatile double w;
-    if(q==0) {
-        w=y;
+    if (q == 0) {
+        w = y;
         return pos_cos_rnd_series(w);
     }
-    if(q<=2) {
-        w=sub_rnd(pi_rnd/2,y);
-        if(w>=0.0) { return pos_sin_rnd_series(w); }
+    if (q <= 2) {
+        w = sub_rnd(pi_rnd / 2, y);
+        if (w >= 0.0) {
+            return pos_sin_rnd_series(w);
+        }
         return neg_sin_rnd_series(-w);
     }
-    w=sub_opp(pi_opp,y);
+    w = sub_opp(pi_opp, y);
     return neg_cos_rnd_series(w);
 }
 
-
 double pos_sin_rnd_series(double x) {
-    static const long long int c[9]={ 1LL, -6LL, 120LL, -5040LL, 362880LL, -39916800LL, 6227020800LL, -1307674368000LL, 355687428096000LL };
+    static const long long int c[9] = {1LL, -6LL, 120LL, -5040LL, 362880LL, -39916800LL, 6227020800LL, -1307674368000LL, 355687428096000LL};
 
     // Compute sin(x) by Taylor series
-    volatile double s,w,y;
+    volatile double s, w, y;
     // TODO: Use Horner's scheme. Need a different algorithm for the case that x is negative
-    s=x*x; w=horner_rnd(8,s,c); y=x*w;
-
+    s = x * x;
+    w = horner_rnd(8, s, c);
+    y = x * w;
 
     return y;
 }
 
 double neg_sin_rnd_series(double x) {
-    static const long long int c[9]={ 1LL, -6LL, 120LL, -5040LL, 362880LL, -39916800LL, 6227020800LL, -1307674368000LL, 355687428096000LL };
+    static const long long int c[9] = {1LL, -6LL, 120LL, -5040LL, 362880LL, -39916800LL, 6227020800LL, -1307674368000LL, 355687428096000LL};
 
     // Compute sin(x) by Taylor series
-    volatile double s,w,y;
+    volatile double s, w, y;
     // TODO: Use Horner's scheme. Need a different algorithm for the case that x is negative
-    s=(-x)*x; s=-s; w=horner_opp(8,s,c); y=x*(-w);
-
+    s = (-x) * x;
+    s = -s;
+    w = horner_opp(8, s, c);
+    y = x * (-w);
 
     return y;
 }
 
-
 double pos_cos_rnd_series(double x) {
-
-    static const long long int c[9]={ 1LL, -2LL, 24LL, -720LL, 40320LL, -3628800LL, 479001600LL, -87178291200LL, 20922789888000LL };
+    static const long long int c[9] = {1LL, -2LL, 24LL, -720LL, 40320LL, -3628800LL, 479001600LL, -87178291200LL, 20922789888000LL};
 
     // Compute cos(x) by Taylor series. Since cos(x) is decreasing in x^2,
     // we need to use opposite rounding for the computation of x^2
 
-    volatile double s,y;
-    s=(-x)*x;
-    s=-s;
-    y=0.0;
-    y=horner_rnd(8,s,c);
+    volatile double s, y;
+    s = (-x) * x;
+    s = -s;
+    y = 0.0;
+    y = horner_rnd(8, s, c);
     return y;
 }
 
 double neg_cos_rnd_series(double x) {
-
-    static const long long int c[9]={ 1LL, -2LL, 24LL, -720LL, 40320LL, -3628800LL, 479001600LL, -87178291200LL, 20922789888000LL };
-    volatile double s,y;
-    s=x*x;
-    y=0.0;
-    y=horner_opp(8,s,c);
+    static const long long int c[9] = {1LL, -2LL, 24LL, -720LL, 40320LL, -3628800LL, 479001600LL, -87178291200LL, 20922789888000LL};
+    volatile double s, y;
+    s = x * x;
+    y = 0.0;
+    y = horner_opp(8, s, c);
     return -y;
 }
 
 double tan_rnd(double x) {
-    if(!std::isfinite(x)) { return std::numeric_limits<double>::quiet_NaN(); }
+    if (!std::isfinite(x)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
 
-    volatile double y,q,r,s,t,u,v;
+    volatile double y, q, r, s, t, u, v;
 
-    double n=std::floor(x/_pi_approx+0.5);
+    double n = std::floor(x / _pi_approx + 0.5);
 
-    volatile double pi_corr=(n>=0) ? next_opp(_pi_approx) : next_rnd(_pi_approx);
-    y=x-n*pi_corr;
-
-
+    volatile double pi_corr = (n >= 0) ? next_opp(_pi_approx) : next_rnd(_pi_approx);
+    y = x - n * pi_corr;
 
     // Use the double-angle formula tan(2x) = tan(x)/(1-tan^2(x))
     // Note that the function y/(1-y^2) is monotone increasing for |y|<1
     // To get enough accuracy, we use the double angle formula twice,
     // ensuring that |x|<=pi/8.
 
-    q=y/4;
-    r=tan_rnd_series(q);
-    if(y>=0) {
-        u=r*r-1;
-        s=(2*r)/(-u);
-        v=s*s-1;
-        t=(2*s)/(-v);
+    q = y / 4;
+    r = tan_rnd_series(q);
+    if (y >= 0) {
+        u = r * r - 1;
+        s = (2 * r) / (-u);
+        v = s * s - 1;
+        t = (2 * s) / (-v);
     } else {
-        u=(-r)*r;
-        u=1+u;
-        s=(2*r)/u;
-        v=(-s)*s;
-        v=1+v;
-        t=(2*s)/v;
+        u = (-r) * r;
+        u = 1 + u;
+        s = (2 * r) / u;
+        v = (-s) * s;
+        v = 1 + v;
+        t = (2 * s) / v;
     }
     return t;
 }
@@ -654,38 +768,38 @@ double tan_rnd_series(double x) {
     // Need |x|<=pi/8
 
     // Numerators of Taylor coefficients
-    static const int64_t cn[13]={
+    static const int64_t cn[13] = {
         1LL, 1LL, 2LL, 17LL, 62LL, 1382LL, 21844LL, 929569LL, 6404582LL, 443861162LL,
-        18888466084LL, 113927491862LL, 58870668456604LL };
+        18888466084LL, 113927491862LL, 58870668456604LL};
 
     // Denominators of Taylor coefficients
-    static const int64_t cd[13]={
+    static const int64_t cd[13] = {
         1LL, 3LL, 15LL, 315LL, 2835LL, 155925LL, 6081075LL, 638512875LL, 10854718875LL, 1856156927625LL,
-        194896477400625LL, 2900518163668125LL, 3698160658676859375LL };
-
+        194896477400625LL, 2900518163668125LL, 3698160658676859375LL};
 
     // To get enough accuracy, we need |x|<pi/8
     // since we can't store the rational coefficients exactly.
     // Note that we could in principle use approximations to the
     // coesfficients, but this goes against the "spirit" of the code.
 
-    volatile double c,s,w,r;
-    if(x>=0) {
-        s=x*x;
-        w=double(cn[12])/cd[12];
-        for(Int i=11; i>=0; --i) {
-            c=double(cn[i])/cd[i];
-            w=c+s*w;
+    volatile double c, s, w, r;
+    if (x >= 0) {
+        s = x * x;
+        w = double(cn[12]) / cd[12];
+        for (Int i = 11; i >= 0; --i) {
+            c = double(cn[i]) / cd[i];
+            w = c + s * w;
         }
-        r=x*w;
+        r = x * w;
     } else {
-        s=(-x)*x; s=-s;
-        w=double(-cn[12])/cd[12];
-        for(Int i=12; i>=0; --i) {
-            c=double(-cn[i])/cd[i];
-            w=c+s*w;
+        s = (-x) * x;
+        s = -s;
+        w = double(-cn[12]) / cd[12];
+        for (Int i = 12; i >= 0; --i) {
+            c = double(-cn[i]) / cd[i];
+            w = c + s * w;
         }
-        r=x*(-w);
+        r = x * (-w);
     }
     return r;
 }
@@ -693,18 +807,18 @@ double tan_rnd_series(double x) {
 double atan_rnd_series(double x) {
     // atan(x) = \sum_{n=0}^{\infty} (-1)^n/(2n+1) x^{2n+1}
     // Relative trunctation error less than machine epsilon if |x|<=0.375 (this is not a tight bound)
-    ARIADNE_PRECONDITION(std::abs(x)<0.5);
-    static const long long int c[19]={ 1LL, -3LL, 5LL, -7LL, 9LL, -11LL, 13LL, -15LL, 17LL, -19LL, 21LL, -23LL, 25LL, -27LL, 29LL, -31LL, 33LL, -35LL, 37LL };
+    ARIADNE_PRECONDITION(std::abs(x) < 0.5);
+    static const long long int c[19] = {1LL, -3LL, 5LL, -7LL, 9LL, -11LL, 13LL, -15LL, 17LL, -19LL, 21LL, -23LL, 25LL, -27LL, 29LL, -31LL, 33LL, -35LL, 37LL};
 
-    volatile double s,w,r;
-    if(x>=0) {
-        s=mul_rnd(x,x);
-        w=horner_rnd(18,s,c);
-        r=x*w;
+    volatile double s, w, r;
+    if (x >= 0) {
+        s = mul_rnd(x, x);
+        w = horner_rnd(18, s, c);
+        r = x * w;
     } else {
-        s=mul_opp(x,x);
-        w=horner_opp(17,s,c);
-        r=x*w;
+        s = mul_opp(x, x);
+        w = horner_opp(17, s, c);
+        r = x * w;
     }
     return r;
 }
@@ -713,13 +827,16 @@ double atan_rnd(double x) {
     // Use odd symmetry for negative arguments.  Directed rounding reverses
     // under exact negation: an upper bound for atan(-x) is the negation of
     // a lower bound for atan(x), and conversely.
-    if (x<0.0) {
-        rounding_mode_t rnd=get_builtin_rounding_mode();
-        rounding_mode_t positive_rnd=rnd;
-        if (rnd==ROUND_UPWARD || rnd==ROUND_TOWARD_ZERO) { positive_rnd=ROUND_DOWNWARD; }
-        else if (rnd==ROUND_DOWNWARD) { positive_rnd=ROUND_UPWARD; }
+    if (x < 0.0) {
+        rounding_mode_t rnd = get_builtin_rounding_mode();
+        rounding_mode_t positive_rnd = rnd;
+        if (rnd == ROUND_UPWARD || rnd == ROUND_TOWARD_ZERO) {
+            positive_rnd = ROUND_DOWNWARD;
+        } else if (rnd == ROUND_DOWNWARD) {
+            positive_rnd = ROUND_UPWARD;
+        }
         set_builtin_rounding_mode(positive_rnd);
-        double r=-atan_rnd(-x);
+        double r = -atan_rnd(-x);
         set_builtin_rounding_mode(rnd);
         return r;
     }
@@ -738,25 +855,28 @@ double atan_rnd(double x) {
     // In practice, take c to be an exact value, and d rounded upward
 
     // Value to add to final series expansion
-    volatile double a=0.0;
+    volatile double a = 0.0;
 
     // 1<x<2+sqrt(3)  c=sqrt(3)
     // (x-c)/(1+c*x)
 
     // Change x to range [-1:+1]
-    if (x>1.0) { x=-1.0/x; a=pi_rnd()/2; }
+    if (x > 1.0) {
+        x = -1.0 / x;
+        a = pi_rnd() / 2;
+    }
 
     // Scale x to have |x|<pi/6~=0.26795 by shifting around c=1/sqrt(3)~=0.57735
     // Note that the exact value of atan(c) lies in the range pi_rnd()/6
     volatile double c = 0.577350269189625731058868041145615279674530029296875;
     volatile double d = 0.267949192431122751312244645305327139794826507568359375;
 
-    if (x>d) {
-        x=(x-c)/(-(-1.0+(-c)*x));
-        a=a+pi_rnd()/6;
-    } else if (x<-d) {
-        x=(x+c)/(1.0+(-c)*x); // Check rounding
-        a=a+(-pi_opp())/6;
+    if (x > d) {
+        x = (x - c) / (-(-1.0 + (-c) * x));
+        a = a + pi_rnd() / 6;
+    } else if (x < -d) {
+        x = (x + c) / (1.0 + (-c) * x); // Check rounding
+        a = a + (-pi_opp()) / 6;
     }
     return a + atan_rnd_series(x);
 }
@@ -766,20 +886,24 @@ double asin_rnd(double x) {
     // asin(x)=atan(x/sqrt(1-x*x))=atan(x*sqrt(1/(1-x*x)))
     // Handle the endpoints explicitly to avoid division by zero in the
     // transformation below.
-    if (x==1.0) { return pi_rnd()/2.0; }
-    if (x==-1.0) { return -pi_opp()/2.0; }
-    if (x>=0) {
+    if (x == 1.0) {
+        return pi_rnd() / 2.0;
+    }
+    if (x == -1.0) {
+        return -pi_opp() / 2.0;
+    }
+    if (x >= 0) {
         // y=atan(x*sqrt(v)), w=sqrt(v), v=-1/u, u=x^2-1
-        volatile double u=x*x-1.0;
-        volatile double v=(-1.0)/u;
-        volatile double w=sqrt_rnd(v);
-        return atan_rnd(x*w);
+        volatile double u = x * x - 1.0;
+        volatile double v = (-1.0) / u;
+        volatile double w = sqrt_rnd(v);
+        return atan_rnd(x * w);
     } else {
         // y=atan(x/w), w=sqrt(v), v=1+x*u, u=-x
-        volatile double u=-x;
-        volatile double v=1.0+x*u;
-        volatile double w=sqrt_rnd(v);
-        return atan_rnd(x/w);
+        volatile double u = -x;
+        volatile double v = 1.0 + x * u;
+        volatile double w = sqrt_rnd(v);
+        return atan_rnd(x / w);
     }
     // Alternatively, use Newton iteration
     // y=asin(x), sin(y)-x=0, y' = y-(sin(y)-x)/cos(y)=y+(sin(y)-x)/-cos(y)
@@ -787,9 +911,13 @@ double asin_rnd(double x) {
 }
 
 double acos_rnd(double x) {
-    if (x==1.0) { return 0.0; }
-    if (x==-1.0) { return pi_rnd(); }
-    return pi_rnd()/2.0+asin_rnd(-x);
+    if (x == 1.0) {
+        return 0.0;
+    }
+    if (x == -1.0) {
+        return pi_rnd();
+    }
+    return pi_rnd() / 2.0 + asin_rnd(-x);
 }
 
 } // namespace Ariadne

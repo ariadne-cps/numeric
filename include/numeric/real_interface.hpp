@@ -26,6 +26,7 @@
 #define ARIADNE_REAL_INTERFACE_HPP
 
 #include <iosfwd>
+
 #include "utility/typedefs.hpp"
 
 namespace Ariadne {
@@ -37,15 +38,16 @@ class Dyadic;
 
 class DoublePrecision;
 class MultiplePrecision;
-template<class... PRS> class Float;
-using FloatDP=Float<DoublePrecision>;
-using FloatMP=Float<MultiplePrecision>;
+template<class... PRS>
+class Float;
+using FloatDP = Float<DoublePrecision>;
+using FloatMP = Float<MultiplePrecision>;
 
-template<class F> class Bounds;
+template<class F>
+class Bounds;
 using DyadicBounds = Bounds<Dyadic>;
 using FloatDPBounds = Bounds<FloatDP>;
 using FloatMPBounds = Bounds<FloatMP>;
-
 
 class Real;
 
@@ -57,6 +59,7 @@ class RealInterface {
     virtual DyadicBounds _compute_get(Effort) const = 0;
     virtual FloatDPBounds _compute_get(Effort, DoublePrecision) const = 0;
     virtual FloatMPBounds _compute_get(Effort, MultiplePrecision) const = 0;
+
   public:
     virtual OutputStream& _write(OutputStream& os) const = 0;
 };
@@ -67,6 +70,7 @@ class ValidatedRealInterface {
     virtual DyadicBounds _get() const = 0;
     virtual FloatDPBounds _get(DoublePrecision) const = 0;
     virtual FloatMPBounds _get(MultiplePrecision) const = 0;
+
   public:
     virtual OutputStream& _write(OutputStream& os) const = 0;
 };

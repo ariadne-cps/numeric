@@ -26,52 +26,55 @@
  *  \brief
  */
 
-
-
 #ifndef ARIADNE_NUMBER_INTERFACE
 #define ARIADNE_NUMBER_INTERFACE
 
+#include "float.decl.hpp"
+#include "number.decl.hpp"
+#include "operators.hpp"
 #include "utility/clonable.hpp"
 #include "utility/writable.hpp"
 
-#include "number.decl.hpp"
-#include "float.decl.hpp"
-#include "operators.hpp"
-
 namespace Ariadne {
-
 
 /************ Number *********************************************************/
 
 class NumberInterface;
 class UnaryOperatorInterface;
-template<class... YS> struct Aware;
-template<class X> class NumberWrapper;
+template<class... YS>
+struct Aware;
+template<class X>
+class NumberWrapper;
 
-namespace Detail { class LogicalInterface; }
+namespace Detail {
+class LogicalInterface;
+}
 using Detail::LogicalInterface;
 
 class NumberInterface
-    : public virtual WritableInterface
-    , public virtual ClonableInterface
+    : public virtual WritableInterface,
+      public virtual ClonableInterface
 // Remove 'enable_shared_from_this' due to "relocation against undefined hidden symbol when making a shared object" error in g++
 //    , public std::enable_shared_from_this<NumberInterface>
 {
-    template<class X> friend class NumberWrapper;
+    template<class X>
+    friend class NumberWrapper;
     friend class Handle<NumberInterface>;
+
   public:
     virtual ~NumberInterface() = default;
+
   public:
     virtual NumberInterface* _copy() const = 0;
     virtual NumberInterface* _move() = 0;
 
     virtual NumberInterface* _apply(UnaryElementaryOperator op) const = 0;
-    virtual NumberInterface* _apply(BinaryElementaryOperator op, NumberInterface const* y) const = 0;
-    virtual NumberInterface* _rapply(BinaryElementaryOperator op, NumberInterface const* y) const = 0;
+    virtual NumberInterface* _apply(BinaryElementaryOperator op, const NumberInterface* y) const = 0;
+    virtual NumberInterface* _rapply(BinaryElementaryOperator op, const NumberInterface* y) const = 0;
     virtual NumberInterface* _apply(GradedElementaryOperator op, Int n) const = 0;
 
-    virtual LogicalInterface* _apply(BinaryComparisonOperator op, NumberInterface const* y) const = 0;
-    virtual LogicalInterface* _rapply(BinaryComparisonOperator op, NumberInterface const* y) const = 0;
+    virtual LogicalInterface* _apply(BinaryComparisonOperator op, const NumberInterface* y) const = 0;
+    virtual LogicalInterface* _rapply(BinaryComparisonOperator op, const NumberInterface* y) const = 0;
 
     virtual Rational _get_q() const = 0;
 
@@ -80,8 +83,6 @@ class NumberInterface
     virtual FloatDPUpperBound _get(UpperTag, DoublePrecision) const = 0;
     virtual FloatDPLowerBound _get(LowerTag, DoublePrecision) const = 0;
     virtual FloatDPApproximation _get(ApproximateTag, DoublePrecision) const = 0;
-
-
 
     virtual FloatMPDPBall _get(MetricTag, MultiplePrecision, DoublePrecision) const = 0;
     virtual FloatMPBall _get(MetricTag, MultiplePrecision, MultiplePrecision) const = 0;
@@ -101,9 +102,7 @@ class NumberInterface
 
     virtual ParadigmCode _paradigm() const = 0;
     virtual String _class_name() const = 0;
-
 };
-
 
 } // namespace Ariadne
 

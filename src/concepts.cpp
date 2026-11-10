@@ -23,23 +23,20 @@
  */
 
 #include "concepts.hpp"
+
 #include "archetypes.hpp"
-
 #include "builtin.hpp"
-#include "dyadic.hpp"
 #include "decimal.hpp"
-#include "rational.hpp"
-#include "real.hpp"
-
-#include "floatdp.hpp"
-#include "floatmp.hpp"
+#include "dyadic.hpp"
+#include "float_approximation.hpp"
 #include "float_ball.hpp"
 #include "float_bounds.hpp"
-#include "float_upper_bound.hpp"
 #include "float_lower_bound.hpp"
-#include "float_approximation.hpp"
-
-
+#include "float_upper_bound.hpp"
+#include "floatdp.hpp"
+#include "floatmp.hpp"
+#include "rational.hpp"
+#include "real.hpp"
 
 namespace Ariadne {
 
@@ -48,14 +45,13 @@ static_assert(DyadicRing<Dyadic> && OrderedLattice<Dyadic>);
 static_assert(Field<Rational> && OrderedLattice<Rational>);
 static_assert(TranscendentalField<Real> && OrderedLattice<Real>);
 
-
 static_assert(IsRoundedLatticeField<FloatDP>);
 static_assert(IsRoundedLatticeField<FloatMP>);
 static_assert(IsRoundedLatticeField<RoundedArchetype>);
 
-static_assert(OrderedLatticeTranscendentalField<Ball<FloatDP,FloatDP>>);
-static_assert(OrderedLatticeTranscendentalField<Ball<FloatMP,FloatDP>>);
-static_assert(OrderedLatticeTranscendentalField<Ball<FloatMP,FloatMP>>);
+static_assert(OrderedLatticeTranscendentalField<Ball<FloatDP, FloatDP>>);
+static_assert(OrderedLatticeTranscendentalField<Ball<FloatMP, FloatDP>>);
+static_assert(OrderedLatticeTranscendentalField<Ball<FloatMP, FloatMP>>);
 
 static_assert(OrderedLatticeTranscendentalField<Bounds<FloatDP>>);
 static_assert(OrderedLatticeTranscendentalField<Bounds<FloatMP>>);
@@ -63,7 +59,7 @@ static_assert(OrderedLatticeTranscendentalField<Bounds<FloatMP>>);
 static_assert(OrderedLatticeTranscendentalField<Approximation<FloatDP>>);
 static_assert(OrderedLatticeTranscendentalField<Approximation<FloatMP>>);
 
-static_assert(DirectedGroups<LowerBound<FloatDP>,UpperBound<FloatDP>>);
+static_assert(DirectedGroups<LowerBound<FloatDP>, UpperBound<FloatDP>>);
 static_assert(DirectedGroup<LowerBound<FloatDP>>);
 
 static_assert(Lattice<LowerBound<FloatDP>>);

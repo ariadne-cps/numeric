@@ -29,12 +29,11 @@
 #ifndef ARIADNE_REALS_HPP
 #define ARIADNE_REALS_HPP
 
-#include "real.hpp"
-#include "naive_real.hpp"
-#include "validated_real.hpp"
 #include "approximate_real.hpp"
-
 #include "lower_real.hpp"
+#include "naive_real.hpp"
+#include "real.hpp"
 #include "upper_real.hpp"
+#include "validated_real.hpp"
 
 #endif

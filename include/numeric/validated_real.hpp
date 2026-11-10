@@ -26,21 +26,16 @@
  *  \brief Validated real numbers
  */
 
-
-
 #ifndef ARIADNE_VALIDATED_REAL_HPP
 #define ARIADNE_VALIDATED_REAL_HPP
 
-
-#include "utility/typedefs.hpp"
-#include "utility/pointer.hpp"
-#include "utility/handle.hpp"
-
 #include "foundation/logical.decl.hpp"
-#include "numeric/number.decl.hpp"
-#include "numeric/float.decl.hpp"
-
 #include "numeric/dyadic.hpp"
+#include "numeric/float.decl.hpp"
+#include "numeric/number.decl.hpp"
+#include "utility/handle.hpp"
+#include "utility/pointer.hpp"
+#include "utility/typedefs.hpp"
 
 namespace Ariadne {
 
@@ -50,12 +45,11 @@ class ValidatedRealInterface;
 //! \brief A generic class representing rigorous bounds on a real number.
 //! \see Real
 class ValidatedReal
-    : public Handle<const ValidatedRealInterface>
-{
+    : public Handle<const ValidatedRealInterface> {
   public:
     typedef ValidatedRealInterface Interface;
 
-    ValidatedReal(DyadicBounds const&);
+    ValidatedReal(const DyadicBounds&);
     operator DyadicBounds() const;
 
     Dyadic value();
@@ -74,15 +68,15 @@ class ValidatedReal
     //! tight bounds, as the object is already an approximation to finite accuracy.
     FloatMPBounds get(MultiplePrecision pr) const;
     //! \brief Write to an output stream.
-    friend OutputStream& operator<<(OutputStream&, ValidatedReal const&);
+    friend OutputStream& operator<<(OutputStream&, const ValidatedReal&);
 
-    friend ValidatedKleenean sgn(DyadicBounds const& r);
-    friend ValidatedKleenean operator==(DyadicBounds const& vr1, DyadicBounds const& vr2);
-    friend ValidatedKleenean operator!=(DyadicBounds const& vr1, DyadicBounds const& vr2);
-    friend ValidatedKleenean operator<=(DyadicBounds const& vr1, DyadicBounds const& vr2);
-    friend ValidatedKleenean operator>=(DyadicBounds const& vr1, DyadicBounds const& vr2);
-    friend ValidatedKleenean operator< (DyadicBounds const& vr1, DyadicBounds const& vr2);
-    friend ValidatedKleenean operator> (DyadicBounds const& vr1, DyadicBounds const& vr2);
+    friend ValidatedKleenean sgn(const DyadicBounds& r);
+    friend ValidatedKleenean operator==(const DyadicBounds& vr1, const DyadicBounds& vr2);
+    friend ValidatedKleenean operator!=(const DyadicBounds& vr1, const DyadicBounds& vr2);
+    friend ValidatedKleenean operator<=(const DyadicBounds& vr1, const DyadicBounds& vr2);
+    friend ValidatedKleenean operator>=(const DyadicBounds& vr1, const DyadicBounds& vr2);
+    friend ValidatedKleenean operator<(const DyadicBounds& vr1, const DyadicBounds& vr2);
+    friend ValidatedKleenean operator>(const DyadicBounds& vr1, const DyadicBounds& vr2);
 };
 
 } // namespace Ariadne

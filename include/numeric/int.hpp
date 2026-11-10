@@ -30,72 +30,84 @@
 #define ARIADNE_INT_HPP
 
 #include <limits>
-#include "utility/macros.hpp"
+
 #include "numeric/concepts.hpp"
+#include "utility/macros.hpp"
 
 namespace Ariadne {
-
 
 /************  Ints ********************************************************/
 
 class Nat32 {
     uint32_t _m;
     static uint32_t _checked_unsigned(uint64_t m) {
-        ARIADNE_PRECONDITION(m<=std::numeric_limits<uint32_t>::max());
+        ARIADNE_PRECONDITION(m <= std::numeric_limits<uint32_t>::max());
         return static_cast<uint32_t>(m);
     }
     static uint32_t _checked_signed(int64_t n) {
-        ARIADNE_PRECONDITION(static_cast<uint64_t>(n)<=std::numeric_limits<uint32_t>::max());
+        ARIADNE_PRECONDITION(static_cast<uint64_t>(n) <= std::numeric_limits<uint32_t>::max());
         return static_cast<uint32_t>(n);
     }
+
   public:
-    Nat32() : _m(0u) { }
-    template<BuiltinUnsignedIntegral M> Nat32(M m) : _m(_checked_unsigned(static_cast<uint64_t>(m))) { }
-    template<BuiltinSignedIntegral N> Nat32(N n) : _m(_checked_signed(static_cast<int64_t>(n))) { }
+    Nat32() : _m(0u) {}
+    template<BuiltinUnsignedIntegral M>
+    Nat32(M m) : _m(_checked_unsigned(static_cast<uint64_t>(m))) {}
+    template<BuiltinSignedIntegral N>
+    Nat32(N n) : _m(_checked_signed(static_cast<int64_t>(n))) {}
     uint32_t get_ui() const { return _m; }
 };
 
 class Nat64 {
     uint64_t _m;
     static uint64_t _checked_signed(int64_t n) {
-        ARIADNE_PRECONDITION(n>=0);
+        ARIADNE_PRECONDITION(n >= 0);
         return static_cast<uint64_t>(n);
     }
+
   public:
-    Nat64() : _m(0u) { }
-    template<BuiltinUnsignedIntegral M> Nat64(M m) : _m(static_cast<uint64_t>(m)) { }
-    template<BuiltinSignedIntegral N> Nat64(N n) : _m(_checked_signed(static_cast<int64_t>(n))) { }
+    Nat64() : _m(0u) {}
+    template<BuiltinUnsignedIntegral M>
+    Nat64(M m) : _m(static_cast<uint64_t>(m)) {}
+    template<BuiltinSignedIntegral N>
+    Nat64(N n) : _m(_checked_signed(static_cast<int64_t>(n))) {}
     uint64_t get_ui() const { return _m; }
 };
 
 class Int32 {
     int32_t _n;
     static int32_t _checked_unsigned(uint64_t m) {
-        ARIADNE_PRECONDITION(m<=static_cast<uint64_t>(std::numeric_limits<int32_t>::max()));
+        ARIADNE_PRECONDITION(m <= static_cast<uint64_t>(std::numeric_limits<int32_t>::max()));
         return static_cast<int32_t>(m);
     }
     static int32_t _checked_signed(int64_t n) {
-        ARIADNE_PRECONDITION(n>=std::numeric_limits<int32_t>::min());
-        ARIADNE_PRECONDITION(n<=std::numeric_limits<int32_t>::max());
+        ARIADNE_PRECONDITION(n >= std::numeric_limits<int32_t>::min());
+        ARIADNE_PRECONDITION(n <= std::numeric_limits<int32_t>::max());
         return static_cast<int32_t>(n);
     }
+
   public:
-    Int32() : _n(0) { }
-    template<BuiltinUnsignedIntegral M> Int32(M m) : _n(_checked_unsigned(static_cast<uint64_t>(m))) { }
-    template<BuiltinSignedIntegral N> Int32(N n) : _n(_checked_signed(static_cast<int64_t>(n))) { }
+    Int32() : _n(0) {}
+    template<BuiltinUnsignedIntegral M>
+    Int32(M m) : _n(_checked_unsigned(static_cast<uint64_t>(m))) {}
+    template<BuiltinSignedIntegral N>
+    Int32(N n) : _n(_checked_signed(static_cast<int64_t>(n))) {}
     int32_t get_si() const { return _n; }
 };
 
 class Int64 {
     int64_t _n;
     static int64_t _checked_unsigned(uint64_t m) {
-        ARIADNE_PRECONDITION(m<=static_cast<uint64_t>(std::numeric_limits<int64_t>::max()));
+        ARIADNE_PRECONDITION(m <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()));
         return static_cast<int64_t>(m);
     }
+
   public:
-    Int64() : _n(0) { }
-    template<BuiltinUnsignedIntegral M> Int64(M m) : _n(_checked_unsigned(static_cast<uint64_t>(m))) { }
-    template<BuiltinSignedIntegral N> Int64(N n) : _n(static_cast<int64_t>(n)) { }
+    Int64() : _n(0) {}
+    template<BuiltinUnsignedIntegral M>
+    Int64(M m) : _n(_checked_unsigned(static_cast<uint64_t>(m))) {}
+    template<BuiltinSignedIntegral N>
+    Int64(N n) : _n(static_cast<int64_t>(n)) {}
     int64_t get_si() const { return _n; }
 };
 
