@@ -336,7 +336,7 @@ class Complex
         z1._re -= z2._re;
         z1._im -= z2._im;
         return z1;
-    }                                                                                                //!< Inplace minus.
+    } //!< Inplace minus.
     friend Complex<X>& operator*=(Complex<X>& z1, const Complex<X>& z2) { return z1 = mul(z1, z2); } //!< Inplace times.
     friend Complex<X>& operator/=(Complex<X>& z1, const Complex<X>& z2) { return z1 = div(z1, z2); } //!< Inplace divides.
     //!@}

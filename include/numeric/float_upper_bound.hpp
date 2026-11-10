@@ -194,7 +194,7 @@ class UpperBound
     friend UpperBound<F> atan(const UpperBound<F>& x);                     //!< <p/>
     friend UpperBound<F> tanh(const UpperBound<F>& x) {
         return UpperBound<F>(tanh(Bounds<F>(x.raw())).upper_raw());
-    }                                                                      //!< <p/>
+    } //!< <p/>
     friend Positive<UpperBound<F>> atan(const Positive<UpperBound<F>>& x); //!< <p/>
     //!@}
 

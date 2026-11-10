@@ -262,7 +262,7 @@ class Float<DP>
     friend FloatDP operator-(FloatDP x) {
         volatile double xv = x.dbl;
         return FloatDP(-xv);
-    }                                                                                    //!< <p/>
+    } //!< <p/>
     friend Bounds<FloatDP> operator+(const FloatDP& x1, const FloatDP& x2);              //!< <p/>
     friend Bounds<FloatDP> operator-(const FloatDP& x1, const FloatDP& x2);              //!< <p/>
     friend Bounds<FloatDP> operator*(const FloatDP& x1, const FloatDP& x2);              //!< <p/>
@@ -302,7 +302,7 @@ class Float<DP>
     friend FloatDP shft(FloatDP x, Int n) {
         volatile double xv = x.dbl;
         return FloatDP(ldexp(xv, n));
-    }                                                                              //!< Bit-shift \a x×2<sup>n</sup>.
+    } //!< Bit-shift \a x×2<sup>n</sup>.
     friend FloatDP mul(FloatDP x1, TwoExp e2) { return shft(x1, e2.exponent()); }  //!< Multiplication by a power of two.
     friend FloatDP div(FloatDP x1, TwoExp e2) { return shft(x1, -e2.exponent()); } //!< Division by a power of two.
     //!@}
