@@ -29,7 +29,12 @@
 #ifndef ARIADNE_COMPLEX_HPP
 #define ARIADNE_COMPLEX_HPP
 
+#include <stdexcept>
+
 #include "numeric/api.hpp"
+#include "numeric/integer.hpp"
+#include "numeric/real.hpp"
+#include "utility/macros.hpp"
 
 namespace Ariadne {
 
