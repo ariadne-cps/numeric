@@ -21,6 +21,10 @@ endif()
 require_same_dependency_commit(Build CHAINS
     "build" "foundation|build")
 
+# Numeric reaches Utility via Foundation, while Benchmarking reaches it via Logging.
+require_same_dependency_commit(Utility CHAINS
+    "foundation|utility" "benchmarking|logging|utility")
+
 ariadne_setup_module(numeric)
 
 # Keep Numeric's ABI and strict floating-point compilation policy.
