@@ -30,6 +30,7 @@
 #define ARIADNE_FLOAT_FACTORY_HPP
 
 #include "float.decl.hpp"
+#include "number.decl.hpp"
 
 namespace Ariadne {
 
