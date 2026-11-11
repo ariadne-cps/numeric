@@ -340,7 +340,7 @@ void mul_low_into_carry_x86_64(BigUnsigned::LimbView a,
 #endif
 
 // AArch64 MUL/UMULH/ADDS/ADC multiplication and symmetric square
-// (previously big_unsigned_arm64.cpp; original copyright Ariadne contributors).
+// (previously big_unsigned_arm64.cpp; original copyright Luca Geretti).
 #if defined(ARIADNE_BIG_UNSIGNED_ARM64)
 namespace Detail {
 using Limb = BigUnsigned::Limb;
