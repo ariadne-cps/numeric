@@ -32,7 +32,9 @@
 namespace Ariadne {
 template<class X>
 class Sequence;
+/** @brief Return the logical disjunction. */
 LowerKleenean disjunction(const Sequence<LowerKleenean>&);
+/** @brief Return the logical conjunction. */
 UpperKleenean conjunction(const Sequence<UpperKleenean>&);
 } // namespace Ariadne
 #endif

@@ -50,6 +50,7 @@ class PositiveUpperReal;
 
 class ValidatedReal;
 
+/** @brief Compile-time predicate testing whether a type is number. */
 template<>
 struct IsNumber<Real> : True {};
 
@@ -116,8 +117,10 @@ class Real
 #ifdef DOXYGEN
     Real(Int n); //!< Convert from a builtin integer.
 #else
+    /** @brief Construct a \c Real from m. */
     template<BuiltinUnsignedIntegral M>
     Real(M m);
+    /** @brief Construct a \c Real from n. */
     template<BuiltinSignedIntegral N>
     Real(N n);
 #endif
@@ -142,6 +145,7 @@ class Real
     //! \name Computation of rigorous validated bounds on the number.
     //!@{
     //! Compute a concrete approximation with an error of at most \a 2<sup>-acc</sup> i.e. \a acc binary digits.
+    /** @brief Compute the value at the requested accuracy or effort. */
     ValidatedReal compute(Accuracy acc) const;
     //! Compute a concrete approximation with a bound on the error. The error bound converges to \a 0 as \a eff approaches infinity.
     //! The time taken should be roughly polynomial in \a eff.
@@ -231,6 +235,7 @@ class Real
     //!< The distance |\a r <sub>1</sub>-\a r <sub>2</sub>| between \a r<sub>1</sub> and \a r<sub>2</sub>.
     friend PositiveUpperReal mag(const Real& r);
     //!< An over-approximation to the absolute value of \a r.
+    /** @brief Return an upper bound on the absolute value. */
     friend FloatDPError mag(const Real&, DoublePrecision);
     //!@}
 
@@ -277,10 +282,13 @@ class Real
     //!@{
     friend OutputStream& operator<<(OutputStream& os, const Real& r); //!< Write to an output stream.
     //!@}
+    /** @brief Convert to a built-in double. */
     double get_d() const;
 
   private:
+    /** @brief Construct a \c Real from n. */
     Real(std::int64_t n, Void*);
+    /** @brief Construct a \c Real from m. */
     Real(std::uint64_t m, Void*);
 };
 
@@ -289,34 +297,50 @@ inline Real::Real(M m) : Real(std::uint64_t(m), nullptr) {}
 template<BuiltinSignedIntegral N>
 inline Real::Real(N n) : Real(std::int64_t(n), nullptr) {}
 
+/** @brief Choose an alternative whose predicate can be established. */
 Real choose(const Case<LowerKleenean, Real>& c1, const Case<LowerKleenean, Real>& c2);
+/** @brief Construct a conditional alternative from the predicate and value. */
 Real when(const Case<UpperKleenean, Real>& c1, const Case<UpperKleenean, Real>& c2);
 
 //! \ingroup UserNumericTypeSubModule
 //! \brief Computable lower real numbers defined by conversion to concrete floats.
 class PositiveReal : public Real {
   public:
+    /** @brief Construct a \c PositiveReal with the specified characteristics. */
     PositiveReal() : Real() {}
+    /** @brief Construct a \c PositiveReal from p. */
     template<ConvertibleTo<Real> Y>
     PositiveReal(const Positive<Y>& p) : Real(p) {}
+    /** @brief Construct a \c PositiveReal from r. */
     explicit PositiveReal(const Real& r) : Real(r) {}
+    /** @brief Compute the value and extract the requested numeric representation. */
     PositiveBounds<Dyadic> compute_get(Effort) const;
 
   public:
+    /** @brief Return the maximum of the operands. */
     friend PositiveReal max(const PositiveReal& pr1, const PositiveReal& pr2);
+    /** @brief Return the maximum of the operands. */
     friend PositiveReal max(const Real& r1, const PositiveReal& pr2);
+    /** @brief Return the maximum of the operands. */
     friend PositiveReal max(const PositiveReal& pr1, const Real& r2);
 
+    /** @brief Return the minimum of the operands. */
     friend PositiveReal min(const PositiveReal& pr1, const PositiveReal& pr2);
 
+    /** @brief Return the multiplicative inverse. */
     friend PositiveReal rec(const PositiveReal& pr);
+    /** @brief Return the sum of the operands. */
     friend PositiveReal add(const PositiveReal& pr1, const PositiveReal& pr2);
+    /** @brief Return the product of the operands. */
     friend PositiveReal mul(const PositiveReal& pr1, const PositiveReal& pr2);
+    /** @brief Return the quotient of the operands. */
     friend PositiveReal div(const PositiveReal& pr1, const PositiveReal& pr2);
 };
 
+/** @brief Convert to the positive representation. */
 PositiveReal cast_positive(const Real& x);
 
+/** @brief Check the sign of the represented number. */
 ValidatedKleenean check_sgn(Real r, Effort eff);
 
 } // namespace Ariadne

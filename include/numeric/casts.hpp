@@ -46,48 +46,64 @@ namespace Ariadne {
 // Approximation, directed bounds, balls and errors own their raw float as a data member.
 // Reinterpreting the wrapper object as the contained F would rely on object-layout equivalence
 // that is not guaranteed by C++. Use the wrapper accessors instead.
+/** @brief Convert to the exact representation. */
 template<class F>
     requires DerivedFrom<F, FloatDP> or DerivedFrom<F, FloatMP>
 inline const F& cast_exact(const F& x) { return x; }
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const F& cast_exact(const Approximation<F>& x) { return x.raw(); }
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const F& cast_exact(const LowerBound<F>& x) { return x.raw(); }
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const F& cast_exact(const UpperBound<F>& x) { return x.raw(); }
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const F cast_exact(const Bounds<F>& x) { return cast_exact(Approximation<F>(x)); }
+/** @brief Convert to the exact representation. */
 template<class F, class FE>
 inline const F& cast_exact(const Ball<F, FE>& x) { return x.value_raw(); }
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const F& cast_exact(const Error<F>& x) { return x.raw(); }
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const F& cast_exact(const Rounded<F>& x) { return x.raw(); }
 
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const Positive<F> cast_exact(const Positive<Bounds<F>>& t) {
     return Positive<F>(cast_exact(static_cast<const Bounds<F>&>(t)));
 }
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const Positive<F> cast_exact(const Positive<UpperBound<F>>& x) {
     return cast_positive(cast_exact(cast_unsigned(x)));
 }
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const Positive<F> cast_exact(const Positive<LowerBound<F>>& x) {
     return cast_positive(cast_exact(cast_unsigned(x)));
 }
+/** @brief Convert to the exact representation. */
 template<class F>
 inline const Positive<F> cast_exact(const Positive<Approximation<F>>& x) {
     return cast_positive(cast_exact(cast_unsigned(x)));
 }
 
+/** @brief Convert to the raw representation. */
 inline const RawFloatDP& cast_raw(const RawFloatDP& x) { return x; }
+/** @brief Convert to the raw representation. */
 inline const RawFloatDP& cast_raw(const FloatDPApproximation& x) { return x.raw(); }
 
+/** @brief Convert to the raw representation. */
 template<template<class> class T>
 inline const T<RawFloatDP>& cast_raw(const T<RawFloatDP>& t) {
     return reinterpret_cast<const T<RawFloatDP>&>(t);
 }
+/** @brief Convert to the raw representation. */
 template<template<class> class T>
 inline const T<RawFloatDP>& cast_raw(const T<FloatDPApproximation>& t) {
     return reinterpret_cast<const T<RawFloatDP>&>(t);
@@ -95,13 +111,17 @@ inline const T<RawFloatDP>& cast_raw(const T<FloatDPApproximation>& t) {
 
 // RawFloatDP and FloatDPApproximation are distinct object types, with no inheritance or
 // layout guarantee permitting a reference reinterpretation. Construct the wrapper value explicitly.
+/** @brief Convert to the approximate representation. */
 inline FloatDPApproximation cast_approximate(const RawFloatDP& x) { return FloatDPApproximation(x); }
+/** @brief Convert to the approximate representation. */
 inline const FloatDPApproximation& cast_approximate(const FloatDPApproximation& x) { return x; }
 
+/** @brief Convert to the approximate representation. */
 template<template<class> class T>
 inline const T<FloatDPApproximation>& cast_approximate(const T<RawFloatDP>& t) {
     return reinterpret_cast<const T<FloatDPApproximation>&>(t);
 }
+/** @brief Convert to the approximate representation. */
 template<template<class> class T>
 inline const T<FloatDPApproximation>& cast_approximate(const T<FloatDPApproximation>& t) {
     return reinterpret_cast<const T<FloatDPApproximation>&>(t);

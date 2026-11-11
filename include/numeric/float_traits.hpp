@@ -33,129 +33,156 @@
 
 namespace Ariadne {
 
+/** @brief Compile-time trait for generic. */
 template<>
 struct GenericTrait<FloatDP> {
     typedef ExactNumber Type;
 };
+/** @brief Compile-time trait for generic. */
 template<>
 struct GenericTrait<FloatMP> {
     typedef ExactNumber Type;
 };
+/** @brief Compile-time trait for generic. */
 template<class F>
 struct GenericTrait<Approximation<F>> {
     typedef ApproximateNumber Type;
 };
+/** @brief Compile-time trait for generic. */
 template<class F>
 struct GenericTrait<LowerBound<F>> {
     typedef ValidatedLowerNumber Type;
 };
+/** @brief Compile-time trait for generic. */
 template<class F>
 struct GenericTrait<UpperBound<F>> {
     typedef ValidatedUpperNumber Type;
 };
+/** @brief Compile-time trait for generic. */
 template<class F>
 struct GenericTrait<Bounds<F>> {
     typedef ValidatedNumber Type;
 };
+/** @brief Compile-time trait for generic. */
 template<class F, class FE>
 struct GenericTrait<Ball<F, FE>> {
     typedef ValidatedNumber Type;
 };
+/** @brief Compile-time trait for generic. */
 template<class F>
 struct GenericTrait<Error<F>> {
     typedef PositiveValidatedUpperNumber Type;
 };
 
+/** @brief Compile-time trait for characteristics. */
 template<>
 struct CharacteristicsTrait<FloatDP> {
     typedef DP Type;
 };
+/** @brief Compile-time trait for characteristics. */
 template<>
 struct CharacteristicsTrait<FloatMP> {
     typedef MultiplePrecision Type;
 };
+/** @brief Compile-time trait for characteristics. */
 template<class F>
 struct CharacteristicsTrait<Approximation<F>> {
     typedef CharacteristicsType<F> Type;
 };
+/** @brief Compile-time trait for characteristics. */
 template<class F>
 struct CharacteristicsTrait<LowerBound<F>> {
     typedef CharacteristicsType<F> Type;
 };
+/** @brief Compile-time trait for characteristics. */
 template<class F>
 struct CharacteristicsTrait<UpperBound<F>> {
     typedef CharacteristicsType<F> Type;
 };
+/** @brief Compile-time trait for characteristics. */
 template<class F>
 struct CharacteristicsTrait<Bounds<F>> {
     typedef CharacteristicsType<F> Type;
 };
+/** @brief Compile-time trait for characteristics. */
 template<class F, class FE>
 struct CharacteristicsTrait<Ball<F, FE>> {
     typedef Pair<CharacteristicsType<F>, CharacteristicsType<FE>> Type;
 };
+/** @brief Compile-time trait for characteristics. */
 template<class F>
 struct CharacteristicsTrait<Error<F>> {
     typedef CharacteristicsType<F> Type;
 };
+/** @brief Compile-time trait for characteristics. */
 template<class F>
 struct CharacteristicsTrait<Rounded<F>> {
     typedef CharacteristicsType<F> Type;
 };
 
+/** @brief Compile-time traits for concrete. */
 template<class F>
 struct ConcreteTraits<Rounded<F>> {
     typedef DP CharacteristicsType;
 };
 
+/** @brief Compile-time traits for concrete. */
 template<>
 struct ConcreteTraits<FloatDP> {
     typedef ExactNumber GenericType;
     typedef DP CharacteristicsType;
 };
 
+/** @brief Compile-time traits for concrete. */
 template<>
 struct ConcreteTraits<FloatMP> {
     typedef ExactNumber GenericType;
     typedef MultiplePrecision CharacteristicsType;
 };
 
+/** @brief Compile-time traits for concrete. */
 template<class F>
 struct ConcreteTraits<Approximation<F>> {
     typedef ApproximateNumber GenericType;
     typedef Ariadne::CharacteristicsType<F> CharacteristicsType;
 };
 
+/** @brief Compile-time traits for concrete. */
 template<class F>
 struct ConcreteTraits<LowerBound<F>> {
     typedef ValidatedLowerNumber GenericType;
     typedef Ariadne::CharacteristicsType<F> CharacteristicsType;
 };
 
+/** @brief Compile-time traits for concrete. */
 template<class F>
 struct ConcreteTraits<UpperBound<F>> {
     typedef ValidatedUpperNumber GenericType;
     typedef Ariadne::CharacteristicsType<F> CharacteristicsType;
 };
 
+/** @brief Compile-time traits for concrete. */
 template<class F>
 struct ConcreteTraits<Bounds<F>> {
     typedef ValidatedNumber GenericType;
     typedef Ariadne::CharacteristicsType<F> CharacteristicsType;
 };
 
+/** @brief Compile-time traits for concrete. */
 template<class F, class FE>
 struct ConcreteTraits<Ball<F, FE>> {
     typedef ValidatedNumber GenericType;
     typedef Pair<Ariadne::CharacteristicsType<F>, Ariadne::CharacteristicsType<FE>> CharacteristicsType;
 };
 
+/** @brief Compile-time traits for concrete. */
 template<class F>
 struct ConcreteTraits<Error<F>> {
     typedef PositiveValidatedUpperNumber GenericType;
     typedef Ariadne::CharacteristicsType<F> CharacteristicsType;
 };
 
+/** @brief Compile-time traits for numeric. */
 template<>
 struct NumericTraits<FloatDP> {
     using F = FloatDP;
@@ -165,6 +192,7 @@ struct NumericTraits<FloatDP> {
     typedef Boolean EqualsType;
 };
 
+/** @brief Compile-time traits for numeric. */
 template<>
 struct NumericTraits<FloatMP> {
     using F = FloatMP;
@@ -174,6 +202,7 @@ struct NumericTraits<FloatMP> {
     typedef Boolean EqualsType;
 };
 
+/** @brief Compile-time traits for numeric. */
 template<class F>
 struct NumericTraits<Approximation<F>> {
     typedef Positive<Approximation<F>> PositiveType;
@@ -182,6 +211,7 @@ struct NumericTraits<Approximation<F>> {
     typedef Fuzzy EqualsType;
 };
 
+/** @brief Compile-time traits for numeric. */
 template<class F>
 struct NumericTraits<LowerBound<F>> {
     typedef UpperBound<F> OppositeType;
@@ -190,6 +220,7 @@ struct NumericTraits<LowerBound<F>> {
     typedef ValidatedNegatedSierpinskian EqualsType;
 };
 
+/** @brief Compile-time traits for numeric. */
 template<class F>
 struct NumericTraits<UpperBound<F>> {
     typedef LowerBound<F> OppositeType;
@@ -198,6 +229,7 @@ struct NumericTraits<UpperBound<F>> {
     typedef ValidatedNegatedSierpinskian EqualsType;
 };
 
+/** @brief Compile-time traits for numeric. */
 template<class F>
 struct NumericTraits<Bounds<F>> {
     typedef Bounds<F> OppositeType;
@@ -206,6 +238,7 @@ struct NumericTraits<Bounds<F>> {
     typedef ValidatedKleenean EqualsType;
 };
 
+/** @brief Compile-time traits for numeric. */
 template<class F, class FE>
 struct NumericTraits<Ball<F, FE>> {
     typedef Ball<F, FE> OppositeType;
@@ -214,6 +247,7 @@ struct NumericTraits<Ball<F, FE>> {
     typedef ValidatedKleenean EqualsType;
 };
 
+/** @brief Compile-time traits for numeric. */
 template<class F>
 struct NumericTraits<Error<F>> {
     typedef Error<F> PositiveType;

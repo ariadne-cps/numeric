@@ -45,33 +45,42 @@ using namespace std;
 
 namespace Ariadne {
 
+/** @brief Test whether the enclosure contains the supplied value. */
 template<class F>
 Bool models(LowerBound<F> x, Rational q) { return x.raw() <= q; }
+/** @brief Test whether the enclosure contains the supplied value. */
 template<class F>
 Bool models(UpperBound<F> x, Rational q) { return x.raw() >= q; }
+/** @brief Test whether the enclosure contains the supplied value. */
 template<class F>
 Bool models(Bounds<F> x, Rational q) { return x.lower_raw() <= q and x.upper_raw() >= q; }
+/** @brief Test whether the enclosure contains the supplied value. */
 template<class F>
 Bool models(Ball<F> x, Rational q) { return x.error_raw() >= abs(Rational(x.value_raw()) - q); }
 
+/** @brief Test whether the enclosure contains the supplied value. */
 template<class F, class FE>
 Bool models(Ball<F, FE> x, Rational y) {
     return abs(Dyadic(x.value()) - y) <= Dyadic(x.error_raw());
 }
+/** @brief Test whether the enclosure contains the supplied value. */
 template<class F, class FE>
 Bool models(Ball<F, FE> x, F v) {
     return abs(Dyadic(x.value()) - Dyadic(v)) <= Dyadic(x.error_raw());
 }
 
+/** @brief Test whether the operands have the same representation. */
 inline bool same(LogicalValue l1, LogicalValue l2) {
     return static_cast<uchar>(l1) == static_cast<uchar>(l2);
 }
+/** @brief Test whether the operands have the same representation. */
 inline bool same(ApproximateKleenean ak1, ApproximateKleenean ak2) {
     return same(reinterpret_cast<const LogicalValue &>(ak1), reinterpret_cast<const LogicalValue &>(ak2));
 }
 
 } // namespace Ariadne
 
+/** @brief Shared checks for the supported floating-point representations. */
 template<class PR>
 class TestFloats {
     typedef double Double;
@@ -88,12 +97,17 @@ class TestFloats {
     Real r;
 
   public:
+    /** @brief Construct a \c TestFloats with the specified characteristics. */
     TestFloats();
 
   public:
+    /** @brief Convert to an exact rational. */
     static Rational to_rational(FloatType<ApproximateTag, PR> x) { return Rational(x.raw()); }
+    /** @brief Convert to an exact rational. */
     static Rational to_rational(FloatType<LowerTag, PR> x) { return Rational(x.raw()); }
+    /** @brief Convert to an exact rational. */
     static Rational to_rational(FloatType<UpperTag, PR> x) { return Rational(x.raw()); }
+    /** @brief Convert to an exact rational. */
     static Rational to_rational(FloatType<ExactTag, PR> x) { return Rational(x.raw()); }
 };
 

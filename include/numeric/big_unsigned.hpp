@@ -58,7 +58,9 @@ class BigUnsigned {
         std::vector<Limb> _heap;
 
       public:
+        /** @brief Acquire the supplied arguments or working storage. */
         MutableLimbView acquire(std::size_t count);
+        /** @brief Return the allocated element capacity. */
         std::size_t capacity() const noexcept;
     };
 
@@ -67,11 +69,16 @@ class BigUnsigned {
     std::vector<Limb> _heap;
     std::size_t _size = 0u;
 
+    /** @brief Return writable access to the integer limb storage. */
     Limb* mutable_data() noexcept;
+    /** @brief Resize limb storage for the pending arithmetic result. */
     void resize_for_result(std::size_t limbs);
+    /** @brief Normalize the numeric representation. */
     void normalize() noexcept;
+    /** @brief Set the limbs. */
     void set_limbs(std::span<const Limb> digits);
     // One owned result, no shifted owning operands or scratch buffer.
+    /** @brief Combine limb sequences with the supplied binary offset. */
     template<bool Subtract>
     static BigUnsigned shifted_combine(
         LimbView a, unsigned shift_a, LimbView b, unsigned shift_b);
@@ -80,6 +87,7 @@ class BigUnsigned {
     // The public divrem_into adapter validates its full contract. Private
     // calls supply nonzero canonical b, selected output sizes and exact
     // divrem_scratch_limbs() storage, with all live spans disjoint.
+    /** @brief Compute the quotient and remainder into the supplied output buffers. */
     template<bool WantQuotient, bool WantRemainder>
     static void divrem_selected_into(
         LimbView a, LimbView b, MutableLimbView quotient,
@@ -87,41 +95,54 @@ class BigUnsigned {
 
     // Owning division of at most inline_capacity dividend limbs.
     // The divisor is nonzero; larger divisors simply give q=0,r=a.
+    /** @brief Divide by a single-limb divisor. */
     template<bool WantQuotient>
     static BigUnsigned divide_short(const BigUnsigned& a, const BigUnsigned& b);
 
     // Internal square-root recursion and direct concatenation of
     // naturally limb-aligned unsigned radix chunks.
+    /** @brief Compute the integer square root using recursive subdivision. */
     template<bool WantRemainder>
     static std::pair<BigUnsigned, BigUnsigned> sqrt_recursive(
         const BigUnsigned& value, Scratch& workspace);
     // Normalized, destructive limb recursion; all buffers are disjoint.
+    /** @brief Compute the integer square root into the supplied output buffer. */
     template<bool WantRemainder>
     static void sqrt_recursive_into(
         MutableLimbView value, MutableLimbView root, MutableLimbView scratch);
+    /** @brief Compute the integer square root using reusable workspace. */
     template<bool WantRemainder>
     static std::pair<BigUnsigned, BigUnsigned> sqrt_buffered(const BigUnsigned& value);
+    /** @brief Assemble the integer square-root limb blocks. */
     static BigUnsigned concat_sqrt_limbs(
         LimbView higher, LimbView lower, std::size_t lower_count);
 
     // Bounded Euclid reuses disjoint limb buffers and remainder-only division.
+    /** @brief Compute a greatest common divisor subject to the supplied work bound. */
     static BigUnsigned gcd_bounded(LimbView a, LimbView b);
     friend BigUnsigned gcd(const BigUnsigned& a, const BigUnsigned& b);
 
   public:
+    /** @brief Construct a \c BigUnsigned with the specified characteristics. */
     BigUnsigned() = default;
+    /** @brief Construct a \c BigUnsigned from value. */
     explicit BigUnsigned(Limb value) noexcept {
         _inline_limbs[0u] = value;
         _size = value != 0u ? 1u : 0u;
     }
+    /** @brief Construct a \c BigUnsigned from digits. */
     explicit BigUnsigned(std::span<const Limb> digits);
+    /** @brief Copy-construct the object from the supplied instance. */
     BigUnsigned(const BigUnsigned&) = default;
+    /** @brief Move-construct the object from the supplied instance. */
     BigUnsigned(BigUnsigned&& other) noexcept
         : _inline_limbs(other._inline_limbs),
           _heap(std::move(other._heap)), _size(other._size) {
         other._size = 0u;
     }
+    /** @brief Assign the supplied value and return this object. */
     BigUnsigned& operator=(const BigUnsigned&) = default;
+    /** @brief Assign the supplied value and return this object. */
     BigUnsigned& operator=(BigUnsigned&& other) noexcept {
         if (this != &other) {
             _inline_limbs = other._inline_limbs;
@@ -131,10 +152,14 @@ class BigUnsigned {
         }
         return *this;
     }
+    /** @brief Destroy the object and release its owned resources. */
     ~BigUnsigned() = default;
 
+    /** @brief Return the number of elements. */
     std::size_t size() const noexcept { return _size; }
+    /** @brief Test whether the value is zero. */
     bool is_zero() const noexcept { return _size == 0u; }
+    /** @brief Return the integer limb sequence. */
     LimbView limbs() const noexcept {
         return _size <= inline_capacity
                  ? LimbView(_inline_limbs.data(), _size)
@@ -310,10 +335,13 @@ class BigUnsigned {
     //! True only for GCC x86-64 with its independent selector enabled;
     //! native ARM64 instead selects the explicit carry-chain kernel.
     static bool selected_multiply_uses_fused() noexcept;
+    /** @brief Return the selected integer limb. */
     Limb limb(std::size_t index) const noexcept {
         return index < _size ? limbs()[index] : 0u;
     }
+    /** @brief Return the number of significant binary digits. */
     std::size_t bit_length() const noexcept;
+    /** @brief Exchange the contents of the operands. */
     void swap(BigUnsigned& other) noexcept;
 
     //! Compare exact unsigned values: -1, 0 or +1.

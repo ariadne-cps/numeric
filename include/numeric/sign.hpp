@@ -40,8 +40,11 @@ namespace Ariadne {
 enum class Sign : ComparableEnumerationType { NEGATIVE = -1,
                                               ZERO = 0,
                                               POSITIVE = +1 };
+/** @brief Write the value to the output stream. */
 OutputStream& operator<<(OutputStream& os, Sign s);
+/** @brief Return the difference or additive inverse. */
 inline Sign operator-(Sign s) { return Sign(-static_cast<ComparableEnumerationType>(s)); }
+/** @brief Return the product. */
 inline Sign operator*(Sign s1, Sign s2) { return Sign(static_cast<ComparableEnumerationType>(s1) * static_cast<ComparableEnumerationType>(s2)); }
 
 //! \brief The result of a comparison operation.
@@ -50,6 +53,7 @@ enum class Comparison : ComparableEnumerationType { LESS = -1,
                                                     GREATER = +1,
                                                     INCOMPARABLE = ComparableEnumerationType(-128) };
 
+/** @brief Write the value to the output stream. */
 inline OutputStream& operator<<(OutputStream& os, const Comparison& cmp) {
     switch (cmp) {
         case Comparison::LESS:

@@ -45,14 +45,20 @@ using DP = DoublePrecision;
 template<class F>
 using PrecisionType = typename F::PrecisionType;
 
+/** @brief Number of decimal places requested for formatted output. */
 struct DecimalPlaces {
     Nat _places;
+    /** @brief Construct a \c DecimalPlaces from plc. */
     explicit DecimalPlaces(Nat plc) : _places(plc) {}
+    /** @brief Convert to uint. */
     operator uint() const { return _places; }
 };
+/** @brief Number of decimal digits requested for precision. */
 struct DecimalPrecision {
     Nat _figures;
+    /** @brief Construct a \c DecimalPrecision from figs. */
     explicit DecimalPrecision(Nat figs) : _figures(figs) {}
+    /** @brief Convert to uint. */
     operator uint() const { return _figures; }
 };
 
@@ -70,14 +76,17 @@ using MultiplePrecisionFloat = FloatMP;
 using RawFloatDP = FloatDP;
 using RawFloatMP = FloatMP;
 
+/** @brief Compile-time predicate testing whether a type is a raw float. */
 template<class F>
 struct IsARawFloat {
     static const bool value = false;
 };
+/** @brief Compile-time predicate testing whether a type is a raw float. */
 template<>
 struct IsARawFloat<FloatDP> {
     static const bool value = true;
 };
+/** @brief Compile-time predicate testing whether a type is a raw float. */
 template<>
 struct IsARawFloat<FloatMP> {
     static const bool value = true;
@@ -170,51 +179,63 @@ using FloatError = Error<RawFloatType<PR>>; //!< <p/> \ingroup NumericModule
 
 template<class P, class PR, class PRE = PR>
 struct FloatTypedef;
+/** @brief Associated type definitions for float. */
 template<class PR>
 struct FloatTypedef<ApproximationTag, PR> {
     typedef FloatApproximation<PR> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR>
 struct FloatTypedef<LowerTag, PR> {
     typedef FloatLowerBound<PR> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR>
 struct FloatTypedef<UpperTag, PR> {
     typedef FloatUpperBound<PR> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR>
 struct FloatTypedef<OrderTag, PR> {
     typedef FloatBounds<PR> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR, class PRE>
 struct FloatTypedef<MetricTag, PR, PRE> {
     typedef FloatBall<PR, PRE> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR>
 struct FloatTypedef<ExactTag, PR> {
     typedef Float<PR> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR>
 struct FloatTypedef<ErrorTag, PR> {
     typedef FloatError<PR> Type;
 };
 
+/** @brief Associated type definitions for float. */
 template<class PR>
 struct FloatTypedef<ApproximateTag, PR> {
     typedef FloatApproximation<PR> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR>
 struct FloatTypedef<ValidatedTag, PR> {
     typedef FloatBounds<PR> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR>
 struct FloatTypedef<EffectiveTag, PR> {
     typedef FloatBounds<PR> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR, class PRE>
 struct FloatTypedef<ValidatedTag, PR, PRE> {
     typedef FloatBall<PR, PRE> Type;
 };
+/** @brief Associated type definitions for float. */
 template<class PR, class PRE>
 struct FloatTypedef<EffectiveTag, PR, PRE> {
     typedef FloatBall<PR, PRE> Type;
@@ -266,24 +287,34 @@ using PositiveFloatMPApproximation = PositiveFloatApproximation<MultiplePrecisio
 
 //!@}
 
+/** @brief Compile-time predicate testing whether a type is float. */
 template<class X>
 struct IsFloat : False {};
+/** @brief Compile-time predicate testing whether a type is float. */
 template<>
 struct IsFloat<FloatDP> : True {};
+/** @brief Compile-time predicate testing whether a type is float. */
 template<>
 struct IsFloat<FloatMP> : True {};
+/** @brief Compile-time predicate testing whether a type is float. */
 template<class F>
 struct IsFloat<Approximation<F>> : IsFloat<F> {};
+/** @brief Compile-time predicate testing whether a type is float. */
 template<class F>
 struct IsFloat<LowerBound<F>> : IsFloat<F> {};
+/** @brief Compile-time predicate testing whether a type is float. */
 template<class F>
 struct IsFloat<UpperBound<F>> : IsFloat<F> {};
+/** @brief Compile-time predicate testing whether a type is float. */
 template<class F>
 struct IsFloat<Bounds<F>> : IsFloat<F> {};
+/** @brief Compile-time predicate testing whether a type is float. */
 template<class F, class FE>
 struct IsFloat<Ball<F, FE>> : IsFloat<F> {};
+/** @brief Compile-time predicate testing whether a type is float. */
 template<class F>
 struct IsFloat<Error<F>> : IsFloat<F> {};
+/** @brief Compile-time predicate testing whether a type is float. */
 template<>
 struct IsFloat<Dbl> : False {};
 
@@ -292,22 +323,29 @@ concept AFloat = IsFloat<F>::value;
 
 template<class T>
 struct IsNumber;
+/** @brief Compile-time predicate testing whether a type is number. */
 template<>
 struct IsNumber<Dbl> : True {};
+/** @brief Compile-time predicate testing whether a type is number. */
 template<>
 struct IsNumber<FloatDP> : True {};
+/** @brief Compile-time predicate testing whether a type is number. */
 template<>
 struct IsNumber<FloatMP> : True {};
+/** @brief Compile-time predicate testing whether a type is number. */
 template<class F>
 struct IsNumber<Approximation<F>> : IsNumber<F> {};
+/** @brief Compile-time predicate testing whether a type is number. */
 template<class F>
 struct IsNumber<Bounds<F>> : IsNumber<F> {};
+/** @brief Compile-time predicate testing whether a type is number. */
 template<class F, class FE>
 struct IsNumber<Ball<F, FE>> : IsNumber<F> {};
 
 template<class T>
 struct NumericTraits;
 
+/** @brief Compile-time traits for numeric. */
 template<class T>
 struct NumericTraits<Positive<T>> : public NumericTraits<T> {
     typedef Positive<typename NumericTraits<T>::GenericType> GenericType;

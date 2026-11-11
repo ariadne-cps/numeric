@@ -50,6 +50,7 @@ class ApproximateReal
   public:
     typedef ApproximateRealInterface Interface;
 
+    /** @brief Construct a \c ApproximateReal with the specified characteristics. */
     ApproximateReal(const DyadicApproximation&);
     //! \brief Get a dyadic approximation to the number.
     DyadicApproximation get() const;

@@ -51,20 +51,33 @@ class TwoExp {
     Int _n;
 
   public:
+    /** @brief Construct a \c TwoExp from n. */
     explicit TwoExp(Int n) : _n(n) {}
+    /** @brief Construct a power-of-two scaling factor. */
     constexpr TwoExp(const Two&) : _n(1) {}
+    /** @brief Return the exponent. */
     Int exponent() const { return this->_n; }
     // NOTE: Use std::pow(2.0,_n) not (1<<_n) since latter does not handle very large exponents
+    /** @brief Return the underlying numeric representation. */
     FloatDP get_raw(DoublePrecision pr) const;
+    /** @brief Return the underlying numeric representation. */
     FloatMP get_raw(MultiplePrecision pr) const;
+    /** @brief Convert to a built-in double. */
     double get_d() const { return std::pow(2.0, this->_n); }
+    /** @brief Return the multiplicative inverse. */
     friend TwoExp rec(TwoExp w) { return TwoExp(-w._n); }
+    /** @brief Return the sum or unary positive value. */
     friend Dyadic operator+(TwoExp);
+    /** @brief Return the difference or additive inverse. */
     friend Dyadic operator-(TwoExp);
+    /** @brief Return the product. */
     friend Dyadic operator*(Dyadic, TwoExp);
+    /** @brief Return the quotient. */
     friend Dyadic operator/(Dyadic, TwoExp);
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, TwoExp);
 };
+/** @brief Return two raised to the given power. */
 inline TwoExp exp2(Int n) { return TwoExp(n); }
 
 //! \ingroup NumericModule
@@ -72,12 +85,19 @@ inline TwoExp exp2(Int n) { return TwoExp(n); }
 //! TODO: Should not be a subtype of std::integral_constant<uint,2u> to avoid conversion to builtin integers yielding e.g. 1/two=0.
 struct Two
     : public std::integral_constant<uint, 2u> {
+    /** @brief Return the quotient. */
     friend Dyadic operator/(Int n, Two);
+    /** @brief Return the quotient. */
     friend Dyadic operator/(ExactDouble d, Two);
+    /** @brief Return the quotient. */
     friend Dyadic operator/(Integer z, Two);
+    /** @brief Return the quotient. */
     friend Dyadic operator/(Dyadic, Two);
+    /** @brief Return the exclusive disjunction. */
     friend TwoExp operator^(Two, Nat m) { return TwoExp(static_cast<Int>(m)); }
+    /** @brief Return the exclusive disjunction. */
     friend TwoExp operator^(Two, Int n) { return TwoExp(n); }
+    /** @brief Raise the value to the specified power. */
     friend TwoExp pow(Two, int n) { return TwoExp(n); }
 };
 static const Two two = Two();

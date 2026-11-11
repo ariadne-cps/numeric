@@ -37,6 +37,7 @@ namespace Ariadne::Detail {
 
 // dropped>0 and its guard bit is inside the canonical source view.
 // odd is the parity of the retained integer after truncation.
+/** @brief Determine whether round-to-nearest-even requires incrementing the binary result. */
 inline bool nearest_even_binary_increment(BigUnsigned::LimbView source,
                                           std::size_t dropped, bool odd) noexcept {
     const auto guard = dropped - 1u;
@@ -46,6 +47,7 @@ inline bool nearest_even_binary_increment(BigUnsigned::LimbView source,
 
 // The denominator is nonzero; callers validate scale metadata before
 // entering this allocation boundary. Both exact and inexact ratios are valid.
+/** @brief Compute an unsigned quotient with the requested binary scaling. */
 inline BigUnsigned scaled_unsigned_quotient(const BigUnsigned& numerator,
                                             const BigUnsigned& denominator,
                                             std::size_t shift, bool round_upward) {

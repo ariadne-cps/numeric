@@ -55,27 +55,41 @@ using FloatMPBounds = Bounds<FloatMP>;
 
 class Real;
 
+/** @brief Polymorphic interface for real. */
 class RealInterface {
   public:
+    /** @brief Destroy the object and release its owned resources. */
     virtual ~RealInterface() = default;
+    /** @brief Compute the value at the requested accuracy or effort. */
     virtual ValidatedReal _compute(Accuracy) const = 0;
+    /** @brief Compute the value at the requested accuracy or effort. */
     virtual ValidatedReal _compute(Effort) const = 0;
+    /** @brief Compute the value and extract the requested numeric representation. */
     virtual DyadicBounds _compute_get(Effort) const = 0;
+    /** @brief Compute the value and extract the requested numeric representation. */
     virtual FloatDPBounds _compute_get(Effort, DoublePrecision) const = 0;
+    /** @brief Compute the value and extract the requested numeric representation. */
     virtual FloatMPBounds _compute_get(Effort, MultiplePrecision) const = 0;
 
   public:
+    /** @brief Write the value to the output stream. */
     virtual OutputStream& _write(OutputStream& os) const = 0;
 };
 
+/** @brief Polymorphic interface for validated real. */
 class ValidatedRealInterface {
   public:
+    /** @brief Destroy the object and release its owned resources. */
     virtual ~ValidatedRealInterface() = default;
+    /** @brief Return the requested element or stored value. */
     virtual DyadicBounds _get() const = 0;
+    /** @brief Return the requested element or stored value. */
     virtual FloatDPBounds _get(DoublePrecision) const = 0;
+    /** @brief Return the requested element or stored value. */
     virtual FloatMPBounds _get(MultiplePrecision) const = 0;
 
   public:
+    /** @brief Write the value to the output stream. */
     virtual OutputStream& _write(OutputStream& os) const = 0;
 };
 

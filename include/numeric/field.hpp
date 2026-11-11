@@ -46,6 +46,7 @@ class RingInterface
     //! \brief The square of the element.
     virtual T* _sqr() const = 0;
 
+    /** @brief Return a copy of the object. */
     inline T* _copy() const { return this->_create_copy(); }
 };
 
@@ -54,8 +55,11 @@ template<class T>
 class FieldInterface
     : public virtual RingInterface<T> {
   public:
+    /** @brief Return the quotient of the operands. */
     virtual T* _div(const T&) const = 0;
+    /** @brief Return the multiplicative inverse. */
     virtual T* _rec() const = 0;
+    /** @brief Raise the value to the specified power. */
     virtual T* _pow(Int n) const = 0;
 };
 
@@ -64,12 +68,19 @@ template<class T>
 class TranscendentalInterface
     : public virtual FieldInterface<T> {
   public:
+    /** @brief Return the square root. */
     virtual T* _sqrt() const = 0;
+    /** @brief Return the exponential. */
     virtual T* _exp() const = 0;
+    /** @brief Return the natural logarithm. */
     virtual T* _log() const = 0;
+    /** @brief Return the sine. */
     virtual T* _sin() const = 0;
+    /** @brief Return the cosine. */
     virtual T* _cos() const = 0;
+    /** @brief Return the tangent. */
     virtual T* _tan() const = 0;
+    /** @brief Return the inverse tangent. */
     virtual T* _atan() const = 0;
 };
 

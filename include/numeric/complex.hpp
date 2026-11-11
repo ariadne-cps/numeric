@@ -41,20 +41,26 @@ namespace Ariadne {
 template<class X>
 class Positive;
 
+/** @brief Nonnegative numeric representation supporting sign-restricted operations. */
 template<>
 class Positive<Real> : public Real {
   public:
+    /** @brief Construct a \c Real from n. */
     using Real::Real;
+    /** @brief Construct a \c Positive from r. */
     Positive(const Real& r) : Real(r) {}
 };
 
 template<class X>
 class Complex;
+/** @brief Construct a \c Complex from re, im. */
 template<class X>
 Complex(const X& re, const X& im) -> Complex<X>;
 
+/** @brief Compile-time predicate testing whether a type is complex. */
 template<class X>
 struct IsComplex : False {};
+/** @brief Compile-time predicate testing whether a type is complex. */
 template<class X>
 struct IsComplex<Complex<X>> : True {};
 
@@ -63,8 +69,10 @@ concept AComplex = IsComplex<X>::value;
 template<class X>
 concept AReal = not AComplex<X>;
 
+/** @brief Tag selecting polar. */
 struct PolarTag {};
 
+/** @brief Return the square root. */
 Real sqrt(const Integer& z);
 
 template<class X>
@@ -72,7 +80,9 @@ using ModulusType = decltype(sqrt(add(sqr(declval<X>()), sqr(declval<X>()))));
 template<class X>
 using ArgumentType = decltype(atan(div(declval<X>(), declval<X>())));
 
+/** @brief Return the inverse tangent. */
 double atan(double);
+/** @brief Return the argument determined by the two coordinates. */
 template<class X>
 inline auto atan2(const X& x, const X& y) -> decltype(atan(y / x)) {
     if (decide(x > 0)) {
@@ -87,12 +97,14 @@ inline auto atan2(const X& x, const X& y) -> decltype(atan(y / x)) {
 }
 
 namespace Detail {
+/** @brief Return a lower bound on the complex modulus. */
 template<class X>
 decltype(auto) complex_mig(const X& re, const X& im) {
     return cast_positive(sqrt(add(sqr(mig(re)), sqr(mig(im)))));
 }
 } // namespace Detail
 
+/** @brief Implement complex operations for the supported operand types. */
 class DefineComplexOperations {
     template<class X1, class X2>
     friend Complex<SumType<X1, X2>> add(const Complex<X1>& z1, const Complex<X2>& z2) {
@@ -112,71 +124,91 @@ class DefineComplexOperations {
         return Complex<ArithmeticType<X1, X2>>((z1._re * z2._re + z1._im * z2._im) / ns, (z1._im * z2._re - z1._re * z2._im) / ns);
     } //!< \brief Quotient \a z1÷z2.
 
+    /** @brief Return the sum of the operands. */
     template<class X1, class X2>
         requires AReal<X2>
     friend Complex<ProductType<X1, X2>> add(const Complex<X1>& z1, X2 const& x2) {
         return Complex<SumType<X1, X2>>(z1._re + x2, z1._im);
     }
+    /** @brief Return the sum of the operands. */
     template<class X1, class X2>
         requires AReal<X1>
     friend Complex<ProductType<X1, X2>> add(X1 const& x1, const Complex<X2>& z2) {
         return Complex<SumType<X1, X2>>(x1 + z2._re, z2._im);
     }
+    /** @brief Return the difference of the operands. */
     template<class X1, class X2>
         requires AReal<X2>
     friend Complex<ProductType<X1, X2>> sub(const Complex<X1>& z1, X2 const& x2) {
         return Complex<DifferenceType<X1, X2>>(z1._re - x2, z1._im);
     }
+    /** @brief Return the difference of the operands. */
     template<class X1, class X2>
         requires AReal<X1>
     friend Complex<ProductType<X1, X2>> sub(X1 const& x1, const Complex<X2>& z2) {
         return Complex<DifferenceType<X1, X2>>(x1 - z2._re, -z2._im);
     }
+    /** @brief Return the product of the operands. */
     template<class X1, class X2>
         requires AReal<X2>
     friend Complex<ProductType<X1, X2>> mul(const Complex<X1>& z1, X2 const& x2) {
         return Complex<ProductType<X1, X2>>(z1._re * x2, z1._im * x2);
     }
+    /** @brief Return the product of the operands. */
     template<class X1, class X2>
         requires AReal<X1>
     friend Complex<ProductType<X1, X2>> mul(X1 const& x1, const Complex<X2>& z2) {
         return Complex<ProductType<X1, X2>>(x1 * z2._re, x1 * z2._im);
     }
+    /** @brief Return the quotient of the operands. */
     template<class X1, class X2>
         requires AReal<X1>
     friend Complex<QuotientType<X1, X2>> div(X1 const& x1, const Complex<X2>& z2) {
         auto ns = add(sqr(z2._re), sqr(z2._im));
         return Complex<ArithmeticType<X1, X2>>(x1 * z2._re / ns, -x1 * z2._im / ns);
     }
+    /** @brief Return the quotient of the operands. */
     template<class X1, class X2>
         requires AReal<X2>
     friend Complex<QuotientType<X1, X2>> div(const Complex<X1>& z1, X2 const& x2) {
         return Complex<ArithmeticType<X1, X2>>(z1._re / x2, z1._im / x2);
     }
 
+    /** @brief Return the sum or unary positive value. */
     template<class X1, class X2>
     friend decltype(auto) operator+(const Complex<X1>& z1, const Complex<X2>& z2) { return add(z1, z2); }
+    /** @brief Return the difference or additive inverse. */
     template<class X1, class X2>
     friend decltype(auto) operator-(const Complex<X1>& z1, const Complex<X2>& z2) { return sub(z1, z2); }
+    /** @brief Return the product. */
     template<class X1, class X2>
     friend decltype(auto) operator*(const Complex<X1>& z1, const Complex<X2>& z2) { return mul(z1, z2); }
+    /** @brief Return the quotient. */
     template<class X1, class X2>
     friend decltype(auto) operator/(const Complex<X1>& z1, const Complex<X2>& z2) { return div(z1, z2); }
 
+    /** @brief Return the sum or unary positive value. */
     template<class X1, class X2>
     friend decltype(auto) operator+(const Complex<X1>& z1, X2 const& x2) { return add(z1, x2); }
+    /** @brief Return the sum or unary positive value. */
     template<class X1, class X2>
     friend decltype(auto) operator+(X1 const& x1, const Complex<X2>& z2) { return add(x1, z2); }
+    /** @brief Return the difference or additive inverse. */
     template<class X1, class X2>
     friend decltype(auto) operator-(const Complex<X1>& z1, X2 const& x2) { return sub(z1, x2); }
+    /** @brief Return the difference or additive inverse. */
     template<class X1, class X2>
     friend decltype(auto) operator-(X1 const& x1, const Complex<X2>& z2) { return sub(x1, z2); }
+    /** @brief Return the product. */
     template<class X1, class X2>
     friend decltype(auto) operator*(const Complex<X1>& z1, X2 const& x2) { return mul(z1, x2); }
+    /** @brief Return the product. */
     template<class X1, class X2>
     friend decltype(auto) operator*(X1 const& x1, const Complex<X2>& z2) { return mul(x1, z2); }
+    /** @brief Return the quotient. */
     template<class X1, class X2>
     friend decltype(auto) operator/(const Complex<X1>& z1, X2 const& x2) { return div(z1, x2); }
+    /** @brief Return the quotient. */
     template<class X1, class X2>
     friend decltype(auto) operator/(X1 const& x1, const Complex<X2>& z2) { return div(x1, z2); }
 
@@ -247,6 +279,7 @@ class DefineComplexOperations {
 template<class X>
 using TranscendentalType = decltype(sin(declval<X>()));
 
+/** @brief Construct complex from polar from the supplied arguments. */
 template<class X>
 Complex<TranscendentalType<X>> make_complex_from_polar(const X& r, const X& th) {
     typedef decltype(exp(r) * cos(th)) R;
@@ -283,18 +316,23 @@ class Complex
 
     Complex(const X& r, const X& th, PolarTag) : _re(exp(r) * cos(th)), _im(exp(r) * sin(th)) {} //!< Construct the number \a exp(r)*(cos(th)+i*sin(th)).
 
+    /** @brief Copy-construct the object from the supplied instance. */
     template<class Y>
         requires Convertible<Y, X>
     Complex(const Complex<Y>& z) : Complex(X(z._re), X(z._im)) {}
+    /** @brief Construct a \c Complex from y. */
     template<class Y>
         requires Convertible<Y, X>
     Complex(const Y& y) : Complex(X(y)) {}
+    /** @brief Construct a \c Complex from x, y, prs. */
     template<class Y, class... PRS>
         requires Constructible<X, Y, PRS...>
     Complex(const Y& x, const Y& y, PRS... prs) : _re(x, prs...), _im(y, prs...) {}
+    /** @brief Construct a \c Complex from z, prs. */
     template<class Y, class... PRS>
         requires Constructible<X, Y, PRS...>
     Complex(const Complex<Y>& z, PRS... prs) : _re(z.real_part(), prs...), _im(z.imaginary_part(), prs...) {}
+    /** @brief Assign the supplied value and return this object. */
     template<class Y>
         requires Assignable<X, Y>
     Complex<X>& operator=(const Y& c) {
@@ -312,6 +350,7 @@ class Complex
     ModulusType<X> modulus() const { return cast_positive(sqrt(add(sqr(this->_re), sqr(this->_im)))); } //!< The modulus (absolute value) \f$r=\sqrt{x^2+y^2}\f$ of \f$x+iy\f$.
     ArgumentType<X> argument() const { return atan2(this->_re, this->_im); }                            //!< The argument (absolute value) \f$\theta=\atan(y/x)\f$ of \f$x+iy\f$.
 
+    /** @brief Return the requested element or stored value. */
     template<class... PRS>
     decltype(auto) get(PRS... prs) {
         typedef decltype(this->_re.get(prs...)) R;
@@ -362,6 +401,7 @@ class Complex
         return Complex<X>((z1._re * z2._re + z1._im * z2._im) / ns, (z1._im * z2._re - z1._re * z2._im) / ns);
     } //!< \brief Quotient \a z1÷z2.
 
+    /** @brief Return the square root. */
     friend Complex<X> sqrt(const Complex<X>& z) { //!< The square root of \a r, √\a r. Requires \a r ≥ 0.
         auto r = sqrt(z.modulus());
         auto th = z.argument() / 2;
@@ -381,10 +421,13 @@ class Complex
 
     //!@{
     //! \name Special complex number functions
+    /** @brief Return the absolute value. */
     friend ModulusType<X> abs(const Complex<X>& z) { return z.modulus(); }
     friend decltype(auto) mag(const Complex<X>& z) { return cast_positive(sqrt(add(sqr(mag(z._re)), sqr(mag(z._im))))); } //!< Maximum possible absolute value \a |r|.
     friend decltype(auto) mig(const Complex<X>& z) { return Detail::complex_mig(z._re, z._im); }                          //!< Minimum possible absolute value \a |r|.
+    /** @brief Return the argument. */
     friend ArgumentType<X> arg(const Complex<X>& z) { return z.argument(); }
+    /** @brief Return the complex conjugate. */
     friend Complex<X> conj(const Complex<X>& z) { return Complex<X>(z._re, -z._im); }
     //!@}
 
@@ -401,12 +444,14 @@ class Complex
 
     //!@{
     //! \name Input/output operations
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, const Complex<X>& r) {
         return os << r._re << "+i*" << r._im;
     } //< Write to an output stream.
       //!@}
 
   private:
+    /** @brief Return the argument. */
     static X _arg(const Complex<X>& z);
 };
 

@@ -33,11 +33,17 @@
 
 namespace Ariadne {
 
+/** @brief Construct the typed value from the literal. */
 FloatDPError operator""_error(long double lx);
+/** @brief Construct the typed value from the literal. */
 FloatDP operator""_exact(long double lx);
+/** @brief Construct the typed value from the literal. */
 FloatDPBall operator""_near(long double lx);
+/** @brief Construct the typed value from the literal. */
 FloatDPUpperBound operator""_upper(long double lx);
+/** @brief Construct the typed value from the literal. */
 FloatDPLowerBound operator""_lower(long double lx);
+/** @brief Construct the typed value from the literal. */
 FloatDPApproximation operator""_approx(long double lx);
 
 } // namespace Ariadne

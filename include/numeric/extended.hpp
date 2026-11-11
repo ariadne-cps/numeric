@@ -35,13 +35,16 @@
 
 namespace Ariadne {
 
+/** @brief Compare the operands using the comparison result type. */
 inline Comparison cmp(int n1, int n2) {
     return n1 == n2 ? Comparison::EQUAL : n1 < n2 ? Comparison::LESS
                                                   : Comparison::GREATER;
 }
 
+/** @brief Operations supported by finite objects. */
 template<class X>
 class FiniteOperations;
+/** @brief Operations supported by extension objects. */
 template<class X>
 class ExtensionOperations;
 
@@ -53,20 +56,31 @@ class ExtendedOperations {
     typedef ExtensionOperations<X> Extension;
 
   public:
+    /** @brief Test whether the value is not a number. */
     static Bool is_nan(const X& x) { return Extension::is_nan(x); }
+    /** @brief Test whether the value is infinite. */
     static Bool is_inf(const X& x) { return Extension::is_inf(x); }
+    /** @brief Test whether the value is finite. */
     static Bool is_finite(const X& x) { return Extension::is_finite(x); }
+    /** @brief Test whether the value is zero. */
     static Bool is_zero(const X& x) { return Extension::is_zero(x); }
 
+    /** @brief Set the nan. */
     static Void set_nan(X& r) { Extension::set_nan(r); }
+    /** @brief Set the inf. */
     static Void set_inf(X& r, Sign sgn) { Extension::set_inf(r, sgn); }
+    /** @brief Set the zero. */
     static Void set_zero(X& r) { Extension::set_zero(r); }
 
+    /** @brief Return the sign of the value. */
     static Sign sgn(const X& x) { return Extension::sgn(x); }
 
+    /** @brief Return the absolute value. */
     static Sign abs(Sign s) { return (s == Sign::NEGATIVE) ? -s : s; }
+    /** @brief Raise the value to the specified power. */
     static Sign pow(Sign s, Nat m) { return (s == Sign::NEGATIVE && (m % 2 == 0)) ? Sign::POSITIVE : s; }
 
+    /** @brief Return the additive inverse. */
     static Void neg(X& r, const X& x) {
         if (is_finite(x)) {
             Finite::neg(r, x);
@@ -75,6 +89,7 @@ class ExtendedOperations {
         }
     }
 
+    /** @brief Return the sum of the operands. */
     static Void add(X& r, const X& x1, const X& x2) {
         if (is_finite(x1) and is_finite(x2)) {
             Finite::add(r, x1, x2);
@@ -89,6 +104,7 @@ class ExtendedOperations {
         }
     }
 
+    /** @brief Return the difference of the operands. */
     static Void sub(X& r, const X& x1, const X& x2) {
         if (is_finite(x1) and is_finite(x2)) {
             Finite::sub(r, x1, x2);
@@ -102,6 +118,7 @@ class ExtendedOperations {
             set_nan(r);
         }
     }
+    /** @brief Return the product of the operands. */
     static Void mul(X& r, const X& x1, const X& x2) {
         if (is_finite(x1) and is_finite(x2)) {
             Finite::mul(r, x1, x2);
@@ -109,6 +126,7 @@ class ExtendedOperations {
             set_inf(r, sgn(x1) * sgn(x2));
         }
     }
+    /** @brief Return the quotient of the operands. */
     static Void div(X& r, const X& x1, const X& x2) {
         if (is_finite(x1) and is_finite(x2)) {
             Finite::div(r, x1, x2);
@@ -118,6 +136,7 @@ class ExtendedOperations {
         }
     }
 
+    /** @brief Return the square. */
     static Void sqr(X& r, const X& x) {
         if (is_finite(x)) {
             Finite::sqr(r, x);
@@ -125,6 +144,7 @@ class ExtendedOperations {
             set_inf(r, abs(sgn(x)));
         }
     }
+    /** @brief Raise the value to the specified power. */
     static Void pow(X& r, const X& x, Nat m) {
         if (is_finite(x)) {
             Finite::pow(r, x, m);
@@ -134,6 +154,7 @@ class ExtendedOperations {
             set_inf(r, (sgn(x) == Sign::POSITIVE || (m % 2 == 0)) ? Sign::POSITIVE : Sign::NEGATIVE);
         }
     }
+    /** @brief Raise the value to the specified power. */
     static Void pow(X& r, const X& x, Int n) {
         if (is_finite(x)) {
             Finite::pow(r, x, n);
@@ -142,6 +163,7 @@ class ExtendedOperations {
         }
     }
 
+    /** @brief Divide the value by two. */
     static Void hlf(X& r, const X& x) {
         if (is_finite(x)) {
             Finite::hlf(r, x);
@@ -149,6 +171,7 @@ class ExtendedOperations {
             set_inf(r, sgn(x));
         }
     }
+    /** @brief Return the multiplicative inverse. */
     static Void rec(X& r, const X& x) {
         if (is_finite(x)) {
             Finite::rec(r, x);
@@ -159,6 +182,7 @@ class ExtendedOperations {
         }
     }
 
+    /** @brief Return the absolute value. */
     static Void abs(X& r, const X& x) {
         if (is_finite(x)) {
             Finite::abs(r, x);
@@ -166,6 +190,7 @@ class ExtendedOperations {
             set_inf(r, abs(sgn(x)));
         }
     }
+    /** @brief Return the maximum of the operands. */
     static Void max(X& r, const X& x1, const X& x2) {
         if (is_finite(x1) and is_finite(x2)) {
             Finite::max(r, x1, x2);
@@ -179,6 +204,7 @@ class ExtendedOperations {
             Finite::set(r, x1);
         }
     } // As x1==-inf or x2==-inf
+    /** @brief Return the minimum of the operands. */
     static Void min(X& r, const X& x1, const X& x2) {
         if (is_finite(x1) and is_finite(x2)) {
             Finite::min(r, x1, x2);
@@ -193,6 +219,7 @@ class ExtendedOperations {
         }
     } // As x1==+inf or x2==+inf
 
+    /** @brief Test equality of the operands. */
     static Boolean eq(const X& x1, const X& x2) {
         if (is_finite(x1) and is_finite(x2)) {
             return Finite::eq(x1, x2);
@@ -205,6 +232,7 @@ class ExtendedOperations {
         }
     }
 
+    /** @brief Compare the operands using the comparison result type. */
     static Comparison cmp(const X& x1, const X& x2) {
         if (is_finite(x1) and is_finite(x2)) {
             return Finite::cmp(x1, x2);
@@ -219,6 +247,7 @@ class ExtendedOperations {
         }
     }
 
+    /** @brief Write the value to the output stream. */
     static OutputStream& write(OutputStream& os, const X& x) {
         if (is_finite(x)) {
             return os << x;

@@ -43,24 +43,32 @@
 #include <vector>
 
 namespace independent_oracle {
+/** @brief Natural-number value used by the exact-integer reference implementation. */
 struct Nat {
     std::vector<std::uint64_t> w; // little endian
+    /** @brief Construct a \c Nat with the specified characteristics. */
     Nat() = default;
+    /** @brief Construct a \c Nat from value. */
     explicit Nat(std::uint64_t value) {
         if (value)
             w.push_back(value);
     }
+    /** @brief Construct a \c Nat from data. */
     explicit Nat(std::vector<std::uint64_t> data) : w(std::move(data)) { trim(); }
+    /** @brief Remove leading and trailing whitespace. */
     void trim() {
         while (!w.empty() && w.back() == 0)
             w.pop_back();
     }
+    /** @brief Return the additive zero. */
     bool zero() const { return w.empty(); }
+    /** @brief Return the specified integer power of two. */
     static Nat power2(std::size_t bits) {
         std::vector<std::uint64_t> words(bits / 64 + 1, 0);
         words[bits / 64] = std::uint64_t{1} << (bits % 64);
         return Nat(std::move(words));
     }
+    /** @brief Compare the supplied values. */
     int compare(const Nat& other) const {
         if (w.size() != other.w.size())
             return w.size() < other.w.size() ? -1 : 1;
@@ -69,6 +77,7 @@ struct Nat {
                 return w[i - 1] < other.w[i - 1] ? -1 : 1;
         return 0;
     }
+    /** @brief Return the sum of the operands. */
     static Nat add(const Nat& a, const Nat& b) {
         std::vector<std::uint64_t> out(std::max(a.w.size(), b.w.size()) + 1, 0);
         std::uint64_t carry = 0;
@@ -85,6 +94,7 @@ struct Nat {
         out.back() = carry;
         return Nat(std::move(out));
     }
+    /** @brief Return the difference of the operands. */
     static Nat sub(const Nat& a, const Nat& b) {
         if (a.compare(b) < 0)
             throw std::runtime_error("Nat subtraction underflow");
@@ -103,6 +113,7 @@ struct Nat {
             throw std::runtime_error("Nat subtraction final borrow");
         return Nat(std::move(out));
     }
+    /** @brief Shift the arbitrary-precision integer to the left. */
     Nat shl(std::size_t shift) const {
         if (zero() || shift == 0)
             return *this;
@@ -116,6 +127,7 @@ struct Nat {
         }
         return Nat(std::move(out));
     }
+    /** @brief Shift the arbitrary-precision integer to the right. */
     Nat shr(std::size_t shift) const {
         if (zero() || shift == 0)
             return *this;
@@ -131,6 +143,7 @@ struct Nat {
         }
         return Nat(std::move(out));
     }
+    /** @brief Return the number of trailing zero binary digits. */
     std::size_t trailing_zero_bits() const {
         if (zero())
             throw std::runtime_error("trailing_zero_bits(0)");
@@ -139,6 +152,7 @@ struct Nat {
             ++i;
         return i * 64u + static_cast<std::size_t>(std::countr_zero(w[i]));
     }
+    /** @brief Return the greatest common divisor. */
     static Nat gcd(Nat a, Nat b) {
         if (a.zero())
             return b;
@@ -158,6 +172,7 @@ struct Nat {
         }
         return a.shl(common);
     }
+    /** @brief Multiply by a single native integer limb. */
     Nat mul_small(std::uint64_t multiplier) const {
         Nat x, term = *this;
         for (; multiplier; multiplier >>= 1) {
@@ -168,6 +183,7 @@ struct Nat {
         }
         return x;
     }
+    /** @brief Return the hexadecimal representation of the exact integer. */
     std::string hex() const {
         if (zero())
             return "0";
@@ -177,6 +193,7 @@ struct Nat {
             out << std::setw(16) << std::setfill('0') << w[i - 1];
         return out.str();
     }
+    /** @brief Divide by one billion and return the remainder for decimal formatting. */
     std::uint32_t div_base_1e9() {
         constexpr std::uint64_t d = 1000000000;
         std::uint64_t rem = 0;
@@ -193,6 +210,7 @@ struct Nat {
         trim();
         return static_cast<std::uint32_t>(rem);
     }
+    /** @brief Return the decimal representation of the exact integer. */
     std::string dec() const {
         if (zero())
             return "0";
@@ -207,6 +225,7 @@ struct Nat {
         return out.str();
     }
 };
+/** @brief Return the selected matrix row. */
 inline std::string row(const std::vector<std::string>& fields) {
     std::ostringstream out;
     for (std::size_t i = 0; i < fields.size(); ++i) {
@@ -216,6 +235,7 @@ inline std::string row(const std::vector<std::string>& fields) {
     }
     return out.str() + "\n";
 }
+/** @brief Return the directory containing test reference data. */
 inline std::filesystem::path data_directory(int argc, char** argv, bool& write) {
     write = false;
     std::filesystem::path path = "tests/data";
@@ -232,6 +252,7 @@ inline std::filesystem::path data_directory(int argc, char** argv, bool& write) 
     }
     return path;
 }
+/** @brief Return the diagnostic output stream. */
 inline void output(const std::filesystem::path& dir, const std::string& name, const std::string& expected, bool write) {
     const auto path = dir / name;
     if (write) {

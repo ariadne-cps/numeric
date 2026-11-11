@@ -53,11 +53,14 @@ auto Error<F>::generic() const -> ValidatedErrorNumber {
     return this->operator ValidatedErrorNumber();
 }
 
+/** @brief Operations supported by  objects. */
 template<class F>
 struct Operations<Error<F>> {
+    /** @brief Write the value to the output stream. */
     static OutputStream& _write(OutputStream& os, const Error<F>& x) {
         return write(os, x.raw(), DecimalPrecision{Error<F>::output_places}, upward);
     }
+    /** @brief Read the value from the input stream. */
     static InputStream& _read(InputStream& is, Error<F>& x) {
         F e(x.precision());
         is >> e;

@@ -53,6 +53,7 @@
 namespace Ariadne {
 class Dyadic;
 extern const Dyadic infty;
+/** @brief Exception reporting infinity. */
 class InfinityException : public std::runtime_error {
   public:
     using std::runtime_error::runtime_error;
@@ -60,14 +61,19 @@ class InfinityException : public std::runtime_error {
 // Exact finite value: coefficient / 2^denominator_exponent.
 // Canonical form has no factor of two in the coefficient if exponent>0.
 // GMP is deliberately absent from representation and arithmetic.
+/** @brief Exact rational number whose denominator is a power of two. */
 class Dyadic {
     static Writer<Dyadic> _default_writer;
 
   public:
     typedef ExactTag Paradigm;
+    /** @brief Set the default writer. */
     static Void set_default_writer(Writer<Dyadic> writer);
+    /** @brief Return the current numeric output-format policy. */
     static Writer<Dyadic> default_writer();
+    /** @brief Convert to exact number. */
     operator ExactNumber() const;
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream&, const Dyadic&);
 
     enum class Kind : unsigned char { Finite,
@@ -80,6 +86,7 @@ class Dyadic {
     std::size_t _denominator_exponent = 0u;
     Kind _kind = Kind::Finite;
 
+    /** @brief Validate and convert a nonnegative exponent. */
     static std::size_t checked_natural_exponent(const Natural& exp) {
         const BigUnsigned& magnitude = exp.magnitude();
         if (magnitude.bit_length() > std::numeric_limits<std::size_t>::digits) {
@@ -92,6 +99,7 @@ class Dyadic {
         }
         return value;
     }
+    /** @brief Return a value shifted by the supplied binary exponent. */
     static Integer shifted(const Integer& x, std::size_t bits) {
         if (bits == 0u || x.magnitude().is_zero()) {
             return x;
@@ -99,6 +107,7 @@ class Dyadic {
         return Integer::from_magnitude(shift_left(x.magnitude(), bits), x.negative());
     }
 
+    /** @brief Normalize the numeric representation. */
     void normalize() {
         // All callers construct a finite coefficient or check is_finite first.
         if (_coefficient.magnitude().is_zero()) {
@@ -123,6 +132,7 @@ class Dyadic {
         }
     }
 
+    /** @brief Return the truncated integer or dyadic representation. */
     static Integer truncated(const Dyadic& x) {
         return Integer::from_magnitude(
             shift_right(x._coefficient.magnitude(), x._denominator_exponent),
@@ -131,6 +141,7 @@ class Dyadic {
 
     // Exact comparison of positive n/2^en and m/2^em without
     // constructing shifted operands.
+    /** @brief Compare the values with the supplied binary scaling. */
     static int compare_scaled(const BigUnsigned& n, std::size_t en,
                               const BigUnsigned& m, std::size_t em) noexcept {
         if (n.is_zero() || m.is_zero()) {
@@ -157,6 +168,7 @@ class Dyadic {
 
     // Align shorter positive magnitude virtually to the longer
     // magnitude's most significant bit. No owning BigUnsigned.
+    /** @brief Compare the values after aligning their exponents. */
     static int compare_aligned(const BigUnsigned& a,
                                const BigUnsigned& b) noexcept {
         const std::size_t shift = a.bit_length() - b.bit_length();
@@ -184,12 +196,14 @@ class Dyadic {
         return 0;
     }
 
+    /** @brief Reject a nonfinite operand. */
     static void require_finite(const Dyadic& x) {
         if (x._kind != Kind::Finite) {
             throw std::domain_error("non-finite Dyadic cannot be rounded");
         }
     }
 
+    /** @brief Return the sign of the value. */
     static int signum(const Dyadic& x) noexcept {
         if (x._kind == Kind::PositiveInfinity) {
             return 1;
@@ -204,20 +218,26 @@ class Dyadic {
     }
 
   public:
+    /** @brief Construct a \c Dyadic with the specified characteristics. */
     Dyadic() = default;
+    /** @brief Construct a \c Dyadic from numerator, exponent. */
     Dyadic(Integer numerator, std::size_t exponent = 0u)
         : _coefficient(std::move(numerator)), _denominator_exponent(exponent) {
         normalize();
     }
+    /** @brief Construct a \c Dyadic from numerator, exponent. */
     Dyadic(const Integer& numerator, Natural exponent)
         : Dyadic(numerator, checked_natural_exponent(exponent)) {}
+    /** @brief Disallow this construction to preserve the ownership contract. */
     template<BuiltinSignedIntegral N>
     Dyadic(const Integer&, N) = delete;
+    /** @brief Construct a \c Dyadic from n. */
     template<BuiltinIntegral N>
     Dyadic(N n) : Dyadic(Integer(n)) {}
 
     // Same value-conversion entry points as Dyadic; all arithmetic
     // remains native, and only exact dyadic Rational values are accepted.
+    /** @brief Construct a \c Dyadic from q. */
     explicit Dyadic(const Rational& q) {
         if (is_nan(q)) {
             *this = nan();
@@ -239,11 +259,17 @@ class Dyadic {
         _denominator_exponent = exp;
         normalize();
     }
+    /** @brief Construct a \c Dyadic from d. */
     Dyadic(const ExactDouble& d) : Dyadic(Rational(d)) {}
+    /** @brief Construct a \c Dyadic from d. */
     explicit Dyadic(double d) : Dyadic(Rational(ExactDouble(d))) {}
+    /** @brief Construct a \c Dyadic from s. */
     explicit Dyadic(const String& s) : Dyadic(Rational(Decimal(s))) {}
+    /** @brief Construct a \c Dyadic from d. */
     explicit Dyadic(const FloatDP& d);
+    /** @brief Construct a \c Dyadic from d. */
     explicit Dyadic(const FloatMP& d);
+    /** @brief Construct a \c Dyadic from power. */
     Dyadic(const TwoExp& power) {
         const Int e = power.exponent();
         if (e >= 0) {
@@ -254,7 +280,9 @@ class Dyadic {
             _denominator_exponent = static_cast<std::size_t>(-(e + 1)) + 1u;
         }
     }
+    /** @brief Return the integer mantissa. */
     Integer mantissa() const { return _coefficient; }
+    /** @brief Return the exponent. */
     Int exponent() const {
         if (_denominator_exponent >
             static_cast<std::size_t>(std::numeric_limits<Int>::max())) {
@@ -262,6 +290,7 @@ class Dyadic {
         }
         return static_cast<Int>(_denominator_exponent);
     }
+    /** @brief Return the literal representation. */
     String literal() const {
         if (_kind == Kind::NaN) {
             return String("NaN");
@@ -284,29 +313,39 @@ class Dyadic {
             .literal();
     }
 
+    /** @brief Return an infinite value. */
     static Dyadic inf() { return inf(1); }
+    /** @brief Return an infinite value. */
     static Dyadic inf(int sign) {
         Dyadic result;
         result._kind = sign == 0 ? Kind::NaN : sign > 0 ? Kind::PositiveInfinity
                                                         : Kind::NegativeInfinity;
         return result;
     }
+    /** @brief Return a not-a-number value. */
     static Dyadic nan() { return inf(0); }
+    /** @brief Return an infinite value. */
     static Dyadic inf(Sign sign) {
         return inf(sign == Sign::ZERO ? 0 : sign == Sign::POSITIVE ? 1
                                                                    : -1);
     }
 
+    /** @brief Return the category discriminator. */
     Kind kind() const noexcept { return _kind; }
+    /** @brief Return the selected coefficient. */
     const Integer& coefficient() const noexcept { return _coefficient; }
+    /** @brief Return the power of two in the denominator. */
     std::size_t denominator_exponent() const noexcept {
         return _denominator_exponent;
     }
+    /** @brief Test whether the value is finite. */
     bool is_finite() const noexcept { return _kind == Kind::Finite; }
+    /** @brief Test whether the value is zero. */
     bool is_zero() const noexcept {
         return is_finite() && _coefficient.magnitude().is_zero();
     }
 
+    /** @brief Convert to an exact rational. */
     Rational to_rational() const {
         if (_kind == Kind::NaN) {
             return Rational::nan();
@@ -327,6 +366,7 @@ class Dyadic {
     // Truncate to IEEE binary64 from the native magnitude.
     // GMP mpf_get_d returns positive zero on underflow even
     // for negative operands. No Rational allocation.
+    /** @brief Convert to a built-in double. */
     double get_d() const {
         if (_kind == Kind::NaN) {
             return std::numeric_limits<double>::quiet_NaN();
@@ -383,6 +423,7 @@ class Dyadic {
         return negative ? -value : value;
     }
 
+    /** @brief Return the difference or additive inverse. */
     friend Dyadic operator-(const Dyadic& x) {
         if (x._kind == Kind::NaN) {
             return nan();
@@ -395,29 +436,40 @@ class Dyadic {
         }
         return Dyadic(-x._coefficient, x._denominator_exponent);
     }
+    /** @brief Return the sum or unary positive value. */
     friend Dyadic operator+(const Dyadic& x) { return x; }
+    /** @brief Return the additive zero with the operand characteristics. */
     friend Dyadic nul(const Dyadic&) { return Dyadic(0); }
+    /** @brief Return the unary positive value. */
     friend Dyadic pos(const Dyadic& x) { return x; }
+    /** @brief Return the additive inverse. */
     friend Dyadic neg(const Dyadic& x) { return -x; }
+    /** @brief Return the sum of the operands. */
     friend Dyadic add(const Dyadic& a, const Dyadic& b) {
         return a + b;
     }
+    /** @brief Return the difference of the operands. */
     friend Dyadic sub(const Dyadic& a, const Dyadic& b) {
         return a - b;
     }
+    /** @brief Return the product of the operands. */
     friend Dyadic mul(const Dyadic& a, const Dyadic& b) {
         return a * b;
     }
+    /** @brief Compute the product of the first two operands plus the third. */
     friend Dyadic fma(const Dyadic& a, const Dyadic& b,
                       const Dyadic& c) { return a * b + c; }
+    /** @brief Add the operand in place. */
     Dyadic& operator+=(const Dyadic& rhs) {
         *this = *this + rhs;
         return *this;
     }
+    /** @brief Subtract the operand in place. */
     Dyadic& operator-=(const Dyadic& rhs) {
         *this = *this - rhs;
         return *this;
     }
+    /** @brief Multiply by the operand in place. */
     Dyadic& operator*=(const Dyadic& rhs) {
         *this = *this * rhs;
         return *this;
@@ -435,6 +487,7 @@ class Dyadic {
     static constexpr std::size_t aligned_add_sub_max_limbs = 16u;
 #endif
 
+    /** @brief Test whether aligned addition or subtraction is preferable for these operands. */
     static bool prefer_aligned_add_sub(const Dyadic& a,
                                        const Dyadic& b) noexcept {
         const std::size_t as = a._coefficient.magnitude().size();
@@ -452,6 +505,7 @@ class Dyadic {
     // Large inputs bypass both the two-shift fallback and the R35
     // stack-buffer/owning-buffer double materialization. The equality
     // and sign decision use virtual magnitude comparison only.
+    /** @brief Test whether owned shifted addition or subtraction is preferable for these operands. */
     static bool prefer_owned_shifted_add_sub(const Dyadic& a,
                                              const Dyadic& b) noexcept {
 #if defined(__aarch64__) || defined(_M_ARM64)
@@ -469,6 +523,7 @@ class Dyadic {
         return largest >= min_limbs && high - low <= 63u;
     }
 
+    /** @brief Add or subtract using owned shifted integer storage. */
     static Dyadic owned_shifted_add_sub(
         const Dyadic& a, const Dyadic& b, bool subtract_second) {
         const BigUnsigned& an = a._coefficient.magnitude();
@@ -519,6 +574,7 @@ class Dyadic {
     // magnitudes with an exponent gap <=63, scan borrowed virtual
     // shifted limbs and produce one canonical owned magnitude.
     // No shifted Integer operands or temporary negation.
+    /** @brief Add or subtract after aligning the dyadic exponents. */
     static Dyadic aligned_add_sub(const Dyadic& a, const Dyadic& b,
                                   bool subtract_second) {
         using Limb = BigUnsigned::Limb;
@@ -607,6 +663,7 @@ class Dyadic {
     }
 
   public:
+    /** @brief Return the sum or unary positive value. */
     friend Dyadic operator+(const Dyadic& a, const Dyadic& b) {
         if (!a.is_finite() || !b.is_finite()) {
             if (a._kind == Kind::NaN || b._kind == Kind::NaN) {
@@ -627,6 +684,7 @@ class Dyadic {
         }
         return Dyadic(shifted(a._coefficient, e - a._denominator_exponent) + shifted(b._coefficient, e - b._denominator_exponent), e);
     }
+    /** @brief Return the difference or additive inverse. */
     friend Dyadic operator-(const Dyadic& a, const Dyadic& b) {
         if (a.is_finite() && b.is_finite()) {
             if (prefer_owned_shifted_add_sub(a, b)) {
@@ -638,6 +696,7 @@ class Dyadic {
         }
         return a + (-b);
     }
+    /** @brief Return the product. */
     friend Dyadic operator*(const Dyadic& a, const Dyadic& b) {
         if (!a.is_finite() || !b.is_finite()) {
             if (a._kind == Kind::NaN || b._kind == Kind::NaN ||
@@ -653,6 +712,7 @@ class Dyadic {
         return Dyadic(a._coefficient * b._coefficient,
                       a._denominator_exponent + b._denominator_exponent);
     }
+    /** @brief Return the quotient. */
     friend Dyadic operator/(Dyadic x, int denominator) {
         if (denominator != 2) {
             throw std::domain_error("only divide by two is a Dyadic operation");
@@ -666,24 +726,31 @@ class Dyadic {
         }
         return x;
     }
+    /** @brief Divide the value by two. */
     friend Dyadic hlf(const Dyadic& x) { return x / 2; }
+    /** @brief Return the quotient. */
     friend Rational operator/(const Dyadic& a, const Dyadic& b) {
         return div(a.to_rational(), b.to_rational());
     }
     // Quotients and reciprocals of dyadics are exact rational numbers.
+    /** @brief Return the multiplicative inverse. */
     friend Rational rec(const Dyadic& x) {
         return rec(x.to_rational());
     }
+    /** @brief Return the quotient of the operands. */
     friend Rational div(const Dyadic& a, const Dyadic& b) {
         return div(a.to_rational(), b.to_rational());
     }
+    /** @brief Return the quotient of the operands. */
     friend Rational div(const Dyadic& a, const Integer& b) {
         return div(a.to_rational(), Rational(b));
     }
+    /** @brief Return the quotient of the operands. */
     friend Rational div(const Integer& a, const Dyadic& b) {
         return div(Rational(a), b.to_rational());
     }
 
+    /** @brief Raise the value to the specified power. */
     friend Dyadic pow(const Dyadic& x, Nat exponent) {
         Dyadic result(1);
         Dyadic factor(x);
@@ -697,6 +764,7 @@ class Dyadic {
         }
         return result;
     }
+    /** @brief Test equality of the operands. */
     friend Boolean eq(const Dyadic& a, const Dyadic& b) {
         if (a._kind == Kind::NaN || b._kind == Kind::NaN) {
             return false;
@@ -710,6 +778,7 @@ class Dyadic {
         return a._denominator_exponent == b._denominator_exponent &&
                static_cast<bool>(a._coefficient == b._coefficient);
     }
+    /** @brief Compare the operands using the comparison result type. */
     friend Comparison cmp(const Dyadic& a, const Dyadic& b) {
         if (a._kind == Kind::NaN || b._kind == Kind::NaN) {
             return Comparison::INCOMPARABLE;
@@ -739,34 +808,49 @@ class Dyadic {
         return order < 0 ? Comparison::LESS : order > 0 ? Comparison::GREATER
                                                         : Comparison::EQUAL;
     }
+    /** @brief Compare the operands using the comparison result type. */
     friend Comparison cmp(const Dyadic& a, Int b) { return cmp(a, Dyadic(b)); }
+    /** @brief Compare the operands using the comparison result type. */
     friend Comparison cmp(Int a, const Dyadic& b) { return cmp(Dyadic(a), b); }
+    /** @brief Test whether the first operand is less than the second. */
     friend Boolean lt(const Dyadic& a, const Dyadic& b) {
         if (a._kind == Kind::NaN || b._kind == Kind::NaN) {
             return false;
         }
         return cmp(a, b) == Comparison::LESS;
     }
+    /** @brief Return the sign of the value. */
     friend Sign sgn(const Dyadic& x) {
         return signum(x) > 0 ? Sign::POSITIVE : signum(x) < 0 ? Sign::NEGATIVE
                                                               : Sign::ZERO;
     }
+    /** @brief Test whether the value is not a number. */
     friend Bool is_nan(const Dyadic& x) {
         return x._kind == Kind::NaN;
     }
+    /** @brief Test whether the value is infinite. */
     friend Bool is_inf(const Dyadic& x) {
         return x._kind == Kind::PositiveInfinity ||
                x._kind == Kind::NegativeInfinity;
     }
+    /** @brief Test whether the value is finite. */
     friend Bool is_finite(const Dyadic& x) { return x.is_finite(); }
+    /** @brief Test whether the value is zero. */
     friend Bool is_zero(const Dyadic& x) { return x.is_zero(); }
+    /** @brief Test equality of the operands. */
     friend Boolean operator==(const Dyadic& a, const Dyadic& b) { return eq(a, b); }
+    /** @brief Test inequality of the operands. */
     friend Boolean operator!=(const Dyadic& a, const Dyadic& b) { return !eq(a, b); }
 
+    /** @brief Test whether the first operand is less than the second. */
     friend Boolean operator<(const Dyadic& a, const Dyadic& b) { return lt(a, b); }
+    /** @brief Test whether the first operand is greater than the second. */
     friend Boolean operator>(const Dyadic& a, const Dyadic& b) { return lt(b, a); }
+    /** @brief Test whether the first operand is less than or equal to the second. */
     friend Boolean operator<=(const Dyadic& a, const Dyadic& b) { return !lt(b, a); }
+    /** @brief Test whether the first operand is greater than or equal to the second. */
     friend Boolean operator>=(const Dyadic& a, const Dyadic& b) { return !lt(a, b); }
+    /** @brief Raise the value to the specified power. */
     friend Rational pow(const Dyadic& x, Int exponent) {
         if (exponent >= 0) {
             return pow(x, static_cast<Nat>(exponent)).to_rational();
@@ -774,20 +858,25 @@ class Dyadic {
         const Nat positive = static_cast<Nat>(-(exponent + 1)) + Nat(1);
         return Rational(1) / pow(x, positive).to_rational();
     }
+    /** @brief Return the minimum of the operands. */
     friend Dyadic min(const Dyadic& a, const Dyadic& b) {
         if (a._kind == Kind::NaN || b._kind == Kind::NaN) {
             return nan();
         }
         return b < a ? b : a;
     }
+    /** @brief Return the maximum of the operands. */
     friend Dyadic max(const Dyadic& a, const Dyadic& b) {
         if (a._kind == Kind::NaN || b._kind == Kind::NaN) {
             return nan();
         }
         return a < b ? b : a;
     }
+    /** @brief Return the absolute value. */
     friend Positive<Dyadic> abs(const Dyadic& x);
+    /** @brief Return the square. */
     friend Positive<Dyadic> sqr(const Dyadic& x);
+    /** @brief Return the greatest integer not exceeding the value. */
     friend Integer floor(const Dyadic& x) {
         require_finite(x);
         Integer z = truncated(x);
@@ -797,6 +886,7 @@ class Dyadic {
         }
         return z;
     }
+    /** @brief Return the least integer not less than the value. */
     friend Integer ceil(const Dyadic& x) {
         require_finite(x);
         Integer z = truncated(x);
@@ -806,6 +896,7 @@ class Dyadic {
         }
         return z;
     }
+    /** @brief Round the value to an integer. */
     friend Integer round(const Dyadic& x) {
         require_finite(x);
         const auto& magnitude = x._coefficient.magnitude();
@@ -821,38 +912,54 @@ class Dyadic {
     }
 };
 
+/** @brief Output policy formatting numbers in decimal notation. */
 class DecimalWriter : public WriterInterface<Dyadic> {
+    /** @brief Write the value to the output stream. */
     virtual OutputStream& _write(OutputStream& os, const Dyadic& x) const final override;
 };
+/** @brief Output policy formatting numbers in scientific notation. */
 class ScientificWriter : public WriterInterface<Dyadic> {
+    /** @brief Write the value to the output stream. */
     virtual OutputStream& _write(OutputStream& os, const Dyadic& x) const final override;
 };
+/** @brief Output policy formatting exact numbers as fractions. */
 class FractionWriter : public WriterInterface<Dyadic> {
+    /** @brief Write the value to the output stream. */
     virtual OutputStream& _write(OutputStream& os, const Dyadic& x) const final override;
 };
+/** @brief Output policy selecting the stored value representation. */
 template<>
 class RepresentationWriter<Dyadic> : public WriterInterface<Dyadic> {
+    /** @brief Write the value to the output stream. */
     virtual OutputStream& _write(OutputStream& os, const Dyadic& x) const final override;
 };
+/** @brief Nonnegative numeric representation supporting sign-restricted operations. */
 template<>
 class Positive<Dyadic> : public Dyadic {
   public:
+    /** @brief Construct a \c Positive with the specified characteristics. */
     Positive() : Dyadic() {}
+    /** @brief Construct a \c Positive from n. */
     template<BuiltinUnsignedIntegral M>
     Positive(M n) : Dyadic(n) {}
+    /** @brief Disallow this construction to preserve the ownership contract. */
     Positive(int) = delete;
+    /** @brief Construct a \c Positive from x. */
     explicit Positive(const Dyadic& x) : Dyadic(x) {
         if (sgn(x) == Sign::NEGATIVE) {
             throw std::domain_error("negative Positive<Dyadic>");
         }
     }
+    /** @brief Move-construct the object from the supplied instance. */
     explicit Positive(Dyadic&& x) : Dyadic(std::move(x)) {
         if (sgn(*this) == Sign::NEGATIVE) {
             throw std::domain_error("negative Positive<Dyadic>");
         }
     }
 };
+/** @brief Convert to the positive representation. */
 inline Positive<Dyadic> cast_positive(const Dyadic& x) { return Positive<Dyadic>(x); }
+/** @brief Return the absolute value. */
 inline Positive<Dyadic> abs(const Dyadic& x) {
     // D42: copy the canonical magnitude exactly once, without forming
     // a negated Dyadic or renormalizing an already canonical value.
@@ -865,6 +972,7 @@ inline Positive<Dyadic> abs(const Dyadic& x) {
                      : x._kind;
     return Positive<Dyadic>(std::move(result));
 }
+/** @brief Return the square. */
 inline Positive<Dyadic> sqr(const Dyadic& x) {
     return Positive<Dyadic>(x * x);
 }
@@ -898,37 +1006,55 @@ using PositiveDyadicUpperBound = Positive<UpperBound<Dyadic>>;       //!< <p/>
 using PositiveDyadicBounds = Positive<Bounds<Dyadic>>;               //!< <p/>
 //!@}
 
+/** @brief Validated numeric enclosure with lower and upper endpoints. */
 template<>
 class Bounds<Dyadic> {
     Dyadic _l, _u;
 
   public:
     typedef ValidatedTag Paradigm;
+    /** @brief Construct a \c Bounds from w. */
     Bounds(Dyadic w) : _l(w), _u(w) {}
+    /** @brief Construct a \c Bounds from x. */
     template<ConvertibleTo<Dyadic> X>
     Bounds(const X& x)
         : Bounds(Dyadic(x)) {}
+    /** @brief Construct a \c Bounds from l, u. */
     Bounds(Dyadic l, Dyadic u) : _l(l), _u(u) {}
+    /** @brief Copy-construct the object from the supplied instance. */
     template<class X>
         requires Constructible<Dyadic, X>
     Bounds(const Bounds<X>& x)
         : Bounds(Dyadic(x.lower_raw()), Dyadic(x.upper_raw())) {}
+    /** @brief Convert to validated number. */
     operator ValidatedNumber() const;
+    /** @brief Return an enclosure enlarged by the supplied symmetric error. */
     Bounds<Dyadic> pm(Dyadic e) { return Bounds<Dyadic>(_l - e, _u + e); }
+    /** @brief Return the lower endpoint. */
     Dyadic lower() const { return _l; }
+    /** @brief Return the upper endpoint. */
     Dyadic upper() const { return _u; }
+    /** @brief Return the underlying lower-endpoint representation. */
     Dyadic lower_raw() const { return _l; }
+    /** @brief Return the underlying upper-endpoint representation. */
     Dyadic upper_raw() const { return _u; }
+    /** @brief Return the requested element or stored value. */
     Bounds<FloatDP> get(DoublePrecision pr) const;
+    /** @brief Return the requested element or stored value. */
     Bounds<FloatMP> get(MultiplePrecision pr) const;
+    /** @brief Return the sum or unary positive value. */
     friend Bounds<Dyadic> operator+(const Bounds<Dyadic>& w) { return Bounds<Dyadic>(+w._l, w._u); }
+    /** @brief Return the difference or additive inverse. */
     friend Bounds<Dyadic> operator-(const Bounds<Dyadic>& w) { return Bounds<Dyadic>(-w._u, -w._l); }
+    /** @brief Return the sum or unary positive value. */
     friend Bounds<Dyadic> operator+(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         return Bounds<Dyadic>(w1._l + w2._l, w1._u + w2._u);
     }
+    /** @brief Return the difference or additive inverse. */
     friend Bounds<Dyadic> operator-(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         return Bounds<Dyadic>(w1._l - w2._u, w1._u - w2._l);
     }
+    /** @brief Return the product. */
     friend Bounds<Dyadic> operator*(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         // Exact multiplication enclosure: all four vertices, no rounding.
         Dyadic p = w1._l * w2._l, q = w1._l * w2._u;
@@ -936,15 +1062,21 @@ class Bounds<Dyadic> {
         return Bounds<Dyadic>(min(min(p, q), min(r, s)),
                               max(max(p, q), max(r, s)));
     }
+    /** @brief Return the quotient. */
     friend Bounds<Rational> operator/(const Bounds<Rational>& w1, const Bounds<Rational>& w2);
+    /** @brief Return the sum of the operands. */
     friend Bounds<Dyadic> add(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         return Bounds<Dyadic>(w1._l + w2._l, w1._u + w2._u);
     }
+    /** @brief Return the difference of the operands. */
     friend Bounds<Dyadic> sub(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         return Bounds<Dyadic>(w1._l - w2._u, w1._u - w2._l);
     }
+    /** @brief Return the product of the operands. */
     friend Bounds<Dyadic> mul(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) { return w1 * w2; }
+    /** @brief Return the quotient of the operands. */
     friend Bounds<Rational> div(const Bounds<Rational>& w1, const Bounds<Rational>& w2);
+    /** @brief Raise the value to the specified power. */
     friend Bounds<Dyadic> pow(const Bounds<Dyadic>& w, Nat m) {
         if (m == 0u) {
             return Bounds<Dyadic>(Dyadic(1));
@@ -961,21 +1093,26 @@ class Bounds<Dyadic> {
         return Bounds<Dyadic>(Dyadic(0),
                               max(pow(w._l, m), pow(w._u, m)));
     }
+    /** @brief Raise the value to the specified power. */
     friend Bounds<Dyadic> pow(const Bounds<Dyadic>& w, Int m) {
         if (m < 0) {
             throw std::domain_error("negative Dyadic interval power");
         }
         return pow(w, static_cast<Nat>(m));
     }
+    /** @brief Return the additive zero with the operand characteristics. */
     friend Bounds<Dyadic> nul(const Bounds<Dyadic>& w) {
         return Bounds<Dyadic>(nul(w._l), nul(w._u));
     }
+    /** @brief Return the unary positive value. */
     friend Bounds<Dyadic> pos(const Bounds<Dyadic>& w) {
         return Bounds<Dyadic>(pos(w._l), pos(w._u));
     }
+    /** @brief Return the additive inverse. */
     friend Bounds<Dyadic> neg(const Bounds<Dyadic>& w) {
         return Bounds<Dyadic>(neg(w._u), neg(w._l));
     }
+    /** @brief Return the square. */
     friend Bounds<Dyadic> sqr(const Bounds<Dyadic>& w) {
         if (w._l > 0) {
             return Bounds<Dyadic>(sqr(w._l), sqr(w._u));
@@ -985,12 +1122,18 @@ class Bounds<Dyadic> {
             return Bounds<Dyadic>(nul(w._l), max(sqr(w._l), sqr(w._u)));
         }
     }
+    /** @brief Divide the value by two. */
     friend Bounds<Dyadic> hlf(const Bounds<Dyadic>& w) { return Bounds<Dyadic>(hlf(w._l), hlf(w._u)); }
+    /** @brief Return the multiplicative inverse. */
     friend Bounds<Rational> rec(const Bounds<Rational>& w);
+    /** @brief Return the absolute value. */
     friend Bounds<Dyadic> abs(const Bounds<Dyadic>& w) { return Bounds<Dyadic>(max(min(w._l, -w._u), 0), max(-w._l, w._u)); }
+    /** @brief Return the maximum of the operands. */
     friend Bounds<Dyadic> max(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) { return Bounds<Dyadic>(max(w1._l, w2._l), max(w1._u, w2._u)); }
+    /** @brief Return the minimum of the operands. */
     friend Bounds<Dyadic> min(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) { return Bounds<Dyadic>(min(w1._l, w2._l), min(w1._u, w2._u)); }
 
+    /** @brief Return the sign of the value. */
     friend ValidatedKleenean sgn(const Bounds<Dyadic>& w) {
         if (w._l > 0) {
             return true;
@@ -1000,6 +1143,7 @@ class Bounds<Dyadic> {
             return indeterminate;
         }
     }
+    /** @brief Test equality of the operands. */
     friend ValidatedKleenean operator==(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         if (w1._l >= w2._u && w1._u <= w2._l) {
             return true;
@@ -1009,6 +1153,7 @@ class Bounds<Dyadic> {
             return indeterminate;
         }
     }
+    /** @brief Test inequality of the operands. */
     friend ValidatedKleenean operator!=(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         if (w1._u < w2._l || w1._l > w2._u) {
             return true;
@@ -1018,6 +1163,7 @@ class Bounds<Dyadic> {
             return indeterminate;
         }
     }
+    /** @brief Test whether the first operand is less than or equal to the second. */
     friend ValidatedKleenean operator<=(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         if (w1._u <= w2._l) {
             return true;
@@ -1027,6 +1173,7 @@ class Bounds<Dyadic> {
             return indeterminate;
         }
     }
+    /** @brief Test whether the first operand is greater than or equal to the second. */
     friend ValidatedKleenean operator>=(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         if (w1._l >= w2._u) {
             return true;
@@ -1036,6 +1183,7 @@ class Bounds<Dyadic> {
             return indeterminate;
         }
     }
+    /** @brief Test whether the first operand is less than the second. */
     friend ValidatedKleenean operator<(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         if (w1._u < w2._l) {
             return true;
@@ -1045,6 +1193,7 @@ class Bounds<Dyadic> {
             return indeterminate;
         }
     }
+    /** @brief Test whether the first operand is greater than the second. */
     friend ValidatedKleenean operator>(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         if (w1._l > w2._u) {
             return true;
@@ -1054,44 +1203,64 @@ class Bounds<Dyadic> {
             return indeterminate;
         }
     }
+    /** @brief Test whether the enclosures admit a common value. */
     friend Bool consistent(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         return w1._l <= w2._u && w1._u >= w2._l;
     }
+    /** @brief Test whether the enclosures cannot represent a common value. */
     friend Boolean inconsistent(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         return w1._l > w2._u || w1._u < w2._l;
     }
+    /** @brief Test whether the first enclosure is contained in the second. */
     friend Boolean refines(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         return w1._l >= w2._l and w1._u <= w2._u;
     }
+    /** @brief Return the common refinement of the enclosures. */
     friend Bounds<Dyadic> refinement(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         return Bounds<Dyadic>(max(w1._l, w2._l), min(w1._u, w2._u));
     }
+    /** @brief Return an enclosure containing both operands. */
     friend Bounds<Dyadic> coarsening(const Bounds<Dyadic>& w1, const Bounds<Dyadic>& w2) {
         return Bounds<Dyadic>(min(w1._l, w2._l), max(w1._u, w2._u));
     }
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, Bounds<Dyadic> y) { return os << "[" << y._l << ":" << y._u << "]"; }
 };
 
+/** @brief Validated numeric enclosure represented by a centre and error radius. */
 template<>
 class Ball<Dyadic, Dyadic> {
     Dyadic _v, _e;
 
   public:
+    /** @brief Construct a \c Ball from w. */
     Ball(Dyadic w) : _v(w), _e(0) {}
+    /** @brief Construct a \c Ball from v, e. */
     Ball(Dyadic v, Dyadic e) : _v(v), _e(e) {}
+    /** @brief Copy-construct the object from the supplied instance. */
     template<class X, class XE>
         requires Constructible<Dyadic, X> and Constructible<Dyadic, XE>
     Ball(const Ball<X, XE>& x)
         : Ball(Dyadic(x.value_raw()), Dyadic(x.error_raw())) {}
+    /** @brief Construct a \c Ball from w. */
     explicit Ball(const Bounds<Dyadic>& w) : _v(hlf(w.lower() + w.upper())), _e(hlf(w.upper() - w.lower())) {}
+    /** @brief Convert to bounds< dyadic >. */
     explicit operator Bounds<Dyadic>() const { return Bounds<Dyadic>(_v - _e, _v + _e); }
+    /** @brief Return the stored value. */
     Dyadic value() const { return _v; }
+    /** @brief Return the error bound. */
     Dyadic error() const { return _e; }
+    /** @brief Return the underlying value representation. */
     Dyadic value_raw() const { return _v; }
+    /** @brief Return the underlying error representation. */
     Dyadic error_raw() const { return _e; }
+    /** @brief Return the sum or unary positive value. */
     friend DyadicBall operator+(const DyadicBall& w1, const DyadicBall& w2) { return DyadicBall(w1._v + w2._v, w1._e + w2._e); }
+    /** @brief Return the difference or additive inverse. */
     friend DyadicBall operator-(const DyadicBall& w1, const DyadicBall& w2) { return DyadicBall(w1._v - w2._v, w1._e + w2._e); }
+    /** @brief Return the product. */
     friend DyadicBall operator*(const DyadicBall& w1, const DyadicBall& w2) { return DyadicBall(w1._v * w2._v, abs(w1._v) * w2._e + w1._e * abs(w2._v) + w1._e * w2._e); }
+    /** @brief Return the absolute value. */
     friend DyadicBall abs(const DyadicBall& w) {
         if (abs(w._v) >= w._e) {
             return DyadicBall(abs(w._v), w._e);
@@ -1100,6 +1269,7 @@ class Ball<Dyadic, Dyadic> {
             return DyadicBall(av, av);
         }
     }
+    /** @brief Test whether the first operand is less than the second. */
     friend ValidatedKleenean operator<(const DyadicBall& w1, const DyadicBall& w2) {
         if (w1._v + w1._e < w2._v - w2._e) {
             return true;
@@ -1109,91 +1279,138 @@ class Ball<Dyadic, Dyadic> {
             return indeterminate;
         }
     }
+    /** @brief Test whether the enclosures cannot represent a common value. */
     friend Boolean inconsistent(const DyadicBall& w1, const DyadicBall& w2) { return abs(w1._v - w2._v) > w1._e + w2._e; }
+    /** @brief Test whether the first enclosure is contained in the second. */
     friend Boolean refines(const DyadicBall& w1, const DyadicBall& w2) { return abs(w1._v - w2._v) + w1._e <= w2._e; }
+    /** @brief Return the common refinement of the enclosures. */
     friend DyadicBall refinement(const DyadicBall& w1, const DyadicBall& w2) { return DyadicBall(refinement(DyadicBounds(w1), DyadicBounds(w2))); }
+    /** @brief Return an enclosure containing both operands. */
     friend DyadicBall coarsening(const DyadicBall& w1, const DyadicBall& w2) { return DyadicBall(coarsening(DyadicBounds(w1), DyadicBounds(w2))); }
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, DyadicBall y) { return os << "[" << y._v << ":" << y._e << "]"; }
 };
 
+/** @brief One-sided lower bound on a numeric value. */
 template<>
 class LowerBound<Dyadic> {
     Dyadic _l;
 
   public:
+    /** @brief Construct a \c LowerBound from l. */
     LowerBound(Dyadic l) : _l(l) {}
+    /** @brief Construct a \c LowerBound from lu. */
     LowerBound(Bounds<Dyadic> lu) : _l(lu.lower_raw()) {}
+    /** @brief Copy-construct the object from the supplied instance. */
     LowerBound(const LowerBound<FloatDP>& x);
+    /** @brief Copy-construct the object from the supplied instance. */
     LowerBound(const LowerBound<FloatMP>& x);
+    /** @brief Return the underlying numeric representation. */
     Dyadic raw() const { return _l; }
+    /** @brief Return the requested element or stored value. */
     LowerBound<FloatDP> get(DoublePrecision pr) const;
+    /** @brief Return the requested element or stored value. */
     LowerBound<FloatMP> get(MultiplePrecision pr) const;
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, const LowerBound<Dyadic>& y) { return os << y._l << ":"; }
 };
 
+/** @brief One-sided upper bound on a numeric value. */
 template<>
 class UpperBound<Dyadic> {
     Dyadic _u;
 
   public:
+    /** @brief Construct a \c UpperBound from u. */
     explicit UpperBound(Dyadic u) : _u(u) {}
+    /** @brief Construct a \c UpperBound from lu. */
     UpperBound(Bounds<Dyadic> lu) : _u(lu.upper_raw()) {}
+    /** @brief Copy-construct the object from the supplied instance. */
     UpperBound(const UpperBound<FloatDP>& x);
+    /** @brief Copy-construct the object from the supplied instance. */
     UpperBound(const UpperBound<FloatMP>& x);
+    /** @brief Return the underlying numeric representation. */
     Dyadic raw() const { return _u; }
+    /** @brief Return the requested element or stored value. */
     UpperBound<FloatDP> get(DoublePrecision pr) const;
+    /** @brief Return the requested element or stored value. */
     UpperBound<FloatMP> get(MultiplePrecision pr) const;
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, const UpperBound<Dyadic>& y) { return os << ":" << y._u; }
 };
 
+/** @brief Numeric approximation without a guaranteed error enclosure. */
 template<>
 class Approximation<Dyadic> {
     Dyadic _a;
 
   public:
+    /** @brief Construct a \c Approximation from a. */
     Approximation(Dyadic a) : _a(a) {}
+    /** @brief Copy-construct the object from the supplied instance. */
     Approximation(const Approximation<FloatDP>& x);
+    /** @brief Return the underlying numeric representation. */
     Dyadic raw() const { return _a; }
+    /** @brief Return the requested element or stored value. */
     Approximation<FloatDP> get(DoublePrecision pr) const;
+    /** @brief Return the requested element or stored value. */
     Approximation<FloatMP> get(MultiplePrecision pr) const;
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, const Approximation<Dyadic>& y) {
         return os << y._a;
     }
 };
 
+/** @brief Nonnegative numeric representation supporting sign-restricted operations. */
 template<>
 class Positive<Bounds<Dyadic>> : public Bounds<Dyadic> {
   public:
+    /** @brief Construct a \c Positive from w. */
     Positive(Bounds<Dyadic> w) : Bounds<Dyadic>(w) {};
 };
+/** @brief Nonnegative numeric representation supporting sign-restricted operations. */
 template<>
 class Positive<LowerBound<Dyadic>> : public LowerBound<Dyadic> {
   public:
+    /** @brief Construct a \c Positive from w. */
     Positive(LowerBound<Dyadic> w) : LowerBound<Dyadic>(w) {};
 };
+/** @brief Nonnegative numeric representation supporting sign-restricted operations. */
 template<>
 class Positive<UpperBound<Dyadic>> : public UpperBound<Dyadic> {
   public:
+    /** @brief Construct a \c Positive from w. */
     Positive(UpperBound<Dyadic> w) : UpperBound<Dyadic>(w) {};
 };
+/** @brief Nonnegative numeric representation supporting sign-restricted operations. */
 template<>
 class Positive<Approximation<Dyadic>> : public Approximation<Dyadic> {
   public:
+    /** @brief Construct a \c Positive from w. */
     Positive(Approximation<Dyadic> w) : Approximation<Dyadic>(w) {}
 };
 
+/** @brief Construct the typed value from the literal. */
 inline Dyadic operator""_dyadic(long double x) { return Dyadic(static_cast<double>(x)); }
+/** @brief Construct the typed value from the literal. */
 inline Dyadic operator""_dy(long double x) { return operator""_dyadic(x); }
+/** @brief Construct the typed value from the literal. */
 inline Dyadic operator""_q2(long double x) { return operator""_dyadic(x); }
+/** @brief Construct the typed value from the literal. */
 inline Dyadic operator""_bin(long double x) { return operator""_dyadic(x); }
+/** @brief Construct a dyadic from the supplied literal components. */
 inline Dyadic dy_(long double x) { return operator""_dyadic(x); }
+/** @brief Construct dyadic from the supplied arguments. */
 Dyadic make_dyadic(unsigned long long int);
+/** @brief Divide the value by two. */
 Dyadic hlf(const Integer& n);
 // Exact mixed dyadic/rational enclosure operations. Overloads prevent
 // ambiguous implicit promotions between distinct interval specializations.
+/** @brief Compute a rational enclosure of the supplied value. */
 inline RationalBounds rational_enclosure(const DyadicBounds& x) {
     return RationalBounds(Rational(x.lower_raw()), Rational(x.upper_raw()));
 }
+/** @brief Return the quotient of the operands. */
 inline RationalBounds div(const DyadicBounds& a, const DyadicBounds& b) {
     return div(rational_enclosure(a), rational_enclosure(b));
 }

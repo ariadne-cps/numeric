@@ -41,16 +41,20 @@ class Natural;
 class Dyadic;
 class Rational;
 class Real;
+/** @brief Associated type definitions for completion. */
 template<class Y>
 struct CompletionTypedef;
+/** @brief Associated type definitions for completion. */
 template<>
 struct CompletionTypedef<Dyadic> {
     typedef Real Type;
 };
+/** @brief Associated type definitions for completion. */
 template<>
 struct CompletionTypedef<Rational> {
     typedef Real Type;
 };
+/** @brief Associated type definitions for completion. */
 template<>
 struct CompletionTypedef<Real> {
     typedef Real Type;
@@ -64,7 +68,9 @@ class Sequence {
     std::function<X(Natural)> _fn;
 
   public:
+    /** @brief Construct a \c Sequence from fn. */
     Sequence(const std::function<X(Natural)>& fn) : _fn(fn) {}
+    /** @brief Return the selected element or component. */
     X operator[](const Natural& n) const { return _fn(n); }
 };
 
@@ -72,7 +78,9 @@ class Sequence {
 template<class X>
 class ConvergentSequence : public Sequence<X> {
   public:
+    /** @brief Construct a \c ConvergentSequence from fn. */
     ConvergentSequence(const std::function<X(Natural)>& fn) : Sequence<X>(fn) {}
+    /** @brief Construct a \c ConvergentSequence from seq. */
     ConvergentSequence(const Sequence<X>& seq) : Sequence<X>(seq) {}
 };
 
@@ -80,6 +88,7 @@ class ConvergentSequence : public Sequence<X> {
 template<class X>
 class AlternatingSequence : public ConvergentSequence<X> {
   public:
+    /** @brief Construct a \c AlternatingSequence from seq. */
     explicit AlternatingSequence(const Sequence<X>& seq) : ConvergentSequence<X>(seq) {}
 };
 
@@ -87,14 +96,18 @@ class AlternatingSequence : public ConvergentSequence<X> {
 template<class X>
 class IncreasingSequence : public Sequence<X> {
   public:
+    /** @brief Construct a \c IncreasingSequence from fn. */
     IncreasingSequence(std::function<X(Natural)> fn) : Sequence<X>(fn) {}
+    /** @brief Construct a \c IncreasingSequence from seq. */
     IncreasingSequence(const Sequence<X>& seq) : Sequence<X>(seq) {}
 };
 //! \brief A decreasing sequence in a partially-ordered space (X,≤).
 template<class X>
 class DecreasingSequence : public Sequence<X> {
   public:
+    /** @brief Construct a \c DecreasingSequence from fn. */
     DecreasingSequence(std::function<X(Natural)> fn) : Sequence<X>(fn) {}
+    /** @brief Construct a \c DecreasingSequence from seq. */
     DecreasingSequence(const Sequence<X>& seq) : Sequence<X>(seq) {}
 };
 
@@ -102,20 +115,27 @@ class DecreasingSequence : public Sequence<X> {
 template<class X>
 class FastCauchySequence : public Sequence<X> {
   public:
+    /** @brief Construct a \c FastCauchySequence from fn. */
     FastCauchySequence(const std::function<X(Natural)>& fn) : Sequence<X>(fn) {}
+    /** @brief Construct a \c FastCauchySequence from seq. */
     FastCauchySequence(const Sequence<X>& seq) : Sequence<X>(seq) {}
+    /** @brief Construct or obtain the limit of the convergent sequence. */
     friend CompletionType<X> limit(const FastCauchySequence<X>&);
 };
 
+/** @brief Output policy for numeric sequences. */
 class SequenceWriter {
     Nat _num;
 
   public:
+    /** @brief Construct a \c SequenceWriter from n. */
     SequenceWriter(const Nat& n) : _num(n) {}
+    /** @brief Apply the callable to the supplied arguments. */
     template<class T>
     inline WritableTemporary<Sequence<T>, SequenceWriter> operator()(const Sequence<T>& seq) const {
         return WritableTemporary<Sequence<T>, SequenceWriter>(*this, seq);
     }
+    /** @brief Write the value to the output stream. */
     template<class T>
     OutputStream& _write(OutputStream& os, const Sequence<T>& seq) const {
         os << "[";

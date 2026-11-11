@@ -53,38 +53,54 @@ namespace Ariadne {
 template<class R, class A>
 inline R numeric_cast(const A& a) { return R(a); }
 
+/** @brief Convert to the requested numeric type. */
 template<>
 inline Int numeric_cast(const FloatDP& a) { return Int(a.get_d()); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline Int numeric_cast(const FloatMP& a) { return Int(a.get_d()); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline double numeric_cast(const FloatDP& a) { return a.get_d(); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline double numeric_cast(const Dyadic& a) { return a.get_d(); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline double numeric_cast(const Real& a) { return a.get_d(); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline double numeric_cast(const FloatDPBounds& a) { return a.get_d(); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline double numeric_cast(const FloatDPApproximation& a) { return a.get_d(); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline float numeric_cast(const double& a) { return static_cast<float>(a); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline float numeric_cast(const FloatDP& a) { return static_cast<float>(a.get_d()); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline float numeric_cast(const Real& a) { return static_cast<float>(a.get_d()); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline FloatDP numeric_cast(const FloatDP& a) { return a; }
 
+/** @brief Convert to the requested numeric type. */
 template<>
 inline Real numeric_cast(const FloatDP& a) { return Real(ExactDouble(a.get_d())); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline Real numeric_cast(const FloatDPBounds& a) { return numeric_cast<Real>(FloatDPApproximation(a).raw()); }
 
+/** @brief Convert to the requested numeric type. */
 template<>
 inline FloatDPBall numeric_cast(const Real& a) { return FloatDPBall(a, dp); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline FloatDPBounds numeric_cast(const Real& a) { return FloatDPBounds(a, dp); }
+/** @brief Convert to the requested numeric type. */
 template<>
 inline FloatDPApproximation numeric_cast(const Real& a) { return FloatDPApproximation(a, dp); }
 

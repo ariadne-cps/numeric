@@ -41,6 +41,7 @@ class Real;
 
 /************ Number *********************************************************/
 
+/** @brief Exception reporting divide by zero. */
 class DivideByZeroError : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
@@ -48,6 +49,7 @@ class DivideByZeroError : public std::runtime_error {
 template<class X>
 using NumericType = typename X::NumericType;
 
+/** @brief Compile-time traits for concrete. */
 template<class X>
 struct ConcreteTraits;
 
@@ -100,8 +102,11 @@ using DyadicApproximation = Approximation<Dyadic>;
 template<class R, class A>
 R integer_cast(const A &a);
 
+/** @brief Round the value to an integer. */
 Integer round(const Dyadic &);
+/** @brief Return the greatest integer not exceeding the value. */
 Integer floor(const Dyadic &);
+/** @brief Return the least integer not less than the value. */
 Integer ceil(const Dyadic &);
 
 //! \ingroup NumericModule
@@ -116,6 +121,7 @@ class LowerNumber;
 template<class P>
 class UpperNumber;
 
+/** @brief Compile-time predicate testing whether a type is number. */
 template<class X>
 struct IsNumber : False {};
 
@@ -139,31 +145,43 @@ concept ANumber = IsNumber<X>::value;
 template<class Y>
 struct IsGenericNumber;
 
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<class Y>
 struct IsGenericNumber : std::is_integral<Y> {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<>
 struct IsGenericNumber<ExactDouble> : True {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<>
 struct IsGenericNumber<Integer> : True {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<>
 struct IsGenericNumber<Dyadic> : True {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<>
 struct IsGenericNumber<Rational> : True {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<>
 struct IsGenericNumber<Real> : True {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<>
 struct IsGenericNumber<Dbl> : True {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<class P>
 struct IsGenericNumber<Number<P>> : True {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<class P>
 struct IsGenericNumber<UpperNumber<P>> : True {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<class P>
 struct IsGenericNumber<LowerNumber<P>> : True {};
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<class Y>
 struct IsGenericNumber<Positive<Y>> : IsGenericNumber<Y> {};
 
 template<class T>
 class CheckedAssignable;
+/** @brief Compile-time predicate testing whether a type is generic number. */
 template<class Y>
 struct IsGenericNumber<CheckedAssignable<Y>> : IsGenericNumber<Y> {};
 
@@ -182,6 +200,7 @@ concept ConcreteNumber = Concrete<X> and Convertible<X, Real>;
 
 // template<class T> requires BuiltinArithmetic<T> decltype(auto) characteristics(T const& t) { return std::tuple<>(); }
 // template<class Y> requires GenericNumber<Y> struct CharacteristicsTrait<Y> { typedef Tuple<> Type; };
+/** @brief Return the characteristics required to construct compatible values. */
 template<class Y>
     requires GenericNumber<Y>
 inline decltype(auto) characteristics(const Y &) { return std::tuple<>(); }

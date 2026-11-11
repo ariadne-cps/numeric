@@ -39,6 +39,7 @@ template<std::unsigned_integral To, std::unsigned_integral From>
 inline constexpr bool unsigned_narrowing =
     std::numeric_limits<To>::digits < std::numeric_limits<From>::digits;
 
+/** @brief Test whether the value fits the destination unsigned type. */
 template<std::unsigned_integral To, std::unsigned_integral From>
 constexpr bool unsigned_fits(From value) noexcept {
     if constexpr (unsigned_narrowing<To, From>) {
@@ -51,6 +52,7 @@ constexpr bool unsigned_fits(From value) noexcept {
 
 // Compare the mathematical sum left+right with target, even when the
 // sum cannot be represented by T. Subtraction is performed only in range.
+/** @brief Compare an unsigned value with the sum without overflowing. */
 template<std::unsigned_integral T>
 constexpr int compare_unsigned_sum(T left, T right, T target) noexcept {
     if (left > target)
@@ -60,6 +62,7 @@ constexpr int compare_unsigned_sum(T left, T right, T target) noexcept {
                                                       : 0;
 }
 
+/** @brief Multiply unsigned integers after checking for overflow. */
 template<std::unsigned_integral T>
 constexpr T checked_unsigned_multiply(T left, T right, const char* message) {
     if (right != 0 && left > std::numeric_limits<T>::max() / right)
@@ -67,6 +70,7 @@ constexpr T checked_unsigned_multiply(T left, T right, const char* message) {
     return static_cast<T>(left * right);
 }
 
+/** @brief Add unsigned integers after checking for overflow. */
 template<std::unsigned_integral T>
 constexpr T checked_unsigned_add(T left, T right, const char* message) {
     if (left > std::numeric_limits<T>::max() - right)
@@ -74,6 +78,7 @@ constexpr T checked_unsigned_add(T left, T right, const char* message) {
     return left + right;
 }
 
+/** @brief Convert to the unsigned destination type after checking the range. */
 template<std::unsigned_integral To, std::unsigned_integral From>
 constexpr To checked_unsigned_cast(From value, const char* message) {
     if constexpr (unsigned_narrowing<To, From>) {

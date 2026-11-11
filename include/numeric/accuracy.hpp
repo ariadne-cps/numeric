@@ -46,15 +46,20 @@ class Accuracy {
 
   public:
     //! <p/>
+    /** @brief Construct a \c Accuracy from precision. */
     Accuracy(Bits precision);
     //! <p/>
+    /** @brief Construct a \c Accuracy from error. */
     Accuracy(Dyadic error) : _error(error) {}
     //! <p/>
+    /** @brief Return the error bound. */
     const Dyadic& error() const { return this->_error; }
     //! <p/>
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, const Accuracy& acc);
 };
 //! \relates Accuracy \brief <p/>
+/** @brief Return the requested accuracy. */
 inline Accuracy accuracy(Bits acc) { return Accuracy(acc); }
 
 } // namespace Ariadne

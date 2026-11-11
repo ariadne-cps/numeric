@@ -88,15 +88,21 @@ class LowerReal
     typedef LowerReal NumericType;
 
   public:
+    /** @brief Construct a \c LowerReal with the specified characteristics. */
     LowerReal(Real);
+    /** @brief Construct a \c LowerReal with the specified characteristics. */
     explicit LowerReal(SharedPointer<const Interface>);
 
   public:
     //!@{
     //! \name Computation of rigorous validated lower bounds on the number
+    /** @brief Compute the value at the requested accuracy or effort. */
     ValidatedLowerReal compute(Effort eff) const;
+    /** @brief Compute the value and extract the requested numeric representation. */
     DyadicLowerBound compute_get(Effort eff) const;
+    /** @brief Compute the value and extract the requested numeric representation. */
     FloatDPLowerBound compute_get(Effort eff, DoublePrecision pr) const;
+    /** @brief Compute the value and extract the requested numeric representation. */
     FloatMPLowerBound compute_get(Effort eff, MultiplePrecision pr) const;
     //!@}
 
@@ -160,12 +166,15 @@ class LowerReal
 
     //!@{
     //! \name Input/output operations
+    /** @brief Write the value to the output stream. */
     friend OutputStream &operator<<(OutputStream &os, const LowerReal &r); //< Write to an output stream.
     //!@}
 
     //!@{
     //! \name Mixed operations
+    /** @brief Return the minimum of the operands. */
     friend Real min(const LowerReal &lr1, const Real &r2);
+    /** @brief Return the minimum of the operands. */
     friend Real min(const Real &r1, const LowerReal &lr2);
     //!@}
 };
@@ -174,32 +183,52 @@ class LowerReal
 //! \brief Computable lower real numbers defined by conversion to concrete floats.
 class PositiveLowerReal : public LowerReal {
   public:
+    /** @brief Construct a \c PositiveLowerReal from r. */
     PositiveLowerReal(PositiveReal r) : LowerReal(r) {}
+    /** @brief Construct a \c PositiveLowerReal from r. */
     explicit PositiveLowerReal(LowerReal r) : LowerReal(r) {}
+    /** @brief Compute the value and extract the requested numeric representation. */
     PositiveLowerBound<Dyadic> compute_get(Effort) const;
 
   public:
+    /** @brief Return the multiplicative inverse. */
     PositiveLowerReal rec(const PositiveUpperReal &);
+    /** @brief Return the multiplicative inverse. */
     PositiveUpperReal rec(const PositiveLowerReal &);
+    /** @brief Return the sum of the operands. */
     PositiveLowerReal add(const PositiveLowerReal &, const PositiveLowerReal &);
+    /** @brief Return the product of the operands. */
     PositiveLowerReal mul(const PositiveLowerReal &, const PositiveLowerReal &);
+    /** @brief Return the quotient of the operands. */
     PositiveLowerReal div(const PositiveLowerReal &, const PositiveUpperReal &);
+    /** @brief Return the quotient of the operands. */
     PositiveUpperReal div(const PositiveUpperReal &, const PositiveLowerReal &);
 };
 
+/** @brief Return the multiplicative inverse. */
 PositiveUpperReal rec(const PositiveLowerReal &plr);
+/** @brief Return the sum of the operands. */
 PositiveLowerReal add(const PositiveLowerReal &plr1, const PositiveLowerReal &plr2);
+/** @brief Return the product of the operands. */
 PositiveLowerReal mul(const PositiveLowerReal &plr1, const PositiveLowerReal &plr2);
+/** @brief Return the quotient of the operands. */
 PositiveLowerReal div(const PositiveLowerReal &plr1, const PositiveUpperReal &pur2);
 
+/** @brief Validated lower information about a real number. */
 class ValidatedLowerReal
     : public Handle<const ValidatedRealInterface> {
   public:
+    /** @brief Construct a \c ValidatedLowerReal with the specified characteristics. */
     ValidatedLowerReal(const DyadicLowerBound &);
+    /** @brief Construct a \c ValidatedLowerReal with the specified characteristics. */
     ValidatedLowerReal(const ValidatedReal &);
+    /** @brief Return the requested element or stored value. */
     DyadicLowerBound get() const;
+    /** @brief Return the requested element or stored value. */
     FloatDPLowerBound get(DoublePrecision) const;
+    /** @brief Return the requested element or stored value. */
     FloatMPLowerBound get(MultiplePrecision) const;
+    /** @brief Write the value to the output stream. */
     friend OutputStream &operator<<(OutputStream &, const ValidatedLowerReal &);
 };
 

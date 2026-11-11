@@ -42,17 +42,20 @@
 namespace Ariadne {
 
 namespace {
+/** @brief Construct error from the supplied arguments. */
 template<class FE, class FLT>
     requires(not SameAs<FE, FLT>)
 inline FE _make_error(FLT const& x) {
     typename FE::PrecisionType pre;
     return FE(Dyadic(x), upward, pre);
 }
+/** @brief Construct error from the supplied arguments. */
 template<class FE, class FLT>
     requires SameAs<FE, FLT>
 inline FE _make_error(FLT const& x) {
     return x;
 }
+/** @brief Construct error from the supplied arguments. */
 template<class FE, class FLT, class PRE>
 inline FE _make_error(FLT const& x, PRE pre) {
     return FE(Dyadic(x), upward, pre);

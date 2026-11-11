@@ -39,6 +39,7 @@ namespace Ariadne {
 //! \brief A count of a number of binary digits, usable to define an accuracy or precision specification.
 class Bits {
     unsigned long int _bits;
+    /** @brief Construct a \c Bits from bits. */
     explicit Bits(unsigned long long int bits) : _bits(static_cast<unsigned long int>(bits)) {
         if constexpr (sizeof(unsigned long int) < sizeof(unsigned long long int)) {
             ARIADNE_PRECONDITION(static_cast<unsigned long long int>(this->_bits) == bits);
@@ -46,10 +47,14 @@ class Bits {
     }
 
   public:
+    /** @brief Convert to unsigned long int. */
     operator unsigned long int() const { return this->_bits; }
+    /** @brief Construct the typed value from the literal. */
     friend Bits operator""_bits(unsigned long long int);
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, const Bits& bits);
 };
+/** @brief Construct the typed value from the literal. */
 inline Bits operator""_bits(unsigned long long int bits) { return Bits(bits); }
 
 } // namespace Ariadne

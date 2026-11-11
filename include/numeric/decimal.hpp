@@ -53,6 +53,7 @@ class Decimal {
     Decimal();
     //! \brief Construct the number p/10^q.
     explicit Decimal(Integer p, Nat q);
+    /** @brief Disallow this construction to preserve the ownership contract. */
     explicit Decimal(Integer p, Int q) = delete;
     //! \brief Construct from a builtin integral type.
     template<BuiltinIntegral N>
@@ -83,11 +84,17 @@ class Decimal {
 
     //!@{
     //! \name Comparison operators
+    /** @brief Test equality of the operands. */
     friend Boolean operator==(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::EQUAL; }   //!< <p/>
+    /** @brief Test inequality of the operands. */
     friend Boolean operator!=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::EQUAL; }   //!< <p/>
+    /** @brief Test whether the first operand is less than or equal to the second. */
     friend Boolean operator<=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::GREATER; } //!< <p/>
+    /** @brief Test whether the first operand is greater than or equal to the second. */
     friend Boolean operator>=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::LESS; }    //!< <p/>
+    /** @brief Test whether the first operand is less than the second. */
     friend Boolean operator<(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::LESS; }     //!< <p/>
+    /** @brief Test whether the first operand is greater than the second. */
     friend Boolean operator>(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::GREATER; }  //!< <p/>
     //!@}
 
@@ -125,49 +132,73 @@ class Decimal {
     //! \brief Alternative for operator""_decimal for use in Python interface.
     friend Decimal dec_(long double dbl);
 
+    /** @brief Put the value in canonical form. */
     void canonicalize();
 };
+/** @brief Construct the typed value from the literal. */
 Decimal operator""_dec(unsigned long long int n);
+/** @brief Construct the typed value from the literal. */
 Decimal operator""_dec(long double dbl);
+/** @brief Construct the typed value from the literal. */
 Decimal operator""_dec(const char* str, std::size_t);
+/** @brief Construct the typed value from the literal. */
 Decimal operator""_decimal(unsigned long long int n);
+/** @brief Construct the typed value from the literal. */
 Decimal operator""_decimal(long double dbl);
+/** @brief Construct the typed value from the literal. */
 Decimal operator""_decimal(const char* str, std::size_t);
 
 template<BuiltinIntegral N>
 inline Decimal::Decimal(N n) : Decimal(n, 0u) {}
 
+/** @brief Nonnegative numeric representation supporting sign-restricted operations. */
 template<>
 class Positive<Decimal> : public Decimal {
   public:
+    /** @brief Construct a \c Positive with the specified characteristics. */
     Positive() : Decimal() {}
+    /** @brief Construct a \c Positive from m. */
     template<BuiltinUnsignedIntegral M>
     Positive(M m) : Decimal(m) {}
+    /** @brief Disallow this construction to preserve the ownership contract. */
     Positive(int n) = delete;
+    /** @brief Construct a \c Positive from w. */
     explicit Positive(const Decimal& w) : Decimal(w) { ARIADNE_ASSERT(w >= 0); }
 };
+/** @brief Convert to the positive representation. */
 inline Positive<Decimal> cast_positive(const Decimal& w) { return Positive<Decimal>(w); }
 using PositiveDecimal = Positive<Decimal>;
 
+/** @brief Validated numeric enclosure with lower and upper endpoints. */
 template<>
 class Bounds<Decimal> {
     Decimal _l, _u;
 
   public:
+    /** @brief Construct a \c Bounds from w. */
     Bounds(Decimal w) : _l(w), _u(w) {}
+    /** @brief Construct a \c Bounds from x. */
     template<ConvertibleTo<Decimal> X>
     Bounds(const X& x)
         : Bounds(Decimal(x)) {}
+    /** @brief Construct a \c Bounds from l, u. */
     Bounds(Decimal l, Decimal u) : _l(l), _u(u) {}
+    /** @brief Copy-construct the object from the supplied instance. */
     template<class X>
         requires Constructible<Decimal, X>
     Bounds(const Bounds<X>& x)
         : Bounds(Decimal(x.lower_raw()), Decimal(x.upper_raw())) {}
+    /** @brief Convert to validated number. */
     operator ValidatedNumber() const;
+    /** @brief Return the lower endpoint. */
     Decimal lower() const { return _l; }
+    /** @brief Return the upper endpoint. */
     Decimal upper() const { return _u; }
+    /** @brief Return the underlying lower-endpoint representation. */
     Decimal lower_raw() const { return _l; }
+    /** @brief Return the underlying upper-endpoint representation. */
     Decimal upper_raw() const { return _u; }
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, Bounds<Decimal> y) { return os << "[" << y._l << ":" << y._u << "]"; }
 };
 

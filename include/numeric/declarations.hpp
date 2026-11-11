@@ -40,12 +40,15 @@
 
 namespace Ariadne {
 
+/** @brief Associated type definitions for information. */
 template<class X>
 struct InformationTypedef;
+/** @brief Associated type definitions for information. */
 template<>
 struct InformationTypedef<Real> {
     typedef EffectiveTag Type;
 };
+/** @brief Associated type definitions for information. */
 template<class P>
 struct InformationTypedef<Number<P>> {
     typedef P Type;

@@ -41,6 +41,7 @@
 
 namespace Ariadne {
 
+/** @brief Return the floor of the base-ten logarithm of the absolute value. */
 int abslog10floor(double x);
 
 template<class F>

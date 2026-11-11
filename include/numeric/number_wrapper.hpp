@@ -53,83 +53,124 @@ namespace Ariadne {
 /************ Number *********************************************************/
 
 // Declare fallbacks for Integer, Dyadic and Rational numbers
+/** @brief Return the square root. */
 Real sqrt(const Real&);
+/** @brief Return the exponential. */
 Real exp(const Real&);
+/** @brief Return the natural logarithm. */
 Real log(const Real&);
+/** @brief Return the sine. */
 Real sin(const Real&);
+/** @brief Return the cosine. */
 Real cos(const Real&);
+/** @brief Return the tangent. */
 Real tan(const Real&);
+/** @brief Return the hyperbolic tangent. */
 Real tanh(const Real&);
+/** @brief Return the inverse sine. */
 Real asin(const Real&);
+/** @brief Return the inverse cosine. */
 Real acos(const Real&);
+/** @brief Return the inverse tangent. */
 Real atan(const Real&);
 
 // Declare fallbacks for use by Lower/UpperBound
+/** @brief Return the quotient of the operands. */
 Approximation<FloatDP> div(const Approximation<FloatDP>& x1, const Approximation<FloatDP>& x2);
+/** @brief Return the square. */
 Approximation<FloatDP> sqr(const Approximation<FloatDP>& x);
+/** @brief Return the multiplicative inverse. */
 Approximation<FloatDP> rec(const Approximation<FloatDP>& x);
+/** @brief Return the sine. */
 Approximation<FloatDP> sin(const Approximation<FloatDP>& x);
+/** @brief Return the cosine. */
 Approximation<FloatDP> cos(const Approximation<FloatDP>& x);
+/** @brief Return the tangent. */
 Approximation<FloatDP> tan(const Approximation<FloatDP>& x);
+/** @brief Return the hyperbolic tangent. */
 Approximation<FloatDP> tanh(const Approximation<FloatDP>& x);
+/** @brief Return the inverse sine. */
 Approximation<FloatDP> asin(const Approximation<FloatDP>& x);
+/** @brief Return the inverse cosine. */
 Approximation<FloatDP> acos(const Approximation<FloatDP>& x);
+/** @brief Raise the value to the specified power. */
 Approximation<FloatDP> pow(const Approximation<FloatDP>& x, const Integer& z);
 
+/** @brief Return the quotient of the operands. */
 Approximation<FloatMP> div(const Approximation<FloatMP>& x1, const Approximation<FloatMP>& x2);
+/** @brief Return the square. */
 Approximation<FloatMP> sqr(const Approximation<FloatMP>& x);
+/** @brief Return the multiplicative inverse. */
 Approximation<FloatMP> rec(const Approximation<FloatMP>& x);
+/** @brief Return the sine. */
 Approximation<FloatMP> sin(const Approximation<FloatMP>& x);
+/** @brief Return the cosine. */
 Approximation<FloatMP> cos(const Approximation<FloatMP>& x);
+/** @brief Return the tangent. */
 Approximation<FloatMP> tan(const Approximation<FloatMP>& x);
+/** @brief Return the hyperbolic tangent. */
 Approximation<FloatMP> tanh(const Approximation<FloatMP>& x);
+/** @brief Return the inverse sine. */
 Approximation<FloatMP> asin(const Approximation<FloatMP>& x);
+/** @brief Return the inverse cosine. */
 Approximation<FloatMP> acos(const Approximation<FloatMP>& x);
+/** @brief Raise the value to the specified power. */
 Approximation<FloatMP> pow(const Approximation<FloatMP>& x, const Integer& z);
 
 // Declare fallbacks for use by Dyadic/RationalBounds
 template<class B>
 concept AlgebraicBounds = SameAs<B, DyadicBounds> || SameAs<B, DecimalBounds> || SameAs<B, RationalBounds>;
+/** @brief Return the square root. */
 template<AlgebraicBounds B>
 B sqrt(const B& x) {
     ARIADNE_THROW(DispatchException, "sqrt(AlgebraicBounds)", "Unsupported operation sqrt(" << x << ")");
 }
+/** @brief Return the exponential. */
 template<AlgebraicBounds B>
 B exp(const B& x) {
     ARIADNE_THROW(DispatchException, "exp(AlgebraicBounds)", "Unsupported operation exp(" << x << ")");
 }
+/** @brief Return the natural logarithm. */
 template<AlgebraicBounds B>
 B log(const B& x) {
     ARIADNE_THROW(DispatchException, "log(AlgebraicBounds)", "Unsupported operation log(" << x << ")");
 }
+/** @brief Return the sine. */
 template<AlgebraicBounds B>
 B sin(const B& x) {
     ARIADNE_THROW(DispatchException, "sin(AlgebraicBounds)", "Unsupported operation sin(" << x << ")");
 }
+/** @brief Return the cosine. */
 template<AlgebraicBounds B>
 B cos(const B& x) {
     ARIADNE_THROW(DispatchException, "cos(AlgebraicBounds)", "Unsupported operation cos(" << x << ")");
 }
+/** @brief Return the tangent. */
 template<AlgebraicBounds B>
 B tan(const B& x) {
     ARIADNE_THROW(DispatchException, "tan(AlgebraicBounds)", "Unsupported operation tan(" << x << ")");
 }
+/** @brief Return the hyperbolic tangent. */
 template<AlgebraicBounds B>
 B tanh(const B& x) {
     ARIADNE_THROW(DispatchException, "tanh(AlgebraicBounds)", "Unsupported operation tanh(" << x << ")");
 }
+/** @brief Return the inverse sine. */
 template<AlgebraicBounds B>
 B asin(const B& x) {
     ARIADNE_THROW(DispatchException, "asin(AlgebraicBounds)", "Unsupported operation asin(" << x << ")");
 }
+/** @brief Return the inverse cosine. */
 template<AlgebraicBounds B>
 B acos(const B& x) {
     ARIADNE_THROW(DispatchException, "acos(AlgebraicBounds)", "Unsupported operation acos(" << x << ")");
 }
+/** @brief Return the inverse tangent. */
 template<AlgebraicBounds B>
 B atan(const B& x) {
     ARIADNE_THROW(DispatchException, "atan(AlgebraicBounds)", "Unsupported operation atan(" << x << ")");
 }
+/** @brief Test whether the first operand is greater than the second. */
 template<AlgebraicBounds B>
 ValidatedKleenean operator>(const B& y1, Int n2) { return y1 > B(n2); }
 
@@ -139,6 +180,7 @@ class NumberMixin;
 template<class X>
 class NumberWrapper;
 
+/** @brief Compile-time traits for interface. */
 template<>
 struct InterfaceTraits<NumberInterface> {
     template<class X>
@@ -147,14 +189,17 @@ struct InterfaceTraits<NumberInterface> {
     using WrapperType = NumberWrapper<X>;
 };
 
+/** @brief Extract the requested concrete representation. */
 template<class X>
 inline const X* extract(const NumberInterface* y) {
     return dynamic_cast<const NumberWrapper<X>*>(y);
 }
 
+/** @brief Write the value to the output stream. */
 inline OutputStream& operator<<(OutputStream& os, const NumberInterface& y) { return y._write(os); }
 
 // FIXME: Should test for other potential infinities
+/** @brief Compare the operands using the comparison result type. */
 inline Comparison cmp(const NumberInterface& y1, const NumberInterface& y2) {
     Comparison res;
     const FloatDP* x1 = extract<FloatDP>(&y1);
@@ -186,15 +231,20 @@ template<class OP, class X1, class X2> NumberInterface* _concrete_apply(OP op, X
 }
 */
 
+/** @brief Construct number wrapper from the supplied arguments. */
 template<class R>
 NumberInterface* _make_number_wrapper(const R& r) { return new NumberWrapper<R>(r); }
+/** @brief Adapter exposing make number. */
 struct MakeNumberWrapper {
+    /** @brief Apply the callable to the supplied arguments. */
     template<class R>
     NumberInterface* operator()(const R& r) const { return new NumberWrapper<R>(r); }
 };
 
+/** @brief Construct unsigned from the supplied arguments. */
 template<class X>
 inline X make_unsigned(X x) { return x; }
+/** @brief Construct unsigned from the supplied arguments. */
 template<class X>
 inline X make_unsigned(Positive<X> px) {
 #ifndef __clang__
@@ -203,6 +253,7 @@ inline X make_unsigned(Positive<X> px) {
     return std::move(px);
 #endif
 }
+/** @brief Construct unsigned from the supplied arguments. */
 inline Real make_unsigned(PositiveReal px) {
 #ifndef __clang__
     return px;
@@ -210,6 +261,7 @@ inline Real make_unsigned(PositiveReal px) {
     return std::move(px);
 #endif
 }
+/** @brief Construct unsigned from the supplied arguments. */
 inline Integer make_unsigned(Natural px) {
 #ifndef __clang__
     return px;
@@ -221,6 +273,7 @@ inline Integer make_unsigned(Natural px) {
 // Instantiate a unary operation only when it is defined for the concrete
 // numeric type.  Directed lower/upper bounds deliberately do not expose all
 // elementary functions (e.g. squaring an arbitrary one-sided bound).
+/** @brief Dispatch the unary operation to the concrete numeric type. */
 template<class R, class OP, class X>
 inline R _concrete_apply_unary(OP op, const X& x) {
     static_assert(Same<R, NumberInterface*>);
@@ -243,6 +296,7 @@ inline R _concrete_apply_unary(OP op, const X& x) {
     }
 }
 
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, class X>
 inline R _concrete_apply(UnaryElementaryOperator op, const X& x) {
     static_assert(Same<R, NumberInterface*>);
@@ -289,6 +343,7 @@ inline R _concrete_apply(UnaryElementaryOperator op, const X& x) {
 // Preserve native overload dispatch for every supported binary operator.
 // A missing overload is an unsupported type/operator combination, not a
 // reason to instantiate ill-formed code or to change the numerical backend.
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, class X1, class X2>
 inline R _concrete_apply(BinaryElementaryOperator op, X1 const& x1, X2 const& x2) {
     static_assert(Same<R, NumberInterface*>);
@@ -302,6 +357,7 @@ inline R _concrete_apply(BinaryElementaryOperator op, X1 const& x1, X2 const& x2
     });
 }
 
+/** @brief Dispatch a maximum or minimum operation to the concrete numeric type. */
 template<class R, class X1, class X2>
 inline R _concrete_apply_max_or_min(BinaryElementaryOperator op, X1 const& x1, X2 const& x2) {
     if (op.code() == BinaryElementaryOperator(Max()).code()) {
@@ -315,32 +371,39 @@ inline R _concrete_apply_max_or_min(BinaryElementaryOperator op, X1 const& x1, X
 }
 
 // FIXME: Prefer symbolic dispatch
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, ARawFloat F>
 inline R _concrete_apply(BinaryElementaryOperator op, const F& x1, const F& x2) {
     return _concrete_apply_max_or_min<R>(op, x1, x2);
 }
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, ARawFloat F>
 inline R _concrete_apply(BinaryElementaryOperator op, const F& x1, const Integer& z2) {
     return _concrete_apply_max_or_min<R>(op, x1, z2);
 }
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, ARawFloat F>
 inline R _concrete_apply(BinaryElementaryOperator op, const Integer& z1, const F& x2) {
     return _concrete_apply_max_or_min<R>(op, z1, x2);
 }
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, ARawFloat F>
 inline R _concrete_apply(BinaryElementaryOperator op, const F& x1, const Dyadic& w2) {
     return _concrete_apply_max_or_min<R>(op, x1, w2);
 }
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, ARawFloat F>
 inline R _concrete_apply(BinaryElementaryOperator op, const Dyadic& w1, const F& x2) {
     return _concrete_apply_max_or_min<R>(op, w1, x2);
 }
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, ARawFloat F>
 inline R _concrete_apply(BinaryElementaryOperator op, const F& x1, const Rational& q2) {
     String yc1 = class_name<F>();
     String yc2 = class_name<Rational>();
     ARIADNE_THROW(DispatchException, op << "(Number y1, Number y2) with y1=" << x1 << ", y2=" << q2, "No dispatch for " << op << "(" << yc1 << ", " << yc2 << ")");
 }
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, ARawFloat F>
 inline R _concrete_apply(BinaryElementaryOperator op, const Rational& q1, const F& x2) {
     String yc1 = class_name<Rational>();
@@ -348,6 +411,7 @@ inline R _concrete_apply(BinaryElementaryOperator op, const Rational& q1, const 
     ARIADNE_THROW(DispatchException, op << "(Number y1, Number y2) with y1=" << q1 << ", y2=" << x2, "No dispatch for " << op << "(" << yc1 << ", " << yc2 << ")");
 }
 
+/** @brief Apply the operator after resolving the concrete operand types. */
 template<class R, class OP, class X1, class X2>
 inline R _concrete_operator_apply(OP op, X1 const& x1, X2 const& x2) {
     auto res = op(x1, x2);
@@ -361,6 +425,7 @@ inline R _concrete_operator_apply(OP op, X1 const& x1, X2 const& x2) {
     }
 }
 
+/** @brief Apply the supplied operation to the operands using the concrete implementation. */
 template<class R, class X1, class X2>
 inline R _concrete_apply(BinaryComparisonOperator op, X1 const& x1, X2 const& x2) {
     static_assert(Same<R, LogicalInterface*>);
@@ -374,104 +439,127 @@ class ConcreteNumberInterface;
 template<class F, class FE>
 class ConcreteBallInterface;
 
+/** @brief Tag indicating managed ownership in dispatch conversions. */
 template<>
 struct Managed<AlgebraicNumberInterface> {
     typedef Aware<Integer, Dyadic, Rational, Real> Types;
     // FIXME: typedef Aware<ExactDouble,Integer,Dyadic,Rational,Real> Types;
 };
+/** @brief Tag indicating managed ownership in dispatch conversions. */
 template<>
 struct Managed<ValidatedAlgebraicNumberInterface> {
     typedef Aware<DyadicBounds, RationalBounds> Types;
     // FIXME: typedef Aware<ExactDouble,Integer,Dyadic,Rational,Real> Types;
 };
+/** @brief Tag indicating managed ownership in dispatch conversions. */
 template<class F>
 struct Managed<ConcreteNumberInterface<F>> {
     typedef Aware<F, Ball<F>, Bounds<F>, UpperBound<F>, LowerBound<F>, Approximation<F>> Types;
 };
+/** @brief Tag indicating managed ownership in dispatch conversions. */
 template<class F, class FE>
 struct Managed<ConcreteBallInterface<F, FE>> {
     typedef Aware<Ball<F, FE>> Types;
 };
 
+/** @brief Dispatch er traits for the supported operand types. */
 template<>
 struct DispatcherTraits<ExactDouble> {
     typedef AlgebraicNumberInterface Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<>
 struct DispatcherTraits<Integer> {
     typedef AlgebraicNumberInterface Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<>
 struct DispatcherTraits<Dyadic> {
     typedef AlgebraicNumberInterface Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<>
 struct DispatcherTraits<Rational> {
     typedef AlgebraicNumberInterface Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<>
 struct DispatcherTraits<Real> {
     typedef AlgebraicNumberInterface Interface;
 };
 
+/** @brief Dispatch er traits for the supported operand types. */
 template<>
 struct DispatcherTraits<DyadicBounds> {
     typedef ValidatedAlgebraicNumberInterface Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<>
 struct DispatcherTraits<RationalBounds> {
     typedef ValidatedAlgebraicNumberInterface Interface;
 };
 
+/** @brief Dispatch er traits for the supported operand types. */
 template<>
 struct DispatcherTraits<FloatDP> {
     typedef ConcreteNumberInterface<FloatDP> Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<>
 struct DispatcherTraits<FloatMP> {
     typedef ConcreteNumberInterface<FloatMP> Interface;
 };
 
+/** @brief Dispatch er traits for the supported operand types. */
 template<class F>
 struct DispatcherTraits<Ball<F>> {
     typedef ConcreteNumberInterface<F> Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<class F>
 struct DispatcherTraits<Bounds<F>> {
     typedef ConcreteNumberInterface<F> Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<class F>
 struct DispatcherTraits<UpperBound<F>> {
     typedef ConcreteNumberInterface<F> Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<class F>
 struct DispatcherTraits<LowerBound<F>> {
     typedef ConcreteNumberInterface<F> Interface;
 };
+/** @brief Dispatch er traits for the supported operand types. */
 template<class F>
 struct DispatcherTraits<Approximation<F>> {
     typedef ConcreteNumberInterface<F> Interface;
 };
 
+/** @brief Dispatch er traits for the supported operand types. */
 template<class F, class FE>
 struct DispatcherTraits<Ball<F, FE>> {
     typedef ConcreteBallInterface<F, FE> Interface;
 };
 
+/** @brief Polymorphic interface for algebraic number. */
 class AlgebraicNumberInterface
     : public virtual SelfOperableInterface<NumberInterface*, BinaryElementaryOperator, ManagedTypes<AlgebraicNumberInterface>> {
 };
 
+/** @brief Polymorphic interface for validated algebraic number. */
 class ValidatedAlgebraicNumberInterface
     : public virtual SelfOperableInterface<NumberInterface*, BinaryElementaryOperator, ManagedTypes<ValidatedAlgebraicNumberInterface>> {
 };
 
+/** @brief Polymorphic interface for concrete number. */
 template<class F>
 class ConcreteNumberInterface
     : public virtual SelfOperableInterface<NumberInterface*, BinaryElementaryOperator, ManagedTypes<ConcreteNumberInterface<F>>>,
       public virtual OperableInterface<NumberInterface*, BinaryElementaryOperator, ManagedTypes<AlgebraicNumberInterface>> {
 };
 
+/** @brief Polymorphic interface for concrete ball. */
 template<class F, class FE>
 class ConcreteBallInterface
     : public virtual SelfOperableInterface<NumberInterface*, BinaryElementaryOperator, ManagedTypes<ConcreteBallInterface<F, FE>>>,
@@ -480,25 +568,30 @@ class ConcreteBallInterface
 {
 };
 
+/** @brief Reusable implementation of elementary binary number dispatcher. */
 template<class X, class DI = DispatcherInterface<X>>
 class ElementaryBinaryNumberDispatcherMixin;
 
+/** @brief Reusable implementation of elementary binary number dispatcher. */
 template<class Y>
 class ElementaryBinaryNumberDispatcherMixin<Y, AlgebraicNumberInterface>
     : public SelfOperableMixin<Y, NumberInterface, NumberInterface*, BinaryElementaryOperator, ManagedTypes<AlgebraicNumberInterface>> {
 };
 
+/** @brief Reusable implementation of elementary binary number dispatcher. */
 template<class Y>
 class ElementaryBinaryNumberDispatcherMixin<Y, ValidatedAlgebraicNumberInterface>
     : public SelfOperableMixin<Y, NumberInterface, NumberInterface*, BinaryElementaryOperator, ManagedTypes<ValidatedAlgebraicNumberInterface>> {
 };
 
+/** @brief Reusable implementation of elementary binary number dispatcher. */
 template<class Y, class F>
 class ElementaryBinaryNumberDispatcherMixin<Y, ConcreteNumberInterface<F>>
     : public SelfOperableMixin<Y, NumberInterface, NumberInterface*, BinaryElementaryOperator, ManagedTypes<ConcreteNumberInterface<F>>>,
       public OperableMixin<Y, NumberInterface, NumberInterface*, BinaryElementaryOperator, ManagedTypes<AlgebraicNumberInterface>> {
 };
 
+/** @brief Reusable implementation of elementary binary number dispatcher. */
 template<class Y, class F, class FE>
 class ElementaryBinaryNumberDispatcherMixin<Y, ConcreteBallInterface<F, FE>>
     : public SelfOperableMixin<Y, NumberInterface, NumberInterface*, BinaryElementaryOperator, ManagedTypes<ConcreteBallInterface<F, FE>>>,
@@ -507,37 +600,44 @@ class ElementaryBinaryNumberDispatcherMixin<Y, ConcreteBallInterface<F, FE>>
 {
 };
 
+/** @brief Reusable implementation of comparison binary number dispatcher. */
 template<class X, class DI = DispatcherInterface<X>>
 class ComparisonBinaryNumberDispatcherMixin;
 
+/** @brief Reusable implementation of comparison binary number dispatcher. */
 template<class Y>
 class ComparisonBinaryNumberDispatcherMixin<Y, AlgebraicNumberInterface>
     : public SelfOperableMixin<Y, NumberInterface, LogicalInterface*, BinaryComparisonOperator, ManagedTypes<AlgebraicNumberInterface>> {
 };
 
+/** @brief Reusable implementation of comparison binary number dispatcher. */
 template<class Y>
 class ComparisonBinaryNumberDispatcherMixin<Y, ValidatedAlgebraicNumberInterface>
     : public SelfOperableMixin<Y, NumberInterface, LogicalInterface*, BinaryComparisonOperator, ManagedTypes<ValidatedAlgebraicNumberInterface>> {
 };
 
+/** @brief Reusable implementation of comparison binary number dispatcher. */
 template<class Y, class F>
 class ComparisonBinaryNumberDispatcherMixin<Y, ConcreteNumberInterface<F>>
     : public SelfOperableMixin<Y, NumberInterface, LogicalInterface*, BinaryComparisonOperator, ManagedTypes<ConcreteNumberInterface<F>>>,
       public OperableMixin<Y, NumberInterface, LogicalInterface*, BinaryComparisonOperator, ManagedTypes<AlgebraicNumberInterface>> {
 };
 
+/** @brief Reusable implementation of comparison binary number dispatcher. */
 template<class Y, class F, class FE>
 class ComparisonBinaryNumberDispatcherMixin<Y, ConcreteBallInterface<F, FE>>
     : public SelfOperableMixin<Y, NumberInterface, LogicalInterface*, BinaryComparisonOperator, ManagedTypes<ConcreteBallInterface<F, FE>>>,
       public OperableMixin<Y, NumberInterface, LogicalInterface*, BinaryComparisonOperator, ManagedTypes<AlgebraicNumberInterface>> {
 };
 
+/** @brief Construct symbolic from the supplied arguments. */
 inline LogicalInterface* make_symbolic(BinaryComparisonOperator op, const NumberInterface* yp1, const NumberInterface* yp2) {
     String yc1 = yp1->_class_name();
     String yc2 = yp2->_class_name();
     ARIADNE_THROW(DispatchException, op << "(Number y1, Number y2) with y1=" << *yp1 << ", y2=" << *yp2, "No dispatch for " << op << "(" << yc1 << ", " << yc2 << ")");
 }
 
+/** @brief Construct symbolic from the supplied arguments. */
 template<class OP>
 inline NumberInterface* make_symbolic(OP op, const NumberInterface* yp1, const NumberInterface* yp2) {
     //    Handle<NumberInterface> y1(const_cast<NumberInterface*>(yp1)->shared_from_this());
@@ -547,20 +647,25 @@ inline NumberInterface* make_symbolic(OP op, const NumberInterface* yp1, const N
     ARIADNE_THROW(DispatchException, op << "(Number y1, Number y2) with y1=" << *yp1 << ", y2=" << *yp2, "No dispatch for " << op << "(" << yc1 << ", " << yc2 << ")");
 }
 
+/** @brief Reusable implementation of elementary unary number operations. */
 template<class X>
 struct ElementaryUnaryNumberOperationsMixin
     : public UnaryOperationMixin<X, NumberInterface, UnaryElementaryOperator, NumberInterface> {};
+/** @brief Reusable implementation of elementary binary number operations. */
 template<class X>
 struct ElementaryBinaryNumberOperationsMixin
     : public BinaryOperationMixin<X, NumberInterface, BinaryElementaryOperator, NumberInterface> {};
+/** @brief Reusable implementation of elementary graded number operations. */
 template<class X, class N = Int>
 struct ElementaryGradedNumberOperationsMixin
     : public GradedOperationMixin<X, NumberInterface, GradedElementaryOperator, NumberInterface, N> {};
 
+/** @brief Reusable implementation of comparison binary number operations. */
 template<class X>
 struct ComparisonBinaryNumberOperationsMixin
     : public BinaryOperationMixin<X, LogicalInterface, BinaryComparisonOperator, NumberInterface> {};
 
+/** @brief Write the value to the output stream. */
 inline OutputStream& operator<<(OutputStream& os, ParadigmCode cd) {
     switch (cd) {
         case ParadigmCode::EXACT:
@@ -574,19 +679,25 @@ inline OutputStream& operator<<(OutputStream& os, ParadigmCode cd) {
     }
 }
 
+/** @brief Reusable implementation of number getter. */
 template<class X>
 class NumberGetterMixin : public virtual NumberInterface {
   public:
     //  operator X const& () const { return static_cast<NumberMixin<X>const&>(*this); }
+    /** @brief Convert to the concrete representation required by dispatch. */
     static const X& _cast(const NumberGetterMixin<X>& self) { return static_cast<const NumberWrapper<X>&>(static_cast<const NumberMixin<X>&>(self)); }
+    /** @brief Convert to the concrete representation required by dispatch. */
     static X& _cast(NumberGetterMixin<X>& self) { return static_cast<NumberWrapper<X>&>(static_cast<NumberMixin<X>&>(self)); }
 
     typedef Paradigm<X> P;
     friend class Number<P>;
 
+    /** @brief Return a copy of the object. */
     virtual NumberInterface* _copy() const override { return new NumberWrapper<X>(_cast(*this)); }
+    /** @brief Return a dynamically allocated object by moving the stored value. */
     virtual NumberInterface* _move() override { return new NumberWrapper<X>(std::move(_cast(*this))); }
 
+    /** @brief Test whether the represented number is positive. */
     virtual LogicalInterface* _is_pos() const override {
         auto res = (_cast(*this) > 0);
         if constexpr (Same<decltype(res), bool>) {
@@ -599,52 +710,68 @@ class NumberGetterMixin : public virtual NumberInterface {
         }
     }
 
+    /** @brief Return the q. */
     virtual Rational _get_q() const override {
         return this->_get_as<Rational>();
     }
 
+    /** @brief Return the requested element or stored value. */
     virtual FloatDPBall _get(MetricTag, DoublePrecision pr, DoublePrecision) const override {
         return this->_get_as<FloatDPBall>(pr);
     }
+    /** @brief Return the requested element or stored value. */
     virtual FloatDPBounds _get(OrderTag, DoublePrecision pr) const override {
         return this->_get_as<FloatDPBounds>(pr);
     }
+    /** @brief Return the requested element or stored value. */
     virtual FloatDPUpperBound _get(UpperTag, DoublePrecision pr) const override {
         return this->_get_as<FloatDPUpperBound>(pr);
     }
+    /** @brief Return the requested element or stored value. */
     virtual FloatDPLowerBound _get(LowerTag, DoublePrecision pr) const override {
         return this->_get_as<FloatDPLowerBound>(pr);
     }
+    /** @brief Return the requested element or stored value. */
     virtual FloatDPApproximation _get(ApproximateTag, DoublePrecision pr) const override {
         return this->_get_as<FloatDPApproximation>(pr);
     }
 
     // Keep the same paradigm-specific return types and the supplied
     // Preserve the supplied centre/error precision in the native backend.
+    /** @brief Return the requested element or stored value. */
     virtual FloatMPDPBall _get(MetricTag, MultiplePrecision pr, DoublePrecision pre) const override {
         return this->_get_as<FloatMPDPBall>(pr, pre);
     }
+    /** @brief Return the requested element or stored value. */
     virtual FloatMPBall _get(MetricTag, MultiplePrecision pr, MultiplePrecision pre) const override {
         return this->_get_as<FloatMPBall>(pr, pre);
     }
+    /** @brief Return the requested element or stored value. */
     virtual FloatMPBounds _get(OrderTag, MultiplePrecision pr) const override {
         return this->_get_as<FloatMPBounds>(pr);
     }
+    /** @brief Return the requested element or stored value. */
     virtual FloatMPUpperBound _get(UpperTag, MultiplePrecision pr) const override {
         return this->_get_as<FloatMPUpperBound>(pr);
     }
+    /** @brief Return the requested element or stored value. */
     virtual FloatMPLowerBound _get(LowerTag, MultiplePrecision pr) const override {
         return this->_get_as<FloatMPLowerBound>(pr);
     }
+    /** @brief Return the requested element or stored value. */
     virtual FloatMPApproximation _get(ApproximateTag, MultiplePrecision pr) const override {
         return this->_get_as<FloatMPApproximation>(pr);
     }
 
+    /** @brief Return the computational paradigm of the represented value. */
     virtual ParadigmCode _paradigm() const override { return P::code(); }
+    /** @brief Return the display name of the type. */
     virtual String _class_name() const override { return class_name<X>(); }
+    /** @brief Write the value to the output stream. */
     virtual OutputStream& _write(OutputStream& os) const override { return os << _cast(*this); }
 
   private:
+    /** @brief Return the as. */
     template<class R>
     inline R _get_as() const {
         if constexpr (Constructible<R, X>) {
@@ -653,6 +780,7 @@ class NumberGetterMixin : public virtual NumberInterface {
             throw ParadigmError();
         }
     }
+    /** @brief Return the as. */
     template<class R, class PR>
     inline R _get_as(PR pr) const {
         if constexpr (Constructible<R, X, PR>) {
@@ -662,6 +790,7 @@ class NumberGetterMixin : public virtual NumberInterface {
             throw ParadigmError();
         }
     }
+    /** @brief Return the as. */
     template<class R, class PR, class PRE>
     inline R _get_as(PR pr, PRE pre) const {
         if constexpr (Constructible<R, X, PR, PRE>) {
@@ -674,47 +803,61 @@ class NumberGetterMixin : public virtual NumberInterface {
     }
 };
 
+/** @brief Reusable implementation of number. */
 template<class X>
 class NumberMixin
     : public ElementaryBinaryNumberDispatcherMixin<X>,
       public ComparisonBinaryNumberDispatcherMixin<X>,
       public NumberGetterMixin<X> {
+    /** @brief Return the stored value. */
     const X& _value() const { return NumberGetterMixin<X>::_cast(*this); }
 
   public:
+    /** @brief Apply the supplied operation to the operands. */
     NumberInterface* _apply(UnaryElementaryOperator op) const override {
         return _concrete_apply<NumberInterface*>(op, _value());
     }
+    /** @brief Apply the supplied operation to the operands. */
     NumberInterface* _apply(BinaryElementaryOperator op, const NumberInterface* other) const override {
         return Ariadne::_apply<NumberInterface*, X>(_value(), op, static_cast<const NumberInterface*>(this), other);
     }
+    /** @brief Apply the operation with reversed operand order. */
     NumberInterface* _rapply(BinaryElementaryOperator op, const NumberInterface* other) const override {
         return Ariadne::_rapply<NumberInterface*, X>(_value(), op, static_cast<const NumberInterface*>(this), other);
     }
+    /** @brief Apply the supplied operation to the operands. */
     NumberInterface* _apply(GradedElementaryOperator op, Int n) const override {
         return _make_number_wrapper(op(_value(), n));
     }
+    /** @brief Apply the supplied operation to the operands. */
     LogicalInterface* _apply(BinaryComparisonOperator op, const NumberInterface* other) const override {
         return Ariadne::_apply<LogicalInterface*, X>(_value(), op, static_cast<const NumberInterface*>(this), other);
     }
+    /** @brief Apply the operation with reversed operand order. */
     LogicalInterface* _rapply(BinaryComparisonOperator op, const NumberInterface* other) const override {
         return Ariadne::_rapply<LogicalInterface*, X>(_value(), op, static_cast<const NumberInterface*>(this), other);
     }
 
+    /** @brief Convert to const x &. */
     operator const X&() const { return static_cast<const NumberWrapper<X>&>(*this); }
+    /** @brief Convert to x&. */
     operator X&() { return static_cast<NumberWrapper<X>&>(*this); }
 };
 
+/** @brief Adapter exposing number. */
 template<class X>
 class NumberWrapper
     : public X,
       public NumberMixin<X> {
+    /** @brief Convert to the concrete representation required by dispatch. */
     inline static const X& _cast(const NumberWrapper<X>& x) { return static_cast<const X&>(x); }
     static_assert(not Same<X, Handle<NumberInterface>>, "X must be a concrete number, not a handle");
     static_assert(not Same<X, Number<Paradigm<X>>>, "X must be a concrete number, not a generic number");
 
   public:
+    /** @brief Construct a \c NumberWrapper from a. */
     NumberWrapper(const X& a) : X(a) {}
+    /** @brief Move-construct the object from the supplied instance. */
     NumberWrapper(X&& a) : X(std::forward<X>(a)) {}
 };
 

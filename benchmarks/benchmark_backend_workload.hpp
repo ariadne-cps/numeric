@@ -49,11 +49,13 @@ inline constexpr unsigned backend_operation_count = 62u;
 // Keep both comparison executables on the same operation battery
 // and identical, deterministic 32-element exact-rational input pool.
 // Changing the workload here deliberately changes all backend benchmarks.
+/** @brief Keep the referenced object alive for the lifetime of the dependent Python object. */
 template<class T>
 inline void keep_alive(const T& value) {
     Ariadne::Benchmarking::keep_alive(value);
 }
 
+/** @brief Measure one operation under the selected benchmark configuration. */
 template<class Operation>
 Ariadne::Benchmarking::Statistics measure_operation(
     const Ariadne::Benchmarking::Runner& runner,
@@ -69,6 +71,7 @@ Ariadne::Benchmarking::Statistics measure_operation(
     return Ariadne::Benchmarking::summarize(values);
 }
 
+/** @brief Recorded timing data for one benchmark workload. */
 struct BenchmarkDatum {
     std::string backend;
     std::string operation;
@@ -80,11 +83,13 @@ struct BenchmarkDatum {
 // The same deterministic input construction and operation callables are
 // used by the standalone FloatMP and paired FloatDP/FloatMP drivers.
 // The benchmark clock is owned by Runner, not by this workload header.
+/** @brief Collection of reusable arithmetic backend instances. */
 template<class Float>
 struct BackendPool {
     using Precision = typename Float::PrecisionType;
     static constexpr unsigned pool_size = 32u;
 
+    /** @brief Return the precision selected at the supplied workload index. */
     static Precision precision_at(unsigned bits) {
         if constexpr (std::is_same_v<Precision, DoublePrecision>) {
             if (bits != 53u) {
@@ -102,6 +107,7 @@ struct BackendPool {
     std::vector<Rational> exact_a, exact_b;
     std::vector<Float> a, b;
 
+    /** @brief Construct a \c BackendPool from bits. */
     explicit BackendPool(unsigned bits) : precision(precision_at(bits)) {
         exact_a.reserve(pool_size);
         exact_b.reserve(pool_size);
@@ -125,6 +131,7 @@ struct BackendPool {
     }
 };
 
+/** @brief Invoke the callback for every configured arithmetic backend operation. */
 template<class Float, class Visit>
 void for_each_backend_operation(const BackendPool<Float>& pool, Visit&& report) {
     constexpr unsigned pool_size = BackendPool<Float>::pool_size;
@@ -324,6 +331,7 @@ void for_each_backend_operation(const BackendPool<Float>& pool, Visit&& report) 
     });
 }
 
+/** @brief Run the selected arithmetic backend workload. */
 template<class Float>
 void run_backend(const char* backend, unsigned bits, unsigned iterations,
                  unsigned samples, const Ariadne::Benchmarking::Runner& runner,

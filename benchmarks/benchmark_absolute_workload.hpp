@@ -45,6 +45,7 @@ namespace AriadneBenchmark {
 namespace Bench = Ariadne::Benchmarking;
 using Ariadne::Logger; // Required by LOGGING_PRINTLN's unqualified lookup.
 
+/** @brief Selected workloads and precisions for an absolute benchmark. */
 struct AbsoluteSelection {
     unsigned iterations = 20000u;
     unsigned samples = 31u;
@@ -54,6 +55,7 @@ struct AbsoluteSelection {
 
 // Preserve the established CLI contract: samples are odd and >=3, while
 // operand widths are positive, unique and visited in the specified order.
+/** @brief Return parsers for the absolute benchmark options. */
 inline Ariadne::List<Ariadne::ArgumentParser> absolute_parsers(AbsoluteSelection& s) {
     using namespace Ariadne;
     List<ArgumentParser> parsers;
@@ -99,6 +101,7 @@ inline Ariadne::List<Ariadne::ArgumentParser> absolute_parsers(AbsoluteSelection
     return parsers;
 }
 
+/** @brief One absolute benchmark measurement with its workload dimensions. */
 struct AbsoluteDatum {
     std::string operation;
     unsigned bits;
@@ -108,6 +111,7 @@ struct AbsoluteDatum {
 // The operation closure contains the same per-iteration call as the old
 // benchmark. Only this closure is timed; setup, invariants and reports are not.
 // With normalization=iterations, a sample is nanoseconds per operation.
+/** @brief Record an absolute benchmark measurement. */
 template<class Operation>
 void record_absolute(std::vector<AbsoluteDatum>& rows,
                      const Bench::Runner& runner,
@@ -125,6 +129,7 @@ void record_absolute(std::vector<AbsoluteDatum>& rows,
     rows.push_back({name, bits, std::move(stats)});
 }
 
+/** @brief Render the absolute benchmark measurements. */
 inline void report_absolute(const char* type,
                             const AbsoluteSelection& s,
                             const Bench::SummaryFields& fields,
@@ -173,6 +178,7 @@ inline void report_absolute(const char* type,
     LOGGING_PRINTLN("Totals sum per-operation median durations (not wall-clock totals).")
 }
 
+/** @brief Acquire the absolute benchmark command-line parameters. */
 inline bool acquire_absolute(AbsoluteSelection& selection,
                              Bench::CommandLine& cli,
                              const char* title, int argc, const char* argv[]) {

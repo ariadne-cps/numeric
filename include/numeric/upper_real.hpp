@@ -88,15 +88,21 @@ class UpperReal
     typedef UpperReal NumericType;
 
   public:
+    /** @brief Construct a \c UpperReal with the specified characteristics. */
     UpperReal(Real);
+    /** @brief Construct a \c UpperReal with the specified characteristics. */
     explicit UpperReal(SharedPointer<const Interface>);
 
   public:
     //!@{
     //! \name Computation of rigorous validated upper bounds on the number
+    /** @brief Compute the value at the requested accuracy or effort. */
     ValidatedUpperReal compute(Effort eff) const;
+    /** @brief Compute the value and extract the requested numeric representation. */
     DyadicUpperBound compute_get(Effort eff) const;
+    /** @brief Compute the value and extract the requested numeric representation. */
     FloatDPUpperBound compute_get(Effort eff, DoublePrecision pr) const;
+    /** @brief Compute the value and extract the requested numeric representation. */
     FloatMPUpperBound compute_get(Effort eff, MultiplePrecision pr) const;
     //!@}
 
@@ -159,12 +165,15 @@ class UpperReal
 
     //!@{
     //! \name Input/output operations
+    /** @brief Write the value to the output stream. */
     friend OutputStream &operator<<(OutputStream &os, const UpperReal &r); //< Write to an output stream.
     //!@}
 
     //!@{
     //! \name Mixed operations
+    /** @brief Return the maximum of the operands. */
     friend Real max(const UpperReal &ur1, const Real &r2);
+    /** @brief Return the maximum of the operands. */
     friend Real max(Real r1, const UpperReal &ur2);
     //!@}
 };
@@ -173,32 +182,52 @@ class UpperReal
 //! \brief Computable upper real numbers defined by conversion to concrete floats.
 class PositiveUpperReal : public UpperReal {
   public:
+    /** @brief Construct a \c PositiveUpperReal from r. */
     PositiveUpperReal(PositiveReal r) : UpperReal(r) {}
+    /** @brief Construct a \c PositiveUpperReal from r. */
     explicit PositiveUpperReal(UpperReal r) : UpperReal(r) {}
+    /** @brief Compute the value and extract the requested numeric representation. */
     PositiveUpperBound<Dyadic> compute_get(Effort) const;
 
   public:
+    /** @brief Return the multiplicative inverse. */
     PositiveUpperReal rec(const PositiveLowerReal &);
+    /** @brief Return the multiplicative inverse. */
     PositiveLowerReal rec(const PositiveUpperReal &);
+    /** @brief Return the sum of the operands. */
     PositiveUpperReal add(const PositiveUpperReal &, const PositiveUpperReal &);
+    /** @brief Return the product of the operands. */
     PositiveUpperReal mul(const PositiveUpperReal &, const PositiveUpperReal &);
+    /** @brief Return the quotient of the operands. */
     PositiveUpperReal div(const PositiveUpperReal &, const PositiveLowerReal &);
+    /** @brief Return the quotient of the operands. */
     PositiveLowerReal div(const PositiveLowerReal &, const PositiveUpperReal &);
 };
 
+/** @brief Return the multiplicative inverse. */
 PositiveLowerReal rec(const PositiveUpperReal &pur);
+/** @brief Return the sum of the operands. */
 PositiveUpperReal add(const PositiveUpperReal &pur1, const PositiveUpperReal &pur2);
+/** @brief Return the product of the operands. */
 PositiveUpperReal mul(const PositiveUpperReal &pur1, const PositiveUpperReal &pur2);
+/** @brief Return the quotient of the operands. */
 PositiveUpperReal div(const PositiveUpperReal &pur1, const PositiveLowerReal &plr2);
 
+/** @brief Validated upper information about a real number. */
 class ValidatedUpperReal
     : public Handle<const ValidatedRealInterface> {
   public:
+    /** @brief Construct a \c ValidatedUpperReal with the specified characteristics. */
     ValidatedUpperReal(const DyadicUpperBound &);
+    /** @brief Construct a \c ValidatedUpperReal with the specified characteristics. */
     ValidatedUpperReal(const ValidatedReal &);
+    /** @brief Return the requested element or stored value. */
     DyadicUpperBound get() const;
+    /** @brief Return the requested element or stored value. */
     FloatDPUpperBound get(DoublePrecision) const;
+    /** @brief Return the requested element or stored value. */
     FloatMPUpperBound get(MultiplePrecision) const;
+    /** @brief Write the value to the output stream. */
     friend OutputStream &operator<<(OutputStream &, const ValidatedUpperReal &);
 };
 

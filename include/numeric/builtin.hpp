@@ -48,10 +48,13 @@ namespace Ariadne {
 struct ExactTag;
 enum class Comparison : ComparableEnumerationType;
 
+/** @brief Compile-time predicate for conversion to a built-in double. */
 template<class D>
 struct HasGetD {
+    /** @brief Evaluate the compile-time or runtime predicate for the supplied arguments. */
     template<class DD, class = decltype(std::declval<DD>().get_d())>
     static std::true_type test(int);
+    /** @brief Evaluate the compile-time or runtime predicate for the supplied arguments. */
     template<class DD>
     static std::false_type test(...);
     static const bool value = decltype(test<D>(1))::value;
@@ -66,62 +69,100 @@ class ApproximateDouble {
   public:
     typedef ApproximateTag Paradigm;
     typedef ApproximateDouble NumericType;
+    /** @brief Construct a \c ApproximateDouble with the specified characteristics. */
     ApproximateDouble() : _d() {}
+    /** @brief Construct a \c ApproximateDouble from d. */
     ApproximateDouble(double d) : _d(d) {}
+    /** @brief Construct a \c ApproximateDouble from x. */
     ApproximateDouble(const ExactDouble& x);
+    /** @brief Construct a \c ApproximateDouble from r0. */
     ApproximateDouble(const Real& r0);
+    /** @brief Convert to double. */
     explicit operator double() const { return _d; }
+    /** @brief Convert to a built-in double. */
     double get_d() const { return this->_d; }
     friend ApproximateDouble operator""_a(long double lx) {
         double x = static_cast<double>(lx);
         return ApproximateDouble(x);
     }
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, ApproximateDouble x) { return os << x._d; }
 
+    /** @brief Return the additive zero with the operand characteristics. */
     friend ApproximateDouble nul(ApproximateDouble) { return ApproximateDouble(0.0); }
+    /** @brief Return the unary positive value. */
     friend ApproximateDouble pos(ApproximateDouble x) { return ApproximateDouble(+x._d); }
+    /** @brief Return the additive inverse. */
     friend ApproximateDouble neg(ApproximateDouble x) { return ApproximateDouble(-x._d); }
+    /** @brief Return the sum of the operands. */
     friend ApproximateDouble add(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d + x2._d); }
+    /** @brief Return the difference of the operands. */
     friend ApproximateDouble sub(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d - x2._d); }
+    /** @brief Return the product of the operands. */
     friend ApproximateDouble mul(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d * x2._d); }
+    /** @brief Return the quotient of the operands. */
     friend ApproximateDouble div(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d / x2._d); }
+    /** @brief Return the absolute value. */
     friend ApproximateDouble abs(ApproximateDouble x) { return ApproximateDouble(x._d >= 0 ? x._d : -x._d); }
+    /** @brief Return the maximum of the operands. */
     friend ApproximateDouble max(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d >= x2._d ? x1._d : x2._d); }
+    /** @brief Return the minimum of the operands. */
     friend ApproximateDouble min(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d <= x2._d ? x1._d : x2._d); }
+    /** @brief Return an upper bound on the absolute value. */
     friend ApproximateDouble mag(ApproximateDouble x) { return abs(x); }
+    /** @brief Return a lower bound on the absolute value. */
     friend ApproximateDouble mig(ApproximateDouble x) { return abs(x); }
 
+    /** @brief Return the sum or unary positive value. */
     friend ApproximateDouble operator+(ApproximateDouble x) { return ApproximateDouble(+x._d); }
+    /** @brief Return the difference or additive inverse. */
     friend ApproximateDouble operator-(ApproximateDouble x) { return ApproximateDouble(-x._d); }
+    /** @brief Return the sum or unary positive value. */
     friend ApproximateDouble operator+(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d + x2._d); }
+    /** @brief Return the difference or additive inverse. */
     friend ApproximateDouble operator-(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d - x2._d); }
+    /** @brief Return the product. */
     friend ApproximateDouble operator*(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d * x2._d); }
+    /** @brief Return the quotient. */
     friend ApproximateDouble operator/(ApproximateDouble x1, ApproximateDouble x2) { return ApproximateDouble(x1._d / x2._d); }
+    /** @brief Return the product. */
     friend ApproximateDouble operator*(ApproximateDouble x, TwoExp p) { return ApproximateDouble(x.get_d() * p.get_d()); }
+    /** @brief Return the quotient. */
     friend ApproximateDouble operator/(ApproximateDouble x, TwoExp p) { return ApproximateDouble(x.get_d() / p.get_d()); }
+    /** @brief Add the operand in place. */
     friend ApproximateDouble& operator+=(ApproximateDouble& x1, ApproximateDouble x2) {
         x1._d += x2._d;
         return x1;
     }
+    /** @brief Subtract the operand in place. */
     friend ApproximateDouble& operator-=(ApproximateDouble& x1, ApproximateDouble x2) {
         x1._d -= x2._d;
         return x1;
     }
+    /** @brief Multiply by the operand in place. */
     friend ApproximateDouble& operator*=(ApproximateDouble& x1, ApproximateDouble x2) {
         x1._d *= x2._d;
         return x1;
     }
+    /** @brief Divide by the operand in place. */
     friend ApproximateDouble& operator/=(ApproximateDouble& x1, ApproximateDouble x2) {
         x1._d /= x2._d;
         return x1;
     }
 
+    /** @brief Test whether the operands have the same representation. */
     friend Bool same(ApproximateDouble x1, ApproximateDouble x2) { return x1._d == x2._d; }
+    /** @brief Test equality of the operands. */
     friend ApproximateKleenean operator==(ApproximateDouble x1, ApproximateDouble x2) { return x1._d == x2._d; }
+    /** @brief Test inequality of the operands. */
     friend ApproximateKleenean operator!=(ApproximateDouble x1, ApproximateDouble x2) { return x1._d != x2._d; }
+    /** @brief Test whether the first operand is greater than the second. */
     friend ApproximateKleenean operator>(ApproximateDouble x1, ApproximateDouble x2) { return x1._d > x2._d; }
+    /** @brief Test whether the first operand is less than the second. */
     friend ApproximateKleenean operator<(ApproximateDouble x1, ApproximateDouble x2) { return x1._d < x2._d; }
+    /** @brief Test whether the first operand is greater than or equal to the second. */
     friend ApproximateKleenean operator>=(ApproximateDouble x1, ApproximateDouble x2) { return x1._d >= x2._d; }
+    /** @brief Test whether the first operand is less than or equal to the second. */
     friend ApproximateKleenean operator<=(ApproximateDouble x1, ApproximateDouble x2) { return x1._d <= x2._d; }
 };
 
@@ -134,12 +175,14 @@ inline ApproximateDouble operator""_a(long double lx);
 //! indicating that the stored value is the \em exact value of a real quantity.
 class ExactDouble {
     double _d;
+    /** @brief Convert to a signed integer after checking the representable range. */
     static double _checked_signed(long long n) {
         double d = static_cast<double>(n);
         ARIADNE_PRECONDITION(d < std::ldexp(1.0, 63));
         ARIADNE_PRECONDITION(static_cast<long long>(d) == n);
         return d;
     }
+    /** @brief Convert to an unsigned integer after checking the representable range. */
     static double _checked_unsigned(unsigned long long n) {
         double d = static_cast<double>(n);
         ARIADNE_PRECONDITION(d < std::ldexp(1.0, 64));
@@ -147,6 +190,7 @@ class ExactDouble {
         return d;
     }
 #if LDBL_MANT_DIG > DBL_MANT_DIG
+    /** @brief Convert a long double after checking exact representability. */
     static double _checked_long_double(long double x) {
         double d = static_cast<double>(x);
         ARIADNE_PRECONDITION(std::isnan(d) || static_cast<long double>(d) == x);
@@ -156,45 +200,75 @@ class ExactDouble {
 
   public:
     typedef ExactTag Paradigm;
+    /** @brief Convert to a built-in double. */
     double get_d() const { return this->_d; }
+    /** @brief Construct a \c ExactDouble with the specified characteristics. */
     ExactDouble() : _d() {}
+    /** @brief Construct a \c ExactDouble from n. */
     template<BuiltinIntegral N>
         requires std::is_signed_v<N>
     ExactDouble(N n) : _d(_checked_signed(static_cast<long long>(n))) {}
+    /** @brief Construct a \c ExactDouble from n. */
     template<BuiltinIntegral N>
         requires(!std::is_signed_v<N>)
     ExactDouble(N n) : _d(_checked_unsigned(static_cast<unsigned long long>(n))) {}
+    /** @brief Construct a \c ExactDouble from x. */
     explicit ExactDouble(float x) : _d(static_cast<double>(x)) {}
+    /** @brief Construct a \c ExactDouble from x. */
     explicit ExactDouble(double x) : _d(x) {}
 #if LDBL_MANT_DIG > DBL_MANT_DIG
+    /** @brief Construct a \c ExactDouble from x. */
     explicit ExactDouble(long double x) : _d(_checked_long_double(x)) {}
 #else
+    /** @brief Construct a \c ExactDouble from x. */
     explicit ExactDouble(long double x) : _d(static_cast<double>(x)) {}
 #endif
+    /** @brief Return an infinite value. */
     static ExactDouble infinity() { return ExactDouble(std::numeric_limits<double>::infinity()); }
+    /** @brief Convert to exact number. */
     operator ExactNumber() const;
+    /** @brief Return the additive zero with the operand characteristics. */
     friend ExactDouble nul(ExactDouble) { return ExactDouble(0.0); }
+    /** @brief Return the absolute value. */
     friend ExactDouble abs(ExactDouble x) { return ExactDouble(std::abs(x._d)); }
+    /** @brief Return an infinite value. */
     static ExactDouble inf() { return ExactDouble(std::numeric_limits<double>::infinity()); }
+    /** @brief Return a not-a-number value. */
     static ExactDouble nan() { return ExactDouble(std::numeric_limits<double>::quiet_NaN()); }
+    /** @brief Test whether the value is finite. */
     friend Bool is_finite(ExactDouble x) { return std::isfinite(x._d); }
+    /** @brief Return the sum or unary positive value. */
     friend ExactDouble operator+(ExactDouble x) { return ExactDouble(+x._d); }
+    /** @brief Return the difference or additive inverse. */
     friend ExactDouble operator-(ExactDouble x) { return ExactDouble(-x._d); }
+    /** @brief Return the sum or unary positive value. */
     friend ApproximateDouble operator+(ApproximateDouble x1, ApproximateDouble x2);
+    /** @brief Return the difference or additive inverse. */
     friend ApproximateDouble operator-(ApproximateDouble x1, ApproximateDouble x2);
+    /** @brief Return the product. */
     friend ApproximateDouble operator*(ApproximateDouble x1, ApproximateDouble x2);
+    /** @brief Return the quotient. */
     friend ApproximateDouble operator/(ApproximateDouble x1, ApproximateDouble x2);
+    /** @brief Return the product. */
     friend ExactDouble operator*(ExactDouble x, TwoExp p) { return ExactDouble(x.get_d() * p.get_d()); }
+    /** @brief Return the quotient. */
     friend ExactDouble operator/(ExactDouble x, TwoExp p) { return ExactDouble(x.get_d() / p.get_d()); }
+    /** @brief Compare the operands using the comparison result type. */
     friend Comparison cmp(const ExactDouble& x1, const ExactDouble& x2) {
         return Comparison((x1._d == x2._d) ? 0 : (x1._d < x2._d) ? -1
                                                                  : +1);
     }
+    /** @brief Test equality of the operands. */
     friend Boolean operator==(const ExactDouble& x1, const ExactDouble& x2) { return x1._d == x2._d; }
+    /** @brief Test inequality of the operands. */
     friend Boolean operator!=(const ExactDouble& x1, const ExactDouble& x2) { return x1._d != x2._d; }
+    /** @brief Test whether the first operand is greater than or equal to the second. */
     friend Boolean operator>=(const ExactDouble& x1, const ExactDouble& x2) { return x1._d >= x2._d; }
+    /** @brief Test whether the first operand is less than or equal to the second. */
     friend Boolean operator<=(const ExactDouble& x1, const ExactDouble& x2) { return x1._d <= x2._d; }
+    /** @brief Test whether the first operand is greater than the second. */
     friend Boolean operator>(const ExactDouble& x1, const ExactDouble& x2) { return x1._d > x2._d; }
+    /** @brief Test whether the first operand is less than the second. */
     friend Boolean operator<(const ExactDouble& x1, const ExactDouble& x2) { return x1._d < x2._d; }
     friend ExactDouble operator""_x(long double lx) { return ExactDouble(lx); }
     friend ExactDouble operator""_pr(long double lx) {
@@ -216,6 +290,7 @@ class ExactDouble {
 #endif
         return ExactDouble(x);
     }
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, ExactDouble x) { return os << std::setprecision(18) << x.get_d(); }
 };
 
@@ -246,17 +321,21 @@ ExactDouble pr_(long double lx);
 #endif // DOXYGEN
 
 inline ExactDouble cast_exact(double d) { return ExactDouble(d); }
+/** @brief Convert to the exact representation. */
 inline ExactDouble cast_exact(ApproximateDouble ax) { return ExactDouble(ax.get_d()); }
 
 static const ExactDouble inf = ExactDouble(std::numeric_limits<double>::infinity());
 
 template<class X>
 class Positive;
+/** @brief Nonnegative numeric representation supporting sign-restricted operations. */
 template<>
 class Positive<ExactDouble> : public ExactDouble {
   public:
+    /** @brief Construct a \c Positive from x. */
     explicit Positive(ExactDouble x) : ExactDouble(x) {}
 };
+/** @brief Convert to the positive representation. */
 inline Positive<ExactDouble> cast_positive(ExactDouble x) { return Positive<ExactDouble>(x); }
 
 inline ApproximateDouble::ApproximateDouble(const ExactDouble& x) : _d(x.get_d()) {}

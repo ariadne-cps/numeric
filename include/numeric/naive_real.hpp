@@ -97,6 +97,7 @@ class NaiveReal
     //! \name Computation of approximations to the number.
     //! Compute an approximation with no guarantees on the error. The error converges to \a 0 as \a eff approaches infinity.
     //! The time taken should be roughly polynomial in \a eff.
+    /** @brief Compute the value at the requested accuracy or effort. */
     ApproximateReal compute(Effort eff) const;
     //!@}
 
@@ -167,6 +168,7 @@ class NaiveReal
 
     //!@{
     //! \name Input/output operations
+    /** @brief Write the value to the output stream. */
     friend OutputStream &operator<<(OutputStream &os, const NaiveReal &r); //< Write to an output stream.
     //!@}
 };
@@ -175,34 +177,54 @@ class NaiveReal
 //! \brief Computable lower real numbers defined by conversion to concrete floats.
 class PositiveNaiveReal : public NaiveReal {
   public:
+    /** @brief Construct a \c PositiveNaiveReal with the specified characteristics. */
     PositiveNaiveReal() : NaiveReal() {}
+    /** @brief Construct a \c PositiveNaiveReal from p. */
     template<ConvertibleTo<NaiveReal> Y>
     PositiveNaiveReal(const Positive<Y> &p) : NaiveReal(p) {}
+    /** @brief Construct a \c PositiveNaiveReal from r. */
     explicit PositiveNaiveReal(const NaiveReal &r) : NaiveReal(r) {}
+    /** @brief Compute the value and extract the requested numeric representation. */
     PositiveBounds<Dyadic> compute_get(Effort) const;
 
   public:
+    /** @brief Return the maximum of the operands. */
     PositiveNaiveReal max(const PositiveNaiveReal &, const PositiveNaiveReal &);
+    /** @brief Return the maximum of the operands. */
     PositiveNaiveReal max(const NaiveReal &, const PositiveNaiveReal &);
+    /** @brief Return the maximum of the operands. */
     PositiveNaiveReal max(const PositiveNaiveReal &, const NaiveReal &);
 
+    /** @brief Return the minimum of the operands. */
     PositiveNaiveReal min(const PositiveNaiveReal &, const PositiveNaiveReal &);
 
+    /** @brief Return the multiplicative inverse. */
     PositiveNaiveReal rec(const PositiveNaiveReal &);
+    /** @brief Return the sum of the operands. */
     PositiveNaiveReal add(const PositiveNaiveReal &, const PositiveNaiveReal &);
+    /** @brief Return the product of the operands. */
     PositiveNaiveReal mul(const PositiveNaiveReal &, const PositiveNaiveReal &);
+    /** @brief Return the quotient of the operands. */
     PositiveNaiveReal div(const PositiveNaiveReal &, const PositiveNaiveReal &);
+    /** @brief Return the square root. */
     PositiveNaiveReal sqrt(const PositiveNaiveReal &);
+    /** @brief Return the inverse tangent. */
     PositiveNaiveReal atan(const PositiveNaiveReal &);
 
   public:
+    /** @brief Return the minimum of the operands. */
     friend PositiveNaiveReal min(const PositiveNaiveReal &pr1, const PositiveNaiveReal &pr2);
+    /** @brief Return the sum of the operands. */
     friend PositiveNaiveReal add(const PositiveNaiveReal &pr1, const PositiveNaiveReal &pr2);
+    /** @brief Return the product of the operands. */
     friend PositiveNaiveReal mul(const PositiveNaiveReal &pr1, const PositiveNaiveReal &pr2);
+    /** @brief Return the quotient of the operands. */
     friend PositiveNaiveReal div(const PositiveNaiveReal &pr1, const PositiveNaiveReal &pr2);
+    /** @brief Return the multiplicative inverse. */
     friend PositiveNaiveReal rec(const PositiveNaiveReal &pr);
 };
 
+/** @brief Convert to the positive representation. */
 PositiveNaiveReal cast_positive(const NaiveReal &x);
 
 } // namespace Ariadne

@@ -176,12 +176,18 @@ const rounding_mode_t ROUND_DOWNWARD = 1024;
 const rounding_mode_t ROUND_UPWARD = 2048;
 const rounding_mode_t ROUND_TOWARD_ZERO = 3072;
 
+/** @brief Set the builtin rounding to nearest. */
 inline void set_builtin_rounding_to_nearest() {}
+/** @brief Set the builtin rounding downward. */
 inline void set_builtin_rounding_downward() {}
+/** @brief Set the builtin rounding upward. */
 inline void set_builtin_rounding_upward() {}
+/** @brief Set the builtin rounding toward zero. */
 inline void set_builtin_rounding_toward_zero() {}
 
+/** @brief Set the builtin rounding mode. */
 inline void set_builtin_rounding_mode(rounding_mode_t rnd) {}
+/** @brief Return the builtin rounding mode. */
 inline rounding_mode_t get_builtin_rounding_mode() { return ROUND_TO_NEAREST; }
 
 } // namespace Ariadne
@@ -229,25 +235,31 @@ void set_default_builtin_rounding();
 
 //! \brief Tag class for downward rounding. Constants \ref downward, \ref down. \ingroup NumericModule
 struct RoundDownward {
+    /** @brief Convert to builtin rounding mode type. */
     constexpr operator BuiltinRoundingModeType() const { return ROUND_DOWNWARD; }
 };
 //! \brief Tag class for rounding to nearest. Constants \ref to_nearest, \ref near. \ingroup NumericModule
 struct RoundToNearest {
+    /** @brief Convert to builtin rounding mode type. */
     constexpr operator BuiltinRoundingModeType() const { return ROUND_TO_NEAREST; }
 };
 //! \brief Tag class for upward rounding. Constants \ref upward, \ref up. \ingroup NumericModule
 struct RoundUpward {
+    /** @brief Convert to builtin rounding mode type. */
     constexpr operator BuiltinRoundingModeType() const { return ROUND_UPWARD; }
 };
 //! \brief Tag class for rounding towards zero. %Constant \ref toward_zero. \ingroup NumericModule
 struct RoundTowardZero {
+    /** @brief Convert to builtin rounding mode type. */
     constexpr operator BuiltinRoundingModeType() const { return ROUND_TOWARD_ZERO; }
 };
 //! \brief Tag class for approximate rounding. %Constant \ref approx. \ingroup NumericModule
 struct RoundApproximately {
+    /** @brief Convert to builtin rounding mode type. */
     constexpr operator BuiltinRoundingModeType() const { return ROUND_TO_NEAREST; }
 };
 
+/** @brief Tag selecting the currently active floating-point rounding mode. */
 struct CurrentRoundingMode {};
 static const CurrentRoundingMode rounded = CurrentRoundingMode();
 
@@ -256,13 +268,21 @@ class Rounding {
     BuiltinRoundingModeType _rbp;
 
   public:
+    /** @brief Construct a \c Rounding from rbp. */
     explicit Rounding(BuiltinRoundingModeType rbp) : _rbp(rbp) {} //!< <p/>
+    /** @brief Construct a \c Rounding with the specified characteristics. */
     Rounding(RoundDownward) : _rbp(ROUND_DOWNWARD) {}             //!< <p/>
+    /** @brief Construct a \c Rounding with the specified characteristics. */
     Rounding(RoundToNearest) : _rbp(ROUND_TO_NEAREST) {}          //!< <p/>
+    /** @brief Construct a \c Rounding with the specified characteristics. */
     Rounding(RoundUpward) : _rbp(ROUND_UPWARD) {}                 //!< <p/>
+    /** @brief Construct a \c Rounding with the specified characteristics. */
     Rounding(RoundTowardZero) : _rbp(ROUND_TOWARD_ZERO) {}        //!< <p/>
+    /** @brief Construct a \c Rounding with the specified characteristics. */
     Rounding(RoundApproximately) : _rbp(ROUND_TO_NEAREST) {}      //!< <p/>
+    /** @brief Convert to builtin rounding mode type. */
     operator BuiltinRoundingModeType() const { return _rbp; }     //!< <p/>
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, const Rounding& rnd) {
         return os << (rnd._rbp == ROUND_TO_NEAREST ? "near"
                       : rnd._rbp == ROUND_DOWNWARD ? "down"
@@ -298,16 +318,21 @@ class RoundingSession {
     RoundingModeType _current;
 
   public:
+    /** @brief Construct a \c RoundingSession with the specified characteristics. */
     RoundingSession()
         : _initial(F::get_rounding_mode()), _current(_initial) {}
+    /** @brief Destroy the object and release its owned resources. */
     ~RoundingSession() {
         if (_current != _initial) {
             F::set_rounding_mode(_initial);
         }
     }
+    /** @brief Disallow this construction to preserve the ownership contract. */
     RoundingSession(const RoundingSession&) = delete;
+    /** @brief Disallow assignment to preserve the ownership contract. */
     RoundingSession& operator=(const RoundingSession&) = delete;
 
+    /** @brief Replace the selected value. */
     CurrentRoundingMode set(RoundingModeType rnd) {
         if (rnd != _current) {
             F::set_rounding_mode(rnd);

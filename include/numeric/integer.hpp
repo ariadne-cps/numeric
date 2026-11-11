@@ -49,11 +49,14 @@ namespace Ariadne {
 
 struct ExactTag;
 class Integer;
+/** @brief Compile-time predicate testing whether a type is number. */
 template<>
 struct IsNumber<Integer> : True {};
 
+/** @brief Compile-time predicate testing whether a type is number. */
 template<>
 struct IsNumber<Nat> : True {};
+/** @brief Compile-time predicate testing whether a type is number. */
 template<>
 struct IsNumber<Int> : True {};
 
@@ -66,6 +69,7 @@ class Integer {
     bool _negative = false;
 
     // Normalizes negative zero; used by the signed arithmetic functions.
+    /** @brief Construct a \c Integer from magnitude, negative. */
     Integer(BigUnsigned&& magnitude, bool negative) noexcept
         : _magnitude(std::move(magnitude)),
           _negative(negative && !_magnitude.is_zero()) {
@@ -76,7 +80,9 @@ class Integer {
     static Integer from_magnitude(BigUnsigned magnitude, bool negative) noexcept {
         return Integer(std::move(magnitude), negative);
     }
+    /** @brief Return the nonnegative magnitude of the value. */
     const BigUnsigned& magnitude() const noexcept { return _magnitude; }
+    /** @brief Test whether the value is negative. */
     bool negative() const noexcept { return _negative; }
 
     typedef ExactTag Paradigm; //!< <p/>
@@ -95,6 +101,7 @@ class Integer {
         z._negative = false;
     }
     Integer& operator=(const Integer&) = default; //!< %Assignment
+    /** @brief Assign the supplied value and return this object. */
     Integer& operator=(Integer&& z) noexcept {    //!< Move assignment
         if (this != &z) {
             _magnitude = std::move(z._magnitude);
@@ -110,27 +117,45 @@ class Integer {
 
     //!@{
     //! \name Arithmetic operators
+    /** @brief Increment the value or iterator. */
     friend Integer& operator++(Integer& z);                                                //!< <p/>
+    /** @brief Decrement the value or iterator. */
     friend Integer& operator--(Integer& z);                                                //!< <p/>
+    /** @brief Return the sum or unary positive value. */
     friend Integer operator+(const Integer& z) { return pos(z); }                          //!< <p/>
+    /** @brief Return the difference or additive inverse. */
     friend Integer operator-(const Integer& z) { return neg(z); }                          //!< <p/>
+    /** @brief Return the sum or unary positive value. */
     friend Integer operator+(const Integer& z1, const Integer& z2) { return add(z1, z2); } //!< <p/>
+    /** @brief Return the difference or additive inverse. */
     friend Integer operator-(const Integer& z1, const Integer& z2) { return sub(z1, z2); } //!< <p/>
+    /** @brief Return the product. */
     friend Integer operator*(const Integer& z1, const Integer& z2) { return mul(z1, z2); } //!< <p/>
+    /** @brief Return the quotient. */
     friend Rational operator/(const Integer& z1, const Integer& z2);                       //!< <p/>
+    /** @brief Return the remainder. */
     friend Integer operator%(const Integer& z1, const Integer& z2);                        //!< <p/>
+    /** @brief Add the operand in place. */
     friend Integer& operator+=(Integer& z1, const Integer& z2);                            //!< <p/>
+    /** @brief Subtract the operand in place. */
     friend Integer& operator-=(Integer& z1, const Integer& z2);                            //!< <p/>
+    /** @brief Multiply by the operand in place. */
     friend Integer& operator*=(Integer& z1, const Integer& z2);                            //!< <p/>
     //!@}
 
     //!@{
     //! \name Comparison operators
+    /** @brief Test equality of the operands. */
     friend Boolean operator==(const Integer& z1, const Integer& z2) { return eq(z1, z2); }  //!< <p/>
+    /** @brief Test inequality of the operands. */
     friend Boolean operator!=(const Integer& z1, const Integer& z2) { return !eq(z1, z2); } //!< <p/>
+    /** @brief Test whether the first operand is less than or equal to the second. */
     friend Boolean operator<=(const Integer& z1, const Integer& z2) { return !lt(z2, z1); } //!< <p/>
+    /** @brief Test whether the first operand is greater than or equal to the second. */
     friend Boolean operator>=(const Integer& z1, const Integer& z2) { return !lt(z1, z2); } //!< <p/>
+    /** @brief Test whether the first operand is less than the second. */
     friend Boolean operator<(const Integer& z1, const Integer& z2) { return lt(z1, z2); }   //!< <p/>
+    /** @brief Test whether the first operand is greater than the second. */
     friend Boolean operator>(const Integer& z1, const Integer& z2) { return lt(z2, z1); }   //!< <p/>
     //!@}
 
@@ -160,7 +185,9 @@ class Integer {
     friend std::pair<Integer, Integer> sqrtrem(const Integer& z);
     friend Rational pow(const Integer& z, Int n); //!< \brief Power \a z<sup>n</sup>.
 
+    /** @brief Return the integer quotient. */
     friend Integer quot(const Integer& z1, const Integer& z2); //!< <p/>
+    /** @brief Return the integer remainder. */
     friend Integer rem(const Integer& z1, const Integer& z2);  //!< <p/>
     //!@}
 
@@ -189,6 +216,7 @@ class Integer {
 
     //!@{
     //! \name Input/output operations
+    /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, const Integer& z); //!< <p/>
                                                                          //!@}
 
@@ -200,9 +228,13 @@ class Integer {
   private:
 
   public:
+    /** @brief Construct a \c Integer from m. */
     Integer(Nat32 m);
+    /** @brief Construct a \c Integer from n. */
     Integer(Int32 n);
+    /** @brief Construct a \c Integer from m. */
     Integer(Nat64 m);
+    /** @brief Construct a \c Integer from n. */
     Integer(Int64 n);
 };
 
@@ -214,7 +246,9 @@ template<BuiltinUnsignedIntegral M>
 inline Integer::Integer(M m) : Integer(Nat64(m)) {}
 template<BuiltinSignedIntegral N>
 inline Integer::Integer(N n) : Integer(Int64(n)) {}
+/** @brief Construct the typed value from the literal. */
 Integer operator""_z(unsigned long long int n);
+/** @brief Construct the typed value from the literal. */
 Integer operator""_z(const char* str, std::size_t);
 
 template<BuiltinIntegral N>
@@ -251,41 +285,56 @@ inline N Integer::get() const {
     return static_cast<N>(value);
 }
 
+/** @brief Convert the floating-point value to the requested integer type. */
 template<class R, class A>
 R integer_cast(const A& a) {
     return cast_integer(a).template get<R>();
 }
 
+/** @brief Nonnegative numeric representation supporting sign-restricted operations. */
 template<>
 class Positive<Integer> : public Integer {
   public:
+    /** @brief Construct a \c Positive with the specified characteristics. */
     Positive() : Integer() {}
+    /** @brief Construct a \c Positive from m. */
     template<BuiltinUnsignedIntegral M>
     Positive(M m) : Integer(m) {}
+    /** @brief Disallow this construction to preserve the ownership contract. */
     Positive(int n) = delete;
+    /** @brief Construct a \c Positive from z. */
     explicit Positive(const Integer& z) : Integer(z) { ARIADNE_PRECONDITION(z >= 0); }
 };
 
 //! \brief A positive integer.
 class Natural : public Positive<Integer> {
   public:
+    /** @brief Construct a \c Natural with the specified characteristics. */
     Natural() : Positive<Integer>() {}
+    /** @brief Construct a \c Natural from m. */
     template<BuiltinUnsignedIntegral M>
     Natural(M m) : Positive<Integer>(m) {}
+    /** @brief Disallow this construction to preserve the ownership contract. */
     Natural(int n) = delete;
+    /** @brief Construct a \c Natural from z. */
     explicit Natural(const Integer& z) : Positive<Integer>(z) {}
+    /** @brief Increment the value or iterator. */
     friend Natural& operator++(Natural& n) {
         ++static_cast<Integer&>(n);
         return n;
     }
+    /** @brief Add the operand in place. */
     friend Natural& operator+=(Natural& n1, const Natural& n2) {
         static_cast<Integer&>(n1) += n2;
         return n1;
     }
+    /** @brief Return the sum or unary positive value. */
     friend Natural operator+(const Natural& n1, const Natural& n2) { return Natural(static_cast<const Integer&>(n1) + static_cast<const Integer&>(n2)); }
+    /** @brief Return the product. */
     friend Natural operator*(const Natural& n1, const Natural& n2) { return Natural(static_cast<const Integer&>(n1) * static_cast<const Integer&>(n2)); }
 };
 
+/** @brief Convert to the positive representation. */
 inline Natural cast_positive(const Integer& z) { return Natural(z); }
 
 } // namespace Ariadne
