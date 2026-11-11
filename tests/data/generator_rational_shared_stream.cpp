@@ -1,6 +1,27 @@
-// SPDX-License-Identifier: MIT
-// Reproduce the R29, R13 and R5 exact binary64 fixtures from their shared source stream.
-// Standalone C++20: no Numeric, GMP, independent exact arithmetic, Boost, independent exact arithmetic or native FP arithmetic.
+/***************************************************************************
+ *            generator_rational_shared_stream.cpp
+ *
+ *  Copyright  2026
+ *
+ ****************************************************************************/
+
+/*
+ *  This file is part of Ariadne Numeric.
+ *
+ *  Ariadne Numeric is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Ariadne Numeric is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Ariadne Numeric. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "oracle_exact_integer.hpp"
 
 namespace {

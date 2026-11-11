@@ -1,6 +1,27 @@
-// SPDX-License-Identifier: MIT
-// Source-reproducible Integer and BigUnsigned structural exact oracles.
-// Standalone C++20. No Numeric, GMP, independent exact arithmetic, independent exact arithmetic or Boost.
+/***************************************************************************
+ *            generator_integer_structural.cpp
+ *
+ *  Copyright  2026
+ *
+ ****************************************************************************/
+
+/*
+ *  This file is part of Ariadne Numeric.
+ *
+ *  Ariadne Numeric is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Ariadne Numeric is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Ariadne Numeric. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "oracle_exact_integer.hpp"
 
 namespace {

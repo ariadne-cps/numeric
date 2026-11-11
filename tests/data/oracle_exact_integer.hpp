@@ -1,5 +1,31 @@
-// SPDX-License-Identifier: MIT
-// Independent test-data generation only. No Numeric, GMP, independent exact arithmetic or Boost.
+/***************************************************************************
+ *            oracle_exact_integer.hpp
+ *
+ *  Copyright  2026
+ *
+ ****************************************************************************/
+
+/*
+ *  This file is part of Ariadne Numeric.
+ *
+ *  Ariadne Numeric is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Ariadne Numeric is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Ariadne Numeric. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/** @file tests/data/oracle_exact_integer.hpp
+ *  @brief Independent exact-integer oracle helpers for Numeric test data generators.
+ */
+
 #ifndef ARIADNE_TEST_ORACLE_EXACT_INTEGER_HPP
 #define ARIADNE_TEST_ORACLE_EXACT_INTEGER_HPP
 #include <algorithm>

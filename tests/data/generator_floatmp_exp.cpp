@@ -1,6 +1,27 @@
-// SPDX-License-Identifier: MIT
-// Rigorous integer-only exponential oracle for the original FloatMP fixtures.
-// Standalone standard C++20; no GMP, independent exact arithmetic, Numeric, Boost, or host floats.
+/***************************************************************************
+ *            generator_floatmp_exp.cpp
+ *
+ *  Copyright  2026
+ *
+ ****************************************************************************/
+
+/*
+ *  This file is part of Ariadne Numeric.
+ *
+ *  Ariadne Numeric is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Ariadne Numeric is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Ariadne Numeric. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "oracle_exact_integer.hpp"
 #include <array>
 #include <bit>

@@ -1,6 +1,27 @@
-// SPDX-License-Identifier: MIT
-// Reproduce exact source-keyed Rational R7 and R12 IEEE-754 binary64 fixtures.
-// Standalone C++20: no Numeric, GMP, independent exact arithmetic, independent exact arithmetic, Boost or host FP rounding.
+/***************************************************************************
+ *            generator_rational_binary64.cpp
+ *
+ *  Copyright  2026
+ *
+ ****************************************************************************/
+
+/*
+ *  This file is part of Ariadne Numeric.
+ *
+ *  Ariadne Numeric is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Ariadne Numeric is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Ariadne Numeric. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "oracle_exact_integer.hpp"
 
 namespace {
