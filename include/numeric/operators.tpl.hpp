@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/operators.tpl.hpp
+ *  @brief Template implementations for operators in Ariadne Numeric.
+ */
+
 #include "numeric/operators.hpp"
 #include "utility/standard.hpp"
 

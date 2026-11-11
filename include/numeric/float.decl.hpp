@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/float.decl.hpp
- *  \brief
+/** @file numeric/float.decl.hpp
+ *  @brief Forward declarations for float in Ariadne Numeric.
  */
 
 #include "foundation/paradigm.hpp"

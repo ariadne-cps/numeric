@@ -21,8 +21,8 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/*! \file numeric/extended.hpp
- *  \brief Extended real numbers.
+/** @file numeric/extended.hpp
+ *  @brief Extended real numbers.
  */
 
 #ifndef ARIADNE_EXTENDED_HPP

@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/float_literals.cpp
+ *            float_literals.cpp
  *
  *  Copyright  2008-20  Pieter Collins
  *

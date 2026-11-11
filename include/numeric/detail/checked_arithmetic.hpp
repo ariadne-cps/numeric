@@ -1,8 +1,8 @@
 /***************************************************************************
  *            numeric/detail/checked_arithmetic.hpp
  *
- *  Checked scalar arithmetic for working precisions and binary shifts.
- *  These operations validate metadata before any storage is allocated.
+ *  Copyright  2026
+ *
  ****************************************************************************/
 
 /*
@@ -20,6 +20,10 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/** @file numeric/detail/checked_arithmetic.hpp
+ *  @brief Declarations and utilities for checked arithmetic in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_NUMERIC_DETAIL_CHECKED_ARITHMETIC_HPP

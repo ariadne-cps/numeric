@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/float_traits.hpp
- *  \brief Type traits for floating-point numbers.
+/** @file numeric/float_traits.hpp
+ *  @brief Type traits for floating-point numbers.
  */
 
 #ifndef ARIADNE_FLOAT_TRAITS_HPP

@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/api.hpp
+ *  @brief Export and visibility macros for the Numeric library.
+ */
+
 #ifndef ARIADNE_NUMERIC_API_HPP
 #define ARIADNE_NUMERIC_API_HPP
 

@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/integer.hpp
- *  \brief
+/** @file numeric/integer.hpp
+ *  @brief Declarations and utilities for integer in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_INTEGER_HPP

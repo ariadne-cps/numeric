@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/float_operations.hpp
- *  \brief Common header for floating-point number operations.
+/** @file numeric/float_operations.hpp
+ *  @brief Common header for floating-point number operations.
  */
 
 #ifndef ARIADNE_FLOAT_OPERATIONS_HPP

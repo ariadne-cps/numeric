@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/complex.hpp
- *  \brief Complex numbers.
+/** @file numeric/complex.hpp
+ *  @brief Complex numbers.
  */
 
 #ifndef ARIADNE_COMPLEX_HPP

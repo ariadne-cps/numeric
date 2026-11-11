@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/float_error.tpl.hpp
+ *  @brief Template implementations for float error in Ariadne Numeric.
+ */
+
 #ifndef ARIADNE_FLOAT_ERROR_TPL_HPP
 #define ARIADNE_FLOAT_ERROR_TPL_HPP
 

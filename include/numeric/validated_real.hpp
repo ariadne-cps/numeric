@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/validated_real.hpp
- *  \brief Validated real numbers
+/** @file numeric/validated_real.hpp
+ *  @brief Validated real numbers
  */
 
 #ifndef ARIADNE_VALIDATED_REAL_HPP

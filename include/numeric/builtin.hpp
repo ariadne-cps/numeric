@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/builtin.hpp
- *  \brief Inclusion header for wrapper for builtin numbers.
+/** @file numeric/builtin.hpp
+ *  @brief Inclusion header for wrapper for builtin numbers.
  */
 
 #ifndef ARIADNE_BUILTIN_HPP

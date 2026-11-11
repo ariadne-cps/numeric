@@ -1,5 +1,5 @@
 /***************************************************************************
- *            test_floats.hpp
+ *            tests/test_floats.hpp
  *
  *  Copyright  2006-20  Alberto Casagrande, Pieter Collins
  *
@@ -20,6 +20,10 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/** @file tests/test_floats.hpp
+ *  @brief Declarations and utilities for test floats in Ariadne Numeric.
  */
 
 #include <cassert>

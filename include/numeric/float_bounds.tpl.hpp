@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/float_bounds.tpl.hpp
+ *  @brief Template implementations for float bounds in Ariadne Numeric.
+ */
+
 #ifndef ARIADNE_FLOAT_BOUNDS_TPL_HPP
 #define ARIADNE_FLOAT_BOUNDS_TPL_HPP
 

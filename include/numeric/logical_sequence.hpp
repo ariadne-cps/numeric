@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/logical_sequence.hpp
+ *  @brief Declarations and utilities for logical sequence in Ariadne Numeric.
+ */
+
 #ifndef ARIADNE_NUMERIC_LOGICAL_SEQUENCE_HPP
 #define ARIADNE_NUMERIC_LOGICAL_SEQUENCE_HPP
 #include "foundation/logical.hpp"

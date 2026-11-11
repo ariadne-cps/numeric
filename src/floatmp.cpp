@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/floatmp.cpp
+ *            floatmp.cpp
  *
  *  Copyright  2026  Luca Geretti
  *
@@ -20,10 +20,6 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-/*! \file numeric/floatmp.cpp
- *  \brief Native multiple-precision floating-point operations.
  */
 
 #include "numeric/floatmp.hpp"

@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/integer.cpp
+ *            integer.cpp
  *
  *  Copyright  2013-22  Pieter Collins
  *

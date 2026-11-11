@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/concepts.hpp
- *  \brief
+/** @file numeric/concepts.hpp
+ *  @brief Declarations and utilities for concepts in Ariadne Numeric.
  */
 
 #pragma once

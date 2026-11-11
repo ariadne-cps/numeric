@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/decimal.cpp
+ *            decimal.cpp
  *
  *  Copyright  2014-20  Pieter Collins
  *

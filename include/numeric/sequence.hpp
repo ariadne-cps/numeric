@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/sequence.hpp
- *  \brief
+/** @file numeric/sequence.hpp
+ *  @brief Declarations and utilities for sequence in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_SEQUENCE_HPP

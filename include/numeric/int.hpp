@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/int.hpp
- *  \brief Fixed-width integral classes
+/** @file numeric/int.hpp
+ *  @brief Fixed-width integral classes
  */
 
 #ifndef ARIADNE_INT_HPP

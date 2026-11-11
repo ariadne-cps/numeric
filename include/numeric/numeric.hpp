@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/numeric.hpp
- *  \brief Number classes. File suitable for use as a pre-compiled header.
+/** @file numeric/numeric.hpp
+ *  @brief Number classes. File suitable for use as a pre-compiled header.
  */
 
 #ifndef ARIADNE_NUMERIC_HPP

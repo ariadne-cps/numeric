@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/number_interface.hpp
- *  \brief
+/** @file numeric/number_interface.hpp
+ *  @brief Declarations and utilities for number interface in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_NUMBER_INTERFACE

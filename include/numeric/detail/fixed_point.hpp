@@ -1,7 +1,8 @@
 /***************************************************************************
  *            numeric/detail/fixed_point.hpp
  *
- *  Shared exact rounding primitives for native fixed-point arithmetic.
+ *  Copyright  2026
+ *
  ****************************************************************************/
 
 /*
@@ -19,6 +20,10 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/** @file numeric/detail/fixed_point.hpp
+ *  @brief Declarations and utilities for fixed point in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_NUMERIC_DETAIL_FIXED_POINT_HPP

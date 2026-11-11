@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file ariadne-numeric.hpp
- *  \brief Top-level header for the standalone Ariadne Numeric library.
+/** @file ariadne-numeric.hpp
+ *  @brief Top-level header for the standalone Ariadne Numeric library.
  */
 
 #ifndef ARIADNE_ARIADNE_NUMERIC_HPP

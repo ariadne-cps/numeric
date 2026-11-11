@@ -22,7 +22,6 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #include "utility/string.hpp"
 #include "utility/module.hpp"
 

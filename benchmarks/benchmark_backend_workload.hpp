@@ -1,8 +1,30 @@
 /***************************************************************************
- *            benchmark_backend_workload.hpp
+ *            benchmarks/benchmark_backend_workload.hpp
  *
- *  Shared operation pool for FloatMP and FloatDP/FloatMP.
+ *  Copyright  2026
+ *
  ****************************************************************************/
+
+/*
+ *  This file is part of Ariadne Numeric.
+ *
+ *  Ariadne Numeric is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Ariadne Numeric is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Ariadne Numeric. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/** @file benchmarks/benchmark_backend_workload.hpp
+ *  @brief Shared benchmark workloads for single- and multiple-precision numeric backends.
+ */
 
 #ifndef ARIADNE_NUMERIC_BENCHMARK_BACKEND_WORKLOAD_HPP
 #define ARIADNE_NUMERIC_BENCHMARK_BACKEND_WORKLOAD_HPP

@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/rounded_float.hpp
- *  \brief Floating-point numbers supporting rounding-mode changes and rounded arithmetic.
+/** @file numeric/rounded_float.hpp
+ *  @brief Floating-point numbers supporting rounding-mode changes and rounded arithmetic.
  */
 
 #ifndef ARIADNE_ROUNDED_FLOAT_HPP

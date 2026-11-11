@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/arithmetic.hpp
- *  \brief Arithmetic declarations
+/** @file numeric/arithmetic.hpp
+ *  @brief Arithmetic declarations
  */
 
 #ifndef ARIADNE_ARITHMETIC_HPP

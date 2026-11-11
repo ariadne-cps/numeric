@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/float_ball.tpl.hpp
+ *  @brief Template implementations for float ball in Ariadne Numeric.
+ */
+
 #ifndef ARIADNE_FLOAT_BALL_TPL_HPP
 #define ARIADNE_FLOAT_BALL_TPL_HPP
 

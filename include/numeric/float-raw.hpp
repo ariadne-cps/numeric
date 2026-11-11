@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file float-raw.hpp
- *  \brief Temporary header for raw floating-point type.
+/** @file numeric/float-raw.hpp
+ *  @brief Temporary header for raw floating-point type.
  */
 
 #ifndef ARIADNE_FLOAT_RAW_HPP

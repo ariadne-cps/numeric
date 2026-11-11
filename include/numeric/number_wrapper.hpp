@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/number_wrapper.hpp
- *  \brief
+/** @file numeric/number_wrapper.hpp
+ *  @brief Declarations and utilities for number wrapper in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_NUMBER_WRAPPER_HPP

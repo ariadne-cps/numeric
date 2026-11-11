@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file benchmark_rational.cpp
- *  \brief Absolute timing of the native Rational arithmetic operations.
+/** @file benchmark_rational.cpp
+ *  @brief Absolute timing of the native Rational arithmetic operations.
  */
 
 #include "numeric/rational.hpp"

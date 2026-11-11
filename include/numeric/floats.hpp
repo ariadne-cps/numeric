@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/floats.hpp
- *  \brief Inclusion header for floating-point numbers.
+/** @file numeric/floats.hpp
+ *  @brief Inclusion header for floating-point numbers.
  */
 
 #ifndef ARIADNE_FLOATS_HPP

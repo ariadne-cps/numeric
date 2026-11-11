@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/dyadic.hpp
- *  \brief Dyadic numbers.
+/** @file numeric/dyadic.hpp
+ *  @brief Dyadic numbers.
  */
 
 #ifndef ARIADNE_DYADIC_HPP

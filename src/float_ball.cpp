@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/float_ball.cpp
+ *            float_ball.cpp
  *
  *  Copyright  2008-20  Pieter Collins
  *

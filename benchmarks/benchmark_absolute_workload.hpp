@@ -1,5 +1,5 @@
 /***************************************************************************
- *            benchmark_absolute_workload.hpp
+ *            benchmarks/benchmark_absolute_workload.hpp
  *
  *  Copyright  2026  Luca Geretti
  *
@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file benchmark_absolute_workload.hpp
- *  \brief CLI, timing and report helpers for single-backend numeric benchmarks.
+/** @file benchmarks/benchmark_absolute_workload.hpp
+ *  @brief CLI, timing and report helpers for single-backend numeric benchmarks.
  */
 
 #ifndef ARIADNE_NUMERIC_BENCHMARK_ABSOLUTE_WORKLOAD_HPP

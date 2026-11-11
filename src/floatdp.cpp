@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/float64.cpp
+ *            floatdp.cpp
  *
  *  Copyright  2008-22  Pieter Collins
  *

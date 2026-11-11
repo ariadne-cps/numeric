@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/float_approximation.tpl.hpp
+ *  @brief Template implementations for float approximation in Ariadne Numeric.
+ */
+
 #ifndef ARIADNE_FLOAT_APPROXIMATION_TPL_HPP
 #define ARIADNE_FLOAT_APPROXIMATION_TPL_HPP
 

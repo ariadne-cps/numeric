@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/field.hpp
- *  \brief Abstractions for ring and field (numeric) types.
+/** @file numeric/field.hpp
+ *  @brief Abstractions for ring and field (numeric) types.
  */
 
 #ifndef ARIADNE_FIELD_HPP

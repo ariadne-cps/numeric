@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/float_error.hpp
- *  \brief Floating-point error bounds for metric spaces.
+/** @file numeric/float_error.hpp
+ *  @brief Floating-point error bounds for metric spaces.
  */
 
 #ifndef ARIADNE_FLOAT_ERROR_HPP

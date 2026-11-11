@@ -23,6 +23,7 @@
  */
 
 // Same monomorphic test code is instantiated for each implementation: no virtual dispatch.
+
 #include "numeric/floatdp.hpp"
 #include "numeric/floatmp.hpp"
 #include "numeric/rational.hpp"

@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/declarations.hpp
+ *  @brief Declarations and utilities for declarations in Ariadne Numeric.
+ */
+
 #ifndef ARIADNE_NUMERIC_DECLARATIONS_HPP
 #define ARIADNE_NUMERIC_DECLARATIONS_HPP
 

@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/upper_number.hpp
- *  \brief Generic upper-numbers
+/** @file numeric/upper_number.hpp
+ *  @brief Generic upper-numbers
  */
 
 #ifndef ARIADNE_UPPER_NUMBER_HPP

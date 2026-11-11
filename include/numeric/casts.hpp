@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/casts.hpp
- *  \brief Inclusion header for casting between different kinds of information.
+/** @file numeric/casts.hpp
+ *  @brief Inclusion header for casting between different kinds of information.
  */
 
 #ifndef ARIADNE_CASTS_HPP

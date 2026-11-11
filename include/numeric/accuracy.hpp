@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/accuracy.hpp
- *  \brief A class representing a bound on the accuracy of a computation in a metric space.
+/** @file numeric/accuracy.hpp
+ *  @brief A class representing a bound on the accuracy of a computation in a metric space.
  */
 
 #ifndef ARIADNE_ACCURACY_HPP

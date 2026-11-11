@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/archetypes.hpp
- *  \brief
+/** @file numeric/archetypes.hpp
+ *  @brief Declarations and utilities for archetypes in Ariadne Numeric.
  */
 
 #include "foundation/paradigm.hpp"

@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/positive.hpp
- *  \brief Positive numbers.
+/** @file numeric/positive.hpp
+ *  @brief Positive numbers.
  */
 
 #ifndef ARIADNE_POSITIVE_HPP

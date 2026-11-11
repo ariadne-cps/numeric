@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/float_approximation.hpp
- *  \brief Floating-point approximations to real numbers.
+/** @file numeric/float_approximation.hpp
+ *  @brief Floating-point approximations to real numbers.
  */
 
 #ifndef ARIADNE_FLOAT_APPROXIMATION_HPP

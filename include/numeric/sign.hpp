@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/sign.hpp
- *  \brief
+/** @file numeric/sign.hpp
+ *  @brief Declarations and utilities for sign in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_SIGN_HPP

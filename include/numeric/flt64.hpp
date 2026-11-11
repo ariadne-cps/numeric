@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/flt64.hpp
- *  \brief
+/** @file numeric/flt64.hpp
+ *  @brief Declarations and utilities for flt64 in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_FLT64_HPP

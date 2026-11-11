@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/double.hpp
- *  \brief Correctly rounded operations on double-precision numbers.
+/** @file numeric/double.hpp
+ *  @brief Correctly rounded operations on double-precision numbers.
  */
 
 #ifndef ARIADNE_DOUBLE_HPP

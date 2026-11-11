@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/real_interface.hpp
+ *  @brief Declarations and utilities for real interface in Ariadne Numeric.
+ */
+
 #ifndef ARIADNE_REAL_INTERFACE_HPP
 #define ARIADNE_REAL_INTERFACE_HPP
 

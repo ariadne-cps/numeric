@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/bits.hpp
- *  \brief A class representing count of binary digits.
+/** @file numeric/bits.hpp
+ *  @brief A class representing count of binary digits.
  */
 
 #ifndef ARIADNE_BITS_HPP

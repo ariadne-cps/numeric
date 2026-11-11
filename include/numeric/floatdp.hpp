@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/floatdp.hpp
- *  \brief Raw floating-point number class based on double-precision floats.
+/** @file numeric/floatdp.hpp
+ *  @brief Raw floating-point number class based on double-precision floats.
  */
 
 #ifndef ARIADNE_FLOAT64_HPP

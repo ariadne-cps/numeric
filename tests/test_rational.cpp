@@ -22,7 +22,6 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #include "numeric/rational.hpp"
 #include "numeric/builtin.hpp"
 #include "numeric/integer.hpp"

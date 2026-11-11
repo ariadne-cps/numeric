@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/float64-crtp.hpp
- *  \brief
+/** @file numeric/float64-crtp.hpp
+ *  @brief Declarations and utilities for float64 crtp in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_FLOAT64_HPP

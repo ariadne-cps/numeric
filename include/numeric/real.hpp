@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/real.hpp
- *  \brief
+/** @file numeric/real.hpp
+ *  @brief Declarations and utilities for real in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_REAL_HPP

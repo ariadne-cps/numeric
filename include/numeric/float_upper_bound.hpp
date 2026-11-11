@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/float_upper_bound.hpp
- *  \brief Floating-point upper bounds for real numbers.
+/** @file numeric/float_upper_bound.hpp
+ *  @brief Floating-point upper bounds for real numbers.
  */
 
 #ifndef ARIADNE_FLOAT_UPPER_BOUND_HPP

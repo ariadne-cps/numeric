@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/number.hpp
- *  \brief Generic numbers
+/** @file numeric/number.hpp
+ *  @brief Generic numbers
  */
 
 #ifndef ARIADNE_NUMBER_HPP

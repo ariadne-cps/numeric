@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file benchmark_big_unsigned.cpp
- *  \brief Absolute native BigUnsigned operation timings with exact invariants.
+/** @file benchmark_big_unsigned.cpp
+ *  @brief Absolute native BigUnsigned operation timings with exact invariants.
  */
 
 #include "numeric/big_unsigned.hpp"

@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/float_factory.hpp
- *  \brief Factories for creating floating-point numbers.
+/** @file numeric/float_factory.hpp
+ *  @brief Factories for creating floating-point numbers.
  */
 
 #ifndef ARIADNE_FLOAT_FACTORY_HPP

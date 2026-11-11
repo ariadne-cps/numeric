@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/twoexp.hpp
- *  \brief
+/** @file numeric/twoexp.hpp
+ *  @brief Declarations and utilities for twoexp in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_TWOEXP_HPP

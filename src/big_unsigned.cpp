@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/big_unsigned.cpp
+ *            big_unsigned.cpp
  *
  *  Copyright  2026  Luca Geretti
  *
@@ -20,10 +20,6 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-/*! \file numeric/big_unsigned.cpp
- *  \brief Shared unsigned arithmetic, fused multiplication, and Karatsuba.
  */
 
 #include "numeric/big_unsigned.hpp"

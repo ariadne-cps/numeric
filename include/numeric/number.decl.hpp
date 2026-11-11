@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/number.decl.hpp
- *  \brief
+/** @file numeric/number.decl.hpp
+ *  @brief Forward declarations for number in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_NUMBER_DECL_HPP

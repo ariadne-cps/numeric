@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/lower_number.hpp
- *  \brief Generic lower-numbers
+/** @file numeric/lower_number.hpp
+ *  @brief Generic lower-numbers
  */
 
 #ifndef ARIADNE_LOWER_NUMBER_HPP

@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/rounding.hpp
- *  \brief Functions to set and retrieve the processor rounding mode.
+/** @file numeric/rounding.hpp
+ *  @brief Functions to set and retrieve the processor rounding mode.
  *  May be platform-dependent.
  */
 

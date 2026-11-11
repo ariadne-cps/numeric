@@ -22,6 +22,10 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/** @file numeric/float_upper_bound.tpl.hpp
+ *  @brief Template implementations for float upper bound in Ariadne Numeric.
+ */
+
 #ifndef ARIADNE_FLOAT_UPPER_BOUND_TPL_HPP
 #define ARIADNE_FLOAT_UPPER_BOUND_TPL_HPP
 

@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/decimal.hpp
- *  \brief ExactTag decimal numbers, useful for user input.
+/** @file numeric/decimal.hpp
+ *  @brief ExactTag decimal numbers, useful for user input.
  */
 
 #ifndef ARIADNE_DECIMAL_HPP

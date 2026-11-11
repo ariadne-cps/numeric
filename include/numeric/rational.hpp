@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/rational.hpp
- *  \brief
+/** @file numeric/rational.hpp
+ *  @brief Declarations and utilities for rational in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_RATIONAL_HPP

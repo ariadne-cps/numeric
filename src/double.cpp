@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/double.cpp
+ *            double.cpp
  *
  *  Copyright  2008-22  Pieter Collins
  *

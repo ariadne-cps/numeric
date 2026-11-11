@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/floatmp.hpp
- *  \brief Native multiple-precision floating-point type and operations.
+/** @file numeric/floatmp.hpp
+ *  @brief Native multiple-precision floating-point type and operations.
  */
 
 #ifndef ARIADNE_FLOATMP_HPP

@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/float_approximation.cpp
+ *            float_approximation.cpp
  *
  *  Copyright  2008-20  Pieter Collins
  *

@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/lower_real.hpp
- *  \brief Real numbers, including lower, upper and naive types, and validated versions.
+/** @file numeric/lower_real.hpp
+ *  @brief Real numbers, including lower, upper and naive types, and validated versions.
  */
 
 #ifndef ARIADNE_LOWER_REAL_HPP

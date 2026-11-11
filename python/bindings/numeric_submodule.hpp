@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric_submodule.hpp
+ *            python/bindings/numeric_submodule.hpp
  *
  *  Copyright  2021  Pieter Collins
  *
@@ -20,6 +20,10 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/** @file python/bindings/numeric_submodule.hpp
+ *  @brief Declarations and utilities for numeric submodule in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_PYTHON_NUMERIC_SUBMODULE_HPP

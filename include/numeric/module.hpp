@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/module.hpp
- *  \brief
+/** @file numeric/module.hpp
+ *  @brief Declarations and utilities for module in Ariadne Numeric.
  */
 
 #ifndef ARIADNE_NUMERIC_MODULE_HPP

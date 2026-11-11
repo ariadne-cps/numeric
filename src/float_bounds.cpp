@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/float_bounds.cpp
+ *            float_bounds.cpp
  *
  *  Copyright  2008-20  Pieter Collins
  *

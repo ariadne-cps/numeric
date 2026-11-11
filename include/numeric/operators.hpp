@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/operators.hpp
- *  \brief Numerical operator classes
+/** @file numeric/operators.hpp
+ *  @brief Numerical operator classes
  */
 
 #ifndef ARIADNE_OPERATORS_HPP

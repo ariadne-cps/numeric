@@ -1,5 +1,5 @@
 /***************************************************************************
- *            numeric/complex.cpp
+ *            complex.cpp
  *
  *  Copyright  2019-20  Pieter Collins
  *

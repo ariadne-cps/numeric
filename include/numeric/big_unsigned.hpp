@@ -22,8 +22,8 @@
  *  along with Ariadne.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-/*! \file numeric/big_unsigned.hpp
- *  \brief Shared GMP-independent unsigned multiprecision arithmetic.
+/** @file numeric/big_unsigned.hpp
+ *  @brief Shared GMP-independent unsigned multiprecision arithmetic.
  */
 
 #ifndef ARIADNE_BIG_UNSIGNED_HPP
