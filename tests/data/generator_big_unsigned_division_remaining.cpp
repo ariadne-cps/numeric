@@ -28,125 +28,132 @@ namespace {
 using independent_oracle::Nat;
 using independent_oracle::row;
 
-Nat multiply(Nat left,Nat right) {
+Nat multiply(Nat left, Nat right) {
     Nat result;
     while (!right.zero()) {
-        if ((right.w.front()&1u)!=0u) result=Nat::add(result,left);
-        right=right.shr(1u);
-        if (!right.zero()) left=left.shl(1u);
+        if ((right.w.front() & 1u) != 0u)
+            result = Nat::add(result, left);
+        right = right.shr(1u);
+        if (!right.zero())
+            left = left.shl(1u);
     }
     return result;
 }
-std::size_t bit_length(Nat const& x) {
-    return x.zero()?0u:(x.w.size()-1u)*64u+
-        64u-static_cast<std::size_t>(std::countl_zero(x.w.back()));
+std::size_t bit_length(const Nat& x) {
+    return x.zero() ? 0u : (x.w.size() - 1u) * 64u + 64u - static_cast<std::size_t>(std::countl_zero(x.w.back()));
 }
-std::pair<Nat,Nat> divide(Nat remainder,Nat const& divisor) {
-    if (divisor.zero()) throw std::invalid_argument("zero divisor");
+std::pair<Nat, Nat> divide(Nat remainder, const Nat& divisor) {
+    if (divisor.zero())
+        throw std::invalid_argument("zero divisor");
     Nat quotient;
-    while (remainder.compare(divisor)>=0) {
-        std::size_t shift=bit_length(remainder)-bit_length(divisor);
-        Nat term=divisor.shl(shift);
-        if (term.compare(remainder)>0) term=divisor.shl(--shift);
-        remainder=Nat::sub(remainder,term);
-        quotient=Nat::add(quotient,Nat::power2(shift));
+    while (remainder.compare(divisor) >= 0) {
+        std::size_t shift = bit_length(remainder) - bit_length(divisor);
+        Nat term = divisor.shl(shift);
+        if (term.compare(remainder) > 0)
+            term = divisor.shl(--shift);
+        remainder = Nat::sub(remainder, term);
+        quotient = Nat::add(quotient, Nat::power2(shift));
     }
-    if (remainder.compare(divisor)>=0 ||
-        Nat::add(multiply(quotient,divisor),remainder).compare(
-            Nat::add(multiply(quotient,divisor),remainder))!=0)
+    if (remainder.compare(divisor) >= 0 ||
+        Nat::add(multiply(quotient, divisor), remainder).compare(Nat::add(multiply(quotient, divisor), remainder)) != 0)
         throw std::runtime_error("invalid division result");
-    return {quotient,remainder};
+    return {quotient, remainder};
 }
 
-std::array<std::string,6u> b140_general() {
-    std::array<std::string,6u> out;
-    for (std::size_t part=0u;part<out.size();++part) {
-        out[part]="# B140 general division oracle part "+std::to_string(part)+
-            ": visits "+std::to_string(part*1000u)+".."+
-            std::to_string(part*1000u+999u)+".\n"
-            "# repetition n m dividend_hex divisor_hex quotient_hex remainder_hex\n"
-            "# Exact mt19937_64(0xB15D1A1D) source stream and source transforms preserved.\n"
-            "# No Numeric/GMP/Boost dependency.\n";
+std::array<std::string, 6u> b140_general() {
+    std::array<std::string, 6u> out;
+    for (std::size_t part = 0u; part < out.size(); ++part) {
+        out[part] = "# B140 general division oracle part " + std::to_string(part) +
+                    ": visits " + std::to_string(part * 1000u) + ".." +
+                    std::to_string(part * 1000u + 999u) + ".\n"
+                                                          "# repetition n m dividend_hex divisor_hex quotient_hex remainder_hex\n"
+                                                          "# Exact mt19937_64(0xB15D1A1D) source stream and source transforms preserved.\n"
+                                                          "# No Numeric/GMP/Boost dependency.\n";
     }
     std::mt19937_64 engine(0xB15D1A1DULL);
-    const auto max=UINT64_MAX;
-    for (unsigned repetition=0u;repetition<6000u;++repetition) {
-        const std::size_t n=repetition%31u==0u?96u:
-            repetition%7u==0u?32u:static_cast<std::size_t>(engine()%17u);
-        const std::size_t m=repetition%37u==0u?1u:
-            repetition%11u==0u?96u:1u+static_cast<std::size_t>(engine()%20u);
-        std::vector<std::uint64_t> da(n),db(m);
-        for (auto& digit:da) digit=engine();
-        for (auto& digit:db) digit=engine();
-        if (repetition%13u==0u) std::fill(da.begin(),da.end(),max);
-        if (repetition%17u==0u) std::fill(db.begin(),db.end(),max);
-        if (repetition%23u==0u) std::fill(da.begin(),da.end(),0u);
-        if (repetition%29u==0u) {
-            std::fill(db.begin(),db.end(),0u);
-            db.back()=1u;
+    const auto max = UINT64_MAX;
+    for (unsigned repetition = 0u; repetition < 6000u; ++repetition) {
+        const std::size_t n = repetition % 31u == 0u ? 96u : repetition % 7u == 0u ? 32u
+                                                                                   : static_cast<std::size_t>(engine() % 17u);
+        const std::size_t m = repetition % 37u == 0u ? 1u : repetition % 11u == 0u ? 96u
+                                                                                   : 1u + static_cast<std::size_t>(engine() % 20u);
+        std::vector<std::uint64_t> da(n), db(m);
+        for (auto& digit: da)
+            digit = engine();
+        for (auto& digit: db)
+            digit = engine();
+        if (repetition % 13u == 0u)
+            std::fill(da.begin(), da.end(), max);
+        if (repetition % 17u == 0u)
+            std::fill(db.begin(), db.end(), max);
+        if (repetition % 23u == 0u)
+            std::fill(da.begin(), da.end(), 0u);
+        if (repetition % 29u == 0u) {
+            std::fill(db.begin(), db.end(), 0u);
+            db.back() = 1u;
         }
-        if (repetition%43u==0u) {
-            std::fill(db.begin(),db.end(),0u);
-            db.back()=std::uint64_t{1}<<63u;
+        if (repetition % 43u == 0u) {
+            std::fill(db.begin(), db.end(), 0u);
+            db.back() = std::uint64_t{1} << 63u;
         }
-        if (repetition%47u==0u) db.back()=1u;
-        if (repetition%53u==0u && n==m) da=db;
-        const Nat dividend(std::move(da)),divisor(std::move(db));
-        const auto [quotient,remainder]=divide(dividend,divisor);
-        if (Nat::add(multiply(quotient,divisor),remainder).compare(dividend)!=0 ||
-            remainder.compare(divisor)>=0)
+        if (repetition % 47u == 0u)
+            db.back() = 1u;
+        if (repetition % 53u == 0u && n == m)
+            da = db;
+        const Nat dividend(std::move(da)), divisor(std::move(db));
+        const auto [quotient, remainder] = divide(dividend, divisor);
+        if (Nat::add(multiply(quotient, divisor), remainder).compare(dividend) != 0 ||
+            remainder.compare(divisor) >= 0)
             throw std::runtime_error("invalid B140 Euclidean identity");
-        out[repetition/1000u]+=row({
-            std::to_string(repetition),std::to_string(n),std::to_string(m),
-            dividend.hex(),divisor.hex(),quotient.hex(),remainder.hex()});
+        out[repetition / 1000u] += row({std::to_string(repetition), std::to_string(n), std::to_string(m),
+                                        dividend.hex(), divisor.hex(), quotient.hex(), remainder.hex()});
     }
     return out;
 }
 
-std::array<std::string,2u> b141_b28() {
-    std::array<std::string,2u> out;
-    for (std::size_t part=0u;part<out.size();++part) {
-        out[part]="# B141 B28 equal-high division oracle part "+
-            std::to_string(part)+": visits "+std::to_string(part*1024u)+
-            ".."+std::to_string(part*1024u+1023u)+".\n"
-            "# repetition count numerator_hex denominator_hex quotient_hex remainder_hex\n"
-            "# Exact mt19937_64(0xB280C27) source stream and equal-high transforms preserved.\n"
-            "# No Numeric/GMP/Boost dependency.\n";
+std::array<std::string, 2u> b141_b28() {
+    std::array<std::string, 2u> out;
+    for (std::size_t part = 0u; part < out.size(); ++part) {
+        out[part] = "# B141 B28 equal-high division oracle part " +
+                    std::to_string(part) + ": visits " + std::to_string(part * 1024u) +
+                    ".." + std::to_string(part * 1024u + 1023u) + ".\n"
+                                                                  "# repetition count numerator_hex denominator_hex quotient_hex remainder_hex\n"
+                                                                  "# Exact mt19937_64(0xB280C27) source stream and equal-high transforms preserved.\n"
+                                                                  "# No Numeric/GMP/Boost dependency.\n";
     }
     std::mt19937_64 engine(0xB280C27ULL);
-    for (unsigned repetition=0u;repetition<2048u;++repetition) {
-        const std::size_t count=repetition%37u==0u?128u:
-            2u+static_cast<std::size_t>(engine()%64u);
-        std::vector<std::uint64_t> left(count),right(count);
-        for (auto& word:left) word=engine();
-        for (auto& word:right) word=engine();
-        right.back()|=1u;
-        left.back()=right.back();
-        if (repetition%4u==0u) {
-            left=right;
-        } else if (repetition%4u==1u) {
-            left=right;
+    for (unsigned repetition = 0u; repetition < 2048u; ++repetition) {
+        const std::size_t count = repetition % 37u == 0u ? 128u : 2u + static_cast<std::size_t>(engine() % 64u);
+        std::vector<std::uint64_t> left(count), right(count);
+        for (auto& word: left)
+            word = engine();
+        for (auto& word: right)
+            word = engine();
+        right.back() |= 1u;
+        left.back() = right.back();
+        if (repetition % 4u == 0u) {
+            left = right;
+        } else if (repetition % 4u == 1u) {
+            left = right;
             ++left.front();
-        } else if (repetition%4u==2u) {
-            right=left;
+        } else if (repetition % 4u == 2u) {
+            right = left;
             ++right.front();
         }
-        const Nat numerator(std::move(left)),denominator(std::move(right));
-        const auto [quotient,remainder]=divide(numerator,denominator);
-        if (Nat::add(multiply(quotient,denominator),remainder)
-                .compare(numerator)!=0 ||
-            remainder.compare(denominator)>=0)
+        const Nat numerator(std::move(left)), denominator(std::move(right));
+        const auto [quotient, remainder] = divide(numerator, denominator);
+        if (Nat::add(multiply(quotient, denominator), remainder)
+                    .compare(numerator) != 0 ||
+            remainder.compare(denominator) >= 0)
             throw std::runtime_error("invalid B141 Euclidean identity");
-        out[repetition/1024u]+=row({
-            std::to_string(repetition),std::to_string(count),
-            numerator.hex(),denominator.hex(),quotient.hex(),remainder.hex()});
+        out[repetition / 1024u] += row({std::to_string(repetition), std::to_string(count),
+                                        numerator.hex(), denominator.hex(), quotient.hex(), remainder.hex()});
     }
     return out;
 }
 
-
-std::array<std::string,2u> b142_b36() {
-    std::array<std::string,2u> out{
+std::array<std::string, 2u> b142_b36() {
+    std::array<std::string, 2u> out{
         "# B142 B36 high-ratio division oracle part 0.\n"
         "# ordinal count repetition numerator_hex denominator_hex quotient_hex remainder_hex\n"
         "# Exact mt19937_64(0xB360A11) stream and high-ratio classifications preserved.\n"
@@ -156,48 +163,73 @@ std::array<std::string,2u> b142_b36() {
         "# Exact mt19937_64(0xB360A11) stream and high-ratio classifications preserved.\n"
         "# No Numeric/GMP/Boost dependency.\n"};
     std::mt19937_64 engine(0xB360A11ULL);
-    const auto max=UINT64_MAX;
-    std::size_t ordinal=0u;
+    const auto max = UINT64_MAX;
+    std::size_t ordinal = 0u;
     for (const std::size_t count:
-            {2u,3u,4u,7u,8u,16u,32u,64u,96u,128u}) {
-        for (unsigned repetition=0u;repetition<128u;++repetition) {
-            std::vector<std::uint64_t> left(count),right(count);
-            for (auto& limb:left) limb=engine();
-            for (auto& limb:right) limb=engine();
-            if (repetition%11u==0u) {
-                std::fill(left.begin(),left.end(),max);
-                std::fill(right.begin(),right.end(),max);
-            } else if (repetition%11u==1u) {
-                std::fill(left.begin(),left.end(),0u);
-                std::fill(right.begin(),right.end(),0u);
+         {2u, 3u, 4u, 7u, 8u, 16u, 32u, 64u, 96u, 128u}) {
+        for (unsigned repetition = 0u; repetition < 128u; ++repetition) {
+            std::vector<std::uint64_t> left(count), right(count);
+            for (auto& limb: left)
+                limb = engine();
+            for (auto& limb: right)
+                limb = engine();
+            if (repetition % 11u == 0u) {
+                std::fill(left.begin(), left.end(), max);
+                std::fill(right.begin(), right.end(), max);
+            } else if (repetition % 11u == 1u) {
+                std::fill(left.begin(), left.end(), 0u);
+                std::fill(right.begin(), right.end(), 0u);
             }
-            const std::uint64_t high=std::uint64_t{1}<<63u;
-            switch (repetition%8u) {
-            case 0u: left.back()=high-1u; right.back()=high; break;
-            case 1u: left.back()=high+123u; right.back()=high; break;
-            case 2u: left.back()=high; right.back()=high; break;
-            case 3u: left.back()=high; right.back()=2u; break;
-            case 4u: left.back()=max; right.back()=high; break;
-            case 5u: left.back()=high; right.back()=high/2u; break;
-            case 6u: left.back()=high; right.back()=max; break;
-            default: left.back()|=1u; right.back()|=1u; break;
+            const std::uint64_t high = std::uint64_t{1} << 63u;
+            switch (repetition % 8u) {
+                case 0u:
+                    left.back() = high - 1u;
+                    right.back() = high;
+                    break;
+                case 1u:
+                    left.back() = high + 123u;
+                    right.back() = high;
+                    break;
+                case 2u:
+                    left.back() = high;
+                    right.back() = high;
+                    break;
+                case 3u:
+                    left.back() = high;
+                    right.back() = 2u;
+                    break;
+                case 4u:
+                    left.back() = max;
+                    right.back() = high;
+                    break;
+                case 5u:
+                    left.back() = high;
+                    right.back() = high / 2u;
+                    break;
+                case 6u:
+                    left.back() = high;
+                    right.back() = max;
+                    break;
+                default:
+                    left.back() |= 1u;
+                    right.back() |= 1u;
+                    break;
             }
-            const Nat numerator(std::move(left)),denominator(std::move(right));
-            const auto [quotient,remainder]=divide(numerator,denominator);
-            out[ordinal/640u]+=row({
-                std::to_string(ordinal),std::to_string(count),
-                std::to_string(repetition),numerator.hex(),denominator.hex(),
-                quotient.hex(),remainder.hex()});
+            const Nat numerator(std::move(left)), denominator(std::move(right));
+            const auto [quotient, remainder] = divide(numerator, denominator);
+            out[ordinal / 640u] += row({std::to_string(ordinal), std::to_string(count),
+                                        std::to_string(repetition), numerator.hex(), denominator.hex(),
+                                        quotient.hex(), remainder.hex()});
             ++ordinal;
         }
     }
-    if (ordinal!=1280u) throw std::runtime_error("wrong B142 row count");
+    if (ordinal != 1280u)
+        throw std::runtime_error("wrong B142 row count");
     return out;
 }
 
-
-std::array<std::string,2u> b143_b29() {
-    std::array<std::string,2u> out{
+std::array<std::string, 2u> b143_b29() {
+    std::array<std::string, 2u> out{
         "# B143 B29 sparse division oracle part 0: visits 0..511.\n"
         "# repetition n m numerator_hex denominator_hex quotient_hex remainder_hex\n"
         "# Exact mt19937_64(0xB290D1F5) conditional source stream preserved.\n"
@@ -207,157 +239,168 @@ std::array<std::string,2u> b143_b29() {
         "# Exact mt19937_64(0xB290D1F5) conditional source stream preserved.\n"
         "# No Numeric/GMP/Boost dependency.\n"};
     std::mt19937_64 engine(0xB290D1F5ULL);
-    const auto max=UINT64_MAX;
-    for (unsigned repetition=0u;repetition<1024u;++repetition) {
-        const std::size_t n=16u+static_cast<std::size_t>(engine()%113u);
-        const std::size_t m=8u+static_cast<std::size_t>(engine()%(n-7u));
-        std::vector<std::uint64_t> left(n),right(m,0u);
-        for (auto& word:left) word=engine();
-        right.front()=engine();
-        right.back()=std::uint64_t{1}<<(repetition%64u);
-        if (repetition%3u==0u) right[m/2u]=engine();
-        if (repetition%5u==0u)
-            for (std::size_t i=1u;i+1u<m;++i)
-                if (i%3u==0u) right[i]=engine();
-        if (repetition%7u==0u) std::fill(left.begin(),left.end(),max);
-        if (repetition%11u==0u) left.back()=1u;
-        const Nat numerator(std::move(left)),denominator(std::move(right));
-        const auto [quotient,remainder]=divide(numerator,denominator);
-        out[repetition/512u]+=row({
-            std::to_string(repetition),std::to_string(n),std::to_string(m),
-            numerator.hex(),denominator.hex(),quotient.hex(),remainder.hex()});
+    const auto max = UINT64_MAX;
+    for (unsigned repetition = 0u; repetition < 1024u; ++repetition) {
+        const std::size_t n = 16u + static_cast<std::size_t>(engine() % 113u);
+        const std::size_t m = 8u + static_cast<std::size_t>(engine() % (n - 7u));
+        std::vector<std::uint64_t> left(n), right(m, 0u);
+        for (auto& word: left)
+            word = engine();
+        right.front() = engine();
+        right.back() = std::uint64_t{1} << (repetition % 64u);
+        if (repetition % 3u == 0u)
+            right[m / 2u] = engine();
+        if (repetition % 5u == 0u)
+            for (std::size_t i = 1u; i + 1u < m; ++i)
+                if (i % 3u == 0u)
+                    right[i] = engine();
+        if (repetition % 7u == 0u)
+            std::fill(left.begin(), left.end(), max);
+        if (repetition % 11u == 0u)
+            left.back() = 1u;
+        const Nat numerator(std::move(left)), denominator(std::move(right));
+        const auto [quotient, remainder] = divide(numerator, denominator);
+        out[repetition / 512u] += row({std::to_string(repetition), std::to_string(n), std::to_string(m),
+                                       numerator.hex(), denominator.hex(), quotient.hex(), remainder.hex()});
     }
     return out;
 }
 
-
-Nat parse_decimal(std::string const& digits) {
+Nat parse_decimal(const std::string& digits) {
     Nat value;
-    for (char ch:digits) {
-        value=value.mul_small(10u);
-        value=Nat::add(value,Nat(static_cast<std::uint64_t>(ch-'0')));
+    for (char ch: digits) {
+        value = value.mul_small(10u);
+        value = Nat::add(value, Nat(static_cast<std::uint64_t>(ch - '0')));
     }
     return value;
 }
 
 std::string b144_b45() {
-    std::string out=
+    std::string out =
         "# B144 B45 zero-low-limb and decimal-power division oracle.\n"
         "# kind key1 key2 key3 numerator_hex denominator_hex quotient_hex remainder_hex\n"
         "# S: m zeros repetition; D: digits bits offset. Exact original sources; no GMP/Numeric/Boost.\n";
-    const auto max=UINT64_MAX;
+    const auto max = UINT64_MAX;
     std::mt19937_64 engine(0xB450D1D1ULL);
-    std::size_t rows=0u;
-    const auto append=[&](char kind,std::size_t key1,std::size_t key2,
-                          std::uint64_t key3,Nat const& numerator,
-                          Nat const& denominator) {
-        const auto [quotient,remainder]=divide(numerator,denominator);
-        if (Nat::add(multiply(quotient,denominator),remainder).compare(numerator)!=0 ||
-            remainder.compare(denominator)>=0)
+    std::size_t rows = 0u;
+    const auto append = [&](char kind, std::size_t key1, std::size_t key2,
+                            std::uint64_t key3, const Nat& numerator,
+                            const Nat& denominator) {
+        const auto [quotient, remainder] = divide(numerator, denominator);
+        if (Nat::add(multiply(quotient, denominator), remainder).compare(numerator) != 0 ||
+            remainder.compare(denominator) >= 0)
             throw std::runtime_error("invalid B144 Euclidean identity");
-        out+=row({std::string(1,kind),std::to_string(key1),std::to_string(key2),
-                  std::to_string(key3),numerator.hex(),denominator.hex(),
-                  quotient.hex(),remainder.hex()});
+        out += row({std::string(1, kind), std::to_string(key1), std::to_string(key2),
+                    std::to_string(key3), numerator.hex(), denominator.hex(),
+                    quotient.hex(), remainder.hex()});
         ++rows;
     };
-    for (const std::size_t m:{2u,3u,5u,8u,16u,32u,64u}) {
-        for (const std::size_t zeros:{std::size_t{1},m/2u,m-1u}) {
-            for (unsigned repetition=0u;repetition<24u;++repetition) {
-                const std::size_t n=m+
-                    (repetition%4u==0u?0u:repetition%4u==1u?1u:
-                     repetition%4u==2u?m:2u*m);
-                std::vector<std::uint64_t> left(n),right(m);
-                for (auto& word:left) word=engine();
-                for (auto& word:right) word=engine();
-                std::fill_n(right.begin(),zeros,0u);
-                right.back()|=std::uint64_t{1}<<63u;
-                left.back()|=std::uint64_t{1}<<63u;
-                if (repetition%6u==0u && n==m) left=right;
-                else if (repetition%6u==1u && n==m) left.back()=right.back()-1u;
-                else if (repetition%6u==2u) std::fill_n(left.begin(),zeros,0u);
-                else if (repetition%6u==3u) std::fill(left.begin(),left.end(),max);
-                append('S',m,zeros,repetition,Nat(std::move(left)),Nat(std::move(right)));
+    for (const std::size_t m: {2u, 3u, 5u, 8u, 16u, 32u, 64u}) {
+        for (const std::size_t zeros: {std::size_t{1}, m / 2u, m - 1u}) {
+            for (unsigned repetition = 0u; repetition < 24u; ++repetition) {
+                const std::size_t n = m +
+                                      (repetition % 4u == 0u ? 0u : repetition % 4u == 1u ? 1u
+                                                                : repetition % 4u == 2u   ? m
+                                                                                          : 2u * m);
+                std::vector<std::uint64_t> left(n), right(m);
+                for (auto& word: left)
+                    word = engine();
+                for (auto& word: right)
+                    word = engine();
+                std::fill_n(right.begin(), zeros, 0u);
+                right.back() |= std::uint64_t{1} << 63u;
+                left.back() |= std::uint64_t{1} << 63u;
+                if (repetition % 6u == 0u && n == m)
+                    left = right;
+                else if (repetition % 6u == 1u && n == m)
+                    left.back() = right.back() - 1u;
+                else if (repetition % 6u == 2u)
+                    std::fill_n(left.begin(), zeros, 0u);
+                else if (repetition % 6u == 3u)
+                    std::fill(left.begin(), left.end(), max);
+                append('S', m, zeros, repetition, Nat(std::move(left)), Nat(std::move(right)));
             }
         }
     }
-    for (const unsigned digits:{72u,144u,288u,576u}) {
-        const Nat denominator=parse_decimal("1"+std::string(digits,'0'));
-        for (const std::size_t bits:{2048u,4096u}) {
-            const Nat base=Nat::power2(bits-1u);
-            for (const std::uint64_t offset:{0u,1u,13u,127u,1023u})
-                append('D',digits,bits,offset,Nat::add(base,Nat(offset)),denominator);
+    for (const unsigned digits: {72u, 144u, 288u, 576u}) {
+        const Nat denominator = parse_decimal("1" + std::string(digits, '0'));
+        for (const std::size_t bits: {2048u, 4096u}) {
+            const Nat base = Nat::power2(bits - 1u);
+            for (const std::uint64_t offset: {0u, 1u, 13u, 127u, 1023u})
+                append('D', digits, bits, offset, Nat::add(base, Nat(offset)), denominator);
         }
     }
-    if (rows!=544u) throw std::runtime_error("wrong B144 row count");
+    if (rows != 544u)
+        throw std::runtime_error("wrong B144 row count");
     return out;
 }
 
-
 std::string b145_normalization() {
-    std::string out=
+    std::string out =
         "# B145 divisor-normalization division oracle.\n"
         "# shift mode dividend_hex divisor_hex quotient_hex remainder_hex\n"
         "# All 64 normalization shifts x 10 modes; no GMP/Numeric/Boost.\n";
-    const auto max=UINT64_MAX;
-    std::size_t rows=0u;
-    for (unsigned shift=0u;shift<64u;++shift) {
-        const std::uint64_t top=max>>shift;
-        for (unsigned mode=0u;mode<10u;++mode) {
+    const auto max = UINT64_MAX;
+    std::size_t rows = 0u;
+    for (unsigned shift = 0u; shift < 64u; ++shift) {
+        const std::uint64_t top = max >> shift;
+        for (unsigned mode = 0u; mode < 10u; ++mode) {
             const Nat divisor(std::vector<std::uint64_t>{
-                (mode%2u)==0u ? max : std::uint64_t{1},top});
+                (mode % 2u) == 0u ? max : std::uint64_t{1}, top});
             const Nat dividend(std::vector<std::uint64_t>{
-                (mode%3u)==0u ? max : std::uint64_t{mode+1u},
-                (mode%3u)==1u ? 0u : max,
-                (mode%2u)==0u ? max : std::uint64_t{1},
-                (mode%3u)==2u ? top-1u : top});
-            const auto [quotient,remainder]=divide(dividend,divisor);
-            if (Nat::add(multiply(quotient,divisor),remainder).compare(dividend)!=0 ||
-                remainder.compare(divisor)>=0)
+                (mode % 3u) == 0u ? max : std::uint64_t{mode + 1u},
+                (mode % 3u) == 1u ? 0u : max,
+                (mode % 2u) == 0u ? max : std::uint64_t{1},
+                (mode % 3u) == 2u ? top - 1u : top});
+            const auto [quotient, remainder] = divide(dividend, divisor);
+            if (Nat::add(multiply(quotient, divisor), remainder).compare(dividend) != 0 ||
+                remainder.compare(divisor) >= 0)
                 throw std::runtime_error("invalid B145 Euclidean identity");
-            out+=row({std::to_string(shift),std::to_string(mode),
-                      dividend.hex(),divisor.hex(),quotient.hex(),remainder.hex()});
+            out += row({std::to_string(shift), std::to_string(mode),
+                        dividend.hex(), divisor.hex(), quotient.hex(), remainder.hex()});
             ++rows;
         }
     }
-    if (rows!=640u) throw std::runtime_error("wrong B145 row count");
+    if (rows != 640u)
+        throw std::runtime_error("wrong B145 row count");
     return out;
 }
 
-}
+} // namespace
 
-int main(int argc,char** argv) {
+int main(int argc, char** argv) {
     try {
-        bool write=false;
-        const auto dir=independent_oracle::data_directory(argc,argv,write);
-        const auto a29=b140_general();
-        for (std::size_t part=0u;part<a29.size();++part)
+        bool write = false;
+        const auto dir = independent_oracle::data_directory(argc, argv, write);
+        const auto a29 = b140_general();
+        for (std::size_t part = 0u; part < a29.size(); ++part)
             independent_oracle::output(
-                dir,"big_unsigned_b140_division_"+std::to_string(part)+".tsv",
-                a29[part],write);
-        const auto a30=b141_b28();
-        for (std::size_t part=0u;part<a30.size();++part)
+                dir, "big_unsigned_b140_division_" + std::to_string(part) + ".tsv",
+                a29[part], write);
+        const auto a30 = b141_b28();
+        for (std::size_t part = 0u; part < a30.size(); ++part)
             independent_oracle::output(
-                dir,"big_unsigned_b141_b28_"+std::to_string(part)+".tsv",
-                a30[part],write);
-        const auto a31=b142_b36();
-        for (std::size_t part=0u;part<a31.size();++part)
+                dir, "big_unsigned_b141_b28_" + std::to_string(part) + ".tsv",
+                a30[part], write);
+        const auto a31 = b142_b36();
+        for (std::size_t part = 0u; part < a31.size(); ++part)
             independent_oracle::output(
-                dir,"big_unsigned_b142_b36_"+std::to_string(part)+".tsv",
-                a31[part],write);
-        const auto a32=b143_b29();
-        for (std::size_t part=0u;part<a32.size();++part)
+                dir, "big_unsigned_b142_b36_" + std::to_string(part) + ".tsv",
+                a31[part], write);
+        const auto a32 = b143_b29();
+        for (std::size_t part = 0u; part < a32.size(); ++part)
             independent_oracle::output(
-                dir,"big_unsigned_b143_b29_"+std::to_string(part)+".tsv",
-                a32[part],write);
+                dir, "big_unsigned_b143_b29_" + std::to_string(part) + ".tsv",
+                a32[part], write);
         independent_oracle::output(
-            dir,"big_unsigned_b144_b45.tsv",b144_b45(),write);
+            dir, "big_unsigned_b144_b45.tsv", b144_b45(), write);
         independent_oracle::output(
-            dir,"big_unsigned_b145_normalization.tsv",
-            b145_normalization(),write);
+            dir, "big_unsigned_b145_normalization.tsv",
+            b145_normalization(), write);
         return 0;
-    } catch (std::exception const& error) {
-        std::cerr<<"BigUnsigned remaining division generator: "
-                 <<error.what()<<'\n';
+    } catch (const std::exception& error) {
+        std::cerr << "BigUnsigned remaining division generator: "
+                  << error.what() << '\n';
         return 1;
     }
 }

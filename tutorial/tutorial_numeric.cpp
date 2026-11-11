@@ -28,7 +28,6 @@
 
 using namespace Ariadne;
 
-
 /*
  * Print a labelled value.
  *
@@ -36,10 +35,10 @@ using namespace Ariadne;
  * can be used for exact numbers, floating-point values, validated bounds and
  * computable real numbers.
  */
-template<class T> void print(const char* label, T const& value) {
+template<class T>
+void print(const char* label, const T& value) {
     std::cout << label << ": " << value << '\n';
 }
-
 
 /*
  * Print a visual separator between the different parts of the tutorial.
@@ -47,7 +46,6 @@ template<class T> void print(const char* label, T const& value) {
 void section(const char* title) {
     std::cout << "\n=== " << title << " ===\n";
 }
-
 
 void tutorial_numeric() {
     //! [Numeric tutorial]
@@ -79,7 +77,7 @@ void tutorial_numeric() {
      * Here 11 / 2^3 = 11 / 8 exactly. The second argument is unsigned in
      * order to make clear that it is the exponent of the denominator.
      */
-    Dyadic dyadic(11,3u);
+    Dyadic dyadic(11, 3u);
     print("Dyadic 11/8", dyadic);
 
     /*
@@ -88,7 +86,7 @@ void tutorial_numeric() {
      * Notice that ^ is not exponentiation in ordinary C++; Ariadne overloads
      * it for this numeric object.
      */
-    Dyadic same_dyadic = 11/(two^3u);
+    Dyadic same_dyadic = 11 / (two ^ 3u);
     print("11/(two^3)", same_dyadic);
 
     /*
@@ -102,7 +100,7 @@ void tutorial_numeric() {
     /*
      * Rational stores an exact quotient of multiple-precision integers.
      */
-    Rational rational(11,8);
+    Rational rational(11, 8);
     print("Rational 11/8", rational);
 
     /*
@@ -113,7 +111,6 @@ void tutorial_numeric() {
     Rational rational_from_decimal(decimal);
     print("Dyadic converted from Integer", dyadic_from_integer);
     print("Rational converted from Decimal", rational_from_decimal);
-
 
     /*
      * ----------------------------------------------------------------------
@@ -143,7 +140,6 @@ void tutorial_numeric() {
     Dyadic dyadic_from_double(exact_double);
     print("Dyadic converted from 1.375_x", dyadic_from_double);
 
-
     /*
      * ----------------------------------------------------------------------
      * 3. Computable real numbers
@@ -161,13 +157,13 @@ void tutorial_numeric() {
 
     Real one(1);
     Real two_real(2);
-    Real one_third(Rational(1,3));
+    Real one_third(Rational(1, 3));
     print("Real 1/3", one_third);
 
     /*
      * Arithmetic on Real values constructs another computable real number.
      */
-    Real arithmetic_expression = sqr(one_third) + one_third - one_third/two_real;
+    Real arithmetic_expression = sqr(one_third) + one_third - one_third / two_real;
     print("Arithmetic expression", arithmetic_expression);
 
     /*
@@ -193,9 +189,8 @@ void tutorial_numeric() {
      * At this stage pi_value is still a Real. We have described the number,
      * but have not yet chosen a concrete floating-point representation for it.
      */
-    Real pi_value = 4*atan(Real(1));
+    Real pi_value = 4 * atan(Real(1));
     print("pi as a Real", pi_value);
-
 
     /*
      * ----------------------------------------------------------------------
@@ -240,7 +235,6 @@ void tutorial_numeric() {
     print("double-precision error", pi_dp.error());
     print("multiple-precision error", pi_mp.error());
 
-
     /*
      * ----------------------------------------------------------------------
      * 5. Accuracy is different from precision
@@ -273,7 +267,6 @@ void tutorial_numeric() {
     print("validated pi at 128-bit precision", accurate_pi_mp);
     print("validated pi error", accurate_pi_mp.error());
 
-
     /*
      * ----------------------------------------------------------------------
      * 6. Effort-controlled computation
@@ -294,7 +287,6 @@ void tutorial_numeric() {
     print("pi with Effort(8)", pi_with_small_effort);
     print("pi with Effort(64)", pi_with_more_effort);
 
-
     /*
      * ----------------------------------------------------------------------
      * 7. Raw floating-point numbers
@@ -309,12 +301,11 @@ void tutorial_numeric() {
 
     section("Raw floating-point numbers");
 
-    FloatDP raw_dp(1.75_x,dp);
-    FloatMP raw_mp(1.75_x,mp);
+    FloatDP raw_dp(1.75_x, dp);
+    FloatMP raw_mp(1.75_x, mp);
 
     print("FloatDP 1.75", raw_dp);
     print("FloatMP 1.75", raw_mp);
-
 
     /*
      * ----------------------------------------------------------------------
@@ -338,13 +329,13 @@ void tutorial_numeric() {
      * Constructing bounds from Decimal therefore produces two adjacent binary
      * values enclosing the exact decimal value 1.2.
      */
-    FloatDPBounds decimal_bounds(Decimal("1.2"),dp);
+    FloatDPBounds decimal_bounds(Decimal("1.2"), dp);
     print("Bounds enclosing decimal 1.2", decimal_bounds);
 
     /*
      * Bounds can also represent an explicit interval of possible values.
      */
-    FloatDPBounds interval(Rational(11,10),Rational(14,10),dp);
+    FloatDPBounds interval(Rational(11, 10), Rational(14, 10), dp);
     print("Bounds enclosing [11/10,14/10]", interval);
 
     /*
@@ -363,7 +354,6 @@ void tutorial_numeric() {
     print("interval value", interval.value());
     print("interval error", interval.error());
 
-
     /*
      * ----------------------------------------------------------------------
      * 9. Multiple-precision validated bounds
@@ -375,8 +365,8 @@ void tutorial_numeric() {
 
     section("Multiple-precision bounds");
 
-    FloatMPBounds mp_decimal_bounds(Decimal("1.2"),mp);
-    FloatMPBounds mp_interval(Rational(11,10),Rational(14,10),mp);
+    FloatMPBounds mp_decimal_bounds(Decimal("1.2"), mp);
+    FloatMPBounds mp_interval(Rational(11, 10), Rational(14, 10), mp);
 
     print("128-bit bounds for decimal 1.2", mp_decimal_bounds);
     print("128-bit bounds for [11/10,14/10]", mp_interval);
@@ -386,7 +376,6 @@ void tutorial_numeric() {
      * enclosure of an exactly specified value.
      */
     print("128-bit decimal bound error", mp_decimal_bounds.error());
-
 
     /*
      * ----------------------------------------------------------------------
@@ -402,8 +391,8 @@ void tutorial_numeric() {
 
     section("Floating-point approximations");
 
-    FloatDPApproximation approximation_dp(1.23,dp);
-    FloatMPApproximation approximation_mp(1.23,mp);
+    FloatDPApproximation approximation_dp(1.23, dp);
+    FloatMPApproximation approximation_mp(1.23, mp);
 
     print("double-precision approximation to 1.23", approximation_dp);
     print("multiple-precision approximation to 1.23", approximation_mp);
@@ -414,9 +403,8 @@ void tutorial_numeric() {
      * deliberately different from constructing validated bounds from
      * Decimal("1.23").
      */
-    FloatDPBounds validated_123(Decimal("1.23"),dp);
+    FloatDPBounds validated_123(Decimal("1.23"), dp);
     print("validated enclosure of exact decimal 1.23", validated_123);
-
 
     /*
      * ----------------------------------------------------------------------
@@ -435,7 +423,6 @@ void tutorial_numeric() {
     FloatMPBall pi_ball(pi_value.compute(Accuracy(128_bits)).get(mp));
     print("pi represented as a multiple-precision ball", pi_ball);
     print("ball error", pi_ball.error());
-
 
     /*
      * ----------------------------------------------------------------------
@@ -456,7 +443,7 @@ void tutorial_numeric() {
 
     section("Generic numeric paradigms");
 
-    ExactNumber exact_number(Rational(1,3));
+    ExactNumber exact_number(Rational(1, 3));
     EffectiveNumber effective_number(pi_value);
     ValidatedNumber validated_number(pi_dp);
     ApproximateNumber approximate_number(approximation_dp);
@@ -468,7 +455,6 @@ void tutorial_numeric() {
 
     print("ExactNumber dynamic representation", exact_number.class_name());
     print("ValidatedNumber dynamic representation", validated_number.class_name());
-
 
     /*
      * ----------------------------------------------------------------------
@@ -488,7 +474,7 @@ void tutorial_numeric() {
 
     section("Comparisons with finite effort");
 
-    Real exact_third(Rational(1,3));
+    Real exact_third(Rational(1, 3));
 
     /*
      * The C++ literal below is first rounded to the nearest binary double, and
@@ -502,7 +488,6 @@ void tutorial_numeric() {
 
     print("1/3 > exact binary double, Effort(0)", comparison.check(Effort(0)));
     print("1/3 > exact binary double, Effort(64)", comparison.check(Effort(64)));
-
 
     /*
      * ----------------------------------------------------------------------
@@ -521,7 +506,7 @@ void tutorial_numeric() {
     section("Complete rigorous computation");
 
     Real x = sqrt(Real(2));
-    Real result = exp(-x) * sin(pi_value/4);
+    Real result = exp(-x) * sin(pi_value / 4);
 
     ValidatedReal validated_result = result.compute(Accuracy(128_bits));
     FloatMPBounds result_bounds = validated_result.get(mp);
@@ -533,7 +518,6 @@ void tutorial_numeric() {
 
     //! [Numeric tutorial]
 }
-
 
 int main() {
     tutorial_numeric();

@@ -27,62 +27,77 @@
  */
 
 #include <cassert>
-#include <iostream>
-#include <iomanip>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <string>
 
 #include "numeric/builtin.hpp"
-#include "numeric/integer.hpp"
-#include "numeric/dyadic.hpp"
 #include "numeric/decimal.hpp"
-#include "numeric/rational.hpp"
+#include "numeric/dyadic.hpp"
 #include "numeric/float.decl.hpp"
-
+#include "numeric/integer.hpp"
+#include "numeric/rational.hpp"
 
 using namespace Ariadne;
 using namespace std;
 
 namespace Ariadne {
 
-template<class F> Bool models(LowerBound<F> x, Rational q) { return x.raw() <= q; }
-template<class F> Bool models(UpperBound<F> x, Rational q) { return x.raw() >= q; }
-template<class F> Bool models(Bounds<F> x, Rational q) { return x.lower_raw() <= q and x.upper_raw() >= q; }
-template<class F> Bool models(Ball<F> x, Rational q) { return x.error_raw() >= abs(Rational(x.value_raw())-q); }
+template<class F>
+Bool models(LowerBound<F> x, Rational q) { return x.raw() <= q; }
+template<class F>
+Bool models(UpperBound<F> x, Rational q) { return x.raw() >= q; }
+template<class F>
+Bool models(Bounds<F> x, Rational q) { return x.lower_raw() <= q and x.upper_raw() >= q; }
+template<class F>
+Bool models(Ball<F> x, Rational q) { return x.error_raw() >= abs(Rational(x.value_raw()) - q); }
 
-template<class F, class FE> Bool models(Ball<F,FE> x, Rational y) {
-    return abs(Dyadic(x.value())-y) <= Dyadic(x.error_raw()); }
-template<class F, class FE> Bool models(Ball<F,FE> x, F v) {
-    return abs(Dyadic(x.value())-Dyadic(v)) <= Dyadic(x.error_raw()); }
-
+template<class F, class FE>
+Bool models(Ball<F, FE> x, Rational y) {
+    return abs(Dyadic(x.value()) - y) <= Dyadic(x.error_raw());
+}
+template<class F, class FE>
+Bool models(Ball<F, FE> x, F v) {
+    return abs(Dyadic(x.value()) - Dyadic(v)) <= Dyadic(x.error_raw());
+}
 
 inline bool same(LogicalValue l1, LogicalValue l2) {
-    return static_cast<uchar>(l1) == static_cast<uchar>(l2); }
+    return static_cast<uchar>(l1) == static_cast<uchar>(l2);
+}
 inline bool same(ApproximateKleenean ak1, ApproximateKleenean ak2) {
-    return same(reinterpret_cast<LogicalValue const&>(ak1),reinterpret_cast<LogicalValue const&>(ak2)); }
+    return same(reinterpret_cast<const LogicalValue &>(ak1), reinterpret_cast<const LogicalValue &>(ak2));
+}
 
 } // namespace Ariadne
 
-
 template<class PR>
-class TestFloats
-{
+class TestFloats {
     typedef double Double;
+
   protected:
-    Nat m; Int n; Double ad; ExactDouble ed;
-    Integer z; Dyadic w; Decimal d; Rational q; Real r;
+    Nat m;
+    Int n;
+    Double ad;
+    ExactDouble ed;
+    Integer z;
+    Dyadic w;
+    Decimal d;
+    Rational q;
+    Real r;
+
   public:
     TestFloats();
+
   public:
-    static Rational to_rational(FloatType<ApproximateTag,PR> x) { return Rational(x.raw()); }
-    static Rational to_rational(FloatType<LowerTag,PR> x) { return Rational(x.raw()); }
-    static Rational to_rational(FloatType<UpperTag,PR> x) { return Rational(x.raw()); }
-    static Rational to_rational(FloatType<ExactTag,PR> x) { return Rational(x.raw()); }
+    static Rational to_rational(FloatType<ApproximateTag, PR> x) { return Rational(x.raw()); }
+    static Rational to_rational(FloatType<LowerTag, PR> x) { return Rational(x.raw()); }
+    static Rational to_rational(FloatType<UpperTag, PR> x) { return Rational(x.raw()); }
+    static Rational to_rational(FloatType<ExactTag, PR> x) { return Rational(x.raw()); }
 };
 
 template<class PR>
 TestFloats<PR>::TestFloats()
-    : m(1), n(1), ad(1.0), ed(1.0), z(1), w(1), d(1.0), q(1), r(1)
-{
+    : m(1), n(1), ad(1.0), ed(1.0), z(1), w(1), d(1.0), q(1), r(1) {
 }

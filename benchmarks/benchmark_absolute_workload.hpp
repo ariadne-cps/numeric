@@ -29,8 +29,6 @@
 #ifndef ARIADNE_NUMERIC_BENCHMARK_ABSOLUTE_WORKLOAD_HPP
 #define ARIADNE_NUMERIC_BENCHMARK_ABSOLUTE_WORKLOAD_HPP
 
-#include "ariadne-benchmarking.hpp"
-
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -40,16 +38,18 @@
 #include <utility>
 #include <vector>
 
+#include "ariadne-benchmarking.hpp"
+
 namespace AriadneBenchmark {
 
 namespace Bench = Ariadne::Benchmarking;
 using Ariadne::Logger; // Required by LOGGING_PRINTLN's unqualified lookup.
 
 struct AbsoluteSelection {
-    unsigned iterations=20000u;
-    unsigned samples=31u;
-    std::vector<unsigned> bits{53u,128u,256u,1024u,2048u};
-    bool summary_only=false;
+    unsigned iterations = 20000u;
+    unsigned samples = 31u;
+    std::vector<unsigned> bits{53u, 128u, 256u, 1024u, 2048u};
+    bool summary_only = false;
 };
 
 // Preserve the established CLI contract: samples are odd and >=3, while
@@ -58,42 +58,44 @@ inline Ariadne::List<Ariadne::ArgumentParser> absolute_parsers(AbsoluteSelection
     using namespace Ariadne;
     List<ArgumentParser> parsers;
     parsers.append(make_valued_argument_parser(
-        "i","iterations","Positive operations per measured sample",
-        [&s](String const& input)->VoidFunction {
-            unsigned const count=Bench::parse_unsigned<unsigned>(input);
-            if(count==0u) throw std::invalid_argument("iterations must be positive");
-            return [&s,count] { s.iterations=count; };
+        "i", "iterations", "Positive operations per measured sample",
+        [&s](const String& input) -> VoidFunction {
+            const unsigned count = Bench::parse_unsigned<unsigned>(input);
+            if (count == 0u)
+                throw std::invalid_argument("iterations must be positive");
+            return [&s, count] { s.iterations = count; };
         }));
     parsers.append(make_valued_argument_parser(
-        "n","samples","Odd number of samples, at least three",
-        [&s](String const& input)->VoidFunction {
-            unsigned const count=Bench::parse_unsigned<unsigned>(input);
-            if(count<3u || count%2u==0u)
+        "n", "samples", "Odd number of samples, at least three",
+        [&s](const String& input) -> VoidFunction {
+            const unsigned count = Bench::parse_unsigned<unsigned>(input);
+            if (count < 3u || count % 2u == 0u)
                 throw std::invalid_argument("samples must be odd and at least three");
-            return [&s,count] { s.samples=count; };
+            return [&s, count] { s.samples = count; };
         }));
     parsers.append(make_valued_argument_parser(
-        "b","bits","Distinct operand bit widths, each at least two",
-        [&s](String const& input)->VoidFunction {
-            std::string const text(input);
-            if(text.empty() || text.back()==',')
+        "b", "bits", "Distinct operand bit widths, each at least two",
+        [&s](const String& input) -> VoidFunction {
+            const std::string text(input);
+            if (text.empty() || text.back() == ',')
                 throw std::invalid_argument("invalid bit-width list");
             std::istringstream stream(text);
             std::string token;
             std::vector<unsigned> values;
-            while(std::getline(stream,token,',')) {
-                unsigned const value=Bench::parse_unsigned<unsigned>(
+            while (std::getline(stream, token, ',')) {
+                const unsigned value = Bench::parse_unsigned<unsigned>(
                     String(token));
-                if(value<2u || std::find(values.begin(),values.end(),value)!=values.end())
+                if (value < 2u || std::find(values.begin(), values.end(), value) != values.end())
                     throw std::invalid_argument("invalid or repeated bit width");
                 values.push_back(value);
             }
-            if(values.empty()) throw std::invalid_argument("empty bit-width list");
-            return [&s,values] { s.bits=values; };
+            if (values.empty())
+                throw std::invalid_argument("empty bit-width list");
+            return [&s, values] { s.bits = values; };
         }));
     parsers.append(make_unvalued_argument_parser(
-        "","summary-only","Print aggregate medians only",
-        [&s] { s.summary_only=true; }));
+        "", "summary-only", "Print aggregate medians only",
+        [&s] { s.summary_only = true; }));
     return parsers;
 }
 
@@ -108,68 +110,64 @@ struct AbsoluteDatum {
 // With normalization=iterations, a sample is nanoseconds per operation.
 template<class Operation>
 void record_absolute(std::vector<AbsoluteDatum>& rows,
-                     Bench::Runner const& runner,
-                     char const* name,unsigned bits,
-                     unsigned iterations,unsigned samples,
+                     const Bench::Runner& runner,
+                     const char* name, unsigned bits,
+                     unsigned iterations, unsigned samples,
                      Operation&& operation) {
-    Bench::Samples timings=runner.run(name,samples,
-        [] {},
-        [&] {
+    Bench::Samples timings = runner.run(name, samples, [] {}, [&] {
             for(unsigned i=0u;i<iterations;++i) {
                 auto value=operation(i);
                 Bench::keep_alive(value);
-            }
-        },
-        [] {},
-        static_cast<double>(iterations));
-    auto stats=Bench::summarize(timings);
-    if(!std::isfinite(stats.median) || stats.median<=0.0)
-        throw std::runtime_error(std::string("invalid timing for ")+name);
-    rows.push_back({name,bits,std::move(stats)});
+            } }, [] {}, static_cast<double>(iterations));
+    auto stats = Bench::summarize(timings);
+    if (!std::isfinite(stats.median) || stats.median <= 0.0)
+        throw std::runtime_error(std::string("invalid timing for ") + name);
+    rows.push_back({name, bits, std::move(stats)});
 }
 
-inline void report_absolute(char const* type,
-                            AbsoluteSelection const& s,
-                            Bench::SummaryFields const& fields,
-                            std::vector<AbsoluteDatum> const& rows) {
-    Bench::Report report(std::string(type)+" operation times",fields);
+inline void report_absolute(const char* type,
+                            const AbsoluteSelection& s,
+                            const Bench::SummaryFields& fields,
+                            const std::vector<AbsoluteDatum>& rows) {
+    Bench::Report report(std::string(type) + " operation times", fields);
     report.set_dimension_columns({
         {"Operation"},
-        {"Bits",0u,Bench::TableAlignment::Right}
+        {"Bits", 0u, Bench::TableAlignment::Right}
     });
-    auto layout=Bench::TableOptions::ruled();
-    layout.group_columns={1u};
+    auto layout = Bench::TableOptions::ruled();
+    layout.group_columns = {1u};
     report.set_table_options(layout);
 
     // Validate that no bit-width group silently loses an operation, and
     // retain the established sum-of-medians aggregate (not a measured total).
-    std::map<unsigned,std::pair<double,std::size_t>> totals;
-    for(auto const& row:rows) {
-        auto& group=totals[row.bits];
-        group.first+=row.statistics.median;
+    std::map<unsigned, std::pair<double, std::size_t>> totals;
+    for (const auto& row: rows) {
+        auto& group = totals[row.bits];
+        group.first += row.statistics.median;
         ++group.second;
-        if(!s.summary_only)
-            report.add_row({row.operation,std::to_string(row.bits)},row.statistics);
+        if (!s.summary_only)
+            report.add_row({row.operation, std::to_string(row.bits)}, row.statistics);
     }
-    if(!s.summary_only) {
-        LOGGING_PRINTLN(type<<" | iterations="<<s.iterations
-                        <<" | samples="<<s.samples)
+    if (!s.summary_only) {
+        LOGGING_PRINTLN(type << " | iterations=" << s.iterations
+                             << " | samples=" << s.samples)
         report.print();
     }
     Bench::Table summary({
-        {"Group"},
-        {"Bits",0u,Bench::TableAlignment::Right},
-        {"Operations",0u,Bench::TableAlignment::Right},
-        {"Sum of medians (ns)",0u,Bench::TableAlignment::Right}
-    },Bench::TableOptions::ruled());
-    double grand_total=0.0;
-    for(auto const& [bits,total]:totals) {
-        grand_total+=total.first;
-        summary.add_row({"TOTAL",std::to_string(bits),
+                             {"Group"},
+                             {"Bits", 0u, Bench::TableAlignment::Right},
+                             {"Operations", 0u, Bench::TableAlignment::Right},
+                             {"Sum of medians (ns)", 0u, Bench::TableAlignment::Right}
+    },
+                         Bench::TableOptions::ruled());
+    double grand_total = 0.0;
+    for (const auto& [bits, total]: totals) {
+        grand_total += total.first;
+        summary.add_row({"TOTAL", std::to_string(bits),
                          std::to_string(total.second),
                          Bench::Table::number(total.first)});
     }
-    summary.add_row({"TOTAL ALL","-","-",
+    summary.add_row({"TOTAL ALL", "-", "-",
                      Bench::Table::number(grand_total)});
     LOGGING_PRINTLN(summary.str())
     LOGGING_PRINTLN("Totals sum per-operation median durations (not wall-clock totals).")
@@ -177,11 +175,11 @@ inline void report_absolute(char const* type,
 
 inline bool acquire_absolute(AbsoluteSelection& selection,
                              Bench::CommandLine& cli,
-                             char const* title,int argc,char const* argv[]) {
+                             const char* title, int argc, const char* argv[]) {
     using namespace Ariadne;
-    cli.add(CommandLineContribution(title,absolute_parsers(selection)));
+    cli.add(CommandLineContribution(title, absolute_parsers(selection)));
     // The shared command-line parser already handles named options and help.
-    return cli.acquire(argc,argv);
+    return cli.acquire(argc, argv);
 }
 
 } // namespace AriadneBenchmark

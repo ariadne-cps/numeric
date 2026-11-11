@@ -25,11 +25,12 @@
 #include <array>
 #include <sstream>
 
-#include "numeric/operators.hpp"
-#include "numeric/integer.hpp"
-#include "numeric/rational.hpp"
 #include "numeric/dyadic.hpp"
+#include "numeric/integer.hpp"
+#include "numeric/operators.hpp"
+#include "numeric/rational.hpp"
 #include "numeric/real.hpp"
+
 #include "ariadne-testing.hpp"
 
 using namespace Ariadne;
@@ -58,203 +59,237 @@ class TestOperators : public Ariadne::Testing::ContextFixture {
         ARIADNE_TESTING_EXPECT_EQUAL(generic.kind(), kind);
     }
 
-
     void test_kinds() {
-        const std::array kinds={
-            CodeKind{OperatorCode::CNST,OperatorKind::NULLARY},
-            CodeKind{OperatorCode::VAR,OperatorKind::VARIABLE},
-            CodeKind{OperatorCode::IND,OperatorKind::COORDINATE},
-            CodeKind{OperatorCode::GET,OperatorKind::COORDINATE},
-            CodeKind{OperatorCode::VEC,OperatorKind::NULLARY},
-            CodeKind{OperatorCode::ADD,OperatorKind::BINARY},
-            CodeKind{OperatorCode::SUB,OperatorKind::BINARY},
-            CodeKind{OperatorCode::MUL,OperatorKind::BINARY},
-            CodeKind{OperatorCode::DIV,OperatorKind::BINARY},
-            CodeKind{OperatorCode::FMA,OperatorKind::TERNARY},
-            CodeKind{OperatorCode::MAX,OperatorKind::BINARY},
-            CodeKind{OperatorCode::MIN,OperatorKind::BINARY},
-            CodeKind{OperatorCode::AND,OperatorKind::BINARY},
-            CodeKind{OperatorCode::OR,OperatorKind::BINARY},
-            CodeKind{OperatorCode::XOR,OperatorKind::BINARY},
-            CodeKind{OperatorCode::IMPL,OperatorKind::BINARY},
-            CodeKind{OperatorCode::SADD,OperatorKind::SCALAR},
-            CodeKind{OperatorCode::SSUB,OperatorKind::SCALAR},
-            CodeKind{OperatorCode::SMUL,OperatorKind::SCALAR},
-            CodeKind{OperatorCode::SDIV,OperatorKind::SCALAR},
-            CodeKind{OperatorCode::NUL,OperatorKind::UNARY},
-            CodeKind{OperatorCode::POS,OperatorKind::UNARY},
-            CodeKind{OperatorCode::NEG,OperatorKind::UNARY},
-            CodeKind{OperatorCode::HLF,OperatorKind::UNARY},
-            CodeKind{OperatorCode::REC,OperatorKind::UNARY},
-            CodeKind{OperatorCode::SQR,OperatorKind::UNARY},
-            CodeKind{OperatorCode::SQRT,OperatorKind::UNARY},
-            CodeKind{OperatorCode::EXP,OperatorKind::UNARY},
-            CodeKind{OperatorCode::LOG,OperatorKind::UNARY},
-            CodeKind{OperatorCode::SIN,OperatorKind::UNARY},
-            CodeKind{OperatorCode::COS,OperatorKind::UNARY},
-            CodeKind{OperatorCode::TAN,OperatorKind::UNARY},
-            CodeKind{OperatorCode::TANH,OperatorKind::UNARY},
-            CodeKind{OperatorCode::ASIN,OperatorKind::UNARY},
-            CodeKind{OperatorCode::ACOS,OperatorKind::UNARY},
-            CodeKind{OperatorCode::ATAN,OperatorKind::UNARY},
-            CodeKind{OperatorCode::ABS,OperatorKind::UNARY},
-            CodeKind{OperatorCode::ITOR,OperatorKind::UNARY},
-            CodeKind{OperatorCode::NOT,OperatorKind::UNARY},
-            CodeKind{OperatorCode::POW,OperatorKind::GRADED},
-            CodeKind{OperatorCode::ROOT,OperatorKind::GRADED},
-            CodeKind{OperatorCode::SGN,OperatorKind::PREDICATE},
-            CodeKind{OperatorCode::SUBS,OperatorKind::PREDICATE},
-            CodeKind{OperatorCode::DISJ,OperatorKind::PREDICATE},
-            CodeKind{OperatorCode::EQ,OperatorKind::COMPARISON},
-            CodeKind{OperatorCode::NEQ,OperatorKind::COMPARISON},
-            CodeKind{OperatorCode::GEQ,OperatorKind::COMPARISON},
-            CodeKind{OperatorCode::LEQ,OperatorKind::COMPARISON},
-            CodeKind{OperatorCode::GT,OperatorKind::COMPARISON},
-            CodeKind{OperatorCode::LT,OperatorKind::COMPARISON}
+        const std::array kinds = {
+            CodeKind{OperatorCode::CNST,    OperatorKind::NULLARY},
+            CodeKind{ OperatorCode::VAR,   OperatorKind::VARIABLE},
+            CodeKind{ OperatorCode::IND, OperatorKind::COORDINATE},
+            CodeKind{ OperatorCode::GET, OperatorKind::COORDINATE},
+            CodeKind{ OperatorCode::VEC,    OperatorKind::NULLARY},
+            CodeKind{ OperatorCode::ADD,     OperatorKind::BINARY},
+            CodeKind{ OperatorCode::SUB,     OperatorKind::BINARY},
+            CodeKind{ OperatorCode::MUL,     OperatorKind::BINARY},
+            CodeKind{ OperatorCode::DIV,     OperatorKind::BINARY},
+            CodeKind{ OperatorCode::FMA,    OperatorKind::TERNARY},
+            CodeKind{ OperatorCode::MAX,     OperatorKind::BINARY},
+            CodeKind{ OperatorCode::MIN,     OperatorKind::BINARY},
+            CodeKind{ OperatorCode::AND,     OperatorKind::BINARY},
+            CodeKind{  OperatorCode::OR,     OperatorKind::BINARY},
+            CodeKind{ OperatorCode::XOR,     OperatorKind::BINARY},
+            CodeKind{OperatorCode::IMPL,     OperatorKind::BINARY},
+            CodeKind{OperatorCode::SADD,     OperatorKind::SCALAR},
+            CodeKind{OperatorCode::SSUB,     OperatorKind::SCALAR},
+            CodeKind{OperatorCode::SMUL,     OperatorKind::SCALAR},
+            CodeKind{OperatorCode::SDIV,     OperatorKind::SCALAR},
+            CodeKind{ OperatorCode::NUL,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::POS,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::NEG,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::HLF,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::REC,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::SQR,      OperatorKind::UNARY},
+            CodeKind{OperatorCode::SQRT,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::EXP,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::LOG,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::SIN,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::COS,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::TAN,      OperatorKind::UNARY},
+            CodeKind{OperatorCode::TANH,      OperatorKind::UNARY},
+            CodeKind{OperatorCode::ASIN,      OperatorKind::UNARY},
+            CodeKind{OperatorCode::ACOS,      OperatorKind::UNARY},
+            CodeKind{OperatorCode::ATAN,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::ABS,      OperatorKind::UNARY},
+            CodeKind{OperatorCode::ITOR,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::NOT,      OperatorKind::UNARY},
+            CodeKind{ OperatorCode::POW,     OperatorKind::GRADED},
+            CodeKind{OperatorCode::ROOT,     OperatorKind::GRADED},
+            CodeKind{ OperatorCode::SGN,  OperatorKind::PREDICATE},
+            CodeKind{OperatorCode::SUBS,  OperatorKind::PREDICATE},
+            CodeKind{OperatorCode::DISJ,  OperatorKind::PREDICATE},
+            CodeKind{  OperatorCode::EQ, OperatorKind::COMPARISON},
+            CodeKind{ OperatorCode::NEQ, OperatorKind::COMPARISON},
+            CodeKind{ OperatorCode::GEQ, OperatorKind::COMPARISON},
+            CodeKind{ OperatorCode::LEQ, OperatorKind::COMPARISON},
+            CodeKind{  OperatorCode::GT, OperatorKind::COMPARISON},
+            CodeKind{  OperatorCode::LT, OperatorKind::COMPARISON}
         };
 
-        for(auto const& entry:kinds) {
+        for (const auto& entry: kinds) {
             Operator inferred(entry.code);
-            ARIADNE_TESTING_EXPECT_EQUAL(inferred.code(),entry.code);
-            ARIADNE_TESTING_EXPECT_EQUAL(inferred.kind(),entry.kind);
+            ARIADNE_TESTING_EXPECT_EQUAL(inferred.code(), entry.code);
+            ARIADNE_TESTING_EXPECT_EQUAL(inferred.kind(), entry.kind);
 
-            Operator explicit_kind(entry.code,entry.kind);
-            ARIADNE_TESTING_EXPECT_EQUAL(static_cast<OperatorCode>(explicit_kind),entry.code);
-            ARIADNE_TESTING_EXPECT_EQUAL(explicit_kind.kind(),entry.kind);
+            Operator explicit_kind(entry.code, entry.kind);
+            ARIADNE_TESTING_EXPECT_EQUAL(static_cast<OperatorCode>(explicit_kind), entry.code);
+            ARIADNE_TESTING_EXPECT_EQUAL(explicit_kind.kind(), entry.kind);
         }
 
-        const std::array kind_names={
-            std::pair{OperatorKind::VARIABLE,"VARIABLE"},
-            std::pair{OperatorKind::COORDINATE,"COORDINATE"},
-            std::pair{OperatorKind::NULLARY,"NULLARY"},
-            std::pair{OperatorKind::UNARY,"UNARY"},
-            std::pair{OperatorKind::BINARY,"BINARY"},
-            std::pair{OperatorKind::TERNARY,"TERNARY"},
-            std::pair{OperatorKind::GRADED,"GRADED"},
-            std::pair{OperatorKind::SCALAR,"SCALAR"},
-            std::pair{OperatorKind::PREDICATE,"PREDICATE"},
-            std::pair{OperatorKind::COMPARISON,"COMPARISON"}
+        const std::array kind_names = {
+            std::pair{  OperatorKind::VARIABLE,   "VARIABLE"},
+            std::pair{OperatorKind::COORDINATE, "COORDINATE"},
+            std::pair{   OperatorKind::NULLARY,    "NULLARY"},
+            std::pair{     OperatorKind::UNARY,      "UNARY"},
+            std::pair{    OperatorKind::BINARY,     "BINARY"},
+            std::pair{   OperatorKind::TERNARY,    "TERNARY"},
+            std::pair{    OperatorKind::GRADED,     "GRADED"},
+            std::pair{    OperatorKind::SCALAR,     "SCALAR"},
+            std::pair{ OperatorKind::PREDICATE,  "PREDICATE"},
+            std::pair{OperatorKind::COMPARISON, "COMPARISON"}
         };
-        for(auto const& entry:kind_names) {
+        for (const auto& entry: kind_names) {
             std::ostringstream stream;
             stream << entry.first;
-            ARIADNE_TESTING_EXPECT_EQUAL(stream.str(),std::string(entry.second));
+            ARIADNE_TESTING_EXPECT_EQUAL(stream.str(), std::string(entry.second));
         }
         std::ostringstream invalid_kind;
         invalid_kind << static_cast<OperatorKind>(127);
-        ARIADNE_TESTING_EXPECT_EQUAL(invalid_kind.str(),std::string("UNKNOWN"));
+        ARIADNE_TESTING_EXPECT_EQUAL(invalid_kind.str(), std::string("UNKNOWN"));
 
         ARIADNE_TESTING_EXPECT_EXCEPTION(static_cast<void>(Operator(static_cast<OperatorCode>(127))));
     }
 
     void test_names_and_symbols() {
-        const std::array names={
-            CodeName{OperatorCode::CNST,"cnst"}, CodeName{OperatorCode::VAR,"var"},
-            CodeName{OperatorCode::IND,"ind"}, CodeName{OperatorCode::ADD,"add"},
-            CodeName{OperatorCode::SUB,"sub"}, CodeName{OperatorCode::MUL,"mul"},
-            CodeName{OperatorCode::DIV,"div"}, CodeName{OperatorCode::FMA,"fma"},
-            CodeName{OperatorCode::POW,"pow"}, CodeName{OperatorCode::ROOT,"root"},
-            CodeName{OperatorCode::NUL,"nul"}, CodeName{OperatorCode::POS,"pos"},
-            CodeName{OperatorCode::NEG,"neg"}, CodeName{OperatorCode::HLF,"hlf"},
-            CodeName{OperatorCode::REC,"rec"}, CodeName{OperatorCode::SQR,"sqr"},
-            CodeName{OperatorCode::SQRT,"sqrt"}, CodeName{OperatorCode::EXP,"exp"},
-            CodeName{OperatorCode::LOG,"log"}, CodeName{OperatorCode::SIN,"sin"},
-            CodeName{OperatorCode::COS,"cos"}, CodeName{OperatorCode::TAN,"tan"},
-            CodeName{OperatorCode::ASIN,"asin"}, CodeName{OperatorCode::ACOS,"acos"},
-            CodeName{OperatorCode::ATAN,"atan"}, CodeName{OperatorCode::SADD,"sadd"},
-            CodeName{OperatorCode::SSUB,"ssub"}, CodeName{OperatorCode::SMUL,"smul"},
-            CodeName{OperatorCode::SDIV,"sdiv"}, CodeName{OperatorCode::SFMA,"sfma"},
-            CodeName{OperatorCode::ABS,"abs"}, CodeName{OperatorCode::MAX,"max"},
-            CodeName{OperatorCode::MIN,"min"}, CodeName{OperatorCode::NOT,"not"},
-            CodeName{OperatorCode::AND,"and"}, CodeName{OperatorCode::OR,"or"},
-            CodeName{OperatorCode::XOR,"xor"}, CodeName{OperatorCode::IMPL,"impl"},
-            CodeName{OperatorCode::ITOR,"itor"}, CodeName{OperatorCode::GET,"get"},
-            CodeName{OperatorCode::VEC,"vec"}, CodeName{OperatorCode::PUSH,"push"},
-            CodeName{OperatorCode::PULL,"pull"}, CodeName{OperatorCode::TANH,"tanh"},
-            CodeName{OperatorCode::EQ,"eq"}, CodeName{OperatorCode::NEQ,"neq"},
-            CodeName{OperatorCode::GEQ,"geq"}, CodeName{OperatorCode::LEQ,"leq"},
-            CodeName{OperatorCode::GT,"gt"}, CodeName{OperatorCode::LT,"lt"},
-            CodeName{OperatorCode::SGN,"sgn"}, CodeName{OperatorCode::SUBS,"subs"},
-            CodeName{OperatorCode::DISJ,"disj"}
+        const std::array names = {
+            CodeName{OperatorCode::CNST, "cnst"},
+            CodeName{ OperatorCode::VAR,  "var"},
+            CodeName{ OperatorCode::IND,  "ind"},
+            CodeName{ OperatorCode::ADD,  "add"},
+            CodeName{ OperatorCode::SUB,  "sub"},
+            CodeName{ OperatorCode::MUL,  "mul"},
+            CodeName{ OperatorCode::DIV,  "div"},
+            CodeName{ OperatorCode::FMA,  "fma"},
+            CodeName{ OperatorCode::POW,  "pow"},
+            CodeName{OperatorCode::ROOT, "root"},
+            CodeName{ OperatorCode::NUL,  "nul"},
+            CodeName{ OperatorCode::POS,  "pos"},
+            CodeName{ OperatorCode::NEG,  "neg"},
+            CodeName{ OperatorCode::HLF,  "hlf"},
+            CodeName{ OperatorCode::REC,  "rec"},
+            CodeName{ OperatorCode::SQR,  "sqr"},
+            CodeName{OperatorCode::SQRT, "sqrt"},
+            CodeName{ OperatorCode::EXP,  "exp"},
+            CodeName{ OperatorCode::LOG,  "log"},
+            CodeName{ OperatorCode::SIN,  "sin"},
+            CodeName{ OperatorCode::COS,  "cos"},
+            CodeName{ OperatorCode::TAN,  "tan"},
+            CodeName{OperatorCode::ASIN, "asin"},
+            CodeName{OperatorCode::ACOS, "acos"},
+            CodeName{OperatorCode::ATAN, "atan"},
+            CodeName{OperatorCode::SADD, "sadd"},
+            CodeName{OperatorCode::SSUB, "ssub"},
+            CodeName{OperatorCode::SMUL, "smul"},
+            CodeName{OperatorCode::SDIV, "sdiv"},
+            CodeName{OperatorCode::SFMA, "sfma"},
+            CodeName{ OperatorCode::ABS,  "abs"},
+            CodeName{ OperatorCode::MAX,  "max"},
+            CodeName{ OperatorCode::MIN,  "min"},
+            CodeName{ OperatorCode::NOT,  "not"},
+            CodeName{ OperatorCode::AND,  "and"},
+            CodeName{  OperatorCode::OR,   "or"},
+            CodeName{ OperatorCode::XOR,  "xor"},
+            CodeName{OperatorCode::IMPL, "impl"},
+            CodeName{OperatorCode::ITOR, "itor"},
+            CodeName{ OperatorCode::GET,  "get"},
+            CodeName{ OperatorCode::VEC,  "vec"},
+            CodeName{OperatorCode::PUSH, "push"},
+            CodeName{OperatorCode::PULL, "pull"},
+            CodeName{OperatorCode::TANH, "tanh"},
+            CodeName{  OperatorCode::EQ,   "eq"},
+            CodeName{ OperatorCode::NEQ,  "neq"},
+            CodeName{ OperatorCode::GEQ,  "geq"},
+            CodeName{ OperatorCode::LEQ,  "leq"},
+            CodeName{  OperatorCode::GT,   "gt"},
+            CodeName{  OperatorCode::LT,   "lt"},
+            CodeName{ OperatorCode::SGN,  "sgn"},
+            CodeName{OperatorCode::SUBS, "subs"},
+            CodeName{OperatorCode::DISJ, "disj"}
         };
-        for(auto const& entry:names) {
-            ARIADNE_TESTING_EXPECT_EQUAL(std::string(name(entry.code)),std::string(entry.text));
+        for (const auto& entry: names) {
+            ARIADNE_TESTING_EXPECT_EQUAL(std::string(name(entry.code)), std::string(entry.text));
             std::ostringstream stream;
             stream << entry.code;
-            ARIADNE_TESTING_EXPECT_EQUAL(stream.str(),std::string(entry.text));
+            ARIADNE_TESTING_EXPECT_EQUAL(stream.str(), std::string(entry.text));
         }
-        ARIADNE_TESTING_EXPECT_EQUAL(std::string(name(static_cast<OperatorCode>(127))),std::string("UNKNOWN"));
+        ARIADNE_TESTING_EXPECT_EQUAL(std::string(name(static_cast<OperatorCode>(127))), std::string("UNKNOWN"));
 
-        const std::array symbols={
-            CodeName{OperatorCode::POS,"+"}, CodeName{OperatorCode::NEG,"-"},
-            CodeName{OperatorCode::ADD,"+"}, CodeName{OperatorCode::SUB,"-"},
-            CodeName{OperatorCode::MUL,"*"}, CodeName{OperatorCode::DIV,"/"},
-            CodeName{OperatorCode::POW,"^"}, CodeName{OperatorCode::SADD,"+"},
-            CodeName{OperatorCode::SMUL,"*"}, CodeName{OperatorCode::NOT,"!"},
-            CodeName{OperatorCode::AND,"&"}, CodeName{OperatorCode::OR,"|"},
-            CodeName{OperatorCode::EQ,"=="}, CodeName{OperatorCode::NEQ,"!="},
-            CodeName{OperatorCode::LEQ,"<="}, CodeName{OperatorCode::GEQ,">="},
-            CodeName{OperatorCode::LT,"<"}, CodeName{OperatorCode::GT,">"}
+        const std::array symbols = {
+            CodeName{ OperatorCode::POS,  "+"},
+            CodeName{ OperatorCode::NEG,  "-"},
+            CodeName{ OperatorCode::ADD,  "+"},
+            CodeName{ OperatorCode::SUB,  "-"},
+            CodeName{ OperatorCode::MUL,  "*"},
+            CodeName{ OperatorCode::DIV,  "/"},
+            CodeName{ OperatorCode::POW,  "^"},
+            CodeName{OperatorCode::SADD,  "+"},
+            CodeName{OperatorCode::SMUL,  "*"},
+            CodeName{ OperatorCode::NOT,  "!"},
+            CodeName{ OperatorCode::AND,  "&"},
+            CodeName{  OperatorCode::OR,  "|"},
+            CodeName{  OperatorCode::EQ, "=="},
+            CodeName{ OperatorCode::NEQ, "!="},
+            CodeName{ OperatorCode::LEQ, "<="},
+            CodeName{ OperatorCode::GEQ, ">="},
+            CodeName{  OperatorCode::LT,  "<"},
+            CodeName{  OperatorCode::GT,  ">"}
         };
-        for(auto const& entry:symbols) {
-            ARIADNE_TESTING_EXPECT_EQUAL(std::string(symbol(entry.code)),std::string(entry.text));
+        for (const auto& entry: symbols) {
+            ARIADNE_TESTING_EXPECT_EQUAL(std::string(symbol(entry.code)), std::string(entry.text));
         }
-        ARIADNE_TESTING_EXPECT_EQUAL(std::string(symbol(OperatorCode::CNST)),std::string("???"));
+        ARIADNE_TESTING_EXPECT_EQUAL(std::string(symbol(OperatorCode::CNST)), std::string("???"));
     }
 
     void test_objects() {
-        test_metadata(Gtr{},OperatorCode::GT,OperatorKind::COMPARISON);
-        test_metadata(Less{},OperatorCode::LT,OperatorKind::COMPARISON);
-        test_metadata(Geq{},OperatorCode::GEQ,OperatorKind::COMPARISON);
-        test_metadata(Leq{},OperatorCode::LEQ,OperatorKind::COMPARISON);
-        test_metadata(Equal{},OperatorCode::EQ,OperatorKind::COMPARISON);
-        test_metadata(Unequal{},OperatorCode::NEQ,OperatorKind::COMPARISON);
-        test_metadata(XOrOp{},OperatorCode::XOR,OperatorKind::BINARY);
-        test_metadata(AndOp{},OperatorCode::AND,OperatorKind::BINARY);
-        test_metadata(OrOp{},OperatorCode::OR,OperatorKind::BINARY);
-        test_metadata(NotOp{},OperatorCode::NOT,OperatorKind::UNARY);
-        test_metadata(Cnst{},OperatorCode::CNST,OperatorKind::NULLARY);
-        test_metadata(Ind{},OperatorCode::IND,OperatorKind::COORDINATE);
-        test_metadata(Var{},OperatorCode::VAR,OperatorKind::VARIABLE);
-        test_metadata(Add{},OperatorCode::ADD,OperatorKind::BINARY);
-        test_metadata(Sub{},OperatorCode::SUB,OperatorKind::BINARY);
-        test_metadata(Mul{},OperatorCode::MUL,OperatorKind::BINARY);
-        test_metadata(Div{},OperatorCode::DIV,OperatorKind::BINARY);
-        test_metadata(Pow{},OperatorCode::POW,OperatorKind::GRADED);
-        test_metadata(Root{},OperatorCode::ROOT,OperatorKind::GRADED);
-        test_metadata(Fma{},OperatorCode::FMA,OperatorKind::TERNARY);
-        test_metadata(Nul{},OperatorCode::NUL,OperatorKind::UNARY);
-        test_metadata(Pos{},OperatorCode::POS,OperatorKind::UNARY);
-        test_metadata(Neg{},OperatorCode::NEG,OperatorKind::UNARY);
-        test_metadata(Hlf{},OperatorCode::HLF,OperatorKind::UNARY);
-        test_metadata(Rec{},OperatorCode::REC,OperatorKind::UNARY);
-        test_metadata(Sqr{},OperatorCode::SQR,OperatorKind::UNARY);
-        test_metadata(Sqrt{},OperatorCode::SQRT,OperatorKind::UNARY);
-        test_metadata(Exp{},OperatorCode::EXP,OperatorKind::UNARY);
-        test_metadata(Log{},OperatorCode::LOG,OperatorKind::UNARY);
-        test_metadata(Sin{},OperatorCode::SIN,OperatorKind::UNARY);
-        test_metadata(Cos{},OperatorCode::COS,OperatorKind::UNARY);
-        test_metadata(Tan{},OperatorCode::TAN,OperatorKind::UNARY);
-        test_metadata(Tanh{},OperatorCode::TANH,OperatorKind::UNARY);
-        test_metadata(Asin{},OperatorCode::ASIN,OperatorKind::UNARY);
-        test_metadata(Acos{},OperatorCode::ACOS,OperatorKind::UNARY);
-        test_metadata(Atan{},OperatorCode::ATAN,OperatorKind::UNARY);
-        test_metadata(Max{},OperatorCode::MAX,OperatorKind::BINARY);
-        test_metadata(Min{},OperatorCode::MIN,OperatorKind::BINARY);
-        test_metadata(Abs{},OperatorCode::ABS,OperatorKind::UNARY);
-        test_metadata(Sgn{},OperatorCode::SGN,OperatorKind::PREDICATE);
+        test_metadata(Gtr{}, OperatorCode::GT, OperatorKind::COMPARISON);
+        test_metadata(Less{}, OperatorCode::LT, OperatorKind::COMPARISON);
+        test_metadata(Geq{}, OperatorCode::GEQ, OperatorKind::COMPARISON);
+        test_metadata(Leq{}, OperatorCode::LEQ, OperatorKind::COMPARISON);
+        test_metadata(Equal{}, OperatorCode::EQ, OperatorKind::COMPARISON);
+        test_metadata(Unequal{}, OperatorCode::NEQ, OperatorKind::COMPARISON);
+        test_metadata(XOrOp{}, OperatorCode::XOR, OperatorKind::BINARY);
+        test_metadata(AndOp{}, OperatorCode::AND, OperatorKind::BINARY);
+        test_metadata(OrOp{}, OperatorCode::OR, OperatorKind::BINARY);
+        test_metadata(NotOp{}, OperatorCode::NOT, OperatorKind::UNARY);
+        test_metadata(Cnst{}, OperatorCode::CNST, OperatorKind::NULLARY);
+        test_metadata(Ind{}, OperatorCode::IND, OperatorKind::COORDINATE);
+        test_metadata(Var{}, OperatorCode::VAR, OperatorKind::VARIABLE);
+        test_metadata(Add{}, OperatorCode::ADD, OperatorKind::BINARY);
+        test_metadata(Sub{}, OperatorCode::SUB, OperatorKind::BINARY);
+        test_metadata(Mul{}, OperatorCode::MUL, OperatorKind::BINARY);
+        test_metadata(Div{}, OperatorCode::DIV, OperatorKind::BINARY);
+        test_metadata(Pow{}, OperatorCode::POW, OperatorKind::GRADED);
+        test_metadata(Root{}, OperatorCode::ROOT, OperatorKind::GRADED);
+        test_metadata(Fma{}, OperatorCode::FMA, OperatorKind::TERNARY);
+        test_metadata(Nul{}, OperatorCode::NUL, OperatorKind::UNARY);
+        test_metadata(Pos{}, OperatorCode::POS, OperatorKind::UNARY);
+        test_metadata(Neg{}, OperatorCode::NEG, OperatorKind::UNARY);
+        test_metadata(Hlf{}, OperatorCode::HLF, OperatorKind::UNARY);
+        test_metadata(Rec{}, OperatorCode::REC, OperatorKind::UNARY);
+        test_metadata(Sqr{}, OperatorCode::SQR, OperatorKind::UNARY);
+        test_metadata(Sqrt{}, OperatorCode::SQRT, OperatorKind::UNARY);
+        test_metadata(Exp{}, OperatorCode::EXP, OperatorKind::UNARY);
+        test_metadata(Log{}, OperatorCode::LOG, OperatorKind::UNARY);
+        test_metadata(Sin{}, OperatorCode::SIN, OperatorKind::UNARY);
+        test_metadata(Cos{}, OperatorCode::COS, OperatorKind::UNARY);
+        test_metadata(Tan{}, OperatorCode::TAN, OperatorKind::UNARY);
+        test_metadata(Tanh{}, OperatorCode::TANH, OperatorKind::UNARY);
+        test_metadata(Asin{}, OperatorCode::ASIN, OperatorKind::UNARY);
+        test_metadata(Acos{}, OperatorCode::ACOS, OperatorKind::UNARY);
+        test_metadata(Atan{}, OperatorCode::ATAN, OperatorKind::UNARY);
+        test_metadata(Max{}, OperatorCode::MAX, OperatorKind::BINARY);
+        test_metadata(Min{}, OperatorCode::MIN, OperatorKind::BINARY);
+        test_metadata(Abs{}, OperatorCode::ABS, OperatorKind::UNARY);
+        test_metadata(Sgn{}, OperatorCode::SGN, OperatorKind::PREDICATE);
 
         std::ostringstream comparisons;
         comparisons << Less{} << Gtr{} << Leq{} << Geq{} << Equal{} << Unequal{};
-        ARIADNE_TESTING_EXPECT_EQUAL(comparisons.str(),std::string("<><=>===!="));
+        ARIADNE_TESTING_EXPECT_EQUAL(comparisons.str(), std::string("<><=>===!="));
 
         std::ostringstream logical;
         logical << AndOp{} << OrOp{} << NotOp{};
-        ARIADNE_TESTING_EXPECT_EQUAL(logical.str(),std::string("&&||!"));
+        ARIADNE_TESTING_EXPECT_EQUAL(logical.str(), std::string("&&||!"));
 
         std::ostringstream builtin;
         builtin << Plus{} << Minus{} << Times{} << Divides{};
-        ARIADNE_TESTING_EXPECT_EQUAL(builtin.str(),std::string("+-*/"));
+        ARIADNE_TESTING_EXPECT_EQUAL(builtin.str(), std::string("+-*/"));
 
         std::ostringstream arithmetic;
         arithmetic << Add{} << Sub{} << Mul{} << Div{} << Pow{} << Root{} << Fma{}
@@ -269,89 +304,88 @@ class TestOperators : public Ariadne::Testing::ContextFixture {
         Integer z2(2);
         Integer z3(3);
 
-        ARIADNE_TESTING_PROVE(Less{}(z1,z2));
-        ARIADNE_TESTING_PROVE(Gtr{}(z2,z1));
-        ARIADNE_TESTING_PROVE(Leq{}(z1,z1));
-        ARIADNE_TESTING_PROVE(Geq{}(z2,z1));
-        ARIADNE_TESTING_PROVE(Equal{}(z2,z2));
-        ARIADNE_TESTING_PROVE(Unequal{}(z1,z2));
+        ARIADNE_TESTING_PROVE(Less{}(z1, z2));
+        ARIADNE_TESTING_PROVE(Gtr{}(z2, z1));
+        ARIADNE_TESTING_PROVE(Leq{}(z1, z1));
+        ARIADNE_TESTING_PROVE(Geq{}(z2, z1));
+        ARIADNE_TESTING_PROVE(Equal{}(z2, z2));
+        ARIADNE_TESTING_PROVE(Unequal{}(z1, z2));
 
-        ARIADNE_TESTING_PROVE(AndOp{}(true,true));
-        ARIADNE_TESTING_PROVE(!AndOp{}(false,true));
-        ARIADNE_TESTING_PROVE(!AndOp{}(true,false));
-        ARIADNE_TESTING_PROVE(OrOp{}(false,true));
-        ARIADNE_TESTING_PROVE(OrOp{}(true,false));
-        ARIADNE_TESTING_PROVE(!OrOp{}(false,false));
-        ARIADNE_TESTING_PROVE(XOrOp{}(true,false));
+        ARIADNE_TESTING_PROVE(AndOp{}(true, true));
+        ARIADNE_TESTING_PROVE(!AndOp{}(false, true));
+        ARIADNE_TESTING_PROVE(!AndOp{}(true, false));
+        ARIADNE_TESTING_PROVE(OrOp{}(false, true));
+        ARIADNE_TESTING_PROVE(OrOp{}(true, false));
+        ARIADNE_TESTING_PROVE(!OrOp{}(false, false));
+        ARIADNE_TESTING_PROVE(XOrOp{}(true, false));
         ARIADNE_TESTING_PROVE(NotOp{}(false));
 
-        ARIADNE_TESTING_EXPECT_EQUAL(Plus{}(2),2);
-        ARIADNE_TESTING_EXPECT_EQUAL(Plus{}(2,3),5);
-        ARIADNE_TESTING_EXPECT_EQUAL(Minus{}(2),-2);
-        ARIADNE_TESTING_EXPECT_EQUAL(Minus{}(5,3),2);
-        ARIADNE_TESTING_EXPECT_EQUAL(Times{}(2,3),6);
-        ARIADNE_TESTING_EXPECT_EQUAL(Divides{}(6,3),2);
+        ARIADNE_TESTING_EXPECT_EQUAL(Plus{}(2), 2);
+        ARIADNE_TESTING_EXPECT_EQUAL(Plus{}(2, 3), 5);
+        ARIADNE_TESTING_EXPECT_EQUAL(Minus{}(2), -2);
+        ARIADNE_TESTING_EXPECT_EQUAL(Minus{}(5, 3), 2);
+        ARIADNE_TESTING_EXPECT_EQUAL(Times{}(2, 3), 6);
+        ARIADNE_TESTING_EXPECT_EQUAL(Divides{}(6, 3), 2);
 
-        ARIADNE_TESTING_EXPECT_EQUAL(Add{}(z2,z3),Integer(5));
-        ARIADNE_TESTING_EXPECT_EQUAL(Sub{}(z3,z2),Integer(1));
-        ARIADNE_TESTING_EXPECT_EQUAL(Mul{}(z2,z3),Integer(6));
-        ARIADNE_TESTING_EXPECT_EQUAL(Pow{}(z2,3u),Integer(8));
-        ARIADNE_TESTING_EXPECT_EQUAL(Nul{}(z3),Integer(0));
-        ARIADNE_TESTING_EXPECT_EQUAL(Pos{}(z3),Integer(3));
-        ARIADNE_TESTING_EXPECT_EQUAL(Neg{}(z3),Integer(-3));
-        ARIADNE_TESTING_EXPECT_EQUAL(Sqr{}(z3),Natural(9u));
-        ARIADNE_TESTING_EXPECT_EQUAL(Max{}(z2,z3),Integer(3));
-        ARIADNE_TESTING_EXPECT_EQUAL(Min{}(z2,z3),Integer(2));
-        ARIADNE_TESTING_EXPECT_EQUAL(Abs{}(Integer(-3)),Natural(3u));
-        ARIADNE_TESTING_EXPECT_EQUAL(Sgn{}(Integer(-3)),Sign::NEGATIVE);
+        ARIADNE_TESTING_EXPECT_EQUAL(Add{}(z2, z3), Integer(5));
+        ARIADNE_TESTING_EXPECT_EQUAL(Sub{}(z3, z2), Integer(1));
+        ARIADNE_TESTING_EXPECT_EQUAL(Mul{}(z2, z3), Integer(6));
+        ARIADNE_TESTING_EXPECT_EQUAL(Pow{}(z2, 3u), Integer(8));
+        ARIADNE_TESTING_EXPECT_EQUAL(Nul{}(z3), Integer(0));
+        ARIADNE_TESTING_EXPECT_EQUAL(Pos{}(z3), Integer(3));
+        ARIADNE_TESTING_EXPECT_EQUAL(Neg{}(z3), Integer(-3));
+        ARIADNE_TESTING_EXPECT_EQUAL(Sqr{}(z3), Natural(9u));
+        ARIADNE_TESTING_EXPECT_EQUAL(Max{}(z2, z3), Integer(3));
+        ARIADNE_TESTING_EXPECT_EQUAL(Min{}(z2, z3), Integer(2));
+        ARIADNE_TESTING_EXPECT_EQUAL(Abs{}(Integer(-3)), Natural(3u));
+        ARIADNE_TESTING_EXPECT_EQUAL(Sgn{}(Integer(-3)), Sign::NEGATIVE);
 
-        ARIADNE_TESTING_EXPECT_EQUAL(Hlf{}(Integer(4)),Dyadic(2));
-        ARIADNE_TESTING_EXPECT_EQUAL(Rec{}(Integer(4)),Rational(1,4));
+        ARIADNE_TESTING_EXPECT_EQUAL(Hlf{}(Integer(4)), Dyadic(2));
+        ARIADNE_TESTING_EXPECT_EQUAL(Rec{}(Integer(4)), Rational(1, 4));
 
         BinaryComparisonOperator less(Less{});
-        ARIADNE_TESTING_PROVE(less(z1,z2));
+        ARIADNE_TESTING_PROVE(less(z1, z2));
         BinaryRingOperator add(Add{});
-        ARIADNE_TESTING_EXPECT_EQUAL(add(z2,z3),Integer(5));
+        ARIADNE_TESTING_EXPECT_EQUAL(add(z2, z3), Integer(5));
         GradedRingOperator power(Pow{});
-        ARIADNE_TESTING_EXPECT_EQUAL(power(z2,3u),Integer(8));
+        ARIADNE_TESTING_EXPECT_EQUAL(power(z2, 3u), Integer(8));
         GradedElementaryOperator elementary_power(Pow{});
-        ARIADNE_TESTING_EXPECT_EQUAL(elementary_power(z2,3u),Integer(8));
+        ARIADNE_TESTING_EXPECT_EQUAL(elementary_power(z2, 3u), Integer(8));
 
-        Real x(Rational(1,4));
+        Real x(Rational(1, 4));
         ARIADNE_TESTING_EXPECT_NO_THROW(Tanh{}(x));
         ARIADNE_TESTING_EXPECT_NO_THROW(Asin{}(x));
         ARIADNE_TESTING_EXPECT_NO_THROW(Acos{}(x));
 
         Sgn sgn_operator;
-        auto sgn_real=static_cast<Kleenean (Sgn::*)(Real const&) const>(&Sgn::operator());
-        Kleenean sign=(sgn_operator.*sgn_real)(Real(Integer(1)));
+        auto sgn_real = static_cast<Kleenean (Sgn::*)(const Real&) const>(&Sgn::operator());
+        Kleenean sign = (sgn_operator.*sgn_real)(Real(Integer(1)));
         std::ostringstream sign_stream;
         sign_stream << sign;
         ARIADNE_TESTING_PROVE(not sign_stream.str().empty());
         ARIADNE_TESTING_PROVE(definitely(sign.check(Effort(1))));
-        LogicalInterface* sign_copy=sign.repr().pointer()->_copy();
-        ARIADNE_TESTING_PROVE(sign_copy->_check(Effort(1))==LogicalValue::TRUE);
+        LogicalInterface* sign_copy = sign.repr().pointer()->_copy();
+        ARIADNE_TESTING_PROVE(sign_copy->_check(Effort(1)) == LogicalValue::TRUE);
         delete sign_copy;
-
     }
 
     void test_inverses() {
-        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Pos{}).code(),OperatorCode::POS);
-        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Neg{}).code(),OperatorCode::NEG);
-        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Rec{}).code(),OperatorCode::REC);
-        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Sqr{}).code(),OperatorCode::SQRT);
-        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Sqrt{}).code(),OperatorCode::SQR);
-        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Exp{}).code(),OperatorCode::LOG);
-        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Log{}).code(),OperatorCode::EXP);
-        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Tan{}).code(),OperatorCode::ATAN);
-        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Atan{}).code(),OperatorCode::TAN);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Pos{}).code(), OperatorCode::POS);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Neg{}).code(), OperatorCode::NEG);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Rec{}).code(), OperatorCode::REC);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Sqr{}).code(), OperatorCode::SQRT);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Sqrt{}).code(), OperatorCode::SQR);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Exp{}).code(), OperatorCode::LOG);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Log{}).code(), OperatorCode::EXP);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Tan{}).code(), OperatorCode::ATAN);
+        ARIADNE_TESTING_EXPECT_EQUAL(inverse(Atan{}).code(), OperatorCode::TAN);
 
         UnaryTranscendentalOperator exponential(Exp{});
         UnaryTranscendentalOperator logarithm(Log{});
         UnaryTranscendentalOperator sine(Sin{});
-        ARIADNE_TESTING_PROVE(are_inverses(exponential,logarithm));
-        ARIADNE_TESTING_PROVE(are_inverses(logarithm,exponential));
-        ARIADNE_TESTING_PROVE(not are_inverses(sine,logarithm));
+        ARIADNE_TESTING_PROVE(are_inverses(exponential, logarithm));
+        ARIADNE_TESTING_PROVE(are_inverses(logarithm, exponential));
+        ARIADNE_TESTING_PROVE(not are_inverses(sine, logarithm));
     }
 };
 
