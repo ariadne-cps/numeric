@@ -217,9 +217,9 @@ class Bounds
     //!@{
     //! \name Arithmetic operators
     /** @brief Return the sum or unary positive value. */
-    friend Bounds<F> operator+(const Bounds<F>& x);                       //!< <p/>
+    friend Bounds<F> operator+(const Bounds<F>& x); //!< <p/>
     /** @brief Return the difference or additive inverse. */
-    friend Bounds<F> operator-(const Bounds<F>& x);                       //!< <p/>
+    friend Bounds<F> operator-(const Bounds<F>& x); //!< <p/>
     /** @brief Return the sum or unary positive value. */
     friend Bounds<F> operator+(const Bounds<F>& x1, const Bounds<F>& x2); //!< <p/>
     /** @brief Return the difference or additive inverse. */
@@ -229,13 +229,13 @@ class Bounds
     /** @brief Return the quotient. */
     friend Bounds<F> operator/(const Bounds<F>& x1, const Bounds<F>& x2); //!< <p/>
     /** @brief Add the operand in place. */
-    friend Bounds<F>& operator+=(Bounds<F>& x1, const Bounds<F>& x2);     //!< <p/>
+    friend Bounds<F>& operator+=(Bounds<F>& x1, const Bounds<F>& x2); //!< <p/>
     /** @brief Subtract the operand in place. */
-    friend Bounds<F>& operator-=(Bounds<F>& x1, const Bounds<F>& x2);     //!< <p/>
+    friend Bounds<F>& operator-=(Bounds<F>& x1, const Bounds<F>& x2); //!< <p/>
     /** @brief Multiply by the operand in place. */
-    friend Bounds<F>& operator*=(Bounds<F>& x1, const Bounds<F>& x2);     //!< <p/>
+    friend Bounds<F>& operator*=(Bounds<F>& x1, const Bounds<F>& x2); //!< <p/>
     /** @brief Divide by the operand in place. */
-    friend Bounds<F>& operator/=(Bounds<F>& x1, const Bounds<F>& x2);     //!< <p/>
+    friend Bounds<F>& operator/=(Bounds<F>& x1, const Bounds<F>& x2); //!< <p/>
     //!@}
 
     //!@{
@@ -249,9 +249,9 @@ class Bounds
     /** @brief Test whether the first operand is greater than or equal to the second. */
     friend ValidatedKleenean operator>=(const Bounds<F>& x1, const Bounds<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is less than the second. */
-    friend ValidatedKleenean operator<(const Bounds<F>& x1, const Bounds<F>& x2);  //!< <p/>
+    friend ValidatedKleenean operator<(const Bounds<F>& x1, const Bounds<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is greater than the second. */
-    friend ValidatedKleenean operator>(const Bounds<F>& x1, const Bounds<F>& x2);  //!< <p/>
+    friend ValidatedKleenean operator>(const Bounds<F>& x1, const Bounds<F>& x2); //!< <p/>
     //!@}
 #endif // DOXYGEN
 

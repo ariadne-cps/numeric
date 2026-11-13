@@ -129,16 +129,16 @@ class Error
     /** @brief Return the product. */
     friend Error<F> operator*(const Error<F>& x1, const Error<F>& x2) { return Error<F>(mul(up, x1._e, x2._e)); } //!< <p/>
     /** @brief Add the operand in place. */
-    friend Error<F>& operator+=(Error<F>& x1, const Error<F>& x2) { return x1 = x1 + x2; }                        //!< <p/>
+    friend Error<F>& operator+=(Error<F>& x1, const Error<F>& x2) { return x1 = x1 + x2; } //!< <p/>
     /** @brief Multiply by the operand in place. */
-    friend Error<F>& operator*=(Error<F>& x1, const Error<F>& x2) { return x1 = x1 * x2; }                        //!< <p/>
+    friend Error<F>& operator*=(Error<F>& x1, const Error<F>& x2) { return x1 = x1 * x2; } //!< <p/>
 
     /** @brief Return the sum or unary positive value. */
-    friend UpperBound<F> operator+(const Error<F>& x) { return UpperBound<F>(+x._e); }                              //!< <p/>
+    friend UpperBound<F> operator+(const Error<F>& x) { return UpperBound<F>(+x._e); } //!< <p/>
     /** @brief Return the difference or additive inverse. */
-    friend LowerBound<F> operator-(const Error<F>& x) { return LowerBound<F>(-x._e); }                              //!< <p/>
+    friend LowerBound<F> operator-(const Error<F>& x) { return LowerBound<F>(-x._e); } //!< <p/>
     /** @brief Return the sum or unary positive value. */
-    friend UpperBound<F> operator+(const F& x1, const Error<F>& x2) { return UpperBound<F>(add(up, x1, x2._e)); }   //!< <p/>
+    friend UpperBound<F> operator+(const F& x1, const Error<F>& x2) { return UpperBound<F>(add(up, x1, x2._e)); } //!< <p/>
     /** @brief Return the difference or additive inverse. */
     friend LowerBound<F> operator-(const F& x1, const Error<F>& x2) { return LowerBound<F>(sub(down, x1, x2._e)); } //!< <p/>
     //!@}
@@ -146,19 +146,19 @@ class Error
     //!@{
     //! \name Monotone arithmetic operations
     /** @brief Return the additive zero with the operand characteristics. */
-    friend Error<F> nul(const Error<F>& x) { return Error<F>(0u, x.precision()); }                                                     //!< <p/>
+    friend Error<F> nul(const Error<F>& x) { return Error<F>(0u, x.precision()); } //!< <p/>
     /** @brief Return the unary positive value. */
-    friend UpperBound<F> pos(const Error<F>& x) { return UpperBound<F>(pos(x._e)); }                                                   //!< <p/>
+    friend UpperBound<F> pos(const Error<F>& x) { return UpperBound<F>(pos(x._e)); } //!< <p/>
     /** @brief Return the additive inverse. */
-    friend LowerBound<F> neg(const Error<F>& x) { return LowerBound<F>(neg(x._e)); }                                                   //!< <p/>
+    friend LowerBound<F> neg(const Error<F>& x) { return LowerBound<F>(neg(x._e)); } //!< <p/>
     /** @brief Return the sum of the operands. */
-    friend Error<F> add(const Error<F>& x1, const Error<F>& x2) { return Error<F>(add(up, x1._e, x2._e)); }                            //!< <p/>
+    friend Error<F> add(const Error<F>& x1, const Error<F>& x2) { return Error<F>(add(up, x1._e, x2._e)); } //!< <p/>
     /** @brief Return the product of the operands. */
-    friend Error<F> mul(const Error<F>& x1, const Error<F>& x2) { return Error<F>(mul(up, x1._e, x2._e)); }                            //!< <p/>
+    friend Error<F> mul(const Error<F>& x1, const Error<F>& x2) { return Error<F>(mul(up, x1._e, x2._e)); } //!< <p/>
     /** @brief Return the square. */
-    friend Error<F> sqr(const Error<F>& x) { return Error<F>(sqr(up, x._e)); }                                                         //!< <p/>
+    friend Error<F> sqr(const Error<F>& x) { return Error<F>(sqr(up, x._e)); } //!< <p/>
     /** @brief Raise the value to the specified power. */
-    friend Error<F> pow(const Error<F>& x, Nat m) { return Error<F>(pow(up, x._e, static_cast<Int>(m))); }                             //!< <p/>
+    friend Error<F> pow(const Error<F>& x, Nat m) { return Error<F>(pow(up, x._e, static_cast<Int>(m))); } //!< <p/>
     /** @brief Compute the product of the first two operands plus the third. */
     friend Error<F> fma(const Error<F>& x1, const Error<F>& x2, const Error<F>& x3) { return Error<F>(fma(up, x1._e, x2._e, x3._e)); } //!< <p/>
     //!@}
@@ -166,11 +166,11 @@ class Error
     //!@{
     //! \name Monotone algebraic and transcendental operations
     /** @brief Return the square root. */
-    friend Error<F> sqrt(const Error<F>& x) { return Error<F>(sqrt(up, x._e)); }                                       //!< <p/>
+    friend Error<F> sqrt(const Error<F>& x) { return Error<F>(sqrt(up, x._e)); } //!< <p/>
     /** @brief Return the exponential. */
-    friend Error<F> exp(const Error<F>& x) { return Error<F>(exp(up, x._e)); }                                         //!< <p/>
+    friend Error<F> exp(const Error<F>& x) { return Error<F>(exp(up, x._e)); } //!< <p/>
     /** @brief Return the natural logarithm. */
-    friend UpperBound<F> log(const Error<F>& x) { return UpperBound<F>(log(up, x._e)); }                               //!< <p/>
+    friend UpperBound<F> log(const Error<F>& x) { return UpperBound<F>(log(up, x._e)); } //!< <p/>
     /** @brief Return the base-two logarithm. */
     friend UpperBound<F> log2(const Error<F>& x) { return log(x) / cast_positive(log(Bounds<F>(2u, x.precision()))); } //!< <p/>
     //!@}
@@ -182,10 +182,10 @@ class Error
     /** @brief Return the minimum of the operands. */
     friend Error<F> min(const Error<F>& x1, const Error<F>& x2) { return Error<F>(min(x1._e, x2._e)); } //!< <p/>
     /** @brief Return the absolute value. */
-    friend Error<F> abs(const Error<F>& x) { return x; }                                                //!< <p/>
+    friend Error<F> abs(const Error<F>& x) { return x; } //!< <p/>
     /** @brief Return an upper bound on the absolute value. */
-    friend Error<F> mag(const Error<F>& x) { return x; }                                                //!< <p/>
-                                                                                                        //!@}
+    friend Error<F> mag(const Error<F>& x) { return x; } //!< <p/>
+                                                         //!@}
 
     /** @brief Return the sum or unary positive value. */
     friend Error<F> operator+(const Error<F>& x1, const Positive<F>& x2) { return Error<F>(add(up, x1._e, x2)); }

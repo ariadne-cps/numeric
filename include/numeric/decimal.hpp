@@ -85,17 +85,17 @@ class Decimal {
     //!@{
     //! \name Comparison operators
     /** @brief Test equality of the operands. */
-    friend Boolean operator==(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::EQUAL; }   //!< <p/>
+    friend Boolean operator==(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::EQUAL; } //!< <p/>
     /** @brief Test inequality of the operands. */
-    friend Boolean operator!=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::EQUAL; }   //!< <p/>
+    friend Boolean operator!=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::EQUAL; } //!< <p/>
     /** @brief Test whether the first operand is less than or equal to the second. */
     friend Boolean operator<=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::GREATER; } //!< <p/>
     /** @brief Test whether the first operand is greater than or equal to the second. */
-    friend Boolean operator>=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::LESS; }    //!< <p/>
+    friend Boolean operator>=(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) != Comparison::LESS; } //!< <p/>
     /** @brief Test whether the first operand is less than the second. */
-    friend Boolean operator<(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::LESS; }     //!< <p/>
+    friend Boolean operator<(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::LESS; } //!< <p/>
     /** @brief Test whether the first operand is greater than the second. */
-    friend Boolean operator>(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::GREATER; }  //!< <p/>
+    friend Boolean operator>(const Decimal& d1, const Decimal& d2) { return cmp(d1, d2) == Comparison::GREATER; } //!< <p/>
     //!@}
 
     //!@{

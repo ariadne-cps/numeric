@@ -141,33 +141,33 @@ class Float<DP>
     static const RoundingModeType ROUND_TOWARD_ZERO = Ariadne::ROUND_TOWARD_ZERO;
 
     /** @brief Return the rounding mode. */
-    static RoundingModeType get_rounding_mode();     //!< <p/>
+    static RoundingModeType get_rounding_mode(); //!< <p/>
     /** @brief Set the rounding mode. */
     static Void set_rounding_mode(RoundingModeType); //!< <p/>
     /** @brief Set the rounding downward. */
-    static Void set_rounding_downward();             //!< <p/>
+    static Void set_rounding_downward(); //!< <p/>
     /** @brief Set the rounding upward. */
-    static Void set_rounding_upward();               //!< <p/>
+    static Void set_rounding_upward(); //!< <p/>
     /** @brief Set the rounding to nearest. */
-    static Void set_rounding_to_nearest();           //!< <p/>
+    static Void set_rounding_to_nearest(); //!< <p/>
     /** @brief Set the rounding toward zero. */
-    static Void set_rounding_toward_zero();          //!< <p/>
+    static Void set_rounding_toward_zero(); //!< <p/>
 
   public:
     /** @brief Return the default precision. */
     static DoublePrecision get_default_precision(); //!< <p/>
     /** @brief Return the working precision. */
-    DoublePrecision precision() const;              //!< <p/>
+    DoublePrecision precision() const; //!< <p/>
     /** @brief Set the precision. */
-    Void set_precision(DoublePrecision);            //!< <p/>
+    Void set_precision(DoublePrecision); //!< <p/>
 
   public:
     /** @brief Return a not-a-number value. */
-    static FloatDP nan(DoublePrecision pr);           //!< <p/>
+    static FloatDP nan(DoublePrecision pr); //!< <p/>
     /** @brief Return an infinite value. */
     static FloatDP inf(Sign sgn, DoublePrecision pr); //!< <p/>
     /** @brief Return an infinite value. */
-    static FloatDP inf(DoublePrecision pr);           //!< <p/>
+    static FloatDP inf(DoublePrecision pr); //!< <p/>
 
     /** @brief Return the maximum of the operands. */
     static FloatDP max(DoublePrecision pr); //!< <p/>
@@ -266,13 +266,13 @@ class Float<DP>
     //! \name Special value tests
     //!@{
     /** @brief Test whether the value is not a number. */
-    friend Bool is_nan(FloatDP x) { return std::isnan(x.dbl); }       //!< <p/>
+    friend Bool is_nan(FloatDP x) { return std::isnan(x.dbl); } //!< <p/>
     /** @brief Test whether the value is infinite. */
-    friend Bool is_inf(FloatDP x) { return std::isinf(x.dbl); }       //!< <p/>
+    friend Bool is_inf(FloatDP x) { return std::isinf(x.dbl); } //!< <p/>
     /** @brief Test whether the value is finite. */
     friend Bool is_finite(FloatDP x) { return std::isfinite(x.dbl); } //!< <p/>
     /** @brief Test whether the value is zero. */
-    friend Bool is_zero(FloatDP x) { return x.dbl == 0.0; }           //!< <p/>
+    friend Bool is_zero(FloatDP x) { return x.dbl == 0.0; } //!< <p/>
     //!@}
 
     //! \name Rounding operations
@@ -301,23 +301,23 @@ class Float<DP>
         return FloatDP(-xv);
     } //!< <p/>
     /** @brief Return the sum or unary positive value. */
-    friend Bounds<FloatDP> operator+(const FloatDP& x1, const FloatDP& x2);              //!< <p/>
+    friend Bounds<FloatDP> operator+(const FloatDP& x1, const FloatDP& x2); //!< <p/>
     /** @brief Return the difference or additive inverse. */
-    friend Bounds<FloatDP> operator-(const FloatDP& x1, const FloatDP& x2);              //!< <p/>
+    friend Bounds<FloatDP> operator-(const FloatDP& x1, const FloatDP& x2); //!< <p/>
     /** @brief Return the product. */
-    friend Bounds<FloatDP> operator*(const FloatDP& x1, const FloatDP& x2);              //!< <p/>
+    friend Bounds<FloatDP> operator*(const FloatDP& x1, const FloatDP& x2); //!< <p/>
     /** @brief Return the quotient. */
-    friend Bounds<FloatDP> operator/(const FloatDP& x1, const FloatDP& x2);              //!< <p/>
+    friend Bounds<FloatDP> operator/(const FloatDP& x1, const FloatDP& x2); //!< <p/>
     /** @brief Return the product. */
-    friend FloatDP operator*(TwoExp e1, FloatDP x2) { return shft(x2, e1.exponent()); }  //!< <p/>
+    friend FloatDP operator*(TwoExp e1, FloatDP x2) { return shft(x2, e1.exponent()); } //!< <p/>
     /** @brief Return the product. */
-    friend FloatDP operator*(FloatDP x1, TwoExp e2) { return shft(x1, e2.exponent()); }  //!< <p/>
+    friend FloatDP operator*(FloatDP x1, TwoExp e2) { return shft(x1, e2.exponent()); } //!< <p/>
     /** @brief Return the quotient. */
     friend FloatDP operator/(FloatDP x1, TwoExp e2) { return shft(x1, -e2.exponent()); } //!< <p/>
     /** @brief Multiply by the operand in place. */
-    friend FloatDP& operator*=(FloatDP& v1, TwoExp e2) { return v1 = v1 * e2; }          //!< <p/>
+    friend FloatDP& operator*=(FloatDP& v1, TwoExp e2) { return v1 = v1 * e2; } //!< <p/>
     /** @brief Divide by the operand in place. */
-    friend FloatDP& operator/=(FloatDP& v1, TwoExp e2) { return v1 = v1 / e2; }          //!< <p/>
+    friend FloatDP& operator/=(FloatDP& v1, TwoExp e2) { return v1 = v1 / e2; } //!< <p/>
     //!@}
 
     //!@{
@@ -327,9 +327,9 @@ class Float<DP>
     /** @brief Test inequality of the operands. */
     friend Boolean operator!=(FloatDP x1, FloatDP x2) { return _cmp(Ne(), x1, x2); } //!< <p/>
     /** @brief Test whether the first operand is less than the second. */
-    friend Boolean operator<(FloatDP x1, FloatDP x2) { return _cmp(Lt(), x1, x2); }  //!< <p/>
+    friend Boolean operator<(FloatDP x1, FloatDP x2) { return _cmp(Lt(), x1, x2); } //!< <p/>
     /** @brief Test whether the first operand is greater than the second. */
-    friend Boolean operator>(FloatDP x1, FloatDP x2) { return _cmp(Gt(), x1, x2); }  //!< <p/>
+    friend Boolean operator>(FloatDP x1, FloatDP x2) { return _cmp(Gt(), x1, x2); } //!< <p/>
     /** @brief Test whether the first operand is less than or equal to the second. */
     friend Boolean operator<=(FloatDP x1, FloatDP x2) { return _cmp(Le(), x1, x2); } //!< <p/>
     /** @brief Test whether the first operand is greater than or equal to the second. */
@@ -400,7 +400,7 @@ class Float<DP>
     /** @brief Test equality of the operands. */
     friend Boolean eq(const FloatDP& x1, const FloatDP& x2) { return x1.dbl == x2.dbl; } //!< <p/>
     /** @brief Test whether the first operand is less than the second. */
-    friend Boolean lt(const FloatDP& x1, const FloatDP& x2) { return x1.dbl < x2.dbl; }  //!< <p/>
+    friend Boolean lt(const FloatDP& x1, const FloatDP& x2) { return x1.dbl < x2.dbl; } //!< <p/>
 
     /** @brief Compare the operands using the comparison result type. */
     friend Comparison cmp(FloatDP x1, FloatDP x2) { return _generic_cmp(x1.dbl, x2.dbl); } //!< <p/>
@@ -412,47 +412,47 @@ class Float<DP>
     friend Comparison cmp(N n1, const FloatDP& x2) { return _generic_cmp(n1, x2.dbl); }
 #ifdef DOXYGEN
     /** @brief Compare the operands using the comparison result type. */
-    friend Comparison cmp(const FloatDP& x1, Nat m2);                                              //!< <p/>
+    friend Comparison cmp(const FloatDP& x1, Nat m2); //!< <p/>
     /** @brief Compare the operands using the comparison result type. */
-    friend Comparison cmp(Nat m1, const FloatDP& x2);                                              //!< <p/>
+    friend Comparison cmp(Nat m1, const FloatDP& x2); //!< <p/>
     /** @brief Compare the operands using the comparison result type. */
-    friend Comparison cmp(const FloatDP& x1, Int n2);                                              //!< <p/>
+    friend Comparison cmp(const FloatDP& x1, Int n2); //!< <p/>
     /** @brief Compare the operands using the comparison result type. */
-    friend Comparison cmp(Int n1, const FloatDP& x2);                                              //!< <p/>
-#endif                                                                                             // DOXYGEN
+    friend Comparison cmp(Int n1, const FloatDP& x2); //!< <p/>
+#endif                                                // DOXYGEN
     /** @brief Compare the operands using the comparison result type. */
     friend Comparison cmp(FloatDP x1, ExactDouble x2) { return _generic_cmp(x1.dbl, x2.get_d()); } //!< <p/>
     /** @brief Compare the operands using the comparison result type. */
     friend Comparison cmp(ExactDouble x1, FloatDP x2) { return _generic_cmp(x1.get_d(), x2.dbl); } //!< <p/>
     /** @brief Compare the operands using the comparison result type. */
-    friend Comparison cmp(FloatDP x1, const Rational& x2);                                         //!< <p/>
+    friend Comparison cmp(FloatDP x1, const Rational& x2); //!< <p/>
     /** @brief Compare the operands using the comparison result type. */
-    friend Comparison cmp(const Rational& x1, FloatDP x2);                                         //!< <p/>
-                                                                                                   //!@}
+    friend Comparison cmp(const Rational& x1, FloatDP x2); //!< <p/>
+                                                           //!@}
 
   public:
     //! \name Correctly rounded operations
     //!@{
     /** @brief Return the square. */
-    friend FloatDP sqr(CurrentRoundingMode, FloatDP x) { return FloatDP(sqr_rnd(x.dbl)); }                                           //!< <p/>
+    friend FloatDP sqr(CurrentRoundingMode, FloatDP x) { return FloatDP(sqr_rnd(x.dbl)); } //!< <p/>
     /** @brief Return the multiplicative inverse. */
-    friend FloatDP rec(CurrentRoundingMode, FloatDP x) { return FloatDP(rec_rnd(x.dbl)); }                                           //!< <p/>
+    friend FloatDP rec(CurrentRoundingMode, FloatDP x) { return FloatDP(rec_rnd(x.dbl)); } //!< <p/>
     /** @brief Return the sum of the operands. */
-    friend FloatDP add(CurrentRoundingMode, FloatDP x1, FloatDP x2) { return FloatDP(add_rnd(x1.dbl, x2.dbl)); }                     //!< <p/>
+    friend FloatDP add(CurrentRoundingMode, FloatDP x1, FloatDP x2) { return FloatDP(add_rnd(x1.dbl, x2.dbl)); } //!< <p/>
     /** @brief Return the difference of the operands. */
-    friend FloatDP sub(CurrentRoundingMode, FloatDP x1, FloatDP x2) { return FloatDP(sub_rnd(x1.dbl, x2.dbl)); }                     //!< <p/>
+    friend FloatDP sub(CurrentRoundingMode, FloatDP x1, FloatDP x2) { return FloatDP(sub_rnd(x1.dbl, x2.dbl)); } //!< <p/>
     /** @brief Return the product of the operands. */
-    friend FloatDP mul(CurrentRoundingMode, FloatDP x1, FloatDP x2) { return FloatDP(mul_rnd(x1.dbl, x2.dbl)); }                     //!< <p/>
+    friend FloatDP mul(CurrentRoundingMode, FloatDP x1, FloatDP x2) { return FloatDP(mul_rnd(x1.dbl, x2.dbl)); } //!< <p/>
     /** @brief Return the quotient of the operands. */
-    friend FloatDP div(CurrentRoundingMode, FloatDP x1, FloatDP x2) { return FloatDP(div_rnd(x1.dbl, x2.dbl)); }                     //!< <p/>
+    friend FloatDP div(CurrentRoundingMode, FloatDP x1, FloatDP x2) { return FloatDP(div_rnd(x1.dbl, x2.dbl)); } //!< <p/>
     /** @brief Compute the product of the first two operands plus the third. */
     friend FloatDP fma(CurrentRoundingMode, FloatDP x1, FloatDP x2, FloatDP x3) { return FloatDP(fma_rnd(x1.dbl, x2.dbl, x3.dbl)); } //!< <p/>
     /** @brief Raise the value to the specified power. */
-    friend FloatDP pow(CurrentRoundingMode, FloatDP x, Nat m) { return FloatDP(pow_rnd(x.dbl, m)); }                                 //!< <p/>
+    friend FloatDP pow(CurrentRoundingMode, FloatDP x, Nat m) { return FloatDP(pow_rnd(x.dbl, m)); } //!< <p/>
     /** @brief Raise the value to the specified power. */
-    friend FloatDP pow(CurrentRoundingMode, FloatDP x, Int n) { return FloatDP(pow_rnd(x.dbl, n)); }                                 //!< <p/>
+    friend FloatDP pow(CurrentRoundingMode, FloatDP x, Int n) { return FloatDP(pow_rnd(x.dbl, n)); } //!< <p/>
     /** @brief Return the square root. */
-    friend FloatDP sqrt(CurrentRoundingMode, FloatDP x) { return FloatDP(sqrt_rnd(x.dbl)); }                                         //!< <p/>
+    friend FloatDP sqrt(CurrentRoundingMode, FloatDP x) { return FloatDP(sqrt_rnd(x.dbl)); } //!< <p/>
     /** @brief Return the exponential. */
     friend FloatDP exp(CurrentRoundingMode, FloatDP x) { return exp(FloatDP::get_rounding_mode(), x); }
     /** @brief Return the natural logarithm. */
@@ -532,9 +532,9 @@ class Float<DP>
     /** @brief Return the minimum of the operands. */
     friend FloatDP min(RoundingModeType, FloatDP x1, FloatDP x2) { return FloatDP(std::min(x1.dbl, x2.dbl)); } //!< <p/>
     /** @brief Return the absolute value. */
-    friend FloatDP abs(RoundingModeType, FloatDP x) { return FloatDP(std::fabs(x.dbl)); }                      //!< <p/>
+    friend FloatDP abs(RoundingModeType, FloatDP x) { return FloatDP(std::fabs(x.dbl)); } //!< <p/>
     /** @brief Return an upper bound on the absolute value. */
-    friend FloatDP mag(RoundingModeType, FloatDP x) { return FloatDP(std::fabs(x.dbl)); }                      //!< <p/>
+    friend FloatDP mag(RoundingModeType, FloatDP x) { return FloatDP(std::fabs(x.dbl)); } //!< <p/>
 
     /** @brief Add the operand in place. */
     friend FloatDP& iadd(RoundingModeType rnd, FloatDP& x1, FloatDP x2); //!< <p/>
@@ -549,33 +549,33 @@ class Float<DP>
     static FloatDP pi(RoundingModeType rnd, PrecisionType pr); //!< <p/>
 
     /** @brief Return the additive zero with the operand characteristics. */
-    friend FloatDP nul(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&nul_rnd, rnd, x); }                                                                                                                          //!< <p/>
+    friend FloatDP nul(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&nul_rnd, rnd, x); } //!< <p/>
     /** @brief Return the unary positive value. */
-    friend FloatDP pos(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&pos_rnd, rnd, x); }                                                                                                                          //!< <p/>
+    friend FloatDP pos(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&pos_rnd, rnd, x); } //!< <p/>
     /** @brief Return the additive inverse. */
-    friend FloatDP neg(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&neg_rnd, rnd, x); }                                                                                                                          //!< <p/>
+    friend FloatDP neg(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&neg_rnd, rnd, x); } //!< <p/>
     /** @brief Divide the value by two. */
-    friend FloatDP hlf(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&hlf_rnd, rnd, x); }                                                                                                                          //!< <p/>
+    friend FloatDP hlf(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&hlf_rnd, rnd, x); } //!< <p/>
     /** @brief Return the sum of the operands. */
-    friend FloatDP add(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_add(rnd, x1, x2) : _apply_rnd(&add_rnd, rnd, x1, x2); }                         //!< <p/>
+    friend FloatDP add(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_add(rnd, x1, x2) : _apply_rnd(&add_rnd, rnd, x1, x2); } //!< <p/>
     /** @brief Return the difference of the operands. */
-    friend FloatDP sub(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_sub(rnd, x1, x2) : _apply_rnd(&sub_rnd, rnd, x1, x2); }                         //!< <p/>
+    friend FloatDP sub(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_sub(rnd, x1, x2) : _apply_rnd(&sub_rnd, rnd, x1, x2); } //!< <p/>
     /** @brief Return the product of the operands. */
-    friend FloatDP mul(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_mul(rnd, x1, x2) : _apply_rnd(&mul_rnd, rnd, x1, x2); }                         //!< <p/>
+    friend FloatDP mul(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_mul(rnd, x1, x2) : _apply_rnd(&mul_rnd, rnd, x1, x2); } //!< <p/>
     /** @brief Return the quotient of the operands. */
-    friend FloatDP div(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_div(rnd, x1, x2) : _apply_rnd(&div_rnd, rnd, x1, x2); }                         //!< <p/>
+    friend FloatDP div(RoundingModeType rnd, FloatDP x1, FloatDP x2) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_div(rnd, x1, x2) : _apply_rnd(&div_rnd, rnd, x1, x2); } //!< <p/>
     /** @brief Compute the product of the first two operands plus the third. */
-    friend FloatDP fma(RoundingModeType rnd, FloatDP x1, FloatDP x2, FloatDP x3) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_fma(rnd, x1, x2, x3) : _apply_rnd(&fma_rnd, rnd, x1, x2, x3); }     //!< <p/>
+    friend FloatDP fma(RoundingModeType rnd, FloatDP x1, FloatDP x2, FloatDP x3) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_fma(rnd, x1, x2, x3) : _apply_rnd(&fma_rnd, rnd, x1, x2, x3); } //!< <p/>
     /** @brief Raise the value to the specified power. */
     friend FloatDP pow(RoundingModeType rnd, FloatDP x, Nat m) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_pow(rnd, x, m) : _apply_rnd((double (*)(double, unsigned int))&pow_rnd, rnd, x, m); } //!< <p/>
     /** @brief Raise the value to the specified power. */
-    friend FloatDP pow(RoundingModeType rnd, FloatDP x, Int n) { return _apply_rnd((double (*)(double, int))&pow_rnd, rnd, x, n); }                                                                                       //!< <p/>
+    friend FloatDP pow(RoundingModeType rnd, FloatDP x, Int n) { return _apply_rnd((double (*)(double, int))&pow_rnd, rnd, x, n); } //!< <p/>
     /** @brief Return the square. */
-    friend FloatDP sqr(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&sqr_rnd, rnd, x); }                                                                                                                          //!< <p/>
+    friend FloatDP sqr(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&sqr_rnd, rnd, x); } //!< <p/>
     /** @brief Return the multiplicative inverse. */
-    friend FloatDP rec(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&rec_rnd, rnd, x); }                                                                                                                          //!< <p/>
+    friend FloatDP rec(RoundingModeType rnd, FloatDP x) { return _apply_rnd(&rec_rnd, rnd, x); } //!< <p/>
     /** @brief Return the square root. */
-    friend FloatDP sqrt(RoundingModeType rnd, FloatDP x) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_sqrt(rnd, x) : _apply_rnd(&sqrt_rnd, rnd, x); }                                             //!< <p/>
+    friend FloatDP sqrt(RoundingModeType rnd, FloatDP x) { return (rnd == ROUND_DOWNWARD || rnd == ROUND_UPWARD) ? _certified_sqrt(rnd, x) : _apply_rnd(&sqrt_rnd, rnd, x); } //!< <p/>
     /** @brief Return the exponential. */
     friend FloatDP exp(RoundingModeType rnd, FloatDP x);
     /** @brief Return the natural logarithm. */

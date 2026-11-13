@@ -149,11 +149,11 @@ class UpperBound
     //!@{
     //! \name Arithmetic operators
     /** @brief Return the sum or unary positive value. */
-    friend UpperBound<F> operator+(const UpperBound<F>& x);                           //!< <p/>
+    friend UpperBound<F> operator+(const UpperBound<F>& x); //!< <p/>
     /** @brief Return the difference or additive inverse. */
-    friend UpperBound<F> operator-(const LowerBound<F>& x);                           //!< <p/>
+    friend UpperBound<F> operator-(const LowerBound<F>& x); //!< <p/>
     /** @brief Return the difference or additive inverse. */
-    friend LowerBound<F> operator-(const UpperBound<F>& x);                           //!< <p/>
+    friend LowerBound<F> operator-(const UpperBound<F>& x); //!< <p/>
     /** @brief Return the sum or unary positive value. */
     friend UpperBound<F> operator+(const UpperBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
     /** @brief Return the difference or additive inverse. */
@@ -161,11 +161,11 @@ class UpperBound
     /** @brief Return the difference or additive inverse. */
     friend LowerBound<F> operator-(const LowerBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
     /** @brief Add the operand in place. */
-    friend UpperBound<F>& operator+=(UpperBound<F>& x1, const UpperBound<F>& x2);     //!< <p/>
+    friend UpperBound<F>& operator+=(UpperBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
     /** @brief Subtract the operand in place. */
-    friend UpperBound<F>& operator-=(UpperBound<F>& x1, const LowerBound<F>& x2);     //!< <p/>
+    friend UpperBound<F>& operator-=(UpperBound<F>& x1, const LowerBound<F>& x2); //!< <p/>
     /** @brief Subtract the operand in place. */
-    friend LowerBound<F>& operator-=(LowerBound<F>& x1, const UpperBound<F>& x2);     //!< <p/>
+    friend LowerBound<F>& operator-=(LowerBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
 
     /** @brief Return the product. */
     friend Positive<UpperBound<F>> operator*(const Positive<UpperBound<F>>& x1, const Positive<UpperBound<F>>& x2); //!< <p/>
@@ -174,13 +174,13 @@ class UpperBound
     /** @brief Return the quotient. */
     friend Positive<LowerBound<F>> operator/(const Positive<LowerBound<F>>& x1, const Positive<UpperBound<F>>& x2); //!< <p/>
     /** @brief Add the operand in place. */
-    friend Positive<UpperBound<F>>& operator+=(Positive<UpperBound<F>>& x1, const Positive<UpperBound<F>>& x2);     //!< <p/>
+    friend Positive<UpperBound<F>>& operator+=(Positive<UpperBound<F>>& x1, const Positive<UpperBound<F>>& x2); //!< <p/>
     /** @brief Multiply by the operand in place. */
-    friend Positive<UpperBound<F>>& operator*=(Positive<UpperBound<F>>& x1, const Positive<UpperBound<F>>& x2);     //!< <p/>
+    friend Positive<UpperBound<F>>& operator*=(Positive<UpperBound<F>>& x1, const Positive<UpperBound<F>>& x2); //!< <p/>
     /** @brief Divide by the operand in place. */
-    friend Positive<UpperBound<F>>& operator/=(Positive<UpperBound<F>>& x1, const Positive<LowerBound<F>>& x2);     //!< <p/>
+    friend Positive<UpperBound<F>>& operator/=(Positive<UpperBound<F>>& x1, const Positive<LowerBound<F>>& x2); //!< <p/>
     /** @brief Divide by the operand in place. */
-    friend Positive<LowerBound<F>>& operator/=(Positive<LowerBound<F>>& x1, const Positive<UpperBound<F>>& x2);     //!< <p/>
+    friend Positive<LowerBound<F>>& operator/=(Positive<LowerBound<F>>& x1, const Positive<UpperBound<F>>& x2); //!< <p/>
     //!@}
 
     //!@{
@@ -190,17 +190,17 @@ class UpperBound
     /** @brief Test whether the first operand is greater than or equal to the second. */
     friend ValidatedUpperKleenean operator>=(const UpperBound<F>& x1, const LowerBound<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is less than the second. */
-    friend ValidatedLowerKleenean operator<(const UpperBound<F>& x1, const LowerBound<F>& x2);  //!< <p/>
+    friend ValidatedLowerKleenean operator<(const UpperBound<F>& x1, const LowerBound<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is greater than the second. */
-    friend ValidatedUpperKleenean operator>(const UpperBound<F>& x1, const LowerBound<F>& x2);  //!< <p/>
+    friend ValidatedUpperKleenean operator>(const UpperBound<F>& x1, const LowerBound<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is less than or equal to the second. */
     friend ValidatedUpperKleenean operator<=(const LowerBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is greater than or equal to the second. */
     friend ValidatedLowerKleenean operator>=(const LowerBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is less than the second. */
-    friend ValidatedUpperKleenean operator<(const LowerBound<F>& x1, const UpperBound<F>& x2);  //!< <p/>
+    friend ValidatedUpperKleenean operator<(const LowerBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is greater than the second. */
-    friend ValidatedLowerKleenean operator>(const LowerBound<F>& x1, const UpperBound<F>& x2);  //!< <p/>
+    friend ValidatedLowerKleenean operator>(const LowerBound<F>& x1, const UpperBound<F>& x2); //!< <p/>
     //!@}
 #endif // DOXYGEN
 
@@ -238,11 +238,11 @@ class UpperBound
     /** @brief Return the square root. */
     friend Positive<UpperBound<F>> sqrt(const Positive<UpperBound<F>>& x); //!< <p/>
     /** @brief Return the exponential. */
-    friend Positive<UpperBound<F>> exp(const UpperBound<F>& x);            //!< <p/>
+    friend Positive<UpperBound<F>> exp(const UpperBound<F>& x); //!< <p/>
     /** @brief Return the natural logarithm. */
-    friend UpperBound<F> log(const Positive<UpperBound<F>>& x);            //!< <p/>
+    friend UpperBound<F> log(const Positive<UpperBound<F>>& x); //!< <p/>
     /** @brief Return the inverse tangent. */
-    friend UpperBound<F> atan(const UpperBound<F>& x);                     //!< <p/>
+    friend UpperBound<F> atan(const UpperBound<F>& x); //!< <p/>
     /** @brief Return the hyperbolic tangent. */
     friend UpperBound<F> tanh(const UpperBound<F>& x) {
         return UpperBound<F>(tanh(Bounds<F>(x.raw())).upper_raw());

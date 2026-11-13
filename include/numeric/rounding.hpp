@@ -271,17 +271,17 @@ class Rounding {
     /** @brief Construct a \c Rounding from rbp. */
     explicit Rounding(BuiltinRoundingModeType rbp) : _rbp(rbp) {} //!< <p/>
     /** @brief Construct a \c Rounding with the specified characteristics. */
-    Rounding(RoundDownward) : _rbp(ROUND_DOWNWARD) {}             //!< <p/>
+    Rounding(RoundDownward) : _rbp(ROUND_DOWNWARD) {} //!< <p/>
     /** @brief Construct a \c Rounding with the specified characteristics. */
-    Rounding(RoundToNearest) : _rbp(ROUND_TO_NEAREST) {}          //!< <p/>
+    Rounding(RoundToNearest) : _rbp(ROUND_TO_NEAREST) {} //!< <p/>
     /** @brief Construct a \c Rounding with the specified characteristics. */
-    Rounding(RoundUpward) : _rbp(ROUND_UPWARD) {}                 //!< <p/>
+    Rounding(RoundUpward) : _rbp(ROUND_UPWARD) {} //!< <p/>
     /** @brief Construct a \c Rounding with the specified characteristics. */
-    Rounding(RoundTowardZero) : _rbp(ROUND_TOWARD_ZERO) {}        //!< <p/>
+    Rounding(RoundTowardZero) : _rbp(ROUND_TOWARD_ZERO) {} //!< <p/>
     /** @brief Construct a \c Rounding with the specified characteristics. */
-    Rounding(RoundApproximately) : _rbp(ROUND_TO_NEAREST) {}      //!< <p/>
+    Rounding(RoundApproximately) : _rbp(ROUND_TO_NEAREST) {} //!< <p/>
     /** @brief Convert to builtin rounding mode type. */
-    operator BuiltinRoundingModeType() const { return _rbp; }     //!< <p/>
+    operator BuiltinRoundingModeType() const { return _rbp; } //!< <p/>
     /** @brief Write the value to the output stream. */
     friend OutputStream& operator<<(OutputStream& os, const Rounding& rnd) {
         return os << (rnd._rbp == ROUND_TO_NEAREST ? "near"

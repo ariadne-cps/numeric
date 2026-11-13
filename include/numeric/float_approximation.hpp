@@ -184,9 +184,9 @@ class Approximation
     //!@{
     //! \name Arithmetic operators
     /** @brief Return the sum or unary positive value. */
-    friend Approximation<F> operator+(const Approximation<F>& x);                              //!< <p/>
+    friend Approximation<F> operator+(const Approximation<F>& x); //!< <p/>
     /** @brief Return the difference or additive inverse. */
-    friend Approximation<F> operator-(const Approximation<F>& x);                              //!< <p/>
+    friend Approximation<F> operator-(const Approximation<F>& x); //!< <p/>
     /** @brief Return the sum or unary positive value. */
     friend Approximation<F> operator+(const Approximation<F>& x1, const Approximation<F>& x2); //!< <p/>
     /** @brief Return the difference or additive inverse. */
@@ -196,13 +196,13 @@ class Approximation
     /** @brief Return the quotient. */
     friend Approximation<F> operator/(const Approximation<F>& x1, const Approximation<F>& x2); //!< <p/>
     /** @brief Add the operand in place. */
-    friend Approximation<F>& operator+=(Approximation<F>& x1, const Approximation<F>& x2);     //!< <p/>
+    friend Approximation<F>& operator+=(Approximation<F>& x1, const Approximation<F>& x2); //!< <p/>
     /** @brief Subtract the operand in place. */
-    friend Approximation<F>& operator-=(Approximation<F>& x1, const Approximation<F>& x2);     //!< <p/>
+    friend Approximation<F>& operator-=(Approximation<F>& x1, const Approximation<F>& x2); //!< <p/>
     /** @brief Multiply by the operand in place. */
-    friend Approximation<F>& operator*=(Approximation<F>& x1, const Approximation<F>& x2);     //!< <p/>
+    friend Approximation<F>& operator*=(Approximation<F>& x1, const Approximation<F>& x2); //!< <p/>
     /** @brief Divide by the operand in place. */
-    friend Approximation<F>& operator/=(Approximation<F>& x1, const Approximation<F>& x2);     //!< <p/>
+    friend Approximation<F>& operator/=(Approximation<F>& x1, const Approximation<F>& x2); //!< <p/>
     //!@}
 
     //!@{
@@ -216,9 +216,9 @@ class Approximation
     /** @brief Test whether the first operand is greater than or equal to the second. */
     friend ApproximateKleenean operator>=(const Approximation<F>& x1, const Approximation<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is less than the second. */
-    friend ApproximateKleenean operator<(const Approximation<F>& x1, const Approximation<F>& x2);  //!< <p/>
+    friend ApproximateKleenean operator<(const Approximation<F>& x1, const Approximation<F>& x2); //!< <p/>
     /** @brief Test whether the first operand is greater than the second. */
-    friend ApproximateKleenean operator>(const Approximation<F>& x1, const Approximation<F>& x2);  //!< <p/>
+    friend ApproximateKleenean operator>(const Approximation<F>& x1, const Approximation<F>& x2); //!< <p/>
     //!@}
 #endif // DOXYGEN
 

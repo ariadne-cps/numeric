@@ -102,7 +102,7 @@ class Integer {
     }
     Integer& operator=(const Integer&) = default; //!< %Assignment
     /** @brief Assign the supplied value and return this object. */
-    Integer& operator=(Integer&& z) noexcept {    //!< Move assignment
+    Integer& operator=(Integer&& z) noexcept { //!< Move assignment
         if (this != &z) {
             _magnitude = std::move(z._magnitude);
             _negative = z._negative;
@@ -118,13 +118,13 @@ class Integer {
     //!@{
     //! \name Arithmetic operators
     /** @brief Increment the value or iterator. */
-    friend Integer& operator++(Integer& z);                                                //!< <p/>
+    friend Integer& operator++(Integer& z); //!< <p/>
     /** @brief Decrement the value or iterator. */
-    friend Integer& operator--(Integer& z);                                                //!< <p/>
+    friend Integer& operator--(Integer& z); //!< <p/>
     /** @brief Return the sum or unary positive value. */
-    friend Integer operator+(const Integer& z) { return pos(z); }                          //!< <p/>
+    friend Integer operator+(const Integer& z) { return pos(z); } //!< <p/>
     /** @brief Return the difference or additive inverse. */
-    friend Integer operator-(const Integer& z) { return neg(z); }                          //!< <p/>
+    friend Integer operator-(const Integer& z) { return neg(z); } //!< <p/>
     /** @brief Return the sum or unary positive value. */
     friend Integer operator+(const Integer& z1, const Integer& z2) { return add(z1, z2); } //!< <p/>
     /** @brief Return the difference or additive inverse. */
@@ -132,21 +132,21 @@ class Integer {
     /** @brief Return the product. */
     friend Integer operator*(const Integer& z1, const Integer& z2) { return mul(z1, z2); } //!< <p/>
     /** @brief Return the quotient. */
-    friend Rational operator/(const Integer& z1, const Integer& z2);                       //!< <p/>
+    friend Rational operator/(const Integer& z1, const Integer& z2); //!< <p/>
     /** @brief Return the remainder. */
-    friend Integer operator%(const Integer& z1, const Integer& z2);                        //!< <p/>
+    friend Integer operator%(const Integer& z1, const Integer& z2); //!< <p/>
     /** @brief Add the operand in place. */
-    friend Integer& operator+=(Integer& z1, const Integer& z2);                            //!< <p/>
+    friend Integer& operator+=(Integer& z1, const Integer& z2); //!< <p/>
     /** @brief Subtract the operand in place. */
-    friend Integer& operator-=(Integer& z1, const Integer& z2);                            //!< <p/>
+    friend Integer& operator-=(Integer& z1, const Integer& z2); //!< <p/>
     /** @brief Multiply by the operand in place. */
-    friend Integer& operator*=(Integer& z1, const Integer& z2);                            //!< <p/>
+    friend Integer& operator*=(Integer& z1, const Integer& z2); //!< <p/>
     //!@}
 
     //!@{
     //! \name Comparison operators
     /** @brief Test equality of the operands. */
-    friend Boolean operator==(const Integer& z1, const Integer& z2) { return eq(z1, z2); }  //!< <p/>
+    friend Boolean operator==(const Integer& z1, const Integer& z2) { return eq(z1, z2); } //!< <p/>
     /** @brief Test inequality of the operands. */
     friend Boolean operator!=(const Integer& z1, const Integer& z2) { return !eq(z1, z2); } //!< <p/>
     /** @brief Test whether the first operand is less than or equal to the second. */
@@ -154,9 +154,9 @@ class Integer {
     /** @brief Test whether the first operand is greater than or equal to the second. */
     friend Boolean operator>=(const Integer& z1, const Integer& z2) { return !lt(z1, z2); } //!< <p/>
     /** @brief Test whether the first operand is less than the second. */
-    friend Boolean operator<(const Integer& z1, const Integer& z2) { return lt(z1, z2); }   //!< <p/>
+    friend Boolean operator<(const Integer& z1, const Integer& z2) { return lt(z1, z2); } //!< <p/>
     /** @brief Test whether the first operand is greater than the second. */
-    friend Boolean operator>(const Integer& z1, const Integer& z2) { return lt(z2, z1); }   //!< <p/>
+    friend Boolean operator>(const Integer& z1, const Integer& z2) { return lt(z2, z1); } //!< <p/>
     //!@}
 
     //!@{
@@ -188,7 +188,7 @@ class Integer {
     /** @brief Return the integer quotient. */
     friend Integer quot(const Integer& z1, const Integer& z2); //!< <p/>
     /** @brief Return the integer remainder. */
-    friend Integer rem(const Integer& z1, const Integer& z2);  //!< <p/>
+    friend Integer rem(const Integer& z1, const Integer& z2); //!< <p/>
     //!@}
 
     //!@{

@@ -195,9 +195,9 @@ class Ball
     //!@{
     //! \name Arithmetic operators
     /** @brief Return the sum or unary positive value. */
-    friend Ball<F, FE> operator+(const Ball<F, FE>& x);                         //!< <p/>
+    friend Ball<F, FE> operator+(const Ball<F, FE>& x); //!< <p/>
     /** @brief Return the difference or additive inverse. */
-    friend Ball<F, FE> operator-(const Ball<F, FE>& x);                         //!< <p/>
+    friend Ball<F, FE> operator-(const Ball<F, FE>& x); //!< <p/>
     /** @brief Return the sum or unary positive value. */
     friend Ball<F, FE> operator+(const Ball<F, FE>& x1, const Ball<F, FE>& x2); //!< <p/>
     /** @brief Return the difference or additive inverse. */
@@ -207,13 +207,13 @@ class Ball
     /** @brief Return the quotient. */
     friend Ball<F, FE> operator/(const Ball<F, FE>& x1, const Ball<F, FE>& x2); //!< <p/>
     /** @brief Add the operand in place. */
-    friend Ball<F, FE>& operator+=(Ball<F, FE>& x1, const Ball<F, FE>& x2);     //!< <p/>
+    friend Ball<F, FE>& operator+=(Ball<F, FE>& x1, const Ball<F, FE>& x2); //!< <p/>
     /** @brief Subtract the operand in place. */
-    friend Ball<F, FE>& operator-=(Ball<F, FE>& x1, const Ball<F, FE>& x2);     //!< <p/>
+    friend Ball<F, FE>& operator-=(Ball<F, FE>& x1, const Ball<F, FE>& x2); //!< <p/>
     /** @brief Multiply by the operand in place. */
-    friend Ball<F, FE>& operator*=(Ball<F, FE>& x1, const Ball<F, FE>& x2);     //!< <p/>
+    friend Ball<F, FE>& operator*=(Ball<F, FE>& x1, const Ball<F, FE>& x2); //!< <p/>
     /** @brief Divide by the operand in place. */
-    friend Ball<F, FE>& operator/=(Ball<F, FE>& x1, const Ball<F, FE>& x2);     //!< <p/>
+    friend Ball<F, FE>& operator/=(Ball<F, FE>& x1, const Ball<F, FE>& x2); //!< <p/>
     //!@}
 
     //!@{
@@ -227,9 +227,9 @@ class Ball
     /** @brief Test whether the first operand is greater than or equal to the second. */
     friend ValidatedKleenean operator>=(const Ball<F, FE>& x1, const Ball<F, FE>& x2); //!< <p/>
     /** @brief Test whether the first operand is less than the second. */
-    friend ValidatedKleenean operator<(const Ball<F, FE>& x1, const Ball<F, FE>& x2);  //!< <p/>
+    friend ValidatedKleenean operator<(const Ball<F, FE>& x1, const Ball<F, FE>& x2); //!< <p/>
     /** @brief Test whether the first operand is greater than the second. */
-    friend ValidatedKleenean operator>(const Ball<F, FE>& x1, const Ball<F, FE>& x2);  //!< <p/>
+    friend ValidatedKleenean operator>(const Ball<F, FE>& x1, const Ball<F, FE>& x2); //!< <p/>
     //!@}
 #endif // DOXYGEN
 

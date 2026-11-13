@@ -239,9 +239,9 @@ class Number
     X extract() const;
 
     /** @brief Return the sum or unary positive value. */
-    friend Number<P> operator+(const Number<P>& y) { return pos(y); }                            //!< <p/>
+    friend Number<P> operator+(const Number<P>& y) { return pos(y); } //!< <p/>
     /** @brief Return the difference or additive inverse. */
-    friend Number<P> operator-(const Number<P>& y) { return neg(y); }                            //!< <p/>
+    friend Number<P> operator-(const Number<P>& y) { return neg(y); } //!< <p/>
     /** @brief Return the sum or unary positive value. */
     friend Number<P> operator+(const Number<P>& y1, const Number<P>& y2) { return add(y1, y2); } //!< <p/>
     /** @brief Return the difference or additive inverse. */
@@ -251,26 +251,26 @@ class Number
     /** @brief Return the quotient. */
     friend Number<P> operator/(const Number<P>& y1, const Number<P>& y2) { return div(y1, y2); } //!< <p/>
     /** @brief Add the operand in place. */
-    friend Number<P>& operator+=(Number<P>& y1, const Number<P>& y2) { return y1 = y1 + y2; }    //!< <p/>
+    friend Number<P>& operator+=(Number<P>& y1, const Number<P>& y2) { return y1 = y1 + y2; } //!< <p/>
     /** @brief Subtract the operand in place. */
-    friend Number<P>& operator-=(Number<P>& y1, const Number<P>& y2) { return y1 = y1 - y2; }    //!< <p/>
+    friend Number<P>& operator-=(Number<P>& y1, const Number<P>& y2) { return y1 = y1 - y2; } //!< <p/>
     /** @brief Multiply by the operand in place. */
-    friend Number<P>& operator*=(Number<P>& y1, const Number<P>& y2) { return y1 = y1 * y2; }    //!< <p/>
+    friend Number<P>& operator*=(Number<P>& y1, const Number<P>& y2) { return y1 = y1 * y2; } //!< <p/>
     /** @brief Divide by the operand in place. */
-    friend Number<P>& operator/=(Number<P>& y1, const Number<P>& y2) { return y1 = y1 / y2; }    //!< <p/>
+    friend Number<P>& operator/=(Number<P>& y1, const Number<P>& y2) { return y1 = y1 / y2; } //!< <p/>
 
     /** @brief Return the additive zero with the operand characteristics. */
-    friend Number<P> nul(const Number<P>& y) { return _apply<P>(Nul(), y); }                            //!< <p/>
+    friend Number<P> nul(const Number<P>& y) { return _apply<P>(Nul(), y); } //!< <p/>
     /** @brief Return the unary positive value. */
-    friend Number<P> pos(const Number<P>& y) { return _apply<P>(Pos(), y); }                            //!< <p/>
+    friend Number<P> pos(const Number<P>& y) { return _apply<P>(Pos(), y); } //!< <p/>
     /** @brief Return the additive inverse. */
-    friend Number<P> neg(const Number<P>& y) { return _apply<P>(Neg(), y); }                            //!< <p/>
+    friend Number<P> neg(const Number<P>& y) { return _apply<P>(Neg(), y); } //!< <p/>
     /** @brief Return the square. */
-    friend Number<P> sqr(const Number<P>& y) { return _apply<P>(Sqr(), y); }                            //!< <p/>
+    friend Number<P> sqr(const Number<P>& y) { return _apply<P>(Sqr(), y); } //!< <p/>
     /** @brief Divide the value by two. */
-    friend Number<P> hlf(const Number<P>& y) { return _apply<P>(Hlf(), y); }                            //!< <p/>
+    friend Number<P> hlf(const Number<P>& y) { return _apply<P>(Hlf(), y); } //!< <p/>
     /** @brief Return the multiplicative inverse. */
-    friend Number<P> rec(const Number<P>& y) { return _apply<P>(Rec(), y); }                            //!< <p/>
+    friend Number<P> rec(const Number<P>& y) { return _apply<P>(Rec(), y); } //!< <p/>
     /** @brief Return the sum of the operands. */
     friend Number<P> add(const Number<P>& y1, const Number<P>& y2) { return _apply<P>(Add(), y1, y2); } //!< <p/>
     /** @brief Return the difference of the operands. */
@@ -280,25 +280,25 @@ class Number
     /** @brief Return the quotient of the operands. */
     friend Number<P> div(const Number<P>& y1, const Number<P>& y2) { return _apply<P>(Div(), y1, y2); } //!< <p/>
     /** @brief Return the square root. */
-    friend Number<P> sqrt(const Number<P>& y) { return _apply<P>(Sqrt(), y); }                          //!< <p/>
+    friend Number<P> sqrt(const Number<P>& y) { return _apply<P>(Sqrt(), y); } //!< <p/>
     /** @brief Return the exponential. */
-    friend Number<P> exp(const Number<P>& y) { return _apply<P>(Exp(), y); }                            //!< <p/>
+    friend Number<P> exp(const Number<P>& y) { return _apply<P>(Exp(), y); } //!< <p/>
     /** @brief Return the natural logarithm. */
-    friend Number<P> log(const Number<P>& y) { return _apply<P>(Log(), y); }                            //!< <p/>
+    friend Number<P> log(const Number<P>& y) { return _apply<P>(Log(), y); } //!< <p/>
     /** @brief Return the sine. */
-    friend Number<P> sin(const Number<P>& y) { return _apply<P>(Sin(), y); }                            //!< <p/>
+    friend Number<P> sin(const Number<P>& y) { return _apply<P>(Sin(), y); } //!< <p/>
     /** @brief Return the cosine. */
-    friend Number<P> cos(const Number<P>& y) { return _apply<P>(Cos(), y); }                            //!< <p/>
+    friend Number<P> cos(const Number<P>& y) { return _apply<P>(Cos(), y); } //!< <p/>
     /** @brief Return the tangent. */
-    friend Number<P> tan(const Number<P>& y) { return _apply<P>(Tan(), y); }                            //!< <p/>
+    friend Number<P> tan(const Number<P>& y) { return _apply<P>(Tan(), y); } //!< <p/>
     /** @brief Return the hyperbolic tangent. */
-    friend Number<P> tanh(const Number<P>& y) { return _apply<P>(Tanh(), y); }                          //!< <p/>
+    friend Number<P> tanh(const Number<P>& y) { return _apply<P>(Tanh(), y); } //!< <p/>
     /** @brief Return the inverse sine. */
-    friend Number<P> asin(const Number<P>& y) { return _apply<P>(Asin(), y); }                          //!< <p/>
+    friend Number<P> asin(const Number<P>& y) { return _apply<P>(Asin(), y); } //!< <p/>
     /** @brief Return the inverse cosine. */
-    friend Number<P> acos(const Number<P>& y) { return _apply<P>(Acos(), y); }                          //!< <p/>
+    friend Number<P> acos(const Number<P>& y) { return _apply<P>(Acos(), y); } //!< <p/>
     /** @brief Return the inverse tangent. */
-    friend Number<P> atan(const Number<P>& y) { return _apply<P>(Atan(), y); }                          //!< <p/>
+    friend Number<P> atan(const Number<P>& y) { return _apply<P>(Atan(), y); } //!< <p/>
 
     /** @brief Raise the value to the specified power. */
     friend Number<P> pow(const Number<P>& y, Nat m) { return _apply<P>(Pow(), y, m); } //!< <p/>
@@ -308,9 +308,9 @@ class Number
     /** @brief Return the absolute value. */
     friend Positive<Number<P>> abs(const Number<P>& y) { return Positive<Number<P>>(_apply<P>(Abs(), y)); } //!< <p/>
     /** @brief Return the maximum of the operands. */
-    friend Number<P> max(const Number<P>& y1, const Number<P>& y2) { return _apply<P>(Max(), y1, y2); }     //!< <p/>
+    friend Number<P> max(const Number<P>& y1, const Number<P>& y2) { return _apply<P>(Max(), y1, y2); } //!< <p/>
     /** @brief Return the minimum of the operands. */
-    friend Number<P> min(const Number<P>& y1, const Number<P>& y2) { return _apply<P>(Min(), y1, y2); }     //!< <p/>
+    friend Number<P> min(const Number<P>& y1, const Number<P>& y2) { return _apply<P>(Min(), y1, y2); } //!< <p/>
 
     /** @brief Test equality of the operands. */
     friend LogicalType<EqualityInformation<P>> operator==(const Number<P>& y1, const Number<P>& y2) {
@@ -321,13 +321,13 @@ class Number
         return Detail::logical_type_from_owned_pointer<LessThanInformation<P>>(y1.ref()._apply(BinaryComparisonOperator(Less()), y2.ptr()));
     }
     /** @brief Test whether the first operand is greater than the second. */
-    friend LogicalType<LessThanInformation<P>> operator>(const Number<P>& y1, const Number<P>& y2) { return (y2 < y1); }                         //!< <p/>
+    friend LogicalType<LessThanInformation<P>> operator>(const Number<P>& y1, const Number<P>& y2) { return (y2 < y1); } //!< <p/>
     /** @brief Test inequality of the operands. */
     friend LogicalNegationType<LogicalType<EqualityInformation<P>>> operator!=(const Number<P>& y1, const Number<P>& y2) { return !(y1 == y2); } //!< <p/>
     /** @brief Test whether the first operand is less than or equal to the second. */
-    friend LogicalType<LessThanInformation<P>> operator<=(const Number<P>& y1, const Number<P>& y2) { return !(y1 > y2); }                       //!< <p/>
+    friend LogicalType<LessThanInformation<P>> operator<=(const Number<P>& y1, const Number<P>& y2) { return !(y1 > y2); } //!< <p/>
     /** @brief Test whether the first operand is greater than or equal to the second. */
-    friend LogicalType<LessThanInformation<P>> operator>=(const Number<P>& y1, const Number<P>& y2) { return !(y1 < y2); }                       //!< <p/>
+    friend LogicalType<LessThanInformation<P>> operator>=(const Number<P>& y1, const Number<P>& y2) { return !(y1 < y2); } //!< <p/>
 
     //! \brief The name of the dynamic type held by the %Number object.
     String class_name() const { return this->ref()._class_name(); }
